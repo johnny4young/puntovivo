@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.5](https://github.com/johnny4young/puntovivo/compare/v1.1.4...v1.1.5) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** force exit after make and cap the job runtime ([be93eeb](https://github.com/johnny4young/puntovivo/commit/be93eebb414330efd1377f2bfcf3406b06b90ebd))
+
 ## [1.1.4](https://github.com/johnny4young/puntovivo/compare/v1.1.3...v1.1.4) (2026-06-28)
 
 
