@@ -14,6 +14,11 @@ directories:
 files:
   - .vite/build/**
   - package.json
+# Pin a flat, predictable artifact name on every platform. Without it the linux
+# zip target falls back to the scoped package name (@puntovivo/desktop-x.y.z.zip),
+# which nests the file under out-builder/@puntovivo/ and slips past the
+# non-recursive out-builder/*.zip upload glob.
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 asar: true
 # .node addons cannot be dlopen'd from inside app.asar.
 asarUnpack:
