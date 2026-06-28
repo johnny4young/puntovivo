@@ -22,6 +22,6 @@
     },
     "types": ["node"]
   },
-  "include": ["src/**/*", "forge.config.ts", "vite.*.config.ts"],
+  "include": ["src/**/*", "vite.*.config.ts"],
   "exclude": ["node_modules", ".vite", "out"]
 }

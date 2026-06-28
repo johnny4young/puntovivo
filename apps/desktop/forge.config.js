@@ -1,4 +1,9 @@
-import type { ForgeConfig } from '@electron-forge/shared-types';
+// Plain JS (ESM) Forge config. electron-forge resolves forge.config.js BEFORE
+// forge.config.ts and loads it with a native dynamic import, whereas it loads a
+// .ts config through jiti — which yields an empty config (zero makers, no
+// installers) on the CI runners while working locally. Keeping this as .js makes
+// `electron-forge make` resolve the makers identically everywhere. Edit this
+// file (not a .ts) for desktop packaging changes.
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -7,7 +12,7 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
-const config: ForgeConfig = {
+const config = {
   packagerConfig: {
     asar: true,
     appBundleId: 'com.puntovivo.pos',
