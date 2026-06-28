@@ -158,12 +158,31 @@ jobs:
       - name: Rebuild native modules
         run: pnpm --filter @puntovivo/desktop run rebuild
 
-      - name: Build and package desktop app
-        run: pnpm --filter @puntovivo/desktop run make:desktop
+      # electron-forge's makers load empty on some CI runners (an undeclared maker
+      # dep pnpm doesn't hoist), so `make` emits nothing there. The `package` step
+      # is reliable, so package the app and zip the output ourselves — a portable
+      # build per OS that sidesteps the makers entirely.
+      - name: Package desktop app
+        run: pnpm --filter @puntovivo/desktop run package:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Zip the packaged app
+        shell: bash
+        run: |
+          set -e
+          cd apps/desktop/out
+          for d in Puntovivo-*/; do PKG="${d%/}"; break; done
+          mkdir -p dist
+          ZIP="dist/puntovivo-desktop-${PKG#Puntovivo-}-${{ inputs.tag }}.zip"
+          case "$(node -p process.platform)" in
+            win32)  powershell -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$PWD/$PKG")\\*' -DestinationPath '$(cygpath -w "$PWD/$ZIP")' -Force" ;;
+            darwin) ditto -c -k --sequesterRsrc --keepParent "$PKG" "$ZIP" ;;
+            *)      zip -r -q "$ZIP" "$PKG" ;;
+          esac
+          ls -la "$ZIP"
+
       - name: Upload desktop release assets
-        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" apps/desktop/out/make
+        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" apps/desktop/out/dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
