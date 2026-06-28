@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.13](https://github.com/johnny4young/puntovivo/compare/v1.1.12...v1.1.13) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** upload the desktop zip via gh from bash on every runner ([fe1c5f3](https://github.com/johnny4young/puntovivo/commit/fe1c5f3d7076fc10be36a5f641be9e39b8643f7c))
+
 ## [1.1.12](https://github.com/johnny4young/puntovivo/compare/v1.1.11...v1.1.12) (2026-06-28)
 
 
