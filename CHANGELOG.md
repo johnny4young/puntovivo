@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.2.1](https://github.com/johnny4young/puntovivo/compare/v1.2.0...v1.2.1) (2026-06-29)
+
+
+### Bug Fixes
+
+* **desktop:** forge cleanup, differential updates, smaller asar, website tests ([#123](https://github.com/johnny4young/puntovivo/issues/123)) ([31292e7](https://github.com/johnny4young/puntovivo/commit/31292e73fba045165b9852e74a90794b4f704197))
+
 ## [1.2.0](https://github.com/johnny4young/puntovivo/compare/v1.1.13...v1.2.0) (2026-06-28)
 
 
