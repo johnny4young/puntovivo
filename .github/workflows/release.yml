@@ -56,9 +56,10 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          # No pnpm store cache: release packaging is sensitive to native/runtime
-          # artifacts left by previous installs. A clean install mirrors
-          # build-desktop.yml and avoids stale packaged output.
+          # No pnpm store cache: the web release runs once per tag, so a clean
+          # install straight from the lockfile is preferred over cache-warm
+          # speed. (The native/packaging cache concerns live in release-desktop,
+          # not here — this job only builds the web bundle.)
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -188,12 +189,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ASSETS=$(node -e "const fs=require('node:fs');const d='apps/desktop/out-builder';const ext=['.zip','.exe','.AppImage'];const files=fs.readdirSync(d);const inst=files.filter(f=>ext.some(e=>f.endsWith(e)));if(inst.length!==1){console.error('expected exactly 1 installer in '+d+', got '+inst.length+': '+inst.join(', '));process.exit(1)}const out=[d+'/'+inst[0]];const bm=inst[0]+'.blockmap';if(files.includes(bm))out.push(d+'/'+bm);process.stdout.write(out.join('\n'))")
-          while IFS= read -r f; do
+          # Pipe the resolver straight into the loop (not a here-string): with
+          # pipefail a resolver failure fails the whole step, instead of the loop
+          # exiting 0 with nothing uploaded. The node script prints the installer
+          # plus its .blockmap, newline-terminated (one installer per platform).
+          node -e "const fs=require('node:fs');const d='apps/desktop/out-builder';const ext=['.zip','.exe','.AppImage'];const files=fs.readdirSync(d);const inst=files.filter(f=>ext.some(e=>f.endsWith(e)));if(inst.length!==1){console.error('expected exactly 1 installer in '+d+', got '+inst.length+': '+inst.join(', '));process.exit(1)}const out=[d+'/'+inst[0]];const bm=inst[0]+'.blockmap';if(files.includes(bm))out.push(d+'/'+bm);process.stdout.write(out.join('\n')+'\n')" | while IFS= read -r f; do
             [ -n "$f" ] || continue
             echo "uploading: $f"
             gh release upload "${{ inputs.tag }}" "$f" --clobber
-          done <<< "$ASSETS"
+          done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
