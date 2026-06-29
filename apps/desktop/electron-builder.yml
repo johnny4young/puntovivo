@@ -24,6 +24,26 @@ directories:
 files:
   - .vite/build/**
   - package.json
+  # Asar dedup: scripts/build-electron-main.mjs inlines the entire server graph
+  # (@puntovivo/server + its pure-JS deps) into .vite/build, so the prod
+  # node_modules copies electron-builder would otherwise bundle are dead weight.
+  # The packages below are statically inlined (verified: zero runtime require()
+  # of them across .vite/build/*.cjs) and have no dynamic-require consumer, so
+  # excluding their node_modules trees is safe. @puntovivo/server also ships its
+  # migrations via extraResources (Resources/migrations), the only path the
+  # packaged runtime reads (MIGRATIONS_PATH in main/index.ts) — the asar copy is
+  # never loaded. KEPT on purpose: better-sqlite3 / argon2 (vite externals,
+  # native), fastify / ajv / fast-json-stringify / fast-querystring / sonic-boom /
+  # pako / @aws-sdk / @smithy (runtime require()d by the bundle), and @sentry +
+  # @opentelemetry (Sentry's DSN-gated init dynamically require()s the OTel
+  # instrumentation, which the boot smoke cannot exercise — keep both).
+  - '!node_modules/@puntovivo/server/**'
+  - '!node_modules/drizzle-orm/**'
+  - '!node_modules/@ai-sdk/**'
+  - '!node_modules/ai/**'
+  - '!node_modules/zod/**'
+  - '!node_modules/@trpc/**'
+  - '!node_modules/dayjs/**'
 # Pin a flat, predictable artifact name on every platform. Without it the linux
 # zip target falls back to the scoped package name (@puntovivo/desktop-x.y.z.zip),
 # which nests the file under out-builder/@puntovivo/ and slips past the
