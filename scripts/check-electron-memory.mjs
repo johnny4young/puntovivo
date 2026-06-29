@@ -242,7 +242,17 @@ export function launchAndMeasure() {
     console.warn(`check-electron-memory: WARN skipped — launch failed: ${run.error.message}`);
     return null;
   }
-  console.warn('check-electron-memory: WARN skipped — no PUNTOVIVO_MEMORY_METRICS line captured (the app did not reach a measurable state).');
+  // The launch did not error, did not print SKIP, and did not print METRICS —
+  // the app exited before measuring. Surface its exit + output tails: spawnSync
+  // captures the child's streams, so without this they never reach the CI log
+  // and the failure is undiagnosable.
+  console.warn(
+    `check-electron-memory: WARN skipped — no PUNTOVIVO_MEMORY_METRICS line captured (the app did not reach a measurable state). status=${run.status ?? 'null'} signal=${run.signal ?? 'null'}`
+  );
+  const stderrTail = (run.stderr ?? '').trim().split('\n').slice(-20).join('\n');
+  const stdoutTail = (run.stdout ?? '').trim().split('\n').slice(-20).join('\n');
+  if (stderrTail) console.warn(`--- electron stderr (tail) ---\n${stderrTail}`);
+  if (stdoutTail) console.warn(`--- electron stdout (tail) ---\n${stdoutTail}`);
   return null;
 }
 
