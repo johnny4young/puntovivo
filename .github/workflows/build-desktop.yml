@@ -64,10 +64,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -128,7 +128,7 @@ jobs:
 
       - name: Upload Linux artifacts
         if: ${{ !inputs.validate_only }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-linux-${{ github.run_id }}
           path: apps/desktop/out-builder/Puntovivo-*
@@ -143,10 +143,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -201,7 +201,7 @@ jobs:
 
       - name: Upload macOS artifacts
         if: ${{ !inputs.validate_only }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-mac-${{ github.run_id }}
           path: apps/desktop/out-builder/Puntovivo-*
@@ -216,10 +216,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -274,7 +274,7 @@ jobs:
 
       - name: Upload Windows artifacts
         if: ${{ !inputs.validate_only }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-win-${{ github.run_id }}
           path: apps/desktop/out-builder/Puntovivo-*
