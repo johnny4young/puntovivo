@@ -9,7 +9,8 @@
     "build:client": "vite build",
     "build:ssr": "vite build --ssr src/entry-server.jsx --outDir dist/server",
     "prerender": "node scripts/prerender.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test \"src/**/*.test.mjs\""
   },
   "dependencies": {
     "i18next": "^23.16.8",
