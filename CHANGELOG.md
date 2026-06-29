@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.2.2](https://github.com/johnny4young/puntovivo/compare/v1.2.1...v1.2.2) (2026-06-29)
+
+
+### Bug Fixes
+
+* **release:** correct web-job cache note and harden the desktop upload step ([#125](https://github.com/johnny4young/puntovivo/issues/125)) ([61dfc50](https://github.com/johnny4young/puntovivo/commit/61dfc50f51a5de929cf98ea8f8fffb973215f4e1))
+
 ## [1.2.1](https://github.com/johnny4young/puntovivo/compare/v1.2.0...v1.2.1) (2026-06-29)
 
 
