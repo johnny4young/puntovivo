@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 
 import { readdir, rm } from 'node:fs/promises';
-import { dirname, parse, relative, resolve, sep } from 'node:path';
+import { parse, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 function isInside(base, target) {
+  // path.relative() across different roots (e.g. separate Windows drive letters)
+  // returns an absolute-looking path that does not start with ".." — which would
+  // slip past the prefix checks below and let an outside path read as contained.
+  // Reject a root/drive mismatch explicitly first (a no-op on POSIX, where every
+  // absolute path shares the "/" root).
+  if (parse(base).root !== parse(target).root) {
+    return false;
+  }
   const rel = relative(base, target);
   return rel === '' || (!rel.startsWith('..') && !rel.startsWith(`..${sep}`) && rel !== '..');
 }
