@@ -120,14 +120,6 @@ jobs:
         if: ${{ inputs.validate_only }}
         run: pnpm run ci:desktop
 
-      - name: Build server package
-        if: ${{ !inputs.validate_only }}
-        run: pnpm --filter @puntovivo/server run build
-
-      - name: Rebuild native modules
-        if: ${{ !inputs.validate_only }}
-        run: pnpm --filter @puntovivo/desktop run rebuild
-
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}
         run: pnpm --filter @puntovivo/desktop run make:desktop
@@ -201,14 +193,6 @@ jobs:
         if: ${{ inputs.validate_only }}
         run: pnpm run ci:desktop
 
-      - name: Build server package
-        if: ${{ !inputs.validate_only }}
-        run: pnpm --filter @puntovivo/server run build
-
-      - name: Rebuild native modules
-        if: ${{ !inputs.validate_only }}
-        run: pnpm --filter @puntovivo/desktop run rebuild
-
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}
         run: pnpm --filter @puntovivo/desktop run make:desktop
@@ -281,14 +265,6 @@ jobs:
       - name: Validate desktop workspace
         if: ${{ inputs.validate_only }}
         run: pnpm run ci:desktop
-
-      - name: Build server package
-        if: ${{ !inputs.validate_only }}
-        run: pnpm --filter @puntovivo/server run build
-
-      - name: Rebuild native modules
-        if: ${{ !inputs.validate_only }}
-        run: pnpm --filter @puntovivo/desktop run rebuild
 
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}

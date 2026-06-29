@@ -26,22 +26,22 @@ nodeLinker: hoisted
 #   - better-sqlite3-multiple-ciphers -> compiles the native SQLite binding
 #   - argon2                          -> compiles the native hashing binding
 #   - esbuild                         -> fetches/links its platform binary (vite)
-#   - electron-winstaller            -> Windows packaging build (make:desktop)
-# core-js is denied: its postinstall only prints a funding/ads banner.
+# Denied: core-js (postinstall only prints a funding banner) and
+# electron-winstaller (a transitive @electron-forge/cli dep we keep for the dev
+# loop but never use for packaging — electron-builder produces the NSIS installer
+# — so its Squirrel.Windows download build script is skipped).
 allowBuilds:
   electron: true
   better-sqlite3-multiple-ciphers: true
   argon2: true
   esbuild: true
-  electron-winstaller: true
   core-js: false
+  electron-winstaller: false
 
-# Migrated from the npm "overrides" field (pnpm 11 reads overrides here, not
-# in package.json). "$@electron/fuses" pins the transitive copy to the direct
-# devDependency version; "exceljs>uuid" is the pnpm selector for the npm
-# nested { exceljs: { uuid } } form.
+# Migrated from the npm "overrides" field (pnpm 11 reads overrides here, not in
+# package.json). "exceljs>uuid" is the pnpm selector for the npm nested
+# { exceljs: { uuid } } form.
 overrides:
-  '@electron/fuses': '$@electron/fuses'
   'exceljs>uuid': '11.1.1'
   tmp: '0.2.7'
   '@electron/get@5.0.0>undici': '7.28.0'

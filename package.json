@@ -41,7 +41,6 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
-    "@electron/fuses": "^2.1.2",
     "@playwright/test": "^1.60.0",
     "@types/node": "^25.9.2",
     "argon2": "^0.44.0",

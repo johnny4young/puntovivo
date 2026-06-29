@@ -64,6 +64,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
 
+      # Gate the deploy on the site's unit tests (node --test). Today this covers
+      # the per-OS installer picker (src/lib/pickInstaller.test.mjs); the glob
+      # picks up any future src/**/*.test.mjs.
+      - name: Test
+        run: pnpm test
+
       - name: Build
         # Cloudflare Pages serves at the domain root, not the /puntovivo/ subpath
         # GitHub Pages used; VITE_BASE_PATH drives vite's `base` + the SSR/client

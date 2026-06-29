@@ -175,19 +175,25 @@ jobs:
         run: node ./scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --structure-only
 
       # Upload the single top-level installer this OS produced (mac .zip, windows
-      # NSIS .exe, linux .AppImage). Resolve it with Node, not a shell glob: Git
-      # bash on the Windows runner does not expand out-builder/*, so the asset
-      # silently never uploaded. The extension filter excludes the .blockmap /
-      # latest*.yml sidecars and the unpacked app dir (win-unpacked/puntovivo.exe),
-      # leaving exactly one installer. gh is invoked straight from bash (resolves
-      # on all three runners) rather than a node spawn('gh'), which needs gh.exe.
+      # NSIS .exe, linux .AppImage) PLUS its .blockmap when electron-builder
+      # emitted one - electron-updater fetches <installer>.blockmap next to the
+      # binary for differential (delta) downloads. Resolve the files with Node,
+      # not a shell glob: Git bash on the Windows runner does not expand
+      # out-builder/*, so the asset silently never uploaded. The installer filter
+      # excludes the unpacked app dir (win-unpacked/puntovivo.exe) and the
+      # latest*.yml feed, leaving exactly one installer. gh is invoked straight
+      # from bash (resolves on all three runners) rather than a node spawn('gh'),
+      # which needs gh.exe.
       - name: Upload desktop release assets
         shell: bash
         run: |
           set -euo pipefail
-          ASSET=$(node -e "const fs=require('node:fs');const d='apps/desktop/out-builder';const ext=['.zip','.exe','.AppImage'];const a=fs.readdirSync(d).filter(f=>ext.some(e=>f.endsWith(e)));if(a.length!==1){console.error('expected exactly 1 installer in '+d+', got '+a.length+': '+a.join(', '));process.exit(1)}process.stdout.write(d+'/'+a[0])")
-          echo "uploading: $ASSET"
-          gh release upload "${{ inputs.tag }}" "$ASSET" --clobber
+          ASSETS=$(node -e "const fs=require('node:fs');const d='apps/desktop/out-builder';const ext=['.zip','.exe','.AppImage'];const files=fs.readdirSync(d);const inst=files.filter(f=>ext.some(e=>f.endsWith(e)));if(inst.length!==1){console.error('expected exactly 1 installer in '+d+', got '+inst.length+': '+inst.join(', '));process.exit(1)}const out=[d+'/'+inst[0]];const bm=inst[0]+'.blockmap';if(files.includes(bm))out.push(d+'/'+bm);process.stdout.write(out.join('\n'))")
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            echo "uploading: $f"
+            gh release upload "${{ inputs.tag }}" "$f" --clobber
+          done <<< "$ASSETS"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
