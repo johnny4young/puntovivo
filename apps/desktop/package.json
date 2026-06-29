@@ -27,8 +27,8 @@
     "format": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "format:fix": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf .vite out node_modules",
-    "clean:cache": "rm -rf .vite && pnpm run dev:desktop"
+    "clean": "node ../../scripts/clean-paths.mjs .vite out node_modules",
+    "clean:cache": "node ../../scripts/clean-paths.mjs .vite && pnpm run dev:desktop"
   },
   "keywords": [
     "pos",

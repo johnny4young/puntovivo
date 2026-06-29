@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { buildSaleReceiptHtml } from '@/features/sales/receiptPrinter';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildSaleReceiptHtml, printSaleReceipt } from '@/features/sales/receiptPrinter';
 import type { Sale } from '@/types';
 
 const sale: Sale = {
@@ -41,6 +41,12 @@ const sale: Sale = {
   ],
 };
 
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  delete (window as unknown as { electron?: unknown }).electron;
+});
+
 describe('receiptPrinter', () => {
   it('renders escaped receipt details', async () => {
     const html = await buildSaleReceiptHtml(sale);
@@ -58,6 +64,34 @@ describe('receiptPrinter', () => {
 
     expect(autoPrintHtml).toContain('window.print()');
     expect(regularHtml).not.toContain('window.print()');
+  });
+
+  it('opens the browser fallback through a Blob URL print window', async () => {
+    vi.useFakeTimers();
+    let captured: Blob | null = null;
+    const createUrlSpy = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockImplementation((src: Blob | MediaSource) => {
+        captured = src as Blob;
+        return 'blob:sale-receipt';
+      });
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+
+    await printSaleReceipt(sale);
+
+    expect(createUrlSpy).toHaveBeenCalledOnce();
+    expect(openSpy).toHaveBeenCalledWith(
+      'blob:sale-receipt',
+      '_blank',
+      'noopener,noreferrer,width=420,height=720'
+    );
+    expect(captured).not.toBeNull();
+    await expect(captured!.text()).resolves.toContain('window.print()');
+    expect(revokeSpy).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(revokeSpy).toHaveBeenCalledWith('blob:sale-receipt');
   });
 
   it('skips the Tenders section for a single-tender sale', async () => {

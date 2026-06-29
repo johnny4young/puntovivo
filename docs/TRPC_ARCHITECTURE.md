@@ -506,10 +506,10 @@ outside the Vite module graph:
    `src/db/migrations/` into `dist/db/migrations/` during
    `pnpm --filter @puntovivo/server run build`. Desktop `package:desktop`
    and `make:desktop` run `prepare:server` first so the copied folder is always fresh
-   before Forge resolves `extraResource`.
-2. `apps/desktop/forge.config.ts` lists
+   before electron-builder resolves `extraResources`.
+2. `apps/desktop/electron-builder.yml` lists
    `../../packages/server/dist/db/migrations` in
-   `packagerConfig.extraResource`, so Forge copies the folder verbatim
+   `extraResources`, so electron-builder copies the folder verbatim
    into `process.resourcesPath/migrations/` of the packaged app.
 3. `apps/desktop/src/main/index.ts` computes
    `MIGRATIONS_PATH = app.isPackaged ? join(process.resourcesPath, 'migrations') : undefined`

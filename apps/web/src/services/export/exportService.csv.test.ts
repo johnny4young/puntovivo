@@ -138,19 +138,22 @@ describe('exportToCSV', () => {
 });
 
 describe('printTable', () => {
-  it('opens a print window and writes the rendered HTML with title + headers + rows', () => {
-    const writeSpy = vi.fn();
-    const closeSpy = vi.fn();
-    const fakeWindow = {
-      document: { write: writeSpy, close: closeSpy },
-    } as unknown as Window;
+  it('opens a Blob-backed print window with title + headers + rows', async () => {
+    vi.useFakeTimers();
+    let captured: Blob | null = null;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((src: Blob | MediaSource) => {
+      captured = src as Blob;
+      createdUrl = 'blob:print-table';
+      return createdUrl;
+    });
+    const fakeWindow = {} as Window;
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakeWindow);
 
     printTable(sample, columns, { title: 'Rows <Report> "A"' });
 
-    expect(openSpy).toHaveBeenCalledWith('', '_blank');
-    expect(writeSpy).toHaveBeenCalledOnce();
-    const html = writeSpy.mock.calls[0]![0] as string;
+    expect(openSpy).toHaveBeenCalledWith('blob:print-table', '_blank', 'noopener,noreferrer');
+    expect(captured).not.toBeNull();
+    const html = await captured!.text();
     // Title is HTML-escaped in both the document title and visible header.
     expect(html).toContain('<title>Rows &lt;Report&gt; &quot;A&quot;</title>');
     expect(html).toContain('Rows &lt;Report&gt; &quot;A&quot;');
@@ -164,7 +167,9 @@ describe('printTable', () => {
     expect(html).toContain('>No<');
     // Total Records footer reflects the data length.
     expect(html).toContain('Total Records: 2');
-    expect(closeSpy).toHaveBeenCalledOnce();
+    expect(revokedUrl).toBeNull();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(revokedUrl).toBe('blob:print-table');
   });
 
   it('logs a friendly error when the popup blocker returns null', () => {
@@ -174,18 +179,23 @@ describe('printTable', () => {
     expect(consoleSpy).toHaveBeenCalledWith(
       'Failed to open print window. Please allow popups for this site.'
     );
+    expect(revokedUrl).toBe(createdUrl);
   });
 
-  it('omits the title block when no title is supplied (raw header pipeline)', () => {
-    const writeSpy = vi.fn();
-    const fakeWindow = {
-      document: { write: writeSpy, close: vi.fn() },
-    } as unknown as Window;
-    vi.spyOn(window, 'open').mockReturnValue(fakeWindow);
+  it('omits the title block when no title is supplied (raw header pipeline)', async () => {
+    vi.useFakeTimers();
+    let captured: Blob | null = null;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((src: Blob | MediaSource) => {
+      captured = src as Blob;
+      createdUrl = 'blob:print-table-no-title';
+      return createdUrl;
+    });
+    vi.spyOn(window, 'open').mockReturnValue({} as Window);
     printTable(sample, columns);
-    const html = writeSpy.mock.calls[0]![0] as string;
+    const html = await captured!.text();
     expect(html).toContain('<title>Print</title>');
     expect(html).not.toContain('class="title"');
+    await vi.advanceTimersByTimeAsync(30_000);
   });
 });
 

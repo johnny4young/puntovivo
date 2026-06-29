@@ -458,7 +458,7 @@ post-condition.
 New `scripts/ensure-migrations-bundled.mjs` verifies that
 `packages/server/dist/db/migrations/` exists and carries a valid
 `meta/_journal.json` plus every journal-referenced `.sql` migration BEFORE
-Electron Forge packages the app or launches in dev. Exit 1 with
+electron-builder packages the app or the Electron dev shell launches. Exit 1 with
 actionable remediation lines when any check fails. Wired in
 `apps/desktop/package.json` as `electron:ensure:migrations` between
 `prepare:server` and `electron:ensure:binary` in `preflight:desktop`,

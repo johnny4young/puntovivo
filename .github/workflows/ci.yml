@@ -182,7 +182,7 @@ jobs:
   # ============================================================================
   # Desktop Workspace Validation (ENG-046 — ubuntu-only on push/PR)
   # ----------------------------------------------------------------------------
-  # The desktop workspace hosts Electron-specific code (forge config, preload,
+  # The desktop workspace hosts Electron-specific code (builder config, preload,
   # main process). The ubuntu-latest run gates the `ci:desktop` script
   # (typecheck + lint + node tests + a strict Electron memory launch under
   # xvfb) — that catches main↔renderer boundary regressions, missing preload
@@ -190,7 +190,7 @@ jobs:
   # paying for cross-OS minutes.
   #
   # Cross-OS validation (ubuntu + macos + windows running ci:desktop AND
-  # actually packaging via electron-forge make) lives in the manual
+  # actually packaging via electron-builder) lives in the manual
   # `.github/workflows/build-desktop.yml` workflow, triggered by an
   # operator via `workflow_dispatch` with per-OS toggles. macOS minutes
   # bill at 10x against the free tier, so running the matrix on every

@@ -67,7 +67,7 @@ pnpm --filter @puntovivo/desktop run rebuild
 pnpm 11 blocks dependency build scripts unless they are allowlisted. The repo
 allowlist lives in [pnpm-workspace.yaml](./pnpm-workspace.yaml) and covers the
 runtime pieces Puntovivo needs: Electron, better-sqlite3-multiple-ciphers,
-argon2, esbuild, and electron-winstaller. If install prints
+argon2, and esbuild. If install prints
 `ERR_PNPM_IGNORED_BUILDS`, fix the allowlist or run `pnpm approve-builds`, then
 install again.
 
@@ -103,7 +103,7 @@ console. See [docs/LOGIN_GUIDE.md](./docs/LOGIN_GUIDE.md).
 
 | Layer    | Current choice                                 | Notes                                                          |
 | -------- | ---------------------------------------------- | -------------------------------------------------------------- |
-| Desktop  | Electron 41 + Forge                            | Electron 42 is gated by upstream better-sqlite3 V8 14 support. |
+| Desktop  | Electron 41 + electron-builder packaging       | Electron 42 is gated by upstream better-sqlite3 V8 14 support. |
 | Web      | React 19 + Vite 8 + TypeScript 6               | Browser target and Electron renderer share the app code.       |
 | API      | Fastify + tRPC 11                              | `/api/trpc` is the canonical application API.                  |
 | Database | SQLite through better-sqlite3-multiple-ciphers | SQLCipher path is wired; dev modes can share an encrypted DB.  |
