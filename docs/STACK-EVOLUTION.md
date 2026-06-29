@@ -25,10 +25,10 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the current shape.
 - tRPC 11 (end-to-end type safety via `AppRouter`)
 - SQLite via `better-sqlite3` (in-process, synchronous, native)
 - Drizzle ORM
-- React 19 + Vite 5 + Tailwind v4 + TanStack Query + Zustand + i18next
+- React 19 + Vite 8 + Tailwind v4 + TanStack Query + Zustand + i18next
 - Auth: JWT access + rotated refresh cookie + CSRF + RBAC
 - Sync queue with deferred send (offline-first)
-- electron-forge packaging, GitHub Releases auto-updater, pino logging
+- electron-builder packaging, GitHub Releases auto-updater, pino logging
 
 ## Where the current stack becomes friction
 

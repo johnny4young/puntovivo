@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
+import { openHtmlInPrintWindow } from '@/lib/printWindow';
 import type { QuotationDetail, QuotationStatus } from '@/types';
 
 /**
@@ -10,9 +11,9 @@ import type { QuotationDetail, QuotationStatus } from '@/types';
  *   - Shows `Validity` in place of Payment.
  *   - Shows per-line tax rate so the customer can see their gross-priced
  *     unit price decomposed.
- *   - The browser-only fallback uses a Blob URL rather than
- *     `document.write`, which sidesteps the XSS-adjacent footgun flagged by
- *     the repo's security hook and cleans up via `URL.revokeObjectURL`.
+ *   - The browser-only fallback uses the shared Blob URL print helper rather
+ *     than `document.write`, which sidesteps the XSS-adjacent footgun flagged
+ *     by the repo's security hook and cleans up via `URL.revokeObjectURL`.
  */
 
 type PrintableQuotation = Pick<
@@ -307,24 +308,16 @@ export function buildQuotationReceiptHtml(
 }
 
 async function openBrowserPrintWindow(receiptHtml: string): Promise<void> {
-  // Blob URL avoids the `document.write` pattern and lets the browser track
-  // the document the usual way. Revoke the URL after a short delay so the
-  // print popup has time to load it before the blob is garbage-collected.
-  const blob = new Blob([receiptHtml], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const printWindow = window.open(url, '_blank', 'noopener,noreferrer,width=480,height=720');
+  const printWindow = openHtmlInPrintWindow(receiptHtml, {
+    features: 'noopener,noreferrer,width=480,height=720',
+  });
 
   if (!printWindow) {
-    URL.revokeObjectURL(url);
     throw new QuotationPrintError(
       'popupBlocked',
       'Unable to open the print window. Check the browser popup settings.'
     );
   }
-
-  // Keep the URL alive long enough for the popup to fetch + render; 30s is
-  // generous enough for any realistic printer dialog without leaking memory.
-  setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
 export async function printQuotationReceipt(quotation: PrintableQuotation): Promise<void> {

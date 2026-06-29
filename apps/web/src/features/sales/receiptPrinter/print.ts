@@ -2,17 +2,16 @@
 
 import { buildSaleReceiptHtml } from './html';
 import type { PrintSaleReceiptOptions, ReceiptSale } from './types';
+import { openHtmlInPrintWindow } from '@/lib/printWindow';
 
 async function openBrowserPrintWindow(receiptHtml: string): Promise<void> {
-  const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=420,height=720');
+  const printWindow = openHtmlInPrintWindow(receiptHtml, {
+    features: 'noopener,noreferrer,width=420,height=720',
+  });
 
   if (!printWindow) {
     throw new Error('Unable to open the print window. Check the browser popup settings.');
   }
-
-  printWindow.document.open();
-  printWindow.document.write(receiptHtml);
-  printWindow.document.close();
 }
 
 /**

@@ -1,6 +1,7 @@
-// Print-to-window exporter (ENG-178 slice 30). Opens a transient window and
-// document.write()s an escapeHtml-guarded table for the browser print dialog.
+// Print-to-window exporter (ENG-178 slice 30). Opens a transient Blob-backed
+// window with an escapeHtml-guarded table for the browser print dialog.
 
+import { openHtmlInPrintWindow } from '@/lib/printWindow';
 import { escapeHtml } from './escape';
 import { formatValue, getNestedValue } from './format';
 import type { ExportColumn, ExportOptions } from './types';
@@ -131,12 +132,8 @@ export function printTable<T extends object>(
     </html>
   `;
 
-  // Open print window
-  const printWindow = window.open('', '_blank');
-  if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-  } else {
+  const printWindow = openHtmlInPrintWindow(html);
+  if (!printWindow) {
     console.error('Failed to open print window. Please allow popups for this site.');
   }
 }
