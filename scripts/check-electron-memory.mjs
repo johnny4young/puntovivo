@@ -198,8 +198,16 @@ export function launchAndMeasure() {
     return null;
   }
   const userDataDir = mkdtempSync(join(tmpdir(), 'puntovivo-mem-'));
-  const electronArgs = [ELECTRON_MAIN_ENTRY, `--user-data-dir=${userDataDir}`];
   const isLinux = process.platform === 'linux';
+  const electronArgs = [ELECTRON_MAIN_ENTRY, `--user-data-dir=${userDataDir}`];
+  // CI runners ship the setuid sandbox helper unconfigured, so on linux Electron's
+  // zygote dies ("The SUID sandbox helper binary ... is not configured correctly",
+  // core dumped) before it can measure. This measurement launch is a throwaway, so
+  // disable the OS sandbox on linux; the renderer's own sandbox:true invariant is
+  // verified separately by window-config.test.ts.
+  if (isLinux) {
+    electronArgs.push('--no-sandbox');
+  }
   const command = isLinux ? 'xvfb-run' : electronBin;
   const args = isLinux ? ['-a', electronBin, ...electronArgs] : electronArgs;
 
