@@ -45,23 +45,10 @@
   "dependencies": {
     "@electron/rebuild": "^4.0.4",
     "@puntovivo/server": "workspace:*",
-    "@tanstack/react-query": "^5.101.0",
-    "@tanstack/react-table": "^8.21.3",
-    "clsx": "^2.1.1",
     "electron-squirrel-startup": "^1.0.1",
     "electron-updater": "^6.8.9",
-    "exceljs": "^4.4.0",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8",
     "jszip": "^3.10.1",
-    "lucide-react": "^1.17.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "react-hook-form": "^7.78.0",
-    "react-router-dom": "^7.17.0",
-    "sanitize-html": "^2.17.4",
-    "tailwind-merge": "^3.6.0",
-    "zustand": "^5.0.14"
+    "sanitize-html": "^2.17.4"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.11.2",
