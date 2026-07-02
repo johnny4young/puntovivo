@@ -141,6 +141,16 @@ export type QuotationStatus = (typeof quotationStatusEnum)[number];
 export const initialInventoryModeEnum = ['initial', 'physical'] as const;
 
 /**
+ * Lifecycle of an inventory lot (Auditoría 2026-07 — lots & costing).
+ * `active` lots are FEFO-consumable; `depleted` reached zero on-hand;
+ * `expired` passed its date and is held out of sale; `quarantined` is
+ * blocked pending inspection/recall. Stored as text; nullable/default
+ * 'active' on the column.
+ */
+export const lotStatusEnum = ['active', 'depleted', 'expired', 'quarantined'] as const;
+export type LotStatus = (typeof lotStatusEnum)[number];
+
+/**
  * Physical dimension of a measurement unit (Auditoría 2026-07 — units
  * foundation). Groups otherwise free-form tenant units so the app can
  * validate dimensional coherence (a product's units should share a

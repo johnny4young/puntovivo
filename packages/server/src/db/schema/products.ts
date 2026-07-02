@@ -69,6 +69,11 @@ export const products = sqliteTable(
     sellByFraction: integer('sell_by_fraction', { mode: 'boolean' }).notNull().default(false),
     fractionStep: real('fraction_step'),
     fractionMinimum: real('fraction_minimum'),
+    // Auditoría 2026-07 — lots & costing opt-in. When true, receipts create
+    // `inventory_lots` rows and consumption is FEFO with per-lot COGS; when
+    // false (default) the product keeps the single-number stock path. Additive
+    // and backward-compatible.
+    tracksLots: integer('tracks_lots', { mode: 'boolean' }).notNull().default(false),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     barcode: text('barcode'),
     imageUrl: text('image_url'),

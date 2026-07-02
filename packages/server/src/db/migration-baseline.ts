@@ -171,6 +171,12 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0004_unit_x_product_barcode') {
       return !tableExists('unit_x_product');
     }
+    // Auditoría 2026-07 — lots migration ALTERs `products` (tracks_lots) and
+    // creates `inventory_lots`. A partial legacy DB without `products` has no
+    // ALTER target; mark applied so minimal shapes keep booting.
+    if (entry.tag === '0005_inventory_lots') {
+      return !tableExists('products');
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(
