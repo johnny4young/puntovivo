@@ -313,8 +313,20 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
       // ENG-105d — persist only serializable workspace state. Store
       // actions stay runtime-only, and future transient flags cannot
       // accidentally bloat localStorage.
+      //
+      // `historyStack` is deliberately persisted EMPTY: undo is a
+      // session-level affordance (a rehydrated cart starts with no undo
+      // baseline, same as a resumed draft), and persisting it made every
+      // cart keystroke serialize up to HISTORY_CAP full item-array
+      // snapshots per workspace into localStorage — a synchronous
+      // multi-hundred-KB write on the hottest input path.
       partialize: state => ({
-        workspaces: state.workspaces,
+        workspaces: Object.fromEntries(
+          Object.entries(state.workspaces).map(([id, workspace]) => [
+            id,
+            { ...workspace, historyStack: [] },
+          ])
+        ),
         activeId: state.activeId,
       }),
       // ENG-105d — migrate v1 → v2 by backfilling `historyStack: []`

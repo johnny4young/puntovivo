@@ -31,11 +31,12 @@
  *     the badge + "Sumar puntos" CTA stay invisible because
  *     `loyaltyProfile` is `undefined`.
  */
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { invalidateGroups, SALE_COMPLETION_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import {
@@ -175,8 +176,10 @@ export function PosTouchScreen() {
   // on every Cobrar tap.
   const createMutation = useCriticalMutation('sales.create', {
     onSuccess: async (_data, variables) => {
-      await utils.cashSessions.getActive.invalidate();
-      await utils.products.list.invalidate();
+      // Same set the desktop epilogue uses — a touch sale must refresh
+      // sales history, inventory, cash session, and ledger caches too,
+      // or /sales and /inventory show pre-sale data for staleTime.
+      await invalidateGroups(utils, SALE_COMPLETION_INVALIDATIONS);
       toast.success({
         title: t('toast.chargeSuccess'),
         description: t('toast.chargeSuccessDescription', { count: variables.items.length }),
@@ -189,30 +192,36 @@ export function PosTouchScreen() {
     }),
   });
 
-  async function handleAddToCart(product: Product) {
-    // `products.list` (the grid query) skips unit assignments to
-    // keep the catalog payload small. Hydrate the full product via
-    // `products.getById` so we can pick the real base-unit id and
-    // build a valid `ProductSearchSelection` for `mergeCartItem`.
-    try {
-      const full = await utils.products.getById.fetch({ id: product.id });
-      const selection = selectionFromProduct(full as unknown as Product);
-      if (!selection) {
+  // useCallback keeps the memoized product grid from re-rendering its
+  // ≤200 tiles on every cart tick — the handler identity is the only
+  // grid prop that would otherwise change.
+  const handleAddToCart = useCallback(
+    async (product: Product) => {
+      // `products.list` (the grid query) skips unit assignments to
+      // keep the catalog payload small. Hydrate the full product via
+      // `products.getById` so we can pick the real base-unit id and
+      // build a valid `ProductSearchSelection` for `mergeCartItem`.
+      try {
+        const full = await utils.products.getById.fetch({ id: product.id });
+        const selection = selectionFromProduct(full as unknown as Product);
+        if (!selection) {
+          toast.error({
+            title: t('toast.chargeError'),
+            description: t('toast.chargeError'),
+          });
+          return;
+        }
+        setCartItems(current => mergeCartItem(current, selection));
+        toast.success({ title: t('toast.addedToCart', { name: product.name }) });
+      } catch (err) {
         toast.error({
           title: t('toast.chargeError'),
-          description: t('toast.chargeError'),
+          description: translateServerError(err, t, t('toast.chargeError')),
         });
-        return;
       }
-      setCartItems(current => mergeCartItem(current, selection));
-      toast.success({ title: t('toast.addedToCart', { name: product.name }) });
-    } catch (err) {
-      toast.error({
-        title: t('toast.chargeError'),
-        description: translateServerError(err, t, t('toast.chargeError')),
-      });
-    }
-  }
+    },
+    [utils, toast, t]
+  );
 
   function handleRemoveLine(key: string) {
     setCartItems(current => current.filter(item => item.key !== key));

@@ -192,7 +192,13 @@ export function useSalesModals({
     setIsCashSessionModalOpen(true);
   };
 
+  // These three modal forms are Enter/requestSubmit-able, which bypasses
+  // the disabled footer button — the isPending guards stop a repeated
+  // Enter from firing the critical mutation twice with two envelopes.
   const handleCreateCashSession = async (values: CashSessionOpenValues) => {
+    if (openCashSessionMutation.isPending) {
+      return;
+    }
     await openCashSessionMutation.mutateAsync(values);
   };
 
@@ -207,6 +213,9 @@ export function useSalesModals({
   };
 
   const handleCloseCashSession = async (values: CashSessionCloseValues) => {
+    if (closeCashSessionMutation.isPending) {
+      return;
+    }
     await closeCashSessionMutation.mutateAsync(values);
   };
 
@@ -221,6 +230,9 @@ export function useSalesModals({
   };
 
   const handleRecordCashMovement = async (values: CashSessionMovementValues) => {
+    if (recordCashMovementMutation.isPending) {
+      return;
+    }
     await recordCashMovementMutation.mutateAsync(values);
   };
 
