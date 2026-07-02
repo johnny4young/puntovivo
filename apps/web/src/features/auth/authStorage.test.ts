@@ -39,16 +39,23 @@ afterEach(() => {
 });
 
 describe('persistAuthSession', () => {
-  it('writes user + tenant to localStorage when both are present', () => {
+  it('persists only the tenant id — never the user object (PII minimization)', () => {
     persistAuthSession({ user, tenant });
-    expect(JSON.parse(window.localStorage.getItem('auth_user')!)).toEqual(user);
-    expect(JSON.parse(window.localStorage.getItem('auth_tenant')!)).toEqual(tenant);
+    expect(window.localStorage.getItem('auth_user')).toBeNull();
+    expect(JSON.parse(window.localStorage.getItem('auth_tenant')!)).toEqual({
+      id: 'tenant-1',
+    });
+  });
+
+  it('removes a legacy full-user entry left behind by older versions', () => {
+    window.localStorage.setItem('auth_user', JSON.stringify(user));
+    persistAuthSession({ user, tenant });
+    expect(window.localStorage.getItem('auth_user')).toBeNull();
   });
 
   it('removes the tenant key when snapshot.tenant is null (no stale state)', () => {
     window.localStorage.setItem('auth_tenant', JSON.stringify(tenant));
     persistAuthSession({ user, tenant: null });
-    expect(window.localStorage.getItem('auth_user')).not.toBeNull();
     expect(window.localStorage.getItem('auth_tenant')).toBeNull();
   });
 });
@@ -58,9 +65,9 @@ describe('getStoredAuthTenant', () => {
     expect(getStoredAuthTenant()).toBeNull();
   });
 
-  it('parses a valid JSON tenant payload', () => {
+  it('parses a stored payload down to the tenant id (legacy full-tenant entries included)', () => {
     window.localStorage.setItem('auth_tenant', JSON.stringify(tenant));
-    expect(getStoredAuthTenant()).toEqual(tenant);
+    expect(getStoredAuthTenant()).toEqual({ id: 'tenant-1' });
   });
 
   it('returns null when the stored payload is corrupt JSON (catches the parse error)', () => {

@@ -169,6 +169,10 @@ export function PosTouchScreen() {
 
   const summary = useMemo(() => getCartSummary(cartItems), [cartItems]);
 
+  // The grid query is capped at perPage: 200 — surface the truncation
+  // instead of silently hiding the tail of a bigger catalog.
+  const catalogTotal = productsQuery.data?.totalItems ?? products.length;
+
   // ENG-052b — `sales.create` is a critical command (idempotency +
   // command envelope), so we ride the same `useCriticalMutation`
   // helper that SalesPage uses instead of `trpc.sales.create.useMutation`
@@ -311,12 +315,26 @@ export function PosTouchScreen() {
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr),22rem]">
-        <PosTouchProductGrid
-          products={products}
-          isLoading={productsQuery.isLoading}
-          isError={Boolean(productsQuery.error)}
-          onSelect={handleAddToCart}
-        />
+        <div className="min-w-0">
+          {catalogTotal > products.length && (
+            <p
+              data-testid="pos-touch-grid-truncated"
+              role="status"
+              className="mb-2 rounded-xl border border-warning-300 bg-warning-50 px-3 py-2 text-xs text-warning-800"
+            >
+              {t('grid.truncated', {
+                shown: products.length,
+                total: catalogTotal,
+              })}
+            </p>
+          )}
+          <PosTouchProductGrid
+            products={products}
+            isLoading={productsQuery.isLoading}
+            isError={Boolean(productsQuery.error)}
+            onSelect={handleAddToCart}
+          />
+        </div>
         <PosTouchCartSidebar
           items={cartItems}
           summary={summary}
