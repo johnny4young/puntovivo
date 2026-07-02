@@ -130,6 +130,52 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 }));
 
 // ============================================================================
+// REFRESH TOKEN FAMILIES
+// ============================================================================
+
+/**
+ * One row per live refresh-token *family* (login session). Every refresh
+ * rotation swaps `current_jti` for a fresh id; presenting a refresh token
+ * whose `jti` no longer matches means an OLD (already-rotated) token was
+ * replayed — i.e. the cookie was stolen — and the whole family is revoked
+ * plus the user's `sessionVersion` bumped. Auditoría 2026-07 follow-up:
+ * without this, a stolen refresh JWT stayed usable for its full 7-day TTL.
+ */
+export const authRefreshFamilies = sqliteTable(
+  'auth_refresh_families',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    /** The jti of the newest (only-valid) refresh token in the family. */
+    currentJti: text('current_jti').notNull(),
+    issuedAt: text('issued_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    lastRotatedAt: text('last_rotated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    /** ISO timestamp mirroring the refresh JWT TTL; prune target. */
+    expiresAt: text('expires_at').notNull(),
+  },
+  table => [
+    index('idx_auth_refresh_families_user').on(table.userId),
+    index('idx_auth_refresh_families_expires').on(table.expiresAt),
+  ]
+);
+
+export const authRefreshFamiliesRelations = relations(authRefreshFamilies, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [authRefreshFamilies.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [authRefreshFamilies.userId],
+    references: [users.id],
+  }),
+}));
+
+// ============================================================================
 // LOGOS
 // ============================================================================
 

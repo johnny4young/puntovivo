@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
@@ -30,6 +31,27 @@ export function SaleCartTable({
   discountInputRefFor,
 }: SaleCartTableProps) {
   const { t } = useTranslation('sales');
+
+  // Borradores de edición por celda (`q:<key>` / `d:<key>`). Un input
+  // controlado directo pisa la edición en curso: al vaciar el campo para
+  // teclear "12", `Number('') || mínimo` lo devolvía a 1 antes de que el
+  // cajero terminara. El borrador conserva el texto tal cual; los valores
+  // válidos se comprometen en vivo y el blur/Enter resuelve el resto
+  // (revertir si quedó vacío o no parsea).
+  const [inputDrafts, setInputDrafts] = useState<Record<string, string>>({});
+  const draftValueFor = (draftId: string, committed: number): string =>
+    inputDrafts[draftId] ?? String(committed);
+  const setDraft = (draftId: string, value: string): void => {
+    setInputDrafts(previous => ({ ...previous, [draftId]: value }));
+  };
+  const clearDraft = (draftId: string): void => {
+    setInputDrafts(previous => {
+      if (!(draftId in previous)) return previous;
+      const next = { ...previous };
+      delete next[draftId];
+      return next;
+    });
+  };
 
   // §06 — el carrito vacío guía con copy + pista de atajos, no con un cuadro
   // en blanco. La misma pista se repite al pie de la lista cuando hay ítems.
@@ -137,17 +159,27 @@ export function SaleCartTable({
                       step={String(quantityStep)}
                       className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent text-center text-[15px] font-semibold text-fg1 opacity-0 focus:opacity-100 focus:[appearance:textfield] focus-visible:opacity-100 focus-visible:rounded-md focus-visible:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
                       aria-label={t('cart.qtyFor', { name: item.productName })}
-                      value={item.quantity}
+                      value={draftValueFor(`q:${item.key}`, item.quantity)}
                       onFocus={() => onSelectItem(item.key)}
-                      onChange={event =>
-                        onQuantityChange(
-                          item.key,
-                          Math.max(
-                            minimumQuantity,
-                            Number(event.target.value) || minimumQuantity
-                          )
-                        )
-                      }
+                      onChange={event => {
+                        const raw = event.target.value;
+                        setDraft(`q:${item.key}`, raw);
+                        const parsed = Number(raw);
+                        if (raw !== '' && Number.isFinite(parsed) && parsed >= minimumQuantity) {
+                          onQuantityChange(item.key, parsed);
+                        }
+                      }}
+                      onBlur={() => {
+                        const raw = inputDrafts[`q:${item.key}`];
+                        clearDraft(`q:${item.key}`);
+                        if (raw === undefined || raw === '') return;
+                        const parsed = Number(raw);
+                        if (!Number.isFinite(parsed)) return;
+                        onQuantityChange(item.key, Math.max(minimumQuantity, parsed));
+                      }}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter') event.currentTarget.blur();
+                      }}
                     />
                   </span>
 
@@ -183,14 +215,27 @@ export function SaleCartTable({
                     step={1}
                     className="input mt-0 h-9 w-16 px-2 py-1 text-center text-[13px]"
                     aria-label={t('cart.discountFor', { name: item.productName })}
-                    value={item.discount}
+                    value={draftValueFor(`d:${item.key}`, item.discount)}
                     onFocus={() => onSelectItem(item.key)}
-                    onChange={event =>
-                      onDiscountChange(
-                        item.key,
-                        Math.min(100, Math.max(0, Number(event.target.value) || 0))
-                      )
-                    }
+                    onChange={event => {
+                      const raw = event.target.value;
+                      setDraft(`d:${item.key}`, raw);
+                      const parsed = Number(raw);
+                      if (raw !== '' && Number.isFinite(parsed)) {
+                        onDiscountChange(item.key, Math.min(100, Math.max(0, parsed)));
+                      }
+                    }}
+                    onBlur={() => {
+                      const raw = inputDrafts[`d:${item.key}`];
+                      clearDraft(`d:${item.key}`);
+                      if (raw === undefined || raw === '') return;
+                      const parsed = Number(raw);
+                      if (!Number.isFinite(parsed)) return;
+                      onDiscountChange(item.key, Math.min(100, Math.max(0, parsed)));
+                    }}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter') event.currentTarget.blur();
+                    }}
                   />
                   <span className="mono text-fg2">
                     {t('cart.baseQty')} {lineTotals.normalizedQuantity}
