@@ -16,6 +16,7 @@ import {
   locations,
   products,
   providers,
+  unitXProduct,
   vatRates,
 } from '../../../db/schema.js';
 import {
@@ -204,7 +205,7 @@ export const productQueryProcedures = {
       // prefix; non-GS1 codes look up the verbatim string.
       const lookupCode = parsed.lookupCode;
 
-      const item = await ctx.db
+      let item = await ctx.db
         .select(productSelection)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
@@ -220,6 +221,45 @@ export const productQueryProcedures = {
         )
         .get();
 
+      // Auditoría 2026-07 — packaging-level fallback. When no product carries
+      // this code as its base barcode, try a per-packaging barcode on
+      // `unit_x_product` (a scanned case/pack). A hit resolves the owning
+      // product AND the specific unit, so the renderer selects that unit and
+      // the cart line multiplies by its `equivalence`.
+      let resolvedUnitId: string | null = null;
+      if (!item) {
+        const packaging = await ctx.db
+          .select({ productId: unitXProduct.productId, unitId: unitXProduct.unitId })
+          .from(unitXProduct)
+          .innerJoin(products, eq(unitXProduct.productId, products.id))
+          .where(
+            and(
+              eq(products.tenantId, ctx.tenantId),
+              eq(products.isActive, true),
+              eq(unitXProduct.barcode, lookupCode)
+            )
+          )
+          .get();
+
+        if (packaging) {
+          resolvedUnitId = packaging.unitId;
+          item = await ctx.db
+            .select(productSelection)
+            .from(products)
+            .leftJoin(categories, eq(products.categoryId, categories.id))
+            .leftJoin(locations, eq(products.locationId, locations.id))
+            .leftJoin(providers, eq(products.providerId, providers.id))
+            .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+            .where(
+              and(
+                eq(products.tenantId, ctx.tenantId),
+                eq(products.id, packaging.productId)
+              )
+            )
+            .get();
+        }
+      }
+
       if (!item) {
         return null;
       }
@@ -227,6 +267,11 @@ export const productQueryProcedures = {
       const assignmentsMap = await getUnitAssignmentsByProductIds(ctx.db, [item.id]);
       const unitAssignments = assignmentsMap.get(item.id) ?? [];
       const baseUnit = unitAssignments.find(a => a.isBase) ?? unitAssignments[0];
+      // The scanned unit for a packaging hit; base-barcode hits leave this null
+      // so the renderer keeps its base-unit default.
+      const resolvedUnit = resolvedUnitId
+        ? unitAssignments.find(a => a.unitId === resolvedUnitId) ?? null
+        : null;
 
       const product = {
         ...item,
@@ -243,6 +288,11 @@ export const productQueryProcedures = {
       return {
         product,
         parsed,
+        // The packaging unit the scan resolved to, or null for a base-unit
+        // barcode. When set, the renderer selects this unit (price +
+        // equivalence come from its assignment).
+        resolvedUnitId,
+        resolvedUnitPrice: resolvedUnit?.price ?? null,
         // GS1 weight/price overrides for the cart line. Renderer uses
         // these verbatim when present; otherwise it falls back to
         // `quantity = 1` and the product's base unit price.

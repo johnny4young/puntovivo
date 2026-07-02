@@ -72,20 +72,26 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
 - `units.create` backfills all three from the catalog when omitted, so a plain
   "KG" lands fiscal-ready. Explicit input always wins.
 
-## Phase B — stock authority + packaging barcodes (STAGED)
+## Phase B — stock authority + packaging barcodes (SHIPPED)
 
-1. **Barcode per packaging level.** Move the scannable code to
-   `unit_x_product.barcode` (additive) so scanning a *case* barcode adds N base
-   units. `products.barcode` stays as the base-unit code for back-compat.
-2. **`inventory_balances` as the single source of truth.** Today
-   `products.stock` and `inventory_balances` both exist; the write paths keep
-   both in step, but two representations is a drift hazard. Make balances
-   authoritative and treat `products.stock` as a derived cache (or drop reads
-   of it), with a reconciliation pass. This touches the sale/purchase/return/
-   void/transfer write paths, so it lands behind tests that assert
-   ledger↔balance equality.
-3. **Location/bin grain** — `inventory_balances` already reserves a slot for
-   location-level granularity (per its own doc comment).
+1. **Barcode per packaging level (DONE).** `unit_x_product.barcode` (additive,
+   migration `0004_unit_x_product_barcode`) lets each packaging level carry its
+   own scannable code. `products.lookupByBarcode` now falls back to a
+   packaging-barcode match after the base-product miss and returns
+   `resolvedUnitId` / `resolvedUnitPrice`; the POS scanner selects that unit so
+   scanning a *case* adds `equivalence` base units at the case price.
+   `products.barcode` stays the base-unit code for back-compat.
+2. **Stock authority (already in place, verified).** The dual representation is
+   intentional and non-redundant: `products.stock` is the tenant-wide total,
+   `inventory_balances` the per-site breakdown, and every write path updates
+   both in lockstep via `applyInventoryBalanceDelta`. The drift-heal path
+   already exists — `reconcileProductStockFromBalances` (exposed as
+   `inventory.reconcile`) recomputes `products.stock = Σ on_hand`, and
+   `listInventoryDiscrepancyCandidates` (in the inventory report) surfaces
+   drift. A full removal of `products.stock` in favour of a derived view
+   remains a larger, dedicated refactor (many read sites), tracked separately.
+3. **Location/bin grain (STAGED)** — `inventory_balances` still reserves a slot
+   for location-level granularity (per its own doc comment); unstarted.
 
 ## Phase C — lots, expiry & costing (STAGED, product-gated)
 

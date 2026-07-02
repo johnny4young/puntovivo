@@ -160,12 +160,21 @@ export const unitXProduct = sqliteTable(
     equivalence: real('equivalence').notNull().default(1),
     price: real('price').notNull().default(0),
     isBase: integer('is_base', { mode: 'boolean' }).default(false),
+    // Auditoría 2026-07 — packaging-level barcode. GS1 barcodes are
+    // per-packaging (a case has its own GTIN distinct from the unit), so a
+    // single `products.barcode` cannot represent scanning a case. This
+    // additive/nullable column lets each packaging level carry its own
+    // scannable code; `lookupByBarcode` resolves it to (product, unit) and
+    // the cart adds `equivalence` base units. `products.barcode` stays the
+    // base-unit code for back-compat.
+    barcode: text('barcode'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_unit_x_product_product').on(table.productId),
     index('idx_unit_x_product_unit').on(table.unitId),
+    index('idx_unit_x_product_barcode').on(table.barcode),
     uniqueIndex('idx_unit_x_product_scope').on(table.productId, table.unitId),
   ]
 );
