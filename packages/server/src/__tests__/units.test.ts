@@ -94,4 +94,54 @@ describe('Units tRPC Router', () => {
     const afterDelete = await caller.units.list({ page: 1, perPage: 50 });
     expect(afterDelete.items.some(unit => unit.id === created.id)).toBe(false);
   });
+
+  it('backfills dimension + standard code + reference factor from the catalog on create', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    // Plain create, no dimension fields supplied → catalog fills them in.
+    // ('ML' is not in the dev seed, so it does not collide with the unique
+    // (tenant, abbreviation) index.)
+    const ml = await caller.units.create({ name: 'Mililitro', abbreviation: 'ML', isActive: true });
+    expect(ml.dimension).toBe('volume');
+    expect(ml.standardCode).toBe('MLT');
+    expect(ml.referenceFactor).toBe(1);
+
+    // An unknown abbreviation stays null on every enrichment field.
+    const custom = await caller.units.create({
+      name: 'Widget',
+      abbreviation: 'WDG',
+      isActive: true,
+    });
+    expect(custom.dimension).toBeNull();
+    expect(custom.standardCode).toBeNull();
+    expect(custom.referenceFactor).toBeNull();
+  });
+
+  it('honours explicit dimension fields over the catalog and updates them', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    const created = await caller.units.create({
+      name: 'Media libra',
+      abbreviation: 'MLB',
+      dimension: 'mass',
+      standardCode: 'GRM',
+      referenceFactor: 226.796,
+      isActive: true,
+    });
+    expect(created.dimension).toBe('mass');
+    expect(created.standardCode).toBe('GRM');
+    expect(created.referenceFactor).toBeCloseTo(226.796, 3);
+
+    const updated = await caller.units.update({
+      id: created.id,
+      standardCode: 'KGM',
+      referenceFactor: 500,
+    });
+    expect(updated.standardCode).toBe('KGM');
+    expect(updated.referenceFactor).toBe(500);
+
+    // Nulling a field is allowed (operator clears a wrong mapping).
+    const cleared = await caller.units.update({ id: created.id, dimension: null });
+    expect(cleared.dimension).toBeNull();
+  });
 });

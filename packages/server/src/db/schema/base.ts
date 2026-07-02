@@ -141,6 +141,26 @@ export type QuotationStatus = (typeof quotationStatusEnum)[number];
 export const initialInventoryModeEnum = ['initial', 'physical'] as const;
 
 /**
+ * Physical dimension of a measurement unit (Auditoría 2026-07 — units
+ * foundation). Groups otherwise free-form tenant units so the app can
+ * validate dimensional coherence (a product's units should share a
+ * dimension), drive global conversions, and map to a standard
+ * unit-of-measure code for fiscal e-invoicing. `count` is the default
+ * for piece/each; `other` is the escape hatch for units that do not fit a
+ * physical dimension. Nullable on the column so legacy rows round-trip.
+ */
+export const unitDimensionEnum = [
+  'count',
+  'mass',
+  'volume',
+  'length',
+  'area',
+  'time',
+  'other',
+] as const;
+export type UnitDimension = (typeof unitDimensionEnum)[number];
+
+/**
  * Phase 8 / Tier-2 #8 — audit trail for sensitive operations.
  *
  * The list is intentionally open-ended: the full set of `action` / `resource_type`

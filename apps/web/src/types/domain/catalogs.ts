@@ -90,11 +90,27 @@ export interface VatRate {
   updatedAt: string;
 }
 
+/** Physical dimension of a unit (Auditoría 2026-07 — units foundation). */
+export type UnitDimension =
+  | 'count'
+  | 'mass'
+  | 'volume'
+  | 'length'
+  | 'area'
+  | 'time'
+  | 'other';
+
 export interface Unit {
   id: string;
   tenantId: string;
   name: string;
   abbreviation: string;
+  /** Physical dimension; null on legacy/unknown units. */
+  dimension?: UnitDimension | null;
+  /** UN/ECE Rec 20 unit code for fiscal e-invoicing; null when unmapped. */
+  standardCode?: string | null;
+  /** Multiplier into the dimension's reference unit; null when unmapped. */
+  referenceFactor?: number | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
