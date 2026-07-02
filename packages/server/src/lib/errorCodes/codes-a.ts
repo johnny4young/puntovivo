@@ -171,6 +171,12 @@ export const SERVER_ERROR_CODES_A = {
   SALE_UNIT_INVALID: 'SALE_UNIT_INVALID',
   /** A line requested more than the available on-hand stock; details: productName, available, requested. */
   SALE_INSUFFICIENT_STOCK: 'SALE_INSUFFICIENT_STOCK',
+  /** Lot receipt quantity must be greater than zero. */
+  LOT_QUANTITY_INVALID: 'LOT_QUANTITY_INVALID',
+  /** Lot unit cost cannot be negative. */
+  LOT_COST_INVALID: 'LOT_COST_INVALID',
+  /** Lot receipt references a product that does not exist for this tenant. */
+  LOT_PRODUCT_NOT_FOUND: 'LOT_PRODUCT_NOT_FOUND',
   /** Applied discount amount exceeds the computed sale total. */
   SALE_DISCOUNT_EXCEEDS_TOTAL: 'SALE_DISCOUNT_EXCEEDS_TOTAL',
   /** Amount received is below the sale total when the payment status is paid. */

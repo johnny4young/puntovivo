@@ -93,19 +93,39 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
 3. **Location/bin grain (STAGED)** — `inventory_balances` still reserves a slot
    for location-level granularity (per its own doc comment); unstarted.
 
-## Phase C — lots, expiry & costing (STAGED, product-gated)
+## Phase C — lots, expiry & costing (FOUNDATION SHIPPED)
 
-1. **Lot/batch + expiry.** A lot dimension on stock (`inventory_lots`:
-   product, site, lot_no, expiry, on_hand, unit_cost) unlocks FEFO
-   (first-expired-first-out) picking, expiry alerts, recalls, and pharma/INVIMA
-   compliance. Sale lines optionally reference the consumed lot(s).
-2. **Serial numbers** — per-unit serials for warranty (electronics, tools).
-3. **Costing method** — explicit FIFO / weighted-average cost layers so COGS
-   and margin are auditable, not a single mutable `products.cost`. Required for
-   trustworthy fiscal profit reporting.
+Phase 1 (data model + FEFO/costing engine + admin surface) is in;
+auto-consumption on the sale path is the next slice.
 
-These are product decisions (which method? do we need lots now for the pilot
-vertical?), so each starts as its own design slice, not speculative schema.
+1. **Lot/batch + expiry (DONE, foundation).** `inventory_lots` (site, product,
+   lot_no, expiry, on_hand, unit_cost, status) + `products.tracks_lots` opt-in;
+   migration `0005_inventory_lots`. Quantities/cost are per base unit, so a lot's
+   on-hand is directly comparable to an `inventory_balances` on-hand.
+   - `services/inventory-lots/select-fefo.ts` — pure, exhaustively-tested FEFO
+     allocation: orders lots by expiry (nulls last) then receipt, draws down in
+     order, and because each lot carries its own `unit_cost` the allocation IS
+     the COGS layer — `totalCost` is the exact cost of goods sold, plus a
+     `weightedAverageUnitCost` for the blended-cost entry.
+   - `receiveInventoryLot` upserts a batch (increment + weighted-average cost on
+     re-receipt of the same lot).
+   - `inventoryLots` router: `receive` (manager/admin), `list` (FEFO-ordered),
+     `expiring` (expiry-alert scan within a day window).
+   - Sync contract: `inventory_lots` registered as a `manual`-policy entity.
+2. **Costing method (DONE at the engine level).** FEFO consumption yields
+   auditable FIFO-by-expiry COGS from real cost layers rather than a single
+   mutable `products.cost`. The blended-cost helper covers the weighted-average
+   reporting case.
+3. **Sale-path auto-consumption (NEXT SLICE).** Behind `products.tracks_lots`,
+   `runFreshSale`/`runCompleteDraft` call `selectLotsFefo`, decrement the chosen
+   lots, and stamp the per-lot COGS onto `sale_items.costAtSale`. Deferred
+   because it edits the money path and must land behind its own transaction
+   tests; the pure engine it needs is already shipped and tested.
+4. **Serial numbers (STAGED)** — per-unit serials for warranty (electronics,
+   tools); unstarted.
+
+Remaining items stay product-gated (which vertical needs lots for the pilot?),
+so each is its own slice, not speculative schema.
 
 ## Migration principles (how we avoid a big-bang)
 

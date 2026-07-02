@@ -10,7 +10,7 @@
  */
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
-import { initialInventoryModeEnum, moneyPositiveChecks, movementTypeEnum, nowIso, sqliteNow, syncStatusEnum } from './base.js';
+import { initialInventoryModeEnum, lotStatusEnum, moneyPositiveChecks, movementTypeEnum, nowIso, sqliteNow, syncStatusEnum } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { units } from './catalogs.js';
 import { products } from './products.js';
@@ -298,6 +298,91 @@ export const transferOrderItemsRelations = relations(transferOrderItems, ({ one 
   }),
   product: one(products, {
     fields: [transferOrderItems.productId],
+    references: [products.id],
+  }),
+}));
+
+// ============================================================================
+// INVENTORY LOTS (Auditoría 2026-07 — lots, expiry & costing)
+// ============================================================================
+
+/**
+ * A lot is a received batch of a product held at a site, carrying its own
+ * expiry date and unit cost. Lots are the substrate for FEFO
+ * (first-expired-first-out) consumption, expiry alerts, recalls, and
+ * auditable COGS (each lot is a cost layer). Opt-in per product via
+ * `products.tracks_lots`; products that do not track lots keep the existing
+ * single-number stock path untouched.
+ *
+ * Quantities and cost are per BASE unit, matching `inventory_balances` and
+ * `sale_items.normalizedQuantity`, so a lot's `on_hand` is directly
+ * comparable to a balance's `on_hand`.
+ */
+export const inventoryLots = sqliteTable(
+  'inventory_lots',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    /** Operator/supplier batch code. Unique per (tenant, site, product). */
+    lotNumber: text('lot_number').notNull(),
+    /** ISO date; null for a non-perishable lot (never FEFO-prioritised by date). */
+    expiresAt: text('expires_at'),
+    /** Remaining quantity in base units. */
+    onHand: real('on_hand').notNull().default(0),
+    /** Cost per base unit for this lot — the COGS layer. */
+    unitCost: real('unit_cost').notNull().default(0),
+    status: text('status', { enum: lotStatusEnum }).notNull().default('active'),
+    receivedAt: text('received_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    notes: text('notes'),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_inventory_lots_tenant').on(table.tenantId),
+    index('idx_inventory_lots_site').on(table.siteId),
+    index('idx_inventory_lots_product').on(table.productId),
+    // FEFO scan: within a (tenant, site, product) pick active lots ordered
+    // by expiry then receipt.
+    index('idx_inventory_lots_fefo').on(
+      table.tenantId,
+      table.siteId,
+      table.productId,
+      table.expiresAt
+    ),
+    // Expiry-alert scan across the tenant.
+    index('idx_inventory_lots_expires').on(table.tenantId, table.expiresAt),
+    // One row per physical batch at a site.
+    uniqueIndex('idx_inventory_lots_scope').on(
+      table.tenantId,
+      table.siteId,
+      table.productId,
+      table.lotNumber
+    ),
+    ...moneyPositiveChecks('inventory_lots_unit_cost', table.unitCost),
+  ]
+);
+
+export const inventoryLotsRelations = relations(inventoryLots, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [inventoryLots.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [inventoryLots.siteId],
+    references: [sites.id],
+  }),
+  product: one(products, {
+    fields: [inventoryLots.productId],
     references: [products.id],
   }),
 }));
