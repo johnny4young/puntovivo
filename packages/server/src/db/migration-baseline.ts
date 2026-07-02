@@ -166,6 +166,11 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0003_unit_dimension_standard_code') {
       return !tableExists('units');
     }
+    // Auditoría 2026-07 — packaging-barcode migration ALTERs
+    // `unit_x_product`; same partial-legacy guard.
+    if (entry.tag === '0004_unit_x_product_barcode') {
+      return !tableExists('unit_x_product');
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

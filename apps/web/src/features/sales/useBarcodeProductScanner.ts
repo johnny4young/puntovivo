@@ -104,6 +104,13 @@ export function useBarcodeProductScanner({
           toast.error({ title: t('sales:scanner.noBaseUnit') });
           return;
         }
+        // Packaging-barcode scans resolve to a specific unit (a case/pack);
+        // select it instead of the base so the cart line carries its
+        // equivalence and price. Base-barcode scans leave resolvedUnitId null.
+        const scannedUnit =
+          result.resolvedUnitId
+            ? unitAssignments.find(u => u.unitId === result.resolvedUnitId) ?? baseUnit
+            : baseUnit;
         const overridePrice =
           typeof result.suggestedPrice === 'number'
             ? result.suggestedPrice
@@ -114,8 +121,8 @@ export function useBarcodeProductScanner({
             : null;
         const selection: ProductSearchSelection = {
           product,
-          unit: baseUnit,
-          price: overridePrice ?? baseUnit.price ?? product.price,
+          unit: scannedUnit,
+          price: overridePrice ?? scannedUnit.price ?? product.price,
         };
         const itemKey = getCartItemKey(selection.product.id, selection.unit.unitId);
         setCartItems(currentItems => {

@@ -59,6 +59,8 @@ export interface ProductUnitAssignment {
   equivalence: number;
   price: number;
   isBase: boolean;
+  /** Packaging-level barcode (Auditoría 2026-07 — Tier B); null on base/none. */
+  barcode?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
