@@ -16,6 +16,7 @@
  *  - Empty / loading / error states have dedicated visuals so the
  *    grid never collapses into a blank gray box.
  */
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Boxes } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
@@ -28,7 +29,10 @@ interface PosTouchProductGridProps {
   onSelect: (product: Product) => void;
 }
 
-export function PosTouchProductGrid({
+// memo: the grid renders up to 200 tiles and its props (query-derived
+// products array, stable onSelect) do not change on cart taps — without
+// memo every cart mutation re-renders all tiles.
+export const PosTouchProductGrid = memo(function PosTouchProductGrid({
   products,
   isLoading,
   isError,
@@ -107,4 +111,4 @@ export function PosTouchProductGrid({
       ))}
     </div>
   );
-}
+});

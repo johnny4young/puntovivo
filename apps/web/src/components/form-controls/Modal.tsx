@@ -229,26 +229,33 @@ export function ConfirmModal({
   isOpen,
   onClose,
   onConfirm,
-  title = 'Confirm Action',
+  title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText,
+  cancelText,
   variant = 'danger',
   loading = false,
 }: ConfirmModalProps) {
+  // Localized defaults — callers usually pass explicit strings, but the
+  // fallbacks must not leak hardcoded English into a Spanish session.
+  const { t } = useTranslation('common');
+  const resolvedTitle = title ?? t('actions.confirm');
+  const resolvedConfirmText = confirmText ?? t('actions.confirm');
+  const resolvedCancelText = cancelText ?? t('actions.cancel');
+  const loadingText = t('actions.loading');
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={title}
+      title={resolvedTitle}
       size="sm"
       footer={
         <>
           <ModalButton onClick={onClose} disabled={loading}>
-            {cancelText}
+            {resolvedCancelText}
           </ModalButton>
           <ModalButton variant={variant} onClick={onConfirm} disabled={loading}>
-            {loading ? 'Loading...' : confirmText}
+            {loading ? `${loadingText}…` : resolvedConfirmText}
           </ModalButton>
         </>
       }

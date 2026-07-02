@@ -92,6 +92,12 @@ export function useSalesFlows({
   const utils = trpc.useUtils();
 
   const handleCheckout = async (values: SalePaymentValues) => {
+    // Defense in depth behind the modal's own isSaving guard: each
+    // mutate() mints a fresh idempotency envelope, so a second concurrent
+    // fire would complete the sale twice server-side.
+    if (createMutation.isPending || completeDraftMutation.isPending) {
+      return;
+    }
     try {
       // ENG-039d — tip rolls into total server-side; we pass it through
       // unchanged. `tipMethod` is normalized to `undefined` when the
@@ -290,6 +296,12 @@ export function useSalesFlows({
   };
 
   const handleResumeFromPanel = async (draft: { id: string }) => {
+    // A double-click on the panel row would resume the same draft twice
+    // and hydrate two workspaces pointing at one serverSaleId — charging
+    // both would completeDraft the same sale twice.
+    if (resumeMutation.isPending) {
+      return;
+    }
     try {
       const resumed = await resumeMutation.mutateAsync({ saleId: draft.id });
       if (!ownerKey) {

@@ -2,6 +2,7 @@ import { useDeferredValue, useId, useRef, useState, type KeyboardEvent } from 'r
 import { useTranslation } from 'react-i18next';
 import { PlusCircle, Search } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
 import type {
@@ -104,7 +105,11 @@ export function ProductSearchDialog({
   const [lastItemsKey, setLastItemsKey] = useState('');
   const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
 
-  const deferredQuery = useDeferredValue(query.trim());
+  // Debounce (not just defer) the typed query: useDeferredValue only
+  // deprioritizes rendering — every settled keystroke still became its
+  // own products.search request. 200ms trailing debounce coalesces a
+  // burst of typing into one query.
+  const deferredQuery = useDebouncedValue(query.trim(), 200);
   const deferredCategoryId = useDeferredValue(categoryId);
   const deferredProviderId = useDeferredValue(providerId);
   const searchEnabled = isOpen && deferredQuery.length > 0;

@@ -1362,6 +1362,36 @@ async function handleGetBackupEncryptionKey(): Promise<{
 
 
 // Initialize the application
+// Deny-by-default popup/navigation policy for EVERY webContents, current
+// and future (print windows, devtools-spawned views, anything a dependency
+// opens). The mainWindow handlers below re-state the same policy with the
+// in-app-navigation carve-out; this hook is the belt-and-suspenders floor
+// so an ephemeral window can never be navigated off the app even if its
+// creator forgot to attach handlers.
+app.on('web-contents-created', (_event, contents) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (isAllowedExternalUrl(url)) {
+      void shell.openExternal(url);
+    } else {
+      mainLog.warn({ url }, 'blocked window.open from webContents');
+    }
+    return { action: 'deny' };
+  });
+  contents.on('will-attach-webview', event => {
+    event.preventDefault();
+  });
+  contents.on('will-navigate', (event, url) => {
+    // mainWindow carries its own will-navigate policy with the in-app
+    // reload carve-out; every other webContents (print window, etc.)
+    // loads exactly one document and must never navigate again.
+    if (mainWindow && contents === mainWindow.webContents) {
+      return;
+    }
+    event.preventDefault();
+    mainLog.warn({ url }, 'blocked navigation in auxiliary webContents');
+  });
+});
+
 app.whenReady().then(async () => {
   // Initialize main-process locale from Electron's detected system locale.
   // The renderer will push updates via the 'update-main-locale' IPC channel
@@ -1540,8 +1570,34 @@ ipcMain.on('runtime:get-config', event => {
 // connection — see local-bridge.ts for the ADR-0008 rule 6
 // invariant.
 ipcMain.handle('peripherals:dispatch-local-escpos', async (_event, payload) => {
+  // Same renderer-as-attacker posture as the db:*/sync:* handlers: the
+  // bridge is a hardware actuator, so it must not be reachable before a
+  // verified login registers a session (ENG-025 vector 1). The bridge
+  // contract is "never throw across IPC", so the rejection is returned
+  // as a failure result the existing onEscposFallback toast can surface.
+  try {
+    desktopSession.requireTenantId();
+  } catch {
+    return {
+      success: false,
+      error: 'No registered desktop session',
+      errorCode: 'SESSION_NOT_REGISTERED',
+    };
+  }
+  if (
+    typeof payload !== 'object' ||
+    payload === null ||
+    !('bytes' in payload) ||
+    !('transport' in payload)
+  ) {
+    return {
+      success: false,
+      error: 'Malformed local ESC/POS dispatch payload',
+      errorCode: 'INVALID_PAYLOAD',
+    };
+  }
   const { dispatchLocalEscpos } = await import('./peripherals/local-bridge.js');
-  return dispatchLocalEscpos(payload);
+  return dispatchLocalEscpos(payload as import('./peripherals/local-bridge.js').LocalEscPosDispatchInput);
 });
 // The fallback string is only returned before the embedded server has
 // started. ENG-072 — once the server is up, `getUrl()` returns the
@@ -1601,7 +1657,12 @@ ipcMain.handle('device:get-id', async (): Promise<string | null> => {
 });
 
 ipcMain.handle('device:set-id', async (_event, deviceId: unknown): Promise<void> => {
-  if (typeof deviceId !== 'string') {
+  // The device id is server-issued during login, which registers the
+  // desktop session first (AuthProvider order) — so a pre-login renderer
+  // has no business persisting an id. The renderer treats a rejection as
+  // non-fatal (localStorage stays authoritative).
+  desktopSession.requireTenantId();
+  if (typeof deviceId !== 'string' || deviceId.length === 0 || deviceId.length > 256) {
     throw new Error('DEVICE_SET_ID_REJECTED');
   }
   await writeDeviceIdToDir(app.getPath('userData'), deviceId);

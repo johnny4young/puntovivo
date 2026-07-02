@@ -13,7 +13,7 @@
  *
  * @module features/sales/useSalePaymentModal
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
@@ -148,10 +148,15 @@ export function useSalePaymentModal({
   };
 
   // ENG-105e — apply on F2-open and re-apply when the parent
-  // increments the trigger while the modal is already open.
+  // increments the trigger while the modal is already open. The ref
+  // indirection (same pattern as useRealtimeChannel) guarantees the
+  // deferred call always reads the latest grandTotal — a direct
+  // closure would freeze the render-time amount if the microtask were
+  // ever deferred further (e.g. a future setTimeout refactor).
+  const applyFastCashRef = useRef(applyFastCash);
+  applyFastCashRef.current = applyFastCash;
   useEffect(() => {
-    if (fastCashTrigger > 0) queueMicrotask(applyFastCash);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (fastCashTrigger > 0) queueMicrotask(() => applyFastCashRef.current());
   }, [fastCashTrigger]);
 
   const change = isCash ? Math.max(0, amountReceivedValue - grandTotal) : 0;
@@ -289,6 +294,13 @@ export function useSalePaymentModal({
   }
 
   const handleSubmit = form.handleSubmit(values => {
+    // A held/repeated F1 (or Enter) fires requestSubmit() straight at the
+    // form, bypassing the disabled footer button — without this guard a
+    // single checkout can submit twice with two distinct idempotency
+    // envelopes and double-charge the sale.
+    if (isSaving) {
+      return;
+    }
     const sanitizedTip = Math.max(0, Number(values.tipAmount) || 0);
     // ENG-090 — credit override is admin-only at the form layer too.
     // The server still gates `true` from non-admin callers at the

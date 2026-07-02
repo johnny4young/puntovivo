@@ -132,9 +132,30 @@ vi.mock('@/lib/trpc', () => ({
       },
     },
     useUtils: () => ({
-      cashSessions: { getActive: { invalidate: invalidateCash } },
+      // The charge epilogue invalidates the shared SALE_COMPLETION_INVALIDATIONS
+      // set, so every picked leaf must exist on the mock.
+      cashSessions: {
+        getActive: { invalidate: invalidateCash },
+        movements: { invalidate: vi.fn() },
+        report: { invalidate: vi.fn() },
+        registerAssignments: { invalidate: vi.fn() },
+      },
+      sales: {
+        list: { invalidate: vi.fn() },
+        listDrafts: { invalidate: vi.fn() },
+        summary: { invalidate: vi.fn() },
+      },
+      inventory: {
+        listMovements: { invalidate: vi.fn() },
+        listStock: { invalidate: vi.fn() },
+      },
+      customerLedger: {
+        getBalance: { invalidate: vi.fn() },
+        list: { invalidate: vi.fn() },
+      },
       products: {
         list: { invalidate: invalidateProducts },
+        search: { invalidate: vi.fn() },
         // `handleAddToCart` calls `utils.products.getById.fetch` to
         // hydrate the unit assignments missing from `products.list`.
         // The mock returns the product augmented with a single base
