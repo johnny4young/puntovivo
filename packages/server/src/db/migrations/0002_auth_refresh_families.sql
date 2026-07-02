@@ -3,6 +3,7 @@ CREATE TABLE `auth_refresh_families` (
 	`tenant_id` text NOT NULL,
 	`user_id` text NOT NULL,
 	`current_jti` text NOT NULL,
+	`previous_jti` text,
 	`issued_at` text DEFAULT (datetime('now')) NOT NULL,
 	`last_rotated_at` text DEFAULT (datetime('now')) NOT NULL,
 	`expires_at` text NOT NULL,

@@ -16,6 +16,7 @@ import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
 import { eq } from 'drizzle-orm';
 import {
+  REFRESH_ROTATION_GRACE_MS,
   createRefreshFamily,
   pruneExpiredRefreshFamilies,
   revokeRefreshFamiliesForUser,
@@ -156,7 +157,7 @@ describe('refresh-token rotation', () => {
       expect(afterRevoke.status).toBe('missing');
     });
 
-    it('replaying a rotated jti revokes the family and bumps sessionVersion', () => {
+    it('replaying a rotated jti OUTSIDE the grace window revokes the family and bumps sessionVersion', () => {
       const db = getDatabase();
       const before = db
         .select({ sessionVersion: users.sessionVersion })
@@ -165,18 +166,21 @@ describe('refresh-token rotation', () => {
         .get();
       const grant = createRefreshFamily(db, { tenantId: testTenantId, userId: testUserId });
 
+      const rotatedAt = 1_000_000;
       const rotated = rotateRefreshFamily(db, {
         familyId: grant.familyId,
         presentedJti: grant.jti,
         userId: testUserId,
+        now: () => rotatedAt,
       });
       expect(rotated.status).toBe('rotated');
 
-      // Replay the ORIGINAL (already rotated away) jti.
+      // Replay the ORIGINAL jti well after the grace window closed ⇒ theft.
       const replay = rotateRefreshFamily(db, {
         familyId: grant.familyId,
         presentedJti: grant.jti,
         userId: testUserId,
+        now: () => rotatedAt + REFRESH_ROTATION_GRACE_MS + 5_000,
       });
       expect(replay.status).toBe('reused');
 
@@ -193,9 +197,87 @@ describe('refresh-token rotation', () => {
         .where(eq(users.id, testUserId))
         .get();
       expect(after!.sessionVersion).toBe(before!.sessionVersion + 1);
+    });
 
-      // Restore the pre-test sessionVersion so HTTP suites below can log in
-      // against a stable baseline (login re-reads the row anyway).
+    it('replaying the immediately-previous jti WITHIN the grace window re-issues without revoking (concurrent-refresh race)', () => {
+      const db = getDatabase();
+      const before = db
+        .select({ sessionVersion: users.sessionVersion })
+        .from(users)
+        .where(eq(users.id, testUserId))
+        .get();
+      const grant = createRefreshFamily(db, { tenantId: testTenantId, userId: testUserId });
+
+      const rotatedAt = 2_000_000;
+      const rotated = rotateRefreshFamily(db, {
+        familyId: grant.familyId,
+        presentedJti: grant.jti,
+        userId: testUserId,
+        now: () => rotatedAt,
+      });
+      expect(rotated.status).toBe('rotated');
+      const currentJti = rotated.status === 'rotated' ? rotated.jti : '';
+
+      // Second tab replays the pre-rotation jti a few seconds later.
+      const raced = rotateRefreshFamily(db, {
+        familyId: grant.familyId,
+        presentedJti: grant.jti,
+        userId: testUserId,
+        now: () => rotatedAt + 3_000,
+      });
+      expect(raced.status).toBe('reissued');
+      // Converges on the family's CURRENT jti rather than minting a rival.
+      expect(raced.status === 'reissued' && raced.jti).toBe(currentJti);
+
+      // Family still alive, session NOT killed.
+      const family = db
+        .select()
+        .from(authRefreshFamilies)
+        .where(eq(authRefreshFamilies.id, grant.familyId))
+        .get();
+      expect(family).toBeDefined();
+      const after = db
+        .select({ sessionVersion: users.sessionVersion })
+        .from(users)
+        .where(eq(users.id, testUserId))
+        .get();
+      expect(after!.sessionVersion).toBe(before!.sessionVersion);
+      revokeRefreshFamiliesForUser(db, testUserId);
+    });
+
+    it('replaying a jti older than the immediate predecessor still revokes even within the window', () => {
+      const db = getDatabase();
+      const grant = createRefreshFamily(db, { tenantId: testTenantId, userId: testUserId });
+      const at = 3_000_000;
+
+      const first = rotateRefreshFamily(db, {
+        familyId: grant.familyId,
+        presentedJti: grant.jti,
+        userId: testUserId,
+        now: () => at,
+      });
+      expect(first.status).toBe('rotated');
+      const secondJti = first.status === 'rotated' ? first.jti : '';
+
+      // Legitimate second rotation moves previousJti forward to secondJti.
+      const second = rotateRefreshFamily(db, {
+        familyId: grant.familyId,
+        presentedJti: secondJti,
+        userId: testUserId,
+        now: () => at + 1_000,
+      });
+      expect(second.status).toBe('rotated');
+
+      // The ORIGINAL jti is now two hops back — no longer the immediate
+      // predecessor — so even inside the window it reads as theft.
+      const replayOld = rotateRefreshFamily(db, {
+        familyId: grant.familyId,
+        presentedJti: grant.jti,
+        userId: testUserId,
+        now: () => at + 2_000,
+      });
+      expect(replayOld.status).toBe('reused');
+      revokeRefreshFamiliesForUser(db, testUserId);
     });
 
     it('pruneExpiredRefreshFamilies removes only expired rows', () => {
@@ -241,26 +323,50 @@ describe('refresh-token rotation', () => {
       expect(second.response.statusCode).toBe(200);
     });
 
-    it('detects replay of a rotated cookie and kills the whole session family', async () => {
+    it('tolerates a concurrent replay of the immediately-previous cookie (two-tab race, no session kill)', async () => {
       const { refreshCookie, csrfCookie } = await loginOverHttp();
 
+      // Tab A refreshes (rotates the shared cookie).
       const first = await refreshOverHttp(refreshCookie!, csrfCookie!);
       expect(first.response.statusCode).toBe(200);
 
-      // Replay the pre-rotation cookie (attacker with a stolen copy).
+      // Tab B, milliseconds behind, POSTs with the pre-rotation cookie it
+      // still held. Within the grace window this is benign: 200, and it
+      // gets a working cookie back.
+      const raced = await refreshOverHttp(refreshCookie!, csrfCookie!);
+      expect(raced.response.statusCode).toBe(200);
+      expect(raced.nextRefreshCookie).toBeTruthy();
+
+      // Both tabs' latest cookies keep working — the session survived.
+      const contA = await refreshOverHttp(first.nextRefreshCookie!, csrfCookie!);
+      expect(contA.response.statusCode).toBe(200);
+    });
+
+    it('detects genuine replay (older-than-previous cookie) and kills the whole session family', async () => {
+      const { refreshCookie, csrfCookie } = await loginOverHttp();
+
+      // Two legitimate rotations: the ORIGINAL cookie is now two hops back,
+      // so replaying it is theft even inside the grace window (it is no
+      // longer the immediate predecessor).
+      const first = await refreshOverHttp(refreshCookie!, csrfCookie!);
+      expect(first.response.statusCode).toBe(200);
+      const second = await refreshOverHttp(first.nextRefreshCookie!, csrfCookie!);
+      expect(second.response.statusCode).toBe(200);
+
+      // Attacker replays the stolen ORIGINAL cookie.
       const replay = await refreshOverHttp(refreshCookie!, csrfCookie!);
       expect(replay.response.statusCode).toBe(401);
 
-      // The legitimate holder's (post-rotation) cookie is dead too — the
-      // family was revoked and sessionVersion bumped.
-      const legitimate = await refreshOverHttp(first.nextRefreshCookie!, csrfCookie!);
+      // The legitimate holder's current cookie is dead too — family revoked
+      // and sessionVersion bumped.
+      const legitimate = await refreshOverHttp(second.nextRefreshCookie!, csrfCookie!);
       expect(legitimate.response.statusCode).toBe(401);
 
       // And the pre-replay access token no longer authenticates.
       const me = await server.app.inject({
         method: 'GET',
         url: '/api/trpc/auth.me?batch=1',
-        headers: { authorization: `Bearer ${first.token}` },
+        headers: { authorization: `Bearer ${second.token}` },
       });
       expect(me.statusCode).toBe(401);
     });
