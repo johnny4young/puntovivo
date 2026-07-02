@@ -35,6 +35,7 @@ import { hashPasswordSecurely } from '../security/passwords.js';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from './index.js';
+import type { UnitDimension } from './schema/base.js';
 import {
   categories,
   cities,
@@ -524,6 +525,9 @@ export async function seedDevData(
         tenantId,
         name: unit.name,
         abbreviation: unit.abbreviation,
+        dimension: unit.dimension,
+        standardCode: unit.standardCode,
+        referenceFactor: unit.referenceFactor,
         isActive: true,
         createdAt: now,
         updatedAt: now,
@@ -1038,12 +1042,21 @@ const DEV_VAT_RATES: Array<{ name: string; rate: number }> = [
   { name: 'IVA 19%', rate: 19 },
 ];
 
-const DEV_UNITS: Array<{ name: string; abbreviation: string }> = [
-  { name: 'Unidad', abbreviation: 'UND' },
-  { name: 'Kilogramo', abbreviation: 'KG' },
-  { name: 'Litro', abbreviation: 'LT' },
-  { name: 'Gramo', abbreviation: 'GR' },
-  { name: 'Paquete', abbreviation: 'PQTE' },
+// Auditoría 2026-07 — units foundation. dimension + standardCode +
+// referenceFactor mirror the standards catalog so the seed exercises the
+// enriched columns end-to-end.
+const DEV_UNITS: Array<{
+  name: string;
+  abbreviation: string;
+  dimension: UnitDimension;
+  standardCode: string;
+  referenceFactor: number;
+}> = [
+  { name: 'Unidad', abbreviation: 'UND', dimension: 'count', standardCode: 'C62', referenceFactor: 1 },
+  { name: 'Kilogramo', abbreviation: 'KG', dimension: 'mass', standardCode: 'KGM', referenceFactor: 1000 },
+  { name: 'Litro', abbreviation: 'LT', dimension: 'volume', standardCode: 'LTR', referenceFactor: 1000 },
+  { name: 'Gramo', abbreviation: 'GR', dimension: 'mass', standardCode: 'GRM', referenceFactor: 1 },
+  { name: 'Paquete', abbreviation: 'PQTE', dimension: 'count', standardCode: 'XPK', referenceFactor: 1 },
 ];
 
 const DEV_IDENTIFICATION_TYPES: Array<{ code: string; name: string }> = [

@@ -159,6 +159,13 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0001_eng177c_sales_cash_session_check') {
       return !tableExists('sales');
     }
+    // Auditoría 2026-07 — the units-foundation migration ALTERs `units`.
+    // A partial legacy/test DB without a `units` table has no target, so
+    // mark it applied to keep minimal shapes booting; a real adopted DB
+    // carries `units` (baseline) and the ALTER runs normally.
+    if (entry.tag === '0003_unit_dimension_standard_code') {
+      return !tableExists('units');
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

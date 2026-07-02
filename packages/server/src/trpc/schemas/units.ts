@@ -8,6 +8,14 @@
 
 import { z } from 'zod';
 import { paginationInput } from './common.js';
+import { unitDimensionEnum } from '../../db/schema/base.js';
+
+// Auditoría 2026-07 — units foundation. All optional so existing clients
+// (and the desktop offline path) keep working unchanged; when omitted on
+// create, the router backfills them from the standards catalog.
+const unitDimensionSchema = z.enum(unitDimensionEnum);
+const standardCodeSchema = z.string().trim().min(1).max(12);
+const referenceFactorSchema = z.number().positive().finite();
 
 export const listUnitsInput = paginationInput.extend({
   search: z.string().optional(),
@@ -21,6 +29,9 @@ export const getUnitInput = z.object({
 export const createUnitInput = z.object({
   name: z.string().min(1, 'Name is required').max(255),
   abbreviation: z.string().min(1, 'Abbreviation is required').max(20),
+  dimension: unitDimensionSchema.optional(),
+  standardCode: standardCodeSchema.optional(),
+  referenceFactor: referenceFactorSchema.optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -28,6 +39,9 @@ export const updateUnitInput = z.object({
   id: z.string().min(1, 'ID is required'),
   name: z.string().min(1).max(255).optional(),
   abbreviation: z.string().min(1).max(20).optional(),
+  dimension: unitDimensionSchema.nullable().optional(),
+  standardCode: standardCodeSchema.nullable().optional(),
+  referenceFactor: referenceFactorSchema.nullable().optional(),
   isActive: z.boolean().optional(),
 });
 

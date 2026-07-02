@@ -22,6 +22,7 @@ import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { units } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { lookupUnitStandard } from '../../services/units/unit-standards.js';
 import {
   createUnitInput,
   deleteUnitInput,
@@ -86,11 +87,22 @@ export const unitsRouter = router({
     const now = new Date().toISOString();
     const id = nanoid();
 
+    // Backfill dimension / standard code / reference factor from the
+    // standards catalog when the operator did not supply them, so a plain
+    // "KG" create still lands fiscal-ready. Explicit input always wins.
+    const standard = lookupUnitStandard(input.abbreviation);
+    const dimension = input.dimension ?? standard?.dimension ?? null;
+    const standardCode = input.standardCode ?? standard?.standardCode ?? null;
+    const referenceFactor = input.referenceFactor ?? standard?.referenceFactor ?? null;
+
     await ctx.db.insert(units).values({
       id,
       tenantId: ctx.tenantId,
       name: input.name,
       abbreviation: input.abbreviation,
+      dimension,
+      standardCode,
+      referenceFactor,
       isActive: input.isActive,
       createdAt: now,
       updatedAt: now,
@@ -100,7 +112,7 @@ export const unitsRouter = router({
       entityType: 'units',
       entityId: id,
       operation: 'create',
-      data: { id, ...input },
+      data: { id, ...input, dimension, standardCode, referenceFactor },
     });
 
     const created = await ctx.db.select().from(units).where(eq(units.id, id)).get();
@@ -126,6 +138,9 @@ export const unitsRouter = router({
 
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.abbreviation !== undefined) updateData.abbreviation = updates.abbreviation;
+    if (updates.dimension !== undefined) updateData.dimension = updates.dimension;
+    if (updates.standardCode !== undefined) updateData.standardCode = updates.standardCode;
+    if (updates.referenceFactor !== undefined) updateData.referenceFactor = updates.referenceFactor;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
     await ctx.db

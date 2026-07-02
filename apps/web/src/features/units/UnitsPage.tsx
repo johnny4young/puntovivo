@@ -6,20 +6,36 @@ import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
-import type { Unit, UserRole } from '@/types';
+import type { Unit, UnitDimension, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 
+// '' = "auto / none" — the server backfills the dimension + standard code
+// from the units catalog when the operator leaves it blank on create.
+const UNIT_DIMENSIONS: ReadonlyArray<UnitDimension> = [
+  'count',
+  'mass',
+  'volume',
+  'length',
+  'area',
+  'time',
+  'other',
+];
+
 interface UnitFormValues {
   name: string;
   abbreviation: string;
+  dimension: UnitDimension | '';
+  standardCode: string;
   isActive: boolean;
 }
 
 const defaultValues: UnitFormValues = {
   name: '',
   abbreviation: '',
+  dimension: '',
+  standardCode: '',
   isActive: true,
 };
 
@@ -31,6 +47,8 @@ function mapUnitToForm(unit: Unit | null): UnitFormValues {
   return {
     name: unit.name,
     abbreviation: unit.abbreviation,
+    dimension: unit.dimension ?? '',
+    standardCode: unit.standardCode ?? '',
     isActive: unit.isActive,
   };
 }
@@ -105,6 +123,34 @@ function UnitFormModal({
               {form.formState.errors.abbreviation.message}
             </p>
           )}
+        </div>
+
+        <div>
+          <label htmlFor="unit-dimension" className="label">
+            {t('units.form.dimension')}
+          </label>
+          <select id="unit-dimension" className="input mt-1" {...form.register('dimension')}>
+            <option value="">{t('units.form.dimensionAuto')}</option>
+            {UNIT_DIMENSIONS.map(dimension => (
+              <option key={dimension} value={dimension}>
+                {t(`units.dimensions.${dimension}`)}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-secondary-500">{t('units.form.dimensionHint')}</p>
+        </div>
+
+        <div>
+          <label htmlFor="unit-standard-code" className="label">
+            {t('units.form.standardCode')}
+          </label>
+          <input
+            id="unit-standard-code"
+            className="input mt-1"
+            placeholder={t('units.form.standardCodePlaceholder')}
+            {...form.register('standardCode')}
+          />
+          <p className="mt-1 text-xs text-secondary-500">{t('units.form.standardCodeHint')}</p>
         </div>
 
         <label className="flex items-center gap-3 text-sm text-secondary-700">
@@ -189,17 +235,29 @@ export function UnitsPage() {
   };
 
   const handleSubmit = async (values: UnitFormValues) => {
+    const trimmedCode = values.standardCode.trim();
     if (editingUnit) {
       await updateMutation.mutateAsync({
         id: editingUnit.id,
         name: values.name,
         abbreviation: values.abbreviation,
+        // On edit, '' clears the field (null); a value sets it.
+        dimension: values.dimension === '' ? null : values.dimension,
+        standardCode: trimmedCode === '' ? null : trimmedCode,
         isActive: values.isActive,
       });
       return;
     }
 
-    await createMutation.mutateAsync(values);
+    // On create, omit blank enrichment fields so the server backfills them
+    // from the standards catalog.
+    await createMutation.mutateAsync({
+      name: values.name,
+      abbreviation: values.abbreviation,
+      isActive: values.isActive,
+      ...(values.dimension !== '' ? { dimension: values.dimension } : {}),
+      ...(trimmedCode !== '' ? { standardCode: trimmedCode } : {}),
+    });
   };
 
   const columns: ColumnDef<Unit>[] = [
@@ -224,6 +282,25 @@ export function UnitsPage() {
       size: 140,
       cell: ({ row }) => (
         <span className="font-medium text-secondary-900">{row.original.abbreviation}</span>
+      ),
+    },
+    {
+      id: 'dimension',
+      header: t('units.columns.dimension'),
+      size: 160,
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span className="text-sm text-secondary-700">
+            {row.original.dimension
+              ? t(`units.dimensions.${row.original.dimension}`)
+              : '—'}
+          </span>
+          {row.original.standardCode && (
+            <span className="font-mono text-[11px] text-secondary-500">
+              {row.original.standardCode}
+            </span>
+          )}
+        </div>
       ),
     },
     {

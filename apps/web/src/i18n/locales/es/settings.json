@@ -641,7 +641,8 @@
       "abbreviation": "Abreviatura",
       "status": "Estado",
       "active": "Activo",
-      "inactive": "Inactivo"
+      "inactive": "Inactivo",
+      "dimension": "Dimensión"
     },
     "form": {
       "createTitle": "Crear unidad",
@@ -654,7 +655,13 @@
       "cancel": "Cancelar",
       "submitting": "Guardando...",
       "create": "Crear unidad",
-      "save": "Guardar cambios"
+      "save": "Guardar cambios",
+      "dimension": "Dimensión física",
+      "dimensionAuto": "Automática (según la unidad)",
+      "dimensionHint": "Agrupa unidades por magnitud (masa, volumen…). Déjala en automática y el sistema la deduce.",
+      "standardCode": "Código estándar (UN/CEFACT)",
+      "standardCodePlaceholder": "p. ej. KGM, LTR, C62",
+      "standardCodeHint": "Requerido por la factura electrónica DIAN. Vacío = se deduce de la unidad."
     },
     "delete": {
       "title": "Eliminar unidad",
@@ -667,6 +674,15 @@
       "updateError": "No se pudo actualizar la unidad",
       "deleted": "Unidad eliminada",
       "deleteError": "No se pudo eliminar la unidad"
+    },
+    "dimensions": {
+      "count": "Conteo",
+      "mass": "Masa",
+      "volume": "Volumen",
+      "length": "Longitud",
+      "area": "Área",
+      "time": "Tiempo",
+      "other": "Otra"
     }
   },
   "vatRates": {
