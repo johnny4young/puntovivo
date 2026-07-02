@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7485534a-5191-41b3-8478-38b1aad061a3",
+  "id": "1eb5060f-2e78-496a-9351-6b0eeccf591e",
   "prevId": "b324636a-4e53-4284-8bd2-6278bd68e72b",
   "tables": {
     "auth_refresh_families": {
@@ -33,6 +33,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "previous_jti": {
+          "name": "previous_jti",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "issued_at": {

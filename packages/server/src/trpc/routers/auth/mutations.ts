@@ -217,11 +217,14 @@ export const authMutationProcedures = {
     }
 
     // Auditoría 2026-07 — rotation with replay detection. A verified
-    // token whose jti was already rotated away is a stolen copy: the
-    // rotate call revoked the family and bumped sessionVersion, so we
-    // clear the cookie and reject. Tokens without a familyId were signed
-    // before this feature — accept once and upgrade into a fresh family
-    // (the grace closes itself when those tokens age out at 7 days).
+    // token whose jti was already rotated away (outside the grace window)
+    // is a stolen copy: the rotate call revoked the family and bumped
+    // sessionVersion, so we clear the cookie and reject. A `reissued`
+    // result is a benign concurrent refresh (two tabs sharing the cookie)
+    // and is handed the family's current jti. Tokens without a familyId
+    // were signed before this feature — accept once and upgrade into a
+    // fresh family (the grace closes itself when those tokens age out at
+    // 7 days).
     let family: { familyId: string; jti: string };
     if (refreshPayload.familyId && refreshPayload.jti) {
       const rotation = rotateRefreshFamily(ctx.db, {
@@ -229,7 +232,7 @@ export const authMutationProcedures = {
         presentedJti: refreshPayload.jti,
         userId: user.id,
       });
-      if (rotation.status !== 'rotated') {
+      if (rotation.status !== 'rotated' && rotation.status !== 'reissued') {
         clearRefreshCookie(ctx.req, ctx.res);
         throwServerError({
           trpcCode: 'UNAUTHORIZED',

@@ -36,6 +36,15 @@ const familyLog = createModuleLogger('security/refresh-families');
 /** Mirror of the refresh JWT TTL in `security/authTokens.ts` (7d). */
 export const REFRESH_FAMILY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * Rotation-leeway window. Replaying the *immediately-previous* jti within
+ * this window of the last rotation is treated as a benign concurrent
+ * refresh (two POS tabs sharing one httpOnly cookie both POST
+ * `auth.refresh` before either sees the rotated cookie), not theft. Kept
+ * short so the theft window a stolen previous-token buys stays tiny.
+ */
+export const REFRESH_ROTATION_GRACE_MS = 20 * 1000;
+
 export interface RefreshFamilyGrant {
   familyId: string;
   jti: string;
@@ -43,6 +52,14 @@ export interface RefreshFamilyGrant {
 
 export type RefreshRotationResult =
   | { status: 'rotated'; familyId: string; jti: string }
+  /**
+   * Benign concurrent/retried refresh: the presented jti was the
+   * immediately-previous one and still inside the grace window. The
+   * caller re-issues a token bound to the family's CURRENT jti (returned
+   * here) so concurrent refreshers converge instead of fighting. No
+   * revocation.
+   */
+  | { status: 'reissued'; familyId: string; jti: string }
   /** The presented jti was already rotated away — replay detected. */
   | { status: 'reused' }
   /** No live family row (revoked, pruned, or forged familyId). */
@@ -68,6 +85,7 @@ export function createRefreshFamily(
       tenantId: args.tenantId,
       userId: args.userId,
       currentJti: grant.jti,
+      previousJti: null,
       issuedAt: nowIso(now),
       lastRotatedAt: nowIso(now),
       expiresAt: new Date(now() + REFRESH_FAMILY_TTL_MS).toISOString(),
@@ -78,9 +96,18 @@ export function createRefreshFamily(
 
 /**
  * Atomically rotate the family to a fresh jti if — and only if — the
- * presented jti is the family's current one. On a jti mismatch of a
- * still-live family, this is a replay: the family is revoked and the
- * user's `sessionVersion` is bumped inside the same transaction.
+ * presented jti is the family's current one. On a jti mismatch:
+ *
+ * - previous jti still inside the grace window ⇒ benign concurrent
+ *   refresh, re-issue against the current jti (`reissued`), no revocation;
+ * - any other stale jti ⇒ replay: revoke the family and bump the user's
+ *   `sessionVersion` in the same transaction (`reused`);
+ * - no live family ⇒ `missing`.
+ *
+ * The happy path is a single conditional UPDATE (atomic even under a
+ * shared-file multi-process SQLite); the miss path reads the row to
+ * classify it. better-sqlite3 runs the whole transaction synchronously,
+ * so the read-then-write on the miss path cannot interleave in-process.
  */
 export function rotateRefreshFamily(
   db: DatabaseInstance,
@@ -99,6 +126,7 @@ export function rotateRefreshFamily(
       .update(authRefreshFamilies)
       .set({
         currentJti: nextJti,
+        previousJti: args.presentedJti,
         lastRotatedAt: nowIso(now),
         expiresAt: new Date(now() + REFRESH_FAMILY_TTL_MS).toISOString(),
       })
@@ -116,13 +144,32 @@ export function rotateRefreshFamily(
     }
 
     const family = tx
-      .select({ id: authRefreshFamilies.id, userId: authRefreshFamilies.userId })
+      .select({
+        id: authRefreshFamilies.id,
+        userId: authRefreshFamilies.userId,
+        currentJti: authRefreshFamilies.currentJti,
+        previousJti: authRefreshFamilies.previousJti,
+        lastRotatedAt: authRefreshFamilies.lastRotatedAt,
+      })
       .from(authRefreshFamilies)
       .where(eq(authRefreshFamilies.id, args.familyId))
       .get();
 
     if (!family || family.userId !== args.userId) {
       return { status: 'missing' };
+    }
+
+    // Benign concurrent/retried refresh: the presented token is the one we
+    // JUST rotated away from, and we did so within the grace window. Two
+    // POS tabs sharing the cookie land here; converge them on the current
+    // jti instead of revoking a live session.
+    const lastRotatedMs = new Date(family.lastRotatedAt).getTime();
+    if (
+      family.previousJti === args.presentedJti &&
+      Number.isFinite(lastRotatedMs) &&
+      now() - lastRotatedMs <= REFRESH_ROTATION_GRACE_MS
+    ) {
+      return { status: 'reissued', familyId: family.id, jti: family.currentJti };
     }
 
     // Live family + verified token + stale jti ⇒ replay. Revoke the
