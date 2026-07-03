@@ -12,8 +12,8 @@
  * destination for one or more products, persisting an audit row in
  * `transfer_orders` (+ line items). Lifecycle: `in_transit` (deferred,
  * origin debited only) → `completed` (destination credited at receive) or
- * `void` (fully reversed). `products.stock` is recomputed from Σ(balances)
- * after every mutation to keep the tenant-wide cache honest.
+ * `void` (fully reversed). `inventory_balances` is the single source of
+ * truth; the tenant-wide total is derived as Σ(balances) on read.
  *
  * @module services/inventory-transfers
  */

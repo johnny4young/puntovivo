@@ -2,8 +2,8 @@
  * Quotation Service (Phase 5 / Tier-2 #6 step 1).
  *
  * A quotation is a non-binding pre-sale document. Creating, updating status,
- * or deleting a draft quotation never touches `inventory_balances` or
- * `products.stock`.
+ * or deleting a draft quotation never touches `inventory_balances` (the
+ * single source of truth for stock).
  *
  * ENG-178 — decomposed into per-concern modules (types / pricing / create /
  * updateStatus / delete / read). This barrel re-exports the original public

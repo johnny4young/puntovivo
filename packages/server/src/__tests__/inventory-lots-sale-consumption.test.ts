@@ -13,6 +13,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import {
+  inventoryBalances,
   inventoryLots,
   products,
   saleItemLots,
@@ -70,7 +71,6 @@ async function seedLotProduct(args: { name: string; sku: string; stock: number }
     marginAmount3: 0,
     taxRate: 0,
     initialCost: 40,
-    stock: args.stock,
     minStock: 0,
     tracksLots: true,
     isActive: true,
@@ -84,6 +84,18 @@ async function seedLotProduct(args: { name: string; sku: string; stock: number }
     equivalence: 1,
     price: 100,
     isBase: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  // Stock lives in inventory_balances now (products.stock removed). Seed the
+  // opening on_hand at the active site so the sale's stock check passes.
+  await db.insert(inventoryBalances).values({
+    id: nanoid(),
+    tenantId,
+    siteId,
+    productId,
+    onHand: args.stock,
+    reserved: 0,
     createdAt: now,
     updatedAt: now,
   });
@@ -320,7 +332,6 @@ describe('lot consumption on the sale path', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 40,
-      stock: 10,
       minStock: 0,
       tracksLots: false,
       isActive: true,
@@ -334,6 +345,18 @@ describe('lot consumption on the sale path', () => {
       equivalence: 1,
       price: 100,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    // Non-lot product: seed the opening on_hand at the active site so the
+    // sale's stock check passes (products.stock removed).
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 10,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });

@@ -49,6 +49,7 @@ import {
 import { appRouter } from '../trpc/router.js';
 import { recordOperationStart } from '../services/operation-journal/journal.js';
 import { completeSale } from '../application/sales/completeSale.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 
@@ -100,7 +101,6 @@ async function seedProduct(args: {
     marginAmount3: 0,
     taxRate: args.taxRate ?? 19,
     initialCost: 5,
-    stock: args.stock,
     minStock: 0,
     isActive: true,
     createdAt: now,
@@ -116,6 +116,18 @@ async function seedProduct(args: {
     createdAt: now,
     updatedAt: now,
   });
+  if (args.stock > 0) {
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: args.stock,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
   return productId;
 }
 
@@ -268,12 +280,8 @@ describe('completeSale (fresh path)', () => {
     expect(result.change).toBeCloseTo(0.2, 2);
     expect(result.journalEventId).toBeNull();
 
-    const product = await getDatabase()
-      .select({ stock: products.stock })
-      .from(products)
-      .where(eq(products.id, productId))
-      .get();
-    expect(product?.stock).toBe(10);
+    const productStock = getProductStockTotal(getDatabase(), tenantId, productId);
+    expect(productStock).toBe(10);
 
     const after = await getDatabase()
       .select({ currentValue: sequentials.currentValue })
@@ -469,12 +477,8 @@ describe('completeSale (fresh path)', () => {
       paymentStatus: 'paid',
     });
 
-    const product = await getDatabase()
-      .select({ stock: products.stock })
-      .from(products)
-      .where(eq(products.id, productId))
-      .get();
-    expect(product?.stock).toBe(4);
+    const productStock = getProductStockTotal(getDatabase(), tenantId, productId);
+    expect(productStock).toBe(4);
 
     const movements = await getDatabase()
       .select({ id: cashMovements.id })

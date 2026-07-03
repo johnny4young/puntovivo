@@ -59,12 +59,13 @@ export const products = sqliteTable(
       .notNull()
       .default('COP')
       .references(() => currencyCatalog.code),
-    // Phase 1 DB-050: stock is `real` so ferreterías (2.5 m cable)
-    // and supermarkets (0.75 kg produce) can sell by fraction. Existing
-    // integer values round-trip unchanged because SQLite stores both in the
-    // same numeric affinity — this is additive relaxation, not a breaking
-    // change.
-    stock: real('stock').notNull().default(0),
+    // Auditoría 2026-07 — the denormalized tenant-wide `stock` column was
+    // removed. `inventory_balances.on_hand` (per site) is the single source of
+    // truth; the tenant-wide total is derived as Σ(on_hand) on read (see
+    // `services/inventory-balances/derive.ts`). `min_stock` remains: it is a
+    // per-product reorder threshold, not a stock quantity.
+    // `min_stock` is `real` so ferreterías (2.5 m cable) and supermarkets
+    // (0.75 kg produce) can set fractional reorder points.
     minStock: real('min_stock').notNull().default(0),
     sellByFraction: integer('sell_by_fraction', { mode: 'boolean' }).notNull().default(false),
     fractionStep: real('fraction_step'),

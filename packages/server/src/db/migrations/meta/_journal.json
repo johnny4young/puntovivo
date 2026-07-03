@@ -50,6 +50,13 @@
       "when": 1783039471484,
       "tag": "0006_sale_item_lots",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1783045654452,
+      "tag": "0007_drop_products_stock",
+      "breakpoints": true
     }
   ]
 }

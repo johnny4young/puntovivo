@@ -35,6 +35,7 @@ import {
   cashMovements,
   cashSessions,
   companies,
+  inventoryBalances,
   inventoryMovements,
   products,
   restaurantTables,
@@ -48,6 +49,7 @@ import {
   users,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { Context } from '../trpc/context.js';
 import { completeDraftInput } from '../trpc/schemas/sales.js';
 
@@ -222,7 +224,6 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 5,
-      stock: 200,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -235,6 +236,16 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       equivalence: 1,
       price: 10,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId: primarySiteId,
+      productId,
+      onHand: 200,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -573,7 +584,6 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
         marginAmount3: 0,
         taxRate: 0,
         initialCost: 5,
-        stock: 50,
         minStock: 0,
         isActive: true,
         createdAt: timestamp,
@@ -589,18 +599,24 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
         createdAt: timestamp,
         updatedAt: timestamp,
       });
+      await db.insert(inventoryBalances).values({
+        id: nanoid(),
+        tenantId,
+        siteId: primarySiteId,
+        productId: reversalProductId,
+        onHand: 50,
+        reserved: 0,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
 
       const caller = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
 
       // Baseline: product stock is 50 after seeding.
-      const seeded = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, reversalProductId))
-        .get();
-      expect(seeded?.stock).toBe(50);
+      const seededStock = getProductStockTotal(db, tenantId, reversalProductId);
+      expect(seededStock).toBe(50);
 
       // Draft creation debits stock by 3 units (ENG-018 baseline model).
       const draft = await caller.sales.create({
@@ -619,22 +635,14 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
         discountAmount: 0,
       });
 
-      const afterDraft = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, reversalProductId))
-        .get();
-      expect(afterDraft?.stock).toBe(47);
+      const afterDraftStock = getProductStockTotal(db, tenantId, reversalProductId);
+      expect(afterDraftStock).toBe(47);
 
       // Discard the draft: stock must return to the pre-draft baseline.
       await caller.sales.discardDraft({ saleId: draft.id });
 
-      const afterDiscard = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, reversalProductId))
-        .get();
-      expect(afterDiscard?.stock).toBe(50);
+      const afterDiscardStock = getProductStockTotal(db, tenantId, reversalProductId);
+      expect(afterDiscardStock).toBe(50);
 
       // An `inventoryMovements` row of type 'return' documents the
       // reversal so audit tooling can reconcile the timeline.
@@ -799,12 +807,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       );
 
       const db = getDatabase();
-      const beforeCompletion = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, productId))
-        .get();
-      const stockBeforeComplete = beforeCompletion?.stock ?? 0;
+      const stockBeforeComplete = getProductStockTotal(db, tenantId, productId);
 
       const completed = await caller.sales.completeDraft({
         saleId: draftId,
@@ -820,12 +823,8 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
 
       // Stock must NOT move on completeDraft — it was already debited at
       // create-time. Double-debit is the whole bug this split prevents.
-      const afterCompletion = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, productId))
-        .get();
-      expect(afterCompletion?.stock).toBe(stockBeforeComplete);
+      const afterCompletionStock = getProductStockTotal(db, tenantId, productId);
+      expect(afterCompletionStock).toBe(stockBeforeComplete);
 
       // The active cash session gets re-bound so reports aggregate the
       // income on the session that physically received the cash.

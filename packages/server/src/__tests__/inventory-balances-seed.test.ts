@@ -109,14 +109,45 @@ describe('ensureInventoryBalancesForSite (ENG-177a chunked insert)', () => {
       .all().length;
   }
 
-  it('seeds one balance row per product across the chunk boundary', () => {
+  it('seeds one balance row per product across the chunk boundary, opening at zero', () => {
     const db = getDatabase();
+    const now = new Date().toISOString();
+
+    // products.stock is gone — the seed no longer inherits an opening quantity
+    // from the product row (it previously copied products.stock onto the
+    // primary site). It now writes one 0-on_hand row per product via
+    // onConflictDoNothing, so opening quantities come ONLY from explicit
+    // balance inserts / mutation paths. Pre-seed one product's opening on_hand
+    // to prove the seed reads it back untouched while every OTHER product
+    // opens at 0 (i.e. no inheritance from the removed column).
+    const preSeeded = db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.tenantId, tenantId))
+      .limit(1)
+      .get();
+    expect(preSeeded).toBeDefined();
+    db.insert(inventoryBalances)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId: primarySiteId,
+        productId: preSeeded!.id,
+        onHand: 7,
+        reserved: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
     ensureInventoryBalancesForSite(db, tenantId, primarySiteId);
     expect(countBalances(primarySiteId)).toBe(PRODUCT_COUNT);
 
-    // Primary site inherits products.stock as the opening on_hand.
-    const sample = db
-      .select({ onHand: inventoryBalances.onHand })
+    const rows = db
+      .select({
+        productId: inventoryBalances.productId,
+        onHand: inventoryBalances.onHand,
+      })
       .from(inventoryBalances)
       .where(
         and(
@@ -125,7 +156,9 @@ describe('ensureInventoryBalancesForSite (ENG-177a chunked insert)', () => {
         )
       )
       .all();
-    expect(sample.every(row => row.onHand === 7)).toBe(true);
+    // The explicitly-seeded opening quantity survives; all others open at 0.
+    expect(rows.find(row => row.productId === preSeeded!.id)?.onHand).toBe(7);
+    expect(rows.filter(row => row.onHand === 0)).toHaveLength(PRODUCT_COUNT - 1);
   });
 
   it('opens non-primary sites at zero on_hand', () => {

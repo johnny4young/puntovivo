@@ -9,7 +9,7 @@
  * Drafts debit stock at create-time (see `completeSale` fresh path,
  * which writes inventory_movements regardless of `status`). Discarding
  * a draft must therefore credit the same quantities back to
- * `products.stock` AND `inventory_balances`. Without the reversal,
+ * `inventory_balances` (the single source of truth). Without the reversal,
  * cancelled drafts would permanently leak inventory — ENG-018c fixed
  * a latent bug here, ENG-055 just preserves the same fix in the
  * extracted service.
@@ -20,15 +20,15 @@
  * @module application/sales/discardDraft
  */
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,
   operationEvents,
-  products,
   saleItems,
   sales,
 } from '../../db/schema.js';
+import { getProductStockTotals } from '../../services/inventory-balances.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { removeKdsOrders } from '../../services/kds/remove.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -156,24 +156,13 @@ export async function discardDraft(
       )?.siteId ?? null
     : null;
 
-  const currentProducts = hasItems
-    ? await ctx.db
-        .select({ id: products.id, stock: products.stock })
-        .from(products)
-        .where(
-          and(
-            eq(products.tenantId, ctx.tenantId),
-            inArray(
-              products.id,
-              [...new Set(saleLineItems.map(item => item.productId))]
-            )
-          )
-        )
-        .all()
-    : [];
-  const productStockState = new Map(
-    currentProducts.map(product => [product.id, product.stock])
-  );
+  const productStockState = hasItems
+    ? getProductStockTotals(
+        ctx.db,
+        ctx.tenantId,
+        [...new Set(saleLineItems.map(item => item.productId))]
+      )
+    : new Map<string, number>();
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
   const now = new Date().toISOString();
 

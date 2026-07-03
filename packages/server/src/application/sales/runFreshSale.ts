@@ -14,7 +14,7 @@
  * @module application/sales/runFreshSale
  */
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import {
   inventoryMovements,
@@ -311,16 +311,6 @@ export async function runFreshSale(
       const effectivePreviousStock = productStockState.get(row.productId) ?? 0;
       const newStock = effectivePreviousStock - row.normalizedQuantity;
       productStockState.set(row.productId, newStock);
-
-      tx.update(products)
-        .set({
-          stock: newStock,
-          syncStatus: 'pending',
-          syncVersion: sql`${products.syncVersion} + 1`,
-          updatedAt: now,
-        })
-        .where(and(eq(products.id, row.productId), eq(products.tenantId, ctx.tenantId)))
-        .run();
 
       const inventoryMovementId = nanoid();
       tx.insert(inventoryMovements)

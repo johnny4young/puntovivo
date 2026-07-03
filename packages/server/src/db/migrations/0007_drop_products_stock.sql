@@ -1,0 +1,3 @@
+INSERT INTO inventory_balances (id, tenant_id, site_id, product_id, on_hand, reserved, sync_status, sync_version, created_at, updated_at) SELECT lower(hex(randomblob(16))), p.tenant_id, (SELECT s.id FROM sites s WHERE s.tenant_id = p.tenant_id ORDER BY s.created_at ASC LIMIT 1), p.id, p.stock, 0, 'pending', 0, datetime('now'), datetime('now') FROM products p WHERE p.stock <> 0 AND (SELECT s.id FROM sites s WHERE s.tenant_id = p.tenant_id ORDER BY s.created_at ASC LIMIT 1) IS NOT NULL AND NOT EXISTS (SELECT 1 FROM inventory_balances ib WHERE ib.product_id = p.id AND ib.tenant_id = p.tenant_id);
+--> statement-breakpoint
+ALTER TABLE `products` DROP COLUMN `stock`;

@@ -28,6 +28,7 @@ import {
   users,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import { recordOperationStart } from '../services/operation-journal/journal.js';
 import { completeSale } from '../application/sales/completeSale.js';
 import { returnSale } from '../application/sales/returnSale.js';
@@ -75,7 +76,6 @@ async function seedProduct(args: { name: string; sku: string; stock: number; pri
     marginAmount3: 0,
     taxRate: 19,
     initialCost: 5,
-    stock: args.stock,
     minStock: 0,
     isActive: true,
     createdAt: now,
@@ -88,6 +88,18 @@ async function seedProduct(args: { name: string; sku: string; stock: number; pri
     equivalence: 1,
     price: args.price ?? 11.9,
     isBase: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  // Stock is derived from Σ(inventory_balances.on_hand); seed the opening
+  // quantity at the operating site so sales can consume it.
+  await db.insert(inventoryBalances).values({
+    id: nanoid(),
+    tenantId,
+    siteId,
+    productId,
+    onHand: args.stock,
+    reserved: 0,
     createdAt: now,
     updatedAt: now,
   });
@@ -205,12 +217,8 @@ describe('returnSale (happy path)', () => {
     const productId = await seedProduct({ name: 'Return Happy', sku: 'RT-OK', stock: 5 });
     const saleId = await seedCompletedCashSale(productId);
 
-    const stockBefore = await db
-      .select({ stock: products.stock })
-      .from(products)
-      .where(eq(products.id, productId))
-      .get();
-    expect(stockBefore?.stock).toBe(4); // sold 1 of 5
+    const stockBefore = getProductStockTotal(db, tenantId, productId);
+    expect(stockBefore).toBe(4); // sold 1 of 5
 
     const result = await returnSale(buildContext(), {
       id: saleId,
@@ -218,12 +226,8 @@ describe('returnSale (happy path)', () => {
     });
     expect(result.sale).toMatchObject({ paymentStatus: 'refunded' });
 
-    const stockAfter = await db
-      .select({ stock: products.stock })
-      .from(products)
-      .where(eq(products.id, productId))
-      .get();
-    expect(stockAfter?.stock).toBe(5);
+    const stockAfter = getProductStockTotal(db, tenantId, productId);
+    expect(stockAfter).toBe(5);
 
     const refundRow = await db
       .select()

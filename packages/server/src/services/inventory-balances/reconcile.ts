@@ -1,37 +1,18 @@
-import { eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { products } from '../../db/schema.js';
-import { getTimestamp } from './helpers.js';
-import { syncProductStockFromBalances } from './apply-delta.js';
 
 /**
- * Heals historical drift by recomputing `products.stock` for every product
- * in the tenant as Σ(inventory_balances.on_hand). Intended as an
- * admin-triggered reconciliation after migrations or data imports; inside
- * normal mutation paths, `applyInventoryBalanceDelta` already keeps the
- * cache in lockstep.
+ * Reconciliation of the denormalized `products.stock` cache, retired by the
+ * single-source unification (Auditoría 2026-07).
+ *
+ * The `products.stock` column has been removed: `inventory_balances` is the
+ * single source of truth and the tenant-wide total is derived from it on read.
+ * There is no cache to recompute, so this is a no-op that always reports zero
+ * products updated. Retained (rather than deleted) because the
+ * `inventory.reconcileBalances` router procedure and its tests still call it.
  */
 export function reconcileProductStockFromBalances(
-  db: DatabaseInstance,
-  tenantId: string
+  _db: DatabaseInstance,
+  _tenantId: string
 ): { productsUpdated: number } {
-  const now = getTimestamp();
-
-  return db.transaction(tx => {
-    const tenantProducts = tx
-      .select({ id: products.id })
-      .from(products)
-      .where(eq(products.tenantId, tenantId))
-      .all();
-
-    for (const product of tenantProducts) {
-      syncProductStockFromBalances(tx, {
-        tenantId,
-        productId: product.id,
-        now,
-      });
-    }
-
-    return { productsUpdated: tenantProducts.length };
-  });
+  return { productsUpdated: 0 };
 }

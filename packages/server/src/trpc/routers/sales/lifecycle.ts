@@ -231,9 +231,9 @@ export const salesLifecycleProcedures = {
    *   If the operator wants to change the basket they discard this
    *   draft (which now reverses stock) and start a fresh one.
    * - The draft's stock was already debited at `sales.create` time, so
-   *   completing does NOT touch `products.stock` or
-   *   `inventory_balances`. This is the whole point of the split —
-   *   double-debit is what we're avoiding.
+   *   completing does NOT touch `inventory_balances` (the single source of
+   *   truth for stock). This is the whole point of the split — double-debit
+   *   is what we're avoiding.
    * - Any pre-existing `sale_payments` rows (drafts carry placeholder
    *   rows from the initial create) are deleted and replaced with the
    *   real tenders supplied by the operator.

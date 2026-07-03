@@ -7,6 +7,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../../../db/index.js';
 import { products, unitXProduct, units } from '../../../../db/schema.js';
+import { productStockTotalSql } from '../../../inventory-balances/derive.js';
 import type { MatchedCartProduct } from './types.js';
 
 export async function hydrateCartProducts(
@@ -21,7 +22,7 @@ export async function hydrateCartProducts(
       sku: products.sku,
       price: products.price,
       taxRate: products.taxRate,
-      stock: products.stock,
+      stock: productStockTotalSql,
       sellByFraction: products.sellByFraction,
       fractionStep: products.fractionStep,
       fractionMinimum: products.fractionMinimum,

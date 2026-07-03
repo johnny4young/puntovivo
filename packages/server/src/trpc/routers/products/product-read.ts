@@ -21,6 +21,7 @@ import {
   units,
   vatRates,
 } from '../../../db/schema.js';
+import { productStockTotalSql } from '../../../services/inventory-balances/derive.js';
 import type { Context } from '../../context.js';
 
 export const productSelection = {
@@ -45,7 +46,9 @@ export const productSelection = {
   providerId: products.providerId,
   locationId: products.locationId,
   initialCost: products.initialCost,
-  stock: products.stock,
+  // Auditoría 2026-07 — `stock` is derived Σ(inventory_balances.on_hand);
+  // there is no products.stock column any more.
+  stock: productStockTotalSql,
   minStock: products.minStock,
   sellByFraction: products.sellByFraction,
   fractionStep: products.fractionStep,

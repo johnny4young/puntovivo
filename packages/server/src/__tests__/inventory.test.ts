@@ -19,6 +19,7 @@ import {
   vatRates,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { Context } from '../trpc/context.js';
 
 let server: PuntovivoServer;
@@ -898,19 +899,22 @@ describe('Inventory tRPC Router', () => {
     });
 
   // ────────────────────────────────────────────────────────────────────────
-  // Phase 2 API-103 step 4 — products.stock is a derived cache of Σ(balances)
+  // Auditoría 2026-07 — stock is DERIVED from Σ(inventory_balances.on_hand).
+  // The denormalized `products.stock` column was removed, so "drift" is
+  // structurally impossible: the derived total IS Σ(balances) by construction.
+  // These tests pin that the derivation tracks per-site balance writes.
   // Nested inside `listBalancesBySite` so we reuse its primary/secondary site
   // fixtures without re-bootstrapping them here.
   // ────────────────────────────────────────────────────────────────────────
 
-  describe('products.stock lockstep with inventory_balances (step 4)', () => {
-    it('keeps products.stock equal to Σ(site balances) after an adjustStock at the primary site', async () => {
+  describe('derived stock total tracks inventory_balances', () => {
+    it('derives Σ(site balances) after an adjustStock at the primary site', async () => {
       const caller = appRouter.createCaller(createTestContext(primarySiteId));
       const db = getDatabase();
 
       const created = await caller.products.create(
         buildProductInput({
-          name: 'Balances Stock Lockstep Primary',
+          name: 'Balances Derived Primary',
           sku: 'BAL-LOCK-PRIM',
           barcode: '91001',
           stock: 10,
@@ -923,11 +927,7 @@ describe('Inventory tRPC Router', () => {
         notes: 'Primary site cycle count',
       });
 
-      const product = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, created.id))
-        .get();
+      const derived = getProductStockTotal(db, tenantId, created.id);
       const balancesSum = await db
         .select({
           total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
@@ -936,17 +936,17 @@ describe('Inventory tRPC Router', () => {
         .where(eq(inventoryBalances.productId, created.id))
         .get();
 
-      expect(product?.stock).toBe(17);
+      expect(derived).toBe(17);
       expect(balancesSum?.total).toBe(17);
     });
 
-    it('keeps products.stock in lockstep when an adjustment targets a non-primary site', async () => {
+    it('derives Σ(site balances) when an adjustment targets a non-primary site', async () => {
       const caller = appRouter.createCaller(createTestContext(primarySiteId));
       const db = getDatabase();
 
       const created = await caller.products.create(
         buildProductInput({
-          name: 'Balances Stock Lockstep Secondary',
+          name: 'Balances Derived Secondary',
           sku: 'BAL-LOCK-SEC',
           barcode: '91002',
           stock: 12,
@@ -965,11 +965,7 @@ describe('Inventory tRPC Router', () => {
         notes: 'Secondary count correction',
       });
 
-      const product = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, created.id))
-        .get();
+      const derived = getProductStockTotal(db, tenantId, created.id);
       const balancesSum = await db
         .select({
           total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
@@ -978,17 +974,17 @@ describe('Inventory tRPC Router', () => {
         .where(eq(inventoryBalances.productId, created.id))
         .get();
 
-      expect(product?.stock).toBe(5);
+      expect(derived).toBe(5);
       expect(balancesSum?.total).toBe(5);
     });
 
-    it('reconcileBalances heals historical drift across every product', async () => {
+    it('reconcileBalances is a no-op and the derived total already equals Σ(balances)', async () => {
       const caller = appRouter.createCaller(createTestContext(primarySiteId));
       const db = getDatabase();
 
       const created = await caller.products.create(
         buildProductInput({
-          name: 'Balances Reconcile Drift',
+          name: 'Balances Reconcile Noop',
           sku: 'BAL-RECON',
           barcode: '91003',
           stock: 30,
@@ -998,38 +994,30 @@ describe('Inventory tRPC Router', () => {
       // Seed primary balance at 30.
       await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
 
-      // Simulate historical drift by writing products.stock out-of-band to a
-      // wrong value, without touching any balance row.
-      await db
-        .update(products)
-        .set({ stock: 999 })
-        .where(eq(products.id, created.id))
-        .run();
-
+      // With a single source of truth there is no cache to recompute; the
+      // reconcile procedure is retained as a no-op returning productsUpdated: 0.
       const result = await caller.inventory.reconcileBalances();
-      expect(result.productsUpdated).toBeGreaterThan(0);
+      expect(result.productsUpdated).toBe(0);
 
-      const healedProduct = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, created.id))
+      const derived = getProductStockTotal(db, tenantId, created.id);
+      const balancesSum = await db
+        .select({
+          total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
+        })
+        .from(inventoryBalances)
+        .where(eq(inventoryBalances.productId, created.id))
         .get();
-      expect(healedProduct?.stock).toBe(30);
+      expect(derived).toBe(30);
+      expect(derived).toBe(balancesSum?.total);
     });
 
-    // Regression for the delta-helper ordering bug: if `tx.update(products)`
-    // runs AFTER `applyInventoryBalanceDelta`, any pre-existing drift is
-    // re-introduced because the caller's explicit `input.newStock` overwrites
-    // the Σ-based value `syncProductStockFromBalances` just wrote. This test
-    // pins the correct order by starting with deliberate drift and asserting
-    // `adjustStock` ends with `products.stock == Σ(balances)`.
-    it('adjustStock heals pre-existing products.stock drift as part of the mutation', async () => {
+    it('adjustStock realizes the target as Σ(balances) with no cache to drift', async () => {
       const caller = appRouter.createCaller(createTestContext(primarySiteId));
       const db = getDatabase();
 
       const created = await caller.products.create(
         buildProductInput({
-          name: 'Balances Adjust Heals Drift',
+          name: 'Balances Adjust Target',
           sku: 'BAL-ADJ-DRIFT',
           barcode: '91005',
           stock: 10,
@@ -1038,26 +1026,15 @@ describe('Inventory tRPC Router', () => {
 
       // Seed the primary balance to 10.
       await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
-      // Deliberately introduce drift by writing products.stock out-of-band.
-      await db
-        .update(products)
-        .set({ stock: 999 })
-        .where(eq(products.id, created.id))
-        .run();
 
-      // Adjust to a new target. The caller writes products.stock = 15 first;
-      // applyInventoryBalanceDelta then writes Σ(balances). After the mutation
-      // products.stock must equal Σ(balances), regardless of drift.
+      // Adjust to a new target; the derived total must equal Σ(balances) and
+      // the requested target, by construction.
       await caller.inventory.adjustStock({
         productId: created.id,
         newStock: 15,
       });
 
-      const product = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, created.id))
-        .get();
+      const derived = getProductStockTotal(db, tenantId, created.id);
       const balancesSum = await db
         .select({
           total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
@@ -1066,16 +1043,17 @@ describe('Inventory tRPC Router', () => {
         .where(eq(inventoryBalances.productId, created.id))
         .get();
 
-      expect(product?.stock).toBe(balancesSum?.total);
+      expect(derived).toBe(15);
+      expect(derived).toBe(balancesSum?.total);
     });
 
-    it('reconcileBalances sets products.stock to 0 for a product with no balance rows', async () => {
+    it('derives 0 for a product with no balance rows', async () => {
       const caller = appRouter.createCaller(createTestContext(primarySiteId));
       const db = getDatabase();
 
       const created = await caller.products.create(
         buildProductInput({
-          name: 'Balances Reconcile Empty',
+          name: 'Balances Derived Empty',
           sku: 'BAL-RECON-EMPTY',
           barcode: '91004',
           stock: 42,
@@ -1089,14 +1067,10 @@ describe('Inventory tRPC Router', () => {
         .where(eq(inventoryBalances.productId, created.id))
         .run();
 
+      // reconcileBalances is retained but a no-op.
       await caller.inventory.reconcileBalances();
 
-      const healed = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, created.id))
-        .get();
-      expect(healed?.stock).toBe(0);
+      expect(getProductStockTotal(db, tenantId, created.id)).toBe(0);
     });
   });
   });

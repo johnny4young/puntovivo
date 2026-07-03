@@ -177,6 +177,13 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0005_inventory_lots') {
       return !tableExists('products');
     }
+    // Auditoría 2026-07 — the stock-unification migration backfills
+    // `inventory_balances` and DROPs `products.stock`. A partial legacy DB
+    // without `products` has no target; mark applied so minimal shapes keep
+    // booting; a real adopted DB carries `products` and the drop runs.
+    if (entry.tag === '0007_drop_products_stock') {
+      return !tableExists('products');
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

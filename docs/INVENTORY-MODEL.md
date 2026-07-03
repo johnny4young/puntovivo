@@ -81,15 +81,22 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
    `resolvedUnitId` / `resolvedUnitPrice`; the POS scanner selects that unit so
    scanning a *case* adds `equivalence` base units at the case price.
    `products.barcode` stays the base-unit code for back-compat.
-2. **Stock authority (already in place, verified).** The dual representation is
-   intentional and non-redundant: `products.stock` is the tenant-wide total,
-   `inventory_balances` the per-site breakdown, and every write path updates
-   both in lockstep via `applyInventoryBalanceDelta`. The drift-heal path
-   already exists — `reconcileProductStockFromBalances` (exposed as
-   `inventory.reconcile`) recomputes `products.stock = Σ on_hand`, and
-   `listInventoryDiscrepancyCandidates` (in the inventory report) surfaces
-   drift. A full removal of `products.stock` in favour of a derived view
-   remains a larger, dedicated refactor (many read sites), tracked separately.
+2. **Stock authority — single source of truth (DONE).** The denormalized
+   `products.stock` column has been **removed** (migration
+   `0007_drop_products_stock`, which first backfills a primary-site
+   `inventory_balances` row from any product's stock so no data is lost, then
+   drops the column). `inventory_balances.on_hand` (per-site) is now the sole
+   source of truth; the tenant-wide total is derived as `Σ(on_hand)` on read via
+   `services/inventory-balances/derive.ts` (`productStockTotalSql` for select
+   projections, `getProductStockTotal`/`getProductStockTotals` for write paths).
+   Product reads still expose a numeric `stock` field (now derived), so the API
+   shape is unchanged. Every former `products.stock` write is gone; the sale
+   stock check already keyed off `inventory_balances`. Because drift is now
+   structurally impossible, `reconcileProductStockFromBalances` and the
+   discrepancy report are retained but no-op / always-empty. Note: the derived
+   total uses a correlated subquery — acceptable for current catalog sizes; a
+   materialized per-product rollup is the escape hatch if a very large catalog
+   ever makes the product-list scan hot.
 3. **Location/bin grain (STAGED)** — `inventory_balances` still reserves a slot
    for location-level granularity (per its own doc comment); unstarted.
 

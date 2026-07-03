@@ -10,6 +10,7 @@ import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import {
   fiscalDocuments,
+  inventoryBalances,
   operationEffects,
   products,
   saleItems,
@@ -21,6 +22,7 @@ import {
   users,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import { recordOperationStart } from '../services/operation-journal/journal.js';
 import { completeSale } from '../application/sales/completeSale.js';
 import { discardDraft } from '../application/sales/discardDraft.js';
@@ -68,7 +70,6 @@ async function seedProduct(args: { name: string; sku: string; stock: number }) {
     marginAmount3: 0,
     taxRate: 19,
     initialCost: 5,
-    stock: args.stock,
     minStock: 0,
     isActive: true,
     createdAt: now,
@@ -81,6 +82,16 @@ async function seedProduct(args: { name: string; sku: string; stock: number }) {
     equivalence: 1,
     price: 11.9,
     isBase: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(inventoryBalances).values({
+    id: nanoid(),
+    tenantId,
+    siteId,
+    productId,
+    onHand: args.stock,
+    reserved: 0,
     createdAt: now,
     updatedAt: now,
   });
@@ -184,12 +195,8 @@ describe('discardDraft (happy paths)', () => {
       .where(eq(sales.id, draftId))
       .run();
 
-    const stockBefore = await db
-      .select({ stock: products.stock })
-      .from(products)
-      .where(eq(products.id, productId))
-      .get();
-    expect(stockBefore?.stock).toBe(4); // draft debited 1
+    const stockBefore = getProductStockTotal(db, tenantId, productId);
+    expect(stockBefore).toBe(4); // draft debited 1
 
     const result = await discardDraft(buildContext(), { saleId: draftId });
     expect(result).toMatchObject({ id: draftId, status: 'cancelled' });
@@ -207,12 +214,8 @@ describe('discardDraft (happy paths)', () => {
     expect(after?.suspendedAt).toBeNull();
     expect(after?.suspendedBy).toBeNull();
 
-    const stockAfter = await db
-      .select({ stock: products.stock })
-      .from(products)
-      .where(eq(products.id, productId))
-      .get();
-    expect(stockAfter?.stock).toBe(5);
+    const stockAfter = getProductStockTotal(db, tenantId, productId);
+    expect(stockAfter).toBe(5);
   });
 
   it('allows the creator to discard an orphan draft (never suspended)', async () => {

@@ -1,9 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { customers, products, saleItems, sales, users } from '../db/schema.js';
+import {
+  customers,
+  inventoryBalances,
+  products,
+  saleItems,
+  sales,
+  sites,
+  users,
+} from '../db/schema.js';
 import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
@@ -59,6 +67,16 @@ describe('Dashboard tRPC Router', () => {
     tenantId = seededUser.tenantId;
     userId = seededUser.id;
 
+    const seededSite = await db
+      .select()
+      .from(sites)
+      .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+      .get();
+    if (!seededSite) {
+      throw new Error('Expected seeded site');
+    }
+    const siteId = seededSite.id;
+
     const today = new Date();
     const todayIso = new Date(
       Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 14)
@@ -110,7 +128,6 @@ describe('Dashboard tRPC Router', () => {
         price: 25,
         cost: 10,
         taxRate: 19,
-        stock: 3,
         minStock: 5,
         isActive: true,
         createdAt: todayIso,
@@ -124,7 +141,6 @@ describe('Dashboard tRPC Router', () => {
         price: 15,
         cost: 7,
         taxRate: 5,
-        stock: 12,
         minStock: 4,
         isActive: true,
         createdAt: sixDaysAgoIso,
@@ -138,7 +154,6 @@ describe('Dashboard tRPC Router', () => {
         price: 8,
         cost: 4,
         taxRate: 0,
-        stock: 1,
         minStock: 2,
         isActive: true,
         createdAt: thirtyFiveDaysAgoIso,
@@ -152,12 +167,22 @@ describe('Dashboard tRPC Router', () => {
         price: 200,
         cost: 40,
         taxRate: 0,
-        stock: 10,
         minStock: 1,
         isActive: true,
         createdAt: todayIso,
         updatedAt: todayIso,
       },
+    ]);
+
+    // Stock is derived from inventory_balances now (products.stock removed).
+    // Seed each product's on_hand at the active site so the dashboard's
+    // low-stock derivation (Σ on_hand ≤ minStock) reproduces the original
+    // per-product stock levels.
+    await db.insert(inventoryBalances).values([
+      { id: nanoid(), tenantId, siteId, productId: productOneId, onHand: 3, reserved: 0, createdAt: todayIso, updatedAt: todayIso },
+      { id: nanoid(), tenantId, siteId, productId: productTwoId, onHand: 12, reserved: 0, createdAt: todayIso, updatedAt: todayIso },
+      { id: nanoid(), tenantId, siteId, productId: productThreeId, onHand: 1, reserved: 0, createdAt: todayIso, updatedAt: todayIso },
+      { id: nanoid(), tenantId, siteId, productId: refundedProductId, onHand: 10, reserved: 0, createdAt: todayIso, updatedAt: todayIso },
     ]);
 
     // ENG-177c — committed sales need a cash session; one shared closed

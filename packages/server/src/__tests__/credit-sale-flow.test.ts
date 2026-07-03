@@ -32,6 +32,7 @@ import {
   cashMovements,
   customers,
   customerLedgerEntries,
+  inventoryBalances,
   products,
   sequentials,
   sites,
@@ -40,6 +41,7 @@ import {
   users,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import { completeSale } from '../application/sales/completeSale.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
@@ -104,7 +106,6 @@ async function seedProduct(name: string, sku: string, stock: number) {
     marginAmount3: 0,
     taxRate: 0,
     initialCost: 5,
-    stock,
     minStock: 0,
     isActive: true,
     createdAt: now,
@@ -117,6 +118,16 @@ async function seedProduct(name: string, sku: string, stock: number) {
     equivalence: 1,
     price: 10,
     isBase: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(inventoryBalances).values({
+    id: nanoid(),
+    tenantId,
+    siteId,
+    productId,
+    onHand: stock,
+    reserved: 0,
     createdAt: now,
     updatedAt: now,
   });
@@ -258,11 +269,7 @@ describe('completeSale (ENG-090 credit-sale flow)', () => {
     });
     const productId = await seedProduct('Credit Item B', 'CR-B-1', 100);
     const db = getDatabase();
-    const beforeStock = await db
-      .select({ stock: products.stock })
-      .from(products)
-      .where(eq(products.id, productId))
-      .get();
+    const beforeStock = getProductStockTotal(db, tenantId, productId);
 
     await expect(
       completeSale(buildContext(), {
@@ -285,12 +292,8 @@ describe('completeSale (ENG-090 credit-sale flow)', () => {
     ).rejects.toThrow(/Credit sale projection .* exceeds limit/i);
 
     // Pre-tx throw: stock + sequential are NOT mutated.
-    const afterStock = await db
-      .select({ stock: products.stock })
-      .from(products)
-      .where(eq(products.id, productId))
-      .get();
-    expect(afterStock?.stock).toBe(beforeStock?.stock);
+    const afterStock = getProductStockTotal(db, tenantId, productId);
+    expect(afterStock).toBe(beforeStock);
 
     const ledgerRows = await db
       .select()

@@ -22,6 +22,11 @@ export {
 } from './inventory-balances/apply-delta.js';
 export { reconcileProductStockFromBalances } from './inventory-balances/reconcile.js';
 export {
+  productStockTotalSql,
+  getProductStockTotal,
+  getProductStockTotals,
+} from './inventory-balances/derive.js';
+export {
   listInventoryBalancesBySite,
   listInventoryDiscrepancyCandidates,
   summarizeInventoryBalances,

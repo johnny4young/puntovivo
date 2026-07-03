@@ -10,12 +10,15 @@
  * @module application/purchases/voidPurchase
  */
 import { TRPCError } from '@trpc/server';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { inventoryMovements, products, purchaseItems, purchases } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
-import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
+import {
+  applyInventoryBalanceDelta,
+  getProductStockTotals,
+} from '../../services/inventory-balances.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import type { VoidPurchaseInput } from '../../trpc/schemas/purchases.js';
 import {
@@ -71,13 +74,15 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
     .select({
       id: products.id,
       name: products.name,
-      stock: products.stock,
     })
     .from(products)
     .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
     .all();
 
-  const productStockState = new Map(currentProducts.map(product => [product.id, product]));
+  const productById = new Map(currentProducts.map(product => [product.id, product]));
+  // Tenant-wide stock is derived from Σ(inventory_balances.on_hand); track a
+  // mutable snapshot so a product appearing twice reverses correctly.
+  const tenantStockState = getProductStockTotals(ctx.db, ctx.tenantId, productIds);
   const siteBalanceState = await getInventoryBalanceStateForSite(
     ctx.db,
     ctx.tenantId,
@@ -90,7 +95,7 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
   ctx.db.transaction(tx => {
     for (const item of purchaseLineItems) {
       const normalizedQuantity = getNormalizedPurchaseQuantity(item.quantity, item.unitEquivalence);
-      const product = productStockState.get(item.productId);
+      const product = productById.get(item.productId);
 
       if (!product) {
         throw new TRPCError({
@@ -99,14 +104,13 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
         });
       }
 
-      if (product.stock < normalizedQuantity) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Cannot void purchase because product "${product.name}" only has ${product.stock} units in stock`,
-        });
-      }
-
+      const previousStock = tenantStockState.get(item.productId) ?? 0;
       const currentSiteBalance = siteBalanceState.get(item.productId) ?? 0;
+
+      // The purchase site's balance is the authoritative constraint (you can
+      // only reverse stock that is physically at that site). Check it first;
+      // the tenant-wide total is Σ(all sites) ≥ this site, so the tenant guard
+      // below stays only as a defensive secondary check.
       if (currentSiteBalance < normalizedQuantity) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -114,24 +118,17 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
         });
       }
 
-      const previousStock = product.stock;
+      if (previousStock < normalizedQuantity) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Cannot void purchase because product "${product.name}" only has ${previousStock} units in stock`,
+        });
+      }
+
       const newStock = previousStock - normalizedQuantity;
       const newSiteBalance = currentSiteBalance - normalizedQuantity;
-      productStockState.set(item.productId, {
-        ...product,
-        stock: newStock,
-      });
+      tenantStockState.set(item.productId, newStock);
       siteBalanceState.set(item.productId, newSiteBalance);
-
-      tx.update(products)
-        .set({
-          stock: newStock,
-          syncStatus: 'pending',
-          syncVersion: sql`${products.syncVersion} + 1`,
-          updatedAt: now,
-        })
-        .where(eq(products.id, item.productId))
-        .run();
 
       applyInventoryBalanceDelta(tx, {
         tenantId: ctx.tenantId,

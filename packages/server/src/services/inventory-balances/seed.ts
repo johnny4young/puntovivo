@@ -7,28 +7,18 @@ import { getPrimarySiteId, getTimestamp } from './helpers.js';
 /**
  * Service helpers for Phase 2 DB-101 / API-101 — per-site inventory balances.
  *
- * Phase 2 step 0 introduces inventory_balances as an additive projection of
- * tenant-wide `products.stock`. Until transfers and site-scoped write paths
- * land, the table is seeded lazily from current stock so the new listing is
- * never dead and never contradicts reality:
- *
- *   - "Primary" site (earliest created active site) receives the full current
- *     `products.stock` value.
- *   - Every other active site starts at 0.
- *   - New products added later get a 0 row on demand the first time the site
- *     is listed.
- *
- * This keeps the Phase 1 single-stock behaviour intact while exposing the
- * new read surface required by UI-101.
+ * `inventory_balances` is the single source of truth for stock (Auditoría
+ * 2026-07). This helper lazily materializes a 0-on_hand row for any active
+ * product that has no balance on `siteId` yet, so the per-site listing is
+ * never dead. Actual opening quantities are written by the mutation paths
+ * (product create seeding, entries, adjustments, transfers), never here.
  */
 
 /**
  * Ensures every active product in the tenant has a balance row on `siteId`.
  *
- * Seed-only semantics (Phase 2 step 1): rows are only created when missing.
- * - Primary site (earliest-created active site) receives `products.stock` as
- *   its initial `on_hand`.
- * - Non-primary sites always receive 0 as their initial `on_hand`.
+ * Seed-only semantics: rows are only created when missing, always with an
+ * initial `on_hand` of 0. Real quantities come from the mutation paths.
  *
  * **Not an upsert.** Once a balance row exists, it is owned by the
  * transfer-aware write paths (`transfers.create`, future `sales`/`purchases`
@@ -46,11 +36,8 @@ export function ensureInventoryBalancesForSite(
   const now = getTimestamp();
 
   db.transaction(tx => {
-    const primarySiteId = getPrimarySiteId(tx, tenantId);
-    const isPrimarySite = primarySiteId === siteId;
-
     const tenantProducts = tx
-      .select({ id: products.id, stock: products.stock })
+      .select({ id: products.id })
       .from(products)
       .where(and(eq(products.tenantId, tenantId), eq(products.isActive, true)))
       .all();
@@ -72,7 +59,7 @@ export function ensureInventoryBalancesForSite(
       tenantId,
       siteId,
       productId: product.id,
-      onHand: isPrimarySite ? product.stock : 0,
+      onHand: 0,
       reserved: 0,
       syncStatus: 'pending' as const,
       syncVersion: 0,
@@ -97,9 +84,9 @@ export function ensureInventoryBalancesForSite(
 
 /**
  * Ensures the primary site's row exists for `productId` with the supplied
- * pre-delta aggregate snapshot. This prevents a later first read from seeding
- * the primary site from an already-mutated `products.stock` value after stock
- * was received directly into a non-primary site.
+ * pre-delta aggregate snapshot. This pins the primary site's opening on_hand
+ * before stock is received directly into a non-primary site, so the derived
+ * tenant-wide total stays consistent.
  */
 export function ensurePrimaryInventoryBalanceSnapshot(
   tx: DatabaseInstance,

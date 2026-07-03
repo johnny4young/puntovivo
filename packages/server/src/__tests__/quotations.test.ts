@@ -16,6 +16,7 @@ import {
   vatRates,
 } from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -383,10 +384,9 @@ describe('Quotations tRPC Router', () => {
       }
     });
 
-    it('does NOT touch inventory_balances or products.stock', async () => {
+    it('does NOT touch inventory_balances or the derived product stock', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const db = getDatabase();
-      const { products } = await import('../db/schema.js');
       const screw = await createProduct({
         name: 'Quote Inventory Probe',
         sku: 'Q-INV',
@@ -394,17 +394,13 @@ describe('Quotations tRPC Router', () => {
         price: 50,
       });
 
-      const stockBefore = (
-        await db.select({ stock: products.stock }).from(products).where(eq(products.id, screw.id)).get()
-      )?.stock;
+      const stockBefore = getProductStockTotal(db, tenantId, screw.id);
 
       await caller.quotations.create({
         items: [{ productId: screw.id, quantity: 5, unitPrice: 50, discount: 0, taxRate: 0 }],
       });
 
-      const stockAfter = (
-        await db.select({ stock: products.stock }).from(products).where(eq(products.id, screw.id)).get()
-      )?.stock;
+      const stockAfter = getProductStockTotal(db, tenantId, screw.id);
 
       expect(stockAfter).toBe(stockBefore);
     });

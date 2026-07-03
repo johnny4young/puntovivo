@@ -40,6 +40,7 @@ import {
 import type { DatabaseInstance } from '../index.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { registerDevice as registerDeviceService } from '../../services/devices/devicesService.js';
+import { productStockTotalSql } from '../../services/inventory-balances/derive.js';
 import { seedHistoricalCash } from './historical-cash.js';
 import { seedHistoricalSales } from './historical-sales.js';
 import { seedHistoricalPurchases } from './historical-purchases.js';
@@ -89,7 +90,7 @@ export async function seedMegaData(input: SeedMegaInput): Promise<MegaCounts> {
       cost: productsTable.cost,
       price: productsTable.price,
       taxRate: productsTable.taxRate,
-      stock: productsTable.stock,
+      stock: productStockTotalSql,
     }).from(productsTable).where(eq(productsTable.tenantId, tenantId)).all(),
     db.select({ id: customersTable.id, name: customersTable.name }).from(customersTable).where(eq(customersTable.tenantId, tenantId)).all(),
     db.select({ id: providersTable.id }).from(providersTable).where(eq(providersTable.tenantId, tenantId)).all(),

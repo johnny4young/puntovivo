@@ -6,21 +6,17 @@
  *
  * @module services/inventory-transfers/voidTransfer
  */
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryBalances,
-  products,
   transferOrderItems,
   transferOrders,
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import {
-  getPrimarySiteId,
-  syncProductStockFromBalances,
-} from '../inventory-balances.js';
+import { getPrimarySiteId, getProductStockTotal } from '../inventory-balances.js';
 import { writeAuditLog } from '../audit-logs.js';
 import { getTimestamp, seedMissingBalanceRow } from './helpers.js';
 import type { VoidTransferArgs, VoidedTransfer } from './types.js';
@@ -97,22 +93,6 @@ export function voidInventoryTransfer(
     }));
 
     const primarySiteId = getPrimarySiteId(tx, args.tenantId);
-    const productStockById = new Map(
-      tx
-        .select({ id: products.id, stock: products.stock })
-        .from(products)
-        .where(
-          and(
-            eq(products.tenantId, args.tenantId),
-            inArray(
-              products.id,
-              items.map(item => item.productId)
-            )
-          )
-        )
-        .all()
-        .map(product => [product.id, product.stock])
-    );
 
     const wasInTransit = transfer.status === 'in_transit';
 
@@ -197,7 +177,7 @@ export function voidInventoryTransfer(
         productId: item.productId,
         initialOnHand:
           transfer.fromSiteId === primarySiteId
-            ? (productStockById.get(item.productId) ?? 0)
+            ? getProductStockTotal(tx, args.tenantId, item.productId)
             : 0,
         now,
       });
@@ -229,13 +209,8 @@ export function voidInventoryTransfer(
         )
         .run();
 
-      // Keep products.stock in lockstep with Σ(balances) after the reversal
-      // (same invariant enforced by every other balance mutation).
-      syncProductStockFromBalances(tx, {
-        tenantId: args.tenantId,
-        productId: item.productId,
-        now,
-      });
+      // `inventory_balances` is the single source of truth; the tenant-wide
+      // total is derived on read, so there is no cache to recompute here.
 
       reversedItems.push({ productId: item.productId, quantity: item.quantity });
     }

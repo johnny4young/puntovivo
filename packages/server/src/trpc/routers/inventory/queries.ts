@@ -26,6 +26,7 @@ import {
   listInventoryBalancesBySite,
   summarizeInventoryBalances,
 } from '../../../services/inventory-balances.js';
+import { productStockTotalSql } from '../../../services/inventory-balances/derive.js';
 import {
   getMovementInput,
   listBalancesBySiteInput,
@@ -180,7 +181,7 @@ export const inventoryQueryProcedures = {
       conditions.push(eq(products.categoryId, categoryId));
     }
     if (lowStockOnly) {
-      conditions.push(sql`${products.stock} <= ${products.minStock}`);
+      conditions.push(sql`${productStockTotalSql} <= ${products.minStock}`);
     }
 
     const where = and(...conditions);
@@ -194,12 +195,12 @@ export const inventoryQueryProcedures = {
           sku: products.sku,
           categoryId: products.categoryId,
           categoryName: categories.name,
-          stock: products.stock,
+          stock: productStockTotalSql,
           minStock: products.minStock,
           initialCost: products.initialCost,
           price: products.price,
-          isLowStock: sql<boolean>`${products.stock} <= ${products.minStock}`,
-          inventoryValue: sql<number>`${products.stock} * ${products.initialCost}`,
+          isLowStock: sql<boolean>`${productStockTotalSql} <= ${products.minStock}`,
+          inventoryValue: sql<number>`${productStockTotalSql} * ${products.initialCost}`,
           updatedAt: products.updatedAt,
         })
         .from(products)
@@ -216,9 +217,9 @@ export const inventoryQueryProcedures = {
         .get(),
       ctx.db
         .select({
-          totalUnits: sql<number>`coalesce(sum(${products.stock}), 0)`,
-          totalValue: sql<number>`coalesce(sum(${products.stock} * ${products.initialCost}), 0)`,
-          lowStockCount: sql<number>`coalesce(sum(case when ${products.stock} <= ${products.minStock} then 1 else 0 end), 0)`,
+          totalUnits: sql<number>`coalesce(sum(${productStockTotalSql}), 0)`,
+          totalValue: sql<number>`coalesce(sum(${productStockTotalSql} * ${products.initialCost}), 0)`,
+          lowStockCount: sql<number>`coalesce(sum(case when ${productStockTotalSql} <= ${products.minStock} then 1 else 0 end), 0)`,
         })
         .from(products)
         .where(where)
@@ -267,9 +268,9 @@ export const inventoryQueryProcedures = {
   /**
    * List on-hand balances attributed to a specific site (Phase 2 DB-101).
    *
-   * Seeds the site on first access — primary site mirrors current
-   * `products.stock`, non-primary sites start at zero. Once transfers land the
-   * balances stop being a projection and become the source of truth.
+   * Seeds the site on first access with 0-on_hand rows. `inventory_balances`
+   * is the single source of truth; opening quantities come from the mutation
+   * paths, and the tenant-wide total is derived as Σ(on_hand) on read.
    */
   listBalancesBySite: managerOrAdminProcedure
     .input(listBalancesBySiteInput)
@@ -295,7 +296,7 @@ export const inventoryQueryProcedures = {
       .select({
         id: products.id,
         name: products.name,
-        stock: products.stock,
+        stock: productStockTotalSql,
         minStock: products.minStock,
       })
       .from(products)

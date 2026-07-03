@@ -29,10 +29,7 @@ import {
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import {
-  getPrimarySiteId,
-  syncProductStockFromBalances,
-} from '../inventory-balances.js';
+import { getPrimarySiteId, getProductStockTotal } from '../inventory-balances.js';
 import { assertValidTransferArgs, getTimestamp, seedMissingBalanceRow } from './helpers.js';
 import type { CreateTransferArgs, CreatedTransfer } from './types.js';
 
@@ -80,7 +77,7 @@ export function createInventoryTransfer(
 
     const productIds = Array.from(collapsedItems.keys());
     const tenantProducts = tx
-      .select({ id: products.id, name: products.name, sku: products.sku, stock: products.stock })
+      .select({ id: products.id, name: products.name, sku: products.sku })
       .from(products)
       .where(and(eq(products.tenantId, args.tenantId), eq(products.isActive, true)))
       .all();
@@ -123,12 +120,16 @@ export function createInventoryTransfer(
 
       // Lazily seed missing balance rows for both sites so transfer creation
       // does not depend on the balances read path having run beforehand.
+      const primarySeedOnHand =
+        args.fromSiteId === primarySiteId || args.toSiteId === primarySiteId
+          ? getProductStockTotal(tx, args.tenantId, productId)
+          : 0;
       seedMissingBalanceRow({
         tx,
         tenantId: args.tenantId,
         siteId: args.fromSiteId,
         productId,
-        initialOnHand: args.fromSiteId === primarySiteId ? product.stock : 0,
+        initialOnHand: args.fromSiteId === primarySiteId ? primarySeedOnHand : 0,
         now,
       });
       seedMissingBalanceRow({
@@ -136,7 +137,7 @@ export function createInventoryTransfer(
         tenantId: args.tenantId,
         siteId: args.toSiteId,
         productId,
-        initialOnHand: args.toSiteId === primarySiteId ? product.stock : 0,
+        initialOnHand: args.toSiteId === primarySiteId ? primarySeedOnHand : 0,
         now,
       });
 
@@ -215,14 +216,8 @@ export function createInventoryTransfer(
           .run();
       }
 
-      // Recompute products.stock for both sides of the transfer so the
-      // tenant-wide cache stays in lockstep with Σ(balances), matching the
-      // step-4 invariant established for all other mutation paths.
-      syncProductStockFromBalances(tx, {
-        tenantId: args.tenantId,
-        productId,
-        now,
-      });
+      // `inventory_balances` is the single source of truth; the tenant-wide
+      // total is derived on read, so there is no cache to recompute here.
 
       const itemId = nanoid();
       tx.insert(transferOrderItems)
