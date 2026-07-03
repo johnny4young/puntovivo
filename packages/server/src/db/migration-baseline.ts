@@ -159,6 +159,24 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0001_eng177c_sales_cash_session_check') {
       return !tableExists('sales');
     }
+    // Auditoría 2026-07 — the units-foundation migration ALTERs `units`.
+    // A partial legacy/test DB without a `units` table has no target, so
+    // mark it applied to keep minimal shapes booting; a real adopted DB
+    // carries `units` (baseline) and the ALTER runs normally.
+    if (entry.tag === '0003_unit_dimension_standard_code') {
+      return !tableExists('units');
+    }
+    // Auditoría 2026-07 — packaging-barcode migration ALTERs
+    // `unit_x_product`; same partial-legacy guard.
+    if (entry.tag === '0004_unit_x_product_barcode') {
+      return !tableExists('unit_x_product');
+    }
+    // Auditoría 2026-07 — lots migration ALTERs `products` (tracks_lots) and
+    // creates `inventory_lots`. A partial legacy DB without `products` has no
+    // ALTER target; mark applied so minimal shapes keep booting.
+    if (entry.tag === '0005_inventory_lots') {
+      return !tableExists('products');
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

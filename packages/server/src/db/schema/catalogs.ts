@@ -10,7 +10,7 @@
  */
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
-import { nowIso, sequentialDocumentTypeEnum, sqliteNow } from './base.js';
+import { nowIso, sequentialDocumentTypeEnum, sqliteNow, unitDimensionEnum } from './base.js';
 import { sites, tenants } from './auth.js';
 import { categoryXProvider, productXProvider, products, unitXProduct } from './products.js';
 import { orderItems, orders, purchaseItems, purchases } from './purchasing.js';
@@ -189,6 +189,24 @@ export const units = sqliteTable(
       .references(() => tenants.id),
     name: text('name').notNull(),
     abbreviation: text('abbreviation').notNull(),
+    // Auditoría 2026-07 — units foundation. All three are additive/nullable
+    // so every legacy row round-trips untouched.
+    //
+    // `dimension` groups units by physical quantity (mass/volume/…), so a
+    // product's unit set can be validated for coherence and reported on.
+    dimension: text('dimension', { enum: unitDimensionEnum }),
+    // `standardCode` is the UN/ECE Recommendation 20 unit-of-measure code
+    // (KGM, LTR, MTR, GRM, H87 for piece…). LatAm fiscal e-invoicing — the
+    // Colombian DIAN UBL invoice among them — requires a standardized
+    // `unitCode` per line; a free-form tenant abbreviation cannot map to it
+    // reliably, so this column is the fiscal hook.
+    standardCode: text('standard_code'),
+    // `referenceFactor` is the multiplier that converts ONE of this unit
+    // into its dimension's canonical reference unit (mass→gram, volume→
+    // millilitre, length→metre, count→unit): KGM=1000, GRM=1, LTR=1000,
+    // MLT=1. Enables dimension-wide conversion without per-product factors;
+    // null keeps the legacy per-product `unit_x_product.equivalence` path.
+    referenceFactor: real('reference_factor'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
@@ -196,6 +214,7 @@ export const units = sqliteTable(
   table => [
     index('idx_units_tenant').on(table.tenantId),
     uniqueIndex('idx_units_tenant_abbreviation').on(table.tenantId, table.abbreviation),
+    index('idx_units_dimension').on(table.dimension),
   ]
 );
 

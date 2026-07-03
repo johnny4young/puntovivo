@@ -3,36 +3,16 @@ import {
   shell,
   BrowserWindow,
   dialog,
-  ipcMain,
   Menu,
-  nativeTheme,
   safeStorage,
   session,
   Tray,
   nativeImage,
-  type OpenDialogOptions,
-  type SaveDialogOptions,
 } from 'electron';
-import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { access, copyFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { DEVICE_ID_FILENAME, readDeviceIdFromDir, writeDeviceIdToDir } from './device-id-store.js';
+import { join } from 'node:path';
 import { getDbKeyDir, getOrCreateDbKey } from './db-key-store.js';
-import { sanitisePrintHtml } from './print-html-sanitizer.js';
-import {
-  createBackupBundle,
-  createBackupFileName as createBackupZipFileName,
-  extractBackupBundle,
-  assertSqliteIntegrity,
-  // ENG-167b — cleartext detection + in-place rekey for the
-  // cross-device restore completion path.
-  isCleartextSqliteFile,
-  rekeySqliteDatabase,
-  sweepStaleBackupStaging,
-  type ExtractBackupBundleResult,
-} from './backup/backup-bundle.js';
+import { sweepStaleBackupStaging } from './backup/backup-bundle.js';
 // ENG-167b — one-shot first-boot encryption of pre-Step-1 databases.
 import { migrateCleartextDatabase } from './db-migrate-encryption.js';
 import {
@@ -41,23 +21,20 @@ import {
   resolveRuntimeConfig,
   type PuntovivoServer,
   type RuntimeConfig,
-  appSettings,
-  // Drizzle operators re-exported by the server package: they must come
-  // from the same drizzle-orm instance that typed the schema tables above
-  // (a direct 'drizzle-orm' import here is a phantom dependency that can
-  // resolve to a different module identity and break the typecheck).
-  eq,
 } from '@puntovivo/server';
 
-// ENG-006 — three child loggers for the Electron main. `electron-main`
+// ENG-006 — child loggers for the Electron main. `electron-main`
 // covers the embedded Fastify lifecycle, window loading, and the
 // renderer-console forwarding hook. `backup` and `print` split out
 // two frequent-error surfaces so operators can filter the stream by
-// module=backup or module=print without additional tagging.
+// module=backup or module=print without additional tagging (the
+// `print` child now lives in ./ipc/print.ts, and ./ipc/backup.ts
+// creates its own `backup` child for the extracted handlers; the
+// instance below covers the backup-staging sweep + shutdown paths
+// that stayed in this module).
 const mainLog = createModuleLogger('electron-main');
 const rendererLog = createModuleLogger('renderer');
 const backupLog = createModuleLogger('backup');
-const printLog = createModuleLogger('print');
 
 // Renderer console levels map to pino levels via this table. Electron
 // reports the level as a narrow union of strings (`debug` | `info` |
@@ -74,28 +51,17 @@ const RENDERER_LEVEL_MAP = {
   'debug' | 'info' | 'warn' | 'error'
 >;
 import {
-  checkForAppUpdates,
-  getAutoUpdateStatus,
   initAutoUpdater,
   refreshAutoUpdateTranslations,
-  restartToApplyAppUpdate,
   stopAutoUpdater,
 } from './auto-updater';
-import { t, setMainLocale, normalizeMainLocale, type MainLocale } from './i18n';
+import { t, setMainLocale, normalizeMainLocale } from './i18n';
 import { buildMainWindowWebPreferences } from './window-config.js';
 import {
   buildRendererSecurityHeaders,
   isFastifyApiResponse,
 } from './renderer-security-headers.js';
 import { isAllowedExternalUrl } from './external-url-policy.js';
-// ENG-025 — single source of truth for the authenticated identity at
-// the IPC boundary. Every db:* / sync:* handler reads tenantId from
-// here instead of trusting the renderer-supplied argument. The
-// `SESSION_NOT_REGISTERED` and `SESSION_REGISTER_REJECTED` error
-// strings are the stable contract the renderer matches against to
-// decide whether to redirect to the login screen.
-import * as desktopSession from './session/desktopSession.js';
-import { verifyTokenWithServer } from '@puntovivo/server';
 // ENG-135b — process crash path: captureProcessCrash forwards a
 // tenant-less, redacted crash event to the telemetry sink (live only
 // when the operator provisioned PUNTOVIVO_SENTRY_DSN);
@@ -108,36 +74,26 @@ import { installProcessCrashHandlers } from './crash-telemetry.js';
 // ENG-178 — the embedded-server handle + DB accessors live in the
 // Electron-free runtime hub so the extracted ipc/* concern modules can
 // reach the database without importing electron.
+import { getServer, setServer } from './runtime.js';
+// ENG-178 — the IPC handler registration blocks live in focused modules
+// under ./ipc/. Main-process state they need (main window, DB path,
+// encryption-key cache, server-restart choreography, tray refresh) is
+// passed explicitly through each register function's deps, so none of
+// them imports back into this module.
+import { registerAppLifecycleIpc } from './ipc/app-lifecycle.js';
+import { registerBackupIpc, clearPendingRestore } from './ipc/backup.js';
+import { registerDeviceIpc } from './ipc/device.js';
+import { registerPeripheralsIpc } from './ipc/peripherals.js';
+import { registerPrintIpc } from './ipc/print.js';
+import { registerDataBridgeIpc } from './ipc/register.js';
+import { registerSessionIpc } from './ipc/session-ipc.js';
 import {
-  getServer,
-  setServer,
-  getServerDatabase,
-  getServerUrl,
-} from './runtime.js';
-// ENG-178 — desktop database-bridge handlers extracted to ipc/db.ts.
-import {
-  assertRowBelongsToActiveTenant,
-  assertSaleItemWriteBelongsToActiveTenant,
-  getAllowedDesktopTable,
-  handleDesktopCountByTenant,
-  handleDesktopDelete,
-  handleDesktopDeleteByTenant,
-  handleDesktopGetAll,
-  handleDesktopGetById,
-  handleDesktopGetByField,
-  handleDesktopInsert,
-  handleDesktopUpdate,
-} from './ipc/db.js';
-// ENG-178 — desktop sync-bridge handlers extracted to ipc/sync.ts.
-import {
-  assertDesktopSyncOperation,
-  getDesktopSyncStatus,
-  handleDesktopAddToSyncQueue,
-  handleDesktopGetPendingSyncItems,
-  handleDesktopSetSyncConfig,
-  handleDesktopTriggerSync,
-  type DesktopSyncQueueInput,
-} from './ipc/sync.js';
+  registerSettingsIpc,
+  applyThemePreference,
+  getThemePreference,
+  getTraySettings,
+  type TraySettings,
+} from './ipc/settings.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -214,7 +170,6 @@ let currentTraySettings: TraySettings = {
 const DEV_SHARED_DB_PATH =
   !app.isPackaged && process.env.DATABASE_URL ? process.env.DATABASE_URL : undefined;
 const DB_PATH = DEV_SHARED_DB_PATH ?? join(app.getPath('userData'), 'data', 'local.db');
-const SQLITE_SIDECAR_SUFFIXES = ['-wal', '-shm', '-journal'] as const;
 
 // ENG-002 step 2 — in packaged builds, the generated Drizzle migrations
 // ship via forge.config.ts `extraResource` into process.resourcesPath.
@@ -245,91 +200,6 @@ function resolveDevMigrationsPath(): string {
 const MIGRATIONS_PATH = app.isPackaged
   ? join(process.resourcesPath, 'migrations')
   : resolveDevMigrationsPath();
-
-interface DesktopDatabaseActionResult {
-  success: boolean;
-  cancelled: boolean;
-  path?: string;
-  /**
-   * ENG-066 — bytes of the produced backup ZIP. Existing renderer callers
-   * can ignore it; future toasts/diagnostics may surface it.
-   */
-  sizeBytes?: number;
-  error?: string;
-  /**
-   * ENG-167b — the selected bundle is encrypted with a DIFFERENT
-   * device's key. The staging copy is held server-side under `token`;
-   * the renderer prompts the operator for the source device's backup
-   * key and completes the restore via `provideRestoreKey(token, key)`.
-   */
-  needsKey?: boolean;
-  token?: string;
-}
-
-interface ReceiptPrintSettings {
-  silent: boolean;
-  printBackground: boolean;
-}
-
-type ThemePreference = 'light' | 'dark' | 'system';
-
-interface TraySettings {
-  enabled: boolean;
-  closeToTray: boolean;
-}
-
-
-
-
-const RECEIPT_PRINT_SETTINGS_KEY = 'receipt_print_settings';
-// DK-006 — upper bound on how long we wait for `webContents.print`'s
-// completion callback. The native print path can hang indefinitely if
-// the OS print dialog/spooler never returns a result (stuck driver,
-// dismissed dialog on some platforms); without a ceiling the print
-// promise would never settle and the ephemeral print window would leak.
-// On timeout we reject (reusing the same user-visible failure copy) so
-// the `finally` always runs and the window is closed.
-const RECEIPT_PRINT_TIMEOUT_MS = 60_000;
-const THEME_PREFERENCE_KEY = 'theme_preference';
-const TRAY_SETTINGS_KEY = 'tray_settings';
-const DEFAULT_RECEIPT_PRINT_SETTINGS: ReceiptPrintSettings = {
-  silent: false,
-  printBackground: true,
-};
-const DEFAULT_THEME_PREFERENCE: ThemePreference = 'system';
-const DEFAULT_TRAY_SETTINGS: TraySettings = {
-  enabled: true,
-  closeToTray: false,
-};
-
-/**
- * Resolves to `${userData}/device-id.txt`. Backup bundles include
- * this file so device identity travels with the data: a full-disk
- * failure can restore the device on new hardware AS the same logical
- * device from the server's perspective (per ADR-0001 + ADR-0006).
- */
-function getDeviceIdPath(): string {
-  return join(app.getPath('userData'), DEVICE_ID_FILENAME);
-}
-
-async function ensureParentDirectoryExists(filePath: string): Promise<void> {
-  await mkdir(dirname(filePath), { recursive: true });
-}
-
-async function removeSqliteSidecars(dbPath: string): Promise<void> {
-  await Promise.all(
-    SQLITE_SIDECAR_SUFFIXES.map(async suffix => {
-      try {
-        await rm(`${dbPath}${suffix}`);
-      } catch (error) {
-        const maybeFsError = error as NodeJS.ErrnoException;
-        if (maybeFsError.code !== 'ENOENT') {
-          throw error;
-        }
-      }
-    })
-  );
-}
 
 async function startEmbeddedServer(): Promise<PuntovivoServer> {
   // ENG-072 — Resolve the Authority Node runtime config from env
@@ -467,152 +337,6 @@ async function runWithServerRestart<T>(
   }
 }
 
-
-
-function normalizeReceiptPrintSettings(
-  value: unknown,
-  base: ReceiptPrintSettings = DEFAULT_RECEIPT_PRINT_SETTINGS
-): ReceiptPrintSettings {
-  if (!value || typeof value !== 'object') {
-    return { ...base };
-  }
-
-  const candidate = value as Partial<ReceiptPrintSettings>;
-
-  return {
-    silent: typeof candidate.silent === 'boolean' ? candidate.silent : base.silent,
-    printBackground:
-      typeof candidate.printBackground === 'boolean'
-        ? candidate.printBackground
-        : base.printBackground,
-  };
-}
-
-async function getReceiptPrintSettings(): Promise<ReceiptPrintSettings> {
-  const database = getServerDatabase();
-  const row = await database
-    .select({ value: appSettings.value })
-    .from(appSettings)
-    .where(eq(appSettings.key, RECEIPT_PRINT_SETTINGS_KEY))
-    .get();
-
-  return normalizeReceiptPrintSettings(row?.value);
-}
-
-async function saveReceiptPrintSettings(settings: unknown): Promise<ReceiptPrintSettings> {
-  const database = getServerDatabase();
-  const now = new Date().toISOString();
-  const nextSettings = normalizeReceiptPrintSettings(
-    settings,
-    await getReceiptPrintSettings()
-  );
-  const existing = await database
-    .select({ key: appSettings.key })
-    .from(appSettings)
-    .where(eq(appSettings.key, RECEIPT_PRINT_SETTINGS_KEY))
-    .get();
-
-  if (existing) {
-    await database
-      .update(appSettings)
-      .set({
-        value: nextSettings,
-        updatedAt: now,
-      })
-      .where(eq(appSettings.key, RECEIPT_PRINT_SETTINGS_KEY));
-  } else {
-    await database.insert(appSettings).values({
-      key: RECEIPT_PRINT_SETTINGS_KEY,
-      value: nextSettings,
-      updatedAt: now,
-    });
-  }
-
-  return nextSettings;
-}
-
-function normalizeThemePreference(value: unknown): ThemePreference {
-  if (value === 'light' || value === 'dark' || value === 'system') {
-    return value;
-  }
-
-  return DEFAULT_THEME_PREFERENCE;
-}
-
-function applyThemePreference(preference: ThemePreference): ThemePreference {
-  nativeTheme.themeSource = preference;
-  return preference;
-}
-
-async function getThemePreference(): Promise<ThemePreference> {
-  const database = getServerDatabase();
-  const row = await database
-    .select({ value: appSettings.value })
-    .from(appSettings)
-    .where(eq(appSettings.key, THEME_PREFERENCE_KEY))
-    .get();
-
-  return normalizeThemePreference(row?.value);
-}
-
-async function saveThemePreference(preference: unknown): Promise<ThemePreference> {
-  const database = getServerDatabase();
-  const now = new Date().toISOString();
-  const nextPreference = applyThemePreference(normalizeThemePreference(preference));
-  const existing = await database
-    .select({ key: appSettings.key })
-    .from(appSettings)
-    .where(eq(appSettings.key, THEME_PREFERENCE_KEY))
-    .get();
-
-  if (existing) {
-    await database
-      .update(appSettings)
-      .set({
-        value: nextPreference,
-        updatedAt: now,
-      })
-      .where(eq(appSettings.key, THEME_PREFERENCE_KEY))
-      .run();
-  } else {
-    await database.insert(appSettings).values({
-      key: THEME_PREFERENCE_KEY,
-      value: nextPreference,
-      updatedAt: now,
-    });
-  }
-
-  return nextPreference;
-}
-
-function normalizeTraySettings(
-  value: unknown,
-  base: TraySettings = DEFAULT_TRAY_SETTINGS
-): TraySettings {
-  if (!value || typeof value !== 'object') {
-    return { ...base };
-  }
-
-  const candidate = value as Partial<TraySettings>;
-
-  return {
-    enabled: typeof candidate.enabled === 'boolean' ? candidate.enabled : base.enabled,
-    closeToTray:
-      typeof candidate.closeToTray === 'boolean' ? candidate.closeToTray : base.closeToTray,
-  };
-}
-
-async function getTraySettings(): Promise<TraySettings> {
-  const database = getServerDatabase();
-  const row = await database
-    .select({ value: appSettings.value })
-    .from(appSettings)
-    .where(eq(appSettings.key, TRAY_SETTINGS_KEY))
-    .get();
-
-  return normalizeTraySettings(row?.value);
-}
-
 function createTrayIcon() {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
@@ -720,93 +444,6 @@ function refreshTray(settings = currentTraySettings) {
   ]);
 
   tray.setContextMenu(contextMenu);
-}
-
-async function saveTraySettings(settings: unknown): Promise<TraySettings> {
-  const database = getServerDatabase();
-  const now = new Date().toISOString();
-  const nextSettings = normalizeTraySettings(settings, await getTraySettings());
-  const existing = await database
-    .select({ key: appSettings.key })
-    .from(appSettings)
-    .where(eq(appSettings.key, TRAY_SETTINGS_KEY))
-    .get();
-
-  if (existing) {
-    await database
-      .update(appSettings)
-      .set({
-        value: nextSettings,
-        updatedAt: now,
-      })
-      .where(eq(appSettings.key, TRAY_SETTINGS_KEY))
-      .run();
-  } else {
-    await database.insert(appSettings).values({
-      key: TRAY_SETTINGS_KEY,
-      value: nextSettings,
-      updatedAt: now,
-    });
-  }
-
-  refreshTray(nextSettings);
-  return nextSettings;
-}
-
-async function printReceipt(
-  receiptHtml: string,
-  settings: ReceiptPrintSettings
-): Promise<void> {
-  const printWindow = new BrowserWindow({
-    show: false,
-    webPreferences: {
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-
-  try {
-    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHtml)}`);
-
-    // DK-006 — race the print callback against a hard timeout so a
-    // native print path that never invokes its callback cannot pin the
-    // promise open (which would skip the `finally` and leak the window).
-    let timeoutHandle: NodeJS.Timeout | undefined;
-    const printDone = new Promise<void>((resolve, reject) => {
-      printWindow.webContents.print(
-        {
-          silent: settings.silent,
-          printBackground: settings.printBackground,
-        },
-        (success, failureReason) => {
-          if (!success) {
-            reject(new Error(failureReason || t('print.receiptFailed')));
-            return;
-          }
-
-          resolve();
-        }
-      );
-    });
-    const printTimeout = new Promise<never>((_resolve, reject) => {
-      timeoutHandle = setTimeout(() => {
-        reject(new Error(t('print.receiptFailed')));
-      }, RECEIPT_PRINT_TIMEOUT_MS);
-    });
-
-    try {
-      await Promise.race([printDone, printTimeout]);
-    } finally {
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
-      }
-    }
-  } finally {
-    if (!printWindow.isDestroyed()) {
-      printWindow.close();
-    }
-  }
 }
 
 function createWindow(): void {
@@ -976,392 +613,38 @@ function createWindow(): void {
   }
 }
 
-async function handleCreateDatabaseBackup(): Promise<DesktopDatabaseActionResult> {
-  desktopSession.requireOneOfRoles(['admin']);
-  const saveDialogOptions: SaveDialogOptions = {
-    title: t('backup.createDialogTitle'),
-    defaultPath: join(app.getPath('documents'), createBackupZipFileName()),
-    filters: [
-      {
-        name: t('backup.fileFilterName'),
-        extensions: ['zip'],
-      },
-    ],
-  };
-  const { canceled, filePath } = mainWindow
-    ? await dialog.showSaveDialog(mainWindow, saveDialogOptions)
-    : await dialog.showSaveDialog(saveDialogOptions);
-
-  if (canceled || !filePath) {
-    return {
-      success: false,
-      cancelled: true,
-    };
-  }
-
-  try {
-    // ENG-066 — atomic backup via SQLite online backup API. The
-    // server is stopped first so the backup bundle is consistent
-    // with operator expectations even though `db.backup()` is safe
-    // under concurrent writes.
-    const result = await runWithServerRestart(async () => {
-      await access(DB_PATH);
-      await ensureParentDirectoryExists(filePath);
-      const deviceIdPath = getDeviceIdPath();
-      const encryptionKey = await resolveDatabaseEncryptionKey();
-      return createBackupBundle({
-        dbPath: DB_PATH,
-        deviceIdPath,
-        outZipPath: filePath,
-        encryptionKey,
-        manifest: { appVersion: app.getVersion() },
-      });
-    });
-
-    backupLog.info(
-      { zipPath: result.zipPath, zipBytes: result.zipBytes },
-      'backup created'
-    );
-
-    return {
-      success: true,
-      cancelled: false,
-      path: result.zipPath,
-      sizeBytes: result.zipBytes,
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : t('backup.createFailed');
-    backupLog.error({ err: error }, 'failed to create backup');
-    return {
-      success: false,
-      cancelled: false,
-      error: message,
-    };
-  }
-}
-
-async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResult> {
-  desktopSession.requireOneOfRoles(['admin']);
-  const openDialogOptions: OpenDialogOptions = {
-    title: t('backup.restoreDialogTitle'),
-    properties: ['openFile'],
-    filters: [
-      {
-        name: t('backup.fileFilterName'),
-        // Accept legacy raw `.db` AND the new ZIP bundle.
-        extensions: ['zip', 'db', 'sqlite', 'sqlite3'],
-      },
-    ],
-  };
-  const { canceled, filePaths } = mainWindow
-    ? await dialog.showOpenDialog(mainWindow, openDialogOptions)
-    : await dialog.showOpenDialog(openDialogOptions);
-
-  const selectedBackupPath = filePaths[0];
-  if (canceled || !selectedBackupPath) {
-    return {
-      success: false,
-      cancelled: true,
-    };
-  }
-
-  // ENG-066 — VALIDATE the bundle BEFORE the swap. The integrity
-  // check + format detection happens against an extracted staging
-  // copy, so a corrupted file never touches the live DB.
-  const stagingDir = await mkdtemp(join(tmpdir(), 'puntovivo-restore-'));
-  let keepStaging = false;
-  try {
-    await access(selectedBackupPath);
-
-    const extracted = await extractBackupBundle(selectedBackupPath, stagingDir);
-    const encryptionKey = await resolveDatabaseEncryptionKey();
-
-    try {
-      await assertSqliteIntegrity(extracted.dbPath, { encryptionKey });
-    } catch (localKeyError) {
-      // ENG-167b — the staged DB does not open with THIS device's
-      // key. Two legitimate shapes before giving up:
-      //   1. A legacy pre-encryption bundle (cleartext): verify it
-      //      keyless and restore as-is — the one-shot migration on
-      //      the next boot encrypts it under the local key.
-      //   2. A bundle from a DIFFERENT device: hold the staging copy
-      //      and ask the renderer to prompt for the source device's
-      //      backup key (completed via provideRestoreKey).
-      if (await isCleartextSqliteFile(extracted.dbPath)) {
-        await assertSqliteIntegrity(extracted.dbPath, {});
-        backupLog.info(
-          { source: selectedBackupPath },
-          'restore: legacy cleartext bundle accepted; next boot will encrypt it'
-        );
-      } else {
-        keepStaging = true;
-        const token = await stashPendingRestore(stagingDir, extracted, selectedBackupPath);
-        backupLog.info(
-          { source: selectedBackupPath },
-          'restore: bundle is encrypted with a foreign key; prompting for it'
-        );
-        return {
-          success: false,
-          cancelled: false,
-          needsKey: true,
-          token,
-        };
-      }
-      void localKeyError;
-    }
-
-    await swapRestoredDatabase(extracted);
-
-    backupLog.info(
-      { source: selectedBackupPath, format: extracted.format },
-      'backup restored'
-    );
-
-    return {
-      success: true,
-      cancelled: false,
-      path: selectedBackupPath,
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : t('backup.restoreFailed');
-    backupLog.error(
-      { err: error, source: selectedBackupPath },
-      'failed to restore backup'
-    );
-    return {
-      success: false,
-      cancelled: false,
-      error: message,
-    };
-  } finally {
-    if (!keepStaging) {
-      await rm(stagingDir, { recursive: true, force: true });
-    }
-  }
-}
-
-/**
- * ENG-066/167b — promote a validated staging DB into the live
- * location under a server restart, preserving the bundled device
- * identity when present. Shared by the direct restore path and the
- * foreign-key completion path (provideRestoreKey).
- */
-async function swapRestoredDatabase(
-  extracted: ExtractBackupBundleResult
-): Promise<void> {
-  await runWithServerRestart(
-    async () => {
-      await ensureParentDirectoryExists(DB_PATH);
-      await removeSqliteSidecars(DB_PATH);
-      await copyFile(extracted.dbPath, DB_PATH);
-      await removeSqliteSidecars(DB_PATH);
-
-      // ENG-066 — preserve the bundled device identity when present;
-      // legacy raw `.db` restores keep the destination identity
-      // since the bundle didn't carry one.
-      if (extracted.deviceIdPath) {
-        try {
-          const deviceId = (await readFile(extracted.deviceIdPath, 'utf8')).trim();
-          if (deviceId) {
-            await writeDeviceIdToDir(app.getPath('userData'), deviceId);
-          }
-        } catch (err) {
-          backupLog.warn(
-            { err },
-            'restore: failed to preserve device-id from bundle; keeping destination identity'
-          );
-        }
-      }
-    },
-    { reloadWindow: true }
-  );
-}
-
-/**
- * ENG-167b — single pending cross-device restore slot. Holding ONE
- * staging at a time is deliberate: the restore flow is operator-
- * driven and modal; a new restore invocation discards any previous
- * pending staging. The token is an opaque random id the renderer
- * must echo back so a stale/duplicated prompt cannot complete
- * someone else's staging.
- */
-interface PendingRestore {
-  token: string;
-  stagingDir: string;
-  extracted: ExtractBackupBundleResult;
-  sourcePath: string;
-}
-
-let pendingRestore: PendingRestore | null = null;
-
-async function stashPendingRestore(
-  stagingDir: string,
-  extracted: ExtractBackupBundleResult,
-  sourcePath: string
-): Promise<string> {
-  await clearPendingRestore();
-  const token = randomUUID();
-  pendingRestore = { token, stagingDir, extracted, sourcePath };
-  return token;
-}
-
-async function clearPendingRestore(): Promise<void> {
-  if (!pendingRestore) return;
-  const stale = pendingRestore;
-  pendingRestore = null;
-  await rm(stale.stagingDir, { recursive: true, force: true });
-}
-
-/**
- * ENG-167b — complete a cross-device restore with the SOURCE
- * device's backup key. Validates the staged DB with the foreign key,
- * rekeys it IN STAGING to this device's key (every install keeps
- * exactly one key envelope — the threat model does not change), and
- * promotes it through the same swap path as a direct restore.
- *
- * A wrong key returns a retryable error WITHOUT discarding the
- * staging; an invalid token or key shape discards nothing either —
- * only a successful completion (or a new restore invocation) clears
- * the slot.
- */
-async function handleProvideRestoreKey(
-  _event: Electron.IpcMainInvokeEvent,
-  token: unknown,
-  keyHex: unknown
-): Promise<DesktopDatabaseActionResult> {
-  desktopSession.requireOneOfRoles(['admin']);
-
-  // Snapshot the slot ONCE so every later read (shape-error token,
-  // integrity check, finally guard) sees the same pending restore
-  // even if the module slot is concurrently replaced.
-  const pending = pendingRestore;
-  if (!pending || typeof token !== 'string' || token !== pending.token) {
-    return {
-      success: false,
-      cancelled: false,
-      error: t('backup.restoreKeyNoPending'),
-    };
-  }
-  if (typeof keyHex !== 'string' || !/^[0-9a-f]{64}$/i.test(keyHex.trim())) {
-    return {
-      success: false,
-      cancelled: false,
-      needsKey: true,
-      token: pending.token,
-      error: t('backup.restoreKeyInvalidShape'),
-    };
-  }
-
-  const foreignKey = keyHex.trim().toLowerCase();
-  let keepPending = false;
-  try {
-    try {
-      await assertSqliteIntegrity(pending.extracted.dbPath, {
-        encryptionKey: foreignKey,
-      });
-    } catch {
-      // Wrong key for this bundle — keep the staging, let the
-      // operator retry with a corrected key.
-      keepPending = true;
-      return {
-        success: false,
-        cancelled: false,
-        needsKey: true,
-        token: pending.token,
-        error: t('backup.restoreKeyMismatch'),
-      };
-    }
-
-    const localKey = await resolveDatabaseEncryptionKey();
-    rekeySqliteDatabase(pending.extracted.dbPath, {
-      fromKey: foreignKey,
-      toKey: localKey,
-    });
-    await assertSqliteIntegrity(pending.extracted.dbPath, {
-      encryptionKey: localKey,
-    });
-
-    await swapRestoredDatabase(pending.extracted);
-    backupLog.info(
-      { source: pending.sourcePath },
-      'cross-device backup restored and rekeyed to the local key'
-    );
-    return {
-      success: true,
-      cancelled: false,
-      path: pending.sourcePath,
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : t('backup.restoreFailed');
-    backupLog.error(
-      { err: error, source: pending.sourcePath },
-      'failed to complete cross-device restore'
-    );
-    return { success: false, cancelled: false, error: message };
-  } finally {
-    // Success or hard failure drops the staging; the wrong-key retry
-    // path (keepPending) and the pre-try bad-shape return keep it.
-    if (!keepPending && pendingRestore === pending) {
-      await clearPendingRestore();
-    }
-  }
-}
-
-/**
- * ENG-167b — discard the pending cross-device restore staging the
- * moment the operator dismisses the key prompt, instead of leaving
- * the staged copy in the tmpdir until the next restore attempt, the
- * app quit, or the startup sweep collects it. Admin-gated BEFORE the
- * token is even looked at (same hardening order as the sibling
- * handlers); a stale or foreign token is a silent no-op so a
- * duplicated prompt cannot discard a newer staging.
- */
-async function handleCancelRestoreStaging(
-  _event: Electron.IpcMainInvokeEvent,
-  token: unknown
-): Promise<{ success: boolean }> {
-  desktopSession.requireOneOfRoles(['admin']);
-  const pending = pendingRestore;
-  if (!pending || typeof token !== 'string' || token !== pending.token) {
-    return { success: false };
-  }
-  await clearPendingRestore();
-  backupLog.info(
-    { source: pending.sourcePath },
-    'pending cross-device restore discarded by the operator'
-  );
-  return { success: true };
-}
-
-/**
- * ENG-167b — reveal this install's backup encryption key so the
- * operator can restore its bundles on ANOTHER device. Admin-only;
- * the renderer gates the reveal behind an explicit confirmation with
- * a strong warning (docs/SECURITY.md documents the trade-off: the
- * key is the at-rest secret — whoever holds it can read the
- * backups). The key never leaves the machine through any other
- * channel.
- */
-async function handleGetBackupEncryptionKey(): Promise<{
-  success: boolean;
-  key?: string;
-  error?: string;
-}> {
-  desktopSession.requireOneOfRoles(['admin']);
-  try {
-    const key = await resolveDatabaseEncryptionKey();
-    backupLog.info({}, 'backup encryption key revealed to admin');
-    return { success: true, key };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
 
 // Initialize the application
+// Deny-by-default popup/navigation policy for EVERY webContents, current
+// and future (print windows, devtools-spawned views, anything a dependency
+// opens). The mainWindow handlers below re-state the same policy with the
+// in-app-navigation carve-out; this hook is the belt-and-suspenders floor
+// so an ephemeral window can never be navigated off the app even if its
+// creator forgot to attach handlers.
+app.on('web-contents-created', (_event, contents) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (isAllowedExternalUrl(url)) {
+      void shell.openExternal(url);
+    } else {
+      mainLog.warn({ url }, 'blocked window.open from webContents');
+    }
+    return { action: 'deny' };
+  });
+  contents.on('will-attach-webview', event => {
+    event.preventDefault();
+  });
+  contents.on('will-navigate', (event, url) => {
+    // mainWindow carries its own will-navigate policy with the in-app
+    // reload carve-out; every other webContents (print window, etc.)
+    // loads exactly one document and must never navigate again.
+    if (mainWindow && contents === mainWindow.webContents) {
+      return;
+    }
+    event.preventDefault();
+    mainLog.warn({ url }, 'blocked navigation in auxiliary webContents');
+  });
+});
+
 app.whenReady().then(async () => {
   // Initialize main-process locale from Electron's detected system locale.
   // The renderer will push updates via the 'update-main-locale' IPC channel
@@ -1509,261 +792,28 @@ app.on('will-quit', event => {
 });
 
 // IPC Handlers
-ipcMain.handle('get-app-version', () => app.getVersion());
-ipcMain.handle('get-app-path', () => app.getPath('userData'));
-
-// ENG-074 — Runtime config IPC for the renderer. Resolves once per
-// boot (env vars do not change after Electron starts), so the
-// handler is cheap. The renderer reads this synchronously at module
-// init via `ipcRenderer.sendSync('runtime:get-config')` exposed
-// through the preload bridge — synchronous IPC is the only way to
-// make the tRPC base URL deterministic at module init without a
-// chicken-and-egg between auth init and tRPC client construction.
-const cachedRendererRuntimeConfig = (() => {
-  const runtime = resolveRuntimeConfig({ env: process.env });
-  return {
-    authorityMode: runtime.authorityMode,
-    hubUrl: runtime.hubUrl,
-    siteId: runtime.siteId,
-    deviceId: runtime.deviceId,
-  };
-})();
-ipcMain.on('runtime:get-config', event => {
-  event.returnValue = cachedRendererRuntimeConfig;
+// ENG-178 — registration blocks extracted into focused modules under
+// ./ipc/ (same channels, validation and error strings; registered here,
+// before app-ready, exactly as the inline blocks were). Main-process
+// state is handed over through explicit deps: a `getMainWindow` getter
+// (the window is created later and can be recreated), the live DB path,
+// the encryption-key cache resolver and the embedded-server restart
+// choreography for backup/restore, the tray refresher for the settings
+// surface, and the `electron-main` logger where the extracted handlers
+// logged through it.
+registerAppLifecycleIpc();
+registerPeripheralsIpc();
+registerBackupIpc({
+  dbPath: DB_PATH,
+  getMainWindow: () => mainWindow,
+  resolveDatabaseEncryptionKey,
+  runWithServerRestart,
 });
-
-// ENG-074b — Hub-client local hardware bridge IPC. The renderer in
-// hub_client mode fetches ESC/POS bytes from the hub via
-// `peripherals.buildReceiptBytes` / `buildDrawerKickBytes` and
-// pipes them through this handler. The dispatcher reuses the
-// server's `resolveTransport` helper but never opens a DB
-// connection — see local-bridge.ts for the ADR-0008 rule 6
-// invariant.
-ipcMain.handle('peripherals:dispatch-local-escpos', async (_event, payload) => {
-  const { dispatchLocalEscpos } = await import('./peripherals/local-bridge.js');
-  return dispatchLocalEscpos(payload);
+registerSettingsIpc({
+  getMainWindow: () => mainWindow,
+  refreshTray,
 });
-// The fallback string is only returned before the embedded server has
-// started. ENG-072 — once the server is up, `getUrl()` returns the
-// real bind address resolved from the Authority Node runtime config.
-ipcMain.handle('get-server-url', () => getServerUrl());
-ipcMain.handle('get-auto-update-status', () => getAutoUpdateStatus());
-ipcMain.handle('check-for-app-updates', () => checkForAppUpdates());
-ipcMain.handle('restart-to-apply-app-update', () => restartToApplyAppUpdate());
-ipcMain.handle('create-database-backup', handleCreateDatabaseBackup);
-ipcMain.handle('restore-database-backup', handleRestoreDatabaseBackup);
-// ENG-167b — cross-device restore completion + admin key reveal.
-ipcMain.handle('provide-restore-key', handleProvideRestoreKey);
-ipcMain.handle('cancel-restore-staging', handleCancelRestoreStaging);
-ipcMain.handle('get-backup-encryption-key', handleGetBackupEncryptionKey);
-ipcMain.handle('get-receipt-print-settings', async () => {
-  return getReceiptPrintSettings();
-});
-ipcMain.handle('update-receipt-print-settings', async (_event, settings: unknown) => {
-  return saveReceiptPrintSettings(settings);
-});
-ipcMain.handle('get-theme-preference', async () => {
-  return getThemePreference();
-});
-ipcMain.handle('update-theme-preference', async (_event, preference: unknown) => {
-  return saveThemePreference(preference);
-});
-ipcMain.handle('get-tray-settings', async () => {
-  return getTraySettings();
-});
-ipcMain.handle('update-tray-settings', async (_event, settings: unknown) => {
-  return saveTraySettings(settings);
-});
-ipcMain.handle('update-main-locale', async (_event, locale: unknown): Promise<MainLocale> => {
-  const next = normalizeMainLocale(typeof locale === 'string' ? locale : null);
-  setMainLocale(next);
-  refreshAutoUpdateTranslations();
-  mainWindow?.setTitle(t('app.windowTitle'));
-  refreshTray();
-  return next;
-});
-// ENG-052b — persistent device id under the user's data folder. The
-// renderer prefers this path over localStorage so a browser cache
-// wipe does not lose the device registration; the localStorage copy
-// stays as a fallback for the pure-browser build. The atomic
-// read/write helpers live in `./device-id-store.ts` so they can be
-// unit-tested without spinning up Electron.
-ipcMain.handle('device:get-id', async (): Promise<string | null> => {
-  try {
-    return await readDeviceIdFromDir(app.getPath('userData'));
-  } catch (error) {
-    mainLog.warn(
-      { err: error, dir: app.getPath('userData') },
-      'device:get-id failed reading persisted device id'
-    );
-    return null;
-  }
-});
-
-ipcMain.handle('device:set-id', async (_event, deviceId: unknown): Promise<void> => {
-  if (typeof deviceId !== 'string') {
-    throw new Error('DEVICE_SET_ID_REJECTED');
-  }
-  await writeDeviceIdToDir(app.getPath('userData'), deviceId);
-});
-
-// ENG-025 vector 1 — session lifecycle. `session:register` is called
-// by the renderer's AuthProvider after a successful login (or after a
-// successful refresh that rotated the access token); `session:clear`
-// is called on logout. Until a session is registered, every db:* and
-// sync:* handler below throws SESSION_NOT_REGISTERED so the renderer
-// can never reach the SQLite store with a tenantId of its choosing.
-ipcMain.handle('session:register', async (_event, accessToken: unknown) => {
-  if (typeof accessToken !== 'string' || accessToken.length === 0) {
-    throw new Error('SESSION_REGISTER_REJECTED');
-  }
-  const activeServer = getServer();
-  if (!activeServer) {
-    throw new Error('Embedded server is not started yet');
-  }
-  const fastifyApp = activeServer.app;
-  await desktopSession.register(accessToken, token =>
-    verifyTokenWithServer(fastifyApp, token, 'access')
-  );
-  return { ok: true };
-});
-ipcMain.handle('session:clear', async () => {
-  desktopSession.clear();
-  return { ok: true };
-});
-
-// ENG-025 vector 1 — every db:* / sync:* handler now derives tenantId
-// from the registered desktopSession instead of trusting the
-// renderer-supplied argument. The legacy renderer call sites still
-// pass a tenantId for backward compatibility while the offlineStorage
-// wrapper is migrated; we accept it but IGNORE it. Mismatches are
-// logged at warn level so a stale renderer surfaces in the operator
-// log instead of silently bypassing the scope.
-function activeTenantId(rendererTenantIdHint?: unknown): string {
-  const sessionTenantId = desktopSession.requireTenantId();
-  if (
-    typeof rendererTenantIdHint === 'string' &&
-    rendererTenantIdHint.length > 0 &&
-    rendererTenantIdHint !== sessionTenantId
-  ) {
-    mainLog.warn(
-      { sessionTenantId, rendererTenantId: rendererTenantIdHint },
-      'ENG-025: ignored renderer-supplied tenantId — desktopSession wins'
-    );
-  }
-  return sessionTenantId;
-}
-
-ipcMain.handle('db:getAll', async (_event, table: string, rendererTenantId?: unknown) => {
-  return handleDesktopGetAll(table, activeTenantId(rendererTenantId));
-});
-ipcMain.handle('db:getById', async (_event, table: string, id: string) => {
-  const validatedTable = getAllowedDesktopTable(table);
-  await assertRowBelongsToActiveTenant(validatedTable, id);
-  return handleDesktopGetById(table, id);
-});
-ipcMain.handle('db:insert', async (_event, table: string, data: Record<string, unknown>) => {
-  const validatedTable = getAllowedDesktopTable(table);
-  if (validatedTable === 'sale_items') {
-    await assertSaleItemWriteBelongsToActiveTenant(data, { requireSaleId: true });
-  }
-  // Force the tenant scope server-side. Even if the renderer passed a
-  // different tenantId (or omitted it) the row lands in the active
-  // tenant.
-  const tenantScopedData = { ...data, tenantId: activeTenantId(data.tenantId) };
-  return handleDesktopInsert(table, tenantScopedData);
-});
-ipcMain.handle(
-  'db:update',
-  async (_event, table: string, id: string, data: Record<string, unknown>) => {
-    const validatedTable = getAllowedDesktopTable(table);
-    await assertRowBelongsToActiveTenant(validatedTable, id);
-    if (validatedTable === 'sale_items') {
-      await assertSaleItemWriteBelongsToActiveTenant(data, { requireSaleId: false });
-    }
-    // Block tenant migration via update — same rationale as insert.
-    const sessionTenantId = activeTenantId(data.tenantId);
-    const tenantScopedData = { ...data, tenantId: sessionTenantId };
-    return handleDesktopUpdate(table, id, tenantScopedData);
-  }
-);
-ipcMain.handle('db:delete', async (_event, table: string, id: string) => {
-  const validatedTable = getAllowedDesktopTable(table);
-  await assertRowBelongsToActiveTenant(validatedTable, id);
-  return handleDesktopDelete(table, id);
-});
-ipcMain.handle(
-  'db:getByField',
-  async (_event, table: string, fieldName: string, value: unknown) => {
-    // Require a registered session even though this op does not take
-    // a tenantId argument — without it, the renderer could query
-    // arbitrary rows by indexed field across tenants.
-    desktopSession.requireTenantId();
-    return handleDesktopGetByField(table, fieldName, value);
-  }
-);
-ipcMain.handle('db:deleteByTenant', async (_event, table: string, rendererTenantId?: unknown) => {
-  return handleDesktopDeleteByTenant(table, activeTenantId(rendererTenantId));
-});
-ipcMain.handle('db:countByTenant', async (_event, table: string, rendererTenantId?: unknown) => {
-  return handleDesktopCountByTenant(table, activeTenantId(rendererTenantId));
-});
-ipcMain.handle('db:addToSyncQueue', async (_event, item: DesktopSyncQueueInput) => {
-  // SEC-003 — validate the renderer-supplied operation against the
-  // allowlist before it reaches the DB; an unrecognised value throws.
-  const operation = assertDesktopSyncOperation(item?.operation);
-  // Force the tenantId of the queued item to the active session,
-  // ignoring whatever the renderer claimed.
-  const sessionTenantId = activeTenantId(item?.tenantId);
-  return handleDesktopAddToSyncQueue({ ...item, operation, tenantId: sessionTenantId });
-});
-ipcMain.handle('db:getPendingSyncItems', async (_event, rendererTenantId?: unknown) => {
-  return handleDesktopGetPendingSyncItems(activeTenantId(rendererTenantId));
-});
-ipcMain.handle('sync:getStatus', async (_event, rendererTenantId?: unknown) => {
-  return getDesktopSyncStatus(activeTenantId(rendererTenantId));
-});
-ipcMain.handle('sync:triggerSync', async (_event, rendererTenantId?: unknown) => {
-  return handleDesktopTriggerSync(activeTenantId(rendererTenantId));
-});
-ipcMain.handle('sync:setConfig', async (_event, config: Record<string, unknown>) => {
-  // No tenant data crosses here, but a registered session is still
-  // required so unauthenticated renderer code cannot reconfigure sync.
-  desktopSession.requireTenantId();
-  return handleDesktopSetSyncConfig(config);
-});
-ipcMain.handle('print-receipt', async (_event, receiptHtml: unknown) => {
-  if (typeof receiptHtml !== 'string' || receiptHtml.trim().length === 0) {
-    return {
-      success: false,
-      error: 'A receipt document is required before printing',
-    };
-  }
-
-  // ENG-166 — strip every active HTML construct (scripts, iframes,
-  // event-handler attributes, non-data: image srcs) at the IPC trust
-  // boundary BEFORE the HTML is loaded into the ephemeral print window.
-  // The print window already runs sandbox: true, but defense-in-depth
-  // makes a corrupted template harmless even if it slipped past the
-  // renderer.
-  const sanitisedHtml = sanitisePrintHtml(receiptHtml);
-  if (sanitisedHtml.trim().length === 0) {
-    return {
-      success: false,
-      error: 'A receipt document is required before printing',
-    };
-  }
-
-  try {
-    const settings = await getReceiptPrintSettings();
-    await printReceipt(sanitisedHtml, settings);
-    return { success: true };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Receipt printing failed';
-    printLog.error({ err: error }, 'receipt printing failed');
-    return {
-      success: false,
-      error: message,
-    };
-  }
-});
+registerDeviceIpc({ log: mainLog });
+registerSessionIpc();
+registerDataBridgeIpc({ log: mainLog });
+registerPrintIpc();

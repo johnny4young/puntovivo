@@ -23,6 +23,7 @@ import { getCurrentSchemaVersion } from '../../../lib/runtimeMetadata.js';
 import { REALTIME_TOKEN_MAX_AGE_SECONDS, clearRefreshCookie, signAccessToken, signRealtimeToken, signRefreshToken, verifyRefreshToken } from '../../../security/authTokens.js';
 import { checkIp as checkLoginIp, checkUsername as checkLoginUsername, registerFailure as registerLoginFailure, registerSuccess as registerLoginSuccess } from '../../../security/loginRateLimit.js';
 import { getDummyPasswordHash, hashPasswordSecurely, needsRehash, verifyPasswordSecurely } from '../../../security/passwords.js';
+import { createRefreshFamily, pruneExpiredRefreshFamilies, revokeRefreshFamiliesForUser, rotateRefreshFamily } from '../../../security/refreshTokenFamilies.js';
 import { rateLimitFor } from '../../middleware/procedureRateLimit.js';
 import { setRefreshCookie, setRealtimeCookie } from './helpers.js';
 
@@ -132,8 +133,17 @@ export const authMutationProcedures = {
       }
     }
 
+    // Auditoría 2026-07 — refresh rotation: each login starts a token
+    // family so `auth.refresh` can detect replay of rotated tokens.
+    // Login is also the low-frequency hook for pruning expired families.
+    pruneExpiredRefreshFamilies(ctx.db);
+    const family = createRefreshFamily(ctx.db, {
+      tenantId: user.tenantId,
+      userId: user.id,
+    });
+
     const token = signAccessToken(ctx.req.server, user);
-    const refreshToken = signRefreshToken(ctx.req.server, user);
+    const refreshToken = signRefreshToken(ctx.req.server, user, family);
     setRefreshCookie(ctx.req, ctx.res, refreshToken);
 
     return {
@@ -170,6 +180,9 @@ export const authMutationProcedures = {
       .update(users)
       .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
       .where(eq(users.id, ctx.user.id));
+    // The sessionVersion bump already invalidates every refresh JWT;
+    // dropping the family rows keeps the table free of dead sessions.
+    revokeRefreshFamiliesForUser(ctx.db, ctx.user.id);
     clearRefreshCookie(ctx.req, ctx.res);
     return { success: true, message: 'Logged out successfully' };
   }),
@@ -203,8 +216,40 @@ export const authMutationProcedures = {
       });
     }
 
+    // Auditoría 2026-07 — rotation with replay detection. A verified
+    // token whose jti was already rotated away (outside the grace window)
+    // is a stolen copy: the rotate call revoked the family and bumped
+    // sessionVersion, so we clear the cookie and reject. A `reissued`
+    // result is a benign concurrent refresh (two tabs sharing the cookie)
+    // and is handed the family's current jti. Tokens without a familyId
+    // were signed before this feature — accept once and upgrade into a
+    // fresh family (the grace closes itself when those tokens age out at
+    // 7 days).
+    let family: { familyId: string; jti: string };
+    if (refreshPayload.familyId && refreshPayload.jti) {
+      const rotation = rotateRefreshFamily(ctx.db, {
+        familyId: refreshPayload.familyId,
+        presentedJti: refreshPayload.jti,
+        userId: user.id,
+      });
+      if (rotation.status !== 'rotated' && rotation.status !== 'reissued') {
+        clearRefreshCookie(ctx.req, ctx.res);
+        throwServerError({
+          trpcCode: 'UNAUTHORIZED',
+          errorCode: 'AUTH_REFRESH_INVALID',
+          message: 'Refresh session is invalid or missing',
+        });
+      }
+      family = { familyId: rotation.familyId, jti: rotation.jti };
+    } else {
+      family = createRefreshFamily(ctx.db, {
+        tenantId: user.tenantId,
+        userId: user.id,
+      });
+    }
+
     const token = signAccessToken(ctx.req.server, user);
-    const refreshToken = signRefreshToken(ctx.req.server, user);
+    const refreshToken = signRefreshToken(ctx.req.server, user, family);
     setRefreshCookie(ctx.req, ctx.res, refreshToken);
 
     return { token };
@@ -324,6 +369,9 @@ export const authMutationProcedures = {
       })
       .where(eq(users.id, actorId));
 
+    // Same hygiene as logout: the bump invalidates the JWTs, the delete
+    // clears the now-dead family rows.
+    revokeRefreshFamiliesForUser(ctx.db, actorId);
     clearRefreshCookie(ctx.req, ctx.res);
 
     return { success: true, message: 'Password changed successfully' };

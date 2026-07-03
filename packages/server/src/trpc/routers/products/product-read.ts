@@ -82,6 +82,7 @@ export type ProductUnitAssignmentRecord = {
   equivalence: number;
   price: number;
   isBase: boolean | null;
+  barcode: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -158,6 +159,7 @@ export async function getUnitAssignmentsByProductIds(
       equivalence: unitXProduct.equivalence,
       price: unitXProduct.price,
       isBase: unitXProduct.isBase,
+      barcode: unitXProduct.barcode,
       createdAt: unitXProduct.createdAt,
       updatedAt: unitXProduct.updatedAt,
     })

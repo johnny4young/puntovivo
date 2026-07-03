@@ -89,6 +89,10 @@ export function SuspendedSalesPanel({
   const [discardTarget, setDiscardTarget] = useState<
     SuspendedDraftSummary | null
   >(null);
+  // In-flight resume tracking so a double-click cannot fire `sales.resume`
+  // twice for the same draft (the flows hook also guards on the mutation's
+  // isPending; this keeps the row button visibly disabled meanwhile).
+  const [resumingId, setResumingId] = useState<string | null>(null);
   // ENG-039c2 — the operator picks a draft to transfer to a different
   // restaurant table. Holding the full summary (not just the id) lets
   // `<TransferTableModal>` render the current label without re-fetching.
@@ -289,8 +293,15 @@ export function SuspendedSalesPanel({
                 <button
                   type="button"
                   className="btn-outline"
+                  disabled={resumingId !== null}
                   onClick={() => {
-                    void onResume(draft);
+                    if (resumingId !== null) {
+                      return;
+                    }
+                    setResumingId(draft.id);
+                    void Promise.resolve(onResume(draft)).finally(() => {
+                      setResumingId(null);
+                    });
                   }}
                   data-testid="suspended-draft-resume"
                 >

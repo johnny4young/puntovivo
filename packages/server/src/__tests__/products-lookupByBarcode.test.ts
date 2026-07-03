@@ -15,7 +15,7 @@ import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { products, tenants, units, users, vatRates } from '../db/schema.js';
+import { products, tenants, unitXProduct, units, users, vatRates } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -245,5 +245,70 @@ describe('products.lookupByBarcode (ENG-061)', () => {
     const caller = appRouter.createCaller(makeContext('cashier'));
     const result = await caller.products.lookupByBarcode({ barcode: '9999999999993' });
     expect(result).toBeNull();
+  });
+
+  it('resolves a packaging-level barcode to the product AND the scanned unit (Tier B)', async () => {
+    // Base-unit barcode on the product; a distinct case barcode on a
+    // unit_x_product assignment (equivalence 24).
+    // Letter-containing codes parse as kind=unknown, so they exercise the
+    // packaging DB resolution directly without the EAN checksum path.
+    const db = getDatabase();
+    const productId = await insertProduct({
+      tenantId,
+      barcode: 'COLA-UNIT',
+      name: 'Gaseosa (unidad + caja)',
+    });
+    const caseUnitId = nanoid();
+    await db.insert(units).values({
+      id: caseUnitId,
+      tenantId,
+      name: 'Caja',
+      abbreviation: `CJ-${caseUnitId.slice(0, 4)}`,
+      dimension: 'count',
+      standardCode: 'XBX',
+      referenceFactor: 1,
+      isActive: true,
+      createdAt: now(),
+      updatedAt: now(),
+    });
+    await db.insert(unitXProduct).values([
+      {
+        id: nanoid(),
+        productId,
+        unitId: baseUnitId,
+        equivalence: 1,
+        price: 200,
+        isBase: true,
+        barcode: null,
+        createdAt: now(),
+        updatedAt: now(),
+      },
+      {
+        id: nanoid(),
+        productId,
+        unitId: caseUnitId,
+        equivalence: 24,
+        price: 4200,
+        isBase: false,
+        barcode: 'COLA-CASE',
+        createdAt: now(),
+        updatedAt: now(),
+      },
+    ]);
+
+    const caller = appRouter.createCaller(makeContext('cashier'));
+
+    // Scanning the CASE barcode resolves the product and the case unit.
+    const cased = await caller.products.lookupByBarcode({ barcode: 'COLA-CASE' });
+    expect(cased).not.toBeNull();
+    expect(cased!.product.id).toBe(productId);
+    expect(cased!.resolvedUnitId).toBe(caseUnitId);
+    expect(cased!.resolvedUnitPrice).toBe(4200);
+
+    // Scanning the product's BASE barcode leaves resolvedUnitId null.
+    const base = await caller.products.lookupByBarcode({ barcode: 'COLA-UNIT' });
+    expect(base).not.toBeNull();
+    expect(base!.product.id).toBe(productId);
+    expect(base!.resolvedUnitId).toBeNull();
   });
 });

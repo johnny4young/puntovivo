@@ -35,6 +35,7 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { restoreLotsForSale } from '../../services/inventory-lots/index.js';
 import {
   emitCompleteSaleEffects,
   type JournalEffectInput,
@@ -193,6 +194,8 @@ export async function discardDraft(
         productStockState,
         now,
       });
+      // Auditoría 2026-07 — restore consumed lots on draft discard.
+      restoreLotsForSale(tx, { tenantId: ctx.tenantId, saleId: input.saleId, now });
     }
 
     tx.update(sales)

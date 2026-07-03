@@ -29,6 +29,8 @@ export const productUnitAssignmentInput = z.object({
   equivalence: z.number().positive('Equivalence must be greater than zero'),
   price: z.number().min(0, 'Unit price must be non-negative'),
   isBase: z.boolean().default(false),
+  // Auditoría 2026-07 — optional per-packaging barcode (a case/pack GTIN).
+  barcode: z.string().trim().min(1).max(64).nullable().optional(),
 });
 
 export const productProviderAssignmentInput = z.object({
