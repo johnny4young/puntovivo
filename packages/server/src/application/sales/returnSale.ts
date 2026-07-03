@@ -46,6 +46,7 @@ import {
   getPersistedCashContribution,
 } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { restoreLotsForSale } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import {
   emitCompleteSaleEffects,
@@ -297,6 +298,10 @@ export async function returnSale(
       productStockState,
       now,
     });
+
+    // Auditoría 2026-07 — credit the exact lots this sale consumed back to
+    // stock (no-op when no line was lot-tracked).
+    restoreLotsForSale(tx, { tenantId: ctx.tenantId, saleId: input.id, now });
 
     tx.insert(saleReturns)
       .values({

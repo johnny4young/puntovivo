@@ -43,6 +43,13 @@
       "when": 1783035223220,
       "tag": "0005_inventory_lots",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1783039471484,
+      "tag": "0006_sale_item_lots",
+      "breakpoints": true
     }
   ]
 }
