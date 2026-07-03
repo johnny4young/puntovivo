@@ -116,16 +116,26 @@ auto-consumption on the sale path is the next slice.
    auditable FIFO-by-expiry COGS from real cost layers rather than a single
    mutable `products.cost`. The blended-cost helper covers the weighted-average
    reporting case.
-3. **Sale-path auto-consumption (NEXT SLICE).** Behind `products.tracks_lots`,
-   `runFreshSale`/`runCompleteDraft` call `selectLotsFefo`, decrement the chosen
-   lots, and stamp the per-lot COGS onto `sale_items.costAtSale`. Deferred
-   because it edits the money path and must land behind its own transaction
-   tests; the pure engine it needs is already shipped and tested.
+3. **Sale-path auto-consumption (DONE).** Behind `products.tracks_lots`,
+   `runFreshSale` (the single stock-debit point — it handles direct sales AND
+   draft creation) FEFO-consumes the product's lots inside the sale
+   transaction: decrements each lot, marks it depleted at zero, and writes one
+   `sale_item_lots` row per lot drawn (migration `0006_sale_item_lots`) — the
+   auditable COGS provenance (which lots, what quantity, what cost). A shortfall
+   (lots under-count the balance that already gated the sale) is logged, not
+   thrown, so the register never blocks. The full-sale reversals
+   (`returnSale` / `voidSale` / `discardDraft`) call `restoreLotsForSale`, which
+   credits the exact consumed lots back (reactivating depleted ones) and clears
+   the provenance. `sale_items.costAtSale` is intentionally left as the
+   `product.cost` snapshot for now — the precise per-lot COGS lives in
+   `sale_item_lots`, so margin reporting can adopt it without any regression to
+   the existing cost field.
 4. **Serial numbers (STAGED)** — per-unit serials for warranty (electronics,
    tools); unstarted.
 
-Remaining items stay product-gated (which vertical needs lots for the pilot?),
-so each is its own slice, not speculative schema.
+Optional remaining refinement: point margin/COGS reports at `sale_item_lots`
+for lot-tracked lines (the ledger is already populated). Everything else stays
+product-gated (which vertical needs lots for the pilot?), each its own slice.
 
 ## Migration principles (how we avoid a big-bang)
 

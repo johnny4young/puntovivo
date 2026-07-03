@@ -45,6 +45,7 @@ import {
   getPersistedCashContribution,
 } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { restoreLotsForSale } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import {
   emitCompleteSaleEffects,
@@ -210,6 +211,9 @@ export async function voidSale(
       productStockState,
       now,
     });
+
+    // Auditoría 2026-07 — restore consumed lots on void.
+    restoreLotsForSale(tx, { tenantId: ctx.tenantId, saleId: input.id, now });
 
     tx.update(sales)
       .set({

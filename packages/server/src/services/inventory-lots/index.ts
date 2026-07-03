@@ -24,3 +24,10 @@ export {
   type LotRow,
   type ExpiringLotRow,
 } from './queries.js';
+export {
+  consumeLotsForSaleLine,
+  restoreLotsForSale,
+  type ConsumeLotsForSaleLineInput,
+  type ConsumeLotsResult,
+  type RestoreLotsForSaleInput,
+} from './consume-for-sale.js';
