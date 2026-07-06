@@ -30,6 +30,7 @@ import {
   FinanceLandingRoute,
   FiscalDocumentListPage,
   FiscalReportsPage,
+  ProfitMarginReportPage,
   GeographyPage,
   InventoryPage,
   KdsHomePlaceholder,
@@ -317,6 +318,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={adminOnlyRoles}>
                     <FiscalReportsPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="profitability"
+                element={
+                  <ShellRoute allowedRoles={adminOnlyRoles}>
+                    <ProfitMarginReportPage />
                   </ShellRoute>
                 }
               />

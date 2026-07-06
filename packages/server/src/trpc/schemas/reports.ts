@@ -93,3 +93,28 @@ export const diagnosticsExportInput = z
     path: ['toDate'],
   });
 export type DiagnosticsExportInput = z.infer<typeof diagnosticsExportInput>;
+
+// ─────────────────────────────────────────────────────────────────
+// reports.profit.margin
+// ENG-190 — margin / COGS report sourced from the sale_item_lots ledger.
+// ─────────────────────────────────────────────────────────────────
+
+export const profitMarginInput = z
+  .object({
+    /** Inclusive lower bound on `sales.created_at` (ISO 8601 with offset). */
+    fromDate: isoDateTime,
+    /** Inclusive upper bound on `sales.created_at` (ISO 8601 with offset). */
+    toDate: isoDateTime,
+    /**
+     * Maximum product rows returned in the breakdown, ordered by gross
+     * profit descending. The summary tiles always cover the full range;
+     * this clamp only trims the per-product tail so a deep catalog does
+     * not balloon the payload.
+     */
+    limit: z.number().int().min(1).max(500).default(50),
+  })
+  .refine(isChronologicalRange, {
+    message: 'fromDate must be on or before toDate',
+    path: ['toDate'],
+  });
+export type ProfitMarginInput = z.infer<typeof profitMarginInput>;

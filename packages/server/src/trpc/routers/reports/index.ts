@@ -13,6 +13,9 @@
  *   - `reports.diagnostics.*` (ENG-065c) — admin-only bulk export of
  *     `operation_events` + outboxes for support tickets, surfaced as
  *     the Operations Center Diagnostics tab.
+ *   - `reports.profit.*` (ENG-190) — realized margin / COGS report over
+ *     the `sale_item_lots` ledger, surfaced as the admin Profitability
+ *     page.
  *
  * @module trpc/routers/reports
  */
@@ -22,12 +25,14 @@ import { cashReportsRouter } from './cash.js';
 import { diagnosticsReportsRouter } from './diagnostics/index.js';
 import { fiscalReportsRouter } from './fiscal.js';
 import { inventoryReportsRouter } from './inventory.js';
+import { profitReportsRouter } from './profit.js';
 
 export const reportsRouter = router({
   cash: cashReportsRouter,
   diagnostics: diagnosticsReportsRouter,
   fiscal: fiscalReportsRouter,
   inventory: inventoryReportsRouter,
+  profit: profitReportsRouter,
 });
 
 export type ReportsRouter = typeof reportsRouter;

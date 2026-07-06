@@ -1,0 +1,34 @@
+{
+  "margin": {
+    "kicker": "Finance",
+    "title": "Profitability",
+    "description": "Realized revenue, cost of goods sold, and gross margin for the selected range. Cost comes from the exact lots consumed on each sale, falling back to the product cost when a line is not lot-tracked.",
+    "filters": {
+      "from": "From",
+      "to": "To"
+    },
+    "loading": "Loading the report…",
+    "error": "The profitability report could not be loaded.",
+    "summary": {
+      "revenue": "Revenue",
+      "cogs": "Cost of goods sold",
+      "cogsSplit": "Lots {{lots}} · Product cost {{snapshot}}",
+      "grossProfit": "Gross profit",
+      "grossMargin": "Gross margin",
+      "salesLines": "{{sales}} sales · {{lines}} lines"
+    },
+    "byProduct": {
+      "title": "By product",
+      "emptyTitle": "No sales in this range",
+      "emptyState": "There are no completed sales in the selected dates. Adjust the range to see profitability by product.",
+      "columns": {
+        "product": "Product",
+        "quantity": "Quantity",
+        "revenue": "Revenue",
+        "cogs": "COGS",
+        "grossProfit": "Gross profit",
+        "margin": "Margin"
+      }
+    }
+  }
+}

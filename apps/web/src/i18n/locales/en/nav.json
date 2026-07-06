@@ -35,6 +35,7 @@
     "auditLogs": { "kicker": "Governance", "title": "Audit log" },
     "fiscalDocuments": { "kicker": "Fiscal", "title": "Fiscal documents" },
     "fiscalReports": { "kicker": "Fiscal", "title": "Fiscal reports" },
+    "profitability": { "kicker": "Finance", "title": "Profitability" },
     "company": { "kicker": "Setup", "title": "Company" },
     "sites": { "kicker": "Setup", "title": "Sites" },
     "sequentials": { "kicker": "Setup", "title": "Sequentials" }
@@ -74,6 +75,7 @@
     "auditLogs": "Audit log",
     "fiscalDocuments": "Fiscal documents",
     "fiscalReports": "Fiscal reports",
+    "profitability": "Profitability",
     "posTouch": "POS Touch",
     "kds": "KDS",
     "customerDisplay": "Customer Display",

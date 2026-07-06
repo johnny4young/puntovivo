@@ -1,0 +1,34 @@
+{
+  "margin": {
+    "kicker": "Finanzas",
+    "title": "Rentabilidad",
+    "description": "Ingresos realizados, costo de lo vendido y margen bruto del rango seleccionado. El costo sale de los lotes exactos consumidos en cada venta y usa el costo del producto cuando la línea no maneja lotes.",
+    "filters": {
+      "from": "Desde",
+      "to": "Hasta"
+    },
+    "loading": "Cargando el reporte…",
+    "error": "No se pudo cargar el reporte de rentabilidad.",
+    "summary": {
+      "revenue": "Ingresos",
+      "cogs": "Costo de lo vendido",
+      "cogsSplit": "Lotes {{lots}} · Costo de producto {{snapshot}}",
+      "grossProfit": "Ganancia bruta",
+      "grossMargin": "Margen bruto",
+      "salesLines": "{{sales}} ventas · {{lines}} líneas"
+    },
+    "byProduct": {
+      "title": "Por producto",
+      "emptyTitle": "Sin ventas en este rango",
+      "emptyState": "No hay ventas completadas en las fechas seleccionadas. Ajusta el rango para ver la rentabilidad por producto.",
+      "columns": {
+        "product": "Producto",
+        "quantity": "Cantidad",
+        "revenue": "Ingresos",
+        "cogs": "Costo",
+        "grossProfit": "Ganancia bruta",
+        "margin": "Margen"
+      }
+    }
+  }
+}

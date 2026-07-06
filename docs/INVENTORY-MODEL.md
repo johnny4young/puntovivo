@@ -79,7 +79,7 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
    own scannable code. `products.lookupByBarcode` now falls back to a
    packaging-barcode match after the base-product miss and returns
    `resolvedUnitId` / `resolvedUnitPrice`; the POS scanner selects that unit so
-   scanning a *case* adds `equivalence` base units at the case price.
+   scanning a _case_ adds `equivalence` base units at the case price.
    `products.barcode` stays the base-unit code for back-compat.
 2. **Stock authority — single source of truth (DONE).** The denormalized
    `products.stock` column has been **removed** (migration
@@ -140,9 +140,12 @@ auto-consumption on the sale path is the next slice.
 4. **Serial numbers (STAGED)** — per-unit serials for warranty (electronics,
    tools); unstarted.
 
-Optional remaining refinement: point margin/COGS reports at `sale_item_lots`
-for lot-tracked lines (the ledger is already populated). Everything else stays
-product-gated (which vertical needs lots for the pilot?), each its own slice.
+Margin/COGS reporting over `sale_item_lots` (DONE — ENG-190). The
+`reports.profit.margin` procedure + the admin Profitability page
+(`/profitability`) surface realized gross margin over a date range, sourcing
+COGS from the per-lot ledger for lot-tracked lines and the `cost_at_sale`
+snapshot otherwise. Everything else stays product-gated (which vertical needs
+lots for the pilot?), each its own slice.
 
 ## Migration principles (how we avoid a big-bang)
 

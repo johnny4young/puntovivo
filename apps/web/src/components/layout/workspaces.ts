@@ -204,15 +204,45 @@ export const WORKSPACES: readonly Workspace[] = [
     // working unchanged.
     defaultRoute: '/catalog',
     items: [
-      { nameKey: 'items.products', href: '/products', icon: Package, allowedRoles: managerOrAdminRoles },
-      { nameKey: 'items.categories', href: '/categories', icon: FolderTree, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.products',
+        href: '/products',
+        icon: Package,
+        allowedRoles: managerOrAdminRoles,
+      },
+      {
+        nameKey: 'items.categories',
+        href: '/categories',
+        icon: FolderTree,
+        allowedRoles: adminOnlyRoles,
+      },
       { nameKey: 'items.providers', href: '/providers', icon: Truck, allowedRoles: adminOnlyRoles },
-      { nameKey: 'items.locations', href: '/locations', icon: MapPinned, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.locations',
+        href: '/locations',
+        icon: MapPinned,
+        allowedRoles: adminOnlyRoles,
+      },
       { nameKey: 'items.units', href: '/units', icon: Ruler, allowedRoles: adminOnlyRoles },
-      { nameKey: 'items.vatRates', href: '/vat-rates', icon: BadgePercent, allowedRoles: adminOnlyRoles },
-      { nameKey: 'items.customerCatalogs', href: '/customer-catalogs', icon: ClipboardList, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.vatRates',
+        href: '/vat-rates',
+        icon: BadgePercent,
+        allowedRoles: adminOnlyRoles,
+      },
+      {
+        nameKey: 'items.customerCatalogs',
+        href: '/customer-catalogs',
+        icon: ClipboardList,
+        allowedRoles: adminOnlyRoles,
+      },
       { nameKey: 'items.geography', href: '/geography', icon: Map, allowedRoles: adminOnlyRoles },
-      { nameKey: 'items.receiptTemplates', href: '/receipt-templates', icon: Receipt, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.receiptTemplates',
+        href: '/receipt-templates',
+        icon: Receipt,
+        allowedRoles: adminOnlyRoles,
+      },
     ],
   },
   {
@@ -222,7 +252,12 @@ export const WORKSPACES: readonly Workspace[] = [
     allowedRoles: managerOrAdminRoles,
     defaultRoute: '/inventory',
     items: [
-      { nameKey: 'items.inventory', href: '/inventory', icon: Warehouse, allowedRoles: managerOrAdminRoles },
+      {
+        nameKey: 'items.inventory',
+        href: '/inventory',
+        icon: Warehouse,
+        allowedRoles: managerOrAdminRoles,
+      },
     ],
   },
   {
@@ -233,8 +268,18 @@ export const WORKSPACES: readonly Workspace[] = [
     // ENG-131c — workspace landing route. Header click navigates here.
     defaultRoute: '/procurement',
     items: [
-      { nameKey: 'items.orders', href: '/orders', icon: ClipboardList, allowedRoles: managerOrAdminRoles },
-      { nameKey: 'items.purchases', href: '/purchases', icon: ShoppingBasket, allowedRoles: managerOrAdminRoles },
+      {
+        nameKey: 'items.orders',
+        href: '/orders',
+        icon: ClipboardList,
+        allowedRoles: managerOrAdminRoles,
+      },
+      {
+        nameKey: 'items.purchases',
+        href: '/purchases',
+        icon: ShoppingBasket,
+        allowedRoles: managerOrAdminRoles,
+      },
       {
         nameKey: 'items.quotations',
         href: '/quotations',
@@ -258,7 +303,12 @@ export const WORKSPACES: readonly Workspace[] = [
     allowedRoles: managerOrAdminRoles,
     defaultRoute: '/customers',
     items: [
-      { nameKey: 'items.customers', href: '/customers', icon: Users, allowedRoles: managerOrAdminRoles },
+      {
+        nameKey: 'items.customers',
+        href: '/customers',
+        icon: Users,
+        allowedRoles: managerOrAdminRoles,
+      },
     ],
   },
   {
@@ -269,9 +319,30 @@ export const WORKSPACES: readonly Workspace[] = [
     // ENG-131c — workspace landing route. Header click navigates here.
     defaultRoute: '/finance',
     items: [
-      { nameKey: 'items.fiscalDocuments', href: '/fiscal-documents', icon: FileSignature, allowedRoles: adminOnlyRoles },
-      { nameKey: 'items.fiscalReports', href: '/fiscal-reports', icon: PieChart, allowedRoles: adminOnlyRoles },
-      { nameKey: 'items.auditLogs', href: '/audit-logs', icon: ShieldCheck, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.fiscalDocuments',
+        href: '/fiscal-documents',
+        icon: FileSignature,
+        allowedRoles: adminOnlyRoles,
+      },
+      {
+        nameKey: 'items.fiscalReports',
+        href: '/fiscal-reports',
+        icon: PieChart,
+        allowedRoles: adminOnlyRoles,
+      },
+      {
+        nameKey: 'items.profitability',
+        href: '/profitability',
+        icon: BadgePercent,
+        allowedRoles: adminOnlyRoles,
+      },
+      {
+        nameKey: 'items.auditLogs',
+        href: '/audit-logs',
+        icon: ShieldCheck,
+        allowedRoles: adminOnlyRoles,
+      },
     ],
   },
   {
@@ -283,18 +354,30 @@ export const WORKSPACES: readonly Workspace[] = [
     items: [
       { nameKey: 'items.company', href: '/company', icon: Building2, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.sites', href: '/sites', icon: Store, allowedRoles: adminOnlyRoles },
-      { nameKey: 'items.sequentials', href: '/sequentials', icon: FileDigit, allowedRoles: adminOnlyRoles },
-      { nameKey: 'items.peripherals', href: '/peripherals', icon: Plug, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.sequentials',
+        href: '/sequentials',
+        icon: FileDigit,
+        allowedRoles: adminOnlyRoles,
+      },
+      {
+        nameKey: 'items.peripherals',
+        href: '/peripherals',
+        icon: Plug,
+        allowedRoles: adminOnlyRoles,
+      },
       { nameKey: 'items.users', href: '/users', icon: Users, allowedRoles: adminOnlyRoles },
-      { nameKey: 'items.aiConfig', href: '/settings/ai', icon: Sparkles, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.aiConfig',
+        href: '/settings/ai',
+        icon: Sparkles,
+        allowedRoles: adminOnlyRoles,
+      },
     ],
   },
 ];
 
-function canAccessRole(
-  role: UserRole | undefined,
-  allowedRoles: readonly UserRole[]
-): boolean {
+function canAccessRole(role: UserRole | undefined, allowedRoles: readonly UserRole[]): boolean {
   if (!role) return false;
   return (allowedRoles as readonly string[]).includes(role);
 }
