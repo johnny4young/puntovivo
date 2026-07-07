@@ -38,6 +38,7 @@ describe('sync contract manifest', () => {
       'sale_items',
       'sale_payments',
       'sale_returns',
+      'sale_item_lots',
       'cash_sessions',
       'cash_movements',
       'fiscal_documents',
@@ -88,6 +89,7 @@ describe('sync contract manifest', () => {
   it('returns audit_logs with priority 10 and money entities with priority 5', () => {
     expect(resolveDefaultPriority('audit_logs')).toBe(10);
     expect(resolveDefaultPriority('sales')).toBe(5);
+    expect(resolveDefaultPriority('sale_item_lots')).toBe(5);
     expect(resolveDefaultPriority('cash_sessions')).toBe(5);
     expect(resolveDefaultPriority('customers')).toBe(0);
     expect(resolveDefaultPriority('products')).toBe(0);
@@ -125,6 +127,9 @@ describe('sync contract manifest', () => {
         missing.push(entity);
       }
     }
-    expect(missing, `entityType literals missing from SYNC_ENTITY_TYPES: ${missing.join(', ')}`).toEqual([]);
+    expect(
+      missing,
+      `entityType literals missing from SYNC_ENTITY_TYPES: ${missing.join(', ')}`
+    ).toEqual([]);
   });
 });

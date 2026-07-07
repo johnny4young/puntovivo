@@ -52,6 +52,11 @@ export const SYNC_ENTITY_TYPES = [
   'sale_items',
   'sale_payments',
   'sale_returns',
+  // Provenance child of sale_items (per-lot COGS ledger, ENG-190/191). Like
+  // sale_items / sale_payments it is a reserved placeholder: declared here so
+  // it carries a conflict policy, but not independently enqueued — it rides
+  // with the sale aggregate when that serialization lands. No sync columns.
+  'sale_item_lots',
   'cash_sessions',
   'cash_movements',
   'fiscal_documents',
@@ -115,6 +120,7 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   sale_items: 'manual',
   sale_payments: 'manual',
   sale_returns: 'manual',
+  sale_item_lots: 'manual',
   cash_sessions: 'manual',
   cash_movements: 'manual',
   fiscal_documents: 'manual',
@@ -171,7 +177,9 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
  * paths that bypass the helper).
  */
 export function resolveConflictPolicy(entityType: string): SyncConflictPolicy {
-  const policy = (SYNC_CONFLICT_POLICY as Record<string, SyncConflictPolicy | undefined>)[entityType];
+  const policy = (SYNC_CONFLICT_POLICY as Record<string, SyncConflictPolicy | undefined>)[
+    entityType
+  ];
   if (!policy) {
     throw new Error(
       `[sync.contract] Unknown entityType '${entityType}'. Add it to SYNC_ENTITY_TYPES + SYNC_CONFLICT_POLICY in services/sync/contract.ts.`,
@@ -202,7 +210,9 @@ export function resolveConflictPolicy(entityType: string): SyncConflictPolicy {
  */
 export function resolveDefaultPriority(entityType: string): number {
   if (entityType === 'audit_logs') return 10;
-  const policy = (SYNC_CONFLICT_POLICY as Record<string, SyncConflictPolicy | undefined>)[entityType];
+  const policy = (SYNC_CONFLICT_POLICY as Record<string, SyncConflictPolicy | undefined>)[
+    entityType
+  ];
   if (policy === 'manual') return 5;
   return 0;
 }
