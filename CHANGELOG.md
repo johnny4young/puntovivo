@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.3.0](https://github.com/johnny4young/puntovivo/compare/v1.2.2...v1.3.0) (2026-07-07)
+
+
+### Features
+
+* **inventory:** units/lots/FEFO + margin/COGS reporting core + deep-review hardening & auth rotation ([#132](https://github.com/johnny4young/puntovivo/issues/132)) ([583c9a4](https://github.com/johnny4young/puntovivo/commit/583c9a48e687012a3852a31da36b0afbb10e7c39))
+
 ## [1.2.2](https://github.com/johnny4young/puntovivo/compare/v1.2.1...v1.2.2) (2026-06-29)
 
 
