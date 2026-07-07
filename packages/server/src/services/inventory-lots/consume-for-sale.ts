@@ -20,7 +20,6 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryLots, saleItemLots, saleItems } from '../../db/schema.js';
-import { roundMoney } from '../../lib/money.js';
 import { listLotsForProduct } from './queries.js';
 import { selectLotsFefo, type FefoSelection } from './select-fefo.js';
 
@@ -66,7 +65,10 @@ export function consumeLotsForSaleLine(
 
   for (const allocation of selection.allocations) {
     const lot = activeLots.find(l => l.id === allocation.lotId)!;
-    const newOnHand = roundMoney(lot.onHand - allocation.quantity);
+    // Quantities are not money-rounded — see receive.ts: on_hand must track the
+    // un-rounded inventory_balances.on_hand. The EPSILON check below still
+    // collapses float residue to a depleted lot.
+    const newOnHand = lot.onHand - allocation.quantity;
     db.update(inventoryLots)
       .set({
         onHand: newOnHand,
@@ -105,10 +107,7 @@ export interface RestoreLotsForSaleInput {
  * full-sale reversals (return / void / discard). Returns the number of
  * consumption rows reversed.
  */
-export function restoreLotsForSale(
-  db: DatabaseInstance,
-  input: RestoreLotsForSaleInput
-): number {
+export function restoreLotsForSale(db: DatabaseInstance, input: RestoreLotsForSaleInput): number {
   const rows = db
     .select({
       id: saleItemLots.id,
@@ -131,7 +130,7 @@ export function restoreLotsForSale(
     }
     db.update(inventoryLots)
       .set({
-        onHand: roundMoney(lot.onHand + row.quantity),
+        onHand: lot.onHand + row.quantity,
         // Returning stock re-activates a depleted batch.
         status: 'active',
         syncStatus: 'pending',

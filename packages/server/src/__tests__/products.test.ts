@@ -4,7 +4,17 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { categories, locations, providers, units, users, vatRates } from '../db/schema.js';
+import {
+  categories,
+  companies,
+  inventoryBalances,
+  locations,
+  providers,
+  sites,
+  units,
+  users,
+  vatRates,
+} from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -57,7 +67,11 @@ describe('Products tRPC Router', () => {
     });
 
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
     }
@@ -334,10 +348,7 @@ describe('Products tRPC Router', () => {
       description: null,
       categoryId,
       providerId: secondaryProviderId,
-      providerAssignments: [
-        { providerId },
-        { providerId: secondaryProviderId },
-      ],
+      providerAssignments: [{ providerId }, { providerId: secondaryProviderId }],
       vatRateId,
       locationId: null,
       barcode: null,
@@ -386,10 +397,7 @@ describe('Products tRPC Router', () => {
         sku: 'BP-001',
         description: null,
         categoryId,
-        providerAssignments: [
-          { providerId },
-          { providerId },
-        ],
+        providerAssignments: [{ providerId }, { providerId }],
         vatRateId,
         locationId: null,
         barcode: null,
@@ -483,9 +491,7 @@ describe('Products tRPC Router', () => {
       stock: 2.5,
       minStock: 0.25,
       isActive: true,
-      unitAssignments: [
-        { unitId: baseUnitId, equivalence: 1, price: 3500, isBase: true },
-      ],
+      unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 3500, isBase: true }],
     });
 
     expect(created.stock).toBe(2.5);
@@ -515,6 +521,87 @@ describe('Products tRPC Router', () => {
     });
     const match = listed.items.find(item => item.id === created.id);
     expect(match?.stock).toBe(0.75);
+  });
+
+  it('applies an absolute stock update without double-counting other-site balances', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const db = getDatabase();
+    const now = new Date().toISOString();
+
+    // A second, non-primary site (later createdAt) that already holds stock, so
+    // the product's tenant-wide total is > 0 while the primary-site balance row
+    // does not exist yet.
+    const branchCompanyId = nanoid();
+    const branchSiteId = nanoid();
+    await db.insert(companies).values({
+      id: branchCompanyId,
+      tenantId,
+      name: 'Branch Co',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sites).values({
+      id: branchSiteId,
+      tenantId,
+      companyId: branchCompanyId,
+      name: 'Branch Warehouse',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // stock: 0 on create makes no balance row, so no primary-site row exists.
+    const created = await caller.products.create({
+      name: 'Multi-site Widget',
+      sku: `MS-${nanoid(6)}`,
+      description: null,
+      categoryId,
+      providerId,
+      vatRateId,
+      locationId,
+      barcode: null,
+      imageUrl: null,
+      cost: 100,
+      initialCost: 100,
+      price: 200,
+      price2: 200,
+      price3: 200,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+      unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 200, isBase: true }],
+    });
+
+    // 30 units already at the branch site; the primary site still has no row.
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId: branchSiteId,
+      productId: created.id,
+      onHand: 30,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Absolute tenant-wide stock -> 50. The delta (50 - 30) is applied to the
+    // primary site; the branch's 30 must NOT be double-counted (would land 80).
+    const updated = await caller.products.update({
+      id: created.id,
+      version: created.version,
+      stock: 50,
+    });
+    expect(updated.stock).toBe(50);
+
+    const fetched = await caller.products.getById({ id: created.id });
+    expect(fetched.stock).toBe(50);
   });
 
   it('stores and updates product-level fraction policy fields', async () => {

@@ -28,11 +28,7 @@ import {
   listLotsForProduct,
   receiveInventoryLot,
 } from '../../services/inventory-lots/index.js';
-import {
-  expiringLotsInput,
-  listLotsInput,
-  receiveLotInput,
-} from '../schemas/inventoryLots.js';
+import { expiringLotsInput, listLotsInput, receiveLotInput } from '../schemas/inventoryLots.js';
 
 export const inventoryLotsRouter = router({
   receive: managerOrAdminProcedure.input(receiveLotInput).mutation(async ({ ctx, input }) => {
@@ -53,17 +49,23 @@ export const inventoryLotsRouter = router({
     }
 
     const now = new Date().toISOString();
-    const result = receiveInventoryLot(ctx.db, {
-      tenantId: ctx.tenantId,
-      siteId: input.siteId,
-      productId: input.productId,
-      lotNumber: input.lotNumber,
-      expiresAt: input.expiresAt ?? null,
-      quantity: input.quantity,
-      unitCost: input.unitCost,
-      notes: input.notes ?? null,
-      now,
-    });
+    // Wrap the read-then-write (select + update/insert) in a transaction so a
+    // lot receipt is atomic — the function is designed to run inside the
+    // caller's transaction, and this keeps the blended-cost read consistent
+    // if the DB backend ever allows the select and write to interleave.
+    const result = ctx.db.transaction(tx =>
+      receiveInventoryLot(tx, {
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        productId: input.productId,
+        lotNumber: input.lotNumber,
+        expiresAt: input.expiresAt ?? null,
+        quantity: input.quantity,
+        unitCost: input.unitCost,
+        notes: input.notes ?? null,
+        now,
+      })
+    );
 
     await enqueueSync(ctx, {
       entityType: 'inventory_lots',

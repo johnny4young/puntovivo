@@ -45,7 +45,11 @@ describe('inventoryLots router (lots & costing)', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) throw new Error('Expected seeded admin user');
     tenantId = seededUser.tenantId;
     userId = seededUser.id;
@@ -128,10 +132,40 @@ describe('inventoryLots router (lots & costing)', () => {
     expect(second.unitCost).toBe(110);
   });
 
+  it('keeps fractional on-hand quantities without money-rounding them', async () => {
+    const caller = appRouter.createCaller(makeContext('manager'));
+
+    // 2.125 would round to 2.13 under money rounding; the quantity must survive.
+    const first = await caller.inventoryLots.receive({
+      siteId,
+      productId,
+      lotNumber: 'L-FRAC',
+      quantity: 2.125,
+      unitCost: 50,
+    });
+    expect(first.onHand).toBe(2.125);
+
+    // 2.125 + 1.0625 = 3.1875 (would collapse to 3.19 if money-rounded).
+    const second = await caller.inventoryLots.receive({
+      siteId,
+      productId,
+      lotNumber: 'L-FRAC',
+      quantity: 1.0625,
+      unitCost: 50,
+    });
+    expect(second.onHand).toBe(3.1875);
+  });
+
   it('rejects a non-positive quantity', async () => {
     const caller = appRouter.createCaller(makeContext('manager'));
     await expect(
-      caller.inventoryLots.receive({ siteId, productId, lotNumber: 'L-x', quantity: 0, unitCost: 10 })
+      caller.inventoryLots.receive({
+        siteId,
+        productId,
+        lotNumber: 'L-x',
+        quantity: 0,
+        unitCost: 10,
+      })
     ).rejects.toThrow();
   });
 

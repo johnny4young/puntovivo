@@ -73,7 +73,11 @@ export function receiveInventoryLot(
     .get();
 
   if (existing) {
-    const newOnHand = roundMoney(existing.onHand + input.quantity);
+    // Quantities are NOT money-rounded: on_hand is an inventory quantity (can
+    // be fractional past 2 decimals for weighed goods) and must stay consistent
+    // with the un-rounded `inventory_balances.on_hand` so lot counts do not
+    // drift from the authoritative stock. Only the cost below is money-rounded.
+    const newOnHand = existing.onHand + input.quantity;
     // Weighted-average the layer cost across the prior and incoming units.
     const blendedCost =
       newOnHand > 0
@@ -107,7 +111,7 @@ export function receiveInventoryLot(
       productId: input.productId,
       lotNumber: input.lotNumber,
       expiresAt: input.expiresAt ?? null,
-      onHand: roundMoney(input.quantity),
+      onHand: input.quantity,
       unitCost: roundMoney(input.unitCost),
       status: 'active',
       receivedAt: input.now,
@@ -121,7 +125,7 @@ export function receiveInventoryLot(
   return {
     lotId: id,
     created: true,
-    onHand: roundMoney(input.quantity),
+    onHand: input.quantity,
     unitCost: roundMoney(input.unitCost),
   };
 }

@@ -78,14 +78,19 @@ export const productMutationProcedures = {
     const resolvedUnitAssignments = await resolveUnitAssignments(
       ctx.db,
       ctx.tenantId,
-      input.unitAssignments ?? (await getDefaultUnitAssignments(ctx.db, ctx.tenantId, normalizedPricing.price))
+      input.unitAssignments ??
+        (await getDefaultUnitAssignments(ctx.db, ctx.tenantId, normalizedPricing.price))
     );
     const normalizedProviderState = normalizeProviderState({
       providerId: input.providerId,
       providerAssignments: input.providerAssignments,
     });
     const resolvedProviderAssignments = normalizedProviderState
-      ? await resolveProviderAssignments(ctx.db, ctx.tenantId, normalizedProviderState.providerAssignments)
+      ? await resolveProviderAssignments(
+          ctx.db,
+          ctx.tenantId,
+          normalizedProviderState.providerAssignments
+        )
       : [];
     const resolvedTax = await resolveTaxRate(ctx.db, ctx.tenantId, input.vatRateId, input.taxRate);
     const resolvedLocationId = await resolveLocationId(ctx.db, ctx.tenantId, input.locationId);
@@ -232,7 +237,11 @@ export const productMutationProcedures = {
       existingProviderIds,
     });
     const resolvedProviderAssignments = normalizedProviderState
-      ? await resolveProviderAssignments(ctx.db, ctx.tenantId, normalizedProviderState.providerAssignments)
+      ? await resolveProviderAssignments(
+          ctx.db,
+          ctx.tenantId,
+          normalizedProviderState.providerAssignments
+        )
       : undefined;
     const normalizedPricing = normalizeProductPricing({
       cost: updates.cost ?? existing.cost,
@@ -337,7 +346,11 @@ export const productMutationProcedures = {
               siteId: primarySiteId,
               productId: id,
               delta,
-              initialOnHandIfMissing: currentTotal,
+              // Seed a missing primary-site row with 0, not the tenant-wide
+              // total: if other sites already hold stock, seeding with the
+              // total would double-count them in the derived Σ(on_hand). The
+              // delta alone brings the total to the requested absolute stock.
+              initialOnHandIfMissing: 0,
               now,
             });
           }
