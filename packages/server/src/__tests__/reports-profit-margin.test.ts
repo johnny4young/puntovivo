@@ -4,7 +4,7 @@
  * Verifies the correctness invariants that make the report trustworthy:
  *   - COGS for a lot-tracked line comes from `sale_item_lots` (the real
  *     per-lot cost), NOT the `cost_at_sale` snapshot.
- *   - COGS for a non-lot line comes from `cost_at_sale × quantity`.
+ *   - COGS for a non-lot line comes from `cost_at_sale × normalized quantity`.
  *   - Refunded (paymentStatus='refunded', still status='completed'), voided,
  *     draft, and out-of-range sales are excluded.
  *   - Tenant isolation and the manager/admin role gate.
@@ -142,7 +142,8 @@ describe('reports.profit.margin', () => {
     const sessionId = await seedCommittedSaleSession({ tenantId, cashierId: userId, siteId });
 
     // S1 — the one eligible sale. Line 1 lot-tracked (lot COGS 6*4 + 4*6 = 48,
-    // NOT costAtSale 5*10 = 50). Line 2 plain (snapshot COGS 3*5 = 15).
+    // NOT costAtSale 5*10 = 50). Line 2 plain sells 5 packs with equivalence 2,
+    // so snapshot COGS is 3*(5*2) = 30, not 3*5 = 15.
     const s1 = nanoid();
     const s1Line1 = nanoid();
     const s1Line2 = nanoid();
@@ -255,6 +256,7 @@ describe('reports.profit.margin', () => {
         saleId: s1,
         productId: P_PLAIN,
         quantity: 5,
+        unitEquivalence: 2,
         unitPrice: 10,
         discount: 0,
         taxRate: 0,
@@ -343,13 +345,14 @@ describe('reports.profit.margin', () => {
     const caller = appRouter.createCaller(buildContext('admin'));
     const report = await caller.reports.profit.margin(marginInput);
 
-    // revenue 120 + 50; lot COGS 48 (not the 5*10=50 snapshot); snapshot COGS 15.
+    // revenue 120 + 50; lot COGS 48 (not the 5*10=50 snapshot); snapshot COGS
+    // uses base units for the pack line: 3*(5*2) = 30.
     expect(report.summary.revenue).toBe(170);
     expect(report.summary.cogsFromLots).toBe(48);
-    expect(report.summary.cogsFromSnapshot).toBe(15);
-    expect(report.summary.cogs).toBe(63);
-    expect(report.summary.grossProfit).toBe(107);
-    expect(report.summary.grossMarginPct).toBe(62.94);
+    expect(report.summary.cogsFromSnapshot).toBe(30);
+    expect(report.summary.cogs).toBe(78);
+    expect(report.summary.grossProfit).toBe(92);
+    expect(report.summary.grossMarginPct).toBe(54.12);
     expect(report.summary.salesCount).toBe(1);
     expect(report.summary.lineCount).toBe(2);
   });
@@ -367,9 +370,10 @@ describe('reports.profit.margin', () => {
     expect(first?.grossProfit).toBe(72);
     expect(first?.grossMarginPct).toBe(60);
     expect(second?.sku).toBe('PLN-1');
-    expect(second?.cogs).toBe(15);
-    expect(second?.grossProfit).toBe(35);
-    expect(second?.grossMarginPct).toBe(70);
+    expect(second?.quantity).toBe(10);
+    expect(second?.cogs).toBe(30);
+    expect(second?.grossProfit).toBe(20);
+    expect(second?.grossMarginPct).toBe(40);
   });
 
   it('excludes refunded, voided, draft, and out-of-range sales', async () => {
