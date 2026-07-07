@@ -55,13 +55,13 @@ export interface ReverseSaleItemsStockArgs {
   now: string;
 }
 
-const RESERVAL_NOTE: Record<ReversalKind, string> = {
+const REVERSAL_NOTE: Record<ReversalKind, string> = {
   return: 'Refunded sale',
   void: 'Voided sale',
   discard: 'Discarded draft',
 };
 
-const RESERVAL_OP_LABEL: Record<ReversalKind, string> = {
+const REVERSAL_OP_LABEL: Record<ReversalKind, string> = {
   return: 'refund',
   void: 'void',
   discard: 'discard',
@@ -78,7 +78,7 @@ const RESERVAL_OP_LABEL: Record<ReversalKind, string> = {
  */
 export function reverseSaleItemsStock(args: ReverseSaleItemsStockArgs): string[] {
   const inventoryMovementIds: string[] = [];
-  const note = `${RESERVAL_NOTE[args.reversalKind]} ${args.saleNumber}`;
+  const note = `${REVERSAL_NOTE[args.reversalKind]} ${args.saleNumber}`;
 
   for (const item of args.items) {
     const normalizedQuantity = getNormalizedSaleQuantity(item.quantity, item.unitEquivalence);
@@ -88,10 +88,10 @@ export function reverseSaleItemsStock(args: ReverseSaleItemsStockArgs): string[]
       throwServerError({
         trpcCode: 'NOT_FOUND',
         errorCode: 'SALE_REVERSAL_PRODUCT_MISSING',
-        message: `Product ${item.productId} was not found while ${RESERVAL_OP_LABEL[args.reversalKind]}ing the sale`,
+        message: `Product ${item.productId} was not found while ${REVERSAL_OP_LABEL[args.reversalKind]}ing the sale`,
         details: {
           productId: item.productId,
-          operation: RESERVAL_OP_LABEL[args.reversalKind],
+          operation: REVERSAL_OP_LABEL[args.reversalKind],
         },
       });
     }
