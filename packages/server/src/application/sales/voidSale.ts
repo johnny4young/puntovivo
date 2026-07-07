@@ -21,15 +21,15 @@
  * @module application/sales/voidSale
  */
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,
   operationEvents,
-  products,
   saleItems,
   sales,
 } from '../../db/schema.js';
+import { getProductStockTotals } from '../../services/inventory-balances.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { removeKdsOrders } from '../../services/kds/remove.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -45,6 +45,7 @@ import {
   getPersistedCashContribution,
 } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { restoreLotsForSale } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import {
   emitCompleteSaleEffects,
@@ -150,14 +151,7 @@ export async function voidSale(
   }
 
   const productIds = [...new Set(saleLineItems.map(item => item.productId))];
-  const currentProducts = await ctx.db
-    .select({ id: products.id, stock: products.stock })
-    .from(products)
-    .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
-    .all();
-  const productStockState = new Map(
-    currentProducts.map(product => [product.id, product.stock])
-  );
+  const productStockState = getProductStockTotals(ctx.db, ctx.tenantId, productIds);
 
   // Resolve the target session for the cash reversal: only reverse if
   // the ORIGINAL session is still open; once closed, its over/short is
@@ -210,6 +204,9 @@ export async function voidSale(
       productStockState,
       now,
     });
+
+    // Auditoría 2026-07 — restore consumed lots on void.
+    restoreLotsForSale(tx, { tenantId: ctx.tenantId, saleId: input.id, now });
 
     tx.update(sales)
       .set({

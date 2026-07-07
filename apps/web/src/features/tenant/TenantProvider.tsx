@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Site, Tenant, TenantSettings } from '@/types';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
@@ -46,6 +47,23 @@ export function TenantProvider({ children }: TenantProviderProps) {
     sites,
     fallbackSiteId: sitesQuery.data?.activeSiteId ?? sites[0]?.id ?? null,
   });
+
+  // Site scoping rides on the `x-site-id` header, NOT on the React Query
+  // keys — so a cached `sales.list`/`listDrafts`/etc. entry from the
+  // previous site is key-identical to the new site's and would be served
+  // (and, within staleTime, not even refetched) after a switch. Invalidate
+  // everything on an actual site *change* (not on initial resolution) so
+  // every active query refetches under the new header.
+  const queryClient = useQueryClient();
+  const previousSiteIdRef = useRef<string | null>(null);
+  const currentSiteId = currentSite?.id ?? null;
+  useEffect(() => {
+    const previous = previousSiteIdRef.current;
+    previousSiteIdRef.current = currentSiteId;
+    if (previous !== null && currentSiteId !== null && previous !== currentSiteId) {
+      void queryClient.invalidateQueries();
+    }
+  }, [currentSiteId, queryClient]);
 
   // ENG-171 — memoize the context value so the 19 `useTenant` consumers do
   // not re-render on every TenantProvider render (e.g. when an ancestor

@@ -18,11 +18,14 @@
 
 import type { trpc } from '@/lib/trpc';
 
-type TrpcUtils = ReturnType<typeof trpc.useUtils>;
+export type TrpcUtils = ReturnType<typeof trpc.useUtils>;
 
 interface Invalidatable {
   invalidate: () => Promise<void>;
 }
+
+/** A single typed invalidation target, e.g. `u => u.sales.list`. */
+export type InvalidationPicker = (u: TrpcUtils) => Invalidatable;
 
 /**
  * Invalidate every picked tRPC query in parallel and resolve once all
@@ -38,10 +41,36 @@ interface Invalidatable {
  */
 export async function invalidateGroups(
   utils: TrpcUtils,
-  pickers: ReadonlyArray<(u: TrpcUtils) => Invalidatable>
+  pickers: ReadonlyArray<InvalidationPicker>
 ): Promise<void> {
   if (pickers.length === 0) {
     return;
   }
   await Promise.all(pickers.map(pick => pick(utils).invalidate()));
 }
+
+/**
+ * The canonical "a sale was completed" invalidation set, shared by every
+ * surface that finishes a sale (desktop SalesPage epilogue and the touch
+ * POS). Completing a sale touches cash sessions, sales lists/summary,
+ * inventory stock + movements, product availability, and — for credit
+ * sales — the customer ledger; missing any of these leaves another page
+ * showing pre-sale data for the whole staleTime window.
+ */
+export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.cashSessions.getActive,
+  u => u.cashSessions.movements,
+  u => u.cashSessions.report,
+  u => u.cashSessions.registerAssignments,
+  u => u.sales.list,
+  u => u.sales.listDrafts,
+  u => u.sales.summary,
+  u => u.inventory.listMovements,
+  u => u.inventory.listStock,
+  u => u.products.list,
+  u => u.products.search,
+  // ENG-090 — credit sales mutate the ledger, so the cupo card
+  // inside SalePaymentModal must refetch on the next open.
+  u => u.customerLedger.getBalance,
+  u => u.customerLedger.list,
+];

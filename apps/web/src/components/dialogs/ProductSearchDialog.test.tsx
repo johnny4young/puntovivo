@@ -110,10 +110,11 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
     const searchInput = screen.getByPlaceholderText(/Search by SKU/i);
     await user.type(searchInput, 'NoMatchAnywhere');
 
+    // findBy: the typed query settles through the 200ms search debounce.
+    expect(await screen.findByText(/No products matched/i)).toBeInTheDocument();
     expect(
       screen.queryByTestId('product-search-empty-state')
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/No products matched/i)).toBeInTheDocument();
   });
 
   it('fires onQuickCreateRequested with the trimmed query and closes the dialog when the CTA is clicked', async () => {
@@ -168,10 +169,11 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
     const searchInput = screen.getByPlaceholderText(/Search by SKU/i);
     await user.type(searchInput, 'X');
 
+    // findBy: the typed query settles through the 200ms search debounce.
+    expect(await screen.findByText(/Searching products/i)).toBeInTheDocument();
     expect(
       screen.queryByTestId('product-search-empty-state')
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/Searching products/i)).toBeInTheDocument();
   });
 
   it('does not render the empty-state block when matches are present', async () => {
@@ -206,10 +208,11 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
     const searchInput = screen.getByPlaceholderText(/Search by SKU/i);
     await user.type(searchInput, 'arroz');
 
+    // findBy: the typed query settles through the 200ms search debounce.
+    expect(await screen.findByText('Arroz Diana 500g')).toBeInTheDocument();
     expect(
       screen.queryByTestId('product-search-empty-state')
     ).not.toBeInTheDocument();
-    expect(screen.getByText('Arroz Diana 500g')).toBeInTheDocument();
   });
 
   it('keeps the CTA hidden when caller passes canCreateProducts=false even with onQuickCreateRequested wired', async () => {

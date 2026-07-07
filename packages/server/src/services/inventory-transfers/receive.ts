@@ -8,21 +8,17 @@
  *
  * @module services/inventory-transfers/receive
  */
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryBalances,
-  products,
   transferOrderItems,
   transferOrders,
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import {
-  getPrimarySiteId,
-  syncProductStockFromBalances,
-} from '../inventory-balances.js';
+import { getPrimarySiteId, getProductStockTotal } from '../inventory-balances.js';
 import { getTimestamp, seedMissingBalanceRow } from './helpers.js';
 import type { ReceiveTransferArgs, ReceiveTransferLine, ReceivedTransfer } from './types.js';
 
@@ -151,22 +147,6 @@ export function receiveInventoryTransfer(
     const receivedByItemId = resolveReceivedQuantitiesByItemId(items, args.lines);
 
     const primarySiteId = getPrimarySiteId(tx, args.tenantId);
-    const productStockById = new Map(
-      tx
-        .select({ id: products.id, stock: products.stock })
-        .from(products)
-        .where(
-          and(
-            eq(products.tenantId, args.tenantId),
-            inArray(
-              products.id,
-              items.map(item => item.productId)
-            )
-          )
-        )
-        .all()
-        .map(product => [product.id, product.stock])
-    );
 
     const receivedItems: ReceivedTransfer['receivedItems'] = [];
     let hasDiscrepancy = false;
@@ -187,7 +167,7 @@ export function receiveInventoryTransfer(
         productId: item.productId,
         initialOnHand:
           transfer.toSiteId === primarySiteId
-            ? (productStockById.get(item.productId) ?? 0)
+            ? getProductStockTotal(tx, args.tenantId, item.productId)
             : 0,
         now,
       });
@@ -226,15 +206,11 @@ export function receiveInventoryTransfer(
         .where(eq(transferOrderItems.id, item.id))
         .run();
 
-      // Products.stock drifts by (shipped - received) because origin was
-      // debited the full shipped quantity at create time but destination only
-      // gets credited the received quantity. Recompute from Σ(balances) to
-      // keep the cache honest (intentional shrinkage).
-      syncProductStockFromBalances(tx, {
-        tenantId: args.tenantId,
-        productId: item.productId,
-        now,
-      });
+      // A partial receive intentionally shrinks total stock by
+      // (shipped - received): origin was debited the full shipped quantity at
+      // create time but the destination is only credited the received
+      // quantity. The tenant-wide total is derived from Σ(balances) on read,
+      // so no cache needs recomputing here.
 
       receivedItems.push({ productId: item.productId, quantity: receivedQuantity });
     }

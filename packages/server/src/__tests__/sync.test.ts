@@ -10,7 +10,16 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { products, syncConflicts, syncOutbox, tenants, users } from '../db/schema.js';
+import {
+  companies,
+  inventoryLots,
+  products,
+  sites,
+  syncConflicts,
+  syncOutbox,
+  tenants,
+  users,
+} from '../db/schema.js';
 import { and, eq } from 'drizzle-orm';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
@@ -345,6 +354,83 @@ describe('Sync tRPC Router', () => {
 
       const status = await caller.sync.status();
       expect(status.lastSyncAt).not.toBeNull();
+    });
+
+    it('processes queued inventory lot receipts instead of marking them unsupported', async () => {
+      const caller = appRouter.createCaller(userCtx());
+      const db = getDatabase();
+      const now = new Date().toISOString();
+      const companyId = nanoid();
+      const siteId = nanoid();
+      const productId = nanoid();
+      const lotId = nanoid();
+
+      await db.insert(companies).values({
+        id: companyId,
+        tenantId: testTenantId,
+        name: `Sync Lot Company ${companyId.slice(0, 6)}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(sites).values({
+        id: siteId,
+        tenantId: testTenantId,
+        companyId,
+        name: `Sync Lot Site ${siteId.slice(0, 6)}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(products).values({
+        id: productId,
+        tenantId: testTenantId,
+        name: 'Queued Sync Lot Product',
+        sku: `sync-lot-${nanoid(6)}`,
+        tracksLots: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(inventoryLots).values({
+        id: lotId,
+        tenantId: testTenantId,
+        siteId,
+        productId,
+        lotNumber: 'SYNC-LOT-001',
+        onHand: 12,
+        unitCost: 4.5,
+        syncStatus: 'pending',
+        syncVersion: 0,
+        receivedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const queued = await caller.sync.addToQueue({
+        entityType: 'inventory_lots',
+        entityId: lotId,
+        operation: 'update',
+        data: { id: lotId, onHand: 12 },
+      });
+
+      const result = await caller.sync.push({ limit: 50 });
+
+      expect(result.success).toBe(true);
+      expect(result.processedIds).toContain(queued.id);
+      expect(result.errors).not.toContain(`Unsupported sync entity type: inventory_lots`);
+
+      const queueRow = await db
+        .select()
+        .from(syncOutbox)
+        .where(and(eq(syncOutbox.id, queued.id), eq(syncOutbox.tenantId, testTenantId)))
+        .get();
+      expect(queueRow?.status).toBe('synced');
+
+      const lot = await db
+        .select()
+        .from(inventoryLots)
+        .where(and(eq(inventoryLots.id, lotId), eq(inventoryLots.tenantId, testTenantId)))
+        .get();
+      expect(lot?.syncStatus).toBe('synced');
+      expect(lot?.syncVersion).toBeGreaterThan(0);
     });
 
     it('creates a conflict when a queued entity no longer exists locally', async () => {

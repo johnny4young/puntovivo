@@ -28,6 +28,7 @@ import {
   applyInventoryBalanceDelta,
   ensurePrimaryInventoryBalanceSnapshot,
   getPrimarySiteId,
+  getProductStockTotal,
   reconcileProductStockFromBalances,
 } from '../../../services/inventory-balances.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
@@ -57,9 +58,12 @@ export const inventoryMutationProcedures = {
     const now = new Date().toISOString();
     const entryId = nanoid();
     const movementId = nanoid();
+    // Tenant-wide stock is derived from Σ(inventory_balances.on_hand); read the
+    // pre-mutation total to compute the movement snapshot and the balance delta.
+    const previousStock = getProductStockTotal(ctx.db, ctx.tenantId, input.productId);
     const newStock =
-      input.mode === 'initial' ? product.stock + normalizedQuantity : normalizedQuantity;
-    const stockDelta = newStock - product.stock;
+      input.mode === 'initial' ? previousStock + normalizedQuantity : normalizedQuantity;
+    const stockDelta = newStock - previousStock;
 
     ctx.db.transaction(tx => {
       tx.insert(initialInventory)
@@ -74,7 +78,7 @@ export const inventoryMutationProcedures = {
           unitEquivalence: unitAssignment.equivalence,
           normalizedQuantity,
           cost,
-          previousStock: product.stock,
+          previousStock,
           newStock,
           notes: input.notes,
           createdBy: ctx.user!.id,
@@ -91,7 +95,7 @@ export const inventoryMutationProcedures = {
           productId: input.productId,
           type: 'adjustment',
           quantity: Math.abs(stockDelta),
-          previousStock: product.stock,
+          previousStock,
           newStock,
           reference: entryId,
           notes:
@@ -104,9 +108,10 @@ export const inventoryMutationProcedures = {
         })
         .run();
 
+      // Persist the entry's cost baseline on the product. Stock itself is no
+      // longer a product column — it is applied to inventory_balances below.
       tx.update(products)
         .set({
-          stock: newStock,
           initialCost: cost,
           syncStatus: 'pending',
           syncVersion: (product.syncVersion ?? 0) + 1,
@@ -116,20 +121,20 @@ export const inventoryMutationProcedures = {
         .run();
 
       // Phase 2 API-103 step 3: apply the same stockDelta to the operator
-      // site's balance. `ctx.siteId` is the entry's site (the handler also
-      // persists it on `initial_inventory.siteId`); falsy values no-op.
-      // Seed value respects the migration rule: primary seeds from
-      // products.stock, non-primary sites seed from 0. Skip the primary
-      // lookup entirely when there is no site context — the helper no-ops.
-      if (ctx.siteId) {
-        const primarySiteIdForEntry = getPrimarySiteId(tx, ctx.tenantId);
+      // site's balance — the single source of truth. `ctx.siteId` is the
+      // entry's site (also persisted on `initial_inventory.siteId`); falsy
+      // values no-op. When no site context exists, fall back to the primary
+      // site so the entry still lands somewhere authoritative.
+      const primarySiteIdForEntry = getPrimarySiteId(tx, ctx.tenantId);
+      const entrySiteId = ctx.siteId ?? primarySiteIdForEntry;
+      if (entrySiteId) {
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
+          siteId: entrySiteId,
           productId: input.productId,
           delta: stockDelta,
           initialOnHandIfMissing:
-            ctx.siteId === primarySiteIdForEntry ? product.stock : 0,
+            entrySiteId === primarySiteIdForEntry ? previousStock : 0,
           now,
         });
       }
@@ -206,18 +211,21 @@ export const inventoryMutationProcedures = {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
     }
 
-    // Determine stock change direction
+    // Determine stock change direction. Tenant-wide stock is derived from
+    // Σ(inventory_balances.on_hand); read the pre-mutation total.
+    const previousStock = getProductStockTotal(ctx.db, ctx.tenantId, input.productId);
     const isDeduction = input.type === 'sale' || input.type === 'transfer';
-    const newStock = isDeduction ? product.stock - input.quantity : product.stock + input.quantity;
+    const newStock = isDeduction ? previousStock - input.quantity : previousStock + input.quantity;
 
     if (newStock < 0) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
-        message: `Insufficient stock. Available: ${product.stock}, requested: ${input.quantity}`,
+        message: `Insufficient stock. Available: ${previousStock}, requested: ${input.quantity}`,
       });
     }
 
     const movementId = nanoid();
+    const stockDelta = newStock - previousStock;
 
     // better-sqlite3 requires a synchronous transaction callback
     ctx.db.transaction(tx => {
@@ -229,7 +237,7 @@ export const inventoryMutationProcedures = {
           productId: input.productId,
           type: input.type,
           quantity: input.quantity,
-          previousStock: product.stock,
+          previousStock,
           newStock,
           reference: input.reference,
           notes: input.notes,
@@ -240,16 +248,21 @@ export const inventoryMutationProcedures = {
         })
         .run();
 
-      // Update product stock
-      tx.update(products)
-        .set({
-          stock: newStock,
-          syncStatus: 'pending',
-          syncVersion: (product.syncVersion ?? 0) + 1,
-          updatedAt: now,
-        })
-        .where(eq(products.id, input.productId))
-        .run();
+      // Apply the delta to inventory_balances — the single source of truth.
+      // Route to the operator site when present, else the primary site.
+      const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
+      const movementSiteId = ctx.siteId ?? primarySiteId;
+      if (movementSiteId) {
+        applyInventoryBalanceDelta(tx, {
+          tenantId: ctx.tenantId,
+          siteId: movementSiteId,
+          productId: input.productId,
+          delta: stockDelta,
+          initialOnHandIfMissing:
+            movementSiteId === primarySiteId ? previousStock : 0,
+          now,
+        });
+      }
 
     });
 
@@ -274,11 +287,14 @@ export const inventoryMutationProcedures = {
    * Creates an 'adjustment' movement record.
    */
   adjustStock: criticalCommandManagerOrAdminProcedure.input(adjustStockInput).mutation(async ({ ctx, input }) => {
-    const product = await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
+    // Validates the product exists and is active (throws otherwise).
+    await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
 
     const now = new Date().toISOString();
     const movementId = nanoid();
-    const delta = input.newStock - product.stock;
+    // Tenant-wide stock is derived from Σ(inventory_balances.on_hand).
+    const previousStock = getProductStockTotal(ctx.db, ctx.tenantId, input.productId);
+    const delta = input.newStock - previousStock;
     const quantity = Math.abs(delta);
     let resolvedAdjustmentSiteId: string | null = null;
 
@@ -323,37 +339,23 @@ export const inventoryMutationProcedures = {
         ensurePrimaryInventoryBalanceSnapshot(tx, {
           tenantId: ctx.tenantId,
           productId: input.productId,
-          onHandSnapshot: product.stock,
+          onHandSnapshot: previousStock,
           now,
         });
       }
 
-      // Update the legacy tenant-wide `products.stock` cache FIRST so
-      // `applyInventoryBalanceDelta` (which trails every delta write with
-      // `syncProductStockFromBalances`) runs last and ratifies the value
-      // as Σ(site balances) — overwriting any historical drift the caller
-      // unknowingly carried in.
-      tx.update(products)
-        .set({
-          stock: input.newStock,
-          syncStatus: 'pending',
-          syncVersion: (product.syncVersion ?? 0) + 1,
-          updatedAt: now,
-        })
-        .where(eq(products.id, input.productId))
-        .run();
-
-      // Seed value respects the migration rule: primary site seeds from
-      // `products.stock`, non-primary sites seed from 0. Only pass an
-      // explicit snapshot for the primary so non-primary first-time writes
-      // reflect the true "site started with zero" semantics.
+      // Apply the delta to the resolved site's balance — the single source of
+      // truth. The absolute target `input.newStock` is realized as
+      // Σ(site balances) once this delta lands.
+      // Seed value respects the migration rule: primary site seeds from the
+      // pre-adjustment tenant total, non-primary sites seed from 0.
       applyInventoryBalanceDelta(tx, {
         tenantId: ctx.tenantId,
         siteId: resolvedSiteId,
         productId: input.productId,
         delta,
         initialOnHandIfMissing:
-          resolvedSiteId && resolvedSiteId === primarySiteId ? product.stock : 0,
+          resolvedSiteId && resolvedSiteId === primarySiteId ? previousStock : 0,
         now,
       });
 
@@ -364,7 +366,7 @@ export const inventoryMutationProcedures = {
           productId: input.productId,
           type: 'adjustment',
           quantity,
-          previousStock: product.stock,
+          previousStock,
           newStock: input.newStock,
           reference: 'manual-adjustment',
           notes: input.notes,
@@ -395,7 +397,7 @@ export const inventoryMutationProcedures = {
           action: 'inventory.adjust_stock',
           resourceType: 'product',
           resourceId: input.productId,
-          before: { stock: product.stock },
+          before: { stock: previousStock },
           after: { stock: input.newStock },
           metadata: {
             delta,
@@ -427,7 +429,7 @@ export const inventoryMutationProcedures = {
         productId: input.productId,
         siteId: resolvedAdjustmentSiteId,
         locationId: null,
-        quantityBefore: product.stock,
+        quantityBefore: previousStock,
         quantityAfter: input.newStock,
         delta,
         reasonCode: input.notes ?? null,
@@ -440,17 +442,20 @@ export const inventoryMutationProcedures = {
       .where(eq(products.id, input.productId))
       .get();
 
-    return { product: updatedProduct!, movementId };
+    // `stock` is no longer a product column; expose the derived tenant-wide
+    // total so the mutation's response shape stays stable for clients.
+    const derivedStock = getProductStockTotal(ctx.db, ctx.tenantId, input.productId);
+
+    return { product: { ...updatedProduct!, stock: derivedStock }, movementId };
   }),
 
   /**
-   * Phase 2 API-103 step 4 — Admin reconciliation.
+   * Admin reconciliation — retired by the single-source unification.
    *
-   * Recomputes `products.stock` as Σ(`inventory_balances.on_hand`) for every
-   * product in the tenant. Use after data migrations or historical imports
-   * where `products.stock` has drifted from the per-site totals. Normal
-   * mutation paths already keep the cache in lockstep, so this is a manual
-   * heal-up tool, not a routine cron.
+   * `inventory_balances` is now the single source of truth and the tenant-wide
+   * total is derived from it on read, so there is no denormalized cache to
+   * recompute. This procedure is retained (as a no-op returning
+   * `productsUpdated: 0`) because a web client and tests still invoke it.
    */
   reconcileBalances: adminProcedure.mutation(async ({ ctx }) => {
     const result = reconcileProductStockFromBalances(ctx.db, ctx.tenantId);

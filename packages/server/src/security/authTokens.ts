@@ -31,6 +31,14 @@ export interface AuthTokenPayload {
   role: string;
   sessionVersion: number;
   tokenType: AuthTokenType;
+  /**
+   * Refresh tokens only (Auditoría 2026-07 rotation): the family this
+   * token belongs to and its unique id within it. Absent on access /
+   * realtime tokens and on refresh tokens signed before the rotation
+   * feature (legacy grace path).
+   */
+  familyId?: string;
+  jti?: string;
 }
 
 interface AuthUserIdentity {
@@ -58,8 +66,15 @@ export function signAccessToken(server: FastifyInstance, user: AuthUserIdentity)
   });
 }
 
-export function signRefreshToken(server: FastifyInstance, user: AuthUserIdentity): string {
-  return server.jwt.sign(buildTokenPayload(user, 'refresh'), {
+export function signRefreshToken(
+  server: FastifyInstance,
+  user: AuthUserIdentity,
+  family?: { familyId: string; jti: string }
+): string {
+  const payload = family
+    ? { ...buildTokenPayload(user, 'refresh'), familyId: family.familyId, jti: family.jti }
+    : buildTokenPayload(user, 'refresh');
+  return server.jwt.sign(payload, {
     expiresIn: REFRESH_TOKEN_TTL,
   });
 }

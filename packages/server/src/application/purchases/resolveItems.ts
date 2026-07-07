@@ -23,6 +23,7 @@ import {
 } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
 import type { CreatePurchaseInput } from '../../trpc/schemas/purchases.js';
+import { getProductStockTotals } from '../../services/inventory-balances.js';
 import { getNormalizedPurchaseQuantity } from './helpers.js';
 import type {
   ResolvedOrderReceiptItem,
@@ -60,7 +61,8 @@ export async function resolvePurchaseItems(
 
   let subtotal = 0;
   const rows: ResolvedPurchaseItem[] = [];
-  const productStocks = new Map(productRows.map(product => [product.id, product.stock]));
+  // Tenant-wide stock is derived from Σ(inventory_balances.on_hand).
+  const productStocks = getProductStockTotals(db, tenantId, productIds);
 
   for (const item of inputItems) {
     const product = productMap.get(item.productId);
@@ -306,12 +308,8 @@ export async function resolveOrderReceiptItems(
   const uniqueOrderItemIds = new Set<string>();
   const rows: ResolvedOrderReceiptItem[] = [];
   const productIds = [...new Set(orderLineItems.map(item => item.productId))];
-  const productRows = await db
-    .select({ id: products.id, stock: products.stock, isActive: products.isActive })
-    .from(products)
-    .where(and(eq(products.tenantId, tenantId), inArray(products.id, productIds)))
-    .all();
-  const productStockState = new Map(productRows.map(product => [product.id, product.stock]));
+  // Tenant-wide stock is derived from Σ(inventory_balances.on_hand).
+  const productStockState = getProductStockTotals(db, tenantId, productIds);
 
   let subtotal = 0;
 

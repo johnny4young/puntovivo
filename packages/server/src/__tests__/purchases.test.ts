@@ -23,6 +23,7 @@ import {
   users,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { Context } from '../trpc/context.js';
 
 let server: PuntovivoServer;
@@ -183,7 +184,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 3,
-      stock: 5,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -212,6 +212,17 @@ describe('Purchases tRPC Router', () => {
         updatedAt: now,
       },
     ]);
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 5,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     const caller = appRouter.createCaller(createTestContext());
     const result = await caller.purchases.create({
@@ -244,7 +255,7 @@ describe('Purchases tRPC Router', () => {
     });
 
     const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(updatedProduct?.stock).toBe(13);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(13);
     expect(updatedProduct?.cost).toBeCloseTo(6);
     expect(updatedProduct?.initialCost).toBeCloseTo(6);
 
@@ -326,7 +337,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 3,
-      stock: 1.5,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -340,6 +350,17 @@ describe('Purchases tRPC Router', () => {
       equivalence: 1,
       price: 8,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 1.5,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -361,8 +382,7 @@ describe('Purchases tRPC Router', () => {
     expect(result.total).toBeCloseTo(2.25);
     expect(result.items[0]?.quantity).toBe(0.75);
 
-    const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(updatedProduct?.stock).toBeCloseTo(2.25);
+    expect(getProductStockTotal(db, tenantId, productId)).toBeCloseTo(2.25);
 
     const movement = await db
       .select()
@@ -409,7 +429,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 4,
-      stock: 3,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -438,6 +457,17 @@ describe('Purchases tRPC Router', () => {
         updatedAt: now,
       },
     ]);
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 3,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     await db.insert(orders).values({
       id: orderId,
@@ -491,8 +521,7 @@ describe('Purchases tRPC Router', () => {
       total: 35,
     });
 
-    const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(updatedProduct?.stock).toBe(8);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(8);
 
     const balancesAfterFirstReceipt = await caller.inventory.listBalancesBySite({ siteId });
     expect(balancesAfterFirstReceipt.items.find(item => item.productId === productId)?.onHand).toBe(8);
@@ -516,8 +545,7 @@ describe('Purchases tRPC Router', () => {
 
     expect(secondReceipt.purchaseNumber).not.toBe(firstReceipt.purchaseNumber);
 
-    const finalProduct = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(finalProduct?.stock).toBe(13);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(13);
 
     const balancesAfterSecondReceipt = await caller.inventory.listBalancesBySite({ siteId });
     expect(balancesAfterSecondReceipt.items.find(item => item.productId === productId)?.onHand).toBe(
@@ -589,7 +617,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 4,
-      stock: 2,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -603,6 +630,17 @@ describe('Purchases tRPC Router', () => {
       equivalence: 1,
       price: 10,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 2,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -682,7 +720,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 4,
-      stock: 1,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -696,6 +733,17 @@ describe('Purchases tRPC Router', () => {
       equivalence: 1,
       price: 10,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 1,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -780,7 +828,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 2,
-      stock: 1,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -794,6 +841,17 @@ describe('Purchases tRPC Router', () => {
       equivalence: 1,
       price: 10,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 1,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -850,7 +908,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 4,
-      stock: 8,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -864,6 +921,17 @@ describe('Purchases tRPC Router', () => {
       equivalence: 1,
       price: 10,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 8,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -910,8 +978,7 @@ describe('Purchases tRPC Router', () => {
       remainingQuantity: 3,
     });
 
-    const product = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(product?.stock).toBe(11);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(11);
 
     const balances = await caller.inventory.listBalancesBySite({ siteId });
     expect(balances.items.find(item => item.productId === productId)?.onHand).toBe(11);
@@ -993,7 +1060,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 3,
-      stock: 4,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -1007,6 +1073,17 @@ describe('Purchases tRPC Router', () => {
       equivalence: 1,
       price: 10,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 4,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -1115,7 +1192,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 3,
-      stock: 1,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -1132,6 +1208,48 @@ describe('Purchases tRPC Router', () => {
       createdAt: now,
       updatedAt: now,
     });
+
+    const reserveSiteId = nanoid();
+    const mainSite = await db.select().from(sites).where(eq(sites.id, siteId)).get();
+    if (!mainSite) {
+      throw new Error('Expected seeded main site');
+    }
+    await db.insert(sites).values({
+      id: reserveSiteId,
+      tenantId,
+      companyId: mainSite.companyId,
+      name: 'Return Reserve Site',
+      address: null,
+      phone: null,
+      isActive: true,
+      createdAt: new Date(Date.now() + 180_000).toISOString(),
+      updatedAt: new Date(Date.now() + 180_000).toISOString(),
+    });
+
+    // Initial stock lives at another site so the purchase site can be drained
+    // to 0 while the tenant-wide total stays positive.
+    await db.insert(inventoryBalances).values([
+      {
+        id: nanoid(),
+        tenantId,
+        siteId,
+        productId,
+        onHand: 0,
+        reserved: 0,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: nanoid(),
+        tenantId,
+        siteId: reserveSiteId,
+        productId,
+        onHand: 1,
+        reserved: 0,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
 
     const caller = appRouter.createCaller(createTestContext('manager'));
     const created = await caller.purchases.create({
@@ -1214,7 +1332,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 4,
-      stock: 10,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -1228,6 +1345,17 @@ describe('Purchases tRPC Router', () => {
       equivalence: 1,
       price: 10,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 10,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -1253,8 +1381,7 @@ describe('Purchases tRPC Router', () => {
     expect(voided.status).toBe('voided');
     expect(voided.notes).toContain('Voided: Duplicate receiving entry');
 
-    const product = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(product?.stock).toBe(10);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(10);
 
     const balances = await caller.inventory.listBalancesBySite({ siteId });
     expect(balances.items.find(item => item.productId === productId)?.onHand).toBe(10);
@@ -1311,7 +1438,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 5,
-      stock: 0,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -1342,7 +1468,17 @@ describe('Purchases tRPC Router', () => {
       ],
     });
 
-    await db.update(products).set({ stock: 1 }).where(eq(products.id, productId)).run();
+    await db
+      .update(inventoryBalances)
+      .set({ onHand: 1 })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, siteId),
+          eq(inventoryBalances.productId, productId)
+        )
+      )
+      .run();
 
     await expect(
       caller.purchases.void({
@@ -1383,7 +1519,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 3,
-      stock: 1,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -1400,6 +1535,49 @@ describe('Purchases tRPC Router', () => {
       createdAt: now,
       updatedAt: now,
     });
+
+    const reserveSiteId = nanoid();
+    const mainSite = await db.select().from(sites).where(eq(sites.id, siteId)).get();
+    if (!mainSite) {
+      throw new Error('Expected seeded main site');
+    }
+    await db.insert(sites).values({
+      id: reserveSiteId,
+      tenantId,
+      companyId: mainSite.companyId,
+      name: 'Void Reserve Site',
+      address: null,
+      phone: null,
+      isActive: true,
+      createdAt: new Date(Date.now() + 240_000).toISOString(),
+      updatedAt: new Date(Date.now() + 240_000).toISOString(),
+    });
+
+    // Initial stock lives at another site so the purchase site can be drained
+    // to 0 while the tenant-wide total stays large enough to clear the
+    // tenant-level guard, leaving only the per-site guard to fire.
+    await db.insert(inventoryBalances).values([
+      {
+        id: nanoid(),
+        tenantId,
+        siteId,
+        productId,
+        onHand: 0,
+        reserved: 0,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: nanoid(),
+        tenantId,
+        siteId: reserveSiteId,
+        productId,
+        onHand: 2,
+        reserved: 0,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
 
     const caller = appRouter.createCaller(createTestContext());
     const created = await caller.purchases.create({
@@ -1461,7 +1639,6 @@ describe('Purchases tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 5,
-      stock: 3,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -1475,6 +1652,17 @@ describe('Purchases tRPC Router', () => {
       equivalence: 1,
       price: 10,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 3,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });

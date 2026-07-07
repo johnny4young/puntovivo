@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  inventoryBalances,
   orderItems,
   orders,
   products,
@@ -15,6 +16,7 @@ import {
   units,
   users,
 } from '../db/schema.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -138,7 +140,6 @@ describe('Orders tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 3,
-      stock: 5,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -167,6 +168,19 @@ describe('Orders tRPC Router', () => {
         updatedAt: now,
       },
     ]);
+
+    // Stock now lives in inventory_balances (products.stock removed). Seed the
+    // opening on_hand at the active site so the derived total reads back 5.
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 5,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     const caller = appRouter.createCaller(createTestContext('manager'));
     const result = await caller.orders.create({
@@ -197,8 +211,8 @@ describe('Orders tRPC Router', () => {
       total: 60,
     });
 
-    const untouchedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(untouchedProduct?.stock).toBe(5);
+    const untouchedStock = getProductStockTotal(db, tenantId, productId);
+    expect(untouchedStock).toBe(5);
 
     const storedItems = await db
       .select()
@@ -262,7 +276,6 @@ describe('Orders tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 4,
-      stock: 5,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -276,6 +289,17 @@ describe('Orders tRPC Router', () => {
       equivalence: 1,
       price: 12,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 5,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -337,7 +361,6 @@ describe('Orders tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 4,
-      stock: 9,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -351,6 +374,17 @@ describe('Orders tRPC Router', () => {
       equivalence: 1,
       price: 12,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 9,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -369,7 +403,7 @@ describe('Orders tRPC Router', () => {
       notes: 'Initial order note',
     });
 
-    const stockBeforeVoid = await db.select().from(products).where(eq(products.id, productId)).get();
+    const stockBeforeVoid = getProductStockTotal(db, tenantId, productId);
 
     const voided = await caller.orders.void({
       id: created.id,
@@ -379,8 +413,8 @@ describe('Orders tRPC Router', () => {
     expect(voided.status).toBe('voided');
     expect(voided.notes).toContain('Provider cancelled delivery');
 
-    const stockAfterVoid = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(stockAfterVoid?.stock).toBe(stockBeforeVoid?.stock);
+    const stockAfterVoid = getProductStockTotal(db, tenantId, productId);
+    expect(stockAfterVoid).toBe(stockBeforeVoid);
 
     const storedOrder = await db.select().from(orders).where(eq(orders.id, created.id)).get();
     expect(storedOrder?.status).toBe('voided');
@@ -425,7 +459,6 @@ describe('Orders tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 4,
-      stock: 0,
       minStock: 0,
       isActive: true,
       createdAt: now,

@@ -1,15 +1,14 @@
 /**
- * ENG-065b — `reports.inventory.discrepancies` integration tests.
+ * `reports.inventory.discrepancies` integration tests.
  *
- * Verifies the read-only cache-vs-cache discrepancy scan that drives
- * the Operations Center Inventory tab. Coverage:
- *
- *   - empty tenant returns zero counters + empty rows.
- *   - manager allowed; cashier FORBIDDEN; admin allowed.
- *   - product where `products.stock` matches `Σ(inventory_balances.on_hand)` is NOT surfaced.
- *   - product with hand-edited drift surfaces with correct delta sign.
- *   - cross-tenant isolation — tenant B drift doesn't leak.
- *   - limit clamps rows length and the `summary.discrepancyCount` reflects total before clamp.
+ * Auditoría 2026-07 — the denormalized `products.stock` cache was removed;
+ * `inventory_balances` is the single source of truth and the tenant-wide total
+ * is derived from it on read. "Drift" between a cache and the balances is
+ * therefore structurally impossible, and this endpoint always reports an empty
+ * discrepancy set. The procedure is retained (a web client + these tests call
+ * it), so we assert it stays reachable, permission-gated, and always empty —
+ * even when balances are seeded that WOULD have looked like drift under the
+ * old two-cache model.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -156,7 +155,6 @@ async function seedProductWithBalances(
     marginAmount3: 0,
     taxRate: 19,
     initialCost: 50,
-    stock: seed.cachedStock,
     minStock: 0,
     isActive: true,
     createdAt: now,
@@ -298,40 +296,19 @@ describe('reports.inventory.discrepancies (ENG-065b)', () => {
     ).rejects.toThrow(/TRPCError|administrators|managers/i);
   });
 
-  it('does not surface products where cached stock equals Σ balances', async () => {
+  it('returns an empty discrepancy set even when balances would look like drift', async () => {
     const caller = appRouter.createCaller(
       buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
     );
     const result = await caller.reports.inventory.discrepancies({ limit: 100 });
 
-    // 4 products scanned, but only 2 carry drift > epsilon.
-    expect(result.summary.productsScanned).toBe(4);
-    expect(result.summary.discrepancyCount).toBe(2);
-    expect(result.rows.map(row => row.productId)).not.toContain('rinv-prod-ok');
-    expect(result.rows.map(row => row.productId)).not.toContain('rinv-prod-tiny');
+    // Drift is structurally impossible now: nothing is ever surfaced.
+    expect(result.summary.productsScanned).toBe(0);
+    expect(result.summary.discrepancyCount).toBe(0);
+    expect(result.rows).toEqual([]);
   });
 
-  it('surfaces drift rows with correct sign and ordering by |delta|', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
-    const result = await caller.reports.inventory.discrepancies({ limit: 100 });
-
-    expect(result.rows).toHaveLength(2);
-    // Ordered by |delta| desc: positive drift (10) first, negative drift (-4) second.
-    expect(result.rows[0]?.productId).toBe('rinv-prod-drift-pos');
-    expect(result.rows[0]?.delta).toBeCloseTo(10, 3);
-    expect(result.rows[0]?.cachedStock).toBeCloseTo(20, 3);
-    expect(result.rows[0]?.sumOfBalances).toBeCloseTo(10, 3);
-    expect(result.rows[0]?.siteCount).toBe(2);
-
-    expect(result.rows[1]?.productId).toBe('rinv-prod-drift-neg');
-    expect(result.rows[1]?.delta).toBeCloseTo(-4, 3);
-    expect(result.rows[1]?.cachedStock).toBeCloseTo(4, 3);
-    expect(result.rows[1]?.sumOfBalances).toBeCloseTo(8, 3);
-  });
-
-  it('isolates tenants — tenant A scan never returns tenant B drift', async () => {
+  it('isolates tenants — tenant A scan never returns tenant B rows', async () => {
     const caller = appRouter.createCaller(
       buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
     );
@@ -339,13 +316,12 @@ describe('reports.inventory.discrepancies (ENG-065b)', () => {
     expect(result.rows.every(row => row.productId !== 'rinv-prod-b-leak')).toBe(true);
   });
 
-  it('clamps rows length to limit while preserving discrepancyCount', async () => {
+  it('always returns an empty set regardless of the limit', async () => {
     const caller = appRouter.createCaller(
       buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
     );
     const result = await caller.reports.inventory.discrepancies({ limit: 1 });
-    expect(result.rows).toHaveLength(1);
-    // Total drift count remains accurate even when rows clamp.
-    expect(result.summary.discrepancyCount).toBe(2);
+    expect(result.rows).toHaveLength(0);
+    expect(result.summary.discrepancyCount).toBe(0);
   });
 });

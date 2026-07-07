@@ -13,6 +13,7 @@ import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { customers, products, saleItems, sales } from '../../db/schema.js';
+import { productStockTotalSql } from '../../services/inventory-balances/derive.js';
 
 type DashboardRevenuePoint = {
   date: string;
@@ -115,7 +116,7 @@ export const dashboardRouter = router({
             and(
               eq(products.tenantId, ctx.tenantId),
               eq(products.isActive, true),
-              lte(products.stock, products.minStock)
+              lte(productStockTotalSql, products.minStock)
             )
           )
           .get(),
@@ -124,7 +125,7 @@ export const dashboardRouter = router({
             productId: products.id,
             name: products.name,
             sku: products.sku,
-            stock: products.stock,
+            stock: productStockTotalSql,
             minStock: products.minStock,
           })
           .from(products)
@@ -132,10 +133,10 @@ export const dashboardRouter = router({
             and(
               eq(products.tenantId, ctx.tenantId),
               eq(products.isActive, true),
-              lte(products.stock, products.minStock)
+              lte(productStockTotalSql, products.minStock)
             )
           )
-          .orderBy(asc(products.stock), desc(products.updatedAt))
+          .orderBy(asc(productStockTotalSql), desc(products.updatedAt))
           .limit(5)
           .all(),
         ctx.db

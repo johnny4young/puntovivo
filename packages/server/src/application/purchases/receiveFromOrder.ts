@@ -163,9 +163,10 @@ export async function createPurchaseFromOrder(
         now,
       });
 
+      // Stock is no longer a product column — it is applied to
+      // inventory_balances below. Persist only the cost baseline here.
       tx.update(products)
         .set({
-          stock: newStock,
           cost: row.baseUnitCost,
           initialCost: row.baseUnitCost,
           syncStatus: 'pending',

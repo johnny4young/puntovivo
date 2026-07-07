@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { vanillaClient } from '@/lib/trpc';
 import { getErrorMessage, isOnline } from '@/lib/utils';
 import { getStoredAuthTenantId } from '@/features/auth/authStorage';
@@ -162,11 +162,42 @@ export function useOfflineSync() {
     };
   }, [hasDesktopSync, refreshStatus, tenantId]);
 
-  // Auto-sync when coming online
+  // Auto-sync when coming online. Successive automatic triggers are
+  // spaced with exponential backoff: on the web path a push can report
+  // success while pendingCount stays > 0 (conflict rows, stalled batch),
+  // and re-triggering on every state change would hammer the endpoint in
+  // a tight loop bounded only by network latency. A push that reduces
+  // pendingItems resets the backoff; one that leaves it unchanged widens
+  // the next window (5s → 10s → ... → 5min cap).
+  const autoSyncGateRef = useRef({
+    lastAttemptAt: 0,
+    lastPending: -1,
+    delayMs: 5_000,
+  });
   useEffect(() => {
-    if (status.isOnline && status.pendingItems > 0 && !status.isSyncing && !status.error) {
-      void triggerSync();
+    if (!(status.isOnline && status.pendingItems > 0 && !status.isSyncing && !status.error)) {
+      return;
     }
+    const gate = autoSyncGateRef.current;
+    const now = Date.now();
+    const madeProgress =
+      gate.lastPending === -1 || status.pendingItems < gate.lastPending;
+    if (madeProgress) {
+      gate.delayMs = 5_000;
+    }
+    const waitMs = madeProgress ? 0 : Math.max(0, gate.lastAttemptAt + gate.delayMs - now);
+    const timeoutId = window.setTimeout(() => {
+      const g = autoSyncGateRef.current;
+      g.lastAttemptAt = Date.now();
+      g.lastPending = status.pendingItems;
+      if (!madeProgress) {
+        g.delayMs = Math.min(g.delayMs * 2, 300_000);
+      }
+      void triggerSync();
+    }, waitMs);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [status.isOnline, status.pendingItems, status.isSyncing, status.error, triggerSync]);
 
   return {

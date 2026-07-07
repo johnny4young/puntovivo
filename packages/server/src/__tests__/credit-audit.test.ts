@@ -24,6 +24,7 @@ import { registerDevice as registerDeviceService } from '../services/devices/dev
 import {
   auditLogs,
   customers,
+  inventoryBalances,
   products,
   sites,
   unitXProduct,
@@ -99,7 +100,6 @@ async function seedProduct(name: string, sku: string, stock: number) {
     marginAmount3: 0,
     taxRate: 0,
     initialCost: 5,
-    stock,
     minStock: 0,
     isActive: true,
     createdAt: now,
@@ -112,6 +112,16 @@ async function seedProduct(name: string, sku: string, stock: number) {
     equivalence: 1,
     price: 10,
     isBase: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(inventoryBalances).values({
+    id: nanoid(),
+    tenantId,
+    siteId,
+    productId,
+    onHand: stock,
+    reserved: 0,
     createdAt: now,
     updatedAt: now,
   });

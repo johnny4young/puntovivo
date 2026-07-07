@@ -63,6 +63,11 @@ export const syncEntityConfig = {
     supportsSyncMetadata: true,
     touchUpdatedAt: false,
   },
+  inventory_lots: {
+    tableName: 'inventory_lots',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
   logos: { tableName: 'logos', supportsSyncMetadata: false, touchUpdatedAt: false },
   locations: { tableName: 'locations', supportsSyncMetadata: false, touchUpdatedAt: false },
   location_x_site: { tableName: 'location_x_site', supportsSyncMetadata: false, touchUpdatedAt: false },

@@ -1,7 +1,8 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { inventoryBalances, products } from '../../db/schema.js';
+import { inventoryBalances } from '../../db/schema.js';
+import { getProductStockTotal } from './derive.js';
 import { getPrimarySiteId, getTimestamp } from './helpers.js';
 
 /**
@@ -12,14 +13,12 @@ import { getPrimarySiteId, getTimestamp } from './helpers.js';
  * the site's `inventory_balances` tracks real POS activity, not just
  * transfers.
  *
- * **Seeding contract.** Callers that touch `products.stock` in the same
- * transaction must pass `initialOnHandIfMissing` as the PRE-delta stock
- * snapshot they captured before mutating it. Without that, seeding would
- * read `products.stock` after the caller's update and apply the delta on
- * top of an already-decremented value (double-count). When
- * `initialOnHandIfMissing` is omitted, the helper uses the primary-site
- * migration rule (current `products.stock` for the primary site, 0 for
- * everyone else) — safe for callers that do NOT mutate `products.stock`.
+ * **Seeding contract.** When seeding a missing balance row, callers may pass
+ * `initialOnHandIfMissing` as the opening `on_hand` for the row. When omitted,
+ * the helper uses the primary-site migration rule (the product's current
+ * derived total for the primary site, 0 for everyone else). Since
+ * `inventory_balances` is now the single source of truth, that derived total
+ * is 0 in practice for a product with no balances yet.
  *
  * Returns the final `onHand` value written to the row or `null` when the
  * call is a no-op.
@@ -39,10 +38,9 @@ export function applyInventoryBalanceDelta(
     productId: string;
     delta: number;
     /**
-     * Optional pre-delta `on_hand` snapshot for seeding a missing row. Use
-     * this when the caller is mutating `products.stock` in the same
-     * transaction — otherwise the default seed would read the post-mutation
-     * value and the delta would double-count.
+     * Optional opening `on_hand` snapshot for seeding a missing row. When
+     * omitted, the primary-site migration rule supplies the seed (the
+     * product's derived total, which is 0 with no balances yet).
      */
     initialOnHandIfMissing?: number;
     now?: string;
@@ -63,12 +61,7 @@ export function applyInventoryBalanceDelta(
   if (args.initialOnHandIfMissing !== undefined) {
     seedOnHand = args.initialOnHandIfMissing;
   } else if (getPrimarySiteId(tx, args.tenantId) === args.siteId) {
-    const productStock = tx
-      .select({ stock: products.stock })
-      .from(products)
-      .where(and(eq(products.tenantId, args.tenantId), eq(products.id, args.productId)))
-      .get();
-    seedOnHand = productStock?.stock ?? 0;
+    seedOnHand = getProductStockTotal(tx, args.tenantId, args.productId);
   } else {
     seedOnHand = 0;
   }
@@ -120,11 +113,9 @@ export function applyInventoryBalanceDelta(
     )
     .run();
 
-  // Phase 2 API-103 step 4: keep `products.stock` as a derived cache equal
-  // to the sum of all site balances for this product. Callers that also
-  // write `products.stock` directly in the same transaction see their value
-  // ratified (or corrected) by this write, eliminating drift under per-site
-  // adjustments.
+  // `inventory_balances` is the single source of truth; the tenant-wide total
+  // is derived on read. There is no denormalized column to keep in lockstep,
+  // so this simply returns the freshly-computed total for callers that use it.
   syncProductStockFromBalances(tx, {
     tenantId: args.tenantId,
     productId: args.productId,
@@ -135,43 +126,16 @@ export function applyInventoryBalanceDelta(
 }
 
 /**
- * Recomputes `products.stock` as Σ(`inventory_balances.on_hand`) across all
- * sites for the given product, then persists the result. Idempotent and safe
- * to call repeatedly inside a transaction.
- *
- * Used internally by `applyInventoryBalanceDelta` after every balance
- * mutation so the legacy tenant-wide `products.stock` field never diverges
- * from the per-site balance table. External callers rarely need this — reach
- * for `reconcileProductStockFromBalances` instead when healing historical
- * drift for many products at once.
+ * Computes Σ(`inventory_balances.on_hand`) across all sites for the given
+ * product and returns it. Formerly this persisted the value into the
+ * denormalized `products.stock` column; that column has been removed and the
+ * tenant-wide total is now derived on read, so this is a pure read — it writes
+ * nothing. Retained (as a no-op writer) because `applyInventoryBalanceDelta`
+ * calls it and callers may want the recomputed total.
  */
 export function syncProductStockFromBalances(
   tx: DatabaseInstance,
   args: { tenantId: string; productId: string; now?: string }
 ): number {
-  const aggregate = tx
-    .select({
-      total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
-    })
-    .from(inventoryBalances)
-    .where(
-      and(
-        eq(inventoryBalances.tenantId, args.tenantId),
-        eq(inventoryBalances.productId, args.productId)
-      )
-    )
-    .get();
-  const nextStock = aggregate?.total ?? 0;
-  const now = args.now ?? getTimestamp();
-
-  tx.update(products)
-    .set({
-      stock: nextStock,
-      syncStatus: 'pending',
-      updatedAt: now,
-    })
-    .where(and(eq(products.tenantId, args.tenantId), eq(products.id, args.productId)))
-    .run();
-
-  return nextStock;
+  return getProductStockTotal(tx, args.tenantId, args.productId);
 }

@@ -29,6 +29,7 @@ import {
   fiscalDocuments,
   fiscalNumberingResolutions,
   fiscalOutbox,
+  inventoryBalances,
   products,
   sales,
   sites,
@@ -317,7 +318,6 @@ async function seedProductAndSale(args: {
     marginAmount3: 0,
     taxRate: 0,
     initialCost: 50,
-    stock: 50,
     minStock: 0,
     isActive: true,
     createdAt: now,
@@ -330,6 +330,18 @@ async function seedProductAndSale(args: {
     equivalence: 1,
     price: 100,
     isBase: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  // Stock lives in inventory_balances now (products.stock removed). Seed the
+  // opening on_hand at the active site so the sale's stock check passes.
+  await db.insert(inventoryBalances).values({
+    id: nanoid(),
+    tenantId,
+    siteId,
+    productId,
+    onHand: 50,
+    reserved: 0,
     createdAt: now,
     updatedAt: now,
   });

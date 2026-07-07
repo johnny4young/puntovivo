@@ -35,6 +35,7 @@ import { hashPasswordSecurely } from '../security/passwords.js';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from './index.js';
+import type { UnitDimension } from './schema/base.js';
 import {
   categories,
   cities,
@@ -67,6 +68,7 @@ import { createModuleLogger } from '../logging/logger.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { createReceiptTemplate } from '../services/receipt-templates.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { ReceiptLayout } from '../trpc/schemas/receiptTemplates.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { makeEnvelopeHeadersProxy } from '../lib/envelopeHeadersProxy.js';
@@ -524,6 +526,9 @@ export async function seedDevData(
         tenantId,
         name: unit.name,
         abbreviation: unit.abbreviation,
+        dimension: unit.dimension,
+        standardCode: unit.standardCode,
+        referenceFactor: unit.referenceFactor,
         isActive: true,
         createdAt: now,
         updatedAt: now,
@@ -762,11 +767,9 @@ export async function seedDevData(
   }
 
   // Initial stock: split across the two sites 60/40, distributed per
-  // product according to the definition. Inserting directly into
-  // `inventory_balances` keeps the seed fast; we sync `products.stock`
-  // in one SQL pass at the end.
+  // product according to the definition. `inventory_balances` is the single
+  // source of truth; the tenant-wide total is derived from it on read.
   await seedInitialBalances(db, tenantId, productRows, siteRows, adminUser.id, now);
-  await syncProductsStockFromBalances(db, tenantId);
 
   // ----- 11. Receipt templates (one per kind, via service) ----------------
   const receiptTemplateLayouts = buildDefaultReceiptLayouts();
@@ -1038,12 +1041,21 @@ const DEV_VAT_RATES: Array<{ name: string; rate: number }> = [
   { name: 'IVA 19%', rate: 19 },
 ];
 
-const DEV_UNITS: Array<{ name: string; abbreviation: string }> = [
-  { name: 'Unidad', abbreviation: 'UND' },
-  { name: 'Kilogramo', abbreviation: 'KG' },
-  { name: 'Litro', abbreviation: 'LT' },
-  { name: 'Gramo', abbreviation: 'GR' },
-  { name: 'Paquete', abbreviation: 'PQTE' },
+// Auditoría 2026-07 — units foundation. dimension + standardCode +
+// referenceFactor mirror the standards catalog so the seed exercises the
+// enriched columns end-to-end.
+const DEV_UNITS: Array<{
+  name: string;
+  abbreviation: string;
+  dimension: UnitDimension;
+  standardCode: string;
+  referenceFactor: number;
+}> = [
+  { name: 'Unidad', abbreviation: 'UND', dimension: 'count', standardCode: 'C62', referenceFactor: 1 },
+  { name: 'Kilogramo', abbreviation: 'KG', dimension: 'mass', standardCode: 'KGM', referenceFactor: 1000 },
+  { name: 'Litro', abbreviation: 'LT', dimension: 'volume', standardCode: 'LTR', referenceFactor: 1000 },
+  { name: 'Gramo', abbreviation: 'GR', dimension: 'mass', standardCode: 'GRM', referenceFactor: 1 },
+  { name: 'Paquete', abbreviation: 'PQTE', dimension: 'count', standardCode: 'XPK', referenceFactor: 1 },
 ];
 
 const DEV_IDENTIFICATION_TYPES: Array<{ code: string; name: string }> = [
@@ -1453,10 +1465,8 @@ async function insertProductRow(
       marginAmount2: 0,
       marginAmount3: 0,
       taxRate: def.vatRateName === 'IVA 19%' ? 19 : def.vatRateName === 'IVA 5%' ? 5 : 0,
-      // products.stock is maintained by syncProductsStockFromBalances
-      // at the end of the seed, so leave it at 0 here and let the sum
-      // of inventory_balances.onHand populate it in one pass.
-      stock: 0,
+      // Stock is derived from Σ(inventory_balances.on_hand); this seed
+      // populates inventory_balances directly (see seedInitialBalances).
       minStock: 5,
       sellByFraction: false,
       fractionStep: null,
@@ -1554,31 +1564,6 @@ async function seedInitialBalances(
           .run();
       }
     }
-  }
-}
-
-async function syncProductsStockFromBalances(
-  db: DatabaseInstance,
-  tenantId: string
-): Promise<void> {
-  // One SQL pass to set `products.stock` to Σ(on_hand) per product.
-  // Matches the invariant maintained by the sales/purchase services.
-  const { products, inventoryBalances } = await import('./schema.js');
-  const rows = await db
-    .select({
-      productId: inventoryBalances.productId,
-      total: sql<number>`COALESCE(SUM(${inventoryBalances.onHand}), 0)`,
-    })
-    .from(inventoryBalances)
-    .where(eq(inventoryBalances.tenantId, tenantId))
-    .groupBy(inventoryBalances.productId)
-    .all();
-  for (const row of rows) {
-    await db
-      .update(products)
-      .set({ stock: row.total })
-      .where(eq(products.id, row.productId))
-      .run();
   }
 }
 
@@ -1978,14 +1963,9 @@ async function seedStockAdjustments(
     );
     try {
       // Bump stock by a small amount so the audit row has a non-zero
-      // delta and the inventory invariant stays positive.
-      const { products } = await import('./schema.js');
-      const current = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, product.id))
-        .get();
-      const baseline = current?.stock ?? 0;
+      // delta and the inventory invariant stays positive. Stock is derived
+      // from Σ(inventory_balances.on_hand).
+      const baseline = getProductStockTotal(db, args.tenantId, product.id);
       const newStock = Math.max(0, baseline + (i % 2 === 0 ? 5 : -3));
       await caller.inventory.adjustStock({
         productId: product.id,

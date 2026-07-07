@@ -210,6 +210,12 @@ export async function replaceUnitAssignments(
       equivalence: assignment.equivalence,
       price: assignment.price,
       isBase: assignment.isBase,
+      // Auditoría 2026-07 — per-packaging barcode; '' collapses to null so
+      // the column stays two-state (a code, or none).
+      barcode:
+        'barcode' in assignment && assignment.barcode && assignment.barcode.trim().length > 0
+          ? assignment.barcode.trim()
+          : null,
       createdAt: now,
       updatedAt: now,
     });
@@ -223,6 +229,7 @@ export async function getExistingUnitAssignments(db: Context['db'], productId: s
       equivalence: unitXProduct.equivalence,
       price: unitXProduct.price,
       isBase: unitXProduct.isBase,
+      barcode: unitXProduct.barcode,
     })
     .from(unitXProduct)
     .where(eq(unitXProduct.productId, productId))

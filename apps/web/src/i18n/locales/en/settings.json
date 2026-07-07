@@ -641,7 +641,8 @@
       "abbreviation": "Abbreviation",
       "status": "Status",
       "active": "Active",
-      "inactive": "Inactive"
+      "inactive": "Inactive",
+      "dimension": "Dimension"
     },
     "form": {
       "createTitle": "Create Unit",
@@ -654,7 +655,13 @@
       "cancel": "Cancel",
       "submitting": "Saving...",
       "create": "Create Unit",
-      "save": "Save Changes"
+      "save": "Save Changes",
+      "dimension": "Physical dimension",
+      "dimensionAuto": "Automatic (from the unit)",
+      "dimensionHint": "Groups units by quantity (mass, volume…). Leave on automatic and the system infers it.",
+      "standardCode": "Standard code (UN/CEFACT)",
+      "standardCodePlaceholder": "e.g. KGM, LTR, C62",
+      "standardCodeHint": "Required by DIAN e-invoicing. Empty = inferred from the unit."
     },
     "delete": {
       "title": "Delete Unit",
@@ -667,6 +674,15 @@
       "updateError": "Unable to update unit",
       "deleted": "Unit deleted",
       "deleteError": "Unable to delete unit"
+    },
+    "dimensions": {
+      "count": "Count",
+      "mass": "Mass",
+      "volume": "Volume",
+      "length": "Length",
+      "area": "Area",
+      "time": "Time",
+      "other": "Other"
     }
   },
   "vatRates": {

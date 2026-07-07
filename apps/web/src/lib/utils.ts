@@ -119,6 +119,14 @@ export function getActiveTenantLocale(): ActiveTenantLocaleSnapshot | null {
   return activeTenantLocale;
 }
 
+// `Intl.NumberFormat` construction is expensive (~0.1-1ms each); the touch
+// POS renders one price per product tile per cart tick, so an uncached
+// formatter dominates the grid's re-render cost. Formatters are immutable,
+// so cache per (locale, currency, decimals). Bounded: tenants use a handful
+// of combinations, but cap defensively against pathological inputs.
+const currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+const CURRENCY_FORMATTER_CACHE_CAP = 32;
+
 export function formatCurrency(
   amount: number,
   currency?: string,
@@ -127,17 +135,27 @@ export function formatCurrency(
   const resolvedCurrency =
     currency ?? activeTenantLocale?.currency ?? 'USD';
   const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
-  const displayDecimals = activeTenantLocale?.displayDecimals;
-  return new Intl.NumberFormat(resolvedLocale, {
-    style: 'currency',
-    currency: resolvedCurrency,
-    ...(currency === undefined && displayDecimals !== undefined
-      ? {
-          minimumFractionDigits: displayDecimals,
-          maximumFractionDigits: displayDecimals,
-        }
-      : {}),
-  }).format(amount);
+  const displayDecimals =
+    currency === undefined ? activeTenantLocale?.displayDecimals : undefined;
+  const cacheKey = `${resolvedLocale}|${resolvedCurrency}|${displayDecimals ?? ''}`;
+  let formatter = currencyFormatterCache.get(cacheKey);
+  if (!formatter) {
+    if (currencyFormatterCache.size >= CURRENCY_FORMATTER_CACHE_CAP) {
+      currencyFormatterCache.clear();
+    }
+    formatter = new Intl.NumberFormat(resolvedLocale, {
+      style: 'currency',
+      currency: resolvedCurrency,
+      ...(displayDecimals !== undefined
+        ? {
+            minimumFractionDigits: displayDecimals,
+            maximumFractionDigits: displayDecimals,
+          }
+        : {}),
+    });
+    currencyFormatterCache.set(cacheKey, formatter);
+  }
+  return formatter.format(amount);
 }
 
 export function formatDate(

@@ -18,6 +18,7 @@ import {
   vatRates,
 } from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -557,12 +558,17 @@ describe('Transfers tRPC Router', () => {
 
       await caller.transfers.void({ transferId: created.id });
 
+      // Under the single-source-of-truth model (products.stock removed), the
+      // deleted origin row's opening quantity is genuinely gone — there is no
+      // denormalized column to inherit. The void first debits the destination
+      // (5 → 0), then re-seeds the missing primary origin row at the current
+      // derived total (now 0) and credits back the reversed 5. Net: primary 5.
       const primaryAfterVoid = await caller.inventory.listBalancesBySite({
         siteId: primarySiteId,
       });
       expect(
         primaryAfterVoid.items.find(item => item.productId === reel.id)?.onHand
-      ).toBe(17);
+      ).toBe(5);
 
       const secondaryAfterVoid = await caller.inventory.listBalancesBySite({
         siteId: secondarySiteId,
@@ -741,7 +747,6 @@ describe('Transfers tRPC Router', () => {
     it('keeps products.stock in lockstep with Σ(balances) across deferred create → receive', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const db = getDatabase();
-      const { products } = await import('../db/schema.js');
       const screw = await createProduct({
         name: 'Receive Lockstep Screw',
         sku: 'TR-RX-SCREW',
@@ -756,23 +761,15 @@ describe('Transfers tRPC Router', () => {
         defer: true,
       });
 
-      // In-transit: primary 11, secondary 0 → Σ = 11, products.stock = 11.
-      const inTransitStock = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, screw.id))
-        .get();
-      expect(inTransitStock?.stock).toBe(11);
+      // In-transit: primary 11, secondary 0 → Σ(balances) = 11.
+      const inTransitStock = getProductStockTotal(db, tenantId, screw.id);
+      expect(inTransitStock).toBe(11);
 
-      // Receive: primary still 11, secondary 4 → Σ = 15, products.stock = 15.
+      // Receive: primary still 11, secondary 4 → Σ(balances) = 15.
       await caller.transfers.receive({ transferId: created.id });
 
-      const finalStock = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, screw.id))
-        .get();
-      expect(finalStock?.stock).toBe(15);
+      const finalStock = getProductStockTotal(db, tenantId, screw.id);
+      expect(finalStock).toBe(15);
     });
   });
 
@@ -962,7 +959,6 @@ describe('Transfers tRPC Router', () => {
     it('records a shortage: destination credited only the received quantity, shrinkage reflected in Σ(balances)', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const db = getDatabase();
-      const { products } = await import('../db/schema.js');
       const widget = await createProduct({
         name: 'Variance Shortage Widget',
         sku: 'TR-VAR-SHORT',
@@ -999,14 +995,10 @@ describe('Transfers tRPC Router', () => {
       });
       expect(secondary.items.find(item => item.productId === widget.id)?.onHand).toBe(7);
 
-      // products.stock matches Σ(balances) = 7 → the 3-unit shrinkage shows up
-      // in the tenant-wide cache, matching the invariant enforced elsewhere.
-      const stockRow = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, widget.id))
-        .get();
-      expect(stockRow?.stock).toBe(7);
+      // Σ(balances) = 7 → the 3-unit shrinkage shows up in the tenant-wide
+      // derived total, matching the invariant enforced elsewhere.
+      const stockTotal = getProductStockTotal(db, tenantId, widget.id);
+      expect(stockTotal).toBe(7);
 
       const listEntry = (await caller.transfers.list()).items.find(
         entry => entry.id === created.id
@@ -1120,7 +1112,6 @@ describe('Transfers tRPC Router', () => {
     it('void after a partial receipt debits destination by received, credits origin by shipped', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const db = getDatabase();
-      const { products } = await import('../db/schema.js');
       const pipe = await createProduct({
         name: 'Variance Partial Pipe',
         sku: 'TR-VAR-PART',
@@ -1165,12 +1156,8 @@ describe('Transfers tRPC Router', () => {
       });
       expect(secondaryVoid.items.find(item => item.productId === pipe.id)?.onHand).toBe(0);
 
-      const stockRow = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, pipe.id))
-        .get();
-      expect(stockRow?.stock).toBe(10);
+      const stockTotal = getProductStockTotal(db, tenantId, pipe.id);
+      expect(stockTotal).toBe(10);
     });
   });
 });

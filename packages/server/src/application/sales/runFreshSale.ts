@@ -14,7 +14,7 @@
  * @module application/sales/runFreshSale
  */
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import {
   inventoryMovements,
@@ -33,7 +33,9 @@ import {
   requireActiveCashSession,
 } from '../../services/cash-session.js';
 import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
+import { consumeLotsForSaleLine } from '../../services/inventory-lots/index.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { inArray } from 'drizzle-orm';
 import {
   detectPriceOverrides,
   getSaleSequentialContext,
@@ -167,12 +169,35 @@ export async function runFreshSale(
   let priceOverrideAuditId: string | null = null;
   const inventoryMovementIds: string[] = [];
   const paymentEffects: PersistedPaymentEffect[] = [];
+  const lotShortfalls: Array<{ productId: string; shortfall: number }> = [];
 
   // ENG-176b — resolve the tenant default currency once per sale and
   // propagate it to every row written below (sales header + each
   // sale_item). settle = sale and rate = 1.0 until ENG-156 lights up
   // multi-currency operations.
   const saleCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
+
+  // Auditoría 2026-07 — which products on this cart opt into lot tracking.
+  // Fetched once so the per-line stock loop can FEFO-consume their lots
+  // inside the same transaction; non-lot products keep the plain path.
+  const lotTrackedProductIds = new Set<string>();
+  {
+    const cartProductIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
+    if (cartProductIds.length > 0) {
+      const lotRows = await ctx.db
+        .select({ id: products.id })
+        .from(products)
+        .where(
+          and(
+            eq(products.tenantId, ctx.tenantId),
+            eq(products.tracksLots, true),
+            inArray(products.id, cartProductIds)
+          )
+        )
+        .all();
+      for (const row of lotRows) lotTrackedProductIds.add(row.id);
+    }
+  }
 
   ctx.db.transaction(tx => {
     // ENG-042 TOCTOU defense — see helper jsdoc.
@@ -287,16 +312,6 @@ export async function runFreshSale(
       const newStock = effectivePreviousStock - row.normalizedQuantity;
       productStockState.set(row.productId, newStock);
 
-      tx.update(products)
-        .set({
-          stock: newStock,
-          syncStatus: 'pending',
-          syncVersion: sql`${products.syncVersion} + 1`,
-          updatedAt: now,
-        })
-        .where(and(eq(products.id, row.productId), eq(products.tenantId, ctx.tenantId)))
-        .run();
-
       const inventoryMovementId = nanoid();
       tx.insert(inventoryMovements)
         .values({
@@ -327,6 +342,25 @@ export async function runFreshSale(
         initialOnHandIfMissing: effectivePreviousStock,
         now,
       });
+
+      // Auditoría 2026-07 — FEFO lot consumption for lot-tracked products.
+      // Runs after the sale_item insert (the provenance FK needs it) and the
+      // balance debit. A shortfall means the lots under-count the balance
+      // that already gated this sale; we do not block the register, we
+      // record it for the drift report.
+      if (lotTrackedProductIds.has(row.productId)) {
+        const { shortfall } = consumeLotsForSaleLine(tx, {
+          tenantId: ctx.tenantId,
+          siteId: saleSiteId,
+          productId: row.productId,
+          saleItemId: row.id,
+          quantity: row.normalizedQuantity,
+          now,
+        });
+        if (shortfall > 0) {
+          lotShortfalls.push({ productId: row.productId, shortfall });
+        }
+      }
     }
 
     cashMovementId = insertCashMovement({
@@ -388,6 +422,16 @@ export async function runFreshSale(
       });
     }
   });
+
+  // Auditoría 2026-07 — surface any lot/balance drift the FEFO consumption
+  // could not fully cover. The sale already committed (stock balance gated
+  // it); this is a data-integrity signal for the reconcile/discrepancy view.
+  if (lotShortfalls.length > 0) {
+    log.warn?.(
+      { saleId, saleNumber, lotShortfalls },
+      '[completeSale] lot-tracked lines had a FEFO shortfall (lots under-count the balance)'
+    );
+  }
 
   const created = await getSaleRecord(ctx.db, ctx.tenantId, saleId);
 

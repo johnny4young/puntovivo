@@ -22,6 +22,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import {
+  inventoryBalances,
   kdsOrders,
   products,
   restaurantTables,
@@ -82,7 +83,6 @@ async function seedProduct(name: string, sku: string, stock = 100) {
     marginAmount3: 0,
     taxRate: 0,
     initialCost: 5,
-    stock,
     minStock: 0,
     isActive: true,
     createdAt: now,
@@ -95,6 +95,16 @@ async function seedProduct(name: string, sku: string, stock = 100) {
     equivalence: 1,
     price: 10,
     isBase: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(inventoryBalances).values({
+    id: nanoid(),
+    tenantId,
+    siteId,
+    productId,
+    onHand: stock,
+    reserved: 0,
     createdAt: now,
     updatedAt: now,
   });

@@ -59,16 +59,22 @@ export const products = sqliteTable(
       .notNull()
       .default('COP')
       .references(() => currencyCatalog.code),
-    // Phase 1 DB-050: stock is `real` so ferreterías (2.5 m cable)
-    // and supermarkets (0.75 kg produce) can sell by fraction. Existing
-    // integer values round-trip unchanged because SQLite stores both in the
-    // same numeric affinity — this is additive relaxation, not a breaking
-    // change.
-    stock: real('stock').notNull().default(0),
+    // Auditoría 2026-07 — the denormalized tenant-wide `stock` column was
+    // removed. `inventory_balances.on_hand` (per site) is the single source of
+    // truth; the tenant-wide total is derived as Σ(on_hand) on read (see
+    // `services/inventory-balances/derive.ts`). `min_stock` remains: it is a
+    // per-product reorder threshold, not a stock quantity.
+    // `min_stock` is `real` so ferreterías (2.5 m cable) and supermarkets
+    // (0.75 kg produce) can set fractional reorder points.
     minStock: real('min_stock').notNull().default(0),
     sellByFraction: integer('sell_by_fraction', { mode: 'boolean' }).notNull().default(false),
     fractionStep: real('fraction_step'),
     fractionMinimum: real('fraction_minimum'),
+    // Auditoría 2026-07 — lots & costing opt-in. When true, receipts create
+    // `inventory_lots` rows and consumption is FEFO with per-lot COGS; when
+    // false (default) the product keeps the single-number stock path. Additive
+    // and backward-compatible.
+    tracksLots: integer('tracks_lots', { mode: 'boolean' }).notNull().default(false),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     barcode: text('barcode'),
     imageUrl: text('image_url'),
@@ -160,12 +166,21 @@ export const unitXProduct = sqliteTable(
     equivalence: real('equivalence').notNull().default(1),
     price: real('price').notNull().default(0),
     isBase: integer('is_base', { mode: 'boolean' }).default(false),
+    // Auditoría 2026-07 — packaging-level barcode. GS1 barcodes are
+    // per-packaging (a case has its own GTIN distinct from the unit), so a
+    // single `products.barcode` cannot represent scanning a case. This
+    // additive/nullable column lets each packaging level carry its own
+    // scannable code; `lookupByBarcode` resolves it to (product, unit) and
+    // the cart adds `equivalence` base units. `products.barcode` stays the
+    // base-unit code for back-compat.
+    barcode: text('barcode'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_unit_x_product_product').on(table.productId),
     index('idx_unit_x_product_unit').on(table.unitId),
+    index('idx_unit_x_product_barcode').on(table.barcode),
     uniqueIndex('idx_unit_x_product_scope').on(table.productId, table.unitId),
   ]
 );

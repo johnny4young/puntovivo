@@ -16,6 +16,11 @@ import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.
 import { products } from '../../../db/schema.js';
 import { enqueueSync } from '../../../services/sync/enqueue.js';
 import {
+  applyInventoryBalanceDelta,
+  getPrimarySiteId,
+  getProductStockTotal,
+} from '../../../services/inventory-balances.js';
+import {
   createProductInput,
   updateProductInput,
   deleteProductInput,
@@ -73,14 +78,19 @@ export const productMutationProcedures = {
     const resolvedUnitAssignments = await resolveUnitAssignments(
       ctx.db,
       ctx.tenantId,
-      input.unitAssignments ?? (await getDefaultUnitAssignments(ctx.db, ctx.tenantId, normalizedPricing.price))
+      input.unitAssignments ??
+        (await getDefaultUnitAssignments(ctx.db, ctx.tenantId, normalizedPricing.price))
     );
     const normalizedProviderState = normalizeProviderState({
       providerId: input.providerId,
       providerAssignments: input.providerAssignments,
     });
     const resolvedProviderAssignments = normalizedProviderState
-      ? await resolveProviderAssignments(ctx.db, ctx.tenantId, normalizedProviderState.providerAssignments)
+      ? await resolveProviderAssignments(
+          ctx.db,
+          ctx.tenantId,
+          normalizedProviderState.providerAssignments
+        )
       : [];
     const resolvedTax = await resolveTaxRate(ctx.db, ctx.tenantId, input.vatRateId, input.taxRate);
     const resolvedLocationId = await resolveLocationId(ctx.db, ctx.tenantId, input.locationId);
@@ -119,7 +129,6 @@ export const productMutationProcedures = {
       locationId: resolvedLocationId,
       initialCost: roundMoney(input.initialCost),
       currencyCode: productCurrencyCode,
-      stock: input.stock,
       minStock: input.minStock,
       sellByFraction: resolvedFractionPolicy.sellByFraction,
       fractionStep: resolvedFractionPolicy.fractionStep,
@@ -137,6 +146,25 @@ export const productMutationProcedures = {
 
     if (normalizedProviderState) {
       await replaceProviderAssignments(ctx.db, id, resolvedProviderAssignments, now);
+    }
+
+    // `stock` is no longer a product column — it is the single-source
+    // Σ(inventory_balances.on_hand). Seed the opening quantity into the
+    // tenant's primary site so `products.getById` reports it back.
+    if (input.stock > 0) {
+      ctx.db.transaction(tx => {
+        const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
+        if (primarySiteId) {
+          applyInventoryBalanceDelta(tx, {
+            tenantId: ctx.tenantId,
+            siteId: primarySiteId,
+            productId: id,
+            delta: input.stock,
+            initialOnHandIfMissing: 0,
+            now,
+          });
+        }
+      });
     }
 
     await enqueueSync(ctx, {
@@ -209,7 +237,11 @@ export const productMutationProcedures = {
       existingProviderIds,
     });
     const resolvedProviderAssignments = normalizedProviderState
-      ? await resolveProviderAssignments(ctx.db, ctx.tenantId, normalizedProviderState.providerAssignments)
+      ? await resolveProviderAssignments(
+          ctx.db,
+          ctx.tenantId,
+          normalizedProviderState.providerAssignments
+        )
       : undefined;
     const normalizedPricing = normalizeProductPricing({
       cost: updates.cost ?? existing.cost,
@@ -277,7 +309,6 @@ export const productMutationProcedures = {
     if (normalizedProviderState) updateData.providerId = normalizedProviderState.providerId;
     if (updates.locationId !== undefined) updateData.locationId = resolvedLocationId;
     if (updates.initialCost !== undefined) updateData.initialCost = roundMoney(updates.initialCost);
-    if (updates.stock !== undefined) updateData.stock = updates.stock;
     if (updates.minStock !== undefined) updateData.minStock = updates.minStock;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
     if (updates.barcode !== undefined) updateData.barcode = updates.barcode;
@@ -299,6 +330,34 @@ export const productMutationProcedures = {
       )
       .run() as { changes?: number };
     assertVersionedWriteApplied('product', versionedUpdate.changes ?? 0, input.version);
+
+    // `stock` is derived from Σ(inventory_balances.on_hand). When the caller
+    // supplies an absolute `stock` (backward-compat), realize it by applying
+    // the delta to the tenant's primary site balance.
+    if (updates.stock !== undefined) {
+      ctx.db.transaction(tx => {
+        const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
+        if (primarySiteId) {
+          const currentTotal = getProductStockTotal(tx, ctx.tenantId, id);
+          const delta = updates.stock! - currentTotal;
+          if (delta !== 0) {
+            applyInventoryBalanceDelta(tx, {
+              tenantId: ctx.tenantId,
+              siteId: primarySiteId,
+              productId: id,
+              delta,
+              // Seed a missing primary-site row with 0, not the tenant-wide
+              // total: if other sites already hold stock, seeding with the
+              // total would double-count them in the derived Σ(on_hand). The
+              // delta alone brings the total to the requested absolute stock.
+              initialOnHandIfMissing: 0,
+              now,
+            });
+          }
+        }
+      });
+    }
+
     await replaceUnitAssignments(ctx.db, id, resolvedUnitAssignments, now);
 
     if (resolvedProviderAssignments !== undefined) {

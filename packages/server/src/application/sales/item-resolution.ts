@@ -26,7 +26,10 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
-import { ensureInventoryBalancesForSite } from '../../services/inventory-balances.js';
+import {
+  ensureInventoryBalancesForSite,
+  getProductStockTotals,
+} from '../../services/inventory-balances.js';
 import { assertSaleQuantityAllowed } from '../../services/fraction-policy.js';
 import { getNormalizedSaleQuantity } from './policies.js';
 import type { CompleteSaleItemInput } from './types.js';
@@ -339,7 +342,8 @@ export async function resolveSaleItems(
   }
 
   return {
-    productStocks: new Map(productRows.map(product => [product.id, product.stock])),
+    // Tenant-wide stock is derived from Σ(inventory_balances.on_hand).
+    productStocks: getProductStockTotals(db, tenantId, productIds),
     subtotal,
     taxAmount,
     rows,

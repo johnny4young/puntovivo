@@ -6,6 +6,7 @@
 import { Suspense, type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { RouteErrorBoundary } from '@/components/feedback/AppErrorBoundary';
 import { FullscreenLoadingState, PageLoadingState } from '@/components/feedback/LoadingState';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { getDefaultRouteForRole } from '@/features/auth/roleAccess';
@@ -60,7 +61,14 @@ export function ShellRoute({
     <PageLoadingState title={t('loading.pageTitle')} description={t('loading.pageDescription')} />
   );
 
-  const inner = <Suspense fallback={loadingState}>{children}</Suspense>;
+  // RouteErrorBoundary keeps a page crash contained to the route slot —
+  // the shell (nav, open drawers on other state) survives and the
+  // operator can retry just the crashed page.
+  const inner = (
+    <RouteErrorBoundary>
+      <Suspense fallback={loadingState}>{children}</Suspense>
+    </RouteErrorBoundary>
+  );
 
   const content =
     allowedModule && isPlaceholder ? (

@@ -4,40 +4,19 @@
  * Tenant-wide read-only discrepancy view for the Operations Center
  * Inventory tab.
  *
- * **What this surfaces.** The legacy data layer maintains two caches
- * for stock levels:
+ * **Structurally impossible post-unification (Auditoría 2026-07).** Stock
+ * used to be maintained in two caches — the denormalized `products.stock`
+ * total and the per-(site, product) `inventory_balances.on_hand`. Drift
+ * between them was possible, and this view detected it. `products.stock`
+ * has since been removed: `inventory_balances` is the single source of
+ * truth and the tenant-wide total is derived from it on read, so there is
+ * nothing left to drift against. `listInventoryDiscrepancyCandidates`
+ * therefore always returns an empty set and this endpoint always reports
+ * zero discrepancies. The procedure is retained (not deleted) because a
+ * web client and tests still call it.
  *
- *   1. `products.stock` — the cached tenant-wide total per product.
- *      Sales mutations and inventory writers update it inline.
- *   2. `inventory_balances.on_hand` — the per-(site, product) cache
- *      driven by the same writers via `applyInventoryBalanceDelta`.
- *
- * Under normal operation the invariant `products.stock = Σ(inventory_balances.on_hand)`
- * holds for every product. Drift can sneak in via direct-DB edits,
- * historical data imports, or a non-atomic write path. The existing
- * `inventory.reconcileBalances` mutation HEALS the drift by recomputing
- * `products.stock` as `Σ(inventory_balances.on_hand)`. This sub-router
- * is the read-only mirror that DETECTS the drift before the operator
- * clicks the heal button — so the panel can show "5 products are
- * drifting" instead of forcing a blind reconcile.
- *
- * `inventory_movements` does NOT carry a `site_id` column (movements
- * are tenant + product scoped only); a Σ-of-movements vs balance
- * comparison would not catch site-level drift cleanly. The drift we
- * actually care about is the cache-vs-cache one above.
- *
- * **Architectural note.** The SQL aggregation lives in
- * `services/inventory-balances.ts::listInventoryDiscrepancyCandidates`
- * because the architectural lint (`__tests__/architectural-lint.test.ts`)
- * forbids `routers/reports/**` from importing `products` directly —
- * that rule protects the fiscal sub-router from accidentally joining
- * mutable source rows. The lint's documented escape hatch is "prefer
- * a service helper that takes an id list and does the join in a
- * non-reports module," which is exactly what we do here.
- *
- * Read-only — manager + admin gated. The reconcile mutation that the
- * panel button fires is `inventory.reconcileBalances` (already
- * shipped, admin-only).
+ * Read-only — manager + admin gated. The (now no-op) reconcile mutation the
+ * panel button fires is `inventory.reconcileBalances`.
  *
  * @module trpc/routers/reports/inventory
  */

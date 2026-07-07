@@ -2,7 +2,7 @@ import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
-import { invalidateGroups } from '@/lib/invalidateGroups';
+import { invalidateGroups, SALE_COMPLETION_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -67,23 +67,7 @@ export function useSalesMutations({
   // reset to a fresh blank draft.
   const finishSaleEpilogue = useCallback(
     async (itemCount: number) => {
-      await invalidateGroups(utils, [
-        u => u.cashSessions.getActive,
-        u => u.cashSessions.movements,
-        u => u.cashSessions.report,
-        u => u.cashSessions.registerAssignments,
-        u => u.sales.list,
-        u => u.sales.listDrafts,
-        u => u.sales.summary,
-        u => u.inventory.listMovements,
-        u => u.inventory.listStock,
-        u => u.products.list,
-        u => u.products.search,
-        // ENG-090 — credit sales mutate the ledger, so the cupo card
-        // inside SalePaymentModal must refetch on the next open.
-        u => u.customerLedger.getBalance,
-        u => u.customerLedger.list,
-      ]);
+      await invalidateGroups(utils, SALE_COMPLETION_INVALIDATIONS);
       const storeState = useCartWorkspaceStore.getState();
       if (storeState.activeId) {
         storeState.removeWorkspace(storeState.activeId);

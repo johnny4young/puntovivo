@@ -7,11 +7,10 @@
  *   1. compute the normalized quantity (units × equivalence),
  *   2. raise `previousStock + normalizedQuantity` against the in-memory
  *      `productStockState` map the caller is tracking,
- *   3. update `products.stock` to the new value,
- *   4. insert an `inventory_movements` row of type `'return'` with the
+ *   3. insert an `inventory_movements` row of type `'return'` with the
  *      reversal note,
- *   5. apply the same delta to `inventory_balances` via
- *      `applyInventoryBalanceDelta`.
+ *   4. apply the same delta to `inventory_balances` via
+ *      `applyInventoryBalanceDelta` (the single source of truth).
  *
  * The only thing that varies across the three paths is the human-readable
  * note string ("Refunded sale", "Voided sale", "Discarded draft"). This
@@ -21,10 +20,9 @@
  * @module application/sales/inventory-policy
  */
 
-import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { inventoryMovements, products } from '../../db/schema.js';
+import { inventoryMovements } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
 import { getNormalizedSaleQuantity } from './policies.js';
@@ -51,18 +49,19 @@ export interface ReverseSaleItemsStockArgs {
   items: ReverseSaleItem[];
   /** Tracks `previousStock → newStock` between iterations so the same
    *  product appearing twice on a sale does not double-credit. The
-   *  caller seeds the map from the current `products.stock` snapshot. */
+   *  caller seeds the map from the current derived stock total
+   *  (`getProductStockTotals`). */
   productStockState: Map<string, number>;
   now: string;
 }
 
-const RESERVAL_NOTE: Record<ReversalKind, string> = {
+const REVERSAL_NOTE: Record<ReversalKind, string> = {
   return: 'Refunded sale',
   void: 'Voided sale',
   discard: 'Discarded draft',
 };
 
-const RESERVAL_OP_LABEL: Record<ReversalKind, string> = {
+const REVERSAL_OP_LABEL: Record<ReversalKind, string> = {
   return: 'refund',
   void: 'void',
   discard: 'discard',
@@ -79,7 +78,7 @@ const RESERVAL_OP_LABEL: Record<ReversalKind, string> = {
  */
 export function reverseSaleItemsStock(args: ReverseSaleItemsStockArgs): string[] {
   const inventoryMovementIds: string[] = [];
-  const note = `${RESERVAL_NOTE[args.reversalKind]} ${args.saleNumber}`;
+  const note = `${REVERSAL_NOTE[args.reversalKind]} ${args.saleNumber}`;
 
   for (const item of args.items) {
     const normalizedQuantity = getNormalizedSaleQuantity(item.quantity, item.unitEquivalence);
@@ -89,27 +88,16 @@ export function reverseSaleItemsStock(args: ReverseSaleItemsStockArgs): string[]
       throwServerError({
         trpcCode: 'NOT_FOUND',
         errorCode: 'SALE_REVERSAL_PRODUCT_MISSING',
-        message: `Product ${item.productId} was not found while ${RESERVAL_OP_LABEL[args.reversalKind]}ing the sale`,
+        message: `Product ${item.productId} was not found while ${REVERSAL_OP_LABEL[args.reversalKind]}ing the sale`,
         details: {
           productId: item.productId,
-          operation: RESERVAL_OP_LABEL[args.reversalKind],
+          operation: REVERSAL_OP_LABEL[args.reversalKind],
         },
       });
     }
 
     const newStock = previousStock + normalizedQuantity;
     args.productStockState.set(item.productId, newStock);
-
-    args.tx
-      .update(products)
-      .set({
-        stock: newStock,
-        syncStatus: 'pending',
-        syncVersion: sql`${products.syncVersion} + 1`,
-        updatedAt: args.now,
-      })
-      .where(and(eq(products.id, item.productId), eq(products.tenantId, args.tenantId)))
-      .run();
 
     const movementId = nanoid();
     args.tx

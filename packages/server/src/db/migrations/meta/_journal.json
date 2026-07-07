@@ -15,6 +15,48 @@
       "when": 1781321675997,
       "tag": "0001_eng177c_sales_cash_session_check",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1783031591044,
+      "tag": "0002_auth_refresh_families",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1783033219323,
+      "tag": "0003_unit_dimension_standard_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1783034315437,
+      "tag": "0004_unit_x_product_barcode",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1783035223220,
+      "tag": "0005_inventory_lots",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1783039471484,
+      "tag": "0006_sale_item_lots",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1783045654452,
+      "tag": "0007_drop_products_stock",
+      "breakpoints": true
     }
   ]
 }

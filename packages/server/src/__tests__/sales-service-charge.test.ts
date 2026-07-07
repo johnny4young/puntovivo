@@ -24,6 +24,7 @@ import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import {
   auditLogs,
+  inventoryBalances,
   products,
   sales,
   sites,
@@ -78,7 +79,6 @@ async function seedServiceProduct(stock: number, price: number) {
     marginAmount3: 0,
     taxRate: 0,
     initialCost: 0,
-    stock,
     minStock: 0,
     isActive: true,
     createdAt: now,
@@ -91,6 +91,16 @@ async function seedServiceProduct(stock: number, price: number) {
     equivalence: 1,
     price,
     isBase: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(inventoryBalances).values({
+    id: nanoid(),
+    tenantId,
+    siteId,
+    productId,
+    onHand: stock,
+    reserved: 0,
     createdAt: now,
     updatedAt: now,
   });

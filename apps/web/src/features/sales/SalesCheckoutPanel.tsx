@@ -348,9 +348,11 @@ export function SalesCheckoutPanel({
                   t('checkout.shortcut.fastCash', { defaultValue: 'Cobro rápido' }),
                 ],
               ] as const
-            ).map(([keyLabel, action]) => (
+            ).map(([keyLabel, action], index) => (
               <div
-                key={keyLabel}
+                // Static list — index keys are stable here, and two
+                // shortcuts can legitimately format to the same key label.
+                key={index}
                 className="flex items-center gap-2 rounded-xl border border-line/70 bg-surface px-2.5 py-1.5"
               >
                 <kbd className="pv-kbd">{keyLabel}</kbd>

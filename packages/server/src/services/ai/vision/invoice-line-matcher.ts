@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../../db/index.js';
 import { products, unitXProduct, units } from '../../../db/schema.js';
+import { productStockTotalSql } from '../../inventory-balances/derive.js';
 import { recordCall } from '../auditLog.js';
 import {
   cosineSimilarity,
@@ -229,7 +230,7 @@ async function hydrateProductSummaries(
       name: products.name,
       sku: products.sku,
       cost: products.cost,
-      stock: products.stock,
+      stock: productStockTotalSql,
     })
     .from(products)
     .where(and(eq(products.tenantId, tenantId), inArray(products.id, productIds)))

@@ -12,6 +12,7 @@ import {
   customers,
   fiscalDocuments,
   fiscalNumberingResolutions,
+  inventoryBalances,
   inventoryMovements,
   products,
   salePayments,
@@ -27,6 +28,7 @@ import {
   users,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { Context } from '../trpc/context.js';
 
 let server: PuntovivoServer;
@@ -291,7 +293,6 @@ describe('Sales tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 19,
       initialCost: 5,
-      stock: 20,
       minStock: 0,
       isActive: true,
       createdAt: new Date().toISOString(),
@@ -321,6 +322,16 @@ describe('Sales tRPC Router', () => {
         updatedAt: now,
       },
     ]);
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 20,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     const caller = appRouter.createCaller(createTestContext());
     const cashSessionBeforeSale = await db
@@ -366,8 +377,7 @@ describe('Sales tRPC Router', () => {
       total: 23.8,
     });
 
-    const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(updatedProduct?.stock).toBe(16);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(16);
 
     const storedSaleItems = await db.select().from(saleItems).where(eq(saleItems.saleId, result.id)).all();
     expect(storedSaleItems).toHaveLength(1);
@@ -456,7 +466,6 @@ describe('Sales tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 4,
-      stock: 3,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -470,6 +479,17 @@ describe('Sales tRPC Router', () => {
       equivalence: 1,
       price: 10,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 3,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -581,7 +601,6 @@ describe('Sales tRPC Router', () => {
         marginAmount3: 0,
         taxRate: 0,
         initialCost: 8,
-        stock: 5,
         minStock: 0,
         isActive: true,
         createdAt: now,
@@ -595,6 +614,17 @@ describe('Sales tRPC Router', () => {
         equivalence: 1,
         price: 20,
         isBase: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await db.insert(inventoryBalances).values({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        productId,
+        onHand: 5,
+        reserved: 0,
         createdAt: now,
         updatedAt: now,
       });
@@ -659,7 +689,6 @@ describe('Sales tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 5,
-      stock: 2,
       minStock: 0,
       sellByFraction: true,
       fractionStep: 0.25,
@@ -676,6 +705,17 @@ describe('Sales tRPC Router', () => {
       equivalence: 1,
       price: 12,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 2,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -701,8 +741,7 @@ describe('Sales tRPC Router', () => {
     expect(result.total).toBeCloseTo(9);
     expect(result.items[0]?.quantity).toBe(0.75);
 
-    const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(updatedProduct?.stock).toBeCloseTo(1.25);
+    expect(getProductStockTotal(db, tenantId, productId)).toBeCloseTo(1.25);
 
     const movement = await db
       .select()
@@ -735,7 +774,6 @@ describe('Sales tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 2,
-      stock: 10,
       minStock: 0,
       sellByFraction: false,
       fractionStep: null,
@@ -752,6 +790,17 @@ describe('Sales tRPC Router', () => {
       equivalence: 1,
       price: 5,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 10,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -800,7 +849,6 @@ describe('Sales tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 5,
-      stock: 10,
       minStock: 0,
       sellByFraction: true,
       fractionStep: 0.25,
@@ -817,6 +865,17 @@ describe('Sales tRPC Router', () => {
       equivalence: 1,
       price: 12,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 10,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -865,7 +924,6 @@ describe('Sales tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 4,
-      stock: 10,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -879,6 +937,17 @@ describe('Sales tRPC Router', () => {
       equivalence: 2,
       price: 10,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 10,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -932,8 +1001,7 @@ describe('Sales tRPC Router', () => {
     expect(voided.status).toBe('voided');
     expect(voided.notes).toContain('Voided: Customer cancellation');
 
-    const restoredProduct = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(restoredProduct?.stock).toBe(10);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(10);
 
     const reversalMovements = await db
       .select()
@@ -1024,7 +1092,6 @@ describe('Sales tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 10,
-      stock: 5,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -1038,6 +1105,17 @@ describe('Sales tRPC Router', () => {
       equivalence: 1,
       price: 20,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 5,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -1122,7 +1200,6 @@ describe('Sales tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 0,
       initialCost: 5,
-      stock: 8,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -1136,6 +1213,17 @@ describe('Sales tRPC Router', () => {
       equivalence: 1,
       price: 12,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 8,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -1191,8 +1279,7 @@ describe('Sales tRPC Router', () => {
       reason: 'Items returned',
     });
 
-    const restoredProduct = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(restoredProduct?.stock).toBe(8);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(8);
 
     const reversalMovements = await db
       .select()
@@ -1262,7 +1349,6 @@ describe('Sales tRPC Router', () => {
       marginAmount3: 0,
       taxRate: 19,
       initialCost: 500,
-      stock: 10,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -1276,6 +1362,17 @@ describe('Sales tRPC Router', () => {
       equivalence: 1,
       price: 1190,
       isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 10,
+      reserved: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -1307,8 +1404,7 @@ describe('Sales tRPC Router', () => {
     expect(result.change).toBeCloseTo(29, 0);
 
     // Stock must decrement by 1 (base equivalence)
-    const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(updatedProduct?.stock).toBe(9);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(9);
 
     // Sale item must record the discount
     const storedItems = await db.select().from(saleItems).where(eq(saleItems.saleId, result.id)).all();
@@ -1348,7 +1444,6 @@ describe('Sales tRPC Router', () => {
         marginAmount2: 0,
         marginAmount3: 0,
         taxRate: 0,
-        stock: overrides.stock,
         minStock: 0,
         isActive: true,
         createdAt: now,
@@ -1364,6 +1459,18 @@ describe('Sales tRPC Router', () => {
         createdAt: now,
         updatedAt: now,
       });
+      if (overrides.stock > 0) {
+        await db.insert(inventoryBalances).values({
+          id: nanoid(),
+          tenantId,
+          siteId,
+          productId,
+          onHand: overrides.stock,
+          reserved: 0,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
       return productId;
     }
 
@@ -1473,12 +1580,7 @@ describe('Sales tRPC Router', () => {
       });
 
       const db = getDatabase();
-      const product = await db
-        .select({ stock: products.stock })
-        .from(products)
-        .where(eq(products.id, productId))
-        .get();
-      expect(product?.stock).toBe(9);
+      expect(getProductStockTotal(db, tenantId, productId)).toBe(9);
 
       const result = await caller.inventory.listBalancesBySite({ siteId });
       const balance = result.items.find(item => item.productId === productId);
@@ -1648,7 +1750,6 @@ describe('Sales tRPC Router', () => {
         marginAmount2: 0,
         marginAmount3: 0,
         taxRate: 0,
-        stock: overrides.stock,
         minStock: 0,
         isActive: true,
         createdAt: now,
@@ -1664,6 +1765,18 @@ describe('Sales tRPC Router', () => {
         createdAt: now,
         updatedAt: now,
       });
+      if (overrides.stock > 0) {
+        await db.insert(inventoryBalances).values({
+          id: nanoid(),
+          tenantId,
+          siteId,
+          productId,
+          onHand: overrides.stock,
+          reserved: 0,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
       return productId;
     }
 

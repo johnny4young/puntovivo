@@ -49,6 +49,7 @@ import {
   tenants,
   users,
 } from '../db/schema.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 
 let db: DatabaseInstance;
 let tenantId: string;
@@ -110,9 +111,15 @@ describe('Dev seed (`seedDevData`)', () => {
     expect(tplCount).toBe(3);
   });
 
-  it('maintains the products.stock = Σ(inventory_balances.on_hand) invariant', async () => {
+  it('maintains the derived stock = Σ(inventory_balances.on_hand) invariant', async () => {
+    // products.stock was removed — stock is now DERIVED as Σ(on_hand). This
+    // asserts the derive helper (`getProductStockTotal`) agrees with a
+    // hand-rolled cross-site SUM for every seeded product, proving the seed
+    // walked the service transaction paths and materialized balance rows
+    // (the dev seed splits each product's stock 60/40 across the two sites,
+    // so the tenant-wide derived total equals the definition's initial stock).
     const productRows = await db
-      .select({ id: products.id, stock: products.stock })
+      .select({ id: products.id })
       .from(products)
       .where(eq(products.tenantId, tenantId))
       .all();
@@ -128,7 +135,7 @@ describe('Dev seed (`seedDevData`)', () => {
           )
         )
         .get();
-      expect(summed?.total ?? 0).toBe(product.stock);
+      expect(summed?.total ?? 0).toBe(getProductStockTotal(db, tenantId, product.id));
     }
   });
 

@@ -17,7 +17,8 @@
   "grid": {
     "empty": "No products match this category yet.",
     "noResults": "No products in the catalog. Add products from Setup first.",
-    "tileAriaLabel": "Add {{name}} for {{price}}"
+    "tileAriaLabel": "Add {{name}} for {{price}}",
+    "truncated": "Showing {{shown}} of {{total}} products. Use a more specific category or the search dialog to reach the rest."
   },
   "cart": {
     "title": "Active cart",

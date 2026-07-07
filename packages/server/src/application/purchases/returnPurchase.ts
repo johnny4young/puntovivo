@@ -10,7 +10,7 @@
  * @module application/purchases/returnPurchase
  */
 import { TRPCError } from '@trpc/server';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import {
@@ -21,7 +21,10 @@ import {
   purchases,
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
-import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
+import {
+  applyInventoryBalanceDelta,
+  getProductStockTotals,
+} from '../../services/inventory-balances.js';
 import type { ReturnPurchaseInput } from '../../trpc/schemas/purchases.js';
 import { buildReturnedPurchaseNotes, getInventoryBalanceStateForSite } from './helpers.js';
 import { getPurchaseRecord } from './purchase-read.js';
@@ -72,13 +75,15 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
     .select({
       id: products.id,
       name: products.name,
-      stock: products.stock,
     })
     .from(products)
     .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
     .all();
 
-  const productStockState = new Map(currentProducts.map(product => [product.id, product]));
+  const productById = new Map(currentProducts.map(product => [product.id, product]));
+  // Tenant-wide stock is derived from Σ(inventory_balances.on_hand); track a
+  // mutable snapshot so a product appearing twice reverses correctly.
+  const tenantStockState = getProductStockTotals(ctx.db, ctx.tenantId, productIds);
   const siteBalanceState = await getInventoryBalanceStateForSite(
     ctx.db,
     ctx.tenantId,
@@ -110,7 +115,7 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
       .run();
 
     for (const item of resolvedReturn.rows) {
-      const product = productStockState.get(item.productId);
+      const product = productById.get(item.productId);
 
       if (!product) {
         throw new TRPCError({
@@ -119,14 +124,13 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
         });
       }
 
-      if (product.stock < item.normalizedQuantity) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Cannot return purchase items because product "${product.name}" only has ${product.stock} units in stock`,
-        });
-      }
-
+      const previousStock = tenantStockState.get(item.productId) ?? 0;
       const currentSiteBalance = siteBalanceState.get(item.productId) ?? 0;
+
+      // The purchase site's balance is the authoritative constraint (you can
+      // only reverse stock that is physically at that site). Check it first;
+      // the tenant-wide total is Σ(all sites) ≥ this site, so it can only fail
+      // when the site already has — it stays as a defensive secondary guard.
       if (currentSiteBalance < item.normalizedQuantity) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -134,13 +138,16 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
         });
       }
 
-      const previousStock = product.stock;
+      if (previousStock < item.normalizedQuantity) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Cannot return purchase items because product "${product.name}" only has ${previousStock} units in stock`,
+        });
+      }
+
       const newStock = previousStock - item.normalizedQuantity;
       const newSiteBalance = currentSiteBalance - item.normalizedQuantity;
-      productStockState.set(item.productId, {
-        ...product,
-        stock: newStock,
-      });
+      tenantStockState.set(item.productId, newStock);
       siteBalanceState.set(item.productId, newSiteBalance);
 
       tx.insert(purchaseReturnItems)
@@ -156,16 +163,6 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
           baseUnitCost: item.baseUnitCost,
           total: item.total,
         })
-        .run();
-
-      tx.update(products)
-        .set({
-          stock: newStock,
-          syncStatus: 'pending',
-          syncVersion: sql`${products.syncVersion} + 1`,
-          updatedAt: now,
-        })
-        .where(eq(products.id, item.productId))
         .run();
 
       applyInventoryBalanceDelta(tx, {

@@ -15,6 +15,7 @@ import { sites, tenants, users } from './auth.js';
 import { units } from './catalogs.js';
 import { products } from './products.js';
 import { sales } from './sales.js';
+import { inventoryLots } from './inventory.js';
 import { currencyCatalog } from './config.js';
 
 // ============================================================================
@@ -96,6 +97,59 @@ export const saleItemsRelations = relations(saleItems, ({ one }) => ({
   unit: one(units, {
     fields: [saleItems.unitId],
     references: [units.id],
+  }),
+}));
+
+// ============================================================================
+// SALE ITEM LOTS (Auditoría 2026-07 — lot consumption provenance & COGS)
+// ============================================================================
+
+/**
+ * One row per (sale line, lot) that a lot-tracked sale line consumed. It is
+ * the auditable COGS ledger — `quantity` base units drawn from `lotId` at
+ * `unitCost` — and the exact record a reversal (return / void / discard)
+ * reads to restore the right lots. Written only when the product has
+ * `tracks_lots = true`; non-lot sales never touch this table.
+ */
+export const saleItemLots = sqliteTable(
+  'sale_item_lots',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleItemId: text('sale_item_id')
+      .notNull()
+      .references(() => saleItems.id, { onDelete: 'cascade' }),
+    lotId: text('lot_id')
+      .notNull()
+      .references(() => inventoryLots.id),
+    /** Base units drawn from this lot for the line. */
+    quantity: real('quantity').notNull(),
+    /** The lot's unit cost at consumption — the COGS layer snapshot. */
+    unitCost: real('unit_cost').notNull().default(0),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_sale_item_lots_tenant').on(table.tenantId),
+    index('idx_sale_item_lots_sale_item').on(table.saleItemId),
+    index('idx_sale_item_lots_lot').on(table.lotId),
+    ...moneyPositiveChecks('sale_item_lots_unit_cost', table.unitCost),
+  ]
+);
+
+export const saleItemLotsRelations = relations(saleItemLots, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [saleItemLots.tenantId],
+    references: [tenants.id],
+  }),
+  saleItem: one(saleItems, {
+    fields: [saleItemLots.saleItemId],
+    references: [saleItems.id],
+  }),
+  lot: one(inventoryLots, {
+    fields: [saleItemLots.lotId],
+    references: [inventoryLots.id],
   }),
 }));
 

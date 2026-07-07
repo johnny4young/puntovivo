@@ -24,6 +24,7 @@ import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
   auditLogs,
   companies,
+  inventoryBalances,
   kdsOrders,
   products,
   restaurantTables,
@@ -209,7 +210,6 @@ beforeAll(async () => {
     marginAmount3: 0,
     taxRate: 0,
     initialCost: 5,
-    stock: 500,
     minStock: 0,
     isActive: true,
     createdAt: now,
@@ -222,6 +222,16 @@ beforeAll(async () => {
     equivalence: 1,
     price: 10,
     isBase: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(inventoryBalances).values({
+    id: nanoid(),
+    tenantId,
+    siteId: primarySiteId,
+    productId,
+    onHand: 500,
+    reserved: 0,
     createdAt: now,
     updatedAt: now,
   });

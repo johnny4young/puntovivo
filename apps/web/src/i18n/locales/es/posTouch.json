@@ -17,7 +17,8 @@
   "grid": {
     "empty": "Aún no hay productos en esta categoría.",
     "noResults": "No hay productos en el catálogo. Primero agrega productos desde Configuración.",
-    "tileAriaLabel": "Agregar {{name}} por {{price}}"
+    "tileAriaLabel": "Agregar {{name}} por {{price}}",
+    "truncated": "Mostrando {{shown}} de {{total}} productos. Usa una categoría más específica o el buscador para ver el resto."
   },
   "cart": {
     "title": "Carrito activo",

@@ -18,18 +18,18 @@
  * @module application/sales/returnSale
  */
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,
   operationEvents,
-  products,
   saleItems,
   salePayments,
   saleReturns,
   sales,
 } from '../../db/schema.js';
+import { getProductStockTotals } from '../../services/inventory-balances.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -46,6 +46,7 @@ import {
   getPersistedCashContribution,
 } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { restoreLotsForSale } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import {
   emitCompleteSaleEffects,
@@ -222,14 +223,7 @@ export async function returnSale(
   }
 
   const productIds = [...new Set(saleLineItems.map(item => item.productId))];
-  const currentProducts = await ctx.db
-    .select({ id: products.id, stock: products.stock })
-    .from(products)
-    .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
-    .all();
-  const productStockState = new Map(
-    currentProducts.map(product => [product.id, product.stock])
-  );
+  const productStockState = getProductStockTotals(ctx.db, ctx.tenantId, productIds);
 
   // Resolve the cash target before the transaction. A manager/admin can
   // authorize the refund, but the cash should leave the drawer that received
@@ -297,6 +291,10 @@ export async function returnSale(
       productStockState,
       now,
     });
+
+    // Auditoría 2026-07 — credit the exact lots this sale consumed back to
+    // stock (no-op when no line was lot-tracked).
+    restoreLotsForSale(tx, { tenantId: ctx.tenantId, saleId: input.id, now });
 
     tx.insert(saleReturns)
       .values({
