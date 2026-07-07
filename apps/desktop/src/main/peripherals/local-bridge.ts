@@ -49,6 +49,21 @@ export interface LocalEscPosDispatchResult {
   errorCode?: string;
 }
 
+function coerceEscPosBytes(bytes: LocalEscPosDispatchInput['bytes']): Uint8Array | null {
+  if (bytes instanceof Uint8Array) {
+    return bytes;
+  }
+  if (
+    !Array.isArray(bytes) ||
+    !bytes.every(
+      byte => Number.isInteger(byte) && byte >= 0 && byte <= 0xff
+    )
+  ) {
+    return null;
+  }
+  return Uint8Array.from(bytes);
+}
+
 /**
  * Dispatch ESC/POS bytes through the local printer / drawer. Returns
  * `{ success: false, error }` instead of throwing so the IPC
@@ -60,9 +75,15 @@ export interface LocalEscPosDispatchResult {
 export async function dispatchLocalEscpos(
   input: LocalEscPosDispatchInput
 ): Promise<LocalEscPosDispatchResult> {
-  const buffer = input.bytes instanceof Uint8Array
-    ? input.bytes
-    : Uint8Array.from(input.bytes);
+  const buffer = coerceEscPosBytes(input.bytes);
+
+  if (!buffer) {
+    return {
+      success: false,
+      error: 'ESC/POS bytes must be an array of byte values',
+      errorCode: 'INVALID_BYTES',
+    };
+  }
 
   if (buffer.length === 0) {
     return { success: false, error: 'No bytes supplied to local bridge', errorCode: 'EMPTY_PAYLOAD' };

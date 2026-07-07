@@ -64,6 +64,18 @@ describe('local-bridge dispatchLocalEscpos (ENG-074b)', () => {
     assert.equal(mock.captured.length, 0);
   });
 
+  it('rejects malformed byte arrays without touching the transport', async () => {
+    const mock = new MockEscPosTransport();
+    __setEscPosTransportForTest(mock);
+    const result = await dispatchLocalEscpos({
+      bytes: [0x1b, 300] as number[],
+      transport: { channel: 'mock' },
+    });
+    assert.equal(result.success, false);
+    assert.equal(result.errorCode, 'INVALID_BYTES');
+    assert.equal(mock.captured.length, 0);
+  });
+
   it('surfaces transport write failures with EscPosTransportError normalization', async () => {
     const failingTransport = {
       async write() {
