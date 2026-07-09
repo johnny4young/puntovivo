@@ -593,5 +593,9 @@
     "toast": {
       "applied": "Exact cash ready."
     }
+  },
+  "sound": {
+    "enable": "Turn on checkout sounds",
+    "disable": "Turn off checkout sounds"
   }
 }
