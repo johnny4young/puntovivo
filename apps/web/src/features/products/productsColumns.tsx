@@ -21,13 +21,24 @@ export type DisplayProduct = Product & { similarity?: number };
 // metadata moved behind the row-detail Drawer (`onViewDetails`) so the row
 // stays narrow. Every trimmed field is still exported (productExportColumns)
 // and still shown in the Drawer.
+// ENG-195 — margin traffic-light thresholds (gross margin %, last 30 days).
+// Exported constants so a future tenant-level setting can replace them
+// without touching the column factory.
+export const MARGIN_GOOD_PCT = 30;
+export const MARGIN_WARN_PCT = 15;
+
 export const productsColumns = (
   onViewDetails: (product: Product) => void,
   onEdit: (product: Product) => void,
   onDelete: (product: Product) => void,
   canEdit: boolean,
   canDelete: boolean,
-  showSimilarity: boolean
+  showSimilarity: boolean,
+  // ENG-195 — productId → realized gross margin % (30-day window, from
+  // reports.profit.margin). Null hides the column entirely (non-admin
+  // viewers); a map without the product renders an em dash (no sales in
+  // the window).
+  marginByProduct: Map<string, number> | null = null
 ): ColumnDef<DisplayProduct>[] => [
   {
     accessorKey: 'name',
@@ -108,6 +119,40 @@ export const productsColumns = (
       </span>
     ),
   },
+  ...(marginByProduct
+    ? [
+        {
+          id: 'margin',
+          header: () => i18next.t('products:table.margin'),
+          size: 110,
+          meta: { cellClassName: 'num', headerClassName: 'num' },
+          cell: ({ row }: { row: { original: DisplayProduct } }) => {
+            const pct = marginByProduct.get(row.original.id);
+            if (typeof pct !== 'number') {
+              return (
+                <span
+                  className="text-secondary-400"
+                  title={i18next.t('products:table.marginNoSales')}
+                >
+                  —
+                </span>
+              );
+            }
+            const tone =
+              pct >= MARGIN_GOOD_PCT ? 'success' : pct >= MARGIN_WARN_PCT ? 'warning' : 'danger';
+            return (
+              <span
+                className={cn('pv-badge', tone)}
+                title={i18next.t('products:table.marginTooltip')}
+                data-testid="product-margin-badge"
+              >
+                {pct.toFixed(1)}%
+              </span>
+            );
+          },
+        } satisfies ColumnDef<DisplayProduct>,
+      ]
+    : []),
   ...(showSimilarity
     ? [
         {

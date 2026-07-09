@@ -21,7 +21,10 @@
     "status": "Status",
     "active": "Active",
     "inactive": "Inactive",
-    "match": "Match"
+    "match": "Match",
+    "margin": "Margin",
+    "marginTooltip": "Realized gross margin, last 30 days",
+    "marginNoSales": "No sales in the last 30 days"
   },
   "details": {
     "title": "Product details",

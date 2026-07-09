@@ -85,7 +85,9 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: embeddingHealthUseQueryMock,
       },
       regenerateEmbeddings: {
-        useMutation: (options?: { onSuccess?: (data: { ok: true; embedded: number }) => void }) => ({
+        useMutation: (options?: {
+          onSuccess?: (data: { ok: true; embedded: number }) => void;
+        }) => ({
           mutate: () => {
             regenerateMutateMock();
             options?.onSuccess?.({ ok: true, embedded: 3 });
@@ -105,6 +107,10 @@ vi.mock('@/lib/trpc', () => ({
       delete: {
         useMutation: () => ({ mutateAsync: vi.fn() }),
       },
+    },
+    // ENG-195 - the margin column query; null data keeps the column hidden.
+    reports: {
+      profit: { margin: { useQuery: () => ({ data: null, isLoading: false }) } },
     },
     categories: {
       tree: {
