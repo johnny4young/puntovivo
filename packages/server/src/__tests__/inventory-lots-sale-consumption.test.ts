@@ -19,6 +19,7 @@ import {
   saleItemLots,
   saleItems,
   sites,
+  syncOutbox,
   unitXProduct,
   units,
   users,
@@ -383,5 +384,80 @@ describe('lot consumption on the sale path', () => {
       .where(eq(saleItemLots.saleItemId, line!.id))
       .all();
     expect(provenance).toHaveLength(0);
+  });
+
+  // ENG-192 — the consumed/restored lots must reach sync_outbox, not just be
+  // marked sync-pending on the row (they used to wait for the next receive).
+  it('enqueues the mutated lots to sync_outbox on sale and on reversal', async () => {
+    const db = getDatabase();
+    const productId = await seedLotProduct({ name: 'Pan sync', sku: 'LOT-SYNC', stock: 6 });
+    const lot = receiveInventoryLot(db, {
+      tenantId,
+      siteId,
+      productId,
+      lotNumber: 'L-SYNC',
+      expiresAt: isoInDays(7),
+      quantity: 6,
+      unitCost: 20,
+      now: new Date().toISOString(),
+    });
+
+    const lotOutboxRows = async () =>
+      db
+        .select({
+          id: syncOutbox.id,
+          operation: syncOutbox.operation,
+          payload: syncOutbox.payload,
+        })
+        .from(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tenantId, tenantId),
+            eq(syncOutbox.entityType, 'inventory_lots'),
+            eq(syncOutbox.entityId, lot.lotId)
+          )
+        )
+        .all();
+
+    const beforeSale = await lotOutboxRows();
+    const beforeSaleIds = new Set(beforeSale.map(row => row.id));
+
+    const sale = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [{ productId, unitId: baseUnitId, quantity: 4, unitPrice: 100, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 400,
+      discountAmount: 0,
+    });
+    const saleId = (sale.sale as { id: string }).id;
+
+    const afterSale = await lotOutboxRows();
+    const saleLotRows = afterSale.filter(row => !beforeSaleIds.has(row.id));
+    expect(saleLotRows).toHaveLength(1);
+    expect(saleLotRows[0]?.operation).toBe('update');
+    expect(saleLotRows[0]?.payload).toMatchObject({
+      id: lot.lotId,
+      saleId,
+      onHand: 2,
+      unitCost: 20,
+      status: 'active',
+    });
+
+    await returnSale(buildContext(), { id: saleId, reason: 'sync test' });
+
+    const afterReturn = await lotOutboxRows();
+    const afterSaleIds = new Set(afterSale.map(row => row.id));
+    const returnLotRows = afterReturn.filter(row => !afterSaleIds.has(row.id));
+    expect(returnLotRows).toHaveLength(1);
+    expect(returnLotRows[0]?.payload).toMatchObject({
+      id: lot.lotId,
+      saleId,
+      onHand: 6,
+      unitCost: 20,
+      status: 'active',
+    });
   });
 });

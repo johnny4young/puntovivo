@@ -2,6 +2,7 @@ import { type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { History, PauseCircle } from 'lucide-react';
 import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
+import { SoundToggleButton } from '@/features/sales/SoundToggleButton';
 import { type CartWorkspace } from '@/features/sales/useCartWorkspaceStore';
 
 /**
@@ -74,6 +75,7 @@ export function SalesHeaderSection({
               </span>
             )}
           </button>
+          <SoundToggleButton />
         </div>
       </div>
 
@@ -93,9 +95,7 @@ export function SalesHeaderSection({
                   saleNumber: activeWorkspace.serverSaleNumber,
                 })}
           </p>
-          <p className="mt-1 text-xs text-primary-800/80">
-            {t('park.resumedBannerHint')}
-          </p>
+          <p className="mt-1 text-xs text-primary-800/80">{t('park.resumedBannerHint')}</p>
         </div>
       )}
     </>

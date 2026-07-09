@@ -36,14 +36,12 @@ export function SalesPage() {
   // pass through as "reachable enough"; only an explicit `false`
   // gates.
   const hubReachability = useHubReachability();
-  const hubReachable =
-    hubReachability.reachable === null ? undefined : hubReachability.reachable;
+  const hubReachable = hubReachability.reachable === null ? undefined : hubReachability.reachable;
 
   // ENG-018b — `ownerKey` (`${tenantId}:${userId}`) identifies the
   // signed-in cashier. It is injected into the cart, mutation, and flow
   // hooks so each scopes its workspace / drafts to the current operator.
-  const ownerKey =
-    currentTenant && user ? `${currentTenant.id}:${user.id}` : null;
+  const ownerKey = currentTenant && user ? `${currentTenant.id}:${user.id}` : null;
 
   // ENG-178 slice 16b-1 — these UI / modal `useState` declarations STAY in
   // the shell because `useSalesMutations` injects their setters (it is wired
@@ -60,14 +58,14 @@ export function SalesPage() {
   const [isSuspendLabelPromptOpen, setIsSuspendLabelPromptOpen] = useState(false);
   const [suspendLabelDraft, setSuspendLabelDraft] = useState('');
   const [isSuspending, setIsSuspending] = useState(false);
-  const [selectedHistorySaleId, setSelectedHistorySaleId] = useState<
-    string | null
-  >(null);
+  const [selectedHistorySaleId, setSelectedHistorySaleId] = useState<string | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isCashSessionModalOpen, setIsCashSessionModalOpen] = useState(false);
   const [isCashSessionCloseModalOpen, setIsCashSessionCloseModalOpen] = useState(false);
   const [isCashSessionMovementModalOpen, setIsCashSessionMovementModalOpen] = useState(false);
-  const [selectedRegisterAssignmentId, setSelectedRegisterAssignmentId] = useState<string | null>(null);
+  const [selectedRegisterAssignmentId, setSelectedRegisterAssignmentId] = useState<string | null>(
+    null
+  );
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [saleError, setSaleError] = useState<string | null>(null);
   const [cashSessionError, setCashSessionError] = useState<string | null>(null);
@@ -280,12 +278,9 @@ export function SalesPage() {
     canSuspend: canCharge && !isResumedCart,
     onSuspend: handleOpenSuspendPrompt,
     onToggleSuspendedPanel: handleToggleSuspendedPanel,
-    canToggleSuspendedPanel:
-      suspendedDraftsCount > 0 || isSuspendedPanelOpen,
+    canToggleSuspendedPanel: suspendedDraftsCount > 0 || isSuspendedPanelOpen,
     onReprintSelectedHistoryRow:
-      selectedHistorySaleId !== null
-        ? handleReprintSelectedHistoryRow
-        : undefined,
+      selectedHistorySaleId !== null ? handleReprintSelectedHistoryRow : undefined,
     // ENG-105d — Mod+Z routes through the same handler the visible
     // "Deshacer" button uses so the toast surface stays consistent.
     onUndo: handleUndoCart,
@@ -350,6 +345,7 @@ export function SalesPage() {
       canCharge={canCharge}
       canOpenCashSession={canOpenCashSession}
       canCloseCashSession={canCloseCashSession}
+      userRole={user?.role ?? 'cashier'}
       handleOpenPaymentModal={handleOpenPaymentModal}
       handleOpenCashSessionModal={handleOpenCashSessionModal}
       handleOpenCloseCashSessionModal={handleOpenCloseCashSessionModal}

@@ -71,6 +71,7 @@ export interface SalesScreenProps {
   canCharge: boolean;
   canOpenCashSession: boolean;
   canCloseCashSession: boolean;
+  userRole: CheckoutProps['userRole'];
   handleOpenPaymentModal: (fastCash?: boolean) => void;
   handleOpenCashSessionModal: () => void;
   handleOpenCloseCashSessionModal: () => void;
@@ -181,6 +182,7 @@ export function SalesScreen({
   canCharge,
   canOpenCashSession,
   canCloseCashSession,
+  userRole,
   handleOpenPaymentModal,
   handleOpenCashSessionModal,
   handleOpenCloseCashSessionModal,
@@ -307,6 +309,7 @@ export function SalesScreen({
             canCharge={canCharge}
             canOpenCashSession={canOpenCashSession}
             canCloseCashSession={canCloseCashSession}
+            userRole={userRole}
             onOpenSearch={() => handleOpenProductSearch()}
             onCharge={handleOpenPaymentModal}
             onOpenCashSession={handleOpenCashSessionModal}

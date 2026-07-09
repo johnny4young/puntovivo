@@ -72,6 +72,10 @@ vi.mock('@/lib/trpc', () => ({
       update: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       delete: { useMutation: () => ({ mutateAsync: vi.fn() }) },
     },
+    // ENG-195 - the margin column query; null data keeps the column hidden.
+    reports: {
+      profit: { margin: { useQuery: () => ({ data: null, isLoading: false }) } },
+    },
     categories: { tree: { useQuery: () => ({ data: { items: [] } }) } },
     providers: { list: { useQuery: () => ({ data: { items: [] } }) } },
     locations: { list: { useQuery: () => ({ data: { items: [] } }) } },

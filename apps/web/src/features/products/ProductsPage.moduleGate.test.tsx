@@ -18,6 +18,7 @@ const {
   regenerateMutateMock,
   semanticSearchInvalidateMock,
   embeddingHealthInvalidateMock,
+  marginUseQueryMock,
 } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
   useIsModuleActiveMock: vi.fn(),
@@ -27,6 +28,7 @@ const {
   regenerateMutateMock: vi.fn(),
   semanticSearchInvalidateMock: vi.fn(),
   embeddingHealthInvalidateMock: vi.fn(),
+  marginUseQueryMock: vi.fn(),
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
@@ -85,7 +87,9 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: embeddingHealthUseQueryMock,
       },
       regenerateEmbeddings: {
-        useMutation: (options?: { onSuccess?: (data: { ok: true; embedded: number }) => void }) => ({
+        useMutation: (options?: {
+          onSuccess?: (data: { ok: true; embedded: number }) => void;
+        }) => ({
           mutate: () => {
             regenerateMutateMock();
             options?.onSuccess?.({ ok: true, embedded: 3 });
@@ -105,6 +109,11 @@ vi.mock('@/lib/trpc', () => ({
       delete: {
         useMutation: () => ({ mutateAsync: vi.fn() }),
       },
+    },
+    // ENG-195 — the margin query is admin-only; the page keeps a stable
+    // empty column while an enabled query loads.
+    reports: {
+      profit: { margin: { useQuery: marginUseQueryMock } },
     },
     categories: {
       tree: {
@@ -146,6 +155,7 @@ describe('ProductsPage semantic-search module gate', () => {
     regenerateMutateMock.mockReset();
     semanticSearchInvalidateMock.mockReset();
     embeddingHealthInvalidateMock.mockReset();
+    marginUseQueryMock.mockReset();
     useAuthMock.mockReturnValue({
       user: { id: 'u-1', role: 'manager' },
     });
@@ -154,11 +164,29 @@ describe('ProductsPage semantic-search module gate', () => {
       isFetching: false,
     });
     embeddingHealthUseQueryMock.mockReturnValue({ data: null, isLoading: false });
+    marginUseQueryMock.mockReturnValue({ data: null, isLoading: false, error: null });
     useModulesSnapshotMock.mockReturnValue({
       modules: { 'semantic-search': true },
       isLoading: false,
       isPlaceholder: false,
     });
+  });
+
+  it('only enables the realized-margin query for admins', () => {
+    useIsModuleActiveMock.mockReturnValue(false);
+    render(<ProductsPage />);
+    expect(marginUseQueryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ limit: 500 }),
+      expect.objectContaining({ enabled: false })
+    );
+
+    marginUseQueryMock.mockClear();
+    useAuthMock.mockReturnValue({ user: { id: 'u-admin', role: 'admin' } });
+    render(<ProductsPage />);
+    expect(marginUseQueryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ limit: 500 }),
+      expect.objectContaining({ enabled: true, staleTime: 5 * 60_000 })
+    );
   });
 
   it('hides the semantic toolbar and disables the query when module is inactive', () => {

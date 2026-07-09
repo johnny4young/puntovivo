@@ -4,6 +4,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
 import { invalidateGroups, SALE_COMPLETION_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { playSaleComplete } from '@/lib/sound';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
@@ -78,6 +79,7 @@ export function useSalesMutations({
       setProductSearchQuery('');
       setSaleError(null);
       setIsPaymentModalOpen(false);
+      playSaleComplete();
       toast.success({
         title: t('toast.success'),
         description: `${itemCount} ${t('toast.successDetail')}`,

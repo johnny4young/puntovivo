@@ -23,12 +23,7 @@
 
 import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import {
-  cashSessions,
-  operationEvents,
-  saleItems,
-  sales,
-} from '../../db/schema.js';
+import { cashSessions, operationEvents, saleItems, sales } from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { removeKdsOrders } from '../../services/kds/remove.js';
@@ -40,21 +35,15 @@ import {
 } from '../../services/cash-session.js';
 import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js';
 import { createModuleLogger } from '../../logging/logger.js';
-import {
-  buildVoidedSaleNotes,
-  getPersistedCashContribution,
-} from './policies.js';
+import { buildVoidedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
-import { restoreLotsForSale } from '../../services/inventory-lots/index.js';
-import { getOriginalDeeCufe } from './fiscal-policy.js';
 import {
-  emitCompleteSaleEffects,
-  type JournalEffectInput,
-} from './journal-effects.js';
-import type {
-  CompleteSaleContext,
-  CompleteSaleResult,
-} from './types.js';
+  enqueueInventoryLotUpdatesForSale,
+  restoreLotsForSale,
+} from '../../services/inventory-lots/index.js';
+import { getOriginalDeeCufe } from './fiscal-policy.js';
+import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
+import type { CompleteSaleContext, CompleteSaleResult } from './types.js';
 
 const fallbackLog = createModuleLogger('application/sales/voidSale');
 
@@ -70,10 +59,7 @@ async function lookupJournalEventId(
     .select({ id: operationEvents.id })
     .from(operationEvents)
     .where(
-      and(
-        eq(operationEvents.tenantId, tenantId),
-        eq(operationEvents.operationId, operationId)
-      )
+      and(eq(operationEvents.tenantId, tenantId), eq(operationEvents.operationId, operationId))
     )
     .get();
   return row?.id ?? null;
@@ -165,10 +151,7 @@ export async function voidSale(
         })
         .from(cashSessions)
         .where(
-          and(
-            eq(cashSessions.id, existing.cashSessionId),
-            eq(cashSessions.tenantId, ctx.tenantId)
-          )
+          and(eq(cashSessions.id, existing.cashSessionId), eq(cashSessions.tenantId, ctx.tenantId))
         )
         .get()
     : null;
@@ -185,6 +168,7 @@ export async function voidSale(
   let inventoryMovementIds: string[] = [];
   let cashMovementId: string | null = null;
   let auditLogId: string | null = null;
+  let restoredLotIds: string[] = [];
   const refundCashAmount = await getPersistedSaleCashContribution(ctx.db, {
     tenantId: ctx.tenantId,
     saleId: input.id,
@@ -206,7 +190,11 @@ export async function voidSale(
     });
 
     // Auditoría 2026-07 — restore consumed lots on void.
-    restoreLotsForSale(tx, { tenantId: ctx.tenantId, saleId: input.id, now });
+    restoredLotIds = restoreLotsForSale(tx, {
+      tenantId: ctx.tenantId,
+      saleId: input.id,
+      now,
+    }).lotIds;
 
     tx.update(sales)
       .set({
@@ -254,9 +242,7 @@ export async function voidSale(
       },
       metadata: {
         ...(input.reason ? { reason: input.reason } : {}),
-        ...(voidReversibleSessionId
-          ? { reversedCashSessionId: voidReversibleSessionId }
-          : {}),
+        ...(voidReversibleSessionId ? { reversedCashSessionId: voidReversibleSessionId } : {}),
       },
     });
   });
@@ -267,6 +253,10 @@ export async function voidSale(
     operation: 'update',
     data: { id: input.id, status: 'voided', reason: input.reason ?? null },
   });
+
+  // ENG-192 — enqueue the lots the void credited back so the mutation
+  // reaches sync_outbox.
+  await enqueueInventoryLotUpdatesForSale(ctx, restoredLotIds, input.id);
 
   // ENG-020 — emit DIAN credit note (NC) for the voided sale. Pulls
   // the original DEE's CUFE so the NC references it. Best-effort.

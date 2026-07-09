@@ -103,6 +103,7 @@
     "assignmentSelectedHint": "El diálogo de apertura precargará la plantilla estándar de denominaciones de este registro.",
     "chargeBlocked": "El cobro se habilita cuando el conteo de apertura queda registrado.",
     "blindCloseHint": "El cierre ciego mantiene oculto el saldo esperado hasta que envías el conteo final.",
+    "supervisedCloseHint": "El cierre supervisado muestra la diferencia en vivo mientras cuadras el cajón.",
     "movementTypes": {
       "sale": "Venta en efectivo",
       "refund": "Reembolso",
@@ -170,19 +171,25 @@
       "confirm": "Cerrar caja",
       "closing": "Cerrando...",
       "description": "Cuenta todo el cajón, registra el total ciego de cierre y envía el desglose por denominaciones para reconciliar el turno.",
+      "supervisedDescription": "Cuenta el cajón por denominación. El cuadre en vivo está disponible porque supervisas este cierre.",
       "registerName": "Registro",
       "openedAt": "Abierta",
       "actualCount": "Total ciego de cierre",
+      "supervisedActualCount": "Total de cierre",
       "actualCountRequired": "El conteo de cierre no puede ser negativo.",
       "countedTotal": "Total por denominaciones",
       "blindClose": "Cierre ciego",
       "blindCloseHint": "El saldo esperado permanece oculto hasta que envías el conteo.",
+      "supervisedClose": "Cierre supervisado",
+      "supervisedCloseHint": "El cuadre en vivo está visible para gerentes y administradores.",
       "mismatch": "El total ciego de cierre debe coincidir con el total contado por denominaciones.",
+      "supervisedMismatch": "El total de cierre debe coincidir con el total contado por denominaciones.",
       "denominations": "Conteo final por denominaciones",
       "denominationsHint": "Usa cantidades enteras para cada billete o moneda que quede en el cajón.",
       "lineTotal": "Total de la línea: {{total}}",
       "countFor": "Cantidad para la denominación {{denomination}}",
       "blindBadge": "Cierre ciego",
+      "supervisedBadge": "Cierre supervisado",
       "justificationLabel": "Justificación (opcional)",
       "justificationPlaceholder": "Explica cualquier sobrante o faltante…",
       "byMethodTitle": "Por método de pago",
@@ -193,6 +200,11 @@
         "transfer": "Transferencia",
         "credit": "Crédito",
         "other": "Otro"
+      },
+      "liveDelta": {
+        "balanced": "Cuadrada — lo contado coincide con lo esperado",
+        "over": "Sobrante — lo contado supera lo esperado",
+        "short": "Faltante — lo contado está por debajo de lo esperado"
       }
     },
     "movementForm": {
@@ -593,5 +605,9 @@
     "toast": {
       "applied": "Cobro exacto preparado."
     }
+  },
+  "sound": {
+    "enable": "Activa los sonidos de la caja",
+    "disable": "Desactiva los sonidos de la caja"
   }
 }

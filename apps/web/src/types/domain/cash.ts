@@ -36,7 +36,8 @@ export interface CashSession {
   registerName: string;
   openingFloat: number;
   openingCountDenominations: CashSessionDenomination[];
-  expectedBalance: number;
+  /** Null while an open cashier session is enforcing blind close. */
+  expectedBalance: number | null;
   actualCount?: number | null;
   actualCountDenominations?: CashSessionDenomination[] | null;
   overShort?: number | null;

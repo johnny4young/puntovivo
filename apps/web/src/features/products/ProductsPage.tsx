@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
@@ -31,6 +31,12 @@ function canManageProducts(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
 }
 
+function createMarginWindow() {
+  const to = new Date();
+  const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+  return { fromDate: from.toISOString(), toDate: to.toISOString(), limit: 500 };
+}
+
 export function ProductsPage() {
   // ENG-170b — `semanticSearch` is referenced via bare `i18next.t('semanticSearch:…')`
   // in the match column; declare it here so the lazy namespace loads (and the page
@@ -42,6 +48,23 @@ export function ProductsPage() {
   const canManage = canManageProducts(user?.role);
   const canDelete = user?.role === 'admin';
   const canRegenerate = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin';
+
+  // ENG-195 — realized 30-day gross margin per product for the owner-mode
+  // traffic light. Admin-only: the procedure is managerOrAdmin on the server,
+  // and the column is an owner decision surface, so `enabled` keeps every
+  // other role from even issuing the query.
+  const [marginWindow] = useState(createMarginWindow);
+  const marginQuery = trpc.reports.profit.margin.useQuery(marginWindow, {
+    enabled: isAdmin,
+    staleTime: 5 * 60_000,
+  });
+  const marginByProduct = useMemo(() => {
+    if (!isAdmin) return null;
+    return new Map(
+      (marginQuery.data?.products ?? []).map(row => [row.productId, row.grossMarginPct])
+    );
+  }, [isAdmin, marginQuery.data]);
 
   // ENG-048 — the semantic-search toggle/state machine + module gate lives in
   // its own hook; the page keeps the literal `products.list` query (fed by the
@@ -250,6 +273,14 @@ export function ProductsPage() {
               title={t('page.title')}
             />
 
+            {isAdmin && marginQuery.error && (
+              <div className="pv-strip warning" role="alert">
+                <span className="msg">
+                  {translateServerError(marginQuery.error, t, t('table.marginUnavailable'))}
+                </span>
+              </div>
+            )}
+
             {semantic.canUseSemantic && (
               <>
                 {/* ENG-048 — semantic toolbar: toggle, dedicated input, regen button */}
@@ -327,7 +358,8 @@ export function ProductsPage() {
                 product => setProductToDelete(product),
                 canManage,
                 canDelete,
-                semantic.semanticIsActive
+                semantic.semanticIsActive,
+                marginByProduct
               )}
               data={displayProducts}
               searchKey={semantic.semanticModeEnabled ? undefined : 'name'}

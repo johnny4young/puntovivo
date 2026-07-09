@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TRPCClientError } from '@trpc/client';
+import { useQueryClient } from '@tanstack/react-query';
 import type { User, Tenant, LoginCredentials } from '@/types';
 import {
   clearAccessToken,
@@ -21,10 +22,7 @@ import { isNetworkConnectivityError } from '@/lib/translateServerError';
 import { primeDeviceIdCache, readDeviceId, storeDeviceId } from '@/lib/deviceId';
 import { getRuntimeConfigSync } from '@/lib/runtimeConfigClient';
 import { clearAuthSession, persistAuthSession } from './authStorage';
-import {
-  getDefaultRouteForRole,
-  getDefaultRouteForRoleWithSetup,
-} from './roleAccess';
+import { getDefaultRouteForRole, getDefaultRouteForRoleWithSetup } from './roleAccess';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { setActiveTenantId } from '@/lib/observability';
@@ -113,6 +111,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // ENG-171 — stable identity (only stable refs inside: module helpers,
   // store getState, and useState setters) so `logout` can list it as a
@@ -129,6 +128,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // them with the session so a different user never inherits an
     // in-flight product/customer modal after logout or token expiry.
     useQuickCreateStore.getState().reset();
+    // Authenticated tRPC query keys do not include the current user because
+    // identity comes from the access token. Purge every server-derived cache
+    // entry on logout/expiry so the next operator cannot briefly inherit the
+    // previous user's cash session, sales, or tenant data on a shared POS.
+    queryClient.clear();
     // ENG-025 — clear the desktop session singleton so the main
     // process IPC handlers reject any subsequent db:* / sync:* call
     // until the next successful login. Best-effort: any failure here
@@ -144,7 +148,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // listeners. Anonymous captures from then on emit with
     // `tenantId: null`.
     setActiveTenantId(null);
-  }, []);
+  }, [queryClient]);
 
   const handleAuthSessionExpired = useEffectEvent(() => {
     clearLocalSession();
@@ -240,120 +244,123 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // satisfying exhaustive-deps.
   }, [clearLocalSession]);
 
-  const login = useCallback(async (credentials: LoginCredentials) => {
-    setIsLoading(true);
-    setError(null);
+  const login = useCallback(
+    async (credentials: LoginCredentials) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const authData = await vanillaClient.auth.login.mutate({
-        email: credentials.email,
-        password: credentials.password,
-      });
-      setAccessToken(authData.token);
-      // ENG-025 — bind the access token to the desktop session
-      // singleton so subsequent IPC db:*/sync:* calls can derive
-      // tenantId server-side. No-op in pure-browser mode.
       try {
-        await window.api?.session?.register?.(authData.token);
-      } catch (registerErr) {
-        console.warn('Desktop session register failed during login:', registerErr);
-      }
-
-      // ENG-052 — register the device with the active tenant before
-      // any critical mutation runs. The server-issued id is cached
-      // synchronously so `getTrpcHeaders()` ships `x-device-id` on
-      // every subsequent request. Failures here only block critical
-      // mutations (catalog reads + non-critical writes still work),
-      // so we log the warning and keep the login succeeding.
-      try {
-        const existing = await readDeviceId();
-        const isElectron =
-          typeof window !== 'undefined' &&
-          Boolean((window as unknown as { electron?: unknown }).electron);
-        // ENG-074 — discriminate hub_client terminals so the
-        // Operations Center Authority tab (ENG-075) can render
-        // which devices are hub clients vs full local installs.
-        // Reading the runtime config is cheap (cached at module
-        // init) and a no-op for the pure-web build (returns
-        // device_local).
-        const runtimeConfig = getRuntimeConfigSync();
-        const runtimeMode = runtimeConfig.authorityMode;
-        const kind: 'desktop' | 'web' | 'hub_client' = isElectron
-          ? runtimeMode === 'hub_client'
-            ? 'hub_client'
-            : 'desktop'
-          : 'web';
-        const friendlyName =
-          kind === 'hub_client'
-            ? `puntovivo-hub-client-${navigator.platform || 'unknown'}`
-            : isElectron
-              ? `puntovivo-desktop-${navigator.platform || 'unknown'}`
-              : `puntovivo-web-${navigator.platform || navigator.userAgent.slice(0, 40)}`;
-        const appVersion = isElectron
-          ? await window.api?.getAppVersion?.().catch(() => null)
-          : null;
-        const result = await vanillaClient.auth.registerDevice.mutate({
-          kind,
-          name: friendlyName,
-          deviceId: existing ?? undefined,
-          siteId: runtimeConfig.siteId ?? undefined,
-          appVersion,
-          metadata: {
-            authorityMode: runtimeMode,
-            platform: navigator.platform || null,
-            ...(isElectron ? {} : { userAgent: navigator.userAgent }),
-          },
+        const authData = await vanillaClient.auth.login.mutate({
+          email: credentials.email,
+          password: credentials.password,
         });
-        await storeDeviceId(result.deviceId);
-      } catch (deviceErr) {
-        console.warn('Device registration failed during login:', deviceErr);
-      }
-
-      const session = mapSession(await vanillaClient.auth.me.query());
-
-      persistAuthSession(session);
-      setUser(session.user);
-      setTenant(session.tenant);
-      // ENG-135 — see init path; same tenant attribution applies on
-      // an interactive login.
-      setActiveTenantId(session.user.tenantId);
-
-      // ENG-104 — Post-login routing considers setup readiness so
-      // admins see the readiness checklist when there are unresolved
-      // blockers. Defense in depth: any readiness error collapses to
-      // the legacy default — a broken aggregator NEVER traps the
-      // operator on a setup screen.
-      let postLoginRoute = getDefaultRouteForRole(session.user.role);
-      if (session.user.role === 'admin') {
+        setAccessToken(authData.token);
+        // ENG-025 — bind the access token to the desktop session
+        // singleton so subsequent IPC db:*/sync:* calls can derive
+        // tenantId server-side. No-op in pure-browser mode.
         try {
-          const readiness = await vanillaClient.setupReadiness.get.query();
-          postLoginRoute = getDefaultRouteForRoleWithSetup({
-            role: session.user.role,
-            hasBlockers: readiness.blockerCount > 0,
-            acknowledgedAt: readiness.acknowledgedAt,
-          });
-        } catch (readinessErr) {
-          // Non-fatal — log + fall back to the role default.
-          console.warn(
-            'setupReadiness.get failed at login; using role default route',
-            readinessErr
-          );
+          await window.api?.session?.register?.(authData.token);
+        } catch (registerErr) {
+          console.warn('Desktop session register failed during login:', registerErr);
         }
+
+        // ENG-052 — register the device with the active tenant before
+        // any critical mutation runs. The server-issued id is cached
+        // synchronously so `getTrpcHeaders()` ships `x-device-id` on
+        // every subsequent request. Failures here only block critical
+        // mutations (catalog reads + non-critical writes still work),
+        // so we log the warning and keep the login succeeding.
+        try {
+          const existing = await readDeviceId();
+          const isElectron =
+            typeof window !== 'undefined' &&
+            Boolean((window as unknown as { electron?: unknown }).electron);
+          // ENG-074 — discriminate hub_client terminals so the
+          // Operations Center Authority tab (ENG-075) can render
+          // which devices are hub clients vs full local installs.
+          // Reading the runtime config is cheap (cached at module
+          // init) and a no-op for the pure-web build (returns
+          // device_local).
+          const runtimeConfig = getRuntimeConfigSync();
+          const runtimeMode = runtimeConfig.authorityMode;
+          const kind: 'desktop' | 'web' | 'hub_client' = isElectron
+            ? runtimeMode === 'hub_client'
+              ? 'hub_client'
+              : 'desktop'
+            : 'web';
+          const friendlyName =
+            kind === 'hub_client'
+              ? `puntovivo-hub-client-${navigator.platform || 'unknown'}`
+              : isElectron
+                ? `puntovivo-desktop-${navigator.platform || 'unknown'}`
+                : `puntovivo-web-${navigator.platform || navigator.userAgent.slice(0, 40)}`;
+          const appVersion = isElectron
+            ? await window.api?.getAppVersion?.().catch(() => null)
+            : null;
+          const result = await vanillaClient.auth.registerDevice.mutate({
+            kind,
+            name: friendlyName,
+            deviceId: existing ?? undefined,
+            siteId: runtimeConfig.siteId ?? undefined,
+            appVersion,
+            metadata: {
+              authorityMode: runtimeMode,
+              platform: navigator.platform || null,
+              ...(isElectron ? {} : { userAgent: navigator.userAgent }),
+            },
+          });
+          await storeDeviceId(result.deviceId);
+        } catch (deviceErr) {
+          console.warn('Device registration failed during login:', deviceErr);
+        }
+
+        const session = mapSession(await vanillaClient.auth.me.query());
+
+        persistAuthSession(session);
+        setUser(session.user);
+        setTenant(session.tenant);
+        // ENG-135 — see init path; same tenant attribution applies on
+        // an interactive login.
+        setActiveTenantId(session.user.tenantId);
+
+        // ENG-104 — Post-login routing considers setup readiness so
+        // admins see the readiness checklist when there are unresolved
+        // blockers. Defense in depth: any readiness error collapses to
+        // the legacy default — a broken aggregator NEVER traps the
+        // operator on a setup screen.
+        let postLoginRoute = getDefaultRouteForRole(session.user.role);
+        if (session.user.role === 'admin') {
+          try {
+            const readiness = await vanillaClient.setupReadiness.get.query();
+            postLoginRoute = getDefaultRouteForRoleWithSetup({
+              role: session.user.role,
+              hasBlockers: readiness.blockerCount > 0,
+              acknowledgedAt: readiness.acknowledgedAt,
+            });
+          } catch (readinessErr) {
+            // Non-fatal — log + fall back to the role default.
+            console.warn(
+              'setupReadiness.get failed at login; using role default route',
+              readinessErr
+            );
+          }
+        }
+        navigate(postLoginRoute);
+      } catch (err) {
+        // Store the raw error so consumers can translate it against the active
+        // locale via `translateServerError`. The provider itself stays
+        // locale-agnostic.
+        setError(err);
+        throw err;
+      } finally {
+        setIsLoading(false);
       }
-      navigate(postLoginRoute);
-    } catch (err) {
-      // Store the raw error so consumers can translate it against the active
-      // locale via `translateServerError`. The provider itself stays
-      // locale-agnostic.
-      setError(err);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-    // ENG-171 — `navigate` is the only reactive dependency (react-router
-    // returns a stable reference); every other ref is a module helper or a
-    // stable useState setter, so the callback identity holds across renders.
-  }, [navigate]);
+      // ENG-171 — `navigate` is the only reactive dependency (react-router
+      // returns a stable reference); every other ref is a module helper or a
+      // stable useState setter, so the callback identity holds across renders.
+    },
+    [navigate]
+  );
 
   const logout = useCallback(async () => {
     setIsLoading(true);

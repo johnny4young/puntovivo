@@ -12,6 +12,7 @@ import {
   useBarcodeWedgeListener,
   type WedgeConfig,
 } from '@/features/sales/useBarcodeWedgeListener';
+import { playScanError, playScanSuccess } from '@/lib/sound';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import type { ProductSearchItem, ProductSearchSelection } from '@/types';
@@ -89,6 +90,7 @@ export function useBarcodeProductScanner({
           gs1Scheme: scannerConfig.gs1Scheme ?? 'generic',
         });
         if (!result) {
+          playScanError();
           toast.warning({ title: t('sales:scanner.notFound') });
           return;
         }
@@ -98,27 +100,22 @@ export function useBarcodeProductScanner({
         // mirrors the projection ProductSearchDialog already does.
         const product = result.product as unknown as ProductSearchItem;
         const unitAssignments = product.unitAssignments ?? [];
-        const baseUnit =
-          unitAssignments.find(u => u.isBase) ?? unitAssignments[0];
+        const baseUnit = unitAssignments.find(u => u.isBase) ?? unitAssignments[0];
         if (!baseUnit) {
+          playScanError();
           toast.error({ title: t('sales:scanner.noBaseUnit') });
           return;
         }
         // Packaging-barcode scans resolve to a specific unit (a case/pack);
         // select it instead of the base so the cart line carries its
         // equivalence and price. Base-barcode scans leave resolvedUnitId null.
-        const scannedUnit =
-          result.resolvedUnitId
-            ? unitAssignments.find(u => u.unitId === result.resolvedUnitId) ?? baseUnit
-            : baseUnit;
+        const scannedUnit = result.resolvedUnitId
+          ? (unitAssignments.find(u => u.unitId === result.resolvedUnitId) ?? baseUnit)
+          : baseUnit;
         const overridePrice =
-          typeof result.suggestedPrice === 'number'
-            ? result.suggestedPrice
-            : null;
+          typeof result.suggestedPrice === 'number' ? result.suggestedPrice : null;
         const overrideQuantity =
-          typeof result.suggestedQuantity === 'number'
-            ? result.suggestedQuantity
-            : null;
+          typeof result.suggestedQuantity === 'number' ? result.suggestedQuantity : null;
         const selection: ProductSearchSelection = {
           product,
           unit: scannedUnit,
@@ -129,9 +126,7 @@ export function useBarcodeProductScanner({
           const merged = mergeCartItem(currentItems, selection);
           if (overrideQuantity !== null) {
             return merged.map(item =>
-              item.key === itemKey
-                ? updateCartItem(item, { quantity: overrideQuantity })
-                : item
+              item.key === itemKey ? updateCartItem(item, { quantity: overrideQuantity }) : item
             );
           }
           return merged;
@@ -139,12 +134,14 @@ export function useBarcodeProductScanner({
         setSelectedCartItemKey(itemKey);
         setProductSearchQuery('');
         setSaleError(null);
+        playScanSuccess();
         if (overrideQuantity !== null) {
           toast.success({ title: t('sales:scanner.weightFromLabel') });
         } else if (overridePrice !== null) {
           toast.success({ title: t('sales:scanner.priceFromLabel') });
         }
       } catch (error) {
+        playScanError();
         const fallback = t('sales:scanner.lookupFailed');
         toast.error({
           title: fallback,
@@ -175,9 +172,7 @@ export function useBarcodeProductScanner({
     isProductSearchOpen,
     isPaymentModalOpen,
     isCashSessionModalOpen:
-      isCashSessionModalOpen ||
-      isCashSessionCloseModalOpen ||
-      isCashSessionMovementModalOpen,
+      isCashSessionModalOpen || isCashSessionCloseModalOpen || isCashSessionMovementModalOpen,
     enabled: !!currentSite,
     // ENG-105f — Whitelist the page-level search input so the wedge
     // continues to fire even when the cashier sees focus on it

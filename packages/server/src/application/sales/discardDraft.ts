@@ -22,12 +22,7 @@
 
 import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import {
-  cashSessions,
-  operationEvents,
-  saleItems,
-  sales,
-} from '../../db/schema.js';
+import { cashSessions, operationEvents, saleItems, sales } from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { removeKdsOrders } from '../../services/kds/remove.js';
@@ -35,11 +30,11 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
-import { restoreLotsForSale } from '../../services/inventory-lots/index.js';
 import {
-  emitCompleteSaleEffects,
-  type JournalEffectInput,
-} from './journal-effects.js';
+  enqueueInventoryLotUpdatesForSale,
+  restoreLotsForSale,
+} from '../../services/inventory-lots/index.js';
+import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import type { CompleteSaleContext } from './types.js';
 
 const fallbackLog = createModuleLogger('application/sales/discardDraft');
@@ -56,10 +51,7 @@ async function lookupJournalEventId(
     .select({ id: operationEvents.id })
     .from(operationEvents)
     .where(
-      and(
-        eq(operationEvents.tenantId, tenantId),
-        eq(operationEvents.operationId, operationId)
-      )
+      and(eq(operationEvents.tenantId, tenantId), eq(operationEvents.operationId, operationId))
     )
     .get();
   return row?.id ?? null;
@@ -116,8 +108,7 @@ export async function discardDraft(
     throwServerError({
       trpcCode: 'FORBIDDEN',
       errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
-      message:
-        'Only the cashier who created or suspended this draft can discard it',
+      message: 'Only the cashier who created or suspended this draft can discard it',
       details: { operation: 'discard' },
     });
   }
@@ -142,7 +133,7 @@ export async function discardDraft(
   // credit lands on the site that was debited. Falls back to null for
   // drafts with no cash session link (legacy or orphan).
   const originalSaleSiteId = existing.cashSessionId
-    ? (
+    ? ((
         await ctx.db
           .select({ siteId: cashSessions.siteId })
           .from(cashSessions)
@@ -153,21 +144,20 @@ export async function discardDraft(
             )
           )
           .get()
-      )?.siteId ?? null
+      )?.siteId ?? null)
     : null;
 
   const productStockState = hasItems
-    ? getProductStockTotals(
-        ctx.db,
-        ctx.tenantId,
-        [...new Set(saleLineItems.map(item => item.productId))]
-      )
+    ? getProductStockTotals(ctx.db, ctx.tenantId, [
+        ...new Set(saleLineItems.map(item => item.productId)),
+      ])
     : new Map<string, number>();
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
   const now = new Date().toISOString();
 
   let inventoryMovementIds: string[] = [];
   let auditLogId: string | null = null;
+  let restoredLotIds: string[] = [];
 
   ctx.db.transaction(tx => {
     if (hasItems) {
@@ -184,7 +174,11 @@ export async function discardDraft(
         now,
       });
       // Auditoría 2026-07 — restore consumed lots on draft discard.
-      restoreLotsForSale(tx, { tenantId: ctx.tenantId, saleId: input.saleId, now });
+      restoredLotIds = restoreLotsForSale(tx, {
+        tenantId: ctx.tenantId,
+        saleId: input.saleId,
+        now,
+      }).lotIds;
     }
 
     tx.update(sales)
@@ -226,6 +220,10 @@ export async function discardDraft(
     operation: 'update',
     data: { id: input.saleId, status: 'cancelled', discarded: true },
   });
+
+  // ENG-192 — enqueue the lots the discard credited back so the mutation
+  // reaches sync_outbox.
+  await enqueueInventoryLotUpdatesForSale(ctx, restoredLotIds, input.saleId);
 
   const journalEventId = await lookupJournalEventId(
     ctx.db,
