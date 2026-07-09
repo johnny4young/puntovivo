@@ -13,15 +13,11 @@ import {
   PREFLIGHT_PRIMARY_ELEMENT_ID,
 } from '@/features/sales/CheckoutPreflightPanel';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
-import {
-  ariaKeyshortcutsFor,
-  formatKeysForDisplay,
-  getShortcutById,
-} from '@/lib/shortcuts';
+import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
-import type { CashSession, RegisterAssignment, Site } from '@/types';
+import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
 
 // ENG-179b — explicit `| undefined` on optional fields.
 interface SalesCheckoutPanelProps {
@@ -34,6 +30,8 @@ interface SalesCheckoutPanelProps {
   canCharge: boolean;
   canOpenCashSession: boolean;
   canCloseCashSession: boolean;
+  /** ENG-194 — selects blind-close versus supervised-close guidance. */
+  userRole?: UserRole | undefined;
   onOpenSearch: () => void;
   onCharge: () => void;
   onOpenCashSession: () => void;
@@ -93,6 +91,7 @@ export function SalesCheckoutPanel({
   canCharge,
   canOpenCashSession,
   canCloseCashSession,
+  userRole = 'cashier',
   onOpenSearch,
   onCharge,
   onOpenCashSession,
@@ -110,6 +109,7 @@ export function SalesCheckoutPanel({
   preflightItems = [],
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
+  const hasSupervisedClose = userRole === 'admin' || userRole === 'manager';
   // ENG-074 — when the parent passes `hubReachable === false`, every
   // operational primary action is gated. The renderer never reaches
   // this branch in `device_local` mode because the parent does not
@@ -169,11 +169,11 @@ export function SalesCheckoutPanel({
 
       <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto">
         {/* ENG-081 V4 — "Último escaneado" + "Sugerencia rápida". When the
-          * cart is empty we surface a 4-tile dashed-border grid as a hint
-          * to the cashier (scan, scan again, search, suggest). When the
-          * cart has items, the dashed grid hides and the most-recent line
-          * surfaces as a one-row badge so the operator can verify the
-          * last scan at a glance. */}
+         * cart is empty we surface a 4-tile dashed-border grid as a hint
+         * to the cashier (scan, scan again, search, suggest). When the
+         * cart has items, the dashed grid hides and the most-recent line
+         * surfaces as a one-row badge so the operator can verify the
+         * last scan at a glance. */}
         {draftSummary.itemCount > 0 ? (
           <div className="card-inset relative overflow-hidden px-4 py-3">
             <div
@@ -223,7 +223,8 @@ export function SalesCheckoutPanel({
             </div>
             <p className="mt-2 text-[10.5px] text-secondary-500">
               {t('checkout.quickSuggestionHelper', {
-                defaultValue: 'Las sugerencias por catálogo aparecen aquí cuando estén disponibles.',
+                defaultValue:
+                  'Las sugerencias por catálogo aparecen aquí cuando estén disponibles.',
               })}
             </p>
           </div>
@@ -235,10 +236,10 @@ export function SalesCheckoutPanel({
               <ScanLine className="h-4.5 w-4.5" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-secondary-950">{t('checkout.searchProducts')}</p>
-              <p className="mt-1 text-sm text-secondary-500">
-                {t('checkout.searchHint')}
+              <p className="text-sm font-semibold text-secondary-950">
+                {t('checkout.searchProducts')}
               </p>
+              <p className="mt-1 text-sm text-secondary-500">{t('checkout.searchHint')}</p>
             </div>
           </div>
         </div>
@@ -280,8 +281,16 @@ export function SalesCheckoutPanel({
               </p>
               {cashSession ? (
                 <div className="mt-2 space-y-1">
-                  <p>{t('cashSession.openedAt')}: {formatDateTime(cashSession.openedAt)}</p>
-                  <p>{t('cashSession.blindCloseHint')}</p>
+                  <p>
+                    {t('cashSession.openedAt')}: {formatDateTime(cashSession.openedAt)}
+                  </p>
+                  <p>
+                    {t(
+                      hasSupervisedClose
+                        ? 'cashSession.supervisedCloseHint'
+                        : 'cashSession.blindCloseHint'
+                    )}
+                  </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <button type="button" className="btn-outline" onClick={onOpenMovement}>
                       <WalletCards className="h-4 w-4" />
@@ -363,9 +372,7 @@ export function SalesCheckoutPanel({
           <p className="mt-2 text-[11px] text-secondary-500">{t('checkout.shortcutsHint')}</p>
         </div>
 
-        {preflightItems.length > 0 && (
-          <CheckoutPreflightPanel items={preflightItems} />
-        )}
+        {preflightItems.length > 0 && <CheckoutPreflightPanel items={preflightItems} />}
       </div>
 
       {/* ENG-186/189 (review follow-up) — in the `pos:` lockup this is the
@@ -380,9 +387,7 @@ export function SalesCheckoutPanel({
           disabled={primaryActionDisabled}
           data-testid="checkout-primary-action"
           aria-keyshortcuts={cashSession ? ariaKeyshortcutsFor('sales.charge') : undefined}
-          aria-describedby={
-            preflightHasBlockers ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined
-          }
+          aria-describedby={preflightHasBlockers ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
         >
           {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
           {primaryActionLabel}

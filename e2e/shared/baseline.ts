@@ -49,10 +49,7 @@ export const SECONDARY_SITE_NAME = 'E2E Branch Site';
  * hash and bumped `session_version` so any stale JWT from a previous run
  * is invalidated. Idempotent: safe to call twice.
  */
-export async function ensureUsers(
-  db: Database.Database,
-  tenantId: string
-): Promise<void> {
+export async function ensureUsers(db: Database.Database, tenantId: string): Promise<void> {
   const passwordHash = await argon2.hash(E2E_PASSWORD);
   const now = new Date().toISOString();
 
@@ -172,19 +169,9 @@ export function ensureSecondarySite(
  * secondary site are preserved so `ensureUsers()` /
  * `ensureSecondarySite()` remain idempotent.
  */
-export function cleanupPriorRunArtifacts(
-  db: Database.Database,
-  tenantId: string
-): void {
-  const keepUserPrefixes = [
-    'e2e.admin@',
-    'e2e.manager@',
-    'e2e.cashier@',
-    'e2e.viewer@',
-  ];
-  const keepUserClause = keepUserPrefixes
-    .map(() => 'email not like ?')
-    .join(' and ');
+export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string): void {
+  const keepUserPrefixes = ['e2e.admin@', 'e2e.manager@', 'e2e.cashier@', 'e2e.viewer@'];
+  const keepUserClause = keepUserPrefixes.map(() => 'email not like ?').join(' and ');
   const keepUserArgs = keepUserPrefixes.map(prefix => `${prefix}%`);
 
   // Delete audit_logs referencing the soon-to-disappear actors.
@@ -245,6 +232,19 @@ export function cleanupPriorRunArtifacts(
            )
        )`
   ).run(tenantId, tenantId, tenantId, ...keepUserArgs);
+
+  // Login creates a refresh-token family for every disposable account.
+  // The family has a restrictive user FK, so clear it before deleting the
+  // account on the next run. Keeping this explicit also supports databases
+  // created before refresh-family cleanup was part of the E2E baseline.
+  db.prepare(
+    `delete from auth_refresh_families
+     where tenant_id = ?
+       and user_id in (
+         select id from users
+         where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+       )`
+  ).run(tenantId, tenantId, ...keepUserArgs);
   db.prepare(
     `delete from devices
      where tenant_id = ?
@@ -261,9 +261,9 @@ export function cleanupPriorRunArtifacts(
     `delete from transfer_order_items
      where transfer_order_id in (select id from transfer_orders where tenant_id = ? and notes like 'E2E %')`
   ).run(tenantId);
-  db.prepare(
-    `delete from transfer_orders where tenant_id = ? and notes like 'E2E %'`
-  ).run(tenantId);
+  db.prepare(`delete from transfer_orders where tenant_id = ? and notes like 'E2E %'`).run(
+    tenantId
+  );
 
   // Sale lifecycle.
   db.prepare(
@@ -414,12 +414,10 @@ export function cleanupPriorRunArtifacts(
   ).run(tenantId);
 
   // Disposable products + providers.
-  db.prepare(
-    `delete from products where tenant_id = ? and name like 'E2E %'`
-  ).run(tenantId);
-  db.prepare(
-    `delete from providers where tenant_id = ? and name like 'E2E Provider %'`
-  ).run(tenantId);
+  db.prepare(`delete from products where tenant_id = ? and name like 'E2E %'`).run(tenantId);
+  db.prepare(`delete from providers where tenant_id = ? and name like 'E2E Provider %'`).run(
+    tenantId
+  );
 
   // Finally the disposable user accounts (template users are kept).
   db.prepare(
@@ -438,10 +436,7 @@ export function cleanupPriorRunArtifacts(
  * readiness checklist. The flag stays set across runs; the upsert is
  * idempotent.
  */
-export function ensureSetupAcknowledged(
-  db: Database.Database,
-  tenantId: string
-): void {
+export function ensureSetupAcknowledged(db: Database.Database, tenantId: string): void {
   db.prepare(
     `update tenants
         set settings = json_set(
@@ -510,16 +505,15 @@ export function ensureModulesEnabled(
  * `packages/server/src/db/seed.ts`); throws if the DB is missing
  * either, which means the caller booted against an unmigrated DB.
  */
-export function resolveTenantAndCompany(
-  db: Database.Database
-): { tenantId: string; companyId: string } {
-  const tenant = db
-    .prepare('select id from tenants order by created_at asc limit 1')
-    .get() as { id: string } | undefined;
+export function resolveTenantAndCompany(db: Database.Database): {
+  tenantId: string;
+  companyId: string;
+} {
+  const tenant = db.prepare('select id from tenants order by created_at asc limit 1').get() as
+    | { id: string }
+    | undefined;
   const company = db
-    .prepare(
-      'select id from companies where tenant_id = ? order by created_at asc limit 1'
-    )
+    .prepare('select id from companies where tenant_id = ? order by created_at asc limit 1')
     .get(tenant?.id ?? '') as { id: string } | undefined;
 
   if (!tenant?.id || !company?.id) {

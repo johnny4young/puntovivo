@@ -33,7 +33,10 @@ import {
   requireActiveCashSession,
 } from '../../services/cash-session.js';
 import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
-import { consumeLotsForSaleLine } from '../../services/inventory-lots/index.js';
+import {
+  consumeLotsForSaleLine,
+  enqueueInventoryLotUpdatesForSale,
+} from '../../services/inventory-lots/index.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { inArray } from 'drizzle-orm';
 import {
@@ -459,14 +462,7 @@ export async function runFreshSale(
   // down, possibly depleted) and marked them sync-pending; enqueue each one
   // so the mutation actually reaches sync_outbox instead of waiting for the
   // next receive to touch the row.
-  for (const lotId of consumedLotIds) {
-    await enqueueSync(ctx, {
-      entityType: 'inventory_lots',
-      entityId: lotId,
-      operation: 'update',
-      data: { id: lotId, saleId },
-    });
-  }
+  await enqueueInventoryLotUpdatesForSale(ctx, [...consumedLotIds], saleId);
 
   // ENG-090 — write the customer ledger receivable for full-credit
   // sales. Best-effort post-tx (a ledger write failure does not roll

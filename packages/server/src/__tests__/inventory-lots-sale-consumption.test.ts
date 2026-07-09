@@ -404,7 +404,11 @@ describe('lot consumption on the sale path', () => {
 
     const lotOutboxRows = async () =>
       db
-        .select({ id: syncOutbox.id, operation: syncOutbox.operation })
+        .select({
+          id: syncOutbox.id,
+          operation: syncOutbox.operation,
+          payload: syncOutbox.payload,
+        })
         .from(syncOutbox)
         .where(
           and(
@@ -415,7 +419,8 @@ describe('lot consumption on the sale path', () => {
         )
         .all();
 
-    const beforeSale = (await lotOutboxRows()).length;
+    const beforeSale = await lotOutboxRows();
+    const beforeSaleIds = new Set(beforeSale.map(row => row.id));
 
     const sale = await completeSale(buildContext(), {
       mode: 'fresh',
@@ -430,12 +435,29 @@ describe('lot consumption on the sale path', () => {
     const saleId = (sale.sale as { id: string }).id;
 
     const afterSale = await lotOutboxRows();
-    expect(afterSale.length).toBe(beforeSale + 1);
-    expect(afterSale.at(-1)?.operation).toBe('update');
+    const saleLotRows = afterSale.filter(row => !beforeSaleIds.has(row.id));
+    expect(saleLotRows).toHaveLength(1);
+    expect(saleLotRows[0]?.operation).toBe('update');
+    expect(saleLotRows[0]?.payload).toMatchObject({
+      id: lot.lotId,
+      saleId,
+      onHand: 2,
+      unitCost: 20,
+      status: 'active',
+    });
 
     await returnSale(buildContext(), { id: saleId, reason: 'sync test' });
 
     const afterReturn = await lotOutboxRows();
-    expect(afterReturn.length).toBe(beforeSale + 2);
+    const afterSaleIds = new Set(afterSale.map(row => row.id));
+    const returnLotRows = afterReturn.filter(row => !afterSaleIds.has(row.id));
+    expect(returnLotRows).toHaveLength(1);
+    expect(returnLotRows[0]?.payload).toMatchObject({
+      id: lot.lotId,
+      saleId,
+      onHand: 6,
+      unitCost: 20,
+      status: 'active',
+    });
   });
 });

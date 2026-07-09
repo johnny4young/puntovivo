@@ -43,7 +43,10 @@ import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js'
 import { createModuleLogger } from '../../logging/logger.js';
 import { buildReturnedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
-import { restoreLotsForSale } from '../../services/inventory-lots/index.js';
+import {
+  enqueueInventoryLotUpdatesForSale,
+  restoreLotsForSale,
+} from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import { getSaleRecord } from './sale-read.js';
@@ -361,14 +364,7 @@ export async function returnSale(
   // ENG-192 — the restore above credited these lots back (on_hand bumped,
   // depleted ones reactivated); enqueue each so the mutation reaches
   // sync_outbox.
-  for (const lotId of restoredLotIds) {
-    await enqueueSync(ctx, {
-      entityType: 'inventory_lots',
-      entityId: lotId,
-      operation: 'update',
-      data: { id: lotId, saleId: input.id },
-    });
-  }
+  await enqueueInventoryLotUpdatesForSale(ctx, restoredLotIds, input.id);
 
   await enqueueSync(ctx, {
     entityType: 'sales',

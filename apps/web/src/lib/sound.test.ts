@@ -43,10 +43,12 @@ function makeAudioContextMock() {
 
 describe('sound', () => {
   beforeEach(() => {
+    setSoundEnabled(false);
     window.localStorage.clear();
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -77,6 +79,18 @@ describe('sound', () => {
       playScanError();
       playSaleComplete();
     }).not.toThrow();
+  });
+
+  it('keeps the toggle usable for the session when localStorage is unavailable', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('storage blocked');
+    });
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage blocked');
+    });
+
+    expect(() => setSoundEnabled(true)).not.toThrow();
+    expect(isSoundEnabled()).toBe(true);
   });
 
   it('drives the oscillator pipeline when enabled', () => {

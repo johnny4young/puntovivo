@@ -143,7 +143,8 @@ vuelto ventaja vendible.
   encolar las mutaciones de lote junto al enqueue de la venta (post-commit,
   mismo patrón que `runCompleteDraft.ts:360`).
 - **AC**: venta de producto lot-tracked → fila(s) `inventory_lots` en
-  `sync_outbox`; reversa también; test de round-trip.
+  `sync_outbox` con snapshot post-commit (on-hand/estado/costo); reversa
+  también; test de round-trip.
 
 ---
 
@@ -226,13 +227,15 @@ XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
 ### WC-C2 · Feedback sonoro del checkout `[checkout]` — **S** ⭐
 
 - **Qué**: beep corto de éxito al agregar ítem por scanner, tono distinto en
-  error (producto no encontrado / sin stock), "cha-ching" sutil opcional al
-  completar venta. Configurable por sede (on/off/volumen).
+  error (producto no encontrado / sin stock), y arpegio sutil opcional al
+  completar venta. Ajuste de diseño: el switch es local al dispositivo
+  (on/off), porque el sonido pertenece al hardware de la caja, no al tenant.
 - **Cómo**: `apps/web/src/lib/sound.ts` con Web Audio API (osciladores — cero
   assets, cero deps); hook en `lookupByBarcode` success/fail y en
-  `SALE_COMPLETION`. Ajuste en Site settings (`sites.settings.sounds`).
-- **AC**: sin autoplay-block (se arma tras primer gesto); apagado por defecto
-  en tests; toggle persiste por sede.
+  `SALE_COMPLETION`; toggle en el header POS con preferencia en localStorage
+  y fallback de sesión si el storage está bloqueado.
+- **AC**: apagado por defecto; habilitarlo prueba el speaker en el mismo gesto;
+  toggle persiste por dispositivo; audio nunca rompe checkout.
 
 ### WC-C3 · Radar de vencimientos accionable `[stock]` — **M** ⭐
 
@@ -273,7 +276,9 @@ XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
   Convierte el ledger de ENG-190 en decisión diaria de compra/precio.
 - **Cómo**: el margen por producto ya sale de `reports.profit.margin`
   (rango 30 días); cachear con react-query staleTime 5 min; badge pv-badge.
-- **AC**: cajeros NO lo ven; umbral configurable en Company settings; EN/ES.
+- **AC**: cajeros NO lo ven; umbrales exportados como constantes (30/15) para
+  que un futuro setting de tenant los reemplace sin reescribir la columna;
+  EN/ES y error de datos no bloqueante.
 
 ### WC-C7 · Primera venta en 5 minutos `[checkout]` — **M**
 
@@ -295,11 +300,14 @@ XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
 
 ### WC-C9 · Contador de caja con semáforo en vivo `[caja]` — **S**
 
-- **Qué**: en el cierre de caja, mientras el cajero digita denominaciones (la
-  estructura `denominations` ya existe), el delta esperado-vs-contado se
-  actualiza en vivo con color — cuadrar se siente como "acertar", no como
-  llenar un formulario.
-- **AC**: delta en vivo por denominación; sin cambiar la validación server.
+- **Qué**: en el cierre de caja, mientras un manager/admin digita
+  denominaciones (la estructura `denominations` ya existe), el delta
+  esperado-vs-contado se actualiza en vivo con color. Ajuste anti-fraude: el
+  cajero conserva el cierre ciego; el saldo esperado se redacta también en la
+  respuesta API mientras su sesión está abierta.
+- **AC**: delta en vivo por denominación para manager/admin; conteo cero y
+  estados transitorios no numéricos cubiertos; cajero sin saldo esperado en
+  UI ni payload; sin cambiar la validación de cierre del servidor.
 
 ---
 
@@ -490,8 +498,10 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
   ≡ pedido, orden FEFO estable, totalCost ≡ Σ(qty×cost); (3) resolución de
   precios cuando exista WC-D1. Los golden vectors actuales se quedan; esto
   cubre el espacio que ellos no.
-- **AC**: 3 suites property con ≥ 1 000 casos cada una en < 5 s; integradas al
-  `test:coverage` normal.
+- **AC de ENG-196**: suites de dinero y FEFO integradas al `test:coverage`
+  normal; 1 000 ejecuciones por propiedad de dinero y 500 por propiedad FEFO
+  (miles de casos totales, < 5 s). La tercera suite queda ligada a WC-D1,
+  porque la resolución de listas de precios todavía no existe.
 
 ### WC-E2 · Contract snapshot del API surface — **S**
 

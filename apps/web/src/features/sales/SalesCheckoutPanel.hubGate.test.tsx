@@ -14,7 +14,7 @@ import { render } from '@/test/utils';
 import { SalesCheckoutPanel } from './SalesCheckoutPanel';
 import { PREFLIGHT_PRIMARY_ELEMENT_ID } from './CheckoutPreflightPanel';
 import type { PreflightItem } from './useCheckoutPreflight';
-import type { CashSession, RegisterAssignment, Site } from '@/types';
+import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
 
 const SITE: Site = {
   id: 'site-1',
@@ -59,6 +59,7 @@ function renderPanel(
     preflightItems?: readonly PreflightItem[];
     canSuspend?: boolean;
     onSuspend?: () => void;
+    userRole?: UserRole;
   } = {}
 ) {
   return render(
@@ -72,6 +73,7 @@ function renderPanel(
       canCharge={true}
       canOpenCashSession={true}
       canCloseCashSession={true}
+      userRole={overrides.userRole}
       onOpenSearch={vi.fn()}
       onCharge={vi.fn()}
       onOpenCashSession={vi.fn()}
@@ -87,6 +89,17 @@ function renderPanel(
 }
 
 describe('SalesCheckoutPanel hub gate (ENG-074)', () => {
+  it('ENG-194 — keeps cashier guidance blind and labels privileged closes as supervised', () => {
+    const cashier = renderPanel({ userRole: 'cashier' });
+    expect(screen.getByText(/blind close keeps/i)).toBeInTheDocument();
+    expect(screen.queryByText(/supervised close shows/i)).not.toBeInTheDocument();
+    cashier.unmount();
+
+    renderPanel({ userRole: 'manager' });
+    expect(screen.getByText(/supervised close shows/i)).toBeInTheDocument();
+    expect(screen.queryByText(/blind close keeps/i)).not.toBeInTheDocument();
+  });
+
   it('renders shortcut chips from the canonical shortcut catalogue', () => {
     Object.defineProperty(navigator, 'platform', {
       value: 'Linux x86_64',

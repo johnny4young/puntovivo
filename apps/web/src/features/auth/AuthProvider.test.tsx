@@ -18,6 +18,7 @@ const {
   loginMutateMock,
   logoutMutateMock,
   healthCheckMock,
+  queryClientClearMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   setAccessTokenMock: vi.fn(),
@@ -32,12 +33,22 @@ const {
   loginMutateMock: vi.fn(),
   logoutMutateMock: vi.fn(),
   healthCheckMock: vi.fn(),
+  queryClientClearMock: vi.fn(),
 }));
 
+const queryClientMock = { clear: queryClientClearMock };
+
+vi.mock('@tanstack/react-query', async () => {
+  const actual =
+    await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
+  return {
+    ...actual,
+    useQueryClient: () => queryClientMock,
+  };
+});
+
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>(
-    'react-router-dom'
-  );
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
     ...actual,
     useNavigate: () => navigateMock,
@@ -120,6 +131,7 @@ beforeEach(() => {
   loginMutateMock.mockReset();
   logoutMutateMock.mockReset();
   healthCheckMock.mockReset().mockResolvedValue({ ok: true });
+  queryClientClearMock.mockReset();
 });
 
 afterEach(() => {
@@ -130,9 +142,7 @@ afterEach(() => {
 describe('useAuth — context guard', () => {
   it('throws a clear error when used outside an AuthProvider', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => renderHook(() => useAuth())).toThrow(
-      /useAuth must be used within AuthProvider/
-    );
+    expect(() => renderHook(() => useAuth())).toThrow(/useAuth must be used within AuthProvider/);
     consoleSpy.mockRestore();
   });
 });
@@ -178,9 +188,7 @@ describe('AuthProvider — bootstrap', () => {
 
     function Probe() {
       const auth = useAuth();
-      return (
-        <span data-testid="auth">{auth.isAuthenticated ? 'yes' : 'no'}</span>
-      );
+      return <span data-testid="auth">{auth.isAuthenticated ? 'yes' : 'no'}</span>;
     }
     render(
       <MemoryRouter>
@@ -197,6 +205,7 @@ describe('AuthProvider — bootstrap', () => {
     expect(clearSessionMock).toHaveBeenCalled();
     expect(resetWorkspacesMock).toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(queryClientClearMock).toHaveBeenCalled();
     consoleSpy.mockRestore();
   });
 
@@ -207,9 +216,7 @@ describe('AuthProvider — bootstrap', () => {
 
     function Probe() {
       const auth = useAuth();
-      return (
-        <span data-testid="auth">{auth.isAuthenticated ? 'yes' : 'no'}</span>
-      );
+      return <span data-testid="auth">{auth.isAuthenticated ? 'yes' : 'no'}</span>;
     }
     render(wrap({ children: <Probe /> }));
     await waitFor(() => {
@@ -333,6 +340,7 @@ describe('AuthProvider — logout flow', () => {
     });
     expect(clearAccessTokenMock).toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(queryClientClearMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(auth.isAuthenticated).toBe(false);
   });

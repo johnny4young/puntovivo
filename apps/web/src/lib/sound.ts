@@ -20,6 +20,7 @@
 const STORAGE_KEY = 'puntovivo-sound-enabled';
 
 let audioContext: AudioContext | null = null;
+let volatileSoundEnabled: boolean | null = null;
 
 function getAudioContext(): AudioContext | null {
   if (audioContext) return audioContext;
@@ -36,17 +37,25 @@ function getAudioContext(): AudioContext | null {
 /** Device-local preference; defaults to OFF until the operator opts in. */
 export function isSoundEnabled(): boolean {
   try {
-    return window.localStorage?.getItem(STORAGE_KEY) === 'true';
+    const stored = window.localStorage?.getItem(STORAGE_KEY);
+    if (stored !== null && stored !== undefined) {
+      volatileSoundEnabled = stored === 'true';
+      return volatileSoundEnabled;
+    }
   } catch {
-    return false;
+    // Fall through to the in-memory preference when storage is unavailable.
   }
+  return volatileSoundEnabled ?? false;
 }
 
 export function setSoundEnabled(enabled: boolean): void {
+  // Keep sound usable for the current app lifetime even when private mode or
+  // a hardened webview rejects localStorage writes.
+  volatileSoundEnabled = enabled;
   try {
     window.localStorage?.setItem(STORAGE_KEY, String(enabled));
   } catch {
-    // Storage unavailable (private mode) — the toggle simply does not persist.
+    // Storage unavailable — the toggle remains session-local.
   }
 }
 

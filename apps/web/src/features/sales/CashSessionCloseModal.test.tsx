@@ -166,8 +166,68 @@ describe('CashSessionCloseModal', () => {
       await user.type(fiftyCountInput, fifties);
 
       const strip = screen.getByTestId('close-session-live-delta');
+      expect(strip).toHaveAttribute('role', 'status');
+      expect(screen.getAllByText('Supervised close').length).toBeGreaterThan(0);
       expect(strip.textContent).toMatch(message);
       expect(strip.textContent).toContain(delta);
     }
   );
+
+  it('shows a manager the full shortfall when the valid count is zero', () => {
+    mockRole = 'manager';
+    render(
+      <CashSessionCloseModal
+        cashSession={{ ...activeCashSession, expectedBalance: 150 }}
+        isOpen
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    const strip = screen.getByTestId('close-session-live-delta');
+    expect(strip).toHaveTextContent('Short');
+    expect(strip).toHaveTextContent('-$150.00');
+  });
+
+  it('shows the supervised live delta to an administrator', () => {
+    mockRole = 'admin';
+    render(
+      <CashSessionCloseModal
+        cashSession={{ ...activeCashSession, expectedBalance: 150 }}
+        isOpen
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('close-session-live-delta')).toHaveTextContent('Short');
+    expect(screen.getAllByText('Supervised close').length).toBeGreaterThan(0);
+  });
+
+  it('hides the manager delta while a denomination input is not numeric', async () => {
+    mockRole = 'manager';
+    const user = userEvent.setup();
+    render(
+      <CashSessionCloseModal
+        cashSession={{ ...activeCashSession, expectedBalance: 150 }}
+        isOpen
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    const fiftyCountInput = screen.getByLabelText('Count for denomination $50.00');
+    await user.type(fiftyCountInput, '3');
+    expect(screen.getByTestId('close-session-live-delta')).toHaveTextContent('Balanced');
+
+    await user.clear(fiftyCountInput);
+    expect(screen.queryByTestId('close-session-live-delta')).not.toBeInTheDocument();
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+  });
 });

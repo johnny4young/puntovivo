@@ -37,7 +37,10 @@ import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js'
 import { createModuleLogger } from '../../logging/logger.js';
 import { buildVoidedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
-import { restoreLotsForSale } from '../../services/inventory-lots/index.js';
+import {
+  enqueueInventoryLotUpdatesForSale,
+  restoreLotsForSale,
+} from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import type { CompleteSaleContext, CompleteSaleResult } from './types.js';
@@ -253,14 +256,7 @@ export async function voidSale(
 
   // ENG-192 — enqueue the lots the void credited back so the mutation
   // reaches sync_outbox.
-  for (const lotId of restoredLotIds) {
-    await enqueueSync(ctx, {
-      entityType: 'inventory_lots',
-      entityId: lotId,
-      operation: 'update',
-      data: { id: lotId, saleId: input.id },
-    });
-  }
+  await enqueueInventoryLotUpdatesForSale(ctx, restoredLotIds, input.id);
 
   // ENG-020 — emit DIAN credit note (NC) for the voided sale. Pulls
   // the original DEE's CUFE so the NC references it. Best-effort.

@@ -13,11 +13,7 @@ export {
   type LotAllocation,
   type FefoSelection,
 } from './select-fefo.js';
-export {
-  receiveInventoryLot,
-  type ReceiveLotInput,
-  type ReceiveLotResult,
-} from './receive.js';
+export { receiveInventoryLot, type ReceiveLotInput, type ReceiveLotResult } from './receive.js';
 export {
   listLotsForProduct,
   listExpiringLots,
@@ -31,3 +27,4 @@ export {
   type ConsumeLotsResult,
   type RestoreLotsForSaleInput,
 } from './consume-for-sale.js';
+export { enqueueInventoryLotUpdatesForSale } from './enqueue-updates.js';

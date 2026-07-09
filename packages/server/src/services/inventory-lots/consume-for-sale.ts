@@ -76,7 +76,9 @@ export function consumeLotsForSaleLine(
         syncStatus: 'pending',
         updatedAt: input.now,
       })
-      .where(eq(inventoryLots.id, allocation.lotId))
+      .where(
+        and(eq(inventoryLots.id, allocation.lotId), eq(inventoryLots.tenantId, input.tenantId))
+      )
       .run();
 
     db.insert(saleItemLots)
@@ -138,7 +140,7 @@ export function restoreLotsForSale(
     const lot = db
       .select({ onHand: inventoryLots.onHand })
       .from(inventoryLots)
-      .where(eq(inventoryLots.id, row.lotId))
+      .where(and(eq(inventoryLots.id, row.lotId), eq(inventoryLots.tenantId, input.tenantId)))
       .get();
     if (!lot) {
       continue;
@@ -151,7 +153,7 @@ export function restoreLotsForSale(
         syncStatus: 'pending',
         updatedAt: input.now,
       })
-      .where(eq(inventoryLots.id, row.lotId))
+      .where(and(eq(inventoryLots.id, row.lotId), eq(inventoryLots.tenantId, input.tenantId)))
       .run();
     lotIds.add(row.lotId);
     db.delete(saleItemLots).where(eq(saleItemLots.id, row.id)).run();

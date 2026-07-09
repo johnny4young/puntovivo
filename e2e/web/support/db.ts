@@ -171,7 +171,10 @@ function readJson<T>(value: string | null): T | null {
 
 function getTenantAndSites(db: Database): { tenantId: string; sites: BusinessSite[] } {
   const tenant = db
-    .prepare<{ id: string; name: string }>('select id, name from tenants order by created_at asc limit 1')
+    .prepare<{
+      id: string;
+      name: string;
+    }>('select id, name from tenants order by created_at asc limit 1')
     .get() as { id: string; name: string } | undefined;
 
   if (!tenant) {
@@ -194,9 +197,9 @@ function getTenantAndSites(db: Database): { tenantId: string; sites: BusinessSit
 }
 
 function getPasswordHash(db: Database, email: string): string {
-  const template = db
-    .prepare('select password_hash from users where email = ?')
-    .get(email) as { password_hash?: string } | undefined;
+  const template = db.prepare('select password_hash from users where email = ?').get(email) as
+    | { password_hash?: string }
+    | undefined;
 
   if (!template?.password_hash) {
     throw new Error(`Template user ${email} not found`);
@@ -275,7 +278,10 @@ function getDefaultUnitId(db: Database): string {
 }
 
 function normalizeSeed(seed: string) {
-  return seed.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24);
+  return seed
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .slice(0, 24);
 }
 
 function seedBusinessActors(db: Database, seed: string) {
@@ -334,23 +340,9 @@ function seedBusinessProduct(
   db.prepare(
     `insert into products (
       id, tenant_id, name, sku, price, price2, price3, cost, initial_cost,
-      stock, min_stock, sell_by_fraction, is_active, created_at, updated_at
-    ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?)`
-  ).run(
-    productId,
-    args.tenantId,
-    productName,
-    sku,
-    12500,
-    12500,
-    12500,
-    7500,
-    7500,
-    totalStock,
-    1,
-    now,
-    now
-  );
+      min_stock, sell_by_fraction, is_active, created_at, updated_at
+    ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?)`
+  ).run(productId, args.tenantId, productName, sku, 12500, 12500, 12500, 7500, 7500, 1, now, now);
 
   db.prepare(
     `insert into unit_x_product (
@@ -400,13 +392,15 @@ function seedProvider(db: Database, tenantId: string, seed: string): BusinessPro
 }
 
 function getOpenCashSessionId(db: Database, cashierId: string, siteId: string): string {
-  const session = db.prepare(
-    `select id
+  const session = db
+    .prepare(
+      `select id
      from cash_sessions
      where cashier_id = ? and site_id = ? and status = 'open'
      order by created_at desc, id desc
      limit 1`
-  ).get(cashierId, siteId) as { id?: string } | undefined;
+    )
+    .get(cashierId, siteId) as { id?: string } | undefined;
 
   if (!session?.id) {
     throw new Error(`Open cash session not found for cashier ${cashierId} at site ${siteId}`);
@@ -425,8 +419,7 @@ function seedScenario(
 
   try {
     const actors = seedBusinessActors(db, seed);
-    const siteStocks =
-      options?.siteStocks ?? actors.sites.map(() => SITE_STOCK);
+    const siteStocks = options?.siteStocks ?? actors.sites.map(() => SITE_STOCK);
     const product = seedBusinessProduct(db, {
       tenantId: actors.tenantId,
       sites: actors.sites,
@@ -569,8 +562,9 @@ export function findLatestSaleForProduct(productId: string, createdBy: string): 
   const db = openDb();
 
   try {
-    const row = db.prepare(
-      `select
+    const row = db
+      .prepare(
+        `select
         sales.id as id,
         sales.sale_number as saleNumber,
         sales.status as status,
@@ -586,7 +580,8 @@ export function findLatestSaleForProduct(productId: string, createdBy: string): 
       where sale_items.product_id = ? and sales.created_by = ?
       order by sales.created_at desc, sales.id desc
       limit 1`
-    ).get(productId, createdBy) as SaleRecord | undefined;
+      )
+      .get(productId, createdBy) as SaleRecord | undefined;
 
     return row ?? null;
   } finally {
@@ -599,8 +594,8 @@ export function getProductStock(productId: string): number | null {
 
   try {
     const row = db
-      .prepare('select stock from products where id = ?')
-      .get(productId) as { stock?: number } | undefined;
+      .prepare('select sum(on_hand) as stock from inventory_balances where product_id = ?')
+      .get(productId) as { stock?: number | null } | undefined;
 
     return row?.stock ?? null;
   } finally {
@@ -608,12 +603,17 @@ export function getProductStock(productId: string): number | null {
   }
 }
 
-export function getInventoryBalance(siteId: string, productId: string): InventoryBalanceRecord | null {
+export function getInventoryBalance(
+  siteId: string,
+  productId: string
+): InventoryBalanceRecord | null {
   const db = openDb();
 
   try {
     const row = db
-      .prepare('select on_hand as onHand, reserved from inventory_balances where site_id = ? and product_id = ?')
+      .prepare(
+        'select on_hand as onHand, reserved from inventory_balances where site_id = ? and product_id = ?'
+      )
       .get(siteId, productId) as InventoryBalanceRecord | undefined;
 
     return row ?? null;
@@ -626,8 +626,9 @@ export function getSaleById(saleId: string): SaleRecord | null {
   const db = openDb();
 
   try {
-    const row = db.prepare(
-      `select
+    const row = db
+      .prepare(
+        `select
         sales.id as id,
         sales.sale_number as saleNumber,
         sales.status as status,
@@ -640,7 +641,8 @@ export function getSaleById(saleId: string): SaleRecord | null {
       left join cash_sessions on cash_sessions.id = sales.cash_session_id
       left join sites on sites.id = cash_sessions.site_id
       where sales.id = ?`
-    ).get(saleId) as SaleRecord | undefined;
+      )
+      .get(saleId) as SaleRecord | undefined;
 
     return row ?? null;
   } finally {
@@ -664,12 +666,16 @@ export function getSaleReturnBySaleId(saleId: string): SaleReturnRecord | null {
   }
 }
 
-export function findLatestPurchaseForProduct(productId: string, createdBy: string): PurchaseRecord | null {
+export function findLatestPurchaseForProduct(
+  productId: string,
+  createdBy: string
+): PurchaseRecord | null {
   const db = openDb();
 
   try {
-    const row = db.prepare(
-      `select
+    const row = db
+      .prepare(
+        `select
         purchases.id as id,
         purchases.purchase_number as purchaseNumber,
         purchases.status as status,
@@ -686,7 +692,8 @@ export function findLatestPurchaseForProduct(productId: string, createdBy: strin
       where purchase_items.product_id = ? and purchases.created_by = ?
       order by purchases.created_at desc, purchases.id desc
       limit 1`
-    ).get(productId, createdBy) as PurchaseRecord | undefined;
+      )
+      .get(productId, createdBy) as PurchaseRecord | undefined;
 
     return row ?? null;
   } finally {
@@ -698,8 +705,9 @@ export function getPurchaseById(purchaseId: string): PurchaseRecord | null {
   const db = openDb();
 
   try {
-    const row = db.prepare(
-      `select
+    const row = db
+      .prepare(
+        `select
         purchases.id as id,
         purchases.purchase_number as purchaseNumber,
         purchases.status as status,
@@ -713,7 +721,8 @@ export function getPurchaseById(purchaseId: string): PurchaseRecord | null {
       left join providers on providers.id = purchases.provider_id
       left join sites on sites.id = purchases.site_id
       where purchases.id = ?`
-    ).get(purchaseId) as PurchaseRecord | undefined;
+      )
+      .get(purchaseId) as PurchaseRecord | undefined;
 
     return row ?? null;
   } finally {
@@ -725,8 +734,9 @@ export function getPurchaseReturnByPurchaseId(purchaseId: string): PurchaseRetur
   const db = openDb();
 
   try {
-    const row = db.prepare(
-      `select
+    const row = db
+      .prepare(
+        `select
         id,
         purchase_id as purchaseId,
         return_amount as total,
@@ -735,7 +745,8 @@ export function getPurchaseReturnByPurchaseId(purchaseId: string): PurchaseRetur
        where purchase_id = ?
        order by created_at desc, id desc
        limit 1`
-    ).get(purchaseId) as PurchaseReturnRecord | undefined;
+      )
+      .get(purchaseId) as PurchaseReturnRecord | undefined;
 
     return row ?? null;
   } finally {
@@ -747,8 +758,9 @@ export function findLatestTransferByNotes(notes: string): TransferRecord | null 
   const db = openDb();
 
   try {
-    const row = db.prepare(
-      `select
+    const row = db
+      .prepare(
+        `select
         id,
         status,
         from_site_id as fromSiteId,
@@ -762,7 +774,8 @@ export function findLatestTransferByNotes(notes: string): TransferRecord | null 
        where notes = ?
        order by created_at desc, id desc
        limit 1`
-    ).get(notes) as TransferRecord | undefined;
+      )
+      .get(notes) as TransferRecord | undefined;
 
     return row ?? null;
   } finally {
@@ -774,8 +787,9 @@ export function getTransferById(transferId: string): TransferRecord | null {
   const db = openDb();
 
   try {
-    const row = db.prepare(
-      `select
+    const row = db
+      .prepare(
+        `select
         id,
         status,
         from_site_id as fromSiteId,
@@ -787,7 +801,8 @@ export function getTransferById(transferId: string): TransferRecord | null {
         received_by as receivedBy
        from transfer_orders
        where id = ?`
-    ).get(transferId) as TransferRecord | undefined;
+      )
+      .get(transferId) as TransferRecord | undefined;
 
     return row ?? null;
   } finally {
@@ -799,8 +814,9 @@ export function getTransferItems(transferId: string): TransferItemRecord[] {
   const db = openDb();
 
   try {
-    return db.prepare(
-      `select
+    return db
+      .prepare(
+        `select
         id,
         transfer_order_id as transferOrderId,
         product_id as productId,
@@ -809,7 +825,8 @@ export function getTransferItems(transferId: string): TransferItemRecord[] {
        from transfer_order_items
        where transfer_order_id = ?
        order by created_at asc, id asc`
-    ).all(transferId) as TransferItemRecord[];
+      )
+      .all(transferId) as TransferItemRecord[];
   } finally {
     db.close();
   }
@@ -822,8 +839,9 @@ export function getLatestCashSessionForCashierSite(
   const db = openDb();
 
   try {
-    const row = db.prepare(
-      `select
+    const row = db
+      .prepare(
+        `select
         id,
         site_id as siteId,
         cashier_id as cashierId,
@@ -839,7 +857,8 @@ export function getLatestCashSessionForCashierSite(
        where cashier_id = ? and site_id = ?
        order by updated_at desc, created_at desc, id desc
        limit 1`
-    ).get(cashierId, siteId) as CashSessionRecord | undefined;
+      )
+      .get(cashierId, siteId) as CashSessionRecord | undefined;
 
     return row ?? null;
   } finally {
@@ -851,20 +870,24 @@ export function getAuditLog(action: string, resourceId: string): AuditLogRecord 
   const db = openDb();
 
   try {
-    const row = db.prepare(
-      `select id, action, resource_id as resourceId, before, after, metadata
+    const row = db
+      .prepare(
+        `select id, action, resource_id as resourceId, before, after, metadata
        from audit_logs
        where action = ? and resource_id = ?
        order by created_at desc, id desc
        limit 1`
-    ).get(action, resourceId) as {
-      id: string;
-      action: string;
-      resourceId: string;
-      before: string | null;
-      after: string | null;
-      metadata: string | null;
-    } | undefined;
+      )
+      .get(action, resourceId) as
+      | {
+          id: string;
+          action: string;
+          resourceId: string;
+          before: string | null;
+          after: string | null;
+          metadata: string | null;
+        }
+      | undefined;
 
     if (!row) {
       return null;

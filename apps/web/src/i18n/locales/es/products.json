@@ -54,7 +54,8 @@
     "match": "Coincidencia",
     "margin": "Margen",
     "marginTooltip": "Margen bruto realizado, últimos 30 días",
-    "marginNoSales": "Sin ventas en los últimos 30 días"
+    "marginNoSales": "Sin ventas en los últimos 30 días",
+    "marginUnavailable": "No se pudieron cargar los datos de margen. La gestión de productos sigue disponible."
   },
   "details": {
     "title": "Detalle del producto",

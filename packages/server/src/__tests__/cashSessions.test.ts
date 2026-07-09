@@ -27,9 +27,7 @@ let siteId: string;
 let baseUnitId: string;
 let testDeviceId: string;
 
-function createTestContext(
-  overrides?: Partial<NonNullable<Context['user']>>
-): Context {
+function createTestContext(overrides?: Partial<NonNullable<Context['user']>>): Context {
   const db = getDatabase();
   const role = overrides?.role ?? 'admin';
   const currentUserId = overrides?.id ?? userId;
@@ -79,7 +77,11 @@ describe('Cash sessions tRPC Router', () => {
     });
 
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
 
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
@@ -134,9 +136,7 @@ describe('Cash sessions tRPC Router', () => {
     const opened = await caller.cashSessions.open({
       registerName: 'Back counter',
       openingFloat: 150,
-      denominations: [
-        { value: 50, count: 3 },
-      ],
+      denominations: [{ value: 50, count: 3 }],
     });
 
     expect(opened.status).toBe('open');
@@ -291,7 +291,10 @@ describe('Cash sessions tRPC Router', () => {
 
     const closed = await caller.cashSessions.close({
       actualCount: 110,
-      denominations: [{ value: 50, count: 2 }, { value: 10, count: 1 }],
+      denominations: [
+        { value: 50, count: 2 },
+        { value: 10, count: 1 },
+      ],
     });
 
     expect(closed.id).toBe(opened.id);
@@ -301,6 +304,7 @@ describe('Cash sessions tRPC Router', () => {
       { value: 50, count: 2 },
       { value: 10, count: 1 },
     ]);
+    expect(closed.expectedBalance).toBe(100);
     expect(closed.overShort).toBe(10);
     expect(closed.closedAt).toEqual(expect.any(String));
 
@@ -480,6 +484,8 @@ describe('Cash sessions tRPC Router', () => {
       denominations: [{ value: 20, count: 6 }],
     });
 
+    expect(opened.expectedBalance).toBeNull();
+
     const paidIn = await caller.cashSessions.recordMovement({
       type: 'paid_in',
       amount: 30,
@@ -507,7 +513,14 @@ describe('Cash sessions tRPC Router', () => {
     expect(movements[1]?.id).toBe(paidIn.id);
 
     const updatedSession = await caller.cashSessions.getActive();
-    expect(updatedSession?.expectedBalance).toBe(140);
+    expect(updatedSession?.expectedBalance).toBeNull();
+
+    const persistedSession = await db
+      .select({ expectedBalance: cashSessions.expectedBalance })
+      .from(cashSessions)
+      .where(eq(cashSessions.id, opened.id))
+      .get();
+    expect(persistedSession?.expectedBalance).toBe(140);
 
     const persistedMovement = await db
       .select()
@@ -659,7 +672,11 @@ describe('Cash sessions tRPC Router', () => {
 
     await closedCaller.cashSessions.close({
       actualCount: 75,
-      denominations: [{ value: 20, count: 3 }, { value: 10, count: 1 }, { value: 5, count: 1 }],
+      denominations: [
+        { value: 20, count: 3 },
+        { value: 10, count: 1 },
+        { value: 5, count: 1 },
+      ],
     });
 
     const report = await adminCaller.cashSessions.report({ limit: 20 });
@@ -677,6 +694,7 @@ describe('Cash sessions tRPC Router', () => {
         registerName: 'North register',
         cashierName: 'Cash Report Active',
         status: 'open',
+        expectedBalance: 60,
       })
     );
     expect(report.recentClosures).toContainEqual(
@@ -740,6 +758,14 @@ describe('Cash sessions tRPC Router', () => {
       openingFloat: 50,
       denominations: [{ value: 10, count: 5 }],
     });
+
+    const ownerReport = await ownerCaller.cashSessions.report({ limit: 5 });
+    expect(ownerReport.activeSessions).toContainEqual(
+      expect.objectContaining({
+        registerName: 'Owner report register',
+        expectedBalance: null,
+      })
+    );
 
     const report = await viewerCaller.cashSessions.report({ limit: 5 });
 

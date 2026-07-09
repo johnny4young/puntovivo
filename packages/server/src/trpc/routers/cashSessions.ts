@@ -63,6 +63,27 @@ function isPrivilegedCashSessionRole(role: string | undefined) {
   return role === 'admin' || role === 'manager';
 }
 
+/**
+ * ENG-194 — enforce blind close at the API boundary, not only in JSX.
+ * Cashiers may inspect browser data, so an open session must not serialize
+ * its expected balance to them. Managers/admins keep the live value and every
+ * role may see it after the session is closed and the final count is locked.
+ */
+function presentCashSessionRecord<T extends { expectedBalance: number; status: 'open' | 'closed' }>(
+  record: T,
+  role: string | undefined
+): Omit<T, 'expectedBalance'> & {
+  expectedBalance: number | null;
+} {
+  return {
+    ...record,
+    expectedBalance:
+      record.status === 'open' && !isPrivilegedCashSessionRole(role)
+        ? null
+        : record.expectedBalance,
+  };
+}
+
 const roundCurrencyAmount = roundMoney;
 
 function getCashSessionDiscrepancy(value: number | null | undefined) {
@@ -97,11 +118,7 @@ function buildCashSessionReportSummary(
   };
 }
 
-async function getCashSessionRecord(
-  db: DatabaseInstance,
-  tenantId: string,
-  id: string
-) {
+async function getCashSessionRecord(db: DatabaseInstance, tenantId: string, id: string) {
   return db
     .select(cashSessionRecordSelection)
     .from(cashSessions)
@@ -111,11 +128,7 @@ async function getCashSessionRecord(
     .get();
 }
 
-async function getCashSessionAccessRecord(
-  db: DatabaseInstance,
-  tenantId: string,
-  id: string
-) {
+async function getCashSessionAccessRecord(db: DatabaseInstance, tenantId: string, id: string) {
   return db
     .select({
       id: cashSessions.id,
@@ -210,7 +223,8 @@ export const cashSessionsRouter = router({
       return null;
     }
 
-    return getCashSessionRecord(ctx.db, ctx.tenantId, activeSession.id);
+    const record = await getCashSessionRecord(ctx.db, ctx.tenantId, activeSession.id);
+    return record ? presentCashSessionRecord(record, ctx.user.role) : null;
   }),
 
   listRecent: managerOrAdminProcedure.query(async ({ ctx }) => {
@@ -274,8 +288,12 @@ export const cashSessionsRouter = router({
 
     return {
       summary: buildCashSessionReportSummary(activeSessions, recentClosures),
-      activeSessions,
-      recentClosures,
+      activeSessions: activeSessions.map(session =>
+        presentCashSessionRecord(session, ctx.user?.role)
+      ),
+      recentClosures: recentClosures.map(session =>
+        presentCashSessionRecord(session, ctx.user?.role)
+      ),
     };
   }),
 
@@ -287,20 +305,16 @@ export const cashSessionsRouter = router({
     if (!created) {
       throw new Error('Failed to load the created cash session');
     }
-    return created;
+    return presentCashSessionRecord(created, ctx.user?.role);
   }),
 
   close: criticalCommandProcedure.input(closeCashSessionInput).mutation(async ({ ctx, input }) => {
     const result = await closeCashSession(buildCashSessionContext(ctx), input);
-    const closedSession = await getCashSessionRecord(
-      ctx.db,
-      ctx.tenantId,
-      result.session.id
-    );
+    const closedSession = await getCashSessionRecord(ctx.db, ctx.tenantId, result.session.id);
     if (!closedSession) {
       throw new Error('Failed to load the closed cash session');
     }
-    return closedSession;
+    return presentCashSessionRecord(closedSession, ctx.user?.role);
   }),
 
   movements: tenantProcedure.input(cashSessionMovementsInput).query(async ({ ctx, input }) => {

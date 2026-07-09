@@ -30,7 +30,10 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
-import { restoreLotsForSale } from '../../services/inventory-lots/index.js';
+import {
+  enqueueInventoryLotUpdatesForSale,
+  restoreLotsForSale,
+} from '../../services/inventory-lots/index.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import type { CompleteSaleContext } from './types.js';
 
@@ -220,14 +223,7 @@ export async function discardDraft(
 
   // ENG-192 — enqueue the lots the discard credited back so the mutation
   // reaches sync_outbox.
-  for (const lotId of restoredLotIds) {
-    await enqueueSync(ctx, {
-      entityType: 'inventory_lots',
-      entityId: lotId,
-      operation: 'update',
-      data: { id: lotId, saleId: input.saleId },
-    });
-  }
+  await enqueueInventoryLotUpdatesForSale(ctx, restoredLotIds, input.saleId);
 
   const journalEventId = await lookupJournalEventId(
     ctx.db,
