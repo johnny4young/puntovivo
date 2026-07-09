@@ -193,6 +193,11 @@
         "transfer": "Transferencia",
         "credit": "Crédito",
         "other": "Otro"
+      },
+      "liveDelta": {
+        "balanced": "Cuadrada — lo contado coincide con lo esperado",
+        "over": "Sobrante — lo contado supera lo esperado",
+        "short": "Faltante — lo contado está por debajo de lo esperado"
       }
     },
     "movementForm": {

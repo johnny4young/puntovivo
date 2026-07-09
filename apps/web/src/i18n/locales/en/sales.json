@@ -193,6 +193,11 @@
         "transfer": "Transfer",
         "credit": "Credit",
         "other": "Other"
+      },
+      "liveDelta": {
+        "balanced": "Balanced — counted matches expected",
+        "over": "Over — counted exceeds expected",
+        "short": "Short — counted is below expected"
       }
     },
     "movementForm": {

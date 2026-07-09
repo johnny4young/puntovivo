@@ -4,6 +4,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '@/i18n';
 import { CashSessionCloseModal } from './CashSessionCloseModal';
 
+// ENG-194 — the modal role-gates the live over/short semaphore; default to
+// cashier so the pre-existing blind-close assertions exercise the strict
+// (no-feedback) path.
+let mockRole = 'cashier';
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ user: { id: 'user-1', role: mockRole } }),
+}));
+
 const activeCashSession = {
   id: 'cash-session-1',
   tenantId: 'tenant-1',
@@ -21,6 +29,7 @@ const activeCashSession = {
 
 describe('CashSessionCloseModal', () => {
   beforeEach(async () => {
+    mockRole = 'cashier';
     await i18n.changeLanguage('en');
   });
 
@@ -107,8 +116,58 @@ describe('CashSessionCloseModal', () => {
         suspendedDraftsCount={0}
       />
     );
-    expect(
-      screen.queryByTestId('close-session-suspended-warning')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('close-session-suspended-warning')).not.toBeInTheDocument();
   });
+
+  // ENG-194 — live over/short semaphore, role-gated.
+  it('never shows the live delta to a cashier, even while counting', async () => {
+    mockRole = 'cashier';
+    const user = userEvent.setup();
+    render(
+      <CashSessionCloseModal
+        cashSession={activeCashSession}
+        isOpen
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+    const fiftyCountInput = screen.getByLabelText('Count for denomination $50.00');
+    await user.clear(fiftyCountInput);
+    await user.type(fiftyCountInput, '2');
+    expect(screen.queryByTestId('close-session-live-delta')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    // expectedBalance is 150: 3×$50 = 150 → balanced.
+    ['balanced', '3', /Balanced/, '$0.00'],
+    // 4×$50 = 200 → over by 50.
+    ['over', '4', /Over/, '$50.00'],
+    // 2×$50 = 100 → short by 50.
+    ['short', '2', /Short/, '-$50.00'],
+  ])(
+    'shows the manager a live %s semaphore with the exact delta',
+    async (_label, fifties, message, delta) => {
+      mockRole = 'manager';
+      const user = userEvent.setup();
+      render(
+        <CashSessionCloseModal
+          cashSession={{ ...activeCashSession, expectedBalance: 150 }}
+          isOpen
+          isSaving={false}
+          error={null}
+          onClose={vi.fn()}
+          onSubmit={vi.fn()}
+        />
+      );
+      const fiftyCountInput = screen.getByLabelText('Count for denomination $50.00');
+      await user.clear(fiftyCountInput);
+      await user.type(fiftyCountInput, fifties);
+
+      const strip = screen.getByTestId('close-session-live-delta');
+      expect(strip.textContent).toMatch(message);
+      expect(strip.textContent).toContain(delta);
+    }
+  );
 });
