@@ -102,12 +102,26 @@ export interface RestoreLotsForSaleInput {
 }
 
 /**
+ * Result of {@link restoreLotsForSale}: how many provenance rows were
+ * reversed and which distinct lots were credited back. `lotIds` exists so
+ * the reversal use-cases can enqueue the mutated lots to the sync outbox
+ * post-commit (ENG-192) — the lot rows are marked sync-pending in here, but
+ * enqueueing is the caller's post-transaction responsibility.
+ */
+export interface RestoreLotsForSaleResult {
+  restored: number;
+  lotIds: string[];
+}
+
+/**
  * Restore every lot a sale consumed: re-increment the recorded lots
  * (reactivating depleted ones) and clear the provenance rows. Used by the
- * full-sale reversals (return / void / discard). Returns the number of
- * consumption rows reversed.
+ * full-sale reversals (return / void / discard).
  */
-export function restoreLotsForSale(db: DatabaseInstance, input: RestoreLotsForSaleInput): number {
+export function restoreLotsForSale(
+  db: DatabaseInstance,
+  input: RestoreLotsForSaleInput
+): RestoreLotsForSaleResult {
   const rows = db
     .select({
       id: saleItemLots.id,
@@ -119,6 +133,7 @@ export function restoreLotsForSale(db: DatabaseInstance, input: RestoreLotsForSa
     .where(and(eq(saleItemLots.tenantId, input.tenantId), eq(saleItems.saleId, input.saleId)))
     .all();
 
+  const lotIds = new Set<string>();
   for (const row of rows) {
     const lot = db
       .select({ onHand: inventoryLots.onHand })
@@ -138,8 +153,9 @@ export function restoreLotsForSale(db: DatabaseInstance, input: RestoreLotsForSa
       })
       .where(eq(inventoryLots.id, row.lotId))
       .run();
+    lotIds.add(row.lotId);
     db.delete(saleItemLots).where(eq(saleItemLots.id, row.id)).run();
   }
 
-  return rows.length;
+  return { restored: rows.length, lotIds: [...lotIds] };
 }

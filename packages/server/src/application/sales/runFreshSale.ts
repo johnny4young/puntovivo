@@ -124,20 +124,15 @@ export async function runFreshSale(
   // payment status, change, and cash collected. `collectCash` carries
   // the fresh-only gate: a fresh sale persisted as a draft never hits
   // the drawer, so cash collected stays 0 until it lands `completed`.
-  const {
-    resolvedPayments,
-    creditSaleAmount,
-    paymentStatus,
-    change,
-    cashCollectedAmount,
-  } = resolveSalePaymentPlan({
-    amountReceived: input.amountReceived,
-    payments: input.payments,
-    paymentMethod: input.paymentMethod,
-    requestedStatus: input.paymentStatus,
-    total,
-    collectCash: input.status === 'completed',
-  });
+  const { resolvedPayments, creditSaleAmount, paymentStatus, change, cashCollectedAmount } =
+    resolveSalePaymentPlan({
+      amountReceived: input.amountReceived,
+      payments: input.payments,
+      paymentMethod: input.paymentMethod,
+      requestedStatus: input.paymentStatus,
+      total,
+      collectCash: input.status === 'completed',
+    });
 
   // ENG-014 — credit-sale pre-flight. Only the credit portion creates a
   // `customer_ledger_entries.kind='sale'` row; the non-credit tenders
@@ -170,6 +165,11 @@ export async function runFreshSale(
   const inventoryMovementIds: string[] = [];
   const paymentEffects: PersistedPaymentEffect[] = [];
   const lotShortfalls: Array<{ productId: string; shortfall: number }> = [];
+  // ENG-192 — distinct lots this sale drew down. Collected inside the tx so
+  // the mutated inventory_lots rows can be enqueued to the sync outbox
+  // post-commit (they are marked sync-pending by consumeLotsForSaleLine, but
+  // nothing pushed them to sync_outbox before this).
+  const consumedLotIds = new Set<string>();
 
   // ENG-176b — resolve the tenant default currency once per sale and
   // propagate it to every row written below (sales header + each
@@ -349,7 +349,7 @@ export async function runFreshSale(
       // that already gated this sale; we do not block the register, we
       // record it for the drift report.
       if (lotTrackedProductIds.has(row.productId)) {
-        const { shortfall } = consumeLotsForSaleLine(tx, {
+        const { selection, shortfall } = consumeLotsForSaleLine(tx, {
           tenantId: ctx.tenantId,
           siteId: saleSiteId,
           productId: row.productId,
@@ -357,6 +357,9 @@ export async function runFreshSale(
           quantity: row.normalizedQuantity,
           now,
         });
+        for (const allocation of selection.allocations) {
+          consumedLotIds.add(allocation.lotId);
+        }
         if (shortfall > 0) {
           lotShortfalls.push({ productId: row.productId, shortfall });
         }
@@ -451,6 +454,19 @@ export async function runFreshSale(
       paymentStatus,
     },
   });
+
+  // ENG-192 — the FEFO consumption above mutated these lots (on_hand drawn
+  // down, possibly depleted) and marked them sync-pending; enqueue each one
+  // so the mutation actually reaches sync_outbox instead of waiting for the
+  // next receive to touch the row.
+  for (const lotId of consumedLotIds) {
+    await enqueueSync(ctx, {
+      entityType: 'inventory_lots',
+      entityId: lotId,
+      operation: 'update',
+      data: { id: lotId, saleId },
+    });
+  }
 
   // ENG-090 — write the customer ledger receivable for full-credit
   // sales. Best-effort post-tx (a ledger write failure does not roll

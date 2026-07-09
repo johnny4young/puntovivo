@@ -41,25 +41,15 @@ import {
 } from '../../services/cash-session.js';
 import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js';
 import { createModuleLogger } from '../../logging/logger.js';
-import {
-  buildReturnedSaleNotes,
-  getPersistedCashContribution,
-} from './policies.js';
+import { buildReturnedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
 import { restoreLotsForSale } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
-import {
-  emitCompleteSaleEffects,
-  type JournalEffectInput,
-} from './journal-effects.js';
+import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import { getSaleRecord } from './sale-read.js';
 import { updateOperationSummary } from '../../services/operation-journal/journal.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
-import type {
-  CompleteSaleContext,
-  CompleteSaleLogger,
-  CompleteSaleResult,
-} from './types.js';
+import type { CompleteSaleContext, CompleteSaleLogger, CompleteSaleResult } from './types.js';
 import type { CompleteSaleSaleRecord } from './completeSale.js';
 
 const fallbackLog = createModuleLogger('application/sales/returnSale');
@@ -76,10 +66,7 @@ async function lookupJournalEventId(
     .select({ id: operationEvents.id })
     .from(operationEvents)
     .where(
-      and(
-        eq(operationEvents.tenantId, tenantId),
-        eq(operationEvents.operationId, operationId)
-      )
+      and(eq(operationEvents.tenantId, tenantId), eq(operationEvents.operationId, operationId))
     )
     .get();
   return row?.id ?? null;
@@ -105,10 +92,7 @@ async function safeUpdateSaleRefundedSummary(
       currencyCode: locale.currency,
     });
   } catch (err) {
-    log.warn(
-      { err, journalEventId },
-      'operation summary update failed (non-blocking)'
-    );
+    log.warn({ err, journalEventId }, 'operation summary update failed (non-blocking)');
   }
 }
 
@@ -165,9 +149,7 @@ export async function returnSale(
   const existingReturn = await ctx.db
     .select({ id: saleReturns.id })
     .from(saleReturns)
-    .where(
-      and(eq(saleReturns.saleId, input.id), eq(saleReturns.tenantId, ctx.tenantId))
-    )
+    .where(and(eq(saleReturns.saleId, input.id), eq(saleReturns.tenantId, ctx.tenantId)))
     .get();
 
   if (existingReturn) {
@@ -239,10 +221,7 @@ export async function returnSale(
         })
         .from(cashSessions)
         .where(
-          and(
-            eq(cashSessions.id, existing.cashSessionId),
-            eq(cashSessions.tenantId, ctx.tenantId)
-          )
+          and(eq(cashSessions.id, existing.cashSessionId), eq(cashSessions.tenantId, ctx.tenantId))
         )
         .get()
     : null;
@@ -272,6 +251,7 @@ export async function returnSale(
   let inventoryMovementIds: string[] = [];
   let cashMovementId: string | null = null;
   let auditLogId: string | null = null;
+  let restoredLotIds: string[] = [];
 
   ctx.db.transaction(tx => {
     // ENG-042 TOCTOU defense: refunds bind the cash movement to the selected
@@ -294,7 +274,11 @@ export async function returnSale(
 
     // Auditoría 2026-07 — credit the exact lots this sale consumed back to
     // stock (no-op when no line was lot-tracked).
-    restoreLotsForSale(tx, { tenantId: ctx.tenantId, saleId: input.id, now });
+    restoredLotIds = restoreLotsForSale(tx, {
+      tenantId: ctx.tenantId,
+      saleId: input.id,
+      now,
+    }).lotIds;
 
     tx.insert(saleReturns)
       .values({
@@ -373,6 +357,18 @@ export async function returnSale(
       reason: input.reason ?? null,
     },
   });
+
+  // ENG-192 — the restore above credited these lots back (on_hand bumped,
+  // depleted ones reactivated); enqueue each so the mutation reaches
+  // sync_outbox.
+  for (const lotId of restoredLotIds) {
+    await enqueueSync(ctx, {
+      entityType: 'inventory_lots',
+      entityId: lotId,
+      operation: 'update',
+      data: { id: lotId, saleId: input.id },
+    });
+  }
 
   await enqueueSync(ctx, {
     entityType: 'sales',
