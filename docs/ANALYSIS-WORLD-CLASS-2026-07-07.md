@@ -536,28 +536,28 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 **Regla**: primero lo que desbloquea venta, luego los quick wins de deleite
 (S), luego los cimientos (M/L). Cada fila es un slice/PR independiente.
 
-| #   | Item                                                                                                                  | Esfuerzo | Pilar                 |
-| --- | --------------------------------------------------------------------------------------------------------------------- | -------- | --------------------- |
-| 1   | TRACK P — ENG-057 → 058 → 060/061/062 (compuertas del piloto)                                                         | L        | fiscal/offline        |
-| 2   | ✅ WC-A4 enqueue sync de lotes en venta — ENG-192 shipped 2026-07-09                                                  | S        | offline               |
-| 3   | ✅ WC-C2 sonido de checkout — ENG-193 shipped 2026-07-09                                                              | S        | checkout              |
-| 4   | ✅ WC-C9 semáforo de cuadre en vivo (role-gated: se preserva el cierre ciego del cajero) — ENG-194 shipped 2026-07-09 | S        | caja                  |
-| 5   | ✅ WC-C6 semáforo de margen (modo dueño) — ENG-195 shipped 2026-07-09                                                 | S        | stock                 |
-| 6   | ✅ WC-E1 property-based (dinero + FEFO) — ENG-196 shipped 2026-07-09                                                  | S        | audit                 |
-| 7   | WC-A1 rollup de stock materializado                                                                                   | M        | stock                 |
-| 8   | WC-C1 cierre de día en 60 segundos ⭐                                                                                 | M        | caja                  |
-| 9   | WC-C3 radar de vencimientos                                                                                           | M        | stock                 |
-| 10  | WC-A3 sales LH 58→75                                                                                                  | S/M      | checkout              |
-| 11  | WC-B4 desglose desktop main/index.ts                                                                                  | S/M      | mantenibilidad        |
-| 12  | WC-C7 primera venta en 5 min                                                                                          | M        | checkout              |
-| 13  | WC-B2 packages/shared                                                                                                 | M        | mantenibilidad        |
-| 14  | WC-B3 FiscalProvider interface                                                                                        | M        | fiscal                |
-| 15  | WC-D1 listas de precios (con WC-F2)                                                                                   | L        | checkout              |
-| 16  | WC-C5 omnibox de venta                                                                                                | M        | checkout              |
-| 17  | WC-D2 lealtad mínima                                                                                                  | M        | checkout              |
-| 18  | WC-B1 application/ por fases                                                                                          | L        | mantenibilidad        |
-| 19  | WC-A2 SSE backpressure                                                                                                | M        | offline               |
-| 20  | WC-D3/WC-D4 bins + seriales                                                                                           | M        | stock (product-gated) |
+| #   | Item                                                                                                                            | Esfuerzo | Pilar                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------- |
+| 1   | TRACK P — ENG-057 → 058 → 060/061/062 (compuertas del piloto)                                                                   | L        | fiscal/offline        |
+| 2   | ✅ WC-A4 enqueue sync de lotes en venta — ENG-192 shipped 2026-07-09                                                            | S        | offline               |
+| 3   | ✅ WC-C2 sonido de checkout — ENG-193 shipped 2026-07-09                                                                        | S        | checkout              |
+| 4   | ✅ WC-C9 semáforo de cuadre en vivo (role-gated: se preserva el cierre ciego del cajero) — ENG-194 shipped 2026-07-09           | S        | caja                  |
+| 5   | ✅ WC-C6 semáforo de margen (modo dueño) — ENG-195 shipped 2026-07-09                                                           | S        | stock                 |
+| 6   | ✅ WC-E1 property-based (dinero + FEFO) — ENG-196 shipped 2026-07-09                                                            | S        | audit                 |
+| 7   | ✅ WC-A1 rollup de stock materializado (vía triggers 0008, no write-through — ver ROADMAP ENG-197) — ENG-197 shipped 2026-07-09 | M        | stock                 |
+| 8   | WC-C1 cierre de día en 60 segundos ⭐                                                                                           | M        | caja                  |
+| 9   | WC-C3 radar de vencimientos                                                                                                     | M        | stock                 |
+| 10  | WC-A3 sales LH 58→75                                                                                                            | S/M      | checkout              |
+| 11  | WC-B4 desglose desktop main/index.ts                                                                                            | S/M      | mantenibilidad        |
+| 12  | WC-C7 primera venta en 5 min                                                                                                    | M        | checkout              |
+| 13  | WC-B2 packages/shared                                                                                                           | M        | mantenibilidad        |
+| 14  | WC-B3 FiscalProvider interface                                                                                                  | M        | fiscal                |
+| 15  | WC-D1 listas de precios (con WC-F2)                                                                                             | L        | checkout              |
+| 16  | WC-C5 omnibox de venta                                                                                                          | M        | checkout              |
+| 17  | WC-D2 lealtad mínima                                                                                                            | M        | checkout              |
+| 18  | WC-B1 application/ por fases                                                                                                    | L        | mantenibilidad        |
+| 19  | WC-A2 SSE backpressure                                                                                                          | M        | offline               |
+| 20  | WC-D3/WC-D4 bins + seriales                                                                                                     | M        | stock (product-gated) |
 
 **Flujo**: cada item que se ejecute se promueve a `ROADMAP.md §3b` como
 `ENG-NNN` con AC copiadas de este doc (ids libres desde ENG-192), vía

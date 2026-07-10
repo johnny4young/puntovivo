@@ -184,6 +184,13 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0007_drop_products_stock') {
       return !tableExists('products');
     }
+    // ENG-197 — the stock-rollup migration backfills from and attaches
+    // triggers to `inventory_balances`. A partial legacy DB without that
+    // table has no target; mark applied so minimal shapes keep booting; a
+    // real adopted DB carries `inventory_balances` and the rollup lands.
+    if (entry.tag === '0008_product_stock_totals') {
+      return !tableExists('inventory_balances');
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

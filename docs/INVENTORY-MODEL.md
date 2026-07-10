@@ -93,10 +93,15 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
    shape is unchanged. Every former `products.stock` write is gone; the sale
    stock check already keyed off `inventory_balances`. Because drift is now
    structurally impossible, `reconcileProductStockFromBalances` and the
-   discrepancy report are retained but no-op / always-empty. Note: the derived
-   total uses a correlated subquery — acceptable for current catalog sizes; a
-   materialized per-product rollup is the escape hatch if a very large catalog
-   ever makes the product-list scan hot.
+   discrepancy report are retained but no-op / always-empty. The derived total
+   is MATERIALIZED since ENG-197: `product_stock_totals` (tenant, product →
+   total) is maintained exclusively by the SQLite triggers of migration `0008`
+   (insert/update-of-on_hand/delete on `inventory_balances`), so `derive.ts`
+   reads an O(1) PK point-lookup instead of re-summing balances per product.
+   Triggers were chosen over app-side write-through because transfers and the
+   seed helpers write `on_hand` outside `applyInventoryBalanceDelta` (plus ~60
+   test fixtures): the storage layer owns the invariant for every writer.
+   Parity is pinned by `inventory-stock-rollup.test.ts`.
 3. **Location/bin grain (STAGED)** — `inventory_balances` still reserves a slot
    for location-level granularity (per its own doc comment); unstarted.
 
