@@ -8,6 +8,7 @@ import {
   getSaleQuantityStep,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
+import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions';
 
 interface SaleCartTableProps {
   items: SaleCartItem[];
@@ -31,6 +32,10 @@ export function SaleCartTable({
   discountInputRefFor,
 }: SaleCartTableProps) {
   const { t } = useTranslation('sales');
+
+  // ENG-199 — expiry-radar badge on cart lines; the table only renders in
+  // the POS, so the query is gated on having lines at all.
+  const discountSuggestions = useDiscountSuggestions(items.length > 0);
 
   // Borradores de edición por celda (`q:<key>` / `d:<key>`). Un input
   // controlado directo pisa la edición en curso: al vaciar el campo para
@@ -86,10 +91,7 @@ export function SaleCartTable({
 
   return (
     <div>
-      <ul
-        className="flex flex-col gap-[10px]"
-        aria-label={t('cart.items')}
-      >
+      <ul className="flex flex-col gap-[10px]" aria-label={t('cart.items')}>
         {items.map(item => {
           const lineTotals = getLineTotals(item);
           const isSelected = selectedItemKey === item.key;
@@ -103,9 +105,7 @@ export function SaleCartTable({
               data-testid={`sale-cart-item-${item.productSku}`}
               className={[
                 'rounded-[14px] border bg-card p-3 transition-colors',
-                isSelected
-                  ? 'border-primary-300 ring-1 ring-primary-200/70'
-                  : 'border-line/70',
+                isSelected ? 'border-primary-300 ring-1 ring-primary-200/70' : 'border-line/70',
               ].join(' ')}
             >
               <div className="flex items-center justify-between gap-3">
@@ -115,8 +115,18 @@ export function SaleCartTable({
                   aria-label={t('cart.selectItem', { name: item.productName })}
                   onClick={() => onSelectItem(item.key)}
                 >
-                  <span className="block truncate text-[13.5px] font-semibold text-fg1">
-                    {item.productName}
+                  <span className="flex items-center gap-2 text-[13.5px] font-semibold text-fg1">
+                    <span className="truncate">{item.productName}</span>
+                    {(discountSuggestions.get(item.productId) ?? 0) > 0 && (
+                      <span
+                        className="pv-badge warning shrink-0"
+                        data-testid={`cart-discount-suggestion-${item.productSku}`}
+                      >
+                        {t('cart.discountSuggested', {
+                          pct: discountSuggestions.get(item.productId),
+                        })}
+                      </span>
+                    )}
                   </span>
                   <span className="mono mt-0.5 block text-[11px] text-secondary-500">
                     {item.productSku}
@@ -146,8 +156,8 @@ export function SaleCartTable({
                   </button>
 
                   {/* La cifra de cantidad es la lectura táctil; el input
-                    * mantiene el ref para el atajo Alt+C y la edición directa
-                    * sin romper el contrato con useSalesInputFocus. */}
+                   * mantiene el ref para el atajo Alt+C y la edición directa
+                   * sin romper el contrato con useSalesInputFocus. */}
                   <span className="relative inline-flex w-6 items-center justify-center">
                     <span className="mono text-[15px] font-semibold text-fg1" aria-hidden="true">
                       {item.quantity}
@@ -202,8 +212,8 @@ export function SaleCartTable({
               </div>
 
               {/* Descuento + base + eliminar: controles secundarios, fuera de
-                * la fila táctil principal. El input conserva el ref para Alt+D
-                * y el handler onDiscountChange intactos. */}
+               * la fila táctil principal. El input conserva el ref para Alt+D
+               * y el handler onDiscountChange intactos. */}
               <div className="mt-2 flex items-center justify-between gap-3 border-t border-line/55 pt-2 text-[11px] text-secondary-500">
                 <label className="flex items-center gap-2">
                   <span>{t('cart.discount')}</span>

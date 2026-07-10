@@ -38,6 +38,9 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'kds.order.ready',
   'kds.order.recalled',
   'customer.credit_limit.update',
+  // ENG-199 — expiry-radar discount suggestions.
+  'inventory.lot.discount_suggested',
+  'inventory.lot.discount_suggestion_dismissed',
 ];
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
@@ -53,6 +56,8 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'ai_feature',
   'kds_order',
   'customer',
+  // ENG-199 — expiry-radar discount suggestions.
+  'price_suggestion',
 ];
 
 /**
@@ -96,9 +101,7 @@ export function AuditLogsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-secondary-900">
-          {t('page.title')}
-        </h1>
+        <h1 className="text-2xl font-semibold text-secondary-900">{t('page.title')}</h1>
       </div>
 
       <div className="card p-6">
@@ -123,9 +126,7 @@ export function AuditLogsPage() {
             <select
               className="input mt-1"
               value={resourceType}
-              onChange={event =>
-                setResourceType(event.target.value as AuditLogResourceType | '')
-              }
+              onChange={event => setResourceType(event.target.value as AuditLogResourceType | '')}
             >
               <option value="">{t('filters.all')}</option>
               {RESOURCE_TYPE_OPTIONS.map(opt => (
@@ -158,9 +159,7 @@ export function AuditLogsPage() {
 
       <div className="card p-6">
         <div className="mb-4 space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">
-            {t('history.title')}
-          </h2>
+          <h2 className="text-lg font-semibold text-secondary-900">{t('history.title')}</h2>
           <p className="text-sm text-secondary-500">{t('history.description')}</p>
         </div>
         <AuditLogsTable

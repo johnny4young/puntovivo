@@ -5,7 +5,8 @@
       "movements": "Movements",
       "stockQuery": "Stock Query",
       "initialInventory": "Initial Inventory",
-      "balances": "By Site"
+      "balances": "By Site",
+      "expiry": "Expiry"
     },
     "permissionNote": "Only administrators and managers can record entries or adjust stock. Inventory views remain available.",
     "stockNote": "The totals on this screen still show the tenant aggregate, but they now stay synchronized with the sum of site balances. Adjustments, entries, and transfers update both surfaces in lockstep."
@@ -315,5 +316,37 @@
     "receiptNotesPlaceholder": "Optional note about this delivery batch",
     "minItems": "Select at least one line quantity to receive",
     "modalTitle": "Receive Items for {{number}}"
+  },
+  "expiry": {
+    "summary": {
+      "lots": "Expiring lots",
+      "window": "Next {{days}} days",
+      "valueAtRisk": "Value at risk",
+      "activeSuggestions": "Active suggestions"
+    },
+    "columns": {
+      "product": "Product",
+      "expires": "Expires",
+      "onHand": "On hand",
+      "unitCost": "Unit cost",
+      "valueAtRisk": "Value at risk",
+      "action": "Action"
+    },
+    "daysLeft_one": "in {{count}} day",
+    "daysLeft_other": "in {{count}} days",
+    "today": "today",
+    "suggest": "Suggest -{{pct}}%",
+    "activeBadge": "Active -{{pct}}%",
+    "dismiss": "Dismiss",
+    "search": "Search product...",
+    "emptyTitle": "Nothing expiring soon",
+    "emptyDescription": "No lots with stock expire within the next {{days}} days.",
+    "toast": {
+      "suggestedTitle": "Discount suggested",
+      "suggestedDescription": "A {{pct}}% discount for {{product}} is now visible at the register.",
+      "dismissedTitle": "Suggestion dismissed",
+      "errorTitle": "The suggestion could not be saved"
+    },
+    "loading": "Loading expiring lots..."
   }
 }

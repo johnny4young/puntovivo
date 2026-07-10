@@ -5,7 +5,8 @@
       "movements": "Movimientos",
       "stockQuery": "Consulta de stock",
       "initialInventory": "Inventario inicial",
-      "balances": "Por sede"
+      "balances": "Por sede",
+      "expiry": "Vencimientos"
     },
     "permissionNote": "Solo administradores y gestores pueden registrar entradas o ajustar stock. Las vistas de inventario siguen disponibles.",
     "stockNote": "Los totales de esta pantalla siguen mostrando el agregado del tenant, pero ahora permanecen sincronizados con la suma de los balances por sede. Los ajustes, entradas y transferencias actualizan ambos lados en lockstep."
@@ -315,5 +316,37 @@
     "receiptNotesPlaceholder": "Nota opcional sobre este lote de entrega",
     "minItems": "Selecciona al menos una línea para recibir",
     "modalTitle": "Recibir artículos del pedido {{number}}"
+  },
+  "expiry": {
+    "summary": {
+      "lots": "Lotes por vencer",
+      "window": "Próximos {{days}} días",
+      "valueAtRisk": "Valor en riesgo",
+      "activeSuggestions": "Sugerencias activas"
+    },
+    "columns": {
+      "product": "Producto",
+      "expires": "Vence",
+      "onHand": "Disponible",
+      "unitCost": "Costo unit.",
+      "valueAtRisk": "Valor en riesgo",
+      "action": "Acción"
+    },
+    "daysLeft_one": "en {{count}} día",
+    "daysLeft_other": "en {{count}} días",
+    "today": "hoy",
+    "suggest": "Sugerir -{{pct}}%",
+    "activeBadge": "Activa -{{pct}}%",
+    "dismiss": "Descartar",
+    "search": "Buscar producto...",
+    "emptyTitle": "Nada por vencer pronto",
+    "emptyDescription": "Ningún lote con stock vence en los próximos {{days}} días.",
+    "toast": {
+      "suggestedTitle": "Descuento sugerido",
+      "suggestedDescription": "Un descuento del {{pct}}% para {{product}} ya es visible en la caja.",
+      "dismissedTitle": "Sugerencia descartada",
+      "errorTitle": "No se pudo guardar la sugerencia"
+    },
+    "loading": "Cargando lotes por vencer..."
   }
 }

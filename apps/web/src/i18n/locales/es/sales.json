@@ -79,7 +79,8 @@
       "search": "buscar",
       "quantity": "cantidad",
       "discount": "descuento"
-    }
+    },
+    "discountSuggested": "Sugerido -{{pct}}%"
   },
   "cashSession": {
     "title": "Caja",

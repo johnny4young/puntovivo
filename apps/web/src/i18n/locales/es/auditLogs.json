@@ -67,7 +67,9 @@
     "customer.credit_limit.update": "Cupo de crédito del cliente actualizado",
     "sale.credit_override": "Venta completada con sobregiro autorizado",
     "fiscal.xml.downloaded": "XML fiscal descargado",
-    "telemetry.opt_in.updated": "Preferencia de telemetría actualizada"
+    "telemetry.opt_in.updated": "Preferencia de telemetría actualizada",
+    "inventory.lot.discount_suggested": "Descuento sugerido (vencimiento)",
+    "inventory.lot.discount_suggestion_dismissed": "Sugerencia de descuento descartada"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -87,7 +89,8 @@
     "kds_order": "Orden de cocina",
     "customer": "Cliente",
     "fiscal_document": "Documento fiscal",
-    "tenant": "Cuenta"
+    "tenant": "Cuenta",
+    "price_suggestion": "Sugerencia de precio"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",
@@ -123,6 +126,8 @@
     "saleReprintReason": "{{saleNumber}} — reimpresión #{{count}} ({{reason}})",
     "saleComplete": "{{saleNumber}} completada desde borrador",
     "aiAnomaly": "{{kind}} · {{severity}} · distancia {{distance}}",
-    "deviceRevoke": "{{name}} revocado"
+    "deviceRevoke": "{{name}} revocado",
+    "discountSuggested": "-{{pct}}% para {{product}} (lote {{lot}})",
+    "discountSuggestionDismissed": "Descartado -{{pct}}% para {{product}} (lote {{lot}})"
   }
 }

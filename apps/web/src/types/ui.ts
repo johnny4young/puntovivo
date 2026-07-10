@@ -28,13 +28,7 @@ export type TransferHistoryStatus = 'completed' | 'in_transit' | 'void';
 // QUOTATIONS (Phase 5 / Tier-2 #6)
 // ============================================================================
 
-export type QuotationStatus =
-  | 'draft'
-  | 'sent'
-  | 'accepted'
-  | 'rejected'
-  | 'expired'
-  | 'converted';
+export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
 
 /** Statuses an operator can transition to via the UI today. */
 export type QuotationTransitionStatus = Extract<
@@ -115,7 +109,10 @@ export type AuditLogAction =
   // admin flips `tenants.settings.telemetryOptIn` via
   // `companies.updateTelemetryOptIn`. before/after carry the boolean
   // state so forensics can replay the consent timeline.
-  | 'telemetry.opt_in.updated';
+  | 'telemetry.opt_in.updated'
+  // ENG-199 — expiry-radar discount suggestions (accept + dismiss).
+  | 'inventory.lot.discount_suggested'
+  | 'inventory.lot.discount_suggestion_dismissed';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -149,7 +146,9 @@ export type AuditLogResourceType =
   | 'fiscal_document'
   // ENG-135 — tenant-level settings rows targeted by the
   // `telemetry.opt_in.updated` action. `resourceId` is the tenantId.
-  | 'tenant';
+  | 'tenant'
+  // ENG-199 — price_suggestions rows targeted by the expiry-radar audits.
+  | 'price_suggestion';
 
 export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';
 

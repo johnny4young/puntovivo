@@ -63,10 +63,7 @@ import { sql } from 'drizzle-orm';
 // so the SQLite error message ("CHECK constraint failed:
 // chk_sales_total_nonneg" or "chk_sale_items_discount_2dec") is
 // self-describing in operator dashboards and log lines.
-export const moneyPositiveChecks = (
-  constraintPrefix: string,
-  col: AnySQLiteColumn
-) => [
+export const moneyPositiveChecks = (constraintPrefix: string, col: AnySQLiteColumn) => [
   check(`chk_${constraintPrefix}_nonneg`, sql`${col} >= 0`),
   check(`chk_${constraintPrefix}_2dec`, sql`round(${col}, 2) = ${col}`),
 ];
@@ -79,10 +76,8 @@ export const moneyPositiveChecks = (
  * amounts (paid_out / refund / skim), reverse sale payments, and
  * cash-session over/short variance.
  */
-export const moneyTwoDecimalCheck = (
-  constraintPrefix: string,
-  col: AnySQLiteColumn
-) => check(`chk_${constraintPrefix}_2dec`, sql`round(${col}, 2) = ${col}`);
+export const moneyTwoDecimalCheck = (constraintPrefix: string, col: AnySQLiteColumn) =>
+  check(`chk_${constraintPrefix}_2dec`, sql`round(${col}, 2) = ${col}`);
 
 // ============================================================================
 // ENUMS (as string literals for SQLite)
@@ -113,19 +108,10 @@ export const cashMovementTypeEnum = [
 ] as const;
 export type CashMovementType = (typeof cashMovementTypeEnum)[number];
 export const userRoleEnum = ['admin', 'manager', 'cashier', 'viewer'] as const;
-export const deviceAuthorityRoleEnum = [
-  'authority_node',
-  'hub_client',
-  'web_client',
-] as const;
+export const deviceAuthorityRoleEnum = ['authority_node', 'hub_client', 'web_client'] as const;
 export type DeviceAuthorityRole = (typeof deviceAuthorityRoleEnum)[number];
 
-export const devicePairingCodeStatusEnum = [
-  'pending',
-  'claimed',
-  'expired',
-  'revoked',
-] as const;
+export const devicePairingCodeStatusEnum = ['pending', 'claimed', 'expired', 'revoked'] as const;
 export type DevicePairingCodeStatus = (typeof devicePairingCodeStatusEnum)[number];
 
 export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order', 'quotation'] as const;
@@ -301,6 +287,13 @@ export const auditLogActionEnum = [
   // boolean state so forensics can replay the consent timeline.
   // Free-form text in the SQL layer — no migration needed.
   'telemetry.opt_in.updated',
+  // ENG-199 — expiry radar. `discount_suggested` fires when a manager
+  // accepts the radar CTA for an expiring lot (metadata carries lotNumber,
+  // productId, discountPct, lotExpiresAt); `discount_suggestion_dismissed`
+  // when the suggestion is retired without a promo. Both key on the
+  // price_suggestions row id. Free-form text at the SQL layer.
+  'inventory.lot.discount_suggested',
+  'inventory.lot.discount_suggestion_dismissed',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -344,6 +337,10 @@ export const auditLogResourceTypeEnum = [
   // `telemetry.opt_in.updated`. `resourceId` is the tenantId itself
   // so cross-tenant collapse keeps the toggle history scoped.
   'tenant',
+  // ENG-199 — price_suggestions rows targeted by the expiry-radar CTA
+  // audits (resourceId = the suggestion row id; the lot travels in
+  // metadata so the row survives lot deletion).
+  'price_suggestion',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

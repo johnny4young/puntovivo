@@ -246,7 +246,8 @@
       "adminHint": "You can register it now without leaving the sale.",
       "cashierHint": "Ask a manager to create this product before charging.",
       "createCta": "Create new product"
-    }
+    },
+    "discountSuggested": "Suggested -{{pct}}%"
   },
   "desktopOnly": {
     "label": "Desktop only"

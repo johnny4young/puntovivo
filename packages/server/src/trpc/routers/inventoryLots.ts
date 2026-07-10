@@ -4,13 +4,14 @@
  * - `receive` (manager/admin) — record a received batch; increments an
  *   existing (site, product, lot) or inserts a new one, blending cost.
  * - `list` (tenant) — a product's lots at a site, FEFO-ordered.
- * - `expiring` (tenant) — lots with stock expiring within a window, for the
- *   expiry-alert surface.
- *
- * These form the lot foundation. Auto-consumption on the sale path (FEFO +
- * per-lot COGS behind `products.tracksLots`) is the next slice; the pure
- * selection/cost logic it will use already lives in
- * `services/inventory-lots/select-fefo.ts` and is unit-tested here.
+ * - `expiring` (manager/admin) — lots with stock expiring within a window,
+ *   for the ENG-199 radar. Tightened from tenant to manager/admin in ENG-199:
+ *   the rows expose `unitCost` (owner data) and the only UI consumer,
+ *   /inventory, is already role-gated the same way in App.tsx.
+ * - `suggestDiscount` / `dismissSuggestion` / `activeSuggestions` (ENG-199)
+ *   — the expiry-radar discount-suggestion lifecycle; logic in
+ *   `services/price-suggestions.ts`. `activeSuggestions` stays tenant-wide
+ *   because the POS badge is read by cashiers — its payload carries no cost.
  *
  * @module trpc/routers/inventoryLots
  */
@@ -28,7 +29,19 @@ import {
   listLotsForProduct,
   receiveInventoryLot,
 } from '../../services/inventory-lots/index.js';
-import { expiringLotsInput, listLotsInput, receiveLotInput } from '../schemas/inventoryLots.js';
+import {
+  createExpirySuggestion,
+  dismissSuggestion,
+  listActiveSuggestions,
+} from '../../services/price-suggestions.js';
+import {
+  activeSuggestionsInput,
+  dismissSuggestionInput,
+  expiringLotsInput,
+  listLotsInput,
+  receiveLotInput,
+  suggestDiscountInput,
+} from '../schemas/inventoryLots.js';
 
 export const inventoryLotsRouter = router({
   receive: managerOrAdminProcedure.input(receiveLotInput).mutation(async ({ ctx, input }) => {
@@ -94,7 +107,7 @@ export const inventoryLotsRouter = router({
     return { items };
   }),
 
-  expiring: tenantProcedure.input(expiringLotsInput).query(async ({ ctx, input }) => {
+  expiring: managerOrAdminProcedure.input(expiringLotsInput).query(async ({ ctx, input }) => {
     const cutoff = new Date(Date.now() + input.withinDays * 24 * 60 * 60 * 1000).toISOString();
     const items = listExpiringLots(ctx.db, {
       tenantId: ctx.tenantId,
@@ -102,5 +115,45 @@ export const inventoryLotsRouter = router({
       ...(input.siteId ? { siteId: input.siteId } : {}),
     });
     return { items, cutoff };
+  }),
+
+  /**
+   * ENG-199 — accept the radar CTA for a lot. The discount percent comes
+   * from the server-side expiry tiers; multi-tenant scoping, eligibility,
+   * the race-safe duplicate guard, and the audit row live in the service.
+   */
+  suggestDiscount: managerOrAdminProcedure
+    .input(suggestDiscountInput)
+    .mutation(async ({ ctx, input }) =>
+      createExpirySuggestion(ctx.db, {
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        lotId: input.lotId,
+      })
+    ),
+
+  /** ENG-199 — retire an active suggestion (audited). */
+  dismissSuggestion: managerOrAdminProcedure
+    .input(dismissSuggestionInput)
+    .mutation(async ({ ctx, input }) => {
+      dismissSuggestion(ctx.db, {
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        suggestionId: input.suggestionId,
+      });
+      return { dismissed: true };
+    }),
+
+  /**
+   * ENG-199 — the active suggestions the POS badge and the radar share.
+   * Tenant-wide on purpose (cashiers read it); the payload carries no cost
+   * fields — see `listActiveSuggestions`.
+   */
+  activeSuggestions: tenantProcedure.input(activeSuggestionsInput).query(async ({ ctx, input }) => {
+    const items = listActiveSuggestions(ctx.db, {
+      tenantId: ctx.tenantId,
+      ...(input?.siteId ? { siteId: input.siteId } : {}),
+    });
+    return { items };
   }),
 });

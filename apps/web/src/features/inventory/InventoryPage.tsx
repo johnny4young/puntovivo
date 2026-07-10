@@ -14,6 +14,7 @@ import {
   InventoryEntryModal,
   type InventoryEntryFormValues,
 } from '@/features/inventory/InventoryEntryModal';
+import { ExpiryRadarPanel } from '@/features/inventory/ExpiryRadarPanel';
 import { InventoryBalancesPanel } from '@/features/inventory/InventoryBalancesPanel';
 import { InventoryStockDetailsDrawer } from '@/features/inventory/InventoryStockDetailsDrawer';
 import { InventoryMovementDetailsDrawer } from '@/features/inventory/InventoryMovementDetailsDrawer';
@@ -290,7 +291,10 @@ export function InventoryPage() {
         />
       )}
 
-      {activeView !== 'balances' && (
+      {/* ENG-199 — expiry radar; self-contained queries fire on mount. */}
+      {activeView === 'expiry' && <ExpiryRadarPanel />}
+
+      {activeView !== 'balances' && activeView !== 'expiry' && (
         <InventoryDataPanel
           activeView={activeView}
           movementsLoading={movementsQuery.isLoading}

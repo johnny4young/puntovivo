@@ -67,7 +67,9 @@
     "customer.credit_limit.update": "Customer credit limit updated",
     "sale.credit_override": "Sale completed with credit override",
     "fiscal.xml.downloaded": "Fiscal XML downloaded",
-    "telemetry.opt_in.updated": "Telemetry preference updated"
+    "telemetry.opt_in.updated": "Telemetry preference updated",
+    "inventory.lot.discount_suggested": "Discount suggested (expiry)",
+    "inventory.lot.discount_suggestion_dismissed": "Discount suggestion dismissed"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -87,7 +89,8 @@
     "kds_order": "KDS order",
     "customer": "Customer",
     "fiscal_document": "Fiscal document",
-    "tenant": "Tenant"
+    "tenant": "Tenant",
+    "price_suggestion": "Price suggestion"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",
@@ -123,6 +126,8 @@
     "saleReprintReason": "{{saleNumber}} — reprint #{{count}} ({{reason}})",
     "saleComplete": "{{saleNumber}} completed from draft",
     "aiAnomaly": "{{kind}} · {{severity}} · distance {{distance}}",
-    "deviceRevoke": "{{name}} revoked"
+    "deviceRevoke": "{{name}} revoked",
+    "discountSuggested": "-{{pct}}% for {{product}} (lot {{lot}})",
+    "discountSuggestionDismissed": "Dismissed -{{pct}}% for {{product}} (lot {{lot}})"
   }
 }

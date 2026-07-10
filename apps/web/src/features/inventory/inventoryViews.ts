@@ -1,12 +1,13 @@
 // Inventory page view tabs + their i18n key map (ENG-178 slice 33).
 
 /**
- * The four top-level tabs of the inventory screen. Drives the segmented
+ * The five top-level tabs of the inventory screen. Drives the segmented
  * control in InventoryHeader, the conditional panel render in InventoryPage
- * (balances vs the movements/stock/entries DataPanel), and the lazy
- * `sites.list` query (only fetched on the `balances` tab).
+ * (balances / the ENG-199 expiry radar vs the movements/stock/entries
+ * DataPanel), and the lazily-enabled per-tab queries (`sites.list` on
+ * `balances`, `inventoryLots.expiring` on `expiry`).
  */
-export type InventoryView = 'movements' | 'stock' | 'entries' | 'balances';
+export type InventoryView = 'movements' | 'stock' | 'entries' | 'balances' | 'expiry';
 
 /** Maps each view to its `inventory:` namespace tab-label i18n key. */
 export const viewKeys: Record<InventoryView, string> = {
@@ -14,4 +15,5 @@ export const viewKeys: Record<InventoryView, string> = {
   stock: 'page.tabs.stockQuery',
   entries: 'page.tabs.initialInventory',
   balances: 'page.tabs.balances',
+  expiry: 'page.tabs.expiry',
 };
