@@ -628,6 +628,18 @@
         "saved": "Configuración de restaurante guardada",
         "saveError": "No se pudo guardar la configuración de restaurante"
       }
+    },
+    "cashClose": {
+      "title": "Cierre de caja",
+      "description": "Cómo funciona el conteo del efectivo al cerrar una sesión.",
+      "blindLabel": "Cierre ciego",
+      "blindOnHint": "Los cajeros cuentan sin ver el saldo esperado; gerentes y administradores ven el indicador de sobrante o faltante en vivo.",
+      "blindOffHint": "Todos los roles ven el indicador de sobrante o faltante en vivo mientras cuentan.",
+      "sessionNote": "Los cambios llegan a cada registro en el próximo inicio de sesión o al refrescar la página.",
+      "toast": {
+        "saved": "Ajustes de cierre de caja guardados",
+        "saveError": "No se pudieron guardar los ajustes de cierre de caja"
+      }
     }
   },
   "units": {

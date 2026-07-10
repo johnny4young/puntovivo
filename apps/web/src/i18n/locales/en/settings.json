@@ -628,6 +628,18 @@
         "saved": "Restaurant settings saved",
         "saveError": "Unable to save restaurant settings"
       }
+    },
+    "cashClose": {
+      "title": "Cash close",
+      "description": "How the till count works when a session is closed.",
+      "blindLabel": "Blind close",
+      "blindOnHint": "Cashiers count without seeing the expected balance; managers and admins see the live over/short indicator.",
+      "blindOffHint": "Every role sees the live over/short indicator while counting.",
+      "sessionNote": "Changes reach each register on the next login or page refresh.",
+      "toast": {
+        "saved": "Cash close settings saved",
+        "saveError": "The cash close settings could not be saved"
+      }
     }
   },
   "units": {

@@ -4,6 +4,7 @@ import { EyeOff, Minus, Plus, Scale } from 'lucide-react';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { Overlay } from '@/components/overlay/Overlay';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useTenant } from '@/features/tenant/TenantProvider';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { CashSession, CashSessionDenomination } from '@/types';
 import {
@@ -61,12 +62,17 @@ export function CashSessionCloseModal({
 }: CashSessionCloseModalProps) {
   const { t } = useTranslation('sales');
   const { user } = useAuth();
-  // ENG-194 — the live counted-vs-expected semaphore is deliberately
-  // role-gated: cashiers keep the blind close (an anti-fraud control — they
-  // must not see the target while counting); managers/admins closing or
-  // supervising a till get live feedback so balancing feels like hitting the
-  // mark instead of filling a form.
-  const canSeeLiveDelta = user?.role === 'admin' || user?.role === 'manager';
+  const { tenantSettings } = useTenant();
+  // ENG-194b — tenant-level blind-close policy. Default true keeps the
+  // anti-fraud control (cashiers must not see the target while counting);
+  // an owner-operated tenant can opt out and show the semaphore to everyone.
+  const blindClose = tenantSettings?.cashClose?.blindClose ?? true;
+  // ENG-194 — the live counted-vs-expected semaphore. Under blind close it
+  // is role-gated: cashiers keep the blind close while managers/admins
+  // closing or supervising a till get live feedback so balancing feels like
+  // hitting the mark instead of filling a form. When the tenant relaxed
+  // blind close (ENG-194b), every role sees it.
+  const canSeeLiveDelta = !blindClose || user?.role === 'admin' || user?.role === 'manager';
   const actualCountLabel = canSeeLiveDelta
     ? t('cashSession.closeForm.supervisedActualCount')
     : t('cashSession.closeForm.actualCount');
