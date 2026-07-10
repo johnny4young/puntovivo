@@ -77,10 +77,16 @@ export interface DayCloseSummary {
 interface ComputeDayCloseSummaryInput {
   tenantId: string;
   sessionId: string;
-  /** Authenticated caller; cashiers may only summarize their own session. */
+  /** Authenticated caller; owns the session-ownership check below. */
   viewerUserId: string;
-  /** True when the viewer may see owner data (manager/admin). */
+  /** True when the viewer may see owner data (margin/COGS). Visibility
+   * ONLY — deliberately independent from the access-control flag below so a
+   * future revenue-only privileged view cannot accidentally lose access to
+   * other cashiers' sessions. */
   includeProfit: boolean;
+  /** True when the viewer may summarize sessions closed by OTHER cashiers
+   * (manager/admin today). Access control ONLY. */
+  canViewAnyCashierSession: boolean;
 }
 
 /** UTC day (YYYY-MM-DD) of an ISO timestamp. */
@@ -105,7 +111,7 @@ export function computeDayCloseSummary(
     .where(and(eq(cashSessions.tenantId, input.tenantId), eq(cashSessions.id, input.sessionId)))
     .get();
 
-  if (!session || (!input.includeProfit && session.cashierId !== input.viewerUserId)) {
+  if (!session || (!input.canViewAnyCashierSession && session.cashierId !== input.viewerUserId)) {
     throwServerError({
       trpcCode: 'NOT_FOUND',
       errorCode: 'CASH_SESSION_NOT_FOUND',

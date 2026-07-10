@@ -332,11 +332,16 @@ export const cashSessionsRouter = router({
       // The role middleware rejects a missing user before this resolver; the
       // non-null assertion documents that runtime refinement for TypeScript.
       const user = ctx.user!;
+      // Both capabilities map to manager/admin TODAY, but they are separate
+      // service inputs on purpose: profit visibility and cross-cashier
+      // access must be able to diverge without touching the guard.
+      const privileged = user.role === 'admin' || user.role === 'manager';
       return computeDayCloseSummary(ctx.db, {
         tenantId: ctx.tenantId,
         sessionId: input.sessionId,
         viewerUserId: user.id,
-        includeProfit: user.role === 'admin' || user.role === 'manager',
+        includeProfit: privileged,
+        canViewAnyCashierSession: privileged,
       });
     }),
 

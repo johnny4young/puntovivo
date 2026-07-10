@@ -367,6 +367,7 @@ describe('day-close summary (ENG-198)', () => {
       sessionId,
       viewerUserId: owner.userId,
       includeProfit: true,
+      canViewAnyCashierSession: true,
     });
     expect(summary.streakDays).toBe(3);
     // Bare tenant has no sales; the owner view still shapes correctly.
@@ -387,6 +388,7 @@ describe('day-close summary (ENG-198)', () => {
       sessionId,
       viewerUserId: owner.userId,
       includeProfit: false,
+      canViewAnyCashierSession: false,
     });
     expect(summary.streakDays).toBe(3);
     expect(summary.margin).toBeNull();
@@ -403,6 +405,7 @@ describe('day-close summary (ENG-198)', () => {
       sessionId,
       viewerUserId: owner.userId,
       includeProfit: true,
+      canViewAnyCashierSession: true,
     });
     expect(summary.streakDays).toBe(1);
   });
@@ -420,6 +423,7 @@ describe('day-close summary (ENG-198)', () => {
       sessionId,
       viewerUserId: owner.userId,
       includeProfit: true,
+      canViewAnyCashierSession: true,
     });
     expect(summary.session.balanced).toBe(true);
     expect(summary.streakDays).toBe(0);
@@ -462,6 +466,23 @@ describe('day-close summary (ENG-198)', () => {
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
+  it('grants cross-cashier access independently from profit visibility', async () => {
+    // Pins the decoupling: a privileged revenue-only view (access yes,
+    // profit no) must reach another cashier's session and get margin null.
+    const owner = await seedBareTenant('decouple');
+    const sessionId = await insertClosedSession(owner, 0, 0);
+
+    const summary = computeDayCloseSummary(getDatabase(), {
+      tenantId: owner.tenantId,
+      sessionId,
+      viewerUserId: 'someone-else-entirely',
+      includeProfit: false,
+      canViewAnyCashierSession: true,
+    });
+    expect(summary.session.balanced).toBe(true);
+    expect(summary.margin).toBeNull();
+  });
+
   it('caps the balanced streak at exactly 90 calendar days', async () => {
     const owner = await seedBareTenant('cap');
     let sessionId = '';
@@ -474,6 +495,7 @@ describe('day-close summary (ENG-198)', () => {
       sessionId,
       viewerUserId: owner.userId,
       includeProfit: true,
+      canViewAnyCashierSession: true,
     });
     expect(summary.streakDays).toBe(90);
   });
