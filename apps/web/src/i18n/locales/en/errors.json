@@ -22,6 +22,8 @@
     "CASH_SESSION_OPENING_FLOAT_INVALID": "The opening float must be zero or greater.",
     "CASH_SESSION_COUNT_MISMATCH": "The closing count must match the denomination count total.",
     "CASH_SESSION_COUNT_INVALID": "The closing count must be zero or greater.",
+    "CASH_SESSION_NOT_FOUND": "That cash session does not exist.",
+    "CASH_SESSION_NOT_CLOSED": "The day-close summary is only available after the session is closed.",
     "PRODUCT_FRACTION_STEP_REQUIRED": "Set a fraction step greater than zero before enabling fractional sales.",
     "PRODUCT_FRACTION_MINIMUM_REQUIRED": "Set a minimum sale quantity greater than zero before enabling fractional sales.",
     "PRODUCT_FRACTION_MINIMUM_BELOW_STEP": "The minimum sale quantity must be greater than or equal to the fraction step.",

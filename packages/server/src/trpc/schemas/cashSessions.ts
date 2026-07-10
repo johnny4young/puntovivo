@@ -56,6 +56,11 @@ export const pendingChecksInput = z
   })
   .optional();
 
+/** ENG-198 — day-close ritual: the closed session the summary is about. */
+export const dayCloseSummaryInput = z.object({
+  sessionId: z.string().min(1, 'Session id is required'),
+});
+
 export type CashSessionDenominationInput = z.infer<typeof cashSessionDenominationInput>;
 export type GetActiveCashSessionInput = z.infer<typeof getActiveCashSessionInput>;
 export type OpenCashSessionInput = z.infer<typeof openCashSessionInput>;
@@ -64,3 +69,4 @@ export type CashSessionMovementsInput = z.infer<typeof cashSessionMovementsInput
 export type CashSessionReportInput = z.infer<typeof cashSessionReportInput>;
 export type RecordCashMovementInput = z.infer<typeof recordCashMovementInput>;
 export type PendingChecksInput = z.infer<typeof pendingChecksInput>;
+export type DayCloseSummaryInput = z.infer<typeof dayCloseSummaryInput>;

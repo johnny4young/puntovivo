@@ -22,6 +22,8 @@
     "CASH_SESSION_OPENING_FLOAT_INVALID": "El monto de apertura debe ser cero o mayor.",
     "CASH_SESSION_COUNT_MISMATCH": "El conteo de cierre debe coincidir con el total contado por denominaciones.",
     "CASH_SESSION_COUNT_INVALID": "El conteo de cierre debe ser cero o mayor.",
+    "CASH_SESSION_NOT_FOUND": "Esa sesión de caja no existe.",
+    "CASH_SESSION_NOT_CLOSED": "El resumen del cierre de día solo está disponible cuando la sesión ya está cerrada.",
     "PRODUCT_FRACTION_STEP_REQUIRED": "Configura un paso fraccional mayor que cero antes de habilitar la venta fraccionada.",
     "PRODUCT_FRACTION_MINIMUM_REQUIRED": "Configura una cantidad mínima de venta mayor que cero antes de habilitar la venta fraccionada.",
     "PRODUCT_FRACTION_MINIMUM_BELOW_STEP": "La cantidad mínima de venta debe ser mayor o igual al paso fraccional.",

@@ -10,6 +10,7 @@ import {
   CashSessionOpenModal,
   type CashSessionOpenValues,
 } from '@/features/sales/CashSessionOpenModal';
+import { DayCloseSummaryModal } from '@/features/sales/DayCloseSummaryModal';
 import type { CashSession, RegisterAssignment } from '@/types';
 
 /**
@@ -42,6 +43,9 @@ interface CashSessionModalsProps {
   cashSessionMovementError: string | null;
   onCloseMovementModal: () => void;
   onSubmitMovement: (values: CashSessionMovementValues) => Promise<void>;
+  /** ENG-198 — non-null mounts the day-close ritual for that session. */
+  dayCloseSessionId: string | null;
+  onCloseDayClose: () => void;
 }
 
 export function CashSessionModals({
@@ -66,6 +70,8 @@ export function CashSessionModals({
   cashSessionMovementError,
   onCloseMovementModal,
   onSubmitMovement,
+  dayCloseSessionId,
+  onCloseDayClose,
 }: CashSessionModalsProps) {
   return (
     <>
@@ -100,6 +106,13 @@ export function CashSessionModals({
           error={cashSessionMovementError}
           onClose={onCloseMovementModal}
           onSubmit={onSubmitMovement}
+        />
+      )}
+      {dayCloseSessionId && (
+        <DayCloseSummaryModal
+          key={dayCloseSessionId}
+          sessionId={dayCloseSessionId}
+          onClose={onCloseDayClose}
         />
       )}
     </>

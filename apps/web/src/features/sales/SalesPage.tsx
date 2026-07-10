@@ -71,6 +71,9 @@ export function SalesPage() {
   const [cashSessionError, setCashSessionError] = useState<string | null>(null);
   const [cashSessionCloseError, setCashSessionCloseError] = useState<string | null>(null);
   const [cashSessionMovementError, setCashSessionMovementError] = useState<string | null>(null);
+  // ENG-198 — set by the close mutation's success path; non-null mounts the
+  // day-close ritual modal for that session.
+  const [dayCloseSessionId, setDayCloseSessionId] = useState<string | null>(null);
 
   // ENG-178 slice 16b-1 — the active-cart lifecycle (materialization +
   // store-wrapper setters + the six cart-edit handlers) lives in
@@ -157,6 +160,7 @@ export function SalesPage() {
     setIsCashSessionCloseModalOpen,
     setCashSessionMovementError,
     setIsCashSessionMovementModalOpen,
+    setDayCloseSessionId,
   });
 
   const draftSummary = getCartSummary(cartItems);
@@ -412,6 +416,8 @@ export function SalesPage() {
       cashSessionMovementError={cashSessionMovementError}
       setIsCashSessionMovementModalOpen={setIsCashSessionMovementModalOpen}
       handleRecordCashMovement={handleRecordCashMovement}
+      dayCloseSessionId={dayCloseSessionId}
+      setDayCloseSessionId={setDayCloseSessionId}
     />
   );
 }

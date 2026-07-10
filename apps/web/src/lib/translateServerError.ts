@@ -24,6 +24,8 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'CASH_SESSION_OPENING_FLOAT_INVALID',
   'CASH_SESSION_COUNT_MISMATCH',
   'CASH_SESSION_COUNT_INVALID',
+  'CASH_SESSION_NOT_FOUND',
+  'CASH_SESSION_NOT_CLOSED',
   'CASH_SESSION_LOAD_FAILED',
   'CASH_MOVEMENT_INVALID_AMOUNT',
   'CASH_MOVEMENT_UNSUPPORTED_TYPE',
@@ -245,10 +247,7 @@ function collectErrorMessages(error: unknown, messages: string[] = []): string[]
     return messages;
   }
 
-  if (
-    'message' in error &&
-    typeof (error as { message?: unknown }).message === 'string'
-  ) {
+  if ('message' in error && typeof (error as { message?: unknown }).message === 'string') {
     messages.push((error as { message: string }).message);
   }
 
@@ -298,8 +297,7 @@ export function isZodValidationError(error: unknown): boolean {
     return true;
   }
 
-  const isBadRequest =
-    !!data && typeof data === 'object' && data.code === 'BAD_REQUEST';
+  const isBadRequest = !!data && typeof data === 'object' && data.code === 'BAD_REQUEST';
 
   for (const message of collectErrorMessages(error)) {
     const trimmed = message.trim();
@@ -312,11 +310,7 @@ export function isZodValidationError(error: unknown): boolean {
         Array.isArray(parsed) &&
         parsed.length > 0 &&
         parsed.every(
-          issue =>
-            !!issue &&
-            typeof issue === 'object' &&
-            'code' in issue &&
-            'path' in issue
+          issue => !!issue && typeof issue === 'object' && 'code' in issue && 'path' in issue
         )
       ) {
         return true;
@@ -348,11 +342,7 @@ export function isZodValidationError(error: unknown): boolean {
  *   list that includes `errors`, e.g. `useTranslation(['errors', ...])`)
  * @param fallback - Last-resort message when neither code nor message is available
  */
-export function translateServerError(
-  error: unknown,
-  t: TFunction,
-  fallback: string
-): string {
+export function translateServerError(error: unknown, t: TFunction, fallback: string): string {
   const code = extractServerErrorCode(error);
   if (code) {
     // Force-resolve from the `errors` namespace regardless of the caller's

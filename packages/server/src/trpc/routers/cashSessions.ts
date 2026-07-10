@@ -18,12 +18,14 @@ import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { router } from '../init.js';
 import { roundMoney } from '../../lib/money.js';
 import { tenantProcedure } from '../middleware/tenant.js';
-import { managerOrAdminProcedure } from '../middleware/roles.js';
+import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { criticalCommandProcedure } from '../middleware/criticalCommand.js';
+import { computeDayCloseSummary } from '../../services/reports/day-close.js';
 import {
   cashSessionMovementsInput,
   cashSessionReportInput,
   closeCashSessionInput,
+  dayCloseSummaryInput,
   getActiveCashSessionInput,
   openCashSessionInput,
   pendingChecksInput,
@@ -316,6 +318,24 @@ export const cashSessionsRouter = router({
     }
     return presentCashSessionRecord(closedSession, ctx.user?.role);
   }),
+
+  /**
+   * ENG-198 — day-close ritual. Open to the cashier (they are the one who
+   * closes), but owner data is gated SERVER-SIDE: margin and per-product
+   * profit only serialize for manager/admin, mirroring the ENG-194 blind
+   * close philosophy. Pure read; multi-tenant scoping happens inside the
+   * service (NOT_FOUND for foreign sessions).
+   */
+  dayCloseSummary: cashierManagerOrAdminProcedure
+    .input(dayCloseSummaryInput)
+    .query(async ({ ctx, input }) => {
+      const role = ctx.user?.role;
+      return computeDayCloseSummary(ctx.db, {
+        tenantId: ctx.tenantId,
+        sessionId: input.sessionId,
+        includeProfit: role === 'admin' || role === 'manager',
+      });
+    }),
 
   movements: tenantProcedure.input(cashSessionMovementsInput).query(async ({ ctx, input }) => {
     if (!ctx.user || !ctx.siteId) {
