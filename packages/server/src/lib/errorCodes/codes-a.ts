@@ -34,6 +34,18 @@ export const SERVER_ERROR_CODES_A = {
   CASH_SESSION_COUNT_MISMATCH: 'CASH_SESSION_COUNT_MISMATCH',
   CASH_SESSION_COUNT_INVALID: 'CASH_SESSION_COUNT_INVALID',
   /**
+   * ENG-198 — `cashSessions.dayCloseSummary` was asked for a session id that
+   * does not exist under the caller's tenant (cross-tenant probes land here
+   * too, indistinguishable by design). `details` carries `{ sessionId }`.
+   */
+  CASH_SESSION_NOT_FOUND: 'CASH_SESSION_NOT_FOUND',
+  /**
+   * ENG-198 — the day-close summary only exists for a closed session; the
+   * ritual fires from the close mutation's success path, so hitting this
+   * means a stale/forged session id. `details` carries `{ sessionId }`.
+   */
+  CASH_SESSION_NOT_CLOSED: 'CASH_SESSION_NOT_CLOSED',
+  /**
    * ENG-181 — defensive load failure right after creating / closing a
    * cash session. Should never reach a happy-path UI; surfaces if the
    * SELECT-after-INSERT pattern is broken (DB closed, replication lag,

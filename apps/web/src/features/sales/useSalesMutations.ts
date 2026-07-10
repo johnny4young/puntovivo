@@ -34,6 +34,12 @@ interface UseSalesMutationsParams {
   setIsCashSessionCloseModalOpen: Dispatch<SetStateAction<boolean>>;
   setCashSessionMovementError: Dispatch<SetStateAction<string | null>>;
   setIsCashSessionMovementModalOpen: Dispatch<SetStateAction<boolean>>;
+  /**
+   * ENG-198 — hands the just-closed session id to the shell so it mounts
+   * the day-close ritual (DayCloseSummaryModal). Additive to the close
+   * toast, which stays intact.
+   */
+  setDayCloseSessionId: Dispatch<SetStateAction<string | null>>;
 }
 
 /**
@@ -57,6 +63,7 @@ export function useSalesMutations({
   setIsCashSessionCloseModalOpen,
   setCashSessionMovementError,
   setIsCashSessionMovementModalOpen,
+  setDayCloseSessionId,
 }: UseSalesMutationsParams) {
   const { t } = useTranslation(['sales', 'errors', 'common']);
   const toast = useToast();
@@ -198,6 +205,9 @@ export function useSalesMutations({
         title: t('cashSession.toast.closeSuccessTitle'),
         description,
       });
+
+      // ENG-198 — hand off to the day-close ritual after the toast fires.
+      setDayCloseSessionId(cashSession.id);
     },
     onError: onErrorToast(toast, t, {
       extra: description => setCashSessionCloseError(description),

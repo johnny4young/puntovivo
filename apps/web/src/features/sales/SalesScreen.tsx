@@ -140,6 +140,9 @@ export interface SalesScreenProps {
   cashSessionMovementError: string | null;
   setIsCashSessionMovementModalOpen: Dispatch<SetStateAction<boolean>>;
   handleRecordCashMovement: CashModalsProps['onSubmitMovement'];
+  /** ENG-198 — the just-closed session whose day-close ritual is showing. */
+  dayCloseSessionId: string | null;
+  setDayCloseSessionId: Dispatch<SetStateAction<string | null>>;
 }
 
 /**
@@ -247,6 +250,8 @@ export function SalesScreen({
   cashSessionMovementError,
   setIsCashSessionMovementModalOpen,
   handleRecordCashMovement,
+  dayCloseSessionId,
+  setDayCloseSessionId,
 }: SalesScreenProps) {
   const { t } = useTranslation(['sales', 'errors', 'common']);
 
@@ -452,6 +457,8 @@ export function SalesScreen({
         cashSessionMovementError={cashSessionMovementError}
         onCloseMovementModal={() => setIsCashSessionMovementModalOpen(false)}
         onSubmitMovement={handleRecordCashMovement}
+        dayCloseSessionId={dayCloseSessionId}
+        onCloseDayClose={() => setDayCloseSessionId(null)}
       />
     </>
   );

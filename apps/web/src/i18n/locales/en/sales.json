@@ -207,6 +207,33 @@
         "short": "Short — counted is below expected"
       }
     },
+    "dayClose": {
+      "kicker": "Day close",
+      "title": "Day closed",
+      "subtitle": "{{registerName}} · {{date}}",
+      "loading": "Preparing your day summary…",
+      "error": "We could not load the day summary. Your register was closed correctly.",
+      "salesTitle": "Today's sales",
+      "salesCount_one": "{{count}} sale",
+      "salesCount_other": "{{count}} sales",
+      "balanceTitle": "Cash check",
+      "balance": {
+        "balanced": "Balanced",
+        "over": "Over by {{amount}}",
+        "short": "Short by {{amount}}"
+      },
+      "counted": "Counted: {{amount}}",
+      "marginTitle": "Today's margin",
+      "marginDetail": "{{percent}}% gross margin",
+      "streakTitle": "Streak",
+      "streakDays_one": "{{count}} day balancing",
+      "streakDays_other": "{{count}} days balancing",
+      "streakZero": "A new streak starts tomorrow.",
+      "topProductsTitle": "Top products today",
+      "profitShort": "+{{amount}}",
+      "noSales": "No sales recorded today.",
+      "finish": "Done"
+    },
     "movementForm": {
       "title": "Record cash movement",
       "cancel": "Cancel",

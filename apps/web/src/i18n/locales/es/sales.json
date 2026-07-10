@@ -207,6 +207,33 @@
         "short": "Faltante — lo contado está por debajo de lo esperado"
       }
     },
+    "dayClose": {
+      "kicker": "Cierre de día",
+      "title": "Día cerrado",
+      "subtitle": "{{registerName}} · {{date}}",
+      "loading": "Preparando el resumen de tu día…",
+      "error": "No pudimos cargar el resumen del día. Tu caja quedó cerrada correctamente.",
+      "salesTitle": "Ventas del día",
+      "salesCount_one": "{{count}} venta",
+      "salesCount_other": "{{count}} ventas",
+      "balanceTitle": "Cuadre",
+      "balance": {
+        "balanced": "Caja cuadrada",
+        "over": "Sobrante de {{amount}}",
+        "short": "Faltante de {{amount}}"
+      },
+      "counted": "Contado: {{amount}}",
+      "marginTitle": "Margen del día",
+      "marginDetail": "{{percent}}% de margen bruto",
+      "streakTitle": "Racha",
+      "streakDays_one": "{{count}} día cuadrando",
+      "streakDays_other": "{{count}} días cuadrando",
+      "streakZero": "Mañana empieza una nueva racha.",
+      "topProductsTitle": "Top del día",
+      "profitShort": "+{{amount}}",
+      "noSales": "Hoy no se registraron ventas.",
+      "finish": "Terminar"
+    },
     "movementForm": {
       "title": "Registrar movimiento de caja",
       "cancel": "Cancelar",
