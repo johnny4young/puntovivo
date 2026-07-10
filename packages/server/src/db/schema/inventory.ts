@@ -8,9 +8,25 @@
  *
  * @module db/schema/inventory
  */
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
-import { initialInventoryModeEnum, lotStatusEnum, moneyPositiveChecks, movementTypeEnum, nowIso, sqliteNow, syncStatusEnum } from './base.js';
+import {
+  initialInventoryModeEnum,
+  lotStatusEnum,
+  moneyPositiveChecks,
+  movementTypeEnum,
+  nowIso,
+  sqliteNow,
+  syncStatusEnum,
+} from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { units } from './catalogs.js';
 import { products } from './products.js';
@@ -172,11 +188,7 @@ export const inventoryBalances = sqliteTable(
     index('idx_inventory_balances_tenant').on(table.tenantId),
     index('idx_inventory_balances_site').on(table.siteId),
     index('idx_inventory_balances_product').on(table.productId),
-    uniqueIndex('idx_inventory_balances_scope').on(
-      table.tenantId,
-      table.siteId,
-      table.productId
-    ),
+    uniqueIndex('idx_inventory_balances_scope').on(table.tenantId, table.siteId, table.productId),
   ]
 );
 
@@ -194,6 +206,45 @@ export const inventoryBalancesRelations = relations(inventoryBalances, ({ one })
     references: [products.id],
   }),
 }));
+
+// ============================================================================
+// PRODUCT STOCK TOTALS (ENG-197 — materialized tenant-wide rollup)
+// ============================================================================
+
+/**
+ * ENG-197 — materialized `Σ(inventory_balances.on_hand)` per (tenant, product).
+ *
+ * Maintained EXCLUSIVELY by the SQLite triggers shipped in migration
+ * `0008_product_stock_totals` (`trg_pst_balance_insert` / `_update` /
+ * `_delete` on `inventory_balances`) — application code must NEVER write this
+ * table. The storage layer owns the invariant `total ≡ Σ(on_hand)` so every
+ * writer (apply-delta, transfers, seeds, test fixtures, future code) is
+ * covered without app-side hooks; `inventory-stock-rollup.test.ts` pins the
+ * parity under a storm of real operations. Readers go through
+ * `services/inventory-balances/derive.ts`, whose API predates this table.
+ *
+ * Note: drizzle-kit does not manage triggers — they live only in the 0008
+ * migration (hand-appended, idempotent). Migrations are append-only, so a
+ * future `db:generate` cannot drop them.
+ */
+export const productStockTotals = sqliteTable(
+  'product_stock_totals',
+  {
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    /** Tenant-wide on-hand total in base units (3-decimal quantity, not money). */
+    total: real('total').notNull().default(0),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    primaryKey({ columns: [table.tenantId, table.productId] }),
+    index('idx_product_stock_totals_tenant').on(table.tenantId),
+  ]
+);
 
 // ============================================================================
 // TRANSFER ORDERS (Phase 2 DB-102 — immediate step, no ship/receive lifecycle)

@@ -1,37 +1,47 @@
 /**
- * Derived product stock totals (Auditoría 2026-07 — single source of truth).
+ * Derived product stock totals (Auditoría 2026-07 — single source of truth;
+ * ENG-197 — materialized rollup).
  *
  * `inventory_balances` is the authoritative per-site stock. The tenant-wide
  * total for a product is `Σ(on_hand)` across its site balances — there is no
- * longer a denormalized `products.stock` column. These helpers centralize
- * that derivation:
+ * longer a denormalized `products.stock` column. Since ENG-197 that sum is
+ * MATERIALIZED into `product_stock_totals`, maintained exclusively by the
+ * SQLite triggers of migration 0008 (every insert/update/delete of a balance
+ * row upserts the rollup in the same transaction), so these helpers read a
+ * PK point-lookup instead of scanning and summing the balances per product:
  *
- * - `productStockTotalSql` — a correlated-subquery SQL fragment usable inside
- *   a `db.select({...})` so a product read can project its total without a
+ * - `productStockTotalSql` — a scalar-subquery SQL fragment usable inside a
+ *   `db.select({...})` so a product read can project its total without a
  *   GROUP BY on the outer query.
  * - `getProductStockTotal` / `getProductStockTotals` — direct reads for the
  *   write paths (adjust / entry / reversal) that need the current total to
  *   compute a delta or a movement's previous/new snapshot.
+ *
+ * The API of all three predates the rollup — readers did not change when the
+ * implementation swapped. Parity rollup ≡ Σ(balances) is pinned by
+ * `inventory-stock-rollup.test.ts`.
  *
  * @module services/inventory-balances/derive
  */
 
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { inventoryBalances } from '../../db/schema.js';
+import { productStockTotals } from '../../db/schema.js';
 
 /**
- * Correlated subquery: `Σ(inventory_balances.on_hand)` for the outer
- * `products` row, coalesced to 0. Use as a select field, e.g.
- * `db.select({ stock: productStockTotalSql })`.
+ * Scalar subquery: the materialized total for the outer `products` row,
+ * coalesced to 0 (a product with no balance rows has no rollup row). Use as
+ * a select field, e.g. `db.select({ stock: productStockTotalSql })`.
  */
 // NOTE: the correlated columns MUST be table-qualified. When drizzle
 // interpolates a `Column` into a `sql` template it renders the bare column
-// name (e.g. `"id"`), and because `inventory_balances` also has `id` /
-// `tenant_id` columns, an unqualified `id` inside the subquery would bind to
-// `inventory_balances.id` instead of the outer `products.id` — silently
-// returning 0. We therefore spell the identifiers out, fully qualified.
-export const productStockTotalSql = sql<number>`coalesce((select sum(inventory_balances.on_hand) from inventory_balances where inventory_balances.product_id = products.id and inventory_balances.tenant_id = products.tenant_id), 0)`;
+// name (e.g. `"id"`), and because `product_stock_totals` also has a
+// `tenant_id` column, an unqualified identifier inside the subquery would
+// bind to the wrong table — silently returning 0. We therefore spell the
+// identifiers out, fully qualified. The (tenant_id, product_id) predicate is
+// the rollup's PRIMARY KEY, so this is an O(1) index point-lookup per row
+// instead of the pre-ENG-197 scan-and-sum over inventory_balances.
+export const productStockTotalSql = sql<number>`coalesce((select product_stock_totals.total from product_stock_totals where product_stock_totals.product_id = products.id and product_stock_totals.tenant_id = products.tenant_id), 0)`;
 
 /** The current tenant-wide total for a single product (0 when no balances). */
 export function getProductStockTotal(
@@ -40,9 +50,11 @@ export function getProductStockTotal(
   productId: string
 ): number {
   const row = db
-    .select({ total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)` })
-    .from(inventoryBalances)
-    .where(and(eq(inventoryBalances.tenantId, tenantId), eq(inventoryBalances.productId, productId)))
+    .select({ total: productStockTotals.total })
+    .from(productStockTotals)
+    .where(
+      and(eq(productStockTotals.tenantId, tenantId), eq(productStockTotals.productId, productId))
+    )
     .get();
   return row?.total ?? 0;
 }
@@ -59,17 +71,16 @@ export function getProductStockTotals(
   }
   const rows = db
     .select({
-      productId: inventoryBalances.productId,
-      total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
+      productId: productStockTotals.productId,
+      total: productStockTotals.total,
     })
-    .from(inventoryBalances)
+    .from(productStockTotals)
     .where(
       and(
-        eq(inventoryBalances.tenantId, tenantId),
-        inArray(inventoryBalances.productId, productIds)
+        eq(productStockTotals.tenantId, tenantId),
+        inArray(productStockTotals.productId, productIds)
       )
     )
-    .groupBy(inventoryBalances.productId)
     .all();
   for (const row of rows) {
     result.set(row.productId, row.total);
