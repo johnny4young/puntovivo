@@ -30,7 +30,11 @@ import { productStockTotals } from '../../db/schema.js';
 
 /**
  * Scalar subquery: the materialized total for the outer `products` row,
- * coalesced to 0 (a product with no balance rows has no rollup row). Use as
+ * coalesced to 0. The COALESCE covers products whose balances were never
+ * touched (no rollup row yet); note the inverse does NOT hold — the triggers
+ * create a rollup row even for an on_hand=0 insert, and deleting the last
+ * balance row leaves a total=0 rollup row behind (the delete trigger
+ * subtracts, it does not delete). Both shapes read as 0 either way. Use as
  * a select field, e.g. `db.select({ stock: productStockTotalSql })`.
  */
 // NOTE: the correlated columns MUST be table-qualified. When drizzle
