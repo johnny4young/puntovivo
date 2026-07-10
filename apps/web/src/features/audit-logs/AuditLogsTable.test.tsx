@@ -286,6 +286,42 @@ describe('AuditLogsTable', () => {
     expect(screen.getByText('Cash session closed')).toBeInTheDocument();
   });
 
+  it('renders readable expiry-suggestion audit summaries for acceptance and dismissal', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'inventory.lot.discount_suggested',
+            resourceType: 'price_suggestion',
+            resourceId: 'suggestion-1',
+            before: null,
+            after: { discountPct: 30, status: 'active' },
+            metadata: { productName: 'Yogur Fresa', lotNumber: 'RADAR-001' },
+          }),
+          build({
+            id: 'log-dismissed',
+            action: 'inventory.lot.discount_suggestion_dismissed',
+            resourceType: 'price_suggestion',
+            resourceId: 'suggestion-1',
+            before: { discountPct: 30, status: 'active' },
+            after: { status: 'dismissed' },
+            metadata: { productName: 'Yogur Fresa', lotNumber: 'RADAR-001' },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(
+      screen.getByText('-30% for Yogur Fresa (lot RADAR-001)')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Dismissed -30% for Yogur Fresa (lot RADAR-001)')
+    ).toBeInTheDocument();
+  });
+
   it('renders inventory.adjust_stock with the transition and signed delta', () => {
     render(
       <AuditLogsTable

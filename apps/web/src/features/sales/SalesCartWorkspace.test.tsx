@@ -12,6 +12,13 @@ import { fireEvent, screen } from '@testing-library/react';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { render } from '@/test/utils';
 
+// ENG-199 — the inner SaleCartTable reads the expiry-discount suggestions
+// through this hook (a trpc query underneath); mock it so this shell suite
+// stays network-free.
+vi.mock('@/features/sales/useDiscountSuggestions', () => ({
+  useDiscountSuggestions: () => new Map<string, number>(),
+}));
+
 describe('SalesCartWorkspace — ENG-105d undo button', () => {
   const baseProps = {
     items: [] as never[],
@@ -41,9 +48,7 @@ describe('SalesCartWorkspace — ENG-105d undo button', () => {
   // render affordances that have nothing to act on".
   it('does not render the undo button when canUndo is false', () => {
     const onUndo = vi.fn();
-    render(
-      <SalesCartWorkspace {...baseProps} canUndo={false} onUndo={onUndo} />
-    );
+    render(<SalesCartWorkspace {...baseProps} canUndo={false} onUndo={onUndo} />);
     expect(screen.queryByTestId('sales-cart-undo')).toBeNull();
   });
 
@@ -60,9 +65,7 @@ describe('SalesCartWorkspace — ENG-105d undo button', () => {
 
   it('fires onUndo on click when canUndo is true', () => {
     const onUndo = vi.fn();
-    render(
-      <SalesCartWorkspace {...baseProps} canUndo onUndo={onUndo} />
-    );
+    render(<SalesCartWorkspace {...baseProps} canUndo onUndo={onUndo} />);
     const button = screen.getByTestId('sales-cart-undo');
     expect(button).not.toBeDisabled();
     fireEvent.click(button);

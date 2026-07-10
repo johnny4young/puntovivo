@@ -25,11 +25,26 @@ const trpcQueryState = {
   error: null as { message: string } | null,
 };
 
+// ENG-199 — the opt-in discount-suggestion read (useDiscountSuggestions).
+const suggestionsQueryState = {
+  data: {
+    items: [] as Array<{ id: string; productId: string; lotId: string; discountPct: number }>,
+  },
+  isLoading: false,
+  error: null as { message: string } | null,
+};
+const activeSuggestionsUseQuery = vi.fn((..._args: unknown[]) => suggestionsQueryState);
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     products: {
       search: {
         useQuery: () => trpcQueryState,
+      },
+    },
+    inventoryLots: {
+      activeSuggestions: {
+        useQuery: (...args: unknown[]) => activeSuggestionsUseQuery(...args),
       },
     },
   },
@@ -40,11 +55,11 @@ beforeEach(async () => {
   trpcQueryState.data = { items: [], total: 0 };
   trpcQueryState.isLoading = false;
   trpcQueryState.error = null;
+  suggestionsQueryState.data = { items: [] };
+  activeSuggestionsUseQuery.mockClear();
 });
 
-function renderDialog(
-  overrides: Partial<React.ComponentProps<typeof ProductSearchDialog>> = {}
-) {
+function renderDialog(overrides: Partial<React.ComponentProps<typeof ProductSearchDialog>> = {}) {
   const baseProps = {
     isOpen: true,
     onClose: vi.fn(),
@@ -74,9 +89,7 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
     const block = await screen.findByTestId('product-search-empty-state');
     expect(block).toBeInTheDocument();
     expect(
-      screen.getByText((content, el) =>
-        el?.tagName === 'P' && content.includes('ProductoTestXYZ')
-      )
+      screen.getByText((content, el) => el?.tagName === 'P' && content.includes('ProductoTestXYZ'))
     ).toBeInTheDocument();
 
     const cta = screen.getByTestId('product-search-quick-create-cta');
@@ -97,9 +110,7 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
 
     const block = await screen.findByTestId('product-search-empty-state');
     expect(block).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('product-search-quick-create-cta')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('product-search-quick-create-cta')).not.toBeInTheDocument();
     expect(screen.getByText(/Ask a manager/i)).toBeInTheDocument();
   });
 
@@ -112,9 +123,7 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
 
     // findBy: the typed query settles through the 200ms search debounce.
     expect(await screen.findByText(/No products matched/i)).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('product-search-empty-state')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('product-search-empty-state')).not.toBeInTheDocument();
   });
 
   it('fires onQuickCreateRequested with the trimmed query and closes the dialog when the CTA is clicked', async () => {
@@ -171,9 +180,7 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
 
     // findBy: the typed query settles through the 200ms search debounce.
     expect(await screen.findByText(/Searching products/i)).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('product-search-empty-state')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('product-search-empty-state')).not.toBeInTheDocument();
   });
 
   it('does not render the empty-state block when matches are present', async () => {
@@ -210,9 +217,64 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
 
     // findBy: the typed query settles through the 200ms search debounce.
     expect(await screen.findByText('Arroz Diana 500g')).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('product-search-empty-state')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('product-search-empty-state')).not.toBeInTheDocument();
+  });
+
+  // ENG-199 — the expiry-radar badge is opt-in per caller: only rows whose
+  // product has an active suggestion AND showDiscountSuggestions is on
+  // render the chip.
+  it('renders the discount-suggestion badge only when the caller opts in', async () => {
+    const matchedProduct = {
+      items: [
+        {
+          id: 'p-1',
+          name: 'Arroz Diana 500g',
+          sku: 'ABR-0001',
+          stock: 21,
+          baseUnitPrice: 3200,
+          baseUnitAbbreviation: 'UND',
+          categoryName: 'Abarrotes',
+          providerName: null,
+          unitAssignments: [
+            {
+              unitId: 'u-1',
+              unitName: 'Unidad',
+              unitAbbreviation: 'UND',
+              equivalence: 1,
+              price: 3200,
+              isBase: true,
+            },
+          ],
+        },
+      ],
+      total: 1,
+    } as unknown as typeof trpcQueryState.data;
+    trpcQueryState.data = matchedProduct;
+    suggestionsQueryState.data = {
+      items: [{ id: 's-1', productId: 'p-1', lotId: 'lot-1', discountPct: 20 }],
+    };
+
+    const user = userEvent.setup();
+    const { unmount } = renderDialog({
+      showDiscountSuggestions: true,
+      discountSuggestionSiteId: 'site-1',
+    });
+    await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'arroz');
+
+    const badge = await screen.findByTestId('product-discount-suggestion-ABR-0001');
+    expect(badge).toHaveTextContent('Suggested -20%');
+    expect(activeSuggestionsUseQuery).toHaveBeenLastCalledWith(
+      { siteId: 'site-1' },
+      expect.objectContaining({ enabled: true })
+    );
+    unmount();
+
+    // Same data, prop off → no badge (the other 5 dialog consumers).
+    trpcQueryState.data = matchedProduct;
+    renderDialog({});
+    await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'arroz');
+    expect(await screen.findByText('Arroz Diana 500g')).toBeInTheDocument();
+    expect(screen.queryByTestId('product-discount-suggestion-ABR-0001')).not.toBeInTheDocument();
   });
 
   it('keeps the CTA hidden when caller passes canCreateProducts=false even with onQuickCreateRequested wired', async () => {
@@ -224,9 +286,7 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
     await user.type(searchInput, 'X');
 
     await screen.findByTestId('product-search-empty-state');
-    expect(
-      screen.queryByTestId('product-search-quick-create-cta')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('product-search-quick-create-cta')).not.toBeInTheDocument();
   });
 
   it('forwards the close call when the CTA fires (state cleanup happens via handleClose)', async () => {

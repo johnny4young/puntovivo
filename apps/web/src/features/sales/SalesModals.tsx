@@ -4,14 +4,8 @@ import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
-import {
-  SalePaymentModal,
-  type SalePaymentValues,
-} from '@/features/sales/SalePaymentModal';
-import {
-  mergeCartItem,
-  type SaleCartItem,
-} from '@/features/sales/saleCart';
+import { SalePaymentModal, type SalePaymentValues } from '@/features/sales/SalePaymentModal';
+import { mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import type { Category, Customer, Provider } from '@/types';
 
@@ -45,6 +39,8 @@ type SetCartItemsArg = SaleCartItem[] | ((previous: SaleCartItem[]) => SaleCartI
 interface SalesModalsProps {
   // Product search
   isProductSearchOpen: boolean;
+  /** ENG-199 — active POS site, passed only to the suggestion-enabled dialog. */
+  discountSuggestionSiteId?: string | null;
   productSearchDialogKey: number;
   onCloseProductSearch: () => void;
   onSelectProduct: (selection: Parameters<typeof mergeCartItem>[1]) => void;
@@ -78,6 +74,7 @@ interface SalesModalsProps {
 
 export function SalesModals({
   isProductSearchOpen,
+  discountSuggestionSiteId = null,
   productSearchDialogKey,
   onCloseProductSearch,
   onSelectProduct,
@@ -133,18 +130,21 @@ export function SalesModals({
           onQuickCreateRequested={defaultName => {
             useQuickCreateStore.getState().requestCreateProduct({ defaultName });
           }}
-          canCreateProducts={
-            user?.role === 'admin' || user?.role === 'manager'
-          }
+          canCreateProducts={user?.role === 'admin' || user?.role === 'manager'}
+          // ENG-199 — the POS is the surface where the expiry-radar
+          // suggestion must reach the cashier; other dialog consumers
+          // keep the prop off (zero extra queries).
+          showDiscountSuggestions
+          discountSuggestionSiteId={discountSuggestionSiteId}
         />
       )}
       {(shouldRenderQuickCreateProductGate || shouldRenderQuickCreateCustomerGate) && (
         <Suspense fallback={null}>
           {/* ENG-105c — Quick-create gates stay split out of the hot
-            * SalesPage route chunk and only mount when the store flags
-            * a request. On success they invoke onCreated so SalesPage
-            * can fold the new entity into the active cart / sale, then
-            * they consume the store slot. */}
+           * SalesPage route chunk and only mount when the store flags
+           * a request. On success they invoke onCreated so SalesPage
+           * can fold the new entity into the active cart / sale, then
+           * they consume the store slot. */}
           {shouldRenderQuickCreateProductGate && (
             <QuickCreateProductGate
               onCreated={created => {
@@ -180,9 +180,7 @@ export function SalesModals({
               }}
             />
           )}
-          {shouldRenderQuickCreateCustomerGate && (
-            <QuickCreateCustomerGate />
-          )}
+          {shouldRenderQuickCreateCustomerGate && <QuickCreateCustomerGate />}
         </Suspense>
       )}
 
@@ -227,20 +225,14 @@ export function SalesModals({
               <ModalButton onClick={onCloseSuspendPrompt} disabled={isSuspending}>
                 {t('common:actions.cancel')}
               </ModalButton>
-              <ModalButton
-                variant="primary"
-                onClick={onConfirmSuspend}
-                disabled={isSuspending}
-              >
+              <ModalButton variant="primary" onClick={onConfirmSuspend} disabled={isSuspending}>
                 {isSuspending ? `${t('park.labelPromptConfirm')}…` : t('park.labelPromptConfirm')}
               </ModalButton>
             </>
           }
         >
           <div className="space-y-3">
-            <p className="text-sm text-secondary-600">
-              {t('park.labelPromptDescription')}
-            </p>
+            <p className="text-sm text-secondary-600">{t('park.labelPromptDescription')}</p>
             <input
               type="text"
               value={suspendLabelDraft}

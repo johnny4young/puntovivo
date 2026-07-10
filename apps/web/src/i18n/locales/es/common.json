@@ -246,7 +246,8 @@
       "adminHint": "Puedes registrarlo ahora sin salir de la venta.",
       "cashierHint": "Pídele a un manager que cree este producto antes de cobrar.",
       "createCta": "Crear nuevo producto"
-    }
+    },
+    "discountSuggested": "Sugerido -{{pct}}%"
   },
   "desktopOnly": {
     "label": "Solo escritorio"

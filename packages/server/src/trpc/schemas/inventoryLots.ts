@@ -35,6 +35,27 @@ export const expiringLotsInput = z.object({
   siteId: z.string().min(1).optional(),
 });
 
+/** ENG-199 — radar CTA: the lot to suggest a discount for. The percent is
+ * computed server-side from the expiry tiers; the client never sends it. */
+export const suggestDiscountInput = z.object({
+  lotId: z.string().min(1, 'Lot id is required'),
+});
+
+/** ENG-199 — retire an active suggestion from the radar. */
+export const dismissSuggestionInput = z.object({
+  suggestionId: z.string().min(1, 'Suggestion id is required'),
+});
+
+/** ENG-199 — POS badge / radar read of active suggestions. */
+export const activeSuggestionsInput = z
+  .object({
+    siteId: z.string().min(1).optional(),
+  })
+  .optional();
+
 export type ReceiveLotInputSchema = z.infer<typeof receiveLotInput>;
 export type ListLotsInputSchema = z.infer<typeof listLotsInput>;
 export type ExpiringLotsInputSchema = z.infer<typeof expiringLotsInput>;
+export type SuggestDiscountInputSchema = z.infer<typeof suggestDiscountInput>;
+export type DismissSuggestionInputSchema = z.infer<typeof dismissSuggestionInput>;
+export type ActiveSuggestionsInputSchema = z.infer<typeof activeSuggestionsInput>;

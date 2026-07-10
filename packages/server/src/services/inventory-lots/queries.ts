@@ -6,7 +6,7 @@
  * @module services/inventory-lots/queries
  */
 
-import { and, eq, lte, gt, ne } from 'drizzle-orm';
+import { and, eq, gte, gt, lte, ne } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryLots, products } from '../../db/schema.js';
 import { orderLotsFefo } from './select-fefo.js';
@@ -64,18 +64,19 @@ export interface ExpiringLotRow extends LotRow {
 }
 
 /**
- * Lots with on-hand stock whose expiry falls on or before `cutoffIso`,
- * excluding already-quarantined rows. Ordered soonest-first for the alert
- * list. Non-perishable lots (null expiry) are never returned.
+ * Lots with on-hand stock whose expiry falls between `nowIso` and
+ * `cutoffIso`, excluding already-quarantined rows. Ordered soonest-first for
+ * the alert list. Non-perishable and already-expired lots are never returned.
  */
 export function listExpiringLots(
   db: DatabaseInstance,
-  args: { tenantId: string; cutoffIso: string; siteId?: string }
+  args: { tenantId: string; nowIso: string; cutoffIso: string; siteId?: string }
 ): ExpiringLotRow[] {
   const conditions = [
     eq(inventoryLots.tenantId, args.tenantId),
     gt(inventoryLots.onHand, 0),
     ne(inventoryLots.status, 'quarantined'),
+    gte(inventoryLots.expiresAt, args.nowIso),
     lte(inventoryLots.expiresAt, args.cutoffIso),
   ];
   if (args.siteId) {
@@ -98,8 +99,8 @@ export function listExpiringLots(
     .innerJoin(products, eq(inventoryLots.productId, products.id))
     .where(and(...conditions))
     .all();
-  // `lte(expiresAt, cutoff)` also matches NULL? No — SQL NULL comparisons are
-  // never true, so null-expiry lots are excluded, which is what we want.
+  // Range comparisons never match SQL NULL, so non-perishable lots are
+  // excluded without a separate null predicate.
   return rows.sort((a, b) => {
     const ax = a.expiresAt ?? '';
     const bx = b.expiresAt ?? '';

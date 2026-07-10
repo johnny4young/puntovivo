@@ -42,6 +42,14 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: () => ({ data: { items: [] }, isLoading: false, error: null }),
       },
     },
+    // ENG-199 — ProductSearchDialog reads the expiry-discount suggestions
+    // through useDiscountSuggestions (opt-in, off for this dialog, but the
+    // hook still mounts).
+    inventoryLots: {
+      activeSuggestions: {
+        useQuery: () => ({ data: undefined, isLoading: false, error: null }),
+      },
+    },
   },
 }));
 
@@ -214,9 +222,7 @@ describe('InvoiceOcrDialog states', () => {
     expect(await screen.findByText(/borrador de compra|purchase draft/i)).toBeInTheDocument();
     expect(screen.getAllByDisplayValue('Lacteos El Campo S.A.S.').length).toBeGreaterThan(0);
     expect(screen.getByText('YOG-200 Yogurt fresa 200g')).toBeInTheDocument();
-    expect(
-      screen.getByText(/AI read the invoice|La IA leyó la factura/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/AI read the invoice|La IA leyó la factura/i)).toBeInTheDocument();
   });
 
   it('renders the error state when upload fails and lets the operator retry', async () => {
@@ -287,7 +293,9 @@ describe('InvoiceOcrDialog states', () => {
 
     expect(await screen.findByText(/total does not match|total no coincide/i)).toBeInTheDocument();
     expect(screen.getByText(/without a catalog match|sin coincidencia/i)).toBeInTheDocument();
-    expect(screen.getByText(/select the catalog supplier|selecciona el proveedor/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/select the catalog supplier|selecciona el proveedor/i)
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /confirmar|confirm/i })).toBeDisabled();
   });
 

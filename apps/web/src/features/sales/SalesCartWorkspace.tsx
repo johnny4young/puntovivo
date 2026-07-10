@@ -10,6 +10,8 @@ import {
 
 interface SalesCartWorkspaceProps {
   items: SaleCartItem[];
+  /** ENG-199 — active POS site for the cart's suggestion badges. */
+  discountSuggestionSiteId?: string | null;
   selectedItemKey: string | null;
   itemCount: number;
   saleError: string | null;
@@ -39,6 +41,7 @@ interface SalesCartWorkspaceProps {
 
 export function SalesCartWorkspace({
   items,
+  discountSuggestionSiteId = null,
   selectedItemKey,
   itemCount,
   saleError,
@@ -119,6 +122,7 @@ export function SalesCartWorkspace({
       <div className="pos:min-h-0 pos:flex-1 pos:overflow-y-auto">
         <SaleCartTable
           items={items}
+          discountSuggestionSiteId={discountSuggestionSiteId}
           selectedItemKey={selectedItemKey}
           onQuantityChange={onQuantityChange}
           onDiscountChange={onDiscountChange}

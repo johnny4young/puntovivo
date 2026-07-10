@@ -191,6 +191,17 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0008_product_stock_totals') {
       return !tableExists('inventory_balances');
     }
+    // ENG-199 — price_suggestions carries an FK to `inventory_lots`, which
+    // migration 0005 creates. Guard on `products` (the SAME condition 0005
+    // guards on): if products is missing, 0005 was marked applied and lots
+    // will never exist, so 0009 has no FK target either. Do NOT guard on
+    // `inventory_lots` itself — a full-baseline adoption legitimately lacks
+    // it until 0005 runs, and seeding 0009 there would make drizzle treat
+    // every older migration as already applied (the migrator only runs
+    // entries newer than the last recorded row).
+    if (entry.tag === '0009_price_suggestions') {
+      return !tableExists('products');
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

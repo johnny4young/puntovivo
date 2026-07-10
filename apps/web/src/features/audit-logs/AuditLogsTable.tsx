@@ -24,12 +24,7 @@ interface AuditLogsTableProps {
  * `before` / `after` / `metadata` payload. The underlying data is
  * reverse-chronological (server-enforced).
  */
-export function AuditLogsTable({
-  items,
-  isLoading,
-  error,
-  onRetry,
-}: AuditLogsTableProps) {
+export function AuditLogsTable({ items, isLoading, error, onRetry }: AuditLogsTableProps) {
   const { t } = useTranslation(['auditLogs', 'errors', 'quotations']);
   const exportColumns = useMemo(() => getAuditLogsExportColumns(t), [t]);
 
@@ -144,10 +139,7 @@ export function AuditLogsTable({
 
 // ENG-179b — use i18next's `TFunction` directly so the multi-namespace
 // projection from `useTranslation([...])` flows in without per-call casts.
-function translateQuotationStatus(
-  status: unknown,
-  t: TFunction
-): string {
+function translateQuotationStatus(status: unknown, t: TFunction): string {
   return typeof status === 'string'
     ? t(`quotations:status.${status}`, { defaultValue: status })
     : '?';
@@ -161,13 +153,9 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
   // consistently and stays grep-able across tenants.
   if (entry.action === 'transfer.void') {
     const reason =
-      entry.metadata && typeof entry.metadata.reason === 'string'
-        ? entry.metadata.reason
-        : null;
+      entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
     return reason ? (
-      <span className="text-sm text-secondary-700">
-        {t('summary.voidReason', { reason })}
-      </span>
+      <span className="text-sm text-secondary-700">{t('summary.voidReason', { reason })}</span>
     ) : (
       <span className="text-sm text-secondary-500">—</span>
     );
@@ -199,9 +187,7 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
   // Phase 8 / Tier-2 #8 — sensitive sale + cash + inventory branches.
   if (entry.action === 'sale.void') {
     const reason =
-      entry.metadata && typeof entry.metadata.reason === 'string'
-        ? entry.metadata.reason
-        : null;
+      entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
     const saleNumber =
       entry.before && typeof entry.before.saleNumber === 'string'
         ? entry.before.saleNumber
@@ -219,13 +205,9 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
 
   if (entry.action === 'sale.return') {
     const reason =
-      entry.metadata && typeof entry.metadata.reason === 'string'
-        ? entry.metadata.reason
-        : null;
+      entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
     const refundAmount =
-      entry.after && typeof entry.after.refundAmount === 'number'
-        ? entry.after.refundAmount
-        : null;
+      entry.after && typeof entry.after.refundAmount === 'number' ? entry.after.refundAmount : null;
     if (refundAmount === null) {
       return <span className="text-sm text-secondary-500">—</span>;
     }
@@ -245,9 +227,7 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
 
   if (entry.action === 'cash_session.close') {
     const overShort =
-      entry.after && typeof entry.after.overShort === 'number'
-        ? entry.after.overShort
-        : null;
+      entry.after && typeof entry.after.overShort === 'number' ? entry.after.overShort : null;
     if (overShort === null) {
       return <span className="text-sm text-secondary-500">—</span>;
     }
@@ -264,17 +244,11 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
 
   if (entry.action === 'inventory.adjust_stock') {
     const delta =
-      entry.metadata && typeof entry.metadata.delta === 'number'
-        ? entry.metadata.delta
-        : null;
+      entry.metadata && typeof entry.metadata.delta === 'number' ? entry.metadata.delta : null;
     const beforeStock =
-      entry.before && typeof entry.before.stock === 'number'
-        ? entry.before.stock
-        : null;
+      entry.before && typeof entry.before.stock === 'number' ? entry.before.stock : null;
     const afterStock =
-      entry.after && typeof entry.after.stock === 'number'
-        ? entry.after.stock
-        : null;
+      entry.after && typeof entry.after.stock === 'number' ? entry.after.stock : null;
     if (delta === null || beforeStock === null || afterStock === null) {
       return <span className="text-sm text-secondary-500">—</span>;
     }
@@ -291,14 +265,49 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
+  // ENG-199 — expiry-radar discount suggestions. Both branches read the
+  // product + lot from metadata (the resource row is the suggestion, which
+  // may outlive the lot) and surface the percent the manager accepted.
+  if (
+    entry.action === 'inventory.lot.discount_suggested' ||
+    entry.action === 'inventory.lot.discount_suggestion_dismissed'
+  ) {
+    const productName =
+      entry.metadata && typeof entry.metadata.productName === 'string'
+        ? entry.metadata.productName
+        : null;
+    const lotNumber =
+      entry.metadata && typeof entry.metadata.lotNumber === 'string'
+        ? entry.metadata.lotNumber
+        : null;
+    const snapshot =
+      entry.action === 'inventory.lot.discount_suggested' ? entry.after : entry.before;
+    const pct = snapshot && typeof snapshot.discountPct === 'number' ? snapshot.discountPct : null;
+    if (pct === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {t(
+          entry.action === 'inventory.lot.discount_suggested'
+            ? 'summary.discountSuggested'
+            : 'summary.discountSuggestionDismissed',
+          {
+            pct,
+            product: productName ?? entry.resourceId,
+            lot: lotNumber ?? '—',
+          }
+        )}
+      </span>
+    );
+  }
+
   // ENG-007 second wave — purchase voids, admin user lifecycle, price
   // overrides. Each branch renders a compact, searchable summary the
   // auditor can scan without expanding the raw JSON payload.
   if (entry.action === 'purchase.void') {
     const reason =
-      entry.metadata && typeof entry.metadata.reason === 'string'
-        ? entry.metadata.reason
-        : null;
+      entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
     const purchaseNumber =
       entry.before && typeof entry.before.purchaseNumber === 'string'
         ? entry.before.purchaseNumber
@@ -315,21 +324,13 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
   }
 
   if (entry.action === 'user.create') {
-    const email =
-      entry.after && typeof entry.after.email === 'string'
-        ? entry.after.email
-        : null;
-    const role =
-      entry.after && typeof entry.after.role === 'string'
-        ? entry.after.role
-        : null;
+    const email = entry.after && typeof entry.after.email === 'string' ? entry.after.email : null;
+    const role = entry.after && typeof entry.after.role === 'string' ? entry.after.role : null;
     if (email === null || role === null) {
       return <span className="text-sm text-secondary-500">—</span>;
     }
     return (
-      <span className="text-sm text-secondary-700">
-        {t('summary.userCreate', { email, role })}
-      </span>
+      <span className="text-sm text-secondary-700">{t('summary.userCreate', { email, role })}</span>
     );
   }
 
@@ -337,21 +338,12 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
     // Only role/isActive changes land here — name/email edits don't write
     // an audit row. Render the transition that actually occurred.
     const beforeRole =
-      entry.before && typeof entry.before.role === 'string'
-        ? entry.before.role
-        : null;
-    const afterRole =
-      entry.after && typeof entry.after.role === 'string'
-        ? entry.after.role
-        : null;
+      entry.before && typeof entry.before.role === 'string' ? entry.before.role : null;
+    const afterRole = entry.after && typeof entry.after.role === 'string' ? entry.after.role : null;
     const beforeActive =
-      entry.before && typeof entry.before.isActive === 'boolean'
-        ? entry.before.isActive
-        : null;
+      entry.before && typeof entry.before.isActive === 'boolean' ? entry.before.isActive : null;
     const afterActive =
-      entry.after && typeof entry.after.isActive === 'boolean'
-        ? entry.after.isActive
-        : null;
+      entry.after && typeof entry.after.isActive === 'boolean' ? entry.after.isActive : null;
     const roleChange =
       beforeRole !== null && afterRole !== null
         ? t('summary.userRoleChange', { from: beforeRole, to: afterRole })
@@ -362,15 +354,11 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
           ? t('summary.userReactivate')
           : t('summary.userDeactivate')
         : null;
-    const parts = [roleChange, activeChange].filter(
-      (part): part is string => part !== null
-    );
+    const parts = [roleChange, activeChange].filter((part): part is string => part !== null);
     if (parts.length === 0) {
       return <span className="text-sm text-secondary-500">—</span>;
     }
-    return (
-      <span className="text-sm text-secondary-700">{parts.join(' · ')}</span>
-    );
+    return <span className="text-sm text-secondary-700">{parts.join(' · ')}</span>;
   }
 
   if (entry.action === 'sale.price_override') {
@@ -401,11 +389,8 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
         ? entry.before.saleNumber
         : null) ?? entry.resourceId;
     const label =
-      entry.metadata && typeof entry.metadata.label === 'string'
-        ? entry.metadata.label
-        : null;
-    const discarded =
-      entry.metadata && entry.metadata.discarded === true;
+      entry.metadata && typeof entry.metadata.label === 'string' ? entry.metadata.label : null;
+    const discarded = entry.metadata && entry.metadata.discarded === true;
     if (discarded) {
       return (
         <span className="text-sm text-secondary-700">
@@ -418,9 +403,7 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
         {t('summary.salePark_label', { saleNumber, label })}
       </span>
     ) : (
-      <span className="text-sm text-secondary-700">
-        {t('summary.salePark', { saleNumber })}
-      </span>
+      <span className="text-sm text-secondary-700">{t('summary.salePark', { saleNumber })}</span>
     );
   }
 
@@ -429,16 +412,13 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
       (entry.before && typeof entry.before.saleNumber === 'string'
         ? entry.before.saleNumber
         : null) ?? entry.resourceId;
-    const override =
-      entry.metadata && entry.metadata.override === true;
+    const override = entry.metadata && entry.metadata.override === true;
     return override ? (
       <span className="text-sm text-secondary-700">
         {t('summary.saleResume_override', { saleNumber })}
       </span>
     ) : (
-      <span className="text-sm text-secondary-700">
-        {t('summary.saleResume', { saleNumber })}
-      </span>
+      <span className="text-sm text-secondary-700">{t('summary.saleResume', { saleNumber })}</span>
     );
   }
 
@@ -472,9 +452,7 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
     const sourceSaleNumber =
       entry.metadata && typeof entry.metadata.sourceSaleNumber === 'string'
         ? entry.metadata.sourceSaleNumber
-        : entry.before &&
-            typeof (entry.before as Record<string, unknown>).sourceSaleId ===
-              'string'
+        : entry.before && typeof (entry.before as Record<string, unknown>).sourceSaleId === 'string'
           ? ((entry.before as Record<string, unknown>).sourceSaleId as string)
           : '';
     const newSaleNumber =
@@ -519,9 +497,7 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
           ? entry.after.reprintCount
           : null;
     const reason =
-      entry.metadata && typeof entry.metadata.reason === 'string'
-        ? entry.metadata.reason
-        : null;
+      entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
     if (count === null) {
       return <span className="text-sm text-secondary-500">—</span>;
     }
@@ -554,13 +530,9 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
   // cashier user and keeps metric details in metadata for audit drilldown.
   if (entry.action === 'ai.anomaly.detected') {
     const kind =
-      entry.metadata && typeof entry.metadata.kind === 'string'
-        ? entry.metadata.kind
-        : '?';
+      entry.metadata && typeof entry.metadata.kind === 'string' ? entry.metadata.kind : '?';
     const severity =
-      entry.metadata && typeof entry.metadata.severity === 'string'
-        ? entry.metadata.severity
-        : '?';
+      entry.metadata && typeof entry.metadata.severity === 'string' ? entry.metadata.severity : '?';
     const distance =
       entry.metadata && typeof entry.metadata.distance === 'number'
         ? entry.metadata.distance.toFixed(2)
@@ -574,13 +546,9 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
 
   if (entry.action === 'device.revoke') {
     const name =
-      entry.before && typeof entry.before.name === 'string'
-        ? entry.before.name
-        : entry.resourceId;
+      entry.before && typeof entry.before.name === 'string' ? entry.before.name : entry.resourceId;
     return (
-      <span className="text-sm text-secondary-700">
-        {t('summary.deviceRevoke', { name })}
-      </span>
+      <span className="text-sm text-secondary-700">{t('summary.deviceRevoke', { name })}</span>
     );
   }
 

@@ -64,6 +64,13 @@
       "when": 1783647003276,
       "tag": "0008_product_stock_totals",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1783691774776,
+      "tag": "0009_price_suggestions",
+      "breakpoints": true
     }
   ]
 }

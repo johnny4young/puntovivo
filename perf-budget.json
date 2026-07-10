@@ -13,6 +13,7 @@
     "$retune7": "ENG-167b — the cross-device restore key prompt + key reveal added ~20 keys to the settings i18n namespace (en+es), pushing the settings chunk 8.00 -> gate-measured 8.49 KB gz. Deliberate copy growth for a shipped feature; ceiling lifts 8 -> 9.",
     "$retune8": "ENG-167b review — the Company backup card now owns the cross-device restore key prompt and admin reveal modals inside CompanyPage, pushing CompanyPage from the 30 KB gz ceiling to gate-measured 32.16 KB gz. Deliberate route growth for a security-operable flow; ceiling lifts 30 -> 33.",
     "$retune9": "ENG-178 slice 16b-2 — SalesPage JSX relocation adds a small wrapper/prop seam to close SalesPage under 500 LOC; gate-measured SalesPage chunk is 43.21 KB gz, so the baseline lifts 41->44 while staying within the existing 5% threshold.",
+    "$retune10": "ENG-198 / ENG-199 — day-close summary UI and the site-scoped expiry-suggestion badge add authenticated sales behavior to the route. Gate-measured SalesPage is 46.26 KB gz after rebasing both shipped slices, so the baseline lifts 44->45 while preserving the existing 5% regression threshold.",
     "perChunkGzKb": {
       "index": 153,
       "xlsx": 264,
@@ -22,7 +23,7 @@
       "CopilotPage": 54,
       "index.es": 50,
       "html2canvas": 48,
-      "SalesPage": 44,
+      "SalesPage": 45,
       "trpc": 26,
       "CompanyPage": 33,
       "dnd": 25,

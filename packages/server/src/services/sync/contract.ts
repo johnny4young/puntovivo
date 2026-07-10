@@ -66,6 +66,10 @@ export const SYNC_ENTITY_TYPES = [
   'inventory_movements',
   'inventory_balances',
   'inventory_lots',
+  // ENG-199 — expiry-radar discount suggestions. Registered so the entity
+  // carries a conflict policy from day one; enqueue wiring rides a later
+  // sync slice (same reserved-placeholder posture as sale_item_lots).
+  'price_suggestions',
   'initial_inventory',
   'transfer_orders',
   'transfer_order_items',
@@ -130,6 +134,7 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   inventory_movements: 'manual',
   inventory_balances: 'manual',
   inventory_lots: 'manual',
+  price_suggestions: 'manual',
   initial_inventory: 'manual',
   transfer_orders: 'manual',
   transfer_order_items: 'manual',

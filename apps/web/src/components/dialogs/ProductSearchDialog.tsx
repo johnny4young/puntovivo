@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { PlusCircle, Search } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
 import type {
@@ -35,6 +36,17 @@ interface ProductSearchDialogProps {
    */
   onQuickCreateRequested?: (defaultName: string) => void;
   /**
+   * ENG-199 — opt-in expiry-discount badges. When `true`, rows whose
+   * product carries an active expiry-radar suggestion render a
+   * "sugerido -N%" chip next to the name. Only the POS turns it on;
+   * the other consumers (inventory, purchases, orders, OCR, voice)
+   * pay zero extra queries. Defaults to `false`.
+   */
+  showDiscountSuggestions?: boolean;
+  /** Active site for POS-only expiry suggestions. Shared-dialog consumers
+   * omit it and therefore issue no suggestions query. */
+  discountSuggestionSiteId?: string | null;
+  /**
    * ENG-105c — defense-in-depth role gate. When `false`, the
    * empty-state block renders an explanatory hint ("Pídele a un
    * manager...") instead of the CTA button. Defaults to `true` to
@@ -54,7 +66,11 @@ function getDefaultUnit(product: ProductSearchItem | null): ProductUnitAssignmen
     return null;
   }
 
-  return product.unitAssignments.find(assignment => assignment.isBase) ?? product.unitAssignments[0] ?? null;
+  return (
+    product.unitAssignments.find(assignment => assignment.isBase) ??
+    product.unitAssignments[0] ??
+    null
+  );
 }
 
 function getInitialSelection(product: ProductSearchItem): ProductSelectionState | null {
@@ -80,6 +96,8 @@ export function ProductSearchDialog({
   confirmLabel,
   onQuickCreateRequested,
   canCreateProducts = true,
+  showDiscountSuggestions = false,
+  discountSuggestionSiteId = null,
 }: ProductSearchDialogProps) {
   const { t } = useTranslation('common');
   const categoryFilterId = useId();
@@ -128,6 +146,13 @@ export function ProductSearchDialog({
   );
 
   const items = (productsQuery.data?.items ?? []) as ProductSearchItem[];
+
+  // ENG-199 — productId → max active suggested discount pct. Empty Map
+  // (and no query) unless the caller opted in.
+  const discountSuggestions = useDiscountSuggestions(
+    showDiscountSuggestions && isOpen,
+    discountSuggestionSiteId
+  );
   const itemsKey = items.map(product => product.id).join('\u0000');
   // ENG-134e — when a new search returns a different result set, the
   // roving tabindex must restart on the first row so a keyboard user
@@ -141,11 +166,11 @@ export function ProductSearchDialog({
     setActiveRowIndex(0);
   }
   const selectedProduct = selection
-    ? items.find(product => product.id === selection.productId) ?? null
+    ? (items.find(product => product.id === selection.productId) ?? null)
     : null;
-  const selectedUnit = selectedProduct?.unitAssignments?.find(
-    assignment => assignment.unitId === selection?.unitId
-  ) ?? getDefaultUnit(selectedProduct ?? null);
+  const selectedUnit =
+    selectedProduct?.unitAssignments?.find(assignment => assignment.unitId === selection?.unitId) ??
+    getDefaultUnit(selectedProduct ?? null);
   const isSelectionValid = Boolean(selectedProduct && selectedUnit);
 
   const handleProductSelect = (product: ProductSearchItem) => {
@@ -345,12 +370,12 @@ export function ProductSearchDialog({
                       <tr>
                         <td colSpan={5} className="px-4 py-6">
                           {/* ENG-105c — empty state block. When the
-                            * caller wired `onQuickCreateRequested`,
-                            * surfaces a CTA gated by `canCreateProducts`
-                            * (typically manager/admin); cashiers see
-                            * an explanatory hint instead. Surfaces
-                            * without the prop keep the legacy text
-                            * exactly. */}
+                           * caller wired `onQuickCreateRequested`,
+                           * surfaces a CTA gated by `canCreateProducts`
+                           * (typically manager/admin); cashiers see
+                           * an explanatory hint instead. Surfaces
+                           * without the prop keep the legacy text
+                           * exactly. */}
                           {onQuickCreateRequested ? (
                             <div
                               className="flex flex-col items-start gap-3 text-sm"
@@ -424,7 +449,19 @@ export function ProductSearchDialog({
                             </td>
                             <td className="px-4 py-3">
                               <div>
-                                <p className="text-sm font-medium text-secondary-900">{product.name}</p>
+                                <p className="flex items-center gap-2 text-sm font-medium text-secondary-900">
+                                  {product.name}
+                                  {(discountSuggestions.get(product.id) ?? 0) > 0 && (
+                                    <span
+                                      className="pv-badge warning"
+                                      data-testid={`product-discount-suggestion-${product.sku}`}
+                                    >
+                                      {t('productSearch.discountSuggested', {
+                                        pct: discountSuggestions.get(product.id),
+                                      })}
+                                    </span>
+                                  )}
+                                </p>
                                 <p className="text-xs text-secondary-500">
                                   {product.categoryName ?? t('productSearch.noCategory')}
                                   {' · '}
@@ -432,12 +469,18 @@ export function ProductSearchDialog({
                                 </p>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-secondary-700">{product.stock}</td>
                             <td className="px-4 py-3 text-sm text-secondary-700">
-                              {formatCurrency(defaultUnit?.price ?? product.baseUnitPrice ?? product.price)}
+                              {product.stock}
                             </td>
                             <td className="px-4 py-3 text-sm text-secondary-700">
-                              {defaultUnit?.unitAbbreviation ?? product.baseUnitAbbreviation ?? 'UND'}
+                              {formatCurrency(
+                                defaultUnit?.price ?? product.baseUnitPrice ?? product.price
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-secondary-700">
+                              {defaultUnit?.unitAbbreviation ??
+                                product.baseUnitAbbreviation ??
+                                'UND'}
                             </td>
                           </tr>
                         );
@@ -459,7 +502,9 @@ export function ProductSearchDialog({
               ) : (
                 <div className="mt-5 space-y-4">
                   <div>
-                    <p className="text-xl font-semibold text-secondary-950">{selectedProduct.name}</p>
+                    <p className="text-xl font-semibold text-secondary-950">
+                      {selectedProduct.name}
+                    </p>
                     <p className="mt-1 text-sm text-secondary-500">{selectedProduct.sku}</p>
                   </div>
 
@@ -485,7 +530,9 @@ export function ProductSearchDialog({
                       >
                         {selectedProduct.unitAssignments?.map(assignment => (
                           <option key={assignment.unitId} value={assignment.unitId}>
-                            {assignment.unitName ?? assignment.unitAbbreviation ?? assignment.unitId}
+                            {assignment.unitName ??
+                              assignment.unitAbbreviation ??
+                              assignment.unitId}
                           </option>
                         ))}
                       </select>
@@ -500,22 +547,32 @@ export function ProductSearchDialog({
                       </div>
                       <div className="mt-2 flex items-center justify-between text-sm">
                         <span className="text-secondary-500">{t('productSearch.equivalence')}</span>
-                        <span className="font-medium text-secondary-900">{selectedUnit.equivalence}</span>
+                        <span className="font-medium text-secondary-900">
+                          {selectedUnit.equivalence}
+                        </span>
                       </div>
                       <div className="mt-2 flex items-center justify-between text-sm">
-                        <span className="text-secondary-500">{t('productSearch.availableStock')}</span>
-                        <span className="font-medium text-secondary-900">{selectedProduct.stock}</span>
+                        <span className="text-secondary-500">
+                          {t('productSearch.availableStock')}
+                        </span>
+                        <span className="font-medium text-secondary-900">
+                          {selectedProduct.stock}
+                        </span>
                       </div>
                       {selectedProduct.sellByFraction && (
                         <>
                           <div className="mt-2 flex items-center justify-between text-sm">
-                            <span className="text-secondary-500">{t('productSearch.fractionStep')}</span>
+                            <span className="text-secondary-500">
+                              {t('productSearch.fractionStep')}
+                            </span>
                             <span className="font-medium text-secondary-900">
                               {selectedProduct.fractionStep ?? '—'}
                             </span>
                           </div>
                           <div className="mt-2 flex items-center justify-between text-sm">
-                            <span className="text-secondary-500">{t('productSearch.fractionMinimum')}</span>
+                            <span className="text-secondary-500">
+                              {t('productSearch.fractionMinimum')}
+                            </span>
                             <span className="font-medium text-secondary-900">
                               {selectedProduct.fractionMinimum ?? '—'}
                             </span>

@@ -290,6 +290,7 @@ export function SalesScreen({
         <section className="grid gap-6 pos:min-h-0 pos:flex-1 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)] pos:grid-rows-[minmax(0,1fr)]">
           <SalesCartWorkspace
             items={cartItems}
+            discountSuggestionSiteId={currentSite?.id ?? null}
             selectedItemKey={activeSelectedCartItemKey}
             itemCount={draftSummary.itemCount}
             saleError={saleError}
@@ -400,6 +401,7 @@ export function SalesScreen({
 
       <SalesModals
         isProductSearchOpen={isProductSearchOpen}
+        discountSuggestionSiteId={currentSite?.id ?? null}
         productSearchDialogKey={productSearchDialogKey}
         onCloseProductSearch={() => setIsProductSearchOpen(false)}
         onSelectProduct={handleProductSelect}

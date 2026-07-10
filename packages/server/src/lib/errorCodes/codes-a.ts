@@ -189,6 +189,19 @@ export const SERVER_ERROR_CODES_A = {
   LOT_COST_INVALID: 'LOT_COST_INVALID',
   /** Lot receipt references a product that does not exist for this tenant. */
   LOT_PRODUCT_NOT_FOUND: 'LOT_PRODUCT_NOT_FOUND',
+  /** ENG-199 — the referenced lot does not exist under the caller's tenant
+   * (cross-tenant probes land here too). details: { lotId }. */
+  LOT_NOT_FOUND: 'LOT_NOT_FOUND',
+  /** ENG-199 — the lot cannot receive an expiry-discount suggestion: no
+   * expiry date, already expired, depleted, inactive, or outside the tier
+   * window. details: { lotId, reason }. */
+  LOT_DISCOUNT_NOT_ELIGIBLE: 'LOT_DISCOUNT_NOT_ELIGIBLE',
+  /** ENG-199 — the lot already carries an ACTIVE discount suggestion (the
+   * partial unique index is the race-safe guard). details: { lotId }. */
+  LOT_DISCOUNT_ALREADY_ACTIVE: 'LOT_DISCOUNT_ALREADY_ACTIVE',
+  /** ENG-199 — dismiss targeted a suggestion id that does not exist (or is
+   * not active) under the caller's tenant. details: { suggestionId }. */
+  PRICE_SUGGESTION_NOT_FOUND: 'PRICE_SUGGESTION_NOT_FOUND',
   /** Applied discount amount exceeds the computed sale total. */
   SALE_DISCOUNT_EXCEEDS_TOTAL: 'SALE_DISCOUNT_EXCEEDS_TOTAL',
   /** Amount received is below the sale total when the payment status is paid. */
