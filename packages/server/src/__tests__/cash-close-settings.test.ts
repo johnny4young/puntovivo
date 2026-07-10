@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { users } from '../db/schema.js';
+import { tenants, users } from '../db/schema.js';
 import { resolveCashCloseSettings } from '../services/cash-close-settings.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
@@ -68,11 +68,25 @@ describe('cashCloseSettings', () => {
     expect(restored.blindClose).toBe(true);
   });
 
-  it('treats an empty patch as a no-op', async () => {
+  it('treats an empty patch as a true no-op (no tenants write, updated_at untouched)', async () => {
     const caller = appRouter.createCaller(buildContext('admin'));
+    const db = getDatabase();
+    const rowBefore = await db
+      .select({ updatedAt: tenants.updatedAt })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get();
+
     const before = await caller.cashCloseSettings.get();
     const after = await caller.cashCloseSettings.update({});
     expect(after.blindClose).toBe(before.blindClose);
+
+    const rowAfter = await db
+      .select({ updatedAt: tenants.updatedAt })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get();
+    expect(rowAfter?.updatedAt).toBe(rowBefore?.updatedAt);
   });
 
   it('gates get to manager/admin and update to admin only', async () => {

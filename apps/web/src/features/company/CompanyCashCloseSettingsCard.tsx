@@ -31,13 +31,35 @@ export function CompanyCashCloseSettingsCard() {
   const blindClose = settingsQuery.data?.blindClose ?? true;
 
   const updateMutation = trpc.cashCloseSettings.update.useMutation({
-    onSuccess: async () => {
-      await utils.cashCloseSettings.get.invalidate();
+    // The checkbox is controlled by the query cache, so reflect the click
+    // immediately (otherwise it snaps back to the previous value until the
+    // refetch lands and the toggle feels broken).
+    onMutate: async next => {
+      await utils.cashCloseSettings.get.cancel();
+      const previous = utils.cashCloseSettings.get.getData();
+      if (next.blindClose !== undefined) {
+        const optimistic = next.blindClose;
+        utils.cashCloseSettings.get.setData(undefined, old =>
+          old ? { ...old, blindClose: optimistic } : old
+        );
+      }
+      return { previous };
+    },
+    onSuccess: () => {
       toast.success({ title: t('settings:company.cashClose.toast.saved') });
     },
-    onError: onErrorToast(toast, t, {
-      titleKey: 'settings:company.cashClose.toast.saveError',
-    }),
+    onError: (error, _variables, context) => {
+      // Roll the optimistic value back before surfacing the toast so the
+      // UI never stays stuck on a state the server rejected.
+      if (context?.previous) {
+        utils.cashCloseSettings.get.setData(undefined, context.previous);
+      }
+      onErrorToast(toast, t, {
+        titleKey: 'settings:company.cashClose.toast.saveError',
+      })(error);
+    },
+    // Success or failure, reconcile with the server's persisted truth.
+    onSettled: () => utils.cashCloseSettings.get.invalidate(),
   });
 
   const disabled = settingsQuery.isLoading || updateMutation.isPending;

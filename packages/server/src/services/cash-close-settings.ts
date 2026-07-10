@@ -72,9 +72,13 @@ export async function writeCashCloseSettings(
   patch: Partial<CashCloseSettings>
 ): Promise<CashCloseSettings> {
   const current = await resolveCashCloseSettings(db, tenantId);
+  // An empty patch is a true no-op: skip the tenants UPDATE entirely so we
+  // neither bump updated_at nor churn the settings blob for nothing.
+  if (patch.blindClose === undefined) {
+    return current;
+  }
   const next: CashCloseSettings = {
-    blindClose:
-      patch.blindClose !== undefined ? normalizeBlindClose(patch.blindClose) : current.blindClose,
+    blindClose: normalizeBlindClose(patch.blindClose),
   };
 
   const tenant = await db
