@@ -33,6 +33,7 @@ const suggestionsQueryState = {
   isLoading: false,
   error: null as { message: string } | null,
 };
+const activeSuggestionsUseQuery = vi.fn((..._args: unknown[]) => suggestionsQueryState);
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -43,7 +44,7 @@ vi.mock('@/lib/trpc', () => ({
     },
     inventoryLots: {
       activeSuggestions: {
-        useQuery: () => suggestionsQueryState,
+        useQuery: (...args: unknown[]) => activeSuggestionsUseQuery(...args),
       },
     },
   },
@@ -55,6 +56,7 @@ beforeEach(async () => {
   trpcQueryState.isLoading = false;
   trpcQueryState.error = null;
   suggestionsQueryState.data = { items: [] };
+  activeSuggestionsUseQuery.mockClear();
 });
 
 function renderDialog(overrides: Partial<React.ComponentProps<typeof ProductSearchDialog>> = {}) {
@@ -253,11 +255,18 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
     };
 
     const user = userEvent.setup();
-    const { unmount } = renderDialog({ showDiscountSuggestions: true });
+    const { unmount } = renderDialog({
+      showDiscountSuggestions: true,
+      discountSuggestionSiteId: 'site-1',
+    });
     await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'arroz');
 
     const badge = await screen.findByTestId('product-discount-suggestion-ABR-0001');
     expect(badge).toHaveTextContent('Suggested -20%');
+    expect(activeSuggestionsUseQuery).toHaveBeenLastCalledWith(
+      { siteId: 'site-1' },
+      expect.objectContaining({ enabled: true })
+    );
     unmount();
 
     // Same data, prop off → no badge (the other 5 dialog consumers).

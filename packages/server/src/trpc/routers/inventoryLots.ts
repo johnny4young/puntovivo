@@ -108,9 +108,12 @@ export const inventoryLotsRouter = router({
   }),
 
   expiring: managerOrAdminProcedure.input(expiringLotsInput).query(async ({ ctx, input }) => {
-    const cutoff = new Date(Date.now() + input.withinDays * 24 * 60 * 60 * 1000).toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const cutoff = new Date(now.getTime() + input.withinDays * 24 * 60 * 60 * 1000).toISOString();
     const items = listExpiringLots(ctx.db, {
       tenantId: ctx.tenantId,
+      nowIso,
       cutoffIso: cutoff,
       ...(input.siteId ? { siteId: input.siteId } : {}),
     });
@@ -150,6 +153,9 @@ export const inventoryLotsRouter = router({
    * fields — see `listActiveSuggestions`.
    */
   activeSuggestions: tenantProcedure.input(activeSuggestionsInput).query(async ({ ctx, input }) => {
+    if (input?.siteId) {
+      await assertTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    }
     const items = listActiveSuggestions(ctx.db, {
       tenantId: ctx.tenantId,
       ...(input?.siteId ? { siteId: input.siteId } : {}),

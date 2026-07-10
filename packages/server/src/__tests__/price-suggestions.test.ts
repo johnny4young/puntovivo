@@ -21,6 +21,7 @@ import {
   auditLogs,
   companies,
   inventoryLots,
+  priceSuggestions,
   products,
   sites,
   tenants,
@@ -196,6 +197,14 @@ describe('price suggestions (ENG-199)', () => {
       )
       .get();
     expect(dismissAudit).toBeTruthy();
+    expect(dismissAudit?.metadata).toMatchObject({
+      lotId,
+      productId,
+      productName: 'Queso Radar',
+    });
+    expect((dismissAudit?.metadata as { lotNumber?: unknown } | null)?.lotNumber).toEqual(
+      expect.any(String)
+    );
 
     // Dismissed rows do not block the partial unique index.
     const second = await caller.inventoryLots.suggestDiscount({ lotId });
@@ -294,7 +303,7 @@ describe('price suggestions (ENG-199)', () => {
     expect(items.every(item => item.lotId !== foreignLot)).toBe(true);
   });
 
-  it('drops depleted, expired, and dismissed suggestions from the active read', async () => {
+  it('drops depleted, snapshot-expired, and dismissed suggestions from the active read', async () => {
     const db = getDatabase();
     const productId = await seedProduct('Leche Radar', 'PS-LECHE');
     const caller = appRouter.createCaller(fresh());
@@ -310,10 +319,16 @@ describe('price suggestions (ENG-199)', () => {
     const sKeeper = await caller.inventoryLots.suggestDiscount({ lotId: keeper });
 
     await db.update(inventoryLots).set({ onHand: 0 }).where(eq(inventoryLots.id, depletable));
+    // The suggestion expiry is a snapshot: later lot edits must not make an
+    // active suggestion immortal or make a still-valid snapshot disappear.
+    await db
+      .update(priceSuggestions)
+      .set({ lotExpiresAt: isoDaysFromNow(-1) })
+      .where(eq(priceSuggestions.id, sExpired.id));
     await db
       .update(inventoryLots)
       .set({ expiresAt: isoDaysFromNow(-1) })
-      .where(eq(inventoryLots.id, expirable));
+      .where(eq(inventoryLots.id, keeper));
     await caller.inventoryLots.dismissSuggestion({ suggestionId: sDismissed.id });
 
     const active = await caller.inventoryLots.activeSuggestions();
@@ -327,6 +342,15 @@ describe('price suggestions (ENG-199)', () => {
     const keeperRow = active.items.find(item => item.id === sKeeper.id);
     expect(keeperRow).toBeTruthy();
     expect(keeperRow).not.toHaveProperty('unitCost');
+  });
+
+  it('keeps already-expired lots out of the manager radar', async () => {
+    const productId = await seedProduct('Expired Radar', 'PS-EXPIRED');
+    const expiredLotId = await seedLot({ productId, expiresAt: isoDaysFromNow(-1) });
+
+    const radar = await appRouter.createCaller(fresh()).inventoryLots.expiring({ withinDays: 30 });
+
+    expect(radar.items.some(lot => lot.id === expiredLotId)).toBe(false);
   });
 
   it('gates the CTA and the radar read to manager/admin, keeps the badge read open', async () => {

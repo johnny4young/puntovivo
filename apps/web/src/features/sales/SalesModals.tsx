@@ -39,6 +39,8 @@ type SetCartItemsArg = SaleCartItem[] | ((previous: SaleCartItem[]) => SaleCartI
 interface SalesModalsProps {
   // Product search
   isProductSearchOpen: boolean;
+  /** ENG-199 — active POS site, passed only to the suggestion-enabled dialog. */
+  discountSuggestionSiteId?: string | null;
   productSearchDialogKey: number;
   onCloseProductSearch: () => void;
   onSelectProduct: (selection: Parameters<typeof mergeCartItem>[1]) => void;
@@ -72,6 +74,7 @@ interface SalesModalsProps {
 
 export function SalesModals({
   isProductSearchOpen,
+  discountSuggestionSiteId = null,
   productSearchDialogKey,
   onCloseProductSearch,
   onSelectProduct,
@@ -132,6 +135,7 @@ export function SalesModals({
           // suggestion must reach the cashier; other dialog consumers
           // keep the prop off (zero extra queries).
           showDiscountSuggestions
+          discountSuggestionSiteId={discountSuggestionSiteId}
         />
       )}
       {(shouldRenderQuickCreateProductGate || shouldRenderQuickCreateCustomerGate) && (

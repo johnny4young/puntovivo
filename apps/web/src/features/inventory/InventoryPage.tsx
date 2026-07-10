@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
@@ -14,7 +14,6 @@ import {
   InventoryEntryModal,
   type InventoryEntryFormValues,
 } from '@/features/inventory/InventoryEntryModal';
-import { ExpiryRadarPanel } from '@/features/inventory/ExpiryRadarPanel';
 import { InventoryBalancesPanel } from '@/features/inventory/InventoryBalancesPanel';
 import { InventoryStockDetailsDrawer } from '@/features/inventory/InventoryStockDetailsDrawer';
 import { InventoryMovementDetailsDrawer } from '@/features/inventory/InventoryMovementDetailsDrawer';
@@ -38,6 +37,14 @@ import type {
 } from '@/types';
 
 type SearchMode = 'adjustment' | 'entry';
+
+// ENG-199 — keep the infrequently opened expiry view out of the default
+// inventory shell. The tab boundary is a natural, accessible loading point.
+const ExpiryRadarPanel = lazy(() =>
+  import('@/features/inventory/ExpiryRadarPanel').then(module => ({
+    default: module.ExpiryRadarPanel,
+  }))
+);
 
 function canManageInventory(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
@@ -292,7 +299,17 @@ export function InventoryPage() {
       )}
 
       {/* ENG-199 — expiry radar; self-contained queries fire on mount. */}
-      {activeView === 'expiry' && <ExpiryRadarPanel />}
+      {activeView === 'expiry' && (
+        <Suspense
+          fallback={
+            <div className="card p-6 text-sm text-secondary-600" role="status">
+              {t('expiry.loading')}
+            </div>
+          }
+        >
+          <ExpiryRadarPanel />
+        </Suspense>
+      )}
 
       {activeView !== 'balances' && activeView !== 'expiry' && (
         <InventoryDataPanel

@@ -96,14 +96,42 @@ interface SuggestionActorInput {
   actorId: string;
 }
 
+/** Keep the duplicate response stable for both the optimistic pre-check and
+ * the database-level race guard. */
+function throwActiveSuggestionConflict(lotId: string): never {
+  return throwServerError({
+    trpcCode: 'CONFLICT',
+    errorCode: 'LOT_DISCOUNT_ALREADY_ACTIVE',
+    message: 'The lot already has an active discount suggestion',
+    details: { lotId },
+  });
+}
+
+/**
+ * SQLite reports the partial active-lot index as this exact unique-key shape.
+ * Do not convert unrelated unique failures (for example an improbable id
+ * collision) into a misleading domain conflict.
+ */
+function isActiveLotUniqueConstraint(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  return (
+    candidate.code === 'SQLITE_CONSTRAINT_UNIQUE' &&
+    typeof candidate.message === 'string' &&
+    candidate.message.includes('price_suggestions.tenant_id') &&
+    candidate.message.includes('price_suggestions.lot_id')
+  );
+}
+
 /**
  * Record an expiry-discount suggestion for a lot. Validates that the lot
  * belongs to the tenant, is active with stock, and falls inside a tier
  * window; computes the percent SERVER-side (the client never chooses it);
  * inserts the suggestion and its audit row in one transaction. The partial
  * unique index `(tenant_id, lot_id) WHERE status='active'` makes the
- * duplicate guard race-safe — a concurrent double-click surfaces as
- * LOT_DISCOUNT_ALREADY_ACTIVE, never as two active rows.
+ * duplicate guard race-safe — the insert maps its constraint race back to
+ * LOT_DISCOUNT_ALREADY_ACTIVE, never a generic SQLite error or two active
+ * rows.
  */
 export function createExpirySuggestion(
   db: DatabaseInstance,
@@ -165,31 +193,33 @@ export function createExpirySuggestion(
       )
       .get();
     if (existing) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'LOT_DISCOUNT_ALREADY_ACTIVE',
-        message: 'The lot already has an active discount suggestion',
-        details: { lotId: input.lotId },
-      });
+      throwActiveSuggestionConflict(input.lotId);
     }
 
     const id = nanoid();
-    tx.insert(priceSuggestions)
-      .values({
-        id,
-        tenantId: input.tenantId,
-        siteId: lot.siteId,
-        productId: lot.productId,
-        lotId: lot.id,
-        discountPct,
-        reason: 'expiry',
-        lotExpiresAt: lot.expiresAt,
-        status: 'active',
-        createdBy: input.actorId,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      })
-      .run();
+    try {
+      tx.insert(priceSuggestions)
+        .values({
+          id,
+          tenantId: input.tenantId,
+          siteId: lot.siteId,
+          productId: lot.productId,
+          lotId: lot.id,
+          discountPct,
+          reason: 'expiry',
+          lotExpiresAt: lot.expiresAt,
+          status: 'active',
+          createdBy: input.actorId,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        })
+        .run();
+    } catch (error) {
+      if (isActiveLotUniqueConstraint(error)) {
+        throwActiveSuggestionConflict(input.lotId);
+      }
+      throw error;
+    }
 
     writeAuditLog({
       tx,
@@ -238,8 +268,12 @@ export function dismissSuggestion(
         productId: priceSuggestions.productId,
         discountPct: priceSuggestions.discountPct,
         status: priceSuggestions.status,
+        lotNumber: inventoryLots.lotNumber,
+        productName: products.name,
       })
       .from(priceSuggestions)
+      .innerJoin(inventoryLots, eq(priceSuggestions.lotId, inventoryLots.id))
+      .innerJoin(products, eq(priceSuggestions.productId, products.id))
       .where(
         and(
           eq(priceSuggestions.tenantId, input.tenantId),
@@ -275,16 +309,21 @@ export function dismissSuggestion(
       resourceId: suggestion.id,
       before: { discountPct: suggestion.discountPct, status: 'active' },
       after: { status: 'dismissed' },
-      metadata: { lotId: suggestion.lotId, productId: suggestion.productId },
+      metadata: {
+        lotId: suggestion.lotId,
+        lotNumber: suggestion.lotNumber,
+        productId: suggestion.productId,
+        productName: suggestion.productName,
+      },
     });
   });
 }
 
 /**
  * Active suggestions whose lot can still honor them: lot active, stock on
- * hand, and (when the lot has an expiry) not yet expired. This read-side
- * filter is why the table needs no sweeper — a depleted or expired lot
- * silently drops off the POS badge and the radar.
+ * hand, and whose expiry snapshot has not passed. This read-side filter is
+ * why the table needs no sweeper — a depleted or expired suggestion silently
+ * drops off the POS badge and the radar even if the live lot is edited later.
  */
 export function listActiveSuggestions(
   db: DatabaseInstance,
@@ -296,7 +335,7 @@ export function listActiveSuggestions(
     eq(priceSuggestions.status, 'active'),
     eq(inventoryLots.status, 'active'),
     gt(inventoryLots.onHand, 0),
-    sql`(${inventoryLots.expiresAt} IS NULL OR ${inventoryLots.expiresAt} >= ${nowIso})`,
+    sql`${priceSuggestions.lotExpiresAt} >= ${nowIso}`,
   ];
   if (args.siteId) {
     conditions.push(eq(priceSuggestions.siteId, args.siteId));

@@ -10,9 +10,12 @@ import { trpc } from '@/lib/trpc';
  * suggested lots badges with the MAX percent — the cashier operates per
  * product, not per lot.
  */
-export function useDiscountSuggestions(enabled: boolean): Map<string, number> {
-  const query = trpc.inventoryLots.activeSuggestions.useQuery(undefined, {
-    enabled,
+export function useDiscountSuggestions(
+  enabled: boolean,
+  siteId: string | null | undefined = null
+): Map<string, number> {
+  const query = trpc.inventoryLots.activeSuggestions.useQuery(siteId ? { siteId } : undefined, {
+    enabled: enabled && Boolean(siteId),
     staleTime: 60_000,
   });
   return useMemo(() => {
@@ -20,7 +23,7 @@ export function useDiscountSuggestions(enabled: boolean): Map<string, number> {
     // `enabled: false` still surfaces CACHED data from other consumers
     // (e.g. the cart populating the query while a non-POS dialog is open),
     // so the opt-in must also gate the derived Map — not just the fetch.
-    if (!enabled) return byProduct;
+    if (!enabled || !siteId) return byProduct;
     for (const item of query.data?.items ?? []) {
       const current = byProduct.get(item.productId) ?? 0;
       if (item.discountPct > current) {
@@ -28,5 +31,5 @@ export function useDiscountSuggestions(enabled: boolean): Map<string, number> {
       }
     }
     return byProduct;
-  }, [query.data, enabled]);
+  }, [query.data, enabled, siteId]);
 }

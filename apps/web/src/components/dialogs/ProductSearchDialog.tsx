@@ -43,6 +43,9 @@ interface ProductSearchDialogProps {
    * pay zero extra queries. Defaults to `false`.
    */
   showDiscountSuggestions?: boolean;
+  /** Active site for POS-only expiry suggestions. Shared-dialog consumers
+   * omit it and therefore issue no suggestions query. */
+  discountSuggestionSiteId?: string | null;
   /**
    * ENG-105c — defense-in-depth role gate. When `false`, the
    * empty-state block renders an explanatory hint ("Pídele a un
@@ -94,6 +97,7 @@ export function ProductSearchDialog({
   onQuickCreateRequested,
   canCreateProducts = true,
   showDiscountSuggestions = false,
+  discountSuggestionSiteId = null,
 }: ProductSearchDialogProps) {
   const { t } = useTranslation('common');
   const categoryFilterId = useId();
@@ -145,7 +149,10 @@ export function ProductSearchDialog({
 
   // ENG-199 — productId → max active suggested discount pct. Empty Map
   // (and no query) unless the caller opted in.
-  const discountSuggestions = useDiscountSuggestions(showDiscountSuggestions && isOpen);
+  const discountSuggestions = useDiscountSuggestions(
+    showDiscountSuggestions && isOpen,
+    discountSuggestionSiteId
+  );
   const itemsKey = items.map(product => product.id).join('\u0000');
   // ENG-134e — when a new search returns a different result set, the
   // roving tabindex must restart on the first row so a keyboard user

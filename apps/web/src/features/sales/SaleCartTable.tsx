@@ -12,6 +12,8 @@ import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions'
 
 interface SaleCartTableProps {
   items: SaleCartItem[];
+  /** ENG-199 — active site scopes the expiry-suggestion badge to this POS. */
+  discountSuggestionSiteId?: string | null;
   selectedItemKey: string | null;
   onQuantityChange: (itemKey: string, quantity: number) => void;
   onDiscountChange: (itemKey: string, discount: number) => void;
@@ -23,6 +25,7 @@ interface SaleCartTableProps {
 
 export function SaleCartTable({
   items,
+  discountSuggestionSiteId = null,
   selectedItemKey,
   onQuantityChange,
   onDiscountChange,
@@ -35,7 +38,7 @@ export function SaleCartTable({
 
   // ENG-199 — expiry-radar badge on cart lines; the table only renders in
   // the POS, so the query is gated on having lines at all.
-  const discountSuggestions = useDiscountSuggestions(items.length > 0);
+  const discountSuggestions = useDiscountSuggestions(items.length > 0, discountSuggestionSiteId);
 
   // Borradores de edición por celda (`q:<key>` / `d:<key>`). Un input
   // controlado directo pisa la edición en curso: al vaciar el campo para
