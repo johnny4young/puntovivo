@@ -4,6 +4,26 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.4.0](https://github.com/johnny4young/puntovivo/compare/v1.3.0...v1.4.0) (2026-07-10)
+
+
+### Features
+
+* **inventory:** actionable expiry radar — audited discount suggestions + POS badge (ENG-199) ([#140](https://github.com/johnny4young/puntovivo/issues/140)) ([a564fdd](https://github.com/johnny4young/puntovivo/commit/a564fddded2f0fe878b83c3b6e4732bf54517bb4))
+* iteration-2 quick wins — lot sync fix, checkout sounds, live cash semaphore, margin traffic light, property tests (ENG-192..196) ([#134](https://github.com/johnny4young/puntovivo/issues/134)) ([09c020f](https://github.com/johnny4young/puntovivo/commit/09c020fdb03f3b8177263c6b1b6b456e90e2e769))
+* **sales:** day-close ritual with real margin and balanced-streak (ENG-198) ([#139](https://github.com/johnny4young/puntovivo/issues/139)) ([0752509](https://github.com/johnny4young/puntovivo/commit/0752509863833a669b056e05501e0db4a552193e))
+* **sales:** tenant-level blind cash close toggle (ENG-194b) ([#137](https://github.com/johnny4young/puntovivo/issues/137)) ([440ac1d](https://github.com/johnny4young/puntovivo/commit/440ac1ddc2dc87dea4c98aa8ef7eb5ba0d803d2b))
+
+
+### Bug Fixes
+
+* **sales:** harden day-close summary access ([#141](https://github.com/johnny4young/puntovivo/issues/141)) ([3bd6160](https://github.com/johnny4young/puntovivo/commit/3bd6160820de916b3d7d4900b70190e2f74074b0))
+
+
+### Performance
+
+* **inventory:** materialize the per-product stock rollup via 0008 triggers (ENG-197) ([#138](https://github.com/johnny4young/puntovivo/issues/138)) ([53b6438](https://github.com/johnny4young/puntovivo/commit/53b643808b3a2a97d78731332d49765bfd1925db))
+
 ## [1.3.0](https://github.com/johnny4young/puntovivo/compare/v1.2.2...v1.3.0) (2026-07-07)
 
 
