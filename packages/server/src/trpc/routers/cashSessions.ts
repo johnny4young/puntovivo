@@ -329,11 +329,14 @@ export const cashSessionsRouter = router({
   dayCloseSummary: cashierManagerOrAdminProcedure
     .input(dayCloseSummaryInput)
     .query(async ({ ctx, input }) => {
-      const role = ctx.user?.role;
+      // The role middleware rejects a missing user before this resolver; the
+      // non-null assertion documents that runtime refinement for TypeScript.
+      const user = ctx.user!;
       return computeDayCloseSummary(ctx.db, {
         tenantId: ctx.tenantId,
         sessionId: input.sessionId,
-        includeProfit: role === 'admin' || role === 'manager',
+        viewerUserId: user.id,
+        includeProfit: user.role === 'admin' || user.role === 'manager',
       });
     }),
 

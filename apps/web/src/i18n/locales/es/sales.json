@@ -231,6 +231,7 @@
       "streakZero": "Mañana empieza una nueva racha.",
       "topProductsTitle": "Top del día",
       "profitShort": "+{{amount}}",
+      "lossShort": "-{{amount}}",
       "noSales": "Hoy no se registraron ventas.",
       "finish": "Terminar"
     },

@@ -68,15 +68,19 @@ export function DayCloseSummaryModal({ sessionId, onClose }: DayCloseSummaryModa
       <div
         className="space-y-4 rounded-[20px] bg-secondary-950 p-4 text-secondary-50 sm:p-5"
         data-testid="day-close-summary"
+        aria-busy={summaryQuery.isPending}
       >
         {summaryQuery.isPending && (
-          <p className="animate-pulse py-8 text-center text-sm text-secondary-300">
+          <p role="status" className="animate-pulse py-8 text-center text-sm text-secondary-300">
             {t('cashSession.dayClose.loading')}
           </p>
         )}
 
         {summaryQuery.isError && (
-          <p className="rounded-2xl border border-danger-400/40 bg-danger-500/15 px-4 py-3 text-sm text-danger-100">
+          <p
+            role="alert"
+            className="rounded-2xl border border-danger-400/40 bg-danger-500/15 px-4 py-3 text-sm text-danger-100"
+          >
             {t('cashSession.dayClose.error')}
           </p>
         )}
@@ -178,10 +182,17 @@ export function DayCloseSummaryModal({ sessionId, onClose }: DayCloseSummaryModa
                           {formatCurrency(product.revenue)}
                         </span>
                         {product.grossProfit !== null && (
-                          <span className="text-success-200">
-                            {t('cashSession.dayClose.profitShort', {
-                              amount: formatCurrency(product.grossProfit),
-                            })}
+                          <span
+                            className={
+                              product.grossProfit < 0 ? 'text-danger-200' : 'text-success-200'
+                            }
+                          >
+                            {t(
+                              product.grossProfit < 0
+                                ? 'cashSession.dayClose.lossShort'
+                                : 'cashSession.dayClose.profitShort',
+                              { amount: formatCurrency(Math.abs(product.grossProfit)) }
+                            )}
                           </span>
                         )}
                       </span>
