@@ -35,8 +35,9 @@ export const SERVER_ERROR_CODES_A = {
   CASH_SESSION_COUNT_INVALID: 'CASH_SESSION_COUNT_INVALID',
   /**
    * ENG-198 — `cashSessions.dayCloseSummary` was asked for a session id that
-   * does not exist under the caller's tenant (cross-tenant probes land here
-   * too, indistinguishable by design). `details` carries `{ sessionId }`.
+   * does not exist under the caller's tenant, or belongs to another cashier
+   * when the caller is not privileged (both probes are indistinguishable by
+   * design). `details` carries `{ sessionId }`.
    */
   CASH_SESSION_NOT_FOUND: 'CASH_SESSION_NOT_FOUND',
   /**

@@ -135,16 +135,39 @@ describe('DayCloseSummaryModal (ENG-198)', () => {
     mockQueryState = { data: undefined, isPending: true, isError: false };
     render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);
 
-    expect(screen.getByText('Preparing your day summary…')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Preparing your day summary…');
+    expect(screen.getByTestId('day-close-summary')).toHaveAttribute('aria-busy', 'true');
   });
 
   it('shows the reassurance error copy when the query fails', () => {
     mockQueryState = { data: undefined, isPending: false, isError: true };
     render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);
 
-    expect(
-      screen.getByText('We could not load the day summary. Your register was closed correctly.')
-    ).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'We could not load the day summary. Your register was closed correctly.'
+    );
+  });
+
+  it('renders product losses with a negative sign and danger tone', () => {
+    mockQueryState = {
+      data: {
+        ...adminSummary,
+        topProducts: [
+          {
+            ...adminSummary.topProducts[0],
+            grossProfit: -25,
+            grossMarginPct: -6.25,
+          },
+        ],
+      },
+      isPending: false,
+      isError: false,
+    };
+    render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);
+
+    const loss = screen.getByText('-$25.00');
+    expect(loss).toHaveClass('text-danger-200');
+    expect(screen.queryByText('+-$25.00')).not.toBeInTheDocument();
   });
 
   it('closes through the single Done button', async () => {

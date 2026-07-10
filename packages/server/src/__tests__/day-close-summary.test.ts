@@ -248,6 +248,10 @@ describe('day-close summary (ENG-198)', () => {
       denominations: [{ value: 100, count: 5 }],
     });
     openSessionId = opened.id;
+
+    const productId = await seedProduct('Ritual Star', 'DC-STAR', 100, 40);
+    await sellProduct(productId, 2, 100);
+    closedSessionId = await insertClosedSession({ tenantId, siteId, userId }, 0, 0);
   });
 
   afterAll(async () => {
@@ -255,10 +259,6 @@ describe('day-close summary (ENG-198)', () => {
   });
 
   it('returns the full owner view for an admin (day stats, margin, top products, streak)', async () => {
-    const productId = await seedProduct('Ritual Star', 'DC-STAR', 100, 40);
-    await sellProduct(productId, 2, 100);
-    closedSessionId = await insertClosedSession({ tenantId, siteId, userId }, 0, 0);
-
     const summary = await appRouter
       .createCaller(fresh())
       .cashSessions.dayCloseSummary({ sessionId: closedSessionId });
@@ -274,7 +274,6 @@ describe('day-close summary (ENG-198)', () => {
     expect(summary.margin?.grossMarginPct).toBeCloseTo(60, 2);
     expect(summary.topProducts).toHaveLength(1);
     expect(summary.topProducts[0]).toMatchObject({
-      productId,
       revenue: 200,
       grossProfit: 120,
       grossMarginPct: 60,
@@ -284,9 +283,14 @@ describe('day-close summary (ENG-198)', () => {
   });
 
   it('strips owner data for a cashier and re-ranks top products by revenue', async () => {
-    // High revenue, thin profit — flips the ordering between the two views.
+    // High revenue, thin profit — omitted from the profit-ranked top 3, but
+    // it must lead the cashier's independently selected revenue top 3.
     const thinId = await seedProduct('Ritual Thin', 'DC-THIN', 150, 145);
     await sellProduct(thinId, 2, 150);
+    const profitLeaderId = await seedProduct('Ritual Profit A', 'DC-PROFIT-A', 180, 10);
+    await sellProduct(profitLeaderId, 1, 180);
+    const secondProfitId = await seedProduct('Ritual Profit B', 'DC-PROFIT-B', 170, 10);
+    await sellProduct(secondProfitId, 1, 170);
 
     const admin = await appRouter
       .createCaller(fresh())
@@ -295,19 +299,28 @@ describe('day-close summary (ENG-198)', () => {
       .createCaller(fresh({ role: 'cashier' }))
       .cashSessions.dayCloseSummary({ sessionId: closedSessionId });
 
-    // Admin: ordered by gross profit (star 120 > thin 10).
-    expect(admin.topProducts.map(p => p.sku ?? p.productId).length).toBe(2);
-    expect(admin.topProducts[0]?.grossProfit).toBeCloseTo(120, 2);
-    expect(admin.topProducts[1]?.grossProfit).toBeCloseTo(10, 2);
+    // Admin: top 3 ordered by gross profit; the thin product is fourth and
+    // therefore absent from the owner list.
+    expect(admin.topProducts).toHaveLength(3);
+    expect(admin.topProducts.map(product => product.productId)).toEqual([
+      profitLeaderId,
+      secondProfitId,
+      expect.any(String),
+    ]);
+    expect(admin.topProducts.map(product => product.productId)).not.toContain(thinId);
 
     // Cashier: margin hidden, profit fields nulled, ordered by revenue
-    // (thin 300 > star 200).
+    // (thin 300 > star 200 > profit leader 180).
     expect(cashier.margin).toBeNull();
-    expect(cashier.topProducts).toHaveLength(2);
+    expect(cashier.topProducts).toHaveLength(3);
     expect(cashier.topProducts[0]?.productId).toBe(thinId);
     expect(cashier.topProducts[0]?.revenue).toBeCloseTo(300, 2);
-    expect(cashier.topProducts[0]?.grossProfit).toBeNull();
-    expect(cashier.topProducts[0]?.grossMarginPct).toBeNull();
+    expect(cashier.topProducts[1]?.revenue).toBeCloseTo(200, 2);
+    expect(cashier.topProducts[2]?.productId).toBe(profitLeaderId);
+    for (const product of cashier.topProducts) {
+      expect(product.grossProfit).toBeNull();
+      expect(product.grossMarginPct).toBeNull();
+    }
     // The shared fields agree between the two views.
     expect(cashier.day).toEqual(admin.day);
     expect(cashier.streakDays).toBe(admin.streakDays);
@@ -352,7 +365,9 @@ describe('day-close summary (ENG-198)', () => {
     const summary = computeDayCloseSummary(getDatabase(), {
       tenantId: owner.tenantId,
       sessionId,
+      viewerUserId: owner.userId,
       includeProfit: true,
+      canViewAnyCashierSession: true,
     });
     expect(summary.streakDays).toBe(3);
     // Bare tenant has no sales; the owner view still shapes correctly.
@@ -371,7 +386,9 @@ describe('day-close summary (ENG-198)', () => {
     const summary = computeDayCloseSummary(getDatabase(), {
       tenantId: owner.tenantId,
       sessionId,
+      viewerUserId: owner.userId,
       includeProfit: false,
+      canViewAnyCashierSession: false,
     });
     expect(summary.streakDays).toBe(3);
     expect(summary.margin).toBeNull();
@@ -386,7 +403,9 @@ describe('day-close summary (ENG-198)', () => {
     const summary = computeDayCloseSummary(getDatabase(), {
       tenantId: owner.tenantId,
       sessionId,
+      viewerUserId: owner.userId,
       includeProfit: true,
+      canViewAnyCashierSession: true,
     });
     expect(summary.streakDays).toBe(1);
   });
@@ -402,7 +421,9 @@ describe('day-close summary (ENG-198)', () => {
     const summary = computeDayCloseSummary(getDatabase(), {
       tenantId: owner.tenantId,
       sessionId,
+      viewerUserId: owner.userId,
       includeProfit: true,
+      canViewAnyCashierSession: true,
     });
     expect(summary.session.balanced).toBe(true);
     expect(summary.streakDays).toBe(0);
@@ -419,6 +440,64 @@ describe('day-close summary (ENG-198)', () => {
     await expect(
       caller.cashSessions.dayCloseSummary({ sessionId: 'does-not-exist' })
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it("rejects another cashier's session with NOT_FOUND", async () => {
+    const otherCashierId = nanoid();
+    const now = new Date().toISOString();
+    await getDatabase()
+      .insert(users)
+      .values({
+        id: otherCashierId,
+        tenantId,
+        email: `day-close-other-${nanoid(6)}@example.com`,
+        passwordHash: 'x',
+        name: 'Other cashier',
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+    await expect(
+      appRouter
+        .createCaller(fresh({ userId: otherCashierId, role: 'cashier' }))
+        .cashSessions.dayCloseSummary({ sessionId: closedSessionId })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('grants cross-cashier access independently from profit visibility', async () => {
+    // Pins the decoupling: a privileged revenue-only view (access yes,
+    // profit no) must reach another cashier's session and get margin null.
+    const owner = await seedBareTenant('decouple');
+    const sessionId = await insertClosedSession(owner, 0, 0);
+
+    const summary = computeDayCloseSummary(getDatabase(), {
+      tenantId: owner.tenantId,
+      sessionId,
+      viewerUserId: 'someone-else-entirely',
+      includeProfit: false,
+      canViewAnyCashierSession: true,
+    });
+    expect(summary.session.balanced).toBe(true);
+    expect(summary.margin).toBeNull();
+  });
+
+  it('caps the balanced streak at exactly 90 calendar days', async () => {
+    const owner = await seedBareTenant('cap');
+    let sessionId = '';
+    for (let daysAgo = 90; daysAgo >= 0; daysAgo -= 1) {
+      sessionId = await insertClosedSession(owner, daysAgo, 0);
+    }
+
+    const summary = computeDayCloseSummary(getDatabase(), {
+      tenantId: owner.tenantId,
+      sessionId,
+      viewerUserId: owner.userId,
+      includeProfit: true,
+      canViewAnyCashierSession: true,
+    });
+    expect(summary.streakDays).toBe(90);
   });
 
   it('rejects a still-open session with BAD_REQUEST', async () => {

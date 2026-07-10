@@ -232,6 +232,7 @@
       "streakZero": "A new streak starts tomorrow.",
       "topProductsTitle": "Top products today",
       "profitShort": "+{{amount}}",
+      "lossShort": "-{{amount}}",
       "noSales": "No sales recorded today.",
       "finish": "Done"
     },

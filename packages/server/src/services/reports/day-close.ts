@@ -18,9 +18,9 @@
  * @module services/reports/day-close
  */
 
-import { and, eq, gte, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNotNull, lte, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { cashSessions, sales } from '../../db/schema.js';
+import { cashSessions, products, saleItems, sales } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { computeProfitMarginReport } from './profit-margin.js';
@@ -35,6 +35,7 @@ export const DAY_CLOSE_BALANCED_EPSILON = 0.009;
 /** How far back the streak scan looks. A 90-day cap bounds the query and is
  * far beyond any realistic display need ("90+ días" reads as legendary). */
 const STREAK_LOOKBACK_DAYS = 90;
+const DAY_CLOSE_TOP_PRODUCT_LIMIT = 3;
 
 /** One top product of the day. Profit fields are present only when the
  * caller may see owner data (`includeProfit`); `null` otherwise. */
@@ -76,8 +77,16 @@ export interface DayCloseSummary {
 interface ComputeDayCloseSummaryInput {
   tenantId: string;
   sessionId: string;
-  /** True when the viewer may see owner data (manager/admin). */
+  /** Authenticated caller; owns the session-ownership check below. */
+  viewerUserId: string;
+  /** True when the viewer may see owner data (margin/COGS). Visibility
+   * ONLY — deliberately independent from the access-control flag below so a
+   * future revenue-only privileged view cannot accidentally lose access to
+   * other cashiers' sessions. */
   includeProfit: boolean;
+  /** True when the viewer may summarize sessions closed by OTHER cashiers
+   * (manager/admin today). Access control ONLY. */
+  canViewAnyCashierSession: boolean;
 }
 
 /** UTC day (YYYY-MM-DD) of an ISO timestamp. */
@@ -92,6 +101,7 @@ export function computeDayCloseSummary(
   const session = db
     .select({
       registerName: cashSessions.registerName,
+      cashierId: cashSessions.cashierId,
       status: cashSessions.status,
       closedAt: cashSessions.closedAt,
       actualCount: cashSessions.actualCount,
@@ -101,7 +111,7 @@ export function computeDayCloseSummary(
     .where(and(eq(cashSessions.tenantId, input.tenantId), eq(cashSessions.id, input.sessionId)))
     .get();
 
-  if (!session) {
+  if (!session || (!input.canViewAnyCashierSession && session.cashierId !== input.viewerUserId)) {
     throwServerError({
       trpcCode: 'NOT_FOUND',
       errorCode: 'CASH_SESSION_NOT_FOUND',
@@ -121,6 +131,13 @@ export function computeDayCloseSummary(
   const day = utcDayOf(session.closedAt);
   const dayStart = `${day}T00:00:00.000Z`;
   const dayEnd = `${day}T23:59:59.999Z`;
+  const eligibleSales = and(
+    eq(sales.tenantId, input.tenantId),
+    eq(sales.status, 'completed'),
+    sql`${sales.paymentStatus} != 'refunded'`,
+    gte(sales.createdAt, dayStart),
+    lte(sales.createdAt, dayEnd)
+  );
 
   // Realized revenue of the day — the same filter dashboard.summary and the
   // profit report use, so every surface tells one story.
@@ -130,28 +147,20 @@ export function computeDayCloseSummary(
       revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
     })
     .from(sales)
-    .where(
-      and(
-        eq(sales.tenantId, input.tenantId),
-        eq(sales.status, 'completed'),
-        sql`${sales.paymentStatus} != 'refunded'`,
-        gte(sales.createdAt, dayStart),
-        sql`${sales.createdAt} <= ${dayEnd}`
-      )
-    )
+    .where(eligibleSales)
     .get();
 
-  // Margin + per-product profit for the day from the ENG-190 engine. Computed
-  // regardless of role (it is one in-process call); EXPOSED per role below.
-  const profitReport = computeProfitMarginReport(db, {
-    tenantId: input.tenantId,
-    fromDate: dayStart,
-    toDate: dayEnd,
-    limit: 3,
-  });
-
   let topProducts: DayCloseTopProduct[];
+  let margin: DayCloseSummary['margin'];
   if (input.includeProfit) {
+    // Owner view: real per-lot COGS/margin from ENG-190, bounded to the three
+    // profit leaders the ritual renders.
+    const profitReport = computeProfitMarginReport(db, {
+      tenantId: input.tenantId,
+      fromDate: dayStart,
+      toDate: dayEnd,
+      limit: DAY_CLOSE_TOP_PRODUCT_LIMIT,
+    });
     topProducts = profitReport.products.map(row => ({
       productId: row.productId,
       name: row.name,
@@ -160,26 +169,48 @@ export function computeDayCloseSummary(
       grossProfit: row.grossProfit,
       grossMarginPct: row.grossMarginPct,
     }));
+    margin = {
+      grossProfit: profitReport.summary.grossProfit,
+      grossMarginPct: profitReport.summary.grossMarginPct,
+    };
   } else {
-    // Owner data stripped; re-rank by revenue so the cashier view is honest
-    // about what it shows (the profit ordering would leak margin signal).
-    topProducts = [...profitReport.products]
-      .sort((a, b) => b.revenue - a.revenue)
-      .map(row => ({
-        productId: row.productId,
-        name: row.name,
-        sku: row.sku,
-        revenue: row.revenue,
-        grossProfit: null,
-        grossMarginPct: null,
-      }));
+    // Cashier view: do not compute owner-only COGS/margin at all. Aggregate
+    // revenue directly and let SQLite enforce the top-three bound, avoiding
+    // both profit-order leakage and an unbounded JS materialization.
+    const productRevenue = sql<number>`coalesce(sum(${saleItems.total}), 0)`;
+    const revenueLeaders = db
+      .select({
+        productId: saleItems.productId,
+        name: products.name,
+        sku: products.sku,
+        revenue: productRevenue,
+      })
+      .from(saleItems)
+      .innerJoin(sales, eq(saleItems.saleId, sales.id))
+      .innerJoin(products, eq(saleItems.productId, products.id))
+      .where(eligibleSales)
+      .groupBy(saleItems.productId, products.name, products.sku)
+      .orderBy(desc(productRevenue), asc(products.name), asc(saleItems.productId))
+      .limit(DAY_CLOSE_TOP_PRODUCT_LIMIT)
+      .all();
+
+    topProducts = revenueLeaders.map(row => ({
+      productId: row.productId,
+      name: row.name,
+      sku: row.sku,
+      // ENG-176a — aggregated monetary values cross the money boundary here.
+      revenue: roundMoney(row.revenue),
+      grossProfit: null,
+      grossMarginPct: null,
+    }));
+    margin = null;
   }
 
   // Streak: one grouped scan of the tenant's closed sessions, then walk the
   // days backwards from the session's close day. Days without sessions are
   // transparent; a day with any unbalanced close breaks the streak.
   const lookbackStart = new Date(
-    Date.parse(dayStart) - STREAK_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
+    Date.parse(dayStart) - (STREAK_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000
   ).toISOString();
   const dayRows = db
     .select({
@@ -204,7 +235,7 @@ export function computeDayCloseSummary(
   );
   let streakDays = 0;
   const cursor = new Date(`${day}T00:00:00.000Z`);
-  for (let i = 0; i <= STREAK_LOOKBACK_DAYS; i++) {
+  for (let i = 0; i < STREAK_LOOKBACK_DAYS; i++) {
     const cursorDay = cursor.toISOString().slice(0, 10);
     const dayBalanced = balancedByDay.get(cursorDay);
     if (dayBalanced === false) break;
@@ -230,12 +261,7 @@ export function computeDayCloseSummary(
       revenue: roundMoney(dayStats?.revenue ?? 0),
     },
     topProducts,
-    margin: input.includeProfit
-      ? {
-          grossProfit: profitReport.summary.grossProfit,
-          grossMarginPct: profitReport.summary.grossMarginPct,
-        }
-      : null,
+    margin,
     streakDays,
   };
 }
