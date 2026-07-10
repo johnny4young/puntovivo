@@ -12,6 +12,15 @@ vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({ user: { id: 'user-1', role: mockRole } }),
 }));
 
+// ENG-194b — tenant-level blind-close policy; default true mirrors the
+// server default so the strict path stays the baseline.
+let mockBlindClose = true;
+vi.mock('@/features/tenant/TenantProvider', () => ({
+  useTenant: () => ({
+    tenantSettings: { cashClose: { blindClose: mockBlindClose } },
+  }),
+}));
+
 const activeCashSession = {
   id: 'cash-session-1',
   tenantId: 'tenant-1',
@@ -30,6 +39,7 @@ const activeCashSession = {
 describe('CashSessionCloseModal', () => {
   beforeEach(async () => {
     mockRole = 'cashier';
+    mockBlindClose = true;
     await i18n.changeLanguage('en');
   });
 
@@ -229,5 +239,29 @@ describe('CashSessionCloseModal', () => {
     await user.clear(fiftyCountInput);
     expect(screen.queryByTestId('close-session-live-delta')).not.toBeInTheDocument();
     expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+  });
+
+  // ENG-194b — tenant opt-out of blind close shows the semaphore to cashiers.
+  it('shows the live delta to a cashier when the tenant disabled blind close', async () => {
+    mockRole = 'cashier';
+    mockBlindClose = false;
+    const user = userEvent.setup();
+    render(
+      <CashSessionCloseModal
+        cashSession={{ ...activeCashSession, expectedBalance: 150 }}
+        isOpen
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+    const fiftyCountInput = screen.getByLabelText('Count for denomination $50.00');
+    await user.clear(fiftyCountInput);
+    await user.type(fiftyCountInput, '4');
+
+    const strip = screen.getByTestId('close-session-live-delta');
+    expect(strip.textContent).toMatch(/Over/);
+    expect(strip.textContent).toContain('$50.00');
   });
 });

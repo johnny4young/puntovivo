@@ -23,6 +23,7 @@ import { CompanyPaymentsCard } from './CompanyPaymentsCard';
 import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
 import { CompanyAutoUpdateCard } from './CompanyAutoUpdateCard';
 import { CompanyLogoLibraryCard } from './CompanyLogoLibraryCard';
+import { CompanyCashCloseSettingsCard } from './CompanyCashCloseSettingsCard';
 import { CompanyModulesCard } from './CompanyModulesCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 import { CompanyRestaurantSettingsCard } from './CompanyRestaurantSettingsCard';
@@ -98,9 +99,7 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
           <p className="font-medium text-secondary-900">
             {company?.name ?? t('company.createPrompt')}
           </p>
-          <p className="text-sm text-secondary-500">
-            {t('company.createNote')}
-          </p>
+          <p className="text-sm text-secondary-500">{t('company.createNote')}</p>
         </div>
       </div>
 
@@ -166,14 +165,14 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
         />
       </SimpleFormField>
 
-      {error && <p className="err-msg" role="alert">{error}</p>}
+      {error && (
+        <p className="err-msg" role="alert">
+          {error}
+        </p>
+      )}
 
       <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={isSaving || !canEdit}
-          className="pv-btn primary"
-        >
+        <button type="submit" disabled={isSaving || !canEdit} className="pv-btn primary">
           <Save className="h-4 w-4" aria-hidden="true" />
           {isSaving ? t('company.submitting') : t('company.save')}
         </button>
@@ -329,10 +328,7 @@ export function CompanyPage() {
       )}
 
       {companyQuery.isLoading && (
-        <PageLoadingState
-          title={t('company.title')}
-          description={t('company.loading')}
-        />
+        <PageLoadingState title={t('company.title')} description={t('company.loading')} />
       )}
       {companyQuery.error && (
         <QueryErrorState
@@ -377,10 +373,7 @@ export function CompanyPage() {
                   + aria-current) rather than a single tablist because it
                   is a categorized settings menu, not one flat tab strip.
                   The `?tab=` URL contract is unchanged. */}
-              <nav
-                className="company-setup-nav"
-                aria-label={t('company.tabs.ariaLabel')}
-              >
+              <nav className="company-setup-nav" aria-label={t('company.tabs.ariaLabel')}>
                 <button
                   type="button"
                   className={cn(
@@ -401,10 +394,7 @@ export function CompanyPage() {
                     aria-labelledby={`setup-group-${group.id}`}
                     className="setup-nav-group"
                   >
-                    <p
-                      id={`setup-group-${group.id}`}
-                      className="setup-nav-group-label"
-                    >
+                    <p id={`setup-group-${group.id}`} className="setup-nav-group-label">
                       {groupLabels[group.id]}
                     </p>
                     <div className="setup-nav-group-items">
@@ -414,10 +404,7 @@ export function CompanyPage() {
                           <button
                             key={key}
                             type="button"
-                            className={cn(
-                              'setup-nav-item',
-                              selected && 'setup-nav-item-active'
-                            )}
+                            className={cn('setup-nav-item', selected && 'setup-nav-item-active')}
                             aria-current={selected ? 'page' : undefined}
                             onClick={() => handleTabChange(key)}
                             data-testid={`company-tab-${key}`}
@@ -463,6 +450,7 @@ export function CompanyPage() {
                       />
                     </div>
                     <CompanyLogoLibraryCard company={company} canEdit={canEdit} />
+                    <CompanyCashCloseSettingsCard />
                   </div>
                 )}
 

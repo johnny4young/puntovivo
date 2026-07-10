@@ -97,6 +97,9 @@ vi.mock('../CompanyLocaleSettingsCard', () => ({
 vi.mock('../CompanyAutoUpdateCard', () => ({
   CompanyAutoUpdateCard: () => <div data-testid="card-autoupdate">AutoUpdate</div>,
 }));
+vi.mock('../CompanyCashCloseSettingsCard', () => ({
+  CompanyCashCloseSettingsCard: () => <div data-testid="card-cash-close">CashClose</div>,
+}));
 vi.mock('../CompanyLogoLibraryCard', () => ({
   CompanyLogoLibraryCard: () => <div data-testid="card-logos">Logos</div>,
 }));
@@ -125,9 +128,7 @@ vi.mock('../CompanyReadinessCard', () => ({
 // not exercise the toggle round-trip; the dedicated
 // `CompanyTelemetryCard.test.tsx` pins that contract.
 vi.mock('../CompanyTelemetryCard', () => ({
-  CompanyTelemetryCard: () => (
-    <div data-testid="card-telemetry">Telemetry</div>
-  ),
+  CompanyTelemetryCard: () => <div data-testid="card-telemetry">Telemetry</div>,
 }));
 
 // Import after mocks so the page picks up the stubbed children.
@@ -142,10 +143,7 @@ describe('CompanyPage tab behavior', () => {
     render(<CompanyPage />);
 
     // ENG-188 — readiness is the pinned landing, current by default.
-    expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute(
-      'aria-current',
-      'page'
-    );
+    expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute('aria-current', 'page');
 
     // The three category groups render with their localized labels.
     expect(screen.getByText('Business')).toBeInTheDocument();
@@ -165,10 +163,7 @@ describe('CompanyPage tab behavior', () => {
       'data',
       'device',
     ]) {
-      expect(screen.getByTestId(`company-tab-${key}`)).not.toHaveAttribute(
-        'aria-current',
-        'page'
-      );
+      expect(screen.getByTestId(`company-tab-${key}`)).not.toHaveAttribute('aria-current', 'page');
     }
 
     // Readiness panel content visible.
@@ -191,10 +186,7 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.getByTestId('company-tab-ai')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('card-ai')).toBeInTheDocument();
     // Readiness is no longer the current item.
-    expect(screen.getByTestId('company-tab-readiness')).not.toHaveAttribute(
-      'aria-current',
-      'page'
-    );
+    expect(screen.getByTestId('company-tab-readiness')).not.toHaveAttribute('aria-current', 'page');
     // General-tab content should NOT render simultaneously.
     expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
   });
@@ -206,10 +198,7 @@ describe('CompanyPage tab behavior', () => {
     await user.click(screen.getByTestId('company-tab-data'));
 
     expect(screen.getByTestId('company-tab-data')).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByTestId('company-tab-readiness')).not.toHaveAttribute(
-      'aria-current',
-      'page'
-    );
+    expect(screen.getByTestId('company-tab-readiness')).not.toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('card-sync')).toBeInTheDocument();
     expect(screen.getByTestId('card-backup')).toBeInTheDocument();
     expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
@@ -284,9 +273,7 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.queryByTestId('card-fiscal-co')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-fiscal-cl')).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/Country-specific fiscal configuration/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Country-specific fiscal configuration/i)).toBeInTheDocument();
   });
 
   it('renders the unsupported-country fiscal message instead of a fallback card (ENG-185)', async () => {
@@ -297,9 +284,7 @@ describe('CompanyPage tab behavior', () => {
     await user.click(screen.getByTestId('company-tab-fiscal'));
 
     expect(screen.queryByTestId('card-fiscal-co')).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/Electronic invoicing is not available here yet/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Electronic invoicing is not available here yet/i)).toBeInTheDocument();
     expect(screen.getByText(/There is no fiscal pack for US yet/i)).toBeInTheDocument();
   });
 

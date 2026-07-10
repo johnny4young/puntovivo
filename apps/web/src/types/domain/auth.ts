@@ -40,6 +40,15 @@ export interface TenantSettings {
   restaurant?: {
     serviceChargeRate: number;
   };
+  /**
+   * ENG-194b — Cash-close flow settings. `blindClose` defaults to true
+   * (anti-fraud: cashiers count without seeing the expected balance and
+   * only managers/admins get the live over/short semaphore); false is an
+   * explicit tenant opt-out that shows the semaphore to every role.
+   */
+  cashClose?: {
+    blindClose: boolean;
+  };
 }
 
 export interface Site {
