@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -12,19 +12,39 @@ import {
   useModulesSnapshot,
 } from '@/features/modules';
 import { usePrefetchSales } from '@/features/sales/usePrefetchSales';
-import type { UserRole } from '@/types';
+import { useDialogA11y } from '@/components/feedback/useDialogA11y';
 import {
   TOP_LEVEL_DASHBOARD,
   visibleWorkspacesForRole,
   type VisibleWorkspace,
   type WorkspaceItem,
 } from './workspaces';
+import { MobileWorkspaceNavigation } from './MobileWorkspaceNavigation';
 
 interface SidebarProps {
   collapsed: boolean;
   mobileOpen: boolean;
   onToggleCollapse: () => void;
   onCloseMobile: () => void;
+}
+
+// ENG-131d — keep the JS rendering boundary aligned with Tailwind's `xl`
+// shell breakpoint. Rendering one navigation model at a time avoids duplicate
+// links in the accessibility tree and lets the mobile drawer be a real dialog.
+const DESKTOP_SIDEBAR_QUERY = '(min-width: 1280px)';
+
+function subscribeToDesktopSidebar(onStoreChange: () => void): () => void {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return () => {};
+  }
+  const media = window.matchMedia(DESKTOP_SIDEBAR_QUERY);
+  media.addEventListener('change', onStoreChange);
+  return () => media.removeEventListener('change', onStoreChange);
+}
+
+function getDesktopSidebarSnapshot(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
+  return window.matchMedia(DESKTOP_SIDEBAR_QUERY).matches;
 }
 
 function SidebarBrand({ collapsed }: { collapsed: boolean }) {
@@ -176,6 +196,7 @@ function WorkspaceGroupHeader({
   onPrefetch?: (() => void) | undefined;
   controlsId: string;
 }) {
+  const { t } = useTranslation('workspaces');
   // ENG-131 (slice A) — generalises the ENG-079b collapsible
   // section header to every workspace. The header carries the
   // workspace icon, label, and a chevron that flips on collapse.
@@ -217,7 +238,10 @@ function WorkspaceGroupHeader({
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={controlsId}
-        aria-label={title}
+        aria-label={t(
+          isOpen ? 'actions.collapseWorkspace' : 'actions.expandWorkspace',
+          { workspace: title }
+        )}
         data-testid={`sidebar-workspace-${workspace.id}`}
         className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg2 transition-colors hover:bg-secondary-100/60 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
       >
@@ -236,45 +260,21 @@ function WorkspaceGroupHeader({
 function SidebarWorkspaces({
   collapsed,
   onNavigate,
-  role,
+  workspaces,
+  currentPath,
+  visibleDashboard,
+  dashboardBadge,
+  prefetchSales,
 }: {
   collapsed: boolean;
   onNavigate: () => void;
-  role: UserRole | undefined;
+  workspaces: readonly VisibleWorkspace[];
+  currentPath: string;
+  visibleDashboard: boolean;
+  dashboardBadge: number;
+  prefetchSales: () => void;
 }) {
-  const { t: tNav } = useTranslation('nav');
   const { t: tWorkspaces } = useTranslation('workspaces');
-  const { modules, isPlaceholder } = useModulesSnapshot();
-  const location = useLocation();
-  // ENG-171 — warm the SalesPage entry queries on hover/focus of the
-  // /sales nav link (threaded into SidebarWorkspaceSection → NavigationLink).
-  const prefetchSales = usePrefetchSales();
-
-  // ENG-047 — dashboard badge for high-severity AI anomalies. The
-  // endpoint is gated by managerOrAdminProcedure server-side; we
-  // additionally gate client-side so cashiers / viewers never
-  // attempt the query. The endpoint short-circuits to enabled=false
-  // + zero counts when ai.enabled is off, so an unconfigured tenant
-  // pays only one cheap settings read.
-  const isManagerOrAdmin = (managerOrAdminRoles as readonly string[]).includes(role ?? '');
-  const anomalyModuleActive =
-    !isPlaceholder && (modules['anomaly-detection'] ?? CLIENT_MODULE_DEFAULTS['anomaly-detection']);
-  const anomaliesQuery = trpc.ai.anomalies.list.useQuery(
-    {},
-    {
-      enabled: isManagerOrAdmin && anomalyModuleActive,
-      staleTime: 5 * 60 * 1000,
-      // ENG-171 — no window-focus refetch. The 5-minute staleTime already
-      // keeps the sidebar badge fresh; refetching every time the operator
-      // tabs back in is a needless request on a high-traffic surface.
-      refetchOnWindowFocus: false,
-    }
-  );
-  const dashboardBadge = anomaliesQuery.data?.severityCounts.high ?? 0;
-
-  const visibleDashboard =
-    (TOP_LEVEL_DASHBOARD.allowedRoles as readonly string[]).includes(role ?? '');
-  const workspaces = visibleWorkspacesForRole(role, modules, !isPlaceholder);
 
   return (
     <div className={cn('space-y-3', collapsed && 'space-y-2')}>
@@ -295,11 +295,8 @@ function SidebarWorkspaces({
           items={items}
           collapsed={collapsed}
           onNavigate={onNavigate}
-          currentPath={location.pathname}
+          currentPath={currentPath}
           headerTitle={tWorkspaces(workspace.labelKey)}
-          fallbackTitleLabel={tNav(`workspaces.${workspace.id}`, {
-            defaultValue: '',
-          })}
           prefetchSales={prefetchSales}
         />
       ))}
@@ -322,7 +319,6 @@ function SidebarWorkspaceSection({
   onNavigate: () => void;
   currentPath: string;
   headerTitle: string;
-  fallbackTitleLabel: string;
   /** ENG-171 — hover-prefetch handler, attached only to the /sales item. */
   prefetchSales: () => void;
 }) {
@@ -330,9 +326,12 @@ function SidebarWorkspaceSection({
   // workspaces, but the workspace that owns the active route must
   // always stay open so direct URLs and command-palette navigation do
   // not hide the current page's nav item.
-  const containsActiveRoute = items.some(item =>
-    currentPath === item.href || currentPath.startsWith(`${item.href}/`)
-  );
+  const containsActiveRoute =
+    currentPath === workspace.defaultRoute ||
+    currentPath.startsWith(`${workspace.defaultRoute}/`) ||
+    items.some(
+      item => currentPath === item.href || currentPath.startsWith(`${item.href}/`)
+    );
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() =>
     readWorkspaceCollapsed(workspace.id, !containsActiveRoute)
   );
@@ -381,38 +380,73 @@ export function Sidebar({
   onCloseMobile,
 }: SidebarProps) {
   const { user } = useAuth();
-  const { t } = useTranslation('nav');
+  const { t } = useTranslation(['nav', 'workspaces']);
+  const { modules, isPlaceholder } = useModulesSnapshot();
+  const location = useLocation();
+  const prefetchSales = usePrefetchSales();
+  const isDesktopSidebar = useSyncExternalStore(
+    subscribeToDesktopSidebar,
+    getDesktopSidebarSnapshot,
+    () => true
+  );
+  const mobileDialogRef = useRef<HTMLElement>(null);
 
-  return (
-    <>
-      <div
-        className={cn(
-          'fixed inset-0 z-40 bg-secondary-950/35 backdrop-blur-sm transition-opacity duration-200 xl:hidden',
-          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-        )}
-        onClick={onCloseMobile}
-      />
+  // ENG-047 — dashboard badge for high-severity AI anomalies. Keep the query
+  // above the responsive rendering split so mobile and desktop never issue
+  // duplicate requests for the same shell signal.
+  const isManagerOrAdmin = (managerOrAdminRoles as readonly string[]).includes(
+    user?.role ?? ''
+  );
+  const anomalyModuleActive =
+    !isPlaceholder &&
+    (modules['anomaly-detection'] ?? CLIENT_MODULE_DEFAULTS['anomaly-detection']);
+  const anomaliesQuery = trpc.ai.anomalies.list.useQuery(
+    {},
+    {
+      enabled: isManagerOrAdmin && anomalyModuleActive,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    }
+  );
+  const dashboardBadge = anomaliesQuery.data?.severityCounts.high ?? 0;
+  const visibleDashboard = (TOP_LEVEL_DASHBOARD.allowedRoles as readonly string[]).includes(
+    user?.role ?? ''
+  );
+  const workspaces = visibleWorkspacesForRole(user?.role, modules, !isPlaceholder);
+  const mobileDialogOpen = !isDesktopSidebar && mobileOpen;
 
+  useDialogA11y({
+    isOpen: mobileDialogOpen,
+    onClose: onCloseMobile,
+    closeOnEsc: true,
+    containerRef: mobileDialogRef,
+    dialogRef: mobileDialogRef,
+    requireTopmost: true,
+  });
+
+  // A drawer left open while the viewport crosses into desktop must not
+  // surprise the operator by reopening when they resize back to mobile.
+  useEffect(() => {
+    if (isDesktopSidebar && mobileOpen) onCloseMobile();
+  }, [isDesktopSidebar, mobileOpen, onCloseMobile]);
+
+  if (isDesktopSidebar) {
+    return (
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex min-h-0 w-[18.5rem] flex-col border-r border-line/70 bg-surface/88 px-3 py-3 backdrop-blur-2xl transition-transform duration-300 xl:translate-x-0',
-          collapsed && 'xl:w-[6.5rem]',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          'fixed inset-y-0 left-0 z-50 flex min-h-0 w-[18.5rem] flex-col border-r border-line/70 bg-surface/88 px-3 py-3 backdrop-blur-2xl transition-[width] duration-300',
+          collapsed && 'w-[6.5rem]'
         )}
       >
-        <div className="mb-4 shrink-0 flex items-center justify-between gap-2">
+        <div className="mb-4 flex shrink-0 items-center justify-between gap-2">
           <SidebarBrand collapsed={collapsed} />
-          {/*
-            ENG-079b — collapse-rail button moved from the footer up to
-            the header so the controls live together (Notion / Linear /
-            GitHub pattern). The mobile X close button stays on the
-            opposite breakpoint so only one icon is visible at a time.
-          */}
           <button
             type="button"
-            className="btn-outline btn-icon hidden xl:inline-flex"
+            className="btn-outline btn-icon"
             onClick={onToggleCollapse}
-            aria-label={t(collapsed ? 'nav:actions.expandNavigation' : 'nav:actions.collapseRail')}
+            aria-label={t(
+              collapsed ? 'nav:actions.expandNavigation' : 'nav:actions.collapseRail'
+            )}
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4 shrink-0" />
@@ -420,9 +454,52 @@ export function Sidebar({
               <ChevronLeft className="h-4 w-4 shrink-0" />
             )}
           </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-thin pr-1">
+          <SidebarWorkspaces
+            collapsed={collapsed}
+            onNavigate={onCloseMobile}
+            workspaces={workspaces}
+            currentPath={location.pathname}
+            visibleDashboard={visibleDashboard}
+            dashboardBadge={dashboardBadge}
+            prefetchSales={prefetchSales}
+          />
+        </div>
+      </aside>
+    );
+  }
+
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        data-testid="mobile-navigation-backdrop"
+        className={cn(
+          'fixed inset-0 z-40 bg-secondary-950/35 backdrop-blur-sm transition-opacity duration-200',
+          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        )}
+        onClick={onCloseMobile}
+      />
+
+      <aside
+        ref={mobileDialogRef}
+        role={mobileDialogOpen ? 'dialog' : undefined}
+        aria-modal={mobileDialogOpen ? 'true' : undefined}
+        aria-label={mobileDialogOpen ? t('workspaces:mobile.navigationLabel') : undefined}
+        aria-hidden={!mobileDialogOpen}
+        inert={!mobileDialogOpen}
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex min-h-0 w-[min(22rem,calc(100vw-1rem))] flex-col border-r border-line/70 bg-surface/96 px-3 py-3 backdrop-blur-2xl transition-transform duration-300',
+          mobileDialogOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        <div className="mb-4 flex shrink-0 items-center justify-between gap-2">
+          <SidebarBrand collapsed={false} />
           <button
             type="button"
-            className="btn-outline btn-icon mobile-shell-toggle xl:hidden"
+            className="btn-outline btn-icon mobile-shell-toggle"
             onClick={onCloseMobile}
             aria-label={t('nav:actions.closeNavigation')}
           >
@@ -431,19 +508,16 @@ export function Sidebar({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-thin pr-1">
-          <SidebarWorkspaces
-            collapsed={collapsed}
+          <MobileWorkspaceNavigation
+            key={location.pathname}
+            workspaces={workspaces}
+            currentPath={location.pathname}
+            showDashboard={visibleDashboard}
+            dashboardBadge={dashboardBadge}
             onNavigate={onCloseMobile}
-            role={user?.role}
+            onPrefetchSales={prefetchSales}
           />
         </div>
-
-        {/*
-          ENG-079a dropped the SESIÓN INICIADA card here (the same
-          user.name + role + email surface in the Header user menu).
-          ENG-079b moved the collapse-rail button to the top header so
-          the footer block is now empty and the chrome shrinks to fit.
-        */}
       </aside>
     </>
   );

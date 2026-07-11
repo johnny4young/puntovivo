@@ -31,5 +31,15 @@
     "label": "Setup",
     "description": "Company, sites, peripherals, users, AI."
   },
-  "viewItem": "View"
+  "viewItem": "View",
+  "actions": {
+    "expandWorkspace": "Expand {{workspace}}",
+    "collapseWorkspace": "Collapse {{workspace}}"
+  },
+  "mobile": {
+    "navigationLabel": "Mobile workspace navigation",
+    "workspaceSelector": "Choose a workspace",
+    "workspaceRoutes": "{{workspace}} routes",
+    "openWorkspace": "Open {{workspace}} overview"
+  }
 }

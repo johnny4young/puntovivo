@@ -14,8 +14,9 @@
  *
  * @module components/layout/__tests__/Sidebar.test
  */
-import { act, fireEvent, render, screen } from '@/test/utils';
+import { act, fireEvent, render, screen, waitFor } from '@/test/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { assertNoA11yViolations } from '@/test/a11y';
 import { Sidebar } from '../Sidebar';
 
 let mockUserRole: 'admin' | 'manager' | 'cashier' | 'viewer' = 'admin';
@@ -32,6 +33,7 @@ const allModulesOn = {
 };
 let mockModules: Record<string, boolean> = { ...allModulesOn };
 let mockPathname = '/dashboard';
+let desktopSidebar = true;
 const { prefetchSalesMock } = vi.hoisted(() => ({
   prefetchSalesMock: vi.fn(),
 }));
@@ -101,8 +103,19 @@ beforeEach(() => {
   mockUserRole = 'admin';
   mockModules = { ...allModulesOn };
   mockPathname = '/dashboard';
+  desktopSidebar = true;
   prefetchSalesMock.mockReset();
   window.localStorage.clear();
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: query === '(min-width: 1280px)' ? desktopSidebar : false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
 });
 
 afterEach(() => {
@@ -143,6 +156,17 @@ describe('Sidebar workspaces (ENG-131a)', () => {
     // Sell workspace is not the active one, so it stays collapsed.
     const sell = screen.getByTestId('sidebar-workspace-sell');
     expect(sell.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('auto-expands the workspace that owns an active landing route', () => {
+    mockPathname = '/catalog';
+    render(<Sidebar {...sidebarProps} />);
+
+    expect(screen.getByTestId('sidebar-workspace-catalog')).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+    expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
   });
 
   it('clicking a workspace header toggles aria-expanded and persists in localStorage', () => {
@@ -233,5 +257,115 @@ describe('Sidebar workspace header navigation (ENG-131c)', () => {
     expect(chevron.getAttribute('aria-controls')).toBe(
       'sidebar-workspace-panel-catalog'
     );
+    expect(chevron).toHaveAccessibleName('Expand Catalog');
+  });
+});
+
+describe('responsive workspace navigation (ENG-131d)', () => {
+  beforeEach(() => {
+    desktopSidebar = false;
+  });
+
+  it('renders one workspace route set at a time for an admin', () => {
+    render(<Sidebar {...sidebarProps} />);
+
+    const options = screen.getAllByRole('radio');
+    expect(options).toHaveLength(8);
+    expect(screen.getByRole('radio', { name: 'Sell' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    expect(screen.getByRole('link', { name: 'Sales' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Products' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Catalog' }));
+
+    expect(screen.getByRole('radio', { name: 'Catalog' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Open Catalog overview' })
+    ).toHaveAttribute('href', '/catalog');
+    expect(screen.queryByRole('link', { name: 'Sales' })).not.toBeInTheDocument();
+  });
+
+  it('selects the workspace that owns a direct landing route', () => {
+    mockPathname = '/catalog';
+    render(<Sidebar {...sidebarProps} />);
+
+    expect(screen.getByRole('radio', { name: 'Catalog' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Sales' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the cashier on the single Sell workspace without a redundant selector', () => {
+    mockUserRole = 'cashier';
+    render(<Sidebar {...sidebarProps} />);
+
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Sell routes' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sales' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
+  });
+
+  it('supports roving arrow-key selection across workspace options', async () => {
+    render(<Sidebar {...sidebarProps} />);
+    const sell = screen.getByRole('radio', { name: 'Sell' });
+    sell.focus();
+
+    fireEvent.keyDown(sell, { key: 'ArrowRight' });
+
+    const operate = screen.getByRole('radio', { name: 'Operate' });
+    expect(operate).toHaveAttribute('aria-checked', 'true');
+    await waitFor(() => expect(operate).toHaveFocus());
+    expect(screen.getByRole('link', { name: 'Operations' })).toBeInTheDocument();
+  });
+
+  it('exposes a modal drawer contract and closes on Escape', () => {
+    const onCloseMobile = vi.fn();
+    render(<Sidebar {...sidebarProps} onCloseMobile={onCloseMobile} />);
+
+    const dialog = screen.getByRole('dialog', {
+      name: 'Mobile workspace navigation',
+    });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCloseMobile).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes when the backdrop is activated', () => {
+    const onCloseMobile = vi.fn();
+    render(<Sidebar {...sidebarProps} onCloseMobile={onCloseMobile} />);
+
+    fireEvent.click(screen.getByTestId('mobile-navigation-backdrop'));
+    expect(onCloseMobile).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes the closed drawer from the accessibility tree and tab order', () => {
+    const { container } = render(<Sidebar {...sidebarProps} mobileOpen={false} />);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    const aside = container.querySelector('aside');
+    expect(aside).toHaveAttribute('aria-hidden', 'true');
+    expect(aside).toHaveAttribute('inert');
+  });
+
+  it('has no serious accessibility violations while open', async () => {
+    render(<Sidebar {...sidebarProps} />);
+    await assertNoA11yViolations(document.body);
+  });
+});
+
+describe('responsive breakpoint ownership (ENG-131d)', () => {
+  it('clears stale mobile-open state after crossing into desktop', async () => {
+    const onCloseMobile = vi.fn();
+    render(<Sidebar {...sidebarProps} onCloseMobile={onCloseMobile} />);
+
+    await waitFor(() => expect(onCloseMobile).toHaveBeenCalledTimes(1));
   });
 });

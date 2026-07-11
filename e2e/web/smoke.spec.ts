@@ -86,7 +86,15 @@ const routeWorkspaceLabels = new Map<string, string>([
 async function revealSidebarLink(page: Page, label: string, workspaceLabel?: string) {
   const link = page.getByRole('link', { name: label });
   if ((await link.count()) === 0 && workspaceLabel) {
-    await page.getByRole('button', { name: workspaceLabel }).click();
+    const escapedLabel = workspaceLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    await page
+      .getByRole('button', {
+        name: new RegExp(
+          `^(?:Expand|Collapse|Expandir|Contraer) ${escapedLabel}$`,
+          'i'
+        ),
+      })
+      .click();
   }
   await expect(link).toBeVisible();
   return link;
