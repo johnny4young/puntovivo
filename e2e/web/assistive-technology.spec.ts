@@ -27,7 +27,7 @@ async function hasIsolatedAncestor(locator: Locator): Promise<boolean> {
 }
 
 test.describe('assistive-technology sweep (ENG-134h)', () => {
-  test('admin mobile workspace dialog isolates the page and exposes one labelled model', async ({
+  test('admin mobile workspace dialog isolates the page and exposes one labelled modal', async ({
     page,
   }) => {
     const tracker = attachClientIssueTracker(page);
