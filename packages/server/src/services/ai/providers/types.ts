@@ -98,7 +98,7 @@ export interface AIProvider {
   /**
    * Optional. ENG-040c slice 1 — Whisper-style audio transcription.
    * Provider returns a `TranscriptionModelV4` consumed by the AI SDK
-   * `experimental_transcribe({ model, audio })`. OpenAI activates
+   * `transcribe({ model, audio })`. OpenAI activates
    * `whisper-1` and the `gpt-4o-transcribe` family; Anthropic + Ollama
    * leave this undefined so `services/ai/voice/transcribe.ts` surfaces
    * `AI_VOICE_NOT_AVAILABLE` instead of a generic

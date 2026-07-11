@@ -2,7 +2,7 @@
  * ENG-040b slice 1 — Ollama provider (chat + vision).
  *
  * Activated against the community Vercel AI SDK provider
- * `ollama-ai-provider-v2`. The package targets `ai@^6` and ships as a
+ * `ollama-ai-provider-v2`. Version 4 targets `ai@^7` and ships as a
  * pure JS factory `createOllama({ baseURL })` returning a model
  * builder compatible with the AI SDK `LanguageModelV4` contract.
  *

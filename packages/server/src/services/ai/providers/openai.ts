@@ -171,7 +171,7 @@ export const openaiProvider: AIProvider = {
   // the most stable; operators wanting the `gpt-4o-transcribe`
   // accuracy uplift override via the AI Settings card. Provider
   // returns a `TranscriptionModelV4` consumed by the AI SDK
-  // `experimental_transcribe({ model, audio })`.
+  // `transcribe({ model, audio })`.
   defaultTranscriptionModelId: FALLBACK_TRANSCRIPTION_MODEL_ID,
   transcriptionPricing: TRANSCRIPTION_PRICING,
   transcriptionModel(modelId: string): TranscriptionModelV4 {

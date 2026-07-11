@@ -257,14 +257,14 @@ describe('runCopilotChat — generateText receives the static system + context-p
 
     expect(generateTextMock).toHaveBeenCalledTimes(1);
     const call = generateTextMock.mock.calls[0]![0] as {
-      system: string;
+      instructions: string;
       prompt: string;
       providerOptions?: unknown;
     };
 
     // System prompt MUST be the static instruction block; this is the
     // cache-stability invariant.
-    expect(call.system).toBe(buildSystemPrompt());
+    expect(call.instructions).toBe(buildSystemPrompt());
 
     // The user-facing prompt now carries the dynamic context inside the
     // last user turn. We assert the literal markers + the window we
@@ -303,7 +303,7 @@ describe('runCopilotChat — generateText receives the static system + context-p
     expect('providerOptions' in call).toBe(false);
 
     // System prompt is still the static instruction block on OpenAI too.
-    expect(call.system).toBe(buildSystemPrompt());
+    expect(call.instructions).toBe(buildSystemPrompt());
   });
 
   it('persists cacheReadTokens + cacheWriteTokens from the SDK usage shape onto the audit row', async () => {
@@ -356,11 +356,11 @@ describe('runCopilotChat — generateText receives the static system + context-p
       { factory: () => buildStubProvider(), now: new Date('2026-05-14T12:00:00.000Z') }
     );
 
-    const callOne = generateTextMock.mock.calls[0]![0] as { system: string; prompt: string };
-    const callTwo = generateTextMock.mock.calls[1]![0] as { system: string; prompt: string };
+    const callOne = generateTextMock.mock.calls[0]![0] as { instructions: string; prompt: string };
+    const callTwo = generateTextMock.mock.calls[1]![0] as { instructions: string; prompt: string };
 
     // Static system invariant across turns — the cache stays warm.
-    expect(callOne.system).toBe(callTwo.system);
+    expect(callOne.instructions).toBe(callTwo.instructions);
 
     // Turn 1 in turn-2's prompt is untouched (no historical context
     // rewriting). The latest user turn carries the fresh context block.

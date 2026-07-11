@@ -176,6 +176,23 @@ describe('extractInvoiceFromImage (ENG-040a)', () => {
     expect(result.provider).toBe('anthropic');
     expect(result.model).toBe('test-vision-model');
     expect(result.costUsd).toBeGreaterThan(0);
+    expect(generateObjectMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instructions: expect.any(String),
+        messages: [
+          expect.objectContaining({
+            role: 'user',
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'file',
+                data: 'aGVsbG8=',
+                mediaType: 'image/png',
+              }),
+            ]),
+          }),
+        ],
+      })
+    );
 
     const auditRow = await getDatabase()
       .select()

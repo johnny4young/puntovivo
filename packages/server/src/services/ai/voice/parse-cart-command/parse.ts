@@ -119,7 +119,7 @@ export async function parseVoiceCartCommand(
   try {
     const result = await generateObject({
       model: provider.languageModel(modelId),
-      system: SYSTEM_PROMPT,
+      instructions: SYSTEM_PROMPT,
       schema: VoiceCartCommandSchema,
       prompt: `${USER_PROMPT_TEMPLATE}${JSON.stringify(transcript)}`,
       ...(providerOptions !== undefined

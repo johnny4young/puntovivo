@@ -2,7 +2,7 @@
  * ENG-040c slice 1 — `ai.transcribeAudio` integration tests.
  *
  * Drives the procedure via `createCaller` against an in-memory
- * database. The AI SDK `experimental_transcribe` is mocked so no real
+ * database. The AI SDK `transcribe` is mocked so no real
  * network round-trip is needed; the OpenAI provider's
  * `transcriptionModel` factory is stubbed to advertise the capability
  * without an `OPENAI_API_KEY` env var. The audit-log row, capability
@@ -23,13 +23,13 @@ vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai');
   return {
     ...actual,
-    experimental_transcribe: (...args: unknown[]) => transcribeMock(...args),
+    transcribe: (...args: unknown[]) => transcribeMock(...args),
   };
 });
 
 // Stub the OpenAI provider's `transcriptionModel` + `isConfigured` so
 // `transcribeAudio` resolves it without an `OPENAI_API_KEY`. The
-// returned model object is opaque — the mocked `experimental_transcribe`
+// returned model object is opaque — the mocked `transcribe`
 // ignores it.
 vi.mock('../services/ai/providers/openai.js', async () => {
   const actual = await vi.importActual<typeof import('../services/ai/providers/openai.js')>(
@@ -156,7 +156,7 @@ async function seedTenant(
 /**
  * Build a base64 string of approximately `targetBytes` decoded bytes.
  * Mirrors the helper in `ai-vision.test.ts`; doesn't need to be
- * decodeable into real audio because the mocked `experimental_transcribe`
+ * decodeable into real audio because the mocked `transcribe`
  * never inspects the buffer.
  */
 function base64OfDecodedBytes(targetBytes: number): string {
@@ -205,6 +205,7 @@ describe('ai.transcribeAudio (ENG-040c slice 1)', () => {
     expect(result.audioDurationSeconds).toBeCloseTo(4.2, 4);
     expect(result.provider).toBe('openai');
     expect(result.model).toBe('whisper-1');
+    expect(transcribeMock).toHaveBeenCalledTimes(1);
     // 4.2s of whisper-1 → 4.2/60 * 0.006 ≈ 0.00042.
     expect(result.costUsd).toBeCloseTo((4.2 / 60) * 0.006, 8);
 

@@ -217,7 +217,7 @@ export async function extractInvoiceFromImage(
   try {
     const result = await generateObject({
       model: provider.visionModel(modelId),
-      system: EXTRACT_PROMPT_SYSTEM,
+      instructions: EXTRACT_PROMPT_SYSTEM,
       schema: InvoiceOcrSchema,
       messages: [
         {
@@ -225,8 +225,8 @@ export async function extractInvoiceFromImage(
           content: [
             { type: 'text', text: EXTRACT_PROMPT_USER },
             {
-              type: 'image',
-              image: input.imageBase64,
+              type: 'file',
+              data: input.imageBase64,
               mediaType: input.mimeType,
             },
           ],

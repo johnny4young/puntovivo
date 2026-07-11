@@ -324,7 +324,7 @@ export async function completeAI(
     const providerOptions = provider.cacheControlForSystemPrompt();
     const result = await generateText({
       model: provider.languageModel(modelId),
-      ...(input.system !== undefined ? { system: input.system } : {}),
+      ...(input.system !== undefined ? { instructions: input.system } : {}),
       prompt: input.prompt,
       ...(input.maxOutputTokens !== undefined
         ? { maxOutputTokens: input.maxOutputTokens }

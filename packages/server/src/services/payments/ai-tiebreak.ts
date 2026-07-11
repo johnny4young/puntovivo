@@ -151,7 +151,7 @@ export async function aiTiebreak(
   try {
     const result = await generateObject({
       model: provider.languageModel(modelId),
-      system: SYSTEM_PROMPT,
+      instructions: SYSTEM_PROMPT,
       schema: TiebreakSchema,
       prompt: userPrompt,
       ...(providerOptions !== undefined
