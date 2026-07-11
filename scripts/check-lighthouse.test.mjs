@@ -69,7 +69,7 @@ test('compareToLighthouseBudget: a lower-is-better metric past the ceiling regre
 
 test('compareToLighthouseBudget: a score at the exact floor is ok', () => {
   const result = compareToLighthouseBudget({
-    measured: { dashboard: { score: 72 } }
+    measured: { dashboard: { score: 72 } },
     budget: { dashboard: { score: 72 } },
     thresholdPercent: THRESHOLD,
   });
@@ -79,7 +79,7 @@ test('compareToLighthouseBudget: a score at the exact floor is ok', () => {
 
 test('compareToLighthouseBudget: score ignores timing tolerance and regresses below its exact floor', () => {
   const result = compareToLighthouseBudget({
-    measured: { dashboard: { score: 71 } }
+    measured: { dashboard: { score: 71 } },
     budget: { dashboard: { score: 72 } },
     thresholdPercent: THRESHOLD,
   });

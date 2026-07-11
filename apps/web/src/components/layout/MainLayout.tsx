@@ -4,11 +4,13 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { GlobalStatusStrip } from './GlobalStatusStrip';
 import { WhatsNewOverlay } from '@/features/whats-new/WhatsNewOverlay';
+import { FirstSaleGuide } from '@/features/onboarding/FirstSaleGuide';
 import { cn } from '@/lib/utils';
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [firstSaleGuideRequest, setFirstSaleGuideRequest] = useState(0);
 
   return (
     <div className="app-shell">
@@ -25,8 +27,14 @@ export function MainLayout() {
           sidebarCollapsed ? 'xl:ml-[6.5rem]' : 'xl:ml-[18.5rem]'
         )}
       >
-        <Header onOpenSidebar={() => setMobileSidebarOpen(true)} />
+        <Header
+          onOpenSidebar={() => setMobileSidebarOpen(true)}
+          onOpenFirstSaleGuide={() =>
+            setFirstSaleGuideRequest(request => request + 1)
+          }
+        />
         <GlobalStatusStrip />
+        <FirstSaleGuide openRequest={firstSaleGuideRequest} />
 
         <main className="min-w-0 px-4 py-4 sm:px-6 sm:py-6 xl:px-8">
           <Outlet />

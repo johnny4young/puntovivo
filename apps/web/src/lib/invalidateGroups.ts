@@ -58,6 +58,9 @@ export async function invalidateGroups(
  * showing pre-sale data for the whole staleTime window.
  */
 export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  // ENG-202 — the shell celebrates only after the server confirms the
+  // tenant's first completed sale.
+  u => u.setupReadiness.firstSale,
   u => u.cashSessions.getActive,
   u => u.cashSessions.movements,
   u => u.cashSessions.report,

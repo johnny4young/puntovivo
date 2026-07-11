@@ -1,6 +1,11 @@
 import { expect, type Page } from '@playwright/test';
 
 export const E2E_PASSWORD = 'PuntovivoE2E!123';
+export const FIRST_SALE_E2E_USER = {
+  email: 'e2e.first-sale@local.test',
+  password: E2E_PASSWORD,
+  defaultPath: '/dashboard',
+} as const;
 
 export const E2E_USERS = {
   admin: { email: 'e2e.admin@local.test', password: E2E_PASSWORD, defaultPath: '/dashboard' },
