@@ -93,7 +93,7 @@ export function SalePaymentModal({
       className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4 shadow-sm"
       data-testid="sale-payment-summary"
     >
-      <p id="sale-payment-total-label" className="text-sm text-primary-700">
+      <p id="sale-payment-total-label" className="text-sm text-primary-800">
         {t('payment.saleTotal')}
       </p>
       <p

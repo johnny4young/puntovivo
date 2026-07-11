@@ -14,6 +14,7 @@
     "$retune8": "ENG-167b review — the Company backup card now owns the cross-device restore key prompt and admin reveal modals inside CompanyPage, pushing CompanyPage from the 30 KB gz ceiling to gate-measured 32.16 KB gz. Deliberate route growth for a security-operable flow; ceiling lifts 30 -> 33.",
     "$retune9": "ENG-178 slice 16b-2 — SalesPage JSX relocation adds a small wrapper/prop seam to close SalesPage under 500 LOC; gate-measured SalesPage chunk is 43.21 KB gz, so the baseline lifts 41->44 while staying within the existing 5% threshold.",
     "$retune10": "ENG-198 / ENG-199 — day-close summary UI and the site-scoped expiry-suggestion badge add authenticated sales behavior to the route. Gate-measured SalesPage is 46.26 KB gz after rebasing both shipped slices, so the baseline lifts 44->45 while preserving the existing 5% regression threshold.",
+    "$retune11": "ENG-200 — SalePaymentModal leaves the Lighthouse-critical SalesPage entry behind a deferred boundary, dropping SalesPage from 45 to gate-measured 41.52 KB gz; the ceiling tightens to 42. The new idle-preloaded SalePaymentModal chunk measures 6.40 KB gz and is pinned at 7.",
     "perChunkGzKb": {
       "index": 153,
       "xlsx": 264,
@@ -23,7 +24,8 @@
       "CopilotPage": 54,
       "index.es": 50,
       "html2canvas": 48,
-      "SalesPage": 45,
+      "SalesPage": 42,
+      "SalePaymentModal": 7,
       "trpc": 26,
       "CompanyPage": 33,
       "dnd": 25,
@@ -71,13 +73,13 @@
     }
   },
   "lighthouse": {
-    "$comment": "ENG-133e — Lighthouse web-vitals budgets per top user-facing route. ci:web runs scripts/run-lighthouse-gate.mjs, which seeds an isolated demo DB, serves the built web app, and invokes scripts/check-lighthouse.mjs with --strict --require-measurement so missing proof or over-budget metrics fail push-CI. Local operator diagnostics can still run pnpm run perf:lighthouse in warn-first/self-skip mode. lcpMs/ttiMs in ms (lower is better), cls unitless (lower is better), score 0-100 (higher is better).",
+    "$comment": "ENG-133e / ENG-200 — Lighthouse web-vitals budgets per top user-facing route. ci:web runs scripts/run-lighthouse-gate.mjs, which seeds an isolated demo DB, serves the built web app, and invokes scripts/check-lighthouse.mjs with --strict --require-measurement so missing proof or over-budget metrics fail push-CI. Local operator diagnostics can still run pnpm run perf:lighthouse in warn-first/self-skip mode. lcpMs/ttiMs in ms and cls use thresholdPercent for run variance; score is an exact 0-100 minimum floor.",
     "thresholdPercent": 30,
     "$baseline": "ENG-133c — captured locally (macOS, DEV build served by dev:server + dev:web, demo-co seed, Lighthouse desktop preset with simulated throttling). The script warms each route first (Vite compiles route modules on first hit), then measures warm. These are DEV-build numbers (no minify/treeshake) under Lighthouse's 4x-CPU throttle, NOT production figures — the gate detects regressions from this local baseline. The 30% threshold absorbs Lighthouse run-to-run variance in the warn-first phase. Re-capture deliberately with pnpm run perf:lighthouse and copy the printed measured= values.",
     "perRoute": {
       "login": { "lcpMs": 3400, "ttiMs": 3400, "cls": 0.02, "score": 70 },
       "dashboard": { "lcpMs": 3600, "ttiMs": 3600, "cls": 0.05, "score": 66 },
-      "sales": { "lcpMs": 4600, "ttiMs": 4600, "cls": 0.05, "score": 58 },
+      "sales": { "lcpMs": 4600, "ttiMs": 4600, "cls": 0.05, "score": 70 },
       "products": { "lcpMs": 4100, "ttiMs": 4100, "cls": 0.05, "score": 62 }
     }
   }

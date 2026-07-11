@@ -67,9 +67,9 @@ test('compareToLighthouseBudget: a lower-is-better metric past the ceiling regre
   assert.equal(result.regressions[0].metric, 'lcpMs');
 });
 
-test('compareToLighthouseBudget: a higher-is-better score within the floor is ok', () => {
+test('compareToLighthouseBudget: a score at the exact floor is ok', () => {
   const result = compareToLighthouseBudget({
-    measured: { dashboard: { score: 70 } }, // floor 72 * 0.70 = 50.4
+    measured: { dashboard: { score: 72 } }
     budget: { dashboard: { score: 72 } },
     thresholdPercent: THRESHOLD,
   });
@@ -77,9 +77,9 @@ test('compareToLighthouseBudget: a higher-is-better score within the floor is ok
   assert.equal(result.ok.length, 1);
 });
 
-test('compareToLighthouseBudget: a higher-is-better score below the floor regresses', () => {
+test('compareToLighthouseBudget: score ignores timing tolerance and regresses below its exact floor', () => {
   const result = compareToLighthouseBudget({
-    measured: { dashboard: { score: 40 } }, // < 50.4 floor
+    measured: { dashboard: { score: 71 } }
     budget: { dashboard: { score: 72 } },
     thresholdPercent: THRESHOLD,
   });
@@ -122,7 +122,7 @@ test('renderReport prints a PASS table when there are no regressions', () => {
   assert.match(report, /login\.lcpMs/);
 });
 
-test('renderReport prints a regression table over threshold', () => {
+test('renderReport explains exact score floors and variance-tolerant metrics', () => {
   const report = renderReport(
     compareToLighthouseBudget({
       measured: { login: { lcpMs: 5000 } },
@@ -131,7 +131,8 @@ test('renderReport prints a regression table over threshold', () => {
     }),
     THRESHOLD
   );
-  assert.match(report, /over 30% threshold/);
+  assert.match(report, /score uses its exact floor/);
+  assert.match(report, /allow 30% variance/);
 });
 
 test('runCli self-skips (exit 0) when measurement is infeasible', async () => {
