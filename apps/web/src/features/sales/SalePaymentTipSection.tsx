@@ -30,7 +30,7 @@ export function SalePaymentTipSection({
 
   return (
     <div className="rounded-xl border border-secondary-200 p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-medium text-secondary-900">{t('payment.tip.heading')}</p>
         <p className="text-xs text-secondary-500">{t('payment.tip.helper')}</p>
       </div>

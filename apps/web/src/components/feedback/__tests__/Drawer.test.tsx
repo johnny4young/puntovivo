@@ -53,9 +53,7 @@ describe('Drawer (ENG-186)', () => {
     const heading = screen.getByText('Sales history');
     expect(dialog).toHaveAttribute('aria-labelledby', heading.id);
     expect(heading.id).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: /first action/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /first action/i })).toBeInTheDocument();
   });
 
   it('generates unique title ids when multiple labelled drawers are mounted', () => {
@@ -74,10 +72,7 @@ describe('Drawer (ENG-186)', () => {
     const historyHeading = screen.getByText('Sales history');
     const suspendedHeading = screen.getByText('Suspended sales');
     expect(historyDialog).toHaveAttribute('aria-labelledby', historyHeading.id);
-    expect(suspendedDialog).toHaveAttribute(
-      'aria-labelledby',
-      suspendedHeading.id
-    );
+    expect(suspendedDialog).toHaveAttribute('aria-labelledby', suspendedHeading.id);
     expect(historyHeading.id).not.toBe(suspendedHeading.id);
   });
 
@@ -90,6 +85,27 @@ describe('Drawer (ENG-186)', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-label', 'Suspended sales');
     expect(dialog).not.toHaveAttribute('aria-labelledby');
+  });
+
+  it('supports the xl desktop width used by complex operational forms', () => {
+    renderDrawer({ size: 'xl', testId: 'wide-drawer' });
+    expect(screen.getByTestId('wide-drawer')).toHaveClass('sm:max-w-[40rem]');
+  });
+
+  it('renders pinned content outside the scrollable body', () => {
+    renderDrawer({
+      pinnedContent: <p>Stable total</p>,
+      footer: <button type="button">Confirm</button>,
+    });
+
+    const pinned = screen.getByText('Stable total').parentElement;
+    expect(pinned).toHaveClass('drawer-pinned-content', 'shrink-0');
+    expect(pinned?.nextElementSibling).toHaveClass('modal-body', 'min-h-0');
+    expect(pinned?.previousElementSibling).toHaveClass('modal-header', 'shrink-0');
+    expect(screen.getByRole('button', { name: 'Confirm' }).parentElement).toHaveClass(
+      'modal-footer',
+      'shrink-0'
+    );
   });
 
   it('the header close button calls onClose', () => {
@@ -178,7 +194,12 @@ describe('Drawer (ENG-186)', () => {
       </Drawer>
     );
     rerender(
-      <Drawer isOpen={false} onClose={onClose} title="Sales history" restoreFocusTo={() => external}>
+      <Drawer
+        isOpen={false}
+        onClose={onClose}
+        title="Sales history"
+        restoreFocusTo={() => external}
+      >
         <button type="button">First action</button>
       </Drawer>
     );

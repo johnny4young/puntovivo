@@ -490,14 +490,16 @@
   /* ==========================================================================
    * 7b. DRAWERS (ENG-186)
    *
-   * .drawer-shell — Sliding panel used by the reusable <Drawer> component in
-   *                 feedback/Drawer.tsx. On mobile it is a bottom sheet
-   *                 (rounded top, capped at 85vh, slide-up entrance); from the
-   *                 sm breakpoint up it becomes a full-height right slide-over
-   *                 (rounded left corners, square right edge flush to the
-   *                 viewport, slide-in-right entrance). Header / body / footer
-   *                 reuse the modal section classes for a consistent dialog
-   *                 chrome — only the outer shape + entrance differ from a modal.
+   * .drawer-shell          — Sliding panel used by the reusable <Drawer>.
+   * .drawer-pinned-content — Optional non-scrolling summary between header and
+   *                          body for operational forms with a stable total or
+   *                          status. It shares the body's horizontal gutters.
+   *
+   * On mobile the shell is a bottom sheet (rounded top, capped at 85vh,
+   * slide-up entrance); from the sm breakpoint up it becomes a full-height
+   * right slide-over (rounded left corners, square right edge flush to the
+   * viewport, slide-in-right entrance). Header / body / footer reuse the modal
+   * section classes for consistent chrome.
    * ======================================================================== */
 
   .drawer-shell {
@@ -505,6 +507,10 @@
     @apply max-h-[85vh] sm:h-full sm:max-h-none sm:rounded-l-[28px] sm:rounded-r-none;
     box-shadow: var(--shadow-panel);
     animation: var(--animate-slide-up);
+  }
+
+  .drawer-pinned-content {
+    @apply relative z-10 border-b border-line/60 bg-surface px-5 py-4 sm:px-6;
   }
 
   @media (min-width: 640px) {

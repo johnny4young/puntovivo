@@ -72,6 +72,14 @@ Keep visible on the default POS lane:
   and payment rail blockers.
 - Small suspended-sales indicator.
 
+The payment step uses the responsive drawer contract delivered by
+`ENG-105h`: a 40rem right rail from the `sm` breakpoint upward and a bottom
+sheet on mobile. Its title, grand total, and action footer are separate
+non-scrolling regions; only customer, tip, tender, credit, and notes controls
+scroll. Cash, card, transfer, credit, and split-tender transitions therefore do
+not move the drawer edge or the Confirm action. Closing by Cancel, backdrop,
+`Escape`, or successful checkout restores focus to the product search input.
+
 Move out of the default lane:
 
 - Sales history -> Finance > Sales or a right drawer.
