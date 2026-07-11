@@ -10,7 +10,7 @@
  *
  * @module services/ai/copilot/chat
  */
-import { generateText, stepCountIs, tool } from 'ai';
+import { generateText, isStepCount, tool } from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
@@ -156,7 +156,7 @@ export async function runCopilotChat(
     const messagesWithContext = injectContextIntoMessages(input.messages, contextBlock);
     const result = await generateText({
       model: provider.languageModel(modelId),
-      system: buildSystemPrompt(),
+      instructions: buildSystemPrompt(),
       prompt: buildPrompt(messagesWithContext),
       tools: {
         getCurrentSiteContext: tool({
@@ -186,7 +186,7 @@ export async function runCopilotChat(
           },
         }),
       },
-      stopWhen: stepCountIs(5),
+      stopWhen: isStepCount(5),
       maxOutputTokens: 700,
       ...(providerOptions !== undefined
         ? { providerOptions: providerOptions as ProviderOptions }

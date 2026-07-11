@@ -8,7 +8,7 @@
  * @module services/ai/providers/anthropic
  */
 import { anthropic } from '@ai-sdk/anthropic';
-import type { LanguageModelV3 } from '@ai-sdk/provider';
+import type { LanguageModelV4 } from '@ai-sdk/provider';
 
 import type { AIProvider, ModelPricing, ProviderPricing, TokenUsage } from './types.js';
 
@@ -107,7 +107,7 @@ export const anthropicProvider: AIProvider = {
     return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
   },
 
-  languageModel(modelId: string): LanguageModelV3 {
+  languageModel(modelId: string): LanguageModelV4 {
     return anthropic(modelId);
   },
 
@@ -116,7 +116,7 @@ export const anthropicProvider: AIProvider = {
   // entry point as `languageModel`. Capability advertised so the UI +
   // service layer can gate on `provider.visionModel` rather than
   // guessing per provider id.
-  visionModel(modelId: string): LanguageModelV3 {
+  visionModel(modelId: string): LanguageModelV4 {
     return anthropic(modelId);
   },
 

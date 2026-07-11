@@ -10,7 +10,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
-import type { LanguageModelV3 } from '@ai-sdk/provider';
+import type { LanguageModelV4 } from '@ai-sdk/provider';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -65,8 +65,8 @@ function buildStubProvider(overrides?: Partial<AIProvider>): AIProvider {
     defaultModelId: 'test-vision-model',
     pricing: PRICING,
     isConfigured: () => true,
-    languageModel: () => ({}) as LanguageModelV3,
-    visionModel: () => ({}) as LanguageModelV3,
+    languageModel: () => ({}) as LanguageModelV4,
+    visionModel: () => ({}) as LanguageModelV4,
     cacheControlForSystemPrompt: () => undefined,
     ...overrides,
   };
@@ -176,6 +176,23 @@ describe('extractInvoiceFromImage (ENG-040a)', () => {
     expect(result.provider).toBe('anthropic');
     expect(result.model).toBe('test-vision-model');
     expect(result.costUsd).toBeGreaterThan(0);
+    expect(generateObjectMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instructions: expect.any(String),
+        messages: [
+          expect.objectContaining({
+            role: 'user',
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'file',
+                data: 'aGVsbG8=',
+                mediaType: 'image/png',
+              }),
+            ]),
+          }),
+        ],
+      })
+    );
 
     const auditRow = await getDatabase()
       .select()

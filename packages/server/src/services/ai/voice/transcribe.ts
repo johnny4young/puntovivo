@@ -12,7 +12,7 @@
  *
  * @module services/ai/voice/transcribe
  */
-import { NoTranscriptGeneratedError, experimental_transcribe } from 'ai';
+import { NoTranscriptGeneratedError, transcribe } from 'ai';
 
 import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
@@ -187,7 +187,7 @@ export async function transcribeAudio(
   const audioBuffer = Buffer.from(input.audioBase64, 'base64');
 
   try {
-    const result = await experimental_transcribe({
+    const result = await transcribe({
       model: provider.transcriptionModel(modelId),
       audio: audioBuffer,
     });

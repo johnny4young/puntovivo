@@ -131,7 +131,7 @@ describe('ai/providers/openai', () => {
   });
 
   describe('transcriptionModel (ENG-040c slice 1)', () => {
-    it('is implemented and returns a TranscriptionModelV3 factory', () => {
+    it('is implemented and returns a TranscriptionModelV4 factory', () => {
       expect(openaiProvider.transcriptionModel).toBeDefined();
       expect(typeof openaiProvider.transcriptionModel).toBe('function');
       const model = openaiProvider.transcriptionModel?.('whisper-1');

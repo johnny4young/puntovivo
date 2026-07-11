@@ -14,7 +14,7 @@ import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
-import type { EmbeddingModelV3 } from '@ai-sdk/provider';
+import type { EmbeddingModelV4 } from '@ai-sdk/provider';
 
 // Same stub the ENG-040 slice 1b test uses: OpenAI advertises an
 // embedding model factory + reports configured. The procedure never
@@ -29,7 +29,7 @@ vi.mock('../services/ai/providers/openai.js', async () => {
     openaiProvider: {
       ...actual.openaiProvider,
       isConfigured: () => true,
-      embeddingModel: (_modelId: string) => ({}) as EmbeddingModelV3<string>,
+      embeddingModel: (_modelId: string) => ({}) as EmbeddingModelV4<string>,
     },
   };
 });

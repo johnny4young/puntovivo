@@ -13,9 +13,9 @@
  * @module services/ai/providers/types
  */
 import type {
-  LanguageModelV3,
-  EmbeddingModelV3,
-  TranscriptionModelV3,
+  LanguageModelV4,
+  EmbeddingModelV4,
+  TranscriptionModelV4,
 } from '@ai-sdk/provider';
 
 /** Identifier for the configured AI provider. */
@@ -64,7 +64,7 @@ export interface AIProvider {
    * when the provider is `notImplemented`. Caller is expected to gate
    * on `isConfigured()` first.
    */
-  languageModel(modelId: string): LanguageModelV3;
+  languageModel(modelId: string): LanguageModelV4;
 
   /**
    * Optional. ENG-033 activated this for OpenAI (`text-embedding-3-small`);
@@ -72,7 +72,7 @@ export interface AIProvider {
    * not embed and leaves this undefined so semantic-search callers
    * fall back to LIKE.
    */
-  embeddingModel?(modelId: string): EmbeddingModelV3;
+  embeddingModel?(modelId: string): EmbeddingModelV4;
 
   /**
    * Optional. The canonical embedding model id this provider ships
@@ -93,18 +93,18 @@ export interface AIProvider {
    * returns `AI_VISION_NOT_AVAILABLE`. ENG-040a activated this for
    * Anthropic + OpenAI; Ollama follows in ENG-040b.
    */
-  visionModel?(modelId: string): LanguageModelV3;
+  visionModel?(modelId: string): LanguageModelV4;
 
   /**
    * Optional. ENG-040c slice 1 — Whisper-style audio transcription.
-   * Provider returns a `TranscriptionModelV3` consumed by the AI SDK
-   * `experimental_transcribe({ model, audio })`. OpenAI activates
+   * Provider returns a `TranscriptionModelV4` consumed by the AI SDK
+   * `transcribe({ model, audio })`. OpenAI activates
    * `whisper-1` and the `gpt-4o-transcribe` family; Anthropic + Ollama
    * leave this undefined so `services/ai/voice/transcribe.ts` surfaces
    * `AI_VOICE_NOT_AVAILABLE` instead of a generic
    * `AI_PROVIDER_ERROR` when those tenants try to transcribe.
    */
-  transcriptionModel?(modelId: string): TranscriptionModelV3;
+  transcriptionModel?(modelId: string): TranscriptionModelV4;
 
   /**
    * Optional. The canonical transcription model id this provider ships
