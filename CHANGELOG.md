@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.5.0](https://github.com/johnny4young/puntovivo/compare/v1.4.0...v1.5.0) (2026-07-11)
+
+
+### Features
+
+* **ui:** improve responsive navigation, checkout, and accessibility ([#145](https://github.com/johnny4young/puntovivo/issues/145)) ([6751d8d](https://github.com/johnny4young/puntovivo/commit/6751d8d35f401aaf7d2101472e3d75699b3fc10c))
+
 ## [1.4.0](https://github.com/johnny4young/puntovivo/compare/v1.3.0...v1.4.0) (2026-07-10)
 
 
