@@ -16,7 +16,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
-import type { LanguageModelV3 } from '@ai-sdk/provider';
+import type { LanguageModelV4 } from '@ai-sdk/provider';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -56,7 +56,7 @@ function buildStubProvider(overrides?: Partial<AIProvider>): AIProvider {
     defaultModelId: 'test-copilot-model',
     pricing: PRICING,
     isConfigured: () => true,
-    languageModel: () => ({}) as LanguageModelV3,
+    languageModel: () => ({}) as LanguageModelV4,
     cacheControlForSystemPrompt: () => ({
       anthropic: { cacheControl: { type: 'ephemeral' } },
     }),

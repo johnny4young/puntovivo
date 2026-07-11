@@ -20,9 +20,9 @@
  */
 import { openai } from '@ai-sdk/openai';
 import type {
-  LanguageModelV3,
-  EmbeddingModelV3,
-  TranscriptionModelV3,
+  LanguageModelV4,
+  EmbeddingModelV4,
+  TranscriptionModelV4,
 } from '@ai-sdk/provider';
 
 import type { AIProvider, ModelPricing, ProviderPricing, TokenUsage } from './types.js';
@@ -143,7 +143,7 @@ export const openaiProvider: AIProvider = {
     return Boolean(process.env.OPENAI_API_KEY?.trim());
   },
 
-  languageModel(modelId: string): LanguageModelV3 {
+  languageModel(modelId: string): LanguageModelV4 {
     return openai(modelId);
   },
 
@@ -154,14 +154,14 @@ export const openaiProvider: AIProvider = {
   },
 
   // ENG-033 — semantic product search + auto-categorize.
-  embeddingModel(modelId: string): EmbeddingModelV3 {
+  embeddingModel(modelId: string): EmbeddingModelV4 {
     return openai.embedding(modelId);
   },
 
   // ENG-040a — gpt-4o family + gpt-4.1 family + gpt-4o-mini accept
   // image content in user messages. Capability hint advertised so the
   // service layer can short-circuit when a future provider lacks it.
-  visionModel(modelId: string): LanguageModelV3 {
+  visionModel(modelId: string): LanguageModelV4 {
     return openai(modelId);
   },
 
@@ -170,11 +170,11 @@ export const openaiProvider: AIProvider = {
   // default because it is the cheapest ($0.006/min) and historically
   // the most stable; operators wanting the `gpt-4o-transcribe`
   // accuracy uplift override via the AI Settings card. Provider
-  // returns a `TranscriptionModelV3` consumed by the AI SDK
+  // returns a `TranscriptionModelV4` consumed by the AI SDK
   // `experimental_transcribe({ model, audio })`.
   defaultTranscriptionModelId: FALLBACK_TRANSCRIPTION_MODEL_ID,
   transcriptionPricing: TRANSCRIPTION_PRICING,
-  transcriptionModel(modelId: string): TranscriptionModelV3 {
+  transcriptionModel(modelId: string): TranscriptionModelV4 {
     return openai.transcription(modelId);
   },
 };

@@ -15,7 +15,7 @@ import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
-import type { TranscriptionModelV3 } from '@ai-sdk/provider';
+import type { TranscriptionModelV4 } from '@ai-sdk/provider';
 
 const transcribeMock = vi.fn();
 
@@ -40,7 +40,7 @@ vi.mock('../services/ai/providers/openai.js', async () => {
     openaiProvider: {
       ...actual.openaiProvider,
       isConfigured: () => true,
-      transcriptionModel: (_modelId: string) => ({}) as TranscriptionModelV3,
+      transcriptionModel: (_modelId: string) => ({}) as TranscriptionModelV4,
     },
   };
 });

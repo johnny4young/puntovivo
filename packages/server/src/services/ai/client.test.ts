@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
 import { eq } from 'drizzle-orm';
-import { MockLanguageModelV3, mockId } from 'ai/test';
+import { MockLanguageModelV4, mockId } from 'ai/test';
 import { simulateReadableStream } from 'ai';
 
 import { ServerErrorWithCode } from '../../lib/errorCodes.js';
@@ -119,7 +119,7 @@ function buildMockProvider(overrides: Partial<AIProvider> = {}): AIProvider {
     },
     isConfigured: () => true,
     languageModel: () =>
-      new MockLanguageModelV3({
+      new MockLanguageModelV4({
         provider: 'anthropic',
         modelId: 'claude-haiku-4-5',
         doGenerate: async () => ({
@@ -297,7 +297,7 @@ describe('client.completeAI', () => {
         },
       },
       languageModel: () =>
-        new MockLanguageModelV3({
+        new MockLanguageModelV4({
           provider: 'anthropic',
           modelId: 'cached-model',
           doGenerate: async () => ({
@@ -374,7 +374,7 @@ describe('client.completeAI', () => {
         () =>
           buildMockProvider({
             languageModel: () =>
-              new MockLanguageModelV3({
+              new MockLanguageModelV4({
                 provider: 'anthropic',
                 modelId: 'claude-haiku-4-5',
                 doGenerate: async () => {

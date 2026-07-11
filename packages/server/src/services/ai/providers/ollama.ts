@@ -4,7 +4,7 @@
  * Activated against the community Vercel AI SDK provider
  * `ollama-ai-provider-v2`. The package targets `ai@^6` and ships as a
  * pure JS factory `createOllama({ baseURL })` returning a model
- * builder compatible with the AI SDK `LanguageModelV3` contract.
+ * builder compatible with the AI SDK `LanguageModelV4` contract.
  *
  * Ollama serves locally so there is no API key surface: configuration
  * is a base URL only. The default `http://localhost:11434` is what the
@@ -36,7 +36,7 @@
  * @module services/ai/providers/ollama
  */
 import { createOllama } from 'ollama-ai-provider-v2';
-import type { EmbeddingModelV3, LanguageModelV3 } from '@ai-sdk/provider';
+import type { EmbeddingModelV4, LanguageModelV4 } from '@ai-sdk/provider';
 
 import type { AIProvider, ProviderPricing, TokenUsage } from './types.js';
 
@@ -113,7 +113,7 @@ export const ollamaProvider: AIProvider = {
     return true;
   },
 
-  languageModel(modelId: string): LanguageModelV3 {
+  languageModel(modelId: string): LanguageModelV4 {
     return buildClient()(modelId);
   },
 
@@ -122,14 +122,14 @@ export const ollamaProvider: AIProvider = {
   // `llama3.2-vision`, `qwen2-vl`, `granite-3.2-vision` are common
   // operator choices. Same factory as `languageModel` because Ollama
   // does not split chat and vision builders.
-  visionModel(modelId: string): LanguageModelV3 {
+  visionModel(modelId: string): LanguageModelV4 {
     return buildClient()(modelId);
   },
 
   // ENG-040b slice 2 — embeddings capability advertised. Routes through
   // `createOllama({ baseURL }).embedding(modelId)` (the SDK's primary
   // embedding factory; `textEmbedding` / `textEmbeddingModel` are
-  // deprecated aliases). Same `EmbeddingModelV3` contract OpenAI
+  // deprecated aliases). Same `EmbeddingModelV4` contract OpenAI
   // returns, so the provider-agnostic call site in
   // `services/ai/embeddings.ts::embedTexts` does not branch.
   //
@@ -137,7 +137,7 @@ export const ollamaProvider: AIProvider = {
   // (or any other supported embedding model — see
   // `FALLBACK_EMBEDDING_MODEL_ID` JSDoc for the dimension-drift
   // caveat).
-  embeddingModel(modelId: string): EmbeddingModelV3 {
+  embeddingModel(modelId: string): EmbeddingModelV4 {
     return buildClient().embedding(modelId);
   },
 
