@@ -123,8 +123,18 @@ describe('SalePaymentModal — stable drawer shell (ENG-105h)', () => {
     const summary = screen.getByTestId('sale-payment-summary');
     expect(summary.parentElement).toHaveClass('drawer-pinned-content');
     expect(summary.closest('.modal-body')).toBeNull();
+    expect(screen.getByRole('status', { name: 'Sale total' })).toHaveTextContent('$100.00');
+    expect(screen.getByRole('group', { name: 'Payment method' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Payment method' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('sale-payment-method-select')).toHaveAttribute('hidden');
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Confirm Sale' })).toBeVisible();
+  });
+
+  it('announces a server checkout error', () => {
+    render(<SalePaymentModal {...createProps({ error: 'Terminal unavailable' })} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Terminal unavailable');
   });
 
   it('forwards the explicit cashier focus target to the drawer', () => {

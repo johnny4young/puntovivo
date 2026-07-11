@@ -93,8 +93,18 @@ export function SalePaymentModal({
       className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4 shadow-sm"
       data-testid="sale-payment-summary"
     >
-      <p className="text-sm text-primary-700">{t('payment.saleTotal')}</p>
-      <p className="mt-1 text-3xl font-semibold text-primary-900">{formatCurrency(grandTotal)}</p>
+      <p id="sale-payment-total-label" className="text-sm text-primary-700">
+        {t('payment.saleTotal')}
+      </p>
+      <p
+        className="mt-1 text-3xl font-semibold text-primary-900"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-labelledby="sale-payment-total-label"
+      >
+        {formatCurrency(grandTotal)}
+      </p>
       {/*
         ENG-039d3 — breakdown line picks one of three i18n keys so
         the renderer never interpolates "+ servicio $0.00" when the
@@ -273,7 +283,11 @@ export function SalePaymentModal({
           />
         </div>
 
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        {error && (
+          <p className="text-sm text-danger-500" role="alert">
+            {error}
+          </p>
+        )}
       </form>
     </Drawer>
   );

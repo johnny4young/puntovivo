@@ -171,7 +171,7 @@ export function SalePaymentSplitTenderSection({
       </div>
 
       {!splitIsValid && (
-        <p className="text-xs text-secondary-500">
+        <p className="text-xs text-secondary-500" role="status" aria-live="polite">
           {t('payment.splitMustMatch')}
         </p>
       )}

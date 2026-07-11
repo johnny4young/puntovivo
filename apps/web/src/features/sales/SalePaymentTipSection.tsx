@@ -84,7 +84,7 @@ export function SalePaymentTipSection({
           })}
         />
         {form.formState.errors.tipAmount && (
-          <p className="mt-1 text-sm text-danger-500">
+          <p className="mt-1 text-sm text-danger-500" role="alert">
             {form.formState.errors.tipAmount.message}
           </p>
         )}

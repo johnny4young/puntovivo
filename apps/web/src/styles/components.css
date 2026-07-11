@@ -480,7 +480,7 @@
   }
 
   .modal-footer {
-    @apply flex flex-col-reverse gap-3 border-t border-line/75 bg-surface-2/72 px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6;
+    @apply flex flex-col gap-3 border-t border-line/75 bg-surface-2/72 px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6;
   }
 
   .dark .modal-footer {

@@ -50,18 +50,24 @@ export function SalePaymentSingleTenderSection({
     <>
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <span className="label">{t('payment.paymentMethod')}</span>
+          <span id="sale-payment-method-label" className="label">
+            {t('payment.paymentMethod')}
+          </span>
           {/*
             Rediseño §06 — método de pago como tiles de 2 columnas.
             Cada tile es un .pv-btn.tile (64px, columna, ícono +
             etiqueta); el método activo añade .on. El <select>
-            registrado vive oculto (sr-only) y sigue siendo la
-            fuente de verdad del formulario: las tiles solo llaman a
-            form.setValue('paymentMethod', …). Mantener el select
-            preserva la accesibilidad por teclado y el contrato de
-            los tests (selectOptions / toHaveValue / testids).
+            registrado vive oculto y sigue siendo la fuente de verdad
+            del formulario: las tiles solo llaman a
+            form.setValue('paymentMethod', …). Las tiles forman el
+            único grupo expuesto a AT; anunciar también el select
+            duplicaba el método para VoiceOver.
           */}
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div
+            className="mt-2 grid grid-cols-2 gap-2"
+            role="group"
+            aria-labelledby="sale-payment-method-label"
+          >
             {PAYMENT_METHOD_TILES.filter(
               // ENG-090 — credit tile gated to manager + admin AND
               // requires a customer attached. Cashier never sees it
@@ -91,12 +97,9 @@ export function SalePaymentSingleTenderSection({
               );
             })}
           </div>
-          <label htmlFor="sale-payment-method" className="sr-only">
-            {t('payment.paymentMethod')}
-          </label>
           <select
             id="sale-payment-method"
-            className="sr-only"
+            hidden
             data-testid="sale-payment-method-select"
             {...form.register('paymentMethod')}
           >
@@ -134,7 +137,7 @@ export function SalePaymentSingleTenderSection({
             })}
           />
           {form.formState.errors.amountReceived && (
-            <p className="mt-1 text-sm text-danger-500">
+            <p className="mt-1 text-sm text-danger-500" role="alert">
               {form.formState.errors.amountReceived.message}
             </p>
           )}

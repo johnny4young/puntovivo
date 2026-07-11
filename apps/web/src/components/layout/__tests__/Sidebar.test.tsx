@@ -338,6 +338,19 @@ describe('responsive workspace navigation (ENG-131d)', () => {
     expect(onCloseMobile).toHaveBeenCalledTimes(1);
   });
 
+  it('isolates application siblings from assistive technology while open', () => {
+    render(
+      <>
+        <Sidebar {...sidebarProps} />
+        <main data-testid="background-content">Background page</main>
+      </>
+    );
+
+    const background = screen.getByTestId('background-content');
+    expect(background).toHaveAttribute('aria-hidden', 'true');
+    expect(background).toHaveProperty('inert', true);
+  });
+
   it('closes when the backdrop is activated', () => {
     const onCloseMobile = vi.fn();
     render(<Sidebar {...sidebarProps} onCloseMobile={onCloseMobile} />);
