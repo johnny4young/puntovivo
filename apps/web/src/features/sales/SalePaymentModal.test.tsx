@@ -4,10 +4,7 @@ import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 import type { Customer } from '@/types';
-import {
-  SalePaymentModal,
-  type SalePaymentValues,
-} from './SalePaymentModal';
+import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
 import { useQuickCreateStore } from './useQuickCreateStore';
 
 vi.mock('@/lib/trpc', () => ({
@@ -108,6 +105,48 @@ describe('SalePaymentModal — quick-created customer auto-attach', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith({
       title: 'Customer created and attached to the sale.',
     });
+  });
+});
+
+describe('SalePaymentModal — stable drawer shell (ENG-105h)', () => {
+  beforeAll(async () => {
+    await i18next.changeLanguage('en');
+  });
+
+  it('keeps the title, total summary, and actions in a labelled wide drawer', () => {
+    render(<SalePaymentModal {...createProps()} />);
+
+    const dialog = screen.getByRole('dialog', { name: 'Charge Sale' });
+    const drawer = screen.getByTestId('sale-payment-drawer');
+    expect(dialog).toContainElement(drawer);
+    expect(drawer).toHaveClass('sm:max-w-[40rem]');
+    const summary = screen.getByTestId('sale-payment-summary');
+    expect(summary.parentElement).toHaveClass('drawer-pinned-content');
+    expect(summary.closest('.modal-body')).toBeNull();
+    expect(screen.getByRole('status', { name: 'Sale total' })).toHaveTextContent('$100.00');
+    expect(screen.getByRole('group', { name: 'Payment method' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Payment method' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('sale-payment-method-select')).toHaveAttribute('hidden');
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Confirm Sale' })).toBeVisible();
+  });
+
+  it('announces a server checkout error', () => {
+    render(<SalePaymentModal {...createProps({ error: 'Terminal unavailable' })} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Terminal unavailable');
+  });
+
+  it('forwards the explicit cashier focus target to the drawer', () => {
+    const searchInput = document.createElement('input');
+    document.body.appendChild(searchInput);
+    const props = createProps({ restoreFocusTo: () => searchInput });
+    const { rerender } = render(<SalePaymentModal {...props} />);
+
+    rerender(<SalePaymentModal {...props} isOpen={false} />);
+
+    expect(searchInput).toHaveFocus();
+    searchInput.remove();
   });
 });
 
@@ -332,17 +371,11 @@ describe('SalePaymentModal — service charge / propina sugerida (ENG-039d3)', (
 
   it('auto-applies the tenant rate as a read-only line and folds it into the grand total', async () => {
     const onSubmit = vi.fn(async () => undefined);
-    render(
-      <SalePaymentModal
-        {...createProps({ onSubmit, total: 100, serviceChargeRate: 10 })}
-      />
-    );
+    render(<SalePaymentModal {...createProps({ onSubmit, total: 100, serviceChargeRate: 10 })} />);
 
     expect(screen.getByLabelText('Service charge')).toBeInTheDocument();
     // The breakdown line above the totals header shows base + service.
-    expect(
-      screen.getByText(/Base \$100\.00 \+ service \$10\.00$/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Base \$100\.00 \+ service \$10\.00$/i)).toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
@@ -357,11 +390,7 @@ describe('SalePaymentModal — service charge / propina sugerida (ENG-039d3)', (
 
   it('combines service charge and a tip preset into the grand total breakdown', async () => {
     const onSubmit = vi.fn(async () => undefined);
-    render(
-      <SalePaymentModal
-        {...createProps({ onSubmit, total: 100, serviceChargeRate: 10 })}
-      />
-    );
+    render(<SalePaymentModal {...createProps({ onSubmit, total: 100, serviceChargeRate: 10 })} />);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: '10%' }));
@@ -384,11 +413,7 @@ describe('SalePaymentModal — service charge / propina sugerida (ENG-039d3)', (
 
   it('seeds the first split tender at base + service when split mode is enabled', async () => {
     const onSubmit = vi.fn(async () => undefined);
-    render(
-      <SalePaymentModal
-        {...createProps({ onSubmit, total: 100, serviceChargeRate: 10 })}
-      />
-    );
+    render(<SalePaymentModal {...createProps({ onSubmit, total: 100, serviceChargeRate: 10 })} />);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
@@ -411,11 +436,7 @@ describe('SalePaymentModal — ENG-105e fast-cash', () => {
   });
 
   it('auto-applies rapid-cash when fastCashTrigger is positive on mount', async () => {
-    render(
-      <SalePaymentModal
-        {...createProps({ total: 100, fastCashTrigger: 1 })}
-      />
-    );
+    render(<SalePaymentModal {...createProps({ total: 100, fastCashTrigger: 1 })} />);
     const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;
     await waitFor(() => {
       expect(amountInput.value).toBe('100');
@@ -432,9 +453,7 @@ describe('SalePaymentModal — ENG-105e fast-cash', () => {
   it('re-applies rapid-cash when fastCashTrigger increments while the modal is open', async () => {
     const user = userEvent.setup();
     const { rerender } = render(
-      <SalePaymentModal
-        {...createProps({ total: 100, fastCashTrigger: 0 })}
-      />
+      <SalePaymentModal {...createProps({ total: 100, fastCashTrigger: 0 })} />
     );
     const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;
     // Cashier types a wrong amount — simulate by clearing and typing.
@@ -444,11 +463,7 @@ describe('SalePaymentModal — ENG-105e fast-cash', () => {
     expect(toastSuccessMock).not.toHaveBeenCalled();
 
     // Parent increments the trigger (F2 pressed again).
-    rerender(
-      <SalePaymentModal
-        {...createProps({ total: 100, fastCashTrigger: 1 })}
-      />
-    );
+    rerender(<SalePaymentModal {...createProps({ total: 100, fastCashTrigger: 1 })} />);
 
     await waitFor(() => {
       expect(amountInput.value).toBe('100');
@@ -458,17 +473,11 @@ describe('SalePaymentModal — ENG-105e fast-cash', () => {
 
   it('does NOT re-apply when fastCashTrigger stays at its mount-time baseline', async () => {
     const { rerender } = render(
-      <SalePaymentModal
-        {...createProps({ total: 100, fastCashTrigger: 5 })}
-      />
+      <SalePaymentModal {...createProps({ total: 100, fastCashTrigger: 5 })} />
     );
     // Re-rendering with the SAME trigger value must not call the
     // toast — only INCREMENTS fire the effect.
-    rerender(
-      <SalePaymentModal
-        {...createProps({ total: 100, fastCashTrigger: 5 })}
-      />
-    );
+    rerender(<SalePaymentModal {...createProps({ total: 100, fastCashTrigger: 5 })} />);
     await waitFor(() => {
       expect(toastSuccessMock).toHaveBeenCalledTimes(1);
     });

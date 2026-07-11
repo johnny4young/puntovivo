@@ -417,6 +417,7 @@ export function SalesScreen({
         saleError={saleError}
         serviceChargeRate={serviceChargeRate}
         fastCashTrigger={fastCashTrigger}
+        paymentRestoreFocusTo={() => productInputRef.current}
         onClosePayment={() => {
           setIsPaymentModalOpen(false);
           setFastCashTrigger(0);

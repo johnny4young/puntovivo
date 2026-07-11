@@ -10,6 +10,7 @@
  *   - restoreFocusTo overrides focus restoration on close (the
  *     cashier-speed /sales seam: focus returns to the search input).
  *   - Body scroll is locked while open and restored on close.
+ *   - Background content is inert/hidden from screen readers while open.
  *   - No serious/critical axe violations.
  *
  * @module components/feedback/__tests__/Drawer.test
@@ -53,9 +54,7 @@ describe('Drawer (ENG-186)', () => {
     const heading = screen.getByText('Sales history');
     expect(dialog).toHaveAttribute('aria-labelledby', heading.id);
     expect(heading.id).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: /first action/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /first action/i })).toBeInTheDocument();
   });
 
   it('generates unique title ids when multiple labelled drawers are mounted', () => {
@@ -70,15 +69,16 @@ describe('Drawer (ENG-186)', () => {
       </>
     );
 
-    const [historyDialog, suspendedDialog] = screen.getAllByRole('dialog');
+    const [historyDialog, suspendedDialog] = screen.getAllByRole('dialog', { hidden: true });
     const historyHeading = screen.getByText('Sales history');
     const suspendedHeading = screen.getByText('Suspended sales');
     expect(historyDialog).toHaveAttribute('aria-labelledby', historyHeading.id);
-    expect(suspendedDialog).toHaveAttribute(
-      'aria-labelledby',
-      suspendedHeading.id
-    );
+    expect(suspendedDialog).toHaveAttribute('aria-labelledby', suspendedHeading.id);
     expect(historyHeading.id).not.toBe(suspendedHeading.id);
+    expect(historyDialog).toHaveAttribute('aria-hidden', 'true');
+    expect(historyDialog).toHaveProperty('inert', true);
+    expect(suspendedDialog).not.toHaveAttribute('aria-hidden');
+    expect(suspendedDialog).not.toHaveProperty('inert', true);
   });
 
   it('falls back to ariaLabel when there is no visible title', () => {
@@ -90,6 +90,27 @@ describe('Drawer (ENG-186)', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-label', 'Suspended sales');
     expect(dialog).not.toHaveAttribute('aria-labelledby');
+  });
+
+  it('supports the xl desktop width used by complex operational forms', () => {
+    renderDrawer({ size: 'xl', testId: 'wide-drawer' });
+    expect(screen.getByTestId('wide-drawer')).toHaveClass('sm:max-w-[40rem]');
+  });
+
+  it('renders pinned content outside the scrollable body', () => {
+    renderDrawer({
+      pinnedContent: <p>Stable total</p>,
+      footer: <button type="button">Confirm</button>,
+    });
+
+    const pinned = screen.getByText('Stable total').parentElement;
+    expect(pinned).toHaveClass('drawer-pinned-content', 'shrink-0');
+    expect(pinned?.nextElementSibling).toHaveClass('modal-body', 'min-h-0');
+    expect(pinned?.previousElementSibling).toHaveClass('modal-header', 'shrink-0');
+    expect(screen.getByRole('button', { name: 'Confirm' }).parentElement).toHaveClass(
+      'modal-footer',
+      'shrink-0'
+    );
   });
 
   it('the header close button calls onClose', () => {
@@ -139,10 +160,25 @@ describe('Drawer (ENG-186)', () => {
     expect(onClose).not.toHaveBeenCalled();
 
     // The backdrop is the aria-hidden sibling of the panel.
-    const backdrop = document.querySelector('[aria-hidden="true"]');
+    const backdrop = screen.getByRole('dialog').querySelector(':scope > [aria-hidden="true"]');
     expect(backdrop).not.toBeNull();
     fireEvent.click(backdrop as Element);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('isolates background content while open and restores its prior state', () => {
+    const { container, rerender, onClose } = renderDrawer();
+    expect(container).toHaveAttribute('aria-hidden', 'true');
+    expect(container).toHaveProperty('inert', true);
+
+    rerender(
+      <Drawer isOpen={false} onClose={onClose} title="Sales history">
+        <button type="button">First action</button>
+      </Drawer>
+    );
+
+    expect(container).not.toHaveAttribute('aria-hidden');
+    expect(container).toHaveProperty('inert', false);
   });
 
   it('moves focus into the panel on open', async () => {
@@ -166,6 +202,32 @@ describe('Drawer (ENG-186)', () => {
     expect(second).toHaveFocus();
   });
 
+  it('ignores hidden and disabled controls when wrapping focus', () => {
+    render(
+      <Drawer
+        isOpen
+        onClose={vi.fn()}
+        title="Sales history"
+        footer={
+          <button type="button" disabled>
+            Unavailable action
+          </button>
+        }
+      >
+        <button type="button">Last available action</button>
+        <select hidden aria-label="Backing value">
+          <option>Hidden</option>
+        </select>
+      </Drawer>
+    );
+
+    const close = screen.getByRole('button', { name: /close modal/i });
+    const lastAvailable = screen.getByRole('button', { name: 'Last available action' });
+    lastAvailable.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(close).toHaveFocus();
+  });
+
   it('restoreFocusTo overrides focus restoration on close', () => {
     const external = document.createElement('button');
     external.textContent = 'Search';
@@ -178,7 +240,12 @@ describe('Drawer (ENG-186)', () => {
       </Drawer>
     );
     rerender(
-      <Drawer isOpen={false} onClose={onClose} title="Sales history" restoreFocusTo={() => external}>
+      <Drawer
+        isOpen={false}
+        onClose={onClose}
+        title="Sales history"
+        restoreFocusTo={() => external}
+      >
         <button type="button">First action</button>
       </Drawer>
     );

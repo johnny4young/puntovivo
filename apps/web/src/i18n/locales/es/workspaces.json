@@ -31,5 +31,15 @@
     "label": "Configuración",
     "description": "Empresa, sucursales, periféricos, usuarios, IA."
   },
-  "viewItem": "Ver"
+  "viewItem": "Ver",
+  "actions": {
+    "expandWorkspace": "Expandir {{workspace}}",
+    "collapseWorkspace": "Contraer {{workspace}}"
+  },
+  "mobile": {
+    "navigationLabel": "Navegación móvil por espacios de trabajo",
+    "workspaceSelector": "Elige un espacio de trabajo",
+    "workspaceRoutes": "Rutas de {{workspace}}",
+    "openWorkspace": "Abrir resumen de {{workspace}}"
+  }
 }

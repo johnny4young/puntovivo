@@ -58,6 +58,7 @@ interface SalesModalsProps {
   saleError: string | null;
   serviceChargeRate: number;
   fastCashTrigger: number;
+  paymentRestoreFocusTo: () => HTMLElement | null;
   onClosePayment: () => void;
   onSubmitPayment: (values: SalePaymentValues) => Promise<void>;
   // Sale details
@@ -90,6 +91,7 @@ export function SalesModals({
   saleError,
   serviceChargeRate,
   fastCashTrigger,
+  paymentRestoreFocusTo,
   onClosePayment,
   onSubmitPayment,
   selectedSaleId,
@@ -201,6 +203,7 @@ export function SalesModals({
           // ENG-105e — F2 fast-cash signal. Positive values apply
           // at mount; later increments re-apply exact cash while open.
           fastCashTrigger={fastCashTrigger}
+          restoreFocusTo={paymentRestoreFocusTo}
           onClose={onClosePayment}
           onSubmit={onSubmitPayment}
         />

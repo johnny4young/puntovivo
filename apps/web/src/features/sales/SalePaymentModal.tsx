@@ -1,8 +1,8 @@
 /**
- * Sale payment modal shell.
+ * Sale payment drawer shell.
  *
  * ENG-178 — decomposed from the former 1048-LOC single file during the
- * megafile wave. This shell keeps the Modal wrapper, the grand-total header,
+ * megafile wave. This shell keeps the Drawer wrapper, the grand-total header,
  * the service-charge line, the customer picker, the notes field, the footer,
  * and composes the tip / single-tender / split-tender / credit sub-components.
  * All state + behavior live in `useSalePaymentModal`; the public surface
@@ -14,7 +14,8 @@
  */
 import { useTranslation } from 'react-i18next';
 
-import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { Drawer } from '@/components/feedback/Drawer';
+import { ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
 import { useSalePaymentModal } from './useSalePaymentModal';
 import { SalePaymentTipSection } from './SalePaymentTipSection';
@@ -38,6 +39,7 @@ export function SalePaymentModal({
   serviceChargeRate = 0,
   userRole,
   fastCashTrigger = 0,
+  restoreFocusTo,
   onClose,
   onSubmit,
 }: SalePaymentModalProps) {
@@ -86,11 +88,67 @@ export function SalePaymentModal({
     onSubmit,
   });
 
+  const paymentSummary = (
+    <div
+      className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4 shadow-sm"
+      data-testid="sale-payment-summary"
+    >
+      <p id="sale-payment-total-label" className="text-sm text-primary-700">
+        {t('payment.saleTotal')}
+      </p>
+      <p
+        className="mt-1 text-3xl font-semibold text-primary-900"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-labelledby="sale-payment-total-label"
+      >
+        {formatCurrency(grandTotal)}
+      </p>
+      {/*
+        ENG-039d3 — breakdown line picks one of three i18n keys so
+        the renderer never interpolates "+ servicio $0.00" when the
+        tenant has no rate configured. Tip-only matches the original
+        ENG-039d copy; service-only and service-with-tip add the
+        extra segment in neutral LATAM tú.
+      */}
+      {serviceChargeAmount > 0 && tipAmount > 0 && (
+        <p className="mt-1 text-xs text-primary-700">
+          {t('payment.serviceCharge.grandTotalBreakdownWithTip', {
+            base: formatCurrency(total),
+            service: formatCurrency(serviceChargeAmount),
+            tip: formatCurrency(tipAmount),
+          })}
+        </p>
+      )}
+      {serviceChargeAmount > 0 && tipAmount === 0 && (
+        <p className="mt-1 text-xs text-primary-700">
+          {t('payment.serviceCharge.grandTotalBreakdownOnly', {
+            base: formatCurrency(total),
+            service: formatCurrency(serviceChargeAmount),
+          })}
+        </p>
+      )}
+      {serviceChargeAmount === 0 && tipAmount > 0 && (
+        <p className="mt-1 text-xs text-primary-700">
+          {t('payment.tip.grandTotalBreakdown', {
+            base: formatCurrency(total),
+            tip: formatCurrency(tipAmount),
+          })}
+        </p>
+      )}
+    </div>
+  );
+
   return (
-    <Modal
+    <Drawer
       isOpen={isOpen}
       onClose={onClose}
       title={t('payment.title')}
+      size="xl"
+      restoreFocusTo={restoreFocusTo}
+      testId="sale-payment-drawer"
+      pinnedContent={paymentSummary}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
@@ -108,43 +166,6 @@ export function SalePaymentModal({
       }
     >
       <form id="sale-payment-form" className="space-y-4" onSubmit={handleSubmit}>
-        <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-          <p className="text-sm text-primary-700">{t('payment.saleTotal')}</p>
-          <p className="mt-1 text-3xl font-semibold text-primary-900">{formatCurrency(grandTotal)}</p>
-          {/*
-            ENG-039d3 — breakdown line picks one of three i18n keys so
-            the renderer never interpolates "+ servicio $0.00" when the
-            tenant has no rate configured. Tip-only matches the original
-            ENG-039d copy; service-only and service-with-tip add the
-            extra segment in neutral LATAM tú.
-          */}
-          {serviceChargeAmount > 0 && tipAmount > 0 && (
-            <p className="mt-1 text-xs text-primary-700">
-              {t('payment.serviceCharge.grandTotalBreakdownWithTip', {
-                base: formatCurrency(total),
-                service: formatCurrency(serviceChargeAmount),
-                tip: formatCurrency(tipAmount),
-              })}
-            </p>
-          )}
-          {serviceChargeAmount > 0 && tipAmount === 0 && (
-            <p className="mt-1 text-xs text-primary-700">
-              {t('payment.serviceCharge.grandTotalBreakdownOnly', {
-                base: formatCurrency(total),
-                service: formatCurrency(serviceChargeAmount),
-              })}
-            </p>
-          )}
-          {serviceChargeAmount === 0 && tipAmount > 0 && (
-            <p className="mt-1 text-xs text-primary-700">
-              {t('payment.tip.grandTotalBreakdown', {
-                base: formatCurrency(total),
-                tip: formatCurrency(tipAmount),
-              })}
-            </p>
-          )}
-        </div>
-
         {/*
           ENG-039d3 — read-only service charge line. Hidden when the
           tenant has no rate configured so non-restaurant operators see
@@ -156,13 +177,11 @@ export function SalePaymentModal({
             className="rounded-xl border border-secondary-200 p-4"
             aria-label={t('payment.serviceCharge.heading')}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-medium text-secondary-900">
                 {t('payment.serviceCharge.heading')}
               </p>
-              <p className="text-xs text-secondary-500">
-                {t('payment.serviceCharge.helper')}
-              </p>
+              <p className="text-xs text-secondary-500">{t('payment.serviceCharge.helper')}</p>
             </div>
             <div className="mt-2 flex items-center justify-between">
               <span className="text-sm text-secondary-500">
@@ -179,7 +198,11 @@ export function SalePaymentModal({
           <label htmlFor="sale-payment-customer" className="label">
             {t('payment.customer')}
           </label>
-          <select id="sale-payment-customer" className="input mt-1" {...form.register('customerId')}>
+          <select
+            id="sale-payment-customer"
+            className="input mt-1"
+            {...form.register('customerId')}
+          >
             <option value="">{t('payment.walkIn')}</option>
             {customers.map(customer => (
               <option key={customer.id} value={customer.id}>
@@ -260,8 +283,12 @@ export function SalePaymentModal({
           />
         </div>
 
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        {error && (
+          <p className="text-sm text-danger-500" role="alert">
+            {error}
+          </p>
+        )}
       </form>
-    </Modal>
+    </Drawer>
   );
 }

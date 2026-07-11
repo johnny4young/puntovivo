@@ -39,6 +39,8 @@ export interface DrawerProps {
   ariaLabel?: string | undefined;
   /** Drawer body. */
   children: ReactNode;
+  /** Optional non-scrolling region between the title bar and body. */
+  pinnedContent?: ReactNode | undefined;
   /** Optional sticky footer (action buttons). */
   footer?: ReactNode | undefined;
   /** Close on backdrop click. Default true. */
@@ -47,8 +49,8 @@ export interface DrawerProps {
   closeOnEsc?: boolean | undefined;
   /** Show the header close button. Default true. */
   showCloseButton?: boolean | undefined;
-  /** Max width of the desktop panel. Default `lg` (28rem). */
-  size?: 'sm' | 'md' | 'lg' | undefined;
+  /** Max width of the desktop panel. Default `lg` (32rem). */
+  size?: 'sm' | 'md' | 'lg' | 'xl' | undefined;
   /** Extra classes for the sliding panel. */
   className?: string | undefined;
   /** Extra classes for the scrollable body. */
@@ -68,6 +70,7 @@ const sizeClasses = {
   sm: 'sm:max-w-[22rem]',
   md: 'sm:max-w-[26rem]',
   lg: 'sm:max-w-[32rem]',
+  xl: 'sm:max-w-[40rem]',
 };
 
 export function Drawer({
@@ -76,6 +79,7 @@ export function Drawer({
   title,
   ariaLabel,
   children,
+  pinnedContent,
   footer,
   closeOnBackdrop = true,
   closeOnEsc = true,
@@ -127,12 +131,9 @@ export function Drawer({
         className={cn('drawer-shell relative z-10', sizeClasses[size], className)}
       >
         {(title || showCloseButton) && (
-          <div className="modal-header items-center">
+          <div className="modal-header shrink-0 items-center">
             {title ? (
-              <h2
-                id={titleId}
-                className="font-display text-xl leading-tight text-secondary-950"
-              >
+              <h2 id={titleId} className="font-display text-xl leading-tight text-secondary-950">
                 {title}
               </h2>
             ) : (
@@ -150,8 +151,9 @@ export function Drawer({
             )}
           </div>
         )}
-        <div className={cn('modal-body', contentClassName)}>{children}</div>
-        {footer && <div className="modal-footer">{footer}</div>}
+        {pinnedContent && <div className="drawer-pinned-content shrink-0">{pinnedContent}</div>}
+        <div className={cn('modal-body min-h-0', contentClassName)}>{children}</div>
+        {footer && <div className="modal-footer shrink-0">{footer}</div>}
       </div>
     </div>
   );

@@ -72,6 +72,14 @@ Keep visible on the default POS lane:
   and payment rail blockers.
 - Small suspended-sales indicator.
 
+The payment step uses the responsive drawer contract delivered by
+`ENG-105h`: a 40rem right rail from the `sm` breakpoint upward and a bottom
+sheet on mobile. Its title, grand total, and action footer are separate
+non-scrolling regions; only customer, tip, tender, credit, and notes controls
+scroll. Cash, card, transfer, credit, and split-tender transitions therefore do
+not move the drawer edge or the Confirm action. Closing by Cancel, backdrop,
+`Escape`, or successful checkout restores focus to the product search input.
+
 Move out of the default lane:
 
 - Sales history -> Finance > Sales or a right drawer.
@@ -235,11 +243,14 @@ at `apps/web/src/components/layout/workspaces.ts` and the sidebar
 renders the 8 workspaces with WAI-ARIA disclosure widgets +
 per-workspace `localStorage` collapse persistence. Routes did NOT
 move, so every existing deep link still resolves through the
-unchanged `App.tsx` router. Remaining slices: Surface Switcher
-launcher, new workspace shell routes `/catalog` / `/procurement` /
-`/finance` with landing subnav, redirects from legacy child routes
-to the new workspace landing pages, mobile workspace nav redesign,
-Dashboard fold decision.
+unchanged `App.tsx` router. ENG-131b added the Surface Switcher and
+ENG-131c added `/catalog` / `/procurement` / `/finance` workspace
+landings. ENG-131d shipped 2026-07-11: mobile/tablet now uses a
+drawer-specific two-level selector (choose one workspace, then its
+routes) with role/module filtering, direct-route selection, focus trap,
+Escape close, opener-focus restoration, and permanent 768/390 browser
+smokes. Remaining slices: redirects from legacy child routes to the
+new workspace landing pages and the Dashboard fold decision.
 
 ### ENG-132 - Screen simplification and progressive disclosure pass
 

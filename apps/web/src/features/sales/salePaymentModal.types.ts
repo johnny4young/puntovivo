@@ -101,6 +101,13 @@ export interface SalePaymentModalProps {
    * double-fires on the initial render.
    */
   fastCashTrigger?: number | undefined;
+  /**
+   * ENG-105h — explicit cashier-flow focus target. The payment drawer
+   * restores focus here after cancel, Escape, backdrop close, or a
+   * successful checkout instead of relying on whichever opener happened
+   * to be active.
+   */
+  restoreFocusTo?: (() => HTMLElement | null) | undefined;
   onClose: () => void;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
 }
