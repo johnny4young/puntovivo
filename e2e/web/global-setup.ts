@@ -12,7 +12,10 @@
 
 import type { FullConfig } from '@playwright/test';
 import Database from 'better-sqlite3';
-import { prepareBaseline } from '../shared/baseline.js';
+import {
+  prepareBaseline,
+  prepareFirstSaleBaseline,
+} from '../shared/baseline.js';
 
 const DB_PATH = 'packages/server/data/local.db';
 
@@ -20,6 +23,7 @@ export default async function globalSetup(_config: FullConfig) {
   const db = new Database(DB_PATH);
   try {
     await prepareBaseline(db);
+    await prepareFirstSaleBaseline(db);
   } finally {
     db.close();
   }

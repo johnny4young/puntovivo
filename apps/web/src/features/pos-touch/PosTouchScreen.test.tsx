@@ -134,6 +134,9 @@ vi.mock('@/lib/trpc', () => ({
     useUtils: () => ({
       // The charge epilogue invalidates the shared SALE_COMPLETION_INVALIDATIONS
       // set, so every picked leaf must exist on the mock.
+      setupReadiness: {
+        firstSale: { invalidate: vi.fn() },
+      },
       cashSessions: {
         getActive: { invalidate: invalidateCash },
         movements: { invalidate: vi.fn() },

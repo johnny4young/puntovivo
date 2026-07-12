@@ -143,3 +143,33 @@ export const checkoutReadinessOutputSchema = z.object({
 export type CheckoutReadinessOutput = z.infer<
   typeof checkoutReadinessOutputSchema
 >;
+
+/**
+ * ENG-202 — Three milestones that take a new tenant to its first real sale.
+ * The order is part of the public contract and mirrors the shell checklist.
+ */
+export const firstSaleReadinessStepIdEnum = [
+  'product',
+  'cashSession',
+  'firstSale',
+] as const;
+export type FirstSaleReadinessStepId =
+  (typeof firstSaleReadinessStepIdEnum)[number];
+
+export const firstSaleReadinessInputSchema = z.object({
+  siteId: z.string().min(1),
+});
+
+export const firstSaleReadinessStepSchema = z.object({
+  id: z.enum(firstSaleReadinessStepIdEnum),
+  completed: z.boolean(),
+});
+
+export const firstSaleReadinessOutputSchema = z.object({
+  completed: z.boolean(),
+  steps: z.array(firstSaleReadinessStepSchema).length(3),
+});
+
+export type FirstSaleReadinessOutput = z.infer<
+  typeof firstSaleReadinessOutputSchema
+>;

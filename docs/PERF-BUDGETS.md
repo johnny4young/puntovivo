@@ -78,8 +78,10 @@ LCP, TTI, CLS, and the Lighthouse performance score — for the top
 user-facing routes (`/login`, `/dashboard`, `/sales`, `/products`),
 compared against `perf-budget.json::lighthouse.perRoute` with the section
 `thresholdPercent`. `lower-is-better` metrics (timings, layout shift)
-regress past `budget * (1 + t/100)`; the `higher-is-better` score regresses
-below `budget * (1 - t/100)`.
+regress past `budget * (1 + t/100)`. Performance `score` is already a
+normalised 0-100 quality floor, so it fails directly below the checked value;
+applying the duration tolerance to it previously made the declared floor much
+weaker than it appeared.
 
 How a run works:
 

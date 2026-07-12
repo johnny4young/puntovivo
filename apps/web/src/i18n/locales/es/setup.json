@@ -85,6 +85,33 @@
       "attention": "Requiere atención"
     }
   },
+  "firstSale": {
+    "kicker": "Inicio rápido",
+    "title": "Tu primera venta en 5 minutos",
+    "description": "Sigue estos pasos en vivo. Se actualizan automáticamente mientras preparas la tienda.",
+    "progress": "{{completed}} de {{total}} pasos completados",
+    "dismiss": "Cerrar guía de primera venta",
+    "helpAction": "Guía de primera venta",
+    "completedTitle": "¡Completaste tu primera venta!",
+    "completedDescription": "Puntovivo está listo para el próximo cliente. Puedes volver a abrir esta guía desde Ayuda cuando la necesites.",
+    "steps": {
+      "product": {
+        "label": "Crea un producto",
+        "hint": "Agrega un artículo activo a tu catálogo.",
+        "action": "Crear producto"
+      },
+      "cashSession": {
+        "label": "Abre la caja",
+        "hint": "Inicia tu sesión de caja en esta sede.",
+        "action": "Ir a ventas"
+      },
+      "firstSale": {
+        "label": "Completa tu primera venta",
+        "hint": "Agrega el producto, cobra y confirma la venta.",
+        "action": "Hacer una venta"
+      }
+    }
+  },
   "banner": {
     "title_one": "Configuración incompleta: {{count}} bloqueador impide abrir la tienda.",
     "title_other": "Configuración incompleta: {{count}} bloqueadores impiden abrir la tienda.",

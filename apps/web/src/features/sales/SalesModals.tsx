@@ -1,10 +1,12 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
-import { SalePaymentModal, type SalePaymentValues } from '@/features/sales/SalePaymentModal';
+import { LazySalePaymentModal } from '@/features/sales/lazySalePaymentModal';
+import { preloadSalePaymentModal } from '@/features/sales/salePaymentModal.loader';
+import type { SalePaymentValues } from '@/features/sales/salePaymentModal.types';
 import { mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import type { Category, Customer, Provider } from '@/types';
@@ -112,6 +114,22 @@ export function SalesModals({
     state => state.requestedCreateCustomer !== null
   );
 
+  // ENG-200 — loading the payment drawer after the route's first paint keeps
+  // it out of the Lighthouse-critical SalesPage chunk without moving latency
+  // into the cashier's F1 interaction. Chromium supports requestIdleCallback;
+  // the timer fallback keeps tests and older webviews portable.
+  useEffect(() => {
+    const preload = () => {
+      void preloadSalePaymentModal();
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(preload, { timeout: 2_000 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timeoutId = window.setTimeout(preload, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
   return (
     <>
       {isProductSearchOpen && (
@@ -187,26 +205,28 @@ export function SalesModals({
       )}
 
       {isPaymentModalOpen && (
-        <SalePaymentModal
-          key={paymentModalKey}
-          isOpen={isPaymentModalOpen}
-          total={paymentTotal}
-          customers={customers}
-          isSaving={isPaymentSaving}
-          error={saleError}
-          serviceChargeRate={serviceChargeRate}
-          // ENG-090 — role gates the credit method tile inside the
-          // modal. Cashier never sees it; manager + admin do; admin
-          // additionally sees the override checkbox when cupo is
-          // exceeded.
-          userRole={user?.role}
-          // ENG-105e — F2 fast-cash signal. Positive values apply
-          // at mount; later increments re-apply exact cash while open.
-          fastCashTrigger={fastCashTrigger}
-          restoreFocusTo={paymentRestoreFocusTo}
-          onClose={onClosePayment}
-          onSubmit={onSubmitPayment}
-        />
+        <Suspense fallback={null}>
+          <LazySalePaymentModal
+            key={paymentModalKey}
+            isOpen={isPaymentModalOpen}
+            total={paymentTotal}
+            customers={customers}
+            isSaving={isPaymentSaving}
+            error={saleError}
+            serviceChargeRate={serviceChargeRate}
+            // ENG-090 — role gates the credit method tile inside the
+            // modal. Cashier never sees it; manager + admin do; admin
+            // additionally sees the override checkbox when cupo is
+            // exceeded.
+            userRole={user?.role}
+            // ENG-105e — F2 fast-cash signal. Positive values apply
+            // at mount; later increments re-apply exact cash while open.
+            fastCashTrigger={fastCashTrigger}
+            restoreFocusTo={paymentRestoreFocusTo}
+            onClose={onClosePayment}
+            onSubmit={onSubmitPayment}
+          />
+        </Suspense>
       )}
 
       {selectedSaleId && (

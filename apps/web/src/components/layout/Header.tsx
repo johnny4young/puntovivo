@@ -1,4 +1,4 @@
-import { Bell, KeyRound, LogOut, Menu, Search, User } from 'lucide-react';
+import { Bell, CircleHelp, KeyRound, LogOut, Menu, Search, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Select } from '@/components/form-controls/Select';
@@ -17,12 +17,13 @@ import { useHeaderTitle } from './useHeaderTitle';
 
 interface HeaderProps {
   onOpenSidebar: () => void;
+  onOpenFirstSaleGuide?: () => void;
 }
 
-export function Header({ onOpenSidebar }: HeaderProps) {
+export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const { user, logout } = useAuth();
   const { currentSite, currentTenant, isLoadingSites, sites, switchSite } = useTenant();
-  const { t, i18n } = useTranslation(['common', 'nav', 'auth']);
+  const { t, i18n } = useTranslation(['common', 'nav', 'auth', 'setup']);
   const { kickerKey, titleKey } = useHeaderTitle();
   const [online, setOnline] = useState(isOnline());
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -221,6 +222,22 @@ export function Header({ onOpenSidebar }: HeaderProps) {
                   <KeyRound className="h-4 w-4" />
                   {t('common:changePassword')}
                 </button>
+                {onOpenFirstSaleGuide &&
+                  (user?.role === 'admin' ||
+                    user?.role === 'manager' ||
+                    user?.role === 'cashier') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      onOpenFirstSaleGuide();
+                    }}
+                    className="btn-ghost mt-2 w-full justify-start px-3"
+                  >
+                    <CircleHelp className="h-4 w-4" />
+                    {t('setup:firstSale.helpAction')}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={logout}

@@ -102,8 +102,8 @@ export function extractMetrics(lhr) {
 /**
  * Compare measured `{ route: { lcpMs, ttiMs, cls, score } }` against the budget
  * of the same shape. `lower` metrics regress past `budget * (1 + t/100)`;
- * `higher` metrics regress below `budget * (1 - t/100)`. A budgeted route or
- * metric with no measurement lands in `missing` (warning-only).
+ * the normalised `score` regresses below its exact declared floor. A budgeted
+ * route or metric with no measurement lands in `missing` (warning-only).
  */
 export function compareToLighthouseBudget({ measured, budget, thresholdPercent }) {
   const result = { regressions: [], ok: [], missing: [] };
@@ -131,7 +131,11 @@ export function compareToLighthouseBudget({ measured, budget, thresholdPercent }
       if (direction === 'lower') {
         isRegression = actual > budgetValue * (1 + thresholdPercent / 100);
       } else {
-        isRegression = actual < budgetValue * (1 - thresholdPercent / 100);
+        // ENG-200 — score is already a 0-100 quality floor, not a noisy raw
+        // duration. Applying the generic tolerance made a checked score of 58
+        // permit a route to fall to 40.6. Treat the declared score as the exact
+        // minimum while timing/CLS metrics retain their variance allowance.
+        isRegression = actual < budgetValue;
       }
       const row = { route, metric, budget: budgetValue, actual, deltaPercent, direction };
       if (isRegression) result.regressions.push(row);
@@ -154,7 +158,9 @@ function renderRow(row) {
 export function renderReport({ regressions, ok, missing }, threshold) {
   const lines = [];
   if (regressions.length > 0) {
-    lines.push(`Lighthouse over ${threshold}% threshold (warn-first unless --strict):`);
+    lines.push(
+      `Lighthouse regression (score uses its exact floor; other metrics allow ${threshold}% variance):`
+    );
     lines.push('| metric | budget | actual | delta |');
     lines.push('| --- | ---: | ---: | ---: |');
     for (const r of regressions) lines.push(renderRow(r));

@@ -97,7 +97,10 @@ export function ProductsPage() {
 
   const createMutation = trpc.products.create.useMutation({
     onSuccess: async () => {
-      await utils.products.list.invalidate();
+      await Promise.all([
+        utils.products.list.invalidate(),
+        utils.setupReadiness.firstSale.invalidate(),
+      ]);
       handleCloseModal();
       toast.success({ title: t('toast.created') });
     },

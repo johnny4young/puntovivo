@@ -547,9 +547,9 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 7   | ✅ WC-A1 rollup de stock materializado (vía triggers 0008, no write-through — ver ROADMAP ENG-197) — ENG-197 shipped 2026-07-09 | M        | stock                 |
 | 8   | ✅ WC-C1 cierre de día en 60 segundos (ritual post-cierre con margen real + racha, role-gated) — ENG-198 shipped 2026-07-10 ⭐  | M        | caja                  |
 | 9   | ✅ WC-C3 radar de vencimientos (tab Inventario + sugerencia de descuento auditada + badge POS) — ENG-199 shipped 2026-07-10 ⭐  | M        | stock                 |
-| 10  | WC-A3 sales LH 58→75                                                                                                            | S/M      | checkout              |
-| 11  | WC-B4 desglose desktop main/index.ts                                                                                            | S/M      | mantenibilidad        |
-| 12  | WC-C7 primera venta en 5 min                                                                                                    | M        | checkout              |
+| 10  | ✅ WC-A3 sales Lighthouse floor + deferred payment drawer — ENG-200 shipped 2026-07-11                                          | S/M      | checkout              |
+| 11  | ✅ WC-B4 desglose desktop main/index.ts — ENG-201 shipped 2026-07-11                                                           | S/M      | mantenibilidad        |
+| 12  | ✅ WC-C7 primera venta en 5 min — ENG-202 shipped 2026-07-11                                                                   | M        | checkout              |
 | 13  | WC-B2 packages/shared                                                                                                           | M        | mantenibilidad        |
 | 14  | WC-B3 FiscalProvider interface                                                                                                  | M        | fiscal                |
 | 15  | WC-D1 listas de precios (con WC-F2)                                                                                             | L        | checkout              |

@@ -27,6 +27,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,
   products,
+  sales,
   sitePeripherals,
   sites,
   tenantLocaleSettings,
@@ -53,9 +54,12 @@ import { ensureTenantSite } from '../middleware/tenantSite.js';
 import {
   checkoutReadinessInputSchema,
   checkoutReadinessOutputSchema,
+  firstSaleReadinessInputSchema,
+  firstSaleReadinessOutputSchema,
   setupReadinessOutputSchema,
   type CheckoutReadinessItem,
   type CheckoutReadinessOutput,
+  type FirstSaleReadinessOutput,
   type SetupReadinessOutput,
   type SetupReadinessSection,
 } from '../schemas/setupReadiness.js';
@@ -431,6 +435,73 @@ async function buildCheckoutReadiness(args: {
   return { items };
 }
 
+/**
+ * ENG-202 — Build the living first-sale checklist for the current operator.
+ * Product and completed-sale signals are tenant-wide; the open-drawer signal
+ * is intentionally scoped to the current site + user because that is the
+ * session the next sale will bind to. Once a completed sale exists, history
+ * wins: all milestones remain complete even if the drawer later closes or the
+ * original product is deactivated.
+ */
+async function buildFirstSaleReadiness(args: {
+  db: DatabaseInstance;
+  tenantId: string;
+  siteId: string;
+  userId: string;
+}): Promise<FirstSaleReadinessOutput> {
+  const { db, tenantId, siteId, userId } = args;
+
+  const completedSaleRow = await db
+    .select({ id: sales.id })
+    .from(sales)
+    .where(and(eq(sales.tenantId, tenantId), eq(sales.status, 'completed')))
+    .limit(1)
+    .get();
+  const hasFirstSale = Boolean(completedSaleRow?.id);
+
+  if (hasFirstSale) {
+    return {
+      completed: true,
+      steps: [
+        { id: 'product', completed: true },
+        { id: 'cashSession', completed: true },
+        { id: 'firstSale', completed: true },
+      ],
+    };
+  }
+
+  const [productRow, cashSessionRow] = await Promise.all([
+    db
+      .select({ id: products.id })
+      .from(products)
+      .where(and(eq(products.tenantId, tenantId), eq(products.isActive, true)))
+      .limit(1)
+      .get(),
+    db
+      .select({ id: cashSessions.id })
+      .from(cashSessions)
+      .where(
+        and(
+          eq(cashSessions.tenantId, tenantId),
+          eq(cashSessions.siteId, siteId),
+          eq(cashSessions.cashierId, userId),
+          eq(cashSessions.status, 'open')
+        )
+      )
+      .limit(1)
+      .get(),
+  ]);
+
+  return {
+    completed: false,
+    steps: [
+      { id: 'product', completed: Boolean(productRow?.id) },
+      { id: 'cashSession', completed: Boolean(cashSessionRow?.id) },
+      { id: 'firstSale', completed: false },
+    ],
+  };
+}
+
 export const setupReadinessRouter = router({
   /**
    * Aggregate the readiness payload for the active tenant. Returns
@@ -463,6 +534,23 @@ export const setupReadinessRouter = router({
         db: ctx.db,
         tenantId: ctx.tenantId,
         siteId: input.siteId,
+      });
+    }),
+
+  /**
+   * ENG-202 — Shell-level first-sale onboarding. Callable by every role that
+   * can sell, tenant-scoped by middleware, and site-scoped by the shared guard.
+   */
+  firstSale: cashierManagerOrAdminProcedure
+    .input(firstSaleReadinessInputSchema)
+    .output(firstSaleReadinessOutputSchema)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return buildFirstSaleReadiness({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        userId: ctx.user!.id,
       });
     }),
 });

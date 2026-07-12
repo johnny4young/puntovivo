@@ -27,17 +27,13 @@
  * @module e2e/electron/smoke
  */
 
+import path from 'node:path';
+import { mkdir } from 'node:fs/promises';
 import { electronTest as test, expect } from './fixtures.js';
-import {
-  attachClientIssueTracker,
-  E2E_USERS,
-  expectNoClientIssues,
-} from '../web/support/app.js';
+import { attachClientIssueTracker, E2E_USERS, expectNoClientIssues } from '../web/support/app.js';
 
 test.describe('Electron smoke (ENG-001 Step 3)', () => {
-  test('launches, logs in as admin, and loads the dashboard shell', async ({
-    page,
-  }) => {
+  test('launches, logs in as admin, and loads the dashboard shell', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
     const admin = E2E_USERS.admin;
 
@@ -59,7 +55,24 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
     // smoke.spec.ts also keys off. The sidebar nav brand is the most
     // stable anchor because it renders for every authenticated role.
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
+    // URL + shell are not enough: wait for a data-backed dashboard metric so
+    // the smoke cannot pass (or capture evidence) while the lazy route still
+    // shows its loading skeleton.
+    await expect(page.getByText(/today's sales|ventas de hoy/i).first()).toBeVisible({
+      timeout: 30_000,
+    });
 
     await expectNoClientIssues(tracker);
+
+    // Optional evidence path shared with the web smoke specs. Normal CI stays
+    // artifact-free; audit runs opt in with PUNTOVIVO_AUDIT_DIR.
+    const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
+    if (auditDir) {
+      await mkdir(auditDir, { recursive: true });
+      await page.screenshot({
+        path: path.join(auditDir, 'electron-dashboard.png'),
+        fullPage: true,
+      });
+    }
   });
 });

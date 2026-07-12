@@ -22,8 +22,10 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  cashSessions,
   companies,
   products,
+  sales,
   sitePeripherals,
   sites,
   tenantLocaleSettings,
@@ -534,5 +536,228 @@ describe('setupReadiness — Colombia profile + checkout (ENG-184)', () => {
     const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
     const result = await caller.setupReadiness.checkout({ siteId });
     expect(result.items).toEqual([]);
+  });
+});
+
+describe('setupReadiness.firstSale (ENG-202)', () => {
+  let onboardingTenantId: string;
+  let onboardingUserId: string;
+  let onboardingOtherUserId: string;
+  let onboardingSiteId: string;
+
+  beforeAll(async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    onboardingTenantId = nanoid();
+    onboardingUserId = nanoid();
+    onboardingOtherUserId = nanoid();
+    onboardingSiteId = nanoid();
+    const companyId = nanoid();
+
+    await db.insert(tenants).values({
+      id: onboardingTenantId,
+      name: 'First Sale Tenant',
+      slug: `first-sale-${onboardingTenantId.slice(0, 8)}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(companies).values({
+      id: companyId,
+      tenantId: onboardingTenantId,
+      name: 'First Sale Company',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sites).values({
+      id: onboardingSiteId,
+      tenantId: onboardingTenantId,
+      companyId,
+      name: 'First Sale Site',
+      isActive: true,
+    });
+    await db.insert(users).values([
+      {
+        id: onboardingUserId,
+        tenantId: onboardingTenantId,
+        email: `first-sale-${onboardingUserId}@example.com`,
+        name: 'First Sale Cashier',
+        passwordHash: 'x',
+        sessionVersion: 1,
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: onboardingOtherUserId,
+        tenantId: onboardingTenantId,
+        email: `first-sale-${onboardingOtherUserId}@example.com`,
+        name: 'Other Cashier',
+        passwordHash: 'x',
+        sessionVersion: 1,
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+  });
+
+  beforeEach(async () => {
+    const db = getDatabase();
+    await db.delete(sales).where(eq(sales.tenantId, onboardingTenantId));
+    await db
+      .delete(cashSessions)
+      .where(eq(cashSessions.tenantId, onboardingTenantId));
+    await db.delete(products).where(eq(products.tenantId, onboardingTenantId));
+    await db
+      .delete(products)
+      .where(
+        and(
+          eq(products.tenantId, foreignTenantId),
+          eq(products.sku, 'FIRST-SALE-FOREIGN')
+        )
+      );
+  });
+
+  function callerFor(
+    role: 'admin' | 'manager' | 'cashier' | 'viewer' = 'cashier'
+  ) {
+    return appRouter.createCaller(
+      buildCtx({
+        tenantId: onboardingTenantId,
+        userId: onboardingUserId,
+        role,
+      })
+    );
+  }
+
+  async function seedOnboardingProduct(args?: {
+    tenantId?: string;
+    sku?: string;
+  }) {
+    const targetTenantId = args?.tenantId ?? onboardingTenantId;
+    await getDatabase().insert(products).values({
+      id: nanoid(),
+      tenantId: targetTenantId,
+      name: 'First Sale Product',
+      sku: args?.sku ?? `FIRST-SALE-${nanoid(6)}`,
+      isActive: true,
+    });
+  }
+
+  async function seedOpenSession(cashierId = onboardingUserId) {
+    const id = nanoid();
+    await getDatabase().insert(cashSessions).values({
+      id,
+      tenantId: onboardingTenantId,
+      siteId: onboardingSiteId,
+      cashierId,
+      registerName: `Register ${id.slice(0, 4)}`,
+      openingFloat: 0,
+      openingCountDenominations: [],
+      expectedBalance: 0,
+      status: 'open',
+    });
+    return id;
+  }
+
+  it('returns the fixed three-step checklist for a fresh tenant', async () => {
+    const result = await callerFor().setupReadiness.firstSale({
+      siteId: onboardingSiteId,
+    });
+
+    expect(result).toEqual({
+      completed: false,
+      steps: [
+        { id: 'product', completed: false },
+        { id: 'cashSession', completed: false },
+        { id: 'firstSale', completed: false },
+      ],
+    });
+  });
+
+  it('tracks an active tenant product without leaking a foreign product', async () => {
+    await seedOnboardingProduct({
+      tenantId: foreignTenantId,
+      sku: 'FIRST-SALE-FOREIGN',
+    });
+    const before = await callerFor().setupReadiness.firstSale({
+      siteId: onboardingSiteId,
+    });
+    expect(before.steps[0]).toEqual({ id: 'product', completed: false });
+
+    await seedOnboardingProduct();
+    const after = await callerFor().setupReadiness.firstSale({
+      siteId: onboardingSiteId,
+    });
+    expect(after.steps[0]).toEqual({ id: 'product', completed: true });
+  });
+
+  it('requires an open session for the current site and operator', async () => {
+    await seedOpenSession(onboardingOtherUserId);
+    const otherCashierSession = await callerFor().setupReadiness.firstSale({
+      siteId: onboardingSiteId,
+    });
+    expect(otherCashierSession.steps[1]?.completed).toBe(false);
+
+    await seedOpenSession();
+    const ownSession = await callerFor().setupReadiness.firstSale({
+      siteId: onboardingSiteId,
+    });
+    expect(ownSession.steps[1]).toEqual({
+      id: 'cashSession',
+      completed: true,
+    });
+  });
+
+  it('keeps every milestone complete after the first sale and drawer close', async () => {
+    const db = getDatabase();
+    await seedOnboardingProduct();
+    const cashSessionId = await seedOpenSession();
+    await db.insert(sales).values({
+      id: nanoid(),
+      tenantId: onboardingTenantId,
+      saleNumber: `FIRST-${nanoid(6)}`,
+      total: 100,
+      status: 'completed',
+      paymentStatus: 'paid',
+      paymentMethod: 'cash',
+      cashSessionId,
+      createdBy: onboardingUserId,
+    });
+    await db
+      .update(cashSessions)
+      .set({ status: 'closed', closedAt: new Date().toISOString() })
+      .where(eq(cashSessions.id, cashSessionId));
+    await db
+      .update(products)
+      .set({ isActive: false })
+      .where(eq(products.tenantId, onboardingTenantId));
+
+    const result = await callerFor().setupReadiness.firstSale({
+      siteId: onboardingSiteId,
+    });
+    expect(result.completed).toBe(true);
+    expect(result.steps.every(step => step.completed)).toBe(true);
+  });
+
+  it('rejects foreign sites and viewer access while allowing sales roles', async () => {
+    await expect(
+      callerFor().setupReadiness.firstSale({ siteId })
+    ).rejects.toThrow();
+    await expect(
+      callerFor('viewer').setupReadiness.firstSale({
+        siteId: onboardingSiteId,
+      })
+    ).rejects.toThrow(/cashiers|managers|administrators/i);
+
+    for (const role of ['cashier', 'manager', 'admin'] as const) {
+      await expect(
+        callerFor(role).setupReadiness.firstSale({
+          siteId: onboardingSiteId,
+        })
+      ).resolves.toMatchObject({ completed: false });
+    }
   });
 });

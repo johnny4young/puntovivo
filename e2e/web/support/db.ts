@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { E2E_PASSWORD } from './app';
+import { prepareFirstSaleBaseline } from '../../shared/baseline.js';
 
 const DB_PATH = join(process.cwd(), 'packages/server/data/local.db');
 const SITE_STOCK = 8;
@@ -122,6 +123,16 @@ export interface TransferItemRecord {
   receivedQuantity: number | null;
 }
 
+/** Reset the dedicated ENG-202 tenant before each attempt, including retries. */
+export async function resetFirstSaleScenario(): Promise<void> {
+  const db = openDb();
+  try {
+    await prepareFirstSaleBaseline(db);
+  } finally {
+    db.close();
+  }
+}
+
 export interface CashSessionRecord {
   id: string;
   siteId: string;
@@ -186,8 +197,10 @@ function getTenantAndSites(db: Database): { tenantId: string; sites: BusinessSit
   // the same site the UI selects on first login, even when the dev seed has
   // more than two active stores.
   const sites = db
-    .prepare('select id, name from sites where is_active = 1 order by name asc, id asc limit 2')
-    .all() as BusinessSite[];
+    .prepare(
+      'select id, name from sites where tenant_id = ? and is_active = 1 order by name asc, id asc limit 2'
+    )
+    .all(tenant.id) as BusinessSite[];
 
   if (sites.length < 2) {
     throw new Error('Business E2E requires at least 2 active sites');

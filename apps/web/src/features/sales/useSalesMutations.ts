@@ -155,6 +155,7 @@ export function useSalesMutations({
   const openCashSessionMutation = useCriticalMutation('cashSessions.open', {
     onSuccess: async cashSession => {
       await invalidateGroups(utils, [
+        u => u.setupReadiness.firstSale,
         u => u.cashSessions.getActive,
         u => u.cashSessions.report,
         u => u.cashSessions.registerAssignments,

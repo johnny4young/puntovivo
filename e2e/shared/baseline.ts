@@ -28,6 +28,8 @@ import { nanoid } from 'nanoid';
 
 /** Shared password for every E2E template user. Documented in `docs/DEV-SEED.md`. */
 export const E2E_PASSWORD = 'PuntovivoE2E!123';
+export const FIRST_SALE_E2E_EMAIL = 'e2e.first-sale@local.test';
+const FIRST_SALE_TENANT_SLUG = 'e2e-first-sale';
 
 export interface E2EUserProfile {
   email: string;
@@ -540,4 +542,90 @@ export async function prepareBaseline(db: Database.Database): Promise<void> {
 
   ensureSecondarySite(db, tenantId, companyId);
   await ensureUsers(db, tenantId);
+}
+
+/**
+ * ENG-202 — Reset the dedicated first-sale tenant to a true zero-product,
+ * zero-drawer, zero-sale state. Reuses the baseline's disposal choreography
+ * so reruns remove the prior sale's children, inventory rows, device/session
+ * records, and disposable actor before recreating the known admin account.
+ */
+export async function prepareFirstSaleBaseline(
+  db: Database.Database
+): Promise<void> {
+  const now = new Date().toISOString();
+  let tenant = db
+    .prepare('select id from tenants where slug = ?')
+    .get(FIRST_SALE_TENANT_SLUG) as { id: string } | undefined;
+
+  if (!tenant) {
+    tenant = { id: nanoid() };
+    db.prepare(
+      `insert into tenants (id, name, slug, settings, created_at, updated_at)
+       values (?, 'E2E First Sale Tenant', ?, '{}', ?, ?)`
+    ).run(tenant.id, FIRST_SALE_TENANT_SLUG, now, now);
+  }
+
+  let company = db
+    .prepare('select id from companies where tenant_id = ? order by created_at asc limit 1')
+    .get(tenant.id) as { id: string } | undefined;
+  if (!company) {
+    company = { id: nanoid() };
+    db.prepare(
+      `insert into companies (id, tenant_id, name, created_at, updated_at)
+       values (?, ?, 'E2E First Sale Company', ?, ?)`
+    ).run(company.id, tenant.id, now, now);
+  }
+
+  let site = db
+    .prepare('select id from sites where tenant_id = ? order by created_at asc limit 1')
+    .get(tenant.id) as { id: string } | undefined;
+  if (!site) {
+    site = { id: nanoid() };
+    db.prepare(
+      `insert into sites (
+         id, tenant_id, company_id, name, address, phone, is_active, created_at, updated_at
+       ) values (?, ?, ?, 'E2E First Sale Site', 'E2E onboarding', '0000000202', 1, ?, ?)`
+    ).run(site.id, tenant.id, company.id, now, now);
+  }
+
+  db.transaction(() => {
+    cleanupPriorRunArtifacts(db, tenant.id);
+    db.prepare('delete from sync_conflicts where tenant_id = ?').run(tenant.id);
+    db.prepare('delete from sync_outbox where tenant_id = ?').run(tenant.id);
+    ensureSetupAcknowledged(db, tenant.id);
+    db.prepare(
+      `insert into tenant_locale_settings (tenant_id, country_code, updated_at)
+       values (?, 'CO', ?)
+       on conflict(tenant_id) do update set country_code = 'CO', updated_at = excluded.updated_at`
+    ).run(tenant.id, now);
+    db.prepare(
+      `insert into units (
+         id, tenant_id, name, abbreviation, dimension, standard_code,
+         reference_factor, is_active, created_at, updated_at
+       ) values (?, ?, 'Unit', 'UND', 'count', 'H87', 1, 1, ?, ?)
+       on conflict(tenant_id, abbreviation) do update set
+         name = excluded.name,
+         is_active = 1,
+         updated_at = excluded.updated_at`
+    ).run(nanoid(), tenant.id, now, now);
+    db.prepare(
+      `insert into sequentials (
+         id, tenant_id, site_id, document_type, prefix, current_value,
+         created_at, updated_at
+       ) values (?, ?, ?, 'sale', 'E2E-FS-', 0, ?, ?)
+       on conflict(tenant_id, site_id, document_type) do update set
+         prefix = excluded.prefix,
+         current_value = 0,
+         updated_at = excluded.updated_at`
+    ).run(nanoid(), tenant.id, site.id, now, now);
+  })();
+
+  const passwordHash = await argon2.hash(E2E_PASSWORD);
+  db.prepare(
+    `insert into users (
+       id, tenant_id, email, name, password_hash, session_version,
+       role, is_active, created_at, updated_at
+     ) values (?, ?, ?, 'E2E First Sale Admin', ?, 1, 'admin', 1, ?, ?)`
+  ).run(nanoid(), tenant.id, FIRST_SALE_E2E_EMAIL, passwordHash, now, now);
 }

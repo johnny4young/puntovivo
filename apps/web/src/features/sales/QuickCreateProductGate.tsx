@@ -127,8 +127,11 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
 
   const handleSubmit = async (values: ProductFormValues): Promise<Product | void> => {
     const created = await createMutation.mutateAsync(values);
-    await utils.products.list.invalidate();
-    await utils.products.search.invalidate();
+    await Promise.all([
+      utils.products.list.invalidate(),
+      utils.products.search.invalidate(),
+      utils.setupReadiness.firstSale.invalidate(),
+    ]);
     toast.success({ title: t('toast.created') });
     return created as Product;
   };

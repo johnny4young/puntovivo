@@ -85,6 +85,33 @@
       "attention": "Needs attention"
     }
   },
+  "firstSale": {
+    "kicker": "Quick start",
+    "title": "Your first sale in 5 minutes",
+    "description": "Follow these live steps. They update automatically as you prepare the store.",
+    "progress": "{{completed}} of {{total}} steps completed",
+    "dismiss": "Dismiss first sale guide",
+    "helpAction": "First sale guide",
+    "completedTitle": "Your first sale is complete!",
+    "completedDescription": "Puntovivo is ready for the next customer. You can reopen this guide from Help whenever you need it.",
+    "steps": {
+      "product": {
+        "label": "Create a product",
+        "hint": "Add one active item to your catalog.",
+        "action": "Create product"
+      },
+      "cashSession": {
+        "label": "Open the register",
+        "hint": "Start your cash session at this site.",
+        "action": "Go to sales"
+      },
+      "firstSale": {
+        "label": "Complete your first sale",
+        "hint": "Add the product, charge the customer, and confirm.",
+        "action": "Make a sale"
+      }
+    }
+  },
   "banner": {
     "title_one": "Setup incomplete: {{count}} blocker keeps the store from opening.",
     "title_other": "Setup incomplete: {{count}} blockers keep the store from opening.",
