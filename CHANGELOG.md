@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.6.0](https://github.com/johnny4young/puntovivo/compare/v1.5.1...v1.6.0) (2026-07-12)
+
+
+### Features
+
+* ship world-class audit wave 2 ([#148](https://github.com/johnny4young/puntovivo/issues/148)) ([3851163](https://github.com/johnny4young/puntovivo/commit/3851163f49956549275fa47bc158919eb8e5a559))
+
 ## [1.5.1](https://github.com/johnny4young/puntovivo/compare/v1.5.0...v1.5.1) (2026-07-11)
 
 
