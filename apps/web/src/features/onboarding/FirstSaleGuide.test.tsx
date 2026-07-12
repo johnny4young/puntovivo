@@ -1,5 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { StrictMode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FirstSaleGuide } from './FirstSaleGuide';
@@ -46,12 +47,18 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
-function renderGuide(openRequest = 0) {
-  return render(
-    <MemoryRouter>
-      <FirstSaleGuide openRequest={openRequest} />
-    </MemoryRouter>
+function guideTree(openRequest = 0) {
+  return (
+    <StrictMode>
+      <MemoryRouter>
+        <FirstSaleGuide openRequest={openRequest} />
+      </MemoryRouter>
+    </StrictMode>
   );
+}
+
+function renderGuide(openRequest = 0) {
+  return render(guideTree(openRequest));
 }
 
 function completedPayload() {
@@ -122,11 +129,7 @@ describe('FirstSaleGuide (ENG-202)', () => {
     await user.click(screen.getByRole('button', { name: /dismiss first sale guide/i }));
     expect(screen.queryByTestId('first-sale-guide')).not.toBeInTheDocument();
 
-    view.rerender(
-      <MemoryRouter>
-        <FirstSaleGuide openRequest={1} />
-      </MemoryRouter>
-    );
+    view.rerender(guideTree(1));
     expect(screen.getByTestId('first-sale-guide')).toBeInTheDocument();
   });
 
@@ -135,11 +138,7 @@ describe('FirstSaleGuide (ENG-202)', () => {
     const view = renderGuide();
     state.query = completedPayload();
 
-    view.rerender(
-      <MemoryRouter>
-        <FirstSaleGuide openRequest={0} />
-      </MemoryRouter>
-    );
+    view.rerender(guideTree());
     expect(screen.getByTestId('first-sale-celebration')).toBeInTheDocument();
     expect(screen.getByText('Your first sale is complete!')).toBeInTheDocument();
 
@@ -154,11 +153,7 @@ describe('FirstSaleGuide (ENG-202)', () => {
     expect(screen.queryByTestId('first-sale-guide')).not.toBeInTheDocument();
     expect(screen.queryByTestId('first-sale-celebration')).not.toBeInTheDocument();
 
-    view.rerender(
-      <MemoryRouter>
-        <FirstSaleGuide openRequest={1} />
-      </MemoryRouter>
-    );
+    view.rerender(guideTree(1));
     expect(screen.getByTestId('first-sale-guide')).toBeInTheDocument();
     expect(screen.getByText('3 of 3 steps completed')).toBeInTheDocument();
   });
@@ -171,11 +166,7 @@ describe('FirstSaleGuide (ENG-202)', () => {
 
     state.role = 'admin';
     state.siteId = null;
-    view.rerender(
-      <MemoryRouter>
-        <FirstSaleGuide openRequest={0} />
-      </MemoryRouter>
-    );
+    view.rerender(guideTree());
     expect(state.queryOptions?.enabled).toBe(false);
     expect(view.container).toBeEmptyDOMElement();
   });

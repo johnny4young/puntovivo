@@ -610,7 +610,14 @@ describe('setupReadiness.firstSale (ENG-202)', () => {
       .delete(cashSessions)
       .where(eq(cashSessions.tenantId, onboardingTenantId));
     await db.delete(products).where(eq(products.tenantId, onboardingTenantId));
-    await db.delete(products).where(eq(products.sku, 'FIRST-SALE-FOREIGN'));
+    await db
+      .delete(products)
+      .where(
+        and(
+          eq(products.tenantId, foreignTenantId),
+          eq(products.sku, 'FIRST-SALE-FOREIGN')
+        )
+      );
   });
 
   function callerFor(
