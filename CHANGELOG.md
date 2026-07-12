@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.5.1](https://github.com/johnny4young/puntovivo/compare/v1.5.0...v1.5.1) (2026-07-11)
+
+
+### Refactors
+
+* **ai:** migrate provider contracts to AI SDK 7 ([#144](https://github.com/johnny4young/puntovivo/issues/144)) ([234b09b](https://github.com/johnny4young/puntovivo/commit/234b09b616d1d581c8d08bfe4415b95ebe1e2d26))
+
 ## [1.5.0](https://github.com/johnny4young/puntovivo/compare/v1.4.0...v1.5.0) (2026-07-11)
 
 
