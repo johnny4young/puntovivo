@@ -85,3 +85,6 @@ codes) but no longer carry the orchestration coverage.
 - ENG-206 promoted inventory entry, movement, adjustment and transfer
   mutations into `inventory/`, while transfer/read queries remain in
   `services/`.
+- ENG-207 promoted product create/update orchestration into `products/`;
+  catalog assignment and hydration primitives live in `services/products/`,
+  while the tRPC write adapter retains only role/input guards and soft delete.

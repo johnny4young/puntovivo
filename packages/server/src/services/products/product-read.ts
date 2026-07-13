@@ -1,13 +1,13 @@
 /**
- * Products router read/projection helpers.
+ * Product catalog read/projection primitives.
  *
  * ENG-178 — extracted verbatim from the former flat `trpc/routers/products.ts`
  * (1280 LOC) during the megafile decomposition. Holds the shared Drizzle
  * column projection (`productSelection`) and the relation-hydration reads used
- * by the query, mutation and semantic procedure modules. Import leaf: depends
- * only on the schema + drizzle, never on the sibling procedure modules.
+ * by query/semantic adapters and product application use-cases. Import leaf:
+ * depends only on the schema + drizzle, never on transport modules.
  *
- * @module trpc/routers/products/product-read
+ * @module services/products/product-read
  */
 import { and, eq, inArray } from 'drizzle-orm';
 
@@ -20,9 +20,9 @@ import {
   unitXProduct,
   units,
   vatRates,
-} from '../../../db/schema.js';
-import { productStockTotalSql } from '../../../services/inventory-balances/derive.js';
-import type { Context } from '../../context.js';
+} from '../../db/schema.js';
+import { productStockTotalSql } from '../inventory-balances/derive.js';
+import type { DatabaseInstance } from '../../db/index.js';
 
 export const productSelection = {
   id: products.id,
@@ -90,7 +90,11 @@ export type ProductUnitAssignmentRecord = {
   updatedAt: string;
 };
 
-export async function getProductWithRelations(db: Context['db'], productId: string, tenantId: string) {
+export async function getProductWithRelations(
+  db: DatabaseInstance,
+  productId: string,
+  tenantId: string
+) {
   const product = await db
     .select(productSelection)
     .from(products)
@@ -145,7 +149,7 @@ export async function getProductWithRelations(db: Context['db'], productId: stri
 }
 
 export async function getUnitAssignmentsByProductIds(
-  db: Context['db'],
+  db: DatabaseInstance,
   productIds: string[]
 ): Promise<Map<string, ProductUnitAssignmentRecord[]>> {
   if (productIds.length === 0) {

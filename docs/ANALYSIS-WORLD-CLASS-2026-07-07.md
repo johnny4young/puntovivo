@@ -169,6 +169,11 @@ vuelto ventaja vendible.
   create/receive/void transfer viven en `application/inventory/`; las queries
   siguen en `services/`. Los cuerpos transaccionales de transfer quedaron
   byte-iguales, y los adapters tRPC de inventory/transfers miden 51/98 LOC.
+- **Fase 2 shipped 2026-07-13 (ENG-207)**: create/update de producto viven en
+  `application/products/`; validación de asignaciones e hidratación del catálogo
+  quedaron como primitivas en `services/products/`. El adapter tRPC conserva
+  los contratos de rol/input y soft delete en 62 LOC, sin editar los tests
+  existentes.
 
 ### WC-B2 · `packages/shared` para dinero y unidades `[fiscal][caja]` — **M** ✅ ENG-203
 

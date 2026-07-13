@@ -30,7 +30,7 @@ import {
   getProductWithRelations,
   getUnitAssignmentsByProductIds,
   productSelection,
-} from './product-read.js';
+} from '../../../services/products/product-read.js';
 
 export const productQueryProcedures = {
   /**

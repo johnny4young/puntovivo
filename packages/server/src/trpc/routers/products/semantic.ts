@@ -28,7 +28,7 @@ import {
   semanticSearchProducts,
   suggestProductCategory,
 } from '../../../services/ai/embeddings.js';
-import { productSelection } from './product-read.js';
+import { productSelection } from '../../../services/products/product-read.js';
 
 export const productSemanticProcedures = {
   // ==========================================================================

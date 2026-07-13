@@ -1,5 +1,5 @@
 /**
- * Products router mutation-side resolvers and validators.
+ * Product catalog mutation primitives and validators.
  *
  * ENG-178 — extracted verbatim from the former flat `trpc/routers/products.ts`
  * (1280 LOC) during the megafile decomposition. Holds the unit / provider /
@@ -7,7 +7,7 @@
  * `update`. Import leaf: depends only on the schema + drizzle + input-schema
  * types, never on the sibling procedure modules or `product-read`.
  *
- * @module trpc/routers/products/helpers
+ * @module services/products/mutation-helpers
  */
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
@@ -20,9 +20,9 @@ import {
   unitXProduct,
   units,
   vatRates,
-} from '../../../db/schema.js';
-import type { Context } from '../../context.js';
-import type { CreateProductInput, UpdateProductInput } from '../../schemas/products.js';
+} from '../../db/schema.js';
+import type { DatabaseInstance } from '../../db/index.js';
+import type { CreateProductInput, UpdateProductInput } from '../../trpc/schemas/products.js';
 
 /**
  * Provider-assignment array as accepted by the create/update inputs — the
@@ -68,7 +68,7 @@ export function validateUnitAssignments(
 }
 
 export async function resolveUnitAssignments(
-  db: Context['db'],
+  db: DatabaseInstance,
   tenantId: string,
   input:
     | NonNullable<CreateProductInput['unitAssignments']>
@@ -105,7 +105,7 @@ export function getUniqueProviderIds(providerIds: string[]) {
 }
 
 export async function resolveProviderAssignments(
-  db: Context['db'],
+  db: DatabaseInstance,
   tenantId: string,
   input: ProductProviderAssignmentInput
 ) {
@@ -141,7 +141,7 @@ export async function resolveProviderAssignments(
 }
 
 export async function getDefaultUnitAssignments(
-  db: Context['db'],
+  db: DatabaseInstance,
   tenantId: string,
   price: number
 ): Promise<NonNullable<CreateProductInput['unitAssignments']>> {
@@ -193,7 +193,7 @@ export async function getDefaultUnitAssignments(
 }
 
 export async function replaceUnitAssignments(
-  db: Context['db'],
+  db: DatabaseInstance,
   productId: string,
   unitAssignmentsInput:
     | NonNullable<CreateProductInput['unitAssignments']>
@@ -222,7 +222,7 @@ export async function replaceUnitAssignments(
   }
 }
 
-export async function getExistingUnitAssignments(db: Context['db'], productId: string) {
+export async function getExistingUnitAssignments(db: DatabaseInstance, productId: string) {
   const existingAssignments = await db
     .select({
       unitId: unitXProduct.unitId,
@@ -241,7 +241,7 @@ export async function getExistingUnitAssignments(db: Context['db'], productId: s
   }));
 }
 
-export async function getExistingProviderAssignments(db: Context['db'], productId: string) {
+export async function getExistingProviderAssignments(db: DatabaseInstance, productId: string) {
   const existingAssignments = await db
     .select({
       providerId: productXProvider.providerId,
@@ -254,7 +254,7 @@ export async function getExistingProviderAssignments(db: Context['db'], productI
 }
 
 export async function replaceProviderAssignments(
-  db: Context['db'],
+  db: DatabaseInstance,
   productId: string,
   providerAssignmentsInput: ProductProviderAssignmentInput,
   now: string
@@ -316,7 +316,7 @@ export function normalizeProviderState({
 }
 
 export async function resolveTaxRate(
-  db: Context['db'],
+  db: DatabaseInstance,
   tenantId: string,
   vatRateId: string | null | undefined,
   fallbackTaxRate: number | undefined
@@ -348,7 +348,7 @@ export async function resolveTaxRate(
 }
 
 export async function resolveLocationId(
-  db: Context['db'],
+  db: DatabaseInstance,
   tenantId: string,
   locationId: string | null | undefined
 ) {
