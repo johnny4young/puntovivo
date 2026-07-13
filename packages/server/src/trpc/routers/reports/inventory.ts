@@ -21,6 +21,7 @@
  * @module trpc/routers/reports/inventory
  */
 
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { router } from '../../init.js';
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
 import { listInventoryDiscrepancyCandidates } from '../../../services/inventory-balances.js';
@@ -33,10 +34,6 @@ import { inventoryDiscrepanciesInput } from '../../schemas/reports.js';
  * `quantity` `real` columns in the inventory writers.
  */
 const INVENTORY_DELTA_EPSILON = 0.001;
-
-function roundQuantity(value: number): number {
-  return Math.round(value * 1000) / 1000;
-}
 
 export const inventoryReportsRouter = router({
   /**

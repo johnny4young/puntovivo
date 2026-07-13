@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Boxes, PackageSearch, RefreshCw, ScanLine } from 'lucide-react';
+import { formatQuantity } from '@puntovivo/shared/unit-math';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -40,13 +41,6 @@ function deltaTone(delta: number): DeltaTone {
 function deltaSeverityKey(delta: number): 'ok' | 'attention' | 'fault' {
   if (Math.abs(delta) <= INVENTORY_DELTA_EPSILON) return 'ok';
   return delta < 0 ? 'fault' : 'attention';
-}
-
-function formatQuantity(value: number): string {
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 3,
-  });
 }
 
 export function InventoryHealthPanel() {

@@ -161,7 +161,7 @@ vuelto ventaja vendible.
 - **AC por fase**: la mutación movida conserva byte-igual su transacción;
   tests existentes verdes sin edits; el router queda < 150 LOC por archivo.
 
-### WC-B2 · `packages/shared` para dinero y unidades `[fiscal][caja]` — **M**
+### WC-B2 · `packages/shared` para dinero y unidades `[fiscal][caja]` — **M** ✅ ENG-203
 
 - **Problema**: `roundMoney` duplicado (web + server) sostenido por twin
   golden-vector suites — un parche de paridad, no una solución.
@@ -169,19 +169,22 @@ vuelto ventaja vendible.
   formatQuantity), `unit-math.ts` (normalizedQuantity) y los tipos de dominio
   compartidos que hoy viven en `apps/web/src/types/index.ts`. El server y el
   web lo importan; las suites de paridad se colapsan a UNA.
-- **AC**: cero duplicación de la fórmula; `ci:web` + `ci:server` verdes; el
-  bundle web no crece (> tree-shaking verificado por el gate existente).
+- **Shipped 2026-07-12 (ENG-203)**: `@puntovivo/shared` es la única fuente de
+  `roundMoney`, matemática/formato de cantidades y `UnitDimension`; web/server
+  conservan reexports compatibles. Las suites gemelas se colapsaron en un solo
+  contrato de 10k vectores y `ci:shared` corre desde los tres gates. `ci:web` +
+  `ci:server` verdes; el chunk tree-shakeable de unit-math queda en 0.31 kB gz y
+  todos los budgets existentes pasan.
 
-### WC-B3 · Interface `FiscalProvider` formal `[fiscal]` — **M**
+### WC-B3 · Interface fiscal formal `[fiscal]` — **M** ✅ YA SATISFECHO
 
-- Del gap #1 del audit anterior, sin resolver: definir
-  `interface FiscalProvider { submit(doc): Promise<SubmitResult>; poll(id):
-Promise<StatusResult>; contingency(doc): ContingencyFolio; retention():
-XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
-  contra ella y tipear el orchestrator contra la interface. El primer PT real
-  (ENG-059) se vuelve un adapter, no un rewrite.
-- **AC**: mock y stubs CL/MX implementan la interface; el orchestrator no
-  importa ningún adapter concreto; markers ENG-057/020/054 intactos.
+- **Corrección de auditoría 2026-07-12**: el gap estaba obsoleto.
+  `services/fiscal/adapter.ts` ya define `FiscalAdapter`; los adapters CO/MX/CL
+  lo implementan, el registry está tipado contra la interfaz y el orchestrator
+  no depende de clases concretas. ENG-059 puede incorporar el primer PT real
+  como otro adapter sin reescribir el flujo. No se requiere ticket adicional.
+- **Evidencia**: contrato formal + tres implementaciones + registry tipado;
+  markers ENG-057/020/054 preservados.
 
 ### WC-B4 · Desglose de `apps/desktop/src/main/index.ts` (819 LOC) `[offline]` — **S/M**
 
@@ -550,8 +553,8 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 10  | ✅ WC-A3 sales Lighthouse floor + deferred payment drawer — ENG-200 shipped 2026-07-11                                          | S/M      | checkout              |
 | 11  | ✅ WC-B4 desglose desktop main/index.ts — ENG-201 shipped 2026-07-11                                                           | S/M      | mantenibilidad        |
 | 12  | ✅ WC-C7 primera venta en 5 min — ENG-202 shipped 2026-07-11                                                                   | M        | checkout              |
-| 13  | WC-B2 packages/shared                                                                                                           | M        | mantenibilidad        |
-| 14  | WC-B3 FiscalProvider interface                                                                                                  | M        | fiscal                |
+| 13  | ✅ WC-B2 packages/shared — ENG-203 shipped 2026-07-12                                                                           | M        | mantenibilidad        |
+| 14  | ✅ WC-B3 FiscalAdapter ya existía; auditoría corregida 2026-07-12                                                                | M        | fiscal                |
 | 15  | WC-D1 listas de precios (con WC-F2)                                                                                             | L        | checkout              |
 | 16  | WC-C5 omnibox de venta                                                                                                          | M        | checkout              |
 | 17  | WC-D2 lealtad mínima                                                                                                            | M        | checkout              |

@@ -27,6 +27,7 @@
  * @module services/reports/profit-margin
  */
 
+import { normalizedQuantity, roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { products, saleItemLots, saleItems, sales } from '../../db/schema.js';
@@ -81,11 +82,6 @@ export interface ProfitMarginReportSummary {
 export interface ProfitMarginReport {
   summary: ProfitMarginReportSummary;
   products: ProfitMarginProductRow[];
-}
-
-/** Quantities are not money; round to 3 decimals like the inventory reports. */
-function roundQuantity(value: number): number {
-  return Math.round(value * 1000) / 1000;
 }
 
 /** Gross margin percentage, guarding the revenue ≤ 0 (incl. divide-by-zero) case. */
@@ -160,7 +156,9 @@ export function computeProfitMarginReport(
   for (const line of lines) {
     saleIds.add(line.saleId);
     const lineRevenue = roundMoney(line.revenue);
-    const baseQuantity = roundQuantity(line.quantity * line.unitEquivalence);
+    const baseQuantity = roundQuantity(
+      normalizedQuantity(line.quantity, line.unitEquivalence)
+    );
     const hasLots = lotCostByItem.has(line.saleItemId);
     const lineCogs = hasLots
       ? roundMoney(lotCostByItem.get(line.saleItemId) ?? 0)

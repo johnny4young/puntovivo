@@ -10,6 +10,8 @@
  */
 import { check, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
+import { UNIT_DIMENSIONS } from '@puntovivo/shared/units';
+import type { UnitDimension } from '@puntovivo/shared/units';
 
 // ============================================================================
 // MONEY INVARIANTS (ENG-176a)
@@ -145,16 +147,8 @@ export type LotStatus = (typeof lotStatusEnum)[number];
  * for piece/each; `other` is the escape hatch for units that do not fit a
  * physical dimension. Nullable on the column so legacy rows round-trip.
  */
-export const unitDimensionEnum = [
-  'count',
-  'mass',
-  'volume',
-  'length',
-  'area',
-  'time',
-  'other',
-] as const;
-export type UnitDimension = (typeof unitDimensionEnum)[number];
+export const unitDimensionEnum = UNIT_DIMENSIONS;
+export type { UnitDimension };
 
 /**
  * Phase 8 / Tier-2 #8 — audit trail for sensitive operations.

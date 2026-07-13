@@ -15,6 +15,7 @@
  * @module application/sales/policies
  */
 
+import { normalizedQuantity as resolveNormalizedQuantity } from '@puntovivo/shared/unit-math';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import type {
@@ -210,17 +211,16 @@ export function resolveSalePayments(args: {
  * was zero, NaN, or the unit price was hostile).
  */
 export function getNormalizedSaleQuantity(quantity: number, equivalence: number): number {
-  const normalizedQuantity = quantity * equivalence;
-
-  if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
+  try {
+    return resolveNormalizedQuantity(quantity, equivalence);
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error;
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_QUANTITY_NONPOSITIVE',
       message: 'The selected quantity must resolve to a positive stock quantity',
     });
   }
-
-  return normalizedQuantity;
 }
 
 /**

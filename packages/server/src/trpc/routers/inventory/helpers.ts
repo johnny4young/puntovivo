@@ -9,6 +9,7 @@
  * @module trpc/routers/inventory/helpers
  */
 import { TRPCError } from '@trpc/server';
+import { normalizedQuantity as resolveNormalizedQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq } from 'drizzle-orm';
 
 import { operationEvents, products, unitXProduct, units } from '../../../db/schema.js';
@@ -102,13 +103,13 @@ export async function getProductUnitAssignment(
 }
 
 export function getNormalizedInventoryQuantity(quantity: number, equivalence: number) {
-  const normalizedQuantity = quantity * equivalence;
-  if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
+  try {
+    return resolveNormalizedQuantity(quantity, equivalence);
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error;
     throw new TRPCError({
       code: 'BAD_REQUEST',
       message: 'The normalized quantity must be greater than zero',
     });
   }
-
-  return normalizedQuantity;
 }

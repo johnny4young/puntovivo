@@ -76,6 +76,8 @@ jobs:
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
+              - 'packages/shared/**'
+              - 'scripts/ensure-shared-build.mjs'
               - 'tsconfig*.json'
               - '.npmrc'
             web:

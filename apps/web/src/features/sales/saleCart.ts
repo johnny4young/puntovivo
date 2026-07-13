@@ -1,4 +1,5 @@
 import { roundMoney } from '@/lib/money';
+import { normalizedQuantity, roundQuantity } from '@puntovivo/shared/unit-math';
 import type { ProductSearchSelection } from '@/types';
 
 // ENG-179b — explicit `| undefined` on optional fields.
@@ -25,10 +26,6 @@ export interface SaleCartSummary {
   subtotal: number;
   taxAmount: number;
   total: number;
-}
-
-function roundQuantity(value: number) {
-  return Math.round(value * 1_000_000) / 1_000_000;
 }
 
 export function getSaleQuantityStep(
@@ -99,7 +96,7 @@ export function mergeCartItem(items: SaleCartItem[], selection: ProductSearchSel
   return items.map((item, index) =>
     index === existingIndex
       ? updateCartItem(item, {
-          quantity: roundQuantity(item.quantity + getSaleQuantityStep(item)),
+          quantity: roundQuantity(item.quantity + getSaleQuantityStep(item), 6),
         })
       : item
   );
@@ -111,13 +108,13 @@ export function getLineTotals(item: SaleCartItem) {
   const total = grossAmount - discountAmount;
   const subtotal = item.taxRate > 0 ? total / (1 + item.taxRate / 100) : total;
   const taxAmount = total - subtotal;
-  const normalizedQuantity = item.quantity * item.unitEquivalence;
+  const normalizedStockQuantity = normalizedQuantity(item.quantity, item.unitEquivalence);
 
   return {
     subtotal: roundMoney(subtotal),
     taxAmount: roundMoney(taxAmount),
     total: roundMoney(total),
-    normalizedQuantity,
+    normalizedQuantity: normalizedStockQuantity,
   };
 }
 

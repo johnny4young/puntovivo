@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatQuantity } from '@puntovivo/shared/unit-math';
 import { Modal } from '@/components/form-controls/Modal';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
@@ -44,10 +45,6 @@ interface LineState {
 const NUMBER_FORMATTER_OPTIONS: Intl.NumberFormatOptions = {
   maximumFractionDigits: 4,
 };
-
-function formatQuantity(value: number): string {
-  return value.toLocaleString(undefined, NUMBER_FORMATTER_OPTIONS);
-}
 
 function parseReceived(raw: string): number {
   const trimmed = raw.trim();
@@ -283,7 +280,7 @@ export function InventoryTransferReceiveModal({
                         {line.productSku}
                       </td>
                       <td className="px-3 py-2 text-right font-medium text-secondary-900">
-                        {formatQuantity(line.shipped)}
+                        {formatQuantity(line.shipped, undefined, NUMBER_FORMATTER_OPTIONS)}
                       </td>
                       <td className="px-3 py-2 text-right align-top">
                         <input
@@ -318,7 +315,7 @@ export function InventoryTransferReceiveModal({
                         {shortage > 0 ? (
                           <span className="inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-xs font-medium text-warning-800">
                             {t('transferReceive.varianceShort', {
-                              amount: formatQuantity(shortage),
+                              amount: formatQuantity(shortage, undefined, NUMBER_FORMATTER_OPTIONS),
                             })}
                           </span>
                         ) : (
@@ -337,7 +334,11 @@ export function InventoryTransferReceiveModal({
           <p className="text-sm text-secondary-600" data-testid="transfer-receive-summary">
             {lineValidation.hasAnyVariance
               ? t('transferReceive.summary.shortage', {
-                  amount: formatQuantity(lineValidation.totalShortage),
+                  amount: formatQuantity(
+                    lineValidation.totalShortage,
+                    undefined,
+                    NUMBER_FORMATTER_OPTIONS
+                  ),
                   count: lineValidation.shortLineCount,
                 })
               : t('transferReceive.summary.match')}

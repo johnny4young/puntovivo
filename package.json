@@ -26,18 +26,19 @@
     "make:desktop": "pnpm --filter @puntovivo/desktop run make:desktop",
     "ci:release": "pnpm run test:release-script",
     "ci:audit": "pnpm audit --prod --audit-level high",
-    "ci:web": "pnpm run ci:audit && pnpm --filter @puntovivo/web run typecheck && pnpm --filter @puntovivo/web run lint && pnpm --filter @puntovivo/web run test:coverage -- --run && pnpm --filter @puntovivo/web run build && node --test scripts/check-bundle-size.test.mjs scripts/check-contrast.test.mjs scripts/check-lighthouse.test.mjs scripts/ensure-playwright-browser.test.mjs scripts/run-lighthouse-gate.test.mjs && node scripts/check-bundle-size.mjs && node scripts/check-contrast.mjs && node scripts/run-lighthouse-gate.mjs --strict --require-measurement",
-    "ci:desktop": "pnpm run ci:audit && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/web run build && pnpm --filter @puntovivo/desktop run build:main && pnpm --filter @puntovivo/desktop run typecheck && pnpm --filter @puntovivo/desktop run lint && pnpm --filter @puntovivo/desktop run test && node --test scripts/check-electron-memory.test.mjs scripts/run-electron-memory-gate.test.mjs && node scripts/run-electron-memory-gate.mjs --strict --require-measurement",
+    "ci:web": "pnpm run ci:shared && pnpm run ci:audit && pnpm --filter @puntovivo/web run typecheck && pnpm --filter @puntovivo/web run lint && pnpm --filter @puntovivo/web run test:coverage -- --run && pnpm --filter @puntovivo/web run build && node --test scripts/check-bundle-size.test.mjs scripts/check-contrast.test.mjs scripts/check-lighthouse.test.mjs scripts/ensure-playwright-browser.test.mjs scripts/run-lighthouse-gate.test.mjs && node scripts/check-bundle-size.mjs && node scripts/check-contrast.mjs && node scripts/run-lighthouse-gate.mjs --strict --require-measurement",
+    "ci:desktop": "pnpm run ci:shared && pnpm run ci:audit && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/web run build && pnpm --filter @puntovivo/desktop run build:main && pnpm --filter @puntovivo/desktop run typecheck && pnpm --filter @puntovivo/desktop run lint && pnpm --filter @puntovivo/desktop run test && node --test scripts/check-electron-memory.test.mjs scripts/run-electron-memory-gate.test.mjs && node scripts/run-electron-memory-gate.mjs --strict --require-measurement",
     "perf:electron-memory": "node scripts/check-electron-memory.mjs",
     "perf:lighthouse": "node scripts/check-lighthouse.mjs",
-    "ci:server": "pnpm run ci:audit && pnpm --filter @puntovivo/server run typecheck && pnpm --filter @puntovivo/server run lint && pnpm --filter @puntovivo/server run test:coverage",
+    "ci:server": "pnpm run ci:shared && pnpm run ci:audit && pnpm --filter @puntovivo/server run typecheck && pnpm --filter @puntovivo/server run lint && pnpm --filter @puntovivo/server run test:coverage",
     "test:e2e:web": "node scripts/ensure-playwright-browser.mjs && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.web.config.ts",
     "test:e2e:electron": "pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/desktop run electron:ensure:binary && pnpm --filter @puntovivo/desktop run build:main && node scripts/ensure-electron-main-build.mjs && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.electron.config.ts",
     "test:e2e": "pnpm run test:e2e:web && pnpm run test:e2e:electron",
     "test:release-script": "node --test scripts/upload-release-assets.test.mjs scripts/github-cli-utils.test.mjs scripts/rewrite-update-feed.test.mjs scripts/clean-paths.test.mjs",
     "seed:dev": "pnpm --filter @puntovivo/server run seed:dev",
     "clean": "node ./scripts/clean-paths.mjs node_modules \"apps/*/node_modules\" \"packages/*/node_modules\"",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "ci:shared": "pnpm --filter @puntovivo/shared run ci && node --test scripts/ensure-shared-build.test.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

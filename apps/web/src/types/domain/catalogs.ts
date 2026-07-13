@@ -1,5 +1,7 @@
 // ENG-179c — catalog / geography domain shapes (ENG-178 slice 28).
 
+import type { UnitDimension } from '@puntovivo/shared/units';
+
 export interface Provider {
   id: string;
   tenantId: string;
@@ -91,14 +93,7 @@ export interface VatRate {
 }
 
 /** Physical dimension of a unit (Auditoría 2026-07 — units foundation). */
-export type UnitDimension =
-  | 'count'
-  | 'mass'
-  | 'volume'
-  | 'length'
-  | 'area'
-  | 'time'
-  | 'other';
+export type { UnitDimension } from '@puntovivo/shared/units';
 
 export interface Unit {
   id: string;

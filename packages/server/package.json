@@ -32,7 +32,17 @@
     "seed:dev": "pnpm run native:ensure:node && tsx src/scripts/seed-dev.ts",
     "benchmark:invoice-ocr": "pnpm run native:ensure:node && tsx scripts/benchmark-invoice-ocr.ts",
     "benchmark:invoice-ocr:regen": "node scripts/generate-invoice-ocr-fixtures.mjs",
-    "benchmark:payment-reconciliation": "pnpm run native:ensure:node && tsx scripts/benchmark-payment-reconciliation.ts"
+    "benchmark:payment-reconciliation": "pnpm run native:ensure:node && tsx scripts/benchmark-payment-reconciliation.ts",
+    "prebuild": "node ../../scripts/ensure-shared-build.mjs",
+    "predev": "node ../../scripts/ensure-shared-build.mjs",
+    "pretest": "node ../../scripts/ensure-shared-build.mjs",
+    "pretest:watch": "node ../../scripts/ensure-shared-build.mjs",
+    "pretest:coverage": "node ../../scripts/ensure-shared-build.mjs",
+    "pretest:coverage:html": "node ../../scripts/ensure-shared-build.mjs",
+    "preseed:dev": "node ../../scripts/ensure-shared-build.mjs",
+    "prebenchmark:invoice-ocr": "node ../../scripts/ensure-shared-build.mjs",
+    "prebenchmark:invoice-ocr:regen": "node ../../scripts/ensure-shared-build.mjs",
+    "prebenchmark:payment-reconciliation": "node ../../scripts/ensure-shared-build.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.11",
@@ -45,6 +55,7 @@
     "@fastify/helmet": "^13.1.0",
     "@fastify/jwt": "^10.2.0",
     "@fastify/rate-limit": "^11.1.0",
+    "@puntovivo/shared": "workspace:*",
     "@sentry/node": "^10.63.0",
     "@trpc/server": "^11.18.0",
     "ai": "^7.0.19",

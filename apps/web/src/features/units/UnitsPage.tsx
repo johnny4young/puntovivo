@@ -3,6 +3,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus, Ruler, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { UNIT_DIMENSIONS } from '@puntovivo/shared/units';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
@@ -13,16 +14,6 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 
 // '' = "auto / none" — the server backfills the dimension + standard code
 // from the units catalog when the operator leaves it blank on create.
-const UNIT_DIMENSIONS: ReadonlyArray<UnitDimension> = [
-  'count',
-  'mass',
-  'volume',
-  'length',
-  'area',
-  'time',
-  'other',
-];
-
 interface UnitFormValues {
   name: string;
   abbreviation: string;
