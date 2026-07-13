@@ -1,8 +1,7 @@
 /**
  * Inventory-transfer create orchestrator.
  *
- * ENG-178 — extracted verbatim from the former flat
- * `services/inventory-transfers.ts` during the megafile decomposition.
+ * ENG-206 — promoted from services into the application use-case boundary.
  *
  * Phase 2 DB-102 / API-102 step 1 — immediate inventory transfers.
  *
@@ -14,7 +13,7 @@
  * iteration adds the lifecycle states (`draft` → `in_transit` → `received`)
  * plus a `reserved`/in-transit column on `inventory_balances`.
  *
- * @module services/inventory-transfers/create
+ * @module application/inventory/createInventoryTransfer
  */
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -29,9 +28,16 @@ import {
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { getPrimarySiteId, getProductStockTotal } from '../inventory-balances.js';
-import { assertValidTransferArgs, getTimestamp, seedMissingBalanceRow } from './helpers.js';
-import type { CreateTransferArgs, CreatedTransfer } from './types.js';
+import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
+import {
+  assertValidTransferArgs,
+  getTimestamp,
+  seedMissingBalanceRow,
+} from '../../services/inventory-transfers/helpers.js';
+import type {
+  CreateTransferArgs,
+  CreatedTransfer,
+} from '../../services/inventory-transfers/types.js';
 
 export function createInventoryTransfer(
   db: DatabaseInstance,

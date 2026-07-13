@@ -17,10 +17,12 @@ import { managerOrAdminProcedure } from '../middleware/roles.js';
 import { criticalCommandManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
 import {
   createInventoryTransfer,
-  getInventoryTransferById,
-  listRecentTransfers,
   receiveInventoryTransfer,
   voidInventoryTransfer,
+} from '../../application/inventory/index.js';
+import {
+  getInventoryTransferById,
+  listRecentTransfers,
 } from '../../services/inventory-transfers/index.js';
 import {
   createTransferInput,

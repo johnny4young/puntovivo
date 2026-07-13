@@ -1,22 +1,21 @@
-/**
- * Inventory router shared helpers (ENG-178 split).
- *
- * Leaf module: tenant-scoped product + product-unit lookups, the inventory
- * journal-event id lookup, the non-blocking operation-summary updater, and the
- * pure normalized-quantity validator. Imported by `mutations.ts`; never imports
- * a procedure module.
- *
- * @module trpc/routers/inventory/helpers
- */
+/** ENG-206 — Shared inventory mutation helpers. */
 import { TRPCError } from '@trpc/server';
 import { normalizedQuantity as resolveNormalizedQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq } from 'drizzle-orm';
 
-import { operationEvents, products, unitXProduct, units } from '../../../db/schema.js';
-import { updateOperationSummary } from '../../../services/operation-journal/journal.js';
-import type { Context } from '../../context.js';
+import type { DatabaseInstance } from '../../db/index.js';
+import { operationEvents, products, unitXProduct, units } from '../../db/schema.js';
+import { createModuleLogger } from '../../logging/logger.js';
+import { updateOperationSummary } from '../../services/operation-journal/journal.js';
+import type { InventoryContext } from './types.js';
 
-export async function getProductForInventory(db: Context['db'], tenantId: string, productId: string) {
+const log = createModuleLogger('application/inventory');
+
+export async function getProductForInventory(
+  db: DatabaseInstance,
+  tenantId: string,
+  productId: string
+) {
   const product = await db
     .select()
     .from(products)
@@ -31,13 +30,12 @@ export async function getProductForInventory(db: Context['db'], tenantId: string
 }
 
 export async function lookupInventoryJournalEventId(
-  db: Context['db'],
+  db: DatabaseInstance,
   tenantId: string,
   operationId: string | undefined
 ): Promise<string | null> {
-  if (!operationId) {
-    return null;
-  }
+  if (!operationId) return null;
+
   const row = await db
     .select({ id: operationEvents.id })
     .from(operationEvents)
@@ -52,7 +50,7 @@ export async function lookupInventoryJournalEventId(
 }
 
 export async function safeUpdateInventoryAdjustedSummary(
-  ctx: Context,
+  ctx: InventoryContext,
   journalEventId: string,
   summary: {
     productId: string;
@@ -67,7 +65,7 @@ export async function safeUpdateInventoryAdjustedSummary(
   try {
     await updateOperationSummary(ctx.db, journalEventId, summary);
   } catch (err) {
-    ctx.req?.server?.log?.warn(
+    (ctx.log ?? log).warn(
       { err, journalEventId },
       'operation summary update failed (non-blocking)'
     );
@@ -75,7 +73,7 @@ export async function safeUpdateInventoryAdjustedSummary(
 }
 
 export async function getProductUnitAssignment(
-  db: Context['db'],
+  db: DatabaseInstance,
   productId: string,
   unitId: string
 ) {

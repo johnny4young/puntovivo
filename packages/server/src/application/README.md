@@ -80,5 +80,8 @@ codes) but no longer carry the orchestration coverage.
 - ENG-054 created this layer with `sales/completeSale`.
 - ENG-055 will add `sales/voidSale`, `sales/returnSale`,
   `sales/discardDraft` and shared sale lifecycle policies.
-- ENG-056 will introduce `cash-sessions/` for the cash session
-  aggregate boundary.
+- ENG-056 introduced `cash-sessions/` for the cash session aggregate
+  boundary.
+- ENG-206 promoted inventory entry, movement, adjustment and transfer
+  mutations into `inventory/`, while transfer/read queries remain in
+  `services/`.

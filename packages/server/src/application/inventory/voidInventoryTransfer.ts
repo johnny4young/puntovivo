@@ -1,10 +1,9 @@
 /**
  * Inventory-transfer void (reversal) orchestrator.
  *
- * ENG-178 — extracted verbatim from the former flat
- * `services/inventory-transfers.ts` during the megafile decomposition.
+ * ENG-206 — promoted from services into the application use-case boundary.
  *
- * @module services/inventory-transfers/voidTransfer
+ * @module application/inventory/voidInventoryTransfer
  */
 import { and, eq } from 'drizzle-orm';
 
@@ -16,10 +15,16 @@ import {
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { getPrimarySiteId, getProductStockTotal } from '../inventory-balances.js';
-import { writeAuditLog } from '../audit-logs.js';
-import { getTimestamp, seedMissingBalanceRow } from './helpers.js';
-import type { VoidTransferArgs, VoidedTransfer } from './types.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
+import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
+import {
+  getTimestamp,
+  seedMissingBalanceRow,
+} from '../../services/inventory-transfers/helpers.js';
+import type {
+  VoidTransferArgs,
+  VoidedTransfer,
+} from '../../services/inventory-transfers/types.js';
 
 /**
  * Voids a completed transfer by reversing every line item:

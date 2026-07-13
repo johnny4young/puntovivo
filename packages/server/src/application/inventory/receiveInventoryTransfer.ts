@@ -1,12 +1,11 @@
 /**
  * Inventory-transfer receive orchestrator + its line-resolution helper.
  *
- * ENG-178 — extracted verbatim from the former flat
- * `services/inventory-transfers.ts` during the megafile decomposition.
+ * ENG-206 — promoted from services into the application use-case boundary.
  * `resolveReceivedQuantitiesByItemId` is receive-only, so it is co-located
  * here rather than in the shared `helpers.ts`.
  *
- * @module services/inventory-transfers/receive
+ * @module application/inventory/receiveInventoryTransfer
  */
 import { and, eq } from 'drizzle-orm';
 
@@ -18,9 +17,16 @@ import {
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { getPrimarySiteId, getProductStockTotal } from '../inventory-balances.js';
-import { getTimestamp, seedMissingBalanceRow } from './helpers.js';
-import type { ReceiveTransferArgs, ReceiveTransferLine, ReceivedTransfer } from './types.js';
+import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
+import {
+  getTimestamp,
+  seedMissingBalanceRow,
+} from '../../services/inventory-transfers/helpers.js';
+import type {
+  ReceiveTransferArgs,
+  ReceiveTransferLine,
+  ReceivedTransfer,
+} from '../../services/inventory-transfers/types.js';
 
 /**
  * Completes a deferred (in_transit) transfer by crediting the destination

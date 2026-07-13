@@ -165,6 +165,10 @@ vuelto ventaja vendible.
   el stock absoluto ya delega), (3) customers (ledger).
 - **AC por fase**: la mutación movida conserva byte-igual su transacción;
   tests existentes verdes sin edits; el router queda < 150 LOC por archivo.
+- **Fase 1 shipped 2026-07-13 (ENG-206)**: entry, movement, adjustment y
+  create/receive/void transfer viven en `application/inventory/`; las queries
+  siguen en `services/`. Los cuerpos transaccionales de transfer quedaron
+  byte-iguales, y los adapters tRPC de inventory/transfers miden 51/98 LOC.
 
 ### WC-B2 · `packages/shared` para dinero y unidades `[fiscal][caja]` — **M** ✅ ENG-203
 
