@@ -318,7 +318,7 @@ vuelto ventaja vendible.
 - **AC**: tenant nuevo ve el checklist; cada paso deep-linkea; se auto-oculta
   al completarse; reaparece solo desde ayuda.
 
-### WC-C8 · Pulso diario del negocio `[audit]` — **S (v1)**
+### WC-C8 · Pulso diario del negocio `[audit]` — **S (v1)** ✅
 
 - **Qué**: card compartible (imagen/PDF ligero) al cierre: ventas, margen,
   ticket promedio, comparación vs mismo día semana anterior. v1: botón
@@ -326,6 +326,11 @@ vuelto ventaja vendible.
   (WhatsApp real) lo vuelve push automático después.
 - **AC**: card generada client-side (canvas/HTML→imagen); texto EN/ES; sin
   datos sensibles de clientes.
+- **Shipped 2026-07-13**: el cierre de manager/admin incorpora ventas, margen,
+  ticket promedio y comparación tenant-scoped contra el mismo día de la semana
+  anterior. La card genera un PNG en canvas y un deep link `wa.me` localizado;
+  el payload y la UI permanecen nulos para cajeros y el modelo compartible no
+  admite datos de clientes, productos, registros ni cajeros.
 
 ### WC-C9 · Contador de caja con semáforo en vivo `[caja]` — **S**
 

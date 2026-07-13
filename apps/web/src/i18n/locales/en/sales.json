@@ -234,6 +234,30 @@
       "profitShort": "+{{amount}}",
       "lossShort": "-{{amount}}",
       "noSales": "No sales recorded today.",
+      "pulse": {
+        "eyebrow": "Daily pulse",
+        "title": "How your business closed",
+        "brand": "Puntovivo · Daily pulse",
+        "ownerOnly": "Management view",
+        "sales": "Sales",
+        "salesCount_one": "{{count}} completed sale",
+        "salesCount_other": "{{count}} completed sales",
+        "margin": "Gross margin",
+        "marginDetail": "{{amount}} gross profit",
+        "averageTicket": "Average ticket",
+        "comparisonLabel": "Weekly comparison",
+        "comparison": {
+          "up": "{{percent}}% more than the same weekday last week ({{amount}}).",
+          "down": "{{percent}}% less than the same weekday last week ({{amount}}).",
+          "flat": "Sales matched the same weekday last week ({{amount}}).",
+          "unavailable": "There is no prior-week sales baseline to compare yet."
+        },
+        "privacy": "Includes aggregate metrics only; no customer data is shared.",
+        "download": "Download image",
+        "generating": "Generating image…",
+        "whatsapp": "Share via WhatsApp",
+        "imageError": "We could not generate the image. You can still share the text via WhatsApp."
+      },
       "finish": "Done"
     },
     "movementForm": {

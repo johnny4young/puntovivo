@@ -26,6 +26,7 @@ import {
   cashSessionReportInput,
   closeCashSessionInput,
   dayCloseSummaryInput,
+  dayCloseSummaryOutput,
   getActiveCashSessionInput,
   openCashSessionInput,
   pendingChecksInput,
@@ -321,13 +322,14 @@ export const cashSessionsRouter = router({
 
   /**
    * ENG-198 — day-close ritual. Open to the cashier (they are the one who
-   * closes), but owner data is gated SERVER-SIDE: margin and per-product
-   * profit only serialize for manager/admin, mirroring the ENG-194 blind
-   * close philosophy. Pure read; multi-tenant scoping happens inside the
-   * service (NOT_FOUND for foreign sessions).
+   * closes), but owner data is gated SERVER-SIDE: margin, pulse comparison,
+   * and per-product profit only serialize for manager/admin, mirroring the
+   * ENG-194 blind close philosophy. Pure read; multi-tenant scoping happens
+   * inside the service (NOT_FOUND for foreign sessions).
    */
   dayCloseSummary: cashierManagerOrAdminProcedure
     .input(dayCloseSummaryInput)
+    .output(dayCloseSummaryOutput)
     .query(async ({ ctx, input }) => {
       // The role middleware rejects a missing user before this resolver; the
       // non-null assertion documents that runtime refinement for TypeScript.

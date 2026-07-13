@@ -2,9 +2,9 @@
  * ENG-198 — DayCloseSummaryModal render contract.
  *
  * The payload arrives pre-gated from the server, so the component contract
- * is purely presentational: render what the payload carries, hide the margin
- * tile when `margin` is null (cashier view), celebrate the streak only when
- * it is positive, and keep the single "Done" exit.
+ * is purely presentational: render what the payload carries, hide owner-only
+ * margin/pulse data when those fields are null (cashier view), celebrate the
+ * streak only when it is positive, and keep the single "Done" exit.
  */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -39,6 +39,7 @@ const adminSummary = {
     balanced: true,
   },
   day: { date: '2026-07-10', salesCount: 12, revenue: 950 },
+  pulse: { averageTicket: 79.17, previousWeekRevenue: 800, revenueChangePct: 18.8 },
   topProducts: [
     {
       productId: 'p1',
@@ -64,6 +65,7 @@ const adminSummary = {
 const cashierSummary = {
   ...adminSummary,
   margin: null,
+  pulse: null,
   topProducts: adminSummary.topProducts.map(product => ({
     ...product,
     grossProfit: null,
@@ -82,7 +84,7 @@ describe('DayCloseSummaryModal (ENG-198)', () => {
 
     expect(screen.getByText('Day closed')).toBeInTheDocument();
     expect(screen.getByText(/Front register/)).toBeInTheDocument();
-    expect(screen.getByText('$950.00')).toBeInTheDocument();
+    expect(screen.getAllByText('$950.00')).toHaveLength(2);
     expect(screen.getByText('12 sales')).toBeInTheDocument();
     expect(screen.getByText('Balanced')).toBeInTheDocument();
     expect(screen.getByText('Counted: $350.00')).toBeInTheDocument();
@@ -92,6 +94,9 @@ describe('DayCloseSummaryModal (ENG-198)', () => {
     expect(screen.getByText('5 days balancing')).toBeInTheDocument();
     expect(screen.getByText('Café 500g')).toBeInTheDocument();
     expect(screen.getByText('+$180.00')).toBeInTheDocument();
+    expect(screen.getByTestId('day-close-pulse')).toBeInTheDocument();
+    expect(screen.getByText('$79.17')).toBeInTheDocument();
+    expect(screen.getByText(/18.8% more than/)).toBeInTheDocument();
   });
 
   it('hides owner data for the cashier payload', () => {
@@ -99,10 +104,41 @@ describe('DayCloseSummaryModal (ENG-198)', () => {
     render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);
 
     expect(screen.queryByTestId('day-close-margin')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('day-close-pulse')).not.toBeInTheDocument();
     expect(screen.queryByText(/^\+\$/)).not.toBeInTheDocument();
     // Revenue-only rows still list the products.
     expect(screen.getByText('Café 500g')).toBeInTheDocument();
     expect(screen.getByText('$400.00')).toBeInTheDocument();
+  });
+
+  it('builds an encoded WhatsApp deep link from aggregate metrics only', () => {
+    render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);
+
+    const link = screen.getByTestId('day-close-whatsapp');
+    const decodedHref = decodeURIComponent(link.getAttribute('href') ?? '');
+    expect(decodedHref).toContain('https://wa.me/?text=How your business closed');
+    expect(decodedHref).toContain('Sales: $950.00');
+    expect(decodedHref).toContain('Average ticket: $79.17');
+    expect(decodedHref).not.toContain('Front register');
+    expect(decodedHref).not.toContain('Café 500g');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noreferrer'));
+  });
+
+  it('localizes the pulse and WhatsApp text in neutral Spanish', async () => {
+    await i18n.changeLanguage('es');
+    render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);
+
+    expect(screen.getByText('Así cerró tu negocio')).toBeInTheDocument();
+    expect(screen.getByText('10 de julio de 2026')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Compartir por WhatsApp' })).toBeInTheDocument();
+    const decodedHref = decodeURIComponent(
+      screen.getByTestId('day-close-whatsapp').getAttribute('href') ?? ''
+    );
+    expect(decodedHref).toContain('Ventas:');
+    expect(decodedHref).toContain('Ticket promedio:');
+    expect(decodedHref).toContain('10 de julio de 2026');
+    expect(decodedHref).not.toContain('Café 500g');
   });
 
   it('shows the short semaphore with the absolute amount', () => {

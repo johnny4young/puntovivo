@@ -4,6 +4,7 @@ import { ModalButton } from '@/components/form-controls/Modal';
 import { Overlay } from '@/components/overlay/Overlay';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { DayClosePulseCard } from './DayClosePulseCard';
 
 /**
  * Props for {@link DayCloseSummaryModal} (ENG-198).
@@ -157,6 +158,19 @@ export function DayCloseSummaryModal({ sessionId, onClose }: DayCloseSummaryModa
                 )}
               </div>
             </section>
+
+            {summary.pulse && summary.margin && (
+              <DayClosePulseCard
+                date={summary.day.date}
+                salesCount={summary.day.salesCount}
+                revenue={summary.day.revenue}
+                averageTicket={summary.pulse.averageTicket}
+                previousWeekRevenue={summary.pulse.previousWeekRevenue}
+                revenueChangePct={summary.pulse.revenueChangePct}
+                grossProfit={summary.margin.grossProfit}
+                grossMarginPct={summary.margin.grossMarginPct}
+              />
+            )}
 
             <section className={TILE_CLASS} data-testid="day-close-top-products">
               <p className={TILE_LABEL_CLASS}>{t('cashSession.dayClose.topProductsTitle')}</p>

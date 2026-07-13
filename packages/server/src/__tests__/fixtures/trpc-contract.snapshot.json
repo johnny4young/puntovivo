@@ -177,7 +177,7 @@
     "path": "cashSessions.dayCloseSummary",
     "kind": "query",
     "input": "object{sessionId:string[minLength=1]}",
-    "output": "inferred"
+    "output": "object{day:object{date:string,revenue:number,salesCount:integer[min=0,max=9007199254740991]},margin:object{grossMarginPct:number,grossProfit:number}|null,pulse:object{averageTicket:number,previousWeekRevenue:number,revenueChangePct:number|null}|null,session:object{actualCount:number|null,balanced:boolean,closedAt:string,overShort:number|null,registerName:string},streakDays:integer[min=0,max=9007199254740991],topProducts:array<object>}"
   },
   {
     "path": "cashSessions.getActive",
