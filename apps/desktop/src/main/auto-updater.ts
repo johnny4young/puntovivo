@@ -2,8 +2,20 @@ import { app } from 'electron';
 import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
 import { createModuleLogger } from '@puntovivo/server';
 import { mapReleaseFields } from './auto-update-status';
+import type {
+  AutoUpdateActionResult,
+  AutoUpdateInstallMode,
+  AutoUpdateStatus,
+} from './auto-updater/contracts';
+import { fetchLatestRelease, isNewerRelease, REPO_SLUG } from './auto-updater/release-notification';
 import { t } from './i18n';
-import { isNewerVersion } from './version-compare';
+
+export type {
+  AutoUpdateActionResult,
+  AutoUpdateInstallMode,
+  AutoUpdateState,
+  AutoUpdateStatus,
+} from './auto-updater/contracts';
 
 const log = createModuleLogger('auto-updater');
 
@@ -25,61 +37,12 @@ const SUPPORTED_AUTO_UPDATE_PLATFORMS = new Set(['darwin', 'win32', 'linux']);
 //     poll the Releases API, surface the new version, and let the user download
 //     it from the release page. Used for internal / pre-public builds; flipping
 //     the env flag is the only change needed, no code edit.
-const REPO_OWNER = 'johnny4young';
-const REPO_NAME = 'puntovivo';
-const REPO_SLUG = `${REPO_OWNER}/${REPO_NAME}`;
 const REPO_IS_PRIVATE = process.env.PUNTOVIVO_UPDATE_REPO_PRIVATE === 'true';
-
-// Optional read-only token so the notify-only check can reach a PRIVATE repo's
-// Releases API (internal / QA builds set it in the environment). It is NEVER
-// embedded in the bundle; a distributed private build without it simply reports
-// "requires repo access" rather than failing loudly. A public repo needs no
-// token at all.
-const UPDATE_READ_TOKEN = process.env.PUNTOVIVO_UPDATE_TOKEN || process.env.GH_TOKEN || undefined;
 
 const NOTIFY_POLL_INTERVAL_MS = 60 * 60 * 1000; // 1h, mirrors the prior '1 hour'
 // electron-updater has no built-in poll, so the auto mode drives its own check
 // loop on the same cadence the notify poll uses.
 const AUTO_CHECK_INTERVAL_MS = 60 * 60 * 1000;
-const RELEASE_FETCH_TIMEOUT_MS = 15_000;
-
-export type AutoUpdateState =
-  | 'unavailable'
-  | 'idle'
-  | 'checking'
-  | 'available'
-  | 'downloaded'
-  | 'error';
-
-/**
- * How an available update is delivered to the user:
- *   - `auto`: Squirrel downloads + installs in the background (public repo).
- *   - `manual`: the updater only detects + notifies; the user downloads the
- *     release themselves (private repo, notify-only mode).
- */
-export type AutoUpdateInstallMode = 'auto' | 'manual';
-
-export interface AutoUpdateStatus {
-  isAvailable: boolean;
-  state: AutoUpdateState;
-  /** Whether updates install automatically (`auto`) or are user-driven (`manual`). */
-  installMode: AutoUpdateInstallMode;
-  currentVersion: string;
-  lastCheckedAt: string | null;
-  releaseName: string | null;
-  releaseNotes: string | null;
-  releaseDate: string | null;
-  /** In `manual` mode this is the release PAGE the user opens to download. */
-  updateUrl: string | null;
-  error: string | null;
-  reason: string | null;
-}
-
-export interface AutoUpdateActionResult {
-  success: boolean;
-  error?: string;
-}
-
 const INSTALL_MODE: AutoUpdateInstallMode = REPO_IS_PRIVATE ? 'manual' : 'auto';
 
 function createDefaultStatus(): AutoUpdateStatus {
@@ -151,70 +114,6 @@ function getUnavailableReason(): string {
   return t('autoUpdate.notInitialized');
 }
 
-// ---------------------------------------------------------------------------
-// Notify-only mode (private repo): poll the Releases API, never download
-// ---------------------------------------------------------------------------
-
-type LatestReleaseResult =
-  | {
-      kind: 'ok';
-      version: string;
-      name: string;
-      notes: string | null;
-      date: string | null;
-      url: string;
-    }
-  | { kind: 'inaccessible' }
-  | { kind: 'error'; message: string };
-
-async function fetchLatestRelease(): Promise<LatestReleaseResult> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), RELEASE_FETCH_TIMEOUT_MS);
-  try {
-    const headers: Record<string, string> = {
-      'User-Agent': 'puntovivo-desktop',
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    };
-    if (UPDATE_READ_TOKEN) {
-      headers.Authorization = `Bearer ${UPDATE_READ_TOKEN}`;
-    }
-    const response = await fetch(`https://api.github.com/repos/${REPO_SLUG}/releases/latest`, {
-      headers,
-      signal: controller.signal,
-    });
-    // GitHub returns 404 (not 401/403) for a private repo the caller cannot see.
-    if (response.status === 404) {
-      return { kind: 'inaccessible' };
-    }
-    if (!response.ok) {
-      return { kind: 'error', message: `GitHub API responded ${response.status}` };
-    }
-    const payload = (await response.json()) as {
-      tag_name?: string;
-      name?: string;
-      body?: string;
-      published_at?: string;
-      html_url?: string;
-    };
-    if (!payload.tag_name) {
-      return { kind: 'error', message: 'malformed release payload (no tag_name)' };
-    }
-    return {
-      kind: 'ok',
-      version: payload.tag_name,
-      name: payload.name || payload.tag_name,
-      notes: payload.body || null,
-      date: payload.published_at || null,
-      url: payload.html_url || `https://github.com/${REPO_SLUG}/releases/latest`,
-    };
-  } catch (error) {
-    return { kind: 'error', message: error instanceof Error ? error.message : String(error) };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 async function runNotifyCheck(): Promise<AutoUpdateStatus> {
   updateStatus({
     state: 'checking',
@@ -241,7 +140,7 @@ async function runNotifyCheck(): Promise<AutoUpdateStatus> {
     });
   }
 
-  if (isNewerVersion(result.version, app.getVersion())) {
+  if (isNewerRelease(result, app.getVersion())) {
     return updateStatus({
       isAvailable: true,
       state: 'available',
