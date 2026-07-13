@@ -1,12 +1,21 @@
 {
   "title": "Paleta de comandos",
-  "searchPlaceholder": "Buscar acciones y destinos…",
+  "searchPlaceholder": "Buscar acciones o productos por nombre, SKU o código…",
   "noResults": "Sin resultados",
   "noResultsHint": "Prueba con otra palabra, o cierra la paleta con Esc y usa el menú lateral.",
   "groups": {
     "navigate": "Ir a",
     "command": "Ejecutar",
-    "recent": "Recientes"
+    "recent": "Recientes",
+    "products": "Productos para vender",
+    "actions": "Acciones y destinos"
+  },
+  "products": {
+    "searching": "Buscando productos…",
+    "meta": "{{sku}} · {{stock}} disponibles",
+    "added": "{{name}} se agregó al carrito",
+    "notFound": "No se encontró un producto para vender",
+    "addFailed": "No se pudo agregar el producto"
   },
   "actions": {
     "navigate": {

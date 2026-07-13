@@ -99,7 +99,8 @@
   },
   "loadingSites": "Cargando sedes...",
   "selectSite": "Seleccionar sede",
-  "quickSearch": "Búsqueda rápida de productos, clientes, recibos",
+  "quickSearch": "Buscar productos y acciones",
+  "quickSearchAria": "Abrir búsqueda global",
   "toolbar": {
     "toggleColumns": "Alternar columnas",
     "showAllColumns": "Mostrar todas las columnas",

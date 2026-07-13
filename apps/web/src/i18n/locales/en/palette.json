@@ -1,12 +1,21 @@
 {
   "title": "Command palette",
-  "searchPlaceholder": "Search actions and destinations…",
+  "searchPlaceholder": "Search actions or products by name, SKU, or barcode…",
   "noResults": "No matches",
   "noResultsHint": "Try a different keyword, or close the palette with Esc and use the sidebar.",
   "groups": {
     "navigate": "Go to",
     "command": "Run",
-    "recent": "Recent"
+    "recent": "Recent",
+    "products": "Products to sell",
+    "actions": "Actions and destinations"
+  },
+  "products": {
+    "searching": "Searching products…",
+    "meta": "{{sku}} · {{stock}} available",
+    "added": "{{name}} was added to the cart",
+    "notFound": "No sellable product was found",
+    "addFailed": "The product could not be added"
   },
   "actions": {
     "navigate": {

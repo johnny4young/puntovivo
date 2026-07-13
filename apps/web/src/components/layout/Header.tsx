@@ -6,6 +6,7 @@ import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
+import { useCommandPalette } from '@/components/feedback/CommandPaletteProvider';
 import {
   persistLanguagePreference,
   readLanguagePreference,
@@ -13,6 +14,7 @@ import {
   type LanguagePreference,
 } from '@/i18n/resolveLocale';
 import { isOnline } from '@/lib/utils';
+import { formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { useHeaderTitle } from './useHeaderTitle';
 
 interface HeaderProps {
@@ -25,6 +27,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const { currentSite, currentTenant, isLoadingSites, sites, switchSite } = useTenant();
   const { t, i18n } = useTranslation(['common', 'nav', 'auth', 'setup']);
   const { kickerKey, titleKey } = useHeaderTitle();
+  const { openPalette } = useCommandPalette();
   const [online, setOnline] = useState(isOnline());
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
@@ -32,6 +35,8 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
     readLanguagePreference()
   );
   const userMenuId = 'header-user-menu';
+  const paletteShortcut = getShortcutById('palette.open');
+  const paletteShortcutLabel = paletteShortcut ? formatKeysForDisplay(paletteShortcut.keys) : null;
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -106,10 +111,20 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
 
         <div className="relative min-w-0 flex-[1_1_220px]">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-secondary-500" />
-          <input
-            className="h-10 w-full rounded-full border border-line-strong/55 bg-surface-2/70 px-3.5 pl-10 text-[13px] text-secondary-700 outline-none transition focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100/60"
-            placeholder={t('common:quickSearch')}
-          />
+          <button
+            type="button"
+            onClick={openPalette}
+            aria-label={t('common:quickSearchAria')}
+            aria-keyshortcuts="Control+K Meta+K"
+            className="flex h-10 w-full items-center rounded-full border border-line-strong/55 bg-surface-2/70 px-3.5 pl-10 text-left text-[13px] text-secondary-500 outline-none transition hover:border-primary-200 hover:bg-white focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100/60"
+          >
+            <span className="min-w-0 flex-1 truncate">{t('common:quickSearch')}</span>
+            {paletteShortcutLabel && (
+              <span className="ml-3 hidden shrink-0 rounded-md border border-line/70 bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-secondary-600 2xl:inline">
+                {paletteShortcutLabel}
+              </span>
+            )}
+          </button>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">

@@ -12,9 +12,20 @@
  *
  * @module components/feedback/__tests__/CommandPalette.test
  */
-import { fireEvent, render, screen, waitFor } from '@/test/utils';
+import { createMockProduct, fireEvent, render, screen, waitFor } from '@/test/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
+import type { ProductSearchItem } from '@/types';
 import { CommandPalette } from '../CommandPalette';
+
+const omniboxMocks = vi.hoisted(() => ({
+  productItems: [] as ProductSearchItem[],
+  lookupByBarcode: vi.fn(),
+  searchOptions: null as { enabled?: boolean } | null,
+  toastSuccess: vi.fn(),
+  toastWarning: vi.fn(),
+  toastError: vi.fn(),
+}));
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn(async () => undefined);
@@ -26,9 +37,7 @@ let mockModules = {
 let mockModulesPlaceholder = false;
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>(
-    'react-router-dom'
-  );
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
     ...actual,
     useNavigate: () => navigateMock,
@@ -55,6 +64,35 @@ vi.mock('@/features/modules', () => ({
   }),
 }));
 
+vi.mock('@/lib/trpc', () => ({
+  trpc: {
+    useUtils: () => ({
+      products: {
+        lookupByBarcode: { fetch: omniboxMocks.lookupByBarcode },
+      },
+    }),
+    products: {
+      search: {
+        useQuery: (_input: unknown, options: { enabled?: boolean }) => {
+          omniboxMocks.searchOptions = options;
+          return {
+            data: { items: omniboxMocks.productItems },
+            isFetching: false,
+          };
+        },
+      },
+    },
+  },
+}));
+
+vi.mock('@/components/feedback/ToastProvider', () => ({
+  useToast: () => ({
+    success: omniboxMocks.toastSuccess,
+    warning: omniboxMocks.toastWarning,
+    error: omniboxMocks.toastError,
+  }),
+}));
+
 beforeEach(() => {
   navigateMock.mockReset();
   logoutMock.mockClear();
@@ -64,6 +102,15 @@ beforeEach(() => {
     quotations: true,
   };
   mockModulesPlaceholder = false;
+  omniboxMocks.productItems = [];
+  omniboxMocks.lookupByBarcode.mockReset();
+  omniboxMocks.lookupByBarcode.mockResolvedValue(null);
+  omniboxMocks.searchOptions = null;
+  omniboxMocks.toastSuccess.mockReset();
+  omniboxMocks.toastWarning.mockReset();
+  omniboxMocks.toastError.mockReset();
+  useCartWorkspaceStore.getState().resetAllWorkspaces();
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -74,9 +121,7 @@ afterEach(() => {
 describe('CommandPalette (ENG-105a)', () => {
   it('renders with the search input present and the action listbox visible', async () => {
     render(<CommandPalette isOpen onClose={vi.fn()} />);
-    expect(
-      screen.getByRole('dialog', { name: /command palette/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: /command palette/i })).toBeInTheDocument();
     const input = await screen.findByTestId('command-palette-search');
     expect(input).toBeInTheDocument();
     await waitFor(() => {
@@ -97,6 +142,173 @@ describe('CommandPalette (ENG-105a)', () => {
     const input = await screen.findByTestId('command-palette-search');
     fireEvent.change(input, { target: { value: 'xyzqq' } });
     expect(screen.getByTestId('command-palette-empty')).toBeInTheDocument();
+  });
+
+  it('lists sellable products before command matches and adds one to the owned cart', async () => {
+    const rice = createMockProduct({
+      id: 'rice-1',
+      name: 'Rice Premium',
+      sku: 'RICE-001',
+      price: 3200,
+      unitAssignments: [
+        {
+          id: 'rice-unit-assignment',
+          unitId: 'unit-1',
+          unitName: 'Unit',
+          equivalence: 1,
+          price: 3200,
+          isBase: true,
+        },
+      ],
+    }) as ProductSearchItem;
+    omniboxMocks.productItems = [rice];
+    const onClose = vi.fn();
+    render(<CommandPalette isOpen onClose={onClose} />);
+    const palette = await screen.findByTestId('command-palette');
+    fireEvent.change(screen.getByTestId('command-palette-search'), {
+      target: { value: 'rice' },
+    });
+
+    const productOption = await screen.findByTestId('command-palette-item-sell.rice-1');
+    expect(productOption.getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByTestId('command-palette-products-header')).toBeInTheDocument();
+    fireEvent.keyDown(palette, { key: 'Enter' });
+
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/sales'));
+    const state = useCartWorkspaceStore.getState();
+    const active = state.activeId ? state.workspaces[state.activeId] : null;
+    expect(active?.ownerKey).toBe('tenant-1:user-1');
+    expect(active?.items[0]).toMatchObject({
+      productId: 'rice-1',
+      productSku: 'RICE-001',
+      quantity: 1,
+      unitPrice: 3200,
+    });
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(omniboxMocks.toastSuccess).toHaveBeenCalled();
+  });
+
+  it('resolves scanner-only packaging barcodes before search results arrive', async () => {
+    const product = createMockProduct({
+      id: 'coffee-1',
+      name: 'Coffee Case',
+      sku: 'COF-CASE',
+      unitAssignments: [
+        {
+          id: 'base-assignment',
+          unitId: 'unit-base',
+          unitName: 'Unit',
+          equivalence: 1,
+          price: 10,
+          isBase: true,
+        },
+        {
+          id: 'case-assignment',
+          unitId: 'unit-case',
+          unitName: 'Case',
+          equivalence: 12,
+          price: 100,
+          isBase: false,
+        },
+      ],
+    }) as ProductSearchItem;
+    omniboxMocks.lookupByBarcode.mockResolvedValue({
+      product,
+      resolvedUnitId: 'unit-case',
+      suggestedPrice: 95,
+      suggestedQuantity: 2.5,
+    });
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+    const palette = await screen.findByTestId('command-palette');
+    fireEvent.change(screen.getByTestId('command-palette-search'), {
+      target: { value: '770000123456' },
+    });
+    fireEvent.keyDown(palette, { key: 'Enter' });
+
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/sales'));
+    const state = useCartWorkspaceStore.getState();
+    const active = state.activeId ? state.workspaces[state.activeId] : null;
+    expect(active?.items[0]).toMatchObject({
+      productId: 'coffee-1',
+      unitId: 'unit-case',
+      quantity: 2.5,
+      unitPrice: 95,
+    });
+  });
+
+  it('prefers an exact scan over a stale debounced product result', async () => {
+    const staleProduct = createMockProduct({
+      id: 'stale-product',
+      name: 'Previous result',
+      sku: 'OLD-001',
+      unitAssignments: [
+        {
+          id: 'stale-assignment',
+          unitId: 'unit-stale',
+          unitName: 'Unit',
+          equivalence: 1,
+          price: 10,
+          isBase: true,
+        },
+      ],
+    }) as ProductSearchItem;
+    const exactProduct = createMockProduct({
+      id: 'exact-product',
+      name: 'Scanned product',
+      sku: 'SCAN-001',
+      unitAssignments: [
+        {
+          id: 'exact-assignment',
+          unitId: 'unit-exact',
+          unitName: 'Unit',
+          equivalence: 1,
+          price: 25,
+          isBase: true,
+        },
+      ],
+    }) as ProductSearchItem;
+    omniboxMocks.productItems = [staleProduct];
+    omniboxMocks.lookupByBarcode.mockResolvedValue({
+      product: exactProduct,
+      resolvedUnitId: null,
+      suggestedPrice: null,
+      suggestedQuantity: null,
+    });
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+    const palette = await screen.findByTestId('command-palette');
+    fireEvent.change(screen.getByTestId('command-palette-search'), {
+      target: { value: '770000987654' },
+    });
+    expect(screen.getByTestId('command-palette-item-sell.stale-product')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    fireEvent.keyDown(palette, { key: 'Enter' });
+
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/sales'));
+    const state = useCartWorkspaceStore.getState();
+    const active = state.activeId ? state.workspaces[state.activeId] : null;
+    expect(active?.items).toHaveLength(1);
+    expect(active?.items[0]).toMatchObject({
+      productId: 'exact-product',
+      unitId: 'unit-exact',
+      quantity: 1,
+      unitPrice: 25,
+    });
+  });
+
+  it('does not query or render sell options for a viewer', async () => {
+    mockUserRole = 'viewer';
+    omniboxMocks.productItems = [createMockProduct({ id: 'hidden-product' }) as ProductSearchItem];
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+    fireEvent.change(await screen.findByTestId('command-palette-search'), {
+      target: { value: 'product' },
+    });
+
+    expect(
+      screen.queryByTestId('command-palette-item-sell.hidden-product')
+    ).not.toBeInTheDocument();
+    expect(omniboxMocks.searchOptions?.enabled).toBe(false);
   });
 
   it('ArrowDown advances the aria-selected option', async () => {
@@ -123,9 +335,7 @@ describe('CommandPalette (ENG-105a)', () => {
   it('click on an item fires its perform() and closes the palette', async () => {
     const onClose = vi.fn();
     render(<CommandPalette isOpen onClose={onClose} />);
-    const dashboardItem = await screen.findByTestId(
-      'command-palette-item-navigate.dashboard'
-    );
+    const dashboardItem = await screen.findByTestId('command-palette-item-navigate.dashboard');
     fireEvent.click(dashboardItem);
     expect(navigateMock).toHaveBeenCalledWith('/dashboard');
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -148,8 +358,12 @@ describe('CommandPalette (ENG-105a)', () => {
     };
     render(<CommandPalette isOpen onClose={vi.fn()} />);
     await screen.findByTestId('command-palette-search');
-    expect(screen.queryByTestId('command-palette-item-navigate.operations')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('command-palette-item-navigate.quotations')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('command-palette-item-navigate.operations')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('command-palette-item-navigate.quotations')
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('command-palette-item-navigate.products')).toBeInTheDocument();
   });
 
@@ -163,8 +377,12 @@ describe('CommandPalette (ENG-105a)', () => {
     render(<CommandPalette isOpen onClose={vi.fn()} />);
     await screen.findByTestId('command-palette-search');
     expect(screen.queryByTestId('command-palette-item-navigate.coPilot')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('command-palette-item-navigate.operations')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('command-palette-item-navigate.quotations')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('command-palette-item-navigate.operations')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('command-palette-item-navigate.quotations')
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('command-palette-item-navigate.products')).toBeInTheDocument();
   });
 
@@ -232,18 +450,12 @@ describe('CommandPalette (ENG-105a)', () => {
       render(<CommandPalette isOpen onClose={vi.fn()} />);
       await screen.findByTestId('command-palette-search');
 
-      expect(
-        screen.getByTestId('command-palette-item-navigate.posTouch')
-      ).toBeInTheDocument();
-      expect(
-        screen.getByTestId('command-palette-item-navigate.kds')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.posTouch')).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.kds')).toBeInTheDocument();
       expect(
         screen.getByTestId('command-palette-item-navigate.customerDisplay')
       ).toBeInTheDocument();
-      expect(
-        screen.getByTestId('command-palette-item-navigate.mobileWaiter')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.mobileWaiter')).toBeInTheDocument();
       expect(
         screen.getByTestId('command-palette-item-navigate.restaurantTables')
       ).toBeInTheDocument();
@@ -255,18 +467,12 @@ describe('CommandPalette (ENG-105a)', () => {
       render(<CommandPalette isOpen onClose={vi.fn()} />);
       await screen.findByTestId('command-palette-search');
 
-      expect(
-        screen.getByTestId('command-palette-item-navigate.posTouch')
-      ).toBeInTheDocument();
-      expect(
-        screen.getByTestId('command-palette-item-navigate.kds')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.posTouch')).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.kds')).toBeInTheDocument();
       expect(
         screen.getByTestId('command-palette-item-navigate.customerDisplay')
       ).toBeInTheDocument();
-      expect(
-        screen.getByTestId('command-palette-item-navigate.mobileWaiter')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.mobileWaiter')).toBeInTheDocument();
       expect(
         screen.queryByTestId('command-palette-item-navigate.restaurantTables')
       ).not.toBeInTheDocument();
@@ -291,9 +497,7 @@ describe('CommandPalette (ENG-105a)', () => {
         screen.queryByTestId('command-palette-item-navigate.restaurantTables')
       ).not.toBeInTheDocument();
       // kds stays visible because it has its own module flag.
-      expect(
-        screen.getByTestId('command-palette-item-navigate.kds')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.kds')).toBeInTheDocument();
     });
 
     it('substring filter "touch" narrows to POS Touch only', async () => {
@@ -302,14 +506,10 @@ describe('CommandPalette (ENG-105a)', () => {
       const input = await screen.findByTestId('command-palette-search');
       fireEvent.change(input, { target: { value: 'touch' } });
 
-      expect(
-        screen.getByTestId('command-palette-item-navigate.posTouch')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.posTouch')).toBeInTheDocument();
       // KDS / Customer Display / Mobile Waiter labels do not include
       // the substring, so they fall out of the filter.
-      expect(
-        screen.queryByTestId('command-palette-item-navigate.kds')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('command-palette-item-navigate.kds')).not.toBeInTheDocument();
       expect(
         screen.queryByTestId('command-palette-item-navigate.customerDisplay')
       ).not.toBeInTheDocument();
@@ -347,16 +547,12 @@ describe('CommandPalette (ENG-105a)', () => {
       render(<CommandPalette isOpen onClose={vi.fn()} />);
       await screen.findByTestId('command-palette');
 
-      expect(
-        screen.queryByTestId('command-palette-recent-header')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('command-palette-recent-header')).not.toBeInTheDocument();
       // The catalogue-order contract from ENG-105a stays intact: the
       // first option is still the dashboard.
       const listbox = screen.getByRole('listbox');
       const firstOption = listbox.querySelector('[data-palette-item]');
-      expect(firstOption?.id).toBe(
-        'command-palette-item-navigate.dashboard'
-      );
+      expect(firstOption?.id).toBe('command-palette-item-navigate.dashboard');
     });
 
     it('surfaces used actions in a Recent section ordered by count then recency, without duplicates', async () => {
@@ -368,26 +564,22 @@ describe('CommandPalette (ENG-105a)', () => {
       render(<CommandPalette isOpen onClose={vi.fn()} />);
       await screen.findByTestId('command-palette');
 
-      expect(
-        screen.getByTestId('command-palette-recent-header')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-recent-header')).toBeInTheDocument();
       const listbox = screen.getByRole('listbox');
-      const optionIds = Array.from(
-        listbox.querySelectorAll('[data-palette-item]')
-      ).map(el => el.id);
+      const optionIds = Array.from(listbox.querySelectorAll('[data-palette-item]')).map(
+        el => el.id
+      );
       expect(optionIds.slice(0, 3)).toEqual([
         'command-palette-item-navigate.products',
         'command-palette-item-navigate.customers',
         'command-palette-item-navigate.sales',
       ]);
       // No duplicates: each used action appears exactly once.
-      expect(
-        optionIds.filter(id => id === 'command-palette-item-navigate.products')
-      ).toHaveLength(1);
+      expect(optionIds.filter(id => id === 'command-palette-item-navigate.products')).toHaveLength(
+        1
+      );
       // The divider separates the section from the catalogue.
-      expect(
-        screen.getByTestId('command-palette-catalogue-divider')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-catalogue-divider')).toBeInTheDocument();
     });
 
     it('hides the Recent section while a query is active', async () => {
@@ -397,9 +589,7 @@ describe('CommandPalette (ENG-105a)', () => {
       const input = screen.getByTestId('command-palette-search');
 
       fireEvent.change(input, { target: { value: 'prod' } });
-      expect(
-        screen.queryByTestId('command-palette-recent-header')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('command-palette-recent-header')).not.toBeInTheDocument();
     });
 
     it('caps the Recent section at five actions', async () => {
@@ -415,9 +605,9 @@ describe('CommandPalette (ENG-105a)', () => {
       await screen.findByTestId('command-palette');
 
       const listbox = screen.getByRole('listbox');
-      const optionIds = Array.from(
-        listbox.querySelectorAll('[data-palette-item]')
-      ).map(el => el.id);
+      const optionIds = Array.from(listbox.querySelectorAll('[data-palette-item]')).map(
+        el => el.id
+      );
       // The sixth most-used action ranks below the divider, in its
       // normal catalogue position — not as a sixth recent entry.
       expect(optionIds[5]).not.toBe('command-palette-item-navigate.orders');
@@ -452,9 +642,10 @@ describe('CommandPalette (ENG-105a)', () => {
       fireEvent.keyDown(container, { key: 'Enter' });
 
       expect(navigateMock).toHaveBeenCalledWith('/sales');
-      const stored = JSON.parse(
-        window.localStorage.getItem(USAGE_KEY) ?? '{}'
-      ) as Record<string, { count: number }>;
+      const stored = JSON.parse(window.localStorage.getItem(USAGE_KEY) ?? '{}') as Record<
+        string,
+        { count: number }
+      >;
       expect(stored['navigate.sales']?.count).toBe(1);
     });
   });

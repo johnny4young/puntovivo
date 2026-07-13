@@ -23,6 +23,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
 import { getShortcutById, matchesShortcut } from '@/lib/shortcuts';
 import { CommandPalette } from './CommandPalette';
 
@@ -36,6 +37,7 @@ interface CommandPaletteContextValue {
 const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(
   null
 );
+const SALES_PRODUCT_SEARCH_ID = 'sales-product-search-input';
 
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -48,12 +50,12 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
       active instanceof HTMLElement && active !== document.body ? active : null;
   }, []);
   const restorePaletteFocus = useCallback(() => {
+    if (window.location.pathname === '/sales') {
+      return document.getElementById('sales-product-search-input');
+    }
     const opener = paletteOpenerRef.current;
     if (opener?.isConnected) {
       return opener;
-    }
-    if (window.location.pathname === '/sales') {
-      return document.getElementById('sales-product-search-input');
     }
     return null;
   }, []);
@@ -86,6 +88,15 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
         setIsOpen(false);
         return;
       }
+
+      // ENG-205 — never steal focus from a field where the operator is
+      // editing text or choosing a value. The sales product search is the
+      // deliberate exception: it owns the long-standing POS Mod+K workflow
+      // and opening the broader product/action palette there is lossless.
+      // A second Mod+K in the palette input still closes it above.
+      const isSalesProductSearch =
+        event.target instanceof HTMLElement && event.target.id === SALES_PRODUCT_SEARCH_ID;
+      if (isEditableShortcutTarget(event.target) && !isSalesProductSearch) return;
 
       // Skip when another modal owns focus. Stacking the palette on
       // top of a payment/search/confirm modal creates dueling focus

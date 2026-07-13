@@ -267,15 +267,20 @@ vuelto ventaja vendible.
 - **AC**: cálculo correcto con ventas suspendidas/reanudadas; toggle en perfil
   de usuario; cero costo cuando está apagado.
 
-### WC-C5 · Omnibox de venta `[checkout]` — **M**
+### WC-C5 · Omnibox de venta `[checkout]` — **M** ✅ ENG-205
 
 - **Qué**: el CommandPalette (ya global) gana un modo venta: desde CUALQUIER
   pantalla, `Ctrl+K` + escanear/escribir un producto lo agrega al carrito
   activo y navega a /sales. "La app entera es una caja".
 - **Cómo**: extender el provider del palette con acción `sell:` que llama al
   cart workspace store (zustand, ya persiste) + `lookupByBarcode` existente.
-- **AC**: scan desde /inventory agrega al carrito y enfoca /sales; sin robar
-  foco de inputs editables (guard existente `isEditableShortcutTarget`).
+- **Shipped 2026-07-12 (ENG-205)**: el palette busca productos activos por
+  nombre, SKU o código de barras para roles de venta, preserva unidad de
+  empaque/cantidad/precio sugeridos en scans exactos y agrega al draft editable
+  del operador sin tocar carritos reanudados ni ajenos. Desde `/inventory`
+  navega a `/sales`, restaura el foco del buscador POS y mantiene `Mod+K`
+  disponible en el input POS histórico sin robarlo de otros campos editables.
+  Unit tests, `ci:web`, los 65 E2E web y smoke EN/ES con consola limpia pasan.
 
 ### WC-C6 · Semáforo de margen en el catálogo (modo dueño) `[stock][audit]` — **S**
 
@@ -561,7 +566,7 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 13  | ✅ WC-B2 packages/shared — ENG-203 shipped 2026-07-12                                                                           | M        | mantenibilidad        |
 | 14  | ✅ WC-B3 FiscalAdapter ya existía; auditoría corregida 2026-07-12                                                                | M        | fiscal                |
 | 15  | WC-D1 listas de precios (con WC-F2)                                                                                             | L        | checkout              |
-| 16  | WC-C5 omnibox de venta                                                                                                          | M        | checkout              |
+| 16  | ✅ WC-C5 omnibox de venta — ENG-205 shipped 2026-07-12                                                                           | M        | checkout              |
 | 17  | WC-D2 lealtad mínima                                                                                                            | M        | checkout              |
 | 18  | WC-B1 application/ por fases                                                                                                    | L        | mantenibilidad        |
 | 19  | ✅ WC-A2 SSE backpressure + replay — ENG-204 shipped 2026-07-12                                                                 | M        | offline               |

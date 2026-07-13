@@ -8,6 +8,7 @@ import {
   updateCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
+import { resolveBarcodeCartSelection } from '@/features/sales/salesOmnibox';
 import {
   useBarcodeWedgeListener,
   type WedgeConfig,
@@ -15,7 +16,7 @@ import {
 import { playScanError, playScanSuccess } from '@/lib/sound';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import type { ProductSearchItem, ProductSearchSelection } from '@/types';
+import type { ProductSearchItem } from '@/types';
 
 /** Functional or value update for the active cart, mirroring SalesPage's `setCartItems` wrapper. */
 type SetCartItemsArg = SaleCartItem[] | ((previous: SaleCartItem[]) => SaleCartItem[]);
@@ -99,28 +100,19 @@ export function useBarcodeProductScanner({
         // `isActive=true` filter on the server makes the cast safe here;
         // mirrors the projection ProductSearchDialog already does.
         const product = result.product as unknown as ProductSearchItem;
-        const unitAssignments = product.unitAssignments ?? [];
-        const baseUnit = unitAssignments.find(u => u.isBase) ?? unitAssignments[0];
-        if (!baseUnit) {
+        const resolved = resolveBarcodeCartSelection({
+          product,
+          resolvedUnitId: result.resolvedUnitId,
+          suggestedPrice: result.suggestedPrice,
+          suggestedQuantity: result.suggestedQuantity,
+        });
+        if (!resolved) {
           playScanError();
           toast.error({ title: t('sales:scanner.noBaseUnit') });
           return;
         }
-        // Packaging-barcode scans resolve to a specific unit (a case/pack);
-        // select it instead of the base so the cart line carries its
-        // equivalence and price. Base-barcode scans leave resolvedUnitId null.
-        const scannedUnit = result.resolvedUnitId
-          ? (unitAssignments.find(u => u.unitId === result.resolvedUnitId) ?? baseUnit)
-          : baseUnit;
-        const overridePrice =
-          typeof result.suggestedPrice === 'number' ? result.suggestedPrice : null;
-        const overrideQuantity =
-          typeof result.suggestedQuantity === 'number' ? result.suggestedQuantity : null;
-        const selection: ProductSearchSelection = {
-          product,
-          unit: scannedUnit,
-          price: overridePrice ?? scannedUnit.price ?? product.price,
-        };
+        const { selection, quantityOverride: overrideQuantity } = resolved;
+        const overridePrice = result.suggestedPrice;
         const itemKey = getCartItemKey(selection.product.id, selection.unit.unitId);
         setCartItems(currentItems => {
           const merged = mergeCartItem(currentItems, selection);

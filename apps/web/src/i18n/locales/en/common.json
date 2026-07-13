@@ -99,7 +99,8 @@
   },
   "loadingSites": "Loading sites...",
   "selectSite": "Select a site",
-  "quickSearch": "Quick search products, customers, receipts",
+  "quickSearch": "Search products and actions",
+  "quickSearchAria": "Open global search",
   "toolbar": {
     "toggleColumns": "Toggle Columns",
     "showAllColumns": "Show all columns",
