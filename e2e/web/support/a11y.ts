@@ -81,6 +81,25 @@ function renderViolations(violations: Result[]): string {
 }
 
 /**
+ * Axe reads the currently composited foreground/background colors. Wait for
+ * finite entrance transitions first so a scan never samples a translucent
+ * modal halfway through animate-pop-in. Infinite progress indicators are
+ * intentionally ignored because they do not converge to a final frame.
+ */
+async function waitForFiniteAnimations(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () =>
+      document.getAnimations().every(animation => {
+        if (animation.playState !== 'running') return true;
+        const endTime = animation.effect?.getComputedTiming().endTime;
+        return typeof endTime === 'number' && !Number.isFinite(endTime);
+      }),
+    undefined,
+    { timeout: 2_000 }
+  );
+}
+
+/**
  * Run axe-core against `page` on the WCAG 2 A + AA ruleset and throw
  * when any violation lands at or above `severityFloor` (default
  * `serious`). Returns the raw `AxeResults` so callers can do follow-up
@@ -91,6 +110,8 @@ export async function runAxeOnPage(
   options: RunAxeOptions = {}
 ): Promise<AxeResults> {
   const { include, exclude, severityFloor = 'serious', extraTags = [] } = options;
+
+  await waitForFiniteAnimations(page);
 
   let builder = new AxeBuilder({ page }).withTags([...WCAG_AA_TAGS, ...extraTags]);
   if (include) builder = builder.include(include);
