@@ -532,13 +532,17 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
   (miles de casos totales, < 5 s). La tercera suite queda ligada a WC-D1,
   porque la resolución de listas de precios todavía no existe.
 
-### WC-E2 · Contract snapshot del API surface — **S**
+### WC-E2 · Contract snapshot del API surface — **S** ✅
 
 - Test que serializa (nombre → tipo input/output resumido) de todos los
   procedures del `appRouter` y lo compara contra un snapshot commiteado.
   Un cambio de contrato se vuelve un diff de PR visible, no una sorpresa del
   cliente. Mismo espíritu que el manifest de sync (que ya lo hace bien).
 - **AC**: renombrar/borrar un procedure rompe el test con mensaje claro.
+- **Shipped 2026-07-13**: manifest JSON ordenado de todos los procedures con
+  path, kind y resumen compacto de parsers input/output; el test reporta rutas
+  agregadas, eliminadas y cambiadas, y el script `contract:snapshot` exige una
+  regeneración deliberada para aceptar el diff.
 
 ### WC-E3 · E2E Playwright de los 3 flujos de dinero en pre-release — **M**
 

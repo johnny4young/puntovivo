@@ -33,6 +33,7 @@
     "benchmark:invoice-ocr": "pnpm run native:ensure:node && tsx scripts/benchmark-invoice-ocr.ts",
     "benchmark:invoice-ocr:regen": "node scripts/generate-invoice-ocr-fixtures.mjs",
     "benchmark:payment-reconciliation": "pnpm run native:ensure:node && tsx scripts/benchmark-payment-reconciliation.ts",
+    "contract:snapshot": "pnpm run build && node ./scripts/update-trpc-contract-snapshot.mjs",
     "prebuild": "node ../../scripts/ensure-shared-build.mjs",
     "predev": "node ../../scripts/ensure-shared-build.mjs",
     "pretest": "node ../../scripts/ensure-shared-build.mjs",
