@@ -13,11 +13,15 @@
  * @module components/feedback/CommandPalette
  */
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { LoaderCircle, PackagePlus, Search } from 'lucide-react';
+import { LoaderCircle, Search } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
+import {
+  CommandPaletteResults,
+  type PaletteOption,
+} from '@/components/feedback/CommandPaletteResults';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { canAccessRole, salesRoles } from '@/features/auth/roleAccess';
@@ -36,10 +40,8 @@ import {
   type CommandActionContext,
 } from '@/lib/commandPaletteActions';
 import { loadPaletteUsage, rankRecentActions, recordPaletteActionUsage } from '@/lib/paletteUsage';
-import { formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import { cn, formatCurrency } from '@/lib/utils';
 import type { ProductSearchItem } from '@/types';
 
 export interface CommandPaletteProps {
@@ -47,10 +49,6 @@ export interface CommandPaletteProps {
   onClose: () => void;
   restoreFocusTo?: (() => HTMLElement | null) | undefined;
 }
-
-type PaletteOption =
-  | { kind: 'product'; id: string; product: ProductSearchItem }
-  | { kind: 'action'; id: string; action: CommandAction };
 
 export function CommandPalette({ isOpen, onClose, restoreFocusTo }: CommandPaletteProps) {
   const { t } = useTranslation('palette');
@@ -255,11 +253,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
           gs1Scheme: 'generic',
         });
         const exactProduct = exact?.product as unknown as ProductSearchItem | undefined;
-        if (
-          exact &&
-          exactProduct &&
-          (preferExact || !product || exactProduct.id === product.id)
-        ) {
+        if (exact && exactProduct && (preferExact || !product || exactProduct.id === product.id)) {
           resolved = resolveBarcodeCartSelection({
             product: exactProduct,
             resolvedUnitId: exact.resolvedUnitId,
@@ -397,140 +391,19 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
           className="w-full bg-transparent text-[14px] text-secondary-900 outline-none placeholder:text-secondary-500"
         />
       </div>
-      {orderedOptions.length === 0 && productSearchQuery.isFetching ? (
-        <div
-          className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-secondary-500"
-          data-testid="command-palette-loading"
-        >
-          <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-          {t('palette:products.searching')}
-        </div>
-      ) : orderedOptions.length === 0 ? (
-        <div
-          className="px-4 py-6 text-center text-sm text-secondary-500"
-          data-testid="command-palette-empty"
-        >
-          <p className="font-medium text-secondary-700">{t('palette:noResults')}</p>
-          <p className="mt-1 text-xs text-secondary-500">{t('palette:noResultsHint')}</p>
-        </div>
-      ) : (
-        <ul
-          ref={listRef}
-          id="command-palette-listbox"
-          role="listbox"
-          aria-label={t('palette:title')}
-          className="max-h-[20rem] overflow-y-auto py-1"
-        >
-          {orderedOptions.map((option, index) => {
-            const isSelected = index === selectedIndex;
-            const action = option.kind === 'action' ? option.action : null;
-            const shortcut = action?.shortcutId ? getShortcutById(action.shortcutId) : undefined;
-            const shortcutHint = shortcut ? formatKeysForDisplay(shortcut.keys) : null;
-            // ENG-105g — presentational section headers. They are
-            // NOT options: no data-palette-item (the scroll/index
-            // machinery skips them) and aria-hidden (the listbox
-            // stays a flat option list for assistive tech).
-            const productOptionCount =
-              canSell && normalizedQuery.length > 0 ? productResults.length : 0;
-            const sectionHeader =
-              productOptionCount > 0 && index === 0 ? (
-                <li
-                  aria-hidden="true"
-                  role="presentation"
-                  data-testid="command-palette-products-header"
-                  className="px-4 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-secondary-500"
-                >
-                  {t('palette:groups.products')}
-                </li>
-              ) : productOptionCount > 0 && index === productOptionCount ? (
-                <li
-                  aria-hidden="true"
-                  role="presentation"
-                  data-testid="command-palette-actions-header"
-                  className="border-t border-line/70 px-4 pb-1 pt-3 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-secondary-500"
-                >
-                  {t('palette:groups.actions')}
-                </li>
-              ) : recentActions.length > 0 && index === 0 ? (
-                <li
-                  aria-hidden="true"
-                  role="presentation"
-                  data-testid="command-palette-recent-header"
-                  className="px-4 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-secondary-500"
-                >
-                  {t('palette:groups.recent')}
-                </li>
-              ) : recentActions.length > 0 && index === recentActions.length ? (
-                <li
-                  aria-hidden="true"
-                  role="presentation"
-                  data-testid="command-palette-catalogue-divider"
-                  className="mx-4 mb-1 mt-2 border-t border-line/70"
-                />
-              ) : null;
-            return (
-              <Fragment key={option.id}>
-                {sectionHeader}
-                <li
-                  id={`command-palette-item-${option.id}`}
-                  data-palette-item
-                  data-testid={`command-palette-item-${option.id}`}
-                  role="option"
-                  aria-selected={isSelected}
-                  aria-disabled={isAddingProduct || undefined}
-                  className={cn(
-                    'flex cursor-pointer items-center gap-3 px-4 py-2.5 text-[13px] transition',
-                    isSelected
-                      ? 'bg-primary-50/80 text-primary-900'
-                      : 'text-secondary-700 hover:bg-secondary-50/60',
-                    isAddingProduct && 'pointer-events-none opacity-65'
-                  )}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  onClick={() => performOption(option)}
-                >
-                  {option.kind === 'product' && (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-700">
-                      <PackagePlus className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                  )}
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate font-medium text-secondary-950">
-                      {option.kind === 'product'
-                        ? option.product.name
-                        : resolveLabel(option.action)}
-                    </span>
-                    {option.kind === 'product' ? (
-                      <span className="truncate text-[11.5px] text-secondary-500">
-                        {t('palette:products.meta', {
-                          sku: option.product.sku,
-                          stock: option.product.stock,
-                        })}
-                      </span>
-                    ) : option.action.descriptionKey ? (
-                      <span className="truncate text-[11.5px] text-secondary-500">
-                        {resolveDescription(option.action)}
-                      </span>
-                    ) : null}
-                  </div>
-                  {option.kind === 'product' && (
-                    <span className="shrink-0 text-[12px] font-semibold text-secondary-800">
-                      {formatCurrency(option.product.baseUnitPrice ?? option.product.price)}
-                    </span>
-                  )}
-                  {shortcutHint && action && (
-                    <span
-                      className="rounded-md border border-line/70 bg-surface-2/80 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-secondary-600"
-                      data-testid={`command-palette-shortcut-${action.id}`}
-                    >
-                      {shortcutHint}
-                    </span>
-                  )}
-                </li>
-              </Fragment>
-            );
-          })}
-        </ul>
-      )}
+      <CommandPaletteResults
+        options={orderedOptions}
+        selectedIndex={selectedIndex}
+        isAddingProduct={isAddingProduct}
+        isFetching={productSearchQuery.isFetching}
+        productOptionCount={canSell && normalizedQuery.length > 0 ? productResults.length : 0}
+        recentActionCount={recentActions.length}
+        listRef={listRef}
+        resolveLabel={resolveLabel}
+        resolveDescription={resolveDescription}
+        onSelectIndex={setSelectedIndex}
+        onPerformOption={performOption}
+      />
     </div>
   );
 }
