@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Printer, RotateCw } from 'lucide-react';
 import { Modal, ModalButton, ConfirmModal } from '@/components/form-controls/Modal';
 import { RefundConfirmOverlay } from './RefundConfirmOverlay';
+import { SaleReprintModal, type ReprintReason } from './SaleReprintModal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { SaleDetailsContent } from '@/features/sales/SaleDetailsContent';
@@ -19,18 +20,6 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
-
-type ReprintReason =
-  | 'paper_out'
-  | 'customer_request'
-  | 'prior_print_error'
-  | 'other';
-const REPRINT_REASONS: ReprintReason[] = [
-  'paper_out',
-  'customer_request',
-  'prior_print_error',
-  'other',
-];
 
 interface SaleDetailsModalProps {
   saleId: string | null;
@@ -141,9 +130,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         toast.success({ title: t('sales:reprint.toastSuccessTitle') });
       } catch (error) {
         const message =
-          error instanceof Error
-            ? error.message
-            : t('sales:details.toast.printErrorFallback');
+          error instanceof Error ? error.message : t('sales:details.toast.printErrorFallback');
         setPrintError(message);
         toast.error({
           title: t('sales:reprint.toastErrorTitle'),
@@ -401,90 +388,23 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         )}
       </Modal>
 
-      <Modal
+      <SaleReprintModal
         isOpen={isReprintModalOpen}
         onClose={() => {
           if (reprintMutation.isPending) return;
           setIsReprintModalOpen(false);
         }}
-        title={t('sales:reprint.title')}
-        size="sm"
-        footer={
-          <>
-            <ModalButton
-              onClick={() => {
-                if (reprintMutation.isPending) return;
-                setIsReprintModalOpen(false);
-              }}
-              disabled={reprintMutation.isPending}
-            >
-              {t('sales:reprint.cancel')}
-            </ModalButton>
-            <ModalButton
-              variant="primary"
-              onClick={() => {
-                void handleReprintConfirm();
-              }}
-              disabled={reprintMutation.isPending}
-            >
-              {reprintMutation.isPending || isPrinting
-                ? t('sales:reprint.printing')
-                : t('sales:reprint.confirm')}
-            </ModalButton>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <p className="text-sm text-secondary-600">
-            {t('sales:reprint.description')}
-          </p>
-          <label className="block text-sm">
-            <span className="font-medium text-secondary-800">
-              {t('sales:reprint.reasonLabel')}
-            </span>
-            <select
-              className="mt-1 block w-full rounded-md border border-secondary-300 bg-white px-2 py-1 text-sm"
-              value={reprintReason}
-              onChange={event => {
-                const next = event.target.value as ReprintReason | '';
-                setReprintReason(next);
-                if (next !== 'other') {
-                  setReprintReasonDetail('');
-                }
-              }}
-              disabled={reprintMutation.isPending}
-            >
-              <option value="">—</option>
-              {REPRINT_REASONS.map(reason => (
-                <option key={reason} value={reason}>
-                  {t(`sales:reprint.reasonOptions.${reason}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          {reprintReason === 'other' && (
-            <label className="block text-sm">
-              <span className="font-medium text-secondary-800">
-                {t('sales:reprint.reasonDetailLabel')}
-              </span>
-              <textarea
-                className="mt-1 block w-full rounded-md border border-secondary-300 bg-white px-2 py-1 text-sm"
-                rows={2}
-                maxLength={240}
-                value={reprintReasonDetail}
-                onChange={event => setReprintReasonDetail(event.target.value)}
-                placeholder={t('sales:reprint.reasonDetailPlaceholder')}
-                disabled={reprintMutation.isPending}
-              />
-            </label>
-          )}
-          {reprintError && (
-            <p className="text-sm text-danger-600" role="alert">
-              {reprintError}
-            </p>
-          )}
-        </div>
-      </Modal>
+        onConfirm={() => {
+          void handleReprintConfirm();
+        }}
+        isPending={reprintMutation.isPending}
+        isPrinting={isPrinting}
+        reason={reprintReason}
+        reasonDetail={reprintReasonDetail}
+        error={reprintError}
+        onReasonChange={setReprintReason}
+        onReasonDetailChange={setReprintReasonDetail}
+      />
 
       <RefundConfirmOverlay
         isOpen={isReturnConfirmOpen}
