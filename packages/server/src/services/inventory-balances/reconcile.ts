@@ -9,6 +9,9 @@ import type { DatabaseInstance } from '../../db/index.js';
  * There is no cache to recompute, so this is a no-op that always reports zero
  * products updated. Retained (rather than deleted) because the
  * `inventory.reconcileBalances` router procedure and its tests still call it.
+ *
+ * @deprecated Compatibility-only no-op. Remove after 2026-10-01 with the
+ * two deprecated tRPC procedures that expose it.
  */
 export function reconcileProductStockFromBalances(
   _db: DatabaseInstance,

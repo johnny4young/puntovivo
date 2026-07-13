@@ -12,7 +12,6 @@
     "device": "Dispositivos",
     "cash": "Caja",
     "payments": "Pagos",
-    "inventory": "Inventario",
     "diagnostics": "Diagnóstico",
     "authority": "Autoridad"
   },
@@ -356,36 +355,6 @@
       }
     },
     "kicker": "Pagos"
-  },
-  "inventory": {
-    "title": "Salud de inventario",
-    "description": "Productos donde el stock cacheado no coincide con la suma de balances por sede. Usa Reconciliar para sanar la deriva.",
-    "summary": {
-      "productsScanned": "Productos analizados",
-      "discrepancyCount": "Con discrepancia"
-    },
-    "emptyState": "El inventario está consistente. Stock cacheado coincide con la suma por sede.",
-    "columns": {
-      "product": "Producto",
-      "sku": "SKU",
-      "cachedStock": "Stock cacheado",
-      "sumOfBalances": "Suma por sede",
-      "delta": "Delta",
-      "siteCount": "Sedes"
-    },
-    "reconcile": {
-      "cta": "Reconciliar balances",
-      "success": "Se reconciliaron {{count}} productos",
-      "error": "La reconciliación falló",
-      "noPermission": "Solo el administrador puede reconciliar el stock cacheado."
-    },
-    "kicker": "Inventario",
-    "emptyTitle": "Inventario consistente",
-    "severity": {
-      "ok": "Correcto",
-      "attention": "Atención",
-      "fault": "Falla"
-    }
   },
   "authority": {
     "hub": {

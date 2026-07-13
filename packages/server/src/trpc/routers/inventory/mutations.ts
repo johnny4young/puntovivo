@@ -43,6 +43,9 @@ export const inventoryMutationProcedures = {
   /**
    * Compatibility no-op: inventory_balances is already the stock source of
    * truth, so there is no denormalized product cache to reconcile.
+   *
+   * @deprecated The Operations client no longer calls this mutation. Remove
+   * after 2026-10-01 together with reports.inventory.discrepancies.
    */
   reconcileBalances: adminProcedure.mutation(async ({ ctx }) => {
     const result = reconcileProductStockFromBalances(ctx.db, ctx.tenantId);

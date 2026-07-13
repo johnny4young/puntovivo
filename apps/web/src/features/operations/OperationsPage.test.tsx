@@ -2,10 +2,10 @@
  * ENG-065a / ENG-065b / ENG-065c — Tests for OperationsPage tab shell.
  *
  * Asserts:
- *   - All 9 tabs render in the role list visible to manager + admin.
+ *   - All 8 live tabs render in the role list visible to manager + admin.
  *   - Default tab is `attention` (ENG-187 — the Needs-attention queue).
  *   - `?tab=sync`, `?tab=fiscal`, `?tab=device`, `?tab=cash`,
- *     `?tab=payments`, `?tab=inventory`, `?tab=diagnostics`,
+ *     `?tab=payments`, `?tab=diagnostics`,
  *     `?tab=authority` deep links land on the right panel.
  *   - Garbage tab values fall back to the default.
  *   - Clicking a tab updates URL + aria-selected.
@@ -23,7 +23,6 @@ vi.mock('@/lib/trpc', () => ({
     useUtils: () => ({
       reports: {
         fiscal: { list: { invalidate: vi.fn() } },
-        inventory: { discrepancies: { invalidate: vi.fn() } },
       },
       peripherals: { peekHardwareOutbox: { invalidate: vi.fn() } },
       authority: { status: { invalidate: vi.fn() } },
@@ -60,18 +59,6 @@ vi.mock('@/lib/trpc', () => ({
               },
               bySite: [],
               recentDiscrepancies: [],
-            },
-            isLoading: false,
-            error: null,
-          }),
-        },
-      },
-      inventory: {
-        discrepancies: {
-          useQuery: () => ({
-            data: {
-              summary: { productsScanned: 0, discrepancyCount: 0, deltaEpsilon: 0.001 },
-              rows: [],
             },
             isLoading: false,
             error: null,
@@ -186,11 +173,6 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: () => ({ isPending: false, mutate: vi.fn() }),
       },
     },
-    inventory: {
-      reconcileBalances: {
-        useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }),
-      },
-    },
     operations: {
       needsAttention: {
         useQuery: () => ({
@@ -229,7 +211,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 describe('OperationsPage', () => {
-  it('renders the nine tabs in order', () => {
+  it('renders the eight live tabs in order', () => {
     render(<OperationsPage />);
     expect(screen.getByTestId('operations-tab-attention')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-sync')).toBeInTheDocument();
@@ -237,7 +219,6 @@ describe('OperationsPage', () => {
     expect(screen.getByTestId('operations-tab-device')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-cash')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-payments')).toBeInTheDocument();
-    expect(screen.getByTestId('operations-tab-inventory')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-diagnostics')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-authority')).toBeInTheDocument();
   });
@@ -276,10 +257,13 @@ describe('OperationsPage', () => {
     expect(screen.getByTestId('operations-tabpanel-payments')).toBeInTheDocument();
   });
 
-  it('lands on the inventory panel via ?tab=inventory deep link', () => {
+  it('falls back to attention for the retired ?tab=inventory deep link', () => {
     render(<OperationsPage />, { initialEntries: ['/operations?tab=inventory'] });
-    expect(screen.getByTestId('operations-tab-inventory')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('operations-tabpanel-inventory')).toBeInTheDocument();
+    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.queryByTestId('operations-tab-inventory')).not.toBeInTheDocument();
   });
 
   it('lands on the diagnostics panel via ?tab=diagnostics deep link', () => {

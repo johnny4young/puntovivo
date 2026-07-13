@@ -9,7 +9,6 @@ import { FiscalHealthPanel } from './FiscalHealthPanel';
 import { DeviceHealthPanel } from './DeviceHealthPanel';
 import { CashHealthPanel } from './CashHealthPanel';
 import { PaymentHealthPanel } from './PaymentHealthPanel';
-import { InventoryHealthPanel } from './InventoryHealthPanel';
 import { DiagnosticExportPanel } from './DiagnosticExportPanel';
 import { AuthorityHealthPanel } from './AuthorityHealthPanel';
 
@@ -18,8 +17,9 @@ import { AuthorityHealthPanel } from './AuthorityHealthPanel';
  *
  * Tabbed admin/manager surface that surfaces the three already-shipped
  * outboxes (sync, fiscal, hardware) plus the two reconciliation views
- * shipped in ENG-065b (cash + inventory) and the diagnostic export
- * shipped in ENG-065c, the authority-node panel (ENG-075) and the
+ * shipped in ENG-065b (cash; the obsolete inventory cache panel was retired
+ * after inventory_balances became the single stock source), the diagnostic
+ * export shipped in ENG-065c, the authority-node panel (ENG-075), and the
  * payment reconciliation foundation (ENG-038).
  *
  * ENG-187 — the default landing is the "Needs attention" queue (an
@@ -28,7 +28,7 @@ import { AuthorityHealthPanel } from './AuthorityHealthPanel';
  * the flat Sync tab. Each queue row deep-links to the resolving panel.
  *
  * Tab state is URL-driven
- * (`?tab=attention|sync|fiscal|device|cash|payments|inventory|diagnostics|authority`)
+ * (`?tab=attention|sync|fiscal|device|cash|payments|diagnostics|authority`)
  * so deep links from elsewhere in the app (e.g. an alert banner
  * pointing at a specific failure surface) land directly on the right
  * panel without manual navigation. `replace: true` keeps the back
@@ -41,7 +41,6 @@ const TAB_KEYS = [
   'device',
   'cash',
   'payments',
-  'inventory',
   'diagnostics',
   'authority',
 ] as const;
@@ -75,7 +74,6 @@ export function OperationsPage() {
       device: t('tabs.device'),
       cash: t('tabs.cash'),
       payments: t('tabs.payments'),
-      inventory: t('tabs.inventory'),
       diagnostics: t('tabs.diagnostics'),
       authority: t('tabs.authority'),
     }),
@@ -134,7 +132,6 @@ export function OperationsPage() {
         {activeTab === 'device' && <DeviceHealthPanel />}
         {activeTab === 'cash' && <CashHealthPanel />}
         {activeTab === 'payments' && <PaymentHealthPanel />}
-        {activeTab === 'inventory' && <InventoryHealthPanel />}
         {activeTab === 'diagnostics' && <DiagnosticExportPanel />}
         {activeTab === 'authority' && <AuthorityHealthPanel />}
       </div>

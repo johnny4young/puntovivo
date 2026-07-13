@@ -12,7 +12,6 @@
     "device": "Devices",
     "cash": "Cash",
     "payments": "Payments",
-    "inventory": "Inventory",
     "diagnostics": "Diagnostics",
     "authority": "Authority"
   },
@@ -356,36 +355,6 @@
       }
     },
     "kicker": "Payments"
-  },
-  "inventory": {
-    "title": "Inventory Health",
-    "description": "Products where the cached stock no longer matches the sum of per-site balances. Click Reconcile to heal the drift.",
-    "summary": {
-      "productsScanned": "Products scanned",
-      "discrepancyCount": "With drift"
-    },
-    "emptyState": "Inventory is consistent. Cached stock matches the per-site sum.",
-    "columns": {
-      "product": "Product",
-      "sku": "SKU",
-      "cachedStock": "Cached stock",
-      "sumOfBalances": "Sum per site",
-      "delta": "Delta",
-      "siteCount": "Sites"
-    },
-    "reconcile": {
-      "cta": "Reconcile balances",
-      "success": "Reconciled {{count}} products",
-      "error": "Reconciliation failed",
-      "noPermission": "Only admins can reconcile cached stock."
-    },
-    "kicker": "Inventory",
-    "emptyTitle": "Inventory is consistent",
-    "severity": {
-      "ok": "OK",
-      "attention": "Attention",
-      "fault": "Fault"
-    }
   },
   "authority": {
     "hub": {

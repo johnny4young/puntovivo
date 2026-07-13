@@ -12,8 +12,8 @@
  * truth and the tenant-wide total is derived from it on read, so there is
  * nothing left to drift against. `listInventoryDiscrepancyCandidates`
  * therefore always returns an empty set and this endpoint always reports
- * zero discrepancies. The procedure is retained (not deleted) because a
- * web client and tests still call it.
+ * zero discrepancies. The procedure is retained for one compatibility
+ * window after the web surface was removed in WC-B5.
  *
  * Read-only — manager + admin gated. The (now no-op) reconcile mutation the
  * panel button fires is `inventory.reconcileBalances`.
@@ -38,6 +38,9 @@ const INVENTORY_DELTA_EPSILON = 0.001;
 export const inventoryReportsRouter = router({
   /**
    * Tenant-wide cache-vs-cache discrepancy scan.
+   *
+   * @deprecated Compatibility-only no-op. The Operations client no longer
+   * calls this procedure; remove after 2026-10-01.
    *
    * Returns:
    *   - `summary.productsScanned` — total products considered.

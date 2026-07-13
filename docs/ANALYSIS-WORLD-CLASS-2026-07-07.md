@@ -213,7 +213,7 @@ vuelto ventaja vendible.
 - **AC**: suite main-process (111) verde + smoke E2E Electron verde; conteo de
   canales IPC idéntico (ya hay test que lo pinnea).
 
-### WC-B5 · Registrar y podar superficies no-op `[simplicidad]` — **S**
+### WC-B5 · Registrar y podar superficies no-op `[simplicidad]` — **S** ✅
 
 - `reports.inventory.discrepancies` + `reconcileProductStockFromBalances` son
   no-op estructurales post-unificación (el propio doc-comment lo dice). Plan:
@@ -221,6 +221,9 @@ vuelto ventaja vendible.
   endpoint 1 release más, borrar después.
 - **AC**: Operations Center sin panel muerto; endpoints marcados
   `@deprecated`; BACKLOG apunta la fecha de borrado.
+- **Shipped 2026-07-13**: retirados el tab y panel de reconciliación de
+  inventario de Operations; el deep link legado vuelve a Necesita atención.
+  Los dos procedures y el helper no-op quedan `@deprecated` hasta 2026-10-01.
 
 ---
 
