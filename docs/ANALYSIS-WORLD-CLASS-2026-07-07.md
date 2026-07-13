@@ -155,7 +155,7 @@ vuelto ventaja vendible.
 
 ## 4. TRACK B — Arquitectura y mantenibilidad
 
-### WC-B1 · Completar la capa application/ en los dominios calientes `[audit]` — **L (por fases)**
+### WC-B1 · Completar la capa application/ en los dominios calientes `[audit]` — **L (por fases)** ✅ ENG-206/207/208
 
 - **Realidad medida**: application/ existe solo para sales (17), cash-sessions
   (7) y purchases (10); 17 de 38 routers consultan Drizzle inline.
@@ -174,6 +174,10 @@ vuelto ventaja vendible.
   quedaron como primitivas en `services/products/`. El adapter tRPC conserva
   los contratos de rol/input y soft delete en 62 LOC, sin editar los tests
   existentes.
+- **Fase 3 shipped 2026-07-13 (ENG-208)**: pagos y ajustes manuales del ledger
+  de clientes viven en `application/customers/`; balance y listado permanecen
+  como queries en el router. El adapter conserva los contratos tenant, signo y
+  rol en 81 LOC, sin editar los tests existentes.
 
 ### WC-B2 · `packages/shared` para dinero y unidades `[fiscal][caja]` — **M** ✅ ENG-203
 
@@ -577,7 +581,7 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 15  | WC-D1 listas de precios (con WC-F2)                                                                                             | L        | checkout              |
 | 16  | ✅ WC-C5 omnibox de venta — ENG-205 shipped 2026-07-12                                                                           | M        | checkout              |
 | 17  | WC-D2 lealtad mínima                                                                                                            | M        | checkout              |
-| 18  | WC-B1 application/ por fases                                                                                                    | L        | mantenibilidad        |
+| 18  | ✅ WC-B1 application/ por fases — ENG-206/207/208 shipped 2026-07-13                                                             | L        | mantenibilidad        |
 | 19  | ✅ WC-A2 SSE backpressure + replay — ENG-204 shipped 2026-07-12                                                                 | M        | offline               |
 | 20  | WC-D3/WC-D4 bins + seriales                                                                                                     | M        | stock (product-gated) |
 

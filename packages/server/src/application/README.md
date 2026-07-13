@@ -88,3 +88,6 @@ codes) but no longer carry the orchestration coverage.
 - ENG-207 promoted product create/update orchestration into `products/`;
   catalog assignment and hydration primitives live in `services/products/`,
   while the tRPC write adapter retains only role/input guards and soft delete.
+- ENG-208 promoted manual customer-ledger payments and adjustments into
+  `customers/`; balance and entry queries remain in the tRPC router, which
+  retains the manager/admin and admin-only write guards.
