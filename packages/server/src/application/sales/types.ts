@@ -25,10 +25,7 @@ import type { PuntovivoLogger } from '../../logging/logger.js';
  * Keeping the boundary structural avoids friction at callsites that
  * pass `ctx.req.server.log` (typed as `FastifyBaseLogger`).
  */
-export type CompleteSaleLogger = Pick<
-  PuntovivoLogger,
-  'warn' | 'info' | 'debug' | 'error'
->;
+export type CompleteSaleLogger = Pick<PuntovivoLogger, 'warn' | 'info' | 'debug' | 'error'>;
 
 export type SalePaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
 export type SalePaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
@@ -144,7 +141,7 @@ export interface CompleteSaleContext {
    * up the change on the next `kds.list` refetch.
    */
   sse?: {
-    broadcast(eventName: string, data: unknown, tenantId?: string): void;
+    broadcast(eventName: string, data: unknown, tenantId: string): void;
   } | null;
 }
 

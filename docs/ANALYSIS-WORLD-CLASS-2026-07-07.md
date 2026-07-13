@@ -116,7 +116,7 @@ vuelto ventaja vendible.
   rollup≡Σ verificada; `ci:server` verde; p95 de `products.list` bajo el
   presupuesto existente (60 ms) con margen.
 
-### WC-A2 · SSE con backpressure y replay `[offline]` — **M**
+### WC-A2 · SSE con backpressure y replay `[offline]` — **M** ✅ ENG-204
 
 - **Problema**: `api/realtime` no tiene backpressure ni buffer — un cliente
   lento retiene memoria; un reconnect pierde eventos.
@@ -124,8 +124,13 @@ vuelto ventaja vendible.
   honrar `Last-Event-ID` en reconnect (replay del gap); si un cliente acumula
   > N eventos sin drenar, cerrar su conexión (el cliente ya sabe re-suscribir).
 - **Archivos**: `packages/server/src/services/realtime/` (SseManager).
-- **AC**: test de reconnect-con-gap recibe los eventos perdidos; test de
-  cliente lento se desconecta sin OOM; sin cambios de API para el web.
+- **Shipped 2026-07-12 (ENG-204)**: `SseManager` conserva 500 eventos por
+  tenant con cursor monotónico, honra `Last-Event-ID` y emite
+  `realtime.replay_gap` cuando el cursor es inválido, fue desalojado o quedó
+  por delante tras un restart. Cada socket tiene una cola de 256 KiB: los
+  writes esperan `drain` en orden y un consumidor que excede el límite se
+  desconecta para recuperar por replay. El hook web conserva el cursor también
+  en sus reaperturas explícitas y trata gaps como invalidaciones del read model.
 
 ### WC-A3 · Sales route: Lighthouse 58 → 75 `[checkout]` — **S/M**
 
@@ -559,7 +564,7 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 16  | WC-C5 omnibox de venta                                                                                                          | M        | checkout              |
 | 17  | WC-D2 lealtad mínima                                                                                                            | M        | checkout              |
 | 18  | WC-B1 application/ por fases                                                                                                    | L        | mantenibilidad        |
-| 19  | WC-A2 SSE backpressure                                                                                                          | M        | offline               |
+| 19  | ✅ WC-A2 SSE backpressure + replay — ENG-204 shipped 2026-07-12                                                                 | M        | offline               |
 | 20  | WC-D3/WC-D4 bins + seriales                                                                                                     | M        | stock (product-gated) |
 
 **Flujo**: cada item que se ejecute se promueve a `ROADMAP.md §3b` como

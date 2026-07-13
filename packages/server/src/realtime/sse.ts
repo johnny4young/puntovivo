@@ -8,10 +8,12 @@
  * - Client subscription management
  * - Collection-filtered subscriptions
  * - Broadcast events to all clients or filtered by collection
+ * - Per-tenant replay buffers for reconnecting clients
+ * - Bounded queues for slow-consumer backpressure
  *
  * Usage:
  * - Clients subscribe via GET /api/realtime/subscribe?collections=products,sales
- * - Server broadcasts via app.sse.broadcast('products.create', data)
+ * - Server broadcasts via app.sse.broadcast('products.create', data, tenantId)
  *
  * @module realtime/sse
  */
@@ -27,6 +29,9 @@ import {
 } from '../security/authTokens.js';
 
 const sseLog = createModuleLogger('sse');
+export const SSE_REPLAY_LIMIT = 500;
+export const SSE_CLIENT_QUEUE_LIMIT_BYTES = 256 * 1024;
+export const SSE_REPLAY_GAP_EVENT = 'realtime.replay_gap';
 
 /**
  * SSE Client connection
@@ -53,18 +58,45 @@ interface SsePluginOptions {
   corsOrigins?: string[];
 }
 
+interface BufferedSseEvent {
+  id: string;
+  collection: string;
+  message: string;
+}
+
+interface SseClientState {
+  client: SseClient;
+  pendingMessages: string[];
+  pendingBytes: number;
+  waitingForDrain: boolean;
+  drainListener: (() => void) | null;
+}
+
+export interface SseReplayResult {
+  replayed: number;
+  gap: boolean;
+  reason?: 'cursor-invalid' | 'cursor-ahead' | 'history-evicted' | 'history-unavailable';
+}
+
 /**
  * SSE Manager - Handles client connections and broadcasts
  */
 export class SseManager {
-  private clients: Map<string, SseClient> = new Map();
-  private eventId = 0;
+  private clients: Map<string, SseClientState> = new Map();
+  private eventIdsByTenant: Map<string, number> = new Map();
+  private replayByTenant: Map<string, BufferedSseEvent[]> = new Map();
 
   /**
    * Add a new client connection
    */
   addClient(client: SseClient): void {
-    this.clients.set(client.id, client);
+    this.clients.set(client.id, {
+      client,
+      pendingMessages: [],
+      pendingBytes: 0,
+      waitingForDrain: false,
+      drainListener: null,
+    });
     sseLog.debug({ clientId: client.id, totalClients: this.clients.size }, 'client connected');
   }
 
@@ -72,6 +104,10 @@ export class SseManager {
    * Remove a client connection
    */
   removeClient(clientId: string): void {
+    const state = this.clients.get(clientId);
+    if (state?.drainListener && typeof state.client.reply.raw.off === 'function') {
+      state.client.reply.raw.off('drain', state.drainListener);
+    }
     this.clients.delete(clientId);
     sseLog.debug({ clientId, totalClients: this.clients.size }, 'client disconnected');
   }
@@ -80,7 +116,7 @@ export class SseManager {
    * Get all connected clients
    */
   getClients(): SseClient[] {
-    return Array.from(this.clients.values());
+    return Array.from(this.clients.values(), state => state.client);
   }
 
   /**
@@ -95,27 +131,33 @@ export class SseManager {
    *
    * @param eventName - Event name (e.g., 'products.create', 'sales.update')
    * @param data - Event data to send
-   * @param tenantId - Optional tenant ID to filter recipients
+   * @param tenantId - Tenant ID that owns the event and its replay history
    */
-  broadcast(eventName: string, data: unknown, tenantId?: string): void {
+  broadcast(eventName: string, data: unknown, tenantId: string): void {
     // String.prototype.split always returns a non-empty array (even an
     // empty input yields ['']), so the first element is guaranteed to
     // be a string. The `?? eventName` is a no-op defensive fallback that
     // satisfies `noUncheckedIndexedAccess` without an assertion.
     const collection = eventName.split('.')[0] ?? eventName;
-    const eventId = ++this.eventId;
-
-    const message = formatSseMessage({
+    const eventId = (this.eventIdsByTenant.get(tenantId) ?? 0) + 1;
+    this.eventIdsByTenant.set(tenantId, eventId);
+    const event: SseEvent = {
       event: eventName,
       data,
       id: String(eventId),
+    };
+    const message = formatSseMessage(event);
+    this.appendReplayEvent(tenantId, {
+      id: event.id ?? String(eventId),
+      collection,
+      message,
     });
 
     let sentCount = 0;
 
-    for (const client of this.clients.values()) {
-      // Tenant-scoped events must never fan out to anonymous clients.
-      if (tenantId && client.tenantId !== tenantId) {
+    for (const state of this.clients.values()) {
+      const { client } = state;
+      if (client.tenantId !== tenantId) {
         continue;
       }
 
@@ -128,12 +170,8 @@ export class SseManager {
         continue;
       }
 
-      try {
-        client.reply.raw.write(message);
+      if (this.writeToClient(state, message)) {
         sentCount++;
-      } catch {
-        // Client probably disconnected
-        this.removeClient(client.id);
       }
     }
 
@@ -146,18 +184,150 @@ export class SseManager {
    * Send an event to a specific client
    */
   sendTo(clientId: string, event: SseEvent): boolean {
-    const client = this.clients.get(clientId);
-    if (!client) return false;
+    const state = this.clients.get(clientId);
+    return state ? this.writeToClient(state, formatSseMessage(event)) : false;
+  }
+
+  /** Replay buffered tenant events newer than the reconnect cursor. */
+  replayTo(clientId: string, lastEventId: string | null): SseReplayResult {
+    const state = this.clients.get(clientId);
+    if (!state || !lastEventId) return { replayed: 0, gap: false };
+
+    const cursor = parseEventId(lastEventId);
+    const history = state.client.tenantId
+      ? (this.replayByTenant.get(state.client.tenantId) ?? [])
+      : [];
+    const gapReason = this.resolveReplayGap(cursor, history);
+    if (gapReason) {
+      const oldestAvailableId = history[0]?.id ?? null;
+      const latestAvailableId = history.at(-1)?.id ?? null;
+      this.sendTo(clientId, {
+        event: SSE_REPLAY_GAP_EVENT,
+        data: {
+          reason: gapReason,
+          requestedId: lastEventId,
+          oldestAvailableId,
+          latestAvailableId,
+        },
+      });
+    }
+
+    if (cursor === null) {
+      return { replayed: 0, gap: true, reason: 'cursor-invalid' };
+    }
+
+    let replayed = 0;
+    for (const event of history) {
+      if (Number(event.id) <= cursor || !this.clientAccepts(state.client, event.collection)) {
+        continue;
+      }
+      if (!this.writeToClient(state, event.message)) break;
+      replayed += 1;
+    }
+
+    return gapReason ? { replayed, gap: true, reason: gapReason } : { replayed, gap: false };
+  }
+
+  private appendReplayEvent(tenantId: string, event: BufferedSseEvent): void {
+    const history = this.replayByTenant.get(tenantId) ?? [];
+    history.push(event);
+    if (history.length > SSE_REPLAY_LIMIT) {
+      history.splice(0, history.length - SSE_REPLAY_LIMIT);
+    }
+    this.replayByTenant.set(tenantId, history);
+  }
+
+  private resolveReplayGap(
+    cursor: number | null,
+    history: readonly BufferedSseEvent[]
+  ): SseReplayResult['reason'] | undefined {
+    if (cursor === null) return 'cursor-invalid';
+    if (history.length === 0) return cursor > 0 ? 'history-unavailable' : undefined;
+
+    const oldest = Number(history[0]?.id);
+    const latest = Number(history.at(-1)?.id);
+    if (cursor > latest) return 'cursor-ahead';
+    if (cursor < oldest - 1) return 'history-evicted';
+    return undefined;
+  }
+
+  private clientAccepts(client: SseClient, collection: string): boolean {
+    return (
+      client.collections.length === 0 ||
+      client.collections.includes(collection) ||
+      client.collections.includes('*')
+    );
+  }
+
+  private writeToClient(state: SseClientState, message: string): boolean {
+    if (!this.clients.has(state.client.id)) return false;
+    if (state.waitingForDrain) return this.queueMessage(state, message);
 
     try {
-      const message = formatSseMessage(event);
-      client.reply.raw.write(message);
+      const writable = state.client.reply.raw.write(message);
+      if (!writable) this.waitForDrain(state);
       return true;
     } catch {
-      this.removeClient(clientId);
+      this.removeClient(state.client.id);
       return false;
     }
   }
+
+  private queueMessage(state: SseClientState, message: string): boolean {
+    const messageBytes = Buffer.byteLength(message);
+    if (state.pendingBytes + messageBytes > SSE_CLIENT_QUEUE_LIMIT_BYTES) {
+      sseLog.warn(
+        { clientId: state.client.id, pendingBytes: state.pendingBytes },
+        'disconnecting slow SSE client'
+      );
+      try {
+        state.client.reply.raw.end();
+      } catch {
+        // The connection may already be gone; removal is still required.
+      }
+      this.removeClient(state.client.id);
+      return false;
+    }
+
+    state.pendingMessages.push(message);
+    state.pendingBytes += messageBytes;
+    return true;
+  }
+
+  private waitForDrain(state: SseClientState): void {
+    if (state.waitingForDrain) return;
+    state.waitingForDrain = true;
+    const listener = () => {
+      state.drainListener = null;
+      if (this.clients.get(state.client.id) !== state) return;
+      state.waitingForDrain = false;
+      this.flushPending(state);
+    };
+    state.drainListener = listener;
+    state.client.reply.raw.once('drain', listener);
+  }
+
+  private flushPending(state: SseClientState): void {
+    while (!state.waitingForDrain && state.pendingMessages.length > 0) {
+      const message = state.pendingMessages.shift();
+      if (!message) continue;
+      state.pendingBytes -= Buffer.byteLength(message);
+      if (!this.writeToClient(state, message)) return;
+    }
+  }
+}
+
+function parseEventId(value: string): number | null {
+  if (!/^\d+$/.test(value.trim())) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+export function resolveLastEventId(
+  header: string | string[] | undefined,
+  queryFallback: string | undefined
+): string | null {
+  return (Array.isArray(header) ? header[0] : header)?.trim() || queryFallback?.trim() || null;
 }
 
 /**
@@ -233,13 +403,14 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
 
   // SSE subscribe endpoint
   fastify.get<{
-    Querystring: { collections?: string };
+    Querystring: { collections?: string; lastEventId?: string };
   }>('/api/realtime/subscribe', {
     schema: {
       querystring: {
         type: 'object',
         properties: {
           collections: { type: 'string' },
+          lastEventId: { type: 'string' },
         },
       },
     },
@@ -265,18 +436,8 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
         ...corsHeaders,
       });
 
-      // Send initial connection message
-      const connectMessage = formatSseMessage({
-        event: 'connected',
-        data: {
-          clientId,
-          collections,
-          timestamp: new Date().toISOString(),
-        },
-      });
-      reply.raw.write(connectMessage);
-
-      // Add client to manager
+      // Add the client before writes so connected/replay traffic shares the
+      // same backpressure path as ordinary broadcasts.
       const client: SseClient = {
         id: clientId,
         reply,
@@ -285,6 +446,20 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
         connectedAt: new Date(),
       };
       manager.addClient(client);
+
+      manager.sendTo(clientId, {
+        event: 'connected',
+        data: {
+          clientId,
+          collections,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      const lastEventId = resolveLastEventId(
+        request.headers['last-event-id'],
+        request.query.lastEventId
+      );
+      manager.replayTo(clientId, lastEventId);
 
       let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
       let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
@@ -303,13 +478,12 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
 
       // Send heartbeat every 30 seconds to keep connection alive
       heartbeatInterval = setInterval(() => {
-        try {
-          const heartbeat = formatSseMessage({
+        if (
+          !manager.sendTo(clientId, {
             event: 'heartbeat',
             data: { timestamp: new Date().toISOString() },
-          });
-          reply.raw.write(heartbeat);
-        } catch {
+          })
+        ) {
           cleanupConnection();
         }
       }, 30000);
@@ -321,13 +495,12 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
       // the cookie is replaced on the same origin and the next
       // reconnect (if it ever happens) already carries the fresh value.
       tokenRefreshInterval = setInterval(() => {
-        try {
-          const refresh = formatSseMessage({
+        if (
+          !manager.sendTo(clientId, {
             event: 'token-refresh-needed',
             data: { timestamp: new Date().toISOString() },
-          });
-          reply.raw.write(refresh);
-        } catch {
+          })
+        ) {
           cleanupConnection();
         }
       }, REALTIME_TOKEN_REFRESH_NEEDED_INTERVAL_MS);

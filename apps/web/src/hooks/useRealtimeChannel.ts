@@ -86,18 +86,19 @@ export function useRealtimeChannel(options: UseRealtimeChannelOptions): void {
     if (typeof window === 'undefined') return;
     if (typeof EventSource === 'undefined') return;
 
-    const baseUrl = apiBaseUrl ?? resolveApiBaseUrl(
-      import.meta.env.VITE_API_URL || 'http://localhost:8090'
-    );
+    const baseUrl =
+      apiBaseUrl ?? resolveApiBaseUrl(import.meta.env.VITE_API_URL || 'http://localhost:8090');
 
     let source: EventSource | null = null;
     let backoffMs = INITIAL_BACKOFF_MS;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let disposed = false;
     let openGeneration = 0;
+    let lastEventId: string | null = null;
 
     function dispatchEvent(rawEvent: MessageEvent, eventName: string): void {
       if (eventName === 'heartbeat' || eventName === 'connected') return;
+      if (rawEvent.lastEventId) lastEventId = rawEvent.lastEventId;
       let parsed: unknown = rawEvent.data;
       if (typeof rawEvent.data === 'string') {
         try {
@@ -130,6 +131,10 @@ export function useRealtimeChannel(options: UseRealtimeChannelOptions): void {
 
       const url = new URL(`${baseUrl}/api/realtime/subscribe`);
       url.searchParams.set('collections', collection);
+      // Native EventSource carries Last-Event-ID on its own reconnects. Our
+      // hard-close backoff creates a new instance, so bridge the last cursor
+      // through a query parameter that the server treats as a header fallback.
+      if (lastEventId) url.searchParams.set('lastEventId', lastEventId);
 
       const next = new EventSource(url.toString(), { withCredentials: true });
       source = next;
@@ -158,6 +163,7 @@ export function useRealtimeChannel(options: UseRealtimeChannelOptions): void {
         'kds.order.removed',
         'kds.order.ready',
         'kds.order.recalled',
+        'realtime.replay_gap',
       ];
       for (const name of namedEvents) {
         next.addEventListener(name, ev => dispatchEvent(ev as MessageEvent, name));
