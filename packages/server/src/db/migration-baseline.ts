@@ -202,6 +202,14 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0009_price_suggestions') {
       return !tableExists('products');
     }
+    // ENG-209 — checkout timing ALTERs `sales` and materializes pace on
+    // `cash_sessions`. Seed this latest marker only for truly minimal
+    // partial DBs that have neither the sales target nor the products
+    // sentinel used by 0009. A mixed DB with products but no sales must
+    // not advance Drizzle past older applicable migrations.
+    if (entry.tag === '0010_eng209_checkout_timing') {
+      return !tableExists('sales') && !tableExists('products');
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

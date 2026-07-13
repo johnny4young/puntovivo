@@ -139,6 +139,7 @@ vi.mock('@/lib/trpc', () => ({
       },
       cashSessions: {
         getActive: { invalidate: invalidateCash },
+        myPace: { invalidate: vi.fn() },
         movements: { invalidate: vi.fn() },
         report: { invalidate: vi.fn() },
         registerAssignments: { invalidate: vi.fn() },

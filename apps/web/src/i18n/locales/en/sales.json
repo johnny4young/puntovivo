@@ -662,5 +662,12 @@
   "sound": {
     "enable": "Turn on checkout sounds",
     "disable": "Turn off checkout sounds"
+  },
+  "pace": {
+    "title": "My pace",
+    "private": "Only you",
+    "itemsPerMinute": "Items/min",
+    "averageCheckout": "Avg. checkout",
+    "personalBest": "Personal best"
   }
 }

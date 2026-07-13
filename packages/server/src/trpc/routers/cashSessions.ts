@@ -21,7 +21,9 @@ import { tenantProcedure } from '../middleware/tenant.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { criticalCommandProcedure } from '../middleware/criticalCommand.js';
 import { computeDayCloseSummary } from '../../services/reports/day-close.js';
+import { computeCashierPace } from '../../services/reports/cashier-pace.js';
 import {
+  cashierPaceOutput,
   cashSessionMovementsInput,
   cashSessionReportInput,
   closeCashSessionInput,
@@ -229,6 +231,22 @@ export const cashSessionsRouter = router({
     const record = await getCashSessionRecord(ctx.db, ctx.tenantId, activeSession.id);
     return record ? presentCashSessionRecord(record, ctx.user.role) : null;
   }),
+
+  /** ENG-209 — private by construction: no cashier id is accepted. */
+  myPace: cashierManagerOrAdminProcedure
+    .input(getActiveCashSessionInput)
+    .output(cashierPaceOutput)
+    .query(async ({ ctx }) => {
+      if (!ctx.siteId || !ctx.user) {
+        return null;
+      }
+      return computeCashierPace({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        cashierId: ctx.user.id,
+      });
+    }),
 
   listRecent: managerOrAdminProcedure.query(async ({ ctx }) => {
     return ctx.db

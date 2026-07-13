@@ -7,17 +7,22 @@ import {
   ScanLine,
   WalletCards,
 } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CheckoutPreflightPanel,
   PREFLIGHT_PRIMARY_ELEMENT_ID,
 } from '@/features/sales/CheckoutPreflightPanel';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
+import { useAuthOwnerKey } from '@/features/auth/AuthProvider';
+import { useCashierPacePreference } from '@/features/sales/useCashierPacePreference';
 import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
+
+const LazyCashierPaceSlot = lazy(() => import('@/features/sales/CashierPaceSlot'));
 
 // ENG-179b — explicit `| undefined` on optional fields.
 interface SalesCheckoutPanelProps {
@@ -109,6 +114,7 @@ export function SalesCheckoutPanel({
   preflightItems = [],
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
+  const { enabled: isCashierPaceEnabled } = useCashierPacePreference(useAuthOwnerKey());
   const hasSupervisedClose = userRole === 'admin' || userRole === 'manager';
   // ENG-074 — when the parent passes `hubReachable === false`, every
   // operational primary action is gated. The renderer never reaches
@@ -121,17 +127,14 @@ export function SalesCheckoutPanel({
   const preflightHasBlockers = preflightItems.some(item => item.severity === 'blocker');
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
   const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
-  const primaryActionDisabled = isHubGated
-    ? true
-    : cashSession
-      ? !canCharge || preflightHasBlockers
-      : !canOpenCashSession;
+  const primaryActionDisabled =
+    isHubGated || (cashSession ? !canCharge || preflightHasBlockers : !canOpenCashSession);
   // Keep unavailable Suspend out of the tab order; the shortcut catalogue
   // already owns discovery, and disabled button opacity fails contrast here.
-  const showSuspendAction = Boolean(onSuspend && canSuspend);
-  const showNewSaleAction = Boolean(onNewSale);
+  const showSuspendAction = !!onSuspend && canSuspend;
+  const showNewSaleAction = !!onNewSale;
   const showSuspendControls = showSuspendAction || showNewSaleAction;
-  const showSuspendedToggle = Boolean(onToggleSuspendedPanel);
+  const showSuspendedToggle = !!onToggleSuspendedPanel;
 
   return (
     <aside className="card p-5 sm:p-6 xl:flex pos:h-full pos:min-h-0 xl:flex-col pos:overflow-hidden">
@@ -168,6 +171,11 @@ export function SalesCheckoutPanel({
       </div>
 
       <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto">
+        {currentSite && cashSession && isCashierPaceEnabled && (
+          <Suspense fallback={null}>
+            <LazyCashierPaceSlot siteId={currentSite.id} />
+          </Suspense>
+        )}
         {/* ENG-081 V4 — "Último escaneado" + "Sugerencia rápida". When the
          * cart is empty we surface a 4-tile dashed-border grid as a hint
          * to the cashier (scan, scan again, search, suggest). When the

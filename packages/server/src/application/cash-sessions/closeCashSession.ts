@@ -27,8 +27,8 @@
  * @module application/cash-sessions/closeCashSession
  */
 
-import { and, eq } from 'drizzle-orm';
-import { cashSessions } from '../../db/schema.js';
+import { and, eq, sql } from 'drizzle-orm';
+import { cashSessions, saleItems, sales } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
@@ -40,6 +40,7 @@ import {
 import { createModuleLogger } from '../../logging/logger.js';
 import { updateOperationSummary } from '../../services/operation-journal/journal.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
+import { calculateCashierItemsPerMinute } from '../../services/reports/cashier-pace-math.js';
 import {
   emitCashSessionEffects,
   lookupCashSessionJournalEventId,
@@ -77,10 +78,7 @@ async function safeUpdateCashSessionClosedSummary(
       currencyCode: locale.currency,
     });
   } catch (err) {
-    log.warn(
-      { err, journalEventId },
-      'operation summary update failed (non-blocking)'
-    );
+    log.warn({ err, journalEventId }, 'operation summary update failed (non-blocking)');
   }
 }
 
@@ -158,11 +156,7 @@ export async function closeCashSession(
   // committed inside the transaction carries the forensic snapshot.
   // The queries are read-only and tenant-scoped; running them outside
   // the tx avoids extending the close lock window.
-  const pending = await getPendingChecksForSession(
-    ctx.db,
-    ctx.tenantId,
-    activeSession.id
-  );
+  const pending = await getPendingChecksForSession(ctx.db, ctx.tenantId, activeSession.id);
 
   let auditLogId: string | null = null;
 
@@ -173,6 +167,25 @@ export async function closeCashSession(
   ctx.db.transaction(tx => {
     assertCashSessionStillOpen(tx, ctx.tenantId, activeSession.id);
 
+    const paceAggregate = tx
+      .select({
+        itemCount: sql<number>`coalesce(sum(${saleItems.quantity}), 0)`.mapWith(Number),
+      })
+      .from(sales)
+      .leftJoin(saleItems, eq(saleItems.saleId, sales.id))
+      .where(
+        and(
+          eq(sales.tenantId, ctx.tenantId),
+          eq(sales.cashSessionId, activeSession.id),
+          eq(sales.status, 'completed')
+        )
+      )
+      .get();
+    const paceItemsPerMinute = calculateCashierItemsPerMinute(
+      paceAggregate?.itemCount ?? 0,
+      Date.parse(closedAt) - Date.parse(activeSession.openedAt)
+    );
+
     tx.update(cashSessions)
       .set({
         actualCount,
@@ -180,14 +193,10 @@ export async function closeCashSession(
         overShort,
         status: 'closed',
         closedAt,
+        paceItemsPerMinute,
         updatedAt: closedAt,
       })
-      .where(
-        and(
-          eq(cashSessions.id, activeSession.id),
-          eq(cashSessions.tenantId, ctx.tenantId)
-        )
-      )
+      .where(and(eq(cashSessions.id, activeSession.id), eq(cashSessions.tenantId, ctx.tenantId)))
       .run();
 
     auditLogId = writeAuditLog({
@@ -207,6 +216,7 @@ export async function closeCashSession(
         actualCount,
         overShort,
         closedAt,
+        paceItemsPerMinute,
       },
       metadata: {
         // Material for trend reporting + flagging anomalous shifts.
@@ -222,12 +232,7 @@ export async function closeCashSession(
   const closedSession = await ctx.db
     .select()
     .from(cashSessions)
-    .where(
-      and(
-        eq(cashSessions.id, activeSession.id),
-        eq(cashSessions.tenantId, ctx.tenantId)
-      )
-    )
+    .where(and(eq(cashSessions.id, activeSession.id), eq(cashSessions.tenantId, ctx.tenantId)))
     .get();
 
   if (!closedSession) {

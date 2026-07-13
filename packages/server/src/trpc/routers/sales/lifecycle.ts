@@ -120,6 +120,7 @@ export const salesLifecycleProcedures = {
         serviceChargeRate: input.serviceChargeRate ?? null,
         // ENG-090 — admin override for the credit-limit invariant.
         creditOverride: input.creditOverride ?? false,
+        checkoutStartedAt: input.checkoutStartedAt,
       }
     );
     return result.sale;
@@ -293,6 +294,7 @@ export const salesLifecycleProcedures = {
           serviceChargeRate: input.serviceChargeRate ?? null,
           // ENG-090 — admin override for the credit-limit invariant.
           creditOverride: input.creditOverride ?? false,
+          checkoutStartedAt: input.checkoutStartedAt,
         }
       );
       return result.sale;

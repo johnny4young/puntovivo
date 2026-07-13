@@ -6,6 +6,7 @@ import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
+import { CashierPacePreferenceToggle } from '@/features/sales/CashierPacePreferenceToggle';
 import { useCommandPalette } from '@/components/feedback/CommandPaletteProvider';
 import {
   persistLanguagePreference,
@@ -37,6 +38,10 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const userMenuId = 'header-user-menu';
   const paletteShortcut = getShortcutById('palette.open');
   const paletteShortcutLabel = paletteShortcut ? formatKeysForDisplay(paletteShortcut.keys) : null;
+  const cashierPaceOwnerKey =
+    currentTenant && user && ['admin', 'manager', 'cashier'].includes(user.role)
+      ? `${currentTenant.id}:${user.id}`
+      : null;
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -252,6 +257,9 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                     <CircleHelp className="h-4 w-4" />
                     {t('setup:firstSale.helpAction')}
                   </button>
+                )}
+                {cashierPaceOwnerKey && (
+                  <CashierPacePreferenceToggle ownerKey={cashierPaceOwnerKey} />
                 )}
                 <button
                   type="button"

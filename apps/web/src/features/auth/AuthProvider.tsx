@@ -52,6 +52,12 @@ export function useAuth() {
   return context;
 }
 
+/** Stable tenant/user key for client state that must never cross operators. */
+export function useAuthOwnerKey(): string | null {
+  const { user } = useAuth();
+  return user ? `${user.tenantId}:${user.id}` : null;
+}
+
 interface AuthProviderProps {
   children: ReactNode;
 }

@@ -62,6 +62,7 @@ import type {
   CompleteSaleLogger,
   CompleteSaleResult,
 } from './types.js';
+import { resolveFreshCheckoutTiming } from './checkout-timing.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -84,6 +85,7 @@ export async function runFreshSale(
   input: Extract<CompleteSaleInput, { mode: 'fresh' }>
 ): Promise<CompleteSaleResult<CompleteSaleSaleRecord>> {
   const now = new Date().toISOString();
+  const checkoutTiming = resolveFreshCheckoutTiming(input.status, input.checkoutStartedAt, now);
   const saleId = nanoid();
 
   await validateCustomer(ctx.db, ctx.tenantId, input.customerId);
@@ -250,6 +252,7 @@ export async function runFreshSale(
         cashSessionId: activeCashSession.id,
         notes: input.notes,
         createdBy: ctx.user.id,
+        ...checkoutTiming,
         syncStatus: 'pending',
         syncVersion: 1,
         createdAt: now,

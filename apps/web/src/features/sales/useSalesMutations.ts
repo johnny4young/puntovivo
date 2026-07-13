@@ -2,7 +2,12 @@ import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
-import { invalidateGroups, SALE_COMPLETION_INVALIDATIONS } from '@/lib/invalidateGroups';
+import {
+  CASH_SESSION_CLOSE_INVALIDATIONS,
+  CASH_SESSION_OPEN_INVALIDATIONS,
+  invalidateGroups,
+  SALE_COMPLETION_INVALIDATIONS,
+} from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { playSaleComplete } from '@/lib/sound';
 import { trpc } from '@/lib/trpc';
@@ -154,12 +159,7 @@ export function useSalesMutations({
   const discardDraftMutation = useCriticalMutation('sales.discardDraft');
   const openCashSessionMutation = useCriticalMutation('cashSessions.open', {
     onSuccess: async cashSession => {
-      await invalidateGroups(utils, [
-        u => u.setupReadiness.firstSale,
-        u => u.cashSessions.getActive,
-        u => u.cashSessions.report,
-        u => u.cashSessions.registerAssignments,
-      ]);
+      await invalidateGroups(utils, CASH_SESSION_OPEN_INVALIDATIONS);
       setCashSessionError(null);
       setIsCashSessionModalOpen(false);
       toast.success({
@@ -176,11 +176,7 @@ export function useSalesMutations({
   });
   const closeCashSessionMutation = useCriticalMutation('cashSessions.close', {
     onSuccess: async cashSession => {
-      await invalidateGroups(utils, [
-        u => u.cashSessions.getActive,
-        u => u.cashSessions.report,
-        u => u.cashSessions.registerAssignments,
-      ]);
+      await invalidateGroups(utils, CASH_SESSION_CLOSE_INVALIDATIONS);
       setCashSessionCloseError(null);
       setIsCashSessionCloseModalOpen(false);
 

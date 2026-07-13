@@ -147,6 +147,7 @@ export function useSalesFlows({
           serviceChargeAmount,
           serviceChargeRate,
           creditOverride,
+          checkoutStartedAt: activeWorkspace.checkoutStartedAt ?? undefined,
         });
         return;
       }
@@ -176,6 +177,7 @@ export function useSalesFlows({
         serviceChargeAmount,
         serviceChargeRate,
         creditOverride,
+        checkoutStartedAt: activeWorkspace?.checkoutStartedAt ?? undefined,
       });
     } catch (error) {
       setSaleError(translateServerError(error, t, t('errors:server.unknown')));

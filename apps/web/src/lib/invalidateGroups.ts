@@ -62,6 +62,7 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   // tenant's first completed sale.
   u => u.setupReadiness.firstSale,
   u => u.cashSessions.getActive,
+  u => u.cashSessions.myPace,
   u => u.cashSessions.movements,
   u => u.cashSessions.report,
   u => u.cashSessions.registerAssignments,
@@ -76,4 +77,21 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   // inside SalePaymentModal must refetch on the next open.
   u => u.customerLedger.getBalance,
   u => u.customerLedger.list,
+];
+
+/** Queries affected when the current operator opens a cash session. */
+export const CASH_SESSION_OPEN_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.setupReadiness.firstSale,
+  u => u.cashSessions.getActive,
+  u => u.cashSessions.myPace,
+  u => u.cashSessions.report,
+  u => u.cashSessions.registerAssignments,
+];
+
+/** Queries affected when the current operator closes a cash session. */
+export const CASH_SESSION_CLOSE_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.cashSessions.getActive,
+  u => u.cashSessions.myPace,
+  u => u.cashSessions.report,
+  u => u.cashSessions.registerAssignments,
 ];

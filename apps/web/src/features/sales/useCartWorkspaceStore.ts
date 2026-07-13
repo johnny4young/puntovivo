@@ -50,6 +50,8 @@ export interface CartWorkspace {
   serverSaleNumber: string | null;
   /** Operator-provided label ("Mesa 5") inherited from the server row. */
   label: string | null;
+  /** ENG-209 — first real cart interaction; null while the workspace is empty. */
+  checkoutStartedAt: string | null;
   createdAt: string;
   /**
    * ENG-105d — per-workspace undo history. Each entry is the
@@ -147,7 +149,7 @@ const PERSIST_KEY = 'cart-workspace-store';
 // backfills missing stacks to `[]` so previously-persisted
 // workspaces hydrate cleanly without surfacing a runtime error
 // for cashiers who upgrade mid-shift.
-const PERSIST_VERSION = 2;
+const PERSIST_VERSION = 3;
 
 // Monotonic suffix so synchronous bursts of `createDraft` calls never
 // collide in environments where `crypto.randomUUID` is missing or
@@ -190,6 +192,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverSaleId: null,
           serverSaleNumber: null,
           label: null,
+          checkoutStartedAt: null,
           createdAt: new Date().toISOString(),
           historyStack: [],
         };
@@ -224,11 +227,16 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           const nextStack = isRealChange
             ? trimHistory([...existing.historyStack, existing.items])
             : existing.historyStack;
+          const checkoutStartedAt = !isRealChange
+            ? (existing.checkoutStartedAt ?? null)
+            : items.length === 0
+              ? null
+              : (existing.checkoutStartedAt ?? new Date().toISOString());
           return {
             ...state,
             workspaces: {
               ...state.workspaces,
-              [id]: { ...existing, items, historyStack: nextStack },
+              [id]: { ...existing, items, checkoutStartedAt, historyStack: nextStack },
             },
           };
         });
@@ -241,11 +249,15 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         }
         const nextStack = existing.historyStack.slice(0, -1);
         const restored = existing.historyStack[existing.historyStack.length - 1]!;
+        const checkoutStartedAt =
+          restored.length === 0
+            ? null
+            : (existing.checkoutStartedAt ?? new Date().toISOString());
         set(state => ({
           ...state,
           workspaces: {
             ...state.workspaces,
-            [id]: { ...existing, items: restored, historyStack: nextStack },
+            [id]: { ...existing, items: restored, checkoutStartedAt, historyStack: nextStack },
           },
         }));
         return true;
@@ -288,6 +300,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverSaleId,
           serverSaleNumber,
           label,
+          checkoutStartedAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
           // ENG-105d — resumed drafts arrive with the server state as
           // their "first state". The cashier should NOT be able to
@@ -329,12 +342,12 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         ),
         activeId: state.activeId,
       }),
-      // ENG-105d — migrate v1 → v2 by backfilling `historyStack: []`
-      // on every persisted workspace so a cashier signing in after
-      // upgrade does not surface a runtime error reading the
-      // missing field.
+      // ENG-105d / ENG-209 — migrate old persisted workspaces by
+      // backfilling runtime-safe history and an unmeasured checkout clock.
+      // Existing non-empty carts intentionally stay null until their next
+      // cart interaction rather than fabricating a start from createdAt.
       migrate: (persisted, fromVersion) => {
-        if (fromVersion < 2 && persisted && typeof persisted === 'object') {
+        if (fromVersion < PERSIST_VERSION && persisted && typeof persisted === 'object') {
           const cast = persisted as Partial<CartWorkspaceState>;
           const workspaces = cast.workspaces ?? {};
           const next: Record<string, CartWorkspace> = {};
@@ -342,6 +355,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
             next[id] = {
               ...workspace,
               historyStack: workspace.historyStack ?? [],
+              checkoutStartedAt: workspace.checkoutStartedAt ?? null,
             };
           }
           return { ...cast, workspaces: next } as CartWorkspaceState;

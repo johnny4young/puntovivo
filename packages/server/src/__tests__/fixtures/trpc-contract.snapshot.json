@@ -198,6 +198,12 @@
     "output": "inferred"
   },
   {
+    "path": "cashSessions.myPace",
+    "kind": "query",
+    "input": "object{siteId?:string}",
+    "output": "object{averageCheckoutSeconds:integer[min=0,max=9007199254740991]|null,completedSales:integer[min=0,max=9007199254740991],itemCount:number[min=0],itemsPerMinute:number[min=0],personalBestItemsPerMinute:number[min=0]|null,sessionId:string}|null"
+  },
+  {
     "path": "cashSessions.open",
     "kind": "mutation",
     "input": "object{denominations?:array<object>,openingFloat:number[min=0],registerName?:string[minLength=1,maxLength=80]=\"Main register\"}",
@@ -1418,13 +1424,13 @@
   {
     "path": "sales.completeDraft",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],creditOverride?:boolean,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {
     "path": "sales.create",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"|\"refunded\"),serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"|\"refunded\"),serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {

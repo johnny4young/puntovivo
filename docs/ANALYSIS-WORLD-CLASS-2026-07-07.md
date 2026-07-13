@@ -273,7 +273,7 @@ vuelto ventaja vendible.
 - **AC**: lista FEFO-ordenada con valor en riesgo; CTA registra auditoría;
   EN/ES; smoke live.
 
-### WC-C4 · HUD de cajero (opt-in) `[checkout]` — **M**
+### WC-C4 · HUD de cajero (opt-in) `[checkout]` — **M** ✅ ENG-209
 
 - **Qué**: mini-strip en el cockpit: ítems/min de la sesión, tiempo medio de
   checkout, mejor marca personal. Opt-in por usuario (esto motiva, no vigila:
@@ -282,6 +282,15 @@ vuelto ventaja vendible.
   (timestamps por venta). Hook `useCashierPace` + strip en SalesCheckoutPanel.
 - **AC**: cálculo correcto con ventas suspendidas/reanudadas; toggle en perfil
   de usuario; cero costo cuando está apagado.
+- **Shipped 2026-07-13 (ENG-209)**: `cashSessions.myPace` deriva identidad,
+  tenant y sede del contexto autenticado; no acepta un cajero objetivo. El
+  toggle OFF-by-default se guarda por tenant/usuario y habilita un strip lazy
+  bilingüe con ítems/min, duración promedio instrumentada y mejor marca
+  histórica. La migración 0010 persiste límites inmutables de inicio y fin del
+  checkout también al reanudar, sin depender del `updated_at` que cambian las
+  reimpresiones o devoluciones; historia sin medición, drafts, anulaciones,
+  tiempos futuros y carritos abandonados quedan fuera. Pasan CI web/server,
+  los 65 E2E y el smoke EN/ES con consola limpia.
 
 ### WC-C5 · Omnibox de venta `[checkout]` — **M** ✅ ENG-205
 
@@ -586,16 +595,17 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 8   | ✅ WC-C1 cierre de día en 60 segundos (ritual post-cierre con margen real + racha, role-gated) — ENG-198 shipped 2026-07-10 ⭐  | M        | caja                  |
 | 9   | ✅ WC-C3 radar de vencimientos (tab Inventario + sugerencia de descuento auditada + badge POS) — ENG-199 shipped 2026-07-10 ⭐  | M        | stock                 |
 | 10  | ✅ WC-A3 sales Lighthouse floor + deferred payment drawer — ENG-200 shipped 2026-07-11                                          | S/M      | checkout              |
-| 11  | ✅ WC-B4 desglose desktop main/index.ts — ENG-201 shipped 2026-07-11                                                           | S/M      | mantenibilidad        |
-| 12  | ✅ WC-C7 primera venta en 5 min — ENG-202 shipped 2026-07-11                                                                   | M        | checkout              |
+| 11  | ✅ WC-B4 desglose desktop main/index.ts — ENG-201 shipped 2026-07-11                                                            | S/M      | mantenibilidad        |
+| 12  | ✅ WC-C7 primera venta en 5 min — ENG-202 shipped 2026-07-11                                                                    | M        | checkout              |
 | 13  | ✅ WC-B2 packages/shared — ENG-203 shipped 2026-07-12                                                                           | M        | mantenibilidad        |
-| 14  | ✅ WC-B3 FiscalAdapter ya existía; auditoría corregida 2026-07-12                                                                | M        | fiscal                |
+| 14  | ✅ WC-B3 FiscalAdapter ya existía; auditoría corregida 2026-07-12                                                               | M        | fiscal                |
 | 15  | WC-D1 listas de precios (con WC-F2)                                                                                             | L        | checkout              |
-| 16  | ✅ WC-C5 omnibox de venta — ENG-205 shipped 2026-07-12                                                                           | M        | checkout              |
+| 16  | ✅ WC-C5 omnibox de venta — ENG-205 shipped 2026-07-12                                                                          | M        | checkout              |
 | 17  | WC-D2 lealtad mínima                                                                                                            | M        | checkout              |
-| 18  | ✅ WC-B1 application/ por fases — ENG-206/207/208 shipped 2026-07-13                                                             | L        | mantenibilidad        |
+| 18  | ✅ WC-B1 application/ por fases — ENG-206/207/208 shipped 2026-07-13                                                            | L        | mantenibilidad        |
 | 19  | ✅ WC-A2 SSE backpressure + replay — ENG-204 shipped 2026-07-12                                                                 | M        | offline               |
 | 20  | WC-D3/WC-D4 bins + seriales                                                                                                     | M        | stock (product-gated) |
+| 21  | ✅ WC-C4 HUD privado de cajero (opt-in) — ENG-209 shipped 2026-07-13                                                            | M        | checkout              |
 
 **Flujo**: cada item que se ejecute se promueve a `ROADMAP.md §3b` como
 `ENG-NNN` con AC copiadas de este doc (ids libres desde ENG-192), vía

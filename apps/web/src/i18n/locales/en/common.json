@@ -95,7 +95,12 @@
   "user": "User",
   "session": "session",
   "userMenu": {
-    "aria": "Open user menu for {{name}}"
+    "aria": "Open user menu for {{name}}",
+    "cashierPace": {
+      "preference": "Show my checkout pace",
+      "on": "On",
+      "off": "Off"
+    }
   },
   "loadingSites": "Loading sites...",
   "selectSite": "Select a site",

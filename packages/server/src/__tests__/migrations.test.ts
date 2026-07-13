@@ -21,6 +21,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { closeDatabase, initDatabase } from '../db/index.js';
+import { ensureMigrationBaseline } from '../db/migration-baseline.js';
 import { tenants, users } from '../db/schema.js';
 import { resolveCachedNodeBinding } from '../db/native-binding.js';
 
@@ -35,10 +36,7 @@ interface DrizzleMigrationRow {
   created_at: number;
 }
 
-const MIGRATIONS_FOLDER = resolve(
-  process.cwd(),
-  'src/db/migrations'
-);
+const MIGRATIONS_FOLDER = resolve(process.cwd(), 'src/db/migrations');
 
 interface ExpectedMigration {
   tag: string;
@@ -85,9 +83,7 @@ function expectMigrationsMatchJournal(rows: DrizzleMigrationRow[]): void {
   expect(rows).toHaveLength(expected.length);
   for (let i = 0; i < expected.length; i += 1) {
     expect(rows[i]?.hash, `row ${i} hash`).toBe(expected[i]!.hash);
-    expect(Number(rows[i]?.created_at), `row ${i} created_at`).toBe(
-      expected[i]!.when
-    );
+    expect(Number(rows[i]?.created_at), `row ${i} created_at`).toBe(expected[i]!.when);
   }
 }
 
@@ -147,9 +143,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       .run('fresh-tenant', 'Fresh Tenant', 'fresh-tenant');
     const insertedTenant = liveDb.$client
       .prepare('SELECT created_at, updated_at FROM tenants WHERE id = ?')
-      .get('fresh-tenant') as
-      | { created_at: string; updated_at: string }
-      | undefined;
+      .get('fresh-tenant') as { created_at: string; updated_at: string } | undefined;
     const frozenTimestampLiteral = new Date(baseline.when).toISOString();
 
     expect(insertedTenant?.created_at).toBeTruthy();
@@ -192,9 +186,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     legacySqlite
       .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
       .run('legacy-setting', 'preserved');
-    expect(getTableSql(legacySqlite, 'sales')).not.toContain(
-      'chk_sales_cash_session_or_draft'
-    );
+    expect(getTableSql(legacySqlite, 'sales')).not.toContain('chk_sales_cash_session_or_draft');
     legacySqlite.close();
 
     // Now boot through the production path. The shim should fire because
@@ -211,9 +203,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     // came from the adoption shim, and every newer migration came from
     // the standard migrator running on top of that seeded baseline.
     expectMigrationsMatchJournal(rows);
-    expect(getTableSql(liveDb.$client, 'sales')).toContain(
-      'chk_sales_cash_session_or_draft'
-    );
+    expect(getTableSql(liveDb.$client, 'sales')).toContain('chk_sales_cash_session_or_draft');
 
     // The legacy row must still be there — proves the shim did
     // not wipe or re-create the DB.
@@ -260,12 +250,29 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       )
       .get() as { name: string } | undefined;
     if (trackingTable) {
-      const pinned = inspect
-        .prepare('SELECT COUNT(*) AS n FROM __drizzle_migrations')
-        .get() as { n: number };
+      const pinned = inspect.prepare('SELECT COUNT(*) AS n FROM __drizzle_migrations').get() as {
+        n: number;
+      };
       expect(pinned.n).toBe(0);
     }
     inspect.close();
+  });
+
+  it('does not pin the latest marker on a mixed partial DB without sales', () => {
+    const sqlite = new Database(':memory:', { nativeBinding });
+    sqlite.exec('CREATE TABLE products (id TEXT PRIMARY KEY, version INTEGER NOT NULL)');
+
+    ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
+
+    const eng209 = readExpectedMigrations().find(
+      migration => migration.tag === '0010_eng209_checkout_timing'
+    );
+    expect(eng209).toBeDefined();
+    const pinnedLatest = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(eng209!.when);
+    expect(pinnedLatest).toBeUndefined();
+    sqlite.close();
   });
 
   it('honors an explicit migrationsFolder override (packaged-Electron contract)', async () => {
@@ -275,9 +282,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     // and the server side uses it instead of the module-local default.
     // Mirror that arrangement here by cloning the source migrations folder
     // into a temp directory and booting through the override.
-    const stagingDir = mkdtempSync(
-      join(tmpdir(), 'puntovivo-migrations-override-')
-    );
+    const stagingDir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-override-'));
     createdPaths.push(stagingDir);
     cpSync(MIGRATIONS_FOLDER, stagingDir, { recursive: true });
 
@@ -331,10 +336,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     // cover the missing-folder case with a warn. After retirement the
     // path must throw loudly so malformed deployments surface instead
     // of silently booting against an empty schema.
-    const missingFolder = join(
-      tmpdir(),
-      `puntovivo-no-migrations-${Date.now()}`
-    );
+    const missingFolder = join(tmpdir(), `puntovivo-no-migrations-${Date.now()}`);
 
     await expect(
       initDatabase({
@@ -367,24 +369,34 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       $client: Database.Database;
     };
 
-    const currencyCount = (liveDb.$client
-      .prepare('SELECT COUNT(*) AS count FROM currency_catalog')
-      .get() as { count: number } | undefined)?.count ?? 0;
-    const countryCount = (liveDb.$client
-      .prepare('SELECT COUNT(*) AS count FROM country_catalog')
-      .get() as { count: number } | undefined)?.count ?? 0;
+    const currencyCount =
+      (
+        liveDb.$client.prepare('SELECT COUNT(*) AS count FROM currency_catalog').get() as
+          { count: number } | undefined
+      )?.count ?? 0;
+    const countryCount =
+      (
+        liveDb.$client.prepare('SELECT COUNT(*) AS count FROM country_catalog').get() as
+          { count: number } | undefined
+      )?.count ?? 0;
     // ENG-176c — `dian_identification_types` renamed to
     // `fiscal_identification_types` in migration 0038. The catalog now
     // carries CO + MX + PE + CL rows; CO still owns the 10 DIAN rows
     // verbatim post-rename.
-    const fiscalIdentCount = (liveDb.$client
-      .prepare('SELECT COUNT(*) AS count FROM fiscal_identification_types')
-      .get() as { count: number } | undefined)?.count ?? 0;
-    const fiscalIdentCoCount = (liveDb.$client
-      .prepare(
-        "SELECT COUNT(*) AS count FROM fiscal_identification_types WHERE country_code = 'CO'"
-      )
-      .get() as { count: number } | undefined)?.count ?? 0;
+    const fiscalIdentCount =
+      (
+        liveDb.$client
+          .prepare('SELECT COUNT(*) AS count FROM fiscal_identification_types')
+          .get() as { count: number } | undefined
+      )?.count ?? 0;
+    const fiscalIdentCoCount =
+      (
+        liveDb.$client
+          .prepare(
+            "SELECT COUNT(*) AS count FROM fiscal_identification_types WHERE country_code = 'CO'"
+          )
+          .get() as { count: number } | undefined
+      )?.count ?? 0;
 
     expect(currencyCount).toBeGreaterThanOrEqual(18);
     expect(countryCount).toBeGreaterThanOrEqual(21);

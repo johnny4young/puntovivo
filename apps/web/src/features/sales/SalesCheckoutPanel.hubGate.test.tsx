@@ -8,13 +8,25 @@
  * gated state.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { render } from '@/test/utils';
 import { SalesCheckoutPanel } from './SalesCheckoutPanel';
 import { PREFLIGHT_PRIMARY_ELEMENT_ID } from './CheckoutPreflightPanel';
 import type { PreflightItem } from './useCheckoutPreflight';
 import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
+
+const paceMocks = vi.hoisted(() => ({ enabled: false }));
+
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuthOwnerKey: () => 'tenant-1:cashier-1',
+}));
+vi.mock('./useCashierPacePreference', () => ({
+  useCashierPacePreference: () => ({ enabled: paceMocks.enabled, setEnabled: vi.fn() }),
+}));
+vi.mock('./CashierPaceSlot', () => ({
+  default: () => <div data-testid="cashier-pace-lazy-slot" />,
+}));
 
 const SITE: Site = {
   id: 'site-1',
@@ -60,12 +72,13 @@ function renderPanel(
     canSuspend?: boolean;
     onSuspend?: () => void;
     userRole?: UserRole;
+    cashSession?: CashSession | null;
   } = {}
 ) {
   return render(
     <SalesCheckoutPanel
       currentSite={SITE}
-      cashSession={CASH_SESSION}
+      cashSession={overrides.cashSession === undefined ? CASH_SESSION : overrides.cashSession}
       registerAssignments={[REGISTER_ASSIGNMENT]}
       selectedRegisterAssignment={REGISTER_ASSIGNMENT}
       isCashSessionLoading={false}
@@ -89,6 +102,22 @@ function renderPanel(
 }
 
 describe('SalesCheckoutPanel hub gate (ENG-074)', () => {
+  beforeEach(() => {
+    paceMocks.enabled = false;
+  });
+
+  it('mounts the lazy pace HUD only after opt-in with an active shift', async () => {
+    paceMocks.enabled = true;
+    renderPanel();
+    expect(await screen.findByTestId('cashier-pace-lazy-slot')).toBeInTheDocument();
+  });
+
+  it('keeps the lazy pace HUD unmounted without an active shift', () => {
+    paceMocks.enabled = true;
+    renderPanel({ cashSession: null });
+    expect(screen.queryByTestId('cashier-pace-lazy-slot')).not.toBeInTheDocument();
+  });
+
   it('ENG-194 — keeps cashier guidance blind and labels privileged closes as supervised', () => {
     const cashier = renderPanel({ userRole: 'cashier' });
     expect(screen.getByText(/blind close keeps/i)).toBeInTheDocument();

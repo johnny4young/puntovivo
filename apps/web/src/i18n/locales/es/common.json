@@ -95,7 +95,12 @@
   "user": "Usuario",
   "session": "sesión",
   "userMenu": {
-    "aria": "Abre el menú de usuario de {{name}}"
+    "aria": "Abre el menú de usuario de {{name}}",
+    "cashierPace": {
+      "preference": "Mostrar mi ritmo de cobro",
+      "on": "Activo",
+      "off": "Inactivo"
+    }
   },
   "loadingSites": "Cargando sedes...",
   "selectSite": "Seleccionar sede",

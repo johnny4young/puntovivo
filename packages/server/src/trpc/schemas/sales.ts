@@ -126,6 +126,8 @@ export const createSaleInput = z
      * tx runs.
      */
     creditOverride: z.boolean().optional(),
+    /** ENG-209 — local cart start; server bounds it against completion time. */
+    checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
@@ -322,6 +324,8 @@ export const completeDraftInput = z
      * admin callers.
      */
     creditOverride: z.boolean().optional(),
+    /** ENG-209 — reset when a suspended draft is resumed into the local cart. */
+    checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {

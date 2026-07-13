@@ -662,5 +662,12 @@
   "sound": {
     "enable": "Activa los sonidos de la caja",
     "disable": "Desactiva los sonidos de la caja"
+  },
+  "pace": {
+    "title": "Mi ritmo",
+    "private": "Solo tú",
+    "itemsPerMinute": "Ítems/min",
+    "averageCheckout": "Cobro prom.",
+    "personalBest": "Mejor marca"
   }
 }

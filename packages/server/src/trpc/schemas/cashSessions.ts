@@ -13,6 +13,18 @@ export const getActiveCashSessionInput = z
   })
   .optional();
 
+/** ENG-209 — aggregate-only, self-scoped cashier pace output. */
+export const cashierPaceOutput = z
+  .object({
+    sessionId: z.string(),
+    completedSales: z.number().int().min(0),
+    itemCount: z.number().min(0),
+    itemsPerMinute: z.number().min(0),
+    averageCheckoutSeconds: z.number().int().min(0).nullable(),
+    personalBestItemsPerMinute: z.number().min(0).nullable(),
+  })
+  .nullable();
+
 export const openCashSessionInput = z.object({
   registerName: z
     .string()
@@ -104,6 +116,7 @@ export const dayCloseSummaryOutput = z.object({
 
 export type CashSessionDenominationInput = z.infer<typeof cashSessionDenominationInput>;
 export type GetActiveCashSessionInput = z.infer<typeof getActiveCashSessionInput>;
+export type CashierPaceOutput = z.infer<typeof cashierPaceOutput>;
 export type OpenCashSessionInput = z.infer<typeof openCashSessionInput>;
 export type CloseCashSessionInput = z.infer<typeof closeCashSessionInput>;
 export type CashSessionMovementsInput = z.infer<typeof cashSessionMovementsInput>;

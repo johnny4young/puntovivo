@@ -7,19 +7,23 @@
   "exports": {
     ".": {
       "types": "./src/index.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./money": {
       "types": "./src/money.ts",
-      "import": "./dist/money.js"
+      "import": "./dist/money.js",
+      "default": "./dist/money.js"
     },
     "./unit-math": {
       "types": "./src/unit-math.ts",
-      "import": "./dist/unit-math.js"
+      "import": "./dist/unit-math.js",
+      "default": "./dist/unit-math.js"
     },
     "./units": {
       "types": "./src/units.ts",
-      "import": "./dist/units.js"
+      "import": "./dist/units.js",
+      "default": "./dist/units.js"
     }
   },
   "scripts": {

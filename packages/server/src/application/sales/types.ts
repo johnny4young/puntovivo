@@ -93,6 +93,7 @@ export type CompleteSaleInput =
       serviceChargeRate?: number | null | undefined;
       tableId?: string | null | undefined;
       creditOverride?: boolean | undefined;
+      checkoutStartedAt?: string | undefined;
     }
   | {
       mode: 'fromDraft';
@@ -107,6 +108,7 @@ export type CompleteSaleInput =
       serviceChargeAmount?: number | undefined;
       serviceChargeRate?: number | null | undefined;
       creditOverride?: boolean | undefined;
+      checkoutStartedAt?: string | undefined;
     };
 
 /**

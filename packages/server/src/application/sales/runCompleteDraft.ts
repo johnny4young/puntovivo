@@ -37,6 +37,7 @@ import {
   type PersistedPaymentEffect,
 } from './journal-effects.js';
 import { getSaleRecord, type CompleteSaleSaleRecord } from './sale-read.js';
+import { resolveCheckoutTiming } from './checkout-timing.js';
 import type {
   CompleteSaleContext,
   CompleteSaleInput,
@@ -201,6 +202,7 @@ export async function runCompleteDraft(
   });
 
   const now = new Date().toISOString();
+  const checkoutTiming = resolveCheckoutTiming(input.checkoutStartedAt, now);
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
 
   let cashMovementId: string | null = null;
@@ -261,6 +263,7 @@ export async function runCompleteDraft(
         serviceChargeAmount,
         serviceChargeRate,
         total,
+        ...checkoutTiming,
         syncStatus: 'pending',
         syncVersion: nextSyncVersion,
         updatedAt: now,
