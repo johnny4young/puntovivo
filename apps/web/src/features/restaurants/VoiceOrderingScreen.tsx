@@ -26,7 +26,6 @@
  * @module features/restaurants/VoiceOrderingScreen
  */
 import { Suspense, lazy, useState } from 'react';
-import { Mic, Plus, Save, Search, ShoppingBag, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -37,10 +36,8 @@ import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { translateServerError } from '@/lib/translateServerError';
-import { formatCurrency } from '@/lib/utils';
 import {
   getCartItemKey,
-  getCartSummary,
   getSaleMinimumQuantity,
   getSaleQuantityStep,
   mergeCartItem,
@@ -48,14 +45,14 @@ import {
 } from '@/features/sales/saleCart';
 import type { VoiceCartItem } from '@/features/voice/VoiceCartCommandModal';
 import type { ProductSearchSelection } from '@/types';
+import { VoiceOrderingCart } from './VoiceOrderingCart';
+import { VoiceOrderingControls } from './VoiceOrderingControls';
 
 const VoiceCartCommandModal = lazy(() =>
   import('@/features/voice/VoiceCartCommandModal').then(mod => ({
     default: mod.VoiceCartCommandModal,
   }))
 );
-
-const TABLE_LABEL_MAX = 80;
 
 export interface VoiceOrderingScreenProps {
   variant: 'touch' | 'mobile';
@@ -126,8 +123,6 @@ export function VoiceOrderingScreen({
 
   const cashSession = activeCashSessionQuery.data ?? null;
   const aiEnabled = aiSettingsQuery.data?.enabled === true;
-  const cartSummary = getCartSummary(cartItems);
-
   const micDisabledReason = (() => {
     if (!semanticSearchActive) return t('voice:disabledNoModule');
     if (!aiEnabled) return t('voice:disabledNoAi');
@@ -335,231 +330,27 @@ export function VoiceOrderingScreen({
       </header>
 
       <div className={containerLayout}>
-        {/* Controls column */}
-        <section className="space-y-4">
-          <div className="card p-4">
-            <label
-              htmlFor="voice-ordering-table-label"
-              className="text-xs font-medium uppercase tracking-wide text-secondary-500"
-            >
-              {t('restaurants:tableLabel.label')}
-            </label>
-            {useCatalogDropdown ? (
-              <select
-                id="voice-ordering-table-label"
-                data-testid="voice-ordering-table-select"
-                className="input mt-1 w-full text-lg"
-                aria-required="true"
-                value={tableLabel}
-                onChange={event => setTableLabel(event.target.value)}
-              >
-                <option value="">
-                  {t('restaurants:tables.dropdown.selectPlaceholder')}
-                </option>
-                {tableCatalog.map(row => (
-                  <option key={row.id} value={row.name}>
-                    {row.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                id="voice-ordering-table-label"
-                data-testid="voice-ordering-table-input"
-                className="input mt-1 w-full text-lg"
-                type="text"
-                maxLength={TABLE_LABEL_MAX}
-                placeholder={t('restaurants:tableLabel.placeholder')}
-                aria-required="true"
-                value={tableLabel}
-                onChange={event => setTableLabel(event.target.value)}
-              />
-            )}
-            {tableLabel.trim().length === 0 && (
-              <p className="mt-1 text-xs text-warning-700">
-                {t('restaurants:tableLabel.required')}
-              </p>
-            )}
-          </div>
+        <VoiceOrderingControls
+          tableLabel={tableLabel}
+          tableCatalog={tableCatalog}
+          useCatalogDropdown={useCatalogDropdown}
+          micDisabled={micDisabled}
+          micDisabledReason={micDisabledReason}
+          onTableLabelChange={setTableLabel}
+          onOpenVoice={() => setVoiceModalOpen(true)}
+          onOpenSearch={() => setSearchDialogOpen(true)}
+        />
 
-          <div className="card p-4 space-y-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-secondary-500">
-              {t('restaurants:surface.subheading')}
-            </p>
-            <button
-              type="button"
-              className="btn-primary w-full text-base"
-              onClick={() => setVoiceModalOpen(true)}
-              disabled={micDisabled}
-              data-testid="voice-ordering-mic-cta"
-              aria-label={t('restaurants:actions.voiceCTA')}
-            >
-              <Mic className="h-5 w-5" />
-              {t('restaurants:actions.voiceCTA')}
-            </button>
-            {micDisabled && (
-              <p
-                className="text-xs text-warning-700"
-                data-testid="voice-ordering-mic-disabled-hint"
-              >
-                {micDisabledReason}
-              </p>
-            )}
-            <button
-              type="button"
-              className="btn-outline w-full"
-              onClick={() => setSearchDialogOpen(true)}
-              data-testid="voice-ordering-manual-add"
-            >
-              <Search className="h-4 w-4" />
-              {t('restaurants:actions.manualAdd')}
-            </button>
-          </div>
-        </section>
-
-        {/* Cart preview column */}
-        <section className="space-y-3">
-          <div className="card overflow-hidden">
-            <header className="flex items-center justify-between border-b border-line/60 px-4 py-3">
-              <h2 className="font-display text-lg text-secondary-950">
-                {t('restaurants:cart.heading')}
-              </h2>
-              <span className="text-xs text-secondary-500">
-                {cartItems.length}
-              </span>
-            </header>
-
-            {cartItems.length === 0 ? (
-              <div
-                className="px-4 py-10 text-center text-sm text-secondary-500"
-                data-testid="voice-ordering-cart-empty"
-              >
-                <ShoppingBag className="mx-auto mb-2 h-8 w-8 text-secondary-300" />
-                {t('restaurants:cart.empty')}
-              </div>
-            ) : (
-              <ul className="divide-y divide-line/40">
-                {cartItems.map(item => {
-                  const note = itemNotes[item.key] ?? '';
-                  return (
-                    <li
-                      key={item.key}
-                      className="space-y-2 px-4 py-3"
-                      data-testid="voice-ordering-cart-row"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-secondary-950">
-                            {item.productName}
-                          </p>
-                          <p className="text-xs text-secondary-500">
-                            {item.unitName} · {formatCurrency(item.unitPrice)}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          className="text-secondary-500 hover:text-danger-600"
-                          onClick={() => handleRemoveLine(item.key)}
-                          data-testid="voice-ordering-remove-row"
-                          aria-label={t('restaurants:cart.removeRow')}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            className="btn-outline btn-icon h-8 w-8"
-                            onClick={() => handleQuantityChange(item.key, -1)}
-                            aria-label={t('restaurants:cart.quantityDecrement')}
-                            data-testid="voice-ordering-qty-decrement"
-                            disabled={item.quantity <= getSaleMinimumQuantity(item)}
-                          >
-                            −
-                          </button>
-                          <span
-                            className="min-w-[2ch] text-center text-sm font-medium"
-                            data-testid="voice-ordering-qty"
-                          >
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            className="btn-outline btn-icon h-8 w-8"
-                            onClick={() => handleQuantityChange(item.key, +1)}
-                            aria-label={t('restaurants:cart.quantityIncrement')}
-                            data-testid="voice-ordering-qty-increment"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <span className="text-sm font-medium text-secondary-950">
-                          {formatCurrency(item.quantity * item.unitPrice)}
-                        </span>
-                      </div>
-                      <input
-                        type="text"
-                        className="input text-xs"
-                        placeholder={t('restaurants:cart.notesPlaceholder')}
-                        value={note}
-                        onChange={event =>
-                          handleNoteChange(item.key, event.target.value)
-                        }
-                        data-testid="voice-ordering-note-input"
-                        aria-label={t('restaurants:cart.notesPlaceholder')}
-                      />
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-
-            {cartItems.length > 0 && (
-              <footer className="space-y-1 border-t border-line/60 px-4 py-3 text-sm">
-                <div className="flex items-center justify-between text-secondary-500">
-                  <span>{t('restaurants:cart.subtotal')}</span>
-                  <span>{formatCurrency(cartSummary.subtotal)}</span>
-                </div>
-                <div className="flex items-center justify-between text-secondary-500">
-                  <span>{t('restaurants:cart.tax')}</span>
-                  <span>{formatCurrency(cartSummary.taxAmount)}</span>
-                </div>
-                <div className="flex items-center justify-between font-semibold text-secondary-950">
-                  <span>{t('restaurants:cart.total')}</span>
-                  <span>{formatCurrency(cartSummary.total)}</span>
-                </div>
-              </footer>
-            )}
-          </div>
-
-          <button
-            type="button"
-            className="btn-primary w-full text-base"
-            onClick={() => void handleSave()}
-            disabled={saveDisabled}
-            data-testid="voice-ordering-save"
-          >
-            <Save className="h-5 w-5" />
-            {t('restaurants:actions.saveOrder')}
-          </button>
-          {tableLabel.trim().length === 0 && cartItems.length > 0 && (
-            <p
-              className="text-xs text-warning-700"
-              data-testid="voice-ordering-save-table-hint"
-            >
-              {t('restaurants:save.tableRequired')}
-            </p>
-          )}
-          {cartItems.length === 0 && tableLabel.trim().length > 0 && (
-            <p
-              className="text-xs text-warning-700"
-              data-testid="voice-ordering-save-empty-hint"
-            >
-              {t('restaurants:save.emptyCartHint')}
-            </p>
-          )}
-        </section>
+        <VoiceOrderingCart
+          cartItems={cartItems}
+          itemNotes={itemNotes}
+          tableLabel={tableLabel}
+          saveDisabled={saveDisabled}
+          onQuantityChange={handleQuantityChange}
+          onRemoveLine={handleRemoveLine}
+          onNoteChange={handleNoteChange}
+          onSave={() => void handleSave()}
+        />
       </div>
 
       {voiceModalOpen && (
