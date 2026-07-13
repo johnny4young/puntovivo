@@ -37,10 +37,23 @@ permissions:
 
 jobs:
   # ============================================================================
+  # Prerelease money-path gate (ENG-210)
+  # ============================================================================
+  # Validate the exact release tag before any web archive or desktop installer
+  # is built. The reusable workflow is also independently dispatchable for an
+  # operator to exercise a branch/SHA without spending push/PR CI minutes.
+  e2e-web:
+    name: Prerelease Web Money Flows
+    uses: ./.github/workflows/prerelease-e2e.yml
+    with:
+      ref: refs/tags/${{ inputs.tag }}
+
+  # ============================================================================
   # Build & Upload Web
   # ============================================================================
   release-web:
     name: Release Web
+    needs: e2e-web
     runs-on: ubuntu-latest
 
     steps:
@@ -84,6 +97,7 @@ jobs:
   # ============================================================================
   release-desktop:
     name: Release Desktop (${{ matrix.platform }})
+    needs: e2e-web
     runs-on: ${{ matrix.os }}
     # electron-builder downloads its own Electron and fetches better-sqlite3's
     # Electron-ABI prebuild (no SQLCipher compile from source), so packaging is

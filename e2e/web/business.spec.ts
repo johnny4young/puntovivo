@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { mkdir } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import {
   attachClientIssueTracker,
@@ -26,6 +28,16 @@ import {
   seedSaleScenario,
   seedTransferScenario,
 } from './support/db';
+
+const PRERELEASE_MONEY_TAG = '@prerelease-money';
+
+async function capturePrereleaseEvidence(page: Page, name: string) {
+  const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
+  if (!auditDir) return;
+
+  await mkdir(auditDir, { recursive: true });
+  await page.screenshot({ path: path.join(auditDir, `${name}.png`), fullPage: true });
+}
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -304,7 +316,7 @@ async function assertAuditEventInUi(
 }
 
 test.describe('web business flows', () => {
-  test('cashier completes a sale and action permissions stay hidden for the cashier role', async ({
+  test('cashier completes a sale and action permissions stay hidden for the cashier role', { tag: PRERELEASE_MONEY_TAG }, async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
@@ -335,10 +347,11 @@ test.describe('web business flows', () => {
     await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toHaveCount(0);
 
+    await capturePrereleaseEvidence(page, 'prerelease-sale-details');
     await expectNoClientIssues(tracker);
   });
 
-  test('manager refunds a completed sale and the refund restores inventory plus audit evidence', async ({
+  test('manager refunds a completed sale and the refund restores inventory plus audit evidence', { tag: PRERELEASE_MONEY_TAG }, async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
@@ -418,6 +431,7 @@ test.describe('web business flows', () => {
       expectedText: /Sale refunded|Venta reembolsada/i,
     });
 
+    await capturePrereleaseEvidence(page, 'prerelease-refund-audit');
     await expectNoClientIssues(tracker);
   });
 
@@ -867,7 +881,7 @@ test.describe('web business flows', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('cashier closes a cash session with an overage and the closure is visible in audit plus reporting', async ({
+  test('cashier closes a cash session with an overage and the closure is visible in audit plus reporting', { tag: PRERELEASE_MONEY_TAG }, async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
@@ -936,6 +950,7 @@ test.describe('web business flows', () => {
       expectedText: `Over/short: ${formatUsd(expectedOverShort)}`,
     });
 
+    await capturePrereleaseEvidence(page, 'prerelease-cash-close-audit');
     await expectNoClientIssues(tracker);
   });
 

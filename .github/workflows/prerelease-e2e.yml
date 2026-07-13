@@ -1,0 +1,75 @@
+name: Prerelease Web Money Flows
+
+# ENG-210 — Run the expensive money-path browser gate only when an operator
+# dispatches it or the release workflow calls it. Push/PR CI intentionally does
+# not invoke this workflow so the closed-source repository keeps its Actions
+# minute budget bounded.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref whose money flows must pass'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag, or SHA to validate'
+        required: true
+        default: main
+        type: string
+
+env:
+  NODE_VERSION: '24'
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-web:
+    name: E2E Web — Sale, Cash Close, Refund
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout validation ref
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v6
+        with:
+          path: .playwright-browsers
+          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-chromium-
+
+      - name: Run prerelease money flows
+        run: pnpm run test:e2e:web:prerelease
+        env:
+          PUNTOVIVO_AUDIT_DIR: test-results/prerelease-evidence
+
+      - name: Upload prerelease browser evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: prerelease-web-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/prerelease-evidence
+            test-results/playwright-web
+            playwright-report/web
+          if-no-files-found: warn
+          retention-days: 14

@@ -558,12 +558,20 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
   agregadas, eliminadas y cambiadas, y el script `contract:snapshot` exige una
   regeneración deliberada para aceptar el diff.
 
-### WC-E3 · E2E Playwright de los 3 flujos de dinero en pre-release — **M**
+### WC-E3 · E2E Playwright de los 3 flujos de dinero en pre-release — **M** ✅ ENG-210
 
 - Los suites e2e existen pero son local-only. Añadir un job manual-dispatch
   (no en push/PR — respeta el presupuesto de minutos) que corra login + venta
   - cierre de caja + devolución, requerido por `release.yml` antes de empacar.
 - **AC**: `release.yml` depende del job e2e-web verde.
+- **Shipped 2026-07-13 (ENG-210)**: tres journeys etiquetados prueban venta,
+  cierre de caja y devolución con identidades reales, persistencia, inventario
+  y auditoría. El comando serial de prerelease corre desde un workflow reusable
+  y manual, conserva screenshots/reportes/traces, y `release.yml` valida el tag
+  exacto antes de habilitar cualquier archivo web o instalador desktop. El CI de
+  push/PR sólo verifica el contrato del workflow; no ejecuta el navegador caro.
+  Pasan 32 tests de automatización de release, los 3 journeys dirigidos y los
+  65 E2E web completos.
 
 ---
 
@@ -606,6 +614,7 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 19  | ✅ WC-A2 SSE backpressure + replay — ENG-204 shipped 2026-07-12                                                                 | M        | offline               |
 | 20  | WC-D3/WC-D4 bins + seriales                                                                                                     | M        | stock (product-gated) |
 | 21  | ✅ WC-C4 HUD privado de cajero (opt-in) — ENG-209 shipped 2026-07-13                                                            | M        | checkout              |
+| 22  | ✅ WC-E3 E2E prerelease de venta, cierre y devolución — ENG-210 shipped 2026-07-13                                              | M        | testeabilidad         |
 
 **Flujo**: cada item que se ejecute se promueve a `ROADMAP.md §3b` como
 `ENG-NNN` con AC copiadas de este doc (ids libres desde ENG-192), vía
