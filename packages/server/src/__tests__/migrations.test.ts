@@ -258,7 +258,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     inspect.close();
   });
 
-  it('does not pin the latest marker on a mixed partial DB without sales', () => {
+  it('does not pin latest absent-target markers on a mixed partial DB', () => {
     const sqlite = new Database(':memory:', { nativeBinding });
     sqlite.exec('CREATE TABLE products (id TEXT PRIMARY KEY, version INTEGER NOT NULL)');
 
@@ -272,6 +272,32 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
       .get(eng209!.when);
     expect(pinnedLatest).toBeUndefined();
+
+    const eng129c = readExpectedMigrations().find(
+      migration => migration.tag === '0011_eng129c_customer_privacy_disposition'
+    );
+    expect(eng129c).toBeDefined();
+    const pinnedPrivacy = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(eng129c!.when);
+    expect(pinnedPrivacy).toBeUndefined();
+    sqlite.close();
+  });
+
+  it('pins customer privacy migration for a purchase-only partial DB', () => {
+    const sqlite = new Database(':memory:', { nativeBinding });
+    sqlite.exec('CREATE TABLE purchases (id TEXT PRIMARY KEY)');
+
+    ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
+
+    const eng129c = readExpectedMigrations().find(
+      migration => migration.tag === '0011_eng129c_customer_privacy_disposition'
+    );
+    expect(eng129c).toBeDefined();
+    const pinnedPrivacy = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(eng129c!.when);
+    expect(pinnedPrivacy).toBeDefined();
     sqlite.close();
   });
 

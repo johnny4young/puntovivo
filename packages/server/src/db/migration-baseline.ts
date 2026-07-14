@@ -210,6 +210,15 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0010_eng209_checkout_timing') {
       return !tableExists('sales') && !tableExists('products');
     }
+    // ENG-129c — customer privacy disposition ALTERs `customers`. The
+    // purchase-only adoption fixture has none of the post-baseline targets,
+    // so 0010 is already safe to pin and this latest migration is a no-op as
+    // well. Keep the sales/products guard: a mixed partial DB must not advance
+    // Drizzle past older applicable migrations merely because customers is
+    // absent.
+    if (entry.tag === '0011_eng129c_customer_privacy_disposition') {
+      return !tableExists('customers') && !tableExists('sales') && !tableExists('products');
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

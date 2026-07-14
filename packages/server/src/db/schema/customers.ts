@@ -168,6 +168,8 @@ export const commercialActivitiesRelations = relations(commercialActivities, ({ 
 // CUSTOMERS
 // ============================================================================
 
+export const customerPrivacyStatusEnum = ['active', 'anonymized'] as const;
+
 /** A customer is the business party that buys from the tenant; the same real-world party may exist separately in multiple tenants. */
 export const customers = sqliteTable(
   'customers',
@@ -206,6 +208,13 @@ export const customers = sqliteTable(
       () => currencyCatalog.code
     ),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    // ENG-129c — explicit privacy lifecycle state. Anonymized rows remain
+    // only when linked fiscal/financial records require referential integrity;
+    // ordinary customer lists and searches hide them.
+    privacyStatus: text('privacy_status', { enum: customerPrivacyStatusEnum })
+      .notNull()
+      .default('active'),
+    privacyDisposedAt: text('privacy_disposed_at'),
     // ENG-177a — optimistic-concurrency guard (see products.version).
     version: integer('version').notNull().default(0),
     // Sync fields

@@ -39,6 +39,8 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'kds.order.recalled',
   'customer.credit_limit.update',
   'customer.personal_data.export',
+  'customer.personal_data.delete',
+  'customer.personal_data.anonymize',
   // ENG-199 — expiry-radar discount suggestions.
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',

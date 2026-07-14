@@ -70,7 +70,13 @@ export function buildCustomerPersonalDataExport(
       updatedAt: customers.updatedAt,
     })
     .from(customers)
-    .where(and(eq(customers.tenantId, tenantId), eq(customers.id, customerId)))
+    .where(
+      and(
+        eq(customers.tenantId, tenantId),
+        eq(customers.id, customerId),
+        eq(customers.privacyStatus, 'active')
+      )
+    )
     .get();
 
   if (!subject) {

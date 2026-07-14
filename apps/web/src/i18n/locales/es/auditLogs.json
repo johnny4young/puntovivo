@@ -66,6 +66,8 @@
     "kds.order.recalled": "Orden devuelta a pendiente en cocina",
     "customer.credit_limit.update": "Cupo de crédito del cliente actualizado",
     "customer.personal_data.export": "Datos personales del cliente exportados",
+    "customer.personal_data.delete": "Datos personales del cliente eliminados",
+    "customer.personal_data.anonymize": "Datos personales del cliente anonimizados",
     "sale.credit_override": "Venta completada con sobregiro autorizado",
     "fiscal.xml.downloaded": "XML fiscal descargado",
     "telemetry.opt_in.updated": "Preferencia de telemetría actualizada",

@@ -21,6 +21,7 @@ import {
   commercialActivities,
   companies,
   customerLedgerEntries,
+  customers,
   deliveryOrders,
   identificationTypes,
   paymentOutbox,
@@ -35,6 +36,7 @@ import {
   sales,
   sequentials,
   sites,
+  syncOutbox,
   tenants,
   users,
 } from '../db/schema.js';
@@ -51,10 +53,11 @@ let seededCategoryId: string;
 let defaultSiteId: string;
 let testDeviceId: string | null = null;
 const testDbPath = ':memory:';
-
-
 const CUSTOMER_CATALOG_SEED = {
-  identificationTypes: [{ code: 'CC', name: 'Cedula de Ciudadania' }, { code: 'NIT', name: 'NIT' }],
+  identificationTypes: [
+    { code: 'CC', name: 'Cedula de Ciudadania' },
+    { code: 'NIT', name: 'NIT' },
+  ],
   personTypes: [{ code: 'natural', name: 'Natural Person' }],
   regimeTypes: [
     { code: 'simplified', name: 'Simplified Regime' },
@@ -297,31 +300,35 @@ describe('Collections tRPC Routers', () => {
       });
     }
 
-    await appRouter.createCaller(
-      createTestContext({
-        id: adminUserId,
-        email: 'admin@collections-test.com',
-        role: 'admin',
-        tenantId: testTenantId,
-      })
-    ).cashSessions.open({
-      registerName: 'Admin register',
-      openingFloat: 100,
-      denominations: [{ value: 50, count: 2 }],
-    });
+    await appRouter
+      .createCaller(
+        createTestContext({
+          id: adminUserId,
+          email: 'admin@collections-test.com',
+          role: 'admin',
+          tenantId: testTenantId,
+        })
+      )
+      .cashSessions.open({
+        registerName: 'Admin register',
+        openingFloat: 100,
+        denominations: [{ value: 50, count: 2 }],
+      });
 
-    await appRouter.createCaller(
-      createTestContext({
-        id: cashierUserId,
-        email: 'cashier@collections-test.com',
-        role: 'cashier',
-        tenantId: testTenantId,
-      })
-    ).cashSessions.open({
-      registerName: 'Cashier register',
-      openingFloat: 50,
-      denominations: [{ value: 50, count: 1 }],
-    });
+    await appRouter
+      .createCaller(
+        createTestContext({
+          id: cashierUserId,
+          email: 'cashier@collections-test.com',
+          role: 'cashier',
+          tenantId: testTenantId,
+        })
+      )
+      .cashSessions.open({
+        registerName: 'Cashier register',
+        openingFloat: 50,
+        denominations: [{ value: 50, count: 1 }],
+      });
   });
 
   afterAll(async () => {
@@ -498,9 +505,7 @@ describe('Collections tRPC Routers', () => {
           parentId: parent.id,
         });
 
-        await expect(
-          caller.categories.delete({ id: parent.id })
-        ).rejects.toMatchObject({
+        await expect(caller.categories.delete({ id: parent.id })).rejects.toMatchObject({
           code: 'BAD_REQUEST',
         });
       });
@@ -1065,6 +1070,292 @@ describe('Collections tRPC Routers', () => {
       });
     });
 
+    describe('customers personal-data disposition', () => {
+      it('hard-deletes an unlinked profile only after an exact, versioned confirmation', async () => {
+        const caller = appRouter.createCaller(adminCtx());
+        const db = getDatabase();
+        const customer = await caller.customers.create({
+          name: `Unlinked Privacy ${nanoid(6)}`,
+          email: `unlinked-${nanoid(6)}@example.com`,
+        });
+
+        const preview = await caller.customers.previewPersonalDataDisposition({ id: customer.id });
+        expect(preview).toMatchObject({
+          disposition: 'delete',
+          totalLinkedRecords: 0,
+          customer: { id: customer.id, version: customer.version },
+        });
+
+        await expect(
+          caller.customers.disposePersonalData({
+            id: customer.id,
+            version: preview.customer.version,
+            confirmation: 'wrong name',
+          })
+        ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+        expect(
+          await db.select().from(customers).where(eq(customers.id, customer.id)).get()
+        ).toBeTruthy();
+
+        await expect(
+          caller.customers.disposePersonalData({
+            id: customer.id,
+            version: preview.customer.version,
+            confirmation: preview.customer.name,
+          })
+        ).resolves.toEqual({ success: true, id: customer.id, disposition: 'deleted' });
+
+        expect(
+          await db.select().from(customers).where(eq(customers.id, customer.id)).get()
+        ).toBeUndefined();
+        const audit = await db
+          .select()
+          .from(auditLogs)
+          .where(
+            and(
+              eq(auditLogs.tenantId, testTenantId),
+              eq(auditLogs.resourceId, customer.id),
+              eq(auditLogs.action, 'customer.personal_data.delete')
+            )
+          )
+          .get();
+        expect(audit?.metadata).toEqual({
+          disposition: 'deleted',
+          linkedRecordCounts: {
+            sales: 0,
+            quotations: 0,
+            ledgerEntries: 0,
+            deliveryOrders: 0,
+            fiscalDocuments: 0,
+          },
+        });
+
+        const syncRows = await db
+          .select()
+          .from(syncOutbox)
+          .where(
+            and(
+              eq(syncOutbox.tenantId, testTenantId),
+              eq(syncOutbox.entityType, 'customers'),
+              eq(syncOutbox.entityId, customer.id)
+            )
+          )
+          .all();
+        expect(syncRows).toHaveLength(1);
+        expect(syncRows[0]).toMatchObject({ operation: 'delete', payload: { id: customer.id } });
+        expect(JSON.stringify(syncRows)).not.toContain(customer.email);
+      });
+
+      it('anonymizes a linked profile, preserves transaction evidence, and scrubs queued PII', async () => {
+        const caller = appRouter.createCaller(adminCtx());
+        const db = getDatabase();
+        const suffix = nanoid(6);
+        const created = await caller.customers.create({
+          name: `Linked Privacy ${suffix}`,
+          email: `linked-${suffix}@example.com`,
+          phone: '+57 300 555 0999',
+          address: 'Calle privada 123',
+          city: 'Bogotá privada',
+          state: 'Cundinamarca privada',
+          postalCode: '110111',
+          country: 'Colombia privada',
+          taxId: `PII-${suffix}`,
+          identificationTypeId: 'CC',
+          personTypeId: 'natural',
+          regimeTypeId: 'simplified',
+          clientTypeId: 'retail',
+          commercialActivityId: '4711',
+          notes: 'Sensitive customer note',
+          creditLimit: 50,
+        });
+        const customer = await caller.customers.update({
+          id: created.id,
+          version: created.version,
+          creditLimit: 75,
+        });
+        const saleId = `privacy-disposition-sale-${suffix}`;
+        await db.insert(sales).values({
+          id: saleId,
+          tenantId: testTenantId,
+          saleNumber: `PRIV-DISP-${suffix}`,
+          customerId: customer.id,
+          status: 'draft',
+          createdBy: adminUserId,
+        });
+
+        const preview = await caller.customers.previewPersonalDataDisposition({ id: customer.id });
+        expect(preview).toMatchObject({
+          disposition: 'anonymize',
+          totalLinkedRecords: 1,
+          retentionReason: 'linked_records',
+          linkedRecordCounts: { sales: 1 },
+        });
+        await expect(caller.customers.delete({ id: customer.id })).rejects.toMatchObject({
+          code: 'CONFLICT',
+        });
+
+        await expect(
+          caller.customers.disposePersonalData({
+            id: customer.id,
+            version: preview.customer.version,
+            confirmation: preview.customer.name,
+          })
+        ).resolves.toEqual({ success: true, id: customer.id, disposition: 'anonymized' });
+
+        const anonymized = await db
+          .select()
+          .from(customers)
+          .where(and(eq(customers.tenantId, testTenantId), eq(customers.id, customer.id)))
+          .get();
+        expect(anonymized).toMatchObject({
+          name: '—',
+          email: null,
+          phone: null,
+          address: null,
+          city: null,
+          state: null,
+          postalCode: null,
+          country: null,
+          taxId: null,
+          identificationTypeId: null,
+          personTypeId: null,
+          regimeTypeId: null,
+          clientTypeId: null,
+          commercialActivityId: null,
+          notes: null,
+          creditLimit: 0,
+          creditLimitCurrencyCode: null,
+          isActive: false,
+          privacyStatus: 'anonymized',
+          version: customer.version + 1,
+          syncStatus: 'pending',
+        });
+        expect(anonymized?.privacyDisposedAt).toEqual(expect.any(String));
+        expect(await db.select().from(sales).where(eq(sales.id, saleId)).get()).toMatchObject({
+          customerId: customer.id,
+        });
+
+        const customerAudits = await db
+          .select()
+          .from(auditLogs)
+          .where(
+            and(
+              eq(auditLogs.tenantId, testTenantId),
+              eq(auditLogs.resourceType, 'customer'),
+              eq(auditLogs.resourceId, customer.id)
+            )
+          )
+          .all();
+        const previousAudit = customerAudits.find(
+          row => row.action === 'customer.credit_limit.update'
+        );
+        expect(previousAudit).toMatchObject({ before: null, after: null, metadata: null });
+        const dispositionAudit = customerAudits.find(
+          row => row.action === 'customer.personal_data.anonymize'
+        );
+        expect(dispositionAudit?.metadata).toMatchObject({
+          disposition: 'anonymized',
+          linkedRecordCounts: { sales: 1 },
+        });
+        expect(JSON.stringify(customerAudits)).not.toContain(customer.name);
+        expect(JSON.stringify(customerAudits)).not.toContain(customer.email);
+
+        const syncRows = await db
+          .select()
+          .from(syncOutbox)
+          .where(
+            and(
+              eq(syncOutbox.tenantId, testTenantId),
+              eq(syncOutbox.entityType, 'customers'),
+              eq(syncOutbox.entityId, customer.id)
+            )
+          )
+          .all();
+        expect(syncRows).toHaveLength(1);
+        expect(syncRows[0]).toMatchObject({
+          operation: 'update',
+          payload: { id: customer.id, name: '—', privacyStatus: 'anonymized' },
+        });
+        const serializedSync = JSON.stringify(syncRows);
+        expect(serializedSync).not.toContain(customer.name);
+        expect(serializedSync).not.toContain(customer.email);
+        expect(serializedSync).not.toContain(customer.phone);
+        expect(serializedSync).not.toContain(customer.address);
+        expect(serializedSync).not.toContain(customer.city);
+        expect(serializedSync).not.toContain(customer.state);
+        expect(serializedSync).not.toContain(customer.postalCode);
+        expect(serializedSync).not.toContain(customer.country);
+        expect(serializedSync).not.toContain(customer.taxId);
+        expect(serializedSync).not.toContain(customer.notes);
+
+        await expect(
+          caller.customers.exportPersonalData({ id: customer.id })
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        expect(
+          (await caller.customers.list({ page: 1, perPage: 100 })).items.some(
+            row => row.id === customer.id
+          )
+        ).toBe(false);
+        expect(
+          (await caller.customers.search({ q: suffix })).items.some(row => row.id === customer.id)
+        ).toBe(false);
+
+        await expect(
+          caller.customers.update({
+            id: customer.id,
+            version: anonymized!.version,
+            name: 'Restored personal data',
+            email: 'restored@example.com',
+            isActive: true,
+          })
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        expect(
+          await db
+            .select()
+            .from(customers)
+            .where(and(eq(customers.tenantId, testTenantId), eq(customers.id, customer.id)))
+            .get()
+        ).toMatchObject({
+          name: '—',
+          email: null,
+          isActive: false,
+          privacyStatus: 'anonymized',
+        });
+      });
+
+      it('rejects stale versions and non-admin roles before mutating privacy data', async () => {
+        const adminCaller = appRouter.createCaller(adminCtx());
+        const customer = await adminCaller.customers.create({
+          name: `Protected Privacy ${nanoid(6)}`,
+        });
+
+        await expect(
+          appRouter
+            .createCaller(managerCtx())
+            .customers.previewPersonalDataDisposition({ id: customer.id })
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+        await expect(
+          appRouter.createCaller(cashierCtx()).customers.disposePersonalData({
+            id: customer.id,
+            version: customer.version,
+            confirmation: customer.name,
+          })
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+        await expect(
+          adminCaller.customers.disposePersonalData({
+            id: customer.id,
+            version: customer.version + 1,
+            confirmation: customer.name,
+          })
+        ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+        await expect(adminCaller.customers.getById({ id: customer.id })).resolves.toMatchObject({
+          name: customer.name,
+          privacyStatus: 'active',
+        });
+      });
+    });
+
     describe('customers.search', () => {
       it('finds a customer by partial name', async () => {
         const caller = appRouter.createCaller(adminCtx());
@@ -1207,7 +1498,14 @@ describe('Collections tRPC Routers', () => {
         }
         const sale = await caller.sales.create({
           items: [
-            { productId: product.id, unitId, quantity: 1, unitPrice: 10.0, discount: 0, taxRate: 0 },
+            {
+              productId: product.id,
+              unitId,
+              quantity: 1,
+              unitPrice: 10.0,
+              discount: 0,
+              taxRate: 0,
+            },
           ],
           paymentMethod: 'cash',
           paymentStatus: 'paid',
@@ -1238,7 +1536,14 @@ describe('Collections tRPC Routers', () => {
         }
         const sale = await adminCaller.sales.create({
           items: [
-            { productId: product.id, unitId, quantity: 1, unitPrice: 10.0, discount: 0, taxRate: 0 },
+            {
+              productId: product.id,
+              unitId,
+              quantity: 1,
+              unitPrice: 10.0,
+              discount: 0,
+              taxRate: 0,
+            },
           ],
           paymentMethod: 'cash',
           paymentStatus: 'pending',
@@ -1272,7 +1577,14 @@ describe('Collections tRPC Routers', () => {
         }
         const sale = await caller.sales.create({
           items: [
-            { productId: product.id, unitId, quantity: 1, unitPrice: 10.0, discount: 0, taxRate: 0 },
+            {
+              productId: product.id,
+              unitId,
+              quantity: 1,
+              unitPrice: 10.0,
+              discount: 0,
+              taxRate: 0,
+            },
           ],
           paymentMethod: 'cash',
           paymentStatus: 'paid',

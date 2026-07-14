@@ -271,6 +271,8 @@ export const auditLogActionEnum = [
   // document is auditable. Metadata carries only schema version + aggregate
   // section counts; PII remains inside the one-time response document.
   'customer.personal_data.export',
+  'customer.personal_data.delete',
+  'customer.personal_data.anonymize',
   'sale.credit_override',
   // ENG-103 — audit-grade export contract. `fiscal.xml.downloaded` is
   // emitted every time `reports.fiscal.getXml` returns a signed XML body

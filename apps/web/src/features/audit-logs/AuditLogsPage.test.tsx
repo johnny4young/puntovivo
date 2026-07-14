@@ -33,5 +33,11 @@ describe('AuditLogsPage', () => {
         name: 'Customer personal data exported',
       })
     ).toHaveValue('customer.personal_data.export');
+    expect(screen.getByRole('option', { name: 'Customer personal data deleted' })).toHaveValue(
+      'customer.personal_data.delete'
+    );
+    expect(screen.getByRole('option', { name: 'Customer personal data anonymized' })).toHaveValue(
+      'customer.personal_data.anonymize'
+    );
   });
 });

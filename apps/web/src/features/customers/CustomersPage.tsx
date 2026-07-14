@@ -3,17 +3,13 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { ColumnDef } from '@tanstack/react-table';
 import { Plus, Pencil, Trash2, BookOpen, Eye } from 'lucide-react';
-import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Customer, CustomerCatalogItem } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { adminOnlyRoles, canAccessRole } from '@/features/auth/roleAccess';
-import {
-  CustomerFormModal,
-  type CustomerFormValues,
-} from '@/features/customers/CustomerFormModal';
+import { CustomerFormModal, type CustomerFormValues } from '@/features/customers/CustomerFormModal';
 import { CustomerDetailsDrawer } from '@/features/customers/CustomerDetailsDrawer';
 import { resolveCatalogLabel } from '@/features/customers/catalogLabel';
 import { CustomerLedgerModal } from '@/features/customers/CustomerLedgerModal';
@@ -21,6 +17,7 @@ import { EmptyStateReadinessNudge } from '@/components/feedback/EmptyStateReadin
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { extractServerErrorCode } from '@/lib/translateServerError';
 import { downloadFile, generateFilename } from '@/services/export/exportService';
+import { CustomerPrivacyDispositionModal } from '@/features/customers/CustomerPrivacyDispositionModal';
 
 function toOptionalString(value: string): string | undefined {
   return value || undefined;
@@ -38,7 +35,8 @@ export function CustomersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [customerToDispose, setCustomerToDispose] = useState<Customer | null>(null);
+  const [privacyConfirmation, setPrivacyConfirmation] = useState('');
   // ENG-089 — V5 ledger panel mounting state. Manager + admin only;
   // the row action button is hidden for cashier roles via `canViewLedger`.
   const [ledgerCustomer, setLedgerCustomer] = useState<Customer | null>(null);
@@ -46,12 +44,26 @@ export function CustomersPage() {
   // table (email / phone / type / location + identification).
   const [detailsCustomer, setDetailsCustomer] = useState<Customer | null>(null);
 
-  const { data, isLoading, error, refetch } = trpc.customers.list.useQuery({ page: 1, perPage: 50 });
-  const identificationTypesQuery = trpc.identificationTypes.list.useQuery({ page: 1, perPage: 100 });
+  const { data, isLoading, error, refetch } = trpc.customers.list.useQuery({
+    page: 1,
+    perPage: 50,
+  });
+  const identificationTypesQuery = trpc.identificationTypes.list.useQuery({
+    page: 1,
+    perPage: 100,
+  });
   const personTypesQuery = trpc.personTypes.list.useQuery({ page: 1, perPage: 100 });
   const regimeTypesQuery = trpc.regimeTypes.list.useQuery({ page: 1, perPage: 100 });
   const clientTypesQuery = trpc.clientTypes.list.useQuery({ page: 1, perPage: 100 });
-  const commercialActivitiesQuery = trpc.commercialActivities.list.useQuery({ page: 1, perPage: 100 });
+  const commercialActivitiesQuery = trpc.commercialActivities.list.useQuery({
+    page: 1,
+    perPage: 100,
+  });
+  const canManagePrivacy = canAccessRole(user?.role, adminOnlyRoles);
+  const privacyPreviewQuery = trpc.customers.previewPersonalDataDisposition.useQuery(
+    { id: customerToDispose?.id ?? '' },
+    { enabled: canManagePrivacy && !!customerToDispose, retry: false }
+  );
   const createMutation = trpc.customers.create.useMutation({
     onSuccess: async () => {
       await utils.customers.list.invalidate();
@@ -78,13 +90,31 @@ export function CustomersPage() {
     }),
   });
 
-  const deleteMutation = trpc.customers.delete.useMutation({
-    onSuccess: async () => {
+  const disposePersonalDataMutation = trpc.customers.disposePersonalData.useMutation({
+    onSuccess: async result => {
       await utils.customers.list.invalidate();
-      setCustomerToDelete(null);
-      toast.success({ title: t('toast.deleted') });
+      setCustomerToDispose(null);
+      setPrivacyConfirmation('');
+      if (detailsCustomer?.id === result.id) {
+        setDetailsCustomer(null);
+      }
+      toast.success({
+        title: t(
+          result.disposition === 'deleted'
+            ? 'privacy.disposition.deletedSuccess'
+            : 'privacy.disposition.anonymizedSuccess'
+        ),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'customers:toast.deleteError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'customers:privacy.disposition.error',
+      extra: (_description, mutationError) => {
+        if (extractServerErrorCode(mutationError) === 'STALE_VERSION') {
+          void privacyPreviewQuery.refetch();
+          void utils.customers.list.invalidate();
+        }
+      },
+    }),
   });
 
   const exportPersonalDataMutation = trpc.customers.exportPersonalData.useMutation({
@@ -98,8 +128,6 @@ export function CustomersPage() {
     onError: onErrorToast(toast, t, { titleKey: 'customers:privacy.error' }),
   });
 
-  const canDelete = user?.role === 'admin';
-  const canManagePrivacy = canAccessRole(user?.role, adminOnlyRoles);
   // ENG-089 — `Estado cuenta` row action mirrors the server's
   // `customerLedger.list` manager+ gate; cashier never sees the
   // button.
@@ -112,7 +140,8 @@ export function CustomersPage() {
   const personTypes = (personTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
   const regimeTypes = (regimeTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
   const clientTypes = (clientTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
-  const commercialActivities = (commercialActivitiesQuery.data?.items ?? []) as CustomerCatalogItem[];
+  const commercialActivities = (commercialActivitiesQuery.data?.items ??
+    []) as CustomerCatalogItem[];
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -214,7 +243,9 @@ export function CustomersPage() {
       size: 100,
       cell: ({ row }) => (
         <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
-          {row.original.isActive ? i18next.t('customers:table.active') : i18next.t('customers:table.inactive')}
+          {row.original.isActive
+            ? i18next.t('customers:table.active')
+            : i18next.t('customers:table.inactive')}
         </span>
       ),
     },
@@ -262,12 +293,15 @@ export function CustomersPage() {
           >
             <Pencil className="h-4 w-4" />
           </button>
-          {canDelete && (
+          {canManagePrivacy && (
             <button
               className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
-              aria-label={i18next.t('common:actions.delete')}
-              title={i18next.t('common:actions.delete')}
-              onClick={() => setCustomerToDelete(row.original)}
+              aria-label={i18next.t('customers:privacy.disposition.action')}
+              title={i18next.t('customers:privacy.disposition.action')}
+              onClick={() => {
+                setPrivacyConfirmation('');
+                setCustomerToDispose(row.original);
+              }}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -324,18 +358,31 @@ export function CustomersPage() {
         onSubmit={handleSubmit}
       />
 
-      <ConfirmModal
-        isOpen={!!customerToDelete}
-        onClose={() => setCustomerToDelete(null)}
-        onConfirm={() => {
-          if (customerToDelete) {
-            void deleteMutation.mutateAsync({ id: customerToDelete.id });
+      <CustomerPrivacyDispositionModal
+        isOpen={!!customerToDispose}
+        customerName={customerToDispose?.name ?? ''}
+        preview={privacyPreviewQuery.data}
+        isLoading={privacyPreviewQuery.isLoading || privacyPreviewQuery.isFetching}
+        error={privacyPreviewQuery.error?.message}
+        confirmation={privacyConfirmation}
+        isSubmitting={disposePersonalDataMutation.isPending}
+        onConfirmationChange={setPrivacyConfirmation}
+        onClose={() => {
+          if (!disposePersonalDataMutation.isPending) {
+            setCustomerToDispose(null);
+            setPrivacyConfirmation('');
           }
         }}
-        title={t('delete.title')}
-        message={t('delete.description')}
-        confirmText={t('delete.title')}
-        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          const preview = privacyPreviewQuery.data;
+          if (preview && privacyConfirmation === preview.customer.name) {
+            void disposePersonalDataMutation.mutateAsync({
+              id: preview.customer.id,
+              version: preview.customer.version,
+              confirmation: privacyConfirmation,
+            });
+          }
+        }}
       />
 
       {/* ENG-089 — V5 "Cuenta corriente" panel for the selected

@@ -23,12 +23,14 @@ import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
+  auditLogs,
   clientTypes,
   commercialActivities,
   customers,
   identificationTypes,
   personTypes,
   regimeTypes,
+  syncOutbox,
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -36,12 +38,18 @@ import {
   buildCustomerPersonalDataExport,
   getCustomerPersonalDataRecordCounts,
 } from '../../services/customer-privacy/export.js';
+import {
+  ANONYMIZED_CUSTOMER_NAME,
+  getCustomerPrivacyDispositionPreview,
+} from '../../services/customer-privacy/disposition.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
 import {
   listCustomersInput,
   getCustomerInput,
   exportCustomerPersonalDataInput,
+  previewCustomerPrivacyDispositionInput,
+  disposeCustomerPersonalDataInput,
   createCustomerInput,
   updateCustomerInput,
   deleteCustomerInput,
@@ -90,7 +98,10 @@ export const customersRouter = router({
     const { page, perPage, search, isActive } = input;
     const offset = (page - 1) * perPage;
 
-    const conditions = [eq(customers.tenantId, ctx.tenantId)];
+    const conditions = [
+      eq(customers.tenantId, ctx.tenantId),
+      eq(customers.privacyStatus, 'active'),
+    ];
     if (search) {
       conditions.push(
         or(
@@ -176,6 +187,181 @@ export const customersRouter = router({
         return document;
       })
     ),
+
+  /** Preview whether the privacy request can delete or must anonymize. */
+  previewPersonalDataDisposition: adminProcedure
+    .input(previewCustomerPrivacyDispositionInput)
+    .query(({ ctx, input }) => {
+      const preview = getCustomerPrivacyDispositionPreview(ctx.db, ctx.tenantId, input.id);
+      if (!preview) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
+      }
+      if (preview.customer.privacyStatus !== 'active') {
+        throw new TRPCError({ code: 'CONFLICT', message: 'Customer is already anonymized' });
+      }
+      return {
+        ...preview,
+        customer: {
+          id: preview.customer.id,
+          name: preview.customer.name,
+          version: preview.customer.version,
+          privacyStatus: preview.customer.privacyStatus,
+        },
+      };
+    }),
+
+  /**
+   * Dispose of mutable customer PII after an explicit, versioned confirmation.
+   * Linked legal/financial records force anonymization; an unlinked profile is
+   * physically deleted. Historical customer audit payloads are scrubbed in
+   * either path before the PII-free disposition event is appended.
+   */
+  disposePersonalData: adminProcedure
+    .input(disposeCustomerPersonalDataInput)
+    .mutation(async ({ ctx, input }) => {
+      const now = new Date().toISOString();
+      const transactionResult = ctx.db.transaction(tx => {
+        const preview = getCustomerPrivacyDispositionPreview(tx, ctx.tenantId, input.id);
+        if (!preview) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
+        }
+        if (preview.customer.privacyStatus !== 'active') {
+          throw new TRPCError({ code: 'CONFLICT', message: 'Customer is already anonymized' });
+        }
+        if (input.confirmation !== preview.customer.name) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Confirmation does not match the customer name',
+          });
+        }
+
+        tx.update(auditLogs)
+          .set({ before: null, after: null, metadata: null })
+          .where(
+            and(
+              eq(auditLogs.tenantId, ctx.tenantId),
+              eq(auditLogs.resourceType, 'customer'),
+              eq(auditLogs.resourceId, input.id)
+            )
+          )
+          .run();
+        tx.delete(syncOutbox)
+          .where(
+            and(
+              eq(syncOutbox.tenantId, ctx.tenantId),
+              eq(syncOutbox.entityType, 'customers'),
+              eq(syncOutbox.entityId, input.id)
+            )
+          )
+          .run();
+
+        if (preview.disposition === 'delete') {
+          const versionedDelete = tx
+            .delete(customers)
+            .where(
+              and(
+                eq(customers.id, input.id),
+                eq(customers.tenantId, ctx.tenantId),
+                eq(customers.version, input.version),
+                eq(customers.privacyStatus, 'active')
+              )
+            )
+            .run() as { changes?: number };
+          assertVersionedWriteApplied('customer', versionedDelete.changes ?? 0, input.version);
+
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'customer.personal_data.delete',
+            resourceType: 'customer',
+            resourceId: input.id,
+            metadata: {
+              disposition: 'deleted',
+              linkedRecordCounts: preview.linkedRecordCounts,
+            },
+          });
+
+          return {
+            publicResult: { success: true as const, id: input.id, disposition: 'deleted' as const },
+            syncOperation: 'delete' as const,
+            syncData: { id: input.id },
+          };
+        }
+
+        const anonymizedUpdate = {
+          name: ANONYMIZED_CUSTOMER_NAME,
+          email: null,
+          phone: null,
+          address: null,
+          city: null,
+          state: null,
+          postalCode: null,
+          country: null,
+          taxId: null,
+          identificationTypeId: null,
+          personTypeId: null,
+          regimeTypeId: null,
+          clientTypeId: null,
+          commercialActivityId: null,
+          notes: null,
+          creditLimit: 0,
+          creditLimitCurrencyCode: null,
+          isActive: false,
+          privacyStatus: 'anonymized' as const,
+          privacyDisposedAt: now,
+          version: input.version + 1,
+          syncStatus: 'pending' as const,
+          syncVersion: (preview.customer.syncVersion ?? 0) + 1,
+          updatedAt: now,
+        };
+        const versionedUpdate = tx
+          .update(customers)
+          .set(anonymizedUpdate)
+          .where(
+            and(
+              eq(customers.id, input.id),
+              eq(customers.tenantId, ctx.tenantId),
+              eq(customers.version, input.version),
+              eq(customers.privacyStatus, 'active')
+            )
+          )
+          .run() as { changes?: number };
+        assertVersionedWriteApplied('customer', versionedUpdate.changes ?? 0, input.version);
+
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'customer.personal_data.anonymize',
+          resourceType: 'customer',
+          resourceId: input.id,
+          metadata: {
+            disposition: 'anonymized',
+            linkedRecordCounts: preview.linkedRecordCounts,
+          },
+        });
+
+        return {
+          publicResult: {
+            success: true as const,
+            id: input.id,
+            disposition: 'anonymized' as const,
+          },
+          syncOperation: 'update' as const,
+          syncData: { id: input.id, ...anonymizedUpdate },
+        };
+      });
+
+      await enqueueSync(ctx, {
+        entityType: 'customers',
+        entityId: input.id,
+        operation: transactionResult.syncOperation,
+        data: transactionResult.syncData,
+      });
+
+      return transactionResult.publicResult;
+    }),
 
   /**
    * Create a new customer
@@ -289,7 +475,13 @@ export const customersRouter = router({
     const existing = await ctx.db
       .select()
       .from(customers)
-      .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
+      .where(
+        and(
+          eq(customers.id, id),
+          eq(customers.tenantId, ctx.tenantId),
+          eq(customers.privacyStatus, 'active')
+        )
+      )
       .get();
 
     if (!existing) {
@@ -411,6 +603,7 @@ export const customersRouter = router({
           and(
             eq(customers.id, id),
             eq(customers.tenantId, ctx.tenantId),
+            eq(customers.privacyStatus, 'active'),
             eq(customers.version, input.version)
           )
         )
@@ -456,22 +649,59 @@ export const customersRouter = router({
   }),
 
   /**
-   * Delete a customer (admin only)
+   * Delete an unlinked customer (admin only).
+   *
+   * Kept for API compatibility. Linked records fail closed; the interactive
+   * privacy flow uses previewPersonalDataDisposition + disposePersonalData.
    */
   delete: adminProcedure.input(deleteCustomerInput).mutation(async ({ ctx, input }) => {
-    const existing = await ctx.db
-      .select()
-      .from(customers)
-      .where(and(eq(customers.id, input.id), eq(customers.tenantId, ctx.tenantId)))
-      .get();
+    ctx.db.transaction(tx => {
+      const preview = getCustomerPrivacyDispositionPreview(tx, ctx.tenantId, input.id);
+      if (!preview) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
+      }
+      if (preview.customer.privacyStatus !== 'active') {
+        throw new TRPCError({ code: 'CONFLICT', message: 'Customer is already anonymized' });
+      }
+      if (preview.disposition !== 'delete') {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Customer has linked records and must use the privacy disposition flow',
+        });
+      }
 
-    if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
-    }
-
-    await ctx.db
-      .delete(customers)
-      .where(and(eq(customers.id, input.id), eq(customers.tenantId, ctx.tenantId)));
+      tx.update(auditLogs)
+        .set({ before: null, after: null, metadata: null })
+        .where(
+          and(
+            eq(auditLogs.tenantId, ctx.tenantId),
+            eq(auditLogs.resourceType, 'customer'),
+            eq(auditLogs.resourceId, input.id)
+          )
+        )
+        .run();
+      tx.delete(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tenantId, ctx.tenantId),
+            eq(syncOutbox.entityType, 'customers'),
+            eq(syncOutbox.entityId, input.id)
+          )
+        )
+        .run();
+      tx.delete(customers)
+        .where(and(eq(customers.id, input.id), eq(customers.tenantId, ctx.tenantId)))
+        .run();
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'customer.personal_data.delete',
+        resourceType: 'customer',
+        resourceId: input.id,
+        metadata: { disposition: 'deleted', linkedRecordCounts: preview.linkedRecordCounts },
+      });
+    });
 
     await enqueueSync(ctx, {
       entityType: 'customers',
@@ -493,6 +723,7 @@ export const customersRouter = router({
       .where(
         and(
           eq(customers.tenantId, ctx.tenantId),
+          eq(customers.privacyStatus, 'active'),
           or(
             like(customers.name, `%${input.q}%`),
             like(customers.email, `%${input.q}%`),
