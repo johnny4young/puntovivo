@@ -45,10 +45,10 @@ function installElectron(overrides: Partial<ElectronAPI> = {}) {
   };
 }
 
-function renderPanel() {
+function renderPanel(props: React.ComponentProps<typeof BackupSchedulePanel> = {}) {
   return render(
     <ToastProvider>
-      <BackupSchedulePanel />
+      <BackupSchedulePanel {...props} />
     </ToastProvider>
   );
 }
@@ -104,13 +104,15 @@ describe('BackupSchedulePanel (ENG-136a)', () => {
       lastSizeBytes: 1_572_864,
     };
     const runBackupSnapshotNow = vi.fn().mockResolvedValue({ success: true, status: completed });
+    const onSnapshotCreated = vi.fn();
     installElectron({ runBackupSnapshotNow });
-    renderPanel();
+    renderPanel({ onSnapshotCreated });
 
     await screen.findByText(/not created yet/i);
     await user.click(screen.getByRole('button', { name: /create snapshot now/i }));
 
     expect(runBackupSnapshotNow).toHaveBeenCalledTimes(1);
+    expect(onSnapshotCreated).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('backup-last-success')).not.toHaveTextContent(/not created yet/i);
     expect(screen.getByText('1.5 MB')).toBeInTheDocument();
     expect(screen.getByText(/encrypted snapshot created/i)).toBeInTheDocument();

@@ -76,6 +76,66 @@
       "snapshot": "Unable to create the encrypted snapshot."
     }
   },
+  "cloud": {
+    "title": "S3-compatible cloud vault",
+    "description": "Replicate each scheduled encrypted snapshot to storage managed by your business.",
+    "connected": "Connected",
+    "unsupported": "Update the desktop app to configure cloud backup replication.",
+    "secureStorageUnavailable": "The operating-system keychain is unavailable. Cloud credentials will not be stored until secure storage is restored.",
+    "destination": "Cloud destination",
+    "prefix": "Object prefix",
+    "credential": "Access key",
+    "lastSuccess": "Last successful cloud write",
+    "lastObject": "Latest object",
+    "never": "Not verified yet",
+    "test": "Test connection",
+    "testing": "Testing connection…",
+    "replace": "Replace configuration",
+    "disconnect": "Disconnect",
+    "saveAndTest": "Save and test",
+    "saving": "Saving and testing…",
+    "cancel": "Cancel",
+    "securityNote": "Credentials are sealed by this device’s operating-system keychain and are never included in backups or returned to the interface. Use a dedicated key limited to writing this bucket and prefix.",
+    "fields": {
+      "endpoint": "S3 endpoint",
+      "region": "Region",
+      "bucket": "Bucket",
+      "prefix": "Object prefix",
+      "accessKey": "Access key ID",
+      "secretKey": "Secret access key",
+      "pathStyle": "Use path-style addressing",
+      "pathStyleHelp": "Recommended for MinIO, Cloudflare R2, and many S3-compatible providers."
+    },
+    "placeholders": {
+      "endpoint": "https://objects.example.com",
+      "region": "auto",
+      "bucket": "merchant-backups",
+      "prefix": "puntovivo-backups",
+      "accessKey": "Enter the access key ID",
+      "secretKey": "Enter the secret access key"
+    },
+    "toast": {
+      "connected": "Cloud vault saved and verified",
+      "testPassed": "Cloud vault connection verified",
+      "disconnected": "Cloud vault disconnected"
+    },
+    "errors": {
+      "load": "Unable to load the cloud vault configuration.",
+      "save": "Unable to save the cloud vault configuration.",
+      "disconnect": "Unable to disconnect the cloud vault.",
+      "configurationInvalid": "Check the endpoint, bucket, prefix, region, and credentials. Production endpoints must use HTTPS.",
+      "configurationMissing": "Configure the cloud vault before testing it.",
+      "secureStorage": "The operating-system keychain cannot protect these credentials.",
+      "connection": "The cloud write test failed. Check the endpoint, credentials, bucket permissions, and network connection.",
+      "upload": "The latest encrypted snapshot could not be copied to the cloud vault. The local snapshot is still valid.",
+      "inProgress": "Another cloud backup operation is still in progress."
+    },
+    "disconnectModal": {
+      "title": "Disconnect cloud vault?",
+      "message": "This removes the sealed credentials from this device. Existing cloud objects and local snapshots are not deleted.",
+      "confirm": "Disconnect vault"
+    }
+  },
   "drill": {
     "title": "Restore readiness drill",
     "description": "Verify the latest encrypted snapshot without changing the live database. The result is recorded in the audit log.",

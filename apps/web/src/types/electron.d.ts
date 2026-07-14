@@ -134,6 +134,13 @@ export interface ElectronAPI {
     | { success: true; report: BackupRestoreDrillReport }
     | { success: false; error: 'snapshot_unavailable' | 'drill_failed' }
   >;
+  /** ENG-136c — admin-only S3-compatible backup vault; secrets are write-only. */
+  getBackupCloudVaultStatus?: () => Promise<BackupCloudVaultResult>;
+  configureBackupCloudVault?: (
+    input: BackupCloudVaultConfigInput
+  ) => Promise<BackupCloudVaultResult>;
+  disconnectBackupCloudVault?: () => Promise<BackupCloudVaultResult>;
+  testBackupCloudVault?: () => Promise<BackupCloudVaultResult>;
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale?: (locale: string) => Promise<'en' | 'es'>;
   runtime?: RuntimeAPI;
@@ -177,6 +184,49 @@ export interface BackupScheduleStatus {
   lastSizeBytes: number | null;
   lastError: 'snapshot_failed' | null;
   inProgress: boolean;
+}
+
+export type BackupCloudVaultErrorCode =
+  | 'configuration_invalid'
+  | 'configuration_missing'
+  | 'secure_storage_unavailable'
+  | 'cloud_vault_unavailable'
+  | 'connection_failed'
+  | 'upload_failed'
+  | 'operation_in_progress';
+
+export interface BackupCloudVaultStatus {
+  configured: boolean;
+  secureStorageAvailable: boolean;
+  endpoint: string | null;
+  region: string | null;
+  bucket: string | null;
+  prefix: string | null;
+  forcePathStyle: boolean;
+  accessKeyHint: string | null;
+  configuredAt: string | null;
+  updatedAt: string | null;
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  lastObjectKey: string | null;
+  lastError: 'connection_failed' | 'upload_failed' | null;
+  inProgress: boolean;
+}
+
+export interface BackupCloudVaultConfigInput {
+  endpoint: string;
+  region: string;
+  bucket: string;
+  prefix?: string;
+  forcePathStyle: boolean;
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
+export interface BackupCloudVaultResult {
+  success: boolean;
+  status?: BackupCloudVaultStatus;
+  error?: BackupCloudVaultErrorCode;
 }
 
 export type BackupRestoreDrillTable =

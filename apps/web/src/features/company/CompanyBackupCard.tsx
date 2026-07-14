@@ -7,6 +7,7 @@ import { DesktopOnlyChip, DisabledControl } from '@/components/feedback/DesktopO
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { translateServerError } from '@/lib/translateServerError';
 import { BackupProtectionPanel } from './BackupProtectionPanel';
+import { BackupCloudVaultPanel } from './BackupCloudVaultPanel';
 import { BackupRestoreDrillPanel } from './BackupRestoreDrillPanel';
 import { BackupSchedulePanel } from './BackupSchedulePanel';
 
@@ -35,6 +36,7 @@ function getStatusToneClasses(tone: BackupStatus['tone']): string {
 export function CompanyBackupCard() {
   const { t } = useTranslation('settings');
   const [activeAction, setActiveAction] = useState<BackupAction>(null);
+  const [cloudVaultRefreshKey, setCloudVaultRefreshKey] = useState(0);
   const [isRestoreConfirmOpen, setIsRestoreConfirmOpen] = useState(false);
   const [status, setStatus] = useState<BackupStatus | null>(null);
   // ENG-167b — cross-device restore key prompt. Non-null while the
@@ -330,7 +332,10 @@ export function CompanyBackupCard() {
 
       <BackupProtectionPanel />
 
-      <BackupSchedulePanel />
+      <BackupSchedulePanel
+        onSnapshotCreated={() => setCloudVaultRefreshKey(current => current + 1)}
+      />
+      <BackupCloudVaultPanel refreshKey={cloudVaultRefreshKey} />
       <BackupRestoreDrillPanel />
 
       <div className="rounded-2xl border border-warning-300/70 bg-warning-50 px-4 py-3 text-sm text-warning-900">

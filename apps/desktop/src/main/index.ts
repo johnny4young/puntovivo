@@ -8,6 +8,7 @@ import {
   writeAuditLog,
 } from '@puntovivo/server';
 import { sweepStaleBackupStaging } from './backup/backup-bundle.js';
+import { createBackupCloudVault } from './backup/cloud-vault.js';
 import { createBackupOperationQueue } from './backup/operation-queue.js';
 import { createBackupRestoreDrill } from './backup/restore-drill.js';
 import { backupTenantPathSegment, createBackupScheduler } from './backup/scheduler.js';
@@ -91,6 +92,12 @@ const serverLifecycle = createServerLifecycle({
 });
 
 const backupOperationQueue = createBackupOperationQueue();
+const backupCloudVault = createBackupCloudVault({
+  getStatePath: () => join(app.getPath('userData'), 'backup-cloud-vaults.v1.json'),
+  safeStorage,
+  allowInsecureLoopback: isDev,
+  log: backupLog,
+});
 const backupScheduler = createBackupScheduler({
   dbPath: encryptionSetup.dbPath,
   getStatePath: () => join(app.getPath('userData'), 'backup-schedules.v1.json'),
@@ -100,6 +107,7 @@ const backupScheduler = createBackupScheduler({
   getAppVersion: () => app.getVersion(),
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
   runExclusive: backupOperationQueue.run,
+  replicateSnapshot: input => backupCloudVault.replicateSnapshot(input),
   log: backupLog,
 });
 const backupRestoreDrill = createBackupRestoreDrill({
@@ -147,6 +155,7 @@ registerBackupIpc({
   runWithServerRestart: serverLifecycle.restartAround,
   runExclusiveBackupOperation: backupOperationQueue.run,
   backupScheduler,
+  backupCloudVault,
   runBackupRestoreDrill: tenantId => backupRestoreDrill.run(tenantId),
   recordBackupRestoreDrillAudit: input => {
     const metadata =

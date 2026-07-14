@@ -36,6 +36,10 @@ function makeScheduler(
     }>;
     lifecycleEvents?: string[];
     statePath?: () => string;
+    replicateSnapshot?: (input: {
+      tenantId: string;
+      zipPath: string;
+    }) => Promise<{ success: boolean; skipped?: boolean; error?: string }>;
   } = {}
 ) {
   const lifecycleEvents = options.lifecycleEvents ?? [];
@@ -52,6 +56,7 @@ function makeScheduler(
       lifecycleEvents.push('exclusive:end');
       return result;
     },
+    ...(options.replicateSnapshot ? { replicateSnapshot: options.replicateSnapshot } : {}),
     createBundle:
       options.createBundle ??
       (async args => ({
@@ -170,6 +175,40 @@ describe('backup scheduler persistence and execution (ENG-136a)', () => {
     assert.equal(result.status.lastSizeBytes, 128);
     assert.equal(result.status.nextRunAt, '2026-07-15T12:00:02.000Z');
     assert.equal(result.status.inProgress, false);
+  });
+
+  it('replicates a completed snapshot with the scheduler-derived tenant and path', async () => {
+    const replications: Array<{ tenantId: string; zipPath: string }> = [];
+    const scheduler = makeScheduler({
+      now: () => new Date('2026-07-14T12:00:00.000Z'),
+      replicateSnapshot: async input => {
+        replications.push(input);
+        return { success: true };
+      },
+    });
+
+    const result = await scheduler.runNow('tenant-a');
+
+    assert.equal(result.success, true);
+    assert.equal(replications.length, 1);
+    assert.equal(replications[0]?.tenantId, 'tenant-a');
+    assert.equal(replications[0]?.zipPath, result.status.lastPath);
+  });
+
+  it('keeps local snapshot success when optional cloud replication fails', async () => {
+    const scheduler = makeScheduler({
+      now: () => new Date('2026-07-14T12:00:00.000Z'),
+      replicateSnapshot: async () => {
+        throw new Error('provider failed with secret diagnostics');
+      },
+    });
+
+    const result = await scheduler.runNow('tenant-a');
+
+    assert.equal(result.success, true);
+    assert.equal(result.status.lastError, null);
+    assert.match(result.status.lastPath ?? '', /puntovivo-backup-tenant-a-.*\.zip$/);
+    assert.doesNotMatch(JSON.stringify(result), /provider|secret/);
   });
 
   it('persists a safe failure code without exposing provider diagnostics', async () => {

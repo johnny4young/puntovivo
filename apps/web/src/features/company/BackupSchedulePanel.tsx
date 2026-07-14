@@ -7,6 +7,10 @@ import type { BackupScheduleFrequency, BackupScheduleStatus } from '@/types/elec
 
 type ScheduleAction = 'load' | 'save' | 'destination' | 'snapshot' | null;
 
+interface BackupSchedulePanelProps {
+  onSnapshotCreated?: () => void;
+}
+
 function formatBytes(value: number | null): string | null {
   if (value === null) return null;
   if (value < 1_024) return `${value} B`;
@@ -14,7 +18,7 @@ function formatBytes(value: number | null): string | null {
   return `${(value / (1_024 * 1_024)).toFixed(1)} MB`;
 }
 
-export function BackupSchedulePanel() {
+export function BackupSchedulePanel({ onSnapshotCreated }: BackupSchedulePanelProps = {}) {
   const { t } = useTranslation('backupProtection');
   const toast = useToast();
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
@@ -99,6 +103,7 @@ export function BackupSchedulePanel() {
       const result = await electron.runBackupSnapshotNow();
       if (!result.success || !result.status) throw new Error('snapshot_failed');
       setStatus(result.status);
+      onSnapshotCreated?.();
       toast.success({ title: t('schedule.toast.created') });
     } catch {
       setError(t('schedule.errors.snapshot'));

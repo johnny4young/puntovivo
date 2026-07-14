@@ -16,6 +16,43 @@ interface BackupScheduleStatus {
   inProgress: boolean;
 }
 
+type BackupCloudVaultErrorCode =
+  | 'configuration_invalid'
+  | 'configuration_missing'
+  | 'secure_storage_unavailable'
+  | 'cloud_vault_unavailable'
+  | 'connection_failed'
+  | 'upload_failed'
+  | 'operation_in_progress';
+
+interface BackupCloudVaultStatus {
+  configured: boolean;
+  secureStorageAvailable: boolean;
+  endpoint: string | null;
+  region: string | null;
+  bucket: string | null;
+  prefix: string | null;
+  forcePathStyle: boolean;
+  accessKeyHint: string | null;
+  configuredAt: string | null;
+  updatedAt: string | null;
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  lastObjectKey: string | null;
+  lastError: 'connection_failed' | 'upload_failed' | null;
+  inProgress: boolean;
+}
+
+interface BackupCloudVaultConfigInput {
+  endpoint: string;
+  region: string;
+  bucket: string;
+  prefix?: string;
+  forcePathStyle: boolean;
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
 type BackupRestoreDrillTable =
   'products' | 'customers' | 'sales' | 'inventory_movements' | 'audit_logs';
 
@@ -129,6 +166,26 @@ interface DesktopElectronAPI {
     | { success: true; report: BackupRestoreDrillReport }
     | { success: false; error: 'snapshot_unavailable' | 'drill_failed' }
   >;
+  getBackupCloudVaultStatus: () => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
+  }>;
+  configureBackupCloudVault: (input: BackupCloudVaultConfigInput) => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
+  }>;
+  disconnectBackupCloudVault: () => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
+  }>;
+  testBackupCloudVault: () => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
+  }>;
   printReceipt: (receiptHtml: string) => Promise<{
     success: boolean;
     error?: string;

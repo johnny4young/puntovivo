@@ -6,6 +6,7 @@
 
 import type { BrowserWindow } from 'electron';
 import type { BackupProtectionStatus } from '../../backup-protection.js';
+import type { BackupCloudVault } from '../../backup/cloud-vault.js';
 import type {
   BackupRestoreDrillErrorCode,
   BackupRestoreDrillReport,
@@ -78,6 +79,8 @@ export interface BackupIpcDeps {
   runExclusiveBackupOperation: <T>(operation: () => Promise<T>) => Promise<T>;
   /** Device-local encrypted snapshot scheduler owned by main/index.ts. */
   backupScheduler: BackupScheduler;
+  /** Device-local, safeStorage-sealed S3-compatible backup vault. */
+  backupCloudVault: BackupCloudVault;
   /** Opens Electron's native directory picker without trusting a renderer path. */
   chooseBackupScheduleDirectory: () => Promise<string | null>;
   /** Runs a read-only comparison against the latest scheduler-owned snapshot. */

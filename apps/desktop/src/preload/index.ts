@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { BackupProtectionStatus } from '../main/backup-protection.js';
+import type {
+  BackupCloudVaultConfigInput,
+  BackupCloudVaultErrorCode,
+  BackupCloudVaultStatus,
+} from '../main/backup/cloud-vault.js';
 import type { BackupRestoreDrillReport } from '../main/backup/restore-drill.js';
 import type { BackupScheduleFrequency, BackupScheduleStatus } from '../main/backup/scheduler.js';
 
@@ -147,6 +152,27 @@ export interface ElectronAPI {
     | { success: true; report: BackupRestoreDrillReport }
     | { success: false; error: 'snapshot_unavailable' | 'drill_failed' }
   >;
+  /** ENG-136c — admin-only S3-compatible backup vault; secrets are write-only. */
+  getBackupCloudVaultStatus: () => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
+  }>;
+  configureBackupCloudVault: (input: BackupCloudVaultConfigInput) => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
+  }>;
+  disconnectBackupCloudVault: () => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
+  }>;
+  testBackupCloudVault: () => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
+  }>;
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
   device: DeviceAPI;
@@ -320,6 +346,10 @@ const electronAPI: ElectronAPI = {
   chooseBackupScheduleDestination: () => ipcRenderer.invoke('choose-backup-schedule-destination'),
   runBackupSnapshotNow: () => ipcRenderer.invoke('run-backup-snapshot-now'),
   runBackupRestoreDrill: () => ipcRenderer.invoke('run-backup-restore-drill'),
+  getBackupCloudVaultStatus: () => ipcRenderer.invoke('get-backup-cloud-vault-status'),
+  configureBackupCloudVault: input => ipcRenderer.invoke('configure-backup-cloud-vault', input),
+  disconnectBackupCloudVault: () => ipcRenderer.invoke('disconnect-backup-cloud-vault'),
+  testBackupCloudVault: () => ipcRenderer.invoke('test-backup-cloud-vault'),
   printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),
   updateMainLocale: (locale: string) => ipcRenderer.invoke('update-main-locale', locale),
   device: deviceAPI,

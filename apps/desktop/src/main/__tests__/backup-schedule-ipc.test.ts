@@ -13,6 +13,7 @@ import {
   SESSION_NOT_REGISTERED,
   SESSION_ROLE_FORBIDDEN,
 } from '../session/desktopSession.ts';
+import { createBackupCloudVaultStub } from './helpers/backup-cloud-vault.ts';
 
 const STATUS = {
   tenantId: 'tenant-1',
@@ -51,6 +52,7 @@ function makeDeps(
     },
     recordBackupRestoreDrillAudit: () => {},
     chooseBackupScheduleDirectory: async () => null,
+    backupCloudVault: createBackupCloudVaultStub(),
     backupScheduler: {
       start: async () => {},
       stop: async () => {},

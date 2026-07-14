@@ -76,6 +76,66 @@
       "snapshot": "No se pudo crear el respaldo cifrado."
     }
   },
+  "cloud": {
+    "title": "Bóveda en la nube compatible con S3",
+    "description": "Replica cada respaldo cifrado programado en un almacenamiento administrado por tu empresa.",
+    "connected": "Conectada",
+    "unsupported": "Actualiza la app de escritorio para configurar la réplica de respaldos en la nube.",
+    "secureStorageUnavailable": "El llavero del sistema operativo no está disponible. Las credenciales de la nube no se guardarán hasta restablecer el almacenamiento seguro.",
+    "destination": "Destino en la nube",
+    "prefix": "Prefijo de objetos",
+    "credential": "Clave de acceso",
+    "lastSuccess": "Última escritura correcta en la nube",
+    "lastObject": "Objeto más reciente",
+    "never": "Aún no se ha verificado",
+    "test": "Probar conexión",
+    "testing": "Probando conexión…",
+    "replace": "Reemplazar configuración",
+    "disconnect": "Desconectar",
+    "saveAndTest": "Guardar y probar",
+    "saving": "Guardando y probando…",
+    "cancel": "Cancelar",
+    "securityNote": "Las credenciales quedan selladas por el llavero del sistema operativo de este dispositivo. Nunca se incluyen en los respaldos ni regresan a la interfaz. Usa una clave dedicada con permiso solo para escribir en este bucket y prefijo.",
+    "fields": {
+      "endpoint": "Endpoint S3",
+      "region": "Región",
+      "bucket": "Bucket",
+      "prefix": "Prefijo de objetos",
+      "accessKey": "ID de clave de acceso",
+      "secretKey": "Clave de acceso secreta",
+      "pathStyle": "Usar direccionamiento por ruta",
+      "pathStyleHelp": "Recomendado para MinIO, Cloudflare R2 y muchos proveedores compatibles con S3."
+    },
+    "placeholders": {
+      "endpoint": "https://objects.ejemplo.com",
+      "region": "auto",
+      "bucket": "respaldos-empresa",
+      "prefix": "puntovivo-backups",
+      "accessKey": "Ingresa el ID de la clave de acceso",
+      "secretKey": "Ingresa la clave de acceso secreta"
+    },
+    "toast": {
+      "connected": "Bóveda en la nube guardada y verificada",
+      "testPassed": "Conexión con la bóveda en la nube verificada",
+      "disconnected": "Bóveda en la nube desconectada"
+    },
+    "errors": {
+      "load": "No se pudo cargar la configuración de la bóveda en la nube.",
+      "save": "No se pudo guardar la configuración de la bóveda en la nube.",
+      "disconnect": "No se pudo desconectar la bóveda en la nube.",
+      "configurationInvalid": "Verifica el endpoint, el bucket, el prefijo, la región y las credenciales. Los endpoints de producción deben usar HTTPS.",
+      "configurationMissing": "Configura la bóveda en la nube antes de probarla.",
+      "secureStorage": "El llavero del sistema operativo no puede proteger estas credenciales.",
+      "connection": "La prueba de escritura en la nube falló. Verifica el endpoint, las credenciales, los permisos del bucket y la conexión de red.",
+      "upload": "No se pudo copiar el último respaldo cifrado a la bóveda en la nube. El respaldo local sigue siendo válido.",
+      "inProgress": "Aún hay otra operación de respaldo en la nube en curso."
+    },
+    "disconnectModal": {
+      "title": "¿Desconectar la bóveda en la nube?",
+      "message": "Esto elimina las credenciales selladas de este dispositivo. Los objetos existentes en la nube y los respaldos locales no se eliminan.",
+      "confirm": "Desconectar bóveda"
+    }
+  },
   "drill": {
     "title": "Simulacro de restauración",
     "description": "Verifica el último respaldo cifrado sin cambiar la base de datos activa. El resultado queda registrado en la auditoría.",

@@ -18,7 +18,8 @@
  *   5. The admin-only backup-protection IPC reports SQLCipher and the
  *      development key source without exposing the key value.
  *   6. The admin can configure and create a real encrypted scheduled
- *      snapshot through the sandboxed preload bridge.
+ *      snapshot through the sandboxed preload bridge, with an optional
+ *      S3-compatible second copy written through the real AWS client.
  *   7. A non-destructive restore drill verifies that snapshot, reports
  *      tenant-scoped differences, and leaves an immutable audit event.
  *   8. No `console.error` / `pageerror` events fire during the flow —
@@ -37,6 +38,7 @@ import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { electronTest as test, ELECTRON_E2E_DB_KEY, expect } from './fixtures.js';
 import { attachClientIssueTracker, E2E_USERS, expectNoClientIssues } from '../web/support/app.js';
+import { startFakeS3Provider } from './support/fake-s3.js';
 
 test.describe('Electron smoke (ENG-001 Step 3)', () => {
   test('launches, logs in as admin, and loads the dashboard shell', async ({ page }) => {
@@ -83,7 +85,15 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
     // mock. Electron E2E injects PUNTOVIVO_DB_KEY deliberately, so the honest
     // status is the development-key variant even on macOS. The raw 64-hex key
     // must never appear in the renderer text.
-    await page.goto(new URL('/company?tab=data', page.url()).toString());
+    // Keep this as an SPA transition. A hard page.goto reload races the
+    // desktop-session bridge re-registration and made this smoke intermittently
+    // observe the Company fallback before the lazy data panel committed.
+    await page
+      .getByTestId('sidebar-workspace-link-setup')
+      .evaluate(link => (link as HTMLElement).click());
+    await expect(page).toHaveURL(/\/company/);
+    await page.getByTestId('company-tab-data').click();
+    await expect(page).toHaveURL(/\/company\?tab=data/);
     const protectionPanel = page.getByTestId('backup-protection-panel');
     await expect(protectionPanel).toBeVisible({ timeout: 30_000 });
     await expect(
@@ -99,26 +109,88 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
     ).toBeVisible();
     await expect(protectionPanel).not.toContainText(ELECTRON_E2E_DB_KEY);
 
-    // ENG-136a — exercise schedule persistence + the real encrypted
-    // VACUUM INTO snapshot. The app-managed folder avoids a native folder
-    // picker in automation while proving the same main-process scheduler
-    // used by daily/weekly runs.
+    // ENG-136c — configure a device-local vault against a deterministic
+    // S3-compatible endpoint. The renderer provides write-only credentials;
+    // the real main process seals them and the AWS client signs each PUT.
+    const cloudPanel = page.getByTestId('backup-cloud-vault-panel');
+    await expect(cloudPanel).toBeVisible();
+    const secureStorageAlert = cloudPanel.getByRole('alert');
+    const secureStorageAvailable = !(await secureStorageAlert.isVisible().catch(() => false));
+    const fakeS3 = secureStorageAvailable ? await startFakeS3Provider() : null;
     const schedulePanel = page.getByTestId('backup-schedule-panel');
-    await expect(schedulePanel).toBeVisible();
-    await expect(schedulePanel.getByTestId('backup-destination')).toContainText('backups');
-    await schedulePanel
-      .getByRole('combobox', { name: /snapshot frequency/i })
-      .selectOption('daily');
-    await schedulePanel.getByRole('button', { name: /save schedule/i }).click();
-    await expect(schedulePanel.getByRole('combobox', { name: /snapshot frequency/i })).toHaveValue(
-      'daily'
-    );
-    await schedulePanel.getByRole('button', { name: /create snapshot now/i }).click();
-    await expect(schedulePanel.getByTestId('backup-last-success')).not.toHaveText(
-      /not created yet/i,
-      { timeout: 60_000 }
-    );
-    await expect(schedulePanel).not.toContainText(ELECTRON_E2E_DB_KEY);
+
+    try {
+      if (fakeS3) {
+        await cloudPanel.getByLabel(/S3 endpoint/i).fill(fakeS3.endpoint);
+        await cloudPanel.getByLabel(/region|región/i).fill('auto');
+        await cloudPanel.getByLabel(/bucket/i).fill('merchant-backups');
+        await cloudPanel.getByLabel(/object prefix|prefijo de objetos/i).fill('puntovivo-e2e');
+        await cloudPanel.getByLabel(/access key ID|ID de clave de acceso/i).fill('PVE2EACCESS1234');
+        await cloudPanel
+          .getByLabel(/secret access key|clave de acceso secreta/i)
+          .fill('puntovivo-e2e-secret');
+        await cloudPanel.getByRole('button', { name: /save and test|guardar y probar/i }).click();
+        await expect(cloudPanel.getByTestId('backup-cloud-connected-badge')).toBeVisible({
+          timeout: 30_000,
+        });
+        await expect(cloudPanel).toContainText('••••1234');
+        await expect(cloudPanel.getByTestId('backup-cloud-last-object')).toContainText(
+          '.puntovivo-connection-test'
+        );
+        await expect.poll(() => fakeS3.uploads.length).toBe(1);
+        expect(fakeS3.uploads[0]).toMatchObject({
+          method: 'PUT',
+          contentType: 'text/plain; charset=utf-8',
+          bodyText: 'Puntovivo cloud backup connection test\n',
+        });
+        expect(fakeS3.uploads[0]?.authorization).toMatch(/^AWS4-HMAC-SHA256 /);
+        expect(fakeS3.uploads[0]?.url).toMatch(
+          /^\/merchant-backups\/puntovivo-e2e\/[^/]+\/\.puntovivo-connection-test\?x-id=PutObject$/
+        );
+      } else {
+        await expect(secureStorageAlert).toBeVisible();
+        await expect(
+          cloudPanel.getByRole('button', { name: /save and test|guardar y probar/i })
+        ).toBeDisabled();
+      }
+
+      // ENG-136a — exercise schedule persistence + the real encrypted
+      // VACUUM INTO snapshot. The app-managed folder avoids a native folder
+      // picker in automation while proving the same main-process scheduler
+      // used by daily/weekly runs.
+      await expect(schedulePanel).toBeVisible();
+      await expect(schedulePanel.getByTestId('backup-destination')).toContainText('backups');
+      await schedulePanel
+        .getByRole('combobox', { name: /snapshot frequency/i })
+        .selectOption('daily');
+      await schedulePanel.getByRole('button', { name: /save schedule/i }).click();
+      await expect(
+        schedulePanel.getByRole('combobox', { name: /snapshot frequency/i })
+      ).toHaveValue('daily');
+      await schedulePanel
+        .getByRole('button', { name: /create snapshot now|crear respaldo ahora/i })
+        .click();
+      await expect(schedulePanel.getByTestId('backup-last-success')).not.toHaveText(
+        /not created yet|aún no se ha creado/i,
+        { timeout: 60_000 }
+      );
+      await expect(schedulePanel).not.toContainText(ELECTRON_E2E_DB_KEY);
+
+      if (fakeS3) {
+        await expect.poll(() => fakeS3.uploads.length, { timeout: 30_000 }).toBe(2);
+        expect(fakeS3.uploads[1]?.method).toBe('PUT');
+        expect(fakeS3.uploads[1]?.contentType).toBe('application/zip');
+        expect(fakeS3.uploads[1]?.bodyLength).toBeGreaterThan(0);
+        expect(fakeS3.uploads[1]?.bodySignature).toBe('504b0304');
+        expect(fakeS3.uploads[1]?.authorization).toMatch(/^AWS4-HMAC-SHA256 /);
+        expect(fakeS3.uploads[1]?.url).toMatch(
+          /^\/merchant-backups\/puntovivo-e2e\/[^/]+\/puntovivo-backup-.+\.zip\?x-id=PutObject$/
+        );
+        await expect(cloudPanel.getByTestId('backup-cloud-last-object')).toContainText('.zip');
+      }
+    } finally {
+      await fakeS3?.close();
+    }
 
     // ENG-136b — the real main process extracts and opens the encrypted
     // snapshot in a temporary directory, compares only this tenant's rows,
@@ -144,8 +216,29 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
       await schedulePanel.screenshot({
         path: path.join(auditDir, 'electron-scheduled-snapshot.png'),
       });
+      await cloudPanel.screenshot({
+        path: path.join(auditDir, 'electron-cloud-vault.png'),
+      });
       await drillPanel.screenshot({
         path: path.join(auditDir, 'electron-restore-drill.png'),
+      });
+    }
+
+    // Review proof: switch the live renderer to neutral LATAM Spanish and
+    // assert the newly added cloud surface without reloading the desktop app.
+    const languageTrigger = page
+      .locator('header button[aria-haspopup="listbox"]')
+      .filter({ hasText: /System|Sistema|English|Español/ })
+      .first();
+    await languageTrigger.click();
+    await page.getByRole('option', { name: 'Español' }).click();
+    await expect(
+      cloudPanel.getByRole('heading', { name: 'Bóveda en la nube compatible con S3' })
+    ).toBeVisible();
+    await expect(cloudPanel.getByRole('button', { name: 'Probar conexión' })).toBeVisible();
+    if (auditDir) {
+      await cloudPanel.screenshot({
+        path: path.join(auditDir, 'electron-cloud-vault-es.png'),
       });
     }
 
@@ -156,9 +249,11 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
     // server or invalidate this authenticated renderer session.
     await page.locator('a[href="/audit-logs"]').evaluate(link => (link as HTMLElement).click());
     await expect(page).toHaveURL(/\/audit-logs/);
-    await expect(page.getByRole('row', { name: /backup restore drill run/i })).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(
+      page.getByRole('row', {
+        name: /backup restore drill run|simulacro de restauración ejecutado/i,
+      })
+    ).toBeVisible({ timeout: 30_000 });
 
     await expectNoClientIssues(tracker);
   });

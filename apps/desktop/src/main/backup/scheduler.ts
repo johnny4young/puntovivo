@@ -73,6 +73,11 @@ interface BackupSchedulerDeps {
   getAppVersion: () => string;
   resolveDatabaseEncryptionKey: () => Promise<string>;
   runExclusive: <T>(operation: () => Promise<T>) => Promise<T>;
+  /** ENG-136c — optional post-snapshot cloud replication. Local success wins. */
+  replicateSnapshot?: (input: {
+    tenantId: string;
+    zipPath: string;
+  }) => Promise<{ success: boolean; skipped?: boolean; error?: string }>;
   createBundle?: typeof createBackupBundle;
   now?: () => Date;
   tickIntervalMs?: number;
@@ -302,6 +307,27 @@ export function createBackupScheduler(deps: BackupSchedulerDeps): BackupSchedule
         { tenantId: next.tenantId, zipBytes: result.zipBytes },
         'scheduled database snapshot created'
       );
+      if (deps.replicateSnapshot) {
+        try {
+          const replication = await deps.replicateSnapshot({
+            tenantId: next.tenantId,
+            zipPath: result.zipPath,
+          });
+          if (!replication.success && !replication.skipped) {
+            deps.log.warn(
+              { tenantId: next.tenantId, errorCode: replication.error ?? 'upload_failed' },
+              'scheduled snapshot cloud replication failed; local snapshot remains valid'
+            );
+          }
+        } catch {
+          // ENG-136c — cloud is an optional second copy. A provider or
+          // credential failure must never invalidate a completed local backup.
+          deps.log.warn(
+            { tenantId: next.tenantId, errorCode: 'upload_failed' },
+            'scheduled snapshot cloud replication failed; local snapshot remains valid'
+          );
+        }
+      }
       return { success: true, status: { ...next, inProgress: false } };
     } catch (error) {
       const failedAt = now();

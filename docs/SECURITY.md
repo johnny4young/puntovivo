@@ -654,6 +654,36 @@ cannot be persisted. The renderer and audit metadata receive only stable error
 codes, timestamps, byte/count aggregates, and per-table deltas — never an
 archive path, SQLite diagnostic, or encryption key.
 
+### ENG-136c — S3-compatible cloud vault credentials (2026-07-14)
+
+Cloud replication is optional, admin-only, tenant-keyed, and local to one
+desktop installation. Electron main validates the endpoint and object-key
+prefix before storing anything. Non-loopback endpoints require HTTPS; plain
+HTTP is accepted only for `localhost`, `127.0.0.1`, or `::1` when the desktop is
+running in development mode. The renderer cannot choose a tenant or filesystem
+path and receives only the endpoint, region, bucket, prefix, path-style flag,
+timestamps, stable error codes, and up to the last four access-key characters.
+At least one identifier character always remains masked.
+
+The full access key and secret are serialized into an Electron `safeStorage`
+envelope in `backup-cloud-vaults.v1.json`, written atomically with POSIX `0600`
+permissions where supported. Storage fails closed when the OS keychain is
+unavailable, including Electron's insecure Linux `basic_text` backend. The
+credentials never enter SQLite, logs, backup ZIPs, renderer state, or audit
+metadata. The file intentionally stays device-local: restoring a merchant DB
+on another workstation cannot reactivate a credential sealed for a different
+OS user. Operators should provision a dedicated provider key limited to
+writing the configured bucket and prefix; Puntovivo cannot enforce remote IAM
+policy.
+
+Connection verification writes one fixed, overwriteable text object under the
+tenant prefix. Snapshot replication streams the already SQLCipher-encrypted ZIP
+with `PutObject`; it does not decrypt or repackage the database. Provider
+diagnostics are reduced to `connection_failed` or `upload_failed` before they
+cross IPC. Local snapshot state is committed first and remains successful if
+the optional cloud write fails, preventing a remote outage from erasing a valid
+recovery point or misreporting local backup health.
+
 **What remains for ENG-167.** Only the cross-OS matrix validation
 through
 [`.github/workflows/build-desktop.yml`](../.github/workflows/build-desktop.yml)

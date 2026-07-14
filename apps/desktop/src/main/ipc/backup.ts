@@ -20,6 +20,12 @@ import {
 import { handleGetBackupProtectionStatus } from './backup/status.js';
 import { handleRunBackupRestoreDrill } from './backup/drill.js';
 import {
+  handleConfigureBackupCloudVault,
+  handleDisconnectBackupCloudVault,
+  handleGetBackupCloudVaultStatus,
+  handleTestBackupCloudVault,
+} from './backup/cloud-vault.js';
+import {
   handleChooseBackupScheduleDestination,
   handleGetBackupScheduleStatus,
   handleRunBackupSnapshotNow,
@@ -50,4 +56,10 @@ export function registerBackupIpc(deps: BackupIpcDeps): void {
   );
   ipcMain.handle('run-backup-snapshot-now', () => handleRunBackupSnapshotNow(deps));
   ipcMain.handle('run-backup-restore-drill', () => handleRunBackupRestoreDrill(deps));
+  ipcMain.handle('get-backup-cloud-vault-status', () => handleGetBackupCloudVaultStatus(deps));
+  ipcMain.handle('configure-backup-cloud-vault', (_event, input: unknown) =>
+    handleConfigureBackupCloudVault(deps, input)
+  );
+  ipcMain.handle('disconnect-backup-cloud-vault', () => handleDisconnectBackupCloudVault(deps));
+  ipcMain.handle('test-backup-cloud-vault', () => handleTestBackupCloudVault(deps));
 }

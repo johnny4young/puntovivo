@@ -43,6 +43,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1086.0",
     "@electron/rebuild": "^4.0.4",
     "@puntovivo/server": "workspace:*",
     "electron-squirrel-startup": "^1.0.1",

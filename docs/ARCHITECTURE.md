@@ -503,6 +503,22 @@ timestamps, aggregate counts, and deltas; main records the authenticated admin
 actor plus bounded pass/fail evidence as `backup.restore_drill` in the immutable
 audit history.
 
+**ENG-136c (2026-07-14) — optional S3-compatible cloud vault.** Electron main
+owns a second tenant-keyed, device-local state file for cloud replication.
+Static access credentials are serialized only inside a `safeStorage` envelope;
+the adjacent plaintext fields are limited to connection metadata and a masked
+access-key suffix. The admin-only preload contract can configure, test,
+disconnect, and inspect the vault, but it can never read credentials back.
+Production endpoints require HTTPS, while loopback HTTP is enabled only by the
+development runtime for deterministic local validation. AWS SDK `PutObject`
+writes use a portable `<prefix>/<tenant>/<backup-name>.zip` object key and
+stream the existing SQLCipher backup bundle without decrypting it. The
+scheduler records local snapshot success before invoking this optional second
+copy: provider, credential, or network failures update cloud-only status and do
+not invalidate the recoverable local file. Configuration is intentionally not
+part of the operational database or its backup, so each workstation must be
+connected independently after install or restore.
+
 ## Future Data Topology Direction
 
 The strongest forward path is:
@@ -790,6 +806,7 @@ For the hybrid topology:
 | Barcode scanner                                       | USB HID keydown capture in renderer       | [HARDWARE-POS.md](./HARDWARE-POS.md)             | Phase 12 — P0 |
 | Payment terminal (Bold, Wompi, Mercado Pago Point)    | HTTPS / Bluetooth SDK from main process   | [HARDWARE-POS.md](./HARDWARE-POS.md)             | Phase 12 — P1 |
 | GitHub Releases auto-updater                          | HTTPS from main process                   | Shipped                                          | —             |
+| S3-compatible encrypted backup vault                 | HTTPS `PutObject` from Electron main      | Shipped (`ENG-136c`)                             | —             |
 | S3-compatible XML retention                           | HTTPS from main process or central server | [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) | Phase 11      |
 
 Every integration goes through an **adapter pattern** (Port/Adapter) so

@@ -10,6 +10,7 @@ import {
   SESSION_NOT_REGISTERED,
   SESSION_ROLE_FORBIDDEN,
 } from '../session/desktopSession.ts';
+import { createBackupCloudVaultStub } from './helpers/backup-cloud-vault.ts';
 
 const REPORT: BackupRestoreDrillReport = {
   outcome: 'passed',
@@ -44,6 +45,7 @@ function makeDeps(overrides: Partial<BackupIpcDeps> = {}): BackupIpcDeps {
     runWithServerRestart: async operation => operation(),
     runExclusiveBackupOperation: async operation => operation(),
     chooseBackupScheduleDirectory: async () => null,
+    backupCloudVault: createBackupCloudVaultStub(),
     backupScheduler: {
       start: async () => {},
       stop: async () => {},
