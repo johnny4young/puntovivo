@@ -41,10 +41,7 @@ export interface ElectronAPI {
     enabled: boolean;
     closeToTray: boolean;
   }>;
-  updateTraySettings: (settings: {
-    enabled: boolean;
-    closeToTray: boolean;
-  }) => Promise<{
+  updateTraySettings: (settings: { enabled: boolean; closeToTray: boolean }) => Promise<{
     enabled: boolean;
     closeToTray: boolean;
   }>;
@@ -56,10 +53,7 @@ export interface ElectronAPI {
     silent: boolean;
     printBackground: boolean;
   }>;
-  updateReceiptPrintSettings: (settings: {
-    silent: boolean;
-    printBackground: boolean;
-  }) => Promise<{
+  updateReceiptPrintSettings: (settings: { silent: boolean; printBackground: boolean }) => Promise<{
     silent: boolean;
     printBackground: boolean;
   }>;
@@ -104,12 +98,37 @@ export interface ElectronAPI {
     key?: string;
     error?: string;
   }>;
-  printReceipt: (
-    receiptHtml: string
-  ) => Promise<{ success: boolean; error?: string }>;
+  /** ENG-129e — non-secret SQLCipher and key-custody attestation. */
+  getBackupProtectionStatus?: () => Promise<{
+    success: boolean;
+    status?: BackupProtectionStatus;
+    error?: string;
+  }>;
+  printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale?: (locale: string) => Promise<'en' | 'es'>;
   runtime?: RuntimeAPI;
   peripherals?: PeripheralsAPI;
+}
+
+export type BackupProtectionKeyStorage =
+  'environment' | 'os_keychain' | 'basic_text' | 'unavailable';
+
+export type BackupProtectionProvider =
+  | 'environment'
+  | 'macos_keychain'
+  | 'windows_dpapi'
+  | 'linux_libsecret'
+  | 'linux_kwallet'
+  | 'linux_basic_text'
+  | 'unknown';
+
+export interface BackupProtectionStatus {
+  protected: boolean;
+  databaseEncrypted: boolean;
+  backupEncryption: 'sqlcipher';
+  keyStorage: BackupProtectionKeyStorage;
+  provider: BackupProtectionProvider;
+  recoveryKeyAvailable: boolean;
 }
 
 export interface RendererRuntimeConfig {

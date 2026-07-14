@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageLoadingState } from '@/components/feedback/LoadingState';
@@ -6,7 +7,6 @@ import { translateServerError } from '@/lib/translateServerError';
 import type { Company } from '@/types';
 import { CompanyAISettingsCard } from './CompanyAISettingsCard';
 import { CompanyAutoUpdateCard } from './CompanyAutoUpdateCard';
-import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyClFiscalCard } from './CompanyClFiscalCard';
 import { CompanyCoFiscalCard } from './CompanyCoFiscalCard';
 import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
@@ -23,6 +23,12 @@ import { CompanyTelemetryCard } from './CompanyTelemetryCard';
 import { CompanyDataRetentionCard } from './CompanyDataRetentionCard';
 import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
 import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
+
+// ENG-129e — backup and recovery modals are needed only on the data tab.
+// Keep that security-heavy surface out of the initial Company route chunk.
+const CompanyBackupCard = lazy(() =>
+  import('./CompanyBackupCard').then(module => ({ default: module.CompanyBackupCard }))
+);
 
 interface CompanySettingsPanelsProps {
   activeTab: CompanyTabKey;
@@ -84,7 +90,17 @@ export function CompanySettingsPanels({
         <div className="space-y-6">
           <CompanySyncCard />
           <CompanyDataRetentionCard />
-          <CompanyBackupCard />
+          <Suspense
+            fallback={
+              <div
+                className="h-56 animate-pulse rounded-2xl border border-line bg-surface-2"
+                role="status"
+                aria-label={t('company.backup.title')}
+              />
+            }
+          >
+            <CompanyBackupCard />
+          </Suspense>
           <CompanyTelemetryCard />
         </div>
       )}

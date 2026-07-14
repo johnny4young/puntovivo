@@ -9,8 +9,13 @@ import type { App, SafeStorage } from 'electron';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PuntovivoLogger } from '@puntovivo/server';
-import { getDbKeyDir, getOrCreateDbKey } from './db-key-store.js';
-import { migrateCleartextDatabase } from './db-migrate-encryption.js';
+import {
+  resolveBackupProtectionStatus,
+  type BackupProtectionStatus,
+  type SafeStorageBackend,
+} from './backup-protection.ts';
+import { getDbKeyDir, getOrCreateDbKey } from './db-key-store.ts';
+import { migrateCleartextDatabase } from './db-migrate-encryption.ts';
 
 export interface EncryptionSetup {
   dbPath: string;
@@ -18,6 +23,7 @@ export interface EncryptionSetup {
   migrationsPath: string;
   resolveDatabaseEncryptionKey: () => Promise<string>;
   prepareDatabaseEncryption: () => Promise<string>;
+  getBackupProtectionStatus: () => BackupProtectionStatus;
 }
 
 interface EncryptionSetupDeps {
@@ -27,6 +33,7 @@ interface EncryptionSetupDeps {
   env?: NodeJS.ProcessEnv;
   cwd?: string;
   resourcesPath?: string;
+  platform?: NodeJS.Platform;
 }
 
 function resolveDevMigrationsPath(app: EncryptionSetupDeps['app'], cwd: string): string {
@@ -61,6 +68,7 @@ export function createEncryptionSetup({
   env = process.env,
   cwd = process.cwd(),
   resourcesPath = process.resourcesPath,
+  platform = process.platform,
 }: EncryptionSetupDeps): EncryptionSetup {
   // ENG-167 — development may opt into the shared encrypted DB; packaged builds always
   // resolve under userData regardless of inherited shell variables.
@@ -71,6 +79,8 @@ export function createEncryptionSetup({
     ? join(resourcesPath, 'migrations')
     : resolveDevMigrationsPath(app, cwd);
   let cachedEncryptionKey: string | null = null;
+  let keySource: 'environment' | 'safe_storage' | null = null;
+  let prepared = false;
 
   function resolveDevDatabaseEncryptionKey(): string | undefined {
     if (app.isPackaged) return undefined;
@@ -97,9 +107,16 @@ export function createEncryptionSetup({
 
   async function resolveDatabaseEncryptionKey(): Promise<string> {
     if (cachedEncryptionKey) return cachedEncryptionKey;
-    cachedEncryptionKey =
-      resolveDevDatabaseEncryptionKey() ??
-      (await getOrCreateDbKey(getDbKeyDir(dbPath), safeStorage));
+    const devKey = resolveDevDatabaseEncryptionKey();
+    if (devKey) {
+      cachedEncryptionKey = devKey;
+      keySource = 'environment';
+    } else {
+      cachedEncryptionKey = await getOrCreateDbKey(getDbKeyDir(dbPath), safeStorage, {
+        platform,
+      });
+      keySource = 'safe_storage';
+    }
     return cachedEncryptionKey;
   }
 
@@ -114,7 +131,26 @@ export function createEncryptionSetup({
         : undefined,
       log,
     });
+    prepared = true;
     return encryptionKey;
+  }
+
+  function getBackupProtectionStatus(): BackupProtectionStatus {
+    let safeStorageBackend: SafeStorageBackend | undefined;
+    if (platform === 'linux' && keySource === 'safe_storage') {
+      try {
+        safeStorageBackend = safeStorage.getSelectedStorageBackend();
+      } catch {
+        safeStorageBackend = 'unknown';
+      }
+    }
+
+    return resolveBackupProtectionStatus({
+      prepared,
+      keySource,
+      platform,
+      safeStorageBackend,
+    });
   }
 
   return {
@@ -123,5 +159,6 @@ export function createEncryptionSetup({
     migrationsPath,
     resolveDatabaseEncryptionKey,
     prepareDatabaseEncryption,
+    getBackupProtectionStatus,
   };
 }

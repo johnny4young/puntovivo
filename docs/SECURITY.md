@@ -497,6 +497,10 @@ helper:
   KWallet). We refuse to write a cleartext fallback — an unreachable
   keychain is an operator-visible error, not a silent
   confidentiality downgrade.
+- Also aborts when Electron reports Linux `basic_text` as the selected
+  storage backend. Electron can report encryption as available in that
+  mode, but `basic_text` is reversible obfuscation rather than libsecret or
+  KWallet custody, so it does not satisfy Puntovivo's at-rest threat model.
 - On first boot, mints a fresh 256-bit key with
   `crypto.randomBytes(32)`, seals it via
   `safeStorage.encryptString()`, and persists the envelope at
@@ -544,10 +548,12 @@ plain-open failure (`SQLITE_NOTADB`), wrong-key failure, key-shape
 rejection, the `:memory:` skip path, and the ENG-174 PRAGMAs
 co-existing with the keyed connection.
 [`apps/desktop/src/main/__tests__/db-key-store.test.ts`](../apps/desktop/src/main/__tests__/db-key-store.test.ts)
-covers the safeStorage stub on first boot vs reboot vs the
-unavailable-keychain abort, plus the two error paths for a
-corrupt envelope. `backup-restore.test.ts` also verifies that backup
-ZIPs produced from encrypted DBs keep `local.db` encrypted.
+covers the safeStorage stub on first boot vs reboot, the
+unavailable-keychain and Linux `basic_text` aborts, plus the two error
+paths for a corrupt envelope. `backup-protection.test.ts` pins the provider
+mapping across macOS, Windows, and Linux. `backup-restore.test.ts` also
+verifies that backup ZIPs produced from encrypted DBs keep `local.db`
+encrypted.
 
 ### ENG-167b — cleartext migration + cross-device restore (2026-06-11)
 
@@ -586,6 +592,21 @@ device's backups. The UI warns accordingly, the reveal is logged,
 and the key never leaves the machine through any other channel.
 Legacy pre-encryption cleartext bundles restore directly and are
 encrypted by the migration on the next boot.
+
+### ENG-129e — backup protection attestation (2026-07-14)
+
+The Company backup card now verifies protection through the admin-only
+`get-backup-protection-status` IPC. The response contains only attestation
+metadata: whether SQLCipher preparation completed, whether key custody is an
+OS keychain, the selected platform provider, and whether the explicit admin
+recovery flow is available. It has no key or key-shaped value. The renderer
+labels launcher-injected development keys separately instead of claiming they
+are protected by macOS Keychain, Windows DPAPI, libsecret, or KWallet.
+
+This status path does **not** call the recovery-key resolver and cannot reveal
+the secret. The existing `get-backup-encryption-key` flow remains the sole
+renderer-visible exception, requires an authenticated admin session, displays
+an explicit warning, and exists only for cross-device restore recovery.
 
 **What remains for ENG-167.** Only the cross-OS matrix validation
 through

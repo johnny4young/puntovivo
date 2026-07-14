@@ -118,6 +118,7 @@ registerBackupIpc({
   dbPath: encryptionSetup.dbPath,
   getMainWindow: windowLifecycle.getWindow,
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
+  getBackupProtectionStatus: encryptionSetup.getBackupProtectionStatus,
   runWithServerRestart: serverLifecycle.restartAround,
 });
 registerSettingsIpc({

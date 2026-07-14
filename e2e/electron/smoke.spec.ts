@@ -15,7 +15,9 @@
  *      same tRPC HTTP client used by the web app.
  *   4. The login flow round-trips with the seeded `e2e.admin@local.test`
  *      user and the admin lands on `/dashboard`.
- *   5. No `console.error` / `pageerror` events fire during the flow —
+ *   5. The admin-only backup-protection IPC reports SQLCipher and the
+ *      development key source without exposing the key value.
+ *   6. No `console.error` / `pageerror` events fire during the flow —
  *      the contract enforced by the web suite's smoke also applies
  *      here.
  *
@@ -29,7 +31,7 @@
 
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { electronTest as test, expect } from './fixtures.js';
+import { electronTest as test, ELECTRON_E2E_DB_KEY, expect } from './fixtures.js';
 import { attachClientIssueTracker, E2E_USERS, expectNoClientIssues } from '../web/support/app.js';
 
 test.describe('Electron smoke (ENG-001 Step 3)', () => {
@@ -62,15 +64,44 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
       timeout: 30_000,
     });
 
-    await expectNoClientIssues(tracker);
-
-    // Optional evidence path shared with the web smoke specs. Normal CI stays
-    // artifact-free; audit runs opt in with PUNTOVIVO_AUDIT_DIR.
+    // Preserve the original shell evidence while the second screenshot below
+    // records the new main-to-renderer protection contract.
     const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
     if (auditDir) {
       await mkdir(auditDir, { recursive: true });
       await page.screenshot({
         path: path.join(auditDir, 'electron-dashboard.png'),
+        fullPage: true,
+      });
+    }
+
+    // ENG-129e — exercise the real preload + IPC boundary, not a renderer
+    // mock. Electron E2E injects PUNTOVIVO_DB_KEY deliberately, so the honest
+    // status is the development-key variant even on macOS. The raw 64-hex key
+    // must never appear in the renderer text.
+    await page.goto(new URL('/company?tab=data', page.url()).toString());
+    const protectionPanel = page.getByTestId('backup-protection-panel');
+    await expect(protectionPanel).toBeVisible({ timeout: 30_000 });
+    await expect(
+      protectionPanel.getByText(/development key source|clave de desarrollo/i)
+    ).toBeVisible();
+    await expect(
+      protectionPanel.getByText(/SQLCipher encrypted|cifrados con SQLCipher/i)
+    ).toBeVisible();
+    await expect(
+      protectionPanel.getByText(
+        /development environment variable|variable de entorno de desarrollo/i
+      )
+    ).toBeVisible();
+    await expect(protectionPanel).not.toContainText(ELECTRON_E2E_DB_KEY);
+
+    await expectNoClientIssues(tracker);
+
+    // Optional evidence path shared with the web smoke specs. Normal CI stays
+    // artifact-free; audit runs opt in with PUNTOVIVO_AUDIT_DIR.
+    if (auditDir) {
+      await page.screenshot({
+        path: path.join(auditDir, 'electron-backup-protection.png'),
         fullPage: true,
       });
     }

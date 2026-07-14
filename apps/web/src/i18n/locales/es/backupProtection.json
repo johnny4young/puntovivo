@@ -1,0 +1,41 @@
+{
+  "title": "Protección de respaldos",
+  "description": "Verifica el cifrado de la base de datos y cómo este dispositivo protege la clave de respaldo.",
+  "states": {
+    "loading": "Verificando la protección…",
+    "browser": "El estado de protección solo se verifica desde la aplicación de escritorio Electron.",
+    "unsupported": "Actualiza la aplicación de escritorio para verificar la protección de respaldos.",
+    "error": "No se pudo verificar la protección de respaldos. Reinicia la aplicación de escritorio e inténtalo de nuevo.",
+    "protected": {
+      "badge": "Protegido",
+      "summary": "SQLCipher cifra la base de datos y los respaldos, mientras el sistema operativo protege la clave."
+    },
+    "development": {
+      "badge": "Clave de desarrollo",
+      "summary": "SQLCipher está activo, pero esta sesión de desarrollo recibe la clave desde una variable de entorno en vez del llavero del sistema operativo."
+    },
+    "degraded": {
+      "badge": "Requiere atención",
+      "summary": "SQLCipher está activo, pero no se pudo certificar el proveedor de claves del sistema operativo."
+    }
+  },
+  "details": {
+    "encryption": "Base de datos y respaldos",
+    "sqlcipher": "Cifrados con SQLCipher",
+    "notPrepared": "Sin preparar",
+    "keyStorage": "Custodia de la clave",
+    "recovery": "Recuperación",
+    "recoveryAvailable": "Recuperación disponible para administradores",
+    "recoveryUnavailable": "Recuperación no disponible"
+  },
+  "providers": {
+    "environment": "Variable de entorno de desarrollo",
+    "macosKeychain": "Llavero de macOS",
+    "windowsDpapi": "DPAPI de Windows",
+    "linuxLibsecret": "libsecret de Linux",
+    "linuxKwallet": "KWallet de Linux",
+    "linuxBasicText": "Texto básico de Linux",
+    "unknown": "Proveedor sin verificar"
+  },
+  "securityNote": "Esta verificación solo devuelve metadatos de protección. Nunca lee ni expone la clave de respaldo."
+}

@@ -17,6 +17,7 @@ import {
   handleProvideRestoreKey,
   handleRestoreDatabaseBackup,
 } from './backup/restore.js';
+import { handleGetBackupProtectionStatus } from './backup/status.js';
 
 export type { BackupIpcDeps, DesktopDatabaseActionResult } from './backup/contracts.js';
 export { clearPendingRestore } from './backup/restore.js';
@@ -32,4 +33,5 @@ export function registerBackupIpc(deps: BackupIpcDeps): void {
     handleCancelRestoreStaging(token)
   );
   ipcMain.handle('get-backup-encryption-key', () => handleGetBackupEncryptionKey(deps));
+  ipcMain.handle('get-backup-protection-status', () => handleGetBackupProtectionStatus(deps));
 }

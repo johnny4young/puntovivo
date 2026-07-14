@@ -5,6 +5,7 @@
  */
 
 import type { BrowserWindow } from 'electron';
+import type { BackupProtectionStatus } from '../../backup-protection.js';
 
 export interface DesktopDatabaseActionResult {
   success: boolean;
@@ -37,6 +38,8 @@ export interface BackupIpcDeps {
    * boot shares the same cache.
    */
   resolveDatabaseEncryptionKey: () => Promise<string>;
+  /** Non-secret SQLCipher/key-custody attestation for the admin UI. */
+  getBackupProtectionStatus: () => BackupProtectionStatus;
   /**
    * Stops the embedded server, runs `operation`, then restarts the server
    * (optionally reloading the renderer). Owned by index.ts because it

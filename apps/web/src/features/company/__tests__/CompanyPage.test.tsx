@@ -203,7 +203,7 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.getByTestId('company-tab-data')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('company-tab-readiness')).not.toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('card-sync')).toBeInTheDocument();
-    expect(screen.getByTestId('card-backup')).toBeInTheDocument();
+    expect(await screen.findByTestId('card-backup')).toBeInTheDocument();
     expect(screen.getByTestId('card-retention')).toBeInTheDocument();
     expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
   });

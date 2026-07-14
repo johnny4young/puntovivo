@@ -1,0 +1,41 @@
+{
+  "title": "Backup protection",
+  "description": "Verify database encryption and how this device protects its backup key.",
+  "states": {
+    "loading": "Verifying protection…",
+    "browser": "Protection status is verified only by the Electron desktop app.",
+    "unsupported": "Update the desktop app to verify backup protection.",
+    "error": "Backup protection could not be verified. Restart the desktop app and try again.",
+    "protected": {
+      "badge": "Protected",
+      "summary": "SQLCipher encrypts the database and backup files, while the operating system protects the key."
+    },
+    "development": {
+      "badge": "Development key source",
+      "summary": "SQLCipher is active, but this development session receives its key from an environment variable instead of the OS keychain."
+    },
+    "degraded": {
+      "badge": "Action required",
+      "summary": "SQLCipher is active, but the operating-system key provider could not be attested."
+    }
+  },
+  "details": {
+    "encryption": "Database and backups",
+    "sqlcipher": "SQLCipher encrypted",
+    "notPrepared": "Not prepared",
+    "keyStorage": "Key storage",
+    "recovery": "Recovery",
+    "recoveryAvailable": "Admin recovery available",
+    "recoveryUnavailable": "Recovery unavailable"
+  },
+  "providers": {
+    "environment": "Development environment variable",
+    "macosKeychain": "macOS Keychain",
+    "windowsDpapi": "Windows DPAPI",
+    "linuxLibsecret": "Linux libsecret",
+    "linuxKwallet": "Linux KWallet",
+    "linuxBasicText": "Linux basic text",
+    "unknown": "Unverified provider"
+  },
+  "securityNote": "This verification returns protection metadata only. It never reads or exposes the backup key."
+}

@@ -445,12 +445,14 @@ above. Pinned by
 `apps/desktop/src/main/db-key-store.ts` BEFORE `createServer`. The
 key is sealed at `<userData>/data/.dbkey.enc` via Electron's
 `safeStorage` (macOS Keychain, Windows DPAPI, Linux libsecret /
-gnome-keyring / KWallet). The standalone `dev:server` reads
+gnome-keyring / KWallet); Linux `basic_text` is rejected even when Electron
+reports encryption as available. The standalone `dev:server` reads
 `process.env.PUNTOVIVO_DB_KEY` instead — when unset, the legacy
 cleartext path stays in effect. The renderer never sees the key:
-the Chromium sandbox bars all Node access (ENG-004), and queries
-travel through tRPC to the in-process Fastify, which is the only
-holder of the live connection.
+the Chromium sandbox bars all Node access (ENG-004), and the normal status,
+backup, and query paths expose metadata or encrypted files only. The sole
+exception is the explicit admin recovery action described below, which reveals
+the key only after a warning so a cross-device restore remains operable.
 
 **ENG-167b (2026-06-11) — migration + cross-device restore.** The
 desktop boot now runs `migrateCleartextDatabase()`
@@ -468,6 +470,12 @@ local key before the swap (`provide-restore-key` /
 [SECURITY.md](./SECURITY.md)). The only ENG-167 remainder is the
 operator-run cross-OS matrix through
 [`.github/workflows/build-desktop.yml`](../.github/workflows/build-desktop.yml).
+
+**ENG-129e (2026-07-14) — non-secret protection status.**
+`get-backup-protection-status` is admin-gated in main and reports SQLCipher
+readiness plus the platform key provider without resolving or returning the
+key. The Company backup card distinguishes OS-keychain protection,
+launcher-injected development keys, and degraded/unattested providers.
 
 ## Future Data Topology Direction
 

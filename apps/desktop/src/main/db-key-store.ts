@@ -11,7 +11,7 @@
  *   2. If the file is missing (fresh install, post-wipe), the module
  *      generates a fresh 32-byte secret via `crypto.randomBytes`, asks
  *      Electron's `safeStorage` to encrypt it with the platform
- *      keychain (macOS Keychain, Windows DPAPI, Linux libsecret), and
+ *      keychain (macOS Keychain, Windows DPAPI, Linux libsecret/KWallet), and
  *      persists the ciphertext at the canonical path with `0600`
  *      permissions.
  *   3. If the file exists, it is decrypted via `safeStorage.decryptString`
@@ -33,11 +33,9 @@
  *     in process memory; a malicious agent inside the same process
  *     can read it. ENG-167 deliberately scopes to disk-at-rest.
  *
- * Step-1 (this module) covers fresh installs and idempotent re-boots
- * on the same device. The follow-up ENG-167b will land:
- *   - One-shot migration of pre-encryption cleartext DBs.
- *   - Restore-from-different-device UX (prompt for the source key).
- *   - Cross-OS matrix validation through `.github/workflows/build-desktop.yml`.
+ * ENG-167b subsequently added cleartext migration and cross-device restore.
+ * ENG-129e rejects Electron's Linux `basic_text` backend because
+ * `isEncryptionAvailable()` alone does not prove that a keyring is in use.
  */
 import { randomBytes } from 'node:crypto';
 import {
@@ -66,6 +64,12 @@ export interface SafeStorageLike {
   isEncryptionAvailable(): boolean;
   encryptString(plain: string): Buffer;
   decryptString(sealed: Buffer): string;
+  getSelectedStorageBackend?: () =>
+    'basic_text' | 'gnome_libsecret' | 'kwallet' | 'kwallet5' | 'kwallet6' | 'unknown';
+}
+
+interface DbKeyStoreOptions {
+  platform?: NodeJS.Platform;
 }
 
 /**
@@ -89,8 +93,8 @@ const KEY_HEX_LENGTH = 64;
  * @param dataDir Absolute path to the directory that holds the SQLite
  *   DB file. The key envelope lives next to the DB so local diagnostics
  *   can find both pieces, but app-level backup ZIPs intentionally keep
- *   shipping only the encrypted DB plus device identity; restore from a
- *   different device fails until ENG-167b ships the key-prompt UX.
+ *   shipping only the encrypted DB plus device identity. Cross-device
+ *   restore asks an administrator for the source install's recovery key.
  *
  * @throws when Electron's `safeStorage` reports the platform keychain
  *   is unavailable. We refuse to persist a key in cleartext as a
@@ -107,7 +111,8 @@ const KEY_HEX_LENGTH = 64;
  */
 export async function getOrCreateDbKey(
   dataDir: string,
-  safeStorage: SafeStorageLike
+  safeStorage: SafeStorageLike,
+  { platform = process.platform }: DbKeyStoreOptions = {}
 ): Promise<string> {
   // safeStorage requires `app.ready`. Callers must await `app.whenReady()`
   // before invoking this function; we do not silently swallow the
@@ -118,6 +123,16 @@ export async function getOrCreateDbKey(
       'OS keychain is unavailable; refusing to persist the SQLCipher key in cleartext. ' +
         'On Linux, install libsecret/gnome-keyring or KWallet; on macOS verify Keychain Access; ' +
         'on Windows verify DPAPI (current user profile).'
+    );
+  }
+
+  // ENG-129e — on Linux, Electron may return true above while selecting
+  // `basic_text`, which is only obfuscation backed by a hard-coded password.
+  // Fail closed instead of silently claiming keychain protection.
+  if (platform === 'linux' && safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
+    throw new Error(
+      'Linux safeStorage selected the insecure basic_text backend; refusing to persist the SQLCipher key. ' +
+        'Install and unlock libsecret/gnome-keyring or KWallet, then restart Puntovivo.'
     );
   }
 
