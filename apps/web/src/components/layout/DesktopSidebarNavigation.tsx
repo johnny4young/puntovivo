@@ -3,7 +3,7 @@ import { Link, NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TOP_LEVEL_DASHBOARD, type VisibleWorkspace, type WorkspaceItem } from './workspaces';
+import type { VisibleWorkspace, WorkspaceItem } from './workspaces';
 
 function NavigationLink({
   item,
@@ -15,7 +15,7 @@ function NavigationLink({
   item: WorkspaceItem;
   collapsed: boolean;
   onNavigate: () => void;
-  badgeCount?: number;
+  badgeCount?: number | undefined;
   /**
    * ENG-171 — optional hover/focus prefetch handler. Wired only for the
    * `/sales` entry so its heavy entry queries warm the cache before the
@@ -26,10 +26,15 @@ function NavigationLink({
 }) {
   const { t } = useTranslation('nav');
   const name = t(item.nameKey);
-  const showBadge = (badgeCount ?? 0) > 0;
+  const visibleBadgeCount = badgeCount ?? 0;
+  const showBadge = visibleBadgeCount > 0;
+  const accessibleName = showBadge
+    ? `${name} (${visibleBadgeCount} ${t('badges.unreadAlertsSr', { defaultValue: 'unread alerts' })})`
+    : undefined;
   return (
     <NavLink
       to={item.href}
+      aria-label={accessibleName}
       onClick={onNavigate}
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
@@ -55,21 +60,11 @@ function NavigationLink({
             className="absolute -right-2 -top-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-danger-700 px-1 text-[0.65rem] font-semibold leading-none text-white"
             aria-hidden="true"
           >
-            {badgeCount! > 9 ? '9+' : badgeCount}
+            {visibleBadgeCount > 9 ? '9+' : visibleBadgeCount}
           </span>
         )}
       </span>
-      {!collapsed && (
-        <span className="flex-1 truncate">
-          {name}
-          {showBadge && (
-            <span className="sr-only">
-              {' '}
-              ({badgeCount} {t('badges.unreadAlertsSr', { defaultValue: 'unread alerts' })})
-            </span>
-          )}
-        </span>
-      )}
+      {!collapsed && <span className="flex-1 truncate">{name}</span>}
     </NavLink>
   );
 }
@@ -190,7 +185,6 @@ export function SidebarWorkspaces({
   onNavigate,
   workspaces,
   currentPath,
-  visibleDashboard,
   dashboardBadge,
   prefetchSales,
 }: {
@@ -198,7 +192,6 @@ export function SidebarWorkspaces({
   onNavigate: () => void;
   workspaces: readonly VisibleWorkspace[];
   currentPath: string;
-  visibleDashboard: boolean;
   dashboardBadge: number;
   prefetchSales: () => void;
 }) {
@@ -206,16 +199,6 @@ export function SidebarWorkspaces({
 
   return (
     <div className={cn('space-y-3', collapsed && 'space-y-2')}>
-      {visibleDashboard && (
-        <div className="space-y-1">
-          <NavigationLink
-            item={TOP_LEVEL_DASHBOARD}
-            collapsed={collapsed}
-            onNavigate={onNavigate}
-            badgeCount={dashboardBadge}
-          />
-        </div>
-      )}
       {workspaces.map(({ workspace, items }) => (
         <SidebarWorkspaceSection
           key={workspace.id}
@@ -226,6 +209,7 @@ export function SidebarWorkspaces({
           currentPath={currentPath}
           headerTitle={tWorkspaces(workspace.labelKey)}
           prefetchSales={prefetchSales}
+          dashboardBadge={dashboardBadge}
         />
       ))}
     </div>
@@ -240,6 +224,7 @@ function SidebarWorkspaceSection({
   currentPath,
   headerTitle,
   prefetchSales,
+  dashboardBadge,
 }: {
   workspace: VisibleWorkspace['workspace'];
   items: readonly WorkspaceItem[];
@@ -249,6 +234,8 @@ function SidebarWorkspaceSection({
   headerTitle: string;
   /** ENG-171 — hover-prefetch handler, attached only to the /sales item. */
   prefetchSales: () => void;
+  /** ENG-131e — high-severity anomaly count follows Dashboard into Operate. */
+  dashboardBadge: number;
 }) {
   // ENG-131 (slice A) — persisted collapse state applies to inactive
   // workspaces, but the workspace that owns the active route must
@@ -292,6 +279,7 @@ function SidebarWorkspaceSection({
             collapsed={collapsed}
             onNavigate={onNavigate}
             onPrefetch={item.href === '/sales' ? prefetchSales : undefined}
+            badgeCount={item.href === '/dashboard' ? dashboardBadge : undefined}
           />
         ))}
       </div>

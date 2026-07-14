@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowRight, LayoutGrid } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Link, NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
@@ -8,7 +8,6 @@ import type { WorkspaceItem, VisibleWorkspace } from './workspaces';
 interface MobileWorkspaceNavigationProps {
   workspaces: readonly VisibleWorkspace[];
   currentPath: string;
-  showDashboard: boolean;
   dashboardBadge: number;
   onNavigate: () => void;
   onPrefetchSales: () => void;
@@ -18,9 +17,7 @@ function ownsPath(workspace: VisibleWorkspace, pathname: string): boolean {
   return (
     pathname === workspace.workspace.defaultRoute ||
     pathname.startsWith(`${workspace.workspace.defaultRoute}/`) ||
-    workspace.items.some(
-      item => pathname === item.href || pathname.startsWith(`${item.href}/`)
-    )
+    workspace.items.some(item => pathname === item.href || pathname.startsWith(`${item.href}/`))
   );
 }
 
@@ -28,17 +25,25 @@ function MobileNavigationLink({
   item,
   onNavigate,
   onPrefetch,
+  badgeCount,
 }: {
   item: WorkspaceItem;
   onNavigate: () => void;
   onPrefetch?: (() => void) | undefined;
+  badgeCount?: number | undefined;
 }) {
   const { t } = useTranslation('nav');
   const label = t(item.nameKey);
+  const visibleBadgeCount = badgeCount ?? 0;
+  const showBadge = visibleBadgeCount > 0;
+  const accessibleName = showBadge
+    ? `${label} (${visibleBadgeCount} ${t('badges.unreadAlertsSr')})`
+    : undefined;
 
   return (
     <NavLink
       to={item.href}
+      aria-label={accessibleName}
       onClick={onNavigate}
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
@@ -51,7 +56,17 @@ function MobileNavigationLink({
         )
       }
     >
-      <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+      <span className="relative inline-flex items-center justify-center">
+        <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+        {showBadge && (
+          <span
+            className="absolute -right-2 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-700 px-1 text-[0.65rem] font-semibold leading-none text-white"
+            aria-hidden="true"
+          >
+            {visibleBadgeCount > 9 ? '9+' : visibleBadgeCount}
+          </span>
+        )}
+      </span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
     </NavLink>
   );
@@ -67,12 +82,10 @@ function MobileNavigationLink({
 export function MobileWorkspaceNavigation({
   workspaces,
   currentPath,
-  showDashboard,
   dashboardBadge,
   onNavigate,
   onPrefetchSales,
 }: MobileWorkspaceNavigationProps) {
-  const { t: tNav } = useTranslation('nav');
   const { t: tWorkspaces } = useTranslation('workspaces');
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const activeWorkspace = workspaces.find(workspace => ownsPath(workspace, currentPath));
@@ -107,9 +120,7 @@ export function MobileWorkspaceNavigation({
     selectWorkspace(nextIndex, true);
   };
 
-  const selectedLabel = selectedWorkspace
-    ? tWorkspaces(selectedWorkspace.workspace.labelKey)
-    : '';
+  const selectedLabel = selectedWorkspace ? tWorkspaces(selectedWorkspace.workspace.labelKey) : '';
   const selectedDescriptionKey = selectedWorkspace?.workspace.labelKey.replace(
     /\.label$/,
     '.description'
@@ -120,40 +131,6 @@ export function MobileWorkspaceNavigation({
 
   return (
     <nav aria-label={tWorkspaces('mobile.navigationLabel')} className="space-y-4">
-      {showDashboard && (
-        <NavLink
-          to="/dashboard"
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            cn(
-              'flex min-h-11 items-center gap-3 rounded-[18px] px-3 py-2.5 text-sm font-semibold transition-colors',
-              isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'border border-line/70 bg-surface-2/65 text-fg2 hover:bg-secondary-100/80'
-            )
-          }
-        >
-          <span className="relative inline-flex items-center justify-center">
-            <LayoutGrid className="h-5 w-5" aria-hidden="true" />
-            {dashboardBadge > 0 && (
-              <span
-                className="absolute -right-2 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-700 px-1 text-[0.65rem] font-semibold leading-none text-white"
-                aria-hidden="true"
-              >
-                {dashboardBadge > 9 ? '9+' : dashboardBadge}
-              </span>
-            )}
-          </span>
-          <span className="flex-1">{tNav('items.dashboard')}</span>
-          {dashboardBadge > 0 && (
-            <span className="sr-only">
-              {' '}
-              ({dashboardBadge} {tNav('badges.unreadAlertsSr')})
-            </span>
-          )}
-        </NavLink>
-      )}
-
       {workspaces.length > 1 && (
         <div
           role="radiogroup"
@@ -223,10 +200,7 @@ export function MobileWorkspaceNavigation({
                 data-testid={`mobile-workspace-overview-${selectedWorkspace.workspace.id}`}
                 className="flex min-h-11 items-center gap-3 rounded-[18px] px-3 py-2.5 text-sm font-medium text-fg2 transition-colors hover:bg-secondary-100/80 hover:text-secondary-950"
               >
-                <selectedWorkspace.workspace.icon
-                  className="h-5 w-5 shrink-0"
-                  aria-hidden="true"
-                />
+                <selectedWorkspace.workspace.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate">
                   {tWorkspaces('mobile.openWorkspace', { workspace: selectedLabel })}
                 </span>
@@ -239,6 +213,7 @@ export function MobileWorkspaceNavigation({
                 item={item}
                 onNavigate={onNavigate}
                 onPrefetch={item.href === '/sales' ? onPrefetchSales : undefined}
+                badgeCount={item.href === '/dashboard' ? dashboardBadge : undefined}
               />
             ))}
           </div>

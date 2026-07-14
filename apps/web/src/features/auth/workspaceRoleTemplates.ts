@@ -22,11 +22,6 @@ export interface WorkspaceRoleTemplate {
  * runtime chunks.
  */
 export const WORKSPACE_ROLE_TEMPLATES = {
-  dashboard: {
-    id: 'dashboard',
-    labelKey: 'nav:items.dashboard',
-    allowedRoles: DASHBOARD_ROLES,
-  },
   sell: {
     id: 'sell',
     labelKey: 'workspaces:sell.label',
@@ -35,7 +30,10 @@ export const WORKSPACE_ROLE_TEMPLATES = {
   operate: {
     id: 'operate',
     labelKey: 'workspaces:operate.label',
-    allowedRoles: MANAGER_OR_ADMIN_ROLES,
+    // ENG-131e — Dashboard is the first Operate item, so viewer must keep
+    // the same workspace-level access it had through the former top-level
+    // Dashboard row. The Operations child remains manager/admin-only.
+    allowedRoles: DASHBOARD_ROLES,
   },
   catalog: {
     id: 'catalog',

@@ -3,11 +3,10 @@
  *
  * Pins the user-facing invariants of the workspace refactor:
  *
- *   - Admin sees the top-level Dashboard link plus exactly eight
- *     workspace headers.
+ *   - Admin sees exactly eight workspace headers with Dashboard
+ *     nested under Operate.
  *   - Cashier sees only the Sell workspace (the other seven
- *     workspaces gate to manager or admin, and Dashboard is
- *     dashboardRoles which excludes cashier).
+ *     workspaces gate to manager or admin).
  *   - The workspace that contains the active route auto-expands.
  *   - Clicking a workspace header toggles aria-expanded.
  *   - localStorage preserves the collapsed state across mounts.
@@ -34,7 +33,8 @@ const allModulesOn = {
 let mockModules: Record<string, boolean> = { ...allModulesOn };
 let mockPathname = '/dashboard';
 let desktopSidebar = true;
-const { prefetchSalesMock } = vi.hoisted(() => ({
+const { anomalyQueryState, prefetchSalesMock } = vi.hoisted(() => ({
+  anomalyQueryState: { high: 0 },
   prefetchSalesMock: vi.fn(),
 }));
 
@@ -50,9 +50,7 @@ vi.mock('@/features/auth/AuthProvider', () => ({
 }));
 
 vi.mock('@/features/modules', async () => {
-  const actual = await vi.importActual<typeof import('@/features/modules')>(
-    '@/features/modules'
-  );
+  const actual = await vi.importActual<typeof import('@/features/modules')>('@/features/modules');
   return {
     ...actual,
     useModulesSnapshot: () => ({
@@ -68,7 +66,10 @@ vi.mock('@/lib/trpc', () => ({
     ai: {
       anomalies: {
         list: {
-          useQuery: () => ({ data: undefined, isLoading: false }),
+          useQuery: () => ({
+            data: { severityCounts: { high: anomalyQueryState.high } },
+            isLoading: false,
+          }),
         },
       },
     },
@@ -83,9 +84,7 @@ vi.mock('@/features/sales/usePrefetchSales', () => ({
 }));
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>(
-    'react-router-dom'
-  );
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
     ...actual,
     useLocation: () => ({ pathname: mockPathname, search: '', hash: '', state: null, key: 'k' }),
@@ -104,6 +103,7 @@ beforeEach(() => {
   mockModules = { ...allModulesOn };
   mockPathname = '/dashboard';
   desktopSidebar = true;
+  anomalyQueryState.high = 0;
   prefetchSalesMock.mockReset();
   window.localStorage.clear();
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -123,7 +123,7 @@ afterEach(() => {
 });
 
 describe('Sidebar workspaces (ENG-131a)', () => {
-  it('admin sees the Dashboard link plus 8 workspace headers', () => {
+  it('admin sees 8 workspace headers with Dashboard inside Operate', () => {
     render(<Sidebar {...sidebarProps} />);
     // Count every workspace header regardless of expanded state by
     // matching their stable test ids.
@@ -133,8 +133,11 @@ describe('Sidebar workspaces (ENG-131a)', () => {
       btn.getAttribute('data-testid')?.startsWith('sidebar-workspace-')
     );
     expect(headers).toHaveLength(8);
-    // Dashboard link sits outside the workspace stack.
     expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-workspace-operate')).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
   });
 
   it('cashier sees only the Sell workspace and NO Dashboard link', () => {
@@ -145,6 +148,28 @@ describe('Sidebar workspaces (ENG-131a)', () => {
     expect(screen.queryByTestId('sidebar-workspace-finance')).not.toBeInTheDocument();
     expect(screen.queryByTestId('sidebar-workspace-setup')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /dashboard/i })).not.toBeInTheDocument();
+  });
+
+  it('viewer keeps Dashboard through the single Operate workspace', () => {
+    mockUserRole = 'viewer';
+    render(<Sidebar {...sidebarProps} />);
+
+    expect(screen.getByTestId('sidebar-workspace-operate')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /operations/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sidebar-workspace-sell')).not.toBeInTheDocument();
+  });
+
+  it('keeps the anomaly badge and accessible count on Dashboard inside Operate', () => {
+    anomalyQueryState.high = 12;
+    render(<Sidebar {...sidebarProps} />);
+
+    expect(
+      screen.getByRole('link', {
+        name: 'Dashboard (12 high-severity anomalies pending review)',
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText('9+')).toBeInTheDocument();
   });
 
   it('auto-expands the workspace that contains the active route', () => {
@@ -171,35 +196,31 @@ describe('Sidebar workspaces (ENG-131a)', () => {
 
   it('clicking a workspace header toggles aria-expanded and persists in localStorage', () => {
     render(<Sidebar {...sidebarProps} />);
-    const operate = screen.getByTestId('sidebar-workspace-operate');
-    expect(operate.getAttribute('aria-expanded')).toBe('false');
+    // /dashboard now belongs to Operate (ENG-131e), so use an inactive
+    // workspace to keep this test focused on disclosure persistence.
+    const catalog = screen.getByTestId('sidebar-workspace-catalog');
+    expect(catalog.getAttribute('aria-expanded')).toBe('false');
     act(() => {
-      fireEvent.click(operate);
+      fireEvent.click(catalog);
     });
-    expect(operate.getAttribute('aria-expanded')).toBe('true');
-    expect(
-      window.localStorage.getItem('puntovivo:sidebar:workspace:operate:collapsed')
-    ).toBe('false');
+    expect(catalog.getAttribute('aria-expanded')).toBe('true');
+    expect(window.localStorage.getItem('puntovivo:sidebar:workspace:catalog:collapsed')).toBe(
+      'false'
+    );
   });
 
   it('localStorage seed restores the collapsed state on next mount', () => {
     // The Catalog workspace would default to collapsed on /dashboard
     // (not the active workspace). Pre-seed it OPEN and check the
     // sidebar respects the seed on mount.
-    window.localStorage.setItem(
-      'puntovivo:sidebar:workspace:catalog:collapsed',
-      'false'
-    );
+    window.localStorage.setItem('puntovivo:sidebar:workspace:catalog:collapsed', 'false');
     render(<Sidebar {...sidebarProps} />);
     const catalog = screen.getByTestId('sidebar-workspace-catalog');
     expect(catalog.getAttribute('aria-expanded')).toBe('true');
   });
 
   it('keeps the active workspace expanded even when localStorage says collapsed', () => {
-    window.localStorage.setItem(
-      'puntovivo:sidebar:workspace:finance:collapsed',
-      'true'
-    );
+    window.localStorage.setItem('puntovivo:sidebar:workspace:finance:collapsed', 'true');
     mockPathname = '/audit-logs';
     render(<Sidebar {...sidebarProps} />);
     const finance = screen.getByTestId('sidebar-workspace-finance');
@@ -223,11 +244,11 @@ describe('Sidebar workspace header navigation (ENG-131c)', () => {
     }
   });
 
-  it('workspaces without a landing keep their header link pointing at the first item route', () => {
+  it('workspaces without a dedicated landing keep their header link pointing at the first item route', () => {
     render(<Sidebar {...sidebarProps} />);
     const cases: Array<[string, string]> = [
       ['sidebar-workspace-link-sell', '/sales'],
-      ['sidebar-workspace-link-operate', '/operations'],
+      ['sidebar-workspace-link-operate', '/dashboard'],
       ['sidebar-workspace-link-inventory', '/inventory'],
       ['sidebar-workspace-link-customers', '/customers'],
       ['sidebar-workspace-link-setup', '/company'],
@@ -254,9 +275,7 @@ describe('Sidebar workspace header navigation (ENG-131c)', () => {
     const chevron = screen.getByTestId('sidebar-workspace-catalog');
     expect(chevron.tagName).toBe('BUTTON');
     expect(chevron.getAttribute('aria-expanded')).toBe('false');
-    expect(chevron.getAttribute('aria-controls')).toBe(
-      'sidebar-workspace-panel-catalog'
-    );
+    expect(chevron.getAttribute('aria-controls')).toBe('sidebar-workspace-panel-catalog');
     expect(chevron).toHaveAccessibleName('Expand Catalog');
   });
 });
@@ -271,34 +290,39 @@ describe('responsive workspace navigation (ENG-131d)', () => {
 
     const options = screen.getAllByRole('radio');
     expect(options).toHaveLength(8);
-    expect(screen.getByRole('radio', { name: 'Sell' })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
-    expect(screen.getByRole('link', { name: 'Sales' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Operate' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Operations' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Products' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('radio', { name: 'Catalog' }));
 
-    expect(screen.getByRole('radio', { name: 'Catalog' })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
+    expect(screen.getByRole('radio', { name: 'Catalog' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'Open Catalog overview' })
-    ).toHaveAttribute('href', '/catalog');
+    expect(screen.getByRole('link', { name: 'Open Catalog overview' })).toHaveAttribute(
+      'href',
+      '/catalog'
+    );
     expect(screen.queryByRole('link', { name: 'Sales' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the Dashboard anomaly badge accessible in the mobile workspace drawer', () => {
+    anomalyQueryState.high = 3;
+    render(<Sidebar {...sidebarProps} />);
+
+    expect(
+      screen.getByRole('link', {
+        name: 'Dashboard (3 high-severity anomalies pending review)',
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
   });
 
   it('selects the workspace that owns a direct landing route', () => {
     mockPathname = '/catalog';
     render(<Sidebar {...sidebarProps} />);
 
-    expect(screen.getByRole('radio', { name: 'Catalog' })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
+    expect(screen.getByRole('radio', { name: 'Catalog' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sales' })).not.toBeInTheDocument();
   });
@@ -315,15 +339,15 @@ describe('responsive workspace navigation (ENG-131d)', () => {
 
   it('supports roving arrow-key selection across workspace options', async () => {
     render(<Sidebar {...sidebarProps} />);
-    const sell = screen.getByRole('radio', { name: 'Sell' });
-    sell.focus();
-
-    fireEvent.keyDown(sell, { key: 'ArrowRight' });
-
     const operate = screen.getByRole('radio', { name: 'Operate' });
-    expect(operate).toHaveAttribute('aria-checked', 'true');
-    await waitFor(() => expect(operate).toHaveFocus());
-    expect(screen.getByRole('link', { name: 'Operations' })).toBeInTheDocument();
+    operate.focus();
+
+    fireEvent.keyDown(operate, { key: 'ArrowRight' });
+
+    const catalog = screen.getByRole('radio', { name: 'Catalog' });
+    expect(catalog).toHaveAttribute('aria-checked', 'true');
+    await waitFor(() => expect(catalog).toHaveFocus());
+    expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
   });
 
   it('exposes a modal drawer contract and closes on Escape', () => {

@@ -15,7 +15,6 @@ import { describe, expect, it } from 'vitest';
 import { ROLE_PERMISSION_TEMPLATES } from '@/features/auth/workspaceRoleTemplates';
 import {
   WORKSPACES,
-  TOP_LEVEL_DASHBOARD,
   __WORKSPACE_ROUTE_INVARIANT_FOR_TESTS,
   visibleItemsForWorkspace,
   visibleWorkspacesForRole,
@@ -76,11 +75,8 @@ describe('WORKSPACES catalogue', () => {
     }
   });
 
-  it('every legacy sidebar route lives under exactly one workspace or the top-level Dashboard', () => {
-    const covered = new Set<string>([
-      TOP_LEVEL_DASHBOARD.href,
-      ...__WORKSPACE_ROUTE_INVARIANT_FOR_TESTS.workspaceHrefs,
-    ]);
+  it('every legacy sidebar route lives under exactly one workspace', () => {
+    const covered = new Set<string>(__WORKSPACE_ROUTE_INVARIANT_FOR_TESTS.workspaceHrefs);
     for (const route of LEGACY_SIDEBAR_ROUTES) {
       expect(covered.has(route)).toBe(true);
     }
@@ -92,22 +88,18 @@ describe('WORKSPACES catalogue', () => {
       for (const item of workspace.items) {
         const previous = seen.get(item.href);
         if (previous) {
-          throw new Error(
-            `route ${item.href} declared in both ${previous} and ${workspace.id}`
-          );
+          throw new Error(`route ${item.href} declared in both ${previous} and ${workspace.id}`);
         }
         seen.set(item.href, workspace.id);
       }
     }
-    // Dashboard sits OUTSIDE the workspace map by design.
-    expect(seen.has(TOP_LEVEL_DASHBOARD.href)).toBe(false);
+    expect(seen.get('/dashboard')).toBe('operate');
   });
 
   it('stays in parity with the admin permission-audit template', () => {
-    const navigationRoles = new Map([
-      ['dashboard', TOP_LEVEL_DASHBOARD.allowedRoles],
-      ...WORKSPACES.map(workspace => [workspace.id, workspace.allowedRoles] as const),
-    ]);
+    const navigationRoles = new Map(
+      WORKSPACES.map(workspace => [workspace.id, workspace.allowedRoles] as const)
+    );
     const auditRoles = new Map(
       ROLE_PERMISSION_TEMPLATES.map(template => [template.id, template.allowedRoles] as const)
     );
@@ -180,15 +172,10 @@ describe('visibleWorkspacesForRole', () => {
     expect(result[0]?.items.some(i => i.href === '/sales')).toBe(true);
   });
 
-  it('omits a workspace whose visible items collapse to zero', () => {
-    // Operate has a single item (/operations) gated by the
-    // operations-center module. Turn the module off and the
-    // workspace should disappear entirely instead of rendering an
-    // empty header.
+  it('keeps Operate visible when Operations is disabled because Dashboard remains available', () => {
     const result = visibleWorkspacesForRole('admin', { 'operations-center': false });
-    expect(result.some(v => v.workspace.id === 'operate')).toBe(false);
-    // Other admin workspaces still appear.
-    expect(result.some(v => v.workspace.id === 'setup')).toBe(true);
+    const operate = result.find(v => v.workspace.id === 'operate');
+    expect(operate?.items.map(item => item.href)).toEqual(['/dashboard']);
   });
 
   it('returns an empty list for an unauthenticated role', () => {
@@ -196,18 +183,21 @@ describe('visibleWorkspacesForRole', () => {
   });
 });
 
-describe('TOP_LEVEL_DASHBOARD', () => {
-  it('declares /dashboard outside any workspace', () => {
-    expect(TOP_LEVEL_DASHBOARD.href).toBe('/dashboard');
-    expect(
-      WORKSPACES.some(w => w.items.some(i => i.href === '/dashboard'))
-    ).toBe(false);
+describe('Operate Dashboard fold (ENG-131e)', () => {
+  it('makes Dashboard the first Operate item and keeps viewer access', () => {
+    const operate = WORKSPACES.find(workspace => workspace.id === 'operate');
+    expect(operate?.defaultRoute).toBe('/dashboard');
+    expect(operate?.items[0]?.href).toBe('/dashboard');
+    expect(operate?.allowedRoles).toContain('viewer');
+    expect(operate?.items[1]?.href).toBe('/operations');
+    expect(operate?.items[1]?.allowedRoles).not.toContain('viewer');
   });
 });
 
 describe('workspace defaultRoute (ENG-131c)', () => {
-  it('catalog, procurement, finance workspaces default to their landing route', () => {
+  it('operate and dedicated landing workspaces default to their overview route', () => {
     const landings: Record<string, string> = {
+      operate: '/dashboard',
       catalog: '/catalog',
       procurement: '/procurement',
       finance: '/finance',
@@ -219,7 +209,7 @@ describe('workspace defaultRoute (ENG-131c)', () => {
   });
 
   it('workspaces without a dedicated landing default to the first item href', () => {
-    const noLanding = ['sell', 'operate', 'inventory', 'customers', 'setup'];
+    const noLanding = ['sell', 'inventory', 'customers', 'setup'];
     for (const id of noLanding) {
       const workspace = WORKSPACES.find(w => w.id === id);
       expect(workspace).toBeDefined();

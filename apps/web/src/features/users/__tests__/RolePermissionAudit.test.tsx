@@ -8,22 +8,20 @@ describe('RolePermissionAudit', () => {
     render(<RolePermissionAudit />);
 
     expect(screen.getByRole('heading', { name: /default role permissions/i })).toBeInTheDocument();
-    expect(ROLE_PERMISSION_TEMPLATES).toHaveLength(9);
-    expect(screen.getAllByRole('row')).toHaveLength(10);
+    expect(ROLE_PERMISSION_TEMPLATES).toHaveLength(8);
+    expect(screen.getAllByRole('row')).toHaveLength(9);
 
     for (const role of ['Admin', 'Manager', 'Cashier', 'Viewer']) {
       expect(screen.getByRole('columnheader', { name: role })).toBeInTheDocument();
     }
   });
 
-  it('pins the dashboard and setup access templates', () => {
+  it('pins the Operate and Setup access templates', () => {
     render(<RolePermissionAudit />);
 
-    const dashboardRow = screen.getByRole('row', { name: /^dashboard/i });
-    expect(
-      within(dashboardRow).getByLabelText('Cashier: Dashboard — No access')
-    ).toBeInTheDocument();
-    expect(within(dashboardRow).getByLabelText('Viewer: Dashboard — Allowed')).toBeInTheDocument();
+    const operateRow = screen.getByRole('row', { name: /^operate/i });
+    expect(within(operateRow).getByLabelText('Cashier: Operate — No access')).toBeInTheDocument();
+    expect(within(operateRow).getByLabelText('Viewer: Operate — Allowed')).toBeInTheDocument();
 
     const setupRow = screen.getByRole('row', { name: /^setup/i });
     expect(within(setupRow).getByLabelText('Admin: Setup — Allowed')).toBeInTheDocument();

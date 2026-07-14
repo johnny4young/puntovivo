@@ -9,7 +9,7 @@ import { managerOrAdminRoles } from '@/features/auth/roleAccess';
 import { CLIENT_MODULE_DEFAULTS, useModulesSnapshot } from '@/features/modules';
 import { usePrefetchSales } from '@/features/sales/usePrefetchSales';
 import { useDialogA11y } from '@/components/feedback/useDialogA11y';
-import { TOP_LEVEL_DASHBOARD, visibleWorkspacesForRole } from './workspaces';
+import { visibleWorkspacesForRole } from './workspaces';
 import { SidebarBrand } from './SidebarBrand';
 import { SidebarWorkspaces } from './DesktopSidebarNavigation';
 import { MobileWorkspaceNavigation } from './MobileWorkspaceNavigation';
@@ -68,9 +68,6 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
     }
   );
   const dashboardBadge = anomaliesQuery.data?.severityCounts.high ?? 0;
-  const visibleDashboard = (TOP_LEVEL_DASHBOARD.allowedRoles as readonly string[]).includes(
-    user?.role ?? ''
-  );
   const workspaces = visibleWorkspacesForRole(user?.role, modules, !isPlaceholder);
   const mobileDialogOpen = !isDesktopSidebar && mobileOpen;
 
@@ -119,7 +116,6 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
             onNavigate={onCloseMobile}
             workspaces={workspaces}
             currentPath={location.pathname}
-            visibleDashboard={visibleDashboard}
             dashboardBadge={dashboardBadge}
             prefetchSales={prefetchSales}
           />
@@ -169,7 +165,6 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
             key={location.pathname}
             workspaces={workspaces}
             currentPath={location.pathname}
-            showDashboard={visibleDashboard}
             dashboardBadge={dashboardBadge}
             onNavigate={onCloseMobile}
             onPrefetchSales={prefetchSales}

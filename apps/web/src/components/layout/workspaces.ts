@@ -15,14 +15,12 @@
  * sidebar component reads this list to render workspace groups +
  * their child NavigationItems.
  *
- * Dashboard is intentionally NOT inside any workspace; it remains a
- * top-level NavLink above the workspace stack (it serves every
- * dashboard-eligible role including viewer, who has no workspace
- * memberships otherwise).
- *
- * Surface Switcher, new `/catalog` / `/procurement` / `/finance`
- * route shells, route redirects, and mobile workspace nav stay in
- * ENG-131b..d.
+ * ENG-131e closes the navigation model by folding Dashboard into
+ * Operate. Operate inherits the dashboard role set so viewer keeps
+ * its only eligible destination, while the Operations child remains
+ * manager/admin-only. Existing leaf URLs remain canonical on purpose:
+ * redirecting `/products`, `/orders`, etc. would add churn without a
+ * user-visible benefit and would weaken the direct-link contract.
  *
  * @module components/layout/workspaces
  */
@@ -103,23 +101,11 @@ export interface Workspace {
    * regardless.
    */
   allowedRoles: readonly UserRole[];
-  /** Default landing route when (future) the workspace header is clicked. */
+  /** Default landing route used by the workspace header. */
   defaultRoute: string;
   /** Ordered list of route entries that nest under this workspace. */
   items: readonly WorkspaceItem[];
 }
-
-/**
- * The top-level Dashboard link lives outside the workspace list.
- * Exposed here so the sidebar renders it from the same single
- * source of truth and the unit tests can pin the shape.
- */
-export const TOP_LEVEL_DASHBOARD: WorkspaceItem = {
-  nameKey: 'items.dashboard',
-  href: '/dashboard',
-  icon: LayoutGrid,
-  allowedRoles: dashboardRoles,
-};
 
 /**
  * Eight workspaces from UI-REFRACTOR-V3 §3. The mapping reproduces
@@ -182,9 +168,19 @@ export const WORKSPACES: readonly Workspace[] = [
     id: 'operate',
     labelKey: 'operate.label',
     icon: Activity,
-    allowedRoles: managerOrAdminRoles,
-    defaultRoute: '/operations',
+    // ENG-131e — viewer previously reached Dashboard through a separate
+    // top-level link. Operate now owns that route, so its workspace gate
+    // must match the Dashboard route while the Operations child keeps the
+    // narrower manager/admin gate below.
+    allowedRoles: dashboardRoles,
+    defaultRoute: '/dashboard',
     items: [
+      {
+        nameKey: 'items.dashboard',
+        href: '/dashboard',
+        icon: LayoutGrid,
+        allowedRoles: dashboardRoles,
+      },
       {
         nameKey: 'items.operations',
         href: '/operations',
@@ -430,11 +426,10 @@ export function visibleWorkspacesForRole(
 
 /**
  * Test-only surface for the route-mapping invariant: every route
- * the old sidebar declared must live under exactly one workspace
- * (plus Dashboard). Adding a new route without registering it here
+ * the old sidebar declared must live under exactly one workspace.
+ * Adding a new route without registering it here
  * means the operator will not see it in the sidebar.
  */
 export const __WORKSPACE_ROUTE_INVARIANT_FOR_TESTS = {
-  topLevel: [TOP_LEVEL_DASHBOARD.href],
   workspaceHrefs: WORKSPACES.flatMap(w => w.items.map(item => item.href)),
 };
