@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog, safeStorage, session } from 'electron';
+import { app, BrowserWindow, dialog, safeStorage, session, type OpenDialogOptions } from 'electron';
+import { join } from 'node:path';
 import {
   captureProcessCrash,
   createModuleLogger,
@@ -6,12 +7,15 @@ import {
   resolveRuntimeConfig,
 } from '@puntovivo/server';
 import { sweepStaleBackupStaging } from './backup/backup-bundle.js';
+import { createBackupOperationQueue } from './backup/operation-queue.js';
+import { backupTenantPathSegment, createBackupScheduler } from './backup/scheduler.js';
 import { initAutoUpdater, refreshAutoUpdateTranslations, stopAutoUpdater } from './auto-updater';
 import { installProcessCrashHandlers } from './crash-telemetry.js';
 import { createEncryptionSetup } from './encryption-setup.js';
 import { setMainLocale, normalizeMainLocale, t } from './i18n';
 import { registerAppLifecycleIpc } from './ipc/app-lifecycle.js';
 import { registerBackupIpc, clearPendingRestore } from './ipc/backup.js';
+import { getDeviceIdPath } from './ipc/backup/runtime.js';
 import { registerDeviceIpc } from './ipc/device.js';
 import { registerPeripheralsIpc } from './ipc/peripherals.js';
 import { registerPrintIpc } from './ipc/print.js';
@@ -84,6 +88,20 @@ const serverLifecycle = createServerLifecycle({
   getMainWindow: () => windowLifecycleRef.current?.getWindow() ?? null,
 });
 
+const backupOperationQueue = createBackupOperationQueue();
+const backupScheduler = createBackupScheduler({
+  dbPath: encryptionSetup.dbPath,
+  getStatePath: () => join(app.getPath('userData'), 'backup-schedules.v1.json'),
+  getManagedDirectory: tenantId =>
+    join(app.getPath('userData'), 'backups', backupTenantPathSegment(tenantId)),
+  getDeviceIdPath,
+  getAppVersion: () => app.getVersion(),
+  resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
+  runWithServerRestart: operation => serverLifecycle.restartAround(operation),
+  runExclusive: backupOperationQueue.run,
+  log: backupLog,
+});
+
 const windowLifecycle = createWindowLifecycle({
   webDevServerUrl: WEB_DEV_SERVER_URL,
   isDev,
@@ -120,6 +138,19 @@ registerBackupIpc({
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
   getBackupProtectionStatus: encryptionSetup.getBackupProtectionStatus,
   runWithServerRestart: serverLifecycle.restartAround,
+  runExclusiveBackupOperation: backupOperationQueue.run,
+  backupScheduler,
+  chooseBackupScheduleDirectory: async () => {
+    const options: OpenDialogOptions = {
+      title: t('backup.scheduleDialogTitle'),
+      properties: ['openDirectory', 'createDirectory'],
+    };
+    const mainWindow = windowLifecycle.getWindow();
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  },
 });
 registerSettingsIpc({
   getMainWindow: windowLifecycle.getWindow,
@@ -177,6 +208,7 @@ app.whenReady().then(async () => {
   let initialTraySettings: TraySettings;
   try {
     setServer(await serverLifecycle.start());
+    await backupScheduler.start();
     applyThemePreference(await getThemePreference());
     initialTraySettings = await getTraySettings();
   } catch (err) {
@@ -218,8 +250,10 @@ app.on('will-quit', event => {
   // DK-005 — Electron quit listeners are synchronous. Defer exit until the embedded
   // server, pending restore staging, and SQLite handles have closed.
   event.preventDefault();
-  void serverLifecycle
+  void backupScheduler
     .stop()
+    .then(() => backupOperationQueue.drain())
+    .then(() => serverLifecycle.stop())
     .catch(err => {
       mainLog.error({ err }, 'failed to stop embedded server during shutdown');
     })

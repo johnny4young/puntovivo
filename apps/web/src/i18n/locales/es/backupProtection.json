@@ -37,5 +37,43 @@
     "linuxBasicText": "Texto básico de Linux",
     "unknown": "Proveedor sin verificar"
   },
-  "securityNote": "Esta verificación solo devuelve metadatos de protección. Nunca lee ni expone la clave de respaldo."
+  "securityNote": "Esta verificación solo devuelve metadatos de protección. Nunca lee ni expone la clave de respaldo.",
+  "schedule": {
+    "title": "Respaldos cifrados programados",
+    "description": "Mantén puntos de restauración automáticos en una carpeta administrada por la app o en una carpeta personalizada. Los respaldos conservan el cifrado SQLCipher.",
+    "unsupported": "Actualiza la app de escritorio para configurar respaldos programados.",
+    "loading": "Cargando…",
+    "lastSuccess": "Último respaldo correcto",
+    "nextRun": "Próximo respaldo",
+    "never": "Aún no se ha creado",
+    "notScheduled": "Sin programación",
+    "destinationLabel": "Destino",
+    "managed": "Carpeta administrada por la app",
+    "custom": "Carpeta personalizada",
+    "folder": "Carpeta",
+    "frequencyLabel": "Frecuencia del respaldo",
+    "frequency": {
+      "off": "Desactivada",
+      "daily": "Diaria",
+      "weekly": "Semanal"
+    },
+    "save": "Guardar programación",
+    "saving": "Guardando…",
+    "runNow": "Crear respaldo ahora",
+    "running": "Creando respaldo…",
+    "chooseFolder": "Elegir carpeta",
+    "useManaged": "Usar carpeta administrada por la app",
+    "lastRunFailed": "El último respaldo programado falló. Verifica el destino e inténtalo de nuevo.",
+    "toast": {
+      "saved": "Programación de respaldo guardada",
+      "destination": "Destino de respaldo actualizado",
+      "created": "Respaldo cifrado creado"
+    },
+    "errors": {
+      "load": "No se pudo cargar la programación de respaldos.",
+      "save": "No se pudo guardar la programación de respaldos.",
+      "destination": "No se pudo actualizar la carpeta de respaldos.",
+      "snapshot": "No se pudo crear el respaldo cifrado."
+    }
+  }
 }

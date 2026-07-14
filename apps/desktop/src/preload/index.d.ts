@@ -1,3 +1,21 @@
+type BackupScheduleFrequency = 'off' | 'daily' | 'weekly';
+type BackupDestinationMode = 'managed' | 'custom';
+
+interface BackupScheduleStatus {
+  tenantId: string;
+  frequency: BackupScheduleFrequency;
+  destinationMode: BackupDestinationMode;
+  destinationDirectory: string;
+  updatedAt: string;
+  nextRunAt: string | null;
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  lastPath: string | null;
+  lastSizeBytes: number | null;
+  lastError: 'snapshot_failed' | null;
+  inProgress: boolean;
+}
+
 interface DesktopElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
@@ -36,10 +54,7 @@ interface DesktopElectronAPI {
     enabled: boolean;
     closeToTray: boolean;
   }>;
-  updateTraySettings: (settings: {
-    enabled: boolean;
-    closeToTray: boolean;
-  }) => Promise<{
+  updateTraySettings: (settings: { enabled: boolean; closeToTray: boolean }) => Promise<{
     enabled: boolean;
     closeToTray: boolean;
   }>;
@@ -51,10 +66,7 @@ interface DesktopElectronAPI {
     silent: boolean;
     printBackground: boolean;
   }>;
-  updateReceiptPrintSettings: (settings: {
-    silent: boolean;
-    printBackground: boolean;
-  }) => Promise<{
+  updateReceiptPrintSettings: (settings: { silent: boolean; printBackground: boolean }) => Promise<{
     silent: boolean;
     printBackground: boolean;
   }>;
@@ -68,6 +80,30 @@ interface DesktopElectronAPI {
     success: boolean;
     cancelled: boolean;
     path?: string;
+    error?: string;
+  }>;
+  getBackupScheduleStatus: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  updateBackupSchedule: (input: {
+    frequency: BackupScheduleFrequency;
+    destinationMode?: 'managed';
+  }) => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  chooseBackupScheduleDestination: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    cancelled?: boolean;
+    error?: string;
+  }>;
+  runBackupSnapshotNow: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
     error?: string;
   }>;
   printReceipt: (receiptHtml: string) => Promise<{

@@ -27,6 +27,25 @@ function makeDeps(
     resolveDatabaseEncryptionKey: async () => 'a'.repeat(64),
     getBackupProtectionStatus,
     runWithServerRestart: async operation => operation(),
+    runExclusiveBackupOperation: async operation => operation(),
+    chooseBackupScheduleDirectory: async () => null,
+    backupScheduler: {
+      start: async () => {},
+      stop: async () => {},
+      tick: async () => {},
+      getStatus: async () => {
+        throw new Error('not used');
+      },
+      updateSchedule: async () => {
+        throw new Error('not used');
+      },
+      setCustomDestination: async () => {
+        throw new Error('not used');
+      },
+      runNow: async () => {
+        throw new Error('not used');
+      },
+    },
   };
 }
 

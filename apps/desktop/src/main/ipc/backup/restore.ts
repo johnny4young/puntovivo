@@ -130,31 +130,33 @@ async function swapRestoredDatabase(
   deps: BackupIpcDeps,
   extracted: ExtractBackupBundleResult
 ): Promise<void> {
-  await deps.runWithServerRestart(
-    async () => {
-      await ensureParentDirectoryExists(deps.dbPath);
-      await removeSqliteSidecars(deps.dbPath);
-      await copyFile(extracted.dbPath, deps.dbPath);
-      await removeSqliteSidecars(deps.dbPath);
+  await deps.runExclusiveBackupOperation(() =>
+    deps.runWithServerRestart(
+      async () => {
+        await ensureParentDirectoryExists(deps.dbPath);
+        await removeSqliteSidecars(deps.dbPath);
+        await copyFile(extracted.dbPath, deps.dbPath);
+        await removeSqliteSidecars(deps.dbPath);
 
-      // ENG-066 — preserve the bundled device identity when present;
-      // legacy raw `.db` restores keep the destination identity
-      // since the bundle didn't carry one.
-      if (extracted.deviceIdPath) {
-        try {
-          const deviceId = (await readFile(extracted.deviceIdPath, 'utf8')).trim();
-          if (deviceId) {
-            await writeDeviceIdToDir(app.getPath('userData'), deviceId);
+        // ENG-066 — preserve the bundled device identity when present;
+        // legacy raw `.db` restores keep the destination identity
+        // since the bundle didn't carry one.
+        if (extracted.deviceIdPath) {
+          try {
+            const deviceId = (await readFile(extracted.deviceIdPath, 'utf8')).trim();
+            if (deviceId) {
+              await writeDeviceIdToDir(app.getPath('userData'), deviceId);
+            }
+          } catch (err) {
+            backupLog.warn(
+              { err },
+              'restore: failed to preserve device-id from bundle; keeping destination identity'
+            );
           }
-        } catch (err) {
-          backupLog.warn(
-            { err },
-            'restore: failed to preserve device-id from bundle; keeping destination identity'
-          );
         }
-      }
-    },
-    { reloadWindow: true }
+      },
+      { reloadWindow: true }
+    )
   );
 }
 

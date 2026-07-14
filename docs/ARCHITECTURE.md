@@ -477,6 +477,17 @@ readiness plus the platform key provider without resolving or returning the
 key. The Company backup card distinguishes OS-keychain protection,
 launcher-injected development keys, and degraded/unattested providers.
 
+**ENG-136a (2026-07-14) — scheduled snapshot ownership.** Electron main owns a
+tenant-keyed, device-local schedule store plus the timer that creates daily or
+weekly SQLCipher backup bundles. Managed destinations live below
+`userData/backups/<tenant>`; custom destinations come only from Electron's
+native directory picker. The preload exposes narrow admin-gated status,
+configuration, destination-picker, and run-now calls. A shared FIFO operation
+queue serializes scheduled snapshots with the existing manual backup and
+restore paths, and app shutdown drains the queue before closing the embedded
+server. This keeps path access and database lifecycle authority out of the
+sandboxed renderer while preserving cross-platform Node path semantics.
+
 ## Future Data Topology Direction
 
 The strongest forward path is:

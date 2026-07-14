@@ -17,7 +17,9 @@
  *      user and the admin lands on `/dashboard`.
  *   5. The admin-only backup-protection IPC reports SQLCipher and the
  *      development key source without exposing the key value.
- *   6. No `console.error` / `pageerror` events fire during the flow —
+ *   6. The admin can configure and create a real encrypted scheduled
+ *      snapshot through the sandboxed preload bridge.
+ *   7. No `console.error` / `pageerror` events fire during the flow —
  *      the contract enforced by the web suite's smoke also applies
  *      here.
  *
@@ -95,6 +97,27 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
     ).toBeVisible();
     await expect(protectionPanel).not.toContainText(ELECTRON_E2E_DB_KEY);
 
+    // ENG-136a — exercise schedule persistence + the real encrypted
+    // VACUUM INTO snapshot. The app-managed folder avoids a native folder
+    // picker in automation while proving the same main-process scheduler
+    // used by daily/weekly runs.
+    const schedulePanel = page.getByTestId('backup-schedule-panel');
+    await expect(schedulePanel).toBeVisible();
+    await expect(schedulePanel.getByTestId('backup-destination')).toContainText('backups');
+    await schedulePanel
+      .getByRole('combobox', { name: /snapshot frequency/i })
+      .selectOption('daily');
+    await schedulePanel.getByRole('button', { name: /save schedule/i }).click();
+    await expect(schedulePanel.getByRole('combobox', { name: /snapshot frequency/i })).toHaveValue(
+      'daily'
+    );
+    await schedulePanel.getByRole('button', { name: /create snapshot now/i }).click();
+    await expect(schedulePanel.getByTestId('backup-last-success')).not.toHaveText(
+      /not created yet/i,
+      { timeout: 60_000 }
+    );
+    await expect(schedulePanel).not.toContainText(ELECTRON_E2E_DB_KEY);
+
     await expectNoClientIssues(tracker);
 
     // Optional evidence path shared with the web smoke specs. Normal CI stays
@@ -103,6 +126,9 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
       await page.screenshot({
         path: path.join(auditDir, 'electron-backup-protection.png'),
         fullPage: true,
+      });
+      await schedulePanel.screenshot({
+        path: path.join(auditDir, 'electron-scheduled-snapshot.png'),
       });
     }
   });

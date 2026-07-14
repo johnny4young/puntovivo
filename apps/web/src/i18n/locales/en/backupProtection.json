@@ -37,5 +37,43 @@
     "linuxBasicText": "Linux basic text",
     "unknown": "Unverified provider"
   },
-  "securityNote": "This verification returns protection metadata only. It never reads or exposes the backup key."
+  "securityNote": "This verification returns protection metadata only. It never reads or exposes the backup key.",
+  "schedule": {
+    "title": "Scheduled encrypted snapshots",
+    "description": "Keep automatic restore points in a device-managed or custom folder. Snapshots stay SQLCipher encrypted.",
+    "unsupported": "Update the desktop app to configure scheduled snapshots.",
+    "loading": "Loading…",
+    "lastSuccess": "Last successful snapshot",
+    "nextRun": "Next snapshot",
+    "never": "Not created yet",
+    "notScheduled": "Not scheduled",
+    "destinationLabel": "Destination",
+    "managed": "App-managed folder",
+    "custom": "Custom folder",
+    "folder": "Folder",
+    "frequencyLabel": "Snapshot frequency",
+    "frequency": {
+      "off": "Off",
+      "daily": "Daily",
+      "weekly": "Weekly"
+    },
+    "save": "Save schedule",
+    "saving": "Saving…",
+    "runNow": "Create snapshot now",
+    "running": "Creating snapshot…",
+    "chooseFolder": "Choose folder",
+    "useManaged": "Use app-managed folder",
+    "lastRunFailed": "The latest scheduled snapshot failed. Check the destination and try again.",
+    "toast": {
+      "saved": "Snapshot schedule saved",
+      "destination": "Snapshot destination updated",
+      "created": "Encrypted snapshot created"
+    },
+    "errors": {
+      "load": "Unable to load the snapshot schedule.",
+      "save": "Unable to save the snapshot schedule.",
+      "destination": "Unable to update the snapshot folder.",
+      "snapshot": "Unable to create the encrypted snapshot."
+    }
+  }
 }

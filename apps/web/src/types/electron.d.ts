@@ -104,6 +104,31 @@ export interface ElectronAPI {
     status?: BackupProtectionStatus;
     error?: string;
   }>;
+  /** ENG-136a — device-local encrypted snapshot schedule. */
+  getBackupScheduleStatus?: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  updateBackupSchedule?: (input: {
+    frequency: BackupScheduleFrequency;
+    destinationMode?: 'managed';
+  }) => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  chooseBackupScheduleDestination?: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    cancelled?: boolean;
+    error?: string;
+  }>;
+  runBackupSnapshotNow?: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale?: (locale: string) => Promise<'en' | 'es'>;
   runtime?: RuntimeAPI;
@@ -129,6 +154,24 @@ export interface BackupProtectionStatus {
   keyStorage: BackupProtectionKeyStorage;
   provider: BackupProtectionProvider;
   recoveryKeyAvailable: boolean;
+}
+
+export type BackupScheduleFrequency = 'off' | 'daily' | 'weekly';
+export type BackupDestinationMode = 'managed' | 'custom';
+
+export interface BackupScheduleStatus {
+  tenantId: string;
+  frequency: BackupScheduleFrequency;
+  destinationMode: BackupDestinationMode;
+  destinationDirectory: string;
+  updatedAt: string;
+  nextRunAt: string | null;
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  lastPath: string | null;
+  lastSizeBytes: number | null;
+  lastError: 'snapshot_failed' | null;
+  inProgress: boolean;
 }
 
 export interface RendererRuntimeConfig {

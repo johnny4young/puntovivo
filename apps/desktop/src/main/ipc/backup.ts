@@ -18,6 +18,12 @@ import {
   handleRestoreDatabaseBackup,
 } from './backup/restore.js';
 import { handleGetBackupProtectionStatus } from './backup/status.js';
+import {
+  handleChooseBackupScheduleDestination,
+  handleGetBackupScheduleStatus,
+  handleRunBackupSnapshotNow,
+  handleUpdateBackupSchedule,
+} from './backup/schedule.js';
 
 export type { BackupIpcDeps, DesktopDatabaseActionResult } from './backup/contracts.js';
 export { clearPendingRestore } from './backup/restore.js';
@@ -34,4 +40,12 @@ export function registerBackupIpc(deps: BackupIpcDeps): void {
   );
   ipcMain.handle('get-backup-encryption-key', () => handleGetBackupEncryptionKey(deps));
   ipcMain.handle('get-backup-protection-status', () => handleGetBackupProtectionStatus(deps));
+  ipcMain.handle('get-backup-schedule-status', () => handleGetBackupScheduleStatus(deps));
+  ipcMain.handle('update-backup-schedule', (_event, input: unknown) =>
+    handleUpdateBackupSchedule(deps, input)
+  );
+  ipcMain.handle('choose-backup-schedule-destination', () =>
+    handleChooseBackupScheduleDestination(deps)
+  );
+  ipcMain.handle('run-backup-snapshot-now', () => handleRunBackupSnapshotNow(deps));
 }

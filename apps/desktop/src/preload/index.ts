@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { BackupProtectionStatus } from '../main/backup-protection.js';
+import type { BackupScheduleFrequency, BackupScheduleStatus } from '../main/backup/scheduler.js';
 
 // Type definitions for exposed API
 export interface ElectronAPI {
@@ -113,6 +114,31 @@ export interface ElectronAPI {
   getBackupProtectionStatus: () => Promise<{
     success: boolean;
     status?: BackupProtectionStatus;
+    error?: string;
+  }>;
+  /** ENG-136a — device-local encrypted snapshot schedule. */
+  getBackupScheduleStatus: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  updateBackupSchedule: (input: {
+    frequency: BackupScheduleFrequency;
+    destinationMode?: 'managed';
+  }) => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  chooseBackupScheduleDestination: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    cancelled?: boolean;
+    error?: string;
+  }>;
+  runBackupSnapshotNow: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
     error?: string;
   }>;
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
@@ -283,6 +309,10 @@ const electronAPI: ElectronAPI = {
   cancelRestoreStaging: token => ipcRenderer.invoke('cancel-restore-staging', token),
   getBackupEncryptionKey: () => ipcRenderer.invoke('get-backup-encryption-key'),
   getBackupProtectionStatus: () => ipcRenderer.invoke('get-backup-protection-status'),
+  getBackupScheduleStatus: () => ipcRenderer.invoke('get-backup-schedule-status'),
+  updateBackupSchedule: input => ipcRenderer.invoke('update-backup-schedule', input),
+  chooseBackupScheduleDestination: () => ipcRenderer.invoke('choose-backup-schedule-destination'),
+  runBackupSnapshotNow: () => ipcRenderer.invoke('run-backup-snapshot-now'),
   printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),
   updateMainLocale: (locale: string) => ipcRenderer.invoke('update-main-locale', locale),
   device: deviceAPI,

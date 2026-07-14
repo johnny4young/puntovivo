@@ -6,6 +6,7 @@
 
 import type { BrowserWindow } from 'electron';
 import type { BackupProtectionStatus } from '../../backup-protection.js';
+import type { BackupScheduler } from '../../backup/scheduler.js';
 
 export interface DesktopDatabaseActionResult {
   success: boolean;
@@ -49,4 +50,10 @@ export interface BackupIpcDeps {
     operation: () => Promise<T>,
     options?: { reloadWindow?: boolean }
   ) => Promise<T>;
+  /** Serializes manual backup, scheduled snapshot and restore lifecycle work. */
+  runExclusiveBackupOperation: <T>(operation: () => Promise<T>) => Promise<T>;
+  /** Device-local encrypted snapshot scheduler owned by main/index.ts. */
+  backupScheduler: BackupScheduler;
+  /** Opens Electron's native directory picker without trusting a renderer path. */
+  chooseBackupScheduleDirectory: () => Promise<string | null>;
 }

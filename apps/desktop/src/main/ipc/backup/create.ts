@@ -49,19 +49,21 @@ export async function handleCreateDatabaseBackup(
     // server is stopped first so the backup bundle is consistent
     // with operator expectations even though `db.backup()` is safe
     // under concurrent writes.
-    const result = await deps.runWithServerRestart(async () => {
-      await access(deps.dbPath);
-      await ensureParentDirectoryExists(filePath);
-      const deviceIdPath = getDeviceIdPath();
-      const encryptionKey = await deps.resolveDatabaseEncryptionKey();
-      return createBackupBundle({
-        dbPath: deps.dbPath,
-        deviceIdPath,
-        outZipPath: filePath,
-        encryptionKey,
-        manifest: { appVersion: app.getVersion() },
-      });
-    });
+    const result = await deps.runExclusiveBackupOperation(() =>
+      deps.runWithServerRestart(async () => {
+        await access(deps.dbPath);
+        await ensureParentDirectoryExists(filePath);
+        const deviceIdPath = getDeviceIdPath();
+        const encryptionKey = await deps.resolveDatabaseEncryptionKey();
+        return createBackupBundle({
+          dbPath: deps.dbPath,
+          deviceIdPath,
+          outZipPath: filePath,
+          encryptionKey,
+          manifest: { appVersion: app.getVersion() },
+        });
+      })
+    );
 
     backupLog.info({ zipPath: result.zipPath, zipBytes: result.zipBytes }, 'backup created');
 

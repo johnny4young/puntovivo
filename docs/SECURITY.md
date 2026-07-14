@@ -608,6 +608,26 @@ the secret. The existing `get-backup-encryption-key` flow remains the sole
 renderer-visible exception, requires an authenticated admin session, displays
 an explicit warning, and exists only for cross-device restore recovery.
 
+### ENG-136a — scheduled encrypted snapshots (2026-07-14)
+
+The Electron main process now owns daily or weekly snapshots in addition to
+the native save-dialog flow. Configuration is admin-only and tenant-keyed, but
+device-local: `backup-schedules.v1.json` lives under `userData` with a POSIX
+`0600` best effort instead of inside the operational database. Restoring a DB
+from another workstation therefore cannot silently reactivate a stale custom
+folder. The renderer may choose the app-managed directory or ask Electron's
+native directory picker for a custom one; it never sends an arbitrary path to
+main.
+
+Every scheduled run reuses the SQLCipher `VACUUM INTO` + integrity-check bundle
+contract above. Manual backup, scheduled snapshot, and destructive restore
+share one FIFO main-process operation queue so two callers cannot overlap
+embedded-server stop/restart choreography. Only safe status metadata crosses
+the sandbox boundary: frequency, timestamps, size, destination, and a stable
+failure code. Provider errors and key material remain in structured main logs.
+The scheduler catches up after an offline period on the next desktop boot and
+drains active work before Electron closes the embedded database.
+
 **What remains for ENG-167.** Only the cross-OS matrix validation
 through
 [`.github/workflows/build-desktop.yml`](../.github/workflows/build-desktop.yml)
