@@ -2,6 +2,41 @@
   "page": {
     "title": "Registro de auditoría"
   },
+  "review": {
+    "title": "Revisión de actividad sensible",
+    "description": "Revisa eventos seleccionados con riesgo elevado de privacidad, acceso, dinero, inventario o IA. Los conteos siguen el rango de fechas elegido.",
+    "loading": "Resumiendo la actividad sensible…",
+    "error": "No se pudo resumir la actividad sensible.",
+    "retry": "Intentar de nuevo",
+    "total_one": "{{count}} evento sensible",
+    "total_other": "{{count}} eventos sensibles",
+    "latest": "Más reciente: {{date}}",
+    "none": "Sin eventos en este rango",
+    "activeFilter": "El historial está filtrado por {{category}}.",
+    "clearFilter": "Limpiar filtro de revisión",
+    "categories": {
+      "privacy": {
+        "title": "Privacidad y datos",
+        "description": "Solicitudes de datos personales, retención y consentimiento de telemetría."
+      },
+      "access": {
+        "title": "Acceso y permisos",
+        "description": "Cambios de acceso de usuarios, dispositivos y módulos."
+      },
+      "money": {
+        "title": "Dinero y autorizaciones",
+        "description": "Anulaciones, reembolsos, controles de caja, autorizaciones y exportaciones fiscales."
+      },
+      "inventory": {
+        "title": "Control de inventario",
+        "description": "Correcciones de stock, anulaciones de transferencias y descuentos por vencimiento."
+      },
+      "ai": {
+        "title": "Actividad de IA",
+        "description": "Consultas, OCR, revisión de anomalías y cambios de embeddings."
+      }
+    }
+  },
   "history": {
     "title": "Eventos recientes",
     "description": "Cronológico inverso. Usa los filtros para acotar la vista a una acción, recurso o rango de fechas.",

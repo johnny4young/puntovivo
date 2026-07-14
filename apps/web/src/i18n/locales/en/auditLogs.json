@@ -2,6 +2,41 @@
   "page": {
     "title": "Audit log"
   },
+  "review": {
+    "title": "Sensitive activity review",
+    "description": "Review curated events with elevated privacy, access, money, inventory, or AI risk. Counts follow the selected date range.",
+    "loading": "Summarizing sensitive activity…",
+    "error": "Unable to summarize sensitive activity.",
+    "retry": "Try again",
+    "total_one": "{{count}} sensitive event",
+    "total_other": "{{count}} sensitive events",
+    "latest": "Latest: {{date}}",
+    "none": "No events in this range",
+    "activeFilter": "History filtered to {{category}}.",
+    "clearFilter": "Clear review filter",
+    "categories": {
+      "privacy": {
+        "title": "Privacy and data",
+        "description": "Personal-data requests, retention, and telemetry consent."
+      },
+      "access": {
+        "title": "Access and permissions",
+        "description": "User, device, and module access changes."
+      },
+      "money": {
+        "title": "Money and overrides",
+        "description": "Voids, refunds, cash controls, overrides, and fiscal exports."
+      },
+      "inventory": {
+        "title": "Inventory control",
+        "description": "Stock corrections, transfer voids, and expiry discounts."
+      },
+      "ai": {
+        "title": "AI activity",
+        "description": "AI queries, OCR, anomaly review, and embedding changes."
+      }
+    }
+  },
   "history": {
     "title": "Recent audit events",
     "description": "Reverse-chronological. Use the filters to narrow the view to a specific action, resource, or date range.",

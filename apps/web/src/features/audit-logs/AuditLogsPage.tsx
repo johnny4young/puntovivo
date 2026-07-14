@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { trpc } from '@/lib/trpc';
 import type { AuditLogAction, AuditLogResourceType } from '@/types';
 import { AuditLogsTable } from './AuditLogsTable';
+import { SensitiveAuditReview, type AuditReviewCategory } from './SensitiveAuditReview';
 
 // Order matches the operational frequency cashiers think in: stock and
 // register events first, then sale-level reversals, then back-office
@@ -81,11 +82,10 @@ export function AuditLogsPage() {
   const [resourceType, setResourceType] = useState<AuditLogResourceType | ''>('');
   const [createdAfter, setCreatedAfter] = useState<string>('');
   const [createdBefore, setCreatedBefore] = useState<string>('');
+  const [sensitiveCategory, setSensitiveCategory] = useState<AuditReviewCategory | null>(null);
 
-  const queryInput = useMemo(() => {
+  const dateRangeInput = useMemo(() => {
     const payload: Record<string, unknown> = {};
-    if (action) payload.action = action;
-    if (resourceType) payload.resourceType = resourceType;
     // <input type="date"> returns `YYYY-MM-DD`; anchor to the cashier's
     // local timezone with end-of-day for the upper bound so a half-open
     // range never trims events from the selected day.
@@ -96,19 +96,44 @@ export function AuditLogsPage() {
       payload.createdBefore = new Date(`${createdBefore}T23:59:59`).toISOString();
     }
     return Object.keys(payload).length > 0 ? payload : undefined;
-  }, [action, resourceType, createdAfter, createdBefore]);
+  }, [createdAfter, createdBefore]);
+
+  const queryInput = useMemo(() => {
+    const payload: Record<string, unknown> = { ...dateRangeInput };
+    if (action) payload.action = action;
+    if (resourceType) payload.resourceType = resourceType;
+    if (sensitiveCategory) payload.sensitiveCategory = sensitiveCategory;
+    return Object.keys(payload).length > 0 ? payload : undefined;
+  }, [action, resourceType, sensitiveCategory, dateRangeInput]);
 
   const listQuery = trpc.auditLogs.list.useQuery(queryInput, {
     staleTime: 30_000,
   });
+  const summaryQuery = trpc.auditLogs.sensitiveSummary.useQuery(dateRangeInput, {
+    staleTime: 30_000,
+  });
 
   const items = listQuery.data?.items ?? [];
+  const summary = summaryQuery.data ?? { total: 0, categories: [] };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="text-2xl font-semibold text-secondary-900">{t('page.title')}</h1>
       </div>
+
+      <SensitiveAuditReview
+        total={summary.total}
+        categories={summary.categories}
+        selectedCategory={sensitiveCategory}
+        isLoading={summaryQuery.isLoading}
+        error={summaryQuery.error}
+        onSelectCategory={category => {
+          setSensitiveCategory(category);
+          if (category) setAction('');
+        }}
+        onRetry={() => void summaryQuery.refetch()}
+      />
 
       <div className="card p-6">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -117,7 +142,11 @@ export function AuditLogsPage() {
             <select
               className="input mt-1"
               value={action}
-              onChange={event => setAction(event.target.value as AuditLogAction | '')}
+              onChange={event => {
+                const nextAction = event.target.value as AuditLogAction | '';
+                setAction(nextAction);
+                if (nextAction) setSensitiveCategory(null);
+              }}
             >
               <option value="">{t('filters.all')}</option>
               {ACTION_OPTIONS.map(opt => (

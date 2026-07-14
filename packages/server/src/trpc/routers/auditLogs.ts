@@ -13,7 +13,8 @@
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { listAuditLogs } from '../../services/audit-logs.js';
-import { listAuditLogsInput } from '../schemas/auditLogs.js';
+import { getSensitiveAuditSummary } from '../../services/audit-review.js';
+import { listAuditLogsInput, sensitiveAuditSummaryInput } from '../schemas/auditLogs.js';
 
 export const auditLogsRouter = router({
   list: adminProcedure.input(listAuditLogsInput).query(({ ctx, input }) => {
@@ -25,7 +26,14 @@ export const auditLogsRouter = router({
       actorId: input?.actorId,
       createdAfter: input?.createdAfter,
       createdBefore: input?.createdBefore,
+      sensitiveCategory: input?.sensitiveCategory,
     });
     return { items };
   }),
+  sensitiveSummary: adminProcedure.input(sensitiveAuditSummaryInput).query(({ ctx, input }) =>
+    getSensitiveAuditSummary(ctx.db, ctx.tenantId, {
+      createdAfter: input?.createdAfter,
+      createdBefore: input?.createdBefore,
+    })
+  ),
 });

@@ -5,13 +5,12 @@
  */
 
 import { z } from 'zod';
-import {
-  auditLogActionEnum,
-  auditLogResourceTypeEnum,
-} from '../../db/schema.js';
+import { auditLogActionEnum, auditLogResourceTypeEnum } from '../../db/schema.js';
+import { AUDIT_REVIEW_CATEGORIES } from '../../services/audit-review.js';
 
 export const auditLogActionSchema = z.enum(auditLogActionEnum);
 export const auditLogResourceTypeSchema = z.enum(auditLogResourceTypeEnum);
+export const auditReviewCategorySchema = z.enum(AUDIT_REVIEW_CATEGORIES);
 
 export const listAuditLogsInput = z
   .object({
@@ -26,7 +25,17 @@ export const listAuditLogsInput = z
     createdAfter: z.string().datetime({ offset: true }).optional(),
     /** ISO datetime — include rows BEFORE this timestamp (inclusive). */
     createdBefore: z.string().datetime({ offset: true }).optional(),
+    /** Curated sensitive-event category; can be combined with other filters. */
+    sensitiveCategory: auditReviewCategorySchema.optional(),
   })
+  .optional();
+
+export const sensitiveAuditSummaryInput = z
+  .object({
+    createdAfter: z.string().datetime({ offset: true }).optional(),
+    createdBefore: z.string().datetime({ offset: true }).optional(),
+  })
+  .strict()
   .optional();
 
 export type ListAuditLogsInput = z.infer<typeof listAuditLogsInput>;

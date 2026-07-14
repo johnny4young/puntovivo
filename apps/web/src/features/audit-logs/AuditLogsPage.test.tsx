@@ -1,19 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 import { AuditLogsPage } from './AuditLogsPage';
+
+const mocks = vi.hoisted(() => ({
+  listUseQuery: vi.fn(),
+  summaryUseQuery: vi.fn(),
+  summaryRefetch: vi.fn(),
+}));
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     auditLogs: {
       list: {
-        useQuery: vi.fn(() => ({
-          data: { items: [] },
-          error: null,
-          isLoading: false,
-          refetch: vi.fn(),
-        })),
+        useQuery: mocks.listUseQuery,
+      },
+      sensitiveSummary: {
+        useQuery: mocks.summaryUseQuery,
       },
     },
   },
@@ -21,7 +26,70 @@ vi.mock('@/lib/trpc', () => ({
 
 describe('AuditLogsPage', () => {
   beforeEach(async () => {
+    vi.clearAllMocks();
+    mocks.listUseQuery.mockReturnValue({
+      data: { items: [] },
+      error: null,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+    mocks.summaryUseQuery.mockReturnValue({
+      data: {
+        total: 6,
+        categories: [
+          { category: 'privacy', count: 2, latestAt: '2026-01-11T10:00:00.000Z' },
+          { category: 'access', count: 1, latestAt: '2026-01-12T10:00:00.000Z' },
+          { category: 'money', count: 1, latestAt: '2026-01-13T10:00:00.000Z' },
+          { category: 'inventory', count: 1, latestAt: '2026-01-15T10:00:00.000Z' },
+          { category: 'ai', count: 1, latestAt: '2026-01-16T10:00:00.000Z' },
+        ],
+      },
+      error: null,
+      isLoading: false,
+      refetch: mocks.summaryRefetch,
+    });
     await i18next.changeLanguage('en');
+  });
+
+  it('filters immutable history by a review category and clears it for an action', async () => {
+    const user = userEvent.setup();
+    render(<AuditLogsPage />);
+
+    const privacyCard = screen.getByTestId('audit-review-privacy');
+    await user.click(privacyCard);
+
+    expect(privacyCard).toHaveAttribute('aria-pressed', 'true');
+    expect(mocks.listUseQuery).toHaveBeenLastCalledWith(
+      { sensitiveCategory: 'privacy' },
+      { staleTime: 30_000 }
+    );
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Action' }), 'sale.void');
+
+    expect(privacyCard).toHaveAttribute('aria-pressed', 'false');
+    expect(mocks.listUseQuery).toHaveBeenLastCalledWith(
+      { action: 'sale.void' },
+      { staleTime: 30_000 }
+    );
+  });
+
+  it('keeps review counts aligned with the visible date range', async () => {
+    const user = userEvent.setup();
+    render(<AuditLogsPage />);
+
+    await user.type(screen.getByLabelText('From'), '2026-01-12');
+    await user.type(screen.getByLabelText('To'), '2026-01-15');
+
+    const dateRange = {
+      createdAfter: new Date('2026-01-12T00:00:00').toISOString(),
+      createdBefore: new Date('2026-01-15T23:59:59').toISOString(),
+    };
+    expect(mocks.summaryUseQuery).toHaveBeenLastCalledWith(dateRange, {
+      staleTime: 30_000,
+    });
+    expect(mocks.listUseQuery).toHaveBeenLastCalledWith(dateRange, {
+      staleTime: 30_000,
+    });
   });
 
   it('offers customer personal-data exports as an action filter', () => {
