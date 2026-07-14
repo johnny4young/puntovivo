@@ -33,11 +33,7 @@ import {
   requireActiveCashSession,
 } from '../../services/cash-session.js';
 import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
-import {
-  consumeLotsForSaleLine,
-  enqueueInventoryLotUpdatesForSale,
-} from '../../services/inventory-lots/index.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { consumeLotsForSaleLine } from '../../services/inventory-lots/index.js';
 import { inArray } from 'drizzle-orm';
 import {
   detectPriceOverrides,
@@ -46,16 +42,9 @@ import {
   validateCustomer,
 } from './item-resolution.js';
 import { resolveFreshSaleTotals, resolveSalePaymentPlan } from './pricing.js';
-import { runCreditPreflight, safelyRecordCreditSaleLedger } from './creditPolicy.js';
-import { emitSaleFiscalDocument, enqueueSaleKdsOrder } from './fiscalPostHook.js';
-import {
-  buildFreshSaleEffects,
-  emitCompleteSaleEffects,
-  lookupJournalEventId,
-  safeUpdateSaleCompletedSummary,
-  type PersistedPaymentEffect,
-} from './journal-effects.js';
-import { getSaleRecord, type CompleteSaleSaleRecord } from './sale-read.js';
+import { runCreditPreflight } from './creditPolicy.js';
+import type { PersistedPaymentEffect } from './journal-effects.js';
+import type { CompleteSaleSaleRecord } from './sale-read.js';
 import type {
   CompleteSaleContext,
   CompleteSaleInput,
@@ -63,6 +52,7 @@ import type {
   CompleteSaleResult,
 } from './types.js';
 import { resolveFreshCheckoutTiming } from './checkout-timing.js';
+import { finalizeFreshSale } from './finalizeFreshSale.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -432,121 +422,35 @@ export async function runFreshSale(
     }
   });
 
-  // Auditoría 2026-07 — surface any lot/balance drift the FEFO consumption
-  // could not fully cover. The sale already committed (stock balance gated
-  // it); this is a data-integrity signal for the reconcile/discrepancy view.
-  if (lotShortfalls.length > 0) {
-    log.warn?.(
-      { saleId, saleNumber, lotShortfalls },
-      '[completeSale] lot-tracked lines had a FEFO shortfall (lots under-count the balance)'
-    );
-  }
-
-  const created = await getSaleRecord(ctx.db, ctx.tenantId, saleId);
-
-  // ENG-064b — sync_outbox emit moved POST-tx. The helper writes the
-  // operation_effects row (kind=outbox_enqueue:sync) itself when an
-  // envelope context is present.
-  await enqueueSync(ctx, {
-    entityType: 'sales',
-    entityId: saleId,
-    operation: 'create',
-    data: {
+  return finalizeFreshSale({
+    ctx,
+    log,
+    input,
+    sale: {
       id: saleId,
-      saleNumber,
-      total,
+      number: saleNumber,
       siteId: saleSiteId,
       cashSessionId: activeCashSession.id,
-      paymentStatus,
     },
-  });
-
-  // ENG-192 — the FEFO consumption above mutated these lots (on_hand drawn
-  // down, possibly depleted) and marked them sync-pending; enqueue each one
-  // so the mutation actually reaches sync_outbox instead of waiting for the
-  // next receive to touch the row.
-  await enqueueInventoryLotUpdatesForSale(ctx, [...consumedLotIds], saleId);
-
-  // ENG-090 — write the customer ledger receivable for full-credit
-  // sales. Best-effort post-tx (a ledger write failure does not roll
-  // back the already-committed sale). `creditProjection` is captured
-  // for the future audit-metadata wire-up (`projectedBalance` becomes
-  // the receipt's saldo posterior when ENG-090b lands).
-  await safelyRecordCreditSaleLedger({
-    db: ctx.db,
-    log,
-    tenantId: ctx.tenantId,
-    customerId: input.customerId,
-    creditSaleAmount,
-    saleId,
-    createdBy: ctx.user.id,
-    note: saleNumber,
-    projectedBalance: creditProjection?.projectedBalance ?? null,
-    enabled: input.status === 'completed',
-    logLabel: '[completeSale]',
-  });
-  void creditProjection;
-
-  // ENG-020 — emit DIAN DEE when a direct-sale (non-draft) lands as
-  // `completed`. Drafts never emit. Runs post-tx best-effort.
-  const fiscalEmitId = await emitSaleFiscalDocument({
-    db: ctx.db,
-    tenantId: ctx.tenantId,
-    userId: ctx.user.id,
-    log,
-    saleId,
-    enabled: input.status === 'completed',
-  });
-
-  // Journal effects (best-effort).
-  const journalEventId = await lookupJournalEventId(
-    ctx.db,
-    ctx.tenantId,
-    ctx.envelope?.operationId
-  );
-  if (journalEventId) {
-    if (input.status === 'completed') {
-      await safeUpdateSaleCompletedSummary(ctx, log, journalEventId, {
-        saleId,
-        saleNumber,
-        siteId: saleSiteId,
-        cashSessionId: activeCashSession.id,
-        customerId: input.customerId,
-        subtotal,
-        taxAmount,
-        discountAmount: headerDiscount,
-        total,
-        paymentMethod: resolvedPayments.dominantMethod,
-      });
-    }
-
-    const effects = buildFreshSaleEffects({
-      saleId,
-      saleNumber,
-      total,
-      dominantMethod: resolvedPayments.dominantMethod,
+    amounts: { subtotal, taxAmount, headerDiscount, total },
+    payment: {
+      creditSaleAmount,
       paymentStatus,
-      status: input.status,
-      paymentEffects,
+      change,
+      dominantMethod: resolvedPayments.dominantMethod,
+      cashCollectedAmount,
+      effects: paymentEffects,
+    },
+    persistence: {
       inventoryMovementIds,
       cashMovementId,
-      sessionId: activeCashSession.id,
-      cashCollectedAmount,
       priceOverrideAuditEmitted,
       priceOverrideAuditId,
-      fiscalEmitId,
-    });
-    await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
-  }
-
-  // ENG-098 — push to the kitchen display when the sale carries a
-  // tableId. Idempotent against the suspend-then-complete progression
-  // via UNIQUE(tenant_id, sale_id, station); a second fire is a no-op.
-  await enqueueSaleKdsOrder(ctx, input.tableId, saleId);
-
-  return {
-    sale: { ...created, change } as CompleteSaleSaleRecord,
-    change,
-    journalEventId,
-  };
+    },
+    inventory: {
+      consumedLotIds: [...consumedLotIds],
+      lotShortfalls,
+    },
+    creditProjection,
+  });
 }
