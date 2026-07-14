@@ -47,6 +47,8 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   // ENG-199 — expiry-radar discount suggestions.
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',
+  // ENG-136b — admin recovery-readiness evidence.
+  'backup.restore_drill',
 ];
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
@@ -65,6 +67,8 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'tenant',
   // ENG-199 — expiry-radar discount suggestions.
   'price_suggestion',
+  // ENG-136b — scheduler-owned encrypted snapshots.
+  'backup_snapshot',
 ];
 
 /**

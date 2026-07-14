@@ -129,6 +129,11 @@ export interface ElectronAPI {
     status?: BackupScheduleStatus;
     error?: string;
   }>;
+  /** ENG-136b — non-destructive comparison against the latest snapshot. */
+  runBackupRestoreDrill?: () => Promise<
+    | { success: true; report: BackupRestoreDrillReport }
+    | { success: false; error: 'snapshot_unavailable' | 'drill_failed' }
+  >;
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale?: (locale: string) => Promise<'en' | 'es'>;
   runtime?: RuntimeAPI;
@@ -172,6 +177,25 @@ export interface BackupScheduleStatus {
   lastSizeBytes: number | null;
   lastError: 'snapshot_failed' | null;
   inProgress: boolean;
+}
+
+export type BackupRestoreDrillTable =
+  'products' | 'customers' | 'sales' | 'inventory_movements' | 'audit_logs';
+
+export interface BackupRestoreDrillReport {
+  outcome: 'passed';
+  checkedAt: string;
+  snapshotGeneratedAt: string;
+  snapshotSchemaVersion: number;
+  snapshotSizeBytes: number;
+  currentTotal: number;
+  snapshotTotal: number;
+  tables: Array<{
+    table: BackupRestoreDrillTable;
+    currentCount: number;
+    snapshotCount: number;
+    delta: number;
+  }>;
 }
 
 export interface RendererRuntimeConfig {

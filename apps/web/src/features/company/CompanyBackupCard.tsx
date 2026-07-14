@@ -7,6 +7,7 @@ import { DesktopOnlyChip, DisabledControl } from '@/components/feedback/DesktopO
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { translateServerError } from '@/lib/translateServerError';
 import { BackupProtectionPanel } from './BackupProtectionPanel';
+import { BackupRestoreDrillPanel } from './BackupRestoreDrillPanel';
 import { BackupSchedulePanel } from './BackupSchedulePanel';
 
 type BackupAction = 'backup' | 'restore' | null;
@@ -330,6 +331,7 @@ export function CompanyBackupCard() {
       <BackupProtectionPanel />
 
       <BackupSchedulePanel />
+      <BackupRestoreDrillPanel />
 
       <div className="rounded-2xl border border-warning-300/70 bg-warning-50 px-4 py-3 text-sm text-warning-900">
         <div className="flex items-start gap-2">

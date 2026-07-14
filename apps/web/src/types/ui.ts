@@ -114,7 +114,9 @@ export type AuditLogAction =
   | 'telemetry.opt_in.updated'
   // ENG-199 — expiry-radar discount suggestions (accept + dismiss).
   | 'inventory.lot.discount_suggested'
-  | 'inventory.lot.discount_suggestion_dismissed';
+  | 'inventory.lot.discount_suggestion_dismissed'
+  // ENG-136b — admin restore-readiness evidence.
+  | 'backup.restore_drill';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -150,7 +152,9 @@ export type AuditLogResourceType =
   // `telemetry.opt_in.updated` action. `resourceId` is the tenantId.
   | 'tenant'
   // ENG-199 — price_suggestions rows targeted by the expiry-radar audits.
-  | 'price_suggestion';
+  | 'price_suggestion'
+  // ENG-136b — scheduler-owned encrypted snapshot.
+  | 'backup_snapshot';
 
 export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';
 

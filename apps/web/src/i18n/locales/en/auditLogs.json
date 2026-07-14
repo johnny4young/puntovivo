@@ -109,7 +109,8 @@
     "inventory.lot.discount_suggested": "Discount suggested (expiry)",
     "inventory.lot.discount_suggestion_dismissed": "Discount suggestion dismissed",
     "data_retention.policy.updated": "Data retention policy updated",
-    "data_retention.sweep.run": "Expired support data deleted"
+    "data_retention.sweep.run": "Expired support data deleted",
+    "backup.restore_drill": "Backup restore drill run"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -130,7 +131,8 @@
     "customer": "Customer",
     "fiscal_document": "Fiscal document",
     "tenant": "Tenant",
-    "price_suggestion": "Price suggestion"
+    "price_suggestion": "Price suggestion",
+    "backup_snapshot": "Backup snapshot"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

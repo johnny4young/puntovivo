@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { BackupProtectionStatus } from '../main/backup-protection.js';
+import type { BackupRestoreDrillReport } from '../main/backup/restore-drill.js';
 import type { BackupScheduleFrequency, BackupScheduleStatus } from '../main/backup/scheduler.js';
 
 // Type definitions for exposed API
@@ -141,6 +142,11 @@ export interface ElectronAPI {
     status?: BackupScheduleStatus;
     error?: string;
   }>;
+  /** ENG-136b — admin-only, non-destructive restore readiness drill. */
+  runBackupRestoreDrill: () => Promise<
+    | { success: true; report: BackupRestoreDrillReport }
+    | { success: false; error: 'snapshot_unavailable' | 'drill_failed' }
+  >;
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
   device: DeviceAPI;
@@ -313,6 +319,7 @@ const electronAPI: ElectronAPI = {
   updateBackupSchedule: input => ipcRenderer.invoke('update-backup-schedule', input),
   chooseBackupScheduleDestination: () => ipcRenderer.invoke('choose-backup-schedule-destination'),
   runBackupSnapshotNow: () => ipcRenderer.invoke('run-backup-snapshot-now'),
+  runBackupRestoreDrill: () => ipcRenderer.invoke('run-backup-restore-drill'),
   printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),
   updateMainLocale: (locale: string) => ipcRenderer.invoke('update-main-locale', locale),
   device: deviceAPI,

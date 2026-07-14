@@ -19,7 +19,9 @@
  *      development key source without exposing the key value.
  *   6. The admin can configure and create a real encrypted scheduled
  *      snapshot through the sandboxed preload bridge.
- *   7. No `console.error` / `pageerror` events fire during the flow —
+ *   7. A non-destructive restore drill verifies that snapshot, reports
+ *      tenant-scoped differences, and leaves an immutable audit event.
+ *   8. No `console.error` / `pageerror` events fire during the flow —
  *      the contract enforced by the web suite's smoke also applies
  *      here.
  *
@@ -118,10 +120,22 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
     );
     await expect(schedulePanel).not.toContainText(ELECTRON_E2E_DB_KEY);
 
-    await expectNoClientIssues(tracker);
+    // ENG-136b — the real main process extracts and opens the encrypted
+    // snapshot in a temporary directory, compares only this tenant's rows,
+    // and returns bounded metadata through preload. No destructive restore or
+    // renderer-supplied path participates in this flow.
+    const drillPanel = page.getByTestId('backup-restore-drill-panel');
+    await expect(drillPanel).toBeVisible();
+    await drillPanel.getByTestId('run-backup-restore-drill').click();
+    const drillReport = drillPanel.getByTestId('backup-restore-drill-report');
+    await expect(drillReport.getByText(/ready to restore/i)).toBeVisible({ timeout: 60_000 });
+    await expect(drillReport.getByRole('row', { name: /products/i })).toBeVisible();
+    await expect(drillReport.getByRole('row', { name: /sales/i })).toBeVisible();
+    await expect(drillReport).toContainText(/live database was not changed/i);
+    await expect(drillReport).not.toContainText(ELECTRON_E2E_DB_KEY);
 
-    // Optional evidence path shared with the web smoke specs. Normal CI stays
-    // artifact-free; audit runs opt in with PUNTOVIVO_AUDIT_DIR.
+    // Optional evidence path shared with the web smoke specs. Capture the
+    // Company data surface before navigating to the audit history below.
     if (auditDir) {
       await page.screenshot({
         path: path.join(auditDir, 'electron-backup-protection.png'),
@@ -130,6 +144,22 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
       await schedulePanel.screenshot({
         path: path.join(auditDir, 'electron-scheduled-snapshot.png'),
       });
+      await drillPanel.screenshot({
+        path: path.join(auditDir, 'electron-restore-drill.png'),
+      });
     }
+
+    // The drill is a sensitive admin capability, so success must be visible in
+    // the same immutable tenant audit history exposed to the operator.
+    // Use the existing React Router link without forcing the responsive
+    // sidebar open. The scheduled snapshot must not restart the embedded
+    // server or invalidate this authenticated renderer session.
+    await page.locator('a[href="/audit-logs"]').evaluate(link => (link as HTMLElement).click());
+    await expect(page).toHaveURL(/\/audit-logs/);
+    await expect(page.getByRole('row', { name: /backup restore drill run/i })).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await expectNoClientIssues(tracker);
   });
 });

@@ -28,6 +28,10 @@ function makeDeps(
     getBackupProtectionStatus,
     runWithServerRestart: async operation => operation(),
     runExclusiveBackupOperation: async operation => operation(),
+    runBackupRestoreDrill: async () => {
+      throw new Error('not expected in protection IPC tests');
+    },
+    recordBackupRestoreDrillAudit: () => {},
     chooseBackupScheduleDirectory: async () => null,
     backupScheduler: {
       start: async () => {},

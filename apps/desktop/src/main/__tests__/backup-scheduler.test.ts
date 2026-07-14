@@ -46,12 +46,6 @@ function makeScheduler(
     getDeviceIdPath: () => join(scratch, 'device-id.txt'),
     getAppVersion: () => '1.5.1',
     resolveDatabaseEncryptionKey: async () => ENCRYPTION_KEY,
-    runWithServerRestart: async operation => {
-      lifecycleEvents.push('restart:start');
-      const result = await operation();
-      lifecycleEvents.push('restart:end');
-      return result;
-    },
     runExclusive: async operation => {
       lifecycleEvents.push('exclusive:start');
       const result = await operation();
@@ -141,7 +135,7 @@ describe('backup scheduler persistence and execution (ENG-136a)', () => {
     assert.equal(persisted.schedules['tenant-b'], undefined);
   });
 
-  it('creates an encrypted tenant-labelled snapshot through the exclusive restart boundary', async () => {
+  it('creates an encrypted tenant-labelled snapshot without restarting the server', async () => {
     let current = new Date('2026-07-14T12:00:00.000Z');
     const lifecycleEvents: string[] = [];
     let captured: CreateBackupBundleArgs | undefined;
@@ -171,12 +165,7 @@ describe('backup scheduler persistence and execution (ENG-136a)', () => {
     assert.equal(captured?.encryptionKey, ENCRYPTION_KEY);
     assert.equal(captured?.manifest?.tenantSlug, 'tenant-a');
     assert.match(captured?.outZipPath ?? '', /puntovivo-backup-tenant-a-.*\.zip$/);
-    assert.deepEqual(lifecycleEvents, [
-      'exclusive:start',
-      'restart:start',
-      'restart:end',
-      'exclusive:end',
-    ]);
+    assert.deepEqual(lifecycleEvents, ['exclusive:start', 'exclusive:end']);
     assert.equal(result.status.lastSuccessAt, '2026-07-14T12:00:02.000Z');
     assert.equal(result.status.lastSizeBytes, 128);
     assert.equal(result.status.nextRunAt, '2026-07-15T12:00:02.000Z');

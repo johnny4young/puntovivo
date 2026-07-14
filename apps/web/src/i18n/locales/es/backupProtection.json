@@ -75,5 +75,40 @@
       "destination": "No se pudo actualizar la carpeta de respaldos.",
       "snapshot": "No se pudo crear el respaldo cifrado."
     }
+  },
+  "drill": {
+    "title": "Simulacro de restauración",
+    "description": "Verifica el último respaldo cifrado sin cambiar la base de datos activa. El resultado queda registrado en la auditoría.",
+    "unsupported": "Actualiza la app de escritorio para ejecutar simulacros de restauración.",
+    "run": "Ejecutar simulacro",
+    "running": "Verificando respaldo…",
+    "toast": {
+      "passed": "Simulacro de restauración aprobado"
+    },
+    "errors": {
+      "snapshotUnavailable": "Crea al menos un respaldo cifrado antes de ejecutar un simulacro de restauración.",
+      "failed": "No se pudo verificar el último respaldo. Crea uno nuevo e inténtalo de nuevo."
+    },
+    "result": {
+      "title": "Listo para restaurar",
+      "description": "El respaldo superó las verificaciones de integridad y datos de la empresa. La base de datos activa no cambió.",
+      "checkedAt": "Verificado",
+      "snapshotAt": "Respaldo creado",
+      "currentTotal": "Registros actuales",
+      "snapshotTotal": "Registros del respaldo",
+      "tableCaption": "Comparación de registros actuales y del respaldo",
+      "area": "Área de datos",
+      "current": "Actual",
+      "snapshot": "Respaldo",
+      "delta": "Diferencia",
+      "deltaNote": "Las diferencias son normales cuando los datos cambiaron después de crear el respaldo."
+    },
+    "tables": {
+      "products": "Productos",
+      "customers": "Clientes",
+      "sales": "Ventas",
+      "inventory_movements": "Movimientos de inventario",
+      "audit_logs": "Eventos de auditoría"
+    }
   }
 }

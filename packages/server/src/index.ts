@@ -39,6 +39,9 @@ export * from './db/schema.js';
 // .pnpm peer instance) and break its typecheck. Consume these instead.
 export { and, eq, inArray, sql } from 'drizzle-orm';
 export { getDatabase, type DatabaseInstance } from './db/index.js';
+// ENG-136b — the embedded Electron main records restore-drill evidence in
+// the same immutable audit table as server-side sensitive operations.
+export { writeAuditLog, type WriteAuditLogArgs } from './services/audit-logs.js';
 export { SseManager, type SseClient } from './realtime/sse.js';
 export type { AppRouter } from './trpc/router.js';
 // ENG-025 — `desktopSession` (apps/desktop/src/main) imports this to

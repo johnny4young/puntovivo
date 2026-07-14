@@ -300,6 +300,10 @@ export const auditLogActionEnum = [
   // price_suggestions row id. Free-form text at the SQL layer.
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',
+  // ENG-136b — an admin ran a non-destructive readiness drill against the
+  // latest scheduled snapshot. Metadata records pass/fail plus bounded
+  // tenant-scoped count deltas; no filesystem path or encryption key.
+  'backup.restore_drill',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -347,6 +351,8 @@ export const auditLogResourceTypeEnum = [
   // audits (resourceId = the suggestion row id; the lot travels in
   // metadata so the row survives lot deletion).
   'price_suggestion',
+  // ENG-136b — scheduler-owned encrypted snapshot targeted by a restore drill.
+  'backup_snapshot',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

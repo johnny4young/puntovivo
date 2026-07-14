@@ -485,8 +485,23 @@ native directory picker. The preload exposes narrow admin-gated status,
 configuration, destination-picker, and run-now calls. A shared FIFO operation
 queue serializes scheduled snapshots with the existing manual backup and
 restore paths, and app shutdown drains the queue before closing the embedded
-server. This keeps path access and database lifecycle authority out of the
-sandboxed renderer while preserving cross-platform Node path semantics.
+server. Scheduled snapshots stay online: SQLCipher `VACUUM INTO` plus the
+post-copy integrity check provides the consistency boundary without interrupting
+the POS. Unavoidable server restarts reuse one process-lifetime JWT signing
+secret so manual backup/restore choreography does not rotate every live session.
+This keeps path access and database lifecycle authority out of the sandboxed
+renderer while preserving cross-platform Node path semantics.
+
+**ENG-136b (2026-07-14) — non-destructive restore drill.** Electron main reads
+the latest scheduler-owned bundle through the same FIFO operation queue,
+extracts it into an ephemeral OS directory, requires a tenant-matching
+manifest, and opens the SQLCipher database read-only after an integrity check.
+A fixed allowlist compares tenant-scoped counts for products, customers, sales,
+inventory movements, and audit events against the live embedded-server
+connection. No file swap or server restart occurs. The preload returns only
+timestamps, aggregate counts, and deltas; main records the authenticated admin
+actor plus bounded pass/fail evidence as `backup.restore_drill` in the immutable
+audit history.
 
 ## Future Data Topology Direction
 

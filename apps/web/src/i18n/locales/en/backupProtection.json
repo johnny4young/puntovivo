@@ -75,5 +75,40 @@
       "destination": "Unable to update the snapshot folder.",
       "snapshot": "Unable to create the encrypted snapshot."
     }
+  },
+  "drill": {
+    "title": "Restore readiness drill",
+    "description": "Verify the latest encrypted snapshot without changing the live database. The result is recorded in the audit log.",
+    "unsupported": "Update the desktop app to run restore readiness drills.",
+    "run": "Run restore drill",
+    "running": "Verifying snapshot…",
+    "toast": {
+      "passed": "Restore drill passed"
+    },
+    "errors": {
+      "snapshotUnavailable": "Create at least one encrypted snapshot before running a restore drill.",
+      "failed": "The latest snapshot could not be verified. Create a new snapshot and try again."
+    },
+    "result": {
+      "title": "Ready to restore",
+      "description": "The snapshot passed its integrity and tenant-data checks. The live database was not changed.",
+      "checkedAt": "Checked",
+      "snapshotAt": "Snapshot created",
+      "currentTotal": "Current records",
+      "snapshotTotal": "Snapshot records",
+      "tableCaption": "Current and snapshot record comparison",
+      "area": "Data area",
+      "current": "Current",
+      "snapshot": "Snapshot",
+      "delta": "Difference",
+      "deltaNote": "Differences are expected when data changed after the snapshot was created."
+    },
+    "tables": {
+      "products": "Products",
+      "customers": "Customers",
+      "sales": "Sales",
+      "inventory_movements": "Inventory movements",
+      "audit_logs": "Audit events"
+    }
   }
 }

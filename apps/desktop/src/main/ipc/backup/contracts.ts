@@ -6,7 +6,31 @@
 
 import type { BrowserWindow } from 'electron';
 import type { BackupProtectionStatus } from '../../backup-protection.js';
+import type {
+  BackupRestoreDrillErrorCode,
+  BackupRestoreDrillReport,
+} from '../../backup/restore-drill.js';
 import type { BackupScheduler } from '../../backup/scheduler.js';
+
+interface BackupRestoreDrillAuditBase {
+  tenantId: string;
+  actorId: string;
+  resourceId: string;
+}
+
+export type BackupRestoreDrillAuditInput = BackupRestoreDrillAuditBase &
+  (
+    | {
+        outcome: 'passed';
+        report: BackupRestoreDrillReport;
+        errorCode?: never;
+      }
+    | {
+        outcome: 'failed';
+        errorCode: BackupRestoreDrillErrorCode;
+        report?: never;
+      }
+  );
 
 export interface DesktopDatabaseActionResult {
   success: boolean;
@@ -56,4 +80,8 @@ export interface BackupIpcDeps {
   backupScheduler: BackupScheduler;
   /** Opens Electron's native directory picker without trusting a renderer path. */
   chooseBackupScheduleDirectory: () => Promise<string | null>;
+  /** Runs a read-only comparison against the latest scheduler-owned snapshot. */
+  runBackupRestoreDrill: (tenantId: string) => Promise<BackupRestoreDrillReport>;
+  /** Writes the admin actor's immutable, tenant-scoped drill evidence. */
+  recordBackupRestoreDrillAudit: (input: BackupRestoreDrillAuditInput) => void;
 }

@@ -621,12 +621,38 @@ main.
 
 Every scheduled run reuses the SQLCipher `VACUUM INTO` + integrity-check bundle
 contract above. Manual backup, scheduled snapshot, and destructive restore
-share one FIFO main-process operation queue so two callers cannot overlap
-embedded-server stop/restart choreography. Only safe status metadata crosses
-the sandbox boundary: frequency, timestamps, size, destination, and a stable
-failure code. Provider errors and key material remain in structured main logs.
-The scheduler catches up after an offline period on the next desktop boot and
-drains active work before Electron closes the embedded database.
+share one FIFO main-process operation queue so two database lifecycle operations
+cannot overlap. Scheduled snapshots remain online rather than stopping Fastify;
+the encrypted `VACUUM INTO` transaction and subsequent integrity check are the
+restore-readiness boundary. For manual operations that still require an
+in-process server restart, Electron reuses one cryptographically random JWT
+signing secret for the main-process lifetime so access and refresh tokens are
+not invalidated merely by the restart. Only safe status metadata crosses the
+sandbox boundary: frequency, timestamps, size, destination, and a stable failure
+code. Provider errors and key material remain in structured main logs. The
+scheduler catches up after an offline period on the next desktop boot and drains
+active work before Electron closes the embedded database.
+
+### ENG-136b — non-destructive restore drill (2026-07-14)
+
+The admin-only `run-backup-restore-drill` IPC never accepts a path, tenant id,
+or key from the renderer. Main derives the actor and tenant from the registered
+desktop session, reads the latest scheduler-owned path, and rejects a ZIP whose
+manifest is missing or names another tenant. Extraction uses a fresh OS temp
+directory that is removed in `finally`; the extracted SQLCipher DB is opened
+read-only, integrity-checked, and inspected through a fixed table allowlist.
+
+The live database is never stopped, copied over, rekeyed, or mutated. Its row
+counts come from the already-open embedded-server connection and every query
+has `WHERE tenant_id = ?`. A successful drill means the snapshot can be opened
+and its selected tenant data can be read; a nonzero delta is informational and
+expected when operations continued after the snapshot.
+
+Both pass and fail outcomes attempt an immutable `backup.restore_drill` audit
+row under the sensitive Access category. Success is withheld if pass evidence
+cannot be persisted. The renderer and audit metadata receive only stable error
+codes, timestamps, byte/count aggregates, and per-table deltas — never an
+archive path, SQLite diagnostic, or encryption key.
 
 **What remains for ENG-167.** Only the cross-OS matrix validation
 through

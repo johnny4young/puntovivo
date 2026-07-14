@@ -127,4 +127,20 @@ describe('AuditLogsPage', () => {
     const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
     expect(within(resourceFilter).getByRole('option', { name: 'Tenant' })).toHaveValue('tenant');
   });
+
+  it('offers backup restore-drill evidence as action and resource filters', () => {
+    render(<AuditLogsPage />);
+
+    const actionFilter = screen.getByRole('combobox', { name: 'Action' });
+    expect(
+      within(actionFilter).getByRole('option', {
+        name: 'Backup restore drill run',
+      })
+    ).toHaveValue('backup.restore_drill');
+
+    const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
+    expect(within(resourceFilter).getByRole('option', { name: 'Backup snapshot' })).toHaveValue(
+      'backup_snapshot'
+    );
+  });
 });

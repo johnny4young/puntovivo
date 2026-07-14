@@ -16,6 +16,25 @@ interface BackupScheduleStatus {
   inProgress: boolean;
 }
 
+type BackupRestoreDrillTable =
+  'products' | 'customers' | 'sales' | 'inventory_movements' | 'audit_logs';
+
+interface BackupRestoreDrillReport {
+  outcome: 'passed';
+  checkedAt: string;
+  snapshotGeneratedAt: string;
+  snapshotSchemaVersion: number;
+  snapshotSizeBytes: number;
+  currentTotal: number;
+  snapshotTotal: number;
+  tables: Array<{
+    table: BackupRestoreDrillTable;
+    currentCount: number;
+    snapshotCount: number;
+    delta: number;
+  }>;
+}
+
 interface DesktopElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
@@ -106,6 +125,10 @@ interface DesktopElectronAPI {
     status?: BackupScheduleStatus;
     error?: string;
   }>;
+  runBackupRestoreDrill: () => Promise<
+    | { success: true; report: BackupRestoreDrillReport }
+    | { success: false; error: 'snapshot_unavailable' | 'drill_failed' }
+  >;
   printReceipt: (receiptHtml: string) => Promise<{
     success: boolean;
     error?: string;

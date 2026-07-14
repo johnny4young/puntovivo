@@ -46,6 +46,10 @@ function makeDeps(
     }),
     runWithServerRestart: async operation => operation(),
     runExclusiveBackupOperation: async operation => operation(),
+    runBackupRestoreDrill: async () => {
+      throw new Error('not expected in schedule IPC tests');
+    },
+    recordBackupRestoreDrillAudit: () => {},
     chooseBackupScheduleDirectory: async () => null,
     backupScheduler: {
       start: async () => {},

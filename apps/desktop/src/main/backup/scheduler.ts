@@ -72,7 +72,6 @@ interface BackupSchedulerDeps {
   getDeviceIdPath: () => string | undefined;
   getAppVersion: () => string;
   resolveDatabaseEncryptionKey: () => Promise<string>;
-  runWithServerRestart: <T>(operation: () => Promise<T>) => Promise<T>;
   runExclusive: <T>(operation: () => Promise<T>) => Promise<T>;
   createBundle?: typeof createBackupBundle;
   now?: () => Date;
@@ -274,22 +273,20 @@ export function createBackupScheduler(deps: BackupSchedulerDeps): BackupSchedule
         next.destinationDirectory,
         createBackupFileName({ tenantSlug: next.tenantId, now: attemptedAt })
       );
-      const result: CreateBackupBundleResult = await deps.runExclusive(() =>
-        deps.runWithServerRestart(async () => {
-          const encryptionKey = await deps.resolveDatabaseEncryptionKey();
-          const deviceIdPath = deps.getDeviceIdPath();
-          return createBundle({
-            dbPath: deps.dbPath,
-            ...(deviceIdPath ? { deviceIdPath } : {}),
-            outZipPath: outputPath,
-            encryptionKey,
-            manifest: {
-              appVersion: deps.getAppVersion(),
-              tenantSlug: next.tenantId,
-            },
-          });
-        })
-      );
+      const result: CreateBackupBundleResult = await deps.runExclusive(async () => {
+        const encryptionKey = await deps.resolveDatabaseEncryptionKey();
+        const deviceIdPath = deps.getDeviceIdPath();
+        return createBundle({
+          dbPath: deps.dbPath,
+          ...(deviceIdPath ? { deviceIdPath } : {}),
+          outZipPath: outputPath,
+          encryptionKey,
+          manifest: {
+            appVersion: deps.getAppVersion(),
+            tenantSlug: next.tenantId,
+          },
+        });
+      });
 
       const completedAt = now();
       next = {

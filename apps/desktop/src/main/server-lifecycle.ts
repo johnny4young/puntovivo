@@ -1,13 +1,15 @@
 /** ENG-201 — embedded Fastify lifecycle for the Electron main process. */
 
 import type { BrowserWindow } from 'electron';
+import { randomBytes } from 'node:crypto';
 import {
   createServer,
   resolveRuntimeConfig,
   type PuntovivoLogger,
   type PuntovivoServer,
+  type ServerOptions,
 } from '@puntovivo/server';
-import { getServer, setServer } from './runtime.js';
+import { getServer, setServer } from './runtime.ts';
 
 interface ServerLifecycleDeps {
   dbPath: string;
@@ -18,6 +20,8 @@ interface ServerLifecycleDeps {
   prepareDatabaseEncryption: () => Promise<string>;
   getMainWindow: () => BrowserWindow | null;
   env?: NodeJS.ProcessEnv;
+  createEmbeddedServer?: (options: ServerOptions) => Promise<PuntovivoServer>;
+  generateJwtSecret?: () => string;
 }
 
 export interface ServerLifecycle {
@@ -38,7 +42,14 @@ export function createServerLifecycle({
   prepareDatabaseEncryption,
   getMainWindow,
   env = process.env,
+  createEmbeddedServer = createServer,
+  generateJwtSecret = () => randomBytes(48).toString('base64url'),
 }: ServerLifecycleDeps): ServerLifecycle {
+  // The server may restart around a manual backup or destructive restore.
+  // Keep one in-memory signing secret for the Electron main lifetime so those
+  // restarts do not invalidate every access and refresh token mid-session.
+  const jwtSecret = generateJwtSecret();
+
   async function start(): Promise<PuntovivoServer> {
     // ENG-072 — Authority Node host/mode/port remain environment-resolved.
     const runtime = resolveRuntimeConfig({ env });
@@ -55,7 +66,7 @@ export function createServerLifecycle({
       'starting embedded server'
     );
 
-    const nextServer = await createServer({
+    const nextServer = await createEmbeddedServer({
       dbPath,
       port: runtime.bindPort,
       host: runtime.bindHost,
@@ -65,6 +76,7 @@ export function createServerLifecycle({
       // ENG-073 / ENG-075 — expose desktop version through health/Operations.
       appVersion,
       encryptionKey,
+      jwtSecret,
     });
     await nextServer.listen();
     log.info({ url: nextServer.getUrl() }, 'embedded server started');

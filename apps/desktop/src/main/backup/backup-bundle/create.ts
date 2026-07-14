@@ -24,10 +24,10 @@ import type { BackupManifest, CreateBackupBundleArgs, CreateBackupBundleResult }
  *   - `db.backup()` fails (disk full, permission denied).
  *   - `PRAGMA integrity_check` returns anything other than `'ok'`.
  *
- * The caller is responsible for stopping any active write traffic
- * before invoking (e.g. `runWithServerRestart`); the online backup
- * API is robust to concurrent writes but stopping the server keeps
- * the post-backup consistency invariant simpler to reason about.
+ * Callers serialize backup lifecycle work, but do not need to stop normal
+ * database traffic. SQLite's online backup path and encrypted VACUUM INTO
+ * each produce a transactionally consistent snapshot while the integrity
+ * check below pins the restore-readiness post-condition.
  */
 export async function createBackupBundle(
   args: CreateBackupBundleArgs

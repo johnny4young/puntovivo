@@ -17,6 +17,12 @@ export type {
 } from './types.ts';
 export { rekeySqliteDatabase } from './encryption.ts';
 export { assertSqliteIntegrity } from './integrity.ts';
+export {
+  BACKUP_RESTORE_DRILL_TABLES,
+  inspectBackupTenantCounts,
+  readTenantRestoreDrillCounts,
+} from './inspection.ts';
+export type { BackupRestoreDrillCounts, BackupRestoreDrillTable } from './inspection.ts';
 export { detectBackupFormat, isCleartextSqliteFile } from './detect.ts';
 export { createBackupBundle } from './create.ts';
 export { extractBackupBundle } from './extract.ts';

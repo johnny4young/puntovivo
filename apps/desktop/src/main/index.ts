@@ -5,9 +5,11 @@ import {
   createModuleLogger,
   flushServerTelemetry,
   resolveRuntimeConfig,
+  writeAuditLog,
 } from '@puntovivo/server';
 import { sweepStaleBackupStaging } from './backup/backup-bundle.js';
 import { createBackupOperationQueue } from './backup/operation-queue.js';
+import { createBackupRestoreDrill } from './backup/restore-drill.js';
 import { backupTenantPathSegment, createBackupScheduler } from './backup/scheduler.js';
 import { initAutoUpdater, refreshAutoUpdateTranslations, stopAutoUpdater } from './auto-updater';
 import { installProcessCrashHandlers } from './crash-telemetry.js';
@@ -29,7 +31,7 @@ import {
   type TraySettings,
 } from './ipc/settings.js';
 import { buildRendererSecurityHeaders, isFastifyApiResponse } from './renderer-security-headers.js';
-import { setServer } from './runtime.js';
+import { getServerDatabase, getSqliteClient, setServer } from './runtime.js';
 import { createServerLifecycle } from './server-lifecycle.js';
 import { createTrayController } from './tray-controller.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
@@ -97,9 +99,14 @@ const backupScheduler = createBackupScheduler({
   getDeviceIdPath,
   getAppVersion: () => app.getVersion(),
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
-  runWithServerRestart: operation => serverLifecycle.restartAround(operation),
   runExclusive: backupOperationQueue.run,
   log: backupLog,
+});
+const backupRestoreDrill = createBackupRestoreDrill({
+  backupScheduler,
+  getCurrentDatabase: () => getSqliteClient().$client,
+  resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
+  runExclusive: backupOperationQueue.run,
 });
 
 const windowLifecycle = createWindowLifecycle({
@@ -140,6 +147,34 @@ registerBackupIpc({
   runWithServerRestart: serverLifecycle.restartAround,
   runExclusiveBackupOperation: backupOperationQueue.run,
   backupScheduler,
+  runBackupRestoreDrill: tenantId => backupRestoreDrill.run(tenantId),
+  recordBackupRestoreDrillAudit: input => {
+    const metadata =
+      input.outcome === 'passed'
+        ? {
+            outcome: input.outcome,
+            checkedAt: input.report.checkedAt,
+            snapshotGeneratedAt: input.report.snapshotGeneratedAt,
+            snapshotSchemaVersion: input.report.snapshotSchemaVersion,
+            snapshotSizeBytes: input.report.snapshotSizeBytes,
+            currentTotal: input.report.currentTotal,
+            snapshotTotal: input.report.snapshotTotal,
+            tableDeltas: Object.fromEntries(input.report.tables.map(row => [row.table, row.delta])),
+          }
+        : {
+            outcome: input.outcome,
+            errorCode: input.errorCode,
+          };
+    writeAuditLog({
+      tx: getServerDatabase(),
+      tenantId: input.tenantId,
+      actorId: input.actorId,
+      action: 'backup.restore_drill',
+      resourceType: 'backup_snapshot',
+      resourceId: input.resourceId,
+      metadata,
+    });
+  },
   chooseBackupScheduleDirectory: async () => {
     const options: OpenDialogOptions = {
       title: t('backup.scheduleDialogTitle'),

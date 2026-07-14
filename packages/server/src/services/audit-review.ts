@@ -29,6 +29,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'device.revoke',
     'device.pairing.claimed',
     'module.toggle',
+    'backup.restore_drill',
   ],
   money: [
     'sale.void',

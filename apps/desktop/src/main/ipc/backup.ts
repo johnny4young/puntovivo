@@ -18,6 +18,7 @@ import {
   handleRestoreDatabaseBackup,
 } from './backup/restore.js';
 import { handleGetBackupProtectionStatus } from './backup/status.js';
+import { handleRunBackupRestoreDrill } from './backup/drill.js';
 import {
   handleChooseBackupScheduleDestination,
   handleGetBackupScheduleStatus,
@@ -48,4 +49,5 @@ export function registerBackupIpc(deps: BackupIpcDeps): void {
     handleChooseBackupScheduleDestination(deps)
   );
   ipcMain.handle('run-backup-snapshot-now', () => handleRunBackupSnapshotNow(deps));
+  ipcMain.handle('run-backup-restore-drill', () => handleRunBackupRestoreDrill(deps));
 }
