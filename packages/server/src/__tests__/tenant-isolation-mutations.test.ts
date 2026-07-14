@@ -29,6 +29,7 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  auditLogs,
   companies,
   countries,
   customers,
@@ -175,6 +176,39 @@ describe('Cross-tenant mutation isolation (hardened DELETE/UPDATE guards)', () =
       await expect(callerA.customers.delete({ id: customer.id })).resolves.toMatchObject({
         success: true,
       });
+    });
+  });
+
+  describe('customers.exportPersonalData', () => {
+    it("rejects another tenant's customer id without writing a disclosure audit", async () => {
+      const callerA = appRouter.createCaller(buildCtx(tenantA));
+      const callerB = appRouter.createCaller(buildCtx(tenantB));
+      const db = getDatabase();
+      const customer = await callerA.customers.create({
+        name: `Private Customer ${nanoid(6)}`,
+        email: `private-${nanoid(6)}@example.com`,
+      });
+
+      await expect(callerB.customers.exportPersonalData({ id: customer.id })).rejects.toMatchObject(
+        { code: 'NOT_FOUND' }
+      );
+
+      const foreignAudit = await db
+        .select({ id: auditLogs.id })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantB.tenantId),
+            eq(auditLogs.action, 'customer.personal_data.export'),
+            eq(auditLogs.resourceId, customer.id)
+          )
+        )
+        .get();
+      expect(foreignAudit).toBeUndefined();
+
+      await expect(
+        callerA.customers.exportPersonalData({ id: customer.id })
+      ).resolves.toMatchObject({ subject: { id: customer.id } });
     });
   });
 

@@ -65,6 +65,7 @@
     "kds.order.ready": "Orden marcada como Listo en cocina",
     "kds.order.recalled": "Orden devuelta a pendiente en cocina",
     "customer.credit_limit.update": "Cupo de crédito del cliente actualizado",
+    "customer.personal_data.export": "Datos personales del cliente exportados",
     "sale.credit_override": "Venta completada con sobregiro autorizado",
     "fiscal.xml.downloaded": "XML fiscal descargado",
     "telemetry.opt_in.updated": "Preferencia de telemetría actualizada",

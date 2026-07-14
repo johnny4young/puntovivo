@@ -21,8 +21,16 @@
     "title": "Detalle del cliente",
     "viewAria": "Ver detalle",
     "identification": "Identificación",
+    "identificationFallback": "Id.",
     "edit": "Editar cliente",
     "close": "Cerrar"
+  },
+  "privacy": {
+    "export": "Exportar datos personales",
+    "exporting": "Preparando exportación...",
+    "filename": "datos-personales-cliente",
+    "success": "Datos personales descargados",
+    "error": "No se pudieron exportar los datos personales"
   },
   "form": {
     "createTitle": "Crear cliente",

@@ -22,6 +22,12 @@ export const getCustomerInput = z.object({
   id: z.string().min(1, 'ID is required'),
 });
 
+export const exportCustomerPersonalDataInput = z
+  .object({
+    id: z.string().min(1, 'ID is required'),
+  })
+  .strict();
+
 // ENG-089 — `creditLimit` is the per-customer cupo de crédito. Zero
 // is the explicit "no limit" sentinel; negative values are rejected
 // here so the persistence layer never sees them. ENG-090 reads this

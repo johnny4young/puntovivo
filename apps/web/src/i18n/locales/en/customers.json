@@ -21,8 +21,16 @@
     "title": "Customer details",
     "viewAria": "View details",
     "identification": "Identification",
+    "identificationFallback": "ID",
     "edit": "Edit customer",
     "close": "Close"
+  },
+  "privacy": {
+    "export": "Export personal data",
+    "exporting": "Preparing export...",
+    "filename": "customer-personal-data",
+    "success": "Personal data downloaded",
+    "error": "Unable to export personal data"
   },
   "form": {
     "createTitle": "Create Customer",

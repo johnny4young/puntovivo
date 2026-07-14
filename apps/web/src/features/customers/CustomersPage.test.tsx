@@ -14,7 +14,10 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useAuthMock } = vi.hoisted(() => ({ useAuthMock: vi.fn() }));
+const { exportPersonalDataMock, useAuthMock } = vi.hoisted(() => ({
+  exportPersonalDataMock: vi.fn(),
+  useAuthMock: vi.fn(),
+}));
 
 vi.mock('@/features/auth/AuthProvider', () => ({ useAuth: useAuthMock }));
 
@@ -59,9 +62,38 @@ vi.mock('@/lib/trpc', () => ({
           refetch: vi.fn(),
         }),
       },
-      create: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false, error: null, reset: vi.fn() }) },
-      update: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false, error: null, reset: vi.fn() }) },
-      delete: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false, error: null, reset: vi.fn() }) },
+      create: {
+        useMutation: () => ({
+          mutateAsync: vi.fn(),
+          isPending: false,
+          error: null,
+          reset: vi.fn(),
+        }),
+      },
+      update: {
+        useMutation: () => ({
+          mutateAsync: vi.fn(),
+          isPending: false,
+          error: null,
+          reset: vi.fn(),
+        }),
+      },
+      delete: {
+        useMutation: () => ({
+          mutateAsync: vi.fn(),
+          isPending: false,
+          error: null,
+          reset: vi.fn(),
+        }),
+      },
+      exportPersonalData: {
+        useMutation: () => ({
+          mutateAsync: exportPersonalDataMock,
+          isPending: false,
+          error: null,
+          reset: vi.fn(),
+        }),
+      },
     },
     identificationTypes: { list: emptyList },
     personTypes: { list: emptyList },
@@ -76,6 +108,8 @@ import { CustomersPage } from './CustomersPage';
 describe('CustomersPage default column set (ENG-132b)', () => {
   beforeEach(() => {
     useAuthMock.mockReset();
+    exportPersonalDataMock.mockReset();
+    exportPersonalDataMock.mockResolvedValue(undefined);
     useAuthMock.mockReturnValue({ user: { id: 'u-1', role: 'admin' } });
   });
 
@@ -106,5 +140,22 @@ describe('CustomersPage default column set (ENG-132b)', () => {
     expect(within(drawer).getByText('ventas@andina.co')).toBeInTheDocument();
     expect(within(drawer).getByText('+57 300 111 2233')).toBeInTheDocument();
     expect(within(drawer).getByText('Bogotá, Cundinamarca')).toBeInTheDocument();
+  });
+
+  it('offers the audited personal-data export only to admins', () => {
+    const { unmount } = render(<CustomersPage />);
+    fireEvent.click(screen.getByRole('button', { name: /view details|ver detalle/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /export personal data|exportar datos personales/i })
+    );
+    expect(exportPersonalDataMock).toHaveBeenCalledWith({ id: 'c-1' });
+
+    unmount();
+    useAuthMock.mockReturnValue({ user: { id: 'u-2', role: 'manager' } });
+    render(<CustomersPage />);
+    fireEvent.click(screen.getByRole('button', { name: /view details|ver detalle/i }));
+    expect(
+      screen.queryByRole('button', { name: /export personal data|exportar datos personales/i })
+    ).not.toBeInTheDocument();
   });
 });

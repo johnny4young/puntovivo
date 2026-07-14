@@ -9,18 +9,30 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { TRPCError } from '@trpc/server';
+import { and, eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
+  auditLogs,
   categories,
   clientTypes,
   commercialActivities,
   companies,
+  customerLedgerEntries,
+  deliveryOrders,
   identificationTypes,
+  paymentOutbox,
   personTypes,
+  products,
+  quotationItems,
+  quotations,
   regimeTypes,
+  saleItems,
+  salePayments,
+  saleReturns,
+  sales,
   sequentials,
   sites,
   tenants,
@@ -732,6 +744,13 @@ describe('Collections tRPC Routers', () => {
         role: 'cashier',
         tenantId: testTenantId,
       });
+    const managerCtx = () =>
+      createTestContext({
+        id: cashierUserId,
+        email: 'manager@collections-test.com',
+        role: 'manager',
+        tenantId: testTenantId,
+      });
 
     describe('customers.list', () => {
       it('returns a paginated list', async () => {
@@ -838,6 +857,211 @@ describe('Collections tRPC Routers', () => {
           expect(err).toBeInstanceOf(TRPCError);
           expect((err as TRPCError).code).toBe('FORBIDDEN');
         }
+      });
+    });
+
+    describe('customers.exportPersonalData', () => {
+      it('exports an exact allowlist of linked records and audits the disclosure without PII', async () => {
+        const caller = appRouter.createCaller(adminCtx());
+        const db = getDatabase();
+        const suffix = nanoid(6);
+        const created = await caller.customers.create({
+          name: `Privacy Subject ${suffix}`,
+          email: `privacy-${suffix}@example.com`,
+          phone: '+57 300 555 0101',
+          address: 'Calle 10 #20-30',
+          taxId: `NIT-${suffix}`,
+          notes: 'Prefers email receipts',
+          creditLimit: 100,
+        });
+        const customer = await caller.customers.update({
+          id: created.id,
+          version: created.version,
+          creditLimit: 150,
+        });
+
+        const productId = `privacy-product-${suffix}`;
+        const saleId = `privacy-sale-${suffix}`;
+        const paymentId = `privacy-payment-${suffix}`;
+        const quotationId = `privacy-quotation-${suffix}`;
+        await db.insert(products).values({
+          id: productId,
+          tenantId: testTenantId,
+          name: 'Private purchase item',
+          sku: `PRIV-${suffix}`,
+        });
+        await db.insert(sales).values({
+          id: saleId,
+          tenantId: testTenantId,
+          saleNumber: `PRIV-SALE-${suffix}`,
+          customerId: customer.id,
+          status: 'draft',
+          notes: 'Customer requested a gift receipt',
+          createdBy: adminUserId,
+        });
+        await db.insert(saleItems).values({
+          id: `privacy-item-${suffix}`,
+          saleId,
+          productId,
+          quantity: 2,
+          unitPrice: 20,
+          total: 40,
+          notes: 'Blue wrapping',
+        });
+        await db.insert(salePayments).values({
+          id: paymentId,
+          tenantId: testTenantId,
+          saleId,
+          method: 'card',
+          amount: 40,
+          reference: `AUTH-${suffix}`,
+        });
+        await db.insert(paymentOutbox).values({
+          id: `privacy-provider-${suffix}`,
+          tenantId: testTenantId,
+          salePaymentId: paymentId,
+          railId: 'wompi',
+          kind: 'charge',
+          status: 'approved',
+          amount: 40,
+          currencyCode: 'COP',
+          reference: `AUTH-${suffix}`,
+          providerTransactionId: `provider-tx-${suffix}`,
+          payload: { secretProviderField: 'must-never-export' },
+          lastError: { internalFailure: 'must-never-export' },
+          claimToken: 'must-never-export',
+        });
+        await db.insert(saleReturns).values({
+          id: `privacy-return-${suffix}`,
+          tenantId: testTenantId,
+          saleId,
+          refundAmount: 5,
+          reason: 'Partial return',
+          createdBy: adminUserId,
+        });
+        await db.insert(quotations).values({
+          id: quotationId,
+          tenantId: testTenantId,
+          siteId: defaultSiteId,
+          quotationNumber: `PRIV-QUOTE-${suffix}`,
+          customerId: customer.id,
+          notes: 'Requested by phone',
+          createdBy: adminUserId,
+        });
+        await db.insert(quotationItems).values({
+          id: `privacy-quote-item-${suffix}`,
+          quotationId,
+          productId,
+          quantity: 1,
+          unitPrice: 20,
+          total: 20,
+        });
+        await db.insert(customerLedgerEntries).values({
+          id: `privacy-ledger-${suffix}`,
+          tenantId: testTenantId,
+          customerId: customer.id,
+          kind: 'sale',
+          amount: 40,
+          referenceSaleId: saleId,
+          note: 'Credit purchase',
+          createdBy: adminUserId,
+        });
+        await db.insert(deliveryOrders).values({
+          id: `privacy-delivery-${suffix}`,
+          tenantId: testTenantId,
+          siteId: defaultSiteId,
+          customerId: customer.id,
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          address: customer.address!,
+          addressNotes: 'Ring apartment 2B',
+          totalAmount: 40,
+          itemsSnapshot: '[{"name":"Private purchase item","quantity":2}]',
+          saleId,
+        });
+
+        const document = await caller.customers.exportPersonalData({ id: customer.id });
+
+        expect(document.schema).toBe('puntovivo.customer-personal-data');
+        expect(document.schemaVersion).toBe(1);
+        expect(document.subject).toMatchObject({
+          id: customer.id,
+          name: customer.name,
+          email: customer.email,
+          creditLimit: 150,
+        });
+        expect(document.records.sales).toHaveLength(1);
+        expect(document.records.saleItems[0]).toMatchObject({
+          saleId,
+          productName: 'Private purchase item',
+          notes: 'Blue wrapping',
+        });
+        expect(document.records.salePayments[0]).toMatchObject({
+          id: paymentId,
+          reference: `AUTH-${suffix}`,
+        });
+        expect(document.records.paymentProviderTransactions).toEqual([
+          expect.objectContaining({
+            salePaymentId: paymentId,
+            railId: 'wompi',
+            providerTransactionId: `provider-tx-${suffix}`,
+          }),
+        ]);
+        expect(document.records.saleReturns).toHaveLength(1);
+        expect(document.records.quotations).toHaveLength(1);
+        expect(document.records.quotationItems).toHaveLength(1);
+        expect(document.records.ledgerEntries).toHaveLength(1);
+        expect(document.records.deliveryOrders).toHaveLength(1);
+        expect(document.records.fiscalDocuments).toEqual([]);
+        expect(document.records.customerAuditEvents[0]).toMatchObject({
+          action: 'customer.credit_limit.update',
+          details: {
+            creditLimitBefore: 100,
+            creditLimitAfter: 150,
+            customerNameAtEvent: customer.name,
+            customerEmailAtEvent: customer.email,
+          },
+        });
+
+        const serialized = JSON.stringify(document);
+        expect(serialized).not.toContain('tenantId');
+        expect(serialized).not.toContain('syncStatus');
+        expect(serialized).not.toContain('providerResponse');
+        expect(serialized).not.toContain('must-never-export');
+        expect(serialized).not.toContain('claimToken');
+        expect(serialized).not.toContain('lastError');
+        expect(serialized).not.toContain('passwordHash');
+        expect(serialized).not.toContain('admin@collections-test.com');
+
+        const audit = await db
+          .select()
+          .from(auditLogs)
+          .where(
+            and(
+              eq(auditLogs.tenantId, testTenantId),
+              eq(auditLogs.action, 'customer.personal_data.export'),
+              eq(auditLogs.resourceId, customer.id)
+            )
+          )
+          .get();
+        expect(audit?.actorId).toBe(adminUserId);
+        expect(audit?.before).toBeNull();
+        expect(audit?.after).toBeNull();
+        expect(audit?.metadata).toMatchObject({ schemaVersion: 1 });
+        expect(JSON.stringify(audit?.metadata)).not.toContain(customer.name);
+        expect(JSON.stringify(audit?.metadata)).not.toContain(customer.email);
+      });
+
+      it('rejects managers and cashiers before any customer data is read', async () => {
+        const adminCaller = appRouter.createCaller(adminCtx());
+        const customer = await adminCaller.customers.create({ name: 'Admin-only export' });
+
+        await expect(
+          appRouter.createCaller(managerCtx()).customers.exportPersonalData({ id: customer.id })
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+        await expect(
+          appRouter.createCaller(cashierCtx()).customers.exportPersonalData({ id: customer.id })
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
       });
     });
 

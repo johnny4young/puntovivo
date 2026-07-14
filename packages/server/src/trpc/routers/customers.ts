@@ -32,11 +32,16 @@ import {
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import {
+  buildCustomerPersonalDataExport,
+  getCustomerPersonalDataRecordCounts,
+} from '../../services/customer-privacy/export.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
 import {
   listCustomersInput,
   getCustomerInput,
+  exportCustomerPersonalDataInput,
   createCustomerInput,
   updateCustomerInput,
   deleteCustomerInput,
@@ -137,6 +142,40 @@ export const customersRouter = router({
 
     return customer;
   }),
+
+  /**
+   * Export the current customer's allowlisted personal-data record.
+   *
+   * A mutation is deliberate even though the document is read-only: every
+   * disclosure writes an audit event in the same SQLite transaction as the
+   * consistent snapshot read. Only the customer id and aggregate section
+   * counts reach audit metadata; the exported PII never does.
+   */
+  exportPersonalData: adminProcedure
+    .input(exportCustomerPersonalDataInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(tx => {
+        const document = buildCustomerPersonalDataExport(tx, ctx.tenantId, input.id);
+        if (!document) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
+        }
+
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'customer.personal_data.export',
+          resourceType: 'customer',
+          resourceId: input.id,
+          metadata: {
+            schemaVersion: document.schemaVersion,
+            recordCounts: getCustomerPersonalDataRecordCounts(document),
+          },
+        });
+
+        return document;
+      })
+    ),
 
   /**
    * Create a new customer

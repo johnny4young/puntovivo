@@ -9,6 +9,7 @@ import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Customer, CustomerCatalogItem } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { adminOnlyRoles, canAccessRole } from '@/features/auth/roleAccess';
 import {
   CustomerFormModal,
   type CustomerFormValues,
@@ -19,6 +20,7 @@ import { CustomerLedgerModal } from '@/features/customers/CustomerLedgerModal';
 import { EmptyStateReadinessNudge } from '@/components/feedback/EmptyStateReadinessNudge';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { extractServerErrorCode } from '@/lib/translateServerError';
+import { downloadFile, generateFilename } from '@/services/export/exportService';
 
 function toOptionalString(value: string): string | undefined {
   return value || undefined;
@@ -85,7 +87,19 @@ export function CustomersPage() {
     onError: onErrorToast(toast, t, { titleKey: 'customers:toast.deleteError' }),
   });
 
+  const exportPersonalDataMutation = trpc.customers.exportPersonalData.useMutation({
+    onSuccess: document => {
+      const content = new Blob([JSON.stringify(document, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      downloadFile(content, generateFilename(t('privacy.filename'), 'json'));
+      toast.success({ title: t('privacy.success') });
+    },
+    onError: onErrorToast(toast, t, { titleKey: 'customers:privacy.error' }),
+  });
+
   const canDelete = user?.role === 'admin';
+  const canManagePrivacy = canAccessRole(user?.role, adminOnlyRoles);
   // ENG-089 — `Estado cuenta` row action mirrors the server's
   // `customerLedger.list` manager+ gate; cashier never sees the
   // button.
@@ -183,8 +197,9 @@ export function CustomersPage() {
           <div>
             <p className="pname">{row.original.name}</p>
             <p className="sku">
-              {resolveCatalogLabel(identificationTypes, row.original.identificationTypeId) || 'ID'}{' '}
-              {row.original.taxId || 'Not set'}
+              {resolveCatalogLabel(identificationTypes, row.original.identificationTypeId) ||
+                i18next.t('customers:details.identificationFallback')}{' '}
+              {row.original.taxId || i18next.t('customers:form.fields.notSet')}
             </p>
           </div>
         </div>
@@ -341,6 +356,14 @@ export function CustomersPage() {
           setDetailsCustomer(null);
           handleOpenEdit(customer);
         }}
+        onExportData={
+          canManagePrivacy
+            ? async customer => {
+                await exportPersonalDataMutation.mutateAsync({ id: customer.id });
+              }
+            : undefined
+        }
+        isExporting={exportPersonalDataMutation.isPending}
       />
     </>
   );

@@ -267,6 +267,10 @@ export const auditLogActionEnum = [
   // (the credit-sales feature put the cupo on the customer row instead);
   // these two actions cover the two real mutation surfaces.
   'customer.credit_limit.update',
+  // ENG-129b — every disclosure of a customer's allowlisted personal-data
+  // document is auditable. Metadata carries only schema version + aggregate
+  // section counts; PII remains inside the one-time response document.
+  'customer.personal_data.export',
   'sale.credit_override',
   // ENG-103 — audit-grade export contract. `fiscal.xml.downloaded` is
   // emitted every time `reports.fiscal.getXml` returns a signed XML body

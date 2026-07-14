@@ -95,6 +95,8 @@ export type AuditLogAction =
   | 'kds.order.recalled'
   // ENG-007 closure — credit-policy mutations.
   | 'customer.credit_limit.update'
+  // ENG-129b — audited customer personal-data disclosure.
+  | 'customer.personal_data.export'
   | 'sale.credit_override'
   // ENG-103 — audit-grade export contract. Emitted by
   // `reports.fiscal.getXml` every time an admin / manager downloads

@@ -65,6 +65,7 @@
     "kds.order.ready": "KDS order marked ready",
     "kds.order.recalled": "KDS order recalled to pending",
     "customer.credit_limit.update": "Customer credit limit updated",
+    "customer.personal_data.export": "Customer personal data exported",
     "sale.credit_override": "Sale completed with credit override",
     "fiscal.xml.downloaded": "Fiscal XML downloaded",
     "telemetry.opt_in.updated": "Telemetry preference updated",
