@@ -71,6 +71,57 @@
         "disabled": "Desactivada",
         "context": "Consentimiento controlado por el tenant"
       }
+    },
+    "recovery": {
+      "kicker": "Recuperación guiada",
+      "title": "Lista de recuperación",
+      "description": "Pasa de una señal de soporte a la siguiente acción segura. Los enlaces de Configuración solo están disponibles para administradores; los responsables mantienen su flujo en Operaciones.",
+      "partialSignals": "Algunas señales de salud no están disponibles. Usa los paneles individuales para continuar de forma segura.",
+      "listAriaLabel": "Pasos de recuperación para soporte",
+      "actions": {
+        "openUpdates": "Revisar actualizaciones",
+        "openDevices": "Revisar dispositivos",
+        "openTelemetry": "Revisar consentimiento",
+        "openDiagnostics": "Abrir diagnóstico",
+        "adminRequired": "Requiere administrador"
+      },
+      "steps": {
+        "updates": {
+          "title": "Confirma la versión actual",
+          "description": "Revisa la versión de escritorio y el actualizador antes de cambiar el estado de la estación.",
+          "status": {
+            "healthy": "Lista",
+            "checking": "Verificando",
+            "attention": "Requiere revisión",
+            "desktopOnly": "Revisar en escritorio"
+          }
+        },
+        "devices": {
+          "title": "Recupera los latidos de dispositivos",
+          "description": "Revisa terminales desactualizadas o revocadas antes de vincular o revocar otro dispositivo.",
+          "status": {
+            "healthy": "Todos en línea",
+            "attention_one": "{{count}} dispositivo requiere atención",
+            "attention_other": "{{count}} dispositivos requieren atención"
+          }
+        },
+        "telemetry": {
+          "title": "Confirma la elección de telemetría",
+          "description": "Respeta la decisión de consentimiento del tenant; soporte puede continuar si la telemetría está desactivada.",
+          "status": {
+            "enabled": "Activada",
+            "disabled": "Desactivada por elección"
+          }
+        },
+        "evidence": {
+          "title": "Prepara evidencia redactada",
+          "description": "Previsualiza y exporta el paquete de diagnóstico sanitizado en lugar de solicitar la base de datos sin procesar.",
+          "status": {
+            "ready": "Lista",
+            "adminRequired": "Exportación de administrador"
+          }
+        }
+      }
     }
   },
   "attention": {

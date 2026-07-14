@@ -10,12 +10,21 @@
  * @module features/operations/SupportHealthPanel
  */
 
+import { lazy, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Activity, AppWindow, Boxes, HeartPulse, MonitorCheck, RadioTower } from 'lucide-react';
 import { KpiTile, type KpiTone } from '@/components/ui';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { useModulesSnapshot } from '@/features/modules';
 import { trpc } from '@/lib/trpc';
+import type { SupportUpdateRecoveryState } from './SupportRecoveryChecklist';
+
+const SupportRecoveryChecklist = lazy(async () => {
+  const module = await import('./SupportRecoveryChecklist');
+  return { default: module.SupportRecoveryChecklist };
+});
 
 type AutoUpdateState = 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
 
@@ -37,8 +46,20 @@ function isUpdateAttentionState(state: AutoUpdateState): boolean {
   return state === 'error' || state === 'available' || state === 'downloaded';
 }
 
+function recoveryUpdateState(
+  isDesktop: boolean,
+  state: AutoUpdateState
+): SupportUpdateRecoveryState {
+  if (!isDesktop) return 'desktopOnly';
+  if (state === 'idle') return 'healthy';
+  if (state === 'checking') return 'checking';
+  return 'attention';
+}
+
 export function SupportHealthPanel() {
   const { t } = useTranslation('operations');
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const modulesSnapshot = useModulesSnapshot();
   const authorityQuery = trpc.authority.status.useQuery(undefined, {
     staleTime: 15_000,
@@ -71,10 +92,7 @@ export function SupportHealthPanel() {
   const updateState: AutoUpdateState = isDesktop
     ? (desktopStatus?.state ?? 'checking')
     : 'unavailable';
-  const needsAttention =
-    staleDevices +
-    (isDesktop && isUpdateAttentionState(updateState) ? 1 : 0) +
-    (!telemetryEnabled ? 1 : 0);
+  const needsAttention = staleDevices + (isDesktop && isUpdateAttentionState(updateState) ? 1 : 0);
   const isLoading =
     modulesSnapshot.isLoading ||
     authorityQuery.isLoading ||
@@ -183,7 +201,7 @@ export function SupportHealthPanel() {
             />
             <KpiTile
               icon={HeartPulse}
-              tone={telemetryEnabled ? 'success' : 'warning'}
+              tone={telemetryEnabled ? 'success' : 'ink'}
               label={t('support.health.telemetry.label')}
               value={
                 telemetryEnabled
@@ -195,6 +213,17 @@ export function SupportHealthPanel() {
           </div>
         </div>
       </section>
+
+      <Suspense fallback={<p className="text-sm text-fg3">{t('common.loading')}</p>}>
+        <SupportRecoveryChecklist
+          isAdmin={user?.role === 'admin'}
+          updateState={recoveryUpdateState(isDesktop, updateState)}
+          staleDeviceCount={staleDevices}
+          telemetryEnabled={telemetryEnabled}
+          hasSignalError={hasError}
+          onNavigate={navigate}
+        />
+      </Suspense>
     </div>
   );
 }

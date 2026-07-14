@@ -96,7 +96,7 @@ export function SalesCheckoutPanel({
   canCharge,
   canOpenCashSession,
   canCloseCashSession,
-  userRole = 'cashier',
+  userRole,
   onOpenSearch,
   onCharge,
   onOpenCashSession,
@@ -105,7 +105,7 @@ export function SalesCheckoutPanel({
   onKickCashDrawer,
   isKickingCashDrawer,
   onRegisterAssignmentChange,
-  canSuspend = false,
+  canSuspend,
   onSuspend,
   onNewSale,
   suspendedDraftsCount = 0,
@@ -309,7 +309,7 @@ export function SalesCheckoutPanel({
                         type="button"
                         className="btn-outline"
                         onClick={onKickCashDrawer}
-                        disabled={isKickingCashDrawer === true}
+                        disabled={isKickingCashDrawer}
                         data-testid="sales-kick-drawer"
                       >
                         <WalletCards className="h-4 w-4" />

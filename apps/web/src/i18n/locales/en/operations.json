@@ -71,6 +71,57 @@
         "disabled": "Disabled",
         "context": "Tenant-controlled consent"
       }
+    },
+    "recovery": {
+      "kicker": "Guided recovery",
+      "title": "Recovery checklist",
+      "description": "Move from a support signal to the safest next action. Setup links are only available to admins; managers keep their Operations handoff intact.",
+      "partialSignals": "Some health signals are unavailable. Use the individual panels to continue safely.",
+      "listAriaLabel": "Support recovery steps",
+      "actions": {
+        "openUpdates": "Review updates",
+        "openDevices": "Review devices",
+        "openTelemetry": "Review consent",
+        "openDiagnostics": "Open diagnostics",
+        "adminRequired": "Admin required"
+      },
+      "steps": {
+        "updates": {
+          "title": "Confirm the current release",
+          "description": "Check the desktop version and updater before changing workstation state.",
+          "status": {
+            "healthy": "Ready",
+            "checking": "Checking",
+            "attention": "Needs review",
+            "desktopOnly": "Check on desktop"
+          }
+        },
+        "devices": {
+          "title": "Recover device heartbeats",
+          "description": "Review stale or revoked terminals before pairing or revoking another device.",
+          "status": {
+            "healthy": "All online",
+            "attention_one": "{{count}} device needs attention",
+            "attention_other": "{{count}} devices need attention"
+          }
+        },
+        "telemetry": {
+          "title": "Confirm the telemetry choice",
+          "description": "Respect the tenant's opt-in decision; support can continue when telemetry is off.",
+          "status": {
+            "enabled": "Enabled",
+            "disabled": "Off by choice"
+          }
+        },
+        "evidence": {
+          "title": "Prepare redacted evidence",
+          "description": "Preview and export the sanitized diagnostic bundle instead of requesting the raw database.",
+          "status": {
+            "ready": "Ready",
+            "adminRequired": "Admin export"
+          }
+        }
+      }
     }
   },
   "attention": {

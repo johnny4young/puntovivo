@@ -37,6 +37,10 @@ vi.mock('@/features/modules', () => ({
   useModulesSnapshot: () => modulesSnapshot,
 }));
 
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ user: { role: 'admin' } }),
+}));
+
 describe('SupportHealthPanel', () => {
   beforeEach(() => {
     authorityQuery.data = {
@@ -69,9 +73,7 @@ describe('SupportHealthPanel', () => {
     expect(screen.getByText('2 / 3')).toBeInTheDocument();
     expect(screen.getByText('1 / 2')).toBeInTheDocument();
     expect(screen.getByText('Disabled')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(
-      '2 support signals need review.'
-    );
+    expect(screen.getByRole('status')).toHaveTextContent('1 support signal needs review.');
   });
 
   it('reads version and update health through the existing desktop bridge', async () => {

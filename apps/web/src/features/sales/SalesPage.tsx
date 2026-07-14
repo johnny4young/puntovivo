@@ -36,7 +36,8 @@ export function SalesPage() {
   // pass through as "reachable enough"; only an explicit `false`
   // gates.
   const hubReachability = useHubReachability();
-  const hubReachable = hubReachability.reachable === null ? undefined : hubReachability.reachable;
+  const hubReachable = hubReachability.reachable ?? undefined;
+  const userRole = user?.role ?? 'cashier';
 
   // ENG-018b — `ownerKey` (`${tenantId}:${userId}`) identifies the
   // signed-in cashier. It is injected into the cart, mutation, and flow
@@ -239,7 +240,7 @@ export function SalesPage() {
     isResumedCart,
     selectedRegisterAssignment,
     selectedHistorySaleId,
-    userRole: user?.role ?? 'cashier',
+    userRole,
     checkoutReadinessItems,
     isPaymentModalOpen,
     productSearchQuery,
@@ -349,7 +350,7 @@ export function SalesPage() {
       canCharge={canCharge}
       canOpenCashSession={canOpenCashSession}
       canCloseCashSession={canCloseCashSession}
-      userRole={user?.role ?? 'cashier'}
+      userRole={userRole}
       handleOpenPaymentModal={handleOpenPaymentModal}
       handleOpenCashSessionModal={handleOpenCashSessionModal}
       handleOpenCloseCashSessionModal={handleOpenCloseCashSessionModal}
