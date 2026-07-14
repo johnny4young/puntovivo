@@ -7,6 +7,7 @@
   "tabs": {
     "ariaLabel": "Paneles de operaciones",
     "attention": "Necesita atención",
+    "support": "Soporte",
     "sync": "Sincronización",
     "fiscal": "Fiscal",
     "device": "Dispositivos",
@@ -18,6 +19,59 @@
   "common": {
     "loading": "Cargando...",
     "errorGeneric": "Algo salió mal al cargar esta vista."
+  },
+  "support": {
+    "kicker": "Preparación para soporte",
+    "health": {
+      "title": "Salud para soporte",
+      "description": "Una vista segura del runtime, las actualizaciones, los módulos, los dispositivos y la telemetría antes de que alguien solicite acceso a la base de datos.",
+      "loadError": "No se pudieron cargar algunas señales de soporte. Revisa los paneles individuales de Operaciones antes de compartir un diagnóstico.",
+      "summary": {
+        "clear": "Todas las señales de soporte disponibles están saludables.",
+        "attention_one": "{{count}} señal de soporte requiere revisión.",
+        "attention_other": "{{count}} señales de soporte requieren revisión."
+      },
+      "runtime": {
+        "label": "Runtime",
+        "desktop": "Aplicación de escritorio",
+        "web": "Web",
+        "webContext": "Sesión del navegador",
+        "unknownVersion": "Desconocida"
+      },
+      "updates": {
+        "label": "Actualizaciones",
+        "desktopContext": "Estado del actualizador local",
+        "webContext": "Gestionadas fuera del navegador",
+        "state": {
+          "unavailable": "No disponible",
+          "idle": "Al día",
+          "checking": "Verificando",
+          "available": "Disponible",
+          "downloaded": "Lista para instalar",
+          "error": "Requiere revisión"
+        }
+      },
+      "modules": {
+        "label": "Módulos",
+        "value": "{{active}} / {{total}}",
+        "context": "Activos para este tenant",
+        "loading": "Usando valores predeterminados durante la carga"
+      },
+      "devices": {
+        "label": "Dispositivos",
+        "value": "{{online}} / {{total}}",
+        "none": "No hay dispositivos activos registrados",
+        "clear": "Todos los dispositivos activos están en línea",
+        "stale_one": "{{count}} dispositivo necesita enviar un latido",
+        "stale_other": "{{count}} dispositivos necesitan enviar un latido"
+      },
+      "telemetry": {
+        "label": "Telemetría",
+        "enabled": "Activada",
+        "disabled": "Desactivada",
+        "context": "Consentimiento controlado por el tenant"
+      }
+    }
   },
   "attention": {
     "kicker": "Necesita atención",

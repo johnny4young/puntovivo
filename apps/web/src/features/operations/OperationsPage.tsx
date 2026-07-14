@@ -11,6 +11,7 @@ import { CashHealthPanel } from './CashHealthPanel';
 import { PaymentHealthPanel } from './PaymentHealthPanel';
 import { DiagnosticExportPanel } from './DiagnosticExportPanel';
 import { AuthorityHealthPanel } from './AuthorityHealthPanel';
+import { SupportHealthPanel } from './SupportHealthPanel';
 
 /**
  * ENG-065a / ENG-065b / ENG-065c — Operations Center.
@@ -28,7 +29,7 @@ import { AuthorityHealthPanel } from './AuthorityHealthPanel';
  * the flat Sync tab. Each queue row deep-links to the resolving panel.
  *
  * Tab state is URL-driven
- * (`?tab=attention|sync|fiscal|device|cash|payments|diagnostics|authority`)
+ * (`?tab=attention|support|sync|fiscal|device|cash|payments|diagnostics|authority`)
  * so deep links from elsewhere in the app (e.g. an alert banner
  * pointing at a specific failure surface) land directly on the right
  * panel without manual navigation. `replace: true` keeps the back
@@ -36,6 +37,7 @@ import { AuthorityHealthPanel } from './AuthorityHealthPanel';
  */
 const TAB_KEYS = [
   'attention',
+  'support',
   'sync',
   'fiscal',
   'device',
@@ -69,6 +71,7 @@ export function OperationsPage() {
   const tabLabels: Record<TabKey, string> = useMemo(
     () => ({
       attention: t('tabs.attention'),
+      support: t('tabs.support'),
       sync: t('tabs.sync'),
       fiscal: t('tabs.fiscal'),
       device: t('tabs.device'),
@@ -124,9 +127,8 @@ export function OperationsPage() {
         aria-labelledby={`operations-tab-${activeTab}`}
         data-testid={`operations-tabpanel-${activeTab}`}
       >
-        {activeTab === 'attention' && (
-          <NeedsAttentionPanel onReviewArea={handleTabChange} />
-        )}
+        {activeTab === 'attention' && <NeedsAttentionPanel onReviewArea={handleTabChange} />}
+        {activeTab === 'support' && <SupportHealthPanel />}
         {activeTab === 'sync' && <SyncHealthPanel />}
         {activeTab === 'fiscal' && <FiscalHealthPanel />}
         {activeTab === 'device' && <DeviceHealthPanel />}

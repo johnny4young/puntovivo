@@ -7,6 +7,7 @@
   "tabs": {
     "ariaLabel": "Operations panels",
     "attention": "Needs attention",
+    "support": "Support",
     "sync": "Sync",
     "fiscal": "Fiscal",
     "device": "Devices",
@@ -18,6 +19,59 @@
   "common": {
     "loading": "Loading...",
     "errorGeneric": "Something went wrong loading this view."
+  },
+  "support": {
+    "kicker": "Support readiness",
+    "health": {
+      "title": "Support health",
+      "description": "A safe, at-a-glance view of the runtime, updates, modules, devices, and telemetry support needs before anyone asks for database access.",
+      "loadError": "Some support-health signals could not be loaded. Review the individual Operations panels before sharing a diagnosis.",
+      "summary": {
+        "clear": "All available support signals are healthy.",
+        "attention_one": "{{count}} support signal needs review.",
+        "attention_other": "{{count}} support signals need review."
+      },
+      "runtime": {
+        "label": "Runtime",
+        "desktop": "Desktop application",
+        "web": "Web",
+        "webContext": "Browser session",
+        "unknownVersion": "Unknown"
+      },
+      "updates": {
+        "label": "Updates",
+        "desktopContext": "Local updater state",
+        "webContext": "Managed outside the browser",
+        "state": {
+          "unavailable": "Not available",
+          "idle": "Up to date",
+          "checking": "Checking",
+          "available": "Available",
+          "downloaded": "Ready to install",
+          "error": "Needs review"
+        }
+      },
+      "modules": {
+        "label": "Modules",
+        "value": "{{active}} / {{total}}",
+        "context": "Active for this tenant",
+        "loading": "Using defaults while loading"
+      },
+      "devices": {
+        "label": "Devices",
+        "value": "{{online}} / {{total}}",
+        "none": "No active devices registered",
+        "clear": "All active devices are online",
+        "stale_one": "{{count}} device needs a heartbeat",
+        "stale_other": "{{count}} devices need a heartbeat"
+      },
+      "telemetry": {
+        "label": "Telemetry",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "context": "Tenant-controlled consent"
+      }
+    }
   },
   "attention": {
     "kicker": "Needs attention",
