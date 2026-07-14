@@ -199,13 +199,15 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   let serverUrl = `http://${bindHost}:${bindPort}`;
 
   // Boot the outbox + cleanup worker daemons and wire their onClose
-  // teardown (fiscal, rate-limit sweep, hardware, payment, login
-  // cleanup). The periodic timers arm inside listen() below.
-  const { fiscalWorker, hardwareWorker, paymentWorker, loginAttemptsCleanup } = registerWorkers(
-    app,
-    db,
-    { stopRateLimitSweep }
-  );
+  // teardown (fiscal, rate-limit sweep, hardware, payment, login cleanup,
+  // data retention). The periodic timers arm inside listen() below.
+  const {
+    fiscalWorker,
+    hardwareWorker,
+    paymentWorker,
+    loginAttemptsCleanup,
+    dataRetentionCleanup,
+  } = registerWorkers(app, db, { stopRateLimitSweep });
 
   const serverLog = createModuleLogger('server');
   return {
@@ -215,6 +217,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     hardwareWorker,
     paymentWorker,
     loginAttemptsCleanup,
+    dataRetentionCleanup,
     listen: async () => {
       const address = await app.listen({ port: bindPort, host: bindHost });
       serverUrl = address;
@@ -253,6 +256,13 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
           'login_attempts cleanup boot tick failed; will retry next interval'
         );
       }
+      dataRetentionCleanup.start();
+      void dataRetentionCleanup.tickOnce().catch(err => {
+        serverLog.warn(
+          { err: err instanceof Error ? { message: err.message } : err },
+          'data-retention cleanup boot tick failed; will retry next interval'
+        );
+      });
       // ENG-038c — kick the boot catch-up sweep after the timers
       // are armed so a long-offline POS reconciles missed statement
       // windows before the first regular Timer B tick fires.

@@ -103,6 +103,11 @@ export interface PuntovivoServer {
    * for the periodic interval.
    */
   loginAttemptsCleanup: import('../services/cleanup/loginAttemptsCleanup.js').LoginAttemptsCleanupHandle;
+  /**
+   * ENG-129d — daily tenant-scoped retention enforcement for audit, AI
+   * telemetry, and already-synced outbox rows.
+   */
+  dataRetentionCleanup: import('../services/cleanup/dataRetentionCleanup.js').DataRetentionCleanupHandle;
   /** Start listening for requests */
   listen: () => Promise<string>;
   /** Stop the server and close database */

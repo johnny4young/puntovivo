@@ -40,4 +40,23 @@ describe('AuditLogsPage', () => {
       'customer.personal_data.anonymize'
     );
   });
+
+  it('offers data-retention evidence as action and resource filters', () => {
+    render(<AuditLogsPage />);
+
+    const actionFilter = screen.getByRole('combobox', { name: 'Action' });
+    expect(
+      within(actionFilter).getByRole('option', {
+        name: 'Data retention policy updated',
+      })
+    ).toHaveValue('data_retention.policy.updated');
+    expect(
+      within(actionFilter).getByRole('option', {
+        name: 'Expired support data deleted',
+      })
+    ).toHaveValue('data_retention.sweep.run');
+
+    const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
+    expect(within(resourceFilter).getByRole('option', { name: 'Tenant' })).toHaveValue('tenant');
+  });
 });

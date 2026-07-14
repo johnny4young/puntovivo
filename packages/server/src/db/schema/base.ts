@@ -288,6 +288,11 @@ export const auditLogActionEnum = [
   // boolean state so forensics can replay the consent timeline.
   // Free-form text in the SQL layer — no migration needed.
   'telemetry.opt_in.updated',
+  // ENG-129d — retention-policy lifecycle. Policy changes carry only
+  // bounded day counts; manual sweeps carry aggregate deleted counts.
+  // Automatic daily sweeps use system_audit_logs because they have no actor.
+  'data_retention.policy.updated',
+  'data_retention.sweep.run',
   // ENG-199 — expiry radar. `discount_suggested` fires when a manager
   // accepts the radar CTA for an expiring lot (metadata carries lotNumber,
   // productId, discountPct, lotExpiresAt); `discount_suggestion_dismissed`

@@ -99,6 +99,9 @@ export type AuditLogAction =
   | 'customer.personal_data.export'
   | 'customer.personal_data.delete'
   | 'customer.personal_data.anonymize'
+  // ENG-129d — tenant retention policy changes and manual sweeps.
+  | 'data_retention.policy.updated'
+  | 'data_retention.sweep.run'
   | 'sale.credit_override'
   // ENG-103 — audit-grade export contract. Emitted by
   // `reports.fiscal.getXml` every time an admin / manager downloads

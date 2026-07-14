@@ -91,6 +91,9 @@ vi.mock('../CompanyCoFiscalCard', () => ({
 vi.mock('../CompanyBackupCard', () => ({
   CompanyBackupCard: () => <div data-testid="card-backup">Backup</div>,
 }));
+vi.mock('../CompanyDataRetentionCard', () => ({
+  CompanyDataRetentionCard: () => <div data-testid="card-retention">Retention</div>,
+}));
 vi.mock('../CompanyLocaleSettingsCard', () => ({
   CompanyLocaleSettingsCard: () => <div data-testid="card-locale">Locale</div>,
 }));
@@ -201,6 +204,7 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.getByTestId('company-tab-readiness')).not.toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('card-sync')).toBeInTheDocument();
     expect(screen.getByTestId('card-backup')).toBeInTheDocument();
+    expect(screen.getByTestId('card-retention')).toBeInTheDocument();
     expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
   });
 

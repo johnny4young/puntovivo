@@ -41,6 +41,8 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'customer.personal_data.export',
   'customer.personal_data.delete',
   'customer.personal_data.anonymize',
+  'data_retention.policy.updated',
+  'data_retention.sweep.run',
   // ENG-199 — expiry-radar discount suggestions.
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',
@@ -59,6 +61,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'ai_feature',
   'kds_order',
   'customer',
+  'tenant',
   // ENG-199 — expiry-radar discount suggestions.
   'price_suggestion',
 ];

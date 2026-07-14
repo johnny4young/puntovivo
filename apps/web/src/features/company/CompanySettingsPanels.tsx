@@ -20,6 +20,7 @@ import { CompanyRestaurantSettingsCard } from './CompanyRestaurantSettingsCard';
 import { COMPANY_TAB_TRANSLATION_KEYS, type CompanyTabKey } from './companySetupModel';
 import { CompanySyncCard } from './CompanySyncCard';
 import { CompanyTelemetryCard } from './CompanyTelemetryCard';
+import { CompanyDataRetentionCard } from './CompanyDataRetentionCard';
 import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
 import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
 
@@ -82,6 +83,7 @@ export function CompanySettingsPanels({
       {activeTab === 'data' && (
         <div className="space-y-6">
           <CompanySyncCard />
+          <CompanyDataRetentionCard />
           <CompanyBackupCard />
           <CompanyTelemetryCard />
         </div>

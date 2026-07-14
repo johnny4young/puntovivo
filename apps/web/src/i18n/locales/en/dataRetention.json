@@ -1,0 +1,59 @@
+{
+  "title": "Data retention",
+  "description": "Control how long non-authoritative support data stays on this device. Cleanup runs automatically every day.",
+  "loading": "Loading the retention policy...",
+  "fields": {
+    "operationalAuditDays": {
+      "label": "Operational audit history (days)",
+      "help": "Between {{min}} and {{max}} days."
+    },
+    "privacyAuditDays": {
+      "label": "Privacy-request evidence (days)",
+      "help": "Between {{min}} and {{max}} days; never shorter than operational audit history."
+    },
+    "aiAuditDays": {
+      "label": "AI usage telemetry (days)",
+      "help": "Between {{min}} and {{max}} days. Prompts and responses are not stored in this table."
+    },
+    "syncedOutboxDays": {
+      "label": "Acknowledged sync rows (days)",
+      "help": "Between {{min}} and {{max}} days. Pending, conflicted and failed work is always preserved."
+    }
+  },
+  "validation": {
+    "range": "Enter a whole number between {{min}} and {{max}}.",
+    "privacyFloor": "Privacy-request evidence cannot be retained for less time than operational audit history."
+  },
+  "save": "Save retention policy",
+  "saving": "Saving policy...",
+  "runNow": "Run cleanup now",
+  "preview": {
+    "title": "Cleanup preview",
+    "description": "Only rows older than the configured cutoff are eligible.",
+    "loading": "Evaluating...",
+    "error": "The cleanup preview could not be loaded.",
+    "total_one": "{{count}} eligible row",
+    "total_other": "{{count}} eligible rows",
+    "bucketDetail": "{{count}} eligible · before {{cutoff}}",
+    "buckets": {
+      "operationalAuditLogs": "Operational audit history",
+      "privacyAuditLogs": "Privacy-request evidence",
+      "aiAuditLogs": "AI usage telemetry",
+      "syncedOutboxRows": "Acknowledged sync rows"
+    }
+  },
+  "legalHold": "Sales, fiscal documents, payments, cash sessions, inventory movements and linked customer transaction evidence are never deleted by this policy. Confirm local legal requirements before shortening a retention period.",
+  "confirm": {
+    "title": "Delete expired support data?",
+    "message_one": "This permanently deletes {{count}} eligible row. Authoritative business records remain untouched.",
+    "message_other": "This permanently deletes {{count}} eligible rows. Authoritative business records remain untouched.",
+    "cta": "Delete expired data"
+  },
+  "toast": {
+    "saved": "Retention policy saved",
+    "saveError": "The retention policy could not be saved",
+    "swept_one": "{{count}} expired row deleted",
+    "swept_other": "{{count}} expired rows deleted",
+    "sweepError": "Expired data could not be deleted"
+  }
+}

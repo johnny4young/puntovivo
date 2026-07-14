@@ -1,0 +1,59 @@
+{
+  "title": "Retención de datos",
+  "description": "Controla cuánto tiempo permanecen en este equipo los datos auxiliares que no son registros comerciales definitivos. La limpieza se ejecuta automáticamente cada día.",
+  "loading": "Cargando la política de retención...",
+  "fields": {
+    "operationalAuditDays": {
+      "label": "Historial de auditoría operativa (días)",
+      "help": "Entre {{min}} y {{max}} días."
+    },
+    "privacyAuditDays": {
+      "label": "Evidencia de solicitudes de privacidad (días)",
+      "help": "Entre {{min}} y {{max}} días; nunca menos que el historial de auditoría operativa."
+    },
+    "aiAuditDays": {
+      "label": "Telemetría de uso de IA (días)",
+      "help": "Entre {{min}} y {{max}} días. Esta tabla no guarda preguntas ni respuestas."
+    },
+    "syncedOutboxDays": {
+      "label": "Filas de sincronización confirmadas (días)",
+      "help": "Entre {{min}} y {{max}} días. El trabajo pendiente, en conflicto o fallido siempre se conserva."
+    }
+  },
+  "validation": {
+    "range": "Ingresa un número entero entre {{min}} y {{max}}.",
+    "privacyFloor": "La evidencia de solicitudes de privacidad no puede conservarse menos tiempo que el historial de auditoría operativa."
+  },
+  "save": "Guardar política de retención",
+  "saving": "Guardando política...",
+  "runNow": "Ejecutar limpieza ahora",
+  "preview": {
+    "title": "Vista previa de la limpieza",
+    "description": "Solo se pueden eliminar las filas anteriores al límite configurado.",
+    "loading": "Evaluando...",
+    "error": "No se pudo cargar la vista previa de la limpieza.",
+    "total_one": "{{count}} fila elegible",
+    "total_other": "{{count}} filas elegibles",
+    "bucketDetail": "{{count}} elegibles · antes del {{cutoff}}",
+    "buckets": {
+      "operationalAuditLogs": "Historial de auditoría operativa",
+      "privacyAuditLogs": "Evidencia de solicitudes de privacidad",
+      "aiAuditLogs": "Telemetría de uso de IA",
+      "syncedOutboxRows": "Filas de sincronización confirmadas"
+    }
+  },
+  "legalHold": "Esta política nunca elimina ventas, documentos fiscales, pagos, sesiones de caja, movimientos de inventario ni evidencia transaccional vinculada a clientes. Verifica los requisitos legales locales antes de reducir un periodo de retención.",
+  "confirm": {
+    "title": "¿Eliminar los datos auxiliares vencidos?",
+    "message_one": "Esta acción elimina definitivamente {{count}} fila elegible. Los registros comerciales definitivos no se modifican.",
+    "message_other": "Esta acción elimina definitivamente {{count}} filas elegibles. Los registros comerciales definitivos no se modifican.",
+    "cta": "Eliminar datos vencidos"
+  },
+  "toast": {
+    "saved": "Política de retención guardada",
+    "saveError": "No se pudo guardar la política de retención",
+    "swept_one": "Se eliminó {{count}} fila vencida",
+    "swept_other": "Se eliminaron {{count}} filas vencidas",
+    "sweepError": "No se pudieron eliminar los datos vencidos"
+  }
+}

@@ -1,8 +1,8 @@
 /**
  * Background worker registration.
  *
- * Creates the four outbox/cleanup worker daemons (fiscal, hardware,
- * payment, login-attempts) and wires their onClose teardown — plus the
+ * Creates the five outbox/cleanup worker daemons (fiscal, hardware,
+ * payment, login-attempts, data-retention) and wires their onClose teardown — plus the
  * rate-limit sweeper teardown — in the exact order createServer ran them
  * inline. The periodic timers are NOT armed here: createServer's
  * `listen()` starts them via the returned handles so a server built
@@ -15,6 +15,8 @@ import type { FastifyInstance } from 'fastify';
 import type { DatabaseInstance } from '../db/index.js';
 import type { LoginAttemptsCleanupHandle } from '../services/cleanup/loginAttemptsCleanup.js';
 import { createLoginAttemptsCleanup } from '../services/cleanup/loginAttemptsCleanup.js';
+import type { DataRetentionCleanupHandle } from '../services/cleanup/dataRetentionCleanup.js';
+import { createDataRetentionCleanup } from '../services/cleanup/dataRetentionCleanup.js';
 import type { PaymentWorker } from '../services/payments/payment-worker.js';
 import { createPaymentWorker } from '../services/payments/payment-worker.js';
 import type { HardwareWorker } from '../services/peripherals/hardware-worker.js';
@@ -31,7 +33,7 @@ export interface RegisterWorkersOptions {
   stopRateLimitSweep: () => void;
 }
 
-/** The four worker daemon handles createServer's `listen()` starts. */
+/** The five worker daemon handles createServer's `listen()` starts. */
 export interface RegisteredWorkers {
   fiscalWorker: FiscalWorker;
   hardwareWorker: HardwareWorker;
@@ -40,12 +42,13 @@ export interface RegisteredWorkers {
   // armed by createServer's listen() (the public handle only exposes
   // tickOnce/stop), so the start method must survive on this type.
   loginAttemptsCleanup: LoginAttemptsCleanupHandle & { start: () => void };
+  dataRetentionCleanup: DataRetentionCleanupHandle & { start: () => void };
 }
 
 /**
  * Build the worker daemons + register their onClose teardown on `app`,
  * preserving the inline order (fiscal, rate-limit sweep, hardware,
- * payment, login-cleanup). Returns the handles so `listen()` can arm the
+ * payment, login-cleanup, data-retention). Returns the handles so `listen()` can arm the
  * periodic timers and `close()` runs the onClose chain.
  */
 export function registerWorkers(
@@ -102,5 +105,18 @@ export function registerWorkers(
     loginAttemptsCleanup.stop();
   });
 
-  return { fiscalWorker, hardwareWorker, paymentWorker, loginAttemptsCleanup };
+  // ENG-129d — daily tenant-scoped retention enforcement. The handle
+  // owns no timer until listen() starts it, keeping direct-router tests hermetic.
+  const dataRetentionCleanup = createDataRetentionCleanup({ db });
+  app.addHook('onClose', async () => {
+    await dataRetentionCleanup.stop();
+  });
+
+  return {
+    fiscalWorker,
+    hardwareWorker,
+    paymentWorker,
+    loginAttemptsCleanup,
+    dataRetentionCleanup,
+  };
 }

@@ -86,7 +86,7 @@
   {
     "path": "auditLogs.list",
     "kind": "query",
-    "input": "object{action?:enum(\"transfer.void\"|\"quotation.delete\"|\"quotation.convert\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"customer.credit_limit.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"telemetry.opt_in.updated\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"transfer_order\"|\"quotation\"|\"sale\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"purchase\"|\"user\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"customer\"|\"fiscal_document\"|\"tenant\"|\"price_suggestion\")}",
+    "input": "object{action?:enum(\"transfer.void\"|\"quotation.delete\"|\"quotation.convert\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"customer.credit_limit.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"telemetry.opt_in.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"transfer_order\"|\"quotation\"|\"sale\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"purchase\"|\"user\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"customer\"|\"fiscal_document\"|\"tenant\"|\"price_suggestion\")}",
     "output": "inferred"
   },
   {
@@ -525,6 +525,30 @@
     "path": "dashboard.summary",
     "kind": "query",
     "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "dataRetention.get",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "dataRetention.preview",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "dataRetention.runNow",
+    "kind": "mutation",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "dataRetention.update",
+    "kind": "mutation",
+    "input": "object{aiAuditDays:integer[min=30,max=730],operationalAuditDays:integer[min=365,max=3650],privacyAuditDays:integer[min=365,max=3650],syncedOutboxDays:integer[min=7,max=365]}",
     "output": "inferred"
   },
   {

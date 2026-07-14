@@ -72,7 +72,9 @@
     "fiscal.xml.downloaded": "Fiscal XML downloaded",
     "telemetry.opt_in.updated": "Telemetry preference updated",
     "inventory.lot.discount_suggested": "Discount suggested (expiry)",
-    "inventory.lot.discount_suggestion_dismissed": "Discount suggestion dismissed"
+    "inventory.lot.discount_suggestion_dismissed": "Discount suggestion dismissed",
+    "data_retention.policy.updated": "Data retention policy updated",
+    "data_retention.sweep.run": "Expired support data deleted"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",

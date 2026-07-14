@@ -247,10 +247,15 @@ export type NewLoginAttempt = typeof loginAttempts.$inferInsert;
 export const systemAuditLogActionEnum = [
   'login_attempts.cleanup',
   'rate_limit.exceeded',
+  'data_retention.cleanup',
 ] as const;
 export type SystemAuditLogAction = (typeof systemAuditLogActionEnum)[number];
 
-export const systemAuditLogResourceTypeEnum = ['login_attempts', 'rate_limit'] as const;
+export const systemAuditLogResourceTypeEnum = [
+  'login_attempts',
+  'rate_limit',
+  'data_retention',
+] as const;
 export type SystemAuditLogResourceType =
   (typeof systemAuditLogResourceTypeEnum)[number];
 
