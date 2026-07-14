@@ -15,6 +15,11 @@
       "import": "./dist/money.js",
       "default": "./dist/money.js"
     },
+    "./roles": {
+      "types": "./src/roles.ts",
+      "import": "./dist/roles.js",
+      "default": "./dist/roles.js"
+    },
     "./unit-math": {
       "types": "./src/unit-math.ts",
       "import": "./dist/unit-math.js",

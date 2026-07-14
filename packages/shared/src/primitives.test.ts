@@ -1,12 +1,18 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { roundMoney } from './money.ts';
+import {
+  ADMIN_ONLY_ROLES,
+  DASHBOARD_ROLES,
+  MANAGER_OR_ADMIN_ROLES,
+  SALES_ROLES,
+  USER_ROLES,
+} from './roles.ts';
 import { formatQuantity, normalizedQuantity, roundQuantity } from './unit-math.ts';
 import { UNIT_DIMENSIONS } from './units.ts';
 
 function referenceRoundMoney(value: number): number {
-  const rounded =
-    Math.sign(value) * (Math.round((Math.abs(value) + Number.EPSILON) * 100) / 100);
+  const rounded = Math.sign(value) * (Math.round((Math.abs(value) + Number.EPSILON) * 100) / 100);
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 
@@ -84,5 +90,25 @@ describe('shared unit contract', () => {
       'time',
       'other',
     ]);
+  });
+});
+
+describe('shared role contract', () => {
+  it('publishes the complete stable role catalogue', () => {
+    assert.deepEqual(USER_ROLES, ['admin', 'manager', 'cashier', 'viewer']);
+  });
+
+  it('publishes the canonical permission groups', () => {
+    assert.deepEqual(ADMIN_ONLY_ROLES, ['admin']);
+    assert.deepEqual(MANAGER_OR_ADMIN_ROLES, ['admin', 'manager']);
+    assert.deepEqual(SALES_ROLES, ['admin', 'manager', 'cashier']);
+    assert.deepEqual(DASHBOARD_ROLES, ['admin', 'manager', 'viewer']);
+
+    for (const group of [ADMIN_ONLY_ROLES, MANAGER_OR_ADMIN_ROLES, SALES_ROLES, DASHBOARD_ROLES]) {
+      assert.equal(
+        group.every(role => USER_ROLES.includes(role)),
+        true
+      );
+    }
   });
 });

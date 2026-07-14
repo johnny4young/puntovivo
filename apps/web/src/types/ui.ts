@@ -1,26 +1,21 @@
 // ENG-179c — UI + enum layer of the former monolithic `types/index.ts`.
 //
-// Everything here is a zero-dependency string-literal union, a generic
+// Everything here is a shared primitive string-literal union, a generic
 // response wrapper, or another primitive helper shape. None of these
-// reference a domain entity, so this module imports nothing — it sits at
+// reference a domain entity, so this module sits at
 // the bottom of the type dependency graph and `domain.ts` imports the
 // unions it needs from here. Re-exported through `types/index.ts` (a
 // shim kept for one release); prefer importing from `@/types/ui`
 // directly in new code.
 
-export type UserRole = 'admin' | 'manager' | 'cashier' | 'viewer';
+export type { UserRole } from '@puntovivo/shared/roles';
 
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
 export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
 export type SaleStatus = 'draft' | 'completed' | 'cancelled' | 'voided';
 export type CashSessionStatus = 'open' | 'closed';
 export type CashMovementType =
-  | 'sale'
-  | 'refund'
-  | 'paid_in'
-  | 'paid_out'
-  | 'skim'
-  | 'replenishment';
+  'sale' | 'refund' | 'paid_in' | 'paid_out' | 'skim' | 'replenishment';
 
 export type TransferHistoryStatus = 'completed' | 'in_transit' | 'void';
 

@@ -1,16 +1,16 @@
 import { TRPCError } from '@trpc/server';
-import { userRoleEnum } from '../../db/schema.js';
+import {
+  ADMIN_ONLY_ROLES,
+  MANAGER_OR_ADMIN_ROLES,
+  SALES_ROLES,
+  type UserRole,
+} from '@puntovivo/shared/roles';
 import { middleware } from '../init.js';
 import { tenantProcedure } from './tenant.js';
 
-type AppUserRole = (typeof userRoleEnum)[number];
-
-export function createRoleGuard(
-  allowedRoles: readonly AppUserRole[],
-  message: string
-) {
+export function createRoleGuard(allowedRoles: readonly UserRole[], message: string) {
   return middleware(async ({ ctx, next }) => {
-    const role = ctx.user?.role as AppUserRole | undefined;
+    const role = ctx.user?.role as UserRole | undefined;
 
     if (!role || !allowedRoles.includes(role)) {
       throw new TRPCError({
@@ -24,19 +24,19 @@ export function createRoleGuard(
 }
 
 export const adminProcedure = tenantProcedure.use(
-  createRoleGuard(['admin'], 'Only administrators can perform this action')
+  createRoleGuard(ADMIN_ONLY_ROLES, 'Only administrators can perform this action')
 );
 
 export const managerOrAdminProcedure = tenantProcedure.use(
   createRoleGuard(
-    ['admin', 'manager'],
+    MANAGER_OR_ADMIN_ROLES,
     'Only administrators and managers can perform this action'
   )
 );
 
 export const cashierManagerOrAdminProcedure = tenantProcedure.use(
   createRoleGuard(
-    ['admin', 'manager', 'cashier'],
+    SALES_ROLES,
     'Only cashiers, managers, and administrators can perform this action'
   )
 );

@@ -12,6 +12,7 @@
  * @module components/layout/__tests__/workspaces.test
  */
 import { describe, expect, it } from 'vitest';
+import { ROLE_PERMISSION_TEMPLATES } from '@/features/auth/workspaceRoleTemplates';
 import {
   WORKSPACES,
   TOP_LEVEL_DASHBOARD,
@@ -100,6 +101,19 @@ describe('WORKSPACES catalogue', () => {
     }
     // Dashboard sits OUTSIDE the workspace map by design.
     expect(seen.has(TOP_LEVEL_DASHBOARD.href)).toBe(false);
+  });
+
+  it('stays in parity with the admin permission-audit template', () => {
+    const navigationRoles = new Map([
+      ['dashboard', TOP_LEVEL_DASHBOARD.allowedRoles],
+      ...WORKSPACES.map(workspace => [workspace.id, workspace.allowedRoles] as const),
+    ]);
+    const auditRoles = new Map(
+      ROLE_PERMISSION_TEMPLATES.map(template => [template.id, template.allowedRoles] as const)
+    );
+
+    expect(auditRoles.size).toBe(ROLE_PERMISSION_TEMPLATES.length);
+    expect([...auditRoles]).toEqual([...navigationRoles]);
   });
 });
 

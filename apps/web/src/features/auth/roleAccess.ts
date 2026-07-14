@@ -1,9 +1,17 @@
 import type { UserRole } from '@/types';
+import {
+  ADMIN_ONLY_ROLES,
+  DASHBOARD_ROLES,
+  MANAGER_OR_ADMIN_ROLES,
+  SALES_ROLES,
+} from '@puntovivo/shared/roles';
 
-export const adminOnlyRoles = ['admin'] as const satisfies readonly UserRole[];
-export const managerOrAdminRoles = ['admin', 'manager'] as const satisfies readonly UserRole[];
-export const salesRoles = ['admin', 'manager', 'cashier'] as const satisfies readonly UserRole[];
-export const dashboardRoles = ['admin', 'manager', 'viewer'] as const satisfies readonly UserRole[];
+// Compatibility aliases for existing renderer imports. The shared tuples are
+// canonical and are also consumed by server middleware.
+export const adminOnlyRoles = ADMIN_ONLY_ROLES;
+export const managerOrAdminRoles = MANAGER_OR_ADMIN_ROLES;
+export const salesRoles = SALES_ROLES;
+export const dashboardRoles = DASHBOARD_ROLES;
 
 export function canAccessRole(
   role: UserRole | undefined,
@@ -50,11 +58,7 @@ export function getDefaultRouteForRoleWithSetup(args: {
   if (args.role === 'cashier') {
     return '/sales';
   }
-  if (
-    args.role === 'admin' &&
-    args.hasBlockers &&
-    args.acknowledgedAt === null
-  ) {
+  if (args.role === 'admin' && args.hasBlockers && args.acknowledgedAt === null) {
     return '/company?tab=readiness';
   }
   return '/dashboard';

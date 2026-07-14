@@ -20,6 +20,11 @@
  * @module trpc/middleware/criticalCommand
  */
 
+import {
+  ADMIN_ONLY_ROLES,
+  MANAGER_OR_ADMIN_ROLES,
+  SALES_ROLES,
+} from '@puntovivo/shared/roles';
 import { commandEnvelope } from './commandEnvelope.js';
 import { createRoleGuard } from './roles.js';
 import { tenantProcedure } from './tenant.js';
@@ -32,12 +37,12 @@ import { tenantProcedure } from './tenant.js';
 export const criticalCommandProcedure = tenantProcedure.use(commandEnvelope);
 
 export const criticalCommandAdminProcedure = criticalCommandProcedure.use(
-  createRoleGuard(['admin'], 'Only administrators can perform this action')
+  createRoleGuard(ADMIN_ONLY_ROLES, 'Only administrators can perform this action')
 );
 
 export const criticalCommandManagerOrAdminProcedure = criticalCommandProcedure.use(
   createRoleGuard(
-    ['admin', 'manager'],
+    MANAGER_OR_ADMIN_ROLES,
     'Only administrators and managers can perform this action'
   )
 );
@@ -45,7 +50,7 @@ export const criticalCommandManagerOrAdminProcedure = criticalCommandProcedure.u
 export const criticalCommandCashierManagerOrAdminProcedure =
   criticalCommandProcedure.use(
     createRoleGuard(
-      ['admin', 'manager', 'cashier'],
+      SALES_ROLES,
       'Only cashiers, managers, and administrators can perform this action'
     )
   );

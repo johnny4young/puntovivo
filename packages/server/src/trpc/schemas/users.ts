@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { USER_ROLES } from '@puntovivo/shared/roles';
 import { emailField, paginationInput } from './common.js';
 import { strongPasswordSchema } from './auth.js';
 
-const userRoleEnum = z.enum(['admin', 'manager', 'cashier', 'viewer']);
+const userRoleEnum = z.enum(USER_ROLES);
 
 export const listUsersInput = paginationInput
   .extend({

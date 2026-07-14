@@ -12,6 +12,7 @@ import { check, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { UNIT_DIMENSIONS } from '@puntovivo/shared/units';
 import type { UnitDimension } from '@puntovivo/shared/units';
+import { USER_ROLES } from '@puntovivo/shared/roles';
 
 // ============================================================================
 // MONEY INVARIANTS (ENG-176a)
@@ -109,7 +110,7 @@ export const cashMovementTypeEnum = [
   'replenishment',
 ] as const;
 export type CashMovementType = (typeof cashMovementTypeEnum)[number];
-export const userRoleEnum = ['admin', 'manager', 'cashier', 'viewer'] as const;
+export const userRoleEnum = USER_ROLES;
 export const deviceAuthorityRoleEnum = ['authority_node', 'hub_client', 'web_client'] as const;
 export type DeviceAuthorityRole = (typeof deviceAuthorityRoleEnum)[number];
 
