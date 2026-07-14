@@ -235,10 +235,10 @@ describe('OperationsPage', () => {
     expect(screen.getByTestId('needs-attention-panel')).toBeInTheDocument();
   });
 
-  it('lands on the support panel via ?tab=support deep link', () => {
+  it('lands on the support panel via ?tab=support deep link', async () => {
     render(<OperationsPage />, { initialEntries: ['/operations?tab=support'] });
     expect(screen.getByTestId('operations-tab-support')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('support-health-panel')).toBeInTheDocument();
+    expect(await screen.findByTestId('support-health-panel')).toBeInTheDocument();
   });
 
   it('lands on the fiscal panel via ?tab=fiscal deep link', () => {

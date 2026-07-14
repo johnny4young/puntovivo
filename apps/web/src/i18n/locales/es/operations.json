@@ -122,6 +122,23 @@
           }
         }
       }
+    },
+    "snapshot": {
+      "kicker": "Evidencia portátil",
+      "title": "Resumen redactado",
+      "description": "Copia o descarga JSON. Usa Diagnóstico para obtener un paquete sanitizado más detallado.",
+      "privacyBoundary": "Solo contiene salud y versiones agregadas. No incluye nombres, identificadores, sedes, datos del tenant ni errores sin procesar.",
+      "unavailable": "Espera todas las señales de soporte antes de compartir.",
+      "actions": {
+        "copy": "Copiar",
+        "download": "Descargar"
+      },
+      "toast": {
+        "copied": "Resumen copiado",
+        "copyError": "No se pudo copiar",
+        "downloaded": "Resumen descargado",
+        "downloadError": "No se pudo descargar"
+      }
     }
   },
   "attention": {

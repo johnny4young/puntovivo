@@ -20,13 +20,14 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useModulesSnapshot } from '@/features/modules';
 import { trpc } from '@/lib/trpc';
 import type { SupportUpdateRecoveryState } from './SupportRecoveryChecklist';
+import type { SupportAutoUpdateState } from './supportSnapshot';
 
-const SupportRecoveryChecklist = lazy(async () => {
-  const module = await import('./SupportRecoveryChecklist');
-  return { default: module.SupportRecoveryChecklist };
+const SupportReadinessPanels = lazy(async () => {
+  const module = await import('./SupportReadinessPanels');
+  return { default: module.SupportReadinessPanels };
 });
 
-type AutoUpdateState = 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
+type AutoUpdateState = SupportAutoUpdateState;
 
 interface AutoUpdateStatus {
   state: AutoUpdateState;
@@ -215,13 +216,22 @@ export function SupportHealthPanel() {
       </section>
 
       <Suspense fallback={<p className="text-sm text-fg3">{t('common.loading')}</p>}>
-        <SupportRecoveryChecklist
+        <SupportReadinessPanels
           isAdmin={user?.role === 'admin'}
           updateState={recoveryUpdateState(isDesktop, updateState)}
           staleDeviceCount={staleDevices}
           telemetryEnabled={telemetryEnabled}
           hasSignalError={hasError}
           onNavigate={navigate}
+          snapshotData={[
+            isDesktop ? 'desktop' : 'web',
+            desktopStatus?.currentVersion || null,
+            updateState,
+            modulesSnapshot.modules,
+            devices,
+            telemetryEnabled,
+            isLoading || hasError || modulesSnapshot.isPlaceholder,
+          ]}
         />
       </Suspense>
     </div>

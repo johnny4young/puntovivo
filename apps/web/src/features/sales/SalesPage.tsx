@@ -36,7 +36,6 @@ export function SalesPage() {
   // pass through as "reachable enough"; only an explicit `false`
   // gates.
   const hubReachability = useHubReachability();
-  const hubReachable = hubReachability.reachable ?? undefined;
   const userRole = user?.role ?? 'cashier';
 
   // ENG-018b — `ownerKey` (`${tenantId}:${userId}`) identifies the
@@ -361,7 +360,7 @@ export function SalesPage() {
       handleOpenSuspendPrompt={handleOpenSuspendPrompt}
       handleNewSale={handleNewSale}
       handleToggleSuspendedPanel={handleToggleSuspendedPanel}
-      hubReachable={hubReachable}
+      hubReachable={hubReachability.reachable ?? undefined}
       preflightItems={preflight.items}
       isHistoryDrawerOpen={isHistoryDrawerOpen}
       sales={sales}

@@ -122,6 +122,23 @@
           }
         }
       }
+    },
+    "snapshot": {
+      "kicker": "Portable evidence",
+      "title": "Redacted snapshot",
+      "description": "Copy or download JSON. Use Diagnostics for a deeper sanitized bundle.",
+      "privacyBoundary": "Aggregate health and versions only. No names, IDs, sites, tenant data, or raw errors.",
+      "unavailable": "Wait for all support signals before sharing.",
+      "actions": {
+        "copy": "Copy",
+        "download": "Download"
+      },
+      "toast": {
+        "copied": "Snapshot copied",
+        "copyError": "Copy failed",
+        "downloaded": "Snapshot downloaded",
+        "downloadError": "Download failed"
+      }
     }
   },
   "attention": {

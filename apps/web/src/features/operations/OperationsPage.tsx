@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Activity } from 'lucide-react';
@@ -11,7 +11,11 @@ import { CashHealthPanel } from './CashHealthPanel';
 import { PaymentHealthPanel } from './PaymentHealthPanel';
 import { DiagnosticExportPanel } from './DiagnosticExportPanel';
 import { AuthorityHealthPanel } from './AuthorityHealthPanel';
-import { SupportHealthPanel } from './SupportHealthPanel';
+
+const SupportHealthPanel = lazy(async () => {
+  const module = await import('./SupportHealthPanel');
+  return { default: module.SupportHealthPanel };
+});
 
 /**
  * ENG-065a / ENG-065b / ENG-065c — Operations Center.
@@ -128,7 +132,11 @@ export function OperationsPage() {
         data-testid={`operations-tabpanel-${activeTab}`}
       >
         {activeTab === 'attention' && <NeedsAttentionPanel onReviewArea={handleTabChange} />}
-        {activeTab === 'support' && <SupportHealthPanel />}
+        {activeTab === 'support' && (
+          <Suspense fallback={<p className="text-sm text-fg3">{t('common.loading')}</p>}>
+            <SupportHealthPanel />
+          </Suspense>
+        )}
         {activeTab === 'sync' && <SyncHealthPanel />}
         {activeTab === 'fiscal' && <FiscalHealthPanel />}
         {activeTab === 'device' && <DeviceHealthPanel />}
