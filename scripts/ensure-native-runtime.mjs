@@ -13,7 +13,7 @@ const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 /**
  * Runtime swap state for the better-sqlite3 native addon.
  *
- * Electron 41 and standalone Node 24 load different ABI builds. The state
+ * Electron 42 and standalone Node 24 load different ABI builds. The state
  * file records which runtime key is currently installed in
  * `node_modules/better-sqlite3/.../better_sqlite3.node`, while
  * `nativeBinaryCacheDir` keeps one compiled artifact per runtime key so dev
@@ -56,7 +56,7 @@ async function getBetterSqliteVersion() {
   const packageJson = await readJson(packageJsonPath);
   // ENG-167 — combine the actual package name with the version so a
   // swap from `better-sqlite3` to `better-sqlite3-multiple-ciphers`
-  // (which preserves the same `12.10.0` semver but ships a different
+  // (which preserves the same `12.11.1` semver but ships a different
   // native binary with SQLCipher v4 linked in) invalidates the cache.
   // Without this the previously-cached plain better-sqlite3 .node
   // would silently restore over the SQLCipher build and break the
@@ -135,7 +135,9 @@ async function signElectronNativeAddons() {
     path.join(repoRoot, 'node_modules', 'argon2', 'build', 'Release', 'argon2.node'),
   ]);
 
-  for (const binaryPath of await collectNodeBinaries(path.join(repoRoot, 'node_modules', 'argon2', 'bin'))) {
+  for (const binaryPath of await collectNodeBinaries(
+    path.join(repoRoot, 'node_modules', 'argon2', 'bin')
+  )) {
     candidates.add(binaryPath);
   }
 
@@ -144,7 +146,9 @@ async function signElectronNativeAddons() {
       continue;
     }
 
-    console.log(`[native-runtime] Ensuring macOS code signature for ${path.relative(repoRoot, binaryPath)}`);
+    console.log(
+      `[native-runtime] Ensuring macOS code signature for ${path.relative(repoRoot, binaryPath)}`
+    );
     runCodesign(binaryPath);
   }
 }
@@ -176,7 +180,9 @@ async function getDesiredKey(runtime) {
   }
 
   const electronVersion = await getElectronVersion();
-  return ['electron', electronVersion, process.platform, process.arch, betterSqliteVersion].join(':');
+  return ['electron', electronVersion, process.platform, process.arch, betterSqliteVersion].join(
+    ':'
+  );
 }
 
 function getCachedBinaryPath(runtimeKey) {

@@ -18,11 +18,11 @@ import {
 describe('sanitizeRuntimeKey (mirror of ensure-native-runtime.mjs)', () => {
   it('collapses runs of disallowed characters into one underscore', () => {
     expect(
-      sanitizeRuntimeKey('node:v24.15.0:137:darwin:arm64:better-sqlite3-multiple-ciphers@12.10.0')
-    ).toBe('node_v24.15.0_137_darwin_arm64_better-sqlite3-multiple-ciphers_12.10.0');
-    // `:^` is ONE run → one underscore (electron_41.7.1, not electron__41.7.1).
-    expect(sanitizeRuntimeKey('electron:^41.7.1:darwin:arm64:pkg@1.0.0')).toBe(
-      'electron_41.7.1_darwin_arm64_pkg_1.0.0'
+      sanitizeRuntimeKey('node:v24.15.0:137:darwin:arm64:better-sqlite3-multiple-ciphers@12.11.1')
+    ).toBe('node_v24.15.0_137_darwin_arm64_better-sqlite3-multiple-ciphers_12.11.1');
+    // `:^` is ONE run → one underscore (electron_42.6.2, not electron__42.6.2).
+    expect(sanitizeRuntimeKey('electron:^42.6.2:darwin:arm64:pkg@1.0.0')).toBe(
+      'electron_42.6.2_darwin_arm64_pkg_1.0.0'
     );
   });
 
@@ -39,9 +39,9 @@ describe('buildNodeRuntimeKey', () => {
         modulesAbi: '137',
         platform: 'darwin',
         arch: 'arm64',
-        addonNameAndVersion: 'better-sqlite3-multiple-ciphers@12.10.0',
+        addonNameAndVersion: 'better-sqlite3-multiple-ciphers@12.11.1',
       })
-    ).toBe('node:v24.15.0:137:darwin:arm64:better-sqlite3-multiple-ciphers@12.10.0');
+    ).toBe('node:v24.15.0:137:darwin:arm64:better-sqlite3-multiple-ciphers@12.11.1');
   });
 });
 

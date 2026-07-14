@@ -32,7 +32,7 @@ export function applySqlCipherKey(db: Database.Database, encryptionKey?: string)
  *     install keeps exactly one key envelope.
  *
  * `PRAGMA rekey` rewrites every page under the new key (verified
- * empirically against better-sqlite3-multiple-ciphers 12.10: the
+ * empirically against better-sqlite3-multiple-ciphers 12.11.1: the
  * header becomes unreadable and keyless opens fail SQLITE_NOTADB).
  * The caller is responsible for crash-safety around the in-place
  * rewrite (the migration keeps a .bak; the restore works on a

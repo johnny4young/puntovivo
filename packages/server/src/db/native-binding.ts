@@ -2,7 +2,7 @@
  * Dev-runtime selection of the better-sqlite3 native addon.
  *
  * Electron and standalone Node load different ABI builds of the addon
- * (MODULE_VERSION 145 vs 137). `scripts/ensure-native-runtime.mjs` compiles
+ * (MODULE_VERSION 146 vs 137). `scripts/ensure-native-runtime.mjs` compiles
  * each one ONCE and caches both under
  * `node_modules/.cache/puntovivo/native-binaries/`, historically swapping the
  * active copy at `better-sqlite3/build/Release/better_sqlite3.node` — a design
@@ -38,8 +38,8 @@ import { join, sep } from 'node:path';
 /**
  * Mirror of the cache-key sanitizer in scripts/ensure-native-runtime.mjs:
  * collapse every run of characters outside [a-zA-Z0-9._-] into one underscore
- * (so `node:v24.15.0:137` and `electron:^41.7.1` become `node_v24.15.0_137`
- * and `electron_41.7.1`).
+ * (so `node:v24.15.0:137` and `electron:^42.6.2` become `node_v24.15.0_137`
+ * and `electron_42.6.2`).
  */
 export function sanitizeRuntimeKey(key: string): string {
   return key.replaceAll(/[^a-zA-Z0-9._-]+/g, '_');

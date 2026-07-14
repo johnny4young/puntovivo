@@ -101,16 +101,16 @@ console. See [docs/LOGIN_GUIDE.md](./docs/LOGIN_GUIDE.md).
 
 ## Runtime Shape
 
-| Layer    | Current choice                                 | Notes                                                          |
-| -------- | ---------------------------------------------- | -------------------------------------------------------------- |
-| Desktop  | Electron 41 + electron-builder packaging       | Electron 42 is gated by upstream better-sqlite3 V8 14 support. |
-| Web      | React 19 + Vite 8 + TypeScript 6               | Browser target and Electron renderer share the app code.       |
-| API      | Fastify + tRPC 11                              | `/api/trpc` is the canonical application API.                  |
-| Database | SQLite through better-sqlite3-multiple-ciphers | SQLCipher path is wired; dev modes can share an encrypted DB.  |
-| ORM      | Drizzle                                        | Migrations are the single schema path.                         |
-| State    | TanStack Query + Zustand                       | Server state and local UI state are separated.                 |
-| Styling  | Tailwind CSS v4 + CVA                          | See [docs/STYLING.md](./docs/STYLING.md).                      |
-| Realtime | SSE                                            | `/api/realtime/*` remains for live updates.                    |
+| Layer    | Current choice                                 | Notes                                                                              |
+| -------- | ---------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Desktop  | Electron 42 + electron-builder packaging       | The cipher fork ships Electron 42 prebuilds; v43 still needs cross-platform proof. |
+| Web      | React 19 + Vite 8 + TypeScript 6               | Browser target and Electron renderer share the app code.                           |
+| API      | Fastify + tRPC 11                              | `/api/trpc` is the canonical application API.                                      |
+| Database | SQLite through better-sqlite3-multiple-ciphers | SQLCipher path is wired; dev modes can share an encrypted DB.                      |
+| ORM      | Drizzle                                        | Migrations are the single schema path.                                             |
+| State    | TanStack Query + Zustand                       | Server state and local UI state are separated.                                     |
+| Styling  | Tailwind CSS v4 + CVA                          | See [docs/STYLING.md](./docs/STYLING.md).                                          |
+| Realtime | SSE                                            | `/api/realtime/*` remains for live updates.                                        |
 
 The desktop app imports `@puntovivo/server` directly from the Electron main
 process. Do not model it as a child server process.
@@ -131,7 +131,7 @@ If standalone server tests fail after desktop packaging with a
 node packages/server/scripts/rebuild-better-sqlite3-node.mjs
 ```
 
-The current desktop runtime is Electron `41.7.1`. Keep manual
+The current desktop runtime is Electron `42.6.2`. Keep manual
 `electron-rebuild` invocations aligned with `apps/desktop/package.json`.
 
 ## Documentation Map

@@ -31,8 +31,15 @@ function makeApp(dataDir: string, isPackaged: boolean) {
 function makeSafeStorage(): SafeStorage {
   return {
     isEncryptionAvailable: () => true,
+    isAsyncEncryptionAvailable: () => Promise.resolve(true),
     encryptString: plain => Buffer.from(plain, 'utf8'),
+    encryptStringAsync: plain => Promise.resolve(Buffer.from(plain, 'utf8')),
     decryptString: sealed => sealed.toString('utf8'),
+    decryptStringAsync: sealed =>
+      Promise.resolve({
+        result: sealed.toString('utf8'),
+        shouldReEncrypt: false,
+      }),
     getSelectedStorageBackend: () => 'unknown',
     setUsePlainTextEncryption: () => {},
   };

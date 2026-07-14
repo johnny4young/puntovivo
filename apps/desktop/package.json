@@ -61,7 +61,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/sanitize-html": "^2.16.1",
     "@vitejs/plugin-react": "^6.0.3",
-    "electron": "^41.7.1",
+    "electron": "^42.6.2",
     "electron-builder": "^26.15.3",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",

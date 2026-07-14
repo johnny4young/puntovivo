@@ -522,12 +522,12 @@ rejects truncated or non-hex keys at boot rather than at the first
 SELECT.
 
 **Native dependency.** `packages/server` (and transitively the
-desktop bundle) now consumes `better-sqlite3-multiple-ciphers@^12.10.0`
+desktop bundle) now consumes `better-sqlite3-multiple-ciphers@^12.11.1`
 under the `better-sqlite3` alias declared in
 [`package.json`](../package.json) at root and in
 [`packages/server/package.json`](../packages/server/package.json). The
 fork preserves the synchronous better-sqlite3 API surface 1:1 and
-ships prebuilds for Node v137 (Node 24) and Electron v145 (Electron 41) across `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`,
+ships prebuilds for Node v137 (Node 24) and Electron v146 (Electron 42) across `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`,
 `win32-x64`, and `win32-arm64`. `scripts/ensure-native-runtime.mjs`
 includes the package name in the cache key so the swap invalidates
 stale plain-better-sqlite3 binaries automatically.

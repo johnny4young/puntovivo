@@ -57,7 +57,7 @@ convertir esos cimientos en experiencias que el operador AME usar.
 | **Testeabilidad**  | 8/10 | 2 236 server + ~1 650 web + 111 desktop; DB in-memory por archivo; pisos de coverage en CI; golden vectors de dinero. Falta: property-based, contract tests explícitos.                                   |
 | **Simplicidad**    | 7/10 | Server bien descompuesto (solo runFreshSale > 500 LOC). Deuda: superficies no-op retenidas (reconcile/discrepancias), 3 tiers de precio + 6 columnas de margen (legacy).                                  |
 | **Mantenibilidad** | 8/10 | Convención de markers ENG-NNN, docs de planeación disciplinados, migraciones aditivas, CI por área con path filters.                                                                                      |
-| **Librerías**      | 9/10 | React 19.2, Vite 8, TS 6, Tailwind 4, tRPC 11, Zod 4, Fastify 5, Drizzle 0.45, Vitest 4 — todo fresco. Único gate: Electron 42 (better-sqlite3 vs V8 14, ya documentado).                                 |
+| **Librerías**      | 9/10 | React 19.2, Vite 8, TS 6, Tailwind 4, tRPC 11, Zod 4, Fastify 5, Drizzle 0.45, Vitest 4 — todo fresco. Electron 42 quedó habilitado por better-sqlite3-multiple-ciphers 12.11.1.                          |
 
 ---
 
@@ -581,7 +581,7 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | WC-F1 | Ejecutar WC-B5 (podar no-ops de reconcile)                                                                                                           | S        |
 | WC-F2 | Marcar price tiers/margins legacy `@deprecated` cuando WC-D1 aterrice; regla ESLint que bloquee nuevos usos                                          | S        |
-| WC-F3 | Mantener el tracking Electron 42 (better-sqlite3 #1474) y el plan N-API — ya documentado en AGENTS.md, no requiere acción hasta upstream             | —        |
+| WC-F3 | Mantener el tracking de Electron 43/prebuilds y el plan N-API; Electron 42 ya quedó habilitado con el fix V8 14 de better-sqlite3 12.11.1            | —        |
 | WC-F4 | `sale_payments`/`sale_returns`: decidir la serialización agregada de venta para sync (hoy placeholders); documentar la decisión en ADR-0004 addendum | M        |
 
 ---

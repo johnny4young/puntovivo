@@ -73,7 +73,7 @@ else
 fi
 
 # better-sqlite3 compiled binding for the host Node ABI. Electron uses
-# its own ABI (145 vs Node 137 today), so this file is the Node-side
+# its own ABI (146 vs Node 137 today), so this file is the Node-side
 # binding used by tests and standalone server runs; scripts/ensure-native-runtime.mjs
 # handles Electron-side swapping at boot.
 if [ -f "node_modules/better-sqlite3/build/Release/better_sqlite3.node" ]; then

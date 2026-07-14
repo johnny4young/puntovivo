@@ -3,14 +3,14 @@
 %% Source of truth for the system diagram embedded in docs/ARCHITECTURE.md and README.md.
 
 flowchart TB
-  subgraph Electron["Electron 41 Desktop Application (single binary per platform)"]
+  subgraph Electron["Electron 42 Desktop Application (single binary per platform)"]
     direction TB
 
     subgraph Main["Main Process (Node 24, V8)"]
       direction TB
       F["Fastify 5<br/>in-process :8090"]
       T["tRPC router<br/>27 domain routers"]
-      DB[("better-sqlite3<br/>ABI 145<br/>data.db")]
+      DB[("better-sqlite3<br/>ABI 146<br/>data.db")]
       IPC["IPC handlers<br/>print / backup / sync / updater"]
       SSE["SSE<br/>/api/realtime/*"]
       F --> T

@@ -10,7 +10,7 @@
 Source: [architecture.mmd](./architecture.mmd). Re-render with:
 
 ```sh
-npx -y @mermaid-js/mermaid-cli mmdc -i docs/architecture.mmd -o docs/architecture.svg -b transparent
+npx -y @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/architecture.svg -b transparent
 ```
 
 Colour code: green = shipped, yellow = planned (Phase 11/12 — fiscal +
@@ -388,7 +388,7 @@ read or write speaks to a keyed page cipher:
 
 1. **Connection.** `new Database(dbPath, { verbose })` via the
    `better-sqlite3` alias that resolves to
-   `better-sqlite3-multiple-ciphers@^12.10.0` (root `package.json`
+   `better-sqlite3-multiple-ciphers@^12.11.1` (root `package.json`
    declares the alias; the fork ships SQLite3MultipleCiphers in the
    prebuilt native binary).
 2. **Encryption key (skipped for `:memory:`).** When
