@@ -136,6 +136,12 @@ const a11yRoutes: readonly A11yRoute[] = [
     role: 'admin',
     settled: (page) => page.getByText(/Recent audit events|Eventos recientes/i),
   },
+  {
+    label: 'Day close (admin)',
+    path: '/day-close',
+    role: 'admin',
+    settled: (page) => page.getByTestId('day-close-sales-section'),
+  },
   // ENG-134g — module-gated surfaces. The e2e baseline force-enables
   // their modules (see `ensureModulesEnabled` in `e2e/shared/baseline.ts`)
   // so `SurfaceShellRoute` renders them instead of redirecting to

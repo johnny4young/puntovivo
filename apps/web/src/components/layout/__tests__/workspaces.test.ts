@@ -31,6 +31,7 @@ const LEGACY_SIDEBAR_ROUTES = [
   '/sales',
   '/inventory',
   '/operations',
+  '/day-close',
   // flow
   '/orders',
   '/purchases',
@@ -176,7 +177,7 @@ describe('visibleWorkspacesForRole', () => {
   it('keeps Operate visible when Operations is disabled because Dashboard remains available', () => {
     const result = visibleWorkspacesForRole('admin', { 'operations-center': false });
     const operate = result.find(v => v.workspace.id === 'operate');
-    expect(operate?.items.map(item => item.href)).toEqual(['/dashboard']);
+    expect(operate?.items.map(item => item.href)).toEqual(['/dashboard', '/day-close']);
   });
 
   it('returns an empty list for an unauthenticated role', () => {
@@ -192,6 +193,8 @@ describe('Operate Dashboard fold (ENG-131e)', () => {
     expect(operate?.allowedRoles).toContain('viewer');
     expect(operate?.items[1]?.href).toBe('/operations');
     expect(operate?.items[1]?.allowedRoles).not.toContain('viewer');
+    expect(operate?.items[2]?.href).toBe('/day-close');
+    expect(operate?.items[2]?.allowedRoles).not.toContain('viewer');
   });
 });
 

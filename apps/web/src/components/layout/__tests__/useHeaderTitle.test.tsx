@@ -17,6 +17,7 @@ describe('useHeaderTitle', () => {
       ['/procurement', 'nav:header.procurement.title'],
       ['/finance', 'nav:header.finance.title'],
       ['/data-import', 'nav:header.dataImport.title'],
+      ['/day-close', 'nav:header.dayClose.title'],
     ] as const;
 
     for (const [pathname, titleKey] of cases) {

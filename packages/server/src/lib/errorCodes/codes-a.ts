@@ -73,6 +73,11 @@ export const SERVER_ERROR_CODES_A = {
    */
   CASH_SESSION_LOAD_FAILED: 'CASH_SESSION_LOAD_FAILED',
   /**
+   * ENG-141a — a manager requested a comprehensive day-close preview for a
+   * tenant-local calendar day that has not started yet.
+   */
+  DAY_CLOSE_FUTURE_DATE: 'DAY_CLOSE_FUTURE_DATE',
+  /**
    * ENG-181 — `services/cash-session.ts:insertCashMovement` rejected a
    * non-positive / non-finite amount. ENG-176a-rounding already rounds
    * at the boundary; this code surfaces if a future caller bypasses

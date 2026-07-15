@@ -26,6 +26,7 @@ import {
   CustomerDisplayShell,
   CustomersPage,
   DataImportPage,
+  DayCloseReportPage,
   DashboardPage,
   DeliveryPage,
   FinanceLandingRoute,
@@ -303,6 +304,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="operations-center">
                     <OperationsPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="day-close"
+                element={
+                  <ShellRoute allowedRoles={managerOrAdminRoles}>
+                    <DayCloseReportPage />
                   </ShellRoute>
                 }
               />

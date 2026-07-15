@@ -30,5 +30,112 @@
         "margin": "Margin"
       }
     }
+  },
+  "dayClose": {
+    "kicker": "Daily control",
+    "title": "Day close",
+    "description": "Review the complete business-day evidence before manager sign-off: sales, tenders, cash sessions, fiscal documents, adjustments, and anomaly signals.",
+    "dateLabel": "Business day",
+    "refresh": "Refresh report",
+    "loading": "Building the day-close report…",
+    "error": "The day-close report could not be loaded.",
+    "readiness": {
+      "ready": "The day is ready for manager review",
+      "blocked": "The day still has blocking work",
+      "generated": "{{date}} · {{timeZone}}",
+      "codes": {
+        "open_sessions": "Open cash sessions",
+        "cash_discrepancies": "Cash discrepancies",
+        "fiscal_pending": "Fiscal documents in progress",
+        "fiscal_rejected": "Rejected fiscal documents",
+        "high_anomalies": "High-severity anomalies",
+        "commissions_not_tracked": "Commissions are not tracked yet",
+        "waste_not_tracked": "Waste is not tracked yet"
+      }
+    },
+    "kpis": {
+      "netRevenue": "Net revenue",
+      "netRevenueContext": "Gross {{gross}}",
+      "sales": "Gross sales",
+      "refunds_one": "{{count}} refund · {{amount}}",
+      "refunds_other": "{{count}} refunds · {{amount}}",
+      "cashVariance": "Cash variance",
+      "cashSessions": "Closed: {{closed}} · Open: {{open}}",
+      "fiscal": "Fiscal documents",
+      "fiscalNet": "Net fiscal amount {{amount}}"
+    },
+    "sections": {
+      "sales": "Sales composition",
+      "payments": "Payment settlement",
+      "cash": "Cash reconciliation",
+      "fiscal": "Fiscal documents",
+      "adjustments": "Voids and refunds",
+      "anomalies": "Anomaly summary",
+      "coverage": "Coverage of the daily pack"
+    },
+    "metrics": {
+      "subtotal": "Subtotal",
+      "discounts": "Discounts",
+      "taxes": "Taxes",
+      "tips": "Tips",
+      "serviceCharges": "Service charges",
+      "refunds": "Refunds",
+      "expectedCash": "Expected cash",
+      "countedCash": "Counted cash",
+      "balancedSessions": "Balanced sessions",
+      "openSessions": "Open at day end",
+      "voids": "Voids",
+      "events_one": "{{count}} event",
+      "events_other": "{{count}} events"
+    },
+    "payments": {
+      "method": "Tender",
+      "transactions": "Transactions",
+      "amount": "Amount",
+      "note": "Gross tenders for sales recorded on this day; voids and refunds appear separately under adjustments."
+    },
+    "paymentMethods": {
+      "cash": "Cash",
+      "card": "Card",
+      "transfer": "Transfer",
+      "credit": "Credit",
+      "other": "Other"
+    },
+    "fiscalStatuses": {
+      "accepted": "Accepted",
+      "pending": "Pending",
+      "sent": "Sent",
+      "rejected": "Rejected",
+      "contingency": "Contingency",
+      "voided": "Voided",
+      "notified_correction": "Correction requested",
+      "partial_send": "Partially sent"
+    },
+    "anomalies": {
+      "total": "Total signals",
+      "high": "High severity",
+      "medium": "Medium severity"
+    },
+    "anomalyKinds": {
+      "ticketsPerHourSpike": "Tickets per hour",
+      "voidRate": "Void rate",
+      "refundAmount": "Refund amount",
+      "noSaleSessions": "No-sale sessions"
+    },
+    "empty": {
+      "paymentsTitle": "No settled payments",
+      "paymentsDescription": "No eligible sale tenders were recorded for this business day."
+    },
+    "coverage": {
+      "description": "The report stays explicit when a domain has no source model; it never converts missing evidence into a false zero.",
+      "commissions_not_tracked": {
+        "title": "Commissions",
+        "description": "Commission plans are not modeled yet, so this report marks the section unavailable instead of reporting zero."
+      },
+      "waste_not_tracked": {
+        "title": "Waste",
+        "description": "Waste events are not modeled yet, so this report marks the section unavailable instead of hiding the gap."
+      }
+    }
   }
 }

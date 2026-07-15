@@ -1506,6 +1506,12 @@
     "output": "inferred"
   },
   {
+    "path": "reports.dayClose.preview",
+    "kind": "query",
+    "input": "object{date:string}",
+    "output": "object{adjustments:object{refunds:object,voids:object},anomalies:object{byKind:object,high:integer[min=0,max=9007199254740991],medium:integer[min=0,max=9007199254740991],total:integer[min=0,max=9007199254740991]},capabilities:object{commissions:literal(\"not_tracked\"),waste:literal(\"not_tracked\")},cash:object{balancedSessions:integer[min=0,max=9007199254740991],closedSessions:integer[min=0,max=9007199254740991],counted:number,discrepancySessions:integer[min=0,max=9007199254740991],expected:number,openSessions:integer[min=0,max=9007199254740991],overShort:number},currencyCode:string[minLength=3,maxLength=3],date:string,fiscal:object{byStatus:object,total:integer[min=0,max=9007199254740991],totalAmount:number},generatedAt:string[format=date-time],payments:array<object>,readiness:object{blockers:array<enum(\"open_sessions\"|\"cash_discrepancies\"|\"fiscal_pending\"|\"fiscal_rejected\"|\"high_anomalies\"|\"commissions_not_tracked\"|\"waste_not_tracked\")>,readyToSign:boolean,warnings:array<enum(\"open_sessions\"|\"cash_discrepancies\"|\"fiscal_pending\"|\"fiscal_rejected\"|\"high_anomalies\"|\"commissions_not_tracked\"|\"waste_not_tracked\")>},sales:object{count:integer[min=0,max=9007199254740991],discounts:number,grossRevenue:number,netRevenue:number,refundAmount:number,serviceCharges:number,subtotal:number,taxes:number,tips:number},timeZone:string[minLength=1],window:object{endExclusive:string[format=date-time],start:string[format=date-time]}}"
+  },
+  {
     "path": "reports.diagnostics.export",
     "kind": "query",
     "input": "object{fromDate:string[format=date-time],includeOutboxes?:array<enum(\"sync\"|\"fiscal\"|\"hardware\")>[maxItems=3],toDate:string[format=date-time]}",

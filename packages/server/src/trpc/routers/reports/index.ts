@@ -22,6 +22,7 @@
 
 import { router } from '../../init.js';
 import { cashReportsRouter } from './cash.js';
+import { dayCloseReportsRouter } from './dayClose.js';
 import { diagnosticsReportsRouter } from './diagnostics/index.js';
 import { fiscalReportsRouter } from './fiscal.js';
 import { inventoryReportsRouter } from './inventory.js';
@@ -29,6 +30,7 @@ import { profitReportsRouter } from './profit.js';
 
 export const reportsRouter = router({
   cash: cashReportsRouter,
+  dayClose: dayCloseReportsRouter,
   diagnostics: diagnosticsReportsRouter,
   fiscal: fiscalReportsRouter,
   inventory: inventoryReportsRouter,

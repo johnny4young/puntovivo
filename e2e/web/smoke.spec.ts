@@ -154,6 +154,9 @@ test.describe('web smoke', () => {
     await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Company' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Import data' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toBeVisible();
+    await page.goto('/day-close');
+    await expect(page.getByTestId('day-close-report-page')).toBeVisible();
     await page.goto('/company');
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto('/data-import');
@@ -174,8 +177,11 @@ test.describe('web smoke', () => {
 
     await loginAs(page, 'cashier');
     await expect(page).toHaveURL(/\/sales$/);
-    await expect(page.getByRole('link', { name: 'Sales' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sales', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Inventory' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toHaveCount(0);
+    await page.goto('/day-close');
+    await expect(page).toHaveURL(/\/sales$/);
     await page.goto('/dashboard');
     await expect(page).toHaveURL(/\/sales$/);
 
@@ -189,6 +195,9 @@ test.describe('web smoke', () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Sales' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toHaveCount(0);
+    await page.goto('/day-close');
+    await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto('/sales');
     await expect(page).toHaveURL(/\/dashboard$/);
 
