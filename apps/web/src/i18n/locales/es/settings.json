@@ -471,6 +471,7 @@
       "currentVersion": "Versión actual",
       "latestDownload": "Última descarga",
       "lastChecked": "Última verificación",
+      "lastUpdated": "Última actualización",
       "notYet": "Aún no",
       "downloadedUpdateReady": "Actualización descargada lista",
       "updatePublished": "Actualización publicada",
@@ -478,6 +479,12 @@
       "availableManualHint": "Hay una nueva versión disponible. Abre la página de la versión para descargarla e instalarla.",
       "unknown": "Desconocido",
       "none": "Ninguna",
+      "rollout": {
+        "label": "Despliegue",
+        "stagedValue": "Gradual · {{percentage}}%",
+        "rollbackValue": "Reversión · {{percentage}}%",
+        "rollbackActive": "La reversión está activa para la versión {{version}}. Las estaciones elegibles volverán exactamente a esta versión durante el próximo ciclo de actualización."
+      },
       "statusBadge": {
         "unavailable": "No disponible",
         "idle": "Al día",

@@ -1,5 +1,6 @@
 import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import type { AuthTokenPayload } from '@puntovivo/server';
 import type { BackupIpcDeps } from '../ipc/backup/contracts.ts';
 import {
   handleConfigureBackupCloudVault,
@@ -83,7 +84,7 @@ function makeDeps(
   };
 }
 
-async function registerRole(role: string): Promise<void> {
+async function registerRole(role: AuthTokenPayload['role']): Promise<void> {
   await register('valid-token', async () => ({
     userId: `user-${role}`,
     tenantId: 'tenant-1',

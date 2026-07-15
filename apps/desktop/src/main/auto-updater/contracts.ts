@@ -8,6 +8,7 @@ export type AutoUpdateState =
  *     release themselves (private repo, notify-only mode).
  */
 export type AutoUpdateInstallMode = 'auto' | 'manual';
+export type AutoUpdateRolloutMode = 'normal' | 'rollback';
 
 export interface AutoUpdateStatus {
   isAvailable: boolean;
@@ -16,6 +17,12 @@ export interface AutoUpdateStatus {
   installMode: AutoUpdateInstallMode;
   currentVersion: string;
   lastCheckedAt: string | null;
+  /** Last observed transition to a different installed app version. */
+  lastUpdatedAt: string | null;
+  rolloutMode: AutoUpdateRolloutMode | null;
+  rolloutPercentage: 10 | 50 | 100 | null;
+  rolloutTargetVersion: string | null;
+  rolloutPolicyCheckedAt: string | null;
   releaseName: string | null;
   releaseNotes: string | null;
   releaseDate: string | null;

@@ -1,5 +1,6 @@
 import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import type { AuthTokenPayload } from '@puntovivo/server';
 import type { BackupRestoreDrillReport } from '../backup/restore-drill.ts';
 import { BackupRestoreDrillError } from '../backup/restore-drill.ts';
 import type { BackupIpcDeps, BackupRestoreDrillAuditInput } from '../ipc/backup/contracts.ts';
@@ -69,7 +70,7 @@ function makeDeps(overrides: Partial<BackupIpcDeps> = {}): BackupIpcDeps {
   };
 }
 
-async function registerRole(role: string): Promise<void> {
+async function registerRole(role: AuthTokenPayload['role']): Promise<void> {
   await register('valid-token', async () => ({
     userId: `user-${role}`,
     tenantId: 'tenant-1',

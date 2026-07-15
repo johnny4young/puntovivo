@@ -92,6 +92,43 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
       .getByTestId('sidebar-workspace-link-setup')
       .evaluate(link => (link as HTMLElement).click());
     await expect(page).toHaveURL(/\/company/);
+
+    // ENG-137a — exercise the real updater IPC contract before moving to the
+    // data tab. A fresh E2E userData directory establishes the installed
+    // version baseline without inventing a last-updated timestamp; development
+    // builds also have no release rollout policy to report.
+    await page.getByTestId('company-tab-device').click();
+    await expect(page).toHaveURL(/\/company\?tab=device/);
+    const updaterPanel = page
+      .getByTestId('company-tabpanel-device')
+      .locator('section')
+      .filter({
+        has: page.getByRole('heading', {
+          name: /app updates|actualizaciones de la app/i,
+        }),
+      });
+    await expect(updaterPanel).toBeVisible();
+    await expect(updaterPanel.getByText(/last updated|última actualización/i)).toBeVisible();
+    await expect(updaterPanel.getByText(/rollout|despliegue/i)).toBeVisible();
+    await expect(updaterPanel.getByText(/not yet|aún no/i).first()).toBeVisible();
+
+    const desktopUpdateStatus = await page.evaluate(() =>
+      window.electron?.getAutoUpdateStatus()
+    );
+    expect(desktopUpdateStatus).toMatchObject({
+      lastUpdatedAt: null,
+      rolloutMode: null,
+      rolloutPercentage: null,
+      rolloutTargetVersion: null,
+      rolloutPolicyCheckedAt: null,
+    });
+
+    if (auditDir) {
+      await updaterPanel.screenshot({
+        path: path.join(auditDir, 'electron-app-updates.png'),
+      });
+    }
+
     await page.getByTestId('company-tab-data').click();
     await expect(page).toHaveURL(/\/company\?tab=data/);
     const protectionPanel = page.getByTestId('backup-protection-panel');

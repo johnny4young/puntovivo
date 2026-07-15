@@ -805,7 +805,7 @@ For the hybrid topology:
 | ESC/POS thermal printer + RJ11 cash drawer            | USB / network / serial from main process  | [HARDWARE-POS.md](./HARDWARE-POS.md)             | Phase 12 — P0 |
 | Barcode scanner                                       | USB HID keydown capture in renderer       | [HARDWARE-POS.md](./HARDWARE-POS.md)             | Phase 12 — P0 |
 | Payment terminal (Bold, Wompi, Mercado Pago Point)    | HTTPS / Bluetooth SDK from main process   | [HARDWARE-POS.md](./HARDWARE-POS.md)             | Phase 12 — P1 |
-| GitHub Releases auto-updater                          | HTTPS from main process                   | Shipped                                          | —             |
+| GitHub Releases staged auto-updater + exact rollback | HTTPS from main process                   | Partial (`ENG-137a`)                             | —             |
 | S3-compatible encrypted backup vault                 | HTTPS `PutObject` from Electron main      | Shipped (`ENG-136c`)                             | —             |
 | S3-compatible XML retention                           | HTTPS from main process or central server | [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) | Phase 11      |
 

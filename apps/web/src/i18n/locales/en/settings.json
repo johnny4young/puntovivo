@@ -471,6 +471,7 @@
       "currentVersion": "Current Version",
       "latestDownload": "Latest Download",
       "lastChecked": "Last Checked",
+      "lastUpdated": "Last Updated",
       "notYet": "Not yet",
       "downloadedUpdateReady": "Downloaded update ready",
       "updatePublished": "Update published",
@@ -478,6 +479,12 @@
       "availableManualHint": "A new version is available. Open the release page to download and install it.",
       "unknown": "Unknown",
       "none": "None",
+      "rollout": {
+        "label": "Rollout",
+        "stagedValue": "Staged · {{percentage}}%",
+        "rollbackValue": "Rollback · {{percentage}}%",
+        "rollbackActive": "Rollback is active for version {{version}}. Eligible workstations will return to this exact build during the next update cycle."
+      },
       "statusBadge": {
         "unavailable": "Unavailable",
         "idle": "Up to Date",

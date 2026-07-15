@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
 import { createModuleLogger } from '@puntovivo/server';
+import { join } from 'node:path';
 import { mapReleaseFields } from './auto-update-status';
 import type {
   AutoUpdateActionResult,
@@ -8,11 +9,18 @@ import type {
   AutoUpdateStatus,
 } from './auto-updater/contracts';
 import { fetchLatestRelease, isNewerRelease, REPO_SLUG } from './auto-updater/release-notification';
+import { recordVersionTransition } from './auto-updater/update-history';
+import {
+  fetchUpdatePolicy,
+  isCandidateAllowedByPolicy,
+  type UpdatePolicy,
+} from './auto-updater/update-policy';
 import { t } from './i18n';
 
 export type {
   AutoUpdateActionResult,
   AutoUpdateInstallMode,
+  AutoUpdateRolloutMode,
   AutoUpdateState,
   AutoUpdateStatus,
 } from './auto-updater/contracts';
@@ -52,6 +60,11 @@ function createDefaultStatus(): AutoUpdateStatus {
     installMode: INSTALL_MODE,
     currentVersion: app.getVersion(),
     lastCheckedAt: null,
+    lastUpdatedAt: null,
+    rolloutMode: null,
+    rolloutPercentage: null,
+    rolloutTargetVersion: null,
+    rolloutPolicyCheckedAt: null,
     releaseName: null,
     releaseNotes: null,
     releaseDate: null,
@@ -66,6 +79,17 @@ let listenersAttached = false;
 let initialized = false;
 let notifyPollHandle: ReturnType<typeof setInterval> | null = null;
 let autoCheckHandle: ReturnType<typeof setInterval> | null = null;
+let autoCheckInFlight: Promise<AutoUpdateStatus> | null = null;
+let updateHistoryInitialized = false;
+let activeUpdatePolicy: UpdatePolicy | null = null;
+
+// Keep Electron's OS support check, then add one narrow rollback invariant.
+// Capturing the original callback avoids duplicating electron-updater's evolving
+// minimumSystemVersion policy in Puntovivo.
+const defaultIsUpdateSupported = autoUpdater.isUpdateSupported;
+autoUpdater.isUpdateSupported = async info =>
+  (await Promise.resolve(defaultIsUpdateSupported(info))) &&
+  isCandidateAllowedByPolicy(activeUpdatePolicy, info.version);
 
 function currentTimestamp(): string {
   return new Date().toISOString();
@@ -93,6 +117,67 @@ function setUnavailable(reason: string): AutoUpdateStatus {
     releaseDate: null,
     updateUrl: null,
   });
+}
+
+function ensureUpdateHistory(): void {
+  if (updateHistoryInitialized) return;
+  updateHistoryInitialized = true;
+
+  try {
+    const history = recordVersionTransition(
+      join(app.getPath('userData'), 'auto-update-history.json'),
+      app.getVersion()
+    );
+    updateStatus({ lastUpdatedAt: history.updatedAt });
+    if (history.recovered) {
+      log.warn('recovered malformed auto-update history with a safe baseline');
+    }
+  } catch (error) {
+    log.warn({ err: error }, 'failed to persist auto-update history');
+  }
+}
+
+async function refreshUpdatePolicy(): Promise<void> {
+  const result = await fetchUpdatePolicy();
+  if (result.kind === 'error') {
+    activeUpdatePolicy = null;
+    autoUpdater.allowDowngrade = false;
+    updateStatus({
+      rolloutMode: null,
+      rolloutPercentage: null,
+      rolloutTargetVersion: null,
+      rolloutPolicyCheckedAt: result.checkedAt,
+    });
+    log.warn({ message: result.message }, 'update policy unavailable; downgrade remains disabled');
+    return;
+  }
+
+  activeUpdatePolicy = result.policy;
+  autoUpdater.allowDowngrade = result.policy.mode === 'rollback';
+  updateStatus({
+    rolloutMode: result.policy.mode,
+    rolloutPercentage: result.policy.rolloutPercentage,
+    rolloutTargetVersion: result.policy.targetVersion,
+    rolloutPolicyCheckedAt: result.checkedAt,
+  });
+}
+
+function runAutoCheck(logMessage: string): Promise<AutoUpdateStatus> {
+  if (!autoCheckInFlight) {
+    autoCheckInFlight = (async () => {
+      await refreshUpdatePolicy();
+      try {
+        await autoUpdater.checkForUpdates();
+      } catch (error) {
+        log.warn({ err: error }, logMessage);
+      }
+      return getAutoUpdateStatus();
+    })().finally(() => {
+      autoCheckInFlight = null;
+    });
+  }
+
+  return autoCheckInFlight;
 }
 
 function getUnavailableReason(): string {
@@ -269,14 +354,10 @@ function initAutoMode(): AutoUpdateStatus {
 
     // electron-updater has no built-in poll, so drive the initial check + the
     // interval ourselves (this is what update-electron-app's updateInterval did).
-    void autoUpdater.checkForUpdates()?.catch(err => {
-      log.warn({ err }, 'initial auto-update check failed');
-    });
+    void runAutoCheck('initial auto-update check failed');
     if (!autoCheckHandle) {
       autoCheckHandle = setInterval(() => {
-        void autoUpdater.checkForUpdates()?.catch(err => {
-          log.warn({ err }, 'scheduled auto-update check failed');
-        });
+        void runAutoCheck('scheduled auto-update check failed');
       }, AUTO_CHECK_INTERVAL_MS);
       autoCheckHandle.unref?.();
     }
@@ -350,6 +431,8 @@ export function refreshAutoUpdateTranslations(): AutoUpdateStatus {
 }
 
 export function initAutoUpdater(): AutoUpdateStatus {
+  ensureUpdateHistory();
+
   if (!app.isPackaged) {
     return setUnavailable(getUnavailableReason());
   }
@@ -390,10 +473,7 @@ export function checkForAppUpdates(): AutoUpdateStatus | Promise<AutoUpdateStatu
     lastCheckedAt: currentTimestamp(),
   });
 
-  void autoUpdater.checkForUpdates()?.catch(err => {
-    log.warn({ err }, 'manual auto-update check failed');
-  });
-  return getAutoUpdateStatus();
+  return runAutoCheck('manual auto-update check failed');
 }
 
 export function restartToApplyAppUpdate(): AutoUpdateActionResult {

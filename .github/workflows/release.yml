@@ -17,15 +17,30 @@ on:
         description: 'Release tag whose GitHub Release receives the artifacts (e.g. v1.2.3)'
         required: true
         type: string
+      rollout_percentage:
+        description: 'Initial desktop rollout percentage (promote later through update-rollout.yml)'
+        required: false
+        default: '10'
+        type: string
   workflow_dispatch:
     inputs:
       tag:
         description: 'Existing release tag to (re)build and upload artifacts for (e.g. v1.2.3)'
         required: true
         type: string
+      rollout_percentage:
+        description: 'Initial desktop rollout percentage'
+        required: true
+        default: '10'
+        type: choice
+        options:
+          - '10'
+          - '50'
+          - '100'
 
 env:
   NODE_VERSION: '24'
+  RELEASE_TAG: ${{ inputs.tag }}
 
 # contents: upload installers to the Release. pages + id-token: the publish-feed
 # job deploys the auto-update feed to GitHub Pages. Each job narrows to what it
@@ -84,11 +99,13 @@ jobs:
 
       - name: Create web archive
         run: |
+          node --input-type=module -e \
+            "import { versionFromTag } from './scripts/rewrite-update-feed.mjs'; versionFromTag(process.env.RELEASE_TAG);"
           cd apps/web/dist
-          zip -r ../../../puntovivo-web-${{ inputs.tag }}.zip .
+          zip -r "../../../puntovivo-web-${RELEASE_TAG}.zip" .
 
       - name: Upload web release asset
-        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" "./puntovivo-web-${{ inputs.tag }}.zip"
+        run: node ./scripts/upload-release-assets.mjs "$RELEASE_TAG" "./puntovivo-web-${RELEASE_TAG}.zip"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -210,7 +227,7 @@ jobs:
           node -e "const fs=require('node:fs');const d='apps/desktop/out-builder';const ext=['.zip','.exe','.AppImage'];const files=fs.readdirSync(d);const inst=files.filter(f=>ext.some(e=>f.endsWith(e)));if(inst.length!==1){console.error('expected exactly 1 installer in '+d+', got '+inst.length+': '+inst.join(', '));process.exit(1)}const out=[d+'/'+inst[0]];const bm=inst[0]+'.blockmap';if(files.includes(bm))out.push(d+'/'+bm);process.stdout.write(out.join('\n')+'\n')" | while IFS= read -r f; do
             [ -n "$f" ] || continue
             echo "uploading: $f"
-            gh release upload "${{ inputs.tag }}" "$f" --clobber
+            gh release upload "$RELEASE_TAG" "$f" --clobber
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -238,8 +255,10 @@ jobs:
     name: Publish update feed to Pages
     needs: release-desktop
     runs-on: ubuntu-latest
+    env:
+      ROLLOUT_PERCENTAGE: ${{ inputs.rollout_percentage }}
     permissions:
-      contents: read
+      contents: write
       pages: write
       id-token: write
     concurrency:
@@ -262,7 +281,23 @@ jobs:
           merge-multiple: true
 
       - name: Rewrite feed URLs to the Release downloads
-        run: node ./scripts/rewrite-update-feed.mjs feed "${{ inputs.tag }}"
+        run: >-
+          node ./scripts/rewrite-update-feed.mjs feed "$RELEASE_TAG"
+          --rollout "$ROLLOUT_PERCENTAGE" --mode normal
+
+      # Keep the rewritten appcasts with the immutable release so a later
+      # rollback can republish N-1 without rebuilding or trusting mutable Pages
+      # state. update-policy.json records the exact target and percentage.
+      - name: Archive update feed on the GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          find feed -maxdepth 1 -type f \( -name 'latest*.yml' -o -name 'update-policy.json' \) -print0 |
+            while IFS= read -r -d '' file; do
+              gh release upload "$RELEASE_TAG" "$file" --clobber
+            done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Keep the Pages root from being a bare 404; the marketing site is on
       # Cloudflare, so redirect a browser there.

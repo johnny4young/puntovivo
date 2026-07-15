@@ -19,6 +19,11 @@ export interface ElectronAPI {
     installMode: 'auto' | 'manual';
     currentVersion: string;
     lastCheckedAt: string | null;
+    lastUpdatedAt: string | null;
+    rolloutMode: 'normal' | 'rollback' | null;
+    rolloutPercentage: 10 | 50 | 100 | null;
+    rolloutTargetVersion: string | null;
+    rolloutPolicyCheckedAt: string | null;
     releaseName: string | null;
     releaseNotes: string | null;
     releaseDate: string | null;
@@ -32,6 +37,11 @@ export interface ElectronAPI {
     installMode: 'auto' | 'manual';
     currentVersion: string;
     lastCheckedAt: string | null;
+    lastUpdatedAt: string | null;
+    rolloutMode: 'normal' | 'rollback' | null;
+    rolloutPercentage: 10 | 50 | 100 | null;
+    rolloutTargetVersion: string | null;
+    rolloutPolicyCheckedAt: string | null;
     releaseName: string | null;
     releaseNotes: string | null;
     releaseDate: string | null;
