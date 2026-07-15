@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { tenants, users } from '../db/schema.js';
 import { shouldUseSecureCookies } from './cookies.js';
+import type { UserRole } from '@puntovivo/shared/roles';
 
 export const REFRESH_COOKIE_NAME = 'puntovivo_refresh';
 export const REALTIME_COOKIE_NAME = 'puntovivo_realtime';
@@ -37,7 +38,7 @@ export interface AuthTokenPayload {
   userId: string;
   tenantId: string;
   email: string;
-  role: string;
+  role: UserRole;
   sessionVersion: number;
   tokenType: AuthTokenType;
   authMethod?: AuthMethod;
@@ -56,7 +57,7 @@ interface AuthUserIdentity {
   id: string;
   tenantId: string;
   email: string;
-  role: string;
+  role: UserRole;
   sessionVersion: number;
 }
 

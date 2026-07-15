@@ -16,5 +16,11 @@ export {
   USER_ROLES,
   type UserRole,
 } from './roles.js';
+export {
+  canRolePerformApprovalActionDirectly,
+  managerApprovalActionEnum,
+  requiredApprovalRole,
+  type ManagerApprovalAction,
+} from './manager-approval.js';
 export { formatQuantity, normalizedQuantity, roundQuantity } from './unit-math.js';
 export { UNIT_DIMENSIONS, type UnitDimension } from './units.js';

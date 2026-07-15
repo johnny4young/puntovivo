@@ -299,10 +299,11 @@ export const managerApprovalsRouter = router({
           message: 'This action is not valid for checkout approval',
         });
       }
-      const resourceId = checkoutContext
+      let resourceType = input.resourceType;
+      let resourceId = checkoutContext
         ? checkoutApprovalResourceId(checkoutContext)
         : input.resourceId;
-      const summary = checkoutContext
+      let summary = checkoutContext
         ? {
             label: 'checkout',
             amount:
@@ -312,6 +313,52 @@ export const managerApprovalsRouter = router({
             currencyCode: checkoutContext.currencyCode,
           }
         : input.summary;
+
+      if (input.action === 'sale_void' || input.action === 'sale_refund') {
+        const targetSale = resourceId
+          ? await criticalCtx.db
+              .select({
+                id: sales.id,
+                saleNumber: sales.saleNumber,
+                total: sales.total,
+                currencyCode: sales.currencyCode,
+                status: sales.status,
+                paymentStatus: sales.paymentStatus,
+              })
+              .from(sales)
+              .where(and(eq(sales.id, resourceId), eq(sales.tenantId, criticalCtx.tenantId)))
+              .get()
+          : null;
+        if (
+          !targetSale ||
+          targetSale.status !== 'completed' ||
+          targetSale.paymentStatus === 'refunded'
+        ) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'MANAGER_APPROVAL_MISMATCH',
+            message: 'The target sale is not eligible for this approval',
+          });
+        }
+        resourceType = 'sale';
+        resourceId = targetSale.id;
+        summary = {
+          label: targetSale.saleNumber,
+          amount: targetSale.total,
+          currencyCode: targetSale.currencyCode,
+        };
+      } else if (input.action === 'cash_drawer_open') {
+        if (resourceId !== site.id) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'MANAGER_APPROVAL_MISMATCH',
+            message: 'The drawer approval must target the active site',
+          });
+        }
+        resourceType = 'site';
+        resourceId = site.id;
+        summary = { label: site.name };
+      }
       const resourceIdCondition = resourceId
         ? eq(managerApprovalRequests.resourceId, resourceId)
         : isNull(managerApprovalRequests.resourceId);
@@ -324,7 +371,7 @@ export const managerApprovalsRouter = router({
             eq(managerApprovalRequests.siteId, site.id),
             eq(managerApprovalRequests.requesterId, criticalCtx.user.id),
             eq(managerApprovalRequests.action, input.action),
-            eq(managerApprovalRequests.resourceType, input.resourceType),
+            eq(managerApprovalRequests.resourceType, resourceType),
             resourceIdCondition,
             eq(managerApprovalRequests.status, 'pending'),
             gt(managerApprovalRequests.expiresAt, now)
@@ -343,7 +390,7 @@ export const managerApprovalsRouter = router({
         action: input.action,
         status: 'pending' as const,
         reason: input.reason,
-        resourceType: input.resourceType,
+        resourceType,
         resourceId: resourceId ?? null,
         summary,
         requestedAt: now,
@@ -370,7 +417,7 @@ export const managerApprovalsRouter = router({
           },
           metadata: {
             reason: input.reason,
-            resourceType: input.resourceType,
+            resourceType,
             resourceId: resourceId ?? null,
             summary,
             requiredApproverRole: requiredApproverLabel(input.action),

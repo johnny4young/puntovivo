@@ -316,7 +316,7 @@ async function assertAuditEventInUi(
 }
 
 test.describe('web business flows', () => {
-  test('cashier completes a sale and action permissions stay hidden for the cashier role', { tag: PRERELEASE_MONEY_TAG }, async ({
+  test('cashier completes a sale and sensitive actions remain grant-gated', { tag: PRERELEASE_MONEY_TAG }, async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
@@ -344,8 +344,8 @@ test.describe('web business flows', () => {
     );
 
     await openSaleDetails(page, sale.saleNumber);
-    await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
 
     await capturePrereleaseEvidence(page, 'prerelease-sale-details');
     await expectNoClientIssues(tracker);
@@ -377,7 +377,7 @@ test.describe('web business flows', () => {
     await openSaleDetails(page, sale.saleNumber);
 
     await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Refund Sale', exact: true }).first().click();
     // ENG-084 V8 reskin — the trigger keeps the legacy "Refund Sale" copy,

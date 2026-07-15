@@ -42,10 +42,7 @@ const displayNameSchema = z
 //     the field required with type `unknown` and breaks every
 //     existing call site that omits the key.
 const hardwareIdempotencyKeySchema = z
-  .preprocess(
-    value => (value === '' ? undefined : value),
-    z.string().min(1).max(128).optional()
-  )
+  .preprocess(value => (value === '' ? undefined : value), z.string().min(1).max(128).optional())
   .optional();
 
 export const listPeripheralsInput = z.object({
@@ -115,19 +112,21 @@ export const printReceiptInput = z.object({
 });
 export type PrintReceiptInput = z.infer<typeof printReceiptInput>;
 
-// ENG-062 — manager-gated cash drawer kick. Idempotent on the
-// hardware side (a stale retry just re-pulses the relay).
+// ENG-062 / ENG-106c3 — role-aware cash drawer kick. Cashiers bind an
+// exact one-time approval; direct-authority roles omit it. Idempotent on
+// the hardware side (a stale retry just re-pulses the relay).
 export const kickCashDrawerInput = z.object({
   siteId: z.string().min(1, 'siteId is required'),
+  approvalRequestId: z.string().min(1).optional(),
   /** ENG-067b — opt-in dedup key (see printReceiptInput). */
   idempotencyKey: hardwareIdempotencyKeySchema,
 });
 export type KickCashDrawerInput = z.infer<typeof kickCashDrawerInput>;
 
-// ENG-074b — read-only "give me the bytes" inputs for the
-// hub_client local hardware bridge. Same shape as printReceipt /
-// kickCashDrawer minus the idempotency key (these procedures
-// never write `hardware_outbox` so dedup is moot). Per
+// ENG-074b — "give me the bytes" inputs for the hub_client local
+// hardware bridge. Receipt bytes remain read-only; drawer bytes consume
+// an approval and write dispatch audit evidence but never touch
+// `hardware_outbox`, so a separate hardware dedup key is moot. Per
 // ADR-0008 rule 6 the bridge runs on the terminal that owns the
 // physical printer; the server only resolves the active
 // peripheral and serializes the bytes.
@@ -139,6 +138,7 @@ export type BuildReceiptBytesInput = z.infer<typeof buildReceiptBytesInput>;
 
 export const buildDrawerKickBytesInput = z.object({
   siteId: z.string().min(1, 'siteId is required'),
+  approvalRequestId: z.string().min(1).optional(),
 });
 export type BuildDrawerKickBytesInput = z.infer<typeof buildDrawerKickBytesInput>;
 

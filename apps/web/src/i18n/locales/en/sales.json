@@ -597,7 +597,7 @@
   },
   "approval": {
     "title": "Approval required",
-    "help": "Send the request without leaving the cashier session. The sale unlocks only for this exact checkout.",
+    "help": "Approval covers only this exact action and its details.",
     "checkoutSummary": "Checkout · {{total}}",
     "refresh": "Refresh",
     "request": "Request approval",
@@ -605,13 +605,16 @@
     "requested": "Approval request sent",
     "requestError": "Unable to request approval",
     "statusError": "Approval status could not be refreshed. Retry before charging.",
-    "reasonLabel": "Reason",
-    "reasonPlaceholder": "Explain why this checkout needs approval",
+    "reasonLabel": "Reason for {{action}}",
+    "reasonPlaceholder": "Explain why approval is needed",
     "decisionReason": "Decision note: {{reason}}",
     "actions": {
       "sale_discount": "Discounted checkout",
       "credit_sale": "Customer credit sale",
-      "credit_override": "Credit-limit override"
+      "credit_override": "Credit-limit override",
+      "sale_void": "Void sale",
+      "sale_refund": "Refund sale",
+      "cash_drawer_open": "Open cash drawer"
     },
     "status": {
       "loading": "Checking",

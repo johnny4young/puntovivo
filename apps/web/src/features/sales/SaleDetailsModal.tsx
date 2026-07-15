@@ -1,7 +1,10 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Printer, RotateCw } from 'lucide-react';
+import { canRolePerformApprovalActionDirectly } from '@puntovivo/shared/manager-approval';
 import { Modal, ModalButton, ConfirmModal } from '@/components/form-controls/Modal';
+import { useManagerApproval } from '@/features/approvals/useManagerApproval';
+import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
 import { RefundConfirmOverlay } from './RefundConfirmOverlay';
 import { SaleReprintModal, type ReprintReason } from './SaleReprintModal';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -98,6 +101,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         u => u.inventory.listStock,
         u => u.products.list,
         u => u.products.search,
+        u => u.managerApprovals.mine,
       ]);
       toast.success({ title: t('sales:details.toast.refundSuccessTitle') });
       setIsReturnConfirmOpen(false);
@@ -164,6 +168,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         u => u.inventory.listStock,
         u => u.products.list,
         u => u.products.search,
+        u => u.managerApprovals.mine,
       ]);
       toast.success({ title: t('sales:details.toast.voidSuccessTitle') });
       setIsVoidConfirmOpen(false);
@@ -188,12 +193,41 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   );
 
   const sale = saleQuery.data;
-  const canReturnSale =
-    (user?.role === 'admin' || user?.role === 'manager') &&
-    sale?.status === 'completed' &&
-    sale.paymentStatus !== 'refunded';
-  const canVoidSale =
-    user?.role === 'admin' && sale?.status === 'completed' && sale.paymentStatus !== 'refunded';
+  const isSalesRole =
+    user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier';
+  const isPostSaleEligible = sale?.status === 'completed' && sale.paymentStatus !== 'refunded';
+  const refundNeedsApproval =
+    isSalesRole &&
+    isPostSaleEligible &&
+    !canRolePerformApprovalActionDirectly(user?.role, 'sale_refund');
+  const voidNeedsApproval =
+    isSalesRole &&
+    isPostSaleEligible &&
+    !canRolePerformApprovalActionDirectly(user?.role, 'sale_void');
+  const refundApproval = useManagerApproval({
+    action: 'sale_refund',
+    resourceType: 'sale',
+    resourceId: sale?.id ?? null,
+    summary: {
+      label: sale?.saleNumber ?? t('sales:confirm.refund.confirmText'),
+      amount: Number(sale?.total ?? 0),
+      currencyCode: sale?.currencyCode ?? 'COP',
+    },
+    enabled: isOpen && refundNeedsApproval,
+  });
+  const voidApproval = useManagerApproval({
+    action: 'sale_void',
+    resourceType: 'sale',
+    resourceId: sale?.id ?? null,
+    summary: {
+      label: sale?.saleNumber ?? t('sales:confirm.void.confirmText'),
+      amount: Number(sale?.total ?? 0),
+      currencyCode: sale?.currencyCode ?? 'COP',
+    },
+    enabled: isOpen && voidNeedsApproval,
+  });
+  const canReturnSale = isSalesRole && isPostSaleEligible;
+  const canVoidSale = isSalesRole && isPostSaleEligible;
   // ENG-019 — any non-draft sale is reprintable. The server enforces the
   // cashier-active-session rule; UI surfaces the button for everyone and
   // shows the translated error on denial.
@@ -244,7 +278,13 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
     setReturnError(null);
 
     try {
-      await returnMutation.mutateAsync({ id: saleId, reason });
+      await returnMutation.mutateAsync({
+        id: saleId,
+        reason,
+        ...(refundApproval.approvalRequestId
+          ? { approvalRequestId: refundApproval.approvalRequestId }
+          : {}),
+      });
     } catch {
       // Error state is handled by the mutation callbacks.
     }
@@ -277,7 +317,12 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
     setVoidError(null);
 
     try {
-      await voidMutation.mutateAsync({ id: saleId });
+      await voidMutation.mutateAsync({
+        id: saleId,
+        ...(voidApproval.approvalRequestId
+          ? { approvalRequestId: voidApproval.approvalRequestId }
+          : {}),
+      });
     } catch {
       // Error state is handled by the mutation callbacks.
     }
@@ -419,6 +464,18 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
             total: Number(item.total ?? item.unitPrice ?? 0),
           })) ?? []
         }
+        approvalPanel={
+          refundNeedsApproval ? (
+            <CheckoutApprovalPanel
+              {...refundApproval}
+              isHashing={false}
+              hasError={refundApproval.error !== null}
+              onRequest={refundApproval.requestApproval}
+              onRefresh={() => void refundApproval.refetch()}
+            />
+          ) : undefined
+        }
+        confirmDisabled={refundNeedsApproval && !refundApproval.allApproved}
         onClose={() => setIsReturnConfirmOpen(false)}
         onConfirm={reason => {
           setIsReturnConfirmOpen(false);
@@ -436,8 +493,19 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         message={t('confirm.void.message')}
         confirmText={t('confirm.void.confirmText')}
         loading={voidMutation.isPending}
+        confirmDisabled={voidNeedsApproval && !voidApproval.allApproved}
         variant="danger"
-      />
+      >
+        {voidNeedsApproval && (
+          <CheckoutApprovalPanel
+            {...voidApproval}
+            isHashing={false}
+            hasError={voidApproval.error !== null}
+            onRequest={voidApproval.requestApproval}
+            onRefresh={() => void voidApproval.refetch()}
+          />
+        )}
+      </ConfirmModal>
     </>
   );
 }

@@ -8,17 +8,34 @@
 import { and, eq } from 'drizzle-orm';
 import { hardwareOutbox, sitePeripherals, tenants } from '../../../db/schema.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
-import { instantiateAdapter, tickDefaultHardwareWorker, buildSaleReceiptDocument } from '../../../services/peripherals/index.js';
+import {
+  instantiateAdapter,
+  tickDefaultHardwareWorker,
+  buildSaleReceiptDocument,
+} from '../../../services/peripherals/index.js';
 import { enqueueHardware } from '../../../services/peripherals/enqueue-hardware.js';
-import type { CashDrawerAdapter, ReceiptPrinterAdapter } from '../../../services/peripherals/index.js';
+import type {
+  CashDrawerAdapter,
+  ReceiptPrinterAdapter,
+} from '../../../services/peripherals/index.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
-import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
+import {
+  claimCashDrawerApproval,
+  recordCashDrawerDispatch,
+  releaseCashDrawerApproval,
+} from '../../../application/peripherals/cashDrawerApproval.js';
+import { adminProcedure } from '../../middleware/roles.js';
+import { criticalCommandCashierManagerOrAdminProcedure } from '../../middleware/criticalCommand.js';
+import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import { ensureTenantSite } from '../../middleware/tenantSite.js';
 import { tenantProcedure } from '../../middleware/tenant.js';
-import { kickCashDrawerInput, printReceiptInput, retryHardwareOutboxInput } from '../../schemas/peripherals.js';
+import {
+  kickCashDrawerInput,
+  printReceiptInput,
+  retryHardwareOutboxInput,
+} from '../../schemas/peripherals.js';
 
 export const peripheralsActionProcedures = {
-
   /**
    * ENG-062 — orchestrate the receipt print after a sale completes.
    *
@@ -36,131 +53,130 @@ export const peripheralsActionProcedures = {
    * `tenantProcedure` because cashiers print receipts. Cross-tenant
    * isolation comes from `getSaleRecord(tenantId, saleId)`.
    */
-  printReceipt: tenantProcedure
-    .input(printReceiptInput)
-    .mutation(async ({ ctx, input }) => {
-      // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
-      const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
-      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+  printReceipt: tenantProcedure.input(printReceiptInput).mutation(async ({ ctx, input }) => {
+    // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
+    const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
 
-      // Find the active printer peripheral for the active site.
-      const printerRow = await ctx.db
-        .select()
-        .from(sitePeripherals)
-        .where(
-          and(
-            eq(sitePeripherals.tenantId, ctx.tenantId),
-            eq(sitePeripherals.siteId, input.siteId),
-            eq(sitePeripherals.kind, 'printer'),
-            eq(sitePeripherals.isActive, true)
-          )
+    // Find the active printer peripheral for the active site.
+    const printerRow = await ctx.db
+      .select()
+      .from(sitePeripherals)
+      .where(
+        and(
+          eq(sitePeripherals.tenantId, ctx.tenantId),
+          eq(sitePeripherals.siteId, input.siteId),
+          eq(sitePeripherals.kind, 'printer'),
+          eq(sitePeripherals.isActive, true)
         )
-        .get();
+      )
+      .get();
 
-      if (!printerRow || printerRow.driver === 'system') {
-        return { status: 'system-fallback' as const };
-      }
+    if (!printerRow || printerRow.driver === 'system') {
+      return { status: 'system-fallback' as const };
+    }
 
-      // ESC/POS path: build the structured receipt document + dispatch.
-      const adapter = instantiateAdapter(printerRow);
-      if (!adapter || adapter.kind !== 'printer') {
-        return {
-          status: 'fallback' as const,
-          error: 'DRIVER_NOT_IMPLEMENTED',
-          errorMessage: 'Active printer driver is not registered',
-        };
-      }
-
-      const tenantRow = await ctx.db
-        .select({ name: tenants.name })
-        .from(tenants)
-        .where(eq(tenants.id, ctx.tenantId))
-        .get();
-      const document = buildSaleReceiptDocument(
-        {
-          header: { tenantName: tenantRow?.name ?? sale.tenantId },
-          saleNumber: sale.saleNumber,
-          customerName: sale.customerName ?? undefined,
-          items: sale.items.map(item => ({
-            name: item.productName ?? item.productSku ?? '—',
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            total: item.total,
-          })),
-          subtotal: sale.subtotal,
-          taxAmount: sale.taxAmount,
-          total: sale.total,
-          totalLabel: 'TOTAL',
-          formatCurrency: v => v.toFixed(2),
-        },
-        { kickDrawer: false }
-      );
-
-      const result = await (adapter as ReceiptPrinterAdapter).print({
-        kind: 'sale-receipt',
-        metadata: { document, saleId: sale.id },
-      });
-
-      if (result.status === 'ok') {
-        return { status: 'printed' as const };
-      }
-
-      // Enqueue a retry row so the worker drains it later.
-      // ENG-067b — pipe the optional input.idempotencyKey through so
-      // a tRPC retry of the same logical print attempt collapses to
-      // one row instead of stacking duplicates. Helper handles the
-      // partial-unique-idx UNIQUE conflict gracefully.
-      try {
-        await enqueueHardware(
-          { db: ctx.db, tenantId: ctx.tenantId },
-          {
-            kind: 'print-receipt',
-            peripheralId: printerRow.id,
-            payload: {
-              kind: 'print-receipt',
-              document,
-              saleId: sale.id,
-              siteId: input.siteId,
-            },
-            status: 'retrying',
-            attempts: 1,
-            nextRetryAt: new Date(Date.now() + 60_000).toISOString(),
-            lastError: {
-              errorCode: result.error?.kind ?? 'UNKNOWN',
-              providerMessage: result.error?.message ?? 'unknown error',
-              recoverable: true,
-            },
-            idempotencyKey: input.idempotencyKey ?? null,
-          }
-        );
-        // Fire-and-forget tick so the next periodic interval isn't
-        // the only retry chance.
-        void tickDefaultHardwareWorker(ctx.tenantId);
-      } catch (err) {
-        // Enqueue failure does not change the user-visible outcome —
-        // we already know the print failed and the renderer will
-        // fall back. Just log.
-        ctx.req.log.warn(
-          { err, saleId: input.saleId },
-          'hardware outbox enqueue failed; renderer fallback still fires'
-        );
-      }
-
+    // ESC/POS path: build the structured receipt document + dispatch.
+    const adapter = instantiateAdapter(printerRow);
+    if (!adapter || adapter.kind !== 'printer') {
       return {
         status: 'fallback' as const,
-        error: result.error?.kind ?? 'UNKNOWN',
-        errorMessage: result.error?.message ?? 'ESC/POS print failed',
+        error: 'DRIVER_NOT_IMPLEMENTED',
+        errorMessage: 'Active printer driver is not registered',
       };
-    }),
+    }
+
+    const tenantRow = await ctx.db
+      .select({ name: tenants.name })
+      .from(tenants)
+      .where(eq(tenants.id, ctx.tenantId))
+      .get();
+    const document = buildSaleReceiptDocument(
+      {
+        header: { tenantName: tenantRow?.name ?? sale.tenantId },
+        saleNumber: sale.saleNumber,
+        customerName: sale.customerName ?? undefined,
+        items: sale.items.map(item => ({
+          name: item.productName ?? item.productSku ?? '—',
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.total,
+        })),
+        subtotal: sale.subtotal,
+        taxAmount: sale.taxAmount,
+        total: sale.total,
+        totalLabel: 'TOTAL',
+        formatCurrency: v => v.toFixed(2),
+      },
+      { kickDrawer: false }
+    );
+
+    const result = await (adapter as ReceiptPrinterAdapter).print({
+      kind: 'sale-receipt',
+      metadata: { document, saleId: sale.id },
+    });
+
+    if (result.status === 'ok') {
+      return { status: 'printed' as const };
+    }
+
+    // Enqueue a retry row so the worker drains it later.
+    // ENG-067b — pipe the optional input.idempotencyKey through so
+    // a tRPC retry of the same logical print attempt collapses to
+    // one row instead of stacking duplicates. Helper handles the
+    // partial-unique-idx UNIQUE conflict gracefully.
+    try {
+      await enqueueHardware(
+        { db: ctx.db, tenantId: ctx.tenantId },
+        {
+          kind: 'print-receipt',
+          peripheralId: printerRow.id,
+          payload: {
+            kind: 'print-receipt',
+            document,
+            saleId: sale.id,
+            siteId: input.siteId,
+          },
+          status: 'retrying',
+          attempts: 1,
+          nextRetryAt: new Date(Date.now() + 60_000).toISOString(),
+          lastError: {
+            errorCode: result.error?.kind ?? 'UNKNOWN',
+            providerMessage: result.error?.message ?? 'unknown error',
+            recoverable: true,
+          },
+          idempotencyKey: input.idempotencyKey ?? null,
+        }
+      );
+      // Fire-and-forget tick so the next periodic interval isn't
+      // the only retry chance.
+      void tickDefaultHardwareWorker(ctx.tenantId);
+    } catch (err) {
+      // Enqueue failure does not change the user-visible outcome —
+      // we already know the print failed and the renderer will
+      // fall back. Just log.
+      ctx.req.log.warn(
+        { err, saleId: input.saleId },
+        'hardware outbox enqueue failed; renderer fallback still fires'
+      );
+    }
+
+    return {
+      status: 'fallback' as const,
+      error: result.error?.kind ?? 'UNKNOWN',
+      errorMessage: result.error?.message ?? 'ESC/POS print failed',
+    };
+  }),
 
   /**
-   * ENG-062 — manager-gated cash drawer kick. Idempotent: re-firing
+   * ENG-062 / ENG-106c3 — role-aware cash drawer kick. Managers/admins
+   * act directly; cashiers consume an exact one-time site grant. Re-firing
    * the pulse just relays the drawer again, harmless on every model
    * we've tested. When no drawer is registered, we return a polite
    * `{status:'no-drawer-registered'}` instead of throwing — the UI
    * decides whether to surface a toast or hide the button.
    */
-  kickCashDrawer: managerOrAdminProcedure
+  kickCashDrawer: criticalCommandCashierManagerOrAdminProcedure
     .input(kickCashDrawerInput)
     .mutation(async ({ ctx, input }) => {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
@@ -188,6 +204,29 @@ export const peripheralsActionProcedures = {
           error: 'DRIVER_NOT_IMPLEMENTED',
           errorMessage: 'Active drawer driver is not registered',
         };
+      }
+      const criticalCtx = asCriticalCommandContext(ctx);
+      const approvalContext = {
+        db: criticalCtx.db,
+        tenantId: criticalCtx.tenantId,
+        siteId: input.siteId,
+        user: { id: criticalCtx.user.id, role: criticalCtx.user.role },
+        envelope: criticalCtx.envelope,
+        deviceId: criticalCtx.deviceId,
+        log: criticalCtx.req?.server?.log,
+      };
+      const approvalClaim = claimCashDrawerApproval(approvalContext, input.approvalRequestId);
+      try {
+        // Consume before hardware I/O: a timeout can be ambiguous and may
+        // still have opened the drawer, so the grant must never be reusable.
+        await recordCashDrawerDispatch(approvalContext, {
+          claim: approvalClaim,
+          peripheralId: drawerRow.id,
+          dispatchMode: 'server',
+        });
+      } catch (error) {
+        releaseCashDrawerApproval(approvalContext, approvalClaim);
+        throw error;
       }
       const result = await (adapter as CashDrawerAdapter).kick();
       if (result.status === 'ok') {
@@ -244,12 +283,7 @@ export const peripheralsActionProcedures = {
       const existing = await ctx.db
         .select({ id: hardwareOutbox.id, status: hardwareOutbox.status })
         .from(hardwareOutbox)
-        .where(
-          and(
-            eq(hardwareOutbox.id, input.id),
-            eq(hardwareOutbox.tenantId, ctx.tenantId)
-          )
-        )
+        .where(and(eq(hardwareOutbox.id, input.id), eq(hardwareOutbox.tenantId, ctx.tenantId)))
         .get();
       if (!existing) {
         throwServerError({
@@ -275,12 +309,7 @@ export const peripheralsActionProcedures = {
           lockedAt: null,
           updatedAt: now,
         })
-        .where(
-          and(
-            eq(hardwareOutbox.id, input.id),
-            eq(hardwareOutbox.tenantId, ctx.tenantId)
-          )
-        );
+        .where(and(eq(hardwareOutbox.id, input.id), eq(hardwareOutbox.tenantId, ctx.tenantId)));
       // Mirror of `sync.retry` (ENG-064): no fire-and-forget tick —
       // the next periodic worker tick (30s default) drains the
       // requeued row. Avoids re-failing the row immediately when

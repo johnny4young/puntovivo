@@ -33,10 +33,10 @@ describe('CheckoutApprovalPanel', () => {
 
     const request = screen.getByRole('button', { name: 'Request approval' });
     expect(request).toBeDisabled();
-    await user.type(screen.getByPlaceholderText('Explain why this checkout needs approval'), 'OK');
+    await user.type(screen.getByPlaceholderText('Explain why approval is needed'), 'OK');
     expect(request).toBeDisabled();
     await user.type(
-      screen.getByPlaceholderText('Explain why this checkout needs approval'),
+      screen.getByPlaceholderText('Explain why approval is needed'),
       ' price'
     );
     await user.click(request);
@@ -69,5 +69,34 @@ describe('CheckoutApprovalPanel', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Refresh' }));
     expect(onRefresh).toHaveBeenCalledOnce();
+  });
+
+  it('allows a fresh request after a one-time grant was consumed', async () => {
+    const user = userEvent.setup();
+    const onRequest = vi.fn();
+    render(
+      <CheckoutApprovalPanel
+        {...baseProps}
+        onRequest={onRequest}
+        help="This approval is bound to the selected sale."
+        views={[
+          {
+            action: 'sale_refund',
+            requestId: 'approval-consumed',
+            status: 'consumed',
+            decisionReason: null,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Refund sale')).toBeInTheDocument();
+    expect(screen.getByText('This approval is bound to the selected sale.')).toBeInTheDocument();
+    await user.type(
+      screen.getByPlaceholderText('Explain why approval is needed'),
+      'New refund'
+    );
+    await user.click(screen.getByRole('button', { name: 'Request approval' }));
+    expect(onRequest).toHaveBeenCalledWith('sale_refund', 'New refund');
   });
 });

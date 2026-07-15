@@ -1,4 +1,4 @@
-import { useRef, type ReactNode, type MouseEvent } from 'react';
+import { useId, useRef, type ReactNode, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,8 @@ export interface ModalProps {
   title?: string | undefined;
   /** Accessible label used when the modal has no visible title */
   ariaLabel?: string | undefined;
+  /** Id of a visible title rendered by a custom modal header */
+  ariaLabelledBy?: string | undefined;
   /** Modal content */
   children: ReactNode;
   /** Footer content (typically action buttons) */
@@ -64,6 +66,7 @@ export function Modal({
   onClose,
   title,
   ariaLabel,
+  ariaLabelledBy,
   children,
   footer,
   size = 'md',
@@ -77,6 +80,7 @@ export function Modal({
 }: ModalProps) {
   const { t } = useTranslation('common');
   const modalRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
 
   // ENG-186 (review follow-up) — focus-trap, ESC close, focus restoration
   // (incl. the ENG-105f restoreFocusTo override) and body-scroll-lock now
@@ -104,8 +108,8 @@ export function Modal({
       className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-labelledby={title ? 'modal-title' : undefined}
-      aria-label={title ? undefined : ariaLabel}
+      aria-labelledby={title ? titleId : ariaLabelledBy}
+      aria-label={title || ariaLabelledBy ? undefined : ariaLabel}
     >
       {/* Backdrop */}
       <div
@@ -127,7 +131,10 @@ export function Modal({
         {(title || showCloseButton) && (
           <div className="modal-header">
             {title && (
-              <h2 id="modal-title" className="pr-4 font-display text-2xl leading-tight text-secondary-950 sm:text-[2rem]">
+              <h2
+                id={titleId}
+                className="pr-4 font-display text-2xl leading-tight text-secondary-950 sm:text-[2rem]"
+              >
                 {title}
               </h2>
             )}
@@ -135,10 +142,7 @@ export function Modal({
               <button
                 type="button"
                 onClick={onClose}
-                className={cn(
-                  'btn-ghost btn-icon shrink-0',
-                  !title && 'ml-auto'
-                )}
+                className={cn('btn-ghost btn-icon shrink-0', !title && 'ml-auto')}
                 aria-label={t('actions.closeModal')}
               >
                 <X className="h-5 w-5" />
@@ -151,11 +155,7 @@ export function Modal({
         <div className={cn('modal-body', contentClassName)}>{children}</div>
 
         {/* Footer */}
-        {footer && (
-          <div className={cn('modal-footer', footerClassName)}>
-            {footer}
-          </div>
-        )}
+        {footer && <div className={cn('modal-footer', footerClassName)}>{footer}</div>}
       </div>
     </div>
   );
@@ -201,11 +201,7 @@ export function ModalButton({
       onClick={onClick}
       disabled={disabled}
       id={id}
-      className={cn(
-        'w-full sm:w-auto sm:min-w-[9rem]',
-        variantClasses[variant],
-        className
-      )}
+      className={cn('w-full sm:w-auto sm:min-w-[9rem]', variantClasses[variant], className)}
     >
       {children}
     </button>
@@ -223,6 +219,8 @@ export interface ConfirmModalProps {
   cancelText?: string;
   variant?: 'danger' | 'primary';
   loading?: boolean;
+  confirmDisabled?: boolean;
+  children?: ReactNode;
 }
 
 export function ConfirmModal({
@@ -235,6 +233,8 @@ export function ConfirmModal({
   cancelText,
   variant = 'danger',
   loading = false,
+  confirmDisabled = false,
+  children,
 }: ConfirmModalProps) {
   // Localized defaults — callers usually pass explicit strings, but the
   // fallbacks must not leak hardcoded English into a Spanish session.
@@ -254,13 +254,16 @@ export function ConfirmModal({
           <ModalButton onClick={onClose} disabled={loading}>
             {resolvedCancelText}
           </ModalButton>
-          <ModalButton variant={variant} onClick={onConfirm} disabled={loading}>
+          <ModalButton variant={variant} onClick={onConfirm} disabled={loading || confirmDisabled}>
             {loading ? `${loadingText}…` : resolvedConfirmText}
           </ModalButton>
         </>
       }
     >
-      <p className="text-secondary-600">{message}</p>
+      <div className="space-y-4">
+        <p className="text-secondary-600">{message}</p>
+        {children}
+      </div>
     </Modal>
   );
 }

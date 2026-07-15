@@ -27,11 +27,13 @@ import {
   freshCriticalContext,
   type FreshContextOverrides,
 } from './utils/criticalCommandFixture.js';
+import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
 
 let server: PuntovivoServer;
 let db: DatabaseInstance;
 let tenantId: string;
 let siteId: string;
+let approvalSaleId: string;
 
 type EmployeeRole = 'admin' | 'manager' | 'cashier' | 'viewer';
 
@@ -84,12 +86,16 @@ function requestInput(
     | 'cash_drawer_open'
     | 'sale_refund'
     | 'credit_sale',
-  resourceId = nanoid()
+  resourceId = action === 'cash_drawer_open'
+    ? siteId
+    : action === 'sale_void' || action === 'sale_refund'
+      ? approvalSaleId
+      : nanoid()
 ) {
   return {
     action,
     reason: `Approval needed for ${action}`,
-    resourceType: action === 'cash_drawer_open' ? 'cash_drawer' : 'sale',
+    resourceType: action === 'cash_drawer_open' ? 'site' : 'sale',
     resourceId,
     summary: { label: `Sensitive action ${action}`, amount: 125, currencyCode: 'USD' },
   } as const;
@@ -100,7 +106,7 @@ describe('manager approvals router (ENG-106c1)', () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     db = getDatabase();
     const seededAdmin = await db
-      .select({ tenantId: users.tenantId })
+      .select({ id: users.id, tenantId: users.tenantId })
       .from(users)
       .where(eq(users.email, 'admin@localhost'))
       .get();
@@ -113,6 +119,28 @@ describe('manager approvals router (ENG-106c1)', () => {
       .get();
     if (!seededSite) throw new Error('Expected seeded site');
     siteId = seededSite.id;
+    const cashSessionId = await seedCommittedSaleSession({
+      tenantId,
+      cashierId: seededAdmin.id,
+      siteId,
+    });
+    approvalSaleId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(sales).values({
+      id: approvalSaleId,
+      tenantId,
+      saleNumber: `APPROVAL-SALE-${approvalSaleId}`,
+      currencyCode: 'USD',
+      subtotal: 125,
+      total: 125,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      cashSessionId,
+      createdBy: seededAdmin.id,
+      createdAt: now,
+      updatedAt: now,
+    });
   });
 
   afterAll(async () => {
@@ -262,6 +290,48 @@ describe('manager approvals router (ENG-106c1)', () => {
       label: 'checkout',
       amount: 25,
       currencyCode: 'USD',
+    });
+  });
+
+  it('derives post-sale and drawer resources from tenant-owned rows', async () => {
+    const cashier = await createEmployee('cashier');
+    const caller = appRouter.createCaller(cashier.fresh());
+    const refund = await caller.managerApprovals.request({
+      ...requestInput('sale_refund'),
+      summary: { label: 'Forged sale', amount: 1, currencyCode: 'COP' },
+    });
+    expect(refund).toMatchObject({
+      resourceType: 'sale',
+      resourceId: approvalSaleId,
+      summary: {
+        label: `APPROVAL-SALE-${approvalSaleId}`,
+        amount: 125,
+        currencyCode: 'USD',
+      },
+    });
+
+    const drawer = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+      ...requestInput('cash_drawer_open'),
+      summary: { label: 'Forged site' },
+    });
+    const site = await db
+      .select({ name: sites.name })
+      .from(sites)
+      .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId)))
+      .get();
+    expect(drawer).toMatchObject({
+      resourceType: 'site',
+      resourceId: siteId,
+      summary: { label: site?.name },
+    });
+
+    await expect(
+      appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        ...requestInput('cash_drawer_open'),
+        resourceId: nanoid(),
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_MISMATCH' }),
     });
   });
 
@@ -674,6 +744,7 @@ describe('manager approvals router (ENG-106c1)', () => {
       requesterId: cashier.id,
       requestId,
       action: 'sale_discount',
+      resourceType: 'sale_checkout',
       resourceId,
     });
     expect(claim.token).toMatch(/^[a-f0-9]{64}$/);
@@ -685,6 +756,7 @@ describe('manager approvals router (ENG-106c1)', () => {
         requesterId: cashier.id,
         requestId,
         action: 'sale_discount',
+        resourceType: 'sale_checkout',
         resourceId,
       })
     ).toThrowError(
@@ -699,8 +771,9 @@ describe('manager approvals router (ENG-106c1)', () => {
         tenantId,
         requesterId: cashier.id,
         claim,
-        saleId: 'sale-consumed-1',
-        saleNumber: 'VTA-000001',
+        consumedResourceType: 'sale',
+        consumedResourceId: 'sale-consumed-1',
+        metadata: { saleNumber: 'VTA-000001' },
       });
     });
     await enqueueConsumedManagerApproval(cashier.fresh(), requestId);
@@ -790,6 +863,7 @@ describe('manager approvals router (ENG-106c1)', () => {
         requesterId: cashier.id,
         requestId,
         action: 'credit_sale',
+        resourceType: 'sale_checkout',
         resourceId: `${resourceId}-changed`,
       })
     ).toThrowError(
@@ -805,6 +879,7 @@ describe('manager approvals router (ENG-106c1)', () => {
       requesterId: cashier.id,
       requestId,
       action: 'credit_sale',
+      resourceType: 'sale_checkout',
       resourceId,
     });
     expect(() =>
@@ -830,6 +905,7 @@ describe('manager approvals router (ENG-106c1)', () => {
       requesterId: cashier.id,
       requestId,
       action: 'credit_sale',
+      resourceType: 'sale_checkout',
       resourceId,
     });
     await db
@@ -843,8 +919,9 @@ describe('manager approvals router (ENG-106c1)', () => {
           tenantId,
           requesterId: cashier.id,
           claim: expiredClaim,
-          saleId: 'sale-too-late',
-          saleNumber: 'VTA-000002',
+          consumedResourceType: 'sale',
+          consumedResourceId: 'sale-too-late',
+          metadata: { saleNumber: 'VTA-000002' },
         });
       })
     ).toThrowError(

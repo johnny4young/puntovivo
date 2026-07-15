@@ -20,6 +20,11 @@
       "import": "./dist/checkout-approval.js",
       "default": "./dist/checkout-approval.js"
     },
+    "./manager-approval": {
+      "types": "./src/manager-approval.ts",
+      "import": "./dist/manager-approval.js",
+      "default": "./dist/manager-approval.js"
+    },
     "./roles": {
       "types": "./src/roles.ts",
       "import": "./dist/roles.js",

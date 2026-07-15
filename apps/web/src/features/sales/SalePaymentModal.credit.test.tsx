@@ -309,7 +309,10 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     });
 
     await screen.findByTestId('checkout-approval-sale_discount');
-    await user.type(screen.getByLabelText('Reason'), 'Customer price match');
+    await user.type(
+      screen.getByLabelText('Reason for Discounted checkout'),
+      'Customer price match',
+    );
     await user.click(screen.getByRole('button', { name: 'Request approval' }));
     const submittedVariables = mockApprovalMutation.mutate.mock.calls[0]?.[0] as Record<
       string,

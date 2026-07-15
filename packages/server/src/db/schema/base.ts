@@ -199,6 +199,8 @@ export const auditLogActionEnum = [
   'manager_approval.reject',
   'manager_approval.cancel',
   'manager_approval.consume',
+  // ENG-106c3 — every direct or approved physical drawer dispatch.
+  'cash_drawer.open',
   'sale.price_override',
   // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
   // when a cashier suspends a draft sale; `sale.resume` when the same or
@@ -338,6 +340,8 @@ export const auditLogResourceTypeEnum = [
   'employee_shift',
   // ENG-106c1 — one short-lived authorization request/grant.
   'manager_approval',
+  // ENG-106c3 — drawer approvals and dispatch evidence bind to a site.
+  'site',
   // ENG-047 wrote anomaly rows keyed to the flagged cashier in early
   // dev databases. Keep the reader tolerant so those rows stay visible.
   'cashier',

@@ -64,6 +64,7 @@ export type AuditLogAction =
   | 'manager_approval.reject'
   | 'manager_approval.cancel'
   | 'manager_approval.consume'
+  | 'cash_drawer.open'
   | 'sale.price_override'
   // ENG-018 — park-and-resume (including discard metadata flag).
   | 'sale.park'
@@ -140,6 +141,7 @@ export type AuditLogResourceType =
   | 'user'
   | 'employee_shift'
   | 'manager_approval'
+  | 'site'
   | 'cashier'
   // ENG-068 — module activation kernel resource type.
   | 'tenant_module'

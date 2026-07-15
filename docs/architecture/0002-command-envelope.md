@@ -121,11 +121,16 @@ follow-up amendment.
 - `transfers.receive`
 - `transfers.void`
 
-**Fiscal** *(in español por convención fiscal)*
+**Peripherals**
 
-- `fiscal.emitDocument` *(canal interno disparado por sales lifecycle)*
-- `fiscal.cancelDocument` *(cancelación SAT explícita; ENG-035c lo ship)*
-- `fiscal.retryFromContingency` *(operator-initiated retry; ENG-057)*
+- `peripherals.kickCashDrawer` (ENG-106c3 — audited physical dispatch)
+- `peripherals.buildDrawerKickBytes` (ENG-106c3 — audited hub-client dispatch)
+
+**Fiscal** _(in español por convención fiscal)_
+
+- `fiscal.emitDocument` _(canal interno disparado por sales lifecycle)_
+- `fiscal.cancelDocument` _(cancelación SAT explícita; ENG-035c lo ship)_
+- `fiscal.retryFromContingency` _(operator-initiated retry; ENG-057)_
 
 **Payment**
 

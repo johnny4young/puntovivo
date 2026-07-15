@@ -10,6 +10,7 @@ import type { DatabaseInstance } from '../db/index.js';
 import { sites } from '../db/schema.js';
 import { verifyAccessToken } from '../security/authTokens.js';
 import type { AuthMethod } from '../security/authTokens.js';
+import type { UserRole } from '@puntovivo/shared/roles';
 
 export interface Context {
   req: FastifyRequest;
@@ -18,7 +19,7 @@ export interface Context {
   user: {
     id: string;
     email: string;
-    role: string;
+    role: UserRole;
     tenantId: string;
     authMethod?: AuthMethod;
     authSessionExpiresAt?: number;

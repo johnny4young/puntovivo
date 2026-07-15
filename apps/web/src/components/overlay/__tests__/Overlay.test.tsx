@@ -21,6 +21,7 @@ describe('Overlay', () => {
     expect(screen.getByText('Activación del turno')).toBeInTheDocument();
     expect(screen.getByText('Cuenta el efectivo inicial por denominación.')).toBeInTheDocument();
     expect(screen.getByText('body')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Activación del turno' })).toBeInTheDocument();
   });
 
   it('renders nothing when closed', () => {

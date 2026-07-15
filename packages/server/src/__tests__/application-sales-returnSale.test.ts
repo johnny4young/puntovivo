@@ -13,10 +13,12 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import {
+  auditLogs,
   cashMovements,
   cashSessions,
   customers,
   inventoryBalances,
+  managerApprovalRequests,
   operationEffects,
   products,
   saleReturns,
@@ -41,6 +43,7 @@ let userId: string;
 let siteId: string;
 let baseUnitId: string;
 let cashSessionId: string;
+let approvalApproverId: string;
 
 function buildContext(overrides: Partial<CompleteSaleContext> = {}): CompleteSaleContext {
   return {
@@ -153,14 +156,37 @@ async function seedCompletedSplitSale(productId: string) {
   return (result.sale as { id: string }).id;
 }
 
+async function seedApprovedRefundGrant(saleId: string): Promise<string> {
+  const id = nanoid();
+  const timestamp = new Date().toISOString();
+  await getDatabase()
+    .insert(managerApprovalRequests)
+    .values({
+      id,
+      tenantId,
+      siteId,
+      requesterId: userId,
+      action: 'sale_refund',
+      status: 'approved',
+      reason: 'Cashier refund verified',
+      resourceType: 'sale',
+      resourceId: saleId,
+      summary: { label: saleId },
+      requestedAt: timestamp,
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      decidedAt: timestamp,
+      decidedBy: approvalApproverId,
+      grantExpiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  return id;
+}
+
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -173,14 +199,21 @@ beforeAll(async () => {
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
 
-  const seededUnits = await db
-    .select()
-    .from(units)
-    .where(eq(units.tenantId, tenantId))
-    .all();
+  const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
   if (!baseUnit) throw new Error('Expected seeded unit UND');
   baseUnitId = baseUnit.id;
+
+  approvalApproverId = nanoid();
+  await db.insert(users).values({
+    id: approvalApproverId,
+    tenantId,
+    email: `refund-approver-${approvalApproverId}@example.test`,
+    name: 'Refund Approver',
+    passwordHash: 'not-used-by-router-tests',
+    role: 'manager',
+    isActive: true,
+  });
 
   const reg = await registerDeviceService(db, {
     tenantId,
@@ -325,6 +358,79 @@ describe('returnSale (happy path)', () => {
   });
 });
 
+describe('returnSale (ENG-106c3 approval boundary)', () => {
+  it('requires an exact grant for a cashier and leaves the sale unchanged on denial', async () => {
+    const productId = await seedProduct({
+      name: 'Return grant denied',
+      sku: `RT-GRANT-DENIED-${nanoid()}`,
+      stock: 5,
+    });
+    const saleId = await seedCompletedCashSale(productId);
+
+    await expect(
+      returnSale(buildContext({ user: { id: userId, role: 'cashier' } }), { id: saleId })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+    });
+    const unchanged = await getDatabase()
+      .select({ paymentStatus: sales.paymentStatus })
+      .from(sales)
+      .where(eq(sales.id, saleId))
+      .get();
+    expect(unchanged?.paymentStatus).toBe('paid');
+  });
+
+  it('atomically consumes a cashier grant and links requester and approver evidence', async () => {
+    const productId = await seedProduct({
+      name: 'Return grant consumed',
+      sku: `RT-GRANT-OK-${nanoid()}`,
+      stock: 5,
+    });
+    const saleId = await seedCompletedCashSale(productId);
+    const approvalRequestId = await seedApprovedRefundGrant(saleId);
+
+    await returnSale(buildContext({ user: { id: userId, role: 'cashier' } }), {
+      id: saleId,
+      approvalRequestId,
+      reason: 'Customer changed mind',
+    });
+
+    const consumed = await getDatabase()
+      .select({ status: managerApprovalRequests.status })
+      .from(managerApprovalRequests)
+      .where(eq(managerApprovalRequests.id, approvalRequestId))
+      .get();
+    expect(consumed?.status).toBe('consumed');
+    const audit = await getDatabase()
+      .select({ metadata: auditLogs.metadata })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.action, 'sale.return'),
+          eq(auditLogs.resourceId, saleId),
+          eq(auditLogs.actorId, userId)
+        )
+      )
+      .get();
+    expect(audit?.metadata).toMatchObject({
+      approvalRequestId,
+      approvedBy: approvalApproverId,
+    });
+  });
+
+  it('preserves the direct manager refund boundary without a grant', async () => {
+    const productId = await seedProduct({
+      name: 'Return direct manager',
+      sku: `RT-DIRECT-${nanoid()}`,
+      stock: 5,
+    });
+    const saleId = await seedCompletedCashSale(productId);
+    await expect(
+      returnSale(buildContext({ user: { id: userId, role: 'manager' } }), { id: saleId })
+    ).resolves.toBeTruthy();
+  });
+});
+
 describe('returnSale (state guards)', () => {
   it('rejects voided sales', async () => {
     const db = getDatabase();
@@ -356,11 +462,7 @@ describe('returnSale (state guards)', () => {
       stock: 5,
     });
     const saleId = await seedCompletedCashSale(productId);
-    await db
-      .update(sales)
-      .set({ paymentStatus: 'refunded' })
-      .where(eq(sales.id, saleId))
-      .run();
+    await db.update(sales).set({ paymentStatus: 'refunded' }).where(eq(sales.id, saleId)).run();
 
     await expect(returnSale(buildContext(), { id: saleId })).rejects.toMatchObject({
       message: expect.stringMatching(/refunded/i),
@@ -380,11 +482,7 @@ describe('returnSale (state guards)', () => {
     // create a fresh duplicate scenario by inserting a second
     // sale_returns row manually after restoring paymentStatus.
     const db = getDatabase();
-    await db
-      .update(sales)
-      .set({ paymentStatus: 'paid' })
-      .where(eq(sales.id, saleId))
-      .run();
+    await db.update(sales).set({ paymentStatus: 'paid' }).where(eq(sales.id, saleId)).run();
     await expect(returnSale(buildContext(), { id: saleId })).rejects.toMatchObject({
       message: expect.stringMatching(/duplicate|already/i),
     });

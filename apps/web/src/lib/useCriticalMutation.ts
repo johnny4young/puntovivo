@@ -60,6 +60,8 @@ export type CriticalCommandPath =
   | 'managerApprovals.request'
   | 'managerApprovals.decideWithPin'
   | 'managerApprovals.cancel'
+  | 'peripherals.kickCashDrawer'
+  | 'peripherals.buildDrawerKickBytes'
   | 'auth.changePassword'
   // ENG-068 — module activation toggle. Server-side wraps with
   // `criticalCommandAdminProcedure` so the client must mint an

@@ -16,9 +16,7 @@ import { and, eq } from 'drizzle-orm';
 
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
-  criticalCommandAdminProcedure,
   criticalCommandCashierManagerOrAdminProcedure,
-  criticalCommandManagerOrAdminProcedure,
   criticalCommandProcedure,
 } from '../../middleware/criticalCommand.js';
 import { cashSessions, sales } from '../../../db/schema.js';
@@ -61,64 +59,59 @@ export const salesLifecycleProcedures = {
   create: criticalCommandCashierManagerOrAdminProcedure
     .input(createSaleInput)
     .mutation(async ({ ctx, input }) => {
-    // ENG-039c — when the renderer passes a tableId (voice-ordering
-    // screen), resolve + validate it against the tenant/site catalog BEFORE
-    // entering the transactional sale flow so a cross-tenant or
-    // archived FK fails fast with a clear error code.
-    if (input.tableId) {
-      await resolveActiveRestaurantTable(
-        ctx.db,
-        ctx.tenantId,
-        input.tableId,
-        ctx.siteId
-      );
-    }
-
-    // Draft creation is not a checkout and cannot consume a grant yet. Keep
-    // the original direct role gate on the unusual credit-draft path; a real
-    // completion is authorized atomically inside completeSale below.
-    if (input.status !== 'completed' && inputCarriesCreditTender(input)) {
-      assertCanCreateCreditSale(ctx);
-    }
-
-    const criticalCtx = asCriticalCommandContext(ctx);
-    const result = await completeSale(
-      {
-        db: ctx.db,
-        tenantId: ctx.tenantId,
-        siteId: ctx.siteId ?? '',
-        user: { id: ctx.user!.id, role: ctx.user!.role },
-        envelope: criticalCtx.envelope,
-        deviceId: criticalCtx.deviceId,
-        log: ctx.req?.server?.log,
-      },
-      {
-        mode: 'fresh',
-        customerId: input.customerId,
-        items: input.items,
-        payments: input.payments,
-        paymentMethod: input.paymentMethod,
-        amountReceived: input.amountReceived,
-        paymentStatus: input.paymentStatus,
-        discountAmount: input.discountAmount,
-        status: input.status,
-        notes: input.notes,
-        tableId: input.tableId,
-        tipAmount: input.tipAmount,
-        tipMethod: input.tipMethod ?? null,
-        // ENG-039d3 — auto-applied restaurant service charge passes
-        // through to the use-case. The Zod schema defaults amount to 0
-        // and leaves rate optional so retail tenants pay zero contract
-        // cost; `runFreshSale` re-validates against the tenant rate.
-        serviceChargeAmount: input.serviceChargeAmount,
-        serviceChargeRate: input.serviceChargeRate ?? null,
-        // ENG-090 — admin override for the credit-limit invariant.
-        creditOverride: input.creditOverride ?? false,
-        approvalRequests: input.approvalRequests,
-        checkoutStartedAt: input.checkoutStartedAt,
+      // ENG-039c — when the renderer passes a tableId (voice-ordering
+      // screen), resolve + validate it against the tenant/site catalog BEFORE
+      // entering the transactional sale flow so a cross-tenant or
+      // archived FK fails fast with a clear error code.
+      if (input.tableId) {
+        await resolveActiveRestaurantTable(ctx.db, ctx.tenantId, input.tableId, ctx.siteId);
       }
-    );
-    return result.sale;
+
+      // Draft creation is not a checkout and cannot consume a grant yet. Keep
+      // the original direct role gate on the unusual credit-draft path; a real
+      // completion is authorized atomically inside completeSale below.
+      if (input.status !== 'completed' && inputCarriesCreditTender(input)) {
+        assertCanCreateCreditSale(ctx);
+      }
+
+      const criticalCtx = asCriticalCommandContext(ctx);
+      const result = await completeSale(
+        {
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId ?? '',
+          user: { id: ctx.user!.id, role: ctx.user!.role },
+          envelope: criticalCtx.envelope,
+          deviceId: criticalCtx.deviceId,
+          log: ctx.req?.server?.log,
+        },
+        {
+          mode: 'fresh',
+          customerId: input.customerId,
+          items: input.items,
+          payments: input.payments,
+          paymentMethod: input.paymentMethod,
+          amountReceived: input.amountReceived,
+          paymentStatus: input.paymentStatus,
+          discountAmount: input.discountAmount,
+          status: input.status,
+          notes: input.notes,
+          tableId: input.tableId,
+          tipAmount: input.tipAmount,
+          tipMethod: input.tipMethod ?? null,
+          // ENG-039d3 — auto-applied restaurant service charge passes
+          // through to the use-case. The Zod schema defaults amount to 0
+          // and leaves rate optional so retail tenants pay zero contract
+          // cost; `runFreshSale` re-validates against the tenant rate.
+          serviceChargeAmount: input.serviceChargeAmount,
+          serviceChargeRate: input.serviceChargeRate ?? null,
+          // ENG-090 — admin override for the credit-limit invariant.
+          creditOverride: input.creditOverride ?? false,
+          approvalRequests: input.approvalRequests,
+          checkoutStartedAt: input.checkoutStartedAt,
+        }
+      );
+      return result.sale;
     }),
 
   /**
@@ -186,31 +179,36 @@ export const salesLifecycleProcedures = {
    *
    * ENG-055 — orchestration delegated to `application/sales/returnSale`.
    */
-  returnSale: criticalCommandManagerOrAdminProcedure
+  returnSale: criticalCommandCashierManagerOrAdminProcedure
     .input(returnSaleInput)
     .mutation(async ({ ctx, input }) => {
       const result = await returnSaleService(buildLifecycleContext(ctx), {
         id: input.id,
         reason: input.reason,
+        approvalRequestId: input.approvalRequestId,
       });
       return result.sale;
     }),
 
   /**
-   * Void a completed sale (admin only) and reverse the related stock movements.
+   * Void a completed sale and reverse the related stock movements.
    *
    * ENG-055 — orchestration delegated to `application/sales/voidSale`.
-   * Void is admin-only and decoupled from a cashier's register: the
-   * cash movement reversal is conditional on the ORIGINAL session
-   * still being open; once closed, over/short is locked.
+   * Admins act directly; managers and cashiers require an exact admin grant.
+   * The reversal remains decoupled from the caller's register and is
+   * conditional on the ORIGINAL session still being open; once closed,
+   * over/short is locked.
    */
-  void: criticalCommandAdminProcedure.input(voidSaleInput).mutation(async ({ ctx, input }) => {
-    const result = await voidSaleService(buildLifecycleContext(ctx), {
-      id: input.id,
-      reason: input.reason,
-    });
-    return result.sale;
-  }),
+  void: criticalCommandCashierManagerOrAdminProcedure
+    .input(voidSaleInput)
+    .mutation(async ({ ctx, input }) => {
+      const result = await voidSaleService(buildLifecycleContext(ctx), {
+        id: input.id,
+        reason: input.reason,
+        approvalRequestId: input.approvalRequestId,
+      });
+      return result.sale;
+    }),
 
   /**
    * ENG-018c — Complete a draft sale that was previously created via
@@ -344,8 +342,7 @@ export const salesLifecycleProcedures = {
           throwServerError({
             trpcCode: 'FORBIDDEN',
             errorCode: 'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
-            message:
-              'Cashiers can only reprint sales from their active cash session',
+            message: 'Cashiers can only reprint sales from their active cash session',
           });
         }
       }

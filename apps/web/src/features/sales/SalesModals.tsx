@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
 import { LazySalePaymentModal } from '@/features/sales/lazySalePaymentModal';
 import { preloadSalePaymentModal } from '@/features/sales/salePaymentModal.loader';
 import type { SalePaymentValues } from '@/features/sales/salePaymentModal.types';
@@ -20,6 +19,12 @@ const QuickCreateProductGate = lazy(() =>
 const QuickCreateCustomerGate = lazy(() =>
   import('@/features/sales/QuickCreateCustomerGate').then(module => ({
     default: module.QuickCreateCustomerGate,
+  }))
+);
+
+const LazySaleDetailsModal = lazy(() =>
+  import('@/features/sales/SaleDetailsModal').then(module => ({
+    default: module.SaleDetailsModal,
   }))
 );
 
@@ -245,11 +250,13 @@ export function SalesModals({
       )}
 
       {selectedSaleId && (
-        <SaleDetailsModal
-          saleId={selectedSaleId}
-          isOpen={!!selectedSaleId}
-          onClose={onCloseSaleDetails}
-        />
+        <Suspense fallback={null}>
+          <LazySaleDetailsModal
+            saleId={selectedSaleId}
+            isOpen={!!selectedSaleId}
+            onClose={onCloseSaleDetails}
+          />
+        </Suspense>
       )}
 
       {isSuspendLabelPromptOpen && (

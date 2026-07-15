@@ -1,28 +1,30 @@
 import { RefreshCw, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { CheckoutApprovalAction } from '@puntovivo/shared/checkout-approval';
-import type { CheckoutApprovalView } from './useCheckoutApprovals';
+import type { ManagerApprovalAction } from '@puntovivo/shared/manager-approval';
+import type { ApprovalRequestView } from './useCheckoutApprovals';
 
-interface CheckoutApprovalPanelProps {
-  views: CheckoutApprovalView[];
+interface CheckoutApprovalPanelProps<Action extends ManagerApprovalAction> {
+  views: ApprovalRequestView<Action>[];
   isLoading: boolean;
   isHashing: boolean;
   isRequesting: boolean;
   hasError: boolean;
-  onRequest: (action: CheckoutApprovalAction, reason: string) => void;
+  onRequest: (action: Action, reason: string) => void;
   onRefresh: () => void;
+  help?: string | undefined;
 }
 
-const RETRYABLE_STATUSES = new Set<CheckoutApprovalView['status']>([
+const RETRYABLE_STATUSES = new Set<ApprovalRequestView['status']>([
   'not_requested',
   'rejected',
   'cancelled',
+  'consumed',
   'expired',
 ]);
 
 /** ENG-106c2 — cashier-facing status, never an elevated manager session. */
-export function CheckoutApprovalPanel({
+export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
   views,
   isLoading,
   isHashing,
@@ -30,9 +32,10 @@ export function CheckoutApprovalPanel({
   hasError,
   onRequest,
   onRefresh,
-}: CheckoutApprovalPanelProps) {
+  help,
+}: CheckoutApprovalPanelProps<Action>) {
   const { t } = useTranslation('sales');
-  const [reasons, setReasons] = useState<Partial<Record<CheckoutApprovalAction, string>>>({});
+  const [reasons, setReasons] = useState<Partial<Record<ManagerApprovalAction, string>>>({});
 
   if (views.length === 0) return null;
 
@@ -49,7 +52,7 @@ export function CheckoutApprovalPanel({
             <h3 id="checkout-approval-title" className="text-sm font-semibold text-primary-950">
               {t('approval.title')}
             </h3>
-            <p className="mt-0.5 text-xs text-primary-800">{t('approval.help')}</p>
+            <p className="mt-0.5 text-xs text-primary-800">{help ?? t('approval.help')}</p>
           </div>
         </div>
         <button
@@ -110,7 +113,9 @@ export function CheckoutApprovalPanel({
                 <div className="mt-3 space-y-2">
                   <label className="block">
                     <span className="text-xs font-medium text-secondary-800">
-                      {t('approval.reasonLabel')}
+                      {t('approval.reasonLabel', {
+                        action: t(`approval.actions.${view.action}`),
+                      })}
                     </span>
                     <textarea
                       className="input mt-1 min-h-16 resize-y py-2 text-sm"

@@ -1,5 +1,6 @@
 import type { UserRole } from '@puntovivo/shared/roles';
 import {
+  CHECKOUT_APPROVAL_RESOURCE_TYPE,
   getRequiredCheckoutApprovalActions,
   type CheckoutApprovalAction,
   type CheckoutApprovalContext,
@@ -10,7 +11,7 @@ import {
   checkoutApprovalResourceId,
   claimManagerApprovalGrant,
   consumeManagerApprovalGrant,
-  enqueueConsumedManagerApproval,
+  enqueueConsumedManagerApprovalBestEffort,
   releaseManagerApprovalClaim,
   type ManagerApprovalClaim,
 } from '../../services/manager-approvals.js';
@@ -66,6 +67,7 @@ export function claimCheckoutApprovals(args: ClaimCheckoutApprovalsArgs): Manage
           requesterId: args.requesterId,
           requestId,
           action,
+          resourceType: CHECKOUT_APPROVAL_RESOURCE_TYPE,
           resourceId,
         })
       );
@@ -93,8 +95,9 @@ export function consumeCheckoutApprovals(args: {
       tenantId: args.tenantId,
       requesterId: args.requesterId,
       claim,
-      saleId: args.saleId,
-      saleNumber: args.saleNumber,
+      consumedResourceType: 'sale',
+      consumedResourceId: args.saleId,
+      metadata: { saleNumber: args.saleNumber },
     });
   }
 }
@@ -114,16 +117,6 @@ export async function enqueueCheckoutApprovalConsumptions(
   claims: ManagerApprovalClaim[]
 ): Promise<void> {
   for (const claim of claims) {
-    try {
-      await enqueueConsumedManagerApproval(ctx, claim.requestId);
-    } catch (error) {
-      // The sale and grant are already committed. Replication is repairable;
-      // surfacing this as a command failure would release the idempotency key
-      // and make a retry collide with the already-consumed one-time grant.
-      ctx.log?.warn(
-        { err: error, requestId: claim.requestId },
-        'manager approval consumption sync enqueue failed after sale commit'
-      );
-    }
+    await enqueueConsumedManagerApprovalBestEffort(ctx, claim);
   }
 }

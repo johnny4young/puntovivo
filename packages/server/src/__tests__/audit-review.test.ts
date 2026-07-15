@@ -83,6 +83,7 @@ describe('sensitive audit review (ENG-129f)', () => {
     await insertAudit('customer.personal_data.delete', '2026-01-11T10:00:00.000Z');
     await insertAudit('user.update', '2026-01-12T10:00:00.000Z');
     await insertAudit('sale.void', '2026-01-13T10:00:00.000Z');
+    await insertAudit('cash_drawer.open', '2026-01-13T11:00:00.000Z');
     await insertAudit('sale.complete', '2026-01-14T10:00:00.000Z');
     await insertAudit('inventory.adjust_stock', '2026-01-15T10:00:00.000Z');
     await insertAudit('ai.copilot.query', '2026-01-16T10:00:00.000Z');
@@ -98,7 +99,7 @@ describe('sensitive audit review (ENG-129f)', () => {
     const caller = appRouter.createCaller(createTestContext());
     const summary = await caller.auditLogs.sensitiveSummary();
 
-    expect(summary.total).toBe(7);
+    expect(summary.total).toBe(8);
     expect(summary.categories).toEqual([
       {
         category: 'privacy',
@@ -112,8 +113,8 @@ describe('sensitive audit review (ENG-129f)', () => {
       },
       {
         category: 'money',
-        count: 1,
-        latestAt: '2026-01-13T10:00:00.000Z',
+        count: 2,
+        latestAt: '2026-01-13T11:00:00.000Z',
       },
       {
         category: 'inventory',
@@ -135,10 +136,10 @@ describe('sensitive audit review (ENG-129f)', () => {
       createdBefore: '2026-01-15T10:00:00.000Z',
     });
 
-    expect(summary.total).toBe(3);
+    expect(summary.total).toBe(4);
     expect(summary.categories.find(row => row.category === 'privacy')?.count).toBe(0);
     expect(summary.categories.find(row => row.category === 'access')?.count).toBe(1);
-    expect(summary.categories.find(row => row.category === 'money')?.count).toBe(1);
+    expect(summary.categories.find(row => row.category === 'money')?.count).toBe(2);
     expect(summary.categories.find(row => row.category === 'inventory')?.count).toBe(1);
     expect(summary.categories.find(row => row.category === 'ai')?.count).toBe(0);
   });

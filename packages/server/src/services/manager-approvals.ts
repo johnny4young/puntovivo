@@ -6,19 +6,18 @@
  * manager/admin PIN. No elevated session is minted or cached.
  */
 import type { UserRole } from '@puntovivo/shared/roles';
+import {
+  canRolePerformApprovalActionDirectly,
+  requiredApprovalRole,
+  type ManagerApprovalAction,
+} from '@puntovivo/shared/manager-approval';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { and, eq, gt, lte, or } from 'drizzle-orm';
 import {
-  CHECKOUT_APPROVAL_RESOURCE_TYPE,
   serializeCheckoutApprovalContext,
-  type CheckoutApprovalAction,
   type CheckoutApprovalContext,
 } from '@puntovivo/shared/checkout-approval';
-import type {
-  ManagerApprovalAction,
-  ManagerApprovalRequest,
-  ManagerApprovalStatus,
-} from '../db/schema.js';
+import type { ManagerApprovalRequest, ManagerApprovalStatus } from '../db/schema.js';
 import { managerApprovalRequests } from '../db/schema.js';
 import type { DatabaseInstance } from '../db/index.js';
 import { throwServerError } from '../lib/errorCodes.js';
@@ -29,21 +28,12 @@ export const MANAGER_APPROVAL_REQUEST_TTL_MS = 10 * 60_000;
 export const MANAGER_APPROVAL_GRANT_TTL_MS = 2 * 60_000;
 export const MANAGER_APPROVAL_CLAIM_TTL_MS = 30_000;
 
-const ADMIN_ONLY_APPROVALS = new Set<ManagerApprovalAction>([
-  'credit_override',
-  'sale_void',
-]);
-
-export function canRoleApproveAction(
-  role: UserRole,
-  action: ManagerApprovalAction
-): boolean {
-  if (role === 'admin') return true;
-  return role === 'manager' && !ADMIN_ONLY_APPROVALS.has(action);
+export function canRoleApproveAction(role: UserRole, action: ManagerApprovalAction): boolean {
+  return canRolePerformApprovalActionDirectly(role, action);
 }
 
 export function requiredApproverLabel(action: ManagerApprovalAction): 'admin' | 'manager' {
-  return ADMIN_ONLY_APPROVALS.has(action) ? 'admin' : 'manager';
+  return requiredApprovalRole(action);
 }
 
 export function effectiveManagerApprovalStatus(
@@ -82,9 +72,7 @@ export function publicManagerApprovalRequest(request: ManagerApprovalRequest) {
   return publicRequest;
 }
 
-export function checkoutApprovalResourceId(
-  context: CheckoutApprovalContext
-): string {
+export function checkoutApprovalResourceId(context: CheckoutApprovalContext): string {
   const digest = createHash('sha256')
     .update(serializeCheckoutApprovalContext(context))
     .digest('hex');
@@ -93,10 +81,11 @@ export function checkoutApprovalResourceId(
 
 export interface ManagerApprovalClaim {
   requestId: string;
-  action: CheckoutApprovalAction;
+  action: ManagerApprovalAction;
   token: string;
   claimExpiresAt: string;
   approverId: string;
+  approvedResourceType: string;
   approvedResourceId: string;
 }
 
@@ -106,16 +95,29 @@ interface ClaimManagerApprovalArgs {
   siteId: string;
   requesterId: string;
   requestId: string;
-  action: CheckoutApprovalAction;
+  action: ManagerApprovalAction;
+  resourceType: string;
   resourceId: string;
   nowMs?: number | undefined;
+}
+
+interface ClaimActionApprovalArgs {
+  db: DatabaseInstance;
+  tenantId: string;
+  siteId: string;
+  requesterId: string;
+  requesterRole: UserRole;
+  action: ManagerApprovalAction;
+  resourceType: string;
+  resourceId: string;
+  requestId?: string | undefined;
 }
 
 function throwApprovalRequired(): never {
   throwServerError({
     trpcCode: 'FORBIDDEN',
     errorCode: 'MANAGER_APPROVAL_REQUIRED',
-    message: 'An approved manager request is required for this checkout',
+    message: 'An approved manager request is required for this action',
   });
 }
 
@@ -123,7 +125,7 @@ function throwApprovalMismatch(): never {
   throwServerError({
     trpcCode: 'FORBIDDEN',
     errorCode: 'MANAGER_APPROVAL_MISMATCH',
-    message: 'The approval request does not match this checkout',
+    message: 'The approval request does not match this action',
   });
 }
 
@@ -147,9 +149,7 @@ function throwApprovalExpired(): never {
  * Claims an approved grant without returning its bearer token to a renderer.
  * Expired executing claims may be reclaimed; a live claim is single-owner.
  */
-export function claimManagerApprovalGrant(
-  args: ClaimManagerApprovalArgs
-): ManagerApprovalClaim {
+export function claimManagerApprovalGrant(args: ClaimManagerApprovalArgs): ManagerApprovalClaim {
   const request = args.db
     .select()
     .from(managerApprovalRequests)
@@ -165,7 +165,7 @@ export function claimManagerApprovalGrant(
   if (
     request.siteId !== args.siteId ||
     request.action !== args.action ||
-    request.resourceType !== CHECKOUT_APPROVAL_RESOURCE_TYPE ||
+    request.resourceType !== args.resourceType ||
     request.resourceId !== args.resourceId
   ) {
     throwApprovalMismatch();
@@ -234,8 +234,25 @@ export function claimManagerApprovalGrant(
     token: claimToken,
     claimExpiresAt,
     approverId: request.decidedBy,
+    approvedResourceType: args.resourceType,
     approvedResourceId: args.resourceId,
   };
+}
+
+/** Direct-authority roles skip grants; every other sales role must claim one. */
+export function claimActionApproval(args: ClaimActionApprovalArgs): ManagerApprovalClaim | null {
+  if (canRolePerformApprovalActionDirectly(args.requesterRole, args.action)) return null;
+  if (!args.requestId) throwApprovalRequired();
+  return claimManagerApprovalGrant({
+    db: args.db,
+    tenantId: args.tenantId,
+    siteId: args.siteId,
+    requesterId: args.requesterId,
+    requestId: args.requestId,
+    action: args.action,
+    resourceType: args.resourceType,
+    resourceId: args.resourceId,
+  });
 }
 
 interface ConsumeManagerApprovalArgs {
@@ -243,14 +260,13 @@ interface ConsumeManagerApprovalArgs {
   tenantId: string;
   requesterId: string;
   claim: ManagerApprovalClaim;
-  saleId: string;
-  saleNumber: string;
+  consumedResourceType: string;
+  consumedResourceId: string;
+  metadata?: Record<string, unknown> | undefined;
 }
 
-/** Consumes one claim inside the same transaction as its approved sale. */
-export function consumeManagerApprovalGrant(
-  args: ConsumeManagerApprovalArgs
-): void {
+/** Consumes one claim inside the same transaction as its approved action. */
+export function consumeManagerApprovalGrant(args: ConsumeManagerApprovalArgs): void {
   // Read the clock at the consumption boundary. A timestamp captured before
   // checkout prework or at claim time could outlive the two-minute grant while
   // a slow transaction is still running, incorrectly accepting an expired
@@ -287,8 +303,8 @@ export function consumeManagerApprovalGrant(
     .update(managerApprovalRequests)
     .set({
       status: 'consumed',
-      resourceType: 'sale',
-      resourceId: args.saleId,
+      resourceType: args.consumedResourceType,
+      resourceId: args.consumedResourceId,
       consumedAt: now,
       claimToken: null,
       claimExpiresAt: null,
@@ -318,19 +334,19 @@ export function consumeManagerApprovalGrant(
     before: {
       status: 'approved',
       action: request.action,
-      resourceType: CHECKOUT_APPROVAL_RESOURCE_TYPE,
+      resourceType: args.claim.approvedResourceType,
       resourceId: args.claim.approvedResourceId,
     },
     after: {
       status: 'consumed',
-      resourceType: 'sale',
-      resourceId: args.saleId,
+      resourceType: args.consumedResourceType,
+      resourceId: args.consumedResourceId,
       consumedAt: now,
     },
     metadata: {
       requesterId: args.requesterId,
       approverId: args.claim.approverId,
-      saleNumber: args.saleNumber,
+      ...(args.metadata ?? {}),
     },
   });
 }
@@ -384,4 +400,22 @@ export async function enqueueConsumedManagerApproval(
     data: publicManagerApprovalRequest(row),
     priority: 10,
   });
+}
+
+export async function enqueueConsumedManagerApprovalBestEffort(
+  ctx: EnqueueSyncContext & {
+    log?: { warn: (bindings: object, message: string) => void } | undefined;
+  },
+  claim: ManagerApprovalClaim
+): Promise<void> {
+  try {
+    await enqueueConsumedManagerApproval(ctx, claim.requestId);
+  } catch (error) {
+    // The approved action is already durable. Replication is repairable;
+    // turning this into a command failure would weaken idempotency.
+    ctx.log?.warn(
+      { err: error, requestId: claim.requestId },
+      'manager approval consumption sync enqueue failed after action commit'
+    );
+  }
 }

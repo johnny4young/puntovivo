@@ -4,6 +4,7 @@ import type {
   CheckoutApprovalAction,
   CheckoutApprovalContext,
 } from '@puntovivo/shared/checkout-approval';
+import type { ManagerApprovalAction } from '@puntovivo/shared/manager-approval';
 import {
   CHECKOUT_APPROVAL_RESOURCE_TYPE,
   serializeCheckoutApprovalContext,
@@ -17,12 +18,14 @@ import { hashCheckoutApprovalPayload } from './checkoutApprovals';
 export type CheckoutApprovalStatus =
   'pending' | 'approved' | 'rejected' | 'cancelled' | 'executing' | 'consumed' | 'expired';
 
-export interface CheckoutApprovalView {
-  action: CheckoutApprovalAction;
+export interface ApprovalRequestView<Action extends ManagerApprovalAction = ManagerApprovalAction> {
+  action: Action;
   requestId: string | null;
   status: CheckoutApprovalStatus | 'not_requested';
   decisionReason: string | null;
 }
+
+export type CheckoutApprovalView = ApprovalRequestView<CheckoutApprovalAction>;
 
 export function useCheckoutApprovals(input: {
   actions: CheckoutApprovalAction[];

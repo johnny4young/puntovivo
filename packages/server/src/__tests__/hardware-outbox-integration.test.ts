@@ -24,8 +24,10 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  auditLogs,
   cashSessions,
   hardwareOutbox,
+  managerApprovalRequests,
   sales,
   sitePeripherals,
   sites,
@@ -40,6 +42,8 @@ import {
   type EscPosTransport,
 } from '../services/peripherals/index.js';
 import type { Context } from '../trpc/context.js';
+import { registerDevice } from '../services/devices/devicesService.js';
+import { freshCriticalContext } from './utils/criticalCommandFixture.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -47,33 +51,20 @@ let userId: string;
 let siteId: string;
 let cashSessionId: string;
 let saleId: string;
+let deviceId: string;
+let approverId: string;
 
 function buildContext(role: 'admin' | 'cashier' = 'admin'): Context {
-  const db = getDatabase();
-  return {
-    req: {
-      server: server.app,
-      headers: {},
-      log: { warn: () => undefined },
-      user: {
-        userId,
-        email: 'admin@localhost',
-        role,
-        tenantId,
-      },
-      jwtVerify: async () => {},
-    } as unknown as Context['req'],
-    res: {} as Context['res'],
-    db,
-    user: {
-      id: userId,
-      email: 'admin@localhost',
-      role,
-      tenantId,
-    },
+  return freshCriticalContext({
+    db: getDatabase(),
+    serverApp: server.app,
     tenantId,
+    userId,
+    email: 'admin@localhost',
+    role,
     siteId,
-  };
+    deviceId,
+  });
 }
 
 const now = () => new Date().toISOString();
@@ -81,11 +72,7 @@ const now = () => new Date().toISOString();
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -96,6 +83,26 @@ beforeAll(async () => {
     .get();
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
+  deviceId = (
+    await registerDevice(db, {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'hardware-outbox-integration',
+    })
+  ).deviceId;
+  approverId = nanoid();
+  await db.insert(users).values({
+    id: approverId,
+    tenantId,
+    email: `drawer-approver-${approverId}@example.test`,
+    name: 'Drawer Approver',
+    passwordHash: 'not-used-by-router-tests',
+    role: 'manager',
+    isActive: true,
+    createdAt: now(),
+    updatedAt: now(),
+  });
 
   // Seed a minimal completed sale we can hand to printReceipt.
   cashSessionId = nanoid();
@@ -144,12 +151,8 @@ afterAll(async () => {
 
 afterEach(async () => {
   __setEscPosTransportForTest(null);
-  await getDatabase()
-    .delete(hardwareOutbox)
-    .where(eq(hardwareOutbox.tenantId, tenantId));
-  await getDatabase()
-    .delete(sitePeripherals)
-    .where(eq(sitePeripherals.tenantId, tenantId));
+  await getDatabase().delete(hardwareOutbox).where(eq(hardwareOutbox.tenantId, tenantId));
+  await getDatabase().delete(sitePeripherals).where(eq(sitePeripherals.tenantId, tenantId));
 });
 
 describe('peripherals.printReceipt', () => {
@@ -238,15 +241,18 @@ describe('peripherals.printReceipt', () => {
 });
 
 describe('peripherals.kickCashDrawer', () => {
-  it('rejects cashier role with FORBIDDEN', async () => {
+  it('requires a one-time approval when a cashier targets a registered drawer', async () => {
+    const adminCaller = appRouter.createCaller(buildContext('admin'));
+    await adminCaller.peripherals.register({
+      siteId,
+      kind: 'cash_drawer',
+      driver: 'escpos',
+      config: { channel: 'mock' },
+    });
     const caller = appRouter.createCaller(buildContext('cashier'));
-    try {
-      await caller.peripherals.kickCashDrawer({ siteId });
-      throw new Error('should have thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(TRPCError);
-      expect((err as TRPCError).code).toBe('FORBIDDEN');
-    }
+    await expect(caller.peripherals.kickCashDrawer({ siteId })).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+    });
   });
 
   it('returns no-drawer-registered when no drawer is configured', async () => {
@@ -268,6 +274,125 @@ describe('peripherals.kickCashDrawer', () => {
     const result = await adminCaller.peripherals.kickCashDrawer({ siteId });
     expect(result).toEqual({ status: 'ok' });
     expect(mock.buffer()).toEqual(ESCPOS_BYTES.DRAWER_KICK);
+  });
+
+  it('consumes an exact cashier grant and records both approval and drawer evidence', async () => {
+    const mock = new MockEscPosTransport();
+    __setEscPosTransportForTest(mock);
+    const adminCaller = appRouter.createCaller(buildContext('admin'));
+    await adminCaller.peripherals.register({
+      siteId,
+      kind: 'cash_drawer',
+      driver: 'escpos',
+      config: { channel: 'mock' },
+    });
+    const approvalRequestId = nanoid();
+    const timestamp = now();
+    await getDatabase()
+      .insert(managerApprovalRequests)
+      .values({
+        id: approvalRequestId,
+        tenantId,
+        siteId,
+        requesterId: userId,
+        action: 'cash_drawer_open',
+        status: 'approved',
+        reason: 'Cashier needs change',
+        resourceType: 'site',
+        resourceId: siteId,
+        summary: { label: 'Main site' },
+        requestedAt: timestamp,
+        expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+        decidedAt: timestamp,
+        decidedBy: approverId,
+        grantExpiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+
+    const cashierCaller = appRouter.createCaller(buildContext('cashier'));
+    await expect(
+      cashierCaller.peripherals.kickCashDrawer({ siteId, approvalRequestId })
+    ).resolves.toEqual({ status: 'ok' });
+    const consumed = await getDatabase()
+      .select({ status: managerApprovalRequests.status })
+      .from(managerApprovalRequests)
+      .where(eq(managerApprovalRequests.id, approvalRequestId))
+      .get();
+    expect(consumed?.status).toBe('consumed');
+    const evidence = await getDatabase()
+      .select({ action: auditLogs.action, metadata: auditLogs.metadata })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantId),
+          eq(auditLogs.actorId, userId),
+          eq(auditLogs.resourceId, siteId)
+        )
+      )
+      .all();
+    expect(evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'cash_drawer.open',
+          metadata: expect.objectContaining({ approvalRequestId, approverId }),
+        }),
+      ])
+    );
+  });
+
+  it('keeps a cashier grant consumed when hardware failure is ambiguous', async () => {
+    const failing: EscPosTransport = {
+      async write() {
+        throw new EscPosTransportError('Timed out after dispatch', {
+          kind: 'DEVICE_TIMEOUT',
+          message: 'Drawer outcome unknown',
+        });
+      },
+      async close() {},
+    };
+    __setEscPosTransportForTest(failing);
+    const adminCaller = appRouter.createCaller(buildContext('admin'));
+    await adminCaller.peripherals.register({
+      siteId,
+      kind: 'cash_drawer',
+      driver: 'escpos',
+      config: { channel: 'mock' },
+    });
+    const approvalRequestId = nanoid();
+    const timestamp = now();
+    await getDatabase()
+      .insert(managerApprovalRequests)
+      .values({
+        id: approvalRequestId,
+        tenantId,
+        siteId,
+        requesterId: userId,
+        action: 'cash_drawer_open',
+        status: 'approved',
+        reason: 'Open after count',
+        resourceType: 'site',
+        resourceId: siteId,
+        summary: { label: 'Main site' },
+        requestedAt: timestamp,
+        expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+        decidedAt: timestamp,
+        decidedBy: approverId,
+        grantExpiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+
+    const result = await appRouter
+      .createCaller(buildContext('cashier'))
+      .peripherals.kickCashDrawer({ siteId, approvalRequestId });
+    expect(result.status).toBe('error');
+    const consumed = await getDatabase()
+      .select({ status: managerApprovalRequests.status })
+      .from(managerApprovalRequests)
+      .where(eq(managerApprovalRequests.id, approvalRequestId))
+      .get();
+    expect(consumed?.status).toBe('consumed');
   });
 });
 
@@ -291,7 +416,10 @@ describe('peripherals.peekHardwareOutbox', () => {
       status: 'queued',
       kind: 'print-receipt',
       peripheralId: null,
-      payload: { kind: 'print-receipt', document: { lines: [] }, siteId } as Record<string, unknown>,
+      payload: { kind: 'print-receipt', document: { lines: [] }, siteId } as Record<
+        string,
+        unknown
+      >,
       attempts: 0,
       createdAt: now(),
       updatedAt: now(),

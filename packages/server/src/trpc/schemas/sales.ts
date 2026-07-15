@@ -195,6 +195,7 @@ export const voidSaleInput = z
   .object({
     id: z.string().min(1, 'ID is required'),
     reason: z.string().optional(),
+    approvalRequestId: z.string().min(1).optional(),
   })
   .strict();
 
@@ -202,6 +203,7 @@ export const returnSaleInput = z
   .object({
     id: z.string().min(1, 'ID is required'),
     reason: z.string().optional(),
+    approvalRequestId: z.string().min(1).optional(),
   })
   .strict();
 

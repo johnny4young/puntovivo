@@ -42,10 +42,10 @@ interface SalesCheckoutPanelProps {
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
   onOpenMovement: () => void;
-  /** ENG-062 — manager-gated cash drawer kick. When undefined the
-   * button is hidden (cashier role or no escpos drawer registered).
-   * Relocated here from the retired SalesOverview hero so the manager
-   * hardware action survives the §06 minimal POS restructure. */
+  /** ENG-062 / ENG-106c3 — role-aware cash drawer kick. When undefined
+   * the button is hidden because no supported drawer or sales role is active.
+   * Cashiers escalate through a one-time approval modal; manager/admin roles
+   * dispatch directly. */
   onKickCashDrawer?: (() => void | Promise<void>) | undefined;
   /** Whether the kick mutation is in flight. */
   isKickingCashDrawer?: boolean | undefined;
@@ -170,7 +170,7 @@ export function SalesCheckoutPanel({
         </div>
       </div>
 
-      <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto">
+      <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto pos:scroll-pb-28 pos:pb-28">
         {currentSite && cashSession && isCashierPaceEnabled && (
           <Suspense fallback={null}>
             <LazyCashierPaceSlot siteId={currentSite.id} />

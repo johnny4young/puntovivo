@@ -2,21 +2,40 @@
  * Peripherals router — read procedures (ENG-178 split).
  *
  * ENG-061/062/065/074b — list / activeForSite / peekHardwareOutbox +
- * buildReceiptBytes / buildDrawerKickBytes (ADR-0008 rule 6 read-only).
+ * buildReceiptBytes. ENG-106c3 promotes buildDrawerKickBytes to an audited
+ * critical mutation because returning the pulse authorizes physical I/O.
  *
  * @module trpc/routers/peripherals/queries
  */
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { hardwareOutbox, sitePeripherals, tenants } from '../../../db/schema.js';
 import { buildSaleReceiptDocument } from '../../../services/peripherals/index.js';
-import { ESCPOS_BYTES, buildEscPosBytes, type EscPosCharset, type ReceiptDocument } from '../../../services/peripherals/escpos/byte-builder.js';
+import {
+  ESCPOS_BYTES,
+  buildEscPosBytes,
+  type EscPosCharset,
+  type ReceiptDocument,
+} from '../../../services/peripherals/escpos/byte-builder.js';
 import { escposReceiptPrinterConfigSchema } from '../../../services/peripherals/drivers/escpos-receipt-printer.js';
 import { escposCashDrawerConfigSchema } from '../../../services/peripherals/drivers/escpos-cash-drawer.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
+import { criticalCommandCashierManagerOrAdminProcedure } from '../../middleware/criticalCommand.js';
+import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
+import {
+  claimCashDrawerApproval,
+  recordCashDrawerDispatch,
+  releaseCashDrawerApproval,
+} from '../../../application/peripherals/cashDrawerApproval.js';
 import { ensureTenantSite } from '../../middleware/tenantSite.js';
 import { tenantProcedure } from '../../middleware/tenant.js';
-import { activeForSiteInput, buildDrawerKickBytesInput, buildReceiptBytesInput, listPeripheralsInput, peekHardwareOutboxInput } from '../../schemas/peripherals.js';
+import {
+  activeForSiteInput,
+  buildDrawerKickBytesInput,
+  buildReceiptBytesInput,
+  listPeripheralsInput,
+  peekHardwareOutboxInput,
+} from '../../schemas/peripherals.js';
 
 export const peripheralsQueryProcedures = {
   /**
@@ -24,22 +43,17 @@ export const peripheralsQueryProcedures = {
    * inactive both surface — the admin UI groups by kind and dims
    * inactive rows). Tenant-scoped.
    */
-  list: managerOrAdminProcedure
-    .input(listPeripheralsInput)
-    .query(async ({ ctx, input }) => {
-      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
-      return ctx.db
-        .select()
-        .from(sitePeripherals)
-        .where(
-          and(
-            eq(sitePeripherals.tenantId, ctx.tenantId),
-            eq(sitePeripherals.siteId, input.siteId)
-          )
-        )
-        .orderBy(asc(sitePeripherals.kind), asc(sitePeripherals.createdAt))
-        .all();
-    }),
+  list: managerOrAdminProcedure.input(listPeripheralsInput).query(async ({ ctx, input }) => {
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    return ctx.db
+      .select()
+      .from(sitePeripherals)
+      .where(
+        and(eq(sitePeripherals.tenantId, ctx.tenantId), eq(sitePeripherals.siteId, input.siteId))
+      )
+      .orderBy(asc(sitePeripherals.kind), asc(sitePeripherals.createdAt))
+      .all();
+  }),
 
   /**
    * ENG-061 — sales-role read of the active peripherals for a site.
@@ -52,28 +66,26 @@ export const peripheralsQueryProcedures = {
    * `peripherals.list` (admin) stays the full-row read for the
    * admin UI.
    */
-  activeForSite: tenantProcedure
-    .input(activeForSiteInput)
-    .query(async ({ ctx, input }) => {
-      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
-      const rows = await ctx.db
-        .select({
-          kind: sitePeripherals.kind,
-          driver: sitePeripherals.driver,
-          config: sitePeripherals.config,
-        })
-        .from(sitePeripherals)
-        .where(
-          and(
-            eq(sitePeripherals.tenantId, ctx.tenantId),
-            eq(sitePeripherals.siteId, input.siteId),
-            eq(sitePeripherals.isActive, true)
-          )
+  activeForSite: tenantProcedure.input(activeForSiteInput).query(async ({ ctx, input }) => {
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    const rows = await ctx.db
+      .select({
+        kind: sitePeripherals.kind,
+        driver: sitePeripherals.driver,
+        config: sitePeripherals.config,
+      })
+      .from(sitePeripherals)
+      .where(
+        and(
+          eq(sitePeripherals.tenantId, ctx.tenantId),
+          eq(sitePeripherals.siteId, input.siteId),
+          eq(sitePeripherals.isActive, true)
         )
-        .orderBy(asc(sitePeripherals.kind))
-        .all();
-      return rows;
-    }),
+      )
+      .orderBy(asc(sitePeripherals.kind))
+      .all();
+    return rows;
+  }),
 
   /**
    * ENG-074b — read-only "give me the bytes" for the hub_client
@@ -94,113 +106,111 @@ export const peripheralsQueryProcedures = {
    * `ensureTenantSite`. Same role gate as `printReceipt`
    * (`tenantProcedure` — cashier+).
    */
-  buildReceiptBytes: tenantProcedure
-    .input(buildReceiptBytesInput)
-    .query(async ({ ctx, input }) => {
-      // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
-      const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
-      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+  buildReceiptBytes: tenantProcedure.input(buildReceiptBytesInput).query(async ({ ctx, input }) => {
+    // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
+    const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
 
-      const printerRow = await ctx.db
-        .select()
-        .from(sitePeripherals)
-        .where(
-          and(
-            eq(sitePeripherals.tenantId, ctx.tenantId),
-            eq(sitePeripherals.siteId, input.siteId),
-            eq(sitePeripherals.kind, 'printer'),
-            eq(sitePeripherals.isActive, true)
-          )
+    const printerRow = await ctx.db
+      .select()
+      .from(sitePeripherals)
+      .where(
+        and(
+          eq(sitePeripherals.tenantId, ctx.tenantId),
+          eq(sitePeripherals.siteId, input.siteId),
+          eq(sitePeripherals.kind, 'printer'),
+          eq(sitePeripherals.isActive, true)
         )
-        .get();
+      )
+      .get();
 
-      // No active escpos peripheral → renderer falls back to the
-      // legacy HTML print path. Return an empty payload that the
-      // bridge consumer can interpret as `system-fallback`.
-      if (!printerRow || printerRow.driver !== 'escpos') {
-        return {
-          status: 'system-fallback' as const,
-          bytes: [] as number[],
-          paperWidth: null,
-          characterSet: null,
-          transportHint: null,
-        };
-      }
-
-      const parsed = escposReceiptPrinterConfigSchema.safeParse(printerRow.config);
-      if (!parsed.success) {
-        return {
-          status: 'system-fallback' as const,
-          bytes: [] as number[],
-          paperWidth: null,
-          characterSet: null,
-          transportHint: null,
-        };
-      }
-
-      const config = parsed.data;
-      const tenantRow = await ctx.db
-        .select({ name: tenants.name })
-        .from(tenants)
-        .where(eq(tenants.id, ctx.tenantId))
-        .get();
-      const baseDocument = buildSaleReceiptDocument(
-        {
-          header: { tenantName: tenantRow?.name ?? sale.tenantId },
-          saleNumber: sale.saleNumber,
-          customerName: sale.customerName ?? undefined,
-          items: sale.items.map(item => ({
-            name: item.productName ?? item.productSku ?? '—',
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            total: item.total,
-          })),
-          subtotal: sale.subtotal,
-          taxAmount: sale.taxAmount,
-          total: sale.total,
-          totalLabel: 'TOTAL',
-          formatCurrency: v => v.toFixed(2),
-        },
-        { kickDrawer: false }
-      );
-
-      const document: ReceiptDocument = {
-        ...baseDocument,
-        kickDrawer: config.kickDrawerAfterReceipt,
-      };
-
-      const bytes = buildEscPosBytes(document, {
-        paperWidth: config.paperWidth,
-        characterSet: config.characterSet as EscPosCharset,
-      });
-
+    // No active escpos peripheral → renderer falls back to the
+    // legacy HTML print path. Return an empty payload that the
+    // bridge consumer can interpret as `system-fallback`.
+    if (!printerRow || printerRow.driver !== 'escpos') {
       return {
-        status: 'ready' as const,
-        bytes: Array.from(bytes),
-        paperWidth: config.paperWidth,
-        characterSet: config.characterSet,
-        transportHint: {
-          channel: config.channel,
-          host: config.host ?? null,
-          port: config.port ?? null,
-          vendorId: config.vendorId ?? null,
-          productId: config.productId ?? null,
-          devicePath: config.devicePath ?? null,
-          timeoutMs: config.timeoutMs ?? null,
-        },
+        status: 'system-fallback' as const,
+        bytes: [] as number[],
+        paperWidth: null,
+        characterSet: null,
+        transportHint: null,
       };
-    }),
+    }
+
+    const parsed = escposReceiptPrinterConfigSchema.safeParse(printerRow.config);
+    if (!parsed.success) {
+      return {
+        status: 'system-fallback' as const,
+        bytes: [] as number[],
+        paperWidth: null,
+        characterSet: null,
+        transportHint: null,
+      };
+    }
+
+    const config = parsed.data;
+    const tenantRow = await ctx.db
+      .select({ name: tenants.name })
+      .from(tenants)
+      .where(eq(tenants.id, ctx.tenantId))
+      .get();
+    const baseDocument = buildSaleReceiptDocument(
+      {
+        header: { tenantName: tenantRow?.name ?? sale.tenantId },
+        saleNumber: sale.saleNumber,
+        customerName: sale.customerName ?? undefined,
+        items: sale.items.map(item => ({
+          name: item.productName ?? item.productSku ?? '—',
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.total,
+        })),
+        subtotal: sale.subtotal,
+        taxAmount: sale.taxAmount,
+        total: sale.total,
+        totalLabel: 'TOTAL',
+        formatCurrency: v => v.toFixed(2),
+      },
+      { kickDrawer: false }
+    );
+
+    const document: ReceiptDocument = {
+      ...baseDocument,
+      kickDrawer: config.kickDrawerAfterReceipt,
+    };
+
+    const bytes = buildEscPosBytes(document, {
+      paperWidth: config.paperWidth,
+      characterSet: config.characterSet as EscPosCharset,
+    });
+
+    return {
+      status: 'ready' as const,
+      bytes: Array.from(bytes),
+      paperWidth: config.paperWidth,
+      characterSet: config.characterSet,
+      transportHint: {
+        channel: config.channel,
+        host: config.host ?? null,
+        port: config.port ?? null,
+        vendorId: config.vendorId ?? null,
+        productId: config.productId ?? null,
+        devicePath: config.devicePath ?? null,
+        timeoutMs: config.timeoutMs ?? null,
+      },
+    };
+  }),
 
   /**
-   * ENG-074b — read-only drawer-kick bytes for the hub_client
+   * ENG-074b / ENG-106c3 — audited drawer-kick bytes for the hub_client
    * local hardware bridge. Same shape contract as
    * `buildReceiptBytes`: returns `ESCPOS_BYTES.DRAWER_KICK` plus
    * the transport hint of the active escpos cash_drawer
-   * peripheral. Manager+ gate mirrors `kickCashDrawer`.
+   * peripheral. The role/grant gate mirrors `kickCashDrawer`.
    */
-  buildDrawerKickBytes: managerOrAdminProcedure
+  buildDrawerKickBytes: criticalCommandCashierManagerOrAdminProcedure
     .input(buildDrawerKickBytesInput)
-    .query(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
 
       const drawerRow = await ctx.db
@@ -234,6 +244,27 @@ export const peripheralsQueryProcedures = {
       }
 
       const config = parsed.data;
+      const criticalCtx = asCriticalCommandContext(ctx);
+      const approvalContext = {
+        db: criticalCtx.db,
+        tenantId: criticalCtx.tenantId,
+        siteId: input.siteId,
+        user: { id: criticalCtx.user.id, role: criticalCtx.user.role },
+        envelope: criticalCtx.envelope,
+        deviceId: criticalCtx.deviceId,
+        log: criticalCtx.req?.server?.log,
+      };
+      const approvalClaim = claimCashDrawerApproval(approvalContext, input.approvalRequestId);
+      try {
+        await recordCashDrawerDispatch(approvalContext, {
+          claim: approvalClaim,
+          peripheralId: drawerRow.id,
+          dispatchMode: 'hub_client',
+        });
+      } catch (error) {
+        releaseCashDrawerApproval(approvalContext, approvalClaim);
+        throw error;
+      }
       return {
         status: 'ready' as const,
         bytes: Array.from(ESCPOS_BYTES.DRAWER_KICK),

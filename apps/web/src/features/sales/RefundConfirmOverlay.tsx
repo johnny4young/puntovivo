@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
@@ -63,10 +63,12 @@ interface RefundConfirmOverlayProps {
   /**
    * Refund threshold (tenant currency). When `refundTotal` exceeds it,
    * the overlay surfaces an admin-approval warning lock per the V8
-   * design. The server-side authorization is enforced separately by
-   * `managerOrAdminProcedure`; this is purely a visual heads-up.
+   * design. The server-side role/grant authorization is enforced separately;
+   * this threshold remains purely a visual heads-up.
    */
   adminApprovalThreshold?: number | undefined;
+  approvalPanel?: ReactNode | undefined;
+  confirmDisabled?: boolean | undefined;
   onClose: () => void;
   onConfirm: (reason: string | undefined) => void;
 }
@@ -92,6 +94,8 @@ export function RefundConfirmOverlay({
   refundTotal,
   lines,
   adminApprovalThreshold,
+  approvalPanel,
+  confirmDisabled = false,
   onClose,
   onConfirm,
 }: RefundConfirmOverlayProps) {
@@ -129,15 +133,16 @@ export function RefundConfirmOverlay({
     // so the audit log captures intent without extending the server
     // schema. Server still refunds the whole ticket — handoff §8 says
     // "presentation only".
-    const lineMeta = lines && lines.length > 0
-      ? lines
-          .filter(line => selectedLineIds.has(line.id))
-          .map(line => {
-            const qty = lineQuantities.get(line.id) ?? line.quantity;
-            return `${line.productName.slice(0, 30)}×${qty}`;
-          })
-          .join('; ')
-      : '';
+    const lineMeta =
+      lines && lines.length > 0
+        ? lines
+            .filter(line => selectedLineIds.has(line.id))
+            .map(line => {
+              const qty = lineQuantities.get(line.id) ?? line.quantity;
+              return `${line.productName.slice(0, 30)}×${qty}`;
+            })
+            .join('; ')
+        : '';
     const parts = [`[${action}]`];
     if (lineMeta) parts.push(`(${lineMeta})`);
     if (reason) parts.push(reason);
@@ -154,7 +159,8 @@ export function RefundConfirmOverlay({
       description={
         saleNumber
           ? t('refund.descriptionWithNumber', {
-              defaultValue: 'Confirma el motivo para registrar la devolución del ticket {{number}}.',
+              defaultValue:
+                'Confirma el motivo para registrar la devolución del ticket {{number}}.',
               number: saleNumber,
             })
           : t('refund.description', {
@@ -169,7 +175,7 @@ export function RefundConfirmOverlay({
           <ModalButton
             variant="primary"
             onClick={handleConfirm}
-            disabled={isPending}
+            disabled={isPending || confirmDisabled}
             className="sm:min-w-[10rem]"
           >
             {isPending
@@ -180,6 +186,7 @@ export function RefundConfirmOverlay({
       }
     >
       <div className="space-y-4">
+        {approvalPanel}
         {lines && lines.length > 0 && (
           <div className="rounded-2xl border border-line/70 bg-surface/95 px-4 py-3">
             <p className="text-[0.62rem] font-semibold uppercase tracking-[0.3em] text-secondary-500">
@@ -233,9 +240,13 @@ export function RefundConfirmOverlay({
                             max={line.quantity}
                             step={1}
                             value={currentQty}
-                            onChange={event => setLineQuantity(line.id, line.quantity, Number(event.target.value))}
+                            onChange={event =>
+                              setLineQuantity(line.id, line.quantity, Number(event.target.value))
+                            }
                             className="h-7 w-12 rounded-md border border-warning-500/40 bg-warning-50/40 text-center font-mono text-[12px] tabular-nums text-warning-700 outline-none focus:border-warning-500"
-                            aria-label={t('refund.qtyForLine', { defaultValue: 'Cantidad a devolver' })}
+                            aria-label={t('refund.qtyForLine', {
+                              defaultValue: 'Cantidad a devolver',
+                            })}
                           />
                           <button
                             type="button"

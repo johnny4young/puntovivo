@@ -92,13 +92,14 @@ describe('requiredCheckoutApprovalActions', () => {
           token: '00',
           claimExpiresAt: '2026-07-15T00:00:00.000Z',
           approverId: 'manager-1',
+          approvedResourceType: 'sale_checkout',
           approvedResourceId: 'checkout:sha256:test',
         },
       ])
     ).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({ requestId: 'approval-1', err: expect.any(Error) }),
-      'manager approval consumption sync enqueue failed after sale commit'
+      'manager approval consumption sync enqueue failed after action commit'
     );
   });
 });

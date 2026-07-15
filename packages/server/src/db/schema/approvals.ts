@@ -9,18 +9,15 @@
  */
 import { index, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
+import {
+  managerApprovalActionEnum,
+  type ManagerApprovalAction,
+} from '@puntovivo/shared/manager-approval';
 import { sites, tenants, users } from './auth.js';
 import { nowIso, sqliteNow } from './base.js';
 
-export const managerApprovalActionEnum = [
-  'credit_override',
-  'sale_void',
-  'sale_discount',
-  'cash_drawer_open',
-  'sale_refund',
-  'credit_sale',
-] as const;
-export type ManagerApprovalAction = (typeof managerApprovalActionEnum)[number];
+export { managerApprovalActionEnum };
+export type { ManagerApprovalAction };
 
 export const managerApprovalStatusEnum = [
   'pending',
@@ -53,9 +50,7 @@ export const managerApprovalRequests = sqliteTable(
       .notNull()
       .references(() => users.id),
     action: text('action', { enum: managerApprovalActionEnum }).notNull(),
-    status: text('status', { enum: managerApprovalStatusEnum })
-      .notNull()
-      .default('pending'),
+    status: text('status', { enum: managerApprovalStatusEnum }).notNull().default('pending'),
     reason: text('reason').notNull(),
     resourceType: text('resource_type').notNull(),
     resourceId: text('resource_id'),
@@ -92,29 +87,26 @@ export const managerApprovalRequests = sqliteTable(
   ]
 );
 
-export const managerApprovalRequestsRelations = relations(
-  managerApprovalRequests,
-  ({ one }) => ({
-    tenant: one(tenants, {
-      fields: [managerApprovalRequests.tenantId],
-      references: [tenants.id],
-    }),
-    site: one(sites, {
-      fields: [managerApprovalRequests.siteId],
-      references: [sites.id],
-    }),
-    requester: one(users, {
-      fields: [managerApprovalRequests.requesterId],
-      references: [users.id],
-      relationName: 'manager_approval_requester',
-    }),
-    decider: one(users, {
-      fields: [managerApprovalRequests.decidedBy],
-      references: [users.id],
-      relationName: 'manager_approval_decider',
-    }),
-  })
-);
+export const managerApprovalRequestsRelations = relations(managerApprovalRequests, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [managerApprovalRequests.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [managerApprovalRequests.siteId],
+    references: [sites.id],
+  }),
+  requester: one(users, {
+    fields: [managerApprovalRequests.requesterId],
+    references: [users.id],
+    relationName: 'manager_approval_requester',
+  }),
+  decider: one(users, {
+    fields: [managerApprovalRequests.decidedBy],
+    references: [users.id],
+    relationName: 'manager_approval_decider',
+  }),
+}));
 
 export type ManagerApprovalRequest = typeof managerApprovalRequests.$inferSelect;
 export type NewManagerApprovalRequest = typeof managerApprovalRequests.$inferInsert;

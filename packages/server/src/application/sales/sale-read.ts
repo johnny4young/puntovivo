@@ -36,16 +36,15 @@ import { buildFiscalQrPayload } from '../../services/fiscal/qr-builder.js';
 import { readMxFiscalSettings } from '../../services/fiscal/packs/mx/settings.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 
-export async function getSaleRecord(
-  db: DatabaseInstance,
-  tenantId: string,
-  saleId: string
-) {
+export async function getSaleRecord(db: DatabaseInstance, tenantId: string, saleId: string) {
   const sale = await db
     .select({
       id: sales.id,
       tenantId: sales.tenantId,
       saleNumber: sales.saleNumber,
+      // ENG-106c3 — exact approval summaries and post-sale UI preserve
+      // the currency frozen on the original sale.
+      currencyCode: sales.currencyCode,
       customerId: sales.customerId,
       customerName: customers.name,
       subtotal: sales.subtotal,
@@ -262,10 +261,7 @@ async function loadFiscalDocumentsForSale(
   const tenantSettings = (tenantRow?.settings ?? {}) as Record<string, unknown>;
 
   return docs.map(doc => {
-    const countryCode = resolveFiscalDocumentCountryCode(
-      doc.localeCode,
-      locale.countryCode
-    );
+    const countryCode = resolveFiscalDocumentCountryCode(doc.localeCode, locale.countryCode);
     return {
       id: doc.id,
       source: doc.source,

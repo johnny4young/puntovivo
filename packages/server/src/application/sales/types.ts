@@ -18,6 +18,7 @@
 import type { DatabaseInstance } from '../../db/index.js';
 import type { PuntovivoLogger } from '../../logging/logger.js';
 import type { CheckoutApprovalAction } from '@puntovivo/shared/checkout-approval';
+import type { UserRole } from '@puntovivo/shared/roles';
 
 /**
  * Minimal structural log shape accepted by the use-case. Both
@@ -139,7 +140,7 @@ export interface CompleteSaleContext {
   db: DatabaseInstance;
   tenantId: string;
   siteId: string;
-  user: { id: string; role: string };
+  user: { id: string; role: UserRole };
   envelope?: { operationId: string } | null;
   deviceId?: string | null;
   log?: CompleteSaleLogger;

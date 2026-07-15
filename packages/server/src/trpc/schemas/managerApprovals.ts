@@ -92,6 +92,26 @@ export const requestManagerApprovalInput = z
         message: 'Checkout approvals require a checkout context',
       });
     }
+    if (
+      (value.action === 'sale_void' || value.action === 'sale_refund') &&
+      (value.resourceType !== 'sale' || !value.resourceId)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['resourceId'],
+        message: 'Post-sale approvals require a sale resource ID',
+      });
+    }
+    if (
+      value.action === 'cash_drawer_open' &&
+      (value.resourceType !== 'site' || !value.resourceId)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['resourceId'],
+        message: 'Drawer approvals require a site resource ID',
+      });
+    }
   });
 
 export const listManagerApprovalQueueInput = z

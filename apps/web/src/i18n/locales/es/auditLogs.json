@@ -119,7 +119,8 @@
     "inventory.lot.discount_suggestion_dismissed": "Sugerencia de descuento descartada",
     "data_retention.policy.updated": "Política de retención de datos actualizada",
     "data_retention.sweep.run": "Datos auxiliares vencidos eliminados",
-    "backup.restore_drill": "Simulacro de restauración ejecutado"
+    "backup.restore_drill": "Simulacro de restauración ejecutado",
+    "cash_drawer.open": "Cajón monedero abierto"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -143,7 +144,8 @@
     "fiscal_document": "Documento fiscal",
     "tenant": "Empresa",
     "price_suggestion": "Sugerencia de precio",
-    "backup_snapshot": "Respaldo cifrado"
+    "backup_snapshot": "Respaldo cifrado",
+    "site": "Sede"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

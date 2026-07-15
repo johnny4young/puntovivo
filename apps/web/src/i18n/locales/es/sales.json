@@ -597,7 +597,7 @@
   },
   "approval": {
     "title": "Se requiere aprobación",
-    "help": "Envía la solicitud sin salir de la sesión del cajero. La venta solo se habilita para este cobro exacto.",
+    "help": "La aprobación solo cubre esta acción exacta y sus datos.",
     "checkoutSummary": "Cobro · {{total}}",
     "refresh": "Actualizar",
     "request": "Solicitar aprobación",
@@ -605,13 +605,16 @@
     "requested": "Solicitud de aprobación enviada",
     "requestError": "No se pudo solicitar la aprobación",
     "statusError": "No se pudo actualizar el estado de la aprobación. Reintenta antes de cobrar.",
-    "reasonLabel": "Motivo",
-    "reasonPlaceholder": "Explica por qué este cobro necesita aprobación",
+    "reasonLabel": "Motivo para {{action}}",
+    "reasonPlaceholder": "Explica por qué se necesita aprobación",
     "decisionReason": "Nota de la decisión: {{reason}}",
     "actions": {
       "sale_discount": "Cobro con descuento",
       "credit_sale": "Venta a crédito del cliente",
-      "credit_override": "Sobregiro del cupo de crédito"
+      "credit_override": "Sobregiro del cupo de crédito",
+      "sale_void": "Anular venta",
+      "sale_refund": "Reembolsar venta",
+      "cash_drawer_open": "Abrir cajón monedero"
     },
     "status": {
       "loading": "Verificando",
