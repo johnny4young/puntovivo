@@ -192,6 +192,11 @@ export const auditLogActionEnum = [
   // employee whose shift is targeted; schedule edits remain in ENG-140.
   'employee_shift.clock_in',
   'employee_shift.clock_out',
+  // ENG-140a — published schedule lifecycle. Cancel keeps the row as
+  // durable labor evidence instead of deleting it.
+  'scheduled_shift.create',
+  'scheduled_shift.update',
+  'scheduled_shift.cancel',
   // ENG-106c1 — every approval transition carries requester + approver
   // identity without creating or exposing a manager browser session.
   'manager_approval.request',
@@ -359,6 +364,8 @@ export const auditLogResourceTypeEnum = [
   'user',
   // ENG-106b — durable self-service clock-in/out row.
   'employee_shift',
+  // ENG-140a — manager-authored expected work interval.
+  'scheduled_shift',
   // ENG-106c1 — one short-lived authorization request/grant.
   'manager_approval',
   // ENG-106c3 — drawer approvals and dispatch evidence bind to a site.

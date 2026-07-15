@@ -232,6 +232,26 @@ describe('AuditLogsPage', () => {
     );
   });
 
+  it('offers scheduled-shift lifecycle evidence as action and resource filters', () => {
+    render(<AuditLogsPage />);
+
+    const actionFilter = screen.getByRole('combobox', { name: 'Action' });
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Scheduled shift created' })
+    ).toHaveValue('scheduled_shift.create');
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Scheduled shift updated' })
+    ).toHaveValue('scheduled_shift.update');
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Scheduled shift cancelled' })
+    ).toHaveValue('scheduled_shift.cancel');
+
+    const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
+    expect(within(resourceFilter).getByRole('option', { name: 'Scheduled shift' })).toHaveValue(
+      'scheduled_shift'
+    );
+  });
+
   it('offers manager approval lifecycle evidence as action and resource filters', () => {
     render(<AuditLogsPage />);
 

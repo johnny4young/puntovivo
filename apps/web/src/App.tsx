@@ -57,6 +57,7 @@ import {
   TouchHome,
   TouchShell,
   TouchVoiceRoute,
+  TeamSchedulePage,
   UnitsPage,
   UsersPage,
   VatRatesPage,
@@ -312,6 +313,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={managerOrAdminRoles}>
                     <DayCloseReportPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="schedule"
+                element={
+                  <ShellRoute allowedRoles={managerOrAdminRoles}>
+                    <TeamSchedulePage />
                   </ShellRoute>
                 }
               />

@@ -40,6 +40,10 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   // ENG-106b — self-service attendance lifecycle.
   'employee_shift.clock_in',
   'employee_shift.clock_out',
+  // ENG-140a — manager-authored schedule lifecycle.
+  'scheduled_shift.create',
+  'scheduled_shift.update',
+  'scheduled_shift.cancel',
   // ENG-106c — dual-control request and decision lifecycle.
   'manager_approval.request',
   'manager_approval.approve',
@@ -82,6 +86,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'transfer_order',
   'user',
   'employee_shift',
+  'scheduled_shift',
   'manager_approval',
   'site',
   'cashier',

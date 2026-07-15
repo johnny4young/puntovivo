@@ -154,6 +154,9 @@ follow-up amendment.
 
 - `employeeShifts.clockIn` (ENG-106b — start the authenticated employee's shift)
 - `employeeShifts.clockOut` (ENG-106b — close the authenticated employee's open shift)
+- `employeeShifts.schedule.create` (ENG-140a — publish a durable scheduled shift)
+- `employeeShifts.schedule.update` (ENG-140a — revise a versioned scheduled shift)
+- `employeeShifts.schedule.cancel` (ENG-140a — cancel without deleting labor evidence)
 
 **Manager approvals**
 

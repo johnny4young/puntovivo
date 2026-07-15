@@ -13,6 +13,7 @@ import {
   clockInEmployeeShiftInput,
   clockOutEmployeeShiftInput,
 } from '../schemas/employeeShifts.js';
+import { employeeSchedulesRouter } from './employeeSchedules.js';
 
 const employeeShiftSelection = {
   id: employeeShifts.id,
@@ -69,6 +70,8 @@ function throwNotClockedIn(): never {
 }
 
 export const employeeShiftsRouter = router({
+  schedule: employeeSchedulesRouter,
+
   /** Self-scoped current attendance state; never exposes another employee. */
   current: cashierManagerOrAdminProcedure.query(async ({ ctx }) => {
     return (await getOpenShift(ctx.db, ctx.tenantId, ctx.user!.id)) ?? null;

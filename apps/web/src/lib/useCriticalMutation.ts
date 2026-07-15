@@ -57,6 +57,10 @@ export type CriticalCommandPath =
   | 'users.setStaffPin'
   | 'employeeShifts.clockIn'
   | 'employeeShifts.clockOut'
+  // ENG-140a — durable manager-authored schedule lifecycle.
+  | 'employeeShifts.schedule.create'
+  | 'employeeShifts.schedule.update'
+  | 'employeeShifts.schedule.cancel'
   | 'managerApprovals.request'
   | 'managerApprovals.decideWithPin'
   | 'managerApprovals.cancel'

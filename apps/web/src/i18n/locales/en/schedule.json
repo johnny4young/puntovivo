@@ -1,0 +1,80 @@
+{
+  "kicker": "Workforce",
+  "title": "Team schedule",
+  "description": "Plan site shifts in the tenant timezone. Overlaps are blocked and every change remains auditable.",
+  "timezone": "Schedule timezone: {{timeZone}}",
+  "actions": {
+    "new": "Add shift",
+    "edit": "Edit",
+    "cancel": "Cancel shift",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "today": "This week",
+    "refresh": "Refresh",
+    "editLabel": "Edit {{employee}} shift on {{date}}",
+    "cancelLabel": "Cancel {{employee}} shift on {{date}}"
+  },
+  "filters": {
+    "site": "Site",
+    "allSites": "All sites",
+    "includeCancelled": "Show cancelled shifts"
+  },
+  "summary": {
+    "shifts": "Scheduled shifts",
+    "hours": "Planned hours",
+    "staff": "Scheduled staff"
+  },
+  "week": {
+    "range": "{{start}} – {{end}}",
+    "emptyDay": "No shifts",
+    "cancelled": "Cancelled",
+    "hours": "{{start}}–{{end}}",
+    "site": "{{site}}",
+    "notes": "Notes: {{notes}}"
+  },
+  "form": {
+    "createTitle": "Add scheduled shift",
+    "editTitle": "Edit scheduled shift",
+    "employee": "Employee",
+    "unavailableEmployee": "Unavailable employee",
+    "site": "Site",
+    "unavailableSite": "Unavailable site",
+    "startDate": "Start date",
+    "startTime": "Start time",
+    "endDate": "End date",
+    "endTime": "End time",
+    "notes": "Notes",
+    "notesPlaceholder": "Optional assignment or handoff context",
+    "required": "This field is required.",
+    "save": "Save shift",
+    "saving": "Saving…",
+    "close": "Close"
+  },
+  "cancelDialog": {
+    "title": "Cancel scheduled shift?",
+    "description": "{{employee}} · {{date}} · {{time}}. The row stays in the audit history.",
+    "confirm": "Cancel shift",
+    "cancelling": "Cancelling…",
+    "keep": "Keep shift"
+  },
+  "empty": {
+    "title": "No shifts in this week",
+    "description": "Add the first scheduled shift or adjust the site filter.",
+    "noContextTitle": "Schedule setup is incomplete",
+    "noContextDescription": "Create an active site and an eligible employee before publishing a schedule."
+  },
+  "loading": "Loading team schedule…",
+  "error": "The team schedule could not be loaded.",
+  "toast": {
+    "created": "Shift scheduled",
+    "updated": "Shift updated",
+    "cancelled": "Shift cancelled",
+    "saveError": "The shift could not be saved",
+    "cancelError": "The shift could not be cancelled"
+  },
+  "roles": {
+    "admin": "Admin",
+    "manager": "Manager",
+    "cashier": "Cashier"
+  }
+}

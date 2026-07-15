@@ -1,0 +1,80 @@
+{
+  "kicker": "Equipo",
+  "title": "Horario del equipo",
+  "description": "Planifica turnos por sede en la zona horaria del negocio. El sistema bloquea cruces y conserva cada cambio para auditoría.",
+  "timezone": "Zona horaria del horario: {{timeZone}}",
+  "actions": {
+    "new": "Agregar turno",
+    "edit": "Editar",
+    "cancel": "Cancelar turno",
+    "previousWeek": "Semana anterior",
+    "nextWeek": "Semana siguiente",
+    "today": "Esta semana",
+    "refresh": "Actualizar",
+    "editLabel": "Editar turno de {{employee}} del {{date}}",
+    "cancelLabel": "Cancelar turno de {{employee}} del {{date}}"
+  },
+  "filters": {
+    "site": "Sede",
+    "allSites": "Todas las sedes",
+    "includeCancelled": "Mostrar turnos cancelados"
+  },
+  "summary": {
+    "shifts": "Turnos programados",
+    "hours": "Horas planificadas",
+    "staff": "Personas programadas"
+  },
+  "week": {
+    "range": "{{start}} – {{end}}",
+    "emptyDay": "Sin turnos",
+    "cancelled": "Cancelado",
+    "hours": "{{start}}–{{end}}",
+    "site": "{{site}}",
+    "notes": "Notas: {{notes}}"
+  },
+  "form": {
+    "createTitle": "Agregar turno programado",
+    "editTitle": "Editar turno programado",
+    "employee": "Empleado",
+    "unavailableEmployee": "Empleado no disponible",
+    "site": "Sede",
+    "unavailableSite": "Sede no disponible",
+    "startDate": "Fecha de inicio",
+    "startTime": "Hora de inicio",
+    "endDate": "Fecha de fin",
+    "endTime": "Hora de fin",
+    "notes": "Notas",
+    "notesPlaceholder": "Asignación o contexto de entrega opcional",
+    "required": "Este campo es obligatorio.",
+    "save": "Guardar turno",
+    "saving": "Guardando…",
+    "close": "Cerrar"
+  },
+  "cancelDialog": {
+    "title": "¿Cancelar el turno programado?",
+    "description": "{{employee}} · {{date}} · {{time}}. El registro permanece en el historial de auditoría.",
+    "confirm": "Cancelar turno",
+    "cancelling": "Cancelando…",
+    "keep": "Conservar turno"
+  },
+  "empty": {
+    "title": "No hay turnos esta semana",
+    "description": "Agrega el primer turno programado o ajusta el filtro de sede.",
+    "noContextTitle": "Falta configurar el horario",
+    "noContextDescription": "Crea una sede activa y un empleado elegible antes de publicar un horario."
+  },
+  "loading": "Cargando el horario del equipo…",
+  "error": "No se pudo cargar el horario del equipo.",
+  "toast": {
+    "created": "Turno programado",
+    "updated": "Turno actualizado",
+    "cancelled": "Turno cancelado",
+    "saveError": "No se pudo guardar el turno",
+    "cancelError": "No se pudo cancelar el turno"
+  },
+  "roles": {
+    "admin": "Administrador",
+    "manager": "Responsable",
+    "cashier": "Cajero"
+  }
+}

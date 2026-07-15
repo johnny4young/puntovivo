@@ -24,6 +24,11 @@ const adminRoutes = [
       }),
   },
   {
+    label: 'Team schedule',
+    path: '/schedule',
+    assertion: async (page) => page.getByTestId('team-schedule-page'),
+  },
+  {
     label: 'Inventory',
     path: '/inventory',
     assertion: async (page) => page.getByRole('button', { name: /Movements|By Site|Por sede/i }).first(),
@@ -70,6 +75,7 @@ const adminRoutes = [
 
 const routeWorkspaceLabels = new Map<string, string>([
   ['Sales', 'Sell'],
+  ['Team schedule', 'Operate'],
   ['Inventory', 'Inventory'],
   ['Orders', 'Procurement'],
   ['Purchases', 'Procurement'],
@@ -156,8 +162,13 @@ test.describe('web smoke', () => {
     await expect(page.getByRole('link', { name: 'Company' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Import data' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /Team schedule|Horario del equipo/i })
+    ).toBeVisible();
     await page.goto('/day-close');
     await expect(page.getByTestId('day-close-report-page')).toBeVisible();
+    await page.goto('/schedule');
+    await expect(page.getByTestId('team-schedule-page')).toBeVisible();
     await page.goto('/company');
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto('/data-import');
@@ -169,6 +180,69 @@ test.describe('web smoke', () => {
     await expect(page.getByRole('link', { name: 'Audit log' })).toHaveCount(0);
     await page.goto('/audit-logs');
     await expect(page).toHaveURL(/\/dashboard$/);
+
+    await expectNoClientIssues(tracker);
+  });
+
+  test('manager publishes, edits, cancels, and reloads a team schedule', async ({ page }) => {
+    const tracker = attachClientIssueTracker(page);
+    await loginAs(page, 'manager');
+    await page.goto('/schedule');
+    await expect(page.getByTestId('team-schedule-page')).toBeVisible();
+
+    const activeShiftCard = page
+      .locator('[data-testid^="scheduled-shift-"]')
+      .filter({ hasText: 'E2E Cashier' })
+      .filter({ hasNotText: /Cancelled|Cancelado/i })
+      .first();
+
+    // A retry can inherit the row published by its first attempt. Reuse the
+    // active shift instead of colliding with the database overlap invariant.
+    if (!(await activeShiftCard.isVisible())) {
+      await page
+        .getByRole('button', { name: /Add shift|Agregar turno/i })
+        .first()
+        .click();
+      const createDialog = page.getByRole('dialog');
+      const employeeSelect = createDialog.getByLabel(/Employee|Empleado/i);
+      const cashierOptionValue = await employeeSelect
+        .locator('option', { hasText: /^E2E Cashier · / })
+        .first()
+        .getAttribute('value');
+      expect(cashierOptionValue).not.toBeNull();
+      await employeeSelect.selectOption(cashierOptionValue!);
+      await createDialog.getByLabel(/Start time|Hora de inicio/i).fill('06:30');
+      await createDialog.getByLabel(/End time|Hora de fin/i).fill('14:30');
+      await createDialog.getByLabel(/Notes|Notas/i).fill('E2E opening coverage');
+      await createDialog.getByRole('button', { name: /Save shift|Guardar turno/i }).click();
+    }
+
+    await expect(activeShiftCard).toContainText(/E2E (opening|updated) coverage/);
+    await activeShiftCard
+      .getByRole('button', { name: /Edit E2E Cashier|Editar turno de E2E Cashier/i })
+      .click();
+    const editDialog = page.getByRole('dialog');
+    await editDialog.getByLabel(/End time|Hora de fin/i).fill('15:00');
+    await editDialog.getByLabel(/Notes|Notas/i).fill('E2E updated coverage');
+    await editDialog.getByRole('button', { name: /Save shift|Guardar turno/i }).click();
+    await expect(activeShiftCard).toContainText('E2E updated coverage');
+
+    await activeShiftCard
+      .getByRole('button', { name: /Cancel E2E Cashier|Cancelar turno de E2E Cashier/i })
+      .click();
+    const cancelDialog = page.getByRole('dialog');
+    await cancelDialog.getByRole('button', { name: /Cancel shift|Cancelar turno/i }).click();
+    await expect(activeShiftCard).toHaveCount(0);
+
+    await page.getByLabel(/Show cancelled shifts|Mostrar turnos cancelados/i).check();
+    const cancelledShiftCard = page
+      .locator('[data-testid^="scheduled-shift-"]')
+      .filter({ hasText: 'E2E updated coverage' })
+      .first();
+    await expect(cancelledShiftCard).toContainText(/Cancelled|Cancelado/i);
+    await page.reload();
+    await page.getByLabel(/Show cancelled shifts|Mostrar turnos cancelados/i).check();
+    await expect(cancelledShiftCard).toContainText(/Cancelled|Cancelado/i);
 
     await expectNoClientIssues(tracker);
   });
@@ -230,7 +304,12 @@ test.describe('web smoke', () => {
     await expect(page.getByRole('link', { name: 'Sales', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Inventory' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Team schedule|Horario del equipo/i })).toHaveCount(
+      0
+    );
     await page.goto('/day-close');
+    await expect(page).toHaveURL(/\/sales$/);
+    await page.goto('/schedule');
     await expect(page).toHaveURL(/\/sales$/);
     await page.goto('/dashboard');
     await expect(page).toHaveURL(/\/sales$/);
@@ -246,7 +325,12 @@ test.describe('web smoke', () => {
     await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Sales' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Team schedule|Horario del equipo/i })).toHaveCount(
+      0
+    );
     await page.goto('/day-close');
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await page.goto('/schedule');
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto('/sales');
     await expect(page).toHaveURL(/\/dashboard$/);

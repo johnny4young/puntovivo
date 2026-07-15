@@ -263,6 +263,19 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   ).run(tenantId);
   db.prepare('delete from employee_shifts where tenant_id = ?').run(tenantId);
 
+  // ENG-140a — published schedules reference template users/sites and keep
+  // their own audit chain. Clear the isolated tenant before user cleanup so
+  // repeat E2E runs never retain a foreign-key or overlap from a prior smoke.
+  const scheduledShiftsTableExists = db
+    .prepare("select 1 from sqlite_master where type = 'table' and name = 'scheduled_shifts'")
+    .get();
+  if (scheduledShiftsTableExists) {
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'scheduled_shift'"
+    ).run(tenantId);
+    db.prepare('delete from scheduled_shifts where tenant_id = ?').run(tenantId);
+  }
+
   // Delete audit_logs referencing the soon-to-disappear actors.
   db.prepare(
     `delete from audit_logs
