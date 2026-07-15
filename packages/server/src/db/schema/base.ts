@@ -192,6 +192,13 @@ export const auditLogActionEnum = [
   // employee whose shift is targeted; schedule edits remain in ENG-140.
   'employee_shift.clock_in',
   'employee_shift.clock_out',
+  // ENG-106c1 — every approval transition carries requester + approver
+  // identity without creating or exposing a manager browser session.
+  'manager_approval.request',
+  'manager_approval.approve',
+  'manager_approval.reject',
+  'manager_approval.cancel',
+  'manager_approval.consume',
   'sale.price_override',
   // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
   // when a cashier suspends a draft sale; `sale.resume` when the same or
@@ -329,6 +336,8 @@ export const auditLogResourceTypeEnum = [
   'user',
   // ENG-106b — durable self-service clock-in/out row.
   'employee_shift',
+  // ENG-106c1 — one short-lived authorization request/grant.
+  'manager_approval',
   // ENG-047 wrote anomaly rows keyed to the flagged cashier in early
   // dev databases. Keep the reader tolerant so those rows stay visible.
   'cashier',

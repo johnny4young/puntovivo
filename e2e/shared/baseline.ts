@@ -177,6 +177,18 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   const keepUserClause = keepUserPrefixes.map(() => 'email not like ?').join(' and ');
   const keepUserArgs = keepUserPrefixes.map(prefix => `${prefix}%`);
 
+  // ENG-106c1 — approval decisions reference both the requesting cashier and
+  // approving manager. Clear the sync/audit children first so a failed smoke
+  // never strands a request that blocks user cleanup or appears in the next
+  // manager queue.
+  db.prepare(
+    "delete from sync_outbox where tenant_id = ? and entity_type = 'manager_approval_requests'"
+  ).run(tenantId);
+  db.prepare(
+    "delete from audit_logs where tenant_id = ? and resource_type = 'manager_approval'"
+  ).run(tenantId);
+  db.prepare('delete from manager_approval_requests where tenant_id = ?').run(tenantId);
+
   // ENG-106b — attendance belongs to the shared template employees, so a
   // failed prior smoke could otherwise leave the next run already clocked
   // in. This is an isolated E2E tenant; clear both the rows and their soft

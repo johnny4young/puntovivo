@@ -384,9 +384,9 @@ export function registerStaffPinFailure(
 }
 
 /**
- * A valid target PIN clears only that cashier's bucket. The actor aggregate
- * deliberately decays on its own so one known PIN cannot amnesty attempts
- * against every other cashier.
+ * A valid target PIN clears only that target identity's bucket. The actor
+ * aggregate deliberately decays on its own so one known PIN cannot amnesty
+ * attempts against every other staff identity.
  */
 export function registerStaffPinSuccess(
   db: DatabaseInstance,

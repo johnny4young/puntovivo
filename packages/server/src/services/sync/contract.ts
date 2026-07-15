@@ -63,6 +63,9 @@ export const SYNC_ENTITY_TYPES = [
   // Register the manual-conflict policy now; aggregate enqueue wiring lands
   // with that multi-device shift-management promotion.
   'employee_shifts',
+  // ENG-106c1 — approval identity/evidence must converge manually across
+  // terminals; decision conflicts can never use last-write-wins.
+  'manager_approval_requests',
   'fiscal_documents',
   'fiscal_document_items',
   'fiscal_numbering_resolutions',
@@ -132,6 +135,7 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   cash_sessions: 'manual',
   cash_movements: 'manual',
   employee_shifts: 'manual',
+  manager_approval_requests: 'manual',
   fiscal_documents: 'manual',
   fiscal_document_items: 'manual',
   fiscal_numbering_resolutions: 'manual',

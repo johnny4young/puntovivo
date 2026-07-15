@@ -40,6 +40,12 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   // ENG-106b — self-service attendance lifecycle.
   'employee_shift.clock_in',
   'employee_shift.clock_out',
+  // ENG-106c — dual-control request and decision lifecycle.
+  'manager_approval.request',
+  'manager_approval.approve',
+  'manager_approval.reject',
+  'manager_approval.cancel',
+  'manager_approval.consume',
   'quotation.delete',
   'quotation.convert',
   'kds.order.ready',
@@ -66,6 +72,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'transfer_order',
   'user',
   'employee_shift',
+  'manager_approval',
   'cashier',
   'quotation',
   'ai_feature',

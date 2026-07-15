@@ -9,6 +9,7 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
 import { CashierPacePreferenceToggle } from '@/features/sales/CashierPacePreferenceToggle';
 import { TimeClockControl } from '@/features/staff/TimeClockControl';
+import { ManagerApprovalQueue } from '@/features/approvals/ManagerApprovalQueue';
 import { useCommandPalette } from '@/components/feedback/CommandPaletteProvider';
 import {
   persistLanguagePreference,
@@ -232,7 +233,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             {showUserMenu && (
               <div
                 id={userMenuId}
-                className="absolute right-0 z-20 mt-3 w-72 animate-pop-in rounded-[24px] border border-line bg-card p-3 shadow-[var(--shadow-panel)]"
+                className="absolute right-0 z-20 mt-3 max-h-[calc(100vh-7rem)] w-72 animate-pop-in overflow-y-auto rounded-[24px] border border-line bg-card p-3 shadow-[var(--shadow-panel)]"
               >
                 <div className="card-inset px-4 py-3">
                   <p className="text-sm font-semibold text-secondary-950">{user?.name}</p>
@@ -288,6 +289,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                 {cashierPaceOwnerKey && (
                   <CashierPacePreferenceToggle ownerKey={cashierPaceOwnerKey} />
                 )}
+                {user && ['admin', 'manager'].includes(user.role) && <ManagerApprovalQueue />}
                 <button
                   type="button"
                   onClick={logout}

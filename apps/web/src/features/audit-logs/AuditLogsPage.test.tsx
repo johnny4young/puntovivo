@@ -176,4 +176,27 @@ describe('AuditLogsPage', () => {
       'employee_shift'
     );
   });
+
+  it('offers manager approval lifecycle evidence as action and resource filters', () => {
+    render(<AuditLogsPage />);
+
+    const actionFilter = screen.getByRole('combobox', { name: 'Action' });
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Manager approval requested' })
+    ).toHaveValue('manager_approval.request');
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Manager approval granted' })
+    ).toHaveValue('manager_approval.approve');
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Manager approval rejected' })
+    ).toHaveValue('manager_approval.reject');
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Manager approval cancelled' })
+    ).toHaveValue('manager_approval.cancel');
+
+    const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
+    expect(within(resourceFilter).getByRole('option', { name: 'Manager approval' })).toHaveValue(
+      'manager_approval'
+    );
+  });
 });

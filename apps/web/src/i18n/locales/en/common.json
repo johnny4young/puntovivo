@@ -113,6 +113,34 @@
       "clockInSuccess": "Shift started",
       "clockOutSuccess": "Shift ended",
       "errorTitle": "Unable to update shift"
+    },
+    "approvals": {
+      "title": "Approvals",
+      "loading": "Checking requests…",
+      "empty": "No pending requests.",
+      "errorTitle": "Unable to update approvals",
+      "pinMissing": "Configure your staff PIN in Users before deciding requests.",
+      "freshPinHint": "Enter your own PIN for every decision. No elevated session is created.",
+      "requestedBy": "Requested by {{name}} · {{site}}",
+      "expiresAt": "Expires {{time}}",
+      "pinLabel": "Your staff PIN",
+      "pinPlaceholder": "6 digits",
+      "rejectionReasonLabel": "Rejection reason",
+      "rejectionReasonPlaceholder": "Explain why this request cannot proceed",
+      "approve": "Approve",
+      "reject": "Reject",
+      "confirmApprove": "Confirm approval",
+      "confirmReject": "Confirm rejection",
+      "approvedSuccess": "Request approved",
+      "rejectedSuccess": "Request rejected",
+      "actions": {
+        "credit_override": "Credit override",
+        "sale_void": "Void sale",
+        "sale_discount": "Sale discount",
+        "cash_drawer_open": "Open cash drawer",
+        "sale_refund": "Sale refund",
+        "credit_sale": "Credit sale"
+      }
     }
   },
   "loadingSites": "Loading sites...",

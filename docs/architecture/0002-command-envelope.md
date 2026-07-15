@@ -145,6 +145,12 @@ follow-up amendment.
 - `employeeShifts.clockIn` (ENG-106b — start the authenticated employee's shift)
 - `employeeShifts.clockOut` (ENG-106b — close the authenticated employee's open shift)
 
+**Manager approvals**
+
+- `managerApprovals.request` (ENG-106c1 — create one bounded sensitive-action request)
+- `managerApprovals.decideWithPin` (ENG-106c1 — approve/reject with a fresh manager PIN)
+- `managerApprovals.cancel` (ENG-106c1 — requester withdraws a still-pending request)
+
 **Module activation**
 
 - `modules.setActive` (ENG-068 — admin toggle of a tenant module)
@@ -200,6 +206,8 @@ idempotent command envelope as other user-security mutations).
 Updated: 2026-07-14 (ENG-106b — added self-service clock-in/out as
 critical attendance commands; retries cannot create duplicate open
 shifts or close a different employee's shift).
+Updated: 2026-07-14 (ENG-106c1 — added request, PIN decision, and
+cancellation commands for the short-lived manager approval rail).
 Updated: 2026-05-03 (ENG-053 — operation journal wired into
 envelope: `recordOperationStart` runs after the idempotency
 reservation and before `next()`, idempotent on
