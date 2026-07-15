@@ -219,6 +219,18 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0011_eng129c_customer_privacy_disposition') {
       return !tableExists('customers') && !tableExists('sales') && !tableExists('products');
     }
+    // ENG-106a — staff PIN enrollment ALTERs `users`. Pin it only for a
+    // truly minimal partial DB with none of the preceding late-migration
+    // targets; otherwise advancing to this latest marker could skip an
+    // applicable customer, checkout-timing, or product migration.
+    if (entry.tag === '0012_eng106a_staff_pin') {
+      return (
+        !tableExists('users') &&
+        !tableExists('customers') &&
+        !tableExists('sales') &&
+        !tableExists('products')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

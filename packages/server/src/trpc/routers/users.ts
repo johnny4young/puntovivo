@@ -11,11 +11,13 @@ import {
   createUserInput,
   listUsersInput,
   resetUserPasswordInput,
+  setUserStaffPinInput,
   updateUserInput,
 } from '../schemas/users.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { hashPasswordSecurely } from '../../security/passwords.js';
 import { rateLimitFor } from '../middleware/procedureRateLimit.js';
+import { hashStaffPin } from '../../security/staffPins.js';
 
 export const usersRouter = router({
   list: adminProcedure.input(listUsersInput).query(async ({ ctx, input }) => {
@@ -24,9 +26,7 @@ export const usersRouter = router({
 
     const conditions = [eq(users.tenantId, ctx.tenantId)];
     if (search) {
-      conditions.push(
-        or(like(users.name, `%${search}%`), like(users.email, `%${search}%`))!
-      );
+      conditions.push(or(like(users.name, `%${search}%`), like(users.email, `%${search}%`))!);
     }
     if (isActive !== undefined) {
       conditions.push(eq(users.isActive, isActive));
@@ -44,13 +44,18 @@ export const usersRouter = router({
           isActive: users.isActive,
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
+          hasPin: sql<boolean>`${users.staffPinHash} is not null`.mapWith(Boolean),
         })
         .from(users)
         .where(where)
         .limit(perPage)
         .offset(offset)
         .all(),
-      ctx.db.select({ count: sql<number>`count(*)` }).from(users).where(where).get(),
+      ctx.db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(where)
+        .get(),
     ]);
 
     const totalItems = countResult?.count ?? 0;
@@ -77,73 +82,72 @@ export const usersRouter = router({
     )
     .input(createUserInput)
     .mutation(async ({ ctx, input }) => {
-    const existing = await ctx.db.select().from(users).where(eq(users.email, input.email)).get();
-    if (existing) {
-      throw new TRPCError({
-        code: 'CONFLICT',
-        message: 'A user with this email already exists',
-      });
-    }
+      const existing = await ctx.db.select().from(users).where(eq(users.email, input.email)).get();
+      if (existing) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'A user with this email already exists',
+        });
+      }
 
-    const now = new Date().toISOString();
-    const id = nanoid();
-    // Must hash BEFORE the sync transaction — better-sqlite3 transactions
-    // are synchronous and cannot await argon2.
-    const passwordHash = await hashPasswordSecurely(input.password);
-    const actorId = ctx.user!.id;
+      const now = new Date().toISOString();
+      const id = nanoid();
+      // Must hash BEFORE the sync transaction — better-sqlite3 transactions
+      // are synchronous and cannot await argon2.
+      const passwordHash = await hashPasswordSecurely(input.password);
+      const actorId = ctx.user!.id;
 
-    // ENG-007 — user lifecycle writes plus their audit row share a single
-    // atomic boundary, same pattern as cashSessions.close.
-    ctx.db.transaction(tx => {
-      tx.insert(users)
-        .values({
-          id,
+      // ENG-007 — user lifecycle writes plus their audit row share a single
+      // atomic boundary, same pattern as cashSessions.close.
+      ctx.db.transaction(tx => {
+        tx.insert(users)
+          .values({
+            id,
+            tenantId: ctx.tenantId,
+            email: input.email,
+            name: input.name,
+            passwordHash,
+            role: input.role,
+            isActive: input.isActive,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+
+        // New-account snapshot — PII stays in `after` only because `before`
+        // is null for a create. Password hash is intentionally never recorded.
+        writeAuditLog({
+          tx,
           tenantId: ctx.tenantId,
-          email: input.email,
-          name: input.name,
-          passwordHash,
-          role: input.role,
-          isActive: input.isActive,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
+          actorId,
+          action: 'user.create',
+          resourceType: 'user',
+          resourceId: id,
+          before: null,
+          after: {
+            email: input.email,
+            name: input.name,
+            role: input.role,
+            isActive: input.isActive,
+          },
+          metadata: null,
+        });
+      });
 
-      // New-account snapshot — PII stays in `after` only because `before`
-      // is null for a create. Password hash is intentionally never recorded.
-      writeAuditLog({
-        tx,
-        tenantId: ctx.tenantId,
-        actorId,
-        action: 'user.create',
-        resourceType: 'user',
-        resourceId: id,
-        before: null,
-        after: {
+      await enqueueSync(ctx, {
+        entityType: 'users',
+        entityId: id,
+        operation: 'create',
+        data: {
+          id,
           email: input.email,
           name: input.name,
           role: input.role,
           isActive: input.isActive,
         },
-        metadata: null,
       });
-    });
 
-    await enqueueSync(ctx, {
-      entityType: 'users',
-      entityId: id,
-      operation: 'create',
-      data: {
-        id,
-        email: input.email,
-        name: input.name,
-        role: input.role,
-        isActive: input.isActive,
-      },
-    });
-
-    return (
-      await ctx.db
+      return (await ctx.db
         .select({
           id: users.id,
           tenantId: users.tenantId,
@@ -153,12 +157,12 @@ export const usersRouter = router({
           isActive: users.isActive,
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
+          hasPin: sql<boolean>`${users.staffPinHash} is not null`.mapWith(Boolean),
         })
         .from(users)
         .where(eq(users.id, id))
-        .get()
-    )!;
-  }),
+        .get())!;
+    }),
 
   update: criticalCommandAdminProcedure.input(updateUserInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
@@ -173,7 +177,11 @@ export const usersRouter = router({
     }
 
     if (updates.email && updates.email !== existing.email) {
-      const duplicate = await ctx.db.select().from(users).where(eq(users.email, updates.email)).get();
+      const duplicate = await ctx.db
+        .select()
+        .from(users)
+        .where(eq(users.email, updates.email))
+        .get();
       if (duplicate) {
         throw new TRPCError({
           code: 'CONFLICT',
@@ -202,10 +210,8 @@ export const usersRouter = router({
     // events. Detecting change against the `existing` snapshot keeps the
     // audit timeline free of noise when an admin reopens the form and
     // saves without touching role/isActive.
-    const roleChanged =
-      updates.role !== undefined && updates.role !== existing.role;
-    const activeChanged =
-      updates.isActive !== undefined && updates.isActive !== existing.isActive;
+    const roleChanged = updates.role !== undefined && updates.role !== existing.role;
+    const activeChanged = updates.isActive !== undefined && updates.isActive !== existing.isActive;
     const shouldAudit = roleChanged || activeChanged;
 
     ctx.db.transaction(tx => {
@@ -245,22 +251,21 @@ export const usersRouter = router({
       data: { id, ...updateData },
     });
 
-    return (
-      await ctx.db
-        .select({
-          id: users.id,
-          tenantId: users.tenantId,
-          email: users.email,
-          name: users.name,
-          role: users.role,
-          isActive: users.isActive,
-          createdAt: users.createdAt,
-          updatedAt: users.updatedAt,
-        })
-        .from(users)
-        .where(eq(users.id, id))
-        .get()
-    )!;
+    return (await ctx.db
+      .select({
+        id: users.id,
+        tenantId: users.tenantId,
+        email: users.email,
+        name: users.name,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        hasPin: sql<boolean>`${users.staffPinHash} is not null`.mapWith(Boolean),
+      })
+      .from(users)
+      .where(eq(users.id, id))
+      .get())!;
   }),
 
   resetPassword: adminProcedure
@@ -311,5 +316,66 @@ export const usersRouter = router({
       });
 
       return { success: true, id: input.id };
+    }),
+
+  setStaffPin: criticalCommandAdminProcedure
+    .use(
+      rateLimitFor({
+        name: 'users.setStaffPin',
+        max: 20,
+        windowMs: 60 * 60_000,
+        keyBy: ['userId'],
+      })
+    )
+    .input(setUserStaffPinInput)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db
+        .select({
+          id: users.id,
+          role: users.role,
+          staffPinHash: users.staffPinHash,
+        })
+        .from(users)
+        .where(and(eq(users.id, input.id), eq(users.tenantId, ctx.tenantId)))
+        .get();
+
+      if (!existing) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+      }
+
+      const wasConfigured = existing.staffPinHash !== null;
+      const willBeConfigured = input.pin !== null;
+      if (!wasConfigured && !willBeConfigured) {
+        return { success: true, id: input.id, hasPin: false };
+      }
+
+      const staffPinHash = input.pin === null ? null : await hashStaffPin(input.pin);
+      const now = new Date().toISOString();
+      ctx.db.transaction(tx => {
+        tx.update(users)
+          .set({ staffPinHash, updatedAt: now })
+          .where(and(eq(users.id, input.id), eq(users.tenantId, ctx.tenantId)))
+          .run();
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'user.pin.update',
+          resourceType: 'user',
+          resourceId: input.id,
+          before: { configured: wasConfigured },
+          after: { configured: willBeConfigured },
+          metadata: { targetRole: existing.role },
+        });
+      });
+
+      await enqueueSync(ctx, {
+        entityType: 'users',
+        entityId: input.id,
+        operation: 'update',
+        data: { id: input.id, staffPinUpdated: true, updatedAt: now },
+      });
+
+      return { success: true, id: input.id, hasPin: willBeConfigured };
     }),
 });

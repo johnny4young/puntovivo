@@ -32,6 +32,8 @@
 const REDACT_FIELD_NAMES: readonly string[] = [
   'password',
   'passwordhash',
+  'pin',
+  'staffpinhash',
   'token',
   'refreshtoken',
   'jwtsecret',
@@ -52,8 +54,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function shouldRedactField(name: string): boolean {
-  const lower = name.toLowerCase();
-  return REDACT_FIELD_NAMES.includes(lower);
+  const normalized = name.toLowerCase().replace(/[_-]/g, '');
+  return REDACT_FIELD_NAMES.includes(normalized);
 }
 
 function redactValue(value: unknown, seen: WeakSet<object>): unknown {
@@ -99,5 +101,4 @@ export function redactErrorAttrs<T extends Record<string, unknown>>(
  * Exposed for tests. Production code must not mutate the redact
  * list.
  */
-export const __REDACT_FIELD_NAMES_FOR_TESTS: readonly string[] =
-  REDACT_FIELD_NAMES;
+export const __REDACT_FIELD_NAMES_FOR_TESTS: readonly string[] = REDACT_FIELD_NAMES;

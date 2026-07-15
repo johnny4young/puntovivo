@@ -70,6 +70,7 @@ export async function ensureUsers(db: Database.Database, tenantId: string): Prom
     set tenant_id = @tenantId,
         name = @name,
         password_hash = @passwordHash,
+        staff_pin_hash = null,
         session_version = @sessionVersion,
         role = @role,
         is_active = 1,

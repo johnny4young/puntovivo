@@ -76,6 +76,8 @@
     "purchase.void": "Purchase voided",
     "user.create": "User created",
     "user.update": "User updated",
+    "user.pin.update": "Staff PIN updated",
+    "auth.staff_switch": "Cashier switched",
     "sale.price_override": "Sale price override",
     "sale.park": "Sale suspended",
     "sale.resume": "Sale resumed",

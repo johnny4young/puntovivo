@@ -11,9 +11,27 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
 import { nowIso, sqliteNow, userRoleEnum } from './base.js';
-import { categories, cities, countries, departments, locationXSite, locations, providers, sequentials, units, vatRates } from './catalogs.js';
+import {
+  categories,
+  cities,
+  countries,
+  departments,
+  locationXSite,
+  locations,
+  providers,
+  sequentials,
+  units,
+  vatRates,
+} from './catalogs.js';
 import { categoryXProvider, products } from './products.js';
-import { clientTypes, commercialActivities, customers, identificationTypes, personTypes, regimeTypes } from './customers.js';
+import {
+  clientTypes,
+  commercialActivities,
+  customers,
+  identificationTypes,
+  personTypes,
+  regimeTypes,
+} from './customers.js';
 import { orders, purchaseReturns, purchases } from './purchasing.js';
 import { cashMovements, cashSessions, denominationTemplates, sales } from './sales.js';
 import { saleReturns } from './salesAux.js';
@@ -101,6 +119,9 @@ export const users = sqliteTable(
     email: text('email').notNull().unique(),
     name: text('name').notNull(),
     passwordHash: text('password_hash').notNull(),
+    // ENG-106a — optional fast-switch credential. Stored as an Argon2id
+    // hash and never projected into user/sync/audit responses.
+    staffPinHash: text('staff_pin_hash'),
     sessionVersion: integer('session_version').notNull().default(1),
     role: text('role', { enum: userRoleEnum }).notNull().default('cashier'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),

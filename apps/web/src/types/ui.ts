@@ -55,6 +55,8 @@ export type AuditLogAction =
   | 'purchase.void'
   | 'user.create'
   | 'user.update'
+  | 'user.pin.update'
+  | 'auth.staff_switch'
   | 'sale.price_override'
   // ENG-018 — park-and-resume (including discard metadata flag).
   | 'sale.park'

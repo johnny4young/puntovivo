@@ -23,6 +23,8 @@ export const SERVER_ERROR_CODES_A = {
    * frontend can render a precise retry-after message.
    */
   AUTH_RATE_LIMIT_EXCEEDED: 'AUTH_RATE_LIMIT_EXCEEDED',
+  /** ENG-106a — the six-digit staff PIN did not match. */
+  AUTH_STAFF_PIN_INVALID: 'AUTH_STAFF_PIN_INVALID',
 
   // --- cash sessions domain (Phase 1 DB-051 / API-051 / API-055) ---
   CASH_SESSION_REQUIRED: 'CASH_SESSION_REQUIRED',

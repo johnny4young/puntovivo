@@ -184,6 +184,10 @@ export const auditLogActionEnum = [
   'purchase.void',
   'user.create',
   'user.update',
+  // ENG-106a — PIN configuration and successful shared-terminal identity
+  // switches. Neither row carries the PIN or its hash.
+  'user.pin.update',
+  'auth.staff_switch',
   'sale.price_override',
   // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
   // when a cashier suspends a draft sale; `sale.resume` when the same or

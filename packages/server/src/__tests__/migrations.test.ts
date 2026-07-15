@@ -281,10 +281,19 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
       .get(eng129c!.when);
     expect(pinnedPrivacy).toBeUndefined();
+
+    const eng106a = readExpectedMigrations().find(
+      migration => migration.tag === '0012_eng106a_staff_pin'
+    );
+    expect(eng106a).toBeDefined();
+    const pinnedStaffPin = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(eng106a!.when);
+    expect(pinnedStaffPin).toBeUndefined();
     sqlite.close();
   });
 
-  it('pins customer privacy migration for a purchase-only partial DB', () => {
+  it('pins absent customer-privacy and staff-PIN migrations for a purchase-only partial DB', () => {
     const sqlite = new Database(':memory:', { nativeBinding });
     sqlite.exec('CREATE TABLE purchases (id TEXT PRIMARY KEY)');
 
@@ -298,6 +307,15 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
       .get(eng129c!.when);
     expect(pinnedPrivacy).toBeDefined();
+
+    const eng106a = readExpectedMigrations().find(
+      migration => migration.tag === '0012_eng106a_staff_pin'
+    );
+    expect(eng106a).toBeDefined();
+    const pinnedStaffPin = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(eng106a!.when);
+    expect(pinnedStaffPin).toBeDefined();
     sqlite.close();
   });
 

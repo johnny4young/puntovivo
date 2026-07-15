@@ -66,6 +66,9 @@ describe('logger (ENG-006)', () => {
     it.each([
       'password',
       'passwordHash',
+      'pin',
+      'staffPinHash',
+      'staff_pin_hash',
       'token',
       'refreshToken',
       'jwtSecret',
@@ -133,6 +136,9 @@ describe('logger (ENG-006)', () => {
       for (const required of [
         'password',
         'passwordHash',
+        'pin',
+        'staffPinHash',
+        'staff_pin_hash',
         'token',
         'refreshToken',
         'jwtSecret',
@@ -173,6 +179,9 @@ describe('logger (ENG-006)', () => {
     it.each([
       'password',
       'passwordHash',
+      'pin',
+      'staffPinHash',
+      'staff_pin_hash',
       'token',
       'refreshToken',
       'email',
@@ -194,6 +203,9 @@ describe('logger (ENG-006)', () => {
             tenantId: 't-99',
             details: {
               password: 'plaintext',
+              pin: '246810',
+              staffPinHash: '$argon2id$leak',
+              staff_pin_hash: '$argon2id$database-leak',
               token: 'tok',
               jwtSecret: 'secret',
               authorization: 'Bearer secret',
@@ -207,6 +219,9 @@ describe('logger (ENG-006)', () => {
       const details = cause.details as Record<string, unknown>;
       expect(cause.tenantId).toBe('t-99');
       expect(details.password).toBe('[Redacted]');
+      expect(details.pin).toBe('[Redacted]');
+      expect(details.staffPinHash).toBe('[Redacted]');
+      expect(details.staff_pin_hash).toBe('[Redacted]');
       expect(details.token).toBe('[Redacted]');
       expect(details.jwtSecret).toBe('[Redacted]');
       expect(details.authorization).toBe('[Redacted]');

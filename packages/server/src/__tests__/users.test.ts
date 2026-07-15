@@ -4,7 +4,7 @@ import { TRPCError } from '@trpc/server';
 import { hash } from 'argon2';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { users } from '../db/schema.js';
+import { auditLogs, users } from '../db/schema.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
@@ -14,7 +14,6 @@ let server: PuntovivoServer;
 let tenantId: string;
 let userId: string;
 let testDeviceId: string;
-
 
 function getCookieValue(
   setCookieHeader: string | string[] | undefined,
@@ -59,9 +58,7 @@ async function loginOverHttp(email: string, password: string) {
   };
 }
 
-function createTestContext(
-  role: 'admin' | 'manager' | 'cashier' = 'admin'
-): Context {
+function createTestContext(role: 'admin' | 'manager' | 'cashier' = 'admin'): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
@@ -98,7 +95,11 @@ describe('Users tRPC Router', () => {
     });
 
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
     }
@@ -198,9 +199,7 @@ describe('Users tRPC Router', () => {
       method: 'POST',
       url: '/api/trpc/auth.refresh?batch=1',
       headers: {
-        cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
-          '; '
-        ),
+        cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
         'content-type': 'application/json',
         'x-csrf-token': csrfCookie as string,
       },
@@ -275,9 +274,7 @@ describe('Users tRPC Router', () => {
       method: 'POST',
       url: '/api/trpc/auth.refresh?batch=1',
       headers: {
-        cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
-          '; '
-        ),
+        cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
         'content-type': 'application/json',
         'x-csrf-token': csrfCookie as string,
       },
@@ -314,5 +311,59 @@ describe('Users tRPC Router', () => {
         newPassword: 'weakpass1',
       })
     ).rejects.toThrow('Password must be at least 12 characters');
+  });
+
+  it('sets and clears a staff PIN without exposing its hash', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const created = await caller.users.create({
+      email: 'pin-user@example.com',
+      name: 'PIN User',
+      password: 'PinUserPass123!',
+      role: 'cashier',
+      isActive: true,
+    });
+
+    const configured = await caller.users.setStaffPin({ id: created.id, pin: '246810' });
+    expect(configured).toEqual({ success: true, id: created.id, hasPin: true });
+
+    const stored = await getDatabase()
+      .select({ staffPinHash: users.staffPinHash })
+      .from(users)
+      .where(eq(users.id, created.id))
+      .get();
+    expect(stored?.staffPinHash).toMatch(/^\$argon2id\$/);
+    expect(stored?.staffPinHash).not.toContain('246810');
+
+    const listed = await caller.users.list({ page: 1, perPage: 20, search: 'PIN User' });
+    expect(listed.items[0]).toMatchObject({ id: created.id, hasPin: true });
+    expect(listed.items[0]).not.toHaveProperty('staffPinHash');
+
+    const audit = await getDatabase()
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.resourceId, created.id))
+      .all();
+    const pinAudit = audit.find(row => row.action === 'user.pin.update');
+    expect(pinAudit?.before).toEqual({ configured: false });
+    expect(pinAudit?.after).toEqual({ configured: true });
+    expect(JSON.stringify(pinAudit)).not.toContain('246810');
+
+    const cleared = await caller.users.setStaffPin({ id: created.id, pin: null });
+    expect(cleared.hasPin).toBe(false);
+  });
+
+  it('rejects non-admin staff PIN management', async () => {
+    const adminCaller = appRouter.createCaller(createTestContext());
+    const created = await adminCaller.users.create({
+      email: 'pin-role-guard@example.com',
+      name: 'PIN Guard User',
+      password: 'PinGuardPass123!',
+      role: 'cashier',
+      isActive: true,
+    });
+    const managerCaller = appRouter.createCaller(createTestContext('manager'));
+    await expect(
+      managerCaller.users.setStaffPin({ id: created.id, pin: '123456' })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 });

@@ -10,6 +10,7 @@
     "AUTH_USER_DISABLED": "Your account has been disabled. Please contact an administrator.",
     "AUTH_TENANT_DISABLED": "Your organization has been disabled. Please contact support.",
     "AUTH_RATE_LIMIT_EXCEEDED": "Too many attempts. Please wait a moment and try again.",
+    "AUTH_STAFF_PIN_INVALID": "The selected cashier or PIN is invalid.",
     "AUTH_REFRESH_INVALID": "Your session has expired. Please sign in again.",
     "AUTH_USER_NOT_FOUND": "Your user account could not be found.",
     "AUTH_CURRENT_PASSWORD_INCORRECT": "Your current password is incorrect.",

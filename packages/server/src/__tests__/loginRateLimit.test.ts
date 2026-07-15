@@ -18,10 +18,15 @@ import {
   LOGIN_RATE_LIMIT_IP_WINDOW_MS,
   LOGIN_RATE_LIMIT_USERNAME_MAX,
   LOGIN_RATE_LIMIT_USERNAME_WINDOW_MS,
+  STAFF_PIN_RATE_LIMIT_ACTOR_MAX,
+  STAFF_PIN_RATE_LIMIT_TARGET_MAX,
   __resetForTests,
   checkIp,
+  checkStaffPin,
   checkUsername,
   registerFailure,
+  registerStaffPinFailure,
+  registerStaffPinSuccess,
   registerSuccess,
   secondsUntilReset,
   warmCacheFromDb,
@@ -237,6 +242,60 @@ describe('loginRateLimit (ENG-008 / ENG-008b)', () => {
     }
     // Different case + leading whitespace must hit the same bucket.
     expectTooManyRequests(() => checkUsername(db, '  alice@test.COM  ', t));
+  });
+
+  it('locks a staff PIN target after five failures and persists the opaque bucket', () => {
+    const identity = {
+      tenantId: 'tenant-a',
+      actorUserId: 'actor-a',
+      targetUserId: 'cashier-a',
+    };
+    const now = 700;
+    for (let i = 0; i < STAFF_PIN_RATE_LIMIT_TARGET_MAX; i += 1) {
+      checkStaffPin(db, identity, now);
+      registerStaffPinFailure(db, identity, now);
+    }
+    const err = expectTooManyRequests(() => checkStaffPin(db, identity, now));
+    expect((err.cause as ServerErrorWithCode).details).toMatchObject({
+      kind: 'staff_pin_target',
+      max: STAFF_PIN_RATE_LIMIT_TARGET_MAX,
+    });
+    expect((err.cause as ServerErrorWithCode).details).not.toHaveProperty('key');
+
+    const row = db
+      .select()
+      .from(loginAttempts)
+      .where(
+        and(eq(loginAttempts.kind, 'staff_pin_target'), eq(loginAttempts.key, 'tenant-a:cashier-a'))
+      )
+      .get();
+    expect(row?.count).toBe(STAFF_PIN_RATE_LIMIT_TARGET_MAX);
+  });
+
+  it('successful PIN clears only target failures, not the actor aggregate', () => {
+    const identity = {
+      tenantId: 'tenant-b',
+      actorUserId: 'actor-b',
+      targetUserId: 'cashier-b',
+    };
+    const now = 800;
+    for (let i = 0; i < STAFF_PIN_RATE_LIMIT_ACTOR_MAX; i += 1) {
+      registerStaffPinFailure(
+        db,
+        {
+          ...identity,
+          targetUserId: `cashier-${i}`,
+        },
+        now
+      );
+    }
+    registerStaffPinSuccess(db, identity);
+
+    const err = expectTooManyRequests(() => checkStaffPin(db, identity, now));
+    expect((err.cause as ServerErrorWithCode).details).toMatchObject({
+      kind: 'staff_pin_actor',
+      max: STAFF_PIN_RATE_LIMIT_ACTOR_MAX,
+    });
   });
 
   it('secondsUntilReset returns a positive integer inside the window and 0 after', () => {

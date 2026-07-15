@@ -916,12 +916,16 @@
       "user": "User",
       "role": "Role",
       "status": "Status",
+      "pin": "Staff PIN",
+      "pinConfigured": "Configured",
+      "pinMissing": "Not configured",
       "active": "Active",
       "inactive": "Inactive"
     },
     "actions": {
       "edit": "Edit {{name}}",
-      "resetPassword": "Reset password for {{name}}"
+      "resetPassword": "Reset password for {{name}}",
+      "managePin": "Manage staff PIN for {{name}}"
     },
     "roles": {
       "admin": "Admin",
@@ -968,6 +972,19 @@
       "newPassword": "New Password",
       "submit": "Reset Password"
     },
+    "staffPin": {
+      "title": "Manage staff PIN",
+      "description": "Set a 6-digit PIN for {{name}}. Cashier PINs can switch shared workstations; a PIN never replaces full sign-in for manager or admin access.",
+      "label": "New 6-digit PIN",
+      "placeholder": "6 digits",
+      "requirement": "Use exactly 6 numbers. The PIN is stored as a one-way Argon2id hash.",
+      "cancel": "Cancel",
+      "save": "Save PIN",
+      "saving": "Saving...",
+      "clear": "Remove PIN",
+      "clearConfirm": "Remove the staff PIN for {{name}}?",
+      "invalid": "Enter exactly 6 digits."
+    },
     "toast": {
       "created": "User created",
       "createError": "Unable to create user",
@@ -975,7 +992,10 @@
       "updateError": "Unable to update user",
       "claimsChanged": "Your account claims changed. Please sign in again",
       "passwordReset": "Password reset",
-      "passwordChanged": "Your password changed. Please sign in again"
+      "passwordChanged": "Your password changed. Please sign in again",
+      "pinSaved": "Staff PIN saved",
+      "pinCleared": "Staff PIN removed",
+      "pinError": "Unable to update the staff PIN"
     }
   }
 }

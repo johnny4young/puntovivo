@@ -1,12 +1,13 @@
 # Security Notes
 
-> Updated: June 11, 2026 (ENG-166 + ENG-174 closure + ENG-167 Step-1 + ENG-167b)
+> Updated: July 14, 2026 (ENG-106a staff PIN isolation)
 
 ## Current Security Posture
 
 The project already includes the main baseline controls expected for the current app shape:
 
 - Argon2 password hashing
+- Argon2id staff PIN hashing with persistent brute-force throttles
 - cryptographically generated seeded admin password
 - hybrid auth with short-lived access JWTs and rotated refresh cookies
 - CSRF protection on cookie-backed auth flows
@@ -159,6 +160,46 @@ already carries `details.kind` / `details.key` for that follow-up hook.
 - IP allowlist / denylist for deployments that know their customer subnets.
 - Optional multi-factor on the login procedure.
 
+## Staff PIN switching (ENG-106a)
+
+Staff PINs are an opt-in shared-terminal credential, not a replacement for a
+user password. An admin can set, rotate, or remove a six-digit PIN through the
+critical `users.setStaffPin` command. The server stores only an Argon2id hash
+of a domain-separated credential (`puntovivo:staff-pin:v1:<pin>`), so neither
+the plaintext PIN nor a password hash is reusable across credential types.
+
+Fast switching is deliberately privilege-constrained:
+
+- only an authenticated cashier, manager, or admin can request a switch;
+- the target must be an active cashier in the same tenant;
+- a manager or admin identity can never be adopted through a PIN;
+- unavailable, unenrolled, self-targeted, and wrong-PIN attempts run the same
+  dummy Argon2 verification path and return `AUTH_STAFF_PIN_INVALID`;
+- successful adoption creates a new refresh family for the target and writes
+  `auth.staff_switch` with the source actor and target cashier, but no secret;
+- PIN-authenticated access, refresh, and realtime tokens share one fixed
+  eight-hour `authSessionExpiresAt` ceiling. Refresh rotation preserves that
+  ceiling and never extends the shift session.
+
+Two failure-only buckets persist in `login_attempts` for 15 minutes:
+
+| Bucket          | Key                  | Cap | Reset rule                                        |
+| --------------- | -------------------- | --- | ------------------------------------------------- |
+| Actor aggregate | tenant + source user | 10  | TTL only; success never grants actor-wide amnesty |
+| Target cashier  | tenant + target user | 5   | cleared only after the switch transaction commits |
+
+The browser verifies the PIN before changing local identity. After success it
+broadcasts the handoff so other same-origin tabs immediately discard the
+source identity, then purges React Query state, cart workspaces, quick-create
+state, and stored auth ownership; in Electron it also waits for the old
+desktop session to clear before registering the target token. If local
+adoption fails, the client fails closed to the login screen.
+
+Secret handling is defense in depth: `pin` and `staffPinHash` are included in
+the pino, telemetry, and diagnostic-bundle redaction policies. Sync and audit
+payloads carry only a boolean lifecycle marker (`staffPinUpdated`) or
+configured-state metadata, never a PIN or hash.
+
 ## Dependency audit gate (ENG-009)
 
 Every CI script (`ci:web`, `ci:server`, `ci:desktop`) begins with a shared
@@ -208,6 +249,9 @@ safe:
 | ----------------------- | -------------------------------------- |
 | `password`              | plaintext secret                       |
 | `passwordHash`          | argon2 output; reveals hash parameters |
+| `pin`                   | plaintext staff PIN                    |
+| `staffPinHash`          | Argon2id staff PIN hash                |
+| `staff_pin_hash`        | database-shaped staff PIN hash         |
 | `token`                 | JWT access token                       |
 | `refreshToken`          | rotated refresh token                  |
 | `jwtSecret`             | server-side signing secret             |
@@ -218,6 +262,9 @@ safe:
 | `headers.cookie`        | nested in request logs                 |
 | `*.password`            | one-level-deep credential fields       |
 | `*.passwordHash`        | one-level-deep hash fields             |
+| `*.pin`                 | one-level-deep staff PIN fields        |
+| `*.staffPinHash`        | one-level-deep staff PIN hashes        |
+| `*.staff_pin_hash`      | database-shaped staff PIN hashes       |
 | `*.token`               | one-level-deep token fields            |
 | `*.refreshToken`        | one-level-deep refresh fields          |
 | `*.email`               | one-level-deep email fields            |

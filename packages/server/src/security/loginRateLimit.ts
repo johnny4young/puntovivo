@@ -47,6 +47,9 @@ export const LOGIN_RATE_LIMIT_IP_MAX = 10;
 export const LOGIN_RATE_LIMIT_IP_WINDOW_MS = 60_000; // 60 seconds
 export const LOGIN_RATE_LIMIT_USERNAME_MAX = 5;
 export const LOGIN_RATE_LIMIT_USERNAME_WINDOW_MS = 15 * 60_000; // 15 minutes
+export const STAFF_PIN_RATE_LIMIT_ACTOR_MAX = 10;
+export const STAFF_PIN_RATE_LIMIT_TARGET_MAX = 5;
+export const STAFF_PIN_RATE_LIMIT_WINDOW_MS = 15 * 60_000; // 15 minutes
 
 interface Bucket {
   count: number;
@@ -58,6 +61,8 @@ interface Bucket {
 
 const ipBuckets = new Map<string, Bucket>();
 const usernameBuckets = new Map<string, Bucket>();
+const staffPinActorBuckets = new Map<string, Bucket>();
+const staffPinTargetBuckets = new Map<string, Bucket>();
 
 /**
  * Tracks whether we have already warned about the table being absent so the
@@ -70,15 +75,49 @@ function normalizeEmail(email: string): string {
 }
 
 function bucketMapFor(kind: LoginAttemptKind): Map<string, Bucket> {
-  return kind === 'ip' ? ipBuckets : usernameBuckets;
+  switch (kind) {
+    case 'ip':
+      return ipBuckets;
+    case 'username':
+      return usernameBuckets;
+    case 'staff_pin_actor':
+      return staffPinActorBuckets;
+    case 'staff_pin_target':
+      return staffPinTargetBuckets;
+  }
 }
 
 function windowMsFor(kind: LoginAttemptKind): number {
-  return kind === 'ip' ? LOGIN_RATE_LIMIT_IP_WINDOW_MS : LOGIN_RATE_LIMIT_USERNAME_WINDOW_MS;
+  switch (kind) {
+    case 'ip':
+      return LOGIN_RATE_LIMIT_IP_WINDOW_MS;
+    case 'username':
+      return LOGIN_RATE_LIMIT_USERNAME_WINDOW_MS;
+    case 'staff_pin_actor':
+    case 'staff_pin_target':
+      return STAFF_PIN_RATE_LIMIT_WINDOW_MS;
+  }
 }
 
 function maxFor(kind: LoginAttemptKind): number {
-  return kind === 'ip' ? LOGIN_RATE_LIMIT_IP_MAX : LOGIN_RATE_LIMIT_USERNAME_MAX;
+  switch (kind) {
+    case 'ip':
+      return LOGIN_RATE_LIMIT_IP_MAX;
+    case 'username':
+      return LOGIN_RATE_LIMIT_USERNAME_MAX;
+    case 'staff_pin_actor':
+      return STAFF_PIN_RATE_LIMIT_ACTOR_MAX;
+    case 'staff_pin_target':
+      return STAFF_PIN_RATE_LIMIT_TARGET_MAX;
+  }
+}
+
+function normalizeKey(kind: LoginAttemptKind, key: string): string {
+  return kind === 'username' ? normalizeEmail(key) : key;
+}
+
+function staffPinKey(tenantId: string, userId: string): string {
+  return `${tenantId}:${userId}`;
 }
 
 /**
@@ -225,8 +264,13 @@ function rejectOverCap(kind: LoginAttemptKind, key: string, now: number, bucket:
   throwServerError({
     trpcCode: 'TOO_MANY_REQUESTS',
     errorCode: 'AUTH_RATE_LIMIT_EXCEEDED',
-    message: `Too many login attempts. Try again in ${seconds} seconds.`,
-    details: { kind, key, max, secondsUntilReset: seconds },
+    message: `Too many credential attempts. Try again in ${seconds} seconds.`,
+    details: {
+      kind,
+      ...(kind === 'ip' || kind === 'username' ? { key } : {}),
+      max,
+      secondsUntilReset: seconds,
+    },
   });
 }
 
@@ -246,11 +290,7 @@ export function checkIp(db: DatabaseInstance, ip: string, now: number = Date.now
  * Raises `TOO_MANY_REQUESTS` if the (normalized) email has exceeded the
  * per-username cap. Case-insensitive; trims leading/trailing whitespace.
  */
-export function checkUsername(
-  db: DatabaseInstance,
-  email: string,
-  now: number = Date.now()
-): void {
+export function checkUsername(db: DatabaseInstance, email: string, now: number = Date.now()): void {
   const key = normalizeEmail(email);
   const bucket = loadBucket(db, 'username', key, now);
   if (!bucket) return;
@@ -304,6 +344,57 @@ export function registerSuccess(db: DatabaseInstance, email: string): void {
   deleteBucket(db, 'username', normalizeEmail(email));
 }
 
+export interface StaffPinRateLimitIdentity {
+  tenantId: string;
+  actorUserId: string;
+  targetUserId: string;
+}
+
+/** Refuse a PIN attempt when either the actor aggregate or target is saturated. */
+export function checkStaffPin(
+  db: DatabaseInstance,
+  identity: StaffPinRateLimitIdentity,
+  now: number = Date.now()
+): void {
+  const actorKey = staffPinKey(identity.tenantId, identity.actorUserId);
+  const targetKey = staffPinKey(identity.tenantId, identity.targetUserId);
+  const actorBucket = loadBucket(db, 'staff_pin_actor', actorKey, now);
+  if (actorBucket && actorBucket.count >= STAFF_PIN_RATE_LIMIT_ACTOR_MAX) {
+    rejectOverCap('staff_pin_actor', actorKey, now, actorBucket);
+  }
+  const targetBucket = loadBucket(db, 'staff_pin_target', targetKey, now);
+  if (targetBucket && targetBucket.count >= STAFF_PIN_RATE_LIMIT_TARGET_MAX) {
+    rejectOverCap('staff_pin_target', targetKey, now, targetBucket);
+  }
+}
+
+/** Increment both failure-only PIN buckets. */
+export function registerStaffPinFailure(
+  db: DatabaseInstance,
+  identity: StaffPinRateLimitIdentity,
+  now: number = Date.now()
+): void {
+  incrementBucket(db, 'staff_pin_actor', staffPinKey(identity.tenantId, identity.actorUserId), now);
+  incrementBucket(
+    db,
+    'staff_pin_target',
+    staffPinKey(identity.tenantId, identity.targetUserId),
+    now
+  );
+}
+
+/**
+ * A valid target PIN clears only that cashier's bucket. The actor aggregate
+ * deliberately decays on its own so one known PIN cannot amnesty attempts
+ * against every other cashier.
+ */
+export function registerStaffPinSuccess(
+  db: DatabaseInstance,
+  identity: StaffPinRateLimitIdentity
+): void {
+  deleteBucket(db, 'staff_pin_target', staffPinKey(identity.tenantId, identity.targetUserId));
+}
+
 /**
  * Seconds remaining in the current window before the given bucket resets.
  * Returns 0 when the bucket is empty or the window has already elapsed.
@@ -315,7 +406,7 @@ export function secondsUntilReset(
   key: string,
   now: number = Date.now()
 ): number {
-  const resolvedKey = kind === 'ip' ? key : normalizeEmail(key);
+  const resolvedKey = normalizeKey(kind, key);
   const bucket = loadBucket(db, kind, resolvedKey, now);
   if (!bucket) return 0;
   if (bucket.expiresAt <= now) return 0;
@@ -332,6 +423,8 @@ export function secondsUntilReset(
 export function warmCacheFromDb(db: DatabaseInstance, now: number = Date.now()): void {
   ipBuckets.clear();
   usernameBuckets.clear();
+  staffPinActorBuckets.clear();
+  staffPinTargetBuckets.clear();
   if (!loginAttemptsTableExists(db)) {
     return;
   }
@@ -356,6 +449,8 @@ export function warmCacheFromDb(db: DatabaseInstance, now: number = Date.now()):
 export function __resetForTests(db?: DatabaseInstance): void {
   ipBuckets.clear();
   usernameBuckets.clear();
+  staffPinActorBuckets.clear();
+  staffPinTargetBuckets.clear();
   tableMissingWarned = false;
   if (!db) return;
   if (!loginAttemptsTableExists(db)) return;

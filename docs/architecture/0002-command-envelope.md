@@ -137,6 +137,7 @@ follow-up amendment.
 
 - `users.create`
 - `users.update` (when changing `role` or `isActive`)
+- `users.setStaffPin` (ENG-106a — staff credential rotation or removal)
 - `auth.changePassword`
 
 **Module activation**
@@ -188,6 +189,9 @@ exposes `electron.device.getId/setId` backed by an atomic file
 write under `app.getPath('userData')/device-id.txt`; Fastify
 `onRequest` hook hangs `requestId` + `deviceId` on `request.log`
 so non-envelope requests share request-scoped provenance).
+Updated: 2026-07-14 (ENG-106a — added `users.setStaffPin` to the
+closed list so PIN credential rotation and removal use the same
+idempotent command envelope as other user-security mutations).
 Updated: 2026-05-03 (ENG-053 — operation journal wired into
 envelope: `recordOperationStart` runs after the idempotency
 reservation and before `next()`, idempotent on

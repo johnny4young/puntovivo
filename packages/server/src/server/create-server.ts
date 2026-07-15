@@ -24,6 +24,7 @@ import { createModuleLogger, rootLogger } from '../logging/logger.js';
 import { initServerTelemetryAdapter } from '../observability/index.js';
 import { warmCacheFromDb } from '../security/loginRateLimit.js';
 import { warmUpPasswordSecurity } from '../security/passwords.js';
+import { warmUpStaffPinSecurity } from '../security/staffPins.js';
 import { startProcedureRateLimitSweeper } from '../trpc/middleware/procedureRateLimit.js';
 import { createContext } from '../trpc/context.js';
 import { appRouter } from '../trpc/router.js';
@@ -74,6 +75,8 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // first not-found login attempt pays an extra 50-100 ms (a small but
   // real timing leak); warming once at boot amortises the cost.
   await warmUpPasswordSecurity();
+  // ENG-106a — same timing equalizer for unavailable staff-switch targets.
+  await warmUpStaffPinSecurity();
 
   // ENG-166 — schedule the periodic sweep of the in-memory rate-limit
   // bucket map so a long-running Electron session (or hub) does not

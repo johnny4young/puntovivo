@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { users, tenants, loginAttempts, devices } from '../db/schema.js';
+import { auditLogs, users, tenants, loginAttempts, devices } from '../db/schema.js';
 import { hash, verify } from 'argon2';
 import { nanoid } from 'nanoid';
 import { and, eq } from 'drizzle-orm';
@@ -23,16 +23,20 @@ import {
   __resetForTests as resetLoginRateLimit,
 } from '../security/loginRateLimit.js';
 import { createCriticalCommandFixture } from './utils/criticalCommandFixture.js';
-import {
-  COMMAND_ENVELOPE_HEADER,
-  DEVICE_ID_HEADER,
-} from '../trpc/schemas/envelope.js';
+import { COMMAND_ENVELOPE_HEADER, DEVICE_ID_HEADER } from '../trpc/schemas/envelope.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { randomUUID } from 'node:crypto';
+import { hashStaffPin } from '../security/staffPins.js';
+import {
+  signAccessToken,
+  verifyTokenWithServer,
+  type AuthTokenPayload,
+} from '../security/authTokens.js';
 
 let server: PuntovivoServer;
 let testTenantId: string;
 let testUserId: string;
+let testCashierId: string;
 const testDbPath = ':memory:';
 
 function getCookieValue(
@@ -162,6 +166,20 @@ describe('Auth tRPC Router', () => {
       passwordHash,
       name: 'tRPC Test User',
       role: 'admin',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    testCashierId = nanoid();
+    await db.insert(users).values({
+      id: testCashierId,
+      tenantId: testTenantId,
+      email: 'switch.cashier@example.com',
+      passwordHash,
+      staffPinHash: await hashStaffPin('246810'),
+      name: 'Switch Cashier',
+      role: 'cashier',
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -377,6 +395,141 @@ describe('Auth tRPC Router', () => {
     });
   });
 
+  describe('auth staff switching (ENG-106a)', () => {
+    function adminCaller() {
+      return appRouter.createCaller(
+        createTestContext({
+          id: testUserId,
+          email: 'trpctest@example.com',
+          role: 'admin',
+          tenantId: testTenantId,
+        })
+      );
+    }
+
+    it('lists only active same-tenant cashiers and exposes configuration, never hashes', async () => {
+      const result = await adminCaller().auth.switchableCashiers();
+      expect(result).toContainEqual({
+        id: testCashierId,
+        name: 'Switch Cashier',
+        role: 'cashier',
+        hasPin: true,
+      });
+      expect(JSON.stringify(result)).not.toContain('argon2');
+    });
+
+    it('never lists or adopts a PIN-configured cashier from another tenant', async () => {
+      const db = getDatabase();
+      const foreignTenantId = nanoid();
+      const foreignCashierId = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(tenants).values({
+        id: foreignTenantId,
+        name: 'Foreign Tenant',
+        slug: `foreign-staff-switch-${foreignTenantId}`,
+        settings: {},
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(users).values({
+        id: foreignCashierId,
+        tenantId: foreignTenantId,
+        email: `foreign-cashier-${foreignCashierId}@example.com`,
+        passwordHash: await hash('ForeignCashier123!'),
+        staffPinHash: await hashStaffPin('135790'),
+        name: 'Foreign Cashier',
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await expect(adminCaller().auth.switchableCashiers()).resolves.not.toContainEqual(
+        expect.objectContaining({ id: foreignCashierId })
+      );
+      await expect(
+        adminCaller().auth.switchStaff({ targetUserId: foreignCashierId, pin: '135790' })
+      ).rejects.toSatisfy((err: unknown) => {
+        const cause = (err as TRPCError).cause;
+        return (
+          err instanceof TRPCError &&
+          err.code === 'UNAUTHORIZED' &&
+          cause instanceof ServerErrorWithCode &&
+          cause.errorCode === 'AUTH_STAFF_PIN_INVALID'
+        );
+      });
+    });
+
+    it('switches to a cashier, fixes the PIN session ceiling, and audits both identities', async () => {
+      const result = await adminCaller().auth.switchStaff({
+        targetUserId: testCashierId,
+        pin: '246810',
+      });
+      const payload = await server.app.jwt.verify<AuthTokenPayload>(result.token);
+      expect(payload).toMatchObject({
+        userId: testCashierId,
+        role: 'cashier',
+        authMethod: 'staff_pin',
+      });
+      expect(payload.authSessionExpiresAt).toBeTypeOf('number');
+      expect(new Date(result.sessionExpiresAt).getTime()).toBe(payload.authSessionExpiresAt);
+
+      const audit = await getDatabase()
+        .select()
+        .from(auditLogs)
+        .where(
+          and(eq(auditLogs.action, 'auth.staff_switch'), eq(auditLogs.resourceId, testCashierId))
+        )
+        .get();
+      expect(audit?.actorId).toBe(testUserId);
+      expect(audit?.before).toEqual({ userId: testUserId, role: 'admin' });
+      expect(audit?.after).toEqual({ userId: testCashierId, role: 'cashier' });
+      expect(JSON.stringify(audit)).not.toContain('246810');
+    });
+
+    it('keeps wrong PIN and unavailable target errors indistinguishable', async () => {
+      for (const input of [
+        { targetUserId: testCashierId, pin: '111111' },
+        { targetUserId: 'foreign-or-missing-user', pin: '111111' },
+      ]) {
+        await expect(adminCaller().auth.switchStaff(input)).rejects.toSatisfy((err: unknown) => {
+          const cause = (err as TRPCError).cause;
+          return (
+            err instanceof TRPCError &&
+            err.code === 'UNAUTHORIZED' &&
+            cause instanceof ServerErrorWithCode &&
+            cause.errorCode === 'AUTH_STAFF_PIN_INVALID'
+          );
+        });
+      }
+    });
+
+    it('never allows a staff PIN to switch into manager or admin privilege', async () => {
+      await getDatabase()
+        .update(users)
+        .set({ staffPinHash: await hashStaffPin('123456') })
+        .where(eq(users.id, testUserId));
+
+      await expect(
+        adminCaller().auth.switchStaff({ targetUserId: testUserId, pin: '123456' })
+      ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    });
+
+    it('fails closed when a PIN-authenticated token is past its fixed ceiling', async () => {
+      const cashier = await getDatabase()
+        .select()
+        .from(users)
+        .where(eq(users.id, testCashierId))
+        .get();
+      expect(cashier).toBeDefined();
+      const expired = signAccessToken(server.app, cashier!, {
+        authMethod: 'staff_pin',
+        authSessionExpiresAt: Date.now() - 1,
+      });
+      await expect(verifyTokenWithServer(server.app, expired, 'access')).resolves.toBeNull();
+    });
+  });
+
   describe('auth.refresh', () => {
     it('should return a new access token with a valid refresh cookie and csrf header', async () => {
       const { refreshCookie, csrfCookie } = await loginOverHttp();
@@ -388,9 +541,7 @@ describe('Auth tRPC Router', () => {
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
-            '; '
-          ),
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
           'content-type': 'application/json',
           'x-csrf-token': csrfCookie as string,
         },
@@ -444,9 +595,7 @@ describe('Auth tRPC Router', () => {
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
-            '; '
-          ),
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
           'content-type': 'application/json',
           'x-csrf-token': csrfCookie as string,
         },
@@ -486,9 +635,7 @@ describe('Auth tRPC Router', () => {
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
-            '; '
-          ),
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
           'content-type': 'application/json',
         },
         payload: '{}',
@@ -517,9 +664,7 @@ describe('Auth tRPC Router', () => {
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
-            '; '
-          ),
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
           'content-type': 'application/json',
           'x-csrf-token': csrfCookie as string,
         },
@@ -547,13 +692,9 @@ describe('Auth tRPC Router', () => {
 
       const setCookie = loginResponse.headers['set-cookie'];
       const cookieHeaders = Array.isArray(setCookie) ? setCookie : [setCookie ?? ''];
-      const refreshCookie = cookieHeaders.find(header =>
-        header.startsWith('puntovivo_refresh=')
-      );
+      const refreshCookie = cookieHeaders.find(header => header.startsWith('puntovivo_refresh='));
       const csrfCookie = getCookieValue(setCookie, 'puntovivo_csrf');
-      const accessToken = loginResponse.json()[0]?.result?.data?.token as
-        | string
-        | undefined;
+      const accessToken = loginResponse.json()[0]?.result?.data?.token as string | undefined;
 
       expect(refreshCookie).toContain('Secure');
       expect(accessToken).toBeTruthy();
@@ -705,9 +846,7 @@ describe('Auth tRPC Router', () => {
         url: '/api/trpc/auth.changePassword?batch=1',
         headers: {
           authorization: `Bearer ${accessToken}`,
-          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
-            '; '
-          ),
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
           'content-type': 'application/json',
           'x-csrf-token': csrfCookie as string,
           [DEVICE_ID_HEADER]: deviceId,
@@ -737,9 +876,7 @@ describe('Auth tRPC Router', () => {
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
-            '; '
-          ),
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
           'content-type': 'application/json',
           'x-csrf-token': csrfCookie as string,
         },
@@ -779,11 +916,7 @@ describe('Auth tRPC Router', () => {
       return caller.auth.login({ email, password });
     }
 
-    async function expectCode(
-      promise: Promise<unknown>,
-      trpcCode: string,
-      errorCode: string
-    ) {
+    async function expectCode(promise: Promise<unknown>, trpcCode: string, errorCode: string) {
       try {
         await promise;
         expect.unreachable(`Expected ${trpcCode} / ${errorCode}, nothing thrown`);

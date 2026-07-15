@@ -5,12 +5,39 @@
  *
  * @module trpc/routers/auth/queries
  */
-import { eq } from 'drizzle-orm';
+import { and, asc, eq, ne } from 'drizzle-orm';
 import { protectedProcedure } from '../../middleware/auth.js';
+import { cashierManagerOrAdminProcedure } from '../../middleware/roles.js';
 import { users, tenants } from '../../../db/schema.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 
 export const authQueryProcedures = {
+  /** Active same-tenant cashiers available for shared-terminal switching. */
+  switchableCashiers: cashierManagerOrAdminProcedure.query(async ({ ctx }) => {
+    const rows = await ctx.db
+      .select({
+        id: users.id,
+        name: users.name,
+        role: users.role,
+        staffPinHash: users.staffPinHash,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.tenantId, ctx.tenantId),
+          eq(users.role, 'cashier'),
+          eq(users.isActive, true),
+          ne(users.id, ctx.user!.id)
+        )
+      )
+      .orderBy(asc(users.name))
+      .all();
+
+    return rows.map(({ staffPinHash, ...cashier }) => ({
+      ...cashier,
+      hasPin: staffPinHash !== null,
+    }));
+  }),
 
   /**
    * Get current authenticated user info

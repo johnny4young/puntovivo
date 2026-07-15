@@ -33,6 +33,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
+  switchStaff: (input: { targetUserId: string; pin: string }) => Promise<void>;
   logout: () => Promise<void>;
   /**
    * The raw error from the most recent failed auth operation, or null when
@@ -43,6 +44,13 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/**
+ * Cross-document signal for shared-terminal identity handoffs. Access tokens
+ * live in module memory, so another tab would otherwise retain the source
+ * manager/admin token until its 15-minute expiry.
+ */
+const STAFF_HANDOFF_STORAGE_KEY = 'puntovivo:staff-handoff';
 
 export function useAuth() {
   const context = useContext(AuthContext);
@@ -81,6 +89,10 @@ const DEFAULT_TENANT_SETTINGS: Tenant['settings'] = {
 };
 
 type AuthMePayload = Awaited<ReturnType<typeof vanillaClient.auth.me.query>>;
+
+function clearDesktopSession(): Promise<unknown> | undefined {
+  return window.api?.session?.clear?.() ?? window.session?.clear?.();
+}
 
 function mapSession(payload: AuthMePayload): { user: User; tenant: Tenant | null } {
   const { user, tenant } = payload;
@@ -122,39 +134,47 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // ENG-171 — stable identity (only stable refs inside: module helpers,
   // store getState, and useState setters) so `logout` can list it as a
   // dependency without invalidating its own useCallback every render.
+  const resetIdentityOwnedState = useCallback(
+    (options: { clearVisibleSession: boolean; clearPersistedSession?: boolean }) => {
+      if (options.clearPersistedSession !== false) {
+        clearAuthSession();
+      }
+      // ENG-018b — drop any parked multi-cart workspaces so a new cashier
+      // signing in on the same machine never sees the previous user's
+      // drafts. The ownerKey filter also prevents rendering, but clearing
+      // the localStorage entry avoids the stale data sitting on disk.
+      useCartWorkspaceStore.getState().resetAllWorkspaces();
+      // ENG-105c — quick-create requests are one-shot UI intents. Clear
+      // them with the session so a different user never inherits an
+      // in-flight product/customer modal after logout or token expiry.
+      useQuickCreateStore.getState().reset();
+      // Authenticated tRPC query keys do not include the current user because
+      // identity comes from the access token. Purge every server-derived cache
+      // entry on logout/expiry so the next operator cannot briefly inherit the
+      // previous user's cash session, sales, or tenant data on a shared POS.
+      queryClient.clear();
+      if (options.clearVisibleSession) {
+        setUser(null);
+        setTenant(null);
+        setError(null);
+        setActiveTenantId(null);
+      }
+    },
+    [queryClient]
+  );
+
   const clearLocalSession = useCallback(() => {
     clearAccessToken();
-    clearAuthSession();
-    // ENG-018b — drop any parked multi-cart workspaces so a new cashier
-    // signing in on the same machine never sees the previous user's
-    // drafts. The ownerKey filter also prevents rendering, but clearing
-    // the localStorage entry avoids the stale data sitting on disk.
-    useCartWorkspaceStore.getState().resetAllWorkspaces();
-    // ENG-105c — quick-create requests are one-shot UI intents. Clear
-    // them with the session so a different user never inherits an
-    // in-flight product/customer modal after logout or token expiry.
-    useQuickCreateStore.getState().reset();
-    // Authenticated tRPC query keys do not include the current user because
-    // identity comes from the access token. Purge every server-derived cache
-    // entry on logout/expiry so the next operator cannot briefly inherit the
-    // previous user's cash session, sales, or tenant data on a shared POS.
-    queryClient.clear();
+    resetIdentityOwnedState({ clearVisibleSession: true });
     // ENG-025 — clear the desktop session singleton so the main
     // process IPC handlers reject any subsequent db:* / sync:* call
     // until the next successful login. Best-effort: any failure here
     // does not block the local cleanup. window.api is undefined in
     // pure-browser mode (no IPC bridge to clear).
-    void window.api?.session?.clear?.().catch(err => {
+    void clearDesktopSession()?.catch(err => {
       console.warn('Desktop session clear failed during logout:', err);
     });
-    setUser(null);
-    setTenant(null);
-    setError(null);
-    // ENG-135 — drop the cached tenantId used by window-level error
-    // listeners. Anonymous captures from then on emit with
-    // `tenantId: null`.
-    setActiveTenantId(null);
-  }, [queryClient]);
+  }, [resetIdentityOwnedState]);
 
   const handleAuthSessionExpired = useEffectEvent(() => {
     clearLocalSession();
@@ -171,6 +191,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAuthSessionExpiredHandler(null);
     };
   }, []);
+
+  useEffect(() => {
+    const handleStaffHandoff = (event: StorageEvent) => {
+      if (event.key !== STAFF_HANDOFF_STORAGE_KEY || event.newValue === null) {
+        return;
+      }
+
+      // The initiating document does not receive its own storage event and
+      // continues installing the target cashier. Other tabs must immediately
+      // discard the previous identity, but must not clear Electron's shared
+      // main-process singleton or shared persisted auth record: either could
+      // race the initiating document while it installs the target cashier.
+      clearAccessToken();
+      resetIdentityOwnedState({
+        clearVisibleSession: true,
+        clearPersistedSession: false,
+      });
+      setIsLoading(false);
+      navigate('/login');
+    };
+
+    window.addEventListener('storage', handleStaffHandoff);
+    return () => window.removeEventListener('storage', handleStaffHandoff);
+  }, [navigate, resetIdentityOwnedState]);
 
   // Check for existing auth on mount
   useEffect(() => {
@@ -368,6 +412,60 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [navigate]
   );
 
+  const switchStaff = useCallback(
+    async (input: { targetUserId: string; pin: string }) => {
+      setError(null);
+
+      // Do not mutate local identity until the server has verified the PIN.
+      // A rejected attempt must leave the current operator fully intact.
+      const authData = await vanillaClient.auth.switchStaff.mutate(input);
+
+      try {
+        // Notify every other same-origin tab before this document installs the
+        // cashier. The marker carries no credential and is unique per session
+        // ceiling; storage events intentionally do not fire in this document.
+        window.localStorage.setItem(
+          STAFF_HANDOFF_STORAGE_KEY,
+          `${input.targetUserId}:${authData.sessionExpiresAt}`
+        );
+        clearAccessToken();
+        resetIdentityOwnedState({ clearVisibleSession: false });
+
+        // ENG-106a — await the old desktop singleton clear before registering
+        // the new token. Fire-and-forget here can race and erase the cashier
+        // session we just installed.
+        try {
+          await clearDesktopSession();
+        } catch (clearErr) {
+          console.warn('Desktop session clear failed during staff switch:', clearErr);
+        }
+
+        setAccessToken(authData.token);
+        try {
+          await window.api?.session?.register?.(authData.token);
+        } catch (registerErr) {
+          console.warn('Desktop session register failed during staff switch:', registerErr);
+        }
+
+        const session = mapSession(await vanillaClient.auth.me.query());
+        persistAuthSession(session);
+        setUser(session.user);
+        setTenant(session.tenant);
+        setActiveTenantId(session.user.tenantId);
+        navigate(getDefaultRouteForRole(session.user.role));
+      } catch (err) {
+        // The server already replaced the httpOnly refresh cookie. Keeping the
+        // old UI identity after a local adoption failure would create a split
+        // brain, so fail closed to the full login screen.
+        clearLocalSession();
+        navigate('/login');
+        setError(err);
+        throw err;
+      }
+    },
+    [clearLocalSession, navigate, resetIdentityOwnedState]
+  );
+
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -380,25 +478,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // not a bug.
       console.warn('auth.logout server call failed; clearing local state anyway:', err);
     } finally {
-      // ENG-168 — clear the Electron main-process desktopSession
-      // singleton so any subsequent `db:*` IPC call from the renderer
-      // fails with UNAUTHORIZED. The bridge is exposed by the preload
-      // (`apps/desktop/src/preload/index.ts:sessionAPI`) as
-      // `window.session.clear()` and dispatches to the
-      // `session:clear` handler registered by
-      // `apps/desktop/src/main/index.ts`. In the pure web target the
-      // bridge is undefined; the optional chain + try/catch keeps the
-      // failure silent so a browser logout still completes cleanly.
-      try {
-        const sessionBridge = (
-          window as unknown as {
-            session?: { clear?: () => Promise<unknown> };
-          }
-        ).session;
-        await sessionBridge?.clear?.();
-      } catch (clearErr) {
-        console.warn('session:clear IPC failed; web logout continuing:', clearErr);
-      }
       clearLocalSession();
       setIsLoading(false);
       navigate('/login');
@@ -415,10 +494,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isAuthenticated: !!user,
       isLoading,
       login,
+      switchStaff,
       logout,
       error,
     }),
-    [user, tenant, isLoading, login, logout, error]
+    [user, tenant, isLoading, login, switchStaff, logout, error]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

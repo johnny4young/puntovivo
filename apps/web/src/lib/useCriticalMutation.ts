@@ -1,10 +1,7 @@
 import { useMutation, type UseMutationOptions } from '@tanstack/react-query';
 import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
-import {
-  buildCriticalCommandHeaders,
-  mintEnvelope,
-} from './commandEnvelope';
+import { buildCriticalCommandHeaders, mintEnvelope } from './commandEnvelope';
 import { getCachedDeviceIdSync } from './deviceId';
 import { createTrpcClientWithHeaders } from './trpc';
 
@@ -57,6 +54,7 @@ export type CriticalCommandPath =
   | 'transfers.void'
   | 'users.create'
   | 'users.update'
+  | 'users.setStaffPin'
   | 'auth.changePassword'
   // ENG-068 — module activation toggle. Server-side wraps with
   // `criticalCommandAdminProcedure` so the client must mint an
@@ -69,9 +67,7 @@ export type CriticalCommandPath =
  * level. Used to project router inputs / outputs down to a single
  * procedure based on the consumer's path argument.
  */
-type SplitPath<S extends string> = S extends `${infer NS}.${infer PR}`
-  ? [NS, PR]
-  : never;
+type SplitPath<S extends string> = S extends `${infer NS}.${infer PR}` ? [NS, PR] : never;
 
 type InputOfPath<P extends CriticalCommandPath> =
   SplitPath<P> extends [infer NS, infer PR]
@@ -116,7 +112,12 @@ async function invokeCriticalMutation(
   input: unknown
 ): Promise<unknown> {
   const [namespace, procedure] = path.split('.') as [string, string];
-  const ns = (client as unknown as Record<string, Record<string, { mutate: (input: unknown) => Promise<unknown> }>>)[namespace];
+  const ns = (
+    client as unknown as Record<
+      string,
+      Record<string, { mutate: (input: unknown) => Promise<unknown> }>
+    >
+  )[namespace];
   const proc = ns?.[procedure];
   if (!proc || typeof proc.mutate !== 'function') {
     throw new Error(`Unknown critical procedure path: ${path}`);

@@ -9,25 +9,146 @@
  * @module trpc/routers/auth/mutations
  */
 import { z } from 'zod';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { publicProcedure } from '../../init.js';
 import { protectedProcedure } from '../../middleware/auth.js';
 import { tenantProcedure } from '../../middleware/tenant.js';
 import { criticalCommandProcedure } from '../../middleware/criticalCommand.js';
+import { cashierManagerOrAdminProcedure } from '../../middleware/roles.js';
 import { users, tenants } from '../../../db/schema.js';
-import { loginInput, changePasswordInput, validatePasswordStrength } from '../../schemas/auth.js';
+import {
+  loginInput,
+  changePasswordInput,
+  switchStaffInput,
+  validatePasswordStrength,
+} from '../../schemas/auth.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { registerDevice as registerDeviceService } from '../../../services/devices/devicesService.js';
-import { assertTenantSite, claimPairingCodeForDevice, inferAuthorityRole } from '../../../services/devices/authority.js';
+import {
+  assertTenantSite,
+  claimPairingCodeForDevice,
+  inferAuthorityRole,
+} from '../../../services/devices/authority.js';
 import { getCurrentSchemaVersion } from '../../../lib/runtimeMetadata.js';
-import { REALTIME_TOKEN_MAX_AGE_SECONDS, clearRefreshCookie, signAccessToken, signRealtimeToken, signRefreshToken, verifyRefreshToken } from '../../../security/authTokens.js';
-import { checkIp as checkLoginIp, checkUsername as checkLoginUsername, registerFailure as registerLoginFailure, registerSuccess as registerLoginSuccess } from '../../../security/loginRateLimit.js';
-import { getDummyPasswordHash, hashPasswordSecurely, needsRehash, verifyPasswordSecurely } from '../../../security/passwords.js';
-import { createRefreshFamily, pruneExpiredRefreshFamilies, revokeRefreshFamiliesForUser, rotateRefreshFamily } from '../../../security/refreshTokenFamilies.js';
+import {
+  REALTIME_TOKEN_MAX_AGE_SECONDS,
+  clearRefreshCookie,
+  createStaffPinSessionClaims,
+  getAuthSessionClaims,
+  signAccessToken,
+  signRealtimeToken,
+  signRefreshToken,
+  verifyRefreshToken,
+} from '../../../security/authTokens.js';
+import {
+  checkIp as checkLoginIp,
+  checkStaffPin,
+  checkUsername as checkLoginUsername,
+  registerFailure as registerLoginFailure,
+  registerStaffPinFailure,
+  registerStaffPinSuccess,
+  registerSuccess as registerLoginSuccess,
+} from '../../../security/loginRateLimit.js';
+import {
+  getDummyPasswordHash,
+  hashPasswordSecurely,
+  needsRehash,
+  verifyPasswordSecurely,
+} from '../../../security/passwords.js';
+import {
+  createRefreshFamily,
+  pruneExpiredRefreshFamilies,
+  revokeRefreshFamiliesForUser,
+  rotateRefreshFamily,
+} from '../../../security/refreshTokenFamilies.js';
 import { rateLimitFor } from '../../middleware/procedureRateLimit.js';
 import { setRefreshCookie, setRealtimeCookie } from './helpers.js';
+import { getDummyStaffPinHash, verifyStaffPin } from '../../../security/staffPins.js';
+import { writeAuditLog } from '../../../services/audit-logs.js';
 
 export const authMutationProcedures = {
+  /**
+   * ENG-106a — switch a shared terminal to another active cashier without
+   * exposing manager/admin privilege through a low-entropy PIN.
+   */
+  switchStaff: cashierManagerOrAdminProcedure
+    .input(switchStaffInput)
+    .mutation(async ({ ctx, input }) => {
+      const actor = ctx.user!;
+      const rateIdentity = {
+        tenantId: ctx.tenantId,
+        actorUserId: actor.id,
+        targetUserId: input.targetUserId,
+      };
+      checkStaffPin(ctx.db, rateIdentity);
+
+      const target = await ctx.db
+        .select()
+        .from(users)
+        .where(
+          and(
+            eq(users.id, input.targetUserId),
+            eq(users.tenantId, ctx.tenantId),
+            eq(users.role, 'cashier'),
+            eq(users.isActive, true)
+          )
+        )
+        .get();
+
+      const verificationHash = target?.staffPinHash ?? (await getDummyStaffPinHash());
+      const pinMatches = await verifyStaffPin(verificationHash, input.pin);
+      if (!target?.staffPinHash || !pinMatches || target.id === actor.id) {
+        registerStaffPinFailure(ctx.db, rateIdentity);
+        throwServerError({
+          trpcCode: 'UNAUTHORIZED',
+          errorCode: 'AUTH_STAFF_PIN_INVALID',
+          message: 'Cashier or PIN is invalid',
+        });
+      }
+
+      pruneExpiredRefreshFamilies(ctx.db);
+      const sessionClaims = createStaffPinSessionClaims();
+      const family = ctx.db.transaction(tx => {
+        const createdFamily = createRefreshFamily(tx, {
+          tenantId: target.tenantId,
+          userId: target.id,
+        });
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: actor.id,
+          action: 'auth.staff_switch',
+          resourceType: 'cashier',
+          resourceId: target.id,
+          before: { userId: actor.id, role: actor.role },
+          after: { userId: target.id, role: target.role },
+          metadata: {
+            authMethod: sessionClaims.authMethod,
+            sessionExpiresAt: new Date(sessionClaims.authSessionExpiresAt!).toISOString(),
+          },
+        });
+        return createdFamily;
+      });
+      // Clear failures only after the refresh family and audit transaction
+      // commits. A failed switch must not grant brute-force amnesty.
+      registerStaffPinSuccess(ctx.db, rateIdentity);
+
+      const token = signAccessToken(ctx.req.server, target, sessionClaims);
+      const refreshToken = signRefreshToken(ctx.req.server, target, family, sessionClaims);
+      setRefreshCookie(ctx.req, ctx.res, refreshToken);
+
+      return {
+        token,
+        user: {
+          id: target.id,
+          name: target.name,
+          role: target.role,
+          tenantId: target.tenantId,
+        },
+        sessionExpiresAt: new Date(sessionClaims.authSessionExpiresAt!).toISOString(),
+      };
+    }),
+
   /**
    * Login with email and password.
    *
@@ -196,64 +317,69 @@ export const authMutationProcedures = {
   refresh: publicProcedure
     .use(rateLimitFor({ name: 'auth.refresh', max: 30, windowMs: 60_000, keyBy: ['ip'] }))
     .mutation(async ({ ctx }) => {
-    const refreshPayload = await verifyRefreshToken(ctx.req);
-    if (!refreshPayload) {
-      throwServerError({
-        trpcCode: 'UNAUTHORIZED',
-        errorCode: 'AUTH_REFRESH_INVALID',
-        message: 'Refresh session is invalid or missing',
-      });
-    }
-
-    // Verify user still exists and is active
-    const user = await ctx.db.select().from(users).where(eq(users.id, refreshPayload.userId)).get();
-
-    if (!user || !user.isActive) {
-      throwServerError({
-        trpcCode: 'UNAUTHORIZED',
-        errorCode: 'AUTH_USER_DISABLED',
-        message: 'User not found or disabled',
-      });
-    }
-
-    // Auditoría 2026-07 — rotation with replay detection. A verified
-    // token whose jti was already rotated away (outside the grace window)
-    // is a stolen copy: the rotate call revoked the family and bumped
-    // sessionVersion, so we clear the cookie and reject. A `reissued`
-    // result is a benign concurrent refresh (two tabs sharing the cookie)
-    // and is handed the family's current jti. Tokens without a familyId
-    // were signed before this feature — accept once and upgrade into a
-    // fresh family (the grace closes itself when those tokens age out at
-    // 7 days).
-    let family: { familyId: string; jti: string };
-    if (refreshPayload.familyId && refreshPayload.jti) {
-      const rotation = rotateRefreshFamily(ctx.db, {
-        familyId: refreshPayload.familyId,
-        presentedJti: refreshPayload.jti,
-        userId: user.id,
-      });
-      if (rotation.status !== 'rotated' && rotation.status !== 'reissued') {
-        clearRefreshCookie(ctx.req, ctx.res);
+      const refreshPayload = await verifyRefreshToken(ctx.req);
+      if (!refreshPayload) {
         throwServerError({
           trpcCode: 'UNAUTHORIZED',
           errorCode: 'AUTH_REFRESH_INVALID',
           message: 'Refresh session is invalid or missing',
         });
       }
-      family = { familyId: rotation.familyId, jti: rotation.jti };
-    } else {
-      family = createRefreshFamily(ctx.db, {
-        tenantId: user.tenantId,
-        userId: user.id,
-      });
-    }
 
-    const token = signAccessToken(ctx.req.server, user);
-    const refreshToken = signRefreshToken(ctx.req.server, user, family);
-    setRefreshCookie(ctx.req, ctx.res, refreshToken);
+      // Verify user still exists and is active
+      const user = await ctx.db
+        .select()
+        .from(users)
+        .where(eq(users.id, refreshPayload.userId))
+        .get();
 
-    return { token };
-  }),
+      if (!user || !user.isActive) {
+        throwServerError({
+          trpcCode: 'UNAUTHORIZED',
+          errorCode: 'AUTH_USER_DISABLED',
+          message: 'User not found or disabled',
+        });
+      }
+
+      // Auditoría 2026-07 — rotation with replay detection. A verified
+      // token whose jti was already rotated away (outside the grace window)
+      // is a stolen copy: the rotate call revoked the family and bumped
+      // sessionVersion, so we clear the cookie and reject. A `reissued`
+      // result is a benign concurrent refresh (two tabs sharing the cookie)
+      // and is handed the family's current jti. Tokens without a familyId
+      // were signed before this feature — accept once and upgrade into a
+      // fresh family (the grace closes itself when those tokens age out at
+      // 7 days).
+      let family: { familyId: string; jti: string };
+      if (refreshPayload.familyId && refreshPayload.jti) {
+        const rotation = rotateRefreshFamily(ctx.db, {
+          familyId: refreshPayload.familyId,
+          presentedJti: refreshPayload.jti,
+          userId: user.id,
+        });
+        if (rotation.status !== 'rotated' && rotation.status !== 'reissued') {
+          clearRefreshCookie(ctx.req, ctx.res);
+          throwServerError({
+            trpcCode: 'UNAUTHORIZED',
+            errorCode: 'AUTH_REFRESH_INVALID',
+            message: 'Refresh session is invalid or missing',
+          });
+        }
+        family = { familyId: rotation.familyId, jti: rotation.jti };
+      } else {
+        family = createRefreshFamily(ctx.db, {
+          tenantId: user.tenantId,
+          userId: user.id,
+        });
+      }
+
+      const sessionClaims = getAuthSessionClaims(refreshPayload);
+      const token = signAccessToken(ctx.req.server, user, sessionClaims);
+      const refreshToken = signRefreshToken(ctx.req.server, user, family, sessionClaims);
+      setRefreshCookie(ctx.req, ctx.res, refreshToken);
+
+      return { token };
+    }),
 
   /**
    * Issue a short-lived bearer for browser-native EventSource
@@ -280,7 +406,11 @@ export const authMutationProcedures = {
       });
     }
 
-    setRealtimeCookie(ctx.req, ctx.res, signRealtimeToken(ctx.req.server, user));
+    setRealtimeCookie(
+      ctx.req,
+      ctx.res,
+      signRealtimeToken(ctx.req.server, user, getAuthSessionClaims(ctx.user))
+    );
 
     return {
       expiresInSeconds: REALTIME_TOKEN_MAX_AGE_SECONDS,
@@ -308,74 +438,74 @@ export const authMutationProcedures = {
     )
     .input(changePasswordInput)
     .mutation(async ({ ctx, input }) => {
-    const { currentPassword, newPassword } = input;
+      const { currentPassword, newPassword } = input;
 
-    // Defensive narrowing — the criticalCommandProcedure chain
-    // already requires an authenticated tenant context, but tRPC
-    // type inference loses the `ctx.user` narrowing across our
-    // envelope middleware's bespoke return shape. Cheap belt-and-
-    // suspenders so the rest of the body can dereference cleanly.
-    if (!ctx.user) {
-      throwServerError({
-        trpcCode: 'UNAUTHORIZED',
-        errorCode: 'AUTH_INVALID_CREDENTIALS',
-        message: 'authenticated context required',
-      });
-    }
-    const actorId = ctx.user.id;
+      // Defensive narrowing — the criticalCommandProcedure chain
+      // already requires an authenticated tenant context, but tRPC
+      // type inference loses the `ctx.user` narrowing across our
+      // envelope middleware's bespoke return shape. Cheap belt-and-
+      // suspenders so the rest of the body can dereference cleanly.
+      if (!ctx.user) {
+        throwServerError({
+          trpcCode: 'UNAUTHORIZED',
+          errorCode: 'AUTH_INVALID_CREDENTIALS',
+          message: 'authenticated context required',
+        });
+      }
+      const actorId = ctx.user.id;
 
-    // Validate password strength
-    const validation = validatePasswordStrength(newPassword);
-    if (!validation.valid) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'AUTH_PASSWORD_POLICY',
-        message: `Password does not meet security requirements: ${validation.errors.join(', ')}`,
-        details: { errors: validation.errors },
-      });
-    }
+      // Validate password strength
+      const validation = validatePasswordStrength(newPassword);
+      if (!validation.valid) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'AUTH_PASSWORD_POLICY',
+          message: `Password does not meet security requirements: ${validation.errors.join(', ')}`,
+          details: { errors: validation.errors },
+        });
+      }
 
-    // Get user
-    const user = await ctx.db.select().from(users).where(eq(users.id, actorId)).get();
+      // Get user
+      const user = await ctx.db.select().from(users).where(eq(users.id, actorId)).get();
 
-    if (!user) {
-      throwServerError({
-        trpcCode: 'NOT_FOUND',
-        errorCode: 'AUTH_USER_NOT_FOUND',
-        message: 'User not found',
-      });
-    }
+      if (!user) {
+        throwServerError({
+          trpcCode: 'NOT_FOUND',
+          errorCode: 'AUTH_USER_NOT_FOUND',
+          message: 'User not found',
+        });
+      }
 
-    // Verify current password (ENG-166 — pinned Argon2 params).
-    const isValidPassword = await verifyPasswordSecurely(user.passwordHash, currentPassword);
-    if (!isValidPassword) {
-      throwServerError({
-        trpcCode: 'UNAUTHORIZED',
-        errorCode: 'AUTH_CURRENT_PASSWORD_INCORRECT',
-        message: 'Current password is incorrect',
-      });
-    }
+      // Verify current password (ENG-166 — pinned Argon2 params).
+      const isValidPassword = await verifyPasswordSecurely(user.passwordHash, currentPassword);
+      if (!isValidPassword) {
+        throwServerError({
+          trpcCode: 'UNAUTHORIZED',
+          errorCode: 'AUTH_CURRENT_PASSWORD_INCORRECT',
+          message: 'Current password is incorrect',
+        });
+      }
 
-    // Hash new password (ENG-166 — pinned Argon2 params).
-    const newPasswordHash = await hashPasswordSecurely(newPassword);
+      // Hash new password (ENG-166 — pinned Argon2 params).
+      const newPasswordHash = await hashPasswordSecurely(newPassword);
 
-    // Update password
-    await ctx.db
-      .update(users)
-      .set({
-        passwordHash: newPasswordHash,
-        sessionVersion: sql`${users.sessionVersion} + 1`,
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(users.id, actorId));
+      // Update password
+      await ctx.db
+        .update(users)
+        .set({
+          passwordHash: newPasswordHash,
+          sessionVersion: sql`${users.sessionVersion} + 1`,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(users.id, actorId));
 
-    // Same hygiene as logout: the bump invalidates the JWTs, the delete
-    // clears the now-dead family rows.
-    revokeRefreshFamiliesForUser(ctx.db, actorId);
-    clearRefreshCookie(ctx.req, ctx.res);
+      // Same hygiene as logout: the bump invalidates the JWTs, the delete
+      // clears the now-dead family rows.
+      revokeRefreshFamiliesForUser(ctx.db, actorId);
+      clearRefreshCookie(ctx.req, ctx.res);
 
-    return { success: true, message: 'Password changed successfully' };
-  }),
+      return { success: true, message: 'Password changed successfully' };
+    }),
 
   /**
    * ENG-052 — Register a device with the active tenant. Idempotent

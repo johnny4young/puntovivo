@@ -16,6 +16,7 @@ const {
   refreshMutateMock,
   meQueryMock,
   loginMutateMock,
+  switchStaffMutateMock,
   logoutMutateMock,
   healthCheckMock,
   queryClientClearMock,
@@ -31,6 +32,7 @@ const {
   refreshMutateMock: vi.fn(),
   meQueryMock: vi.fn(),
   loginMutateMock: vi.fn(),
+  switchStaffMutateMock: vi.fn(),
   logoutMutateMock: vi.fn(),
   healthCheckMock: vi.fn(),
   queryClientClearMock: vi.fn(),
@@ -65,6 +67,7 @@ vi.mock('@/lib/trpc', () => ({
       refresh: { mutate: () => refreshMutateMock() },
       me: { query: () => meQueryMock() },
       login: { mutate: (input: unknown) => loginMutateMock(input) },
+      switchStaff: { mutate: (input: unknown) => switchStaffMutateMock(input) },
       logout: { mutate: () => logoutMutateMock() },
     },
   },
@@ -118,6 +121,7 @@ function wrap({ children }: { children: ReactNode }) {
 }
 
 beforeEach(() => {
+  window.localStorage.removeItem('puntovivo:staff-handoff');
   navigateMock.mockReset();
   setAccessTokenMock.mockReset();
   clearAccessTokenMock.mockReset();
@@ -129,6 +133,7 @@ beforeEach(() => {
   refreshMutateMock.mockReset();
   meQueryMock.mockReset();
   loginMutateMock.mockReset();
+  switchStaffMutateMock.mockReset();
   logoutMutateMock.mockReset();
   healthCheckMock.mockReset().mockResolvedValue({ ok: true });
   queryClientClearMock.mockReset();
@@ -137,6 +142,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   delete window.session;
+  delete window.api;
 });
 
 describe('useAuth — context guard', () => {
@@ -343,6 +349,136 @@ describe('AuthProvider — logout flow', () => {
     expect(queryClientClearMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(auth.isAuthenticated).toBe(false);
+  });
+});
+
+describe('AuthProvider — staff switch flow', () => {
+  it('purges identity-owned state and installs the cashier only after the PIN succeeds', async () => {
+    refreshMutateMock.mockResolvedValue({ token: 'tok-admin' });
+    meQueryMock.mockResolvedValueOnce(sessionPayload).mockResolvedValueOnce({
+      ...sessionPayload,
+      user: {
+        ...sessionPayload.user,
+        id: 'cashier-2',
+        email: 'cashier@example.com',
+        name: 'Cashier Two',
+        role: 'cashier' as const,
+      },
+    });
+    switchStaffMutateMock.mockResolvedValue({
+      token: 'tok-cashier',
+      sessionExpiresAt: '2026-07-14T20:00:00.000Z',
+    });
+    const clearDesktopSessionMock = vi.fn(async () => undefined);
+    const registerDesktopSessionMock = vi.fn(async () => ({ ok: true as const }));
+    Object.defineProperty(window, 'api', {
+      configurable: true,
+      value: {
+        session: {
+          clear: clearDesktopSessionMock,
+          register: registerDesktopSessionMock,
+        },
+      },
+    });
+
+    let auth!: ReturnType<typeof useAuth>;
+    function Probe() {
+      auth = useAuth();
+      return null;
+    }
+    render(wrap({ children: <Probe /> }));
+    await waitFor(() => expect(auth.user?.role).toBe('admin'));
+
+    await act(async () => {
+      await auth.switchStaff({ targetUserId: 'cashier-2', pin: '246810' });
+    });
+
+    expect(switchStaffMutateMock).toHaveBeenCalledWith({
+      targetUserId: 'cashier-2',
+      pin: '246810',
+    });
+    expect(clearAccessTokenMock).toHaveBeenCalled();
+    expect(resetWorkspacesMock).toHaveBeenCalled();
+    expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(queryClientClearMock).toHaveBeenCalled();
+    expect(clearDesktopSessionMock).toHaveBeenCalledOnce();
+    expect(registerDesktopSessionMock).toHaveBeenLastCalledWith('tok-cashier');
+    expect(clearDesktopSessionMock.mock.invocationCallOrder[0]).toBeLessThan(
+      registerDesktopSessionMock.mock.invocationCallOrder.at(-1)!
+    );
+    expect(setAccessTokenMock).toHaveBeenLastCalledWith('tok-cashier');
+    expect(window.localStorage.getItem('puntovivo:staff-handoff')).toBe(
+      'cashier-2:2026-07-14T20:00:00.000Z'
+    );
+    expect(auth.user).toMatchObject({ id: 'cashier-2', role: 'cashier' });
+    expect(navigateMock).toHaveBeenLastCalledWith('/sales');
+  });
+
+  it('invalidates the privileged identity in other tabs without racing Electron registration', async () => {
+    refreshMutateMock.mockResolvedValue({ token: 'tok-admin' });
+    meQueryMock.mockResolvedValue(sessionPayload);
+    const clearDesktopSessionMock = vi.fn(async () => undefined);
+    Object.defineProperty(window, 'api', {
+      configurable: true,
+      value: { session: { clear: clearDesktopSessionMock } },
+    });
+
+    let auth!: ReturnType<typeof useAuth>;
+    function Probe() {
+      auth = useAuth();
+      return null;
+    }
+    render(wrap({ children: <Probe /> }));
+    await waitFor(() => expect(auth.user?.role).toBe('admin'));
+    clearAccessTokenMock.mockClear();
+    clearSessionMock.mockClear();
+    clearDesktopSessionMock.mockClear();
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'puntovivo:staff-handoff',
+          newValue: 'cashier-2:2026-07-14T20:00:00.000Z',
+        })
+      );
+    });
+
+    expect(clearAccessTokenMock).toHaveBeenCalledOnce();
+    expect(auth.isAuthenticated).toBe(false);
+    expect(queryClientClearMock).toHaveBeenCalled();
+    expect(navigateMock).toHaveBeenLastCalledWith('/login');
+    expect(clearSessionMock).not.toHaveBeenCalled();
+    expect(clearDesktopSessionMock).not.toHaveBeenCalled();
+  });
+
+  it('leaves the current identity and caches intact when PIN verification fails', async () => {
+    refreshMutateMock.mockResolvedValue({ token: 'tok-admin' });
+    meQueryMock.mockResolvedValue(sessionPayload);
+    const failure = new Error('bad PIN');
+    switchStaffMutateMock.mockRejectedValue(failure);
+
+    let auth!: ReturnType<typeof useAuth>;
+    function Probe() {
+      auth = useAuth();
+      return null;
+    }
+    render(wrap({ children: <Probe /> }));
+    await waitFor(() => expect(auth.user?.role).toBe('admin'));
+
+    let caught: unknown;
+    await act(async () => {
+      try {
+        await auth.switchStaff({ targetUserId: 'cashier-2', pin: '111111' });
+      } catch (err) {
+        caught = err;
+      }
+    });
+
+    expect(caught).toBe(failure);
+    expect(auth.user?.role).toBe('admin');
+    expect(clearAccessTokenMock).not.toHaveBeenCalled();
+    expect(queryClientClearMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalledWith('/login');
   });
 });
 

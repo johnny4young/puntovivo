@@ -91,6 +91,7 @@
     "error": "Algo salió mal"
   },
   "changePassword": "Cambiar contraseña",
+  "switchCashier": "Cambiar cajero",
   "signOut": "Cerrar sesión",
   "user": "Usuario",
   "session": "sesión",

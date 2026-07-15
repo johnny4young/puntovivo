@@ -8,6 +8,7 @@
 
 import { z } from 'zod';
 import { emailField } from './common.js';
+import { STAFF_PIN_PATTERN } from '../../security/staffPins.js';
 
 // ============================================================================
 // Input Schemas
@@ -42,6 +43,17 @@ export const changePasswordInput = z
   .object({
     currentPassword: z.string().min(1, 'Current password is required'),
     newPassword: strongPasswordSchema,
+  })
+  .strict();
+
+export const staffPinSchema = z
+  .string()
+  .regex(STAFF_PIN_PATTERN, 'Staff PIN must contain exactly 6 digits');
+
+export const switchStaffInput = z
+  .object({
+    targetUserId: z.string().min(1, 'Target user is required'),
+    pin: staffPinSchema,
   })
   .strict();
 

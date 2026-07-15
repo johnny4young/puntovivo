@@ -91,6 +91,7 @@
     "error": "Something went wrong"
   },
   "changePassword": "Change password",
+  "switchCashier": "Switch cashier",
   "signOut": "Sign out",
   "user": "User",
   "session": "session",

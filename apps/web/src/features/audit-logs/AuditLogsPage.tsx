@@ -34,6 +34,9 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'transfer.void',
   'user.create',
   'user.update',
+  // ENG-106a — staff credential lifecycle and shared-terminal identity handoff.
+  'user.pin.update',
+  'auth.staff_switch',
   'quotation.delete',
   'quotation.convert',
   'kds.order.ready',

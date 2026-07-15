@@ -76,6 +76,8 @@
     "purchase.void": "Compra anulada",
     "user.create": "Usuario creado",
     "user.update": "Usuario actualizado",
+    "user.pin.update": "PIN del personal actualizado",
+    "auth.staff_switch": "Cajero cambiado",
     "sale.price_override": "Precio manual en venta",
     "sale.park": "Venta suspendida",
     "sale.resume": "Venta retomada",

@@ -143,4 +143,20 @@ describe('AuditLogsPage', () => {
       'backup_snapshot'
     );
   });
+
+  it('offers staff PIN lifecycle and cashier-switch actions', () => {
+    render(<AuditLogsPage />);
+
+    const actionFilter = screen.getByRole('combobox', { name: 'Action' });
+    expect(
+      within(actionFilter).getByRole('option', {
+        name: 'Staff PIN updated',
+      })
+    ).toHaveValue('user.pin.update');
+    expect(
+      within(actionFilter).getByRole('option', {
+        name: 'Cashier switched',
+      })
+    ).toHaveValue('auth.staff_switch');
+  });
 });

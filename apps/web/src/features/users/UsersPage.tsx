@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { KeyRound, Pencil, Plus, UserRound } from 'lucide-react';
+import { Fingerprint, KeyRound, Pencil, Plus, UserRound } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
@@ -18,6 +18,9 @@ import {
 } from '@/features/auth/passwordPolicy';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { RolePermissionAudit } from './RolePermissionAudit';
+import { StaffPinModal } from './StaffPinModal';
+
+type ManagedUser = User & { hasPin: boolean };
 
 interface UserFormValues {
   email: string;
@@ -249,10 +252,12 @@ export function UsersPage() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [passwordUser, setPasswordUser] = useState<User | null>(null);
+  const [pinUser, setPinUser] = useState<ManagedUser | null>(null);
   const canManage = canManageUsers(currentUser?.role);
-  const users: User[] = (usersQuery.data?.items ?? []).map(user => ({
+  const users: ManagedUser[] = (usersQuery.data?.items ?? []).map(user => ({
     ...user,
     isActive: user.isActive ?? true,
+    hasPin: user.hasPin,
   }));
 
   const createMutation = useCriticalMutation('users.create', {
@@ -308,7 +313,18 @@ export function UsersPage() {
     onError: onErrorToast(toast, t, { titleKey: 'settings:users.toast.updateError' }),
   });
 
-  const columns: ColumnDef<User>[] = [
+  const setStaffPinMutation = useCriticalMutation('users.setStaffPin', {
+    onSuccess: async data => {
+      await utils.users.list.invalidate();
+      setPinUser(null);
+      toast.success({
+        title: data.hasPin ? t('users.toast.pinSaved') : t('users.toast.pinCleared'),
+      });
+    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:users.toast.pinError' }),
+  });
+
+  const columns: ColumnDef<ManagedUser>[] = [
     {
       accessorKey: 'name',
       header: t('users.columns.user'),
@@ -332,9 +348,19 @@ export function UsersPage() {
       cell: ({ row }) => <span>{t(`users.roles.${row.original.role}`)}</span>,
     },
     {
+      accessorKey: 'hasPin',
+      header: t('users.columns.pin'),
+      size: 140,
+      cell: ({ row }) => (
+        <span className={`badge ${row.original.hasPin ? 'badge-success' : 'badge-secondary'}`}>
+          {row.original.hasPin ? t('users.columns.pinConfigured') : t('users.columns.pinMissing')}
+        </span>
+      ),
+    },
+    {
       accessorKey: 'isActive',
       header: t('users.columns.status'),
-      size: 120,
+      size: 160,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
           {row.original.isActive ? t('users.columns.active') : t('users.columns.inactive')}
@@ -366,6 +392,15 @@ export function UsersPage() {
             disabled={!canManage}
           >
             <KeyRound className="h-4 w-4" />
+          </button>
+          <button
+            className="btn-ghost btn-icon h-8 w-8"
+            aria-label={t('users.actions.managePin', { name: row.original.name })}
+            title={t('users.actions.managePin', { name: row.original.name })}
+            onClick={() => setPinUser(row.original)}
+            disabled={!canManage}
+          >
+            <Fingerprint className="h-4 w-4" />
           </button>
         </div>
       ),
@@ -479,6 +514,24 @@ export function UsersPage() {
             id: passwordUser.id,
             newPassword: password,
           });
+        }}
+      />
+
+      <StaffPinModal
+        key={pinUser?.id ?? 'staff-pin-closed'}
+        user={pinUser}
+        isSaving={setStaffPinMutation.isPending}
+        error={setStaffPinMutation.error?.message ?? null}
+        onClose={() => setPinUser(null)}
+        onSubmit={async pin => {
+          if (!pinUser) {
+            return;
+          }
+          try {
+            await setStaffPinMutation.mutateAsync({ id: pinUser.id, pin });
+          } catch {
+            // The mutation error remains rendered in the modal and toast.
+          }
         }}
       />
     </div>

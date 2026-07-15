@@ -26,6 +26,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
   access: [
     'user.create',
     'user.update',
+    'user.pin.update',
+    'auth.staff_switch',
     'device.revoke',
     'device.pairing.claimed',
     'module.toggle',

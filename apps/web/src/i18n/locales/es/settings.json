@@ -916,12 +916,16 @@
       "user": "Usuario",
       "role": "Rol",
       "status": "Estado",
+      "pin": "PIN del personal",
+      "pinConfigured": "Configurado",
+      "pinMissing": "Sin configurar",
       "active": "Activo",
       "inactive": "Inactivo"
     },
     "actions": {
       "edit": "Editar a {{name}}",
-      "resetPassword": "Restablecer la contraseña de {{name}}"
+      "resetPassword": "Restablecer la contraseña de {{name}}",
+      "managePin": "Gestionar el PIN del personal de {{name}}"
     },
     "roles": {
       "admin": "Administrador",
@@ -968,6 +972,19 @@
       "newPassword": "Nueva contraseña",
       "submit": "Restablecer contraseña"
     },
+    "staffPin": {
+      "title": "Gestionar PIN del personal",
+      "description": "Configura un PIN de 6 dígitos para {{name}}. Los PIN de cajero permiten cambiar el operador del puesto; un PIN nunca reemplaza el inicio de sesión completo de un gestor o administrador.",
+      "label": "Nuevo PIN de 6 dígitos",
+      "placeholder": "6 dígitos",
+      "requirement": "Usa exactamente 6 números. El PIN se almacena como un hash Argon2id irreversible.",
+      "cancel": "Cancelar",
+      "save": "Guardar PIN",
+      "saving": "Guardando...",
+      "clear": "Eliminar PIN",
+      "clearConfirm": "¿Quieres eliminar el PIN del personal de {{name}}?",
+      "invalid": "Ingresa exactamente 6 dígitos."
+    },
     "toast": {
       "created": "Usuario creado",
       "createError": "No se pudo crear el usuario",
@@ -975,7 +992,10 @@
       "updateError": "No se pudo actualizar el usuario",
       "claimsChanged": "Tus permisos han cambiado. Por favor inicia sesión nuevamente",
       "passwordReset": "Contraseña restablecida",
-      "passwordChanged": "Tu contraseña ha cambiado. Por favor inicia sesión nuevamente"
+      "passwordChanged": "Tu contraseña ha cambiado. Por favor inicia sesión nuevamente",
+      "pinSaved": "PIN del personal guardado",
+      "pinCleared": "PIN del personal eliminado",
+      "pinError": "No se pudo actualizar el PIN del personal"
     }
   }
 }

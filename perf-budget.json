@@ -15,6 +15,8 @@
     "$retune9": "ENG-178 slice 16b-2 — SalesPage JSX relocation adds a small wrapper/prop seam to close SalesPage under 500 LOC; gate-measured SalesPage chunk is 43.21 KB gz, so the baseline lifts 41->44 while staying within the existing 5% threshold.",
     "$retune10": "ENG-198 / ENG-199 — day-close summary UI and the site-scoped expiry-suggestion badge add authenticated sales behavior to the route. Gate-measured SalesPage is 46.26 KB gz after rebasing both shipped slices, so the baseline lifts 44->45 while preserving the existing 5% regression threshold.",
     "$retune11": "ENG-200 — SalePaymentModal leaves the Lighthouse-critical SalesPage entry behind a deferred boundary, dropping SalesPage from 45 to gate-measured 41.52 KB gz; the ceiling tightens to 42. The new idle-preloaded SalePaymentModal chunk measures 6.40 KB gz and is pinned at 7.",
+    "$retune12": "ENG-106a — bilingual staff-PIN enrollment, fixed-session disclosure, and audit labels grow the settings locale chunk from its 9 KB ceiling to gate-measured 9.53 KB gz; the documented integer baseline rounds to 10. UsersPage (5.06) and AuditLogsPage (5.40) also crossed the 5 KB tracking floor and are now pinned at 6 rather than riding the new-chunk warning.",
+    "$retune13": "ENG-106a review — cross-tab identity invalidation closes the shared-terminal privilege window and grows AuthProvider from its 6 KB ceiling to gate-measured 6.36 KB gz. The documented integer baseline rounds to 7 while preserving the existing 5% regression threshold.",
     "perChunkGzKb": {
       "index": 153,
       "xlsx": 264,
@@ -42,12 +44,14 @@
       "DashboardPage": 9,
       "OrdersPage": 9,
       "ProductFormModal": 8,
-      "settings": 9,
+      "settings": 10,
       "sales": 8,
       "CustomersPage": 7,
       "GeographyPage": 6,
-      "AuthProvider": 6,
-      "operations": 6
+      "AuthProvider": 7,
+      "operations": 6,
+      "UsersPage": 6,
+      "AuditLogsPage": 6
     }
   },
   "trpcLatencyMs": {

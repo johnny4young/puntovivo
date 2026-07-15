@@ -1,8 +1,9 @@
-import { Bell, CircleHelp, KeyRound, LogOut, Menu, Search, User } from 'lucide-react';
+import { Bell, CircleHelp, KeyRound, LogOut, Menu, Search, User, UserRoundCog } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Select } from '@/components/form-controls/Select';
 import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
+import { StaffSwitchModal } from '@/features/auth/StaffSwitchModal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
@@ -32,6 +33,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const [online, setOnline] = useState(isOnline());
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isStaffSwitchOpen, setIsStaffSwitchOpen] = useState(false);
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>(() =>
     readLanguagePreference()
   );
@@ -141,7 +143,11 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             }
           >
             <span
-              className={online ? 'h-1.5 w-1.5 rounded-full bg-success-500' : 'h-1.5 w-1.5 rounded-full bg-warning-500'}
+              className={
+                online
+                  ? 'h-1.5 w-1.5 rounded-full bg-success-500'
+                  : 'h-1.5 w-1.5 rounded-full bg-warning-500'
+              }
             />
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em]">
               {online ? t('common:status.online') : t('common:status.offline')}
@@ -242,22 +248,35 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                   <KeyRound className="h-4 w-4" />
                   {t('common:changePassword')}
                 </button>
-                {onOpenFirstSaleGuide &&
-                  (user?.role === 'admin' ||
-                    user?.role === 'manager' ||
-                    user?.role === 'cashier') && (
+                {user && ['admin', 'manager', 'cashier'].includes(user.role) && (
                   <button
                     type="button"
                     onClick={() => {
                       setShowUserMenu(false);
-                      onOpenFirstSaleGuide();
+                      setIsStaffSwitchOpen(true);
                     }}
                     className="btn-ghost mt-2 w-full justify-start px-3"
                   >
-                    <CircleHelp className="h-4 w-4" />
-                    {t('setup:firstSale.helpAction')}
+                    <UserRoundCog className="h-4 w-4" />
+                    {t('common:switchCashier')}
                   </button>
                 )}
+                {onOpenFirstSaleGuide &&
+                  (user?.role === 'admin' ||
+                    user?.role === 'manager' ||
+                    user?.role === 'cashier') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onOpenFirstSaleGuide();
+                      }}
+                      className="btn-ghost mt-2 w-full justify-start px-3"
+                    >
+                      <CircleHelp className="h-4 w-4" />
+                      {t('setup:firstSale.helpAction')}
+                    </button>
+                  )}
                 {cashierPaceOwnerKey && (
                   <CashierPacePreferenceToggle ownerKey={cashierPaceOwnerKey} />
                 )}
@@ -278,6 +297,9 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
       />
+      {isStaffSwitchOpen && (
+        <StaffSwitchModal isOpen onClose={() => setIsStaffSwitchOpen(false)} />
+      )}
     </header>
   );
 }

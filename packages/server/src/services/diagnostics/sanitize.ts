@@ -40,6 +40,8 @@ const SENSITIVE_KEYS: ReadonlySet<string> = new Set([
   'password',
   'passwordhash',
   'passwords',
+  'pin',
+  'staffpinhash',
   'token',
   'accesstoken',
   'refreshtoken',

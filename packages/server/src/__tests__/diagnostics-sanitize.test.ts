@@ -34,6 +34,23 @@ describe('sanitizePayload — key matching', () => {
     expect(redactedKeys).toEqual(new Set(['password']));
   });
 
+  it('redacts staff PIN plaintext and hash shapes', () => {
+    const { clean, redactedKeys } = sanitizePayload({
+      pin: '246810',
+      staffPinHash: '$argon2id$secret',
+      staff_pin_hash: '$argon2id$database-secret',
+      userId: 'user-1',
+    });
+
+    expect(clean).toEqual({
+      pin: REDACTED_PLACEHOLDER,
+      staffPinHash: REDACTED_PLACEHOLDER,
+      staff_pin_hash: REDACTED_PLACEHOLDER,
+      userId: 'user-1',
+    });
+    expect(redactedKeys).toEqual(new Set(['pin', 'staffPinHash', 'staff_pin_hash']));
+  });
+
   it('replaces nested sensitive keys at any depth', () => {
     const { clean, redactedKeys } = sanitizePayload({
       outer: {
@@ -230,6 +247,8 @@ describe('SENSITIVE_KEYS lock — anti-regression', () => {
 
     // Spot-check the categories ADR-0006 promises coverage on.
     expect(__TEST_SENSITIVE_KEYS.has('password')).toBe(true);
+    expect(__TEST_SENSITIVE_KEYS.has('pin')).toBe(true);
+    expect(__TEST_SENSITIVE_KEYS.has('staffpinhash')).toBe(true);
     expect(__TEST_SENSITIVE_KEYS.has('jwt')).toBe(true);
     expect(__TEST_SENSITIVE_KEYS.has('apikey')).toBe(true);
     expect(__TEST_SENSITIVE_KEYS.has('pan')).toBe(true);

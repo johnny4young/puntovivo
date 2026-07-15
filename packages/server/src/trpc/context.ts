@@ -9,6 +9,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { DatabaseInstance } from '../db/index.js';
 import { sites } from '../db/schema.js';
 import { verifyAccessToken } from '../security/authTokens.js';
+import type { AuthMethod } from '../security/authTokens.js';
 
 export interface Context {
   req: FastifyRequest;
@@ -19,6 +20,8 @@ export interface Context {
     email: string;
     role: string;
     tenantId: string;
+    authMethod?: AuthMethod;
+    authSessionExpiresAt?: number;
   } | null;
   tenantId: string | null;
   siteId: string | null;
@@ -42,6 +45,10 @@ export async function createContext({
       email: payload.email,
       role: payload.role,
       tenantId: payload.tenantId,
+      ...(payload.authMethod ? { authMethod: payload.authMethod } : {}),
+      ...(payload.authSessionExpiresAt !== undefined
+        ? { authSessionExpiresAt: payload.authSessionExpiresAt }
+        : {}),
     };
     tenantId = payload.tenantId;
   }
