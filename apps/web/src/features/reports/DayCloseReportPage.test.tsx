@@ -3,14 +3,33 @@ import { render, screen } from '@/test/utils';
 import { DayCloseReportPage } from './DayCloseReportPage';
 
 const refetch = vi.fn();
+const signoffRefetch = vi.fn();
+const invalidateSignoff = vi.fn();
+const signOff = vi.fn();
 let mockPending = false;
 let mockError: Error | null = null;
 let mockData: ReturnType<typeof reportFixture> | undefined;
+let mockSignoff: ReturnType<typeof signoffFixture> | null = null;
+let mockSignoffPending = false;
+let mockSignoffError: Error | null = null;
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    useUtils: () => ({
+      reports: { dayClose: { signoff: { invalidate: invalidateSignoff } } },
+    }),
     reports: {
       dayClose: {
+        signoff: {
+          useQuery: () => ({
+            data: mockSignoff,
+            isPending: mockSignoffPending,
+            isSuccess: !mockSignoffPending && mockSignoffError === null,
+            error: mockSignoffError,
+            isFetching: false,
+            refetch: signoffRefetch,
+          }),
+        },
         preview: {
           useQuery: () => ({
             data: mockData,
@@ -24,6 +43,14 @@ vi.mock('@/lib/trpc', () => ({
       },
     },
   },
+}));
+
+vi.mock('@/lib/useCriticalMutation', () => ({
+  useCriticalMutation: () => ({ mutate: signOff, isPending: false }),
+}));
+
+vi.mock('@/components/feedback/ToastProvider', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn() }),
 }));
 
 vi.mock('@/lib/translateServerError', () => ({
@@ -105,23 +132,46 @@ function reportFixture() {
   };
 }
 
+function signoffFixture() {
+  return {
+    id: 'signoff-1',
+    date: '2026-07-14',
+    schemaVersion: 1 as const,
+    timeZone: 'America/Bogota',
+    currencyCode: 'COP',
+    reportHash: 'a'.repeat(64),
+    signedAt: '2026-07-15T03:00:00.000Z',
+    signedBy: { id: 'manager-1', name: 'María Manager' },
+    report: reportFixture(),
+  };
+}
+
 beforeEach(() => {
   mockPending = false;
   mockError = null;
   mockData = undefined;
+  mockSignoff = null;
+  mockSignoffPending = false;
+  mockSignoffError = null;
   refetch.mockReset();
+  signoffRefetch.mockReset();
+  invalidateSignoff.mockReset();
+  signOff.mockReset();
 });
 
-describe('DayCloseReportPage (ENG-141a)', () => {
+describe('DayCloseReportPage (ENG-141a/ENG-141b)', () => {
   it('renders loading and error states', () => {
     mockPending = true;
     const { rerender } = render(<DayCloseReportPage />);
     expect(screen.getByRole('status')).toHaveTextContent(/Cargando|Preparando|Building/i);
 
-    mockPending = false;
-    mockError = new Error('boom');
+    // A disabled preview query stays in TanStack's pending state. When the
+    // signoff lookup itself fails, the page must show only the error rather
+    // than an error and a permanent loading card together.
+    mockSignoffError = new Error('boom');
     rerender(<DayCloseReportPage />);
     expect(screen.getByRole('alert')).toHaveTextContent(/No se pudo|could not/i);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('renders the complete report, blockers, payment methods, and honest coverage gaps', () => {
@@ -132,9 +182,7 @@ describe('DayCloseReportPage (ENG-141a)', () => {
       /Sesiones de caja abiertas|Open cash sessions/i
     );
     expect(screen.getByTestId('day-close-report-page')).toHaveTextContent(/1[.,]?021[.,]?000/);
-    expect(screen.getByTestId('day-close-report-page')).toHaveTextContent(
-      /1 devolución|1 refund/i
-    );
+    expect(screen.getByTestId('day-close-report-page')).toHaveTextContent(/1 devolución|1 refund/i);
     expect(screen.getByTestId('day-close-payments-section')).toHaveTextContent(/Efectivo|Cash/);
     expect(screen.getByTestId('day-close-payments-section')).toHaveTextContent(/Tarjeta|Card/);
     expect(screen.getByTestId('day-close-payments-section')).toHaveTextContent(/Otro|Other/);
@@ -163,5 +211,21 @@ describe('DayCloseReportPage (ENG-141a)', () => {
     expect(screen.getByTestId('day-close-payments-section')).toHaveTextContent(
       /Sin pagos|No settled/i
     );
+  });
+
+  it('renders the verified frozen snapshot instead of a mutable preview', () => {
+    mockData = {
+      ...reportFixture(),
+      sales: { ...reportFixture().sales, count: 99 },
+    };
+    mockSignoff = signoffFixture();
+
+    render(<DayCloseReportPage />);
+
+    expect(screen.getByTestId('day-close-signed-evidence')).toHaveTextContent(/María Manager/);
+    expect(screen.getByTestId('day-close-signed-evidence')).toHaveTextContent('a'.repeat(64));
+    expect(screen.getByTestId('day-close-readiness')).toHaveTextContent(/firmada|signed evidence/i);
+    expect(screen.getByTestId('day-close-report-page')).not.toHaveTextContent(/99 sales/i);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 });

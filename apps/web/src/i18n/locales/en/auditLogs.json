@@ -126,7 +126,8 @@
     "data_import.providers": "Supplier launch data imported",
     "data_import.customer_balances": "Customer opening receivables imported",
     "data_import.opening_cash": "Register opening cash imported",
-    "data_import.fiscal_profile": "Fiscal profile imported"
+    "data_import.fiscal_profile": "Fiscal profile imported",
+    "day_close.sign_off": "Day close signed"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -152,7 +153,8 @@
     "price_suggestion": "Price suggestion",
     "backup_snapshot": "Backup snapshot",
     "site": "Site",
-    "data_import": "Data import"
+    "data_import": "Data import",
+    "day_close_signoff": "Signed day close"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

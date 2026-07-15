@@ -47,6 +47,45 @@ export const E2E_USERS: readonly E2EUserProfile[] = [
 export const SECONDARY_SITE_NAME = 'E2E Branch Site';
 
 /**
+ * ENG-141b — signed day closes are immutable in production, including direct
+ * SQL writes. The shared E2E database must still start each suite from a
+ * repeatable baseline, so fixture setup temporarily removes the two guards,
+ * deletes only the isolated E2E tenant's evidence, and immediately restores
+ * the exact production triggers. Domain tests separately pin that ordinary
+ * UPDATE and DELETE statements remain rejected.
+ */
+function resetDayCloseSignoffs(db: Database.Database, tenantId: string): void {
+  const tableExists = db
+    .prepare("select 1 from sqlite_master where type = 'table' and name = 'day_close_signoffs'")
+    .get();
+  if (!tableExists) return;
+
+  db.exec(`
+    DROP TRIGGER IF EXISTS trg_day_close_signoffs_no_update;
+    DROP TRIGGER IF EXISTS trg_day_close_signoffs_no_delete;
+  `);
+  try {
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'day_close_signoff'"
+    ).run(tenantId);
+    db.prepare('delete from day_close_signoffs where tenant_id = ?').run(tenantId);
+  } finally {
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS trg_day_close_signoffs_no_update
+      BEFORE UPDATE ON day_close_signoffs
+      BEGIN
+        SELECT RAISE(ABORT, 'day_close_signoffs are immutable');
+      END;
+      CREATE TRIGGER IF NOT EXISTS trg_day_close_signoffs_no_delete
+      BEFORE DELETE ON day_close_signoffs
+      BEGIN
+        SELECT RAISE(ABORT, 'day_close_signoffs are immutable');
+      END;
+    `);
+  }
+}
+
+/**
  * Upsert the 4 template users (`E2E_USERS`) with a fresh argon2 password
  * hash and bumped `session_version` so any stale JWT from a previous run
  * is invalidated. Idempotent: safe to call twice.
@@ -176,6 +215,8 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   const keepUserPrefixes = ['e2e.admin@', 'e2e.manager@', 'e2e.cashier@', 'e2e.viewer@'];
   const keepUserClause = keepUserPrefixes.map(() => 'email not like ?').join(' and ');
   const keepUserArgs = keepUserPrefixes.map(prefix => `${prefix}%`);
+
+  resetDayCloseSignoffs(db, tenantId);
 
   // ENG-106c1 — approval decisions reference both the requesting cashier and
   // approving manager. Clear the sync/audit children first so a failed smoke

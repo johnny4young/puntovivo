@@ -69,6 +69,8 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'data_import.customer_balances',
   'data_import.opening_cash',
   'data_import.fiscal_profile',
+  // ENG-141b — irreversible manager/admin day-close attestation.
+  'day_close.sign_off',
 ];
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
@@ -94,6 +96,8 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'backup_snapshot',
   // ENG-123a — one auditable launch import run.
   'data_import',
+  // ENG-141b — immutable comprehensive day-close evidence.
+  'day_close_signoff',
 ];
 
 /**

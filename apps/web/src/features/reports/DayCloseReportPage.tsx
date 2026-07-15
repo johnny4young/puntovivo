@@ -16,11 +16,15 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/feedback/EmptyState';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { KpiTile } from '@/components/ui';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
+import { onErrorToast } from '@/lib/mutationHelpers';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
+import { DayCloseSignoffCard } from './DayCloseSignoffCard';
 
 type DayCloseReport = inferRouterOutputs<AppRouter>['reports']['dayClose']['preview'];
 type ReadinessCode = DayCloseReport['readiness']['warnings'][number];
@@ -61,17 +65,45 @@ function SectionTitle({ icon: Icon, title }: { icon: typeof ShoppingBag; title: 
   );
 }
 
-/** ENG-141a — manager/admin tenant-day reconciliation preview. */
+/** ENG-141a/ENG-141b — manager report with immutable sign-off evidence. */
 export function DayCloseReportPage() {
-  const { t } = useTranslation('reports');
+  const { t } = useTranslation(['reports', 'errors']);
+  const toast = useToast();
+  const utils = trpc.useUtils();
   const locale = useResolvedLocale();
   const today = useMemo(() => calendarDayAt(new Date(), locale.timezone), [locale.timezone]);
   // Keep following the tenant timezone while locale state hydrates. Once the
   // operator picks a date, preserve that explicit choice.
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const date = selectedDate ?? today;
-  const reportQuery = trpc.reports.dayClose.preview.useQuery({ date }, { staleTime: 30_000 });
-  const report = reportQuery.data;
+  const signoffQuery = trpc.reports.dayClose.signoff.useQuery({ date }, { staleTime: 30_000 });
+  const signoff = signoffQuery.data ?? null;
+  const reportQuery = trpc.reports.dayClose.preview.useQuery(
+    { date },
+    { staleTime: 30_000, enabled: signoffQuery.isSuccess && !signoff }
+  );
+  const report = signoff?.report ?? reportQuery.data;
+  const signOffMutation = useCriticalMutation('reports.dayClose.signOff', {
+    onSuccess: async (_signed, variables) => {
+      await utils.reports.dayClose.signoff.invalidate({ date: variables.date });
+      toast.success({
+        title: t('reports:dayClose.signoff.successTitle'),
+        description: t('reports:dayClose.signoff.successDescription'),
+      });
+    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'reports:dayClose.signoff.errorTitle',
+    }),
+  });
+  const isLoading =
+    signoffQuery.isPending || (signoffQuery.isSuccess && !signoff && reportQuery.isPending);
+  const queryError = signoffQuery.error ?? reportQuery.error;
+  const isRefreshing = signoffQuery.isFetching || reportQuery.isFetching;
+
+  const refresh = async () => {
+    const refreshedSignoff = await signoffQuery.refetch();
+    if (!refreshedSignoff.data) await reportQuery.refetch();
+  };
 
   return (
     <div className="space-y-6" data-testid="day-close-report-page">
@@ -95,34 +127,39 @@ export function DayCloseReportPage() {
           <button
             type="button"
             className="pv-btn outline justify-center"
-            onClick={() => void reportQuery.refetch()}
-            disabled={reportQuery.isFetching}
+            onClick={() => void refresh()}
+            disabled={isRefreshing}
           >
-            <RefreshCw
-              className={reportQuery.isFetching ? 'animate-spin' : ''}
-              aria-hidden="true"
-            />
+            <RefreshCw className={isRefreshing ? 'animate-spin' : ''} aria-hidden="true" />
             {t('dayClose.refresh')}
           </button>
         </div>
       </header>
 
-      {reportQuery.isPending && (
+      {isLoading && (
         <div className="card p-8 text-center text-sm text-secondary-500" role="status">
           {t('dayClose.loading')}
         </div>
       )}
 
-      {reportQuery.isError && (
+      {queryError && (
         <div className="pv-strip danger" role="alert">
           <span className="msg">
-            {translateServerError(reportQuery.error, t, t('dayClose.error'))}
+            {translateServerError(queryError, t, t('reports:dayClose.error'))}
           </span>
         </div>
       )}
 
       {report && (
         <>
+          <DayCloseSignoffCard
+            key={`${date}:${signoff?.id ?? 'draft'}`}
+            date={date}
+            report={report}
+            signoff={signoff}
+            isSigning={signOffMutation.isPending}
+            onSign={() => signOffMutation.mutate({ date, attestationAccepted: true })}
+          />
           <section
             className={`rounded-2xl border px-4 py-3 ${
               report.readiness.readyToSign
@@ -140,9 +177,11 @@ export function DayCloseReportPage() {
               <div>
                 <p className="font-semibold">
                   {t(
-                    report.readiness.readyToSign
-                      ? 'dayClose.readiness.ready'
-                      : 'dayClose.readiness.blocked'
+                    signoff
+                      ? 'dayClose.readiness.signed'
+                      : report.readiness.readyToSign
+                        ? 'dayClose.readiness.ready'
+                        : 'dayClose.readiness.blocked'
                   )}
                 </p>
                 <p className="mt-0.5 text-xs opacity-80">

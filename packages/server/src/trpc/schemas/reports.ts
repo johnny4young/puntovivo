@@ -121,8 +121,8 @@ export const profitMarginInput = z
 export type ProfitMarginInput = z.infer<typeof profitMarginInput>;
 
 // ─────────────────────────────────────────────────────────────────
-// reports.dayClose.preview
-// ENG-141a — tenant-local comprehensive manager report.
+// reports.dayClose.preview / signoff / signOff
+// ENG-141a/ENG-141b — tenant-local comprehensive manager report + evidence.
 // ─────────────────────────────────────────────────────────────────
 
 const calendarDay = z
@@ -134,6 +134,11 @@ const calendarDay = z
   }, 'Expected a valid calendar day');
 
 export const dayClosePreviewInput = z.object({ date: calendarDay });
+export const dayCloseSignOffInput = z.object({
+  date: calendarDay,
+  /** Explicit irreversible-attestation acknowledgement from the manager UI. */
+  attestationAccepted: z.literal(true),
+});
 
 const money = z.number().finite();
 const readinessCode = z.enum([
@@ -214,5 +219,26 @@ export const comprehensiveDayCloseReportOutput = z.object({
   }),
 });
 
+export const dayCloseSignoffMetadataOutput = z.object({
+  id: z.string().min(1),
+  date: calendarDay,
+  schemaVersion: z.literal(1),
+  timeZone: z.string().min(1),
+  currencyCode: z.string().length(3),
+  reportHash: z.string().regex(/^[a-f0-9]{64}$/),
+  signedAt: isoDateTime,
+  signedBy: z.object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+  }),
+});
+
+export const dayCloseSignoffOutput = dayCloseSignoffMetadataOutput.extend({
+  report: comprehensiveDayCloseReportOutput,
+});
+
 export type DayClosePreviewInput = z.infer<typeof dayClosePreviewInput>;
+export type DayCloseSignOffInput = z.infer<typeof dayCloseSignOffInput>;
 export type ComprehensiveDayCloseReportOutput = z.infer<typeof comprehensiveDayCloseReportOutput>;
+export type DayCloseSignoffMetadataOutput = z.infer<typeof dayCloseSignoffMetadataOutput>;
+export type DayCloseSignoffOutput = z.infer<typeof dayCloseSignoffOutput>;

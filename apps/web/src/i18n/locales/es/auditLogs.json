@@ -126,7 +126,8 @@
     "data_import.providers": "Datos iniciales de proveedores importados",
     "data_import.customer_balances": "Cartera inicial de clientes importada",
     "data_import.opening_cash": "Base inicial de cajas importada",
-    "data_import.fiscal_profile": "Perfil fiscal importado"
+    "data_import.fiscal_profile": "Perfil fiscal importado",
+    "day_close.sign_off": "Cierre del día firmado"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -152,7 +153,8 @@
     "price_suggestion": "Sugerencia de precio",
     "backup_snapshot": "Respaldo cifrado",
     "site": "Sede",
-    "data_import": "Importación de datos"
+    "data_import": "Importación de datos",
+    "day_close_signoff": "Cierre del día firmado"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

@@ -64,6 +64,7 @@ describe('sensitive audit review (ENG-129f)', () => {
     expect(getAuditReviewActions('money')).toContain('data_import.customer_balances');
     expect(getAuditReviewActions('money')).toContain('data_import.opening_cash');
     expect(getAuditReviewActions('money')).toContain('data_import.fiscal_profile');
+    expect(getAuditReviewActions('money')).toContain('day_close.sign_off');
     expect(getAuditReviewActions('inventory')).not.toContain('data_import.customers');
   });
 

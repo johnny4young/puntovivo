@@ -1,5 +1,6 @@
-/** ENG-141a — comprehensive tenant-local day-close report integration. */
+/** ENG-141a/ENG-141b — comprehensive day-close report and immutable sign-off integration. */
 
+import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -7,6 +8,7 @@ import {
   auditLogs,
   cashSessions,
   companies,
+  dayCloseSignoffs,
   fiscalDocuments,
   fiscalNumberingResolutions,
   salePayments,
@@ -17,8 +19,13 @@ import {
   tenants,
   users,
 } from '../db/schema.js';
+import { registerDevice } from '../services/devices/devicesService.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import {
+  freshCriticalContext,
+  type FreshContextOverrides,
+} from './utils/criticalCommandFixture.js';
 
 let server: PuntovivoServer;
 
@@ -108,6 +115,35 @@ async function seedTenant(suffix: string) {
     },
   ]);
   return { tenantId, companyId, siteId, adminId, managerId, cashierId };
+}
+
+async function createCriticalActor(
+  tenant: Awaited<ReturnType<typeof seedTenant>>,
+  userId: string,
+  role: 'admin' | 'manager' | 'cashier'
+) {
+  const db = getDatabase();
+  const registration = await registerDevice(db, {
+    tenantId: tenant.tenantId,
+    userId,
+    kind: 'web',
+    name: `day-close-${role}-${userId}`,
+  });
+  return {
+    fresh(overrides?: FreshContextOverrides) {
+      return freshCriticalContext({
+        db,
+        serverApp: server.app,
+        tenantId: tenant.tenantId,
+        userId,
+        email: `${userId}@example.com`,
+        role,
+        siteId: tenant.siteId,
+        deviceId: registration.deviceId,
+        ...overrides,
+      });
+    },
+  };
 }
 
 describe('reports.dayClose.preview (ENG-141a)', () => {
@@ -412,6 +448,217 @@ describe('reports.dayClose.preview (ENG-141a)', () => {
     await expect(caller.reports.dayClose.preview({ date: '2999-01-01' })).rejects.toMatchObject({
       code: 'BAD_REQUEST',
       cause: expect.objectContaining({ errorCode: 'DAY_CLOSE_FUTURE_DATE' }),
+    });
+  });
+
+  it('signs one immutable snapshot with frozen signer and audit evidence', async () => {
+    const db = getDatabase();
+    const tenant = await seedTenant('signoff');
+    const manager = await createCriticalActor(tenant, tenant.managerId, 'manager');
+    const caller = appRouter.createCaller(manager.fresh());
+
+    expect(await caller.reports.dayClose.signoff({ date: '2026-07-14' })).toBeNull();
+    const signed = await caller.reports.dayClose.signOff({
+      date: '2026-07-14',
+      attestationAccepted: true,
+    });
+
+    expect(signed).toMatchObject({
+      date: '2026-07-14',
+      schemaVersion: 1,
+      currencyCode: 'COP',
+      signedBy: { id: tenant.managerId, name: 'Manager signoff' },
+    });
+    expect(signed.reportHash).toMatch(/^[a-f0-9]{64}$/);
+
+    const evidence = await appRouter
+      .createCaller(context(tenant.tenantId, tenant.managerId, 'manager'))
+      .reports.dayClose.signoff({ date: '2026-07-14' });
+    expect(evidence?.report.sales.count).toBe(0);
+    expect(evidence?.reportHash).toBe(signed.reportHash);
+
+    const audit = db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenant.tenantId),
+          eq(auditLogs.action, 'day_close.sign_off')
+        )
+      )
+      .get();
+    expect(audit).toMatchObject({
+      actorId: tenant.managerId,
+      resourceType: 'day_close_signoff',
+      resourceId: signed.id,
+      operationId: expect.any(String),
+      metadata: { attestationAccepted: true },
+    });
+    expect(audit?.after).toMatchObject({
+      businessDate: '2026-07-14',
+      reportHash: signed.reportHash,
+    });
+
+    await db
+      .update(users)
+      .set({ name: 'Renamed manager' })
+      .where(eq(users.id, tenant.managerId))
+      .run();
+    await db.insert(cashSessions).values({
+      id: 'dcr-late-session',
+      tenantId: tenant.tenantId,
+      siteId: tenant.siteId,
+      cashierId: tenant.cashierId,
+      registerName: 'Caja tardía',
+      openingFloat: 0,
+      openingCountDenominations: [],
+      expectedBalance: 42,
+      actualCount: 42,
+      overShort: 0,
+      status: 'closed',
+      openedAt: '2026-07-14T17:00:00.000Z',
+      closedAt: '2026-07-14T19:00:00.000Z',
+    });
+    await db.insert(sales).values({
+      id: 'dcr-late-sale',
+      tenantId: tenant.tenantId,
+      saleNumber: 'DCR-LATE',
+      total: 42,
+      paymentStatus: 'paid',
+      status: 'completed',
+      cashSessionId: 'dcr-late-session',
+      createdBy: tenant.cashierId,
+      createdAt: '2026-07-14T18:00:00.000Z',
+      updatedAt: '2026-07-14T18:00:00.000Z',
+    });
+
+    const frozen = await appRouter
+      .createCaller(context(tenant.tenantId, tenant.adminId, 'admin'))
+      .reports.dayClose.signoff({ date: '2026-07-14' });
+    const live = await appRouter
+      .createCaller(context(tenant.tenantId, tenant.adminId, 'admin'))
+      .reports.dayClose.preview({ date: '2026-07-14' });
+    expect(frozen?.signedBy.name).toBe('Manager signoff');
+    expect(frozen?.report.sales.count).toBe(0);
+    expect(live.sales.count).toBe(1);
+
+    expect(() =>
+      db
+        .update(dayCloseSignoffs)
+        .set({ signedByName: 'Rewritten' })
+        .where(eq(dayCloseSignoffs.id, signed.id))
+        .run()
+    ).toThrow(/day_close_signoffs are immutable/);
+    expect(() =>
+      db.delete(dayCloseSignoffs).where(eq(dayCloseSignoffs.id, signed.id)).run()
+    ).toThrow(/day_close_signoffs are immutable/);
+  });
+
+  it('rejects blocked, duplicate, unauthorized, and cross-tenant sign-off access', async () => {
+    const db = getDatabase();
+    const tenant = await seedTenant('guards');
+    const foreign = await seedTenant('guards-foreign');
+    const manager = await createCriticalActor(tenant, tenant.managerId, 'manager');
+    const cashier = await createCriticalActor(tenant, tenant.cashierId, 'cashier');
+
+    await db.insert(cashSessions).values({
+      id: 'dcr-guards-open',
+      tenantId: tenant.tenantId,
+      siteId: tenant.siteId,
+      cashierId: tenant.cashierId,
+      registerName: 'Caja abierta',
+      openingFloat: 0,
+      openingCountDenominations: [],
+      expectedBalance: 0,
+      status: 'open',
+      openedAt: '2026-07-14T12:00:00.000Z',
+    });
+
+    await expect(
+      appRouter.createCaller(manager.fresh()).reports.dayClose.signOff({
+        date: '2026-07-14',
+        attestationAccepted: true,
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'DAY_CLOSE_NOT_READY' }),
+    });
+
+    await expect(
+      appRouter.createCaller(cashier.fresh()).reports.dayClose.signOff({
+        date: '2026-07-13',
+        attestationAccepted: true,
+      })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(
+      appRouter
+        .createCaller(context(tenant.tenantId, tenant.cashierId, 'cashier'))
+        .reports.dayClose.signoff({ date: '2026-07-13' })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    const first = await appRouter.createCaller(manager.fresh()).reports.dayClose.signOff({
+      date: '2026-07-13',
+      attestationAccepted: true,
+    });
+    await expect(
+      appRouter.createCaller(manager.fresh()).reports.dayClose.signOff({
+        date: '2026-07-13',
+        attestationAccepted: true,
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'DAY_CLOSE_ALREADY_SIGNED' }),
+    });
+    expect(first.date).toBe('2026-07-13');
+    expect(
+      await appRouter
+        .createCaller(context(foreign.tenantId, foreign.managerId, 'manager'))
+        .reports.dayClose.signoff({ date: '2026-07-13' })
+    ).toBeNull();
+  });
+
+  it('serializes concurrent signers and rejects malformed persisted evidence', async () => {
+    const db = getDatabase();
+    const tenant = await seedTenant('race');
+    const manager = await createCriticalActor(tenant, tenant.managerId, 'manager');
+
+    const results = await Promise.allSettled([
+      appRouter.createCaller(manager.fresh()).reports.dayClose.signOff({
+        date: '2026-07-12',
+        attestationAccepted: true,
+      }),
+      appRouter.createCaller(manager.fresh()).reports.dayClose.signOff({
+        date: '2026-07-12',
+        attestationAccepted: true,
+      }),
+    ]);
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find(result => result.status === 'rejected');
+    expect(rejected).toMatchObject({
+      status: 'rejected',
+      reason: {
+        cause: expect.objectContaining({ errorCode: 'DAY_CLOSE_ALREADY_SIGNED' }),
+      },
+    });
+
+    await db.insert(dayCloseSignoffs).values({
+      id: 'dcr-corrupt-signoff',
+      tenantId: tenant.tenantId,
+      businessDate: '2026-07-11',
+      timeZone: 'America/Bogota',
+      currencyCode: 'COP',
+      reportSnapshot: { date: '2026-07-11' },
+      reportHash: '0'.repeat(64),
+      signedByUserId: tenant.managerId,
+      signedByName: 'Manager race',
+      signedAt: '2026-07-12T05:00:00.000Z',
+    });
+    await expect(
+      appRouter
+        .createCaller(context(tenant.tenantId, tenant.managerId, 'manager'))
+        .reports.dayClose.signoff({ date: '2026-07-11' })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({
+        errorCode: 'DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED',
+      }),
     });
   });
 });

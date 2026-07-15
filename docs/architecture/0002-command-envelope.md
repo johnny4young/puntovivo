@@ -114,6 +114,11 @@ follow-up amendment.
 - `cashSessions.recordMovement` (for `paid_in`, `paid_out`, `skim`,
   and `replenishment`)
 
+**Reports / attestations**
+
+- `reports.dayClose.signOff` (ENG-141b — one irreversible manager/admin
+  attestation of the frozen comprehensive business-day report)
+
 **Inventory**
 
 - `inventory.adjustStock`
@@ -213,6 +218,9 @@ critical attendance commands; retries cannot create duplicate open
 shifts or close a different employee's shift).
 Updated: 2026-07-14 (ENG-106c1 — added request, PIN decision, and
 cancellation commands for the short-lived manager approval rail).
+Updated: 2026-07-15 (ENG-141b — added the immutable comprehensive day-close
+sign-off; the web critical-mutation resolver now supports nested sub-router
+paths while preserving end-to-end input/output inference).
 Updated: 2026-05-03 (ENG-053 — operation journal wired into
 envelope: `recordOperationStart` runs after the idempotency
 reservation and before `next()`, idempotent on

@@ -56,6 +56,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     // ENG-123f — issuer configuration can affect legally binding documents.
     'data_import.fiscal_profile',
     'fiscal.xml.downloaded',
+    // ENG-141b — irreversible financial attestation belongs in money review.
+    'day_close.sign_off',
   ],
   inventory: [
     'inventory.adjust_stock',

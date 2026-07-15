@@ -185,6 +185,20 @@ describe('AuditLogsPage', () => {
     );
   });
 
+  it('offers signed day-close evidence as action and resource filters', () => {
+    render(<AuditLogsPage />);
+
+    const actionFilter = screen.getByRole('combobox', { name: 'Action' });
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Day close signed' })
+    ).toHaveValue('day_close.sign_off');
+
+    const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
+    expect(
+      within(resourceFilter).getByRole('option', { name: 'Signed day close' })
+    ).toHaveValue('day_close_signoff');
+  });
+
   it('offers staff PIN lifecycle and cashier-switch actions', () => {
     render(<AuditLogsPage />);
 

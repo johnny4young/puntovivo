@@ -172,6 +172,43 @@ test.describe('web smoke', () => {
     await expectNoClientIssues(tracker);
   });
 
+  test('manager signs and reloads immutable day-close evidence', async ({ page }) => {
+    const tracker = attachClientIssueTracker(page);
+    await loginAs(page, 'manager');
+    await page.goto('/day-close');
+
+    const dateInput = page.getByLabel(/^(Business day|Día comercial)$/i);
+    const evidence = page.getByTestId('day-close-signed-evidence');
+    const unsignedCard = page.getByTestId('day-close-signoff-card');
+    await dateInput.fill('2000-01-01');
+    await expect(unsignedCard.or(evidence)).toBeVisible();
+
+    // A retry can inherit evidence written by the first attempt. Keep the
+    // smoke idempotent while the clean first attempt still exercises the
+    // complete irreversible confirmation path.
+    if (await unsignedCard.isVisible()) {
+      await expect(page.getByTestId('day-close-readiness')).toContainText(
+        /ready for manager review|listo para revisión/i
+      );
+      await page.getByRole('checkbox', { name: /I reviewed|Revisé/i }).check();
+      await page.getByRole('button', { name: /Sign day close|Firmar cierre/i }).click();
+      await expect(page.getByRole('dialog')).toContainText(/irreversible/i);
+      await page.getByRole('button', { name: /Sign and freeze|Firmar y proteger/i }).click();
+    }
+
+    await expect(evidence).toContainText(/E2E Manager/);
+    await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
+    await expect(page.getByRole('checkbox')).toHaveCount(0);
+
+    await page.reload();
+    await dateInput.fill('2000-01-01');
+    await expect(evidence).toContainText(/E2E Manager/);
+    await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
+    await expect(page.getByRole('checkbox')).toHaveCount(0);
+
+    await expectNoClientIssues(tracker);
+  });
+
   test('cashier route gating matches role rules', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
 

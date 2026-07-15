@@ -337,6 +337,11 @@ export const auditLogActionEnum = [
   // latest scheduled snapshot. Metadata records pass/fail plus bounded
   // tenant-scoped count deltas; no filesystem path or encryption key.
   'backup.restore_drill',
+  // ENG-141b — one irreversible manager/admin attestation of the frozen
+  // comprehensive day-close snapshot. Metadata carries the business date,
+  // schema version, and SHA-256 hash; the report body lives in its dedicated
+  // immutable table rather than duplicating financial detail into audit logs.
+  'day_close.sign_off',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -394,6 +399,8 @@ export const auditLogResourceTypeEnum = [
   'backup_snapshot',
   // ENG-123a — an immutable import-run summary keyed by import id.
   'data_import',
+  // ENG-141b — immutable comprehensive day-close evidence row.
+  'day_close_signoff',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

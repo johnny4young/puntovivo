@@ -24,6 +24,7 @@ const { getCachedDeviceIdSyncMock, createTrpcClientWithHeadersMock, mintEnvelope
       salesCreate: vi.fn(),
       cashSessionsOpen: vi.fn(),
       usersUpdate: vi.fn(),
+      dayCloseSignOff: vi.fn(),
     },
   }));
 
@@ -67,6 +68,7 @@ beforeEach(() => {
     sales: { create: { mutate: mutateMocks.salesCreate } },
     cashSessions: { open: { mutate: mutateMocks.cashSessionsOpen } },
     users: { update: { mutate: mutateMocks.usersUpdate } },
+    reports: { dayClose: { signOff: { mutate: mutateMocks.dayCloseSignOff } } },
   });
 });
 
@@ -104,6 +106,27 @@ describe('useCriticalMutation', () => {
     expect(createTrpcClientWithHeadersMock).toHaveBeenCalledWith({
       'x-device-id': 'dev-123',
       'x-puntovivo-envelope': expect.stringContaining('"operationId":"op-1"'),
+    });
+  });
+
+  it('dispatches through a nested sub-router path', async () => {
+    getCachedDeviceIdSyncMock.mockReturnValue('dev-report');
+    mutateMocks.dayCloseSignOff.mockResolvedValue({ id: 'signoff-1' });
+
+    const { result } = renderHook(
+      () => useCriticalMutation('reports.dayClose.signOff'),
+      { wrapper }
+    );
+
+    const value = await result.current.mutateAsync({
+      date: '2026-07-14',
+      attestationAccepted: true,
+    });
+
+    expect(value).toEqual({ id: 'signoff-1' });
+    expect(mutateMocks.dayCloseSignOff).toHaveBeenCalledWith({
+      date: '2026-07-14',
+      attestationAccepted: true,
     });
   });
 

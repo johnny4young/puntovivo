@@ -42,6 +42,7 @@
     "readiness": {
       "ready": "The day is ready for manager review",
       "blocked": "The day still has blocking work",
+      "signed": "The signed evidence is frozen",
       "generated": "{{date}} · {{timeZone}}",
       "codes": {
         "open_sessions": "Open cash sessions",
@@ -52,6 +53,24 @@
         "commissions_not_tracked": "Commissions are not tracked yet",
         "waste_not_tracked": "Waste is not tracked yet"
       }
+    },
+    "signoff": {
+      "title": "Manager sign-off",
+      "description": "Confirm your review to freeze this exact report as the business day's permanent evidence.",
+      "blocked": "Resolve the blocking items above before this report can be signed.",
+      "attestation": "I reviewed this report and confirm that it represents the business day shown.",
+      "action": "Sign day close",
+      "confirmTitle": "Freeze this day-close evidence?",
+      "confirmMessage": "This action is irreversible. The report for {{date}}, generated at {{generatedAt}}, will be stored exactly as shown and cannot be edited or deleted.",
+      "confirmAction": "Sign and freeze",
+      "signedTitle": "Day close signed and protected",
+      "signedDescription": "This screen is showing the immutable signed snapshot. Activity recorded later does not rewrite it.",
+      "signedByLabel": "Attestation",
+      "signedBy": "Signed by {{name}} · {{date}}",
+      "hashLabel": "SHA-256 evidence hash",
+      "successTitle": "Day close signed",
+      "successDescription": "The immutable report and its audit evidence were saved.",
+      "errorTitle": "The day close could not be signed"
     },
     "kpis": {
       "netRevenue": "Net revenue",

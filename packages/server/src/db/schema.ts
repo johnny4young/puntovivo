@@ -32,3 +32,4 @@ export * from './schema/hardware.js';
 export * from './schema/syncAi.js';
 export * from './schema/types.js';
 export * from './schema/realtime.js';
+export * from './schema/reports.js';

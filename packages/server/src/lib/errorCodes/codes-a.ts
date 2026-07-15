@@ -77,6 +77,12 @@ export const SERVER_ERROR_CODES_A = {
    * tenant-local calendar day that has not started yet.
    */
   DAY_CLOSE_FUTURE_DATE: 'DAY_CLOSE_FUTURE_DATE',
+  /** ENG-141b — the tenant business date already has immutable signed evidence. */
+  DAY_CLOSE_ALREADY_SIGNED: 'DAY_CLOSE_ALREADY_SIGNED',
+  /** ENG-141b — a report with readiness blockers cannot be attested. */
+  DAY_CLOSE_NOT_READY: 'DAY_CLOSE_NOT_READY',
+  /** ENG-141b — the persisted snapshot no longer matches its canonical hash or schema. */
+  DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED: 'DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED',
   /**
    * ENG-181 — `services/cash-session.ts:insertCashMovement` rejected a
    * non-positive / non-finite amount. ENG-176a-rounding already rounds

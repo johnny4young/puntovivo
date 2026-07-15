@@ -67,32 +67,26 @@ export type CriticalCommandPath =
   // `criticalCommandAdminProcedure` so the client must mint an
   // envelope + ship the device id; the audit row carries the
   // operationId for after-the-fact traceability.
-  | 'modules.setActive';
+  | 'modules.setActive'
+  // ENG-141b — irreversible manager/admin attestation of one frozen
+  // comprehensive day-close snapshot.
+  | 'reports.dayClose.signOff';
 
 /**
- * Split a `'ns.proc'` path into its `[ns, proc]` tuple at the type
- * level. Used to project router inputs / outputs down to a single
- * procedure based on the consumer's path argument.
+ * Recursively project router inputs / outputs through a dotted path. Most
+ * commands are `namespace.procedure`; ENG-141b is the first critical command
+ * under a nested sub-router (`reports.dayClose.signOff`).
  */
-type SplitPath<S extends string> = S extends `${infer NS}.${infer PR}` ? [NS, PR] : never;
-
-type InputOfPath<P extends CriticalCommandPath> =
-  SplitPath<P> extends [infer NS, infer PR]
-    ? NS extends keyof RouterInputs
-      ? PR extends keyof RouterInputs[NS]
-        ? RouterInputs[NS][PR]
-        : never
-      : never
+type ValueAtPath<T, P extends string> = P extends `${infer Head}.${infer Tail}`
+  ? Head extends keyof T
+    ? ValueAtPath<T[Head], Tail>
+    : never
+  : P extends keyof T
+    ? T[P]
     : never;
 
-type OutputOfPath<P extends CriticalCommandPath> =
-  SplitPath<P> extends [infer NS, infer PR]
-    ? NS extends keyof RouterOutputs
-      ? PR extends keyof RouterOutputs[NS]
-        ? RouterOutputs[NS][PR]
-        : never
-      : never
-    : never;
+type InputOfPath<P extends CriticalCommandPath> = ValueAtPath<RouterInputs, P>;
+type OutputOfPath<P extends CriticalCommandPath> = ValueAtPath<RouterOutputs, P>;
 
 type LocalServerCodeError = Error & {
   errorCode: 'DEVICE_NOT_REGISTERED';
@@ -118,14 +112,16 @@ async function invokeCriticalMutation(
   path: CriticalCommandPath,
   input: unknown
 ): Promise<unknown> {
-  const [namespace, procedure] = path.split('.') as [string, string];
-  const ns = (
-    client as unknown as Record<
-      string,
-      Record<string, { mutate: (input: unknown) => Promise<unknown> }>
-    >
-  )[namespace];
-  const proc = ns?.[procedure];
+  const segments = path.split('.');
+  let cursor: unknown = client;
+  for (const segment of segments) {
+    if (!cursor || (typeof cursor !== 'object' && typeof cursor !== 'function')) {
+      cursor = undefined;
+      break;
+    }
+    cursor = (cursor as Record<string, unknown>)[segment];
+  }
+  const proc = cursor as { mutate?: (input: unknown) => Promise<unknown> } | undefined;
   if (!proc || typeof proc.mutate !== 'function') {
     throw new Error(`Unknown critical procedure path: ${path}`);
   }

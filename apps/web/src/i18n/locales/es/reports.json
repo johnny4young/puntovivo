@@ -42,6 +42,7 @@
     "readiness": {
       "ready": "El día está listo para revisión del responsable",
       "blocked": "El día todavía tiene tareas bloqueantes",
+      "signed": "La evidencia firmada está protegida",
       "generated": "{{date}} · {{timeZone}}",
       "codes": {
         "open_sessions": "Sesiones de caja abiertas",
@@ -52,6 +53,24 @@
         "commissions_not_tracked": "Las comisiones aún no se registran",
         "waste_not_tracked": "Las mermas aún no se registran"
       }
+    },
+    "signoff": {
+      "title": "Firma del responsable",
+      "description": "Confirma tu revisión para guardar este reporte exacto como evidencia permanente del día comercial.",
+      "blocked": "Resuelve los bloqueos anteriores antes de firmar este reporte.",
+      "attestation": "Revisé este reporte y confirmo que representa el día comercial indicado.",
+      "action": "Firmar cierre",
+      "confirmTitle": "¿Proteger la evidencia de este cierre?",
+      "confirmMessage": "Esta acción es irreversible. El reporte del {{date}}, generado el {{generatedAt}}, se guardará exactamente como aparece y no se podrá editar ni eliminar.",
+      "confirmAction": "Firmar y proteger",
+      "signedTitle": "Cierre firmado y protegido",
+      "signedDescription": "Esta pantalla muestra la copia firmada e inmutable. La actividad registrada después no la modifica.",
+      "signedByLabel": "Constancia",
+      "signedBy": "Firmado por {{name}} · {{date}}",
+      "hashLabel": "Huella SHA-256 de la evidencia",
+      "successTitle": "Cierre firmado",
+      "successDescription": "Se guardaron el reporte inmutable y su evidencia de auditoría.",
+      "errorTitle": "No se pudo firmar el cierre"
     },
     "kpis": {
       "netRevenue": "Ingresos netos",

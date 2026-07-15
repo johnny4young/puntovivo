@@ -133,7 +133,9 @@ export type AuditLogAction =
   | 'data_import.providers'
   | 'data_import.customer_balances'
   | 'data_import.opening_cash'
-  | 'data_import.fiscal_profile';
+  | 'data_import.fiscal_profile'
+  // ENG-141b — immutable comprehensive day-close attestation.
+  | 'day_close.sign_off';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -176,7 +178,9 @@ export type AuditLogResourceType =
   // ENG-136b — scheduler-owned encrypted snapshot.
   | 'backup_snapshot'
   // ENG-123a — one auditable launch import run.
-  | 'data_import';
+  | 'data_import'
+  // ENG-141b — signed comprehensive day-close evidence.
+  | 'day_close_signoff';
 
 export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';
 

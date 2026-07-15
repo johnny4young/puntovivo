@@ -36,6 +36,8 @@ export interface WriteAuditLogArgs {
   after?: Record<string, unknown> | null;
   /** Free-form per-action details (e.g. void reason, discrepancy note). */
   metadata?: Record<string, unknown> | null;
+  /** Critical-command correlation id from the validated Command Envelope. */
+  operationId?: string | null | undefined;
 }
 
 function getTimestamp(): string {
@@ -81,6 +83,7 @@ export function writeAuditLog(args: WriteAuditLogArgs): string {
       before: args.before ?? null,
       after: args.after ?? null,
       metadata: args.metadata ?? null,
+      operationId: args.operationId ?? null,
       createdAt: getTimestamp(),
     })
     .run();
