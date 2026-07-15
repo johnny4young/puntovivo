@@ -4,10 +4,12 @@ import {
   commitLaunchCustomerImport,
   commitLaunchProductImport,
   commitLaunchProviderImport,
+  commitLaunchOpeningCashImport,
   previewLaunchCustomerBalanceImport,
   previewLaunchCustomerImport,
   previewLaunchProductImport,
   previewLaunchProviderImport,
+  previewLaunchOpeningCashImport,
 } from '../../application/launch-migration/index.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
@@ -16,10 +18,12 @@ import {
   commitLaunchCustomerImportInput,
   commitLaunchProductImportInput,
   commitLaunchProviderImportInput,
+  commitLaunchOpeningCashImportInput,
   previewLaunchCustomerBalanceImportInput,
   previewLaunchCustomerImportInput,
   previewLaunchProductImportInput,
   previewLaunchProviderImportInput,
+  previewLaunchOpeningCashImportInput,
 } from '../schemas/launchMigration.js';
 
 export const launchMigrationRouter = router({
@@ -50,5 +54,15 @@ export const launchMigrationRouter = router({
     .input(commitLaunchCustomerBalanceImportInput)
     .mutation(({ ctx, input }) =>
       commitLaunchCustomerBalanceImport({ ...ctx, user: ctx.user! }, input)
+    ),
+  previewOpeningCash: adminProcedure
+    .input(previewLaunchOpeningCashImportInput)
+    .mutation(({ ctx, input }) =>
+      previewLaunchOpeningCashImport({ ...ctx, user: ctx.user! }, input)
+    ),
+  importOpeningCash: adminProcedure
+    .input(commitLaunchOpeningCashImportInput)
+    .mutation(({ ctx, input }) =>
+      commitLaunchOpeningCashImport({ ...ctx, user: ctx.user! }, input)
     ),
 });

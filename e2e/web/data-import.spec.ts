@@ -7,8 +7,29 @@ import {
   attachClientIssueTracker,
   ensureLanguage,
   expectNoClientIssues,
+  login,
   loginAs,
+  resetSession,
 } from './support/app.js';
+import { seedCashierWithoutSession } from './support/db.js';
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function switchToSite(page: Page, targetSiteName: string) {
+  const header = page.locator('header');
+  const targetButton = header.getByRole('button', {
+    name: new RegExp(`^${escapeRegExp(targetSiteName)}$`),
+  });
+  if ((await targetButton.count()) > 0) return;
+  await header
+    .getByRole('button', { name: /Main Site|Branch Site|E2E Branch Site/i })
+    .first()
+    .click();
+  await page.getByRole('option', { name: targetSiteName }).click();
+  await expect(targetButton).toBeVisible();
+}
 
 async function captureEvidence(page: Page, name: string) {
   const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
@@ -362,6 +383,87 @@ test.describe('launch data import (ENG-123)', () => {
       'Ningún cliente activo coincide con esta identidad'
     );
     await captureEvidence(page, 'eng-123d-customer-receivables-duplicate-es');
+    await expectNoClientIssues(tracker);
+  });
+
+  test('admin imports reconciled opening cash and a cashier opens that register', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const suffix = `${testInfo.parallelIndex}-${Date.now()}`;
+    const scenario = seedCashierWithoutSession(`opening-cash-${suffix}`);
+    const targetSite = scenario.sites[0]!;
+    const registerName = `E2E Launch Cash ${suffix}`;
+
+    await login(page, {
+      email: scenario.admin.email,
+      password: scenario.admin.password,
+      defaultPath: '/dashboard',
+    });
+    await page.goto('/data-import');
+    await chooseRealData(page);
+    await page.getByRole('button', { name: /^Register opening cash/ }).click();
+    await expect(page.getByTestId('data-import-openingCash-workflow')).toBeVisible();
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'opening-cash.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        [
+          'Site name,Register name,Opening cash,Denomination counts',
+          `${targetSite.name},${registerName},120000,50000:2|20000:1`,
+          `${targetSite.name},${registerName.toLocaleLowerCase()},120000,50000:2|20000:1`,
+          `Unknown Site ${suffix},Unknown register,20000,20000:1`,
+        ].join('\n')
+      ),
+    });
+
+    await expect(page.getByLabel(/Site name/)).toHaveValue('Site name');
+    await expect(page.getByLabel(/Denomination counts/)).toHaveValue('Denomination counts');
+    await page.getByRole('button', { name: 'Validate and preview' }).click();
+    await expect(page.getByTestId('data-import-summary-ready')).toContainText('1');
+    await expect(page.getByTestId('data-import-summary-duplicates')).toContainText('1');
+    await expect(page.getByTestId('data-import-summary-invalid')).toContainText('1');
+    await expect(page.getByTestId('data-import-preview-row-3')).toContainText(
+      'repeated in the file'
+    );
+    await expect(page.getByTestId('data-import-preview-row-4')).toContainText('No active site');
+    await captureEvidence(page, 'eng-123e-opening-cash-preview-en');
+
+    await confirmRealData(page);
+    await page.getByRole('button', { name: 'Import 1 ready row' }).click();
+    await expect(page.getByTestId('data-import-report')).toContainText(
+      '1 reconciled register template imported.'
+    );
+    await captureEvidence(page, 'eng-123e-opening-cash-report-en');
+
+    await resetSession(page);
+    await login(page, {
+      email: scenario.cashier.email,
+      password: scenario.cashier.password,
+      defaultPath: '/sales',
+    });
+    await page.goto('/sales');
+    await switchToSite(page, targetSite.name);
+    const assignmentSection = page.locator('.card-inset').filter({
+      has: page.getByText('Assigned register', { exact: true }),
+    });
+    await assignmentSection.locator('button[aria-haspopup="listbox"]').click();
+    await page.getByRole('option', { name: registerName }).click();
+    await page.getByRole('button', { name: 'Open cash session' }).first().click();
+
+    const openDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Open cash session' }) })
+      .last();
+    await expect(openDialog.locator('#cash-session-register')).toHaveValue(registerName);
+    await expect(openDialog.locator('#cash-session-opening-float')).toHaveValue('120000');
+    await expect(openDialog.locator('#cash-session-count-0')).toHaveValue('2');
+    await expect(openDialog.locator('#cash-session-count-1')).toHaveValue('1');
+    await expect(openDialog.getByRole('button', { name: 'Open session' })).toBeEnabled();
+    await captureEvidence(page, 'eng-123e-opening-cash-cashier-roundtrip-en');
+    await openDialog.getByRole('button', { name: 'Open session' }).click();
+    await expect(openDialog).toBeHidden({ timeout: 15_000 });
+    await expect(page.getByText(registerName, { exact: true })).toBeVisible();
     await expectNoClientIssues(tracker);
   });
 

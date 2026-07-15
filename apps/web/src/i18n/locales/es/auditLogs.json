@@ -124,7 +124,8 @@
     "data_import.products": "Datos iniciales de productos importados",
     "data_import.customers": "Datos iniciales de clientes importados",
     "data_import.providers": "Datos iniciales de proveedores importados",
-    "data_import.customer_balances": "Cartera inicial de clientes importada"
+    "data_import.customer_balances": "Cartera inicial de clientes importada",
+    "data_import.opening_cash": "Base inicial de cajas importada"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",

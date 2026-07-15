@@ -168,6 +168,11 @@ describe('AuditLogsPage', () => {
         name: 'Customer opening receivables imported',
       })
     ).toHaveValue('data_import.customer_balances');
+    expect(
+      within(actionFilter).getByRole('option', {
+        name: 'Register opening cash imported',
+      })
+    ).toHaveValue('data_import.opening_cash');
 
     const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
     expect(within(resourceFilter).getByRole('option', { name: 'Data import' })).toHaveValue(

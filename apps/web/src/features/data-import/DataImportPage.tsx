@@ -4,12 +4,19 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { CustomerBalanceImportWorkflow } from './CustomerBalanceImportWorkflow';
 import { ImportModePanel } from './ImportModePanel';
+import { OpeningCashImportWorkflow } from './OpeningCashImportWorkflow';
 import { PartyImportWorkflow } from './PartyImportWorkflow';
 import { ProductImportWorkflow } from './ProductImportWorkflow';
 import type { ImportEntity } from './partyImportMapping';
 import type { LaunchImportDataMode } from './types';
 
-const IMPORT_ENTITIES: ImportEntity[] = ['products', 'customers', 'providers', 'customerBalances'];
+const IMPORT_ENTITIES: ImportEntity[] = [
+  'products',
+  'customers',
+  'providers',
+  'customerBalances',
+  'openingCash',
+];
 
 export function DataImportPage() {
   const { t } = useTranslation('dataImport');
@@ -40,7 +47,7 @@ export function DataImportPage() {
           {t('entitySelector.label')}
         </h2>
         <div
-          className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"
+          className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
           role="group"
           aria-label={t('entitySelector.label')}
         >
@@ -78,6 +85,12 @@ export function DataImportPage() {
           />
         ) : entity === 'customerBalances' ? (
           <CustomerBalanceImportWorkflow
+            key={`${dataMode}:${entity}`}
+            dataMode={dataMode}
+            onBusyChange={setIsWorkflowBusy}
+          />
+        ) : entity === 'openingCash' ? (
+          <OpeningCashImportWorkflow
             key={`${dataMode}:${entity}`}
             dataMode={dataMode}
             onBusyChange={setIsWorkflowBusy}

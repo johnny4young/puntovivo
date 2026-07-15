@@ -1,7 +1,7 @@
 {
   "kicker": "Launch migration",
   "title": "Import data",
-  "description": "Bring initial products, customers, suppliers, and customer receivables into Puntovivo with reviewable imports isolated to your business.",
+  "description": "Bring initial products, customers, suppliers, customer receivables, and register opening cash into Puntovivo with reviewable imports isolated to your business.",
   "safety": {
     "kicker": "Import safety",
     "title": "Choose how this file will be used",
@@ -19,7 +19,7 @@
     },
     "demoBoundary": {
       "title": "Preview-only boundary",
-      "description": "Demo mode can parse, map, validate, and export issues, but it never creates products, stock, customers, suppliers, or customer balances.",
+      "description": "Demo mode can parse, map, validate, and export issues, but it never creates products, stock, customers, suppliers, customer balances, or register opening templates.",
       "previewOnly": "Demo preview only. Review and export the results; no row can be saved in this mode."
     },
     "realConfirmation": "I confirm that this file contains real business data and that I have a current restore point.",
@@ -184,6 +184,10 @@
     "customerBalances": {
       "label": "Customer receivables",
       "description": "Positive opening balances owed by existing customers."
+    },
+    "openingCash": {
+      "label": "Register opening cash",
+      "description": "Reconciled denomination templates for each site register."
     }
   },
   "party": {
@@ -299,6 +303,45 @@
       "email": "customer@example.com",
       "openingBalance": "125000.50",
       "note": "Legacy account receivable"
+    }
+  },
+  "openingCash": {
+    "fields": {
+      "siteName": "Site name",
+      "registerName": "Register name",
+      "openingFloat": "Opening cash",
+      "denominations": "Denomination counts"
+    },
+    "mapDescription": "Map the site, register, opening cash, and its denomination breakdown. Every field is required so the imported template starts reconciled.",
+    "denominationFormatHelp": "Write denomination counts as value:count separated by semicolons, for example 50000:2;20000:1. The calculated total must equal opening cash.",
+    "previewDescription": "Puntovivo resolves active sites in this business, rejects active or established registers, and may replace only an untouched zero default.",
+    "issues": {
+      "required": "Required value is missing",
+      "too_long": "Value exceeds the allowed length",
+      "invalid_number": "Number format is not valid",
+      "out_of_range": "Opening cash is outside the allowed range",
+      "invalid_denominations": "Use value:count pairs separated by semicolons",
+      "denomination_total_mismatch": "The denomination total does not match opening cash",
+      "site_not_found": "No active site in this business matches this name",
+      "ambiguous_site": "More than one active site matches this name",
+      "duplicate_file_register": "This site and register are repeated in the file",
+      "duplicate_existing_register": "This register already has an established opening template",
+      "active_register": "This register has an open cash session",
+      "concurrent_register_change": "This register changed after preview; preview the file again",
+      "import_failed": "The opening-cash template could not be imported"
+    },
+    "report": {
+      "templateId": "Register template ID"
+    },
+    "reportDescription_one": "{{count}} reconciled register template imported.",
+    "reportDescription_other": "{{count}} reconciled register templates imported.",
+    "toastImported_one": "{{count}} register opening template imported",
+    "toastImported_other": "{{count}} register opening templates imported",
+    "template": {
+      "siteName": "Main Store",
+      "registerName": "Front register",
+      "openingFloat": "120000",
+      "denominations": "50000:2;20000:1"
     }
   }
 }

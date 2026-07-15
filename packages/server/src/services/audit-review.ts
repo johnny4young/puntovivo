@@ -51,6 +51,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'customer.credit_limit.update',
     // ENG-123d — opening receivables directly establish money owed.
     'data_import.customer_balances',
+    // ENG-123e — imported opening floats affect drawer accountability.
+    'data_import.opening_cash',
     'fiscal.xml.downloaded',
   ],
   inventory: [

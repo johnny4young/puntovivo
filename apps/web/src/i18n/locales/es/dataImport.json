@@ -1,7 +1,7 @@
 {
   "kicker": "Migración de lanzamiento",
   "title": "Importar datos",
-  "description": "Lleva productos, clientes, proveedores y cartera inicial a Puntovivo con importaciones revisables y aisladas para tu negocio.",
+  "description": "Lleva a Puntovivo productos, clientes, proveedores, cartera y bases iniciales de caja mediante importaciones revisables y aisladas para tu negocio.",
   "safety": {
     "kicker": "Seguridad de la importación",
     "title": "Elige cómo se usará este archivo",
@@ -19,7 +19,7 @@
     },
     "demoBoundary": {
       "title": "Límite de solo vista previa",
-      "description": "El modo de demostración permite leer, asignar, validar y exportar novedades, pero nunca crea productos, inventario, clientes, proveedores ni saldos por cobrar.",
+      "description": "El modo de demostración puede leer, mapear, validar y exportar errores, pero nunca crea productos, inventario, clientes, proveedores, saldos de cartera ni plantillas de apertura de caja.",
       "previewOnly": "Vista previa de demostración. Revisa y exporta los resultados; ninguna fila puede guardarse en este modo."
     },
     "realConfirmation": "Confirmo que este archivo contiene datos reales del negocio y que tengo un punto de restauración vigente.",
@@ -184,6 +184,10 @@
     "customerBalances": {
       "label": "Cartera inicial de clientes",
       "description": "Saldos positivos que los clientes existentes deben al negocio."
+    },
+    "openingCash": {
+      "label": "Bases iniciales de caja",
+      "description": "Plantillas conciliadas por denominación para cada caja y sede."
     }
   },
   "party": {
@@ -299,6 +303,45 @@
       "email": "cliente@ejemplo.com",
       "openingBalance": "125000,50",
       "note": "Cuenta por cobrar del sistema anterior"
+    }
+  },
+  "openingCash": {
+    "fields": {
+      "siteName": "Nombre de la sede",
+      "registerName": "Nombre de la caja",
+      "openingFloat": "Base de apertura",
+      "denominations": "Conteo por denominaciones"
+    },
+    "mapDescription": "Mapea la sede, la caja, la base de apertura y su desglose por denominaciones. Todos los campos son obligatorios para que la plantilla quede conciliada.",
+    "denominationFormatHelp": "Escribe cada conteo como valor:cantidad y sepáralos con punto y coma, por ejemplo 50000:2;20000:1. El total calculado debe coincidir con la base de apertura.",
+    "previewDescription": "Puntovivo busca sedes activas de este negocio, rechaza cajas activas o ya establecidas y solo puede reemplazar una plantilla inicial en cero que nunca se haya usado.",
+    "issues": {
+      "required": "Falta un valor obligatorio",
+      "too_long": "El valor supera la longitud permitida",
+      "invalid_number": "El formato del número no es válido",
+      "out_of_range": "La base de apertura está fuera del rango permitido",
+      "invalid_denominations": "Usa pares valor:cantidad separados por punto y coma",
+      "denomination_total_mismatch": "El total por denominaciones no coincide con la base de apertura",
+      "site_not_found": "Ninguna sede activa de este negocio coincide con este nombre",
+      "ambiguous_site": "Más de una sede activa coincide con este nombre",
+      "duplicate_file_register": "Esta sede y caja están repetidas en el archivo",
+      "duplicate_existing_register": "Esta caja ya tiene una plantilla de apertura establecida",
+      "active_register": "Esta caja tiene una sesión abierta",
+      "concurrent_register_change": "La caja cambió después de la previsualización; vuelve a validar el archivo",
+      "import_failed": "No se pudo importar la plantilla de apertura"
+    },
+    "report": {
+      "templateId": "ID de la plantilla de caja"
+    },
+    "reportDescription_one": "Se importó {{count}} plantilla de caja conciliada.",
+    "reportDescription_other": "Se importaron {{count}} plantillas de caja conciliadas.",
+    "toastImported_one": "Se importó {{count}} plantilla de apertura",
+    "toastImported_other": "Se importaron {{count}} plantillas de apertura",
+    "template": {
+      "siteName": "Sede Principal",
+      "registerName": "Caja frontal",
+      "openingFloat": "120000",
+      "denominations": "50000:2;20000:1"
     }
   }
 }

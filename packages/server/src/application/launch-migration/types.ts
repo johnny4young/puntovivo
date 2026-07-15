@@ -188,3 +188,48 @@ export interface CustomerBalanceImportPreviewRow {
   normalized: NormalizedLaunchCustomerBalance;
   issues: CustomerBalanceImportIssue[];
 }
+
+export const OPENING_CASH_IMPORT_FIELDS = [
+  'siteName',
+  'registerName',
+  'openingFloat',
+  'denominations',
+] as const;
+
+export type OpeningCashImportField = (typeof OPENING_CASH_IMPORT_FIELDS)[number];
+
+export type OpeningCashImportIssueCode =
+  | 'required'
+  | 'too_long'
+  | 'invalid_number'
+  | 'out_of_range'
+  | 'invalid_denominations'
+  | 'denomination_total_mismatch'
+  | 'site_not_found'
+  | 'ambiguous_site'
+  | 'duplicate_file_register'
+  | 'duplicate_existing_register'
+  | 'active_register'
+  | 'concurrent_register_change'
+  | 'import_failed';
+
+export interface OpeningCashImportIssue {
+  code: OpeningCashImportIssueCode;
+  field: OpeningCashImportField;
+}
+
+export interface NormalizedLaunchOpeningCash {
+  siteId: string | null;
+  siteName: string;
+  registerName: string;
+  openingFloat: number;
+  denominations: Array<{ value: number; count: number }>;
+  operation: 'create' | 'replace_default';
+}
+
+export interface OpeningCashImportPreviewRow {
+  rowNumber: number;
+  status: PartyImportPreviewStatus;
+  normalized: NormalizedLaunchOpeningCash;
+  issues: OpeningCashImportIssue[];
+}

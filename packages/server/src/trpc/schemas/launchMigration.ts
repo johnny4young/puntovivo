@@ -178,6 +178,41 @@ export const commitLaunchCustomerBalanceImportInput =
     previewHash: z.string().regex(/^[a-f0-9]{64}$/),
   });
 
+export const launchOpeningCashImportRowSchema = z
+  .object({
+    rowNumber: z.number().int().min(2).max(1_000_000),
+    values: z
+      .object({
+        siteName: importCell,
+        registerName: importCell,
+        openingFloat: importCell,
+        denominations: importCell,
+      })
+      .strict(),
+  })
+  .strict();
+
+const launchOpeningCashImportRowsSchema = z
+  .array(launchOpeningCashImportRowSchema)
+  .min(1, 'At least one import row is required')
+  .max(500, 'A single import can contain at most 500 rows')
+  .superRefine(addUniqueRowNumberIssues);
+
+export const previewLaunchOpeningCashImportInput = z
+  .object({
+    dataMode: launchImportDataModeSchema,
+    sourceName: z.string().trim().min(1).max(240),
+    decimalFormat: importDecimalFormatSchema.default('auto'),
+    rows: launchOpeningCashImportRowsSchema,
+  })
+  .strict();
+
+export const commitLaunchOpeningCashImportInput = previewLaunchOpeningCashImportInput.extend({
+  confirmedRealData: z.literal(true),
+  dataMode: z.literal('real'),
+  previewHash: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
 export type ImportDecimalFormat = z.infer<typeof importDecimalFormatSchema>;
 export type LaunchImportDataMode = z.infer<typeof launchImportDataModeSchema>;
 export type LaunchProductImportRow = z.infer<typeof launchProductImportRowSchema>;
@@ -196,3 +231,8 @@ export type PreviewLaunchCustomerBalanceImportInput = z.infer<
 export type CommitLaunchCustomerBalanceImportInput = z.infer<
   typeof commitLaunchCustomerBalanceImportInput
 >;
+export type LaunchOpeningCashImportRow = z.infer<typeof launchOpeningCashImportRowSchema>;
+export type PreviewLaunchOpeningCashImportInput = z.infer<
+  typeof previewLaunchOpeningCashImportInput
+>;
+export type CommitLaunchOpeningCashImportInput = z.infer<typeof commitLaunchOpeningCashImportInput>;

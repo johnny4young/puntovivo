@@ -31,3 +31,10 @@ export type CustomerBalanceImportReport =
 export type CustomerBalanceImportIssue = CustomerBalanceImportPreviewRow['issues'][number];
 export type CustomerBalanceImportRowsInput =
   RouterInputs['launchMigration']['previewCustomerBalances']['rows'];
+
+export type OpeningCashImportPreview = RouterOutputs['launchMigration']['previewOpeningCash'];
+export type OpeningCashImportPreviewRow = OpeningCashImportPreview['rows'][number];
+export type OpeningCashImportReport = RouterOutputs['launchMigration']['importOpeningCash'];
+export type OpeningCashImportIssue = OpeningCashImportPreviewRow['issues'][number];
+export type OpeningCashImportRowsInput =
+  RouterInputs['launchMigration']['previewOpeningCash']['rows'];

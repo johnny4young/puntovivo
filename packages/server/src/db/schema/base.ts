@@ -211,6 +211,9 @@ export const auditLogActionEnum = [
   // ENG-123d — positive receivable opening balances. Audit evidence keeps
   // counts/source format only; customer identifiers remain in the ledger.
   'data_import.customer_balances',
+  // ENG-123e — register opening templates are money-sensitive configuration.
+  // Audit evidence carries counts/source format only, never amounts or register names.
+  'data_import.opening_cash',
   'sale.price_override',
   // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
   // when a cashier suspends a draft sale; `sale.resume` when the same or
