@@ -49,6 +49,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'payment.retry',
     'payment.mark_settled',
     'customer.credit_limit.update',
+    // ENG-123d — opening receivables directly establish money owed.
+    'data_import.customer_balances',
     'fiscal.xml.downloaded',
   ],
   inventory: [

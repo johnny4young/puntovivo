@@ -61,6 +61,7 @@ describe('sensitive audit review (ENG-129f)', () => {
   it('classifies launch party imports by operational risk', () => {
     expect(getAuditReviewActions('privacy')).toContain('data_import.customers');
     expect(getAuditReviewActions('inventory')).toContain('data_import.providers');
+    expect(getAuditReviewActions('money')).toContain('data_import.customer_balances');
     expect(getAuditReviewActions('inventory')).not.toContain('data_import.customers');
   });
 

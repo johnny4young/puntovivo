@@ -1,7 +1,7 @@
 {
   "kicker": "Migración de lanzamiento",
   "title": "Importar datos",
-  "description": "Lleva productos, clientes y proveedores iniciales a Puntovivo con importaciones revisables y aisladas para tu negocio.",
+  "description": "Lleva productos, clientes, proveedores y cartera inicial a Puntovivo con importaciones revisables y aisladas para tu negocio.",
   "safety": {
     "kicker": "Seguridad de la importación",
     "title": "Elige cómo se usará este archivo",
@@ -19,7 +19,7 @@
     },
     "demoBoundary": {
       "title": "Límite de solo vista previa",
-      "description": "El modo de demostración permite leer, asignar, validar y exportar novedades, pero nunca crea productos, inventario, clientes ni proveedores.",
+      "description": "El modo de demostración permite leer, asignar, validar y exportar novedades, pero nunca crea productos, inventario, clientes, proveedores ni saldos por cobrar.",
       "previewOnly": "Vista previa de demostración. Revisa y exporta los resultados; ninguna fila puede guardarse en este modo."
     },
     "realConfirmation": "Confirmo que este archivo contiene datos reales del negocio y que tengo un punto de restauración vigente.",
@@ -180,6 +180,10 @@
     "providers": {
       "label": "Proveedores",
       "description": "Perfiles, contactos y referencias de ciudad."
+    },
+    "customerBalances": {
+      "label": "Cartera inicial de clientes",
+      "description": "Saldos positivos que los clientes existentes deben al negocio."
     }
   },
   "party": {
@@ -253,6 +257,48 @@
         "contactName": "Contacto de ejemplo",
         "cityCode": "BOG"
       }
+    }
+  },
+  "customerBalances": {
+    "fields": {
+      "taxId": "Identificación tributaria",
+      "email": "Correo electrónico",
+      "openingBalance": "Saldo inicial por cobrar",
+      "note": "Nota"
+    },
+    "mapDescription": "Relaciona cada saldo inicial por cobrar con un cliente existente. El saldo es obligatorio, junto con la identificación tributaria o el correo.",
+    "identityRequirement": "Asigna la identificación tributaria o el correo, además del saldo inicial. Puntovivo solo relaciona clientes activos de este negocio.",
+    "previewDescription": "Puntovivo relaciona clientes activos de este negocio y omite a quienes ya tienen movimientos en su estado de cuenta.",
+    "issues": {
+      "identity_required": "La identificación tributaria o el correo son obligatorios",
+      "invalid_email": "El formato del correo no es válido",
+      "invalid_number": "El formato numérico no es válido",
+      "balance_must_be_positive": "El saldo por cobrar debe ser mayor que cero",
+      "out_of_range": "El saldo por cobrar supera el rango permitido",
+      "too_long": "El valor supera la longitud permitida",
+      "customer_not_found": "Ningún cliente activo coincide con esta identidad",
+      "ambiguous_customer": "Más de un cliente activo coincide con esta identidad",
+      "identifier_conflict": "La identificación y el correo pertenecen a clientes diferentes",
+      "duplicate_file_customer": "Este cliente está repetido en el archivo",
+      "duplicate_existing_balance": "Este cliente ya tiene movimientos en su estado de cuenta",
+      "import_failed": "No se pudo registrar el saldo inicial por cobrar"
+    },
+    "table": {
+      "customer": "Cliente",
+      "identity": "Identificación o correo"
+    },
+    "report": {
+      "adjustmentId": "ID del ajuste de cartera"
+    },
+    "reportDescription_one": "Se registró {{count}} saldo inicial por cobrar.",
+    "reportDescription_other": "Se registraron {{count}} saldos iniciales por cobrar.",
+    "toastImported_one": "Se importó {{count}} saldo inicial por cobrar",
+    "toastImported_other": "Se importaron {{count}} saldos iniciales por cobrar",
+    "template": {
+      "taxId": "900123456",
+      "email": "cliente@ejemplo.com",
+      "openingBalance": "125000,50",
+      "note": "Cuenta por cobrar del sistema anterior"
     }
   }
 }

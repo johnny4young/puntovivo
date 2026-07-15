@@ -201,13 +201,16 @@ export const auditLogActionEnum = [
   'manager_approval.consume',
   // ENG-106c3 — every direct or approved physical drawer dispatch.
   'cash_drawer.open',
-  // ENG-123a — one summary row per committed launch product import. The
-  // metadata carries counts and the source filename, never raw row values.
+  // ENG-123a/ENG-123c — one summary row per committed launch product import.
+  // Metadata carries counts and normalized source format, never filenames or raw rows.
   'data_import.products',
   // ENG-123b — party imports retain only counts and normalized source format;
   // raw contact rows and operator-supplied filenames never enter immutable audit evidence.
   'data_import.customers',
   'data_import.providers',
+  // ENG-123d — positive receivable opening balances. Audit evidence keeps
+  // counts/source format only; customer identifiers remain in the ledger.
+  'data_import.customer_balances',
   'sale.price_override',
   // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
   // when a cashier suspends a draft sale; `sale.resume` when the same or

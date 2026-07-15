@@ -1,8 +1,10 @@
 /** ENG-123a/ENG-123b — Admin-only launch-migration workbench transport. */
 import {
+  commitLaunchCustomerBalanceImport,
   commitLaunchCustomerImport,
   commitLaunchProductImport,
   commitLaunchProviderImport,
+  previewLaunchCustomerBalanceImport,
   previewLaunchCustomerImport,
   previewLaunchProductImport,
   previewLaunchProviderImport,
@@ -10,9 +12,11 @@ import {
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import {
+  commitLaunchCustomerBalanceImportInput,
   commitLaunchCustomerImportInput,
   commitLaunchProductImportInput,
   commitLaunchProviderImportInput,
+  previewLaunchCustomerBalanceImportInput,
   previewLaunchCustomerImportInput,
   previewLaunchProductImportInput,
   previewLaunchProviderImportInput,
@@ -37,4 +41,14 @@ export const launchMigrationRouter = router({
   importProviders: adminProcedure
     .input(commitLaunchProviderImportInput)
     .mutation(({ ctx, input }) => commitLaunchProviderImport({ ...ctx, user: ctx.user! }, input)),
+  previewCustomerBalances: adminProcedure
+    .input(previewLaunchCustomerBalanceImportInput)
+    .mutation(({ ctx, input }) =>
+      previewLaunchCustomerBalanceImport({ ...ctx, user: ctx.user! }, input)
+    ),
+  importCustomerBalances: adminProcedure
+    .input(commitLaunchCustomerBalanceImportInput)
+    .mutation(({ ctx, input }) =>
+      commitLaunchCustomerBalanceImport({ ...ctx, user: ctx.user! }, input)
+    ),
 });

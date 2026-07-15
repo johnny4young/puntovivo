@@ -26,3 +26,9 @@ export interface AddCustomerLedgerAdjustmentInput {
   amount: number;
   note: string;
 }
+
+export interface ImportOpeningCustomerBalanceInput {
+  customerId: string;
+  amount: number;
+  note: string;
+}

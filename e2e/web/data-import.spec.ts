@@ -3,7 +3,12 @@ import path from 'node:path';
 import { mkdir, readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 
-import { attachClientIssueTracker, expectNoClientIssues, loginAs } from './support/app.js';
+import {
+  attachClientIssueTracker,
+  ensureLanguage,
+  expectNoClientIssues,
+  loginAs,
+} from './support/app.js';
 
 async function captureEvidence(page: Page, name: string) {
   const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
@@ -260,6 +265,103 @@ test.describe('launch data import (ENG-123)', () => {
     await page.goto('/providers');
     await page.getByPlaceholder('Buscar proveedores...').fill(providerName);
     await expect(page.getByText(providerName, { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expectNoClientIssues(tracker);
+  });
+
+  test('admin imports a customer opening receivable and verifies the ledger round trip', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const suffix = `${testInfo.parallelIndex}-${Date.now()}`;
+    const customerName = `E2E Receivable Customer ${suffix}`;
+    const customerTaxId = `E2E-RECEIVABLE-${suffix}`;
+    const customerEmail = `receivable-${suffix}@example.com`;
+    const receivableCsv = [
+      'Tax ID,Email,Opening balance,Note',
+      `${customerTaxId},${customerEmail},5432.10,Legacy receivable`,
+      `UNKNOWN-${suffix},,100,Must stay invalid`,
+    ].join('\n');
+
+    await loginAs(page, 'admin');
+    await page.goto('/data-import');
+    await chooseRealData(page);
+    await page.getByRole('button', { name: /^Customers/ }).click();
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'receivable-customer.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        `Customer name,Tax ID,Email\n${customerName},${customerTaxId},${customerEmail}`
+      ),
+    });
+    await page.getByRole('button', { name: 'Validate and preview' }).click();
+    await expect(page.getByTestId('data-import-summary-ready')).toContainText('1');
+    await confirmRealData(page);
+    await page.getByRole('button', { name: 'Import 1 ready row' }).click();
+    await expect(page.getByTestId('data-import-report')).toContainText('Customers created: 1.');
+    await page.getByRole('button', { name: /Dismiss 1 customer imported/ }).click();
+
+    await page.getByRole('button', { name: /^Customer receivables/ }).click();
+    await expect(page.getByTestId('data-import-customerBalances-workflow')).toBeVisible();
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'opening-receivables.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(receivableCsv),
+    });
+
+    await expect(page.getByLabel(/Opening receivable/)).toHaveValue('Opening balance');
+    await expect(page.getByLabel(/Tax ID/)).toHaveValue('Tax ID');
+    await page.getByRole('button', { name: 'Validate and preview' }).click();
+    await expect(page.getByTestId('data-import-summary-ready')).toContainText('1');
+    await expect(page.getByTestId('data-import-summary-invalid')).toContainText('1');
+    await expect(page.getByTestId('data-import-preview-row-2')).toContainText(customerName);
+    await expect(page.getByTestId('data-import-preview-row-3')).toContainText(
+      'No active customer matches this identity'
+    );
+    await captureEvidence(page, 'eng-123d-customer-receivables-preview-en');
+
+    await confirmRealData(page);
+    await page.getByRole('button', { name: 'Import 1 ready row' }).click();
+    await expect(page.getByTestId('data-import-report')).toContainText(
+      '1 opening receivable recorded.'
+    );
+    await expect(page.getByTestId('data-import-report-imported')).toContainText('1');
+    await captureEvidence(page, 'eng-123d-customer-receivables-report-en');
+
+    await page.goto('/customers');
+    await page.getByPlaceholder('Search customers...').fill(customerName);
+    const customerRow = page.locator('tr', { hasText: customerName }).first();
+    await expect(customerRow).toBeVisible({ timeout: 15_000 });
+    await customerRow.getByRole('button', { name: 'View account' }).click();
+    await expect(page.getByRole('heading', { name: 'Account statement' })).toBeVisible();
+    await expect(page.getByTestId('ledger-metric-balance')).toContainText(/5[,.]432/);
+    const ledgerTable = page.getByTestId('ledger-rows-table');
+    await expect(ledgerTable).toContainText('Adjustment');
+    await expect(ledgerTable).toContainText('Legacy receivable');
+    await captureEvidence(page, 'eng-123d-customer-ledger-roundtrip-en');
+
+    await ensureLanguage(page, 'es');
+    await page.goto('/data-import');
+    await expect(
+      page
+        .getByTestId('data-import-page')
+        .getByRole('heading', { name: 'Importar datos', level: 1 })
+    ).toBeVisible();
+    await chooseRealData(page, true);
+    await page.getByRole('button', { name: /^Cartera inicial de clientes/ }).click();
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'saldos-iniciales.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(receivableCsv),
+    });
+    await page.getByRole('button', { name: 'Validar y previsualizar' }).click();
+    await expect(page.getByTestId('data-import-summary-duplicates')).toContainText('1');
+    await expect(page.getByTestId('data-import-preview-row-2')).toContainText(
+      'Este cliente ya tiene movimientos en su estado de cuenta'
+    );
+    await expect(page.getByTestId('data-import-preview-row-3')).toContainText(
+      'Ningún cliente activo coincide con esta identidad'
+    );
+    await captureEvidence(page, 'eng-123d-customer-receivables-duplicate-es');
     await expectNoClientIssues(tracker);
   });
 

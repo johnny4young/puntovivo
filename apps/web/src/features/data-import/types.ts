@@ -22,3 +22,12 @@ export type PartyImportPreviewRow = PartyImportPreview['rows'][number];
 export type PartyImportIssue = PartyImportPreviewRow['issues'][number];
 export type CustomerImportRowsInput = RouterInputs['launchMigration']['previewCustomers']['rows'];
 export type ProviderImportRowsInput = RouterInputs['launchMigration']['previewProviders']['rows'];
+
+export type CustomerBalanceImportPreview =
+  RouterOutputs['launchMigration']['previewCustomerBalances'];
+export type CustomerBalanceImportPreviewRow = CustomerBalanceImportPreview['rows'][number];
+export type CustomerBalanceImportReport =
+  RouterOutputs['launchMigration']['importCustomerBalances'];
+export type CustomerBalanceImportIssue = CustomerBalanceImportPreviewRow['issues'][number];
+export type CustomerBalanceImportRowsInput =
+  RouterInputs['launchMigration']['previewCustomerBalances']['rows'];

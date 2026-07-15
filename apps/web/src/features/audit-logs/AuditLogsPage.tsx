@@ -66,6 +66,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'data_import.products',
   'data_import.customers',
   'data_import.providers',
+  'data_import.customer_balances',
 ];
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [

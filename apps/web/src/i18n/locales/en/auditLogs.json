@@ -123,7 +123,8 @@
     "cash_drawer.open": "Cash drawer opened",
     "data_import.products": "Product launch data imported",
     "data_import.customers": "Customer launch data imported",
-    "data_import.providers": "Supplier launch data imported"
+    "data_import.providers": "Supplier launch data imported",
+    "data_import.customer_balances": "Customer opening receivables imported"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",

@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
+import { CustomerBalanceImportWorkflow } from './CustomerBalanceImportWorkflow';
 import { ImportModePanel } from './ImportModePanel';
 import { PartyImportWorkflow } from './PartyImportWorkflow';
 import { ProductImportWorkflow } from './ProductImportWorkflow';
 import type { ImportEntity } from './partyImportMapping';
 import type { LaunchImportDataMode } from './types';
 
-const IMPORT_ENTITIES: ImportEntity[] = ['products', 'customers', 'providers'];
+const IMPORT_ENTITIES: ImportEntity[] = ['products', 'customers', 'providers', 'customerBalances'];
 
 export function DataImportPage() {
   const { t } = useTranslation('dataImport');
@@ -39,7 +40,7 @@ export function DataImportPage() {
           {t('entitySelector.label')}
         </h2>
         <div
-          className="grid gap-2 sm:grid-cols-3"
+          className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"
           role="group"
           aria-label={t('entitySelector.label')}
         >
@@ -71,6 +72,12 @@ export function DataImportPage() {
       {dataMode ? (
         entity === 'products' ? (
           <ProductImportWorkflow
+            key={`${dataMode}:${entity}`}
+            dataMode={dataMode}
+            onBusyChange={setIsWorkflowBusy}
+          />
+        ) : entity === 'customerBalances' ? (
+          <CustomerBalanceImportWorkflow
             key={`${dataMode}:${entity}`}
             dataMode={dataMode}
             onBusyChange={setIsWorkflowBusy}

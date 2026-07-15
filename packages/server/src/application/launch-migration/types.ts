@@ -149,3 +149,42 @@ export interface ProviderImportPreviewRow {
   normalized: NormalizedLaunchProvider;
   issues: PartyImportIssue[];
 }
+
+export const CUSTOMER_BALANCE_IMPORT_FIELDS = ['taxId', 'email', 'openingBalance', 'note'] as const;
+
+export type CustomerBalanceImportField = (typeof CUSTOMER_BALANCE_IMPORT_FIELDS)[number];
+
+export type CustomerBalanceImportIssueCode =
+  | 'identity_required'
+  | 'invalid_email'
+  | 'invalid_number'
+  | 'balance_must_be_positive'
+  | 'out_of_range'
+  | 'too_long'
+  | 'customer_not_found'
+  | 'ambiguous_customer'
+  | 'identifier_conflict'
+  | 'duplicate_file_customer'
+  | 'duplicate_existing_balance'
+  | 'import_failed';
+
+export interface CustomerBalanceImportIssue {
+  code: CustomerBalanceImportIssueCode;
+  field: CustomerBalanceImportField;
+}
+
+export interface NormalizedLaunchCustomerBalance {
+  customerId: string | null;
+  customerName: string | null;
+  taxId: string | null;
+  email: string | null;
+  openingBalance: number;
+  note: string | null;
+}
+
+export interface CustomerBalanceImportPreviewRow {
+  rowNumber: number;
+  status: PartyImportPreviewStatus;
+  normalized: NormalizedLaunchCustomerBalance;
+  issues: CustomerBalanceImportIssue[];
+}

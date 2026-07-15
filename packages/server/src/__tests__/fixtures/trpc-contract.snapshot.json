@@ -86,7 +86,7 @@
   {
     "path": "auditLogs.list",
     "kind": "query",
-    "input": "object{action?:enum(\"transfer.void\"|\"quotation.delete\"|\"quotation.convert\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"customer.credit_limit.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"telemetry.opt_in.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"backup.restore_drill\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"transfer_order\"|\"quotation\"|\"sale\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"purchase\"|\"user\"|\"employee_shift\"|\"manager_approval\"|\"site\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"customer\"|\"fiscal_document\"|\"tenant\"|\"price_suggestion\"|\"backup_snapshot\"|\"data_import\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
+    "input": "object{action?:enum(\"transfer.void\"|\"quotation.delete\"|\"quotation.convert\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"customer.credit_limit.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"telemetry.opt_in.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"backup.restore_drill\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"transfer_order\"|\"quotation\"|\"sale\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"purchase\"|\"user\"|\"employee_shift\"|\"manager_approval\"|\"site\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"customer\"|\"fiscal_document\"|\"tenant\"|\"price_suggestion\"|\"backup_snapshot\"|\"data_import\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
     "output": "inferred"
   },
   {
@@ -840,6 +840,12 @@
     "output": "inferred"
   },
   {
+    "path": "launchMigration.importCustomerBalances",
+    "kind": "mutation",
+    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
     "path": "launchMigration.importCustomers",
     "kind": "mutation",
     "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
@@ -855,6 +861,12 @@
     "path": "launchMigration.importProviders",
     "kind": "mutation",
     "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.previewCustomerBalances",
+    "kind": "mutation",
+    "input": "object{dataMode:enum(\"demo\"|\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
     "output": "inferred"
   },
   {

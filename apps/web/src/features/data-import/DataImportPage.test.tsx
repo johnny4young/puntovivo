@@ -84,6 +84,10 @@ vi.mock('@/lib/trpc', () => ({
       products: { list: { invalidate: mocks.invalidateProducts } },
       customers: { list: { invalidate: vi.fn() } },
       providers: { list: { invalidate: vi.fn() } },
+      customerLedger: {
+        list: { invalidate: vi.fn() },
+        getBalance: { invalidate: vi.fn() },
+      },
       inventory: {
         listStock: { invalidate: mocks.invalidateStock },
         listEntries: { invalidate: mocks.invalidateEntries },
@@ -151,6 +155,12 @@ vi.mock('@/lib/trpc', () => ({
       importProviders: {
         useMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
       },
+      previewCustomerBalances: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
+      },
+      importCustomerBalances: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
+      },
     },
   },
 }));
@@ -166,7 +176,7 @@ vi.mock('@/services/export/exportService', () => ({
   exportToCSV: mocks.exportToCSV,
 }));
 
-describe('ENG-123a/ENG-123c DataImportPage', () => {
+describe('ENG-123a through ENG-123d DataImportPage', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mocks.previewPending = false;
@@ -326,7 +336,7 @@ describe('ENG-123a/ENG-123c DataImportPage', () => {
     );
   });
 
-  it('switches between isolated product and customer workflows', async () => {
+  it('switches between isolated catalog, party, and receivable workflows', async () => {
     const user = userEvent.setup();
     render(<DataImportPage />);
 
@@ -344,6 +354,12 @@ describe('ENG-123a/ENG-123c DataImportPage', () => {
       'true'
     );
     expect(screen.queryByLabelText('Number format')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Customer receivables/ }));
+    expect(screen.getByTestId('data-import-customerBalances-workflow')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Customer receivables/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
   });
 
   it('clears a rejected file so the same filename can be selected again', async () => {
@@ -392,6 +408,7 @@ describe('ENG-123a/ENG-123c DataImportPage', () => {
     expect(screen.getByRole('button', { name: 'Validate and preview' })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Customers/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Suppliers/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Customer receivables/ })).toBeDisabled();
     expect(screen.getByRole('radio', { name: /Demo data/ })).toBeDisabled();
     expect(screen.getByRole('radio', { name: /Real business data/ })).toBeDisabled();
   });

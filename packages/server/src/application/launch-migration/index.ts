@@ -2,9 +2,9 @@
 export {
   commitLaunchProductImport,
   hashLaunchProductImport,
-  parseImportNumber,
   previewLaunchProductImport,
 } from './products.js';
+export { parseImportNumber } from './numbers.js';
 export {
   commitLaunchCustomerImport,
   commitLaunchProviderImport,
@@ -13,6 +13,11 @@ export {
   previewLaunchCustomerImport,
   previewLaunchProviderImport,
 } from './parties.js';
+export {
+  commitLaunchCustomerBalanceImport,
+  hashLaunchCustomerBalanceImport,
+  previewLaunchCustomerBalanceImport,
+} from './customer-balances.js';
 export {
   assertRealDataCommit,
   getImportSourceFormat,

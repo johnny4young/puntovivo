@@ -1,7 +1,7 @@
 {
   "kicker": "Launch migration",
   "title": "Import data",
-  "description": "Bring initial products, customers, and suppliers into Puntovivo with reviewable imports isolated to your business.",
+  "description": "Bring initial products, customers, suppliers, and customer receivables into Puntovivo with reviewable imports isolated to your business.",
   "safety": {
     "kicker": "Import safety",
     "title": "Choose how this file will be used",
@@ -19,7 +19,7 @@
     },
     "demoBoundary": {
       "title": "Preview-only boundary",
-      "description": "Demo mode can parse, map, validate, and export issues, but it never creates products, stock, customers, or suppliers.",
+      "description": "Demo mode can parse, map, validate, and export issues, but it never creates products, stock, customers, suppliers, or customer balances.",
       "previewOnly": "Demo preview only. Review and export the results; no row can be saved in this mode."
     },
     "realConfirmation": "I confirm that this file contains real business data and that I have a current restore point.",
@@ -180,6 +180,10 @@
     "providers": {
       "label": "Suppliers",
       "description": "Supplier profiles, contacts, and city references."
+    },
+    "customerBalances": {
+      "label": "Customer receivables",
+      "description": "Positive opening balances owed by existing customers."
     }
   },
   "party": {
@@ -253,6 +257,48 @@
         "contactName": "Sample contact",
         "cityCode": "BOG"
       }
+    }
+  },
+  "customerBalances": {
+    "fields": {
+      "taxId": "Tax ID",
+      "email": "Email",
+      "openingBalance": "Opening receivable",
+      "note": "Note"
+    },
+    "mapDescription": "Match each opening receivable to an existing customer. Opening balance is required, along with Tax ID or email.",
+    "identityRequirement": "Map Tax ID or email, plus the opening receivable. Puntovivo matches only active customers in this business.",
+    "previewDescription": "Puntovivo matches active customers in this business and skips anyone who already has account activity.",
+    "issues": {
+      "identity_required": "Tax ID or email is required",
+      "invalid_email": "Email format is not valid",
+      "invalid_number": "Number format is not valid",
+      "balance_must_be_positive": "The receivable must be greater than zero",
+      "out_of_range": "The receivable exceeds the allowed range",
+      "too_long": "Value exceeds the allowed length",
+      "customer_not_found": "No active customer matches this identity",
+      "ambiguous_customer": "More than one active customer matches this identity",
+      "identifier_conflict": "Tax ID and email belong to different customers",
+      "duplicate_file_customer": "This customer is repeated in the file",
+      "duplicate_existing_balance": "This customer already has account activity",
+      "import_failed": "The opening receivable could not be recorded"
+    },
+    "table": {
+      "customer": "Customer",
+      "identity": "Tax ID or email"
+    },
+    "report": {
+      "adjustmentId": "Ledger adjustment ID"
+    },
+    "reportDescription_one": "{{count}} opening receivable recorded.",
+    "reportDescription_other": "{{count}} opening receivables recorded.",
+    "toastImported_one": "{{count}} opening receivable imported",
+    "toastImported_other": "{{count}} opening receivables imported",
+    "template": {
+      "taxId": "900123456",
+      "email": "customer@example.com",
+      "openingBalance": "125000.50",
+      "note": "Legacy account receivable"
     }
   }
 }

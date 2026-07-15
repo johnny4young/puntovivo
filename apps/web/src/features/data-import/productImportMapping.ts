@@ -1,5 +1,6 @@
 /** ENG-123a — Product import column mapping and server-payload helpers. */
 import type { ParsedImportFile } from './fileParser';
+import { normalizeImportHeader } from './mappingUtils';
 
 export const PRODUCT_IMPORT_FIELDS = [
   'name',
@@ -28,21 +29,12 @@ const HEADER_ALIASES: Record<ProductImportField, readonly string[]> = {
   taxRate: ['tax rate', 'vat', 'iva', 'impuesto', 'tasa impuesto', 'tasa de impuesto'],
 };
 
-function normalizeHeader(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('en-US')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
 export function autoMapProductHeaders(headers: string[]): ProductImportMapping {
-  const byNormalized = new Map(headers.map(header => [normalizeHeader(header), header]));
+  const byNormalized = new Map(headers.map(header => [normalizeImportHeader(header), header]));
   return Object.fromEntries(
     PRODUCT_IMPORT_FIELDS.map(field => {
       const header = HEADER_ALIASES[field]
-        .map(alias => byNormalized.get(normalizeHeader(alias)))
+        .map(alias => byNormalized.get(normalizeImportHeader(alias)))
         .find((value): value is string => Boolean(value));
       return [field, header ?? ''];
     })

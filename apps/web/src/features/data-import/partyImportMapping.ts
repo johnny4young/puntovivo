@@ -1,8 +1,9 @@
 /** ENG-123b — Customer/provider column mapping and payload helpers. */
 import type { ParsedImportFile } from './fileParser';
+import { normalizeImportHeader } from './mappingUtils';
 
-export type ImportEntity = 'products' | 'customers' | 'providers';
-export type PartyImportEntity = Exclude<ImportEntity, 'products'>;
+export type ImportEntity = 'products' | 'customers' | 'providers' | 'customerBalances';
+export type PartyImportEntity = 'customers' | 'providers';
 
 export const PARTY_IMPORT_FIELDS = {
   customers: [
@@ -73,24 +74,15 @@ const HEADER_ALIASES: Record<PartyImportEntity, Record<string, readonly string[]
   },
 };
 
-function normalizeHeader(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('en-US')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
 export function autoMapPartyHeaders(
   entity: PartyImportEntity,
   headers: string[]
 ): PartyImportMapping {
-  const byNormalized = new Map(headers.map(header => [normalizeHeader(header), header]));
+  const byNormalized = new Map(headers.map(header => [normalizeImportHeader(header), header]));
   return Object.fromEntries(
     PARTY_IMPORT_FIELDS[entity].map(field => {
       const header = (HEADER_ALIASES[entity][field] ?? [])
-        .map(alias => byNormalized.get(normalizeHeader(alias)))
+        .map(alias => byNormalized.get(normalizeImportHeader(alias)))
         .find((value): value is string => Boolean(value));
       return [field, header ?? ''];
     })
