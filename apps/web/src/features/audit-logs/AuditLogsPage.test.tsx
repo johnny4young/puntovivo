@@ -144,6 +144,22 @@ describe('AuditLogsPage', () => {
     );
   });
 
+  it('offers launch import evidence as action and resource filters', () => {
+    render(<AuditLogsPage />);
+
+    const actionFilter = screen.getByRole('combobox', { name: 'Action' });
+    expect(
+      within(actionFilter).getByRole('option', {
+        name: 'Product launch data imported',
+      })
+    ).toHaveValue('data_import.products');
+
+    const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
+    expect(within(resourceFilter).getByRole('option', { name: 'Data import' })).toHaveValue(
+      'data_import'
+    );
+  });
+
   it('offers staff PIN lifecycle and cashier-switch actions', () => {
     render(<AuditLogsPage />);
 

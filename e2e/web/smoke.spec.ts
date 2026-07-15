@@ -43,6 +43,12 @@ const adminRoutes = [
         name: /Ready to open|Listo para abrir|Setup readiness|Configuración inicial/i,
       }),
   },
+  {
+    label: 'Import data',
+    path: '/data-import',
+    assertion: async (page) =>
+      page.getByRole('main').getByRole('heading', { level: 1, name: /Import data|Importar datos/i }),
+  },
   { label: 'Sites', path: '/sites', assertion: async (page) => page.getByRole('button', { name: /Add Site|Agregar sede/i }) },
   {
     label: 'Sequentials',
@@ -78,6 +84,7 @@ const routeWorkspaceLabels = new Map<string, string>([
   ['VAT Rates', 'Catalog'],
   ['Audit log', 'Finance'],
   ['Company', 'Setup'],
+  ['Import data', 'Setup'],
   ['Sites', 'Setup'],
   ['Sequentials', 'Setup'],
   ['Users', 'Setup'],
@@ -146,7 +153,10 @@ test.describe('web smoke', () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Company' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Import data' })).toHaveCount(0);
     await page.goto('/company');
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await page.goto('/data-import');
     await expect(page).toHaveURL(/\/dashboard$/);
 
     // AUDIT-09: /audit-logs is guarded by `adminOnlyRoles`. A manager

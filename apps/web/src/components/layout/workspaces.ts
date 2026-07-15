@@ -34,6 +34,7 @@ import {
   FileDigit,
   FileSignature,
   FileText,
+  FileUp,
   FolderTree,
   HandCoins,
   type LucideIcon,
@@ -349,6 +350,12 @@ export const WORKSPACES: readonly Workspace[] = [
     defaultRoute: '/company',
     items: [
       { nameKey: 'items.company', href: '/company', icon: Building2, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.dataImport',
+        href: '/data-import',
+        icon: FileUp,
+        allowedRoles: adminOnlyRoles,
+      },
       { nameKey: 'items.sites', href: '/sites', icon: Store, allowedRoles: adminOnlyRoles },
       {
         nameKey: 'items.sequentials',

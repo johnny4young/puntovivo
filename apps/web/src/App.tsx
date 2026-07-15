@@ -25,6 +25,7 @@ import {
   CustomerDisplayHomePlaceholder,
   CustomerDisplayShell,
   CustomersPage,
+  DataImportPage,
   DashboardPage,
   DeliveryPage,
   FinanceLandingRoute,
@@ -118,6 +119,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={adminOnlyRoles}>
                     <CompanyPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="data-import"
+                element={
+                  <ShellRoute allowedRoles={adminOnlyRoles}>
+                    <DataImportPage />
                   </ShellRoute>
                 }
               />

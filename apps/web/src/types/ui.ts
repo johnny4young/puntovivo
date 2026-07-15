@@ -126,7 +126,9 @@ export type AuditLogAction =
   | 'inventory.lot.discount_suggested'
   | 'inventory.lot.discount_suggestion_dismissed'
   // ENG-136b — admin restore-readiness evidence.
-  | 'backup.restore_drill';
+  | 'backup.restore_drill'
+  // ENG-123a — launch catalog import summary.
+  | 'data_import.products';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -167,7 +169,9 @@ export type AuditLogResourceType =
   // ENG-199 — price_suggestions rows targeted by the expiry-radar audits.
   | 'price_suggestion'
   // ENG-136b — scheduler-owned encrypted snapshot.
-  | 'backup_snapshot';
+  | 'backup_snapshot'
+  // ENG-123a — one auditable launch import run.
+  | 'data_import';
 
 export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';
 

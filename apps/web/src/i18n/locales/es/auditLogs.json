@@ -120,7 +120,8 @@
     "data_retention.policy.updated": "Política de retención de datos actualizada",
     "data_retention.sweep.run": "Datos auxiliares vencidos eliminados",
     "backup.restore_drill": "Simulacro de restauración ejecutado",
-    "cash_drawer.open": "Cajón monedero abierto"
+    "cash_drawer.open": "Cajón monedero abierto",
+    "data_import.products": "Datos iniciales de productos importados"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -145,7 +146,8 @@
     "tenant": "Empresa",
     "price_suggestion": "Sugerencia de precio",
     "backup_snapshot": "Respaldo cifrado",
-    "site": "Sede"
+    "site": "Sede",
+    "data_import": "Importación de datos"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

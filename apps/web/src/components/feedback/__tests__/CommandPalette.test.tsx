@@ -348,6 +348,9 @@ describe('CommandPalette (ENG-105a)', () => {
     expect(screen.queryByTestId('command-palette-item-navigate.sales')).toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.auditLogs')).not.toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.company')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('command-palette-item-navigate.dataImport')
+    ).not.toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.users')).not.toBeInTheDocument();
   });
 

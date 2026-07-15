@@ -201,6 +201,9 @@ export const auditLogActionEnum = [
   'manager_approval.consume',
   // ENG-106c3 — every direct or approved physical drawer dispatch.
   'cash_drawer.open',
+  // ENG-123a — one summary row per committed launch product import. The
+  // metadata carries counts and the source filename, never raw row values.
+  'data_import.products',
   'sale.price_override',
   // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
   // when a cashier suspends a draft sale; `sale.resume` when the same or
@@ -376,6 +379,8 @@ export const auditLogResourceTypeEnum = [
   'price_suggestion',
   // ENG-136b — scheduler-owned encrypted snapshot targeted by a restore drill.
   'backup_snapshot',
+  // ENG-123a — an immutable import-run summary keyed by import id.
+  'data_import',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

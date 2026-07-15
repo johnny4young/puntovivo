@@ -124,6 +124,13 @@ const a11yRoutes: readonly A11yRoute[] = [
       page.getByRole('main').getByRole('heading', { level: 1, name: /^Company$|^Empresa$/i }),
   },
   {
+    label: 'Data import (admin)',
+    path: '/data-import',
+    role: 'admin',
+    settled: (page) =>
+      page.getByRole('main').getByRole('heading', { level: 1, name: /Import data|Importar datos/i }),
+  },
+  {
     label: 'Audit log (admin)',
     path: '/audit-logs',
     role: 'admin',

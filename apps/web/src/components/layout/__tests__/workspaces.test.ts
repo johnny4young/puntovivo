@@ -46,6 +46,7 @@ const LEGACY_SIDEBAR_ROUTES = [
   '/restaurants/tables',
   // setup
   '/company',
+  '/data-import',
   '/sites',
   '/sequentials',
   '/geography',
@@ -215,5 +216,16 @@ describe('workspace defaultRoute (ENG-131c)', () => {
       expect(workspace).toBeDefined();
       expect(workspace?.defaultRoute).toBe(workspace?.items[0]?.href);
     }
+  });
+});
+
+describe('launch migration navigation (ENG-123a)', () => {
+  it('exposes data import only to admins in Setup', () => {
+    const setup = WORKSPACES.find(workspace => workspace.id === 'setup')!;
+    const item = setup.items.find(candidate => candidate.href === '/data-import');
+
+    expect(item?.allowedRoles).toEqual(['admin']);
+    expect(visibleItemsForWorkspace(setup, 'admin', {})).toContainEqual(item);
+    expect(visibleItemsForWorkspace(setup, 'manager', {})).not.toContainEqual(item);
   });
 });

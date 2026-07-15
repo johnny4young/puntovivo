@@ -24,6 +24,9 @@ export const AiConfigPage = lazyPage(async () => ({
 export const CompanyPage = lazyPage(async () => ({
   default: (await import('@/features/company/CompanyPage')).CompanyPage,
 }));
+export const DataImportPage = lazyPage(async () => ({
+  default: (await import('@/features/data-import/DataImportPage')).DataImportPage,
+}));
 export const CustomerCatalogsPage = lazyPage(async () => ({
   default: (await import('@/features/customer-catalogs/CustomerCatalogsPage')).CustomerCatalogsPage,
 }));

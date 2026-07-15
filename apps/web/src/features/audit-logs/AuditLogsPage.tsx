@@ -62,6 +62,8 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'inventory.lot.discount_suggestion_dismissed',
   // ENG-136b — admin recovery-readiness evidence.
   'backup.restore_drill',
+  // ENG-123a — launch catalog import summary.
+  'data_import.products',
 ];
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
@@ -85,6 +87,8 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'price_suggestion',
   // ENG-136b — scheduler-owned encrypted snapshots.
   'backup_snapshot',
+  // ENG-123a — one auditable launch import run.
+  'data_import',
 ];
 
 /**

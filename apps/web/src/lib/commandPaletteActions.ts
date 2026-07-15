@@ -192,6 +192,14 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     perform: ({ navigate }) => navigate('/company'),
   },
   {
+    id: 'navigate.dataImport',
+    labelKey: 'actions.navigate.dataImport',
+    descriptionKey: 'descriptions.navigate.dataImport',
+    roles: adminOnlyRoles,
+    group: 'navigate',
+    perform: ({ navigate }) => navigate('/data-import'),
+  },
+  {
     id: 'navigate.sites',
     labelKey: 'actions.navigate.sites',
     descriptionKey: 'descriptions.navigate.sites',

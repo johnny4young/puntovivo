@@ -1,0 +1,138 @@
+{
+  "kicker": "Launch migration",
+  "title": "Import data",
+  "description": "Bring your initial product catalog, prices, and opening stock into Puntovivo with a reviewable import isolated to your business.",
+  "fileSummary": "Data rows: {{rows}} · Columns: {{columns}}",
+  "steps": {
+    "upload": {
+      "kicker": "Step 1",
+      "title": "Choose a source file",
+      "description": "Upload a UTF-8 CSV or an Excel .xlsx file up to 10 MB and 500 data rows. The file stays in this browser until you preview it."
+    },
+    "map": {
+      "kicker": "Step 2",
+      "title": "Map your columns",
+      "description": "Confirm the detected columns. Product name and SKU are required; every other field can be left unmapped.",
+      "notMapped": "Do not import",
+      "decimalFormat": "Number format"
+    },
+    "preview": {
+      "kicker": "Step 3",
+      "title": "Review before importing",
+      "description": "Puntovivo revalidates every row on the server and skips existing or repeated SKUs and barcodes."
+    }
+  },
+  "fields": {
+    "name": "Product name",
+    "sku": "SKU",
+    "description": "Description",
+    "barcode": "Barcode",
+    "price": "Sale price",
+    "cost": "Cost",
+    "stock": "Opening stock",
+    "minStock": "Minimum stock",
+    "taxRate": "Tax rate"
+  },
+  "decimalFormats": {
+    "auto": "Detect automatically",
+    "dot": "1,234.56 — dot decimal",
+    "comma": "1.234,56 — comma decimal"
+  },
+  "actions": {
+    "chooseFile": "Choose CSV or Excel",
+    "downloadTemplate": "Download template",
+    "reset": "Start over",
+    "preview": "Validate and preview",
+    "importing": "Importing…",
+    "completed": "Import completed",
+    "importReady_one": "Import {{count}} ready row",
+    "importReady_other": "Import {{count}} ready rows",
+    "downloadIssues": "Download issues",
+    "downloadReport": "Download report"
+  },
+  "summary": {
+    "ariaLabel": "Import validation summary",
+    "total": "Rows",
+    "ready": "Ready",
+    "duplicates": "Duplicates",
+    "invalid": "Invalid"
+  },
+  "statuses": {
+    "ready": "Ready",
+    "duplicate": "Duplicate",
+    "invalid": "Invalid"
+  },
+  "issues": {
+    "required": "Required value is missing",
+    "too_long": "Value exceeds the allowed length",
+    "invalid_number": "Number format is not valid",
+    "out_of_range": "Value is outside the allowed range",
+    "duplicate_file_sku": "SKU is repeated in this file",
+    "duplicate_existing_sku": "SKU already exists in this business",
+    "duplicate_file_barcode": "Barcode is repeated in this file",
+    "duplicate_existing_barcode": "Barcode already exists in this business",
+    "concurrent_duplicate": "Another import created this product while this import was running",
+    "import_failed": "The product could not be imported",
+    "stock_failed": "The product was imported but opening stock could not be recorded"
+  },
+  "table": {
+    "row": "Row",
+    "status": "Status",
+    "field": "Field",
+    "issues": "Issues",
+    "details": "Details",
+    "noIssues": "No issues",
+    "emptyValue": "—",
+    "issueFormat": "{{field}}: {{issue}}",
+    "previewLimit": "Showing the first 100 of {{count}} rows. The summary and import include every row."
+  },
+  "report": {
+    "kicker": "Completed",
+    "title": "Import complete",
+    "description": "Products created: {{imported}}. Opening stock records: {{stock}}.",
+    "importId": "Import ID:",
+    "productId": "Product ID",
+    "stockRecorded": "Opening stock recorded",
+    "statuses": {
+      "imported": "Imported",
+      "importedWithWarnings": "Imported with warnings",
+      "failed": "Failed",
+      "skipped": "Skipped",
+      "invalid": "Invalid"
+    },
+    "boolean": {
+      "yes": "Yes",
+      "no": "No"
+    },
+    "metrics": {
+      "imported": "Imported",
+      "stockInitialized": "Stock recorded",
+      "skipped": "Skipped",
+      "invalid": "Invalid",
+      "failed": "Failed",
+      "warnings": "Warnings"
+    }
+  },
+  "template": {
+    "sampleName": "Sample coffee",
+    "sampleDescription": "Replace this row with your product data"
+  },
+  "fileErrors": {
+    "unsupported_file": "Choose a .csv or .xlsx file.",
+    "file_too_large": "The file exceeds the 10 MB limit.",
+    "empty_file": "The file does not contain data rows.",
+    "empty_header": "Every source column needs a header.",
+    "duplicate_header": "Source column headers must be unique.",
+    "too_many_rows": "Import at most 500 rows at a time.",
+    "too_many_columns": "The file exceeds the 50-column limit.",
+    "row_too_wide": "A data row contains more values than the header row.",
+    "malformed_csv": "The CSV contains an unfinished or invalid quoted value.",
+    "workbook_empty": "The Excel workbook does not contain a worksheet."
+  },
+  "toast": {
+    "previewError": "The file could not be validated",
+    "importError": "The import could not be completed",
+    "imported_one": "{{count}} product imported",
+    "imported_other": "{{count}} products imported"
+  }
+}

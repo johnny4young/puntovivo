@@ -4,6 +4,15 @@ import { downloadFile, generateFilename } from './filename';
 import { formatValue, getNestedValue } from './format';
 import type { ExportColumn, ExportOptions } from './types';
 
+function neutralizeSpreadsheetFormula(value: unknown, formatted: string): string {
+  // Excel-compatible CSV readers can execute text cells beginning with one
+  // of these formula markers. Preserve genuine numeric negatives, but make
+  // every formula-shaped text value explicit text by prefixing an apostrophe.
+  return typeof value !== 'number' && /^[\s\u00a0]*[=+\-@]/.test(formatted)
+    ? `'${formatted}`
+    : formatted;
+}
+
 /**
  * Export data to CSV format
  */
@@ -25,8 +34,9 @@ export function exportToCSV<T extends object>(
       .map(col => {
         const value = getNestedValue(row, col.key);
         const formatted = formatValue(value, col, row);
+        const safe = neutralizeSpreadsheetFormula(value, formatted);
         // Escape quotes and wrap in quotes for CSV safety
-        return `"${formatted.replace(/"/g, '""')}"`;
+        return `"${safe.replace(/"/g, '""')}"`;
       })
       .join(',');
   });

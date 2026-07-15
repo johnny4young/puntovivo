@@ -54,6 +54,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'transfer.void',
     'inventory.lot.discount_suggested',
     'inventory.lot.discount_suggestion_dismissed',
+    // ENG-123a — bulk catalog and opening-stock mutation.
+    'data_import.products',
   ],
   ai: [
     'ai.anomaly.detected',

@@ -120,7 +120,8 @@
     "data_retention.policy.updated": "Data retention policy updated",
     "data_retention.sweep.run": "Expired support data deleted",
     "backup.restore_drill": "Backup restore drill run",
-    "cash_drawer.open": "Cash drawer opened"
+    "cash_drawer.open": "Cash drawer opened",
+    "data_import.products": "Product launch data imported"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -145,7 +146,8 @@
     "tenant": "Tenant",
     "price_suggestion": "Price suggestion",
     "backup_snapshot": "Backup snapshot",
-    "site": "Site"
+    "site": "Site",
+    "data_import": "Data import"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

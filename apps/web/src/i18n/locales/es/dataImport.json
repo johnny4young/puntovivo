@@ -1,0 +1,138 @@
+{
+  "kicker": "Migración de lanzamiento",
+  "title": "Importar datos",
+  "description": "Lleva tu catálogo inicial de productos, precios y stock de apertura a Puntovivo con una importación revisable y aislada para tu empresa.",
+  "fileSummary": "Filas de datos: {{rows}} · Columnas: {{columns}}",
+  "steps": {
+    "upload": {
+      "kicker": "Paso 1",
+      "title": "Elige un archivo de origen",
+      "description": "Carga un CSV UTF-8 o un archivo Excel .xlsx de hasta 10 MB y 500 filas de datos. El archivo permanece en este navegador hasta que generes la vista previa."
+    },
+    "map": {
+      "kicker": "Paso 2",
+      "title": "Asigna tus columnas",
+      "description": "Confirma las columnas detectadas. El nombre y el SKU son obligatorios; puedes dejar los demás campos sin asignar.",
+      "notMapped": "No importar",
+      "decimalFormat": "Formato numérico"
+    },
+    "preview": {
+      "kicker": "Paso 3",
+      "title": "Revisa antes de importar",
+      "description": "Puntovivo vuelve a validar cada fila en el servidor y omite los SKU y códigos existentes o repetidos."
+    }
+  },
+  "fields": {
+    "name": "Nombre del producto",
+    "sku": "SKU",
+    "description": "Descripción",
+    "barcode": "Código de barras",
+    "price": "Precio de venta",
+    "cost": "Costo",
+    "stock": "Stock de apertura",
+    "minStock": "Stock mínimo",
+    "taxRate": "Tasa de impuesto"
+  },
+  "decimalFormats": {
+    "auto": "Detectar automáticamente",
+    "dot": "1,234.56 — decimal con punto",
+    "comma": "1.234,56 — decimal con coma"
+  },
+  "actions": {
+    "chooseFile": "Elegir CSV o Excel",
+    "downloadTemplate": "Descargar plantilla",
+    "reset": "Comenzar de nuevo",
+    "preview": "Validar y previsualizar",
+    "importing": "Importando…",
+    "completed": "Importación completada",
+    "importReady_one": "Importar {{count}} fila lista",
+    "importReady_other": "Importar {{count}} filas listas",
+    "downloadIssues": "Descargar novedades",
+    "downloadReport": "Descargar reporte"
+  },
+  "summary": {
+    "ariaLabel": "Resumen de validación de la importación",
+    "total": "Filas",
+    "ready": "Listas",
+    "duplicates": "Duplicadas",
+    "invalid": "Inválidas"
+  },
+  "statuses": {
+    "ready": "Lista",
+    "duplicate": "Duplicada",
+    "invalid": "Inválida"
+  },
+  "issues": {
+    "required": "Falta un valor obligatorio",
+    "too_long": "El valor supera la longitud permitida",
+    "invalid_number": "El formato numérico no es válido",
+    "out_of_range": "El valor está fuera del rango permitido",
+    "duplicate_file_sku": "El SKU está repetido en este archivo",
+    "duplicate_existing_sku": "El SKU ya existe en esta empresa",
+    "duplicate_file_barcode": "El código de barras está repetido en este archivo",
+    "duplicate_existing_barcode": "El código de barras ya existe en esta empresa",
+    "concurrent_duplicate": "Otra importación creó este producto mientras se ejecutaba la importación actual",
+    "import_failed": "No se pudo importar el producto",
+    "stock_failed": "El producto se importó, pero no se pudo registrar el stock de apertura"
+  },
+  "table": {
+    "row": "Fila",
+    "status": "Estado",
+    "field": "Campo",
+    "issues": "Novedades",
+    "details": "Detalle",
+    "noIssues": "Sin novedades",
+    "emptyValue": "—",
+    "issueFormat": "{{field}}: {{issue}}",
+    "previewLimit": "Se muestran las primeras 100 de {{count}} filas. El resumen y la importación incluyen todas las filas."
+  },
+  "report": {
+    "kicker": "Completada",
+    "title": "Importación completada",
+    "description": "Productos creados: {{imported}}. Registros de stock de apertura: {{stock}}.",
+    "importId": "Id de importación:",
+    "productId": "Id del producto",
+    "stockRecorded": "Stock de apertura registrado",
+    "statuses": {
+      "imported": "Importada",
+      "importedWithWarnings": "Importada con novedades",
+      "failed": "Fallida",
+      "skipped": "Omitida",
+      "invalid": "Inválida"
+    },
+    "boolean": {
+      "yes": "Sí",
+      "no": "No"
+    },
+    "metrics": {
+      "imported": "Importados",
+      "stockInitialized": "Stock registrado",
+      "skipped": "Omitidos",
+      "invalid": "Inválidos",
+      "failed": "Fallidos",
+      "warnings": "Novedades"
+    }
+  },
+  "template": {
+    "sampleName": "Café de ejemplo",
+    "sampleDescription": "Reemplaza esta fila con los datos de tus productos"
+  },
+  "fileErrors": {
+    "unsupported_file": "Elige un archivo .csv o .xlsx.",
+    "file_too_large": "El archivo supera el límite de 10 MB.",
+    "empty_file": "El archivo no contiene filas de datos.",
+    "empty_header": "Cada columna de origen necesita un encabezado.",
+    "duplicate_header": "Los encabezados de las columnas deben ser únicos.",
+    "too_many_rows": "Importa máximo 500 filas a la vez.",
+    "too_many_columns": "El archivo supera el límite de 50 columnas.",
+    "row_too_wide": "Una fila de datos contiene más valores que la fila de encabezados.",
+    "malformed_csv": "El CSV contiene un valor entre comillas incompleto o no válido.",
+    "workbook_empty": "El libro de Excel no contiene una hoja de cálculo."
+  },
+  "toast": {
+    "previewError": "No se pudo validar el archivo",
+    "importError": "No se pudo completar la importación",
+    "imported_one": "{{count}} producto importado",
+    "imported_other": "{{count}} productos importados"
+  }
+}

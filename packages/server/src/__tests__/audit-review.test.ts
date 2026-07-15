@@ -86,6 +86,7 @@ describe('sensitive audit review (ENG-129f)', () => {
     await insertAudit('cash_drawer.open', '2026-01-13T11:00:00.000Z');
     await insertAudit('sale.complete', '2026-01-14T10:00:00.000Z');
     await insertAudit('inventory.adjust_stock', '2026-01-15T10:00:00.000Z');
+    await insertAudit('data_import.products', '2026-01-15T11:00:00.000Z');
     await insertAudit('ai.copilot.query', '2026-01-16T10:00:00.000Z');
     await insertAudit('customer.personal_data.export', '2026-01-17T10:00:00.000Z', foreignTenantId);
     await insertAudit('backup.restore_drill', '2026-01-18T10:00:00.000Z');
@@ -99,7 +100,7 @@ describe('sensitive audit review (ENG-129f)', () => {
     const caller = appRouter.createCaller(createTestContext());
     const summary = await caller.auditLogs.sensitiveSummary();
 
-    expect(summary.total).toBe(8);
+    expect(summary.total).toBe(9);
     expect(summary.categories).toEqual([
       {
         category: 'privacy',
@@ -118,8 +119,8 @@ describe('sensitive audit review (ENG-129f)', () => {
       },
       {
         category: 'inventory',
-        count: 1,
-        latestAt: '2026-01-15T10:00:00.000Z',
+        count: 2,
+        latestAt: '2026-01-15T11:00:00.000Z',
       },
       {
         category: 'ai',

@@ -155,6 +155,10 @@ const ROUTE_TABLE: ReadonlyArray<{ prefix: string; entry: HeaderTitleKeys }> = [
     entry: { kickerKey: 'nav:header.company.kicker', titleKey: 'nav:header.company.title' },
   },
   {
+    prefix: '/data-import',
+    entry: { kickerKey: 'nav:header.dataImport.kicker', titleKey: 'nav:header.dataImport.title' },
+  },
+  {
     prefix: '/sites',
     entry: { kickerKey: 'nav:header.sites.kicker', titleKey: 'nav:header.sites.title' },
   },

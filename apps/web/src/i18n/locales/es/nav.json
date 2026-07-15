@@ -37,6 +37,7 @@
     "fiscalReports": { "kicker": "Fiscal", "title": "Reportes fiscales" },
     "profitability": { "kicker": "Finanzas", "title": "Rentabilidad" },
     "company": { "kicker": "Configuración", "title": "Empresa" },
+    "dataImport": { "kicker": "Configuración", "title": "Importar datos" },
     "sites": { "kicker": "Configuración", "title": "Sedes" },
     "sequentials": { "kicker": "Configuración", "title": "Consecutivos" }
   },
@@ -62,6 +63,7 @@
     "categories": "Categorías",
     "locations": "Ubicaciones",
     "company": "Empresa",
+    "dataImport": "Importar datos",
     "sites": "Sedes",
     "sequentials": "Consecutivos",
     "geography": "Geografía",
