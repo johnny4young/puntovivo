@@ -27,6 +27,11 @@ import type {
   PartyImportIssueCode,
   ProviderImportPreviewRow,
 } from './types.js';
+import {
+  assertRealDataCommit,
+  getImportSourceFormat,
+  getSafeImportErrorMetadata,
+} from './safety.js';
 
 const log = createModuleLogger('launch-migration');
 const emailSchema = z.string().email();
@@ -67,18 +72,18 @@ function classifyPartyStatus(issues: PartyImportIssue[]) {
 
 function hashPartyImport(
   entity: 'customers' | 'providers',
-  input: { sourceName: string; rows: unknown[] }
+  input: { dataMode: 'demo' | 'real'; sourceName: string; rows: unknown[] }
 ) {
   return createHash('sha256')
-    .update(JSON.stringify({ entity, sourceName: input.sourceName, rows: input.rows }))
+    .update(
+      JSON.stringify({
+        dataMode: input.dataMode,
+        entity,
+        sourceName: input.sourceName,
+        rows: input.rows,
+      })
+    )
     .digest('hex');
-}
-
-function sourceFormat(sourceName: string): 'csv' | 'xlsx' | 'unknown' {
-  const normalized = sourceName.trim().toLocaleLowerCase('en-US');
-  if (normalized.endsWith('.csv')) return 'csv';
-  if (normalized.endsWith('.xlsx')) return 'xlsx';
-  return 'unknown';
 }
 
 export function hashLaunchCustomerImport(input: PreviewLaunchCustomerImportInput): string {
@@ -202,6 +207,7 @@ export async function previewLaunchCustomerImport(
     };
   });
   return {
+    dataMode: input.dataMode,
     previewHash: hashLaunchCustomerImport(input),
     summary: summarizePartyRows(rows),
     rows,
@@ -362,6 +368,7 @@ export async function previewLaunchProviderImport(
     };
   });
   return {
+    dataMode: input.dataMode,
     previewHash: hashLaunchProviderImport(input),
     summary: summarizePartyRows(rows),
     rows,
@@ -379,22 +386,6 @@ function summarizePartyRows(rows: ReadonlyArray<{ status: 'ready' | 'duplicate' 
 
 function isProviderConflict(error: unknown): boolean {
   return error instanceof Error && /UNIQUE constraint failed.*providers/i.test(error.message);
-}
-
-export function getSafePartyImportErrorMetadata(error: unknown): {
-  errorCode?: string;
-  errorType: string;
-} {
-  const errorType = error instanceof Error ? error.name : typeof error;
-  let candidate: unknown = error;
-  for (let depth = 0; depth < 2; depth += 1) {
-    if (!candidate || typeof candidate !== 'object') break;
-    if ('code' in candidate && typeof candidate.code === 'string') {
-      return { errorCode: candidate.code, errorType };
-    }
-    candidate = 'cause' in candidate ? candidate.cause : undefined;
-  }
-  return { errorType };
 }
 
 async function commitPartyImport<
@@ -441,7 +432,7 @@ async function commitPartyImport<
       }
       log.error(
         {
-          ...getSafePartyImportErrorMetadata(error),
+          ...getSafeImportErrorMetadata(error),
           tenantId: ctx.tenantId,
           importId,
           rowNumber: row.rowNumber,
@@ -472,7 +463,8 @@ async function commitPartyImport<
         failed: failedRows.length,
       },
       metadata: {
-        sourceFormat: sourceFormat(options.sourceName),
+        dataMode: 'real',
+        sourceFormat: getImportSourceFormat(options.sourceName),
         previewHash: options.previewHash,
         totalRows: options.preview.summary.total,
       },
@@ -480,6 +472,7 @@ async function commitPartyImport<
   });
 
   return {
+    dataMode: 'real' as const,
     importId,
     completedAt,
     summary: {
@@ -500,6 +493,7 @@ export async function commitLaunchCustomerImport(
   ctx: LaunchMigrationContext,
   input: CommitLaunchCustomerImportInput
 ) {
+  assertRealDataCommit(input);
   const preview = await previewLaunchCustomerImport(ctx, input);
   if (preview.previewHash !== input.previewHash) {
     throw new TRPCError({
@@ -534,6 +528,7 @@ export async function commitLaunchProviderImport(
   ctx: LaunchMigrationContext,
   input: CommitLaunchProviderImportInput
 ) {
+  assertRealDataCommit(input);
   const preview = await previewLaunchProviderImport(ctx, input);
   if (preview.previewHash !== input.previewHash) {
     throw new TRPCError({

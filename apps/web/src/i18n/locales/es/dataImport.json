@@ -2,6 +2,35 @@
   "kicker": "Migración de lanzamiento",
   "title": "Importar datos",
   "description": "Lleva productos, clientes y proveedores iniciales a Puntovivo con importaciones revisables y aisladas para tu negocio.",
+  "safety": {
+    "kicker": "Seguridad de la importación",
+    "title": "Elige cómo se usará este archivo",
+    "description": "Selecciona un modo antes de elegir el archivo. Al cambiar de modo se limpia el flujo de importación actual.",
+    "modeLabel": "Modo de datos de la importación",
+    "modes": {
+      "demo": {
+        "title": "Datos de demostración",
+        "description": "Valida filas de ejemplo o prueba sin guardar registros. El servidor bloquea cualquier intento de importación."
+      },
+      "real": {
+        "title": "Datos reales del negocio",
+        "description": "Crea registros en este negocio después de la vista previa y la confirmación explícita. Usa solo datos del comercio."
+      }
+    },
+    "demoBoundary": {
+      "title": "Límite de solo vista previa",
+      "description": "El modo de demostración permite leer, asignar, validar y exportar novedades, pero nunca crea productos, inventario, clientes ni proveedores.",
+      "previewOnly": "Vista previa de demostración. Revisa y exporta los resultados; ninguna fila puede guardarse en este modo."
+    },
+    "realConfirmation": "Confirmo que este archivo contiene datos reales del negocio y que tengo un punto de restauración vigente.",
+    "rollback": {
+      "title": "Crea un punto de restauración antes de importar",
+      "description": "En la aplicación de escritorio, crea un respaldo cifrado de la base de datos antes de confirmar datos reales. Conserva el reporte final y el ID de importación para mantener la trazabilidad en la auditoría.",
+      "scopeWarning": "No existe una reversión del lote con un solo clic. Restaurar el respaldo reemplaza toda la base de datos local y también elimina cada venta, configuración u otro cambio realizado después de ese punto.",
+      "openBackup": "Abrir configuración de respaldos",
+      "openAudit": "Abrir registro de auditoría"
+    }
+  },
   "fileSummary": "Filas de datos: {{rows}} · Columnas: {{columns}}",
   "steps": {
     "upload": {
@@ -90,6 +119,7 @@
     "kicker": "Completada",
     "title": "Importación completada",
     "description": "Productos creados: {{imported}}. Registros de stock de apertura: {{stock}}.",
+    "rollbackReminder": "Si necesitas revertir este lote, detén la actividad nueva y restaura el respaldo cifrado creado antes de la importación. La restauración también elimina todos los cambios posteriores.",
     "importId": "Id de importación:",
     "productId": "Id del producto",
     "stockRecorded": "Stock de apertura registrado",

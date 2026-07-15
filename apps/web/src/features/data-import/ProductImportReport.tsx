@@ -64,6 +64,12 @@ export function ProductImportReportPanel({ report, onDownloadReport }: ProductIm
           </div>
         ))}
       </dl>
+      <p
+        className="mt-4 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs leading-5 text-warning-900"
+        data-testid="data-import-report-rollback"
+      >
+        {t('report.rollbackReminder')}
+      </p>
     </section>
   );
 }

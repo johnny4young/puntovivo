@@ -16,6 +16,27 @@ async function captureEvidence(page: Page, name: string) {
   });
 }
 
+async function chooseRealData(page: Page, spanish = false) {
+  await page
+    .getByRole('radio', {
+      name: spanish ? /Datos reales del negocio/ : /Real business data/,
+    })
+    .click();
+  await expect(page.getByTestId('data-import-rollback-guidance')).toContainText(
+    spanish ? 'Crea un punto de restauración' : 'Create a restore point'
+  );
+}
+
+async function confirmRealData(page: Page, spanish = false) {
+  await page
+    .getByLabel(
+      spanish
+        ? /Confirmo que este archivo contiene datos reales del negocio/
+        : /I confirm that this file contains real business data/
+    )
+    .check();
+}
+
 test.describe('launch data import (ENG-123)', () => {
   test('admin previews, imports, downloads a report, and sees catalog stock', async ({
     page,
@@ -30,6 +51,7 @@ test.describe('launch data import (ENG-123)', () => {
     await expect(
       page.getByTestId('data-import-page').getByRole('heading', { name: 'Import data', level: 1 })
     ).toBeVisible();
+    await chooseRealData(page);
 
     await page.locator('#data-import-file').setInputFiles({
       name: 'launch-products.csv',
@@ -57,12 +79,16 @@ test.describe('launch data import (ENG-123)', () => {
     );
     await captureEvidence(page, 'eng-123a-import-preview-en');
 
+    await confirmRealData(page);
     await page.getByRole('button', { name: 'Import 1 ready row' }).click();
     const report = page.getByTestId('data-import-report');
     await expect(report).toContainText('Import complete');
     await expect(report).toContainText('Products created: 1. Opening stock records: 1.');
     await expect(page.getByRole('button', { name: 'Import completed' })).toBeDisabled();
     await expect(page.getByTestId('data-import-report-stockInitialized')).toContainText('1');
+    await expect(page.getByTestId('data-import-report-rollback')).toContainText(
+      'restore the encrypted backup'
+    );
     await captureEvidence(page, 'eng-123a-import-report-en');
 
     const downloadPromise = page.waitForEvent('download');
@@ -104,7 +130,12 @@ test.describe('launch data import (ENG-123)', () => {
         .getByTestId('data-import-page')
         .getByRole('heading', { name: 'Importar datos', level: 1 })
     ).toBeVisible();
-    await expect(page.getByText('Elige un archivo de origen')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Elige cómo se usará este archivo' })
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Productos e inventario/ })).toBeDisabled();
+    await chooseRealData(page, true);
+    await captureEvidence(page, 'eng-123c-real-mode-rollback-es');
     await expect(page.getByRole('button', { name: 'Descargar plantilla' })).toBeVisible();
 
     await page.locator('#data-import-file').setInputFiles({
@@ -125,10 +156,14 @@ test.describe('launch data import (ENG-123)', () => {
     await expect(page.getByTestId('data-import-preview-row-2')).toContainText('1234.5');
     await captureEvidence(page, 'eng-123a-import-preview-es');
 
+    await confirmRealData(page, true);
     await page.getByRole('button', { name: 'Importar 1 fila lista' }).click();
     const report = page.getByTestId('data-import-report');
     await expect(report).toContainText('Importación completada');
     await expect(report).toContainText('Productos creados: 1. Registros de stock de apertura: 1.');
+    await expect(page.getByTestId('data-import-report-rollback')).toContainText(
+      'restaura el respaldo cifrado'
+    );
     await expect(page.getByRole('button', { name: 'Importación completada' })).toBeDisabled();
     await captureEvidence(page, 'eng-123a-import-report-es');
     await expectNoClientIssues(tracker);
@@ -144,6 +179,7 @@ test.describe('launch data import (ENG-123)', () => {
 
     await loginAs(page, 'admin');
     await page.goto('/data-import');
+    await chooseRealData(page);
     await page.getByRole('button', { name: /^Customers/ }).click();
     await expect(page.getByTestId('data-import-customers-workflow')).toBeVisible();
 
@@ -170,6 +206,7 @@ test.describe('launch data import (ENG-123)', () => {
     );
     await captureEvidence(page, 'eng-123b-customers-preview-en');
 
+    await confirmRealData(page);
     await page.getByRole('button', { name: 'Import 1 ready row' }).click();
     const report = page.getByTestId('data-import-report');
     await expect(report).toContainText('Customers created: 1.');
@@ -188,6 +225,7 @@ test.describe('launch data import (ENG-123)', () => {
 
     await loginAs(page, 'admin', { spanish: true });
     await page.goto('/data-import');
+    await chooseRealData(page, true);
     await page.getByRole('button', { name: /^Proveedores/ }).click();
     await expect(page.getByTestId('data-import-providers-workflow')).toBeVisible();
 
@@ -214,6 +252,7 @@ test.describe('launch data import (ENG-123)', () => {
     );
     await captureEvidence(page, 'eng-123b-providers-preview-es');
 
+    await confirmRealData(page, true);
     await page.getByRole('button', { name: 'Importar 1 fila lista' }).click();
     await expect(page.getByTestId('data-import-report')).toContainText('Proveedores creados: 1.');
     await captureEvidence(page, 'eng-123b-providers-report-es');
@@ -221,6 +260,48 @@ test.describe('launch data import (ENG-123)', () => {
     await page.goto('/providers');
     await page.getByPlaceholder('Buscar proveedores...').fill(providerName);
     await expect(page.getByText(providerName, { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expectNoClientIssues(tracker);
+  });
+
+  test('demo mode validates fixture rows without exposing a commit path', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const suffix = `${testInfo.parallelIndex}-${Date.now()}`;
+    const fixtureSku = `E2E-DEMO-${suffix}`;
+
+    await loginAs(page, 'admin');
+    await page.goto('/data-import');
+    await expect(page.locator('#data-import-file')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Products and stock/ })).toBeDisabled();
+
+    const demoMode = page.getByRole('radio', { name: /Demo data/ });
+    const realMode = page.getByRole('radio', { name: /Real business data/ });
+    await demoMode.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(realMode).toBeChecked();
+    await page.keyboard.press('ArrowLeft');
+    await expect(demoMode).toBeChecked();
+    await expect(page.getByTestId('data-import-demo-boundary')).toContainText(
+      'Preview-only boundary'
+    );
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'fixture-products.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(`Name,SKU,Price\nFixture coffee,${fixtureSku},1000`),
+    });
+    await page.getByRole('button', { name: 'Validate and preview' }).click();
+
+    await expect(page.getByTestId('data-import-summary-ready')).toContainText('1');
+    await expect(page.getByTestId('data-import-demo-preview-only')).toContainText(
+      'no row can be saved'
+    );
+    await expect(page.getByRole('button', { name: /Import 1 ready row/ })).toHaveCount(0);
+    await captureEvidence(page, 'eng-123c-demo-preview-en');
+
+    await page.goto('/products');
+    await page.getByPlaceholder('Search products...').fill(fixtureSku);
+    await expect(page.getByText(fixtureSku, { exact: true })).toHaveCount(0);
     await expectNoClientIssues(tracker);
   });
 });

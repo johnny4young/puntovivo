@@ -23,12 +23,14 @@ import {
 import { buildPartyImportReportRows } from './partyImportReportRows';
 import type {
   CustomerImportRowsInput,
+  LaunchImportDataMode,
   PartyImportPreview,
   PartyImportReport,
   ProviderImportRowsInput,
 } from './types';
 
 interface PartyImportWorkflowProps {
+  dataMode: LaunchImportDataMode;
   entity: PartyImportEntity;
   onBusyChange?: (busy: boolean) => void;
 }
@@ -47,7 +49,7 @@ interface PartyReportExportRow extends PartyIssueExportRow {
   recordId: string;
 }
 
-export function PartyImportWorkflow({ entity, onBusyChange }: PartyImportWorkflowProps) {
+export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImportWorkflowProps) {
   const { t } = useTranslation(['dataImport', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -58,6 +60,7 @@ export function PartyImportWorkflow({ entity, onBusyChange }: PartyImportWorkflo
   const [report, setReport] = useState<PartyImportReport | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [confirmedRealData, setConfirmedRealData] = useState(false);
 
   const mappedRows = useMemo(
     () => (file && mapping ? mapPartyImportRows(entity, file, mapping) : []),
@@ -113,6 +116,7 @@ export function PartyImportWorkflow({ entity, onBusyChange }: PartyImportWorkflo
   const invalidatePreview = () => {
     setPreview(null);
     setReport(null);
+    setConfirmedRealData(false);
     customerPreviewMutation.reset();
     providerPreviewMutation.reset();
     customerImportMutation.reset();
@@ -143,11 +147,13 @@ export function PartyImportWorkflow({ entity, onBusyChange }: PartyImportWorkflo
     if (!file || !mapping || !hasRequiredPartyMapping(mapping)) return;
     if (entity === 'customers') {
       customerPreviewMutation.mutate({
+        dataMode,
         sourceName: file.sourceName,
         rows: mappedRows as CustomerImportRowsInput,
       });
     } else {
       providerPreviewMutation.mutate({
+        dataMode,
         sourceName: file.sourceName,
         rows: mappedRows as ProviderImportRowsInput,
       });
@@ -155,15 +161,19 @@ export function PartyImportWorkflow({ entity, onBusyChange }: PartyImportWorkflo
   };
 
   const handleImport = () => {
-    if (!file || !preview) return;
+    if (!file || !preview || dataMode !== 'real' || !confirmedRealData) return;
     if (entity === 'customers') {
       customerImportMutation.mutate({
+        confirmedRealData: true,
+        dataMode,
         sourceName: file.sourceName,
         rows: mappedRows as CustomerImportRowsInput,
         previewHash: preview.previewHash,
       });
     } else {
       providerImportMutation.mutate({
+        confirmedRealData: true,
+        dataMode,
         sourceName: file.sourceName,
         rows: mappedRows as ProviderImportRowsInput,
         previewHash: preview.previewHash,
@@ -310,9 +320,12 @@ export function PartyImportWorkflow({ entity, onBusyChange }: PartyImportWorkflo
       {preview ? (
         <PartyImportPreviewPanel
           completed={Boolean(report)}
+          confirmedRealData={confirmedRealData}
+          dataMode={dataMode}
           entity={entity}
           importing={importPending}
           onDownloadIssues={handleDownloadIssues}
+          onConfirmRealData={setConfirmedRealData}
           onImport={handleImport}
           preview={preview}
         />

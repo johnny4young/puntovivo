@@ -842,37 +842,37 @@
   {
     "path": "launchMigration.importCustomers",
     "kind": "mutation",
-    "input": "object{previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
     "output": "inferred"
   },
   {
     "path": "launchMigration.importProducts",
     "kind": "mutation",
-    "input": "object{decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
     "output": "inferred"
   },
   {
     "path": "launchMigration.importProviders",
     "kind": "mutation",
-    "input": "object{previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
     "output": "inferred"
   },
   {
     "path": "launchMigration.previewCustomers",
     "kind": "mutation",
-    "input": "object{rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "input": "object{dataMode:enum(\"demo\"|\"real\"),rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
     "output": "inferred"
   },
   {
     "path": "launchMigration.previewProducts",
     "kind": "mutation",
-    "input": "object{decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "input": "object{dataMode:enum(\"demo\"|\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
     "output": "inferred"
   },
   {
     "path": "launchMigration.previewProviders",
     "kind": "mutation",
-    "input": "object{rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "input": "object{dataMode:enum(\"demo\"|\"real\"),rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
     "output": "inferred"
   },
   {

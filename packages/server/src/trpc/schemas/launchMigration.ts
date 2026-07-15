@@ -2,6 +2,7 @@
 import { z } from 'zod';
 
 export const importDecimalFormatSchema = z.enum(['auto', 'dot', 'comma']);
+export const launchImportDataModeSchema = z.enum(['demo', 'real']);
 
 // Keep the transport bounded while allowing application validation to return
 // row-level field issues instead of rejecting an otherwise previewable file.
@@ -51,6 +52,7 @@ const launchProductImportRowsSchema = z
 
 export const previewLaunchProductImportInput = z
   .object({
+    dataMode: launchImportDataModeSchema,
     sourceName: z.string().trim().min(1).max(240),
     decimalFormat: importDecimalFormatSchema.default('auto'),
     rows: launchProductImportRowsSchema,
@@ -58,6 +60,8 @@ export const previewLaunchProductImportInput = z
   .strict();
 
 export const commitLaunchProductImportInput = previewLaunchProductImportInput.extend({
+  confirmedRealData: z.literal(true),
+  dataMode: z.literal('real'),
   previewHash: z.string().regex(/^[a-f0-9]{64}$/),
 });
 
@@ -89,12 +93,15 @@ const launchCustomerImportRowsSchema = z
 
 export const previewLaunchCustomerImportInput = z
   .object({
+    dataMode: launchImportDataModeSchema,
     sourceName: z.string().trim().min(1).max(240),
     rows: launchCustomerImportRowsSchema,
   })
   .strict();
 
 export const commitLaunchCustomerImportInput = previewLaunchCustomerImportInput.extend({
+  confirmedRealData: z.literal(true),
+  dataMode: z.literal('real'),
   previewHash: z.string().regex(/^[a-f0-9]{64}$/),
 });
 
@@ -123,16 +130,20 @@ const launchProviderImportRowsSchema = z
 
 export const previewLaunchProviderImportInput = z
   .object({
+    dataMode: launchImportDataModeSchema,
     sourceName: z.string().trim().min(1).max(240),
     rows: launchProviderImportRowsSchema,
   })
   .strict();
 
 export const commitLaunchProviderImportInput = previewLaunchProviderImportInput.extend({
+  confirmedRealData: z.literal(true),
+  dataMode: z.literal('real'),
   previewHash: z.string().regex(/^[a-f0-9]{64}$/),
 });
 
 export type ImportDecimalFormat = z.infer<typeof importDecimalFormatSchema>;
+export type LaunchImportDataMode = z.infer<typeof launchImportDataModeSchema>;
 export type LaunchProductImportRow = z.infer<typeof launchProductImportRowSchema>;
 export type PreviewLaunchProductImportInput = z.infer<typeof previewLaunchProductImportInput>;
 export type CommitLaunchProductImportInput = z.infer<typeof commitLaunchProductImportInput>;

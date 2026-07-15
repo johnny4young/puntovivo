@@ -13,6 +13,11 @@ export {
   previewLaunchCustomerImport,
   previewLaunchProviderImport,
 } from './parties.js';
+export {
+  assertRealDataCommit,
+  getImportSourceFormat,
+  getSafeImportErrorMetadata,
+} from './safety.js';
 export type {
   LaunchMigrationContext,
   NormalizedLaunchProduct,

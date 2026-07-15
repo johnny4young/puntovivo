@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 const preview = {
+  dataMode: 'real' as const,
   previewHash: 'preview-hash',
   summary: { total: 3, ready: 1, duplicates: 1, invalid: 1 },
   rows: [
@@ -105,6 +106,7 @@ vi.mock('@/lib/trpc', () => ({
           mutate: (input: unknown) => {
             mocks.importMutate(input);
             void options.onSuccess({
+              dataMode: 'real',
               importId: 'import-1',
               completedAt: '2026-07-15T12:00:00.000Z',
               summary: {
@@ -164,7 +166,7 @@ vi.mock('@/services/export/exportService', () => ({
   exportToCSV: mocks.exportToCSV,
 }));
 
-describe('ENG-123a DataImportPage', () => {
+describe('ENG-123a/ENG-123c DataImportPage', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mocks.previewPending = false;
@@ -184,6 +186,7 @@ describe('ENG-123a DataImportPage', () => {
   it('maps, previews, imports, and refreshes launch catalog state', async () => {
     const user = userEvent.setup();
     render(<DataImportPage />);
+    await user.click(screen.getByRole('radio', { name: /Real business data/ }));
 
     const file = new File(
       [
@@ -204,6 +207,7 @@ describe('ENG-123a DataImportPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Validate and preview' }));
     expect(mocks.previewMutate).toHaveBeenCalledWith({
+      dataMode: 'real',
       sourceName: 'launch-products.csv',
       decimalFormat: 'auto',
       rows: [
@@ -252,9 +256,16 @@ describe('ENG-123a DataImportPage', () => {
       'Required value is missing'
     );
 
-    await user.click(screen.getByRole('button', { name: 'Import 1 ready row' }));
+    const importButton = screen.getByRole('button', { name: 'Import 1 ready row' });
+    expect(importButton).toBeDisabled();
+    await user.click(screen.getByLabelText(/I confirm that this file contains real business data/));
+    await user.click(importButton);
     expect(mocks.importMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ previewHash: 'preview-hash' })
+      expect.objectContaining({
+        confirmedRealData: true,
+        dataMode: 'real',
+        previewHash: 'preview-hash',
+      })
     );
     expect(await screen.findByTestId('data-import-report')).toHaveTextContent('Import complete');
     expect(screen.getByRole('button', { name: 'Import completed' })).toBeDisabled();
@@ -319,6 +330,9 @@ describe('ENG-123a DataImportPage', () => {
     const user = userEvent.setup();
     render(<DataImportPage />);
 
+    expect(screen.queryByLabelText('Choose CSV or Excel')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Products and stock/ })).toBeDisabled();
+    await user.click(screen.getByRole('radio', { name: /Demo data/ }));
     expect(screen.getByRole('button', { name: /Products and stock/ })).toHaveAttribute(
       'aria-pressed',
       'true'
@@ -335,6 +349,7 @@ describe('ENG-123a DataImportPage', () => {
   it('clears a rejected file so the same filename can be selected again', async () => {
     const user = userEvent.setup();
     render(<DataImportPage />);
+    await user.click(screen.getByRole('radio', { name: /Real business data/ }));
     const input = screen.getByLabelText('Choose CSV or Excel') as HTMLInputElement;
 
     await user.upload(
@@ -356,6 +371,7 @@ describe('ENG-123a DataImportPage', () => {
   it('prevents replacing or resetting the source while a request is pending', async () => {
     const user = userEvent.setup();
     const view = render(<DataImportPage />);
+    await user.click(screen.getByRole('radio', { name: /Real business data/ }));
     await user.upload(
       screen.getByLabelText('Choose CSV or Excel'),
       new File(['Name,SKU\nLaunch coffee,IMP-001'], 'launch-products.csv', { type: 'text/csv' })
@@ -376,5 +392,31 @@ describe('ENG-123a DataImportPage', () => {
     expect(screen.getByRole('button', { name: 'Validate and preview' })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Customers/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Suppliers/ })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: /Demo data/ })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: /Real business data/ })).toBeDisabled();
+  });
+
+  it('keeps demo previews server-bound and removes every commit affordance', async () => {
+    const user = userEvent.setup();
+    render(<DataImportPage />);
+    await user.click(screen.getByRole('radio', { name: /Demo data/ }));
+    expect(screen.getByTestId('data-import-demo-boundary')).toHaveTextContent(
+      'Preview-only boundary'
+    );
+
+    await user.upload(
+      screen.getByLabelText('Choose CSV or Excel'),
+      new File(['Name,SKU\nFixture coffee,FIXTURE-123C'], 'fixture.csv', { type: 'text/csv' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Validate and preview' }));
+
+    expect(mocks.previewMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ dataMode: 'demo', sourceName: 'fixture.csv' })
+    );
+    expect(screen.getByTestId('data-import-demo-preview-only')).toHaveTextContent(
+      'no row can be saved'
+    );
+    expect(screen.queryByRole('button', { name: /Import 1 ready row/ })).not.toBeInTheDocument();
+    expect(mocks.importMutate).not.toHaveBeenCalled();
   });
 });

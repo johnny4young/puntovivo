@@ -4,6 +4,8 @@ import type { AppRouter } from '@puntovivo/server';
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type RouterInputs = inferRouterInputs<AppRouter>;
 
+export type LaunchImportDataMode = RouterInputs['launchMigration']['previewProducts']['dataMode'];
+
 export type ProductImportPreview = RouterOutputs['launchMigration']['previewProducts'];
 export type ProductImportPreviewRow = ProductImportPreview['rows'][number];
 export type ProductImportReport = RouterOutputs['launchMigration']['importProducts'];

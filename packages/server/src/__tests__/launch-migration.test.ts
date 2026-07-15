@@ -123,12 +123,14 @@ describe('ENG-123a launch migration', () => {
   it('rejects unknown envelope fields and duplicate row numbers', () => {
     expect(
       previewLaunchProductImportInput.safeParse({
+        dataMode: 'real',
         sourceName: 'strict.csv',
         rows: [{ ...row(2, { name: 'Strict', sku: 'STRICT-123A' }), unexpected: true }],
       }).success
     ).toBe(false);
     expect(
       previewLaunchProductImportInput.safeParse({
+        dataMode: 'real',
         sourceName: 'strict.csv',
         rows: [row(2, { name: 'Strict', sku: 'STRICT-123A' })],
         unexpected: true,
@@ -136,6 +138,7 @@ describe('ENG-123a launch migration', () => {
     ).toBe(false);
     expect(
       previewLaunchProductImportInput.safeParse({
+        dataMode: 'real',
         sourceName: 'duplicates.csv',
         rows: [
           row(2, { name: 'First', sku: 'ROW-FIRST-123A' }),
@@ -149,6 +152,7 @@ describe('ENG-123a launch migration', () => {
     const preview = await appRouter
       .createCaller(createTestContext())
       .launchMigration.previewProducts({
+        dataMode: 'demo',
         sourceName: 'descriptions.csv',
         rows: [
           row(2, {
@@ -165,6 +169,7 @@ describe('ENG-123a launch migration', () => {
       });
 
     expect(preview.rows[0]?.status).toBe('ready');
+    expect(preview.dataMode).toBe('demo');
     expect(preview.rows[1]).toMatchObject({
       status: 'invalid',
       issues: [{ code: 'too_long', field: 'description' }],
@@ -198,6 +203,7 @@ describe('ENG-123a launch migration', () => {
     const preview = await appRouter
       .createCaller(createTestContext())
       .launchMigration.previewProducts({
+        dataMode: 'real',
         sourceName: 'catalogo-inicial.csv',
         decimalFormat: 'comma',
         rows: [
@@ -242,6 +248,7 @@ describe('ENG-123a launch migration', () => {
 
   it('imports products, prices, and opening stock with audit evidence and retry-safe skips', async () => {
     const input = {
+      dataMode: 'real' as const,
       sourceName: 'launch-products.xlsx',
       decimalFormat: 'dot' as const,
       rows: [
@@ -270,6 +277,7 @@ describe('ENG-123a launch migration', () => {
     const preview = await caller.launchMigration.previewProducts(input);
     const result = await caller.launchMigration.importProducts({
       ...input,
+      confirmedRealData: true,
       previewHash: preview.previewHash,
     });
 
@@ -330,10 +338,13 @@ describe('ENG-123a launch migration', () => {
     expect(audit?.actorId).toBe(userId);
     expect(audit?.resourceType).toBe('data_import');
     expect(JSON.stringify(audit)).not.toContain('Imported cacao');
+    expect(JSON.stringify(audit)).not.toContain('launch-products.xlsx');
+    expect(audit?.metadata).toMatchObject({ dataMode: 'real', sourceFormat: 'xlsx' });
 
     const retryPreview = await caller.launchMigration.previewProducts(input);
     const retry = await caller.launchMigration.importProducts({
       ...input,
+      confirmedRealData: true,
       previewHash: retryPreview.previewHash,
     });
     expect(retry.summary).toMatchObject({ imported: 0, skipped: 2, invalid: 1 });
@@ -356,13 +367,18 @@ describe('ENG-123a launch migration', () => {
 
   it('rejects stale preview hashes and non-admin callers', async () => {
     const input = {
+      dataMode: 'real' as const,
       sourceName: 'guard.csv',
       decimalFormat: 'auto' as const,
       rows: [row(2, { name: 'Guarded', sku: 'GUARD-123A' })],
     };
     const admin = appRouter.createCaller(createTestContext());
     await expect(
-      admin.launchMigration.importProducts({ ...input, previewHash: '0'.repeat(64) })
+      admin.launchMigration.importProducts({
+        ...input,
+        confirmedRealData: true,
+        previewHash: '0'.repeat(64),
+      })
     ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
 
     const manager = appRouter.createCaller(createTestContext('manager'));

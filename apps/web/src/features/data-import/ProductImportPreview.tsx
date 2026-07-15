@@ -2,14 +2,18 @@ import { AlertTriangle, CheckCircle2, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
-import type { ProductImportIssue, ProductImportPreview } from './types';
+import { ImportCommitGuard } from './ImportCommitGuard';
+import type { LaunchImportDataMode, ProductImportIssue, ProductImportPreview } from './types';
 
 interface ProductImportPreviewProps {
   preview: ProductImportPreview;
+  confirmedRealData: boolean;
+  dataMode: LaunchImportDataMode;
   importing: boolean;
   completed: boolean;
   onImport: () => void;
   onDownloadIssues: () => void;
+  onConfirmRealData: (confirmed: boolean) => void;
 }
 
 const STATUS_STYLE = {
@@ -24,10 +28,13 @@ function issueKey(issue: ProductImportIssue): string {
 
 export function ProductImportPreviewPanel({
   preview,
+  confirmedRealData,
+  dataMode,
   importing,
   completed,
   onImport,
   onDownloadIssues,
+  onConfirmRealData,
 }: ProductImportPreviewProps) {
   const { t } = useTranslation('dataImport');
   const hasIssues = preview.summary.duplicates + preview.summary.invalid > 0;
@@ -53,18 +60,15 @@ export function ProductImportPreviewPanel({
               {t('actions.downloadIssues')}
             </button>
           ) : null}
-          <button
-            type="button"
-            className="pv-btn primary"
-            disabled={importing || completed || preview.summary.ready === 0}
-            onClick={onImport}
-          >
-            {importing
-              ? t('actions.importing')
-              : completed
-                ? t('actions.completed')
-                : t('actions.importReady', { count: preview.summary.ready })}
-          </button>
+          <ImportCommitGuard
+            completed={completed}
+            confirmed={confirmedRealData}
+            dataMode={dataMode}
+            importing={importing}
+            onConfirm={onConfirmRealData}
+            onImport={onImport}
+            ready={preview.summary.ready}
+          />
         </div>
       </div>
 

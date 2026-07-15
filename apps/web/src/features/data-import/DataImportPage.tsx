@@ -2,15 +2,18 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
+import { ImportModePanel } from './ImportModePanel';
 import { PartyImportWorkflow } from './PartyImportWorkflow';
 import { ProductImportWorkflow } from './ProductImportWorkflow';
 import type { ImportEntity } from './partyImportMapping';
+import type { LaunchImportDataMode } from './types';
 
 const IMPORT_ENTITIES: ImportEntity[] = ['products', 'customers', 'providers'];
 
 export function DataImportPage() {
   const { t } = useTranslation('dataImport');
   const [entity, setEntity] = useState<ImportEntity>('products');
+  const [dataMode, setDataMode] = useState<LaunchImportDataMode | null>(null);
   const [isWorkflowBusy, setIsWorkflowBusy] = useState(false);
 
   return (
@@ -22,6 +25,14 @@ export function DataImportPage() {
         <h1 className="mt-1 text-2xl font-bold text-secondary-900">{t('title')}</h1>
         <p className="mt-2 max-w-3xl text-sm text-secondary-600">{t('description')}</p>
       </header>
+
+      <ImportModePanel
+        disabled={isWorkflowBusy}
+        onSelect={mode => {
+          if (!isWorkflowBusy) setDataMode(mode);
+        }}
+        selected={dataMode}
+      />
 
       <section className="card p-2" aria-labelledby="data-import-entity-title">
         <h2 id="data-import-entity-title" className="sr-only">
@@ -43,7 +54,7 @@ export function DataImportPage() {
                   : 'text-secondary-700 hover:bg-secondary-50'
               )}
               aria-pressed={entity === item}
-              disabled={isWorkflowBusy}
+              disabled={isWorkflowBusy || dataMode === null}
               onClick={() => {
                 if (!isWorkflowBusy) setEntity(item);
               }}
@@ -57,11 +68,22 @@ export function DataImportPage() {
         </div>
       </section>
 
-      {entity === 'products' ? (
-        <ProductImportWorkflow key={entity} onBusyChange={setIsWorkflowBusy} />
-      ) : (
-        <PartyImportWorkflow key={entity} entity={entity} onBusyChange={setIsWorkflowBusy} />
-      )}
+      {dataMode ? (
+        entity === 'products' ? (
+          <ProductImportWorkflow
+            key={`${dataMode}:${entity}`}
+            dataMode={dataMode}
+            onBusyChange={setIsWorkflowBusy}
+          />
+        ) : (
+          <PartyImportWorkflow
+            key={`${dataMode}:${entity}`}
+            dataMode={dataMode}
+            entity={entity}
+            onBusyChange={setIsWorkflowBusy}
+          />
+        )
+      ) : null}
     </div>
   );
 }

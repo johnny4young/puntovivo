@@ -30,6 +30,7 @@ function customerRow(
 describe('buildPartyImportReportRows', () => {
   it('keeps every source row and expands multiple row issues in the final report', () => {
     const preview: CustomerImportPreview = {
+      dataMode: 'real',
       previewHash: 'preview-hash',
       summary: { total: 4, ready: 2, duplicates: 1, invalid: 1 },
       rows: [
@@ -43,6 +44,7 @@ describe('buildPartyImportReportRows', () => {
       ],
     };
     const report: CustomerImportReport = {
+      dataMode: 'real',
       importId: 'import-1',
       completedAt: '2026-07-15T15:00:00.000Z',
       summary: { total: 4, imported: 1, skipped: 1, invalid: 1, failed: 1, warnings: 0 },

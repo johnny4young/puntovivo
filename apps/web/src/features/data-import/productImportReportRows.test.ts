@@ -17,6 +17,7 @@ describe('ENG-123a product import report rows', () => {
       taxRate: 0,
     };
     const preview = {
+      dataMode: 'real',
       previewHash: 'hash',
       summary: { total: 5, ready: 3, duplicates: 1, invalid: 1 },
       rows: [
@@ -38,6 +39,7 @@ describe('ENG-123a product import report rows', () => {
       ],
     } satisfies ProductImportPreview;
     const report = {
+      dataMode: 'real',
       importId: 'import-1',
       completedAt: '2026-07-15T12:00:00.000Z',
       summary: {

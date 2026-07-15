@@ -2,6 +2,35 @@
   "kicker": "Launch migration",
   "title": "Import data",
   "description": "Bring initial products, customers, and suppliers into Puntovivo with reviewable imports isolated to your business.",
+  "safety": {
+    "kicker": "Import safety",
+    "title": "Choose how this file will be used",
+    "description": "Select a mode before choosing a file. Changing modes clears the current import workflow.",
+    "modeLabel": "Import data mode",
+    "modes": {
+      "demo": {
+        "title": "Demo data",
+        "description": "Validate sample or fixture rows without saving any records. The server blocks every commit attempt."
+      },
+      "real": {
+        "title": "Real business data",
+        "description": "Create records in this business after preview and explicit confirmation. Use only merchant-owned data."
+      }
+    },
+    "demoBoundary": {
+      "title": "Preview-only boundary",
+      "description": "Demo mode can parse, map, validate, and export issues, but it never creates products, stock, customers, or suppliers.",
+      "previewOnly": "Demo preview only. Review and export the results; no row can be saved in this mode."
+    },
+    "realConfirmation": "I confirm that this file contains real business data and that I have a current restore point.",
+    "rollback": {
+      "title": "Create a restore point before importing",
+      "description": "In the Desktop app, create an encrypted database backup before committing real data. Keep the final report and import ID so the batch remains traceable in the audit log.",
+      "scopeWarning": "There is no one-click batch undo. Restoring the backup replaces the whole local database and also removes every sale, setting, or other change made after that restore point.",
+      "openBackup": "Open backup settings",
+      "openAudit": "Open audit log"
+    }
+  },
   "fileSummary": "Data rows: {{rows}} · Columns: {{columns}}",
   "steps": {
     "upload": {
@@ -90,6 +119,7 @@
     "kicker": "Completed",
     "title": "Import complete",
     "description": "Products created: {{imported}}. Opening stock records: {{stock}}.",
+    "rollbackReminder": "If you must reverse this batch, stop new activity and restore the encrypted backup created before the import. Restoring also removes every later change.",
     "importId": "Import ID:",
     "productId": "Product ID",
     "stockRecorded": "Opening stock recorded",

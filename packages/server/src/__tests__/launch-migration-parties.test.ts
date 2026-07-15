@@ -8,7 +8,7 @@ import { getDatabase, type DatabaseInstance } from '../db/index.js';
 import { createServer, type PuntovivoServer } from '../index.js';
 import type { Context } from '../trpc/context.js';
 import { appRouter } from '../trpc/router.js';
-import { getSafePartyImportErrorMetadata } from '../application/launch-migration/parties.js';
+import { getSafeImportErrorMetadata } from '../application/launch-migration/safety.js';
 import {
   previewLaunchCustomerImportInput,
   previewLaunchProviderImportInput,
@@ -92,12 +92,14 @@ describe('ENG-123b customer and provider launch migration', () => {
   it('rejects unknown fields and duplicate row numbers for both contracts', () => {
     expect(
       previewLaunchCustomerImportInput.safeParse({
+        dataMode: 'real',
         sourceName: 'customers.csv',
         rows: [{ ...row(2, { name: 'One' }), unexpected: true }, row(2, { name: 'Two' })],
       }).success
     ).toBe(false);
     expect(
       previewLaunchProviderImportInput.safeParse({
+        dataMode: 'real',
         sourceName: 'providers.csv',
         rows: [row(2, { name: 'One' })],
         unexpected: true,
@@ -111,7 +113,7 @@ describe('ENG-123b customer and provider launch migration', () => {
       cause,
     });
 
-    const metadata = getSafePartyImportErrorMetadata(error);
+    const metadata = getSafeImportErrorMetadata(error);
 
     expect(metadata).toEqual({ errorCode: 'SQLITE_IOERR', errorType: 'Error' });
     expect(JSON.stringify(metadata)).not.toContain('Secret Customer');
@@ -140,6 +142,7 @@ describe('ENG-123b customer and provider launch migration', () => {
     const preview = await appRouter
       .createCaller(createTestContext())
       .launchMigration.previewCustomers({
+        dataMode: 'demo',
         sourceName: 'launch-customers.csv',
         rows: [
           row(2, {
@@ -164,6 +167,7 @@ describe('ENG-123b customer and provider launch migration', () => {
       });
 
     expect(preview.summary).toEqual({ total: 7, ready: 4, duplicates: 2, invalid: 1 });
+    expect(preview.dataMode).toBe('demo');
     expect(preview.rows[0]?.normalized.email).toBe('new-customer-123b@example.com');
     expect(preview.rows[1]?.issues).toContainEqual({
       code: 'duplicate_file_tax_id',
@@ -186,6 +190,7 @@ describe('ENG-123b customer and provider launch migration', () => {
 
   it('imports customers through the canonical profile write and emits PII-free audit evidence', async () => {
     const input = {
+      dataMode: 'real' as const,
       sourceName: 'customer-launch.xlsx',
       rows: [
         row(2, {
@@ -203,6 +208,7 @@ describe('ENG-123b customer and provider launch migration', () => {
     const preview = await caller.launchMigration.previewCustomers(input);
     const result = await caller.launchMigration.importCustomers({
       ...input,
+      confirmedRealData: true,
       previewHash: preview.previewHash,
     });
 
@@ -241,6 +247,7 @@ describe('ENG-123b customer and provider launch migration', () => {
     expect(JSON.stringify(audit)).not.toContain('Imported Customer 123B');
     expect(JSON.stringify(audit)).not.toContain('customer-launch.xlsx');
     expect(audit?.metadata).toMatchObject({
+      dataMode: 'real',
       sourceFormat: 'xlsx',
       totalRows: 2,
       previewHash: preview.previewHash,
@@ -249,6 +256,7 @@ describe('ENG-123b customer and provider launch migration', () => {
     const retryPreview = await caller.launchMigration.previewCustomers(input);
     const retry = await caller.launchMigration.importCustomers({
       ...input,
+      confirmedRealData: true,
       previewHash: retryPreview.previewHash,
     });
     expect(retry.summary).toMatchObject({ imported: 0, skipped: 1, invalid: 1 });
@@ -275,6 +283,7 @@ describe('ENG-123b customer and provider launch migration', () => {
     const preview = await appRouter
       .createCaller(createTestContext())
       .launchMigration.previewProviders({
+        dataMode: 'demo',
         sourceName: 'launch-providers.csv',
         rows: [
           row(2, {
@@ -296,6 +305,7 @@ describe('ENG-123b customer and provider launch migration', () => {
       });
 
     expect(preview.summary).toEqual({ total: 6, ready: 2, duplicates: 2, invalid: 2 });
+    expect(preview.dataMode).toBe('demo');
     expect(preview.rows[0]?.normalized.cityId).toBe(cityId);
     expect(preview.rows[1]?.issues).toContainEqual({
       code: 'duplicate_file_name',
@@ -318,6 +328,7 @@ describe('ENG-123b customer and provider launch migration', () => {
 
   it('imports providers through the canonical write and preserves geography', async () => {
     const input = {
+      dataMode: 'real' as const,
       sourceName: 'provider-launch.xlsx',
       rows: [
         row(2, {
@@ -333,6 +344,7 @@ describe('ENG-123b customer and provider launch migration', () => {
     const preview = await caller.launchMigration.previewProviders(input);
     const result = await caller.launchMigration.importProviders({
       ...input,
+      confirmedRealData: true,
       previewHash: preview.previewHash,
     });
 
@@ -357,6 +369,7 @@ describe('ENG-123b customer and provider launch migration', () => {
     expect(JSON.stringify(audit)).not.toContain('Imported Provider 123B');
     expect(JSON.stringify(audit)).not.toContain('provider-launch.xlsx');
     expect(audit?.metadata).toMatchObject({
+      dataMode: 'real',
       sourceFormat: 'xlsx',
       totalRows: 1,
       previewHash: preview.previewHash,
@@ -365,10 +378,12 @@ describe('ENG-123b customer and provider launch migration', () => {
 
   it('rejects stale hashes and non-admin party imports', async () => {
     const customerInput = {
+      dataMode: 'real' as const,
       sourceName: 'guard-customers.csv',
       rows: [row(2, { name: 'Guarded Customer 123B' })],
     };
     const providerInput = {
+      dataMode: 'real' as const,
       sourceName: 'guard-providers.csv',
       rows: [row(2, { name: 'Guarded Provider 123B' })],
     };
@@ -376,12 +391,14 @@ describe('ENG-123b customer and provider launch migration', () => {
     await expect(
       admin.launchMigration.importCustomers({
         ...customerInput,
+        confirmedRealData: true,
         previewHash: '0'.repeat(64),
       })
     ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
     await expect(
       admin.launchMigration.importProviders({
         ...providerInput,
+        confirmedRealData: true,
         previewHash: '0'.repeat(64),
       })
     ).rejects.toMatchObject({ code: 'BAD_REQUEST' });

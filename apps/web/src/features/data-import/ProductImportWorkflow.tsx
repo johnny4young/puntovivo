@@ -19,7 +19,7 @@ import { ProductImportMappingPanel } from './ProductImportMappingPanel';
 import { ProductImportPreviewPanel } from './ProductImportPreview';
 import { ProductImportReportPanel } from './ProductImportReport';
 import { buildProductImportReportRows } from './productImportReportRows';
-import type { ProductImportPreview, ProductImportReport } from './types';
+import type { LaunchImportDataMode, ProductImportPreview, ProductImportReport } from './types';
 
 type DecimalFormat = 'auto' | 'dot' | 'comma';
 
@@ -49,10 +49,11 @@ const TEMPLATE_KEYS = [
 ] as const;
 
 interface ProductImportWorkflowProps {
+  dataMode: LaunchImportDataMode;
   onBusyChange?: (busy: boolean) => void;
 }
 
-export function ProductImportWorkflow({ onBusyChange }: ProductImportWorkflowProps) {
+export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportWorkflowProps) {
   const { t } = useTranslation(['dataImport', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -64,6 +65,7 @@ export function ProductImportWorkflow({ onBusyChange }: ProductImportWorkflowPro
   const [report, setReport] = useState<ProductImportReport | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [confirmedRealData, setConfirmedRealData] = useState(false);
 
   const mappedRows = useMemo(
     () => (file && mapping ? mapProductImportRows(file, mapping) : []),
@@ -100,6 +102,7 @@ export function ProductImportWorkflow({ onBusyChange }: ProductImportWorkflowPro
   const invalidatePreview = () => {
     setPreview(null);
     setReport(null);
+    setConfirmedRealData(false);
     previewMutation.reset();
     importMutation.reset();
   };
@@ -127,6 +130,7 @@ export function ProductImportWorkflow({ onBusyChange }: ProductImportWorkflowPro
   const handlePreview = () => {
     if (!file || !mapping || !hasRequiredProductMapping(mapping)) return;
     previewMutation.mutate({
+      dataMode,
       sourceName: file.sourceName,
       decimalFormat,
       rows: mappedRows,
@@ -134,8 +138,10 @@ export function ProductImportWorkflow({ onBusyChange }: ProductImportWorkflowPro
   };
 
   const handleImport = () => {
-    if (!file || !preview) return;
+    if (!file || !preview || dataMode !== 'real' || !confirmedRealData) return;
     importMutation.mutate({
+      confirmedRealData: true,
+      dataMode,
       sourceName: file.sourceName,
       decimalFormat,
       rows: mappedRows,
@@ -302,10 +308,13 @@ export function ProductImportWorkflow({ onBusyChange }: ProductImportWorkflowPro
       {preview ? (
         <ProductImportPreviewPanel
           preview={preview}
+          confirmedRealData={confirmedRealData}
+          dataMode={dataMode}
           importing={importMutation.isPending}
           completed={Boolean(report)}
           onImport={handleImport}
           onDownloadIssues={handleDownloadIssues}
+          onConfirmRealData={setConfirmedRealData}
         />
       ) : null}
 

@@ -2,14 +2,18 @@ import { AlertTriangle, CheckCircle2, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
+import { ImportCommitGuard } from './ImportCommitGuard';
 import type { PartyImportEntity } from './partyImportMapping';
-import type { PartyImportIssue, PartyImportPreview } from './types';
+import type { LaunchImportDataMode, PartyImportIssue, PartyImportPreview } from './types';
 
 interface PartyImportPreviewProps {
   completed: boolean;
+  confirmedRealData: boolean;
+  dataMode: LaunchImportDataMode;
   entity: PartyImportEntity;
   importing: boolean;
   onDownloadIssues: () => void;
+  onConfirmRealData: (confirmed: boolean) => void;
   onImport: () => void;
   preview: PartyImportPreview;
 }
@@ -30,9 +34,12 @@ function issueKey(issue: PartyImportIssue): string {
 
 export function PartyImportPreviewPanel({
   completed,
+  confirmedRealData,
+  dataMode,
   entity,
   importing,
   onDownloadIssues,
+  onConfirmRealData,
   onImport,
   preview,
 }: PartyImportPreviewProps) {
@@ -62,18 +69,15 @@ export function PartyImportPreviewPanel({
               {t('actions.downloadIssues')}
             </button>
           ) : null}
-          <button
-            type="button"
-            className="pv-btn primary"
-            disabled={importing || completed || preview.summary.ready === 0}
-            onClick={onImport}
-          >
-            {importing
-              ? t('actions.importing')
-              : completed
-                ? t('actions.completed')
-                : t('actions.importReady', { count: preview.summary.ready })}
-          </button>
+          <ImportCommitGuard
+            completed={completed}
+            confirmed={confirmedRealData}
+            dataMode={dataMode}
+            importing={importing}
+            onConfirm={onConfirmRealData}
+            onImport={onImport}
+            ready={preview.summary.ready}
+          />
         </div>
       </div>
 

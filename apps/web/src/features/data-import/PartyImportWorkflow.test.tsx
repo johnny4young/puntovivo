@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 const customerPreview = {
+  dataMode: 'real' as const,
   previewHash: 'customer-preview-hash',
   summary: { total: 3, ready: 1, duplicates: 1, invalid: 1 },
   rows: [
@@ -84,6 +85,7 @@ const customerPreview = {
 };
 
 const providerPreview = {
+  dataMode: 'real' as const,
   previewHash: 'provider-preview-hash',
   summary: { total: 1, ready: 1, duplicates: 0, invalid: 0 },
   rows: [
@@ -107,6 +109,7 @@ const providerPreview = {
 
 function report(importId: string) {
   return {
+    dataMode: 'real' as const,
     importId,
     completedAt: '2026-07-15T15:00:00.000Z',
     summary: { total: 1, imported: 1, skipped: 0, invalid: 0, failed: 0, warnings: 0 },
@@ -211,7 +214,7 @@ describe('ENG-123b PartyImportWorkflow', () => {
 
   it('maps, previews, imports, and exports a row-complete customer report', async () => {
     const user = userEvent.setup();
-    render(<PartyImportWorkflow entity="customers" />);
+    render(<PartyImportWorkflow dataMode="real" entity="customers" />);
     await user.upload(
       screen.getByLabelText('Choose CSV or Excel'),
       new File(
@@ -231,6 +234,7 @@ describe('ENG-123b PartyImportWorkflow', () => {
     expect(screen.getByLabelText(/Tax ID/)).toHaveValue('Tax ID');
     await user.click(screen.getByRole('button', { name: 'Validate and preview' }));
     expect(mocks.customerPreviewMutate).toHaveBeenCalledWith({
+      dataMode: 'real',
       sourceName: 'launch-customers.csv',
       rows: expect.arrayContaining([
         {
@@ -249,9 +253,14 @@ describe('ENG-123b PartyImportWorkflow', () => {
       'Email format is not valid'
     );
 
+    await user.click(screen.getByLabelText(/I confirm that this file contains real business data/));
     await user.click(screen.getByRole('button', { name: 'Import 1 ready row' }));
     expect(mocks.customerImportMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ previewHash: 'customer-preview-hash' })
+      expect.objectContaining({
+        confirmedRealData: true,
+        dataMode: 'real',
+        previewHash: 'customer-preview-hash',
+      })
     );
     expect(await screen.findByTestId('data-import-report')).toHaveTextContent(
       'Customers created: 1.'
@@ -294,7 +303,7 @@ describe('ENG-123b PartyImportWorkflow', () => {
   it('maps and imports a Spanish supplier with its tenant city code', async () => {
     await i18next.changeLanguage('es');
     const user = userEvent.setup();
-    render(<PartyImportWorkflow entity="providers" />);
+    render(<PartyImportWorkflow dataMode="real" entity="providers" />);
     await user.upload(
       screen.getByLabelText('Elegir CSV o Excel'),
       new File(
@@ -312,6 +321,7 @@ describe('ENG-123b PartyImportWorkflow', () => {
     expect(screen.getByLabelText(/Código de ciudad/)).toHaveValue('Código de ciudad');
     await user.click(screen.getByRole('button', { name: 'Validar y previsualizar' }));
     expect(mocks.providerPreviewMutate).toHaveBeenCalledWith({
+      dataMode: 'real',
       sourceName: 'proveedores.csv',
       rows: [
         {
@@ -329,6 +339,9 @@ describe('ENG-123b PartyImportWorkflow', () => {
     const summary = screen.getByLabelText('Resumen de validación de la importación');
     expect(within(summary).getByTestId('data-import-summary-ready')).toHaveTextContent('1');
 
+    await user.click(
+      screen.getByLabelText(/Confirmo que este archivo contiene datos reales del negocio/)
+    );
     await user.click(screen.getByRole('button', { name: 'Importar 1 fila lista' }));
     expect(await screen.findByTestId('data-import-report')).toHaveTextContent(
       'Proveedores creados: 1.'

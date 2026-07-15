@@ -26,6 +26,11 @@ import type {
   ProductImportIssue,
   ProductImportPreviewRow,
 } from './types.js';
+import {
+  assertRealDataCommit,
+  getImportSourceFormat,
+  getSafeImportErrorMetadata,
+} from './safety.js';
 
 const log = createModuleLogger('launch-migration');
 
@@ -46,6 +51,7 @@ function normalizeBarcode(value: string): string {
 
 function canonicalImportPayload(input: PreviewLaunchProductImportInput) {
   return {
+    dataMode: input.dataMode,
     sourceName: input.sourceName,
     decimalFormat: input.decimalFormat,
     rows: input.rows.map(row => ({ rowNumber: row.rowNumber, values: row.values })),
@@ -301,6 +307,7 @@ export async function previewLaunchProductImport(
   });
 
   return {
+    dataMode: input.dataMode,
     previewHash: hashLaunchProductImport(input),
     summary: {
       total: rows.length,
@@ -323,6 +330,7 @@ export async function commitLaunchProductImport(
   ctx: LaunchMigrationContext,
   input: CommitLaunchProductImportInput
 ) {
+  assertRealDataCommit(input);
   const preview = await previewLaunchProductImport(ctx, input);
   if (preview.previewHash !== input.previewHash) {
     throw new TRPCError({
@@ -392,7 +400,7 @@ export async function commitLaunchProductImport(
           } catch (error) {
             log.warn(
               {
-                err: error,
+                ...getSafeImportErrorMetadata(error),
                 tenantId: ctx.tenantId,
                 importId,
                 rowNumber: row.rowNumber,
@@ -420,7 +428,7 @@ export async function commitLaunchProductImport(
       }
       log.error(
         {
-          err: error,
+          ...getSafeImportErrorMetadata(error),
           tenantId: ctx.tenantId,
           importId,
           rowNumber: row.rowNumber,
@@ -453,7 +461,8 @@ export async function commitLaunchProductImport(
         failed: failedRows.length,
       },
       metadata: {
-        sourceName: input.sourceName,
+        dataMode: input.dataMode,
+        sourceFormat: getImportSourceFormat(input.sourceName),
         previewHash: input.previewHash,
         totalRows: preview.summary.total,
         warnings,
@@ -462,6 +471,7 @@ export async function commitLaunchProductImport(
   });
 
   return {
+    dataMode: input.dataMode,
     importId,
     completedAt,
     summary: {
