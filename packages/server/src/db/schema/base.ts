@@ -214,6 +214,9 @@ export const auditLogActionEnum = [
   // ENG-123e — register opening templates are money-sensitive configuration.
   // Audit evidence carries counts/source format only, never amounts or register names.
   'data_import.opening_cash',
+  // ENG-123f — issuer identity/config import. Immutable evidence contains
+  // only counts, country, and source format; never tax IDs or fiscal values.
+  'data_import.fiscal_profile',
   'sale.price_override',
   // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
   // when a cashier suspends a draft sale; `sale.resume` when the same or

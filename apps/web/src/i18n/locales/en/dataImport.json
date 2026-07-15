@@ -1,7 +1,7 @@
 {
   "kicker": "Launch migration",
   "title": "Import data",
-  "description": "Bring initial products, customers, suppliers, customer receivables, and register opening cash into Puntovivo with reviewable imports isolated to your business.",
+  "description": "Bring initial products, customers, suppliers, customer receivables, register opening cash, and fiscal profiles into Puntovivo with reviewable imports isolated to your business.",
   "safety": {
     "kicker": "Import safety",
     "title": "Choose how this file will be used",
@@ -188,6 +188,10 @@
     "openingCash": {
       "label": "Register opening cash",
       "description": "Reconciled denomination templates for each site register."
+    },
+    "fiscalProfiles": {
+      "label": "Fiscal profile",
+      "description": "Issuer identity, tax regime, and authorized numbering."
     }
   },
   "party": {
@@ -343,5 +347,48 @@
       "openingFloat": "120000",
       "denominations": "50000:2;20000:1"
     }
+  },
+  "fiscalProfiles": {
+    "fields": {
+      "countryCode": "Country code",
+      "taxIdentifier": "Issuer tax identifier",
+      "economicActivityCode": "Regime or activity code",
+      "issueLocation": "Issue location or head office",
+      "administrativeAreaCode": "Administrative area code",
+      "resolutionNumber": "Numbering resolution",
+      "numberingPrefix": "Numbering prefix",
+      "rangeFrom": "Authorized range start",
+      "rangeTo": "Authorized range end",
+      "environment": "Fiscal environment"
+    },
+    "mapDescription": "Map the issuer profile fields available in the source. Country code and tax identifier are always required; Puntovivo validates the remaining requirements for CO, MX, or CL.",
+    "countryFieldHelp": "Use CO, MX, or CL and include only the profile for this business country. MX uses regime + postal code; CL uses activity + municipality + head-office address; CO uses resolution + authorized range.",
+    "previewDescription": "Puntovivo validates this file against the canonical {{country}} fiscal pack and never overwrites an established issuer profile.",
+    "activationBoundary": "Safety boundary: imported fiscal profiles stay disabled. Review the issuer data and activate fiscal emission manually in Company → Fiscal.",
+    "profileDetails": "Profile details",
+    "issues": {
+      "required": "Required value is missing",
+      "too_long": "Value exceeds the allowed length",
+      "unsupported_country": "Only CO, MX, and CL fiscal profiles are supported",
+      "tenant_country_mismatch": "This profile does not match the business country",
+      "invalid_tax_identifier": "The issuer tax identifier is not valid for this country",
+      "invalid_activity_code": "The regime or activity code is not in the fiscal catalog",
+      "invalid_issue_location": "The issue location is not valid for this country",
+      "invalid_administrative_area": "The administrative area code is not in the fiscal catalog",
+      "invalid_number": "The numbering value must be a positive integer",
+      "invalid_range": "The authorized range start cannot exceed its end",
+      "invalid_environment": "The fiscal environment is not valid for this country",
+      "duplicate_file_profile": "This country profile is repeated in the file",
+      "duplicate_existing_profile": "This issuer profile is already configured",
+      "existing_profile_conflict": "An established issuer profile already exists; review it in Company → Fiscal",
+      "concurrent_profile_change": "The fiscal profile changed after preview; preview the file again",
+      "import_failed": "The fiscal profile could not be imported"
+    },
+    "reportDescription_one": "{{count}} fiscal profile imported and left disabled for review.",
+    "reportDescription_other": "{{count}} fiscal profiles imported and left disabled for review.",
+    "reviewAction": "Review fiscal profile",
+    "activationReminder": "Activation is still required. Verify the issuer identity, environment, and numbering before enabling fiscal emission.",
+    "toastImported_one": "{{count}} fiscal profile imported",
+    "toastImported_other": "{{count}} fiscal profiles imported"
   }
 }

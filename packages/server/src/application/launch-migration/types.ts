@@ -233,3 +233,63 @@ export interface OpeningCashImportPreviewRow {
   normalized: NormalizedLaunchOpeningCash;
   issues: OpeningCashImportIssue[];
 }
+
+export const FISCAL_PROFILE_IMPORT_FIELDS = [
+  'countryCode',
+  'taxIdentifier',
+  'economicActivityCode',
+  'issueLocation',
+  'administrativeAreaCode',
+  'resolutionNumber',
+  'numberingPrefix',
+  'rangeFrom',
+  'rangeTo',
+  'environment',
+] as const;
+
+export type FiscalProfileImportField = (typeof FISCAL_PROFILE_IMPORT_FIELDS)[number];
+export type FiscalProfileCountryCode = 'CO' | 'MX' | 'CL';
+
+export type FiscalProfileImportIssueCode =
+  | 'required'
+  | 'too_long'
+  | 'unsupported_country'
+  | 'tenant_country_mismatch'
+  | 'invalid_tax_identifier'
+  | 'invalid_activity_code'
+  | 'invalid_issue_location'
+  | 'invalid_administrative_area'
+  | 'invalid_number'
+  | 'invalid_range'
+  | 'invalid_environment'
+  | 'duplicate_file_profile'
+  | 'duplicate_existing_profile'
+  | 'existing_profile_conflict'
+  | 'concurrent_profile_change'
+  | 'import_failed';
+
+export interface FiscalProfileImportIssue {
+  code: FiscalProfileImportIssueCode;
+  field: FiscalProfileImportField;
+}
+
+export interface NormalizedLaunchFiscalProfile {
+  countryCode: FiscalProfileCountryCode | null;
+  taxIdentifier: string;
+  economicActivityCode: string | null;
+  issueLocation: string | null;
+  administrativeAreaCode: number | null;
+  resolutionNumber: string | null;
+  numberingPrefix: string | null;
+  rangeFrom: number | null;
+  rangeTo: number | null;
+  environment: string;
+  activationRequired: true;
+}
+
+export interface FiscalProfileImportPreviewRow {
+  rowNumber: number;
+  status: PartyImportPreviewStatus;
+  normalized: NormalizedLaunchFiscalProfile;
+  issues: FiscalProfileImportIssue[];
+}

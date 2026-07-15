@@ -11,7 +11,7 @@ import {
   loginAs,
   resetSession,
 } from './support/app.js';
-import { seedCashierWithoutSession } from './support/db.js';
+import { seedCashierWithoutSession, seedFiscalProfileScenario } from './support/db.js';
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -464,6 +464,92 @@ test.describe('launch data import (ENG-123)', () => {
     await openDialog.getByRole('button', { name: 'Open session' }).click();
     await expect(openDialog).toBeHidden({ timeout: 15_000 });
     await expect(page.getByText(registerName, { exact: true })).toBeVisible();
+    await expectNoClientIssues(tracker);
+  });
+
+  test('admin imports a disabled fiscal profile and reviews the canonical company settings', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const suffix = `${testInfo.parallelIndex}-${Date.now()}`;
+    const scenario = seedFiscalProfileScenario(`fiscal-profile-${suffix}`);
+    const fiscalCsv = [
+      'Country code,Tax ID,Regime or activity code,Issue location,Numbering resolution,Numbering prefix,Range from,Range to,Fiscal environment',
+      'CO,900123456-7,,,18764000001234,SETT,1,5000,habilitacion',
+      'MX,XEXX010101000,601,01000,,,,,sandbox',
+    ].join('\n');
+
+    await login(page, {
+      email: scenario.admin.email,
+      password: scenario.admin.password,
+      defaultPath: '/company',
+    });
+    await ensureLanguage(page, 'en');
+    await page.goto('/data-import');
+    await chooseRealData(page);
+    await page.getByRole('button', { name: /^Fiscal profile/ }).click();
+    await expect(page.getByTestId('data-import-fiscalProfiles-workflow')).toBeVisible();
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'fiscal-profile.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(fiscalCsv),
+    });
+
+    await expect(page.getByLabel(/^Country code/)).toHaveValue('Country code');
+    await expect(page.getByLabel(/^Issuer tax identifier/)).toHaveValue('Tax ID');
+    await expect(page.getByLabel(/^Regime or activity code/)).toHaveValue(
+      'Regime or activity code'
+    );
+    await page.getByRole('button', { name: 'Validate and preview' }).click();
+    await expect(page.getByTestId('data-import-summary-ready')).toContainText('1');
+    await expect(page.getByTestId('data-import-summary-invalid')).toContainText('1');
+    await expect(page.getByTestId('data-import-fiscal-activation-boundary')).toContainText(
+      'stay disabled'
+    );
+    const invalidMxRow = page.getByTestId('data-import-preview-row-3');
+    await expect(invalidMxRow).toContainText('601');
+    await expect(invalidMxRow).toContainText('does not match the business country');
+    await expect(invalidMxRow).not.toContainText('Required value is missing');
+    await captureEvidence(page, 'eng-123f-fiscal-profile-preview-en');
+
+    await confirmRealData(page);
+    await page.getByRole('button', { name: 'Import 1 ready row' }).click();
+    const report = page.getByTestId('data-import-report');
+    await expect(report).toContainText('1 fiscal profile imported and left disabled for review.');
+    await expect(page.getByTestId('data-import-fiscal-activation-required')).toContainText(
+      'Activation is still required'
+    );
+    await captureEvidence(page, 'eng-123f-fiscal-profile-report-en');
+
+    await page.getByRole('link', { name: /Review fiscal profile/ }).click();
+    await expect(page).toHaveURL(/\/company\?tab=fiscal$/);
+    await expect(page.getByRole('heading', { name: 'Colombia — DIAN' })).toBeVisible();
+    await expect(page.locator('#fiscal-co-nit')).toHaveValue('900123456-7');
+    await expect(page.locator('#fiscal-co-resolution')).toHaveValue('18764000001234');
+    await expect(page.locator('#fiscal-co-prefix')).toHaveValue('SETT');
+    await expect(page.locator('#fiscal-co-range-from')).toHaveValue('1');
+    await expect(page.locator('#fiscal-co-range-to')).toHaveValue('5000');
+    await expect(page.locator('#fiscal-co-environment')).toHaveValue('habilitacion');
+    await expect(
+      page.getByRole('checkbox', { name: 'Enable DIAN electronic invoicing' })
+    ).not.toBeChecked();
+    await captureEvidence(page, 'eng-123f-fiscal-profile-company-roundtrip-en');
+
+    await ensureLanguage(page, 'es');
+    await page.goto('/data-import');
+    await chooseRealData(page, true);
+    await page.getByRole('button', { name: /^Perfil fiscal/ }).click();
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'perfil-fiscal.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(fiscalCsv),
+    });
+    await page.getByRole('button', { name: 'Validar y previsualizar' }).click();
+    await expect(page.getByTestId('data-import-summary-duplicates')).toContainText('1');
+    await expect(page.getByTestId('data-import-preview-row-2')).toContainText(
+      'Este perfil de emisor ya está configurado'
+    );
+    await captureEvidence(page, 'eng-123f-fiscal-profile-duplicate-es');
     await expectNoClientIssues(tracker);
   });
 

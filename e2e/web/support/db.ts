@@ -53,6 +53,12 @@ export interface SeededCashSessionScenario extends SeededSaleScenario {
   expectedBalance: number;
 }
 
+export interface SeededFiscalProfileScenario {
+  tenantId: string;
+  site: BusinessSite;
+  admin: BusinessUser;
+}
+
 export interface SaleRecord {
   id: string;
   saleNumber: string;
@@ -211,8 +217,7 @@ function getTenantAndSites(db: Database): { tenantId: string; sites: BusinessSit
 
 function getPasswordHash(db: Database, email: string): string {
   const template = db.prepare('select password_hash from users where email = ?').get(email) as
-    | { password_hash?: string }
-    | undefined;
+    { password_hash?: string } | undefined;
 
   if (!template?.password_hash) {
     throw new Error(`Template user ${email} not found`);
@@ -471,6 +476,65 @@ export function seedPurchaseScenario(seed: string): SeededPurchaseScenario {
 
 export function seedTransferScenario(seed: string): SeededSaleScenario {
   return seedScenario(seed, { siteStocks: [SITE_STOCK, 0] });
+}
+
+/** Seed an isolated CO tenant so fiscal-profile import never mutates shared demo settings. */
+export function seedFiscalProfileScenario(seed: string): SeededFiscalProfileScenario {
+  const db = openDb();
+  try {
+    const suffix = `${normalizeSeed(seed)}-${randomUUID().slice(0, 8)}`;
+    const now = nowIso();
+    const tenantId = makeId('e2e_fiscal_tenant');
+    const companyId = makeId('e2e_fiscal_company');
+    const siteId = makeId('e2e_fiscal_site');
+    const adminId = makeId('e2e_fiscal_admin');
+    const email = `e2e.fiscal.admin.${suffix}@local.test`;
+    const site = { id: siteId, name: `E2E Fiscal Site ${suffix}` };
+    const passwordHash = getPasswordHash(db, 'e2e.admin@local.test');
+
+    db.transaction(() => {
+      db.prepare(
+        `insert into tenants (
+          id, name, slug, settings, default_currency_code, is_active, created_at, updated_at
+        ) values (?, ?, ?, ?, 'COP', 1, ?, ?)`
+      ).run(
+        tenantId,
+        `E2E Fiscal Tenant ${suffix}`,
+        `e2e-fiscal-${suffix}`,
+        JSON.stringify({ modules: {} }),
+        now,
+        now
+      );
+      db.prepare(
+        `insert into companies (id, tenant_id, name, created_at, updated_at)
+         values (?, ?, ?, ?, ?)`
+      ).run(companyId, tenantId, `E2E Fiscal Company ${suffix}`, now, now);
+      db.prepare(
+        `insert into sites (
+          id, tenant_id, company_id, name, is_active, created_at, updated_at
+        ) values (?, ?, ?, ?, 1, ?, ?)`
+      ).run(siteId, tenantId, companyId, site.name, now, now);
+      db.prepare(
+        `insert into tenant_locale_settings (
+          tenant_id, country_code, version, updated_at
+        ) values (?, 'CO', 1, ?)`
+      ).run(tenantId, now);
+      db.prepare(
+        `insert into users (
+          id, tenant_id, email, name, password_hash, session_version,
+          role, is_active, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, 1, 'admin', 1, ?, ?)`
+      ).run(adminId, tenantId, email, `E2E Fiscal Admin ${suffix}`, passwordHash, now, now);
+    })();
+
+    return {
+      tenantId,
+      site,
+      admin: { id: adminId, email, password: E2E_PASSWORD },
+    };
+  } finally {
+    db.close();
+  }
 }
 
 /**

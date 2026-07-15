@@ -125,7 +125,8 @@
     "data_import.customers": "Customer launch data imported",
     "data_import.providers": "Supplier launch data imported",
     "data_import.customer_balances": "Customer opening receivables imported",
-    "data_import.opening_cash": "Register opening cash imported"
+    "data_import.opening_cash": "Register opening cash imported",
+    "data_import.fiscal_profile": "Fiscal profile imported"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
 import { CustomerBalanceImportWorkflow } from './CustomerBalanceImportWorkflow';
+import { FiscalProfileImportWorkflow } from './FiscalProfileImportWorkflow';
 import { ImportModePanel } from './ImportModePanel';
 import { OpeningCashImportWorkflow } from './OpeningCashImportWorkflow';
 import { PartyImportWorkflow } from './PartyImportWorkflow';
@@ -16,6 +17,7 @@ const IMPORT_ENTITIES: ImportEntity[] = [
   'providers',
   'customerBalances',
   'openingCash',
+  'fiscalProfiles',
 ];
 
 export function DataImportPage() {
@@ -47,7 +49,7 @@ export function DataImportPage() {
           {t('entitySelector.label')}
         </h2>
         <div
-          className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+          className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
           role="group"
           aria-label={t('entitySelector.label')}
         >
@@ -91,6 +93,12 @@ export function DataImportPage() {
           />
         ) : entity === 'openingCash' ? (
           <OpeningCashImportWorkflow
+            key={`${dataMode}:${entity}`}
+            dataMode={dataMode}
+            onBusyChange={setIsWorkflowBusy}
+          />
+        ) : entity === 'fiscalProfiles' ? (
+          <FiscalProfileImportWorkflow
             key={`${dataMode}:${entity}`}
             dataMode={dataMode}
             onBusyChange={setIsWorkflowBusy}

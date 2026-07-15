@@ -53,6 +53,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'data_import.customer_balances',
     // ENG-123e — imported opening floats affect drawer accountability.
     'data_import.opening_cash',
+    // ENG-123f — issuer configuration can affect legally binding documents.
+    'data_import.fiscal_profile',
     'fiscal.xml.downloaded',
   ],
   inventory: [

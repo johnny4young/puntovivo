@@ -3,7 +3,7 @@ import type { ParsedImportFile } from './fileParser';
 import { normalizeImportHeader } from './mappingUtils';
 
 export type ImportEntity =
-  'products' | 'customers' | 'providers' | 'customerBalances' | 'openingCash';
+  'products' | 'customers' | 'providers' | 'customerBalances' | 'openingCash' | 'fiscalProfiles';
 export type PartyImportEntity = 'customers' | 'providers';
 
 export const PARTY_IMPORT_FIELDS = {

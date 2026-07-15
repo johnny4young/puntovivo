@@ -10,6 +10,8 @@ import {
   previewLaunchProductImport,
   previewLaunchProviderImport,
   previewLaunchOpeningCashImport,
+  commitLaunchFiscalProfileImport,
+  previewLaunchFiscalProfileImport,
 } from '../../application/launch-migration/index.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
@@ -24,6 +26,8 @@ import {
   previewLaunchProductImportInput,
   previewLaunchProviderImportInput,
   previewLaunchOpeningCashImportInput,
+  commitLaunchFiscalProfileImportInput,
+  previewLaunchFiscalProfileImportInput,
 } from '../schemas/launchMigration.js';
 
 export const launchMigrationRouter = router({
@@ -64,5 +68,15 @@ export const launchMigrationRouter = router({
     .input(commitLaunchOpeningCashImportInput)
     .mutation(({ ctx, input }) =>
       commitLaunchOpeningCashImport({ ...ctx, user: ctx.user! }, input)
+    ),
+  previewFiscalProfiles: adminProcedure
+    .input(previewLaunchFiscalProfileImportInput)
+    .mutation(({ ctx, input }) =>
+      previewLaunchFiscalProfileImport({ ...ctx, user: ctx.user! }, input)
+    ),
+  importFiscalProfiles: adminProcedure
+    .input(commitLaunchFiscalProfileImportInput)
+    .mutation(({ ctx, input }) =>
+      commitLaunchFiscalProfileImport({ ...ctx, user: ctx.user! }, input)
     ),
 });

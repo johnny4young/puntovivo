@@ -89,11 +89,15 @@ vi.mock('@/lib/trpc', () => ({
         getBalance: { invalidate: vi.fn() },
       },
       cashSessions: { registerAssignments: { invalidate: vi.fn() } },
+      fiscalSettings: { getByCountry: { invalidate: vi.fn() } },
       inventory: {
         listStock: { invalidate: mocks.invalidateStock },
         listEntries: { invalidate: mocks.invalidateEntries },
       },
-      setupReadiness: { get: { invalidate: mocks.invalidateReadiness } },
+      setupReadiness: {
+        get: { invalidate: mocks.invalidateReadiness },
+        checkout: { invalidate: vi.fn() },
+      },
     }),
     launchMigration: {
       previewProducts: {
@@ -168,6 +172,12 @@ vi.mock('@/lib/trpc', () => ({
       importOpeningCash: {
         useMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
       },
+      previewFiscalProfiles: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
+      },
+      importFiscalProfiles: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
+      },
     },
   },
 }));
@@ -183,7 +193,7 @@ vi.mock('@/services/export/exportService', () => ({
   exportToCSV: mocks.exportToCSV,
 }));
 
-describe('ENG-123a through ENG-123e DataImportPage', () => {
+describe('ENG-123a through ENG-123f DataImportPage', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mocks.previewPending = false;
@@ -343,7 +353,7 @@ describe('ENG-123a through ENG-123e DataImportPage', () => {
     );
   });
 
-  it('switches between isolated catalog, party, receivable, and opening-cash workflows', async () => {
+  it('switches between isolated launch-migration workflows', async () => {
     const user = userEvent.setup();
     render(<DataImportPage />);
 
@@ -370,6 +380,12 @@ describe('ENG-123a through ENG-123e DataImportPage', () => {
     await user.click(screen.getByRole('button', { name: /Register opening cash/ }));
     expect(screen.getByTestId('data-import-openingCash-workflow')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Register opening cash/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await user.click(screen.getByRole('button', { name: /Fiscal profile/ }));
+    expect(screen.getByTestId('data-import-fiscalProfiles-workflow')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Fiscal profile/ })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
@@ -423,6 +439,7 @@ describe('ENG-123a through ENG-123e DataImportPage', () => {
     expect(screen.getByRole('button', { name: /Suppliers/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Customer receivables/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Register opening cash/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Fiscal profile/ })).toBeDisabled();
     expect(screen.getByRole('radio', { name: /Demo data/ })).toBeDisabled();
     expect(screen.getByRole('radio', { name: /Real business data/ })).toBeDisabled();
   });

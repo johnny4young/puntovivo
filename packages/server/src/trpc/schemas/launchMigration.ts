@@ -213,6 +213,46 @@ export const commitLaunchOpeningCashImportInput = previewLaunchOpeningCashImport
   previewHash: z.string().regex(/^[a-f0-9]{64}$/),
 });
 
+export const launchFiscalProfileImportRowSchema = z
+  .object({
+    rowNumber: z.number().int().min(2).max(1_000_000),
+    values: z
+      .object({
+        countryCode: importCell,
+        taxIdentifier: importCell,
+        economicActivityCode: importCell,
+        issueLocation: importCell,
+        administrativeAreaCode: importCell,
+        resolutionNumber: importCell,
+        numberingPrefix: importCell,
+        rangeFrom: importCell,
+        rangeTo: importCell,
+        environment: importCell,
+      })
+      .strict(),
+  })
+  .strict();
+
+const launchFiscalProfileImportRowsSchema = z
+  .array(launchFiscalProfileImportRowSchema)
+  .min(1, 'At least one import row is required')
+  .max(50, 'A fiscal-profile import can contain at most 50 rows')
+  .superRefine(addUniqueRowNumberIssues);
+
+export const previewLaunchFiscalProfileImportInput = z
+  .object({
+    dataMode: launchImportDataModeSchema,
+    sourceName: z.string().trim().min(1).max(240),
+    rows: launchFiscalProfileImportRowsSchema,
+  })
+  .strict();
+
+export const commitLaunchFiscalProfileImportInput = previewLaunchFiscalProfileImportInput.extend({
+  confirmedRealData: z.literal(true),
+  dataMode: z.literal('real'),
+  previewHash: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
 export type ImportDecimalFormat = z.infer<typeof importDecimalFormatSchema>;
 export type LaunchImportDataMode = z.infer<typeof launchImportDataModeSchema>;
 export type LaunchProductImportRow = z.infer<typeof launchProductImportRowSchema>;
@@ -236,3 +276,10 @@ export type PreviewLaunchOpeningCashImportInput = z.infer<
   typeof previewLaunchOpeningCashImportInput
 >;
 export type CommitLaunchOpeningCashImportInput = z.infer<typeof commitLaunchOpeningCashImportInput>;
+export type LaunchFiscalProfileImportRow = z.infer<typeof launchFiscalProfileImportRowSchema>;
+export type PreviewLaunchFiscalProfileImportInput = z.infer<
+  typeof previewLaunchFiscalProfileImportInput
+>;
+export type CommitLaunchFiscalProfileImportInput = z.infer<
+  typeof commitLaunchFiscalProfileImportInput
+>;

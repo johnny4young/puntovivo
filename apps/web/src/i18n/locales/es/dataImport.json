@@ -1,7 +1,7 @@
 {
   "kicker": "Migración de lanzamiento",
   "title": "Importar datos",
-  "description": "Lleva a Puntovivo productos, clientes, proveedores, cartera y bases iniciales de caja mediante importaciones revisables y aisladas para tu negocio.",
+  "description": "Lleva a Puntovivo productos, clientes, proveedores, cartera, bases iniciales de caja y perfiles fiscales mediante importaciones revisables y aisladas para tu negocio.",
   "safety": {
     "kicker": "Seguridad de la importación",
     "title": "Elige cómo se usará este archivo",
@@ -188,6 +188,10 @@
     "openingCash": {
       "label": "Bases iniciales de caja",
       "description": "Plantillas conciliadas por denominación para cada caja y sede."
+    },
+    "fiscalProfiles": {
+      "label": "Perfil fiscal",
+      "description": "Identidad del emisor, régimen tributario y numeración autorizada."
     }
   },
   "party": {
@@ -343,5 +347,48 @@
       "openingFloat": "120000",
       "denominations": "50000:2;20000:1"
     }
+  },
+  "fiscalProfiles": {
+    "fields": {
+      "countryCode": "Código de país",
+      "taxIdentifier": "Identificación tributaria del emisor",
+      "economicActivityCode": "Código de régimen o actividad",
+      "issueLocation": "Lugar de expedición o casa matriz",
+      "administrativeAreaCode": "Código de división administrativa",
+      "resolutionNumber": "Resolución de numeración",
+      "numberingPrefix": "Prefijo de numeración",
+      "rangeFrom": "Inicio del rango autorizado",
+      "rangeTo": "Fin del rango autorizado",
+      "environment": "Ambiente fiscal"
+    },
+    "mapDescription": "Mapea los campos del perfil del emisor disponibles en el archivo. El código de país y la identificación tributaria siempre son obligatorios; Puntovivo valida los demás requisitos para CO, MX o CL.",
+    "countryFieldHelp": "Usa CO, MX o CL e incluye únicamente el perfil del país de este negocio. MX usa régimen y código postal; CL usa actividad, comuna y dirección de casa matriz; CO usa resolución y rango autorizado.",
+    "previewDescription": "Puntovivo valida este archivo con el paquete fiscal canónico de {{country}} y nunca reemplaza un perfil de emisor establecido.",
+    "activationBoundary": "Límite de seguridad: los perfiles fiscales importados permanecen desactivados. Revisa los datos del emisor y activa manualmente la emisión fiscal en Empresa → Fiscal.",
+    "profileDetails": "Detalle del perfil",
+    "issues": {
+      "required": "Falta un valor obligatorio",
+      "too_long": "El valor supera la longitud permitida",
+      "unsupported_country": "Solo se admiten perfiles fiscales de CO, MX y CL",
+      "tenant_country_mismatch": "Este perfil no coincide con el país del negocio",
+      "invalid_tax_identifier": "La identificación tributaria del emisor no es válida para este país",
+      "invalid_activity_code": "El código de régimen o actividad no existe en el catálogo fiscal",
+      "invalid_issue_location": "El lugar de expedición no es válido para este país",
+      "invalid_administrative_area": "El código de división administrativa no existe en el catálogo fiscal",
+      "invalid_number": "El valor de numeración debe ser un entero positivo",
+      "invalid_range": "El inicio del rango autorizado no puede superar su fin",
+      "invalid_environment": "El ambiente fiscal no es válido para este país",
+      "duplicate_file_profile": "El perfil de este país está repetido en el archivo",
+      "duplicate_existing_profile": "Este perfil de emisor ya está configurado",
+      "existing_profile_conflict": "Ya existe un perfil de emisor establecido; revísalo en Empresa → Fiscal",
+      "concurrent_profile_change": "El perfil fiscal cambió después de la previsualización; vuelve a validar el archivo",
+      "import_failed": "No se pudo importar el perfil fiscal"
+    },
+    "reportDescription_one": "Se importó {{count}} perfil fiscal y quedó desactivado para revisión.",
+    "reportDescription_other": "Se importaron {{count}} perfiles fiscales y quedaron desactivados para revisión.",
+    "reviewAction": "Revisar perfil fiscal",
+    "activationReminder": "La activación sigue pendiente. Verifica la identidad del emisor, el ambiente y la numeración antes de habilitar la emisión fiscal.",
+    "toastImported_one": "Se importó {{count}} perfil fiscal",
+    "toastImported_other": "Se importaron {{count}} perfiles fiscales"
   }
 }

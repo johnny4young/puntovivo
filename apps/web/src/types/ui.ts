@@ -127,12 +127,13 @@ export type AuditLogAction =
   | 'inventory.lot.discount_suggestion_dismissed'
   // ENG-136b — admin restore-readiness evidence.
   | 'backup.restore_drill'
-  // ENG-123a through ENG-123e — launch import summaries.
+  // ENG-123a through ENG-123f — launch import summaries.
   | 'data_import.products'
   | 'data_import.customers'
   | 'data_import.providers'
   | 'data_import.customer_balances'
-  | 'data_import.opening_cash';
+  | 'data_import.opening_cash'
+  | 'data_import.fiscal_profile';
 
 export type AuditLogResourceType =
   | 'transfer_order'

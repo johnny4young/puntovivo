@@ -38,3 +38,10 @@ export type OpeningCashImportReport = RouterOutputs['launchMigration']['importOp
 export type OpeningCashImportIssue = OpeningCashImportPreviewRow['issues'][number];
 export type OpeningCashImportRowsInput =
   RouterInputs['launchMigration']['previewOpeningCash']['rows'];
+
+export type FiscalProfileImportPreview = RouterOutputs['launchMigration']['previewFiscalProfiles'];
+export type FiscalProfileImportPreviewRow = FiscalProfileImportPreview['rows'][number];
+export type FiscalProfileImportReport = RouterOutputs['launchMigration']['importFiscalProfiles'];
+export type FiscalProfileImportIssue = FiscalProfileImportPreviewRow['issues'][number];
+export type FiscalProfileImportRowsInput =
+  RouterInputs['launchMigration']['previewFiscalProfiles']['rows'];
