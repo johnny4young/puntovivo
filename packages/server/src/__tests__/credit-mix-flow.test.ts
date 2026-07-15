@@ -484,7 +484,7 @@ describe('completeSale (ENG-014 credit-mix flow)', () => {
     ).rejects.toThrow(/customer/i);
   });
 
-  it('router rejects cashier callers that forge split-credit create payloads', async () => {
+  it('router requires manager approval for cashier split-credit create payloads', async () => {
     const customerId = await seedCustomer({
       name: 'Cliente Split Cajero',
       creditLimit: 0,
@@ -515,12 +515,12 @@ describe('completeSale (ENG-014 credit-mix flow)', () => {
       })
     ).rejects.toMatchObject({
       cause: expect.objectContaining({
-        errorCode: 'CREDIT_SALE_FORBIDDEN',
+        errorCode: 'MANAGER_APPROVAL_REQUIRED',
       }),
     });
   });
 
-  it('router rejects cashier callers that forge split-credit draft completion payloads', async () => {
+  it('router requires manager approval for cashier split-credit draft completion', async () => {
     const customerId = await seedCustomer({
       name: 'Cliente Split Draft Cajero',
       creditLimit: 0,
@@ -563,7 +563,7 @@ describe('completeSale (ENG-014 credit-mix flow)', () => {
       })
     ).rejects.toMatchObject({
       cause: expect.objectContaining({
-        errorCode: 'CREDIT_SALE_FORBIDDEN',
+        errorCode: 'MANAGER_APPROVAL_REQUIRED',
       }),
     });
   });

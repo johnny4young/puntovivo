@@ -29,12 +29,21 @@ function openDb() {
 
 function cleanApprovalRows(db: Database.Database, tenantId: string) {
   db.prepare(
-    "delete from sync_outbox where tenant_id = ? and entity_type = 'manager_approval_requests'"
+    `delete from sync_outbox
+     where tenant_id = ?
+       and entity_type = 'manager_approval_requests'
+       and entity_id glob 'e2e_approval_*'`
   ).run(tenantId);
   db.prepare(
-    "delete from audit_logs where tenant_id = ? and resource_type = 'manager_approval'"
+    `delete from audit_logs
+     where tenant_id = ?
+       and resource_type = 'manager_approval'
+       and resource_id glob 'e2e_approval_*'`
   ).run(tenantId);
-  db.prepare('delete from manager_approval_requests where tenant_id = ?').run(tenantId);
+  db.prepare(
+    `delete from manager_approval_requests
+     where tenant_id = ? and id glob 'e2e_approval_*'`
+  ).run(tenantId);
 }
 
 /** Seed one deterministic pending request while preserving production PIN hashing. */

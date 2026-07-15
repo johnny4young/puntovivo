@@ -2,13 +2,19 @@ import { and, desc, eq, gt, inArray, isNull, lte, ne } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { UserRole } from '@puntovivo/shared/roles';
 import {
+  checkoutApprovalActionEnum,
+  type CheckoutApprovalContext,
+} from '@puntovivo/shared/checkout-approval';
+import {
   managerApprovalRequests,
+  sales,
   sites,
   users,
   type ManagerApprovalAction,
   type ManagerApprovalRequest,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
 import {
   checkStaffPin,
   registerStaffPinFailure,
@@ -20,6 +26,8 @@ import {
   effectiveManagerApprovalStatus,
   MANAGER_APPROVAL_GRANT_TTL_MS,
   MANAGER_APPROVAL_REQUEST_TTL_MS,
+  checkoutApprovalResourceId,
+  publicManagerApprovalRequest,
   requiredApproverLabel,
 } from '../../services/manager-approvals.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -27,10 +35,7 @@ import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
 import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { criticalCommandCashierManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
-import {
-  cashierManagerOrAdminProcedure,
-  managerOrAdminProcedure,
-} from '../middleware/roles.js';
+import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { ensureTenantSite } from '../middleware/tenantSite.js';
 import {
   availableManagerApproversInput,
@@ -48,19 +53,40 @@ const MANAGER_ACTIONS: readonly ManagerApprovalAction[] = [
   'credit_sale',
 ];
 
-function omitClaimState(request: ManagerApprovalRequest) {
-  // Claim state is strictly server-internal. Even a null claimToken field in
-  // today's response would silently become a credential leak once action
-  // consumption starts returning or synchronizing an executing row.
-  const { claimToken, claimExpiresAt, ...publicRequest } = request;
-  void claimToken;
-  void claimExpiresAt;
-  return publicRequest;
+function resolveCheckoutApprovalCurrency(
+  db: Parameters<typeof resolveTenantCurrency>[0],
+  tenantId: string,
+  context: CheckoutApprovalContext
+): string {
+  if (context.mode === 'fresh') {
+    return resolveTenantCurrency(db, tenantId);
+  }
+  if (!context.saleId) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'MANAGER_APPROVAL_MISMATCH',
+      message: 'A resumed checkout approval requires a draft sale ID',
+    });
+  }
+
+  const draft = db
+    .select({ currencyCode: sales.currencyCode })
+    .from(sales)
+    .where(and(eq(sales.id, context.saleId), eq(sales.tenantId, tenantId)))
+    .get();
+  if (!draft) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'MANAGER_APPROVAL_MISMATCH',
+      message: 'The checkout draft does not exist for this tenant',
+    });
+  }
+  return draft.currencyCode;
 }
 
 function presentRequest(request: ManagerApprovalRequest, now: string) {
   return {
-    ...omitClaimState(request),
+    ...publicManagerApprovalRequest(request),
     status: effectiveManagerApprovalStatus(request, now),
     requiredApproverRole: requiredApproverLabel(request.action),
   };
@@ -98,10 +124,7 @@ function throwApprovalPinInvalid(): never {
   });
 }
 
-function expireRequestIfNeeded(
-  request: ManagerApprovalRequest,
-  now: string
-): boolean {
+function expireRequestIfNeeded(request: ManagerApprovalRequest, now: string): boolean {
   if (request.status !== 'pending' || request.expiresAt > now) return false;
   request.status = 'expired';
   request.updatedAt = now;
@@ -113,9 +136,10 @@ export const managerApprovalsRouter = router({
   availableApprovers: cashierManagerOrAdminProcedure
     .input(availableManagerApproversInput)
     .query(async ({ ctx, input }) => {
-      const allowedRoles = requiredApproverLabel(input.action) === 'admin'
-        ? (['admin'] as const)
-        : (['admin', 'manager'] as const);
+      const allowedRoles =
+        requiredApproverLabel(input.action) === 'admin'
+          ? (['admin'] as const)
+          : (['admin', 'manager'] as const);
       const rows = await ctx.db
         .select({
           id: users.id,
@@ -150,10 +174,7 @@ export const managerApprovalsRouter = router({
         .from(managerApprovalRequests)
         .innerJoin(
           sites,
-          and(
-            eq(managerApprovalRequests.siteId, sites.id),
-            eq(sites.tenantId, ctx.tenantId)
-          )
+          and(eq(managerApprovalRequests.siteId, sites.id), eq(sites.tenantId, ctx.tenantId))
         )
         .where(
           and(
@@ -204,17 +225,11 @@ export const managerApprovalsRouter = router({
           .from(managerApprovalRequests)
           .innerJoin(
             users,
-            and(
-              eq(managerApprovalRequests.requesterId, users.id),
-              eq(users.tenantId, ctx.tenantId)
-            )
+            and(eq(managerApprovalRequests.requesterId, users.id), eq(users.tenantId, ctx.tenantId))
           )
           .innerJoin(
             sites,
-            and(
-              eq(managerApprovalRequests.siteId, sites.id),
-              eq(sites.tenantId, ctx.tenantId)
-            )
+            and(eq(managerApprovalRequests.siteId, sites.id), eq(sites.tenantId, ctx.tenantId))
           )
           .where(and(...conditions))
           .orderBy(managerApprovalRequests.requestedAt)
@@ -259,8 +274,46 @@ export const managerApprovalsRouter = router({
       const nowMs = Date.now();
       const now = new Date(nowMs).toISOString();
       const expiresAt = new Date(nowMs + MANAGER_APPROVAL_REQUEST_TTL_MS).toISOString();
-      const resourceIdCondition = input.resourceId
-        ? eq(managerApprovalRequests.resourceId, input.resourceId)
+      const checkoutContext = input.checkoutContext
+        ? {
+            ...input.checkoutContext,
+            // Fresh currency is tenant-owned current state; resumed drafts
+            // preserve the currency frozen on the sale row. Never let a stale
+            // or forged renderer locale define the authoritative grant.
+            currencyCode: resolveCheckoutApprovalCurrency(
+              criticalCtx.db,
+              criticalCtx.tenantId,
+              input.checkoutContext
+            ),
+          }
+        : undefined;
+      if (
+        checkoutContext &&
+        !checkoutApprovalActionEnum.includes(
+          input.action as (typeof checkoutApprovalActionEnum)[number]
+        )
+      ) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'MANAGER_APPROVAL_MISMATCH',
+          message: 'This action is not valid for checkout approval',
+        });
+      }
+      const resourceId = checkoutContext
+        ? checkoutApprovalResourceId(checkoutContext)
+        : input.resourceId;
+      const summary = checkoutContext
+        ? {
+            label: 'checkout',
+            amount:
+              input.action === 'sale_discount'
+                ? checkoutContext.discountAmount
+                : checkoutContext.creditAmount,
+            currencyCode: checkoutContext.currencyCode,
+          }
+        : input.summary;
+      const resourceIdCondition = resourceId
+        ? eq(managerApprovalRequests.resourceId, resourceId)
         : isNull(managerApprovalRequests.resourceId);
       const existing = await criticalCtx.db
         .select()
@@ -291,8 +344,8 @@ export const managerApprovalsRouter = router({
         status: 'pending' as const,
         reason: input.reason,
         resourceType: input.resourceType,
-        resourceId: input.resourceId ?? null,
-        summary: input.summary,
+        resourceId: resourceId ?? null,
+        summary,
         requestedAt: now,
         expiresAt,
         createdAt: now,
@@ -318,8 +371,8 @@ export const managerApprovalsRouter = router({
           metadata: {
             reason: input.reason,
             resourceType: input.resourceType,
-            resourceId: input.resourceId ?? null,
-            summary: input.summary,
+            resourceId: resourceId ?? null,
+            summary,
             requiredApproverRole: requiredApproverLabel(input.action),
           },
         });
@@ -402,17 +455,14 @@ export const managerApprovalsRouter = router({
         .get();
       const approverRole = approver?.role as UserRole | undefined;
       const actorCanPresentDecision =
-        criticalCtx.user.id === request.requesterId ||
-        criticalCtx.user.id === input.approverId;
+        criticalCtx.user.id === request.requesterId || criticalCtx.user.id === input.approverId;
       const eligible =
         actorCanPresentDecision &&
         approverRole !== undefined &&
         approver?.id !== request.requesterId &&
         canRoleApproveAction(approverRole, request.action);
       const verificationHash =
-        eligible && approver?.staffPinHash
-          ? approver.staffPinHash
-          : await getDummyStaffPinHash();
+        eligible && approver?.staffPinHash ? approver.staffPinHash : await getDummyStaffPinHash();
       const pinMatches = await verifyStaffPin(verificationHash, input.pin);
       if (!eligible || !approver?.staffPinHash || !pinMatches) {
         registerStaffPinFailure(criticalCtx.db, rateIdentity);
@@ -471,9 +521,7 @@ export const managerApprovalsRouter = router({
           tenantId: criticalCtx.tenantId,
           actorId: approver.id,
           action:
-            input.decision === 'approved'
-              ? 'manager_approval.approve'
-              : 'manager_approval.reject',
+            input.decision === 'approved' ? 'manager_approval.approve' : 'manager_approval.reject',
           resourceType: 'manager_approval',
           resourceId: request.id,
           before: {
@@ -516,7 +564,7 @@ export const managerApprovalsRouter = router({
         entityType: 'manager_approval_requests',
         entityId: updated.id,
         operation: 'update',
-        data: omitClaimState(updated),
+        data: publicManagerApprovalRequest(updated),
         priority: 10,
       });
       return {
@@ -600,7 +648,7 @@ export const managerApprovalsRouter = router({
         entityType: 'manager_approval_requests',
         entityId: updated.id,
         operation: 'update',
-        data: omitClaimState(updated),
+        data: publicManagerApprovalRequest(updated),
         priority: 10,
       });
       return presentRequest(updated, now);

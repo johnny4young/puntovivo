@@ -1,5 +1,14 @@
 export { roundMoney } from './money.js';
 export {
+  CHECKOUT_APPROVAL_RESOURCE_TYPE,
+  checkoutApprovalActionEnum,
+  serializeCheckoutApprovalContext,
+  type CheckoutApprovalAction,
+  type CheckoutApprovalContext,
+  type CheckoutApprovalItem,
+  type CheckoutApprovalPayment,
+} from './checkout-approval.js';
+export {
   ADMIN_ONLY_ROLES,
   DASHBOARD_ROLES,
   MANAGER_OR_ADMIN_ROLES,

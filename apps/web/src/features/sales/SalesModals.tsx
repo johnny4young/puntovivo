@@ -55,6 +55,11 @@ interface SalesModalsProps {
   isPaymentModalOpen: boolean;
   paymentModalKey: number;
   paymentTotal: number;
+  paymentApprovalSaleId: string | null;
+  paymentApprovalCustomerId: string | null;
+  paymentApprovalItems: SaleCartItem[];
+  paymentApprovalDiscountAmount: number;
+  currencyCode: string;
   customers: Customer[];
   isPaymentSaving: boolean;
   saleError: string | null;
@@ -88,6 +93,11 @@ export function SalesModals({
   isPaymentModalOpen,
   paymentModalKey,
   paymentTotal,
+  paymentApprovalSaleId,
+  paymentApprovalCustomerId,
+  paymentApprovalItems,
+  paymentApprovalDiscountAmount,
+  currencyCode,
   customers,
   isPaymentSaving,
   saleError,
@@ -210,6 +220,11 @@ export function SalesModals({
             key={paymentModalKey}
             isOpen={isPaymentModalOpen}
             total={paymentTotal}
+            approvalSaleId={paymentApprovalSaleId}
+            approvalCustomerId={paymentApprovalCustomerId}
+            approvalItems={paymentApprovalItems}
+            approvalDiscountAmount={paymentApprovalDiscountAmount}
+            currencyCode={currencyCode}
             customers={customers}
             isSaving={isPaymentSaving}
             error={saleError}

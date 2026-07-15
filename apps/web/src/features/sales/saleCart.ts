@@ -1,4 +1,5 @@
 import { roundMoney } from '@/lib/money';
+import { getCheckoutApprovalDiscountAmount } from '@puntovivo/shared/checkout-approval';
 import { normalizedQuantity, roundQuantity } from '@puntovivo/shared/unit-math';
 import type { ProductSearchSelection } from '@/types';
 
@@ -28,9 +29,7 @@ export interface SaleCartSummary {
   total: number;
 }
 
-export function getSaleQuantityStep(
-  item: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep'>
-) {
+export function getSaleQuantityStep(item: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep'>) {
   return item.sellByFraction ? Math.max(item.fractionStep ?? 0.01, 0.01) : 1;
 }
 
@@ -137,4 +136,8 @@ export function getCartSummary(items: SaleCartItem[]): SaleCartSummary {
       total: 0,
     }
   );
+}
+
+export function getCartDiscountAmount(items: SaleCartItem[]): number {
+  return getCheckoutApprovalDiscountAmount(items);
 }

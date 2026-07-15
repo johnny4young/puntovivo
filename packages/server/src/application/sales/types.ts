@@ -17,6 +17,7 @@
 
 import type { DatabaseInstance } from '../../db/index.js';
 import type { PuntovivoLogger } from '../../logging/logger.js';
+import type { CheckoutApprovalAction } from '@puntovivo/shared/checkout-approval';
 
 /**
  * Minimal structural log shape accepted by the use-case. Both
@@ -47,6 +48,11 @@ export interface CompleteSaleTender {
   amount: number;
   // ENG-179b — explicit `| undefined` on Zod-optional field.
   reference?: string | null | undefined;
+}
+
+export interface CompleteSaleApprovalReference {
+  action: CheckoutApprovalAction;
+  requestId: string;
 }
 
 /**
@@ -93,6 +99,7 @@ export type CompleteSaleInput =
       serviceChargeRate?: number | null | undefined;
       tableId?: string | null | undefined;
       creditOverride?: boolean | undefined;
+      approvalRequests?: CompleteSaleApprovalReference[] | undefined;
       checkoutStartedAt?: string | undefined;
     }
   | {
@@ -108,6 +115,7 @@ export type CompleteSaleInput =
       serviceChargeAmount?: number | undefined;
       serviceChargeRate?: number | null | undefined;
       creditOverride?: boolean | undefined;
+      approvalRequests?: CompleteSaleApprovalReference[] | undefined;
       checkoutStartedAt?: string | undefined;
     };
 

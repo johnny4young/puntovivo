@@ -7,6 +7,7 @@
  */
 
 import { z } from 'zod';
+import { checkoutApprovalActionEnum } from '@puntovivo/shared/checkout-approval';
 import { paginationInput } from './common.js';
 
 // ============================================================================
@@ -74,6 +75,30 @@ export const salePaymentInput = z
   })
   .strict();
 
+export const checkoutApprovalReferenceInput = z
+  .object({
+    action: z.enum(checkoutApprovalActionEnum),
+    requestId: z.string().trim().min(1),
+  })
+  .strict();
+
+const checkoutApprovalReferencesInput = z
+  .array(checkoutApprovalReferenceInput)
+  .max(checkoutApprovalActionEnum.length)
+  .superRefine((references, ctx) => {
+    const actions = new Set<string>();
+    for (const [index, reference] of references.entries()) {
+      if (actions.has(reference.action)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [index, 'action'],
+          message: 'Approval actions must be unique',
+        });
+      }
+      actions.add(reference.action);
+    }
+  });
+
 /**
  * ENG-039d — restaurant tip / propina method enum. `tipAmount` defaults
  * to 0 so retail tenants that ignore the input pay no contract cost.
@@ -118,14 +143,13 @@ export const createSaleInput = z
      */
     tableId: z.string().min(1).optional(),
     /**
-     * ENG-090 — admin override flag for the credit limit invariant.
-     * When `true`, `requireCreditLimitNotExceeded` skips the throw even
-     * when `currentBalance + grandTotal > creditLimit`. The router
-     * gates this field to admin callers; the manager + cashier paths
-     * reject `true` with `CREDIT_OVERRIDE_FORBIDDEN` before the sale
-     * tx runs.
+     * ENG-090 / ENG-106c2 — credit-limit override. Admins carry direct
+     * authority; non-admin checkout completions must include the exact
+     * credit_override request that the sale transaction consumes.
      */
     creditOverride: z.boolean().optional(),
+    /** ENG-106c2 — one action-specific, one-time approval per cashier gate. */
+    approvalRequests: checkoutApprovalReferencesInput.optional(),
     /** ENG-209 — local cart start; server bounds it against completion time. */
     checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
   })
@@ -134,13 +158,10 @@ export const createSaleInput = z
     message: 'tipMethod requires a positive tipAmount',
     path: ['tipAmount'],
   })
-  .refine(
-    value => value.serviceChargeRate === undefined || (value.serviceChargeAmount ?? 0) > 0,
-    {
-      message: 'serviceChargeRate requires a positive serviceChargeAmount',
-      path: ['serviceChargeAmount'],
-    }
-  )
+  .refine(value => value.serviceChargeRate === undefined || (value.serviceChargeAmount ?? 0) > 0, {
+    message: 'serviceChargeRate requires a positive serviceChargeAmount',
+    path: ['serviceChargeAmount'],
+  })
   .refine(
     value =>
       value.paymentMethod !== 'credit' ||
@@ -242,9 +263,7 @@ export const changeSaleTableInput = z
 export const splitDraftInput = z
   .object({
     sourceSaleId: z.string().min(1, 'Source sale ID is required'),
-    saleItemIds: z
-      .array(z.string().min(1))
-      .min(1, 'At least one sale item must be selected'),
+    saleItemIds: z.array(z.string().min(1)).min(1, 'At least one sale item must be selected'),
     tableId: z.string().min(1).nullable(),
     label: z.string().trim().max(80).optional(),
   })
@@ -318,12 +337,12 @@ export const completeDraftInput = z
      */
     payments: z.array(salePaymentInput).optional(),
     /**
-     * ENG-090 — admin override flag mirrors `createSaleInput.creditOverride`
-     * so a draft that resumed as credit can also bypass the cupo limit
-     * at finalize time when an admin co-signs. Router gates `true` to
-     * admin callers.
+     * ENG-090 / ENG-106c2 — mirrors createSaleInput.creditOverride for
+     * frozen drafts. Non-admin callers need a payload-bound admin grant.
      */
     creditOverride: z.boolean().optional(),
+    /** ENG-106c2 — references are re-bound to the exact frozen draft snapshot. */
+    approvalRequests: checkoutApprovalReferencesInput.optional(),
     /** ENG-209 — reset when a suspended draft is resumed into the local cart. */
     checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
   })
@@ -332,13 +351,10 @@ export const completeDraftInput = z
     message: 'tipMethod requires a positive tipAmount',
     path: ['tipAmount'],
   })
-  .refine(
-    value => value.serviceChargeRate === undefined || (value.serviceChargeAmount ?? 0) > 0,
-    {
-      message: 'serviceChargeRate requires a positive serviceChargeAmount',
-      path: ['serviceChargeAmount'],
-    }
-  );
+  .refine(value => value.serviceChargeRate === undefined || (value.serviceChargeAmount ?? 0) > 0, {
+    message: 'serviceChargeRate requires a positive serviceChargeAmount',
+    path: ['serviceChargeAmount'],
+  });
 
 // ENG-014 — no Zod refine here for "credit tender requires customerId":
 // the draft's customer is locked at create-time and lives on the DB row,

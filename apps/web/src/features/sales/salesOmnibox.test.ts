@@ -106,6 +106,7 @@ describe('sales omnibox cart helpers (ENG-205)', () => {
       ownerKey: 'tenant-1:user-1',
       serverSaleId: 'sale-1',
       serverSaleNumber: 'VTA-1',
+      serverCustomerId: null,
       label: null,
       items: [],
     });

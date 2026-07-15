@@ -16,6 +16,8 @@
 
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import type { UserRole } from '@puntovivo/shared/roles';
+import { getCheckoutApprovalDiscountAmount } from '@puntovivo/shared/checkout-approval';
 import {
   inventoryMovements,
   products,
@@ -53,6 +55,13 @@ import type {
 } from './types.js';
 import { resolveFreshCheckoutTiming } from './checkout-timing.js';
 import { finalizeFreshSale } from './finalizeFreshSale.js';
+import {
+  claimCheckoutApprovals,
+  consumeCheckoutApprovals,
+  enqueueCheckoutApprovalConsumptions,
+  releaseCheckoutApprovals,
+  requiredCheckoutApprovalActions,
+} from './checkout-approvals.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -194,233 +203,289 @@ export async function runFreshSale(
     }
   }
 
-  ctx.db.transaction(tx => {
-    // ENG-042 TOCTOU defense — see helper jsdoc.
-    assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
-
-    tx.update(sequentials)
-      .set({
-        currentValue: nextSequentialValue,
-        updatedAt: now,
-      })
-      .where(eq(sequentials.id, sequentialContext.id))
-      .run();
-
-    tx.insert(sales)
-      .values({
-        id: saleId,
-        tenantId: ctx.tenantId,
-        saleNumber,
-        customerId: input.customerId,
-        // ENG-039c — restaurant table FK passed through from the
-        // tRPC layer (already tenant/site-scoped + active-validated there).
-        tableId: input.tableId ?? null,
-        subtotal,
-        taxAmount,
-        discountAmount: headerDiscount,
-        // ENG-176b — currency seam: every row stamps the tenant
-        // default currency. ENG-156 will replace these defaults with
-        // explicit operator-supplied currency + rate when the sale
-        // crosses currencies.
-        currencyCode: saleCurrencyCode,
-        exchangeRateAtSale: 1,
-        settleCurrencyCode: null,
-        // ENG-039d — tip persisted alongside the existing money columns.
-        tipAmount,
-        tipMethod,
-        // ENG-039d3 — service charge persisted alongside tip; both feed
-        // `total` so payment + receipt rendering stay consistent.
-        serviceChargeAmount,
-        serviceChargeRate,
-        total,
-        // Echo the dominant tender onto the legacy `paymentMethod`
-        // column so older screens that read it directly keep
-        // rendering sensibly.
-        paymentMethod: resolvedPayments.dominantMethod,
-        paymentStatus,
-        status: input.status,
-        cashSessionId: activeCashSession.id,
-        notes: input.notes,
-        createdBy: ctx.user.id,
-        ...checkoutTiming,
-        syncStatus: 'pending',
-        syncVersion: 1,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    // Phase 2 Tier-2 step 5 — persist one row per tender.
-    for (const payment of resolvedPayments.rows) {
-      const paymentId = nanoid();
-      // ENG-176a-rounding — sale_payments.amount carries a precision
-      // CHECK; round at the write boundary because split-payment
-      // resolvers can compute fractional shares
-      // (`total * weight`) that leave sub-cent drift.
-      const tenderAmount = roundMoney(payment.amount);
-      tx.insert(salePayments)
-        .values({
-          id: paymentId,
-          tenantId: ctx.tenantId,
-          saleId,
-          method: payment.method,
-          amount: tenderAmount,
-          reference: payment.reference,
-          syncStatus: 'pending',
-          syncVersion: 1,
-          createdAt: now,
-        })
-        .run();
-      paymentEffects.push({
-        id: paymentId,
+  const requiredApprovalActions = requiredCheckoutApprovalActions({
+    role: ctx.user.role as UserRole,
+    isCompletion: input.status === 'completed',
+    hasDiscount: (input.discountAmount ?? 0) > 0 || input.items.some(item => item.discount > 0),
+    hasCreditTender: creditSaleAmount > 0,
+    creditOverride: input.creditOverride === true,
+  });
+  const approvalClaims = claimCheckoutApprovals({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: saleSiteId,
+    requesterId: ctx.user.id,
+    requiredActions: requiredApprovalActions,
+    references: input.approvalRequests,
+    context: {
+      mode: 'fresh',
+      saleId: null,
+      customerId: input.customerId ?? null,
+      items: input.items.map(item => ({
+        productId: item.productId,
+        unitId: item.unitId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discount: item.discount,
+      })),
+      paymentMethod: input.paymentMethod,
+      payments: (input.payments ?? []).map(payment => ({
         method: payment.method,
-        amount: tenderAmount,
-      });
-    }
+        amount: payment.amount,
+        reference: payment.reference,
+      })),
+      amountReceived: input.amountReceived ?? null,
+      discountAmount: getCheckoutApprovalDiscountAmount(input.items, headerDiscount),
+      total,
+      creditAmount: creditSaleAmount,
+      tipAmount,
+      serviceChargeAmount,
+      currencyCode: saleCurrencyCode,
+    },
+  });
 
-    for (const row of resolvedItems.rows) {
-      tx.insert(saleItems)
+  try {
+    ctx.db.transaction(tx => {
+      // ENG-042 TOCTOU defense — see helper jsdoc.
+      assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+
+      tx.update(sequentials)
+        .set({
+          currentValue: nextSequentialValue,
+          updatedAt: now,
+        })
+        .where(eq(sequentials.id, sequentialContext.id))
+        .run();
+
+      tx.insert(sales)
         .values({
-          id: row.id,
-          saleId,
-          productId: row.productId,
-          quantity: row.quantity,
-          unitPrice: row.unitPrice,
-          unitId: row.unitId,
-          unitEquivalence: row.unitEquivalence,
-          discount: row.discount,
-          taxRate: row.taxRate,
-          taxAmount: row.taxAmount,
-          costAtSale: row.costAtSale,
-          total: row.total,
-          // ENG-176b — line inherits the header currency seam so a
-          // future row-level join can answer "what currency was this
-          // line in?" without re-joining to sales.
+          id: saleId,
+          tenantId: ctx.tenantId,
+          saleNumber,
+          customerId: input.customerId,
+          // ENG-039c — restaurant table FK passed through from the
+          // tRPC layer (already tenant/site-scoped + active-validated there).
+          tableId: input.tableId ?? null,
+          subtotal,
+          taxAmount,
+          discountAmount: headerDiscount,
+          // ENG-176b — currency seam: every row stamps the tenant
+          // default currency. ENG-156 will replace these defaults with
+          // explicit operator-supplied currency + rate when the sale
+          // crosses currencies.
           currencyCode: saleCurrencyCode,
           exchangeRateAtSale: 1,
           settleCurrencyCode: null,
-          // ENG-039d2 — per-line modifier captured at sale creation.
-          notes: row.notes,
-        })
-        .run();
-
-      const effectivePreviousStock = productStockState.get(row.productId) ?? 0;
-      const newStock = effectivePreviousStock - row.normalizedQuantity;
-      productStockState.set(row.productId, newStock);
-
-      const inventoryMovementId = nanoid();
-      tx.insert(inventoryMovements)
-        .values({
-          id: inventoryMovementId,
-          tenantId: ctx.tenantId,
-          productId: row.productId,
-          type: 'sale',
-          quantity: row.normalizedQuantity,
-          previousStock: effectivePreviousStock,
-          newStock,
-          reference: saleId,
-          notes: `Sale ${saleNumber} · ${sequentialContext.siteName}`,
+          // ENG-039d — tip persisted alongside the existing money columns.
+          tipAmount,
+          tipMethod,
+          // ENG-039d3 — service charge persisted alongside tip; both feed
+          // `total` so payment + receipt rendering stay consistent.
+          serviceChargeAmount,
+          serviceChargeRate,
+          total,
+          // Echo the dominant tender onto the legacy `paymentMethod`
+          // column so older screens that read it directly keep
+          // rendering sensibly.
+          paymentMethod: resolvedPayments.dominantMethod,
+          paymentStatus,
+          status: input.status,
+          cashSessionId: activeCashSession.id,
+          notes: input.notes,
           createdBy: ctx.user.id,
+          ...checkoutTiming,
           syncStatus: 'pending',
           syncVersion: 1,
           createdAt: now,
+          updatedAt: now,
         })
         .run();
-      inventoryMovementIds.push(inventoryMovementId);
 
-      // Phase 2 API-103 — debit the cash session's site so per-site
-      // balances reflect where the sale actually happened.
-      applyInventoryBalanceDelta(tx, {
-        tenantId: ctx.tenantId,
-        siteId: saleSiteId,
-        productId: row.productId,
-        delta: -row.normalizedQuantity,
-        initialOnHandIfMissing: effectivePreviousStock,
-        now,
-      });
+      // Phase 2 Tier-2 step 5 — persist one row per tender.
+      for (const payment of resolvedPayments.rows) {
+        const paymentId = nanoid();
+        // ENG-176a-rounding — sale_payments.amount carries a precision
+        // CHECK; round at the write boundary because split-payment
+        // resolvers can compute fractional shares
+        // (`total * weight`) that leave sub-cent drift.
+        const tenderAmount = roundMoney(payment.amount);
+        tx.insert(salePayments)
+          .values({
+            id: paymentId,
+            tenantId: ctx.tenantId,
+            saleId,
+            method: payment.method,
+            amount: tenderAmount,
+            reference: payment.reference,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+          })
+          .run();
+        paymentEffects.push({
+          id: paymentId,
+          method: payment.method,
+          amount: tenderAmount,
+        });
+      }
 
-      // Auditoría 2026-07 — FEFO lot consumption for lot-tracked products.
-      // Runs after the sale_item insert (the provenance FK needs it) and the
-      // balance debit. A shortfall means the lots under-count the balance
-      // that already gated this sale; we do not block the register, we
-      // record it for the drift report.
-      if (lotTrackedProductIds.has(row.productId)) {
-        const { selection, shortfall } = consumeLotsForSaleLine(tx, {
+      for (const row of resolvedItems.rows) {
+        tx.insert(saleItems)
+          .values({
+            id: row.id,
+            saleId,
+            productId: row.productId,
+            quantity: row.quantity,
+            unitPrice: row.unitPrice,
+            unitId: row.unitId,
+            unitEquivalence: row.unitEquivalence,
+            discount: row.discount,
+            taxRate: row.taxRate,
+            taxAmount: row.taxAmount,
+            costAtSale: row.costAtSale,
+            total: row.total,
+            // ENG-176b — line inherits the header currency seam so a
+            // future row-level join can answer "what currency was this
+            // line in?" without re-joining to sales.
+            currencyCode: saleCurrencyCode,
+            exchangeRateAtSale: 1,
+            settleCurrencyCode: null,
+            // ENG-039d2 — per-line modifier captured at sale creation.
+            notes: row.notes,
+          })
+          .run();
+
+        const effectivePreviousStock = productStockState.get(row.productId) ?? 0;
+        const newStock = effectivePreviousStock - row.normalizedQuantity;
+        productStockState.set(row.productId, newStock);
+
+        const inventoryMovementId = nanoid();
+        tx.insert(inventoryMovements)
+          .values({
+            id: inventoryMovementId,
+            tenantId: ctx.tenantId,
+            productId: row.productId,
+            type: 'sale',
+            quantity: row.normalizedQuantity,
+            previousStock: effectivePreviousStock,
+            newStock,
+            reference: saleId,
+            notes: `Sale ${saleNumber} · ${sequentialContext.siteName}`,
+            createdBy: ctx.user.id,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+          })
+          .run();
+        inventoryMovementIds.push(inventoryMovementId);
+
+        // Phase 2 API-103 — debit the cash session's site so per-site
+        // balances reflect where the sale actually happened.
+        applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
           siteId: saleSiteId,
           productId: row.productId,
-          saleItemId: row.id,
-          quantity: row.normalizedQuantity,
+          delta: -row.normalizedQuantity,
+          initialOnHandIfMissing: effectivePreviousStock,
           now,
         });
-        for (const allocation of selection.allocations) {
-          consumedLotIds.add(allocation.lotId);
-        }
-        if (shortfall > 0) {
-          lotShortfalls.push({ productId: row.productId, shortfall });
+
+        // Auditoría 2026-07 — FEFO lot consumption for lot-tracked products.
+        // Runs after the sale_item insert (the provenance FK needs it) and the
+        // balance debit. A shortfall means the lots under-count the balance
+        // that already gated this sale; we do not block the register, we
+        // record it for the drift report.
+        if (lotTrackedProductIds.has(row.productId)) {
+          const { selection, shortfall } = consumeLotsForSaleLine(tx, {
+            tenantId: ctx.tenantId,
+            siteId: saleSiteId,
+            productId: row.productId,
+            saleItemId: row.id,
+            quantity: row.normalizedQuantity,
+            now,
+          });
+          for (const allocation of selection.allocations) {
+            consumedLotIds.add(allocation.lotId);
+          }
+          if (shortfall > 0) {
+            lotShortfalls.push({ productId: row.productId, shortfall });
+          }
         }
       }
-    }
 
-    cashMovementId = insertCashMovement({
-      tx,
-      tenantId: ctx.tenantId,
-      sessionId: activeCashSession.id,
-      type: 'sale',
-      amount: cashCollectedAmount,
-      referenceId: saleId,
-      note: `Sale ${saleNumber} · ${sequentialContext.siteName}`,
-      createdBy: ctx.user.id,
-      createdAt: now,
+      cashMovementId = insertCashMovement({
+        tx,
+        tenantId: ctx.tenantId,
+        sessionId: activeCashSession.id,
+        type: 'sale',
+        amount: cashCollectedAmount,
+        referenceId: saleId,
+        note: `Sale ${saleNumber} · ${sequentialContext.siteName}`,
+        createdBy: ctx.user.id,
+        createdAt: now,
+      });
+
+      if (overrides.length > 0) {
+        // ENG-007 — single audit row summarizing every overridden line.
+        priceOverrideAuditId = writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'sale.price_override',
+          resourceType: 'sale',
+          resourceId: saleId,
+          before: null,
+          after: {
+            saleNumber,
+            overrideCount: overrides.length,
+          },
+          metadata: { overrides },
+        });
+        priceOverrideAuditEmitted = priceOverrideAuditId !== null;
+      }
+
+      // ENG-007 closure — admin authorised a credit sale whose projected
+      // balance exceeded the customer's cupo. `overrideApplied` is true
+      // only when (exceedsLimit && allowOverride === true), so the row
+      // never fires for admin-completed sales that stayed under the
+      // limit. Keeps the audit log clean of admin-completion noise.
+      if (creditProjection?.overrideApplied === true && input.customerId) {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'sale.credit_override',
+          resourceType: 'sale',
+          resourceId: saleId,
+          before: null,
+          after: {
+            customerId: input.customerId,
+            creditLimit: creditProjection.creditLimit,
+            currentBalance: creditProjection.currentBalance,
+            projectedBalance: creditProjection.projectedBalance,
+            attemptedAmount: creditProjection.attemptedAmount,
+          },
+          metadata: {
+            actorRole: ctx.user.role,
+            saleNumber,
+          },
+        });
+      }
+      consumeCheckoutApprovals({
+        tx,
+        tenantId: ctx.tenantId,
+        requesterId: ctx.user.id,
+        claims: approvalClaims,
+        saleId,
+        saleNumber,
+      });
     });
+  } catch (error) {
+    releaseCheckoutApprovals(ctx.db, ctx.tenantId, approvalClaims);
+    throw error;
+  }
 
-    if (overrides.length > 0) {
-      // ENG-007 — single audit row summarizing every overridden line.
-      priceOverrideAuditId = writeAuditLog({
-        tx,
-        tenantId: ctx.tenantId,
-        actorId: ctx.user.id,
-        action: 'sale.price_override',
-        resourceType: 'sale',
-        resourceId: saleId,
-        before: null,
-        after: {
-          saleNumber,
-          overrideCount: overrides.length,
-        },
-        metadata: { overrides },
-      });
-      priceOverrideAuditEmitted = priceOverrideAuditId !== null;
-    }
-
-    // ENG-007 closure — admin authorised a credit sale whose projected
-    // balance exceeded the customer's cupo. `overrideApplied` is true
-    // only when (exceedsLimit && allowOverride === true), so the row
-    // never fires for admin-completed sales that stayed under the
-    // limit. Keeps the audit log clean of admin-completion noise.
-    if (creditProjection?.overrideApplied === true && input.customerId) {
-      writeAuditLog({
-        tx,
-        tenantId: ctx.tenantId,
-        actorId: ctx.user.id,
-        action: 'sale.credit_override',
-        resourceType: 'sale',
-        resourceId: saleId,
-        before: null,
-        after: {
-          customerId: input.customerId,
-          creditLimit: creditProjection.creditLimit,
-          currentBalance: creditProjection.currentBalance,
-          projectedBalance: creditProjection.projectedBalance,
-          attemptedAmount: creditProjection.attemptedAmount,
-        },
-        metadata: {
-          actorRole: ctx.user.role,
-          saleNumber,
-        },
-      });
-    }
-  });
+  await enqueueCheckoutApprovalConsumptions(ctx, approvalClaims);
 
   return finalizeFreshSale({
     ctx,

@@ -3,6 +3,7 @@ import {
   buildCartItem,
   getCartItemKey,
   getCartSummary,
+  getCartDiscountAmount,
   getLineTotals,
   getSaleMinimumQuantity,
   getSaleQuantityStep,
@@ -111,18 +112,10 @@ describe('saleCart fraction policy helpers', () => {
   });
 
   it('clamps fractional step to the 0.01 floor when fractionStep is missing/0/negative', () => {
-    expect(
-      getSaleQuantityStep({ sellByFraction: true, fractionStep: undefined })
-    ).toBe(0.01);
-    expect(
-      getSaleQuantityStep({ sellByFraction: true, fractionStep: 0 })
-    ).toBe(0.01);
-    expect(
-      getSaleQuantityStep({ sellByFraction: true, fractionStep: 0.5 })
-    ).toBe(0.5);
-    expect(
-      getSaleQuantityStep({ sellByFraction: false, fractionStep: 0.5 })
-    ).toBe(1);
+    expect(getSaleQuantityStep({ sellByFraction: true, fractionStep: undefined })).toBe(0.01);
+    expect(getSaleQuantityStep({ sellByFraction: true, fractionStep: 0 })).toBe(0.01);
+    expect(getSaleQuantityStep({ sellByFraction: true, fractionStep: 0.5 })).toBe(0.5);
+    expect(getSaleQuantityStep({ sellByFraction: false, fractionStep: 0.5 })).toBe(1);
   });
 
   it('falls back to step when fractionMinimum is missing for fractional products', () => {
@@ -227,5 +220,20 @@ describe('saleCart core helpers', () => {
       taxAmount: 0,
       total: 0,
     });
+  });
+
+  it('getCartDiscountAmount totals line-level percentage discounts', () => {
+    expect(
+      getCartDiscountAmount([
+        makeItem({ key: 'p1:u1', quantity: 2, unitPrice: 100, discount: 10 }),
+        makeItem({ key: 'p2:u1', quantity: 1, unitPrice: 50, discount: 20 }),
+      ])
+    ).toBe(30);
+    expect(
+      getCartDiscountAmount([
+        makeItem({ key: 'p3:u1', unitPrice: 0.05, discount: 10 }),
+        makeItem({ key: 'p4:u1', unitPrice: 0.05, discount: 10 }),
+      ])
+    ).toBe(0.02);
   });
 });

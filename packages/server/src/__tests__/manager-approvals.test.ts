@@ -7,6 +7,7 @@ import {
   auditLogs,
   companies,
   managerApprovalRequests,
+  sales,
   sites,
   syncOutbox,
   tenants,
@@ -14,6 +15,13 @@ import {
 } from '../db/schema.js';
 import { hashStaffPin } from '../security/staffPins.js';
 import { registerDevice } from '../services/devices/devicesService.js';
+import {
+  checkoutApprovalResourceId,
+  claimManagerApprovalGrant,
+  consumeManagerApprovalGrant,
+  enqueueConsumedManagerApproval,
+  releaseManagerApprovalClaim,
+} from '../services/manager-approvals.js';
 import { appRouter } from '../trpc/router.js';
 import {
   freshCriticalContext,
@@ -114,9 +122,7 @@ describe('manager approvals router (ENG-106c1)', () => {
   it('creates one bounded request with atomic audit and secret-free sync data', async () => {
     const cashier = await createEmployee('cashier');
     const input = requestInput('sale_discount');
-    const created = await appRouter
-      .createCaller(cashier.fresh())
-      .managerApprovals.request(input);
+    const created = await appRouter.createCaller(cashier.fresh()).managerApprovals.request(input);
     expect(created).toMatchObject({
       tenantId,
       siteId,
@@ -127,9 +133,7 @@ describe('manager approvals router (ENG-106c1)', () => {
     });
     expect(Date.parse(created.expiresAt)).toBeGreaterThan(Date.parse(created.requestedAt));
 
-    const duplicate = await appRouter
-      .createCaller(cashier.fresh())
-      .managerApprovals.request(input);
+    const duplicate = await appRouter.createCaller(cashier.fresh()).managerApprovals.request(input);
     expect(duplicate.id).toBe(created.id);
 
     const audit = await db
@@ -159,6 +163,106 @@ describe('manager approvals router (ENG-106c1)', () => {
       .all();
     expect(syncRows).toHaveLength(1);
     expect(JSON.stringify(syncRows)).not.toMatch(/pin|hash/i);
+  });
+
+  it('derives checkout identity and financial summary from the bound context', async () => {
+    const cashier = await createEmployee('cashier');
+    const checkoutContext = {
+      mode: 'fresh' as const,
+      saleId: null,
+      customerId: null,
+      items: [
+        {
+          productId: 'product-1',
+          unitId: 'unit-1',
+          quantity: 1,
+          unitPrice: 100,
+          discount: 25,
+        },
+      ],
+      paymentMethod: 'cash' as const,
+      payments: [],
+      amountReceived: 75,
+      discountAmount: 25,
+      total: 75,
+      creditAmount: 0,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'USD',
+    };
+    const created = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+      action: 'sale_discount',
+      reason: 'Price match requested',
+      resourceType: 'sale_checkout',
+      resourceId: 'checkout:sha256:forged',
+      checkoutContext,
+      summary: { label: 'Only one peso', amount: 1, currencyCode: 'USD' },
+    });
+
+    expect(created.resourceId).toBe(
+      checkoutApprovalResourceId({ ...checkoutContext, currencyCode: 'COP' })
+    );
+    expect(created.summary).toEqual({
+      label: 'checkout',
+      amount: 25,
+      currencyCode: 'COP',
+    });
+  });
+
+  it('preserves the frozen sale currency when approving a resumed draft', async () => {
+    const cashier = await createEmployee('cashier');
+    const saleId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(sales).values({
+      id: saleId,
+      tenantId,
+      saleNumber: `APPROVAL-DRAFT-${saleId}`,
+      currencyCode: 'USD',
+      status: 'draft',
+      createdBy: cashier.id,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const checkoutContext = {
+      mode: 'fromDraft' as const,
+      saleId,
+      customerId: null,
+      items: [
+        {
+          productId: 'product-draft',
+          unitId: 'unit-draft',
+          quantity: 1,
+          unitPrice: 100,
+          discount: 25,
+        },
+      ],
+      paymentMethod: 'cash' as const,
+      payments: [],
+      amountReceived: 75,
+      discountAmount: 25,
+      total: 75,
+      creditAmount: 0,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'COP',
+    };
+
+    const created = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+      action: 'sale_discount',
+      reason: 'Resume the frozen USD draft',
+      resourceType: 'sale_checkout',
+      checkoutContext,
+      summary: { label: 'Forged current-currency summary', amount: 1, currencyCode: 'COP' },
+    });
+
+    expect(created.resourceId).toBe(
+      checkoutApprovalResourceId({ ...checkoutContext, currencyCode: 'USD' })
+    );
+    expect(created.summary).toEqual({
+      label: 'checkout',
+      amount: 25,
+      currencyCode: 'USD',
+    });
   });
 
   it('filters the queue and available approvers by the original direct-role boundary', async () => {
@@ -199,14 +303,12 @@ describe('manager approvals router (ENG-106c1)', () => {
       .createCaller(cashier.fresh())
       .managerApprovals.request(requestInput('credit_sale'));
 
-    const decided = await appRouter
-      .createCaller(cashier.fresh())
-      .managerApprovals.decideWithPin({
-        requestId: request.id,
-        approverId: manager.id,
-        pin: '864209',
-        decision: 'approved',
-      });
+    const decided = await appRouter.createCaller(cashier.fresh()).managerApprovals.decideWithPin({
+      requestId: request.id,
+      approverId: manager.id,
+      pin: '864209',
+      decision: 'approved',
+    });
     expect(decided).toMatchObject({
       id: request.id,
       status: 'approved',
@@ -340,15 +442,13 @@ describe('manager approvals router (ENG-106c1)', () => {
       })
     ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
 
-    const rejected = await appRouter
-      .createCaller(cashier.fresh())
-      .managerApprovals.decideWithPin({
-        requestId: request.id,
-        approverId: manager.id,
-        pin: '445566',
-        decision: 'rejected',
-        reason: 'Drawer count is in progress',
-      });
+    const rejected = await appRouter.createCaller(cashier.fresh()).managerApprovals.decideWithPin({
+      requestId: request.id,
+      approverId: manager.id,
+      pin: '445566',
+      decision: 'rejected',
+      reason: 'Drawer count is in progress',
+    });
     expect(rejected).toMatchObject({
       status: 'rejected',
       decidedBy: manager.id,
@@ -377,9 +477,7 @@ describe('manager approvals router (ENG-106c1)', () => {
     ).rejects.toMatchObject({
       cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_EXPIRED' }),
     });
-    const mine = await appRouter
-      .createCaller(cashier.fresh())
-      .managerApprovals.mine({ limit: 20 });
+    const mine = await appRouter.createCaller(cashier.fresh()).managerApprovals.mine({ limit: 20 });
     expect(mine.find(item => item.id === request.id)?.status).toBe('expired');
     const queue = await appRouter
       .createCaller(manager.fresh())
@@ -518,5 +616,241 @@ describe('manager approvals router (ENG-106c1)', () => {
     ).rejects.toMatchObject({
       cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_NOT_FOUND' }),
     });
+  });
+
+  it('claims and atomically consumes a checkout-bound grant without syncing its token', async () => {
+    const cashier = await createEmployee('cashier');
+    const manager = await createEmployee('manager');
+    const context = {
+      mode: 'fresh' as const,
+      saleId: null,
+      customerId: null,
+      items: [
+        {
+          productId: 'product-1',
+          unitId: 'unit-1',
+          quantity: 1,
+          unitPrice: 100,
+          discount: 10,
+        },
+      ],
+      paymentMethod: 'cash' as const,
+      payments: [],
+      amountReceived: 90,
+      discountAmount: 10,
+      total: 90,
+      creditAmount: 0,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'COP',
+    };
+    const resourceId = checkoutApprovalResourceId(context);
+    const requestId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(managerApprovalRequests).values({
+      id: requestId,
+      tenantId,
+      siteId,
+      requesterId: cashier.id,
+      action: 'sale_discount',
+      status: 'approved',
+      reason: 'Price match verified',
+      resourceType: 'sale_checkout',
+      resourceId,
+      summary: { label: 'Checkout $90', amount: 10, currencyCode: 'USD' },
+      requestedAt: now,
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      decidedAt: now,
+      decidedBy: manager.id,
+      grantExpiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const claim = claimManagerApprovalGrant({
+      db,
+      tenantId,
+      siteId,
+      requesterId: cashier.id,
+      requestId,
+      action: 'sale_discount',
+      resourceId,
+    });
+    expect(claim.token).toMatch(/^[a-f0-9]{64}$/);
+    await expect(() =>
+      claimManagerApprovalGrant({
+        db,
+        tenantId,
+        siteId,
+        requesterId: cashier.id,
+        requestId,
+        action: 'sale_discount',
+        resourceId,
+      })
+    ).toThrowError(
+      expect.objectContaining({
+        cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_UNAVAILABLE' }),
+      })
+    );
+
+    db.transaction(tx => {
+      consumeManagerApprovalGrant({
+        tx,
+        tenantId,
+        requesterId: cashier.id,
+        claim,
+        saleId: 'sale-consumed-1',
+        saleNumber: 'VTA-000001',
+      });
+    });
+    await enqueueConsumedManagerApproval(cashier.fresh(), requestId);
+
+    const consumed = await db
+      .select()
+      .from(managerApprovalRequests)
+      .where(eq(managerApprovalRequests.id, requestId))
+      .get();
+    expect(consumed).toMatchObject({
+      status: 'consumed',
+      resourceType: 'sale',
+      resourceId: 'sale-consumed-1',
+      claimToken: null,
+      claimExpiresAt: null,
+    });
+    const consumeAudit = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(eq(auditLogs.resourceId, requestId), eq(auditLogs.action, 'manager_approval.consume'))
+      )
+      .get();
+    expect(consumeAudit?.metadata).toMatchObject({
+      requesterId: cashier.id,
+      approverId: manager.id,
+      saleNumber: 'VTA-000001',
+    });
+    const synced = await db
+      .select({ payload: syncOutbox.payload })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.entityId, requestId),
+          eq(syncOutbox.entityType, 'manager_approval_requests')
+        )
+      )
+      .all();
+    expect(JSON.stringify(synced)).not.toMatch(/claimToken|claimExpiresAt/i);
+  });
+
+  it('rejects payload drift and releases a claim after an aborted sale transaction', async () => {
+    const cashier = await createEmployee('cashier');
+    const manager = await createEmployee('manager');
+    const resourceId = checkoutApprovalResourceId({
+      mode: 'fresh',
+      saleId: null,
+      customerId: 'customer-1',
+      items: [],
+      paymentMethod: 'credit',
+      payments: [],
+      amountReceived: 0,
+      discountAmount: 0,
+      total: 100,
+      creditAmount: 100,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'COP',
+    });
+    const requestId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(managerApprovalRequests).values({
+      id: requestId,
+      tenantId,
+      siteId,
+      requesterId: cashier.id,
+      action: 'credit_sale',
+      status: 'approved',
+      reason: 'Known customer',
+      resourceType: 'sale_checkout',
+      resourceId,
+      summary: { label: 'Credit checkout' },
+      requestedAt: now,
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      decidedAt: now,
+      decidedBy: manager.id,
+      grantExpiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    expect(() =>
+      claimManagerApprovalGrant({
+        db,
+        tenantId,
+        siteId,
+        requesterId: cashier.id,
+        requestId,
+        action: 'credit_sale',
+        resourceId: `${resourceId}-changed`,
+      })
+    ).toThrowError(
+      expect.objectContaining({
+        cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_MISMATCH' }),
+      })
+    );
+
+    const claim = claimManagerApprovalGrant({
+      db,
+      tenantId,
+      siteId,
+      requesterId: cashier.id,
+      requestId,
+      action: 'credit_sale',
+      resourceId,
+    });
+    expect(() =>
+      db.transaction(() => {
+        throw new Error('simulated sale rollback');
+      })
+    ).toThrow('simulated sale rollback');
+    releaseManagerApprovalClaim(db, tenantId, claim);
+    const released = await db
+      .select({
+        status: managerApprovalRequests.status,
+        claimToken: managerApprovalRequests.claimToken,
+      })
+      .from(managerApprovalRequests)
+      .where(eq(managerApprovalRequests.id, requestId))
+      .get();
+    expect(released).toEqual({ status: 'approved', claimToken: null });
+
+    const expiredClaim = claimManagerApprovalGrant({
+      db,
+      tenantId,
+      siteId,
+      requesterId: cashier.id,
+      requestId,
+      action: 'credit_sale',
+      resourceId,
+    });
+    await db
+      .update(managerApprovalRequests)
+      .set({ grantExpiresAt: new Date(Date.now() - 1_000).toISOString() })
+      .where(eq(managerApprovalRequests.id, requestId));
+    expect(() =>
+      db.transaction(tx => {
+        consumeManagerApprovalGrant({
+          tx,
+          tenantId,
+          requesterId: cashier.id,
+          claim: expiredClaim,
+          saleId: 'sale-too-late',
+          saleNumber: 'VTA-000002',
+        });
+      })
+    ).toThrowError(
+      expect.objectContaining({
+        cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_UNAVAILABLE' }),
+      })
+    );
   });
 });

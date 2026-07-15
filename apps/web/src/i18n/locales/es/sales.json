@@ -588,10 +588,41 @@
     "override": {
       "label": "Autorizar exceder el cupo",
       "adminHelp": "Registra la venta aunque el saldo proyectado supere el cupo del cliente. Úsalo solo con aprobación administrativa.",
-      "adminOnly": "Solo un administrador puede autorizar esto"
+      "adminOnly": "Solo un administrador puede autorizar esto",
+      "approvalRequired": "Un administrador debe aprobar este sobregiro antes de completar la venta."
     },
     "toast": {
       "success": "Venta a crédito registrada"
+    }
+  },
+  "approval": {
+    "title": "Se requiere aprobación",
+    "help": "Envía la solicitud sin salir de la sesión del cajero. La venta solo se habilita para este cobro exacto.",
+    "checkoutSummary": "Cobro · {{total}}",
+    "refresh": "Actualizar",
+    "request": "Solicitar aprobación",
+    "requesting": "Enviando…",
+    "requested": "Solicitud de aprobación enviada",
+    "requestError": "No se pudo solicitar la aprobación",
+    "statusError": "No se pudo actualizar el estado de la aprobación. Reintenta antes de cobrar.",
+    "reasonLabel": "Motivo",
+    "reasonPlaceholder": "Explica por qué este cobro necesita aprobación",
+    "decisionReason": "Nota de la decisión: {{reason}}",
+    "actions": {
+      "sale_discount": "Cobro con descuento",
+      "credit_sale": "Venta a crédito del cliente",
+      "credit_override": "Sobregiro del cupo de crédito"
+    },
+    "status": {
+      "loading": "Verificando",
+      "not_requested": "Sin solicitar",
+      "pending": "Pendiente",
+      "approved": "Aprobada",
+      "rejected": "Rechazada",
+      "cancelled": "Cancelada",
+      "executing": "En uso",
+      "consumed": "Utilizada",
+      "expired": "Expirada"
     }
   },
   "quickCreate": {
@@ -609,15 +640,12 @@
         "message": "Tu sesión de caja está cerrada — ábrela antes de cobrar.",
         "recovery": "Abrir caja"
       },
-      "credit_sale_forbidden": {
-        "message": "Sólo un manager o admin puede registrar ventas a crédito. Pídeselo a alguien con ese rol o cambia a contado."
-      },
       "credit_sale_customer_required": {
         "message": "Las ventas a crédito necesitan un cliente seleccionado.",
         "recovery": "Seleccionar cliente"
       },
       "credit_limit_exceeded": {
-        "message": "La proyección de {{projection}} supera el cupo de {{limit}} del cliente.",
+        "message": "La proyección de {{projection}} supera el cupo de {{limit}} del cliente. Puedes solicitar aprobación al cobrar.",
         "recovery": "Cambiar a contado"
       },
       "discount_exceeds_total": {

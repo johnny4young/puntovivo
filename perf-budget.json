@@ -17,6 +17,7 @@
     "$retune11": "ENG-200 — SalePaymentModal leaves the Lighthouse-critical SalesPage entry behind a deferred boundary, dropping SalesPage from 45 to gate-measured 41.52 KB gz; the ceiling tightens to 42. The new idle-preloaded SalePaymentModal chunk measures 6.40 KB gz and is pinned at 7.",
     "$retune12": "ENG-106a — bilingual staff-PIN enrollment, fixed-session disclosure, and audit labels grow the settings locale chunk from its 9 KB ceiling to gate-measured 9.53 KB gz; the documented integer baseline rounds to 10. UsersPage (5.06) and AuditLogsPage (5.40) also crossed the 5 KB tracking floor and are now pinned at 6 rather than riding the new-chunk warning.",
     "$retune13": "ENG-106a review — cross-tab identity invalidation closes the shared-terminal privilege window and grows AuthProvider from its 6 KB ceiling to gate-measured 6.36 KB gz. The documented integer baseline rounds to 7 while preserving the existing 5% regression threshold.",
+    "$retune14": "ENG-106c2 — the deferred payment modal now owns payload hashing, cashier approval status/polling, request controls, and frozen-draft authorization context. Gate-measured SalePaymentModal is 8.87 KB gz, so the deliberate feature baseline rounds up from 7 to 9 while preserving the existing 5% regression threshold.",
     "perChunkGzKb": {
       "index": 153,
       "xlsx": 264,
@@ -27,7 +28,7 @@
       "index.es": 50,
       "html2canvas": 48,
       "SalesPage": 42,
-      "SalePaymentModal": 7,
+      "SalePaymentModal": 9,
       "trpc": 26,
       "CompanyPage": 33,
       "dnd": 25,

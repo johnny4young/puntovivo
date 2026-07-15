@@ -43,16 +43,18 @@ test.describe('manager approval queue (ENG-106c1)', () => {
       await openUserMenu(page);
 
       let queue = page.getByRole('region', { name: 'Approvals' });
-      await expect(queue.getByText('Sale discount')).toBeVisible();
-      await expect(queue.getByText('Customer has a documented price match')).toBeVisible();
-      await expect(queue.getByText(/Requested by E2E Cashier/)).toBeVisible();
+      const englishCard = queue
+        .getByRole('article')
+        .filter({ hasText: 'Customer has a documented price match' });
+      await expect(englishCard.getByText('Sale discount')).toBeVisible();
+      await expect(englishCard.getByText(/Requested by E2E Cashier/)).toBeVisible();
       await queue.scrollIntoViewIfNeeded();
       await captureEvidence(page, 'eng-106c1-approval-queue-en');
 
-      await queue.getByRole('button', { name: 'Approve' }).click();
-      await queue.getByLabel('Your staff PIN').fill(E2E_MANAGER_APPROVAL_PIN);
-      await queue.getByRole('button', { name: 'Confirm approval' }).click();
-      await expect(queue.getByText('No pending requests.')).toBeVisible();
+      await englishCard.getByRole('button', { name: 'Approve' }).click();
+      await englishCard.getByLabel('Your staff PIN').fill(E2E_MANAGER_APPROVAL_PIN);
+      await englishCard.getByRole('button', { name: 'Confirm approval' }).click();
+      await expect(englishCard).toBeHidden();
       await expect
         .poll(() => getManagerApprovalState(englishRequest.requestId))
         .toMatchObject({ status: 'approved', decidedBy: englishRequest.managerId });
@@ -67,20 +69,22 @@ test.describe('manager approval queue (ENG-106c1)', () => {
       await openUserMenu(page);
 
       queue = page.getByRole('region', { name: 'Aprobaciones' });
-      await expect(queue.getByText('Descuento de venta')).toBeVisible();
-      await expect(queue.getByText('El descuento requiere una segunda revisión')).toBeVisible();
-      await queue.getByRole('button', { name: 'Rechazar' }).click();
-      await queue.getByLabel('Tu PIN de personal').fill(E2E_MANAGER_APPROVAL_PIN);
-      await queue.getByLabel('Motivo del rechazo').fill('Falta validar el soporte');
+      const spanishCard = queue
+        .getByRole('article')
+        .filter({ hasText: 'El descuento requiere una segunda revisión' });
+      await expect(spanishCard.getByText('Descuento de venta')).toBeVisible();
+      await spanishCard.getByRole('button', { name: 'Rechazar' }).click();
+      await spanishCard.getByLabel('Tu PIN de personal').fill(E2E_MANAGER_APPROVAL_PIN);
+      await spanishCard.getByLabel('Motivo del rechazo').fill('Falta validar el soporte');
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.locator('#header-user-menu').evaluate(element => {
         element.scrollTop = element.scrollHeight;
       });
-      const confirmRejection = queue.getByRole('button', { name: 'Confirmar rechazo' });
+      const confirmRejection = spanishCard.getByRole('button', { name: 'Confirmar rechazo' });
       await expect(confirmRejection).toBeVisible();
       await captureEvidence(page, 'eng-106c1-approval-rejection-es');
       await confirmRejection.click();
-      await expect(queue.getByText('No hay solicitudes pendientes.')).toBeVisible();
+      await expect(spanishCard).toBeHidden();
       await expect
         .poll(() => getManagerApprovalState(spanishRequest.requestId))
         .toMatchObject({

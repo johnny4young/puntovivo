@@ -52,6 +52,8 @@ export interface SalesScreenProps {
   cartItems: CartProps['items'];
   activeSelectedCartItemKey: CartProps['selectedItemKey'];
   draftSummary: CheckoutProps['draftSummary'];
+  approvalDiscountAmount: number;
+  currencyCode: string;
   saleError: CartProps['saleError'];
   handleQuantityChange: CartProps['onQuantityChange'];
   handleDiscountChange: CartProps['onDiscountChange'];
@@ -167,6 +169,8 @@ export function SalesScreen({
   cartItems,
   activeSelectedCartItemKey,
   draftSummary,
+  approvalDiscountAmount,
+  currencyCode,
   saleError,
   handleQuantityChange,
   handleDiscountChange,
@@ -412,6 +416,11 @@ export function SalesScreen({
         isPaymentModalOpen={isPaymentModalOpen}
         paymentModalKey={paymentModalKey}
         paymentTotal={draftSummary.total}
+        paymentApprovalSaleId={activeWorkspace?.serverSaleId ?? null}
+        paymentApprovalCustomerId={activeWorkspace?.serverCustomerId ?? null}
+        paymentApprovalItems={cartItems}
+        paymentApprovalDiscountAmount={approvalDiscountAmount}
+        currencyCode={currencyCode}
         customers={customers}
         isPaymentSaving={isPaymentSaving}
         saleError={saleError}

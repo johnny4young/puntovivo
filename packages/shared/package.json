@@ -15,6 +15,11 @@
       "import": "./dist/money.js",
       "default": "./dist/money.js"
     },
+    "./checkout-approval": {
+      "types": "./src/checkout-approval.ts",
+      "import": "./dist/checkout-approval.js",
+      "default": "./dist/checkout-approval.js"
+    },
     "./roles": {
       "types": "./src/roles.ts",
       "import": "./dist/roles.js",

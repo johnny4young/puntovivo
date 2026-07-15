@@ -409,7 +409,7 @@ describe('completeSale (ENG-090 credit-sale flow)', () => {
     ).rejects.toThrow(/customer/i);
   });
 
-  it('rejects cashier callers that forge a direct credit sale payload', async () => {
+  it('requires manager approval when a cashier submits a direct credit sale', async () => {
     const customerId = await seedCustomer({
       name: 'Cliente Cajero Directo',
       creditLimit: 0,
@@ -436,12 +436,12 @@ describe('completeSale (ENG-090 credit-sale flow)', () => {
       })
     ).rejects.toMatchObject({
       cause: expect.objectContaining({
-        errorCode: 'CREDIT_SALE_FORBIDDEN',
+        errorCode: 'MANAGER_APPROVAL_REQUIRED',
       }),
     });
   });
 
-  it('rejects cashier callers that finalize an existing draft as credit', async () => {
+  it('requires manager approval when a cashier finalizes a draft as credit', async () => {
     const customerId = await seedCustomer({
       name: 'Cliente Draft Cajero',
       creditLimit: 0,
@@ -479,7 +479,7 @@ describe('completeSale (ENG-090 credit-sale flow)', () => {
       })
     ).rejects.toMatchObject({
       cause: expect.objectContaining({
-        errorCode: 'CREDIT_SALE_FORBIDDEN',
+        errorCode: 'MANAGER_APPROVAL_REQUIRED',
       }),
     });
   });

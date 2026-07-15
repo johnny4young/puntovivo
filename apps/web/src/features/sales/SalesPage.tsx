@@ -10,14 +10,16 @@ import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { SalesScreen } from '@/features/sales/SalesScreen';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
-import { getCartSummary } from '@/features/sales/saleCart';
+import { getCartDiscountAmount, getCartSummary } from '@/features/sales/saleCart';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
 import { useScannerFocusRestoration } from '@/features/sales/useScannerFocusRestoration';
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
 import { useTenant } from '@/features/tenant/TenantProvider';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 
 export function SalesPage() {
   const { currentTenant, currentSite, tenantSettings } = useTenant();
+  const { currency } = useResolvedLocale();
   // ENG-039d3 — restaurant service-charge rate flows from the tenant
   // setting into `SalePaymentModal`. 0 means disabled (default for
   // retail tenants); positive values auto-apply on every checkout.
@@ -164,6 +166,7 @@ export function SalesPage() {
   });
 
   const draftSummary = getCartSummary(cartItems);
+  const approvalDiscountAmount = getCartDiscountAmount(cartItems);
   const canCharge = !!currentSite && hasActiveCashSession && cartItems.length > 0;
   const canCloseCashSession =
     !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
@@ -239,7 +242,6 @@ export function SalesPage() {
     isResumedCart,
     selectedRegisterAssignment,
     selectedHistorySaleId,
-    userRole,
     checkoutReadinessItems,
     isPaymentModalOpen,
     productSearchQuery,
@@ -331,6 +333,8 @@ export function SalesPage() {
       cartItems={cartItems}
       activeSelectedCartItemKey={activeSelectedCartItemKey}
       draftSummary={draftSummary}
+      approvalDiscountAmount={approvalDiscountAmount}
+      currencyCode={currency}
       saleError={saleError}
       handleQuantityChange={handleQuantityChange}
       handleDiscountChange={handleDiscountChange}

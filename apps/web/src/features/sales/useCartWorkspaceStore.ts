@@ -48,6 +48,8 @@ export interface CartWorkspace {
   serverSaleId: string | null;
   /** Sale number of the resumed draft, rendered in the resumed banner. */
   serverSaleNumber: string | null;
+  /** Customer frozen on the resumed draft; used by checkout authorization. */
+  serverCustomerId: string | null;
   /** Operator-provided label ("Mesa 5") inherited from the server row. */
   label: string | null;
   /** ENG-209 — first real cart interaction; null while the workspace is empty. */
@@ -132,6 +134,7 @@ interface CartWorkspaceActions {
     ownerKey: string;
     serverSaleId: string;
     serverSaleNumber: string;
+    serverCustomerId: string | null;
     label: string | null;
     items: SaleCartItem[];
   }): string;
@@ -149,7 +152,7 @@ const PERSIST_KEY = 'cart-workspace-store';
 // backfills missing stacks to `[]` so previously-persisted
 // workspaces hydrate cleanly without surfacing a runtime error
 // for cashiers who upgrade mid-shift.
-const PERSIST_VERSION = 3;
+const PERSIST_VERSION = 4;
 
 // Monotonic suffix so synchronous bursts of `createDraft` calls never
 // collide in environments where `crypto.randomUUID` is missing or
@@ -191,6 +194,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           selectedItemKey: null,
           serverSaleId: null,
           serverSaleNumber: null,
+          serverCustomerId: null,
           label: null,
           checkoutStartedAt: null,
           createdAt: new Date().toISOString(),
@@ -290,7 +294,14 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         });
       },
 
-      hydrateFromResumed({ ownerKey, serverSaleId, serverSaleNumber, label, items }) {
+      hydrateFromResumed({
+        ownerKey,
+        serverSaleId,
+        serverSaleNumber,
+        serverCustomerId,
+        label,
+        items,
+      }) {
         const id = generateId();
         const workspace: CartWorkspace = {
           id,
@@ -299,6 +310,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           selectedItemKey: null,
           serverSaleId,
           serverSaleNumber,
+          serverCustomerId,
           label,
           checkoutStartedAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
@@ -356,6 +368,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
               ...workspace,
               historyStack: workspace.historyStack ?? [],
               checkoutStartedAt: workspace.checkoutStartedAt ?? null,
+              serverCustomerId: workspace.serverCustomerId ?? null,
             };
           }
           return { ...cast, workspaces: next } as CartWorkspaceState;

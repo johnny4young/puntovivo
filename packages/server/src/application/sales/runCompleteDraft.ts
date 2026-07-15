@@ -13,8 +13,10 @@
  * @module application/sales/runCompleteDraft
  */
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import type { UserRole } from '@puntovivo/shared/roles';
+import { getCheckoutApprovalDiscountAmount } from '@puntovivo/shared/checkout-approval';
 import { salePayments, saleItems, sales } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
@@ -44,6 +46,13 @@ import type {
   CompleteSaleLogger,
   CompleteSaleResult,
 } from './types.js';
+import {
+  claimCheckoutApprovals,
+  consumeCheckoutApprovals,
+  enqueueCheckoutApprovalConsumptions,
+  releaseCheckoutApprovals,
+  requiredCheckoutApprovalActions,
+} from './checkout-approvals.js';
 
 /**
  * Draft-completion path (formerly `sales.completeDraft`): finalize a sale
@@ -124,13 +133,19 @@ export async function runCompleteDraft(
     ctx.user.id
   );
 
-  const lineItemCount = await ctx.db
-    .select({ count: sql<number>`count(*)` })
+  const draftApprovalItems = await ctx.db
+    .select({
+      productId: saleItems.productId,
+      unitId: saleItems.unitId,
+      quantity: saleItems.quantity,
+      unitPrice: saleItems.unitPrice,
+      discount: saleItems.discount,
+    })
     .from(saleItems)
     .where(eq(saleItems.saleId, input.saleId))
-    .get();
+    .all();
 
-  if (!lineItemCount || (lineItemCount.count ?? 0) === 0) {
+  if (draftApprovalItems.length === 0) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_WITHOUT_ITEMS',
@@ -148,16 +163,14 @@ export async function runCompleteDraft(
   // see the second tip compound on top of the first, leaving
   // `total` out of sync with the new `tipAmount` column.
   const tipAmount = roundMoney(Math.max(0, input.tipAmount ?? 0));
-  const tipMethod = tipAmount > 0 ? input.tipMethod ?? null : null;
+  const tipMethod = tipAmount > 0 ? (input.tipMethod ?? null) : null;
   // ENG-039d3 — service charge layered onto the frozen draft base. The
   // same baseTotal-from-frozen-pieces logic that prevents tip compounding
   // (a draft that was opened with a service charge already in `total`
   // would otherwise see the new charge double-stacked) applies here too.
   const serviceChargeAmount = roundMoney(Math.max(0, input.serviceChargeAmount ?? 0));
   const baseTotal = roundMoney(
-    (existing.subtotal ?? 0) +
-    (existing.taxAmount ?? 0) -
-    (existing.discountAmount ?? 0)
+    (existing.subtotal ?? 0) + (existing.taxAmount ?? 0) - (existing.discountAmount ?? 0)
   );
   const restaurantSettings = await assertServiceChargeMatchesTenant({
     db: ctx.db,
@@ -165,27 +178,21 @@ export async function runCompleteDraft(
     base: baseTotal,
     serviceChargeAmount,
   });
-  const serviceChargeRate =
-    serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
+  const serviceChargeRate = serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
   const total = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
 
   // Phase 2 Tier-2 step 5 — resolve the tender list (split or legacy),
   // payment status, change, and cash collected. The draft is always
   // completing, so `collectCash` is unconditionally true.
-  const {
-    resolvedPayments,
-    creditSaleAmount,
-    paymentStatus,
-    change,
-    cashCollectedAmount,
-  } = resolveSalePaymentPlan({
-    amountReceived: input.amountReceived,
-    payments: input.payments,
-    paymentMethod: input.paymentMethod,
-    requestedStatus: input.paymentStatus,
-    total,
-    collectCash: true,
-  });
+  const { resolvedPayments, creditSaleAmount, paymentStatus, change, cashCollectedAmount } =
+    resolveSalePaymentPlan({
+      amountReceived: input.amountReceived,
+      payments: input.payments,
+      paymentMethod: input.paymentMethod,
+      requestedStatus: input.paymentStatus,
+      total,
+      collectCash: true,
+    });
 
   // ENG-014 — same credit-sale pre-flight as the fresh path, but the
   // customer comes from the draft row (`existing.customerId`) rather
@@ -204,158 +211,240 @@ export async function runCompleteDraft(
   const now = new Date().toISOString();
   const checkoutTiming = resolveCheckoutTiming(input.checkoutStartedAt, now);
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
+  const expectedSyncVersion =
+    existing.syncVersion === null
+      ? isNull(sales.syncVersion)
+      : eq(sales.syncVersion, existing.syncVersion);
 
   let cashMovementId: string | null = null;
   let completionAuditId: string | null = null;
   const paymentEffects: PersistedPaymentEffect[] = [];
 
-  ctx.db.transaction(tx => {
-    // ENG-042 TOCTOU defense.
-    assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+  const requiredApprovalActions = requiredCheckoutApprovalActions({
+    role: ctx.user.role as UserRole,
+    isCompletion: true,
+    hasDiscount:
+      (existing.discountAmount ?? 0) > 0 || draftApprovalItems.some(item => item.discount > 0),
+    hasCreditTender: creditSaleAmount > 0,
+    creditOverride: input.creditOverride === true,
+  });
+  const approvalClaims = claimCheckoutApprovals({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: activeCashSession.siteId,
+    requesterId: ctx.user.id,
+    requiredActions: requiredApprovalActions,
+    references: input.approvalRequests,
+    context: {
+      mode: 'fromDraft',
+      saleId: input.saleId,
+      customerId: draftCustomerId,
+      items: draftApprovalItems.map(item => ({
+        productId: item.productId,
+        unitId: item.unitId ?? '',
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discount: item.discount,
+      })),
+      paymentMethod: input.paymentMethod,
+      payments: (input.payments ?? []).map(payment => ({
+        method: payment.method,
+        amount: payment.amount,
+        reference: payment.reference,
+      })),
+      amountReceived: input.amountReceived ?? null,
+      discountAmount: getCheckoutApprovalDiscountAmount(
+        draftApprovalItems,
+        existing.discountAmount ?? 0
+      ),
+      total,
+      creditAmount: creditSaleAmount,
+      tipAmount,
+      serviceChargeAmount,
+      currencyCode: existing.currencyCode ?? 'COP',
+    },
+  });
 
-    // Replace any placeholder payment rows the draft might have
-    // carried from its initial `sales.create` call with the real
-    // tenders captured at complete-time.
-    tx.delete(salePayments)
-      .where(
-        and(eq(salePayments.saleId, input.saleId), eq(salePayments.tenantId, ctx.tenantId))
-      )
-      .run();
+  try {
+    ctx.db.transaction(tx => {
+      // ENG-042 TOCTOU defense.
+      assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
 
-    for (const payment of resolvedPayments.rows) {
-      const paymentId = nanoid();
-      const tenderAmount = roundMoney(payment.amount);
-      tx.insert(salePayments)
-        .values({
+      // ENG-106c2 — claim the exact draft snapshot before writing any
+      // payments or consuming approvals. Suspend, discard, split, and draft
+      // edits advance syncVersion/updatedAt, so a concurrent lifecycle change
+      // cannot be resurrected as a completed sale from this stale snapshot.
+      const completedDraft = tx
+        .update(sales)
+        .set({
+          paymentMethod: resolvedPayments.dominantMethod,
+          paymentStatus,
+          status: 'completed',
+          // Re-bind to the active session so cash reports show the
+          // income where it physically arrived.
+          cashSessionId: activeCashSession.id,
+          notes: input.notes ?? existing.notes,
+          // ENG-039d — persist the tip captured at complete-time. When
+          // no tip was entered we still write 0 / null so a previously
+          // partially-staged value never sticks.
+          tipAmount,
+          tipMethod,
+          // ENG-039d3 — persist service charge captured at complete-time.
+          serviceChargeAmount,
+          serviceChargeRate,
+          total,
+          ...checkoutTiming,
+          syncStatus: 'pending',
+          syncVersion: nextSyncVersion,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(sales.id, input.saleId),
+            eq(sales.tenantId, ctx.tenantId),
+            eq(sales.status, 'draft'),
+            isNull(sales.suspendedAt),
+            expectedSyncVersion,
+            eq(sales.updatedAt, existing.updatedAt)
+          )
+        )
+        .run();
+      if (completedDraft.changes !== 1) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'SALE_DRAFT_REQUIRED',
+          message: 'The draft changed while checkout was being completed',
+          details: { operation: 'complete', actualStatus: 'stale_snapshot' },
+        });
+      }
+
+      // Replace any placeholder payment rows the draft might have
+      // carried from its initial `sales.create` call with the real
+      // tenders captured at complete-time.
+      tx.delete(salePayments)
+        .where(and(eq(salePayments.saleId, input.saleId), eq(salePayments.tenantId, ctx.tenantId)))
+        .run();
+
+      for (const payment of resolvedPayments.rows) {
+        const paymentId = nanoid();
+        const tenderAmount = roundMoney(payment.amount);
+        tx.insert(salePayments)
+          .values({
+            id: paymentId,
+            tenantId: ctx.tenantId,
+            saleId: input.saleId,
+            method: payment.method,
+            amount: tenderAmount,
+            reference: payment.reference,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+          })
+          .run();
+        paymentEffects.push({
           id: paymentId,
-          tenantId: ctx.tenantId,
-          saleId: input.saleId,
           method: payment.method,
           amount: tenderAmount,
-          reference: payment.reference,
-          syncStatus: 'pending',
-          syncVersion: 1,
-          createdAt: now,
-        })
-        .run();
-      paymentEffects.push({
-        id: paymentId,
-        method: payment.method,
-        amount: tenderAmount,
+        });
+      }
+
+      cashMovementId = insertCashMovement({
+        tx,
+        tenantId: ctx.tenantId,
+        sessionId: activeCashSession.id,
+        type: 'sale',
+        amount: cashCollectedAmount,
+        referenceId: input.saleId,
+        note: `Sale ${existing.saleNumber} · completed from draft`,
+        createdBy: ctx.user.id,
+        createdAt: now,
       });
-    }
 
-    tx.update(sales)
-      .set({
-        paymentMethod: resolvedPayments.dominantMethod,
-        paymentStatus,
-        status: 'completed',
-        // Re-bind to the active session so cash reports show the
-        // income where it physically arrived.
-        cashSessionId: activeCashSession.id,
-        notes: input.notes ?? existing.notes,
-        // ENG-039d — persist the tip captured at complete-time. When
-        // no tip was entered we still write 0 / null so a previously
-        // partially-staged value never sticks.
-        tipAmount,
-        tipMethod,
-        // ENG-039d3 — persist service charge captured at complete-time.
-        serviceChargeAmount,
-        serviceChargeRate,
-        total,
-        ...checkoutTiming,
-        syncStatus: 'pending',
-        syncVersion: nextSyncVersion,
-        updatedAt: now,
-      })
-      .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
-      .run();
-
-    cashMovementId = insertCashMovement({
-      tx,
-      tenantId: ctx.tenantId,
-      sessionId: activeCashSession.id,
-      type: 'sale',
-      amount: cashCollectedAmount,
-      referenceId: input.saleId,
-      note: `Sale ${existing.saleNumber} · completed from draft`,
-      createdBy: ctx.user.id,
-      createdAt: now,
-    });
-
-    // Parity with void / return / park / resume / discard / reprint:
-    // every state-change on an existing sale leaves a `sale.*` audit row.
-    completionAuditId = writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: 'sale.complete',
-      resourceType: 'sale',
-      resourceId: input.saleId,
-      before: {
-        status: 'draft',
-        cashSessionId: existing.cashSessionId,
-        paymentStatus: existing.paymentStatus,
-      },
-      after: {
-        status: 'completed',
-        cashSessionId: activeCashSession.id,
-        paymentStatus,
-        total,
-      },
-      metadata: {
-        completedFromDraft: true,
-        saleNumber: existing.saleNumber,
-        ...(input.payments && input.payments.length > 0
-          ? { tenderCount: input.payments.length }
-          : {}),
-        // ENG-039d — surface tip in the audit row only when captured;
-        // suppressing the keys at zero keeps audit reads scannable.
-        // `tipMethod` is omitted (rather than written as `null`) when
-        // the caller did not specify a method.
-        ...(tipAmount > 0
-          ? { tipAmount, ...(tipMethod ? { tipMethod } : {}) }
-          : {}),
-        // ENG-039d3 — mirror the tip pattern for service charge.
-        ...(serviceChargeAmount > 0
-          ? {
-              serviceChargeAmount,
-              ...(serviceChargeRate !== null ? { serviceChargeRate } : {}),
-            }
-          : {}),
-      },
-    });
-
-    // ENG-007 closure — admin authorised a credit sale whose projected
-    // balance exceeded the customer's cupo. `overrideApplied` is true
-    // only when (exceedsLimit && allowOverride === true), so the row
-    // never fires for admin-completed sales that stayed under the limit.
-    // `draftCustomerId` is captured from the existing sale row above
-    // because the `fromDraft` input shape does not carry `customerId`.
-    if (creditProjection?.overrideApplied === true && draftCustomerId) {
-      writeAuditLog({
+      // Parity with void / return / park / resume / discard / reprint:
+      // every state-change on an existing sale leaves a `sale.*` audit row.
+      completionAuditId = writeAuditLog({
         tx,
         tenantId: ctx.tenantId,
         actorId: ctx.user.id,
-        action: 'sale.credit_override',
+        action: 'sale.complete',
         resourceType: 'sale',
         resourceId: input.saleId,
-        before: null,
+        before: {
+          status: 'draft',
+          cashSessionId: existing.cashSessionId,
+          paymentStatus: existing.paymentStatus,
+        },
         after: {
-          customerId: draftCustomerId,
-          creditLimit: creditProjection.creditLimit,
-          currentBalance: creditProjection.currentBalance,
-          projectedBalance: creditProjection.projectedBalance,
-          attemptedAmount: creditProjection.attemptedAmount,
+          status: 'completed',
+          cashSessionId: activeCashSession.id,
+          paymentStatus,
+          total,
         },
         metadata: {
-          actorRole: ctx.user.role,
-          saleNumber: existing.saleNumber,
           completedFromDraft: true,
+          saleNumber: existing.saleNumber,
+          ...(input.payments && input.payments.length > 0
+            ? { tenderCount: input.payments.length }
+            : {}),
+          // ENG-039d — surface tip in the audit row only when captured;
+          // suppressing the keys at zero keeps audit reads scannable.
+          // `tipMethod` is omitted (rather than written as `null`) when
+          // the caller did not specify a method.
+          ...(tipAmount > 0 ? { tipAmount, ...(tipMethod ? { tipMethod } : {}) } : {}),
+          // ENG-039d3 — mirror the tip pattern for service charge.
+          ...(serviceChargeAmount > 0
+            ? {
+                serviceChargeAmount,
+                ...(serviceChargeRate !== null ? { serviceChargeRate } : {}),
+              }
+            : {}),
         },
       });
-    }
-  });
+
+      // ENG-007 closure — admin authorised a credit sale whose projected
+      // balance exceeded the customer's cupo. `overrideApplied` is true
+      // only when (exceedsLimit && allowOverride === true), so the row
+      // never fires for admin-completed sales that stayed under the limit.
+      // `draftCustomerId` is captured from the existing sale row above
+      // because the `fromDraft` input shape does not carry `customerId`.
+      if (creditProjection?.overrideApplied === true && draftCustomerId) {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'sale.credit_override',
+          resourceType: 'sale',
+          resourceId: input.saleId,
+          before: null,
+          after: {
+            customerId: draftCustomerId,
+            creditLimit: creditProjection.creditLimit,
+            currentBalance: creditProjection.currentBalance,
+            projectedBalance: creditProjection.projectedBalance,
+            attemptedAmount: creditProjection.attemptedAmount,
+          },
+          metadata: {
+            actorRole: ctx.user.role,
+            saleNumber: existing.saleNumber,
+            completedFromDraft: true,
+          },
+        });
+      }
+      consumeCheckoutApprovals({
+        tx,
+        tenantId: ctx.tenantId,
+        requesterId: ctx.user.id,
+        claims: approvalClaims,
+        saleId: input.saleId,
+        saleNumber: existing.saleNumber,
+      });
+    });
+  } catch (error) {
+    releaseCheckoutApprovals(ctx.db, ctx.tenantId, approvalClaims);
+    throw error;
+  }
+
+  await enqueueCheckoutApprovalConsumptions(ctx, approvalClaims);
 
   // ENG-064b — sync_outbox emit moved POST-tx (was inline `tx.insert`
   // before the cutover). The helper writes the operation_effects row

@@ -21,10 +21,14 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { roundMoney } from '@/lib/money';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
+import { formatCurrency } from '@/lib/utils';
 import { useQuickCreateStore } from './useQuickCreateStore';
 import type { Customer } from '@/types';
 import type { SalePaymentValues } from './salePaymentModal.types';
 import { TENDER_SUM_EPSILON, getDefaultValues } from './salePaymentModal.constants';
+import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from './checkoutApprovals';
+import { useCheckoutApprovals } from './useCheckoutApprovals';
+import type { CheckoutApprovalItem } from '@puntovivo/shared/checkout-approval';
 
 /**
  * Inputs the modal shell forwards into the hook. Mirrors the subset of
@@ -39,6 +43,11 @@ export interface UseSalePaymentModalParams {
   isSaving: boolean;
   serviceChargeRate?: number | undefined;
   userRole?: 'admin' | 'manager' | 'cashier' | 'viewer' | undefined;
+  approvalSaleId?: string | null | undefined;
+  approvalCustomerId?: string | null | undefined;
+  approvalItems?: CheckoutApprovalItem[] | undefined;
+  approvalDiscountAmount?: number | undefined;
+  currencyCode?: string | undefined;
   fastCashTrigger?: number | undefined;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
 }
@@ -50,6 +59,11 @@ export function useSalePaymentModal({
   isSaving,
   serviceChargeRate = 0,
   userRole,
+  approvalSaleId = null,
+  approvalCustomerId = null,
+  approvalItems = [],
+  approvalDiscountAmount = 0,
+  currencyCode = 'COP',
   fastCashTrigger = 0,
   onSubmit,
 }: UseSalePaymentModalParams) {
@@ -57,7 +71,7 @@ export function useSalePaymentModal({
   const toast = useToast();
   const [splitMode, setSplitMode] = useState(false);
   // ENG-090 — credit method gating + projection.
-  const canLendCredit = userRole === 'admin' || userRole === 'manager';
+  const canLendCredit = userRole === 'admin' || userRole === 'manager' || userRole === 'cashier';
   const isAdmin = userRole === 'admin';
   // ENG-039d3 — service charge is derived from `total × rate / 100`,
   // not a form field. The operator cannot edit it; the server
@@ -67,7 +81,10 @@ export function useSalePaymentModal({
     [total, serviceChargeRate]
   );
   const form = useForm<SalePaymentValues>({
-    defaultValues: getDefaultValues(total, serviceChargeAmount, serviceChargeRate),
+    defaultValues: {
+      ...getDefaultValues(total, serviceChargeAmount, serviceChargeRate),
+      customerId: approvalCustomerId ?? '',
+    },
   });
   const tenderFields = useFieldArray({
     control: form.control,
@@ -93,14 +110,17 @@ export function useSalePaymentModal({
   // render before the refetch lands; selecting a value with no matching
   // `<option>` makes the native select display Walk-in while form state
   // carries the new id.
-  const pendingCustomerAttachId = useQuickCreateStore(
-    state => state.pendingCustomerAttachId
-  );
+  const pendingCustomerAttachId = useQuickCreateStore(state => state.pendingCustomerAttachId);
   const pendingCustomerReadyToAttach =
     pendingCustomerAttachId !== null &&
     customers.some(customer => customer.id === pendingCustomerAttachId);
   useEffect(() => {
-    if (!isOpen || !pendingCustomerAttachId || !pendingCustomerReadyToAttach) {
+    if (
+      !isOpen ||
+      approvalSaleId !== null ||
+      !pendingCustomerAttachId ||
+      !pendingCustomerReadyToAttach
+    ) {
       return;
     }
     const store = useQuickCreateStore.getState();
@@ -113,7 +133,15 @@ export function useSalePaymentModal({
     }
     form.setValue('customerId', id, { shouldDirty: false, shouldValidate: false });
     toast.success({ title: t('quickCreate.customer.autoAttachToast') });
-  }, [isOpen, pendingCustomerAttachId, pendingCustomerReadyToAttach, form, t, toast]);
+  }, [
+    approvalSaleId,
+    isOpen,
+    pendingCustomerAttachId,
+    pendingCustomerReadyToAttach,
+    form,
+    t,
+    toast,
+  ]);
 
   const paymentMethod = useWatch({ control: form.control, name: 'paymentMethod' }) ?? 'cash';
   const amountReceived = useWatch({ control: form.control, name: 'amountReceived' });
@@ -169,10 +197,7 @@ export function useSalePaymentModal({
   // the running SUM(amount) across the ledger (positive = customer
   // owes); creditLimit comes from the customers row (0 = sin cupo).
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
-  const tenderSum = useMemo(
-    () => sumBy(tenders, tender => Number(tender.amount) || 0),
-    [tenders]
-  );
+  const tenderSum = useMemo(() => sumBy(tenders, tender => Number(tender.amount) || 0), [tenders]);
   // ENG-014 — sum credit tenders in split mode. The V10 customer card
   // surfaces the projected balance based on this portion only (not
   // grandTotal). Outside split mode the value is 0 and the legacy
@@ -188,14 +213,11 @@ export function useSalePaymentModal({
     [splitMode, tenders]
   );
   const tenderDelta = tenderSum - grandTotal;
-  const tendersAreAllPositive = tenders.every(
-    tender => (Number(tender.amount) || 0) > 0
-  );
+  const tendersAreAllPositive = tenders.every(tender => (Number(tender.amount) || 0) > 0);
 
   // ENG-014 — the balance query also fires when a split tender row is
   // credit so the V10 card has live data to project against.
-  const creditQueryEnabled =
-    creditMethodAvailable && (isCredit || creditAmountInSplit > 0);
+  const creditQueryEnabled = creditMethodAvailable && (isCredit || creditAmountInSplit > 0);
   const creditBalanceQuery = trpc.customerLedger.getBalance.useQuery(
     { customerId: watchedCustomerId },
     { enabled: creditQueryEnabled, staleTime: 30_000 }
@@ -209,12 +231,70 @@ export function useSalePaymentModal({
   const creditProjectionAmount = isCredit ? grandTotal : creditAmountInSplit;
   const projectedBalance = currentBalance + creditProjectionAmount;
   const cupoExceeded =
-    creditLimit > 0 &&
-    creditProjectionAmount > 0 &&
-    projectedBalance > creditLimit;
+    creditLimit > 0 && creditProjectionAmount > 0 && projectedBalance > creditLimit;
   // ENG-014 — V10 card surfaces whenever the sale carries a credit
   // portion (legacy single-tender OR split with a credit row).
   const showCreditCard = isCredit || creditAmountInSplit > 0;
+  const hasCreditTender = showCreditCard;
+  const approvalActions = requiredCheckoutApprovalActions({
+    role: userRole,
+    hasDiscount: approvalDiscountAmount > 0,
+    hasCreditTender,
+    creditOverrideRequired: hasCreditTender && cupoExceeded,
+  });
+  const approvalContext = useMemo(
+    () =>
+      buildCheckoutApprovalContext({
+        saleId: approvalSaleId,
+        items: approvalItems,
+        values: {
+          customerId: approvalSaleId !== null ? (approvalCustomerId ?? '') : watchedCustomerId,
+          paymentMethod,
+          amountReceived: amountReceivedValue,
+          notes: '',
+          tenders: splitMode ? tenders : [],
+          tipAmount,
+          tipMethod: tipAmount > 0 ? (tipMethodWatch ?? 'fixed') : null,
+          creditOverride: false,
+          serviceChargeAmount,
+          serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
+          approvalRequests: [],
+        },
+        grandTotal,
+        discountAmount: approvalDiscountAmount,
+        currencyCode,
+      }),
+    [
+      approvalItems,
+      approvalDiscountAmount,
+      approvalCustomerId,
+      approvalSaleId,
+      amountReceivedValue,
+      currencyCode,
+      grandTotal,
+      paymentMethod,
+      serviceChargeAmount,
+      serviceChargeRate,
+      splitMode,
+      tenders,
+      tipAmount,
+      tipMethodWatch,
+      watchedCustomerId,
+    ]
+  );
+  const checkoutApprovals = useCheckoutApprovals({
+    actions: approvalActions,
+    context: approvalContext,
+    summaryLabel: t('approval.checkoutSummary', {
+      total: formatCurrency(grandTotal, currencyCode),
+    }),
+    amountByAction: {
+      sale_discount: approvalDiscountAmount,
+      credit_sale: approvalContext.creditAmount,
+      credit_override: approvalContext.creditAmount,
+    },
+    currencyCode,
+  });
 
   useEffect(() => {
     if (paymentMethod !== 'credit' || creditMethodAvailable) {
@@ -302,25 +382,26 @@ export function useSalePaymentModal({
       return;
     }
     const sanitizedTip = Math.max(0, Number(values.tipAmount) || 0);
-    // ENG-090 — credit override is admin-only at the form layer too.
-    // The server still gates `true` from non-admin callers at the
-    // router; this prevents stale form state (admin opens modal,
-    // toggles override on, role swaps mid-flow) from leaking the
-    // flag onto the payload.
+    // ENG-090 / ENG-106c2 — admins opt into an override directly;
+    // non-admins may carry it only when this exact checkout has an approved
+    // credit_override request. Stale form state cannot elevate a later cart.
     // ENG-014 — also accept override when split mode carries a
     // credit tender ("apartado"). Non-credit sales (split or single)
     // never pass override through.
-    const hasSplitCredit =
-      splitMode && values.tenders.some(tender => tender.method === 'credit');
+    const hasSplitCredit = splitMode && values.tenders.some(tender => tender.method === 'credit');
+    const hasApprovedCreditOverride = checkoutApprovals.approvalRequests.some(
+      approval => approval.action === 'credit_override'
+    );
     const sanitizedOverride =
-      isAdmin && (values.paymentMethod === 'credit' || hasSplitCredit)
-        ? values.creditOverride
+      (isAdmin || hasApprovedCreditOverride) &&
+      (values.paymentMethod === 'credit' || hasSplitCredit)
+        ? values.creditOverride || hasApprovedCreditOverride
         : false;
     return onSubmit({
       ...values,
       tenders: splitMode ? values.tenders : [],
       tipAmount: sanitizedTip,
-      tipMethod: sanitizedTip > 0 ? values.tipMethod ?? 'fixed' : null,
+      tipMethod: sanitizedTip > 0 ? (values.tipMethod ?? 'fixed') : null,
       // ENG-039d3 — service charge is derived from the prop rate, not
       // operator-editable, so submit always carries the freshly
       // computed pair. `serviceChargeRate: null` signals "no charge
@@ -328,6 +409,7 @@ export function useSalePaymentModal({
       serviceChargeAmount,
       serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
       creditOverride: sanitizedOverride,
+      approvalRequests: checkoutApprovals.approvalRequests,
     });
   });
 
@@ -337,7 +419,11 @@ export function useSalePaymentModal({
     Math.abs(tenderDelta) < TENDER_SUM_EPSILON &&
     tendersAreAllPositive;
 
-  const canSubmit = !isSaving && (!splitMode || splitIsValid);
+  const canSubmit =
+    !isSaving &&
+    (!splitMode || splitIsValid) &&
+    checkoutApprovals.allApproved &&
+    !(hasCreditTender && creditBalanceQuery.isLoading);
 
   const presetActive = (percentage: number): boolean => {
     // Zero-tip state — regardless of which method last touched the
@@ -375,6 +461,7 @@ export function useSalePaymentModal({
     cupoExceeded,
     showCreditCard,
     balanceLoading: creditBalanceQuery.isLoading,
+    checkoutApprovals,
     tenderSum,
     tenderDelta,
     splitIsValid,

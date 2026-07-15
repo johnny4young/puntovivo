@@ -6,6 +6,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { CHECKOUT_APPROVAL_RESOURCE_TYPE } from '@puntovivo/shared/checkout-approval';
 
 type ApprovalDecision = 'approved' | 'rejected';
 
@@ -151,10 +152,7 @@ function ApprovalDecisionForm({
 export function ManagerApprovalQueue() {
   const { t } = useTranslation('common');
   const [activeDecision, setActiveDecision] = useState<ActiveDecision | null>(null);
-  const queueQuery = trpc.managerApprovals.queue.useQuery(
-    { limit: 5 },
-    { refetchInterval: 5_000 }
-  );
+  const queueQuery = trpc.managerApprovals.queue.useQuery({ limit: 5 }, { refetchInterval: 5_000 });
 
   const startDecision = (requestId: string, decision: ApprovalDecision) => {
     setActiveDecision({ requestId, decision });
@@ -218,9 +216,7 @@ export function ManagerApprovalQueue() {
               {t('common:userMenu.approvals.pinMissing')}
             </p>
           )}
-          <p className="mt-2 text-[11px] text-fg2">
-            {t('common:userMenu.approvals.freshPinHint')}
-          </p>
+          <p className="mt-2 text-[11px] text-fg2">{t('common:userMenu.approvals.freshPinHint')}</p>
           <div className="mt-2 max-h-96 space-y-2 overflow-y-auto pr-0.5">
             {items.map(item => {
               const isActive = visibleActiveDecision?.requestId === item.id;
@@ -232,7 +228,9 @@ export function ManagerApprovalQueue() {
                         {t(`common:userMenu.approvals.actions.${item.action}`)}
                       </p>
                       <p className="mt-0.5 truncate text-[11px] text-fg2">
-                        {item.summary.label}
+                        {item.resourceType === CHECKOUT_APPROVAL_RESOURCE_TYPE
+                          ? t('common:userMenu.approvals.checkoutSummary')
+                          : item.summary.label}
                       </p>
                     </div>
                     {item.summary.amount !== undefined && item.summary.currencyCode && (

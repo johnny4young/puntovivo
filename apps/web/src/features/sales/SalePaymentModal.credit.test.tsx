@@ -3,7 +3,7 @@
  *
  * Pins the role + customer gating on the credit method, the V10
  * customer card rendering (Saldo / Cupo / Saldo proyectado with
- * the warning pill flip), and the admin-only override checkbox.
+ * the warning pill flip), and role-aware checkout approvals.
  *
  * The trpc client is mocked so the credit-balance useQuery is a
  * pure render assertion — no real network or query lifecycle is
@@ -12,18 +12,29 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
+import { act } from '@testing-library/react';
 import i18next from '@/i18n';
 import { render, screen, waitFor } from '@/test/utils';
 import type { Customer } from '@/types';
-import {
-  SalePaymentModal,
-  type SalePaymentValues,
-} from './SalePaymentModal';
+import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
+import { hashCheckoutApprovalContext } from './checkoutApprovals';
 
 let mockBalance = 0;
+let mockApprovalRows: Array<Record<string, unknown>> = [];
+const mockApprovalRefetch = vi.fn();
+const mockApprovalInvalidate = vi.fn();
+const mockApprovalMutation = { mutate: vi.fn(), isPending: false };
+type ApprovalOnSuccess = (
+  request: Record<string, unknown>,
+  variables: Record<string, unknown>
+) => Promise<void> | void;
+let mockApprovalOnSuccess: ApprovalOnSuccess | undefined;
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    useUtils: () => ({
+      managerApprovals: { mine: { invalidate: mockApprovalInvalidate } },
+    }),
     customerLedger: {
       getBalance: {
         useQuery: () => ({
@@ -33,6 +44,23 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
     },
+    managerApprovals: {
+      mine: {
+        useQuery: () => ({
+          data: mockApprovalRows,
+          isLoading: false,
+          error: null,
+          refetch: mockApprovalRefetch,
+        }),
+      },
+    },
+  },
+}));
+
+vi.mock('@/lib/useCriticalMutation', () => ({
+  useCriticalMutation: (_path: string, options?: { onSuccess?: ApprovalOnSuccess }) => {
+    mockApprovalOnSuccess = options?.onSuccess;
+    return mockApprovalMutation;
   },
 }));
 
@@ -61,10 +89,8 @@ function makeCustomer(overrides: Partial<Customer> = {}): Customer {
   } as Customer;
 }
 
-function renderModal(
-  overrides: Partial<React.ComponentProps<typeof SalePaymentModal>> = {}
-) {
-  return render(
+function buildModal(overrides: Partial<React.ComponentProps<typeof SalePaymentModal>> = {}) {
+  return (
     <SalePaymentModal
       isOpen
       total={100}
@@ -78,37 +104,49 @@ function renderModal(
   );
 }
 
+function renderModal(overrides: Partial<React.ComponentProps<typeof SalePaymentModal>> = {}) {
+  return render(buildModal(overrides));
+}
+
 describe('SalePaymentModal (ENG-090 credit branch)', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    let uuidCounter = 0;
+    vi.mocked(crypto.randomUUID).mockImplementation(() => {
+      uuidCounter += 1;
+      return `00000000-0000-4000-8000-${String(uuidCounter).padStart(12, '0')}`;
+    });
     await i18next.changeLanguage('en');
     mockBalance = 0;
+    mockApprovalRows = [];
+    mockApprovalRefetch.mockReset();
+    mockApprovalInvalidate.mockReset();
+    mockApprovalMutation.mutate.mockReset();
+    mockApprovalMutation.isPending = false;
+    mockApprovalOnSuccess = undefined;
   });
 
   it('hides the credit option when no customer is selected', () => {
     renderModal({ userRole: 'manager' });
-    expect(
-      screen.queryByTestId('sale-payment-method-credit-option')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sale-payment-method-credit-option')).not.toBeInTheDocument();
   });
 
-  it('hides the credit option for cashier role even with a customer attached', async () => {
+  it('shows credit to a cashier with a customer and requires approval', async () => {
     const user = userEvent.setup();
     renderModal({ userRole: 'cashier' });
     // Walk-in is selected by default; pick a real customer first.
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    expect(
-      screen.queryByTestId('sale-payment-method-credit-option')
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('sale-payment-method-credit-option')).toBeInTheDocument();
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
+    expect(await screen.findByTestId('checkout-approval-credit_sale')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
   });
 
   it('surfaces the credit option when a customer is selected and role is manager', async () => {
     const user = userEvent.setup();
     renderModal({ userRole: 'manager' });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    expect(
-      screen.getByTestId('sale-payment-method-credit-option')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('sale-payment-method-credit-option')).toBeInTheDocument();
   });
 
   it('renders the V10 customer card when credit is the active method', async () => {
@@ -119,10 +157,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
       customers: [makeCustomer({ creditLimit: 200 })],
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    await user.selectOptions(
-      screen.getByTestId('sale-payment-method-select'),
-      'credit'
-    );
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
 
     expect(screen.getByTestId('credit-sale-customer-card')).toBeInTheDocument();
     expect(screen.getByTestId('credit-sale-current-balance')).toHaveTextContent('50');
@@ -139,10 +174,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
       customers: [makeCustomer({ creditLimit: 200 })],
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    await user.selectOptions(
-      screen.getByTestId('sale-payment-method-select'),
-      'credit'
-    );
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
 
     // Projected = 150 + 100 = 250 > 200 cupo → warning pill + override row.
     expect(screen.getByTestId('credit-sale-warning')).toBeInTheDocument();
@@ -151,7 +183,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     expect(projected.className).toMatch(/warning/);
   });
 
-  it('disables the override checkbox for manager role (admin-only)', async () => {
+  it('offers an admin approval request instead of an override checkbox to managers', async () => {
     const user = userEvent.setup();
     mockBalance = 250;
     renderModal({
@@ -159,15 +191,10 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
       customers: [makeCustomer({ creditLimit: 100 })],
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    await user.selectOptions(
-      screen.getByTestId('sale-payment-method-select'),
-      'credit'
-    );
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
 
-    const toggle = screen.getByTestId(
-      'credit-sale-override-toggle'
-    ) as HTMLInputElement;
-    expect(toggle).toBeDisabled();
+    expect(screen.queryByTestId('credit-sale-override-toggle')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('checkout-approval-credit_override')).toBeInTheDocument();
   });
 
   it('submits the credit payload with creditOverride=true when admin opts in', async () => {
@@ -180,10 +207,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
       onSubmit,
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    await user.selectOptions(
-      screen.getByTestId('sale-payment-method-select'),
-      'credit'
-    );
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     await user.click(screen.getByTestId('credit-sale-override-toggle'));
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
 
@@ -192,6 +216,255 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     expect(submitted.paymentMethod).toBe('credit');
     expect(submitted.creditOverride).toBe(true);
     expect(submitted.customerId).toBe('cust-1');
+  });
+
+  it('submits an exact approved discount request and invalidates it when payment data changes', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    const approvalItems = [
+      {
+        productId: 'product-discount',
+        unitId: 'unit-1',
+        quantity: 1,
+        unitPrice: 100,
+        discount: 10,
+      },
+    ];
+    const resourceId = await hashCheckoutApprovalContext({
+      mode: 'fresh',
+      saleId: null,
+      customerId: null,
+      items: approvalItems,
+      paymentMethod: 'cash',
+      payments: [],
+      amountReceived: 90,
+      discountAmount: 10,
+      total: 90,
+      creditAmount: 0,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'COP',
+    });
+    mockApprovalRows = [
+      {
+        id: 'approval-discount-1',
+        action: 'sale_discount',
+        status: 'approved',
+        resourceType: 'sale_checkout',
+        resourceId,
+        decisionReason: null,
+      },
+    ];
+    renderModal({
+      userRole: 'cashier',
+      total: 90,
+      approvalItems,
+      approvalDiscountAmount: 10,
+      onSubmit,
+    });
+
+    const confirm = screen.getByRole('button', { name: /Confirm Sale/i });
+    await waitFor(() => expect(confirm).toBeEnabled());
+    expect(screen.getByTestId('checkout-approval-status-sale_discount')).toHaveTextContent(
+      'Approved'
+    );
+
+    const amountReceived = screen.getByLabelText(/Amount received/i);
+    await user.clear(amountReceived);
+    await user.type(amountReceived, '100');
+    await waitFor(() => expect(confirm).toBeDisabled());
+    await waitFor(() =>
+      expect(screen.getByTestId('checkout-approval-status-sale_discount')).toHaveTextContent(
+        'Not requested'
+      )
+    );
+
+    await user.clear(amountReceived);
+    await user.type(amountReceived, '90');
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await user.click(confirm);
+
+    const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submitted.approvalRequests).toEqual([
+      { action: 'sale_discount', requestId: 'approval-discount-1' },
+    ]);
+  });
+
+  it('never associates a delayed approval response with a newer payment context', async () => {
+    const user = userEvent.setup();
+    const approvalItems = [
+      {
+        productId: 'product-delayed',
+        unitId: 'unit-1',
+        quantity: 1,
+        unitPrice: 100,
+        discount: 10,
+      },
+    ];
+    renderModal({
+      userRole: 'cashier',
+      total: 90,
+      approvalItems,
+      approvalDiscountAmount: 10,
+    });
+
+    await screen.findByTestId('checkout-approval-sale_discount');
+    await user.type(screen.getByLabelText('Reason'), 'Customer price match');
+    await user.click(screen.getByRole('button', { name: 'Request approval' }));
+    const submittedVariables = mockApprovalMutation.mutate.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+
+    const amountReceived = screen.getByLabelText(/Amount received/i);
+    await user.clear(amountReceived);
+    await user.type(amountReceived, '100');
+    expect(amountReceived).toHaveValue(100);
+
+    mockApprovalRows = [
+      {
+        id: 'approval-delayed-1',
+        action: 'sale_discount',
+        status: 'approved',
+        resourceType: 'sale_checkout',
+        resourceId: 'checkout:sha256:server-context-a',
+        decisionReason: null,
+      },
+    ];
+    await act(async () => {
+      await mockApprovalOnSuccess?.(
+        {
+          resourceType: 'sale_checkout',
+          resourceId: 'checkout:sha256:server-context-a',
+        },
+        submittedVariables
+      );
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('checkout-approval-status-sale_discount')).toHaveTextContent(
+        'Not requested'
+      )
+    );
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('rehashes the exact approval context when the resolved currency changes', async () => {
+    const approvalItems = [
+      {
+        productId: 'product-currency',
+        unitId: 'unit-1',
+        quantity: 1,
+        unitPrice: 100,
+        discount: 10,
+      },
+    ];
+    const copResourceId = await hashCheckoutApprovalContext({
+      mode: 'fresh',
+      saleId: null,
+      customerId: null,
+      items: approvalItems,
+      paymentMethod: 'cash',
+      payments: [],
+      amountReceived: 90,
+      discountAmount: 10,
+      total: 90,
+      creditAmount: 0,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'COP',
+    });
+    mockApprovalRows = [
+      {
+        id: 'approval-currency-1',
+        action: 'sale_discount',
+        status: 'approved',
+        resourceType: 'sale_checkout',
+        resourceId: copResourceId,
+        decisionReason: null,
+      },
+    ];
+    const props = {
+      userRole: 'cashier' as const,
+      total: 90,
+      approvalItems,
+      approvalDiscountAmount: 10,
+    };
+    const view = renderModal({ ...props, currencyCode: 'USD' });
+    await waitFor(() =>
+      expect(screen.getByTestId('checkout-approval-status-sale_discount')).toHaveTextContent(
+        'Not requested'
+      )
+    );
+
+    view.rerender(buildModal({ ...props, currencyCode: 'COP' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('checkout-approval-status-sale_discount')).toHaveTextContent(
+        'Approved'
+      )
+    );
+  });
+
+  it('binds a resumed draft approval to its frozen customer', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    const approvalItems = [
+      {
+        productId: 'product-draft',
+        unitId: 'unit-1',
+        quantity: 1,
+        unitPrice: 100,
+        discount: 10,
+      },
+    ];
+    const resourceId = await hashCheckoutApprovalContext({
+      mode: 'fromDraft',
+      saleId: 'draft-1',
+      customerId: 'cust-1',
+      items: approvalItems,
+      paymentMethod: 'cash',
+      payments: [],
+      amountReceived: 90,
+      discountAmount: 10,
+      total: 90,
+      creditAmount: 0,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'COP',
+    });
+    mockApprovalRows = [
+      {
+        id: 'approval-draft-1',
+        action: 'sale_discount',
+        status: 'approved',
+        resourceType: 'sale_checkout',
+        resourceId,
+        decisionReason: null,
+      },
+    ];
+
+    renderModal({
+      userRole: 'cashier',
+      total: 90,
+      approvalSaleId: 'draft-1',
+      approvalCustomerId: 'cust-1',
+      approvalItems,
+      approvalDiscountAmount: 10,
+      onSubmit,
+    });
+
+    const customer = screen.getByLabelText('Customer');
+    expect(customer).toHaveValue('cust-1');
+    expect(customer).toBeDisabled();
+    const confirm = screen.getByRole('button', { name: /Confirm Sale/i });
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await user.click(confirm);
+
+    const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submitted.customerId).toBe('cust-1');
+    expect(submitted.approvalRequests).toEqual([
+      { action: 'sale_discount', requestId: 'approval-draft-1' },
+    ]);
   });
 
   it('strips creditOverride=true when the payment method is not credit', async () => {
@@ -222,18 +495,13 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
       onSubmit,
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    await user.selectOptions(
-      screen.getByTestId('sale-payment-method-select'),
-      'credit'
-    );
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     await user.selectOptions(screen.getByLabelText('Customer'), '');
 
     await waitFor(() =>
       expect(screen.getByTestId('sale-payment-method-select')).toHaveValue('cash')
     );
-    expect(
-      screen.queryByTestId('credit-sale-customer-card')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('credit-sale-customer-card')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
     const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
@@ -245,16 +513,15 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
   // ENG-014 — split-credit ("apartado") cases
   // ============================================================
 
-  it('ENG-014: cashier cannot pick credit inside split tender (gate matches single-tender)', async () => {
+  it('ENG-014: cashier can request approval for credit inside split tender', async () => {
     const user = userEvent.setup();
     renderModal({ userRole: 'cashier' });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     // Enable split mode and inspect the tender method select. The
-    // 'credit' option must not be present for cashier.
+    // The cashier can select credit; completing it remains gated by the
+    // payload-bound manager request rendered by the modal.
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    expect(
-      screen.queryByTestId('split-tender-credit-option-0')
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('split-tender-credit-option-0')).toBeInTheDocument();
   });
 
   it('ENG-014: split tender exposes credit option when admin + customer attached', async () => {
@@ -265,9 +532,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    expect(
-      screen.getByTestId('split-tender-credit-option-0')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('split-tender-credit-option-0')).toBeInTheDocument();
   });
 
   it('ENG-014: V10 customer card surfaces in split mode when a tender is credit, sized to the credit portion only', async () => {
@@ -300,9 +565,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     expect(screen.getByTestId('credit-sale-projected')).toHaveTextContent('150');
     expect(screen.queryByTestId('credit-sale-warning')).not.toBeInTheDocument();
     // Partial-credit summary line shows the breakdown.
-    expect(
-      screen.getByTestId('credit-sale-partial-summary')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('credit-sale-partial-summary')).toBeInTheDocument();
   });
 
   it('ENG-014: submits split payload carrying cash + credit tenders', async () => {
@@ -321,10 +584,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     await user.clear(firstAmount);
     await user.type(firstAmount, '50');
     await user.click(screen.getByRole('button', { name: /Add payment method/i }));
-    await user.selectOptions(
-      screen.getByLabelText(/Method for tender 2/i),
-      'credit'
-    );
+    await user.selectOptions(screen.getByLabelText(/Method for tender 2/i), 'credit');
     const secondAmount = screen.getByLabelText(/Amount for tender 2/i);
     await user.clear(secondAmount);
     await user.type(secondAmount, '150');

@@ -4,19 +4,12 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
 import { invalidateGroups } from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
-import {
-  getCartItemKey,
-  type SaleCartItem,
-  type SaleCartSummary,
-} from '@/features/sales/saleCart';
+import { getCartItemKey, type SaleCartItem, type SaleCartSummary } from '@/features/sales/saleCart';
 import {
   checkoutUsesCreditTender,
   getCheckoutPaymentState,
 } from '@/features/sales/checkoutPayment';
-import {
-  useCartWorkspaceStore,
-  type CartWorkspace,
-} from '@/features/sales/useCartWorkspaceStore';
+import { useCartWorkspaceStore, type CartWorkspace } from '@/features/sales/useCartWorkspaceStore';
 import { type SalePaymentValues } from '@/features/sales/SalePaymentModal';
 import type { useSalesMutations } from '@/features/sales/useSalesMutations';
 
@@ -108,7 +101,7 @@ export function useSalesFlows({
       // against `amountReceived` to compute paymentStatus), so we add
       // the tip in here before forwarding.
       const tipAmount = Math.max(0, values.tipAmount ?? 0);
-      const tipMethod = tipAmount > 0 ? values.tipMethod ?? 'fixed' : undefined;
+      const tipMethod = tipAmount > 0 ? (values.tipMethod ?? 'fixed') : undefined;
       // ENG-039d3 — service charge is auto-applied from the tenant rate
       // (resolved by SalePaymentModal); we forward whatever the modal
       // produced. `serviceChargeRate: null` → `undefined` so the Zod
@@ -128,11 +121,10 @@ export function useSalesFlows({
       // ENG-090 / ENG-014 — admin override for the credit-limit invariant.
       // Split-credit can demote the legacy paymentMethod to cash/card, so the
       // forwarding decision must inspect the modal tenders instead of only
-      // the dominant legacy method. The server still re-asserts admin role.
+      // the dominant legacy method. The server accepts direct admin authority
+      // or atomically consumes an exact credit_override grant for non-admins.
       const creditOverride =
-        values.creditOverride && checkoutUsesCreditTender(values)
-          ? true
-          : undefined;
+        values.creditOverride && checkoutUsesCreditTender(values) ? true : undefined;
 
       if (activeWorkspace?.serverSaleId) {
         await completeDraftMutation.mutateAsync({
@@ -147,6 +139,7 @@ export function useSalesFlows({
           serviceChargeAmount,
           serviceChargeRate,
           creditOverride,
+          approvalRequests: values.approvalRequests,
           checkoutStartedAt: activeWorkspace.checkoutStartedAt ?? undefined,
         });
         return;
@@ -177,6 +170,7 @@ export function useSalesFlows({
         serviceChargeAmount,
         serviceChargeRate,
         creditOverride,
+        approvalRequests: values.approvalRequests,
         checkoutStartedAt: activeWorkspace?.checkoutStartedAt ?? undefined,
       });
     } catch (error) {
@@ -318,8 +312,7 @@ export function useSalesFlows({
         productName: row.productName ?? row.productId,
         productSku: row.productSku ?? '',
         unitId: row.unitId ?? '',
-        unitName:
-          row.unitName ?? row.unitAbbreviation ?? row.unitId ?? '',
+        unitName: row.unitName ?? row.unitAbbreviation ?? row.unitId ?? '',
         unitEquivalence: row.unitEquivalence ?? 1,
         quantity: row.quantity,
         unitPrice: row.unitPrice,
@@ -334,6 +327,7 @@ export function useSalesFlows({
         ownerKey,
         serverSaleId: resumed.id,
         serverSaleNumber: resumed.saleNumber,
+        serverCustomerId: resumed.customerId ?? null,
         label,
         items,
       });

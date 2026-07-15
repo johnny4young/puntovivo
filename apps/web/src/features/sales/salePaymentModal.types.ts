@@ -10,6 +10,10 @@
  * @module features/sales/salePaymentModal.types
  */
 import type { Customer, PaymentMethod } from '@/types';
+import type {
+  CheckoutApprovalAction,
+  CheckoutApprovalItem,
+} from '@puntovivo/shared/checkout-approval';
 
 // ENG-014 — split-tender method now mirrors PaymentMethod so a sale
 // can mix instant tenders with a credit portion ("apartado"). The
@@ -50,11 +54,9 @@ export interface SalePaymentValues {
   tipAmount: number;
   tipMethod: SaleTipMethod | null;
   /**
-   * ENG-090 — admin override for the credit-limit invariant. Only
-   * surfaces in the UI when an admin opens the modal and the
-   * projected balance exceeds the customer's `creditLimit`. The
-   * server still enforces the admin role on the `creditOverride`
-   * flag at the router gate.
+   * ENG-090 / ENG-106c2 — credit-limit override. Admins opt in
+   * directly; cashiers and managers can only submit true with a matching,
+   * payload-bound admin approval that the server consumes atomically.
    */
   creditOverride: boolean;
   /**
@@ -67,6 +69,13 @@ export interface SalePaymentValues {
    */
   serviceChargeAmount: number;
   serviceChargeRate: number | null;
+  /** One approved, payload-bound request per sensitive checkout action. */
+  approvalRequests?:
+    | Array<{
+        action: CheckoutApprovalAction;
+        requestId: string;
+      }>
+    | undefined;
 }
 
 export interface SalePaymentModalProps {
@@ -84,14 +93,18 @@ export interface SalePaymentModalProps {
    */
   serviceChargeRate?: number | undefined;
   /**
-   * ENG-090 — caller's role drives credit-method gating. Cashier never
-   * sees the credit tile; manager + admin do. Admin additionally sees
-   * the override checkbox when the projected balance exceeds the
-   * customer's cupo. Undefined or any other role hides credit
-   * entirely. The server still enforces the gate on
-   * `creditOverride: true`.
+   * ENG-090 / ENG-106c2 — caller's role drives credit-method gating.
+   * Cashiers, managers, and admins can select credit with a customer;
+   * cashiers request manager approval and non-admin cupo overrides request
+   * admin approval. Viewers and unknown roles cannot select credit.
    */
   userRole?: 'admin' | 'manager' | 'cashier' | 'viewer' | undefined;
+  /** ENG-106c2 — immutable financial inputs used to bind one-time grants. */
+  approvalSaleId?: string | null | undefined;
+  approvalCustomerId?: string | null | undefined;
+  approvalItems?: CheckoutApprovalItem[] | undefined;
+  approvalDiscountAmount?: number | undefined;
+  currencyCode?: string | undefined;
   /**
    * ENG-105e — observable counter that triggers the fast-cash flow
    * while opening the modal or while it is already open. The parent

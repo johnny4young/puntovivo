@@ -121,6 +121,7 @@
       "errorTitle": "No se pudieron actualizar las aprobaciones",
       "pinMissing": "Configura tu PIN de personal en Usuarios antes de decidir solicitudes.",
       "freshPinHint": "Ingresa tu propio PIN en cada decisión. No se crea una sesión elevada.",
+      "checkoutSummary": "Solicitud exacta de cobro",
       "requestedBy": "Solicitada por {{name}} · {{site}}",
       "expiresAt": "Vence {{time}}",
       "pinLabel": "Tu PIN de personal",

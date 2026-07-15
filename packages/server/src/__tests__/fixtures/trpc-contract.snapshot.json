@@ -932,7 +932,7 @@
   {
     "path": "managerApprovals.request",
     "kind": "mutation",
-    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\"),reason:string[minLength=3,maxLength=500],resourceId?:string[minLength=1,maxLength=255],resourceType:string[minLength=1,maxLength=64],summary:object{amount?:number[min=0],currencyCode?:string,label:string[minLength=1,maxLength=160]}}",
+    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\"),checkoutContext?:object{amountReceived:number[min=0]|null,creditAmount:number[min=0],currencyCode:string,customerId:string[minLength=1]|null,discountAmount:number[min=0],items:array<object>[minItems=1],mode:enum(\"fresh\"|\"fromDraft\"),paymentMethod:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments:array<object>,saleId:string[minLength=1]|null,serviceChargeAmount:number[min=0],tipAmount:number[min=0],total:number[min=0]},reason:string[minLength=3,maxLength=500],resourceId?:string[minLength=1,maxLength=255],resourceType:string[minLength=1,maxLength=64],summary:object{amount?:number[min=0],currencyCode?:string,label:string[minLength=1,maxLength=160]}}",
     "output": "inferred"
   },
   {
@@ -1538,13 +1538,13 @@
   {
     "path": "sales.completeDraft",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=3],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {
     "path": "sales.create",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"|\"refunded\"),serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=3],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"|\"refunded\"),serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {

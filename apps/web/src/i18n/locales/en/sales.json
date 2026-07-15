@@ -588,10 +588,41 @@
     "override": {
       "label": "Authorize exceeding the credit limit",
       "adminHelp": "Adds the sale even though the projected balance exceeds the customer's limit. Use this only with administrator approval.",
-      "adminOnly": "Only an administrator can authorize this"
+      "adminOnly": "Only an administrator can authorize this",
+      "approvalRequired": "An administrator must approve this override before you can complete the sale."
     },
     "toast": {
       "success": "Credit sale recorded"
+    }
+  },
+  "approval": {
+    "title": "Approval required",
+    "help": "Send the request without leaving the cashier session. The sale unlocks only for this exact checkout.",
+    "checkoutSummary": "Checkout · {{total}}",
+    "refresh": "Refresh",
+    "request": "Request approval",
+    "requesting": "Sending…",
+    "requested": "Approval request sent",
+    "requestError": "Unable to request approval",
+    "statusError": "Approval status could not be refreshed. Retry before charging.",
+    "reasonLabel": "Reason",
+    "reasonPlaceholder": "Explain why this checkout needs approval",
+    "decisionReason": "Decision note: {{reason}}",
+    "actions": {
+      "sale_discount": "Discounted checkout",
+      "credit_sale": "Customer credit sale",
+      "credit_override": "Credit-limit override"
+    },
+    "status": {
+      "loading": "Checking",
+      "not_requested": "Not requested",
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled",
+      "executing": "In use",
+      "consumed": "Used",
+      "expired": "Expired"
     }
   },
   "quickCreate": {
@@ -609,15 +640,12 @@
         "message": "Your cash session is closed — open it before charging.",
         "recovery": "Open cash session"
       },
-      "credit_sale_forbidden": {
-        "message": "Only a manager or admin can register credit sales. Ask them to step in or switch to cash."
-      },
       "credit_sale_customer_required": {
         "message": "Credit sales need a customer attached.",
         "recovery": "Pick a customer"
       },
       "credit_limit_exceeded": {
-        "message": "Projection {{projection}} exceeds the customer's credit limit of {{limit}}.",
+        "message": "Projection {{projection}} exceeds the customer's credit limit of {{limit}}. You can request approval at checkout.",
         "recovery": "Switch to cash"
       },
       "discount_exceeds_total": {

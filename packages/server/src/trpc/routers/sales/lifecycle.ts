@@ -58,7 +58,9 @@ export const salesLifecycleProcedures = {
    * `application/sales/completeSale`. The router only adapts tRPC
    * input to the use-case shape and returns the resulting record.
    */
-  create: criticalCommandProcedure.input(createSaleInput).mutation(async ({ ctx, input }) => {
+  create: criticalCommandCashierManagerOrAdminProcedure
+    .input(createSaleInput)
+    .mutation(async ({ ctx, input }) => {
     // ENG-039c — when the renderer passes a tableId (voice-ordering
     // screen), resolve + validate it against the tenant/site catalog BEFORE
     // entering the transactional sale flow so a cross-tenant or
@@ -72,19 +74,11 @@ export const salesLifecycleProcedures = {
       );
     }
 
-    if (inputCarriesCreditTender(input)) {
+    // Draft creation is not a checkout and cannot consume a grant yet. Keep
+    // the original direct role gate on the unusual credit-draft path; a real
+    // completion is authorized atomically inside completeSale below.
+    if (input.status !== 'completed' && inputCarriesCreditTender(input)) {
       assertCanCreateCreditSale(ctx);
-    }
-
-    // ENG-090 — only admins can bypass the credit-limit invariant. The
-    // router rejects manager + cashier callers before the sale tx
-    // runs so a forged payload never reaches `completeSale`.
-    if (input.creditOverride === true && ctx.user!.role !== 'admin') {
-      throwServerError({
-        trpcCode: 'FORBIDDEN',
-        errorCode: 'CREDIT_OVERRIDE_FORBIDDEN',
-        message: 'Only administrators can override the credit limit',
-      });
     }
 
     const criticalCtx = asCriticalCommandContext(ctx);
@@ -120,11 +114,12 @@ export const salesLifecycleProcedures = {
         serviceChargeRate: input.serviceChargeRate ?? null,
         // ENG-090 — admin override for the credit-limit invariant.
         creditOverride: input.creditOverride ?? false,
+        approvalRequests: input.approvalRequests,
         checkoutStartedAt: input.checkoutStartedAt,
       }
     );
     return result.sale;
-  }),
+    }),
 
   /**
    * Update payment method, payment status, or notes on a sale
@@ -247,20 +242,6 @@ export const salesLifecycleProcedures = {
   completeDraft: criticalCommandCashierManagerOrAdminProcedure
     .input(completeDraftInput)
     .mutation(async ({ ctx, input }) => {
-      if (inputCarriesCreditTender(input)) {
-        assertCanCreateCreditSale(ctx);
-      }
-
-      // ENG-090 — same admin-only gate as `sales.create`. Drafts that
-      // resume as credit can also bypass the cupo at finalize time
-      // when an admin co-signs; non-admin callers cannot.
-      if (input.creditOverride === true && ctx.user!.role !== 'admin') {
-        throwServerError({
-          trpcCode: 'FORBIDDEN',
-          errorCode: 'CREDIT_OVERRIDE_FORBIDDEN',
-          message: 'Only administrators can override the credit limit',
-        });
-      }
       // ENG-054 — orchestration delegated to
       // `application/sales/completeSale`. The fromDraft path covers:
       // ownership check, suspension check, draft-only invariant, line
@@ -294,6 +275,7 @@ export const salesLifecycleProcedures = {
           serviceChargeRate: input.serviceChargeRate ?? null,
           // ENG-090 — admin override for the credit-limit invariant.
           creditOverride: input.creditOverride ?? false,
+          approvalRequests: input.approvalRequests,
           checkoutStartedAt: input.checkoutStartedAt,
         }
       );
