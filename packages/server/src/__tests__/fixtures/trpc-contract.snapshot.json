@@ -1515,13 +1515,13 @@
     "path": "reports.dayClose.signoff",
     "kind": "query",
     "input": "object{date:string}",
-    "output": "object{currencyCode:string[minLength=3,maxLength=3],date:string,id:string[minLength=1],report:object{adjustments:object,anomalies:object,capabilities:object,cash:object,currencyCode:string[minLength=3,maxLength=3],date:string,fiscal:object,generatedAt:string[format=date-time],payments:array<object>,readiness:object,sales:object,timeZone:string[minLength=1],window:object},reportHash:string,schemaVersion:literal(1),signedAt:string[format=date-time],signedBy:object{id:string[minLength=1],name:string[minLength=1]},timeZone:string[minLength=1]}|null"
+    "output": "object{currencyCode:string[minLength=3,maxLength=3],date:string,id:string[minLength=1],pdf:object{byteSize:integer[max=9007199254740991,min>0],createdAt:string[format=date-time],filename:string,id:string[minLength=1],locale:string[minLength=2],mimeType:literal(\"application/pdf\"),payloadHash:string,rendererVersion:literal(1)}|null,report:object{adjustments:object,anomalies:object,capabilities:object,cash:object,currencyCode:string[minLength=3,maxLength=3],date:string,fiscal:object,generatedAt:string[format=date-time],payments:array<object>,readiness:object,sales:object,timeZone:string[minLength=1],window:object},reportHash:string,schemaVersion:literal(1),signedAt:string[format=date-time],signedBy:object{id:string[minLength=1],name:string[minLength=1]},timeZone:string[minLength=1]}|null"
   },
   {
     "path": "reports.dayClose.signOff",
     "kind": "mutation",
     "input": "object{attestationAccepted:literal(true),date:string}",
-    "output": "object{currencyCode:string[minLength=3,maxLength=3],date:string,id:string[minLength=1],reportHash:string,schemaVersion:literal(1),signedAt:string[format=date-time],signedBy:object{id:string[minLength=1],name:string[minLength=1]},timeZone:string[minLength=1]}"
+    "output": "object{currencyCode:string[minLength=3,maxLength=3],date:string,id:string[minLength=1],pdf:object{byteSize:integer[max=9007199254740991,min>0],createdAt:string[format=date-time],filename:string,id:string[minLength=1],locale:string[minLength=2],mimeType:literal(\"application/pdf\"),payloadHash:string,rendererVersion:literal(1)}|null,reportHash:string,schemaVersion:literal(1),signedAt:string[format=date-time],signedBy:object{id:string[minLength=1],name:string[minLength=1]},timeZone:string[minLength=1]}"
   },
   {
     "path": "reports.diagnostics.export",

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
-import { FileSignature, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { Download, FileSignature, FileText, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { formatDateTime } from '@/lib/utils';
@@ -15,7 +15,9 @@ interface DayCloseSignoffCardProps {
   report: DayCloseReport;
   signoff: DayCloseSignoff | null;
   isSigning: boolean;
+  isDownloadingPdf: boolean;
   onSign: () => void;
+  onDownloadPdf: () => void;
 }
 
 /** ENG-141b — explicit irreversible attestation + immutable evidence state. */
@@ -24,9 +26,11 @@ export function DayCloseSignoffCard({
   report,
   signoff,
   isSigning,
+  isDownloadingPdf,
   onSign,
+  onDownloadPdf,
 }: DayCloseSignoffCardProps) {
-  const { t } = useTranslation('reports');
+  const { t, i18n } = useTranslation('reports');
   const [accepted, setAccepted] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -72,6 +76,45 @@ export function DayCloseSignoffCard({
                 </dd>
               </div>
             </dl>
+            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-success-200 bg-white/55 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-2.5">
+                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-success-700" aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-success-950">
+                    {t('dayClose.signoff.pdfTitle')}
+                  </p>
+                  <p className="mt-0.5 break-words text-xs leading-5 text-success-900/75">
+                    {signoff.pdf
+                      ? t('dayClose.signoff.pdfDescription', {
+                          filename: signoff.pdf.filename,
+                          size: new Intl.NumberFormat(i18n.resolvedLanguage ?? i18n.language, {
+                            maximumFractionDigits: 1,
+                          }).format(signoff.pdf.byteSize / 1024),
+                        })
+                      : t('dayClose.signoff.pdfUnavailable')}
+                  </p>
+                </div>
+              </div>
+              {signoff.pdf && (
+                <button
+                  type="button"
+                  className="pv-btn outline shrink-0 justify-center"
+                  disabled={isDownloadingPdf}
+                  onClick={onDownloadPdf}
+                  data-testid="day-close-pdf-download"
+                >
+                  <Download
+                    className={isDownloadingPdf ? 'animate-pulse' : ''}
+                    aria-hidden="true"
+                  />
+                  {t(
+                    isDownloadingPdf
+                      ? 'dayClose.signoff.pdfDownloading'
+                      : 'dayClose.signoff.pdfDownload'
+                  )}
+                </button>
+              )}
+            </div>
           </div>
           <LockKeyhole
             className="hidden h-5 w-5 shrink-0 text-success-700 sm:block"

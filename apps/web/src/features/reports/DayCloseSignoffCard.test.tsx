@@ -71,7 +71,9 @@ describe('DayCloseSignoffCard (ENG-141b)', () => {
         report={readyReport}
         signoff={null}
         isSigning={false}
+        isDownloadingPdf={false}
         onSign={onSign}
+        onDownloadPdf={vi.fn()}
       />
     );
 
@@ -99,7 +101,9 @@ describe('DayCloseSignoffCard (ENG-141b)', () => {
         }}
         signoff={null}
         isSigning={false}
+        isDownloadingPdf={false}
         onSign={vi.fn()}
+        onDownloadPdf={vi.fn()}
       />
     );
 
@@ -110,8 +114,10 @@ describe('DayCloseSignoffCard (ENG-141b)', () => {
     );
   });
 
-  it('shows immutable signer and hash evidence without another signing action', () => {
+  it('shows immutable signer, hash, and stored PDF evidence', async () => {
+    const user = userEvent.setup();
     const reportHash = 'b'.repeat(64);
+    const onDownloadPdf = vi.fn();
     render(
       <DayCloseSignoffCard
         date="2026-07-14"
@@ -125,10 +131,22 @@ describe('DayCloseSignoffCard (ENG-141b)', () => {
           reportHash,
           signedAt: '2026-07-15T03:00:00.000Z',
           signedBy: { id: 'manager-1', name: 'María Manager' },
+          pdf: {
+            id: 'artifact-1',
+            rendererVersion: 1,
+            locale: 'es-CO',
+            filename: 'puntovivo-cierre-2026-07-14-bbbbbbbb.pdf',
+            mimeType: 'application/pdf',
+            byteSize: 12_288,
+            payloadHash: 'c'.repeat(64),
+            createdAt: '2026-07-15T03:00:00.000Z',
+          },
           report: readyReport,
         }}
         isSigning={false}
+        isDownloadingPdf={false}
         onSign={vi.fn()}
+        onDownloadPdf={onDownloadPdf}
       />
     );
 
@@ -138,5 +156,40 @@ describe('DayCloseSignoffCard (ENG-141b)', () => {
     expect(
       screen.queryByRole('button', { name: /Firmar cierre|Sign day close/i })
     ).not.toBeInTheDocument();
+    expect(screen.getByTestId('day-close-signed-evidence')).toHaveTextContent(
+      'puntovivo-cierre-2026-07-14-bbbbbbbb.pdf'
+    );
+    await user.click(screen.getByRole('button', { name: /Descargar PDF|Download PDF/i }));
+    expect(onDownloadPdf).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps legacy immutable evidence honest when no stored PDF exists', () => {
+    render(
+      <DayCloseSignoffCard
+        date="2026-07-14"
+        report={readyReport}
+        signoff={{
+          id: 'legacy-signoff',
+          date: '2026-07-14',
+          schemaVersion: 1,
+          timeZone: 'America/Bogota',
+          currencyCode: 'COP',
+          reportHash: 'd'.repeat(64),
+          signedAt: '2026-07-15T03:00:00.000Z',
+          signedBy: { id: 'manager-1', name: 'María Manager' },
+          pdf: null,
+          report: readyReport,
+        }}
+        isSigning={false}
+        isDownloadingPdf={false}
+        onSign={vi.fn()}
+        onDownloadPdf={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('day-close-signed-evidence')).toHaveTextContent(
+      /anterior al almacenamiento|predates stored PDF/i
+    );
+    expect(screen.queryByRole('button', { name: /Descargar PDF|Download PDF/i })).toBeNull();
   });
 });

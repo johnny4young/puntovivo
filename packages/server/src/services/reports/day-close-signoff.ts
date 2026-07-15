@@ -7,19 +7,32 @@
  * transaction. Reads verify both the schema and hash before returning legal
  * evidence to the UI.
  */
+import { createHash } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { DAY_CLOSE_SIGNOFF_SCHEMA_VERSION, dayCloseSignoffs, users } from '../../db/schema.js';
+import {
+  DAY_CLOSE_PDF_MIME_TYPE,
+  DAY_CLOSE_PDF_RENDERER_VERSION,
+  DAY_CLOSE_SIGNOFF_SCHEMA_VERSION,
+  dayCloseArtifacts,
+  dayCloseSignoffs,
+  tenants,
+  users,
+} from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../audit-logs.js';
 import { hashCanonicalInput } from '../idempotency/keyHasher.js';
 import {
   comprehensiveDayCloseReportOutput,
+  dayClosePdfArtifactOutput,
+  type DayClosePdfArtifactOutput,
   type DayCloseSignoffMetadataOutput,
   type DayCloseSignoffOutput,
 } from '../../trpc/schemas/reports.js';
+import { resolveTenantLocale } from '../tenant-locale.js';
 import { computeComprehensiveDayCloseReport } from './comprehensive-day-close.js';
+import { buildDayClosePdfFilename, renderDayClosePdf } from './day-close-pdf.js';
 
 interface SignDayCloseInput {
   tenantId: string;
@@ -40,6 +53,16 @@ const signoffSelection = {
   signedByUserId: dayCloseSignoffs.signedByUserId,
   signedByName: dayCloseSignoffs.signedByName,
   signedAt: dayCloseSignoffs.signedAt,
+  artifactId: dayCloseArtifacts.id,
+  artifactRendererVersion: dayCloseArtifacts.rendererVersion,
+  artifactLocale: dayCloseArtifacts.locale,
+  artifactFilename: dayCloseArtifacts.filename,
+  artifactMimeType: dayCloseArtifacts.mimeType,
+  artifactByteSize: dayCloseArtifacts.byteSize,
+  artifactPayloadHash: dayCloseArtifacts.payloadHash,
+  artifactReportHash: dayCloseArtifacts.reportHash,
+  artifactPayload: dayCloseArtifacts.payload,
+  artifactCreatedAt: dayCloseArtifacts.createdAt,
 } as const;
 
 type SignoffRow = {
@@ -53,7 +76,22 @@ type SignoffRow = {
   signedByUserId: string;
   signedByName: string;
   signedAt: string;
+  artifactId: string | null;
+  artifactRendererVersion: number | null;
+  artifactLocale: string | null;
+  artifactFilename: string | null;
+  artifactMimeType: string | null;
+  artifactByteSize: number | null;
+  artifactPayloadHash: string | null;
+  artifactReportHash: string | null;
+  artifactPayload: Buffer | null;
+  artifactCreatedAt: string | null;
 };
+
+export interface DayClosePdfDownload {
+  metadata: DayClosePdfArtifactOutput;
+  payload: Buffer;
+}
 
 function throwAlreadySigned(date: string, signoffId?: string): never {
   return throwServerError({
@@ -73,6 +111,54 @@ function throwIntegrityFailed(row: Pick<SignoffRow, 'id' | 'businessDate'>): nev
   });
 }
 
+function sha256(payload: Uint8Array): string {
+  return createHash('sha256').update(payload).digest('hex');
+}
+
+function artifactMetadataFromRow(row: SignoffRow): DayClosePdfArtifactOutput | null {
+  const artifactValues = [
+    row.artifactId,
+    row.artifactRendererVersion,
+    row.artifactLocale,
+    row.artifactFilename,
+    row.artifactMimeType,
+    row.artifactByteSize,
+    row.artifactPayloadHash,
+    row.artifactReportHash,
+    row.artifactPayload,
+    row.artifactCreatedAt,
+  ];
+  if (artifactValues.every(value => value === null)) return null;
+  if (
+    row.artifactId === null ||
+    row.artifactRendererVersion !== DAY_CLOSE_PDF_RENDERER_VERSION ||
+    row.artifactLocale === null ||
+    row.artifactFilename === null ||
+    row.artifactMimeType !== DAY_CLOSE_PDF_MIME_TYPE ||
+    row.artifactByteSize === null ||
+    row.artifactPayloadHash === null ||
+    row.artifactReportHash !== row.reportHash ||
+    row.artifactPayload === null ||
+    row.artifactCreatedAt === null ||
+    row.artifactPayload.byteLength !== row.artifactByteSize ||
+    sha256(row.artifactPayload) !== row.artifactPayloadHash
+  ) {
+    throwIntegrityFailed(row);
+  }
+  const metadata = dayClosePdfArtifactOutput.safeParse({
+    id: row.artifactId,
+    rendererVersion: DAY_CLOSE_PDF_RENDERER_VERSION,
+    locale: row.artifactLocale,
+    filename: row.artifactFilename,
+    mimeType: DAY_CLOSE_PDF_MIME_TYPE,
+    byteSize: row.artifactByteSize,
+    payloadHash: row.artifactPayloadHash,
+    createdAt: row.artifactCreatedAt,
+  });
+  if (!metadata.success) throwIntegrityFailed(row);
+  return metadata.data;
+}
+
 function metadataFromRow(row: SignoffRow): DayCloseSignoffMetadataOutput {
   if (row.schemaVersion !== DAY_CLOSE_SIGNOFF_SCHEMA_VERSION) {
     throwIntegrityFailed(row);
@@ -86,6 +172,7 @@ function metadataFromRow(row: SignoffRow): DayCloseSignoffMetadataOutput {
     reportHash: row.reportHash,
     signedAt: row.signedAt,
     signedBy: { id: row.signedByUserId, name: row.signedByName },
+    pdf: artifactMetadataFromRow(row),
   };
 }
 
@@ -116,7 +203,33 @@ function findSignoffRow(
   return db
     .select(signoffSelection)
     .from(dayCloseSignoffs)
+    .leftJoin(
+      dayCloseArtifacts,
+      and(
+        eq(dayCloseArtifacts.tenantId, dayCloseSignoffs.tenantId),
+        eq(dayCloseArtifacts.signoffId, dayCloseSignoffs.id)
+      )
+    )
     .where(and(eq(dayCloseSignoffs.tenantId, tenantId), eq(dayCloseSignoffs.businessDate, date)))
+    .get();
+}
+
+function findSignoffRowByArtifact(
+  db: DatabaseInstance,
+  tenantId: string,
+  artifactId: string
+): SignoffRow | undefined {
+  return db
+    .select(signoffSelection)
+    .from(dayCloseSignoffs)
+    .innerJoin(
+      dayCloseArtifacts,
+      and(
+        eq(dayCloseArtifacts.tenantId, dayCloseSignoffs.tenantId),
+        eq(dayCloseArtifacts.signoffId, dayCloseSignoffs.id)
+      )
+    )
+    .where(and(eq(dayCloseSignoffs.tenantId, tenantId), eq(dayCloseArtifacts.id, artifactId)))
     .get();
 }
 
@@ -127,6 +240,19 @@ export function getDayCloseSignoff(
 ): DayCloseSignoffOutput | null {
   const row = findSignoffRow(db, tenantId, date);
   return row ? presentVerifiedSignoff(row) : null;
+}
+
+/** Tenant-scoped binary lookup used only by the authenticated Fastify route. */
+export function getDayClosePdfArtifact(
+  db: DatabaseInstance,
+  tenantId: string,
+  artifactId: string
+): DayClosePdfDownload | null {
+  const row = findSignoffRowByArtifact(db, tenantId, artifactId);
+  if (!row) return null;
+  const verified = presentVerifiedSignoff(row);
+  if (!verified.pdf || !row.artifactPayload) throwIntegrityFailed(row);
+  return { metadata: verified.pdf, payload: row.artifactPayload };
 }
 
 function isDayCloseUniqueConstraint(error: unknown): boolean {
@@ -148,8 +274,9 @@ export async function signDayClose(
   if (existing) throwAlreadySigned(input.date, existing.id);
 
   const signer = db
-    .select({ id: users.id, name: users.name })
+    .select({ id: users.id, name: users.name, tenantName: tenants.name })
     .from(users)
+    .innerJoin(tenants, eq(users.tenantId, tenants.id))
     .where(and(eq(users.id, input.actorId), eq(users.tenantId, input.tenantId)))
     .get();
   if (!signer) {
@@ -174,10 +301,22 @@ export async function signDayClose(
     });
   }
 
-  const id = nanoid();
   const signedAt = (input.now ?? new Date()).toISOString();
   const reportSnapshot = report as unknown as Record<string, unknown>;
   const reportHash = hashCanonicalInput(reportSnapshot);
+  const locale = await resolveTenantLocale(db, input.tenantId);
+  const artifactPayload = renderDayClosePdf({
+    tenantName: signer.tenantName,
+    report,
+    reportHash,
+    signedByName: signer.name,
+    signedAt,
+    locale,
+  });
+  const id = nanoid();
+  const artifactId = nanoid();
+  const artifactPayloadHash = sha256(artifactPayload);
+  const artifactFilename = buildDayClosePdfFilename(input.date, reportHash);
   const row: SignoffRow = {
     id,
     businessDate: input.date,
@@ -189,6 +328,16 @@ export async function signDayClose(
     signedByUserId: signer.id,
     signedByName: signer.name,
     signedAt,
+    artifactId,
+    artifactRendererVersion: DAY_CLOSE_PDF_RENDERER_VERSION,
+    artifactLocale: locale.locale,
+    artifactFilename,
+    artifactMimeType: DAY_CLOSE_PDF_MIME_TYPE,
+    artifactByteSize: artifactPayload.byteLength,
+    artifactPayloadHash,
+    artifactReportHash: reportHash,
+    artifactPayload,
+    artifactCreatedAt: signedAt,
   };
 
   try {
@@ -199,8 +348,34 @@ export async function signDayClose(
 
         tx.insert(dayCloseSignoffs)
           .values({
-            ...row,
+            id: row.id,
             tenantId: input.tenantId,
+            businessDate: row.businessDate,
+            schemaVersion: row.schemaVersion,
+            timeZone: row.timeZone,
+            currencyCode: row.currencyCode,
+            reportSnapshot: row.reportSnapshot,
+            reportHash: row.reportHash,
+            signedByUserId: row.signedByUserId,
+            signedByName: row.signedByName,
+            signedAt: row.signedAt,
+          })
+          .run();
+
+        tx.insert(dayCloseArtifacts)
+          .values({
+            id: artifactId,
+            tenantId: input.tenantId,
+            signoffId: id,
+            rendererVersion: DAY_CLOSE_PDF_RENDERER_VERSION,
+            locale: locale.locale,
+            filename: artifactFilename,
+            mimeType: DAY_CLOSE_PDF_MIME_TYPE,
+            byteSize: artifactPayload.byteLength,
+            payloadHash: artifactPayloadHash,
+            reportHash,
+            payload: artifactPayload,
+            createdAt: signedAt,
           })
           .run();
 
@@ -219,6 +394,10 @@ export async function signDayClose(
             currencyCode: report.currencyCode,
             reportHash,
             signedAt,
+            pdfArtifactId: artifactId,
+            pdfPayloadHash: artifactPayloadHash,
+            pdfByteSize: artifactPayload.byteLength,
+            pdfFilename: artifactFilename,
           },
           metadata: { attestationAccepted: true },
           operationId: input.operationId,

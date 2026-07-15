@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import {
   attachClientIssueTracker,
@@ -199,11 +200,23 @@ test.describe('web smoke', () => {
     await expect(evidence).toContainText(/E2E Manager/);
     await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
     await expect(page.getByRole('checkbox')).toHaveCount(0);
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByTestId('day-close-pdf-download').click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(
+      /^puntovivo-cierre-2000-01-01-[a-f0-9]{8}\.pdf$/
+    );
+    const downloadPath = await download.path();
+    expect(downloadPath).not.toBeNull();
+    const pdf = await readFile(downloadPath!);
+    expect(pdf.subarray(0, 8).toString()).toBe('%PDF-1.3');
+    expect(pdf.subarray(-5).toString()).toBe('%%EOF');
 
     await page.reload();
     await dateInput.fill('2000-01-01');
     await expect(evidence).toContainText(/E2E Manager/);
     await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
+    await expect(page.getByTestId('day-close-pdf-download')).toBeEnabled();
     await expect(page.getByRole('checkbox')).toHaveCount(0);
 
     await expectNoClientIssues(tracker);

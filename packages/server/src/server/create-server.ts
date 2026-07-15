@@ -37,6 +37,7 @@ import {
   SERVER_SOCKET_TIMEOUT_MS,
 } from './constants.js';
 import { registerHttpPlugins } from './plugins.js';
+import { registerDayCloseArtifactRoutes } from './routes/day-close-artifacts.js';
 import type { PuntovivoServer, ServerOptions } from './types.js';
 import { registerWorkers } from './workers.js';
 
@@ -149,6 +150,10 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
 
   // Decorate request with database instance
   app.decorate('db', db);
+
+  // ENG-141c — binary evidence bypasses JSON/tRPC to avoid base64 bloat,
+  // but keeps the same live access-token, tenant, and role checks.
+  await registerDayCloseArtifactRoutes(app);
 
   // Register tRPC
   const trpcLog = createModuleLogger('trpc');

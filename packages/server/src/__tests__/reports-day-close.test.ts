@@ -1,6 +1,7 @@
 /** ENG-141a/ENG-141b — comprehensive day-close report and immutable sign-off integration. */
 
-import { and, eq } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -8,6 +9,7 @@ import {
   auditLogs,
   cashSessions,
   companies,
+  dayCloseArtifacts,
   dayCloseSignoffs,
   fiscalDocuments,
   fiscalNumberingResolutions,
@@ -20,6 +22,7 @@ import {
   users,
 } from '../db/schema.js';
 import { registerDevice } from '../services/devices/devicesService.js';
+import { signAccessToken } from '../security/authTokens.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import {
@@ -470,6 +473,25 @@ describe('reports.dayClose.preview (ENG-141a)', () => {
       signedBy: { id: tenant.managerId, name: 'Manager signoff' },
     });
     expect(signed.reportHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(signed.pdf).toMatchObject({
+      rendererVersion: 1,
+      locale: 'es-CO',
+      mimeType: 'application/pdf',
+      createdAt: expect.any(String),
+    });
+    expect(signed.pdf?.filename).toMatch(/^puntovivo-cierre-2026-07-14-[a-f0-9]{8}\.pdf$/);
+
+    const artifact = db
+      .select()
+      .from(dayCloseArtifacts)
+      .where(eq(dayCloseArtifacts.id, signed.pdf!.id))
+      .get();
+    expect(artifact?.payload.subarray(0, 8).toString()).toBe('%PDF-1.3');
+    expect(artifact?.payload.subarray(-5).toString()).toBe('%%EOF');
+    expect(artifact?.byteSize).toBe(artifact?.payload.byteLength);
+    expect(artifact?.payloadHash).toBe(
+      createHash('sha256').update(artifact!.payload).digest('hex')
+    );
 
     const evidence = await appRouter
       .createCaller(context(tenant.tenantId, tenant.managerId, 'manager'))
@@ -481,10 +503,7 @@ describe('reports.dayClose.preview (ENG-141a)', () => {
       .select()
       .from(auditLogs)
       .where(
-        and(
-          eq(auditLogs.tenantId, tenant.tenantId),
-          eq(auditLogs.action, 'day_close.sign_off')
-        )
+        and(eq(auditLogs.tenantId, tenant.tenantId), eq(auditLogs.action, 'day_close.sign_off'))
       )
       .get();
     expect(audit).toMatchObject({
@@ -497,6 +516,10 @@ describe('reports.dayClose.preview (ENG-141a)', () => {
     expect(audit?.after).toMatchObject({
       businessDate: '2026-07-14',
       reportHash: signed.reportHash,
+      pdfArtifactId: signed.pdf?.id,
+      pdfPayloadHash: signed.pdf?.payloadHash,
+      pdfByteSize: signed.pdf?.byteSize,
+      pdfFilename: signed.pdf?.filename,
     });
 
     await db
@@ -552,6 +575,174 @@ describe('reports.dayClose.preview (ENG-141a)', () => {
     expect(() =>
       db.delete(dayCloseSignoffs).where(eq(dayCloseSignoffs.id, signed.id)).run()
     ).toThrow(/day_close_signoffs are immutable/);
+    expect(() =>
+      db
+        .update(dayCloseArtifacts)
+        .set({ filename: 'rewritten.pdf' })
+        .where(eq(dayCloseArtifacts.id, signed.pdf!.id))
+        .run()
+    ).toThrow(/day_close_artifacts are immutable/);
+    expect(() =>
+      db.delete(dayCloseArtifacts).where(eq(dayCloseArtifacts.id, signed.pdf!.id)).run()
+    ).toThrow(/day_close_artifacts are immutable/);
+  });
+
+  it('serves a verified PDF only to a manager or admin in the owning tenant', async () => {
+    const db = getDatabase();
+    const tenant = await seedTenant('pdf-route');
+    const foreign = await seedTenant('pdf-route-foreign');
+    const manager = await createCriticalActor(tenant, tenant.managerId, 'manager');
+    const signed = await appRouter.createCaller(manager.fresh()).reports.dayClose.signOff({
+      date: '2026-07-10',
+      attestationAccepted: true,
+    });
+    expect(signed.pdf).not.toBeNull();
+    const url = `/api/reports/day-close/artifacts/${signed.pdf!.id}`;
+    const tokenFor = (
+      identity: Awaited<ReturnType<typeof seedTenant>>,
+      userId: string,
+      role: 'admin' | 'manager' | 'cashier'
+    ) =>
+      signAccessToken(server.app, {
+        id: userId,
+        tenantId: identity.tenantId,
+        email: `${userId}@example.com`,
+        role,
+        sessionVersion: 1,
+      });
+
+    expect((await server.app.inject({ method: 'GET', url })).statusCode).toBe(401);
+    expect(
+      (
+        await server.app.inject({
+          method: 'GET',
+          url,
+          headers: { authorization: `Bearer ${tokenFor(tenant, tenant.cashierId, 'cashier')}` },
+        })
+      ).statusCode
+    ).toBe(403);
+    expect(
+      (
+        await server.app.inject({
+          method: 'GET',
+          url: '/api/reports/day-close/artifacts/not-valid!',
+          headers: { authorization: `Bearer ${tokenFor(tenant, tenant.managerId, 'manager')}` },
+        })
+      ).statusCode
+    ).toBe(400);
+    expect(
+      (
+        await server.app.inject({
+          method: 'GET',
+          url,
+          headers: {
+            authorization: `Bearer ${tokenFor(foreign, foreign.managerId, 'manager')}`,
+          },
+        })
+      ).statusCode
+    ).toBe(404);
+
+    const response = await server.app.inject({
+      method: 'GET',
+      url,
+      headers: { authorization: `Bearer ${tokenFor(tenant, tenant.managerId, 'manager')}` },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toBe('application/pdf');
+    expect(response.headers['cache-control']).toBe('private, no-store, max-age=0');
+    expect(response.headers['content-disposition']).toBe(
+      `attachment; filename="${signed.pdf!.filename}"`
+    );
+    expect(response.rawPayload.byteLength).toBe(signed.pdf!.byteSize);
+    expect(createHash('sha256').update(response.rawPayload).digest('hex')).toBe(
+      signed.pdf!.payloadHash
+    );
+
+    await db.run(sql.raw('DROP TRIGGER IF EXISTS day_close_artifacts_immutable_update'));
+    try {
+      db.update(dayCloseArtifacts)
+        .set({ payload: Buffer.from('%PDF-1.3\ncorrupt\n%%EOF') })
+        .where(eq(dayCloseArtifacts.id, signed.pdf!.id))
+        .run();
+      const corrupt = await server.app.inject({
+        method: 'GET',
+        url,
+        headers: { authorization: `Bearer ${tokenFor(tenant, tenant.adminId, 'admin')}` },
+      });
+      expect(corrupt.statusCode).toBe(500);
+      expect(corrupt.json()).toMatchObject({
+        error: { errorCode: 'DAY_CLOSE_ARTIFACT_INTEGRITY_FAILED' },
+      });
+
+      db.update(dayCloseArtifacts)
+        .set({
+          filename: 'unsafe"; filename=spoofed.pdf',
+          payload: response.rawPayload,
+        })
+        .where(eq(dayCloseArtifacts.id, signed.pdf!.id))
+        .run();
+      const unsafeFilename = await server.app.inject({
+        method: 'GET',
+        url,
+        headers: { authorization: `Bearer ${tokenFor(tenant, tenant.adminId, 'admin')}` },
+      });
+      expect(unsafeFilename.statusCode).toBe(500);
+      expect(unsafeFilename.json()).toMatchObject({
+        error: { errorCode: 'DAY_CLOSE_ARTIFACT_INTEGRITY_FAILED' },
+      });
+    } finally {
+      await db.run(
+        sql.raw(`CREATE TRIGGER IF NOT EXISTS day_close_artifacts_immutable_update
+          BEFORE UPDATE ON day_close_artifacts
+          BEGIN
+            SELECT RAISE(ABORT, 'day_close_artifacts are immutable');
+          END`)
+      );
+    }
+  });
+
+  it('rolls back the sign-off and audit row when PDF storage fails', async () => {
+    const db = getDatabase();
+    const tenant = await seedTenant('pdf-atomic');
+    const manager = await createCriticalActor(tenant, tenant.managerId, 'manager');
+    await db.run(
+      sql.raw(`CREATE TRIGGER fail_day_close_pdf_insert
+        BEFORE INSERT ON day_close_artifacts
+        WHEN NEW.tenant_id = '${tenant.tenantId}'
+        BEGIN
+          SELECT RAISE(ABORT, 'forced PDF storage failure');
+        END`)
+    );
+    try {
+      await expect(
+        appRouter.createCaller(manager.fresh()).reports.dayClose.signOff({
+          date: '2026-07-09',
+          attestationAccepted: true,
+        })
+      ).rejects.toThrow(/forced PDF storage failure/);
+    } finally {
+      await db.run(sql.raw('DROP TRIGGER IF EXISTS fail_day_close_pdf_insert'));
+    }
+
+    expect(
+      db.select().from(dayCloseSignoffs).where(eq(dayCloseSignoffs.tenantId, tenant.tenantId)).all()
+    ).toHaveLength(0);
+    expect(
+      db
+        .select()
+        .from(dayCloseArtifacts)
+        .where(eq(dayCloseArtifacts.tenantId, tenant.tenantId))
+        .all()
+    ).toHaveLength(0);
+    expect(
+      db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(eq(auditLogs.tenantId, tenant.tenantId), eq(auditLogs.action, 'day_close.sign_off'))
+        )
+        .all()
+    ).toHaveLength(0);
   });
 
   it('rejects blocked, duplicate, unauthorized, and cross-tenant sign-off access', async () => {

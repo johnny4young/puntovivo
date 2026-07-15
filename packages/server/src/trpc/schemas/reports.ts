@@ -219,6 +219,17 @@ export const comprehensiveDayCloseReportOutput = z.object({
   }),
 });
 
+export const dayClosePdfArtifactOutput = z.object({
+  id: z.string().min(1),
+  rendererVersion: z.literal(1),
+  locale: z.string().min(2),
+  filename: z.string().regex(/^[A-Za-z0-9._-]+\.pdf$/),
+  mimeType: z.literal('application/pdf'),
+  byteSize: z.number().int().positive(),
+  payloadHash: z.string().regex(/^[a-f0-9]{64}$/),
+  createdAt: isoDateTime,
+});
+
 export const dayCloseSignoffMetadataOutput = z.object({
   id: z.string().min(1),
   date: calendarDay,
@@ -231,6 +242,8 @@ export const dayCloseSignoffMetadataOutput = z.object({
     id: z.string().min(1),
     name: z.string().min(1),
   }),
+  /** Null only for ENG-141b evidence created before stored PDFs shipped. */
+  pdf: dayClosePdfArtifactOutput.nullable(),
 });
 
 export const dayCloseSignoffOutput = dayCloseSignoffMetadataOutput.extend({
@@ -240,5 +253,6 @@ export const dayCloseSignoffOutput = dayCloseSignoffMetadataOutput.extend({
 export type DayClosePreviewInput = z.infer<typeof dayClosePreviewInput>;
 export type DayCloseSignOffInput = z.infer<typeof dayCloseSignOffInput>;
 export type ComprehensiveDayCloseReportOutput = z.infer<typeof comprehensiveDayCloseReportOutput>;
+export type DayClosePdfArtifactOutput = z.infer<typeof dayClosePdfArtifactOutput>;
 export type DayCloseSignoffMetadataOutput = z.infer<typeof dayCloseSignoffMetadataOutput>;
 export type DayCloseSignoffOutput = z.infer<typeof dayCloseSignoffOutput>;

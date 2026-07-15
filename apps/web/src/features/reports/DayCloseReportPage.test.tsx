@@ -14,6 +14,7 @@ let mockSignoffPending = false;
 let mockSignoffError: Error | null = null;
 
 vi.mock('@/lib/trpc', () => ({
+  fetchProtectedApi: vi.fn(),
   trpc: {
     useUtils: () => ({
       reports: { dayClose: { signoff: { invalidate: invalidateSignoff } } },
@@ -142,6 +143,16 @@ function signoffFixture() {
     reportHash: 'a'.repeat(64),
     signedAt: '2026-07-15T03:00:00.000Z',
     signedBy: { id: 'manager-1', name: 'María Manager' },
+    pdf: {
+      id: 'artifact-1',
+      rendererVersion: 1 as const,
+      locale: 'es-CO',
+      filename: 'puntovivo-cierre-2026-07-14-aaaaaaaa.pdf',
+      mimeType: 'application/pdf' as const,
+      byteSize: 12_288,
+      payloadHash: 'b'.repeat(64),
+      createdAt: '2026-07-15T03:00:00.000Z',
+    },
     report: reportFixture(),
   };
 }

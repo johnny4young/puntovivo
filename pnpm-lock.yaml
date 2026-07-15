@@ -385,6 +385,9 @@ importers:
       fastify-plugin:
         specifier: ^6.0.0
         version: 6.0.0
+      jspdf:
+        specifier: ^4.2.1
+        version: 4.2.1
       nanoid:
         specifier: ^5.1.16
         version: 5.1.16

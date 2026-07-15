@@ -66,6 +66,7 @@
     "fast-xml-parser": "^5.9.3",
     "fastify": "^5.10.0",
     "fastify-plugin": "^6.0.0",
+    "jspdf": "^4.2.1",
     "nanoid": "^5.1.16",
     "ollama-ai-provider-v2": "^4.0.1",
     "pino": "^10.3.1",

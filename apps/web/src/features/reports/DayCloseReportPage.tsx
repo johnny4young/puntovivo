@@ -21,9 +21,10 @@ import { KpiTile } from '@/components/ui';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { translateServerError } from '@/lib/translateServerError';
-import { trpc } from '@/lib/trpc';
+import { fetchProtectedApi, trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
+import { downloadFile } from '@/services/export/exportService';
 import { DayCloseSignoffCard } from './DayCloseSignoffCard';
 
 type DayCloseReport = inferRouterOutputs<AppRouter>['reports']['dayClose']['preview'];
@@ -75,6 +76,7 @@ export function DayCloseReportPage() {
   // Keep following the tenant timezone while locale state hydrates. Once the
   // operator picks a date, preserve that explicit choice.
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const date = selectedDate ?? today;
   const signoffQuery = trpc.reports.dayClose.signoff.useQuery({ date }, { staleTime: 30_000 });
   const signoff = signoffQuery.data ?? null;
@@ -103,6 +105,36 @@ export function DayCloseReportPage() {
   const refresh = async () => {
     const refreshedSignoff = await signoffQuery.refetch();
     if (!refreshedSignoff.data) await reportQuery.refetch();
+  };
+
+  const downloadSignedPdf = async () => {
+    if (!signoff?.pdf) return;
+    setIsDownloadingPdf(true);
+    try {
+      const response = await fetchProtectedApi(
+        `/api/reports/day-close/artifacts/${encodeURIComponent(signoff.pdf.id)}`
+      );
+      if (!response.ok) throw new Error(`Day-close PDF download failed with ${response.status}`);
+      const contentType = response.headers.get('content-type')?.split(';')[0]?.trim();
+      if (contentType !== signoff.pdf.mimeType)
+        throw new Error('Unexpected day-close PDF MIME type');
+      const bytes = await response.arrayBuffer();
+      if (bytes.byteLength !== signoff.pdf.byteSize) throw new Error('Day-close PDF size mismatch');
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      const payloadHash = Array.from(new Uint8Array(digest), byte =>
+        byte.toString(16).padStart(2, '0')
+      ).join('');
+      if (payloadHash !== signoff.pdf.payloadHash) throw new Error('Day-close PDF hash mismatch');
+      downloadFile(new Blob([bytes], { type: signoff.pdf.mimeType }), signoff.pdf.filename);
+      toast.success({
+        title: t('reports:dayClose.signoff.pdfDownloadedTitle'),
+        description: t('reports:dayClose.signoff.pdfDownloadedDescription'),
+      });
+    } catch {
+      toast.error({ title: t('reports:dayClose.signoff.pdfDownloadError') });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   return (
@@ -158,7 +190,9 @@ export function DayCloseReportPage() {
             report={report}
             signoff={signoff}
             isSigning={signOffMutation.isPending}
+            isDownloadingPdf={isDownloadingPdf}
             onSign={() => signOffMutation.mutate({ date, attestationAccepted: true })}
+            onDownloadPdf={() => void downloadSignedPdf()}
           />
           <section
             className={`rounded-2xl border px-4 py-3 ${
