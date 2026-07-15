@@ -1,7 +1,7 @@
 {
   "kicker": "Launch migration",
   "title": "Import data",
-  "description": "Bring your initial product catalog, prices, and opening stock into Puntovivo with a reviewable import isolated to your business.",
+  "description": "Bring initial products, customers, and suppliers into Puntovivo with reviewable imports isolated to your business.",
   "fileSummary": "Data rows: {{rows}} · Columns: {{columns}}",
   "steps": {
     "upload": {
@@ -134,5 +134,95 @@
     "importError": "The import could not be completed",
     "imported_one": "{{count}} product imported",
     "imported_other": "{{count}} products imported"
+  },
+  "entitySelector": {
+    "label": "Choose the data to import"
+  },
+  "entities": {
+    "products": {
+      "label": "Products and stock",
+      "description": "Catalog, prices, costs, and opening stock."
+    },
+    "customers": {
+      "label": "Customers",
+      "description": "Customer profiles and contact details."
+    },
+    "providers": {
+      "label": "Suppliers",
+      "description": "Supplier profiles, contacts, and city references."
+    }
+  },
+  "party": {
+    "fields": {
+      "name": "Name",
+      "taxId": "Tax ID",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address",
+      "city": "City",
+      "state": "State or department",
+      "postalCode": "Postal code",
+      "country": "Country",
+      "notes": "Notes",
+      "contactName": "Contact name",
+      "cityCode": "City code"
+    },
+    "issues": {
+      "required": "Required value is missing",
+      "too_long": "Value exceeds the allowed length",
+      "invalid_email": "Email format is not valid",
+      "city_not_found": "City code was not found in this business",
+      "duplicate_file_name": "Name is repeated in this file",
+      "duplicate_existing_name": "Name already exists in this business",
+      "duplicate_file_tax_id": "Tax ID is repeated in this file",
+      "duplicate_existing_tax_id": "Tax ID already exists in this business",
+      "duplicate_file_email": "Email is repeated in this file",
+      "duplicate_existing_email": "Email already exists in this business",
+      "concurrent_duplicate": "Another import created this record while this import was running",
+      "import_failed": "The record could not be imported"
+    },
+    "table": {
+      "identity": "Tax ID or email"
+    },
+    "report": {
+      "recordId": "Record ID"
+    },
+    "customers": {
+      "mapDescription": "Confirm the detected customer columns. Name is required; every other field can be left unmapped.",
+      "previewDescription": "Puntovivo validates every customer and skips repeated tax IDs or email addresses.",
+      "reportDescription_one": "Customers created: {{imported}}.",
+      "reportDescription_other": "Customers created: {{imported}}.",
+      "toastImported_one": "{{count}} customer imported",
+      "toastImported_other": "{{count}} customers imported",
+      "template": {
+        "name": "Sample customer",
+        "taxId": "900123456",
+        "email": "customer@example.com",
+        "phone": "+57 300 000 0000",
+        "address": "Main Street 123",
+        "city": "Bogotá",
+        "state": "Bogotá D.C.",
+        "postalCode": "110111",
+        "country": "Colombia",
+        "notes": "Replace this row with your customer data"
+      }
+    },
+    "providers": {
+      "mapDescription": "Confirm the detected supplier columns. Name is required; use the city code from your Puntovivo geography catalog when available.",
+      "previewDescription": "Puntovivo validates every supplier, checks city codes, and skips repeated names, tax IDs, or email addresses.",
+      "reportDescription_one": "Suppliers created: {{imported}}.",
+      "reportDescription_other": "Suppliers created: {{imported}}.",
+      "toastImported_one": "{{count}} supplier imported",
+      "toastImported_other": "{{count}} suppliers imported",
+      "template": {
+        "name": "Sample supplier",
+        "taxId": "901123456",
+        "email": "supplier@example.com",
+        "phone": "+57 601 000 0000",
+        "address": "Commerce Avenue 456",
+        "contactName": "Sample contact",
+        "cityCode": "BOG"
+      }
+    }
   }
 }

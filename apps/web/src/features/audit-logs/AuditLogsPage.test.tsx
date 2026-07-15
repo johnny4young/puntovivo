@@ -153,6 +153,16 @@ describe('AuditLogsPage', () => {
         name: 'Product launch data imported',
       })
     ).toHaveValue('data_import.products');
+    expect(
+      within(actionFilter).getByRole('option', {
+        name: 'Customer launch data imported',
+      })
+    ).toHaveValue('data_import.customers');
+    expect(
+      within(actionFilter).getByRole('option', {
+        name: 'Supplier launch data imported',
+      })
+    ).toHaveValue('data_import.providers');
 
     const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
     expect(within(resourceFilter).getByRole('option', { name: 'Data import' })).toHaveValue(
@@ -180,12 +190,12 @@ describe('AuditLogsPage', () => {
     render(<AuditLogsPage />);
 
     const actionFilter = screen.getByRole('combobox', { name: 'Action' });
-    expect(
-      within(actionFilter).getByRole('option', { name: 'Employee clocked in' })
-    ).toHaveValue('employee_shift.clock_in');
-    expect(
-      within(actionFilter).getByRole('option', { name: 'Employee clocked out' })
-    ).toHaveValue('employee_shift.clock_out');
+    expect(within(actionFilter).getByRole('option', { name: 'Employee clocked in' })).toHaveValue(
+      'employee_shift.clock_in'
+    );
+    expect(within(actionFilter).getByRole('option', { name: 'Employee clocked out' })).toHaveValue(
+      'employee_shift.clock_out'
+    );
 
     const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
     expect(within(resourceFilter).getByRole('option', { name: 'Employee shift' })).toHaveValue(

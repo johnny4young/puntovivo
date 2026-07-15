@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { auditLogs, tenants, users } from '../db/schema.js';
+import { getAuditReviewActions } from '../services/audit-review.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -57,6 +58,12 @@ async function insertAudit(
 }
 
 describe('sensitive audit review (ENG-129f)', () => {
+  it('classifies launch party imports by operational risk', () => {
+    expect(getAuditReviewActions('privacy')).toContain('data_import.customers');
+    expect(getAuditReviewActions('inventory')).toContain('data_import.providers');
+    expect(getAuditReviewActions('inventory')).not.toContain('data_import.customers');
+  });
+
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();

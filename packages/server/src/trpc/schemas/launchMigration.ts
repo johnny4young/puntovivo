@@ -7,6 +7,23 @@ export const importDecimalFormatSchema = z.enum(['auto', 'dot', 'comma']);
 // row-level field issues instead of rejecting an otherwise previewable file.
 const importCell = z.string().max(4_000).optional();
 
+function addUniqueRowNumberIssues(
+  rows: ReadonlyArray<{ rowNumber: number }>,
+  ctx: z.RefinementCtx
+) {
+  const seen = new Set<number>();
+  rows.forEach((row, index) => {
+    if (seen.has(row.rowNumber)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [index, 'rowNumber'],
+        message: 'Import row numbers must be unique',
+      });
+    }
+    seen.add(row.rowNumber);
+  });
+}
+
 export const launchProductImportRowSchema = z
   .object({
     rowNumber: z.number().int().min(2).max(1_000_000),
@@ -30,19 +47,7 @@ const launchProductImportRowsSchema = z
   .array(launchProductImportRowSchema)
   .min(1, 'At least one import row is required')
   .max(500, 'A single import can contain at most 500 rows')
-  .superRefine((rows, ctx) => {
-    const seen = new Set<number>();
-    rows.forEach((row, index) => {
-      if (seen.has(row.rowNumber)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [index, 'rowNumber'],
-          message: 'Import row numbers must be unique',
-        });
-      }
-      seen.add(row.rowNumber);
-    });
-  });
+  .superRefine(addUniqueRowNumberIssues);
 
 export const previewLaunchProductImportInput = z
   .object({
@@ -56,7 +61,84 @@ export const commitLaunchProductImportInput = previewLaunchProductImportInput.ex
   previewHash: z.string().regex(/^[a-f0-9]{64}$/),
 });
 
+export const launchCustomerImportRowSchema = z
+  .object({
+    rowNumber: z.number().int().min(2).max(1_000_000),
+    values: z
+      .object({
+        name: importCell,
+        taxId: importCell,
+        email: importCell,
+        phone: importCell,
+        address: importCell,
+        city: importCell,
+        state: importCell,
+        postalCode: importCell,
+        country: importCell,
+        notes: importCell,
+      })
+      .strict(),
+  })
+  .strict();
+
+const launchCustomerImportRowsSchema = z
+  .array(launchCustomerImportRowSchema)
+  .min(1, 'At least one import row is required')
+  .max(500, 'A single import can contain at most 500 rows')
+  .superRefine(addUniqueRowNumberIssues);
+
+export const previewLaunchCustomerImportInput = z
+  .object({
+    sourceName: z.string().trim().min(1).max(240),
+    rows: launchCustomerImportRowsSchema,
+  })
+  .strict();
+
+export const commitLaunchCustomerImportInput = previewLaunchCustomerImportInput.extend({
+  previewHash: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
+export const launchProviderImportRowSchema = z
+  .object({
+    rowNumber: z.number().int().min(2).max(1_000_000),
+    values: z
+      .object({
+        name: importCell,
+        taxId: importCell,
+        email: importCell,
+        phone: importCell,
+        address: importCell,
+        contactName: importCell,
+        cityCode: importCell,
+      })
+      .strict(),
+  })
+  .strict();
+
+const launchProviderImportRowsSchema = z
+  .array(launchProviderImportRowSchema)
+  .min(1, 'At least one import row is required')
+  .max(500, 'A single import can contain at most 500 rows')
+  .superRefine(addUniqueRowNumberIssues);
+
+export const previewLaunchProviderImportInput = z
+  .object({
+    sourceName: z.string().trim().min(1).max(240),
+    rows: launchProviderImportRowsSchema,
+  })
+  .strict();
+
+export const commitLaunchProviderImportInput = previewLaunchProviderImportInput.extend({
+  previewHash: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
 export type ImportDecimalFormat = z.infer<typeof importDecimalFormatSchema>;
 export type LaunchProductImportRow = z.infer<typeof launchProductImportRowSchema>;
 export type PreviewLaunchProductImportInput = z.infer<typeof previewLaunchProductImportInput>;
 export type CommitLaunchProductImportInput = z.infer<typeof commitLaunchProductImportInput>;
+export type LaunchCustomerImportRow = z.infer<typeof launchCustomerImportRowSchema>;
+export type PreviewLaunchCustomerImportInput = z.infer<typeof previewLaunchCustomerImportInput>;
+export type CommitLaunchCustomerImportInput = z.infer<typeof commitLaunchCustomerImportInput>;
+export type LaunchProviderImportRow = z.infer<typeof launchProviderImportRowSchema>;
+export type PreviewLaunchProviderImportInput = z.infer<typeof previewLaunchProviderImportInput>;
+export type CommitLaunchProviderImportInput = z.infer<typeof commitLaunchProviderImportInput>;

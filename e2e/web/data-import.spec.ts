@@ -1,4 +1,4 @@
-/** ENG-123a — live launch-import journey, persistence proof, and visual evidence. */
+/** ENG-123 — live launch-import journeys, persistence proof, and visual evidence. */
 import path from 'node:path';
 import { mkdir, readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
@@ -16,7 +16,7 @@ async function captureEvidence(page: Page, name: string) {
   });
 }
 
-test.describe('launch data import (ENG-123a)', () => {
+test.describe('launch data import (ENG-123)', () => {
   test('admin previews, imports, downloads a report, and sees catalog stock', async ({
     page,
   }, testInfo) => {
@@ -131,6 +131,96 @@ test.describe('launch data import (ENG-123a)', () => {
     await expect(report).toContainText('Productos creados: 1. Registros de stock de apertura: 1.');
     await expect(page.getByRole('button', { name: 'Importación completada' })).toBeDisabled();
     await captureEvidence(page, 'eng-123a-import-report-es');
+    await expectNoClientIssues(tracker);
+  });
+
+  test('admin imports customers with row-level validation and verifies persistence', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const suffix = `${testInfo.parallelIndex}-${Date.now()}`;
+    const customerName = `E2E Launch Customer ${suffix}`;
+    const customerTaxId = `E2E-CUSTOMER-${suffix}`;
+
+    await loginAs(page, 'admin');
+    await page.goto('/data-import');
+    await page.getByRole('button', { name: /^Customers/ }).click();
+    await expect(page.getByTestId('data-import-customers-workflow')).toBeVisible();
+
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'launch-customers.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        [
+          'Customer name,Tax ID,Email,Phone,City',
+          `${customerName},${customerTaxId},customer-${suffix}@example.com,+57 300 000 0000,Bogotá`,
+          `Repeated customer,${customerTaxId},duplicate-${suffix}@example.com,,`,
+          ',,broken-email,,',
+        ].join('\n')
+      ),
+    });
+
+    await expect(page.getByLabel(/^Name/)).toHaveValue('Customer name');
+    await page.getByRole('button', { name: 'Validate and preview' }).click();
+    await expect(page.getByTestId('data-import-summary-ready')).toContainText('1');
+    await expect(page.getByTestId('data-import-summary-duplicates')).toContainText('1');
+    await expect(page.getByTestId('data-import-summary-invalid')).toContainText('1');
+    await expect(page.getByTestId('data-import-preview-row-3')).toContainText(
+      'Tax ID is repeated in this file'
+    );
+    await captureEvidence(page, 'eng-123b-customers-preview-en');
+
+    await page.getByRole('button', { name: 'Import 1 ready row' }).click();
+    const report = page.getByTestId('data-import-report');
+    await expect(report).toContainText('Customers created: 1.');
+    await captureEvidence(page, 'eng-123b-customers-report-en');
+
+    await page.goto('/customers');
+    await page.getByPlaceholder('Search customers...').fill(customerName);
+    await expect(page.getByText(customerName, { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expectNoClientIssues(tracker);
+  });
+
+  test('Spanish admin validates a city code and imports a supplier', async ({ page }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const suffix = `${testInfo.parallelIndex}-${Date.now()}`;
+    const providerName = `Proveedor E2E ${suffix}`;
+
+    await loginAs(page, 'admin', { spanish: true });
+    await page.goto('/data-import');
+    await page.getByRole('button', { name: /^Proveedores/ }).click();
+    await expect(page.getByTestId('data-import-providers-workflow')).toBeVisible();
+
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'proveedores-lanzamiento.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        [
+          'Nombre del proveedor;NIT;Correo electrónico;Nombre de contacto;Código de ciudad',
+          `${providerName};E2E-PROVIDER-${suffix};proveedor-${suffix}@ejemplo.com;Contacto E2E;`,
+          `Proveedor con ciudad desconocida ${suffix};E2E-PROVIDER-CITY-${suffix};ciudad-${suffix}@ejemplo.com;Contacto E2E;UNKNOWN-E2E`,
+        ].join('\n')
+      ),
+    });
+
+    await expect(page.locator('#data-import-map-name')).toHaveValue('Nombre del proveedor');
+    await expect(page.getByLabel(/Código de ciudad/)).toHaveValue('Código de ciudad');
+    await page.getByRole('button', { name: 'Validar y previsualizar' }).click();
+    await expect(page.getByTestId('data-import-summary-ready')).toContainText('1');
+    await expect(page.getByTestId('data-import-summary-invalid')).toContainText('1');
+    await expect(page.getByTestId('data-import-preview-row-2')).toContainText('E2E-PROVIDER');
+    await expect(page.getByTestId('data-import-preview-row-3')).toContainText(
+      'El código de ciudad no existe en este negocio'
+    );
+    await captureEvidence(page, 'eng-123b-providers-preview-es');
+
+    await page.getByRole('button', { name: 'Importar 1 fila lista' }).click();
+    await expect(page.getByTestId('data-import-report')).toContainText('Proveedores creados: 1.');
+    await captureEvidence(page, 'eng-123b-providers-report-es');
+
+    await page.goto('/providers');
+    await page.getByPlaceholder('Buscar proveedores...').fill(providerName);
+    await expect(page.getByText(providerName, { exact: true })).toBeVisible({ timeout: 15_000 });
     await expectNoClientIssues(tracker);
   });
 });

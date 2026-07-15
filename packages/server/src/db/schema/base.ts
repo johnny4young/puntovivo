@@ -204,6 +204,10 @@ export const auditLogActionEnum = [
   // ENG-123a — one summary row per committed launch product import. The
   // metadata carries counts and the source filename, never raw row values.
   'data_import.products',
+  // ENG-123b — party imports retain only counts and normalized source format;
+  // raw contact rows and operator-supplied filenames never enter immutable audit evidence.
+  'data_import.customers',
+  'data_import.providers',
   'sale.price_override',
   // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
   // when a cashier suspends a draft sale; `sale.resume` when the same or

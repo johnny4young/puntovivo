@@ -9,6 +9,7 @@
 import { TRPCError } from '@trpc/server';
 import { and, asc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { createProvider } from '../../application/providers/index.js';
 import type { DatabaseInstance } from '../../db/index.js';
 import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import {
@@ -20,6 +21,7 @@ import {
   providers,
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { ensureCityExists } from '../../services/geography/city-validation.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { router } from '../init.js';
@@ -33,7 +35,6 @@ import {
   searchProvidersInput,
   updateProviderInput,
 } from '../schemas/providers.js';
-import { ensureCityExists } from './geography/index.js';
 
 async function ensureTenantProvider(db: DatabaseInstance, tenantId: string, providerId: string) {
   const provider = await db
@@ -167,39 +168,14 @@ export const providersRouter = router({
   }),
 
   create: adminProcedure.input(createProviderInput).mutation(async ({ ctx, input }) => {
-    const now = new Date().toISOString();
-    const id = nanoid();
-    const cityId = await ensureCityExists(ctx.db, ctx.tenantId, input.cityId ?? null);
-
-    await ctx.db.insert(providers).values({
-      id,
-      tenantId: ctx.tenantId,
-      name: input.name,
-      taxId: input.taxId,
-      phone: input.phone,
-      email: input.email,
-      address: input.address,
-      cityId,
-      contactName: input.contactName,
-      isActive: input.isActive,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await enqueueSync(ctx, {
-      entityType: 'providers',
-      entityId: id,
-      operation: 'create',
-      data: { id, ...input, cityId },
-    });
-
+    const createdProvider = await createProvider(ctx, input);
     const created = await ctx.db
       .select(buildProviderSelection())
       .from(providers)
       .leftJoin(cities, eq(providers.cityId, cities.id))
       .leftJoin(departments, eq(cities.departmentId, departments.id))
       .leftJoin(countries, eq(departments.countryId, countries.id))
-      .where(eq(providers.id, id))
+      .where(and(eq(providers.id, createdProvider.id), eq(providers.tenantId, ctx.tenantId)))
       .get();
 
     return created!;
@@ -258,7 +234,7 @@ export const providersRouter = router({
       .leftJoin(cities, eq(providers.cityId, cities.id))
       .leftJoin(departments, eq(cities.departmentId, departments.id))
       .leftJoin(countries, eq(departments.countryId, countries.id))
-      .where(eq(providers.id, id))
+      .where(and(eq(providers.id, id), eq(providers.tenantId, ctx.tenantId)))
       .get();
 
     return updated!;
@@ -309,7 +285,10 @@ export const providersRouter = router({
               .select({ id: categories.id })
               .from(categories)
               .where(
-                and(eq(categories.tenantId, ctx.tenantId), inArray(categories.id, uniqueCategoryIds))
+                and(
+                  eq(categories.tenantId, ctx.tenantId),
+                  inArray(categories.id, uniqueCategoryIds)
+                )
               )
               .all()
           : [];
@@ -405,7 +384,12 @@ export const providersRouter = router({
     const categoryAssignmentCount = await ctx.db
       .select({ count: sql<number>`count(*)` })
       .from(categoryXProvider)
-      .where(and(eq(categoryXProvider.tenantId, ctx.tenantId), eq(categoryXProvider.providerId, input.id)))
+      .where(
+        and(
+          eq(categoryXProvider.tenantId, ctx.tenantId),
+          eq(categoryXProvider.providerId, input.id)
+        )
+      )
       .get();
 
     if ((categoryAssignmentCount?.count ?? 0) > 0) {

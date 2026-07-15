@@ -1,7 +1,7 @@
 {
   "kicker": "Migración de lanzamiento",
   "title": "Importar datos",
-  "description": "Lleva tu catálogo inicial de productos, precios y stock de apertura a Puntovivo con una importación revisable y aislada para tu empresa.",
+  "description": "Lleva productos, clientes y proveedores iniciales a Puntovivo con importaciones revisables y aisladas para tu negocio.",
   "fileSummary": "Filas de datos: {{rows}} · Columnas: {{columns}}",
   "steps": {
     "upload": {
@@ -134,5 +134,95 @@
     "importError": "No se pudo completar la importación",
     "imported_one": "{{count}} producto importado",
     "imported_other": "{{count}} productos importados"
+  },
+  "entitySelector": {
+    "label": "Elige los datos que deseas importar"
+  },
+  "entities": {
+    "products": {
+      "label": "Productos e inventario",
+      "description": "Catálogo, precios, costos e inventario inicial."
+    },
+    "customers": {
+      "label": "Clientes",
+      "description": "Perfiles de clientes y datos de contacto."
+    },
+    "providers": {
+      "label": "Proveedores",
+      "description": "Perfiles, contactos y referencias de ciudad."
+    }
+  },
+  "party": {
+    "fields": {
+      "name": "Nombre",
+      "taxId": "Identificación tributaria",
+      "email": "Correo electrónico",
+      "phone": "Teléfono",
+      "address": "Dirección",
+      "city": "Ciudad",
+      "state": "Departamento o estado",
+      "postalCode": "Código postal",
+      "country": "País",
+      "notes": "Notas",
+      "contactName": "Nombre de contacto",
+      "cityCode": "Código de ciudad"
+    },
+    "issues": {
+      "required": "Falta un valor obligatorio",
+      "too_long": "El valor supera la longitud permitida",
+      "invalid_email": "El formato del correo no es válido",
+      "city_not_found": "El código de ciudad no existe en este negocio",
+      "duplicate_file_name": "El nombre está repetido en este archivo",
+      "duplicate_existing_name": "El nombre ya existe en este negocio",
+      "duplicate_file_tax_id": "La identificación tributaria está repetida en este archivo",
+      "duplicate_existing_tax_id": "La identificación tributaria ya existe en este negocio",
+      "duplicate_file_email": "El correo está repetido en este archivo",
+      "duplicate_existing_email": "El correo ya existe en este negocio",
+      "concurrent_duplicate": "Otra importación creó este registro mientras se procesaba el archivo",
+      "import_failed": "No se pudo importar el registro"
+    },
+    "table": {
+      "identity": "Identificación o correo"
+    },
+    "report": {
+      "recordId": "ID del registro"
+    },
+    "customers": {
+      "mapDescription": "Confirma las columnas detectadas para clientes. El nombre es obligatorio; puedes dejar los demás campos sin asignar.",
+      "previewDescription": "Puntovivo valida cada cliente y omite identificaciones tributarias o correos repetidos.",
+      "reportDescription_one": "Clientes creados: {{imported}}.",
+      "reportDescription_other": "Clientes creados: {{imported}}.",
+      "toastImported_one": "Se importó {{count}} cliente",
+      "toastImported_other": "Se importaron {{count}} clientes",
+      "template": {
+        "name": "Cliente de ejemplo",
+        "taxId": "900123456",
+        "email": "cliente@ejemplo.com",
+        "phone": "+57 300 000 0000",
+        "address": "Calle Principal 123",
+        "city": "Bogotá",
+        "state": "Bogotá D.C.",
+        "postalCode": "110111",
+        "country": "Colombia",
+        "notes": "Reemplaza esta fila con los datos de tu cliente"
+      }
+    },
+    "providers": {
+      "mapDescription": "Confirma las columnas detectadas para proveedores. El nombre es obligatorio; usa el código del catálogo geográfico de Puntovivo cuando esté disponible.",
+      "previewDescription": "Puntovivo valida cada proveedor, revisa los códigos de ciudad y omite nombres, identificaciones tributarias o correos repetidos.",
+      "reportDescription_one": "Proveedores creados: {{imported}}.",
+      "reportDescription_other": "Proveedores creados: {{imported}}.",
+      "toastImported_one": "Se importó {{count}} proveedor",
+      "toastImported_other": "Se importaron {{count}} proveedores",
+      "template": {
+        "name": "Proveedor de ejemplo",
+        "taxId": "901123456",
+        "email": "proveedor@ejemplo.com",
+        "phone": "+57 601 000 0000",
+        "address": "Avenida Comercial 456",
+        "contactName": "Contacto de ejemplo",
+        "cityCode": "BOG"
+      }
+    }
   }
 }

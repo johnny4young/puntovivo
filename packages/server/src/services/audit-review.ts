@@ -22,6 +22,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'data_retention.policy.updated',
     'data_retention.sweep.run',
     'telemetry.opt_in.updated',
+    // ENG-123b — bulk customer PII ingestion belongs in privacy review.
+    'data_import.customers',
   ],
   access: [
     'user.create',
@@ -54,8 +56,9 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'transfer.void',
     'inventory.lot.discount_suggested',
     'inventory.lot.discount_suggestion_dismissed',
-    // ENG-123a — bulk catalog and opening-stock mutation.
+    // ENG-123a/ENG-123b — bulk catalog, stock, and supplier mutation.
     'data_import.products',
+    'data_import.providers',
   ],
   ai: [
     'ai.anomaly.detected',

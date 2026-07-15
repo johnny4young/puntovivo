@@ -62,8 +62,10 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'inventory.lot.discount_suggestion_dismissed',
   // ENG-136b — admin recovery-readiness evidence.
   'backup.restore_drill',
-  // ENG-123a — launch catalog import summary.
+  // ENG-123a/ENG-123b — launch import summaries.
   'data_import.products',
+  'data_import.customers',
+  'data_import.providers',
 ];
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [

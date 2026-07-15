@@ -121,7 +121,9 @@
     "data_retention.sweep.run": "Datos auxiliares vencidos eliminados",
     "backup.restore_drill": "Simulacro de restauración ejecutado",
     "cash_drawer.open": "Cajón monedero abierto",
-    "data_import.products": "Datos iniciales de productos importados"
+    "data_import.products": "Datos iniciales de productos importados",
+    "data_import.customers": "Datos iniciales de clientes importados",
+    "data_import.providers": "Datos iniciales de proveedores importados"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",

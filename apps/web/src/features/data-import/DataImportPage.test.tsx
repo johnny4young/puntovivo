@@ -81,6 +81,8 @@ vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
       products: { list: { invalidate: mocks.invalidateProducts } },
+      customers: { list: { invalidate: vi.fn() } },
+      providers: { list: { invalidate: vi.fn() } },
       inventory: {
         listStock: { invalidate: mocks.invalidateStock },
         listEntries: { invalidate: mocks.invalidateEntries },
@@ -134,6 +136,18 @@ vi.mock('@/lib/trpc', () => ({
           isPending: mocks.importPending,
           reset: mocks.importReset,
         }),
+      },
+      previewCustomers: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
+      },
+      previewProviders: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
+      },
+      importCustomers: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
+      },
+      importProviders: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
       },
     },
   },
@@ -301,6 +315,23 @@ describe('ENG-123a DataImportPage', () => {
     );
   });
 
+  it('switches between isolated product and customer workflows', async () => {
+    const user = userEvent.setup();
+    render(<DataImportPage />);
+
+    expect(screen.getByRole('button', { name: /Products and stock/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await user.click(screen.getByRole('button', { name: /Customers/ }));
+    expect(screen.getByTestId('data-import-customers-workflow')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Customers/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(screen.queryByLabelText('Number format')).not.toBeInTheDocument();
+  });
+
   it('clears a rejected file so the same filename can be selected again', async () => {
     const user = userEvent.setup();
     render(<DataImportPage />);
@@ -343,5 +374,7 @@ describe('ENG-123a DataImportPage', () => {
     expect(screen.getByLabelText(/Product name/)).toBeDisabled();
     expect(screen.getByLabelText(/SKU/)).toHaveAttribute('aria-required', 'true');
     expect(screen.getByRole('button', { name: 'Validate and preview' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Customers/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Suppliers/ })).toBeDisabled();
   });
 });

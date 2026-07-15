@@ -6,8 +6,7 @@
  * (878 LOC) during the megafile decomposition. Holds the country / department /
  * city uniqueness + existence validators and the join-aware selection builders
  * shared by the three sibling routers. Import leaf: depends only on the schema +
- * drizzle, never on the router modules. `ensureCityExists` is re-exported by the
- * barrel for `providers.ts`.
+ * drizzle, never on the router modules.
  *
  * @module trpc/routers/geography/helpers
  */
@@ -58,7 +57,11 @@ export async function ensureCountryUniqueness(
   }
 }
 
-export async function ensureCountryExists(db: DatabaseInstance, tenantId: string, countryId: string) {
+export async function ensureCountryExists(
+  db: DatabaseInstance,
+  tenantId: string,
+  countryId: string
+) {
   const country = await db
     .select({ id: countries.id, isActive: countries.isActive })
     .from(countries)
@@ -183,31 +186,6 @@ export async function ensureCityUniqueness(
       });
     }
   }
-}
-
-export async function ensureCityExists(
-  db: DatabaseInstance,
-  tenantId: string,
-  cityId: string | null | undefined
-) {
-  if (!cityId) {
-    return null;
-  }
-
-  const city = await db
-    .select({ id: cities.id, isActive: cities.isActive })
-    .from(cities)
-    .where(and(eq(cities.tenantId, tenantId), eq(cities.id, cityId)))
-    .get();
-
-  if (!city || city.isActive === false) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'Selected city was not found or is inactive',
-    });
-  }
-
-  return city.id;
 }
 
 export function buildDepartmentSelection() {

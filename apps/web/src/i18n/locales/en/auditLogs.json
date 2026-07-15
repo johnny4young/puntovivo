@@ -121,7 +121,9 @@
     "data_retention.sweep.run": "Expired support data deleted",
     "backup.restore_drill": "Backup restore drill run",
     "cash_drawer.open": "Cash drawer opened",
-    "data_import.products": "Product launch data imported"
+    "data_import.products": "Product launch data imported",
+    "data_import.customers": "Customer launch data imported",
+    "data_import.providers": "Supplier launch data imported"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",

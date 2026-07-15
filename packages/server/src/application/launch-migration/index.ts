@@ -1,10 +1,18 @@
-/** ENG-123a — Launch-migration application boundary. */
+/** ENG-123a/ENG-123b — Launch-migration application boundary. */
 export {
   commitLaunchProductImport,
   hashLaunchProductImport,
   parseImportNumber,
   previewLaunchProductImport,
 } from './products.js';
+export {
+  commitLaunchCustomerImport,
+  commitLaunchProviderImport,
+  hashLaunchCustomerImport,
+  hashLaunchProviderImport,
+  previewLaunchCustomerImport,
+  previewLaunchProviderImport,
+} from './parties.js';
 export type {
   LaunchMigrationContext,
   NormalizedLaunchProduct,

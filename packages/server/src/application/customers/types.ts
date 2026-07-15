@@ -7,6 +7,14 @@ export interface CustomerLedgerContext {
   user: { id: string };
 }
 
+/** Context shared by customer profile mutation entry points. */
+export interface CustomerMutationContext {
+  db: DatabaseInstance;
+  tenantId: string;
+  envelope?: { operationId: string; idempotencyKey?: string } | null;
+  deviceId?: string | null;
+}
+
 export interface AddCustomerLedgerPaymentInput {
   customerId: string;
   amount: number;

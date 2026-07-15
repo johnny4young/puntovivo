@@ -1,4 +1,4 @@
-/** ENG-123a — Structural context and result types for launch imports. */
+/** ENG-123a/ENG-123b — Structural context and result types for launch imports. */
 import type { DatabaseInstance } from '../../db/index.js';
 import type { UserRole } from '@puntovivo/shared/roles';
 
@@ -62,4 +62,90 @@ export interface ProductImportPreviewRow {
   status: ProductImportPreviewStatus;
   normalized: NormalizedLaunchProduct;
   issues: ProductImportIssue[];
+}
+
+export const CUSTOMER_IMPORT_FIELDS = [
+  'name',
+  'taxId',
+  'email',
+  'phone',
+  'address',
+  'city',
+  'state',
+  'postalCode',
+  'country',
+  'notes',
+] as const;
+
+export const PROVIDER_IMPORT_FIELDS = [
+  'name',
+  'taxId',
+  'email',
+  'phone',
+  'address',
+  'contactName',
+  'cityCode',
+] as const;
+
+export type CustomerImportField = (typeof CUSTOMER_IMPORT_FIELDS)[number];
+export type ProviderImportField = (typeof PROVIDER_IMPORT_FIELDS)[number];
+export type PartyImportField = CustomerImportField | ProviderImportField;
+
+export type PartyImportIssueCode =
+  | 'required'
+  | 'too_long'
+  | 'invalid_email'
+  | 'city_not_found'
+  | 'duplicate_file_name'
+  | 'duplicate_existing_name'
+  | 'duplicate_file_tax_id'
+  | 'duplicate_existing_tax_id'
+  | 'duplicate_file_email'
+  | 'duplicate_existing_email'
+  | 'concurrent_duplicate'
+  | 'import_failed';
+
+export interface PartyImportIssue {
+  code: PartyImportIssueCode;
+  field: PartyImportField;
+}
+
+export interface NormalizedLaunchCustomer {
+  name: string;
+  taxId: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
+  notes: string | null;
+}
+
+export interface NormalizedLaunchProvider {
+  name: string;
+  taxId: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  contactName: string | null;
+  cityCode: string | null;
+  cityId: string | null;
+}
+
+export type PartyImportPreviewStatus = 'ready' | 'invalid' | 'duplicate';
+
+export interface CustomerImportPreviewRow {
+  rowNumber: number;
+  status: PartyImportPreviewStatus;
+  normalized: NormalizedLaunchCustomer;
+  issues: PartyImportIssue[];
+}
+
+export interface ProviderImportPreviewRow {
+  rowNumber: number;
+  status: PartyImportPreviewStatus;
+  normalized: NormalizedLaunchProvider;
+  issues: PartyImportIssue[];
 }
