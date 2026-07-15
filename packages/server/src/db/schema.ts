@@ -15,6 +15,7 @@
  */
 export * from './schema/base.js';
 export * from './schema/auth.js';
+export * from './schema/labor.js';
 export * from './schema/catalogs.js';
 export * from './schema/products.js';
 export * from './schema/customers.js';

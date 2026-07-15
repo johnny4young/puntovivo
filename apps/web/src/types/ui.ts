@@ -57,6 +57,8 @@ export type AuditLogAction =
   | 'user.update'
   | 'user.pin.update'
   | 'auth.staff_switch'
+  | 'employee_shift.clock_in'
+  | 'employee_shift.clock_out'
   | 'sale.price_override'
   // ENG-018 — park-and-resume (including discard metadata flag).
   | 'sale.park'
@@ -131,6 +133,7 @@ export type AuditLogResourceType =
   | 'product'
   | 'purchase'
   | 'user'
+  | 'employee_shift'
   | 'cashier'
   // ENG-068 — module activation kernel resource type.
   | 'tenant_module'

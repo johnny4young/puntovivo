@@ -55,6 +55,8 @@ export type CriticalCommandPath =
   | 'users.create'
   | 'users.update'
   | 'users.setStaffPin'
+  | 'employeeShifts.clockIn'
+  | 'employeeShifts.clockOut'
   | 'auth.changePassword'
   // ENG-068 — module activation toggle. Server-side wraps with
   // `criticalCommandAdminProcedure` so the client must mint an

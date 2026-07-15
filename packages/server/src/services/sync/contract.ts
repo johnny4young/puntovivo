@@ -59,6 +59,10 @@ export const SYNC_ENTITY_TYPES = [
   'sale_item_lots',
   'cash_sessions',
   'cash_movements',
+  // ENG-106b — attendance rows become legal/payroll evidence under ENG-140.
+  // Register the manual-conflict policy now; aggregate enqueue wiring lands
+  // with that multi-device shift-management promotion.
+  'employee_shifts',
   'fiscal_documents',
   'fiscal_document_items',
   'fiscal_numbering_resolutions',
@@ -127,6 +131,7 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   sale_item_lots: 'manual',
   cash_sessions: 'manual',
   cash_movements: 'manual',
+  employee_shifts: 'manual',
   fiscal_documents: 'manual',
   fiscal_document_items: 'manual',
   fiscal_numbering_resolutions: 'manual',

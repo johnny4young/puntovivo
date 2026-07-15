@@ -8,6 +8,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
 import { CashierPacePreferenceToggle } from '@/features/sales/CashierPacePreferenceToggle';
+import { TimeClockControl } from '@/features/staff/TimeClockControl';
 import { useCommandPalette } from '@/components/feedback/CommandPaletteProvider';
 import {
   persistLanguagePreference,
@@ -249,17 +250,24 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                   {t('common:changePassword')}
                 </button>
                 {user && ['admin', 'manager', 'cashier'].includes(user.role) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      setIsStaffSwitchOpen(true);
-                    }}
-                    className="btn-ghost mt-2 w-full justify-start px-3"
-                  >
-                    <UserRoundCog className="h-4 w-4" />
-                    {t('common:switchCashier')}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setIsStaffSwitchOpen(true);
+                      }}
+                      className="btn-ghost mt-2 w-full justify-start px-3"
+                    >
+                      <UserRoundCog className="h-4 w-4" />
+                      {t('common:switchCashier')}
+                    </button>
+                    <TimeClockControl
+                      site={
+                        currentSite ? { id: currentSite.id, name: currentSite.name } : null
+                      }
+                    />
+                  </>
                 )}
                 {onOpenFirstSaleGuide &&
                   (user?.role === 'admin' ||

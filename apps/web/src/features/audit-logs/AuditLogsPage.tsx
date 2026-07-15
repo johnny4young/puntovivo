@@ -37,6 +37,9 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   // ENG-106a — staff credential lifecycle and shared-terminal identity handoff.
   'user.pin.update',
   'auth.staff_switch',
+  // ENG-106b — self-service attendance lifecycle.
+  'employee_shift.clock_in',
+  'employee_shift.clock_out',
   'quotation.delete',
   'quotation.convert',
   'kds.order.ready',
@@ -62,6 +65,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'purchase',
   'transfer_order',
   'user',
+  'employee_shift',
   'cashier',
   'quotation',
   'ai_feature',

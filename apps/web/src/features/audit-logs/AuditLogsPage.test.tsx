@@ -159,4 +159,21 @@ describe('AuditLogsPage', () => {
       })
     ).toHaveValue('auth.staff_switch');
   });
+
+  it('offers employee clock-in/out evidence as action and resource filters', () => {
+    render(<AuditLogsPage />);
+
+    const actionFilter = screen.getByRole('combobox', { name: 'Action' });
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Employee clocked in' })
+    ).toHaveValue('employee_shift.clock_in');
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Employee clocked out' })
+    ).toHaveValue('employee_shift.clock_out');
+
+    const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
+    expect(within(resourceFilter).getByRole('option', { name: 'Employee shift' })).toHaveValue(
+      'employee_shift'
+    );
+  });
 });

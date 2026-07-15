@@ -177,6 +177,15 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   const keepUserClause = keepUserPrefixes.map(() => 'email not like ?').join(' and ');
   const keepUserArgs = keepUserPrefixes.map(prefix => `${prefix}%`);
 
+  // ENG-106b — attendance belongs to the shared template employees, so a
+  // failed prior smoke could otherwise leave the next run already clocked
+  // in. This is an isolated E2E tenant; clear both the rows and their soft
+  // audit references before recreating the deterministic baseline.
+  db.prepare(
+    "delete from audit_logs where tenant_id = ? and resource_type = 'employee_shift'"
+  ).run(tenantId);
+  db.prepare('delete from employee_shifts where tenant_id = ?').run(tenantId);
+
   // Delete audit_logs referencing the soon-to-disappear actors.
   db.prepare(
     `delete from audit_logs

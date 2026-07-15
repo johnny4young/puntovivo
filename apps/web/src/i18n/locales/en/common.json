@@ -101,6 +101,18 @@
       "preference": "Show my checkout pace",
       "on": "On",
       "off": "Off"
+    },
+    "timeClock": {
+      "title": "Time clock",
+      "loading": "Checking shift…",
+      "clockedIn": "Clocked in {{time}}",
+      "site": "Site: {{site}}",
+      "noSite": "Select a site to clock in.",
+      "clockIn": "Clock in",
+      "clockOut": "Clock out",
+      "clockInSuccess": "Shift started",
+      "clockOutSuccess": "Shift ended",
+      "errorTitle": "Unable to update shift"
     }
   },
   "loadingSites": "Loading sites...",

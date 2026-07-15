@@ -188,6 +188,10 @@ export const auditLogActionEnum = [
   // switches. Neither row carries the PIN or its hash.
   'user.pin.update',
   'auth.staff_switch',
+  // ENG-106b — self-service attendance baseline. The actor is always the
+  // employee whose shift is targeted; schedule edits remain in ENG-140.
+  'employee_shift.clock_in',
+  'employee_shift.clock_out',
   'sale.price_override',
   // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
   // when a cashier suspends a draft sale; `sale.resume` when the same or
@@ -323,6 +327,8 @@ export const auditLogResourceTypeEnum = [
   // ENG-007 second wave resources.
   'purchase',
   'user',
+  // ENG-106b — durable self-service clock-in/out row.
+  'employee_shift',
   // ENG-047 wrote anomaly rows keyed to the flagged cashier in early
   // dev databases. Keep the reader tolerant so those rows stay visible.
   'cashier',

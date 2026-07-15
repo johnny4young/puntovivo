@@ -140,6 +140,11 @@ follow-up amendment.
 - `users.setStaffPin` (ENG-106a — staff credential rotation or removal)
 - `auth.changePassword`
 
+**Employee attendance**
+
+- `employeeShifts.clockIn` (ENG-106b — start the authenticated employee's shift)
+- `employeeShifts.clockOut` (ENG-106b — close the authenticated employee's open shift)
+
 **Module activation**
 
 - `modules.setActive` (ENG-068 — admin toggle of a tenant module)
@@ -192,6 +197,9 @@ so non-envelope requests share request-scoped provenance).
 Updated: 2026-07-14 (ENG-106a — added `users.setStaffPin` to the
 closed list so PIN credential rotation and removal use the same
 idempotent command envelope as other user-security mutations).
+Updated: 2026-07-14 (ENG-106b — added self-service clock-in/out as
+critical attendance commands; retries cannot create duplicate open
+shifts or close a different employee's shift).
 Updated: 2026-05-03 (ENG-053 — operation journal wired into
 envelope: `recordOperationStart` runs after the idempotency
 reservation and before `next()`, idempotent on

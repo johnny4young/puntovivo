@@ -101,6 +101,18 @@
       "preference": "Mostrar mi ritmo de cobro",
       "on": "Activo",
       "off": "Inactivo"
+    },
+    "timeClock": {
+      "title": "Control de turno",
+      "loading": "Consultando turno…",
+      "clockedIn": "Entrada registrada a las {{time}}",
+      "site": "Sede: {{site}}",
+      "noSite": "Selecciona una sede para registrar tu entrada.",
+      "clockIn": "Marcar entrada",
+      "clockOut": "Marcar salida",
+      "clockInSuccess": "Turno iniciado",
+      "clockOutSuccess": "Turno finalizado",
+      "errorTitle": "No se pudo actualizar el turno"
     }
   },
   "loadingSites": "Cargando sedes...",
