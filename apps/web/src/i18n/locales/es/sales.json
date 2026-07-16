@@ -234,7 +234,19 @@
       "profitShort": "+{{amount}}",
       "lossShort": "-{{amount}}",
       "noSales": "Hoy no se registraron ventas.",
-      "finish": "Terminar"
+      "finish": "Terminar",
+      "pulse": {
+        "title": "📊 Pulso del día — {{date}} · {{registerName}}",
+        "sales": "Ventas: {{amount}} ({{count}} ventas)",
+        "avgTicket": "Ticket promedio: {{amount}}",
+        "margin": "Ganancia bruta: {{amount}} ({{percent}}%)",
+        "vsLastWeekUp": "vs semana pasada: ↑{{percent}}%",
+        "vsLastWeekDown": "vs semana pasada: ↓{{percent}}%",
+        "vsLastWeekFlat": "vs semana pasada: igual",
+        "share": "Compartir por WhatsApp",
+        "streak_one": "🔥 {{count}} día cuadrando la caja",
+        "streak_other": "🔥 {{count}} días cuadrando la caja"
+      }
     },
     "movementForm": {
       "title": "Registrar movimiento de caja",
@@ -641,5 +653,14 @@
   },
   "omnibox": {
     "added": "{{product}} agregado al carrito"
+  },
+  "paceHud": {
+    "title": "Ritmo de la sesión",
+    "enable": "Muestra tu ritmo de sesión",
+    "disable": "Oculta tu ritmo de sesión",
+    "itemsPerMinute": "Ítems/min",
+    "secondsPerSale": "Seg/venta",
+    "personalBest": "Mejor",
+    "noRecordYet": "—"
   }
 }

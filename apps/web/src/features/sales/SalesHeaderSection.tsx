@@ -2,6 +2,7 @@ import { type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { History, PauseCircle } from 'lucide-react';
 import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
+import { PaceToggleButton } from '@/features/sales/PaceToggleButton';
 import { SoundToggleButton } from '@/features/sales/SoundToggleButton';
 import { type CartWorkspace } from '@/features/sales/useCartWorkspaceStore';
 
@@ -76,6 +77,7 @@ export function SalesHeaderSection({
             )}
           </button>
           <SoundToggleButton />
+          <PaceToggleButton />
         </div>
       </div>
 

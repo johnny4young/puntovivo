@@ -234,7 +234,19 @@
       "profitShort": "+{{amount}}",
       "lossShort": "-{{amount}}",
       "noSales": "No sales recorded today.",
-      "finish": "Done"
+      "finish": "Done",
+      "pulse": {
+        "title": "📊 Day pulse — {{date}} · {{registerName}}",
+        "sales": "Sales: {{amount}} ({{count}} sales)",
+        "avgTicket": "Average ticket: {{amount}}",
+        "margin": "Gross profit: {{amount}} ({{percent}}%)",
+        "vsLastWeekUp": "vs last week: ↑{{percent}}%",
+        "vsLastWeekDown": "vs last week: ↓{{percent}}%",
+        "vsLastWeekFlat": "vs last week: even",
+        "share": "Share via WhatsApp",
+        "streak_one": "🔥 {{count}} day balancing the register",
+        "streak_other": "🔥 {{count}} days balancing the register"
+      }
     },
     "movementForm": {
       "title": "Record cash movement",
@@ -641,5 +653,14 @@
   },
   "omnibox": {
     "added": "{{product}} added to the cart"
+  },
+  "paceHud": {
+    "title": "Session pace",
+    "enable": "Show my session pace",
+    "disable": "Hide my session pace",
+    "itemsPerMinute": "Items/min",
+    "secondsPerSale": "Sec/sale",
+    "personalBest": "Best",
+    "noRecordYet": "—"
   }
 }

@@ -63,6 +63,9 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   u => u.setupReadiness.firstSale,
   u => u.cashSessions.getActive,
   u => u.cashSessions.movements,
+  // ENG-204 — the pace HUD should jump the moment a sale lands, not on
+  // its 60 s poll; no-op while the HUD is opted out (query disabled).
+  u => u.cashSessions.pace,
   u => u.cashSessions.report,
   u => u.cashSessions.registerAssignments,
   u => u.sales.list,
