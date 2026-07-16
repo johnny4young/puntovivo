@@ -2,7 +2,11 @@
 import { and, eq, sql } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { inventoryBalances, inventoryLots } from '../../db/schema.js';
+import {
+  inventoryBalances,
+  inventoryLots,
+  type ProductCatalogType,
+} from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 
 const STOCK_EPSILON = 1e-9;
@@ -23,13 +27,29 @@ export function assertCreateLotTrackingPolicy(input: { tracksLots: boolean; stoc
 
 export function assertAggregateStockMutationAllowed(input: {
   tracksLots: boolean;
+  catalogType: ProductCatalogType;
   delta: number;
 }): void {
+  assertCatalogStockMutationAllowed(input);
   if (input.tracksLots && !isZeroStock(input.delta)) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'PRODUCT_LOT_TRACKING_STOCK_MANAGED',
       message: 'Lot-tracked stock must be changed through lot-aware inventory operations',
+    });
+  }
+}
+
+/** ENG-110b — catalog-only matrix parents can never regain inventory. */
+export function assertCatalogStockMutationAllowed(input: {
+  catalogType: ProductCatalogType;
+  delta: number;
+}): void {
+  if (input.catalogType === 'variant_parent' && !isZeroStock(input.delta)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE',
+      message: 'A variant matrix parent cannot hold stock',
     });
   }
 }

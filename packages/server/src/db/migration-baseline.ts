@@ -266,6 +266,22 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('products')
       );
     }
+    // ENG-110b — variant metadata ALTERs `products`. Preserve the same
+    // narrow purchase-only fixture guard as 0022 before advancing the newest
+    // marker: a mixed partial DB with any intervening target must still run
+    // its applicable migrations rather than skipping ahead.
+    if (entry.tag === '0023_eng110b_product_variants') {
+      return (
+        !tableExists('products') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('tenants') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers') &&
+        !tableExists('sales')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

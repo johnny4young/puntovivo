@@ -42,6 +42,26 @@ describe('resetTenantBySlug', () => {
     sqlite
       .prepare('INSERT INTO future_tenant_rows (id, tenant_id, user_id) VALUES (?, ?, ?)')
       .run('future-row', seeded.tenantId, user.id);
+    sqlite
+      .prepare(
+        `INSERT INTO products (id, tenant_id, name, sku, catalog_type, is_active)
+         VALUES (?, ?, ?, ?, 'variant_parent', 0)`
+      )
+      .run('reset-matrix-parent', seeded.tenantId, 'Reset matrix parent', 'RESET-MATRIX-PARENT');
+    sqlite
+      .prepare(
+        `INSERT INTO products
+          (id, tenant_id, name, sku, catalog_type, variant_parent_id, variant_signature)
+         VALUES (?, ?, ?, ?, 'variant', ?, ?)`
+      )
+      .run(
+        'reset-matrix-child',
+        seeded.tenantId,
+        'Reset matrix child',
+        'RESET-MATRIX-CHILD',
+        'reset-matrix-parent',
+        '{"Size":"S"}'
+      );
 
     await expect(resetTenantBySlug(db, DEV_TENANT_SLUG)).resolves.toBe(seeded.tenantId);
 

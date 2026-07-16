@@ -86,6 +86,7 @@ export async function resolvePurchaseItems(
     const normalizedQuantity = getNormalizedPurchaseQuantity(item.quantity, assignment.equivalence);
     assertAggregateStockMutationAllowed({
       tracksLots: product.tracksLots,
+      catalogType: product.catalogType,
       delta: normalizedQuantity,
     });
     const costPerUnit = roundMoney(item.costPerUnit);
@@ -135,6 +136,7 @@ export async function resolvePurchaseReturnItems(
       productId: purchaseItems.productId,
       productName: products.name,
       tracksLots: products.tracksLots,
+      catalogType: products.catalogType,
       quantity: purchaseItems.quantity,
       unitId: purchaseItems.unitId,
       unitEquivalence: purchaseItems.unitEquivalence,
@@ -207,6 +209,7 @@ export async function resolvePurchaseReturnItems(
     );
     assertAggregateStockMutationAllowed({
       tracksLots: purchaseItem.tracksLots,
+      catalogType: purchaseItem.catalogType,
       delta: -normalizedQuantity,
     });
     const costPerUnit = roundMoney(purchaseItem.costPerUnit);
@@ -256,6 +259,7 @@ export async function resolveOrderReceiptItems(
       productId: orderItems.productId,
       productName: products.name,
       tracksLots: products.tracksLots,
+      catalogType: products.catalogType,
       quantity: orderItems.quantity,
       unitId: orderItems.unitId,
       unitEquivalence: orderItems.unitEquivalence,
@@ -365,6 +369,7 @@ export async function resolveOrderReceiptItems(
     );
     assertAggregateStockMutationAllowed({
       tracksLots: orderLine.tracksLots,
+      catalogType: orderLine.catalogType,
       delta: normalizedQuantity,
     });
     const costPerUnit = roundMoney(orderLine.costPerUnit);

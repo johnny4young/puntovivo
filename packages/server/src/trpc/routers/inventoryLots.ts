@@ -34,6 +34,7 @@ import {
   listLotsForProduct,
   receiveInventoryLot,
 } from '../../services/inventory-lots/index.js';
+import { assertCatalogStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import {
   createExpirySuggestion,
   dismissSuggestion,
@@ -53,7 +54,11 @@ export const inventoryLotsRouter = router({
     await assertTenantSite(ctx.db, ctx.tenantId, input.siteId);
 
     const product = await ctx.db
-      .select({ id: products.id, tracksLots: products.tracksLots })
+      .select({
+        id: products.id,
+        tracksLots: products.tracksLots,
+        catalogType: products.catalogType,
+      })
       .from(products)
       .where(and(eq(products.id, input.productId), eq(products.tenantId, ctx.tenantId)))
       .get();
@@ -65,6 +70,10 @@ export const inventoryLotsRouter = router({
         details: { productId: input.productId },
       });
     }
+    assertCatalogStockMutationAllowed({
+      catalogType: product.catalogType,
+      delta: input.quantity,
+    });
     if (!product.tracksLots) {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
@@ -73,7 +82,6 @@ export const inventoryLotsRouter = router({
         details: { productId: input.productId },
       });
     }
-
     const now = new Date().toISOString();
     const movementId = nanoid();
     // Wrap the read-then-write (select + update/insert) in a transaction so a

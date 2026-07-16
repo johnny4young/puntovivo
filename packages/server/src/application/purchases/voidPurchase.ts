@@ -76,6 +76,7 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
       id: products.id,
       name: products.name,
       tracksLots: products.tracksLots,
+      catalogType: products.catalogType,
     })
     .from(products)
     .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
@@ -108,6 +109,7 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
 
       assertAggregateStockMutationAllowed({
         tracksLots: product.tracksLots,
+        catalogType: product.catalogType,
         delta: -normalizedQuantity,
       });
 

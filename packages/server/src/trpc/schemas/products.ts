@@ -62,6 +62,9 @@ export const listProductsInput = paginationInput.extend({
   search: z.string().optional(),
   categoryId: z.string().optional(),
   isActive: z.boolean().optional(),
+  // ENG-110b — operational consumers keep the safe default and never receive
+  // catalog-only matrix parents. The catalog page opts in explicitly.
+  includeVariantParents: z.boolean().default(false),
 });
 
 export const getProductInput = z.object({
@@ -186,6 +189,54 @@ export const deleteProductInput = z.object({
   id: z.string().min(1, 'ID is required'),
 });
 
+export const productVariantAxisInput = z.object({
+  name: z.string().trim().min(1, 'Axis name is required').max(40),
+  values: z
+    .array(z.string().trim().min(1, 'Option value is required').max(40))
+    .min(1, 'Each axis needs at least one option')
+    .max(20),
+});
+
+export const createProductVariantMatrixInput = z
+  .object({
+    parentProductId: z.string().min(1, 'Parent product is required'),
+    axes: z.array(productVariantAxisInput).min(1).max(3),
+  })
+  .superRefine((input, ctx) => {
+    const axisNames = input.axes.map(axis => axis.name.toLocaleLowerCase());
+    if (new Set(axisNames).size !== axisNames.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Variant axis names must be unique',
+        path: ['axes'],
+      });
+    }
+
+    for (const [axisIndex, axis] of input.axes.entries()) {
+      const values = axis.values.map(value => value.toLocaleLowerCase());
+      if (new Set(values).size !== values.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Variant option values must be unique within an axis',
+          path: ['axes', axisIndex, 'values'],
+        });
+      }
+    }
+
+    const combinationCount = input.axes.reduce((total, axis) => total * axis.values.length, 1);
+    if (combinationCount > 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A variant matrix can contain at most 100 combinations',
+        path: ['axes'],
+      });
+    }
+  });
+
+export const getProductVariantMatrixInput = z.object({
+  parentProductId: z.string().min(1, 'Parent product is required'),
+});
+
 export const searchProductsInput = z.object({
   q: z.string().min(1, 'Search query is required'),
   limit: z.number().int().min(1).max(50).default(20),
@@ -211,5 +262,6 @@ export const lookupByBarcodeInput = z.object({
 export type ListProductsInput = z.infer<typeof listProductsInput>;
 export type CreateProductInput = z.infer<typeof createProductInput>;
 export type UpdateProductInput = z.infer<typeof updateProductInput>;
+export type CreateProductVariantMatrixInput = z.infer<typeof createProductVariantMatrixInput>;
 export type SearchProductsInput = z.infer<typeof searchProductsInput>;
 export type LookupByBarcodeInput = z.infer<typeof lookupByBarcodeInput>;

@@ -86,6 +86,7 @@ export function createInventoryTransfer(
         name: products.name,
         sku: products.sku,
         tracksLots: products.tracksLots,
+        catalogType: products.catalogType,
       })
       .from(products)
       .where(and(eq(products.tenantId, args.tenantId), eq(products.isActive, true)))
@@ -126,7 +127,11 @@ export function createInventoryTransfer(
 
     for (const [productId, quantity] of collapsedItems.entries()) {
       const product = productById.get(productId)!;
-      assertAggregateStockMutationAllowed({ tracksLots: product.tracksLots, delta: -quantity });
+      assertAggregateStockMutationAllowed({
+        tracksLots: product.tracksLots,
+        catalogType: product.catalogType,
+        delta: -quantity,
+      });
 
       // Lazily seed missing balance rows for both sites so transfer creation
       // does not depend on the balances read path having run beforehand.

@@ -211,6 +211,12 @@
     "EMPLOYEE_SHIFT_CORRECTION_ACTIVE": "Registra la salida antes de corregir este turno de asistencia.",
     "EMPLOYEE_SHIFT_CORRECTION_WINDOW_INVALID": "Elige un turno corregido válido de hasta 24 horas.",
     "EMPLOYEE_SHIFT_CORRECTION_BREAKS_INVALID": "Mantén las pausas corregidas válidas, sin cruces y dentro del turno.",
-    "EMPLOYEE_SHIFT_CORRECTION_PERSIST_FAILED": "No se pudo guardar la corrección de asistencia."
+    "EMPLOYEE_SHIFT_CORRECTION_PERSIST_FAILED": "No se pudo guardar la corrección de asistencia.",
+    "PRODUCT_VARIANT_PARENT_REQUIRES_ZERO_STOCK": "Este producto debe tener inventario cero en cada sede antes de crear variantes.",
+    "PRODUCT_VARIANT_PARENT_NOT_FOUND": "Este producto ya no existe. Actualiza el catálogo e inténtalo de nuevo.",
+    "PRODUCT_VARIANT_PARENT_HAS_HISTORY": "Los productos usados en ventas, compras, pedidos o transferencias no pueden convertirse en padres de matriz. Crea un producto nuevo para esta matriz de variantes.",
+    "PRODUCT_VARIANT_MATRIX_EXISTS": "Este producto ya pertenece a una matriz de variantes.",
+    "PRODUCT_VARIANT_SKU_CONFLICT": "Uno o más SKU generados ya existen. Cambia el SKU del padre o los nombres de las opciones e inténtalo de nuevo.",
+    "PRODUCT_VARIANT_PARENT_NOT_SELLABLE": "El padre de una matriz solo organiza el catálogo y no se puede activar ni abastecer directamente."
   }
 }

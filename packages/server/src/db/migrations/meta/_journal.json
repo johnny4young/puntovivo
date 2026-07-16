@@ -162,6 +162,13 @@
       "when": 1784197782794,
       "tag": "0022_eng142c_dual_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1784214350746,
+      "tag": "0023_eng110b_product_variants",
+      "breakpoints": true
     }
   ]
 }

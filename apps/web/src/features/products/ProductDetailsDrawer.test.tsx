@@ -31,6 +31,7 @@ const product = {
   stock: 42,
   minStock: 10,
   tracksLots: true,
+  catalogType: 'standard',
   isActive: true,
 } as unknown as Product;
 
@@ -56,6 +57,20 @@ describe('ProductDetailsDrawer (ENG-132a)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /edit product|editar producto/i }));
     expect(onEdit).toHaveBeenCalledWith(product);
+  });
+
+  it('opens variant creation for a standard product', () => {
+    const onManageVariants = vi.fn();
+    render(
+      <ProductDetailsDrawer
+        product={product}
+        onClose={vi.fn()}
+        onManageVariants={onManageVariants}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /create variants|crear variantes/i }));
+    expect(onManageVariants).toHaveBeenCalledWith(product);
   });
 
   it('hides the Edit action when onEdit is not provided (read-only roles)', () => {

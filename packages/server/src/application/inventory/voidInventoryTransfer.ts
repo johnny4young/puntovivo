@@ -78,6 +78,7 @@ export function voidInventoryTransfer(
         quantity: transferOrderItems.quantity,
         receivedQuantity: transferOrderItems.receivedQuantity,
         tracksLots: products.tracksLots,
+        catalogType: products.catalogType,
       })
       .from(transferOrderItems)
       .innerJoin(products, eq(transferOrderItems.productId, products.id))
@@ -147,6 +148,7 @@ export function voidInventoryTransfer(
     for (const item of itemsWithReversal) {
       assertAggregateStockMutationAllowed({
         tracksLots: item.tracksLots,
+        catalogType: item.catalogType,
         delta: item.quantity,
       });
       if (!wasInTransit && item.destinationDebit > 0) {

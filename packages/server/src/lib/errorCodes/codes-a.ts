@@ -154,6 +154,18 @@ export const SERVER_ERROR_CODES_A = {
   PRODUCT_LOT_TRACKING_REQUIRED: 'PRODUCT_LOT_TRACKING_REQUIRED',
   /** ENG-110a: disabling lot tracking would strand non-zero lot inventory. */
   PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS: 'PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS',
+  /** ENG-110b: only a zero-stock standard product can become a matrix parent. */
+  PRODUCT_VARIANT_PARENT_REQUIRES_ZERO_STOCK: 'PRODUCT_VARIANT_PARENT_REQUIRES_ZERO_STOCK',
+  /** ENG-110b: the selected matrix source no longer exists for this tenant. */
+  PRODUCT_VARIANT_PARENT_NOT_FOUND: 'PRODUCT_VARIANT_PARENT_NOT_FOUND',
+  /** ENG-110b: later document reversals/receipts could restock the matrix parent. */
+  PRODUCT_VARIANT_PARENT_HAS_HISTORY: 'PRODUCT_VARIANT_PARENT_HAS_HISTORY',
+  /** ENG-110b: the selected product is already a parent or child in a matrix. */
+  PRODUCT_VARIANT_MATRIX_EXISTS: 'PRODUCT_VARIANT_MATRIX_EXISTS',
+  /** ENG-110b: generated child SKUs collide with tenant catalog rows. */
+  PRODUCT_VARIANT_SKU_CONFLICT: 'PRODUCT_VARIANT_SKU_CONFLICT',
+  /** ENG-110b: a matrix parent is catalog metadata, never a sellable stock item. */
+  PRODUCT_VARIANT_PARENT_NOT_SELLABLE: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE',
   /** Sale path: quantity must be a whole number for this product. */
   SALE_QUANTITY_NOT_WHOLE: 'SALE_QUANTITY_NOT_WHOLE',
   /** Sale path: quantity is below the configured minimum. */

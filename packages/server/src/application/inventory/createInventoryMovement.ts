@@ -39,7 +39,11 @@ export async function createInventoryMovement(ctx: InventoryContext, input: Crea
 
   const movementId = nanoid();
   const stockDelta = newStock - previousStock;
-  assertAggregateStockMutationAllowed({ tracksLots: product.tracksLots, delta: stockDelta });
+  assertAggregateStockMutationAllowed({
+    tracksLots: product.tracksLots,
+    catalogType: product.catalogType,
+    delta: stockDelta,
+  });
 
   ctx.db.transaction(tx => {
     tx.insert(inventoryMovements)

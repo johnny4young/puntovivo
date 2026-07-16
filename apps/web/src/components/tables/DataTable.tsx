@@ -41,6 +41,10 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   searchKey?: string | undefined;
   searchPlaceholder?: string | undefined;
+  /** Optional controlled search value for resources backed by server-side filtering. */
+  searchValue?: string | undefined;
+  /** Receives search changes while the table keeps its immediate local filter. */
+  onSearchChange?: ((value: string) => void) | undefined;
   enableRowSelection?: boolean | undefined;
   onRowSelectionChange?: ((rows: TData[]) => void) | undefined;
   pageSize?: number | undefined;
@@ -61,6 +65,8 @@ export function DataTable<TData, TValue>({
   data,
   searchKey,
   searchPlaceholder = 'Search...',
+  searchValue,
+  onSearchChange,
   enableRowSelection = false,
   onRowSelectionChange,
   pageSize = 10,
@@ -166,10 +172,15 @@ export function DataTable<TData, TValue>({
       <DataTableToolbar
         searchEnabled={Boolean(searchKey)}
         searchPlaceholder={searchPlaceholder}
-        searchValue={(searchColumn?.getFilterValue() as string | undefined) ?? ''}
+        searchValue={
+          searchValue ?? (searchColumn?.getFilterValue() as string | undefined) ?? ''
+        }
         selectedRowCount={selectedRowCount}
         selectionEnabled={enableRowSelection}
-        onSearchChange={value => searchColumn?.setFilterValue(value)}
+        onSearchChange={value => {
+          searchColumn?.setFilterValue(value);
+          onSearchChange?.(value);
+        }}
       />
       <DataTableViewport
         table={table}

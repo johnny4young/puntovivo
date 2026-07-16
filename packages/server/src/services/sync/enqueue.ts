@@ -98,78 +98,72 @@ export interface EnqueueSyncResult {
   deduped: boolean;
 }
 
+function resolveOperationEventId(ctx: EnqueueSyncContext): string | null {
+  if (!ctx.envelope?.operationId) return null;
+
+  const event = ctx.db
+    .select({ id: operationEvents.id })
+    .from(operationEvents)
+    .where(
+      and(
+        eq(operationEvents.tenantId, ctx.tenantId),
+        eq(operationEvents.operationId, ctx.envelope.operationId)
+      )
+    )
+    .get();
+  return event?.id ?? null;
+}
+
 /**
- * Enqueue an entity change for replication.
- *
- * Returns the row id and a `deduped` flag indicating whether the
- * unique index collapsed this call into an existing row (retry of
- * the same envelope). Callers MAY ignore the return; the helper
- * never throws on a duplicate — the row already exists.
+ * Canonical synchronous row writer shared by ordinary callers and callers
+ * already inside a better-sqlite3 transaction. Keeping this layer free of
+ * promises is what lets aggregate mutations commit their primary rows and
+ * replication intent atomically.
  */
-export async function enqueueSync(
+function writeSyncRow(
   ctx: EnqueueSyncContext,
-  args: EnqueueSyncArgs
-): Promise<EnqueueSyncResult> {
+  args: EnqueueSyncArgs,
+  operationEventId: string | null
+): EnqueueSyncResult {
   const conflictPolicy = resolveConflictPolicy(args.entityType);
   const priority = typeof args.priority === 'number'
     ? args.priority
     : resolveDefaultPriority(args.entityType);
-
   const idempotencyKey = ctx.envelope?.idempotencyKey ?? null;
   const deviceId = ctx.deviceId ?? null;
-
-  // Resolve the operation_event_id from the envelope's operationId.
-  // The middleware wrote the row in `recordOperationStart` BEFORE
-  // the procedure ran, so the lookup is safe here.
-  let operationEventId: string | null = null;
-  if (ctx.envelope?.operationId) {
-    const event = await ctx.db
-      .select({ id: operationEvents.id })
-      .from(operationEvents)
-      .where(
-        and(
-          eq(operationEvents.tenantId, ctx.tenantId),
-          eq(operationEvents.operationId, ctx.envelope.operationId)
-        )
-      )
-      .get();
-    operationEventId = event?.id ?? null;
-  }
-
   const id = nanoid();
   const nowIso = new Date().toISOString();
 
-  // Try to insert. The partial unique index on
-  // (tenantId, entityType, entityId, operation, idempotencyKey)
-  // collapses idempotent retries; SQLite reports the conflict with
-  // a UNIQUE constraint failure that we map to "deduped".
   try {
-    await ctx.db.insert(syncOutbox).values({
-      id,
-      tenantId: ctx.tenantId,
-      status: 'queued',
-      entityType: args.entityType,
-      entityId: args.entityId,
-      operation: args.operation,
-      conflictPolicy,
-      payload: args.data,
-      payloadVersion: 1,
-      idempotencyKey,
-      deviceId,
-      dependsOnOperationId: args.dependsOnOperationId ?? null,
-      operationEventId,
-      attempts: 0,
-      priority,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-    });
+    ctx.db
+      .insert(syncOutbox)
+      .values({
+        id,
+        tenantId: ctx.tenantId,
+        status: 'queued',
+        entityType: args.entityType,
+        entityId: args.entityId,
+        operation: args.operation,
+        conflictPolicy,
+        payload: args.data,
+        payloadVersion: 1,
+        idempotencyKey,
+        deviceId,
+        dependsOnOperationId: args.dependsOnOperationId ?? null,
+        operationEventId,
+        attempts: 0,
+        priority,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      })
+      .run();
   } catch (err) {
     if (
       err instanceof Error &&
       /UNIQUE constraint failed.*sync_outbox/i.test(err.message) &&
       idempotencyKey
     ) {
-      const existing = await ctx.db
+      const existing = ctx.db
         .select({ id: syncOutbox.id })
         .from(syncOutbox)
         .where(
@@ -187,20 +181,55 @@ export async function enqueueSync(
     throw err;
   }
 
+  return { id, deduped: false };
+}
+
+/**
+ * Enqueue an entity change for replication.
+ *
+ * Returns the row id and a `deduped` flag indicating whether the
+ * unique index collapsed this call into an existing row (retry of
+ * the same envelope). Callers MAY ignore the return; the helper
+ * never throws on a duplicate — the row already exists.
+ */
+export async function enqueueSync(
+  ctx: EnqueueSyncContext,
+  args: EnqueueSyncArgs
+): Promise<EnqueueSyncResult> {
+  // Resolve the operation_event_id from the envelope's operationId.
+  // The middleware wrote the row in `recordOperationStart` BEFORE
+  // the procedure ran, so the lookup is safe here.
+  const operationEventId = resolveOperationEventId(ctx);
+  const result = writeSyncRow(ctx, args, operationEventId);
+
   // Best-effort journal effect. The sync row is the primary work;
   // a missing journal effect does not roll back the enqueue.
-  if (operationEventId) {
+  if (operationEventId && !result.deduped) {
     try {
       await recordEffect(ctx.db, {
         operationEventId,
         kind: 'outbox_enqueue:sync',
         resourceType: 'sync_outbox',
-        resourceId: id,
+        resourceId: result.id,
       });
     } catch {
       /* swallow — journal effect is best-effort */
     }
   }
 
-  return { id, deduped: false };
+  return result;
+}
+
+/**
+ * Enqueue from inside an existing synchronous SQLite transaction.
+ *
+ * This deliberately writes only the authoritative outbox row. The operation
+ * journal remains best-effort in `enqueueSync`; making that auxiliary effect
+ * transaction-fatal would invert the service's documented failure policy.
+ */
+export function enqueueSyncInTransaction(
+  ctx: EnqueueSyncContext,
+  args: EnqueueSyncArgs
+): EnqueueSyncResult {
+  return writeSyncRow(ctx, args, resolveOperationEventId(ctx));
 }

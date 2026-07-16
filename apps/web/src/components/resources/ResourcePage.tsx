@@ -20,6 +20,8 @@ interface ResourcePageProps<TData> {
   error: string | null;
   searchKey: string;
   searchPlaceholder: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
   enableRowSelection?: boolean;
   pageSize?: number;
   loadingMessage: string;
@@ -50,6 +52,8 @@ export function ResourcePage<TData>({
   error,
   searchKey,
   searchPlaceholder,
+  searchValue,
+  onSearchChange,
   enableRowSelection = true,
   pageSize = 10,
   loadingMessage,
@@ -81,6 +85,8 @@ export function ResourcePage<TData>({
             data={data}
             searchKey={searchKey}
             searchPlaceholder={searchPlaceholder}
+            searchValue={searchValue}
+            onSearchChange={onSearchChange}
             enableRowSelection={enableRowSelection}
             pageSize={pageSize}
             onRowActivate={onRowActivate}

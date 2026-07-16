@@ -55,7 +55,8 @@
     "margin": "Margen",
     "marginTooltip": "Margen bruto realizado, últimos 30 días",
     "marginNoSales": "Sin ventas en los últimos 30 días",
-    "marginUnavailable": "No se pudieron cargar los datos de margen. La gestión de productos sigue disponible."
+    "marginUnavailable": "No se pudieron cargar los datos de margen. La gestión de productos sigue disponible.",
+    "matrixParent": "Matriz de variantes"
   },
   "details": {
     "title": "Detalle del producto",
@@ -66,7 +67,16 @@
     "lotTrackingEnabled": "Activo",
     "lotTrackingDisabled": "Inactivo",
     "edit": "Editar producto",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "catalogType": "Tipo de catálogo",
+    "variantValues": "Opciones de variante",
+    "createVariants": "Crear variantes",
+    "viewVariants": "Ver variantes",
+    "catalogTypes": {
+      "standard": "Producto estándar",
+      "variant_parent": "Padre de matriz",
+      "variant": "Variante vendible"
+    }
   },
   "form": {
     "createTitle": "Crear producto",
@@ -176,5 +186,41 @@
     "updateError": "No se pudo actualizar el producto",
     "deactivated": "Producto desactivado",
     "deactivateError": "No se pudo desactivar el producto"
+  },
+  "variants": {
+    "createTitle": "Crear variantes · {{name}}",
+    "viewTitle": "Matriz de variantes · {{name}}",
+    "close": "Cerrar",
+    "creating": "Creando variantes...",
+    "createAction_one": "Crear {{count}} variante",
+    "createAction_other": "Crear {{count}} variantes",
+    "explainerTitle": "Un catálogo, combinaciones vendibles",
+    "createExplainer": "Define hasta tres ejes. Cada combinación generada se convierte en un producto vendible normal con su propio SKU, inventario y código de barras. Esta conversión no se puede deshacer.",
+    "existingExplainer": "El padre de la matriz solo organiza el catálogo. Cada fila es un producto vendible independiente con su propio inventario.",
+    "loading": "Cargando la matriz de variantes...",
+    "stockBlocked": "Deja este producto con inventario cero en cada sede antes de crear variantes.",
+    "axisName": "Nombre del eje {{number}}",
+    "axisPlaceholder": "p. ej., Talla",
+    "options": "Opciones",
+    "optionsPlaceholder": "p. ej., Pequeña, Mediana, Grande",
+    "optionsHelp": "Separa cada opción con una coma.",
+    "removeAxis": "Eliminar eje {{number}}",
+    "addAxis": "Agregar otro eje",
+    "previewTitle": "Combinaciones generadas",
+    "combinationCount_one": "{{count}} combinación",
+    "combinationCount_other": "{{count}} combinaciones",
+    "variant": "Variante",
+    "toastCreated_one": "Se creó {{count}} variante",
+    "toastCreated_other": "Se crearon {{count}} variantes",
+    "toastError": "No se pudieron crear las variantes",
+    "validation": {
+      "axisRequired": "Asigna un nombre a cada eje.",
+      "valuesRequired": "Agrega al menos una opción a cada eje.",
+      "duplicateAxis": "Los nombres de los ejes deben ser únicos.",
+      "duplicateValue": "Las opciones dentro de un eje deben ser únicas.",
+      "tooManyOptions": "Cada eje admite hasta 20 opciones.",
+      "tooManyCombinations": "Una matriz puede contener hasta 100 combinaciones.",
+      "tooLong": "Los nombres de ejes y opciones deben tener máximo 40 caracteres."
+    }
   }
 }

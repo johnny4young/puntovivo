@@ -1344,6 +1344,12 @@
     "output": "inferred"
   },
   {
+    "path": "products.createVariantMatrix",
+    "kind": "mutation",
+    "input": "object{axes:array<object>[minItems=1,maxItems=3],parentProductId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "products.delete",
     "kind": "mutation",
     "input": "object{id:string[minLength=1]}",
@@ -1362,9 +1368,15 @@
     "output": "inferred"
   },
   {
+    "path": "products.getVariantMatrix",
+    "kind": "query",
+    "input": "object{parentProductId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "products.list",
     "kind": "query",
-    "input": "object{categoryId?:string,isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "input": "object{categoryId?:string,includeVariantParents?:boolean=false,isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
     "output": "inferred"
   },
   {

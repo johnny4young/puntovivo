@@ -9,12 +9,17 @@
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 
-import { createProduct, updateProduct } from '../../../application/products/index.js';
+import {
+  createProduct,
+  createProductVariantMatrix,
+  updateProduct,
+} from '../../../application/products/index.js';
 import { products } from '../../../db/schema.js';
 import { enqueueSync } from '../../../services/sync/enqueue.js';
 import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
   createProductInput,
+  createProductVariantMatrixInput,
   deleteProductInput,
   updateProductInput,
 } from '../../schemas/products.js';
@@ -27,6 +32,10 @@ export const productMutationProcedures = {
   update: managerOrAdminProcedure
     .input(updateProductInput)
     .mutation(({ ctx, input }) => updateProduct(ctx, input)),
+
+  createVariantMatrix: managerOrAdminProcedure
+    .input(createProductVariantMatrixInput)
+    .mutation(({ ctx, input }) => createProductVariantMatrix(ctx, input)),
 
   delete: adminProcedure.input(deleteProductInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db

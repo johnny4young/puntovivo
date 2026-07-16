@@ -9,6 +9,7 @@ interface SqliteTableInfoRow {
 }
 
 interface SqliteForeignKeyRow {
+  from: string;
   table: string;
   on_delete: string;
 }
@@ -28,9 +29,7 @@ function getSqliteClient(db: DatabaseInstance): Database.Database {
  */
 function getTenantTablesInDeleteOrder(sqlite: Database.Database): string[] {
   const tableNames = sqlite
-    .prepare(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
-    )
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
     .all() as SqliteTableInfoRow[];
 
   const tenantTables = tableNames
@@ -53,7 +52,10 @@ function getTenantTablesInDeleteOrder(sqlite: Database.Database): string[] {
       .prepare(`PRAGMA foreign_key_list(${quoteIdentifier(child)})`)
       .all() as SqliteForeignKeyRow[];
     for (const foreignKey of foreignKeys) {
-      if (tenantTableSet.has(foreignKey.table)) {
+      // ENG-110b — self-references are cleared inside the reset transaction
+      // before deletion. They therefore do not create a cross-table ordering
+      // edge (which would only manufacture a cycle here).
+      if (foreignKey.table !== child && tenantTableSet.has(foreignKey.table)) {
         childrenByParent.get(foreignKey.table)?.add(child);
       }
     }
@@ -105,6 +107,37 @@ function getTenantTablesInDeleteOrder(sqlite: Database.Database): string[] {
 }
 
 /**
+ * Break nullable, non-cascading self references before deleting a tenant.
+ * SQLite enforces RESTRICT / NO ACTION while a DELETE statement is running,
+ * so deleting a parent and its children in one statement is not sufficient.
+ */
+function clearTenantSelfReferences(
+  sqlite: Database.Database,
+  tenantTables: string[],
+  tenantId: string
+): void {
+  for (const table of tenantTables) {
+    const selfReferences = (
+      sqlite
+        .prepare(`PRAGMA foreign_key_list(${quoteIdentifier(table)})`)
+        .all() as SqliteForeignKeyRow[]
+    ).filter(
+      foreignKey =>
+        foreignKey.table === table && foreignKey.on_delete.toUpperCase() !== 'CASCADE'
+    );
+    for (const foreignKey of selfReferences) {
+      sqlite
+        .prepare(
+          `UPDATE ${quoteIdentifier(table)}
+           SET ${quoteIdentifier(foreignKey.from)} = NULL
+           WHERE tenant_id = ? AND ${quoteIdentifier(foreignKey.from)} IS NOT NULL`
+        )
+        .run(tenantId);
+    }
+  }
+}
+
+/**
  * Deletes one tenant and every tenant-scoped row without relying on a static
  * table list. Intended only for destructive development/QA reset commands.
  */
@@ -122,6 +155,7 @@ export async function resetTenantBySlug(
   const sqlite = getSqliteClient(db);
   const tables = getTenantTablesInDeleteOrder(sqlite);
   sqlite.transaction(() => {
+    clearTenantSelfReferences(sqlite, tables, existingTenant.id);
     for (const table of tables) {
       try {
         sqlite

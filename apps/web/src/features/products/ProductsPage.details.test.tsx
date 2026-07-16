@@ -13,11 +13,13 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useAuthMock, useIsModuleActiveMock, useModulesSnapshotMock } = vi.hoisted(() => ({
-  useAuthMock: vi.fn(),
-  useIsModuleActiveMock: vi.fn(),
-  useModulesSnapshotMock: vi.fn(),
-}));
+const { useAuthMock, useIsModuleActiveMock, useModulesSnapshotMock, productsListUseQueryMock } =
+  vi.hoisted(() => ({
+    useAuthMock: vi.fn(),
+    useIsModuleActiveMock: vi.fn(),
+    useModulesSnapshotMock: vi.fn(),
+    productsListUseQueryMock: vi.fn(),
+  }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({ useAuth: useAuthMock }));
 vi.mock('@/features/modules', () => ({
@@ -47,6 +49,7 @@ const product = {
   price3: 10000,
   stock: 42,
   minStock: 10,
+  catalogType: 'standard',
   isActive: true,
 };
 
@@ -58,19 +61,26 @@ vi.mock('@/lib/trpc', () => ({
         semanticSearch: { invalidate: vi.fn() },
         embeddingHealth: { invalidate: vi.fn() },
         getById: { invalidate: vi.fn() },
+        getVariantMatrix: { invalidate: vi.fn() },
       },
     }),
     products: {
       list: {
-        useQuery: () => ({ data: { items: [product] }, isLoading: false, error: null }),
+        useQuery: (input: unknown) => productsListUseQueryMock(input),
       },
       semanticSearch: { useQuery: () => ({ data: null, isFetching: false }) },
       embeddingHealth: { useQuery: () => ({ data: null, isLoading: false }) },
       regenerateEmbeddings: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       getById: { useQuery: () => ({ data: null }) },
+      getVariantMatrix: {
+        useQuery: () => ({ data: null, isLoading: false, error: null }),
+      },
       create: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       update: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       delete: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      createVariantMatrix: {
+        useMutation: () => ({ mutateAsync: vi.fn(), reset: vi.fn(), isPending: false }),
+      },
     },
     // ENG-195 - the margin column query; null data keeps the column hidden.
     reports: {
@@ -91,6 +101,7 @@ describe('ProductsPage default column set (ENG-132a)', () => {
     useAuthMock.mockReset();
     useIsModuleActiveMock.mockReset();
     useModulesSnapshotMock.mockReset();
+    productsListUseQueryMock.mockReset();
     useAuthMock.mockReturnValue({ user: { id: 'u-1', role: 'manager' } });
     useIsModuleActiveMock.mockReturnValue(false); // semantic off → simplest table
     useModulesSnapshotMock.mockReturnValue({
@@ -98,10 +109,19 @@ describe('ProductsPage default column set (ENG-132a)', () => {
       isLoading: false,
       isPlaceholder: false,
     });
+    productsListUseQueryMock.mockReturnValue({
+      data: { items: [product] },
+      isLoading: false,
+      error: null,
+    });
   });
 
   it('renders the smallest useful column set (provider / location / tier-2 / tier-3 trimmed)', () => {
     render(<ProductsPage />);
+
+    expect(productsListUseQueryMock).toHaveBeenCalledWith(
+      expect.objectContaining({ includeVariantParents: true })
+    );
 
     // Core columns stay.
     expect(screen.getByRole('columnheader', { name: 'Category' })).toBeInTheDocument();

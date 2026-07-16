@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm';
 
 import { products } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
 import {
@@ -40,6 +41,18 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
 
   if (!existing) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
+  }
+
+  if (
+    existing.catalogType === 'variant_parent' &&
+    (updates.isActive === true || (updates.stock !== undefined && Math.abs(updates.stock) > 1e-9))
+  ) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE',
+      message: 'A variant matrix parent cannot be activated or hold stock',
+      details: { productId: existing.id },
+    });
   }
 
   if (updates.sku && updates.sku !== existing.sku) {

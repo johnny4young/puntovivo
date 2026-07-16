@@ -211,6 +211,12 @@
     "EMPLOYEE_SHIFT_CORRECTION_ACTIVE": "Clock out before correcting this attendance shift.",
     "EMPLOYEE_SHIFT_CORRECTION_WINDOW_INVALID": "Choose a valid corrected shift of up to 24 hours.",
     "EMPLOYEE_SHIFT_CORRECTION_BREAKS_INVALID": "Keep corrected breaks valid, non-overlapping, and inside the shift.",
-    "EMPLOYEE_SHIFT_CORRECTION_PERSIST_FAILED": "The attendance correction could not be saved."
+    "EMPLOYEE_SHIFT_CORRECTION_PERSIST_FAILED": "The attendance correction could not be saved.",
+    "PRODUCT_VARIANT_PARENT_REQUIRES_ZERO_STOCK": "This product must have zero stock at every site before variants can be created.",
+    "PRODUCT_VARIANT_PARENT_NOT_FOUND": "This product no longer exists. Refresh the catalog and try again.",
+    "PRODUCT_VARIANT_PARENT_HAS_HISTORY": "Products already used in sales, purchases, orders, or transfers cannot become matrix parents. Create a new product for this variant matrix.",
+    "PRODUCT_VARIANT_MATRIX_EXISTS": "This product already belongs to a variant matrix.",
+    "PRODUCT_VARIANT_SKU_CONFLICT": "One or more generated variant SKUs already exist. Change the parent SKU or option names and try again.",
+    "PRODUCT_VARIANT_PARENT_NOT_SELLABLE": "A variant matrix parent is catalog-only and cannot be activated or stocked directly."
   }
 }

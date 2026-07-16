@@ -74,6 +74,8 @@ vi.mock('@/lib/trpc', () => ({
         list: { invalidate: vi.fn() },
         semanticSearch: { invalidate: semanticSearchInvalidateMock },
         embeddingHealth: { invalidate: embeddingHealthInvalidateMock },
+        getById: { invalidate: vi.fn() },
+        getVariantMatrix: { invalidate: vi.fn() },
       },
     }),
     products: {
@@ -100,6 +102,9 @@ vi.mock('@/lib/trpc', () => ({
       getById: {
         useQuery: () => ({ data: null }),
       },
+      getVariantMatrix: {
+        useQuery: () => ({ data: null, isLoading: false, error: null }),
+      },
       create: {
         useMutation: () => ({ mutateAsync: vi.fn() }),
       },
@@ -108,6 +113,9 @@ vi.mock('@/lib/trpc', () => ({
       },
       delete: {
         useMutation: () => ({ mutateAsync: vi.fn() }),
+      },
+      createVariantMatrix: {
+        useMutation: () => ({ mutateAsync: vi.fn(), reset: vi.fn(), isPending: false }),
       },
     },
     // ENG-195 — the margin query is admin-only; the page keeps a stable

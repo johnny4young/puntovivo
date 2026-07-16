@@ -98,7 +98,7 @@ const routeWorkspaceLabels = new Map<string, string>([
 ]);
 
 async function revealSidebarLink(page: Page, label: string, workspaceLabel?: string) {
-  const link = page.getByRole('link', { name: label });
+  const link = page.getByRole('link', { name: label, exact: true });
   if ((await link.count()) === 0 && workspaceLabel) {
     const escapedLabel = workspaceLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     await page

@@ -34,7 +34,11 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
   const newStock =
     input.mode === 'initial' ? previousStock + normalizedQuantity : normalizedQuantity;
   const stockDelta = newStock - previousStock;
-  assertAggregateStockMutationAllowed({ tracksLots: product.tracksLots, delta: stockDelta });
+  assertAggregateStockMutationAllowed({
+    tracksLots: product.tracksLots,
+    catalogType: product.catalogType,
+    delta: stockDelta,
+  });
 
   ctx.db.transaction(tx => {
     tx.insert(initialInventory)

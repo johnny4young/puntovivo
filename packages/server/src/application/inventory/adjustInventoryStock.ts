@@ -28,7 +28,11 @@ export async function adjustInventoryStock(ctx: CriticalInventoryContext, input:
   const movementId = nanoid();
   const previousStock = getProductStockTotal(ctx.db, ctx.tenantId, input.productId);
   const delta = input.newStock - previousStock;
-  assertAggregateStockMutationAllowed({ tracksLots: product.tracksLots, delta });
+  assertAggregateStockMutationAllowed({
+    tracksLots: product.tracksLots,
+    catalogType: product.catalogType,
+    delta,
+  });
   const quantity = Math.abs(delta);
   let resolvedAdjustmentSiteId: string | null = null;
 

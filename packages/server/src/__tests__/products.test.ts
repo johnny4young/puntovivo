@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -10,14 +10,19 @@ import {
   inventoryBalances,
   inventoryLots,
   locations,
+  products,
   providers,
   sites,
+  syncOutbox,
+  unitXProduct,
   units,
   users,
   vatRates,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { applyInventoryBalanceDelta } from '../services/inventory-balances/apply-delta.js';
+import { buildProductVariantPreview } from '../application/products/createVariantMatrix.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -888,4 +893,407 @@ describe('Products tRPC Router', () => {
       cause: { errorCode: 'PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK' },
     });
   });
+
+  it('converts a zero-stock product into sellable child variants atomically', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const parent = await caller.products.create({
+      name: 'Classic Shirt',
+      sku: `SHIRT-${nanoid(6)}`,
+      stock: 0,
+      price: 80,
+      unitAssignments: [
+        { unitId: baseUnitId, equivalence: 1, price: 80, isBase: true, barcode: 'PARENT-PACK' },
+      ],
+      providerAssignments: [{ providerId }],
+    });
+
+    const cashierContext = createTestContext();
+    cashierContext.user.role = 'cashier';
+    cashierContext.req.user.role = 'cashier';
+    await expect(
+      appRouter.createCaller(cashierContext).products.createVariantMatrix({
+        parentProductId: parent.id,
+        axes: [{ name: 'Size', values: ['S'] }],
+      })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    const created = await caller.products.createVariantMatrix({
+      parentProductId: parent.id,
+      axes: [
+        { name: 'Size', values: ['S', 'M'] },
+        { name: 'Color', values: ['Blue', 'Red'] },
+      ],
+    });
+
+    expect(created.variants).toHaveLength(4);
+    expect(new Set(created.variants.map(variant => variant.sku)).size).toBe(4);
+    expect(created.variants.map(variant => variant.values)).toEqual(
+      expect.arrayContaining([
+        { Size: 'S', Color: 'Blue' },
+        { Size: 'M', Color: 'Red' },
+      ])
+    );
+
+    const matrix = await caller.products.getVariantMatrix({ parentProductId: parent.id });
+    expect(matrix.parent.catalogType).toBe('variant_parent');
+    expect(matrix.parent.isActive).toBe(false);
+    expect(matrix.axes).toEqual([
+      { name: 'Size', values: ['S', 'M'] },
+      { name: 'Color', values: ['Blue', 'Red'] },
+    ]);
+    expect(matrix.variants).toHaveLength(4);
+    expect(matrix.variants.map(variant => variant.variantValues)).toEqual([
+      { Size: 'S', Color: 'Blue' },
+      { Size: 'S', Color: 'Red' },
+      { Size: 'M', Color: 'Blue' },
+      { Size: 'M', Color: 'Red' },
+    ]);
+    expect(matrix.variants.every(variant => variant.catalogType === 'variant')).toBe(true);
+    expect(matrix.variants.every(variant => variant.variantParentId === parent.id)).toBe(true);
+
+    const foreignContext = createTestContext();
+    foreignContext.tenantId = `foreign-${nanoid()}`;
+    foreignContext.user.tenantId = foreignContext.tenantId;
+    foreignContext.req.user.tenantId = foreignContext.tenantId;
+    await expect(
+      appRouter
+        .createCaller(foreignContext)
+        .products.getVariantMatrix({ parentProductId: parent.id })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+    const child = await caller.products.getById({ id: created.variants[0]!.id });
+    expect(child.unitAssignments).toHaveLength(1);
+    expect(child.providerAssignments?.map(assignment => assignment.providerId)).toEqual([
+      providerId,
+    ]);
+    const copiedUnit = await getDatabase()
+      .select({ barcode: unitXProduct.barcode })
+      .from(unitXProduct)
+      .where(eq(unitXProduct.productId, child.id))
+      .get();
+    expect(copiedUnit?.barcode).toBeNull();
+
+    const childSync = await getDatabase()
+      .select({ payload: syncOutbox.payload })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          eq(syncOutbox.entityType, 'products'),
+          eq(syncOutbox.entityId, child.id),
+          eq(syncOutbox.operation, 'create')
+        )
+      )
+      .get();
+    expect(childSync?.payload).toMatchObject({
+      id: child.id,
+      tenantId,
+      variantParentId: parent.id,
+      name: child.name,
+      sku: child.sku,
+      catalogType: 'variant',
+      price: 80,
+      currencyCode: 'COP',
+      isActive: true,
+      stock: 0,
+      unitAssignments: [
+        {
+          unitId: baseUnitId,
+          equivalence: 1,
+          price: 80,
+          isBase: true,
+          barcode: null,
+        },
+      ],
+      providerAssignments: [{ providerId }],
+    });
+    expect(childSync?.payload).not.toHaveProperty('parentProductId');
+
+    const operationalList = await caller.products.list({
+      page: 1,
+      perPage: 20,
+      search: 'Classic Shirt',
+    });
+    expect(operationalList.items.some(item => item.id === parent.id)).toBe(false);
+    expect(operationalList.items.filter(item => item.variantParentId === parent.id)).toHaveLength(
+      4
+    );
+
+    const catalogList = await caller.products.list({
+      page: 1,
+      perPage: 20,
+      search: 'Classic Shirt',
+      includeVariantParents: true,
+    });
+    expect(catalogList.items.some(item => item.id === parent.id)).toBe(true);
+
+    const search = await caller.products.search({ q: parent.sku, isActive: true });
+    expect(search.items.some(item => item.id === parent.id)).toBe(false);
+
+    await expect(
+      caller.products.update({ id: parent.id, version: matrix.parent.version, isActive: true })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE' },
+    });
+    await expect(
+      caller.inventory.createMovement({
+        productId: parent.id,
+        type: 'purchase',
+        quantity: 1,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE' },
+    });
+
+    const primarySite = await getDatabase()
+      .select({ id: sites.id })
+      .from(sites)
+      .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+      .get();
+    expect(primarySite).toBeDefined();
+    await expect(
+      caller.inventoryLots.receive({
+        siteId: primarySite!.id,
+        productId: parent.id,
+        lotNumber: 'PARENT-LOT',
+        quantity: 1,
+        unitCost: 10,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE' },
+    });
+
+    let centralMutationError: unknown;
+    try {
+      getDatabase().transaction(tx => {
+        applyInventoryBalanceDelta(tx, {
+          tenantId,
+          siteId: primarySite!.id,
+          productId: parent.id,
+          delta: 1,
+        });
+      });
+    } catch (error) {
+      centralMutationError = error;
+    }
+    expect(centralMutationError).toMatchObject({
+      cause: { errorCode: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE' },
+    });
+
+    await expect(
+      caller.products.createVariantMatrix({
+        parentProductId: parent.id,
+        axes: [{ name: 'Size', values: ['L'] }],
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_VARIANT_MATRIX_EXISTS' },
+    });
+  });
+
+  it('rolls back the entire variant conversion when a child sync row cannot enqueue', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const db = getDatabase();
+    const parent = await caller.products.create({
+      name: 'Atomic matrix parent',
+      sku: `ATOMIC-MATRIX-${nanoid(6)}`,
+      stock: 0,
+      price: 25,
+    });
+
+    await db.run(sql.raw(`
+      CREATE TRIGGER fail_variant_child_sync
+      BEFORE INSERT ON sync_outbox
+      WHEN NEW.entity_type = 'products'
+        AND NEW.operation = 'create'
+        AND json_extract(NEW.payload, '$.catalogType') = 'variant'
+      BEGIN
+        SELECT RAISE(ABORT, 'forced variant child sync failure');
+      END
+    `));
+    try {
+      await expect(
+        caller.products.createVariantMatrix({
+          parentProductId: parent.id,
+          axes: [{ name: 'Size', values: ['S', 'M'] }],
+        })
+      ).rejects.toThrow(/forced variant child sync failure/);
+    } finally {
+      await db.run(sql.raw('DROP TRIGGER IF EXISTS fail_variant_child_sync'));
+    }
+
+    const persistedParent = await db
+      .select({ catalogType: products.catalogType, isActive: products.isActive })
+      .from(products)
+      .where(and(eq(products.id, parent.id), eq(products.tenantId, tenantId)))
+      .get();
+    expect(persistedParent).toEqual({ catalogType: 'standard', isActive: true });
+    expect(
+      await db
+        .select({ id: products.id })
+        .from(products)
+        .where(
+          and(eq(products.tenantId, tenantId), eq(products.variantParentId, parent.id))
+        )
+        .all()
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select({ id: syncOutbox.id })
+        .from(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tenantId, tenantId),
+            eq(syncOutbox.entityType, 'products'),
+            eq(syncOutbox.entityId, parent.id),
+            eq(syncOutbox.operation, 'update')
+          )
+        )
+        .all()
+    ).toHaveLength(0);
+  });
+
+  it('rejects variant conversion with stock and disambiguates generated SKU tokens', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const stocked = await caller.products.create({
+      name: 'Stocked matrix parent',
+      sku: `VAR-STOCK-${nanoid(6)}`,
+      stock: 1,
+    });
+    await expect(
+      caller.products.createVariantMatrix({
+        parentProductId: stocked.id,
+        axes: [{ name: 'Style', values: ['Rojo!', 'Rojo'] }],
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_VARIANT_PARENT_REQUIRES_ZERO_STOCK' },
+    });
+
+    const zero = await caller.products.create({
+      name: 'Token matrix parent',
+      sku: `VAR-TOKEN-${nanoid(6)}`,
+      stock: 0,
+    });
+    const created = await caller.products.createVariantMatrix({
+      parentProductId: zero.id,
+      axes: [{ name: 'Style', values: ['Rojo!', 'Rojo'] }],
+    });
+    const normalizedParentSku = zero.sku.replace(/-+$/g, '');
+    expect(created.variants.map(variant => variant.sku)).toEqual([
+      `${normalizedParentSku}-ROJO-1`,
+      `${normalizedParentSku}-ROJO-2`,
+    ]);
+  });
+
+  it('keeps adversarial suffix collisions and Unicode SKU cuts deterministic', () => {
+    const sameAxis = buildProductVariantPreview(
+      { name: 'Collision', sku: 'COLLISION' },
+      [{ name: 'Style', values: ['A', 'A!', 'A-1'] }]
+    );
+    expect(sameAxis.map(variant => variant.sku)).toEqual([
+      'COLLISION-A-1',
+      'COLLISION-A-2',
+      'COLLISION-A-1-2',
+    ]);
+
+    const crossAxis = buildProductVariantPreview(
+      { name: 'Cross axis', sku: 'CROSS' },
+      [
+        { name: 'Left', values: ['A', 'A-B'] },
+        { name: 'Right', values: ['B-C', 'C'] },
+      ]
+    );
+    expect(crossAxis.map(variant => variant.sku)).toEqual([
+      'CROSS-A-B-C',
+      'CROSS-A-C',
+      'CROSS-A-B-B-C',
+      'CROSS-A-B-C-2',
+    ]);
+    expect(new Set(crossAxis.map(variant => variant.sku)).size).toBe(crossAxis.length);
+
+    const unicodeParentSku = `${'A'.repeat(97)}😀B`;
+    expect(unicodeParentSku).toHaveLength(100);
+    const unicode = buildProductVariantPreview(
+      { name: 'Unicode SKU', sku: unicodeParentSku },
+      [{ name: 'Size', values: ['S'] }]
+    );
+    expect(unicode[0]?.sku).toBe(`${'A'.repeat(97)}-S`);
+    expect(unicode[0]?.sku).not.toMatch(/[\uD800-\uDFFF]/u);
+  });
+
+  it('preserves distinguishing option labels within the product name limit', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const parent = await caller.products.create({
+      name: 'P'.repeat(255),
+      sku: `VAR-NAME-${nanoid(6)}`,
+      stock: 0,
+    });
+
+    const created = await caller.products.createVariantMatrix({
+      parentProductId: parent.id,
+      axes: [{ name: 'Color', values: ['Ocean Blue', 'Sunset Red'] }],
+    });
+
+    expect(created.variants.map(variant => variant.name)).toEqual([
+      expect.stringMatching(/ · Ocean Blue$/),
+      expect.stringMatching(/ · Sunset Red$/),
+    ]);
+    expect(created.variants.every(variant => variant.name.length <= 255)).toBe(true);
+    expect(new Set(created.variants.map(variant => variant.name)).size).toBe(2);
+
+    const unicodeParentName = `${'A'.repeat(241)}😀${'B'.repeat(12)}`;
+    expect(unicodeParentName).toHaveLength(255);
+    const unicodeParent = await caller.products.create({
+      name: unicodeParentName,
+      sku: `VAR-UNICODE-${nanoid(6)}`,
+      stock: 0,
+    });
+    const unicodeCreated = await caller.products.createVariantMatrix({
+      parentProductId: unicodeParent.id,
+      axes: [{ name: 'Color', values: ['Ocean Blue'] }],
+    });
+    expect(unicodeCreated.variants[0]?.name).toBe(`${'A'.repeat(241)} · Ocean Blue`);
+  });
+
+  it('uses specific errors for missing parents and products with operational history', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.products.createVariantMatrix({
+        parentProductId: nanoid(),
+        axes: [{ name: 'Size', values: ['S'] }],
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_VARIANT_PARENT_NOT_FOUND' },
+    });
+
+    const referenced = await caller.products.create({
+      name: 'Ordered matrix parent',
+      sku: `VAR-ORDER-${nanoid(6)}`,
+      stock: 0,
+      providerId,
+      unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 10, isBase: true }],
+    });
+    await caller.orders.create({
+      providerId,
+      items: [
+        {
+          productId: referenced.id,
+          unitId: baseUnitId,
+          quantity: 1,
+          costPerUnit: 4,
+        },
+      ],
+      notes: 'Deferred receipt guard',
+    });
+
+    await expect(
+      caller.products.createVariantMatrix({
+        parentProductId: referenced.id,
+        axes: [{ name: 'Size', values: ['S'] }],
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_VARIANT_PARENT_HAS_HISTORY' },
+    });
+  });
+
 });

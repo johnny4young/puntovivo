@@ -140,6 +140,7 @@ export function receiveInventoryTransfer(
         productId: transferOrderItems.productId,
         quantity: transferOrderItems.quantity,
         tracksLots: products.tracksLots,
+        catalogType: products.catalogType,
       })
       .from(transferOrderItems)
       .innerJoin(products, eq(transferOrderItems.productId, products.id))
@@ -157,6 +158,7 @@ export function receiveInventoryTransfer(
       const receivedQuantity = receivedByItemId.get(item.id) ?? item.quantity;
       assertAggregateStockMutationAllowed({
         tracksLots: item.tracksLots,
+        catalogType: item.catalogType,
         delta: receivedQuantity,
       });
       if (receivedQuantity !== item.quantity) {
