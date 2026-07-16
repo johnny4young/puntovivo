@@ -14,6 +14,13 @@ export function formatAttendanceTime(value: string, timeZone: string, locale: st
   }).format(new Date(value));
 }
 
+export function formatAttendanceDate(value: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: 'medium',
+    timeZone: 'UTC',
+  }).format(new Date(`${value}T00:00:00.000Z`));
+}
+
 export function formatDuration(seconds: number): string {
   const safeSeconds = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
   const safeMinutes = Math.floor(safeSeconds / 60);

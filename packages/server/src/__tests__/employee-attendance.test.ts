@@ -8,6 +8,7 @@ import {
   employeeShiftBreaks,
   employeeShifts,
   sites,
+  tenantLocaleSettings,
   tenants,
   users,
 } from '../db/schema.js';
@@ -73,6 +74,7 @@ function insertClosedShift(args: {
   clockedOutAt: string;
   breakStart?: string;
   breakEnd?: string;
+  siteId?: string;
 }) {
   const shiftId = nanoid();
   db.insert(employeeShifts)
@@ -80,7 +82,7 @@ function insertClosedShift(args: {
       id: shiftId,
       tenantId,
       userId: args.userId,
-      siteId,
+      siteId: args.siteId ?? siteId,
       clockedInAt: args.clockedInAt,
       clockedOutAt: args.clockedOutAt,
       createdAt: args.clockedInAt,
@@ -329,6 +331,7 @@ describe('employee attendance and breaks (ENG-140b)', () => {
       breakSeconds: 30 * 60,
       workedSeconds: 8.5 * 60 * 60,
       status: 'closed',
+      overtime: null,
     });
     expect(cashierRow?.breaks).toHaveLength(1);
 
@@ -353,6 +356,96 @@ describe('employee attendance and breaks (ENG-140b)', () => {
     await expect(
       appRouter.createCaller(viewer.fresh()).employeeShifts.attendance.list(range)
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('classifies overtime across every tenant site while displaying the requested site', async () => {
+    const manager = await createEmployee('manager');
+    const cashier = await createEmployee('cashier');
+    const previousLocale = await db
+      .select({ countryCode: tenantLocaleSettings.countryCode })
+      .from(tenantLocaleSettings)
+      .where(eq(tenantLocaleSettings.tenantId, tenantId))
+      .get();
+    const existingSite = await db
+      .select({ companyId: sites.companyId })
+      .from(sites)
+      .where(eq(sites.id, siteId))
+      .get();
+    if (!existingSite) throw new Error('Expected seeded company site');
+    const secondSiteId = nanoid();
+    const now = new Date().toISOString();
+    db.insert(sites)
+      .values({
+        id: secondSiteId,
+        tenantId,
+        companyId: existingSite.companyId,
+        name: 'Attendance Overtime Site',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    if (previousLocale) {
+      db.update(tenantLocaleSettings)
+        .set({ countryCode: 'CO' })
+        .where(eq(tenantLocaleSettings.tenantId, tenantId))
+        .run();
+    } else {
+      db.insert(tenantLocaleSettings).values({ tenantId, countryCode: 'CO' }).run();
+    }
+
+    try {
+      for (let day = 20; day <= 23; day += 1) {
+        insertClosedShift({
+          userId: cashier.id,
+          clockedInAt: `2026-07-${day}T13:00:00.000Z`,
+          clockedOutAt: `2026-07-${day}T21:30:00.000Z`,
+        });
+      }
+      const visibleShiftId = insertClosedShift({
+        userId: cashier.id,
+        siteId: secondSiteId,
+        clockedInAt: '2026-07-24T13:00:00.000Z',
+        clockedOutAt: '2026-07-24T22:00:00.000Z',
+      });
+
+      const result = await appRouter.createCaller(manager.fresh()).employeeShifts.attendance.list({
+        fromDate: '2026-07-20',
+        toDate: '2026-07-25',
+        siteId: secondSiteId,
+      });
+
+      expect(result).toMatchObject({
+        total: 1,
+        overtimePolicy: {
+          supported: true,
+          countryCode: 'CO',
+          profiles: [
+            {
+              id: 'CO-2026-42H',
+              weeklyRegularSeconds: 42 * 60 * 60,
+            },
+          ],
+        },
+      });
+      expect(result.rows[0]).toMatchObject({
+        id: visibleShiftId,
+        overtime: {
+          regularSeconds: 8 * 60 * 60,
+          overtimeSeconds: 60 * 60,
+          premiums: [{ code: 'co_day_overtime', multiplier: 1.25, seconds: 60 * 60 }],
+        },
+      });
+    } finally {
+      if (previousLocale) {
+        db.update(tenantLocaleSettings)
+          .set({ countryCode: previousLocale.countryCode })
+          .where(eq(tenantLocaleSettings.tenantId, tenantId))
+          .run();
+      } else {
+        db.delete(tenantLocaleSettings).where(eq(tenantLocaleSettings.tenantId, tenantId)).run();
+      }
+    }
   });
 
   it('isolates rows and optional filters from other tenants', async () => {

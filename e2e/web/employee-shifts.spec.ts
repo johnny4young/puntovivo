@@ -1,13 +1,130 @@
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import Database from 'better-sqlite3';
 import { expect, test, type Page } from '@playwright/test';
 import {
   attachClientIssueTracker,
+  E2E_PASSWORD,
   ensureLanguage,
   expectNoClientIssues,
+  login,
   loginAs,
   openUserMenu,
 } from './support/app';
+
+function seedOvertimeScenario() {
+  const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+  const suffix = randomUUID().replace(/-/g, '').slice(0, 12);
+  const id = (kind: string) => `e2e_overtime_${kind}_${suffix}`;
+  const now = new Date().toISOString();
+  const password = db
+    .prepare('select password_hash as passwordHash from users where email = ?')
+    .get('e2e.admin@local.test') as { passwordHash: string } | undefined;
+  if (!password) throw new Error('Expected the E2E admin password hash');
+  const tenantId = id('tenant');
+  const companyId = id('company');
+  const overtimeSiteId = id('site_a');
+  const otherSiteId = id('site_b');
+  const adminId = id('admin');
+  const cashierId = id('cashier');
+  const fridayShiftId = id('friday');
+  const email = `e2e.overtime.${suffix}@local.test`;
+
+  try {
+    db.transaction(() => {
+      db.prepare(
+        `insert into tenants (
+          id, name, slug, settings, default_currency_code, is_active, created_at, updated_at
+        ) values (?, ?, ?, ?, 'COP', 1, ?, ?)`
+      ).run(
+        tenantId,
+        `E2E Overtime ${suffix}`,
+        `e2e-overtime-${suffix}`,
+        JSON.stringify({ modules: {} }),
+        now,
+        now
+      );
+      db.prepare(
+        'insert into companies (id, tenant_id, name, created_at, updated_at) values (?, ?, ?, ?, ?)'
+      ).run(companyId, tenantId, `E2E Overtime Company ${suffix}`, now, now);
+      const insertSite = db.prepare(
+        `insert into sites (
+          id, tenant_id, company_id, name, is_active, created_at, updated_at
+        ) values (?, ?, ?, ?, 1, ?, ?)`
+      );
+      insertSite.run(overtimeSiteId, tenantId, companyId, 'A Overtime Site', now, now);
+      insertSite.run(otherSiteId, tenantId, companyId, 'B Other Site', now, now);
+      db.prepare(
+        `insert into tenant_locale_settings (
+          tenant_id, country_code, version, updated_at
+        ) values (?, 'CO', 1, ?)`
+      ).run(tenantId, now);
+      const insertUser = db.prepare(
+        `insert into users (
+          id, tenant_id, email, name, password_hash, session_version,
+          role, is_active, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, 1, ?, 1, ?, ?)`
+      );
+      insertUser.run(
+        adminId,
+        tenantId,
+        email,
+        'E2E Overtime Admin',
+        password.passwordHash,
+        'admin',
+        now,
+        now
+      );
+      insertUser.run(
+        cashierId,
+        tenantId,
+        `e2e.overtime.cashier.${suffix}@local.test`,
+        'Camila Horas',
+        password.passwordHash,
+        'cashier',
+        now,
+        now
+      );
+      const insertShift = db.prepare(
+        `insert into employee_shifts (
+          id, tenant_id, user_id, site_id, clocked_in_at, clocked_out_at, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?)`
+      );
+      for (let day = 13; day <= 16; day += 1) {
+        const startedAt = `2026-07-${day}T13:00:00.000Z`;
+        const endedAt = `2026-07-${day}T21:30:00.000Z`;
+        insertShift.run(
+          id(`shift_${day}`),
+          tenantId,
+          cashierId,
+          otherSiteId,
+          startedAt,
+          endedAt,
+          startedAt,
+          endedAt
+        );
+      }
+      insertShift.run(
+        fridayShiftId,
+        tenantId,
+        cashierId,
+        overtimeSiteId,
+        '2026-07-17T13:00:00.000Z',
+        '2026-07-17T22:00:00.000Z',
+        '2026-07-17T13:00:00.000Z',
+        '2026-07-17T22:00:00.000Z'
+      );
+    })();
+  } finally {
+    db.close();
+  }
+
+  return {
+    fridayShiftId,
+    admin: { email, password: E2E_PASSWORD, defaultPath: '/company' },
+  };
+}
 
 async function captureEvidence(page: Page, name: string) {
   const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
@@ -24,7 +141,7 @@ async function captureEvidence(page: Page, name: string) {
   });
 }
 
-test.describe('employee time clock and breaks (ENG-106b / ENG-140b)', () => {
+test.describe('employee attendance evidence (ENG-106b / ENG-140b / ENG-140c)', () => {
   test('persists shifts and explicit breaks across the user menu in both locales', async ({
     page,
   }) => {
@@ -135,5 +252,44 @@ test.describe('employee time clock and breaks (ENG-106b / ENG-140b)', () => {
         if (await refreshedClockOut.isVisible()) await refreshedClockOut.click();
       }
     }
+  });
+
+  test('shows cross-site Colombia overtime evidence in English and Spanish (ENG-140c)', async ({
+    page,
+  }) => {
+    const scenario = seedOvertimeScenario();
+    const tracker = attachClientIssueTracker(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await login(page, scenario.admin);
+    await ensureLanguage(page, 'en');
+    await page.goto('/schedule');
+
+    const attendance = page.getByTestId('team-attendance-panel');
+    await expect(attendance.getByRole('heading', { name: 'Actual attendance' })).toBeVisible();
+    await expect(attendance.getByTestId('overtime-policy')).toContainText(
+      '42 regular hours per week'
+    );
+    const friday = attendance.getByTestId(`attendance-shift-${scenario.fridayShiftId}`);
+    await expect(friday).toContainText('Camila Horas');
+    await expect(friday).toContainText('Regular8h');
+    await expect(friday).toContainText('Overtime1h');
+    await expect(friday).toContainText('Day overtime · 1h · 1.25×');
+    await captureEvidence(page, 'eng-140c-overtime-en');
+
+    await ensureLanguage(page, 'es');
+    await expect(attendance.getByRole('heading', { name: 'Asistencia real' })).toBeVisible();
+    await expect(attendance.getByTestId('overtime-policy')).toContainText(
+      '42 horas ordinarias por semana'
+    );
+    await expect(friday).toContainText('Ordinario8h');
+    await expect(friday).toContainText('Horas extra1h');
+    await expect(friday).toContainText('Extra diurna · 1h · 1.25×');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true);
+    await captureEvidence(page, 'eng-140c-overtime-mobile-es');
+    await expectNoClientIssues(tracker);
   });
 });

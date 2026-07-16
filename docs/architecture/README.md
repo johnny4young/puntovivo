@@ -51,6 +51,8 @@ Files are named `NNNN-kebab-case-title.md` with a four-digit prefix:
 0006-local-data-security.md
 0007-module-activation.md
 0008-authority-node-runtime-modes.md
+0009-money-storage-and-validation.md
+0010-labor-overtime-policy.md
 ```
 
 The number is **chronological and immutable**. Once an ADR ships, never
@@ -156,6 +158,8 @@ Updated: <list grows by appending here, never removing>.
 | [ADR-0006](./0006-local-data-security.md)          | Local data security: backup, restore, and the "no PAN/CVV" invariant | Accepted | ENG-066      |
 | [ADR-0007](./0007-module-activation.md)            | Module activation kernel                                             | Accepted | ENG-068      |
 | [ADR-0008](./0008-authority-node-runtime-modes.md) | Authority Node runtime modes                                         | Accepted | ENG-071      |
+| [ADR-0009](./0009-money-storage-and-validation.md) | Money Storage and Validation                                         | Accepted | ENG-176      |
+| [ADR-0010](./0010-labor-overtime-policy.md)        | Labor Overtime Policy Evidence                                       | Accepted | ENG-140c     |
 
 When you ship an ADR, append a row here in the same commit. When an ADR
 is superseded, update the row's Status column to

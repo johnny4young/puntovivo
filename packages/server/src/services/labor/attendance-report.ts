@@ -5,11 +5,18 @@ import { employeeShiftBreaks, employeeShifts, sites, users } from '../../db/sche
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { ListEmployeeAttendanceInput } from '../../trpc/schemas/employeeShifts.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
+import { managerCanTarget, MAX_LIST_DAYS, SCHEDULE_ROLES } from './scheduled-shift-policy.js';
 import {
-  managerCanTarget,
-  MAX_LIST_DAYS,
-  SCHEDULE_ROLES,
-} from './scheduled-shift-policy.js';
+  calculateOvertime,
+  laborWeekStartDate,
+  type OvertimeShiftAllocation,
+  type OvertimeShiftInput,
+} from './overtime-calculator.js';
+import {
+  isOvertimeCountry,
+  resolveOvertimePolicy,
+  type OvertimePolicyProfile,
+} from './overtime-policy.js';
 import { addCalendarDays, zonedWallTimeToIso } from './timezone.js';
 
 const attendanceSelection = {
@@ -84,6 +91,19 @@ function durationSeconds(start: string, end: string): number {
   return Math.max(0, Math.floor((Date.parse(end) - Date.parse(start)) / 1_000));
 }
 
+function profilesInRange(
+  countryCode: string,
+  fromDate: string,
+  toDate: string
+): OvertimePolicyProfile[] {
+  const profiles = new Map<string, OvertimePolicyProfile>();
+  for (let date = fromDate; date < toDate; date = addCalendarDays(date, 1)) {
+    const profile = resolveOvertimePolicy(countryCode, date);
+    if (profile) profiles.set(profile.id, profile);
+  }
+  return [...profiles.values()];
+}
+
 /** ENG-140b — manager/admin view of actual shifts and explicit break evidence. */
 export async function listEmployeeAttendance(
   db: DatabaseInstance,
@@ -94,6 +114,7 @@ export async function listEmployeeAttendance(
   assertAttendanceRange(input.fromDate, input.toDate);
   await assertAttendanceFilters(db, tenantId, actorRole, input);
   const locale = await resolveTenantLocale(db, tenantId);
+  const generatedAt = new Date().toISOString();
   const from = zonedWallTimeToIso(input.fromDate, '00:00', locale.timezone);
   const to = zonedWallTimeToIso(input.toDate, '00:00', locale.timezone);
   const conditions = [
@@ -129,7 +150,45 @@ export async function listEmployeeAttendance(
     .offset((input.page - 1) * input.perPage)
     .all();
 
-  const shiftIds = rows.map(row => row.id);
+  const visibleUserIds = [...new Set(rows.map(row => row.userId))];
+  const overtimeCountry = isOvertimeCountry(locale.countryCode) ? locale.countryCode : null;
+  const supportedCountry = overtimeCountry !== null;
+  const calculationFromDate = laborWeekStartDate(input.fromDate, locale.firstDayOfWeek);
+  const calculationToDate = addCalendarDays(
+    laborWeekStartDate(addCalendarDays(input.toDate, -1), locale.firstDayOfWeek),
+    7
+  );
+  const calculationFrom = zonedWallTimeToIso(calculationFromDate, '00:00', locale.timezone);
+  const calculationTo = zonedWallTimeToIso(calculationToDate, '00:00', locale.timezone);
+  const calculationRows =
+    supportedCountry && visibleUserIds.length > 0
+      ? await db
+          .select({
+            id: employeeShifts.id,
+            userId: employeeShifts.userId,
+            clockedInAt: employeeShifts.clockedInAt,
+            clockedOutAt: employeeShifts.clockedOutAt,
+          })
+          .from(employeeShifts)
+          .innerJoin(users, and(eq(employeeShifts.userId, users.id), eq(users.tenantId, tenantId)))
+          .innerJoin(sites, and(eq(employeeShifts.siteId, sites.id), eq(sites.tenantId, tenantId)))
+          .where(
+            and(
+              eq(employeeShifts.tenantId, tenantId),
+              inArray(employeeShifts.userId, visibleUserIds),
+              lt(employeeShifts.clockedInAt, calculationTo),
+              or(
+                isNull(employeeShifts.clockedOutAt),
+                gt(employeeShifts.clockedOutAt, calculationFrom)
+              )
+            )
+          )
+          .orderBy(asc(employeeShifts.clockedInAt), asc(employeeShifts.id))
+          .all()
+      : [];
+  const shiftIds = [
+    ...new Set([...rows.map(row => row.id), ...calculationRows.map(row => row.id)]),
+  ];
   const breakRows =
     shiftIds.length === 0
       ? []
@@ -156,10 +215,54 @@ export async function listEmployeeAttendance(
     breaksByShift.set(breakRow.employeeShiftId, grouped);
   }
 
-  const generatedAt = new Date().toISOString();
+  const overtimeShifts: OvertimeShiftInput[] = calculationRows.flatMap(row => {
+    const startedAt = row.clockedInAt < calculationFrom ? calculationFrom : row.clockedInAt;
+    const observedEnd = row.clockedOutAt ?? generatedAt;
+    const endedAt = observedEnd > calculationTo ? calculationTo : observedEnd;
+    if (endedAt <= startedAt) return [];
+    return [
+      {
+        id: row.id,
+        userId: row.userId,
+        startedAt,
+        endedAt,
+        breaks: (breaksByShift.get(row.id) ?? []).map(item => ({
+          startedAt: item.startedAt,
+          endedAt: item.endedAt,
+        })),
+      },
+    ];
+  });
+  const overtimeByShift = overtimeCountry
+    ? calculateOvertime({
+        countryCode: overtimeCountry,
+        timeZone: locale.timezone,
+        firstDayOfWeek: locale.firstDayOfWeek,
+        shifts: overtimeShifts,
+      })
+    : new Map<string, OvertimeShiftAllocation>();
+  const policyProfiles = profilesInRange(
+    locale.countryCode,
+    calculationFromDate,
+    calculationToDate
+  );
   return {
     timeZone: locale.timezone,
     generatedAt,
+    overtimePolicy: {
+      supported: supportedCountry,
+      countryCode: locale.countryCode,
+      calculationFromDate,
+      calculationToDate,
+      profiles: policyProfiles.map(profile => ({
+        id: profile.id,
+        effectiveFrom: profile.effectiveFrom === '0001-01-01' ? null : profile.effectiveFrom,
+        weeklyRegularSeconds: profile.weeklyRegularSeconds,
+        dailyRegularSeconds: profile.dailyRegularSeconds,
+      })),
+      limitations: [...new Set(policyProfiles.flatMap(profile => profile.limitations))],
+      sourceUrls: [...new Set(policyProfiles.flatMap(profile => profile.sourceUrls))],
+    },
     page: input.page,
     perPage: input.perPage,
     total,
@@ -178,6 +281,7 @@ export async function listEmployeeAttendance(
         elapsedSeconds,
         breakSeconds,
         workedSeconds: Math.max(0, elapsedSeconds - breakSeconds),
+        overtime: overtimeByShift.get(row.id) ?? null,
         breaks,
       };
     }),

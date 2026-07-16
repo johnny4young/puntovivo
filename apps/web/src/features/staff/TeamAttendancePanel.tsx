@@ -1,13 +1,18 @@
 import { useState } from 'react';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
-import { ChevronLeft, ChevronRight, RefreshCw, UsersRound } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, RefreshCw, UsersRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
-import { formatAttendanceDateTime, formatAttendanceTime, formatDuration } from './attendanceFormat';
+import {
+  formatAttendanceDate,
+  formatAttendanceDateTime,
+  formatAttendanceTime,
+  formatDuration,
+} from './attendanceFormat';
 
 type AttendanceRow =
   inferRouterOutputs<AppRouter>['employeeShifts']['attendance']['list']['rows'][number];
@@ -54,7 +59,7 @@ function AttendanceCard({
         </span>
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         <div>
           <dt className="text-xs text-secondary-500">{t('attendance.labels.clockedIn')}</dt>
           <dd className="mt-1 text-xs font-semibold text-secondary-900">
@@ -87,7 +92,45 @@ function AttendanceCard({
             {formatDuration(row.elapsedSeconds)}
           </dd>
         </div>
+        <div>
+          <dt className="text-xs text-secondary-500">{t('attendance.labels.regular')}</dt>
+          <dd className="mt-1 text-sm font-semibold text-secondary-900">
+            {row.overtime
+              ? formatDuration(row.overtime.regularSeconds)
+              : t('attendance.labels.notClassified')}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-secondary-500">{t('attendance.labels.overtime')}</dt>
+          <dd
+            className={`mt-1 text-sm font-semibold ${
+              row.overtime && row.overtime.overtimeSeconds > 0
+                ? 'text-warning-800'
+                : 'text-secondary-900'
+            }`}
+          >
+            {row.overtime
+              ? formatDuration(row.overtime.overtimeSeconds)
+              : t('attendance.labels.notClassified')}
+          </dd>
+        </div>
       </dl>
+
+      {row.overtime && row.overtime.premiums.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2" data-testid="attendance-premiums">
+          {row.overtime.premiums.map(premium => (
+            <span
+              key={premium.code}
+              className="rounded-full bg-warning-100 px-2.5 py-1 text-xs font-semibold text-warning-900"
+            >
+              {t(`attendance.premiums.${premium.code}`, {
+                duration: formatDuration(premium.seconds),
+                multiplier: premium.multiplier,
+              })}
+            </span>
+          ))}
+        </div>
+      )}
 
       {row.breaks.length > 0 && (
         <details className="mt-4 border-t border-secondary-200 pt-3">
@@ -125,7 +168,7 @@ function AttendanceCard({
   );
 }
 
-/** ENG-140b — manager/admin evidence of actual attendance and explicit breaks. */
+/** ENG-140b/c — manager evidence plus advisory country overtime classification. */
 export function TeamAttendancePanel({
   fromDate,
   toDate,
@@ -153,6 +196,7 @@ export function TeamAttendancePanel({
   const timeZone = result?.timeZone ?? locale.timezone;
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
+  const policy = result?.overtimePolicy;
 
   return (
     <section className="card space-y-4 p-4 sm:p-5" data-testid="team-attendance-panel">
@@ -181,6 +225,55 @@ export function TeamAttendancePanel({
           {t('common:actions.refresh')}
         </button>
       </div>
+
+      {policy && (
+        <div className="pv-strip info" role="status" data-testid="overtime-policy">
+          <Info className="ic" aria-hidden="true" />
+          <div className="msg space-y-1">
+            <p className="font-semibold">
+              {policy.supported
+                ? t('schedule:attendance.policy.title', { countryCode: policy.countryCode })
+                : t('schedule:attendance.policy.unsupported', {
+                    countryCode: policy.countryCode,
+                  })}
+            </p>
+            {policy.supported && policy.profiles.length > 0 ? (
+              <>
+                {policy.profiles.map(profile => (
+                  <p key={profile.id}>
+                    {profile.effectiveFrom
+                      ? t('schedule:attendance.policy.baseline', {
+                          hours: profile.weeklyRegularSeconds / 3_600,
+                          date: formatAttendanceDate(profile.effectiveFrom, activeLocale),
+                          policyId: profile.id,
+                        })
+                      : t('schedule:attendance.policy.baselineCurrent', {
+                          hours: profile.weeklyRegularSeconds / 3_600,
+                          policyId: profile.id,
+                        })}
+                  </p>
+                ))}
+                <p>{t('schedule:attendance.policy.advisory')}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  {policy.sourceUrls.map((sourceUrl, index) => (
+                    <a
+                      key={sourceUrl}
+                      className="font-semibold underline underline-offset-2"
+                      href={sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {t('schedule:attendance.policy.source', { number: index + 1 })}
+                    </a>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p>{t('schedule:attendance.policy.unsupportedDescription')}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {query.isPending ? (
         <div className="py-8 text-center text-sm text-secondary-500" role="status">

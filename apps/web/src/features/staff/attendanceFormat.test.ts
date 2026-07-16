@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { formatAttendanceDateTime, formatAttendanceTime, formatDuration } from './attendanceFormat';
+import {
+  formatAttendanceDate,
+  formatAttendanceDateTime,
+  formatAttendanceTime,
+  formatDuration,
+} from './attendanceFormat';
 
 describe('attendance formatting (ENG-140b)', () => {
   it('formats instants in the frozen tenant timezone', () => {
     const instant = '2026-07-14T13:30:00.000Z';
     expect(formatAttendanceTime(instant, 'America/Bogota', 'en-US')).toBe('8:30 AM');
     expect(formatAttendanceDateTime(instant, 'America/Bogota', 'en-US')).toContain('8:30 AM');
+    expect(formatAttendanceDate('2026-07-15', 'en-US')).toBe('Jul 15, 2026');
   });
 
   it('formats durations without inventing fractional minutes', () => {

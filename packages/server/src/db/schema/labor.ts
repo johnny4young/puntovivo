@@ -4,8 +4,9 @@
  * ENG-106b deliberately starts with the smallest durable attendance record:
  * one employee, one site, immutable clock-in time, and an optional clock-out
  * time. ENG-140a adds manager-authored scheduled shifts; ENG-140b adds
- * explicit rest intervals and weekly actual-attendance reporting. Overtime,
- * payroll, and attendance corrections remain in later ENG-140 slices.
+ * explicit rest intervals and weekly actual-attendance reporting. ENG-140c
+ * derives overtime without mutating this evidence; payroll and attendance
+ * corrections remain in later ENG-140 slices.
  *
  * @module db/schema/labor
  */
