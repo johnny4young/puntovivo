@@ -143,8 +143,7 @@ export async function ensureUsers(db: Database.Database, tenantId: string): Prom
 
   for (const user of E2E_USERS) {
     const existing = selectUser.get(user.email) as
-      | { id: string; sessionVersion: number }
-      | undefined;
+      { id: string; sessionVersion: number } | undefined;
 
     if (existing) {
       updateUser.run({
@@ -258,9 +257,18 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // failed prior smoke could otherwise leave the next run already clocked
   // in. This is an isolated E2E tenant; clear both the rows and their soft
   // audit references before recreating the deterministic baseline.
-  db.prepare(
-    "delete from audit_logs where tenant_id = ? and resource_type = 'employee_shift'"
-  ).run(tenantId);
+  const employeeShiftBreaksTableExists = db
+    .prepare("select 1 from sqlite_master where type = 'table' and name = 'employee_shift_breaks'")
+    .get();
+  if (employeeShiftBreaksTableExists) {
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'employee_shift_break'"
+    ).run(tenantId);
+    db.prepare('delete from employee_shift_breaks where tenant_id = ?').run(tenantId);
+  }
+  db.prepare("delete from audit_logs where tenant_id = ? and resource_type = 'employee_shift'").run(
+    tenantId
+  );
   db.prepare('delete from employee_shifts where tenant_id = ?').run(tenantId);
 
   // ENG-140a — published schedules reference template users/sites and keep
@@ -612,8 +620,7 @@ export function resolveTenantAndCompany(db: Database.Database): {
   companyId: string;
 } {
   const tenant = db.prepare('select id from tenants order by created_at asc limit 1').get() as
-    | { id: string }
-    | undefined;
+    { id: string } | undefined;
   const company = db
     .prepare('select id from companies where tenant_id = ? order by created_at asc limit 1')
     .get(tenant?.id ?? '') as { id: string } | undefined;
@@ -650,13 +657,10 @@ export async function prepareBaseline(db: Database.Database): Promise<void> {
  * so reruns remove the prior sale's children, inventory rows, device/session
  * records, and disposable actor before recreating the known admin account.
  */
-export async function prepareFirstSaleBaseline(
-  db: Database.Database
-): Promise<void> {
+export async function prepareFirstSaleBaseline(db: Database.Database): Promise<void> {
   const now = new Date().toISOString();
-  let tenant = db
-    .prepare('select id from tenants where slug = ?')
-    .get(FIRST_SALE_TENANT_SLUG) as { id: string } | undefined;
+  let tenant = db.prepare('select id from tenants where slug = ?').get(FIRST_SALE_TENANT_SLUG) as
+    { id: string } | undefined;
 
   if (!tenant) {
     tenant = { id: nanoid() };

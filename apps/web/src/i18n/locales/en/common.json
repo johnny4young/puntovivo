@@ -112,7 +112,16 @@
       "clockOut": "Clock out",
       "clockInSuccess": "Shift started",
       "clockOutSuccess": "Shift ended",
-      "errorTitle": "Unable to update shift"
+      "errorTitle": "Unable to update shift",
+      "breakLoading": "Checking break…",
+      "breakStatusError": "Break status is unavailable. Try again before clocking out.",
+      "startBreak": "Start break",
+      "endBreak": "End break",
+      "breakActive": "On break since {{time}}",
+      "clockOutBlocked": "End the break before clocking out.",
+      "breakStartSuccess": "Break started",
+      "breakEndSuccess": "Break ended",
+      "breakErrorTitle": "Unable to update break"
     },
     "approvals": {
       "title": "Approvals",

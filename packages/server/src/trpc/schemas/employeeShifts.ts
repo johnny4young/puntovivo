@@ -55,9 +55,24 @@ export const cancelScheduledShiftInput = z
   })
   .strict();
 
+export const employeeBreakCommandInput = z.object({}).strict();
+
+export const listEmployeeAttendanceInput = z
+  .object({
+    fromDate: localDate,
+    toDate: localDate,
+    siteId: z.string().trim().min(1).optional(),
+    userId: z.string().trim().min(1).optional(),
+    page: z.number().int().positive().default(1),
+    perPage: z.number().int().min(1).max(100).default(50),
+  })
+  .strict();
+
 export type ClockInEmployeeShiftInput = z.infer<typeof clockInEmployeeShiftInput>;
 export type ClockOutEmployeeShiftInput = z.infer<typeof clockOutEmployeeShiftInput>;
 export type ListScheduledShiftsInput = z.infer<typeof listScheduledShiftsInput>;
 export type CreateScheduledShiftInput = z.infer<typeof createScheduledShiftInput>;
 export type UpdateScheduledShiftInput = z.infer<typeof updateScheduledShiftInput>;
 export type CancelScheduledShiftInput = z.infer<typeof cancelScheduledShiftInput>;
+export type EmployeeBreakCommandInput = z.infer<typeof employeeBreakCommandInput>;
+export type ListEmployeeAttendanceInput = z.infer<typeof listEmployeeAttendanceInput>;

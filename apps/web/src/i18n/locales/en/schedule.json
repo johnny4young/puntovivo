@@ -76,5 +76,33 @@
     "admin": "Admin",
     "manager": "Manager",
     "cashier": "Cashier"
+  },
+  "attendance": {
+    "kicker": "Attendance evidence",
+    "title": "Actual attendance",
+    "description": "Compare clocked time, explicit breaks, and worked time for this schedule week.",
+    "timezone": "Attendance timezone: {{timeZone}}",
+    "loading": "Loading attendance…",
+    "error": "Attendance could not be loaded.",
+    "emptyTitle": "No attendance in this week",
+    "emptyDescription": "Clocked shifts will appear here as employees register their time.",
+    "status": {
+      "active": "Active shift",
+      "closed": "Closed shift"
+    },
+    "labels": {
+      "clockedIn": "Clock in",
+      "clockedOut": "Clock out",
+      "inProgress": "In progress",
+      "worked": "Worked",
+      "breaks": "Break time",
+      "elapsed": "Elapsed",
+      "breakDetails_one": "Break detail ({{count}})",
+      "breakDetails_other": "Break details ({{count}})",
+      "activeBreak": "Active"
+    },
+    "pagination": "Showing {{from}}–{{to}} of {{total}} shifts",
+    "previous": "Previous attendance page",
+    "next": "Next attendance page"
   }
 }

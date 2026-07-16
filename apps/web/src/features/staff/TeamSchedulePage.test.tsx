@@ -49,6 +49,19 @@ const mocks = vi.hoisted(() => ({
     isFetching: false,
     error: null as Error | null,
   },
+  attendance: {
+    data: {
+      timeZone: 'America/Bogota',
+      generatedAt: '2026-07-14T22:00:00.000Z',
+      page: 1,
+      perPage: 10,
+      total: 0,
+      rows: [],
+    },
+    isPending: false,
+    isFetching: false,
+    error: null as Error | null,
+  },
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -60,6 +73,9 @@ vi.mock('@/lib/trpc', () => ({
       schedule: {
         context: { useQuery: () => mocks.context },
         list: { useQuery: () => ({ ...mocks.list, refetch: mocks.refetch }) },
+      },
+      attendance: {
+        list: { useQuery: () => ({ ...mocks.attendance, refetch: mocks.refetch }) },
       },
     },
   },
@@ -138,15 +154,16 @@ beforeEach(() => {
 });
 
 describe('TeamSchedulePage (ENG-140a)', () => {
-  it('renders a responsive weekly schedule with tenant timezone and KPIs', () => {
+  it('renders a responsive weekly schedule with tenant timezone and KPIs', async () => {
     render(<TeamSchedulePage />);
 
     expect(screen.getByTestId('team-schedule-page')).toHaveTextContent(/Team schedule|Horario/);
-    expect(screen.getByText(/America\/Bogota/)).toBeInTheDocument();
     expect(screen.getByTestId('schedule-week-grid').children).toHaveLength(7);
     expect(screen.getByTestId('scheduled-shift-schedule-1')).toHaveTextContent('Ana Torres');
     expect(screen.getByTestId('scheduled-shift-schedule-1')).toHaveTextContent('Sede Centro');
     expect(screen.getByTestId('team-schedule-page')).toHaveTextContent(/8/);
+    expect(await screen.findByTestId('team-attendance-panel')).toBeInTheDocument();
+    expect(screen.getAllByText(/America\/Bogota/)).toHaveLength(2);
   });
 
   it('creates a shift from a day-specific CTA with stable defaults', async () => {

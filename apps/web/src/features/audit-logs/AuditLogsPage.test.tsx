@@ -189,14 +189,14 @@ describe('AuditLogsPage', () => {
     render(<AuditLogsPage />);
 
     const actionFilter = screen.getByRole('combobox', { name: 'Action' });
-    expect(
-      within(actionFilter).getByRole('option', { name: 'Day close signed' })
-    ).toHaveValue('day_close.sign_off');
+    expect(within(actionFilter).getByRole('option', { name: 'Day close signed' })).toHaveValue(
+      'day_close.sign_off'
+    );
 
     const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
-    expect(
-      within(resourceFilter).getByRole('option', { name: 'Signed day close' })
-    ).toHaveValue('day_close_signoff');
+    expect(within(resourceFilter).getByRole('option', { name: 'Signed day close' })).toHaveValue(
+      'day_close_signoff'
+    );
   });
 
   it('offers staff PIN lifecycle and cashier-switch actions', () => {
@@ -229,6 +229,23 @@ describe('AuditLogsPage', () => {
     const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
     expect(within(resourceFilter).getByRole('option', { name: 'Employee shift' })).toHaveValue(
       'employee_shift'
+    );
+  });
+
+  it('offers employee-break lifecycle evidence as action and resource filters', () => {
+    render(<AuditLogsPage />);
+
+    const actionFilter = screen.getByRole('combobox', { name: 'Action' });
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Employee break started' })
+    ).toHaveValue('employee_shift_break.start');
+    expect(within(actionFilter).getByRole('option', { name: 'Employee break ended' })).toHaveValue(
+      'employee_shift_break.end'
+    );
+
+    const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
+    expect(within(resourceFilter).getByRole('option', { name: 'Employee break' })).toHaveValue(
+      'employee_shift_break'
     );
   });
 

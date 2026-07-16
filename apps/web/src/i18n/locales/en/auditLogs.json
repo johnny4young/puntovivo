@@ -130,7 +130,9 @@
     "data_import.customer_balances": "Customer opening receivables imported",
     "data_import.opening_cash": "Register opening cash imported",
     "data_import.fiscal_profile": "Fiscal profile imported",
-    "day_close.sign_off": "Day close signed"
+    "day_close.sign_off": "Day close signed",
+    "employee_shift_break.start": "Employee break started",
+    "employee_shift_break.end": "Employee break ended"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -158,7 +160,8 @@
     "backup_snapshot": "Backup snapshot",
     "site": "Site",
     "data_import": "Data import",
-    "day_close_signoff": "Signed day close"
+    "day_close_signoff": "Signed day close",
+    "employee_shift_break": "Employee break"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

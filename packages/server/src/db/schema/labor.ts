@@ -3,7 +3,8 @@
  *
  * ENG-106b deliberately starts with the smallest durable attendance record:
  * one employee, one site, immutable clock-in time, and an optional clock-out
- * time. ENG-140a adds manager-authored scheduled shifts; breaks, overtime,
+ * time. ENG-140a adds manager-authored scheduled shifts; ENG-140b adds
+ * explicit rest intervals and weekly actual-attendance reporting. Overtime,
  * payroll, and attendance corrections remain in later ENG-140 slices.
  *
  * @module db/schema/labor
@@ -166,3 +167,77 @@ export const scheduledShiftsRelations = relations(scheduledShifts, ({ one }) => 
 
 export type ScheduledShift = typeof scheduledShifts.$inferSelect;
 export type NewScheduledShift = typeof scheduledShifts.$inferInsert;
+
+/**
+ * ENG-140b — one immutable rest interval inside an employee attendance shift.
+ *
+ * Actor columns are deliberately separate from the employee so a later
+ * manager-correction band can preserve who authored each boundary without
+ * rewriting the worker identity.
+ */
+export const employeeShiftBreaks = sqliteTable(
+  'employee_shift_breaks',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    employeeShiftId: text('employee_shift_id')
+      .notNull()
+      .references(() => employeeShifts.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    startedAt: text('started_at').notNull(),
+    endedAt: text('ended_at'),
+    startedByUserId: text('started_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    endedByUserId: text('ended_by_user_id').references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_employee_shift_breaks_tenant_shift_start').on(
+      table.tenantId,
+      table.employeeShiftId,
+      table.startedAt
+    ),
+    uniqueIndex('idx_employee_shift_breaks_tenant_user_open')
+      .on(table.tenantId, table.userId)
+      .where(sql`${table.endedAt} IS NULL`),
+    check(
+      'employee_shift_breaks_end_consistent',
+      sql`(${table.endedAt} IS NULL AND ${table.endedByUserId} IS NULL) OR (${table.endedAt} > ${table.startedAt} AND ${table.endedByUserId} IS NOT NULL)`
+    ),
+  ]
+);
+
+export const employeeShiftBreaksRelations = relations(employeeShiftBreaks, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [employeeShiftBreaks.tenantId],
+    references: [tenants.id],
+  }),
+  shift: one(employeeShifts, {
+    fields: [employeeShiftBreaks.employeeShiftId],
+    references: [employeeShifts.id],
+  }),
+  employee: one(users, {
+    fields: [employeeShiftBreaks.userId],
+    references: [users.id],
+    relationName: 'employeeShiftBreakEmployee',
+  }),
+  starter: one(users, {
+    fields: [employeeShiftBreaks.startedByUserId],
+    references: [users.id],
+    relationName: 'employeeShiftBreakStarter',
+  }),
+  ender: one(users, {
+    fields: [employeeShiftBreaks.endedByUserId],
+    references: [users.id],
+    relationName: 'employeeShiftBreakEnder',
+  }),
+}));
+
+export type EmployeeShiftBreak = typeof employeeShiftBreaks.$inferSelect;
+export type NewEmployeeShiftBreak = typeof employeeShiftBreaks.$inferInsert;

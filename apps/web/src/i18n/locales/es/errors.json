@@ -191,6 +191,13 @@
     "SYNC_OUTBOX_NOT_FOUND": "Esa entrada de sincronización ya no existe para este tenant. Refresca y vuelve a intentarlo.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "validationFailed": "Hay campos vacíos o con datos inválidos. Revisa los campos marcados e inténtalo de nuevo.",
-    "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
+    "unknown": "Algo salió mal. Por favor inténtalo de nuevo.",
+    "EMPLOYEE_SHIFT_BREAK_ALREADY_ACTIVE": "Ya tienes una pausa activa.",
+    "EMPLOYEE_SHIFT_BREAK_NOT_ACTIVE": "No tienes una pausa activa.",
+    "EMPLOYEE_SHIFT_BREAK_ACTIVE": "Finaliza tu pausa activa antes de marcar la salida.",
+    "EMPLOYEE_SHIFT_BREAK_PERSIST_FAILED": "No se pudo guardar tu pausa. Intenta de nuevo antes de continuar.",
+    "EMPLOYEE_SHIFT_ATTENDANCE_RANGE_INVALID": "Elige un rango de asistencia de 1 a 31 días.",
+    "EMPLOYEE_SHIFT_ATTENDANCE_EMPLOYEE_NOT_FOUND": "Este empleado no está disponible en el reporte de asistencia.",
+    "EMPLOYEE_SHIFT_ATTENDANCE_SITE_NOT_FOUND": "Esta sede no está disponible en el reporte de asistencia."
   }
 }

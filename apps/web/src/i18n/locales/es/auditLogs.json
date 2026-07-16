@@ -130,7 +130,9 @@
     "data_import.customer_balances": "Cartera inicial de clientes importada",
     "data_import.opening_cash": "Base inicial de cajas importada",
     "data_import.fiscal_profile": "Perfil fiscal importado",
-    "day_close.sign_off": "Cierre del día firmado"
+    "day_close.sign_off": "Cierre del día firmado",
+    "employee_shift_break.start": "Pausa de empleado iniciada",
+    "employee_shift_break.end": "Pausa de empleado finalizada"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -158,7 +160,8 @@
     "backup_snapshot": "Respaldo cifrado",
     "site": "Sede",
     "data_import": "Importación de datos",
-    "day_close_signoff": "Cierre del día firmado"
+    "day_close_signoff": "Cierre del día firmado",
+    "employee_shift_break": "Pausa de empleado"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

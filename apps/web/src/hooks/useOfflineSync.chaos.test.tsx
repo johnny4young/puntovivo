@@ -29,6 +29,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 const statusFn = vi.fn();
 const pushFn = vi.fn();
 const desktopApi = vi.fn(() => undefined);
+const authState = vi.hoisted(() => ({ tenantId: 'chaos-tenant' as string | null }));
 
 vi.mock('@/lib/trpc', () => ({
   vanillaClient: {
@@ -40,7 +41,7 @@ vi.mock('@/lib/trpc', () => ({
 }));
 
 vi.mock('@/features/auth/authStorage', () => ({
-  getStoredAuthTenantId: () => 'chaos-tenant',
+  getStoredAuthTenantId: () => authState.tenantId,
 }));
 
 import { useOfflineSync } from './useOfflineSync';
@@ -58,6 +59,7 @@ beforeEach(() => {
   statusFn.mockReset();
   pushFn.mockReset();
   desktopApi.mockReset();
+  authState.tenantId = 'chaos-tenant';
   // Default status: nothing pending, no conflicts, never synced.
   statusFn.mockResolvedValue({
     lastSyncAt: null,
@@ -140,6 +142,33 @@ describe('useOfflineSync chaos: intermittent network (ENG-067)', () => {
     await waitFor(() => expect(pushFn).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(result.current.pendingItems).toBe(0));
     expect(result.current.error).toBeNull();
+  });
+
+  it('does not auto-sync without an authenticated tenant', async () => {
+    authState.tenantId = null;
+    statusFn.mockResolvedValue({
+      lastSyncAt: null,
+      pendingCount: 3,
+      conflictsCount: 0,
+    });
+
+    renderHook(() => useOfflineSync());
+    await waitFor(() => expect(statusFn).toHaveBeenCalled());
+
+    expect(pushFn).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-sync a queue that requires conflict review', async () => {
+    statusFn.mockResolvedValue({
+      lastSyncAt: null,
+      pendingCount: 3,
+      conflictsCount: 1,
+    });
+
+    renderHook(() => useOfflineSync());
+    await waitFor(() => expect(statusFn).toHaveBeenCalled());
+
+    expect(pushFn).not.toHaveBeenCalled();
   });
 
   it('preserves the buffer when push rejects, and a manual retry drains it', async () => {

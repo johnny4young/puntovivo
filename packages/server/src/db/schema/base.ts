@@ -192,6 +192,9 @@ export const auditLogActionEnum = [
   // employee whose shift is targeted; schedule edits remain in ENG-140.
   'employee_shift.clock_in',
   'employee_shift.clock_out',
+  // ENG-140b — self-service rest boundaries remain independent evidence.
+  'employee_shift_break.start',
+  'employee_shift_break.end',
   // ENG-140a — published schedule lifecycle. Cancel keeps the row as
   // durable labor evidence instead of deleting it.
   'scheduled_shift.create',
@@ -364,6 +367,8 @@ export const auditLogResourceTypeEnum = [
   'user',
   // ENG-106b — durable self-service clock-in/out row.
   'employee_shift',
+  // ENG-140b — one durable rest interval inside an attendance shift.
+  'employee_shift_break',
   // ENG-140a — manager-authored expected work interval.
   'scheduled_shift',
   // ENG-106c1 — one short-lived authorization request/grant.

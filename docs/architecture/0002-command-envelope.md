@@ -154,6 +154,8 @@ follow-up amendment.
 
 - `employeeShifts.clockIn` (ENG-106b — start the authenticated employee's shift)
 - `employeeShifts.clockOut` (ENG-106b — close the authenticated employee's open shift)
+- `employeeShifts.breaks.start` (ENG-140b — start an explicit rest interval)
+- `employeeShifts.breaks.end` (ENG-140b — close the authenticated employee's active rest interval)
 - `employeeShifts.schedule.create` (ENG-140a — publish a durable scheduled shift)
 - `employeeShifts.schedule.update` (ENG-140a — revise a versioned scheduled shift)
 - `employeeShifts.schedule.cancel` (ENG-140a — cancel without deleting labor evidence)
@@ -221,6 +223,9 @@ critical attendance commands; retries cannot create duplicate open
 shifts or close a different employee's shift).
 Updated: 2026-07-14 (ENG-106c1 — added request, PIN decision, and
 cancellation commands for the short-lived manager approval rail).
+Updated: 2026-07-15 (ENG-140a/ENG-140b — added manager-authored schedule
+commands and explicit employee break boundaries to the closed list; weekly
+attendance reporting remains a read query outside the envelope).
 Updated: 2026-07-15 (ENG-141b — added the immutable comprehensive day-close
 sign-off; the web critical-mutation resolver now supports nested sub-router
 paths while preserving end-to-end input/output inference).

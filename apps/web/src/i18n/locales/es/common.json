@@ -112,7 +112,16 @@
       "clockOut": "Marcar salida",
       "clockInSuccess": "Turno iniciado",
       "clockOutSuccess": "Turno finalizado",
-      "errorTitle": "No se pudo actualizar el turno"
+      "errorTitle": "No se pudo actualizar el turno",
+      "breakLoading": "Consultando pausa…",
+      "breakStatusError": "No se pudo consultar la pausa. Intenta de nuevo antes de marcar la salida.",
+      "startBreak": "Iniciar pausa",
+      "endBreak": "Finalizar pausa",
+      "breakActive": "En pausa desde las {{time}}",
+      "clockOutBlocked": "Finaliza la pausa antes de marcar la salida.",
+      "breakStartSuccess": "Pausa iniciada",
+      "breakEndSuccess": "Pausa finalizada",
+      "breakErrorTitle": "No se pudo actualizar la pausa"
     },
     "approvals": {
       "title": "Aprobaciones",

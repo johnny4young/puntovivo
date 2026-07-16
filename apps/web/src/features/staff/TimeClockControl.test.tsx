@@ -2,9 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@/test/utils';
 
-const { clockInMock, clockOutMock, queryResult, invalidateMock } = vi.hoisted(() => ({
+const {
+  clockInMock,
+  clockOutMock,
+  startBreakMock,
+  endBreakMock,
+  queryResult,
+  breakQueryResult,
+  invalidateMock,
+} = vi.hoisted(() => ({
   clockInMock: vi.fn(),
   clockOutMock: vi.fn(),
+  startBreakMock: vi.fn(),
+  endBreakMock: vi.fn(),
   invalidateMock: vi.fn(),
   queryResult: {
     data: null as null | {
@@ -16,22 +26,44 @@ const { clockInMock, clockOutMock, queryResult, invalidateMock } = vi.hoisted(()
     isLoading: false,
     error: null as Error | null,
   },
+  breakQueryResult: {
+    data: null as null | {
+      id: string;
+      employeeShiftId: string;
+      startedAt: string;
+      endedAt: null;
+    },
+    isLoading: false,
+    error: null as Error | null,
+  },
 }));
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
-      employeeShifts: { current: { invalidate: invalidateMock } },
+      employeeShifts: {
+        current: { invalidate: invalidateMock },
+        breaks: { current: { invalidate: invalidateMock } },
+        attendance: { list: { invalidate: invalidateMock } },
+      },
     }),
     employeeShifts: {
       current: { useQuery: () => queryResult },
+      breaks: { current: { useQuery: () => breakQueryResult } },
     },
   },
 }));
 
 vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: (path: string) => ({
-    mutate: path === 'employeeShifts.clockIn' ? clockInMock : clockOutMock,
+    mutate:
+      path === 'employeeShifts.clockIn'
+        ? clockInMock
+        : path === 'employeeShifts.clockOut'
+          ? clockOutMock
+          : path === 'employeeShifts.breaks.start'
+            ? startBreakMock
+            : endBreakMock,
     isPending: false,
   }),
 }));
@@ -49,10 +81,15 @@ describe('TimeClockControl', () => {
   beforeEach(() => {
     clockInMock.mockReset();
     clockOutMock.mockReset();
+    startBreakMock.mockReset();
+    endBreakMock.mockReset();
     invalidateMock.mockReset();
     queryResult.data = null;
     queryResult.isLoading = false;
     queryResult.error = null;
+    breakQueryResult.data = null;
+    breakQueryResult.isLoading = false;
+    breakQueryResult.error = null;
   });
 
   it('clocks in at the selected active site', async () => {
@@ -82,6 +119,61 @@ describe('TimeClockControl', () => {
 
     expect(clockOutMock).toHaveBeenCalledWith({});
     expect(clockInMock).not.toHaveBeenCalled();
+  });
+
+  it('starts an explicit break while keeping the shift open', async () => {
+    const user = userEvent.setup();
+    queryResult.data = {
+      id: 'shift-1',
+      siteId: 'site-1',
+      siteName: 'Central',
+      clockedInAt: '2026-07-14T14:30:00.000Z',
+    };
+    render(<TimeClockControl site={{ id: 'site-1', name: 'Central' }} />);
+
+    await user.click(screen.getByRole('button', { name: 'Start break' }));
+
+    expect(startBreakMock).toHaveBeenCalledWith({});
+    expect(clockOutMock).not.toHaveBeenCalled();
+  });
+
+  it('requires ending an active break before clock-out', async () => {
+    const user = userEvent.setup();
+    queryResult.data = {
+      id: 'shift-1',
+      siteId: 'site-1',
+      siteName: 'Central',
+      clockedInAt: '2026-07-14T14:30:00.000Z',
+    };
+    breakQueryResult.data = {
+      id: 'break-1',
+      employeeShiftId: 'shift-1',
+      startedAt: '2026-07-14T17:00:00.000Z',
+      endedAt: null,
+    };
+    render(<TimeClockControl site={{ id: 'site-1', name: 'Central' }} />);
+
+    expect(screen.getByTestId('active-employee-break')).toHaveTextContent('On break since');
+    expect(screen.getByText('End the break before clocking out.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clock out' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'End break' }));
+
+    expect(endBreakMock).toHaveBeenCalledWith({});
+    expect(clockOutMock).not.toHaveBeenCalled();
+  });
+
+  it('fails closed while the active-break state cannot be verified', () => {
+    queryResult.data = {
+      id: 'shift-1',
+      siteId: 'site-1',
+      siteName: 'Central',
+      clockedInAt: '2026-07-14T14:30:00.000Z',
+    };
+    breakQueryResult.error = new Error('network');
+    render(<TimeClockControl site={{ id: 'site-1', name: 'Central' }} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Break status is unavailable');
+    expect(screen.getByRole('button', { name: 'Clock out' })).toBeDisabled();
   });
 
   it('requires a selected site before clocking in', () => {

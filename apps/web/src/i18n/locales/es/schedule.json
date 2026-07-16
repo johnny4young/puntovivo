@@ -76,5 +76,33 @@
     "admin": "Administrador",
     "manager": "Responsable",
     "cashier": "Cajero"
+  },
+  "attendance": {
+    "kicker": "Evidencia de asistencia",
+    "title": "Asistencia real",
+    "description": "Compara el tiempo registrado, las pausas explícitas y el tiempo trabajado de esta semana.",
+    "timezone": "Zona horaria de asistencia: {{timeZone}}",
+    "loading": "Cargando asistencia…",
+    "error": "No se pudo cargar la asistencia.",
+    "emptyTitle": "No hay asistencia esta semana",
+    "emptyDescription": "Los turnos registrados aparecerán aquí cuando el equipo marque su tiempo.",
+    "status": {
+      "active": "Turno activo",
+      "closed": "Turno cerrado"
+    },
+    "labels": {
+      "clockedIn": "Entrada",
+      "clockedOut": "Salida",
+      "inProgress": "En curso",
+      "worked": "Trabajado",
+      "breaks": "Tiempo en pausa",
+      "elapsed": "Transcurrido",
+      "breakDetails_one": "Detalle de pausa ({{count}})",
+      "breakDetails_other": "Detalle de pausas ({{count}})",
+      "activeBreak": "Activa"
+    },
+    "pagination": "Mostrando {{from}}–{{to}} de {{total}} turnos",
+    "previous": "Página anterior de asistencia",
+    "next": "Página siguiente de asistencia"
   }
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import {
   CalendarCheck2,
   CalendarDays,
@@ -29,6 +29,10 @@ import {
   wallFieldsAt,
 } from './scheduleDate';
 import type { ScheduledShift, ScheduleFormValues } from './scheduleTypes';
+
+const TeamAttendancePanel = lazy(() =>
+  import('./TeamAttendancePanel').then(module => ({ default: module.TeamAttendancePanel }))
+);
 
 function calendarDateValue(date: string): Date {
   return new Date(`${date}T12:00:00.000Z`);
@@ -384,6 +388,27 @@ export function TeamSchedulePage() {
           }}
           onSubmit={submitForm}
         />
+      )}
+
+      {context && (
+        <Suspense
+          fallback={
+            <section
+              aria-busy="true"
+              className="rounded-2xl border border-secondary-200 bg-surface p-5 text-sm text-secondary-500"
+            >
+              {t('schedule:attendance.loading')}
+            </section>
+          }
+        >
+          <TeamAttendancePanel
+            key={`${weekStart}:${siteId}`}
+            fromDate={weekStart}
+            toDate={weekEnd}
+            siteId={siteId}
+            enabled={contextQuery.isSuccess}
+          />
+        </Suspense>
       )}
 
       <Modal

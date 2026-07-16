@@ -40,6 +40,9 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   // ENG-106b — self-service attendance lifecycle.
   'employee_shift.clock_in',
   'employee_shift.clock_out',
+  // ENG-140b — explicit employee break boundaries.
+  'employee_shift_break.start',
+  'employee_shift_break.end',
   // ENG-140a — manager-authored schedule lifecycle.
   'scheduled_shift.create',
   'scheduled_shift.update',
@@ -86,6 +89,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'transfer_order',
   'user',
   'employee_shift',
+  'employee_shift_break',
   'scheduled_shift',
   'manager_approval',
   'site',
