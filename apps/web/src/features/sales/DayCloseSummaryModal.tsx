@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next';
-import { Flame, Scale, ShoppingBag, TrendingUp } from 'lucide-react';
+import { Flame, Scale, Share2, ShoppingBag, TrendingUp } from 'lucide-react';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { Overlay } from '@/components/overlay/Overlay';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { buildDayPulseText, buildWhatsAppShareUrl } from './dayPulse';
 
 /**
  * Props for {@link DayCloseSummaryModal} (ENG-198).
@@ -60,9 +61,29 @@ export function DayCloseSummaryModal({ sessionId, onClose }: DayCloseSummaryModa
           : undefined
       }
       footer={
-        <ModalButton variant="primary" onClick={onClose} className="sm:min-w-[10rem]">
-          {t('cashSession.dayClose.finish')}
-        </ModalButton>
+        <>
+          {summary && (
+            // ENG-205 — v1 of the shareable pulse: a wa.me deep link with
+            // the aggregate day text (never customer data). ENG-112's real
+            // WhatsApp lane can upgrade this to an automatic push later.
+            <ModalButton
+              onClick={() => {
+                window.open(
+                  buildWhatsAppShareUrl(buildDayPulseText(summary, t)),
+                  '_blank',
+                  'noopener,noreferrer'
+                );
+              }}
+              className="sm:min-w-[12rem]"
+            >
+              <Share2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cashSession.dayClose.pulse.share')}
+            </ModalButton>
+          )}
+          <ModalButton variant="primary" onClick={onClose} className="sm:min-w-[10rem]">
+            {t('cashSession.dayClose.finish')}
+          </ModalButton>
+        </>
       }
     >
       <div
