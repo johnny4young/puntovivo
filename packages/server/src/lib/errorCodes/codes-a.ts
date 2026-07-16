@@ -146,6 +146,14 @@ export const SERVER_ERROR_CODES_A = {
   PRODUCT_FRACTION_MINIMUM_BELOW_STEP: 'PRODUCT_FRACTION_MINIMUM_BELOW_STEP',
   /** Admin config: fractionMinimum is not a multiple of fractionStep. */
   PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED: 'PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED',
+  /** ENG-110a: enabling lot tracking would orphan existing/opening stock. */
+  PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK: 'PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK',
+  /** ENG-110a: a direct stock edit would bypass lot and FEFO evidence. */
+  PRODUCT_LOT_TRACKING_STOCK_MANAGED: 'PRODUCT_LOT_TRACKING_STOCK_MANAGED',
+  /** ENG-110a: a lot receipt targeted a product without lot tracking enabled. */
+  PRODUCT_LOT_TRACKING_REQUIRED: 'PRODUCT_LOT_TRACKING_REQUIRED',
+  /** ENG-110a: disabling lot tracking would strand non-zero lot inventory. */
+  PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS: 'PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS',
   /** Sale path: quantity must be a whole number for this product. */
   SALE_QUANTITY_NOT_WHOLE: 'SALE_QUANTITY_NOT_WHOLE',
   /** Sale path: quantity is below the configured minimum. */

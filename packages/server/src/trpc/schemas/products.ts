@@ -94,12 +94,17 @@ export const createProductInput = z
     stock: z.number().min(0).default(0),
     minStock: z.number().min(0).default(0),
     sellByFraction: z.boolean().default(false),
-    fractionStep: z.number().positive('Fraction step must be greater than zero').nullable().optional(),
+    fractionStep: z
+      .number()
+      .positive('Fraction step must be greater than zero')
+      .nullable()
+      .optional(),
     fractionMinimum: z
       .number()
       .positive('Fraction minimum must be greater than zero')
       .nullable()
       .optional(),
+    tracksLots: z.boolean().default(false),
     isActive: z.boolean().default(true),
     barcode: z.string().nullable().optional(),
     imageUrl: productImageUrl,
@@ -147,12 +152,17 @@ export const updateProductInput = z
     stock: z.number().min(0).optional(),
     minStock: z.number().min(0).optional(),
     sellByFraction: z.boolean().optional(),
-    fractionStep: z.number().positive('Fraction step must be greater than zero').nullable().optional(),
+    fractionStep: z
+      .number()
+      .positive('Fraction step must be greater than zero')
+      .nullable()
+      .optional(),
     fractionMinimum: z
       .number()
       .positive('Fraction minimum must be greater than zero')
       .nullable()
       .optional(),
+    tracksLots: z.boolean().optional(),
     isActive: z.boolean().optional(),
     barcode: z.string().nullable().optional(),
     imageUrl: productImageUrl,

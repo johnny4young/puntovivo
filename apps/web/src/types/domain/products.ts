@@ -34,6 +34,7 @@ export interface Product {
   sellByFraction: boolean;
   fractionStep?: number | null | undefined;
   fractionMinimum?: number | null | undefined;
+  tracksLots: boolean;
   isActive: boolean;
   barcode?: string | null | undefined;
   imageUrl?: string | null | undefined;

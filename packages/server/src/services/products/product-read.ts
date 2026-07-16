@@ -53,6 +53,7 @@ export const productSelection = {
   sellByFraction: products.sellByFraction,
   fractionStep: products.fractionStep,
   fractionMinimum: products.fractionMinimum,
+  tracksLots: products.tracksLots,
   isActive: products.isActive,
   barcode: products.barcode,
   imageUrl: products.imageUrl,

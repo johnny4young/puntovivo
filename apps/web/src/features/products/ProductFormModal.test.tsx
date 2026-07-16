@@ -324,7 +324,10 @@ describe('ProductFormModal — AI category suggestion (ENG-078)', () => {
     renderModal({ mode: 'create' });
     fireDebouncedSuggestion('Pan tajado integral 500g');
     act(() => {
-      suggestCategoryHandlersRef.current?.onError?.(new Error('network down'), lastSuggestionVariables());
+      suggestCategoryHandlersRef.current?.onError?.(
+        new Error('network down'),
+        lastSuggestionVariables()
+      );
     });
     expect(screen.queryByTestId('suggest-category-badge')).not.toBeInTheDocument();
     expect(screen.queryByTestId('suggest-category-chip')).not.toBeInTheDocument();
@@ -366,5 +369,60 @@ describe('ProductFormModal — AI category suggestion (ENG-078)', () => {
       vi.advanceTimersByTime(900);
     });
     expect(suggestCategoryMutateMock).not.toHaveBeenCalled();
+  });
+
+  it('ENG-110a — exposes opt-in lot tracking and locks direct stock edits', () => {
+    renderModal({ mode: 'create' });
+    const stock = screen.getByLabelText('Stock') as HTMLInputElement;
+    const toggle = screen.getByRole('checkbox', { name: 'Track lots and expiry' });
+
+    expect(toggle).not.toBeChecked();
+    expect(stock).not.toHaveAttribute('readonly');
+    fireEvent.click(toggle);
+    expect(toggle).toBeChecked();
+    expect(stock).toHaveAttribute('readonly');
+    expect(
+      screen.getByText(/Stock is managed from lot-aware inventory entries/)
+    ).toBeInTheDocument();
+  });
+
+  it('ENG-110a — permits metadata edits when persisted lot stock is positive', async () => {
+    renderModal({ mode: 'edit', product: createMockProduct({ stock: 4, tracksLots: true }) });
+
+    expect(screen.getByRole('checkbox', { name: 'Track lots and expiry' })).toBeChecked();
+    expect(screen.getByLabelText('Stock')).toHaveAttribute('readonly');
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Updated tracked product' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+      await Promise.resolve();
+    });
+
+    expect(onSubmitMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Updated tracked product',
+        stock: 4,
+        tracksLots: true,
+      })
+    );
+  });
+
+  it('ENG-110a — rejects changing stock before re-enabling persisted lot tracking', async () => {
+    renderModal({ mode: 'edit', product: createMockProduct({ stock: 4, tracksLots: true }) });
+    const toggle = screen.getByRole('checkbox', { name: 'Track lots and expiry' });
+
+    fireEvent.click(toggle);
+    fireEvent.change(screen.getByLabelText('Stock'), { target: { value: '6' } });
+    fireEvent.click(toggle);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getByText('Stock must be zero before lot tracking can be enabled.')
+    ).toBeVisible();
+    expect(onSubmitMock).not.toHaveBeenCalled();
   });
 });

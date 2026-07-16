@@ -12,6 +12,7 @@ export const PRODUCT_IMPORT_FIELDS = [
   'stock',
   'minStock',
   'taxRate',
+  'tracksLots',
 ] as const;
 
 export type ProductImportField = (typeof PRODUCT_IMPORT_FIELDS)[number];
@@ -27,6 +28,16 @@ const HEADER_ALIASES: Record<ProductImportField, readonly string[]> = {
   stock: ['stock', 'existencia', 'cantidad', 'opening stock', 'stock inicial', 'stock de apertura'],
   minStock: ['min stock', 'minimum stock', 'stock minimo', 'minimo'],
   taxRate: ['tax rate', 'vat', 'iva', 'impuesto', 'tasa impuesto', 'tasa de impuesto'],
+  tracksLots: [
+    'track lots',
+    'track lots and expiry',
+    'lot tracking',
+    'tracks lots',
+    'control de lotes',
+    'controlar lotes',
+    'controlar lotes y vencimientos',
+    'lotes',
+  ],
 };
 
 export function autoMapProductHeaders(headers: string[]): ProductImportMapping {

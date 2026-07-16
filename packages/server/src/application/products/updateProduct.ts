@@ -12,6 +12,7 @@ import {
   getProductStockTotal,
 } from '../../services/inventory-balances.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
+import { assertUpdateLotTrackingPolicy } from '../../services/products/lot-tracking.js';
 import {
   getExistingProviderAssignments,
   getExistingUnitAssignments,
@@ -110,6 +111,17 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
       fractionMinimum: existing.fractionMinimum,
     }
   );
+  const currentStock = getProductStockTotal(ctx.db, ctx.tenantId, id);
+  const nextTracksLots = updates.tracksLots ?? existing.tracksLots;
+  assertUpdateLotTrackingPolicy({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    productId: id,
+    previousTracksLots: existing.tracksLots,
+    nextTracksLots,
+    currentStock,
+    requestedStock: updates.stock,
+  });
   const updateData: Record<string, unknown> = {
     updatedAt: now,
     syncStatus: 'pending',
@@ -133,6 +145,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     sellByFraction: resolvedFractionPolicy.sellByFraction,
     fractionStep: resolvedFractionPolicy.fractionStep,
     fractionMinimum: resolvedFractionPolicy.fractionMinimum,
+    tracksLots: nextTracksLots,
   };
 
   if (updates.name !== undefined) updateData.name = updates.name;

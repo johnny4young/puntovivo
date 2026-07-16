@@ -9,6 +9,7 @@ import { roundMoney } from '../../lib/money.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
 import { applyInventoryBalanceDelta, getPrimarySiteId } from '../../services/inventory-balances.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
+import { assertCreateLotTrackingPolicy } from '../../services/products/lot-tracking.js';
 import {
   getDefaultUnitAssignments,
   normalizeProviderState,
@@ -25,6 +26,8 @@ import type { CreateProductInput } from '../../trpc/schemas/products.js';
 import type { ProductMutationContext } from './types.js';
 
 export async function createProduct(ctx: ProductMutationContext, input: CreateProductInput) {
+  assertCreateLotTrackingPolicy({ tracksLots: input.tracksLots, stock: input.stock });
+
   const existingSku = await ctx.db
     .select({ id: products.id })
     .from(products)
@@ -110,6 +113,7 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
     sellByFraction: resolvedFractionPolicy.sellByFraction,
     fractionStep: resolvedFractionPolicy.fractionStep,
     fractionMinimum: resolvedFractionPolicy.fractionMinimum,
+    tracksLots: input.tracksLots,
     isActive: input.isActive,
     barcode: input.barcode ?? null,
     imageUrl: input.imageUrl ?? null,

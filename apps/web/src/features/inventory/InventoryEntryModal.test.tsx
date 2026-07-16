@@ -1,0 +1,62 @@
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+import { createMockProduct, render } from '@/test/utils';
+import type { ProductSearchSelection } from '@/types';
+import { InventoryEntryModal } from './InventoryEntryModal';
+
+function trackedSelection(): ProductSearchSelection {
+  return {
+    product: createMockProduct({ tracksLots: true, stock: 0 }),
+    unit: {
+      id: 'unit-product-1',
+      unitId: 'unit-1',
+      unitName: 'Unit',
+      unitAbbreviation: 'EA',
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+    },
+    price: 10,
+  };
+}
+
+describe('InventoryEntryModal (ENG-110a)', () => {
+  it('collects lot evidence instead of showing the aggregate count mode', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <InventoryEntryModal
+        isOpen
+        selection={trackedSelection()}
+        siteId="site-1"
+        siteName="Main site"
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    expect(screen.getByRole('heading', { name: 'Receive Inventory Lot' })).toBeVisible();
+    expect(screen.queryByLabelText('Mode')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Lot number'), { target: { value: 'LOT-2026-01' } });
+    fireEvent.change(screen.getByLabelText('Expiry date (optional)'), {
+      target: { value: '2026-12-31' },
+    });
+    fireEvent.change(screen.getByLabelText('Received quantity'), { target: { value: '6' } });
+    fireEvent.change(screen.getByLabelText('Cost per base unit'), { target: { value: '4.5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Entry' }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lotNumber: 'LOT-2026-01',
+          expiresAt: '2026-12-31',
+          quantity: 6,
+          cost: 4.5,
+        }),
+        expect.anything()
+      )
+    );
+  });
+});

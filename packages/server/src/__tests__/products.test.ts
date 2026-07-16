@@ -8,6 +8,7 @@ import {
   categories,
   companies,
   inventoryBalances,
+  inventoryLots,
   locations,
   providers,
   sites,
@@ -698,5 +699,193 @@ describe('Products tRPC Router', () => {
         unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 15, isBase: true }],
       })
     ).rejects.toThrow(/Fraction minimum must align/);
+  });
+
+  it('enables lot tracking only from zero stock and forbids direct stock edits', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.products.create({
+        name: 'Unsafe tracked product',
+        sku: `LOT-UNSAFE-${nanoid()}`,
+        stock: 2,
+        tracksLots: true,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK' },
+    });
+
+    const legacy = await caller.products.create({
+      name: 'Legacy stock before lots',
+      sku: `LOT-LEGACY-${nanoid()}`,
+      stock: 3,
+    });
+    await expect(
+      caller.products.update({
+        id: legacy.id,
+        version: legacy.version,
+        tracksLots: true,
+        stock: 0,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK' },
+    });
+
+    const emptied = await caller.products.update({
+      id: legacy.id,
+      version: legacy.version,
+      stock: 0,
+    });
+    const tracked = await caller.products.update({
+      id: emptied.id,
+      version: emptied.version,
+      tracksLots: true,
+      stock: 0,
+    });
+    expect(tracked.tracksLots).toBe(true);
+
+    await expect(
+      caller.products.update({
+        id: tracked.id,
+        version: tracked.version,
+        tracksLots: true,
+        stock: 1,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_LOT_TRACKING_STOCK_MANAGED' },
+    });
+  });
+
+  it('blocks disabling lot tracking while a tenant-scoped lot has stock', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const tracked = await caller.products.create({
+      name: 'Tracked batch product',
+      sku: `LOT-ACTIVE-${nanoid()}`,
+      stock: 0,
+      tracksLots: true,
+    });
+    const site = await getDatabase()
+      .select({ id: sites.id })
+      .from(sites)
+      .where(eq(sites.tenantId, tenantId))
+      .get();
+    expect(site).toBeDefined();
+    const lotId = nanoid();
+    await getDatabase()
+      .insert(inventoryLots)
+      .values({
+        id: lotId,
+        tenantId,
+        siteId: site!.id,
+        productId: tracked.id,
+        lotNumber: `LOT-${lotId}`,
+        onHand: 4,
+        unitCost: 10,
+        status: 'active',
+      });
+
+    await expect(
+      caller.products.update({
+        id: tracked.id,
+        version: tracked.version,
+        tracksLots: false,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS' },
+    });
+
+    await getDatabase()
+      .update(inventoryLots)
+      .set({ onHand: -0.5 })
+      .where(eq(inventoryLots.id, lotId))
+      .run();
+    await expect(
+      caller.products.update({
+        id: tracked.id,
+        version: tracked.version,
+        tracksLots: false,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS' },
+    });
+
+    await getDatabase()
+      .update(inventoryLots)
+      .set({ onHand: 0, status: 'depleted' })
+      .where(eq(inventoryLots.id, lotId))
+      .run();
+    const disabled = await caller.products.update({
+      id: tracked.id,
+      version: tracked.version,
+      tracksLots: false,
+    });
+    expect(disabled.tracksLots).toBe(false);
+  });
+
+  it('rejects lot opt-in when non-zero site balances cancel in the tenant total', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const product = await caller.products.create({
+      name: 'Offset site balances',
+      sku: `LOT-OFFSET-${nanoid()}`,
+      stock: 0,
+    });
+    const primarySite = await db
+      .select({ id: sites.id })
+      .from(sites)
+      .where(eq(sites.tenantId, tenantId))
+      .get();
+    expect(primarySite).toBeDefined();
+    const companyId = nanoid();
+    const branchSiteId = nanoid();
+    await db.insert(companies).values({
+      id: companyId,
+      tenantId,
+      name: `Offset Company ${companyId}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sites).values({
+      id: branchSiteId,
+      tenantId,
+      companyId,
+      name: `Offset Site ${branchSiteId}`,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(inventoryBalances).values([
+      {
+        id: nanoid(),
+        tenantId,
+        siteId: primarySite!.id,
+        productId: product.id,
+        onHand: 5,
+        reserved: 0,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: nanoid(),
+        tenantId,
+        siteId: branchSiteId,
+        productId: product.id,
+        onHand: -5,
+        reserved: 0,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    await expect(
+      caller.products.update({
+        id: product.id,
+        version: product.version,
+        tracksLots: true,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK' },
+    });
   });
 });

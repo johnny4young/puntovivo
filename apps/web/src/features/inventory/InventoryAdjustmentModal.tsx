@@ -9,6 +9,7 @@ export interface InventoryAdjustmentProduct {
   sku: string;
   stock: number;
   minStock: number;
+  tracksLots: boolean;
   categoryName?: string | null | undefined;
 }
 
@@ -27,7 +28,9 @@ interface InventoryAdjustmentModalProps {
   onSubmit: (values: InventoryAdjustmentFormValues) => Promise<void>;
 }
 
-function mapProductToForm(product: InventoryAdjustmentProduct | null): InventoryAdjustmentFormValues {
+function mapProductToForm(
+  product: InventoryAdjustmentProduct | null
+): InventoryAdjustmentFormValues {
   return {
     newStock: product?.stock ?? 0,
     notes: '',
@@ -63,7 +66,11 @@ export function InventoryAdjustmentModal({
           <ModalButton onClick={onClose} disabled={isSaving}>
             {t('adjustment.cancel')}
           </ModalButton>
-          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving || !product}>
+          <ModalButton
+            variant="primary"
+            onClick={handleSubmit}
+            disabled={isSaving || !product || product.tracksLots}
+          >
             {isSaving ? t('adjustment.submitting') : t('adjustment.save')}
           </ModalButton>
         </>
@@ -90,6 +97,12 @@ export function InventoryAdjustmentModal({
               </div>
             </div>
 
+            {product.tracksLots && (
+              <div className="rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-sm text-primary-800">
+                {t('adjustment.lotTrackedHelp')}
+              </div>
+            )}
+
             <div>
               <label htmlFor="inventory-new-stock" className="label">
                 {t('table.stockAfter')}
@@ -100,6 +113,8 @@ export function InventoryAdjustmentModal({
                 min={0}
                 step="any"
                 className="input mt-1"
+                readOnly={product.tracksLots}
+                aria-readonly={product.tracksLots}
                 {...form.register('newStock', {
                   valueAsNumber: true,
                   min: { value: 0, message: t('adjustment.stockMin') },

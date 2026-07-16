@@ -50,6 +50,18 @@ function normalizeBarcode(value: string): string {
   return value.trim();
 }
 
+function parseImportBoolean(value: string | undefined): boolean | null {
+  const normalized = (value ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLocaleLowerCase('en-US');
+  if (!normalized) return false;
+  if (['true', 'yes', 'y', 'si', 's', '1'].includes(normalized)) return true;
+  if (['false', 'no', 'n', '0'].includes(normalized)) return false;
+  return null;
+}
+
 function canonicalImportPayload(input: PreviewLaunchProductImportInput) {
   return {
     dataMode: input.dataMode,
@@ -74,6 +86,7 @@ function normalizeRow(
   const description = row.values.description?.trim() || null;
   const barcode = row.values.barcode?.trim() || null;
   const issues: ProductImportIssue[] = [];
+  const tracksLots = parseImportBoolean(row.values.tracksLots);
 
   if (!name) issues.push({ code: 'required', field: 'name' });
   if (!sku) issues.push({ code: 'required', field: 'sku' });
@@ -97,6 +110,12 @@ function normalizeRow(
       issues.push({ code: 'out_of_range', field });
     }
   }
+  if (tracksLots === null) {
+    issues.push({ code: 'invalid_boolean', field: 'tracksLots' });
+  }
+  if (tracksLots === true && (values.stock ?? 0) > 0) {
+    issues.push({ code: 'lot_tracking_requires_zero_stock', field: 'stock' });
+  }
 
   return {
     normalized: {
@@ -109,6 +128,7 @@ function normalizeRow(
       stock: values.stock ?? 0,
       minStock: values.minStock ?? 0,
       taxRate: values.taxRate ?? 0,
+      tracksLots: tracksLots ?? false,
     },
     issues,
   };
@@ -273,6 +293,7 @@ export async function commitLaunchProductImport(
         stock: 0,
         minStock: row.normalized.minStock,
         sellByFraction: false,
+        tracksLots: row.normalized.tracksLots,
         isActive: true,
         barcode: row.normalized.barcode,
       });

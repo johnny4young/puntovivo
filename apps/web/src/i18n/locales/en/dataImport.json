@@ -60,7 +60,8 @@
     "cost": "Cost",
     "stock": "Opening stock",
     "minStock": "Minimum stock",
-    "taxRate": "Tax rate"
+    "taxRate": "Tax rate",
+    "tracksLots": "Track lots and expiry"
   },
   "decimalFormats": {
     "auto": "Detect automatically",
@@ -95,7 +96,9 @@
     "required": "Required value is missing",
     "too_long": "Value exceeds the allowed length",
     "invalid_number": "Number format is not valid",
+    "invalid_boolean": "Use yes/no, true/false, or 1/0",
     "out_of_range": "Value is outside the allowed range",
+    "lot_tracking_requires_zero_stock": "Opening stock must be zero when lot tracking is enabled; receive the first lot after import",
     "duplicate_file_sku": "SKU is repeated in this file",
     "duplicate_existing_sku": "SKU already exists in this business",
     "duplicate_file_barcode": "Barcode is repeated in this file",
@@ -103,6 +106,10 @@
     "concurrent_duplicate": "Another import created this product while this import was running",
     "import_failed": "The product could not be imported",
     "stock_failed": "The product was imported but opening stock could not be recorded"
+  },
+  "boolean": {
+    "yes": "Yes",
+    "no": "No"
   },
   "table": {
     "row": "Row",

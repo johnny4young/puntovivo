@@ -30,6 +30,7 @@ const product = {
   price3: 10000,
   stock: 42,
   minStock: 10,
+  tracksLots: true,
   isActive: true,
 } as unknown as Product;
 
@@ -43,19 +44,17 @@ describe('ProductDetailsDrawer (ENG-132a)', () => {
     expect(screen.getByText('Proveedor Norte')).toBeInTheDocument(); // provider
     expect(screen.getByText('Bodega A')).toBeInTheDocument(); // location
     expect(screen.getByText('Bebidas')).toBeInTheDocument(); // category
+    expect(screen.getByText('Lot tracking')).toBeInTheDocument();
+    expect(screen.getByText('Enabled')).toBeInTheDocument();
     // The drawer heading is the product name.
-    expect(
-      screen.getByRole('heading', { name: 'Café Premium' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Café Premium' })).toBeInTheDocument();
   });
 
   it('calls onEdit with the product when the Edit footer action is clicked', () => {
     const onEdit = vi.fn();
     render(<ProductDetailsDrawer product={product} onClose={vi.fn()} onEdit={onEdit} />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /edit product|editar producto/i })
-    );
+    fireEvent.click(screen.getByRole('button', { name: /edit product|editar producto/i }));
     expect(onEdit).toHaveBeenCalledWith(product);
   });
 

@@ -24,6 +24,7 @@ import {
 import { roundMoney } from '../../lib/money.js';
 import type { CreatePurchaseInput } from '../../trpc/schemas/purchases.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
+import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import { getNormalizedPurchaseQuantity } from './helpers.js';
 import type {
   ResolvedOrderReceiptItem,
@@ -83,6 +84,10 @@ export async function resolvePurchaseItems(
     }
 
     const normalizedQuantity = getNormalizedPurchaseQuantity(item.quantity, assignment.equivalence);
+    assertAggregateStockMutationAllowed({
+      tracksLots: product.tracksLots,
+      delta: normalizedQuantity,
+    });
     const costPerUnit = roundMoney(item.costPerUnit);
     const baseUnitCost = roundMoney(costPerUnit / assignment.equivalence);
     const total = roundMoney(costPerUnit * item.quantity);
@@ -129,6 +134,7 @@ export async function resolvePurchaseReturnItems(
       purchaseId: purchaseItems.purchaseId,
       productId: purchaseItems.productId,
       productName: products.name,
+      tracksLots: products.tracksLots,
       quantity: purchaseItems.quantity,
       unitId: purchaseItems.unitId,
       unitEquivalence: purchaseItems.unitEquivalence,
@@ -199,6 +205,10 @@ export async function resolvePurchaseReturnItems(
       inputItem.quantity,
       purchaseItem.unitEquivalence
     );
+    assertAggregateStockMutationAllowed({
+      tracksLots: purchaseItem.tracksLots,
+      delta: -normalizedQuantity,
+    });
     const costPerUnit = roundMoney(purchaseItem.costPerUnit);
     const baseUnitCost = roundMoney(purchaseItem.baseUnitCost);
     const total = roundMoney(inputItem.quantity * costPerUnit);
@@ -245,6 +255,7 @@ export async function resolveOrderReceiptItems(
       orderId: orderItems.orderId,
       productId: orderItems.productId,
       productName: products.name,
+      tracksLots: products.tracksLots,
       quantity: orderItems.quantity,
       unitId: orderItems.unitId,
       unitEquivalence: orderItems.unitEquivalence,
@@ -352,6 +363,10 @@ export async function resolveOrderReceiptItems(
       inputItem.quantity,
       orderLine.unitEquivalence
     );
+    assertAggregateStockMutationAllowed({
+      tracksLots: orderLine.tracksLots,
+      delta: normalizedQuantity,
+    });
     const costPerUnit = roundMoney(orderLine.costPerUnit);
     const baseUnitCost = roundMoney(orderLine.baseUnitCost);
     const total = roundMoney(inputItem.quantity * costPerUnit);

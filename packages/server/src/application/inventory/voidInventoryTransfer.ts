@@ -10,6 +10,7 @@ import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryBalances,
+  products,
   transferOrderItems,
   transferOrders,
   type TransferOrderStatus,
@@ -17,14 +18,9 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
-import {
-  getTimestamp,
-  seedMissingBalanceRow,
-} from '../../services/inventory-transfers/helpers.js';
-import type {
-  VoidTransferArgs,
-  VoidedTransfer,
-} from '../../services/inventory-transfers/types.js';
+import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
+import { getTimestamp, seedMissingBalanceRow } from '../../services/inventory-transfers/helpers.js';
+import type { VoidTransferArgs, VoidedTransfer } from '../../services/inventory-transfers/types.js';
 
 /**
  * Voids a completed transfer by reversing every line item:
@@ -54,10 +50,7 @@ export function voidInventoryTransfer(
       })
       .from(transferOrders)
       .where(
-        and(
-          eq(transferOrders.id, args.transferId),
-          eq(transferOrders.tenantId, args.tenantId)
-        )
+        and(eq(transferOrders.id, args.transferId), eq(transferOrders.tenantId, args.tenantId))
       )
       .get();
 
@@ -84,8 +77,10 @@ export function voidInventoryTransfer(
         productId: transferOrderItems.productId,
         quantity: transferOrderItems.quantity,
         receivedQuantity: transferOrderItems.receivedQuantity,
+        tracksLots: products.tracksLots,
       })
       .from(transferOrderItems)
+      .innerJoin(products, eq(transferOrderItems.productId, products.id))
       .where(eq(transferOrderItems.transferOrderId, args.transferId))
       .all();
 
@@ -150,6 +145,10 @@ export function voidInventoryTransfer(
     const reversedItems: VoidedTransfer['reversedItems'] = [];
 
     for (const item of itemsWithReversal) {
+      assertAggregateStockMutationAllowed({
+        tracksLots: item.tracksLots,
+        delta: item.quantity,
+      });
       if (!wasInTransit && item.destinationDebit > 0) {
         // Decrement destination using the pre-validated value — a single read
         // per item keeps the math consistent and avoids a reachable path to a
@@ -237,10 +236,7 @@ export function voidInventoryTransfer(
         updatedAt: now,
       })
       .where(
-        and(
-          eq(transferOrders.id, args.transferId),
-          eq(transferOrders.tenantId, args.tenantId)
-        )
+        and(eq(transferOrders.id, args.transferId), eq(transferOrders.tenantId, args.tenantId))
       )
       .run();
 

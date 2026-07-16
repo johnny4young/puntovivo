@@ -12,16 +12,15 @@ import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryBalances,
+  products,
   transferOrderItems,
   transferOrders,
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
-import {
-  getTimestamp,
-  seedMissingBalanceRow,
-} from '../../services/inventory-transfers/helpers.js';
+import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
+import { getTimestamp, seedMissingBalanceRow } from '../../services/inventory-transfers/helpers.js';
 import type {
   ReceiveTransferArgs,
   ReceiveTransferLine,
@@ -101,9 +100,7 @@ export function receiveInventoryTransfer(
   const now = getTimestamp();
   const trimmedDiscrepancyNotes = args.discrepancyNotes?.trim();
   const normalizedDiscrepancyNotes =
-    trimmedDiscrepancyNotes && trimmedDiscrepancyNotes.length > 0
-      ? trimmedDiscrepancyNotes
-      : null;
+    trimmedDiscrepancyNotes && trimmedDiscrepancyNotes.length > 0 ? trimmedDiscrepancyNotes : null;
 
   return db.transaction(tx => {
     const transfer = tx
@@ -115,10 +112,7 @@ export function receiveInventoryTransfer(
       })
       .from(transferOrders)
       .where(
-        and(
-          eq(transferOrders.id, args.transferId),
-          eq(transferOrders.tenantId, args.tenantId)
-        )
+        and(eq(transferOrders.id, args.transferId), eq(transferOrders.tenantId, args.tenantId))
       )
       .get();
 
@@ -145,8 +139,10 @@ export function receiveInventoryTransfer(
         id: transferOrderItems.id,
         productId: transferOrderItems.productId,
         quantity: transferOrderItems.quantity,
+        tracksLots: products.tracksLots,
       })
       .from(transferOrderItems)
+      .innerJoin(products, eq(transferOrderItems.productId, products.id))
       .where(eq(transferOrderItems.transferOrderId, args.transferId))
       .all();
 
@@ -159,6 +155,10 @@ export function receiveInventoryTransfer(
 
     for (const item of items) {
       const receivedQuantity = receivedByItemId.get(item.id) ?? item.quantity;
+      assertAggregateStockMutationAllowed({
+        tracksLots: item.tracksLots,
+        delta: receivedQuantity,
+      });
       if (receivedQuantity !== item.quantity) {
         hasDiscrepancy = true;
       }
@@ -221,9 +221,7 @@ export function receiveInventoryTransfer(
       receivedItems.push({ productId: item.productId, quantity: receivedQuantity });
     }
 
-    const persistedDiscrepancyNotes = hasDiscrepancy
-      ? normalizedDiscrepancyNotes
-      : null;
+    const persistedDiscrepancyNotes = hasDiscrepancy ? normalizedDiscrepancyNotes : null;
 
     tx.update(transferOrders)
       .set({
@@ -235,10 +233,7 @@ export function receiveInventoryTransfer(
         updatedAt: now,
       })
       .where(
-        and(
-          eq(transferOrders.id, args.transferId),
-          eq(transferOrders.tenantId, args.tenantId)
-        )
+        and(eq(transferOrders.id, args.transferId), eq(transferOrders.tenantId, args.tenantId))
       )
       .run();
 

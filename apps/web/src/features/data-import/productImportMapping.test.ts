@@ -16,6 +16,7 @@ describe('ENG-123a product import mapping', () => {
       'Costo',
       'Stock inicial',
       'IVA',
+      'Control de lotes',
     ]);
     expect(mapping).toMatchObject({
       name: 'Nombre',
@@ -25,6 +26,7 @@ describe('ENG-123a product import mapping', () => {
       cost: 'Costo',
       stock: 'Stock inicial',
       taxRate: 'IVA',
+      tracksLots: 'Control de lotes',
     });
     expect(hasRequiredProductMapping(mapping)).toBe(true);
   });
@@ -38,6 +40,7 @@ describe('ENG-123a product import mapping', () => {
         'Opening stock',
         'Minimum stock',
         'Tax rate',
+        'Track lots and expiry',
       ])
     ).toMatchObject({
       name: 'Product name',
@@ -46,6 +49,7 @@ describe('ENG-123a product import mapping', () => {
       stock: 'Opening stock',
       minStock: 'Minimum stock',
       taxRate: 'Tax rate',
+      tracksLots: 'Track lots and expiry',
     });
     expect(
       autoMapProductHeaders([
@@ -55,6 +59,7 @@ describe('ENG-123a product import mapping', () => {
         'Stock de apertura',
         'Stock mínimo',
         'Tasa de impuesto',
+        'Controlar lotes y vencimientos',
       ])
     ).toMatchObject({
       name: 'Nombre del producto',
@@ -63,6 +68,7 @@ describe('ENG-123a product import mapping', () => {
       stock: 'Stock de apertura',
       minStock: 'Stock mínimo',
       taxRate: 'Tasa de impuesto',
+      tracksLots: 'Controlar lotes y vencimientos',
     });
   });
 

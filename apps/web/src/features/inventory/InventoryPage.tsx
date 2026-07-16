@@ -10,10 +10,7 @@ import {
   type InventoryAdjustmentFormValues,
   type InventoryAdjustmentProduct,
 } from '@/features/inventory/InventoryAdjustmentModal';
-import {
-  InventoryEntryModal,
-  type InventoryEntryFormValues,
-} from '@/features/inventory/InventoryEntryModal';
+import type { InventoryEntryFormValues } from '@/features/inventory/InventoryEntryModal';
 import { InventoryBalancesPanel } from '@/features/inventory/InventoryBalancesPanel';
 import { InventoryStockDetailsDrawer } from '@/features/inventory/InventoryStockDetailsDrawer';
 import { InventoryMovementDetailsDrawer } from '@/features/inventory/InventoryMovementDetailsDrawer';
@@ -46,6 +43,14 @@ const ExpiryRadarPanel = lazy(() =>
   }))
 );
 
+// ENG-110a — the entry flow now includes lot and expiry controls. Keep that
+// form out of the default inventory shell until an operator selects a product.
+const InventoryEntryModal = lazy(() =>
+  import('@/features/inventory/InventoryEntryModal').then(module => ({
+    default: module.InventoryEntryModal,
+  }))
+);
+
 function canManageInventory(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
 }
@@ -57,6 +62,7 @@ function mapStockItemToAdjustmentProduct(product: InventoryStockItem): Inventory
     sku: product.sku,
     stock: product.stock,
     minStock: product.minStock,
+    tracksLots: product.tracksLots,
     categoryName: product.categoryName,
   };
 }
@@ -70,6 +76,7 @@ function mapSearchSelectionToAdjustmentProduct(
     sku: selection.product.sku,
     stock: selection.product.stock,
     minStock: selection.product.minStock,
+    tracksLots: selection.product.tracksLots,
     categoryName: selection.product.categoryName,
   };
 }
@@ -174,6 +181,23 @@ export function InventoryPage() {
     onError: onErrorToast(toast, t, { titleKey: 'inventory:toast.entryError' }),
   });
 
+  const receiveLotMutation = trpc.inventoryLots.receive.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.inventoryLots.list.invalidate(),
+        utils.inventoryLots.expiring.invalidate(),
+        utils.inventory.listMovements.invalidate(),
+        utils.inventory.listStock.invalidate(),
+        utils.inventory.listBalancesBySite.invalidate(),
+        utils.products.list.invalidate(),
+      ]);
+      setEntrySelection(null);
+      setIsSearchOpen(false);
+      toast.success({ title: t('toast.lotSuccess') });
+    },
+    onError: onErrorToast(toast, t, { titleKey: 'inventory:toast.lotError' }),
+  });
+
   const categories = (categoriesQuery.data?.items ?? []) as Category[];
   const movements = (movementsQuery.data?.items ?? []) as InventoryMovement[];
   const stockItems = (stockQuery.data?.items ?? []) as InventoryStockItem[];
@@ -200,8 +224,16 @@ export function InventoryPage() {
   };
 
   const openEntryModal = (selection: ProductSearchSelection) => {
+    recordEntryMutation.reset();
+    receiveLotMutation.reset();
     setEntrySelection(selection);
     setEntryModalKey(current => current + 1);
+  };
+
+  const closeEntryModal = () => {
+    setEntrySelection(null);
+    recordEntryMutation.reset();
+    receiveLotMutation.reset();
   };
 
   const handleAdjustmentSubmit = async (values: InventoryAdjustmentFormValues) => {
@@ -218,6 +250,20 @@ export function InventoryPage() {
 
   const handleEntrySubmit = async (values: InventoryEntryFormValues) => {
     if (!entrySelection) {
+      return;
+    }
+
+    if (entrySelection.product.tracksLots) {
+      if (!currentSite?.id) return;
+      await receiveLotMutation.mutateAsync({
+        siteId: currentSite.id,
+        productId: entrySelection.product.id,
+        lotNumber: values.lotNumber,
+        expiresAt: values.expiresAt || null,
+        quantity: values.quantity * entrySelection.unit.equivalence,
+        unitCost: values.cost,
+        notes: values.notes || undefined,
+      });
       return;
     }
 
@@ -396,16 +442,25 @@ export function InventoryPage() {
 
       <InventoryEntryDetailsDrawer item={detailsEntry} onClose={() => setDetailsEntry(null)} />
 
-      <InventoryEntryModal
-        key={`${entrySelection?.product.id ?? 'inventory-entry'}-${entryModalKey}`}
-        isOpen={!!entrySelection}
-        selection={entrySelection}
-        siteName={currentSite?.name}
-        isSaving={recordEntryMutation.isPending}
-        error={recordEntryMutation.error?.message ?? null}
-        onClose={() => setEntrySelection(null)}
-        onSubmit={handleEntrySubmit}
-      />
+      {entrySelection && (
+        <Suspense fallback={null}>
+          <InventoryEntryModal
+            key={`${entrySelection.product.id}-${entryModalKey}`}
+            isOpen
+            selection={entrySelection}
+            siteId={currentSite?.id}
+            siteName={currentSite?.name}
+            isSaving={recordEntryMutation.isPending || receiveLotMutation.isPending}
+            error={
+              entrySelection.product.tracksLots
+                ? (receiveLotMutation.error?.message ?? null)
+                : (recordEntryMutation.error?.message ?? null)
+            }
+            onClose={closeEntryModal}
+            onSubmit={handleEntrySubmit}
+          />
+        </Suspense>
+      )}
 
       {/* Rediseño §10 — un único callout discreto al pie consolida las notas:
           el aviso de permisos (solo cuando el rol no puede gestionar) y la nota

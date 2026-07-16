@@ -15,6 +15,7 @@ describe('ENG-123a product import report rows', () => {
       stock: 1,
       minStock: 0,
       taxRate: 0,
+      tracksLots: false,
     };
     const preview = {
       dataMode: 'real',

@@ -247,7 +247,9 @@
     "adjustSuccess": "Stock adjusted",
     "adjustError": "Unable to adjust stock",
     "entrySuccess": "Initial inventory recorded",
-    "entryError": "Unable to record inventory entry"
+    "entryError": "Unable to record inventory entry",
+    "lotSuccess": "Lot received",
+    "lotError": "Unable to receive lot"
   },
   "adjustment": {
     "title": "Adjust {{name}}",
@@ -260,6 +262,7 @@
     "movement": "Movement",
     "lowStockThreshold": "Low stock threshold",
     "siteScope": "This adjustment updates the active site balance: {{site}}.",
+    "lotTrackedHelp": "This product tracks lots. Receive a named lot instead of editing aggregate stock.",
     "notesPlaceholder": "Reason for the adjustment",
     "stockMin": "Stock must be zero or greater"
   },
@@ -267,6 +270,7 @@
     "titleInitial": "Record Initial Inventory",
     "titlePhysical": "Record Physical Inventory",
     "titleDefault": "Record Inventory",
+    "titleLot": "Receive Inventory Lot",
     "cancel": "Cancel",
     "submitting": "Saving...",
     "save": "Save Entry",
@@ -275,6 +279,13 @@
     "mode": "Mode",
     "modeInitial": "{{label}} (accumulate)",
     "modePhysical": "{{label}} (replace)",
+    "lotModeHelp": "This product tracks lots. The receipt updates the named batch and the active site's stock atomically.",
+    "lotNumber": "Lot number",
+    "lotNumberRequired": "Lot number is required",
+    "expiresAt": "Expiry date (optional)",
+    "lotQuantity": "Received quantity",
+    "lotUnitCost": "Cost per base unit",
+    "lotSiteRequired": "Select an active site before receiving this lot.",
     "equivalence": "Equivalence",
     "siteScope": "This entry updates the active site balance: {{site}}.",
     "quantityMin": "Quantity must be greater than zero",

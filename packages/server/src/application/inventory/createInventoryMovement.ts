@@ -9,14 +9,12 @@ import {
   getPrimarySiteId,
   getProductStockTotal,
 } from '../../services/inventory-balances.js';
+import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import type { CreateMovementInput } from '../../trpc/schemas/inventory.js';
 import type { InventoryContext } from './types.js';
 
-export async function createInventoryMovement(
-  ctx: InventoryContext,
-  input: CreateMovementInput
-) {
+export async function createInventoryMovement(ctx: InventoryContext, input: CreateMovementInput) {
   const now = new Date().toISOString();
   const product = await ctx.db
     .select()
@@ -30,9 +28,7 @@ export async function createInventoryMovement(
 
   const previousStock = getProductStockTotal(ctx.db, ctx.tenantId, input.productId);
   const isDeduction = input.type === 'sale' || input.type === 'transfer';
-  const newStock = isDeduction
-    ? previousStock - input.quantity
-    : previousStock + input.quantity;
+  const newStock = isDeduction ? previousStock - input.quantity : previousStock + input.quantity;
 
   if (newStock < 0) {
     throw new TRPCError({
@@ -43,6 +39,7 @@ export async function createInventoryMovement(
 
   const movementId = nanoid();
   const stockDelta = newStock - previousStock;
+  assertAggregateStockMutationAllowed({ tracksLots: product.tracksLots, delta: stockDelta });
 
   ctx.db.transaction(tx => {
     tx.insert(inventoryMovements)
@@ -71,8 +68,7 @@ export async function createInventoryMovement(
         siteId: movementSiteId,
         productId: input.productId,
         delta: stockDelta,
-        initialOnHandIfMissing:
-          movementSiteId === primarySiteId ? previousStock : 0,
+        initialOnHandIfMissing: movementSiteId === primarySiteId ? previousStock : 0,
         now,
       });
     }

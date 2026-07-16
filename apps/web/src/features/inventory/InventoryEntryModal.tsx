@@ -7,6 +7,8 @@ export interface InventoryEntryFormValues {
   mode: InitialInventoryMode;
   quantity: number;
   cost: number;
+  lotNumber: string;
+  expiresAt: string;
   notes: string;
 }
 
@@ -14,6 +16,7 @@ export interface InventoryEntryFormValues {
 interface InventoryEntryModalProps {
   isOpen: boolean;
   selection: ProductSearchSelection | null;
+  siteId?: string | null | undefined;
   siteName?: string | null | undefined;
   isSaving: boolean;
   error: string | null;
@@ -26,6 +29,8 @@ function mapSelectionToForm(selection: ProductSearchSelection | null): Inventory
     mode: 'initial',
     quantity: 1,
     cost: selection?.product.initialCost ?? selection?.product.cost ?? 0,
+    lotNumber: '',
+    expiresAt: '',
     notes: '',
   };
 }
@@ -33,6 +38,7 @@ function mapSelectionToForm(selection: ProductSearchSelection | null): Inventory
 export function InventoryEntryModal({
   isOpen,
   selection,
+  siteId,
   siteName,
   isSaving,
   error,
@@ -48,11 +54,14 @@ export function InventoryEntryModal({
   const quantity = useWatch({ control: form.control, name: 'quantity' });
   const mode = useWatch({ control: form.control, name: 'mode' });
   const normalizedQuantity = (Number(quantity) || 0) * (selection?.unit.equivalence ?? 0);
+  const tracksLots = selection?.product.tracksLots === true;
 
   const modalTitle = selection
-    ? mode === 'initial'
-      ? t('entry.titleInitial')
-      : t('entry.titlePhysical')
+    ? tracksLots
+      ? t('entry.titleLot')
+      : mode === 'initial'
+        ? t('entry.titleInitial')
+        : t('entry.titlePhysical')
     : t('entry.titleDefault');
 
   return (
@@ -65,7 +74,11 @@ export function InventoryEntryModal({
           <ModalButton onClick={onClose} disabled={isSaving}>
             {t('entry.cancel')}
           </ModalButton>
-          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving || !selection}>
+          <ModalButton
+            variant="primary"
+            onClick={handleSubmit}
+            disabled={isSaving || !selection || (tracksLots && !siteId)}
+          >
             {isSaving ? t('entry.submitting') : t('entry.save')}
           </ModalButton>
         </>
@@ -87,29 +100,71 @@ export function InventoryEntryModal({
                 </div>
                 <div className="text-right text-sm">
                   <p className="text-secondary-500">{t('entry.currentStock')}</p>
-                  <p className="text-lg font-semibold text-secondary-900">{selection.product.stock}</p>
+                  <p className="text-lg font-semibold text-secondary-900">
+                    {selection.product.stock}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div>
-              <label htmlFor="inventory-entry-mode" className="label">
-                {t('entry.mode')}
-              </label>
-              <select
-                id="inventory-entry-mode"
-                className="input mt-1"
-                {...form.register('mode')}
-              >
-                <option value="initial">{t('entry.modeInitial', { label: t('table.initialInventory') })}</option>
-                <option value="physical">{t('entry.modePhysical', { label: t('table.physicalCount') })}</option>
-              </select>
-            </div>
+            {tracksLots ? (
+              <div className="rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-sm text-primary-800">
+                {t('entry.lotModeHelp')}
+              </div>
+            ) : (
+              <div>
+                <label htmlFor="inventory-entry-mode" className="label">
+                  {t('entry.mode')}
+                </label>
+                <select id="inventory-entry-mode" className="input mt-1" {...form.register('mode')}>
+                  <option value="initial">
+                    {t('entry.modeInitial', { label: t('table.initialInventory') })}
+                  </option>
+                  <option value="physical">
+                    {t('entry.modePhysical', { label: t('table.physicalCount') })}
+                  </option>
+                </select>
+              </div>
+            )}
+
+            {tracksLots && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="inventory-entry-lot-number" className="label">
+                    {t('entry.lotNumber')}
+                  </label>
+                  <input
+                    id="inventory-entry-lot-number"
+                    className="input mt-1"
+                    maxLength={120}
+                    {...form.register('lotNumber', {
+                      required: t('entry.lotNumberRequired'),
+                    })}
+                  />
+                  {form.formState.errors.lotNumber && (
+                    <p className="mt-1 text-sm text-danger-500">
+                      {form.formState.errors.lotNumber.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="inventory-entry-expiry" className="label">
+                    {t('entry.expiresAt')}
+                  </label>
+                  <input
+                    id="inventory-entry-expiry"
+                    type="date"
+                    className="input mt-1"
+                    {...form.register('expiresAt')}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label htmlFor="inventory-entry-quantity" className="label">
-                  {t('table.countedQty')}
+                  {tracksLots ? t('entry.lotQuantity') : t('table.countedQty')}
                 </label>
                 <input
                   id="inventory-entry-quantity"
@@ -131,7 +186,7 @@ export function InventoryEntryModal({
 
               <div>
                 <label htmlFor="inventory-entry-cost" className="label">
-                  {t('table.cost')}
+                  {tracksLots ? t('entry.lotUnitCost') : t('table.cost')}
                 </label>
                 <input
                   id="inventory-entry-cost"
@@ -145,7 +200,9 @@ export function InventoryEntryModal({
                   })}
                 />
                 {form.formState.errors.cost && (
-                  <p className="mt-1 text-sm text-danger-500">{form.formState.errors.cost.message}</p>
+                  <p className="mt-1 text-sm text-danger-500">
+                    {form.formState.errors.cost.message}
+                  </p>
                 )}
               </div>
             </div>
@@ -154,7 +211,9 @@ export function InventoryEntryModal({
               <div className="flex items-center justify-between">
                 <span className="text-secondary-500">{t('table.unit')}</span>
                 <span className="font-medium text-secondary-900">
-                  {selection.unit.unitName ?? selection.unit.unitAbbreviation ?? selection.unit.unitId}
+                  {selection.unit.unitName ??
+                    selection.unit.unitAbbreviation ??
+                    selection.unit.unitId}
                 </span>
               </div>
               <div className="mt-2 flex items-center justify-between">
@@ -168,6 +227,11 @@ export function InventoryEntryModal({
               {siteName && (
                 <p className="mt-3 text-xs leading-5 text-secondary-500">
                   {t('entry.siteScope', { site: siteName })}
+                </p>
+              )}
+              {tracksLots && !siteId && (
+                <p className="mt-3 text-xs leading-5 text-danger-600">
+                  {t('entry.lotSiteRequired')}
                 </p>
               )}
             </div>

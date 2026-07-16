@@ -11,6 +11,7 @@ import {
   getPrimarySiteId,
   getProductStockTotal,
 } from '../../services/inventory-balances.js';
+import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import type { AdjustStockInput } from '../../trpc/schemas/inventory.js';
 import {
@@ -20,16 +21,14 @@ import {
 } from './helpers.js';
 import type { CriticalInventoryContext } from './types.js';
 
-export async function adjustInventoryStock(
-  ctx: CriticalInventoryContext,
-  input: AdjustStockInput
-) {
-  await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
+export async function adjustInventoryStock(ctx: CriticalInventoryContext, input: AdjustStockInput) {
+  const product = await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
 
   const now = new Date().toISOString();
   const movementId = nanoid();
   const previousStock = getProductStockTotal(ctx.db, ctx.tenantId, input.productId);
   const delta = input.newStock - previousStock;
+  assertAggregateStockMutationAllowed({ tracksLots: product.tracksLots, delta });
   const quantity = Math.abs(delta);
   let resolvedAdjustmentSiteId: string | null = null;
 
@@ -53,12 +52,7 @@ export async function adjustInventoryStock(
     const resolvedSiteId = input.siteId ?? ctx.siteId ?? primarySiteId;
     resolvedAdjustmentSiteId = resolvedSiteId;
 
-    if (
-      resolvedSiteId &&
-      primarySiteId &&
-      resolvedSiteId !== primarySiteId &&
-      delta !== 0
-    ) {
+    if (resolvedSiteId && primarySiteId && resolvedSiteId !== primarySiteId && delta !== 0) {
       ensurePrimaryInventoryBalanceSnapshot(tx, {
         tenantId: ctx.tenantId,
         productId: input.productId,

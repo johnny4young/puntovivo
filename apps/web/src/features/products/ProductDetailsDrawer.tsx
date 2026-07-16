@@ -44,11 +44,7 @@ function DetailField({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-export function ProductDetailsDrawer({
-  product,
-  onClose,
-  onEdit,
-}: ProductDetailsDrawerProps) {
+export function ProductDetailsDrawer({ product, onClose, onEdit }: ProductDetailsDrawerProps) {
   const { t } = useTranslation('products');
 
   const footer = product ? (
@@ -89,9 +85,16 @@ export function ProductDetailsDrawer({
           <DetailField label={t('table.tier3')} value={formatCurrency(product.price3)} />
           <DetailField label={t('table.stock')} value={product.stock.toLocaleString()} />
           <DetailField
-            label={t('details.minStock')}
-            value={product.minStock.toLocaleString()}
+            label={t('details.lotTracking')}
+            value={
+              <span className={cn('pv-badge', product.tracksLots ? 'success' : 'neutral')}>
+                {product.tracksLots
+                  ? t('details.lotTrackingEnabled')
+                  : t('details.lotTrackingDisabled')}
+              </span>
+            }
           />
+          <DetailField label={t('details.minStock')} value={product.minStock.toLocaleString()} />
           <DetailField
             label={t('table.status')}
             value={

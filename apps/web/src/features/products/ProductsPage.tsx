@@ -212,7 +212,12 @@ export function ProductsPage() {
   };
 
   const handleSubmit = async (values: ProductFormValues) => {
-    const payload = buildProductPayload(values);
+    // ENG-110a — stock is derived inventory state for a lot-tracked product.
+    // Omitting it on tracked updates prevents a metadata save from replaying
+    // the stale stock value captured when the modal opened.
+    const payload = buildProductPayload(values, {
+      includeStock: !editingProduct || !values.tracksLots,
+    });
 
     if (editingProduct) {
       await updateMutation.mutateAsync({

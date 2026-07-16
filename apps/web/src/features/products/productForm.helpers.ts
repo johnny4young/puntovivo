@@ -30,6 +30,7 @@ export function createDefaultValues(): ProductFormValues {
     sellByFraction: false,
     fractionStep: 0.01,
     fractionMinimum: 0.01,
+    tracksLots: false,
     isActive: true,
     unitAssignments: [{ unitId: '', equivalence: 1, price: 0, isBase: true }],
     providerAssignments: [],
@@ -70,16 +71,16 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
     sellByFraction: product.sellByFraction,
     fractionStep: product.fractionStep ?? 0.01,
     fractionMinimum: product.fractionMinimum ?? 0.01,
+    tracksLots: product.tracksLots,
     isActive: product.isActive,
-    unitAssignments:
-      product.unitAssignments?.length
-        ? product.unitAssignments.map(assignment => ({
-            unitId: assignment.unitId,
-            equivalence: assignment.equivalence,
-            price: assignment.price,
-            isBase: assignment.isBase,
-          }))
-        : [{ unitId: '', equivalence: 1, price: product.price, isBase: true }],
+    unitAssignments: product.unitAssignments?.length
+      ? product.unitAssignments.map(assignment => ({
+          unitId: assignment.unitId,
+          equivalence: assignment.equivalence,
+          price: assignment.price,
+          isBase: assignment.isBase,
+        }))
+      : [{ unitId: '', equivalence: 1, price: product.price, isBase: true }],
     providerAssignments: normalizedProviders.providerAssignments,
   };
 }
@@ -105,4 +106,5 @@ export function errorProp(message: string | undefined): { error?: string } {
  * the accessible name clean — the required semantic is carried by
  * `aria-required` on the control instead).
  */
-export const REQUIRED_LABEL = "[&>label]:after:ml-0.5 [&>label]:after:text-danger-600 [&>label]:after:content-['*']";
+export const REQUIRED_LABEL =
+  "[&>label]:after:ml-0.5 [&>label]:after:text-danger-600 [&>label]:after:content-['*']";

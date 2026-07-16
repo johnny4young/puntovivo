@@ -57,6 +57,7 @@ function row(
     stock: string;
     minStock: string;
     taxRate: string;
+    tracksLots: string;
   }>
 ) {
   return { rowNumber, values };
@@ -244,6 +245,78 @@ describe('ENG-123a launch migration', () => {
       field: 'barcode',
     });
     expect(preview.rows[5]?.status).toBe('ready');
+  });
+
+  it('validates lot-tracking booleans and rejects opening stock without lot evidence', async () => {
+    const preview = await appRouter
+      .createCaller(createTestContext())
+      .launchMigration.previewProducts({
+        dataMode: 'real',
+        sourceName: 'lot-products.csv',
+        rows: [
+          row(2, {
+            name: 'Tracked medicine',
+            sku: 'TRACKED-IMPORT-123A',
+            stock: '0',
+            tracksLots: 'Sí',
+          }),
+          row(3, {
+            name: 'Unsafe tracked medicine',
+            sku: 'TRACKED-STOCK-123A',
+            stock: '3',
+            tracksLots: 'yes',
+          }),
+          row(4, {
+            name: 'Unknown tracking mode',
+            sku: 'TRACKED-INVALID-123A',
+            stock: '0',
+            tracksLots: 'sometimes',
+          }),
+        ],
+      });
+
+    expect(preview.rows[0]).toMatchObject({
+      status: 'ready',
+      normalized: { tracksLots: true, stock: 0 },
+    });
+    expect(preview.rows[1]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'lot_tracking_requires_zero_stock', field: 'stock' }],
+    });
+    expect(preview.rows[2]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'invalid_boolean', field: 'tracksLots' }],
+    });
+  });
+
+  it('imports a zero-stock product with lot tracking enabled', async () => {
+    const input = {
+      dataMode: 'real' as const,
+      sourceName: 'tracked-products.csv',
+      rows: [
+        row(2, {
+          name: 'Tracked import ready',
+          sku: `TRACKED-READY-${nanoid()}`,
+          stock: '0',
+          tracksLots: 'true',
+        }),
+      ],
+    };
+    const caller = appRouter.createCaller(createTestContext());
+    const preview = await caller.launchMigration.previewProducts(input);
+    const result = await caller.launchMigration.importProducts({
+      ...input,
+      confirmedRealData: true,
+      previewHash: preview.previewHash,
+    });
+
+    expect(result.summary).toMatchObject({ imported: 1, stockInitialized: 0, failed: 0 });
+    const imported = await db
+      .select({ tracksLots: products.tracksLots })
+      .from(products)
+      .where(eq(products.sku, input.rows[0]!.values.sku!))
+      .get();
+    expect(imported?.tracksLots).toBe(true);
   });
 
   it('imports products, prices, and opening stock with audit evidence and retry-safe skips', async () => {

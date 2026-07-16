@@ -29,6 +29,7 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
+import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import {
   assertValidTransferArgs,
   getTimestamp,
@@ -75,15 +76,17 @@ export function createInventoryTransfer(
     // defending here keeps the balance updates consistent.)
     const collapsedItems = new Map<string, number>();
     for (const item of args.items) {
-      collapsedItems.set(
-        item.productId,
-        (collapsedItems.get(item.productId) ?? 0) + item.quantity
-      );
+      collapsedItems.set(item.productId, (collapsedItems.get(item.productId) ?? 0) + item.quantity);
     }
 
     const productIds = Array.from(collapsedItems.keys());
     const tenantProducts = tx
-      .select({ id: products.id, name: products.name, sku: products.sku })
+      .select({
+        id: products.id,
+        name: products.name,
+        sku: products.sku,
+        tracksLots: products.tracksLots,
+      })
       .from(products)
       .where(and(eq(products.tenantId, args.tenantId), eq(products.isActive, true)))
       .all();
@@ -123,6 +126,7 @@ export function createInventoryTransfer(
 
     for (const [productId, quantity] of collapsedItems.entries()) {
       const product = productById.get(productId)!;
+      assertAggregateStockMutationAllowed({ tracksLots: product.tracksLots, delta: -quantity });
 
       // Lazily seed missing balance rows for both sites so transfer creation
       // does not depend on the balances read path having run beforehand.

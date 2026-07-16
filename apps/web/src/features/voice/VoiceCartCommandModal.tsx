@@ -97,6 +97,7 @@ function buildSelection(match: MatchedProduct): ProductSearchSelection {
       sellByFraction: match.sellByFraction,
       fractionStep: match.fractionStep ?? null,
       fractionMinimum: match.fractionMinimum ?? null,
+      tracksLots: false,
       isActive: true,
       // ENG-177a — the parser summary does not carry the optimistic-version
       // token; 0 is inert here because this synthetic product is only routed

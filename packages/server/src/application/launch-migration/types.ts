@@ -21,6 +21,7 @@ export const PRODUCT_IMPORT_FIELDS = [
   'stock',
   'minStock',
   'taxRate',
+  'tracksLots',
 ] as const;
 
 export type ProductImportField = (typeof PRODUCT_IMPORT_FIELDS)[number];
@@ -29,7 +30,9 @@ export type ProductImportIssueCode =
   | 'required'
   | 'too_long'
   | 'invalid_number'
+  | 'invalid_boolean'
   | 'out_of_range'
+  | 'lot_tracking_requires_zero_stock'
   | 'duplicate_file_sku'
   | 'duplicate_existing_sku'
   | 'duplicate_file_barcode'
@@ -53,6 +56,7 @@ export interface NormalizedLaunchProduct {
   stock: number;
   minStock: number;
   taxRate: number;
+  tracksLots: boolean;
 }
 
 export type ProductImportPreviewStatus = 'ready' | 'invalid' | 'duplicate';

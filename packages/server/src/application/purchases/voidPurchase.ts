@@ -19,6 +19,7 @@ import {
   applyInventoryBalanceDelta,
   getProductStockTotals,
 } from '../../services/inventory-balances.js';
+import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import type { VoidPurchaseInput } from '../../trpc/schemas/purchases.js';
 import {
@@ -74,6 +75,7 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
     .select({
       id: products.id,
       name: products.name,
+      tracksLots: products.tracksLots,
     })
     .from(products)
     .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
@@ -103,6 +105,11 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
           message: `Product ${item.productId} was not found while voiding the purchase`,
         });
       }
+
+      assertAggregateStockMutationAllowed({
+        tracksLots: product.tracksLots,
+        delta: -normalizedQuantity,
+      });
 
       const previousStock = tenantStockState.get(item.productId) ?? 0;
       const currentSiteBalance = siteBalanceState.get(item.productId) ?? 0;

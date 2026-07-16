@@ -28,6 +28,7 @@ function product(overrides: Partial<ProductSearchItem> = {}): ProductSearchItem 
     stock: 20,
     minStock: 1,
     sellByFraction: false,
+    tracksLots: false,
     isActive: true,
     version: 1,
     createdAt: '2026-01-01T00:00:00.000Z',

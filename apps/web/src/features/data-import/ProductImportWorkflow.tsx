@@ -46,6 +46,7 @@ const TEMPLATE_KEYS = [
   'stock',
   'minStock',
   'taxRate',
+  'tracksLots',
 ] as const;
 
 interface ProductImportWorkflowProps {
@@ -235,6 +236,7 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
           stock: '24',
           minStock: '5',
           taxRate: '19',
+          tracksLots: t('dataImport:boolean.no'),
         },
       ],
       columns,

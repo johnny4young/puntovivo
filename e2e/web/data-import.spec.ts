@@ -142,6 +142,146 @@ test.describe('launch data import (ENG-123)', () => {
     await expectNoClientIssues(tracker);
   });
 
+  test('admin opts products into lot tracking and imports only zero-stock tracked rows', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const suffix = `${testInfo.parallelIndex}-${Date.now()}`;
+    const productName = `E2E Lot Tracked ${suffix}`;
+    const productSku = `E2E-LOT-${suffix}`;
+    const importedName = `E2E Imported Lot ${suffix}`;
+    const importedSku = `E2E-LOT-IMPORT-${suffix}`;
+
+    await loginAs(page, 'admin');
+    await page.goto('/products');
+    await page.getByRole('button', { name: 'Add Product' }).click();
+
+    const productDialog = page.getByRole('dialog', { name: 'Create Product' });
+    await expect(productDialog).toBeVisible();
+    await productDialog.locator('#product-name').fill(productName);
+    await productDialog.locator('#product-sku').fill(productSku);
+
+    const stock = productDialog.getByRole('spinbutton', { name: 'Stock', exact: true });
+    await expect(stock).toBeEditable();
+    await productDialog.getByRole('checkbox', { name: 'Track lots and expiry' }).check();
+    await expect(stock).toHaveAttribute('readonly');
+    await expect(productDialog.getByText('Read-only while lot tracking is enabled.')).toBeVisible();
+    await captureEvidence(page, 'eng-110a-product-lot-opt-in-en');
+
+    await productDialog.getByRole('tab', { name: 'Units' }).click();
+    await productDialog
+      .getByRole('tabpanel', { name: 'Units' })
+      .locator('select')
+      .selectOption({ index: 1 });
+    await productDialog.getByRole('button', { name: 'Create Product' }).click();
+    await expect(productDialog).toBeHidden({ timeout: 15_000 });
+
+    await page.getByPlaceholder('Search products...').fill(productName);
+    const createdRow = page.locator('tbody tr').filter({ hasText: productName }).first();
+    await expect(createdRow).toBeVisible({ timeout: 15_000 });
+    await createdRow.getByRole('button', { name: 'View details' }).click();
+    const details = page.getByTestId('product-details-drawer');
+    await expect(details).toContainText('Lot tracking');
+    await expect(details).toContainText('Enabled');
+
+    await ensureLanguage(page, 'es');
+    await page.getByPlaceholder('Buscar productos...').fill(productName);
+    const spanishRow = page.locator('tbody tr').filter({ hasText: productName }).first();
+    await expect(spanishRow).toBeVisible({ timeout: 15_000 });
+    await spanishRow.getByRole('button', { name: 'Ver detalle' }).click();
+    const spanishDetails = page.getByTestId('product-details-drawer');
+    await expect(spanishDetails).toContainText('Seguimiento de lotes');
+    await expect(spanishDetails).toContainText('Activo');
+    await spanishDetails.getByRole('button', { name: 'Editar producto' }).click();
+
+    const spanishDialog = page.getByRole('dialog', { name: 'Editar producto' });
+    const spanishLotToggle = spanishDialog.getByRole('checkbox', {
+      name: 'Controlar lotes y vencimientos',
+    });
+    await expect(spanishLotToggle).toBeChecked();
+    await expect(
+      spanishDialog.getByRole('spinbutton', { name: 'Stock', exact: true })
+    ).toHaveAttribute('readonly');
+    await spanishLotToggle.scrollIntoViewIfNeeded();
+    await captureEvidence(page, 'eng-110a-product-lot-roundtrip-es');
+    await spanishDialog.getByRole('button', { name: 'Cancelar' }).click();
+
+    await page.goto('/inventory');
+    await page.getByRole('button', { name: 'Nueva entrada' }).click();
+    const productSearch = page.getByRole('dialog', {
+      name: /Seleccionar producto para inventario inicial/,
+    });
+    await productSearch
+      .getByPlaceholder('Buscar por SKU, nombre o código de barras')
+      .fill(productName);
+    await productSearch.locator('tbody tr').filter({ hasText: productName }).click();
+    await productSearch.getByRole('button', { name: 'Registrar entrada' }).click();
+
+    const lotReceipt = page.getByRole('dialog', { name: 'Recibir lote de inventario' });
+    await expect(lotReceipt).toBeVisible();
+    await lotReceipt.getByLabel('Número de lote').fill(`LOTE-${suffix}`);
+    await lotReceipt.getByLabel('Fecha de vencimiento (opcional)').fill('2027-12-31');
+    await lotReceipt.getByLabel('Cantidad recibida').fill('6');
+    await lotReceipt.getByLabel('Costo por unidad base').fill('7000');
+    await captureEvidence(page, 'eng-110a-lot-receipt-es');
+    await lotReceipt.getByRole('button', { name: 'Guardar entrada' }).click();
+    await expect(lotReceipt).toBeHidden({ timeout: 15_000 });
+    await expect(page.getByText('Lote recibido')).toBeVisible();
+
+    await page.goto('/products');
+    await page.getByPlaceholder('Buscar productos...').fill(productName);
+    const stockedRow = page.locator('tbody tr').filter({ hasText: productName }).first();
+    await expect(stockedRow).toBeVisible({ timeout: 15_000 });
+    await stockedRow.getByRole('button', { name: 'Ver detalle' }).click();
+    const stockValue = page
+      .getByTestId('product-details-fields')
+      .locator('dt', { hasText: /^Stock$/ })
+      .locator('xpath=following-sibling::dd');
+    await expect(stockValue).toHaveText('6');
+
+    await page.goto('/data-import');
+    await chooseRealData(page, true);
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'productos-con-lotes.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        [
+          'Nombre del producto;SKU;Precio de venta;Costo;Stock de apertura;Stock mínimo;Tasa de impuesto;Controlar lotes y vencimientos',
+          `${importedName};${importedSku};12000;7000;0;1;19;sí`,
+          `Lote con stock inválido ${suffix};E2E-LOT-STOCK-${suffix};9000;5000;2;0;0;sí`,
+          `Lote con bandera inválida ${suffix};E2E-LOT-BOOL-${suffix};9000;5000;0;0;0;quizás`,
+        ].join('\n')
+      ),
+    });
+
+    await expect(page.getByLabel('Controlar lotes y vencimientos')).toHaveValue(
+      'Controlar lotes y vencimientos'
+    );
+    await page.getByRole('button', { name: 'Validar y previsualizar' }).click();
+    await expect(page.getByTestId('data-import-summary-ready')).toContainText('1');
+    await expect(page.getByTestId('data-import-summary-invalid')).toContainText('2');
+    await expect(page.getByTestId('data-import-preview-row-3')).toContainText(
+      'El stock de apertura debe estar en cero cuando controlas lotes'
+    );
+    await expect(page.getByTestId('data-import-preview-row-4')).toContainText(
+      'Usa sí/no, verdadero/falso o 1/0'
+    );
+    await captureEvidence(page, 'eng-110a-import-lot-validation-es');
+
+    await confirmRealData(page, true);
+    await page.getByRole('button', { name: 'Importar 1 fila lista' }).click();
+    await expect(page.getByTestId('data-import-report')).toContainText('Importación completada');
+
+    await page.goto('/products');
+    await page.getByPlaceholder('Buscar productos...').fill(importedName);
+    const importedRow = page.locator('tbody tr').filter({ hasText: importedName }).first();
+    await expect(importedRow).toBeVisible({ timeout: 15_000 });
+    await importedRow.getByRole('button', { name: 'Ver detalle' }).click();
+    await expect(page.getByTestId('product-details-drawer')).toContainText('Seguimiento de lotes');
+    await expect(page.getByTestId('product-details-drawer')).toContainText('Activo');
+    await expectNoClientIssues(tracker);
+  });
+
   test('Spanish admin previews and imports a localized launch template', async ({
     page,
   }, testInfo) => {

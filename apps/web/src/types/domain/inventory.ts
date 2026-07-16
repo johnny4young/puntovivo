@@ -61,6 +61,7 @@ export interface InventoryStockItem {
   categoryName?: string | null;
   stock: number;
   minStock: number;
+  tracksLots: boolean;
   initialCost: number;
   price: number;
   isLowStock: boolean;

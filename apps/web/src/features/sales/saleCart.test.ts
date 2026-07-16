@@ -39,6 +39,7 @@ function createSelection(
       sellByFraction: false,
       fractionStep: null,
       fractionMinimum: null,
+      tracksLots: false,
       isActive: true,
       version: 0,
       createdAt: new Date().toISOString(),

@@ -2,19 +2,14 @@
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import {
-  initialInventory,
-  inventoryMovements,
-  products,
-  sites,
-  units,
-} from '../../db/schema.js';
+import { initialInventory, inventoryMovements, products, sites, units } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
 import {
   applyInventoryBalanceDelta,
   getPrimarySiteId,
   getProductStockTotal,
 } from '../../services/inventory-balances.js';
+import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import type { RecordEntryInput } from '../../trpc/schemas/inventory.js';
 import {
@@ -24,16 +19,9 @@ import {
 } from './helpers.js';
 import type { InventoryContext } from './types.js';
 
-export async function recordInventoryEntry(
-  ctx: InventoryContext,
-  input: RecordEntryInput
-) {
+export async function recordInventoryEntry(ctx: InventoryContext, input: RecordEntryInput) {
   const product = await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
-  const unitAssignment = await getProductUnitAssignment(
-    ctx.db,
-    input.productId,
-    input.unitId
-  );
+  const unitAssignment = await getProductUnitAssignment(ctx.db, input.productId, input.unitId);
   const normalizedQuantity = getNormalizedInventoryQuantity(
     input.quantity,
     unitAssignment.equivalence
@@ -46,6 +34,7 @@ export async function recordInventoryEntry(
   const newStock =
     input.mode === 'initial' ? previousStock + normalizedQuantity : normalizedQuantity;
   const stockDelta = newStock - previousStock;
+  assertAggregateStockMutationAllowed({ tracksLots: product.tracksLots, delta: stockDelta });
 
   ctx.db.transaction(tx => {
     tx.insert(initialInventory)
@@ -82,9 +71,7 @@ export async function recordInventoryEntry(
         reference: entryId,
         notes:
           input.notes ??
-          (input.mode === 'initial'
-            ? 'Initial inventory entry'
-            : 'Physical inventory count'),
+          (input.mode === 'initial' ? 'Initial inventory entry' : 'Physical inventory count'),
         createdBy: ctx.user.id,
         syncStatus: 'pending',
         syncVersion: 1,
@@ -110,8 +97,7 @@ export async function recordInventoryEntry(
         siteId: entrySiteId,
         productId: input.productId,
         delta: stockDelta,
-        initialOnHandIfMissing:
-          entrySiteId === primarySiteIdForEntry ? previousStock : 0,
+        initialOnHandIfMissing: entrySiteId === primarySiteIdForEntry ? previousStock : 0,
         now,
       });
     }
