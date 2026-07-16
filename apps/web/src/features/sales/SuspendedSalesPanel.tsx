@@ -34,7 +34,10 @@ import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { invalidateGroups } from '@/lib/invalidateGroups';
+import {
+  invalidateGroups,
+  SERIAL_INVENTORY_INVALIDATIONS,
+} from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
@@ -135,6 +138,7 @@ export function SuspendedSalesPanel({
         u => u.sales.listDrafts,
         u => u.inventory.listStock,
         u => u.products.list,
+        ...SERIAL_INVENTORY_INVALIDATIONS,
       ]);
       setDiscardTarget(null);
       toast.success({ title: t('sales:park.toastDiscardTitle') });

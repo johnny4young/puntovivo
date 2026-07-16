@@ -87,6 +87,8 @@
     "progress": "{{selected}} / {{required}} selected",
     "siteRequired": "Select an active site to load serial numbers.",
     "loading": "Loading available serials…",
+    "loadError": "Available serial numbers could not be loaded.",
+    "retry": "Retry",
     "noneAvailable": "No sellable serial numbers are available at this site.",
     "returned": "Returned",
     "usedInAnotherLine": "Used in another line",

@@ -186,6 +186,10 @@ vi.mock('@/lib/trpc', () => ({
           },
         },
       },
+      productSerials: {
+        list: { invalidate: vi.fn() },
+        lookup: { invalidate: vi.fn() },
+      },
     }),
   },
 }));

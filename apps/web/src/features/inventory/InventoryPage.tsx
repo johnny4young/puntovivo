@@ -169,6 +169,7 @@ export function InventoryPage() {
         utils.inventory.listStock.invalidate(),
         utils.inventory.listBalancesBySite.invalidate(),
         utils.products.list.invalidate(),
+        utils.products.search.invalidate(),
       ]);
       setIsAdjustmentModalOpen(false);
       setSelectedProduct(null);
@@ -185,6 +186,7 @@ export function InventoryPage() {
         utils.inventory.listStock.invalidate(),
         utils.inventory.listBalancesBySite.invalidate(),
         utils.products.list.invalidate(),
+        utils.products.search.invalidate(),
       ]);
       setEntrySelection(null);
       setIsSearchOpen(false);
@@ -202,6 +204,7 @@ export function InventoryPage() {
         utils.inventory.listStock.invalidate(),
         utils.inventory.listBalancesBySite.invalidate(),
         utils.products.list.invalidate(),
+        utils.products.search.invalidate(),
       ]);
       setEntrySelection(null);
       setIsSearchOpen(false);
@@ -214,12 +217,14 @@ export function InventoryPage() {
     onSuccess: async () => {
       await Promise.all([
         utils.productSerials.list.invalidate(),
+        utils.productSerials.lookup.invalidate(),
         utils.inventoryLots.list.invalidate(),
         utils.inventoryLots.expiring.invalidate(),
         utils.inventory.listMovements.invalidate(),
         utils.inventory.listStock.invalidate(),
         utils.inventory.listBalancesBySite.invalidate(),
         utils.products.list.invalidate(),
+        utils.products.search.invalidate(),
       ]);
       setEntrySelection(null);
       setIsSearchOpen(false);

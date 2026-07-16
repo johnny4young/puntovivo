@@ -2,7 +2,7 @@ import { type Dispatch, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
-import { invalidateGroups } from '@/lib/invalidateGroups';
+import { invalidateGroups, SERIAL_INVENTORY_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
 import { getCartItemKey, type SaleCartItem, type SaleCartSummary } from '@/features/sales/saleCart';
 import {
@@ -88,7 +88,7 @@ export function useSalesFlows({
     // Defense in depth behind the modal's own isSaving guard: each
     // mutate() mints a fresh idempotency envelope, so a second concurrent
     // fire would complete the sale twice server-side.
-    if (createMutation.isPending || completeDraftMutation.isPending) {
+    if (!canCharge || createMutation.isPending || completeDraftMutation.isPending) {
       return;
     }
     try {
@@ -192,7 +192,7 @@ export function useSalesFlows({
     if (isSuspending) {
       return;
     }
-    if (cartItems.length === 0 || !ownerKey) {
+    if (cartItems.length === 0 || !ownerKey || !canCharge) {
       setIsSuspendLabelPromptOpen(false);
       return;
     }
@@ -237,6 +237,7 @@ export function useSalesFlows({
         u => u.inventory.listStock,
         u => u.products.list,
         u => u.products.search,
+        ...SERIAL_INVENTORY_INVALIDATIONS,
       ]);
       const storeState = useCartWorkspaceStore.getState();
       if (storeState.activeId) {
@@ -267,6 +268,7 @@ export function useSalesFlows({
             u => u.inventory.listStock,
             u => u.products.list,
             u => u.products.search,
+            ...SERIAL_INVENTORY_INVALIDATIONS,
           ]);
         } catch {
           // Best-effort: the original error is the one the

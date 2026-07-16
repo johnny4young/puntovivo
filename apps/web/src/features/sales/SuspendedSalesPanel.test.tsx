@@ -121,6 +121,10 @@ vi.mock('@/lib/trpc', () => ({
       sales: { listDrafts: { invalidate: invalidateMock } },
       inventory: { listStock: { invalidate: invalidateMock } },
       products: { list: { invalidate: invalidateMock } },
+      productSerials: {
+        list: { invalidate: invalidateMock },
+        lookup: { invalidate: invalidateMock },
+      },
       restaurantTables: {
         listWithDraftStatus: { invalidate: invalidateMock },
       },

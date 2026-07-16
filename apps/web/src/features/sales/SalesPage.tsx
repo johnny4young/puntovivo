@@ -11,9 +11,9 @@ import { SalesScreen } from '@/features/sales/SalesScreen';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
 import {
+  areSerialSelectionsComplete,
   getCartDiscountAmount,
   getCartSummary,
-  getLineTotals,
 } from '@/features/sales/saleCart';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
 import { useScannerFocusRestoration } from '@/features/sales/useScannerFocusRestoration';
@@ -178,12 +178,7 @@ export function SalesPage() {
 
   const draftSummary = getCartSummary(cartItems);
   const approvalDiscountAmount = getCartDiscountAmount(cartItems);
-  const selectedSerialIds = cartItems.flatMap(item => item.serialIds ?? []);
-  const serialSelectionsComplete = cartItems.every(
-    item =>
-      !item.tracksSerials ||
-      (item.serialIds ?? []).length === getLineTotals(item).normalizedQuantity
-  ) && new Set(selectedSerialIds).size === selectedSerialIds.length;
+  const serialSelectionsComplete = areSerialSelectionsComplete(cartItems, currentSite?.id ?? null);
   const canCharge =
     !!currentSite && hasActiveCashSession && cartItems.length > 0 && serialSelectionsComplete;
   const canCloseCashSession =

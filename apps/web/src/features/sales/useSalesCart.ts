@@ -164,11 +164,17 @@ export function useSalesCart({
     );
   };
 
-  const handleSerialSelectionChange = (itemKey: string, serialIds: string[]) => {
+  const handleSerialSelectionChange = (
+    itemKey: string,
+    serialIds: string[],
+    siteId: string
+  ) => {
     if (isResumedCart) return;
     setCartItems(currentItems =>
       currentItems.map(item =>
-        item.key === itemKey ? updateCartItem(item, { serialIds }) : item
+        item.key === itemKey
+          ? updateCartItem(item, { serialIds, serialSiteId: siteId })
+          : item
       )
     );
   };

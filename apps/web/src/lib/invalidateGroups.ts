@@ -50,6 +50,17 @@ export async function invalidateGroups(
 }
 
 /**
+ * Every mutation that changes a serialized unit's availability or warranty
+ * provenance must invalidate both read surfaces. Queries are input-scoped
+ * (site/product for list, serial number for lookup), so invalidating the leaf
+ * refreshes every active variant without callers having to reconstruct keys.
+ */
+export const SERIAL_INVENTORY_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.productSerials.list,
+  u => u.productSerials.lookup,
+];
+
+/**
  * The canonical "a sale was completed" invalidation set, shared by every
  * surface that finishes a sale (desktop SalesPage epilogue and the touch
  * POS). Completing a sale touches cash sessions, sales lists/summary,
@@ -73,6 +84,7 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   u => u.inventory.listStock,
   u => u.products.list,
   u => u.products.search,
+  ...SERIAL_INVENTORY_INVALIDATIONS,
   // ENG-090 — credit sales mutate the ledger, so the cupo card
   // inside SalePaymentModal must refetch on the next open.
   u => u.customerLedger.getBalance,

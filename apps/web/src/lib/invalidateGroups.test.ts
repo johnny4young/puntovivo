@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { invalidateGroups } from './invalidateGroups';
+import {
+  invalidateGroups,
+  SERIAL_INVENTORY_INVALIDATIONS,
+} from './invalidateGroups';
 
 // We deliberately use a hand-rolled `utils` shape so the test stays
 // decoupled from the real tRPC proxy. The helper only depends on the
@@ -12,6 +15,10 @@ function buildFakeUtils() {
     },
     products: {
       list: { invalidate: vi.fn().mockResolvedValue(undefined) },
+    },
+    productSerials: {
+      list: { invalidate: vi.fn().mockResolvedValue(undefined) },
+      lookup: { invalidate: vi.fn().mockResolvedValue(undefined) },
     },
   };
 }
@@ -41,6 +48,18 @@ describe('invalidateGroups', () => {
     expect(utils.sales.list.invalidate).toHaveBeenCalledTimes(1);
     expect(utils.sales.summary.invalidate).toHaveBeenCalledTimes(1);
     expect(utils.products.list.invalidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps availability and warranty serial caches in one invalidation group', async () => {
+    const utils = buildFakeUtils();
+
+    await invalidateGroups(
+      utils as unknown as Parameters<typeof invalidateGroups>[0],
+      SERIAL_INVENTORY_INVALIDATIONS
+    );
+
+    expect(utils.productSerials.list.invalidate).toHaveBeenCalledTimes(1);
+    expect(utils.productSerials.lookup.invalidate).toHaveBeenCalledTimes(1);
   });
 
   it('rejects when any single picker rejects (Promise.all semantics)', async () => {

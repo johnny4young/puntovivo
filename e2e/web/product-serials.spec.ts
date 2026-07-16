@@ -79,7 +79,11 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
   const receivedCard = page.locator('dl').filter({ hasText: productName });
   await expect(receivedCard).toContainText('In stock');
 
-  await page.goto('/sales');
+  // Navigate inside the SPA so the pre-sale warranty result stays in the
+  // QueryClient. The post-sale checks below then prove lifecycle mutations
+  // invalidate both serial read surfaces instead of relying on a page reload.
+  await page.getByRole('link', { name: 'Sell', exact: true }).click();
+  await expect(page).toHaveURL(/\/sales$/);
   const salesSearch = page.locator('#sales-product-search-input');
   await salesSearch.fill(productSku);
   await salesSearch.press('Enter');
@@ -92,6 +96,7 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
 
   const cartLine = page.getByTestId(`sale-cart-item-${productSku}`);
   await expect(cartLine).toBeVisible();
+  await expect(cartLine).toContainText('Stock 1');
   await cartLine.getByRole('checkbox', { name: serialNumber }).check();
   await expect(cartLine.getByText('1 / 1 selected')).toBeVisible();
   await expect(cartLine.getByText(/Select one exact serial/)).toHaveCount(0);
@@ -106,7 +111,20 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
   await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
   await expectSuccessToast(page, 'Sale completed');
 
-  await page.goto('/inventory');
+  // The same SPA session must not offer the sold identity to a fresh cart.
+  await salesSearch.fill(productSku);
+  await salesSearch.press('Enter');
+  await expect(salesRow).toBeVisible({ timeout: 15_000 });
+  await salesRow.click();
+  await salesDialog.getByRole('button', { name: 'Add to cart' }).click();
+  await expect(salesDialog).toBeHidden();
+  await expect(
+    cartLine.getByText('No sellable serial numbers are available at this site.')
+  ).toBeVisible({ timeout: 15_000 });
+  await cartLine.getByRole('button', { name: `Remove ${productName}` }).click();
+
+  await page.getByRole('link', { name: 'Inventory', exact: true }).first().click();
+  await expect(page).toHaveURL(/\/inventory$/);
   await page.getByLabel('Serial number').fill(serialNumber.toLowerCase());
   await page.getByRole('button', { name: 'Look up' }).click();
   const soldCard = page.locator('dl').filter({ hasText: productName });

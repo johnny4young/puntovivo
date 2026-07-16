@@ -59,6 +59,10 @@ vi.mock('@/lib/trpc', () => ({
     useUtils: () => ({
       peripherals: { buildReceiptBytes: { fetch: vi.fn() } },
       sales: { getById: { invalidate: vi.fn() } },
+      productSerials: {
+        list: { invalidate: vi.fn() },
+        lookup: { invalidate: vi.fn() },
+      },
     }),
     peripherals: {
       printReceipt: { useMutation: () => ({ mutateAsync: vi.fn() }) },

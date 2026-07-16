@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  areSerialSelectionsComplete,
   buildCartItem,
   getCartItemKey,
   getCartSummary,
@@ -236,5 +237,41 @@ describe('saleCart core helpers', () => {
         makeItem({ key: 'p4:u1', unitPrice: 0.05, discount: 10 }),
       ])
     ).toBe(0.02);
+  });
+
+  it('requires serialized identities to belong to the active site', () => {
+    const serialized = makeItem({
+      tracksSerials: true,
+      serialIds: ['serial-1', 'serial-2'],
+      serialSiteId: 'site-1',
+    });
+
+    expect(areSerialSelectionsComplete([serialized], 'site-1')).toBe(true);
+    expect(areSerialSelectionsComplete([serialized], 'site-2')).toBe(false);
+    expect(
+      areSerialSelectionsComplete([{ ...serialized, serialSiteId: undefined }], 'site-1')
+    ).toBe(false);
+  });
+
+  it('rejects incomplete and duplicate serialized selections across cart lines', () => {
+    const first = makeItem({
+      key: 'p1:u1',
+      tracksSerials: true,
+      serialIds: ['serial-1', 'serial-2'],
+      serialSiteId: 'site-1',
+    });
+    const second = makeItem({
+      key: 'p2:u1',
+      tracksSerials: true,
+      quantity: 1,
+      serialIds: ['serial-2'],
+      serialSiteId: 'site-1',
+    });
+
+    expect(areSerialSelectionsComplete([{ ...first, serialIds: ['serial-1'] }], 'site-1')).toBe(
+      false
+    );
+    expect(areSerialSelectionsComplete([first, second], 'site-1')).toBe(false);
+    expect(areSerialSelectionsComplete([makeItem()], 'site-1')).toBe(true);
   });
 });

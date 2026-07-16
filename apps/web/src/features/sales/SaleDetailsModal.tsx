@@ -18,7 +18,7 @@ import {
   type HubReceiptBytesPayload,
 } from '@/features/sales/receiptPrinter';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { invalidateGroups } from '@/lib/invalidateGroups';
+import { invalidateGroups, SERIAL_INVENTORY_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -102,6 +102,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         u => u.products.list,
         u => u.products.search,
         u => u.managerApprovals.mine,
+        ...SERIAL_INVENTORY_INVALIDATIONS,
       ]);
       toast.success({ title: t('sales:details.toast.refundSuccessTitle') });
       setIsReturnConfirmOpen(false);
@@ -169,6 +170,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         u => u.products.list,
         u => u.products.search,
         u => u.managerApprovals.mine,
+        ...SERIAL_INVENTORY_INVALIDATIONS,
       ]);
       toast.success({ title: t('sales:details.toast.voidSuccessTitle') });
       setIsVoidConfirmOpen(false);

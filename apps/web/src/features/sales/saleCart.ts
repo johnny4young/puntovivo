@@ -22,6 +22,8 @@ export interface SaleCartItem {
   fractionMinimum?: number | null | undefined;
   tracksSerials?: boolean | undefined;
   serialIds?: string[] | undefined;
+  /** Site whose sellable registry produced serialIds. */
+  serialSiteId?: string | null | undefined;
 }
 
 export interface SaleCartSummary {
@@ -75,12 +77,15 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     fractionMinimum: selection.product.fractionMinimum,
     tracksSerials: selection.product.tracksSerials === true,
     serialIds: [],
+    serialSiteId: null,
   };
 }
 
 export function updateCartItem(
   item: SaleCartItem,
-  updates: Partial<Pick<SaleCartItem, 'quantity' | 'discount' | 'unitPrice' | 'serialIds'>>
+  updates: Partial<
+    Pick<SaleCartItem, 'quantity' | 'discount' | 'unitPrice' | 'serialIds' | 'serialSiteId'>
+  >
 ): SaleCartItem {
   return {
     ...item,
@@ -119,6 +124,31 @@ export function getLineTotals(item: SaleCartItem) {
     total: roundMoney(total),
     normalizedQuantity: normalizedStockQuantity,
   };
+}
+
+/**
+ * Serialized checkout is valid only when every physical identity came from
+ * the active site's registry and no identity is reused across cart lines.
+ * Older persisted carts have no serialSiteId and intentionally fail closed
+ * until the cashier reselects the units for the current site.
+ */
+export function areSerialSelectionsComplete(items: SaleCartItem[], siteId: string | null): boolean {
+  const selectedIds: string[] = [];
+
+  for (const item of items) {
+    if (!item.tracksSerials) continue;
+    const itemIds = item.serialIds ?? [];
+    if (
+      !siteId ||
+      item.serialSiteId !== siteId ||
+      itemIds.length !== getLineTotals(item).normalizedQuantity
+    ) {
+      return false;
+    }
+    selectedIds.push(...itemIds);
+  }
+
+  return new Set(selectedIds).size === selectedIds.length;
 }
 
 export function getCartSummary(items: SaleCartItem[]): SaleCartSummary {

@@ -20,7 +20,8 @@ interface SaleCartTableProps {
   onDiscountChange: (itemKey: string, discount: number) => void;
   onRemove: (itemKey: string) => void;
   onSelectItem: (itemKey: string) => void;
-  onSerialSelectionChange?: ((itemKey: string, serialIds: string[]) => void) | undefined;
+  onSerialSelectionChange?:
+    ((itemKey: string, serialIds: string[], siteId: string) => void) | undefined;
   quantityInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   discountInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
 }
@@ -104,8 +105,13 @@ export function SaleCartTable({
           const minimumQuantity = getSaleMinimumQuantity(item);
           const quantityStep = getSaleQuantityStep(item);
           const decrementDisabled = item.quantity - quantityStep < minimumQuantity;
+          const serialSiteId = discountSuggestionSiteId ?? null;
+          const selectedSerialIds =
+            serialSiteId && item.serialSiteId === serialSiteId ? (item.serialIds ?? []) : [];
           const unavailableSerialIds = items
-            .filter(otherItem => otherItem.key !== item.key)
+            .filter(
+              otherItem => otherItem.key !== item.key && otherItem.serialSiteId === serialSiteId
+            )
             .flatMap(otherItem => otherItem.serialIds ?? []);
 
           return (
@@ -226,9 +232,13 @@ export function SaleCartTable({
                   productId={item.productId}
                   productName={item.productName}
                   requiredCount={lineTotals.normalizedQuantity}
-                  selectedIds={item.serialIds ?? []}
+                  selectedIds={selectedSerialIds}
                   unavailableIds={unavailableSerialIds}
-                  onChange={serialIds => onSerialSelectionChange(item.key, serialIds)}
+                  onChange={serialIds => {
+                    if (serialSiteId) {
+                      onSerialSelectionChange(item.key, serialIds, serialSiteId);
+                    }
+                  }}
                 />
               )}
 

@@ -87,6 +87,8 @@
     "progress": "{{selected}} / {{required}} seleccionadas",
     "siteRequired": "Selecciona una sede activa para cargar los números de serie.",
     "loading": "Cargando series disponibles…",
+    "loadError": "No se pudieron cargar los números de serie disponibles.",
+    "retry": "Reintentar",
     "noneAvailable": "No hay números de serie disponibles para vender en esta sede.",
     "returned": "Devuelta",
     "usedInAnotherLine": "Usada en otra línea",
