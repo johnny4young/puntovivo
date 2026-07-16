@@ -26,9 +26,7 @@ let mockModules = {
 let mockModulesPlaceholder = false;
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>(
-    'react-router-dom'
-  );
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
     ...actual,
     useNavigate: () => navigateMock,
@@ -55,6 +53,13 @@ vi.mock('@/features/modules', () => ({
   }),
 }));
 
+// ENG-203 — the palette body wires the omnibox sell handler (trpc + cart
+// store underneath); mock it so this suite stays network-free. Its behavior
+// is pinned in CommandPaletteProvider.test.tsx and useOmniboxSell.test.ts.
+vi.mock('@/features/sales/useOmniboxSell', () => ({
+  useOmniboxSell: () => vi.fn(async () => undefined),
+}));
+
 beforeEach(() => {
   navigateMock.mockReset();
   logoutMock.mockClear();
@@ -74,9 +79,7 @@ afterEach(() => {
 describe('CommandPalette (ENG-105a)', () => {
   it('renders with the search input present and the action listbox visible', async () => {
     render(<CommandPalette isOpen onClose={vi.fn()} />);
-    expect(
-      screen.getByRole('dialog', { name: /command palette/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: /command palette/i })).toBeInTheDocument();
     const input = await screen.findByTestId('command-palette-search');
     expect(input).toBeInTheDocument();
     await waitFor(() => {
@@ -92,7 +95,16 @@ describe('CommandPalette (ENG-105a)', () => {
     expect(screen.queryByTestId('command-palette-item-navigate.products')).not.toBeInTheDocument();
   });
 
-  it('shows the empty state for a query with zero matches', async () => {
+  it('offers the omnibox sell row instead of an empty state for selling roles (ENG-203)', async () => {
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+    const input = await screen.findByTestId('command-palette-search');
+    fireEvent.change(input, { target: { value: 'xyzqq' } });
+    expect(screen.queryByTestId('command-palette-empty')).not.toBeInTheDocument();
+    expect(screen.getByTestId('command-palette-item-sales.sellQuery')).toBeInTheDocument();
+  });
+
+  it('shows the empty state for a zero-match query when the viewer cannot sell', async () => {
+    mockUserRole = 'viewer';
     render(<CommandPalette isOpen onClose={vi.fn()} />);
     const input = await screen.findByTestId('command-palette-search');
     fireEvent.change(input, { target: { value: 'xyzqq' } });
@@ -123,9 +135,7 @@ describe('CommandPalette (ENG-105a)', () => {
   it('click on an item fires its perform() and closes the palette', async () => {
     const onClose = vi.fn();
     render(<CommandPalette isOpen onClose={onClose} />);
-    const dashboardItem = await screen.findByTestId(
-      'command-palette-item-navigate.dashboard'
-    );
+    const dashboardItem = await screen.findByTestId('command-palette-item-navigate.dashboard');
     fireEvent.click(dashboardItem);
     expect(navigateMock).toHaveBeenCalledWith('/dashboard');
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -148,8 +158,12 @@ describe('CommandPalette (ENG-105a)', () => {
     };
     render(<CommandPalette isOpen onClose={vi.fn()} />);
     await screen.findByTestId('command-palette-search');
-    expect(screen.queryByTestId('command-palette-item-navigate.operations')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('command-palette-item-navigate.quotations')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('command-palette-item-navigate.operations')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('command-palette-item-navigate.quotations')
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('command-palette-item-navigate.products')).toBeInTheDocument();
   });
 
@@ -163,8 +177,12 @@ describe('CommandPalette (ENG-105a)', () => {
     render(<CommandPalette isOpen onClose={vi.fn()} />);
     await screen.findByTestId('command-palette-search');
     expect(screen.queryByTestId('command-palette-item-navigate.coPilot')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('command-palette-item-navigate.operations')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('command-palette-item-navigate.quotations')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('command-palette-item-navigate.operations')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('command-palette-item-navigate.quotations')
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('command-palette-item-navigate.products')).toBeInTheDocument();
   });
 
@@ -232,18 +250,12 @@ describe('CommandPalette (ENG-105a)', () => {
       render(<CommandPalette isOpen onClose={vi.fn()} />);
       await screen.findByTestId('command-palette-search');
 
-      expect(
-        screen.getByTestId('command-palette-item-navigate.posTouch')
-      ).toBeInTheDocument();
-      expect(
-        screen.getByTestId('command-palette-item-navigate.kds')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.posTouch')).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.kds')).toBeInTheDocument();
       expect(
         screen.getByTestId('command-palette-item-navigate.customerDisplay')
       ).toBeInTheDocument();
-      expect(
-        screen.getByTestId('command-palette-item-navigate.mobileWaiter')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.mobileWaiter')).toBeInTheDocument();
       expect(
         screen.getByTestId('command-palette-item-navigate.restaurantTables')
       ).toBeInTheDocument();
@@ -255,18 +267,12 @@ describe('CommandPalette (ENG-105a)', () => {
       render(<CommandPalette isOpen onClose={vi.fn()} />);
       await screen.findByTestId('command-palette-search');
 
-      expect(
-        screen.getByTestId('command-palette-item-navigate.posTouch')
-      ).toBeInTheDocument();
-      expect(
-        screen.getByTestId('command-palette-item-navigate.kds')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.posTouch')).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.kds')).toBeInTheDocument();
       expect(
         screen.getByTestId('command-palette-item-navigate.customerDisplay')
       ).toBeInTheDocument();
-      expect(
-        screen.getByTestId('command-palette-item-navigate.mobileWaiter')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.mobileWaiter')).toBeInTheDocument();
       expect(
         screen.queryByTestId('command-palette-item-navigate.restaurantTables')
       ).not.toBeInTheDocument();
@@ -291,9 +297,7 @@ describe('CommandPalette (ENG-105a)', () => {
         screen.queryByTestId('command-palette-item-navigate.restaurantTables')
       ).not.toBeInTheDocument();
       // kds stays visible because it has its own module flag.
-      expect(
-        screen.getByTestId('command-palette-item-navigate.kds')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.kds')).toBeInTheDocument();
     });
 
     it('substring filter "touch" narrows to POS Touch only', async () => {
@@ -302,14 +306,10 @@ describe('CommandPalette (ENG-105a)', () => {
       const input = await screen.findByTestId('command-palette-search');
       fireEvent.change(input, { target: { value: 'touch' } });
 
-      expect(
-        screen.getByTestId('command-palette-item-navigate.posTouch')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-item-navigate.posTouch')).toBeInTheDocument();
       // KDS / Customer Display / Mobile Waiter labels do not include
       // the substring, so they fall out of the filter.
-      expect(
-        screen.queryByTestId('command-palette-item-navigate.kds')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('command-palette-item-navigate.kds')).not.toBeInTheDocument();
       expect(
         screen.queryByTestId('command-palette-item-navigate.customerDisplay')
       ).not.toBeInTheDocument();
@@ -347,16 +347,12 @@ describe('CommandPalette (ENG-105a)', () => {
       render(<CommandPalette isOpen onClose={vi.fn()} />);
       await screen.findByTestId('command-palette');
 
-      expect(
-        screen.queryByTestId('command-palette-recent-header')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('command-palette-recent-header')).not.toBeInTheDocument();
       // The catalogue-order contract from ENG-105a stays intact: the
       // first option is still the dashboard.
       const listbox = screen.getByRole('listbox');
       const firstOption = listbox.querySelector('[data-palette-item]');
-      expect(firstOption?.id).toBe(
-        'command-palette-item-navigate.dashboard'
-      );
+      expect(firstOption?.id).toBe('command-palette-item-navigate.dashboard');
     });
 
     it('surfaces used actions in a Recent section ordered by count then recency, without duplicates', async () => {
@@ -368,26 +364,22 @@ describe('CommandPalette (ENG-105a)', () => {
       render(<CommandPalette isOpen onClose={vi.fn()} />);
       await screen.findByTestId('command-palette');
 
-      expect(
-        screen.getByTestId('command-palette-recent-header')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-recent-header')).toBeInTheDocument();
       const listbox = screen.getByRole('listbox');
-      const optionIds = Array.from(
-        listbox.querySelectorAll('[data-palette-item]')
-      ).map(el => el.id);
+      const optionIds = Array.from(listbox.querySelectorAll('[data-palette-item]')).map(
+        el => el.id
+      );
       expect(optionIds.slice(0, 3)).toEqual([
         'command-palette-item-navigate.products',
         'command-palette-item-navigate.customers',
         'command-palette-item-navigate.sales',
       ]);
       // No duplicates: each used action appears exactly once.
-      expect(
-        optionIds.filter(id => id === 'command-palette-item-navigate.products')
-      ).toHaveLength(1);
+      expect(optionIds.filter(id => id === 'command-palette-item-navigate.products')).toHaveLength(
+        1
+      );
       // The divider separates the section from the catalogue.
-      expect(
-        screen.getByTestId('command-palette-catalogue-divider')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('command-palette-catalogue-divider')).toBeInTheDocument();
     });
 
     it('hides the Recent section while a query is active', async () => {
@@ -397,9 +389,7 @@ describe('CommandPalette (ENG-105a)', () => {
       const input = screen.getByTestId('command-palette-search');
 
       fireEvent.change(input, { target: { value: 'prod' } });
-      expect(
-        screen.queryByTestId('command-palette-recent-header')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('command-palette-recent-header')).not.toBeInTheDocument();
     });
 
     it('caps the Recent section at five actions', async () => {
@@ -415,9 +405,9 @@ describe('CommandPalette (ENG-105a)', () => {
       await screen.findByTestId('command-palette');
 
       const listbox = screen.getByRole('listbox');
-      const optionIds = Array.from(
-        listbox.querySelectorAll('[data-palette-item]')
-      ).map(el => el.id);
+      const optionIds = Array.from(listbox.querySelectorAll('[data-palette-item]')).map(
+        el => el.id
+      );
       // The sixth most-used action ranks below the divider, in its
       // normal catalogue position — not as a sixth recent entry.
       expect(optionIds[5]).not.toBe('command-palette-item-navigate.orders');
@@ -452,9 +442,10 @@ describe('CommandPalette (ENG-105a)', () => {
       fireEvent.keyDown(container, { key: 'Enter' });
 
       expect(navigateMock).toHaveBeenCalledWith('/sales');
-      const stored = JSON.parse(
-        window.localStorage.getItem(USAGE_KEY) ?? '{}'
-      ) as Record<string, { count: number }>;
+      const stored = JSON.parse(window.localStorage.getItem(USAGE_KEY) ?? '{}') as Record<
+        string,
+        { count: number }
+      >;
       expect(stored['navigate.sales']?.count).toBe(1);
     });
   });

@@ -12,6 +12,7 @@ import {
   CheckoutPreflightPanel,
   PREFLIGHT_PRIMARY_ELEMENT_ID,
 } from '@/features/sales/CheckoutPreflightPanel';
+import { CashierPaceStrip } from '@/features/sales/CashierPaceStrip';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
 import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
@@ -284,6 +285,8 @@ export function SalesCheckoutPanel({
                   <p>
                     {t('cashSession.openedAt')}: {formatDateTime(cashSession.openedAt)}
                   </p>
+                  {/* ENG-204 — opt-in pace HUD; renders nothing while off. */}
+                  <CashierPaceStrip hasActiveCashSession />
                   <p>
                     {t(
                       hasSupervisedClose

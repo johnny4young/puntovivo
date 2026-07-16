@@ -249,7 +249,7 @@ XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
 - **AC**: lista FEFO-ordenada con valor en riesgo; CTA registra auditoría;
   EN/ES; smoke live.
 
-### WC-C4 · HUD de cajero (opt-in) `[checkout]` — **M**
+### WC-C4 · HUD de cajero (opt-in) `[checkout]` — **M** — ✅ ENG-204 shipped 2026-07-16
 
 - **Qué**: mini-strip en el cockpit: ítems/min de la sesión, tiempo medio de
   checkout, mejor marca personal. Opt-in por usuario (esto motiva, no vigila:
@@ -289,7 +289,7 @@ XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
 - **AC**: tenant nuevo ve el checklist; cada paso deep-linkea; se auto-oculta
   al completarse; reaparece solo desde ayuda.
 
-### WC-C8 · Pulso diario del negocio `[audit]` — **S (v1)**
+### WC-C8 · Pulso diario del negocio `[audit]` — **S (v1)** — ✅ ENG-205 shipped 2026-07-16
 
 - **Qué**: card compartible (imagen/PDF ligero) al cierre: ventas, margen,
   ticket promedio, comparación vs mismo día semana anterior. v1: botón
@@ -553,7 +553,7 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 13  | WC-B2 packages/shared                                                                                                           | M        | mantenibilidad        |
 | 14  | WC-B3 FiscalProvider interface                                                                                                  | M        | fiscal                |
 | 15  | WC-D1 listas de precios (con WC-F2)                                                                                             | L        | checkout              |
-| 16  | WC-C5 omnibox de venta                                                                                                          | M        | checkout              |
+| 16  | ✅ WC-C5 omnibox de venta (fila Vender en el palette: barcode exacto → carrito, miss → búsqueda prefilled) — ENG-203 shipped 2026-07-16 | M        | checkout              |
 | 17  | WC-D2 lealtad mínima                                                                                                            | M        | checkout              |
 | 18  | WC-B1 application/ por fases                                                                                                    | L        | mantenibilidad        |
 | 19  | WC-A2 SSE backpressure                                                                                                          | M        | offline               |

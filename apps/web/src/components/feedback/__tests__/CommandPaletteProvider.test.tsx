@@ -12,19 +12,25 @@
  */
 import { render, screen, act, renderHook, waitFor } from '@/test/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  CommandPaletteProvider,
-  useCommandPalette,
-} from '../CommandPaletteProvider';
+import { CommandPaletteProvider, useCommandPalette } from '../CommandPaletteProvider';
 
 let mockIsAuthenticated = true;
+let mockRole = 'admin';
 
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
     isAuthenticated: mockIsAuthenticated,
-    user: { id: 'user-1', email: 'admin@example.com', role: 'admin', tenantId: 't' },
+    user: { id: 'user-1', email: 'admin@example.com', role: mockRole, tenantId: 't' },
     logout: vi.fn(async () => undefined),
   }),
+}));
+
+// ENG-203 — the palette body wires the omnibox sell handler (trpc + cart
+// store underneath); mock it so this suite stays network-free and can
+// assert the synthetic row's activation contract.
+const omniboxSellMock = vi.fn(async () => undefined);
+vi.mock('@/features/sales/useOmniboxSell', () => ({
+  useOmniboxSell: () => omniboxSellMock,
 }));
 
 vi.mock('@/features/modules', () => ({
@@ -39,9 +45,7 @@ vi.mock('@/features/modules', () => ({
 }));
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>(
-    'react-router-dom'
-  );
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
     ...actual,
     useNavigate: () => vi.fn(),
@@ -50,6 +54,8 @@ vi.mock('react-router-dom', async () => {
 
 beforeEach(() => {
   mockIsAuthenticated = true;
+  mockRole = 'admin';
+  omniboxSellMock.mockClear();
   // Spoof a non-mac platform so the listener interprets `Mod` as
   // `Ctrl` and the dispatched KeyboardEvent below matches.
   Object.defineProperty(navigator, 'platform', {
@@ -147,9 +153,63 @@ describe('CommandPaletteProvider (ENG-105a)', () => {
 
   it('useCommandPalette throws outside the provider', () => {
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => renderHook(() => useCommandPalette())).toThrow(
-      /CommandPaletteProvider/
-    );
+    expect(() => renderHook(() => useCommandPalette())).toThrow(/CommandPaletteProvider/);
     errSpy.mockRestore();
+  });
+});
+
+describe('omnibox sell row (ENG-203)', () => {
+  async function openPaletteAndType(query: string) {
+    render(
+      <CommandPaletteProvider>
+        <div />
+      </CommandPaletteProvider>
+    );
+    dispatchKey({ key: 'k', ctrlKey: true });
+    const search = await screen.findByTestId('command-palette-search');
+    act(() => {
+      (search as HTMLInputElement).focus();
+    });
+    const { default: userEvent } = await import('@testing-library/user-event');
+    await userEvent.setup().type(search, query);
+    return search;
+  }
+
+  it('appends the sell row last and fires the omnibox handler on activation', async () => {
+    await openPaletteAndType('7702001');
+
+    const sellRow = await screen.findByTestId('command-palette-item-sales.sellQuery');
+    expect(sellRow).toHaveTextContent('Sell 7702001');
+    const options = screen.getAllByRole('option');
+    expect(options[options.length - 1]).toBe(sellRow);
+
+    const { default: userEvent } = await import('@testing-library/user-event');
+    await userEvent.setup().click(sellRow);
+    expect(omniboxSellMock).toHaveBeenCalledWith('7702001', expect.anything());
+    // The palette closes on activation.
+    expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
+  });
+
+  it('does not offer the sell row to viewers', async () => {
+    mockRole = 'viewer';
+    await openPaletteAndType('7702001');
+
+    expect(
+      screen.queryByTestId('command-palette-item-sales.sellQuery')
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not offer the sell row while the query is empty', async () => {
+    render(
+      <CommandPaletteProvider>
+        <div />
+      </CommandPaletteProvider>
+    );
+    dispatchKey({ key: 'k', ctrlKey: true });
+    await screen.findByTestId('command-palette');
+
+    expect(
+      screen.queryByTestId('command-palette-item-sales.sellQuery')
+    ).not.toBeInTheDocument();
   });
 });

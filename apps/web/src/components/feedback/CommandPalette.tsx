@@ -26,13 +26,20 @@ import {
   type CommandAction,
   type CommandActionContext,
 } from '@/lib/commandPaletteActions';
-import {
-  loadPaletteUsage,
-  rankRecentActions,
-  recordPaletteActionUsage,
-} from '@/lib/paletteUsage';
+import { loadPaletteUsage, rankRecentActions, recordPaletteActionUsage } from '@/lib/paletteUsage';
 import { formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
+import { useOmniboxSell } from '@/features/sales/useOmniboxSell';
+
+/**
+ * ENG-203 — synthetic omnibox row id. Never recorded into the Recent
+ * ranking (its label depends on the live query, so a remembered entry
+ * would render meaninglessly) and never part of the static catalogue.
+ */
+const SELL_QUERY_ACTION_ID = 'sales.sellQuery';
+
+/** Roles allowed to push a product into the active cart from anywhere. */
+const SELL_QUERY_ROLES: ReadonlyArray<string> = ['admin', 'manager', 'cashier'];
 
 export interface CommandPaletteProps {
   isOpen: boolean;
@@ -40,11 +47,7 @@ export interface CommandPaletteProps {
   restoreFocusTo?: (() => HTMLElement | null) | undefined;
 }
 
-export function CommandPalette({
-  isOpen,
-  onClose,
-  restoreFocusTo,
-}: CommandPaletteProps) {
+export function CommandPalette({ isOpen, onClose, restoreFocusTo }: CommandPaletteProps) {
   const { t } = useTranslation('palette');
 
   return (
@@ -76,6 +79,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   const { user, logout } = useAuth();
   const { modules, isPlaceholder } = useModulesSnapshot();
   const navigate = useNavigate();
+  const omniboxSell = useOmniboxSell();
   const [query, setQuery] = useState('');
   const [rawSelectedIndex, setRawSelectedIndex] = useState(0);
   const listRef = useRef<HTMLUListElement>(null);
@@ -86,15 +90,13 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   const resolveLabel = useMemo(
     () =>
       (action: CommandAction): string =>
-        t(`palette:${action.labelKey}`, { defaultValue: action.id }),
+        t(`palette:${action.labelKey}`, { defaultValue: action.id, ...action.labelArgs }),
     [t]
   );
   const resolveDescription = useMemo(
     () =>
       (action: CommandAction): string =>
-        action.descriptionKey
-          ? t(`palette:${action.descriptionKey}`, { defaultValue: '' })
-          : '',
+        action.descriptionKey ? t(`palette:${action.descriptionKey}`, { defaultValue: '' }) : '',
     [t]
   );
 
@@ -107,19 +109,10 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   // (the body remounts on every open, so each open sees the latest
   // ranking without any effect/state plumbing).
   const tenantId = user?.tenantId ?? null;
-  const usage = useMemo(
-    () => loadPaletteUsage(tenantId),
-    [tenantId]
-  );
+  const usage = useMemo(() => loadPaletteUsage(tenantId), [tenantId]);
 
   const filtered = useMemo(
-    () =>
-      filterActionsByQuery(
-        visibleActions,
-        query,
-        resolveLabel,
-        resolveDescription
-      ),
+    () => filterActionsByQuery(visibleActions, query, resolveLabel, resolveDescription),
     [visibleActions, query, resolveLabel, resolveDescription]
   );
 
@@ -129,8 +122,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   // count-then-recency. With no usage recorded this is empty and the
   // palette renders exactly the pre-ENG-105g list.
   const recentActions = useMemo(
-    () =>
-      query.trim() === '' ? rankRecentActions(visibleActions, usage) : [],
+    () => (query.trim() === '' ? rankRecentActions(visibleActions, usage) : []),
     [query, visibleActions, usage]
   );
 
@@ -138,16 +130,36 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   // recent section first, then the catalogue WITHOUT the duplicated
   // recent ids. Section headers are presentational only — indexes,
   // wrap-around, and aria-activedescendant all run over this array.
-  const orderedActions = useMemo(() => {
-    if (recentActions.length === 0) {
-      return filtered;
+  // ENG-203 — the omnibox sell row. Appended LAST so a text query that
+  // matches navigation still activates it with a plain Enter; a scanned
+  // barcode matches no catalogue action, leaving the sell row as the only
+  // option — scan + Enter sells. Viewer role never sees it.
+  const sellQueryAction = useMemo<CommandAction | null>(() => {
+    const trimmed = query.trim();
+    if (trimmed === '' || !SELL_QUERY_ROLES.includes(user?.role ?? '')) {
+      return null;
     }
-    const recentIds = new Set(recentActions.map(action => action.id));
-    return [
-      ...recentActions,
-      ...filtered.filter(action => !recentIds.has(action.id)),
-    ];
-  }, [recentActions, filtered]);
+    return {
+      id: SELL_QUERY_ACTION_ID,
+      labelKey: 'actions.sellQuery.label',
+      descriptionKey: 'actions.sellQuery.description',
+      labelArgs: { query: trimmed },
+      roles: SELL_QUERY_ROLES as CommandAction['roles'],
+      perform: ctx => ctx.sellQuery?.(trimmed),
+      group: 'command',
+    };
+  }, [query, user?.role]);
+
+  const orderedActions = useMemo(() => {
+    const catalogue = (() => {
+      if (recentActions.length === 0) {
+        return filtered;
+      }
+      const recentIds = new Set(recentActions.map(action => action.id));
+      return [...recentActions, ...filtered.filter(action => !recentIds.has(action.id))];
+    })();
+    return sellQueryAction ? [...catalogue, sellQueryAction] : catalogue;
+  }, [recentActions, filtered, sellQueryAction]);
 
   // Derive a clamped selection at render time — when the filter
   // shrinks, the index automatically follows without a setState in
@@ -183,10 +195,18 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   }, [selectedIndex, orderedActions]);
 
   const performAction = (action: CommandAction) => {
-    const ctx: CommandActionContext = { navigate, logout };
-    // ENG-105g — remember the activation (device-local, best-effort)
-    // so the next open ranks this action into the Recent section.
-    recordPaletteActionUsage(action.id, tenantId);
+    const ctx: CommandActionContext = {
+      navigate,
+      logout,
+      sellQuery: q => omniboxSell(q, navigate),
+    };
+    // ENG-105g — remember the activation (device-local, best-effort) so the
+    // next open ranks this action into the Recent section. The synthetic
+    // sell row is excluded: its label depends on the live query, so a
+    // remembered entry would render meaninglessly.
+    if (action.id !== SELL_QUERY_ACTION_ID) {
+      recordPaletteActionUsage(action.id, tenantId);
+    }
     onClose();
     void Promise.resolve(action.perform(ctx)).catch(err => {
       console.error('command palette action threw', { actionId: action.id, err });
@@ -200,17 +220,13 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       if (orderedActions.length === 0) return;
-      setSelectedIndex(
-        selectedIndex + 1 >= orderedActions.length ? 0 : selectedIndex + 1
-      );
+      setSelectedIndex(selectedIndex + 1 >= orderedActions.length ? 0 : selectedIndex + 1);
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       if (orderedActions.length === 0) return;
-      setSelectedIndex(
-        selectedIndex - 1 < 0 ? orderedActions.length - 1 : selectedIndex - 1
-      );
+      setSelectedIndex(selectedIndex - 1 < 0 ? orderedActions.length - 1 : selectedIndex - 1);
       return;
     }
     if (event.key === 'Home') {
@@ -243,122 +259,113 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
       aria-haspopup="listbox"
       aria-owns="command-palette-listbox"
     >
-        <div className="flex items-center gap-3 border-b border-line/70 px-4 py-3">
-          <Search className="h-4 w-4 text-secondary-500" aria-hidden="true" />
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={query}
-            onChange={event => {
-              setQuery(event.target.value);
-              setSelectedIndex(0);
-            }}
-            placeholder={t('palette:searchPlaceholder')}
-            aria-label={t('palette:searchPlaceholder')}
-            aria-controls="command-palette-listbox"
-            aria-autocomplete="list"
-            aria-activedescendant={
-              orderedActions[selectedIndex]
-                ? `command-palette-item-${orderedActions[selectedIndex]!.id}`
-                : undefined
-            }
-            data-testid="command-palette-search"
-            className="w-full bg-transparent text-[14px] text-secondary-900 outline-none placeholder:text-secondary-500"
-          />
+      <div className="flex items-center gap-3 border-b border-line/70 px-4 py-3">
+        <Search className="h-4 w-4 text-secondary-500" aria-hidden="true" />
+        <input
+          ref={searchInputRef}
+          type="text"
+          value={query}
+          onChange={event => {
+            setQuery(event.target.value);
+            setSelectedIndex(0);
+          }}
+          placeholder={t('palette:searchPlaceholder')}
+          aria-label={t('palette:searchPlaceholder')}
+          aria-controls="command-palette-listbox"
+          aria-autocomplete="list"
+          aria-activedescendant={
+            orderedActions[selectedIndex]
+              ? `command-palette-item-${orderedActions[selectedIndex]!.id}`
+              : undefined
+          }
+          data-testid="command-palette-search"
+          className="w-full bg-transparent text-[14px] text-secondary-900 outline-none placeholder:text-secondary-500"
+        />
+      </div>
+      {orderedActions.length === 0 ? (
+        <div
+          className="px-4 py-6 text-center text-sm text-secondary-500"
+          data-testid="command-palette-empty"
+        >
+          <p className="font-medium text-secondary-700">{t('palette:noResults')}</p>
+          <p className="mt-1 text-xs text-secondary-500">{t('palette:noResultsHint')}</p>
         </div>
-        {orderedActions.length === 0 ? (
-          <div
-            className="px-4 py-6 text-center text-sm text-secondary-500"
-            data-testid="command-palette-empty"
-          >
-            <p className="font-medium text-secondary-700">
-              {t('palette:noResults')}
-            </p>
-            <p className="mt-1 text-xs text-secondary-500">
-              {t('palette:noResultsHint')}
-            </p>
-          </div>
-        ) : (
-          <ul
-            ref={listRef}
-            id="command-palette-listbox"
-            role="listbox"
-            aria-label={t('palette:title')}
-            className="max-h-[20rem] overflow-y-auto py-1"
-          >
-            {orderedActions.map((action, index) => {
-              const isSelected = index === selectedIndex;
-              const shortcut = action.shortcutId
-                ? getShortcutById(action.shortcutId)
-                : undefined;
-              const shortcutHint = shortcut
-                ? formatKeysForDisplay(shortcut.keys)
-                : null;
-              // ENG-105g — presentational section headers. They are
-              // NOT options: no data-palette-item (the scroll/index
-              // machinery skips them) and aria-hidden (the listbox
-              // stays a flat option list for assistive tech).
-              const sectionHeader =
-                recentActions.length > 0 && index === 0 ? (
-                  <li
-                    aria-hidden="true"
-                    role="presentation"
-                    data-testid="command-palette-recent-header"
-                    className="px-4 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-secondary-500"
-                  >
-                    {t('palette:groups.recent')}
-                  </li>
-                ) : recentActions.length > 0 &&
-                  index === recentActions.length ? (
-                  <li
-                    aria-hidden="true"
-                    role="presentation"
-                    data-testid="command-palette-catalogue-divider"
-                    className="mx-4 mb-1 mt-2 border-t border-line/70"
-                  />
-                ) : null;
-              return (
-                <Fragment key={action.id}>
-                  {sectionHeader}
-                  <li
-                    id={`command-palette-item-${action.id}`}
-                    data-palette-item
-                    data-testid={`command-palette-item-${action.id}`}
-                    role="option"
-                    aria-selected={isSelected}
-                    className={cn(
-                      'flex cursor-pointer items-center gap-3 px-4 py-2.5 text-[13px] transition',
-                      isSelected
-                        ? 'bg-primary-50/80 text-primary-900'
-                        : 'text-secondary-700 hover:bg-secondary-50/60'
-                    )}
-                    onMouseEnter={() => setSelectedIndex(index)}
-                    onClick={() => performAction(action)}
-                  >
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate font-medium text-secondary-950">
-                        {resolveLabel(action)}
-                      </span>
-                      {action.descriptionKey && (
-                        <span className="truncate text-[11.5px] text-secondary-500">
-                          {resolveDescription(action)}
-                        </span>
-                      )}
-                    </div>
-                    {shortcutHint && (
-                      <span
-                        className="rounded-md border border-line/70 bg-surface-2/80 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-secondary-600"
-                        data-testid={`command-palette-shortcut-${action.id}`}
-                      >
-                        {shortcutHint}
+      ) : (
+        <ul
+          ref={listRef}
+          id="command-palette-listbox"
+          role="listbox"
+          aria-label={t('palette:title')}
+          className="max-h-[20rem] overflow-y-auto py-1"
+        >
+          {orderedActions.map((action, index) => {
+            const isSelected = index === selectedIndex;
+            const shortcut = action.shortcutId ? getShortcutById(action.shortcutId) : undefined;
+            const shortcutHint = shortcut ? formatKeysForDisplay(shortcut.keys) : null;
+            // ENG-105g — presentational section headers. They are
+            // NOT options: no data-palette-item (the scroll/index
+            // machinery skips them) and aria-hidden (the listbox
+            // stays a flat option list for assistive tech).
+            const sectionHeader =
+              recentActions.length > 0 && index === 0 ? (
+                <li
+                  aria-hidden="true"
+                  role="presentation"
+                  data-testid="command-palette-recent-header"
+                  className="px-4 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-secondary-500"
+                >
+                  {t('palette:groups.recent')}
+                </li>
+              ) : recentActions.length > 0 && index === recentActions.length ? (
+                <li
+                  aria-hidden="true"
+                  role="presentation"
+                  data-testid="command-palette-catalogue-divider"
+                  className="mx-4 mb-1 mt-2 border-t border-line/70"
+                />
+              ) : null;
+            return (
+              <Fragment key={action.id}>
+                {sectionHeader}
+                <li
+                  id={`command-palette-item-${action.id}`}
+                  data-palette-item
+                  data-testid={`command-palette-item-${action.id}`}
+                  role="option"
+                  aria-selected={isSelected}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-3 px-4 py-2.5 text-[13px] transition',
+                    isSelected
+                      ? 'bg-primary-50/80 text-primary-900'
+                      : 'text-secondary-700 hover:bg-secondary-50/60'
+                  )}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  onClick={() => performAction(action)}
+                >
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate font-medium text-secondary-950">
+                      {resolveLabel(action)}
+                    </span>
+                    {action.descriptionKey && (
+                      <span className="truncate text-[11.5px] text-secondary-500">
+                        {resolveDescription(action)}
                       </span>
                     )}
-                  </li>
-                </Fragment>
-              );
-            })}
-          </ul>
-        )}
+                  </div>
+                  {shortcutHint && (
+                    <span
+                      className="rounded-md border border-line/70 bg-surface-2/80 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-secondary-600"
+                      data-testid={`command-palette-shortcut-${action.id}`}
+                    >
+                      {shortcutHint}
+                    </span>
+                  )}
+                </li>
+              </Fragment>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

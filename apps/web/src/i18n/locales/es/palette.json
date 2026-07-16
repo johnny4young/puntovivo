@@ -36,6 +36,10 @@
       "logout": "Cerrar sesión",
       "createProduct": "Crear nuevo producto",
       "createCustomer": "Crear nuevo cliente"
+    },
+    "sellQuery": {
+      "label": "Vender {{query}}",
+      "description": "Agrega al carrito activo y abre la caja"
     }
   },
   "descriptions": {

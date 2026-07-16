@@ -179,3 +179,29 @@ describe('DayCloseSummaryModal (ENG-198)', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('day pulse share (ENG-205)', () => {
+  it('opens the WhatsApp deep link with the aggregate pulse text', async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+    mockQueryState = { data: adminSummary, isPending: false, isError: false };
+    render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /Share via WhatsApp/ }));
+
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    const [url, target, features] = openSpy.mock.calls[0] ?? [];
+    expect(String(url)).toMatch(/^https:\/\/wa\.me\/\?text=/);
+    expect(String(url)).toContain(encodeURIComponent('$950.00'));
+    expect(target).toBe('_blank');
+    expect(features).toBe('noopener,noreferrer');
+    openSpy.mockRestore();
+  });
+
+  it('hides the share button while the summary has not arrived', () => {
+    mockQueryState = { data: undefined, isPending: true, isError: false };
+    render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: /Share via WhatsApp/ })).not.toBeInTheDocument();
+  });
+});
