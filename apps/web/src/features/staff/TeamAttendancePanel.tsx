@@ -4,8 +4,11 @@ import type { AppRouter } from '@puntovivo/server';
 import {
   ChevronLeft,
   ChevronRight,
+  Download,
+  FileSpreadsheet,
   History,
   Info,
+  Loader2,
   PencilLine,
   RefreshCw,
   UsersRound,
@@ -19,6 +22,11 @@ import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import {
+  buildSemanticFilename,
+  downloadFile,
+  mimeTypeForExtension,
+} from '@/services/export/exportService';
+import {
   AttendanceCorrectionModal,
   type AttendanceCorrectionFormValues,
 } from './AttendanceCorrectionModal';
@@ -28,6 +36,7 @@ import {
   formatAttendanceTime,
   formatDuration,
 } from './attendanceFormat';
+import { buildAttendanceAccountingWorkbook, buildAttendancePayrollCsv } from './attendanceExport';
 
 export type AttendanceRow =
   inferRouterOutputs<AppRouter>['employeeShifts']['attendance']['list']['rows'][number];
@@ -40,6 +49,7 @@ interface TeamAttendancePanelProps {
 }
 
 const PAGE_SIZE = 10;
+type AttendanceExportFormat = 'csv' | 'xlsx';
 
 function AttendanceCard({
   row,
@@ -281,6 +291,7 @@ export function TeamAttendancePanel({
   const utils = trpc.useUtils();
   const [page, setPage] = useState(1);
   const [correctingRow, setCorrectingRow] = useState<AttendanceRow | null>(null);
+  const [exporting, setExporting] = useState<AttendanceExportFormat | null>(null);
   const query = trpc.employeeShifts.attendance.list.useQuery(
     {
       fromDate,
@@ -310,6 +321,57 @@ export function TeamAttendancePanel({
       titleKey: 'schedule:attendance.correction.saveError',
     }),
   });
+  const exportQuery = trpc.employeeShifts.attendance.export.useQuery(
+    {
+      fromDate,
+      toDate,
+      ...(siteId ? { siteId } : {}),
+    },
+    { enabled: false, staleTime: 0 }
+  );
+
+  const handleExport = async (format: AttendanceExportFormat) => {
+    setExporting(format);
+    try {
+      const exported = await exportQuery.refetch({ throwOnError: true });
+      if (!exported.data) throw new Error('Attendance export returned no data');
+      const report = exported.data;
+      const filename = buildSemanticFilename(
+        {
+          kind: 'report',
+          name: format === 'csv' ? 'payroll-attendance' : 'accounting-attendance-handoff',
+          date: `${fromDate}-${toDate}`,
+        },
+        format
+      );
+      if (format === 'csv') {
+        downloadFile(
+          new Blob([buildAttendancePayrollCsv(report, fromDate, toDate)], {
+            type: mimeTypeForExtension('csv'),
+          }),
+          filename
+        );
+      } else {
+        const bytes = await buildAttendanceAccountingWorkbook(report, fromDate, toDate, t);
+        const payload = bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength
+        ) as ArrayBuffer;
+        downloadFile(new Blob([payload], { type: mimeTypeForExtension('xlsx') }), filename);
+      }
+      toast.success({
+        title: t(
+          format === 'csv'
+            ? 'schedule:attendance.export.successCsv'
+            : 'schedule:attendance.export.successXlsx'
+        ),
+      });
+    } catch (error) {
+      onErrorToast(toast, t, { titleKey: 'schedule:attendance.export.error' })(error);
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const submitCorrection = (values: AttendanceCorrectionFormValues) => {
     if (!correctingRow) return;
@@ -339,15 +401,55 @@ export function TeamAttendancePanel({
               </p>
             )}
           </div>
-          <button
-            type="button"
-            className="pv-btn ghost compact self-start"
-            disabled={query.isFetching}
-            onClick={() => void query.refetch()}
-          >
-            <RefreshCw className={query.isFetching ? 'animate-spin' : ''} aria-hidden="true" />
-            {t('common:actions.refresh')}
-          </button>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <button
+              type="button"
+              className="pv-btn outline compact"
+              disabled={query.isPending || total === 0 || exporting !== null}
+              onClick={() => void handleExport('csv')}
+            >
+              {exporting === 'csv' ? (
+                <Loader2 className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Download aria-hidden="true" />
+              )}
+              {exporting === 'csv'
+                ? t('schedule:attendance.export.downloading')
+                : t('schedule:attendance.export.payrollCsv')}
+            </button>
+            <button
+              type="button"
+              className="pv-btn outline compact"
+              disabled={query.isPending || total === 0 || exporting !== null}
+              onClick={() => void handleExport('xlsx')}
+            >
+              {exporting === 'xlsx' ? (
+                <Loader2 className="animate-spin" aria-hidden="true" />
+              ) : (
+                <FileSpreadsheet aria-hidden="true" />
+              )}
+              {exporting === 'xlsx'
+                ? t('schedule:attendance.export.downloading')
+                : t('schedule:attendance.export.accountingXlsx')}
+            </button>
+            <button
+              type="button"
+              className="pv-btn ghost compact"
+              disabled={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              <RefreshCw className={query.isFetching ? 'animate-spin' : ''} aria-hidden="true" />
+              {t('common:actions.refresh')}
+            </button>
+          </div>
+        </div>
+
+        <div className="pv-strip info" data-testid="attendance-export-notice">
+          <FileSpreadsheet className="ic" aria-hidden="true" />
+          <div className="msg">
+            <p className="font-semibold">{t('schedule:attendance.export.noticeTitle')}</p>
+            <p>{t('schedule:attendance.export.notice')}</p>
+          </div>
         </div>
 
         {policy && (

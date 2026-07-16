@@ -68,6 +68,12 @@ export const listEmployeeAttendanceInput = z
   })
   .strict();
 
+/** ENG-140f — bounded, unpaginated input for payroll/accounting handoff exports. */
+export const exportEmployeeAttendanceInput = listEmployeeAttendanceInput.omit({
+  page: true,
+  perPage: true,
+});
+
 const correctionBreakInput = z
   .object({
     id: z.string().trim().min(1).optional(),
@@ -104,6 +110,7 @@ export type UpdateScheduledShiftInput = z.infer<typeof updateScheduledShiftInput
 export type CancelScheduledShiftInput = z.infer<typeof cancelScheduledShiftInput>;
 export type EmployeeBreakCommandInput = z.infer<typeof employeeBreakCommandInput>;
 export type ListEmployeeAttendanceInput = z.infer<typeof listEmployeeAttendanceInput>;
+export type ExportEmployeeAttendanceInput = z.infer<typeof exportEmployeeAttendanceInput>;
 export type CreateEmployeeAttendanceCorrectionInput = z.infer<
   typeof createEmployeeAttendanceCorrectionInput
 >;

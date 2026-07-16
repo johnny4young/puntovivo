@@ -1,7 +1,8 @@
 import path from 'node:path';
-import { mkdir } from 'node:fs/promises';
+import { copyFile, mkdir, readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
+import ExcelJS from 'exceljs';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   attachClientIssueTracker,
@@ -177,7 +178,7 @@ function readCorrectionEvidence(shiftId: string) {
   }
 }
 
-test.describe('employee attendance evidence (ENG-106b / ENG-140b / ENG-140c / ENG-140e)', () => {
+test.describe('employee attendance evidence (ENG-106b / ENG-140b / ENG-140c / ENG-140e / ENG-140f)', () => {
   test('persists shifts and explicit breaks across the user menu in both locales', async ({
     page,
   }) => {
@@ -348,6 +349,55 @@ test.describe('employee attendance evidence (ENG-106b / ENG-140b / ENG-140c / EN
     await expect(friday).toContainText('Version 1 · E2E Overtime Admin');
     await captureEvidence(page, 'eng-140e-correction-en');
 
+    await expect(attendance.getByTestId('attendance-export-notice')).toContainText(
+      'not only the visible page'
+    );
+    const csvDownloadPromise = page.waitForEvent('download');
+    await attendance.getByRole('button', { name: 'Payroll CSV' }).click();
+    const csvDownload = await csvDownloadPromise;
+    expect(csvDownload.suggestedFilename()).toBe('payroll-attendance-2026-07-13-2026-07-20.csv');
+    const csvPath = await csvDownload.path();
+    expect(csvPath).not.toBeNull();
+    const csv = await readFile(csvPath!, 'utf8');
+    expect(csv).toContain('"employee_name"');
+    expect(csv).toContain('"Camila Horas"');
+    expect(csv).toContain('"correction_version"');
+    expect(csv).toContain('"Verified against the signed register close and supervisor note."');
+    expect(csv).toContain('co_day_overtime');
+
+    const xlsxDownloadPromise = page.waitForEvent('download');
+    await attendance.getByRole('button', { name: 'Accounting XLSX' }).click();
+    const xlsxDownload = await xlsxDownloadPromise;
+    expect(xlsxDownload.suggestedFilename()).toBe(
+      'accounting-attendance-handoff-2026-07-13-2026-07-20.xlsx'
+    );
+    const xlsxPath = await xlsxDownload.path();
+    expect(xlsxPath).not.toBeNull();
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(xlsxPath!);
+    expect(workbook.worksheets.map(sheet => sheet.name)).toEqual([
+      'Summary',
+      'Evidence',
+      'Premiums',
+      'Read me',
+    ]);
+    const evidenceValues = workbook
+      .getWorksheet('Evidence')!
+      .getColumn(6)
+      .values.map(value => String(value));
+    expect(evidenceValues).toContain(scenario.fridayShiftId);
+    expect(workbook.getWorksheet('Premiums')!.getCell('E2').value).toBe('co_day_overtime');
+
+    const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
+    if (auditDir) {
+      await mkdir(auditDir, { recursive: true });
+      await Promise.all([
+        copyFile(csvPath!, path.join(auditDir, csvDownload.suggestedFilename())),
+        copyFile(xlsxPath!, path.join(auditDir, xlsxDownload.suggestedFilename())),
+      ]);
+    }
+    await captureEvidence(page, 'eng-140f-exports-en');
+
     const persisted = readCorrectionEvidence(scenario.fridayShiftId);
     expect(persisted.raw).toEqual({
       clockedInAt: '2026-07-17T13:00:00.000Z',
@@ -362,11 +412,17 @@ test.describe('employee attendance evidence (ENG-106b / ENG-140b / ENG-140c / EN
     await ensureLanguage(page, 'es');
     await expect(friday).toContainText('Corregida · v1');
     await expect(friday).toContainText('Extra diurna · 1h 30m · 1.25×');
+    await expect(attendance.getByRole('button', { name: 'CSV de nómina' })).toBeVisible();
+    await expect(attendance.getByRole('button', { name: 'XLSX contable' })).toBeVisible();
+    await expect(attendance.getByTestId('attendance-export-notice')).toContainText(
+      'no solo la página visible'
+    );
     await page.setViewportSize({ width: 390, height: 844 });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true);
     await captureEvidence(page, 'eng-140e-correction-mobile-es');
+    await captureEvidence(page, 'eng-140f-exports-mobile-es');
     await expectNoClientIssues(tracker);
   });
 });

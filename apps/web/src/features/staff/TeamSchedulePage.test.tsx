@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   cancel: vi.fn(),
   invalidate: vi.fn(),
   refetch: vi.fn(),
+  exportRefetch: vi.fn(),
+  exportUseQuery: vi.fn(),
   context: {
     data: undefined as
       | undefined
@@ -76,6 +78,12 @@ vi.mock('@/lib/trpc', () => ({
       },
       attendance: {
         list: { useQuery: () => ({ ...mocks.attendance, refetch: mocks.refetch }) },
+        export: {
+          useQuery: (...args: unknown[]) => {
+            mocks.exportUseQuery(...args);
+            return { data: undefined, isFetching: false, refetch: mocks.exportRefetch };
+          },
+        },
       },
     },
   },
@@ -134,6 +142,8 @@ beforeEach(() => {
   mocks.cancel.mockReset();
   mocks.invalidate.mockReset();
   mocks.refetch.mockReset();
+  mocks.exportRefetch.mockReset();
+  mocks.exportUseQuery.mockReset();
   mocks.context.data = {
     employees: [
       { id: 'manager-1', name: 'Mario Ruiz', role: 'manager' },
@@ -164,6 +174,10 @@ describe('TeamSchedulePage (ENG-140a)', () => {
     expect(screen.getByTestId('team-schedule-page')).toHaveTextContent(/8/);
     expect(await screen.findByTestId('team-attendance-panel')).toBeInTheDocument();
     expect(screen.getAllByText(/America\/Bogota/)).toHaveLength(2);
+    expect(mocks.exportUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ fromDate: currentWeekStart() }),
+      expect.objectContaining({ enabled: false })
+    );
   });
 
   it('creates a shift from a day-specific CTA with stable defaults', async () => {

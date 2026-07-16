@@ -547,6 +547,28 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
      )`
   ).run(tenantId);
 
+  // Launch-import and ledger journeys create durable E2E customers with
+  // template actors. They are therefore not covered by the disposable-user
+  // cleanup above and eventually push fresh fixtures past the first 50 rows
+  // rendered by the customer list. Detach historical snapshot references,
+  // remove the isolated ledger/audit/sync children, then prune the customer.
+  const e2eCustomerIds = `select id from customers where tenant_id = ? and name like 'E2E %'`;
+  db.prepare(
+    `delete from customer_ledger_entries where tenant_id = ? and customer_id in (${e2eCustomerIds})`
+  ).run(tenantId, tenantId);
+  for (const table of ['sales', 'fiscal_documents', 'quotations', 'delivery_orders']) {
+    db.prepare(
+      `update ${table} set customer_id = null where tenant_id = ? and customer_id in (${e2eCustomerIds})`
+    ).run(tenantId, tenantId);
+  }
+  db.prepare(
+    `delete from sync_outbox where tenant_id = ? and entity_type = 'customers' and entity_id in (${e2eCustomerIds})`
+  ).run(tenantId, tenantId);
+  db.prepare(
+    `delete from audit_logs where tenant_id = ? and resource_type = 'customer' and resource_id in (${e2eCustomerIds})`
+  ).run(tenantId, tenantId);
+  db.prepare(`delete from customers where tenant_id = ? and name like 'E2E %'`).run(tenantId);
+
   // Disposable products + providers.
   db.prepare(`delete from products where tenant_id = ? and name like 'E2E %'`).run(tenantId);
   db.prepare(`delete from providers where tenant_id = ? and name like 'E2E Provider %'`).run(

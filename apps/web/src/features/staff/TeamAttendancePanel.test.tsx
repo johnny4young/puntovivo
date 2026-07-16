@@ -1,13 +1,18 @@
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@/test/utils';
+import { fireEvent, render, screen, waitFor, within } from '@/test/utils';
 
 const mocks = vi.hoisted(() => ({
   input: null as unknown,
   historyInput: null as unknown,
+  exportInput: null as unknown,
   refetch: vi.fn(),
+  exportRefetch: vi.fn(),
   invalidate: vi.fn(),
   correctionMutate: vi.fn(),
+  buildCsv: vi.fn(() => '\uFEFFcsv-data'),
+  buildWorkbook: vi.fn(async () => new Uint8Array([1, 2, 3])),
+  downloadFile: vi.fn(),
   toastSuccess: vi.fn(),
   correctionMutation: { isPending: false },
   historyQuery: {
@@ -125,6 +130,12 @@ vi.mock('@/lib/trpc', () => ({
             return { ...mocks.query, refetch: mocks.refetch };
           },
         },
+        export: {
+          useQuery: (input: unknown) => {
+            mocks.exportInput = input;
+            return { refetch: mocks.exportRefetch };
+          },
+        },
         corrections: {
           list: {
             useQuery: (input: unknown) => {
@@ -136,6 +147,21 @@ vi.mock('@/lib/trpc', () => ({
       },
     },
   },
+}));
+
+vi.mock('@/services/export/exportService', () => ({
+  buildSemanticFilename: (spec: { name: string; date: string }, extension: string) =>
+    `${spec.name}-${spec.date}.${extension}`,
+  downloadFile: mocks.downloadFile,
+  mimeTypeForExtension: (extension: string) =>
+    extension === 'csv'
+      ? 'text/csv;charset=utf-8'
+      : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+}));
+
+vi.mock('./attendanceExport', () => ({
+  buildAttendancePayrollCsv: mocks.buildCsv,
+  buildAttendanceAccountingWorkbook: mocks.buildWorkbook,
 }));
 
 vi.mock('@/lib/useCriticalMutation', () => ({
@@ -228,15 +254,21 @@ function attendanceResult(): NonNullable<typeof mocks.query.data> {
 
 beforeEach(() => {
   mocks.refetch.mockReset();
+  mocks.exportRefetch.mockReset();
   mocks.invalidate.mockReset();
   mocks.correctionMutate.mockReset();
+  mocks.buildCsv.mockClear();
+  mocks.buildWorkbook.mockClear();
+  mocks.downloadFile.mockReset();
   mocks.toastSuccess.mockReset();
   mocks.input = null;
+  mocks.exportInput = null;
   mocks.historyInput = null;
   mocks.query.data = attendanceResult();
   mocks.query.isPending = false;
   mocks.query.isFetching = false;
   mocks.query.error = null;
+  mocks.exportRefetch.mockImplementation(async () => ({ data: attendanceResult() }));
   mocks.historyQuery.data = [];
   mocks.historyQuery.isPending = false;
   mocks.historyQuery.error = null;
@@ -423,5 +455,36 @@ describe('TeamAttendancePanel (ENG-140b)', () => {
 
     expect(mocks.historyInput).toEqual({ employeeShiftId: 'shift-1' });
     expect(card).toHaveTextContent('Version 2 · María López');
+  });
+
+  it('downloads complete-range payroll CSV and accounting XLSX handoffs', async () => {
+    const user = userEvent.setup();
+    render(
+      <TeamAttendancePanel fromDate="2026-07-13" toDate="2026-07-20" siteId="site-1" enabled />
+    );
+
+    expect(screen.getByTestId('attendance-export-notice')).toHaveTextContent(
+      'not only the visible page'
+    );
+    expect(mocks.exportInput).toEqual({
+      fromDate: '2026-07-13',
+      toDate: '2026-07-20',
+      siteId: 'site-1',
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Payroll CSV' }));
+    await waitFor(() => expect(mocks.buildCsv).toHaveBeenCalledTimes(1));
+    expect(mocks.downloadFile).toHaveBeenLastCalledWith(
+      expect.any(Blob),
+      'payroll-attendance-2026-07-13-2026-07-20.csv'
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Accounting XLSX' }));
+    await waitFor(() => expect(mocks.buildWorkbook).toHaveBeenCalledTimes(1));
+    expect(mocks.downloadFile).toHaveBeenLastCalledWith(
+      expect.any(Blob),
+      'accounting-attendance-handoff-2026-07-13-2026-07-20.xlsx'
+    );
+    expect(mocks.exportRefetch).toHaveBeenCalledTimes(2);
   });
 });

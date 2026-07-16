@@ -636,6 +636,12 @@
     "output": "inferred"
   },
   {
+    "path": "employeeShifts.attendance.export",
+    "kind": "query",
+    "input": "object{fromDate:string,siteId?:string[minLength=1],toDate:string,userId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "employeeShifts.attendance.list",
     "kind": "query",
     "input": "object{fromDate:string,page?:integer[max=9007199254740991,min>0]=1,perPage?:integer[min=1,max=100]=50,siteId?:string[minLength=1],toDate:string,userId?:string[minLength=1]}",

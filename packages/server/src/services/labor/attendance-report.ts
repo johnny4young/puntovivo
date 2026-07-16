@@ -3,7 +3,10 @@ import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { sites, users } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import type { ListEmployeeAttendanceInput } from '../../trpc/schemas/employeeShifts.js';
+import type {
+  ExportEmployeeAttendanceInput,
+  ListEmployeeAttendanceInput,
+} from '../../trpc/schemas/employeeShifts.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
 import { loadEffectiveAttendanceRows } from './attendance-evidence.js';
 import { managerCanTarget, MAX_LIST_DAYS } from './scheduled-shift-policy.js';
@@ -94,12 +97,12 @@ function profilesInRange(
   return [...profiles.values()];
 }
 
-/** ENG-140b/c/e — effective attendance evidence with country overtime classification. */
-export async function listEmployeeAttendance(
+async function buildEmployeeAttendanceReport(
   db: DatabaseInstance,
   tenantId: string,
   actorRole: UserRole,
-  input: ListEmployeeAttendanceInput
+  input: ExportEmployeeAttendanceInput,
+  pagination: { page: number; perPage: number } | null
 ) {
   assertAttendanceRange(input.fromDate, input.toDate);
   await assertAttendanceFilters(db, tenantId, actorRole, input);
@@ -114,7 +117,12 @@ export async function listEmployeeAttendance(
     ...(input.userId ? { userId: input.userId } : {}),
   });
   const total = effectiveRows.length;
-  const rows = effectiveRows.slice((input.page - 1) * input.perPage, input.page * input.perPage);
+  const rows = pagination
+    ? effectiveRows.slice(
+        (pagination.page - 1) * pagination.perPage,
+        pagination.page * pagination.perPage
+      )
+    : effectiveRows;
 
   const visibleUserIds = [...new Set(rows.map(row => row.userId))];
   const overtimeCountry = isOvertimeCountry(locale.countryCode) ? locale.countryCode : null;
@@ -183,8 +191,7 @@ export async function listEmployeeAttendance(
       limitations: [...new Set(policyProfiles.flatMap(profile => profile.limitations))],
       sourceUrls: [...new Set(policyProfiles.flatMap(profile => profile.sourceUrls))],
     },
-    page: input.page,
-    perPage: input.perPage,
+    ...(pagination ? { page: pagination.page, perPage: pagination.perPage } : {}),
     total,
     rows: rows.map(row => {
       const observedEnd = row.clockedOutAt ?? generatedAt;
@@ -204,4 +211,31 @@ export async function listEmployeeAttendance(
       };
     }),
   };
+}
+
+/** ENG-140b/c/e — effective attendance evidence with country overtime classification. */
+export async function listEmployeeAttendance(
+  db: DatabaseInstance,
+  tenantId: string,
+  actorRole: UserRole,
+  input: ListEmployeeAttendanceInput
+) {
+  return buildEmployeeAttendanceReport(db, tenantId, actorRole, input, {
+    page: input.page,
+    perPage: input.perPage,
+  });
+}
+
+/**
+ * ENG-140f — one complete, 31-day-bounded evidence snapshot for browser-side
+ * CSV/XLSX construction. The server owns filtering, role visibility, timezone,
+ * corrections, and overtime; the renderer only serializes these canonical rows.
+ */
+export async function exportEmployeeAttendance(
+  db: DatabaseInstance,
+  tenantId: string,
+  actorRole: UserRole,
+  input: ExportEmployeeAttendanceInput
+) {
+  return buildEmployeeAttendanceReport(db, tenantId, actorRole, input, null);
 }

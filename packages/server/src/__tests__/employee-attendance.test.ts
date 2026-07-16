@@ -360,6 +360,44 @@ describe('employee attendance and breaks (ENG-140b)', () => {
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
+  it('exports every effective row in a bounded range without the list pagination ceiling', async () => {
+    const manager = await createEmployee('manager');
+    const cashier = await createEmployee('cashier');
+    for (let index = 0; index < 101; index += 1) {
+      const startMinute = index * 2;
+      const clockedInAt = new Date(Date.UTC(2027, 0, 5, 0, startMinute)).toISOString();
+      const clockedOutAt = new Date(Date.UTC(2027, 0, 5, 0, startMinute + 1)).toISOString();
+      insertClosedShift({ userId: cashier.id, clockedInAt, clockedOutAt });
+    }
+    const attendance = appRouter.createCaller(manager.fresh()).employeeShifts.attendance;
+    const input = {
+      fromDate: '2027-01-04',
+      toDate: '2027-01-06',
+      userId: cashier.id,
+    };
+
+    const [page, exported] = await Promise.all([
+      attendance.list({ ...input, page: 1, perPage: 100 }),
+      attendance.export(input),
+    ]);
+
+    expect(page).toMatchObject({ total: 101, page: 1, perPage: 100 });
+    expect(page.rows).toHaveLength(100);
+    expect(exported.total).toBe(101);
+    expect(exported.rows).toHaveLength(101);
+    expect(exported).not.toHaveProperty('page');
+    expect(exported.rows.every(row => row.userId === cashier.id)).toBe(true);
+    await expect(
+      attendance.export({
+        fromDate: '2027-01-01',
+        toDate: '2027-02-02',
+        userId: cashier.id,
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'EMPLOYEE_SHIFT_ATTENDANCE_RANGE_INVALID' }),
+    });
+  });
+
   it('classifies overtime across every tenant site while displaying the requested site', async () => {
     const manager = await createEmployee('manager');
     const cashier = await createEmployee('cashier');
@@ -548,6 +586,14 @@ describe('employee attendance and breaks (ENG-140b)', () => {
         createdByUserId: manager.id,
       },
     });
+    const exported = await appRouter
+      .createCaller(manager.fresh())
+      .employeeShifts.attendance.export({
+        fromDate: '2026-07-14',
+        toDate: '2026-07-15',
+        userId: cashier.id,
+      });
+    expect(exported.rows).toEqual(report.rows);
     const history = await appRouter
       .createCaller(manager.fresh())
       .employeeShifts.attendance.corrections.list({ employeeShiftId: shiftId });
@@ -599,18 +645,16 @@ describe('employee attendance and breaks (ENG-140b)', () => {
       rows: [{ id: shiftId, correction: { version: 1 } }],
     });
 
-    await appRouter
-      .createCaller(manager.fresh())
-      .employeeShifts.attendance.corrections.create({
-        employeeShiftId: shiftId,
-        expectedVersion: 1,
-        startDate: '2026-07-16',
-        startTime: '08:00',
-        endDate: '2026-07-16',
-        endTime: '16:00',
-        breaks: [],
-        reason: 'Second review superseded the prior effective payroll date.',
-      });
+    await appRouter.createCaller(manager.fresh()).employeeShifts.attendance.corrections.create({
+      employeeShiftId: shiftId,
+      expectedVersion: 1,
+      startDate: '2026-07-16',
+      startTime: '08:00',
+      endDate: '2026-07-16',
+      endTime: '16:00',
+      breaks: [],
+      reason: 'Second review superseded the prior effective payroll date.',
+    });
     await expect(
       appRouter.createCaller(manager.fresh()).employeeShifts.attendance.list({
         fromDate: '2026-07-14',
