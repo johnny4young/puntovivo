@@ -22,6 +22,13 @@ const mocks = vi.hoisted(() => ({
   },
   kick: { mutateAsync: vi.fn(), isPending: false },
   bytes: { mutateAsync: vi.fn(), isPending: false },
+  shiftPolicy: {
+    data: { requiresApproval: false } as { requiresApproval: boolean } | undefined,
+    isFetching: false,
+    error: null as Error | null,
+    refetchError: null as Error | null,
+    refetch: vi.fn(),
+  },
   invalidate: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
@@ -47,6 +54,9 @@ vi.mock('@/lib/useCriticalMutation', () => ({
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({ managerApprovals: { mine: { invalidate: mocks.invalidate } } }),
+    lossPrevention: {
+      evaluateShiftAction: { useQuery: () => mocks.shiftPolicy },
+    },
   },
 }));
 
@@ -70,6 +80,17 @@ describe('useCashDrawerController', () => {
     mocks.role = 'cashier';
     mocks.kick.mutateAsync.mockReset().mockResolvedValue({ status: 'ok' });
     mocks.bytes.mutateAsync.mockReset();
+    mocks.shiftPolicy.data = { requiresApproval: false };
+    mocks.shiftPolicy.isFetching = false;
+    mocks.shiftPolicy.error = null;
+    mocks.shiftPolicy.refetchError = null;
+    mocks.shiftPolicy.refetch.mockReset().mockImplementation(async () => {
+      mocks.shiftPolicy.error = mocks.shiftPolicy.refetchError;
+      return {
+        data: mocks.shiftPolicy.data,
+        error: mocks.shiftPolicy.refetchError,
+      };
+    });
     mocks.invalidate.mockReset().mockResolvedValue(undefined);
     mocks.success.mockReset();
     mocks.error.mockReset();
@@ -99,5 +120,35 @@ describe('useCashDrawerController', () => {
     expect(result.current.approvalModal.isOpen).toBe(false);
     expect(mocks.kick.mutateAsync).toHaveBeenCalledWith({ siteId: 'site-1' });
     expect(mocks.invalidate).not.toHaveBeenCalled();
+  });
+
+  it('requires an exact grant when a manager crosses the configured no-sale cap', async () => {
+    mocks.role = 'manager';
+    mocks.shiftPolicy.data = { requiresApproval: true };
+    const { result } = renderHook(() => useCashDrawerController({ hasRegisteredDrawer: true }));
+
+    await act(async () => result.current.onKickCashDrawer?.());
+    expect(result.current.approvalModal.isOpen).toBe(true);
+    act(() => result.current.approvalModal.onConfirm());
+
+    await waitFor(() => {
+      expect(mocks.kick.mutateAsync).toHaveBeenCalledWith({
+        siteId: 'site-1',
+        approvalRequestId: 'approval-1',
+      });
+    });
+  });
+
+  it('fails closed when the manager pre-dispatch policy refresh fails', async () => {
+    mocks.role = 'manager';
+    mocks.shiftPolicy.refetchError = new Error('Policy unavailable');
+    const { result } = renderHook(() => useCashDrawerController({ hasRegisteredDrawer: true }));
+
+    await act(async () => result.current.onKickCashDrawer?.());
+
+    expect(result.current.approvalModal.isOpen).toBe(true);
+    expect(mocks.kick.mutateAsync).not.toHaveBeenCalled();
+    act(() => result.current.approvalModal.onConfirm());
+    expect(mocks.kick.mutateAsync).not.toHaveBeenCalled();
   });
 });

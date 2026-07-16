@@ -25,6 +25,10 @@ import {
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
+import {
+  resolveLossPreventionSettings,
+  writeLossPreventionSettings,
+} from '../services/loss-prevention/settings.js';
 import { recordOperationStart } from '../services/operation-journal/journal.js';
 import { completeSale } from '../application/sales/completeSale.js';
 import { voidSale } from '../application/sales/voidSale.js';
@@ -336,6 +340,59 @@ describe('voidSale (ENG-106c3 approval boundary)', () => {
       approvalRequestId,
       approvedBy: approvalApproverId,
     });
+  });
+
+  it('forces a manager through the shift void cap and tags the completed audit session', async () => {
+    const db = getDatabase();
+    const previous = resolveLossPreventionSettings(db, tenantId);
+    writeLossPreventionSettings(db, tenantId, {
+      ...previous,
+      roles: {
+        ...previous.roles,
+        manager: {
+          ...previous.roles.manager,
+          shift: {
+            ...previous.roles.manager.shift,
+            voids: { enabled: true, maxCount: 0, maxAmount: 0 },
+          },
+        },
+      },
+    });
+    try {
+      const productId = await seedProduct({
+        name: 'Void shift cap manager',
+        sku: `VD-SHIFT-CAP-${nanoid()}`,
+        stock: 5,
+      });
+      const saleId = await seedCompletedCashSale(productId);
+      const managerContext = buildContext({ user: { id: userId, role: 'manager' } });
+
+      await expect(voidSale(managerContext, { id: saleId })).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+      });
+
+      const approvalRequestId = await seedApprovedVoidGrant(saleId);
+      await voidSale(managerContext, { id: saleId, approvalRequestId });
+
+      const audit = db
+        .select({ metadata: auditLogs.metadata })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.action, 'sale.void'),
+            eq(auditLogs.resourceId, saleId),
+            eq(auditLogs.actorId, userId)
+          )
+        )
+        .get();
+      expect(audit?.metadata).toMatchObject({
+        approvalRequestId,
+        approvedBy: approvalApproverId,
+        lossPreventionCashSessionId: cashSessionId,
+      });
+    } finally {
+      writeLossPreventionSettings(db, tenantId, previous);
+    }
   });
 });
 

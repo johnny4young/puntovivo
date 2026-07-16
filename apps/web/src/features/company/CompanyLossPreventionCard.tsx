@@ -21,10 +21,26 @@ interface AfterHoursPolicy {
 interface RolePolicy {
   maxDiscountPercent: number;
   afterHoursSale: AfterHoursPolicy;
+  shift: {
+    refunds: ShiftValuePolicy;
+    voids: ShiftValuePolicy;
+    noSale: NoSalePolicy;
+  };
+}
+
+interface ShiftValuePolicy {
+  enabled: boolean;
+  maxCount: number;
+  maxAmount: number;
+}
+
+interface NoSalePolicy {
+  enabled: boolean;
+  maxCount: number;
 }
 
 interface LossPreventionPolicy {
-  version: 1;
+  version: 2;
   roles: Record<LossPreventionRole, RolePolicy>;
 }
 
@@ -33,15 +49,25 @@ const LOCAL_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 function clonePolicy(policy: LossPreventionPolicy): LossPreventionPolicy {
   return {
-    version: 1,
+    version: 2,
     roles: {
       cashier: {
         ...policy.roles.cashier,
         afterHoursSale: { ...policy.roles.cashier.afterHoursSale },
+        shift: {
+          refunds: { ...policy.roles.cashier.shift.refunds },
+          voids: { ...policy.roles.cashier.shift.voids },
+          noSale: { ...policy.roles.cashier.shift.noSale },
+        },
       },
       manager: {
         ...policy.roles.manager,
         afterHoursSale: { ...policy.roles.manager.afterHoursSale },
+        shift: {
+          refunds: { ...policy.roles.manager.shift.refunds },
+          voids: { ...policy.roles.manager.shift.voids },
+          noSale: { ...policy.roles.manager.shift.noSale },
+        },
       },
     },
   };
@@ -102,6 +128,7 @@ export function CompanyLossPreventionCard(): React.ReactElement {
 
   const validationError = ROLE_KEYS.some(role => {
     const value = policy.roles[role];
+    const shiftValues = [value.shift.refunds, value.shift.voids];
     return (
       !Number.isFinite(value.maxDiscountPercent) ||
       value.maxDiscountPercent < 0 ||
@@ -109,7 +136,19 @@ export function CompanyLossPreventionCard(): React.ReactElement {
       !LOCAL_TIME_PATTERN.test(value.afterHoursSale.blockedFrom) ||
       !LOCAL_TIME_PATTERN.test(value.afterHoursSale.blockedUntil) ||
       (value.afterHoursSale.enabled &&
-        value.afterHoursSale.blockedFrom === value.afterHoursSale.blockedUntil)
+        value.afterHoursSale.blockedFrom === value.afterHoursSale.blockedUntil) ||
+      shiftValues.some(
+        limit =>
+          !Number.isInteger(limit.maxCount) ||
+          limit.maxCount < 0 ||
+          limit.maxCount > 1000 ||
+          !Number.isFinite(limit.maxAmount) ||
+          limit.maxAmount < 0 ||
+          limit.maxAmount > 1_000_000_000_000
+      ) ||
+      !Number.isInteger(value.shift.noSale.maxCount) ||
+      value.shift.noSale.maxCount < 0 ||
+      value.shift.noSale.maxCount > 1000
     );
   });
   const isDirty = JSON.stringify(policy) !== JSON.stringify(persisted);
@@ -259,6 +298,179 @@ export function CompanyLossPreventionCard(): React.ReactElement {
                         }))
                       }
                     />
+                  </div>
+                </div>
+
+                <div className="mt-5 border-t border-line pt-4">
+                  <h3 className="text-sm font-semibold text-secondary-950">
+                    {t('settings:company.lossPrevention.shift.title')}
+                  </h3>
+                  <p className="mt-1 text-xs text-secondary-500">
+                    {t('settings:company.lossPrevention.shift.help')}
+                  </p>
+
+                  {(['refunds', 'voids'] as const).map(action => {
+                    const rule = rolePolicy.shift[action];
+                    const actionId = `loss-prevention-${role}-${action}`;
+                    return (
+                      <div
+                        key={action}
+                        className="mt-4 rounded-xl border border-line bg-surface p-3"
+                      >
+                        <label htmlFor={`${actionId}-enabled`} className="flex items-start gap-3">
+                          <input
+                            id={`${actionId}-enabled`}
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 rounded border-line accent-[var(--primary)]"
+                            checked={rule.enabled}
+                            onChange={event =>
+                              updateRole(role, current => ({
+                                ...current,
+                                shift: {
+                                  ...current.shift,
+                                  [action]: {
+                                    ...current.shift[action],
+                                    enabled: event.target.checked,
+                                  },
+                                },
+                              }))
+                            }
+                          />
+                          <span>
+                            <span
+                              id={`${actionId}-label`}
+                              className="block text-sm font-medium text-secondary-900"
+                            >
+                              {t(`settings:company.lossPrevention.shift.${action}.label`)}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-secondary-500">
+                              {t(`settings:company.lossPrevention.shift.${action}.help`)}
+                            </span>
+                          </span>
+                        </label>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          <div>
+                            <label
+                              id={`${actionId}-count-label`}
+                              htmlFor={`${actionId}-count`}
+                              className="label"
+                            >
+                              {t('settings:company.lossPrevention.shift.maxCount')}
+                            </label>
+                            <input
+                              id={`${actionId}-count`}
+                              aria-labelledby={`${actionId}-label ${actionId}-count-label`}
+                              type="number"
+                              min={0}
+                              max={1000}
+                              step={1}
+                              className="input mt-1"
+                              value={rule.maxCount}
+                              onChange={event =>
+                                updateRole(role, current => ({
+                                  ...current,
+                                  shift: {
+                                    ...current.shift,
+                                    [action]: {
+                                      ...current.shift[action],
+                                      maxCount: Number(event.target.value),
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label
+                              id={`${actionId}-amount-label`}
+                              htmlFor={`${actionId}-amount`}
+                              className="label"
+                            >
+                              {t('settings:company.lossPrevention.shift.maxAmount')}
+                            </label>
+                            <input
+                              id={`${actionId}-amount`}
+                              aria-labelledby={`${actionId}-label ${actionId}-amount-label`}
+                              type="number"
+                              min={0}
+                              max={1_000_000_000_000}
+                              step={0.01}
+                              className="input mt-1"
+                              value={rule.maxAmount}
+                              onChange={event =>
+                                updateRole(role, current => ({
+                                  ...current,
+                                  shift: {
+                                    ...current.shift,
+                                    [action]: {
+                                      ...current.shift[action],
+                                      maxAmount: Number(event.target.value),
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div className="mt-4 rounded-xl border border-line bg-surface p-3">
+                    <label
+                      htmlFor={`loss-prevention-${role}-no-sale-enabled`}
+                      className="flex items-start gap-3"
+                    >
+                      <input
+                        id={`loss-prevention-${role}-no-sale-enabled`}
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 rounded border-line accent-[var(--primary)]"
+                        checked={rolePolicy.shift.noSale.enabled}
+                        onChange={event =>
+                          updateRole(role, current => ({
+                            ...current,
+                            shift: {
+                              ...current.shift,
+                              noSale: { ...current.shift.noSale, enabled: event.target.checked },
+                            },
+                          }))
+                        }
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-secondary-900">
+                          {t('settings:company.lossPrevention.shift.noSale.label')}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-secondary-500">
+                          {t('settings:company.lossPrevention.shift.noSale.help')}
+                        </span>
+                      </span>
+                    </label>
+                    <div className="mt-3">
+                      <label htmlFor={`loss-prevention-${role}-no-sale-count`} className="label">
+                        {t('settings:company.lossPrevention.shift.noSale.maxCount')}
+                      </label>
+                      <input
+                        id={`loss-prevention-${role}-no-sale-count`}
+                        type="number"
+                        min={0}
+                        max={1000}
+                        step={1}
+                        className="input mt-1"
+                        value={rolePolicy.shift.noSale.maxCount}
+                        onChange={event =>
+                          updateRole(role, current => ({
+                            ...current,
+                            shift: {
+                              ...current.shift,
+                              noSale: {
+                                ...current.shift.noSale,
+                                maxCount: Number(event.target.value),
+                              },
+                            },
+                          }))
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
               </fieldset>

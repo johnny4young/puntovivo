@@ -36,6 +36,10 @@ import { completeSale } from '../application/sales/completeSale.js';
 import { returnSale } from '../application/sales/returnSale.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
+import {
+  resolveLossPreventionSettings,
+  writeLossPreventionSettings,
+} from '../services/loss-prevention/index.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -416,6 +420,97 @@ describe('returnSale (ENG-106c3 approval boundary)', () => {
       approvalRequestId,
       approvedBy: approvalApproverId,
     });
+  });
+
+  it('forces a normally direct manager through an exact grant after the shift cap', async () => {
+    const db = getDatabase();
+    const previous = resolveLossPreventionSettings(db, tenantId);
+    writeLossPreventionSettings(db, tenantId, {
+      ...previous,
+      roles: {
+        ...previous.roles,
+        manager: {
+          ...previous.roles.manager,
+          shift: {
+            ...previous.roles.manager.shift,
+            refunds: { enabled: true, maxCount: 0, maxAmount: 0 },
+          },
+        },
+      },
+    });
+    try {
+      const productId = await seedProduct({
+        name: 'Return shift cap manager',
+        sku: `RT-SHIFT-CAP-${nanoid()}`,
+        stock: 5,
+      });
+      const saleId = await seedCompletedCashSale(productId);
+      const managerContext = buildContext({ user: { id: userId, role: 'manager' } });
+
+      await expect(returnSale(managerContext, { id: saleId })).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+      });
+      const unchanged = await db
+        .select({ paymentStatus: sales.paymentStatus })
+        .from(sales)
+        .where(eq(sales.id, saleId))
+        .get();
+      expect(unchanged?.paymentStatus).toBe('paid');
+
+      const approvalRequestId = await seedApprovedRefundGrant(saleId);
+      await expect(
+        returnSale(managerContext, { id: saleId, approvalRequestId })
+      ).resolves.toBeTruthy();
+      const consumed = await db
+        .select({ status: managerApprovalRequests.status })
+        .from(managerApprovalRequests)
+        .where(eq(managerApprovalRequests.id, approvalRequestId))
+        .get();
+      expect(consumed?.status).toBe('consumed');
+
+      const completedAudit = db
+        .select({ metadata: auditLogs.metadata })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.action, 'sale.return'),
+            eq(auditLogs.resourceId, saleId),
+            eq(auditLogs.actorId, userId)
+          )
+        )
+        .get();
+      expect(completedAudit?.metadata).toMatchObject({
+        approvalRequestId,
+        approvedBy: approvalApproverId,
+        lossPreventionCashSessionId: cashSessionId,
+      });
+
+      const triggers = await db
+        .select({ after: auditLogs.after, metadata: auditLogs.metadata })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.action, 'loss_prevention.triggered'),
+            eq(auditLogs.resourceId, 'shift_refund_limit')
+          )
+        )
+        .all();
+      expect(triggers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            after: { requiredAction: 'sale_refund', approvalProvided: false },
+            metadata: expect.objectContaining({ actionResourceId: saleId }),
+          }),
+          expect.objectContaining({
+            after: { requiredAction: 'sale_refund', approvalProvided: true },
+            metadata: expect.objectContaining({ actionResourceId: saleId }),
+          }),
+        ])
+      );
+    } finally {
+      writeLossPreventionSettings(db, tenantId, previous);
+    }
   });
 
   it('preserves the direct manager refund boundary without a grant', async () => {

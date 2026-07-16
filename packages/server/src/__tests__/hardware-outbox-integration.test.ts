@@ -44,6 +44,10 @@ import {
 import type { Context } from '../trpc/context.js';
 import { registerDevice } from '../services/devices/devicesService.js';
 import { freshCriticalContext } from './utils/criticalCommandFixture.js';
+import {
+  resolveLossPreventionSettings,
+  writeLossPreventionSettings,
+} from '../services/loss-prevention/index.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -54,7 +58,7 @@ let saleId: string;
 let deviceId: string;
 let approverId: string;
 
-function buildContext(role: 'admin' | 'cashier' = 'admin'): Context {
+function buildContext(role: 'admin' | 'manager' | 'cashier' = 'admin'): Context {
   return freshCriticalContext({
     db: getDatabase(),
     serverApp: server.app,
@@ -339,6 +343,95 @@ describe('peripherals.kickCashDrawer', () => {
         }),
       ])
     );
+  });
+
+  it('forces a direct manager through approval after the configured no-sale cap', async () => {
+    const db = getDatabase();
+    const previous = resolveLossPreventionSettings(db, tenantId);
+    writeLossPreventionSettings(db, tenantId, {
+      ...previous,
+      roles: {
+        ...previous.roles,
+        manager: {
+          ...previous.roles.manager,
+          shift: {
+            ...previous.roles.manager.shift,
+            noSale: { enabled: true, maxCount: 0 },
+          },
+        },
+      },
+    });
+    try {
+      const mock = new MockEscPosTransport();
+      __setEscPosTransportForTest(mock);
+      const adminCaller = appRouter.createCaller(buildContext('admin'));
+      await adminCaller.peripherals.register({
+        siteId,
+        kind: 'cash_drawer',
+        driver: 'escpos',
+        config: { channel: 'mock' },
+      });
+      const managerCaller = appRouter.createCaller(buildContext('manager'));
+      await expect(managerCaller.peripherals.kickCashDrawer({ siteId })).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+      });
+
+      const approvalRequestId = nanoid();
+      const timestamp = now();
+      await db.insert(managerApprovalRequests).values({
+        id: approvalRequestId,
+        tenantId,
+        siteId,
+        requesterId: userId,
+        action: 'cash_drawer_open',
+        status: 'approved',
+        reason: 'Manager no-sale cap exceeded',
+        resourceType: 'site',
+        resourceId: siteId,
+        summary: { label: 'Main site' },
+        requestedAt: timestamp,
+        expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+        decidedAt: timestamp,
+        decidedBy: approverId,
+        grantExpiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      await expect(
+        appRouter
+          .createCaller(buildContext('manager'))
+          .peripherals.kickCashDrawer({ siteId, approvalRequestId })
+      ).resolves.toEqual({ status: 'ok' });
+      expect(mock.buffer()).toEqual(ESCPOS_BYTES.DRAWER_KICK);
+
+      const consumed = await db
+        .select({ status: managerApprovalRequests.status })
+        .from(managerApprovalRequests)
+        .where(eq(managerApprovalRequests.id, approvalRequestId))
+        .get();
+      expect(consumed?.status).toBe('consumed');
+      const trigger = await db
+        .select({ after: auditLogs.after, metadata: auditLogs.metadata })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.action, 'loss_prevention.triggered'),
+            eq(auditLogs.resourceId, 'no_sale_limit')
+          )
+        )
+        .all();
+      expect(trigger).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            after: { requiredAction: 'cash_drawer_open', approvalProvided: true },
+            metadata: expect.objectContaining({ actionResourceId: siteId }),
+          }),
+        ])
+      );
+    } finally {
+      writeLossPreventionSettings(db, tenantId, previous);
+    }
   });
 
   it('keeps a cashier grant consumed when hardware failure is ambiguous', async () => {

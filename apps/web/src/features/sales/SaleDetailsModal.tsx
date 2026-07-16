@@ -195,15 +195,45 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   const sale = saleQuery.data;
   const isSalesRole =
     user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier';
+  const isLossPreventionPolicyRole = user?.role === 'manager' || user?.role === 'cashier';
+  const shiftPolicyQueryEnabled = isOpen && !!saleId && isLossPreventionPolicyRole;
+  const refundShiftPolicyQuery = trpc.lossPrevention.evaluateShiftAction.useQuery(
+    { action: 'sale_refund', saleId: saleId ?? '' },
+    {
+      enabled: shiftPolicyQueryEnabled,
+      refetchInterval: shiftPolicyQueryEnabled ? 30_000 : false,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    }
+  );
+  const voidShiftPolicyQuery = trpc.lossPrevention.evaluateShiftAction.useQuery(
+    { action: 'sale_void', saleId: saleId ?? '' },
+    {
+      enabled: shiftPolicyQueryEnabled,
+      refetchInterval: shiftPolicyQueryEnabled ? 30_000 : false,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    }
+  );
   const isPostSaleEligible = sale?.status === 'completed' && sale.paymentStatus !== 'refunded';
-  const refundNeedsApproval =
+  const refundBaselineNeedsApproval =
     isSalesRole &&
     isPostSaleEligible &&
     !canRolePerformApprovalActionDirectly(user?.role, 'sale_refund');
-  const voidNeedsApproval =
+  const voidBaselineNeedsApproval =
     isSalesRole &&
     isPostSaleEligible &&
     !canRolePerformApprovalActionDirectly(user?.role, 'sale_void');
+  const refundNeedsApproval =
+    refundBaselineNeedsApproval || refundShiftPolicyQuery.data?.requiresApproval === true;
+  const voidNeedsApproval =
+    voidBaselineNeedsApproval || voidShiftPolicyQuery.data?.requiresApproval === true;
+  const refundPolicyBlocked =
+    shiftPolicyQueryEnabled &&
+    (refundShiftPolicyQuery.isFetching || refundShiftPolicyQuery.error !== null);
+  const voidPolicyBlocked =
+    shiftPolicyQueryEnabled &&
+    (voidShiftPolicyQuery.isFetching || voidShiftPolicyQuery.error !== null);
   const refundApproval = useManagerApproval({
     action: 'sale_refund',
     resourceType: 'sale',
@@ -287,6 +317,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       });
     } catch {
       // Error state is handled by the mutation callbacks.
+      void refundShiftPolicyQuery.refetch();
     }
   };
 
@@ -325,6 +356,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       });
     } catch {
       // Error state is handled by the mutation callbacks.
+      void voidShiftPolicyQuery.refetch();
     }
   };
 
@@ -343,7 +375,10 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
           <>
             {canReturnSale && (
               <ModalButton
-                onClick={() => setIsReturnConfirmOpen(true)}
+                onClick={() => {
+                  if (shiftPolicyQueryEnabled) void refundShiftPolicyQuery.refetch();
+                  setIsReturnConfirmOpen(true);
+                }}
                 variant="primary"
                 disabled={isPrinting || returnMutation.isPending || voidMutation.isPending}
               >
@@ -352,7 +387,10 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
             )}
             {canVoidSale && (
               <ModalButton
-                onClick={() => setIsVoidConfirmOpen(true)}
+                onClick={() => {
+                  if (shiftPolicyQueryEnabled) void voidShiftPolicyQuery.refetch();
+                  setIsVoidConfirmOpen(true);
+                }}
                 variant="danger"
                 disabled={isPrinting || returnMutation.isPending || voidMutation.isPending}
               >
@@ -465,17 +503,25 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
           })) ?? []
         }
         approvalPanel={
-          refundNeedsApproval ? (
+          refundNeedsApproval || refundPolicyBlocked ? (
             <CheckoutApprovalPanel
               {...refundApproval}
+              isLoading={refundApproval.isLoading || refundShiftPolicyQuery.isFetching}
               isHashing={false}
-              hasError={refundApproval.error !== null}
+              hasError={refundApproval.error !== null || refundShiftPolicyQuery.error !== null}
               onRequest={refundApproval.requestApproval}
-              onRefresh={() => void refundApproval.refetch()}
+              onRefresh={() =>
+                void Promise.all([
+                  refundApproval.refetch(),
+                  ...(shiftPolicyQueryEnabled ? [refundShiftPolicyQuery.refetch()] : []),
+                ])
+              }
             />
           ) : undefined
         }
-        confirmDisabled={refundNeedsApproval && !refundApproval.allApproved}
+        confirmDisabled={
+          refundPolicyBlocked || (refundNeedsApproval && !refundApproval.allApproved)
+        }
         onClose={() => setIsReturnConfirmOpen(false)}
         onConfirm={reason => {
           setIsReturnConfirmOpen(false);
@@ -493,16 +539,22 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         message={t('confirm.void.message')}
         confirmText={t('confirm.void.confirmText')}
         loading={voidMutation.isPending}
-        confirmDisabled={voidNeedsApproval && !voidApproval.allApproved}
+        confirmDisabled={voidPolicyBlocked || (voidNeedsApproval && !voidApproval.allApproved)}
         variant="danger"
       >
-        {voidNeedsApproval && (
+        {(voidNeedsApproval || voidPolicyBlocked) && (
           <CheckoutApprovalPanel
             {...voidApproval}
+            isLoading={voidApproval.isLoading || voidShiftPolicyQuery.isFetching}
             isHashing={false}
-            hasError={voidApproval.error !== null}
+            hasError={voidApproval.error !== null || voidShiftPolicyQuery.error !== null}
             onRequest={voidApproval.requestApproval}
-            onRefresh={() => void voidApproval.refetch()}
+            onRefresh={() =>
+              void Promise.all([
+                voidApproval.refetch(),
+                ...(shiftPolicyQueryEnabled ? [voidShiftPolicyQuery.refetch()] : []),
+              ])
+            }
           />
         )}
       </ConfirmModal>

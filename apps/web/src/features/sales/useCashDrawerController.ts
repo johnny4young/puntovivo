@@ -68,7 +68,23 @@ export function useCashDrawerController({
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const isSalesRole =
     user?.role === 'cashier' || user?.role === 'manager' || user?.role === 'admin';
-  const needsApproval = user?.role === 'cashier';
+  const isLossPreventionPolicyRole = user?.role === 'cashier' || user?.role === 'manager';
+  const baselineNeedsApproval = user?.role === 'cashier';
+  const shiftPolicyQueryEnabled =
+    isLossPreventionPolicyRole && hasRegisteredDrawer && !!currentSite;
+  const shiftPolicyQuery = trpc.lossPrevention.evaluateShiftAction.useQuery(
+    { action: 'cash_drawer_open', siteId: currentSite?.id ?? '' },
+    {
+      enabled: shiftPolicyQueryEnabled,
+      refetchInterval: shiftPolicyQueryEnabled ? 30_000 : false,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    }
+  );
+  const needsApproval = baselineNeedsApproval || shiftPolicyQuery.data?.requiresApproval === true;
+  const policyBlocked =
+    shiftPolicyQueryEnabled && (shiftPolicyQuery.isFetching || shiftPolicyQuery.error !== null);
+  const refetchShiftPolicy = shiftPolicyQuery.refetch;
   const kickCashDrawerMutation = useCriticalMutation('peripherals.kickCashDrawer');
   const buildDrawerKickBytesMutation = useCriticalMutation('peripherals.buildDrawerKickBytes');
   const approval = useManagerApproval({
@@ -131,6 +147,9 @@ export function useCashDrawerController({
         if (approvalRequestId) {
           await utils.managerApprovals.mine.invalidate();
         }
+        if (shiftPolicyQueryEnabled) {
+          await refetchShiftPolicy();
+        }
       }
     },
     [
@@ -141,14 +160,23 @@ export function useCashDrawerController({
       t,
       toast,
       utils,
+      refetchShiftPolicy,
+      shiftPolicyQueryEnabled,
     ]
   );
   const onKickCashDrawer =
     isSalesRole && hasRegisteredDrawer && !!currentSite
       ? async () => {
-          if (needsApproval) {
+          if (needsApproval || policyBlocked) {
             setIsApprovalOpen(true);
             return;
+          }
+          if (shiftPolicyQueryEnabled) {
+            const refreshed = await shiftPolicyQuery.refetch();
+            if (refreshed.error || refreshed.data?.requiresApproval) {
+              setIsApprovalOpen(true);
+              return;
+            }
           }
           await handleKickCashDrawer();
         }
@@ -159,20 +187,24 @@ export function useCashDrawerController({
 
   const approvalModal: CashDrawerApprovalModalProps = {
     isOpen: isApprovalOpen,
-    isLoading: approval.isLoading,
+    isLoading: approval.isLoading || shiftPolicyQuery.isFetching,
     isRequesting: approval.isRequesting,
     isDispatching: isKickingCashDrawer,
-    hasError: approval.error !== null,
-    allApproved: approval.allApproved,
+    hasError: approval.error !== null || shiftPolicyQuery.error !== null,
+    allApproved: !policyBlocked && (!needsApproval || approval.allApproved),
     views: approval.views,
     onRequest: approval.requestApproval,
-    onRefresh: () => void approval.refetch(),
+    onRefresh: () =>
+      void Promise.all([
+        approval.refetch(),
+        ...(shiftPolicyQueryEnabled ? [shiftPolicyQuery.refetch()] : []),
+      ]),
     onClose: () => {
       if (!isKickingCashDrawer) setIsApprovalOpen(false);
     },
     onConfirm: () => {
-      if (!approval.approvalRequestId) return;
-      void handleKickCashDrawer(approval.approvalRequestId);
+      if (policyBlocked || (needsApproval && !approval.approvalRequestId)) return;
+      void handleKickCashDrawer(approval.approvalRequestId ?? undefined);
     },
   };
 

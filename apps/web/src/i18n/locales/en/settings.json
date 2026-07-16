@@ -667,7 +667,26 @@
         "from": "Blocked from",
         "until": "Blocked until"
       },
-      "validation": "Enter discount limits from 0% to 100% and use different start and end times for each enabled blocked window.",
+      "shift": {
+        "title": "Per-shift action limits",
+        "help": "Completed actions by this employee are counted from the start of their current cash session. Crossing either limit requires a separate approval.",
+        "maxCount": "Maximum actions",
+        "maxAmount": "Maximum total amount",
+        "refunds": {
+          "label": "Limit refunds per shift",
+          "help": "Uses the full refunded sale amount in the company currency."
+        },
+        "voids": {
+          "label": "Limit voids per shift",
+          "help": "Uses the full voided sale amount in the company currency."
+        },
+        "noSale": {
+          "label": "Limit no-sale drawer opens",
+          "help": "Counts manual drawer opens that are not part of completing a sale.",
+          "maxCount": "Maximum manual opens"
+        }
+      },
+      "validation": "Enter discount limits from 0% to 100%, valid shift limits, and different start and end times for each enabled blocked window.",
       "auditNote": "Every policy change and every checkout that triggers a rule is recorded in the audit log without cart or customer details.",
       "save": "Save checkout controls",
       "saving": "Saving…",

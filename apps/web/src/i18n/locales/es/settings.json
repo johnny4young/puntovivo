@@ -667,7 +667,26 @@
         "from": "Bloqueado desde",
         "until": "Bloqueado hasta"
       },
-      "validation": "Ingresa límites de descuento entre 0% y 100% y usa horas de inicio y fin diferentes en cada periodo bloqueado activo.",
+      "shift": {
+        "title": "Límites de acciones por turno",
+        "help": "Las acciones completadas por esta persona se cuentan desde el inicio de su sesión de caja actual. Superar cualquiera de los límites requiere una aprobación aparte.",
+        "maxCount": "Máximo de acciones",
+        "maxAmount": "Monto total máximo",
+        "refunds": {
+          "label": "Limitar reembolsos por turno",
+          "help": "Usa el monto total de la venta reembolsada en la moneda de la empresa."
+        },
+        "voids": {
+          "label": "Limitar anulaciones por turno",
+          "help": "Usa el monto total de la venta anulada en la moneda de la empresa."
+        },
+        "noSale": {
+          "label": "Limitar aperturas de cajón sin venta",
+          "help": "Cuenta las aperturas manuales del cajón que no forman parte del cobro de una venta.",
+          "maxCount": "Máximo de aperturas manuales"
+        }
+      },
+      "validation": "Ingresa límites de descuento entre 0% y 100%, límites de turno válidos y horas de inicio y fin diferentes en cada periodo bloqueado activo.",
       "auditNote": "Cada cambio de política y cada cobro que active una regla queda registrado en auditoría sin datos del carrito ni del cliente.",
       "save": "Guardar controles de cobro",
       "saving": "Guardando…",

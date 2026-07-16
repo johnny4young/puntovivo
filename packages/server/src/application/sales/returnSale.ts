@@ -55,11 +55,15 @@ import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import type { CompleteSaleContext, CompleteSaleLogger, CompleteSaleResult } from './types.js';
 import type { CompleteSaleSaleRecord } from './completeSale.js';
 import {
-  claimActionApproval,
   consumeManagerApprovalGrant,
   enqueueConsumedManagerApprovalBestEffort,
   releaseManagerApprovalClaim,
 } from '../../services/manager-approvals.js';
+import {
+  claimShiftLossPreventionApproval,
+  evaluateShiftLossPrevention,
+  recordShiftLossPreventionTrigger,
+} from '../../services/loss-prevention/index.js';
 
 const fallbackLog = createModuleLogger('application/sales/returnSale');
 
@@ -267,7 +271,27 @@ export async function returnSale(
   let auditLogId: string | null = null;
   let restoredLotIds: string[] = [];
 
-  const approvalClaim = claimActionApproval({
+  const lossPreventionEvaluation = evaluateShiftLossPrevention({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    actorId: ctx.user.id,
+    role: ctx.user.role,
+    action: 'sale_refund',
+    amount: existing.total,
+  });
+  recordShiftLossPreventionTrigger({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    actorId: ctx.user.id,
+    siteId: ctx.siteId,
+    resourceType: 'sale',
+    resourceId: input.id,
+    evaluation: lossPreventionEvaluation,
+    approvalRequestId: input.approvalRequestId,
+    operationId: ctx.envelope?.operationId,
+  });
+  const approvalClaim = claimShiftLossPreventionApproval({
     db: ctx.db,
     tenantId: ctx.tenantId,
     siteId: ctx.siteId,
@@ -277,6 +301,7 @@ export async function returnSale(
     resourceType: 'sale',
     resourceId: input.id,
     requestId: input.approvalRequestId,
+    evaluation: lossPreventionEvaluation,
   });
 
   try {
@@ -386,6 +411,7 @@ export async function returnSale(
         metadata: {
           ...(input.reason ? { reason: input.reason } : {}),
           refundCashSessionId: refundCashSession.id,
+          lossPreventionCashSessionId: lossPreventionEvaluation.cashSessionId,
           ...(approvalClaim
             ? { approvalRequestId: approvalClaim.requestId, approvedBy: approvalClaim.approverId }
             : {}),

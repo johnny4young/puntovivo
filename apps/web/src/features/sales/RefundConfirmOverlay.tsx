@@ -176,7 +176,7 @@ export function RefundConfirmOverlay({
             variant="primary"
             onClick={handleConfirm}
             disabled={isPending || confirmDisabled}
-            className="sm:min-w-[10rem]"
+            className="disabled:bg-secondary-200 disabled:text-secondary-500 sm:min-w-[10rem]"
           >
             {isPending
               ? t('refund.processing', { defaultValue: 'Procesando...' })

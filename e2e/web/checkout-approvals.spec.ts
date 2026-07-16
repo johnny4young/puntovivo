@@ -9,6 +9,11 @@ import { addProductToCartViaKeyboard } from './support/sales-keyboard';
 
 const MANAGER_PIN = '975310';
 
+// These flows intentionally mutate the tenant-wide loss-prevention row and
+// restore it afterward. Keep the file serial so two policy bands cannot race
+// through the shared business E2E tenant.
+test.describe.configure({ mode: 'serial' });
+
 interface LossPreventionSnapshot {
   hadValue: boolean;
   value: unknown;
@@ -23,6 +28,12 @@ async function captureEvidence(page: Page, name: string) {
   const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
   if (!auditDir) return;
   await mkdir(auditDir, { recursive: true });
+  await page.evaluate(
+    () =>
+      new Promise<void>(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      })
+  );
   await page.screenshot({
     animations: 'disabled',
     fullPage: false,
@@ -96,6 +107,7 @@ function findLossPreventionTrigger(args: {
   tenantId: string;
   actorId: string;
   approvalProvided: boolean;
+  rule?: 'max_discount' | 'shift_refund_limit';
 }): LossPreventionTrigger | null {
   const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
   try {
@@ -107,18 +119,45 @@ function findLossPreventionTrigger(args: {
            and actor_id = ?
            and action = 'loss_prevention.triggered'
            and resource_type = 'loss_prevention_rule'
-           and resource_id = 'max_discount'
+           and resource_id = ?
            and json_extract(after, '$.approvalProvided') = ?
          order by created_at desc, id desc
          limit 1`
       )
-      .get(args.tenantId, args.actorId, args.approvalProvided ? 1 : 0) as
-      { after: string | null; metadata: string | null } | undefined;
+      .get(
+        args.tenantId,
+        args.actorId,
+        args.rule ?? 'max_discount',
+        args.approvalProvided ? 1 : 0
+      ) as { after: string | null; metadata: string | null } | undefined;
     if (!row) return null;
     return {
       after: row.after ? (JSON.parse(row.after) as Record<string, unknown>) : null,
       metadata: row.metadata ? (JSON.parse(row.metadata) as Record<string, unknown>) : null,
     };
+  } finally {
+    db.close();
+  }
+}
+
+function managerRefundPolicy(tenantId: string) {
+  const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+  try {
+    return (db
+      .prepare(
+        `select
+           json_extract(policy, '$.version') as version,
+           json_extract(policy, '$.roles.manager.shift.refunds.enabled') as enabled,
+           json_extract(policy, '$.roles.manager.shift.refunds.maxCount') as maxCount,
+           json_extract(policy, '$.roles.manager.shift.refunds.maxAmount') as maxAmount
+         from loss_prevention_settings where tenant_id = ?`
+      )
+      .get(tenantId) ?? null) as {
+      version: number;
+      enabled: number;
+      maxCount: number;
+      maxAmount: number;
+    } | null;
   } finally {
     db.close();
   }
@@ -372,6 +411,137 @@ test('admin policy blocks a cashier discount until exact approval and records ev
     restoreLossPreventionSettings(scenario.tenantId, settingsSnapshot);
     await adminContext.close();
     await cashierContext.close();
+    await managerContext.close();
+  }
+});
+
+test('manager shift refund cap requires and consumes an exact approval (ENG-142b)', async ({
+  browser,
+}, testInfo) => {
+  const scenario = seedSaleScenario(`shift-refund-${testInfo.parallelIndex}-${Date.now()}`);
+  const approvalReason = `Manager shift refund ${scenario.product.sku}`;
+  const settingsSnapshot = snapshotLossPreventionSettings(scenario.tenantId);
+  await configureManagerPin(scenario.admin.id);
+
+  const adminContext = await browser.newContext();
+  const managerContext = await browser.newContext();
+  const adminPage = await adminContext.newPage();
+  const managerPage = await managerContext.newPage();
+  await adminPage.setViewportSize({ width: 1440, height: 900 });
+  await managerPage.setViewportSize({ width: 1440, height: 900 });
+  const adminTracker = attachClientIssueTracker(adminPage);
+  const managerTracker = attachClientIssueTracker(managerPage);
+
+  try {
+    await login(adminPage, { ...scenario.admin, defaultPath: '/dashboard' }, { spanish: true });
+    await adminPage.goto('/company?tab=controls');
+    const policyCard = adminPage.getByTestId('company-loss-prevention-card');
+    const managerPolicy = policyCard.getByTestId('loss-prevention-role-manager');
+    await expect(managerPolicy.getByText('Política para gerentes', { exact: true })).toBeVisible();
+    await managerPolicy.locator('#loss-prevention-manager-refunds-enabled').check();
+    await managerPolicy.locator('#loss-prevention-manager-refunds-count').fill('0');
+    await managerPolicy.locator('#loss-prevention-manager-refunds-amount').fill('1000000');
+    await policyCard.getByRole('button', { name: 'Guardar controles de cobro' }).click();
+    await expect
+      .poll(() => managerRefundPolicy(scenario.tenantId))
+      .toEqual({
+        version: 2,
+        enabled: 1,
+        maxCount: 0,
+        maxAmount: 1_000_000,
+      });
+    await managerPolicy.getByText('Límites de acciones por turno').scrollIntoViewIfNeeded();
+    await captureEvidence(adminPage, 'eng-142b-admin-shift-controls-desktop-es');
+    await adminPage.setViewportSize({ width: 390, height: 844 });
+    await managerPolicy.getByText('Limitar reembolsos por turno').scrollIntoViewIfNeeded();
+    await captureEvidence(adminPage, 'eng-142b-admin-shift-controls-mobile-es');
+
+    await login(managerPage, { ...scenario.manager, defaultPath: '/dashboard' });
+    await managerPage.goto('/sales');
+    await expect(managerPage).toHaveURL(/\/sales$/);
+    await addProductToCartViaKeyboard(managerPage, scenario.product.sku);
+    await managerPage.keyboard.press('F2');
+    const paymentDialog = managerPage.getByRole('dialog', { name: /charge sale/i });
+    await paymentDialog.getByRole('button', { name: 'Confirm Sale' }).click();
+    await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
+    await expect
+      .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.manager.id))
+      .not.toBeNull();
+    const sale = findLatestSaleForProduct(scenario.product.id, scenario.manager.id);
+    if (!sale) throw new Error('Expected completed manager sale for shift refund cap');
+
+    await managerPage.getByTestId('sales-open-history').click();
+    const historyDrawer = managerPage.getByTestId('sales-history-drawer');
+    await historyDrawer.getByRole('button', { name: `View ${sale.saleNumber}` }).click();
+    const detailsDialog = managerPage.getByRole('dialog', { name: `Sale ${sale.saleNumber}` });
+    await detailsDialog.getByRole('button', { name: 'Refund Sale' }).click();
+    const refundDialog = managerPage.getByRole('dialog', { name: 'Return sale' });
+    const approvalPanel = refundDialog.getByTestId('checkout-approval-panel');
+    await expect(approvalPanel.getByText('Refund sale', { exact: true })).toBeVisible();
+    await expect(refundDialog.getByRole('button', { name: 'Confirm return' })).toBeDisabled();
+    await approvalPanel.getByLabel('Reason for Refund sale').fill(approvalReason);
+    await approvalPanel.getByRole('button', { name: 'Request approval' }).click();
+    await expect(approvalPanel.getByTestId('checkout-approval-status-sale_refund')).toHaveText(
+      'Pending'
+    );
+    await captureEvidence(managerPage, 'eng-142b-manager-refund-blocked-en');
+
+    await adminPage.setViewportSize({ width: 1440, height: 900 });
+    await openUserMenu(adminPage);
+    const queue = adminPage.getByRole('region', { name: 'Aprobaciones' });
+    const approvalCard = queue.getByRole('article').filter({ hasText: approvalReason });
+    await expect(approvalCard.getByText('Reembolso de venta')).toBeVisible();
+    await approvalCard.getByRole('button', { name: 'Aprobar' }).click();
+    await approvalCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+    await captureEvidence(adminPage, 'eng-142b-admin-refund-approval-es');
+    await approvalCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
+    await expect(approvalCard).toBeHidden();
+
+    await expect(approvalPanel.getByTestId('checkout-approval-status-sale_refund')).toHaveText(
+      'Approved',
+      { timeout: 10_000 }
+    );
+    await captureEvidence(managerPage, 'eng-142b-manager-refund-approved-en');
+    await refundDialog.getByRole('button', { name: 'Confirm return' }).click();
+    await expect(refundDialog).toBeHidden({ timeout: 15_000 });
+    await expect
+      .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.manager.id))
+      .toMatchObject({ paymentStatus: 'refunded' });
+    await expect
+      .poll(() => findApprovalByReason(approvalReason))
+      .toMatchObject({
+        status: 'consumed',
+        action: 'sale_refund',
+        resourceType: 'sale',
+        resourceId: sale.id,
+      });
+    await expect
+      .poll(() =>
+        findLossPreventionTrigger({
+          tenantId: scenario.tenantId,
+          actorId: scenario.manager.id,
+          approvalProvided: true,
+          rule: 'shift_refund_limit',
+        })
+      )
+      .toMatchObject({
+        after: { approvalProvided: true, requiredAction: 'sale_refund' },
+        metadata: {
+          actionResourceId: sale.id,
+          role: 'manager',
+          reason: 'limit_exceeded',
+          exceeded: ['count'],
+          currentCount: 0,
+          prospectiveCount: 1,
+          maxCount: 0,
+        },
+      });
+
+    await expectNoClientIssues(adminTracker);
+    await expectNoClientIssues(managerTracker);
+  } finally {
+    restoreLossPreventionSettings(scenario.tenantId, settingsSnapshot);
+    await adminContext.close();
     await managerContext.close();
   }
 });

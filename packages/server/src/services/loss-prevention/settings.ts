@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { lossPreventionSettings } from '../../db/schema.js';
+import { roundMoney } from '../../lib/money.js';
 
 export const LOSS_PREVENTION_ROLES = ['cashier', 'manager'] as const;
 export type LossPreventionRole = (typeof LOSS_PREVENTION_ROLES)[number];
@@ -11,13 +12,31 @@ export interface LossPreventionAfterHoursPolicy {
   blockedUntil: string;
 }
 
+export interface LossPreventionShiftValuePolicy {
+  enabled: boolean;
+  maxCount: number;
+  maxAmount: number;
+}
+
+export interface LossPreventionNoSalePolicy {
+  enabled: boolean;
+  maxCount: number;
+}
+
+export interface LossPreventionShiftPolicies {
+  refunds: LossPreventionShiftValuePolicy;
+  voids: LossPreventionShiftValuePolicy;
+  noSale: LossPreventionNoSalePolicy;
+}
+
 export interface LossPreventionRolePolicy {
   maxDiscountPercent: number;
   afterHoursSale: LossPreventionAfterHoursPolicy;
+  shift: LossPreventionShiftPolicies;
 }
 
 export interface LossPreventionSettings {
-  version: 1;
+  version: 2;
   roles: Record<LossPreventionRole, LossPreventionRolePolicy>;
 }
 
@@ -27,18 +46,26 @@ const DEFAULT_AFTER_HOURS_POLICY: LossPreventionAfterHoursPolicy = {
   blockedUntil: '06:00',
 };
 
+const DEFAULT_SHIFT_POLICIES: LossPreventionShiftPolicies = {
+  refunds: { enabled: false, maxCount: 0, maxAmount: 0 },
+  voids: { enabled: false, maxCount: 0, maxAmount: 0 },
+  noSale: { enabled: false, maxCount: 0 },
+};
+
 export const DEFAULT_LOSS_PREVENTION_SETTINGS: LossPreventionSettings = {
-  version: 1,
+  version: 2,
   roles: {
     // Preserve the pre-ENG-142 authorization baseline: any cashier discount
     // escalates, while managers retain direct authority unless configured.
     cashier: {
       maxDiscountPercent: 0,
       afterHoursSale: { ...DEFAULT_AFTER_HOURS_POLICY },
+      shift: structuredClone(DEFAULT_SHIFT_POLICIES),
     },
     manager: {
       maxDiscountPercent: 100,
       afterHoursSale: { ...DEFAULT_AFTER_HOURS_POLICY },
+      shift: structuredClone(DEFAULT_SHIFT_POLICIES),
     },
   },
 };
@@ -47,6 +74,41 @@ const LOCAL_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 function normalizeTime(value: unknown, fallback: string): string {
   return typeof value === 'string' && LOCAL_TIME_PATTERN.test(value) ? value : fallback;
+}
+
+function normalizeCount(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(1000, Math.trunc(value)))
+    : fallback;
+}
+
+function normalizeAmount(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(1_000_000_000_000, roundMoney(value)))
+    : fallback;
+}
+
+function normalizeShiftValuePolicy(
+  value: unknown,
+  fallback: LossPreventionShiftValuePolicy
+): LossPreventionShiftValuePolicy {
+  const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : fallback.enabled,
+    maxCount: normalizeCount(raw.maxCount, fallback.maxCount),
+    maxAmount: normalizeAmount(raw.maxAmount, fallback.maxAmount),
+  };
+}
+
+function normalizeNoSalePolicy(
+  value: unknown,
+  fallback: LossPreventionNoSalePolicy
+): LossPreventionNoSalePolicy {
+  const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : fallback.enabled,
+    maxCount: normalizeCount(raw.maxCount, fallback.maxCount),
+  };
 }
 
 function normalizeRolePolicy(
@@ -58,6 +120,8 @@ function normalizeRolePolicy(
     raw.afterHoursSale && typeof raw.afterHoursSale === 'object'
       ? (raw.afterHoursSale as Record<string, unknown>)
       : {};
+  const rawShift =
+    raw.shift && typeof raw.shift === 'object' ? (raw.shift as Record<string, unknown>) : {};
   const blockedFrom = normalizeTime(rawWindow.blockedFrom, fallback.afterHoursSale.blockedFrom);
   const blockedUntil = normalizeTime(rawWindow.blockedUntil, fallback.afterHoursSale.blockedUntil);
   const rawDiscount = raw.maxDiscountPercent;
@@ -74,6 +138,11 @@ function normalizeRolePolicy(
       blockedFrom,
       blockedUntil,
     },
+    shift: {
+      refunds: normalizeShiftValuePolicy(rawShift.refunds, fallback.shift.refunds),
+      voids: normalizeShiftValuePolicy(rawShift.voids, fallback.shift.voids),
+      noSale: normalizeNoSalePolicy(rawShift.noSale, fallback.shift.noSale),
+    },
   };
 }
 
@@ -82,7 +151,7 @@ export function normalizeLossPreventionSettings(value: unknown): LossPreventionS
   const roles = raw.roles && typeof raw.roles === 'object' ? raw.roles : {};
   const roleRecord = roles as Record<string, unknown>;
   return {
-    version: 1,
+    version: 2,
     roles: {
       cashier: normalizeRolePolicy(
         roleRecord.cashier,

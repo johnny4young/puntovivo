@@ -45,11 +45,15 @@ import { getOriginalDeeCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import type { CompleteSaleContext, CompleteSaleResult } from './types.js';
 import {
-  claimActionApproval,
   consumeManagerApprovalGrant,
   enqueueConsumedManagerApprovalBestEffort,
   releaseManagerApprovalClaim,
 } from '../../services/manager-approvals.js';
+import {
+  claimShiftLossPreventionApproval,
+  evaluateShiftLossPrevention,
+  recordShiftLossPreventionTrigger,
+} from '../../services/loss-prevention/index.js';
 
 const fallbackLog = createModuleLogger('application/sales/voidSale');
 
@@ -186,7 +190,27 @@ export async function voidSale(
     fallbackAmount: getPersistedCashContribution(existing),
   });
 
-  const approvalClaim = claimActionApproval({
+  const lossPreventionEvaluation = evaluateShiftLossPrevention({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    actorId: ctx.user.id,
+    role: ctx.user.role,
+    action: 'sale_void',
+    amount: existing.total,
+  });
+  recordShiftLossPreventionTrigger({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    actorId: ctx.user.id,
+    siteId: ctx.siteId,
+    resourceType: 'sale',
+    resourceId: input.id,
+    evaluation: lossPreventionEvaluation,
+    approvalRequestId: input.approvalRequestId,
+    operationId: ctx.envelope?.operationId,
+  });
+  const approvalClaim = claimShiftLossPreventionApproval({
     db: ctx.db,
     tenantId: ctx.tenantId,
     siteId: ctx.siteId,
@@ -196,6 +220,7 @@ export async function voidSale(
     resourceType: 'sale',
     resourceId: input.id,
     requestId: input.approvalRequestId,
+    evaluation: lossPreventionEvaluation,
   });
 
   try {
@@ -283,6 +308,7 @@ export async function voidSale(
         },
         metadata: {
           ...(input.reason ? { reason: input.reason } : {}),
+          lossPreventionCashSessionId: lossPreventionEvaluation.cashSessionId,
           ...(voidReversibleSessionId ? { reversedCashSessionId: voidReversibleSessionId } : {}),
           ...(approvalClaim
             ? { approvalRequestId: approvalClaim.requestId, approvedBy: approvalClaim.approverId }

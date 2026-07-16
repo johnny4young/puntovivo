@@ -1050,6 +1050,12 @@
     "output": "inferred"
   },
   {
+    "path": "lossPrevention.evaluateShiftAction",
+    "kind": "query",
+    "input": "object{action:enum(\"sale_refund\"|\"sale_void\"),saleId:string[minLength=1]}|object{action:literal(\"cash_drawer_open\"),siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "lossPrevention.getSettings",
     "kind": "query",
     "input": "void",

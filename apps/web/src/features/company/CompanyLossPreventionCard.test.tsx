@@ -7,15 +7,25 @@ import { CompanyLossPreventionCard } from './CompanyLossPreventionCard';
 
 const queryState = vi.hoisted(() => ({
   data: {
-    version: 1 as const,
+    version: 2 as const,
     roles: {
       cashier: {
         maxDiscountPercent: 0,
         afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
+        shift: {
+          refunds: { enabled: false, maxCount: 0, maxAmount: 0 },
+          voids: { enabled: false, maxCount: 0, maxAmount: 0 },
+          noSale: { enabled: false, maxCount: 0 },
+        },
       },
       manager: {
         maxDiscountPercent: 100,
         afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
+        shift: {
+          refunds: { enabled: false, maxCount: 0, maxAmount: 0 },
+          voids: { enabled: false, maxCount: 0, maxAmount: 0 },
+          noSale: { enabled: false, maxCount: 0 },
+        },
       },
     },
   },
@@ -67,6 +77,16 @@ describe('CompanyLossPreventionCard', () => {
     expect(screen.getByRole('group', { name: 'Cashier policy' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Manager policy' })).toBeInTheDocument();
     expect(screen.getAllByLabelText('Maximum discount without approval')).toHaveLength(2);
+    expect(
+      screen.getAllByRole('spinbutton', {
+        name: 'Limit refunds per shift Maximum actions',
+      })
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole('spinbutton', {
+        name: 'Limit voids per shift Maximum total amount',
+      })
+    ).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Save checkout controls' })).toBeDisabled();
   });
 
@@ -91,10 +111,20 @@ describe('CompanyLossPreventionCard', () => {
         cashier: {
           maxDiscountPercent: 7.5,
           afterHoursSale: { enabled: true, blockedFrom: '22:00', blockedUntil: '06:00' },
+          shift: {
+            refunds: { enabled: false, maxCount: 0, maxAmount: 0 },
+            voids: { enabled: false, maxCount: 0, maxAmount: 0 },
+            noSale: { enabled: false, maxCount: 0 },
+          },
         },
         manager: {
           maxDiscountPercent: 100,
           afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
+          shift: {
+            refunds: { enabled: false, maxCount: 0, maxAmount: 0 },
+            voids: { enabled: false, maxCount: 0, maxAmount: 0 },
+            noSale: { enabled: false, maxCount: 0 },
+          },
         },
       },
     });
@@ -126,6 +156,38 @@ describe('CompanyLossPreventionCard', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('different start and end times');
     expect(screen.getByRole('button', { name: 'Save checkout controls' })).toBeDisabled();
+  });
+
+  it('submits per-shift refund count and amount controls', async () => {
+    const user = userEvent.setup();
+    render(<CompanyLossPreventionCard />);
+
+    const managerCard = screen.getByTestId('loss-prevention-role-manager');
+    await user.click(screen.getAllByRole('checkbox', { name: /Limit refunds per shift/ })[1]!);
+    const count = managerCard.querySelector<HTMLInputElement>(
+      '#loss-prevention-manager-refunds-count'
+    );
+    const amount = managerCard.querySelector<HTMLInputElement>(
+      '#loss-prevention-manager-refunds-amount'
+    );
+    if (!count || !amount) throw new Error('Expected manager refund limit inputs');
+    await user.clear(count);
+    await user.type(count, '2');
+    await user.clear(amount);
+    await user.type(amount, '150');
+    await user.click(screen.getByRole('button', { name: 'Save checkout controls' }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roles: expect.objectContaining({
+          manager: expect.objectContaining({
+            shift: expect.objectContaining({
+              refunds: { enabled: true, maxCount: 2, maxAmount: 150 },
+            }),
+          }),
+        }),
+      })
+    );
   });
 
   it('shows a retryable error state', async () => {

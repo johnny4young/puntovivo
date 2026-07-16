@@ -611,9 +611,10 @@ describe('checkout approval consumption (ENG-106c2)', () => {
 
   it('enforces the configured discount boundary and audits blocked and approved attempts', async () => {
     writeLossPreventionSettings(db, tenantId, {
-      version: 1,
+      version: 2,
       roles: {
         cashier: {
+          ...DEFAULT_LOSS_PREVENTION_SETTINGS.roles.cashier,
           maxDiscountPercent: 5,
           afterHoursSale: {
             enabled: false,
@@ -743,9 +744,10 @@ describe('checkout approval consumption (ENG-106c2)', () => {
       discountAmount: 0,
     });
     writeLossPreventionSettings(db, tenantId, {
-      version: 1,
+      version: 2,
       roles: {
         cashier: {
+          ...DEFAULT_LOSS_PREVENTION_SETTINGS.roles.cashier,
           maxDiscountPercent: 100,
           // The seeded tenant falls back to America/New_York. In July,
           // 06:00Z is 02:00 local and 07:00Z is 03:00 local.

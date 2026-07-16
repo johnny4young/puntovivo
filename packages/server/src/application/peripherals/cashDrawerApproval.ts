@@ -3,12 +3,16 @@ import type { DatabaseInstance } from '../../db/index.js';
 import type { CompleteSaleLogger } from '../sales/types.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
-  claimActionApproval,
   consumeManagerApprovalGrant,
   enqueueConsumedManagerApprovalBestEffort,
   releaseManagerApprovalClaim,
   type ManagerApprovalClaim,
 } from '../../services/manager-approvals.js';
+import {
+  claimShiftLossPreventionApproval,
+  evaluateShiftLossPrevention,
+  recordShiftLossPreventionTrigger,
+} from '../../services/loss-prevention/index.js';
 
 export interface CashDrawerApprovalContext {
   db: DatabaseInstance;
@@ -24,7 +28,26 @@ export function claimCashDrawerApproval(
   ctx: CashDrawerApprovalContext,
   requestId: string | undefined
 ): ManagerApprovalClaim | null {
-  return claimActionApproval({
+  const evaluation = evaluateShiftLossPrevention({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    actorId: ctx.user.id,
+    role: ctx.user.role,
+    action: 'cash_drawer_open',
+  });
+  recordShiftLossPreventionTrigger({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    actorId: ctx.user.id,
+    siteId: ctx.siteId,
+    resourceType: 'site',
+    resourceId: ctx.siteId,
+    evaluation,
+    approvalRequestId: requestId,
+    operationId: ctx.envelope?.operationId,
+  });
+  return claimShiftLossPreventionApproval({
     db: ctx.db,
     tenantId: ctx.tenantId,
     siteId: ctx.siteId,
@@ -34,6 +57,7 @@ export function claimCashDrawerApproval(
     resourceType: 'site',
     resourceId: ctx.siteId,
     requestId,
+    evaluation,
   });
 }
 
