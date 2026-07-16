@@ -266,6 +266,19 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
     ).run(tenantId);
     db.prepare('delete from employee_shift_breaks where tenant_id = ?').run(tenantId);
   }
+  // ENG-140d — cash sessions now retain nullable attendance evidence. The
+  // isolated baseline deliberately resets every shift while preserving the
+  // template drawers, so detach those historical/session rows before deleting
+  // the labor parent. The column check keeps this cleanup compatible with a
+  // pre-0019 database during migration troubleshooting.
+  const cashSessionHasEmployeeShift = (
+    db.prepare("pragma table_info('cash_sessions')").all() as Array<{ name: string }>
+  ).some(column => column.name === 'employee_shift_id');
+  if (cashSessionHasEmployeeShift) {
+    db.prepare('update cash_sessions set employee_shift_id = null where tenant_id = ?').run(
+      tenantId
+    );
+  }
   db.prepare("delete from audit_logs where tenant_id = ? and resource_type = 'employee_shift'").run(
     tenantId
   );

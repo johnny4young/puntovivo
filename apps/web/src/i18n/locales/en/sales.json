@@ -282,10 +282,12 @@
     "toast": {
       "openSuccessTitle": "Cash session opened",
       "openSuccessDescription": "{{registerName}} is ready with {{amount}}.",
+      "openWithAttendanceDescription": "{{registerName}} is ready with {{amount}}. Your attendance shift started automatically.",
       "closeSuccessTitle": "Cash session closed",
       "closeBalancedDescription": "{{registerName}} closed balanced at {{amount}}.",
       "closeOverDescription": "{{registerName}} closed with an overage of {{amount}}.",
       "closeShortDescription": "{{registerName}} closed with a shortage of {{amount}}.",
+      "closeAttendanceDescription": "{{description}} Your attendance remains open until you clock out from the user menu.",
       "movementSuccessTitle": "Cash movement recorded",
       "movementSuccessDescription": "{{movementType}} recorded for {{amount}}."
     }

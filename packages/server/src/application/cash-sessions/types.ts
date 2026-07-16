@@ -68,6 +68,7 @@ export interface RecordCashMovementInput {
 export interface OpenCashSessionResult<TSession = unknown> {
   session: TSession;
   journalEventId: string | null;
+  attendanceShiftStarted: boolean;
 }
 
 export interface CloseCashSessionResult<TSession = unknown> {

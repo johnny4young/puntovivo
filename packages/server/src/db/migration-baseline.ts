@@ -231,6 +231,22 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('products')
       );
     }
+    // ENG-140d — cash/attendance linkage ALTERs `cash_sessions` after the
+    // staff-foundation migrations. A purchase-only adoption fixture has none
+    // of those targets, so pin the latest marker as another absent-target
+    // no-op. Keep every earlier sentinel in the guard: a mixed partial DB with
+    // any applicable staff, cash, sales, customer, or catalog surface must let
+    // Drizzle run the pending chain instead of advancing past it.
+    if (entry.tag === '0019_eng140d_cash_session_attendance') {
+      return (
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers') &&
+        !tableExists('sales') &&
+        !tableExists('products')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

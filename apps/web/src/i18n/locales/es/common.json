@@ -119,6 +119,7 @@
       "endBreak": "Finalizar pausa",
       "breakActive": "En pausa desde las {{time}}",
       "clockOutBlocked": "Finaliza la pausa antes de marcar la salida.",
+      "cashSessionActive": "Cierra {{registerName}} antes de marcar la salida. Tu asistencia seguirá activa hasta entonces.",
       "breakStartSuccess": "Pausa iniciada",
       "breakEndSuccess": "Pausa finalizada",
       "breakErrorTitle": "No se pudo actualizar la pausa"

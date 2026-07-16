@@ -86,6 +86,9 @@ export const CASH_SESSION_OPEN_INVALIDATIONS: ReadonlyArray<InvalidationPicker> 
   u => u.cashSessions.myPace,
   u => u.cashSessions.report,
   u => u.cashSessions.registerAssignments,
+  // ENG-140d — opening a drawer can atomically clock the cashier in.
+  u => u.employeeShifts.current,
+  u => u.employeeShifts.attendance.list,
 ];
 
 /** Queries affected when the current operator closes a cash session. */
@@ -94,4 +97,7 @@ export const CASH_SESSION_CLOSE_INVALIDATIONS: ReadonlyArray<InvalidationPicker>
   u => u.cashSessions.myPace,
   u => u.cashSessions.report,
   u => u.cashSessions.registerAssignments,
+  // Closing removes the clock-out guard but deliberately leaves attendance open.
+  u => u.employeeShifts.current,
+  u => u.employeeShifts.attendance.list,
 ];

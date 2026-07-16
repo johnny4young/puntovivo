@@ -143,6 +143,7 @@ export interface CashSessionRecord {
   id: string;
   siteId: string;
   cashierId: string;
+  employeeShiftId: string | null;
   registerName: string;
   status: string;
   openingFloat: number;
@@ -151,6 +152,15 @@ export interface CashSessionRecord {
   overShort: number | null;
   openedAt: string;
   closedAt: string | null;
+}
+
+export interface EmployeeShiftRecord {
+  id: string;
+  tenantId: string;
+  userId: string;
+  siteId: string;
+  clockedInAt: string;
+  clockedOutAt: string | null;
 }
 
 function getSqliteBusyTimeoutMs() {
@@ -922,6 +932,7 @@ export function getLatestCashSessionForCashierSite(
         id,
         site_id as siteId,
         cashier_id as cashierId,
+        employee_shift_id as employeeShiftId,
         register_name as registerName,
         status,
         opening_float as openingFloat,
@@ -937,6 +948,29 @@ export function getLatestCashSessionForCashierSite(
       )
       .get(cashierId, siteId) as CashSessionRecord | undefined;
 
+    return row ?? null;
+  } finally {
+    db.close();
+  }
+}
+
+export function getEmployeeShift(shiftId: string): EmployeeShiftRecord | null {
+  const db = openDb();
+
+  try {
+    const row = db
+      .prepare(
+        `select
+        id,
+        tenant_id as tenantId,
+        user_id as userId,
+        site_id as siteId,
+        clocked_in_at as clockedInAt,
+        clocked_out_at as clockedOutAt
+       from employee_shifts
+       where id = ?`
+      )
+      .get(shiftId) as EmployeeShiftRecord | undefined;
     return row ?? null;
   } finally {
     db.close();

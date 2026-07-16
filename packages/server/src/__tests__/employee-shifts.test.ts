@@ -5,6 +5,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase, type DatabaseInstance } from '../db/index.js';
 import {
   auditLogs,
+  cashSessions,
   companies,
   employeeShifts,
   sites,
@@ -109,22 +110,16 @@ describe('employee shifts router (ENG-106b)', () => {
     const current = await appRouter.createCaller(employee.fresh()).employeeShifts.current();
     expect(current?.id).toBe(opened.id);
 
-    const closed = await appRouter
-      .createCaller(employee.fresh())
-      .employeeShifts.clockOut({});
+    const closed = await appRouter.createCaller(employee.fresh()).employeeShifts.clockOut({});
     expect(closed.id).toBe(opened.id);
     expect(closed.clockedOutAt).not.toBeNull();
-    expect(Date.parse(closed.clockedOutAt!)).toBeGreaterThanOrEqual(
-      Date.parse(opened.clockedInAt)
-    );
+    expect(Date.parse(closed.clockedOutAt!)).toBeGreaterThanOrEqual(Date.parse(opened.clockedInAt));
     expect(await appRouter.createCaller(employee.fresh()).employeeShifts.current()).toBeNull();
 
     const evidence = await db
       .select()
       .from(auditLogs)
-      .where(
-        and(eq(auditLogs.tenantId, tenantId), eq(auditLogs.resourceId, opened.id))
-      )
+      .where(and(eq(auditLogs.tenantId, tenantId), eq(auditLogs.resourceId, opened.id)))
       .all();
     expect(evidence.map(row => row.action).sort()).toEqual([
       'employee_shift.clock_in',
@@ -154,6 +149,144 @@ describe('employee shifts router (ENG-106b)', () => {
     ).rejects.toMatchObject({
       cause: expect.objectContaining({ errorCode: 'EMPLOYEE_SHIFT_NOT_CLOCKED_IN' }),
     });
+  });
+
+  it('links drawer ownership to attendance and requires explicit clock-out after close', async () => {
+    const employee = await createEmployee();
+    const caller = appRouter.createCaller(employee.fresh());
+
+    const openedCash = await caller.cashSessions.open({
+      registerName: `attendance-${employee.id.slice(0, 8)}`,
+      openingFloat: 0,
+      denominations: [],
+    });
+    expect(openedCash.attendanceShiftStarted).toBe(true);
+    expect(openedCash.employeeShiftId).toBeTruthy();
+
+    const current = await appRouter.createCaller(employee.fresh()).employeeShifts.current();
+    expect(current).toMatchObject({
+      id: openedCash.employeeShiftId,
+      userId: employee.id,
+      siteId,
+      activeCashSession: {
+        id: openedCash.id,
+        registerName: openedCash.registerName,
+      },
+    });
+
+    await expect(
+      appRouter.createCaller(employee.fresh()).employeeShifts.clockOut({})
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'EMPLOYEE_SHIFT_CASH_SESSION_OPEN' }),
+    });
+    expect(() =>
+      db
+        .update(employeeShifts)
+        .set({ clockedOutAt: new Date().toISOString() })
+        .where(eq(employeeShifts.id, openedCash.employeeShiftId!))
+        .run()
+    ).toThrow(/EMPLOYEE_SHIFT_CASH_SESSION_OPEN/);
+
+    const closedCash = await appRouter.createCaller(employee.fresh()).cashSessions.close({
+      actualCount: 0,
+      denominations: [],
+    });
+    expect(closedCash.employeeShiftId).toBe(openedCash.employeeShiftId);
+    expect(
+      await db
+        .select({ status: cashSessions.status })
+        .from(cashSessions)
+        .where(eq(cashSessions.id, openedCash.id))
+        .get()
+    ).toEqual({ status: 'closed' });
+
+    const afterClose = await appRouter.createCaller(employee.fresh()).employeeShifts.current();
+    expect(afterClose?.id).toBe(openedCash.employeeShiftId);
+    expect(afterClose?.activeCashSession).toBeNull();
+
+    const clockedOut = await appRouter.createCaller(employee.fresh()).employeeShifts.clockOut({});
+    expect(clockedOut.id).toBe(openedCash.employeeShiftId);
+    expect(clockedOut.clockedOutAt).not.toBeNull();
+  });
+
+  it('fails closed for a legacy unlinked drawer even when its site ownership is corrupt', async () => {
+    const employee = await createEmployee();
+    const openedShift = await appRouter
+      .createCaller(employee.fresh())
+      .employeeShifts.clockIn({ siteId });
+    const now = new Date().toISOString();
+    const foreignTenantId = nanoid();
+    const foreignCompanyId = nanoid();
+    const foreignSiteId = nanoid();
+    const legacySessionId = nanoid();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Legacy drawer foreign tenant',
+      slug: `legacy-drawer-${foreignTenantId}`,
+      defaultCurrencyCode: 'COP',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(companies).values({
+      id: foreignCompanyId,
+      tenantId: foreignTenantId,
+      name: 'Legacy drawer foreign company',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sites).values({
+      id: foreignSiteId,
+      tenantId: foreignTenantId,
+      companyId: foreignCompanyId,
+      name: 'Legacy drawer foreign site',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(cashSessions).values({
+      id: legacySessionId,
+      tenantId,
+      siteId: foreignSiteId,
+      cashierId: employee.id,
+      employeeShiftId: null,
+      registerName: `legacy-${employee.id.slice(0, 8)}`,
+      openingFloat: 0,
+      openingCountDenominations: [],
+      expectedBalance: 0,
+      status: 'open',
+      openedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const current = await appRouter.createCaller(employee.fresh()).employeeShifts.current();
+    expect(current?.activeCashSession).toMatchObject({
+      id: legacySessionId,
+      siteId: foreignSiteId,
+      siteName: null,
+      employeeShiftId: null,
+    });
+    await expect(
+      appRouter.createCaller(employee.fresh()).employeeShifts.clockOut({})
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'EMPLOYEE_SHIFT_CASH_SESSION_OPEN' }),
+    });
+    expect(() =>
+      db
+        .update(employeeShifts)
+        .set({ clockedOutAt: new Date().toISOString() })
+        .where(eq(employeeShifts.id, openedShift.id))
+        .run()
+    ).toThrow(/EMPLOYEE_SHIFT_CASH_SESSION_OPEN/);
+
+    const closedAt = new Date(Date.now() + 1_000).toISOString();
+    await db
+      .update(cashSessions)
+      .set({ status: 'closed', closedAt, updatedAt: closedAt })
+      .where(eq(cashSessions.id, legacySessionId));
+    const clockedOut = await appRouter.createCaller(employee.fresh()).employeeShifts.clockOut({});
+    expect(clockedOut.id).toBe(openedShift.id);
   });
 
   it('keeps the one-open-shift invariant race-safe at the database layer', async () => {
@@ -298,7 +431,9 @@ describe('employee shifts router (ENG-106b)', () => {
 
   it('keeps viewer accounts read-only', async () => {
     const viewer = await createEmployee('viewer');
-    await expect(appRouter.createCaller(viewer.fresh()).employeeShifts.current()).rejects.toMatchObject({
+    await expect(
+      appRouter.createCaller(viewer.fresh()).employeeShifts.current()
+    ).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
     await expect(

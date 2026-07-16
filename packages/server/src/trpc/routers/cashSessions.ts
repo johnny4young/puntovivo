@@ -50,6 +50,7 @@ const cashSessionRecordSelection = {
   siteName: sites.name,
   cashierId: cashSessions.cashierId,
   cashierName: users.name,
+  employeeShiftId: cashSessions.employeeShiftId,
   registerName: cashSessions.registerName,
   openingFloat: cashSessions.openingFloat,
   openingCountDenominations: cashSessions.openingCountDenominations,
@@ -182,6 +183,7 @@ export const cashSessionsRouter = router({
         registerName: cashSessions.registerName,
         cashierId: cashSessions.cashierId,
         cashierName: users.name,
+        employeeShiftId: cashSessions.employeeShiftId,
         openedAt: cashSessions.openedAt,
       })
       .from(cashSessions)
@@ -326,7 +328,10 @@ export const cashSessionsRouter = router({
     if (!created) {
       throw new Error('Failed to load the created cash session');
     }
-    return presentCashSessionRecord(created, ctx.user?.role);
+    return {
+      ...presentCashSessionRecord(created, ctx.user?.role),
+      attendanceShiftStarted: result.attendanceShiftStarted,
+    };
   }),
 
   close: criticalCommandProcedure.input(closeCashSessionInput).mutation(async ({ ctx, input }) => {

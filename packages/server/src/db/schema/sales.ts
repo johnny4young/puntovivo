@@ -33,6 +33,7 @@ import {
 import type { CashSessionDenomination } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { customers } from './customers.js';
+import { employeeShifts } from './labor.js';
 import { restaurantTables, saleItems, salePayments, saleReturns } from './salesAux.js';
 import { currencyCatalog } from './config.js';
 
@@ -222,6 +223,10 @@ export const cashSessions = sqliteTable(
     cashierId: text('cashier_id')
       .notNull()
       .references(() => users.id),
+    // ENG-140d — nullable only for historical sessions created before
+    // cash/labor lifecycle integration. Every new application open path links
+    // the drawer to the same-site employee shift that owns its labor evidence.
+    employeeShiftId: text('employee_shift_id').references(() => employeeShifts.id),
     registerName: text('register_name').notNull(),
     openingFloat: real('opening_float').notNull().default(0),
     openingCountDenominations: text('opening_count_denominations', { mode: 'json' })
@@ -246,6 +251,7 @@ export const cashSessions = sqliteTable(
     index('idx_cash_sessions_tenant').on(table.tenantId),
     index('idx_cash_sessions_site').on(table.siteId),
     index('idx_cash_sessions_cashier').on(table.cashierId),
+    index('idx_cash_sessions_tenant_employee_shift').on(table.tenantId, table.employeeShiftId),
     index('idx_cash_sessions_status').on(table.status),
     index('idx_cash_sessions_site_status').on(table.siteId, table.status),
     index('idx_cash_sessions_register_status').on(table.siteId, table.registerName, table.status),
@@ -271,6 +277,10 @@ export const cashSessionsRelations = relations(cashSessions, ({ one, many }) => 
   cashier: one(users, {
     fields: [cashSessions.cashierId],
     references: [users.id],
+  }),
+  employeeShift: one(employeeShifts, {
+    fields: [cashSessions.employeeShiftId],
+    references: [employeeShifts.id],
   }),
   movements: many(cashMovements),
   sales: many(sales),

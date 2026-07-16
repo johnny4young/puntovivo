@@ -5,10 +5,12 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   employeeShiftSelection,
+  getOpenCashSessionForEmployee,
   getOpenEmployeeBreak,
   getOpenEmployeeShift,
   throwAlreadyClockedIn,
   throwBreakActive,
+  throwCashSessionOpen,
   throwNotClockedIn,
 } from '../../services/labor/attendance-state.js';
 import { router } from '../init.js';
@@ -31,7 +33,12 @@ export const employeeShiftsRouter = router({
 
   /** Self-scoped current attendance state; never exposes another employee. */
   current: cashierManagerOrAdminProcedure.query(async ({ ctx }) => {
-    return getOpenEmployeeShift(ctx.db, ctx.tenantId, ctx.user!.id) ?? null;
+    const current = getOpenEmployeeShift(ctx.db, ctx.tenantId, ctx.user!.id);
+    if (!current) return null;
+    return {
+      ...current,
+      activeCashSession: getOpenCashSessionForEmployee(ctx.db, ctx.tenantId, ctx.user!.id) ?? null,
+    };
   }),
 
   clockIn: criticalCommandCashierManagerOrAdminProcedure
@@ -119,11 +126,23 @@ export const employeeShiftsRouter = router({
       const actorId = criticalCtx.user.id;
       const current = getOpenEmployeeShift(criticalCtx.db, criticalCtx.tenantId, actorId);
       if (!current) throwNotClockedIn();
+      const activeCashSession = getOpenCashSessionForEmployee(
+        criticalCtx.db,
+        criticalCtx.tenantId,
+        actorId
+      );
+      if (activeCashSession) throwCashSessionOpen(activeCashSession);
 
       let clockedOutAt: string | null;
       try {
         clockedOutAt = criticalCtx.db.transaction(
           tx => {
+            const racedCashSession = getOpenCashSessionForEmployee(
+              tx,
+              criticalCtx.tenantId,
+              actorId
+            );
+            if (racedCashSession) throwCashSessionOpen(racedCashSession);
             if (getOpenEmployeeBreak(tx, criticalCtx.tenantId, actorId)) throwBreakActive();
             const now = new Date().toISOString();
             const result = tx
@@ -167,6 +186,14 @@ export const employeeShiftsRouter = router({
           { behavior: 'immediate' }
         );
       } catch (error) {
+        if (error instanceof Error && /EMPLOYEE_SHIFT_CASH_SESSION_OPEN/i.test(error.message)) {
+          const active = getOpenCashSessionForEmployee(
+            criticalCtx.db,
+            criticalCtx.tenantId,
+            actorId
+          );
+          if (active) throwCashSessionOpen(active);
+        }
         if (error instanceof Error && /EMPLOYEE_SHIFT_BREAK_ACTIVE/i.test(error.message)) {
           throwBreakActive();
         }

@@ -99,6 +99,18 @@ export function TimeClockControl({ site }: TimeClockControlProps) {
           <p className="mt-1 text-xs text-fg2">
             {t('common:userMenu.timeClock.site', { site: current.siteName })}
           </p>
+          {current.activeCashSession ? (
+            <div
+              className="mt-3 rounded-xl border border-primary-200 bg-primary-50 p-3"
+              data-testid="active-cash-session-shift-guard"
+            >
+              <p className="text-xs font-semibold text-primary-900">
+                {t('common:userMenu.timeClock.cashSessionActive', {
+                  registerName: current.activeCashSession.registerName,
+                })}
+              </p>
+            </div>
+          ) : null}
           {breakStateUnavailable ? (
             <p role={breakQuery.error ? 'alert' : 'status'} className="mt-3 text-xs text-fg2">
               {t(
@@ -144,7 +156,12 @@ export function TimeClockControl({ site }: TimeClockControlProps) {
           <button
             type="button"
             className="btn-outline mt-3 w-full justify-center px-3"
-            disabled={isMutating || Boolean(activeBreak) || breakStateUnavailable}
+            disabled={
+              isMutating ||
+              Boolean(activeBreak) ||
+              Boolean(current.activeCashSession) ||
+              breakStateUnavailable
+            }
             onClick={() => clockOutMutation.mutate({})}
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />

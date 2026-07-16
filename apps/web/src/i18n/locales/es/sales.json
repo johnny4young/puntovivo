@@ -282,10 +282,12 @@
     "toast": {
       "openSuccessTitle": "Caja abierta",
       "openSuccessDescription": "{{registerName}} quedó lista con {{amount}}.",
+      "openWithAttendanceDescription": "{{registerName}} quedó lista con {{amount}}. Tu turno de asistencia inició automáticamente.",
       "closeSuccessTitle": "Caja cerrada",
       "closeBalancedDescription": "{{registerName}} cerró cuadrada en {{amount}}.",
       "closeOverDescription": "{{registerName}} cerró con un sobrante de {{amount}}.",
       "closeShortDescription": "{{registerName}} cerró con un faltante de {{amount}}.",
+      "closeAttendanceDescription": "{{description}} Tu asistencia seguirá activa hasta que marques la salida desde el menú de usuario.",
       "movementSuccessTitle": "Movimiento de caja registrado",
       "movementSuccessDescription": "{{movementType}} registrado por {{amount}}."
     }

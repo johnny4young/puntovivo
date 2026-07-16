@@ -164,10 +164,15 @@ export function useSalesMutations({
       setIsCashSessionModalOpen(false);
       toast.success({
         title: t('cashSession.toast.openSuccessTitle'),
-        description: t('cashSession.toast.openSuccessDescription', {
-          registerName: cashSession.registerName,
-          amount: formatCurrency(cashSession.openingFloat),
-        }),
+        description: t(
+          cashSession.attendanceShiftStarted
+            ? 'cashSession.toast.openWithAttendanceDescription'
+            : 'cashSession.toast.openSuccessDescription',
+          {
+            registerName: cashSession.registerName,
+            amount: formatCurrency(cashSession.openingFloat),
+          }
+        ),
       });
     },
     onError: onErrorToast(toast, t, {
@@ -182,7 +187,7 @@ export function useSalesMutations({
 
       const overShort = cashSession.overShort ?? 0;
       const absoluteOverShort = formatCurrency(Math.abs(overShort));
-      const description =
+      const closeSummary =
         Math.abs(overShort) < 1e-6
           ? t('cashSession.toast.closeBalancedDescription', {
               registerName: cashSession.registerName,
@@ -197,6 +202,10 @@ export function useSalesMutations({
                 registerName: cashSession.registerName,
                 amount: absoluteOverShort,
               });
+
+      const description = cashSession.employeeShiftId
+        ? t('cashSession.toast.closeAttendanceDescription', { description: closeSummary })
+        : closeSummary;
 
       toast.success({
         title: t('cashSession.toast.closeSuccessTitle'),

@@ -22,6 +22,11 @@ const {
       siteId: string;
       siteName: string;
       clockedInAt: string;
+      activeCashSession: null | {
+        id: string;
+        registerName: string;
+        openedAt: string;
+      };
     },
     isLoading: false,
     error: null as Error | null,
@@ -110,6 +115,7 @@ describe('TimeClockControl', () => {
       siteId: 'site-original',
       siteName: 'North store',
       clockedInAt: '2026-07-14T14:30:00.000Z',
+      activeCashSession: null,
     };
     render(<TimeClockControl site={{ id: 'site-current', name: 'South store' }} />);
 
@@ -128,6 +134,7 @@ describe('TimeClockControl', () => {
       siteId: 'site-1',
       siteName: 'Central',
       clockedInAt: '2026-07-14T14:30:00.000Z',
+      activeCashSession: null,
     };
     render(<TimeClockControl site={{ id: 'site-1', name: 'Central' }} />);
 
@@ -144,6 +151,7 @@ describe('TimeClockControl', () => {
       siteId: 'site-1',
       siteName: 'Central',
       clockedInAt: '2026-07-14T14:30:00.000Z',
+      activeCashSession: null,
     };
     breakQueryResult.data = {
       id: 'break-1',
@@ -162,12 +170,34 @@ describe('TimeClockControl', () => {
     expect(clockOutMock).not.toHaveBeenCalled();
   });
 
+  it('shows the active register guard and disables clock-out until cash close', () => {
+    queryResult.data = {
+      id: 'shift-1',
+      siteId: 'site-1',
+      siteName: 'Central',
+      clockedInAt: '2026-07-14T14:30:00.000Z',
+      activeCashSession: {
+        id: 'cash-1',
+        registerName: 'Register 1',
+        openedAt: '2026-07-14T14:31:00.000Z',
+      },
+    };
+    render(<TimeClockControl site={{ id: 'site-1', name: 'Central' }} />);
+
+    expect(screen.getByTestId('active-cash-session-shift-guard')).toHaveTextContent(
+      'Close Register 1 before clocking out. Your attendance keeps running until then.'
+    );
+    expect(screen.getByRole('button', { name: 'Clock out' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Start break' })).toBeEnabled();
+  });
+
   it('fails closed while the active-break state cannot be verified', () => {
     queryResult.data = {
       id: 'shift-1',
       siteId: 'site-1',
       siteName: 'Central',
       clockedInAt: '2026-07-14T14:30:00.000Z',
+      activeCashSession: null,
     };
     breakQueryResult.error = new Error('network');
     render(<TimeClockControl site={{ id: 'site-1', name: 'Central' }} />);

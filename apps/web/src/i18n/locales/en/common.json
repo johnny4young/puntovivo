@@ -119,6 +119,7 @@
       "endBreak": "End break",
       "breakActive": "On break since {{time}}",
       "clockOutBlocked": "End the break before clocking out.",
+      "cashSessionActive": "Close {{registerName}} before clocking out. Your attendance keeps running until then.",
       "breakStartSuccess": "Break started",
       "breakEndSuccess": "Break ended",
       "breakErrorTitle": "Unable to update break"
