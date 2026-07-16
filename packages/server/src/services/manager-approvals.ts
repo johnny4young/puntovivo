@@ -72,6 +72,22 @@ export function publicManagerApprovalRequest(request: ManagerApprovalRequest) {
   return publicRequest;
 }
 
+/** Legacy approved rows predate ENG-142c evidence; decidedBy proves their single decision. */
+export function managerApprovalCount(
+  request: Pick<ManagerApprovalRequest, 'approvalEvidence' | 'decidedBy' | 'status'>
+): number {
+  const distinctApprovers = new Set(
+    request.approvalEvidence
+      .map(evidence => evidence.approverId)
+      .filter(approverId => typeof approverId === 'string' && approverId.length > 0)
+  ).size;
+  if (distinctApprovers > 0) return distinctApprovers;
+  const legacyApprovedStatus = ['approved', 'executing', 'consumed', 'expired'].includes(
+    request.status
+  );
+  return request.decidedBy && legacyApprovedStatus ? 1 : 0;
+}
+
 export function checkoutApprovalResourceId(context: CheckoutApprovalContext): string {
   const digest = createHash('sha256')
     .update(serializeCheckoutApprovalContext(context))
@@ -170,7 +186,11 @@ export function claimManagerApprovalGrant(args: ClaimManagerApprovalArgs): Manag
   ) {
     throwApprovalMismatch();
   }
+  if (request.status !== 'approved' && request.status !== 'executing') {
+    throwApprovalRequired();
+  }
   if (!request.decidedBy) throwApprovalRequired();
+  if (managerApprovalCount(request) < request.requiredApprovals) throwApprovalRequired();
 
   const nowMs = args.nowMs ?? Date.now();
   const now = new Date(nowMs).toISOString();

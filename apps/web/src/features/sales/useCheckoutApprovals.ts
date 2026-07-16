@@ -23,6 +23,8 @@ export interface ApprovalRequestView<Action extends ManagerApprovalAction = Mana
   requestId: string | null;
   status: CheckoutApprovalStatus | 'not_requested';
   decisionReason: string | null;
+  approvalsCollected: number;
+  requiredApprovals: number;
 }
 
 export type CheckoutApprovalView = ApprovalRequestView<CheckoutApprovalAction>;
@@ -110,6 +112,8 @@ export function useCheckoutApprovals(input: {
         requestId: request?.id ?? null,
         status: request?.status ?? 'not_requested',
         decisionReason: request?.decisionReason ?? null,
+        approvalsCollected: request?.approvalsCollected ?? 0,
+        requiredApprovals: request?.requiredApprovals ?? 1,
       };
     });
   }, [input.actions, ownQuery.data, resourceId]);

@@ -26,6 +26,10 @@ interface RolePolicy {
     voids: ShiftValuePolicy;
     noSale: NoSalePolicy;
   };
+  dualApproval: {
+    enabled: boolean;
+    thresholdAmount: number;
+  };
 }
 
 interface ShiftValuePolicy {
@@ -40,7 +44,7 @@ interface NoSalePolicy {
 }
 
 interface LossPreventionPolicy {
-  version: 2;
+  version: 3;
   roles: Record<LossPreventionRole, RolePolicy>;
 }
 
@@ -49,7 +53,7 @@ const LOCAL_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 function clonePolicy(policy: LossPreventionPolicy): LossPreventionPolicy {
   return {
-    version: 2,
+    version: 3,
     roles: {
       cashier: {
         ...policy.roles.cashier,
@@ -59,6 +63,7 @@ function clonePolicy(policy: LossPreventionPolicy): LossPreventionPolicy {
           voids: { ...policy.roles.cashier.shift.voids },
           noSale: { ...policy.roles.cashier.shift.noSale },
         },
+        dualApproval: { ...policy.roles.cashier.dualApproval },
       },
       manager: {
         ...policy.roles.manager,
@@ -68,6 +73,7 @@ function clonePolicy(policy: LossPreventionPolicy): LossPreventionPolicy {
           voids: { ...policy.roles.manager.shift.voids },
           noSale: { ...policy.roles.manager.shift.noSale },
         },
+        dualApproval: { ...policy.roles.manager.dualApproval },
       },
     },
   };
@@ -148,7 +154,10 @@ export function CompanyLossPreventionCard(): React.ReactElement {
       ) ||
       !Number.isInteger(value.shift.noSale.maxCount) ||
       value.shift.noSale.maxCount < 0 ||
-      value.shift.noSale.maxCount > 1000
+      value.shift.noSale.maxCount > 1000 ||
+      !Number.isFinite(value.dualApproval.thresholdAmount) ||
+      value.dualApproval.thresholdAmount < 0 ||
+      value.dualApproval.thresholdAmount > 1_000_000_000_000
     );
   });
   const isDirty = JSON.stringify(policy) !== JSON.stringify(persisted);
@@ -294,6 +303,63 @@ export function CompanyLossPreventionCard(): React.ReactElement {
                           afterHoursSale: {
                             ...current.afterHoursSale,
                             blockedUntil: event.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-xl border border-line bg-surface p-3">
+                  <label
+                    htmlFor={`loss-prevention-${role}-dual-approval-enabled`}
+                    className="flex items-start gap-3"
+                  >
+                    <input
+                      id={`loss-prevention-${role}-dual-approval-enabled`}
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-line accent-[var(--primary)]"
+                      checked={rolePolicy.dualApproval.enabled}
+                      onChange={event =>
+                        updateRole(role, current => ({
+                          ...current,
+                          dualApproval: {
+                            ...current.dualApproval,
+                            enabled: event.target.checked,
+                          },
+                        }))
+                      }
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-secondary-900">
+                        {t('settings:company.lossPrevention.dualApproval.label')}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-secondary-500">
+                        {t('settings:company.lossPrevention.dualApproval.help')}
+                      </span>
+                    </span>
+                  </label>
+                  <div className="mt-3">
+                    <label
+                      htmlFor={`loss-prevention-${role}-dual-approval-threshold`}
+                      className="label"
+                    >
+                      {t('settings:company.lossPrevention.dualApproval.threshold')}
+                    </label>
+                    <input
+                      id={`loss-prevention-${role}-dual-approval-threshold`}
+                      type="number"
+                      min={0}
+                      max={1_000_000_000_000}
+                      step={0.01}
+                      className="input mt-1"
+                      value={rolePolicy.dualApproval.thresholdAmount}
+                      onChange={event =>
+                        updateRole(role, current => ({
+                          ...current,
+                          dualApproval: {
+                            ...current.dualApproval,
+                            thresholdAmount: Number(event.target.value),
                           },
                         }))
                       }

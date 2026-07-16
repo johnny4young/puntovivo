@@ -163,6 +163,10 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     expect(await screen.findByTestId('checkout-approval-credit_sale')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toHaveClass(
+      'disabled:bg-secondary-200',
+      'disabled:text-secondary-500'
+    );
   });
 
   it('surfaces the server-owned blocked-hours approval and fails closed', async () => {

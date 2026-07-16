@@ -143,7 +143,9 @@
       "confirmApprove": "Confirm approval",
       "confirmReject": "Confirm rejection",
       "approvedSuccess": "Request approved",
+      "partialSuccess": "Approval {{collected}} of {{required}} recorded",
       "rejectedSuccess": "Request rejected",
+      "progress": "{{collected}} of {{required}} approvals received",
       "actions": {
         "credit_override": "Credit override",
         "sale_void": "Void sale",

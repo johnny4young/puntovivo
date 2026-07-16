@@ -171,6 +171,7 @@ export function SalePaymentModal({
             onClick={handleSubmit}
             disabled={!canSubmit}
             id="sale-payment-confirm"
+            className="disabled:bg-secondary-200 disabled:text-secondary-500"
           >
             {isSaving ? t('payment.processing') : t('payment.confirm')}
           </ModalButton>

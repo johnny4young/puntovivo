@@ -205,7 +205,9 @@ function findApprovalByReason(reason: string) {
   try {
     return (db
       .prepare(
-        `select id, status, action, resource_type as resourceType, resource_id as resourceId
+        `select id, status, action, resource_type as resourceType, resource_id as resourceId,
+                required_approvals as requiredApprovals,
+                json_array_length(approval_evidence) as approvalsCollected
            from manager_approval_requests where reason = ?
            order by requested_at desc, id desc limit 1`
       )
@@ -215,6 +217,8 @@ function findApprovalByReason(reason: string) {
       action: string;
       resourceType: string;
       resourceId: string | null;
+      requiredApprovals: number;
+      approvalsCollected: number;
     } | null;
   } finally {
     db.close();
@@ -415,6 +419,135 @@ test('admin policy blocks a cashier discount until exact approval and records ev
   }
 });
 
+test('high-value cashier discount requires two distinct approvers (ENG-142c)', async ({
+  browser,
+}, testInfo) => {
+  const scenario = seedSaleScenario(`dual-approval-${testInfo.parallelIndex}-${Date.now()}`);
+  const approvalReason = `Dual approval threshold ${scenario.product.sku}`;
+  const settingsSnapshot = snapshotLossPreventionSettings(scenario.tenantId);
+  await configureManagerPin(scenario.manager.id);
+  await configureManagerPin(scenario.admin.id);
+
+  const adminContext = await browser.newContext();
+  const cashierContext = await browser.newContext();
+  const managerContext = await browser.newContext();
+  const adminPage = await adminContext.newPage();
+  const cashierPage = await cashierContext.newPage();
+  const managerPage = await managerContext.newPage();
+  await adminPage.setViewportSize({ width: 1440, height: 900 });
+  await cashierPage.setViewportSize({ width: 1440, height: 900 });
+  await managerPage.setViewportSize({ width: 1440, height: 900 });
+  const adminTracker = attachClientIssueTracker(adminPage);
+  const cashierTracker = attachClientIssueTracker(cashierPage);
+  const managerTracker = attachClientIssueTracker(managerPage);
+
+  try {
+    await login(adminPage, { ...scenario.admin, defaultPath: '/dashboard' }, { spanish: true });
+    await adminPage.goto('/company?tab=controls');
+    const policyCard = adminPage.getByTestId('company-loss-prevention-card');
+    const cashierPolicy = policyCard.getByTestId('loss-prevention-role-cashier');
+    await cashierPolicy.getByLabel('Descuento máximo sin aprobación').fill('50');
+    await cashierPolicy.locator('#loss-prevention-cashier-dual-approval-enabled').check();
+    await cashierPolicy.locator('#loss-prevention-cashier-dual-approval-threshold').fill('1000');
+    await policyCard.getByRole('button', { name: 'Guardar controles de cobro' }).click();
+    await expect
+      .poll(() => {
+        const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+        try {
+          return db
+            .prepare(
+              `select
+                 json_extract(policy, '$.version') as version,
+                 json_extract(policy, '$.roles.cashier.maxDiscountPercent') as maxDiscount,
+                 json_extract(policy, '$.roles.cashier.dualApproval.enabled') as enabled,
+                 json_extract(policy, '$.roles.cashier.dualApproval.thresholdAmount') as threshold
+               from loss_prevention_settings where tenant_id = ?`
+            )
+            .get(scenario.tenantId);
+        } finally {
+          db.close();
+        }
+      })
+      .toEqual({ version: 3, maxDiscount: 50, enabled: 1, threshold: 1000 });
+    await cashierPolicy
+      .getByText('Requerir dos aprobaciones por encima de un monto')
+      .scrollIntoViewIfNeeded();
+    await captureEvidence(adminPage, 'eng-142c-admin-dual-threshold-desktop-es');
+
+    await login(cashierPage, { ...scenario.cashier, defaultPath: '/sales' });
+    await addProductToCartViaKeyboard(cashierPage, scenario.product.sku);
+    await cashierPage.getByLabel(`Discount for ${scenario.product.name}`).fill('10');
+    await cashierPage.keyboard.press('F1');
+    const paymentDialog = cashierPage.getByRole('dialog', { name: /charge sale/i });
+    const approvalPanel = paymentDialog.getByTestId('checkout-approval-panel');
+    await approvalPanel.getByLabel('Reason for Discounted checkout').fill(approvalReason);
+    await approvalPanel.getByRole('button', { name: 'Request approval' }).click();
+    await expect(approvalPanel.getByTestId('checkout-approval-status-sale_discount')).toHaveText(
+      'Pending'
+    );
+    await expect(approvalPanel.getByText('0 of 2 distinct approvals received')).toBeVisible();
+    await expect(paymentDialog.getByRole('button', { name: 'Confirm Sale' })).toBeDisabled();
+
+    await login(managerPage, { ...scenario.manager, defaultPath: '/dashboard' }, { spanish: true });
+    await openUserMenu(managerPage);
+    const managerQueue = managerPage.getByRole('region', { name: 'Aprobaciones' });
+    const managerCard = managerQueue.getByRole('article').filter({ hasText: approvalReason });
+    await expect(managerCard.getByText('0 de 2 aprobaciones recibidas')).toBeVisible();
+    await managerCard.getByRole('button', { name: 'Aprobar' }).click();
+    await managerCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+    await captureEvidence(managerPage, 'eng-142c-manager-first-approval-es');
+    await managerCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
+    await expect(managerCard).toBeHidden();
+
+    await expect(approvalPanel.getByText('1 of 2 distinct approvals received')).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(paymentDialog.getByRole('button', { name: 'Confirm Sale' })).toBeDisabled();
+    await captureEvidence(cashierPage, 'eng-142c-cashier-awaiting-second-en');
+
+    await openUserMenu(adminPage);
+    const adminQueue = adminPage.getByRole('region', { name: 'Aprobaciones' });
+    const adminCard = adminQueue.getByRole('article').filter({ hasText: approvalReason });
+    await expect(adminCard.getByText('1 de 2 aprobaciones recibidas')).toBeVisible();
+    await adminPage
+      .getByRole('heading', { name: 'Prevención de pérdidas' })
+      .scrollIntoViewIfNeeded();
+    await captureEvidence(adminPage, 'eng-142c-admin-awaiting-second-es');
+    await adminCard.getByRole('button', { name: 'Aprobar' }).click();
+    await adminCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+    const adminConfirm = adminCard.getByRole('button', { name: 'Confirmar aprobación' });
+    await adminConfirm.scrollIntoViewIfNeeded();
+    await captureEvidence(adminPage, 'eng-142c-admin-second-approval-es');
+    await adminConfirm.click();
+    await expect(adminCard).toBeHidden();
+
+    await expect(approvalPanel.getByTestId('checkout-approval-status-sale_discount')).toHaveText(
+      'Approved',
+      { timeout: 10_000 }
+    );
+    await captureEvidence(cashierPage, 'eng-142c-cashier-dual-approved-en');
+    await paymentDialog.getByRole('button', { name: 'Confirm Sale' }).click();
+    await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
+    await expect
+      .poll(() => findApprovalByReason(approvalReason))
+      .toMatchObject({
+        status: 'consumed',
+        action: 'sale_discount',
+        requiredApprovals: 2,
+        approvalsCollected: 2,
+      });
+
+    await expectNoClientIssues(adminTracker);
+    await expectNoClientIssues(cashierTracker);
+    await expectNoClientIssues(managerTracker);
+  } finally {
+    restoreLossPreventionSettings(scenario.tenantId, settingsSnapshot);
+    await adminContext.close();
+    await cashierContext.close();
+    await managerContext.close();
+  }
+});
+
 test('manager shift refund cap requires and consumes an exact approval (ENG-142b)', async ({
   browser,
 }, testInfo) => {
@@ -445,7 +578,7 @@ test('manager shift refund cap requires and consumes an exact approval (ENG-142b
     await expect
       .poll(() => managerRefundPolicy(scenario.tenantId))
       .toEqual({
-        version: 2,
+        version: 3,
         enabled: 1,
         maxCount: 0,
         maxAmount: 1_000_000,

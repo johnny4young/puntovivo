@@ -155,6 +155,13 @@
       "when": 1784177815550,
       "tag": "0021_eng142a_loss_prevention_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1784197782794,
+      "tag": "0022_eng142c_dual_approvals",
+      "breakpoints": true
     }
   ]
 }

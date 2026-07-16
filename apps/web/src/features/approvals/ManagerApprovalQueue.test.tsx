@@ -10,6 +10,8 @@ interface QueueItem {
   requesterName: string;
   siteName: string;
   expiresAt: string;
+  approvalsCollected: number;
+  requiredApprovals: number;
 }
 
 const {
@@ -69,6 +71,8 @@ const pendingRequest: QueueItem = {
   requesterName: 'Casey Cashier',
   siteName: 'Central',
   expiresAt: '2026-07-15T01:15:00.000Z',
+  approvalsCollected: 0,
+  requiredApprovals: 1,
 };
 
 describe('ManagerApprovalQueue', () => {
@@ -108,6 +112,16 @@ describe('ManagerApprovalQueue', () => {
       pin: '123456',
       decision: 'approved',
     });
+  });
+
+  it('shows the remaining progress for a dual-approval request', () => {
+    queryResult.data = {
+      approver: { id: 'manager-2', hasPin: true },
+      items: [{ ...pendingRequest, approvalsCollected: 1, requiredApprovals: 2 }],
+    };
+    render(<ManagerApprovalQueue />);
+
+    expect(screen.getByText('1 of 2 approvals received')).toBeInTheDocument();
   });
 
   it('requires and trims a rejection reason', async () => {

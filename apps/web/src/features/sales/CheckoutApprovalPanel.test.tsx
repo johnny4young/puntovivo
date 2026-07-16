@@ -26,6 +26,8 @@ describe('CheckoutApprovalPanel', () => {
             requestId: null,
             status: 'not_requested',
             decisionReason: null,
+            approvalsCollected: 0,
+            requiredApprovals: 1,
           },
         ]}
       />
@@ -35,10 +37,7 @@ describe('CheckoutApprovalPanel', () => {
     expect(request).toBeDisabled();
     await user.type(screen.getByPlaceholderText('Explain why approval is needed'), 'OK');
     expect(request).toBeDisabled();
-    await user.type(
-      screen.getByPlaceholderText('Explain why approval is needed'),
-      ' price'
-    );
+    await user.type(screen.getByPlaceholderText('Explain why approval is needed'), ' price');
     await user.click(request);
 
     expect(onRequest).toHaveBeenCalledWith('sale_discount', 'OK price');
@@ -58,6 +57,8 @@ describe('CheckoutApprovalPanel', () => {
             requestId: 'approval-1',
             status: 'approved',
             decisionReason: 'Customer history verified',
+            approvalsCollected: 1,
+            requiredApprovals: 1,
           },
         ]}
       />
@@ -85,6 +86,8 @@ describe('CheckoutApprovalPanel', () => {
             requestId: 'approval-consumed',
             status: 'consumed',
             decisionReason: null,
+            approvalsCollected: 1,
+            requiredApprovals: 1,
           },
         ]}
       />
@@ -92,11 +95,29 @@ describe('CheckoutApprovalPanel', () => {
 
     expect(screen.getByText('Refund sale')).toBeInTheDocument();
     expect(screen.getByText('This approval is bound to the selected sale.')).toBeInTheDocument();
-    await user.type(
-      screen.getByPlaceholderText('Explain why approval is needed'),
-      'New refund'
-    );
+    await user.type(screen.getByPlaceholderText('Explain why approval is needed'), 'New refund');
     await user.click(screen.getByRole('button', { name: 'Request approval' }));
     expect(onRequest).toHaveBeenCalledWith('sale_refund', 'New refund');
+  });
+
+  it('shows progress while a dual-approval request waits for a distinct second person', () => {
+    render(
+      <CheckoutApprovalPanel
+        {...baseProps}
+        views={[
+          {
+            action: 'sale_refund',
+            requestId: 'approval-dual',
+            status: 'pending',
+            decisionReason: null,
+            approvalsCollected: 1,
+            requiredApprovals: 2,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('1 of 2 distinct approvals received')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 });

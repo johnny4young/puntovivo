@@ -21,6 +21,7 @@ import {
   isTimeInsideBlockedWindow,
   normalizeLossPreventionSettings,
   recordShiftLossPreventionTrigger,
+  requiredLossPreventionApprovalCount,
   resolveLossPreventionSettings,
   writeLossPreventionSettings,
 } from '../services/loss-prevention/index.js';
@@ -206,7 +207,7 @@ describe('ENG-142a loss-prevention policy', () => {
     const harness = await seedHarness('defaults');
     const admin = appRouter.createCaller(buildContext(harness, 'admin'));
     await expect(admin.lossPrevention.getSettings()).resolves.toMatchObject({
-      version: 2,
+      version: 3,
       roles: {
         cashier: { maxDiscountPercent: 0 },
         manager: { maxDiscountPercent: 100 },
@@ -265,6 +266,7 @@ describe('ENG-142a loss-prevention policy', () => {
             blockedUntil: '06:00',
           },
           shift: disabledShiftPolicies(),
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
         manager: {
           maxDiscountPercent: 25,
@@ -274,6 +276,7 @@ describe('ENG-142a loss-prevention policy', () => {
             blockedUntil: '05:00',
           },
           shift: disabledShiftPolicies(),
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
       },
     });
@@ -345,11 +348,13 @@ describe('ENG-142a loss-prevention policy', () => {
             maxDiscountPercent: 5,
             afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
             shift: disabledShiftPolicies(),
+            dualApproval: { enabled: false, thresholdAmount: 0 },
           },
           manager: {
             maxDiscountPercent: 20,
             afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
             shift: disabledShiftPolicies(),
+            dualApproval: { enabled: false, thresholdAmount: 0 },
           },
         },
       })
@@ -363,11 +368,13 @@ describe('ENG-142a loss-prevention policy', () => {
             maxDiscountPercent: 5,
             afterHoursSale: { enabled: true, blockedFrom: '22:00', blockedUntil: '22:00' },
             shift: disabledShiftPolicies(),
+            dualApproval: { enabled: false, thresholdAmount: 0 },
           },
           manager: {
             maxDiscountPercent: 20,
             afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
             shift: disabledShiftPolicies(),
+            dualApproval: { enabled: false, thresholdAmount: 0 },
           },
         },
       })
@@ -377,17 +384,19 @@ describe('ENG-142a loss-prevention policy', () => {
   it('evaluates role thresholds, local blocked time, drafts, and admin bypass', async () => {
     const harness = await seedHarness('evaluate');
     writeLossPreventionSettings(getDatabase(), harness.tenantId, {
-      version: 2,
+      version: 3,
       roles: {
         cashier: {
           maxDiscountPercent: 10,
           afterHoursSale: { enabled: true, blockedFrom: '22:00', blockedUntil: '06:00' },
           shift: disabledShiftPolicies(),
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
         manager: {
           maxDiscountPercent: 20,
           afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
           shift: disabledShiftPolicies(),
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
       },
     });
@@ -439,21 +448,132 @@ describe('ENG-142a loss-prevention policy', () => {
     expect(admin.requiredActions).toEqual([]);
   });
 
+  it('requires dual approval only above the configured monetary threshold', async () => {
+    const harness = await seedHarness('dual-boundary');
+    writeLossPreventionSettings(getDatabase(), harness.tenantId, {
+      version: 3,
+      roles: {
+        cashier: {
+          maxDiscountPercent: 100,
+          afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
+          shift: disabledShiftPolicies(),
+          dualApproval: { enabled: true, thresholdAmount: 125 },
+        },
+        manager: {
+          maxDiscountPercent: 100,
+          afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
+          shift: disabledShiftPolicies(),
+          dualApproval: { enabled: false, thresholdAmount: 0 },
+        },
+      },
+    });
+
+    const required = (action: string, amount: number, role = 'cashier') =>
+      requiredLossPreventionApprovalCount({
+        db: getDatabase(),
+        tenantId: harness.tenantId,
+        role,
+        action,
+        amount,
+      });
+
+    expect(required('sale_refund', 125)).toBe(1);
+    expect(required('sale_refund', 125.01)).toBe(2);
+    expect(required('cash_drawer_open', 500)).toBe(1);
+    expect(required('sale_refund', 500, 'admin')).toBe(1);
+
+    const checkoutAtThreshold = await evaluateCheckoutLossPrevention({
+      db: getDatabase(),
+      tenantId: harness.tenantId,
+      role: 'cashier',
+      isCompletion: true,
+      items: [{ ...items[0]!, quantity: 1, unitPrice: 1000 }],
+      discountAmount: 125,
+    });
+    expect(checkoutAtThreshold.requiredActions).toEqual([]);
+
+    const checkoutAboveThreshold = await evaluateCheckoutLossPrevention({
+      db: getDatabase(),
+      tenantId: harness.tenantId,
+      role: 'cashier',
+      isCompletion: true,
+      items: [{ ...items[0]!, quantity: 1, unitPrice: 1000 }],
+      discountAmount: 125.01,
+    });
+    expect(checkoutAboveThreshold).toMatchObject({
+      requiredActions: ['sale_discount'],
+      violations: [
+        {
+          kind: 'dual_approval_threshold',
+          action: 'sale_discount',
+          observedAmount: 125.01,
+          thresholdAmount: 125,
+        },
+      ],
+    });
+
+    const refundAtThreshold = evaluateShiftLossPrevention({
+      db: getDatabase(),
+      tenantId: harness.tenantId,
+      siteId: harness.siteId,
+      actorId: harness.cashierId,
+      role: 'cashier',
+      action: 'sale_refund',
+      amount: 125,
+    });
+    expect(refundAtThreshold).toMatchObject({ requiresApproval: false, violations: [] });
+
+    const refundAboveThreshold = evaluateShiftLossPrevention({
+      db: getDatabase(),
+      tenantId: harness.tenantId,
+      siteId: harness.siteId,
+      actorId: harness.cashierId,
+      role: 'cashier',
+      action: 'sale_refund',
+      amount: 125.01,
+    });
+    expect(refundAboveThreshold).toMatchObject({
+      requiresApproval: true,
+      violations: [
+        {
+          kind: 'dual_approval_threshold',
+          action: 'sale_refund',
+          reason: 'dual_approval_threshold',
+          observedAmount: 125.01,
+          thresholdAmount: 125,
+        },
+      ],
+    });
+
+    const noSale = evaluateShiftLossPrevention({
+      db: getDatabase(),
+      tenantId: harness.tenantId,
+      siteId: harness.siteId,
+      actorId: harness.cashierId,
+      role: 'cashier',
+      action: 'cash_drawer_open',
+      amount: 500,
+    });
+    expect(noSale).toMatchObject({ policyEnabled: false, requiresApproval: false, violations: [] });
+  });
+
   it('keeps settings isolated between tenants', async () => {
     const a = await seedHarness('iso-a');
     const b = await seedHarness('iso-b');
     writeLossPreventionSettings(getDatabase(), a.tenantId, {
-      version: 2,
+      version: 3,
       roles: {
         cashier: {
           maxDiscountPercent: 12,
           afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
           shift: disabledShiftPolicies(),
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
         manager: {
           maxDiscountPercent: 30,
           afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
           shift: disabledShiftPolicies(),
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
       },
     });
@@ -480,7 +600,7 @@ describe('ENG-142a loss-prevention policy', () => {
       },
     });
     expect(normalized).toMatchObject({
-      version: 2,
+      version: 3,
       roles: {
         cashier: { maxDiscountPercent: 3, shift: disabledShiftPolicies() },
         manager: { maxDiscountPercent: 30, shift: disabledShiftPolicies() },
@@ -523,12 +643,13 @@ describe('ENG-142a loss-prevention policy', () => {
       })
       .run();
     writeLossPreventionSettings(getDatabase(), harness.tenantId, {
-      version: 2,
+      version: 3,
       roles: {
         cashier: {
           maxDiscountPercent: 0,
           afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
           shift: disabledShiftPolicies(),
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
         manager: {
           maxDiscountPercent: 100,
@@ -538,6 +659,7 @@ describe('ENG-142a loss-prevention policy', () => {
             voids: { enabled: true, maxCount: 1, maxAmount: 75 },
             noSale: { enabled: true, maxCount: 1 },
           },
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
       },
     });
@@ -780,12 +902,13 @@ describe('ENG-142a loss-prevention policy', () => {
   it('fails closed when an enabled shift rule has no active cash session', async () => {
     const harness = await seedHarness('shift-missing');
     writeLossPreventionSettings(getDatabase(), harness.tenantId, {
-      version: 2,
+      version: 3,
       roles: {
         cashier: {
           maxDiscountPercent: 0,
           afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
           shift: disabledShiftPolicies(),
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
         manager: {
           maxDiscountPercent: 100,
@@ -795,6 +918,7 @@ describe('ENG-142a loss-prevention policy', () => {
             voids: { enabled: false, maxCount: 0, maxAmount: 0 },
             noSale: { enabled: false, maxCount: 0 },
           },
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
       },
     });

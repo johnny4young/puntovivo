@@ -34,6 +34,13 @@ const noSalePolicySchema = z
   })
   .strict();
 
+const dualApprovalPolicySchema = z
+  .object({
+    enabled: z.boolean(),
+    thresholdAmount: z.number().finite().min(0).max(1_000_000_000_000),
+  })
+  .strict();
+
 const rolePolicySchema = z
   .object({
     maxDiscountPercent: z.number().finite().min(0).max(100),
@@ -45,6 +52,7 @@ const rolePolicySchema = z
         noSale: noSalePolicySchema,
       })
       .strict(),
+    dualApproval: dualApprovalPolicySchema,
   })
   .strict();
 

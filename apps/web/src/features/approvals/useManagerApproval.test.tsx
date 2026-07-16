@@ -12,6 +12,8 @@ const { invalidate, mutation, query } = vi.hoisted(() => ({
       resourceId: string | null;
       status: 'pending' | 'approved';
       decisionReason: string | null;
+      approvalsCollected: number;
+      requiredApprovals: number;
     }>,
     isLoading: false,
     error: null as Error | null,
@@ -55,6 +57,8 @@ describe('useManagerApproval', () => {
         resourceId: 'sale-1',
         status: 'approved',
         decisionReason: null,
+        approvalsCollected: 1,
+        requiredApprovals: 1,
       },
       {
         id: 'wrong-resource',
@@ -63,6 +67,8 @@ describe('useManagerApproval', () => {
         resourceId: 'sale-2',
         status: 'approved',
         decisionReason: null,
+        approvalsCollected: 1,
+        requiredApprovals: 1,
       },
       {
         id: 'exact-grant',
@@ -71,6 +77,8 @@ describe('useManagerApproval', () => {
         resourceId: 'sale-1',
         status: 'approved',
         decisionReason: 'Receipt verified',
+        approvalsCollected: 2,
+        requiredApprovals: 2,
       },
     ];
 
@@ -90,6 +98,8 @@ describe('useManagerApproval', () => {
       action: 'sale_refund',
       status: 'approved',
       decisionReason: 'Receipt verified',
+      approvalsCollected: 2,
+      requiredApprovals: 2,
     });
   });
 

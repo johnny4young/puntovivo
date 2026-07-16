@@ -611,6 +611,7 @@
     "reasonLabel": "Motivo para {{action}}",
     "reasonPlaceholder": "Explica por qué se necesita aprobación",
     "decisionReason": "Nota de la decisión: {{reason}}",
+    "progress": "{{collected}} de {{required}} aprobaciones de personas diferentes recibidas",
     "actions": {
       "sale_discount": "Cobro con descuento",
       "sale_after_hours": "Cobro durante el horario bloqueado",

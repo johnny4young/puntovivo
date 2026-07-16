@@ -115,6 +115,15 @@ export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
                 </p>
               )}
 
+              {view.requiredApprovals > 1 && view.status === 'pending' && (
+                <p className="mt-2 text-xs font-medium text-primary-800" role="status">
+                  {t('approval.progress', {
+                    collected: view.approvalsCollected,
+                    required: view.requiredApprovals,
+                  })}
+                </p>
+              )}
+
               {canRequest && !isHashing && !isLoading && (
                 <div className="mt-3 space-y-2">
                   <label className="block">

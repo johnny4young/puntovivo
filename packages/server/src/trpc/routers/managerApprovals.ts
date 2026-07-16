@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, isNull, lte, ne } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, lte, ne, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { UserRole } from '@puntovivo/shared/roles';
 import {
@@ -27,9 +27,11 @@ import {
   MANAGER_APPROVAL_GRANT_TTL_MS,
   MANAGER_APPROVAL_REQUEST_TTL_MS,
   checkoutApprovalResourceId,
+  managerApprovalCount,
   publicManagerApprovalRequest,
   requiredApproverLabel,
 } from '../../services/manager-approvals.js';
+import { requiredLossPreventionApprovalCount } from '../../services/loss-prevention/settings.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
@@ -90,6 +92,7 @@ function presentRequest(request: ManagerApprovalRequest, now: string) {
     ...publicManagerApprovalRequest(request),
     status: effectiveManagerApprovalStatus(request, now),
     requiredApproverRole: requiredApproverLabel(request.action),
+    approvalsCollected: managerApprovalCount(request),
   };
 }
 
@@ -202,6 +205,10 @@ export const managerApprovalsRouter = router({
         eq(managerApprovalRequests.status, 'pending'),
         gt(managerApprovalRequests.expiresAt, now),
         ne(managerApprovalRequests.requesterId, ctx.user!.id),
+        sql<boolean>`not exists (
+          select 1 from json_each(${managerApprovalRequests.approvalEvidence}) as evidence
+          where json_extract(evidence.value, '$.approverId') = ${ctx.user!.id}
+        )`,
       ];
       if (input.siteId) {
         await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
@@ -385,6 +392,13 @@ export const managerApprovalsRouter = router({
       if (existing) return presentRequest(existing, now);
 
       const id = nanoid();
+      const requiredApprovals = requiredLossPreventionApprovalCount({
+        db: criticalCtx.db,
+        tenantId: criticalCtx.tenantId,
+        role: criticalCtx.user.role,
+        action: input.action,
+        amount: summary.amount,
+      });
       const row = {
         id,
         tenantId: criticalCtx.tenantId,
@@ -396,6 +410,8 @@ export const managerApprovalsRouter = router({
         resourceType,
         resourceId: resourceId ?? null,
         summary,
+        requiredApprovals,
+        approvalEvidence: [],
         requestedAt: now,
         expiresAt,
         createdAt: now,
@@ -417,6 +433,7 @@ export const managerApprovalsRouter = router({
             requesterId: criticalCtx.user.id,
             siteId: site.id,
             expiresAt,
+            requiredApprovals,
           },
           metadata: {
             reason: input.reason,
@@ -424,6 +441,7 @@ export const managerApprovalsRouter = router({
             resourceId: resourceId ?? null,
             summary,
             requiredApproverRole: requiredApproverLabel(input.action),
+            requiredApprovals,
           },
         });
       });
@@ -510,6 +528,7 @@ export const managerApprovalsRouter = router({
         actorCanPresentDecision &&
         approverRole !== undefined &&
         approver?.id !== request.requesterId &&
+        !request.approvalEvidence.some(evidence => evidence.approverId === approver?.id) &&
         canRoleApproveAction(approverRole, request.action);
       const verificationHash =
         eligible && approver?.staffPinHash ? approver.staffPinHash : await getDummyStaffPinHash();
@@ -540,18 +559,64 @@ export const managerApprovalsRouter = router({
         throwApprovalExpired();
       }
 
-      const grantExpiresAt =
-        input.decision === 'approved'
+      const outcome = criticalCtx.db.transaction(tx => {
+        // ENG-142c — PIN verification suspends. Base the distinct-approver
+        // update on a fresh row inside one synchronous SQLite transaction.
+        const current = tx
+          .select()
+          .from(managerApprovalRequests)
+          .where(
+            and(
+              eq(managerApprovalRequests.id, request.id),
+              eq(managerApprovalRequests.tenantId, criticalCtx.tenantId)
+            )
+          )
+          .get();
+        if (!current || current.status !== 'pending') return 'not_pending' as const;
+        if (current.expiresAt <= decidedAt) {
+          tx.update(managerApprovalRequests)
+            .set({ status: 'expired', updatedAt: decidedAt })
+            .where(
+              and(
+                eq(managerApprovalRequests.id, current.id),
+                eq(managerApprovalRequests.tenantId, criticalCtx.tenantId),
+                eq(managerApprovalRequests.status, 'pending')
+              )
+            )
+            .run();
+          return 'expired' as const;
+        }
+        if (current.approvalEvidence.some(evidence => evidence.approverId === approver.id)) {
+          return 'duplicate_approver' as const;
+        }
+
+        const approvalEvidence =
+          input.decision === 'approved'
+            ? [
+                ...current.approvalEvidence,
+                {
+                  approverId: approver.id,
+                  approverRole: approverRole as 'admin' | 'manager',
+                  approvedAt: decidedAt,
+                },
+              ]
+            : current.approvalEvidence;
+        const approvalsCollected = approvalEvidence.length;
+        const approvalComplete =
+          input.decision === 'approved' && approvalsCollected >= current.requiredApprovals;
+        const nextStatus =
+          input.decision === 'rejected' ? 'rejected' : approvalComplete ? 'approved' : 'pending';
+        const grantExpiresAt = approvalComplete
           ? new Date(decidedNowMs + MANAGER_APPROVAL_GRANT_TTL_MS).toISOString()
           : null;
-      const decided = criticalCtx.db.transaction(tx => {
         const result = tx
           .update(managerApprovalRequests)
           .set({
-            status: input.decision,
-            decidedAt,
-            decidedBy: approver.id,
-            decisionReason: input.reason ?? null,
+            status: nextStatus,
+            approvalEvidence,
+            decidedAt: nextStatus === 'pending' ? null : decidedAt,
+            decidedBy: nextStatus === 'pending' ? null : approver.id,
+            decisionReason: input.decision === 'rejected' ? (input.reason ?? null) : null,
             grantExpiresAt,
             updatedAt: decidedAt,
           })
@@ -564,7 +629,7 @@ export const managerApprovalsRouter = router({
             )
           )
           .run();
-        if (result.changes !== 1) return false;
+        if (result.changes !== 1) return 'not_pending' as const;
 
         writeAuditLog({
           tx,
@@ -576,25 +641,33 @@ export const managerApprovalsRouter = router({
           resourceId: request.id,
           before: {
             status: 'pending',
-            requesterId: request.requesterId,
-            action: request.action,
+            requesterId: current.requesterId,
+            action: current.action,
+            approvalsCollected: current.approvalEvidence.length,
           },
           after: {
-            status: input.decision,
+            status: nextStatus,
             decidedBy: approver.id,
             decidedAt,
             grantExpiresAt,
+            approvalsCollected,
+            requiredApprovals: current.requiredApprovals,
           },
           metadata: {
             decisionReason: input.reason ?? null,
             sessionActorId: criticalCtx.user.id,
             authMethod: 'staff_pin',
             pinFreshnessPolicy: 'per_decision',
+            approvalSequence:
+              input.decision === 'approved' ? approvalsCollected : current.approvalEvidence.length,
+            requiredApprovals: current.requiredApprovals,
           },
         });
-        return true;
+        return 'decided' as const;
       });
-      if (!decided) throwApprovalNotPending();
+      if (outcome === 'expired') throwApprovalExpired();
+      if (outcome === 'duplicate_approver') throwApprovalPinInvalid();
+      if (outcome === 'not_pending') throwApprovalNotPending();
       // A valid PIN clears only this approver's target bucket, and only
       // after the decision + audit transaction commits.
       registerStaffPinSuccess(criticalCtx.db, rateIdentity);

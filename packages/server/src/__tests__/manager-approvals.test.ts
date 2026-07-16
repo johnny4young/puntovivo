@@ -20,8 +20,13 @@ import {
   claimManagerApprovalGrant,
   consumeManagerApprovalGrant,
   enqueueConsumedManagerApproval,
+  managerApprovalCount,
   releaseManagerApprovalClaim,
 } from '../services/manager-approvals.js';
+import {
+  resolveLossPreventionSettings,
+  writeLossPreventionSettings,
+} from '../services/loss-prevention/settings.js';
 import { appRouter } from '../trpc/router.js';
 import {
   freshCriticalContext,
@@ -103,6 +108,34 @@ function requestInput(
 }
 
 describe('manager approvals router (ENG-106c1)', () => {
+  it('counts only distinct approval evidence while preserving legacy decisions', () => {
+    const approvedAt = new Date().toISOString();
+    expect(
+      managerApprovalCount({
+        approvalEvidence: [],
+        decidedBy: 'legacy-manager',
+        status: 'approved',
+      })
+    ).toBe(1);
+    expect(
+      managerApprovalCount({
+        approvalEvidence: [],
+        decidedBy: 'rejecting-manager',
+        status: 'rejected',
+      })
+    ).toBe(0);
+    expect(
+      managerApprovalCount({
+        approvalEvidence: [
+          { approverId: 'manager-one', approverRole: 'manager', approvedAt },
+          { approverId: 'manager-one', approverRole: 'manager', approvedAt },
+        ],
+        decidedBy: 'manager-one',
+        status: 'rejected',
+      })
+    ).toBe(1);
+  });
+
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     db = getDatabase();
@@ -468,6 +501,200 @@ describe('manager approvals router (ENG-106c1)', () => {
       .all();
     expect(syncRows).toHaveLength(2);
     expect(JSON.stringify(syncRows)).not.toMatch(/claimToken|claimExpiresAt|pin|hash/i);
+  });
+
+  it('requires two distinct fresh-PIN decisions above the configured amount', async () => {
+    const before = resolveLossPreventionSettings(db, tenantId);
+    writeLossPreventionSettings(db, tenantId, {
+      ...before,
+      roles: {
+        ...before.roles,
+        cashier: {
+          ...before.roles.cashier,
+          dualApproval: { enabled: true, thresholdAmount: 100 },
+        },
+      },
+    });
+    try {
+      const cashier = await createEmployee('cashier');
+      const firstManager = await createEmployee('manager', '121212');
+      const secondManager = await createEmployee('manager', '343434');
+      const request = await appRouter
+        .createCaller(cashier.fresh())
+        .managerApprovals.request(requestInput('sale_refund'));
+      expect(request).toMatchObject({
+        status: 'pending',
+        requiredApprovals: 2,
+        approvalsCollected: 0,
+      });
+
+      const firstDecision = await appRouter
+        .createCaller(cashier.fresh())
+        .managerApprovals.decideWithPin({
+          requestId: request.id,
+          approverId: firstManager.id,
+          pin: '121212',
+          decision: 'approved',
+        });
+      expect(firstDecision).toMatchObject({
+        status: 'pending',
+        requiredApprovals: 2,
+        approvalsCollected: 1,
+        grantExpiresAt: null,
+      });
+      expect(() =>
+        claimManagerApprovalGrant({
+          db,
+          tenantId,
+          siteId,
+          requesterId: cashier.id,
+          requestId: request.id,
+          action: 'sale_refund',
+          resourceType: 'sale',
+          resourceId: approvalSaleId,
+        })
+      ).toThrowError(
+        expect.objectContaining({
+          cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+        })
+      );
+
+      const firstQueue = await appRouter
+        .createCaller(firstManager.fresh())
+        .managerApprovals.queue({ limit: 50 });
+      expect(firstQueue.items.some(item => item.id === request.id)).toBe(false);
+      const secondQueue = await appRouter
+        .createCaller(secondManager.fresh())
+        .managerApprovals.queue({ limit: 50 });
+      expect(secondQueue.items).toContainEqual(
+        expect.objectContaining({ id: request.id, approvalsCollected: 1, requiredApprovals: 2 })
+      );
+
+      await expect(
+        appRouter.createCaller(cashier.fresh()).managerApprovals.decideWithPin({
+          requestId: request.id,
+          approverId: firstManager.id,
+          pin: '121212',
+          decision: 'approved',
+        })
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_PIN_INVALID' }),
+      });
+
+      const secondDecision = await appRouter
+        .createCaller(cashier.fresh())
+        .managerApprovals.decideWithPin({
+          requestId: request.id,
+          approverId: secondManager.id,
+          pin: '343434',
+          decision: 'approved',
+        });
+      expect(secondDecision).toMatchObject({
+        status: 'approved',
+        decidedBy: secondManager.id,
+        requiredApprovals: 2,
+        approvalsCollected: 2,
+      });
+      expect(secondDecision.approvalEvidence.map(item => item.approverId)).toEqual([
+        firstManager.id,
+        secondManager.id,
+      ]);
+
+      const claim = claimManagerApprovalGrant({
+        db,
+        tenantId,
+        siteId,
+        requesterId: cashier.id,
+        requestId: request.id,
+        action: 'sale_refund',
+        resourceType: 'sale',
+        resourceId: approvalSaleId,
+      });
+      releaseManagerApprovalClaim(db, tenantId, claim);
+
+      const approvalAudits = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceId, request.id),
+            eq(auditLogs.action, 'manager_approval.approve')
+          )
+        )
+        .all();
+      expect(approvalAudits).toHaveLength(2);
+      expect(approvalAudits.map(row => row.metadata?.approvalSequence)).toEqual([1, 2]);
+    } finally {
+      writeLossPreventionSettings(db, tenantId, before);
+    }
+  });
+
+  it('closes a partially approved dual request when the next approver rejects it', async () => {
+    const before = resolveLossPreventionSettings(db, tenantId);
+    writeLossPreventionSettings(db, tenantId, {
+      ...before,
+      roles: {
+        ...before.roles,
+        cashier: {
+          ...before.roles.cashier,
+          dualApproval: { enabled: true, thresholdAmount: 100 },
+        },
+      },
+    });
+    try {
+      const cashier = await createEmployee('cashier');
+      const firstManager = await createEmployee('manager', '565656');
+      const secondManager = await createEmployee('manager', '787878');
+      const request = await appRouter
+        .createCaller(cashier.fresh())
+        .managerApprovals.request(requestInput('sale_refund'));
+
+      const partial = await appRouter.createCaller(cashier.fresh()).managerApprovals.decideWithPin({
+        requestId: request.id,
+        approverId: firstManager.id,
+        pin: '565656',
+        decision: 'approved',
+      });
+      expect(partial).toMatchObject({ status: 'pending', approvalsCollected: 1 });
+
+      const rejected = await appRouter
+        .createCaller(cashier.fresh())
+        .managerApprovals.decideWithPin({
+          requestId: request.id,
+          approverId: secondManager.id,
+          pin: '787878',
+          decision: 'rejected',
+          reason: 'Discount evidence is incomplete',
+        });
+      expect(rejected).toMatchObject({
+        status: 'rejected',
+        decidedBy: secondManager.id,
+        decisionReason: 'Discount evidence is incomplete',
+        requiredApprovals: 2,
+        approvalsCollected: 1,
+        grantExpiresAt: null,
+      });
+      expect(rejected.approvalEvidence.map(item => item.approverId)).toEqual([firstManager.id]);
+      expect(() =>
+        claimManagerApprovalGrant({
+          db,
+          tenantId,
+          siteId,
+          requesterId: cashier.id,
+          requestId: request.id,
+          action: 'sale_refund',
+          resourceType: 'sale',
+          resourceId: approvalSaleId,
+        })
+      ).toThrowError(
+        expect.objectContaining({
+          cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+        })
+      );
+    } finally {
+      writeLossPreventionSettings(db, tenantId, before);
+    }
   });
 
   it('rejects invalid or under-privileged PINs without deciding the request', async () => {

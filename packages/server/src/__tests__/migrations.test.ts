@@ -299,6 +299,15 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
       .get(eng140d!.when);
     expect(pinnedCashAttendance).toBeUndefined();
+
+    const eng142c = readExpectedMigrations().find(
+      migration => migration.tag === '0022_eng142c_dual_approvals'
+    );
+    expect(eng142c).toBeDefined();
+    const pinnedDualApproval = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(eng142c!.when);
+    expect(pinnedDualApproval).toBeUndefined();
     sqlite.close();
   });
 
@@ -334,6 +343,15 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
       .get(eng140d!.when);
     expect(pinnedCashAttendance).toBeDefined();
+
+    const eng142c = readExpectedMigrations().find(
+      migration => migration.tag === '0022_eng142c_dual_approvals'
+    );
+    expect(eng142c).toBeDefined();
+    const pinnedDualApproval = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(eng142c!.when);
+    expect(pinnedDualApproval).toBeDefined();
     sqlite.close();
   });
 

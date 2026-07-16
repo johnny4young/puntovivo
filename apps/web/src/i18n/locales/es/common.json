@@ -143,7 +143,9 @@
       "confirmApprove": "Confirmar aprobación",
       "confirmReject": "Confirmar rechazo",
       "approvedSuccess": "Solicitud aprobada",
+      "partialSuccess": "Aprobación {{collected}} de {{required}} registrada",
       "rejectedSuccess": "Solicitud rechazada",
+      "progress": "{{collected}} de {{required}} aprobaciones recibidas",
       "actions": {
         "credit_override": "Excepción de crédito",
         "sale_void": "Anular venta",

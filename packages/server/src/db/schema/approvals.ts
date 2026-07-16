@@ -7,7 +7,7 @@
  *
  * @module db/schema/approvals
  */
-import { index, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
 import {
   managerApprovalActionEnum,
@@ -36,6 +36,12 @@ export interface ManagerApprovalSummary {
   currencyCode?: string | undefined;
 }
 
+export interface ManagerApprovalEvidence {
+  approverId: string;
+  approverRole: 'admin' | 'manager';
+  approvedAt: string;
+}
+
 export const managerApprovalRequests = sqliteTable(
   'manager_approval_requests',
   {
@@ -55,6 +61,12 @@ export const managerApprovalRequests = sqliteTable(
     resourceType: text('resource_type').notNull(),
     resourceId: text('resource_id'),
     summary: text('summary', { mode: 'json' }).$type<ManagerApprovalSummary>().notNull(),
+    // ENG-142c — one exact request can require two distinct fresh-PIN decisions.
+    requiredApprovals: integer('required_approvals').notNull().default(1),
+    approvalEvidence: text('approval_evidence', { mode: 'json' })
+      .$type<ManagerApprovalEvidence[]>()
+      .notNull()
+      .default([]),
     requestedAt: text('requested_at').notNull(),
     expiresAt: text('expires_at').notNull(),
     decidedAt: text('decided_at'),

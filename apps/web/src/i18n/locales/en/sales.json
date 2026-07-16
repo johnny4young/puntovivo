@@ -611,6 +611,7 @@
     "reasonLabel": "Reason for {{action}}",
     "reasonPlaceholder": "Explain why approval is needed",
     "decisionReason": "Decision note: {{reason}}",
+    "progress": "{{collected}} of {{required}} distinct approvals received",
     "actions": {
       "sale_discount": "Discounted checkout",
       "sale_after_hours": "Checkout during blocked hours",

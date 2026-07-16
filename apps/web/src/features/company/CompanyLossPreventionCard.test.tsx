@@ -7,7 +7,7 @@ import { CompanyLossPreventionCard } from './CompanyLossPreventionCard';
 
 const queryState = vi.hoisted(() => ({
   data: {
-    version: 2 as const,
+    version: 3 as const,
     roles: {
       cashier: {
         maxDiscountPercent: 0,
@@ -17,6 +17,7 @@ const queryState = vi.hoisted(() => ({
           voids: { enabled: false, maxCount: 0, maxAmount: 0 },
           noSale: { enabled: false, maxCount: 0 },
         },
+        dualApproval: { enabled: false, thresholdAmount: 0 },
       },
       manager: {
         maxDiscountPercent: 100,
@@ -26,6 +27,7 @@ const queryState = vi.hoisted(() => ({
           voids: { enabled: false, maxCount: 0, maxAmount: 0 },
           noSale: { enabled: false, maxCount: 0 },
         },
+        dualApproval: { enabled: false, thresholdAmount: 0 },
       },
     },
   },
@@ -116,6 +118,7 @@ describe('CompanyLossPreventionCard', () => {
             voids: { enabled: false, maxCount: 0, maxAmount: 0 },
             noSale: { enabled: false, maxCount: 0 },
           },
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
         manager: {
           maxDiscountPercent: 100,
@@ -125,6 +128,7 @@ describe('CompanyLossPreventionCard', () => {
             voids: { enabled: false, maxCount: 0, maxAmount: 0 },
             noSale: { enabled: false, maxCount: 0 },
           },
+          dualApproval: { enabled: false, thresholdAmount: 0 },
         },
       },
     });
@@ -184,6 +188,35 @@ describe('CompanyLossPreventionCard', () => {
             shift: expect.objectContaining({
               refunds: { enabled: true, maxCount: 2, maxAmount: 150 },
             }),
+          }),
+        }),
+      })
+    );
+  });
+
+  it('submits a per-role dual-approval amount threshold', async () => {
+    const user = userEvent.setup();
+    render(<CompanyLossPreventionCard />);
+
+    const cashierCard = screen.getByTestId('loss-prevention-role-cashier');
+    await user.click(
+      screen.getAllByRole('checkbox', {
+        name: /Require two approvals above an amount/,
+      })[0]!
+    );
+    const threshold = cashierCard.querySelector<HTMLInputElement>(
+      '#loss-prevention-cashier-dual-approval-threshold'
+    );
+    if (!threshold) throw new Error('Expected cashier dual-approval threshold');
+    await user.clear(threshold);
+    await user.type(threshold, '250');
+    await user.click(screen.getByRole('button', { name: 'Save checkout controls' }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roles: expect.objectContaining({
+          cashier: expect.objectContaining({
+            dualApproval: { enabled: true, thresholdAmount: 250 },
           }),
         }),
       })

@@ -40,9 +40,14 @@ function ApprovalDecisionForm({
       onDecided();
       toast.success({
         title:
-          result.status === 'approved'
-            ? t('common:userMenu.approvals.approvedSuccess')
-            : t('common:userMenu.approvals.rejectedSuccess'),
+          result.status === 'pending'
+            ? t('common:userMenu.approvals.partialSuccess', {
+                collected: result.approvalsCollected,
+                required: result.requiredApprovals,
+              })
+            : result.status === 'approved'
+              ? t('common:userMenu.approvals.approvedSuccess')
+              : t('common:userMenu.approvals.rejectedSuccess'),
       });
     },
     onError: onErrorToast(toast, t, {
@@ -251,6 +256,14 @@ export function ManagerApprovalQueue() {
                       time: formatDateTime(item.expiresAt),
                     })}
                   </p>
+                  {item.requiredApprovals > 1 && (
+                    <p className="mt-1 text-[10px] font-semibold text-primary-800">
+                      {t('common:userMenu.approvals.progress', {
+                        collected: item.approvalsCollected,
+                        required: item.requiredApprovals,
+                      })}
+                    </p>
+                  )}
 
                   {isActive ? (
                     <ApprovalDecisionForm

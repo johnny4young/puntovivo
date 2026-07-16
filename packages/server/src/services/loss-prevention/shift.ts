@@ -28,7 +28,7 @@ type ShiftLimitPolicy =
   | { kind: 'value'; value: LossPreventionShiftValuePolicy }
   | { kind: 'count'; value: LossPreventionNoSalePolicy };
 
-export type ShiftLossPreventionViolation = {
+type ShiftLimitViolation = {
   kind: 'shift_refund_limit' | 'shift_void_limit' | 'no_sale_limit';
   action: ShiftLossPreventionAction;
   reason: 'limit_exceeded' | 'shift_unavailable';
@@ -41,12 +41,23 @@ export type ShiftLossPreventionViolation = {
   maxAmount: number | null;
 };
 
+type ShiftDualApprovalViolation = {
+  kind: 'dual_approval_threshold';
+  action: Extract<ShiftLossPreventionAction, 'sale_refund' | 'sale_void'>;
+  reason: 'dual_approval_threshold';
+  observedAmount: number;
+  thresholdAmount: number;
+};
+
+export type ShiftLossPreventionViolation = ShiftLimitViolation | ShiftDualApprovalViolation;
+
 export interface ShiftLossPreventionEvaluation {
   role: UserRole;
   action: ShiftLossPreventionAction;
   cashSessionId: string | null;
   policyEnabled: boolean;
   requiresApproval: boolean;
+  violations: ShiftLossPreventionViolation[];
   violation: ShiftLossPreventionViolation | null;
 }
 
@@ -84,7 +95,7 @@ function completedAmount(
   return typeof raw === 'number' && Number.isFinite(raw) ? Math.max(0, raw) : 0;
 }
 
-function violationKind(action: ShiftLossPreventionAction): ShiftLossPreventionViolation['kind'] {
+function violationKind(action: ShiftLossPreventionAction): ShiftLimitViolation['kind'] {
   if (action === 'sale_refund') return 'shift_refund_limit';
   if (action === 'sale_void') return 'shift_void_limit';
   return 'no_sale_limit';
@@ -108,20 +119,38 @@ export function evaluateShiftLossPrevention(args: {
       cashSessionId: null,
       policyEnabled: false,
       requiresApproval: false,
+      violations: [],
       violation: null,
     };
   }
 
   const settings = resolveLossPreventionSettings(args.db, args.tenantId);
   const configured = policyForAction(role, args.action, settings);
+  const actionAmount = roundMoney(Math.max(0, args.amount ?? 0));
+  const dualPolicy = settings.roles[role].dualApproval;
+  const dualViolation: ShiftDualApprovalViolation | null =
+    args.action !== 'cash_drawer_open' &&
+    dualPolicy.enabled &&
+    actionAmount > dualPolicy.thresholdAmount
+      ? {
+          kind: 'dual_approval_threshold',
+          action: args.action,
+          reason: 'dual_approval_threshold',
+          observedAmount: actionAmount,
+          thresholdAmount: dualPolicy.thresholdAmount,
+        }
+      : null;
+  const policyEnabled = configured.value.enabled || dualPolicy.enabled;
   if (!configured.value.enabled) {
+    const violations = dualViolation ? [dualViolation] : [];
     return {
       role: args.role,
       action: args.action,
       cashSessionId: null,
-      policyEnabled: false,
-      requiresApproval: false,
-      violation: null,
+      policyEnabled: args.action === 'cash_drawer_open' ? false : policyEnabled,
+      requiresApproval: violations.length > 0,
+      violations,
+      violation: violations[0] ?? null,
     };
   }
 
@@ -133,10 +162,9 @@ export function evaluateShiftLossPrevention(args: {
   );
   const maxCount = configured.value.maxCount;
   const maxAmount = configured.kind === 'value' ? configured.value.maxAmount : null;
-  const actionAmount = roundMoney(Math.max(0, args.amount ?? 0));
 
   if (!activeSession) {
-    const violation: ShiftLossPreventionViolation = {
+    const violation: ShiftLimitViolation = {
       kind: violationKind(args.action),
       action: args.action,
       reason: 'shift_unavailable',
@@ -148,12 +176,17 @@ export function evaluateShiftLossPrevention(args: {
       prospectiveAmount: actionAmount,
       maxAmount,
     };
+    const violations: ShiftLossPreventionViolation[] = [
+      violation,
+      ...(dualViolation ? [dualViolation] : []),
+    ];
     return {
       role: args.role,
       action: args.action,
       cashSessionId: null,
-      policyEnabled: true,
+      policyEnabled,
       requiresApproval: true,
+      violations,
       violation,
     };
   }
@@ -186,10 +219,10 @@ export function evaluateShiftLossPrevention(args: {
   );
   const prospectiveCount = currentCount + 1;
   const prospectiveAmount = roundMoney(currentAmount + actionAmount);
-  const exceeded: ShiftLossPreventionViolation['exceeded'] = [];
+  const exceeded: ShiftLimitViolation['exceeded'] = [];
   if (prospectiveCount > maxCount) exceeded.push('count');
   if (maxAmount !== null && prospectiveAmount > maxAmount) exceeded.push('amount');
-  const violation: ShiftLossPreventionViolation | null =
+  const limitViolation: ShiftLimitViolation | null =
     exceeded.length > 0
       ? {
           kind: violationKind(args.action),
@@ -204,14 +237,19 @@ export function evaluateShiftLossPrevention(args: {
           maxAmount,
         }
       : null;
+  const violations: ShiftLossPreventionViolation[] = [
+    ...(limitViolation ? [limitViolation] : []),
+    ...(dualViolation ? [dualViolation] : []),
+  ];
 
   return {
     role: args.role,
     action: args.action,
     cashSessionId: activeSession.id,
-    policyEnabled: true,
-    requiresApproval: violation !== null,
-    violation,
+    policyEnabled,
+    requiresApproval: violations.length > 0,
+    violations,
+    violation: violations[0] ?? null,
   };
 }
 
@@ -227,28 +265,31 @@ export function recordShiftLossPreventionTrigger(args: {
   approvalRequestId?: string | null | undefined;
   operationId?: string | null | undefined;
 }): void {
-  const violation = args.evaluation.violation;
-  if (!violation) return;
-  writeAuditLog({
-    tx: args.db,
-    tenantId: args.tenantId,
-    actorId: args.actorId,
-    action: 'loss_prevention.triggered',
-    resourceType: 'loss_prevention_rule',
-    resourceId: violation.kind,
-    after: {
-      requiredAction: violation.action,
-      approvalProvided: Boolean(args.approvalRequestId),
-    },
-    metadata: {
-      siteId: args.siteId,
-      actionResourceType: args.resourceType,
-      actionResourceId: args.resourceId,
-      role: args.evaluation.role,
-      cashSessionId: args.evaluation.cashSessionId,
-      ...violation,
-    },
-    operationId: args.operationId,
+  if (args.evaluation.violations.length === 0) return;
+  args.db.transaction(tx => {
+    for (const violation of args.evaluation.violations) {
+      writeAuditLog({
+        tx,
+        tenantId: args.tenantId,
+        actorId: args.actorId,
+        action: 'loss_prevention.triggered',
+        resourceType: 'loss_prevention_rule',
+        resourceId: violation.kind,
+        after: {
+          requiredAction: violation.action,
+          approvalProvided: Boolean(args.approvalRequestId),
+        },
+        metadata: {
+          siteId: args.siteId,
+          actionResourceType: args.resourceType,
+          actionResourceId: args.resourceId,
+          role: args.evaluation.role,
+          cashSessionId: args.evaluation.cashSessionId,
+          ...violation,
+        },
+        operationId: args.operationId,
+      });
+    }
   });
 }
 

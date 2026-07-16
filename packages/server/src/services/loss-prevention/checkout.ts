@@ -26,6 +26,12 @@ export type CheckoutLossPreventionViolation =
       localTime: string;
       blockedFrom: string;
       blockedUntil: string;
+    }
+  | {
+      kind: 'dual_approval_threshold';
+      action: 'sale_discount';
+      observedAmount: number;
+      thresholdAmount: number;
     };
 
 export interface CheckoutLossPreventionEvaluation {
@@ -119,6 +125,15 @@ export async function evaluateCheckoutLossPrevention(args: {
         action: 'sale_discount',
         observedPercent: roundPolicyNumber(observedPercent),
         thresholdPercent: policy.maxDiscountPercent,
+      });
+    }
+    const discountAmount = roundMoney(Math.max(0, args.discountAmount));
+    if (policy.dualApproval.enabled && discountAmount > policy.dualApproval.thresholdAmount) {
+      violations.push({
+        kind: 'dual_approval_threshold',
+        action: 'sale_discount',
+        observedAmount: discountAmount,
+        thresholdAmount: policy.dualApproval.thresholdAmount,
       });
     }
     if (

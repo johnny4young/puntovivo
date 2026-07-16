@@ -667,6 +667,11 @@
         "from": "Blocked from",
         "until": "Blocked until"
       },
+      "dualApproval": {
+        "label": "Require two approvals above an amount",
+        "help": "Discounts, after-hours sales, refunds, and voids above this amount need fresh PIN decisions from two different authorized employees.",
+        "threshold": "Dual-approval amount threshold"
+      },
       "shift": {
         "title": "Per-shift action limits",
         "help": "Completed actions by this employee are counted from the start of their current cash session. Crossing either limit requires a separate approval.",
@@ -686,7 +691,7 @@
           "maxCount": "Maximum manual opens"
         }
       },
-      "validation": "Enter discount limits from 0% to 100%, valid shift limits, and different start and end times for each enabled blocked window.",
+      "validation": "Enter discount limits from 0% to 100%, valid shift and dual-approval amounts, and different start and end times for each enabled blocked window.",
       "auditNote": "Every policy change and every checkout that triggers a rule is recorded in the audit log without cart or customer details.",
       "save": "Save checkout controls",
       "saving": "Saving…",

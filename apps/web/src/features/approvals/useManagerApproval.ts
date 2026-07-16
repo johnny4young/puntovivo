@@ -49,6 +49,8 @@ export function useManagerApproval<Action extends ManagerApprovalAction>(
       requestId: request?.id ?? null,
       status: request?.status ?? 'not_requested',
       decisionReason: request?.decisionReason ?? null,
+      approvalsCollected: request?.approvalsCollected ?? 0,
+      requiredApprovals: request?.requiredApprovals ?? 1,
     };
   }, [input.action, input.resourceId, input.resourceType, ownQuery.data]);
 

@@ -89,7 +89,7 @@ export const lossPreventionRouter = router({
       return criticalCtx.db.transaction(tx => {
         const before = resolveLossPreventionSettings(tx, criticalCtx.tenantId);
         const after = writeLossPreventionSettings(tx, criticalCtx.tenantId, {
-          version: 2,
+          version: 3,
           roles: input.roles,
         });
         writeAuditLog({

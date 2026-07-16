@@ -667,6 +667,11 @@
         "from": "Bloqueado desde",
         "until": "Bloqueado hasta"
       },
+      "dualApproval": {
+        "label": "Requerir dos aprobaciones por encima de un monto",
+        "help": "Los descuentos, ventas fuera de horario, reembolsos y anulaciones que superen este monto necesitan decisiones con PIN vigente de dos personas autorizadas diferentes.",
+        "threshold": "Monto límite para doble aprobación"
+      },
       "shift": {
         "title": "Límites de acciones por turno",
         "help": "Las acciones completadas por esta persona se cuentan desde el inicio de su sesión de caja actual. Superar cualquiera de los límites requiere una aprobación aparte.",
@@ -686,7 +691,7 @@
           "maxCount": "Máximo de aperturas manuales"
         }
       },
-      "validation": "Ingresa límites de descuento entre 0% y 100%, límites de turno válidos y horas de inicio y fin diferentes en cada periodo bloqueado activo.",
+      "validation": "Ingresa límites de descuento entre 0% y 100%, montos válidos para turnos y doble aprobación, y horas de inicio y fin diferentes en cada periodo bloqueado activo.",
       "auditNote": "Cada cambio de política y cada cobro que active una regla queda registrado en auditoría sin datos del carrito ni del cliente.",
       "save": "Guardar controles de cobro",
       "saving": "Guardando…",

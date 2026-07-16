@@ -29,14 +29,20 @@ export interface LossPreventionShiftPolicies {
   noSale: LossPreventionNoSalePolicy;
 }
 
+export interface LossPreventionDualApprovalPolicy {
+  enabled: boolean;
+  thresholdAmount: number;
+}
+
 export interface LossPreventionRolePolicy {
   maxDiscountPercent: number;
   afterHoursSale: LossPreventionAfterHoursPolicy;
   shift: LossPreventionShiftPolicies;
+  dualApproval: LossPreventionDualApprovalPolicy;
 }
 
 export interface LossPreventionSettings {
-  version: 2;
+  version: 3;
   roles: Record<LossPreventionRole, LossPreventionRolePolicy>;
 }
 
@@ -52,8 +58,13 @@ const DEFAULT_SHIFT_POLICIES: LossPreventionShiftPolicies = {
   noSale: { enabled: false, maxCount: 0 },
 };
 
+const DEFAULT_DUAL_APPROVAL_POLICY: LossPreventionDualApprovalPolicy = {
+  enabled: false,
+  thresholdAmount: 0,
+};
+
 export const DEFAULT_LOSS_PREVENTION_SETTINGS: LossPreventionSettings = {
-  version: 2,
+  version: 3,
   roles: {
     // Preserve the pre-ENG-142 authorization baseline: any cashier discount
     // escalates, while managers retain direct authority unless configured.
@@ -61,11 +72,13 @@ export const DEFAULT_LOSS_PREVENTION_SETTINGS: LossPreventionSettings = {
       maxDiscountPercent: 0,
       afterHoursSale: { ...DEFAULT_AFTER_HOURS_POLICY },
       shift: structuredClone(DEFAULT_SHIFT_POLICIES),
+      dualApproval: { ...DEFAULT_DUAL_APPROVAL_POLICY },
     },
     manager: {
       maxDiscountPercent: 100,
       afterHoursSale: { ...DEFAULT_AFTER_HOURS_POLICY },
       shift: structuredClone(DEFAULT_SHIFT_POLICIES),
+      dualApproval: { ...DEFAULT_DUAL_APPROVAL_POLICY },
     },
   },
 };
@@ -122,6 +135,10 @@ function normalizeRolePolicy(
       : {};
   const rawShift =
     raw.shift && typeof raw.shift === 'object' ? (raw.shift as Record<string, unknown>) : {};
+  const rawDualApproval =
+    raw.dualApproval && typeof raw.dualApproval === 'object'
+      ? (raw.dualApproval as Record<string, unknown>)
+      : {};
   const blockedFrom = normalizeTime(rawWindow.blockedFrom, fallback.afterHoursSale.blockedFrom);
   const blockedUntil = normalizeTime(rawWindow.blockedUntil, fallback.afterHoursSale.blockedUntil);
   const rawDiscount = raw.maxDiscountPercent;
@@ -143,6 +160,16 @@ function normalizeRolePolicy(
       voids: normalizeShiftValuePolicy(rawShift.voids, fallback.shift.voids),
       noSale: normalizeNoSalePolicy(rawShift.noSale, fallback.shift.noSale),
     },
+    dualApproval: {
+      enabled:
+        typeof rawDualApproval.enabled === 'boolean'
+          ? rawDualApproval.enabled
+          : fallback.dualApproval.enabled,
+      thresholdAmount: normalizeAmount(
+        rawDualApproval.thresholdAmount,
+        fallback.dualApproval.thresholdAmount
+      ),
+    },
   };
 }
 
@@ -151,7 +178,7 @@ export function normalizeLossPreventionSettings(value: unknown): LossPreventionS
   const roles = raw.roles && typeof raw.roles === 'object' ? raw.roles : {};
   const roleRecord = roles as Record<string, unknown>;
   return {
-    version: 2,
+    version: 3,
     roles: {
       cashier: normalizeRolePolicy(
         roleRecord.cashier,
@@ -163,6 +190,34 @@ export function normalizeLossPreventionSettings(value: unknown): LossPreventionS
       ),
     },
   };
+}
+
+const DUAL_APPROVAL_ACTIONS = new Set([
+  'sale_discount',
+  'sale_after_hours',
+  'sale_refund',
+  'sale_void',
+]);
+
+/** ENG-142c — derive the distinct-approver count from server-owned request evidence. */
+export function requiredLossPreventionApprovalCount(args: {
+  db: DatabaseInstance;
+  tenantId: string;
+  role: string;
+  action: string;
+  amount: number | undefined;
+}): 1 | 2 {
+  if (
+    (args.role !== 'cashier' && args.role !== 'manager') ||
+    !DUAL_APPROVAL_ACTIONS.has(args.action) ||
+    args.amount === undefined ||
+    !Number.isFinite(args.amount)
+  ) {
+    return 1;
+  }
+  const policy = resolveLossPreventionSettings(args.db, args.tenantId).roles[args.role]
+    .dualApproval;
+  return policy.enabled && roundMoney(args.amount) > policy.thresholdAmount ? 2 : 1;
 }
 
 function readPersistedPolicy(db: DatabaseInstance, tenantId: string): unknown {

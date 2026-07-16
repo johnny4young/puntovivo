@@ -247,6 +247,25 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('products')
       );
     }
+    // ENG-142c — dual approvals ALTERs `manager_approval_requests`. A
+    // purchase-only partial DB has neither that target nor `tenants`, so the
+    // intervening attendance-correction and loss-prevention tables cannot be
+    // used by that fixture either. Pin the latest marker only for that truly
+    // isolated shape. Requiring every earlier late-migration target to be
+    // absent prevents Drizzle's newest-created_at semantics from skipping an
+    // applicable migration on a mixed partial DB.
+    if (entry.tag === '0022_eng142c_dual_approvals') {
+      return (
+        !tableExists('manager_approval_requests') &&
+        !tableExists('tenants') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers') &&
+        !tableExists('sales') &&
+        !tableExists('products')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(
