@@ -36,6 +36,10 @@
       "logout": "Log out",
       "createProduct": "Create new product",
       "createCustomer": "Create new customer"
+    },
+    "sellQuery": {
+      "label": "Sell {{query}}",
+      "description": "Add to the active cart and open the register"
     }
   },
   "descriptions": {

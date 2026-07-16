@@ -638,5 +638,8 @@
   "sound": {
     "enable": "Turn on checkout sounds",
     "disable": "Turn off checkout sounds"
+  },
+  "omnibox": {
+    "added": "{{product}} added to the cart"
   }
 }

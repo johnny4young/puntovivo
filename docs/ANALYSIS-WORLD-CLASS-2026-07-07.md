@@ -553,7 +553,7 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 13  | WC-B2 packages/shared                                                                                                           | M        | mantenibilidad        |
 | 14  | WC-B3 FiscalProvider interface                                                                                                  | M        | fiscal                |
 | 15  | WC-D1 listas de precios (con WC-F2)                                                                                             | L        | checkout              |
-| 16  | WC-C5 omnibox de venta                                                                                                          | M        | checkout              |
+| 16  | ✅ WC-C5 omnibox de venta (fila Vender en el palette: barcode exacto → carrito, miss → búsqueda prefilled) — ENG-203 shipped 2026-07-16 | M        | checkout              |
 | 17  | WC-D2 lealtad mínima                                                                                                            | M        | checkout              |
 | 18  | WC-B1 application/ por fases                                                                                                    | L        | mantenibilidad        |
 | 19  | WC-A2 SSE backpressure                                                                                                          | M        | offline               |

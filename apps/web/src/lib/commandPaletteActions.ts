@@ -29,6 +29,13 @@ import type { UserRole } from '@/types';
 export interface CommandActionContext {
   navigate: NavigateFunction;
   logout: () => Promise<void>;
+  /**
+   * ENG-203 (WC-C5) — omnibox sell handler wired by CommandPaletteBody
+   * (it needs React context: trpc utils, cart store owner, toasts). The
+   * synthetic "Vender «query»" row calls it with the raw typed query.
+   * Optional so the static catalogue and its tests stay context-free.
+   */
+  sellQuery?: (query: string) => void | Promise<void>;
 }
 
 export interface CommandAction {
@@ -38,6 +45,12 @@ export interface CommandAction {
   labelKey: string;
   /** Optional secondary description shown below the label. */
   descriptionKey?: string;
+  /**
+   * ENG-203 — optional i18n interpolation values for `labelKey`. Lets a
+   * synthetic action render the live query inside its label (e.g.
+   * "Vender «7702001»") without a bespoke render path.
+   */
+  labelArgs?: Record<string, string>;
   /**
    * Reference to a `SHORTCUTS` entry id — when present the
    * palette renders the formatted key hint on the right gutter.
@@ -247,8 +260,7 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     descriptionKey: 'descriptions.command.newSale',
     roles: salesRoles,
     group: 'command',
-    perform: ({ navigate }) =>
-      navigate('/sales', { state: { resetWorkspace: true } }),
+    perform: ({ navigate }) => navigate('/sales', { state: { resetWorkspace: true } }),
   },
   {
     id: 'command.logout',

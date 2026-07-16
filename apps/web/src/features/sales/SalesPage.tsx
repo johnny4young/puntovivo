@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCashDrawerController } from '@/features/sales/useCashDrawerController';
 import { useBarcodeProductScanner } from '@/features/sales/useBarcodeProductScanner';
@@ -257,6 +258,24 @@ export function SalesPage() {
     closeCashSessionMutation,
     recordCashMovementMutation,
   });
+
+  // ENG-203 — omnibox landing. When the command palette could not resolve
+  // the typed query as an exact barcode, it navigates here with the query in
+  // router state; consume it ONCE into the product-search dialog and clear
+  // the state so back/refresh does not reopen the dialog.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const omniboxQuery = (location.state as { omniboxQuery?: string } | null)?.omniboxQuery;
+  // `handleOpenProductSearch` is a plain closure (new identity per render),
+  // so the effect re-runs on every render — the consumed ref makes those
+  // re-runs no-ops and keeps each router-state query one-shot.
+  const consumedOmniboxQueryRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!omniboxQuery || consumedOmniboxQueryRef.current === omniboxQuery) return;
+    consumedOmniboxQueryRef.current = omniboxQuery;
+    handleOpenProductSearch(omniboxQuery);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [omniboxQuery, handleOpenProductSearch, navigate, location.pathname]);
 
   // ENG-105f — keep the product-search input focused across the cashier flow
   // so a USB HID barcode scanner always lands on the right target.
