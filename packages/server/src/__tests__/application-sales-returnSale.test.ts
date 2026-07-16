@@ -499,11 +499,17 @@ describe('returnSale (ENG-106c3 approval boundary)', () => {
       expect(triggers).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            after: { requiredAction: 'sale_refund', approvalProvided: false },
+            after: expect.objectContaining({
+              requiredAction: 'sale_refund',
+              approvalProvided: false,
+            }),
             metadata: expect.objectContaining({ actionResourceId: saleId }),
           }),
           expect.objectContaining({
-            after: { requiredAction: 'sale_refund', approvalProvided: true },
+            after: expect.objectContaining({
+              requiredAction: 'sale_refund',
+              approvalProvided: true,
+            }),
             metadata: expect.objectContaining({ actionResourceId: saleId }),
           }),
         ])

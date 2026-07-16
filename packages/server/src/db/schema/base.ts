@@ -212,6 +212,8 @@ export const auditLogActionEnum = [
   // ENG-142 — immutable policy configuration and real-time rule evidence.
   'loss_prevention.settings.updated',
   'loss_prevention.triggered',
+  // ENG-142d — shared manager review state for one in-app alert.
+  'loss_prevention.alert.acknowledged',
   // ENG-106c3 — every direct or approved physical drawer dispatch.
   'cash_drawer.open',
   // ENG-123a/ENG-123c — one summary row per committed launch product import.
@@ -380,6 +382,8 @@ export const auditLogResourceTypeEnum = [
   'manager_approval',
   // ENG-142 — one configured rule or one checkout rule trigger.
   'loss_prevention_rule',
+  // ENG-142d — points from an acknowledgement to its trigger audit row.
+  'loss_prevention_alert',
   // ENG-106c3 — drawer approvals and dispatch evidence bind to a site.
   'site',
   // ENG-047 wrote anomaly rows keyed to the flagged cashier in early

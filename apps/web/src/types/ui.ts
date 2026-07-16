@@ -74,6 +74,7 @@ export type AuditLogAction =
   | 'manager_approval.consume'
   | 'loss_prevention.settings.updated'
   | 'loss_prevention.triggered'
+  | 'loss_prevention.alert.acknowledged'
   | 'cash_drawer.open'
   | 'sale.price_override'
   // ENG-018 — park-and-resume (including discard metadata flag).
@@ -163,6 +164,7 @@ export type AuditLogResourceType =
   | 'scheduled_shift'
   | 'manager_approval'
   | 'loss_prevention_rule'
+  | 'loss_prevention_alert'
   | 'site'
   | 'cashier'
   // ENG-068 — module activation kernel resource type.

@@ -8,7 +8,9 @@ import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../audit-logs.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
 import {
+  configuredLossPreventionAlertChannels,
   resolveLossPreventionSettings,
+  type LossPreventionAlertChannel,
   type LossPreventionRole,
   type LossPreventionRolePolicy,
 } from './settings.js';
@@ -41,6 +43,7 @@ export interface CheckoutLossPreventionEvaluation {
   policy: LossPreventionRolePolicy | null;
   requiredActions: CheckoutApprovalAction[];
   violations: CheckoutLossPreventionViolation[];
+  alertChannels: LossPreventionAlertChannel[];
 }
 
 function roundPolicyNumber(value: number): number {
@@ -161,6 +164,7 @@ export async function evaluateCheckoutLossPrevention(args: {
     policy,
     requiredActions: [...new Set(violations.map(violation => violation.action))],
     violations,
+    alertChannels: configuredLossPreventionAlertChannels(settings),
   };
 }
 
@@ -190,6 +194,7 @@ export function recordCheckoutLossPreventionTriggers(args: {
         after: {
           requiredAction: violation.action,
           approvalProvided: provided.has(violation.action),
+          alertChannels: args.evaluation.alertChannels,
         },
         metadata: {
           siteId: args.siteId,

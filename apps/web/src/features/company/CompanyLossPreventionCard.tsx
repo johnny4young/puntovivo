@@ -44,8 +44,14 @@ interface NoSalePolicy {
 }
 
 interface LossPreventionPolicy {
-  version: 3;
+  version: 4;
   roles: Record<LossPreventionRole, RolePolicy>;
+  alerts: {
+    whatsappHandoff: {
+      enabled: boolean;
+      recipientPhone: string;
+    };
+  };
 }
 
 const ROLE_KEYS: readonly LossPreventionRole[] = ['cashier', 'manager'];
@@ -53,7 +59,7 @@ const LOCAL_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 function clonePolicy(policy: LossPreventionPolicy): LossPreventionPolicy {
   return {
-    version: 3,
+    version: 4,
     roles: {
       cashier: {
         ...policy.roles.cashier,
@@ -76,7 +82,18 @@ function clonePolicy(policy: LossPreventionPolicy): LossPreventionPolicy {
         dualApproval: { ...policy.roles.manager.dualApproval },
       },
     },
+    alerts: {
+      whatsappHandoff: { ...policy.alerts.whatsappHandoff },
+    },
   };
+}
+
+function isValidWhatsAppRecipient(value: string): boolean {
+  const normalized = value
+    .trim()
+    .replace(/[\s().-]/g, '')
+    .replace(/^\+/, '');
+  return /^[1-9]\d{7,14}$/.test(normalized);
 }
 
 /** ENG-142a — admin policy editor for local, per-role checkout controls. */
@@ -160,6 +177,9 @@ export function CompanyLossPreventionCard(): React.ReactElement {
       value.dualApproval.thresholdAmount > 1_000_000_000_000
     );
   });
+  const alertValidationError =
+    policy.alerts.whatsappHandoff.enabled &&
+    !isValidWhatsAppRecipient(policy.alerts.whatsappHandoff.recipientPhone);
   const isDirty = JSON.stringify(policy) !== JSON.stringify(persisted);
 
   return (
@@ -186,8 +206,8 @@ export function CompanyLossPreventionCard(): React.ReactElement {
         className="space-y-5"
         onSubmit={event => {
           event.preventDefault();
-          if (!validationError && isDirty) {
-            saveMutation.mutate({ roles: policy.roles });
+          if (!validationError && !alertValidationError && isDirty) {
+            saveMutation.mutate({ roles: policy.roles, alerts: policy.alerts });
           }
         }}
       >
@@ -544,9 +564,75 @@ export function CompanyLossPreventionCard(): React.ReactElement {
           })}
         </div>
 
-        {validationError && (
+        <section
+          className="rounded-2xl border border-line bg-surface-2 p-4"
+          aria-labelledby="loss-prevention-alert-delivery-title"
+        >
+          <h3
+            id="loss-prevention-alert-delivery-title"
+            className="text-sm font-semibold text-secondary-950"
+          >
+            {t('settings:company.lossPrevention.alerts.title')}
+          </h3>
+          <p className="mt-1 text-xs text-secondary-500">
+            {t('settings:company.lossPrevention.alerts.inAppHelp')}
+          </p>
+          <div className="mt-4 rounded-xl border border-line bg-surface p-3">
+            <label htmlFor="loss-prevention-whatsapp-handoff" className="flex items-start gap-3">
+              <input
+                id="loss-prevention-whatsapp-handoff"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-line accent-[var(--primary)]"
+                checked={policy.alerts.whatsappHandoff.enabled}
+                disabled={saveMutation.isPending}
+                onChange={event => {
+                  const enabled = event.target.checked;
+                  setDraft(current => {
+                    const next = clonePolicy(current ?? policy);
+                    next.alerts.whatsappHandoff.enabled = enabled;
+                    return next;
+                  });
+                }}
+              />
+              <span>
+                <span className="block text-sm font-medium text-secondary-900">
+                  {t('settings:company.lossPrevention.alerts.whatsapp.label')}
+                </span>
+                <span className="mt-0.5 block text-xs text-secondary-500">
+                  {t('settings:company.lossPrevention.alerts.whatsapp.help')}
+                </span>
+              </span>
+            </label>
+            <div className="mt-3 max-w-sm">
+              <label htmlFor="loss-prevention-whatsapp-recipient" className="label">
+                {t('settings:company.lossPrevention.alerts.whatsapp.recipient')}
+              </label>
+              <input
+                id="loss-prevention-whatsapp-recipient"
+                type="tel"
+                autoComplete="tel"
+                className="input mt-1"
+                value={policy.alerts.whatsappHandoff.recipientPhone}
+                disabled={saveMutation.isPending}
+                placeholder={t('settings:company.lossPrevention.alerts.whatsapp.placeholder')}
+                onChange={event => {
+                  const recipientPhone = event.target.value;
+                  setDraft(current => {
+                    const next = clonePolicy(current ?? policy);
+                    next.alerts.whatsappHandoff.recipientPhone = recipientPhone;
+                    return next;
+                  });
+                }}
+              />
+            </div>
+          </div>
+        </section>
+
+        {(validationError || alertValidationError) && (
           <p className="text-sm text-danger-700" role="alert">
-            {t('settings:company.lossPrevention.validation')}
+            {alertValidationError
+              ? t('settings:company.lossPrevention.alerts.whatsapp.validation')
+              : t('settings:company.lossPrevention.validation')}
           </p>
         )}
 
@@ -557,7 +643,7 @@ export function CompanyLossPreventionCard(): React.ReactElement {
           <button
             type="submit"
             className="pv-btn primary"
-            disabled={saveMutation.isPending || validationError || !isDirty}
+            disabled={saveMutation.isPending || validationError || alertValidationError || !isDirty}
           >
             {saveMutation.isPending
               ? t('settings:company.lossPrevention.saving')

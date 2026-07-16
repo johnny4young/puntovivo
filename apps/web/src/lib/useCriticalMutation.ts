@@ -81,7 +81,9 @@ export type CriticalCommandPath =
   // comprehensive day-close snapshot.
   | 'reports.dayClose.signOff'
   // ENG-142a — money-sensitive per-role checkout authority policy.
-  | 'lossPrevention.updateSettings';
+  | 'lossPrevention.updateSettings'
+  // ENG-142d — shared, auditable manager review of one alert.
+  | 'lossPrevention.acknowledgeAlert';
 
 /**
  * Recursively project router inputs / outputs through a dotted path. Most

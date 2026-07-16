@@ -312,5 +312,36 @@
   },
   "desktopOnly": {
     "label": "Solo escritorio"
+  },
+  "lossPreventionAlerts": {
+    "title": "Alertas de prevención de pérdidas",
+    "openAria": "Abre las alertas de prevención de pérdidas; pendientes de revisión: {{count}}",
+    "closeAria": "Cierra las alertas de prevención de pérdidas",
+    "siteScope": "Reglas activadas recientemente en la sede actual",
+    "loading": "Consultando alertas…",
+    "empty": "No hay alertas de prevención de pérdidas en esta sede.",
+    "errorTitle": "No se pudieron consultar las alertas de prevención de pérdidas",
+    "triggeredBy": "{{name}} · {{site}}",
+    "approvalProvided": "Se proporcionó la aprobación",
+    "approvalPending": "La acción quedó bloqueada hasta recibir aprobación",
+    "markReviewed": "Marcar como revisada",
+    "reviewedBy": "Revisada por {{name}} · {{time}}",
+    "reviewedSuccess": "Alerta marcada como revisada",
+    "unknownManager": "otro gerente",
+    "unknownOperator": "Persona no disponible",
+    "unknownSite": "Sede no disponible",
+    "kinds": {
+      "max_discount": "Se superó el descuento máximo",
+      "after_hours_sale": "Venta durante el horario bloqueado",
+      "shift_refund_limit": "Se superó el límite de reembolsos del turno",
+      "shift_void_limit": "Se superó el límite de anulaciones del turno",
+      "no_sale_limit": "Se superó el límite de aperturas sin venta",
+      "dual_approval_threshold": "Se superó el monto de doble aprobación"
+    },
+    "whatsapp": {
+      "action": "WhatsApp",
+      "aria": "Comparte {{rule}} por WhatsApp",
+      "message": "Alerta de prevención de pérdidas\\nRegla: {{rule}}\\nPersona: {{operator}}\\nSede: {{site}}\\nHora: {{time}}"
+    }
   }
 }

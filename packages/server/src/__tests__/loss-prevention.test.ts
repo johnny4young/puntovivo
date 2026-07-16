@@ -175,6 +175,10 @@ function disabledShiftPolicies() {
   };
 }
 
+function disabledAlertSettings() {
+  return { whatsappHandoff: { enabled: false, recipientPhone: '' } };
+}
+
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
 });
@@ -207,7 +211,8 @@ describe('ENG-142a loss-prevention policy', () => {
     const harness = await seedHarness('defaults');
     const admin = appRouter.createCaller(buildContext(harness, 'admin'));
     await expect(admin.lossPrevention.getSettings()).resolves.toMatchObject({
-      version: 3,
+      version: 4,
+      alerts: disabledAlertSettings(),
       roles: {
         cashier: { maxDiscountPercent: 0 },
         manager: { maxDiscountPercent: 100 },
@@ -257,6 +262,7 @@ describe('ENG-142a loss-prevention policy', () => {
     const fixture = await criticalContext(harness, 'admin');
     const caller = appRouter.createCaller(fixture.context);
     const next = await caller.lossPrevention.updateSettings({
+      alerts: { whatsappHandoff: { enabled: true, recipientPhone: '+57 300 123 4567' } },
       roles: {
         cashier: {
           maxDiscountPercent: 7.5,
@@ -281,6 +287,10 @@ describe('ENG-142a loss-prevention policy', () => {
       },
     });
     expect(next.roles.cashier.maxDiscountPercent).toBe(7.5);
+    expect(next.alerts.whatsappHandoff).toEqual({
+      enabled: true,
+      recipientPhone: '573001234567',
+    });
 
     const tenant = getDatabase()
       .select({ settings: tenants.settings })
@@ -335,6 +345,55 @@ describe('ENG-142a loss-prevention policy', () => {
     });
   });
 
+  it('preserves v4 alert delivery when a v3 renderer updates role limits', async () => {
+    const harness = await seedHarness('rolling-upgrade');
+    const roles = {
+      cashier: {
+        maxDiscountPercent: 5,
+        afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
+        shift: disabledShiftPolicies(),
+        dualApproval: { enabled: false, thresholdAmount: 0 },
+      },
+      manager: {
+        maxDiscountPercent: 20,
+        afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
+        shift: disabledShiftPolicies(),
+        dualApproval: { enabled: false, thresholdAmount: 0 },
+      },
+    };
+
+    const configureFixture = await criticalContext(harness, 'admin');
+    const configured = await appRouter
+      .createCaller(configureFixture.context)
+      .lossPrevention.updateSettings({
+        roles,
+        alerts: {
+          whatsappHandoff: { enabled: true, recipientPhone: '+57 300 123 4567' },
+        },
+      });
+    expect(configured.alerts.whatsappHandoff).toEqual({
+      enabled: true,
+      recipientPhone: '573001234567',
+    });
+
+    const legacyFixture = await criticalContext(harness, 'admin');
+    const updated = await appRouter
+      .createCaller(legacyFixture.context)
+      .lossPrevention.updateSettings({
+        roles: {
+          ...roles,
+          cashier: { ...roles.cashier, maxDiscountPercent: 8.5 },
+        },
+      });
+    expect(updated).toMatchObject({
+      version: 4,
+      roles: { cashier: { maxDiscountPercent: 8.5 } },
+      alerts: {
+        whatsappHandoff: { enabled: true, recipientPhone: '573001234567' },
+      },
+    });
+  });
+
   it('rejects invalid windows and non-admin settings access', async () => {
     const harness = await seedHarness('roles');
     const manager = appRouter.createCaller(buildContext(harness, 'manager'));
@@ -343,6 +402,7 @@ describe('ENG-142a loss-prevention policy', () => {
     const managerFixture = await criticalContext(harness, 'manager');
     await expect(
       appRouter.createCaller(managerFixture.context).lossPrevention.updateSettings({
+        alerts: disabledAlertSettings(),
         roles: {
           cashier: {
             maxDiscountPercent: 5,
@@ -363,6 +423,7 @@ describe('ENG-142a loss-prevention policy', () => {
     const adminFixture = await criticalContext(harness, 'admin');
     await expect(
       appRouter.createCaller(adminFixture.context).lossPrevention.updateSettings({
+        alerts: disabledAlertSettings(),
         roles: {
           cashier: {
             maxDiscountPercent: 5,
@@ -379,12 +440,34 @@ describe('ENG-142a loss-prevention policy', () => {
         },
       })
     ).rejects.toThrow(/distinct start and end times/i);
+
+    const invalidPhoneFixture = await criticalContext(harness, 'admin');
+    await expect(
+      appRouter.createCaller(invalidPhoneFixture.context).lossPrevention.updateSettings({
+        alerts: { whatsappHandoff: { enabled: true, recipientPhone: '5-------' } },
+        roles: {
+          cashier: {
+            maxDiscountPercent: 5,
+            afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
+            shift: disabledShiftPolicies(),
+            dualApproval: { enabled: false, thresholdAmount: 0 },
+          },
+          manager: {
+            maxDiscountPercent: 20,
+            afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
+            shift: disabledShiftPolicies(),
+            dualApproval: { enabled: false, thresholdAmount: 0 },
+          },
+        },
+      })
+    ).rejects.toThrow(/valid international WhatsApp number/i);
   });
 
   it('evaluates role thresholds, local blocked time, drafts, and admin bypass', async () => {
     const harness = await seedHarness('evaluate');
     writeLossPreventionSettings(getDatabase(), harness.tenantId, {
-      version: 3,
+      version: 4,
+      alerts: disabledAlertSettings(),
       roles: {
         cashier: {
           maxDiscountPercent: 10,
@@ -451,7 +534,8 @@ describe('ENG-142a loss-prevention policy', () => {
   it('requires dual approval only above the configured monetary threshold', async () => {
     const harness = await seedHarness('dual-boundary');
     writeLossPreventionSettings(getDatabase(), harness.tenantId, {
-      version: 3,
+      version: 4,
+      alerts: disabledAlertSettings(),
       roles: {
         cashier: {
           maxDiscountPercent: 100,
@@ -561,7 +645,8 @@ describe('ENG-142a loss-prevention policy', () => {
     const a = await seedHarness('iso-a');
     const b = await seedHarness('iso-b');
     writeLossPreventionSettings(getDatabase(), a.tenantId, {
-      version: 3,
+      version: 4,
+      alerts: disabledAlertSettings(),
       roles: {
         cashier: {
           maxDiscountPercent: 12,
@@ -600,12 +685,28 @@ describe('ENG-142a loss-prevention policy', () => {
       },
     });
     expect(normalized).toMatchObject({
-      version: 3,
+      version: 4,
+      alerts: disabledAlertSettings(),
       roles: {
         cashier: { maxDiscountPercent: 3, shift: disabledShiftPolicies() },
         manager: { maxDiscountPercent: 30, shift: disabledShiftPolicies() },
       },
     });
+  });
+
+  it('normalizes the optional WhatsApp handoff without weakening in-app alerts', () => {
+    expect(
+      normalizeLossPreventionSettings({
+        alerts: {
+          whatsappHandoff: { enabled: true, recipientPhone: '+57 (300) 123-4567' },
+        },
+      }).alerts.whatsappHandoff
+    ).toEqual({ enabled: true, recipientPhone: '573001234567' });
+    expect(
+      normalizeLossPreventionSettings({
+        alerts: { whatsappHandoff: { enabled: true, recipientPhone: 'invalid' } },
+      }).alerts.whatsappHandoff
+    ).toEqual({ enabled: false, recipientPhone: '' });
   });
 
   it('normalizes shift amount caps with the shared monetary rounding contract', () => {
@@ -643,7 +744,8 @@ describe('ENG-142a loss-prevention policy', () => {
       })
       .run();
     writeLossPreventionSettings(getDatabase(), harness.tenantId, {
-      version: 3,
+      version: 4,
+      alerts: disabledAlertSettings(),
       roles: {
         cashier: {
           maxDiscountPercent: 0,
@@ -902,7 +1004,8 @@ describe('ENG-142a loss-prevention policy', () => {
   it('fails closed when an enabled shift rule has no active cash session', async () => {
     const harness = await seedHarness('shift-missing');
     writeLossPreventionSettings(getDatabase(), harness.tenantId, {
-      version: 3,
+      version: 4,
+      alerts: disabledAlertSettings(),
       roles: {
         cashier: {
           maxDiscountPercent: 0,
@@ -937,5 +1040,215 @@ describe('ENG-142a loss-prevention policy', () => {
       requiresApproval: true,
       violation: { reason: 'shift_unavailable', exceeded: ['shift'] },
     });
+  });
+
+  it('routes only new site-scoped triggers into the shared manager alert center', async () => {
+    const harness = await seedHarness('alerts');
+    writeLossPreventionSettings(getDatabase(), harness.tenantId, {
+      version: 4,
+      alerts: {
+        whatsappHandoff: { enabled: true, recipientPhone: '+57 301 555 0101' },
+      },
+      roles: {
+        cashier: {
+          maxDiscountPercent: 0,
+          afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
+          shift: {
+            refunds: { enabled: true, maxCount: 0, maxAmount: 0 },
+            voids: { enabled: false, maxCount: 0, maxAmount: 0 },
+            noSale: { enabled: false, maxCount: 0 },
+          },
+          dualApproval: { enabled: false, thresholdAmount: 0 },
+        },
+        manager: {
+          maxDiscountPercent: 100,
+          afterHoursSale: { enabled: false, blockedFrom: '22:00', blockedUntil: '06:00' },
+          shift: disabledShiftPolicies(),
+          dualApproval: { enabled: false, thresholdAmount: 0 },
+        },
+      },
+    });
+    const evaluation = evaluateShiftLossPrevention({
+      db: getDatabase(),
+      tenantId: harness.tenantId,
+      siteId: harness.siteId,
+      actorId: harness.cashierId,
+      role: 'cashier',
+      action: 'sale_refund',
+      amount: 50,
+    });
+    expect(evaluation.alertChannels).toEqual(['in_app', 'whatsapp_handoff']);
+    recordShiftLossPreventionTrigger({
+      db: getDatabase(),
+      tenantId: harness.tenantId,
+      actorId: harness.cashierId,
+      siteId: harness.siteId,
+      resourceType: 'sale',
+      resourceId: 'loss-alert-sale',
+      evaluation,
+    });
+    getDatabase()
+      .insert(auditLogs)
+      .values({
+        id: 'loss-alert-legacy',
+        tenantId: harness.tenantId,
+        actorId: harness.cashierId,
+        action: 'loss_prevention.triggered',
+        resourceType: 'loss_prevention_rule',
+        resourceId: 'shift_refund_limit',
+        after: { requiredAction: 'sale_refund', approvalProvided: false },
+        metadata: { siteId: harness.siteId, kind: 'shift_refund_limit', role: 'cashier' },
+        createdAt: new Date().toISOString(),
+      })
+      .run();
+
+    const manager = appRouter.createCaller(buildContext(harness, 'manager'));
+    const initial = await manager.lossPrevention.listAlerts({ siteId: harness.siteId, limit: 20 });
+    expect(initial).toMatchObject({
+      unacknowledgedCount: 1,
+      whatsappHandoff: { enabled: true, recipientPhone: '573015550101' },
+      items: [
+        {
+          kind: 'shift_refund_limit',
+          action: 'sale_refund',
+          approvalProvided: false,
+          actorId: harness.cashierId,
+          actorName: 'Cashier alerts',
+          actorRole: 'cashier',
+          siteId: harness.siteId,
+          siteName: 'Loss site alerts',
+          channels: ['in_app', 'whatsapp_handoff'],
+          acknowledgedAt: null,
+        },
+      ],
+    });
+    expect(initial.items).toHaveLength(1);
+
+    const cashier = appRouter.createCaller(buildContext(harness, 'cashier'));
+    await expect(
+      cashier.lossPrevention.listAlerts({ siteId: harness.siteId, limit: 20 })
+    ).rejects.toThrow(/administrators and managers/i);
+
+    const alertId = initial.items[0]!.id;
+    const acknowledgeFixture = await criticalContext(harness, 'manager');
+    await expect(
+      appRouter.createCaller(acknowledgeFixture.context).lossPrevention.acknowledgeAlert({
+        siteId: harness.siteId,
+        alertId,
+      })
+    ).resolves.toEqual({ alertId, acknowledged: true, alreadyAcknowledged: false });
+
+    const reviewed = await manager.lossPrevention.listAlerts({ siteId: harness.siteId, limit: 20 });
+    expect(reviewed.unacknowledgedCount).toBe(0);
+    expect(reviewed.items[0]).toMatchObject({
+      acknowledgedById: harness.managerId,
+      acknowledgedByName: 'Manager alerts',
+    });
+    expect(reviewed.items[0]?.acknowledgedAt).toEqual(expect.any(String));
+
+    const replayFixture = await criticalContext(harness, 'admin');
+    await expect(
+      appRouter.createCaller(replayFixture.context).lossPrevention.acknowledgeAlert({
+        siteId: harness.siteId,
+        alertId,
+      })
+    ).resolves.toEqual({ alertId, acknowledged: true, alreadyAcknowledged: true });
+    expect(
+      getDatabase()
+        .select()
+        .from(auditLogs)
+        .where(eq(auditLogs.action, 'loss_prevention.alert.acknowledged'))
+        .all()
+        .filter(row => row.resourceId === alertId)
+    ).toHaveLength(1);
+
+    const currentSettings = resolveLossPreventionSettings(getDatabase(), harness.tenantId);
+    writeLossPreventionSettings(getDatabase(), harness.tenantId, {
+      ...currentSettings,
+      alerts: {
+        whatsappHandoff: { enabled: false, recipientPhone: '+57 301 555 0101' },
+      },
+    });
+    expect(
+      resolveLossPreventionSettings(getDatabase(), harness.tenantId).alerts.whatsappHandoff
+    ).toEqual({ enabled: false, recipientPhone: '573015550101' });
+    await expect(
+      manager.lossPrevention.listAlerts({ siteId: harness.siteId, limit: 20 })
+    ).resolves.toMatchObject({
+      whatsappHandoff: { enabled: false, recipientPhone: '' },
+    });
+
+    const foreign = await seedHarness('alerts-foreign');
+    const foreignFixture = await criticalContext(foreign, 'manager');
+    await expect(
+      appRouter.createCaller(foreignFixture.context).lossPrevention.acknowledgeAlert({
+        siteId: foreign.siteId,
+        alertId,
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'LOSS_PREVENTION_ALERT_NOT_FOUND' }),
+    });
+  });
+
+  it('keeps older pending alerts reachable when reviewed history fills the feed limit', async () => {
+    const harness = await seedHarness('alert-priority');
+    getDatabase()
+      .insert(auditLogs)
+      .values([
+        {
+          id: 'loss-alert-old-pending',
+          tenantId: harness.tenantId,
+          actorId: harness.cashierId,
+          action: 'loss_prevention.triggered',
+          resourceType: 'loss_prevention_rule',
+          resourceId: 'shift_refund_limit',
+          after: {
+            requiredAction: 'sale_refund',
+            approvalProvided: false,
+            alertChannels: ['in_app'],
+          },
+          metadata: {
+            siteId: harness.siteId,
+            kind: 'shift_refund_limit',
+            role: 'cashier',
+          },
+          createdAt: '2026-07-15T10:00:00.000Z',
+        },
+        {
+          id: 'loss-alert-new-pending',
+          tenantId: harness.tenantId,
+          actorId: harness.cashierId,
+          action: 'loss_prevention.triggered',
+          resourceType: 'loss_prevention_rule',
+          resourceId: 'shift_void_limit',
+          after: {
+            requiredAction: 'sale_void',
+            approvalProvided: false,
+            alertChannels: ['in_app'],
+          },
+          metadata: {
+            siteId: harness.siteId,
+            kind: 'shift_void_limit',
+            role: 'cashier',
+          },
+          createdAt: '2026-07-16T10:00:00.000Z',
+        },
+      ])
+      .run();
+
+    const manager = appRouter.createCaller(buildContext(harness, 'manager'));
+    const first = await manager.lossPrevention.listAlerts({ siteId: harness.siteId, limit: 1 });
+    expect(first.unacknowledgedCount).toBe(2);
+    expect(first.items.map(item => item.id)).toEqual(['loss-alert-new-pending']);
+
+    const fixture = await criticalContext(harness, 'manager');
+    await appRouter.createCaller(fixture.context).lossPrevention.acknowledgeAlert({
+      siteId: harness.siteId,
+      alertId: 'loss-alert-new-pending',
+    });
+
+    const next = await manager.lossPrevention.listAlerts({ siteId: harness.siteId, limit: 1 });
+    expect(next.unacknowledgedCount).toBe(1);
+    expect(next.items.map(item => item.id)).toEqual(['loss-alert-old-pending']);
   });
 });

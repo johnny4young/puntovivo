@@ -35,6 +35,7 @@
     "MANAGER_APPROVAL_REQUIRED": "Request and receive manager approval before completing this checkout.",
     "MANAGER_APPROVAL_MISMATCH": "The approved request no longer matches this checkout. Request approval again.",
     "MANAGER_APPROVAL_UNAVAILABLE": "This approval is already being used or is no longer available. Refresh its status before retrying.",
+    "LOSS_PREVENTION_ALERT_NOT_FOUND": "This loss-prevention alert no longer exists for the active site.",
     "CASH_SESSION_REQUIRED": "Open an active cash session before creating or refunding sales.",
     "CASH_SESSION_SITE_REQUIRED": "Select an active site before opening or using a cash session.",
     "CASH_SESSION_ALREADY_OPEN_FOR_CASHIER": "You already have an open cash session for the active site.",

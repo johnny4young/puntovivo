@@ -163,6 +163,70 @@ function managerRefundPolicy(tenantId: string) {
   }
 }
 
+function insertLossPreventionAlertFixture(args: {
+  tenantId: string;
+  siteId: string;
+  actorId: string;
+}): string {
+  const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+  const id = `loss-alert-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  try {
+    db.prepare(
+      `insert into audit_logs (
+         id, tenant_id, actor_id, action, resource_type, resource_id,
+         before, after, metadata, operation_id, created_at
+       ) values (?, ?, ?, 'loss_prevention.triggered', 'loss_prevention_rule',
+         'shift_refund_limit', null, json(?), json(?), null, ?)`
+    ).run(
+      id,
+      args.tenantId,
+      args.actorId,
+      JSON.stringify({
+        requiredAction: 'sale_refund',
+        approvalProvided: false,
+        alertChannels: ['in_app', 'whatsapp_handoff'],
+      }),
+      JSON.stringify({
+        siteId: args.siteId,
+        kind: 'shift_refund_limit',
+        role: 'cashier',
+      }),
+      new Date().toISOString()
+    );
+    return id;
+  } finally {
+    db.close();
+  }
+}
+
+function findLossPreventionAlertAcknowledgement(alertId: string) {
+  const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+  try {
+    return (db
+      .prepare(
+        `select actor_id as actorId, resource_type as resourceType
+         from audit_logs
+         where action = 'loss_prevention.alert.acknowledged' and resource_id = ?
+         order by created_at asc, id asc limit 1`
+      )
+      .get(alertId) ?? null) as { actorId: string; resourceType: string } | null;
+  } finally {
+    db.close();
+  }
+}
+
+function deleteLossPreventionAlertFixture(alertId: string): void {
+  const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+  try {
+    db.prepare(
+      `delete from audit_logs
+       where id = ? or (action = 'loss_prevention.alert.acknowledged' and resource_id = ?)`
+    ).run(alertId, alertId);
+  } finally {
+    db.close();
+  }
+}
+
 function configureMockCashDrawer(tenantId: string, siteId: string) {
   const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
   const id = `e2e_drawer_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -468,7 +532,7 @@ test('high-value cashier discount requires two distinct approvers (ENG-142c)', a
           db.close();
         }
       })
-      .toEqual({ version: 3, maxDiscount: 50, enabled: 1, threshold: 1000 });
+      .toEqual({ version: 4, maxDiscount: 50, enabled: 1, threshold: 1000 });
     await cashierPolicy
       .getByText('Requerir dos aprobaciones por encima de un monto')
       .scrollIntoViewIfNeeded();
@@ -548,6 +612,107 @@ test('high-value cashier discount requires two distinct approvers (ENG-142c)', a
   }
 });
 
+test('manager receives, shares, and acknowledges a site alert (ENG-142d)', async ({
+  browser,
+}, testInfo) => {
+  const scenario = seedSaleScenario(`alerts-${testInfo.parallelIndex}-${Date.now()}`);
+  const settingsSnapshot = snapshotLossPreventionSettings(scenario.tenantId);
+  const adminContext = await browser.newContext();
+  const managerContext = await browser.newContext();
+  const adminPage = await adminContext.newPage();
+  const managerPage = await managerContext.newPage();
+  await adminPage.setViewportSize({ width: 1440, height: 900 });
+  await managerPage.setViewportSize({ width: 1440, height: 900 });
+  const adminTracker = attachClientIssueTracker(adminPage);
+  const managerTracker = attachClientIssueTracker(managerPage);
+  let alertId: string | null = null;
+
+  try {
+    await login(adminPage, { ...scenario.admin, defaultPath: '/dashboard' }, { spanish: true });
+    await adminPage.goto('/company?tab=controls');
+    const policyCard = adminPage.getByTestId('company-loss-prevention-card');
+    await policyCard.getByRole('checkbox', { name: /Agregar enlace de WhatsApp/ }).check();
+    await policyCard.getByLabel('Número de WhatsApp del gerente').fill('+57 300 123 4567');
+    await policyCard.getByRole('button', { name: 'Guardar controles de cobro' }).click();
+    await expect
+      .poll(() => {
+        const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+        try {
+          return db
+            .prepare(
+              `select
+                 json_extract(policy, '$.version') as version,
+                 json_extract(policy, '$.alerts.whatsappHandoff.enabled') as enabled,
+                 json_extract(policy, '$.alerts.whatsappHandoff.recipientPhone') as phone
+               from loss_prevention_settings where tenant_id = ?`
+            )
+            .get(scenario.tenantId);
+        } finally {
+          db.close();
+        }
+      })
+      .toEqual({ version: 4, enabled: 1, phone: '573001234567' });
+    await policyCard.getByText('Entrega de alertas').scrollIntoViewIfNeeded();
+    await captureEvidence(adminPage, 'eng-142d-admin-alert-delivery-desktop-es');
+
+    alertId = insertLossPreventionAlertFixture({
+      tenantId: scenario.tenantId,
+      siteId: scenario.sites[0]!.id,
+      actorId: scenario.cashier.id,
+    });
+
+    await login(managerPage, { ...scenario.manager, defaultPath: '/dashboard' }, { spanish: true });
+    const alertButton = managerPage.getByRole('button', {
+      name: /Abre las alertas de prevención de pérdidas; pendientes de revisión: [1-9]\d*/,
+    });
+    await expect(alertButton).toBeVisible({ timeout: 10_000 });
+    await alertButton.click();
+    const alertDialog = managerPage.getByRole('dialog', {
+      name: 'Alertas de prevención de pérdidas',
+    });
+    const alertItem = alertDialog.getByTestId(`loss-prevention-alert-${alertId}`);
+    await expect(alertItem.getByText('Se superó el límite de reembolsos del turno')).toBeVisible();
+    await expect(alertItem.getByText(/quedó bloqueada hasta recibir aprobación/)).toBeVisible();
+    const whatsapp = alertItem.getByTestId(`loss-prevention-whatsapp-${alertId}`);
+    await expect(whatsapp).toHaveAttribute('href', /^https:\/\/wa\.me\/573001234567/);
+    expect(decodeURIComponent((await whatsapp.getAttribute('href')) ?? '')).toContain(
+      'Regla: Se superó el límite de reembolsos del turno'
+    );
+    await captureEvidence(managerPage, 'eng-142d-manager-alert-center-desktop-es');
+
+    await alertItem.getByRole('button', { name: 'Marcar como revisada' }).click();
+    await expect
+      .poll(() => findLossPreventionAlertAcknowledgement(alertId!))
+      .toEqual({ actorId: scenario.manager.id, resourceType: 'loss_prevention_alert' });
+    await expect(alertItem.getByText(/Revisada por/)).toBeVisible();
+
+    await alertDialog
+      .getByRole('button', { name: 'Cierra las alertas de prevención de pérdidas' })
+      .click();
+    await managerPage.setViewportSize({ width: 390, height: 844 });
+    await managerPage.reload();
+    await openUserMenu(managerPage);
+    const inlineAlerts = managerPage.getByRole('region', {
+      name: 'Alertas de prevención de pérdidas',
+    });
+    await expect(
+      inlineAlerts.getByTestId(`loss-prevention-alert-${alertId}`).getByText(/Revisada por/)
+    ).toBeVisible();
+    const menuBox = await managerPage.locator('#header-user-menu').boundingBox();
+    expect(menuBox).not.toBeNull();
+    expect(menuBox!.x).toBeGreaterThanOrEqual(0);
+    expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(390);
+    await captureEvidence(managerPage, 'eng-142d-manager-alert-center-mobile-es');
+    await expectNoClientIssues(adminTracker);
+    await expectNoClientIssues(managerTracker);
+  } finally {
+    if (alertId) deleteLossPreventionAlertFixture(alertId);
+    restoreLossPreventionSettings(scenario.tenantId, settingsSnapshot);
+    await adminContext.close();
+    await managerContext.close();
+  }
+});
+
 test('manager shift refund cap requires and consumes an exact approval (ENG-142b)', async ({
   browser,
 }, testInfo) => {
@@ -578,7 +743,7 @@ test('manager shift refund cap requires and consumes an exact approval (ENG-142b
     await expect
       .poll(() => managerRefundPolicy(scenario.tenantId))
       .toEqual({
-        version: 3,
+        version: 4,
         enabled: 1,
         maxCount: 0,
         maxAmount: 1_000_000,

@@ -1,17 +1,28 @@
 import { and, eq } from 'drizzle-orm';
 import { router } from '../init.js';
-import { criticalCommandAdminProcedure } from '../middleware/criticalCommand.js';
-import { adminProcedure, cashierManagerOrAdminProcedure } from '../middleware/roles.js';
+import {
+  criticalCommandAdminProcedure,
+  criticalCommandManagerOrAdminProcedure,
+} from '../middleware/criticalCommand.js';
+import {
+  adminProcedure,
+  cashierManagerOrAdminProcedure,
+  managerOrAdminProcedure,
+} from '../middleware/roles.js';
 import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { ensureTenantSite } from '../middleware/tenantSite.js';
 import {
   evaluateCheckoutLossPreventionInput,
   evaluateShiftActionLossPreventionInput,
+  acknowledgeLossPreventionAlertInput,
+  listLossPreventionAlertsInput,
   updateLossPreventionSettingsInput,
 } from '../schemas/lossPrevention.js';
 import {
+  acknowledgeLossPreventionAlert,
   evaluateCheckoutLossPrevention,
   evaluateShiftLossPrevention,
+  listLossPreventionAlerts,
   resolveLossPreventionSettings,
   writeLossPreventionSettings,
 } from '../../services/loss-prevention/index.js';
@@ -82,6 +93,33 @@ export const lossPreventionRouter = router({
       });
     }),
 
+  listAlerts: managerOrAdminProcedure
+    .input(listLossPreventionAlertsInput)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return listLossPreventionAlerts({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        limit: input.limit,
+      });
+    }),
+
+  acknowledgeAlert: criticalCommandManagerOrAdminProcedure
+    .input(acknowledgeLossPreventionAlertInput)
+    .mutation(async ({ ctx, input }) => {
+      const criticalCtx = asCriticalCommandContext(ctx);
+      await ensureTenantSite(criticalCtx.db, criticalCtx.tenantId, input.siteId);
+      return acknowledgeLossPreventionAlert({
+        db: criticalCtx.db,
+        tenantId: criticalCtx.tenantId,
+        siteId: input.siteId,
+        alertId: input.alertId,
+        actorId: criticalCtx.user.id,
+        operationId: criticalCtx.envelope.operationId,
+      });
+    }),
+
   updateSettings: criticalCommandAdminProcedure
     .input(updateLossPreventionSettingsInput)
     .mutation(({ ctx, input }) => {
@@ -89,8 +127,9 @@ export const lossPreventionRouter = router({
       return criticalCtx.db.transaction(tx => {
         const before = resolveLossPreventionSettings(tx, criticalCtx.tenantId);
         const after = writeLossPreventionSettings(tx, criticalCtx.tenantId, {
-          version: 3,
+          version: 4,
           roles: input.roles,
+          alerts: input.alerts ?? before.alerts,
         });
         writeAuditLog({
           tx,

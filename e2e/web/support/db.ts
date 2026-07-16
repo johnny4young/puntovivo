@@ -562,35 +562,11 @@ export function seedCashierWithoutSession(seed: string): SeededSaleScenario {
 
   try {
     const now = nowIso();
-
-    // 1. Close every open session the default seed opened for this
-    //    cashier so the UI treats them as "no active register".
-    db.prepare(
-      `update cash_sessions
-         set status = 'closed',
-             closed_at = ?,
-             actual_count = 0,
-             over_short = 0 - expected_balance,
-             updated_at = ?
-       where cashier_id = ? and status = 'open'`
-    ).run(now, now, scenario.cashier.id);
-
-    // 2. Free up the default register templates (names like "Main
-    //    register") at this tenant's sites. Leftover admin@localhost or
-    //    prior-cashier sessions can occupy the template and disable the
-    //    Open cash session CTA — we want this scenario to hit the
-    //    happy path where the template is free.
-    //
-    //    We scope to the template registerName (exact match) so we only
-    //    touch sessions that would conflict with the open-session modal.
-    const templates = db
-      .prepare(
-        `select register_name from denomination_templates
-         where tenant_id = ? and is_active = 1`
-      )
-      .all(scenario.tenantId) as Array<{ register_name: string }>;
-
-    for (const template of templates) {
+    const seedAvailableRegisters = db.transaction(() => {
+      // Close only the sessions owned by this fresh cashier. Closing every
+      // session that matches an active template is not parallel-safe: opening
+      // a register creates a template, so another worker seeding this helper
+      // could close a live session from an unrelated scenario.
       db.prepare(
         `update cash_sessions
            set status = 'closed',
@@ -598,9 +574,45 @@ export function seedCashierWithoutSession(seed: string): SeededSaleScenario {
                actual_count = 0,
                over_short = 0 - expected_balance,
                updated_at = ?
-         where tenant_id = ? and status = 'open' and register_name = ?`
-      ).run(now, now, scenario.tenantId, template.register_name);
-    }
+         where cashier_id = ? and status = 'open'`
+      ).run(now, now, scenario.cashier.id);
+
+      // Give the scenario its own unoccupied assignment instead of freeing a
+      // shared tenant template. Clone the site's denomination shape so modal
+      // index-based E2E input remains representative of the production form.
+      for (const site of scenario.sites) {
+        const source = db
+          .prepare(
+            `select denominations, sort_order
+             from denomination_templates
+             where tenant_id = ? and site_id = ? and is_active = 1
+             order by sort_order asc, id asc
+             limit 1`
+          )
+          .get(scenario.tenantId, site.id) as
+          { denominations: string | null; sort_order: number | null } | undefined;
+        const registerName = `E2E Available ${scenario.cashier.id} ${site.id}`;
+
+        db.prepare(
+          `insert into denomination_templates (
+             id, tenant_id, site_id, register_name, label, opening_float,
+             denominations, sort_order, is_active, created_at, updated_at
+           ) values (?, ?, ?, ?, ?, 0, ?, ?, 1, ?, ?)`
+        ).run(
+          makeId('e2e_register_template'),
+          scenario.tenantId,
+          site.id,
+          registerName,
+          registerName,
+          source?.denominations ?? '[]',
+          (source?.sort_order ?? 0) - 1,
+          now,
+          now
+        );
+      }
+    });
+
+    seedAvailableRegisters();
 
     return scenario;
   } finally {

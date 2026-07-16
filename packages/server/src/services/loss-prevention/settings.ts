@@ -34,6 +34,19 @@ export interface LossPreventionDualApprovalPolicy {
   thresholdAmount: number;
 }
 
+export interface LossPreventionWhatsAppHandoffPolicy {
+  enabled: boolean;
+  /** E.164-compatible recipient. Persisted normalized, without a leading plus. */
+  recipientPhone: string;
+}
+
+export interface LossPreventionAlertPolicy {
+  whatsappHandoff: LossPreventionWhatsAppHandoffPolicy;
+}
+
+export const LOSS_PREVENTION_ALERT_CHANNELS = ['in_app', 'whatsapp_handoff'] as const;
+export type LossPreventionAlertChannel = (typeof LOSS_PREVENTION_ALERT_CHANNELS)[number];
+
 export interface LossPreventionRolePolicy {
   maxDiscountPercent: number;
   afterHoursSale: LossPreventionAfterHoursPolicy;
@@ -42,8 +55,9 @@ export interface LossPreventionRolePolicy {
 }
 
 export interface LossPreventionSettings {
-  version: 3;
+  version: 4;
   roles: Record<LossPreventionRole, LossPreventionRolePolicy>;
+  alerts: LossPreventionAlertPolicy;
 }
 
 const DEFAULT_AFTER_HOURS_POLICY: LossPreventionAfterHoursPolicy = {
@@ -63,8 +77,15 @@ const DEFAULT_DUAL_APPROVAL_POLICY: LossPreventionDualApprovalPolicy = {
   thresholdAmount: 0,
 };
 
+const DEFAULT_ALERT_POLICY: LossPreventionAlertPolicy = {
+  whatsappHandoff: {
+    enabled: false,
+    recipientPhone: '',
+  },
+};
+
 export const DEFAULT_LOSS_PREVENTION_SETTINGS: LossPreventionSettings = {
-  version: 3,
+  version: 4,
   roles: {
     // Preserve the pre-ENG-142 authorization baseline: any cashier discount
     // escalates, while managers retain direct authority unless configured.
@@ -81,6 +102,7 @@ export const DEFAULT_LOSS_PREVENTION_SETTINGS: LossPreventionSettings = {
       dualApproval: { ...DEFAULT_DUAL_APPROVAL_POLICY },
     },
   },
+  alerts: structuredClone(DEFAULT_ALERT_POLICY),
 };
 
 const LOCAL_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
@@ -99,6 +121,25 @@ function normalizeAmount(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.max(0, Math.min(1_000_000_000_000, roundMoney(value)))
     : fallback;
+}
+
+export function normalizeWhatsAppRecipient(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const normalized = value
+    .trim()
+    .replace(/[\s().-]/g, '')
+    .replace(/^\+/, '');
+  return /^[1-9]\d{7,14}$/.test(normalized) ? normalized : '';
+}
+
+/** Snapshot routing at trigger time so later settings changes do not rewrite history. */
+export function configuredLossPreventionAlertChannels(
+  settings: LossPreventionSettings
+): LossPreventionAlertChannel[] {
+  return [
+    'in_app',
+    ...(settings.alerts.whatsappHandoff.enabled ? (['whatsapp_handoff'] as const) : []),
+  ];
 }
 
 function normalizeShiftValuePolicy(
@@ -177,8 +218,15 @@ export function normalizeLossPreventionSettings(value: unknown): LossPreventionS
   const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
   const roles = raw.roles && typeof raw.roles === 'object' ? raw.roles : {};
   const roleRecord = roles as Record<string, unknown>;
+  const rawAlerts =
+    raw.alerts && typeof raw.alerts === 'object' ? (raw.alerts as Record<string, unknown>) : {};
+  const rawWhatsApp =
+    rawAlerts.whatsappHandoff && typeof rawAlerts.whatsappHandoff === 'object'
+      ? (rawAlerts.whatsappHandoff as Record<string, unknown>)
+      : {};
+  const recipientPhone = normalizeWhatsAppRecipient(rawWhatsApp.recipientPhone);
   return {
-    version: 3,
+    version: 4,
     roles: {
       cashier: normalizeRolePolicy(
         roleRecord.cashier,
@@ -188,6 +236,12 @@ export function normalizeLossPreventionSettings(value: unknown): LossPreventionS
         roleRecord.manager,
         DEFAULT_LOSS_PREVENTION_SETTINGS.roles.manager
       ),
+    },
+    alerts: {
+      whatsappHandoff: {
+        enabled: rawWhatsApp.enabled === true && recipientPhone.length > 0,
+        recipientPhone,
+      },
     },
   };
 }

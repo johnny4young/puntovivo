@@ -35,6 +35,7 @@
     "MANAGER_APPROVAL_REQUIRED": "Solicita y recibe la aprobación de un responsable antes de completar este cobro.",
     "MANAGER_APPROVAL_MISMATCH": "La solicitud aprobada ya no coincide con este cobro. Solicita una nueva aprobación.",
     "MANAGER_APPROVAL_UNAVAILABLE": "Esta aprobación ya está en uso o dejó de estar disponible. Actualiza su estado antes de reintentar.",
+    "LOSS_PREVENTION_ALERT_NOT_FOUND": "Esta alerta de prevención de pérdidas ya no existe en la sede activa.",
     "CASH_SESSION_REQUIRED": "Abre una caja activa antes de registrar o reembolsar ventas.",
     "CASH_SESSION_SITE_REQUIRED": "Selecciona una sede activa antes de abrir o usar una caja.",
     "CASH_SESSION_ALREADY_OPEN_FOR_CASHIER": "Ya tienes una caja abierta en la sede activa.",

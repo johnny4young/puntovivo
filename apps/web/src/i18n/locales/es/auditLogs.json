@@ -135,7 +135,8 @@
     "day_close.sign_off": "Cierre del día firmado",
     "employee_shift_break.start": "Pausa de empleado iniciada",
     "employee_shift_break.end": "Pausa de empleado finalizada",
-    "employee_shift.correct": "Asistencia de empleado corregida"
+    "employee_shift.correct": "Asistencia de empleado corregida",
+    "loss_prevention.alert.acknowledged": "Alerta de prevención de pérdidas revisada"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -165,7 +166,8 @@
     "site": "Sede",
     "data_import": "Importación de datos",
     "day_close_signoff": "Cierre del día firmado",
-    "employee_shift_break": "Pausa de empleado"
+    "employee_shift_break": "Pausa de empleado",
+    "loss_prevention_alert": "Alerta de prevención de pérdidas"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

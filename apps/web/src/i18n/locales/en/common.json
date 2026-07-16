@@ -312,5 +312,36 @@
   },
   "desktopOnly": {
     "label": "Desktop only"
+  },
+  "lossPreventionAlerts": {
+    "title": "Loss-prevention alerts",
+    "openAria": "Open loss-prevention alerts; pending review: {{count}}",
+    "closeAria": "Close loss-prevention alerts",
+    "siteScope": "New rule triggers for the active site",
+    "loading": "Checking alerts…",
+    "empty": "No loss-prevention alerts for this site.",
+    "errorTitle": "Loss-prevention alerts are unavailable",
+    "triggeredBy": "{{name}} · {{site}}",
+    "approvalProvided": "Approval was provided",
+    "approvalPending": "Action was blocked pending approval",
+    "markReviewed": "Mark reviewed",
+    "reviewedBy": "Reviewed by {{name}} · {{time}}",
+    "reviewedSuccess": "Alert marked as reviewed",
+    "unknownManager": "another manager",
+    "unknownOperator": "Unknown operator",
+    "unknownSite": "Unknown site",
+    "kinds": {
+      "max_discount": "Maximum discount crossed",
+      "after_hours_sale": "Sale during blocked hours",
+      "shift_refund_limit": "Refund shift limit crossed",
+      "shift_void_limit": "Void shift limit crossed",
+      "no_sale_limit": "No-sale drawer limit crossed",
+      "dual_approval_threshold": "Dual-approval amount crossed"
+    },
+    "whatsapp": {
+      "action": "WhatsApp",
+      "aria": "Share {{rule}} through WhatsApp",
+      "message": "Loss-prevention alert\\nRule: {{rule}}\\nOperator: {{operator}}\\nSite: {{site}}\\nTime: {{time}}"
+    }
   }
 }

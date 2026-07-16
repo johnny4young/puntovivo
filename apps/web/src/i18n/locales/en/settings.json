@@ -698,6 +698,17 @@
       "toast": {
         "saved": "Checkout controls saved",
         "saveError": "The checkout controls could not be saved"
+      },
+      "alerts": {
+        "title": "Alert delivery",
+        "inAppHelp": "New triggers stay in the active site's alert center until reviewed.",
+        "whatsapp": {
+          "label": "Add WhatsApp link to alerts",
+          "help": "Manual only: opens a prefilled WhatsApp message without customer data.",
+          "recipient": "Manager WhatsApp number",
+          "placeholder": "+57 300 123 4567",
+          "validation": "Enter an international number."
+        }
       }
     }
   },

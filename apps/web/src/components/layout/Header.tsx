@@ -1,5 +1,5 @@
-import { Bell, CircleHelp, KeyRound, LogOut, Menu, Search, User, UserRoundCog } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CircleHelp, KeyRound, LogOut, Menu, Search, User, UserRoundCog } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Select } from '@/components/form-controls/Select';
 import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
@@ -20,6 +20,12 @@ import {
 import { isOnline } from '@/lib/utils';
 import { formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { useHeaderTitle } from './useHeaderTitle';
+
+const LossPreventionAlertCenter = lazy(() =>
+  import('@/features/loss-prevention/LossPreventionAlertCenter').then(module => ({
+    default: module.LossPreventionAlertCenter,
+  }))
+);
 
 interface HeaderProps {
   onOpenSidebar: () => void;
@@ -184,26 +190,13 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             />
           </div>
 
-          {/*
-            ENG-131c colateral — at 375×667 the bell button (40px) plus
-            gap-2 (8px) plus the user avatar pill (52px wide on mobile)
-            overflowed the header pill by 6px and the rounded-[28px]
-            corner clipped the avatar. The bell currently has no onClick
-            handler (placeholder for a future notifications feature), so
-            we hide it on mobile and match the same `sm:`-breakpoint
-            precedent already used by the language + site selectors
-            immediately above. When the notifications feature ships, the
-            mobile surface can be re-exposed via the user menu or as a
-            dedicated mobile affordance.
-          */}
-          <button
-            type="button"
-            className="relative hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line/70 bg-surface-2/70 text-secondary-700 transition hover:border-primary-200 hover:bg-primary-50/80 hover:text-primary-700 sm:inline-flex"
-            aria-label={t('common:notifications')}
-          >
-            <Bell className="h-4 w-4" />
-            <span className="absolute right-2.5 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
-          </button>
+          {currentSite && user && ['admin', 'manager'].includes(user.role) && (
+            <Suspense
+              fallback={<span className="hidden h-10 w-10 shrink-0 sm:block" aria-hidden="true" />}
+            >
+              <LossPreventionAlertCenter siteId={currentSite.id} />
+            </Suspense>
+          )}
 
           <div className="relative shrink-0">
             <button
@@ -264,9 +257,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                       {t('common:switchCashier')}
                     </button>
                     <TimeClockControl
-                      site={
-                        currentSite ? { id: currentSite.id, name: currentSite.name } : null
-                      }
+                      site={currentSite ? { id: currentSite.id, name: currentSite.name } : null}
                     />
                   </>
                 )}
@@ -289,6 +280,11 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                 {cashierPaceOwnerKey && (
                   <CashierPacePreferenceToggle ownerKey={cashierPaceOwnerKey} />
                 )}
+                {currentSite && user && ['admin', 'manager'].includes(user.role) && (
+                  <Suspense fallback={null}>
+                    <LossPreventionAlertCenter siteId={currentSite.id} variant="inline" />
+                  </Suspense>
+                )}
                 {user && ['admin', 'manager'].includes(user.role) && <ManagerApprovalQueue />}
                 <button
                   type="button"
@@ -307,9 +303,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
       />
-      {isStaffSwitchOpen && (
-        <StaffSwitchModal isOpen onClose={() => setIsStaffSwitchOpen(false)} />
-      )}
+      {isStaffSwitchOpen && <StaffSwitchModal isOpen onClose={() => setIsStaffSwitchOpen(false)} />}
     </header>
   );
 }

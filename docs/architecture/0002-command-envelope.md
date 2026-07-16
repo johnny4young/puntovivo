@@ -175,6 +175,8 @@ follow-up amendment.
 
 - `lossPrevention.updateSettings` (ENG-142a — audited per-role checkout
   authority and blocked-hours policy)
+- `lossPrevention.acknowledgeAlert` (ENG-142d — shared manager review of a
+  deterministic loss-prevention alert)
 
 Procedures **not** in the envelope: every read query
 (`*.list`, `*.get`, `*.search`, `*.export`), every catalog mutation

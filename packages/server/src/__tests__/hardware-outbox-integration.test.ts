@@ -424,7 +424,10 @@ describe('peripherals.kickCashDrawer', () => {
       expect(trigger).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            after: { requiredAction: 'cash_drawer_open', approvalProvided: true },
+            after: expect.objectContaining({
+              requiredAction: 'cash_drawer_open',
+              approvalProvided: true,
+            }),
             metadata: expect.objectContaining({ actionResourceId: siteId }),
           }),
         ])

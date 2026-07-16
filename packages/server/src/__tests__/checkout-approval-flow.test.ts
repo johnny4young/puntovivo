@@ -611,7 +611,8 @@ describe('checkout approval consumption (ENG-106c2)', () => {
 
   it('enforces the configured discount boundary and audits blocked and approved attempts', async () => {
     writeLossPreventionSettings(db, tenantId, {
-      version: 3,
+      version: 4,
+      alerts: DEFAULT_LOSS_PREVENTION_SETTINGS.alerts,
       roles: {
         cashier: {
           ...DEFAULT_LOSS_PREVENTION_SETTINGS.roles.cashier,
@@ -744,7 +745,8 @@ describe('checkout approval consumption (ENG-106c2)', () => {
       discountAmount: 0,
     });
     writeLossPreventionSettings(db, tenantId, {
-      version: 3,
+      version: 4,
+      alerts: DEFAULT_LOSS_PREVENTION_SETTINGS.alerts,
       roles: {
         cashier: {
           ...DEFAULT_LOSS_PREVENTION_SETTINGS.roles.cashier,

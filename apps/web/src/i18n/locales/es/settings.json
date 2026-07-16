@@ -698,6 +698,17 @@
       "toast": {
         "saved": "Controles de cobro guardados",
         "saveError": "No se pudieron guardar los controles de cobro"
+      },
+      "alerts": {
+        "title": "Entrega de alertas",
+        "inAppHelp": "Las reglas nuevas permanecen en el centro de la sede hasta su revisión.",
+        "whatsapp": {
+          "label": "Agregar enlace de WhatsApp a las alertas",
+          "help": "Solo manual: abre un mensaje de WhatsApp sin datos de clientes.",
+          "recipient": "Número de WhatsApp del gerente",
+          "placeholder": "+57 300 123 4567",
+          "validation": "Ingresa un número internacional."
+        }
       }
     }
   },

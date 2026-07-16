@@ -135,7 +135,8 @@
     "day_close.sign_off": "Day close signed",
     "employee_shift_break.start": "Employee break started",
     "employee_shift_break.end": "Employee break ended",
-    "employee_shift.correct": "Employee attendance corrected"
+    "employee_shift.correct": "Employee attendance corrected",
+    "loss_prevention.alert.acknowledged": "Loss-prevention alert reviewed"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -165,7 +166,8 @@
     "site": "Site",
     "data_import": "Data import",
     "day_close_signoff": "Signed day close",
-    "employee_shift_break": "Employee break"
+    "employee_shift_break": "Employee break",
+    "loss_prevention_alert": "Loss-prevention alert"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

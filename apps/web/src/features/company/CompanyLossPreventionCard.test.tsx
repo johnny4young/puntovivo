@@ -7,7 +7,7 @@ import { CompanyLossPreventionCard } from './CompanyLossPreventionCard';
 
 const queryState = vi.hoisted(() => ({
   data: {
-    version: 3 as const,
+    version: 4 as const,
     roles: {
       cashier: {
         maxDiscountPercent: 0,
@@ -29,6 +29,9 @@ const queryState = vi.hoisted(() => ({
         },
         dualApproval: { enabled: false, thresholdAmount: 0 },
       },
+    },
+    alerts: {
+      whatsappHandoff: { enabled: false, recipientPhone: '' },
     },
   },
   isLoading: false,
@@ -90,6 +93,7 @@ describe('CompanyLossPreventionCard', () => {
       })
     ).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Save checkout controls' })).toBeDisabled();
+    expect(screen.getByRole('heading', { name: 'Alert delivery' })).toBeInTheDocument();
   });
 
   it('submits a complete policy snapshot after editing the cashier controls', async () => {
@@ -109,6 +113,9 @@ describe('CompanyLossPreventionCard', () => {
     await user.click(screen.getByRole('button', { name: 'Save checkout controls' }));
 
     expect(mutate).toHaveBeenCalledWith({
+      alerts: {
+        whatsappHandoff: { enabled: false, recipientPhone: '' },
+      },
       roles: {
         cashier: {
           maxDiscountPercent: 7.5,
@@ -221,6 +228,34 @@ describe('CompanyLossPreventionCard', () => {
         }),
       })
     );
+  });
+
+  it('normalizes the optional WhatsApp handoff through the authoritative save', async () => {
+    const user = userEvent.setup();
+    render(<CompanyLossPreventionCard />);
+
+    await user.click(screen.getByRole('checkbox', { name: /Add WhatsApp link to alerts/ }));
+    await user.type(screen.getByLabelText('Manager WhatsApp number'), '+57 300 123 4567');
+    await user.click(screen.getByRole('button', { name: 'Save checkout controls' }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alerts: {
+          whatsappHandoff: { enabled: true, recipientPhone: '+57 300 123 4567' },
+        },
+      })
+    );
+  });
+
+  it('blocks an enabled WhatsApp handoff without a valid recipient', async () => {
+    const user = userEvent.setup();
+    render(<CompanyLossPreventionCard />);
+
+    await user.click(screen.getByRole('checkbox', { name: /Add WhatsApp link to alerts/ }));
+    await user.type(screen.getByLabelText('Manager WhatsApp number'), '123');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('international number');
+    expect(screen.getByRole('button', { name: 'Save checkout controls' })).toBeDisabled();
   });
 
   it('shows a retryable error state', async () => {

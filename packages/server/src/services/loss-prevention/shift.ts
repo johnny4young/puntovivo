@@ -13,7 +13,9 @@ import {
   type ManagerApprovalClaim,
 } from '../manager-approvals.js';
 import {
+  configuredLossPreventionAlertChannels,
   resolveLossPreventionSettings,
+  type LossPreventionAlertChannel,
   type LossPreventionNoSalePolicy,
   type LossPreventionRole,
   type LossPreventionShiftValuePolicy,
@@ -59,6 +61,7 @@ export interface ShiftLossPreventionEvaluation {
   requiresApproval: boolean;
   violations: ShiftLossPreventionViolation[];
   violation: ShiftLossPreventionViolation | null;
+  alertChannels: LossPreventionAlertChannel[];
 }
 
 function policyRole(role: UserRole): LossPreventionRole | null {
@@ -121,10 +124,12 @@ export function evaluateShiftLossPrevention(args: {
       requiresApproval: false,
       violations: [],
       violation: null,
+      alertChannels: ['in_app'],
     };
   }
 
   const settings = resolveLossPreventionSettings(args.db, args.tenantId);
+  const alertChannels = configuredLossPreventionAlertChannels(settings);
   const configured = policyForAction(role, args.action, settings);
   const actionAmount = roundMoney(Math.max(0, args.amount ?? 0));
   const dualPolicy = settings.roles[role].dualApproval;
@@ -151,6 +156,7 @@ export function evaluateShiftLossPrevention(args: {
       requiresApproval: violations.length > 0,
       violations,
       violation: violations[0] ?? null,
+      alertChannels,
     };
   }
 
@@ -188,6 +194,7 @@ export function evaluateShiftLossPrevention(args: {
       requiresApproval: true,
       violations,
       violation,
+      alertChannels,
     };
   }
 
@@ -250,6 +257,7 @@ export function evaluateShiftLossPrevention(args: {
     requiresApproval: violations.length > 0,
     violations,
     violation: violations[0] ?? null,
+    alertChannels,
   };
 }
 
@@ -278,6 +286,7 @@ export function recordShiftLossPreventionTrigger(args: {
         after: {
           requiredAction: violation.action,
           approvalProvided: Boolean(args.approvalRequestId),
+          alertChannels: args.evaluation.alertChannels,
         },
         metadata: {
           siteId: args.siteId,
