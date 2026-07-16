@@ -471,13 +471,17 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
      )`
   ).run(tenantId, ...keepUserArgs);
 
+  // Product-import smokes create fixtures in both supported locales. Keep
+  // one shared selector so every child cleanup covers the English E2E names
+  // and the stable SKU prefix from the localized template without matching
+  // arbitrary user-authored Spanish product names.
+  const e2eProductIds = `select id from products
+    where tenant_id = ?
+      and (name like 'E2E %' or sku like 'E2E-LANZAMIENTO-%')`;
+
   // Quotations lifecycle — clear before products so FK on
   // quotation_items.product_id does not block the product delete below.
-  db.prepare(
-    `delete from quotation_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
+  db.prepare(`delete from quotation_items where product_id in (${e2eProductIds})`).run(tenantId);
   db.prepare(
     `delete from quotations where tenant_id = ? and created_by in (
        select id from users where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
@@ -485,39 +489,17 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   ).run(tenantId, tenantId, ...keepUserArgs);
 
   // Inventory artefacts tied to the disposable products.
-  db.prepare(
-    `delete from inventory_movements where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from inventory_balances where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from initial_inventory where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from unit_x_product where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from product_x_provider where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
+  db.prepare(`delete from inventory_movements where product_id in (${e2eProductIds})`).run(
+    tenantId
+  );
+  db.prepare(`delete from inventory_balances where product_id in (${e2eProductIds})`).run(tenantId);
+  db.prepare(`delete from initial_inventory where product_id in (${e2eProductIds})`).run(tenantId);
+  db.prepare(`delete from unit_x_product where product_id in (${e2eProductIds})`).run(tenantId);
+  db.prepare(`delete from product_x_provider where product_id in (${e2eProductIds})`).run(tenantId);
 
   // Order lines reference products; their parent orders may belong to
   // any actor, not only E2E users, so scope by product id.
-  db.prepare(
-    `delete from order_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
+  db.prepare(`delete from order_items where product_id in (${e2eProductIds})`).run(tenantId);
 
   // Belt-and-braces: the actor-scoped deletes above only catch children
   // whose parent (sale, purchase, purchase_return, transfer_order) is
@@ -526,26 +508,14 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // product delete would fail with a FOREIGN KEY constraint error. Scope
   // the same children by product id so the cleanup is idempotent against
   // any historical state.
-  db.prepare(
-    `delete from sale_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from purchase_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from purchase_return_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from transfer_order_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
+  db.prepare(`delete from sale_items where product_id in (${e2eProductIds})`).run(tenantId);
+  db.prepare(`delete from purchase_items where product_id in (${e2eProductIds})`).run(tenantId);
+  db.prepare(`delete from purchase_return_items where product_id in (${e2eProductIds})`).run(
+    tenantId
+  );
+  db.prepare(`delete from transfer_order_items where product_id in (${e2eProductIds})`).run(
+    tenantId
+  );
 
   // Launch-import and ledger journeys create durable E2E customers with
   // template actors. They are therefore not covered by the disposable-user
@@ -570,7 +540,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   db.prepare(`delete from customers where tenant_id = ? and name like 'E2E %'`).run(tenantId);
 
   // Disposable products + providers.
-  db.prepare(`delete from products where tenant_id = ? and name like 'E2E %'`).run(tenantId);
+  db.prepare(`delete from products where id in (${e2eProductIds})`).run(tenantId);
   db.prepare(`delete from providers where tenant_id = ? and name like 'E2E Provider %'`).run(
     tenantId
   );
