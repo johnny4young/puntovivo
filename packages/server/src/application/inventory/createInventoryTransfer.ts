@@ -30,6 +30,8 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
 import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
+import { assertCatalogStockMutationAllowed } from '../../services/products/lot-tracking.js';
+import { assignProductSerialsToTransferLine } from '../../services/product-serials.js';
 import {
   assertValidTransferArgs,
   getTimestamp,
@@ -74,9 +76,12 @@ export function createInventoryTransfer(
     // Collapse duplicate product lines so a single product can only move in
     // one direction per transfer. (The callers shouldn't pass duplicates, but
     // defending here keeps the balance updates consistent.)
-    const collapsedItems = new Map<string, number>();
+    const collapsedItems = new Map<string, { quantity: number; serialIds: string[] }>();
     for (const item of args.items) {
-      collapsedItems.set(item.productId, (collapsedItems.get(item.productId) ?? 0) + item.quantity);
+      const existing = collapsedItems.get(item.productId) ?? { quantity: 0, serialIds: [] };
+      existing.quantity += item.quantity;
+      existing.serialIds.push(...(item.serialIds ?? []));
+      collapsedItems.set(item.productId, existing);
     }
 
     const productIds = Array.from(collapsedItems.keys());
@@ -126,14 +131,33 @@ export function createInventoryTransfer(
 
     const persistedItems: CreatedTransfer['items'] = [];
 
-    for (const [productId, quantity] of collapsedItems.entries()) {
+    for (const [productId, transferItem] of collapsedItems.entries()) {
+      const { quantity, serialIds } = transferItem;
       const product = productById.get(productId)!;
-      assertAggregateStockMutationAllowed({
-        tracksLots: product.tracksLots,
-        tracksSerials: product.tracksSerials,
-        catalogType: product.catalogType,
-        delta: -quantity,
-      });
+      if (product.tracksSerials) {
+        assertCatalogStockMutationAllowed({ catalogType: product.catalogType, delta: -quantity });
+        if (!Number.isInteger(quantity)) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'PRODUCT_SERIAL_QUANTITY_WHOLE_REQUIRED',
+            message: 'Serialized transfers require whole-unit quantities',
+          });
+        }
+      } else {
+        if (serialIds.length > 0) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'PRODUCT_SERIAL_TRACKING_REQUIRED',
+            message: 'Serial identities can only be supplied for serialized products',
+          });
+        }
+        assertAggregateStockMutationAllowed({
+          tracksLots: product.tracksLots,
+          tracksSerials: false,
+          catalogType: product.catalogType,
+          delta: -quantity,
+        });
+      }
 
       // Lazily seed missing balance rows for both sites so transfer creation
       // does not depend on the balances read path having run beforehand.
@@ -246,6 +270,23 @@ export function createInventoryTransfer(
           createdAt: now,
         })
         .run();
+
+      if (product.tracksSerials) {
+        assignProductSerialsToTransferLine(tx as unknown as DatabaseInstance, {
+          tenantId: args.tenantId,
+          fromSiteId: args.fromSiteId,
+          toSiteId: args.toSiteId,
+          productId,
+          transferOrderItemId: itemId,
+          serialIds,
+          quantity,
+          deferred,
+          now,
+          syncContext: args.syncContext
+            ? { ...args.syncContext, db: tx as unknown as DatabaseInstance }
+            : undefined,
+        });
+      }
 
       persistedItems.push({
         id: itemId,

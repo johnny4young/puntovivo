@@ -39,7 +39,12 @@
     "baseUnits": "Unidades base",
     "lineTotal": "Total línea",
     "currentStock": "Stock actual {{count}}",
-    "removeItem": "Eliminar {{name}}"
+    "removeItem": "Eliminar {{name}}",
+    "serialNumbers": "Números de serie",
+    "serialNumbersPlaceholder": "Un número de serie por línea",
+    "serialNumbersDuplicate": "Elimina los números de serie duplicados antes de continuar",
+    "serialCount_one": "{{count}} unidad serializada",
+    "serialCount_other": "{{count}} unidades serializadas"
   },
   "dialog": {
     "addProduct": "Agregar producto a la compra",

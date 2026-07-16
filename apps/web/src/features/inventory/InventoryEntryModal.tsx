@@ -2,6 +2,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import {
+  getSerializedQuantity,
   hasDuplicateSerialNumbers,
   parseSerialNumbers,
 } from '@/features/inventory/serialNumbers';
@@ -166,9 +167,14 @@ export function InventoryEntryModal({
                     {...serialNumbersField}
                     onChange={event => {
                       void serialNumbersField.onChange(event);
-                      form.setValue('quantity', parseSerialNumbers(event.target.value).length, {
-                        shouldValidate: true,
-                      });
+                      form.setValue(
+                        'quantity',
+                        getSerializedQuantity(
+                          parseSerialNumbers(event.target.value).length,
+                          selection?.unit.equivalence ?? 1
+                        ),
+                        { shouldValidate: true }
+                      );
                     }}
                   />
                   <p className="mt-1 text-xs text-secondary-500">

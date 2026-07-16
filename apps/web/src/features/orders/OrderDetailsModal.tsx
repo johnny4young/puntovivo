@@ -4,10 +4,7 @@ import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Mod
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { OrderDetailsContent } from '@/features/orders/OrderDetailsContent';
-import {
-  OrderReceiveModal,
-  type OrderReceiveValues,
-} from '@/features/orders/OrderReceiveModal';
+import { OrderReceiveModal, type OrderReceiveValues } from '@/features/orders/OrderReceiveModal';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 
@@ -46,6 +43,8 @@ export function OrderDetailsModal({
         utils.inventory.listStock.invalidate(),
         utils.products.list.invalidate(),
         utils.products.search.invalidate(),
+        utils.productSerials.list.invalidate(),
+        utils.productSerials.lookup.invalidate(),
       ]);
       toast.success({
         title: t('orders:details.toast.receiveSuccessTitle'),
@@ -182,11 +181,7 @@ export function OrderDetailsModal({
         )}
         {orderQuery.error && <p className="text-sm text-danger-500">{orderQuery.error.message}</p>}
         {order && (
-          <OrderDetailsContent
-            order={order}
-            receiveError={receiveError}
-            voidError={voidError}
-          />
+          <OrderDetailsContent order={order} receiveError={receiveError} voidError={voidError} />
         )}
       </Modal>
 

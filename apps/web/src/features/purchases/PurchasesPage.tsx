@@ -16,7 +16,9 @@ import {
 import { PurchasesHistoryTable } from '@/features/purchases/PurchasesHistoryTable';
 import {
   getPurchaseCartSummary,
+  hasCompletePurchaseSerials,
   mergePurchaseCartItem,
+  updatePurchaseCartSerialNumbers,
   updatePurchaseCartItem,
   type PurchaseCartItem,
 } from '@/features/purchases/purchaseCart';
@@ -27,6 +29,7 @@ import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
 import type { Category, Provider, Purchase } from '@/types';
+import { parseSerialNumbers } from '@/features/inventory/serialNumbers';
 
 interface PurchaseDialogState {
   purchaseId: string;
@@ -63,6 +66,8 @@ export function PurchasesPage() {
         u => u.inventory.listStock,
         u => u.products.list,
         u => u.products.search,
+        u => u.productSerials.list,
+        u => u.productSerials.lookup,
       ]);
       setCartItems([]);
       setPurchaseError(null);
@@ -76,6 +81,7 @@ export function PurchasesPage() {
   });
 
   const draftSummary = getPurchaseCartSummary(cartItems);
+  const serialsComplete = hasCompletePurchaseSerials(cartItems);
   const purchases = (purchasesQuery.data?.items ?? []) as Purchase[];
   const providers = ((providersQuery.data?.items ?? []) as Provider[]).filter(
     provider => provider.isActive
@@ -117,12 +123,20 @@ export function PurchasesPage() {
     );
   };
 
+  const handleSerialNumbersChange = (itemKey: string, serialNumbers: string) => {
+    setCartItems(currentItems =>
+      currentItems.map(item =>
+        item.key === itemKey ? updatePurchaseCartSerialNumbers(item, serialNumbers) : item
+      )
+    );
+  };
+
   const handleRemoveItem = (itemKey: string) => {
     setCartItems(currentItems => currentItems.filter(item => item.key !== itemKey));
   };
 
   const handleOpenFinalizeModal = () => {
-    if (!currentSite || cartItems.length === 0) {
+    if (!currentSite || cartItems.length === 0 || !serialsComplete) {
       return;
     }
 
@@ -140,6 +154,7 @@ export function PurchasesPage() {
           unitId: item.unitId,
           quantity: item.quantity,
           costPerUnit: item.costPerUnit,
+          ...(item.tracksSerials ? { serialNumbers: parseSerialNumbers(item.serialNumbers) } : {}),
         })),
         notes: values.notes || undefined,
       });
@@ -157,7 +172,9 @@ export function PurchasesPage() {
           <div className="flex flex-wrap items-center gap-3">
             <div className="rounded-lg border border-secondary-200 px-3 py-2 text-sm">
               <p className="text-secondary-500">{t('page.activeSite')}</p>
-              <p className="font-medium text-secondary-900">{currentSite?.name ?? t('page.noSite')}</p>
+              <p className="font-medium text-secondary-900">
+                {currentSite?.name ?? t('page.noSite')}
+              </p>
             </div>
             <button
               className="btn-outline flex items-center gap-2"
@@ -180,7 +197,7 @@ export function PurchasesPage() {
             <button
               className="btn-primary flex items-center gap-2"
               onClick={handleOpenFinalizeModal}
-              disabled={!currentSite || cartItems.length === 0}
+              disabled={!currentSite || cartItems.length === 0 || !serialsComplete}
             >
               <PackagePlus className="h-4 w-4" />
               {t('checkout.register')}
@@ -191,7 +208,9 @@ export function PurchasesPage() {
         <div className="grid gap-4 md:grid-cols-4">
           <div className="card p-4">
             <p className="text-sm text-secondary-500">{t('page.completed')}</p>
-            <p className="mt-1 text-2xl font-bold text-secondary-900">{completedPurchases.length}</p>
+            <p className="mt-1 text-2xl font-bold text-secondary-900">
+              {completedPurchases.length}
+            </p>
           </div>
           <div className="card p-4">
             <p className="text-sm text-secondary-500">{t('page.recentSpend')}</p>
@@ -201,7 +220,9 @@ export function PurchasesPage() {
           </div>
           <div className="card p-4">
             <p className="text-sm text-secondary-500">{t('page.providersUsed')}</p>
-            <p className="mt-1 text-2xl font-bold text-secondary-900">{purchaseTotals.providerCount}</p>
+            <p className="mt-1 text-2xl font-bold text-secondary-900">
+              {purchaseTotals.providerCount}
+            </p>
           </div>
           <div className="card p-4">
             <p className="text-sm text-secondary-500">{t('page.draftTotal')}</p>
@@ -222,9 +243,7 @@ export function PurchasesPage() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-secondary-900">{t('checkout.kicker')}</h2>
-                <p className="text-sm text-secondary-500">
-                  {t('checkout.description')}
-                </p>
+                <p className="text-sm text-secondary-500">{t('checkout.description')}</p>
               </div>
               <button
                 className="btn-ghost"
@@ -239,6 +258,7 @@ export function PurchasesPage() {
               items={cartItems}
               onQuantityChange={handleQuantityChange}
               onCostChange={handleCostChange}
+              onSerialNumbersChange={handleSerialNumbersChange}
               onRemove={handleRemoveItem}
             />
             {purchaseError && <p className="mt-4 text-sm text-danger-500">{purchaseError}</p>}
@@ -247,7 +267,7 @@ export function PurchasesPage() {
           <PurchasesCheckoutPanel
             currentSite={currentSite}
             draftSummary={draftSummary}
-            canFinalize={!!currentSite && cartItems.length > 0}
+            canFinalize={!!currentSite && cartItems.length > 0 && serialsComplete}
             onOpenSearch={() => setIsProductSearchOpen(true)}
             onFinalize={handleOpenFinalizeModal}
           />

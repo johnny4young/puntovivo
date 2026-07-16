@@ -176,6 +176,13 @@
       "when": 1784223838368,
       "tag": "0024_eng110c_product_serials",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1784230258519,
+      "tag": "0025_eng110d_serial_logistics",
+      "breakpoints": true
     }
   ]
 }

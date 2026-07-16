@@ -10,6 +10,7 @@ import {
   orderItems,
   orders,
   products,
+  productSerials,
   providers,
   purchaseItems,
   purchaseReturnItems,
@@ -34,9 +35,7 @@ let siteId: string;
 let baseUnitId: string;
 let boxUnitId: string;
 
-function createTestContext(
-  role: 'admin' | 'manager' | 'cashier' = 'admin'
-): Context {
+function createTestContext(role: 'admin' | 'manager' | 'cashier' = 'admin'): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
@@ -113,7 +112,11 @@ describe('Purchases tRPC Router', () => {
     });
 
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
     }
@@ -132,11 +135,7 @@ describe('Purchases tRPC Router', () => {
     }
     siteId = seededSite.id;
 
-    const seededUnits = await db
-      .select()
-      .from(units)
-      .where(eq(units.tenantId, tenantId))
-      .all();
+    const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
     const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
     const boxUnit = seededUnits.find(unit => unit.abbreviation === 'CJ');
 
@@ -524,7 +523,9 @@ describe('Purchases tRPC Router', () => {
     expect(getProductStockTotal(db, tenantId, productId)).toBe(8);
 
     const balancesAfterFirstReceipt = await caller.inventory.listBalancesBySite({ siteId });
-    expect(balancesAfterFirstReceipt.items.find(item => item.productId === productId)?.onHand).toBe(8);
+    expect(balancesAfterFirstReceipt.items.find(item => item.productId === productId)?.onHand).toBe(
+      8
+    );
 
     const updatedOrder = await db.select().from(orders).where(eq(orders.id, orderId)).get();
     expect(updatedOrder?.status).toBe('partial_received');
@@ -548,9 +549,9 @@ describe('Purchases tRPC Router', () => {
     expect(getProductStockTotal(db, tenantId, productId)).toBe(13);
 
     const balancesAfterSecondReceipt = await caller.inventory.listBalancesBySite({ siteId });
-    expect(balancesAfterSecondReceipt.items.find(item => item.productId === productId)?.onHand).toBe(
-      13
-    );
+    expect(
+      balancesAfterSecondReceipt.items.find(item => item.productId === productId)?.onHand
+    ).toBe(13);
 
     const finalOrder = await db.select().from(orders).where(eq(orders.id, orderId)).get();
     expect(finalOrder?.status).toBe('received');
@@ -569,11 +570,7 @@ describe('Purchases tRPC Router', () => {
     const productId = nanoid();
     const secondarySiteId = nanoid();
     const now = new Date().toISOString();
-    const mainSite = await db
-      .select()
-      .from(sites)
-      .where(eq(sites.id, siteId))
-      .get();
+    const mainSite = await db.select().from(sites).where(eq(sites.id, siteId)).get();
 
     if (!mainSite) {
       throw new Error('Expected seeded main site');
@@ -672,11 +669,7 @@ describe('Purchases tRPC Router', () => {
     const orderItemId = nanoid();
     const secondarySiteId = nanoid();
     const now = new Date().toISOString();
-    const mainSite = await db
-      .select()
-      .from(sites)
-      .where(eq(sites.id, siteId))
-      .get();
+    const mainSite = await db.select().from(sites).where(eq(sites.id, siteId)).get();
 
     if (!mainSite) {
       throw new Error('Expected seeded main site');
@@ -777,7 +770,9 @@ describe('Purchases tRPC Router', () => {
       total: 12,
     });
 
-    const secondaryCaller = appRouter.createCaller(createTestContextForSite(secondarySiteId, 'manager'));
+    const secondaryCaller = appRouter.createCaller(
+      createTestContextForSite(secondarySiteId, 'manager')
+    );
     const receipt = await secondaryCaller.purchases.createFromOrder({
       orderId,
       items: [{ orderItemId, quantity: 2 }],
@@ -872,7 +867,11 @@ describe('Purchases tRPC Router', () => {
       })
     ).rejects.toThrow(/Unit selection is invalid/);
 
-    const count = await db.select().from(purchases).where(eq(purchases.providerId, providerId)).all();
+    const count = await db
+      .select()
+      .from(purchases)
+      .where(eq(purchases.providerId, providerId))
+      .all();
     expect(count).toHaveLength(0);
   });
 
@@ -1293,9 +1292,7 @@ describe('Purchases tRPC Router', () => {
     const listed = await managerCaller.purchases.list({ page: 1, perPage: 10 });
     expect(Array.isArray(listed.items)).toBe(true);
 
-    await expect(
-      cashierCaller.purchases.list({ page: 1, perPage: 10 })
-    ).rejects.toMatchObject({
+    await expect(cashierCaller.purchases.list({ page: 1, perPage: 10 })).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
   });
@@ -1389,7 +1386,9 @@ describe('Purchases tRPC Router', () => {
     const reversalMovement = await db
       .select()
       .from(inventoryMovements)
-      .where(and(eq(inventoryMovements.reference, created.id), eq(inventoryMovements.type, 'return')))
+      .where(
+        and(eq(inventoryMovements.reference, created.id), eq(inventoryMovements.type, 'return'))
+      )
       .get();
     expect(reversalMovement).toMatchObject({
       productId,
@@ -1687,6 +1686,182 @@ describe('Purchases tRPC Router', () => {
       })
     ).rejects.toMatchObject({
       code: 'FORBIDDEN',
+    });
+  });
+  describe('ENG-110d serialized procurement', () => {
+    async function createSerializedFixture(label: string) {
+      const db = getDatabase();
+      const now = new Date().toISOString();
+      const providerId = nanoid();
+      const productId = nanoid();
+      await db.insert(providers).values({
+        id: providerId,
+        tenantId,
+        name: `${label} Supplier`,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(products).values({
+        id: productId,
+        tenantId,
+        name: `${label} Product`,
+        sku: `${label}-${nanoid()}`,
+        price: 100,
+        price2: 100,
+        price3: 100,
+        cost: 40,
+        initialCost: 40,
+        minStock: 0,
+        tracksSerials: true,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(unitXProduct).values({
+        id: nanoid(),
+        productId,
+        unitId: baseUnitId,
+        equivalence: 1,
+        price: 100,
+        isBase: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return { providerId, productId };
+    }
+
+    it('receives exact purchase identities and returns the selected physical unit', async () => {
+      const db = getDatabase();
+      const caller = appRouter.createCaller(createTestContext());
+      const fixture = await createSerializedFixture('SER-PUR');
+      const purchase = await caller.purchases.create({
+        providerId: fixture.providerId,
+        items: [
+          {
+            productId: fixture.productId,
+            unitId: baseUnitId,
+            quantity: 2,
+            costPerUnit: 55,
+            serialNumbers: ['pur-sn-001', 'PUR-SN-002'],
+          },
+        ],
+      });
+
+      const serials = await db
+        .select()
+        .from(productSerials)
+        .where(eq(productSerials.productId, fixture.productId))
+        .all();
+      expect(serials.map(serial => serial.serialNumber)).toEqual(['PUR-SN-001', 'PUR-SN-002']);
+      expect(serials.every(serial => serial.sourcePurchaseItemId === purchase.items[0]!.id)).toBe(
+        true
+      );
+      expect(getProductStockTotal(db, tenantId, fixture.productId)).toBe(2);
+
+      const returned = await caller.purchases.returnPurchase({
+        id: purchase.id,
+        items: [
+          {
+            purchaseItemId: purchase.items[0]!.id,
+            quantity: 1,
+            serialIds: [serials[1]!.id],
+          },
+        ],
+        reason: 'Supplier exchange',
+      });
+      expect(returned.status).toBe('partial_returned');
+      expect(getProductStockTotal(db, tenantId, fixture.productId)).toBe(1);
+      expect(
+        await db
+          .select({ status: productSerials.status })
+          .from(productSerials)
+          .where(eq(productSerials.id, serials[1]!.id))
+          .get()
+      ).toEqual({ status: 'returned_to_supplier' });
+    });
+
+    it('receives serialized purchase-order lines and preserves their purchase source', async () => {
+      const db = getDatabase();
+      const caller = appRouter.createCaller(createTestContext());
+      const fixture = await createSerializedFixture('SER-ORD');
+      const order = await caller.orders.create({
+        providerId: fixture.providerId,
+        items: [
+          {
+            productId: fixture.productId,
+            unitId: baseUnitId,
+            quantity: 2,
+            costPerUnit: 60,
+          },
+        ],
+      });
+      const purchase = await caller.purchases.createFromOrder({
+        orderId: order.id,
+        items: [
+          {
+            orderItemId: order.items[0]!.id,
+            quantity: 2,
+            serialNumbers: ['ORD-SN-001', 'ORD-SN-002'],
+          },
+        ],
+      });
+      const serials = await db
+        .select()
+        .from(productSerials)
+        .where(eq(productSerials.productId, fixture.productId))
+        .all();
+      expect(serials).toHaveLength(2);
+      expect(serials.every(serial => serial.sourcePurchaseItemId === purchase.items[0]!.id)).toBe(
+        true
+      );
+      expect((await caller.orders.getById({ id: order.id })).status).toBe('received');
+    });
+
+    it('voids a serialized purchase only while every sourced identity remains available', async () => {
+      const db = getDatabase();
+      const caller = appRouter.createCaller(createTestContext());
+      const fixture = await createSerializedFixture('SER-VOID');
+      const purchase = await caller.purchases.create({
+        providerId: fixture.providerId,
+        items: [
+          {
+            productId: fixture.productId,
+            unitId: baseUnitId,
+            quantity: 1,
+            costPerUnit: 75,
+            serialNumbers: ['VOID-SN-001'],
+          },
+        ],
+      });
+      await caller.purchases.void({ id: purchase.id, reason: 'Duplicate supplier invoice' });
+      expect(getProductStockTotal(db, tenantId, fixture.productId)).toBe(0);
+      expect(
+        await db
+          .select({ status: productSerials.status })
+          .from(productSerials)
+          .where(eq(productSerials.productId, fixture.productId))
+          .get()
+      ).toEqual({ status: 'returned_to_supplier' });
+    });
+
+    it('rejects procurement when the serial count does not match the received quantity', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const fixture = await createSerializedFixture('SER-COUNT');
+      await expect(
+        caller.purchases.create({
+          providerId: fixture.providerId,
+          items: [
+            {
+              productId: fixture.productId,
+              unitId: baseUnitId,
+              quantity: 2,
+              costPerUnit: 50,
+              serialNumbers: ['COUNT-SN-001'],
+            },
+          ],
+        })
+      ).rejects.toThrow('exactly one serial number');
     });
   });
 });

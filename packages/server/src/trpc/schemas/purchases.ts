@@ -22,11 +22,13 @@ export const purchaseItemInput = z.object({
   unitId: z.string().min(1, 'Unit ID is required'),
   quantity: z.number().positive('Quantity must be greater than zero'),
   costPerUnit: z.number().min(0, 'Cost per unit must be non-negative'),
+  serialNumbers: z.array(z.string().trim().min(1)).max(500).optional(),
 });
 
 export const receiveOrderItemInput = z.object({
   orderItemId: z.string().min(1, 'Order item ID is required'),
   quantity: z.number().positive('Quantity must be greater than zero'),
+  serialNumbers: z.array(z.string().trim().min(1)).max(500).optional(),
 });
 
 export const listPurchasesInput = paginationInput.extend({
@@ -60,6 +62,7 @@ export const voidPurchaseInput = z.object({
 export const returnPurchaseItemInput = z.object({
   purchaseItemId: z.string().min(1, 'Purchase item ID is required'),
   quantity: z.number().positive('Return quantity must be greater than zero'),
+  serialIds: z.array(z.string().min(1)).max(500).optional(),
 });
 
 export const returnPurchaseInput = z.object({

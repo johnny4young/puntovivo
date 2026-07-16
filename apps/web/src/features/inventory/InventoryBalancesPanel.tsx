@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeftRight, Boxes, CheckCircle2, MapPin, Package } from 'lucide-react';
 import { type ColumnDef } from '@tanstack/react-table';
@@ -13,11 +13,14 @@ import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { cn } from '@/lib/utils';
 import type { InventoryBalanceListItem } from '@/types';
-import {
-  InventoryTransferModal,
-  type InventoryTransferFormValues,
-} from './InventoryTransferModal';
+import type { InventoryTransferFormValues } from './InventoryTransferModal';
 import { InventoryTransferHistory } from './InventoryTransferHistory';
+
+// ENG-110d — exact serial selection makes the transfer form materially heavier.
+// Keep it out of the already budget-sensitive inventory route until requested.
+const InventoryTransferModal = lazy(() =>
+  import('./InventoryTransferModal').then(module => ({ default: module.InventoryTransferModal }))
+);
 
 export interface InventoryBalancesPanelSite {
   id: string;
@@ -30,9 +33,7 @@ interface InventoryBalancesPanelProps {
   sitesLoading: boolean;
 }
 
-function buildBalanceColumns(
-  t: (key: string) => string
-): ColumnDef<InventoryBalanceListItem>[] {
+function buildBalanceColumns(t: (key: string) => string): ColumnDef<InventoryBalanceListItem>[] {
   return [
     {
       accessorKey: 'productName',
@@ -85,21 +86,15 @@ function buildBalanceColumns(
  * transfer mutation (DB-101 / API-101 read + DB-102 / API-102 write).
  *
  * Balances are seeded lazily from `products.stock` onto the primary site on
- * first read. Once rows exist they are authoritative — `transfers.create` is
- * the only write path wired up so far; future sale/purchase integrations
- * will mutate balances too.
+ * first read. Once rows exist they are authoritative and every inventory
+ * lifecycle path updates them directly.
  */
 export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalancesPanelProps) {
   const { t } = useTranslation(['inventory', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
-  const activeSites = useMemo(
-    () => sites.filter(site => site.isActive !== false),
-    [sites]
-  );
-  const [selectedSiteId, setSelectedSiteId] = useState<string>(
-    () => activeSites[0]?.id ?? ''
-  );
+  const activeSites = useMemo(() => sites.filter(site => site.isActive !== false), [sites]);
+  const [selectedSiteId, setSelectedSiteId] = useState<string>(() => activeSites[0]?.id ?? '');
   const [isTransferOpen, setIsTransferOpen] = useState(false);
 
   // If `sites` changes and the current selection is no longer valid, fall back.
@@ -120,6 +115,10 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
       await Promise.all([
         utils.inventory.listBalancesBySite.invalidate(),
         utils.transfers.list.invalidate(),
+        utils.productSerials.list.invalidate(),
+        utils.productSerials.lookup.invalidate(),
+        utils.products.list.invalidate(),
+        utils.products.search.invalidate(),
       ]);
       setIsTransferOpen(false);
       toast.success({ title: t('transferModal.success') });
@@ -139,7 +138,13 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
       await createTransferMutation.mutateAsync({
         fromSiteId: values.fromSiteId,
         toSiteId: values.toSiteId,
-        items: [{ productId: values.productId, quantity: values.quantity }],
+        items: [
+          {
+            productId: values.productId,
+            quantity: values.quantity,
+            ...(values.serialIds ? { serialIds: values.serialIds } : {}),
+          },
+        ],
         notes: values.notes || undefined,
         defer: values.defer,
       });
@@ -244,11 +249,7 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
         {balancesQuery.error && (
           <TableErrorState
             title={t('balances.error')}
-            message={translateServerError(
-              balancesQuery.error,
-              t,
-              t('balances.error')
-            )}
+            message={translateServerError(balancesQuery.error, t, t('balances.error'))}
             onRetry={() => {
               void balancesQuery.refetch();
             }}
@@ -272,27 +273,25 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
 
       <InventoryTransferHistory />
 
-      <InventoryTransferModal
-        // Remount on open/close so form state resets without a useEffect
-        // that would fire twice under StrictMode.
-        key={isTransferOpen ? 'open' : 'closed'}
-        isOpen={isTransferOpen}
-        sites={activeSites}
-        sourceBalances={items}
-        initialFromSiteId={effectiveSiteId}
-        isSaving={createTransferMutation.isPending}
-        error={
-          createTransferMutation.error
-            ? translateServerError(
-                createTransferMutation.error,
-                t,
-                t('errors:server.unknown')
-              )
-            : null
-        }
-        onClose={handleCloseTransferModal}
-        onSubmit={handleSubmitTransfer}
-      />
+      {isTransferOpen && (
+        <Suspense fallback={null}>
+          <InventoryTransferModal
+            key="open"
+            isOpen
+            sites={activeSites}
+            sourceBalances={items}
+            initialFromSiteId={effectiveSiteId}
+            isSaving={createTransferMutation.isPending}
+            error={
+              createTransferMutation.error
+                ? translateServerError(createTransferMutation.error, t, t('errors:server.unknown'))
+                : null
+            }
+            onClose={handleCloseTransferModal}
+            onSubmit={handleSubmitTransfer}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

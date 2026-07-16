@@ -298,6 +298,23 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('customers')
       );
     }
+    // ENG-110d — serial logistics ALTERs `product_serials` and creates a
+    // transfer bridge that references the ENG-110c tables. A purchase-only
+    // adoption fixture that legitimately skipped 0024 has no ALTER target,
+    // so pin this migration under the exact same narrow partial-DB guard.
+    if (entry.tag === '0025_eng110d_serial_logistics') {
+      return (
+        !tableExists('product_serials') &&
+        !tableExists('products') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

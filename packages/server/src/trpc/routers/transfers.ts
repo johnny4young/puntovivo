@@ -45,6 +45,7 @@ export const transfersRouter = router({
         notes: input.notes ?? null,
         createdBy: ctx.user!.id,
         defer: input.defer ?? false,
+        syncContext: ctx,
       });
     }),
 
@@ -55,23 +56,19 @@ export const transfersRouter = router({
     return { items };
   }),
 
-  getById: managerOrAdminProcedure
-    .input(getTransferInput)
-    .query(async ({ ctx, input }) => {
-      const detail = await getInventoryTransferById(ctx.db, ctx.tenantId, input.id);
-      if (!detail) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Transfer not found',
-          cause: new ServerErrorWithCode(
-            'TRANSFER_NOT_FOUND',
-            'Transfer not found',
-            { transferId: input.id }
-          ),
-        });
-      }
-      return detail;
-    }),
+  getById: managerOrAdminProcedure.input(getTransferInput).query(async ({ ctx, input }) => {
+    const detail = await getInventoryTransferById(ctx.db, ctx.tenantId, input.id);
+    if (!detail) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Transfer not found',
+        cause: new ServerErrorWithCode('TRANSFER_NOT_FOUND', 'Transfer not found', {
+          transferId: input.id,
+        }),
+      });
+    }
+    return detail;
+  }),
 
   receive: criticalCommandManagerOrAdminProcedure
     .input(receiveTransferInput)
@@ -82,6 +79,7 @@ export const transfersRouter = router({
         receivedBy: ctx.user!.id,
         lines: input.lines,
         discrepancyNotes: input.discrepancyNotes ?? null,
+        syncContext: ctx,
       });
     }),
 
@@ -93,6 +91,7 @@ export const transfersRouter = router({
         transferId: input.transferId,
         reason: input.reason ?? null,
         voidedBy: ctx.user!.id,
+        syncContext: ctx,
       });
     }),
 });

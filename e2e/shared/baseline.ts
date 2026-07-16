@@ -391,6 +391,23 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // Transfer-related rows — children first so FK-driven cascades don't
   // strand rows (the schema uses `ON DELETE CASCADE` on most of them, but
   // older installs may not have the FK — explicit delete is safer).
+  if (
+    db
+      .prepare(
+        "select 1 from sqlite_master where type = 'table' and name = 'product_serial_transfers'"
+      )
+      .get()
+  ) {
+    db.prepare(
+      `delete from product_serial_transfers
+       where transfer_order_item_id in (
+         select id from transfer_order_items
+         where transfer_order_id in (
+           select id from transfer_orders where tenant_id = ? and notes like 'E2E %'
+         )
+       )`
+    ).run(tenantId);
+  }
   db.prepare(
     `delete from transfer_order_items
      where transfer_order_id in (select id from transfer_orders where tenant_id = ? and notes like 'E2E %')`
@@ -444,6 +461,26 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
        )
      )`
   ).run(tenantId, ...keepUserArgs);
+  // ENG-110d — procurement provenance uses a restrictive FK from each
+  // received serial to its source purchase line. Remove exact identities
+  // before pruning the disposable purchase_items parent rows.
+  if (
+    db
+      .prepare("select 1 from sqlite_master where type = 'table' and name = 'product_serials'")
+      .get()
+  ) {
+    db.prepare(
+      `delete from product_serials
+       where source_purchase_item_id in (
+         select id from purchase_items where purchase_id in (
+           select id from purchases where created_by in (
+             select id from users
+             where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+           )
+         )
+       )`
+    ).run(tenantId, ...keepUserArgs);
+  }
   db.prepare(
     `delete from purchase_items where purchase_id in (
        select id from purchases where created_by in (
@@ -516,6 +553,20 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
       .prepare("select 1 from sqlite_master where type = 'table' and name = 'product_serials'")
       .get()
   ) {
+    if (
+      db
+        .prepare(
+          "select 1 from sqlite_master where type = 'table' and name = 'product_serial_transfers'"
+        )
+        .get()
+    ) {
+      db.prepare(
+        `delete from product_serial_transfers
+         where product_serial_id in (
+           select id from product_serials where product_id in (${e2eProductIds})
+         )`
+      ).run(tenantId);
+    }
     db.prepare(`delete from product_serials where product_id in (${e2eProductIds})`).run(tenantId);
   }
   db.prepare(`delete from purchase_items where product_id in (${e2eProductIds})`).run(tenantId);

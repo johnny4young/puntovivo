@@ -19,6 +19,7 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
 import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
+import { reverseTransferredProductSerials } from '../../services/product-serials.js';
 import { getTimestamp, seedMissingBalanceRow } from '../../services/inventory-transfers/helpers.js';
 import type { VoidTransferArgs, VoidedTransfer } from '../../services/inventory-transfers/types.js';
 
@@ -74,6 +75,7 @@ export function voidInventoryTransfer(
 
     const items = tx
       .select({
+        id: transferOrderItems.id,
         productId: transferOrderItems.productId,
         quantity: transferOrderItems.quantity,
         receivedQuantity: transferOrderItems.receivedQuantity,
@@ -147,12 +149,35 @@ export function voidInventoryTransfer(
     const reversedItems: VoidedTransfer['reversedItems'] = [];
 
     for (const item of itemsWithReversal) {
-      assertAggregateStockMutationAllowed({
-        tracksLots: item.tracksLots,
-        tracksSerials: item.tracksSerials,
-        catalogType: item.catalogType,
-        delta: item.quantity,
-      });
+      if (item.tracksSerials) {
+        if (!wasInTransit && item.destinationDebit !== item.quantity) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+            message: 'Serialized transfer history cannot contain a quantity discrepancy',
+          });
+        }
+        reverseTransferredProductSerials(tx as unknown as DatabaseInstance, {
+          tenantId: args.tenantId,
+          transferOrderItemId: item.id,
+          productId: item.productId,
+          fromSiteId: transfer.fromSiteId,
+          toSiteId: transfer.toSiteId,
+          quantity: item.quantity,
+          wasInTransit,
+          now,
+          syncContext: args.syncContext
+            ? { ...args.syncContext, db: tx as unknown as DatabaseInstance }
+            : undefined,
+        });
+      } else {
+        assertAggregateStockMutationAllowed({
+          tracksLots: item.tracksLots,
+          tracksSerials: false,
+          catalogType: item.catalogType,
+          delta: item.quantity,
+        });
+      }
       if (!wasInTransit && item.destinationDebit > 0) {
         // Decrement destination using the pre-validated value — a single read
         // per item keeps the math consistent and avoids a reachable path to a

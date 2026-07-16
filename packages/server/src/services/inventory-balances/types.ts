@@ -5,6 +5,7 @@ export interface InventoryBalanceListItem {
   productId: string;
   productName: string;
   productSku: string;
+  tracksSerials: boolean;
   onHand: number;
   reserved: number;
   available: number;

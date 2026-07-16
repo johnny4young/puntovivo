@@ -202,6 +202,12 @@
     "deferHelp": "La sede origen se debita de inmediato. La sede destino se acredita cuando llega el envío y haces clic en Recibir.",
     "onHand": "{{amount}} en existencias",
     "available": "Disponible en origen: {{amount}}",
+    "serials": "Unidades serializadas",
+    "serialsHelp": "Selecciona las unidades físicas exactas que se moverán a la sede destino.",
+    "serialsLoading": "Cargando unidades serializadas disponibles…",
+    "noSerials": "No hay unidades serializadas vendibles disponibles en esta sede.",
+    "serialCount_one": "{{count}} unidad serializada seleccionada",
+    "serialCount_other": "{{count}} unidades serializadas seleccionadas",
     "cancel": "Cancelar",
     "submit": "Transferir",
     "submitting": "Transfiriendo…",
@@ -323,9 +329,11 @@
     "noWarranty": "Sin registro",
     "statuses": {
       "in_stock": "En stock",
+      "in_transit": "En tránsito",
       "reserved": "Reservada en borrador",
       "sold": "Vendida",
       "returned": "Devuelta",
+      "returned_to_supplier": "Devuelta al proveedor",
       "defective": "Defectuosa"
     }
   },
@@ -345,7 +353,10 @@
     "reason": "Motivo",
     "reasonPlaceholder": "Nota opcional de devolución al proveedor",
     "minItems": "Selecciona al menos una línea para devolver",
-    "modalTitle": "Devolver artículos de {{number}}"
+    "modalTitle": "Devolver artículos de {{number}}",
+    "returnSerials": "Unidades serializadas a devolver",
+    "returnSerialsHelp": "Selecciona las unidades físicas exactas que saldrán hacia el proveedor.",
+    "noReturnableSerials": "No hay unidades serializadas de esta compra disponibles en la sede receptora."
   },
   "orders": {
     "cancel": "Cancelar",
@@ -363,7 +374,10 @@
     "receiptNotes": "Notas del recibo",
     "receiptNotesPlaceholder": "Nota opcional sobre este lote de entrega",
     "minItems": "Selecciona al menos una línea para recibir",
-    "modalTitle": "Recibir artículos del pedido {{number}}"
+    "modalTitle": "Recibir artículos del pedido {{number}}",
+    "serialNumbers": "Números de serie recibidos",
+    "serialNumbersPlaceholder": "Un número de serie por línea",
+    "serialNumbersDuplicate": "Elimina los números de serie duplicados antes de recibir"
   },
   "expiry": {
     "summary": {

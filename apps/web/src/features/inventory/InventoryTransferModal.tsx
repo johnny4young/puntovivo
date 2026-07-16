@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/form-controls/Modal';
+import { trpc } from '@/lib/trpc';
 import type { InventoryBalanceListItem } from '@/types';
 import type { InventoryBalancesPanelSite } from './InventoryBalancesPanel';
 
@@ -11,6 +12,7 @@ export interface InventoryTransferFormValues {
   quantity: number;
   notes: string;
   defer: boolean;
+  serialIds?: string[];
 }
 
 interface InventoryTransferModalProps {
@@ -24,10 +26,7 @@ interface InventoryTransferModalProps {
   onSubmit: (values: InventoryTransferFormValues) => Promise<void>;
 }
 
-function firstAlternativeSite(
-  sites: InventoryBalancesPanelSite[],
-  excludeId: string
-): string {
+function firstAlternativeSite(sites: InventoryBalancesPanelSite[], excludeId: string): string {
   const alternative = sites.find(site => site.id !== excludeId && site.isActive !== false);
   return alternative?.id ?? '';
 }
@@ -43,15 +42,11 @@ export function InventoryTransferModal({
   onSubmit,
 }: InventoryTransferModalProps) {
   const { t } = useTranslation('inventory');
-  const activeSites = useMemo(
-    () => sites.filter(site => site.isActive !== false),
-    [sites]
-  );
+  const activeSites = useMemo(() => sites.filter(site => site.isActive !== false), [sites]);
 
-  // Form state is reset by remounting the component — the parent passes
-  // `key={isOpen ? 'open' : 'closed'}` so React tears down the tree when the
-  // modal closes. This avoids a reset `useEffect` that would fire twice under
-  // StrictMode.
+  // The parent conditionally mounts this lazy modal only while it is open, so
+  // closing it tears down the form state. This avoids a reset `useEffect` that
+  // would fire twice under StrictMode.
   const [fromSiteId] = useState(initialFromSiteId);
   const [toSiteId, setToSiteId] = useState(() =>
     firstAlternativeSite(activeSites, initialFromSiteId)
@@ -60,6 +55,7 @@ export function InventoryTransferModal({
   const [quantity, setQuantity] = useState('');
   const [notes, setNotes] = useState('');
   const [defer, setDefer] = useState(false);
+  const [serialIds, setSerialIds] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
 
   const productOptions = useMemo(
@@ -70,12 +66,19 @@ export function InventoryTransferModal({
           value: balance.productId,
           label: `${balance.productName} — ${balance.productSku}`,
           onHand: balance.onHand,
+          tracksSerials: balance.tracksSerials,
         })),
     [sourceBalances]
   );
 
   const selectedBalance = productOptions.find(option => option.value === productId);
-  const parsedQuantity = Number.parseFloat(quantity);
+  const tracksSerials = selectedBalance?.tracksSerials === true;
+  const serialsQuery = trpc.productSerials.list.useQuery(
+    { siteId: fromSiteId, productId, sellableOnly: true },
+    { enabled: tracksSerials && fromSiteId.length > 0 && productId.length > 0 }
+  );
+  const availableSerials = serialsQuery.data?.items ?? [];
+  const parsedQuantity = tracksSerials ? serialIds.length : Number.parseFloat(quantity);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -113,6 +116,7 @@ export function InventoryTransferModal({
       quantity: parsedQuantity,
       notes: notes.trim(),
       defer,
+      ...(tracksSerials ? { serialIds } : {}),
     });
   }
 
@@ -148,21 +152,11 @@ export function InventoryTransferModal({
         </div>
       }
     >
-      <form
-        id="inventory-transfer-form"
-        className="space-y-4"
-        onSubmit={handleSubmit}
-        noValidate
-      >
+      <form id="inventory-transfer-form" className="space-y-4" onSubmit={handleSubmit} noValidate>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
             <span className="label">{t('transferModal.fromSite')}</span>
-            <select
-              className="input mt-1"
-              value={fromSiteId}
-              disabled
-              aria-disabled="true"
-            >
+            <select className="input mt-1" value={fromSiteId} disabled aria-disabled="true">
               {activeSites.map(site => (
                 <option key={site.id} value={site.id}>
                   {site.name}
@@ -194,21 +188,24 @@ export function InventoryTransferModal({
           <select
             className="input mt-1"
             value={productId}
-            onChange={event => setProductId(event.target.value)}
+            onChange={event => {
+              setProductId(event.target.value);
+              setQuantity('');
+              setSerialIds([]);
+            }}
           >
             <option value="">{t('transferModal.productPlaceholder')}</option>
             {productOptions.map(option => (
               <option key={option.value} value={option.value}>
-                {option.label} · {t('transferModal.onHand', {
+                {option.label} ·{' '}
+                {t('transferModal.onHand', {
                   amount: option.onHand.toLocaleString(),
                 })}
               </option>
             ))}
           </select>
           {productOptions.length === 0 && (
-            <p className="mt-1 text-sm text-secondary-500">
-              {t('transferModal.noStockAtSource')}
-            </p>
+            <p className="mt-1 text-sm text-secondary-500">{t('transferModal.noStockAtSource')}</p>
           )}
         </label>
 
@@ -220,7 +217,9 @@ export function InventoryTransferModal({
             step="any"
             min={0}
             className="input mt-1"
-            value={quantity}
+            value={tracksSerials ? String(serialIds.length) : quantity}
+            readOnly={tracksSerials}
+            aria-readonly={tracksSerials}
             onChange={event => setQuantity(event.target.value)}
           />
           {selectedBalance && (
@@ -231,6 +230,46 @@ export function InventoryTransferModal({
             </p>
           )}
         </label>
+
+        {tracksSerials && (
+          <fieldset className="rounded-xl border border-secondary-200 p-4">
+            <legend className="px-1 text-sm font-medium text-secondary-900">
+              {t('transferModal.serials')}
+            </legend>
+            <p className="mb-3 text-xs text-secondary-500">{t('transferModal.serialsHelp')}</p>
+            {serialsQuery.isLoading && (
+              <p className="text-sm text-secondary-500">{t('transferModal.serialsLoading')}</p>
+            )}
+            <div className="grid max-h-48 gap-2 overflow-y-auto sm:grid-cols-2">
+              {availableSerials.map(serial => {
+                const checked = serialIds.includes(serial.id);
+                return (
+                  <label
+                    key={serial.id}
+                    className="flex items-center gap-2 rounded-lg border border-secondary-200 px-3 py-2 font-mono text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        setSerialIds(current =>
+                          checked ? current.filter(id => id !== serial.id) : [...current, serial.id]
+                        )
+                      }
+                    />
+                    {serial.serialNumber}
+                  </label>
+                );
+              })}
+            </div>
+            {!serialsQuery.isLoading && availableSerials.length === 0 && (
+              <p className="text-sm text-warning-700">{t('transferModal.noSerials')}</p>
+            )}
+            <p className="mt-3 text-xs text-secondary-500">
+              {t('transferModal.serialCount', { count: serialIds.length })}
+            </p>
+          </fieldset>
+        )}
 
         <label className="block">
           <span className="label">{t('transferModal.notes')}</span>
@@ -251,12 +290,8 @@ export function InventoryTransferModal({
             onChange={event => setDefer(event.target.checked)}
           />
           <span>
-            <span className="font-medium text-secondary-900">
-              {t('transferModal.deferLabel')}
-            </span>
-            <span className="block text-xs text-secondary-500">
-              {t('transferModal.deferHelp')}
-            </span>
+            <span className="font-medium text-secondary-900">{t('transferModal.deferLabel')}</span>
+            <span className="block text-xs text-secondary-500">{t('transferModal.deferHelp')}</span>
           </span>
         </label>
 

@@ -44,6 +44,10 @@ const getByIdInvocations: Array<{ id: string; enabled: boolean }> = [];
 const listInvalidate = vi.fn(async () => undefined);
 const detailInvalidate = vi.fn(async () => undefined);
 const balancesInvalidate = vi.fn(async () => undefined);
+const serialListInvalidate = vi.fn(async () => undefined);
+const serialLookupInvalidate = vi.fn(async () => undefined);
+const productListInvalidate = vi.fn(async () => undefined);
+const productSearchInvalidate = vi.fn(async () => undefined);
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 
@@ -55,6 +59,14 @@ vi.mock('@/lib/trpc', () => ({
         getById: { invalidate: detailInvalidate },
       },
       inventory: { listBalancesBySite: { invalidate: balancesInvalidate } },
+      productSerials: {
+        list: { invalidate: serialListInvalidate },
+        lookup: { invalidate: serialLookupInvalidate },
+      },
+      products: {
+        list: { invalidate: productListInvalidate },
+        search: { invalidate: productSearchInvalidate },
+      },
     }),
     transfers: {
       list: {
@@ -79,10 +91,7 @@ vi.mock('@/lib/trpc', () => ({
 // `useCriticalMutation`. Mock that hook here so tests can still
 // capture the onSuccess / onError options for assertion.
 vi.mock('@/lib/useCriticalMutation', () => ({
-  useCriticalMutation: (
-    path: 'transfers.void' | 'transfers.receive',
-    opts: MutationOptions
-  ) => {
+  useCriticalMutation: (path: 'transfers.void' | 'transfers.receive', opts: MutationOptions) => {
     if (path === 'transfers.void') {
       capturedMutationOpts = opts;
       return voidMutationState;
@@ -383,16 +392,12 @@ describe('InventoryTransferHistory', () => {
     // Modal is closed on first render, so every getById invocation must be
     // `enabled: false` — the network call never fires.
     expect(getByIdInvocations.length).toBeGreaterThan(0);
-    expect(getByIdInvocations.every(invocation => invocation.enabled === false)).toBe(
-      true
-    );
+    expect(getByIdInvocations.every(invocation => invocation.enabled === false)).toBe(true);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Details' }));
 
-    const enabledInvocation = getByIdInvocations.find(
-      invocation => invocation.enabled === true
-    );
+    const enabledInvocation = getByIdInvocations.find(invocation => invocation.enabled === true);
     expect(enabledInvocation).toBeDefined();
     expect(enabledInvocation?.id).toBe(completedEntry.id);
   });

@@ -6,6 +6,7 @@ import type { DatabaseInstance } from '../db/index.js';
 import {
   customers,
   productSerials,
+  productSerialTransfers,
   products,
   saleItemSerials,
   saleItems,
@@ -22,6 +23,45 @@ type SerialDb = DatabaseInstance;
 /** Serial identity is case-insensitive at every API and persistence boundary. */
 export function normalizeSerialNumber(value: string): string {
   return value.trim().normalize('NFKC').toLocaleUpperCase('en-US');
+}
+
+export function normalizeSerialReceiptNumbers(input: {
+  tracksSerials: boolean;
+  normalizedQuantity: number;
+  serialNumbers?: readonly string[] | undefined;
+}): string[] {
+  const serialNumbers = (input.serialNumbers ?? []).map(normalizeSerialNumber);
+  if (!input.tracksSerials) {
+    if (serialNumbers.length > 0) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'PRODUCT_SERIAL_TRACKING_REQUIRED',
+        message: 'Serial numbers can only be supplied for a serialized product',
+      });
+    }
+    return [];
+  }
+
+  const requiredCount = assertWholeUnitCount(input.normalizedQuantity);
+  if (
+    serialNumbers.some(serialNumber => serialNumber.length === 0) ||
+    new Set(serialNumbers).size !== serialNumbers.length
+  ) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERIAL_DUPLICATE',
+      message: 'Serial numbers must be non-empty and unique within a receipt',
+    });
+  }
+  if (serialNumbers.length !== requiredCount) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERIAL_SELECTION_REQUIRED',
+      message: 'Provide exactly one serial number per received serialized unit',
+      details: { requiredCount, suppliedCount: serialNumbers.length },
+    });
+  }
+  return serialNumbers;
 }
 
 function assertWholeUnitCount(quantity: number): number {
@@ -73,8 +113,9 @@ export function receiveProductSerialUnits(
     unitCost: number;
     warrantyExpiresAt: string | null;
     notes: string | null;
+    sourcePurchaseItemId?: string | null;
     now: string;
-    syncContext?: EnqueueSyncContext;
+    syncContext?: EnqueueSyncContext | undefined;
   }
 ) {
   const normalizedSerialNumbers = input.serialNumbers.map(normalizeSerialNumber);
@@ -114,6 +155,7 @@ export function receiveProductSerialUnits(
     tenantId: input.tenantId,
     currentSiteId: input.siteId,
     productId: input.productId,
+    sourcePurchaseItemId: input.sourcePurchaseItemId ?? null,
     serialNumber,
     status: 'in_stock' as const,
     saleItemId: null,
@@ -134,6 +176,358 @@ export function receiveProductSerialUnits(
     enqueueSerialSnapshot(input.syncContext, row, 'create');
   }
   return rows;
+}
+
+function enqueueSerialTransferSnapshot(
+  syncContext: EnqueueSyncContext | undefined,
+  row: Record<string, unknown>
+): void {
+  if (!syncContext || typeof row.id !== 'string') return;
+  enqueueSyncInTransaction(syncContext, {
+    entityType: 'product_serial_transfers',
+    entityId: row.id,
+    operation: 'create',
+    data: row,
+  });
+}
+
+export function assignProductSerialsToTransferLine(
+  db: SerialDb,
+  input: {
+    tenantId: string;
+    fromSiteId: string;
+    toSiteId: string;
+    productId: string;
+    transferOrderItemId: string;
+    serialIds: readonly string[];
+    quantity: number;
+    deferred: boolean;
+    now: string;
+    syncContext?: EnqueueSyncContext | undefined;
+  }
+): void {
+  const requiredCount = assertWholeUnitCount(input.quantity);
+  const uniqueIds = [...new Set(input.serialIds)];
+  if (uniqueIds.length !== requiredCount || uniqueIds.length !== input.serialIds.length) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERIAL_SELECTION_REQUIRED',
+      message: 'Select exactly one unique serial number per transferred unit',
+      details: { requiredCount, selectedCount: uniqueIds.length },
+    });
+  }
+
+  const rows = db
+    .select()
+    .from(productSerials)
+    .where(
+      and(
+        eq(productSerials.tenantId, input.tenantId),
+        eq(productSerials.currentSiteId, input.fromSiteId),
+        eq(productSerials.productId, input.productId),
+        inArray(productSerials.id, uniqueIds),
+        or(eq(productSerials.status, 'in_stock'), eq(productSerials.status, 'returned'))
+      )
+    )
+    .all();
+  if (rows.length !== requiredCount) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+      message: 'A selected serial number is unavailable at the transfer origin',
+      details: { requiredCount, availableCount: rows.length },
+    });
+  }
+
+  for (const serial of rows) {
+    const next = {
+      ...serial,
+      currentSiteId: input.deferred ? input.fromSiteId : input.toSiteId,
+      status: input.deferred ? ('in_transit' as const) : serial.status,
+      syncStatus: 'pending' as const,
+      syncVersion: (serial.syncVersion ?? 0) + 1,
+      updatedAt: input.now,
+    };
+    const applied = db
+      .update(productSerials)
+      .set({
+        currentSiteId: next.currentSiteId,
+        status: next.status,
+        syncStatus: 'pending',
+        syncVersion: next.syncVersion,
+        updatedAt: input.now,
+      })
+      .where(
+        and(
+          eq(productSerials.id, serial.id),
+          eq(productSerials.tenantId, input.tenantId),
+          eq(productSerials.currentSiteId, input.fromSiteId),
+          or(eq(productSerials.status, 'in_stock'), eq(productSerials.status, 'returned'))
+        )
+      )
+      .run();
+    if (applied.changes !== 1) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+        message: 'A serialized unit changed during transfer creation',
+      });
+    }
+    const bridge = {
+      id: nanoid(),
+      tenantId: input.tenantId,
+      transferOrderItemId: input.transferOrderItemId,
+      productSerialId: serial.id,
+      serialNumber: serial.serialNumber,
+      createdAt: input.now,
+    };
+    db.insert(productSerialTransfers).values(bridge).run();
+    enqueueSerialSnapshot(input.syncContext, next, 'update');
+    enqueueSerialTransferSnapshot(input.syncContext, bridge);
+  }
+}
+
+export function receiveTransferredProductSerials(
+  db: SerialDb,
+  input: {
+    tenantId: string;
+    transferOrderItemId: string;
+    productId: string;
+    fromSiteId: string;
+    toSiteId: string;
+    quantity: number;
+    now: string;
+    syncContext?: EnqueueSyncContext | undefined;
+  }
+): string[] {
+  const requiredCount = assertWholeUnitCount(input.quantity);
+  const rows = db
+    .select({ serial: productSerials })
+    .from(productSerialTransfers)
+    .innerJoin(productSerials, eq(productSerialTransfers.productSerialId, productSerials.id))
+    .where(
+      and(
+        eq(productSerialTransfers.tenantId, input.tenantId),
+        eq(productSerialTransfers.transferOrderItemId, input.transferOrderItemId),
+        eq(productSerials.productId, input.productId),
+        eq(productSerials.currentSiteId, input.fromSiteId),
+        eq(productSerials.status, 'in_transit')
+      )
+    )
+    .all();
+  if (rows.length !== requiredCount) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+      message: 'Transferred serial identities no longer match the shipment',
+      details: { requiredCount, availableCount: rows.length },
+    });
+  }
+  for (const { serial } of rows) {
+    const next = {
+      ...serial,
+      currentSiteId: input.toSiteId,
+      status: 'in_stock' as const,
+      syncStatus: 'pending' as const,
+      syncVersion: (serial.syncVersion ?? 0) + 1,
+      updatedAt: input.now,
+    };
+    const applied = db
+      .update(productSerials)
+      .set({
+        currentSiteId: input.toSiteId,
+        status: 'in_stock',
+        syncStatus: 'pending',
+        syncVersion: next.syncVersion,
+        updatedAt: input.now,
+      })
+      .where(
+        and(
+          eq(productSerials.id, serial.id),
+          eq(productSerials.tenantId, input.tenantId),
+          eq(productSerials.currentSiteId, input.fromSiteId),
+          eq(productSerials.productId, input.productId),
+          eq(productSerials.status, 'in_transit')
+        )
+      )
+      .run();
+    if (applied.changes !== 1) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+        message: 'A serialized unit changed while receiving the transfer',
+      });
+    }
+    enqueueSerialSnapshot(input.syncContext, next, 'update');
+  }
+  return rows.map(row => row.serial.id);
+}
+
+export function reverseTransferredProductSerials(
+  db: SerialDb,
+  input: {
+    tenantId: string;
+    transferOrderItemId: string;
+    productId: string;
+    fromSiteId: string;
+    toSiteId: string;
+    quantity: number;
+    wasInTransit: boolean;
+    now: string;
+    syncContext?: EnqueueSyncContext | undefined;
+  }
+): string[] {
+  const requiredCount = assertWholeUnitCount(input.quantity);
+  const rows = db
+    .select({ serial: productSerials })
+    .from(productSerialTransfers)
+    .innerJoin(productSerials, eq(productSerialTransfers.productSerialId, productSerials.id))
+    .where(
+      and(
+        eq(productSerialTransfers.tenantId, input.tenantId),
+        eq(productSerialTransfers.transferOrderItemId, input.transferOrderItemId),
+        eq(productSerials.productId, input.productId),
+        eq(productSerials.currentSiteId, input.wasInTransit ? input.fromSiteId : input.toSiteId),
+        ...(input.wasInTransit
+          ? [eq(productSerials.status, 'in_transit')]
+          : [or(eq(productSerials.status, 'in_stock'), eq(productSerials.status, 'returned'))!])
+      )
+    )
+    .all();
+  if (rows.length !== requiredCount) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+      message: 'Transferred serial identities are no longer available to reverse',
+      details: { requiredCount, availableCount: rows.length },
+    });
+  }
+  for (const { serial } of rows) {
+    const nextStatus = input.wasInTransit ? ('in_stock' as const) : serial.status;
+    const next = {
+      ...serial,
+      currentSiteId: input.fromSiteId,
+      status: nextStatus,
+      syncStatus: 'pending' as const,
+      syncVersion: (serial.syncVersion ?? 0) + 1,
+      updatedAt: input.now,
+    };
+    const applied = db
+      .update(productSerials)
+      .set({
+        currentSiteId: input.fromSiteId,
+        status: nextStatus,
+        syncStatus: 'pending',
+        syncVersion: next.syncVersion,
+        updatedAt: input.now,
+      })
+      .where(
+        and(
+          eq(productSerials.id, serial.id),
+          eq(productSerials.tenantId, input.tenantId),
+          eq(productSerials.productId, input.productId),
+          eq(productSerials.currentSiteId, input.wasInTransit ? input.fromSiteId : input.toSiteId),
+          ...(input.wasInTransit
+            ? [eq(productSerials.status, 'in_transit')]
+            : [or(eq(productSerials.status, 'in_stock'), eq(productSerials.status, 'returned'))!])
+        )
+      )
+      .run();
+    if (applied.changes !== 1) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+        message: 'A serialized unit changed while reversing the transfer',
+      });
+    }
+    enqueueSerialSnapshot(input.syncContext, next, 'update');
+  }
+  return rows.map(row => row.serial.id);
+}
+
+export function returnPurchasedProductSerials(
+  db: SerialDb,
+  input: {
+    tenantId: string;
+    siteId: string;
+    purchaseItemId: string;
+    productId: string;
+    serialIds?: readonly string[] | undefined;
+    quantity: number;
+    now: string;
+    syncContext?: EnqueueSyncContext | undefined;
+  }
+): string[] {
+  const requiredCount = assertWholeUnitCount(input.quantity);
+  const selectedIds = input.serialIds ? [...new Set(input.serialIds)] : [];
+  const filters = [
+    eq(productSerials.tenantId, input.tenantId),
+    eq(productSerials.currentSiteId, input.siteId),
+    eq(productSerials.productId, input.productId),
+    eq(productSerials.sourcePurchaseItemId, input.purchaseItemId),
+    or(eq(productSerials.status, 'in_stock'), eq(productSerials.status, 'returned'))!,
+  ];
+  if (input.serialIds) {
+    if (selectedIds.length !== requiredCount || selectedIds.length !== input.serialIds.length) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'PRODUCT_SERIAL_SELECTION_REQUIRED',
+        message: 'Select exactly one unique serial number per returned unit',
+        details: { requiredCount, selectedCount: selectedIds.length },
+      });
+    }
+    filters.push(inArray(productSerials.id, selectedIds));
+  }
+  const rows = db
+    .select()
+    .from(productSerials)
+    .where(and(...filters))
+    .all();
+  if (rows.length !== requiredCount) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+      message: 'Purchased serial identities are no longer available at the receiving site',
+      details: { requiredCount, availableCount: rows.length },
+    });
+  }
+  for (const serial of rows) {
+    const next = {
+      ...serial,
+      status: 'returned_to_supplier' as const,
+      syncStatus: 'pending' as const,
+      syncVersion: (serial.syncVersion ?? 0) + 1,
+      updatedAt: input.now,
+    };
+    const applied = db
+      .update(productSerials)
+      .set({
+        status: 'returned_to_supplier',
+        syncStatus: 'pending',
+        syncVersion: next.syncVersion,
+        updatedAt: input.now,
+      })
+      .where(
+        and(
+          eq(productSerials.id, serial.id),
+          eq(productSerials.tenantId, input.tenantId),
+          eq(productSerials.currentSiteId, input.siteId),
+          eq(productSerials.productId, input.productId),
+          eq(productSerials.sourcePurchaseItemId, input.purchaseItemId),
+          or(eq(productSerials.status, 'in_stock'), eq(productSerials.status, 'returned'))
+        )
+      )
+      .run();
+    if (applied.changes !== 1) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+        message: 'A serialized unit changed while returning it to the supplier',
+      });
+    }
+    enqueueSerialSnapshot(input.syncContext, next, 'update');
+  }
+  return rows.map(row => row.id);
 }
 
 export function assignProductSerialsToSaleLine(
@@ -257,17 +651,12 @@ export function transitionSaleSerials(
       unitEquivalence: saleItems.unitEquivalence,
     })
     .from(saleItems)
-    .innerJoin(
-      sales,
-      and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, input.tenantId))
-    )
+    .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, input.tenantId)))
     .innerJoin(
       products,
       and(eq(saleItems.productId, products.id), eq(products.tenantId, input.tenantId))
     )
-    .where(
-      and(inArray(saleItems.id, input.saleItemIds), eq(products.tracksSerials, true))
-    )
+    .where(and(inArray(saleItems.id, input.saleItemIds), eq(products.tracksSerials, true)))
     .all();
   const expectedSerialCount = serializedLines.reduce(
     (total, line) => total + assertWholeUnitCount(line.quantity * line.unitEquivalence),

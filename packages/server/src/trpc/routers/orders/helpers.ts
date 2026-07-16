@@ -10,7 +10,18 @@
 import { TRPCError } from '@trpc/server';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { orderItems, orders, purchaseItems, purchases, products, providers, sequentials, sites, unitXProduct, units } from '../../../db/schema.js';
+import {
+  orderItems,
+  orders,
+  purchaseItems,
+  purchases,
+  products,
+  providers,
+  sequentials,
+  sites,
+  unitXProduct,
+  units,
+} from '../../../db/schema.js';
 import type { Context } from '../../context.js';
 import { type CreateOrderInput } from '../../schemas/orders.js';
 import { roundMoney } from '../../../lib/money.js';
@@ -220,6 +231,7 @@ export async function getOrderRecord(db: Context['db'], tenantId: string, orderI
       productId: orderItems.productId,
       productName: products.name,
       productSku: products.sku,
+      tracksSerials: products.tracksSerials,
       quantity: orderItems.quantity,
       unitId: orderItems.unitId,
       unitEquivalence: orderItems.unitEquivalence,

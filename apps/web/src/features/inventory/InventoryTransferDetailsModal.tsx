@@ -57,11 +57,7 @@ export function InventoryTransferDetailsModal({
       )}
       {detailQuery.error && (
         <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-2 text-sm text-danger-700">
-          {translateServerError(
-            detailQuery.error,
-            t,
-            t('transferDetails.error')
-          )}
+          {translateServerError(detailQuery.error, t, t('transferDetails.error'))}
         </div>
       )}
       {detailQuery.data && (
@@ -130,12 +126,8 @@ export function InventoryTransferDetailsModal({
               <table className="min-w-full divide-y divide-secondary-200 text-sm">
                 <thead className="bg-secondary-50 text-xs uppercase tracking-wide text-secondary-500">
                   <tr>
-                    <th className="px-3 py-2 text-left">
-                      {t('transferDetails.columns.product')}
-                    </th>
-                    <th className="px-3 py-2 text-left">
-                      {t('transferDetails.columns.sku')}
-                    </th>
+                    <th className="px-3 py-2 text-left">{t('transferDetails.columns.product')}</th>
+                    <th className="px-3 py-2 text-left">{t('transferDetails.columns.sku')}</th>
                     <th className="px-3 py-2 text-right">
                       {t('transferDetails.columns.quantity')}
                     </th>
@@ -150,11 +142,24 @@ export function InventoryTransferDetailsModal({
                 <tbody className="divide-y divide-secondary-100">
                   {detailQuery.data.items.map(item => {
                     const received = item.receivedQuantity;
-                    const variance =
-                      received === null ? null : received - item.quantity;
+                    const variance = received === null ? null : received - item.quantity;
                     return (
                       <tr key={item.id}>
-                        <td className="px-3 py-2 text-secondary-900">{item.productName}</td>
+                        <td className="px-3 py-2 text-secondary-900">
+                          {item.productName}
+                          {(item.serials?.length ?? 0) > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {item.serials?.map(serial => (
+                                <span
+                                  key={serial.id}
+                                  className="rounded bg-secondary-100 px-1.5 py-0.5 font-mono text-[11px] text-secondary-700"
+                                >
+                                  {serial.serialNumber}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-3 py-2 font-mono text-xs text-secondary-600">
                           {item.productSku}
                         </td>

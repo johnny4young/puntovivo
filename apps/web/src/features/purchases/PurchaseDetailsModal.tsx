@@ -46,6 +46,8 @@ export function PurchaseDetailsModal({
         u => u.products.list,
         u => u.products.search,
         u => u.dashboard.summary,
+        u => u.productSerials.list,
+        u => u.productSerials.lookup,
       ]);
       toast.success({ title: t('purchases:details.toast.returnSuccessTitle') });
       setIsReturnModalOpen(false);
@@ -69,6 +71,8 @@ export function PurchaseDetailsModal({
         u => u.products.list,
         u => u.products.search,
         u => u.dashboard.summary,
+        u => u.productSerials.list,
+        u => u.productSerials.lookup,
       ]);
       toast.success({ title: t('purchases:details.toast.voidSuccessTitle') });
       setIsVoidConfirmOpen(false);
@@ -182,7 +186,9 @@ export function PurchaseDetailsModal({
         {purchaseQuery.isLoading && (
           <p className="text-sm text-secondary-500">{t('purchases:details.loading')}</p>
         )}
-        {purchaseQuery.error && <p className="text-sm text-danger-500">{purchaseQuery.error.message}</p>}
+        {purchaseQuery.error && (
+          <p className="text-sm text-danger-500">{purchaseQuery.error.message}</p>
+        )}
 
         {purchase && (
           <PurchaseDetailsContent

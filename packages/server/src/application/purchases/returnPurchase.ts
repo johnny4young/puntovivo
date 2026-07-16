@@ -25,6 +25,7 @@ import {
   applyInventoryBalanceDelta,
   getProductStockTotals,
 } from '../../services/inventory-balances.js';
+import { returnPurchasedProductSerials } from '../../services/product-serials.js';
 import type { ReturnPurchaseInput } from '../../trpc/schemas/purchases.js';
 import { buildReturnedPurchaseNotes, getInventoryBalanceStateForSite } from './helpers.js';
 import { getPurchaseRecord } from './purchase-read.js';
@@ -165,12 +166,26 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
         })
         .run();
 
+      if (item.tracksSerials) {
+        returnPurchasedProductSerials(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          siteId: existing.siteId,
+          purchaseItemId: item.purchaseItemId,
+          productId: item.productId,
+          serialIds: item.serialIds,
+          quantity: item.normalizedQuantity,
+          now,
+          syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+        });
+      }
+
       applyInventoryBalanceDelta(tx, {
         tenantId: ctx.tenantId,
         siteId: existing.siteId,
         productId: item.productId,
         delta: -item.normalizedQuantity,
         initialOnHandIfMissing: currentSiteBalance,
+        serialAware: item.tracksSerials,
         now,
       });
 
@@ -191,7 +206,6 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
           createdAt: now,
         })
         .run();
-
     }
 
     tx.update(purchases)
@@ -204,7 +218,6 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
       })
       .where(eq(purchases.id, input.id))
       .run();
-
   });
 
   for (const item of resolvedReturn.rows) {

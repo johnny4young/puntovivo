@@ -112,4 +112,37 @@ describe('InventoryEntryModal (ENG-110a)', () => {
       )
     );
   });
+
+  it('converts serialized units through the selected unit equivalence', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const selection = serializedSelection();
+    render(
+      <InventoryEntryModal
+        isOpen
+        selection={{
+          ...selection,
+          unit: { ...selection.unit, equivalence: 2 },
+        }}
+        siteId="site-1"
+        siteName="Main site"
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Serial numbers'), {
+      target: { value: 'SN-A\nSN-B' },
+    });
+    await waitFor(() => expect(screen.getByLabelText('Serialized units')).toHaveValue(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Entry' }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ quantity: 1 }),
+        expect.anything()
+      )
+    );
+  });
 });

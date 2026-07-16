@@ -144,9 +144,11 @@ export type LotStatus = (typeof lotStatusEnum)[number];
 // that the unit came back from a completed sale until it is sold again.
 export const productSerialStatusEnum = [
   'in_stock',
+  'in_transit',
   'reserved',
   'sold',
   'returned',
+  'returned_to_supplier',
   'defective',
 ] as const;
 export type ProductSerialStatus = (typeof productSerialStatusEnum)[number];

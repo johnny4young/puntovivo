@@ -114,6 +114,38 @@ describe('InventoryTransferReceiveModal', () => {
     expect(handleSubmit).toHaveBeenCalledWith({});
   });
 
+  it('shows exact serialized identities and keeps their received quantity immutable', () => {
+    const detail = buildDetail([
+      { id: 'line-serial', productName: 'Scanner', productSku: 'SCN', quantity: 2 },
+    ]);
+    detail.items[0] = {
+      ...detail.items[0]!,
+      tracksSerials: true,
+      serials: [
+        { id: 'serial-1', serialNumber: 'SCN-001' },
+        { id: 'serial-2', serialNumber: 'SCN-002' },
+      ],
+    };
+    getByIdState = { data: detail, isLoading: false, error: null };
+
+    render(
+      <InventoryTransferReceiveModal
+        isOpen
+        transferId="transfer-1"
+        isSaving={false}
+        submitError={null}
+        onClose={() => {}}
+        onSubmit={() => {}}
+      />
+    );
+
+    expect(screen.getByText('SCN-001')).toBeVisible();
+    expect(screen.getByText('SCN-002')).toBeVisible();
+    expect(
+      screen.getByRole('spinbutton', { name: /received quantity for scanner/i })
+    ).toHaveAttribute('readonly');
+  });
+
   it('reveals the discrepancy notes field when a line is reduced and submits lines + notes', async () => {
     getByIdState = { data: buildDetail(), isLoading: false, error: null };
     const handleSubmit = vi.fn<(payload: TransferReceiveSubmitPayload) => void>();

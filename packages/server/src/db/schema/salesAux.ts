@@ -14,8 +14,9 @@ import { moneyPositiveChecks, moneyTwoDecimalCheck, nowIso, paymentMethodEnum, p
 import { sites, tenants, users } from './auth.js';
 import { units } from './catalogs.js';
 import { products } from './products.js';
+import { purchaseItems } from './purchasing.js';
 import { sales } from './sales.js';
-import { inventoryLots } from './inventory.js';
+import { inventoryLots, transferOrderItems } from './inventory.js';
 import { currencyCatalog } from './config.js';
 
 // ============================================================================
@@ -177,6 +178,11 @@ export const productSerials = sqliteTable(
     productId: text('product_id')
       .notNull()
       .references(() => products.id, { onDelete: 'restrict' }),
+    // ENG-110d — immutable receiving provenance when the unit entered through
+    // procurement. Legacy/manual inventory receipts remain null.
+    sourcePurchaseItemId: text('source_purchase_item_id').references(() => purchaseItems.id, {
+      onDelete: 'restrict',
+    }),
     serialNumber: text('serial_number').notNull(),
     status: text('status', { enum: productSerialStatusEnum }).notNull().default('in_stock'),
     saleItemId: text('sale_item_id').references(() => saleItems.id, { onDelete: 'set null' }),
@@ -199,6 +205,7 @@ export const productSerials = sqliteTable(
       table.status
     ),
     index('idx_product_serials_sale_item').on(table.saleItemId),
+    index('idx_product_serials_source_purchase_item').on(table.sourcePurchaseItemId),
     uniqueIndex('idx_product_serials_tenant_product_number').on(
       table.tenantId,
       table.productId,
@@ -221,9 +228,65 @@ export const productSerialsRelations = relations(productSerials, ({ one }) => ({
     fields: [productSerials.productId],
     references: [products.id],
   }),
+  sourcePurchaseItem: one(purchaseItems, {
+    fields: [productSerials.sourcePurchaseItemId],
+    references: [purchaseItems.id],
+  }),
   saleItem: one(saleItems, {
     fields: [productSerials.saleItemId],
     references: [saleItems.id],
+  }),
+}));
+
+// ============================================================================
+// PRODUCT SERIAL TRANSFERS (ENG-110d — exact inter-site identity provenance)
+// ============================================================================
+
+/**
+ * Immutable bridge between a transfer line and every physical unit selected
+ * for it. The current location/status stays on product_serials; this bridge
+ * lets deferred receive and void operations recover the exact identities.
+ */
+export const productSerialTransfers = sqliteTable(
+  'product_serial_transfers',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    transferOrderItemId: text('transfer_order_item_id')
+      .notNull()
+      .references(() => transferOrderItems.id, { onDelete: 'cascade' }),
+    productSerialId: text('product_serial_id')
+      .notNull()
+      .references(() => productSerials.id, { onDelete: 'restrict' }),
+    serialNumber: text('serial_number').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_product_serial_transfers_tenant').on(table.tenantId),
+    index('idx_product_serial_transfers_item').on(table.transferOrderItemId),
+    index('idx_product_serial_transfers_serial').on(table.productSerialId),
+    uniqueIndex('idx_product_serial_transfers_item_serial').on(
+      table.tenantId,
+      table.transferOrderItemId,
+      table.productSerialId
+    ),
+  ]
+);
+
+export const productSerialTransfersRelations = relations(productSerialTransfers, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [productSerialTransfers.tenantId],
+    references: [tenants.id],
+  }),
+  transferOrderItem: one(transferOrderItems, {
+    fields: [productSerialTransfers.transferOrderItemId],
+    references: [transferOrderItems.id],
+  }),
+  productSerial: one(productSerials, {
+    fields: [productSerialTransfers.productSerialId],
+    references: [productSerials.id],
   }),
 }));
 

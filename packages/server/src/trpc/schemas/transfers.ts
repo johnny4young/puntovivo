@@ -15,6 +15,7 @@ export const transferItemInput = z.object({
     .number()
     .finite('Quantity must be a finite number')
     .positive('Quantity must be greater than zero'),
+  serialIds: z.array(z.string().min(1)).max(500).optional(),
 });
 
 export const createTransferInput = z

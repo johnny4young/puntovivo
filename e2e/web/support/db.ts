@@ -129,6 +129,28 @@ export interface TransferItemRecord {
   receivedQuantity: number | null;
 }
 
+export interface ProductRecord {
+  id: string;
+  name: string;
+  sku: string;
+  tracksSerials: number;
+}
+
+export interface ProductSerialRecord {
+  id: string;
+  currentSiteId: string;
+  productId: string;
+  sourcePurchaseItemId: string | null;
+  serialNumber: string;
+  status: string;
+}
+
+export interface TransferSerialRecord {
+  transferOrderItemId: string;
+  productSerialId: string;
+  serialNumber: string;
+}
+
 /** Reset the dedicated ENG-202 tenant before each attempt, including retries. */
 export async function resetFirstSaleScenario(): Promise<void> {
   const db = openDb();
@@ -702,6 +724,52 @@ export function getProductStock(productId: string): number | null {
   }
 }
 
+export function findProductBySku(sku: string): ProductRecord | null {
+  const db = openDb();
+
+  try {
+    const row = db
+      .prepare(
+        `select
+          id,
+          name,
+          sku,
+          tracks_serials as tracksSerials
+        from products
+        where sku = ?
+        limit 1`
+      )
+      .get(sku) as ProductRecord | undefined;
+
+    return row ?? null;
+  } finally {
+    db.close();
+  }
+}
+
+export function getProductSerials(productId: string): ProductSerialRecord[] {
+  const db = openDb();
+
+  try {
+    return db
+      .prepare(
+        `select
+          id,
+          current_site_id as currentSiteId,
+          product_id as productId,
+          source_purchase_item_id as sourcePurchaseItemId,
+          serial_number as serialNumber,
+          status
+        from product_serials
+        where product_id = ?
+        order by serial_number asc`
+      )
+      .all(productId) as ProductSerialRecord[];
+  } finally {
+    db.close();
+  }
+}
+
 export function getInventoryBalance(
   siteId: string,
   productId: string
@@ -926,6 +994,28 @@ export function getTransferItems(transferId: string): TransferItemRecord[] {
        order by created_at asc, id asc`
       )
       .all(transferId) as TransferItemRecord[];
+  } finally {
+    db.close();
+  }
+}
+
+export function getTransferSerials(transferId: string): TransferSerialRecord[] {
+  const db = openDb();
+
+  try {
+    return db
+      .prepare(
+        `select
+          product_serial_transfers.transfer_order_item_id as transferOrderItemId,
+          product_serial_transfers.product_serial_id as productSerialId,
+          product_serial_transfers.serial_number as serialNumber
+        from product_serial_transfers
+        inner join transfer_order_items
+          on transfer_order_items.id = product_serial_transfers.transfer_order_item_id
+        where transfer_order_items.transfer_order_id = ?
+        order by product_serial_transfers.serial_number asc`
+      )
+      .all(transferId) as TransferSerialRecord[];
   } finally {
     db.close();
   }

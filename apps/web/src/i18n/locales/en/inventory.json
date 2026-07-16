@@ -202,6 +202,12 @@
     "deferHelp": "Origin is debited immediately. Destination is credited when the shipment arrives and you click Receive.",
     "onHand": "{{amount}} on hand",
     "available": "Available at origin: {{amount}}",
+    "serials": "Serial units",
+    "serialsHelp": "Select the exact physical units that will move to the destination site.",
+    "serialsLoading": "Loading available serial units…",
+    "noSerials": "No sellable serial units are available at this site.",
+    "serialCount_one": "{{count}} serial unit selected",
+    "serialCount_other": "{{count}} serial units selected",
     "cancel": "Cancel",
     "submit": "Transfer",
     "submitting": "Transferring…",
@@ -323,9 +329,11 @@
     "noWarranty": "Not recorded",
     "statuses": {
       "in_stock": "In stock",
+      "in_transit": "In transit",
       "reserved": "Reserved in draft",
       "sold": "Sold",
       "returned": "Returned",
+      "returned_to_supplier": "Returned to supplier",
       "defective": "Defective"
     }
   },
@@ -345,7 +353,10 @@
     "reason": "Reason",
     "reasonPlaceholder": "Optional supplier return note",
     "minItems": "Select at least one line quantity to return",
-    "modalTitle": "Return Items for {{number}}"
+    "modalTitle": "Return Items for {{number}}",
+    "returnSerials": "Serial units to return",
+    "returnSerialsHelp": "Select the exact physical units leaving for the supplier.",
+    "noReturnableSerials": "No serial units from this purchase are currently available at the receiving site."
   },
   "orders": {
     "cancel": "Cancel",
@@ -363,7 +374,10 @@
     "receiptNotes": "Receipt Notes",
     "receiptNotesPlaceholder": "Optional note about this delivery batch",
     "minItems": "Select at least one line quantity to receive",
-    "modalTitle": "Receive Items for {{number}}"
+    "modalTitle": "Receive Items for {{number}}",
+    "serialNumbers": "Received serial numbers",
+    "serialNumbersPlaceholder": "One serial number per line",
+    "serialNumbersDuplicate": "Remove duplicate serial numbers before receiving"
   },
   "expiry": {
     "summary": {

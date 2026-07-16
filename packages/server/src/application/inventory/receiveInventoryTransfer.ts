@@ -20,6 +20,7 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
 import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
+import { receiveTransferredProductSerials } from '../../services/product-serials.js';
 import { getTimestamp, seedMissingBalanceRow } from '../../services/inventory-transfers/helpers.js';
 import type {
   ReceiveTransferArgs,
@@ -157,12 +158,35 @@ export function receiveInventoryTransfer(
 
     for (const item of items) {
       const receivedQuantity = receivedByItemId.get(item.id) ?? item.quantity;
-      assertAggregateStockMutationAllowed({
-        tracksLots: item.tracksLots,
-        tracksSerials: item.tracksSerials,
-        catalogType: item.catalogType,
-        delta: receivedQuantity,
-      });
+      if (item.tracksSerials) {
+        if (receivedQuantity !== item.quantity) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'PRODUCT_SERIAL_SELECTION_REQUIRED',
+            message:
+              'Serialized transfers must be received by exact identity without quantity variance',
+          });
+        }
+        receiveTransferredProductSerials(tx as unknown as DatabaseInstance, {
+          tenantId: args.tenantId,
+          transferOrderItemId: item.id,
+          productId: item.productId,
+          fromSiteId: transfer.fromSiteId,
+          toSiteId: transfer.toSiteId,
+          quantity: item.quantity,
+          now,
+          syncContext: args.syncContext
+            ? { ...args.syncContext, db: tx as unknown as DatabaseInstance }
+            : undefined,
+        });
+      } else {
+        assertAggregateStockMutationAllowed({
+          tracksLots: item.tracksLots,
+          tracksSerials: false,
+          catalogType: item.catalogType,
+          delta: receivedQuantity,
+        });
+      }
       if (receivedQuantity !== item.quantity) {
         hasDiscrepancy = true;
       }

@@ -10,10 +10,12 @@
  * @module services/inventory-transfers/types
  */
 import type { TransferOrderStatus } from '../../db/schema.js';
+import type { EnqueueSyncContext } from '../sync/enqueue.js';
 
 export interface TransferItemInput {
   productId: string;
   quantity: number;
+  serialIds?: readonly string[] | undefined;
 }
 
 export interface CreateTransferArgs {
@@ -30,6 +32,7 @@ export interface CreateTransferArgs {
    * Defaults to false (immediate completion — legacy step-1 behaviour).
    */
   defer?: boolean;
+  syncContext?: EnqueueSyncContext | undefined;
 }
 
 export interface CreatedTransfer {
@@ -54,6 +57,7 @@ export interface VoidTransferArgs {
   transferId: string;
   reason?: string | null;
   voidedBy: string;
+  syncContext?: EnqueueSyncContext | undefined;
 }
 
 export interface VoidedTransfer {
@@ -86,6 +90,7 @@ export interface ReceiveTransferArgs {
   lines?: readonly ReceiveTransferLine[] | undefined;
   /** Optional receiver-side note captured when variance is present. */
   discrepancyNotes?: string | null | undefined;
+  syncContext?: EnqueueSyncContext | undefined;
 }
 
 export interface ReceivedTransfer {
@@ -137,6 +142,8 @@ export interface TransferDetailLine {
   quantity: number;
   /** Phase 2 UI-103. Null until the transfer is received. */
   receivedQuantity: number | null;
+  tracksSerials: boolean;
+  serials: Array<{ id: string; serialNumber: string }>;
 }
 
 export interface TransferDetail {

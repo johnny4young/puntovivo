@@ -45,6 +45,7 @@ export async function listInventoryBalancesBySite(
       productId: inventoryBalances.productId,
       productName: products.name,
       productSku: products.sku,
+      tracksSerials: products.tracksSerials,
       onHand: inventoryBalances.onHand,
       reserved: inventoryBalances.reserved,
       minStock: products.minStock,
