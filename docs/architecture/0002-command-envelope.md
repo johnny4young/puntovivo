@@ -159,6 +159,7 @@ follow-up amendment.
 - `employeeShifts.schedule.create` (ENG-140a — publish a durable scheduled shift)
 - `employeeShifts.schedule.update` (ENG-140a — revise a versioned scheduled shift)
 - `employeeShifts.schedule.cancel` (ENG-140a — cancel without deleting labor evidence)
+- `employeeShifts.attendance.corrections.create` (ENG-140e — append an effective attendance snapshot without rewriting raw evidence)
 
 **Manager approvals**
 

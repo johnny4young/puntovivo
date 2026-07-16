@@ -2,7 +2,7 @@ import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   attachClientIssueTracker,
   E2E_PASSWORD,
@@ -141,7 +141,43 @@ async function captureEvidence(page: Page, name: string) {
   });
 }
 
-test.describe('employee attendance evidence (ENG-106b / ENG-140b / ENG-140c)', () => {
+async function captureLocatorEvidence(page: Page, locator: Locator, name: string) {
+  const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
+  if (!auditDir) return;
+  await mkdir(auditDir, { recursive: true });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+  await locator.screenshot({
+    animations: 'disabled',
+    path: path.join(auditDir, `${name}.png`),
+  });
+}
+
+function readCorrectionEvidence(shiftId: string) {
+  const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+  try {
+    const raw = db
+      .prepare(
+        `select clocked_in_at as clockedInAt, clocked_out_at as clockedOutAt
+         from employee_shifts where id = ?`
+      )
+      .get(shiftId) as { clockedInAt: string; clockedOutAt: string } | undefined;
+    const correction = db
+      .prepare(
+        `select version, clocked_in_at as clockedInAt, clocked_out_at as clockedOutAt, reason
+         from employee_shift_corrections
+         where employee_shift_id = ? order by version desc limit 1`
+      )
+      .get(shiftId) as
+      { version: number; clockedInAt: string; clockedOutAt: string; reason: string } | undefined;
+    return { raw, correction };
+  } finally {
+    db.close();
+  }
+}
+
+test.describe('employee attendance evidence (ENG-106b / ENG-140b / ENG-140c / ENG-140e)', () => {
   test('persists shifts and explicit breaks across the user menu in both locales', async ({
     page,
   }) => {
@@ -254,7 +290,7 @@ test.describe('employee attendance evidence (ENG-106b / ENG-140b / ENG-140c)', (
     }
   });
 
-  test('shows cross-site Colombia overtime evidence in English and Spanish (ENG-140c)', async ({
+  test('shows overtime and appends a bilingual immutable correction (ENG-140c / ENG-140e)', async ({
     page,
   }) => {
     const scenario = seedOvertimeScenario();
@@ -290,6 +326,47 @@ test.describe('employee attendance evidence (ENG-106b / ENG-140b / ENG-140c)', (
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true);
     await captureEvidence(page, 'eng-140c-overtime-mobile-es');
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await ensureLanguage(page, 'en');
+    await expect(friday).toContainText('Day overtime · 1h · 1.25×');
+    await friday.getByRole('button', { name: 'Correct attendance' }).click();
+    const correctionDialog = page.getByRole('dialog');
+    await expect(correctionDialog).toContainText(
+      'Original clock and break evidence is never overwritten.'
+    );
+    await correctionDialog.getByLabel('End time').fill('17:30');
+    await correctionDialog
+      .getByLabel('Correction reason')
+      .fill('Verified against the signed register close and supervisor note.');
+    await captureLocatorEvidence(page, correctionDialog, 'eng-140e-correction-form-en');
+    await correctionDialog.getByRole('button', { name: 'Save correction' }).click();
+    await expect(page.getByText('Attendance corrected')).toBeVisible();
+    await expect(friday).toContainText('Corrected · v1');
+    await expect(friday).toContainText('Day overtime · 1h 30m · 1.25×');
+    await friday.getByRole('button', { name: 'View correction history' }).click();
+    await expect(friday).toContainText('Version 1 · E2E Overtime Admin');
+    await captureEvidence(page, 'eng-140e-correction-en');
+
+    const persisted = readCorrectionEvidence(scenario.fridayShiftId);
+    expect(persisted.raw).toEqual({
+      clockedInAt: '2026-07-17T13:00:00.000Z',
+      clockedOutAt: '2026-07-17T22:00:00.000Z',
+    });
+    expect(persisted.correction).toMatchObject({
+      version: 1,
+      reason: 'Verified against the signed register close and supervisor note.',
+    });
+    expect(persisted.correction?.clockedOutAt).not.toBe(persisted.raw?.clockedOutAt);
+
+    await ensureLanguage(page, 'es');
+    await expect(friday).toContainText('Corregida · v1');
+    await expect(friday).toContainText('Extra diurna · 1h 30m · 1.25×');
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true);
+    await captureEvidence(page, 'eng-140e-correction-mobile-es');
     await expectNoClientIssues(tracker);
   });
 });

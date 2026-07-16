@@ -6,6 +6,7 @@ import {
   auditLogs,
   companies,
   employeeShiftBreaks,
+  employeeShiftCorrections,
   employeeShifts,
   sites,
   tenantLocaleSettings,
@@ -14,6 +15,7 @@ import {
 } from '../db/schema.js';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { registerDevice } from '../services/devices/devicesService.js';
+import { zonedWallTimeToIso } from '../services/labor/timezone.js';
 import { appRouter } from '../trpc/router.js';
 import {
   freshCriticalContext,
@@ -446,6 +448,304 @@ describe('employee attendance and breaks (ENG-140b)', () => {
         db.delete(tenantLocaleSettings).where(eq(tenantLocaleSettings.tenantId, tenantId)).run();
       }
     }
+  });
+
+  it('appends a complete correction snapshot and reports effective evidence without rewriting raw clocks', async () => {
+    const manager = await createEmployee('manager');
+    const cashier = await createEmployee('cashier');
+    const shiftId = insertClosedShift({
+      userId: cashier.id,
+      clockedInAt: '2026-07-14T13:00:00.000Z',
+      clockedOutAt: '2026-07-14T22:00:00.000Z',
+      breakStart: '2026-07-14T17:00:00.000Z',
+      breakEnd: '2026-07-14T17:30:00.000Z',
+    });
+    const originalBreak = await db
+      .select({ id: employeeShiftBreaks.id })
+      .from(employeeShiftBreaks)
+      .where(eq(employeeShiftBreaks.employeeShiftId, shiftId))
+      .get();
+    if (!originalBreak) throw new Error('Expected correction break fixture');
+    const timeZone = (
+      await appRouter.createCaller(manager.fresh()).employeeShifts.attendance.list({
+        fromDate: '2026-07-14',
+        toDate: '2026-07-15',
+        userId: cashier.id,
+      })
+    ).timeZone;
+    const correctedClockedInAt = zonedWallTimeToIso('2026-07-14', '08:15', timeZone);
+    const correctedClockedOutAt = zonedWallTimeToIso('2026-07-14', '17:30', timeZone);
+    const correctedBreakStartedAt = zonedWallTimeToIso('2026-07-14', '12:00', timeZone);
+    const correctedBreakEndedAt = zonedWallTimeToIso('2026-07-14', '12:45', timeZone);
+
+    const correction = await appRouter
+      .createCaller(manager.fresh())
+      .employeeShifts.attendance.corrections.create({
+        employeeShiftId: shiftId,
+        expectedVersion: 0,
+        startDate: '2026-07-14',
+        startTime: '08:15',
+        endDate: '2026-07-14',
+        endTime: '17:30',
+        breaks: [
+          {
+            id: originalBreak.id,
+            startDate: '2026-07-14',
+            startTime: '12:00',
+            endDate: '2026-07-14',
+            endTime: '12:45',
+          },
+        ],
+        reason: 'Verified against the signed opening and closing register log.',
+      });
+    expect(correction).toMatchObject({
+      employeeShiftId: shiftId,
+      version: 1,
+      clockedInAt: correctedClockedInAt,
+      clockedOutAt: correctedClockedOutAt,
+      breaks: [
+        {
+          id: originalBreak.id,
+          startedAt: correctedBreakStartedAt,
+          endedAt: correctedBreakEndedAt,
+        },
+      ],
+    });
+
+    const raw = await db
+      .select({
+        clockedInAt: employeeShifts.clockedInAt,
+        clockedOutAt: employeeShifts.clockedOutAt,
+      })
+      .from(employeeShifts)
+      .where(eq(employeeShifts.id, shiftId))
+      .get();
+    expect(raw).toEqual({
+      clockedInAt: '2026-07-14T13:00:00.000Z',
+      clockedOutAt: '2026-07-14T22:00:00.000Z',
+    });
+
+    const report = await appRouter.createCaller(manager.fresh()).employeeShifts.attendance.list({
+      fromDate: '2026-07-14',
+      toDate: '2026-07-15',
+      userId: cashier.id,
+    });
+    expect(report.rows).toHaveLength(1);
+    expect(report.rows[0]).toMatchObject({
+      id: shiftId,
+      clockedInAt: correctedClockedInAt,
+      clockedOutAt: correctedClockedOutAt,
+      elapsedSeconds: 9.25 * 60 * 60,
+      breakSeconds: 45 * 60,
+      workedSeconds: 8.5 * 60 * 60,
+      original: {
+        clockedInAt: '2026-07-14T13:00:00.000Z',
+        clockedOutAt: '2026-07-14T22:00:00.000Z',
+      },
+      correction: {
+        version: 1,
+        reason: 'Verified against the signed opening and closing register log.',
+        createdByUserId: manager.id,
+      },
+    });
+    const history = await appRouter
+      .createCaller(manager.fresh())
+      .employeeShifts.attendance.corrections.list({ employeeShiftId: shiftId });
+    expect(history).toMatchObject([
+      { version: 1, createdByUserId: manager.id, createdByName: expect.any(String) },
+    ]);
+    const audit = await db
+      .select({ action: auditLogs.action, after: auditLogs.after })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantId),
+          eq(auditLogs.resourceId, shiftId),
+          eq(auditLogs.action, 'employee_shift.correct')
+        )
+      )
+      .get();
+    expect(audit?.after).toMatchObject({ version: 1, reason: expect.any(String) });
+  });
+
+  it('discovers shifts moved into a range and filters superseded correction windows', async () => {
+    const manager = await createEmployee('manager');
+    const cashier = await createEmployee('cashier');
+    const shiftId = insertClosedShift({
+      userId: cashier.id,
+      clockedInAt: '2026-07-10T13:00:00.000Z',
+      clockedOutAt: '2026-07-10T21:00:00.000Z',
+    });
+    const attendance = appRouter.createCaller(manager.fresh()).employeeShifts.attendance;
+
+    await attendance.corrections.create({
+      employeeShiftId: shiftId,
+      expectedVersion: 0,
+      startDate: '2026-07-14',
+      startTime: '08:00',
+      endDate: '2026-07-14',
+      endTime: '16:00',
+      breaks: [],
+      reason: 'First review moved the shift into the requested payroll date.',
+    });
+    await expect(
+      attendance.list({
+        fromDate: '2026-07-14',
+        toDate: '2026-07-15',
+        userId: cashier.id,
+      })
+    ).resolves.toMatchObject({
+      total: 1,
+      rows: [{ id: shiftId, correction: { version: 1 } }],
+    });
+
+    await appRouter
+      .createCaller(manager.fresh())
+      .employeeShifts.attendance.corrections.create({
+        employeeShiftId: shiftId,
+        expectedVersion: 1,
+        startDate: '2026-07-16',
+        startTime: '08:00',
+        endDate: '2026-07-16',
+        endTime: '16:00',
+        breaks: [],
+        reason: 'Second review superseded the prior effective payroll date.',
+      });
+    await expect(
+      appRouter.createCaller(manager.fresh()).employeeShifts.attendance.list({
+        fromDate: '2026-07-14',
+        toDate: '2026-07-15',
+        userId: cashier.id,
+      })
+    ).resolves.toMatchObject({ total: 0, rows: [] });
+    await expect(
+      appRouter.createCaller(manager.fresh()).employeeShifts.attendance.list({
+        fromDate: '2026-07-16',
+        toDate: '2026-07-17',
+        userId: cashier.id,
+      })
+    ).resolves.toMatchObject({
+      total: 1,
+      rows: [{ id: shiftId, correction: { version: 2 } }],
+    });
+  });
+
+  it('rejects stale, active, hidden, and malformed correction writes while keeping snapshots immutable', async () => {
+    const manager = await createEmployee('manager');
+    const cashier = await createEmployee('cashier');
+    const admin = await createEmployee('admin');
+    const shiftId = insertClosedShift({
+      userId: cashier.id,
+      clockedInAt: '2026-07-16T13:00:00.000Z',
+      clockedOutAt: '2026-07-16T21:00:00.000Z',
+    });
+    const input = {
+      employeeShiftId: shiftId,
+      expectedVersion: 0,
+      startDate: '2026-07-16',
+      startTime: '08:00',
+      endDate: '2026-07-16',
+      endTime: '16:00',
+      breaks: [],
+      reason: 'Approved after reviewing the supervisor attendance note.',
+    };
+    const created = await appRouter
+      .createCaller(manager.fresh())
+      .employeeShifts.attendance.corrections.create(input);
+    await expect(
+      appRouter.createCaller(manager.fresh()).employeeShifts.attendance.corrections.create(input)
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'STALE_VERSION' }),
+    });
+
+    const activeShiftId = nanoid();
+    const now = new Date().toISOString();
+    db.insert(employeeShifts)
+      .values({
+        id: activeShiftId,
+        tenantId,
+        userId: manager.id,
+        siteId,
+        clockedInAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    await expect(
+      appRouter.createCaller(manager.fresh()).employeeShifts.attendance.corrections.create({
+        ...input,
+        employeeShiftId: activeShiftId,
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'EMPLOYEE_SHIFT_CORRECTION_ACTIVE' }),
+    });
+
+    const adminShiftId = insertClosedShift({
+      userId: admin.id,
+      clockedInAt: '2026-07-17T13:00:00.000Z',
+      clockedOutAt: '2026-07-17T21:00:00.000Z',
+    });
+    await expect(
+      appRouter
+        .createCaller(manager.fresh())
+        .employeeShifts.attendance.corrections.list({ employeeShiftId: adminShiftId })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'EMPLOYEE_SHIFT_CORRECTION_NOT_FOUND' }),
+    });
+
+    expect(() =>
+      db
+        .update(employeeShiftCorrections)
+        .set({ reason: 'Attempt to rewrite immutable correction evidence.' })
+        .where(eq(employeeShiftCorrections.id, created.id))
+        .run()
+    ).toThrow(/EMPLOYEE_SHIFT_CORRECTION_IMMUTABLE/);
+    expect(() =>
+      db
+        .insert(employeeShiftCorrections)
+        .values({
+          id: nanoid(),
+          tenantId,
+          employeeShiftId: shiftId,
+          version: 2,
+          clockedInAt: '2026-07-16T13:00:00.000Z',
+          clockedOutAt: '2026-07-16T21:00:00.000Z',
+          breaks: [
+            {
+              id: nanoid(),
+              startedAt: '2026-07-16T20:30:00.000Z',
+              endedAt: '2026-07-16T21:30:00.000Z',
+            },
+          ],
+          reason: 'Malformed direct database correction for trigger coverage.',
+          createdByUserId: manager.id,
+          createdAt: now,
+        })
+        .run()
+    ).toThrow(/EMPLOYEE_SHIFT_CORRECTION_BREAKS_INVALID/);
+    expect(() =>
+      db
+        .insert(employeeShiftCorrections)
+        .values({
+          id: nanoid(),
+          tenantId,
+          employeeShiftId: shiftId,
+          version: 2,
+          clockedInAt: '2026-07-16T13:00:00.000Z',
+          clockedOutAt: '2026-07-16T21:00:00.000Z',
+          breaks: [
+            {
+              // Deliberately omit the required break id at the SQL boundary.
+              startedAt: '2026-07-16T16:00:00.000Z',
+              endedAt: '2026-07-16T16:30:00.000Z',
+            } as never,
+          ],
+          reason: 'Malformed direct database correction missing a break identity.',
+          createdByUserId: manager.id,
+          createdAt: now,
+        })
+        .run()
+    ).toThrow(/EMPLOYEE_SHIFT_CORRECTION_BREAKS_INVALID/);
   });
 
   it('isolates rows and optional filters from other tenants', async () => {

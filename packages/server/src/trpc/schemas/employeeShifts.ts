@@ -68,6 +68,34 @@ export const listEmployeeAttendanceInput = z
   })
   .strict();
 
+const correctionBreakInput = z
+  .object({
+    id: z.string().trim().min(1).optional(),
+    startDate: localDate,
+    startTime: localTime,
+    endDate: localDate,
+    endTime: localTime,
+  })
+  .strict();
+
+/** ENG-140e — a complete effective snapshot, never a patch to raw evidence. */
+export const createEmployeeAttendanceCorrectionInput = z
+  .object({
+    employeeShiftId: z.string().trim().min(1),
+    expectedVersion: z.number().int().min(0),
+    startDate: localDate,
+    startTime: localTime,
+    endDate: localDate,
+    endTime: localTime,
+    breaks: z.array(correctionBreakInput).max(12),
+    reason: z.string().trim().min(10).max(500),
+  })
+  .strict();
+
+export const listEmployeeAttendanceCorrectionsInput = z
+  .object({ employeeShiftId: z.string().trim().min(1) })
+  .strict();
+
 export type ClockInEmployeeShiftInput = z.infer<typeof clockInEmployeeShiftInput>;
 export type ClockOutEmployeeShiftInput = z.infer<typeof clockOutEmployeeShiftInput>;
 export type ListScheduledShiftsInput = z.infer<typeof listScheduledShiftsInput>;
@@ -76,3 +104,9 @@ export type UpdateScheduledShiftInput = z.infer<typeof updateScheduledShiftInput
 export type CancelScheduledShiftInput = z.infer<typeof cancelScheduledShiftInput>;
 export type EmployeeBreakCommandInput = z.infer<typeof employeeBreakCommandInput>;
 export type ListEmployeeAttendanceInput = z.infer<typeof listEmployeeAttendanceInput>;
+export type CreateEmployeeAttendanceCorrectionInput = z.infer<
+  typeof createEmployeeAttendanceCorrectionInput
+>;
+export type ListEmployeeAttendanceCorrectionsInput = z.infer<
+  typeof listEmployeeAttendanceCorrectionsInput
+>;

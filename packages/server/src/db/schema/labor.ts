@@ -5,8 +5,9 @@
  * one employee, one site, immutable clock-in time, and an optional clock-out
  * time. ENG-140a adds manager-authored scheduled shifts; ENG-140b adds
  * explicit rest intervals and weekly actual-attendance reporting. ENG-140c
- * derives overtime without mutating this evidence; payroll and attendance
- * corrections remain in later ENG-140 slices.
+ * derives overtime without mutating this evidence; ENG-140e appends complete
+ * effective snapshots for manager corrections without rewriting the raw
+ * clock or break records.
  *
  * @module db/schema/labor
  */
@@ -242,3 +243,78 @@ export const employeeShiftBreaksRelations = relations(employeeShiftBreaks, ({ on
 
 export type EmployeeShiftBreak = typeof employeeShiftBreaks.$inferSelect;
 export type NewEmployeeShiftBreak = typeof employeeShiftBreaks.$inferInsert;
+
+export interface EmployeeShiftCorrectionBreak {
+  id: string;
+  startedAt: string;
+  endedAt: string;
+}
+
+/**
+ * ENG-140e — immutable, versioned effective attendance snapshot.
+ *
+ * Each correction repeats the full effective shift and break interval set.
+ * Payroll and overtime readers only need the newest version, while auditors
+ * retain both the original clock evidence and every superseded correction.
+ */
+export const employeeShiftCorrections = sqliteTable(
+  'employee_shift_corrections',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    employeeShiftId: text('employee_shift_id')
+      .notNull()
+      .references(() => employeeShifts.id),
+    version: integer('version').notNull(),
+    clockedInAt: text('clocked_in_at').notNull(),
+    clockedOutAt: text('clocked_out_at').notNull(),
+    breaks: text('breaks_json', { mode: 'json' }).$type<EmployeeShiftCorrectionBreak[]>().notNull(),
+    reason: text('reason').notNull(),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_employee_shift_corrections_tenant_shift_version').on(
+      table.tenantId,
+      table.employeeShiftId,
+      table.version
+    ),
+    index('idx_employee_shift_corrections_tenant_effective_start').on(
+      table.tenantId,
+      table.clockedInAt
+    ),
+    check('employee_shift_corrections_version_positive', sql`${table.version} >= 1`),
+    check(
+      'employee_shift_corrections_positive_duration',
+      sql`${table.clockedOutAt} > ${table.clockedInAt}`
+    ),
+    check(
+      'employee_shift_corrections_reason_length',
+      sql`length(trim(${table.reason})) BETWEEN 10 AND 500`
+    ),
+    check('employee_shift_corrections_breaks_json', sql`json_valid(${table.breaks})`),
+  ]
+);
+
+export const employeeShiftCorrectionsRelations = relations(employeeShiftCorrections, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [employeeShiftCorrections.tenantId],
+    references: [tenants.id],
+  }),
+  shift: one(employeeShifts, {
+    fields: [employeeShiftCorrections.employeeShiftId],
+    references: [employeeShifts.id],
+  }),
+  creator: one(users, {
+    fields: [employeeShiftCorrections.createdByUserId],
+    references: [users.id],
+    relationName: 'employeeShiftCorrectionCreator',
+  }),
+}));
+
+export type EmployeeShiftCorrection = typeof employeeShiftCorrections.$inferSelect;
+export type NewEmployeeShiftCorrection = typeof employeeShiftCorrections.$inferInsert;

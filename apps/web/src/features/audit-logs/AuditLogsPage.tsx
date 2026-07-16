@@ -40,6 +40,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   // ENG-106b — self-service attendance lifecycle.
   'employee_shift.clock_in',
   'employee_shift.clock_out',
+  'employee_shift.correct',
   // ENG-140b — explicit employee break boundaries.
   'employee_shift_break.start',
   'employee_shift_break.end',

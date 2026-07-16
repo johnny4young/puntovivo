@@ -201,6 +201,11 @@
     "EMPLOYEE_SHIFT_BREAK_PERSIST_FAILED": "Your break could not be saved. Try again before continuing.",
     "EMPLOYEE_SHIFT_ATTENDANCE_RANGE_INVALID": "Choose an attendance range from 1 to 31 days.",
     "EMPLOYEE_SHIFT_ATTENDANCE_EMPLOYEE_NOT_FOUND": "This employee is not available in the attendance report.",
-    "EMPLOYEE_SHIFT_ATTENDANCE_SITE_NOT_FOUND": "This site is not available in the attendance report."
+    "EMPLOYEE_SHIFT_ATTENDANCE_SITE_NOT_FOUND": "This site is not available in the attendance report.",
+    "EMPLOYEE_SHIFT_CORRECTION_NOT_FOUND": "This attendance shift is not available for correction.",
+    "EMPLOYEE_SHIFT_CORRECTION_ACTIVE": "Clock out before correcting this attendance shift.",
+    "EMPLOYEE_SHIFT_CORRECTION_WINDOW_INVALID": "Choose a valid corrected shift of up to 24 hours.",
+    "EMPLOYEE_SHIFT_CORRECTION_BREAKS_INVALID": "Keep corrected breaks valid, non-overlapping, and inside the shift.",
+    "EMPLOYEE_SHIFT_CORRECTION_PERSIST_FAILED": "The attendance correction could not be saved."
   }
 }

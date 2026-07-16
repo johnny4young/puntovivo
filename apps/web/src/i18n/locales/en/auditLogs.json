@@ -132,7 +132,8 @@
     "data_import.fiscal_profile": "Fiscal profile imported",
     "day_close.sign_off": "Day close signed",
     "employee_shift_break.start": "Employee break started",
-    "employee_shift_break.end": "Employee break ended"
+    "employee_shift_break.end": "Employee break ended",
+    "employee_shift.correct": "Employee attendance corrected"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",

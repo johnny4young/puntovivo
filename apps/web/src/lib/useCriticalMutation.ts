@@ -64,6 +64,8 @@ export type CriticalCommandPath =
   | 'employeeShifts.schedule.create'
   | 'employeeShifts.schedule.update'
   | 'employeeShifts.schedule.cancel'
+  // ENG-140e — append one immutable effective attendance snapshot.
+  | 'employeeShifts.attendance.corrections.create'
   | 'managerApprovals.request'
   | 'managerApprovals.decideWithPin'
   | 'managerApprovals.cancel'

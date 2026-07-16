@@ -257,6 +257,17 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // failed prior smoke could otherwise leave the next run already clocked
   // in. This is an isolated E2E tenant; clear both the rows and their soft
   // audit references before recreating the deterministic baseline.
+  const employeeShiftCorrectionsTableExists = db
+    .prepare(
+      "select 1 from sqlite_master where type = 'table' and name = 'employee_shift_corrections'"
+    )
+    .get();
+  if (employeeShiftCorrectionsTableExists) {
+    // ENG-140e correction snapshots deliberately use NO ACTION foreign keys
+    // and immutable triggers. E2E owns this isolated tenant, so drop the
+    // append-only children before their raw attendance parents.
+    db.prepare('delete from employee_shift_corrections where tenant_id = ?').run(tenantId);
+  }
   const employeeShiftBreaksTableExists = db
     .prepare("select 1 from sqlite_master where type = 'table' and name = 'employee_shift_breaks'")
     .get();

@@ -59,6 +59,7 @@ export type AuditLogAction =
   | 'auth.staff_switch'
   | 'employee_shift.clock_in'
   | 'employee_shift.clock_out'
+  | 'employee_shift.correct'
   // ENG-140b — explicit employee break boundaries.
   | 'employee_shift_break.start'
   | 'employee_shift_break.end'

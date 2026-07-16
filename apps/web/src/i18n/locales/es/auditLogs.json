@@ -132,7 +132,8 @@
     "data_import.fiscal_profile": "Perfil fiscal importado",
     "day_close.sign_off": "Cierre del día firmado",
     "employee_shift_break.start": "Pausa de empleado iniciada",
-    "employee_shift_break.end": "Pausa de empleado finalizada"
+    "employee_shift_break.end": "Pausa de empleado finalizada",
+    "employee_shift.correct": "Asistencia de empleado corregida"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",

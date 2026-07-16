@@ -201,6 +201,11 @@
     "EMPLOYEE_SHIFT_BREAK_PERSIST_FAILED": "No se pudo guardar tu pausa. Intenta de nuevo antes de continuar.",
     "EMPLOYEE_SHIFT_ATTENDANCE_RANGE_INVALID": "Elige un rango de asistencia de 1 a 31 días.",
     "EMPLOYEE_SHIFT_ATTENDANCE_EMPLOYEE_NOT_FOUND": "Este empleado no está disponible en el reporte de asistencia.",
-    "EMPLOYEE_SHIFT_ATTENDANCE_SITE_NOT_FOUND": "Esta sede no está disponible en el reporte de asistencia."
+    "EMPLOYEE_SHIFT_ATTENDANCE_SITE_NOT_FOUND": "Esta sede no está disponible en el reporte de asistencia.",
+    "EMPLOYEE_SHIFT_CORRECTION_NOT_FOUND": "Este turno de asistencia no está disponible para corrección.",
+    "EMPLOYEE_SHIFT_CORRECTION_ACTIVE": "Registra la salida antes de corregir este turno de asistencia.",
+    "EMPLOYEE_SHIFT_CORRECTION_WINDOW_INVALID": "Elige un turno corregido válido de hasta 24 horas.",
+    "EMPLOYEE_SHIFT_CORRECTION_BREAKS_INVALID": "Mantén las pausas corregidas válidas, sin cruces y dentro del turno.",
+    "EMPLOYEE_SHIFT_CORRECTION_PERSIST_FAILED": "No se pudo guardar la corrección de asistencia."
   }
 }

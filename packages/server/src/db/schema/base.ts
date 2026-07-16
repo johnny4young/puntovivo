@@ -192,6 +192,8 @@ export const auditLogActionEnum = [
   // employee whose shift is targeted; schedule edits remain in ENG-140.
   'employee_shift.clock_in',
   'employee_shift.clock_out',
+  // ENG-140e — manager-authored effective snapshot; the raw shift remains.
+  'employee_shift.correct',
   // ENG-140b — self-service rest boundaries remain independent evidence.
   'employee_shift_break.start',
   'employee_shift_break.end',

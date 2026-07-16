@@ -1,11 +1,12 @@
 import type { UserRole } from '@puntovivo/shared/roles';
-import { and, asc, count, eq, gt, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { employeeShiftBreaks, employeeShifts, sites, users } from '../../db/schema.js';
+import { sites, users } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { ListEmployeeAttendanceInput } from '../../trpc/schemas/employeeShifts.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
-import { managerCanTarget, MAX_LIST_DAYS, SCHEDULE_ROLES } from './scheduled-shift-policy.js';
+import { loadEffectiveAttendanceRows } from './attendance-evidence.js';
+import { managerCanTarget, MAX_LIST_DAYS } from './scheduled-shift-policy.js';
 import {
   calculateOvertime,
   laborWeekStartDate,
@@ -18,17 +19,6 @@ import {
   type OvertimePolicyProfile,
 } from './overtime-policy.js';
 import { addCalendarDays, zonedWallTimeToIso } from './timezone.js';
-
-const attendanceSelection = {
-  id: employeeShifts.id,
-  userId: employeeShifts.userId,
-  userName: users.name,
-  userRole: users.role,
-  siteId: employeeShifts.siteId,
-  siteName: sites.name,
-  clockedInAt: employeeShifts.clockedInAt,
-  clockedOutAt: employeeShifts.clockedOutAt,
-} as const;
 
 function assertAttendanceRange(fromDate: string, toDate: string): void {
   try {
@@ -104,7 +94,7 @@ function profilesInRange(
   return [...profiles.values()];
 }
 
-/** ENG-140b — manager/admin view of actual shifts and explicit break evidence. */
+/** ENG-140b/c/e — effective attendance evidence with country overtime classification. */
 export async function listEmployeeAttendance(
   db: DatabaseInstance,
   tenantId: string,
@@ -117,38 +107,14 @@ export async function listEmployeeAttendance(
   const generatedAt = new Date().toISOString();
   const from = zonedWallTimeToIso(input.fromDate, '00:00', locale.timezone);
   const to = zonedWallTimeToIso(input.toDate, '00:00', locale.timezone);
-  const conditions = [
-    eq(employeeShifts.tenantId, tenantId),
-    lt(employeeShifts.clockedInAt, to),
-    or(isNull(employeeShifts.clockedOutAt), gt(employeeShifts.clockedOutAt, from))!,
-  ];
-  if (input.siteId) conditions.push(eq(employeeShifts.siteId, input.siteId));
-  if (input.userId) conditions.push(eq(employeeShifts.userId, input.userId));
-  conditions.push(
-    inArray(users.role, actorRole === 'admin' ? [...SCHEDULE_ROLES] : ['manager', 'cashier'])
-  );
-
-  const totalRow = await db
-    .select({ total: count() })
-    .from(employeeShifts)
-    .innerJoin(users, and(eq(employeeShifts.userId, users.id), eq(users.tenantId, tenantId)))
-    // Keep the count query on the exact same tenant-safe join set as the
-    // paginated row query. Legacy/corrupt rows with a foreign-tenant site
-    // must not inflate totals while being excluded from the visible page.
-    .innerJoin(sites, and(eq(employeeShifts.siteId, sites.id), eq(sites.tenantId, tenantId)))
-    .where(and(...conditions))
-    .get();
-  const total = totalRow?.total ?? 0;
-  const rows = await db
-    .select(attendanceSelection)
-    .from(employeeShifts)
-    .innerJoin(users, and(eq(employeeShifts.userId, users.id), eq(users.tenantId, tenantId)))
-    .innerJoin(sites, and(eq(employeeShifts.siteId, sites.id), eq(sites.tenantId, tenantId)))
-    .where(and(...conditions))
-    .orderBy(asc(employeeShifts.clockedInAt), asc(users.name), asc(employeeShifts.id))
-    .limit(input.perPage)
-    .offset((input.page - 1) * input.perPage)
-    .all();
+  const effectiveRows = await loadEffectiveAttendanceRows(db, tenantId, actorRole, {
+    from,
+    to,
+    ...(input.siteId ? { siteId: input.siteId } : {}),
+    ...(input.userId ? { userId: input.userId } : {}),
+  });
+  const total = effectiveRows.length;
+  const rows = effectiveRows.slice((input.page - 1) * input.perPage, input.page * input.perPage);
 
   const visibleUserIds = [...new Set(rows.map(row => row.userId))];
   const overtimeCountry = isOvertimeCountry(locale.countryCode) ? locale.countryCode : null;
@@ -162,58 +128,12 @@ export async function listEmployeeAttendance(
   const calculationTo = zonedWallTimeToIso(calculationToDate, '00:00', locale.timezone);
   const calculationRows =
     supportedCountry && visibleUserIds.length > 0
-      ? await db
-          .select({
-            id: employeeShifts.id,
-            userId: employeeShifts.userId,
-            clockedInAt: employeeShifts.clockedInAt,
-            clockedOutAt: employeeShifts.clockedOutAt,
-          })
-          .from(employeeShifts)
-          .innerJoin(users, and(eq(employeeShifts.userId, users.id), eq(users.tenantId, tenantId)))
-          .innerJoin(sites, and(eq(employeeShifts.siteId, sites.id), eq(sites.tenantId, tenantId)))
-          .where(
-            and(
-              eq(employeeShifts.tenantId, tenantId),
-              inArray(employeeShifts.userId, visibleUserIds),
-              lt(employeeShifts.clockedInAt, calculationTo),
-              or(
-                isNull(employeeShifts.clockedOutAt),
-                gt(employeeShifts.clockedOutAt, calculationFrom)
-              )
-            )
-          )
-          .orderBy(asc(employeeShifts.clockedInAt), asc(employeeShifts.id))
-          .all()
+      ? await loadEffectiveAttendanceRows(db, tenantId, actorRole, {
+          from: calculationFrom,
+          to: calculationTo,
+          userIds: visibleUserIds,
+        })
       : [];
-  const shiftIds = [
-    ...new Set([...rows.map(row => row.id), ...calculationRows.map(row => row.id)]),
-  ];
-  const breakRows =
-    shiftIds.length === 0
-      ? []
-      : await db
-          .select({
-            id: employeeShiftBreaks.id,
-            employeeShiftId: employeeShiftBreaks.employeeShiftId,
-            startedAt: employeeShiftBreaks.startedAt,
-            endedAt: employeeShiftBreaks.endedAt,
-          })
-          .from(employeeShiftBreaks)
-          .where(
-            and(
-              eq(employeeShiftBreaks.tenantId, tenantId),
-              inArray(employeeShiftBreaks.employeeShiftId, shiftIds)
-            )
-          )
-          .orderBy(asc(employeeShiftBreaks.startedAt), asc(employeeShiftBreaks.id))
-          .all();
-  const breaksByShift = new Map<string, typeof breakRows>();
-  for (const breakRow of breakRows) {
-    const grouped = breaksByShift.get(breakRow.employeeShiftId) ?? [];
-    grouped.push(breakRow);
-    breaksByShift.set(breakRow.employeeShiftId, grouped);
-  }
 
   const overtimeShifts: OvertimeShiftInput[] = calculationRows.flatMap(row => {
     const startedAt = row.clockedInAt < calculationFrom ? calculationFrom : row.clockedInAt;
@@ -226,7 +146,7 @@ export async function listEmployeeAttendance(
         userId: row.userId,
         startedAt,
         endedAt,
-        breaks: (breaksByShift.get(row.id) ?? []).map(item => ({
+        breaks: row.breaks.map(item => ({
           startedAt: item.startedAt,
           endedAt: item.endedAt,
         })),
@@ -268,8 +188,7 @@ export async function listEmployeeAttendance(
     total,
     rows: rows.map(row => {
       const observedEnd = row.clockedOutAt ?? generatedAt;
-      const breaks = breaksByShift.get(row.id) ?? [];
-      const breakSeconds = breaks.reduce(
+      const breakSeconds = row.breaks.reduce(
         (sum, breakRow) =>
           sum + durationSeconds(breakRow.startedAt, breakRow.endedAt ?? observedEnd),
         0
@@ -282,7 +201,6 @@ export async function listEmployeeAttendance(
         breakSeconds,
         workedSeconds: Math.max(0, elapsedSeconds - breakSeconds),
         overtime: overtimeByShift.get(row.id) ?? null,
-        breaks,
       };
     }),
   };

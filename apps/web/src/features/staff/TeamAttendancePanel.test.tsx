@@ -4,7 +4,27 @@ import { fireEvent, render, screen, within } from '@/test/utils';
 
 const mocks = vi.hoisted(() => ({
   input: null as unknown,
+  historyInput: null as unknown,
   refetch: vi.fn(),
+  invalidate: vi.fn(),
+  correctionMutate: vi.fn(),
+  toastSuccess: vi.fn(),
+  correctionMutation: { isPending: false },
+  historyQuery: {
+    data: [] as Array<{
+      id: string;
+      version: number;
+      clockedInAt: string;
+      clockedOutAt: string;
+      breaks: Array<{ id: string; startedAt: string; endedAt: string }>;
+      reason: string;
+      createdByUserId: string;
+      createdByName: string;
+      createdAt: string;
+    }>,
+    isPending: false,
+    error: null as Error | null,
+  },
   query: {
     data: undefined as
       | undefined
@@ -66,6 +86,24 @@ const mocks = vi.hoisted(() => ({
               startedAt: string;
               endedAt: string | null;
             }>;
+            original: {
+              clockedInAt: string;
+              clockedOutAt: string | null;
+              breaks: Array<{
+                id: string;
+                employeeShiftId: string;
+                startedAt: string;
+                endedAt: string | null;
+              }>;
+            };
+            correction: null | {
+              id: string;
+              version: number;
+              reason: string;
+              createdByUserId: string;
+              createdByName: string;
+              createdAt: string;
+            };
           }>;
         },
     isPending: false,
@@ -76,6 +114,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    useUtils: () => ({
+      employeeShifts: { attendance: { list: { invalidate: mocks.invalidate } } },
+    }),
     employeeShifts: {
       attendance: {
         list: {
@@ -84,9 +125,28 @@ vi.mock('@/lib/trpc', () => ({
             return { ...mocks.query, refetch: mocks.refetch };
           },
         },
+        corrections: {
+          list: {
+            useQuery: (input: unknown) => {
+              mocks.historyInput = input;
+              return mocks.historyQuery;
+            },
+          },
+        },
       },
     },
   },
+}));
+
+vi.mock('@/lib/useCriticalMutation', () => ({
+  useCriticalMutation: () => ({
+    mutate: mocks.correctionMutate,
+    isPending: mocks.correctionMutation.isPending,
+  }),
+}));
+
+vi.mock('@/components/feedback/ToastProvider', () => ({
+  useToast: () => ({ success: mocks.toastSuccess, error: vi.fn() }),
 }));
 
 import { TeamAttendancePanel } from './TeamAttendancePanel';
@@ -148,6 +208,19 @@ function attendanceResult(): NonNullable<typeof mocks.query.data> {
             endedAt: '2026-07-14T17:30:00.000Z',
           },
         ],
+        original: {
+          clockedInAt: '2026-07-14T13:00:00.000Z',
+          clockedOutAt: '2026-07-14T22:00:00.000Z',
+          breaks: [
+            {
+              id: 'break-1',
+              employeeShiftId: 'shift-1',
+              startedAt: '2026-07-14T17:00:00.000Z',
+              endedAt: '2026-07-14T17:30:00.000Z',
+            },
+          ],
+        },
+        correction: null,
       },
     ],
   };
@@ -155,11 +228,18 @@ function attendanceResult(): NonNullable<typeof mocks.query.data> {
 
 beforeEach(() => {
   mocks.refetch.mockReset();
+  mocks.invalidate.mockReset();
+  mocks.correctionMutate.mockReset();
+  mocks.toastSuccess.mockReset();
   mocks.input = null;
+  mocks.historyInput = null;
   mocks.query.data = attendanceResult();
   mocks.query.isPending = false;
   mocks.query.isFetching = false;
   mocks.query.error = null;
+  mocks.historyQuery.data = [];
+  mocks.historyQuery.isPending = false;
+  mocks.historyQuery.error = null;
 });
 
 describe('TeamAttendancePanel (ENG-140b)', () => {
@@ -269,5 +349,79 @@ describe('TeamAttendancePanel (ENG-140b)', () => {
     const policy = screen.getByTestId('overtime-policy');
     expect(policy).toHaveTextContent('CO-2025-44H');
     expect(policy).toHaveTextContent('CO-2025-44H-NIGHT-19');
+  });
+
+  it('authors a complete correction snapshot from the effective attendance card', async () => {
+    const user = userEvent.setup();
+    render(<TeamAttendancePanel fromDate="2026-07-13" toDate="2026-07-20" siteId="" enabled />);
+
+    await user.click(screen.getByRole('button', { name: 'Correct attendance' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent('Original clock and break evidence is never overwritten.');
+    expect(within(dialog).getByLabelText('Start time')).toHaveValue('08:00');
+    expect(within(dialog).getByLabelText('Break start time')).toHaveValue('12:00');
+
+    await user.type(
+      within(dialog).getByLabelText('Correction reason'),
+      'Verified against the signed register log.'
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Save correction' }));
+
+    expect(mocks.correctionMutate).toHaveBeenCalledWith({
+      employeeShiftId: 'shift-1',
+      expectedVersion: 0,
+      startDate: '2026-07-14',
+      startTime: '08:00',
+      endDate: '2026-07-14',
+      endTime: '17:00',
+      breaks: [
+        {
+          id: 'break-1',
+          startDate: '2026-07-14',
+          startTime: '12:00',
+          endDate: '2026-07-14',
+          endTime: '12:30',
+        },
+      ],
+      reason: 'Verified against the signed register log.',
+    });
+  });
+
+  it('shows corrected provenance and loads the append-only history', async () => {
+    const user = userEvent.setup();
+    const corrected = attendanceResult();
+    corrected.rows[0]!.correction = {
+      id: 'correction-1',
+      version: 2,
+      reason: 'Second review aligned the signed attendance note.',
+      createdByUserId: 'manager-1',
+      createdByName: 'María López',
+      createdAt: '2026-07-15T14:00:00.000Z',
+    };
+    corrected.rows[0]!.clockedInAt = '2026-07-14T13:15:00.000Z';
+    mocks.query.data = corrected;
+    mocks.historyQuery.data = [
+      {
+        id: 'correction-2',
+        version: 2,
+        clockedInAt: '2026-07-14T13:15:00.000Z',
+        clockedOutAt: '2026-07-14T22:00:00.000Z',
+        breaks: [],
+        reason: 'Second review aligned the signed attendance note.',
+        createdByUserId: 'manager-1',
+        createdByName: 'María López',
+        createdAt: '2026-07-15T14:00:00.000Z',
+      },
+    ];
+
+    render(<TeamAttendancePanel fromDate="2026-07-13" toDate="2026-07-20" siteId="" enabled />);
+
+    const card = screen.getByTestId('attendance-shift-shift-1');
+    expect(card).toHaveTextContent('Corrected · v2');
+    expect(card).toHaveTextContent('Second review aligned the signed attendance note.');
+    await user.click(within(card).getByRole('button', { name: 'View correction history' }));
+
+    expect(mocks.historyInput).toEqual({ employeeShiftId: 'shift-1' });
+    expect(card).toHaveTextContent('Version 2 · María López');
   });
 });
