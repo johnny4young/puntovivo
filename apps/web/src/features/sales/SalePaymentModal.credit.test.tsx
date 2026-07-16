@@ -12,7 +12,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { act } from '@testing-library/react';
+import { act, fireEvent } from '@testing-library/react';
 import i18next from '@/i18n';
 import { render, screen, waitFor } from '@/test/utils';
 import type { Customer } from '@/types';
@@ -24,6 +24,10 @@ let mockApprovalRows: Array<Record<string, unknown>> = [];
 const mockApprovalRefetch = vi.fn();
 const mockApprovalInvalidate = vi.fn();
 const mockApprovalMutation = { mutate: vi.fn(), isPending: false };
+let mockLossPreventionActions: Array<'sale_discount' | 'sale_after_hours'> | null = null;
+let mockLossPreventionFetching = false;
+let mockLossPreventionError: Error | null = null;
+const mockLossPreventionRefetch = vi.fn();
 type ApprovalOnSuccess = (
   request: Record<string, unknown>,
   variables: Record<string, unknown>
@@ -41,6 +45,21 @@ vi.mock('@/lib/trpc', () => ({
           data: { balance: mockBalance },
           isLoading: false,
           error: null,
+        }),
+      },
+    },
+    lossPrevention: {
+      evaluateCheckout: {
+        useQuery: (input: { discountAmount: number }) => ({
+          data: {
+            requiredActions:
+              mockLossPreventionActions ?? (input.discountAmount > 0 ? ['sale_discount'] : []),
+            violations: [],
+          },
+          isLoading: false,
+          isFetching: mockLossPreventionFetching,
+          error: mockLossPreventionError,
+          refetch: mockLossPreventionRefetch,
         }),
       },
     },
@@ -124,6 +143,10 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     mockApprovalMutation.mutate.mockReset();
     mockApprovalMutation.isPending = false;
     mockApprovalOnSuccess = undefined;
+    mockLossPreventionActions = null;
+    mockLossPreventionFetching = false;
+    mockLossPreventionError = null;
+    mockLossPreventionRefetch.mockReset();
   });
 
   it('hides the credit option when no customer is selected', () => {
@@ -140,6 +163,102 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     expect(await screen.findByTestId('checkout-approval-credit_sale')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('surfaces the server-owned blocked-hours approval and fails closed', async () => {
+    mockLossPreventionActions = ['sale_after_hours'];
+    renderModal({
+      userRole: 'cashier',
+      approvalItems: [
+        {
+          productId: 'product-1',
+          unitId: 'unit-1',
+          quantity: 1,
+          unitPrice: 100,
+          discount: 0,
+        },
+      ],
+    });
+
+    expect(await screen.findByTestId('checkout-approval-sale_after_hours')).toBeInTheDocument();
+    expect(screen.getByText('Checkout during blocked hours')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('keeps checkout locked while the current policy is being refreshed', () => {
+    mockLossPreventionFetching = true;
+    renderModal({
+      userRole: 'cashier',
+      approvalItems: [
+        {
+          productId: 'product-1',
+          unitId: 'unit-1',
+          quantity: 1,
+          unitPrice: 100,
+          discount: 0,
+        },
+      ],
+    });
+
+    expect(screen.getByText('Checking the current checkout policy…')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('rejects direct form submit while policy or exact approval gates are outstanding', () => {
+    const onSubmit = vi.fn(async () => undefined);
+    const approvalItems = [
+      {
+        productId: 'product-1',
+        unitId: 'unit-1',
+        quantity: 1,
+        unitPrice: 100,
+        discount: 0,
+      },
+    ];
+    const props = { userRole: 'cashier' as const, approvalItems, onSubmit };
+    mockLossPreventionFetching = true;
+    const { rerender } = renderModal(props);
+    const form = document.getElementById('sale-payment-form');
+    if (!form) throw new Error('Expected sale payment form');
+
+    fireEvent.submit(form);
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    mockLossPreventionFetching = false;
+    mockLossPreventionActions = ['sale_after_hours'];
+    rerender(buildModal(props));
+    fireEvent.submit(form);
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('restores fast-cash focus after the fail-closed policy refresh completes', async () => {
+    const approvalItems = [
+      {
+        productId: 'product-1',
+        unitId: 'unit-1',
+        quantity: 1,
+        unitPrice: 100,
+        discount: 0,
+      },
+    ];
+    const props = {
+      userRole: 'cashier' as const,
+      approvalItems,
+      fastCashTrigger: 1,
+    };
+    mockLossPreventionFetching = true;
+    const { rerender } = renderModal(props);
+    const confirm = screen.getByRole('button', { name: /Confirm Sale/i });
+
+    await waitFor(() => expect(confirm).toBeDisabled());
+    expect(confirm).not.toHaveFocus();
+
+    mockLossPreventionFetching = false;
+    rerender(buildModal(props));
+
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await waitFor(() => expect(confirm).toHaveFocus());
   });
 
   it('surfaces the credit option when a customer is selected and role is manager', async () => {
@@ -311,7 +430,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     await screen.findByTestId('checkout-approval-sale_discount');
     await user.type(
       screen.getByLabelText('Reason for Discounted checkout'),
-      'Customer price match',
+      'Customer price match'
     );
     await user.click(screen.getByRole('button', { name: 'Request approval' }));
     const submittedVariables = mockApprovalMutation.mutate.mock.calls[0]?.[0] as Record<

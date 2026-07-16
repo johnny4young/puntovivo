@@ -17,7 +17,10 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { UserRole } from '@puntovivo/shared/roles';
-import { getCheckoutApprovalDiscountAmount } from '@puntovivo/shared/checkout-approval';
+import {
+  getCheckoutApprovalDiscountAmount,
+  type CheckoutApprovalContext,
+} from '@puntovivo/shared/checkout-approval';
 import {
   inventoryMovements,
   products,
@@ -29,6 +32,11 @@ import {
 import { roundMoney } from '../../lib/money.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import {
+  evaluateCheckoutLossPrevention,
+  recordCheckoutLossPreventionTriggers,
+} from '../../services/loss-prevention/index.js';
+import { checkoutApprovalResourceId } from '../../services/manager-approvals.js';
 import {
   assertCashSessionStillOpen,
   insertCashMovement,
@@ -203,12 +211,61 @@ export async function runFreshSale(
     }
   }
 
-  const requiredApprovalActions = requiredCheckoutApprovalActions({
+  const approvalContext: CheckoutApprovalContext = {
+    mode: 'fresh',
+    saleId: null,
+    customerId: input.customerId ?? null,
+    items: input.items.map(item => ({
+      productId: item.productId,
+      unitId: item.unitId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      discount: item.discount,
+    })),
+    paymentMethod: input.paymentMethod,
+    payments: (input.payments ?? []).map(payment => ({
+      method: payment.method,
+      amount: payment.amount,
+      reference: payment.reference,
+    })),
+    amountReceived: input.amountReceived ?? null,
+    discountAmount: getCheckoutApprovalDiscountAmount(input.items, headerDiscount),
+    total,
+    creditAmount: creditSaleAmount,
+    tipAmount,
+    serviceChargeAmount,
+    currencyCode: saleCurrencyCode,
+  };
+  const baselineApprovalActions = requiredCheckoutApprovalActions({
     role: ctx.user.role as UserRole,
     isCompletion: input.status === 'completed',
-    hasDiscount: (input.discountAmount ?? 0) > 0 || input.items.some(item => item.discount > 0),
+    // ENG-142a — discount authority is tenant policy, not a hard-coded
+    // cashier boolean. Credit and override rules remain in the shared kernel.
+    hasDiscount: false,
     hasCreditTender: creditSaleAmount > 0,
     creditOverride: input.creditOverride === true,
+  });
+  const lossPreventionEvaluation = await evaluateCheckoutLossPrevention({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    role: ctx.user.role,
+    isCompletion: input.status === 'completed',
+    items: approvalContext.items,
+    discountAmount: approvalContext.discountAmount,
+  });
+  const requiredApprovalActions = [
+    ...new Set([...baselineApprovalActions, ...lossPreventionEvaluation.requiredActions]),
+  ];
+  recordCheckoutLossPreventionTriggers({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    actorId: ctx.user.id,
+    siteId: saleSiteId,
+    checkoutResourceId: checkoutApprovalResourceId(approvalContext),
+    mode: 'fresh',
+    evaluation: lossPreventionEvaluation,
+    providedActions: (input.approvalRequests ?? []).map(reference => reference.action),
+    operationId: ctx.envelope?.operationId,
   });
   const approvalClaims = claimCheckoutApprovals({
     db: ctx.db,
@@ -217,31 +274,7 @@ export async function runFreshSale(
     requesterId: ctx.user.id,
     requiredActions: requiredApprovalActions,
     references: input.approvalRequests,
-    context: {
-      mode: 'fresh',
-      saleId: null,
-      customerId: input.customerId ?? null,
-      items: input.items.map(item => ({
-        productId: item.productId,
-        unitId: item.unitId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        discount: item.discount,
-      })),
-      paymentMethod: input.paymentMethod,
-      payments: (input.payments ?? []).map(payment => ({
-        method: payment.method,
-        amount: payment.amount,
-        reference: payment.reference,
-      })),
-      amountReceived: input.amountReceived ?? null,
-      discountAmount: getCheckoutApprovalDiscountAmount(input.items, headerDiscount),
-      total,
-      creditAmount: creditSaleAmount,
-      tipAmount,
-      serviceChargeAmount,
-      currencyCode: saleCurrencyCode,
-    },
+    context: approvalContext,
   });
 
   try {

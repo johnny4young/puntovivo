@@ -97,6 +97,9 @@ vi.mock('../CompanyDataRetentionCard', () => ({
 vi.mock('../CompanyLocaleSettingsCard', () => ({
   CompanyLocaleSettingsCard: () => <div data-testid="card-locale">Locale</div>,
 }));
+vi.mock('../CompanyLossPreventionCard', () => ({
+  CompanyLossPreventionCard: () => <div data-testid="card-loss-prevention">Loss prevention</div>,
+}));
 vi.mock('../CompanyAutoUpdateCard', () => ({
   CompanyAutoUpdateCard: () => <div data-testid="card-autoupdate">AutoUpdate</div>,
 }));
@@ -157,6 +160,7 @@ describe('CompanyPage tab behavior', () => {
     // while readiness is active.
     for (const key of [
       'general',
+      'controls',
       'locale',
       'restaurant',
       'fiscal',
@@ -228,6 +232,17 @@ describe('CompanyPage tab behavior', () => {
 
     expect(screen.getByTestId('card-locale')).toBeInTheDocument();
     expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
+  });
+
+  it('renders loss-prevention settings from the Controls tab', async () => {
+    const user = userEvent.setup();
+    render(<CompanyPage />);
+
+    await user.click(screen.getByTestId('company-tab-controls'));
+
+    expect(screen.getByTestId('company-tab-controls')).toHaveAttribute('aria-current', 'page');
+    expect(await screen.findByTestId('card-loss-prevention')).toBeInTheDocument();
+    expect(screen.queryByTestId('card-locale')).not.toBeInTheDocument();
   });
 
   it('renders the Fiscal tab with the MX card when tenant countryCode is MX', async () => {

@@ -45,6 +45,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'cash_session.close',
     'cash_session.movement',
     'cash_drawer.open',
+    'loss_prevention.settings.updated',
+    'loss_prevention.triggered',
     'purchase.void',
     'payment.retry',
     'payment.mark_settled',

@@ -37,7 +37,7 @@ export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
   const { t } = useTranslation('sales');
   const [reasons, setReasons] = useState<Partial<Record<ManagerApprovalAction, string>>>({});
 
-  if (views.length === 0) return null;
+  if (views.length === 0 && !isLoading && !hasError) return null;
 
   return (
     <section
@@ -69,6 +69,12 @@ export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
       {hasError && (
         <p role="alert" className="mt-3 text-xs text-danger-700">
           {t('approval.statusError')}
+        </p>
+      )}
+
+      {views.length === 0 && isLoading && (
+        <p role="status" className="mt-3 text-xs text-primary-800">
+          {t('approval.policyChecking')}
         </p>
       )}
 

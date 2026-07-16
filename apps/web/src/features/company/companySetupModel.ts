@@ -2,6 +2,7 @@
 const COMPANY_TAB_KEYS = [
   'readiness',
   'general',
+  'controls',
   'locale',
   'data',
   'device',
@@ -17,6 +18,7 @@ export type CompanyTabKey = (typeof COMPANY_TAB_KEYS)[number];
 export const COMPANY_TAB_TRANSLATION_KEYS = {
   readiness: 'company.tabs.readiness',
   general: 'company.tabs.general',
+  controls: 'company.tabs.controls',
   locale: 'company.tabs.locale',
   data: 'company.tabs.data',
   device: 'company.tabs.device',
@@ -37,7 +39,7 @@ export const COMPANY_SETUP_TAB_GROUPS = [
   {
     id: 'business',
     labelKey: 'company.tabs.groups.business',
-    tabs: ['general', 'locale', 'restaurant'],
+    tabs: ['general', 'controls', 'locale', 'restaurant'],
   },
   {
     id: 'billing',

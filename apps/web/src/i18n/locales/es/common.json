@@ -148,6 +148,7 @@
         "credit_override": "Excepción de crédito",
         "sale_void": "Anular venta",
         "sale_discount": "Descuento de venta",
+        "sale_after_hours": "Cobro durante el horario bloqueado",
         "cash_drawer_open": "Abrir cajón de efectivo",
         "sale_refund": "Reembolso de venta",
         "credit_sale": "Venta a crédito"

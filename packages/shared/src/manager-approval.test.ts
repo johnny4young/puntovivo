@@ -14,6 +14,7 @@ test('manager approval actions publish the complete stable catalogue', () => {
     'cash_drawer_open',
     'sale_refund',
     'credit_sale',
+    'sale_after_hours',
   ]);
 });
 

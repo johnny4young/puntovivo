@@ -30,6 +30,14 @@ const CompanyBackupCard = lazy(() =>
   import('./CompanyBackupCard').then(module => ({ default: module.CompanyBackupCard }))
 );
 
+// ENG-142a — checkout policy controls are needed only on the Controls tab.
+// Keep the editor and critical-mutation rail out of the initial Company chunk.
+const CompanyLossPreventionCard = lazy(() =>
+  import('./CompanyLossPreventionCard').then(module => ({
+    default: module.CompanyLossPreventionCard,
+  }))
+);
+
 interface CompanySettingsPanelsProps {
   activeTab: CompanyTabKey;
   company: Company | null;
@@ -83,6 +91,22 @@ export function CompanySettingsPanels({
       {activeTab === 'locale' && (
         <div className="space-y-6">
           <CompanyLocaleSettingsCard />
+        </div>
+      )}
+
+      {activeTab === 'controls' && (
+        <div className="space-y-6">
+          <Suspense
+            fallback={
+              <div
+                className="h-72 animate-pulse rounded-2xl border border-line bg-surface-2"
+                role="status"
+                aria-label={t('company.lossPrevention.loading')}
+              />
+            }
+          >
+            <CompanyLossPreventionCard />
+          </Suspense>
         </div>
       )}
 

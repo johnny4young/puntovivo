@@ -607,11 +607,13 @@
     "requested": "Approval request sent",
     "requestError": "Unable to request approval",
     "statusError": "Approval status could not be refreshed. Retry before charging.",
+    "policyChecking": "Checking the current checkout policy…",
     "reasonLabel": "Reason for {{action}}",
     "reasonPlaceholder": "Explain why approval is needed",
     "decisionReason": "Decision note: {{reason}}",
     "actions": {
       "sale_discount": "Discounted checkout",
+      "sale_after_hours": "Checkout during blocked hours",
       "credit_sale": "Customer credit sale",
       "credit_override": "Credit-limit override",
       "sale_void": "Void sale",

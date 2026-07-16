@@ -21,6 +21,17 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: () => ({ data: { balance: 0 }, isLoading: false, error: null }),
       },
     },
+    lossPrevention: {
+      evaluateCheckout: {
+        useQuery: () => ({
+          data: { requiredActions: [], violations: [] },
+          isLoading: false,
+          isFetching: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+    },
     managerApprovals: {
       mine: {
         useQuery: () => ({

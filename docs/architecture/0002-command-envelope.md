@@ -171,6 +171,11 @@ follow-up amendment.
 
 - `modules.setActive` (ENG-068 — admin toggle of a tenant module)
 
+**Loss prevention**
+
+- `lossPrevention.updateSettings` (ENG-142a — audited per-role checkout
+  authority and blocked-hours policy)
+
 Procedures **not** in the envelope: every read query
 (`*.list`, `*.get`, `*.search`, `*.export`), every catalog mutation
 (`products.*`, `customers.*`, `providers.*`, `units.*`, `vatRates.*`,
@@ -230,6 +235,9 @@ attendance reporting remains a read query outside the envelope).
 Updated: 2026-07-15 (ENG-141b — added the immutable comprehensive day-close
 sign-off; the web critical-mutation resolver now supports nested sub-router
 paths while preserving end-to-end input/output inference).
+Updated: 2026-07-16 (ENG-142a — added the audited loss-prevention policy
+mutation so retries cannot split its isolated tenant policy row from the
+immutable audit evidence).
 Updated: 2026-05-03 (ENG-053 — operation journal wired into
 envelope: `recordOperationStart` runs after the idempotency
 reservation and before `next()`, idempotent on

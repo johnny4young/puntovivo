@@ -85,7 +85,8 @@ function requestInput(
     | 'sale_discount'
     | 'cash_drawer_open'
     | 'sale_refund'
-    | 'credit_sale',
+    | 'credit_sale'
+    | 'sale_after_hours',
   resourceId = action === 'cash_drawer_open'
     ? siteId
     : action === 'sale_void' || action === 'sale_refund'
@@ -235,6 +236,53 @@ describe('manager approvals router (ENG-106c1)', () => {
       amount: 25,
       currencyCode: 'COP',
     });
+  });
+
+  it('uses the checkout total for blocked-hours approvals and exposes them to managers', async () => {
+    const cashier = await createEmployee('cashier');
+    const manager = await createEmployee('manager');
+    const checkoutContext = {
+      mode: 'fresh' as const,
+      saleId: null,
+      customerId: null,
+      items: [
+        {
+          productId: 'product-after-hours',
+          unitId: 'unit-1',
+          quantity: 1,
+          unitPrice: 125,
+          discount: 0,
+        },
+      ],
+      paymentMethod: 'cash' as const,
+      payments: [],
+      amountReceived: 125,
+      discountAmount: 0,
+      total: 125,
+      creditAmount: 0,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'USD',
+    };
+    const created = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+      action: 'sale_after_hours',
+      reason: 'Customer arrived before closing',
+      resourceType: 'sale_checkout',
+      checkoutContext,
+      summary: { label: 'Forged', amount: 1, currencyCode: 'USD' },
+    });
+
+    expect(created).toMatchObject({
+      action: 'sale_after_hours',
+      requiredApproverRole: 'manager',
+      summary: { label: 'checkout', amount: 125, currencyCode: 'COP' },
+    });
+    const queue = await appRouter
+      .createCaller(manager.fresh())
+      .managerApprovals.queue({ limit: 50 });
+    expect(queue.items).toContainEqual(
+      expect.objectContaining({ id: created.id, action: 'sale_after_hours' })
+    );
   });
 
   it('preserves the frozen sale currency when approving a resumed draft', async () => {

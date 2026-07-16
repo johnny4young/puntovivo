@@ -243,6 +243,7 @@
       "ariaLabel": "Company configuration sections",
       "readiness": "Setup",
       "general": "General",
+      "controls": "Controls",
       "locale": "Locale",
       "data": "Data",
       "device": "Device",
@@ -646,6 +647,33 @@
       "toast": {
         "saved": "Cash close settings saved",
         "saveError": "The cash close settings could not be saved"
+      }
+    },
+    "lossPrevention": {
+      "title": "Loss prevention",
+      "description": "Set per-role checkout limits. A sale that crosses a limit is blocked until another authorized employee approves that exact checkout.",
+      "loading": "Loading checkout controls",
+      "roles": {
+        "cashier": "Cashier policy",
+        "manager": "Manager policy"
+      },
+      "maxDiscount": {
+        "label": "Maximum discount without approval",
+        "help": "Includes line and cart discounts as a percentage of gross item value."
+      },
+      "afterHours": {
+        "label": "Require approval during blocked hours",
+        "help": "Uses the company timezone and supports windows that cross midnight.",
+        "from": "Blocked from",
+        "until": "Blocked until"
+      },
+      "validation": "Enter discount limits from 0% to 100% and use different start and end times for each enabled blocked window.",
+      "auditNote": "Every policy change and every checkout that triggers a rule is recorded in the audit log without cart or customer details.",
+      "save": "Save checkout controls",
+      "saving": "Saving…",
+      "toast": {
+        "saved": "Checkout controls saved",
+        "saveError": "The checkout controls could not be saved"
       }
     }
   },

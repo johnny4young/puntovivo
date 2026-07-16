@@ -79,7 +79,9 @@ export type CriticalCommandPath =
   | 'modules.setActive'
   // ENG-141b — irreversible manager/admin attestation of one frozen
   // comprehensive day-close snapshot.
-  | 'reports.dayClose.signOff';
+  | 'reports.dayClose.signOff'
+  // ENG-142a — money-sensitive per-role checkout authority policy.
+  | 'lossPrevention.updateSettings';
 
 /**
  * Recursively project router inputs / outputs through a dotted path. Most

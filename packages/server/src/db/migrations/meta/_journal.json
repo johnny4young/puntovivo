@@ -148,6 +148,13 @@
       "when": 1784167371732,
       "tag": "0020_eng140e_attendance_corrections",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1784177815550,
+      "tag": "0021_eng142a_loss_prevention_settings",
+      "breakpoints": true
     }
   ]
 }

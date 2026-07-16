@@ -90,6 +90,11 @@ export function useSalePaymentModal({
     control: form.control,
     name: 'tenders',
   });
+  // ENG-142a — F2 may arrive while the server-owned checkout policy is
+  // still loading. A disabled button cannot receive focus, so remember the
+  // cashier's intent and restore the fast-cash focus contract as soon as the
+  // fail-closed gate becomes submit-ready.
+  const pendingFastCashFocusRef = useRef(false);
 
   // ENG-105c2 — auto-attach the customer that was just created via the
   // quick-create flow (customer picker or palette dispatch route).
@@ -161,6 +166,7 @@ export function useSalePaymentModal({
   // grand total for tip/service-charge edits.
   const applyFastCash = () => {
     if (grandTotal <= 0) return;
+    pendingFastCashFocusRef.current = true;
     setSplitMode(false);
     form.setValue('paymentMethod', 'cash', {
       shouldDirty: true,
@@ -171,7 +177,13 @@ export function useSalePaymentModal({
     form.setValue('tenders', []);
     toast.success({ title: t('fastCash.toast.applied') });
     queueMicrotask(() => {
-      document.getElementById('sale-payment-confirm')?.focus();
+      const confirmButton = document.getElementById(
+        'sale-payment-confirm'
+      ) as HTMLButtonElement | null;
+      if (confirmButton && !confirmButton.disabled) {
+        confirmButton.focus();
+        pendingFastCashFocusRef.current = false;
+      }
     });
   };
 
@@ -236,12 +248,41 @@ export function useSalePaymentModal({
   // portion (legacy single-tender OR split with a credit row).
   const showCreditCard = isCredit || creditAmountInSplit > 0;
   const hasCreditTender = showCreditCard;
-  const approvalActions = requiredCheckoutApprovalActions({
+  const lossPreventionQueryEnabled =
+    isOpen &&
+    approvalItems.length > 0 &&
+    (userRole === 'cashier' || userRole === 'manager' || userRole === 'admin');
+  const lossPreventionQuery = trpc.lossPrevention.evaluateCheckout.useQuery(
+    {
+      items: approvalItems.map(({ productId, unitId, quantity, unitPrice, discount }) => ({
+        productId,
+        unitId,
+        quantity,
+        unitPrice,
+        discount,
+      })),
+      discountAmount: approvalDiscountAmount,
+    },
+    {
+      enabled: lossPreventionQueryEnabled,
+      // The blocked-hours decision follows tenant wall-clock time. Keep a
+      // long-open checkout fresh across a window boundary without trusting
+      // the renderer's clock as policy input.
+      refetchInterval: lossPreventionQueryEnabled ? 30_000 : false,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    }
+  );
+  const baselineApprovalActions = requiredCheckoutApprovalActions({
     role: userRole,
-    hasDiscount: approvalDiscountAmount > 0,
+    // ENG-142a — the server-owned policy query decides discount authority.
+    hasDiscount: false,
     hasCreditTender,
     creditOverrideRequired: hasCreditTender && cupoExceeded,
   });
+  const approvalActions = [
+    ...new Set([...baselineApprovalActions, ...(lossPreventionQuery.data?.requiredActions ?? [])]),
+  ];
   const approvalContext = useMemo(
     () =>
       buildCheckoutApprovalContext({
@@ -290,6 +331,7 @@ export function useSalePaymentModal({
     }),
     amountByAction: {
       sale_discount: approvalDiscountAmount,
+      sale_after_hours: grandTotal,
       credit_sale: approvalContext.creditAmount,
       credit_override: approvalContext.creditAmount,
     },
@@ -373,12 +415,28 @@ export function useSalePaymentModal({
     tenderFields.replace([]);
   }
 
+  const splitIsValid =
+    splitMode &&
+    tenders.length >= 2 &&
+    Math.abs(tenderDelta) < TENDER_SUM_EPSILON &&
+    tendersAreAllPositive;
+
+  const canSubmit =
+    !isSaving &&
+    (!splitMode || splitIsValid) &&
+    checkoutApprovals.allApproved &&
+    (!lossPreventionQueryEnabled ||
+      (!lossPreventionQuery.isFetching && lossPreventionQuery.error === null)) &&
+    !(hasCreditTender && creditBalanceQuery.isLoading);
+
   const handleSubmit = form.handleSubmit(values => {
     // A held/repeated F1 (or Enter) fires requestSubmit() straight at the
     // form, bypassing the disabled footer button — without this guard a
     // single checkout can submit twice with two distinct idempotency
     // envelopes and double-charge the sale.
-    if (isSaving) {
+    // ENG-142a — requestSubmit also bypasses the footer's disabled state
+    // while policy evaluation or an exact approval is still outstanding.
+    if (!canSubmit) {
       return;
     }
     const sanitizedTip = Math.max(0, Number(values.tipAmount) || 0);
@@ -413,17 +471,35 @@ export function useSalePaymentModal({
     });
   });
 
-  const splitIsValid =
-    splitMode &&
-    tenders.length >= 2 &&
-    Math.abs(tenderDelta) < TENDER_SUM_EPSILON &&
-    tendersAreAllPositive;
+  useEffect(() => {
+    if (!isOpen) {
+      pendingFastCashFocusRef.current = false;
+      return;
+    }
+    if (!canSubmit || !pendingFastCashFocusRef.current) {
+      return;
+    }
 
-  const canSubmit =
-    !isSaving &&
-    (!splitMode || splitIsValid) &&
-    checkoutApprovals.allApproved &&
-    !(hasCreditTender && creditBalanceQuery.isLoading);
+    const confirmButton = document.getElementById(
+      'sale-payment-confirm'
+    ) as HTMLButtonElement | null;
+    if (confirmButton && !confirmButton.disabled) {
+      confirmButton.focus();
+      pendingFastCashFocusRef.current = false;
+    }
+  }, [canSubmit, isOpen]);
+
+  const checkoutApprovalState = {
+    ...checkoutApprovals,
+    isLoading: checkoutApprovals.isLoading || lossPreventionQuery.isFetching,
+    error: checkoutApprovals.error ?? lossPreventionQuery.error,
+    refetch: async () => {
+      await Promise.all([
+        checkoutApprovals.refetch(),
+        ...(lossPreventionQueryEnabled ? [lossPreventionQuery.refetch()] : []),
+      ]);
+    },
+  };
 
   const presetActive = (percentage: number): boolean => {
     // Zero-tip state — regardless of which method last touched the
@@ -461,7 +537,7 @@ export function useSalePaymentModal({
     cupoExceeded,
     showCreditCard,
     balanceLoading: creditBalanceQuery.isLoading,
-    checkoutApprovals,
+    checkoutApprovals: checkoutApprovalState,
     tenderSum,
     tenderDelta,
     splitIsValid,

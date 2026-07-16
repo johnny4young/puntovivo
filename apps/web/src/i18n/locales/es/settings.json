@@ -243,6 +243,7 @@
       "ariaLabel": "Secciones de configuración de empresa",
       "readiness": "Configuración inicial",
       "general": "General",
+      "controls": "Controles",
       "locale": "Localización",
       "data": "Datos",
       "device": "Dispositivo",
@@ -646,6 +647,33 @@
       "toast": {
         "saved": "Ajustes de cierre de caja guardados",
         "saveError": "No se pudieron guardar los ajustes de cierre de caja"
+      }
+    },
+    "lossPrevention": {
+      "title": "Prevención de pérdidas",
+      "description": "Configura límites de cobro por rol. Una venta que supere un límite queda bloqueada hasta que otra persona autorizada apruebe ese cobro exacto.",
+      "loading": "Cargando controles de cobro",
+      "roles": {
+        "cashier": "Política para cajeros",
+        "manager": "Política para gerentes"
+      },
+      "maxDiscount": {
+        "label": "Descuento máximo sin aprobación",
+        "help": "Incluye descuentos por línea y del carrito como porcentaje del valor bruto de los productos."
+      },
+      "afterHours": {
+        "label": "Requerir aprobación durante el horario bloqueado",
+        "help": "Usa la zona horaria de la empresa y admite periodos que cruzan la medianoche.",
+        "from": "Bloqueado desde",
+        "until": "Bloqueado hasta"
+      },
+      "validation": "Ingresa límites de descuento entre 0% y 100% y usa horas de inicio y fin diferentes en cada periodo bloqueado activo.",
+      "auditNote": "Cada cambio de política y cada cobro que active una regla queda registrado en auditoría sin datos del carrito ni del cliente.",
+      "save": "Guardar controles de cobro",
+      "saving": "Guardando…",
+      "toast": {
+        "saved": "Controles de cobro guardados",
+        "saveError": "No se pudieron guardar los controles de cobro"
       }
     }
   },

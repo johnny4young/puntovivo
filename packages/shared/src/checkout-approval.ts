@@ -4,6 +4,7 @@ export const checkoutApprovalActionEnum = [
   'sale_discount',
   'credit_sale',
   'credit_override',
+  'sale_after_hours',
 ] as const;
 
 export type CheckoutApprovalAction = (typeof checkoutApprovalActionEnum)[number];

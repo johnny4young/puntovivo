@@ -8,6 +8,8 @@ export const managerApprovalActionEnum = [
   'cash_drawer_open',
   'sale_refund',
   'credit_sale',
+  // ENG-142a — deterministic local blocked-window checkout escalation.
+  'sale_after_hours',
 ] as const;
 
 export type ManagerApprovalAction = (typeof managerApprovalActionEnum)[number];

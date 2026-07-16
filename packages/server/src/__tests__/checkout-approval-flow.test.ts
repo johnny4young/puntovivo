@@ -24,6 +24,10 @@ import {
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import { registerDevice } from '../services/devices/devicesService.js';
 import { checkoutApprovalResourceId } from '../services/manager-approvals.js';
+import {
+  DEFAULT_LOSS_PREVENTION_SETTINGS,
+  writeLossPreventionSettings,
+} from '../services/loss-prevention/index.js';
 import { appRouter } from '../trpc/router.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 
@@ -603,5 +607,216 @@ describe('checkout approval consumption (ENG-106c2)', () => {
       await db.select({ status: sales.status }).from(sales).where(eq(sales.id, draft.id)).get()
     ).toEqual({ status: 'cancelled' });
     expect(await approvalStatus(requestId)).toMatchObject({ status: 'approved', claimToken: null });
+  });
+
+  it('enforces the configured discount boundary and audits blocked and approved attempts', async () => {
+    writeLossPreventionSettings(db, tenantId, {
+      version: 1,
+      roles: {
+        cashier: {
+          maxDiscountPercent: 5,
+          afterHoursSale: {
+            enabled: false,
+            blockedFrom: '22:00',
+            blockedUntil: '06:00',
+          },
+        },
+        manager: DEFAULT_LOSS_PREVENTION_SETTINGS.roles.manager,
+      },
+    });
+
+    const boundaryProductId = await seedProduct('Policy Boundary Product', 'POLICY-BOUNDARY');
+    await expect(
+      cashierCaller().sales.create({
+        items: [
+          {
+            productId: boundaryProductId,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 100,
+            discount: 0,
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 95,
+        discountAmount: 5,
+      })
+    ).resolves.toMatchObject({ status: 'completed', total: 95 });
+
+    const guardedProductId = await seedProduct('Policy Guarded Product', 'POLICY-GUARDED');
+    const context: CheckoutApprovalContext = {
+      mode: 'fresh',
+      saleId: null,
+      customerId: null,
+      items: [
+        {
+          productId: guardedProductId,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 100,
+          discount: 0,
+        },
+      ],
+      paymentMethod: 'cash',
+      payments: [],
+      amountReceived: 94,
+      discountAmount: 6,
+      total: 94,
+      creditAmount: 0,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'COP',
+    };
+    const guardedInput = {
+      items: context.items,
+      paymentMethod: 'cash' as const,
+      paymentStatus: 'paid' as const,
+      status: 'completed' as const,
+      amountReceived: 94,
+      discountAmount: 6,
+    };
+
+    await expect(cashierCaller().sales.create(guardedInput)).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+    });
+    expect(getProductStockTotal(db, tenantId, guardedProductId)).toBe(5);
+
+    const requestId = await insertApprovedCheckoutRequest({
+      action: 'sale_discount',
+      context,
+    });
+    const completed = await cashierCaller().sales.create({
+      ...guardedInput,
+      approvalRequests: [{ action: 'sale_discount', requestId }],
+    });
+    expect(completed).toMatchObject({ status: 'completed', total: 94 });
+    expect(await approvalStatus(requestId)).toMatchObject({
+      status: 'consumed',
+      resourceId: completed.id,
+    });
+
+    const triggers = db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantId),
+          eq(auditLogs.action, 'loss_prevention.triggered'),
+          eq(auditLogs.resourceId, 'max_discount')
+        )
+      )
+      .all()
+      .filter(row => row.metadata?.checkoutResourceId === checkoutApprovalResourceId(context));
+    expect(triggers).toHaveLength(2);
+    expect(triggers.map(row => row.after)).toEqual([
+      expect.objectContaining({ approvalProvided: false, requiredAction: 'sale_discount' }),
+      expect.objectContaining({ approvalProvided: true, requiredAction: 'sale_discount' }),
+    ]);
+    expect(triggers[0]?.metadata).toMatchObject({
+      kind: 'max_discount',
+      observedPercent: 6,
+      thresholdPercent: 5,
+      role: 'cashier',
+      siteId,
+    });
+  });
+
+  it('uses the fresh authority clock when checkout crosses blocked-window boundaries', async () => {
+    const freshProductId = await seedProduct('Policy Clock Fresh', 'POLICY-CLOCK-FRESH');
+    const draftProductId = await seedProduct('Policy Clock Draft', 'POLICY-CLOCK-DRAFT');
+    const draft = await cashierCaller().sales.create({
+      items: [
+        {
+          productId: draftProductId,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 100,
+          discount: 0,
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+      amountReceived: 0,
+      discountAmount: 0,
+    });
+    writeLossPreventionSettings(db, tenantId, {
+      version: 1,
+      roles: {
+        cashier: {
+          maxDiscountPercent: 100,
+          // The seeded tenant falls back to America/New_York. In July,
+          // 06:00Z is 02:00 local and 07:00Z is 03:00 local.
+          afterHoursSale: {
+            enabled: true,
+            blockedFrom: '02:00',
+            blockedUntil: '03:00',
+          },
+        },
+        manager: DEFAULT_LOSS_PREVENTION_SETTINGS.roles.manager,
+      },
+    });
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-07-15T05:59:59.000Z'));
+      const crossingIntoBlock = completeSale(
+        {
+          db,
+          tenantId,
+          siteId,
+          user: { id: cashierId, role: 'cashier' },
+        },
+        {
+          mode: 'fresh',
+          customerId: null,
+          items: [
+            {
+              productId: freshProductId,
+              unitId: baseUnitId,
+              quantity: 1,
+              unitPrice: 100,
+              discount: 0,
+            },
+          ],
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          status: 'completed',
+          amountReceived: 100,
+          discountAmount: 0,
+        }
+      );
+      vi.setSystemTime(new Date('2026-07-15T06:00:00.000Z'));
+      await expect(crossingIntoBlock).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+      });
+      expect(getProductStockTotal(db, tenantId, freshProductId)).toBe(5);
+
+      vi.setSystemTime(new Date('2026-07-15T06:59:59.000Z'));
+      const crossingOutOfBlock = completeSale(
+        {
+          db,
+          tenantId,
+          siteId,
+          user: { id: cashierId, role: 'cashier' },
+        },
+        {
+          mode: 'fromDraft',
+          saleId: draft.id,
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          amountReceived: 100,
+        }
+      );
+      vi.setSystemTime(new Date('2026-07-15T07:00:00.000Z'));
+      await expect(crossingOutOfBlock).resolves.toMatchObject({
+        sale: { id: draft.id, status: 'completed' },
+      });
+    } finally {
+      vi.useRealTimers();
+      writeLossPreventionSettings(db, tenantId, DEFAULT_LOSS_PREVENTION_SETTINGS);
+    }
   });
 });

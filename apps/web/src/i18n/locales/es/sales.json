@@ -607,11 +607,13 @@
     "requested": "Solicitud de aprobación enviada",
     "requestError": "No se pudo solicitar la aprobación",
     "statusError": "No se pudo actualizar el estado de la aprobación. Reintenta antes de cobrar.",
+    "policyChecking": "Verificando la política actual de cobro…",
     "reasonLabel": "Motivo para {{action}}",
     "reasonPlaceholder": "Explica por qué se necesita aprobación",
     "decisionReason": "Nota de la decisión: {{reason}}",
     "actions": {
       "sale_discount": "Cobro con descuento",
+      "sale_after_hours": "Cobro durante el horario bloqueado",
       "credit_sale": "Venta a crédito del cliente",
       "credit_override": "Sobregiro del cupo de crédito",
       "sale_void": "Anular venta",

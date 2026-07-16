@@ -86,7 +86,7 @@
   {
     "path": "auditLogs.list",
     "kind": "query",
-    "input": "object{action?:enum(\"transfer.void\"|\"quotation.delete\"|\"quotation.convert\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"employee_shift.correct\"|\"employee_shift_break.start\"|\"employee_shift_break.end\"|\"scheduled_shift.create\"|\"scheduled_shift.update\"|\"scheduled_shift.cancel\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"data_import.opening_cash\"|\"data_import.fiscal_profile\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"customer.credit_limit.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"telemetry.opt_in.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"backup.restore_drill\"|\"day_close.sign_off\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"transfer_order\"|\"quotation\"|\"sale\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"purchase\"|\"user\"|\"employee_shift\"|\"employee_shift_break\"|\"scheduled_shift\"|\"manager_approval\"|\"site\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"customer\"|\"fiscal_document\"|\"tenant\"|\"price_suggestion\"|\"backup_snapshot\"|\"data_import\"|\"day_close_signoff\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
+    "input": "object{action?:enum(\"transfer.void\"|\"quotation.delete\"|\"quotation.convert\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"employee_shift.correct\"|\"employee_shift_break.start\"|\"employee_shift_break.end\"|\"scheduled_shift.create\"|\"scheduled_shift.update\"|\"scheduled_shift.cancel\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"loss_prevention.settings.updated\"|\"loss_prevention.triggered\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"data_import.opening_cash\"|\"data_import.fiscal_profile\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"customer.credit_limit.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"telemetry.opt_in.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"backup.restore_drill\"|\"day_close.sign_off\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"transfer_order\"|\"quotation\"|\"sale\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"purchase\"|\"user\"|\"employee_shift\"|\"employee_shift_break\"|\"scheduled_shift\"|\"manager_approval\"|\"loss_prevention_rule\"|\"site\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"customer\"|\"fiscal_document\"|\"tenant\"|\"price_suggestion\"|\"backup_snapshot\"|\"data_import\"|\"day_close_signoff\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
     "output": "inferred"
   },
   {
@@ -1044,9 +1044,27 @@
     "output": "inferred"
   },
   {
+    "path": "lossPrevention.evaluateCheckout",
+    "kind": "query",
+    "input": "object{discountAmount:number[min=0],items:array<object>[minItems=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "lossPrevention.getSettings",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "lossPrevention.updateSettings",
+    "kind": "mutation",
+    "input": "object{roles:object{cashier:object,manager:object}}",
+    "output": "inferred"
+  },
+  {
     "path": "managerApprovals.availableApprovers",
     "kind": "query",
-    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\")}",
+    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\"|\"sale_after_hours\")}",
     "output": "inferred"
   },
   {
@@ -1076,7 +1094,7 @@
   {
     "path": "managerApprovals.request",
     "kind": "mutation",
-    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\"),checkoutContext?:object{amountReceived:number[min=0]|null,creditAmount:number[min=0],currencyCode:string,customerId:string[minLength=1]|null,discountAmount:number[min=0],items:array<object>[minItems=1],mode:enum(\"fresh\"|\"fromDraft\"),paymentMethod:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments:array<object>,saleId:string[minLength=1]|null,serviceChargeAmount:number[min=0],tipAmount:number[min=0],total:number[min=0]},reason:string[minLength=3,maxLength=500],resourceId?:string[minLength=1,maxLength=255],resourceType:string[minLength=1,maxLength=64],summary:object{amount?:number[min=0],currencyCode?:string,label:string[minLength=1,maxLength=160]}}",
+    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\"|\"sale_after_hours\"),checkoutContext?:object{amountReceived:number[min=0]|null,creditAmount:number[min=0],currencyCode:string,customerId:string[minLength=1]|null,discountAmount:number[min=0],items:array<object>[minItems=1],mode:enum(\"fresh\"|\"fromDraft\"),paymentMethod:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments:array<object>,saleId:string[minLength=1]|null,serviceChargeAmount:number[min=0],tipAmount:number[min=0],total:number[min=0]},reason:string[minLength=3,maxLength=500],resourceId?:string[minLength=1,maxLength=255],resourceType:string[minLength=1,maxLength=64],summary:object{amount?:number[min=0],currencyCode?:string,label:string[minLength=1,maxLength=160]}}",
     "output": "inferred"
   },
   {
@@ -1700,13 +1718,13 @@
   {
     "path": "sales.completeDraft",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=3],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {
     "path": "sales.create",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=3],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"|\"refunded\"),serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"|\"refunded\"),serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {

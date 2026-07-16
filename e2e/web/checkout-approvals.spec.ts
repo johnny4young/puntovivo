@@ -9,6 +9,16 @@ import { addProductToCartViaKeyboard } from './support/sales-keyboard';
 
 const MANAGER_PIN = '975310';
 
+interface LossPreventionSnapshot {
+  hadValue: boolean;
+  value: unknown;
+}
+
+interface LossPreventionTrigger {
+  after: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+}
+
 async function captureEvidence(page: Page, name: string) {
   const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
   if (!auditDir) return;
@@ -28,6 +38,87 @@ async function configureManagerPin(userId: string) {
       new Date().toISOString(),
       userId
     );
+  } finally {
+    db.close();
+  }
+}
+
+function snapshotLossPreventionSettings(tenantId: string): LossPreventionSnapshot {
+  const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+  try {
+    const row = db
+      .prepare('select policy from loss_prevention_settings where tenant_id = ?')
+      .get(tenantId) as { policy: string } | undefined;
+    return {
+      hadValue: row !== undefined,
+      value: row ? JSON.parse(row.policy) : null,
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function restoreLossPreventionSettings(tenantId: string, snapshot: LossPreventionSnapshot): void {
+  const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+  try {
+    const now = new Date().toISOString();
+    if (snapshot.hadValue) {
+      db.prepare(
+        `insert into loss_prevention_settings (tenant_id, policy, updated_at)
+         values (?, json(?), ?)
+         on conflict(tenant_id) do update
+         set policy = excluded.policy, updated_at = excluded.updated_at`
+      ).run(tenantId, JSON.stringify(snapshot.value), now);
+    } else {
+      db.prepare('delete from loss_prevention_settings where tenant_id = ?').run(tenantId);
+    }
+  } finally {
+    db.close();
+  }
+}
+
+function cashierDiscountThreshold(tenantId: string): number | null {
+  const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+  try {
+    const row = db
+      .prepare(
+        `select json_extract(policy, '$.roles.cashier.maxDiscountPercent') as value
+         from loss_prevention_settings where tenant_id = ?`
+      )
+      .get(tenantId) as { value: number | null } | undefined;
+    return row?.value ?? null;
+  } finally {
+    db.close();
+  }
+}
+
+function findLossPreventionTrigger(args: {
+  tenantId: string;
+  actorId: string;
+  approvalProvided: boolean;
+}): LossPreventionTrigger | null {
+  const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
+  try {
+    const row = db
+      .prepare(
+        `select after, metadata
+         from audit_logs
+         where tenant_id = ?
+           and actor_id = ?
+           and action = 'loss_prevention.triggered'
+           and resource_type = 'loss_prevention_rule'
+           and resource_id = 'max_discount'
+           and json_extract(after, '$.approvalProvided') = ?
+         order by created_at desc, id desc
+         limit 1`
+      )
+      .get(args.tenantId, args.actorId, args.approvalProvided ? 1 : 0) as
+      { after: string | null; metadata: string | null } | undefined;
+    if (!row) return null;
+    return {
+      after: row.after ? (JSON.parse(row.after) as Record<string, unknown>) : null,
+      metadata: row.metadata ? (JSON.parse(row.metadata) as Record<string, unknown>) : null,
+    };
   } finally {
     db.close();
   }
@@ -157,6 +248,129 @@ test('cashier requests and consumes an exact discount approval (ENG-106c2)', asy
     await expectNoClientIssues(cashierTracker);
     await expectNoClientIssues(managerTracker);
   } finally {
+    await cashierContext.close();
+    await managerContext.close();
+  }
+});
+
+test('admin policy blocks a cashier discount until exact approval and records evidence (ENG-142a)', async ({
+  browser,
+}, testInfo) => {
+  const scenario = seedSaleScenario(`loss-prevention-${testInfo.parallelIndex}-${Date.now()}`);
+  const approvalReason = `Loss prevention threshold ${scenario.product.sku}`;
+  const settingsSnapshot = snapshotLossPreventionSettings(scenario.tenantId);
+  await configureManagerPin(scenario.manager.id);
+
+  const adminContext = await browser.newContext();
+  const cashierContext = await browser.newContext();
+  const managerContext = await browser.newContext();
+  const adminPage = await adminContext.newPage();
+  const cashierPage = await cashierContext.newPage();
+  const managerPage = await managerContext.newPage();
+  await adminPage.setViewportSize({ width: 1440, height: 900 });
+  await cashierPage.setViewportSize({ width: 1440, height: 900 });
+  await managerPage.setViewportSize({ width: 1440, height: 900 });
+  const adminTracker = attachClientIssueTracker(adminPage);
+  const cashierTracker = attachClientIssueTracker(cashierPage);
+  const managerTracker = attachClientIssueTracker(managerPage);
+
+  try {
+    await login(adminPage, { ...scenario.admin, defaultPath: '/dashboard' }, { spanish: true });
+    await adminPage.goto('/company?tab=controls');
+    const policyCard = adminPage.getByTestId('company-loss-prevention-card');
+    await expect(policyCard.getByRole('heading', { name: 'Prevención de pérdidas' })).toBeVisible();
+    const cashierPolicy = policyCard.getByTestId('loss-prevention-role-cashier');
+    await expect(cashierPolicy.getByText('Política para cajeros', { exact: true })).toBeVisible();
+    await cashierPolicy.getByLabel('Descuento máximo sin aprobación').fill('5');
+    await policyCard.getByRole('button', { name: 'Guardar controles de cobro' }).click();
+    await expect.poll(() => cashierDiscountThreshold(scenario.tenantId)).toBe(5);
+    await captureEvidence(adminPage, 'eng-142a-admin-controls-desktop-es');
+    await adminPage.setViewportSize({ width: 390, height: 844 });
+    await expect(policyCard.getByRole('heading', { name: 'Prevención de pérdidas' })).toBeVisible();
+    await cashierPolicy.scrollIntoViewIfNeeded();
+    await captureEvidence(adminPage, 'eng-142a-admin-controls-mobile-es');
+
+    await login(cashierPage, { ...scenario.cashier, defaultPath: '/sales' });
+    await addProductToCartViaKeyboard(cashierPage, scenario.product.sku);
+    await cashierPage.getByLabel(`Discount for ${scenario.product.name}`).fill('10');
+    await cashierPage.keyboard.press('F1');
+
+    const paymentDialog = cashierPage.getByRole('dialog', { name: /charge sale/i });
+    const approvalPanel = paymentDialog.getByTestId('checkout-approval-panel');
+    await expect(approvalPanel.getByText('Discounted checkout', { exact: true })).toBeVisible();
+    await expect(paymentDialog.getByRole('button', { name: 'Confirm Sale' })).toBeDisabled();
+    await approvalPanel.getByLabel('Reason for Discounted checkout').fill(approvalReason);
+    await approvalPanel.getByRole('button', { name: 'Request approval' }).click();
+    await expect(approvalPanel.getByTestId('checkout-approval-status-sale_discount')).toHaveText(
+      'Pending'
+    );
+    await captureEvidence(cashierPage, 'eng-142a-cashier-policy-blocked-en');
+
+    await login(managerPage, { ...scenario.manager, defaultPath: '/dashboard' }, { spanish: true });
+    await openUserMenu(managerPage);
+    const queue = managerPage.getByRole('region', { name: 'Aprobaciones' });
+    const approvalCard = queue.getByRole('article').filter({ hasText: approvalReason });
+    await expect(approvalCard.getByText('Descuento de venta')).toBeVisible();
+    await expect(approvalCard.getByText('Solicitud exacta de cobro')).toBeVisible();
+    await approvalCard.getByRole('button', { name: 'Aprobar' }).click();
+    await approvalCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+    await captureEvidence(managerPage, 'eng-142a-manager-policy-approval-es');
+    await approvalCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
+    await expect(approvalCard).toBeHidden();
+
+    await expect(approvalPanel.getByTestId('checkout-approval-status-sale_discount')).toHaveText(
+      'Approved',
+      { timeout: 10_000 }
+    );
+    await paymentDialog.getByRole('button', { name: 'Confirm Sale' }).click();
+    await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
+    await expect
+      .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.cashier.id))
+      .toMatchObject({ status: 'completed', total: 11_250 });
+
+    await expect
+      .poll(() =>
+        findLossPreventionTrigger({
+          tenantId: scenario.tenantId,
+          actorId: scenario.cashier.id,
+          approvalProvided: true,
+        })
+      )
+      .toMatchObject({
+        after: { approvalProvided: true, requiredAction: 'sale_discount' },
+        metadata: {
+          kind: 'max_discount',
+          observedPercent: 10,
+          thresholdPercent: 5,
+          role: 'cashier',
+          siteId: scenario.sites[0]!.id,
+        },
+      });
+
+    await adminPage.setViewportSize({ width: 1440, height: 900 });
+    await adminPage.goto('/audit-logs');
+    await adminPage.getByLabel('Acción').selectOption('loss_prevention.triggered');
+    const auditTable = adminPage.getByRole('table');
+    const triggerCell = auditTable
+      .getByRole('cell', { name: 'Regla de prevención de pérdidas activada' })
+      .first();
+    await expect(triggerCell).toBeVisible();
+    await expect(
+      auditTable
+        .getByRole('cell', {
+          name: 'Regla de prevención de pérdidas max_discount',
+        })
+        .first()
+    ).toBeVisible();
+    await triggerCell.scrollIntoViewIfNeeded();
+    await captureEvidence(adminPage, 'eng-142a-audit-trigger-es');
+
+    await expectNoClientIssues(adminTracker);
+    await expectNoClientIssues(cashierTracker);
+    await expectNoClientIssues(managerTracker);
+  } finally {
+    restoreLossPreventionSettings(scenario.tenantId, settingsSnapshot);
+    await adminContext.close();
     await cashierContext.close();
     await managerContext.close();
   }
