@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
@@ -81,8 +81,10 @@ describe('BackupSchedulePanel (ENG-136a)', () => {
     installElectron({ updateBackupSchedule });
     renderPanel();
 
-    expect(await screen.findByTestId('backup-destination')).toHaveTextContent(
-      '/tmp/puntovivo/backups/tenant-a'
+    await waitFor(() =>
+      expect(screen.getByTestId('backup-destination')).toHaveTextContent(
+        '/tmp/puntovivo/backups/tenant-a'
+      )
     );
     await user.selectOptions(screen.getByLabelText(/snapshot frequency/i), 'daily');
     await user.click(screen.getByRole('button', { name: /save schedule/i }));
