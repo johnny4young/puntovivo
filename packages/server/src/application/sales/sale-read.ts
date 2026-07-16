@@ -35,6 +35,7 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { buildFiscalQrPayload } from '../../services/fiscal/qr-builder.js';
 import { readMxFiscalSettings } from '../../services/fiscal/packs/mx/settings.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
+import { listSaleItemSerialNumbers } from '../../services/product-serials.js';
 
 export async function getSaleRecord(db: DatabaseInstance, tenantId: string, saleId: string) {
   const sale = await db
@@ -133,6 +134,15 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
     .where(eq(saleItems.saleId, saleId))
     .all();
 
+  const serialNumbersByItem = listSaleItemSerialNumbers(db, {
+    tenantId,
+    saleItemIds: items.map(item => item.id),
+  });
+  const itemsWithSerials = items.map(item => ({
+    ...item,
+    serialNumbers: serialNumbersByItem.get(item.id) ?? [],
+  }));
+
   // Phase 2 Tier-2 step 5 — every sale has at least one payment row now.
   const payments = await db
     .select({
@@ -149,7 +159,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
 
   const fiscalDocumentsList = await loadFiscalDocumentsForSale(db, tenantId, saleId);
 
-  return { ...sale, items, payments, fiscalDocuments: fiscalDocumentsList };
+  return { ...sale, items: itemsWithSerials, payments, fiscalDocuments: fiscalDocumentsList };
 }
 
 /**

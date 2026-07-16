@@ -282,6 +282,22 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('sales')
       );
     }
+    // ENG-110c — serialized inventory creates tenant/product/sale child
+    // tables and ALTERs products. The purchase-only adoption fixture has
+    // none of those targets, so advance the marker only for that same narrow
+    // shape; mixed partial databases must still run the migration.
+    if (entry.tag === '0024_eng110c_product_serials') {
+      return (
+        !tableExists('products') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

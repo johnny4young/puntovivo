@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMockProduct, render } from '@/test/utils';
 import type { ProductSearchSelection } from '@/types';
 import { InventoryEntryModal } from './InventoryEntryModal';
+import { parseSerialNumbers } from './serialNumbers';
 
 function trackedSelection(): ProductSearchSelection {
   return {
@@ -18,6 +19,13 @@ function trackedSelection(): ProductSearchSelection {
       isBase: true,
     },
     price: 10,
+  };
+}
+
+function serializedSelection(): ProductSearchSelection {
+  return {
+    ...trackedSelection(),
+    product: createMockProduct({ tracksLots: false, tracksSerials: true, stock: 0 }),
   };
 }
 
@@ -54,6 +62,51 @@ describe('InventoryEntryModal (ENG-110a)', () => {
           expiresAt: '2026-12-31',
           quantity: 6,
           cost: 4.5,
+        }),
+        expect.anything()
+      )
+    );
+  });
+
+  it('normalizes serialized identities and derives quantity from unique physical units', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <InventoryEntryModal
+        isOpen
+        selection={serializedSelection()}
+        siteId="site-1"
+        siteName="Main site"
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    expect(screen.getByRole('heading', { name: 'Receive Serialized Units' })).toBeVisible();
+    expect(screen.queryByLabelText('Lot number')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Serial numbers'), {
+      target: { value: ' sn-a \nＳＮ－Ｂ\nSN-A' },
+    });
+
+    expect(parseSerialNumbers(' sn-a \nＳＮ－Ｂ\nSN-A')).toEqual(['SN-A', 'SN-B']);
+    expect(screen.getByText('2 unique serials')).toBeVisible();
+    await waitFor(() => expect(screen.getByLabelText('Serialized units')).toHaveValue(2));
+    expect(screen.getByLabelText('Serialized units')).toHaveAttribute('readonly');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Entry' }));
+    expect(await screen.findByText('Remove duplicate serial numbers before saving')).toBeVisible();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Serial numbers'), {
+      target: { value: ' sn-a \nＳＮ－Ｂ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Entry' }));
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serialNumbers: ' sn-a \nＳＮ－Ｂ',
+          quantity: 2,
         }),
         expect.anything()
       )

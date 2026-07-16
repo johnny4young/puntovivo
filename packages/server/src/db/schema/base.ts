@@ -139,6 +139,18 @@ export const initialInventoryModeEnum = ['initial', 'physical'] as const;
 export const lotStatusEnum = ['active', 'depleted', 'expired', 'quarantined'] as const;
 export type LotStatus = (typeof lotStatusEnum)[number];
 
+// ENG-110c — one lifecycle state per individually tracked physical unit.
+// `returned` remains sellable after inspection, while preserving the fact
+// that the unit came back from a completed sale until it is sold again.
+export const productSerialStatusEnum = [
+  'in_stock',
+  'reserved',
+  'sold',
+  'returned',
+  'defective',
+] as const;
+export type ProductSerialStatus = (typeof productSerialStatusEnum)[number];
+
 /**
  * Physical dimension of a measurement unit (Auditoría 2026-07 — units
  * foundation). Groups otherwise free-form tenant units so the app can

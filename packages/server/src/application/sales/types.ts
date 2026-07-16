@@ -69,6 +69,7 @@ export interface CompleteSaleItemInput {
   // ENG-179b — explicit `| undefined` on Zod-optional fields.
   taxRate?: number | null | undefined;
   notes?: string | null | undefined;
+  serialIds?: string[] | undefined;
 }
 
 /**

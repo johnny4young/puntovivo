@@ -157,6 +157,14 @@ export async function createProductVariantMatrix(
         details: { parentProductId: parent.id, catalogType: parent.catalogType },
       });
     }
+    if (parent.tracksSerials) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'PRODUCT_SERIAL_VARIANT_PARENT_UNSUPPORTED',
+        message: 'A serial-tracked product cannot become a variant matrix parent',
+        details: { parentProductId: parent.id },
+      });
+    }
 
     // A historical or deferred document can still reverse/receive stock in a
     // later command. Converting such a product would either strand that stock
@@ -322,6 +330,7 @@ export async function createProductVariantMatrix(
       fractionStep: parent.fractionStep,
       fractionMinimum: parent.fractionMinimum,
       tracksLots: parent.tracksLots,
+      tracksSerials: parent.tracksSerials,
       catalogType: 'variant' as const,
       variantParentId: parent.id,
       variantAxes: null,

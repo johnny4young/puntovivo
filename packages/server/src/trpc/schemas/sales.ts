@@ -43,6 +43,7 @@ export const saleItemInput = z
     // strings collapse to null at the resolver to keep the column
     // semantically two-state: present (real note) or absent.
     notes: z.string().trim().max(280).nullable().optional(),
+    serialIds: z.array(z.string().min(1)).max(100).optional(),
   })
   .strict();
 

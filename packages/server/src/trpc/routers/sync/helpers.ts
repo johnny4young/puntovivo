@@ -68,6 +68,11 @@ export const syncEntityConfig = {
     supportsSyncMetadata: true,
     touchUpdatedAt: true,
   },
+  product_serials: {
+    tableName: 'product_serials',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
   logos: { tableName: 'logos', supportsSyncMetadata: false, touchUpdatedAt: false },
   locations: { tableName: 'locations', supportsSyncMetadata: false, touchUpdatedAt: false },
   location_x_site: { tableName: 'location_x_site', supportsSyncMetadata: false, touchUpdatedAt: false },
@@ -85,6 +90,11 @@ export const syncEntityConfig = {
   purchase_returns: { tableName: 'purchase_returns', supportsSyncMetadata: true, touchUpdatedAt: true },
   regime_types: { tableName: 'regime_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
+  sale_item_serials: {
+    tableName: 'sale_item_serials',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
   sale_returns: { tableName: 'sale_returns', supportsSyncMetadata: true, touchUpdatedAt: true },
   sales: { tableName: 'sales', supportsSyncMetadata: true, touchUpdatedAt: true },
   sequentials: { tableName: 'sequentials', supportsSyncMetadata: false, touchUpdatedAt: false },

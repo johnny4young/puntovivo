@@ -154,6 +154,7 @@ export function useSalesFlows({
           unitPrice: item.unitPrice,
           discount: item.discount,
           taxRate: item.taxRate,
+          serialIds: item.serialIds ?? [],
         })),
         paymentMethod: payment.paymentMethod,
         paymentStatus: payment.paymentStatus,
@@ -211,6 +212,7 @@ export function useSalesFlows({
           unitPrice: item.unitPrice,
           discount: item.discount,
           taxRate: item.taxRate,
+          serialIds: item.serialIds ?? [],
         })),
         paymentMethod: 'cash',
         paymentStatus: 'pending',
@@ -322,6 +324,8 @@ export function useSalesFlows({
         sellByFraction: false,
         fractionStep: null,
         fractionMinimum: null,
+        tracksSerials: false,
+        serialIds: [],
       }));
       useCartWorkspaceStore.getState().hydrateFromResumed({
         ownerKey,

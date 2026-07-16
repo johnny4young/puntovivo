@@ -249,7 +249,9 @@
     "entrySuccess": "Initial inventory recorded",
     "entryError": "Unable to record inventory entry",
     "lotSuccess": "Lot received",
-    "lotError": "Unable to receive lot"
+    "lotError": "Unable to receive lot",
+    "serialSuccess": "Serial units received",
+    "serialError": "Unable to receive serial units"
   },
   "adjustment": {
     "title": "Adjust {{name}}",
@@ -263,6 +265,7 @@
     "lowStockThreshold": "Low stock threshold",
     "siteScope": "This adjustment updates the active site balance: {{site}}.",
     "lotTrackedHelp": "This product tracks lots. Receive a named lot instead of editing aggregate stock.",
+    "serialTrackedHelp": "This product tracks serial numbers. Receive or sell exact units instead of editing aggregate stock.",
     "notesPlaceholder": "Reason for the adjustment",
     "stockMin": "Stock must be zero or greater"
   },
@@ -271,6 +274,7 @@
     "titlePhysical": "Record Physical Inventory",
     "titleDefault": "Record Inventory",
     "titleLot": "Receive Inventory Lot",
+    "titleSerial": "Receive Serialized Units",
     "cancel": "Cancel",
     "submitting": "Saving...",
     "save": "Save Entry",
@@ -280,6 +284,16 @@
     "modeInitial": "{{label}} (accumulate)",
     "modePhysical": "{{label}} (replace)",
     "lotModeHelp": "This product tracks lots. The receipt updates the named batch and the active site's stock atomically.",
+    "serialModeHelp": "Enter one serial number per physical unit. The receipt adds the exact units and active-site stock atomically.",
+    "serialNumbers": "Serial numbers",
+    "serialNumbersPlaceholder": "One serial per line\nSN-0001\nSN-0002",
+    "serialNumbersRequired": "Enter at least one serial number",
+    "serialNumbersDuplicate": "Remove duplicate serial numbers before saving",
+    "serialCount_one": "{{count}} unique serial",
+    "serialCount_other": "{{count}} unique serials",
+    "warrantyExpiresAt": "Warranty expiry (optional)",
+    "serialQuantity": "Serialized units",
+    "serialSiteRequired": "Select an active site before receiving serial units.",
     "lotNumber": "Lot number",
     "lotNumberRequired": "Lot number is required",
     "expiresAt": "Expiry date (optional)",
@@ -291,6 +305,29 @@
     "quantityMin": "Quantity must be greater than zero",
     "costMin": "Cost must be zero or greater",
     "notesPlaceholder": "Optional reason or count reference"
+  },
+  "serialLookup": {
+    "kicker": "Serial traceability",
+    "title": "Warranty lookup",
+    "description": "Find the current unit, latest sale, customer, and warranty date by exact serial number.",
+    "inputLabel": "Serial number",
+    "placeholder": "Enter a serial number",
+    "search": "Look up",
+    "loading": "Looking up serial…",
+    "notFound": "No unit was found with serial {{serial}}.",
+    "product": "Product",
+    "status": "Status",
+    "sale": "Latest sale",
+    "warranty": "Warranty through",
+    "noSale": "Not sold",
+    "noWarranty": "Not recorded",
+    "statuses": {
+      "in_stock": "In stock",
+      "reserved": "Reserved in draft",
+      "sold": "Sold",
+      "returned": "Returned",
+      "defective": "Defective"
+    }
   },
   "purchases": {
     "cancel": "Cancel",

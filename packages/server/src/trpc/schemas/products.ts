@@ -108,6 +108,7 @@ export const createProductInput = z
       .nullable()
       .optional(),
     tracksLots: z.boolean().default(false),
+    tracksSerials: z.boolean().default(false),
     isActive: z.boolean().default(true),
     barcode: z.string().nullable().optional(),
     imageUrl: productImageUrl,
@@ -166,6 +167,7 @@ export const updateProductInput = z
       .nullable()
       .optional(),
     tracksLots: z.boolean().optional(),
+    tracksSerials: z.boolean().optional(),
     isActive: z.boolean().optional(),
     barcode: z.string().nullable().optional(),
     imageUrl: productImageUrl,

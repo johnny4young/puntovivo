@@ -11,6 +11,7 @@ import {
   type InventoryAdjustmentProduct,
 } from '@/features/inventory/InventoryAdjustmentModal';
 import type { InventoryEntryFormValues } from '@/features/inventory/InventoryEntryModal';
+import { parseSerialNumbers } from '@/features/inventory/serialNumbers';
 import { InventoryBalancesPanel } from '@/features/inventory/InventoryBalancesPanel';
 import { InventoryStockDetailsDrawer } from '@/features/inventory/InventoryStockDetailsDrawer';
 import { InventoryMovementDetailsDrawer } from '@/features/inventory/InventoryMovementDetailsDrawer';
@@ -51,6 +52,15 @@ const InventoryEntryModal = lazy(() =>
   }))
 );
 
+// ENG-110c — warranty traceability is a self-contained secondary panel. Keep
+// its query + presentation code out of the already budget-sensitive inventory
+// route chunk and stream it immediately after the primary inventory shell.
+const SerialWarrantyLookup = lazy(() =>
+  import('@/features/inventory/SerialWarrantyLookup').then(module => ({
+    default: module.SerialWarrantyLookup,
+  }))
+);
+
 function canManageInventory(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
 }
@@ -63,6 +73,7 @@ function mapStockItemToAdjustmentProduct(product: InventoryStockItem): Inventory
     stock: product.stock,
     minStock: product.minStock,
     tracksLots: product.tracksLots,
+    tracksSerials: product.tracksSerials,
     categoryName: product.categoryName,
   };
 }
@@ -77,6 +88,7 @@ function mapSearchSelectionToAdjustmentProduct(
     stock: selection.product.stock,
     minStock: selection.product.minStock,
     tracksLots: selection.product.tracksLots,
+    tracksSerials: selection.product.tracksSerials,
     categoryName: selection.product.categoryName,
   };
 }
@@ -198,6 +210,24 @@ export function InventoryPage() {
     onError: onErrorToast(toast, t, { titleKey: 'inventory:toast.lotError' }),
   });
 
+  const receiveSerialsMutation = trpc.productSerials.receive.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.productSerials.list.invalidate(),
+        utils.inventoryLots.list.invalidate(),
+        utils.inventoryLots.expiring.invalidate(),
+        utils.inventory.listMovements.invalidate(),
+        utils.inventory.listStock.invalidate(),
+        utils.inventory.listBalancesBySite.invalidate(),
+        utils.products.list.invalidate(),
+      ]);
+      setEntrySelection(null);
+      setIsSearchOpen(false);
+      toast.success({ title: t('toast.serialSuccess') });
+    },
+    onError: onErrorToast(toast, t, { titleKey: 'inventory:toast.serialError' }),
+  });
+
   const categories = (categoriesQuery.data?.items ?? []) as Category[];
   const movements = (movementsQuery.data?.items ?? []) as InventoryMovement[];
   const stockItems = (stockQuery.data?.items ?? []) as InventoryStockItem[];
@@ -226,6 +256,7 @@ export function InventoryPage() {
   const openEntryModal = (selection: ProductSearchSelection) => {
     recordEntryMutation.reset();
     receiveLotMutation.reset();
+    receiveSerialsMutation.reset();
     setEntrySelection(selection);
     setEntryModalKey(current => current + 1);
   };
@@ -234,6 +265,7 @@ export function InventoryPage() {
     setEntrySelection(null);
     recordEntryMutation.reset();
     receiveLotMutation.reset();
+    receiveSerialsMutation.reset();
   };
 
   const handleAdjustmentSubmit = async (values: InventoryAdjustmentFormValues) => {
@@ -250,6 +282,19 @@ export function InventoryPage() {
 
   const handleEntrySubmit = async (values: InventoryEntryFormValues) => {
     if (!entrySelection) {
+      return;
+    }
+
+    if (entrySelection.product.tracksSerials) {
+      if (!currentSite?.id) return;
+      await receiveSerialsMutation.mutateAsync({
+        siteId: currentSite.id,
+        productId: entrySelection.product.id,
+        serialNumbers: parseSerialNumbers(values.serialNumbers),
+        unitCost: values.cost,
+        warrantyExpiresAt: values.warrantyExpiresAt || null,
+        notes: values.notes || undefined,
+      });
       return;
     }
 
@@ -336,6 +381,10 @@ export function InventoryPage() {
         entriesCount={entries.length}
         entriesLoading={entriesQuery.isLoading}
       />
+
+      <Suspense fallback={null}>
+        <SerialWarrantyLookup />
+      </Suspense>
 
       {activeView === 'balances' && (
         <InventoryBalancesPanel
@@ -450,9 +499,15 @@ export function InventoryPage() {
             selection={entrySelection}
             siteId={currentSite?.id}
             siteName={currentSite?.name}
-            isSaving={recordEntryMutation.isPending || receiveLotMutation.isPending}
+            isSaving={
+              recordEntryMutation.isPending ||
+              receiveLotMutation.isPending ||
+              receiveSerialsMutation.isPending
+            }
             error={
-              entrySelection.product.tracksLots
+              entrySelection.product.tracksSerials
+                ? (receiveSerialsMutation.error?.message ?? null)
+                : entrySelection.product.tracksLots
                 ? (receiveLotMutation.error?.message ?? null)
                 : (recordEntryMutation.error?.message ?? null)
             }

@@ -59,6 +59,7 @@ export function buildProductPayload(
     fractionStep: values.sellByFraction ? values.fractionStep : null,
     fractionMinimum: values.sellByFraction ? values.fractionMinimum : null,
     tracksLots: values.tracksLots,
+    tracksSerials: values.tracksSerials,
     isActive: values.isActive,
     unitAssignments: values.unitAssignments.map(assignment => ({
       unitId: assignment.unitId,

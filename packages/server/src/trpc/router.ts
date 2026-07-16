@@ -31,6 +31,7 @@ import { customersRouter } from './routers/customers.js';
 import { salesRouter } from './routers/sales/index.js';
 import { inventoryRouter } from './routers/inventory/index.js';
 import { inventoryLotsRouter } from './routers/inventoryLots.js';
+import { productSerialsRouter } from './routers/productSerials.js';
 import { locationsRouter } from './routers/locations.js';
 import { sitesRouter } from './routers/sites.js';
 import { syncRouter } from './routers/sync/index.js';
@@ -101,6 +102,7 @@ export const appRouter = router({
   sales: salesRouter,
   inventory: inventoryRouter,
   inventoryLots: inventoryLotsRouter,
+  productSerials: productSerialsRouter,
   locations: locationsRouter,
   sites: sitesRouter,
   sync: syncRouter,

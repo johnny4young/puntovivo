@@ -78,6 +78,7 @@ export function voidInventoryTransfer(
         quantity: transferOrderItems.quantity,
         receivedQuantity: transferOrderItems.receivedQuantity,
         tracksLots: products.tracksLots,
+        tracksSerials: products.tracksSerials,
         catalogType: products.catalogType,
       })
       .from(transferOrderItems)
@@ -148,6 +149,7 @@ export function voidInventoryTransfer(
     for (const item of itemsWithReversal) {
       assertAggregateStockMutationAllowed({
         tracksLots: item.tracksLots,
+        tracksSerials: item.tracksSerials,
         catalogType: item.catalogType,
         delta: item.quantity,
       });

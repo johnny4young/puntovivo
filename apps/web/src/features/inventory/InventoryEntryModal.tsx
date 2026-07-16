@@ -1,6 +1,10 @@
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import {
+  hasDuplicateSerialNumbers,
+  parseSerialNumbers,
+} from '@/features/inventory/serialNumbers';
 import type { InitialInventoryMode, ProductSearchSelection } from '@/types';
 
 export interface InventoryEntryFormValues {
@@ -9,6 +13,8 @@ export interface InventoryEntryFormValues {
   cost: number;
   lotNumber: string;
   expiresAt: string;
+  serialNumbers: string;
+  warrantyExpiresAt: string;
   notes: string;
 }
 
@@ -31,6 +37,8 @@ function mapSelectionToForm(selection: ProductSearchSelection | null): Inventory
     cost: selection?.product.initialCost ?? selection?.product.cost ?? 0,
     lotNumber: '',
     expiresAt: '',
+    serialNumbers: '',
+    warrantyExpiresAt: '',
     notes: '',
   };
 }
@@ -52,16 +60,30 @@ export function InventoryEntryModal({
 
   const handleSubmit = form.handleSubmit(onSubmit);
   const quantity = useWatch({ control: form.control, name: 'quantity' });
+  const serialNumbersText = useWatch({ control: form.control, name: 'serialNumbers' });
   const mode = useWatch({ control: form.control, name: 'mode' });
   const normalizedQuantity = (Number(quantity) || 0) * (selection?.unit.equivalence ?? 0);
   const tracksLots = selection?.product.tracksLots === true;
+  const tracksSerials = selection?.product.tracksSerials === true;
+  const serialCount = parseSerialNumbers(serialNumbersText).length;
+  const serialNumbersField = form.register('serialNumbers', {
+    validate: value => {
+      if (!tracksSerials) return true;
+      if (parseSerialNumbers(value).length === 0) {
+        return t('entry.serialNumbersRequired');
+      }
+      return !hasDuplicateSerialNumbers(value) || t('entry.serialNumbersDuplicate');
+    },
+  });
 
   const modalTitle = selection
-    ? tracksLots
-      ? t('entry.titleLot')
-      : mode === 'initial'
-        ? t('entry.titleInitial')
-        : t('entry.titlePhysical')
+    ? tracksSerials
+      ? t('entry.titleSerial')
+      : tracksLots
+        ? t('entry.titleLot')
+        : mode === 'initial'
+          ? t('entry.titleInitial')
+          : t('entry.titlePhysical')
     : t('entry.titleDefault');
 
   return (
@@ -77,7 +99,7 @@ export function InventoryEntryModal({
           <ModalButton
             variant="primary"
             onClick={handleSubmit}
-            disabled={isSaving || !selection || (tracksLots && !siteId)}
+            disabled={isSaving || !selection || ((tracksLots || tracksSerials) && !siteId)}
           >
             {isSaving ? t('entry.submitting') : t('entry.save')}
           </ModalButton>
@@ -107,7 +129,11 @@ export function InventoryEntryModal({
               </div>
             </div>
 
-            {tracksLots ? (
+            {tracksSerials ? (
+              <div className="rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-sm text-primary-800">
+                {t('entry.serialModeHelp')}
+              </div>
+            ) : tracksLots ? (
               <div className="rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-sm text-primary-800">
                 {t('entry.lotModeHelp')}
               </div>
@@ -127,7 +153,48 @@ export function InventoryEntryModal({
               </div>
             )}
 
-            {tracksLots && (
+            {tracksSerials && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label htmlFor="inventory-entry-serials" className="label">
+                    {t('entry.serialNumbers')}
+                  </label>
+                  <textarea
+                    id="inventory-entry-serials"
+                    className="input mt-1 min-h-[132px] font-mono"
+                    placeholder={t('entry.serialNumbersPlaceholder')}
+                    {...serialNumbersField}
+                    onChange={event => {
+                      void serialNumbersField.onChange(event);
+                      form.setValue('quantity', parseSerialNumbers(event.target.value).length, {
+                        shouldValidate: true,
+                      });
+                    }}
+                  />
+                  <p className="mt-1 text-xs text-secondary-500">
+                    {t('entry.serialCount', { count: serialCount })}
+                  </p>
+                  {form.formState.errors.serialNumbers && (
+                    <p className="mt-1 text-sm text-danger-500">
+                      {form.formState.errors.serialNumbers.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="inventory-entry-warranty" className="label">
+                    {t('entry.warrantyExpiresAt')}
+                  </label>
+                  <input
+                    id="inventory-entry-warranty"
+                    type="date"
+                    className="input mt-1"
+                    {...form.register('warrantyExpiresAt')}
+                  />
+                </div>
+              </div>
+            )}
+
+            {tracksLots && !tracksSerials && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label htmlFor="inventory-entry-lot-number" className="label">
@@ -164,7 +231,11 @@ export function InventoryEntryModal({
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label htmlFor="inventory-entry-quantity" className="label">
-                  {tracksLots ? t('entry.lotQuantity') : t('table.countedQty')}
+                  {tracksSerials
+                    ? t('entry.serialQuantity')
+                    : tracksLots
+                      ? t('entry.lotQuantity')
+                      : t('table.countedQty')}
                 </label>
                 <input
                   id="inventory-entry-quantity"
@@ -172,6 +243,8 @@ export function InventoryEntryModal({
                   min={0.000001}
                   step="any"
                   className="input mt-1"
+                  readOnly={tracksSerials}
+                  aria-readonly={tracksSerials}
                   {...form.register('quantity', {
                     valueAsNumber: true,
                     min: { value: 0.000001, message: t('entry.quantityMin') },
@@ -186,7 +259,7 @@ export function InventoryEntryModal({
 
               <div>
                 <label htmlFor="inventory-entry-cost" className="label">
-                  {tracksLots ? t('entry.lotUnitCost') : t('table.cost')}
+                  {tracksLots || tracksSerials ? t('entry.lotUnitCost') : t('table.cost')}
                 </label>
                 <input
                   id="inventory-entry-cost"
@@ -229,9 +302,9 @@ export function InventoryEntryModal({
                   {t('entry.siteScope', { site: siteName })}
                 </p>
               )}
-              {tracksLots && !siteId && (
+              {(tracksLots || tracksSerials) && !siteId && (
                 <p className="mt-3 text-xs leading-5 text-danger-600">
-                  {t('entry.lotSiteRequired')}
+                  {tracksSerials ? t('entry.serialSiteRequired') : t('entry.lotSiteRequired')}
                 </p>
               )}
             </div>

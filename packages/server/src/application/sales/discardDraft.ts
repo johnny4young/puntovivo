@@ -35,6 +35,7 @@ import {
   restoreLotsForSale,
 } from '../../services/inventory-lots/index.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
+import { transitionSaleSerials } from '../../services/product-serials.js';
 import type { CompleteSaleContext } from './types.js';
 
 const fallbackLog = createModuleLogger('application/sales/discardDraft');
@@ -179,6 +180,15 @@ export async function discardDraft(
         saleId: input.saleId,
         now,
       }).lotIds;
+      transitionSaleSerials(tx as unknown as typeof ctx.db, {
+        tenantId: ctx.tenantId,
+        saleItemIds: saleLineItems.map(item => item.id),
+        from: 'reserved',
+        to: 'in_stock',
+        clearSaleItem: true,
+        now,
+        syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+      });
     }
 
     tx.update(sales)

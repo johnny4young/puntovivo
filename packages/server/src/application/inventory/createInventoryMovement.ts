@@ -41,6 +41,7 @@ export async function createInventoryMovement(ctx: InventoryContext, input: Crea
   const stockDelta = newStock - previousStock;
   assertAggregateStockMutationAllowed({
     tracksLots: product.tracksLots,
+    tracksSerials: product.tracksSerials,
     catalogType: product.catalogType,
     delta: stockDelta,
   });

@@ -308,6 +308,24 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
       .get(eng142c!.when);
     expect(pinnedDualApproval).toBeUndefined();
+
+    const eng110b = readExpectedMigrations().find(
+      migration => migration.tag === '0023_eng110b_product_variants'
+    );
+    expect(eng110b).toBeDefined();
+    const pinnedVariants = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(eng110b!.when);
+    expect(pinnedVariants).toBeUndefined();
+
+    const eng110c = readExpectedMigrations().find(
+      migration => migration.tag === '0024_eng110c_product_serials'
+    );
+    expect(eng110c).toBeDefined();
+    const pinnedSerials = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(eng110c!.when);
+    expect(pinnedSerials).toBeUndefined();
     sqlite.close();
   });
 
@@ -352,6 +370,24 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
       .get(eng142c!.when);
     expect(pinnedDualApproval).toBeDefined();
+
+    const eng110b = readExpectedMigrations().find(
+      migration => migration.tag === '0023_eng110b_product_variants'
+    );
+    expect(eng110b).toBeDefined();
+    const pinnedVariants = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(eng110b!.when);
+    expect(pinnedVariants).toBeDefined();
+
+    const eng110c = readExpectedMigrations().find(
+      migration => migration.tag === '0024_eng110c_product_serials'
+    );
+    expect(eng110c).toBeDefined();
+    const pinnedSerials = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(eng110c!.when);
+    expect(pinnedSerials).toBeDefined();
     sqlite.close();
   });
 

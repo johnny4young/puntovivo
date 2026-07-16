@@ -57,6 +57,7 @@ export interface SalesScreenProps {
   saleError: CartProps['saleError'];
   handleQuantityChange: CartProps['onQuantityChange'];
   handleDiscountChange: CartProps['onDiscountChange'];
+  handleSerialSelectionChange: CartProps['onSerialSelectionChange'];
   handleRemoveItem: CartProps['onRemove'];
   setSelectedCartItemKey: CartProps['onSelectItem'];
   handleClearCart: CartProps['onClearCart'];
@@ -174,6 +175,7 @@ export function SalesScreen({
   saleError,
   handleQuantityChange,
   handleDiscountChange,
+  handleSerialSelectionChange,
   handleRemoveItem,
   setSelectedCartItemKey,
   handleClearCart,
@@ -300,6 +302,7 @@ export function SalesScreen({
             saleError={saleError}
             onQuantityChange={handleQuantityChange}
             onDiscountChange={handleDiscountChange}
+            onSerialSelectionChange={handleSerialSelectionChange}
             onRemove={handleRemoveItem}
             onSelectItem={setSelectedCartItemKey}
             onClearCart={handleClearCart}

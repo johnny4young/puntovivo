@@ -59,7 +59,7 @@ export function ProductDetailsDrawer({
       <button type="button" className="btn-outline" onClick={onClose}>
         {t('details.close')}
       </button>
-      {onManageVariants && product.catalogType !== 'variant' && (
+      {onManageVariants && product.catalogType !== 'variant' && !product.tracksSerials && (
         <button
           type="button"
           className="btn-outline flex items-center gap-2"
@@ -126,6 +126,16 @@ export function ProductDetailsDrawer({
                 {product.tracksLots
                   ? t('details.lotTrackingEnabled')
                   : t('details.lotTrackingDisabled')}
+              </span>
+            }
+          />
+          <DetailField
+            label={t('details.serialTracking')}
+            value={
+              <span className={cn('pv-badge', product.tracksSerials ? 'success' : 'neutral')}>
+                {product.tracksSerials
+                  ? t('details.serialTrackingEnabled')
+                  : t('details.serialTrackingDisabled')}
               </span>
             }
           />

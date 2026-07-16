@@ -31,6 +31,7 @@ export function createDefaultValues(): ProductFormValues {
     fractionStep: 0.01,
     fractionMinimum: 0.01,
     tracksLots: false,
+    tracksSerials: false,
     isActive: true,
     unitAssignments: [{ unitId: '', equivalence: 1, price: 0, isBase: true }],
     providerAssignments: [],
@@ -72,6 +73,7 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
     fractionStep: product.fractionStep ?? 0.01,
     fractionMinimum: product.fractionMinimum ?? 0.01,
     tracksLots: product.tracksLots,
+    tracksSerials: product.tracksSerials ?? false,
     isActive: product.isActive,
     unitAssignments: product.unitAssignments?.length
       ? product.unitAssignments.map(assignment => ({

@@ -42,6 +42,7 @@ import {
   restoreLotsForSale,
 } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
+import { transitionSaleSerials } from '../../services/product-serials.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import type { CompleteSaleContext, CompleteSaleResult } from './types.js';
 import {
@@ -272,6 +273,15 @@ export async function voidSale(
         saleId: input.id,
         now,
       }).lotIds;
+      transitionSaleSerials(tx as unknown as typeof ctx.db, {
+        tenantId: ctx.tenantId,
+        saleItemIds: saleLineItems.map(item => item.id),
+        from: 'sold',
+        to: 'in_stock',
+        clearSaleItem: true,
+        now,
+        syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+      });
 
       if (voidReversibleSessionId) {
         cashMovementId = insertCashMovement({

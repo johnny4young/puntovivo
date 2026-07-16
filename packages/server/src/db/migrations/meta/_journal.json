@@ -169,6 +169,13 @@
       "when": 1784214350746,
       "tag": "0023_eng110b_product_variants",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1784223838368,
+      "tag": "0024_eng110c_product_serials",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,7 @@ import {
   type SaleCartItem,
 } from '@/features/sales/saleCart';
 import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions';
+import { SaleSerialSelector } from '@/features/sales/SaleSerialSelector';
 
 interface SaleCartTableProps {
   items: SaleCartItem[];
@@ -19,6 +20,7 @@ interface SaleCartTableProps {
   onDiscountChange: (itemKey: string, discount: number) => void;
   onRemove: (itemKey: string) => void;
   onSelectItem: (itemKey: string) => void;
+  onSerialSelectionChange?: ((itemKey: string, serialIds: string[]) => void) | undefined;
   quantityInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   discountInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
 }
@@ -31,6 +33,7 @@ export function SaleCartTable({
   onDiscountChange,
   onRemove,
   onSelectItem,
+  onSerialSelectionChange = () => {},
   quantityInputRefFor,
   discountInputRefFor,
 }: SaleCartTableProps) {
@@ -101,6 +104,9 @@ export function SaleCartTable({
           const minimumQuantity = getSaleMinimumQuantity(item);
           const quantityStep = getSaleQuantityStep(item);
           const decrementDisabled = item.quantity - quantityStep < minimumQuantity;
+          const unavailableSerialIds = items
+            .filter(otherItem => otherItem.key !== item.key)
+            .flatMap(otherItem => otherItem.serialIds ?? []);
 
           return (
             <li
@@ -213,6 +219,18 @@ export function SaleCartTable({
                   </span>
                 </div>
               </div>
+
+              {item.tracksSerials && (
+                <SaleSerialSelector
+                  siteId={discountSuggestionSiteId ?? null}
+                  productId={item.productId}
+                  productName={item.productName}
+                  requiredCount={lineTotals.normalizedQuantity}
+                  selectedIds={item.serialIds ?? []}
+                  unavailableIds={unavailableSerialIds}
+                  onChange={serialIds => onSerialSelectionChange(item.key, serialIds)}
+                />
+              )}
 
               {/* Descuento + base + eliminar: controles secundarios, fuera de
                * la fila táctil principal. El input conserva el ref para Alt+D

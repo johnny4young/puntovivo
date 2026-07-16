@@ -50,6 +50,7 @@ import {
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import { getSaleRecord } from './sale-read.js';
+import { transitionSaleSerials } from '../../services/product-serials.js';
 import { updateOperationSummary } from '../../services/operation-journal/journal.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import type { CompleteSaleContext, CompleteSaleLogger, CompleteSaleResult } from './types.js';
@@ -359,6 +360,15 @@ export async function returnSale(
         saleId: input.id,
         now,
       }).lotIds;
+      transitionSaleSerials(tx as unknown as typeof ctx.db, {
+        tenantId: ctx.tenantId,
+        saleItemIds: saleLineItems.map(item => item.id),
+        from: 'sold',
+        to: 'returned',
+        clearSaleItem: true,
+        now,
+        syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+      });
 
       tx.insert(saleReturns)
         .values({

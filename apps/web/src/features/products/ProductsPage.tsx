@@ -246,7 +246,10 @@ export function ProductsPage() {
     // the stale stock value captured when the modal opened.
     const payload = buildProductPayload(values, {
       includeStock:
-        !editingProduct || (!values.tracksLots && editingProduct.catalogType !== 'variant_parent'),
+        !editingProduct ||
+        (!values.tracksLots &&
+          !values.tracksSerials &&
+          editingProduct.catalogType !== 'variant_parent'),
     });
 
     if (editingProduct) {

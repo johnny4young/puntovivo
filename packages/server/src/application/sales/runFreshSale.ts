@@ -31,6 +31,7 @@ import {
 } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   evaluateCheckoutLossPrevention,
@@ -44,6 +45,7 @@ import {
 } from '../../services/cash-session.js';
 import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
 import { consumeLotsForSaleLine } from '../../services/inventory-lots/index.js';
+import { assignProductSerialsToSaleLine } from '../../services/product-serials.js';
 import { inArray } from 'drizzle-orm';
 import {
   detectPriceOverrides,
@@ -193,21 +195,25 @@ export async function runFreshSale(
   // Fetched once so the per-line stock loop can FEFO-consume their lots
   // inside the same transaction; non-lot products keep the plain path.
   const lotTrackedProductIds = new Set<string>();
+  const serialTrackedProductIds = new Set<string>();
   {
     const cartProductIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
     if (cartProductIds.length > 0) {
       const lotRows = await ctx.db
-        .select({ id: products.id })
+        .select({
+          id: products.id,
+          tracksLots: products.tracksLots,
+          tracksSerials: products.tracksSerials,
+        })
         .from(products)
         .where(
-          and(
-            eq(products.tenantId, ctx.tenantId),
-            eq(products.tracksLots, true),
-            inArray(products.id, cartProductIds)
-          )
+          and(eq(products.tenantId, ctx.tenantId), inArray(products.id, cartProductIds))
         )
         .all();
-      for (const row of lotRows) lotTrackedProductIds.add(row.id);
+      for (const row of lotRows) {
+        if (row.tracksLots) lotTrackedProductIds.add(row.id);
+        if (row.tracksSerials) serialTrackedProductIds.add(row.id);
+      }
     }
   }
 
@@ -388,6 +394,33 @@ export async function runFreshSale(
           })
           .run();
 
+        if (serialTrackedProductIds.has(row.productId)) {
+          if (input.status !== 'draft' && input.status !== 'completed') {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'PRODUCT_SERIAL_SALE_STATUS_INVALID',
+              message: 'Serialized products can only be created as draft or completed sales',
+            });
+          }
+          assignProductSerialsToSaleLine(tx as unknown as typeof ctx.db, {
+            tenantId: ctx.tenantId,
+            siteId: saleSiteId,
+            productId: row.productId,
+            saleItemId: row.id,
+            serialIds: row.serialIds,
+            normalizedQuantity: row.normalizedQuantity,
+            targetStatus: input.status === 'completed' ? 'sold' : 'reserved',
+            now,
+            syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+          });
+        } else if (row.serialIds.length > 0) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'PRODUCT_SERIAL_SELECTION_NOT_ALLOWED',
+            message: 'Serial numbers were supplied for a product that does not track serials',
+          });
+        }
+
         const effectivePreviousStock = productStockState.get(row.productId) ?? 0;
         const newStock = effectivePreviousStock - row.normalizedQuantity;
         productStockState.set(row.productId, newStock);
@@ -420,6 +453,7 @@ export async function runFreshSale(
           productId: row.productId,
           delta: -row.normalizedQuantity,
           initialOnHandIfMissing: effectivePreviousStock,
+          serialAware: serialTrackedProductIds.has(row.productId),
           now,
         });
 

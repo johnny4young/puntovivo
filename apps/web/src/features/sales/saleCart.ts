@@ -20,6 +20,8 @@ export interface SaleCartItem {
   sellByFraction: boolean;
   fractionStep?: number | null | undefined;
   fractionMinimum?: number | null | undefined;
+  tracksSerials?: boolean | undefined;
+  serialIds?: string[] | undefined;
 }
 
 export interface SaleCartSummary {
@@ -71,12 +73,14 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     sellByFraction: selection.product.sellByFraction,
     fractionStep: selection.product.fractionStep,
     fractionMinimum: selection.product.fractionMinimum,
+    tracksSerials: selection.product.tracksSerials === true,
+    serialIds: [],
   };
 }
 
 export function updateCartItem(
   item: SaleCartItem,
-  updates: Partial<Pick<SaleCartItem, 'quantity' | 'discount' | 'unitPrice'>>
+  updates: Partial<Pick<SaleCartItem, 'quantity' | 'discount' | 'unitPrice' | 'serialIds'>>
 ): SaleCartItem {
   return {
     ...item,

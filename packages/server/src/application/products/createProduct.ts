@@ -9,7 +9,10 @@ import { roundMoney } from '../../lib/money.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
 import { applyInventoryBalanceDelta, getPrimarySiteId } from '../../services/inventory-balances.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
-import { assertCreateLotTrackingPolicy } from '../../services/products/lot-tracking.js';
+import {
+  assertCreateLotTrackingPolicy,
+  assertCreateSerialTrackingPolicy,
+} from '../../services/products/lot-tracking.js';
 import {
   getDefaultUnitAssignments,
   normalizeProviderState,
@@ -61,6 +64,13 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
     input.unitAssignments ??
       (await getDefaultUnitAssignments(ctx.db, ctx.tenantId, normalizedPricing.price))
   );
+  assertCreateSerialTrackingPolicy({
+    tracksSerials: input.tracksSerials,
+    tracksLots: input.tracksLots,
+    sellByFraction: input.sellByFraction,
+    unitEquivalences: resolvedUnitAssignments.map(assignment => assignment.equivalence),
+    stock: input.stock,
+  });
   const normalizedProviderState = normalizeProviderState({
     providerId: input.providerId,
     providerAssignments: input.providerAssignments,
@@ -114,6 +124,7 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
     fractionStep: resolvedFractionPolicy.fractionStep,
     fractionMinimum: resolvedFractionPolicy.fractionMinimum,
     tracksLots: input.tracksLots,
+    tracksSerials: input.tracksSerials,
     isActive: input.isActive,
     barcode: input.barcode ?? null,
     imageUrl: input.imageUrl ?? null,

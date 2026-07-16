@@ -13,7 +13,10 @@ import {
   getProductStockTotal,
 } from '../../services/inventory-balances.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
-import { assertUpdateLotTrackingPolicy } from '../../services/products/lot-tracking.js';
+import {
+  assertUpdateLotTrackingPolicy,
+  assertUpdateSerialTrackingPolicy,
+} from '../../services/products/lot-tracking.js';
 import {
   getExistingProviderAssignments,
   getExistingUnitAssignments,
@@ -135,6 +138,19 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     currentStock,
     requestedStock: updates.stock,
   });
+  const nextTracksSerials = updates.tracksSerials ?? existing.tracksSerials;
+  assertUpdateSerialTrackingPolicy({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    productId: id,
+    previousTracksSerials: existing.tracksSerials,
+    nextTracksSerials,
+    nextTracksLots,
+    nextSellByFraction: resolvedFractionPolicy.sellByFraction,
+    unitEquivalences: resolvedUnitAssignments.map(assignment => assignment.equivalence),
+    currentStock,
+    requestedStock: updates.stock,
+  });
   const updateData: Record<string, unknown> = {
     updatedAt: now,
     syncStatus: 'pending',
@@ -159,6 +175,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     fractionStep: resolvedFractionPolicy.fractionStep,
     fractionMinimum: resolvedFractionPolicy.fractionMinimum,
     tracksLots: nextTracksLots,
+    tracksSerials: nextTracksSerials,
   };
 
   if (updates.name !== undefined) updateData.name = updates.name;

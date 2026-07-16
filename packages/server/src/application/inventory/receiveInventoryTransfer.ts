@@ -140,6 +140,7 @@ export function receiveInventoryTransfer(
         productId: transferOrderItems.productId,
         quantity: transferOrderItems.quantity,
         tracksLots: products.tracksLots,
+        tracksSerials: products.tracksSerials,
         catalogType: products.catalogType,
       })
       .from(transferOrderItems)
@@ -158,6 +159,7 @@ export function receiveInventoryTransfer(
       const receivedQuantity = receivedByItemId.get(item.id) ?? item.quantity;
       assertAggregateStockMutationAllowed({
         tracksLots: item.tracksLots,
+        tracksSerials: item.tracksSerials,
         catalogType: item.catalogType,
         delta: receivedQuantity,
       });

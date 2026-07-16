@@ -54,6 +54,7 @@ export const productSelection = {
   fractionStep: products.fractionStep,
   fractionMinimum: products.fractionMinimum,
   tracksLots: products.tracksLots,
+  tracksSerials: products.tracksSerials,
   catalogType: products.catalogType,
   variantParentId: products.variantParentId,
   variantAxes: products.variantAxes,

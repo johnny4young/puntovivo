@@ -10,7 +10,11 @@ import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { SalesScreen } from '@/features/sales/SalesScreen';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
-import { getCartDiscountAmount, getCartSummary } from '@/features/sales/saleCart';
+import {
+  getCartDiscountAmount,
+  getCartSummary,
+  getLineTotals,
+} from '@/features/sales/saleCart';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
 import { useScannerFocusRestoration } from '@/features/sales/useScannerFocusRestoration';
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
@@ -99,6 +103,7 @@ export function SalesPage() {
     handleProductSelect,
     handleQuantityChange,
     handleDiscountChange,
+    handleSerialSelectionChange,
     handleRemoveItem,
     handleClearCart,
     handleUndoCart,
@@ -173,7 +178,14 @@ export function SalesPage() {
 
   const draftSummary = getCartSummary(cartItems);
   const approvalDiscountAmount = getCartDiscountAmount(cartItems);
-  const canCharge = !!currentSite && hasActiveCashSession && cartItems.length > 0;
+  const selectedSerialIds = cartItems.flatMap(item => item.serialIds ?? []);
+  const serialSelectionsComplete = cartItems.every(
+    item =>
+      !item.tracksSerials ||
+      (item.serialIds ?? []).length === getLineTotals(item).normalizedQuantity
+  ) && new Set(selectedSerialIds).size === selectedSerialIds.length;
+  const canCharge =
+    !!currentSite && hasActiveCashSession && cartItems.length > 0 && serialSelectionsComplete;
   const canCloseCashSession =
     !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
 
@@ -345,6 +357,7 @@ export function SalesPage() {
         saleError={saleError}
         handleQuantityChange={handleQuantityChange}
         handleDiscountChange={handleDiscountChange}
+        handleSerialSelectionChange={handleSerialSelectionChange}
         handleRemoveItem={handleRemoveItem}
         setSelectedCartItemKey={setSelectedCartItemKey}
         handleClearCart={handleClearCart}

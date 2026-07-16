@@ -57,6 +57,10 @@ export const SYNC_ENTITY_TYPES = [
   // it carries a conflict policy, but not independently enqueued — it rides
   // with the sale aggregate when that serialization lands. No sync columns.
   'sale_item_lots',
+  // ENG-110c — immutable per-sale serialized-unit provenance. Unlike the
+  // lot placeholder above, this bridge is independently enqueued atomically
+  // with the current product_serials transition.
+  'sale_item_serials',
   'cash_sessions',
   'cash_movements',
   // ENG-106b — attendance rows become legal/payroll evidence under ENG-140.
@@ -73,6 +77,7 @@ export const SYNC_ENTITY_TYPES = [
   'inventory_movements',
   'inventory_balances',
   'inventory_lots',
+  'product_serials',
   // ENG-199 — expiry-radar discount suggestions. Registered so the entity
   // carries a conflict policy from day one; enqueue wiring rides a later
   // sync slice (same reserved-placeholder posture as sale_item_lots).
@@ -132,6 +137,7 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   sale_payments: 'manual',
   sale_returns: 'manual',
   sale_item_lots: 'manual',
+  sale_item_serials: 'manual',
   cash_sessions: 'manual',
   cash_movements: 'manual',
   employee_shifts: 'manual',
@@ -143,6 +149,7 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   inventory_movements: 'manual',
   inventory_balances: 'manual',
   inventory_lots: 'manual',
+  product_serials: 'manual',
   price_suggestions: 'manual',
   initial_inventory: 'manual',
   transfer_orders: 'manual',

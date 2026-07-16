@@ -30,6 +30,7 @@ export async function adjustInventoryStock(ctx: CriticalInventoryContext, input:
   const delta = input.newStock - previousStock;
   assertAggregateStockMutationAllowed({
     tracksLots: product.tracksLots,
+    tracksSerials: product.tracksSerials,
     catalogType: product.catalogType,
     delta,
   });

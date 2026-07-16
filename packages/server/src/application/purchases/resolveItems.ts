@@ -86,6 +86,7 @@ export async function resolvePurchaseItems(
     const normalizedQuantity = getNormalizedPurchaseQuantity(item.quantity, assignment.equivalence);
     assertAggregateStockMutationAllowed({
       tracksLots: product.tracksLots,
+      tracksSerials: product.tracksSerials,
       catalogType: product.catalogType,
       delta: normalizedQuantity,
     });
@@ -136,6 +137,7 @@ export async function resolvePurchaseReturnItems(
       productId: purchaseItems.productId,
       productName: products.name,
       tracksLots: products.tracksLots,
+      tracksSerials: products.tracksSerials,
       catalogType: products.catalogType,
       quantity: purchaseItems.quantity,
       unitId: purchaseItems.unitId,
@@ -209,6 +211,7 @@ export async function resolvePurchaseReturnItems(
     );
     assertAggregateStockMutationAllowed({
       tracksLots: purchaseItem.tracksLots,
+      tracksSerials: purchaseItem.tracksSerials,
       catalogType: purchaseItem.catalogType,
       delta: -normalizedQuantity,
     });
@@ -259,6 +262,7 @@ export async function resolveOrderReceiptItems(
       productId: orderItems.productId,
       productName: products.name,
       tracksLots: products.tracksLots,
+      tracksSerials: products.tracksSerials,
       catalogType: products.catalogType,
       quantity: orderItems.quantity,
       unitId: orderItems.unitId,
@@ -369,6 +373,7 @@ export async function resolveOrderReceiptItems(
     );
     assertAggregateStockMutationAllowed({
       tracksLots: orderLine.tracksLots,
+      tracksSerials: orderLine.tracksSerials,
       catalogType: orderLine.catalogType,
       delta: normalizedQuantity,
     });

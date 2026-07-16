@@ -62,6 +62,46 @@ describe('resetTenantBySlug', () => {
         'reset-matrix-parent',
         '{"Size":"S"}'
       );
+    const serializedSaleLine = sqlite
+      .prepare(
+        `SELECT si.id AS sale_item_id, si.product_id, cs.site_id
+         FROM sale_items si
+         JOIN sales s ON s.id = si.sale_id
+         JOIN cash_sessions cs ON cs.id = s.cash_session_id
+         WHERE s.tenant_id = ?
+         LIMIT 1`
+      )
+      .get(seeded.tenantId) as
+      | { sale_item_id: string; product_id: string; site_id: string }
+      | undefined;
+    expect(serializedSaleLine).toBeDefined();
+    sqlite
+      .prepare(
+        `INSERT INTO product_serials
+          (id, tenant_id, current_site_id, product_id, serial_number, status, sale_item_id)
+         VALUES (?, ?, ?, ?, ?, 'sold', ?)`
+      )
+      .run(
+        'reset-product-serial',
+        seeded.tenantId,
+        serializedSaleLine!.site_id,
+        serializedSaleLine!.product_id,
+        'RESET-SERIAL-1',
+        serializedSaleLine!.sale_item_id
+      );
+    sqlite
+      .prepare(
+        `INSERT INTO sale_item_serials
+          (id, tenant_id, sale_item_id, product_serial_id, serial_number)
+         VALUES (?, ?, ?, ?, ?)`
+      )
+      .run(
+        'reset-sale-item-serial',
+        seeded.tenantId,
+        serializedSaleLine!.sale_item_id,
+        'reset-product-serial',
+        'RESET-SERIAL-1'
+      );
 
     await expect(resetTenantBySlug(db, DEV_TENANT_SLUG)).resolves.toBe(seeded.tenantId);
 

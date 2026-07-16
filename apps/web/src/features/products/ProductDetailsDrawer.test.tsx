@@ -73,6 +73,20 @@ describe('ProductDetailsDrawer (ENG-132a)', () => {
     expect(onManageVariants).toHaveBeenCalledWith(product);
   });
 
+  it('hides variant creation for a serial-tracked product', () => {
+    render(
+      <ProductDetailsDrawer
+        product={{ ...product, tracksSerials: true }}
+        onClose={vi.fn()}
+        onManageVariants={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /create variants|crear variantes/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('hides the Edit action when onEdit is not provided (read-only roles)', () => {
     render(<ProductDetailsDrawer product={product} onClose={vi.fn()} />);
 

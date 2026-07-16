@@ -149,7 +149,26 @@ export function useSalesCart({
     if (isResumedCart) return;
     setCartItems(currentItems =>
       currentItems.map(item =>
-        item.key === itemKey ? updateCartItem(item, { quantity }) : item
+        item.key === itemKey
+          ? updateCartItem(item, {
+              quantity,
+              serialIds: item.tracksSerials
+                ? (item.serialIds ?? []).slice(
+                    0,
+                    Math.max(0, Math.floor(quantity * item.unitEquivalence))
+                  )
+                : (item.serialIds ?? []),
+            })
+          : item
+      )
+    );
+  };
+
+  const handleSerialSelectionChange = (itemKey: string, serialIds: string[]) => {
+    if (isResumedCart) return;
+    setCartItems(currentItems =>
+      currentItems.map(item =>
+        item.key === itemKey ? updateCartItem(item, { serialIds }) : item
       )
     );
   };
@@ -214,6 +233,7 @@ export function useSalesCart({
     handleProductSelect,
     handleQuantityChange,
     handleDiscountChange,
+    handleSerialSelectionChange,
     handleRemoveItem,
     handleClearCart,
     handleUndoCart,

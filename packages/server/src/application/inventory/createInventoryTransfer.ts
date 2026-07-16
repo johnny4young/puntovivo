@@ -86,6 +86,7 @@ export function createInventoryTransfer(
         name: products.name,
         sku: products.sku,
         tracksLots: products.tracksLots,
+        tracksSerials: products.tracksSerials,
         catalogType: products.catalogType,
       })
       .from(products)
@@ -129,6 +130,7 @@ export function createInventoryTransfer(
       const product = productById.get(productId)!;
       assertAggregateStockMutationAllowed({
         tracksLots: product.tracksLots,
+        tracksSerials: product.tracksSerials,
         catalogType: product.catalogType,
         delta: -quantity,
       });

@@ -64,6 +64,7 @@ export interface UseProductFormReturn {
   fractionMinimumField: UseFormRegisterReturn<'fractionMinimum'>;
   sellByFractionField: UseFormRegisterReturn<'sellByFraction'>;
   tracksLotsField: UseFormRegisterReturn<'tracksLots'>;
+  tracksSerialsField: UseFormRegisterReturn<'tracksSerials'>;
   vatRateField: UseFormRegisterReturn<'vatRateId'>;
   syncTier: (
     priceField: PricingField,
@@ -77,6 +78,7 @@ export interface UseProductFormReturn {
   selectedVatRateId: string;
   sellByFraction: boolean;
   tracksLots: boolean;
+  tracksSerials: boolean;
   isActive: boolean;
 }
 
@@ -179,17 +181,28 @@ export function useProductForm({
   const stockField = form.register('stock', {
     min: 0,
     valueAsNumber: true,
-    validate: value =>
-      !form.getValues('tracksLots') ||
-      (product?.tracksLots === true && value === product.stock) ||
-      value === 0 ||
-      t('form.fields.tracksLotsStockError'),
+    validate: value => {
+      const tracksLots = form.getValues('tracksLots');
+      const tracksSerials = form.getValues('tracksSerials');
+      if (!tracksLots && !tracksSerials) return true;
+      if (
+        (product?.tracksLots === true || product?.tracksSerials === true) &&
+        value === product.stock
+      ) {
+        return true;
+      }
+      if (value === 0) return true;
+      return tracksSerials
+        ? t('form.fields.trackedStockError')
+        : t('form.fields.tracksLotsStockError');
+    },
   });
   const minStockField = form.register('minStock', { min: 0, valueAsNumber: true });
   const fractionStepField = form.register('fractionStep', { min: 0.01, valueAsNumber: true });
   const fractionMinimumField = form.register('fractionMinimum', { min: 0.01, valueAsNumber: true });
   const sellByFractionField = form.register('sellByFraction');
   const tracksLotsField = form.register('tracksLots');
+  const tracksSerialsField = form.register('tracksSerials');
   const vatRateField = form.register('vatRateId');
   const sellByFraction = useWatch({
     control: form.control,
@@ -198,6 +211,10 @@ export function useProductForm({
   const tracksLots = useWatch({
     control: form.control,
     name: 'tracksLots',
+  });
+  const tracksSerials = useWatch({
+    control: form.control,
+    name: 'tracksSerials',
   });
   const isActive = useWatch({
     control: form.control,
@@ -234,6 +251,7 @@ export function useProductForm({
     fractionMinimumField,
     sellByFractionField,
     tracksLotsField,
+    tracksSerialsField,
     vatRateField,
     syncTier,
     syncAllTiersFromCost,
@@ -242,6 +260,7 @@ export function useProductForm({
     selectedVatRateId,
     sellByFraction,
     tracksLots,
+    tracksSerials,
     isActive,
   };
 }

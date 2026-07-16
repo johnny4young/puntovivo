@@ -207,6 +207,7 @@ export function SalesModals({
                       sellByFraction: created.sellByFraction,
                       fractionStep: created.fractionStep,
                       fractionMinimum: created.fractionMinimum,
+                      tracksSerials: created.tracksSerials,
                     } as Parameters<typeof mergeCartItem>[1]['product'],
                     unit: defaultUnit,
                     price: defaultUnit.price,

@@ -82,6 +82,12 @@ export function SaleDetailsContent({
                         {' · '}
                         {item.unitName ?? item.unitAbbreviation ?? item.unitId ?? t('details.unit')}
                       </p>
+                      {(item.serialNumbers?.length ?? 0) > 0 && (
+                        <p className="mt-1 text-xs text-secondary-600">
+                          {t('details.serials')}: {' '}
+                          <span className="font-mono">{item.serialNumbers?.join(', ')}</span>
+                        </p>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-secondary-700">{item.quantity}</td>

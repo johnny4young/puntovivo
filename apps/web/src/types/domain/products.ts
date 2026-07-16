@@ -35,6 +35,7 @@ export interface Product {
   fractionStep?: number | null | undefined;
   fractionMinimum?: number | null | undefined;
   tracksLots: boolean;
+  tracksSerials?: boolean | undefined;
   catalogType?: 'standard' | 'variant_parent' | 'variant' | undefined;
   variantParentId?: string | null | undefined;
   variantAxes?: ProductVariantAxis[] | null | undefined;

@@ -294,6 +294,7 @@ export async function commitLaunchProductImport(
         minStock: row.normalized.minStock,
         sellByFraction: false,
         tracksLots: row.normalized.tracksLots,
+        tracksSerials: false,
         isActive: true,
         barcode: row.normalized.barcode,
       });

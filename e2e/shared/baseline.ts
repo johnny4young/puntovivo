@@ -509,6 +509,15 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // the same children by product id so the cleanup is idempotent against
   // any historical state.
   db.prepare(`delete from sale_items where product_id in (${e2eProductIds})`).run(tenantId);
+  // ENG-110c — sale_item_serials cascades with the sale lines above, then
+  // the current serial registry must be removed before its product parent.
+  if (
+    db
+      .prepare("select 1 from sqlite_master where type = 'table' and name = 'product_serials'")
+      .get()
+  ) {
+    db.prepare(`delete from product_serials where product_id in (${e2eProductIds})`).run(tenantId);
+  }
   db.prepare(`delete from purchase_items where product_id in (${e2eProductIds})`).run(tenantId);
   db.prepare(`delete from purchase_return_items where product_id in (${e2eProductIds})`).run(
     tenantId

@@ -82,6 +82,16 @@
     },
     "discountSuggested": "Suggested -{{pct}}%"
   },
+  "serials": {
+    "title": "Serials for {{name}}",
+    "progress": "{{selected}} / {{required}} selected",
+    "siteRequired": "Select an active site to load serial numbers.",
+    "loading": "Loading available serials…",
+    "noneAvailable": "No sellable serial numbers are available at this site.",
+    "returned": "Returned",
+    "usedInAnotherLine": "Used in another line",
+    "selectionRequired": "Select one exact serial for every base unit before charging."
+  },
   "cashSession": {
     "title": "Cash session",
     "active": "Cash session active",
@@ -393,6 +403,7 @@
     "notes": "Notes",
     "noSku": "No SKU",
     "unit": "Unit",
+    "serials": "Serial numbers",
     "paymentsHeading": "Payments",
     "paymentsSplit": "Settled with {{count}} tenders",
     "paymentsMethod": "Method",

@@ -10,6 +10,7 @@ export interface InventoryAdjustmentProduct {
   stock: number;
   minStock: number;
   tracksLots: boolean;
+  tracksSerials?: boolean | undefined;
   categoryName?: string | null | undefined;
 }
 
@@ -69,7 +70,9 @@ export function InventoryAdjustmentModal({
           <ModalButton
             variant="primary"
             onClick={handleSubmit}
-            disabled={isSaving || !product || product.tracksLots}
+            disabled={
+              isSaving || !product || product.tracksLots || product.tracksSerials === true
+            }
           >
             {isSaving ? t('adjustment.submitting') : t('adjustment.save')}
           </ModalButton>
@@ -102,6 +105,11 @@ export function InventoryAdjustmentModal({
                 {t('adjustment.lotTrackedHelp')}
               </div>
             )}
+            {product.tracksSerials && (
+              <div className="rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-sm text-primary-800">
+                {t('adjustment.serialTrackedHelp')}
+              </div>
+            )}
 
             <div>
               <label htmlFor="inventory-new-stock" className="label">
@@ -113,8 +121,8 @@ export function InventoryAdjustmentModal({
                 min={0}
                 step="any"
                 className="input mt-1"
-                readOnly={product.tracksLots}
-                aria-readonly={product.tracksLots}
+                readOnly={product.tracksLots || product.tracksSerials}
+                aria-readonly={product.tracksLots || product.tracksSerials}
                 {...form.register('newStock', {
                   valueAsNumber: true,
                   min: { value: 0, message: t('adjustment.stockMin') },

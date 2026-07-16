@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useWatch } from 'react-hook-form';
 import type { LookupOption } from './productForm.types';
+import { validateSerialUnitEquivalence } from './serialTracking';
 import type { UseProductFormReturn } from './useProductForm';
 
 interface ProductUnitsTabProps {
@@ -45,6 +46,8 @@ export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
         <div className="space-y-4">
           {unitAssignmentsFieldArray.fields.map((field, index) => {
             const isBase = unitAssignments?.[index]?.isBase ?? false;
+            const equivalenceError =
+              form.formState.errors.unitAssignments?.[index]?.equivalence?.message;
             return (
               <div key={field.id} className="grid grid-cols-2 gap-4 rounded-lg border border-secondary-200 p-4">
                 <div className="pv-field">
@@ -70,12 +73,21 @@ export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
                     step="0.01"
                     min="0.01"
                     disabled={isBase}
-                    className="pv-input"
+                    className={`pv-input ${equivalenceError ? 'error' : ''}`}
                     {...form.register(`unitAssignments.${index}.equivalence` as const, {
                       min: 0.01,
                       valueAsNumber: true,
+                      validate: value =>
+                        validateSerialUnitEquivalence(
+                          form.getValues('tracksSerials'),
+                          value,
+                          t('form.units.serialEquivalenceRequired')
+                        ),
                     })}
                   />
+                  {equivalenceError && (
+                    <p className="mt-1 text-sm text-danger-500">{equivalenceError}</p>
+                  )}
                 </div>
                 <div className="pv-field">
                   <label className="label">{t('form.units.unitPrice')}</label>

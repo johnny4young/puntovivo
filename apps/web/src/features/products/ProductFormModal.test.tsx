@@ -386,6 +386,28 @@ describe('ProductFormModal — AI category suggestion (ENG-078)', () => {
     ).toBeInTheDocument();
   });
 
+  it('ENG-110c — makes serial tracking exclusive and locks aggregate stock', () => {
+    renderModal({ mode: 'create' });
+    const stock = screen.getByLabelText('Stock') as HTMLInputElement;
+    const serialToggle = screen.getByRole('checkbox', { name: 'Track serial numbers' });
+    const lotToggle = screen.getByRole('checkbox', { name: 'Track lots and expiry' });
+    const fractionToggle = screen.getByRole('checkbox', { name: 'Allow fractional sales' });
+
+    fireEvent.click(lotToggle);
+    expect(lotToggle).toBeChecked();
+    fireEvent.click(serialToggle);
+    expect(serialToggle).toBeChecked();
+    expect(lotToggle).not.toBeChecked();
+    expect(fractionToggle).not.toBeChecked();
+    expect(stock).toHaveAttribute('readonly');
+    expect(screen.getByText(/Stock is managed from serial-aware inventory receipts/)).toBeVisible();
+
+    fireEvent.click(fractionToggle);
+    expect(fractionToggle).toBeChecked();
+    expect(serialToggle).not.toBeChecked();
+    expect(stock).not.toHaveAttribute('readonly');
+  });
+
   it('ENG-110a — permits metadata edits when persisted lot stock is positive', async () => {
     renderModal({ mode: 'edit', product: createMockProduct({ stock: 4, tracksLots: true }) });
 

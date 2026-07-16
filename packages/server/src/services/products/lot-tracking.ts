@@ -5,6 +5,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryBalances,
   inventoryLots,
+  productSerials,
   type ProductCatalogType,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -25,8 +26,40 @@ export function assertCreateLotTrackingPolicy(input: { tracksLots: boolean; stoc
   }
 }
 
+export function assertCreateSerialTrackingPolicy(input: {
+  tracksSerials: boolean;
+  tracksLots: boolean;
+  sellByFraction: boolean;
+  unitEquivalences: number[];
+  stock: number;
+}): void {
+  if (!input.tracksSerials) return;
+  if (!isZeroStock(input.stock)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERIAL_TRACKING_REQUIRES_ZERO_STOCK',
+      message: 'Serial tracking can only be enabled when product stock is zero',
+    });
+  }
+  if (input.tracksLots || input.sellByFraction) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERIAL_TRACKING_CONFLICT',
+      message: 'Serial tracking cannot be combined with lot or fractional tracking',
+    });
+  }
+  if (input.unitEquivalences.some(equivalence => !isZeroStock(equivalence - 1))) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERIAL_UNIT_EQUIVALENCE_REQUIRED',
+      message: 'Every sale unit for a serialized product must represent exactly one base unit',
+    });
+  }
+}
+
 export function assertAggregateStockMutationAllowed(input: {
   tracksLots: boolean;
+  tracksSerials?: boolean;
   catalogType: ProductCatalogType;
   delta: number;
 }): void {
@@ -36,6 +69,32 @@ export function assertAggregateStockMutationAllowed(input: {
       trpcCode: 'BAD_REQUEST',
       errorCode: 'PRODUCT_LOT_TRACKING_STOCK_MANAGED',
       message: 'Lot-tracked stock must be changed through lot-aware inventory operations',
+    });
+  }
+  if (input.tracksSerials && !isZeroStock(input.delta)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERIAL_TRACKING_STOCK_MANAGED',
+      message: 'Serialized stock must be changed through serial-aware inventory operations',
+    });
+  }
+}
+
+/**
+ * ENG-110c — central fail-closed guard for every inventory balance writer.
+ * Serial-aware workflows must opt in explicitly after they have written the
+ * corresponding registry identities in the same transaction.
+ */
+export function assertSerialStockMutationAllowed(input: {
+  tracksSerials: boolean;
+  serialAware: boolean;
+  delta: number;
+}): void {
+  if (input.tracksSerials && !input.serialAware && !isZeroStock(input.delta)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERIAL_TRACKING_STOCK_MANAGED',
+      message: 'Serialized stock must be changed through serial-aware inventory operations',
     });
   }
 }
@@ -118,6 +177,81 @@ export function assertUpdateLotTrackingPolicy(input: {
         trpcCode: 'CONFLICT',
         errorCode: 'PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS',
         message: 'Lot tracking cannot be disabled while a lot has non-zero stock',
+      });
+    }
+  }
+}
+
+export function assertUpdateSerialTrackingPolicy(input: {
+  db: DatabaseInstance;
+  tenantId: string;
+  productId: string;
+  previousTracksSerials: boolean;
+  nextTracksSerials: boolean;
+  nextTracksLots: boolean;
+  nextSellByFraction: boolean;
+  unitEquivalences: number[];
+  currentStock: number;
+  requestedStock?: number | undefined;
+}): void {
+  if (input.nextTracksSerials) {
+    if (input.nextTracksLots || input.nextSellByFraction) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'PRODUCT_SERIAL_TRACKING_CONFLICT',
+        message: 'Serial tracking cannot be combined with lot or fractional tracking',
+      });
+    }
+    if (input.unitEquivalences.some(equivalence => !isZeroStock(equivalence - 1))) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'PRODUCT_SERIAL_UNIT_EQUIVALENCE_REQUIRED',
+        message: 'Every sale unit for a serialized product must represent exactly one base unit',
+      });
+    }
+  }
+  if (!input.previousTracksSerials && input.nextTracksSerials) {
+    if (
+      !isZeroStock(input.currentStock) ||
+      (input.requestedStock !== undefined && !isZeroStock(input.requestedStock))
+    ) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'PRODUCT_SERIAL_TRACKING_REQUIRES_ZERO_STOCK',
+        message: 'Serial tracking can only be enabled when product stock is zero',
+      });
+    }
+  }
+
+  if (
+    input.previousTracksSerials &&
+    input.nextTracksSerials &&
+    input.requestedStock !== undefined &&
+    !isZeroStock(input.requestedStock - input.currentStock)
+  ) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERIAL_TRACKING_STOCK_MANAGED',
+      message: 'Serialized stock must be changed through serial-aware inventory operations',
+    });
+  }
+
+  if (input.previousTracksSerials && !input.nextTracksSerials) {
+    const serial = input.db
+      .select({ id: productSerials.id })
+      .from(productSerials)
+      .where(
+        and(
+          eq(productSerials.tenantId, input.tenantId),
+          eq(productSerials.productId, input.productId)
+        )
+      )
+      .get();
+    if (serial) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'PRODUCT_SERIAL_TRACKING_HAS_SERIALS',
+        message: 'Serial tracking cannot be disabled after serial units have been recorded',
       });
     }
   }

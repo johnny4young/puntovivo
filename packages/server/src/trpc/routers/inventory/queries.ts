@@ -202,6 +202,7 @@ export const inventoryQueryProcedures = {
           stock: productStockTotalSql,
           minStock: products.minStock,
           tracksLots: products.tracksLots,
+          tracksSerials: products.tracksSerials,
           initialCost: products.initialCost,
           price: products.price,
           isLowStock: sql<boolean>`${productStockTotalSql} <= ${products.minStock}`,

@@ -36,6 +36,7 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
   const stockDelta = newStock - previousStock;
   assertAggregateStockMutationAllowed({
     tracksLots: product.tracksLots,
+    tracksSerials: product.tracksSerials,
     catalogType: product.catalogType,
     delta: stockDelta,
   });

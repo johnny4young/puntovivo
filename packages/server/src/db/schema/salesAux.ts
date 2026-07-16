@@ -10,7 +10,7 @@
  */
 import { check, index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
-import { moneyPositiveChecks, moneyTwoDecimalCheck, nowIso, paymentMethodEnum, sqliteNow, syncStatusEnum } from './base.js';
+import { moneyPositiveChecks, moneyTwoDecimalCheck, nowIso, paymentMethodEnum, productSerialStatusEnum, sqliteNow, syncStatusEnum } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { units } from './catalogs.js';
 import { products } from './products.js';
@@ -150,6 +150,134 @@ export const saleItemLotsRelations = relations(saleItemLots, ({ one }) => ({
   lot: one(inventoryLots, {
     fields: [saleItemLots.lotId],
     references: [inventoryLots.id],
+  }),
+}));
+
+// ============================================================================
+// PRODUCT SERIALS (ENG-110c — per-unit inventory and sale provenance)
+// ============================================================================
+
+/**
+ * One row per physical serialized unit. Quantities never live here: each row
+ * represents exactly one base unit. `saleItemId` points at the draft or sale
+ * line currently reserving/selling the unit. Historical ownership lives in
+ * `sale_item_serials`, so clearing this current pointer on a reversal never
+ * destroys warranty provenance.
+ */
+export const productSerials = sqliteTable(
+  'product_serials',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    currentSiteId: text('current_site_id')
+      .notNull()
+      .references(() => sites.id),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'restrict' }),
+    serialNumber: text('serial_number').notNull(),
+    status: text('status', { enum: productSerialStatusEnum }).notNull().default('in_stock'),
+    saleItemId: text('sale_item_id').references(() => saleItems.id, { onDelete: 'set null' }),
+    unitCost: real('unit_cost').notNull().default(0),
+    warrantyExpiresAt: text('warranty_expires_at'),
+    receivedAt: text('received_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    soldAt: text('sold_at'),
+    returnedAt: text('returned_at'),
+    notes: text('notes'),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_product_serials_tenant_product').on(table.tenantId, table.productId),
+    index('idx_product_serials_tenant_site_status').on(
+      table.tenantId,
+      table.currentSiteId,
+      table.status
+    ),
+    index('idx_product_serials_sale_item').on(table.saleItemId),
+    uniqueIndex('idx_product_serials_tenant_product_number').on(
+      table.tenantId,
+      table.productId,
+      table.serialNumber
+    ),
+    ...moneyPositiveChecks('product_serials_unit_cost', table.unitCost),
+  ]
+);
+
+export const productSerialsRelations = relations(productSerials, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [productSerials.tenantId],
+    references: [tenants.id],
+  }),
+  currentSite: one(sites, {
+    fields: [productSerials.currentSiteId],
+    references: [sites.id],
+  }),
+  product: one(products, {
+    fields: [productSerials.productId],
+    references: [products.id],
+  }),
+  saleItem: one(saleItems, {
+    fields: [productSerials.saleItemId],
+    references: [saleItems.id],
+  }),
+}));
+
+// ============================================================================
+// SALE ITEM SERIALS (ENG-110c — immutable serialized-sale provenance)
+// ============================================================================
+
+/**
+ * Immutable bridge between a physical serial and every sale line that ever
+ * owned it. A returned unit may later be sold again, so productSerialId is
+ * deliberately not globally unique; the pair is unique only within a line.
+ * `serialNumber` is a snapshot so receipts and warranty reads remain legible
+ * even if a future repair workflow corrects the registry value.
+ */
+export const saleItemSerials = sqliteTable(
+  'sale_item_serials',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleItemId: text('sale_item_id')
+      .notNull()
+      .references(() => saleItems.id, { onDelete: 'cascade' }),
+    productSerialId: text('product_serial_id')
+      .notNull()
+      .references(() => productSerials.id, { onDelete: 'restrict' }),
+    serialNumber: text('serial_number').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_sale_item_serials_tenant').on(table.tenantId),
+    index('idx_sale_item_serials_sale_item').on(table.saleItemId),
+    index('idx_sale_item_serials_product_serial').on(table.productSerialId),
+    uniqueIndex('idx_sale_item_serials_line_serial').on(
+      table.tenantId,
+      table.saleItemId,
+      table.productSerialId
+    ),
+  ]
+);
+
+export const saleItemSerialsRelations = relations(saleItemSerials, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [saleItemSerials.tenantId],
+    references: [tenants.id],
+  }),
+  saleItem: one(saleItems, {
+    fields: [saleItemSerials.saleItemId],
+    references: [saleItems.id],
+  }),
+  productSerial: one(productSerials, {
+    fields: [saleItemSerials.productSerialId],
+    references: [productSerials.id],
   }),
 }));
 

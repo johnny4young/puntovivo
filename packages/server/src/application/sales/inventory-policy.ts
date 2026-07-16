@@ -126,6 +126,9 @@ export function reverseSaleItemsStock(args: ReverseSaleItemsStockArgs): string[]
       productId: item.productId,
       delta: normalizedQuantity,
       initialOnHandIfMissing: previousStock,
+      // Every caller of this shared reversal also restores/returns the
+      // selected serial registry rows in the same enclosing transaction.
+      serialAware: true,
       now: args.now,
     });
   }

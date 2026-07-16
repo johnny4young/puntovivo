@@ -82,6 +82,16 @@
     },
     "discountSuggested": "Sugerido -{{pct}}%"
   },
+  "serials": {
+    "title": "Series de {{name}}",
+    "progress": "{{selected}} / {{required}} seleccionadas",
+    "siteRequired": "Selecciona una sede activa para cargar los números de serie.",
+    "loading": "Cargando series disponibles…",
+    "noneAvailable": "No hay números de serie disponibles para vender en esta sede.",
+    "returned": "Devuelta",
+    "usedInAnotherLine": "Usada en otra línea",
+    "selectionRequired": "Selecciona una serie exacta por cada unidad base antes de cobrar."
+  },
   "cashSession": {
     "title": "Caja",
     "active": "Caja activa",
@@ -393,6 +403,7 @@
     "notes": "Notas",
     "noSku": "Sin SKU",
     "unit": "Unidad",
+    "serials": "Números de serie",
     "paymentsHeading": "Pagos",
     "paymentsSplit": "Cobrado con {{count}} medios de pago",
     "paymentsMethod": "Medio",

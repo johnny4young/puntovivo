@@ -76,6 +76,7 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
       id: products.id,
       name: products.name,
       tracksLots: products.tracksLots,
+      tracksSerials: products.tracksSerials,
       catalogType: products.catalogType,
     })
     .from(products)
@@ -109,6 +110,7 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
 
       assertAggregateStockMutationAllowed({
         tracksLots: product.tracksLots,
+        tracksSerials: product.tracksSerials,
         catalogType: product.catalogType,
         delta: -normalizedQuantity,
       });

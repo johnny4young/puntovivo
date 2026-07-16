@@ -62,6 +62,7 @@ export interface InventoryStockItem {
   stock: number;
   minStock: number;
   tracksLots: boolean;
+  tracksSerials?: boolean | undefined;
   initialCost: number;
   price: number;
   isLowStock: boolean;

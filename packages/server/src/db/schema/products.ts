@@ -88,6 +88,10 @@ export const products = sqliteTable(
     // false (default) the product keeps the single-number stock path. Additive
     // and backward-compatible.
     tracksLots: integer('tracks_lots', { mode: 'boolean' }).notNull().default(false),
+    // ENG-110c — individually serialized inventory is opt-in. Aggregate
+    // writers fail closed for these products; stock enters through the
+    // serial receipt workflow and leaves through explicit POS selection.
+    tracksSerials: integer('tracks_serials', { mode: 'boolean' }).notNull().default(false),
     // ENG-110b — matrix parents are catalog-only templates. Every sellable
     // combination remains a normal product row (`catalog_type = variant`) so
     // the existing productId-based sales, inventory and purchase paths keep

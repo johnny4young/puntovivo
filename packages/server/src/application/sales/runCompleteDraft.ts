@@ -35,6 +35,7 @@ import {
   requireActiveCashSession,
 } from '../../services/cash-session.js';
 import { assertServiceChargeMatchesTenant } from '../../services/restaurant/settings.js';
+import { transitionSaleSerials } from '../../services/product-serials.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { resolveSalePaymentPlan } from './pricing.js';
 import { runCreditPreflight, safelyRecordCreditSaleLedger } from './creditPolicy.js';
@@ -143,6 +144,7 @@ export async function runCompleteDraft(
 
   const draftApprovalItems = await ctx.db
     .select({
+      id: saleItems.id,
       productId: saleItems.productId,
       unitId: saleItems.unitId,
       quantity: saleItems.quantity,
@@ -468,6 +470,14 @@ export async function runCompleteDraft(
         claims: approvalClaims,
         saleId: input.saleId,
         saleNumber: existing.saleNumber,
+      });
+      transitionSaleSerials(tx as unknown as typeof ctx.db, {
+        tenantId: ctx.tenantId,
+        saleItemIds: draftApprovalItems.map(item => item.id),
+        from: 'reserved',
+        to: 'sold',
+        now,
+        syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
       });
     });
   } catch (error) {
