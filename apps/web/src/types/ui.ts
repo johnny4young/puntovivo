@@ -15,12 +15,7 @@ export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
 export type SaleStatus = 'draft' | 'completed' | 'cancelled' | 'voided';
 export type CashSessionStatus = 'open' | 'closed';
 export type CashMovementType =
-  | 'sale'
-  | 'refund'
-  | 'paid_in'
-  | 'paid_out'
-  | 'skim'
-  | 'replenishment';
+  'sale' | 'refund' | 'paid_in' | 'paid_out' | 'skim' | 'replenishment';
 
 export type TransferHistoryStatus = 'completed' | 'in_transit' | 'void';
 
@@ -72,6 +67,8 @@ export type AuditLogAction =
   | 'ai.anomaly.detected'
   // ENG-068 — module activation kernel toggle audit row.
   | 'module.toggle'
+  // A-30 — vertical preset applied (sets several surface modules at once).
+  | 'module.preset_applied'
   // ENG-075 — hub-client terminal revocation.
   | 'device.revoke'
   // ENG-168 — fresh device claims its pairing code (handover trail).
