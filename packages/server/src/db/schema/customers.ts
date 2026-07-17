@@ -9,9 +9,9 @@
  * @module db/schema/customers
  */
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import { moneyPositiveChecks, nowIso, sqliteNow, syncStatusEnum } from './base.js';
-import { tenants } from './auth.js';
+import { tenants, users } from './auth.js';
 import { sales } from './sales.js';
 import { currencyCatalog } from './config.js';
 
@@ -231,4 +231,107 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
     references: [tenants.id],
   }),
   sales: many(sales),
+}));
+
+// ============================================================================
+// LOYALTY (ENG-213 — WC-D2 minimum viable loyalty)
+// ============================================================================
+
+/**
+ * A customer's materialized point balance (ENG-213 / WC-D2).
+ *
+ * `points` is a ROLLUP of `loyalty_movements`, maintained only by
+ * `services/loyalty.ts` inside the same transaction as the movement it
+ * follows — same discipline as `cash_sessions.expected_balance` (ENG-055):
+ * the ledger is the truth, the balance is the fast read. Parity
+ * `points ≡ Σ(movements.points)` is pinned by `loyalty.test.ts`.
+ */
+export const loyaltyAccounts = sqliteTable(
+  'loyalty_accounts',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id, { onDelete: 'cascade' }),
+    /** Materialized balance. Never negative: redemption is gated on it. */
+    points: real('points').notNull().default(0),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    // One account per customer — the read path and the upsert both key on it.
+    uniqueIndex('idx_loyalty_accounts_customer').on(table.tenantId, table.customerId),
+  ]
+);
+
+/** Why a movement exists. v1 emits `earn` (a completed sale) and `revert`
+ * (its reversal); `adjust` covers a manual owner correction. `redeem` is
+ * declared for the WC-D1 tender lane and is not written yet. */
+export const loyaltyMovementKindEnum = ['earn', 'redeem', 'adjust', 'revert'] as const;
+
+/**
+ * Append-only points ledger (ENG-213 / WC-D2). Same posture as
+ * `sale_item_lots`: every balance change leaves an auditable row carrying
+ * its provenance (`saleId` when the sale path drove it, null for a manual
+ * adjustment). Rows are NEVER updated or deleted — a reverted earn appends
+ * a negative `revert` row rather than erasing history.
+ */
+export const loyaltyMovements = sqliteTable(
+  'loyalty_movements',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => loyaltyAccounts.id, { onDelete: 'cascade' }),
+    /** Null for manual adjustments; set for sale-driven earn/revert rows. */
+    saleId: text('sale_id').references(() => sales.id),
+    kind: text('kind', { enum: loyaltyMovementKindEnum }).notNull(),
+    /** Signed: positive earns, negative redeems/reverts. */
+    points: real('points').notNull(),
+    /** Snapshot of the rule that produced an earn (points per currency unit),
+     * so a later rate change never rewrites what the customer was told. */
+    rateAtEarn: real('rate_at_earn'),
+    note: text('note'),
+    createdBy: text('created_by').references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_loyalty_movements_account').on(table.accountId),
+    index('idx_loyalty_movements_tenant_sale').on(table.tenantId, table.saleId),
+    // ENG-213 — one earn per (account, sale): the guard that makes the sale
+    // path idempotent under a retried completion. Reverts are exempt (a
+    // partial index would need `kind='earn'`, which drizzle emits since 0.31).
+    uniqueIndex('idx_loyalty_movements_sale_earn')
+      .on(table.accountId, table.saleId)
+      .where(sql`${table.kind} = 'earn'`),
+  ]
+);
+
+export const loyaltyAccountsRelations = relations(loyaltyAccounts, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [loyaltyAccounts.tenantId],
+    references: [tenants.id],
+  }),
+  customer: one(customers, {
+    fields: [loyaltyAccounts.customerId],
+    references: [customers.id],
+  }),
+  movements: many(loyaltyMovements),
+}));
+
+export const loyaltyMovementsRelations = relations(loyaltyMovements, ({ one }) => ({
+  account: one(loyaltyAccounts, {
+    fields: [loyaltyMovements.accountId],
+    references: [loyaltyAccounts.id],
+  }),
+  sale: one(sales, {
+    fields: [loyaltyMovements.saleId],
+    references: [sales.id],
+  }),
 }));

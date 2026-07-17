@@ -400,7 +400,7 @@ cambiar una lista jamás reescribe historia. Sync: `manual` (dinero).
 **Compat**: los 3 tiers actuales se migran como lista "General" con 3
 escalones; las columnas legacy quedan derivadas hasta deprecarse.
 
-### WC-D2 · Lealtad mínima viable (núcleo de ENG-108) `[checkout]` — **M**
+### WC-D2 · Lealtad mínima viable (núcleo de ENG-108) `[checkout]` — **M** — ✅ ENG-213 shipped 2026-07-17 (acumulación + reversa + chip de saldo; redención diferida a WC-D2b)
 
 Ledger append-only, mismo patrón que `sale_item_lots` (auditable, snapshot):
 
@@ -554,7 +554,7 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 14  | WC-B3 FiscalProvider interface                                                                                                  | M        | fiscal                |
 | 15  | WC-D1 listas de precios (con WC-F2)                                                                                             | L        | checkout              |
 | 16  | ✅ WC-C5 omnibox de venta (fila Vender en el palette: barcode exacto → carrito, miss → búsqueda prefilled) — ENG-203 shipped 2026-07-16 | M        | checkout              |
-| 17  | WC-D2 lealtad mínima                                                                                                            | M        | checkout              |
+| 17  | ✅ WC-D2 lealtad mínima (ledger append-only, acumulación en la venta, reversa por reembolso, chip de saldo en el cobro) — ENG-213 shipped 2026-07-17 | M        | checkout              |
 | 18  | WC-B1 application/ por fases                                                                                                    | L        | mantenibilidad        |
 | 19  | WC-A2 SSE backpressure                                                                                                          | M        | offline               |
 | 20  | WC-D3/WC-D4 bins + seriales                                                                                                     | M        | stock (product-gated) |

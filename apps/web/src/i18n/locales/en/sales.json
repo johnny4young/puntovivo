@@ -662,5 +662,11 @@
     "secondsPerSale": "Sec/sale",
     "personalBest": "Best",
     "noRecordYet": "—"
+  },
+  "loyalty": {
+    "pointsBalance_one": "{{count}} point",
+    "pointsBalance_other": "{{count}} points",
+    "earned_one": "+{{count}} point earned",
+    "earned_other": "+{{count}} points earned"
   }
 }

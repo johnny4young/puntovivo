@@ -25,10 +25,7 @@ import type { PuntovivoLogger } from '../../logging/logger.js';
  * Keeping the boundary structural avoids friction at callsites that
  * pass `ctx.req.server.log` (typed as `FastifyBaseLogger`).
  */
-export type CompleteSaleLogger = Pick<
-  PuntovivoLogger,
-  'warn' | 'info' | 'debug' | 'error'
->;
+export type CompleteSaleLogger = Pick<PuntovivoLogger, 'warn' | 'info' | 'debug' | 'error'>;
 
 export type SalePaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
 export type SalePaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
@@ -169,4 +166,11 @@ export interface CompleteSaleResult<TSaleRecord = unknown> {
    * effects path ran (or was deliberately skipped).
    */
   journalEventId: string | null;
+  /**
+   * ENG-213 — loyalty points this sale accrued for its customer. 0 when
+   * the program is off, the sale had no customer, or the total earned
+   * nothing. Both completion paths (fresh and resumed draft) report it;
+   * optional only so a future non-completing path need not restate it.
+   */
+  loyaltyPointsEarned?: number;
 }

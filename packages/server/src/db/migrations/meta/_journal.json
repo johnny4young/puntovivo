@@ -71,6 +71,13 @@
       "when": 1783691774776,
       "tag": "0009_price_suggestions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1784249094298,
+      "tag": "0010_loyalty",
+      "breakpoints": true
     }
   ]
 }

@@ -64,12 +64,7 @@ export const salesLifecycleProcedures = {
     // entering the transactional sale flow so a cross-tenant or
     // archived FK fails fast with a clear error code.
     if (input.tableId) {
-      await resolveActiveRestaurantTable(
-        ctx.db,
-        ctx.tenantId,
-        input.tableId,
-        ctx.siteId
-      );
+      await resolveActiveRestaurantTable(ctx.db, ctx.tenantId, input.tableId, ctx.siteId);
     }
 
     if (inputCarriesCreditTender(input)) {
@@ -122,7 +117,14 @@ export const salesLifecycleProcedures = {
         creditOverride: input.creditOverride ?? false,
       }
     );
-    return result.sale;
+    // ENG-213 — the accrued points ride back alongside the sale record so
+    // the cashier's completion toast can name them without a second round
+    // trip. Additive: existing consumers keep reading the same Sale fields,
+    // and a tenant without the program always sees 0.
+    return {
+      ...result.sale,
+      loyaltyPointsEarned: result.loyaltyPointsEarned ?? 0,
+    };
   }),
 
   /**
@@ -295,7 +297,12 @@ export const salesLifecycleProcedures = {
           creditOverride: input.creditOverride ?? false,
         }
       );
-      return result.sale;
+      // ENG-213 — same shape as the fresh path, so a resumed draft reports
+      // its points to the cashier too.
+      return {
+        ...result.sale,
+        loyaltyPointsEarned: result.loyaltyPointsEarned ?? 0,
+      };
     }),
 
   /**
@@ -360,8 +367,7 @@ export const salesLifecycleProcedures = {
           throwServerError({
             trpcCode: 'FORBIDDEN',
             errorCode: 'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
-            message:
-              'Cashiers can only reprint sales from their active cash session',
+            message: 'Cashiers can only reprint sales from their active cash session',
           });
         }
       }

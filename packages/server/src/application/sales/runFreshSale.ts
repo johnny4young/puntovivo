@@ -46,6 +46,7 @@ import {
   validateCustomer,
 } from './item-resolution.js';
 import { resolveFreshSaleTotals, resolveSalePaymentPlan } from './pricing.js';
+import { earnPointsForSale, resolveLoyaltySettings } from '../../services/loyalty.js';
 import { runCreditPreflight, safelyRecordCreditSaleLedger } from './creditPolicy.js';
 import { emitSaleFiscalDocument, enqueueSaleKdsOrder } from './fiscalPostHook.js';
 import {
@@ -173,6 +174,8 @@ export async function runFreshSale(
   // post-commit (they are marked sync-pending by consumeLotsForSaleLine, but
   // nothing pushed them to sync_outbox before this).
   const consumedLotIds = new Set<string>();
+  /** ENG-213 — points this sale accrued (0 when the program is off). */
+  let loyaltyPointsEarned = 0;
 
   // ENG-176b — resolve the tenant default currency once per sale and
   // propagate it to every row written below (sales header + each
@@ -201,6 +204,11 @@ export async function runFreshSale(
       for (const row of lotRows) lotTrackedProductIds.add(row.id);
     }
   }
+
+  // ENG-213 — loyalty rule resolved BEFORE the tx (the settings read is
+  // async; the tx body is synchronous). Off by default, so an untuned
+  // tenant pays one cheap settings read and nothing else.
+  const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
 
   ctx.db.transaction(tx => {
     // ENG-042 TOCTOU defense — see helper jsdoc.
@@ -381,6 +389,35 @@ export async function runFreshSale(
       createdAt: now,
     });
 
+    // ENG-213 — accrue loyalty points for a completed sale with a customer.
+    // Inside the tx so points and the sale commit together; best-effort by
+    // contract — a loyalty failure must NEVER block the register, so the
+    // call is wrapped and only logged. Idempotent per (account, sale).
+    //
+    // The nested transaction is a SAVEPOINT, and it is load-bearing: the
+    // ledger row and the balance update are two writes, so a failure
+    // between them would otherwise leave a movement with no matching
+    // balance — and the catch would let that partial state ride to COMMIT,
+    // breaking the `points ≡ Σ(movements)` parity this feature rests on.
+    // The savepoint rolls back the half-write only; the sale still commits.
+    if (input.status === 'completed') {
+      try {
+        tx.transaction(loyaltyTx => {
+          loyaltyPointsEarned = earnPointsForSale(loyaltyTx, {
+            tenantId: ctx.tenantId,
+            customerId: input.customerId ?? null,
+            saleId,
+            total,
+            settings: loyaltySettings,
+            nowIso: now,
+          });
+        });
+      } catch (error) {
+        loyaltyPointsEarned = 0;
+        ctx.log?.warn?.({ err: error, saleId }, 'loyalty accrual skipped');
+      }
+    }
+
     if (overrides.length > 0) {
       // ENG-007 — single audit row summarizing every overridden line.
       priceOverrideAuditId = writeAuditLog({
@@ -545,5 +582,8 @@ export async function runFreshSale(
     sale: { ...created, change } as CompleteSaleSaleRecord,
     change,
     journalEventId,
+    // ENG-213 — surfaced so the POS can celebrate the accrual right after
+    // checkout; 0 when the program is off or the sale had no customer.
+    loyaltyPointsEarned,
   };
 }
