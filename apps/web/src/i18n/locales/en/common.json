@@ -58,7 +58,10 @@
     "showing": "Showing {{from}} to {{to}} of {{total}} entries",
     "page": "Page {{current}} of {{total}}",
     "columns": "Columns",
-    "scrollableLabel": "Scrollable table region"
+    "scrollableLabel": "Scrollable table region",
+    "searchPlaceholder": "Search...",
+    "retry": "Retry",
+    "loadError": "Unable to load {{resource}}"
   },
   "notifications": "Notifications",
   "language": {
@@ -251,5 +254,8 @@
   },
   "desktopOnly": {
     "label": "Desktop only"
+  },
+  "form": {
+    "selectPlaceholder": "Select an option..."
   }
 }
