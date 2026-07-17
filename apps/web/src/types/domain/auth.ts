@@ -26,9 +26,15 @@ export interface Tenant {
 }
 
 export interface TenantSettings {
-  currency: string;
-  timezone: string;
-  dateFormat: string;
+  /*
+   * ENG-221 — `currency`, `timezone` and `dateFormat` used to live here and
+   * were declared REQUIRED, but ENG-017 moved locale resolution to the
+   * `tenant_locale_settings` table (country defaults + explicit overrides;
+   * see `services/tenant-locale.ts` and the note atop `lib/currency.ts`).
+   * Nothing wrote them any more and nothing read them, so the type was
+   * promising three fields the payload no longer carries — the worst kind of
+   * dead code, because it type-checks.
+   */
   taxRate: number;
   logo?: string;
   theme?: 'light' | 'dark' | 'system';

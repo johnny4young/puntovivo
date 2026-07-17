@@ -56,18 +56,21 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// ENG-017 — `currency`, `timezone`, and `dateFormat` no longer live
-// in the tenant JSON blob; they are resolved by `LocaleProvider`
-// against `tenant_locale_settings` and the global catalogs. Kept
-// `taxRate` as a neutral default because credit-sale / discount flows
-// still key off the JSON blob until that feature retires.
+// ENG-017 — `currency`, `timezone`, and `dateFormat` no longer live in the
+// tenant JSON blob; they are resolved by `LocaleProvider` against
+// `tenant_locale_settings` and the global catalogs. Kept `taxRate` as a
+// neutral default because credit-sale / discount flows still key off the
+// JSON blob until that feature retires.
+// ENG-221 — the three locale keys used to be defaulted here anyway, to
+// USD / UTC / YYYY-MM-DD. Nothing read them, but the values were wrong for
+// every tenant this product sells to, so any future reader would have
+// silently priced a Colombian shop in dollars. Removed together with the
+// fields on `TenantSettings`: the honest way to say "resolved elsewhere" is
+// to not be here at all.
 // ENG-039d3 — `restaurant.serviceChargeRate` baseline (0 = disabled)
 // so `useTenant().tenantSettings.restaurant?.serviceChargeRate` is
 // always readable. Real value flows from the admin Company tab.
 const DEFAULT_TENANT_SETTINGS: Tenant['settings'] = {
-  currency: 'USD',
-  timezone: 'UTC',
-  dateFormat: 'YYYY-MM-DD',
   taxRate: 0,
   restaurant: {
     serviceChargeRate: 0,

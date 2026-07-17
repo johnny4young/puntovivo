@@ -424,10 +424,13 @@ describe('AuthProvider — mapSession edge cases', () => {
     }
     render(wrap({ children: <Probe /> }));
     await waitFor(() => expect(auth.isAuthenticated).toBe(true));
-    // The ENG-017 default has currency=USD/timezone=UTC; the server's
-    // taxRate=19 overrides the default 0.
-    expect(auth.tenant?.settings.currency).toBe('USD');
-    expect(auth.tenant?.settings.timezone).toBe('UTC');
+    // ENG-221 — this used to assert currency=USD / timezone=UTC, pinning a
+    // default that nothing read and that was wrong for every LATAM tenant.
+    // What the merge actually has to guarantee is that the server's blob
+    // wins over the local baseline, which taxRate proves.
     expect(auth.tenant?.settings.taxRate).toBe(19);
+    // And that the surviving baseline key is still readable when the server
+    // omits it (ENG-039d3 depends on this).
+    expect(auth.tenant?.settings.restaurant?.serviceChargeRate).toBe(0);
   });
 });

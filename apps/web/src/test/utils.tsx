@@ -48,10 +48,9 @@ export function createMockUser(overrides?: Partial<User>): User {
 }
 
 export function createMockTenantSettings(overrides?: Partial<TenantSettings>): TenantSettings {
+  // ENG-221 — currency / timezone / dateFormat dropped with the fields:
+  // locale is resolved from `tenant_locale_settings`, not this blob.
   return {
-    currency: 'USD',
-    timezone: 'America/New_York',
-    dateFormat: 'MM/DD/YYYY',
     taxRate: 0.08,
     theme: 'light',
     ...overrides,
