@@ -155,7 +155,11 @@
       "topProducts": {
         "q": "¿Cuáles son los 10 productos más vendidos del último mes en cantidad y monto?",
         "ans": "En <b>Sede Norte</b> los más vendidos del último mes son <pill>Carne de res molida 500g · 37</pill> <pill>Papel Higiénico x12 · 33</pill> <pill>Pasta Doria Espagueti · 32</pill> y siete más. El total combinado suma <b>$5,73M</b> en 282 unidades.",
-        "chips": ["+ ver SQL ejecutado", "+ exportar CSV", "+ comparar con mes anterior"],
+        "chips": [
+          "+ ver SQL ejecutado",
+          "+ exportar CSV",
+          "+ comparar con mes anterior"
+        ],
         "headTitle": "total_quantity",
         "headSub": "Top 10 · últimos 30 días"
       },
@@ -173,7 +177,11 @@
       "marginDairy": {
         "q": "¿Qué sedes tienen margen bajo en lácteos los últimos 7 días?",
         "ans": "<b>Sede Sur</b> tiene un margen de <pill>14 % · lácteos</pill> <pill>−8 pts vs promedio</pill> los últimos 7 días. El SKU más impactado es <b>Crema 250ml</b>, con costo subido la semana pasada. Norte y Centro siguen en sano.",
-        "chips": ["+ ver SQL ejecutado", "+ ajustar precios de la sede", "+ ver detalle por SKU"],
+        "chips": [
+          "+ ver SQL ejecutado",
+          "+ ajustar precios de la sede",
+          "+ ver detalle por SKU"
+        ],
         "headTitle": "margin_pct",
         "headSub": "Lácteos · últimos 7 días"
       }
@@ -317,22 +325,31 @@
       {
         "t": "Abre la caja",
         "p": "Cuenta la base de apertura por denominaciones. El registro queda listo para cobrar de inmediato.",
-        "k": ["denominaciones"]
+        "k": [
+          "denominaciones"
+        ]
       },
       {
         "t": "Escanea y arma la venta",
         "p": "SKU, código de barras, cantidades y descuentos sin abrir modales innecesarios.",
-        "k": ["Alt+P", "F5"]
+        "k": [
+          "Alt+P",
+          "F5"
+        ]
       },
       {
         "t": "Cobra",
         "p": "Efectivo, tarjeta, transferencia, crédito — o un pago dividido que sume el total. El recibo se imprime en 58 u 80 mm.",
-        "k": ["F1"]
+        "k": [
+          "F1"
+        ]
       },
       {
         "t": "Cierra ciego",
         "p": "Cuenta el cajón por denominaciones. El sistema oculta el saldo esperado hasta que envías el conteo final.",
-        "k": ["cierre ciego"]
+        "k": [
+          "cierre ciego"
+        ]
       }
     ]
   },
@@ -427,6 +444,10 @@
     "title": "Lo que preguntan dueños y cajeros antes de cambiar de sistema.",
     "items": [
       {
+        "q": "¿Emite factura electrónica DIAN?",
+        "a": "Todavía no. La emisión válida ante la DIAN está en el roadmap: hoy la parte fiscal es una simulación para probar el flujo, no transmite documentos reales. Cuando llegue, el diseño ya apunta a lo que más importa en Colombia — vender aunque se caiga el internet y transmitir después, dentro de la ventana de contingencia que permite la norma. Preferimos decirlo claro antes que prometer un sello que aún no tenemos."
+      },
+      {
         "q": "¿Qué necesita una sede para empezar?",
         "a": "Un computador con Windows 10+, macOS 12+ o Linux reciente. La app de escritorio corre ahí mismo y la nube no es requisito para vender. La impresión térmica, el cajón monedero y el escáner USB están en el roadmap — todavía no validamos hardware físico, así que hoy la prueba es sobre pantalla."
       },
@@ -460,11 +481,26 @@
   "footer": {
     "tagline": "POS, inventario y compras para el comercio de LatAm. Open source, local-first, bilingüe.",
     "productTitle": "Producto",
-    "productLinks": ["Caja", "Cierre ciego", "Inventario", "Compras", "Transferencias"],
+    "productLinks": [
+      "Caja",
+      "Cierre ciego",
+      "Inventario",
+      "Compras",
+      "Transferencias"
+    ],
     "companyTitle": "Empresa",
-    "companyLinks": ["Sobre el proyecto", "Roadmap", "Contacto"],
+    "companyLinks": [
+      "Sobre el proyecto",
+      "Roadmap",
+      "Contacto"
+    ],
     "resourcesTitle": "Recursos",
-    "resourcesLinks": ["Documentación", "Atajos de teclado", "Guía de migración", "GitHub"],
+    "resourcesLinks": [
+      "Documentación",
+      "Atajos de teclado",
+      "Guía de migración",
+      "GitHub"
+    ],
     "copyright": "© 2026 Puntovivo · Hecho en Colombia.",
     "versionDev": "open source · MIT",
     "versionTagged": "{{version}} · MIT"
@@ -638,7 +674,6 @@
         "tag": "Desarrolladores"
       }
     ],
-    "categoryArticles": "{{count}} artículos",
     "sidebarTitle": "Secciones",
     "sidebarItems": [
       "Empieza aquí",
@@ -652,18 +687,47 @@
       "API y webhooks",
       "Cambios y versiones"
     ],
-    "sidebarSub": ["Instalación", "Tu primera sede", "Primera venta", "Imprimir recibo"],
+    "sidebarSub": [
+      "Instalación",
+      "Tu primera sede",
+      "Primera venta",
+      "Imprimir recibo"
+    ],
     "mainKicker": "Por área",
     "mainTitle": "Empieza por donde estás.",
-    "popularKicker": "Más leídos esta semana",
-    "popularTitle": "Lo que dueños y cajeros consultan más.",
+    "popularKicker": "Lo que documentaremos primero",
+    "popularTitle": "Las guías que abren la fila.",
     "popular": [
-      { "t": "Configurar una impresora térmica de 58 mm", "time": "4 min", "tag": "Caja" },
-      { "t": "Hacer un cierre ciego con diferencia", "time": "6 min", "tag": "Caja" },
-      { "t": "Migrar el catálogo desde Loyverse", "time": "12 min", "tag": "Migración" },
-      { "t": "Crear roles personalizados por sede", "time": "5 min", "tag": "Multi-tenant" },
-      { "t": "Anular una venta sin afectar el inventario", "time": "3 min", "tag": "Caja" },
-      { "t": "Conectar el co-pilot a una sede", "time": "7 min", "tag": "IA" }
+      {
+        "t": "Configurar una impresora térmica de 58 mm",
+        "time": "4 min",
+        "tag": "Caja"
+      },
+      {
+        "t": "Hacer un cierre ciego con diferencia",
+        "time": "6 min",
+        "tag": "Caja"
+      },
+      {
+        "t": "Migrar el catálogo desde Loyverse",
+        "time": "12 min",
+        "tag": "Migración"
+      },
+      {
+        "t": "Crear roles personalizados por sede",
+        "time": "5 min",
+        "tag": "Multi-tenant"
+      },
+      {
+        "t": "Anular una venta sin afectar el inventario",
+        "time": "3 min",
+        "tag": "Caja"
+      },
+      {
+        "t": "Conectar el co-pilot a una sede",
+        "time": "7 min",
+        "tag": "IA"
+      }
     ],
     "exampleKicker": "Así se ve una página",
     "exampleTitle": "Un artículo, sin decoración extra.",
@@ -753,33 +817,25 @@
             "t": "Co-pilot con respuestas accionables",
             "d": "Sugerir transferencia entre sedes, pedido a proveedor o ajuste de precio — con un clic para ejecutar.",
             "area": "Núcleo IA",
-            "size": "L",
-            "votes": 142,
-            "sede": "Sede Centro"
+            "size": "L"
           },
           {
             "t": "Cierre ciego con caja fuerte vinculada",
             "d": "Conciliar el saldo del turno contra el saldo de la caja fuerte de la sede. Diferencia visible al gerente.",
             "area": "Caja",
-            "size": "M",
-            "votes": 89,
-            "sede": "Mercado Las Aguas"
+            "size": "M"
           },
           {
             "t": "Importador de catálogo desde Loyverse",
             "d": "Carga SKU, IVA, costo y stock con un solo XLSX. Detecta duplicados por código de barras.",
             "area": "Migración",
-            "size": "S",
-            "votes": 67,
-            "sede": "—"
+            "size": "S"
           },
           {
             "t": "Recibo digital por WhatsApp",
             "d": "Genera link corto al recibo, lo envía al cliente con un toque. Conserva el térmico para quien lo prefiera.",
             "area": "Caja",
-            "size": "M",
-            "votes": 124,
-            "sede": "Café Andes"
+            "size": "M"
           }
         ]
       },
@@ -792,33 +848,25 @@
             "t": "Crédito a cliente con plan de pagos",
             "d": "Venta a crédito con cuotas, recordatorios opcionales por WhatsApp y reporte de cartera por sede.",
             "area": "Ventas",
-            "size": "L",
-            "votes": 198,
-            "sede": "—"
+            "size": "L"
           },
           {
             "t": "Balanza electrónica vinculada",
             "d": "Soporte directo para básculas USB/serial. Producto por peso pasa al carrito sin modal.",
             "area": "Caja",
-            "size": "M",
-            "votes": 76,
-            "sede": "Tienda Ñero"
+            "size": "M"
           },
           {
             "t": "App móvil de gestor",
             "d": "Versión solo-lectura para revisar ventas y alertas en celular. Cierre y caja siguen en desktop.",
             "area": "Móvil",
-            "size": "L",
-            "votes": 211,
-            "sede": "—"
+            "size": "L"
           },
           {
             "t": "Conciliación con Bancolombia + Nequi",
             "d": "Cruza pagos electrónicos contra las ventas del día. Marca diferencias para revisión.",
             "area": "Finanzas",
-            "size": "M",
-            "votes": 154,
-            "sede": "Mercado Las Aguas"
+            "size": "M"
           }
         ]
       },
@@ -831,33 +879,25 @@
             "t": "Facturación electrónica DIAN nativa",
             "d": "Emisión y consulta sin pasar por intermediario. Requiere certificación; explorando proveedor de firma.",
             "area": "Cumplimiento",
-            "size": "XL",
-            "votes": 312,
-            "sede": "—"
+            "size": "XL"
           },
           {
             "t": "Restaurante: mesas y comandas",
             "d": "Modo restaurante con plano de salón, comanda a cocina, propinas y división de cuenta.",
             "area": "Verticales",
-            "size": "XL",
-            "votes": 87,
-            "sede": "—"
+            "size": "XL"
           },
           {
             "t": "Marketplace de extensiones",
             "d": "Permitir que partners publiquen integraciones (contadores, e-commerce, fidelización).",
             "area": "Plataforma",
-            "size": "L",
-            "votes": 49,
-            "sede": "—"
+            "size": "L"
           },
           {
             "t": "Modo kiosko / auto-cobro",
             "d": "Pantalla táctil para que el cliente arme su pedido. Útil en panaderías y heladerías de alto flujo.",
             "area": "Caja",
-            "size": "XL",
-            "votes": 41,
-            "sede": "—"
+            "size": "XL"
           }
         ]
       }
@@ -865,13 +905,41 @@
     "shippedKicker": "Ya construido",
     "shippedTitle": "Lo que ya funciona en la consola.",
     "shipped": [
-      { "when": "Construido", "t": "Núcleo IA (opcional)", "area": "IA" },
-      { "when": "Construido", "t": "Cierre ciego por denominaciones", "area": "Caja" },
-      { "when": "Construido", "t": "Transferencias entre sedes", "area": "Inventario" },
-      { "when": "Construido", "t": "Pagos divididos", "area": "Caja" },
-      { "when": "Construido", "t": "Compras + devoluciones", "area": "Compras" },
-      { "when": "Construido", "t": "Consecutivos por sede", "area": "Multi-tenant" },
-      { "when": "Construido", "t": "Auditoría por turno", "area": "Seguridad" }
+      {
+        "when": "Construido",
+        "t": "Núcleo IA (opcional)",
+        "area": "IA"
+      },
+      {
+        "when": "Construido",
+        "t": "Cierre ciego por denominaciones",
+        "area": "Caja"
+      },
+      {
+        "when": "Construido",
+        "t": "Transferencias entre sedes",
+        "area": "Inventario"
+      },
+      {
+        "when": "Construido",
+        "t": "Pagos divididos",
+        "area": "Caja"
+      },
+      {
+        "when": "Construido",
+        "t": "Compras + devoluciones",
+        "area": "Compras"
+      },
+      {
+        "when": "Construido",
+        "t": "Consecutivos por sede",
+        "area": "Multi-tenant"
+      },
+      {
+        "when": "Construido",
+        "t": "Auditoría por turno",
+        "area": "Seguridad"
+      }
     ],
     "voteKicker": "Propón una idea",
     "voteTitle": "¿Necesitas algo que no está aquí?",
@@ -1068,10 +1136,22 @@
         "time": "5 min",
         "d": "Desde tu sistema actual, exporta el catálogo a CSV o XLSX. Debe incluir SKU o código de barras, descripción, costo, precio, IVA y stock por sede.",
         "checks": [
-          { "t": "SKU único por producto", "ok": true },
-          { "t": "Precios sin IVA o con IVA marcado", "ok": true },
-          { "t": "Stock por sede en columnas separadas", "ok": true },
-          { "t": "Encoding UTF-8 (las tildes se ven bien)", "ok": false }
+          {
+            "t": "SKU único por producto",
+            "ok": true
+          },
+          {
+            "t": "Precios sin IVA o con IVA marcado",
+            "ok": true
+          },
+          {
+            "t": "Stock por sede en columnas separadas",
+            "ok": true
+          },
+          {
+            "t": "Encoding UTF-8 (las tildes se ven bien)",
+            "ok": false
+          }
         ]
       },
       {
@@ -1080,9 +1160,18 @@
         "time": "10-30 min",
         "d": "Puntovivo deduplica por código de barras y luego por SKU. Si vendes por peso o por unidad, deja la columna correspondiente marcada. Borra productos descontinuados antes de importar.",
         "checks": [
-          { "t": "Sin filas vacías o de subtotales", "ok": true },
-          { "t": "Códigos de barras de 13 dígitos sin guión", "ok": true },
-          { "t": "Unidad de venta: unidad, kg, libra o paquete", "ok": true }
+          {
+            "t": "Sin filas vacías o de subtotales",
+            "ok": true
+          },
+          {
+            "t": "Códigos de barras de 13 dígitos sin guión",
+            "ok": true
+          },
+          {
+            "t": "Unidad de venta: unidad, kg, libra o paquete",
+            "ok": true
+          }
         ]
       },
       {
@@ -1091,9 +1180,18 @@
         "time": "2 min",
         "d": "Desde la consola, abre Ajustes → Importar. Suelta el archivo CSV con los encabezados esperados y confirma el mapeo de columnas campo por campo antes de continuar.",
         "checks": [
-          { "t": "Mapa de columnas confirmado por ti", "ok": true },
-          { "t": "IVA por defecto seleccionado (0/5/19 %)", "ok": true },
-          { "t": "Sede de destino seleccionada", "ok": true }
+          {
+            "t": "Mapa de columnas confirmado por ti",
+            "ok": true
+          },
+          {
+            "t": "IVA por defecto seleccionado (0/5/19 %)",
+            "ok": true
+          },
+          {
+            "t": "Sede de destino seleccionada",
+            "ok": true
+          }
         ]
       },
       {
@@ -1102,8 +1200,14 @@
         "time": "10 min",
         "d": "Antes de aplicar, verás el resumen: cuántos productos nuevos, cuántos se actualizarán, cuántos requieren tu decisión. Aprueba por lotes — no se aplica nada hasta que confirmes.",
         "checks": [
-          { "t": "Conflictos resueltos uno por uno", "ok": true },
-          { "t": "Preview de balance por sede revisado", "ok": true }
+          {
+            "t": "Conflictos resueltos uno por uno",
+            "ok": true
+          },
+          {
+            "t": "Preview de balance por sede revisado",
+            "ok": true
+          }
         ]
       },
       {
@@ -1112,9 +1216,18 @@
         "time": "1 turno",
         "d": "Haz un conteo físico de la sede principal y compara contra el balance importado. La primera apertura de caja queda con la base que tú definas, no con el saldo importado. De ahí en adelante, el flujo es normal.",
         "checks": [
-          { "t": "Conteo físico hecho en sede principal", "ok": true },
-          { "t": "Apertura con base definida por ti", "ok": true },
-          { "t": "Primera venta de prueba realizada", "ok": true }
+          {
+            "t": "Conteo físico hecho en sede principal",
+            "ok": true
+          },
+          {
+            "t": "Apertura con base definida por ti",
+            "ok": true
+          },
+          {
+            "t": "Primera venta de prueba realizada",
+            "ok": true
+          }
         ]
       }
     ],
