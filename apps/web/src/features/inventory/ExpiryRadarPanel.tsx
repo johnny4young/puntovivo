@@ -8,6 +8,7 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { KpiTile } from '@/components/ui';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useTenant } from '@/features/tenant/TenantProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
@@ -15,19 +16,34 @@ import { cn, formatCurrency, formatDate } from '@/lib/utils';
 
 /** The radar's fixed look-ahead window (days). A selector is a captured
  * follow-up; 30 days covers every discount tier. */
-const EXPIRY_WINDOW_DAYS = 30;
+/** ENG-212 — selectable look-ahead windows. 30 stays the default (it covers
+ * every default tier); 60 lets a pharmacy-style catalog sweep wider, 7/15
+ * narrow the list to what is actually urgent this week. */
+const EXPIRY_WINDOW_OPTIONS = [7, 15, 30, 60] as const;
+const DEFAULT_EXPIRY_WINDOW_DAYS = 30;
+
+/** ENG-211 — the ENG-199 ladder stays the fallback for tenants that never
+ * tuned it (and for a session payload that predates the setting). */
+const DEFAULT_TIERS: ReadonlyArray<{ maxDays: number; pct: number }> = [
+  { maxDays: 7, pct: 30 },
+  { maxDays: 15, pct: 20 },
+  { maxDays: 30, pct: 10 },
+];
 
 /**
- * Display mirror of the server tier rule (services/price-suggestions.ts).
- * The server RECOMPUTES the percent on accept — this copy only previews the
- * would-be discount per row, so drift shows a stale preview, never a wrong
- * stored value.
+ * Display mirror of the server tier rule (services/price-suggestions.ts),
+ * evaluated against the TENANT's ladder (ENG-211). The server RECOMPUTES
+ * the percent on accept from its own copy of the same settings, so drift
+ * shows a stale preview, never a wrong stored value.
  */
-function previewPctForDays(daysLeft: number): number | null {
+function previewPctForDays(
+  daysLeft: number,
+  tiers: ReadonlyArray<{ maxDays: number; pct: number }>
+): number | null {
   if (daysLeft < 0) return null;
-  if (daysLeft <= 7) return 30;
-  if (daysLeft <= 15) return 20;
-  if (daysLeft <= 30) return 10;
+  for (const tier of tiers) {
+    if (daysLeft <= tier.maxDays) return tier.pct;
+  }
   return null;
 }
 
@@ -64,10 +80,18 @@ function urgencyTone(daysLeft: number): 'danger' | 'warning' | 'neutral' {
  */
 export function ExpiryRadarPanel() {
   const { t } = useTranslation('inventory');
+  // ENG-211 — the tenant's tuned ladder rides the auth.me session payload
+  // (same channel as the ENG-194b blind-close flag); fall back to the
+  // ENG-199 defaults when the tenant never tuned it.
+  const { tenantSettings } = useTenant();
+  const tiers = tenantSettings?.discount?.expiryTiers ?? DEFAULT_TIERS;
   const toast = useToast();
   const utils = trpc.useUtils();
 
-  const expiringQuery = trpc.inventoryLots.expiring.useQuery({ withinDays: EXPIRY_WINDOW_DAYS });
+  // ENG-212 — the operator picks the sweep; the query key carries it, so
+  // switching windows refetches (and caches) per window.
+  const [windowDays, setWindowDays] = useState<number>(DEFAULT_EXPIRY_WINDOW_DAYS);
+  const expiringQuery = trpc.inventoryLots.expiring.useQuery({ withinDays: windowDays });
   const suggestionsQuery = trpc.inventoryLots.activeSuggestions.useQuery(undefined);
 
   const invalidate = async () => {
@@ -124,11 +148,11 @@ export function ExpiryRadarPanel() {
         onHand: item.onHand,
         unitCost: item.unitCost,
         valueAtRisk: item.onHand * item.unitCost,
-        previewPct: previewPctForDays(daysLeft),
+        previewPct: previewPctForDays(daysLeft, tiers),
         suggestion: byLot.get(item.id) ?? null,
       };
     });
-  }, [expiringQuery.data, suggestionsQuery.data, now]);
+  }, [expiringQuery.data, suggestionsQuery.data, now, tiers]);
 
   const totalValueAtRisk = rows.reduce((sum, row) => sum + row.valueAtRisk, 0);
   const activeCount = rows.filter(row => row.suggestion !== null).length;
@@ -239,13 +263,36 @@ export function ExpiryRadarPanel() {
 
   return (
     <div className="space-y-4" data-testid="expiry-radar-panel">
+      {/* ENG-212 — window sweep selector. A segmented control (not a select)
+       * so the four options are one tap away on the tablet the manager
+       * actually walks the aisles with. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-secondary-500">
+          {t('expiry.windowLabel')}
+        </span>
+        <div className="segmented-control" role="group" aria-label={t('expiry.windowLabel')}>
+          {EXPIRY_WINDOW_OPTIONS.map(option => (
+            <button
+              key={option}
+              type="button"
+              className={cn('segmented-tab', windowDays === option && 'segmented-tab-active')}
+              aria-pressed={windowDays === option}
+              data-testid={`expiry-window-${option}`}
+              onClick={() => setWindowDays(option)}
+            >
+              {t('expiry.windowOption', { days: option })}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-3">
         <KpiTile
           icon={CalendarClock}
           tone={rows.length > 0 ? 'warning' : 'ink'}
           label={t('expiry.summary.lots')}
           value={rows.length.toLocaleString()}
-          context={t('expiry.summary.window', { days: EXPIRY_WINDOW_DAYS })}
+          context={t('expiry.summary.window', { days: windowDays })}
         />
         <KpiTile
           icon={AlarmClock}
@@ -277,7 +324,7 @@ export function ExpiryRadarPanel() {
           <EmptyState
             icon={CalendarClock}
             title={t('expiry.emptyTitle')}
-            description={t('expiry.emptyDescription', { days: EXPIRY_WINDOW_DAYS })}
+            description={t('expiry.emptyDescription', { days: windowDays })}
           />
         ) : (
           <DataTable

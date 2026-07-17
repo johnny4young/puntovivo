@@ -237,7 +237,7 @@ XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
 - **AC**: apagado por defecto; habilitarlo prueba el speaker en el mismo gesto;
   toggle persiste por dispositivo; audio nunca rompe checkout.
 
-### WC-C3 · Radar de vencimientos accionable `[stock]` — **M** ⭐
+### WC-C3 · Radar de vencimientos accionable `[stock]` — **M** ⭐ — ✅ ENG-199 shipped; tiers por tenant (ENG-211) + selector de ventana (ENG-212) shipped 2026-07-17
 
 - **Qué**: panel "Se vencen pronto" (el endpoint `inventoryLots.expiring` YA
   existe) con CTA por lote: "Sugerir descuento" — regla determinista: ≤ 7 días
