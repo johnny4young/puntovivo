@@ -17,6 +17,9 @@
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+// A-36 — per-route titles/descriptions/OG + sitemap/robots. Lives in src/ so
+// the node --test glob pins it (routeMeta.test.mjs).
+import { headTagsFor, robotsTxt, sitemapXml } from '../src/lib/routeMeta.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = resolve(__dirname, '..', 'dist');
@@ -42,6 +45,22 @@ function injectAppMarkup(template, markup) {
     );
   }
   return template.replace(ROOT_RE, `<div id="root">${markup}</div>`);
+}
+
+// A-36 — swap the template's single global <title> + meta description for the
+// route's own head block. The template ships one of each; both regexes are
+// anchored to that shape and fail loudly if the template drifts.
+const TITLE_RE = /<title>[\s\S]*?<\/title>/;
+const DESC_RE = /<meta\s+name="description"[\s\S]*?\/>/;
+
+function injectHeadTags(html, route) {
+  if (!TITLE_RE.test(html) || !DESC_RE.test(html)) {
+    throw new Error(
+      'prerender: template <title>/<meta name="description"> not found — ' +
+        'index.html changed shape; update TITLE_RE/DESC_RE in scripts/prerender.mjs.'
+    );
+  }
+  return html.replace(DESC_RE, '').replace(TITLE_RE, headTagsFor(route));
 }
 
 function setHtmlLang(html, lang) {
@@ -73,6 +92,7 @@ async function main() {
 
     let html = injectAppMarkup(template, markup);
     html = setHtmlLang(html, SSR_LANG);
+    html = injectHeadTags(html, route);
 
     const outPath = outPathFor(route);
     await mkdir(dirname(outPath), { recursive: true });
@@ -87,6 +107,12 @@ async function main() {
   // (App.jsx's "*" route renders the landing client-side after hydration).
   await writeFile(join(distDir, '404.html'), rootHtml, 'utf8');
   console.log('wrote dist/404.html (landing fallback for unlisted paths)');
+
+  // A-36 — crawl surface: sitemap for the prerendered routes + robots that
+  // points at it. Canonical URLs live at the domain root (see routeMeta.js).
+  await writeFile(join(distDir, 'sitemap.xml'), sitemapXml(ROUTES), 'utf8');
+  await writeFile(join(distDir, 'robots.txt'), robotsTxt(), 'utf8');
+  console.log('wrote dist/sitemap.xml + dist/robots.txt');
 
   // The SSR bundle is a build artifact, not something to deploy. Remove it so it
   // never ships to Pages.
