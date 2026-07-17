@@ -93,9 +93,7 @@ export function useSalePaymentModal({
   // render before the refetch lands; selecting a value with no matching
   // `<option>` makes the native select display Walk-in while form state
   // carries the new id.
-  const pendingCustomerAttachId = useQuickCreateStore(
-    state => state.pendingCustomerAttachId
-  );
+  const pendingCustomerAttachId = useQuickCreateStore(state => state.pendingCustomerAttachId);
   const pendingCustomerReadyToAttach =
     pendingCustomerAttachId !== null &&
     customers.some(customer => customer.id === pendingCustomerAttachId);
@@ -169,10 +167,7 @@ export function useSalePaymentModal({
   // the running SUM(amount) across the ledger (positive = customer
   // owes); creditLimit comes from the customers row (0 = sin cupo).
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
-  const tenderSum = useMemo(
-    () => sumBy(tenders, tender => Number(tender.amount) || 0),
-    [tenders]
-  );
+  const tenderSum = useMemo(() => sumBy(tenders, tender => Number(tender.amount) || 0), [tenders]);
   // ENG-014 — sum credit tenders in split mode. The V10 customer card
   // surfaces the projected balance based on this portion only (not
   // grandTotal). Outside split mode the value is 0 and the legacy
@@ -188,18 +183,24 @@ export function useSalePaymentModal({
     [splitMode, tenders]
   );
   const tenderDelta = tenderSum - grandTotal;
-  const tendersAreAllPositive = tenders.every(
-    tender => (Number(tender.amount) || 0) > 0
-  );
+  const tendersAreAllPositive = tenders.every(tender => (Number(tender.amount) || 0) > 0);
 
   // ENG-014 — the balance query also fires when a split tender row is
   // credit so the V10 card has live data to project against.
-  const creditQueryEnabled =
-    creditMethodAvailable && (isCredit || creditAmountInSplit > 0);
+  const creditQueryEnabled = creditMethodAvailable && (isCredit || creditAmountInSplit > 0);
   const creditBalanceQuery = trpc.customerLedger.getBalance.useQuery(
     { customerId: watchedCustomerId },
     { enabled: creditQueryEnabled, staleTime: 30_000 }
   );
+  // ENG-218 — a FAILED balance read used to be indistinguishable from a
+  // balance of zero: `data` is undefined either way, so a customer $95.000
+  // into a $100.000 cupo was drawn as having the whole cupo free. The
+  // cashier confirmed against that picture and the server — which re-reads
+  // the ledger itself — rejected the sale. Nothing was ever corrupted; the
+  // cashier was simply shown a number that was not true and then blamed for
+  // it. The projection is unknowable without this read, so the checkout
+  // blocks instead of guessing.
+  const balanceUnavailable = creditQueryEnabled && creditBalanceQuery.isError;
   const currentBalance = creditBalanceQuery.data?.balance ?? 0;
   const creditLimit = selectedCustomer?.creditLimit ?? 0;
   // ENG-014 — the projection sizes to the credit portion only. Pure
@@ -209,9 +210,7 @@ export function useSalePaymentModal({
   const creditProjectionAmount = isCredit ? grandTotal : creditAmountInSplit;
   const projectedBalance = currentBalance + creditProjectionAmount;
   const cupoExceeded =
-    creditLimit > 0 &&
-    creditProjectionAmount > 0 &&
-    projectedBalance > creditLimit;
+    creditLimit > 0 && creditProjectionAmount > 0 && projectedBalance > creditLimit;
   // ENG-014 — V10 card surfaces whenever the sale carries a credit
   // portion (legacy single-tender OR split with a credit row).
   const showCreditCard = isCredit || creditAmountInSplit > 0;
@@ -310,8 +309,7 @@ export function useSalePaymentModal({
     // ENG-014 — also accept override when split mode carries a
     // credit tender ("apartado"). Non-credit sales (split or single)
     // never pass override through.
-    const hasSplitCredit =
-      splitMode && values.tenders.some(tender => tender.method === 'credit');
+    const hasSplitCredit = splitMode && values.tenders.some(tender => tender.method === 'credit');
     const sanitizedOverride =
       isAdmin && (values.paymentMethod === 'credit' || hasSplitCredit)
         ? values.creditOverride
@@ -320,7 +318,7 @@ export function useSalePaymentModal({
       ...values,
       tenders: splitMode ? values.tenders : [],
       tipAmount: sanitizedTip,
-      tipMethod: sanitizedTip > 0 ? values.tipMethod ?? 'fixed' : null,
+      tipMethod: sanitizedTip > 0 ? (values.tipMethod ?? 'fixed') : null,
       // ENG-039d3 — service charge is derived from the prop rate, not
       // operator-editable, so submit always carries the freshly
       // computed pair. `serviceChargeRate: null` signals "no charge
@@ -337,7 +335,10 @@ export function useSalePaymentModal({
     Math.abs(tenderDelta) < TENDER_SUM_EPSILON &&
     tendersAreAllPositive;
 
-  const canSubmit = !isSaving && (!splitMode || splitIsValid);
+  // ENG-218 — never let a credit sale be confirmed against a projection we
+  // could not compute. Cash-only checkouts are untouched (the query is
+  // disabled, so `balanceUnavailable` is false).
+  const canSubmit = !isSaving && (!splitMode || splitIsValid) && !balanceUnavailable;
 
   const presetActive = (percentage: number): boolean => {
     // Zero-tip state — regardless of which method last touched the
@@ -375,6 +376,9 @@ export function useSalePaymentModal({
     cupoExceeded,
     showCreditCard,
     balanceLoading: creditBalanceQuery.isLoading,
+    // ENG-218 — the card renders the inline error + retry from these.
+    balanceUnavailable,
+    retryBalance: () => void creditBalanceQuery.refetch(),
     tenderSum,
     tenderDelta,
     splitIsValid,

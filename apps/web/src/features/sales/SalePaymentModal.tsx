@@ -68,6 +68,8 @@ export function SalePaymentModal({
     cupoExceeded,
     showCreditCard,
     balanceLoading,
+    balanceUnavailable,
+    retryBalance,
     tenderSum,
     tenderDelta,
     splitIsValid,
@@ -272,6 +274,8 @@ export function SalePaymentModal({
             cupoExceeded={cupoExceeded}
             isAdmin={isAdmin}
             balanceLoading={balanceLoading}
+            balanceUnavailable={balanceUnavailable}
+            retryBalance={retryBalance}
           />
         )}
 

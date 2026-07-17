@@ -568,7 +568,10 @@
       "balance": "Current balance",
       "cupo": "Credit limit",
       "projected": "Projected balance",
-      "unlimited": "No limit"
+      "unlimited": "No limit",
+      "balanceUnavailable": "The balance could not be loaded",
+      "balanceUnavailableHelp": "Without it the cupo cannot be projected, so the sale stays blocked. Retry, or charge by another method.",
+      "balanceRetry": "Retry"
     },
     "warning": {
       "exceedsLimit": "The projected balance exceeds the customer's credit limit. Ask an administrator to authorize an override or split the excess as cash."

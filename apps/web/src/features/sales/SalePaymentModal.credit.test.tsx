@@ -18,15 +18,20 @@ import type { Customer } from '@/types';
 import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
 
 let mockBalance = 0;
+// ENG-218 — flip to simulate a failed balance read.
+let mockBalanceError = false;
+const refetchBalanceMock = vi.fn();
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     customerLedger: {
       getBalance: {
         useQuery: () => ({
-          data: { balance: mockBalance },
+          data: mockBalanceError ? undefined : { balance: mockBalance },
           isLoading: false,
-          error: null,
+          isError: mockBalanceError,
+          error: mockBalanceError ? new Error('offline') : null,
+          refetch: refetchBalanceMock,
         }),
       },
     },
@@ -86,6 +91,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
     mockBalance = 0;
+    mockBalanceError = false;
   });
 
   it('hides the credit option when no customer is selected', () => {
@@ -308,5 +314,80 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     expect(creditRow?.amount).toBe(150);
     // Customer is required for the split-credit payload.
     expect(submitted.customerId).toBe('cust-1');
+  });
+});
+
+/**
+ * ENG-218 — a failed balance read must not masquerade as a zero balance.
+ *
+ * `data` is undefined on both a fresh error and a genuine zero, so the card
+ * used to draw "$0 owed / full cupo free" for a customer who might be at
+ * their limit. The cashier confirmed against that, and only the server —
+ * which re-reads the ledger — said no. Nothing was corrupted, but the
+ * cashier was shown a number that was not true.
+ */
+describe('SalePaymentModal credit balance failure (ENG-218)', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await i18next.changeLanguage('en');
+    mockBalance = 0;
+    mockBalanceError = true;
+  });
+
+  /** ModalButton forwards `id`, not `data-testid`. */
+  const confirmButton = () =>
+    document.getElementById('sale-payment-confirm') as HTMLButtonElement | null;
+
+  async function openCreditCard(user: ReturnType<typeof userEvent.setup>) {
+    renderModal({ userRole: 'admin', customers: [makeCustomer({ creditLimit: 200 })] });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
+  }
+
+  it('says the balance is unavailable instead of drawing a zero', async () => {
+    const user = userEvent.setup();
+    await openCreditCard(user);
+
+    expect(screen.getByTestId('credit-balance-error')).toBeInTheDocument();
+    // The em dash is the whole point: not "$0", which reads as "owes nothing".
+    expect(screen.getByTestId('credit-sale-current-balance')).toHaveTextContent('—');
+    expect(screen.getByTestId('credit-sale-projected')).toHaveTextContent('—');
+  });
+
+  it('blocks Confirm while the projection is unknowable', async () => {
+    const user = userEvent.setup();
+    await openCreditCard(user);
+
+    expect(confirmButton()).toBeDisabled();
+  });
+
+  it('offers a retry that re-reads the balance', async () => {
+    const user = userEvent.setup();
+    await openCreditCard(user);
+
+    await user.click(screen.getByTestId('credit-balance-retry'));
+    expect(refetchBalanceMock).toHaveBeenCalled();
+  });
+
+  it('leaves a cash checkout alone (the query never runs)', async () => {
+    const user = userEvent.setup();
+    renderModal({ userRole: 'admin', customers: [makeCustomer({ creditLimit: 200 })] });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+
+    // Cash is the default method: no credit portion, so a failing ledger read
+    // is irrelevant and must not block the register.
+    expect(screen.queryByTestId('credit-balance-error')).not.toBeInTheDocument();
+    expect(confirmButton()).not.toBeDisabled();
+  });
+
+  it('recovers once the read succeeds', async () => {
+    const user = userEvent.setup();
+    mockBalanceError = false;
+    mockBalance = 50;
+    await openCreditCard(user);
+
+    expect(screen.queryByTestId('credit-balance-error')).not.toBeInTheDocument();
+    expect(screen.getByTestId('credit-sale-current-balance')).toHaveTextContent('50');
+    expect(confirmButton()).not.toBeDisabled();
   });
 });

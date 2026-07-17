@@ -568,7 +568,10 @@
       "balance": "Saldo actual",
       "cupo": "Cupo",
       "projected": "Saldo proyectado",
-      "unlimited": "Sin cupo"
+      "unlimited": "Sin cupo",
+      "balanceUnavailable": "No se pudo cargar el saldo",
+      "balanceUnavailableHelp": "Sin el saldo no se puede proyectar el cupo, así que la venta queda bloqueada. Reintenta o cobra por otro medio.",
+      "balanceRetry": "Reintentar"
     },
     "warning": {
       "exceedsLimit": "El saldo proyectado supera el cupo del cliente. Pide a un administrador autorizar el sobregiro o cobra el excedente en efectivo."
