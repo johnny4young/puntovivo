@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Pencil } from 'lucide-react';
 import { Drawer } from '@/components/feedback/Drawer';
 import { cn } from '@/lib/utils';
+import { CustomerLoyaltyPanel } from '@/features/customers/CustomerLoyaltyPanel';
 import { resolveCatalogLabel } from '@/features/customers/catalogLabel';
 import type { Customer, CustomerCatalogItem } from '@/types';
 
@@ -135,6 +136,9 @@ export function CustomerDetailsDrawer({
           />
         </dl>
       )}
+      {/* ENG-215 — points balance + ledger, and the admin correction. Self-
+       * gating: silent for tenants without the program (see the panel). */}
+      {customer && <CustomerLoyaltyPanel customerId={customer.id} />}
     </Drawer>
   );
 }
