@@ -113,8 +113,7 @@ vi.mock('@/lib/trpc', () => ({
       updateCo: {
         useMutation: (options: { onSuccess?: unknown; onError?: unknown }) => ({
           mutate: (...args: unknown[]) => updateMutate(options, ...args),
-          mutateAsync: async (...args: unknown[]) =>
-            updateMutate(options, ...args),
+          mutateAsync: async (...args: unknown[]) => updateMutate(options, ...args),
           isPending: false,
         }),
       },
@@ -135,12 +134,8 @@ describe('CompanyCoFiscalCard (ENG-184)', () => {
   it('shows the optional EmptyState (no form) when DIAN is unconfigured', () => {
     render(<CompanyCoFiscalCard />);
     expect(screen.getByText(/Colombia — DIAN/i)).toBeInTheDocument();
-    expect(screen.getByTestId('fiscal-co-readiness')).toHaveTextContent(
-      /Not ready/i
-    );
-    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(
-      /Demo/i
-    );
+    expect(screen.getByTestId('fiscal-co-readiness')).toHaveTextContent(/Not ready/i);
+    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(/Demo/i);
     expect(screen.getByTestId('fiscal-co-empty')).toBeInTheDocument();
     expect(screen.queryByLabelText(/Issuer NIT/i)).not.toBeInTheDocument();
   });
@@ -150,9 +145,7 @@ describe('CompanyCoFiscalCard (ENG-184)', () => {
     fireEvent.click(screen.getByTestId('fiscal-co-configure'));
     expect(screen.queryByTestId('fiscal-co-empty')).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Issuer NIT/i)).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(/DIAN numbering resolution/i)
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/DIAN numbering resolution/i)).toBeInTheDocument();
   });
 
   it('renders the form directly when config already exists', () => {
@@ -205,5 +198,31 @@ describe('CompanyCoFiscalCard (ENG-184)', () => {
       rangeTo: 5000,
       environment: 'habilitacion',
     });
+  });
+
+  // A-33 — live verification-digit hint on the NIT field.
+  it('warns as the admin types a NIT with the wrong verification digit', () => {
+    render(<CompanyCoFiscalCard />);
+    fireEvent.click(screen.getByTestId('fiscal-co-configure'));
+
+    const nit = screen.getByLabelText(/Issuer NIT/i);
+    // 900123456 has DV 8, so -7 is wrong; the hint must say so and name 8.
+    fireEvent.change(nit, { target: { value: '900123456-7' } });
+    const mismatch = screen.getByTestId('co-nit-hint-mismatch');
+    expect(mismatch).toHaveTextContent('8');
+
+    // Correcting the DV flips the hint to the success state.
+    fireEvent.change(nit, { target: { value: '900123456-8' } });
+    expect(screen.queryByTestId('co-nit-hint-mismatch')).not.toBeInTheDocument();
+    expect(screen.getByTestId('co-nit-hint-match')).toBeInTheDocument();
+  });
+
+  it('suggests the verification digit for a bare NIT', () => {
+    render(<CompanyCoFiscalCard />);
+    fireEvent.click(screen.getByTestId('fiscal-co-configure'));
+
+    fireEvent.change(screen.getByLabelText(/Issuer NIT/i), { target: { value: '900373115' } });
+    // DV of 900373115 is 3.
+    expect(screen.getByTestId('co-nit-hint-suggest')).toHaveTextContent('3');
   });
 });

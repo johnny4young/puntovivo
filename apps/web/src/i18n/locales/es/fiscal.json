@@ -166,7 +166,10 @@
         "rangeToPlaceholder": "ej. 5000",
         "environment": "Ambiente",
         "environmentHabilitacion": "Habilitación (pruebas)",
-        "environmentProduccion": "Producción"
+        "environmentProduccion": "Producción",
+        "nitDvSuggest": "Dígito de verificación de {{nit}}: {{dv}}. Escríbelo como {{nit}}-{{dv}}.",
+        "nitDvMatch": "El dígito de verificación es correcto.",
+        "nitDvMismatch": "Dígito de verificación incorrecto — el correcto es {{dv}}. La DIAN lo rechazaría."
       },
       "issueCodes": {
         "MISSING_NIT": "Falta el NIT del emisor",
