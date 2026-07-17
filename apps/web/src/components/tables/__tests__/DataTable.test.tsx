@@ -876,4 +876,67 @@ describe('DataTable', () => {
       expect(screen.getByText('No results.')).toBeInTheDocument();
     });
   });
+  // ENG-217 — controlled (server-side) search.
+  describe('Controlled search (ENG-217)', () => {
+    it('reports keystrokes to the owner instead of filtering', async () => {
+      const user = userEvent.setup();
+      const onSearchChange = vi.fn();
+      const products = [
+        createMockProduct({ id: '1', name: 'Arroz', sku: 'A-1' }),
+        createMockProduct({ id: '2', name: 'Azúcar', sku: 'A-2' }),
+      ];
+
+      render(
+        <DataTable
+          columns={columns}
+          data={products}
+          searchValue="arroz"
+          onSearchChange={onSearchChange}
+          searchPlaceholder="Search..."
+        />
+      );
+
+      // The term matches only one row by name, but the owner already applied
+      // it server-side: filtering again here would drop rows the server
+      // matched on a field this table does not even render.
+      const tbody = screen.getAllByRole('rowgroup')[1];
+      expect(within(tbody!).getAllByRole('row')).toHaveLength(2);
+
+      await user.type(screen.getByTestId('data-table-search'), 'x');
+      expect(onSearchChange).toHaveBeenCalledWith('arrozx');
+    });
+
+    it('shows the controlled value in the box', () => {
+      render(
+        <DataTable
+          columns={columns}
+          data={createTestProducts(2)}
+          searchValue="rosa"
+          onSearchChange={vi.fn()}
+          searchPlaceholder="Search..."
+        />
+      );
+
+      expect(screen.getByTestId('data-table-search')).toHaveValue('rosa');
+    });
+  });
+
+  // ENG-219 — the virtualised wrapper is the scroll container, so the header
+  // has to stick to it or it scrolls away.
+  describe('Virtualised header (ENG-219)', () => {
+    it('marks the wrapper as virtualised so the sticky header rule applies', () => {
+      render(<DataTable columns={columns} data={createTestProducts(40)} />);
+
+      // Past AUTO_VIRTUALISE_THRESHOLD the table auto-flips; the attribute is
+      // what the CSS rule ([data-virtualised='true'] .data-table thead th)
+      // hangs off, and jsdom cannot evaluate the stylesheet itself.
+      expect(document.querySelector('[data-virtualised="true"]')).not.toBeNull();
+    });
+
+    it('leaves a small paged table unvirtualised', () => {
+      render(<DataTable columns={columns} data={createTestProducts(5)} />);
+
+      expect(document.querySelector('[data-virtualised="true"]')).toBeNull();
+    });
+  });
 });
