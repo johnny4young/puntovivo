@@ -15,13 +15,14 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { and, eq, like, sql } from 'drizzle-orm';
+import { and, eq, like } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { vatRates } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { paginatedList } from '../lib/paginatedList.js';
 import {
   createVatRateInput,
   deleteVatRateInput,
@@ -34,7 +35,6 @@ import {
 export const vatRatesRouter = router({
   list: tenantProcedure.input(listVatRatesInput).query(async ({ ctx, input }) => {
     const { page, perPage, search, isActive } = input;
-    const offset = (page - 1) * perPage;
 
     const conditions = [eq(vatRates.tenantId, ctx.tenantId)];
     if (search) {
@@ -44,26 +44,8 @@ export const vatRatesRouter = router({
       conditions.push(eq(vatRates.isActive, isActive));
     }
 
-    const where = and(...conditions);
-
-    const [items, countResult] = await Promise.all([
-      ctx.db.select().from(vatRates).where(where).limit(perPage).offset(offset).all(),
-      ctx.db
-        .select({ count: sql<number>`count(*)` })
-        .from(vatRates)
-        .where(where)
-        .get(),
-    ]);
-
-    const totalItems = countResult?.count ?? 0;
-
-    return {
-      items,
-      page,
-      perPage,
-      totalItems,
-      totalPages: Math.ceil(totalItems / perPage),
-    };
+    // A-22 — one predicate feeds both the page and the count.
+    return paginatedList({ db: ctx.db, table: vatRates, where: and(...conditions), page, perPage });
   }),
 
   getById: tenantProcedure.input(getVatRateInput).query(async ({ ctx, input }) => {

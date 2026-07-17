@@ -55,7 +55,7 @@ export class SchemaNewerThanAppError extends Error {
  * tracking table yet) and on pending upgrades (applied ≤ bundled).
  */
 export function assertSchemaNotNewerThanApp(sqlite: SqliteLike, migrationsFolder: string): void {
-  let applied = 0;
+  let applied: number;
   try {
     const row = sqlite.prepare('SELECT COUNT(*) AS n FROM __drizzle_migrations').get() as
       { n?: number } | undefined;
