@@ -10,6 +10,9 @@ import './styles/ai-section.css';
 import './styles/pages.css';
 
 import './i18n/index.js';
+// A-05 — privacy-default analytics: injected ONLY when the operator sets
+// VITE_ANALYTICS_SRC (https) + VITE_ANALYTICS_DOMAIN at build time.
+import { injectAnalytics } from './lib/leads.js';
 import { AppShell } from './AppShell.jsx';
 
 // Vite's BASE_URL is "/puntovivo/" (the GitHub Pages subpath). react-router's
@@ -24,3 +27,5 @@ hydrateRoot(
   document.getElementById('root'),
   <AppShell router={app => <BrowserRouter basename={basename}>{app}</BrowserRouter>} />
 );
+
+injectAnalytics(import.meta.env, document);

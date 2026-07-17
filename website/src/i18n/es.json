@@ -991,6 +991,28 @@
         "Abre un issue describiendo el bug o la propuesta con su contexto.",
         "Manda un pull request; se revisa y se discute en abierto."
       ]
+    },
+    "leadForm": {
+      "kicker": "Lista de espera",
+      "title": "Deja tu correo y te avisamos primero.",
+      "desc": "La nube gestionada y los instaladores estables están en camino. Cuéntanos cuántas sedes tienes y qué te interesa — sin spam, solo el aviso.",
+      "emailLabel": "Tu correo",
+      "emailPlaceholder": "dueña@mitienda.co",
+      "sedesLabel": "¿Cuántas sedes tienes?",
+      "sedes1": "1 sede",
+      "sedes2": "2 a 5 sedes",
+      "sedes6": "6 o más",
+      "interestLabel": "¿Qué te interesa?",
+      "interestNube": "La nube gestionada",
+      "interestEscritorio": "La app de escritorio",
+      "interestAmbas": "Ambas",
+      "submit": "Avísame",
+      "sending": "Enviando…",
+      "invalidEmail": "Revisa el correo — no parece válido.",
+      "sendError": "No se pudo enviar. Intenta de nuevo o escríbenos por correo.",
+      "sentTitle": "¡Listo, quedaste en la lista!",
+      "sentDesc": "Te escribimos apenas haya novedades. Gracias por el interés.",
+      "privacy": "Solo usamos tu correo para avisarte de Puntovivo. Nada de listas compartidas."
     }
   },
   "atajos": {

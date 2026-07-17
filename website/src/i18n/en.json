@@ -991,6 +991,28 @@
         "Open an issue describing the bug or proposal with its context.",
         "Send a pull request; it's reviewed and discussed in the open."
       ]
+    },
+    "leadForm": {
+      "kicker": "Waitlist",
+      "title": "Leave your email and hear it first.",
+      "desc": "The managed cloud and stable installers are on the way. Tell us how many stores you run and what you care about — no spam, just the heads-up.",
+      "emailLabel": "Your email",
+      "emailPlaceholder": "owner@mystore.co",
+      "sedesLabel": "How many stores?",
+      "sedes1": "1 store",
+      "sedes2": "2 to 5 stores",
+      "sedes6": "6 or more",
+      "interestLabel": "What interests you?",
+      "interestNube": "The managed cloud",
+      "interestEscritorio": "The desktop app",
+      "interestAmbas": "Both",
+      "submit": "Notify me",
+      "sending": "Sending…",
+      "invalidEmail": "Check the email — it does not look valid.",
+      "sendError": "Could not send. Try again or write us by email.",
+      "sentTitle": "Done, you are on the list!",
+      "sentDesc": "We will write as soon as there is news. Thanks for the interest.",
+      "privacy": "We only use your email to tell you about Puntovivo. No shared lists."
     }
   },
   "atajos": {
