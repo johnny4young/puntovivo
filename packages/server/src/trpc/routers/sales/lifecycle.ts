@@ -281,6 +281,9 @@ export const salesLifecycleProcedures = {
         {
           mode: 'fromDraft',
           saleId: input.saleId,
+          // ENG-216 — the customer the cashier attached at payment time.
+          // Omitted by an older client, which keeps the draft's value.
+          customerId: input.customerId,
           payments: input.payments,
           paymentMethod: input.paymentMethod,
           amountReceived: input.amountReceived,

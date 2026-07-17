@@ -4,19 +4,12 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
 import { invalidateGroups } from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
-import {
-  getCartItemKey,
-  type SaleCartItem,
-  type SaleCartSummary,
-} from '@/features/sales/saleCart';
+import { getCartItemKey, type SaleCartItem, type SaleCartSummary } from '@/features/sales/saleCart';
 import {
   checkoutUsesCreditTender,
   getCheckoutPaymentState,
 } from '@/features/sales/checkoutPayment';
-import {
-  useCartWorkspaceStore,
-  type CartWorkspace,
-} from '@/features/sales/useCartWorkspaceStore';
+import { useCartWorkspaceStore, type CartWorkspace } from '@/features/sales/useCartWorkspaceStore';
 import { type SalePaymentValues } from '@/features/sales/SalePaymentModal';
 import type { useSalesMutations } from '@/features/sales/useSalesMutations';
 
@@ -108,7 +101,7 @@ export function useSalesFlows({
       // against `amountReceived` to compute paymentStatus), so we add
       // the tip in here before forwarding.
       const tipAmount = Math.max(0, values.tipAmount ?? 0);
-      const tipMethod = tipAmount > 0 ? values.tipMethod ?? 'fixed' : undefined;
+      const tipMethod = tipAmount > 0 ? (values.tipMethod ?? 'fixed') : undefined;
       // ENG-039d3 — service charge is auto-applied from the tenant rate
       // (resolved by SalePaymentModal); we forward whatever the modal
       // produced. `serviceChargeRate: null` → `undefined` so the Zod
@@ -130,13 +123,18 @@ export function useSalesFlows({
       // forwarding decision must inspect the modal tenders instead of only
       // the dominant legacy method. The server still re-asserts admin role.
       const creditOverride =
-        values.creditOverride && checkoutUsesCreditTender(values)
-          ? true
-          : undefined;
+        values.creditOverride && checkoutUsesCreditTender(values) ? true : undefined;
 
       if (activeWorkspace?.serverSaleId) {
         await completeDraftMutation.mutateAsync({
           saleId: activeWorkspace.serverSaleId,
+          // ENG-216 — a suspended ticket is created without a customer, and
+          // this drawer is the only place to attach one; before this the
+          // pick was dropped and the sale filed as a walk-in. Empty maps to
+          // undefined (keep the draft's value) rather than null (clear it):
+          // the drawer does not preload the draft's stored customer, so a
+          // null here would silently detach one that was already set.
+          customerId: values.customerId || undefined,
           paymentMethod: payment.paymentMethod,
           paymentStatus: payment.paymentStatus,
           amountReceived: payment.amountReceived,
@@ -316,8 +314,7 @@ export function useSalesFlows({
         productName: row.productName ?? row.productId,
         productSku: row.productSku ?? '',
         unitId: row.unitId ?? '',
-        unitName:
-          row.unitName ?? row.unitAbbreviation ?? row.unitId ?? '',
+        unitName: row.unitName ?? row.unitAbbreviation ?? row.unitId ?? '',
         unitEquivalence: row.unitEquivalence ?? 1,
         quantity: row.quantity,
         unitPrice: row.unitPrice,
