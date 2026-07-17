@@ -49,6 +49,14 @@ export interface TenantSettings {
   cashClose?: {
     blindClose: boolean;
   };
+  /**
+   * ENG-211 — tenant-tuned expiry-discount ladder (first match wins,
+   * always sorted ascending by `maxDays` server-side). Absent for tenants
+   * that never tuned it; the radar falls back to the ENG-199 defaults.
+   */
+  discount?: {
+    expiryTiers: Array<{ maxDays: number; pct: number }>;
+  };
 }
 
 export interface Site {
