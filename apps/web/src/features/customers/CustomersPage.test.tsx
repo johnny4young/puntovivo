@@ -63,8 +63,9 @@ vi.mock('@/lib/trpc', () => ({
       list: {
         useQuery: (input: unknown) => {
           listQueryInputs.push(input);
+          const search = (input as { search?: string }).search;
           return {
-            data: { items: [customer] },
+            data: { items: search === 'missing' ? [] : [customer] },
             isLoading: false,
             error: null,
             refetch: vi.fn(),
@@ -194,5 +195,16 @@ describe('CustomersPage server-side search (ENG-217)', () => {
     });
 
     expect(screen.getByText('Comercializadora Andina')).toBeInTheDocument();
+  });
+
+  it('does not mistake an empty search result for a fresh tenant', async () => {
+    render(<CustomersPage />);
+
+    fireEvent.change(screen.getByTestId('data-table-search'), { target: { value: 'missing' } });
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(screen.queryByTestId('empty-state-readiness-customers')).not.toBeInTheDocument();
   });
 });

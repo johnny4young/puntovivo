@@ -161,11 +161,19 @@ export function DataTable<TData, TValue>({
   // column filter must NOT also run, or a server-filtered page would be
   // filtered a second time against one column and hide valid matches.
   const isControlledSearch = searchValue !== undefined;
+  const isControlledSearchReadOnly = isControlledSearch && !onSearchChange;
   if (import.meta.env.DEV && isControlledSearch && searchKey) {
     // Not an invariant the types can express (both props are independently
     // optional), and the failure is silent double-filtering.
     console.warn(
       'DataTable: searchValue and searchKey are mutually exclusive; ignoring searchKey.'
+    );
+  }
+  if (import.meta.env.DEV && isControlledSearchReadOnly) {
+    // A controlled input cannot update itself. Make the inert contract visible
+    // to developers instead of accepting keystrokes that are silently dropped.
+    console.warn(
+      'DataTable: searchValue requires onSearchChange; rendering the search input read-only.'
     );
   }
   const { t } = useTranslation('common');
@@ -438,6 +446,7 @@ export function DataTable<TData, TValue>({
             aria-label={searchPlaceholder ?? t('table.searchPlaceholder')}
             value={searchValue ?? ''}
             onChange={e => onSearchChange?.(e.target.value)}
+            readOnly={isControlledSearchReadOnly}
             className="input max-w-sm"
             data-testid="data-table-search"
           />

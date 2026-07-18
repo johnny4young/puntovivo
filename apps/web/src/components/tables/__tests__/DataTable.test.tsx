@@ -919,6 +919,28 @@ describe('DataTable', () => {
 
       expect(screen.getByTestId('data-table-search')).toHaveValue('rosa');
     });
+
+    it('warns and renders read-only when the controlled handler is missing', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      try {
+        render(
+          <DataTable
+            columns={columns}
+            data={createTestProducts(2)}
+            searchValue="rosa"
+            searchPlaceholder="Search..."
+          />
+        );
+
+        expect(screen.getByTestId('data-table-search')).toHaveAttribute('readonly');
+        expect(warn).toHaveBeenCalledWith(
+          'DataTable: searchValue requires onSearchChange; rendering the search input read-only.'
+        );
+      } finally {
+        warn.mockRestore();
+      }
+    });
   });
 
   // ENG-219 — the virtualised wrapper is the scroll container, so the header

@@ -18,7 +18,8 @@ import type { Customer } from '@/types';
 import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
 
 let mockBalance = 0;
-// ENG-218 — flip to simulate a failed balance read.
+// ENG-218 — flip these to simulate an unresolved or failed balance read.
+let mockBalanceLoading = false;
 let mockBalanceError = false;
 const refetchBalanceMock = vi.fn();
 
@@ -27,8 +28,8 @@ vi.mock('@/lib/trpc', () => ({
     customerLedger: {
       getBalance: {
         useQuery: () => ({
-          data: mockBalanceError ? undefined : { balance: mockBalance },
-          isLoading: false,
+          data: mockBalanceError || mockBalanceLoading ? undefined : { balance: mockBalance },
+          isLoading: mockBalanceLoading,
           isError: mockBalanceError,
           error: mockBalanceError ? new Error('offline') : null,
           refetch: refetchBalanceMock,
@@ -91,6 +92,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
     mockBalance = 0;
+    mockBalanceLoading = false;
     mockBalanceError = false;
   });
 
@@ -331,6 +333,7 @@ describe('SalePaymentModal credit balance failure (ENG-218)', () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
     mockBalance = 0;
+    mockBalanceLoading = false;
     mockBalanceError = true;
   });
 
@@ -358,6 +361,25 @@ describe('SalePaymentModal credit balance failure (ENG-218)', () => {
     const user = userEvent.setup();
     await openCreditCard(user);
 
+    expect(confirmButton()).toBeDisabled();
+  });
+
+  it('blocks Confirm and both balance figures while the first read is loading', async () => {
+    const user = userEvent.setup();
+    mockBalanceError = false;
+    mockBalanceLoading = true;
+    renderModal({
+      userRole: 'admin',
+      customers: [makeCustomer({ creditLimit: 50 })],
+    });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
+
+    expect(screen.getByTestId('credit-sale-customer-card')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByTestId('credit-sale-current-balance')).toHaveTextContent('…');
+    expect(screen.getByTestId('credit-sale-projected')).toHaveTextContent('…');
+    expect(screen.queryByTestId('credit-sale-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('credit-sale-override-toggle')).not.toBeInTheDocument();
     expect(confirmButton()).toBeDisabled();
   });
 

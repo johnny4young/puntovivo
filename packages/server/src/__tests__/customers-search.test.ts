@@ -10,7 +10,7 @@
  * The load-bearing case is `finds a match that lives beyond the first page`:
  * it is the bug, expressed as a test.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -69,7 +69,7 @@ async function seedCustomer(args: {
   return id;
 }
 
-beforeAll(async () => {
+beforeEach(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
   const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
@@ -78,7 +78,7 @@ beforeAll(async () => {
   userId = admin.id;
 });
 
-afterAll(async () => {
+afterEach(async () => {
   await server.close();
 });
 
@@ -120,6 +120,8 @@ describe('customers.list search (ENG-217)', () => {
   });
 
   it('reports the searched total, not the whole book', async () => {
+    await seedCustomer({ name: 'Doña Rosa Escondida' });
+    await seedCustomer({ name: 'Cliente Visible Sin Coincidencia' });
     const caller = appRouter.createCaller(createTestContext());
     const all = await caller.customers.list({ page: 1, perPage: 50 });
     const searched = await caller.customers.list({ page: 1, perPage: 50, search: 'Escondida' });
@@ -147,18 +149,21 @@ describe('customers.list search (ENG-217)', () => {
       name: 'Doña Rosa Escondida',
       tenant: foreignTenantId,
     });
+    const localId = await seedCustomer({ name: 'Doña Rosa Escondida' });
 
     // Same term, same name — only the caller's own row may come back.
     const caller = appRouter.createCaller(createTestContext());
     const searched = await caller.customers.list({ page: 1, perPage: 50, search: 'Escondida' });
 
+    expect(searched.items.map(c => c.id)).toContain(localId);
     expect(searched.items.map(c => c.id)).not.toContain(foreignId);
     expect(searched.items.every(c => c.tenantId === tenantId)).toBe(true);
   });
 
   it('treats an absent search as no filter', async () => {
+    const customerId = await seedCustomer({ name: 'Cliente Sin Filtro' });
     const caller = appRouter.createCaller(createTestContext());
     const all = await caller.customers.list({ page: 1, perPage: 50 });
-    expect(all.items.length).toBeGreaterThan(0);
+    expect(all.items.map(c => c.id)).toContain(customerId);
   });
 });

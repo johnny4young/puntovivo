@@ -58,6 +58,7 @@ export function SaleCreditCustomerCard({
     <div
       className="rounded-xl border border-secondary-200 p-4"
       data-testid="credit-sale-customer-card"
+      aria-busy={balanceLoading}
     >
       <p className="text-sm font-medium text-secondary-900">
         {selectedCustomer?.name ?? t('credit.card.unknownCustomer')}
@@ -69,7 +70,8 @@ export function SaleCreditCustomerCard({
       )}
       {/* ENG-218 — the balance read failed. Replace the projection with an
           honest error instead of drawing a $0 balance that would read as
-          "full cupo available"; Confirm is disabled upstream. */}
+          "full cupo available"; Confirm is disabled upstream. Loading is
+          also unknown, but stays represented by the compact ellipsis below. */}
       {balanceUnavailable && (
         <div
           className="mt-3 rounded-lg border border-danger-200 bg-danger-50 p-3"
@@ -111,7 +113,7 @@ export function SaleCreditCustomerCard({
       <div className="mt-3 grid grid-cols-3 gap-3">
         <div
           className={`rounded border p-2 ${
-            currentBalance > 0 && !balanceUnavailable
+            currentBalance > 0 && !balanceLoading && !balanceUnavailable
               ? 'border-danger-300 bg-danger-50 text-danger-700'
               : 'border-line bg-white text-secondary-900'
           }`}
@@ -121,8 +123,8 @@ export function SaleCreditCustomerCard({
             {t('credit.card.balance')}
           </p>
           <p className="mt-1 text-base font-medium tabular-nums">
-            {/* ENG-218 — an em dash, never a formatted 0: the read failed,
-                so we do not know the balance. */}
+            {/* ENG-218 — an em dash on failure and an ellipsis while loading,
+                never a formatted 0 while the balance is unknown. */}
             {balanceUnavailable ? '—' : balanceLoading ? '…' : formatCurrency(currentBalance)}
           </p>
         </div>
@@ -147,7 +149,7 @@ export function SaleCreditCustomerCard({
             {t('credit.card.projected')}
           </p>
           <p className="mt-1 text-base font-medium tabular-nums">
-            {balanceUnavailable ? '—' : formatCurrency(projectedBalance)}
+            {balanceUnavailable ? '—' : balanceLoading ? '…' : formatCurrency(projectedBalance)}
           </p>
         </div>
       </div>
