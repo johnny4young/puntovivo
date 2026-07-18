@@ -42,6 +42,50 @@ function parsePositiveInt(value: string): number | null {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+/** A-33 — controlled NIT input remounted when the persisted seed changes. */
+function CoNitField({ seed }: { seed: string }) {
+  const { t } = useTranslation(['fiscal']);
+  const [nitValue, setNitValue] = useState(seed);
+  const hint = nitHint(nitValue);
+
+  return (
+    <SimpleFormField
+      label={t('fiscal:settings.co.fields.nit')}
+      htmlFor="fiscal-co-nit"
+      helperText={t('fiscal:settings.co.fields.nitHelp')}
+    >
+      <input
+        id="fiscal-co-nit"
+        name="nit"
+        type="text"
+        value={nitValue}
+        onChange={event => setNitValue(event.target.value)}
+        placeholder={t('fiscal:settings.co.fields.nitPlaceholder')}
+        className="pv-input"
+        maxLength={20}
+      />
+      {/* A-33 — live DV hint. `suggest` shows the correct check
+          digit for a bare NIT; `mismatch` warns before the admin
+          saves and blocks a DIAN rejection at emission time. */}
+      {hint.kind === 'suggest' && (
+        <p className="mt-1 text-[12px] text-secondary-600" data-testid="co-nit-hint-suggest">
+          {t('fiscal:settings.co.fields.nitDvSuggest', { nit: hint.nit, dv: hint.dv })}
+        </p>
+      )}
+      {hint.kind === 'match' && (
+        <p className="mt-1 text-[12px] text-success-700" data-testid="co-nit-hint-match">
+          {t('fiscal:settings.co.fields.nitDvMatch')}
+        </p>
+      )}
+      {hint.kind === 'mismatch' && (
+        <p className="mt-1 text-[12px] text-danger-600" data-testid="co-nit-hint-mismatch">
+          {t('fiscal:settings.co.fields.nitDvMismatch', { dv: hint.dv })}
+        </p>
+      )}
+    </SimpleFormField>
+  );
+}
+
 export function CompanyCoFiscalCard() {
   const { t } = useTranslation(['fiscal', 'errors', 'common']);
   const toast = useToast();
@@ -73,17 +117,7 @@ export function CompanyCoFiscalCard() {
   const [revealed, setRevealed] = useState(false);
   const showForm = isConfigured || revealed;
 
-  // A-33 — live NIT verification-digit hint. Controlled so the hint updates
-  // as the admin types; seeded from the stored value and re-seeded when the
-  // form remounts (formKey below covers a settings refetch).
-  const [nitValue, setNitValue] = useState(coSettings?.nit ?? '');
-  const [lastNitSeed, setLastNitSeed] = useState(coSettings?.nit ?? '');
   const nitSeed = coSettings?.nit ?? '';
-  if (nitSeed !== lastNitSeed) {
-    setLastNitSeed(nitSeed);
-    setNitValue(nitSeed);
-  }
-  const hint = nitHint(nitValue);
 
   const formKey = coSettings
     ? [
@@ -235,43 +269,7 @@ export function CompanyCoFiscalCard() {
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <SimpleFormField
-              label={t('fiscal:settings.co.fields.nit')}
-              htmlFor="fiscal-co-nit"
-              helperText={t('fiscal:settings.co.fields.nitHelp')}
-            >
-              <input
-                id="fiscal-co-nit"
-                name="nit"
-                type="text"
-                value={nitValue}
-                onChange={event => setNitValue(event.target.value)}
-                placeholder={t('fiscal:settings.co.fields.nitPlaceholder')}
-                className="pv-input"
-                maxLength={20}
-              />
-              {/* A-33 — live DV hint. `suggest` shows the correct check
-                  digit for a bare NIT; `mismatch` warns before the admin
-                  saves and blocks a DIAN rejection at emission time. */}
-              {hint.kind === 'suggest' && (
-                <p
-                  className="mt-1 text-[12px] text-secondary-600"
-                  data-testid="co-nit-hint-suggest"
-                >
-                  {t('fiscal:settings.co.fields.nitDvSuggest', { nit: hint.nit, dv: hint.dv })}
-                </p>
-              )}
-              {hint.kind === 'match' && (
-                <p className="mt-1 text-[12px] text-success-700" data-testid="co-nit-hint-match">
-                  {t('fiscal:settings.co.fields.nitDvMatch')}
-                </p>
-              )}
-              {hint.kind === 'mismatch' && (
-                <p className="mt-1 text-[12px] text-danger-600" data-testid="co-nit-hint-mismatch">
-                  {t('fiscal:settings.co.fields.nitDvMismatch', { dv: hint.dv })}
-                </p>
-              )}
-            </SimpleFormField>
+            <CoNitField key={nitSeed} seed={nitSeed} />
 
             <SimpleFormField
               label={t('fiscal:settings.co.fields.resolution')}

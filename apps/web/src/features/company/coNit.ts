@@ -12,6 +12,8 @@
 
 /** Official DIAN weights, least-significant position first. */
 const DV_WEIGHTS = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
+const MIN_NIT_DIGITS = 9;
+const MAX_NIT_DIGITS = 10;
 
 /** Compute the DIAN verification digit for a digits-only NIT base. */
 export function computeNitVerificationDigit(nitDigits: string): number {
@@ -27,7 +29,7 @@ export function computeNitVerificationDigit(nitDigits: string): number {
 /** Live hint state for the NIT field. */
 export type NitHint =
   | { kind: 'idle' }
-  | { kind: 'invalid'; reason: 'non_numeric' | 'too_long' }
+  | { kind: 'invalid'; reason: 'non_numeric' | 'too_short' | 'too_long' }
   | { kind: 'suggest'; nit: string; dv: number }
   | { kind: 'match'; nit: string; dv: number }
   | { kind: 'mismatch'; nit: string; dv: number; provided: number };
@@ -53,7 +55,8 @@ export function nitHint(input: string): NitHint {
 
   const nit = basePart.replace(/[.\s]/g, '');
   if (!/^\d+$/.test(nit)) return { kind: 'invalid', reason: 'non_numeric' };
-  if (nit.length > 15) return { kind: 'invalid', reason: 'too_long' };
+  if (nit.length < MIN_NIT_DIGITS) return { kind: 'invalid', reason: 'too_short' };
+  if (nit.length > MAX_NIT_DIGITS) return { kind: 'invalid', reason: 'too_long' };
 
   const dv = computeNitVerificationDigit(nit);
   if (provided === null) return { kind: 'suggest', nit, dv };

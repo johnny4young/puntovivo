@@ -31,8 +31,9 @@
 /** Pesos oficiales DIAN, de la posición menos significativa a la más. */
 const DV_WEIGHTS = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71] as const;
 
-/** El NIT base (sin DV) admite hasta 15 dígitos según el anexo DIAN. */
-const MAX_NIT_DIGITS = 15;
+/** Preserve the existing issuer-config contract: 9-10 base digits. */
+const MIN_NIT_DIGITS = 9;
+const MAX_NIT_DIGITS = 10;
 
 /**
  * Resultado de validar un NIT (con o sin DV adjunto). Los campos:
@@ -47,7 +48,7 @@ export interface NitValidationResult {
   nit: string;
   verificationDigit: number | null;
   providedDigit: number | null;
-  reason: 'ok' | 'empty' | 'non_numeric' | 'too_long' | 'dv_mismatch';
+  reason: 'ok' | 'empty' | 'non_numeric' | 'too_short' | 'too_long' | 'dv_mismatch';
 }
 
 /**
@@ -69,7 +70,7 @@ export function computeNitVerificationDigit(nitDigits: string): number {
 }
 
 /**
- * Parse and validate a NIT that may arrive as `900373115`, `900373115-3`,
+ * Parse and validate a 9-10 digit NIT base that may arrive as `900373115`, `900373115-3`,
  * or `900.373.115-3`. Separators (dots, spaces) are stripped; a trailing
  * `-D` is read as the provided DV. When a DV is present it must match the
  * computed one; when absent, the NIT base is validated for shape only and
@@ -104,6 +105,15 @@ export function validateNit(input: string): NitValidationResult {
       verificationDigit: null,
       providedDigit,
       reason: 'non_numeric',
+    };
+  }
+  if (nit.length < MIN_NIT_DIGITS) {
+    return {
+      valid: false,
+      nit,
+      verificationDigit: null,
+      providedDigit,
+      reason: 'too_short',
     };
   }
   if (nit.length > MAX_NIT_DIGITS) {

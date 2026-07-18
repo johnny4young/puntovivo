@@ -42,8 +42,9 @@ describe('nitHint', () => {
     expect(nitHint('900.373.115-3')).toEqual({ kind: 'match', nit: '900373115', dv: 3 });
   });
 
-  it('flags non-numeric and over-long input', () => {
+  it('flags non-numeric input and preserves the 9-10 digit base contract', () => {
     expect(nitHint('90A')).toEqual({ kind: 'invalid', reason: 'non_numeric' });
-    expect(nitHint('1234567890123456')).toEqual({ kind: 'invalid', reason: 'too_long' });
+    expect(nitHint('12345678')).toEqual({ kind: 'invalid', reason: 'too_short' });
+    expect(nitHint('12345678901')).toEqual({ kind: 'invalid', reason: 'too_long' });
   });
 });

@@ -153,7 +153,7 @@ describe('CompanyCoFiscalCard (ENG-184)', () => {
       ...UNCONFIGURED_CO,
       settings: {
         enabled: true,
-        nit: '900123456-7',
+        nit: '900123456-8',
         dianResolutionNumber: '18760000001',
         prefix: 'SETP',
         rangeFrom: 1,
@@ -166,6 +166,30 @@ describe('CompanyCoFiscalCard (ENG-184)', () => {
     expect(screen.getByLabelText(/Issuer NIT/i)).toBeInTheDocument();
   });
 
+  it('re-seeds the controlled NIT when saved settings refetch', () => {
+    const { rerender } = render(<CompanyCoFiscalCard />);
+    fireEvent.click(screen.getByTestId('fiscal-co-configure'));
+    fireEvent.change(screen.getByLabelText(/Issuer NIT/i), {
+      target: { value: '900373115-3' },
+    });
+
+    mockSettingsResponse = {
+      ...UNCONFIGURED_CO,
+      settings: {
+        enabled: true,
+        nit: '900123456-8',
+        dianResolutionNumber: '18760000001',
+        prefix: 'SETP',
+        rangeFrom: 1,
+        rangeTo: 5000,
+        environment: 'produccion',
+      },
+    };
+    rerender(<CompanyCoFiscalCard />);
+
+    expect(screen.getByLabelText(/Issuer NIT/i)).toHaveValue('900123456-8');
+  });
+
   it('renders nothing when the tenant is MX (CompanyPage dispatches)', () => {
     mockCountryCode = 'MX';
     const { container } = render(<CompanyCoFiscalCard />);
@@ -176,7 +200,7 @@ describe('CompanyCoFiscalCard (ENG-184)', () => {
     render(<CompanyCoFiscalCard />);
     fireEvent.click(screen.getByTestId('fiscal-co-configure'));
     fireEvent.change(screen.getByLabelText(/Issuer NIT/i), {
-      target: { value: '900123456-7' },
+      target: { value: '900123456-8' },
     });
     fireEvent.change(screen.getByLabelText(/DIAN numbering resolution/i), {
       target: { value: '18760000001' },
@@ -192,7 +216,7 @@ describe('CompanyCoFiscalCard (ENG-184)', () => {
     expect(updateMutate).toHaveBeenCalled();
     const lastCall = updateMutate.mock.calls.at(-1);
     expect(lastCall?.[1]).toMatchObject({
-      nit: '900123456-7',
+      nit: '900123456-8',
       dianResolutionNumber: '18760000001',
       rangeFrom: 1,
       rangeTo: 5000,

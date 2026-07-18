@@ -20,10 +20,10 @@ describe('computeNitVerificationDigit', () => {
   });
 
   it('returns the remainder itself when it is 0 or 1 (no 11 − r)', () => {
-    // Constructed so the weighted sum is a multiple of 11 → remainder 0 → DV 0.
-    // 11: r-to-l 1,1 × 3,7 = 3+7 = 10; 10 mod 11 = 10 → DV 1. Use a real 0 case:
-    // 79: 9,7 × 3,7 = 27+49 = 76; 76 mod 11 = 10 → DV 1.
-    expect([0, 1]).toContain(computeNitVerificationDigit('79'));
+    // 15: r-to-l 5,1 × 3,7 = 15+7 = 22; remainder 0 → DV 0.
+    expect(computeNitVerificationDigit('15')).toBe(0);
+    // 4: 4 × 3 = 12; remainder 1 → DV 1.
+    expect(computeNitVerificationDigit('4')).toBe(1);
   });
 });
 
@@ -63,7 +63,8 @@ describe('validateNit', () => {
     expect(validateNit('   ').reason).toBe('empty');
   });
 
-  it('rejects a NIT longer than the DIAN maximum', () => {
-    expect(validateNit('1234567890123456').reason).toBe('too_long');
+  it('preserves the configured 9-10 digit NIT base contract', () => {
+    expect(validateNit('12345678').reason).toBe('too_short');
+    expect(validateNit('12345678901').reason).toBe('too_long');
   });
 });

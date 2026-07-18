@@ -338,7 +338,7 @@ export const fiscalSettingsRouter = router({
         const message =
           result.reason === 'dv_mismatch'
             ? `El dígito de verificación del NIT es incorrecto. Para ${result.nit} el DV correcto es ${result.verificationDigit}.`
-            : `El NIT ${input.nit} no tiene un formato válido (dígitos con dígito de verificación opcional).`;
+            : `El NIT ${input.nit} no tiene un formato válido (9-10 dígitos con dígito de verificación opcional).`;
         throwServerError({
           trpcCode: 'BAD_REQUEST',
           errorCode: 'FISCAL_NIT_INVALID',
