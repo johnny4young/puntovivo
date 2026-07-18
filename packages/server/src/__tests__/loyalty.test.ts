@@ -14,6 +14,7 @@
  *   - multi-tenant isolation on every read/write.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type Database from 'better-sqlite3';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -45,6 +46,10 @@ let baseUnitId: string;
 let productId: string;
 let customerId: string;
 let fresh: ReturnType<typeof makeFreshContextFactory>;
+
+interface LiveDatabase {
+  $client: Database.Database;
+}
 
 function buildSaleContext(): CompleteSaleContext {
   return {
@@ -93,7 +98,7 @@ async function expectParity(customer = customerId) {
     .from(loyaltyMovements)
     .where(eq(loyaltyMovements.accountId, account.id))
     .get();
-  expect(account.points).toBeCloseTo(ledger?.total ?? 0, 9);
+  expect(account.points).toBe(ledger?.total ?? 0);
 }
 
 describe('loyalty (ENG-213)', () => {
@@ -205,6 +210,75 @@ describe('loyalty (ENG-213)', () => {
       expect(pointsForTotal(0, 0.001)).toBe(0);
       expect(pointsForTotal(-5000, 0.001)).toBe(0);
     });
+  });
+
+  it('stores balances and ledger deltas with INTEGER affinity', () => {
+    const sqlite = (getDatabase() as unknown as LiveDatabase).$client;
+    const columnType = (table: string) => {
+      const columns = sqlite.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+        name: string;
+        type: string;
+      }>;
+      return columns.find(column => column.name === 'points')?.type.toUpperCase();
+    };
+
+    expect(columnType('loyalty_accounts')).toBe('INTEGER');
+    expect(columnType('loyalty_movements')).toBe('INTEGER');
+  });
+
+  it('re-selects the canonical account when first-account creation loses a race', async () => {
+    const db = getDatabase();
+    const sqlite = (db as unknown as LiveDatabase).$client;
+    const racedCustomerId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(customers).values({
+      id: racedCustomerId,
+      tenantId,
+      name: 'Concurrent Loyalty Customer',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Deterministically model another connection winning between
+    // ensureAccount's first SELECT and INSERT. The BEFORE trigger creates the
+    // canonical row; ON CONFLICT must absorb the losing INSERT and the service
+    // must re-select this id before appending the movement.
+    sqlite.exec(`
+      CREATE TEMP TRIGGER loyalty_account_race
+      BEFORE INSERT ON loyalty_accounts
+      WHEN NEW.customer_id = '${racedCustomerId}' AND NEW.id <> 'race-winner'
+      BEGIN
+        INSERT INTO loyalty_accounts (
+          id, tenant_id, customer_id, points, created_at, updated_at
+        ) VALUES (
+          'race-winner', NEW.tenant_id, NEW.customer_id, 0, NEW.created_at, NEW.updated_at
+        );
+      END;
+    `);
+
+    try {
+      const result = await appRouter.createCaller(fresh()).loyalty.adjust({
+        customerId: racedCustomerId,
+        points: 5,
+        note: 'Concurrent account creation',
+      });
+      expect(result.points).toBe(5);
+
+      const account = await db
+        .select({ id: loyaltyAccounts.id, points: loyaltyAccounts.points })
+        .from(loyaltyAccounts)
+        .where(
+          and(
+            eq(loyaltyAccounts.tenantId, tenantId),
+            eq(loyaltyAccounts.customerId, racedCustomerId)
+          )
+        )
+        .get();
+      expect(account).toEqual({ id: 'race-winner', points: 5 });
+    } finally {
+      sqlite.exec('DROP TRIGGER IF EXISTS loyalty_account_race');
+    }
   });
 
   it('earns nothing while the program is off', async () => {

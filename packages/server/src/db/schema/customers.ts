@@ -257,7 +257,7 @@ export const loyaltyAccounts = sqliteTable(
       .notNull()
       .references(() => customers.id, { onDelete: 'cascade' }),
     /** Materialized balance. Never negative: redemption is gated on it. */
-    points: real('points').notNull().default(0),
+    points: integer('points').notNull().default(0),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
@@ -293,7 +293,7 @@ export const loyaltyMovements = sqliteTable(
     saleId: text('sale_id').references(() => sales.id),
     kind: text('kind', { enum: loyaltyMovementKindEnum }).notNull(),
     /** Signed: positive earns, negative redeems/reverts. */
-    points: real('points').notNull(),
+    points: integer('points').notNull(),
     /** Snapshot of the rule that produced an earn (points per currency unit),
      * so a later rate change never rewrites what the customer was told. */
     rateAtEarn: real('rate_at_earn'),

@@ -154,8 +154,23 @@ function ensureAccount(
   const id = nanoid();
   tx.insert(loyaltyAccounts)
     .values({ id, tenantId, customerId, points: 0, createdAt: nowIso, updatedAt: nowIso })
+    .onConflictDoNothing({
+      target: [loyaltyAccounts.tenantId, loyaltyAccounts.customerId],
+    })
     .run();
-  return { id, points: 0 };
+
+  // Another connection may have created the first account after our initial
+  // read. Re-select instead of assuming this insert won so callers receive
+  // the canonical id and its current balance in both paths.
+  return (
+    tx
+      .select({ id: loyaltyAccounts.id, points: loyaltyAccounts.points })
+      .from(loyaltyAccounts)
+      .where(
+        and(eq(loyaltyAccounts.tenantId, tenantId), eq(loyaltyAccounts.customerId, customerId))
+      )
+      .get() ?? null
+  );
 }
 
 /** Append a movement and move the balance in lockstep (same tx). */

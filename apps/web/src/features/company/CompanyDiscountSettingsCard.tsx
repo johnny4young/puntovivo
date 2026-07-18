@@ -34,6 +34,30 @@ interface TierDraft {
   pct: number;
 }
 
+function isIntegerWithin(value: number, min: number, max: number): boolean {
+  return Number.isInteger(value) && value >= min && value <= max;
+}
+
+function nextTierMaxDays(rows: TierDraft[]): number {
+  const used = new Set(
+    rows
+      .map(row => row.maxDays)
+      .filter(value => isIntegerWithin(value, 1, MAX_DAYS_LIMIT))
+  );
+  const largest = Math.max(0, ...used);
+  const preferred = Math.min(largest + 15, MAX_DAYS_LIMIT);
+
+  // Stay near the current largest threshold without ever generating the
+  // out-of-range 380-day row that a 365-day last tier used to produce.
+  for (let candidate = preferred; candidate >= 1; candidate -= 1) {
+    if (!used.has(candidate)) return candidate;
+  }
+  for (let candidate = preferred + 1; candidate <= MAX_DAYS_LIMIT; candidate += 1) {
+    if (!used.has(candidate)) return candidate;
+  }
+  return 1;
+}
+
 export function CompanyDiscountSettingsCard() {
   const { t } = useTranslation(['settings', 'errors']);
   const toast = useToast();
@@ -69,7 +93,17 @@ export function CompanyDiscountSettingsCard() {
 
   const disabled = settingsQuery.isLoading || updateMutation.isPending;
   const isDirty = JSON.stringify(draft) !== lastPersisted;
-  const canSave = draft.length > 0 && isDirty && !disabled;
+  const dayCounts = new Map<number, number>();
+  for (const tier of draft) {
+    dayCounts.set(tier.maxDays, (dayCounts.get(tier.maxDays) ?? 0) + 1);
+  }
+  const isDraftValid = draft.every(
+    tier =>
+      isIntegerWithin(tier.maxDays, 1, MAX_DAYS_LIMIT) &&
+      dayCounts.get(tier.maxDays) === 1 &&
+      isIntegerWithin(tier.pct, 1, 99)
+  );
+  const canSave = draft.length > 0 && isDirty && isDraftValid && !disabled;
 
   const setRow = (index: number, patch: Partial<TierDraft>) => {
     setDraft(rows => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -101,6 +135,10 @@ export function CompanyDiscountSettingsCard() {
                 className="input mt-1 w-24"
                 value={tier.maxDays}
                 disabled={disabled}
+                aria-invalid={
+                  !isIntegerWithin(tier.maxDays, 1, MAX_DAYS_LIMIT) ||
+                  dayCounts.get(tier.maxDays) !== 1
+                }
                 aria-label={t('settings:company.discount.maxDaysAria', { position: index + 1 })}
                 onChange={event => setRow(index, { maxDays: Number(event.target.value) })}
               />
@@ -116,6 +154,7 @@ export function CompanyDiscountSettingsCard() {
                 className="input mt-1 w-24"
                 value={tier.pct}
                 disabled={disabled}
+                aria-invalid={!isIntegerWithin(tier.pct, 1, 99)}
                 aria-label={t('settings:company.discount.pctAria', { position: index + 1 })}
                 onChange={event => setRow(index, { pct: Number(event.target.value) })}
               />
@@ -139,7 +178,7 @@ export function CompanyDiscountSettingsCard() {
             disabled={disabled || draft.length >= MAX_TIERS}
             data-testid="discount-add-tier"
             onClick={() =>
-              setDraft(rows => [...rows, { maxDays: (rows.at(-1)?.maxDays ?? 0) + 15, pct: 10 }])
+              setDraft(rows => [...rows, { maxDays: nextTierMaxDays(rows), pct: 10 }])
             }
           >
             <Plus className="h-4 w-4" aria-hidden="true" />

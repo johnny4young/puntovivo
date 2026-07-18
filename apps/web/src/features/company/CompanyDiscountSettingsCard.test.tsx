@@ -70,8 +70,24 @@ describe('CompanyDiscountSettingsCard (ENG-211)', () => {
 
     const pct = screen.getByLabelText('Discount percent for tier 1');
     await user.clear(pct);
+    expect(pct).toHaveAttribute('aria-invalid', 'true');
+    expect(save).toBeDisabled();
     await user.type(pct, '40');
+    expect(pct).toHaveAttribute('aria-invalid', 'false');
     expect(save).toBeEnabled();
+  });
+
+  it('blocks duplicate thresholds instead of silently persisting a shorter ladder', async () => {
+    const user = userEvent.setup();
+    render(<CompanyDiscountSettingsCard />);
+
+    const secondDays = screen.getByLabelText('Days left for tier 2');
+    await user.clear(secondDays);
+    await user.type(secondDays, '7');
+
+    expect(screen.getByLabelText('Days left for tier 1')).toHaveAttribute('aria-invalid', 'true');
+    expect(secondDays).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByTestId('discount-save-tiers')).toBeDisabled();
   });
 
   it('sends the full edited ladder on save', async () => {
@@ -113,5 +129,16 @@ describe('CompanyDiscountSettingsCard (ENG-211)', () => {
     render(<CompanyDiscountSettingsCard />);
 
     expect(screen.getByLabelText('Remove tier 1')).toBeDisabled();
+  });
+
+  it('adds an in-range threshold when the last tier already reaches 365 days', async () => {
+    const user = userEvent.setup();
+    mockTiers = [{ maxDays: 365, pct: 10 }];
+    render(<CompanyDiscountSettingsCard />);
+
+    await user.click(screen.getByTestId('discount-add-tier'));
+    expect(screen.getByLabelText('Days left for tier 2')).toHaveValue(364);
+    expect(screen.getByLabelText('Days left for tier 2')).toHaveAttribute('aria-invalid', 'false');
+    expect(screen.getByTestId('discount-save-tiers')).toBeEnabled();
   });
 });

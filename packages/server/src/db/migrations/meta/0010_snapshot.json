@@ -3266,7 +3266,7 @@
         },
         "points": {
           "name": "points",
-          "type": "real",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
@@ -3371,7 +3371,7 @@
         },
         "points": {
           "name": "points",
-          "type": "real",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
