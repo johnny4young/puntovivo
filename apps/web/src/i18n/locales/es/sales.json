@@ -662,5 +662,11 @@
     "secondsPerSale": "Seg/venta",
     "personalBest": "Mejor",
     "noRecordYet": "—"
+  },
+  "loyalty": {
+    "pointsBalance_one": "{{count}} punto",
+    "pointsBalance_other": "{{count}} puntos",
+    "earned_one": "+{{count}} punto ganado",
+    "earned_other": "+{{count}} puntos ganados"
   }
 }

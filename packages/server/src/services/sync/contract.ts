@@ -70,6 +70,11 @@ export const SYNC_ENTITY_TYPES = [
   // carries a conflict policy from day one; enqueue wiring rides a later
   // sync slice (same reserved-placeholder posture as sale_item_lots).
   'price_suggestions',
+  // ENG-213 — loyalty balance + its append-only ledger. Registered so both
+  // carry a conflict policy from day one; enqueue wiring rides a later sync
+  // slice (same reserved-placeholder posture as sale_item_lots).
+  'loyalty_accounts',
+  'loyalty_movements',
   'initial_inventory',
   'transfer_orders',
   'transfer_order_items',
@@ -135,6 +140,8 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   inventory_balances: 'manual',
   inventory_lots: 'manual',
   price_suggestions: 'manual',
+  loyalty_accounts: 'manual',
+  loyalty_movements: 'manual',
   initial_inventory: 'manual',
   transfer_orders: 'manual',
   transfer_order_items: 'manual',

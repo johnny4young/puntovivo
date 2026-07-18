@@ -640,6 +640,22 @@
         "saved": "Cash close settings saved",
         "saveError": "The cash close settings could not be saved"
       }
+    },
+    "discount": {
+      "title": "Expiry discounts",
+      "description": "The ladder the expiry radar suggests: a lot expiring within the days you set earns that discount. First match wins.",
+      "maxDaysLabel": "Days left",
+      "maxDaysAria": "Days left for tier {{position}}",
+      "pctLabel": "Discount %",
+      "pctAria": "Discount percent for tier {{position}}",
+      "addTier": "Add tier",
+      "removeTier": "Remove tier {{position}}",
+      "save": "Save ladder",
+      "sessionNote": "The radar picks up the new ladder on the next login or page refresh.",
+      "toast": {
+        "saved": "Discount ladder saved",
+        "saveError": "The discount ladder could not be saved"
+      }
     }
   },
   "units": {

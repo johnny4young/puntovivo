@@ -15,10 +15,7 @@ import userEvent from '@testing-library/user-event';
 import i18next from '@/i18n';
 import { render, screen, waitFor } from '@/test/utils';
 import type { Customer } from '@/types';
-import {
-  SalePaymentModal,
-  type SalePaymentValues,
-} from './SalePaymentModal';
+import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
 
 let mockBalance = 0;
 
@@ -31,6 +28,14 @@ vi.mock('@/lib/trpc', () => ({
           isLoading: false,
           error: null,
         }),
+      },
+    },
+    // ENG-213 — the drawer mounts CustomerLoyaltyChip, which reads this.
+    // Zero points keeps the chip silent so the credit assertions below see
+    // the same surface they did before loyalty existed.
+    loyalty: {
+      forCustomer: {
+        useQuery: () => ({ data: { points: 0, movements: [] }, isLoading: false, error: null }),
       },
     },
   },
@@ -61,9 +66,7 @@ function makeCustomer(overrides: Partial<Customer> = {}): Customer {
   } as Customer;
 }
 
-function renderModal(
-  overrides: Partial<React.ComponentProps<typeof SalePaymentModal>> = {}
-) {
+function renderModal(overrides: Partial<React.ComponentProps<typeof SalePaymentModal>> = {}) {
   return render(
     <SalePaymentModal
       isOpen
@@ -87,9 +90,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
 
   it('hides the credit option when no customer is selected', () => {
     renderModal({ userRole: 'manager' });
-    expect(
-      screen.queryByTestId('sale-payment-method-credit-option')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sale-payment-method-credit-option')).not.toBeInTheDocument();
   });
 
   it('hides the credit option for cashier role even with a customer attached', async () => {
@@ -97,18 +98,14 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     renderModal({ userRole: 'cashier' });
     // Walk-in is selected by default; pick a real customer first.
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    expect(
-      screen.queryByTestId('sale-payment-method-credit-option')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sale-payment-method-credit-option')).not.toBeInTheDocument();
   });
 
   it('surfaces the credit option when a customer is selected and role is manager', async () => {
     const user = userEvent.setup();
     renderModal({ userRole: 'manager' });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    expect(
-      screen.getByTestId('sale-payment-method-credit-option')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('sale-payment-method-credit-option')).toBeInTheDocument();
   });
 
   it('renders the V10 customer card when credit is the active method', async () => {
@@ -119,10 +116,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
       customers: [makeCustomer({ creditLimit: 200 })],
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    await user.selectOptions(
-      screen.getByTestId('sale-payment-method-select'),
-      'credit'
-    );
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
 
     expect(screen.getByTestId('credit-sale-customer-card')).toBeInTheDocument();
     expect(screen.getByTestId('credit-sale-current-balance')).toHaveTextContent('50');
@@ -139,10 +133,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
       customers: [makeCustomer({ creditLimit: 200 })],
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    await user.selectOptions(
-      screen.getByTestId('sale-payment-method-select'),
-      'credit'
-    );
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
 
     // Projected = 150 + 100 = 250 > 200 cupo → warning pill + override row.
     expect(screen.getByTestId('credit-sale-warning')).toBeInTheDocument();
@@ -159,14 +150,9 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
       customers: [makeCustomer({ creditLimit: 100 })],
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    await user.selectOptions(
-      screen.getByTestId('sale-payment-method-select'),
-      'credit'
-    );
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
 
-    const toggle = screen.getByTestId(
-      'credit-sale-override-toggle'
-    ) as HTMLInputElement;
+    const toggle = screen.getByTestId('credit-sale-override-toggle') as HTMLInputElement;
     expect(toggle).toBeDisabled();
   });
 
@@ -180,10 +166,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
       onSubmit,
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    await user.selectOptions(
-      screen.getByTestId('sale-payment-method-select'),
-      'credit'
-    );
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     await user.click(screen.getByTestId('credit-sale-override-toggle'));
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
 
@@ -222,18 +205,13 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
       onSubmit,
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    await user.selectOptions(
-      screen.getByTestId('sale-payment-method-select'),
-      'credit'
-    );
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     await user.selectOptions(screen.getByLabelText('Customer'), '');
 
     await waitFor(() =>
       expect(screen.getByTestId('sale-payment-method-select')).toHaveValue('cash')
     );
-    expect(
-      screen.queryByTestId('credit-sale-customer-card')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('credit-sale-customer-card')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
     const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
@@ -252,9 +230,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     // Enable split mode and inspect the tender method select. The
     // 'credit' option must not be present for cashier.
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    expect(
-      screen.queryByTestId('split-tender-credit-option-0')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('split-tender-credit-option-0')).not.toBeInTheDocument();
   });
 
   it('ENG-014: split tender exposes credit option when admin + customer attached', async () => {
@@ -265,9 +241,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    expect(
-      screen.getByTestId('split-tender-credit-option-0')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('split-tender-credit-option-0')).toBeInTheDocument();
   });
 
   it('ENG-014: V10 customer card surfaces in split mode when a tender is credit, sized to the credit portion only', async () => {
@@ -300,9 +274,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     expect(screen.getByTestId('credit-sale-projected')).toHaveTextContent('150');
     expect(screen.queryByTestId('credit-sale-warning')).not.toBeInTheDocument();
     // Partial-credit summary line shows the breakdown.
-    expect(
-      screen.getByTestId('credit-sale-partial-summary')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('credit-sale-partial-summary')).toBeInTheDocument();
   });
 
   it('ENG-014: submits split payload carrying cash + credit tenders', async () => {
@@ -321,10 +293,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     await user.clear(firstAmount);
     await user.type(firstAmount, '50');
     await user.click(screen.getByRole('button', { name: /Add payment method/i }));
-    await user.selectOptions(
-      screen.getByLabelText(/Method for tender 2/i),
-      'credit'
-    );
+    await user.selectOptions(screen.getByLabelText(/Method for tender 2/i), 'credit');
     const secondAmount = screen.getByLabelText(/Amount for tender 2/i);
     await user.clear(secondAmount);
     await user.type(secondAmount, '150');

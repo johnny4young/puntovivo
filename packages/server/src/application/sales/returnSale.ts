@@ -47,6 +47,7 @@ import {
   enqueueInventoryLotUpdatesForSale,
   restoreLotsForSale,
 } from '../../services/inventory-lots/index.js';
+import { revertPointsForSale } from '../../services/loyalty.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import { getSaleRecord } from './sale-read.js';
@@ -282,6 +283,22 @@ export async function returnSale(
       saleId: input.id,
       now,
     }).lotIds;
+
+    // ENG-213 — take back the points this sale earned. Appends a negative
+    // `revert` row (history is never erased) and no-ops when the sale never
+    // earned. Best-effort like the accrual: a loyalty failure must not
+    // block a refund the customer is standing there waiting for.
+    // The nested transaction is a SAVEPOINT: the revert row and the balance
+    // update are two writes, so a failure between them would ride to COMMIT
+    // as a parity break. The savepoint discards the half-write; the refund
+    // still commits.
+    try {
+      tx.transaction(loyaltyTx => {
+        revertPointsForSale(loyaltyTx, { tenantId: ctx.tenantId, saleId: input.id, nowIso: now });
+      });
+    } catch (error) {
+      ctx.log?.warn?.({ err: error, saleId: input.id }, 'loyalty revert skipped');
+    }
 
     tx.insert(saleReturns)
       .values({

@@ -24,6 +24,7 @@ import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
 import { CompanyAutoUpdateCard } from './CompanyAutoUpdateCard';
 import { CompanyLogoLibraryCard } from './CompanyLogoLibraryCard';
 import { CompanyCashCloseSettingsCard } from './CompanyCashCloseSettingsCard';
+import { CompanyDiscountSettingsCard } from './CompanyDiscountSettingsCard';
 import { CompanyModulesCard } from './CompanyModulesCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 import { CompanyRestaurantSettingsCard } from './CompanyRestaurantSettingsCard';
@@ -451,6 +452,7 @@ export function CompanyPage() {
                     </div>
                     <CompanyLogoLibraryCard company={company} canEdit={canEdit} />
                     <CompanyCashCloseSettingsCard />
+                    <CompanyDiscountSettingsCard />
                   </div>
                 )}
 

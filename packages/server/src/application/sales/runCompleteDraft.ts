@@ -25,6 +25,7 @@ import {
   requireActiveCashSession,
 } from '../../services/cash-session.js';
 import { assertServiceChargeMatchesTenant } from '../../services/restaurant/settings.js';
+import { earnPointsForSale, resolveLoyaltySettings } from '../../services/loyalty.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { resolveSalePaymentPlan } from './pricing.js';
 import { runCreditPreflight, safelyRecordCreditSaleLedger } from './creditPolicy.js';
@@ -147,16 +148,14 @@ export async function runCompleteDraft(
   // see the second tip compound on top of the first, leaving
   // `total` out of sync with the new `tipAmount` column.
   const tipAmount = roundMoney(Math.max(0, input.tipAmount ?? 0));
-  const tipMethod = tipAmount > 0 ? input.tipMethod ?? null : null;
+  const tipMethod = tipAmount > 0 ? (input.tipMethod ?? null) : null;
   // ENG-039d3 — service charge layered onto the frozen draft base. The
   // same baseTotal-from-frozen-pieces logic that prevents tip compounding
   // (a draft that was opened with a service charge already in `total`
   // would otherwise see the new charge double-stacked) applies here too.
   const serviceChargeAmount = roundMoney(Math.max(0, input.serviceChargeAmount ?? 0));
   const baseTotal = roundMoney(
-    (existing.subtotal ?? 0) +
-    (existing.taxAmount ?? 0) -
-    (existing.discountAmount ?? 0)
+    (existing.subtotal ?? 0) + (existing.taxAmount ?? 0) - (existing.discountAmount ?? 0)
   );
   const restaurantSettings = await assertServiceChargeMatchesTenant({
     db: ctx.db,
@@ -164,27 +163,21 @@ export async function runCompleteDraft(
     base: baseTotal,
     serviceChargeAmount,
   });
-  const serviceChargeRate =
-    serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
+  const serviceChargeRate = serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
   const total = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
 
   // Phase 2 Tier-2 step 5 — resolve the tender list (split or legacy),
   // payment status, change, and cash collected. The draft is always
   // completing, so `collectCash` is unconditionally true.
-  const {
-    resolvedPayments,
-    creditSaleAmount,
-    paymentStatus,
-    change,
-    cashCollectedAmount,
-  } = resolveSalePaymentPlan({
-    amountReceived: input.amountReceived,
-    payments: input.payments,
-    paymentMethod: input.paymentMethod,
-    requestedStatus: input.paymentStatus,
-    total,
-    collectCash: true,
-  });
+  const { resolvedPayments, creditSaleAmount, paymentStatus, change, cashCollectedAmount } =
+    resolveSalePaymentPlan({
+      amountReceived: input.amountReceived,
+      payments: input.payments,
+      paymentMethod: input.paymentMethod,
+      requestedStatus: input.paymentStatus,
+      total,
+      collectCash: true,
+    });
 
   // ENG-014 — same credit-sale pre-flight as the fresh path, but the
   // customer comes from the draft row (`existing.customerId`) rather
@@ -203,8 +196,14 @@ export async function runCompleteDraft(
   const now = new Date().toISOString();
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
 
+  // ENG-213 — resolved before the tx (a settings read is a DB round trip and
+  // the tx body is sync). A resumed draft is the same sale as a fresh one for
+  // the customer, so it must earn the same points.
+  const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
+
   let cashMovementId: string | null = null;
   let completionAuditId: string | null = null;
+  let loyaltyPointsEarned = 0;
   const paymentEffects: PersistedPaymentEffect[] = [];
 
   ctx.db.transaction(tx => {
@@ -215,9 +214,7 @@ export async function runCompleteDraft(
     // carried from its initial `sales.create` call with the real
     // tenders captured at complete-time.
     tx.delete(salePayments)
-      .where(
-        and(eq(salePayments.saleId, input.saleId), eq(salePayments.tenantId, ctx.tenantId))
-      )
+      .where(and(eq(salePayments.saleId, input.saleId), eq(salePayments.tenantId, ctx.tenantId)))
       .run();
 
     for (const payment of resolvedPayments.rows) {
@@ -280,6 +277,28 @@ export async function runCompleteDraft(
       createdAt: now,
     });
 
+    // ENG-213 — a resumed draft earns exactly like a fresh sale: same money,
+    // same customer, so the same points. Suspending a ticket is a cashier
+    // workflow detail the customer never agreed to be charged for. Mirrors
+    // the fresh path: idempotent per (account, sale), wrapped in a SAVEPOINT
+    // so a half-written ledger can never ride to COMMIT, and best-effort so
+    // a loyalty failure never blocks the register.
+    try {
+      tx.transaction(loyaltyTx => {
+        loyaltyPointsEarned = earnPointsForSale(loyaltyTx, {
+          tenantId: ctx.tenantId,
+          customerId: draftCustomerId ?? null,
+          saleId: input.saleId,
+          total,
+          settings: loyaltySettings,
+          nowIso: now,
+        });
+      });
+    } catch (error) {
+      loyaltyPointsEarned = 0;
+      log?.warn?.({ err: error, saleId: input.saleId }, 'loyalty accrual skipped');
+    }
+
     // Parity with void / return / park / resume / discard / reprint:
     // every state-change on an existing sale leaves a `sale.*` audit row.
     completionAuditId = writeAuditLog({
@@ -310,9 +329,7 @@ export async function runCompleteDraft(
         // suppressing the keys at zero keeps audit reads scannable.
         // `tipMethod` is omitted (rather than written as `null`) when
         // the caller did not specify a method.
-        ...(tipAmount > 0
-          ? { tipAmount, ...(tipMethod ? { tipMethod } : {}) }
-          : {}),
+        ...(tipAmount > 0 ? { tipAmount, ...(tipMethod ? { tipMethod } : {}) } : {}),
         // ENG-039d3 — mirror the tip pattern for service charge.
         ...(serviceChargeAmount > 0
           ? {
@@ -446,5 +463,6 @@ export async function runCompleteDraft(
     sale: completed as CompleteSaleSaleRecord,
     change,
     journalEventId,
+    loyaltyPointsEarned,
   };
 }

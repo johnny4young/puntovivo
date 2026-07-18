@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Drawer } from '@/components/feedback/Drawer';
 import { ModalButton } from '@/components/form-controls/Modal';
+import { CustomerLoyaltyChip } from '@/features/sales/CustomerLoyaltyChip';
 import { formatCurrency } from '@/lib/utils';
 import { useSalePaymentModal } from './useSalePaymentModal';
 import { SalePaymentTipSection } from './SalePaymentTipSection';
@@ -210,6 +211,9 @@ export function SalePaymentModal({
               </option>
             ))}
           </select>
+          {/* ENG-213 — the picked customer's point balance; silent for
+           * walk-ins and for customers without points. */}
+          <CustomerLoyaltyChip customerId={selectedCustomer?.id ?? null} />
         </div>
 
         <SalePaymentTipSection

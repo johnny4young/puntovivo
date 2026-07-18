@@ -79,4 +79,7 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   // inside SalePaymentModal must refetch on the next open.
   u => u.customerLedger.getBalance,
   u => u.customerLedger.list,
+  // ENG-213 — the sale may have accrued points; refresh the balance chip
+  // so the next checkout shows the customer's real total.
+  u => u.loyalty.forCustomer,
 ];

@@ -202,6 +202,14 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0009_price_suggestions') {
       return !tableExists('products');
     }
+    // ENG-213 — loyalty tables carry FKs to `customers` (baseline) and
+    // `sales`. A partial legacy DB without customers cannot host them; mark
+    // applied so minimal shapes keep booting. Guard on the BASELINE table,
+    // never on a table a post-baseline migration creates (ENG-199 lesson:
+    // seeding a newer entry makes the migrator skip every older one).
+    if (entry.tag === '0010_loyalty') {
+      return !tableExists('customers');
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

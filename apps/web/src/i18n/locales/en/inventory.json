@@ -347,6 +347,8 @@
       "dismissedTitle": "Suggestion dismissed",
       "errorTitle": "The suggestion could not be saved"
     },
-    "loading": "Loading expiring lots..."
+    "loading": "Loading expiring lots...",
+    "windowLabel": "Window",
+    "windowOption": "{{days}}d"
   }
 }
