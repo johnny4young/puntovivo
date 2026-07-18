@@ -97,6 +97,13 @@ export type CompleteSaleInput =
   | {
       mode: 'fromDraft';
       saleId: string;
+      /**
+       * ENG-216 — customer attached at payment time. `undefined` keeps the
+       * draft's stored customer; an id attaches or re-assigns; `null`
+       * clears it. Validated tenant-side and re-projected against the
+       * credit cupo before the sale commits.
+       */
+      customerId?: string | null | undefined;
       payments?: CompleteSaleTender[] | undefined;
       paymentMethod: SalePaymentMethod;
       amountReceived?: number | undefined;

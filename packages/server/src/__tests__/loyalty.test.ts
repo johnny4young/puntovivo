@@ -379,6 +379,37 @@ describe('loyalty (ENG-213)', () => {
     await expectParity();
   });
 
+  it('earns points for the customer attached while completing a walk-in draft', async () => {
+    // ENG-216 regression: the web only picks a customer in the payment
+    // drawer, after the ticket has already been suspended without one. The
+    // resolved customer must drive both the completed sale and accrual.
+    await writeLoyaltySettings(getDatabase(), tenantId, { enabled: true, pointsPerUnit: 0.01 });
+    const caller = appRouter.createCaller(fresh());
+    const before = (await caller.loyalty.forCustomer({ customerId })).points;
+
+    const draft = await caller.sales.create({
+      items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 10000, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+      amountReceived: 0,
+      discountAmount: 0,
+    });
+    expect(draft.customerId ?? null).toBeNull();
+
+    const completed = await appRouter.createCaller(fresh()).sales.completeDraft({
+      saleId: draft.id,
+      customerId,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      amountReceived: 10000,
+    });
+
+    expect(completed).toMatchObject({ customerId, loyaltyPointsEarned: 100 });
+    expect((await caller.loyalty.forCustomer({ customerId })).points).toBe(before + 100);
+    await expectParity();
+  });
+
   it('reports zero points through the router while the program is off', async () => {
     const sale = await appRouter.createCaller(fresh()).sales.create({
       customerId,

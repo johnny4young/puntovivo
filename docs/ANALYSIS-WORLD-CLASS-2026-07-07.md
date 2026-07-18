@@ -400,7 +400,7 @@ cambiar una lista jamás reescribe historia. Sync: `manual` (dinero).
 **Compat**: los 3 tiers actuales se migran como lista "General" con 3
 escalones; las columnas legacy quedan derivadas hasta deprecarse.
 
-### WC-D2 · Lealtad mínima viable (núcleo de ENG-108) `[checkout]` — **M** — ✅ ENG-213 shipped 2026-07-17 (acumulación + reversa + chip de saldo; redención diferida a WC-D2b)
+### WC-D2 · Lealtad mínima viable (núcleo de ENG-108) `[checkout]` — **M** — ✅ ENG-213 shipped 2026-07-17 (acumulación + reversa + chip de saldo); superficies de admin (card del programa + panel por cliente) ENG-214/215 shipped 2026-07-17; redención diferida a WC-D2b
 
 Ledger append-only, mismo patrón que `sale_item_lots` (auditable, snapshot):
 

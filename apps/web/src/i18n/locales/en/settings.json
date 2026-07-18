@@ -656,6 +656,22 @@
         "saved": "Discount ladder saved",
         "saveError": "The discount ladder could not be saved"
       }
+    },
+    "loyalty": {
+      "title": "Loyalty program",
+      "description": "Customers earn points on every completed sale. Off by default: turn it on only when you intend to honour the points.",
+      "enabledLabel": "Award points on sales",
+      "enabledHelp": "While off, no sale accrues anything and the checkout stays unchanged. Points already earned are kept, not erased.",
+      "rateLabel": "Value of one point",
+      "rateHelp": "How much a customer has to spend to earn one point.",
+      "ratePreview": "A {{total}} sale earns {{count}} point.",
+      "ratePreview_other": "A {{total}} sale earns {{count}} points.",
+      "rateInvalid": "Enter an amount of {{min}} or more.",
+      "save": "Save rate",
+      "toast": {
+        "saved": "Loyalty program updated",
+        "saveError": "The loyalty program could not be updated"
+      }
     }
   },
   "units": {

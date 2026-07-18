@@ -47,6 +47,13 @@ const { customer, emptyList } = vi.hoisted(() => ({
   emptyList: { useQuery: () => ({ data: { items: [] } }) },
 }));
 
+// ENG-215 — the row-detail drawer now hosts the loyalty panel. This suite
+// pins the page's column set and drawer wiring, not loyalty; the panel has
+// its own suite in CustomerLoyaltyPanel.test.tsx.
+vi.mock('@/features/customers/CustomerLoyaltyPanel', () => ({
+  CustomerLoyaltyPanel: () => null,
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({ customers: { list: { invalidate: vi.fn() } } }),
@@ -59,9 +66,30 @@ vi.mock('@/lib/trpc', () => ({
           refetch: vi.fn(),
         }),
       },
-      create: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false, error: null, reset: vi.fn() }) },
-      update: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false, error: null, reset: vi.fn() }) },
-      delete: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false, error: null, reset: vi.fn() }) },
+      create: {
+        useMutation: () => ({
+          mutateAsync: vi.fn(),
+          isPending: false,
+          error: null,
+          reset: vi.fn(),
+        }),
+      },
+      update: {
+        useMutation: () => ({
+          mutateAsync: vi.fn(),
+          isPending: false,
+          error: null,
+          reset: vi.fn(),
+        }),
+      },
+      delete: {
+        useMutation: () => ({
+          mutateAsync: vi.fn(),
+          isPending: false,
+          error: null,
+          reset: vi.fn(),
+        }),
+      },
     },
     identificationTypes: { list: emptyList },
     personTypes: { list: emptyList },

@@ -43,7 +43,10 @@ export type CreditPreflightProjection = Awaited<
  * `enabled` carries the fresh-only `input.status === 'completed'` gate
  * (the draft path is always completing, so it passes `true`).
  * `customerId` is sourced per-path (fresh: `input.customerId`; draft:
- * `existing.customerId`, since the `fromDraft` input carries none).
+ * ENG-216's resolution of `input.customerId ?? existing.customerId`). The
+ * draft path MUST pass the resolved value, not the stored one, or a
+ * customer attached at payment time would be projected against the wrong
+ * cupo — or none at all.
  */
 export async function runCreditPreflight(args: {
   db: DatabaseInstance;

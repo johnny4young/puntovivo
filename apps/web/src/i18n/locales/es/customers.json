@@ -191,5 +191,31 @@
       "updated": "Elemento de catálogo actualizado",
       "deleted": "Elemento de catálogo eliminado"
     }
+  },
+  "loyalty": {
+    "title": "Puntos de lealtad",
+    "pointsBalance": "{{count}} punto",
+    "pointsBalance_other": "{{count}} puntos",
+    "empty": "Todavía no hay movimientos de puntos.",
+    "kind": {
+      "earn": "Ganados en una venta",
+      "redeem": "Redimidos",
+      "adjust": "Ajuste manual",
+      "revert": "Devueltos por un reembolso"
+    },
+    "adjust": {
+      "heading": "Ajuste manual",
+      "pointsLabel": "Puntos",
+      "pointsAria": "Puntos a sumar o restar",
+      "noteLabel": "Motivo",
+      "noteAria": "Motivo del ajuste",
+      "notePlaceholder": "¿Por qué cambias el saldo?",
+      "submit": "Aplicar",
+      "help": "Usa un número negativo para quitar puntos. El motivo queda guardado con el movimiento y no se puede editar después."
+    },
+    "toast": {
+      "adjusted": "Saldo ajustado",
+      "adjustError": "No se pudo ajustar el saldo"
+    }
   }
 }
