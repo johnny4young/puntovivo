@@ -196,7 +196,7 @@
     "title": "Loyalty points",
     "pointsBalance": "{{count}} point",
     "pointsBalance_other": "{{count}} points",
-    "empty": "No points movements yet.",
+    "empty": "No loyalty point movements yet.",
     "kind": {
       "earn": "Earned on a sale",
       "redeem": "Redeemed",

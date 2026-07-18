@@ -131,6 +131,7 @@ export function CompanyLoyaltySettingsCard() {
             className="input mt-1.5 w-40"
             value={draftRate}
             disabled={disabled}
+            aria-invalid={!rateIsValid}
             data-testid="loyalty-rate-input"
             onChange={event => setDraftRate(Number(event.target.value))}
           />

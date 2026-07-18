@@ -167,4 +167,18 @@ describe('CustomerLoyaltyPanel (ENG-215)', () => {
       })
     );
   });
+
+  it('discards an unsaved adjustment draft when the selected customer changes', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<CustomerLoyaltyPanel key="c-1" customerId="c-1" />);
+
+    await user.type(screen.getByLabelText('Puntos a sumar o restar'), '25');
+    await user.type(screen.getByLabelText('Motivo del ajuste'), 'Compensación pendiente');
+
+    rerender(<CustomerLoyaltyPanel key="c-2" customerId="c-2" />);
+
+    expect(screen.getByLabelText('Puntos a sumar o restar')).toHaveValue(null);
+    expect(screen.getByLabelText('Motivo del ajuste')).toHaveValue('');
+    expect(screen.getByTestId('customer-loyalty-adjust-submit')).toBeDisabled();
+  });
 });

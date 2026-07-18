@@ -83,6 +83,7 @@ describe('CompanyLoyaltySettingsCard (ENG-214)', () => {
     await user.clear(input);
     await user.type(input, '0');
 
+    expect(input).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByTestId('loyalty-save-rate')).toBeDisabled();
     expect(screen.getByTestId('loyalty-rate-preview')).toHaveTextContent('1 o más');
     expect(updateMock).not.toHaveBeenCalled();

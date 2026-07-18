@@ -138,7 +138,11 @@ export function CustomerDetailsDrawer({
       )}
       {/* ENG-215 — points balance + ledger, and the admin correction. Self-
        * gating: silent for tenants without the program (see the panel). */}
-      {customer && <CustomerLoyaltyPanel customerId={customer.id} />}
+      {/* The key also discards an unsaved manual-adjustment draft when an
+       * already-open drawer switches to another customer. Carrying the
+       * previous customer's points or reason into the next record would be
+       * a dangerous default for an admin action. */}
+      {customer && <CustomerLoyaltyPanel key={customer.id} customerId={customer.id} />}
     </Drawer>
   );
 }

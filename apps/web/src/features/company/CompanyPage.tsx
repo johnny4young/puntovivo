@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Building2 as Building, Save } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -25,7 +25,6 @@ import { CompanyAutoUpdateCard } from './CompanyAutoUpdateCard';
 import { CompanyLogoLibraryCard } from './CompanyLogoLibraryCard';
 import { CompanyCashCloseSettingsCard } from './CompanyCashCloseSettingsCard';
 import { CompanyDiscountSettingsCard } from './CompanyDiscountSettingsCard';
-import { CompanyLoyaltySettingsCard } from './CompanyLoyaltySettingsCard';
 import { CompanyModulesCard } from './CompanyModulesCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 import { CompanyRestaurantSettingsCard } from './CompanyRestaurantSettingsCard';
@@ -33,6 +32,15 @@ import { CompanySyncCard } from './CompanySyncCard';
 import { CompanyTelemetryCard } from './CompanyTelemetryCard';
 import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
 import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
+
+// ENG-214 — loyalty is an admin-only card on the non-default General tab.
+// Keep its tRPC/form implementation out of the initial company-settings chunk;
+// the tab boundary gives it a natural loading point.
+const CompanyLoyaltySettingsCard = lazy(() =>
+  import('./CompanyLoyaltySettingsCard').then(module => ({
+    default: module.CompanyLoyaltySettingsCard,
+  }))
+);
 
 interface CompanyFormValues {
   name: string;
@@ -454,7 +462,17 @@ export function CompanyPage() {
                     <CompanyLogoLibraryCard company={company} canEdit={canEdit} />
                     <CompanyCashCloseSettingsCard />
                     <CompanyDiscountSettingsCard />
-                    <CompanyLoyaltySettingsCard />
+                    <Suspense
+                      fallback={
+                        <div
+                          className="h-48 animate-pulse rounded-2xl border border-line bg-surface"
+                          role="status"
+                          aria-label={t('company.loyalty.title')}
+                        />
+                      }
+                    >
+                      <CompanyLoyaltySettingsCard />
+                    </Suspense>
                   </div>
                 )}
 

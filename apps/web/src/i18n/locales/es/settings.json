@@ -659,7 +659,7 @@
     },
     "loyalty": {
       "title": "Programa de lealtad",
-      "description": "Los clientes acumulan puntos en cada venta completada. Apagado por default: enciéndelo solo cuando pienses honrar los puntos.",
+      "description": "Los clientes acumulan puntos en cada venta completada. Desactivado de forma predeterminada: actívalo solo cuando planees reconocer los puntos.",
       "enabledLabel": "Otorgar puntos en las ventas",
       "enabledHelp": "Mientras está apagado, ninguna venta acumula y el cobro no cambia. Los puntos ya ganados se conservan, no se borran.",
       "rateLabel": "Valor de un punto",

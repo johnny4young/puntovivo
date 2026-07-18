@@ -718,6 +718,31 @@ describe('completeSale (ENG-014 credit-mix flow)', () => {
       expect(completed.customerId).toBe(customerId);
     });
 
+    it('clears the stored customer only when null is sent explicitly', async () => {
+      const customerId = await seedCustomer({ name: 'Cliente Para Limpiar', creditLimit: 0 });
+      const productId = await seedProduct('Clear Item', 'CLEAR-1', 10, 100);
+      const caller = appRouter.createCaller(fresh());
+
+      const draft = await caller.sales.create({
+        customerId,
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+
+      const completed = await caller.sales.completeDraft({
+        saleId: draft.id,
+        customerId: null,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        amountReceived: 100,
+      });
+
+      expect(completed.customerId ?? null).toBeNull();
+    });
+
     it('re-projects the credit cupo against the customer attached at payment time', async () => {
       // The whole reason re-assignment is risky: a draft created as a
       // walk-in must not become a credit sale that skips the new
