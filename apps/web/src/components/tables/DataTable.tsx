@@ -124,7 +124,9 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   searchKey,
-  searchPlaceholder = 'Search...',
+  // ENG-220 — no English default here: a default in the signature cannot
+  // call t(). Resolved at the use site below.
+  searchPlaceholder,
   enableRowSelection = false,
   onRowSelectionChange,
   pageSize = 10,
@@ -404,7 +406,7 @@ export function DataTable<TData, TValue>({
         {searchKey && (
           <input
             type="text"
-            placeholder={searchPlaceholder}
+            placeholder={searchPlaceholder ?? t('table.searchPlaceholder')}
             value={(searchColumn?.getFilterValue() as string | undefined) ?? ''}
             onChange={e => searchColumn?.setFilterValue(e.target.value)}
             className="input max-w-sm"

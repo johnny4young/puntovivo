@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
@@ -57,6 +58,7 @@ export function ResourcePage<TData>({
   onRowActivate,
   variant = 'dense',
 }: ResourcePageProps<TData>) {
+  const { t } = useTranslation('common');
   return (
     <div className="space-y-6">
       <div className="page-header-row">
@@ -72,7 +74,16 @@ export function ResourcePage<TData>({
       <div className="card p-6">
         {isLoading && <TableLoadingState message={loadingMessage} />}
         {error && (
-          <TableErrorState title={`Unable to load ${title.toLowerCase()}`} message={error} onRetry={onRetry} />
+          <TableErrorState
+            /* ENG-220 — was `Unable to load ${title}`, hardcoded. Not a
+               default a caller could override: it rendered for every locale,
+               so a Spanish operator hitting a network error read
+               "Unable to load clientes" — half a sentence in a language the
+               product does not ship in. */
+            title={t('table.loadError', { resource: title.toLowerCase() })}
+            message={error}
+            onRetry={onRetry}
+          />
         )}
         {!isLoading && !error && (
           <DataTable

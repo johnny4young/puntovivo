@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, forwardRef, type ReactNode, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, Check, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -45,7 +46,8 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
       options,
       value,
       onChange,
-      placeholder = 'Select an option...',
+      // ENG-220 — resolved below rather than defaulted to English here.
+      placeholder,
       label,
       error,
       searchable = false,
@@ -59,6 +61,8 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
     },
     ref
   ) => {
+    const { t } = useTranslation('common');
+    const resolvedPlaceholder = placeholder ?? t('form.selectPlaceholder');
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -196,9 +200,9 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
           >
             <span
               className={cn('min-w-0 flex-1 truncate', !selectedOption && 'text-secondary-400', triggerLabelClassName)}
-              title={selectedOption?.label ?? placeholder}
+              title={selectedOption?.label ?? resolvedPlaceholder}
             >
-              {selectedOption?.label || placeholder}
+              {selectedOption?.label || resolvedPlaceholder}
             </span>
 
             <div className="flex shrink-0 items-center gap-1">
@@ -235,7 +239,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
                         setSearchTerm(e.target.value);
                         setHighlightedIndex(0);
                       }}
-                      placeholder="Search..."
+                      placeholder={t('table.searchPlaceholder')}
                       className="input h-10 pl-9"
                     />
                   </div>

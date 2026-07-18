@@ -1,4 +1,5 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface QueryErrorStateProps {
   title: string;
@@ -11,8 +12,10 @@ export function QueryErrorState({
   title,
   message,
   onRetry,
-  retryLabel = 'Retry',
+  // ENG-220 — resolved below rather than defaulted to English here.
+  retryLabel,
 }: QueryErrorStateProps) {
+  const { t } = useTranslation('common');
   return (
     <div className="rounded-3xl border border-danger-200 bg-white p-6 shadow-soft">
       <div className="flex items-start gap-4">
@@ -24,7 +27,7 @@ export function QueryErrorState({
           <p className="text-sm text-secondary-600">{message}</p>
           <button type="button" className="btn-outline flex items-center gap-2" onClick={onRetry}>
             <RefreshCw className="h-4 w-4" />
-            {retryLabel}
+            {retryLabel ?? t('table.retry')}
           </button>
         </div>
       </div>
