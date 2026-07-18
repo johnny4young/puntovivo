@@ -19,8 +19,22 @@ interface ResourcePageProps<TData> {
   data: TData[];
   isLoading: boolean;
   error: string | null;
-  searchKey: string;
+  /**
+   * Column filtered client-side. Correct only when `data` holds every row
+   * the user could match; with a paged query use {@link searchValue}
+   * instead (ENG-217). Optional since ENG-217 so a controlled-search caller
+   * can omit it entirely.
+   */
+  searchKey?: string;
   searchPlaceholder: string;
+  /**
+   * ENG-217 — controlled (server-side) search, forwarded to DataTable. When
+   * set, the search box is rendered but nothing is filtered locally: the
+   * caller feeds `data` from a query that already applied the term.
+   */
+  searchValue?: string;
+  /** Required with {@link searchValue}. */
+  onSearchChange?: (value: string) => void;
   enableRowSelection?: boolean;
   pageSize?: number;
   loadingMessage: string;
@@ -51,6 +65,8 @@ export function ResourcePage<TData>({
   error,
   searchKey,
   searchPlaceholder,
+  searchValue,
+  onSearchChange,
   enableRowSelection = true,
   pageSize = 10,
   loadingMessage,
@@ -64,9 +80,7 @@ export function ResourcePage<TData>({
       <div className="page-header-row">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-secondary-900">{title}</h1>
-          {description && (
-            <p className="mt-1 text-sm text-secondary-500">{description}</p>
-          )}
+          {description && <p className="mt-1 text-sm text-secondary-500">{description}</p>}
         </div>
         <div className="page-header-actions">{action}</div>
       </div>
@@ -92,6 +106,8 @@ export function ResourcePage<TData>({
             data={data}
             searchKey={searchKey}
             searchPlaceholder={searchPlaceholder}
+            searchValue={searchValue}
+            onSearchChange={onSearchChange}
             enableRowSelection={enableRowSelection}
             pageSize={pageSize}
             onRowActivate={onRowActivate}

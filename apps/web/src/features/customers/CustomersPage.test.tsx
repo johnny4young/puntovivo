@@ -11,8 +11,8 @@
  *
  * @module features/customers/CustomersPage.test
  */
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { useAuthMock } = vi.hoisted(() => ({ useAuthMock: vi.fn() }));
 
@@ -30,7 +30,9 @@ vi.mock('@/components/form-controls/Modal', () => ({ ConfirmModal: () => null })
 
 // vi.hoisted so the (hoisted) vi.mock factory can reference these without a
 // temporal-dead-zone error — `emptyList` is read eagerly as a property value.
-const { customer, emptyList } = vi.hoisted(() => ({
+const { customer, emptyList, listQueryInputs } = vi.hoisted(() => ({
+  // ENG-217 — every `customers.list` input the page issued, in order.
+  listQueryInputs: [] as unknown[],
   customer: {
     id: 'c-1',
     name: 'Comercializadora Andina',
@@ -59,12 +61,16 @@ vi.mock('@/lib/trpc', () => ({
     useUtils: () => ({ customers: { list: { invalidate: vi.fn() } } }),
     customers: {
       list: {
-        useQuery: () => ({
-          data: { items: [customer] },
-          isLoading: false,
-          error: null,
-          refetch: vi.fn(),
-        }),
+        useQuery: (input: unknown) => {
+          listQueryInputs.push(input);
+          const search = (input as { search?: string }).search;
+          return {
+            data: { items: search === 'missing' ? [] : [customer] },
+            isLoading: false,
+            error: null,
+            refetch: vi.fn(),
+          };
+        },
       },
       create: {
         useMutation: () => ({
@@ -134,5 +140,71 @@ describe('CustomersPage default column set (ENG-132b)', () => {
     expect(within(drawer).getByText('ventas@andina.co')).toBeInTheDocument();
     expect(within(drawer).getByText('+57 300 111 2233')).toBeInTheDocument();
     expect(within(drawer).getByText('Bogotá, Cundinamarca')).toBeInTheDocument();
+  });
+});
+
+/**
+ * ENG-217 — the search box delegates to the server.
+ *
+ * The page loads one 50-row page, so the old client-side column filter
+ * reported "no results" for any customer past row 50 — people who exist and
+ * whom the cashier can see on the next page. These pin that the term now
+ * leaves the browser, and that the table stopped filtering locally.
+ */
+describe('CustomersPage server-side search (ENG-217)', () => {
+  beforeEach(() => {
+    useAuthMock.mockReset();
+    useAuthMock.mockReturnValue({ user: { id: 'u-1', role: 'admin' } });
+    listQueryInputs.length = 0;
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('sends the typed term to the server, debounced', async () => {
+    render(<CustomersPage />);
+
+    // The first render asks for the unsearched page: no `search` key at all,
+    // so it shares the cache entry with a plain visit.
+    expect(listQueryInputs[0]).toEqual({ page: 1, perPage: 50 });
+
+    fireEvent.change(screen.getByTestId('data-table-search'), { target: { value: 'rosa' } });
+
+    // Nothing yet — a keystroke must not be a request.
+    expect(listQueryInputs.some(i => (i as { search?: string }).search === 'rosa')).toBe(false);
+
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(listQueryInputs.at(-1)).toEqual({ page: 1, perPage: 50, search: 'rosa' });
+  });
+
+  it('does not filter the returned rows locally', async () => {
+    render(<CustomersPage />);
+
+    // The server owns matching (it searches name, email AND phone). A row it
+    // returned must render even when the term matches none of the columns the
+    // old `searchKey="name"` filter looked at — otherwise a phone-number
+    // search would come back empty.
+    fireEvent.change(screen.getByTestId('data-table-search'), { target: { value: '300 111' } });
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(screen.getByText('Comercializadora Andina')).toBeInTheDocument();
+  });
+
+  it('does not mistake an empty search result for a fresh tenant', async () => {
+    render(<CustomersPage />);
+
+    fireEvent.change(screen.getByTestId('data-table-search'), { target: { value: 'missing' } });
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(screen.queryByTestId('empty-state-readiness-customers')).not.toBeInTheDocument();
   });
 });

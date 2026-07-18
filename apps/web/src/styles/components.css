@@ -723,6 +723,24 @@
     @apply px-4 py-3 text-left text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-secondary-500;
   }
 
+  /* ENG-219 — the legacy `.data-table` header is static, which is invisible
+     on the paged path (the page scrolls, the table does not) but breaks the
+     moment ENG-172 auto-virtualises a table past 30 rows: the wrapper becomes
+     the scroll container, the header slides out of view, and the operator
+     scrolls a grid of unlabelled columns. The dense `.pv-table` recipe has
+     been sticky since the redesign; this brings the default variant to parity
+     ONLY where the bug exists, so paged tables keep their exact chrome.
+
+     The fill has to sit on the `th` and be opaque: a sticky cell does not
+     carry its `thead`'s translucent background, so rows would show through
+     as they scroll under it. Same mix the dense header uses. */
+  [data-virtualised='true'] .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: color-mix(in oklch, var(--surface-2) 92%, var(--background));
+  }
+
   .data-table tbody tr {
     @apply border-t border-line/70 bg-card/70 transition-colors;
   }

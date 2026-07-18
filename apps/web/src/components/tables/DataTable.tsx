@@ -62,8 +62,25 @@ declare module '@tanstack/react-table' {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  /**
+   * Column id to filter CLIENT-SIDE as the user types. Correct only when
+   * `data` already holds every row the user could match — with a paged
+   * query it silently filters the loaded page and reports "no results" for
+   * rows the server never sent (ENG-217). For a paged source use
+   * {@link DataTableProps.searchValue} instead.
+   */
   searchKey?: string | undefined;
   searchPlaceholder?: string | undefined;
+  /**
+   * ENG-217 — controlled search. When provided, the table renders the same
+   * search box but does NOT filter: the owner is expected to feed `data`
+   * from a query that already applied the term (server-side). Mutually
+   * exclusive with `searchKey`; passing both is a bug the dev-time warning
+   * below reports, and `searchValue` wins.
+   */
+  searchValue?: string | undefined;
+  /** Required with {@link DataTableProps.searchValue}; receives the raw input. */
+  onSearchChange?: ((value: string) => void) | undefined;
   enableRowSelection?: boolean | undefined;
   onRowSelectionChange?: ((rows: TData[]) => void) | undefined;
   pageSize?: number | undefined;
@@ -127,6 +144,8 @@ export function DataTable<TData, TValue>({
   // ENG-220 — no English default here: a default in the signature cannot
   // call t(). Resolved at the use site below.
   searchPlaceholder,
+  searchValue,
+  onSearchChange,
   enableRowSelection = false,
   onRowSelectionChange,
   pageSize = 10,
@@ -138,6 +157,25 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   // ENG-172 — explicit prop wins; otherwise auto-flip on row count.
   const isVirtual = virtualised ?? data.length > AUTO_VIRTUALISE_THRESHOLD;
+  // ENG-217 — controlled search takes over completely: the client-side
+  // column filter must NOT also run, or a server-filtered page would be
+  // filtered a second time against one column and hide valid matches.
+  const isControlledSearch = searchValue !== undefined;
+  const isControlledSearchReadOnly = isControlledSearch && !onSearchChange;
+  if (import.meta.env.DEV && isControlledSearch && searchKey) {
+    // Not an invariant the types can express (both props are independently
+    // optional), and the failure is silent double-filtering.
+    console.warn(
+      'DataTable: searchValue and searchKey are mutually exclusive; ignoring searchKey.'
+    );
+  }
+  if (import.meta.env.DEV && isControlledSearchReadOnly) {
+    // A controlled input cannot update itself. Make the inert contract visible
+    // to developers instead of accepting keystrokes that are silently dropped.
+    console.warn(
+      'DataTable: searchValue requires onSearchChange; rendering the search input read-only.'
+    );
+  }
   const { t } = useTranslation('common');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -194,9 +232,7 @@ export function DataTable<TData, TValue>({
   // scroll container; the paged path keeps the final (paginated) row model.
   // Keyboard navigation, the empty state, and the roving tabindex all index
   // into this single `visibleRows` array regardless of mode.
-  const visibleRows = isVirtual
-    ? table.getSortedRowModel().rows
-    : table.getRowModel().rows;
+  const visibleRows = isVirtual ? table.getSortedRowModel().rows : table.getRowModel().rows;
   const searchColumn = searchKey ? table.getColumn(searchKey) : undefined;
   const selectedRowCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length;
   const resolvedFocusedRowIndex =
@@ -403,14 +439,29 @@ export function DataTable<TData, TValue>({
   return (
     <div className="space-y-4">
       <div className="data-table-toolbar">
-        {searchKey && (
+        {isControlledSearch ? (
           <input
             type="text"
             placeholder={searchPlaceholder ?? t('table.searchPlaceholder')}
-            value={(searchColumn?.getFilterValue() as string | undefined) ?? ''}
-            onChange={e => searchColumn?.setFilterValue(e.target.value)}
+            aria-label={searchPlaceholder ?? t('table.searchPlaceholder')}
+            value={searchValue ?? ''}
+            onChange={e => onSearchChange?.(e.target.value)}
+            readOnly={isControlledSearchReadOnly}
             className="input max-w-sm"
+            data-testid="data-table-search"
           />
+        ) : (
+          searchKey && (
+            <input
+              type="text"
+              placeholder={searchPlaceholder ?? t('table.searchPlaceholder')}
+              aria-label={searchPlaceholder ?? t('table.searchPlaceholder')}
+              value={(searchColumn?.getFilterValue() as string | undefined) ?? ''}
+              onChange={e => searchColumn?.setFilterValue(e.target.value)}
+              className="input max-w-sm"
+              data-testid="data-table-search"
+            />
+          )
         )}
         <div className="flex items-center gap-2">
           {enableRowSelection && selectedRowCount > 0 && (
@@ -530,62 +581,63 @@ export function DataTable<TData, TValue>({
           </div>
         </div>
       ) : (
-      <div className="data-table-pagination">
-        <div className="text-sm text-secondary-600">
-          {table.getFilteredRowModel().rows.length === 0
-            ? t('table.noEntries')
-            : t('table.showing', {
-                from:
-                  table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1,
-                to: Math.min(
-                  (table.getState().pagination.pageIndex + 1) *
-                    table.getState().pagination.pageSize,
-                  table.getFilteredRowModel().rows.length
-                ),
-                total: table.getFilteredRowModel().rows.length,
+        <div className="data-table-pagination">
+          <div className="text-sm text-secondary-600">
+            {table.getFilteredRowModel().rows.length === 0
+              ? t('table.noEntries')
+              : t('table.showing', {
+                  from:
+                    table.getState().pagination.pageIndex * table.getState().pagination.pageSize +
+                    1,
+                  to: Math.min(
+                    (table.getState().pagination.pageIndex + 1) *
+                      table.getState().pagination.pageSize,
+                    table.getFilteredRowModel().rows.length
+                  ),
+                  total: table.getFilteredRowModel().rows.length,
+                })}
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              className="btn-outline btn-icon"
+              onClick={() => table.setPageIndex(0)}
+              disabled={!table.getCanPreviousPage()}
+              aria-label={t('pagination.goToFirst')}
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </button>
+            <button
+              className="btn-outline btn-icon"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+              aria-label={t('pagination.goToPrevious')}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-sm text-secondary-600">
+              {t('table.page', {
+                current: table.getState().pagination.pageIndex + 1,
+                total: table.getPageCount(),
               })}
+            </span>
+            <button
+              className="btn-outline btn-icon"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+              aria-label={t('pagination.goToNext')}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button
+              className="btn-outline btn-icon"
+              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+              disabled={!table.getCanNextPage()}
+              aria-label={t('pagination.goToLast')}
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <button
-            className="btn-outline btn-icon"
-            onClick={() => table.setPageIndex(0)}
-            disabled={!table.getCanPreviousPage()}
-            aria-label={t('pagination.goToFirst')}
-          >
-            <ChevronsLeft className="h-4 w-4" />
-          </button>
-          <button
-            className="btn-outline btn-icon"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            aria-label={t('pagination.goToPrevious')}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="text-sm text-secondary-600">
-            {t('table.page', {
-              current: table.getState().pagination.pageIndex + 1,
-              total: table.getPageCount(),
-            })}
-          </span>
-          <button
-            className="btn-outline btn-icon"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            aria-label={t('pagination.goToNext')}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          <button
-            className="btn-outline btn-icon"
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-            disabled={!table.getCanNextPage()}
-            aria-label={t('pagination.goToLast')}
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
       )}
     </div>
   );

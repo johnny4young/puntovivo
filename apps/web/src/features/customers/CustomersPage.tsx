@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
+import { keepPreviousData } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { Plus, Pencil, Trash2, BookOpen, Eye } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
@@ -9,14 +10,12 @@ import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Customer, CustomerCatalogItem } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
-import {
-  CustomerFormModal,
-  type CustomerFormValues,
-} from '@/features/customers/CustomerFormModal';
+import { CustomerFormModal, type CustomerFormValues } from '@/features/customers/CustomerFormModal';
 import { CustomerDetailsDrawer } from '@/features/customers/CustomerDetailsDrawer';
 import { resolveCatalogLabel } from '@/features/customers/catalogLabel';
 import { CustomerLedgerModal } from '@/features/customers/CustomerLedgerModal';
 import { EmptyStateReadinessNudge } from '@/components/feedback/EmptyStateReadinessNudge';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { extractServerErrorCode } from '@/lib/translateServerError';
 
@@ -44,12 +43,42 @@ export function CustomersPage() {
   // table (email / phone / type / location + identification).
   const [detailsCustomer, setDetailsCustomer] = useState<Customer | null>(null);
 
-  const { data, isLoading, error, refetch } = trpc.customers.list.useQuery({ page: 1, perPage: 50 });
-  const identificationTypesQuery = trpc.identificationTypes.list.useQuery({ page: 1, perPage: 100 });
+  // ENG-217 — the search term goes to the SERVER. The table only ever holds
+  // one page, so the client-side column filter it used to run could not see
+  // a match past row 50: a tenant with more customers than that was told
+  // "no results" for people who exist. `customers.list` has accepted a
+  // `search` param all along; the page simply never sent it.
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebouncedValue(searchInput.trim(), 250);
+
+  const { data, isLoading, error, refetch } = trpc.customers.list.useQuery(
+    {
+      page: 1,
+      perPage: 50,
+      // Omit rather than send '' so the unsearched query keeps its old cache
+      // key (and the list still opens instantly from cache).
+      ...(debouncedSearch.length > 0 ? { search: debouncedSearch } : {}),
+    },
+    {
+      // Each term is a new query key, so without this the page would flip to
+      // `isLoading` on every search — and ResourcePage unmounts the table
+      // (search box included) while loading, stealing focus mid-word. Keeping
+      // the previous rows on screen also stops the list from flashing empty
+      // between keystrokes.
+      placeholderData: keepPreviousData,
+    }
+  );
+  const identificationTypesQuery = trpc.identificationTypes.list.useQuery({
+    page: 1,
+    perPage: 100,
+  });
   const personTypesQuery = trpc.personTypes.list.useQuery({ page: 1, perPage: 100 });
   const regimeTypesQuery = trpc.regimeTypes.list.useQuery({ page: 1, perPage: 100 });
   const clientTypesQuery = trpc.clientTypes.list.useQuery({ page: 1, perPage: 100 });
-  const commercialActivitiesQuery = trpc.commercialActivities.list.useQuery({ page: 1, perPage: 100 });
+  const commercialActivitiesQuery = trpc.commercialActivities.list.useQuery({
+    page: 1,
+    perPage: 100,
+  });
   const createMutation = trpc.customers.create.useMutation({
     onSuccess: async () => {
       await utils.customers.list.invalidate();
@@ -98,7 +127,8 @@ export function CustomersPage() {
   const personTypes = (personTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
   const regimeTypes = (regimeTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
   const clientTypes = (clientTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
-  const commercialActivities = (commercialActivitiesQuery.data?.items ?? []) as CustomerCatalogItem[];
+  const commercialActivities = (commercialActivitiesQuery.data?.items ??
+    []) as CustomerCatalogItem[];
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -199,7 +229,9 @@ export function CustomersPage() {
       size: 100,
       cell: ({ row }) => (
         <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
-          {row.original.isActive ? i18next.t('customers:table.active') : i18next.t('customers:table.inactive')}
+          {row.original.isActive
+            ? i18next.t('customers:table.active')
+            : i18next.t('customers:table.inactive')}
         </span>
       ),
     },
@@ -266,7 +298,7 @@ export function CustomersPage() {
     <>
       {/* ENG-104 — fresh tenant nudge toward the readiness checklist.
           The nudge gates to admin because the target setup surface is admin-only. */}
-      {!isLoading && !error && customers.length === 0 && (
+      {!isLoading && !error && searchInput.trim().length === 0 && customers.length === 0 && (
         <div className="mb-4">
           <EmptyStateReadinessNudge scope="customers" />
         </div>
@@ -283,7 +315,8 @@ export function CustomersPage() {
         data={customers}
         isLoading={isLoading}
         error={error?.message ?? null}
-        searchKey="name"
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
         searchPlaceholder={t('table.search')}
         loadingMessage={t('table.loading')}
         onRetry={() => {
