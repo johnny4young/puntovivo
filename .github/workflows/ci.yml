@@ -76,6 +76,8 @@ jobs:
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
+              - 'packages/shared/**'
+              - 'scripts/ensure-shared-build.mjs'
               - 'tsconfig*.json'
               - '.npmrc'
             web:
@@ -97,7 +99,9 @@ jobs:
               - 'scripts/build-electron-main.mjs'
             release:
               - 'scripts/**'
+              - 'e2e/web/business.spec.ts'
               - '.github/workflows/release.yml'
+              - '.github/workflows/prerelease-e2e.yml'
 
   # ============================================================================
   # Release Automation Tests

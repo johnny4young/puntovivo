@@ -2,6 +2,41 @@
   "page": {
     "title": "Audit log"
   },
+  "review": {
+    "title": "Sensitive activity review",
+    "description": "Review curated events with elevated privacy, access, money, inventory, or AI risk. Counts follow the selected date range.",
+    "loading": "Summarizing sensitive activity…",
+    "error": "Unable to summarize sensitive activity.",
+    "retry": "Try again",
+    "total_one": "{{count}} sensitive event",
+    "total_other": "{{count}} sensitive events",
+    "latest": "Latest: {{date}}",
+    "none": "No events in this range",
+    "activeFilter": "History filtered to {{category}}.",
+    "clearFilter": "Clear review filter",
+    "categories": {
+      "privacy": {
+        "title": "Privacy and data",
+        "description": "Personal-data requests, retention, and telemetry consent."
+      },
+      "access": {
+        "title": "Access and permissions",
+        "description": "User, device, and module access changes."
+      },
+      "money": {
+        "title": "Money and overrides",
+        "description": "Voids, refunds, cash controls, overrides, and fiscal exports."
+      },
+      "inventory": {
+        "title": "Inventory control",
+        "description": "Stock corrections, transfer voids, and expiry discounts."
+      },
+      "ai": {
+        "title": "AI activity",
+        "description": "AI queries, OCR, anomaly review, and embedding changes."
+      }
+    }
+  },
   "history": {
     "title": "Recent audit events",
     "description": "Reverse-chronological. Use the filters to narrow the view to a specific action, resource, or date range.",
@@ -41,6 +76,20 @@
     "purchase.void": "Purchase voided",
     "user.create": "User created",
     "user.update": "User updated",
+    "user.pin.update": "Staff PIN updated",
+    "auth.staff_switch": "Cashier switched",
+    "employee_shift.clock_in": "Employee clocked in",
+    "employee_shift.clock_out": "Employee clocked out",
+    "scheduled_shift.create": "Scheduled shift created",
+    "scheduled_shift.update": "Scheduled shift updated",
+    "scheduled_shift.cancel": "Scheduled shift cancelled",
+    "manager_approval.request": "Manager approval requested",
+    "manager_approval.approve": "Manager approval granted",
+    "manager_approval.reject": "Manager approval rejected",
+    "manager_approval.cancel": "Manager approval cancelled",
+    "manager_approval.consume": "Manager approval consumed",
+    "loss_prevention.settings.updated": "Loss-prevention policy updated",
+    "loss_prevention.triggered": "Loss-prevention rule triggered",
     "sale.price_override": "Sale price override",
     "sale.park": "Sale suspended",
     "sale.resume": "Sale resumed",
@@ -66,11 +115,29 @@
     "kds.order.ready": "KDS order marked ready",
     "kds.order.recalled": "KDS order recalled to pending",
     "customer.credit_limit.update": "Customer credit limit updated",
+    "customer.personal_data.export": "Customer personal data exported",
+    "customer.personal_data.delete": "Customer personal data deleted",
+    "customer.personal_data.anonymize": "Customer personal data anonymized",
     "sale.credit_override": "Sale completed with credit override",
     "fiscal.xml.downloaded": "Fiscal XML downloaded",
     "telemetry.opt_in.updated": "Telemetry preference updated",
     "inventory.lot.discount_suggested": "Discount suggested (expiry)",
-    "inventory.lot.discount_suggestion_dismissed": "Discount suggestion dismissed"
+    "inventory.lot.discount_suggestion_dismissed": "Discount suggestion dismissed",
+    "data_retention.policy.updated": "Data retention policy updated",
+    "data_retention.sweep.run": "Expired support data deleted",
+    "backup.restore_drill": "Backup restore drill run",
+    "cash_drawer.open": "Cash drawer opened",
+    "data_import.products": "Product launch data imported",
+    "data_import.customers": "Customer launch data imported",
+    "data_import.providers": "Supplier launch data imported",
+    "data_import.customer_balances": "Customer opening receivables imported",
+    "data_import.opening_cash": "Register opening cash imported",
+    "data_import.fiscal_profile": "Fiscal profile imported",
+    "day_close.sign_off": "Day close signed",
+    "employee_shift_break.start": "Employee break started",
+    "employee_shift_break.end": "Employee break ended",
+    "employee_shift.correct": "Employee attendance corrected",
+    "loss_prevention.alert.acknowledged": "Loss-prevention alert reviewed"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -81,6 +148,10 @@
     "product": "Product",
     "purchase": "Purchase",
     "user": "User",
+    "employee_shift": "Employee shift",
+    "scheduled_shift": "Scheduled shift",
+    "manager_approval": "Manager approval",
+    "loss_prevention_rule": "Loss-prevention rule",
     "cashier": "Cashier",
     "tenant_module": "Tenant module",
     "device": "Device",
@@ -91,7 +162,13 @@
     "customer": "Customer",
     "fiscal_document": "Fiscal document",
     "tenant": "Tenant",
-    "price_suggestion": "Price suggestion"
+    "price_suggestion": "Price suggestion",
+    "backup_snapshot": "Backup snapshot",
+    "site": "Site",
+    "data_import": "Data import",
+    "day_close_signoff": "Signed day close",
+    "employee_shift_break": "Employee break",
+    "loss_prevention_alert": "Loss-prevention alert"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

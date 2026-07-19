@@ -10,6 +10,7 @@ export interface InventoryBalanceListItem {
   productId: string;
   productName: string;
   productSku: string;
+  tracksSerials?: boolean;
   onHand: number;
   reserved: number;
   available: number;
@@ -61,6 +62,8 @@ export interface InventoryStockItem {
   categoryName?: string | null;
   stock: number;
   minStock: number;
+  tracksLots: boolean;
+  tracksSerials?: boolean | undefined;
   initialCost: number;
   price: number;
   isLowStock: boolean;

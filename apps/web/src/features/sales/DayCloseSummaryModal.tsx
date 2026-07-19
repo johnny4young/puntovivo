@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next';
-import { Flame, Scale, Share2, ShoppingBag, TrendingUp } from 'lucide-react';
+import { Flame, Scale, ShoppingBag, TrendingUp } from 'lucide-react';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { Overlay } from '@/components/overlay/Overlay';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { DayClosePulseCard } from './DayClosePulseCard';
 import { buildDayPulseText, buildWhatsAppShareUrl } from './dayPulse';
 
 /**
@@ -62,24 +63,6 @@ export function DayCloseSummaryModal({ sessionId, onClose }: DayCloseSummaryModa
       }
       footer={
         <>
-          {summary && (
-            // ENG-205 — v1 of the shareable pulse: a wa.me deep link with
-            // the aggregate day text (never customer data). ENG-112's real
-            // WhatsApp lane can upgrade this to an automatic push later.
-            <ModalButton
-              onClick={() => {
-                window.open(
-                  buildWhatsAppShareUrl(buildDayPulseText(summary, t)),
-                  '_blank',
-                  'noopener,noreferrer'
-                );
-              }}
-              className="sm:min-w-[12rem]"
-            >
-              <Share2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
-              {t('cashSession.dayClose.pulse.share')}
-            </ModalButton>
-          )}
           <ModalButton variant="primary" onClick={onClose} className="sm:min-w-[10rem]">
             {t('cashSession.dayClose.finish')}
           </ModalButton>
@@ -178,6 +161,22 @@ export function DayCloseSummaryModal({ sessionId, onClose }: DayCloseSummaryModa
                 )}
               </div>
             </section>
+
+            {summary.pulse && summary.margin && (
+              // ENG-205 — the card's share anchor uses the canonical
+              // buildDayPulseText payload (aggregate metrics only).
+              <DayClosePulseCard
+                shareUrl={buildWhatsAppShareUrl(buildDayPulseText(summary, t))}
+                date={summary.day.date}
+                salesCount={summary.day.salesCount}
+                revenue={summary.day.revenue}
+                averageTicket={summary.pulse.averageTicket}
+                previousWeekRevenue={summary.pulse.previousWeekRevenue}
+                revenueChangePct={summary.pulse.revenueChangePct}
+                grossProfit={summary.margin.grossProfit}
+                grossMarginPct={summary.margin.grossMarginPct}
+              />
+            )}
 
             <section className={TILE_CLASS} data-testid="day-close-top-products">
               <p className={TILE_LABEL_CLASS}>{t('cashSession.dayClose.topProductsTitle')}</p>

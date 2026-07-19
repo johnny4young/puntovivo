@@ -269,6 +269,11 @@ describe('day-close summary (ENG-198)', () => {
     expect(summary.day.date).toBe(new Date().toISOString().slice(0, 10));
     expect(summary.day.salesCount).toBe(1);
     expect(summary.day.revenue).toBeCloseTo(200, 2);
+    expect(summary.pulse).toEqual({
+      averageTicket: 200,
+      previousWeekRevenue: 0,
+      revenueChangePct: null,
+    });
     expect(summary.margin).not.toBeNull();
     expect(summary.margin?.grossProfit).toBeCloseTo(120, 2);
     expect(summary.margin?.grossMarginPct).toBeCloseTo(60, 2);
@@ -323,6 +328,7 @@ describe('day-close summary (ENG-198)', () => {
     }
     // The shared fields agree between the two views.
     expect(cashier.day).toEqual(admin.day);
+    expect(cashier.pulse).toBeNull();
     expect(cashier.streakDays).toBe(admin.streakDays);
     expect(cashier.session).toEqual(admin.session);
   });
@@ -376,6 +382,56 @@ describe('day-close summary (ENG-198)', () => {
     expect(after.day).toEqual(before.day);
   });
 
+  it('builds the tenant-scoped pulse against the same weekday one week earlier', async () => {
+    const db = getDatabase();
+    const caller = appRouter.createCaller(fresh());
+    const current = await caller.cashSessions.dayCloseSummary({ sessionId: closedSessionId });
+
+    const previousProductId = await seedProduct('Ritual Previous Week', 'DC-PREV', 100, 50);
+    const previousSaleId = await sellProduct(previousProductId, 1, 100);
+    await db
+      .update(sales)
+      .set({ createdAt: isoDaysAgo(7), updatedAt: isoDaysAgo(7) })
+      .where(eq(sales.id, previousSaleId));
+
+    // A large foreign-tenant sale in the same comparison window must not
+    // influence either the baseline or percentage delta.
+    const foreign = await seedBareTenant('pulse-scope');
+    const foreignSessionId = await insertClosedSession(foreign, 7, 0);
+    await db.insert(sales).values({
+      id: nanoid(),
+      tenantId: foreign.tenantId,
+      saleNumber: 'PULSE-FOREIGN-1',
+      subtotal: 9_999,
+      taxAmount: 0,
+      discountAmount: 0,
+      total: 9_999,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      cashSessionId: foreignSessionId,
+      createdBy: foreign.userId,
+      createdAt: isoDaysAgo(7),
+      updatedAt: isoDaysAgo(7),
+    });
+
+    const summary = await caller.cashSessions.dayCloseSummary({ sessionId: closedSessionId });
+    expect(summary.day).toEqual(current.day);
+    expect(summary.pulse).not.toBeNull();
+    expect(summary.pulse?.averageTicket).toBeCloseTo(
+      current.day.revenue / current.day.salesCount,
+      2
+    );
+    // Incremental against whatever earlier tests already put in last week's
+    // window — this test owns exactly +100 of prev-week revenue.
+    const expectedPrev = (current.pulse?.previousWeekRevenue ?? 0) + 100;
+    expect(summary.pulse?.previousWeekRevenue).toBe(expectedPrev);
+    expect(summary.pulse?.revenueChangePct).toBeCloseTo(
+      ((current.day.revenue - expectedPrev) / expectedPrev) * 100,
+      1
+    );
+  });
+
   it('counts consecutive balanced days into the streak', async () => {
     const owner = await seedBareTenant('consec');
     await insertClosedSession(owner, 2, 0);
@@ -392,6 +448,11 @@ describe('day-close summary (ENG-198)', () => {
     expect(summary.streakDays).toBe(3);
     // Bare tenant has no sales; the owner view still shapes correctly.
     expect(summary.day.salesCount).toBe(0);
+    expect(summary.pulse).toEqual({
+      averageTicket: 0,
+      previousWeekRevenue: 0,
+      revenueChangePct: null,
+    });
     expect(summary.topProducts).toEqual([]);
     expect(summary.margin).toEqual({ grossProfit: 0, grossMarginPct: 0 });
   });
@@ -501,6 +562,7 @@ describe('day-close summary (ENG-198)', () => {
     });
     expect(summary.session.balanced).toBe(true);
     expect(summary.margin).toBeNull();
+    expect(summary.pulse).toBeNull();
   });
 
   it('caps the balanced streak at exactly 90 calendar days', async () => {

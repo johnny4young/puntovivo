@@ -1,8 +1,8 @@
 /**
  * ENG-055 — `voidSale` use-case service.
  *
- * Voids a completed sale (admin-only, decoupled from a cashier's
- * register): validates state, restores stock to the site that
+ * Voids a completed sale (direct for admins; manager/cashier with an exact
+ * admin grant, decoupled from the caller's register): validates state, restores stock to the site that
  * originally sold it, flips `status` to `voided`, conditionally emits
  * a refund cash movement against the ORIGINAL session if it is still
  * open (closed sessions have over/short locked, so we never touch
@@ -11,8 +11,8 @@
  *
  * Distinction vs `returnSale`:
  *  - Void does NOT require the caller to have an active cash session.
- *    It is admin-only and reversal goes against the ORIGINAL session
- *    when applicable.
+ *    Authorization is either direct admin authority or an exact admin grant;
+ *    reversal goes against the ORIGINAL session when applicable.
  *  - Stock always restores; cash movement reversal is conditional.
  *
  * Behavior parity with the previous inline router code is the explicit
@@ -21,7 +21,7 @@
  * @module application/sales/voidSale
  */
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { cashSessions, operationEvents, saleItems, sales } from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
@@ -42,8 +42,19 @@ import {
   restoreLotsForSale,
 } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
+import { transitionSaleSerials } from '../../services/product-serials.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import type { CompleteSaleContext, CompleteSaleResult } from './types.js';
+import {
+  consumeManagerApprovalGrant,
+  enqueueConsumedManagerApprovalBestEffort,
+  releaseManagerApprovalClaim,
+} from '../../services/manager-approvals.js';
+import {
+  claimShiftLossPreventionApproval,
+  evaluateShiftLossPrevention,
+  recordShiftLossPreventionTrigger,
+} from '../../services/loss-prevention/index.js';
 
 const fallbackLog = createModuleLogger('application/sales/voidSale');
 
@@ -69,6 +80,7 @@ export interface VoidSaleInput {
   id: string;
   // ENG-179b — explicit `| undefined` on Zod-optional field.
   reason?: string | null | undefined;
+  approvalRequestId?: string | undefined;
 }
 
 export type VoidedSaleRecord = typeof sales.$inferSelect;
@@ -163,6 +175,10 @@ export async function voidSale(
   const originalSaleSiteId = voidTargetSession?.siteId ?? null;
 
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
+  const expectedSyncVersion =
+    existing.syncVersion === null
+      ? isNull(sales.syncVersion)
+      : eq(sales.syncVersion, existing.syncVersion);
   const now = new Date().toISOString();
 
   let inventoryMovementIds: string[] = [];
@@ -175,77 +191,160 @@ export async function voidSale(
     fallbackAmount: getPersistedCashContribution(existing),
   });
 
-  ctx.db.transaction(tx => {
-    inventoryMovementIds = reverseSaleItemsStock({
-      tx,
-      tenantId: ctx.tenantId,
-      siteId: originalSaleSiteId,
-      userId: ctx.user.id,
-      saleId: input.id,
-      saleNumber: existing.saleNumber,
-      reversalKind: 'void',
-      items: saleLineItems,
-      productStockState,
-      now,
-    });
+  const lossPreventionEvaluation = evaluateShiftLossPrevention({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    actorId: ctx.user.id,
+    role: ctx.user.role,
+    action: 'sale_void',
+    amount: existing.total,
+  });
+  recordShiftLossPreventionTrigger({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    actorId: ctx.user.id,
+    siteId: ctx.siteId,
+    resourceType: 'sale',
+    resourceId: input.id,
+    evaluation: lossPreventionEvaluation,
+    approvalRequestId: input.approvalRequestId,
+    operationId: ctx.envelope?.operationId,
+  });
+  const approvalClaim = claimShiftLossPreventionApproval({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    requesterId: ctx.user.id,
+    requesterRole: ctx.user.role,
+    action: 'sale_void',
+    resourceType: 'sale',
+    resourceId: input.id,
+    requestId: input.approvalRequestId,
+    evaluation: lossPreventionEvaluation,
+  });
 
-    // Auditoría 2026-07 — restore consumed lots on void.
-    restoredLotIds = restoreLotsForSale(tx, {
-      tenantId: ctx.tenantId,
-      saleId: input.id,
-      now,
-    }).lotIds;
+  try {
+    ctx.db.transaction(tx => {
+      const voided = tx
+        .update(sales)
+        .set({
+          status: 'voided',
+          notes: buildVoidedSaleNotes(existing.notes, input.reason),
+          updatedAt: now,
+          syncStatus: 'pending',
+          syncVersion: nextSyncVersion,
+        })
+        .where(
+          and(
+            eq(sales.id, input.id),
+            eq(sales.tenantId, ctx.tenantId),
+            eq(sales.status, 'completed'),
+            ne(sales.paymentStatus, 'refunded'),
+            expectedSyncVersion,
+            eq(sales.updatedAt, existing.updatedAt)
+          )
+        )
+        .run();
+      if (voided.changes !== 1) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'SALE_VOID_NOT_COMPLETED',
+          message: 'The sale changed while it was being voided',
+        });
+      }
 
-    tx.update(sales)
-      .set({
-        status: 'voided',
-        notes: buildVoidedSaleNotes(existing.notes, input.reason),
-        updatedAt: now,
-        syncStatus: 'pending',
-        syncVersion: nextSyncVersion,
-      })
-      .where(and(eq(sales.id, input.id), eq(sales.tenantId, ctx.tenantId)))
-      .run();
-
-    if (voidReversibleSessionId) {
-      cashMovementId = insertCashMovement({
+      inventoryMovementIds = reverseSaleItemsStock({
         tx,
         tenantId: ctx.tenantId,
-        sessionId: voidReversibleSessionId,
-        type: 'refund',
-        amount: refundCashAmount,
-        referenceId: input.id,
-        note: `Voided sale ${existing.saleNumber}`,
-        createdBy: ctx.user.id,
-        createdAt: now,
-      });
-    }
-
-    // Phase 8 / Tier-2 #8 — record the sensitive action in the same
-    // transaction as the void so an audit row exists iff the void
-    // landed.
-    auditLogId = writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: 'sale.void',
-      resourceType: 'sale',
-      resourceId: input.id,
-      before: {
-        status: existing.status,
-        paymentStatus: existing.paymentStatus,
-        total: existing.total,
+        siteId: originalSaleSiteId,
+        userId: ctx.user.id,
+        saleId: input.id,
         saleNumber: existing.saleNumber,
-      },
-      after: {
-        status: 'voided',
-      },
-      metadata: {
-        ...(input.reason ? { reason: input.reason } : {}),
-        ...(voidReversibleSessionId ? { reversedCashSessionId: voidReversibleSessionId } : {}),
-      },
+        reversalKind: 'void',
+        items: saleLineItems,
+        productStockState,
+        now,
+      });
+
+      // Auditoría 2026-07 — restore consumed lots on void.
+      restoredLotIds = restoreLotsForSale(tx, {
+        tenantId: ctx.tenantId,
+        saleId: input.id,
+        now,
+      }).lotIds;
+      transitionSaleSerials(tx as unknown as typeof ctx.db, {
+        tenantId: ctx.tenantId,
+        saleItemIds: saleLineItems.map(item => item.id),
+        from: 'sold',
+        to: 'in_stock',
+        clearSaleItem: true,
+        now,
+        syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+      });
+
+      if (voidReversibleSessionId) {
+        cashMovementId = insertCashMovement({
+          tx,
+          tenantId: ctx.tenantId,
+          sessionId: voidReversibleSessionId,
+          type: 'refund',
+          amount: refundCashAmount,
+          referenceId: input.id,
+          note: `Voided sale ${existing.saleNumber}`,
+          createdBy: ctx.user.id,
+          createdAt: now,
+        });
+      }
+
+      // Phase 8 / Tier-2 #8 — record the sensitive action in the same
+      // transaction as the void so an audit row exists iff the void
+      // landed.
+      auditLogId = writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'sale.void',
+        resourceType: 'sale',
+        resourceId: input.id,
+        before: {
+          status: existing.status,
+          paymentStatus: existing.paymentStatus,
+          total: existing.total,
+          saleNumber: existing.saleNumber,
+        },
+        after: {
+          status: 'voided',
+        },
+        metadata: {
+          ...(input.reason ? { reason: input.reason } : {}),
+          lossPreventionCashSessionId: lossPreventionEvaluation.cashSessionId,
+          ...(voidReversibleSessionId ? { reversedCashSessionId: voidReversibleSessionId } : {}),
+          ...(approvalClaim
+            ? { approvalRequestId: approvalClaim.requestId, approvedBy: approvalClaim.approverId }
+            : {}),
+        },
+      });
+      if (approvalClaim) {
+        consumeManagerApprovalGrant({
+          tx,
+          tenantId: ctx.tenantId,
+          requesterId: ctx.user.id,
+          claim: approvalClaim,
+          consumedResourceType: 'sale',
+          consumedResourceId: input.id,
+          metadata: { saleNumber: existing.saleNumber },
+        });
+      }
     });
-  });
+  } catch (error) {
+    if (approvalClaim) releaseManagerApprovalClaim(ctx.db, ctx.tenantId, approvalClaim);
+    throw error;
+  }
+
+  if (approvalClaim) {
+    await enqueueConsumedManagerApprovalBestEffort(ctx, approvalClaim);
+  }
 
   await enqueueSync(ctx, {
     entityType: 'sales',

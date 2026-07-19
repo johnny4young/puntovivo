@@ -57,8 +57,19 @@ export const SYNC_ENTITY_TYPES = [
   // it carries a conflict policy, but not independently enqueued — it rides
   // with the sale aggregate when that serialization lands. No sync columns.
   'sale_item_lots',
+  // ENG-110c — immutable per-sale serialized-unit provenance. Unlike the
+  // lot placeholder above, this bridge is independently enqueued atomically
+  // with the current product_serials transition.
+  'sale_item_serials',
   'cash_sessions',
   'cash_movements',
+  // ENG-106b — attendance rows become legal/payroll evidence under ENG-140.
+  // Register the manual-conflict policy now; aggregate enqueue wiring lands
+  // with that multi-device shift-management promotion.
+  'employee_shifts',
+  // ENG-106c1 — approval identity/evidence must converge manually across
+  // terminals; decision conflicts can never use last-write-wins.
+  'manager_approval_requests',
   'fiscal_documents',
   'fiscal_document_items',
   'fiscal_numbering_resolutions',
@@ -66,6 +77,8 @@ export const SYNC_ENTITY_TYPES = [
   'inventory_movements',
   'inventory_balances',
   'inventory_lots',
+  'product_serials',
+  'product_serial_transfers',
   // ENG-199 — expiry-radar discount suggestions. Registered so the entity
   // carries a conflict policy from day one; enqueue wiring rides a later
   // sync slice (same reserved-placeholder posture as sale_item_lots).
@@ -130,8 +143,11 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   sale_payments: 'manual',
   sale_returns: 'manual',
   sale_item_lots: 'manual',
+  sale_item_serials: 'manual',
   cash_sessions: 'manual',
   cash_movements: 'manual',
+  employee_shifts: 'manual',
+  manager_approval_requests: 'manual',
   fiscal_documents: 'manual',
   fiscal_document_items: 'manual',
   fiscal_numbering_resolutions: 'manual',
@@ -139,6 +155,8 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   inventory_movements: 'manual',
   inventory_balances: 'manual',
   inventory_lots: 'manual',
+  product_serials: 'manual',
+  product_serial_transfers: 'manual',
   price_suggestions: 'manual',
   loyalty_accounts: 'manual',
   loyalty_movements: 'manual',

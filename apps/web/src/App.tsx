@@ -25,6 +25,8 @@ import {
   CustomerDisplayHomePlaceholder,
   CustomerDisplayShell,
   CustomersPage,
+  DataImportPage,
+  DayCloseReportPage,
   DashboardPage,
   DeliveryPage,
   FinanceLandingRoute,
@@ -55,6 +57,7 @@ import {
   TouchHome,
   TouchShell,
   TouchVoiceRoute,
+  TeamSchedulePage,
   UnitsPage,
   UsersPage,
   VatRatesPage,
@@ -118,6 +121,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={adminOnlyRoles}>
                     <CompanyPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="data-import"
+                element={
+                  <ShellRoute allowedRoles={adminOnlyRoles}>
+                    <DataImportPage />
                   </ShellRoute>
                 }
               />
@@ -294,6 +305,22 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="operations-center">
                     <OperationsPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="day-close"
+                element={
+                  <ShellRoute allowedRoles={managerOrAdminRoles}>
+                    <DayCloseReportPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="schedule"
+                element={
+                  <ShellRoute allowedRoles={managerOrAdminRoles}>
+                    <TeamSchedulePage />
                   </ShellRoute>
                 }
               />

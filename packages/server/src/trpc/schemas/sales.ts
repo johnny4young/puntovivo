@@ -7,6 +7,7 @@
  */
 
 import { z } from 'zod';
+import { checkoutApprovalActionEnum } from '@puntovivo/shared/checkout-approval';
 import { paginationInput } from './common.js';
 
 // ============================================================================
@@ -42,6 +43,7 @@ export const saleItemInput = z
     // strings collapse to null at the resolver to keep the column
     // semantically two-state: present (real note) or absent.
     notes: z.string().trim().max(280).nullable().optional(),
+    serialIds: z.array(z.string().min(1)).max(100).optional(),
   })
   .strict();
 
@@ -73,6 +75,30 @@ export const salePaymentInput = z
     reference: z.string().trim().max(120).optional(),
   })
   .strict();
+
+export const checkoutApprovalReferenceInput = z
+  .object({
+    action: z.enum(checkoutApprovalActionEnum),
+    requestId: z.string().trim().min(1),
+  })
+  .strict();
+
+const checkoutApprovalReferencesInput = z
+  .array(checkoutApprovalReferenceInput)
+  .max(checkoutApprovalActionEnum.length)
+  .superRefine((references, ctx) => {
+    const actions = new Set<string>();
+    for (const [index, reference] of references.entries()) {
+      if (actions.has(reference.action)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [index, 'action'],
+          message: 'Approval actions must be unique',
+        });
+      }
+      actions.add(reference.action);
+    }
+  });
 
 /**
  * ENG-039d — restaurant tip / propina method enum. `tipAmount` defaults
@@ -118,14 +144,15 @@ export const createSaleInput = z
      */
     tableId: z.string().min(1).optional(),
     /**
-     * ENG-090 — admin override flag for the credit limit invariant.
-     * When `true`, `requireCreditLimitNotExceeded` skips the throw even
-     * when `currentBalance + grandTotal > creditLimit`. The router
-     * gates this field to admin callers; the manager + cashier paths
-     * reject `true` with `CREDIT_OVERRIDE_FORBIDDEN` before the sale
-     * tx runs.
+     * ENG-090 / ENG-106c2 — credit-limit override. Admins carry direct
+     * authority; non-admin checkout completions must include the exact
+     * credit_override request that the sale transaction consumes.
      */
     creditOverride: z.boolean().optional(),
+    /** ENG-106c2 — one action-specific, one-time approval per cashier gate. */
+    approvalRequests: checkoutApprovalReferencesInput.optional(),
+    /** ENG-209 — local cart start; server bounds it against completion time. */
+    checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
@@ -169,6 +196,7 @@ export const voidSaleInput = z
   .object({
     id: z.string().min(1, 'ID is required'),
     reason: z.string().optional(),
+    approvalRequestId: z.string().min(1).optional(),
   })
   .strict();
 
@@ -176,6 +204,7 @@ export const returnSaleInput = z
   .object({
     id: z.string().min(1, 'ID is required'),
     reason: z.string().optional(),
+    approvalRequestId: z.string().min(1).optional(),
   })
   .strict();
 
@@ -327,12 +356,14 @@ export const completeDraftInput = z
      */
     payments: z.array(salePaymentInput).optional(),
     /**
-     * ENG-090 — admin override flag mirrors `createSaleInput.creditOverride`
-     * so a draft that resumed as credit can also bypass the cupo limit
-     * at finalize time when an admin co-signs. Router gates `true` to
-     * admin callers.
+     * ENG-090 / ENG-106c2 — mirrors createSaleInput.creditOverride for
+     * frozen drafts. Non-admin callers need a payload-bound admin grant.
      */
     creditOverride: z.boolean().optional(),
+    /** ENG-106c2 — references are re-bound to the exact frozen draft snapshot. */
+    approvalRequests: checkoutApprovalReferencesInput.optional(),
+    /** ENG-209 — reset when a suspended draft is resumed into the local cart. */
+    checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {

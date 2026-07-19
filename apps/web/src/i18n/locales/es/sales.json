@@ -82,6 +82,18 @@
     },
     "discountSuggested": "Sugerido -{{pct}}%"
   },
+  "serials": {
+    "title": "Series de {{name}}",
+    "progress": "{{selected}} / {{required}} seleccionadas",
+    "siteRequired": "Selecciona una sede activa para cargar los números de serie.",
+    "loading": "Cargando series disponibles…",
+    "loadError": "No se pudieron cargar los números de serie disponibles.",
+    "retry": "Reintentar",
+    "noneAvailable": "No hay números de serie disponibles para vender en esta sede.",
+    "returned": "Devuelta",
+    "usedInAnotherLine": "Usada en otra línea",
+    "selectionRequired": "Selecciona una serie exacta por cada unidad base antes de cobrar."
+  },
   "cashSession": {
     "title": "Caja",
     "active": "Caja activa",
@@ -234,19 +246,38 @@
       "profitShort": "+{{amount}}",
       "lossShort": "-{{amount}}",
       "noSales": "Hoy no se registraron ventas.",
-      "finish": "Terminar",
       "pulse": {
+        "eyebrow": "Pulso diario",
         "title": "📊 Pulso del día — {{date}} · {{registerName}}",
+        "brand": "Puntovivo · Pulso diario",
+        "ownerOnly": "Vista de gestión",
         "sales": "Ventas: {{amount}} ({{count}} ventas)",
-        "avgTicket": "Ticket promedio: {{amount}}",
+        "salesCount_one": "{{count}} venta completada",
+        "salesCount_other": "{{count}} ventas completadas",
         "margin": "Ganancia bruta: {{amount}} ({{percent}}%)",
+        "marginDetail": "{{amount}} de utilidad bruta",
+        "averageTicket": "Ticket promedio",
+        "comparisonLabel": "Comparación semanal",
+        "comparison": {
+          "up": "{{percent}}% más que el mismo día de la semana pasada ({{amount}}).",
+          "down": "{{percent}}% menos que el mismo día de la semana pasada ({{amount}}).",
+          "flat": "Ventas iguales al mismo día de la semana pasada ({{amount}}).",
+          "unavailable": "Aún no hay una base de ventas para comparar con la semana pasada."
+        },
+        "privacy": "Solo incluye métricas agregadas; no comparte datos de clientes.",
+        "download": "Descargar imagen",
+        "generating": "Generando imagen…",
+        "whatsapp": "Compartir por WhatsApp",
+        "imageError": "No pudimos generar la imagen. Puedes compartir el texto por WhatsApp.",
+        "avgTicket": "Ticket promedio: {{amount}}",
         "vsLastWeekUp": "vs semana pasada: ↑{{percent}}%",
         "vsLastWeekDown": "vs semana pasada: ↓{{percent}}%",
         "vsLastWeekFlat": "vs semana pasada: igual",
         "share": "Compartir por WhatsApp",
         "streak_one": "🔥 {{count}} día cuadrando la caja",
         "streak_other": "🔥 {{count}} días cuadrando la caja"
-      }
+      },
+      "finish": "Terminar"
     },
     "movementForm": {
       "title": "Registrar movimiento de caja",
@@ -270,10 +301,12 @@
     "toast": {
       "openSuccessTitle": "Caja abierta",
       "openSuccessDescription": "{{registerName}} quedó lista con {{amount}}.",
+      "openWithAttendanceDescription": "{{registerName}} quedó lista con {{amount}}. Tu turno de asistencia inició automáticamente.",
       "closeSuccessTitle": "Caja cerrada",
       "closeBalancedDescription": "{{registerName}} cerró cuadrada en {{amount}}.",
       "closeOverDescription": "{{registerName}} cerró con un sobrante de {{amount}}.",
       "closeShortDescription": "{{registerName}} cerró con un faltante de {{amount}}.",
+      "closeAttendanceDescription": "{{description}} Tu asistencia seguirá activa hasta que marques la salida desde el menú de usuario.",
       "movementSuccessTitle": "Movimiento de caja registrado",
       "movementSuccessDescription": "{{movementType}} registrado por {{amount}}."
     }
@@ -379,6 +412,7 @@
     "notes": "Notas",
     "noSku": "Sin SKU",
     "unit": "Unidad",
+    "serials": "Números de serie",
     "paymentsHeading": "Pagos",
     "paymentsSplit": "Cobrado con {{count}} medios de pago",
     "paymentsMethod": "Medio",
@@ -579,10 +613,47 @@
     "override": {
       "label": "Autorizar exceder el cupo",
       "adminHelp": "Registra la venta aunque el saldo proyectado supere el cupo del cliente. Úsalo solo con aprobación administrativa.",
-      "adminOnly": "Solo un administrador puede autorizar esto"
+      "adminOnly": "Solo un administrador puede autorizar esto",
+      "approvalRequired": "Un administrador debe aprobar este sobregiro antes de completar la venta."
     },
     "toast": {
       "success": "Venta a crédito registrada"
+    }
+  },
+  "approval": {
+    "title": "Se requiere aprobación",
+    "help": "La aprobación solo cubre esta acción exacta y sus datos.",
+    "checkoutSummary": "Cobro · {{total}}",
+    "refresh": "Actualizar",
+    "request": "Solicitar aprobación",
+    "requesting": "Enviando…",
+    "requested": "Solicitud de aprobación enviada",
+    "requestError": "No se pudo solicitar la aprobación",
+    "statusError": "No se pudo actualizar el estado de la aprobación. Reintenta antes de cobrar.",
+    "policyChecking": "Verificando la política actual de cobro…",
+    "reasonLabel": "Motivo para {{action}}",
+    "reasonPlaceholder": "Explica por qué se necesita aprobación",
+    "decisionReason": "Nota de la decisión: {{reason}}",
+    "progress": "{{collected}} de {{required}} aprobaciones de personas diferentes recibidas",
+    "actions": {
+      "sale_discount": "Cobro con descuento",
+      "sale_after_hours": "Cobro durante el horario bloqueado",
+      "credit_sale": "Venta a crédito del cliente",
+      "credit_override": "Sobregiro del cupo de crédito",
+      "sale_void": "Anular venta",
+      "sale_refund": "Reembolsar venta",
+      "cash_drawer_open": "Abrir cajón monedero"
+    },
+    "status": {
+      "loading": "Verificando",
+      "not_requested": "Sin solicitar",
+      "pending": "Pendiente",
+      "approved": "Aprobada",
+      "rejected": "Rechazada",
+      "cancelled": "Cancelada",
+      "executing": "En uso",
+      "consumed": "Utilizada",
+      "expired": "Expirada"
     }
   },
   "quickCreate": {
@@ -600,15 +671,12 @@
         "message": "Tu sesión de caja está cerrada — ábrela antes de cobrar.",
         "recovery": "Abrir caja"
       },
-      "credit_sale_forbidden": {
-        "message": "Sólo un manager o admin puede registrar ventas a crédito. Pídeselo a alguien con ese rol o cambia a contado."
-      },
       "credit_sale_customer_required": {
         "message": "Las ventas a crédito necesitan un cliente seleccionado.",
         "recovery": "Seleccionar cliente"
       },
       "credit_limit_exceeded": {
-        "message": "La proyección de {{projection}} supera el cupo de {{limit}} del cliente.",
+        "message": "La proyección de {{projection}} supera el cupo de {{limit}} del cliente. Puedes solicitar aprobación al cobrar.",
         "recovery": "Cambiar a contado"
       },
       "discount_exceeds_total": {
@@ -653,6 +721,13 @@
   "sound": {
     "enable": "Activa los sonidos de la caja",
     "disable": "Desactiva los sonidos de la caja"
+  },
+  "pace": {
+    "title": "Mi ritmo",
+    "private": "Solo tú",
+    "itemsPerMinute": "Ítems/min",
+    "averageCheckout": "Cobro prom.",
+    "personalBest": "Mejor marca"
   },
   "omnibox": {
     "added": "{{product}} agregado al carrito"

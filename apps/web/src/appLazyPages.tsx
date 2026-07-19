@@ -24,6 +24,9 @@ export const AiConfigPage = lazyPage(async () => ({
 export const CompanyPage = lazyPage(async () => ({
   default: (await import('@/features/company/CompanyPage')).CompanyPage,
 }));
+export const DataImportPage = lazyPage(async () => ({
+  default: (await import('@/features/data-import/DataImportPage')).DataImportPage,
+}));
 export const CustomerCatalogsPage = lazyPage(async () => ({
   default: (await import('@/features/customer-catalogs/CustomerCatalogsPage')).CustomerCatalogsPage,
 }));
@@ -80,6 +83,12 @@ export const FiscalReportsPage = lazyPage(async () => ({
 }));
 export const ProfitMarginReportPage = lazyPage(async () => ({
   default: (await import('@/features/reports/ProfitMarginReportPage')).ProfitMarginReportPage,
+}));
+export const DayCloseReportPage = lazyPage(async () => ({
+  default: (await import('@/features/reports/DayCloseReportPage')).DayCloseReportPage,
+}));
+export const TeamSchedulePage = lazyPage(async () => ({
+  default: (await import('@/features/staff/TeamSchedulePage')).TeamSchedulePage,
 }));
 export const CustomersPage = lazyPage(async () => ({
   default: (await import('@/features/customers/CustomersPage')).CustomersPage,

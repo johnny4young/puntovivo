@@ -140,6 +140,7 @@ vi.mock('@/lib/trpc', () => ({
       },
       cashSessions: {
         getActive: { invalidate: invalidateCash },
+        myPace: { invalidate: vi.fn() },
         movements: { invalidate: vi.fn() },
         // ENG-204 — the sale epilogue now refreshes the pace HUD too.
         pace: { invalidate: vi.fn() },
@@ -187,6 +188,10 @@ vi.mock('@/lib/trpc', () => ({
             };
           },
         },
+      },
+      productSerials: {
+        list: { invalidate: vi.fn() },
+        lookup: { invalidate: vi.fn() },
       },
     }),
   },

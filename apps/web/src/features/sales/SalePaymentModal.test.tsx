@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
@@ -7,11 +7,39 @@ import type { Customer } from '@/types';
 import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
 import { useQuickCreateStore } from './useQuickCreateStore';
 
+const approvalInvalidateMock = vi.hoisted(() => vi.fn());
+const approvalRefetchMock = vi.hoisted(() => vi.fn());
+const approvalMutationMock = vi.hoisted(() => ({ mutate: vi.fn(), isPending: false }));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    useUtils: () => ({
+      managerApprovals: { mine: { invalidate: approvalInvalidateMock } },
+    }),
     customerLedger: {
       getBalance: {
         useQuery: () => ({ data: { balance: 0 }, isLoading: false, error: null }),
+      },
+    },
+    lossPrevention: {
+      evaluateCheckout: {
+        useQuery: () => ({
+          data: { requiredActions: [], violations: [] },
+          isLoading: false,
+          isFetching: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+    },
+    managerApprovals: {
+      mine: {
+        useQuery: () => ({
+          data: [],
+          isLoading: false,
+          error: null,
+          refetch: approvalRefetchMock,
+        }),
       },
     },
     // ENG-213 — the drawer mounts CustomerLoyaltyChip, which reads this.
@@ -23,6 +51,10 @@ vi.mock('@/lib/trpc', () => ({
       },
     },
   },
+}));
+
+vi.mock('@/lib/useCriticalMutation', () => ({
+  useCriticalMutation: () => approvalMutationMock,
 }));
 
 const toastSuccessMock = vi.hoisted(() => vi.fn());
@@ -41,6 +73,14 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 const customers: Customer[] = [];
+
+beforeEach(() => {
+  let uuidCounter = 0;
+  vi.mocked(crypto.randomUUID).mockImplementation(() => {
+    uuidCounter += 1;
+    return `00000000-0000-4000-8000-${String(uuidCounter).padStart(12, '0')}`;
+  });
+});
 
 function makeCustomer(overrides: Partial<Customer> = {}): Customer {
   return {

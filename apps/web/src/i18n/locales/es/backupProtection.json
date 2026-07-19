@@ -1,0 +1,174 @@
+{
+  "title": "Protección de respaldos",
+  "description": "Verifica el cifrado de la base de datos y cómo este dispositivo protege la clave de respaldo.",
+  "states": {
+    "loading": "Verificando la protección…",
+    "browser": "El estado de protección solo se verifica desde la aplicación de escritorio Electron.",
+    "unsupported": "Actualiza la aplicación de escritorio para verificar la protección de respaldos.",
+    "error": "No se pudo verificar la protección de respaldos. Reinicia la aplicación de escritorio e inténtalo de nuevo.",
+    "protected": {
+      "badge": "Protegido",
+      "summary": "SQLCipher cifra la base de datos y los respaldos, mientras el sistema operativo protege la clave."
+    },
+    "development": {
+      "badge": "Clave de desarrollo",
+      "summary": "SQLCipher está activo, pero esta sesión de desarrollo recibe la clave desde una variable de entorno en vez del llavero del sistema operativo."
+    },
+    "degraded": {
+      "badge": "Requiere atención",
+      "summary": "SQLCipher está activo, pero no se pudo certificar el proveedor de claves del sistema operativo."
+    }
+  },
+  "details": {
+    "encryption": "Base de datos y respaldos",
+    "sqlcipher": "Cifrados con SQLCipher",
+    "notPrepared": "Sin preparar",
+    "keyStorage": "Custodia de la clave",
+    "recovery": "Recuperación",
+    "recoveryAvailable": "Recuperación disponible para administradores",
+    "recoveryUnavailable": "Recuperación no disponible"
+  },
+  "providers": {
+    "environment": "Variable de entorno de desarrollo",
+    "macosKeychain": "Llavero de macOS",
+    "windowsDpapi": "DPAPI de Windows",
+    "linuxLibsecret": "libsecret de Linux",
+    "linuxKwallet": "KWallet de Linux",
+    "linuxBasicText": "Texto básico de Linux",
+    "unknown": "Proveedor sin verificar"
+  },
+  "securityNote": "Esta verificación solo devuelve metadatos de protección. Nunca lee ni expone la clave de respaldo.",
+  "schedule": {
+    "title": "Respaldos cifrados programados",
+    "description": "Mantén puntos de restauración automáticos en una carpeta administrada por la app o en una carpeta personalizada. Los respaldos conservan el cifrado SQLCipher.",
+    "unsupported": "Actualiza la app de escritorio para configurar respaldos programados.",
+    "loading": "Cargando…",
+    "lastSuccess": "Último respaldo correcto",
+    "nextRun": "Próximo respaldo",
+    "never": "Aún no se ha creado",
+    "notScheduled": "Sin programación",
+    "destinationLabel": "Destino",
+    "managed": "Carpeta administrada por la app",
+    "custom": "Carpeta personalizada",
+    "folder": "Carpeta",
+    "frequencyLabel": "Frecuencia del respaldo",
+    "frequency": {
+      "off": "Desactivada",
+      "daily": "Diaria",
+      "weekly": "Semanal"
+    },
+    "save": "Guardar programación",
+    "saving": "Guardando…",
+    "runNow": "Crear respaldo ahora",
+    "running": "Creando respaldo…",
+    "chooseFolder": "Elegir carpeta",
+    "useManaged": "Usar carpeta administrada por la app",
+    "lastRunFailed": "El último respaldo programado falló. Verifica el destino e inténtalo de nuevo.",
+    "toast": {
+      "saved": "Programación de respaldo guardada",
+      "destination": "Destino de respaldo actualizado",
+      "created": "Respaldo cifrado creado"
+    },
+    "errors": {
+      "load": "No se pudo cargar la programación de respaldos.",
+      "save": "No se pudo guardar la programación de respaldos.",
+      "destination": "No se pudo actualizar la carpeta de respaldos.",
+      "snapshot": "No se pudo crear el respaldo cifrado."
+    }
+  },
+  "cloud": {
+    "title": "Bóveda en la nube compatible con S3",
+    "description": "Replica cada respaldo cifrado programado en un almacenamiento administrado por tu empresa.",
+    "connected": "Conectada",
+    "unsupported": "Actualiza la app de escritorio para configurar la réplica de respaldos en la nube.",
+    "secureStorageUnavailable": "El llavero del sistema operativo no está disponible. Las credenciales de la nube no se guardarán hasta restablecer el almacenamiento seguro.",
+    "destination": "Destino en la nube",
+    "prefix": "Prefijo de objetos",
+    "credential": "Clave de acceso",
+    "lastSuccess": "Última escritura correcta en la nube",
+    "lastObject": "Objeto más reciente",
+    "never": "Aún no se ha verificado",
+    "test": "Probar conexión",
+    "testing": "Probando conexión…",
+    "replace": "Reemplazar configuración",
+    "disconnect": "Desconectar",
+    "saveAndTest": "Guardar y probar",
+    "saving": "Guardando y probando…",
+    "cancel": "Cancelar",
+    "securityNote": "Las credenciales quedan selladas por el llavero del sistema operativo de este dispositivo. Nunca se incluyen en los respaldos ni regresan a la interfaz. Usa una clave dedicada con permiso solo para escribir en este bucket y prefijo.",
+    "fields": {
+      "endpoint": "Endpoint S3",
+      "region": "Región",
+      "bucket": "Bucket",
+      "prefix": "Prefijo de objetos",
+      "accessKey": "ID de clave de acceso",
+      "secretKey": "Clave de acceso secreta",
+      "pathStyle": "Usar direccionamiento por ruta",
+      "pathStyleHelp": "Recomendado para MinIO, Cloudflare R2 y muchos proveedores compatibles con S3."
+    },
+    "placeholders": {
+      "endpoint": "https://objects.ejemplo.com",
+      "region": "auto",
+      "bucket": "respaldos-empresa",
+      "prefix": "puntovivo-backups",
+      "accessKey": "Ingresa el ID de la clave de acceso",
+      "secretKey": "Ingresa la clave de acceso secreta"
+    },
+    "toast": {
+      "connected": "Bóveda en la nube guardada y verificada",
+      "testPassed": "Conexión con la bóveda en la nube verificada",
+      "disconnected": "Bóveda en la nube desconectada"
+    },
+    "errors": {
+      "load": "No se pudo cargar la configuración de la bóveda en la nube.",
+      "save": "No se pudo guardar la configuración de la bóveda en la nube.",
+      "disconnect": "No se pudo desconectar la bóveda en la nube.",
+      "configurationInvalid": "Verifica el endpoint, el bucket, el prefijo, la región y las credenciales. Los endpoints de producción deben usar HTTPS.",
+      "configurationMissing": "Configura la bóveda en la nube antes de probarla.",
+      "secureStorage": "El llavero del sistema operativo no puede proteger estas credenciales.",
+      "connection": "La prueba de escritura en la nube falló. Verifica el endpoint, las credenciales, los permisos del bucket y la conexión de red.",
+      "upload": "No se pudo copiar el último respaldo cifrado a la bóveda en la nube. El respaldo local sigue siendo válido.",
+      "inProgress": "Aún hay otra operación de respaldo en la nube en curso."
+    },
+    "disconnectModal": {
+      "title": "¿Desconectar la bóveda en la nube?",
+      "message": "Esto elimina las credenciales selladas de este dispositivo. Los objetos existentes en la nube y los respaldos locales no se eliminan.",
+      "confirm": "Desconectar bóveda"
+    }
+  },
+  "drill": {
+    "title": "Simulacro de restauración",
+    "description": "Verifica el último respaldo cifrado sin cambiar la base de datos activa. El resultado queda registrado en la auditoría.",
+    "unsupported": "Actualiza la app de escritorio para ejecutar simulacros de restauración.",
+    "run": "Ejecutar simulacro",
+    "running": "Verificando respaldo…",
+    "toast": {
+      "passed": "Simulacro de restauración aprobado"
+    },
+    "errors": {
+      "snapshotUnavailable": "Crea al menos un respaldo cifrado antes de ejecutar un simulacro de restauración.",
+      "failed": "No se pudo verificar el último respaldo. Crea uno nuevo e inténtalo de nuevo."
+    },
+    "result": {
+      "title": "Listo para restaurar",
+      "description": "El respaldo superó las verificaciones de integridad y datos de la empresa. La base de datos activa no cambió.",
+      "checkedAt": "Verificado",
+      "snapshotAt": "Respaldo creado",
+      "currentTotal": "Registros actuales",
+      "snapshotTotal": "Registros del respaldo",
+      "tableCaption": "Comparación de registros actuales y del respaldo",
+      "area": "Área de datos",
+      "current": "Actual",
+      "snapshot": "Respaldo",
+      "delta": "Diferencia",
+      "deltaNote": "Las diferencias son normales cuando los datos cambiaron después de crear el respaldo."
+    },
+    "tables": {
+      "products": "Productos",
+      "customers": "Clientes",
+      "sales": "Ventas",
+      "inventory_movements": "Movimientos de inventario",
+      "audit_logs": "Eventos de auditoría"
+    }
+  }
+}

@@ -38,6 +38,8 @@ export interface ProductFormValues {
   sellByFraction: boolean;
   fractionStep: number;
   fractionMinimum: number;
+  tracksLots: boolean;
+  tracksSerials: boolean;
   isActive: boolean;
   unitAssignments: ProductUnitAssignmentFormValues[];
   providerAssignments: ProductProviderAssignmentFormValues[];

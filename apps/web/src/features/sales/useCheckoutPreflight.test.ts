@@ -88,7 +88,6 @@ function buildInput(overrides?: Partial<PreflightInput>): PreflightInput {
     paymentMethod: 'cash',
     selectedCustomer: null,
     pendingDiscountAmount: 0,
-    userRole: 'cashier',
     isResumedDraft: false,
     recovery: undefined,
     ...overrides,
@@ -154,44 +153,12 @@ describe('useCheckoutPreflight', () => {
     expect(result.current.items).toHaveLength(0);
   });
 
-  it('flags credit_sale_forbidden when a cashier picks credit method', () => {
-    const { result } = renderHook(() =>
-      useCheckoutPreflight(
-        buildInput({
-          paymentMethod: 'credit',
-          userRole: 'cashier',
-        })
-      )
-    );
-    const item = result.current.items.find(i => i.id === 'credit_sale_forbidden');
-    expect(item).toBeDefined();
-    expect(item?.severity).toBe('blocker');
-    expect(item?.recoveryAction).toBeUndefined();
-  });
-
-  it('does not flag credit_sale_forbidden for manager or admin', () => {
-    const manager = renderHook(() =>
-      useCheckoutPreflight(
-        buildInput({ paymentMethod: 'credit', userRole: 'manager', selectedCustomer: buildCustomer() })
-      )
-    );
-    expect(manager.result.current.items.find(i => i.id === 'credit_sale_forbidden')).toBeUndefined();
-
-    const admin = renderHook(() =>
-      useCheckoutPreflight(
-        buildInput({ paymentMethod: 'credit', userRole: 'admin', selectedCustomer: buildCustomer() })
-      )
-    );
-    expect(admin.result.current.items.find(i => i.id === 'credit_sale_forbidden')).toBeUndefined();
-  });
-
   it('flags credit_sale_customer_required when credit method has no customer', () => {
     const onFocusCustomerPicker = vi.fn();
     const { result } = renderHook(() =>
       useCheckoutPreflight(
         buildInput({
           paymentMethod: 'credit',
-          userRole: 'admin',
           selectedCustomer: null,
           recovery: { onFocusCustomerPicker },
         })
@@ -210,7 +177,6 @@ describe('useCheckoutPreflight', () => {
       useCheckoutPreflight(
         buildInput({
           paymentMethod: 'credit',
-          userRole: 'admin',
           selectedCustomer: buildCustomer({
             currentBalance: 400000,
             creditLimit: 500000,
@@ -222,6 +188,7 @@ describe('useCheckoutPreflight', () => {
     );
     const item = result.current.items.find(i => i.id === 'credit_limit_exceeded');
     expect(item).toBeDefined();
+    expect(item?.severity).toBe('warning');
     expect(item?.messageValues?.projection).toBe('600000');
     expect(item?.messageValues?.limit).toBe('500000');
     item?.recoveryAction?.onClick();
@@ -233,7 +200,6 @@ describe('useCheckoutPreflight', () => {
       useCheckoutPreflight(
         buildInput({
           paymentMethod: 'credit',
-          userRole: 'admin',
           selectedCustomer: buildCustomer({
             currentBalance: 100000,
             creditLimit: 500000,
@@ -250,7 +216,6 @@ describe('useCheckoutPreflight', () => {
       useCheckoutPreflight(
         buildInput({
           paymentMethod: 'credit',
-          userRole: 'admin',
           selectedCustomer: buildCustomer({
             currentBalance: 999999,
             creditLimit: null,
@@ -357,21 +322,19 @@ describe('useCheckoutPreflight', () => {
         buildInput({
           cashSession: null,
           paymentMethod: 'credit',
-          userRole: 'cashier',
           cartItems: [buildCartItem({ quantity: 999, availableStock: 1 })],
           pendingDiscountAmount: 10_000,
           cartSummary: buildCartSummary({ total: 100 }),
         })
       )
     );
-    // Expect: cash_session_required, credit_sale_forbidden,
-    //         discount_exceeds_total, then insufficient_stock (warning).
+    // Expect: cash_session_required, customer required, discount excess, then
+    // insufficient_stock (warning). Role escalation belongs to the modal.
     const ids = result.current.items.map(i => i.id);
     expect(ids).toContain('cash_session_required');
-    expect(ids).toContain('credit_sale_forbidden');
     expect(ids).toContain('discount_exceeds_total');
     expect(ids).toContain('insufficient_stock');
-    expect(result.current.blockerCount).toBeGreaterThanOrEqual(3);
+    expect(result.current.blockerCount).toBe(3);
     expect(result.current.warningCount).toBe(1);
     expect(result.current.isReady).toBe(false);
     expect(result.current.primaryBlocker?.id).toBe('cash_session_required');

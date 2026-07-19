@@ -134,4 +134,22 @@ describe('SaleDetailsContent — split payments breakdown', () => {
     const placeholders = screen.getAllByText('—');
     expect(placeholders.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('shows immutable serial provenance on the sold line', () => {
+    const sale = buildSale({
+      items: [
+        {
+          ...buildSale().items![0]!,
+          serialNumbers: ['SN-001', 'SN-002'],
+        },
+      ],
+    });
+
+    render(
+      <SaleDetailsContent sale={sale} returnError={null} voidError={null} printError={null} />
+    );
+
+    expect(screen.getByText('Serial numbers:')).toBeVisible();
+    expect(screen.getByText('SN-001, SN-002')).toBeVisible();
+  });
 });

@@ -37,6 +37,7 @@ export interface PurchaseItem {
   sourceOrderItemId?: string | null;
   productName?: string | null;
   productSku?: string | null;
+  tracksSerials?: boolean;
   quantity: number;
   unitId: string;
   unitEquivalence: number;
@@ -47,6 +48,19 @@ export interface PurchaseItem {
   total: number;
   returnedQuantity?: number;
   remainingQuantity?: number;
+  serials?: Array<{
+    id: string;
+    serialNumber: string;
+    status:
+      | 'in_stock'
+      | 'in_transit'
+      | 'reserved'
+      | 'sold'
+      | 'returned'
+      | 'returned_to_supplier'
+      | 'defective';
+    currentSiteId: string;
+  }>;
 }
 
 export interface PurchaseReturn {
@@ -116,6 +130,7 @@ export interface OrderItem {
   productId: string;
   productName?: string | null;
   productSku?: string | null;
+  tracksSerials?: boolean;
   quantity: number;
   unitId: string;
   unitEquivalence: number;

@@ -31,6 +31,7 @@ import { customersRouter } from './routers/customers.js';
 import { salesRouter } from './routers/sales/index.js';
 import { inventoryRouter } from './routers/inventory/index.js';
 import { inventoryLotsRouter } from './routers/inventoryLots.js';
+import { productSerialsRouter } from './routers/productSerials.js';
 import { locationsRouter } from './routers/locations.js';
 import { sitesRouter } from './routers/sites.js';
 import { syncRouter } from './routers/sync/index.js';
@@ -62,6 +63,11 @@ import { whatsNewRouter } from './routers/whatsNew.js';
 import { uploadRouter } from './routers/upload.js';
 import { setupReadinessRouter } from './routers/setupReadiness.js';
 import { operationsRouter } from './routers/operations.js';
+import { dataRetentionRouter } from './routers/dataRetention.js';
+import { employeeShiftsRouter } from './routers/employeeShifts.js';
+import { managerApprovalsRouter } from './routers/managerApprovals.js';
+import { launchMigrationRouter } from './routers/launchMigration.js';
+import { lossPreventionRouter } from './routers/lossPrevention.js';
 
 export const appRouter = router({
   health: router({
@@ -98,6 +104,7 @@ export const appRouter = router({
   sales: salesRouter,
   inventory: inventoryRouter,
   inventoryLots: inventoryLotsRouter,
+  productSerials: productSerialsRouter,
   locations: locationsRouter,
   sites: sitesRouter,
   sync: syncRouter,
@@ -130,6 +137,11 @@ export const appRouter = router({
   upload: uploadRouter,
   setupReadiness: setupReadinessRouter,
   operations: operationsRouter,
+  dataRetention: dataRetentionRouter,
+  employeeShifts: employeeShiftsRouter,
+  managerApprovals: managerApprovalsRouter,
+  launchMigration: launchMigrationRouter,
+  lossPrevention: lossPreventionRouter,
 });
 
 export type AppRouter = typeof appRouter;

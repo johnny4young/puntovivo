@@ -19,6 +19,8 @@ interface SalesCartWorkspaceProps {
   onDiscountChange: (itemKey: string, discount: number) => void;
   onRemove: (itemKey: string) => void;
   onSelectItem: (itemKey: string | null) => void;
+  onSerialSelectionChange?:
+    ((itemKey: string, serialIds: string[], siteId: string) => void) | undefined;
   onClearCart: () => void;
   quantityInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   discountInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
@@ -49,6 +51,7 @@ export function SalesCartWorkspace({
   onDiscountChange,
   onRemove,
   onSelectItem,
+  onSerialSelectionChange = () => {},
   onClearCart,
   quantityInputRefFor,
   discountInputRefFor,
@@ -128,6 +131,7 @@ export function SalesCartWorkspace({
           onDiscountChange={onDiscountChange}
           onRemove={onRemove}
           onSelectItem={itemKey => onSelectItem(itemKey)}
+          onSerialSelectionChange={onSerialSelectionChange}
           quantityInputRefFor={quantityInputRefFor}
           discountInputRefFor={discountInputRefFor}
         />

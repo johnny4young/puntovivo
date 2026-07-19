@@ -110,6 +110,8 @@ export function createMockProduct(overrides?: Partial<Product>): Product {
     sellByFraction: false,
     fractionStep: null,
     fractionMinimum: null,
+    tracksLots: false,
+    catalogType: 'standard',
     isActive: true,
     barcode: `123456789${id}`,
     version: 0,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCashDrawerController } from '@/features/sales/useCashDrawerController';
@@ -11,14 +11,26 @@ import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { SalesScreen } from '@/features/sales/SalesScreen';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
-import { getCartSummary } from '@/features/sales/saleCart';
+import {
+  areSerialSelectionsComplete,
+  getCartDiscountAmount,
+  getCartSummary,
+} from '@/features/sales/saleCart';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
 import { useScannerFocusRestoration } from '@/features/sales/useScannerFocusRestoration';
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
 import { useTenant } from '@/features/tenant/TenantProvider';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+
+const LazyCashDrawerApprovalModal = lazy(() =>
+  import('@/features/sales/CashDrawerApprovalModal').then(module => ({
+    default: module.CashDrawerApprovalModal,
+  }))
+);
 
 export function SalesPage() {
   const { currentTenant, currentSite, tenantSettings } = useTenant();
+  const { currency } = useResolvedLocale();
   // ENG-039d3 — restaurant service-charge rate flows from the tenant
   // setting into `SalePaymentModal`. 0 means disabled (default for
   // retail tenants); positive values auto-apply on every checkout.
@@ -37,7 +49,7 @@ export function SalesPage() {
   // pass through as "reachable enough"; only an explicit `false`
   // gates.
   const hubReachability = useHubReachability();
-  const hubReachable = hubReachability.reachable === null ? undefined : hubReachability.reachable;
+  const userRole = user?.role ?? 'cashier';
 
   // ENG-018b — `ownerKey` (`${tenantId}:${userId}`) identifies the
   // signed-in cashier. It is injected into the cart, mutation, and flow
@@ -92,6 +104,7 @@ export function SalesPage() {
     handleProductSelect,
     handleQuantityChange,
     handleDiscountChange,
+    handleSerialSelectionChange,
     handleRemoveItem,
     handleClearCart,
     handleUndoCart,
@@ -165,7 +178,10 @@ export function SalesPage() {
   });
 
   const draftSummary = getCartSummary(cartItems);
-  const canCharge = !!currentSite && hasActiveCashSession && cartItems.length > 0;
+  const approvalDiscountAmount = getCartDiscountAmount(cartItems);
+  const serialSelectionsComplete = areSerialSelectionsComplete(cartItems, currentSite?.id ?? null);
+  const canCharge =
+    !!currentSite && hasActiveCashSession && cartItems.length > 0 && serialSelectionsComplete;
   const canCloseCashSession =
     !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
 
@@ -240,7 +256,6 @@ export function SalesPage() {
     isResumedCart,
     selectedRegisterAssignment,
     selectedHistorySaleId,
-    userRole: user?.role ?? 'cashier',
     checkoutReadinessItems,
     isPaymentModalOpen,
     productSearchQuery,
@@ -311,12 +326,12 @@ export function SalesPage() {
     onFastCash: handleFastCash,
   });
 
-  // ENG-062 — manager-gated cash drawer kick + ENG-061 barcode scanner
+  // ENG-062 / ENG-106c3 — role-aware cash drawer kick + ENG-061 barcode scanner
   // pipeline. `hasRegisteredDrawer` / `scannerConfig` are derived from the
   // SHARED `peripherals.activeForSite` query inside `useSalesPageData` and
   // threaded in here; the modal-open flags gate the wedge listener so a scan
   // never fires while a modal owns the keyboard.
-  const { onKickCashDrawer, isKickingCashDrawer } = useCashDrawerController({
+  const { onKickCashDrawer, isKickingCashDrawer, approvalModal } = useCashDrawerController({
     hasRegisteredDrawer,
   });
   useBarcodeProductScanner({
@@ -335,108 +350,118 @@ export function SalesPage() {
   });
 
   return (
-    <SalesScreen
-      productSearchQuery={productSearchQuery}
-      setProductSearchQuery={setProductSearchQuery}
-      handleOpenProductSearch={handleOpenProductSearch}
-      productInputRef={productInputRef}
-      setIsHistoryDrawerOpen={setIsHistoryDrawerOpen}
-      setIsSuspendedPanelOpen={setIsSuspendedPanelOpen}
-      suspendedDraftsCount={suspendedDraftsCount}
-      isResumedCart={isResumedCart}
-      activeWorkspace={activeWorkspace}
-      ownedWorkspaces={ownedWorkspaces}
-      handleSelectWorkspace={handleSelectWorkspace}
-      cartItems={cartItems}
-      activeSelectedCartItemKey={activeSelectedCartItemKey}
-      draftSummary={draftSummary}
-      saleError={saleError}
-      handleQuantityChange={handleQuantityChange}
-      handleDiscountChange={handleDiscountChange}
-      handleRemoveItem={handleRemoveItem}
-      setSelectedCartItemKey={setSelectedCartItemKey}
-      handleClearCart={handleClearCart}
-      quantityInputRefFor={quantityInputRefFor}
-      discountInputRefFor={discountInputRefFor}
-      canUndoActiveCart={canUndoActiveCart}
-      handleUndoCart={handleUndoCart}
-      currentSite={currentSite}
-      activeCashSession={activeCashSession}
-      registerAssignments={registerAssignments}
-      selectedRegisterAssignment={selectedRegisterAssignment}
-      isCashSessionLoading={activeCashSessionQuery.isLoading}
-      canCharge={canCharge}
-      canOpenCashSession={canOpenCashSession}
-      canCloseCashSession={canCloseCashSession}
-      userRole={user?.role ?? 'cashier'}
-      handleOpenPaymentModal={handleOpenPaymentModal}
-      handleOpenCashSessionModal={handleOpenCashSessionModal}
-      handleOpenCloseCashSessionModal={handleOpenCloseCashSessionModal}
-      handleOpenCashSessionMovementModal={handleOpenCashSessionMovementModal}
-      onKickCashDrawer={onKickCashDrawer}
-      isKickingCashDrawer={isKickingCashDrawer}
-      setSelectedRegisterAssignmentId={setSelectedRegisterAssignmentId}
-      handleOpenSuspendPrompt={handleOpenSuspendPrompt}
-      handleNewSale={handleNewSale}
-      handleToggleSuspendedPanel={handleToggleSuspendedPanel}
-      hubReachable={hubReachable}
-      preflightItems={preflight.items}
-      isHistoryDrawerOpen={isHistoryDrawerOpen}
-      sales={sales}
-      salesLoading={salesQuery.isLoading}
-      salesError={salesQuery.error?.message ?? null}
-      onRetrySales={() => {
-        void salesQuery.refetch();
-      }}
-      setSelectedSaleId={setSelectedSaleId}
-      selectedHistorySaleId={selectedHistorySaleId}
-      setSelectedHistorySaleId={setSelectedHistorySaleId}
-      isSuspendedPanelOpen={isSuspendedPanelOpen}
-      handleResumeFromPanel={handleResumeFromPanel}
-      isProductSearchOpen={isProductSearchOpen}
-      productSearchDialogKey={productSearchDialogKey}
-      setIsProductSearchOpen={setIsProductSearchOpen}
-      handleProductSelect={handleProductSelect}
-      categories={categories}
-      providers={providers}
-      productSearchInitialQuery={productSearchInitialQuery}
-      setCartItems={setCartItems}
-      isPaymentModalOpen={isPaymentModalOpen}
-      paymentModalKey={paymentModalKey}
-      customers={customers}
-      isPaymentSaving={createMutation.isPending || completeDraftMutation.isPending}
-      serviceChargeRate={serviceChargeRate}
-      fastCashTrigger={fastCashTrigger}
-      setIsPaymentModalOpen={setIsPaymentModalOpen}
-      setFastCashTrigger={setFastCashTrigger}
-      handleCheckout={handleCheckout}
-      selectedSaleId={selectedSaleId}
-      isSuspendLabelPromptOpen={isSuspendLabelPromptOpen}
-      isSuspending={isSuspending}
-      suspendLabelDraft={suspendLabelDraft}
-      setSuspendLabelDraft={setSuspendLabelDraft}
-      setIsSuspendLabelPromptOpen={setIsSuspendLabelPromptOpen}
-      handleSuspendConfirm={handleSuspendConfirm}
-      isCashSessionModalOpen={isCashSessionModalOpen}
-      cashSessionModalKey={cashSessionModalKey}
-      isOpeningCashSession={openCashSessionMutation.isPending}
-      cashSessionError={cashSessionError}
-      setIsCashSessionModalOpen={setIsCashSessionModalOpen}
-      handleCreateCashSession={handleCreateCashSession}
-      isCashSessionCloseModalOpen={isCashSessionCloseModalOpen}
-      cashSessionCloseModalKey={cashSessionCloseModalKey}
-      isClosingCashSession={closeCashSessionMutation.isPending}
-      cashSessionCloseError={cashSessionCloseError}
-      setIsCashSessionCloseModalOpen={setIsCashSessionCloseModalOpen}
-      handleCloseCashSession={handleCloseCashSession}
-      isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
-      cashSessionMovementModalKey={cashSessionMovementModalKey}
-      isRecordingMovement={recordCashMovementMutation.isPending}
-      cashSessionMovementError={cashSessionMovementError}
-      setIsCashSessionMovementModalOpen={setIsCashSessionMovementModalOpen}
-      handleRecordCashMovement={handleRecordCashMovement}
-      dayCloseSessionId={dayCloseSessionId}
-      setDayCloseSessionId={setDayCloseSessionId}
-    />
+    <>
+      <SalesScreen
+        productSearchQuery={productSearchQuery}
+        setProductSearchQuery={setProductSearchQuery}
+        handleOpenProductSearch={handleOpenProductSearch}
+        productInputRef={productInputRef}
+        setIsHistoryDrawerOpen={setIsHistoryDrawerOpen}
+        setIsSuspendedPanelOpen={setIsSuspendedPanelOpen}
+        suspendedDraftsCount={suspendedDraftsCount}
+        isResumedCart={isResumedCart}
+        activeWorkspace={activeWorkspace}
+        ownedWorkspaces={ownedWorkspaces}
+        handleSelectWorkspace={handleSelectWorkspace}
+        cartItems={cartItems}
+        activeSelectedCartItemKey={activeSelectedCartItemKey}
+        draftSummary={draftSummary}
+        approvalDiscountAmount={approvalDiscountAmount}
+        currencyCode={currency}
+        saleError={saleError}
+        handleQuantityChange={handleQuantityChange}
+        handleDiscountChange={handleDiscountChange}
+        handleSerialSelectionChange={handleSerialSelectionChange}
+        handleRemoveItem={handleRemoveItem}
+        setSelectedCartItemKey={setSelectedCartItemKey}
+        handleClearCart={handleClearCart}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+        canUndoActiveCart={canUndoActiveCart}
+        handleUndoCart={handleUndoCart}
+        currentSite={currentSite}
+        activeCashSession={activeCashSession}
+        registerAssignments={registerAssignments}
+        selectedRegisterAssignment={selectedRegisterAssignment}
+        isCashSessionLoading={activeCashSessionQuery.isLoading}
+        canCharge={canCharge}
+        canOpenCashSession={canOpenCashSession}
+        canCloseCashSession={canCloseCashSession}
+        userRole={userRole}
+        handleOpenPaymentModal={handleOpenPaymentModal}
+        handleOpenCashSessionModal={handleOpenCashSessionModal}
+        handleOpenCloseCashSessionModal={handleOpenCloseCashSessionModal}
+        handleOpenCashSessionMovementModal={handleOpenCashSessionMovementModal}
+        onKickCashDrawer={onKickCashDrawer}
+        isKickingCashDrawer={isKickingCashDrawer}
+        setSelectedRegisterAssignmentId={setSelectedRegisterAssignmentId}
+        handleOpenSuspendPrompt={handleOpenSuspendPrompt}
+        handleNewSale={handleNewSale}
+        handleToggleSuspendedPanel={handleToggleSuspendedPanel}
+        hubReachable={hubReachability.reachable ?? undefined}
+        preflightItems={preflight.items}
+        isHistoryDrawerOpen={isHistoryDrawerOpen}
+        sales={sales}
+        salesLoading={salesQuery.isLoading}
+        salesError={salesQuery.error?.message ?? null}
+        onRetrySales={() => {
+          void salesQuery.refetch();
+        }}
+        setSelectedSaleId={setSelectedSaleId}
+        selectedHistorySaleId={selectedHistorySaleId}
+        setSelectedHistorySaleId={setSelectedHistorySaleId}
+        isSuspendedPanelOpen={isSuspendedPanelOpen}
+        handleResumeFromPanel={handleResumeFromPanel}
+        isProductSearchOpen={isProductSearchOpen}
+        productSearchDialogKey={productSearchDialogKey}
+        setIsProductSearchOpen={setIsProductSearchOpen}
+        handleProductSelect={handleProductSelect}
+        categories={categories}
+        providers={providers}
+        productSearchInitialQuery={productSearchInitialQuery}
+        setCartItems={setCartItems}
+        isPaymentModalOpen={isPaymentModalOpen}
+        paymentModalKey={paymentModalKey}
+        customers={customers}
+        isPaymentSaving={createMutation.isPending || completeDraftMutation.isPending}
+        serviceChargeRate={serviceChargeRate}
+        fastCashTrigger={fastCashTrigger}
+        setIsPaymentModalOpen={setIsPaymentModalOpen}
+        setFastCashTrigger={setFastCashTrigger}
+        handleCheckout={handleCheckout}
+        selectedSaleId={selectedSaleId}
+        isSuspendLabelPromptOpen={isSuspendLabelPromptOpen}
+        isSuspending={isSuspending}
+        suspendLabelDraft={suspendLabelDraft}
+        setSuspendLabelDraft={setSuspendLabelDraft}
+        setIsSuspendLabelPromptOpen={setIsSuspendLabelPromptOpen}
+        handleSuspendConfirm={handleSuspendConfirm}
+        isCashSessionModalOpen={isCashSessionModalOpen}
+        cashSessionModalKey={cashSessionModalKey}
+        isOpeningCashSession={openCashSessionMutation.isPending}
+        cashSessionError={cashSessionError}
+        setIsCashSessionModalOpen={setIsCashSessionModalOpen}
+        handleCreateCashSession={handleCreateCashSession}
+        isCashSessionCloseModalOpen={isCashSessionCloseModalOpen}
+        cashSessionCloseModalKey={cashSessionCloseModalKey}
+        isClosingCashSession={closeCashSessionMutation.isPending}
+        cashSessionCloseError={cashSessionCloseError}
+        setIsCashSessionCloseModalOpen={setIsCashSessionCloseModalOpen}
+        handleCloseCashSession={handleCloseCashSession}
+        isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
+        cashSessionMovementModalKey={cashSessionMovementModalKey}
+        isRecordingMovement={recordCashMovementMutation.isPending}
+        cashSessionMovementError={cashSessionMovementError}
+        setIsCashSessionMovementModalOpen={setIsCashSessionMovementModalOpen}
+        handleRecordCashMovement={handleRecordCashMovement}
+        dayCloseSessionId={dayCloseSessionId}
+        setDayCloseSessionId={setDayCloseSessionId}
+      />
+      {approvalModal.isOpen && (
+        <Suspense fallback={null}>
+          <LazyCashDrawerApprovalModal {...approvalModal} />
+        </Suspense>
+      )}
+    </>
   );
 }

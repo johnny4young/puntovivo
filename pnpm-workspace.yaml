@@ -53,3 +53,9 @@ overrides:
 # it, so relax the guard to keep the electron-forge toolchain installable.
 # Scope is limited to a build-time devDependency of the desktop workspace.
 blockExoticSubdeps: false
+
+# Electron 42.6.2 was intentionally selected on its release day after the
+# native ABI proof. Keep the same-day lockfile reproducible without relaxing
+# the age policy for any future Electron release.
+minimumReleaseAgeExclude:
+  - electron@42.6.2

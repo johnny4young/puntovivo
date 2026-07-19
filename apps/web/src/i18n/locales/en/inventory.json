@@ -202,6 +202,12 @@
     "deferHelp": "Origin is debited immediately. Destination is credited when the shipment arrives and you click Receive.",
     "onHand": "{{amount}} on hand",
     "available": "Available at origin: {{amount}}",
+    "serials": "Serial units",
+    "serialsHelp": "Select the exact physical units that will move to the destination site.",
+    "serialsLoading": "Loading available serial units…",
+    "noSerials": "No sellable serial units are available at this site.",
+    "serialCount_one": "{{count}} serial unit selected",
+    "serialCount_other": "{{count}} serial units selected",
     "cancel": "Cancel",
     "submit": "Transfer",
     "submitting": "Transferring…",
@@ -247,7 +253,11 @@
     "adjustSuccess": "Stock adjusted",
     "adjustError": "Unable to adjust stock",
     "entrySuccess": "Initial inventory recorded",
-    "entryError": "Unable to record inventory entry"
+    "entryError": "Unable to record inventory entry",
+    "lotSuccess": "Lot received",
+    "lotError": "Unable to receive lot",
+    "serialSuccess": "Serial units received",
+    "serialError": "Unable to receive serial units"
   },
   "adjustment": {
     "title": "Adjust {{name}}",
@@ -260,6 +270,8 @@
     "movement": "Movement",
     "lowStockThreshold": "Low stock threshold",
     "siteScope": "This adjustment updates the active site balance: {{site}}.",
+    "lotTrackedHelp": "This product tracks lots. Receive a named lot instead of editing aggregate stock.",
+    "serialTrackedHelp": "This product tracks serial numbers. Receive or sell exact units instead of editing aggregate stock.",
     "notesPlaceholder": "Reason for the adjustment",
     "stockMin": "Stock must be zero or greater"
   },
@@ -267,6 +279,8 @@
     "titleInitial": "Record Initial Inventory",
     "titlePhysical": "Record Physical Inventory",
     "titleDefault": "Record Inventory",
+    "titleLot": "Receive Inventory Lot",
+    "titleSerial": "Receive Serialized Units",
     "cancel": "Cancel",
     "submitting": "Saving...",
     "save": "Save Entry",
@@ -275,11 +289,53 @@
     "mode": "Mode",
     "modeInitial": "{{label}} (accumulate)",
     "modePhysical": "{{label}} (replace)",
+    "lotModeHelp": "This product tracks lots. The receipt updates the named batch and the active site's stock atomically.",
+    "serialModeHelp": "Enter one serial number per physical unit. The receipt adds the exact units and active-site stock atomically.",
+    "serialNumbers": "Serial numbers",
+    "serialNumbersPlaceholder": "One serial per line\nSN-0001\nSN-0002",
+    "serialNumbersRequired": "Enter at least one serial number",
+    "serialNumbersDuplicate": "Remove duplicate serial numbers before saving",
+    "serialCount_one": "{{count}} unique serial",
+    "serialCount_other": "{{count}} unique serials",
+    "warrantyExpiresAt": "Warranty expiry (optional)",
+    "serialQuantity": "Serialized units",
+    "serialSiteRequired": "Select an active site before receiving serial units.",
+    "lotNumber": "Lot number",
+    "lotNumberRequired": "Lot number is required",
+    "expiresAt": "Expiry date (optional)",
+    "lotQuantity": "Received quantity",
+    "lotUnitCost": "Cost per base unit",
+    "lotSiteRequired": "Select an active site before receiving this lot.",
     "equivalence": "Equivalence",
     "siteScope": "This entry updates the active site balance: {{site}}.",
     "quantityMin": "Quantity must be greater than zero",
     "costMin": "Cost must be zero or greater",
     "notesPlaceholder": "Optional reason or count reference"
+  },
+  "serialLookup": {
+    "kicker": "Serial traceability",
+    "title": "Warranty lookup",
+    "description": "Find the current unit, latest sale, customer, and warranty date by exact serial number.",
+    "inputLabel": "Serial number",
+    "placeholder": "Enter a serial number",
+    "search": "Look up",
+    "loading": "Looking up serial…",
+    "notFound": "No unit was found with serial {{serial}}.",
+    "product": "Product",
+    "status": "Status",
+    "sale": "Latest sale",
+    "warranty": "Warranty through",
+    "noSale": "Not sold",
+    "noWarranty": "Not recorded",
+    "statuses": {
+      "in_stock": "In stock",
+      "in_transit": "In transit",
+      "reserved": "Reserved in draft",
+      "sold": "Sold",
+      "returned": "Returned",
+      "returned_to_supplier": "Returned to supplier",
+      "defective": "Defective"
+    }
   },
   "purchases": {
     "cancel": "Cancel",
@@ -297,7 +353,10 @@
     "reason": "Reason",
     "reasonPlaceholder": "Optional supplier return note",
     "minItems": "Select at least one line quantity to return",
-    "modalTitle": "Return Items for {{number}}"
+    "modalTitle": "Return Items for {{number}}",
+    "returnSerials": "Serial units to return",
+    "returnSerialsHelp": "Select the exact physical units leaving for the supplier.",
+    "noReturnableSerials": "No serial units from this purchase are currently available at the receiving site."
   },
   "orders": {
     "cancel": "Cancel",
@@ -315,7 +374,10 @@
     "receiptNotes": "Receipt Notes",
     "receiptNotesPlaceholder": "Optional note about this delivery batch",
     "minItems": "Select at least one line quantity to receive",
-    "modalTitle": "Receive Items for {{number}}"
+    "modalTitle": "Receive Items for {{number}}",
+    "serialNumbers": "Received serial numbers",
+    "serialNumbersPlaceholder": "One serial number per line",
+    "serialNumbersDuplicate": "Remove duplicate serial numbers before receiving"
   },
   "expiry": {
     "summary": {

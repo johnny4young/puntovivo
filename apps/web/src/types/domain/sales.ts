@@ -50,6 +50,7 @@ export interface SaleItem {
   taxAmount: number;
   costAtSale?: number;
   total: number;
+  serialNumbers?: string[] | undefined;
 }
 
 export interface SalePayment {

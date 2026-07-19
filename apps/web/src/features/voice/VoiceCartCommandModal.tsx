@@ -24,6 +24,11 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { blobToBase64 } from '@/features/voice/blobToBase64';
 import {
+  VoiceCartCommandReview,
+  type CartMatch,
+  type MatchedProduct,
+} from '@/features/voice/VoiceCartCommandReview';
+import {
   MAX_TEST_RECORDING_MS,
   VOICE_RECORDER_MIME_TYPES,
   useVoiceRecorder,
@@ -48,31 +53,6 @@ export interface VoiceCartItem {
    *  Null when no modifier was spoken. Consumers route this to the
    *  cart row's `notes` field at hydration time. ENG-039a. */
   note: string | null;
-}
-
-interface MatchedProduct {
-  productId: string;
-  productName: string;
-  productSku: string;
-  unitId: string;
-  unitName: string | null;
-  unitAbbreviation: string | null;
-  unitEquivalence: number;
-  unitPrice: number;
-  taxRate: number;
-  stock: number;
-  sellByFraction: boolean;
-  fractionStep: number | null;
-  fractionMinimum: number | null;
-  similarity: number;
-}
-
-interface CartMatch {
-  productHint: string;
-  quantity: number | null;
-  /** ENG-039a — free-form modifier captured by the parser. */
-  note: string | null;
-  product: MatchedProduct | null;
 }
 
 export interface VoiceCartCommandModalProps {
@@ -117,6 +97,7 @@ function buildSelection(match: MatchedProduct): ProductSearchSelection {
       sellByFraction: match.sellByFraction,
       fractionStep: match.fractionStep ?? null,
       fractionMinimum: match.fractionMinimum ?? null,
+      tracksLots: false,
       isActive: true,
       // ENG-177a — the parser summary does not carry the optimistic-version
       // token; 0 is inert here because this synthetic product is only routed
@@ -237,9 +218,7 @@ export function VoiceCartCommandModal({
   useEffect(() => {
     if (!recorder.recording) return;
     const interval = window.setInterval(() => {
-      setRecordingSeconds(prev =>
-        Math.min(prev + 1, MAX_TEST_RECORDING_MS / 1000)
-      );
+      setRecordingSeconds(prev => Math.min(prev + 1, MAX_TEST_RECORDING_MS / 1000));
     }, 1000);
     return () => window.clearInterval(interval);
   }, [recorder.recording]);
@@ -250,8 +229,6 @@ export function VoiceCartCommandModal({
   // `isOpen` toggles they should pass a `key` to force a remount.
   // Driving a state-reset effect from `isOpen` would trigger
   // `react-hooks/set-state-in-effect` cascades.
-  const matchedCount = matches.filter(m => m.product !== null).length;
-
   async function handleRecordToggle(): Promise<void> {
     if (recorder.recording) {
       try {
@@ -311,9 +288,7 @@ export function VoiceCartCommandModal({
           : null;
 
   const recordDisabled =
-    !recorder.supported ||
-    transcribeMutation.isPending ||
-    parseMutation.isPending;
+    !recorder.supported || transcribeMutation.isPending || parseMutation.isPending;
 
   return (
     <div
@@ -330,15 +305,10 @@ export function VoiceCartCommandModal({
               <Sparkles className="h-5 w-5 text-primary-700" aria-hidden="true" />
             </div>
             <div className="space-y-1">
-              <h2
-                id="voice-modal-title"
-                className="text-base font-semibold text-secondary-900"
-              >
+              <h2 id="voice-modal-title" className="text-base font-semibold text-secondary-900">
                 {t('voice:modalTitle')}
               </h2>
-              <p className="text-sm text-secondary-600">
-                {t('voice:modalDescription')}
-              </p>
+              <p className="text-sm text-secondary-600">{t('voice:modalDescription')}</p>
             </div>
           </div>
           <button
@@ -354,10 +324,7 @@ export function VoiceCartCommandModal({
         </div>
 
         {errorHint !== null && (
-          <p
-            className="text-xs text-warning-700"
-            data-testid="voice-modal-hint"
-          >
+          <p className="text-xs text-warning-700" data-testid="voice-modal-hint">
             {errorHint}
           </p>
         )}
@@ -378,11 +345,7 @@ export function VoiceCartCommandModal({
             ) : (
               <Mic className="h-4 w-4" aria-hidden="true" />
             )}
-            <span>
-              {recorder.recording
-                ? t('voice:stopCta')
-                : t('voice:recordCta')}
-            </span>
+            <span>{recorder.recording ? t('voice:stopCta') : t('voice:recordCta')}</span>
           </button>
 
           {/* Always-mounted live region so SR announces the state
@@ -406,109 +369,18 @@ export function VoiceCartCommandModal({
         </div>
 
         {phase === 'reviewing' && (
-          <div className="space-y-3" data-testid="voice-modal-review">
-            {transcript !== null && (
-              <div className="surface-panel-muted text-sm text-secondary-700">
-                <p className="text-xs font-medium uppercase tracking-wide text-secondary-500">
-                  {t('voice:transcriptLabel')}
-                </p>
-                <p
-                  className="mt-1 whitespace-pre-wrap break-words text-secondary-900"
-                  data-testid="voice-modal-transcript"
-                >
-                  {transcript}
-                </p>
-              </div>
-            )}
-
-            {unrecognizedReason !== null && (
-              <p
-                className="text-sm text-warning-700"
-                data-testid="voice-modal-unrecognized"
-              >
-                {t('voice:unrecognizedHint', {
-                  reason: unrecognizedReason,
-                })}
-              </p>
-            )}
-
-            {matches.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-secondary-500">
-                  {t('voice:matchedHeader')}
-                </p>
-                <ul className="space-y-1 text-sm">
-                  {matches.map((match, idx) => (
-                    <li
-                      key={`${match.productHint}-${idx}`}
-                      className={
-                        match.product
-                          ? 'text-secondary-900'
-                          : 'text-warning-700'
-                      }
-                      data-testid={
-                        match.product
-                          ? 'voice-modal-match'
-                          : 'voice-modal-unmatched'
-                      }
-                    >
-                      {match.product
-                        ? t('voice:matchedItem', {
-                            quantity:
-                              typeof match.quantity === 'number' && match.quantity > 0
-                                ? match.quantity
-                                : 1,
-                            name: match.product.productName,
-                          })
-                        : t('voice:unmatchedItem', {
-                            hint: match.productHint,
-                          })}
-                      {match.note !== null && (
-                        <span
-                          className="ml-2 text-xs italic text-secondary-600"
-                          data-testid="voice-modal-match-note"
-                        >
-                          {t('voice:noteSuffix', { note: match.note })}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleApply}
-                disabled={matchedCount === 0}
-                data-testid="voice-modal-apply"
-              >
-                {t('voice:applyCta')}
-              </button>
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={() => {
-                  void handleRecordToggle();
-                }}
-                data-testid="voice-modal-retry"
-              >
-                {t('voice:tryAgainCta')}
-              </button>
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => {
-                  void handleClose();
-                }}
-                data-testid="voice-modal-close"
-              >
-                {t('voice:closeCta')}
-              </button>
-            </div>
-          </div>
+          <VoiceCartCommandReview
+            transcript={transcript}
+            matches={matches}
+            unrecognizedReason={unrecognizedReason}
+            onApply={handleApply}
+            onRetry={() => {
+              void handleRecordToggle();
+            }}
+            onClose={() => {
+              void handleClose();
+            }}
+          />
         )}
       </div>
     </div>

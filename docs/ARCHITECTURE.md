@@ -10,7 +10,7 @@
 Source: [architecture.mmd](./architecture.mmd). Re-render with:
 
 ```sh
-npx -y @mermaid-js/mermaid-cli mmdc -i docs/architecture.mmd -o docs/architecture.svg -b transparent
+npx -y @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/architecture.svg -b transparent
 ```
 
 Colour code: green = shipped, yellow = planned (Phase 11/12 — fiscal +
@@ -388,7 +388,7 @@ read or write speaks to a keyed page cipher:
 
 1. **Connection.** `new Database(dbPath, { verbose })` via the
    `better-sqlite3` alias that resolves to
-   `better-sqlite3-multiple-ciphers@^12.10.0` (root `package.json`
+   `better-sqlite3-multiple-ciphers@^12.11.1` (root `package.json`
    declares the alias; the fork ships SQLite3MultipleCiphers in the
    prebuilt native binary).
 2. **Encryption key (skipped for `:memory:`).** When
@@ -445,12 +445,14 @@ above. Pinned by
 `apps/desktop/src/main/db-key-store.ts` BEFORE `createServer`. The
 key is sealed at `<userData>/data/.dbkey.enc` via Electron's
 `safeStorage` (macOS Keychain, Windows DPAPI, Linux libsecret /
-gnome-keyring / KWallet). The standalone `dev:server` reads
+gnome-keyring / KWallet); Linux `basic_text` is rejected even when Electron
+reports encryption as available. The standalone `dev:server` reads
 `process.env.PUNTOVIVO_DB_KEY` instead — when unset, the legacy
 cleartext path stays in effect. The renderer never sees the key:
-the Chromium sandbox bars all Node access (ENG-004), and queries
-travel through tRPC to the in-process Fastify, which is the only
-holder of the live connection.
+the Chromium sandbox bars all Node access (ENG-004), and the normal status,
+backup, and query paths expose metadata or encrypted files only. The sole
+exception is the explicit admin recovery action described below, which reveals
+the key only after a warning so a cross-device restore remains operable.
 
 **ENG-167b (2026-06-11) — migration + cross-device restore.** The
 desktop boot now runs `migrateCleartextDatabase()`
@@ -468,6 +470,54 @@ local key before the swap (`provide-restore-key` /
 [SECURITY.md](./SECURITY.md)). The only ENG-167 remainder is the
 operator-run cross-OS matrix through
 [`.github/workflows/build-desktop.yml`](../.github/workflows/build-desktop.yml).
+
+**ENG-129e (2026-07-14) — non-secret protection status.**
+`get-backup-protection-status` is admin-gated in main and reports SQLCipher
+readiness plus the platform key provider without resolving or returning the
+key. The Company backup card distinguishes OS-keychain protection,
+launcher-injected development keys, and degraded/unattested providers.
+
+**ENG-136a (2026-07-14) — scheduled snapshot ownership.** Electron main owns a
+tenant-keyed, device-local schedule store plus the timer that creates daily or
+weekly SQLCipher backup bundles. Managed destinations live below
+`userData/backups/<tenant>`; custom destinations come only from Electron's
+native directory picker. The preload exposes narrow admin-gated status,
+configuration, destination-picker, and run-now calls. A shared FIFO operation
+queue serializes scheduled snapshots with the existing manual backup and
+restore paths, and app shutdown drains the queue before closing the embedded
+server. Scheduled snapshots stay online: SQLCipher `VACUUM INTO` plus the
+post-copy integrity check provides the consistency boundary without interrupting
+the POS. Unavoidable server restarts reuse one process-lifetime JWT signing
+secret so manual backup/restore choreography does not rotate every live session.
+This keeps path access and database lifecycle authority out of the sandboxed
+renderer while preserving cross-platform Node path semantics.
+
+**ENG-136b (2026-07-14) — non-destructive restore drill.** Electron main reads
+the latest scheduler-owned bundle through the same FIFO operation queue,
+extracts it into an ephemeral OS directory, requires a tenant-matching
+manifest, and opens the SQLCipher database read-only after an integrity check.
+A fixed allowlist compares tenant-scoped counts for products, customers, sales,
+inventory movements, and audit events against the live embedded-server
+connection. No file swap or server restart occurs. The preload returns only
+timestamps, aggregate counts, and deltas; main records the authenticated admin
+actor plus bounded pass/fail evidence as `backup.restore_drill` in the immutable
+audit history.
+
+**ENG-136c (2026-07-14) — optional S3-compatible cloud vault.** Electron main
+owns a second tenant-keyed, device-local state file for cloud replication.
+Static access credentials are serialized only inside a `safeStorage` envelope;
+the adjacent plaintext fields are limited to connection metadata and a masked
+access-key suffix. The admin-only preload contract can configure, test,
+disconnect, and inspect the vault, but it can never read credentials back.
+Production endpoints require HTTPS, while loopback HTTP is enabled only by the
+development runtime for deterministic local validation. AWS SDK `PutObject`
+writes use a portable `<prefix>/<tenant>/<backup-name>.zip` object key and
+stream the existing SQLCipher backup bundle without decrypting it. The
+scheduler records local snapshot success before invoking this optional second
+copy: provider, credential, or network failures update cloud-only status and do
+not invalidate the recoverable local file. Configuration is intentionally not
+part of the operational database or its backup, so each workstation must be
+connected independently after install or restore.
 
 ## Future Data Topology Direction
 
@@ -755,7 +805,8 @@ For the hybrid topology:
 | ESC/POS thermal printer + RJ11 cash drawer            | USB / network / serial from main process  | [HARDWARE-POS.md](./HARDWARE-POS.md)             | Phase 12 — P0 |
 | Barcode scanner                                       | USB HID keydown capture in renderer       | [HARDWARE-POS.md](./HARDWARE-POS.md)             | Phase 12 — P0 |
 | Payment terminal (Bold, Wompi, Mercado Pago Point)    | HTTPS / Bluetooth SDK from main process   | [HARDWARE-POS.md](./HARDWARE-POS.md)             | Phase 12 — P1 |
-| GitHub Releases auto-updater                          | HTTPS from main process                   | Shipped                                          | —             |
+| GitHub Releases staged auto-updater + exact rollback | HTTPS from main process                   | Partial (`ENG-137a`)                             | —             |
+| S3-compatible encrypted backup vault                 | HTTPS `PutObject` from Electron main      | Shipped (`ENG-136c`)                             | —             |
 | S3-compatible XML retention                           | HTTPS from main process or central server | [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) | Phase 11      |
 
 Every integration goes through an **adapter pattern** (Port/Adapter) so

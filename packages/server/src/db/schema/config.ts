@@ -8,9 +8,21 @@
  *
  * @module db/schema/config
  */
-import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
-import { nowIso, receiptTemplateKindEnum, receiptTemplatePaperWidthEnum, sqliteNow } from './base.js';
+import {
+  nowIso,
+  receiptTemplateKindEnum,
+  receiptTemplatePaperWidthEnum,
+  sqliteNow,
+} from './base.js';
 import { tenants, users } from './auth.js';
 
 // ============================================================================
@@ -50,9 +62,7 @@ export const receiptTemplates = sqliteTable(
      * JSON text via Drizzle's `mode: 'json'`; the runtime shape is the
      * `ReceiptLayout` exported from `trpc/schemas/receiptTemplates`.
      */
-    layout: text('layout', { mode: 'json' })
-      .$type<Record<string, unknown>>()
-      .notNull(),
+    layout: text('layout', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
     isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
     isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
     createdBy: text('created_by')
@@ -132,6 +142,31 @@ export const appSettings = sqliteTable('app_settings', {
 });
 
 // ============================================================================
+// LOSS-PREVENTION SETTINGS (ENG-142a)
+// ============================================================================
+
+/**
+ * Safety-critical checkout policy lives outside the shared
+ * `tenants.settings` blob. Several older feature namespaces still update that
+ * blob through read-modify-write, so a stale sibling writer could otherwise
+ * erase the loss-prevention rail and silently weaken checkout enforcement.
+ */
+export const lossPreventionSettings = sqliteTable('loss_prevention_settings', {
+  tenantId: text('tenant_id')
+    .primaryKey()
+    .references(() => tenants.id, { onDelete: 'cascade' }),
+  policy: text('policy', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
+  updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+});
+
+export const lossPreventionSettingsRelations = relations(lossPreventionSettings, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [lossPreventionSettings.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+// ============================================================================
 // LOCALE CATALOGS (ENG-017)
 // ============================================================================
 //
@@ -196,17 +231,13 @@ export const countryCatalog = sqliteTable('country_catalog', {
   dateFormatShort: text('date_format_short').notNull(),
   dateFormatLong: text('date_format_long').notNull(),
   /** Common tax-ID codes (e.g. ['CC', 'NIT', 'CE']) for operator hints. */
-  taxIdTypesHint: text('tax_id_types_hint', { mode: 'json' })
-    .$type<string[]>()
-    .default([]),
+  taxIdTypesHint: text('tax_id_types_hint', { mode: 'json' }).$type<string[]>().default([]),
   /**
    * Whether the UI has i18next bundles for this country's general
    * locale. Brazil (pt-BR) is false until the pt bundle ships; the
    * admin UI will warn when the picked country is not ui-ready.
    */
-  uiLocaleReady: integer('ui_locale_ready', { mode: 'boolean' })
-    .notNull()
-    .default(true),
+  uiLocaleReady: integer('ui_locale_ready', { mode: 'boolean' }).notNull().default(true),
 });
 
 /**
@@ -222,9 +253,7 @@ export const tenantLocaleSettings = sqliteTable('tenant_locale_settings', {
     .notNull()
     .references(() => countryCatalog.code),
   localeOverride: text('locale_override'),
-  currencyOverride: text('currency_override').references(
-    () => currencyCatalog.code
-  ),
+  currencyOverride: text('currency_override').references(() => currencyCatalog.code),
   timezoneOverride: text('timezone_override'),
   firstDayOfWeekOverride: integer('first_day_of_week_override'),
   // ENG-177a — optimistic-concurrency guard (see products.version).
@@ -239,23 +268,20 @@ export const countryCatalogRelations = relations(countryCatalog, ({ one }) => ({
   }),
 }));
 
-export const tenantLocaleSettingsRelations = relations(
-  tenantLocaleSettings,
-  ({ one }) => ({
-    tenant: one(tenants, {
-      fields: [tenantLocaleSettings.tenantId],
-      references: [tenants.id],
-    }),
-    country: one(countryCatalog, {
-      fields: [tenantLocaleSettings.countryCode],
-      references: [countryCatalog.code],
-    }),
-    currencyOverrideRef: one(currencyCatalog, {
-      fields: [tenantLocaleSettings.currencyOverride],
-      references: [currencyCatalog.code],
-    }),
-  })
-);
+export const tenantLocaleSettingsRelations = relations(tenantLocaleSettings, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [tenantLocaleSettings.tenantId],
+    references: [tenants.id],
+  }),
+  country: one(countryCatalog, {
+    fields: [tenantLocaleSettings.countryCode],
+    references: [countryCatalog.code],
+  }),
+  currencyOverrideRef: one(currencyCatalog, {
+    fields: [tenantLocaleSettings.currencyOverride],
+    references: [currencyCatalog.code],
+  }),
+}));
 
 // ============================================================================
 // DIAN IDENTIFICATION TYPES CATALOG (ENG-020 Phase A)
@@ -292,16 +318,10 @@ export const fiscalIdentificationTypes = sqliteTable(
     nameEs: text('name_es').notNull(),
     nameEn: text('name_en').notNull(),
     /** When the type is issued to natural persons (vs. legal entities). */
-    naturalPerson: integer('natural_person', { mode: 'boolean' })
-      .notNull()
-      .default(true),
+    naturalPerson: integer('natural_person', { mode: 'boolean' }).notNull().default(true),
   },
-  table => [
-    primaryKey({ columns: [table.countryCode, table.code] }),
-  ]
+  table => [primaryKey({ columns: [table.countryCode, table.code] })]
 );
 
-export type FiscalIdentificationType =
-  typeof fiscalIdentificationTypes.$inferSelect;
-export type NewFiscalIdentificationType =
-  typeof fiscalIdentificationTypes.$inferInsert;
+export type FiscalIdentificationType = typeof fiscalIdentificationTypes.$inferSelect;
+export type NewFiscalIdentificationType = typeof fiscalIdentificationTypes.$inferInsert;

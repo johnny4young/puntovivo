@@ -1,12 +1,21 @@
 {
   "title": "Paleta de comandos",
-  "searchPlaceholder": "Buscar acciones y destinos…",
+  "searchPlaceholder": "Buscar acciones o productos por nombre, SKU o código…",
   "noResults": "Sin resultados",
   "noResultsHint": "Prueba con otra palabra, o cierra la paleta con Esc y usa el menú lateral.",
   "groups": {
     "navigate": "Ir a",
     "command": "Ejecutar",
-    "recent": "Recientes"
+    "recent": "Recientes",
+    "products": "Productos para vender",
+    "actions": "Acciones y destinos"
+  },
+  "products": {
+    "searching": "Buscando productos…",
+    "meta": "{{sku}} · {{stock}} disponibles",
+    "added": "{{name}} se agregó al carrito",
+    "notFound": "No se encontró un producto para vender",
+    "addFailed": "No se pudo agregar el producto"
   },
   "actions": {
     "navigate": {
@@ -18,12 +27,14 @@
       "purchases": "Abrir compras",
       "quotations": "Abrir cotizaciones",
       "operations": "Abrir centro de operaciones",
+      "dayClose": "Abrir cierre del día",
       "posTouch": "Abrir POS Touch",
       "kds": "Abrir KDS",
       "customerDisplay": "Abrir pantalla del cliente",
       "mobileWaiter": "Abrir mesero móvil",
       "restaurantTables": "Abrir mesas del restaurante",
       "company": "Abrir empresa",
+      "dataImport": "Abrir importación de datos",
       "sites": "Abrir sucursales",
       "users": "Abrir usuarios",
       "peripherals": "Abrir periféricos",
@@ -52,12 +63,14 @@
       "purchases": "Órdenes de compra y recepción.",
       "quotations": "Crear cotizaciones y convertirlas en ventas.",
       "operations": "Cola de operaciones y alertas entre sitios.",
+      "dayClose": "Revisa ventas, caja, fiscal, pagos y riesgos de un día comercial.",
       "posTouch": "Superficie de cobro táctil para el sitio activo.",
       "kds": "Pantalla de cocina con los tickets de preparación.",
       "customerDisplay": "Pantalla orientada al cliente con la venta activa.",
       "mobileWaiter": "Tableta para tomar pedidos en mesa.",
       "restaurantTables": "Mapa de salón y catálogo de mesas para servicio en sala.",
       "company": "Locale, fiscal, pagos, módulos, telemetría.",
+      "dataImport": "Asigna, valida e importa los datos del catálogo de lanzamiento.",
       "sites": "Configuración por sitio y secuenciales.",
       "users": "Lista de operadores y roles.",
       "peripherals": "Impresora, lector, cajón, hub.",

@@ -19,6 +19,8 @@ import {
   applyInventoryBalanceDelta,
   getProductStockTotals,
 } from '../../services/inventory-balances.js';
+import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
+import { returnPurchasedProductSerials } from '../../services/product-serials.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import type { VoidPurchaseInput } from '../../trpc/schemas/purchases.js';
 import {
@@ -74,6 +76,9 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
     .select({
       id: products.id,
       name: products.name,
+      tracksLots: products.tracksLots,
+      tracksSerials: products.tracksSerials,
+      catalogType: products.catalogType,
     })
     .from(products)
     .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
@@ -104,6 +109,15 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
         });
       }
 
+      if (!product.tracksSerials) {
+        assertAggregateStockMutationAllowed({
+          tracksLots: product.tracksLots,
+          tracksSerials: false,
+          catalogType: product.catalogType,
+          delta: -normalizedQuantity,
+        });
+      }
+
       const previousStock = tenantStockState.get(item.productId) ?? 0;
       const currentSiteBalance = siteBalanceState.get(item.productId) ?? 0;
 
@@ -130,12 +144,25 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
       tenantStockState.set(item.productId, newStock);
       siteBalanceState.set(item.productId, newSiteBalance);
 
+      if (product.tracksSerials) {
+        returnPurchasedProductSerials(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          siteId: existing.siteId,
+          purchaseItemId: item.id,
+          productId: item.productId,
+          quantity: normalizedQuantity,
+          now,
+          syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+        });
+      }
+
       applyInventoryBalanceDelta(tx, {
         tenantId: ctx.tenantId,
         siteId: existing.siteId,
         productId: item.productId,
         delta: -normalizedQuantity,
         initialOnHandIfMissing: currentSiteBalance,
+        serialAware: product.tracksSerials,
         now,
       });
 

@@ -21,13 +21,10 @@ import type { DatabaseInstance } from '../../db/index.js';
 import type { PuntovivoLogger } from '../../logging/logger.js';
 
 export interface KdsSseBroadcaster {
-  broadcast(eventName: string, data: unknown, tenantId?: string): void;
+  broadcast(eventName: string, data: unknown, tenantId: string): void;
 }
 
-export type KdsHookLogger = Pick<
-  PuntovivoLogger,
-  'warn' | 'info' | 'debug' | 'error'
->;
+export type KdsHookLogger = Pick<PuntovivoLogger, 'warn' | 'info' | 'debug' | 'error'>;
 
 export interface KdsHookContext {
   db: DatabaseInstance;
@@ -68,7 +65,12 @@ export interface KdsItemSnapshot {
 }
 
 export interface KdsBroadcastPayload {
-  type: 'kds.order.created' | 'kds.order.updated' | 'kds.order.removed' | 'kds.order.ready' | 'kds.order.recalled';
+  type:
+    | 'kds.order.created'
+    | 'kds.order.updated'
+    | 'kds.order.removed'
+    | 'kds.order.ready'
+    | 'kds.order.recalled';
   saleId: string;
   siteId: string | null;
   station?: string;

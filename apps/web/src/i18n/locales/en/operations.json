@@ -7,18 +7,139 @@
   "tabs": {
     "ariaLabel": "Operations panels",
     "attention": "Needs attention",
+    "support": "Support",
     "sync": "Sync",
     "fiscal": "Fiscal",
     "device": "Devices",
     "cash": "Cash",
     "payments": "Payments",
-    "inventory": "Inventory",
     "diagnostics": "Diagnostics",
     "authority": "Authority"
   },
   "common": {
     "loading": "Loading...",
     "errorGeneric": "Something went wrong loading this view."
+  },
+  "support": {
+    "kicker": "Support readiness",
+    "health": {
+      "title": "Support health",
+      "description": "A safe, at-a-glance view of the runtime, updates, modules, devices, and telemetry support needs before anyone asks for database access.",
+      "loadError": "Some support-health signals could not be loaded. Review the individual Operations panels before sharing a diagnosis.",
+      "summary": {
+        "clear": "All available support signals are healthy.",
+        "attention_one": "{{count}} support signal needs review.",
+        "attention_other": "{{count}} support signals need review."
+      },
+      "runtime": {
+        "label": "Runtime",
+        "desktop": "Desktop application",
+        "web": "Web",
+        "webContext": "Browser session",
+        "unknownVersion": "Unknown"
+      },
+      "updates": {
+        "label": "Updates",
+        "desktopContext": "Local updater state",
+        "webContext": "Managed outside the browser",
+        "state": {
+          "unavailable": "Not available",
+          "idle": "Up to date",
+          "checking": "Checking",
+          "available": "Available",
+          "downloaded": "Ready to install",
+          "error": "Needs review"
+        }
+      },
+      "modules": {
+        "label": "Modules",
+        "value": "{{active}} / {{total}}",
+        "context": "Active for this tenant",
+        "loading": "Using defaults while loading"
+      },
+      "devices": {
+        "label": "Devices",
+        "value": "{{online}} / {{total}}",
+        "none": "No active devices registered",
+        "clear": "All active devices are online",
+        "stale_one": "{{count}} device needs a heartbeat",
+        "stale_other": "{{count}} devices need a heartbeat"
+      },
+      "telemetry": {
+        "label": "Telemetry",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "context": "Tenant-controlled consent"
+      }
+    },
+    "recovery": {
+      "kicker": "Guided recovery",
+      "title": "Recovery checklist",
+      "description": "Move from a support signal to the safest next action. Setup links are only available to admins; managers keep their Operations handoff intact.",
+      "partialSignals": "Some health signals are unavailable. Use the individual panels to continue safely.",
+      "listAriaLabel": "Support recovery steps",
+      "actions": {
+        "openUpdates": "Review updates",
+        "openDevices": "Review devices",
+        "openTelemetry": "Review consent",
+        "openDiagnostics": "Open diagnostics",
+        "adminRequired": "Admin required"
+      },
+      "steps": {
+        "updates": {
+          "title": "Confirm the current release",
+          "description": "Check the desktop version and updater before changing workstation state.",
+          "status": {
+            "healthy": "Ready",
+            "checking": "Checking",
+            "attention": "Needs review",
+            "desktopOnly": "Check on desktop"
+          }
+        },
+        "devices": {
+          "title": "Recover device heartbeats",
+          "description": "Review stale or revoked terminals before pairing or revoking another device.",
+          "status": {
+            "healthy": "All online",
+            "attention_one": "{{count}} device needs attention",
+            "attention_other": "{{count}} devices need attention"
+          }
+        },
+        "telemetry": {
+          "title": "Confirm the telemetry choice",
+          "description": "Respect the tenant's opt-in decision; support can continue when telemetry is off.",
+          "status": {
+            "enabled": "Enabled",
+            "disabled": "Off by choice"
+          }
+        },
+        "evidence": {
+          "title": "Prepare redacted evidence",
+          "description": "Preview and export the sanitized diagnostic bundle instead of requesting the raw database.",
+          "status": {
+            "ready": "Ready",
+            "adminRequired": "Admin export"
+          }
+        }
+      }
+    },
+    "snapshot": {
+      "kicker": "Portable evidence",
+      "title": "Redacted snapshot",
+      "description": "Copy or download JSON. Use Diagnostics for a deeper sanitized bundle.",
+      "privacyBoundary": "Aggregate health and versions only. No names, IDs, sites, tenant data, or raw errors.",
+      "unavailable": "Wait for all support signals before sharing.",
+      "actions": {
+        "copy": "Copy",
+        "download": "Download"
+      },
+      "toast": {
+        "copied": "Snapshot copied",
+        "copyError": "Copy failed",
+        "downloaded": "Snapshot downloaded",
+        "downloadError": "Download failed"
+      }
+    }
   },
   "attention": {
     "kicker": "Needs attention",
@@ -356,36 +477,6 @@
       }
     },
     "kicker": "Payments"
-  },
-  "inventory": {
-    "title": "Inventory Health",
-    "description": "Products where the cached stock no longer matches the sum of per-site balances. Click Reconcile to heal the drift.",
-    "summary": {
-      "productsScanned": "Products scanned",
-      "discrepancyCount": "With drift"
-    },
-    "emptyState": "Inventory is consistent. Cached stock matches the per-site sum.",
-    "columns": {
-      "product": "Product",
-      "sku": "SKU",
-      "cachedStock": "Cached stock",
-      "sumOfBalances": "Sum per site",
-      "delta": "Delta",
-      "siteCount": "Sites"
-    },
-    "reconcile": {
-      "cta": "Reconcile balances",
-      "success": "Reconciled {{count}} products",
-      "error": "Reconciliation failed",
-      "noPermission": "Only admins can reconcile cached stock."
-    },
-    "kicker": "Inventory",
-    "emptyTitle": "Inventory is consistent",
-    "severity": {
-      "ok": "OK",
-      "attention": "Attention",
-      "fault": "Fault"
-    }
   },
   "authority": {
     "hub": {

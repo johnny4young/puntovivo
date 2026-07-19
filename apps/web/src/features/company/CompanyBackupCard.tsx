@@ -1,11 +1,4 @@
-import {
-  AlertTriangle,
-  Copy,
-  Database,
-  HardDriveDownload,
-  KeyRound,
-  Save,
-} from 'lucide-react';
+import { AlertTriangle, Copy, Database, HardDriveDownload, KeyRound, Save } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
@@ -13,6 +6,10 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { DesktopOnlyChip, DisabledControl } from '@/components/feedback/DesktopOnlyChip';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { translateServerError } from '@/lib/translateServerError';
+import { BackupProtectionPanel } from './BackupProtectionPanel';
+import { BackupCloudVaultPanel } from './BackupCloudVaultPanel';
+import { BackupRestoreDrillPanel } from './BackupRestoreDrillPanel';
+import { BackupSchedulePanel } from './BackupSchedulePanel';
 
 type BackupAction = 'backup' | 'restore' | null;
 
@@ -39,6 +36,7 @@ function getStatusToneClasses(tone: BackupStatus['tone']): string {
 export function CompanyBackupCard() {
   const { t } = useTranslation('settings');
   const [activeAction, setActiveAction] = useState<BackupAction>(null);
+  const [cloudVaultRefreshKey, setCloudVaultRefreshKey] = useState(0);
   const [isRestoreConfirmOpen, setIsRestoreConfirmOpen] = useState(false);
   const [status, setStatus] = useState<BackupStatus | null>(null);
   // ENG-167b — cross-device restore key prompt. Non-null while the
@@ -213,9 +211,7 @@ export function CompanyBackupCard() {
     try {
       const result = await electron.provideRestoreKey(restoreKeyToken, candidate);
       if (result.needsKey) {
-        setRestoreKeyError(
-          result.error ?? t('company.backup.keyPrompt.mismatch')
-        );
+        setRestoreKeyError(result.error ?? t('company.backup.keyPrompt.mismatch'));
         return;
       }
       if (!result.success) {
@@ -285,7 +281,9 @@ export function CompanyBackupCard() {
         className="pv-btn primary"
       >
         <Save aria-hidden="true" />
-        {activeAction === 'backup' ? t('company.backup.creating') : t('company.backup.createBackup')}
+        {activeAction === 'backup'
+          ? t('company.backup.creating')
+          : t('company.backup.createBackup')}
       </button>
 
       <button
@@ -295,7 +293,9 @@ export function CompanyBackupCard() {
         className="pv-btn outline"
       >
         <HardDriveDownload aria-hidden="true" />
-        {activeAction === 'restore' ? t('company.backup.restoring') : t('company.backup.restoreBackup')}
+        {activeAction === 'restore'
+          ? t('company.backup.restoring')
+          : t('company.backup.restoreBackup')}
       </button>
 
       {supportsCrossDeviceRestore && (
@@ -321,12 +321,22 @@ export function CompanyBackupCard() {
             <Database className="h-[18px] w-[18px]" aria-hidden="true" />
           </span>
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-secondary-950">{t('company.backup.title')}</h2>
+            <h2 className="text-lg font-semibold text-secondary-950">
+              {t('company.backup.title')}
+            </h2>
             <p className="text-sm text-secondary-500">{t('company.backup.description')}</p>
           </div>
         </div>
         <DesktopOnlyChip />
       </div>
+
+      <BackupProtectionPanel />
+
+      <BackupSchedulePanel
+        onSnapshotCreated={() => setCloudVaultRefreshKey(current => current + 1)}
+      />
+      <BackupCloudVaultPanel refreshKey={cloudVaultRefreshKey} />
+      <BackupRestoreDrillPanel />
 
       <div className="rounded-2xl border border-warning-300/70 bg-warning-50 px-4 py-3 text-sm text-warning-900">
         <div className="flex items-start gap-2">
@@ -380,14 +390,9 @@ export function CompanyBackupCard() {
         size="md"
       >
         <div className="space-y-4">
-          <p className="text-sm text-secondary-600">
-            {t('company.backup.keyPrompt.message')}
-          </p>
+          <p className="text-sm text-secondary-600">{t('company.backup.keyPrompt.message')}</p>
           <div className="space-y-1">
-            <label
-              className="label"
-              htmlFor="backup-restore-key-input"
-            >
+            <label className="label" htmlFor="backup-restore-key-input">
               {t('company.backup.keyPrompt.inputLabel')}
             </label>
             <input
@@ -415,11 +420,7 @@ export function CompanyBackupCard() {
             )}
           </div>
           <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              className="pv-btn outline"
-              onClick={handleCancelRestoreKey}
-            >
+            <button type="button" className="pv-btn outline" onClick={handleCancelRestoreKey}>
               {t('company.backup.keyPrompt.cancel')}
             </button>
             <button
@@ -460,9 +461,7 @@ export function CompanyBackupCard() {
         size="md"
       >
         <div className="space-y-4">
-          <p className="text-sm text-secondary-600">
-            {t('company.backup.revealKey.message')}
-          </p>
+          <p className="text-sm text-secondary-600">{t('company.backup.revealKey.message')}</p>
           <code
             className="block break-all rounded-xl border border-line bg-surface-2 px-4 py-3 font-mono text-xs text-secondary-900"
             data-testid="backup-revealed-key"
@@ -480,11 +479,7 @@ export function CompanyBackupCard() {
               <Copy aria-hidden="true" />
               {t('company.backup.revealKey.copy')}
             </button>
-            <button
-              type="button"
-              className="pv-btn primary"
-              onClick={() => setRevealedKey(null)}
-            >
+            <button type="button" className="pv-btn primary" onClick={() => setRevealedKey(null)}>
               {t('company.backup.revealKey.done')}
             </button>
           </div>

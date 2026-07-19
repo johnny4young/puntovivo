@@ -112,6 +112,37 @@ describe('CustomerDetailsDrawer (ENG-132b)', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('requests an allowlisted personal-data export when the admin action is clicked', () => {
+    const onExportData = vi.fn();
+    render(
+      <CustomerDetailsDrawer customer={customer} onClose={vi.fn()} onExportData={onExportData} />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /export personal data|exportar datos personales/i })
+    );
+    expect(onExportData).toHaveBeenCalledWith(customer);
+  });
+
+  it('hides the privacy export without an admin callback and disables duplicate requests', () => {
+    const { rerender } = render(<CustomerDetailsDrawer customer={customer} onClose={vi.fn()} />);
+    expect(
+      screen.queryByRole('button', { name: /export personal data|exportar datos personales/i })
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <CustomerDetailsDrawer
+        customer={customer}
+        onClose={vi.fn()}
+        onExportData={vi.fn()}
+        isExporting
+      />
+    );
+    expect(
+      screen.getByRole('button', { name: /preparing export|preparando exportación/i })
+    ).toBeDisabled();
+  });
+
   it('stays closed when customer is null', () => {
     render(<CustomerDetailsDrawer customer={null} onClose={vi.fn()} />);
 
@@ -120,7 +151,12 @@ describe('CustomerDetailsDrawer (ENG-132b)', () => {
 
   it('has no serious accessibility violations', async () => {
     const { baseElement } = render(
-      <CustomerDetailsDrawer customer={customer} onClose={vi.fn()} onEdit={vi.fn()} />
+      <CustomerDetailsDrawer
+        customer={customer}
+        onClose={vi.fn()}
+        onEdit={vi.fn()}
+        onExportData={vi.fn()}
+      />
     );
     // The Drawer renders into a portal on document.body — scan baseElement.
     await assertNoA11yViolations(baseElement);

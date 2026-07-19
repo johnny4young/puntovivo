@@ -15,6 +15,12 @@
     "$retune9": "ENG-178 slice 16b-2 — SalesPage JSX relocation adds a small wrapper/prop seam to close SalesPage under 500 LOC; gate-measured SalesPage chunk is 43.21 KB gz, so the baseline lifts 41->44 while staying within the existing 5% threshold.",
     "$retune10": "ENG-198 / ENG-199 — day-close summary UI and the site-scoped expiry-suggestion badge add authenticated sales behavior to the route. Gate-measured SalesPage is 46.26 KB gz after rebasing both shipped slices, so the baseline lifts 44->45 while preserving the existing 5% regression threshold.",
     "$retune11": "ENG-200 — SalePaymentModal leaves the Lighthouse-critical SalesPage entry behind a deferred boundary, dropping SalesPage from 45 to gate-measured 41.52 KB gz; the ceiling tightens to 42. The new idle-preloaded SalePaymentModal chunk measures 6.40 KB gz and is pinned at 7.",
+    "$retune12": "ENG-106a — bilingual staff-PIN enrollment, fixed-session disclosure, and audit labels grow the settings locale chunk from its 9 KB ceiling to gate-measured 9.53 KB gz; the documented integer baseline rounds to 10. UsersPage (5.06) and AuditLogsPage (5.40) also crossed the 5 KB tracking floor and are now pinned at 6 rather than riding the new-chunk warning.",
+    "$retune13": "ENG-106a review — cross-tab identity invalidation closes the shared-terminal privilege window and grows AuthProvider from its 6 KB ceiling to gate-measured 6.36 KB gz. The documented integer baseline rounds to 7 while preserving the existing 5% regression threshold.",
+    "$retune14": "ENG-106c2 — the deferred payment modal now owns payload hashing, cashier approval status/polling, request controls, and frozen-draft authorization context. Gate-measured SalePaymentModal is 8.87 KB gz, so the deliberate feature baseline rounds up from 7 to 9 while preserving the existing 5% regression threshold.",
+    "$retune15": "ENG-140a — the bundle gate measures the new responsive weekly team-scheduling route at 5.02 KB gz. TeamSchedulePage is pinned at a 6 KB integer ceiling instead of riding the untracked-new-chunk warning, preserving the existing 5% regression threshold.",
+    "$retune16": "ENG-140d — bilingual drawer/attendance lifecycle feedback grows the sales locale namespace from its 8 KB ceiling to gate-measured 8.47 KB gz. Deliberate user-safety copy growth; the documented integer baseline rounds up to 9 while preserving the existing 5% regression threshold.",
+    "$retune17": "ENG-142d — bilingual loss-prevention alert delivery and WhatsApp handoff copy grows the settings locale namespace from its 10 KB ceiling to gate-measured 10.54 KB gz. Deliberate operator-safety copy growth; the documented integer baseline rounds up to 11 while preserving the existing 5% regression threshold.",
     "perChunkGzKb": {
       "index": 153,
       "xlsx": 264,
@@ -25,7 +31,7 @@
       "index.es": 50,
       "html2canvas": 48,
       "SalesPage": 42,
-      "SalePaymentModal": 7,
+      "SalePaymentModal": 9,
       "trpc": 26,
       "CompanyPage": 33,
       "dnd": 25,
@@ -42,12 +48,15 @@
       "DashboardPage": 9,
       "OrdersPage": 9,
       "ProductFormModal": 8,
-      "settings": 9,
-      "sales": 8,
+      "settings": 11,
+      "sales": 9,
       "CustomersPage": 7,
       "GeographyPage": 6,
-      "AuthProvider": 6,
-      "operations": 6
+      "AuthProvider": 7,
+      "operations": 6,
+      "UsersPage": 6,
+      "AuditLogsPage": 6,
+      "TeamSchedulePage": 6
     }
   },
   "trpcLatencyMs": {

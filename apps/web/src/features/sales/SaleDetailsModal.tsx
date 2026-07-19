@@ -1,8 +1,12 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Printer, RotateCw } from 'lucide-react';
+import { canRolePerformApprovalActionDirectly } from '@puntovivo/shared/manager-approval';
 import { Modal, ModalButton, ConfirmModal } from '@/components/form-controls/Modal';
+import { useManagerApproval } from '@/features/approvals/useManagerApproval';
+import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
 import { RefundConfirmOverlay } from './RefundConfirmOverlay';
+import { SaleReprintModal, type ReprintReason } from './SaleReprintModal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { SaleDetailsContent } from '@/features/sales/SaleDetailsContent';
@@ -14,23 +18,11 @@ import {
   type HubReceiptBytesPayload,
 } from '@/features/sales/receiptPrinter';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { invalidateGroups } from '@/lib/invalidateGroups';
+import { invalidateGroups, SERIAL_INVENTORY_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
-
-type ReprintReason =
-  | 'paper_out'
-  | 'customer_request'
-  | 'prior_print_error'
-  | 'other';
-const REPRINT_REASONS: ReprintReason[] = [
-  'paper_out',
-  'customer_request',
-  'prior_print_error',
-  'other',
-];
 
 interface SaleDetailsModalProps {
   saleId: string | null;
@@ -109,6 +101,8 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         u => u.inventory.listStock,
         u => u.products.list,
         u => u.products.search,
+        u => u.managerApprovals.mine,
+        ...SERIAL_INVENTORY_INVALIDATIONS,
       ]);
       toast.success({ title: t('sales:details.toast.refundSuccessTitle') });
       setIsReturnConfirmOpen(false);
@@ -141,9 +135,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         toast.success({ title: t('sales:reprint.toastSuccessTitle') });
       } catch (error) {
         const message =
-          error instanceof Error
-            ? error.message
-            : t('sales:details.toast.printErrorFallback');
+          error instanceof Error ? error.message : t('sales:details.toast.printErrorFallback');
         setPrintError(message);
         toast.error({
           title: t('sales:reprint.toastErrorTitle'),
@@ -177,6 +169,8 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         u => u.inventory.listStock,
         u => u.products.list,
         u => u.products.search,
+        u => u.managerApprovals.mine,
+        ...SERIAL_INVENTORY_INVALIDATIONS,
       ]);
       toast.success({ title: t('sales:details.toast.voidSuccessTitle') });
       setIsVoidConfirmOpen(false);
@@ -201,12 +195,71 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   );
 
   const sale = saleQuery.data;
-  const canReturnSale =
-    (user?.role === 'admin' || user?.role === 'manager') &&
-    sale?.status === 'completed' &&
-    sale.paymentStatus !== 'refunded';
-  const canVoidSale =
-    user?.role === 'admin' && sale?.status === 'completed' && sale.paymentStatus !== 'refunded';
+  const isSalesRole =
+    user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier';
+  const isLossPreventionPolicyRole = user?.role === 'manager' || user?.role === 'cashier';
+  const shiftPolicyQueryEnabled = isOpen && !!saleId && isLossPreventionPolicyRole;
+  const refundShiftPolicyQuery = trpc.lossPrevention.evaluateShiftAction.useQuery(
+    { action: 'sale_refund', saleId: saleId ?? '' },
+    {
+      enabled: shiftPolicyQueryEnabled,
+      refetchInterval: shiftPolicyQueryEnabled ? 30_000 : false,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    }
+  );
+  const voidShiftPolicyQuery = trpc.lossPrevention.evaluateShiftAction.useQuery(
+    { action: 'sale_void', saleId: saleId ?? '' },
+    {
+      enabled: shiftPolicyQueryEnabled,
+      refetchInterval: shiftPolicyQueryEnabled ? 30_000 : false,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    }
+  );
+  const isPostSaleEligible = sale?.status === 'completed' && sale.paymentStatus !== 'refunded';
+  const refundBaselineNeedsApproval =
+    isSalesRole &&
+    isPostSaleEligible &&
+    !canRolePerformApprovalActionDirectly(user?.role, 'sale_refund');
+  const voidBaselineNeedsApproval =
+    isSalesRole &&
+    isPostSaleEligible &&
+    !canRolePerformApprovalActionDirectly(user?.role, 'sale_void');
+  const refundNeedsApproval =
+    refundBaselineNeedsApproval || refundShiftPolicyQuery.data?.requiresApproval === true;
+  const voidNeedsApproval =
+    voidBaselineNeedsApproval || voidShiftPolicyQuery.data?.requiresApproval === true;
+  const refundPolicyBlocked =
+    shiftPolicyQueryEnabled &&
+    (refundShiftPolicyQuery.isFetching || refundShiftPolicyQuery.error !== null);
+  const voidPolicyBlocked =
+    shiftPolicyQueryEnabled &&
+    (voidShiftPolicyQuery.isFetching || voidShiftPolicyQuery.error !== null);
+  const refundApproval = useManagerApproval({
+    action: 'sale_refund',
+    resourceType: 'sale',
+    resourceId: sale?.id ?? null,
+    summary: {
+      label: sale?.saleNumber ?? t('sales:confirm.refund.confirmText'),
+      amount: Number(sale?.total ?? 0),
+      currencyCode: sale?.currencyCode ?? 'COP',
+    },
+    enabled: isOpen && refundNeedsApproval,
+  });
+  const voidApproval = useManagerApproval({
+    action: 'sale_void',
+    resourceType: 'sale',
+    resourceId: sale?.id ?? null,
+    summary: {
+      label: sale?.saleNumber ?? t('sales:confirm.void.confirmText'),
+      amount: Number(sale?.total ?? 0),
+      currencyCode: sale?.currencyCode ?? 'COP',
+    },
+    enabled: isOpen && voidNeedsApproval,
+  });
+  const canReturnSale = isSalesRole && isPostSaleEligible;
+  const canVoidSale = isSalesRole && isPostSaleEligible;
   // ENG-019 — any non-draft sale is reprintable. The server enforces the
   // cashier-active-session rule; UI surfaces the button for everyone and
   // shows the translated error on denial.
@@ -257,9 +310,16 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
     setReturnError(null);
 
     try {
-      await returnMutation.mutateAsync({ id: saleId, reason });
+      await returnMutation.mutateAsync({
+        id: saleId,
+        reason,
+        ...(refundApproval.approvalRequestId
+          ? { approvalRequestId: refundApproval.approvalRequestId }
+          : {}),
+      });
     } catch {
       // Error state is handled by the mutation callbacks.
+      void refundShiftPolicyQuery.refetch();
     }
   };
 
@@ -290,9 +350,15 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
     setVoidError(null);
 
     try {
-      await voidMutation.mutateAsync({ id: saleId });
+      await voidMutation.mutateAsync({
+        id: saleId,
+        ...(voidApproval.approvalRequestId
+          ? { approvalRequestId: voidApproval.approvalRequestId }
+          : {}),
+      });
     } catch {
       // Error state is handled by the mutation callbacks.
+      void voidShiftPolicyQuery.refetch();
     }
   };
 
@@ -311,7 +377,10 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
           <>
             {canReturnSale && (
               <ModalButton
-                onClick={() => setIsReturnConfirmOpen(true)}
+                onClick={() => {
+                  if (shiftPolicyQueryEnabled) void refundShiftPolicyQuery.refetch();
+                  setIsReturnConfirmOpen(true);
+                }}
                 variant="primary"
                 disabled={isPrinting || returnMutation.isPending || voidMutation.isPending}
               >
@@ -320,7 +389,10 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
             )}
             {canVoidSale && (
               <ModalButton
-                onClick={() => setIsVoidConfirmOpen(true)}
+                onClick={() => {
+                  if (shiftPolicyQueryEnabled) void voidShiftPolicyQuery.refetch();
+                  setIsVoidConfirmOpen(true);
+                }}
                 variant="danger"
                 disabled={isPrinting || returnMutation.isPending || voidMutation.isPending}
               >
@@ -401,90 +473,23 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         )}
       </Modal>
 
-      <Modal
+      <SaleReprintModal
         isOpen={isReprintModalOpen}
         onClose={() => {
           if (reprintMutation.isPending) return;
           setIsReprintModalOpen(false);
         }}
-        title={t('sales:reprint.title')}
-        size="sm"
-        footer={
-          <>
-            <ModalButton
-              onClick={() => {
-                if (reprintMutation.isPending) return;
-                setIsReprintModalOpen(false);
-              }}
-              disabled={reprintMutation.isPending}
-            >
-              {t('sales:reprint.cancel')}
-            </ModalButton>
-            <ModalButton
-              variant="primary"
-              onClick={() => {
-                void handleReprintConfirm();
-              }}
-              disabled={reprintMutation.isPending}
-            >
-              {reprintMutation.isPending || isPrinting
-                ? t('sales:reprint.printing')
-                : t('sales:reprint.confirm')}
-            </ModalButton>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <p className="text-sm text-secondary-600">
-            {t('sales:reprint.description')}
-          </p>
-          <label className="block text-sm">
-            <span className="font-medium text-secondary-800">
-              {t('sales:reprint.reasonLabel')}
-            </span>
-            <select
-              className="mt-1 block w-full rounded-md border border-secondary-300 bg-white px-2 py-1 text-sm"
-              value={reprintReason}
-              onChange={event => {
-                const next = event.target.value as ReprintReason | '';
-                setReprintReason(next);
-                if (next !== 'other') {
-                  setReprintReasonDetail('');
-                }
-              }}
-              disabled={reprintMutation.isPending}
-            >
-              <option value="">—</option>
-              {REPRINT_REASONS.map(reason => (
-                <option key={reason} value={reason}>
-                  {t(`sales:reprint.reasonOptions.${reason}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          {reprintReason === 'other' && (
-            <label className="block text-sm">
-              <span className="font-medium text-secondary-800">
-                {t('sales:reprint.reasonDetailLabel')}
-              </span>
-              <textarea
-                className="mt-1 block w-full rounded-md border border-secondary-300 bg-white px-2 py-1 text-sm"
-                rows={2}
-                maxLength={240}
-                value={reprintReasonDetail}
-                onChange={event => setReprintReasonDetail(event.target.value)}
-                placeholder={t('sales:reprint.reasonDetailPlaceholder')}
-                disabled={reprintMutation.isPending}
-              />
-            </label>
-          )}
-          {reprintError && (
-            <p className="text-sm text-danger-600" role="alert">
-              {reprintError}
-            </p>
-          )}
-        </div>
-      </Modal>
+        onConfirm={() => {
+          void handleReprintConfirm();
+        }}
+        isPending={reprintMutation.isPending}
+        isPrinting={isPrinting}
+        reason={reprintReason}
+        reasonDetail={reprintReasonDetail}
+        error={reprintError}
+        onReasonChange={setReprintReason}
+        onReasonDetailChange={setReprintReasonDetail}
+      />
 
       <RefundConfirmOverlay
         isOpen={isReturnConfirmOpen}
@@ -498,6 +503,26 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
             quantity: Number(item.quantity ?? 0),
             total: Number(item.total ?? item.unitPrice ?? 0),
           })) ?? []
+        }
+        approvalPanel={
+          refundNeedsApproval || refundPolicyBlocked ? (
+            <CheckoutApprovalPanel
+              {...refundApproval}
+              isLoading={refundApproval.isLoading || refundShiftPolicyQuery.isFetching}
+              isHashing={false}
+              hasError={refundApproval.error !== null || refundShiftPolicyQuery.error !== null}
+              onRequest={refundApproval.requestApproval}
+              onRefresh={() =>
+                void Promise.all([
+                  refundApproval.refetch(),
+                  ...(shiftPolicyQueryEnabled ? [refundShiftPolicyQuery.refetch()] : []),
+                ])
+              }
+            />
+          ) : undefined
+        }
+        confirmDisabled={
+          refundPolicyBlocked || (refundNeedsApproval && !refundApproval.allApproved)
         }
         onClose={() => setIsReturnConfirmOpen(false)}
         onConfirm={reason => {
@@ -516,8 +541,25 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         message={t('confirm.void.message')}
         confirmText={t('confirm.void.confirmText')}
         loading={voidMutation.isPending}
+        confirmDisabled={voidPolicyBlocked || (voidNeedsApproval && !voidApproval.allApproved)}
         variant="danger"
-      />
+      >
+        {(voidNeedsApproval || voidPolicyBlocked) && (
+          <CheckoutApprovalPanel
+            {...voidApproval}
+            isLoading={voidApproval.isLoading || voidShiftPolicyQuery.isFetching}
+            isHashing={false}
+            hasError={voidApproval.error !== null || voidShiftPolicyQuery.error !== null}
+            onRequest={voidApproval.requestApproval}
+            onRefresh={() =>
+              void Promise.all([
+                voidApproval.refetch(),
+                ...(shiftPolicyQueryEnabled ? [voidShiftPolicyQuery.refetch()] : []),
+              ])
+            }
+          />
+        )}
+      </ConfirmModal>
     </>
   );
 }

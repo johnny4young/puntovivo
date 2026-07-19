@@ -21,8 +21,46 @@
     "title": "Customer details",
     "viewAria": "View details",
     "identification": "Identification",
+    "identificationFallback": "ID",
     "edit": "Edit customer",
     "close": "Close"
+  },
+  "privacy": {
+    "export": "Export personal data",
+    "exporting": "Preparing export...",
+    "filename": "customer-personal-data",
+    "success": "Personal data downloaded",
+    "error": "Unable to export personal data",
+    "disposition": {
+      "action": "Delete personal data",
+      "title": "Delete customer data",
+      "loading": "Evaluating linked records...",
+      "previewError": "The disposition preview could not be loaded. Close this dialog and try again.",
+      "deleteHeading": "Eligible for permanent deletion",
+      "deleteDescription": "This customer has no linked transactional records. The profile can be permanently deleted.",
+      "anonymizeHeading": "Transactional records will be retained",
+      "anonymizeDescription": "This customer has linked records that must remain for fiscal, financial, or operational traceability. Personal fields will be irreversibly anonymized.",
+      "linkedRecords_one": "{{count}} linked record requires retention",
+      "linkedRecords_other": "{{count}} linked records require retention",
+      "retentionNote": "Linked records and immutable fiscal or delivery snapshots stay intact under their retention obligations. The reusable customer profile, audit payloads, and queued sync snapshots are scrubbed.",
+      "records": {
+        "sales": "Sales",
+        "quotations": "Quotations",
+        "ledgerEntries": "Ledger entries",
+        "deliveryOrders": "Delivery orders",
+        "fiscalDocuments": "Fiscal documents"
+      },
+      "confirmationLabel": "Confirmation",
+      "confirmationInstruction": "Enter the exact customer name:",
+      "irreversible": "This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirmDelete": "Delete permanently",
+      "confirmAnonymize": "Anonymize personal data",
+      "submitting": "Applying disposition...",
+      "deletedSuccess": "Personal data permanently deleted",
+      "anonymizedSuccess": "Personal data anonymized",
+      "error": "Unable to dispose of personal data"
+    }
   },
   "form": {
     "createTitle": "Create Customer",

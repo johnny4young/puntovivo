@@ -30,5 +30,139 @@
         "margin": "Margen"
       }
     }
+  },
+  "dayClose": {
+    "kicker": "Control diario",
+    "title": "Cierre del día",
+    "description": "Revisa la evidencia completa del día del negocio antes de la firma del responsable: ventas, medios de pago, cajas, documentos fiscales, ajustes y señales de anomalía.",
+    "dateLabel": "Día comercial",
+    "refresh": "Actualizar reporte",
+    "loading": "Preparando el reporte de cierre…",
+    "error": "No se pudo cargar el reporte de cierre.",
+    "readiness": {
+      "ready": "El día está listo para revisión del responsable",
+      "blocked": "El día todavía tiene tareas bloqueantes",
+      "signed": "La evidencia firmada está protegida",
+      "generated": "{{date}} · {{timeZone}}",
+      "codes": {
+        "open_sessions": "Sesiones de caja abiertas",
+        "cash_discrepancies": "Diferencias de caja",
+        "fiscal_pending": "Documentos fiscales en proceso",
+        "fiscal_rejected": "Documentos fiscales rechazados",
+        "high_anomalies": "Anomalías de severidad alta",
+        "commissions_not_tracked": "Las comisiones aún no se registran",
+        "waste_not_tracked": "Las mermas aún no se registran"
+      }
+    },
+    "signoff": {
+      "title": "Firma del responsable",
+      "description": "Confirma tu revisión para guardar este reporte exacto como evidencia permanente del día comercial.",
+      "blocked": "Resuelve los bloqueos anteriores antes de firmar este reporte.",
+      "attestation": "Revisé este reporte y confirmo que representa el día comercial indicado.",
+      "action": "Firmar cierre",
+      "confirmTitle": "¿Proteger la evidencia de este cierre?",
+      "confirmMessage": "Esta acción es irreversible. El reporte del {{date}}, generado el {{generatedAt}}, se guardará exactamente como aparece y no se podrá editar ni eliminar.",
+      "confirmAction": "Firmar y proteger",
+      "signedTitle": "Cierre firmado y protegido",
+      "signedDescription": "Esta pantalla muestra la copia firmada e inmutable. La actividad registrada después no la modifica.",
+      "signedByLabel": "Constancia",
+      "signedBy": "Firmado por {{name}} · {{date}}",
+      "hashLabel": "Huella SHA-256 de la evidencia",
+      "pdfTitle": "PDF imprimible almacenado",
+      "pdfDescription": "{{filename}} · {{size}} KB · verificado antes de descargar",
+      "pdfUnavailable": "Este registro firmado es anterior al almacenamiento de PDF. Su reporte inmutable permanece disponible en esta pantalla.",
+      "pdfDownload": "Descargar PDF",
+      "pdfDownloading": "Verificando PDF…",
+      "pdfDownloadedTitle": "PDF firmado descargado",
+      "pdfDownloadedDescription": "El archivo almacenado superó las verificaciones de tamaño y huella SHA-256.",
+      "pdfDownloadError": "No se pudo verificar y descargar el PDF firmado",
+      "successTitle": "Cierre firmado",
+      "successDescription": "Se guardaron el reporte inmutable y su evidencia de auditoría.",
+      "errorTitle": "No se pudo firmar el cierre"
+    },
+    "kpis": {
+      "netRevenue": "Ingresos netos",
+      "netRevenueContext": "Brutos {{gross}}",
+      "sales": "Ventas brutas",
+      "refunds_one": "{{count}} devolución · {{amount}}",
+      "refunds_other": "{{count}} devoluciones · {{amount}}",
+      "cashVariance": "Diferencia de caja",
+      "cashSessions": "Cerradas: {{closed}} · Abiertas: {{open}}",
+      "fiscal": "Documentos fiscales",
+      "fiscalNet": "Monto fiscal neto {{amount}}"
+    },
+    "sections": {
+      "sales": "Composición de ventas",
+      "payments": "Conciliación de pagos",
+      "cash": "Conciliación de caja",
+      "fiscal": "Documentos fiscales",
+      "adjustments": "Anulaciones y devoluciones",
+      "anomalies": "Resumen de anomalías",
+      "coverage": "Cobertura del paquete diario"
+    },
+    "metrics": {
+      "subtotal": "Subtotal",
+      "discounts": "Descuentos",
+      "taxes": "Impuestos",
+      "tips": "Propinas",
+      "serviceCharges": "Cargos por servicio",
+      "refunds": "Devoluciones",
+      "expectedCash": "Efectivo esperado",
+      "countedCash": "Efectivo contado",
+      "balancedSessions": "Sesiones cuadradas",
+      "openSessions": "Abiertas al terminar el día",
+      "voids": "Anulaciones",
+      "events_one": "{{count}} evento",
+      "events_other": "{{count}} eventos"
+    },
+    "payments": {
+      "method": "Medio de pago",
+      "transactions": "Transacciones",
+      "amount": "Monto",
+      "note": "Medios de pago brutos de las ventas registradas este día; las anulaciones y devoluciones aparecen por separado en los ajustes."
+    },
+    "paymentMethods": {
+      "cash": "Efectivo",
+      "card": "Tarjeta",
+      "transfer": "Transferencia",
+      "credit": "Crédito",
+      "other": "Otro"
+    },
+    "fiscalStatuses": {
+      "accepted": "Aceptados",
+      "pending": "Pendientes",
+      "sent": "Enviados",
+      "rejected": "Rechazados",
+      "contingency": "Contingencia",
+      "voided": "Anulados",
+      "notified_correction": "Corrección solicitada",
+      "partial_send": "Envío parcial"
+    },
+    "anomalies": {
+      "total": "Señales totales",
+      "high": "Severidad alta",
+      "medium": "Severidad media"
+    },
+    "anomalyKinds": {
+      "ticketsPerHourSpike": "Tickets por hora",
+      "voidRate": "Tasa de anulaciones",
+      "refundAmount": "Monto de devoluciones",
+      "noSaleSessions": "Sesiones sin venta"
+    },
+    "empty": {
+      "paymentsTitle": "Sin pagos conciliados",
+      "paymentsDescription": "No se registraron medios de pago de ventas elegibles para este día comercial."
+    },
+    "coverage": {
+      "description": "El reporte indica de forma explícita cuando un dominio aún no tiene modelo de datos; nunca convierte evidencia faltante en un cero falso.",
+      "commissions_not_tracked": {
+        "title": "Comisiones",
+        "description": "Los planes de comisión aún no están modelados, por lo que el reporte marca la sección como no disponible en vez de mostrar cero."
+      },
+      "waste_not_tracked": {
+        "title": "Mermas",
+        "description": "Los eventos de merma aún no están modelados, por lo que el reporte marca la sección como no disponible en vez de ocultar el vacío."
+      }
+    }
   }
 }

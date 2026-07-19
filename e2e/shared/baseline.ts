@@ -47,6 +47,69 @@ export const E2E_USERS: readonly E2EUserProfile[] = [
 export const SECONDARY_SITE_NAME = 'E2E Branch Site';
 
 /**
+ * ENG-141b — signed day closes are immutable in production, including direct
+ * SQL writes. The shared E2E database must still start each suite from a
+ * repeatable baseline, so fixture setup temporarily removes the sign-off and
+ * PDF guards, deletes only the isolated E2E tenant's artifacts before their
+ * parent evidence, and immediately restores the exact production triggers.
+ * Domain tests separately pin that ordinary writes remain rejected.
+ */
+function resetDayCloseSignoffs(db: Database.Database, tenantId: string): void {
+  const tableExists = db
+    .prepare("select 1 from sqlite_master where type = 'table' and name = 'day_close_signoffs'")
+    .get();
+  if (!tableExists) return;
+  const artifactTableExists = Boolean(
+    db
+      .prepare("select 1 from sqlite_master where type = 'table' and name = 'day_close_artifacts'")
+      .get()
+  );
+
+  db.exec(`
+    DROP TRIGGER IF EXISTS trg_day_close_signoffs_no_update;
+    DROP TRIGGER IF EXISTS trg_day_close_signoffs_no_delete;
+    DROP TRIGGER IF EXISTS day_close_artifacts_immutable_update;
+    DROP TRIGGER IF EXISTS day_close_artifacts_immutable_delete;
+  `);
+  try {
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'day_close_signoff'"
+    ).run(tenantId);
+    if (artifactTableExists) {
+      db.prepare('delete from day_close_artifacts where tenant_id = ?').run(tenantId);
+    }
+    db.prepare('delete from day_close_signoffs where tenant_id = ?').run(tenantId);
+  } finally {
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS trg_day_close_signoffs_no_update
+      BEFORE UPDATE ON day_close_signoffs
+      BEGIN
+        SELECT RAISE(ABORT, 'day_close_signoffs are immutable');
+      END;
+      CREATE TRIGGER IF NOT EXISTS trg_day_close_signoffs_no_delete
+      BEFORE DELETE ON day_close_signoffs
+      BEGIN
+        SELECT RAISE(ABORT, 'day_close_signoffs are immutable');
+      END;
+    `);
+    if (artifactTableExists) {
+      db.exec(`
+        CREATE TRIGGER IF NOT EXISTS day_close_artifacts_immutable_update
+        BEFORE UPDATE ON day_close_artifacts
+        BEGIN
+          SELECT RAISE(ABORT, 'day_close_artifacts are immutable');
+        END;
+        CREATE TRIGGER IF NOT EXISTS day_close_artifacts_immutable_delete
+        BEFORE DELETE ON day_close_artifacts
+        BEGIN
+          SELECT RAISE(ABORT, 'day_close_artifacts are immutable');
+        END;
+      `);
+    }
+  }
+}
+
+/**
  * Upsert the 4 template users (`E2E_USERS`) with a fresh argon2 password
  * hash and bumped `session_version` so any stale JWT from a previous run
  * is invalidated. Idempotent: safe to call twice.
@@ -70,6 +133,7 @@ export async function ensureUsers(db: Database.Database, tenantId: string): Prom
     set tenant_id = @tenantId,
         name = @name,
         password_hash = @passwordHash,
+        staff_pin_hash = null,
         session_version = @sessionVersion,
         role = @role,
         is_active = 1,
@@ -79,8 +143,7 @@ export async function ensureUsers(db: Database.Database, tenantId: string): Prom
 
   for (const user of E2E_USERS) {
     const existing = selectUser.get(user.email) as
-      | { id: string; sessionVersion: number }
-      | undefined;
+      { id: string; sessionVersion: number } | undefined;
 
     if (existing) {
       updateUser.run({
@@ -176,6 +239,75 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   const keepUserClause = keepUserPrefixes.map(() => 'email not like ?').join(' and ');
   const keepUserArgs = keepUserPrefixes.map(prefix => `${prefix}%`);
 
+  resetDayCloseSignoffs(db, tenantId);
+
+  // ENG-106c1 — approval decisions reference both the requesting cashier and
+  // approving manager. Clear the sync/audit children first so a failed smoke
+  // never strands a request that blocks user cleanup or appears in the next
+  // manager queue.
+  db.prepare(
+    "delete from sync_outbox where tenant_id = ? and entity_type = 'manager_approval_requests'"
+  ).run(tenantId);
+  db.prepare(
+    "delete from audit_logs where tenant_id = ? and resource_type = 'manager_approval'"
+  ).run(tenantId);
+  db.prepare('delete from manager_approval_requests where tenant_id = ?').run(tenantId);
+
+  // ENG-106b — attendance belongs to the shared template employees, so a
+  // failed prior smoke could otherwise leave the next run already clocked
+  // in. This is an isolated E2E tenant; clear both the rows and their soft
+  // audit references before recreating the deterministic baseline.
+  const employeeShiftCorrectionsTableExists = db
+    .prepare(
+      "select 1 from sqlite_master where type = 'table' and name = 'employee_shift_corrections'"
+    )
+    .get();
+  if (employeeShiftCorrectionsTableExists) {
+    // ENG-140e correction snapshots deliberately use NO ACTION foreign keys
+    // and immutable triggers. E2E owns this isolated tenant, so drop the
+    // append-only children before their raw attendance parents.
+    db.prepare('delete from employee_shift_corrections where tenant_id = ?').run(tenantId);
+  }
+  const employeeShiftBreaksTableExists = db
+    .prepare("select 1 from sqlite_master where type = 'table' and name = 'employee_shift_breaks'")
+    .get();
+  if (employeeShiftBreaksTableExists) {
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'employee_shift_break'"
+    ).run(tenantId);
+    db.prepare('delete from employee_shift_breaks where tenant_id = ?').run(tenantId);
+  }
+  // ENG-140d — cash sessions now retain nullable attendance evidence. The
+  // isolated baseline deliberately resets every shift while preserving the
+  // template drawers, so detach those historical/session rows before deleting
+  // the labor parent. The column check keeps this cleanup compatible with a
+  // pre-0019 database during migration troubleshooting.
+  const cashSessionHasEmployeeShift = (
+    db.prepare("pragma table_info('cash_sessions')").all() as Array<{ name: string }>
+  ).some(column => column.name === 'employee_shift_id');
+  if (cashSessionHasEmployeeShift) {
+    db.prepare('update cash_sessions set employee_shift_id = null where tenant_id = ?').run(
+      tenantId
+    );
+  }
+  db.prepare("delete from audit_logs where tenant_id = ? and resource_type = 'employee_shift'").run(
+    tenantId
+  );
+  db.prepare('delete from employee_shifts where tenant_id = ?').run(tenantId);
+
+  // ENG-140a — published schedules reference template users/sites and keep
+  // their own audit chain. Clear the isolated tenant before user cleanup so
+  // repeat E2E runs never retain a foreign-key or overlap from a prior smoke.
+  const scheduledShiftsTableExists = db
+    .prepare("select 1 from sqlite_master where type = 'table' and name = 'scheduled_shifts'")
+    .get();
+  if (scheduledShiftsTableExists) {
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'scheduled_shift'"
+    ).run(tenantId);
+    db.prepare('delete from scheduled_shifts where tenant_id = ?').run(tenantId);
+  }
+
   // Delete audit_logs referencing the soon-to-disappear actors.
   db.prepare(
     `delete from audit_logs
@@ -259,6 +391,23 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // Transfer-related rows — children first so FK-driven cascades don't
   // strand rows (the schema uses `ON DELETE CASCADE` on most of them, but
   // older installs may not have the FK — explicit delete is safer).
+  if (
+    db
+      .prepare(
+        "select 1 from sqlite_master where type = 'table' and name = 'product_serial_transfers'"
+      )
+      .get()
+  ) {
+    db.prepare(
+      `delete from product_serial_transfers
+       where transfer_order_item_id in (
+         select id from transfer_order_items
+         where transfer_order_id in (
+           select id from transfer_orders where tenant_id = ? and notes like 'E2E %'
+         )
+       )`
+    ).run(tenantId);
+  }
   db.prepare(
     `delete from transfer_order_items
      where transfer_order_id in (select id from transfer_orders where tenant_id = ? and notes like 'E2E %')`
@@ -312,6 +461,26 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
        )
      )`
   ).run(tenantId, ...keepUserArgs);
+  // ENG-110d — procurement provenance uses a restrictive FK from each
+  // received serial to its source purchase line. Remove exact identities
+  // before pruning the disposable purchase_items parent rows.
+  if (
+    db
+      .prepare("select 1 from sqlite_master where type = 'table' and name = 'product_serials'")
+      .get()
+  ) {
+    db.prepare(
+      `delete from product_serials
+       where source_purchase_item_id in (
+         select id from purchase_items where purchase_id in (
+           select id from purchases where created_by in (
+             select id from users
+             where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+           )
+         )
+       )`
+    ).run(tenantId, ...keepUserArgs);
+  }
   db.prepare(
     `delete from purchase_items where purchase_id in (
        select id from purchases where created_by in (
@@ -339,13 +508,17 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
      )`
   ).run(tenantId, ...keepUserArgs);
 
+  // Product-import smokes create fixtures in both supported locales. Keep
+  // one shared selector so every child cleanup covers the English E2E names
+  // and the stable SKU prefix from the localized template without matching
+  // arbitrary user-authored Spanish product names.
+  const e2eProductIds = `select id from products
+    where tenant_id = ?
+      and (name like 'E2E %' or sku like 'E2E-LANZAMIENTO-%')`;
+
   // Quotations lifecycle — clear before products so FK on
   // quotation_items.product_id does not block the product delete below.
-  db.prepare(
-    `delete from quotation_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
+  db.prepare(`delete from quotation_items where product_id in (${e2eProductIds})`).run(tenantId);
   db.prepare(
     `delete from quotations where tenant_id = ? and created_by in (
        select id from users where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
@@ -353,39 +526,17 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   ).run(tenantId, tenantId, ...keepUserArgs);
 
   // Inventory artefacts tied to the disposable products.
-  db.prepare(
-    `delete from inventory_movements where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from inventory_balances where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from initial_inventory where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from unit_x_product where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from product_x_provider where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
+  db.prepare(`delete from inventory_movements where product_id in (${e2eProductIds})`).run(
+    tenantId
+  );
+  db.prepare(`delete from inventory_balances where product_id in (${e2eProductIds})`).run(tenantId);
+  db.prepare(`delete from initial_inventory where product_id in (${e2eProductIds})`).run(tenantId);
+  db.prepare(`delete from unit_x_product where product_id in (${e2eProductIds})`).run(tenantId);
+  db.prepare(`delete from product_x_provider where product_id in (${e2eProductIds})`).run(tenantId);
 
   // Order lines reference products; their parent orders may belong to
   // any actor, not only E2E users, so scope by product id.
-  db.prepare(
-    `delete from order_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
+  db.prepare(`delete from order_items where product_id in (${e2eProductIds})`).run(tenantId);
 
   // Belt-and-braces: the actor-scoped deletes above only catch children
   // whose parent (sale, purchase, purchase_return, transfer_order) is
@@ -394,29 +545,62 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // product delete would fail with a FOREIGN KEY constraint error. Scope
   // the same children by product id so the cleanup is idempotent against
   // any historical state.
+  db.prepare(`delete from sale_items where product_id in (${e2eProductIds})`).run(tenantId);
+  // ENG-110c — sale_item_serials cascades with the sale lines above, then
+  // the current serial registry must be removed before its product parent.
+  if (
+    db
+      .prepare("select 1 from sqlite_master where type = 'table' and name = 'product_serials'")
+      .get()
+  ) {
+    if (
+      db
+        .prepare(
+          "select 1 from sqlite_master where type = 'table' and name = 'product_serial_transfers'"
+        )
+        .get()
+    ) {
+      db.prepare(
+        `delete from product_serial_transfers
+         where product_serial_id in (
+           select id from product_serials where product_id in (${e2eProductIds})
+         )`
+      ).run(tenantId);
+    }
+    db.prepare(`delete from product_serials where product_id in (${e2eProductIds})`).run(tenantId);
+  }
+  db.prepare(`delete from purchase_items where product_id in (${e2eProductIds})`).run(tenantId);
+  db.prepare(`delete from purchase_return_items where product_id in (${e2eProductIds})`).run(
+    tenantId
+  );
+  db.prepare(`delete from transfer_order_items where product_id in (${e2eProductIds})`).run(
+    tenantId
+  );
+
+  // Launch-import and ledger journeys create durable E2E customers with
+  // template actors. They are therefore not covered by the disposable-user
+  // cleanup above and eventually push fresh fixtures past the first 50 rows
+  // rendered by the customer list. Detach historical snapshot references,
+  // remove the isolated ledger/audit/sync children, then prune the customer.
+  const e2eCustomerIds = `select id from customers where tenant_id = ? and name like 'E2E %'`;
   db.prepare(
-    `delete from sale_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
+    `delete from customer_ledger_entries where tenant_id = ? and customer_id in (${e2eCustomerIds})`
+  ).run(tenantId, tenantId);
+  for (const table of ['sales', 'fiscal_documents', 'quotations', 'delivery_orders']) {
+    db.prepare(
+      `update ${table} set customer_id = null where tenant_id = ? and customer_id in (${e2eCustomerIds})`
+    ).run(tenantId, tenantId);
+  }
   db.prepare(
-    `delete from purchase_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
+    `delete from sync_outbox where tenant_id = ? and entity_type = 'customers' and entity_id in (${e2eCustomerIds})`
+  ).run(tenantId, tenantId);
   db.prepare(
-    `delete from purchase_return_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
-  db.prepare(
-    `delete from transfer_order_items where product_id in (
-       select id from products where tenant_id = ? and name like 'E2E %'
-     )`
-  ).run(tenantId);
+    `delete from audit_logs where tenant_id = ? and resource_type = 'customer' and resource_id in (${e2eCustomerIds})`
+  ).run(tenantId, tenantId);
+  db.prepare(`delete from customers where tenant_id = ? and name like 'E2E %'`).run(tenantId);
 
   // Disposable products + providers.
-  db.prepare(`delete from products where tenant_id = ? and name like 'E2E %'`).run(tenantId);
+  db.prepare(`delete from products where id in (${e2eProductIds})`).run(tenantId);
   db.prepare(`delete from providers where tenant_id = ? and name like 'E2E Provider %'`).run(
     tenantId
   );
@@ -512,8 +696,7 @@ export function resolveTenantAndCompany(db: Database.Database): {
   companyId: string;
 } {
   const tenant = db.prepare('select id from tenants order by created_at asc limit 1').get() as
-    | { id: string }
-    | undefined;
+    { id: string } | undefined;
   const company = db
     .prepare('select id from companies where tenant_id = ? order by created_at asc limit 1')
     .get(tenant?.id ?? '') as { id: string } | undefined;
@@ -550,13 +733,10 @@ export async function prepareBaseline(db: Database.Database): Promise<void> {
  * so reruns remove the prior sale's children, inventory rows, device/session
  * records, and disposable actor before recreating the known admin account.
  */
-export async function prepareFirstSaleBaseline(
-  db: Database.Database
-): Promise<void> {
+export async function prepareFirstSaleBaseline(db: Database.Database): Promise<void> {
   const now = new Date().toISOString();
-  let tenant = db
-    .prepare('select id from tenants where slug = ?')
-    .get(FIRST_SALE_TENANT_SLUG) as { id: string } | undefined;
+  let tenant = db.prepare('select id from tenants where slug = ?').get(FIRST_SALE_TENANT_SLUG) as
+    { id: string } | undefined;
 
   if (!tenant) {
     tenant = { id: nanoid() };

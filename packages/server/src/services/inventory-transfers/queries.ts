@@ -6,11 +6,12 @@
  *
  * @module services/inventory-transfers/queries
  */
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   products,
+  productSerialTransfers,
   sites,
   transferOrderItems,
   transferOrders,
@@ -124,12 +125,7 @@ export async function getInventoryTransferById(
       updatedAt: transferOrders.updatedAt,
     })
     .from(transferOrders)
-    .where(
-      and(
-        eq(transferOrders.id, transferId),
-        eq(transferOrders.tenantId, tenantId)
-      )
-    )
+    .where(and(eq(transferOrders.id, transferId), eq(transferOrders.tenantId, tenantId)))
     .get();
 
   if (!transfer) {
@@ -144,11 +140,39 @@ export async function getInventoryTransferById(
       receivedQuantity: transferOrderItems.receivedQuantity,
       productName: products.name,
       productSku: products.sku,
+      tracksSerials: products.tracksSerials,
     })
     .from(transferOrderItems)
     .innerJoin(products, eq(transferOrderItems.productId, products.id))
     .where(eq(transferOrderItems.transferOrderId, transfer.id))
     .all();
+
+  const serialRows = items.length
+    ? await db
+        .select({
+          transferOrderItemId: productSerialTransfers.transferOrderItemId,
+          id: productSerialTransfers.productSerialId,
+          serialNumber: productSerialTransfers.serialNumber,
+        })
+        .from(productSerialTransfers)
+        .where(
+          and(
+            eq(productSerialTransfers.tenantId, tenantId),
+            inArray(
+              productSerialTransfers.transferOrderItemId,
+              items.map(item => item.id)
+            )
+          )
+        )
+        .orderBy(asc(productSerialTransfers.serialNumber))
+        .all()
+    : [];
+  const serialsByItem = new Map<string, Array<{ id: string; serialNumber: string }>>();
+  for (const serial of serialRows) {
+    const itemSerials = serialsByItem.get(serial.transferOrderItemId) ?? [];
+    itemSerials.push({ id: serial.id, serialNumber: serial.serialNumber });
+    serialsByItem.set(serial.transferOrderItemId, itemSerials);
+  }
 
   const hasDiscrepancy = items.some(
     item => item.receivedQuantity !== null && item.receivedQuantity !== item.quantity
@@ -160,10 +184,7 @@ export async function getInventoryTransferById(
     .select({ id: sites.id, name: sites.name })
     .from(sites)
     .where(
-      and(
-        eq(sites.tenantId, tenantId),
-        inArray(sites.id, [transfer.fromSiteId, transfer.toSiteId])
-      )
+      and(eq(sites.tenantId, tenantId), inArray(sites.id, [transfer.fromSiteId, transfer.toSiteId]))
     )
     .all();
   const siteNameById = new Map(siteRows.map(site => [site.id, site.name]));
@@ -172,7 +193,7 @@ export async function getInventoryTransferById(
     ...transfer,
     fromSiteName: siteNameById.get(transfer.fromSiteId) ?? '',
     toSiteName: siteNameById.get(transfer.toSiteId) ?? '',
-    items,
+    items: items.map(item => ({ ...item, serials: serialsByItem.get(item.id) ?? [] })),
     hasDiscrepancy,
   };
 }

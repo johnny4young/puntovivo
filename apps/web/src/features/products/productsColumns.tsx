@@ -86,6 +86,9 @@ export const productsColumns = (
     // 100% (2x mínimo), con piso visible para que siempre se lea.
     meta: { cellClassName: 'num', headerClassName: 'num' },
     cell: ({ row }) => {
+      if (row.original.catalogType === 'variant_parent') {
+        return <span className="text-secondary-400">—</span>;
+      }
       const { stock, minStock } = row.original;
       const isLow = stock < minStock;
       const fill =
@@ -112,10 +115,21 @@ export const productsColumns = (
     header: () => i18next.t('products:table.status'),
     size: 110,
     cell: ({ row }) => (
-      <span className={cn('pv-badge', row.original.isActive ? 'success' : 'neutral')}>
-        {row.original.isActive
-          ? i18next.t('products:table.active')
-          : i18next.t('products:table.inactive')}
+      <span
+        className={cn(
+          'pv-badge',
+          row.original.catalogType === 'variant_parent'
+            ? 'info'
+            : row.original.isActive
+              ? 'success'
+              : 'neutral'
+        )}
+      >
+        {row.original.catalogType === 'variant_parent'
+          ? i18next.t('products:table.matrixParent')
+          : row.original.isActive
+            ? i18next.t('products:table.active')
+            : i18next.t('products:table.inactive')}
       </span>
     ),
   },
@@ -204,13 +218,13 @@ export const productsColumns = (
         <button
           className="btn-ghost btn-icon h-8 w-8"
           onClick={() => onEdit(row.original)}
-          disabled={!canEdit}
+          disabled={!canEdit || row.original.catalogType === 'variant_parent'}
           aria-label={i18next.t('common:actions.edit')}
           title={i18next.t('common:actions.edit')}
         >
           <Pencil className="h-4 w-4" />
         </button>
-        {canDelete && (
+        {canDelete && row.original.catalogType !== 'variant_parent' && (
           <button
             className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
             onClick={() => onDelete(row.original)}

@@ -89,7 +89,7 @@ export function useOfflineSync() {
 
   // Trigger sync
   const triggerSync = useCallback(async () => {
-    if (hasDesktopSync && !tenantId) {
+    if (!tenantId) {
       setStatus(prev => ({
         ...prev,
         isSyncing: false,
@@ -162,7 +162,8 @@ export function useOfflineSync() {
     };
   }, [hasDesktopSync, refreshStatus, tenantId]);
 
-  // Auto-sync when coming online. Successive automatic triggers are
+  // Auto-sync when coming online. A known conflict requires operator review,
+  // so it must never keep issuing background pushes. Successive automatic triggers are
   // spaced with exponential backoff: on the web path a push can report
   // success while pendingCount stays > 0 (conflict rows, stalled batch),
   // and re-triggering on every state change would hammer the endpoint in
@@ -175,7 +176,16 @@ export function useOfflineSync() {
     delayMs: 5_000,
   });
   useEffect(() => {
-    if (!(status.isOnline && status.pendingItems > 0 && !status.isSyncing && !status.error)) {
+    if (
+      !(
+        tenantId &&
+        status.isOnline &&
+        status.pendingItems > 0 &&
+        status.conflicts === 0 &&
+        !status.isSyncing &&
+        !status.error
+      )
+    ) {
       return;
     }
     const gate = autoSyncGateRef.current;
@@ -198,7 +208,15 @@ export function useOfflineSync() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [status.isOnline, status.pendingItems, status.isSyncing, status.error, triggerSync]);
+  }, [
+    tenantId,
+    status.isOnline,
+    status.pendingItems,
+    status.conflicts,
+    status.isSyncing,
+    status.error,
+    triggerSync,
+  ]);
 
   return {
     ...status,

@@ -29,6 +29,7 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  auditLogs,
   companies,
   countries,
   customers,
@@ -163,11 +164,7 @@ describe('Cross-tenant mutation isolation (hardened DELETE/UPDATE guards)', () =
         code: 'NOT_FOUND',
       });
 
-      const survivor = await db
-        .select()
-        .from(customers)
-        .where(eq(customers.id, customer.id))
-        .get();
+      const survivor = await db.select().from(customers).where(eq(customers.id, customer.id)).get();
       expect(survivor).toBeTruthy();
       expect(survivor?.tenantId).toBe(tenantA.tenantId);
 
@@ -175,6 +172,79 @@ describe('Cross-tenant mutation isolation (hardened DELETE/UPDATE guards)', () =
       await expect(callerA.customers.delete({ id: customer.id })).resolves.toMatchObject({
         success: true,
       });
+    });
+  });
+
+  describe('customers.exportPersonalData', () => {
+    it("rejects another tenant's customer id without writing a disclosure audit", async () => {
+      const callerA = appRouter.createCaller(buildCtx(tenantA));
+      const callerB = appRouter.createCaller(buildCtx(tenantB));
+      const db = getDatabase();
+      const customer = await callerA.customers.create({
+        name: `Private Customer ${nanoid(6)}`,
+        email: `private-${nanoid(6)}@example.com`,
+      });
+
+      await expect(callerB.customers.exportPersonalData({ id: customer.id })).rejects.toMatchObject(
+        { code: 'NOT_FOUND' }
+      );
+
+      const foreignAudit = await db
+        .select({ id: auditLogs.id })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantB.tenantId),
+            eq(auditLogs.action, 'customer.personal_data.export'),
+            eq(auditLogs.resourceId, customer.id)
+          )
+        )
+        .get();
+      expect(foreignAudit).toBeUndefined();
+
+      await expect(
+        callerA.customers.exportPersonalData({ id: customer.id })
+      ).resolves.toMatchObject({ subject: { id: customer.id } });
+    });
+  });
+
+  describe('customers personal-data disposition', () => {
+    it("rejects another tenant's preview and disposal without changing the customer", async () => {
+      const callerA = appRouter.createCaller(buildCtx(tenantA));
+      const callerB = appRouter.createCaller(buildCtx(tenantB));
+      const db = getDatabase();
+      const customer = await callerA.customers.create({
+        name: `Disposition Owner ${nanoid(6)}`,
+        email: `owner-${nanoid(6)}@example.com`,
+      });
+
+      await expect(
+        callerB.customers.previewPersonalDataDisposition({ id: customer.id })
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      await expect(
+        callerB.customers.disposePersonalData({
+          id: customer.id,
+          version: customer.version,
+          confirmation: customer.name,
+        })
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+      expect(
+        await db
+          .select()
+          .from(customers)
+          .where(and(eq(customers.id, customer.id), eq(customers.tenantId, tenantA.tenantId)))
+          .get()
+      ).toMatchObject({ name: customer.name, email: customer.email, privacyStatus: 'active' });
+      expect(
+        await db
+          .select({ id: auditLogs.id })
+          .from(auditLogs)
+          .where(
+            and(eq(auditLogs.tenantId, tenantB.tenantId), eq(auditLogs.resourceId, customer.id))
+          )
+          .get()
+      ).toBeUndefined();
     });
   });
 
@@ -194,11 +264,7 @@ describe('Cross-tenant mutation isolation (hardened DELETE/UPDATE guards)', () =
         code: 'NOT_FOUND',
       });
 
-      const survivor = await db
-        .select()
-        .from(countries)
-        .where(eq(countries.id, country!.id))
-        .get();
+      const survivor = await db.select().from(countries).where(eq(countries.id, country!.id)).get();
       expect(survivor).toBeTruthy();
       expect(survivor?.tenantId).toBe(tenantA.tenantId);
     });
@@ -312,11 +378,7 @@ describe('Cross-tenant mutation isolation (hardened DELETE/UPDATE guards)', () =
         code: 'NOT_FOUND',
       });
 
-      const survivor = await db
-        .select()
-        .from(locations)
-        .where(eq(locations.id, created!.id))
-        .get();
+      const survivor = await db.select().from(locations).where(eq(locations.id, created!.id)).get();
       expect(survivor).toBeTruthy();
       expect(survivor?.tenantId).toBe(tenantA.tenantId);
     });
@@ -335,9 +397,9 @@ describe('Cross-tenant mutation isolation (hardened DELETE/UPDATE guards)', () =
         isActive: true,
       });
 
-      await expect(
-        callerB.identificationTypes.delete({ id: created!.id })
-      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      await expect(callerB.identificationTypes.delete({ id: created!.id })).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+      });
 
       const survivor = await db
         .select()
@@ -447,11 +509,7 @@ describe('Cross-tenant mutation isolation (hardened DELETE/UPDATE guards)', () =
         .run() as { changes?: number };
       expect(result.changes ?? 0).toBe(0);
 
-      const survivor = await db
-        .select()
-        .from(customers)
-        .where(eq(customers.id, customer.id))
-        .get();
+      const survivor = await db.select().from(customers).where(eq(customers.id, customer.id)).get();
       expect(survivor?.name).toBe(customer.name);
     });
 
@@ -470,11 +528,7 @@ describe('Cross-tenant mutation isolation (hardened DELETE/UPDATE guards)', () =
         .run() as { changes?: number };
       expect(result.changes ?? 0).toBe(0);
 
-      const survivor = await db
-        .select()
-        .from(customers)
-        .where(eq(customers.id, customer.id))
-        .get();
+      const survivor = await db.select().from(customers).where(eq(customers.id, customer.id)).get();
       expect(survivor).toBeTruthy();
     });
   });

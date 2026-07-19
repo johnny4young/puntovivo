@@ -112,6 +112,24 @@ describe('db-key-store (ENG-167)', () => {
     );
   });
 
+  it('rejects Electron Linux basic_text even when encryption reports available', async () => {
+    const stub: SafeStorageLike = {
+      ...makeWorkingStub(),
+      getSelectedStorageBackend: () => 'basic_text',
+    };
+
+    await assert.rejects(
+      () => getOrCreateDbKey(workdir, stub, { platform: 'linux' }),
+      /insecure basic_text backend/,
+      'Electron basic_text is obfuscation, not an OS-keyring seal'
+    );
+    assert.equal(
+      existsSync(getDbKeyEnvelopePath(workdir)),
+      false,
+      'the rejected backend must not leave a key envelope'
+    );
+  });
+
   it('surfaces a clear error when the envelope decrypts to an invalid shape', async () => {
     // Write an envelope whose plaintext is junk after decryption —
     // simulates a partial write or a foreign envelope sealed by a

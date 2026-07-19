@@ -43,6 +43,8 @@ export type ResolvedPurchaseItem = {
   baseUnitCost: number;
   total: number;
   normalizedQuantity: number;
+  tracksSerials: boolean;
+  serialNumbers: string[];
 };
 
 export type ResolvedPurchaseReturnItem = {
@@ -56,6 +58,8 @@ export type ResolvedPurchaseReturnItem = {
   baseUnitCost: number;
   total: number;
   normalizedQuantity: number;
+  tracksSerials: boolean;
+  serialIds: string[];
 };
 
 export type PurchaseSequentialContext = {

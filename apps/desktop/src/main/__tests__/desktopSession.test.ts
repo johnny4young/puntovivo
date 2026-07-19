@@ -17,6 +17,8 @@ import {
   type AccessTokenVerifier,
 } from '../session/desktopSession.ts';
 
+type VerifiedPayload = NonNullable<Awaited<ReturnType<AccessTokenVerifier>>>;
+
 // ENG-025 vector 1 regression pin. These assertions encode the
 // multi-tenant boundary at the IPC layer: until `register()` succeeds
 // with a token whose JWT verifies, the session singleton MUST refuse
@@ -27,22 +29,22 @@ const sampleAdminPayload = {
   userId: 'user-admin-1',
   tenantId: 'tenant-default',
   email: 'admin@puntovivo.test',
-  role: 'admin',
+  role: 'admin' as const,
   sessionVersion: 7,
   tokenType: 'access' as const,
-};
+} satisfies VerifiedPayload;
 
 const sampleCashierPayload = {
   userId: 'user-cashier-9',
   tenantId: 'tenant-other',
   email: 'cashier@puntovivo.test',
-  role: 'cashier',
+  role: 'cashier' as const,
   sessionVersion: 1,
   tokenType: 'access' as const,
-};
+} satisfies VerifiedPayload;
 
 const acceptVerifier =
-  (payload: typeof sampleAdminPayload): AccessTokenVerifier =>
+  (payload: VerifiedPayload): AccessTokenVerifier =>
   async () =>
     payload;
 

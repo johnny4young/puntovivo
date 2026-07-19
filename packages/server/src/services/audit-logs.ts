@@ -17,15 +17,11 @@
  * @module services/audit-logs
  */
 
-import { and, desc, eq, gte, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
-import {
-  auditLogs,
-  users,
-  type AuditLogAction,
-  type AuditLogResourceType,
-} from '../db/schema.js';
+import { auditLogs, users, type AuditLogAction, type AuditLogResourceType } from '../db/schema.js';
+import { getAuditReviewActions, type AuditReviewCategory } from './audit-review.js';
 
 export interface WriteAuditLogArgs {
   tx: DatabaseInstance;
@@ -40,6 +36,8 @@ export interface WriteAuditLogArgs {
   after?: Record<string, unknown> | null;
   /** Free-form per-action details (e.g. void reason, discrepancy note). */
   metadata?: Record<string, unknown> | null;
+  /** Critical-command correlation id from the validated Command Envelope. */
+  operationId?: string | null | undefined;
 }
 
 function getTimestamp(): string {
@@ -85,6 +83,7 @@ export function writeAuditLog(args: WriteAuditLogArgs): string {
       before: args.before ?? null,
       after: args.after ?? null,
       metadata: args.metadata ?? null,
+      operationId: args.operationId ?? null,
       createdAt: getTimestamp(),
     })
     .run();
@@ -104,6 +103,8 @@ export interface ListAuditLogsOptions {
   createdAfter?: string | undefined;
   /** ISO datetime; rows with `created_at <= createdBefore` are kept. */
   createdBefore?: string | undefined;
+  /** Curated ENG-129f sensitive-event category. */
+  sensitiveCategory?: AuditReviewCategory | undefined;
 }
 
 export interface AuditLogEntry {
@@ -134,15 +135,16 @@ export function listAuditLogs(
 
   const conditions = [eq(auditLogs.tenantId, tenantId)];
   if (options.action) conditions.push(eq(auditLogs.action, options.action));
-  if (options.resourceType)
-    conditions.push(eq(auditLogs.resourceType, options.resourceType));
-  if (options.resourceId)
-    conditions.push(eq(auditLogs.resourceId, options.resourceId));
+  if (options.resourceType) conditions.push(eq(auditLogs.resourceType, options.resourceType));
+  if (options.resourceId) conditions.push(eq(auditLogs.resourceId, options.resourceId));
   if (options.actorId) conditions.push(eq(auditLogs.actorId, options.actorId));
-  if (options.createdAfter)
-    conditions.push(gte(auditLogs.createdAt, options.createdAfter));
-  if (options.createdBefore)
-    conditions.push(lte(auditLogs.createdAt, options.createdBefore));
+  if (options.createdAfter) conditions.push(gte(auditLogs.createdAt, options.createdAfter));
+  if (options.createdBefore) conditions.push(lte(auditLogs.createdAt, options.createdBefore));
+  if (options.sensitiveCategory) {
+    conditions.push(
+      inArray(auditLogs.action, [...getAuditReviewActions(options.sensitiveCategory)])
+    );
+  }
 
   const rows = db
     .select({
@@ -166,10 +168,7 @@ export function listAuditLogs(
     // collapse to `null actorName / actorEmail` instead of spilling across
     // tenant boundaries. Defense in depth — the audit_logs row itself is
     // already tenant-scoped by the `WHERE` clause below.
-    .leftJoin(
-      users,
-      and(eq(auditLogs.actorId, users.id), eq(users.tenantId, tenantId))
-    )
+    .leftJoin(users, and(eq(auditLogs.actorId, users.id), eq(users.tenantId, tenantId)))
     .where(and(...conditions))
     .orderBy(desc(auditLogs.createdAt))
     .limit(limit)

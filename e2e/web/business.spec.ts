@@ -1,9 +1,13 @@
-import { expect, test, type Page } from '@playwright/test';
+import path from 'node:path';
+import { mkdir } from 'node:fs/promises';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   attachClientIssueTracker,
+  ensureLanguage,
   expectNoClientIssues,
   expectSuccessToast,
   login,
+  openUserMenu,
   resetSession,
 } from './support/app';
 import {
@@ -11,6 +15,7 @@ import {
   findLatestPurchaseForProduct,
   findLatestTransferByNotes,
   getAuditLog,
+  getEmployeeShift,
   getInventoryBalance,
   getLatestCashSessionForCashierSite,
   getProductStock,
@@ -26,6 +31,31 @@ import {
   seedSaleScenario,
   seedTransferScenario,
 } from './support/db';
+
+const PRERELEASE_MONEY_TAG = '@prerelease-money';
+
+async function capturePrereleaseEvidence(
+  page: Page,
+  name: string,
+  options: { fullPage?: boolean; locator?: Locator } = {}
+) {
+  const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
+  if (!auditDir) return;
+
+  await mkdir(auditDir, { recursive: true });
+  if (options.locator) {
+    await options.locator.screenshot({
+      path: path.join(auditDir, `${name}.png`),
+      animations: 'disabled',
+    });
+    return;
+  }
+  await page.screenshot({
+    path: path.join(auditDir, `${name}.png`),
+    fullPage: options.fullPage ?? true,
+    animations: 'disabled',
+  });
+}
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -304,7 +334,7 @@ async function assertAuditEventInUi(
 }
 
 test.describe('web business flows', () => {
-  test('cashier completes a sale and action permissions stay hidden for the cashier role', async ({
+  test('cashier completes a sale and sensitive actions remain grant-gated', { tag: PRERELEASE_MONEY_TAG }, async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
@@ -332,13 +362,14 @@ test.describe('web business flows', () => {
     );
 
     await openSaleDetails(page, sale.saleNumber);
-    await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
 
+    await capturePrereleaseEvidence(page, 'prerelease-sale-details');
     await expectNoClientIssues(tracker);
   });
 
-  test('manager refunds a completed sale and the refund restores inventory plus audit evidence', async ({
+  test('manager refunds a completed sale and the refund restores inventory plus audit evidence', { tag: PRERELEASE_MONEY_TAG }, async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
@@ -364,7 +395,7 @@ test.describe('web business flows', () => {
     await openSaleDetails(page, sale.saleNumber);
 
     await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Refund Sale', exact: true }).first().click();
     // ENG-084 V8 reskin — the trigger keeps the legacy "Refund Sale" copy,
@@ -418,6 +449,7 @@ test.describe('web business flows', () => {
       expectedText: /Sale refunded|Venta reembolsada/i,
     });
 
+    await capturePrereleaseEvidence(page, 'prerelease-refund-audit');
     await expectNoClientIssues(tracker);
   });
 
@@ -867,7 +899,7 @@ test.describe('web business flows', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('cashier closes a cash session with an overage and the closure is visible in audit plus reporting', async ({
+  test('cashier closes a cash session with an overage and the closure is visible in audit plus reporting', { tag: PRERELEASE_MONEY_TAG }, async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
@@ -936,6 +968,7 @@ test.describe('web business flows', () => {
       expectedText: `Over/short: ${formatUsd(expectedOverShort)}`,
     });
 
+    await capturePrereleaseEvidence(page, 'prerelease-cash-close-audit');
     await expectNoClientIssues(tracker);
   });
 
@@ -1234,7 +1267,7 @@ test.describe('web business flows', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('cashier opens a cash session from zero (no active register) using a denomination count (CASH-01 / CASH-03)', async ({
+  test('cashier opens a cash session from zero and completes the linked attendance lifecycle (CASH-01 / CASH-03 / ENG-140d)', async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
@@ -1278,23 +1311,92 @@ test.describe('web business flows', () => {
     await confirm.click();
     await expect(openDialog).toBeHidden({ timeout: 15_000 });
     await expectSuccessToast(page, 'Cash session opened');
+    await expectSuccessToast(page, /attendance shift started automatically/i);
 
     // After opening, the cashier now has exactly one open session with
     // the prepared register + float at the pinned site.
     await expect
-      .poll(() => {
-        const latest = getLatestCashSessionForCashierSite(
-          scenario.cashier.id,
-          targetSite.id
-        );
-        if (!latest) return null;
-        return {
-          status: latest.status,
-          registerName: latest.registerName,
-          openingFloat: latest.openingFloat,
-        };
-      }, { timeout: 10_000 })
-      .toMatchObject({ status: 'open', openingFloat });
+      .poll(
+        () => {
+          const latest = getLatestCashSessionForCashierSite(scenario.cashier.id, targetSite.id);
+          if (!latest) return null;
+          return {
+            status: latest.status,
+            registerName: latest.registerName,
+            openingFloat: latest.openingFloat,
+            employeeShiftId: latest.employeeShiftId,
+          };
+        },
+        { timeout: 10_000 }
+      )
+      .toMatchObject({ status: 'open', openingFloat, employeeShiftId: expect.any(String) });
+
+    const openedSession = getLatestCashSessionForCashierSite(scenario.cashier.id, targetSite.id);
+    if (!openedSession?.employeeShiftId) {
+      throw new Error('Expected the cash session to link an attendance shift');
+    }
+    expect(getEmployeeShift(openedSession.employeeShiftId)).toMatchObject({
+      userId: scenario.cashier.id,
+      siteId: targetSite.id,
+      clockedOutAt: null,
+    });
+
+    await openUserMenu(page);
+    let timeClock = page.getByRole('region', { name: 'Time clock' });
+    await expect(timeClock.getByTestId('active-cash-session-shift-guard')).toContainText(
+      `Close ${registerName} before clocking out`
+    );
+    await expect(timeClock.getByRole('button', { name: 'Clock out' })).toBeDisabled();
+    await capturePrereleaseEvidence(page, 'eng-140d-cash-attendance-guard-en', {
+      locator: page.locator('#header-user-menu'),
+    });
+    await openUserMenu(page);
+
+    await page.getByRole('button', { name: 'Close cash session' }).first().click();
+    const closeDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Close cash session' }) })
+      .last();
+    await expect(closeDialog).toBeVisible();
+    await closeDialog.locator('#cash-session-closing-count').fill(String(openingFloat));
+    await closeDialog.locator('#cash-session-close-count-6').fill('1');
+    await closeDialog.getByRole('button', { name: 'Close session' }).click();
+    await expect(closeDialog).toBeHidden({ timeout: 15_000 });
+    await expectSuccessToast(page, /attendance remains open until you clock out/i);
+
+    const dayClose = page.getByRole('dialog', { name: 'Day closed' });
+    await expect(dayClose.getByTestId('day-close-summary')).toBeVisible({ timeout: 15_000 });
+    await dayClose.getByRole('button', { name: 'Done' }).click();
+    await expect(dayClose).toBeHidden();
+
+    await openUserMenu(page);
+    timeClock = page.getByRole('region', { name: 'Time clock' });
+    await expect(timeClock.getByText(/Clocked in/)).toBeVisible();
+    await expect(timeClock.getByTestId('active-cash-session-shift-guard')).toHaveCount(0);
+    await expect(timeClock.getByRole('button', { name: 'Clock out' })).toBeEnabled();
+    expect(getEmployeeShift(openedSession.employeeShiftId)?.clockedOutAt).toBeNull();
+    await capturePrereleaseEvidence(page, 'eng-140d-cash-closed-attendance-open-en', {
+      locator: page.locator('#header-user-menu'),
+    });
+    await openUserMenu(page);
+
+    await ensureLanguage(page, 'es');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openUserMenu(page);
+    const reloj = page.getByRole('region', { name: 'Control de turno' });
+    await expect(reloj.getByText(/Entrada registrada/)).toBeVisible();
+    await expect(reloj.getByRole('button', { name: 'Marcar salida' })).toBeEnabled();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true);
+    await capturePrereleaseEvidence(page, 'eng-140d-cash-closed-attendance-mobile-es', {
+      locator: page.locator('#header-user-menu'),
+    });
+    await reloj.getByRole('button', { name: 'Marcar salida' }).click();
+    await expect(reloj.getByRole('button', { name: 'Marcar entrada' })).toBeVisible();
+    await expect
+      .poll(() => getEmployeeShift(openedSession.employeeShiftId!)?.clockedOutAt)
+      .not.toBeNull();
 
     await expectNoClientIssues(tracker);
   });

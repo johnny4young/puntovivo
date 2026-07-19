@@ -1,0 +1,401 @@
+{
+  "kicker": "Launch migration",
+  "title": "Import data",
+  "description": "Bring initial products, customers, suppliers, customer receivables, register opening cash, and fiscal profiles into Puntovivo with reviewable imports isolated to your business.",
+  "safety": {
+    "kicker": "Import safety",
+    "title": "Choose how this file will be used",
+    "description": "Select a mode before choosing a file. Changing modes clears the current import workflow.",
+    "modeLabel": "Import data mode",
+    "modes": {
+      "demo": {
+        "title": "Demo data",
+        "description": "Validate sample or fixture rows without saving any records. The server blocks every commit attempt."
+      },
+      "real": {
+        "title": "Real business data",
+        "description": "Create records in this business after preview and explicit confirmation. Use only merchant-owned data."
+      }
+    },
+    "demoBoundary": {
+      "title": "Preview-only boundary",
+      "description": "Demo mode can parse, map, validate, and export issues, but it never creates products, stock, customers, suppliers, customer balances, or register opening templates.",
+      "previewOnly": "Demo preview only. Review and export the results; no row can be saved in this mode."
+    },
+    "realConfirmation": "I confirm that this file contains real business data and that I have a current restore point.",
+    "rollback": {
+      "title": "Create a restore point before importing",
+      "description": "In the Desktop app, create an encrypted database backup before committing real data. Keep the final report and import ID so the batch remains traceable in the audit log.",
+      "scopeWarning": "There is no one-click batch undo. Restoring the backup replaces the whole local database and also removes every sale, setting, or other change made after that restore point.",
+      "openBackup": "Open backup settings",
+      "openAudit": "Open audit log"
+    }
+  },
+  "fileSummary": "Data rows: {{rows}} · Columns: {{columns}}",
+  "steps": {
+    "upload": {
+      "kicker": "Step 1",
+      "title": "Choose a source file",
+      "description": "Upload a UTF-8 CSV or an Excel .xlsx file up to 10 MB and 500 data rows. The file stays in this browser until you preview it."
+    },
+    "map": {
+      "kicker": "Step 2",
+      "title": "Map your columns",
+      "description": "Confirm the detected columns. Product name and SKU are required; every other field can be left unmapped.",
+      "notMapped": "Do not import",
+      "decimalFormat": "Number format"
+    },
+    "preview": {
+      "kicker": "Step 3",
+      "title": "Review before importing",
+      "description": "Puntovivo revalidates every row on the server and skips existing or repeated SKUs and barcodes."
+    }
+  },
+  "fields": {
+    "name": "Product name",
+    "sku": "SKU",
+    "description": "Description",
+    "barcode": "Barcode",
+    "price": "Sale price",
+    "cost": "Cost",
+    "stock": "Opening stock",
+    "minStock": "Minimum stock",
+    "taxRate": "Tax rate",
+    "tracksLots": "Track lots and expiry"
+  },
+  "decimalFormats": {
+    "auto": "Detect automatically",
+    "dot": "1,234.56 — dot decimal",
+    "comma": "1.234,56 — comma decimal"
+  },
+  "actions": {
+    "chooseFile": "Choose CSV or Excel",
+    "downloadTemplate": "Download template",
+    "reset": "Start over",
+    "preview": "Validate and preview",
+    "importing": "Importing…",
+    "completed": "Import completed",
+    "importReady_one": "Import {{count}} ready row",
+    "importReady_other": "Import {{count}} ready rows",
+    "downloadIssues": "Download issues",
+    "downloadReport": "Download report"
+  },
+  "summary": {
+    "ariaLabel": "Import validation summary",
+    "total": "Rows",
+    "ready": "Ready",
+    "duplicates": "Duplicates",
+    "invalid": "Invalid"
+  },
+  "statuses": {
+    "ready": "Ready",
+    "duplicate": "Duplicate",
+    "invalid": "Invalid"
+  },
+  "issues": {
+    "required": "Required value is missing",
+    "too_long": "Value exceeds the allowed length",
+    "invalid_number": "Number format is not valid",
+    "invalid_boolean": "Use yes/no, true/false, or 1/0",
+    "out_of_range": "Value is outside the allowed range",
+    "lot_tracking_requires_zero_stock": "Opening stock must be zero when lot tracking is enabled; receive the first lot after import",
+    "duplicate_file_sku": "SKU is repeated in this file",
+    "duplicate_existing_sku": "SKU already exists in this business",
+    "duplicate_file_barcode": "Barcode is repeated in this file",
+    "duplicate_existing_barcode": "Barcode already exists in this business",
+    "concurrent_duplicate": "Another import created this product while this import was running",
+    "import_failed": "The product could not be imported",
+    "stock_failed": "The product was imported but opening stock could not be recorded"
+  },
+  "boolean": {
+    "yes": "Yes",
+    "no": "No"
+  },
+  "table": {
+    "row": "Row",
+    "status": "Status",
+    "field": "Field",
+    "issues": "Issues",
+    "details": "Details",
+    "noIssues": "No issues",
+    "emptyValue": "—",
+    "issueFormat": "{{field}}: {{issue}}",
+    "previewLimit": "Showing the first 100 of {{count}} rows. The summary and import include every row."
+  },
+  "report": {
+    "kicker": "Completed",
+    "title": "Import complete",
+    "description": "Products created: {{imported}}. Opening stock records: {{stock}}.",
+    "rollbackReminder": "If you must reverse this batch, stop new activity and restore the encrypted backup created before the import. Restoring also removes every later change.",
+    "importId": "Import ID:",
+    "productId": "Product ID",
+    "stockRecorded": "Opening stock recorded",
+    "statuses": {
+      "imported": "Imported",
+      "importedWithWarnings": "Imported with warnings",
+      "failed": "Failed",
+      "skipped": "Skipped",
+      "invalid": "Invalid"
+    },
+    "boolean": {
+      "yes": "Yes",
+      "no": "No"
+    },
+    "metrics": {
+      "imported": "Imported",
+      "stockInitialized": "Stock recorded",
+      "skipped": "Skipped",
+      "invalid": "Invalid",
+      "failed": "Failed",
+      "warnings": "Warnings"
+    }
+  },
+  "template": {
+    "sampleName": "Sample coffee",
+    "sampleDescription": "Replace this row with your product data"
+  },
+  "fileErrors": {
+    "unsupported_file": "Choose a .csv or .xlsx file.",
+    "file_too_large": "The file exceeds the 10 MB limit.",
+    "empty_file": "The file does not contain data rows.",
+    "empty_header": "Every source column needs a header.",
+    "duplicate_header": "Source column headers must be unique.",
+    "too_many_rows": "Import at most 500 rows at a time.",
+    "too_many_columns": "The file exceeds the 50-column limit.",
+    "row_too_wide": "A data row contains more values than the header row.",
+    "malformed_csv": "The CSV contains an unfinished or invalid quoted value.",
+    "workbook_empty": "The Excel workbook does not contain a worksheet."
+  },
+  "toast": {
+    "previewError": "The file could not be validated",
+    "importError": "The import could not be completed",
+    "imported_one": "{{count}} product imported",
+    "imported_other": "{{count}} products imported"
+  },
+  "entitySelector": {
+    "label": "Choose the data to import"
+  },
+  "entities": {
+    "products": {
+      "label": "Products and stock",
+      "description": "Catalog, prices, costs, and opening stock."
+    },
+    "customers": {
+      "label": "Customers",
+      "description": "Customer profiles and contact details."
+    },
+    "providers": {
+      "label": "Suppliers",
+      "description": "Supplier profiles, contacts, and city references."
+    },
+    "customerBalances": {
+      "label": "Customer receivables",
+      "description": "Positive opening balances owed by existing customers."
+    },
+    "openingCash": {
+      "label": "Register opening cash",
+      "description": "Reconciled denomination templates for each site register."
+    },
+    "fiscalProfiles": {
+      "label": "Fiscal profile",
+      "description": "Issuer identity, tax regime, and authorized numbering."
+    }
+  },
+  "party": {
+    "fields": {
+      "name": "Name",
+      "taxId": "Tax ID",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address",
+      "city": "City",
+      "state": "State or department",
+      "postalCode": "Postal code",
+      "country": "Country",
+      "notes": "Notes",
+      "contactName": "Contact name",
+      "cityCode": "City code"
+    },
+    "issues": {
+      "required": "Required value is missing",
+      "too_long": "Value exceeds the allowed length",
+      "invalid_email": "Email format is not valid",
+      "city_not_found": "City code was not found in this business",
+      "duplicate_file_name": "Name is repeated in this file",
+      "duplicate_existing_name": "Name already exists in this business",
+      "duplicate_file_tax_id": "Tax ID is repeated in this file",
+      "duplicate_existing_tax_id": "Tax ID already exists in this business",
+      "duplicate_file_email": "Email is repeated in this file",
+      "duplicate_existing_email": "Email already exists in this business",
+      "concurrent_duplicate": "Another import created this record while this import was running",
+      "import_failed": "The record could not be imported"
+    },
+    "table": {
+      "identity": "Tax ID or email"
+    },
+    "report": {
+      "recordId": "Record ID"
+    },
+    "customers": {
+      "mapDescription": "Confirm the detected customer columns. Name is required; every other field can be left unmapped.",
+      "previewDescription": "Puntovivo validates every customer and skips repeated tax IDs or email addresses.",
+      "reportDescription_one": "Customers created: {{imported}}.",
+      "reportDescription_other": "Customers created: {{imported}}.",
+      "toastImported_one": "{{count}} customer imported",
+      "toastImported_other": "{{count}} customers imported",
+      "template": {
+        "name": "Sample customer",
+        "taxId": "900123456",
+        "email": "customer@example.com",
+        "phone": "+57 300 000 0000",
+        "address": "Main Street 123",
+        "city": "Bogotá",
+        "state": "Bogotá D.C.",
+        "postalCode": "110111",
+        "country": "Colombia",
+        "notes": "Replace this row with your customer data"
+      }
+    },
+    "providers": {
+      "mapDescription": "Confirm the detected supplier columns. Name is required; use the city code from your Puntovivo geography catalog when available.",
+      "previewDescription": "Puntovivo validates every supplier, checks city codes, and skips repeated names, tax IDs, or email addresses.",
+      "reportDescription_one": "Suppliers created: {{imported}}.",
+      "reportDescription_other": "Suppliers created: {{imported}}.",
+      "toastImported_one": "{{count}} supplier imported",
+      "toastImported_other": "{{count}} suppliers imported",
+      "template": {
+        "name": "Sample supplier",
+        "taxId": "901123456",
+        "email": "supplier@example.com",
+        "phone": "+57 601 000 0000",
+        "address": "Commerce Avenue 456",
+        "contactName": "Sample contact",
+        "cityCode": "BOG"
+      }
+    }
+  },
+  "customerBalances": {
+    "fields": {
+      "taxId": "Tax ID",
+      "email": "Email",
+      "openingBalance": "Opening receivable",
+      "note": "Note"
+    },
+    "mapDescription": "Match each opening receivable to an existing customer. Opening balance is required, along with Tax ID or email.",
+    "identityRequirement": "Map Tax ID or email, plus the opening receivable. Puntovivo matches only active customers in this business.",
+    "previewDescription": "Puntovivo matches active customers in this business and skips anyone who already has account activity.",
+    "issues": {
+      "identity_required": "Tax ID or email is required",
+      "invalid_email": "Email format is not valid",
+      "invalid_number": "Number format is not valid",
+      "balance_must_be_positive": "The receivable must be greater than zero",
+      "out_of_range": "The receivable exceeds the allowed range",
+      "too_long": "Value exceeds the allowed length",
+      "customer_not_found": "No active customer matches this identity",
+      "ambiguous_customer": "More than one active customer matches this identity",
+      "identifier_conflict": "Tax ID and email belong to different customers",
+      "duplicate_file_customer": "This customer is repeated in the file",
+      "duplicate_existing_balance": "This customer already has account activity",
+      "import_failed": "The opening receivable could not be recorded"
+    },
+    "table": {
+      "customer": "Customer",
+      "identity": "Tax ID or email"
+    },
+    "report": {
+      "adjustmentId": "Ledger adjustment ID"
+    },
+    "reportDescription_one": "{{count}} opening receivable recorded.",
+    "reportDescription_other": "{{count}} opening receivables recorded.",
+    "toastImported_one": "{{count}} opening receivable imported",
+    "toastImported_other": "{{count}} opening receivables imported",
+    "template": {
+      "taxId": "900123456",
+      "email": "customer@example.com",
+      "openingBalance": "125000.50",
+      "note": "Legacy account receivable"
+    }
+  },
+  "openingCash": {
+    "fields": {
+      "siteName": "Site name",
+      "registerName": "Register name",
+      "openingFloat": "Opening cash",
+      "denominations": "Denomination counts"
+    },
+    "mapDescription": "Map the site, register, opening cash, and its denomination breakdown. Every field is required so the imported template starts reconciled.",
+    "denominationFormatHelp": "Write denomination counts as value:count separated by semicolons, for example 50000:2;20000:1. The calculated total must equal opening cash.",
+    "previewDescription": "Puntovivo resolves active sites in this business, rejects active or established registers, and may replace only an untouched zero default.",
+    "issues": {
+      "required": "Required value is missing",
+      "too_long": "Value exceeds the allowed length",
+      "invalid_number": "Number format is not valid",
+      "out_of_range": "Opening cash is outside the allowed range",
+      "invalid_denominations": "Use value:count pairs separated by semicolons",
+      "denomination_total_mismatch": "The denomination total does not match opening cash",
+      "site_not_found": "No active site in this business matches this name",
+      "ambiguous_site": "More than one active site matches this name",
+      "duplicate_file_register": "This site and register are repeated in the file",
+      "duplicate_existing_register": "This register already has an established opening template",
+      "active_register": "This register has an open cash session",
+      "concurrent_register_change": "This register changed after preview; preview the file again",
+      "import_failed": "The opening-cash template could not be imported"
+    },
+    "report": {
+      "templateId": "Register template ID"
+    },
+    "reportDescription_one": "{{count}} reconciled register template imported.",
+    "reportDescription_other": "{{count}} reconciled register templates imported.",
+    "toastImported_one": "{{count}} register opening template imported",
+    "toastImported_other": "{{count}} register opening templates imported",
+    "template": {
+      "siteName": "Main Store",
+      "registerName": "Front register",
+      "openingFloat": "120000",
+      "denominations": "50000:2;20000:1"
+    }
+  },
+  "fiscalProfiles": {
+    "fields": {
+      "countryCode": "Country code",
+      "taxIdentifier": "Issuer tax identifier",
+      "economicActivityCode": "Regime or activity code",
+      "issueLocation": "Issue location or head office",
+      "administrativeAreaCode": "Administrative area code",
+      "resolutionNumber": "Numbering resolution",
+      "numberingPrefix": "Numbering prefix",
+      "rangeFrom": "Authorized range start",
+      "rangeTo": "Authorized range end",
+      "environment": "Fiscal environment"
+    },
+    "mapDescription": "Map the issuer profile fields available in the source. Country code and tax identifier are always required; Puntovivo validates the remaining requirements for CO, MX, or CL.",
+    "countryFieldHelp": "Use CO, MX, or CL and include only the profile for this business country. MX uses regime + postal code; CL uses activity + municipality + head-office address; CO uses resolution + authorized range.",
+    "previewDescription": "Puntovivo validates this file against the canonical {{country}} fiscal pack and never overwrites an established issuer profile.",
+    "activationBoundary": "Safety boundary: imported fiscal profiles stay disabled. Review the issuer data and activate fiscal emission manually in Company → Fiscal.",
+    "profileDetails": "Profile details",
+    "issues": {
+      "required": "Required value is missing",
+      "too_long": "Value exceeds the allowed length",
+      "unsupported_country": "Only CO, MX, and CL fiscal profiles are supported",
+      "tenant_country_mismatch": "This profile does not match the business country",
+      "invalid_tax_identifier": "The issuer tax identifier is not valid for this country",
+      "invalid_activity_code": "The regime or activity code is not in the fiscal catalog",
+      "invalid_issue_location": "The issue location is not valid for this country",
+      "invalid_administrative_area": "The administrative area code is not in the fiscal catalog",
+      "invalid_number": "The numbering value must be a positive integer",
+      "invalid_range": "The authorized range start cannot exceed its end",
+      "invalid_environment": "The fiscal environment is not valid for this country",
+      "duplicate_file_profile": "This country profile is repeated in the file",
+      "duplicate_existing_profile": "This issuer profile is already configured",
+      "existing_profile_conflict": "An established issuer profile already exists; review it in Company → Fiscal",
+      "concurrent_profile_change": "The fiscal profile changed after preview; preview the file again",
+      "import_failed": "The fiscal profile could not be imported"
+    },
+    "reportDescription_one": "{{count}} fiscal profile imported and left disabled for review.",
+    "reportDescription_other": "{{count}} fiscal profiles imported and left disabled for review.",
+    "reviewAction": "Review fiscal profile",
+    "activationReminder": "Activation is still required. Verify the issuer identity, environment, and numbering before enabling fiscal emission.",
+    "toastImported_one": "{{count}} fiscal profile imported",
+    "toastImported_other": "{{count}} fiscal profiles imported"
+  }
+}

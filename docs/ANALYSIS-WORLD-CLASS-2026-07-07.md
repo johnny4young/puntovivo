@@ -57,7 +57,7 @@ convertir esos cimientos en experiencias que el operador AME usar.
 | **Testeabilidad**  | 8/10 | 2 236 server + ~1 650 web + 111 desktop; DB in-memory por archivo; pisos de coverage en CI; golden vectors de dinero. Falta: property-based, contract tests explícitos.                                   |
 | **Simplicidad**    | 7/10 | Server bien descompuesto (solo runFreshSale > 500 LOC). Deuda: superficies no-op retenidas (reconcile/discrepancias), 3 tiers de precio + 6 columnas de margen (legacy).                                  |
 | **Mantenibilidad** | 8/10 | Convención de markers ENG-NNN, docs de planeación disciplinados, migraciones aditivas, CI por área con path filters.                                                                                      |
-| **Librerías**      | 9/10 | React 19.2, Vite 8, TS 6, Tailwind 4, tRPC 11, Zod 4, Fastify 5, Drizzle 0.45, Vitest 4 — todo fresco. Único gate: Electron 42 (better-sqlite3 vs V8 14, ya documentado).                                 |
+| **Librerías**      | 9/10 | React 19.2, Vite 8, TS 6, Tailwind 4, tRPC 11, Zod 4, Fastify 5, Drizzle 0.45, Vitest 4 — todo fresco. Electron 42 quedó habilitado por better-sqlite3-multiple-ciphers 12.11.1.                          |
 
 ---
 
@@ -116,7 +116,7 @@ vuelto ventaja vendible.
   rollup≡Σ verificada; `ci:server` verde; p95 de `products.list` bajo el
   presupuesto existente (60 ms) con margen.
 
-### WC-A2 · SSE con backpressure y replay `[offline]` — **M**
+### WC-A2 · SSE con backpressure y replay `[offline]` — **M** ✅ ENG-204
 
 - **Problema**: `api/realtime` no tiene backpressure ni buffer — un cliente
   lento retiene memoria; un reconnect pierde eventos.
@@ -124,8 +124,13 @@ vuelto ventaja vendible.
   honrar `Last-Event-ID` en reconnect (replay del gap); si un cliente acumula
   > N eventos sin drenar, cerrar su conexión (el cliente ya sabe re-suscribir).
 - **Archivos**: `packages/server/src/services/realtime/` (SseManager).
-- **AC**: test de reconnect-con-gap recibe los eventos perdidos; test de
-  cliente lento se desconecta sin OOM; sin cambios de API para el web.
+- **Shipped 2026-07-12 (ENG-204)**: `SseManager` conserva 500 eventos por
+  tenant con cursor monotónico, honra `Last-Event-ID` y emite
+  `realtime.replay_gap` cuando el cursor es inválido, fue desalojado o quedó
+  por delante tras un restart. Cada socket tiene una cola de 256 KiB: los
+  writes esperan `drain` en orden y un consumidor que excede el límite se
+  desconecta para recuperar por replay. El hook web conserva el cursor también
+  en sus reaperturas explícitas y trata gaps como invalidaciones del read model.
 
 ### WC-A3 · Sales route: Lighthouse 58 → 75 `[checkout]` — **S/M**
 
@@ -150,7 +155,7 @@ vuelto ventaja vendible.
 
 ## 4. TRACK B — Arquitectura y mantenibilidad
 
-### WC-B1 · Completar la capa application/ en los dominios calientes `[audit]` — **L (por fases)**
+### WC-B1 · Completar la capa application/ en los dominios calientes `[audit]` — **L (por fases)** ✅ ENG-206/207/208
 
 - **Realidad medida**: application/ existe solo para sales (17), cash-sessions
   (7) y purchases (10); 17 de 38 routers consultan Drizzle inline.
@@ -160,8 +165,21 @@ vuelto ventaja vendible.
   el stock absoluto ya delega), (3) customers (ledger).
 - **AC por fase**: la mutación movida conserva byte-igual su transacción;
   tests existentes verdes sin edits; el router queda < 150 LOC por archivo.
+- **Fase 1 shipped 2026-07-13 (ENG-206)**: entry, movement, adjustment y
+  create/receive/void transfer viven en `application/inventory/`; las queries
+  siguen en `services/`. Los cuerpos transaccionales de transfer quedaron
+  byte-iguales, y los adapters tRPC de inventory/transfers miden 51/98 LOC.
+- **Fase 2 shipped 2026-07-13 (ENG-207)**: create/update de producto viven en
+  `application/products/`; validación de asignaciones e hidratación del catálogo
+  quedaron como primitivas en `services/products/`. El adapter tRPC conserva
+  los contratos de rol/input y soft delete en 62 LOC, sin editar los tests
+  existentes.
+- **Fase 3 shipped 2026-07-13 (ENG-208)**: pagos y ajustes manuales del ledger
+  de clientes viven en `application/customers/`; balance y listado permanecen
+  como queries en el router. El adapter conserva los contratos tenant, signo y
+  rol en 81 LOC, sin editar los tests existentes.
 
-### WC-B2 · `packages/shared` para dinero y unidades `[fiscal][caja]` — **M**
+### WC-B2 · `packages/shared` para dinero y unidades `[fiscal][caja]` — **M** ✅ ENG-203
 
 - **Problema**: `roundMoney` duplicado (web + server) sostenido por twin
   golden-vector suites — un parche de paridad, no una solución.
@@ -169,19 +187,22 @@ vuelto ventaja vendible.
   formatQuantity), `unit-math.ts` (normalizedQuantity) y los tipos de dominio
   compartidos que hoy viven en `apps/web/src/types/index.ts`. El server y el
   web lo importan; las suites de paridad se colapsan a UNA.
-- **AC**: cero duplicación de la fórmula; `ci:web` + `ci:server` verdes; el
-  bundle web no crece (> tree-shaking verificado por el gate existente).
+- **Shipped 2026-07-12 (ENG-203)**: `@puntovivo/shared` es la única fuente de
+  `roundMoney`, matemática/formato de cantidades y `UnitDimension`; web/server
+  conservan reexports compatibles. Las suites gemelas se colapsaron en un solo
+  contrato de 10k vectores y `ci:shared` corre desde los tres gates. `ci:web` +
+  `ci:server` verdes; el chunk tree-shakeable de unit-math queda en 0.31 kB gz y
+  todos los budgets existentes pasan.
 
-### WC-B3 · Interface `FiscalProvider` formal `[fiscal]` — **M**
+### WC-B3 · Interface fiscal formal `[fiscal]` — **M** ✅ YA SATISFECHO
 
-- Del gap #1 del audit anterior, sin resolver: definir
-  `interface FiscalProvider { submit(doc): Promise<SubmitResult>; poll(id):
-Promise<StatusResult>; contingency(doc): ContingencyFolio; retention():
-XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
-  contra ella y tipear el orchestrator contra la interface. El primer PT real
-  (ENG-059) se vuelve un adapter, no un rewrite.
-- **AC**: mock y stubs CL/MX implementan la interface; el orchestrator no
-  importa ningún adapter concreto; markers ENG-057/020/054 intactos.
+- **Corrección de auditoría 2026-07-12**: el gap estaba obsoleto.
+  `services/fiscal/adapter.ts` ya define `FiscalAdapter`; los adapters CO/MX/CL
+  lo implementan, el registry está tipado contra la interfaz y el orchestrator
+  no depende de clases concretas. ENG-059 puede incorporar el primer PT real
+  como otro adapter sin reescribir el flujo. No se requiere ticket adicional.
+- **Evidencia**: contrato formal + tres implementaciones + registry tipado;
+  markers ENG-057/020/054 preservados.
 
 ### WC-B4 · Desglose de `apps/desktop/src/main/index.ts` (819 LOC) `[offline]` — **S/M**
 
@@ -192,7 +213,7 @@ XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
 - **AC**: suite main-process (111) verde + smoke E2E Electron verde; conteo de
   canales IPC idéntico (ya hay test que lo pinnea).
 
-### WC-B5 · Registrar y podar superficies no-op `[simplicidad]` — **S**
+### WC-B5 · Registrar y podar superficies no-op `[simplicidad]` — **S** ✅
 
 - `reports.inventory.discrepancies` + `reconcileProductStockFromBalances` son
   no-op estructurales post-unificación (el propio doc-comment lo dice). Plan:
@@ -200,6 +221,9 @@ XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
   endpoint 1 release más, borrar después.
 - **AC**: Operations Center sin panel muerto; endpoints marcados
   `@deprecated`; BACKLOG apunta la fecha de borrado.
+- **Shipped 2026-07-13**: retirados el tab y panel de reconciliación de
+  inventario de Operations; el deep link legado vuelve a Necesita atención.
+  Los dos procedures y el helper no-op quedan `@deprecated` hasta 2026-10-01.
 
 ---
 
@@ -258,16 +282,30 @@ XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
   (timestamps por venta). Hook `useCashierPace` + strip en SalesCheckoutPanel.
 - **AC**: cálculo correcto con ventas suspendidas/reanudadas; toggle en perfil
   de usuario; cero costo cuando está apagado.
+- **Shipped 2026-07-13 (ENG-209)**: `cashSessions.myPace` deriva identidad,
+  tenant y sede del contexto autenticado; no acepta un cajero objetivo. El
+  toggle OFF-by-default se guarda por tenant/usuario y habilita un strip lazy
+  bilingüe con ítems/min, duración promedio instrumentada y mejor marca
+  histórica. La migración 0010 persiste límites inmutables de inicio y fin del
+  checkout también al reanudar, sin depender del `updated_at` que cambian las
+  reimpresiones o devoluciones; historia sin medición, drafts, anulaciones,
+  tiempos futuros y carritos abandonados quedan fuera. Pasan CI web/server,
+  los 65 E2E y el smoke EN/ES con consola limpia.
 
-### WC-C5 · Omnibox de venta `[checkout]` — **M**
+### WC-C5 · Omnibox de venta `[checkout]` — **M** ✅ ENG-205
 
 - **Qué**: el CommandPalette (ya global) gana un modo venta: desde CUALQUIER
   pantalla, `Ctrl+K` + escanear/escribir un producto lo agrega al carrito
   activo y navega a /sales. "La app entera es una caja".
 - **Cómo**: extender el provider del palette con acción `sell:` que llama al
   cart workspace store (zustand, ya persiste) + `lookupByBarcode` existente.
-- **AC**: scan desde /inventory agrega al carrito y enfoca /sales; sin robar
-  foco de inputs editables (guard existente `isEditableShortcutTarget`).
+- **Shipped 2026-07-12 (ENG-205)**: el palette busca productos activos por
+  nombre, SKU o código de barras para roles de venta, preserva unidad de
+  empaque/cantidad/precio sugeridos en scans exactos y agrega al draft editable
+  del operador sin tocar carritos reanudados ni ajenos. Desde `/inventory`
+  navega a `/sales`, restaura el foco del buscador POS y mantiene `Mod+K`
+  disponible en el input POS histórico sin robarlo de otros campos editables.
+  Unit tests, `ci:web`, los 65 E2E web y smoke EN/ES con consola limpia pasan.
 
 ### WC-C6 · Semáforo de margen en el catálogo (modo dueño) `[stock][audit]` — **S**
 
@@ -297,6 +335,11 @@ XmlRetentionPolicy }` en `services/fiscal/provider.ts`, implementar el mock
   (WhatsApp real) lo vuelve push automático después.
 - **AC**: card generada client-side (canvas/HTML→imagen); texto EN/ES; sin
   datos sensibles de clientes.
+- **Shipped 2026-07-13**: el cierre de manager/admin incorpora ventas, margen,
+  ticket promedio y comparación tenant-scoped contra el mismo día de la semana
+  anterior. La card genera un PNG en canvas y un deep link `wa.me` localizado;
+  el payload y la UI permanecen nulos para cajeros y el modelo compartible no
+  admite datos de clientes, productos, registros ni cajeros.
 
 ### WC-C9 · Contador de caja con semáforo en vivo `[caja]` — **S**
 
@@ -503,20 +546,32 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
   (miles de casos totales, < 5 s). La tercera suite queda ligada a WC-D1,
   porque la resolución de listas de precios todavía no existe.
 
-### WC-E2 · Contract snapshot del API surface — **S**
+### WC-E2 · Contract snapshot del API surface — **S** ✅
 
 - Test que serializa (nombre → tipo input/output resumido) de todos los
   procedures del `appRouter` y lo compara contra un snapshot commiteado.
   Un cambio de contrato se vuelve un diff de PR visible, no una sorpresa del
   cliente. Mismo espíritu que el manifest de sync (que ya lo hace bien).
 - **AC**: renombrar/borrar un procedure rompe el test con mensaje claro.
+- **Shipped 2026-07-13**: manifest JSON ordenado de todos los procedures con
+  path, kind y resumen compacto de parsers input/output; el test reporta rutas
+  agregadas, eliminadas y cambiadas, y el script `contract:snapshot` exige una
+  regeneración deliberada para aceptar el diff.
 
-### WC-E3 · E2E Playwright de los 3 flujos de dinero en pre-release — **M**
+### WC-E3 · E2E Playwright de los 3 flujos de dinero en pre-release — **M** ✅ ENG-210
 
 - Los suites e2e existen pero son local-only. Añadir un job manual-dispatch
   (no en push/PR — respeta el presupuesto de minutos) que corra login + venta
   - cierre de caja + devolución, requerido por `release.yml` antes de empacar.
 - **AC**: `release.yml` depende del job e2e-web verde.
+- **Shipped 2026-07-13 (ENG-210)**: tres journeys etiquetados prueban venta,
+  cierre de caja y devolución con identidades reales, persistencia, inventario
+  y auditoría. El comando serial de prerelease corre desde un workflow reusable
+  y manual, conserva screenshots/reportes/traces, y `release.yml` valida el tag
+  exacto antes de habilitar cualquier archivo web o instalador desktop. El CI de
+  push/PR sólo verifica el contrato del workflow; no ejecuta el navegador caro.
+  Pasan 32 tests de automatización de release, los 3 journeys dirigidos y los
+  65 E2E web completos.
 
 ---
 
@@ -526,7 +581,7 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | WC-F1 | Ejecutar WC-B5 (podar no-ops de reconcile)                                                                                                           | S        |
 | WC-F2 | Marcar price tiers/margins legacy `@deprecated` cuando WC-D1 aterrice; regla ESLint que bloquee nuevos usos                                          | S        |
-| WC-F3 | Mantener el tracking Electron 42 (better-sqlite3 #1474) y el plan N-API — ya documentado en AGENTS.md, no requiere acción hasta upstream             | —        |
+| WC-F3 | Mantener el tracking de Electron 43/prebuilds y el plan N-API; Electron 42 ya quedó habilitado con el fix V8 14 de better-sqlite3 12.11.1            | —        |
 | WC-F4 | `sale_payments`/`sale_returns`: decidir la serialización agregada de venta para sync (hoy placeholders); documentar la decisión en ADR-0004 addendum | M        |
 
 ---
@@ -548,16 +603,18 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 8   | ✅ WC-C1 cierre de día en 60 segundos (ritual post-cierre con margen real + racha, role-gated) — ENG-198 shipped 2026-07-10 ⭐  | M        | caja                  |
 | 9   | ✅ WC-C3 radar de vencimientos (tab Inventario + sugerencia de descuento auditada + badge POS) — ENG-199 shipped 2026-07-10 ⭐  | M        | stock                 |
 | 10  | ✅ WC-A3 sales Lighthouse floor + deferred payment drawer — ENG-200 shipped 2026-07-11                                          | S/M      | checkout              |
-| 11  | ✅ WC-B4 desglose desktop main/index.ts — ENG-201 shipped 2026-07-11                                                           | S/M      | mantenibilidad        |
-| 12  | ✅ WC-C7 primera venta en 5 min — ENG-202 shipped 2026-07-11                                                                   | M        | checkout              |
-| 13  | WC-B2 packages/shared                                                                                                           | M        | mantenibilidad        |
-| 14  | WC-B3 FiscalProvider interface                                                                                                  | M        | fiscal                |
+| 11  | ✅ WC-B4 desglose desktop main/index.ts — ENG-201 shipped 2026-07-11                                                            | S/M      | mantenibilidad        |
+| 12  | ✅ WC-C7 primera venta en 5 min — ENG-202 shipped 2026-07-11                                                                    | M        | checkout              |
+| 13  | ✅ WC-B2 packages/shared — ENG-203 shipped 2026-07-12                                                                           | M        | mantenibilidad        |
+| 14  | ✅ WC-B3 FiscalAdapter ya existía; auditoría corregida 2026-07-12                                                               | M        | fiscal                |
 | 15  | WC-D1 listas de precios (con WC-F2)                                                                                             | L        | checkout              |
 | 16  | ✅ WC-C5 omnibox de venta (fila Vender en el palette: barcode exacto → carrito, miss → búsqueda prefilled) — ENG-203 shipped 2026-07-16 | M        | checkout              |
 | 17  | ✅ WC-D2 lealtad mínima (ledger append-only, acumulación en la venta, reversa por reembolso, chip de saldo en el cobro) — ENG-213 shipped 2026-07-17 | M        | checkout              |
-| 18  | WC-B1 application/ por fases                                                                                                    | L        | mantenibilidad        |
-| 19  | WC-A2 SSE backpressure                                                                                                          | M        | offline               |
+| 18  | ✅ WC-B1 application/ por fases — ENG-206/207/208 shipped 2026-07-13                                                            | L        | mantenibilidad        |
+| 19  | ✅ WC-A2 SSE backpressure + replay — shipped 2026-07-12                                                                         | M        | offline               |
 | 20  | WC-D3/WC-D4 bins + seriales                                                                                                     | M        | stock (product-gated) |
+| 21  | ✅ WC-C4 HUD privado de cajero (opt-in) — ENG-209 shipped 2026-07-13                                                            | M        | checkout              |
+| 22  | ✅ WC-E3 E2E prerelease de venta, cierre y devolución — ENG-210 shipped 2026-07-13                                              | M        | testeabilidad         |
 
 **Flujo**: cada item que se ejecute se promueve a `ROADMAP.md §3b` como
 `ENG-NNN` con AC copiadas de este doc (ids libres desde ENG-192), vía

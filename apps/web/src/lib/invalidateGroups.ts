@@ -50,6 +50,17 @@ export async function invalidateGroups(
 }
 
 /**
+ * Every mutation that changes a serialized unit's availability or warranty
+ * provenance must invalidate both read surfaces. Queries are input-scoped
+ * (site/product for list, serial number for lookup), so invalidating the leaf
+ * refreshes every active variant without callers having to reconstruct keys.
+ */
+export const SERIAL_INVENTORY_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.productSerials.list,
+  u => u.productSerials.lookup,
+];
+
+/**
  * The canonical "a sale was completed" invalidation set, shared by every
  * surface that finishes a sale (desktop SalesPage epilogue and the touch
  * POS). Completing a sale touches cash sessions, sales lists/summary,
@@ -62,6 +73,7 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   // tenant's first completed sale.
   u => u.setupReadiness.firstSale,
   u => u.cashSessions.getActive,
+  u => u.cashSessions.myPace,
   u => u.cashSessions.movements,
   // ENG-204 — the pace HUD should jump the moment a sale lands, not on
   // its 60 s poll; no-op while the HUD is opted out (query disabled).
@@ -75,6 +87,7 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   u => u.inventory.listStock,
   u => u.products.list,
   u => u.products.search,
+  ...SERIAL_INVENTORY_INVALIDATIONS,
   // ENG-090 — credit sales mutate the ledger, so the cupo card
   // inside SalePaymentModal must refetch on the next open.
   u => u.customerLedger.getBalance,
@@ -82,4 +95,27 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   // ENG-213 — the sale may have accrued points; refresh the balance chip
   // so the next checkout shows the customer's real total.
   u => u.loyalty.forCustomer,
+];
+
+/** Queries affected when the current operator opens a cash session. */
+export const CASH_SESSION_OPEN_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.setupReadiness.firstSale,
+  u => u.cashSessions.getActive,
+  u => u.cashSessions.myPace,
+  u => u.cashSessions.report,
+  u => u.cashSessions.registerAssignments,
+  // ENG-140d — opening a drawer can atomically clock the cashier in.
+  u => u.employeeShifts.current,
+  u => u.employeeShifts.attendance.list,
+];
+
+/** Queries affected when the current operator closes a cash session. */
+export const CASH_SESSION_CLOSE_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.cashSessions.getActive,
+  u => u.cashSessions.myPace,
+  u => u.cashSessions.report,
+  u => u.cashSessions.registerAssignments,
+  // Closing removes the clock-out guard but deliberately leaves attendance open.
+  u => u.employeeShifts.current,
+  u => u.employeeShifts.attendance.list,
 ];

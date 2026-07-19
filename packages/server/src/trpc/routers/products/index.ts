@@ -22,8 +22,9 @@
  * during the megafile wave. The procedure bodies + shared helpers moved
  * verbatim; only the file layout changed. The procedure paths
  * (`products.create`, etc.) and `AppRouter`'s inferred shape are unchanged, so
- * the web client and the caller-based tests are unaffected. Shared resolvers
- * live in `helpers.ts` (mutation-side) and `product-read.ts` (read/projection).
+ * the web client and the caller-based tests are unaffected. ENG-207 moved
+ * create/update use-cases into `application/products/` and shared catalog
+ * primitives into `services/products/` while keeping procedure paths stable.
  *
  * @module trpc/routers/products
  */

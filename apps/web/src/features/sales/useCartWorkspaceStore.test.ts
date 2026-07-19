@@ -50,6 +50,7 @@ describe('useCartWorkspaceStore', () => {
     expect(active?.ownerKey).toBe(ownerKey);
     expect(active?.items).toEqual([]);
     expect(active?.serverSaleId).toBeNull();
+    expect(active?.checkoutStartedAt).toBeNull();
   });
 
   it('filters workspaces by ownerKey so two cashiers on the same machine stay isolated', () => {
@@ -93,6 +94,7 @@ describe('useCartWorkspaceStore', () => {
       ownerKey: 'tenant-1:user-a',
       serverSaleId: 'sale-123',
       serverSaleNumber: 'VTA-000042',
+      serverCustomerId: 'customer-42',
       label: 'Mesa 5',
       items: [sampleItem()],
     });
@@ -100,9 +102,30 @@ describe('useCartWorkspaceStore', () => {
     const state = useCartWorkspaceStore.getState();
     expect(state.activeId).toBe(id);
     expect(state.workspaces[id]?.serverSaleId).toBe('sale-123');
+    expect(state.workspaces[id]?.serverCustomerId).toBe('customer-42');
     expect(state.workspaces[id]?.serverSaleNumber).toBe('VTA-000042');
     expect(state.workspaces[id]?.label).toBe('Mesa 5');
+    expect(Date.parse(state.workspaces[id]?.checkoutStartedAt ?? '')).not.toBeNaN();
     expect(selectActiveIsResumed(state)).toBe(true);
+  });
+
+  it('starts checkout on the first cart item and resets after the cart empties', () => {
+    const store = useCartWorkspaceStore.getState();
+    const id = store.createDraft('tenant-1:user-a');
+
+    store.updateCart(id, [sampleItem()]);
+    const firstStart = useCartWorkspaceStore.getState().workspaces[id]?.checkoutStartedAt;
+    expect(Date.parse(firstStart ?? '')).not.toBeNaN();
+
+    store.updateCart(id, [sampleItem({ quantity: 2 })]);
+    expect(useCartWorkspaceStore.getState().workspaces[id]?.checkoutStartedAt).toBe(firstStart);
+
+    store.updateCart(id, []);
+    expect(useCartWorkspaceStore.getState().workspaces[id]?.checkoutStartedAt).toBeNull();
+
+    store.updateCart(id, [sampleItem()]);
+    expect(Date.parse(useCartWorkspaceStore.getState().workspaces[id]?.checkoutStartedAt ?? ''))
+      .not.toBeNaN();
   });
 
   it('removeWorkspace clears activeId when the removed workspace was active', () => {
@@ -261,6 +284,7 @@ describe('useCartWorkspaceStore', () => {
         ownerKey: 'tenant-1:user-a',
         serverSaleId: 'sale-xyz',
         serverSaleNumber: 'VTA-9',
+        serverCustomerId: null,
         label: null,
         items: [sampleItem()],
       });

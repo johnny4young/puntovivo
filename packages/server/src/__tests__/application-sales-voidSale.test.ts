@@ -9,9 +9,11 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import {
+  auditLogs,
   cashMovements,
   cashSessions,
   inventoryBalances,
+  managerApprovalRequests,
   operationEffects,
   products,
   sales,
@@ -23,6 +25,10 @@ import {
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
+import {
+  resolveLossPreventionSettings,
+  writeLossPreventionSettings,
+} from '../services/loss-prevention/settings.js';
 import { recordOperationStart } from '../services/operation-journal/journal.js';
 import { completeSale } from '../application/sales/completeSale.js';
 import { voidSale } from '../application/sales/voidSale.js';
@@ -35,6 +41,7 @@ let userId: string;
 let siteId: string;
 let baseUnitId: string;
 let cashSessionId: string;
+let approvalApproverId: string;
 
 function buildContext(overrides: Partial<CompleteSaleContext> = {}): CompleteSaleContext {
   return {
@@ -105,9 +112,7 @@ async function seedCompletedCashSale(productId: string) {
   const result = await completeSale(buildContext(), {
     mode: 'fresh',
     customerId: null,
-    items: [
-      { productId, unitId: baseUnitId, quantity: 1, unitPrice: 11.9, discount: 0 },
-    ],
+    items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 11.9, discount: 0 }],
     paymentMethod: 'cash',
     paymentStatus: 'paid',
     status: 'completed',
@@ -121,9 +126,7 @@ async function seedCompletedSplitSale(productId: string) {
   const result = await completeSale(buildContext(), {
     mode: 'fresh',
     customerId: null,
-    items: [
-      { productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 },
-    ],
+    items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
     payments: [
       { method: 'cash', amount: 30, reference: null },
       { method: 'card', amount: 70, reference: 'card-auth-vd-split' },
@@ -136,14 +139,37 @@ async function seedCompletedSplitSale(productId: string) {
   return (result.sale as { id: string }).id;
 }
 
+async function seedApprovedVoidGrant(saleId: string): Promise<string> {
+  const id = nanoid();
+  const timestamp = new Date().toISOString();
+  await getDatabase()
+    .insert(managerApprovalRequests)
+    .values({
+      id,
+      tenantId,
+      siteId,
+      requesterId: userId,
+      action: 'sale_void',
+      status: 'approved',
+      reason: 'Administrator verified the void',
+      resourceType: 'sale',
+      resourceId: saleId,
+      summary: { label: saleId },
+      requestedAt: timestamp,
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      decidedAt: timestamp,
+      decidedBy: approvalApproverId,
+      grantExpiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  return id;
+}
+
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -154,14 +180,21 @@ beforeAll(async () => {
     .get();
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
-  const seededUnits = await db
-    .select()
-    .from(units)
-    .where(eq(units.tenantId, tenantId))
-    .all();
+  const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
   if (!baseUnit) throw new Error('Expected seeded unit UND');
   baseUnitId = baseUnit.id;
+
+  approvalApproverId = nanoid();
+  await db.insert(users).values({
+    id: approvalApproverId,
+    tenantId,
+    email: `void-approver-${approvalApproverId}@example.test`,
+    name: 'Void Approver',
+    passwordHash: 'not-used-by-router-tests',
+    role: 'admin',
+    isActive: true,
+  });
 
   const reg = await registerDeviceService(db, {
     tenantId,
@@ -249,6 +282,120 @@ describe('voidSale (open session)', () => {
   });
 });
 
+describe('voidSale (ENG-106c3 approval boundary)', () => {
+  it('requires an admin grant from a manager and leaves the sale unchanged on denial', async () => {
+    const productId = await seedProduct({
+      name: 'Void grant denied',
+      sku: `VD-GRANT-DENIED-${nanoid()}`,
+      stock: 5,
+    });
+    const saleId = await seedCompletedCashSale(productId);
+
+    await expect(
+      voidSale(buildContext({ user: { id: userId, role: 'manager' } }), { id: saleId })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+    });
+    const unchanged = await getDatabase()
+      .select({ status: sales.status })
+      .from(sales)
+      .where(eq(sales.id, saleId))
+      .get();
+    expect(unchanged?.status).toBe('completed');
+  });
+
+  it('atomically consumes the manager grant and links requester and approver evidence', async () => {
+    const productId = await seedProduct({
+      name: 'Void grant consumed',
+      sku: `VD-GRANT-OK-${nanoid()}`,
+      stock: 5,
+    });
+    const saleId = await seedCompletedCashSale(productId);
+    const approvalRequestId = await seedApprovedVoidGrant(saleId);
+
+    await voidSale(buildContext({ user: { id: userId, role: 'manager' } }), {
+      id: saleId,
+      approvalRequestId,
+      reason: 'Wrong customer',
+    });
+
+    const consumed = await getDatabase()
+      .select({ status: managerApprovalRequests.status })
+      .from(managerApprovalRequests)
+      .where(eq(managerApprovalRequests.id, approvalRequestId))
+      .get();
+    expect(consumed?.status).toBe('consumed');
+    const audit = await getDatabase()
+      .select({ metadata: auditLogs.metadata })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.action, 'sale.void'),
+          eq(auditLogs.resourceId, saleId),
+          eq(auditLogs.actorId, userId)
+        )
+      )
+      .get();
+    expect(audit?.metadata).toMatchObject({
+      approvalRequestId,
+      approvedBy: approvalApproverId,
+    });
+  });
+
+  it('forces a manager through the shift void cap and tags the completed audit session', async () => {
+    const db = getDatabase();
+    const previous = resolveLossPreventionSettings(db, tenantId);
+    writeLossPreventionSettings(db, tenantId, {
+      ...previous,
+      roles: {
+        ...previous.roles,
+        manager: {
+          ...previous.roles.manager,
+          shift: {
+            ...previous.roles.manager.shift,
+            voids: { enabled: true, maxCount: 0, maxAmount: 0 },
+          },
+        },
+      },
+    });
+    try {
+      const productId = await seedProduct({
+        name: 'Void shift cap manager',
+        sku: `VD-SHIFT-CAP-${nanoid()}`,
+        stock: 5,
+      });
+      const saleId = await seedCompletedCashSale(productId);
+      const managerContext = buildContext({ user: { id: userId, role: 'manager' } });
+
+      await expect(voidSale(managerContext, { id: saleId })).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+      });
+
+      const approvalRequestId = await seedApprovedVoidGrant(saleId);
+      await voidSale(managerContext, { id: saleId, approvalRequestId });
+
+      const audit = db
+        .select({ metadata: auditLogs.metadata })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.action, 'sale.void'),
+            eq(auditLogs.resourceId, saleId),
+            eq(auditLogs.actorId, userId)
+          )
+        )
+        .get();
+      expect(audit?.metadata).toMatchObject({
+        approvalRequestId,
+        approvedBy: approvalApproverId,
+        lossPreventionCashSessionId: cashSessionId,
+      });
+    } finally {
+      writeLossPreventionSettings(db, tenantId, previous);
+    }
+  });
+});
+
 describe('voidSale (closed session)', () => {
   it('reverses stock but does NOT touch cash when the original session is closed', async () => {
     const db = getDatabase();
@@ -279,9 +426,7 @@ describe('voidSale (closed session)', () => {
     const refundMovement = await db
       .select()
       .from(cashMovements)
-      .where(
-        and(eq(cashMovements.referenceId, saleId), eq(cashMovements.type, 'refund'))
-      )
+      .where(and(eq(cashMovements.referenceId, saleId), eq(cashMovements.type, 'refund')))
       .all();
     expect(refundMovement.length).toBe(0);
 
@@ -310,11 +455,7 @@ describe('voidSale (state guards)', () => {
     const db = getDatabase();
     const productId = await seedProduct({ name: 'Void refunded', sku: 'VD-REF', stock: 5 });
     const saleId = await seedCompletedCashSale(productId);
-    await db
-      .update(sales)
-      .set({ paymentStatus: 'refunded' })
-      .where(eq(sales.id, saleId))
-      .run();
+    await db.update(sales).set({ paymentStatus: 'refunded' }).where(eq(sales.id, saleId)).run();
 
     await expect(voidSale(buildContext(), { id: saleId })).rejects.toMatchObject({
       message: expect.stringMatching(/refunded/i),

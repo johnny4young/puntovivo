@@ -25,7 +25,10 @@ function buildProviderPayload(values: ProductFormValues) {
  * so the single `providerId` and the multi-provider assignments stay
  * consistent; fraction step/minimum are nulled out when not sold by fraction.
  */
-export function buildProductPayload(values: ProductFormValues) {
+export function buildProductPayload(
+  values: ProductFormValues,
+  options: { includeStock?: boolean } = {}
+) {
   const providerPayload = buildProviderPayload(values);
 
   return {
@@ -50,11 +53,13 @@ export function buildProductPayload(values: ProductFormValues) {
     marginAmount2: values.marginAmount2,
     marginAmount3: values.marginAmount3,
     taxRate: values.taxRate,
-    stock: values.stock,
+    ...(options.includeStock === false ? {} : { stock: values.stock }),
     minStock: values.minStock,
     sellByFraction: values.sellByFraction,
     fractionStep: values.sellByFraction ? values.fractionStep : null,
     fractionMinimum: values.sellByFraction ? values.fractionMinimum : null,
+    tracksLots: values.tracksLots,
+    tracksSerials: values.tracksSerials,
     isActive: values.isActive,
     unitAssignments: values.unitAssignments.map(assignment => ({
       unitId: assignment.unitId,

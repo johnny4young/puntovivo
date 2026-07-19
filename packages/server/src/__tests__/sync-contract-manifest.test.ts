@@ -39,6 +39,7 @@ describe('sync contract manifest', () => {
       'sale_payments',
       'sale_returns',
       'sale_item_lots',
+      'sale_item_serials',
       'cash_sessions',
       'cash_movements',
       'fiscal_documents',
@@ -47,6 +48,7 @@ describe('sync contract manifest', () => {
       'fiscal_certificates',
       'inventory_movements',
       'inventory_balances',
+      'product_serials',
       'transfer_orders',
       'transfer_order_items',
       'stock_adjustments',
@@ -90,6 +92,8 @@ describe('sync contract manifest', () => {
     expect(resolveDefaultPriority('audit_logs')).toBe(10);
     expect(resolveDefaultPriority('sales')).toBe(5);
     expect(resolveDefaultPriority('sale_item_lots')).toBe(5);
+    expect(resolveDefaultPriority('sale_item_serials')).toBe(5);
+    expect(resolveDefaultPriority('product_serials')).toBe(5);
     expect(resolveDefaultPriority('cash_sessions')).toBe(5);
     expect(resolveDefaultPriority('customers')).toBe(0);
     expect(resolveDefaultPriority('products')).toBe(0);

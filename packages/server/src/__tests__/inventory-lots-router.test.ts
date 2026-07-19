@@ -12,6 +12,7 @@ import { getDatabase } from '../db/index.js';
 import { products, sites, users, vatRates } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { getProductStockTotal } from '../services/inventory-balances.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -130,6 +131,28 @@ describe('inventoryLots router (lots & costing)', () => {
     expect(second.onHand).toBe(20);
     // (10*100 + 10*120) / 20 = 110
     expect(second.unitCost).toBe(110);
+    expect(getProductStockTotal(getDatabase(), tenantId, productId)).toBe(20);
+  });
+
+  it('rejects a lot receipt until the product opts into lot tracking', async () => {
+    const caller = appRouter.createCaller(makeContext('manager'));
+    const untracked = await caller.products.create({
+      name: 'Legacy untracked product',
+      sku: `UNTRACKED-${nanoid()}`,
+      stock: 0,
+    });
+
+    await expect(
+      caller.inventoryLots.receive({
+        siteId,
+        productId: untracked.id,
+        lotNumber: 'NO-LOT-MODE',
+        quantity: 1,
+        unitCost: 10,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_LOT_TRACKING_REQUIRED' },
+    });
   });
 
   it('keeps fractional on-hand quantities without money-rounding them', async () => {

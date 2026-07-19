@@ -4,10 +4,7 @@ import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 import type { InventoryBalancesBySiteResult } from '@/types';
-import {
-  InventoryBalancesPanel,
-  type InventoryBalancesPanelSite,
-} from './InventoryBalancesPanel';
+import { InventoryBalancesPanel, type InventoryBalancesPanelSite } from './InventoryBalancesPanel';
 
 type BalancesQueryResult = {
   data: InventoryBalancesBySiteResult | undefined;
@@ -18,6 +15,7 @@ type BalancesQueryResult = {
 
 let balancesQueryResult: BalancesQueryResult;
 const balancesQuerySpy = vi.fn();
+let serialQueryItems: Array<{ id: string; serialNumber: string }> = [];
 
 const transferMutationState = {
   mutateAsync: vi.fn(async () => undefined),
@@ -31,6 +29,14 @@ vi.mock('@/lib/trpc', () => ({
     useUtils: () => ({
       inventory: { listBalancesBySite: { invalidate: vi.fn(async () => undefined) } },
       transfers: { list: { invalidate: vi.fn(async () => undefined) } },
+      productSerials: {
+        list: { invalidate: vi.fn(async () => undefined) },
+        lookup: { invalidate: vi.fn(async () => undefined) },
+      },
+      products: {
+        list: { invalidate: vi.fn(async () => undefined) },
+        search: { invalidate: vi.fn(async () => undefined) },
+      },
     }),
     inventory: {
       listBalancesBySite: {
@@ -38,6 +44,11 @@ vi.mock('@/lib/trpc', () => ({
           balancesQuerySpy(input);
           return balancesQueryResult;
         },
+      },
+    },
+    productSerials: {
+      list: {
+        useQuery: () => ({ data: { items: serialQueryItems }, isLoading: false, error: null }),
       },
     },
     transfers: {
@@ -80,6 +91,10 @@ vi.mock('@/lib/trpc', () => ({
       },
     },
   },
+}));
+
+vi.mock('@/lib/useCriticalMutation', () => ({
+  useCriticalMutation: () => transferMutationState,
 }));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
@@ -153,12 +168,7 @@ describe('InventoryBalancesPanel', () => {
 
   it('renders balance rows and summary totals for the selected site', () => {
     setBalancesResult();
-    render(
-      <InventoryBalancesPanel
-        sites={[primarySite, secondarySite]}
-        sitesLoading={false}
-      />
-    );
+    render(<InventoryBalancesPanel sites={[primarySite, secondarySite]} sitesLoading={false} />);
 
     expect(screen.getByText('Cable 2.5m')).toBeInTheDocument();
     expect(screen.getByText('CABLE-25')).toBeInTheDocument();
@@ -179,12 +189,7 @@ describe('InventoryBalancesPanel', () => {
     setBalancesResult();
     balancesQuerySpy.mockClear();
 
-    render(
-      <InventoryBalancesPanel
-        sites={[primarySite, secondarySite]}
-        sitesLoading={false}
-      />
-    );
+    render(<InventoryBalancesPanel sites={[primarySite, secondarySite]} sitesLoading={false} />);
 
     const user = userEvent.setup();
     await user.selectOptions(screen.getByLabelText('Site'), secondarySite.id);
@@ -203,12 +208,7 @@ describe('InventoryBalancesPanel', () => {
     const singleSiteButton = screen.getByRole('button', { name: /Transfer stock/i });
     expect(singleSiteButton).toBeDisabled();
 
-    rerender(
-      <InventoryBalancesPanel
-        sites={[primarySite, secondarySite]}
-        sitesLoading={false}
-      />
-    );
+    rerender(<InventoryBalancesPanel sites={[primarySite, secondarySite]} sitesLoading={false} />);
 
     const twoSiteButton = screen.getByRole('button', { name: /Transfer stock/i });
     expect(twoSiteButton).not.toBeDisabled();
@@ -218,12 +218,7 @@ describe('InventoryBalancesPanel', () => {
     setBalancesResult();
     transferMutationState.mutateAsync.mockClear();
 
-    render(
-      <InventoryBalancesPanel
-        sites={[primarySite, secondarySite]}
-        sitesLoading={false}
-      />
-    );
+    render(<InventoryBalancesPanel sites={[primarySite, secondarySite]} sitesLoading={false} />);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Transfer stock/i }));
@@ -234,5 +229,42 @@ describe('InventoryBalancesPanel', () => {
 
     expect(screen.getByText('Transfer stock between sites')).toBeInTheDocument();
     expect(transferMutationState.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('selects exact serialized identities and derives transfer quantity from them', async () => {
+    serialQueryItems = [
+      { id: 'serial-1', serialNumber: 'SCN-001' },
+      { id: 'serial-2', serialNumber: 'SCN-002' },
+    ];
+    setBalancesResult({
+      data: {
+        ...primaryBalances,
+        items: [{ ...primaryBalances.items[0]!, tracksSerials: true, onHand: 2, available: 2 }],
+      },
+    });
+    transferMutationState.mutateAsync.mockClear();
+
+    render(<InventoryBalancesPanel sites={[primarySite, secondarySite]} sitesLoading={false} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Transfer stock/i }));
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Product' }), 'product-1');
+    await user.click(screen.getByRole('checkbox', { name: 'SCN-001' }));
+    await user.click(screen.getByRole('checkbox', { name: 'SCN-002' }));
+
+    expect(screen.getByRole('spinbutton', { name: /Quantity/ })).toHaveValue(2);
+    expect(screen.getByRole('spinbutton', { name: /Quantity/ })).toHaveAttribute('readonly');
+    await user.click(screen.getByRole('button', { name: 'Transfer' }));
+    expect(transferMutationState.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            productId: 'product-1',
+            quantity: 2,
+            serialIds: ['serial-1', 'serial-2'],
+          }),
+        ],
+      })
+    );
+    serialQueryItems = [];
   });
 });

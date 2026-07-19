@@ -1,4 +1,6 @@
 import { roundMoney } from '@/lib/money';
+import { getCheckoutApprovalDiscountAmount } from '@puntovivo/shared/checkout-approval';
+import { normalizedQuantity, roundQuantity } from '@puntovivo/shared/unit-math';
 import type { ProductSearchSelection } from '@/types';
 
 // ENG-179b — explicit `| undefined` on optional fields.
@@ -18,6 +20,10 @@ export interface SaleCartItem {
   sellByFraction: boolean;
   fractionStep?: number | null | undefined;
   fractionMinimum?: number | null | undefined;
+  tracksSerials?: boolean | undefined;
+  serialIds?: string[] | undefined;
+  /** Site whose sellable registry produced serialIds. */
+  serialSiteId?: string | null | undefined;
 }
 
 export interface SaleCartSummary {
@@ -27,13 +33,7 @@ export interface SaleCartSummary {
   total: number;
 }
 
-function roundQuantity(value: number) {
-  return Math.round(value * 1_000_000) / 1_000_000;
-}
-
-export function getSaleQuantityStep(
-  item: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep'>
-) {
+export function getSaleQuantityStep(item: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep'>) {
   return item.sellByFraction ? Math.max(item.fractionStep ?? 0.01, 0.01) : 1;
 }
 
@@ -75,12 +75,17 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     sellByFraction: selection.product.sellByFraction,
     fractionStep: selection.product.fractionStep,
     fractionMinimum: selection.product.fractionMinimum,
+    tracksSerials: selection.product.tracksSerials === true,
+    serialIds: [],
+    serialSiteId: null,
   };
 }
 
 export function updateCartItem(
   item: SaleCartItem,
-  updates: Partial<Pick<SaleCartItem, 'quantity' | 'discount' | 'unitPrice'>>
+  updates: Partial<
+    Pick<SaleCartItem, 'quantity' | 'discount' | 'unitPrice' | 'serialIds' | 'serialSiteId'>
+  >
 ): SaleCartItem {
   return {
     ...item,
@@ -99,7 +104,7 @@ export function mergeCartItem(items: SaleCartItem[], selection: ProductSearchSel
   return items.map((item, index) =>
     index === existingIndex
       ? updateCartItem(item, {
-          quantity: roundQuantity(item.quantity + getSaleQuantityStep(item)),
+          quantity: roundQuantity(item.quantity + getSaleQuantityStep(item), 6),
         })
       : item
   );
@@ -111,14 +116,39 @@ export function getLineTotals(item: SaleCartItem) {
   const total = grossAmount - discountAmount;
   const subtotal = item.taxRate > 0 ? total / (1 + item.taxRate / 100) : total;
   const taxAmount = total - subtotal;
-  const normalizedQuantity = item.quantity * item.unitEquivalence;
+  const normalizedStockQuantity = normalizedQuantity(item.quantity, item.unitEquivalence);
 
   return {
     subtotal: roundMoney(subtotal),
     taxAmount: roundMoney(taxAmount),
     total: roundMoney(total),
-    normalizedQuantity,
+    normalizedQuantity: normalizedStockQuantity,
   };
+}
+
+/**
+ * Serialized checkout is valid only when every physical identity came from
+ * the active site's registry and no identity is reused across cart lines.
+ * Older persisted carts have no serialSiteId and intentionally fail closed
+ * until the cashier reselects the units for the current site.
+ */
+export function areSerialSelectionsComplete(items: SaleCartItem[], siteId: string | null): boolean {
+  const selectedIds: string[] = [];
+
+  for (const item of items) {
+    if (!item.tracksSerials) continue;
+    const itemIds = item.serialIds ?? [];
+    if (
+      !siteId ||
+      item.serialSiteId !== siteId ||
+      itemIds.length !== getLineTotals(item).normalizedQuantity
+    ) {
+      return false;
+    }
+    selectedIds.push(...itemIds);
+  }
+
+  return new Set(selectedIds).size === selectedIds.length;
 }
 
 export function getCartSummary(items: SaleCartItem[]): SaleCartSummary {
@@ -140,4 +170,8 @@ export function getCartSummary(items: SaleCartItem[]): SaleCartSummary {
       total: 0,
     }
   );
+}
+
+export function getCartDiscountAmount(items: SaleCartItem[]): number {
+  return getCheckoutApprovalDiscountAmount(items);
 }

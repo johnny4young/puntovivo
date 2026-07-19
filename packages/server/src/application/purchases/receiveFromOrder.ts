@@ -27,6 +27,7 @@ import {
   applyInventoryBalanceDelta,
   ensurePrimaryInventoryBalanceSnapshot,
 } from '../../services/inventory-balances.js';
+import { receiveProductSerialUnits } from '../../services/product-serials.js';
 import type { CreatePurchaseFromOrderInput } from '../../trpc/schemas/purchases.js';
 import { getInventoryBalanceStateForSite, getPurchaseSequentialContext } from './helpers.js';
 import { getPurchaseRecord } from './purchase-read.js';
@@ -149,6 +150,21 @@ export async function createPurchaseFromOrder(
         })
         .run();
 
+      if (row.tracksSerials) {
+        receiveProductSerialUnits(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          siteId: orderRecord.siteId,
+          productId: row.productId,
+          serialNumbers: row.serialNumbers,
+          unitCost: row.baseUnitCost,
+          warrantyExpiresAt: null,
+          notes: `Purchase ${purchaseNumber} · order ${orderRecord.orderNumber}`,
+          sourcePurchaseItemId: row.id,
+          now,
+          syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+        });
+      }
+
       const previousStock = productStockState.get(row.productId) ?? 0;
       const newStock = previousStock + row.normalizedQuantity;
       const previousSiteBalance = siteBalanceState.get(row.productId) ?? 0;
@@ -182,6 +198,7 @@ export async function createPurchaseFromOrder(
         productId: row.productId,
         delta: row.normalizedQuantity,
         initialOnHandIfMissing: previousSiteBalance,
+        serialAware: row.tracksSerials,
         now,
       });
 

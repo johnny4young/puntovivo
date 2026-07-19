@@ -24,6 +24,7 @@ import {
   applyInventoryBalanceDelta,
   ensurePrimaryInventoryBalanceSnapshot,
 } from '../../services/inventory-balances.js';
+import { receiveProductSerialUnits } from '../../services/product-serials.js';
 import type { CreatePurchaseInput } from '../../trpc/schemas/purchases.js';
 import {
   getInventoryBalanceStateForSite,
@@ -105,6 +106,21 @@ export async function createPurchase(ctx: PurchaseContext, input: CreatePurchase
         })
         .run();
 
+      if (row.tracksSerials) {
+        receiveProductSerialUnits(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          siteId: purchaseSite.id,
+          productId: row.productId,
+          serialNumbers: row.serialNumbers,
+          unitCost: row.baseUnitCost,
+          warrantyExpiresAt: null,
+          notes: `Purchase ${purchaseNumber}`,
+          sourcePurchaseItemId: row.id,
+          now,
+          syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+        });
+      }
+
       const previousStock = productStockState.get(row.productId) ?? 0;
       const newStock = previousStock + row.normalizedQuantity;
       const previousSiteBalance = siteBalanceState.get(row.productId) ?? 0;
@@ -138,6 +154,7 @@ export async function createPurchase(ctx: PurchaseContext, input: CreatePurchase
         productId: row.productId,
         delta: row.normalizedQuantity,
         initialOnHandIfMissing: previousSiteBalance,
+        serialAware: row.tracksSerials,
         now,
       });
 
@@ -159,7 +176,6 @@ export async function createPurchase(ctx: PurchaseContext, input: CreatePurchase
         })
         .run();
     }
-
   });
 
   await enqueueSync(ctx, {

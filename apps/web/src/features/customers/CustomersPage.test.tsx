@@ -14,7 +14,11 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useAuthMock } = vi.hoisted(() => ({ useAuthMock: vi.fn() }));
+const { disposePersonalDataMock, exportPersonalDataMock, useAuthMock } = vi.hoisted(() => ({
+  disposePersonalDataMock: vi.fn(),
+  exportPersonalDataMock: vi.fn(),
+  useAuthMock: vi.fn(),
+}));
 
 vi.mock('@/features/auth/AuthProvider', () => ({ useAuth: useAuthMock }));
 
@@ -26,7 +30,6 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 // stay REAL so the column set and the drawer round-trip are exercised.
 vi.mock('@/features/customers/CustomerFormModal', () => ({ CustomerFormModal: () => null }));
 vi.mock('@/features/customers/CustomerLedgerModal', () => ({ CustomerLedgerModal: () => null }));
-vi.mock('@/components/form-controls/Modal', () => ({ ConfirmModal: () => null }));
 
 // vi.hoisted so the (hoisted) vi.mock factory can reference these without a
 // temporal-dead-zone error — `emptyList` is read eagerly as a property value.
@@ -35,6 +38,7 @@ const { customer, emptyList, listQueryInputs } = vi.hoisted(() => ({
   listQueryInputs: [] as unknown[],
   customer: {
     id: 'c-1',
+    version: 0,
     name: 'Comercializadora Andina',
     email: 'ventas@andina.co',
     phone: '+57 300 111 2233',
@@ -96,6 +100,48 @@ vi.mock('@/lib/trpc', () => ({
           reset: vi.fn(),
         }),
       },
+      previewPersonalDataDisposition: {
+        useQuery: () => ({
+          data: {
+            customer: {
+              id: customer.id,
+              name: customer.name,
+              version: customer.version,
+              privacyStatus: 'active',
+            },
+            disposition: 'delete',
+            linkedRecordCounts: {
+              sales: 0,
+              quotations: 0,
+              ledgerEntries: 0,
+              deliveryOrders: 0,
+              fiscalDocuments: 0,
+            },
+            totalLinkedRecords: 0,
+            retentionReason: null,
+          },
+          isLoading: false,
+          isFetching: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+      disposePersonalData: {
+        useMutation: () => ({
+          mutateAsync: disposePersonalDataMock,
+          isPending: false,
+          error: null,
+          reset: vi.fn(),
+        }),
+      },
+      exportPersonalData: {
+        useMutation: () => ({
+          mutateAsync: exportPersonalDataMock,
+          isPending: false,
+          error: null,
+          reset: vi.fn(),
+        }),
+      },
     },
     identificationTypes: { list: emptyList },
     personTypes: { list: emptyList },
@@ -110,6 +156,10 @@ import { CustomersPage } from './CustomersPage';
 describe('CustomersPage default column set (ENG-132b)', () => {
   beforeEach(() => {
     useAuthMock.mockReset();
+    disposePersonalDataMock.mockReset();
+    disposePersonalDataMock.mockResolvedValue(undefined);
+    exportPersonalDataMock.mockReset();
+    exportPersonalDataMock.mockResolvedValue(undefined);
     useAuthMock.mockReturnValue({ user: { id: 'u-1', role: 'admin' } });
   });
 
@@ -140,6 +190,46 @@ describe('CustomersPage default column set (ENG-132b)', () => {
     expect(within(drawer).getByText('ventas@andina.co')).toBeInTheDocument();
     expect(within(drawer).getByText('+57 300 111 2233')).toBeInTheDocument();
     expect(within(drawer).getByText('Bogotá, Cundinamarca')).toBeInTheDocument();
+  });
+
+  it('offers customer privacy actions only to admins', () => {
+    const { unmount } = render(<CustomersPage />);
+    expect(screen.getByRole('button', { name: 'Delete personal data' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /view details|ver detalle/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /export personal data|exportar datos personales/i })
+    );
+    expect(exportPersonalDataMock).toHaveBeenCalledWith({ id: 'c-1' });
+
+    unmount();
+    useAuthMock.mockReturnValue({ user: { id: 'u-2', role: 'manager' } });
+    render(<CustomersPage />);
+    fireEvent.click(screen.getByRole('button', { name: /view details|ver detalle/i }));
+    expect(
+      screen.queryByRole('button', { name: /export personal data|exportar datos personales/i })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete personal data' })).not.toBeInTheDocument();
+  });
+
+  it('requires the exact previewed customer name before disposing personal data', () => {
+    render(<CustomersPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete personal data' }));
+    expect(screen.getByRole('heading', { name: 'Delete customer data' })).toBeInTheDocument();
+    const confirmButton = screen.getByRole('button', { name: 'Delete permanently' });
+    expect(confirmButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Confirmation'), {
+      target: { value: customer.name },
+    });
+    expect(confirmButton).toBeEnabled();
+    fireEvent.click(confirmButton);
+
+    expect(disposePersonalDataMock).toHaveBeenCalledWith({
+      id: customer.id,
+      version: customer.version,
+      confirmation: customer.name,
+    });
   });
 });
 

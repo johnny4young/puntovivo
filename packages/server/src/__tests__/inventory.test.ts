@@ -433,6 +433,46 @@ describe('Inventory tRPC Router', () => {
     ).toEqual([5, 14]);
   });
 
+  it('blocks legacy aggregate-stock mutations for lot-tracked products', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const tracked = await caller.products.create({
+      name: 'Tracked inventory guard',
+      sku: `INV-LOT-GUARD-${nanoid()}`,
+      stock: 0,
+      tracksLots: true,
+      unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 1, isBase: true }],
+    });
+
+    await expect(
+      caller.inventory.recordEntry({
+        productId: tracked.id,
+        unitId: baseUnitId,
+        mode: 'initial',
+        quantity: 1,
+        cost: 1,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_LOT_TRACKING_STOCK_MANAGED' },
+    });
+    await expect(
+      caller.inventory.createMovement({
+        productId: tracked.id,
+        type: 'purchase',
+        quantity: 1,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_LOT_TRACKING_STOCK_MANAGED' },
+    });
+    await expect(
+      caller.inventory.adjustStock({
+        productId: tracked.id,
+        newStock: 1,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_LOT_TRACKING_STOCK_MANAGED' },
+    });
+  });
+
   it('records fractional initial inventory entries without rounding normalized stock', async () => {
     const caller = appRouter.createCaller(createTestContext());
 

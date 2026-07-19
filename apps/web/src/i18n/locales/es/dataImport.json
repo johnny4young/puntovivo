@@ -1,0 +1,401 @@
+{
+  "kicker": "Migración de lanzamiento",
+  "title": "Importar datos",
+  "description": "Lleva a Puntovivo productos, clientes, proveedores, cartera, bases iniciales de caja y perfiles fiscales mediante importaciones revisables y aisladas para tu negocio.",
+  "safety": {
+    "kicker": "Seguridad de la importación",
+    "title": "Elige cómo se usará este archivo",
+    "description": "Selecciona un modo antes de elegir el archivo. Al cambiar de modo se limpia el flujo de importación actual.",
+    "modeLabel": "Modo de datos de la importación",
+    "modes": {
+      "demo": {
+        "title": "Datos de demostración",
+        "description": "Valida filas de ejemplo o prueba sin guardar registros. El servidor bloquea cualquier intento de importación."
+      },
+      "real": {
+        "title": "Datos reales del negocio",
+        "description": "Crea registros en este negocio después de la vista previa y la confirmación explícita. Usa solo datos del comercio."
+      }
+    },
+    "demoBoundary": {
+      "title": "Límite de solo vista previa",
+      "description": "El modo de demostración puede leer, mapear, validar y exportar errores, pero nunca crea productos, inventario, clientes, proveedores, saldos de cartera ni plantillas de apertura de caja.",
+      "previewOnly": "Vista previa de demostración. Revisa y exporta los resultados; ninguna fila puede guardarse en este modo."
+    },
+    "realConfirmation": "Confirmo que este archivo contiene datos reales del negocio y que tengo un punto de restauración vigente.",
+    "rollback": {
+      "title": "Crea un punto de restauración antes de importar",
+      "description": "En la aplicación de escritorio, crea un respaldo cifrado de la base de datos antes de confirmar datos reales. Conserva el reporte final y el ID de importación para mantener la trazabilidad en la auditoría.",
+      "scopeWarning": "No existe una reversión del lote con un solo clic. Restaurar el respaldo reemplaza toda la base de datos local y también elimina cada venta, configuración u otro cambio realizado después de ese punto.",
+      "openBackup": "Abrir configuración de respaldos",
+      "openAudit": "Abrir registro de auditoría"
+    }
+  },
+  "fileSummary": "Filas de datos: {{rows}} · Columnas: {{columns}}",
+  "steps": {
+    "upload": {
+      "kicker": "Paso 1",
+      "title": "Elige un archivo de origen",
+      "description": "Carga un CSV UTF-8 o un archivo Excel .xlsx de hasta 10 MB y 500 filas de datos. El archivo permanece en este navegador hasta que generes la vista previa."
+    },
+    "map": {
+      "kicker": "Paso 2",
+      "title": "Asigna tus columnas",
+      "description": "Confirma las columnas detectadas. El nombre y el SKU son obligatorios; puedes dejar los demás campos sin asignar.",
+      "notMapped": "No importar",
+      "decimalFormat": "Formato numérico"
+    },
+    "preview": {
+      "kicker": "Paso 3",
+      "title": "Revisa antes de importar",
+      "description": "Puntovivo vuelve a validar cada fila en el servidor y omite los SKU y códigos existentes o repetidos."
+    }
+  },
+  "fields": {
+    "name": "Nombre del producto",
+    "sku": "SKU",
+    "description": "Descripción",
+    "barcode": "Código de barras",
+    "price": "Precio de venta",
+    "cost": "Costo",
+    "stock": "Stock de apertura",
+    "minStock": "Stock mínimo",
+    "taxRate": "Tasa de impuesto",
+    "tracksLots": "Controlar lotes y vencimientos"
+  },
+  "decimalFormats": {
+    "auto": "Detectar automáticamente",
+    "dot": "1,234.56 — decimal con punto",
+    "comma": "1.234,56 — decimal con coma"
+  },
+  "actions": {
+    "chooseFile": "Elegir CSV o Excel",
+    "downloadTemplate": "Descargar plantilla",
+    "reset": "Comenzar de nuevo",
+    "preview": "Validar y previsualizar",
+    "importing": "Importando…",
+    "completed": "Importación completada",
+    "importReady_one": "Importar {{count}} fila lista",
+    "importReady_other": "Importar {{count}} filas listas",
+    "downloadIssues": "Descargar novedades",
+    "downloadReport": "Descargar reporte"
+  },
+  "summary": {
+    "ariaLabel": "Resumen de validación de la importación",
+    "total": "Filas",
+    "ready": "Listas",
+    "duplicates": "Duplicadas",
+    "invalid": "Inválidas"
+  },
+  "statuses": {
+    "ready": "Lista",
+    "duplicate": "Duplicada",
+    "invalid": "Inválida"
+  },
+  "issues": {
+    "required": "Falta un valor obligatorio",
+    "too_long": "El valor supera la longitud permitida",
+    "invalid_number": "El formato numérico no es válido",
+    "invalid_boolean": "Usa sí/no, verdadero/falso o 1/0",
+    "out_of_range": "El valor está fuera del rango permitido",
+    "lot_tracking_requires_zero_stock": "El stock de apertura debe estar en cero cuando controlas lotes; recibe el primer lote después de importar",
+    "duplicate_file_sku": "El SKU está repetido en este archivo",
+    "duplicate_existing_sku": "El SKU ya existe en esta empresa",
+    "duplicate_file_barcode": "El código de barras está repetido en este archivo",
+    "duplicate_existing_barcode": "El código de barras ya existe en esta empresa",
+    "concurrent_duplicate": "Otra importación creó este producto mientras se ejecutaba la importación actual",
+    "import_failed": "No se pudo importar el producto",
+    "stock_failed": "El producto se importó, pero no se pudo registrar el stock de apertura"
+  },
+  "boolean": {
+    "yes": "Sí",
+    "no": "No"
+  },
+  "table": {
+    "row": "Fila",
+    "status": "Estado",
+    "field": "Campo",
+    "issues": "Novedades",
+    "details": "Detalle",
+    "noIssues": "Sin novedades",
+    "emptyValue": "—",
+    "issueFormat": "{{field}}: {{issue}}",
+    "previewLimit": "Se muestran las primeras 100 de {{count}} filas. El resumen y la importación incluyen todas las filas."
+  },
+  "report": {
+    "kicker": "Completada",
+    "title": "Importación completada",
+    "description": "Productos creados: {{imported}}. Registros de stock de apertura: {{stock}}.",
+    "rollbackReminder": "Si necesitas revertir este lote, detén la actividad nueva y restaura el respaldo cifrado creado antes de la importación. La restauración también elimina todos los cambios posteriores.",
+    "importId": "Id de importación:",
+    "productId": "Id del producto",
+    "stockRecorded": "Stock de apertura registrado",
+    "statuses": {
+      "imported": "Importada",
+      "importedWithWarnings": "Importada con novedades",
+      "failed": "Fallida",
+      "skipped": "Omitida",
+      "invalid": "Inválida"
+    },
+    "boolean": {
+      "yes": "Sí",
+      "no": "No"
+    },
+    "metrics": {
+      "imported": "Importados",
+      "stockInitialized": "Stock registrado",
+      "skipped": "Omitidos",
+      "invalid": "Inválidos",
+      "failed": "Fallidos",
+      "warnings": "Novedades"
+    }
+  },
+  "template": {
+    "sampleName": "Café de ejemplo",
+    "sampleDescription": "Reemplaza esta fila con los datos de tus productos"
+  },
+  "fileErrors": {
+    "unsupported_file": "Elige un archivo .csv o .xlsx.",
+    "file_too_large": "El archivo supera el límite de 10 MB.",
+    "empty_file": "El archivo no contiene filas de datos.",
+    "empty_header": "Cada columna de origen necesita un encabezado.",
+    "duplicate_header": "Los encabezados de las columnas deben ser únicos.",
+    "too_many_rows": "Importa máximo 500 filas a la vez.",
+    "too_many_columns": "El archivo supera el límite de 50 columnas.",
+    "row_too_wide": "Una fila de datos contiene más valores que la fila de encabezados.",
+    "malformed_csv": "El CSV contiene un valor entre comillas incompleto o no válido.",
+    "workbook_empty": "El libro de Excel no contiene una hoja de cálculo."
+  },
+  "toast": {
+    "previewError": "No se pudo validar el archivo",
+    "importError": "No se pudo completar la importación",
+    "imported_one": "{{count}} producto importado",
+    "imported_other": "{{count}} productos importados"
+  },
+  "entitySelector": {
+    "label": "Elige los datos que deseas importar"
+  },
+  "entities": {
+    "products": {
+      "label": "Productos e inventario",
+      "description": "Catálogo, precios, costos e inventario inicial."
+    },
+    "customers": {
+      "label": "Clientes",
+      "description": "Perfiles de clientes y datos de contacto."
+    },
+    "providers": {
+      "label": "Proveedores",
+      "description": "Perfiles, contactos y referencias de ciudad."
+    },
+    "customerBalances": {
+      "label": "Cartera inicial de clientes",
+      "description": "Saldos positivos que los clientes existentes deben al negocio."
+    },
+    "openingCash": {
+      "label": "Bases iniciales de caja",
+      "description": "Plantillas conciliadas por denominación para cada caja y sede."
+    },
+    "fiscalProfiles": {
+      "label": "Perfil fiscal",
+      "description": "Identidad del emisor, régimen tributario y numeración autorizada."
+    }
+  },
+  "party": {
+    "fields": {
+      "name": "Nombre",
+      "taxId": "Identificación tributaria",
+      "email": "Correo electrónico",
+      "phone": "Teléfono",
+      "address": "Dirección",
+      "city": "Ciudad",
+      "state": "Departamento o estado",
+      "postalCode": "Código postal",
+      "country": "País",
+      "notes": "Notas",
+      "contactName": "Nombre de contacto",
+      "cityCode": "Código de ciudad"
+    },
+    "issues": {
+      "required": "Falta un valor obligatorio",
+      "too_long": "El valor supera la longitud permitida",
+      "invalid_email": "El formato del correo no es válido",
+      "city_not_found": "El código de ciudad no existe en este negocio",
+      "duplicate_file_name": "El nombre está repetido en este archivo",
+      "duplicate_existing_name": "El nombre ya existe en este negocio",
+      "duplicate_file_tax_id": "La identificación tributaria está repetida en este archivo",
+      "duplicate_existing_tax_id": "La identificación tributaria ya existe en este negocio",
+      "duplicate_file_email": "El correo está repetido en este archivo",
+      "duplicate_existing_email": "El correo ya existe en este negocio",
+      "concurrent_duplicate": "Otra importación creó este registro mientras se procesaba el archivo",
+      "import_failed": "No se pudo importar el registro"
+    },
+    "table": {
+      "identity": "Identificación o correo"
+    },
+    "report": {
+      "recordId": "ID del registro"
+    },
+    "customers": {
+      "mapDescription": "Confirma las columnas detectadas para clientes. El nombre es obligatorio; puedes dejar los demás campos sin asignar.",
+      "previewDescription": "Puntovivo valida cada cliente y omite identificaciones tributarias o correos repetidos.",
+      "reportDescription_one": "Clientes creados: {{imported}}.",
+      "reportDescription_other": "Clientes creados: {{imported}}.",
+      "toastImported_one": "Se importó {{count}} cliente",
+      "toastImported_other": "Se importaron {{count}} clientes",
+      "template": {
+        "name": "Cliente de ejemplo",
+        "taxId": "900123456",
+        "email": "cliente@ejemplo.com",
+        "phone": "+57 300 000 0000",
+        "address": "Calle Principal 123",
+        "city": "Bogotá",
+        "state": "Bogotá D.C.",
+        "postalCode": "110111",
+        "country": "Colombia",
+        "notes": "Reemplaza esta fila con los datos de tu cliente"
+      }
+    },
+    "providers": {
+      "mapDescription": "Confirma las columnas detectadas para proveedores. El nombre es obligatorio; usa el código del catálogo geográfico de Puntovivo cuando esté disponible.",
+      "previewDescription": "Puntovivo valida cada proveedor, revisa los códigos de ciudad y omite nombres, identificaciones tributarias o correos repetidos.",
+      "reportDescription_one": "Proveedores creados: {{imported}}.",
+      "reportDescription_other": "Proveedores creados: {{imported}}.",
+      "toastImported_one": "Se importó {{count}} proveedor",
+      "toastImported_other": "Se importaron {{count}} proveedores",
+      "template": {
+        "name": "Proveedor de ejemplo",
+        "taxId": "901123456",
+        "email": "proveedor@ejemplo.com",
+        "phone": "+57 601 000 0000",
+        "address": "Avenida Comercial 456",
+        "contactName": "Contacto de ejemplo",
+        "cityCode": "BOG"
+      }
+    }
+  },
+  "customerBalances": {
+    "fields": {
+      "taxId": "Identificación tributaria",
+      "email": "Correo electrónico",
+      "openingBalance": "Saldo inicial por cobrar",
+      "note": "Nota"
+    },
+    "mapDescription": "Relaciona cada saldo inicial por cobrar con un cliente existente. El saldo es obligatorio, junto con la identificación tributaria o el correo.",
+    "identityRequirement": "Asigna la identificación tributaria o el correo, además del saldo inicial. Puntovivo solo relaciona clientes activos de este negocio.",
+    "previewDescription": "Puntovivo relaciona clientes activos de este negocio y omite a quienes ya tienen movimientos en su estado de cuenta.",
+    "issues": {
+      "identity_required": "La identificación tributaria o el correo son obligatorios",
+      "invalid_email": "El formato del correo no es válido",
+      "invalid_number": "El formato numérico no es válido",
+      "balance_must_be_positive": "El saldo por cobrar debe ser mayor que cero",
+      "out_of_range": "El saldo por cobrar supera el rango permitido",
+      "too_long": "El valor supera la longitud permitida",
+      "customer_not_found": "Ningún cliente activo coincide con esta identidad",
+      "ambiguous_customer": "Más de un cliente activo coincide con esta identidad",
+      "identifier_conflict": "La identificación y el correo pertenecen a clientes diferentes",
+      "duplicate_file_customer": "Este cliente está repetido en el archivo",
+      "duplicate_existing_balance": "Este cliente ya tiene movimientos en su estado de cuenta",
+      "import_failed": "No se pudo registrar el saldo inicial por cobrar"
+    },
+    "table": {
+      "customer": "Cliente",
+      "identity": "Identificación o correo"
+    },
+    "report": {
+      "adjustmentId": "ID del ajuste de cartera"
+    },
+    "reportDescription_one": "Se registró {{count}} saldo inicial por cobrar.",
+    "reportDescription_other": "Se registraron {{count}} saldos iniciales por cobrar.",
+    "toastImported_one": "Se importó {{count}} saldo inicial por cobrar",
+    "toastImported_other": "Se importaron {{count}} saldos iniciales por cobrar",
+    "template": {
+      "taxId": "900123456",
+      "email": "cliente@ejemplo.com",
+      "openingBalance": "125000,50",
+      "note": "Cuenta por cobrar del sistema anterior"
+    }
+  },
+  "openingCash": {
+    "fields": {
+      "siteName": "Nombre de la sede",
+      "registerName": "Nombre de la caja",
+      "openingFloat": "Base de apertura",
+      "denominations": "Conteo por denominaciones"
+    },
+    "mapDescription": "Mapea la sede, la caja, la base de apertura y su desglose por denominaciones. Todos los campos son obligatorios para que la plantilla quede conciliada.",
+    "denominationFormatHelp": "Escribe cada conteo como valor:cantidad y sepáralos con punto y coma, por ejemplo 50000:2;20000:1. El total calculado debe coincidir con la base de apertura.",
+    "previewDescription": "Puntovivo busca sedes activas de este negocio, rechaza cajas activas o ya establecidas y solo puede reemplazar una plantilla inicial en cero que nunca se haya usado.",
+    "issues": {
+      "required": "Falta un valor obligatorio",
+      "too_long": "El valor supera la longitud permitida",
+      "invalid_number": "El formato del número no es válido",
+      "out_of_range": "La base de apertura está fuera del rango permitido",
+      "invalid_denominations": "Usa pares valor:cantidad separados por punto y coma",
+      "denomination_total_mismatch": "El total por denominaciones no coincide con la base de apertura",
+      "site_not_found": "Ninguna sede activa de este negocio coincide con este nombre",
+      "ambiguous_site": "Más de una sede activa coincide con este nombre",
+      "duplicate_file_register": "Esta sede y caja están repetidas en el archivo",
+      "duplicate_existing_register": "Esta caja ya tiene una plantilla de apertura establecida",
+      "active_register": "Esta caja tiene una sesión abierta",
+      "concurrent_register_change": "La caja cambió después de la previsualización; vuelve a validar el archivo",
+      "import_failed": "No se pudo importar la plantilla de apertura"
+    },
+    "report": {
+      "templateId": "ID de la plantilla de caja"
+    },
+    "reportDescription_one": "Se importó {{count}} plantilla de caja conciliada.",
+    "reportDescription_other": "Se importaron {{count}} plantillas de caja conciliadas.",
+    "toastImported_one": "Se importó {{count}} plantilla de apertura",
+    "toastImported_other": "Se importaron {{count}} plantillas de apertura",
+    "template": {
+      "siteName": "Sede Principal",
+      "registerName": "Caja frontal",
+      "openingFloat": "120000",
+      "denominations": "50000:2;20000:1"
+    }
+  },
+  "fiscalProfiles": {
+    "fields": {
+      "countryCode": "Código de país",
+      "taxIdentifier": "Identificación tributaria del emisor",
+      "economicActivityCode": "Código de régimen o actividad",
+      "issueLocation": "Lugar de expedición o casa matriz",
+      "administrativeAreaCode": "Código de división administrativa",
+      "resolutionNumber": "Resolución de numeración",
+      "numberingPrefix": "Prefijo de numeración",
+      "rangeFrom": "Inicio del rango autorizado",
+      "rangeTo": "Fin del rango autorizado",
+      "environment": "Ambiente fiscal"
+    },
+    "mapDescription": "Mapea los campos del perfil del emisor disponibles en el archivo. El código de país y la identificación tributaria siempre son obligatorios; Puntovivo valida los demás requisitos para CO, MX o CL.",
+    "countryFieldHelp": "Usa CO, MX o CL e incluye únicamente el perfil del país de este negocio. MX usa régimen y código postal; CL usa actividad, comuna y dirección de casa matriz; CO usa resolución y rango autorizado.",
+    "previewDescription": "Puntovivo valida este archivo con el paquete fiscal canónico de {{country}} y nunca reemplaza un perfil de emisor establecido.",
+    "activationBoundary": "Límite de seguridad: los perfiles fiscales importados permanecen desactivados. Revisa los datos del emisor y activa manualmente la emisión fiscal en Empresa → Fiscal.",
+    "profileDetails": "Detalle del perfil",
+    "issues": {
+      "required": "Falta un valor obligatorio",
+      "too_long": "El valor supera la longitud permitida",
+      "unsupported_country": "Solo se admiten perfiles fiscales de CO, MX y CL",
+      "tenant_country_mismatch": "Este perfil no coincide con el país del negocio",
+      "invalid_tax_identifier": "La identificación tributaria del emisor no es válida para este país",
+      "invalid_activity_code": "El código de régimen o actividad no existe en el catálogo fiscal",
+      "invalid_issue_location": "El lugar de expedición no es válido para este país",
+      "invalid_administrative_area": "El código de división administrativa no existe en el catálogo fiscal",
+      "invalid_number": "El valor de numeración debe ser un entero positivo",
+      "invalid_range": "El inicio del rango autorizado no puede superar su fin",
+      "invalid_environment": "El ambiente fiscal no es válido para este país",
+      "duplicate_file_profile": "El perfil de este país está repetido en el archivo",
+      "duplicate_existing_profile": "Este perfil de emisor ya está configurado",
+      "existing_profile_conflict": "Ya existe un perfil de emisor establecido; revísalo en Empresa → Fiscal",
+      "concurrent_profile_change": "El perfil fiscal cambió después de la previsualización; vuelve a validar el archivo",
+      "import_failed": "No se pudo importar el perfil fiscal"
+    },
+    "reportDescription_one": "Se importó {{count}} perfil fiscal y quedó desactivado para revisión.",
+    "reportDescription_other": "Se importaron {{count}} perfiles fiscales y quedaron desactivados para revisión.",
+    "reviewAction": "Revisar perfil fiscal",
+    "activationReminder": "La activación sigue pendiente. Verifica la identidad del emisor, el ambiente y la numeración antes de habilitar la emisión fiscal.",
+    "toastImported_one": "Se importó {{count}} perfil fiscal",
+    "toastImported_other": "Se importaron {{count}} perfiles fiscales"
+  }
+}

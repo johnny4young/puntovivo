@@ -16,10 +16,14 @@
 
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { cashSessions } from '../../db/schema.js';
+import { cashSessions, employeeShifts, sites } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import {
+  getOpenEmployeeBreak,
+  getOpenEmployeeShift,
+} from '../../services/labor/attendance-state.js';
 import {
   assertOpeningFloatMatchesDenominations,
   ensureRegisterAssignmentTemplate,
@@ -55,9 +59,9 @@ export type OpenedCashSessionRow = typeof cashSessions.$inferSelect;
  *   breakdown (`assertOpeningFloatMatchesDenominations`); the stored
  *   `openingFloat` and the initial `expectedBalance` are both the
  *   `roundMoney`-ed float, two-decimal clean.
- * - The session row insert and the `cash_session.open` audit-log row are
- *   written in ONE transaction — a session never exists without its paired
- *   audit entry.
+ * - ENG-140d: the same immediate transaction reuses a same-site open labor
+ *   shift or creates it, links the drawer to that evidence, and writes every
+ *   paired audit row. A session never exists without its labor owner.
  *
  * Preconditions: `ctx.siteId` non-null (`CASH_SESSION_SITE_REQUIRED`).
  *
@@ -124,51 +128,145 @@ export async function openCashSession(
     });
   }
 
+  const site = await ctx.db
+    .select({ id: sites.id, name: sites.name, isActive: sites.isActive })
+    .from(sites)
+    .where(and(eq(sites.id, ctx.siteId), eq(sites.tenantId, ctx.tenantId)))
+    .get();
+  if (!site?.isActive) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'CASH_SESSION_SITE_REQUIRED',
+      message: 'An active site is required before opening a cash session',
+      details: { siteId: ctx.siteId },
+    });
+  }
+
   const now = new Date().toISOString();
   const id = nanoid();
   let auditLogId: string | null = null;
+  let employeeShiftAuditLogId: string | null = null;
+  let employeeShiftId = '';
+  let attendanceShiftStarted = false;
 
-  ctx.db.transaction(tx => {
-    tx.insert(cashSessions)
-      .values({
-        id,
+  ctx.db.transaction(
+    tx => {
+      const currentShift = getOpenEmployeeShift(tx, ctx.tenantId, ctx.user.id);
+      if (currentShift && currentShift.siteId !== site.id) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'CASH_SESSION_SHIFT_SITE_MISMATCH',
+          message: 'Clock out at the other site before opening this register.',
+          details: {
+            shiftId: currentShift.id,
+            shiftSiteId: currentShift.siteId,
+            shiftSiteName: currentShift.siteName,
+            requestedSiteId: site.id,
+            requestedSiteName: site.name,
+          },
+        });
+      }
+
+      const activeBreak = getOpenEmployeeBreak(tx, ctx.tenantId, ctx.user.id);
+      if (activeBreak) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'CASH_SESSION_EMPLOYEE_BREAK_ACTIVE',
+          message: 'End the active break before opening a register.',
+          details: {
+            breakId: activeBreak.id,
+            shiftId: activeBreak.employeeShiftId,
+            startedAt: activeBreak.startedAt,
+          },
+        });
+      }
+
+      employeeShiftId = currentShift?.id ?? nanoid();
+      attendanceShiftStarted = !currentShift;
+      if (!currentShift) {
+        tx.insert(employeeShifts)
+          .values({
+            id: employeeShiftId,
+            tenantId: ctx.tenantId,
+            userId: ctx.user.id,
+            siteId: site.id,
+            clockedInAt: now,
+            clockedOutAt: null,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+
+        employeeShiftAuditLogId = writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'employee_shift.clock_in',
+          resourceType: 'employee_shift',
+          resourceId: employeeShiftId,
+          before: null,
+          after: {
+            userId: ctx.user.id,
+            siteId: site.id,
+            clockedInAt: now,
+            clockedOutAt: null,
+          },
+          metadata: {
+            siteName: site.name,
+            source: 'cash_session.open',
+            registerName,
+          },
+          operationId: ctx.envelope?.operationId,
+        });
+      }
+
+      tx.insert(cashSessions)
+        .values({
+          id,
+          tenantId: ctx.tenantId,
+          siteId: site.id,
+          cashierId: ctx.user.id,
+          employeeShiftId,
+          registerName,
+          openingFloat,
+          openingCountDenominations: input.denominations,
+          expectedBalance: openingFloat,
+          actualCount: null,
+          actualCountDenominations: null,
+          overShort: null,
+          status: 'open',
+          openedAt: now,
+          closedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      auditLogId = writeAuditLog({
+        tx,
         tenantId: ctx.tenantId,
-        siteId: ctx.siteId as string,
-        cashierId: ctx.user.id,
-        registerName,
-        openingFloat,
-        openingCountDenominations: input.denominations,
-        expectedBalance: openingFloat,
-        actualCount: null,
-        actualCountDenominations: null,
-        overShort: null,
-        status: 'open',
-        openedAt: now,
-        closedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    auditLogId = writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: 'cash_session.open',
-      resourceType: 'cash_session',
-      resourceId: id,
-      after: {
-        status: 'open',
-        registerName,
-        openingFloat,
-        openedAt: now,
-      },
-      metadata: {
-        siteId: ctx.siteId as string,
-        registerName,
-      },
-    });
-  });
+        actorId: ctx.user.id,
+        action: 'cash_session.open',
+        resourceType: 'cash_session',
+        resourceId: id,
+        after: {
+          status: 'open',
+          registerName,
+          openingFloat,
+          openedAt: now,
+          employeeShiftId,
+        },
+        metadata: {
+          siteId: site.id,
+          registerName,
+          employeeShiftId,
+          attendanceShiftStarted,
+        },
+        operationId: ctx.envelope?.operationId,
+      });
+    },
+    { behavior: 'immediate' }
+  );
 
   // Post-commit: register-template upsert preserves the legacy ordering
   // (router previously called this AFTER the insert at line 349). Moving
@@ -212,6 +310,8 @@ export async function openCashSession(
           siteId: ctx.siteId,
           registerName,
           openingFloat,
+          employeeShiftId,
+          attendanceShiftStarted,
         },
       },
     ];
@@ -223,8 +323,16 @@ export async function openCashSession(
         effectData: { action: 'cash_session.open' },
       });
     }
+    if (employeeShiftAuditLogId) {
+      effects.push({
+        kind: 'audit_log',
+        resourceType: 'audit_logs',
+        resourceId: employeeShiftAuditLogId,
+        effectData: { action: 'employee_shift.clock_in' },
+      });
+    }
     await emitCashSessionEffects(ctx.db, log, journalEventId, effects);
   }
 
-  return { session: created, journalEventId };
+  return { session: created, journalEventId, attendanceShiftStarted };
 }

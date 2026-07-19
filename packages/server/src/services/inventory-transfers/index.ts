@@ -1,11 +1,9 @@
 /**
- * Inventory transfers — multi-site stock movement service.
+ * Inventory transfers — multi-site stock read service and shared types.
  *
- * ENG-178 — this barrel preserves the public surface of the former flat
- * `services/inventory-transfers.ts` (1146 LOC), decomposed into per-concern
- * modules during the megafile wave. Behavior is unchanged; only the file
- * layout moved. The sole importer (`trpc/routers/transfers.ts`) keeps
- * importing the five operations from here.
+ * ENG-178 decomposed the former flat module. ENG-206 promoted the three
+ * write orchestrators into `application/inventory/`; this service boundary
+ * now exposes only transfer read models and shared public types.
  *
  * Phase 2 DB-102 / API-102 — a transfer atomically decreases
  * `inventory_balances.on_hand` at the origin site and increases it at the
@@ -17,9 +15,6 @@
  *
  * @module services/inventory-transfers
  */
-export { createInventoryTransfer } from './create.js';
-export { voidInventoryTransfer } from './voidTransfer.js';
-export { receiveInventoryTransfer } from './receive.js';
 export { getInventoryTransferById, listRecentTransfers } from './queries.js';
 export type {
   CreatedTransfer,

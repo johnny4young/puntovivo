@@ -1,6 +1,6 @@
 /**
- * Money rounding helper — single source of truth for the application
- * layer (ENG-176a-rounding).
+ * Server compatibility facade for the shared money primitive
+ * (ENG-176a-rounding, centralized by ENG-203).
  *
  * Why this exists. The schema (`db/schema.ts`) declares CHECK invariants
  * on every monetary column: `chk_<col>_nonneg` (no negatives on
@@ -9,7 +9,7 @@
  * value with more than two decimal digits, including IEEE-754 epsilon
  * drift (`99.99000000000001`), is rejected at the storage layer.
  *
- * Why the codebase needs it. Two legitimate flows produce non-2-decimal
+ * Why the codebase needs the shared primitive. Two legitimate flows produce non-2-decimal
  * intermediates:
  *
  *   1. Tax-exclusive math in tax-inclusive sales:
@@ -21,7 +21,7 @@
  *
  * To keep the storage layer's precision contract honest WITHOUT
  * dropping the application's tax / accumulation flow, every monetary
- * write must round to two decimals at the boundary. `roundMoney`
+ * write must round to two decimals at the boundary. The shared `roundMoney`
  * normalises a JS number to its nearest cent using the
  * `(value + Number.EPSILON) * 100` trick — the EPSILON offset defeats
  * banker's-rounding edge cases (`1.005 → 1.00` vs `1.01`) that browser
@@ -56,8 +56,4 @@
  * roundMoney(100 / 1.19) === 84.03
  * roundMoney(-2.345) === -2.35
  */
-export function roundMoney(value: number): number {
-  const rounded =
-    Math.sign(value) * (Math.round((Math.abs(value) + Number.EPSILON) * 100) / 100);
-  return Object.is(rounded, -0) ? 0 : rounded;
-}
+export { roundMoney } from '@puntovivo/shared/money';

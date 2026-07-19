@@ -17,6 +17,8 @@
 
 import type { DatabaseInstance } from '../../db/index.js';
 import type { PuntovivoLogger } from '../../logging/logger.js';
+import type { CheckoutApprovalAction } from '@puntovivo/shared/checkout-approval';
+import type { UserRole } from '@puntovivo/shared/roles';
 
 /**
  * Minimal structural log shape accepted by the use-case. Both
@@ -49,6 +51,11 @@ export interface CompleteSaleTender {
   reference?: string | null | undefined;
 }
 
+export interface CompleteSaleApprovalReference {
+  action: CheckoutApprovalAction;
+  requestId: string;
+}
+
 /**
  * One product line in a fresh sale. Drafts already have line items in
  * the DB so the `fromDraft` path does NOT carry them.
@@ -62,6 +69,7 @@ export interface CompleteSaleItemInput {
   // ENG-179b — explicit `| undefined` on Zod-optional fields.
   taxRate?: number | null | undefined;
   notes?: string | null | undefined;
+  serialIds?: string[] | undefined;
 }
 
 /**
@@ -93,6 +101,8 @@ export type CompleteSaleInput =
       serviceChargeRate?: number | null | undefined;
       tableId?: string | null | undefined;
       creditOverride?: boolean | undefined;
+      approvalRequests?: CompleteSaleApprovalReference[] | undefined;
+      checkoutStartedAt?: string | undefined;
     }
   | {
       mode: 'fromDraft';
@@ -114,6 +124,8 @@ export type CompleteSaleInput =
       serviceChargeAmount?: number | undefined;
       serviceChargeRate?: number | null | undefined;
       creditOverride?: boolean | undefined;
+      approvalRequests?: CompleteSaleApprovalReference[] | undefined;
+      checkoutStartedAt?: string | undefined;
     };
 
 /**
@@ -136,7 +148,7 @@ export interface CompleteSaleContext {
   db: DatabaseInstance;
   tenantId: string;
   siteId: string;
-  user: { id: string; role: string };
+  user: { id: string; role: UserRole };
   envelope?: { operationId: string } | null;
   deviceId?: string | null;
   log?: CompleteSaleLogger;
@@ -148,7 +160,7 @@ export interface CompleteSaleContext {
    * up the change on the next `kds.list` refetch.
    */
   sse?: {
-    broadcast(eventName: string, data: unknown, tenantId?: string): void;
+    broadcast(eventName: string, data: unknown, tenantId: string): void;
   } | null;
 }
 

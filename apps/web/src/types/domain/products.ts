@@ -34,6 +34,13 @@ export interface Product {
   sellByFraction: boolean;
   fractionStep?: number | null | undefined;
   fractionMinimum?: number | null | undefined;
+  tracksLots: boolean;
+  tracksSerials?: boolean | undefined;
+  catalogType?: 'standard' | 'variant_parent' | 'variant' | undefined;
+  variantParentId?: string | null | undefined;
+  variantAxes?: ProductVariantAxis[] | null | undefined;
+  variantValues?: Record<string, string> | null | undefined;
+  variantSignature?: string | null | undefined;
   isActive: boolean;
   barcode?: string | null | undefined;
   imageUrl?: string | null | undefined;
@@ -48,6 +55,11 @@ export interface Product {
   syncVersion?: number | null | undefined;
   // ENG-177a — optimistic-concurrency token (round-tripped on update).
   version: number;
+}
+
+export interface ProductVariantAxis {
+  name: string;
+  values: string[];
 }
 
 export interface ProductUnitAssignment {

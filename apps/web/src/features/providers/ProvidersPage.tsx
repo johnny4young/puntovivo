@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
@@ -13,6 +14,7 @@ import {
 import { createProviderColumns } from '@/features/providers/providerColumns';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { extractServerErrorCode } from '@/lib/translateServerError';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { trpc } from '@/lib/trpc';
 import type { Category, City, Provider, UserRole } from '@/types';
 
@@ -30,8 +32,17 @@ export function ProvidersPage() {
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
   const [providerForCategories, setProviderForCategories] = useState<Provider | null>(null);
+  const [providerSearch, setProviderSearch] = useState('');
+  const debouncedProviderSearch = useDebouncedValue(providerSearch.trim(), 200);
 
-  const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 50 });
+  const providersQuery = trpc.providers.list.useQuery(
+    {
+      page: 1,
+      perPage: 50,
+      ...(debouncedProviderSearch ? { search: debouncedProviderSearch } : {}),
+    },
+    { placeholderData: keepPreviousData }
+  );
   const citiesQuery = trpc.cities.list.useQuery({ page: 1, perPage: 200 });
   const categoriesQuery = trpc.categories.tree.useQuery();
   const providerCategoryAssignmentsQuery = trpc.providers.listCategoryAssignments.useQuery(
@@ -192,6 +203,8 @@ export function ProvidersPage() {
         error={providersQuery.error?.message ?? null}
         searchKey="name"
         searchPlaceholder={t('providers.search')}
+        searchValue={providerSearch}
+        onSearchChange={setProviderSearch}
         loadingMessage={t('providers.loading')}
         onRetry={() => {
           void providersQuery.refetch();

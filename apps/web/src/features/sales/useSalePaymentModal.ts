@@ -21,10 +21,14 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { roundMoney } from '@/lib/money';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
+import { formatCurrency } from '@/lib/utils';
 import { useQuickCreateStore } from './useQuickCreateStore';
 import type { Customer } from '@/types';
 import type { SalePaymentValues } from './salePaymentModal.types';
 import { TENDER_SUM_EPSILON, getDefaultValues } from './salePaymentModal.constants';
+import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from './checkoutApprovals';
+import { useCheckoutApprovals } from './useCheckoutApprovals';
+import type { CheckoutApprovalItem } from '@puntovivo/shared/checkout-approval';
 
 /**
  * Inputs the modal shell forwards into the hook. Mirrors the subset of
@@ -39,6 +43,11 @@ export interface UseSalePaymentModalParams {
   isSaving: boolean;
   serviceChargeRate?: number | undefined;
   userRole?: 'admin' | 'manager' | 'cashier' | 'viewer' | undefined;
+  approvalSaleId?: string | null | undefined;
+  approvalCustomerId?: string | null | undefined;
+  approvalItems?: CheckoutApprovalItem[] | undefined;
+  approvalDiscountAmount?: number | undefined;
+  currencyCode?: string | undefined;
   fastCashTrigger?: number | undefined;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
 }
@@ -50,6 +59,11 @@ export function useSalePaymentModal({
   isSaving,
   serviceChargeRate = 0,
   userRole,
+  approvalSaleId = null,
+  approvalCustomerId = null,
+  approvalItems = [],
+  approvalDiscountAmount = 0,
+  currencyCode = 'COP',
   fastCashTrigger = 0,
   onSubmit,
 }: UseSalePaymentModalParams) {
@@ -57,7 +71,7 @@ export function useSalePaymentModal({
   const toast = useToast();
   const [splitMode, setSplitMode] = useState(false);
   // ENG-090 — credit method gating + projection.
-  const canLendCredit = userRole === 'admin' || userRole === 'manager';
+  const canLendCredit = userRole === 'admin' || userRole === 'manager' || userRole === 'cashier';
   const isAdmin = userRole === 'admin';
   // ENG-039d3 — service charge is derived from `total × rate / 100`,
   // not a form field. The operator cannot edit it; the server
@@ -67,12 +81,20 @@ export function useSalePaymentModal({
     [total, serviceChargeRate]
   );
   const form = useForm<SalePaymentValues>({
-    defaultValues: getDefaultValues(total, serviceChargeAmount, serviceChargeRate),
+    defaultValues: {
+      ...getDefaultValues(total, serviceChargeAmount, serviceChargeRate),
+      customerId: approvalCustomerId ?? '',
+    },
   });
   const tenderFields = useFieldArray({
     control: form.control,
     name: 'tenders',
   });
+  // ENG-142a — F2 may arrive while the server-owned checkout policy is
+  // still loading. A disabled button cannot receive focus, so remember the
+  // cashier's intent and restore the fast-cash focus contract as soon as the
+  // fail-closed gate becomes submit-ready.
+  const pendingFastCashFocusRef = useRef(false);
 
   // ENG-105c2 — auto-attach the customer that was just created via the
   // quick-create flow (customer picker or palette dispatch route).
@@ -98,7 +120,12 @@ export function useSalePaymentModal({
     pendingCustomerAttachId !== null &&
     customers.some(customer => customer.id === pendingCustomerAttachId);
   useEffect(() => {
-    if (!isOpen || !pendingCustomerAttachId || !pendingCustomerReadyToAttach) {
+    if (
+      !isOpen ||
+      approvalSaleId !== null ||
+      !pendingCustomerAttachId ||
+      !pendingCustomerReadyToAttach
+    ) {
       return;
     }
     const store = useQuickCreateStore.getState();
@@ -111,7 +138,15 @@ export function useSalePaymentModal({
     }
     form.setValue('customerId', id, { shouldDirty: false, shouldValidate: false });
     toast.success({ title: t('quickCreate.customer.autoAttachToast') });
-  }, [isOpen, pendingCustomerAttachId, pendingCustomerReadyToAttach, form, t, toast]);
+  }, [
+    approvalSaleId,
+    isOpen,
+    pendingCustomerAttachId,
+    pendingCustomerReadyToAttach,
+    form,
+    t,
+    toast,
+  ]);
 
   const paymentMethod = useWatch({ control: form.control, name: 'paymentMethod' }) ?? 'cash';
   const amountReceived = useWatch({ control: form.control, name: 'amountReceived' });
@@ -131,6 +166,7 @@ export function useSalePaymentModal({
   // grand total for tip/service-charge edits.
   const applyFastCash = () => {
     if (grandTotal <= 0) return;
+    pendingFastCashFocusRef.current = true;
     setSplitMode(false);
     form.setValue('paymentMethod', 'cash', {
       shouldDirty: true,
@@ -141,7 +177,13 @@ export function useSalePaymentModal({
     form.setValue('tenders', []);
     toast.success({ title: t('fastCash.toast.applied') });
     queueMicrotask(() => {
-      document.getElementById('sale-payment-confirm')?.focus();
+      const confirmButton = document.getElementById(
+        'sale-payment-confirm'
+      ) as HTMLButtonElement | null;
+      if (confirmButton && !confirmButton.disabled) {
+        confirmButton.focus();
+        pendingFastCashFocusRef.current = false;
+      }
     });
   };
 
@@ -222,6 +264,96 @@ export function useSalePaymentModal({
   // ENG-014 — V10 card surfaces whenever the sale carries a credit
   // portion (legacy single-tender OR split with a credit row).
   const showCreditCard = isCredit || creditAmountInSplit > 0;
+  const hasCreditTender = showCreditCard;
+  const lossPreventionQueryEnabled =
+    isOpen &&
+    approvalItems.length > 0 &&
+    (userRole === 'cashier' || userRole === 'manager' || userRole === 'admin');
+  const lossPreventionQuery = trpc.lossPrevention.evaluateCheckout.useQuery(
+    {
+      items: approvalItems.map(({ productId, unitId, quantity, unitPrice, discount }) => ({
+        productId,
+        unitId,
+        quantity,
+        unitPrice,
+        discount,
+      })),
+      discountAmount: approvalDiscountAmount,
+    },
+    {
+      enabled: lossPreventionQueryEnabled,
+      // The blocked-hours decision follows tenant wall-clock time. Keep a
+      // long-open checkout fresh across a window boundary without trusting
+      // the renderer's clock as policy input.
+      refetchInterval: lossPreventionQueryEnabled ? 30_000 : false,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    }
+  );
+  const baselineApprovalActions = requiredCheckoutApprovalActions({
+    role: userRole,
+    // ENG-142a — the server-owned policy query decides discount authority.
+    hasDiscount: false,
+    hasCreditTender,
+    creditOverrideRequired: hasCreditTender && cupoExceeded,
+  });
+  const approvalActions = [
+    ...new Set([...baselineApprovalActions, ...(lossPreventionQuery.data?.requiredActions ?? [])]),
+  ];
+  const approvalContext = useMemo(
+    () =>
+      buildCheckoutApprovalContext({
+        saleId: approvalSaleId,
+        items: approvalItems,
+        values: {
+          customerId: approvalSaleId !== null ? (approvalCustomerId ?? '') : watchedCustomerId,
+          paymentMethod,
+          amountReceived: amountReceivedValue,
+          notes: '',
+          tenders: splitMode ? tenders : [],
+          tipAmount,
+          tipMethod: tipAmount > 0 ? (tipMethodWatch ?? 'fixed') : null,
+          creditOverride: false,
+          serviceChargeAmount,
+          serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
+          approvalRequests: [],
+        },
+        grandTotal,
+        discountAmount: approvalDiscountAmount,
+        currencyCode,
+      }),
+    [
+      approvalItems,
+      approvalDiscountAmount,
+      approvalCustomerId,
+      approvalSaleId,
+      amountReceivedValue,
+      currencyCode,
+      grandTotal,
+      paymentMethod,
+      serviceChargeAmount,
+      serviceChargeRate,
+      splitMode,
+      tenders,
+      tipAmount,
+      tipMethodWatch,
+      watchedCustomerId,
+    ]
+  );
+  const checkoutApprovals = useCheckoutApprovals({
+    actions: approvalActions,
+    context: approvalContext,
+    summaryLabel: t('approval.checkoutSummary', {
+      total: formatCurrency(grandTotal, currencyCode),
+    }),
+    amountByAction: {
+      sale_discount: approvalDiscountAmount,
+      sale_after_hours: grandTotal,
+      credit_sale: approvalContext.creditAmount,
+      credit_override: approvalContext.creditAmount,
+    },
+    currencyCode,
+  });
 
   useEffect(() => {
     if (paymentMethod !== 'credit' || creditMethodAvailable) {
@@ -300,27 +432,49 @@ export function useSalePaymentModal({
     tenderFields.replace([]);
   }
 
+  const splitIsValid =
+    splitMode &&
+    tenders.length >= 2 &&
+    Math.abs(tenderDelta) < TENDER_SUM_EPSILON &&
+    tendersAreAllPositive;
+
+  const canSubmit =
+    !isSaving &&
+    (!splitMode || splitIsValid) &&
+    // ENG-218 — never let a credit sale be confirmed against a projection we
+    // could not compute. Cash-only checkouts are untouched (the query is
+    // disabled, so balanceUnknown is false).
+    !balanceUnknown &&
+    checkoutApprovals.allApproved &&
+    (!lossPreventionQueryEnabled ||
+      (!lossPreventionQuery.isFetching && lossPreventionQuery.error === null)) &&
+    !(hasCreditTender && creditBalanceQuery.isLoading);
+
   const handleSubmit = form.handleSubmit(values => {
     // A held/repeated F1 (or Enter) fires requestSubmit() straight at the
     // form, bypassing the disabled footer button — without this guard a
     // single checkout can submit twice with two distinct idempotency
     // envelopes and double-charge the sale.
-    if (isSaving) {
+    // ENG-142a — requestSubmit also bypasses the footer's disabled state
+    // while policy evaluation or an exact approval is still outstanding.
+    if (!canSubmit) {
       return;
     }
     const sanitizedTip = Math.max(0, Number(values.tipAmount) || 0);
-    // ENG-090 — credit override is admin-only at the form layer too.
-    // The server still gates `true` from non-admin callers at the
-    // router; this prevents stale form state (admin opens modal,
-    // toggles override on, role swaps mid-flow) from leaking the
-    // flag onto the payload.
+    // ENG-090 / ENG-106c2 — admins opt into an override directly;
+    // non-admins may carry it only when this exact checkout has an approved
+    // credit_override request. Stale form state cannot elevate a later cart.
     // ENG-014 — also accept override when split mode carries a
     // credit tender ("apartado"). Non-credit sales (split or single)
     // never pass override through.
     const hasSplitCredit = splitMode && values.tenders.some(tender => tender.method === 'credit');
+    const hasApprovedCreditOverride = checkoutApprovals.approvalRequests.some(
+      approval => approval.action === 'credit_override'
+    );
     const sanitizedOverride =
-      isAdmin && (values.paymentMethod === 'credit' || hasSplitCredit)
-        ? values.creditOverride
+      (isAdmin || hasApprovedCreditOverride) &&
+      (values.paymentMethod === 'credit' || hasSplitCredit)
+        ? values.creditOverride || hasApprovedCreditOverride
         : false;
     return onSubmit({
       ...values,
@@ -334,19 +488,39 @@ export function useSalePaymentModal({
       serviceChargeAmount,
       serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
       creditOverride: sanitizedOverride,
+      approvalRequests: checkoutApprovals.approvalRequests,
     });
   });
 
-  const splitIsValid =
-    splitMode &&
-    tenders.length >= 2 &&
-    Math.abs(tenderDelta) < TENDER_SUM_EPSILON &&
-    tendersAreAllPositive;
+  useEffect(() => {
+    if (!isOpen) {
+      pendingFastCashFocusRef.current = false;
+      return;
+    }
+    if (!canSubmit || !pendingFastCashFocusRef.current) {
+      return;
+    }
 
-  // ENG-218 — never let a credit sale be confirmed against a projection we
-  // could not compute. Cash-only checkouts are untouched (the query is
-  // disabled, so `balanceUnknown` is false).
-  const canSubmit = !isSaving && (!splitMode || splitIsValid) && !balanceUnknown;
+    const confirmButton = document.getElementById(
+      'sale-payment-confirm'
+    ) as HTMLButtonElement | null;
+    if (confirmButton && !confirmButton.disabled) {
+      confirmButton.focus();
+      pendingFastCashFocusRef.current = false;
+    }
+  }, [canSubmit, isOpen]);
+
+  const checkoutApprovalState = {
+    ...checkoutApprovals,
+    isLoading: checkoutApprovals.isLoading || lossPreventionQuery.isFetching,
+    error: checkoutApprovals.error ?? lossPreventionQuery.error,
+    refetch: async () => {
+      await Promise.all([
+        checkoutApprovals.refetch(),
+        ...(lossPreventionQueryEnabled ? [lossPreventionQuery.refetch()] : []),
+      ]);
+    },
+  };
 
   const presetActive = (percentage: number): boolean => {
     // Zero-tip state — regardless of which method last touched the
@@ -387,6 +561,7 @@ export function useSalePaymentModal({
     // ENG-218 — the card renders the inline error + retry from these.
     balanceUnavailable,
     retryBalance: () => void creditBalanceQuery.refetch(),
+    checkoutApprovals: checkoutApprovalState,
     tenderSum,
     tenderDelta,
     splitIsValid,

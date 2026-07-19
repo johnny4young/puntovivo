@@ -602,12 +602,34 @@ Use this path:
 - React Hook Form and TanStack Query already solve most observation needs
 - no need for a custom global watcher system
 
+### Why desktop updates use an archived staged feed
+
+- Every release starts at a 10% `stagingPercentage`; operators promote the
+  immutable release feed to 50% and 100% through
+  `.github/workflows/update-rollout.yml` without rebuilding installers.
+- Rewritten `latest*.yml` appcasts are archived on their GitHub Release. A
+  rollback republishes one archived N-1 feed at 100%, so recovery never depends
+  on reconstructing old hashes or mutable Pages state.
+- `update-policy.json` comes from the fixed GitHub Pages origin. Electron only
+  enables `allowDowngrade` for `mode=rollback`, and the candidate version must
+  exactly equal the validated target. Missing or malformed policy fails closed
+  for downgrades.
+- `auto-update-history.json` under Electron `userData` records only version and
+  transition timestamp; the Company updater card exposes the last transition
+  plus current rollout state without tenant or device identifiers.
+- ENG-137 remains partial for tenant-level stable/beta choice, arbitrary version
+  pinning, and telemetry-triggered automatic rollback after ENG-135 has a real
+  monitored instance.
+
 ## Relevant Source Files
 
 - Main desktop runtime:
   [index.ts](apps/desktop/src/main/index.ts)
 - Auto updater:
   [auto-updater.ts](apps/desktop/src/main/auto-updater.ts)
+- Update policy and history:
+  [update-policy.ts](apps/desktop/src/main/auto-updater/update-policy.ts) and
+  [update-history.ts](apps/desktop/src/main/auto-updater/update-history.ts)
 - Preload bridge:
   [index.ts](apps/desktop/src/preload/index.ts)
 - Preload typings:

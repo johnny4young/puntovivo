@@ -20,39 +20,39 @@ admin faster.
 ## 2. Live Audit Findings
 
 The current app already has strong primitives: role gates, module gates,
- tabs, route-level surfaces, shared tables, and local-first POS
+tabs, route-level surfaces, shared tables, and local-first POS
 behavior. The friction is that many screens expose operational,
 historical, diagnostic, and setup decisions at the same time.
 
-| Area | Current observation | Refactor direction |
-| --- | --- | --- |
-| Sidebar | Admin first load shows 13 route links before opening Setup; Setup hides another large configuration set behind one disclosure. | Replace route inventory with 6-8 role workspaces. Move low-frequency entities into workspace subnav, tabs, or command palette. |
-| Header | Search, status, language, site, notifications, and user controls compete on every route. | Make header an action bar: command search, active site, alerts. Fold language and low-frequency controls into user/settings menus. |
-| Dashboard | Live audit showed 23 visible card-like surfaces and 2.47 viewport scroll ratio at desktop. | Split role home from owner analytics. Default home should show "needs attention" and the next 3 actions, not every metric. |
-| Sales | Desktop audit showed 34 visible buttons, 16 card-like surfaces, one history table, and 14.3 viewport scroll ratio. Mobile audit showed 34 visible buttons and 16.62 viewport scroll ratio. | Make `/sales` a cashier lane: product input, cart, total, payment, blocking preflight. Move cash management, history, and KPIs to drawers/tabs/workspaces. |
-| Operations | Eight flat tabs: Sync, Fiscal, Devices, Cash, Payments, Inventory, Diagnostics, Authority. | Default to an attention queue. Group expert tabs under Money, Stock, Devices/Sync, Fiscal, Support. Hide quiet panels until they have issues. |
-| Company | Nine flat tabs: General, Locale, Data, Device, AI, Fiscal, Payments, Modules, Restaurant. | Convert to a Setup workspace with a readiness checklist and grouped sections: Business, Fiscal, Payments, Hardware/Receipts, Data/Migration, Modules/AI, Team/Security. |
-| Catalog setup | Products, categories, providers, locations, units, VAT rates, customer catalogs, and geography are separate route entries. | Create a Catalog workspace with a left subnav or tabs. Keep Products as default; secondary catalogs live inside it. |
-| Inventory | Four tabs plus summary cards and action buttons appear together. | Default to Stock. Move movements/counts/transfers/balances/replenishment into task-focused tabs. Filters belong in the toolbar or drawer. |
-| Orders and Purchases | Both pages repeat the same "current cart + finalize + history" shape. | Merge into a Procurement workspace with Request, Receive, Supplier invoices, Returns, and History views. |
-| Customers | Directory, fiscal identity fields, credit ledger, future loyalty/CRM, and consent are starting to share one table surface. | Keep Directory first. Use customer detail drawers/tabs for Account, Loyalty/Wallet, Consent, Campaigns, and History. |
-| Fiscal, audit, peripherals | Standalone nav entries are useful to admins but noisy for daily operators. | Move under Finance/Compliance, Support, or Setup Hardware; keep command-palette access for experts. |
+| Area                       | Current observation                                                                                                                                                                        | Refactor direction                                                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sidebar                    | Admin first load shows 13 route links before opening Setup; Setup hides another large configuration set behind one disclosure.                                                             | Replace route inventory with 6-8 role workspaces. Move low-frequency entities into workspace subnav, tabs, or command palette.                                          |
+| Header                     | Search, status, language, site, notifications, and user controls compete on every route.                                                                                                   | Make header an action bar: command search, active site, alerts. Fold language and low-frequency controls into user/settings menus.                                      |
+| Dashboard                  | Live audit showed 23 visible card-like surfaces and 2.47 viewport scroll ratio at desktop.                                                                                                 | Split role home from owner analytics. Default home should show "needs attention" and the next 3 actions, not every metric.                                              |
+| Sales                      | Desktop audit showed 34 visible buttons, 16 card-like surfaces, one history table, and 14.3 viewport scroll ratio. Mobile audit showed 34 visible buttons and 16.62 viewport scroll ratio. | Make `/sales` a cashier lane: product input, cart, total, payment, blocking preflight. Move cash management, history, and KPIs to drawers/tabs/workspaces.              |
+| Operations                 | Eight flat tabs: Sync, Fiscal, Devices, Cash, Payments, Inventory, Diagnostics, Authority.                                                                                                 | Default to an attention queue. Group expert tabs under Money, Stock, Devices/Sync, Fiscal, Support. Hide quiet panels until they have issues.                           |
+| Company                    | Nine flat tabs: General, Locale, Data, Device, AI, Fiscal, Payments, Modules, Restaurant.                                                                                                  | Convert to a Setup workspace with a readiness checklist and grouped sections: Business, Fiscal, Payments, Hardware/Receipts, Data/Migration, Modules/AI, Team/Security. |
+| Catalog setup              | Products, categories, providers, locations, units, VAT rates, customer catalogs, and geography are separate route entries.                                                                 | Create a Catalog workspace with a left subnav or tabs. Keep Products as default; secondary catalogs live inside it.                                                     |
+| Inventory                  | Four tabs plus summary cards and action buttons appear together.                                                                                                                           | Default to Stock. Move movements/counts/transfers/balances/replenishment into task-focused tabs. Filters belong in the toolbar or drawer.                               |
+| Orders and Purchases       | Both pages repeat the same "current cart + finalize + history" shape.                                                                                                                      | Merge into a Procurement workspace with Request, Receive, Supplier invoices, Returns, and History views.                                                                |
+| Customers                  | Directory, fiscal identity fields, credit ledger, future loyalty/CRM, and consent are starting to share one table surface.                                                                 | Keep Directory first. Use customer detail drawers/tabs for Account, Loyalty/Wallet, Consent, Campaigns, and History.                                                    |
+| Fiscal, audit, peripherals | Standalone nav entries are useful to admins but noisy for daily operators.                                                                                                                 | Move under Finance/Compliance, Support, or Setup Hardware; keep command-palette access for experts.                                                                     |
 
 ## 3. Target Navigation Model
 
 The sidebar should describe jobs, not database tables. Recommended
 expanded admin sidebar:
 
-| Workspace | Default route | Contains |
-| --- | --- | --- |
-| Sell | `/sales` | Cashier lane, fast register, suspended sales drawer, payment drawer. |
-| Operate | `/operations` | Attention queue, sync/fiscal/device/payment/cash/inventory health. |
-| Catalog | `/catalog` | Products, categories, providers, locations, units, VAT, customer catalogs, geography. |
-| Inventory | `/inventory` | Stock, counts, movements, transfers, replenishment, balances. |
-| Procurement | `/procurement` | Purchase orders, receiving, purchases, supplier invoices, returns, landed costs. |
-| Customers | `/customers` | Directory, account ledger, loyalty/wallet, consent, campaigns. |
-| Finance | `/finance` | Sales history, fiscal documents/reports, payments, cash close review, accounting exports, audit. |
-| Setup | `/setup` | Readiness checklist, company, sites, users, modules, hardware, receipts, AI, data/import. |
+| Workspace   | Default route  | Contains                                                                                         |
+| ----------- | -------------- | ------------------------------------------------------------------------------------------------ |
+| Sell        | `/sales`       | Cashier lane, fast register, suspended sales drawer, payment drawer.                             |
+| Operate     | `/operations`  | Attention queue, sync/fiscal/device/payment/cash/inventory health.                               |
+| Catalog     | `/catalog`     | Products, categories, providers, locations, units, VAT, customer catalogs, geography.            |
+| Inventory   | `/inventory`   | Stock, counts, movements, transfers, replenishment, balances.                                    |
+| Procurement | `/procurement` | Purchase orders, receiving, purchases, supplier invoices, returns, landed costs.                 |
+| Customers   | `/customers`   | Directory, account ledger, loyalty/wallet, consent, campaigns.                                   |
+| Finance     | `/finance`     | Sales history, fiscal documents/reports, payments, cash close review, accounting exports, audit. |
+| Setup       | `/setup`       | Readiness checklist, company, sites, users, modules, hardware, receipts, AI, data/import.        |
 
 Module-specific surfaces should not permanently expand the main nav.
 `/touch`, `/kds`, customer display, mobile waiter, and restaurant tables
@@ -225,7 +225,8 @@ Scope:
   routes with workspace subnav or command-palette access.
 - Add a Surface Switcher for touch, KDS, customer display, mobile
   waiter, restaurant tables, and voice/table modes.
-- Preserve existing direct URLs with redirects or deep-link adapters.
+- Preserve existing direct URLs as canonical deep links; avoid URL-only
+  migrations whose redirects add churn without changing the operator flow.
 - Define mobile navigation behavior for the workspace model.
 
 Acceptance:
@@ -238,7 +239,7 @@ Acceptance:
   command palette, or direct URL.
 - Browser smoke covers desktop, tablet, and mobile navigation.
 
-Status: Slice A shipped 2026-05-20. The workspace data model lives
+Status: Shipped 2026-07-14. Slice A shipped 2026-05-20. The workspace data model lives
 at `apps/web/src/components/layout/workspaces.ts` and the sidebar
 renders the 8 workspaces with WAI-ARIA disclosure widgets +
 per-workspace `localStorage` collapse persistence. Routes did NOT
@@ -249,8 +250,14 @@ landings. ENG-131d shipped 2026-07-11: mobile/tablet now uses a
 drawer-specific two-level selector (choose one workspace, then its
 routes) with role/module filtering, direct-route selection, focus trap,
 Escape close, opener-focus restoration, and permanent 768/390 browser
-smokes. Remaining slices: redirects from legacy child routes to the
-new workspace landing pages and the Dashboard fold decision.
+smokes. ENG-131e closes the model: Dashboard is now the first item and
+default destination inside Operate, so the rail exposes exactly eight
+top-level jobs; Operate inherits Dashboard roles so viewer keeps access,
+while the Operations child remains manager/admin-only. Existing leaf URLs
+(`/products`, `/orders`, etc.) remain canonical and directly reachable — no
+redirect layer was added because no route moved. Desktop/tablet/mobile
+smokes pin the folded Dashboard, responsive selection, direct URLs, EN/ES,
+and zero client errors.
 
 ### ENG-132 - Screen simplification and progressive disclosure pass
 
@@ -292,12 +299,12 @@ Recommended order:
 
 Minimum validation for implementation:
 
-| Area | Proof |
-| --- | --- |
-| Navigation | Role-based route matrix, direct-URL redirects, command palette reachability. |
-| Sales | Desktop and mobile smoke with add product, charge, suspend/resume, cash-session blocker. |
-| Operations | Attention queue with empty/healthy and issue states. |
-| Setup | Deep links from readiness cards to exact section and back. |
-| Tables | Column defaults, More menu, export/print reachability. |
-| i18n | EN and ES neutral LatAm copy parity. |
+| Area          | Proof                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| Navigation    | Role-based route matrix, canonical direct URLs, command palette reachability.              |
+| Sales         | Desktop and mobile smoke with add product, charge, suspend/resume, cash-session blocker.   |
+| Operations    | Attention queue with empty/healthy and issue states.                                       |
+| Setup         | Deep links from readiness cards to exact section and back.                                 |
+| Tables        | Column defaults, More menu, export/print reachability.                                     |
+| i18n          | EN and ES neutral LatAm copy parity.                                                       |
 | Accessibility | Tab semantics, drawer focus trap, keyboard shortcuts, 44px touch targets where applicable. |

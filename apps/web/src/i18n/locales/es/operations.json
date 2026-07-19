@@ -7,18 +7,139 @@
   "tabs": {
     "ariaLabel": "Paneles de operaciones",
     "attention": "Necesita atención",
+    "support": "Soporte",
     "sync": "Sincronización",
     "fiscal": "Fiscal",
     "device": "Dispositivos",
     "cash": "Caja",
     "payments": "Pagos",
-    "inventory": "Inventario",
     "diagnostics": "Diagnóstico",
     "authority": "Autoridad"
   },
   "common": {
     "loading": "Cargando...",
     "errorGeneric": "Algo salió mal al cargar esta vista."
+  },
+  "support": {
+    "kicker": "Preparación para soporte",
+    "health": {
+      "title": "Salud para soporte",
+      "description": "Una vista segura del runtime, las actualizaciones, los módulos, los dispositivos y la telemetría antes de que alguien solicite acceso a la base de datos.",
+      "loadError": "No se pudieron cargar algunas señales de soporte. Revisa los paneles individuales de Operaciones antes de compartir un diagnóstico.",
+      "summary": {
+        "clear": "Todas las señales de soporte disponibles están saludables.",
+        "attention_one": "{{count}} señal de soporte requiere revisión.",
+        "attention_other": "{{count}} señales de soporte requieren revisión."
+      },
+      "runtime": {
+        "label": "Runtime",
+        "desktop": "Aplicación de escritorio",
+        "web": "Web",
+        "webContext": "Sesión del navegador",
+        "unknownVersion": "Desconocida"
+      },
+      "updates": {
+        "label": "Actualizaciones",
+        "desktopContext": "Estado del actualizador local",
+        "webContext": "Gestionadas fuera del navegador",
+        "state": {
+          "unavailable": "No disponible",
+          "idle": "Al día",
+          "checking": "Verificando",
+          "available": "Disponible",
+          "downloaded": "Lista para instalar",
+          "error": "Requiere revisión"
+        }
+      },
+      "modules": {
+        "label": "Módulos",
+        "value": "{{active}} / {{total}}",
+        "context": "Activos para este tenant",
+        "loading": "Usando valores predeterminados durante la carga"
+      },
+      "devices": {
+        "label": "Dispositivos",
+        "value": "{{online}} / {{total}}",
+        "none": "No hay dispositivos activos registrados",
+        "clear": "Todos los dispositivos activos están en línea",
+        "stale_one": "{{count}} dispositivo necesita enviar un latido",
+        "stale_other": "{{count}} dispositivos necesitan enviar un latido"
+      },
+      "telemetry": {
+        "label": "Telemetría",
+        "enabled": "Activada",
+        "disabled": "Desactivada",
+        "context": "Consentimiento controlado por el tenant"
+      }
+    },
+    "recovery": {
+      "kicker": "Recuperación guiada",
+      "title": "Lista de recuperación",
+      "description": "Pasa de una señal de soporte a la siguiente acción segura. Los enlaces de Configuración solo están disponibles para administradores; los responsables mantienen su flujo en Operaciones.",
+      "partialSignals": "Algunas señales de salud no están disponibles. Usa los paneles individuales para continuar de forma segura.",
+      "listAriaLabel": "Pasos de recuperación para soporte",
+      "actions": {
+        "openUpdates": "Revisar actualizaciones",
+        "openDevices": "Revisar dispositivos",
+        "openTelemetry": "Revisar consentimiento",
+        "openDiagnostics": "Abrir diagnóstico",
+        "adminRequired": "Requiere administrador"
+      },
+      "steps": {
+        "updates": {
+          "title": "Confirma la versión actual",
+          "description": "Revisa la versión de escritorio y el actualizador antes de cambiar el estado de la estación.",
+          "status": {
+            "healthy": "Lista",
+            "checking": "Verificando",
+            "attention": "Requiere revisión",
+            "desktopOnly": "Revisar en escritorio"
+          }
+        },
+        "devices": {
+          "title": "Recupera los latidos de dispositivos",
+          "description": "Revisa terminales desactualizadas o revocadas antes de vincular o revocar otro dispositivo.",
+          "status": {
+            "healthy": "Todos en línea",
+            "attention_one": "{{count}} dispositivo requiere atención",
+            "attention_other": "{{count}} dispositivos requieren atención"
+          }
+        },
+        "telemetry": {
+          "title": "Confirma la elección de telemetría",
+          "description": "Respeta la decisión de consentimiento del tenant; soporte puede continuar si la telemetría está desactivada.",
+          "status": {
+            "enabled": "Activada",
+            "disabled": "Desactivada por elección"
+          }
+        },
+        "evidence": {
+          "title": "Prepara evidencia redactada",
+          "description": "Previsualiza y exporta el paquete de diagnóstico sanitizado en lugar de solicitar la base de datos sin procesar.",
+          "status": {
+            "ready": "Lista",
+            "adminRequired": "Exportación de administrador"
+          }
+        }
+      }
+    },
+    "snapshot": {
+      "kicker": "Evidencia portátil",
+      "title": "Resumen redactado",
+      "description": "Copia o descarga JSON. Usa Diagnóstico para obtener un paquete sanitizado más detallado.",
+      "privacyBoundary": "Solo contiene salud y versiones agregadas. No incluye nombres, identificadores, sedes, datos del tenant ni errores sin procesar.",
+      "unavailable": "Espera todas las señales de soporte antes de compartir.",
+      "actions": {
+        "copy": "Copiar",
+        "download": "Descargar"
+      },
+      "toast": {
+        "copied": "Resumen copiado",
+        "copyError": "No se pudo copiar",
+        "downloaded": "Resumen descargado",
+        "downloadError": "No se pudo descargar"
+      }
+    }
   },
   "attention": {
     "kicker": "Necesita atención",
@@ -356,36 +477,6 @@
       }
     },
     "kicker": "Pagos"
-  },
-  "inventory": {
-    "title": "Salud de inventario",
-    "description": "Productos donde el stock cacheado no coincide con la suma de balances por sede. Usa Reconciliar para sanar la deriva.",
-    "summary": {
-      "productsScanned": "Productos analizados",
-      "discrepancyCount": "Con discrepancia"
-    },
-    "emptyState": "El inventario está consistente. Stock cacheado coincide con la suma por sede.",
-    "columns": {
-      "product": "Producto",
-      "sku": "SKU",
-      "cachedStock": "Stock cacheado",
-      "sumOfBalances": "Suma por sede",
-      "delta": "Delta",
-      "siteCount": "Sedes"
-    },
-    "reconcile": {
-      "cta": "Reconciliar balances",
-      "success": "Se reconciliaron {{count}} productos",
-      "error": "La reconciliación falló",
-      "noPermission": "Solo el administrador puede reconciliar el stock cacheado."
-    },
-    "kicker": "Inventario",
-    "emptyTitle": "Inventario consistente",
-    "severity": {
-      "ok": "Correcto",
-      "attention": "Atención",
-      "fault": "Falla"
-    }
   },
   "authority": {
     "hub": {

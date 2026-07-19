@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod';
+import { fiscalDocumentStatusEnum, paymentMethodEnum } from '../../db/schema.js';
 
 // ─────────────────────────────────────────────────────────────────
 // reports.cash.reconciliation
@@ -118,3 +119,140 @@ export const profitMarginInput = z
     path: ['toDate'],
   });
 export type ProfitMarginInput = z.infer<typeof profitMarginInput>;
+
+// ─────────────────────────────────────────────────────────────────
+// reports.dayClose.preview / signoff / signOff
+// ENG-141a/ENG-141b — tenant-local comprehensive manager report + evidence.
+// ─────────────────────────────────────────────────────────────────
+
+const calendarDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
+  .refine(value => {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  }, 'Expected a valid calendar day');
+
+export const dayClosePreviewInput = z.object({ date: calendarDay });
+export const dayCloseSignOffInput = z.object({
+  date: calendarDay,
+  /** Explicit irreversible-attestation acknowledgement from the manager UI. */
+  attestationAccepted: z.literal(true),
+});
+
+const money = z.number().finite();
+const readinessCode = z.enum([
+  'open_sessions',
+  'cash_discrepancies',
+  'fiscal_pending',
+  'fiscal_rejected',
+  'high_anomalies',
+  'commissions_not_tracked',
+  'waste_not_tracked',
+]);
+
+export const comprehensiveDayCloseReportOutput = z.object({
+  date: calendarDay,
+  timeZone: z.string().min(1),
+  currencyCode: z.string().length(3),
+  generatedAt: isoDateTime,
+  window: z.object({ start: isoDateTime, endExclusive: isoDateTime }),
+  sales: z.object({
+    count: z.number().int().nonnegative(),
+    subtotal: money,
+    discounts: money,
+    taxes: money,
+    tips: money,
+    serviceCharges: money,
+    grossRevenue: money,
+    refundAmount: money,
+    netRevenue: money,
+  }),
+  payments: z.array(
+    z.object({
+      method: z.enum(paymentMethodEnum),
+      amount: money,
+      transactionCount: z.number().int().nonnegative(),
+    })
+  ),
+  cash: z.object({
+    closedSessions: z.number().int().nonnegative(),
+    openSessions: z.number().int().nonnegative(),
+    expected: money,
+    counted: money,
+    overShort: money,
+    balancedSessions: z.number().int().nonnegative(),
+    discrepancySessions: z.number().int().nonnegative(),
+  }),
+  fiscal: z.object({
+    total: z.number().int().nonnegative(),
+    totalAmount: money,
+    byStatus: z.object(
+      Object.fromEntries(
+        fiscalDocumentStatusEnum.map(status => [status, z.number().int().nonnegative()])
+      ) as Record<(typeof fiscalDocumentStatusEnum)[number], z.ZodNumber>
+    ),
+  }),
+  adjustments: z.object({
+    voids: z.object({ count: z.number().int().nonnegative(), amount: money }),
+    refunds: z.object({ count: z.number().int().nonnegative(), amount: money }),
+  }),
+  anomalies: z.object({
+    total: z.number().int().nonnegative(),
+    high: z.number().int().nonnegative(),
+    medium: z.number().int().nonnegative(),
+    byKind: z.object({
+      ticketsPerHourSpike: z.number().int().nonnegative(),
+      voidRate: z.number().int().nonnegative(),
+      refundAmount: z.number().int().nonnegative(),
+      noSaleSessions: z.number().int().nonnegative(),
+    }),
+  }),
+  capabilities: z.object({
+    commissions: z.literal('not_tracked'),
+    waste: z.literal('not_tracked'),
+  }),
+  readiness: z.object({
+    readyToSign: z.boolean(),
+    blockers: z.array(readinessCode),
+    warnings: z.array(readinessCode),
+  }),
+});
+
+export const dayClosePdfArtifactOutput = z.object({
+  id: z.string().min(1),
+  rendererVersion: z.literal(1),
+  locale: z.string().min(2),
+  filename: z.string().regex(/^[A-Za-z0-9._-]+\.pdf$/),
+  mimeType: z.literal('application/pdf'),
+  byteSize: z.number().int().positive(),
+  payloadHash: z.string().regex(/^[a-f0-9]{64}$/),
+  createdAt: isoDateTime,
+});
+
+export const dayCloseSignoffMetadataOutput = z.object({
+  id: z.string().min(1),
+  date: calendarDay,
+  schemaVersion: z.literal(1),
+  timeZone: z.string().min(1),
+  currencyCode: z.string().length(3),
+  reportHash: z.string().regex(/^[a-f0-9]{64}$/),
+  signedAt: isoDateTime,
+  signedBy: z.object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+  }),
+  /** Null only for ENG-141b evidence created before stored PDFs shipped. */
+  pdf: dayClosePdfArtifactOutput.nullable(),
+});
+
+export const dayCloseSignoffOutput = dayCloseSignoffMetadataOutput.extend({
+  report: comprehensiveDayCloseReportOutput,
+});
+
+export type DayClosePreviewInput = z.infer<typeof dayClosePreviewInput>;
+export type DayCloseSignOffInput = z.infer<typeof dayCloseSignOffInput>;
+export type ComprehensiveDayCloseReportOutput = z.infer<typeof comprehensiveDayCloseReportOutput>;
+export type DayClosePdfArtifactOutput = z.infer<typeof dayClosePdfArtifactOutput>;
+export type DayCloseSignoffMetadataOutput = z.infer<typeof dayCloseSignoffMetadataOutput>;
+export type DayCloseSignoffOutput = z.infer<typeof dayCloseSignoffOutput>;

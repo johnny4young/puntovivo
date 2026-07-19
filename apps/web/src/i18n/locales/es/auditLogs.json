@@ -2,6 +2,41 @@
   "page": {
     "title": "Registro de auditoría"
   },
+  "review": {
+    "title": "Revisión de actividad sensible",
+    "description": "Revisa eventos seleccionados con riesgo elevado de privacidad, acceso, dinero, inventario o IA. Los conteos siguen el rango de fechas elegido.",
+    "loading": "Resumiendo la actividad sensible…",
+    "error": "No se pudo resumir la actividad sensible.",
+    "retry": "Intentar de nuevo",
+    "total_one": "{{count}} evento sensible",
+    "total_other": "{{count}} eventos sensibles",
+    "latest": "Más reciente: {{date}}",
+    "none": "Sin eventos en este rango",
+    "activeFilter": "El historial está filtrado por {{category}}.",
+    "clearFilter": "Limpiar filtro de revisión",
+    "categories": {
+      "privacy": {
+        "title": "Privacidad y datos",
+        "description": "Solicitudes de datos personales, retención y consentimiento de telemetría."
+      },
+      "access": {
+        "title": "Acceso y permisos",
+        "description": "Cambios de acceso de usuarios, dispositivos y módulos."
+      },
+      "money": {
+        "title": "Dinero y autorizaciones",
+        "description": "Anulaciones, reembolsos, controles de caja, autorizaciones y exportaciones fiscales."
+      },
+      "inventory": {
+        "title": "Control de inventario",
+        "description": "Correcciones de stock, anulaciones de transferencias y descuentos por vencimiento."
+      },
+      "ai": {
+        "title": "Actividad de IA",
+        "description": "Consultas, OCR, revisión de anomalías y cambios de embeddings."
+      }
+    }
+  },
   "history": {
     "title": "Eventos recientes",
     "description": "Cronológico inverso. Usa los filtros para acotar la vista a una acción, recurso o rango de fechas.",
@@ -41,6 +76,20 @@
     "purchase.void": "Compra anulada",
     "user.create": "Usuario creado",
     "user.update": "Usuario actualizado",
+    "user.pin.update": "PIN del personal actualizado",
+    "auth.staff_switch": "Cajero cambiado",
+    "employee_shift.clock_in": "Entrada de empleado registrada",
+    "employee_shift.clock_out": "Salida de empleado registrada",
+    "scheduled_shift.create": "Turno programado creado",
+    "scheduled_shift.update": "Turno programado actualizado",
+    "scheduled_shift.cancel": "Turno programado cancelado",
+    "manager_approval.request": "Aprobación de responsable solicitada",
+    "manager_approval.approve": "Aprobación de responsable concedida",
+    "manager_approval.reject": "Aprobación de responsable rechazada",
+    "manager_approval.cancel": "Solicitud de aprobación cancelada",
+    "manager_approval.consume": "Aprobación de responsable utilizada",
+    "loss_prevention.settings.updated": "Política de prevención de pérdidas actualizada",
+    "loss_prevention.triggered": "Regla de prevención de pérdidas activada",
     "sale.price_override": "Precio manual en venta",
     "sale.park": "Venta suspendida",
     "sale.resume": "Venta retomada",
@@ -66,11 +115,29 @@
     "kds.order.ready": "Orden marcada como Listo en cocina",
     "kds.order.recalled": "Orden devuelta a pendiente en cocina",
     "customer.credit_limit.update": "Cupo de crédito del cliente actualizado",
+    "customer.personal_data.export": "Datos personales del cliente exportados",
+    "customer.personal_data.delete": "Datos personales del cliente eliminados",
+    "customer.personal_data.anonymize": "Datos personales del cliente anonimizados",
     "sale.credit_override": "Venta completada con sobregiro autorizado",
     "fiscal.xml.downloaded": "XML fiscal descargado",
     "telemetry.opt_in.updated": "Preferencia de telemetría actualizada",
     "inventory.lot.discount_suggested": "Descuento sugerido (vencimiento)",
-    "inventory.lot.discount_suggestion_dismissed": "Sugerencia de descuento descartada"
+    "inventory.lot.discount_suggestion_dismissed": "Sugerencia de descuento descartada",
+    "data_retention.policy.updated": "Política de retención de datos actualizada",
+    "data_retention.sweep.run": "Datos auxiliares vencidos eliminados",
+    "backup.restore_drill": "Simulacro de restauración ejecutado",
+    "cash_drawer.open": "Cajón monedero abierto",
+    "data_import.products": "Datos iniciales de productos importados",
+    "data_import.customers": "Datos iniciales de clientes importados",
+    "data_import.providers": "Datos iniciales de proveedores importados",
+    "data_import.customer_balances": "Cartera inicial de clientes importada",
+    "data_import.opening_cash": "Base inicial de cajas importada",
+    "data_import.fiscal_profile": "Perfil fiscal importado",
+    "day_close.sign_off": "Cierre del día firmado",
+    "employee_shift_break.start": "Pausa de empleado iniciada",
+    "employee_shift_break.end": "Pausa de empleado finalizada",
+    "employee_shift.correct": "Asistencia de empleado corregida",
+    "loss_prevention.alert.acknowledged": "Alerta de prevención de pérdidas revisada"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -81,6 +148,10 @@
     "product": "Producto",
     "purchase": "Compra",
     "user": "Usuario",
+    "employee_shift": "Turno de empleado",
+    "scheduled_shift": "Turno programado",
+    "manager_approval": "Aprobación de responsable",
+    "loss_prevention_rule": "Regla de prevención de pérdidas",
     "cashier": "Cajero",
     "tenant_module": "Módulo del inquilino",
     "device": "Dispositivo",
@@ -90,8 +161,14 @@
     "kds_order": "Orden de cocina",
     "customer": "Cliente",
     "fiscal_document": "Documento fiscal",
-    "tenant": "Cuenta",
-    "price_suggestion": "Sugerencia de precio"
+    "tenant": "Empresa",
+    "price_suggestion": "Sugerencia de precio",
+    "backup_snapshot": "Respaldo cifrado",
+    "site": "Sede",
+    "data_import": "Importación de datos",
+    "day_close_signoff": "Cierre del día firmado",
+    "employee_shift_break": "Pausa de empleado",
+    "loss_prevention_alert": "Alerta de prevención de pérdidas"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

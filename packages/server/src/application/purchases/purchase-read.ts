@@ -9,12 +9,13 @@
  * @module application/purchases/purchase-read
  */
 import { TRPCError } from '@trpc/server';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   orders,
   products,
+  productSerials,
   providers,
   purchaseItems,
   purchaseReturnItems,
@@ -26,7 +27,11 @@ import {
 } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
 
-export async function getPurchaseRecord(db: DatabaseInstance, tenantId: string, purchaseId: string) {
+export async function getPurchaseRecord(
+  db: DatabaseInstance,
+  tenantId: string,
+  purchaseId: string
+) {
   const purchase = await db
     .select({
       id: purchases.id,
@@ -67,6 +72,7 @@ export async function getPurchaseRecord(db: DatabaseInstance, tenantId: string, 
       sourceOrderItemId: purchaseItems.sourceOrderItemId,
       productName: products.name,
       productSku: products.sku,
+      tracksSerials: products.tracksSerials,
       quantity: purchaseItems.quantity,
       unitId: purchaseItems.unitId,
       unitEquivalence: purchaseItems.unitEquivalence,
@@ -81,6 +87,29 @@ export async function getPurchaseRecord(db: DatabaseInstance, tenantId: string, 
     .innerJoin(units, eq(purchaseItems.unitId, units.id))
     .where(eq(purchaseItems.purchaseId, purchaseId))
     .all();
+
+  const serialRows = items.length
+    ? await db
+        .select({
+          id: productSerials.id,
+          sourcePurchaseItemId: productSerials.sourcePurchaseItemId,
+          serialNumber: productSerials.serialNumber,
+          status: productSerials.status,
+          currentSiteId: productSerials.currentSiteId,
+        })
+        .from(productSerials)
+        .where(
+          and(
+            eq(productSerials.tenantId, tenantId),
+            inArray(
+              productSerials.sourcePurchaseItemId,
+              items.map(item => item.id)
+            )
+          )
+        )
+        .orderBy(asc(productSerials.serialNumber))
+        .all()
+    : [];
 
   const returns = await db
     .select({
@@ -156,6 +185,7 @@ export async function getPurchaseRecord(db: DatabaseInstance, tenantId: string, 
       const returnedQuantity = returnedQuantityByItem.get(item.id) ?? 0;
       return {
         ...item,
+        serials: serialRows.filter(serial => serial.sourcePurchaseItemId === item.id),
         returnedQuantity,
         remainingQuantity: item.quantity - returnedQuantity,
       };

@@ -27,6 +27,8 @@ export interface TransferDetailLine {
   productSku: string;
   quantity: number;
   receivedQuantity: number | null;
+  tracksSerials?: boolean;
+  serials?: Array<{ id: string; serialNumber: string }>;
 }
 
 export interface TransferDetail {

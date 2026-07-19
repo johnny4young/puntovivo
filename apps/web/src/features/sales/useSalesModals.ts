@@ -4,10 +4,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { type CashSessionCloseValues } from '@/features/sales/CashSessionCloseModal';
 import { type CashSessionMovementValues } from '@/features/sales/CashSessionMovementModal';
 import { type CashSessionOpenValues } from '@/features/sales/CashSessionOpenModal';
-import {
-  useCheckoutPreflight,
-  type PreflightItem,
-} from '@/features/sales/useCheckoutPreflight';
+import { useCheckoutPreflight, type PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import { type SaleCartItem, type SaleCartSummary } from '@/features/sales/saleCart';
 import type { useSalesMutations } from '@/features/sales/useSalesMutations';
 import type { CashSession, RegisterAssignment, Site } from '@/types';
@@ -40,8 +37,6 @@ export interface UseSalesModalsParams {
   selectedRegisterAssignment: RegisterAssignment | null;
   /** The currently keyboard-selected history row, or null — drives the reprint shortcut. */
   selectedHistorySaleId: string | null;
-  /** `useAuth().user.role ?? 'cashier'` — gates the preflight credit-sale family. */
-  userRole: string;
   /** Server-derived checkout reminders (ENG-184), mapped to PreflightItems by the shell. */
   checkoutReadinessItems: PreflightItem[];
   /** Read by `handleFastCash` to decide open-vs-bump; the value stays shell-owned. */
@@ -81,7 +76,6 @@ export function useSalesModals({
   isResumedCart,
   selectedRegisterAssignment,
   selectedHistorySaleId,
-  userRole,
   checkoutReadinessItems,
   isPaymentModalOpen,
   productSearchQuery,
@@ -121,7 +115,6 @@ export function useSalesModals({
     paymentMethod: null,
     selectedCustomer: null,
     pendingDiscountAmount: 0,
-    userRole,
     isResumedDraft: isResumedCart,
     recovery: {
       onOpenCashSession: () => handleOpenCashSessionModal(),

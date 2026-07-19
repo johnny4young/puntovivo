@@ -243,6 +243,7 @@
       "ariaLabel": "Company configuration sections",
       "readiness": "Setup",
       "general": "General",
+      "controls": "Controls",
       "locale": "Locale",
       "data": "Data",
       "device": "Device",
@@ -471,6 +472,7 @@
       "currentVersion": "Current Version",
       "latestDownload": "Latest Download",
       "lastChecked": "Last Checked",
+      "lastUpdated": "Last Updated",
       "notYet": "Not yet",
       "downloadedUpdateReady": "Downloaded update ready",
       "updatePublished": "Update published",
@@ -478,6 +480,12 @@
       "availableManualHint": "A new version is available. Open the release page to download and install it.",
       "unknown": "Unknown",
       "none": "None",
+      "rollout": {
+        "label": "Rollout",
+        "stagedValue": "Staged · {{percentage}}%",
+        "rollbackValue": "Rollback · {{percentage}}%",
+        "rollbackActive": "Rollback is active for version {{version}}. Eligible workstations will return to this exact build during the next update cycle."
+      },
       "statusBadge": {
         "unavailable": "Unavailable",
         "idle": "Up to Date",
@@ -639,6 +647,68 @@
       "toast": {
         "saved": "Cash close settings saved",
         "saveError": "The cash close settings could not be saved"
+      }
+    },
+    "lossPrevention": {
+      "title": "Loss prevention",
+      "description": "Set per-role checkout limits. A sale that crosses a limit is blocked until another authorized employee approves that exact checkout.",
+      "loading": "Loading checkout controls",
+      "roles": {
+        "cashier": "Cashier policy",
+        "manager": "Manager policy"
+      },
+      "maxDiscount": {
+        "label": "Maximum discount without approval",
+        "help": "Includes line and cart discounts as a percentage of gross item value."
+      },
+      "afterHours": {
+        "label": "Require approval during blocked hours",
+        "help": "Uses the company timezone and supports windows that cross midnight.",
+        "from": "Blocked from",
+        "until": "Blocked until"
+      },
+      "dualApproval": {
+        "label": "Require two approvals above an amount",
+        "help": "Discounts, after-hours sales, refunds, and voids above this amount need fresh PIN decisions from two different authorized employees.",
+        "threshold": "Dual-approval amount threshold"
+      },
+      "shift": {
+        "title": "Per-shift action limits",
+        "help": "Completed actions by this employee are counted from the start of their current cash session. Crossing either limit requires a separate approval.",
+        "maxCount": "Maximum actions",
+        "maxAmount": "Maximum total amount",
+        "refunds": {
+          "label": "Limit refunds per shift",
+          "help": "Uses the full refunded sale amount in the company currency."
+        },
+        "voids": {
+          "label": "Limit voids per shift",
+          "help": "Uses the full voided sale amount in the company currency."
+        },
+        "noSale": {
+          "label": "Limit no-sale drawer opens",
+          "help": "Counts manual drawer opens that are not part of completing a sale.",
+          "maxCount": "Maximum manual opens"
+        }
+      },
+      "validation": "Enter discount limits from 0% to 100%, valid shift and dual-approval amounts, and different start and end times for each enabled blocked window.",
+      "auditNote": "Every policy change and every checkout that triggers a rule is recorded in the audit log without cart or customer details.",
+      "save": "Save checkout controls",
+      "saving": "Saving…",
+      "toast": {
+        "saved": "Checkout controls saved",
+        "saveError": "The checkout controls could not be saved"
+      },
+      "alerts": {
+        "title": "Alert delivery",
+        "inAppHelp": "New triggers stay in the active site's alert center until reviewed.",
+        "whatsapp": {
+          "label": "Add WhatsApp link to alerts",
+          "help": "Manual only: opens a prefilled WhatsApp message without customer data.",
+          "recipient": "Manager WhatsApp number",
+          "placeholder": "+57 300 123 4567",
+          "validation": "Enter an international number."
+        }
       }
     },
     "discount": {
@@ -948,14 +1018,38 @@
       "user": "User",
       "role": "Role",
       "status": "Status",
+      "pin": "Staff PIN",
+      "pinConfigured": "Configured",
+      "pinMissing": "Not configured",
       "active": "Active",
       "inactive": "Inactive"
+    },
+    "actions": {
+      "edit": "Edit {{name}}",
+      "resetPassword": "Reset password for {{name}}",
+      "managePin": "Manage staff PIN for {{name}}"
     },
     "roles": {
       "admin": "Admin",
       "manager": "Manager",
       "cashier": "Cashier",
       "viewer": "Viewer"
+    },
+    "permissions": {
+      "title": "Default role permissions",
+      "description": "Review the workspace access assigned to each staff role before creating or updating an account.",
+      "caption": "Default workspace access by role",
+      "workspace": "Workspace",
+      "allowed": "Allowed",
+      "denied": "No access",
+      "cellLabel": "{{role}}: {{workspace}} — {{access}}",
+      "roleDescriptions": {
+        "admin": "Full tenant setup, financial controls, staff, and daily operations.",
+        "manager": "Daily operations, catalog, inventory, procurement, and customers.",
+        "cashier": "Sales and the enabled point-of-service surfaces.",
+        "viewer": "Read-only access to the dashboard overview."
+      },
+      "note": "This matrix shows default workspace access. Active modules can hide individual tools, and server authorization is always enforced for every action."
     },
     "form": {
       "createTitle": "Create User",
@@ -980,6 +1074,19 @@
       "newPassword": "New Password",
       "submit": "Reset Password"
     },
+    "staffPin": {
+      "title": "Manage staff PIN",
+      "description": "Set a 6-digit PIN for {{name}}. Cashier PINs can switch shared workstations; a PIN never replaces full sign-in for manager or admin access.",
+      "label": "New 6-digit PIN",
+      "placeholder": "6 digits",
+      "requirement": "Use exactly 6 numbers. The PIN is stored as a one-way Argon2id hash.",
+      "cancel": "Cancel",
+      "save": "Save PIN",
+      "saving": "Saving...",
+      "clear": "Remove PIN",
+      "clearConfirm": "Remove the staff PIN for {{name}}?",
+      "invalid": "Enter exactly 6 digits."
+    },
     "toast": {
       "created": "User created",
       "createError": "Unable to create user",
@@ -987,7 +1094,10 @@
       "updateError": "Unable to update user",
       "claimsChanged": "Your account claims changed. Please sign in again",
       "passwordReset": "Password reset",
-      "passwordChanged": "Your password changed. Please sign in again"
+      "passwordChanged": "Your password changed. Please sign in again",
+      "pinSaved": "Staff PIN saved",
+      "pinCleared": "Staff PIN removed",
+      "pinError": "Unable to update the staff PIN"
     }
   }
 }

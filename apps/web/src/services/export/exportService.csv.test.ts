@@ -135,6 +135,39 @@ describe('exportToCSV', () => {
     // Header row only — strip the leading BOM and split on newlines.
     expect(text.replace(/\uFEFF/, '').split('\n')).toHaveLength(1);
   });
+
+  it('neutralizes formula-shaped text cells without changing negative numbers', async () => {
+    let captured: Blob | null = null;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((src: Blob | MediaSource) => {
+      captured = src as Blob;
+      return 'blob:csv-formula';
+    });
+
+    exportToCSV(
+      [
+        { text: '=HYPERLINK("https://example.invalid")', number: -12 },
+        { text: '  @SUM(1,1)', number: -4.5 },
+        { text: '\n+SUM(1,1)', number: -3 },
+        { text: '\u00a0-2+2', number: -2 },
+      ],
+      [
+        { key: 'text', header: 'Text' },
+        { key: 'number', header: 'Number' },
+      ],
+      'formula-guard',
+      { includeTimestamp: false }
+    );
+
+    const text = await captured!.text();
+    expect(text).toContain(`"'=HYPERLINK(""https://example.invalid"")"`);
+    expect(text).toContain(`"'  @SUM(1,1)"`);
+    expect(text).toContain(`"'\n+SUM(1,1)"`);
+    expect(text).toContain(`"'\u00a0-2+2"`);
+    expect(text).toContain('"-12"');
+    expect(text).toContain('"-4.5"');
+    expect(text).toContain('"-3"');
+    expect(text).toContain('"-2"');
+  });
 });
 
 describe('printTable', () => {

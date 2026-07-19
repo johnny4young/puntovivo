@@ -2,7 +2,7 @@ import { type Dispatch, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
-import { invalidateGroups } from '@/lib/invalidateGroups';
+import { invalidateGroups, SERIAL_INVENTORY_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
 import { getCartItemKey, type SaleCartItem, type SaleCartSummary } from '@/features/sales/saleCart';
 import {
@@ -88,7 +88,7 @@ export function useSalesFlows({
     // Defense in depth behind the modal's own isSaving guard: each
     // mutate() mints a fresh idempotency envelope, so a second concurrent
     // fire would complete the sale twice server-side.
-    if (createMutation.isPending || completeDraftMutation.isPending) {
+    if (!canCharge || createMutation.isPending || completeDraftMutation.isPending) {
       return;
     }
     try {
@@ -121,7 +121,8 @@ export function useSalesFlows({
       // ENG-090 / ENG-014 — admin override for the credit-limit invariant.
       // Split-credit can demote the legacy paymentMethod to cash/card, so the
       // forwarding decision must inspect the modal tenders instead of only
-      // the dominant legacy method. The server still re-asserts admin role.
+      // the dominant legacy method. The server accepts direct admin authority
+      // or atomically consumes an exact credit_override grant for non-admins.
       const creditOverride =
         values.creditOverride && checkoutUsesCreditTender(values) ? true : undefined;
 
@@ -145,6 +146,8 @@ export function useSalesFlows({
           serviceChargeAmount,
           serviceChargeRate,
           creditOverride,
+          approvalRequests: values.approvalRequests,
+          checkoutStartedAt: activeWorkspace.checkoutStartedAt ?? undefined,
         });
         return;
       }
@@ -158,6 +161,7 @@ export function useSalesFlows({
           unitPrice: item.unitPrice,
           discount: item.discount,
           taxRate: item.taxRate,
+          serialIds: item.serialIds ?? [],
         })),
         paymentMethod: payment.paymentMethod,
         paymentStatus: payment.paymentStatus,
@@ -174,6 +178,8 @@ export function useSalesFlows({
         serviceChargeAmount,
         serviceChargeRate,
         creditOverride,
+        approvalRequests: values.approvalRequests,
+        checkoutStartedAt: activeWorkspace?.checkoutStartedAt ?? undefined,
       });
     } catch (error) {
       setSaleError(translateServerError(error, t, t('errors:server.unknown')));
@@ -193,7 +199,7 @@ export function useSalesFlows({
     if (isSuspending) {
       return;
     }
-    if (cartItems.length === 0 || !ownerKey) {
+    if (cartItems.length === 0 || !ownerKey || !canCharge) {
       setIsSuspendLabelPromptOpen(false);
       return;
     }
@@ -213,6 +219,7 @@ export function useSalesFlows({
           unitPrice: item.unitPrice,
           discount: item.discount,
           taxRate: item.taxRate,
+          serialIds: item.serialIds ?? [],
         })),
         paymentMethod: 'cash',
         paymentStatus: 'pending',
@@ -237,6 +244,7 @@ export function useSalesFlows({
         u => u.inventory.listStock,
         u => u.products.list,
         u => u.products.search,
+        ...SERIAL_INVENTORY_INVALIDATIONS,
       ]);
       const storeState = useCartWorkspaceStore.getState();
       if (storeState.activeId) {
@@ -267,6 +275,7 @@ export function useSalesFlows({
             u => u.inventory.listStock,
             u => u.products.list,
             u => u.products.search,
+            ...SERIAL_INVENTORY_INVALIDATIONS,
           ]);
         } catch {
           // Best-effort: the original error is the one the
@@ -324,11 +333,14 @@ export function useSalesFlows({
         sellByFraction: false,
         fractionStep: null,
         fractionMinimum: null,
+        tracksSerials: false,
+        serialIds: [],
       }));
       useCartWorkspaceStore.getState().hydrateFromResumed({
         ownerKey,
         serverSaleId: resumed.id,
         serverSaleNumber: resumed.saleNumber,
+        serverCustomerId: resumed.customerId ?? null,
         label,
         items,
       });

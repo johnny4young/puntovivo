@@ -13,7 +13,7 @@
  */
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pencil } from 'lucide-react';
+import { Boxes, Pencil } from 'lucide-react';
 import { Drawer } from '@/components/feedback/Drawer';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { Product } from '@/types';
@@ -32,6 +32,8 @@ export interface ProductDetailsDrawerProps {
    * manage products, in which case no Edit action renders.
    */
   onEdit?: ((product: Product) => void) | undefined;
+  /** Create or inspect the product's immutable variant matrix. */
+  onManageVariants?: ((product: Product) => void) | undefined;
 }
 
 /** One label/value row in the read-only detail list. */
@@ -48,6 +50,7 @@ export function ProductDetailsDrawer({
   product,
   onClose,
   onEdit,
+  onManageVariants,
 }: ProductDetailsDrawerProps) {
   const { t } = useTranslation('products');
 
@@ -56,7 +59,19 @@ export function ProductDetailsDrawer({
       <button type="button" className="btn-outline" onClick={onClose}>
         {t('details.close')}
       </button>
-      {onEdit && (
+      {onManageVariants && product.catalogType !== 'variant' && !product.tracksSerials && (
+        <button
+          type="button"
+          className="btn-outline flex items-center gap-2"
+          onClick={() => onManageVariants(product)}
+        >
+          <Boxes className="h-4 w-4" />
+          {product.catalogType === 'variant_parent'
+            ? t('details.viewVariants')
+            : t('details.createVariants')}
+        </button>
+      )}
+      {onEdit && product.catalogType !== 'variant_parent' && (
         <button
           type="button"
           className="btn-primary flex items-center gap-2"
@@ -81,6 +96,22 @@ export function ProductDetailsDrawer({
       {product && (
         <dl data-testid="product-details-fields">
           <DetailField label={t('details.sku')} value={product.sku} />
+          <DetailField
+            label={t('details.catalogType')}
+            value={
+              <span className="pv-badge neutral">
+                {t(`details.catalogTypes.${product.catalogType ?? 'standard'}`)}
+              </span>
+            }
+          />
+          {product.catalogType === 'variant' && product.variantValues && (
+            <DetailField
+              label={t('details.variantValues')}
+              value={Object.entries(product.variantValues)
+                .map(([axis, value]) => `${axis}: ${value}`)
+                .join(' · ')}
+            />
+          )}
           <DetailField label={t('table.category')} value={product.categoryName ?? '-'} />
           <DetailField label={t('table.provider')} value={product.providerName ?? '-'} />
           <DetailField label={t('table.location')} value={product.locationName ?? '-'} />
@@ -89,14 +120,44 @@ export function ProductDetailsDrawer({
           <DetailField label={t('table.tier3')} value={formatCurrency(product.price3)} />
           <DetailField label={t('table.stock')} value={product.stock.toLocaleString()} />
           <DetailField
-            label={t('details.minStock')}
-            value={product.minStock.toLocaleString()}
+            label={t('details.lotTracking')}
+            value={
+              <span className={cn('pv-badge', product.tracksLots ? 'success' : 'neutral')}>
+                {product.tracksLots
+                  ? t('details.lotTrackingEnabled')
+                  : t('details.lotTrackingDisabled')}
+              </span>
+            }
           />
+          <DetailField
+            label={t('details.serialTracking')}
+            value={
+              <span className={cn('pv-badge', product.tracksSerials ? 'success' : 'neutral')}>
+                {product.tracksSerials
+                  ? t('details.serialTrackingEnabled')
+                  : t('details.serialTrackingDisabled')}
+              </span>
+            }
+          />
+          <DetailField label={t('details.minStock')} value={product.minStock.toLocaleString()} />
           <DetailField
             label={t('table.status')}
             value={
-              <span className={cn('pv-badge', product.isActive ? 'success' : 'neutral')}>
-                {product.isActive ? t('table.active') : t('table.inactive')}
+              <span
+                className={cn(
+                  'pv-badge',
+                  product.catalogType === 'variant_parent'
+                    ? 'info'
+                    : product.isActive
+                      ? 'success'
+                      : 'neutral'
+                )}
+              >
+                {product.catalogType === 'variant_parent'
+                  ? t('table.matrixParent')
+                  : product.isActive
+                    ? t('table.active')
+                    : t('table.inactive')}
               </span>
             }
           />

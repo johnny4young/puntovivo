@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
@@ -26,6 +26,10 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError, extractServerErrorCode } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import type { Product, UserRole } from '@/types';
+
+const VariantMatrixModal = lazy(() =>
+  import('./VariantMatrixModal').then(module => ({ default: module.VariantMatrixModal }))
+);
 
 function canManageProducts(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
@@ -75,6 +79,7 @@ export function ProductsPage() {
     page: 1,
     perPage: 50,
     search: semantic.literalFallbackSearch,
+    includeVariantParents: true,
   });
 
   const categoriesQuery = trpc.categories.tree.useQuery();
@@ -90,9 +95,14 @@ export function ProductsPage() {
   // ENG-132a — row-detail Drawer for the columns trimmed off the default
   // table (provider / location / tier-2 / tier-3 prices, SKU, min stock).
   const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
+  const [matrixProduct, setMatrixProduct] = useState<Product | null>(null);
   const editingProductDetailQuery = trpc.products.getById.useQuery(
     { id: editingProduct?.id ?? '' },
     { enabled: !!editingProduct?.id }
+  );
+  const matrixQuery = trpc.products.getVariantMatrix.useQuery(
+    { parentProductId: matrixProduct?.id ?? '' },
+    { enabled: matrixProduct?.catalogType === 'variant_parent' }
   );
 
   const createMutation = trpc.products.create.useMutation({
@@ -131,6 +141,20 @@ export function ProductsPage() {
       toast.success({ title: t('toast.deactivated') });
     },
     onError: onErrorToast(toast, t, { titleKey: 'products:toast.deactivateError' }),
+  });
+  const createVariantMatrixMutation = trpc.products.createVariantMatrix.useMutation({
+    onSuccess: async result => {
+      await Promise.all([
+        utils.products.list.invalidate(),
+        utils.products.getById.invalidate({ id: result.parentProductId }),
+        utils.products.getVariantMatrix.invalidate({ parentProductId: result.parentProductId }),
+      ]);
+      setMatrixProduct(null);
+      toast.success({
+        title: t('variants.toastCreated', { count: result.variants.length }),
+      });
+    },
+    onError: onErrorToast(toast, t, { titleKey: 'products:variants.toastError' }),
   });
 
   const products: Product[] = (productsQuery.data?.items ?? []).map(product => ({
@@ -210,9 +234,23 @@ export function ProductsPage() {
     setDetailsProduct(null);
     handleOpenEdit(product);
   };
+  const handleManageVariants = (product: Product) => {
+    setDetailsProduct(null);
+    createVariantMatrixMutation.reset();
+    setMatrixProduct(product);
+  };
 
   const handleSubmit = async (values: ProductFormValues) => {
-    const payload = buildProductPayload(values);
+    // ENG-110a — stock is derived inventory state for a lot-tracked product.
+    // Omitting it on tracked updates prevents a metadata save from replaying
+    // the stale stock value captured when the modal opened.
+    const payload = buildProductPayload(values, {
+      includeStock:
+        !editingProduct ||
+        (!values.tracksLots &&
+          !values.tracksSerials &&
+          editingProduct.catalogType !== 'variant_parent'),
+    });
 
     if (editingProduct) {
       await updateMutation.mutateAsync({
@@ -373,7 +411,14 @@ export function ProductsPage() {
               // editable row so it stays a no-op. ENG-132a added a separate
               // Details affordance (Eye button, all roles) that is focusable
               // in tab order, so this keyboard edit parity is unchanged.
-              onRowActivate={canManage ? handleOpenEdit : undefined}
+              onRowActivate={
+                canManage
+                  ? product =>
+                      product.catalogType === 'variant_parent'
+                        ? handleOpenDetails(product)
+                        : handleOpenEdit(product)
+                  : undefined
+              }
             />
 
             {semantic.semanticIsActive && displayProducts.length === 0 && !semantic.isSearching && (
@@ -428,7 +473,52 @@ export function ProductsPage() {
         product={detailsProduct}
         onClose={handleCloseDetails}
         onEdit={canManage ? handleEditFromDetails : undefined}
+        onManageVariants={canManage ? handleManageVariants : undefined}
       />
+
+      {matrixProduct && (
+        <Suspense fallback={null}>
+          <VariantMatrixModal
+            key={matrixProduct.id}
+            isOpen
+            product={matrixProduct}
+            matrix={
+              matrixQuery.data
+                ? {
+                    axes: matrixQuery.data.axes,
+                    variants: matrixQuery.data.variants.map(variant => ({
+                      ...variant,
+                      isActive: variant.isActive ?? false,
+                    })),
+                  }
+                : null
+            }
+            isLoading={matrixProduct.catalogType === 'variant_parent' && matrixQuery.isLoading}
+            isSaving={createVariantMatrixMutation.isPending}
+            error={
+              createVariantMatrixMutation.error
+                ? translateServerError(
+                    createVariantMatrixMutation.error,
+                    t,
+                    t('errors:server.unknown')
+                  )
+                : matrixQuery.error
+                  ? translateServerError(matrixQuery.error, t, t('errors:server.unknown'))
+                  : null
+            }
+            onClose={() => {
+              setMatrixProduct(null);
+              createVariantMatrixMutation.reset();
+            }}
+            onSubmit={async axes => {
+              await createVariantMatrixMutation.mutateAsync({
+                parentProductId: matrixProduct.id,
+                axes,
+              });
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

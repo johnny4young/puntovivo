@@ -1,0 +1,2222 @@
+[
+  {
+    "path": "ai.anomalies.list",
+    "kind": "query",
+    "input": "object{from?:string[format=date-time],to?:string[format=date-time]}",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.anomalies.snooze",
+    "kind": "mutation",
+    "input": "object{cashierId:string[minLength=1]|null,durationDays:integer[min=1,max=90],evidenceRef?:string[minLength=1]|null,kind:enum(\"ticketsPerHourSpike\"|\"voidRate\"|\"refundAmount\"|\"noSaleSessions\"),reason?:string[minLength=1,maxLength=500]}",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.completeTest",
+    "kind": "mutation",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.copilot.chat",
+    "kind": "mutation",
+    "input": "object{context?:object{from?:string[format=date-time],siteId?:string[minLength=1]|null,to?:string[format=date-time]},messages:array<object>[minItems=1,maxItems=20]}",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.extractInvoiceLines",
+    "kind": "mutation",
+    "input": "object{imageBase64:string[minLength=1,maxLength=14712832],mimeType:enum(\"image/jpeg\"|\"image/png\"|\"image/webp\"|\"application/pdf\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.invoiceOcr.confirm",
+    "kind": "mutation",
+    "input": "object{extractAuditId:string[minLength=1,maxLength=100],invoiceNumber:string[maxLength=80]|null,lines:array<object>[minItems=1,maxItems=500],providerId:string[minLength=1],supplier:object{name:string[minLength=0,maxLength=200],nit:string[maxLength=50]|null},totals:object{iva:number,linesSum:number,subtotal:number,total:number},uploadId:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.invoiceOcr.extract",
+    "kind": "mutation",
+    "input": "object{uploadId:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.matchInvoiceLines",
+    "kind": "mutation",
+    "input": "object{lines:array<object>[maxItems=200]}",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.parseCartCommand",
+    "kind": "mutation",
+    "input": "object{transcript:string[minLength=1,maxLength=1000]}",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.settings.get",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.settings.update",
+    "kind": "mutation",
+    "input": "object{enabled?:boolean,features?:object{anomalies?:object,copilot?:object,invoiceOcr?:object,privacy?:object,semanticSearch?:object},modelId?:string[minLength=1,maxLength=120]|null,monthlyBudgetUsd?:number[min=0,max=100000],providerId?:enum(\"anthropic\"|\"openai\"|\"ollama\")|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.transcribeAudio",
+    "kind": "mutation",
+    "input": "object{audioBase64:string[minLength=1,maxLength=14712832],mimeType:enum(\"audio/webm\"|\"audio/mp4\"|\"audio/mpeg\"|\"audio/wav\"|\"audio/m4a\"|\"audio/ogg\"|\"audio/x-m4a\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.usage",
+    "kind": "query",
+    "input": "object{cursor?:string[minLength=1],limit?:integer[min=1,max=200]=50}",
+    "output": "inferred"
+  },
+  {
+    "path": "ai.usageByBreakdown",
+    "kind": "query",
+    "input": "object{from?:string[format=date-time],scope:enum(\"site\"|\"user\"|\"feature\"|\"provider\"),to?:string[format=date-time]}",
+    "output": "inferred"
+  },
+  {
+    "path": "auditLogs.list",
+    "kind": "query",
+    "input": "object{action?:enum(\"transfer.void\"|\"quotation.delete\"|\"quotation.convert\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"employee_shift.correct\"|\"employee_shift_break.start\"|\"employee_shift_break.end\"|\"scheduled_shift.create\"|\"scheduled_shift.update\"|\"scheduled_shift.cancel\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"loss_prevention.settings.updated\"|\"loss_prevention.triggered\"|\"loss_prevention.alert.acknowledged\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"data_import.opening_cash\"|\"data_import.fiscal_profile\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"module.preset_applied\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"customer.credit_limit.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"telemetry.opt_in.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"backup.restore_drill\"|\"day_close.sign_off\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"transfer_order\"|\"quotation\"|\"sale\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"purchase\"|\"user\"|\"employee_shift\"|\"employee_shift_break\"|\"scheduled_shift\"|\"manager_approval\"|\"loss_prevention_rule\"|\"loss_prevention_alert\"|\"site\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"customer\"|\"fiscal_document\"|\"tenant\"|\"price_suggestion\"|\"backup_snapshot\"|\"data_import\"|\"day_close_signoff\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "auditLogs.sensitiveSummary",
+    "kind": "query",
+    "input": "object{createdAfter?:string[format=date-time],createdBefore?:string[format=date-time]}",
+    "output": "inferred"
+  },
+  {
+    "path": "auth.changePassword",
+    "kind": "mutation",
+    "input": "object{currentPassword:string[minLength=1],newPassword:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "auth.login",
+    "kind": "mutation",
+    "input": "object{email:string[minLength=3],password:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "auth.logout",
+    "kind": "mutation",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "auth.me",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "auth.realtimeToken",
+    "kind": "mutation",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "auth.refresh",
+    "kind": "mutation",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "auth.registerDevice",
+    "kind": "mutation",
+    "input": "object{appVersion?:string[minLength=1,maxLength=80]|null,dbSchemaVersion?:integer[min=0,max=9007199254740991]|null,deviceId?:string[minLength=8,maxLength=64],kind:enum(\"desktop\"|\"web\"|\"hub_client\"),metadata?:object{},name:string[minLength=1,maxLength=120],pairingCode?:string[minLength=4,maxLength=32],siteId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "auth.switchableCashiers",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "auth.switchStaff",
+    "kind": "mutation",
+    "input": "object{pin:string,targetUserId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "authority.consumePairingCode",
+    "kind": "mutation",
+    "input": "object{code:string[minLength=4,maxLength=32],deviceId:string[minLength=8,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
+    "path": "authority.createPairingCode",
+    "kind": "mutation",
+    "input": "object{deviceName?:string[minLength=1,maxLength=120],expiresInMinutes?:integer[min=1,max=60],siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "authority.revokeDevice",
+    "kind": "mutation",
+    "input": "object{deviceId:string[minLength=8,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
+    "path": "authority.status",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "cashCloseSettings.get",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "cashCloseSettings.update",
+    "kind": "mutation",
+    "input": "object{blindClose?:boolean}",
+    "output": "inferred"
+  },
+  {
+    "path": "cashSessions.close",
+    "kind": "mutation",
+    "input": "object{actualCount:number[min=0],denominations?:array<object>}",
+    "output": "inferred"
+  },
+  {
+    "path": "cashSessions.dayCloseSummary",
+    "kind": "query",
+    "input": "object{sessionId:string[minLength=1]}",
+    "output": "object{day:object{date:string,revenue:number,salesCount:integer[min=0,max=9007199254740991]},margin:object{grossMarginPct:number,grossProfit:number}|null,previousWeek:object{revenue:number}|null,pulse:object{averageTicket:number,previousWeekRevenue:number,revenueChangePct:number|null}|null,session:object{actualCount:number|null,balanced:boolean,closedAt:string,overShort:number|null,registerName:string},streakDays:integer[min=0,max=9007199254740991],topProducts:array<object>}"
+  },
+  {
+    "path": "cashSessions.getActive",
+    "kind": "query",
+    "input": "object{siteId?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "cashSessions.listRecent",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "cashSessions.movements",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=100]=20,sessionId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "cashSessions.myPace",
+    "kind": "query",
+    "input": "object{siteId?:string}",
+    "output": "object{averageCheckoutSeconds:integer[min=0,max=9007199254740991]|null,completedSales:integer[min=0,max=9007199254740991],itemCount:number[min=0],itemsPerMinute:number[min=0],personalBestItemsPerMinute:number[min=0]|null,sessionId:string}|null"
+  },
+  {
+    "path": "cashSessions.open",
+    "kind": "mutation",
+    "input": "object{denominations?:array<object>,openingFloat:number[min=0],registerName?:string[minLength=1,maxLength=80]=\"Main register\"}",
+    "output": "inferred"
+  },
+  {
+    "path": "cashSessions.pace",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "cashSessions.pendingChecks",
+    "kind": "query",
+    "input": "object{sessionId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "cashSessions.recordMovement",
+    "kind": "mutation",
+    "input": "object{amount:number[min>0],note:string[minLength=3,maxLength=240],type:enum(\"paid_in\"|\"paid_out\"|\"skim\"|\"replenishment\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "cashSessions.registerAssignments",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "cashSessions.report",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=20]=6}",
+    "output": "inferred"
+  },
+  {
+    "path": "categories.create",
+    "kind": "mutation",
+    "input": "object{description?:string,name:string[minLength=1,maxLength=255],parentId?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "categories.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "categories.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "categories.list",
+    "kind": "query",
+    "input": "object{page?:integer[min=1,max=9007199254740991]=1,parentId?:string,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "categories.tree",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "categories.update",
+    "kind": "mutation",
+    "input": "object{description?:string,id:string[minLength=1],name?:string[minLength=1,maxLength=255],parentId?:string|null,version:integer[min=0,max=9007199254740991]}",
+    "output": "inferred"
+  },
+  {
+    "path": "cities.create",
+    "kind": "mutation",
+    "input": "object{code:string[minLength=1,maxLength=50],departmentId:string[minLength=1],isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "cities.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "cities.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "cities.list",
+    "kind": "query",
+    "input": "object{departmentId?:string,isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "cities.search",
+    "kind": "query",
+    "input": "object{departmentId?:string,isActive?:boolean,limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "cities.update",
+    "kind": "mutation",
+    "input": "object{code?:string[minLength=1,maxLength=50],departmentId?:string[minLength=1],id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "clientTypes.create",
+    "kind": "mutation",
+    "input": "object{code:string[minLength=1,maxLength=50],description?:string|null,isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "clientTypes.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "clientTypes.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "clientTypes.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "clientTypes.search",
+    "kind": "query",
+    "input": "object{isActive?:boolean,limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "clientTypes.update",
+    "kind": "mutation",
+    "input": "object{code?:string[minLength=1,maxLength=50],description?:string|null,id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "commercialActivities.create",
+    "kind": "mutation",
+    "input": "object{code:string[minLength=1,maxLength=50],description?:string|null,isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "commercialActivities.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "commercialActivities.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "commercialActivities.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "commercialActivities.search",
+    "kind": "query",
+    "input": "object{isActive?:boolean,limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "commercialActivities.update",
+    "kind": "mutation",
+    "input": "object{code?:string[minLength=1,maxLength=50],description?:string|null,id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "companies.acknowledgeSetup",
+    "kind": "mutation",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "companies.getCurrent",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "companies.setLogo",
+    "kind": "mutation",
+    "input": "object{logoId:string|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "companies.updateTelemetryOptIn",
+    "kind": "mutation",
+    "input": "object{optedIn:boolean}",
+    "output": "inferred"
+  },
+  {
+    "path": "companies.upsert",
+    "kind": "mutation",
+    "input": "object{address?:string|null,email?:string[minLength=3]|null,logoId?:string|null,logoUrl?:string[format=uri]|null,name:string[minLength=1,maxLength=255],phone?:string|null,taxId?:string|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "countries.create",
+    "kind": "mutation",
+    "input": "object{code:string[minLength=1,maxLength=50],isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "countries.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "countries.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "countries.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "countries.search",
+    "kind": "query",
+    "input": "object{isActive?:boolean,limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "countries.update",
+    "kind": "mutation",
+    "input": "object{code?:string[minLength=1,maxLength=50],id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "customerLedger.addAdjustment",
+    "kind": "mutation",
+    "input": "object{amount:number,customerId:string[minLength=1],note:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "customerLedger.addPayment",
+    "kind": "mutation",
+    "input": "object{amount:number[min>0],customerId:string[minLength=1],note?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "customerLedger.getBalance",
+    "kind": "query",
+    "input": "object{customerId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "customerLedger.list",
+    "kind": "query",
+    "input": "object{customerId:string[minLength=1],limit?:integer[min=1,max=500]=50}",
+    "output": "inferred"
+  },
+  {
+    "path": "customers.create",
+    "kind": "mutation",
+    "input": "object{address?:string,city?:string,clientTypeId?:string,commercialActivityId?:string,country?:string,creditLimit?:number[min=0],email?:string[minLength=3],identificationTypeId?:string,isActive?:boolean=true,name:string[minLength=1,maxLength=255],notes?:string,personTypeId?:string,phone?:string,postalCode?:string,regimeTypeId?:string,state?:string,taxId?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "customers.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "customers.disposePersonalData",
+    "kind": "mutation",
+    "input": "object{confirmation:string[minLength=1],id:string[minLength=1],version:integer[min=0,max=9007199254740991]}",
+    "output": "inferred"
+  },
+  {
+    "path": "customers.exportPersonalData",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "customers.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "customers.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "customers.previewPersonalDataDisposition",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "customers.search",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "customers.update",
+    "kind": "mutation",
+    "input": "object{address?:string|null,city?:string|null,clientTypeId?:string|null,commercialActivityId?:string|null,country?:string|null,creditLimit?:number[min=0],email?:string[minLength=3]|null,id:string[minLength=1],identificationTypeId?:string|null,isActive?:boolean,name?:string[minLength=1,maxLength=255],notes?:string|null,personTypeId?:string|null,phone?:string|null,postalCode?:string|null,regimeTypeId?:string|null,state?:string|null,taxId?:string|null,version:integer[min=0,max=9007199254740991]}",
+    "output": "inferred"
+  },
+  {
+    "path": "dashboard.summary",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "dataRetention.get",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "dataRetention.preview",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "dataRetention.runNow",
+    "kind": "mutation",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "dataRetention.update",
+    "kind": "mutation",
+    "input": "object{aiAuditDays:integer[min=30,max=730],operationalAuditDays:integer[min=365,max=3650],privacyAuditDays:integer[min=365,max=3650],syncedOutboxDays:integer[min=7,max=365]}",
+    "output": "inferred"
+  },
+  {
+    "path": "deliveryOrders.advance",
+    "kind": "mutation",
+    "input": "object{courierName?:string,id:string[minLength=1],toStatus:enum(\"accepted\"|\"preparing\"|\"dispatched\"|\"delivered\"|\"cancelled\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "deliveryOrders.create",
+    "kind": "mutation",
+    "input": "object{address:string[minLength=1],addressNotes?:string,courierName?:string,customerId?:string,customerName:string[minLength=1],customerPhone?:string,itemsSnapshot?:string,saleId?:string,siteId:string[minLength=1],totalAmount?:number[min=0]=0}",
+    "output": "inferred"
+  },
+  {
+    "path": "deliveryOrders.list",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=200]=50,siteId:string[minLength=1],status?:enum(\"accepted\"|\"preparing\"|\"dispatched\"|\"delivered\"|\"cancelled\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "departments.create",
+    "kind": "mutation",
+    "input": "object{code:string[minLength=1,maxLength=50],countryId:string[minLength=1],isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "departments.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "departments.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "departments.list",
+    "kind": "query",
+    "input": "object{countryId?:string,isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "departments.search",
+    "kind": "query",
+    "input": "object{isActive?:boolean,limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "departments.update",
+    "kind": "mutation",
+    "input": "object{code?:string[minLength=1,maxLength=50],countryId?:string[minLength=1],id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "discountSettings.get",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "discountSettings.update",
+    "kind": "mutation",
+    "input": "object{expiryTiers?:array<object>[minItems=1,maxItems=5]}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.attendance.corrections.create",
+    "kind": "mutation",
+    "input": "object{breaks:array<object>[maxItems=12],employeeShiftId:string[minLength=1],endDate:string,endTime:string,expectedVersion:integer[min=0,max=9007199254740991],reason:string[minLength=10,maxLength=500],startDate:string,startTime:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.attendance.corrections.list",
+    "kind": "query",
+    "input": "object{employeeShiftId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.attendance.export",
+    "kind": "query",
+    "input": "object{fromDate:string,siteId?:string[minLength=1],toDate:string,userId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.attendance.list",
+    "kind": "query",
+    "input": "object{fromDate:string,page?:integer[max=9007199254740991,min>0]=1,perPage?:integer[min=1,max=100]=50,siteId?:string[minLength=1],toDate:string,userId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.breaks.current",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.breaks.end",
+    "kind": "mutation",
+    "input": "object{}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.breaks.start",
+    "kind": "mutation",
+    "input": "object{}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.clockIn",
+    "kind": "mutation",
+    "input": "object{siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.clockOut",
+    "kind": "mutation",
+    "input": "object{}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.current",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.schedule.cancel",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],version:integer[max=9007199254740991,min>0]}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.schedule.context",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.schedule.create",
+    "kind": "mutation",
+    "input": "object{endDate:string,endTime:string,notes?:string[maxLength=500]|null,siteId:string[minLength=1],startDate:string,startTime:string,userId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.schedule.list",
+    "kind": "query",
+    "input": "object{fromDate:string,includeCancelled?:boolean=false,siteId?:string[minLength=1],toDate:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.schedule.update",
+    "kind": "mutation",
+    "input": "object{endDate:string,endTime:string,id:string[minLength=1],notes?:string[maxLength=500]|null,siteId:string[minLength=1],startDate:string,startTime:string,userId:string[minLength=1],version:integer[max=9007199254740991,min>0]}",
+    "output": "inferred"
+  },
+  {
+    "path": "events.getContract",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "events.peekOutbox",
+    "kind": "query",
+    "input": "object{limit?:integer[max=200,min>0]=50}",
+    "output": "inferred"
+  },
+  {
+    "path": "fiscalSettings.getActiveCaf",
+    "kind": "query",
+    "input": "object{countryCode:enum(\"CO\"|\"MX\"|\"CL\"),tipoDte:string[minLength=2,maxLength=3]}",
+    "output": "inferred"
+  },
+  {
+    "path": "fiscalSettings.getByCountry",
+    "kind": "query",
+    "input": "object{countryCode:enum(\"CO\"|\"MX\"|\"CL\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "fiscalSettings.updateCl",
+    "kind": "mutation",
+    "input": "object{casaMatriz?:string[minLength=1,maxLength=200]|null,comunaCode?:integer[max=9007199254740991,min>0]|null,enabled?:boolean,environment?:enum(\"certificacion\"|\"produccion\"),giroCode?:string[minLength=2,maxLength=10]|null,rut?:string[minLength=1,maxLength=15]|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "fiscalSettings.updateCo",
+    "kind": "mutation",
+    "input": "object{dianResolutionNumber?:string[minLength=1,maxLength=40]|null,enabled?:boolean,environment?:enum(\"habilitacion\"|\"produccion\"),nit?:string[minLength=1,maxLength=20]|null,prefix?:string[minLength=1,maxLength=10]|null,rangeFrom?:integer[max=9007199254740991,min>0]|null,rangeTo?:integer[max=9007199254740991,min>0]|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "fiscalSettings.updateMx",
+    "kind": "mutation",
+    "input": "object{enabled?:boolean,environment?:enum(\"sandbox\"|\"production\"),lugarExpedicion?:string|null,regimenFiscalCode?:string|null,rfc?:string[minLength=1,maxLength=13]|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "health.check",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "identificationTypes.create",
+    "kind": "mutation",
+    "input": "object{code:string[minLength=1,maxLength=50],description?:string|null,isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "identificationTypes.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "identificationTypes.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "identificationTypes.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "identificationTypes.search",
+    "kind": "query",
+    "input": "object{isActive?:boolean,limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "identificationTypes.update",
+    "kind": "mutation",
+    "input": "object{code?:string[minLength=1,maxLength=50],description?:string|null,id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventory.adjustStock",
+    "kind": "mutation",
+    "input": "object{newStock:number[min=0],notes?:string,productId:string[minLength=1],siteId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventory.createMovement",
+    "kind": "mutation",
+    "input": "object{notes?:string,productId:string[minLength=1],quantity:number[min>0],reference?:string,type:enum(\"purchase\"|\"sale\"|\"adjustment\"|\"transfer\"|\"return\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventory.getMovement",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventory.listBalancesBySite",
+    "kind": "query",
+    "input": "object{siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventory.listEntries",
+    "kind": "query",
+    "input": "object{mode?:enum(\"initial\"|\"physical\"),page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,productId?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventory.listMovements",
+    "kind": "query",
+    "input": "object{fromDate?:string,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,productId?:string,toDate?:string,type?:enum(\"purchase\"|\"sale\"|\"adjustment\"|\"transfer\"|\"return\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventory.listStock",
+    "kind": "query",
+    "input": "object{categoryId?:string[minLength=1],lowStockOnly?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventory.productStock",
+    "kind": "query",
+    "input": "object{productId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventory.reconcileBalances",
+    "kind": "mutation",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "inventory.recordEntry",
+    "kind": "mutation",
+    "input": "object{cost:number[min=0],mode:enum(\"initial\"|\"physical\"),notes?:string,productId:string[minLength=1],quantity:number[min>0],unitId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventoryLots.activeSuggestions",
+    "kind": "query",
+    "input": "object{siteId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventoryLots.dismissSuggestion",
+    "kind": "mutation",
+    "input": "object{suggestionId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventoryLots.expiring",
+    "kind": "query",
+    "input": "object{siteId?:string[minLength=1],withinDays?:integer[min=0,max=3650]=30}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventoryLots.list",
+    "kind": "query",
+    "input": "object{activeOnly?:boolean=false,productId:string[minLength=1],siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventoryLots.receive",
+    "kind": "mutation",
+    "input": "object{expiresAt?:string[minLength=1]|null,lotNumber:string[minLength=1,maxLength=120],notes?:string[maxLength=500]|null,productId:string[minLength=1],quantity:number[min>0],siteId:string[minLength=1],unitCost:number[min=0]}",
+    "output": "inferred"
+  },
+  {
+    "path": "inventoryLots.suggestDiscount",
+    "kind": "mutation",
+    "input": "object{lotId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "kds.list",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=500]=200,siteId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "kds.markReady",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "kds.recall",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.importCustomerBalances",
+    "kind": "mutation",
+    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.importCustomers",
+    "kind": "mutation",
+    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.importFiscalProfiles",
+    "kind": "mutation",
+    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),previewHash:string,rows:array<object>[minItems=1,maxItems=50],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.importOpeningCash",
+    "kind": "mutation",
+    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.importProducts",
+    "kind": "mutation",
+    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.importProviders",
+    "kind": "mutation",
+    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.previewCustomerBalances",
+    "kind": "mutation",
+    "input": "object{dataMode:enum(\"demo\"|\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.previewCustomers",
+    "kind": "mutation",
+    "input": "object{dataMode:enum(\"demo\"|\"real\"),rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.previewFiscalProfiles",
+    "kind": "mutation",
+    "input": "object{dataMode:enum(\"demo\"|\"real\"),rows:array<object>[minItems=1,maxItems=50],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.previewOpeningCash",
+    "kind": "mutation",
+    "input": "object{dataMode:enum(\"demo\"|\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.previewProducts",
+    "kind": "mutation",
+    "input": "object{dataMode:enum(\"demo\"|\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "launchMigration.previewProviders",
+    "kind": "mutation",
+    "input": "object{dataMode:enum(\"demo\"|\"real\"),rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "output": "inferred"
+  },
+  {
+    "path": "locations.create",
+    "kind": "mutation",
+    "input": "object{code:string[minLength=1,maxLength=50],description?:string|null,isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "locations.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "locations.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "locations.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "locations.search",
+    "kind": "query",
+    "input": "object{isActive?:boolean,limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "locations.update",
+    "kind": "mutation",
+    "input": "object{code?:string[minLength=1,maxLength=50],description?:string|null,id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "logos.create",
+    "kind": "mutation",
+    "input": "object{imageUrl:string[format=uri],isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "logos.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "logos.list",
+    "kind": "query",
+    "input": "object{includeInactive?:boolean,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "logos.update",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],imageUrl?:string[format=uri],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "lossPrevention.acknowledgeAlert",
+    "kind": "mutation",
+    "input": "object{alertId:string[minLength=1],siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "lossPrevention.evaluateCheckout",
+    "kind": "query",
+    "input": "object{discountAmount:number[min=0],items:array<object>[minItems=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "lossPrevention.evaluateShiftAction",
+    "kind": "query",
+    "input": "object{action:enum(\"sale_refund\"|\"sale_void\"),saleId:string[minLength=1]}|object{action:literal(\"cash_drawer_open\"),siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "lossPrevention.getSettings",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "lossPrevention.listAlerts",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=50]=20,siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "lossPrevention.updateSettings",
+    "kind": "mutation",
+    "input": "object{alerts?:object{whatsappHandoff:object},roles:object{cashier:object,manager:object}}",
+    "output": "inferred"
+  },
+  {
+    "path": "loyalty.adjust",
+    "kind": "mutation",
+    "input": "object{customerId:string[minLength=1],note:string[minLength=3,maxLength=240],points:integer[min=-9007199254740991,max=9007199254740991]}",
+    "output": "inferred"
+  },
+  {
+    "path": "loyalty.forCustomer",
+    "kind": "query",
+    "input": "object{customerId:string[minLength=1],limit?:integer[min=1,max=50]=20}",
+    "output": "inferred"
+  },
+  {
+    "path": "loyalty.settings",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "loyalty.updateSettings",
+    "kind": "mutation",
+    "input": "object{enabled?:boolean,pointsPerUnit?:number[max=100,min>0]}",
+    "output": "inferred"
+  },
+  {
+    "path": "managerApprovals.availableApprovers",
+    "kind": "query",
+    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\"|\"sale_after_hours\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "managerApprovals.cancel",
+    "kind": "mutation",
+    "input": "object{requestId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "managerApprovals.decideWithPin",
+    "kind": "mutation",
+    "input": "object{approverId:string[minLength=1],decision:enum(\"approved\"|\"rejected\"),pin:string,reason?:string[maxLength=500],requestId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "managerApprovals.mine",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=20]=10}",
+    "output": "inferred"
+  },
+  {
+    "path": "managerApprovals.queue",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=50]=20,siteId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "managerApprovals.request",
+    "kind": "mutation",
+    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\"|\"sale_after_hours\"),checkoutContext?:object{amountReceived:number[min=0]|null,creditAmount:number[min=0],currencyCode:string,customerId:string[minLength=1]|null,discountAmount:number[min=0],items:array<object>[minItems=1],mode:enum(\"fresh\"|\"fromDraft\"),paymentMethod:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments:array<object>,saleId:string[minLength=1]|null,serviceChargeAmount:number[min=0],tipAmount:number[min=0],total:number[min=0]},reason:string[minLength=3,maxLength=500],resourceId?:string[minLength=1,maxLength=255],resourceType:string[minLength=1,maxLength=64],summary:object{amount?:number[min=0],currencyCode?:string,label:string[minLength=1,maxLength=160]}}",
+    "output": "inferred"
+  },
+  {
+    "path": "modules.applyPreset",
+    "kind": "mutation",
+    "input": "object{presetId:enum(\"retail\"|\"restaurant\"|\"quickservice\"|\"wholesale\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "modules.getEffective",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "modules.list",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "modules.setActive",
+    "kind": "mutation",
+    "input": "object{enabled:boolean,moduleId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "observability.recentWebVitals",
+    "kind": "query",
+    "input": "object{limit?:integer[max=200,min>0]=50}",
+    "output": "inferred"
+  },
+  {
+    "path": "observability.reportWebVital",
+    "kind": "mutation",
+    "input": "object{deviceClass:enum(\"low\"|\"mid\"|\"high\"|\"unknown\"),metric:enum(\"LCP\"|\"CLS\"|\"INP\"|\"TTFB\"|\"FCP\"),rating:enum(\"good\"|\"needs-improvement\"|\"poor\"),route:string[minLength=1,maxLength=256],value:number[min=0,max=10000000]}",
+    "output": "inferred"
+  },
+  {
+    "path": "operations.needsAttention",
+    "kind": "query",
+    "input": "void",
+    "output": "object{areas:array<object>,highestSeverity:enum(\"danger\"|\"warning\")|null,totalCount:integer[min=0,max=9007199254740991]}"
+  },
+  {
+    "path": "orders.create",
+    "kind": "mutation",
+    "input": "object{items:array<object>[minItems=1],notes?:string,providerId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "orders.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "orders.list",
+    "kind": "query",
+    "input": "object{fromDate?:string,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,providerId?:string,status?:enum(\"submitted\"|\"partial_received\"|\"received\"|\"voided\"),toDate?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "orders.void",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],reason?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "payments.getContract",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "payments.markSettled",
+    "kind": "mutation",
+    "input": "object{outboxId:string[minLength=1,maxLength=64],providerTransactionId?:string[maxLength=256]}",
+    "output": "inferred"
+  },
+  {
+    "path": "payments.methodBreakdown",
+    "kind": "query",
+    "input": "object{windowDays?:integer[min=1,max=90]=7}",
+    "output": "inferred"
+  },
+  {
+    "path": "payments.peekOutbox",
+    "kind": "query",
+    "input": "object{limit?:integer[max=200,min>0]=50}",
+    "output": "inferred"
+  },
+  {
+    "path": "payments.reconciliation",
+    "kind": "query",
+    "input": "object{limit?:integer[max=200,min>0]=50}",
+    "output": "inferred"
+  },
+  {
+    "path": "payments.retryOutbox",
+    "kind": "mutation",
+    "input": "object{outboxId:string[minLength=1,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
+    "path": "paymentSettings.getAll",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "paymentSettings.updateRail",
+    "kind": "mutation",
+    "input": "object{credentials:object{},railId:enum(\"wompi\"|\"bold\"|\"epayco\"|\"mercado_pago\"|\"nequi\"|\"daviplata\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.activeForSite",
+    "kind": "query",
+    "input": "object{siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.buildDrawerKickBytes",
+    "kind": "mutation",
+    "input": "object{approvalRequestId?:string[minLength=1],siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.buildReceiptBytes",
+    "kind": "query",
+    "input": "object{saleId:string[minLength=1],siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.kickCashDrawer",
+    "kind": "mutation",
+    "input": "object{approvalRequestId?:string[minLength=1],idempotencyKey?:string[minLength=1,maxLength=128],siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.list",
+    "kind": "query",
+    "input": "object{siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.peekHardwareOutbox",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=100]=20}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.printReceipt",
+    "kind": "mutation",
+    "input": "object{idempotencyKey?:string[minLength=1,maxLength=128],saleId:string[minLength=1],siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.register",
+    "kind": "mutation",
+    "input": "object{config?:object{},displayName?:string[minLength=1,maxLength=120]|null,driver:string[minLength=1,maxLength=64],kind:enum(\"printer\"|\"cash_drawer\"|\"scanner\"|\"payment_terminal\"|\"customer_display\"),siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.remove",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.retryHardwareOutbox",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.setActive",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],isActive:boolean}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.test",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "peripherals.update",
+    "kind": "mutation",
+    "input": "object{config?:object{},displayName?:string[minLength=1,maxLength=120]|null,driver?:string[minLength=1,maxLength=64],id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "personTypes.create",
+    "kind": "mutation",
+    "input": "object{code:string[minLength=1,maxLength=50],description?:string|null,isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "personTypes.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "personTypes.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "personTypes.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "personTypes.search",
+    "kind": "query",
+    "input": "object{isActive?:boolean,limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "personTypes.update",
+    "kind": "mutation",
+    "input": "object{code?:string[minLength=1,maxLength=50],description?:string|null,id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.create",
+    "kind": "mutation",
+    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0]=0,description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,imageUrl?:string|null,initialCost?:number[min=0]=0,isActive?:boolean=true,locationId?:string|null,marginAmount1?:number[min=0]=0,marginAmount2?:number[min=0]=0,marginAmount3?:number[min=0]=0,marginPercent1?:number[min=0]=0,marginPercent2?:number[min=0]=0,marginPercent3?:number[min=0]=0,minStock?:number[min=0]=0,name:string[minLength=1,maxLength=255],price?:number[min=0]=0,price2?:number[min=0]=0,price3?:number[min=0]=0,providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean=false,sku:string[minLength=1,maxLength=100],stock?:number[min=0]=0,taxRate?:number[min=0,max=100]=0,tracksLots?:boolean=false,tracksSerials?:boolean=false,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.createVariantMatrix",
+    "kind": "mutation",
+    "input": "object{axes:array<object>[minItems=1,maxItems=3],parentProductId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.embeddingHealth",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "products.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.getVariantMatrix",
+    "kind": "query",
+    "input": "object{parentProductId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.list",
+    "kind": "query",
+    "input": "object{categoryId?:string,includeVariantParents?:boolean=false,isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.lookupByBarcode",
+    "kind": "query",
+    "input": "object{barcode:string[minLength=1,maxLength=64],gs1Scheme?:enum(\"none\"|\"generic\"|\"co\"|\"mx\"|\"cl\"),parsePolicy?:enum(\"strict\"|\"permissive\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.regenerateEmbeddings",
+    "kind": "mutation",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "products.search",
+    "kind": "query",
+    "input": "object{categoryId?:string,isActive?:boolean,limit?:integer[min=1,max=50]=20,providerId?:string,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.semanticSearch",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=50]=25,query:string[minLength=1,maxLength=200]}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.suggestCategory",
+    "kind": "mutation",
+    "input": "object{description?:string[maxLength=2000]|null,name:string[minLength=1,maxLength=200]}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.update",
+    "kind": "mutation",
+    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0],description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,id:string[minLength=1],imageUrl?:string|null,initialCost?:number[min=0],isActive?:boolean,locationId?:string|null,marginAmount1?:number[min=0],marginAmount2?:number[min=0],marginAmount3?:number[min=0],marginPercent1?:number[min=0],marginPercent2?:number[min=0],marginPercent3?:number[min=0],minStock?:number[min=0],name?:string[minLength=1,maxLength=255],price?:number[min=0],price2?:number[min=0],price3?:number[min=0],providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean,sku?:string[minLength=1,maxLength=100],stock?:number[min=0],taxRate?:number[min=0,max=100],tracksLots?:boolean,tracksSerials?:boolean,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null,version:integer[min=0,max=9007199254740991]}",
+    "output": "inferred"
+  },
+  {
+    "path": "productSerials.list",
+    "kind": "query",
+    "input": "object{productId:string[minLength=1],sellableOnly?:boolean=false,siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "productSerials.lookup",
+    "kind": "query",
+    "input": "object{serialNumber:string[minLength=1,maxLength=120]}",
+    "output": "inferred"
+  },
+  {
+    "path": "productSerials.receive",
+    "kind": "mutation",
+    "input": "object{notes?:string[maxLength=500]|null,productId:string[minLength=1],serialNumbers:array<string[minLength=1,maxLength=120]>[minItems=1,maxItems=100],siteId:string[minLength=1],unitCost:number[min=0],warrantyExpiresAt?:string[minLength=1]|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "providers.create",
+    "kind": "mutation",
+    "input": "object{address?:string,cityId?:string,contactName?:string,email?:string[minLength=3],isActive?:boolean=true,name:string[minLength=1,maxLength=255],phone?:string,taxId?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "providers.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "providers.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "providers.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "providers.listCategoryAssignments",
+    "kind": "query",
+    "input": "object{providerId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "providers.replaceCategoryAssignments",
+    "kind": "mutation",
+    "input": "object{categoryIds:array<string[minLength=1]>,providerId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "providers.search",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "providers.update",
+    "kind": "mutation",
+    "input": "object{address?:string|null,cityId?:string|null,contactName?:string|null,email?:string[minLength=3]|null,id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255],phone?:string|null,taxId?:string|null,version:integer[min=0,max=9007199254740991]}",
+    "output": "inferred"
+  },
+  {
+    "path": "purchases.create",
+    "kind": "mutation",
+    "input": "object{items:array<object>[minItems=1],notes?:string,providerId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "purchases.createFromOrder",
+    "kind": "mutation",
+    "input": "object{items?:array<object>[minItems=1],notes?:string,orderId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "purchases.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "purchases.list",
+    "kind": "query",
+    "input": "object{fromDate?:string,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,providerId?:string,status?:enum(\"draft\"|\"completed\"|\"partial_returned\"|\"returned\"|\"voided\"),toDate?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "purchases.returnPurchase",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],items:array<object>[minItems=1],reason?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "purchases.void",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],reason?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "quotations.create",
+    "kind": "mutation",
+    "input": "object{customerId?:string[minLength=1],items:array<object>[minItems=1],notes?:string[maxLength=1000],siteId?:string[minLength=1],validUntil?:string[format=date-time]}",
+    "output": "inferred"
+  },
+  {
+    "path": "quotations.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "quotations.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "quotations.list",
+    "kind": "query",
+    "input": "object{customerId?:string[minLength=1],limit?:integer[max=200,min>0],status?:enum(\"draft\"|\"sent\"|\"accepted\"|\"rejected\"|\"expired\"|\"converted\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "quotations.updateStatus",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],status:enum(\"sent\"|\"accepted\"|\"rejected\"|\"expired\"|\"converted\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "receiptTemplates.create",
+    "kind": "mutation",
+    "input": "object{isActive?:boolean,isDefault?:boolean,kind:enum(\"sale\"|\"quotation\"|\"fiscal_dee\"),layout:object{blocks:array<object>[minItems=1,maxItems=50],paperWidth:enum(\"58mm\"|\"80mm\"|\"letter\"|\"a4\")},name:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "receiptTemplates.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "receiptTemplates.duplicate",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],name?:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "receiptTemplates.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "receiptTemplates.list",
+    "kind": "query",
+    "input": "object{includeInactive?:boolean,kind?:enum(\"sale\"|\"quotation\"|\"fiscal_dee\"),limit?:integer[max=200,min>0]}",
+    "output": "inferred"
+  },
+  {
+    "path": "receiptTemplates.renderPreview",
+    "kind": "query",
+    "input": "object{id?:string[minLength=1],kind?:enum(\"sale\"|\"quotation\"|\"fiscal_dee\"),labels?:object{documentTitle:string[minLength=1,maxLength=100],itemColumns:object,tendersTable:object,totalsLines:object},layout?:object{blocks:array<object>[minItems=1,maxItems=50],paperWidth:enum(\"58mm\"|\"80mm\"|\"letter\"|\"a4\")}}",
+    "output": "inferred"
+  },
+  {
+    "path": "receiptTemplates.setDefault",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "receiptTemplates.update",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],isActive?:boolean,layout?:object{blocks:array<object>[minItems=1,maxItems=50],paperWidth:enum(\"58mm\"|\"80mm\"|\"letter\"|\"a4\")},name?:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "receiptTemplates.variableAvailability",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "regimeTypes.create",
+    "kind": "mutation",
+    "input": "object{code:string[minLength=1,maxLength=50],description?:string|null,isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "regimeTypes.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "regimeTypes.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "regimeTypes.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "regimeTypes.search",
+    "kind": "query",
+    "input": "object{isActive?:boolean,limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "regimeTypes.update",
+    "kind": "mutation",
+    "input": "object{code?:string[minLength=1,maxLength=50],description?:string|null,id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.cash.reconciliation",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=100]=20}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.dayClose.preview",
+    "kind": "query",
+    "input": "object{date:string}",
+    "output": "object{adjustments:object{refunds:object,voids:object},anomalies:object{byKind:object,high:integer[min=0,max=9007199254740991],medium:integer[min=0,max=9007199254740991],total:integer[min=0,max=9007199254740991]},capabilities:object{commissions:literal(\"not_tracked\"),waste:literal(\"not_tracked\")},cash:object{balancedSessions:integer[min=0,max=9007199254740991],closedSessions:integer[min=0,max=9007199254740991],counted:number,discrepancySessions:integer[min=0,max=9007199254740991],expected:number,openSessions:integer[min=0,max=9007199254740991],overShort:number},currencyCode:string[minLength=3,maxLength=3],date:string,fiscal:object{byStatus:object,total:integer[min=0,max=9007199254740991],totalAmount:number},generatedAt:string[format=date-time],payments:array<object>,readiness:object{blockers:array<enum(\"open_sessions\"|\"cash_discrepancies\"|\"fiscal_pending\"|\"fiscal_rejected\"|\"high_anomalies\"|\"commissions_not_tracked\"|\"waste_not_tracked\")>,readyToSign:boolean,warnings:array<enum(\"open_sessions\"|\"cash_discrepancies\"|\"fiscal_pending\"|\"fiscal_rejected\"|\"high_anomalies\"|\"commissions_not_tracked\"|\"waste_not_tracked\")>},sales:object{count:integer[min=0,max=9007199254740991],discounts:number,grossRevenue:number,netRevenue:number,refundAmount:number,serviceCharges:number,subtotal:number,taxes:number,tips:number},timeZone:string[minLength=1],window:object{endExclusive:string[format=date-time],start:string[format=date-time]}}"
+  },
+  {
+    "path": "reports.dayClose.signoff",
+    "kind": "query",
+    "input": "object{date:string}",
+    "output": "object{currencyCode:string[minLength=3,maxLength=3],date:string,id:string[minLength=1],pdf:object{byteSize:integer[max=9007199254740991,min>0],createdAt:string[format=date-time],filename:string,id:string[minLength=1],locale:string[minLength=2],mimeType:literal(\"application/pdf\"),payloadHash:string,rendererVersion:literal(1)}|null,report:object{adjustments:object,anomalies:object,capabilities:object,cash:object,currencyCode:string[minLength=3,maxLength=3],date:string,fiscal:object,generatedAt:string[format=date-time],payments:array<object>,readiness:object,sales:object,timeZone:string[minLength=1],window:object},reportHash:string,schemaVersion:literal(1),signedAt:string[format=date-time],signedBy:object{id:string[minLength=1],name:string[minLength=1]},timeZone:string[minLength=1]}|null"
+  },
+  {
+    "path": "reports.dayClose.signOff",
+    "kind": "mutation",
+    "input": "object{attestationAccepted:literal(true),date:string}",
+    "output": "object{currencyCode:string[minLength=3,maxLength=3],date:string,id:string[minLength=1],pdf:object{byteSize:integer[max=9007199254740991,min>0],createdAt:string[format=date-time],filename:string,id:string[minLength=1],locale:string[minLength=2],mimeType:literal(\"application/pdf\"),payloadHash:string,rendererVersion:literal(1)}|null,reportHash:string,schemaVersion:literal(1),signedAt:string[format=date-time],signedBy:object{id:string[minLength=1],name:string[minLength=1]},timeZone:string[minLength=1]}"
+  },
+  {
+    "path": "reports.diagnostics.export",
+    "kind": "query",
+    "input": "object{fromDate:string[format=date-time],includeOutboxes?:array<enum(\"sync\"|\"fiscal\"|\"hardware\")>[maxItems=3],toDate:string[format=date-time]}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.diagnostics.preview",
+    "kind": "query",
+    "input": "object{fromDate:string[format=date-time],toDate:string[format=date-time]}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.fiscal.getByCufe",
+    "kind": "query",
+    "input": "object{cufe:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.fiscal.getXml",
+    "kind": "query",
+    "input": "object{documentId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.fiscal.list",
+    "kind": "query",
+    "input": "object{fromDate?:string[format=date-time],kind?:enum(\"DEE\"|\"FEV\"|\"NC\"|\"ND\"),limit?:integer[max=200,min>0]=50,offset?:integer[min=0,max=9007199254740991]=0,source?:enum(\"sale\"|\"void\"|\"return\"),status?:enum(\"pending\"|\"sent\"|\"accepted\"|\"rejected\"|\"contingency\"|\"voided\"|\"notified_correction\"|\"partial_send\"),toDate?:string[format=date-time]}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.fiscal.retryDocument",
+    "kind": "mutation",
+    "input": "object{fiscalDocumentId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.inventory.discrepancies",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=500]=100}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.profit.margin",
+    "kind": "query",
+    "input": "object{fromDate:string[format=date-time],limit?:integer[min=1,max=500]=50,toDate:string[format=date-time]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantSettings.get",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantSettings.update",
+    "kind": "mutation",
+    "input": "object{serviceChargeRate?:number[min=0,max=30]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantTables.archive",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantTables.create",
+    "kind": "mutation",
+    "input": "object{area?:string[maxLength=80]|null,name:string[minLength=1,maxLength=80],notes?:string[maxLength=280]|null,seatCount?:integer[min=1,max=200]|null,siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantTables.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantTables.list",
+    "kind": "query",
+    "input": "object{includeArchived?:boolean=false,limit?:integer[min=1,max=500]=100,siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantTables.listWithDraftStatus",
+    "kind": "query",
+    "input": "object{includeArchived?:boolean=false,limit?:integer[min=1,max=500]=100,siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantTables.update",
+    "kind": "mutation",
+    "input": "object{area?:string[maxLength=80]|null,id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=80],notes?:string[maxLength=280]|null,seatCount?:integer[min=1,max=200]|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.changeTable",
+    "kind": "mutation",
+    "input": "object{saleId:string[minLength=1],tableId:string[minLength=1]|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.completeDraft",
+    "kind": "mutation",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string[minLength=1]|null,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.create",
+    "kind": "mutation",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"|\"refunded\"),serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.discardDraft",
+    "kind": "mutation",
+    "input": "object{saleId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.getForReprint",
+    "kind": "mutation",
+    "input": "object{reason?:enum(\"paper_out\"|\"customer_request\"|\"prior_print_error\"|\"other\"),reasonDetail?:string[maxLength=240],saleId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.list",
+    "kind": "query",
+    "input": "object{customerId?:string,fromDate?:string,page?:integer[min=1,max=9007199254740991]=1,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"|\"refunded\"),perPage?:integer[min=1,max=200]=50,status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),toDate?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.listDrafts",
+    "kind": "query",
+    "input": "object{page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string[maxLength=120],siteId?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.resume",
+    "kind": "mutation",
+    "input": "object{saleId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.returnSale",
+    "kind": "mutation",
+    "input": "object{approvalRequestId?:string[minLength=1],id:string[minLength=1],reason?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.splitDraft",
+    "kind": "mutation",
+    "input": "object{label?:string[maxLength=80],saleItemIds:array<string[minLength=1]>[minItems=1],sourceSaleId:string[minLength=1],tableId:string[minLength=1]|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.summary",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.suspend",
+    "kind": "mutation",
+    "input": "object{label?:string[maxLength=80],saleId:string[minLength=1],tableId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.update",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],notes?:string|null,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"|\"refunded\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.void",
+    "kind": "mutation",
+    "input": "object{approvalRequestId?:string[minLength=1],id:string[minLength=1],reason?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "sequentials.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sequentials.list",
+    "kind": "query",
+    "input": "object{documentType?:enum(\"sale\"|\"purchase\"|\"order\"|\"quotation\"),siteId?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "sequentials.upsert",
+    "kind": "mutation",
+    "input": "object{currentValue:integer[min=0,max=9007199254740991],documentType:enum(\"sale\"|\"purchase\"|\"order\"|\"quotation\"),prefix:string[maxLength=20],siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "setupReadiness.checkout",
+    "kind": "query",
+    "input": "object{siteId:string[minLength=1]}",
+    "output": "object{items:array<object>}"
+  },
+  {
+    "path": "setupReadiness.firstSale",
+    "kind": "query",
+    "input": "object{siteId:string[minLength=1]}",
+    "output": "object{completed:boolean,steps:array<object>[minItems=3,maxItems=3]}"
+  },
+  {
+    "path": "setupReadiness.get",
+    "kind": "query",
+    "input": "void",
+    "output": "object{acknowledgedAt:string|null,blockerCount:integer[min=0,max=9007199254740991],score:integer[min=0,max=100],sections:array<object>}"
+  },
+  {
+    "path": "sites.create",
+    "kind": "mutation",
+    "input": "object{address?:string|null,companyId:string[minLength=1],isActive?:boolean=true,name:string[minLength=1,maxLength=255],phone?:string|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "sites.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sites.list",
+    "kind": "query",
+    "input": "object{includeInactive?:boolean,isActive?:boolean,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "sites.listLocationAssignments",
+    "kind": "query",
+    "input": "object{siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sites.replaceLocationAssignments",
+    "kind": "mutation",
+    "input": "object{locationIds?:array<string[minLength=1]>,siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sites.update",
+    "kind": "mutation",
+    "input": "object{address?:string|null,companyId?:string[minLength=1],id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255],phone?:string|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "surfaces.list",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "sync.addToQueue",
+    "kind": "mutation",
+    "input": "object{data?:object{},entityId:string[minLength=1],entityType:enum(\"sales\"|\"sale_items\"|\"sale_payments\"|\"sale_returns\"|\"sale_item_lots\"|\"sale_item_serials\"|\"cash_sessions\"|\"cash_movements\"|\"employee_shifts\"|\"manager_approval_requests\"|\"fiscal_documents\"|\"fiscal_document_items\"|\"fiscal_numbering_resolutions\"|\"fiscal_certificates\"|\"inventory_movements\"|\"inventory_balances\"|\"inventory_lots\"|\"product_serials\"|\"product_serial_transfers\"|\"price_suggestions\"|\"loyalty_accounts\"|\"loyalty_movements\"|\"initial_inventory\"|\"transfer_orders\"|\"transfer_order_items\"|\"stock_adjustments\"|\"audit_logs\"|\"orders\"|\"order_items\"|\"purchases\"|\"purchase_returns\"|\"purchase_return_items\"|\"customers\"|\"products\"|\"categories\"|\"category_x_provider\"|\"units\"|\"providers\"|\"vat_rates\"|\"identification_types\"|\"client_types\"|\"commercial_activities\"|\"regime_types\"|\"person_types\"|\"cities\"|\"countries\"|\"departments\"|\"companies\"|\"sites\"|\"locations\"|\"location_x_site\"|\"logos\"|\"sequentials\"|\"users\"|\"customer_catalogs\"|\"receipt_templates\"|\"site_peripherals\"),operation:enum(\"create\"|\"update\"|\"delete\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "sync.getContract",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "sync.listConflicts",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=100]=50}",
+    "output": "inferred"
+  },
+  {
+    "path": "sync.listQueue",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=100]=50}",
+    "output": "inferred"
+  },
+  {
+    "path": "sync.peekOutbox",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=100]=20}",
+    "output": "inferred"
+  },
+  {
+    "path": "sync.pull",
+    "kind": "query",
+    "input": "object{conflictLimit?:integer[min=1,max=100]=20,queueLimit?:integer[min=1,max=100]=20}",
+    "output": "inferred"
+  },
+  {
+    "path": "sync.push",
+    "kind": "mutation",
+    "input": "object{limit?:integer[min=1,max=100]=50}",
+    "output": "inferred"
+  },
+  {
+    "path": "sync.removeFromQueue",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sync.resolve",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],mergedData?:object{},resolution:enum(\"local_wins\"|\"remote_wins\"|\"merged\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "sync.retry",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sync.status",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "tenantLocale.get",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "tenantLocale.listCountries",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "tenantLocale.listCurrencies",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "tenantLocale.update",
+    "kind": "mutation",
+    "input": "object{countryCode:string[minLength=2,maxLength=2],currencyOverride?:string[minLength=3,maxLength=3]|null,firstDayOfWeekOverride?:integer[min=0,max=6]|null,localeOverride?:string[minLength=2,maxLength=12]|null,timezoneOverride?:string[minLength=3,maxLength=64]|null,version?:integer[min=0,max=9007199254740991]}",
+    "output": "inferred"
+  },
+  {
+    "path": "transfers.create",
+    "kind": "mutation",
+    "input": "object{defer?:boolean,fromSiteId:string[minLength=1],items:array<object>[minItems=1],notes?:string[maxLength=500],toSiteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "transfers.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "transfers.list",
+    "kind": "query",
+    "input": "object{limit?:integer[max=200,min>0]}",
+    "output": "inferred"
+  },
+  {
+    "path": "transfers.receive",
+    "kind": "mutation",
+    "input": "object{discrepancyNotes?:string[maxLength=500],lines?:array<object>,transferId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "transfers.void",
+    "kind": "mutation",
+    "input": "object{reason?:string[maxLength=500],transferId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "units.create",
+    "kind": "mutation",
+    "input": "object{abbreviation:string[minLength=1,maxLength=20],dimension?:enum(\"count\"|\"mass\"|\"volume\"|\"length\"|\"area\"|\"time\"|\"other\"),isActive?:boolean=true,name:string[minLength=1,maxLength=255],referenceFactor?:number[min>0],standardCode?:string[minLength=1,maxLength=12]}",
+    "output": "inferred"
+  },
+  {
+    "path": "units.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "units.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "units.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "units.search",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "units.update",
+    "kind": "mutation",
+    "input": "object{abbreviation?:string[minLength=1,maxLength=20],dimension?:enum(\"count\"|\"mass\"|\"volume\"|\"length\"|\"area\"|\"time\"|\"other\")|null,id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255],referenceFactor?:number[min>0]|null,standardCode?:string[minLength=1,maxLength=12]|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "upload.uploadInvoice",
+    "kind": "mutation",
+    "input": "object{fileName?:string[minLength=1,maxLength=240],imageBase64:string[minLength=1,maxLength=14712832],mimeType:enum(\"image/jpeg\"|\"image/png\"|\"image/webp\"|\"application/pdf\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "users.create",
+    "kind": "mutation",
+    "input": "object{email:string[minLength=3],isActive?:boolean=true,name:string[minLength=1,maxLength=255],password:string,role:enum(\"admin\"|\"manager\"|\"cashier\"|\"viewer\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "users.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "users.resetPassword",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],newPassword:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "users.setStaffPin",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],pin:string|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "users.update",
+    "kind": "mutation",
+    "input": "object{email?:string[minLength=3],id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255],role?:enum(\"admin\"|\"manager\"|\"cashier\"|\"viewer\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "vatRates.create",
+    "kind": "mutation",
+    "input": "object{isActive?:boolean=true,name:string[minLength=1,maxLength=255],rate:number[min=0,max=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "vatRates.delete",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "vatRates.getById",
+    "kind": "query",
+    "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "vatRates.list",
+    "kind": "query",
+    "input": "object{isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "vatRates.search",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "vatRates.update",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255],rate?:number[min=0,max=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "whatsNew.listUnseen",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "whatsNew.markSeen",
+    "kind": "mutation",
+    "input": "object{entryId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "whatsNew.publish",
+    "kind": "mutation",
+    "input": "object{body:string[minLength=1],tenantScope?:enum(\"tenant\"|\"product-wide\"),title:string[minLength=1],version:string[minLength=1]}",
+    "output": "inferred"
+  }
+]

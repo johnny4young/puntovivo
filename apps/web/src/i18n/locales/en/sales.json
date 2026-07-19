@@ -82,6 +82,18 @@
     },
     "discountSuggested": "Suggested -{{pct}}%"
   },
+  "serials": {
+    "title": "Serials for {{name}}",
+    "progress": "{{selected}} / {{required}} selected",
+    "siteRequired": "Select an active site to load serial numbers.",
+    "loading": "Loading available serials…",
+    "loadError": "Available serial numbers could not be loaded.",
+    "retry": "Retry",
+    "noneAvailable": "No sellable serial numbers are available at this site.",
+    "returned": "Returned",
+    "usedInAnotherLine": "Used in another line",
+    "selectionRequired": "Select one exact serial for every base unit before charging."
+  },
   "cashSession": {
     "title": "Cash session",
     "active": "Cash session active",
@@ -234,19 +246,38 @@
       "profitShort": "+{{amount}}",
       "lossShort": "-{{amount}}",
       "noSales": "No sales recorded today.",
-      "finish": "Done",
       "pulse": {
+        "eyebrow": "Daily pulse",
         "title": "📊 Day pulse — {{date}} · {{registerName}}",
+        "brand": "Puntovivo · Daily pulse",
+        "ownerOnly": "Management view",
         "sales": "Sales: {{amount}} ({{count}} sales)",
-        "avgTicket": "Average ticket: {{amount}}",
+        "salesCount_one": "{{count}} completed sale",
+        "salesCount_other": "{{count}} completed sales",
         "margin": "Gross profit: {{amount}} ({{percent}}%)",
+        "marginDetail": "{{amount}} gross profit",
+        "averageTicket": "Average ticket",
+        "comparisonLabel": "Weekly comparison",
+        "comparison": {
+          "up": "{{percent}}% more than the same weekday last week ({{amount}}).",
+          "down": "{{percent}}% less than the same weekday last week ({{amount}}).",
+          "flat": "Sales matched the same weekday last week ({{amount}}).",
+          "unavailable": "There is no prior-week sales baseline to compare yet."
+        },
+        "privacy": "Includes aggregate metrics only; no customer data is shared.",
+        "download": "Download image",
+        "generating": "Generating image…",
+        "whatsapp": "Share via WhatsApp",
+        "imageError": "We could not generate the image. You can still share the text via WhatsApp.",
+        "avgTicket": "Average ticket: {{amount}}",
         "vsLastWeekUp": "vs last week: ↑{{percent}}%",
         "vsLastWeekDown": "vs last week: ↓{{percent}}%",
         "vsLastWeekFlat": "vs last week: even",
         "share": "Share via WhatsApp",
         "streak_one": "🔥 {{count}} day balancing the register",
         "streak_other": "🔥 {{count}} days balancing the register"
-      }
+      },
+      "finish": "Done"
     },
     "movementForm": {
       "title": "Record cash movement",
@@ -270,10 +301,12 @@
     "toast": {
       "openSuccessTitle": "Cash session opened",
       "openSuccessDescription": "{{registerName}} is ready with {{amount}}.",
+      "openWithAttendanceDescription": "{{registerName}} is ready with {{amount}}. Your attendance shift started automatically.",
       "closeSuccessTitle": "Cash session closed",
       "closeBalancedDescription": "{{registerName}} closed balanced at {{amount}}.",
       "closeOverDescription": "{{registerName}} closed with an overage of {{amount}}.",
       "closeShortDescription": "{{registerName}} closed with a shortage of {{amount}}.",
+      "closeAttendanceDescription": "{{description}} Your attendance remains open until you clock out from the user menu.",
       "movementSuccessTitle": "Cash movement recorded",
       "movementSuccessDescription": "{{movementType}} recorded for {{amount}}."
     }
@@ -379,6 +412,7 @@
     "notes": "Notes",
     "noSku": "No SKU",
     "unit": "Unit",
+    "serials": "Serial numbers",
     "paymentsHeading": "Payments",
     "paymentsSplit": "Settled with {{count}} tenders",
     "paymentsMethod": "Method",
@@ -579,10 +613,47 @@
     "override": {
       "label": "Authorize exceeding the credit limit",
       "adminHelp": "Adds the sale even though the projected balance exceeds the customer's limit. Use this only with administrator approval.",
-      "adminOnly": "Only an administrator can authorize this"
+      "adminOnly": "Only an administrator can authorize this",
+      "approvalRequired": "An administrator must approve this override before you can complete the sale."
     },
     "toast": {
       "success": "Credit sale recorded"
+    }
+  },
+  "approval": {
+    "title": "Approval required",
+    "help": "Approval covers only this exact action and its details.",
+    "checkoutSummary": "Checkout · {{total}}",
+    "refresh": "Refresh",
+    "request": "Request approval",
+    "requesting": "Sending…",
+    "requested": "Approval request sent",
+    "requestError": "Unable to request approval",
+    "statusError": "Approval status could not be refreshed. Retry before charging.",
+    "policyChecking": "Checking the current checkout policy…",
+    "reasonLabel": "Reason for {{action}}",
+    "reasonPlaceholder": "Explain why approval is needed",
+    "decisionReason": "Decision note: {{reason}}",
+    "progress": "{{collected}} of {{required}} distinct approvals received",
+    "actions": {
+      "sale_discount": "Discounted checkout",
+      "sale_after_hours": "Checkout during blocked hours",
+      "credit_sale": "Customer credit sale",
+      "credit_override": "Credit-limit override",
+      "sale_void": "Void sale",
+      "sale_refund": "Refund sale",
+      "cash_drawer_open": "Open cash drawer"
+    },
+    "status": {
+      "loading": "Checking",
+      "not_requested": "Not requested",
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled",
+      "executing": "In use",
+      "consumed": "Used",
+      "expired": "Expired"
     }
   },
   "quickCreate": {
@@ -600,15 +671,12 @@
         "message": "Your cash session is closed — open it before charging.",
         "recovery": "Open cash session"
       },
-      "credit_sale_forbidden": {
-        "message": "Only a manager or admin can register credit sales. Ask them to step in or switch to cash."
-      },
       "credit_sale_customer_required": {
         "message": "Credit sales need a customer attached.",
         "recovery": "Pick a customer"
       },
       "credit_limit_exceeded": {
-        "message": "Projection {{projection}} exceeds the customer's credit limit of {{limit}}.",
+        "message": "Projection {{projection}} exceeds the customer's credit limit of {{limit}}. You can request approval at checkout.",
         "recovery": "Switch to cash"
       },
       "discount_exceeds_total": {
@@ -653,6 +721,13 @@
   "sound": {
     "enable": "Turn on checkout sounds",
     "disable": "Turn off checkout sounds"
+  },
+  "pace": {
+    "title": "My pace",
+    "private": "Only you",
+    "itemsPerMinute": "Items/min",
+    "averageCheckout": "Avg. checkout",
+    "personalBest": "Personal best"
   },
   "omnibox": {
     "added": "{{product}} added to the cart"

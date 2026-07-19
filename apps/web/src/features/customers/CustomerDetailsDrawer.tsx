@@ -14,7 +14,7 @@
  */
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pencil } from 'lucide-react';
+import { Download, Loader2, Pencil } from 'lucide-react';
 import { Drawer } from '@/components/feedback/Drawer';
 import { cn } from '@/lib/utils';
 import { CustomerLoyaltyPanel } from '@/features/customers/CustomerLoyaltyPanel';
@@ -47,6 +47,10 @@ export interface CustomerDetailsDrawerProps {
    * read-only when no editor is wired.
    */
   onEdit?: ((customer: Customer) => void) | undefined;
+  /** Export the customer's allowlisted personal-data document. Admin only. */
+  onExportData?: ((customer: Customer) => void | Promise<void>) | undefined;
+  /** Prevent duplicate export requests while the audited mutation is pending. */
+  isExporting?: boolean | undefined;
 }
 
 /** One label/value row in the read-only detail list. */
@@ -83,11 +87,28 @@ export function CustomerDetailsDrawer({
   clientTypes = [],
   onClose,
   onEdit,
+  onExportData,
+  isExporting = false,
 }: CustomerDetailsDrawerProps) {
   const { t } = useTranslation('customers');
 
   const footer = customer ? (
-    <div className="flex justify-end gap-2">
+    <div className="flex w-full flex-wrap justify-end gap-2">
+      {onExportData && (
+        <button
+          type="button"
+          className="btn-outline mr-auto flex items-center gap-2"
+          onClick={() => void onExportData(customer)}
+          disabled={isExporting}
+        >
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Download className="h-4 w-4" aria-hidden="true" />
+          )}
+          {t(isExporting ? 'privacy.exporting' : 'privacy.export')}
+        </button>
+      )}
       <button type="button" className="btn-outline" onClick={onClose}>
         {t('details.close')}
       </button>
@@ -97,7 +118,7 @@ export function CustomerDetailsDrawer({
           className="btn-primary flex items-center gap-2"
           onClick={() => onEdit(customer)}
         >
-          <Pencil className="h-4 w-4" />
+          <Pencil className="h-4 w-4" aria-hidden="true" />
           {t('details.edit')}
         </button>
       )}

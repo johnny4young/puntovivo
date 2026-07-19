@@ -1,0 +1,107 @@
+name: Promote or Roll Back Desktop Update
+
+# ENG-137a — republish immutable update metadata without rebuilding installers.
+# Normal mode promotes one release through 10 -> 50 -> 100. Rollback mode
+# republishes an older release's archived appcasts at 100% and emits a policy
+# that lets Electron downgrade only to that exact version.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_tag:
+        description: 'Release tag whose archived update feed becomes active (e.g. v1.5.1)'
+        required: true
+        type: string
+      rollout_percentage:
+        description: 'Normal rollout percentage; rollback always forces 100%'
+        required: true
+        default: '50'
+        type: choice
+        options:
+          - '10'
+          - '50'
+          - '100'
+      rollback:
+        description: 'Allow an exact downgrade to target_tag and publish it fleet-wide'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish-feed:
+    name: Publish Desktop Update Policy
+    runs-on: ubuntu-latest
+    env:
+      TARGET_TAG: ${{ inputs.target_tag }}
+      REQUESTED_ROLLOUT_PERCENTAGE: ${{ inputs.rollout_percentage }}
+      ROLLBACK_REQUESTED: ${{ inputs.rollback }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout rollout tooling
+        uses: actions/checkout@v7
+
+      - name: Validate target release tag
+        run: >-
+          node --input-type=module -e
+          "import { versionFromTag } from './scripts/rewrite-update-feed.mjs';
+          versionFromTag(process.env.TARGET_TAG);"
+
+      - name: Download immutable feed from target release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p feed
+          gh release download "$TARGET_TAG" --pattern 'latest*.yml' --dir feed
+          test -n "$(find feed -maxdepth 1 -type f -name 'latest*.yml' -print -quit)" || {
+            echo "No archived update feed exists on $TARGET_TAG. Only releases created after ENG-137a are rollback-ready." >&2
+            exit 1
+          }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare promoted or rollback feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$ROLLBACK_REQUESTED" == 'true' ]]; then
+            mode=rollback
+            percentage=100
+          else
+            mode=normal
+            percentage="$REQUESTED_ROLLOUT_PERCENTAGE"
+          fi
+          node ./scripts/rewrite-update-feed.mjs feed "$TARGET_TAG" \
+            --rollout "$percentage" --mode "$mode"
+
+      - name: Add a feed index
+        run: |
+          cat > feed/index.html <<'HTML'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Puntovivo update feed</title>
+          <meta http-equiv="refresh" content="0; url=https://puntovivo.app/">
+          <p>Puntovivo desktop auto-update feed. <a href="https://puntovivo.app/">Go to the site</a>.</p>
+          HTML
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: feed
+
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

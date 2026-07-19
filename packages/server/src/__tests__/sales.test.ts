@@ -74,8 +74,22 @@ function createTestContext(role: 'admin' | 'manager' | 'cashier' | 'viewer' = 'a
   };
 }
 
-function createTestContextForSite(overrideSiteId: string): Context {
+async function createTestContextForSite(overrideSiteId: string): Promise<Context> {
   const db = getDatabase();
+  const overrideUserId = nanoid();
+  const overrideEmail = `sales-site-${overrideUserId}@example.test`;
+  const now = new Date().toISOString();
+  await db.insert(users).values({
+    id: overrideUserId,
+    tenantId,
+    email: overrideEmail,
+    name: 'Site inventory test operator',
+    passwordHash: 'not-used-by-router-tests',
+    role: 'admin',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  });
   const mockReq = {
     server: server.app,
     headers: makeEnvelopeHeadersProxy({
@@ -83,8 +97,8 @@ function createTestContextForSite(overrideSiteId: string): Context {
       getSiteId: () => overrideSiteId,
     }),
     user: {
-      userId,
-      email: 'admin@localhost',
+      userId: overrideUserId,
+      email: overrideEmail,
       role: 'admin',
       tenantId,
     },
@@ -98,8 +112,8 @@ function createTestContextForSite(overrideSiteId: string): Context {
     res: mockRes,
     db,
     user: {
-      id: userId,
-      email: 'admin@localhost',
+      id: overrideUserId,
+      email: overrideEmail,
       role: 'admin',
       tenantId,
     },
@@ -1626,7 +1640,9 @@ describe('Sales tRPC Router', () => {
         items: [{ productId, quantity: 2 }],
       });
 
-      const secondaryCaller = appRouter.createCaller(createTestContextForSite(secondarySiteId));
+      const secondaryCaller = appRouter.createCaller(
+        await createTestContextForSite(secondarySiteId)
+      );
       await secondaryCaller.cashSessions.open({
         registerName: 'Branch register',
         openingFloat: 100,
@@ -1685,7 +1701,9 @@ describe('Sales tRPC Router', () => {
         stock: 7,
       });
 
-      const secondaryCaller = appRouter.createCaller(createTestContextForSite(secondarySiteId));
+      const secondaryCaller = appRouter.createCaller(
+        await createTestContextForSite(secondarySiteId)
+      );
       await secondaryCaller.cashSessions.open({
         registerName: 'No balance register',
         openingFloat: 50,

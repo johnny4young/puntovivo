@@ -41,7 +41,6 @@ import type { CashSession } from '@/types';
 
 export type PreflightBlockerId =
   | 'cash_session_required'
-  | 'credit_sale_forbidden'
   | 'credit_sale_customer_required'
   | 'credit_limit_exceeded'
   | 'discount_exceeds_total'
@@ -98,8 +97,6 @@ export interface PreflightInput {
   selectedCustomer: PreflightCustomerInput | null;
   /** Discount the cashier typed in the checkout modal draft, in absolute currency. */
   pendingDiscountAmount: number;
-  /** Caller role from `useAuth().user.role`. */
-  userRole: string;
   /** `true` when the workspace was hydrated from a resumed server draft. */
   isResumedDraft: boolean;
   recovery?: PreflightRecoveryWiring | undefined;
@@ -123,8 +120,6 @@ export interface PreflightResult {
   primaryBlocker: PreflightItem | null;
 }
 
-const MANAGER_OR_ADMIN_ROLES: ReadonlySet<string> = new Set(['admin', 'manager']);
-
 function computeItems(input: PreflightInput): PreflightItem[] {
   const items: PreflightItem[] = [];
   const {
@@ -134,7 +129,6 @@ function computeItems(input: PreflightInput): PreflightItem[] {
     paymentMethod,
     selectedCustomer,
     pendingDiscountAmount,
-    userRole,
     isResumedDraft,
     recovery,
   } = input;
@@ -162,17 +156,7 @@ function computeItems(input: PreflightInput): PreflightItem[] {
     });
   }
 
-  // 2. CREDIT_SALE_FORBIDDEN — only manager/admin can register credit
-  //    sales. Cashier sees the blocker with no recovery (must escalate).
-  if (paymentMethod === 'credit' && !MANAGER_OR_ADMIN_ROLES.has(userRole)) {
-    items.push({
-      id: 'credit_sale_forbidden',
-      severity: 'blocker',
-      messageKey: 'preflight.items.credit_sale_forbidden.message',
-    });
-  }
-
-  // 3. CREDIT_SALE_CUSTOMER_REQUIRED — credit method without a customer.
+  // 2. CREDIT_SALE_CUSTOMER_REQUIRED — credit method without a customer.
   if (paymentMethod === 'credit' && !selectedCustomer) {
     items.push({
       id: 'credit_sale_customer_required',
@@ -187,14 +171,16 @@ function computeItems(input: PreflightInput): PreflightItem[] {
     });
   }
 
-  // 4. CREDIT_LIMIT_EXCEEDED — credit method + customer with creditLimit
-  //    and (currentBalance + cartTotal) > creditLimit.
+  // 3. CREDIT_LIMIT_EXCEEDED — warning only. The payment modal now lets an
+  //    admin override directly or lets a cashier/manager request an exact,
+  //    one-time admin grant. Blocking here would make that recovery path
+  //    unreachable if the caller starts forwarding a payment method.
   if (paymentMethod === 'credit' && selectedCustomer && selectedCustomer.creditLimit !== null) {
     const projection = selectedCustomer.currentBalance + cartSummary.total;
     if (projection > selectedCustomer.creditLimit) {
       items.push({
         id: 'credit_limit_exceeded',
-        severity: 'blocker',
+        severity: 'warning',
         messageKey: 'preflight.items.credit_limit_exceeded.message',
         messageValues: {
           projection: projection.toFixed(0),
@@ -210,7 +196,7 @@ function computeItems(input: PreflightInput): PreflightItem[] {
     }
   }
 
-  // 5. DISCOUNT_EXCEEDS_TOTAL — pending discount > cart total.
+  // 4. DISCOUNT_EXCEEDS_TOTAL — pending discount > cart total.
   if (pendingDiscountAmount > 0 && pendingDiscountAmount > cartSummary.total) {
     items.push({
       id: 'discount_exceeds_total',
@@ -229,7 +215,7 @@ function computeItems(input: PreflightInput): PreflightItem[] {
     });
   }
 
-  // 6. INSUFFICIENT_STOCK — qty * unitEquivalence > availableStock for
+  // 5. INSUFFICIENT_STOCK — qty * unitEquivalence > availableStock for
   //    any item. WARNING, not blocker — the snapshot can race; the
   //    server will throw the hard error if the race lands badly.
   const stockShortItems = cartItems.filter(item => {
@@ -297,7 +283,6 @@ export function useCheckoutPreflight(input: PreflightInput): PreflightResult {
     input.selectedCustomer?.currentBalance,
     input.selectedCustomer?.creditLimit,
     input.pendingDiscountAmount,
-    input.userRole,
     input.isResumedDraft,
     input.serverItems,
   ]);

@@ -1,5 +1,10 @@
 import { roundMoney } from '@/lib/money';
 import type { ProductSearchSelection } from '@/types';
+import {
+  getSerializedQuantity,
+  hasDuplicateSerialNumbers,
+  parseSerialNumbers,
+} from '@/features/inventory/serialNumbers';
 
 export interface PurchaseCartItem {
   key: string;
@@ -12,6 +17,8 @@ export interface PurchaseCartItem {
   quantity: number;
   costPerUnit: number;
   currentStock: number;
+  tracksSerials: boolean;
+  serialNumbers: string;
 }
 
 export interface PurchaseCartSummary {
@@ -43,6 +50,8 @@ export function buildPurchaseCartItem(selection: ProductSearchSelection): Purcha
     quantity: 1,
     costPerUnit,
     currentStock: selection.product.stock,
+    tracksSerials: selection.product.tracksSerials === true,
+    serialNumbers: '',
   };
 }
 
@@ -55,6 +64,10 @@ export function mergePurchaseCartItem(
 
   if (existingIndex === -1) {
     return [...items, nextItem];
+  }
+
+  if (nextItem.tracksSerials) {
+    return items;
   }
 
   return items.map((item, index) =>
@@ -70,6 +83,26 @@ export function updatePurchaseCartItem(
     ...item,
     ...updates,
   };
+}
+
+export function updatePurchaseCartSerialNumbers(
+  item: PurchaseCartItem,
+  serialNumbers: string
+): PurchaseCartItem {
+  return {
+    ...item,
+    serialNumbers,
+    quantity: getSerializedQuantity(parseSerialNumbers(serialNumbers).length, item.unitEquivalence),
+  };
+}
+
+export function hasCompletePurchaseSerials(items: PurchaseCartItem[]): boolean {
+  return items.every(
+    item =>
+      !item.tracksSerials ||
+      (parseSerialNumbers(item.serialNumbers).length > 0 &&
+        !hasDuplicateSerialNumbers(item.serialNumbers))
+  );
 }
 
 export function getPurchaseLineTotal(item: PurchaseCartItem) {

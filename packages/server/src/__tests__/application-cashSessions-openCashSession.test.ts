@@ -6,7 +6,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -14,6 +14,8 @@ import {
   auditLogs,
   cashSessions,
   companies,
+  employeeShiftBreaks,
+  employeeShifts,
   operationEffects,
   operationEvents,
   sites,
@@ -89,13 +91,41 @@ async function closeAnyOpenSessionsForCashier() {
       )
     )
     .all();
-  const closedAt = new Date().toISOString();
+  // Break evidence requires a strictly later end boundary, even when cleanup
+  // runs in the same millisecond as the test-created start.
+  const closedAt = new Date(Date.now() + 1_000).toISOString();
   for (const s of open) {
     await db
       .update(cashSessions)
-      .set({ status: 'closed', closedAt, updatedAt: closedAt, actualCount: s.openingFloat, overShort: 0 })
+      .set({
+        status: 'closed',
+        closedAt,
+        updatedAt: closedAt,
+        actualCount: s.openingFloat,
+        overShort: 0,
+      })
       .where(eq(cashSessions.id, s.id));
   }
+  await db
+    .update(employeeShiftBreaks)
+    .set({ endedAt: closedAt, endedByUserId: userId, updatedAt: closedAt })
+    .where(
+      and(
+        eq(employeeShiftBreaks.tenantId, tenantId),
+        eq(employeeShiftBreaks.userId, userId),
+        isNull(employeeShiftBreaks.endedAt)
+      )
+    );
+  await db
+    .update(employeeShifts)
+    .set({ clockedOutAt: closedAt, updatedAt: closedAt })
+    .where(
+      and(
+        eq(employeeShifts.tenantId, tenantId),
+        eq(employeeShifts.userId, userId),
+        isNull(employeeShifts.clockedOutAt)
+      )
+    );
 }
 
 describe('openCashSession', () => {
@@ -112,6 +142,8 @@ describe('openCashSession', () => {
     expect(result.session.status).toBe('open');
     expect(result.session.expectedBalance).toBe(200);
     expect(result.journalEventId).toBeNull();
+    expect(result.attendanceShiftStarted).toBe(true);
+    expect(result.session.employeeShiftId).toBeTruthy();
     const persisted = await db
       .select()
       .from(cashSessions)
@@ -119,6 +151,241 @@ describe('openCashSession', () => {
       .get();
     expect(persisted?.openingFloat).toBe(200);
     expect(persisted?.registerName).toBe('open-test-1');
+    const linkedShift = await db
+      .select()
+      .from(employeeShifts)
+      .where(eq(employeeShifts.id, result.session.employeeShiftId!))
+      .get();
+    expect(linkedShift).toMatchObject({
+      tenantId,
+      userId,
+      siteId,
+      clockedOutAt: null,
+    });
+  });
+
+  it('reuses an open same-site attendance shift without duplicating clock-in evidence', async () => {
+    await closeAnyOpenSessionsForCashier();
+    const db = getDatabase();
+    const shiftId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(employeeShifts).values({
+      id: shiftId,
+      tenantId,
+      userId,
+      siteId,
+      clockedInAt: now,
+      clockedOutAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const result = await openCashSession(buildContext(), {
+      registerName: 'reuse-attendance-shift',
+      openingFloat: 0,
+      denominations: [],
+    });
+
+    expect(result.attendanceShiftStarted).toBe(false);
+    expect(result.session.employeeShiftId).toBe(shiftId);
+    expect(
+      await db
+        .select({ id: employeeShifts.id })
+        .from(employeeShifts)
+        .where(
+          and(
+            eq(employeeShifts.tenantId, tenantId),
+            eq(employeeShifts.userId, userId),
+            isNull(employeeShifts.clockedOutAt)
+          )
+        )
+        .all()
+    ).toHaveLength(1);
+    expect(
+      await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceId, shiftId),
+            eq(auditLogs.action, 'employee_shift.clock_in')
+          )
+        )
+        .all()
+    ).toHaveLength(0);
+  });
+
+  it('rejects opening at another site while attendance is already open', async () => {
+    await closeAnyOpenSessionsForCashier();
+    const db = getDatabase();
+    const company = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(eq(companies.tenantId, tenantId))
+      .get();
+    if (!company) throw new Error('Expected seeded company');
+    const otherSiteId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(sites).values({
+      id: otherSiteId,
+      tenantId,
+      companyId: company.id,
+      name: 'Other attendance site',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(employeeShifts).values({
+      id: nanoid(),
+      tenantId,
+      userId,
+      siteId: otherSiteId,
+      clockedInAt: now,
+      clockedOutAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await expect(
+      openCashSession(buildContext(), {
+        registerName: 'wrong-site-register',
+        openingFloat: 0,
+        denominations: [],
+      })
+    ).rejects.toMatchObject({ cause: { errorCode: 'CASH_SESSION_SHIFT_SITE_MISMATCH' } });
+    expect(
+      await db
+        .select()
+        .from(cashSessions)
+        .where(
+          and(
+            eq(cashSessions.tenantId, tenantId),
+            eq(cashSessions.registerName, 'wrong-site-register')
+          )
+        )
+        .get()
+    ).toBeUndefined();
+  });
+
+  it('rejects opening a register during an active break', async () => {
+    await closeAnyOpenSessionsForCashier();
+    const db = getDatabase();
+    const shiftId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(employeeShifts).values({
+      id: shiftId,
+      tenantId,
+      userId,
+      siteId,
+      clockedInAt: now,
+      clockedOutAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(employeeShiftBreaks).values({
+      id: nanoid(),
+      tenantId,
+      employeeShiftId: shiftId,
+      userId,
+      startedAt: now,
+      endedAt: null,
+      startedByUserId: userId,
+      endedByUserId: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await expect(
+      openCashSession(buildContext(), {
+        registerName: 'break-register',
+        openingFloat: 0,
+        denominations: [],
+      })
+    ).rejects.toMatchObject({ cause: { errorCode: 'CASH_SESSION_EMPLOYEE_BREAK_ACTIVE' } });
+  });
+
+  it('enforces linked-shift scope and active-state invariants at the database layer', async () => {
+    await closeAnyOpenSessionsForCashier();
+    const db = getDatabase();
+    const shiftId = nanoid();
+    const breakId = nanoid();
+    const otherUserId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(users).values({
+      id: otherUserId,
+      tenantId,
+      email: `scope-${otherUserId}@localhost`,
+      passwordHash: 'unused',
+      name: 'Scope Cashier',
+      role: 'cashier',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(employeeShifts).values({
+      id: shiftId,
+      tenantId,
+      userId,
+      siteId,
+      clockedInAt: now,
+      clockedOutAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(employeeShiftBreaks).values({
+      id: breakId,
+      tenantId,
+      employeeShiftId: shiftId,
+      userId,
+      startedAt: now,
+      endedAt: null,
+      startedByUserId: userId,
+      endedByUserId: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const rawSession = (overrides: Partial<typeof cashSessions.$inferInsert> = {}) => ({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      cashierId: userId,
+      employeeShiftId: shiftId,
+      registerName: `raw-${nanoid(6)}`,
+      openingFloat: 0,
+      openingCountDenominations: [],
+      expectedBalance: 0,
+      status: 'open' as const,
+      openedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      ...overrides,
+    });
+
+    expect(() => db.insert(cashSessions).values(rawSession()).run()).toThrow(
+      /CASH_SESSION_EMPLOYEE_SHIFT_INACTIVE/
+    );
+
+    const endedAt = new Date(Date.now() + 1_000).toISOString();
+    await db
+      .update(employeeShiftBreaks)
+      .set({ endedAt, endedByUserId: userId, updatedAt: endedAt })
+      .where(eq(employeeShiftBreaks.id, breakId));
+    expect(() =>
+      db
+        .insert(cashSessions)
+        .values(rawSession({ cashierId: otherUserId, status: 'closed', closedAt: endedAt }))
+        .run()
+    ).toThrow(/CASH_SESSION_EMPLOYEE_SHIFT_SCOPE/);
+
+    await db
+      .update(employeeShifts)
+      .set({ clockedOutAt: endedAt, updatedAt: endedAt })
+      .where(eq(employeeShifts.id, shiftId));
+    expect(() => db.insert(cashSessions).values(rawSession()).run()).toThrow(
+      /CASH_SESSION_EMPLOYEE_SHIFT_INACTIVE/
+    );
   });
 
   it('writes a cash_session.open audit log row inside the transaction', async () => {

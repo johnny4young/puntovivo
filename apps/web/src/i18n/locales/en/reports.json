@@ -30,5 +30,139 @@
         "margin": "Margin"
       }
     }
+  },
+  "dayClose": {
+    "kicker": "Daily control",
+    "title": "Day close",
+    "description": "Review the complete business-day evidence before manager sign-off: sales, tenders, cash sessions, fiscal documents, adjustments, and anomaly signals.",
+    "dateLabel": "Business day",
+    "refresh": "Refresh report",
+    "loading": "Building the day-close report…",
+    "error": "The day-close report could not be loaded.",
+    "readiness": {
+      "ready": "The day is ready for manager review",
+      "blocked": "The day still has blocking work",
+      "signed": "The signed evidence is frozen",
+      "generated": "{{date}} · {{timeZone}}",
+      "codes": {
+        "open_sessions": "Open cash sessions",
+        "cash_discrepancies": "Cash discrepancies",
+        "fiscal_pending": "Fiscal documents in progress",
+        "fiscal_rejected": "Rejected fiscal documents",
+        "high_anomalies": "High-severity anomalies",
+        "commissions_not_tracked": "Commissions are not tracked yet",
+        "waste_not_tracked": "Waste is not tracked yet"
+      }
+    },
+    "signoff": {
+      "title": "Manager sign-off",
+      "description": "Confirm your review to freeze this exact report as the business day's permanent evidence.",
+      "blocked": "Resolve the blocking items above before this report can be signed.",
+      "attestation": "I reviewed this report and confirm that it represents the business day shown.",
+      "action": "Sign day close",
+      "confirmTitle": "Freeze this day-close evidence?",
+      "confirmMessage": "This action is irreversible. The report for {{date}}, generated at {{generatedAt}}, will be stored exactly as shown and cannot be edited or deleted.",
+      "confirmAction": "Sign and freeze",
+      "signedTitle": "Day close signed and protected",
+      "signedDescription": "This screen is showing the immutable signed snapshot. Activity recorded later does not rewrite it.",
+      "signedByLabel": "Attestation",
+      "signedBy": "Signed by {{name}} · {{date}}",
+      "hashLabel": "SHA-256 evidence hash",
+      "pdfTitle": "Stored printable PDF",
+      "pdfDescription": "{{filename}} · {{size}} KB · verified before download",
+      "pdfUnavailable": "This older signed record predates stored PDF artifacts. Its immutable report remains available on this screen.",
+      "pdfDownload": "Download PDF",
+      "pdfDownloading": "Verifying PDF…",
+      "pdfDownloadedTitle": "Signed PDF downloaded",
+      "pdfDownloadedDescription": "The stored artifact passed its size and SHA-256 integrity checks.",
+      "pdfDownloadError": "The signed PDF could not be verified and downloaded",
+      "successTitle": "Day close signed",
+      "successDescription": "The immutable report and its audit evidence were saved.",
+      "errorTitle": "The day close could not be signed"
+    },
+    "kpis": {
+      "netRevenue": "Net revenue",
+      "netRevenueContext": "Gross {{gross}}",
+      "sales": "Gross sales",
+      "refunds_one": "{{count}} refund · {{amount}}",
+      "refunds_other": "{{count}} refunds · {{amount}}",
+      "cashVariance": "Cash variance",
+      "cashSessions": "Closed: {{closed}} · Open: {{open}}",
+      "fiscal": "Fiscal documents",
+      "fiscalNet": "Net fiscal amount {{amount}}"
+    },
+    "sections": {
+      "sales": "Sales composition",
+      "payments": "Payment settlement",
+      "cash": "Cash reconciliation",
+      "fiscal": "Fiscal documents",
+      "adjustments": "Voids and refunds",
+      "anomalies": "Anomaly summary",
+      "coverage": "Coverage of the daily pack"
+    },
+    "metrics": {
+      "subtotal": "Subtotal",
+      "discounts": "Discounts",
+      "taxes": "Taxes",
+      "tips": "Tips",
+      "serviceCharges": "Service charges",
+      "refunds": "Refunds",
+      "expectedCash": "Expected cash",
+      "countedCash": "Counted cash",
+      "balancedSessions": "Balanced sessions",
+      "openSessions": "Open at day end",
+      "voids": "Voids",
+      "events_one": "{{count}} event",
+      "events_other": "{{count}} events"
+    },
+    "payments": {
+      "method": "Tender",
+      "transactions": "Transactions",
+      "amount": "Amount",
+      "note": "Gross tenders for sales recorded on this day; voids and refunds appear separately under adjustments."
+    },
+    "paymentMethods": {
+      "cash": "Cash",
+      "card": "Card",
+      "transfer": "Transfer",
+      "credit": "Credit",
+      "other": "Other"
+    },
+    "fiscalStatuses": {
+      "accepted": "Accepted",
+      "pending": "Pending",
+      "sent": "Sent",
+      "rejected": "Rejected",
+      "contingency": "Contingency",
+      "voided": "Voided",
+      "notified_correction": "Correction requested",
+      "partial_send": "Partially sent"
+    },
+    "anomalies": {
+      "total": "Total signals",
+      "high": "High severity",
+      "medium": "Medium severity"
+    },
+    "anomalyKinds": {
+      "ticketsPerHourSpike": "Tickets per hour",
+      "voidRate": "Void rate",
+      "refundAmount": "Refund amount",
+      "noSaleSessions": "No-sale sessions"
+    },
+    "empty": {
+      "paymentsTitle": "No settled payments",
+      "paymentsDescription": "No eligible sale tenders were recorded for this business day."
+    },
+    "coverage": {
+      "description": "The report stays explicit when a domain has no source model; it never converts missing evidence into a false zero.",
+      "commissions_not_tracked": {
+        "title": "Commissions",
+        "description": "Commission plans are not modeled yet, so this report marks the section unavailable instead of reporting zero."
+      },
+      "waste_not_tracked": {
+        "title": "Waste",
+        "description": "Waste events are not modeled yet, so this report marks the section unavailable instead of hiding the gap."
+      }
+    }
   }
 }

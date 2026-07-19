@@ -37,6 +37,14 @@ const ROUTE_TABLE: ReadonlyArray<{ prefix: string; entry: HeaderTitleKeys }> = [
     entry: { kickerKey: 'nav:header.operations.kicker', titleKey: 'nav:header.operations.title' },
   },
   {
+    prefix: '/day-close',
+    entry: { kickerKey: 'nav:header.dayClose.kicker', titleKey: 'nav:header.dayClose.title' },
+  },
+  {
+    prefix: '/schedule',
+    entry: { kickerKey: 'nav:header.schedule.kicker', titleKey: 'nav:header.schedule.title' },
+  },
+  {
     prefix: '/catalog',
     entry: { kickerKey: 'nav:header.catalog.kicker', titleKey: 'nav:header.catalog.title' },
   },
@@ -153,6 +161,10 @@ const ROUTE_TABLE: ReadonlyArray<{ prefix: string; entry: HeaderTitleKeys }> = [
   {
     prefix: '/company',
     entry: { kickerKey: 'nav:header.company.kicker', titleKey: 'nav:header.company.title' },
+  },
+  {
+    prefix: '/data-import',
+    entry: { kickerKey: 'nav:header.dataImport.kicker', titleKey: 'nav:header.dataImport.title' },
   },
   {
     prefix: '/sites',

@@ -24,6 +24,7 @@ import { createModuleLogger, rootLogger } from '../logging/logger.js';
 import { initServerTelemetryAdapter } from '../observability/index.js';
 import { warmCacheFromDb } from '../security/loginRateLimit.js';
 import { warmUpPasswordSecurity } from '../security/passwords.js';
+import { warmUpStaffPinSecurity } from '../security/staffPins.js';
 import { startProcedureRateLimitSweeper } from '../trpc/middleware/procedureRateLimit.js';
 import { createContext } from '../trpc/context.js';
 import { appRouter } from '../trpc/router.js';
@@ -36,6 +37,7 @@ import {
   SERVER_SOCKET_TIMEOUT_MS,
 } from './constants.js';
 import { registerHttpPlugins } from './plugins.js';
+import { registerDayCloseArtifactRoutes } from './routes/day-close-artifacts.js';
 import type { PuntovivoServer, ServerOptions } from './types.js';
 import { registerWorkers } from './workers.js';
 
@@ -74,6 +76,8 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // first not-found login attempt pays an extra 50-100 ms (a small but
   // real timing leak); warming once at boot amortises the cost.
   await warmUpPasswordSecurity();
+  // ENG-106a — same timing equalizer for unavailable staff-switch targets.
+  await warmUpStaffPinSecurity();
 
   // ENG-166 — schedule the periodic sweep of the in-memory rate-limit
   // bucket map so a long-running Electron session (or hub) does not
@@ -147,6 +151,10 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // Decorate request with database instance
   app.decorate('db', db);
 
+  // ENG-141c — binary evidence bypasses JSON/tRPC to avoid base64 bloat,
+  // but keeps the same live access-token, tenant, and role checks.
+  await registerDayCloseArtifactRoutes(app);
+
   // Register tRPC
   const trpcLog = createModuleLogger('trpc');
   await app.register(fastifyTRPCPlugin, {
@@ -199,13 +207,15 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   let serverUrl = `http://${bindHost}:${bindPort}`;
 
   // Boot the outbox + cleanup worker daemons and wire their onClose
-  // teardown (fiscal, rate-limit sweep, hardware, payment, login
-  // cleanup). The periodic timers arm inside listen() below.
-  const { fiscalWorker, hardwareWorker, paymentWorker, loginAttemptsCleanup } = registerWorkers(
-    app,
-    db,
-    { stopRateLimitSweep }
-  );
+  // teardown (fiscal, rate-limit sweep, hardware, payment, login cleanup,
+  // data retention). The periodic timers arm inside listen() below.
+  const {
+    fiscalWorker,
+    hardwareWorker,
+    paymentWorker,
+    loginAttemptsCleanup,
+    dataRetentionCleanup,
+  } = registerWorkers(app, db, { stopRateLimitSweep });
 
   const serverLog = createModuleLogger('server');
   return {
@@ -215,6 +225,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     hardwareWorker,
     paymentWorker,
     loginAttemptsCleanup,
+    dataRetentionCleanup,
     listen: async () => {
       const address = await app.listen({ port: bindPort, host: bindHost });
       serverUrl = address;
@@ -253,6 +264,13 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
           'login_attempts cleanup boot tick failed; will retry next interval'
         );
       }
+      dataRetentionCleanup.start();
+      void dataRetentionCleanup.tickOnce().catch(err => {
+        serverLog.warn(
+          { err: err instanceof Error ? { message: err.message } : err },
+          'data-retention cleanup boot tick failed; will retry next interval'
+        );
+      });
       // ENG-038c — kick the boot catch-up sweep after the timers
       // are armed so a long-offline POS reconciles missed statement
       // windows before the first regular Timer B tick fires.

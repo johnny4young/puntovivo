@@ -142,9 +142,7 @@ describe('CompanyAutoUpdateCard', () => {
       'https://github.com/johnny4young/puntovivo/releases/tag/v1.2.0'
     );
     // Manual mode never offers an in-place restart/install.
-    expect(
-      screen.queryByRole('button', { name: /restart to install/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /restart to install/i })).not.toBeInTheDocument();
   });
 
   it('restarts to install a downloaded update', async () => {
@@ -194,5 +192,52 @@ describe('CompanyAutoUpdateCard', () => {
     await waitFor(() => {
       expect(restartToApplyAppUpdate).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('surfaces the last version transition and an exact fleet rollback policy', async () => {
+    window.electron = {
+      getAppVersion: vi.fn(),
+      getAppPath: vi.fn(),
+      getServerUrl: vi.fn(),
+      getAutoUpdateStatus: vi.fn().mockResolvedValue({
+        isAvailable: true,
+        state: 'checking',
+        installMode: 'auto',
+        currentVersion: '1.6.0',
+        lastCheckedAt: '2026-07-15T16:00:00.000Z',
+        lastUpdatedAt: '2026-07-14T14:00:00.000Z',
+        rolloutMode: 'rollback',
+        rolloutPercentage: 100,
+        rolloutTargetVersion: '1.5.1',
+        rolloutPolicyCheckedAt: '2026-07-15T16:00:00.000Z',
+        releaseName: null,
+        releaseNotes: null,
+        releaseDate: null,
+        updateUrl: null,
+        error: null,
+        reason: null,
+      }),
+      checkForAppUpdates: vi.fn(),
+      restartToApplyAppUpdate: vi.fn(),
+      getTraySettings: vi.fn(),
+      updateTraySettings: vi.fn(),
+      getThemePreference: vi.fn(),
+      updateThemePreference: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
+      createDatabaseBackup: vi.fn(),
+      restoreDatabaseBackup: vi.fn(),
+      printReceipt: vi.fn(),
+    };
+
+    renderWithQueryClient(<CompanyAutoUpdateCard />);
+
+    expect(await screen.findByText('Rollback · 100%')).toBeInTheDocument();
+    expect(screen.getByTestId('auto-update-rollback-policy')).toHaveTextContent(
+      'Rollback is active for version 1.5.1'
+    );
+    const lastUpdatedMetric = screen.getByText('Last Updated').parentElement;
+    expect(lastUpdatedMetric).toHaveTextContent('Jul 14, 2026');
+    expect(lastUpdatedMetric).not.toHaveTextContent('Not yet');
   });
 });

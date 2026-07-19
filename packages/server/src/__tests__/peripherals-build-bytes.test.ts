@@ -18,6 +18,7 @@ import { getDatabase } from '../db/index.js';
 import {
   companies,
   hardwareOutbox,
+  managerApprovalRequests,
   sales,
   sites,
   sitePeripherals,
@@ -26,6 +27,8 @@ import {
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { registerDevice } from '../services/devices/devicesService.js';
+import { freshCriticalContext } from './utils/criticalCommandFixture.js';
 import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
 import { ESCPOS_BYTES } from '../services/peripherals/escpos/byte-builder.js';
 
@@ -37,33 +40,24 @@ let seededSaleId: string;
 let foreignTenantId: string;
 let foreignSaleId: string;
 let foreignSiteId: string;
+let deviceId: string;
+let approverId: string;
 
-function buildContext(role: 'admin' | 'manager' | 'cashier' = 'cashier', tenantOverride?: string): Context {
-  const db = getDatabase();
+function buildContext(
+  role: 'admin' | 'manager' | 'cashier' = 'cashier',
+  tenantOverride?: string
+): Context {
   const effectiveTenant = tenantOverride ?? tenantId;
-  return {
-    req: {
-      server: server.app,
-      headers: {},
-      user: {
-        userId,
-        email: 'admin@localhost',
-        role,
-        tenantId: effectiveTenant,
-      },
-      jwtVerify: async () => {},
-    } as unknown as Context['req'],
-    res: {} as Context['res'],
-    db,
-    user: {
-      id: userId,
-      email: 'admin@localhost',
-      role,
-      tenantId: effectiveTenant,
-    },
+  return freshCriticalContext({
+    db: getDatabase(),
+    serverApp: server.app,
     tenantId: effectiveTenant,
+    userId,
+    email: 'admin@localhost',
+    role,
     siteId,
-  };
+    deviceId,
+  });
 }
 
 async function countHardwareOutbox(): Promise<number> {
@@ -78,11 +72,7 @@ async function countHardwareOutbox(): Promise<number> {
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -94,6 +84,24 @@ beforeAll(async () => {
     .get();
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
+  deviceId = (
+    await registerDevice(db, {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'peripherals-build-bytes',
+    })
+  ).deviceId;
+  approverId = nanoid();
+  await db.insert(users).values({
+    id: approverId,
+    tenantId,
+    email: `bytes-approver-${approverId}@example.test`,
+    name: 'Bytes Approver',
+    passwordHash: 'not-used-by-router-tests',
+    role: 'manager',
+    isActive: true,
+  });
 
   // Insert a minimal sale row for the in-tenant tests. The seed
   // does not create sales by default in :memory: mode, so the test
@@ -181,9 +189,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await getDatabase()
-    .delete(sitePeripherals)
-    .where(eq(sitePeripherals.tenantId, tenantId));
+  await getDatabase().delete(sitePeripherals).where(eq(sitePeripherals.tenantId, tenantId));
 });
 
 describe('peripherals.buildReceiptBytes (ENG-074b)', () => {
@@ -222,22 +228,24 @@ describe('peripherals.buildReceiptBytes (ENG-074b)', () => {
   });
 
   it('returns ready bytes with transport hint when an escpos printer is registered', async () => {
-    await getDatabase().insert(sitePeripherals).values({
-      id: nanoid(),
-      tenantId,
-      siteId,
-      kind: 'printer',
-      driver: 'escpos',
-      config: {
-        channel: 'tcp',
-        host: '192.168.1.50',
-        port: 9100,
-        paperWidth: '80mm',
-        characterSet: 'cp858',
-      },
-      displayName: 'ESC/POS receipt printer',
-      isActive: true,
-    });
+    await getDatabase()
+      .insert(sitePeripherals)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        kind: 'printer',
+        driver: 'escpos',
+        config: {
+          channel: 'tcp',
+          host: '192.168.1.50',
+          port: 9100,
+          paperWidth: '80mm',
+          characterSet: 'cp858',
+        },
+        displayName: 'ESC/POS receipt printer',
+        isActive: true,
+      });
     const before = await countHardwareOutbox();
     const caller = appRouter.createCaller(buildContext());
     const result = await caller.peripherals.buildReceiptBytes({
@@ -263,16 +271,18 @@ describe('peripherals.buildReceiptBytes (ENG-074b)', () => {
   });
 
   it('rejects a saleId from a foreign tenant (cross-tenant guard)', async () => {
-    await getDatabase().insert(sitePeripherals).values({
-      id: nanoid(),
-      tenantId,
-      siteId,
-      kind: 'printer',
-      driver: 'escpos',
-      config: { channel: 'tcp', host: '192.168.1.50', port: 9100 },
-      displayName: 'ESC/POS receipt printer',
-      isActive: true,
-    });
+    await getDatabase()
+      .insert(sitePeripherals)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        kind: 'printer',
+        driver: 'escpos',
+        config: { channel: 'tcp', host: '192.168.1.50', port: 9100 },
+        displayName: 'ESC/POS receipt printer',
+        isActive: true,
+      });
     const caller = appRouter.createCaller(buildContext());
     await expect(
       caller.peripherals.buildReceiptBytes({
@@ -308,16 +318,18 @@ describe('peripherals.buildDrawerKickBytes (ENG-074b)', () => {
   });
 
   it('returns the canonical drawer-pulse bytes when an escpos drawer is registered', async () => {
-    await getDatabase().insert(sitePeripherals).values({
-      id: nanoid(),
-      tenantId,
-      siteId,
-      kind: 'cash_drawer',
-      driver: 'escpos',
-      config: { channel: 'tcp', host: '192.168.1.50', port: 9100 },
-      displayName: 'ESC/POS cash drawer',
-      isActive: true,
-    });
+    await getDatabase()
+      .insert(sitePeripherals)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        kind: 'cash_drawer',
+        driver: 'escpos',
+        config: { channel: 'tcp', host: '192.168.1.50', port: 9100 },
+        displayName: 'ESC/POS cash drawer',
+        isActive: true,
+      });
     const before = await countHardwareOutbox();
     const caller = appRouter.createCaller(buildContext('manager'));
     const result = await caller.peripherals.buildDrawerKickBytes({ siteId });
@@ -335,11 +347,72 @@ describe('peripherals.buildDrawerKickBytes (ENG-074b)', () => {
     expect(await countHardwareOutbox()).toBe(before);
   });
 
-  it('rejects a cashier (manager-only role gate)', async () => {
+  it('requires a one-time approval from a cashier', async () => {
+    await getDatabase()
+      .insert(sitePeripherals)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        kind: 'cash_drawer',
+        driver: 'escpos',
+        config: { channel: 'tcp', host: '192.168.1.50', port: 9100 },
+        displayName: 'ESC/POS cash drawer',
+        isActive: true,
+      });
     const caller = appRouter.createCaller(buildContext('cashier'));
-    await expect(caller.peripherals.buildDrawerKickBytes({ siteId })).rejects.toThrow(
-      TRPCError
-    );
+    await expect(caller.peripherals.buildDrawerKickBytes({ siteId })).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+    });
+  });
+
+  it('consumes the cashier grant before returning hub-client pulse bytes', async () => {
+    await getDatabase()
+      .insert(sitePeripherals)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        kind: 'cash_drawer',
+        driver: 'escpos',
+        config: { channel: 'tcp', host: '192.168.1.50', port: 9100 },
+        displayName: 'ESC/POS cash drawer',
+        isActive: true,
+      });
+    const approvalRequestId = nanoid();
+    const timestamp = new Date().toISOString();
+    await getDatabase()
+      .insert(managerApprovalRequests)
+      .values({
+        id: approvalRequestId,
+        tenantId,
+        siteId,
+        requesterId: userId,
+        action: 'cash_drawer_open',
+        status: 'approved',
+        reason: 'Open from hub client',
+        resourceType: 'site',
+        resourceId: siteId,
+        summary: { label: 'Main site' },
+        requestedAt: timestamp,
+        expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+        decidedAt: timestamp,
+        decidedBy: approverId,
+        grantExpiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+
+    const result = await appRouter
+      .createCaller(buildContext('cashier'))
+      .peripherals.buildDrawerKickBytes({ siteId, approvalRequestId });
+    expect(result.status).toBe('ready');
+    const consumed = await getDatabase()
+      .select({ status: managerApprovalRequests.status })
+      .from(managerApprovalRequests)
+      .where(eq(managerApprovalRequests.id, approvalRequestId))
+      .get();
+    expect(consumed?.status).toBe('consumed');
   });
 
   it('rejects a siteId from a foreign tenant (ensureTenantSite guard)', async () => {

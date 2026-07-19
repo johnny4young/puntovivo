@@ -21,12 +21,15 @@ import { tenantProcedure } from '../middleware/tenant.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { criticalCommandProcedure } from '../middleware/criticalCommand.js';
 import { computeDayCloseSummary } from '../../services/reports/day-close.js';
+import { computeCashierPace as computeCashierPaceFromTiming } from '../../services/reports/cashier-pace.js';
 import { computeCashierPace } from '../../services/cashier-pace.js';
 import {
+  cashierPaceOutput,
   cashSessionMovementsInput,
   cashSessionReportInput,
   closeCashSessionInput,
   dayCloseSummaryInput,
+  dayCloseSummaryOutput,
   getActiveCashSessionInput,
   openCashSessionInput,
   pendingChecksInput,
@@ -48,6 +51,7 @@ const cashSessionRecordSelection = {
   siteName: sites.name,
   cashierId: cashSessions.cashierId,
   cashierName: users.name,
+  employeeShiftId: cashSessions.employeeShiftId,
   registerName: cashSessions.registerName,
   openingFloat: cashSessions.openingFloat,
   openingCountDenominations: cashSessions.openingCountDenominations,
@@ -180,6 +184,7 @@ export const cashSessionsRouter = router({
         registerName: cashSessions.registerName,
         cashierId: cashSessions.cashierId,
         cashierName: users.name,
+        employeeShiftId: cashSessions.employeeShiftId,
         openedAt: cashSessions.openedAt,
       })
       .from(cashSessions)
@@ -230,6 +235,21 @@ export const cashSessionsRouter = router({
     return record ? presentCashSessionRecord(record, ctx.user.role) : null;
   }),
 
+  /** ENG-209 — private by construction: no cashier id is accepted. */
+  myPace: cashierManagerOrAdminProcedure
+    .input(getActiveCashSessionInput)
+    .output(cashierPaceOutput)
+    .query(async ({ ctx }) => {
+      if (!ctx.siteId || !ctx.user) {
+        return null;
+      }
+      return computeCashierPaceFromTiming({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        cashierId: ctx.user.id,
+      });
+    }),
   /**
    * ENG-204 — pace metrics for the opt-in cashier HUD. Always the CALLER's
    * own data: the active session resolves for (tenant, site, ctx.user) and
@@ -334,7 +354,10 @@ export const cashSessionsRouter = router({
     if (!created) {
       throw new Error('Failed to load the created cash session');
     }
-    return presentCashSessionRecord(created, ctx.user?.role);
+    return {
+      ...presentCashSessionRecord(created, ctx.user?.role),
+      attendanceShiftStarted: result.attendanceShiftStarted,
+    };
   }),
 
   close: criticalCommandProcedure.input(closeCashSessionInput).mutation(async ({ ctx, input }) => {
@@ -348,13 +371,14 @@ export const cashSessionsRouter = router({
 
   /**
    * ENG-198 — day-close ritual. Open to the cashier (they are the one who
-   * closes), but owner data is gated SERVER-SIDE: margin and per-product
-   * profit only serialize for manager/admin, mirroring the ENG-194 blind
-   * close philosophy. Pure read; multi-tenant scoping happens inside the
-   * service (NOT_FOUND for foreign sessions).
+   * closes), but owner data is gated SERVER-SIDE: margin, pulse comparison,
+   * and per-product profit only serialize for manager/admin, mirroring the
+   * ENG-194 blind close philosophy. Pure read; multi-tenant scoping happens
+   * inside the service (NOT_FOUND for foreign sessions).
    */
   dayCloseSummary: cashierManagerOrAdminProcedure
     .input(dayCloseSummaryInput)
+    .output(dayCloseSummaryOutput)
     .query(async ({ ctx, input }) => {
       // The role middleware rejects a missing user before this resolver; the
       // non-null assertion documents that runtime refinement for TypeScript.

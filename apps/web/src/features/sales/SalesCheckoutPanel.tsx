@@ -38,10 +38,10 @@ interface SalesCheckoutPanelProps {
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
   onOpenMovement: () => void;
-  /** ENG-062 — manager-gated cash drawer kick. When undefined the
-   * button is hidden (cashier role or no escpos drawer registered).
-   * Relocated here from the retired SalesOverview hero so the manager
-   * hardware action survives the §06 minimal POS restructure. */
+  /** ENG-062 / ENG-106c3 — role-aware cash drawer kick. When undefined
+   * the button is hidden because no supported drawer or sales role is active.
+   * Cashiers escalate through a one-time approval modal; manager/admin roles
+   * dispatch directly. */
   onKickCashDrawer?: (() => void | Promise<void>) | undefined;
   /** Whether the kick mutation is in flight. */
   isKickingCashDrawer?: boolean | undefined;
@@ -92,7 +92,7 @@ export function SalesCheckoutPanel({
   canCharge,
   canOpenCashSession,
   canCloseCashSession,
-  userRole = 'cashier',
+  userRole,
   onOpenSearch,
   onCharge,
   onOpenCashSession,
@@ -101,7 +101,7 @@ export function SalesCheckoutPanel({
   onKickCashDrawer,
   isKickingCashDrawer,
   onRegisterAssignmentChange,
-  canSuspend = false,
+  canSuspend,
   onSuspend,
   onNewSale,
   suspendedDraftsCount = 0,
@@ -122,17 +122,14 @@ export function SalesCheckoutPanel({
   const preflightHasBlockers = preflightItems.some(item => item.severity === 'blocker');
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
   const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
-  const primaryActionDisabled = isHubGated
-    ? true
-    : cashSession
-      ? !canCharge || preflightHasBlockers
-      : !canOpenCashSession;
+  const primaryActionDisabled =
+    isHubGated || (cashSession ? !canCharge || preflightHasBlockers : !canOpenCashSession);
   // Keep unavailable Suspend out of the tab order; the shortcut catalogue
   // already owns discovery, and disabled button opacity fails contrast here.
-  const showSuspendAction = Boolean(onSuspend && canSuspend);
-  const showNewSaleAction = Boolean(onNewSale);
+  const showSuspendAction = !!onSuspend && canSuspend;
+  const showNewSaleAction = !!onNewSale;
   const showSuspendControls = showSuspendAction || showNewSaleAction;
-  const showSuspendedToggle = Boolean(onToggleSuspendedPanel);
+  const showSuspendedToggle = !!onToggleSuspendedPanel;
 
   return (
     <aside className="card p-5 sm:p-6 xl:flex pos:h-full pos:min-h-0 xl:flex-col pos:overflow-hidden">
@@ -168,7 +165,7 @@ export function SalesCheckoutPanel({
         </div>
       </div>
 
-      <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto">
+      <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto pos:scroll-pb-28 pos:pb-28">
         {/* ENG-081 V4 — "Último escaneado" + "Sugerencia rápida". When the
          * cart is empty we surface a 4-tile dashed-border grid as a hint
          * to the cashier (scan, scan again, search, suggest). When the
@@ -304,7 +301,7 @@ export function SalesCheckoutPanel({
                         type="button"
                         className="btn-outline"
                         onClick={onKickCashDrawer}
-                        disabled={isKickingCashDrawer === true}
+                        disabled={isKickingCashDrawer}
                         data-testid="sales-kick-drawer"
                       >
                         <WalletCards className="h-4 w-4" />

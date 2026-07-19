@@ -21,8 +21,46 @@
     "title": "Detalle del cliente",
     "viewAria": "Ver detalle",
     "identification": "Identificación",
+    "identificationFallback": "Id.",
     "edit": "Editar cliente",
     "close": "Cerrar"
+  },
+  "privacy": {
+    "export": "Exportar datos personales",
+    "exporting": "Preparando exportación...",
+    "filename": "datos-personales-cliente",
+    "success": "Datos personales descargados",
+    "error": "No se pudieron exportar los datos personales",
+    "disposition": {
+      "action": "Eliminar datos personales",
+      "title": "Eliminar datos del cliente",
+      "loading": "Evaluando registros vinculados...",
+      "previewError": "No se pudo cargar la evaluación. Cierra este diálogo e inténtalo de nuevo.",
+      "deleteHeading": "Elegible para eliminación definitiva",
+      "deleteDescription": "Este cliente no tiene registros transaccionales vinculados. El perfil se puede eliminar definitivamente.",
+      "anonymizeHeading": "Se conservarán registros transaccionales",
+      "anonymizeDescription": "Este cliente tiene registros vinculados que deben conservarse por trazabilidad fiscal, financiera u operativa. Los campos personales se anonimizarán de forma irreversible.",
+      "linkedRecords_one": "{{count}} registro vinculado requiere conservación",
+      "linkedRecords_other": "{{count}} registros vinculados requieren conservación",
+      "retentionNote": "Los registros vinculados y las copias fiscales o de entrega inmutables se conservan según sus obligaciones. Se depuran el perfil reutilizable del cliente, los datos de auditoría y las copias pendientes de sincronización.",
+      "records": {
+        "sales": "Ventas",
+        "quotations": "Cotizaciones",
+        "ledgerEntries": "Movimientos de cuenta",
+        "deliveryOrders": "Órdenes de entrega",
+        "fiscalDocuments": "Documentos fiscales"
+      },
+      "confirmationLabel": "Confirmación",
+      "confirmationInstruction": "Ingresa el nombre exacto del cliente:",
+      "irreversible": "Esta acción no se puede deshacer.",
+      "cancel": "Cancelar",
+      "confirmDelete": "Eliminar definitivamente",
+      "confirmAnonymize": "Anonimizar datos personales",
+      "submitting": "Aplicando disposición...",
+      "deletedSuccess": "Datos personales eliminados definitivamente",
+      "anonymizedSuccess": "Datos personales anonimizados",
+      "error": "No se pudieron eliminar ni anonimizar los datos personales"
+    }
   },
   "form": {
     "createTitle": "Crear cliente",

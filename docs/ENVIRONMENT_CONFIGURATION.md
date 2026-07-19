@@ -47,7 +47,12 @@ and the boot sites in [standalone.ts](packages/server/src/standalone.ts) +
 | --- | --- | --- |
 | `WEB_DEV_SERVER_URL` | `http://localhost:3000` | Renderer URL in desktop development mode |
 | `AUTO_UPDATE` | enabled unless set to `false` | Enables desktop auto-updater |
-| `AUTO_UPDATE_INTERVAL` | `1 hour` | Auto-update polling interval |
+
+The packaged updater checks hourly on a fixed internal cadence. Its staged
+percentage and exact rollback target come from the credential-free
+`https://johnny4young.github.io/puntovivo/update-policy.json`; they are release
+controls, not workstation environment variables. Rollout promotion and rollback
+run through `.github/workflows/update-rollout.yml`.
 
 Relevant files:
 

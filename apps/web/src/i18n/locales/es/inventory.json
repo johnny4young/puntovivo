@@ -202,6 +202,12 @@
     "deferHelp": "La sede origen se debita de inmediato. La sede destino se acredita cuando llega el envío y haces clic en Recibir.",
     "onHand": "{{amount}} en existencias",
     "available": "Disponible en origen: {{amount}}",
+    "serials": "Unidades serializadas",
+    "serialsHelp": "Selecciona las unidades físicas exactas que se moverán a la sede destino.",
+    "serialsLoading": "Cargando unidades serializadas disponibles…",
+    "noSerials": "No hay unidades serializadas vendibles disponibles en esta sede.",
+    "serialCount_one": "{{count}} unidad serializada seleccionada",
+    "serialCount_other": "{{count}} unidades serializadas seleccionadas",
     "cancel": "Cancelar",
     "submit": "Transferir",
     "submitting": "Transfiriendo…",
@@ -247,7 +253,11 @@
     "adjustSuccess": "Stock ajustado",
     "adjustError": "No se pudo ajustar el stock",
     "entrySuccess": "Inventario inicial registrado",
-    "entryError": "No se pudo registrar la entrada de inventario"
+    "entryError": "No se pudo registrar la entrada de inventario",
+    "lotSuccess": "Lote recibido",
+    "lotError": "No se pudo recibir el lote",
+    "serialSuccess": "Unidades con serie recibidas",
+    "serialError": "No se pudieron recibir las unidades con serie"
   },
   "adjustment": {
     "title": "Ajustar {{name}}",
@@ -260,6 +270,8 @@
     "movement": "Movimiento",
     "lowStockThreshold": "Umbral de stock bajo",
     "siteScope": "Este ajuste impactará el balance de la sede activa: {{site}}.",
+    "lotTrackedHelp": "Este producto controla lotes. Recibe un lote identificado en vez de editar el stock agregado.",
+    "serialTrackedHelp": "Este producto controla números de serie. Recibe o vende unidades exactas en vez de editar el stock agregado.",
     "notesPlaceholder": "Razón del ajuste",
     "stockMin": "El stock debe ser cero o mayor"
   },
@@ -267,6 +279,8 @@
     "titleInitial": "Registrar inventario inicial",
     "titlePhysical": "Registrar conteo físico",
     "titleDefault": "Registrar inventario",
+    "titleLot": "Recibir lote de inventario",
+    "titleSerial": "Recibir unidades con serie",
     "cancel": "Cancelar",
     "submitting": "Guardando...",
     "save": "Guardar entrada",
@@ -275,11 +289,53 @@
     "mode": "Modo",
     "modeInitial": "{{label}} (acumular)",
     "modePhysical": "{{label}} (reemplazar)",
+    "lotModeHelp": "Este producto controla lotes. La recepción actualiza el lote identificado y el stock de la sede activa de forma atómica.",
+    "serialModeHelp": "Ingresa un número de serie por unidad física. La recepción agrega las unidades exactas y el stock de la sede activa de forma atómica.",
+    "serialNumbers": "Números de serie",
+    "serialNumbersPlaceholder": "Una serie por línea\nSN-0001\nSN-0002",
+    "serialNumbersRequired": "Ingresa al menos un número de serie",
+    "serialNumbersDuplicate": "Elimina los números de serie duplicados antes de guardar",
+    "serialCount_one": "{{count}} serie única",
+    "serialCount_other": "{{count}} series únicas",
+    "warrantyExpiresAt": "Vencimiento de garantía (opcional)",
+    "serialQuantity": "Unidades con serie",
+    "serialSiteRequired": "Selecciona una sede activa antes de recibir unidades con serie.",
+    "lotNumber": "Número de lote",
+    "lotNumberRequired": "El número de lote es obligatorio",
+    "expiresAt": "Fecha de vencimiento (opcional)",
+    "lotQuantity": "Cantidad recibida",
+    "lotUnitCost": "Costo por unidad base",
+    "lotSiteRequired": "Selecciona una sede activa antes de recibir este lote.",
     "equivalence": "Equivalencia",
     "siteScope": "Esta entrada impactará el balance de la sede activa: {{site}}.",
     "quantityMin": "La cantidad debe ser mayor que cero",
     "costMin": "El costo debe ser cero o mayor",
     "notesPlaceholder": "Razón opcional o referencia de conteo"
+  },
+  "serialLookup": {
+    "kicker": "Trazabilidad por serie",
+    "title": "Consulta de garantía",
+    "description": "Encuentra la unidad actual, la última venta, el cliente y la fecha de garantía por el número de serie exacto.",
+    "inputLabel": "Número de serie",
+    "placeholder": "Ingresa un número de serie",
+    "search": "Consultar",
+    "loading": "Consultando serie…",
+    "notFound": "No se encontró una unidad con la serie {{serial}}.",
+    "product": "Producto",
+    "status": "Estado",
+    "sale": "Última venta",
+    "warranty": "Garantía hasta",
+    "noSale": "Sin venta",
+    "noWarranty": "Sin registro",
+    "statuses": {
+      "in_stock": "En stock",
+      "in_transit": "En tránsito",
+      "reserved": "Reservada en borrador",
+      "sold": "Vendida",
+      "returned": "Devuelta",
+      "returned_to_supplier": "Devuelta al proveedor",
+      "defective": "Defectuosa"
+    }
   },
   "purchases": {
     "cancel": "Cancelar",
@@ -297,7 +353,10 @@
     "reason": "Motivo",
     "reasonPlaceholder": "Nota opcional de devolución al proveedor",
     "minItems": "Selecciona al menos una línea para devolver",
-    "modalTitle": "Devolver artículos de {{number}}"
+    "modalTitle": "Devolver artículos de {{number}}",
+    "returnSerials": "Unidades serializadas a devolver",
+    "returnSerialsHelp": "Selecciona las unidades físicas exactas que saldrán hacia el proveedor.",
+    "noReturnableSerials": "No hay unidades serializadas de esta compra disponibles en la sede receptora."
   },
   "orders": {
     "cancel": "Cancelar",
@@ -315,7 +374,10 @@
     "receiptNotes": "Notas del recibo",
     "receiptNotesPlaceholder": "Nota opcional sobre este lote de entrega",
     "minItems": "Selecciona al menos una línea para recibir",
-    "modalTitle": "Recibir artículos del pedido {{number}}"
+    "modalTitle": "Recibir artículos del pedido {{number}}",
+    "serialNumbers": "Números de serie recibidos",
+    "serialNumbersPlaceholder": "Un número de serie por línea",
+    "serialNumbersDuplicate": "Elimina los números de serie duplicados antes de recibir"
   },
   "expiry": {
     "summary": {

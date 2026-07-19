@@ -1,11 +1,15 @@
-import { Bell, CircleHelp, KeyRound, LogOut, Menu, Search, User } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CircleHelp, KeyRound, LogOut, Menu, Search, User, UserRoundCog } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Select } from '@/components/form-controls/Select';
 import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
+import { StaffSwitchModal } from '@/features/auth/StaffSwitchModal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
+import { TimeClockControl } from '@/features/staff/TimeClockControl';
+import { ManagerApprovalQueue } from '@/features/approvals/ManagerApprovalQueue';
+import { useCommandPalette } from '@/components/feedback/CommandPaletteProvider';
 import {
   persistLanguagePreference,
   readLanguagePreference,
@@ -13,7 +17,14 @@ import {
   type LanguagePreference,
 } from '@/i18n/resolveLocale';
 import { isOnline } from '@/lib/utils';
+import { formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { useHeaderTitle } from './useHeaderTitle';
+
+const LossPreventionAlertCenter = lazy(() =>
+  import('@/features/loss-prevention/LossPreventionAlertCenter').then(module => ({
+    default: module.LossPreventionAlertCenter,
+  }))
+);
 
 interface HeaderProps {
   onOpenSidebar: () => void;
@@ -25,13 +36,17 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const { currentSite, currentTenant, isLoadingSites, sites, switchSite } = useTenant();
   const { t, i18n } = useTranslation(['common', 'nav', 'auth', 'setup']);
   const { kickerKey, titleKey } = useHeaderTitle();
+  const { openPalette } = useCommandPalette();
   const [online, setOnline] = useState(isOnline());
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isStaffSwitchOpen, setIsStaffSwitchOpen] = useState(false);
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>(() =>
     readLanguagePreference()
   );
   const userMenuId = 'header-user-menu';
+  const paletteShortcut = getShortcutById('palette.open');
+  const paletteShortcutLabel = paletteShortcut ? formatKeysForDisplay(paletteShortcut.keys) : null;
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -106,10 +121,20 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
 
         <div className="relative min-w-0 flex-[1_1_220px]">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-secondary-500" />
-          <input
-            className="h-10 w-full rounded-full border border-line-strong/55 bg-surface-2/70 px-3.5 pl-10 text-[13px] text-secondary-700 outline-none transition focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100/60"
-            placeholder={t('common:quickSearch')}
-          />
+          <button
+            type="button"
+            onClick={openPalette}
+            aria-label={t('common:quickSearchAria')}
+            aria-keyshortcuts="Control+K Meta+K"
+            className="flex h-10 w-full items-center rounded-full border border-line-strong/55 bg-surface-2/70 px-3.5 pl-10 text-left text-[13px] text-secondary-500 outline-none transition hover:border-primary-200 hover:bg-white focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100/60"
+          >
+            <span className="min-w-0 flex-1 truncate">{t('common:quickSearch')}</span>
+            {paletteShortcutLabel && (
+              <span className="ml-3 hidden shrink-0 rounded-md border border-line/70 bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-secondary-600 2xl:inline">
+                {paletteShortcutLabel}
+              </span>
+            )}
+          </button>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -121,7 +146,11 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             }
           >
             <span
-              className={online ? 'h-1.5 w-1.5 rounded-full bg-success-500' : 'h-1.5 w-1.5 rounded-full bg-warning-500'}
+              className={
+                online
+                  ? 'h-1.5 w-1.5 rounded-full bg-success-500'
+                  : 'h-1.5 w-1.5 rounded-full bg-warning-500'
+              }
             />
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em]">
               {online ? t('common:status.online') : t('common:status.offline')}
@@ -156,26 +185,13 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             />
           </div>
 
-          {/*
-            ENG-131c colateral — at 375×667 the bell button (40px) plus
-            gap-2 (8px) plus the user avatar pill (52px wide on mobile)
-            overflowed the header pill by 6px and the rounded-[28px]
-            corner clipped the avatar. The bell currently has no onClick
-            handler (placeholder for a future notifications feature), so
-            we hide it on mobile and match the same `sm:`-breakpoint
-            precedent already used by the language + site selectors
-            immediately above. When the notifications feature ships, the
-            mobile surface can be re-exposed via the user menu or as a
-            dedicated mobile affordance.
-          */}
-          <button
-            type="button"
-            className="relative hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line/70 bg-surface-2/70 text-secondary-700 transition hover:border-primary-200 hover:bg-primary-50/80 hover:text-primary-700 sm:inline-flex"
-            aria-label={t('common:notifications')}
-          >
-            <Bell className="h-4 w-4" />
-            <span className="absolute right-2.5 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
-          </button>
+          {currentSite && user && ['admin', 'manager'].includes(user.role) && (
+            <Suspense
+              fallback={<span className="hidden h-10 w-10 shrink-0 sm:block" aria-hidden="true" />}
+            >
+              <LossPreventionAlertCenter siteId={currentSite.id} />
+            </Suspense>
+          )}
 
           <div className="relative shrink-0">
             <button
@@ -205,7 +221,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             {showUserMenu && (
               <div
                 id={userMenuId}
-                className="absolute right-0 z-20 mt-3 w-72 animate-pop-in rounded-[24px] border border-line bg-card p-3 shadow-[var(--shadow-panel)]"
+                className="absolute right-0 z-20 mt-3 max-h-[calc(100vh-7rem)] w-72 animate-pop-in overflow-y-auto rounded-[24px] border border-line bg-card p-3 shadow-[var(--shadow-panel)]"
               >
                 <div className="card-inset px-4 py-3">
                   <p className="text-sm font-semibold text-secondary-950">{user?.name}</p>
@@ -222,22 +238,46 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                   <KeyRound className="h-4 w-4" />
                   {t('common:changePassword')}
                 </button>
+                {user && ['admin', 'manager', 'cashier'].includes(user.role) && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setIsStaffSwitchOpen(true);
+                      }}
+                      className="btn-ghost mt-2 w-full justify-start px-3"
+                    >
+                      <UserRoundCog className="h-4 w-4" />
+                      {t('common:switchCashier')}
+                    </button>
+                    <TimeClockControl
+                      site={currentSite ? { id: currentSite.id, name: currentSite.name } : null}
+                    />
+                  </>
+                )}
                 {onOpenFirstSaleGuide &&
                   (user?.role === 'admin' ||
                     user?.role === 'manager' ||
                     user?.role === 'cashier') && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onOpenFirstSaleGuide();
-                    }}
-                    className="btn-ghost mt-2 w-full justify-start px-3"
-                  >
-                    <CircleHelp className="h-4 w-4" />
-                    {t('setup:firstSale.helpAction')}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onOpenFirstSaleGuide();
+                      }}
+                      className="btn-ghost mt-2 w-full justify-start px-3"
+                    >
+                      <CircleHelp className="h-4 w-4" />
+                      {t('setup:firstSale.helpAction')}
+                    </button>
+                  )}
+                {currentSite && user && ['admin', 'manager'].includes(user.role) && (
+                  <Suspense fallback={null}>
+                    <LossPreventionAlertCenter siteId={currentSite.id} variant="inline" />
+                  </Suspense>
                 )}
+                {user && ['admin', 'manager'].includes(user.role) && <ManagerApprovalQueue />}
                 <button
                   type="button"
                   onClick={logout}
@@ -255,6 +295,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
       />
+      {isStaffSwitchOpen && <StaffSwitchModal isOpen onClose={() => setIsStaffSwitchOpen(false)} />}
     </header>
   );
 }

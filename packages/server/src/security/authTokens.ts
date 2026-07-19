@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { tenants, users } from '../db/schema.js';
 import { shouldUseSecureCookies } from './cookies.js';
+import type { UserRole } from '@puntovivo/shared/roles';
 
 export const REFRESH_COOKIE_NAME = 'puntovivo_refresh';
 export const REALTIME_COOKIE_NAME = 'puntovivo_realtime';
@@ -21,16 +22,27 @@ export const REALTIME_TOKEN_REFRESH_NEEDED_INTERVAL_MS = 10 * 60 * 1000;
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL = '7d';
 const REALTIME_TOKEN_TTL = `${REALTIME_TOKEN_MAX_AGE_SECONDS}s`;
+/** ENG-106a — a fast-switched cashier must re-enter a PIN after one shift. */
+export const STAFF_PIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 export type AuthTokenType = 'access' | 'refresh' | 'realtime';
+export type AuthMethod = 'password' | 'staff_pin';
+
+export interface AuthSessionClaims {
+  authMethod: AuthMethod;
+  /** Fixed epoch-millis ceiling. Refreshing never extends this value. */
+  authSessionExpiresAt?: number;
+}
 
 export interface AuthTokenPayload {
   userId: string;
   tenantId: string;
   email: string;
-  role: string;
+  role: UserRole;
   sessionVersion: number;
   tokenType: AuthTokenType;
+  authMethod?: AuthMethod;
+  authSessionExpiresAt?: number;
   /**
    * Refresh tokens only (Auditoría 2026-07 rotation): the family this
    * token belongs to and its unique id within it. Absent on access /
@@ -45,11 +57,15 @@ interface AuthUserIdentity {
   id: string;
   tenantId: string;
   email: string;
-  role: string;
+  role: UserRole;
   sessionVersion: number;
 }
 
-function buildTokenPayload(user: AuthUserIdentity, tokenType: AuthTokenType): AuthTokenPayload {
+function buildTokenPayload(
+  user: AuthUserIdentity,
+  tokenType: AuthTokenType,
+  session?: AuthSessionClaims
+): AuthTokenPayload {
   return {
     userId: user.id,
     tenantId: user.tenantId,
@@ -57,11 +73,37 @@ function buildTokenPayload(user: AuthUserIdentity, tokenType: AuthTokenType): Au
     role: user.role,
     sessionVersion: user.sessionVersion,
     tokenType,
+    ...(session ?? {}),
   };
 }
 
-export function signAccessToken(server: FastifyInstance, user: AuthUserIdentity): string {
-  return server.jwt.sign(buildTokenPayload(user, 'access'), {
+export function createStaffPinSessionClaims(now: number = Date.now()): AuthSessionClaims {
+  return {
+    authMethod: 'staff_pin',
+    authSessionExpiresAt: now + STAFF_PIN_SESSION_TTL_MS,
+  };
+}
+
+export function getAuthSessionClaims(
+  payload: Pick<AuthTokenPayload, 'authMethod' | 'authSessionExpiresAt'>
+): AuthSessionClaims | undefined {
+  if (!payload.authMethod) {
+    return undefined;
+  }
+  return {
+    authMethod: payload.authMethod,
+    ...(payload.authSessionExpiresAt !== undefined
+      ? { authSessionExpiresAt: payload.authSessionExpiresAt }
+      : {}),
+  };
+}
+
+export function signAccessToken(
+  server: FastifyInstance,
+  user: AuthUserIdentity,
+  session?: AuthSessionClaims
+): string {
+  return server.jwt.sign(buildTokenPayload(user, 'access', session), {
     expiresIn: ACCESS_TOKEN_TTL,
   });
 }
@@ -69,18 +111,27 @@ export function signAccessToken(server: FastifyInstance, user: AuthUserIdentity)
 export function signRefreshToken(
   server: FastifyInstance,
   user: AuthUserIdentity,
-  family?: { familyId: string; jti: string }
+  family?: { familyId: string; jti: string },
+  session?: AuthSessionClaims
 ): string {
   const payload = family
-    ? { ...buildTokenPayload(user, 'refresh'), familyId: family.familyId, jti: family.jti }
-    : buildTokenPayload(user, 'refresh');
+    ? {
+        ...buildTokenPayload(user, 'refresh', session),
+        familyId: family.familyId,
+        jti: family.jti,
+      }
+    : buildTokenPayload(user, 'refresh', session);
   return server.jwt.sign(payload, {
     expiresIn: REFRESH_TOKEN_TTL,
   });
 }
 
-export function signRealtimeToken(server: FastifyInstance, user: AuthUserIdentity): string {
-  return server.jwt.sign(buildTokenPayload(user, 'realtime'), {
+export function signRealtimeToken(
+  server: FastifyInstance,
+  user: AuthUserIdentity,
+  session?: AuthSessionClaims
+): string {
+  return server.jwt.sign(buildTokenPayload(user, 'realtime', session), {
     expiresIn: REALTIME_TOKEN_TTL,
   });
 }
@@ -131,6 +182,16 @@ export async function verifyTokenWithServer(
   try {
     const payload = await server.jwt.verify<AuthTokenPayload>(token);
     if (payload.tokenType !== expectedType) {
+      return null;
+    }
+    // ENG-106a — a refresh rotation may renew JWT expiry, but it never
+    // renews the fixed PIN-auth ceiling. Missing/malformed expiry on a
+    // staff_pin token is fail-closed.
+    if (
+      payload.authMethod === 'staff_pin' &&
+      (typeof payload.authSessionExpiresAt !== 'number' ||
+        payload.authSessionExpiresAt <= Date.now())
+    ) {
       return null;
     }
 

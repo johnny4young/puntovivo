@@ -4,7 +4,8 @@
  * Computes everything the post-close screen shows for the day a cash session
  * was closed on: the day's realized sales, the session's over/short outcome,
  * the top products, the day's real gross margin (per-lot COGS via the
- * ENG-190 ledger) and the tenant's balanced-close streak.
+ * ENG-190 ledger), the tenant's balanced-close streak, and the owner-only
+ * WC-C8 pulse comparison against the same weekday one week earlier.
  *
  * Role gating happens HERE, not in the client: the closer is usually a
  * cashier, and margin/profit are owner data (same philosophy as the ENG-194
@@ -36,6 +37,8 @@ export const DAY_CLOSE_BALANCED_EPSILON = 0.009;
  * far beyond any realistic display need ("90+ días" reads as legendary). */
 const STREAK_LOOKBACK_DAYS = 90;
 const DAY_CLOSE_TOP_PRODUCT_LIMIT = 3;
+const PULSE_COMPARISON_DAYS = 7;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** One top product of the day. Profit fields are present only when the
  * caller may see owner data (`includeProfit`); `null` otherwise. */
@@ -69,6 +72,15 @@ export interface DayCloseSummary {
     salesCount: number;
     revenue: number;
   };
+  /** WC-C8 — aggregate-only business pulse. Kept null for cashiers so the
+   * previous-period revenue signal is role-gated alongside owner margin. */
+  pulse: {
+    averageTicket: number;
+    previousWeekRevenue: number;
+    /** Percentage delta vs the same weekday one week earlier. Null when the
+     * previous period has no positive revenue and no finite baseline exists. */
+    revenueChangePct: number | null;
+  } | null;
   /**
    * ENG-205 — same-weekday-last-week comparison for the shareable pulse.
    * Revenue only (no owner data leaks through it); null when that day had
@@ -99,6 +111,28 @@ interface ComputeDayCloseSummaryInput {
 /** UTC day (YYYY-MM-DD) of an ISO timestamp. */
 function utcDayOf(iso: string): string {
   return iso.slice(0, 10);
+}
+
+function utcDayOffset(day: string, offsetDays: number): string {
+  return new Date(Date.parse(`${day}T00:00:00.000Z`) + offsetDays * MILLISECONDS_PER_DAY)
+    .toISOString()
+    .slice(0, 10);
+}
+
+function eligibleSalesForRange(tenantId: string, start: string, end: string) {
+  return and(
+    eq(sales.tenantId, tenantId),
+    eq(sales.status, 'completed'),
+    sql`${sales.paymentStatus} != 'refunded'`,
+    gte(sales.createdAt, start),
+    lte(sales.createdAt, end)
+  );
+}
+
+function percentageChange(current: number, previous: number): number | null {
+  if (previous <= 0) return null;
+  const rounded = Math.round(((current - previous) / previous) * 1_000) / 10;
+  return Object.is(rounded, -0) ? 0 : rounded;
 }
 
 export function computeDayCloseSummary(
@@ -138,13 +172,7 @@ export function computeDayCloseSummary(
   const day = utcDayOf(session.closedAt);
   const dayStart = `${day}T00:00:00.000Z`;
   const dayEnd = `${day}T23:59:59.999Z`;
-  const eligibleSales = and(
-    eq(sales.tenantId, input.tenantId),
-    eq(sales.status, 'completed'),
-    sql`${sales.paymentStatus} != 'refunded'`,
-    gte(sales.createdAt, dayStart),
-    lte(sales.createdAt, dayEnd)
-  );
+  const eligibleSales = eligibleSalesForRange(input.tenantId, dayStart, dayEnd);
 
   // Realized revenue of the day — the same filter dashboard.summary and the
   // profit report use, so every surface tells one story.
@@ -156,6 +184,10 @@ export function computeDayCloseSummary(
     .from(sales)
     .where(eligibleSales)
     .get();
+  const salesCount = dayStats?.salesCount ?? 0;
+  // ENG-176a — the SQL float sum is a monetary accumulation; round it once
+  // before deriving every WC-C8 pulse metric.
+  const revenue = roundMoney(dayStats?.revenue ?? 0);
 
   // ENG-205 — same weekday last week, for the shareable pulse comparison.
   const prevWeekDay = new Date(Date.parse(dayStart) - 7 * 24 * 60 * 60 * 1000)
@@ -184,6 +216,7 @@ export function computeDayCloseSummary(
 
   let topProducts: DayCloseTopProduct[];
   let margin: DayCloseSummary['margin'];
+  let pulse: DayCloseSummary['pulse'];
   if (input.includeProfit) {
     // Owner view: real per-lot COGS/margin from ENG-190, bounded to the three
     // profit leaders the ritual renders.
@@ -204,6 +237,24 @@ export function computeDayCloseSummary(
     margin = {
       grossProfit: profitReport.summary.grossProfit,
       grossMarginPct: profitReport.summary.grossMarginPct,
+    };
+
+    // WC-C8 — owner pulse compares identical UTC calendar windows. This
+    // intentionally follows the existing day-close/dashboard boundary until
+    // the tracked tenant-timezone follow-up moves both surfaces together.
+    const previousWeekDay = utcDayOffset(day, -PULSE_COMPARISON_DAYS);
+    const previousWeekStart = `${previousWeekDay}T00:00:00.000Z`;
+    const previousWeekEnd = `${previousWeekDay}T23:59:59.999Z`;
+    const previousWeekStats = db
+      .select({ revenue: sql<number>`coalesce(sum(${sales.total}), 0)` })
+      .from(sales)
+      .where(eligibleSalesForRange(input.tenantId, previousWeekStart, previousWeekEnd))
+      .get();
+    const previousWeekRevenue = roundMoney(previousWeekStats?.revenue ?? 0);
+    pulse = {
+      averageTicket: salesCount > 0 ? roundMoney(revenue / salesCount) : 0,
+      previousWeekRevenue,
+      revenueChangePct: percentageChange(revenue, previousWeekRevenue),
     };
   } else {
     // Cashier view: do not compute owner-only COGS/margin at all. Aggregate
@@ -236,13 +287,14 @@ export function computeDayCloseSummary(
       grossMarginPct: null,
     }));
     margin = null;
+    pulse = null;
   }
 
   // Streak: one grouped scan of the tenant's closed sessions, then walk the
   // days backwards from the session's close day. Days without sessions are
   // transparent; a day with any unbalanced close breaks the streak.
   const lookbackStart = new Date(
-    Date.parse(dayStart) - (STREAK_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000
+    Date.parse(dayStart) - (STREAK_LOOKBACK_DAYS - 1) * MILLISECONDS_PER_DAY
   ).toISOString();
   const dayRows = db
     .select({
@@ -289,10 +341,10 @@ export function computeDayCloseSummary(
     previousWeek,
     day: {
       date: day,
-      salesCount: dayStats?.salesCount ?? 0,
-      // ENG-176a — the SQL float sum is a monetary accumulation; round it.
-      revenue: roundMoney(dayStats?.revenue ?? 0),
+      salesCount,
+      revenue,
     },
+    pulse,
     topProducts,
     margin,
     streakDays,

@@ -50,7 +50,11 @@ export interface UseProductFormReturn {
   errors: UseFormReturn<ProductFormValues>['formState']['errors'];
   handleSubmit: ReturnType<UseFormReturn<ProductFormValues>['handleSubmit']>;
   unitAssignmentsFieldArray: UseFieldArrayReturn<ProductFormValues, 'unitAssignments', 'id'>;
-  providerAssignmentsFieldArray: UseFieldArrayReturn<ProductFormValues, 'providerAssignments', 'id'>;
+  providerAssignmentsFieldArray: UseFieldArrayReturn<
+    ProductFormValues,
+    'providerAssignments',
+    'id'
+  >;
   costField: UseFormRegisterReturn<'cost'>;
   initialCostField: UseFormRegisterReturn<'initialCost'>;
   taxRateField: UseFormRegisterReturn<'taxRate'>;
@@ -59,6 +63,8 @@ export interface UseProductFormReturn {
   fractionStepField: UseFormRegisterReturn<'fractionStep'>;
   fractionMinimumField: UseFormRegisterReturn<'fractionMinimum'>;
   sellByFractionField: UseFormRegisterReturn<'sellByFraction'>;
+  tracksLotsField: UseFormRegisterReturn<'tracksLots'>;
+  tracksSerialsField: UseFormRegisterReturn<'tracksSerials'>;
   vatRateField: UseFormRegisterReturn<'vatRateId'>;
   syncTier: (
     priceField: PricingField,
@@ -71,6 +77,8 @@ export interface UseProductFormReturn {
   validateProviderAssignment: (providerId: string, index: number) => string | true;
   selectedVatRateId: string;
   sellByFraction: boolean;
+  tracksLots: boolean;
+  tracksSerials: boolean;
   isActive: boolean;
 }
 
@@ -159,7 +167,10 @@ export function useProductForm({
       });
 
       form.setValue(priceField, result.price, { shouldDirty: true, shouldValidate: true });
-      form.setValue(percentField, result.marginPercent, { shouldDirty: true, shouldValidate: true });
+      form.setValue(percentField, result.marginPercent, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
       form.setValue(amountField, result.marginAmount, { shouldDirty: true, shouldValidate: true });
     }
   };
@@ -167,15 +178,43 @@ export function useProductForm({
   const costField = form.register('cost', { min: 0, valueAsNumber: true });
   const initialCostField = form.register('initialCost', { min: 0, valueAsNumber: true });
   const taxRateField = form.register('taxRate', { min: 0, max: 100, valueAsNumber: true });
-  const stockField = form.register('stock', { min: 0, valueAsNumber: true });
+  const stockField = form.register('stock', {
+    min: 0,
+    valueAsNumber: true,
+    validate: value => {
+      const tracksLots = form.getValues('tracksLots');
+      const tracksSerials = form.getValues('tracksSerials');
+      if (!tracksLots && !tracksSerials) return true;
+      if (
+        (product?.tracksLots === true || product?.tracksSerials === true) &&
+        value === product.stock
+      ) {
+        return true;
+      }
+      if (value === 0) return true;
+      return tracksSerials
+        ? t('form.fields.trackedStockError')
+        : t('form.fields.tracksLotsStockError');
+    },
+  });
   const minStockField = form.register('minStock', { min: 0, valueAsNumber: true });
   const fractionStepField = form.register('fractionStep', { min: 0.01, valueAsNumber: true });
   const fractionMinimumField = form.register('fractionMinimum', { min: 0.01, valueAsNumber: true });
   const sellByFractionField = form.register('sellByFraction');
+  const tracksLotsField = form.register('tracksLots');
+  const tracksSerialsField = form.register('tracksSerials');
   const vatRateField = form.register('vatRateId');
   const sellByFraction = useWatch({
     control: form.control,
     name: 'sellByFraction',
+  });
+  const tracksLots = useWatch({
+    control: form.control,
+    name: 'tracksLots',
+  });
+  const tracksSerials = useWatch({
+    control: form.control,
+    name: 'tracksSerials',
   });
   const isActive = useWatch({
     control: form.control,
@@ -211,6 +250,8 @@ export function useProductForm({
     fractionStepField,
     fractionMinimumField,
     sellByFractionField,
+    tracksLotsField,
+    tracksSerialsField,
     vatRateField,
     syncTier,
     syncAllTiersFromCost,
@@ -218,6 +259,8 @@ export function useProductForm({
     validateProviderAssignment,
     selectedVatRateId,
     sellByFraction,
+    tracksLots,
+    tracksSerials,
     isActive,
   };
 }

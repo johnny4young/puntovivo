@@ -114,6 +114,11 @@ follow-up amendment.
 - `cashSessions.recordMovement` (for `paid_in`, `paid_out`, `skim`,
   and `replenishment`)
 
+**Reports / attestations**
+
+- `reports.dayClose.signOff` (ENG-141b — one irreversible manager/admin
+  attestation of the frozen comprehensive business-day report)
+
 **Inventory**
 
 - `inventory.adjustStock`
@@ -121,11 +126,16 @@ follow-up amendment.
 - `transfers.receive`
 - `transfers.void`
 
-**Fiscal** *(in español por convención fiscal)*
+**Peripherals**
 
-- `fiscal.emitDocument` *(canal interno disparado por sales lifecycle)*
-- `fiscal.cancelDocument` *(cancelación SAT explícita; ENG-035c lo ship)*
-- `fiscal.retryFromContingency` *(operator-initiated retry; ENG-057)*
+- `peripherals.kickCashDrawer` (ENG-106c3 — audited physical dispatch)
+- `peripherals.buildDrawerKickBytes` (ENG-106c3 — audited hub-client dispatch)
+
+**Fiscal** _(in español por convención fiscal)_
+
+- `fiscal.emitDocument` _(canal interno disparado por sales lifecycle)_
+- `fiscal.cancelDocument` _(cancelación SAT explícita; ENG-035c lo ship)_
+- `fiscal.retryFromContingency` _(operator-initiated retry; ENG-057)_
 
 **Payment**
 
@@ -137,11 +147,36 @@ follow-up amendment.
 
 - `users.create`
 - `users.update` (when changing `role` or `isActive`)
+- `users.setStaffPin` (ENG-106a — staff credential rotation or removal)
 - `auth.changePassword`
+
+**Employee attendance**
+
+- `employeeShifts.clockIn` (ENG-106b — start the authenticated employee's shift)
+- `employeeShifts.clockOut` (ENG-106b — close the authenticated employee's open shift)
+- `employeeShifts.breaks.start` (ENG-140b — start an explicit rest interval)
+- `employeeShifts.breaks.end` (ENG-140b — close the authenticated employee's active rest interval)
+- `employeeShifts.schedule.create` (ENG-140a — publish a durable scheduled shift)
+- `employeeShifts.schedule.update` (ENG-140a — revise a versioned scheduled shift)
+- `employeeShifts.schedule.cancel` (ENG-140a — cancel without deleting labor evidence)
+- `employeeShifts.attendance.corrections.create` (ENG-140e — append an effective attendance snapshot without rewriting raw evidence)
+
+**Manager approvals**
+
+- `managerApprovals.request` (ENG-106c1 — create one bounded sensitive-action request)
+- `managerApprovals.decideWithPin` (ENG-106c1 — approve/reject with a fresh manager PIN)
+- `managerApprovals.cancel` (ENG-106c1 — requester withdraws a still-pending request)
 
 **Module activation**
 
 - `modules.setActive` (ENG-068 — admin toggle of a tenant module)
+
+**Loss prevention**
+
+- `lossPrevention.updateSettings` (ENG-142a — audited per-role checkout
+  authority and blocked-hours policy)
+- `lossPrevention.acknowledgeAlert` (ENG-142d — shared manager review of a
+  deterministic loss-prevention alert)
 
 Procedures **not** in the envelope: every read query
 (`*.list`, `*.get`, `*.search`, `*.export`), every catalog mutation
@@ -188,6 +223,23 @@ exposes `electron.device.getId/setId` backed by an atomic file
 write under `app.getPath('userData')/device-id.txt`; Fastify
 `onRequest` hook hangs `requestId` + `deviceId` on `request.log`
 so non-envelope requests share request-scoped provenance).
+Updated: 2026-07-14 (ENG-106a — added `users.setStaffPin` to the
+closed list so PIN credential rotation and removal use the same
+idempotent command envelope as other user-security mutations).
+Updated: 2026-07-14 (ENG-106b — added self-service clock-in/out as
+critical attendance commands; retries cannot create duplicate open
+shifts or close a different employee's shift).
+Updated: 2026-07-14 (ENG-106c1 — added request, PIN decision, and
+cancellation commands for the short-lived manager approval rail).
+Updated: 2026-07-15 (ENG-140a/ENG-140b — added manager-authored schedule
+commands and explicit employee break boundaries to the closed list; weekly
+attendance reporting remains a read query outside the envelope).
+Updated: 2026-07-15 (ENG-141b — added the immutable comprehensive day-close
+sign-off; the web critical-mutation resolver now supports nested sub-router
+paths while preserving end-to-end input/output inference).
+Updated: 2026-07-16 (ENG-142a — added the audited loss-prevention policy
+mutation so retries cannot split its isolated tenant policy row from the
+immutable audit evidence).
 Updated: 2026-05-03 (ENG-053 — operation journal wired into
 envelope: `recordOperationStart` runs after the idempotency
 reservation and before `next()`, idempotent on

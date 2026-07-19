@@ -12,6 +12,7 @@
     "quit": "Salir"
   },
   "backup": {
+    "scheduleDialogTitle": "Elegir carpeta de respaldos programados",
     "createDialogTitle": "Crear copia de seguridad",
     "restoreDialogTitle": "Restaurar copia de seguridad",
     "fileFilterName": "Base de datos SQLite",

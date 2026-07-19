@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { USER_ROLES } from '@puntovivo/shared/roles';
 import { emailField, paginationInput } from './common.js';
-import { strongPasswordSchema } from './auth.js';
+import { staffPinSchema, strongPasswordSchema } from './auth.js';
 
-const userRoleEnum = z.enum(['admin', 'manager', 'cashier', 'viewer']);
+const userRoleEnum = z.enum(USER_ROLES);
 
 export const listUsersInput = paginationInput
   .extend({
@@ -35,6 +36,14 @@ export const resetUserPasswordInput = z
   .object({
     id: z.string().min(1, 'ID is required'),
     newPassword: strongPasswordSchema,
+  })
+  .strict();
+
+export const setUserStaffPinInput = z
+  .object({
+    id: z.string().min(1, 'ID is required'),
+    /** Null explicitly clears the enrolled PIN. */
+    pin: staffPinSchema.nullable(),
   })
   .strict();
 

@@ -243,6 +243,7 @@
       "ariaLabel": "Secciones de configuración de empresa",
       "readiness": "Configuración inicial",
       "general": "General",
+      "controls": "Controles",
       "locale": "Localización",
       "data": "Datos",
       "device": "Dispositivo",
@@ -471,6 +472,7 @@
       "currentVersion": "Versión actual",
       "latestDownload": "Última descarga",
       "lastChecked": "Última verificación",
+      "lastUpdated": "Última actualización",
       "notYet": "Aún no",
       "downloadedUpdateReady": "Actualización descargada lista",
       "updatePublished": "Actualización publicada",
@@ -478,6 +480,12 @@
       "availableManualHint": "Hay una nueva versión disponible. Abre la página de la versión para descargarla e instalarla.",
       "unknown": "Desconocido",
       "none": "Ninguna",
+      "rollout": {
+        "label": "Despliegue",
+        "stagedValue": "Gradual · {{percentage}}%",
+        "rollbackValue": "Reversión · {{percentage}}%",
+        "rollbackActive": "La reversión está activa para la versión {{version}}. Las estaciones elegibles volverán exactamente a esta versión durante el próximo ciclo de actualización."
+      },
       "statusBadge": {
         "unavailable": "No disponible",
         "idle": "Al día",
@@ -639,6 +647,68 @@
       "toast": {
         "saved": "Ajustes de cierre de caja guardados",
         "saveError": "No se pudieron guardar los ajustes de cierre de caja"
+      }
+    },
+    "lossPrevention": {
+      "title": "Prevención de pérdidas",
+      "description": "Configura límites de cobro por rol. Una venta que supere un límite queda bloqueada hasta que otra persona autorizada apruebe ese cobro exacto.",
+      "loading": "Cargando controles de cobro",
+      "roles": {
+        "cashier": "Política para cajeros",
+        "manager": "Política para gerentes"
+      },
+      "maxDiscount": {
+        "label": "Descuento máximo sin aprobación",
+        "help": "Incluye descuentos por línea y del carrito como porcentaje del valor bruto de los productos."
+      },
+      "afterHours": {
+        "label": "Requerir aprobación durante el horario bloqueado",
+        "help": "Usa la zona horaria de la empresa y admite periodos que cruzan la medianoche.",
+        "from": "Bloqueado desde",
+        "until": "Bloqueado hasta"
+      },
+      "dualApproval": {
+        "label": "Requerir dos aprobaciones por encima de un monto",
+        "help": "Los descuentos, ventas fuera de horario, reembolsos y anulaciones que superen este monto necesitan decisiones con PIN vigente de dos personas autorizadas diferentes.",
+        "threshold": "Monto límite para doble aprobación"
+      },
+      "shift": {
+        "title": "Límites de acciones por turno",
+        "help": "Las acciones completadas por esta persona se cuentan desde el inicio de su sesión de caja actual. Superar cualquiera de los límites requiere una aprobación aparte.",
+        "maxCount": "Máximo de acciones",
+        "maxAmount": "Monto total máximo",
+        "refunds": {
+          "label": "Limitar reembolsos por turno",
+          "help": "Usa el monto total de la venta reembolsada en la moneda de la empresa."
+        },
+        "voids": {
+          "label": "Limitar anulaciones por turno",
+          "help": "Usa el monto total de la venta anulada en la moneda de la empresa."
+        },
+        "noSale": {
+          "label": "Limitar aperturas de cajón sin venta",
+          "help": "Cuenta las aperturas manuales del cajón que no forman parte del cobro de una venta.",
+          "maxCount": "Máximo de aperturas manuales"
+        }
+      },
+      "validation": "Ingresa límites de descuento entre 0% y 100%, montos válidos para turnos y doble aprobación, y horas de inicio y fin diferentes en cada periodo bloqueado activo.",
+      "auditNote": "Cada cambio de política y cada cobro que active una regla queda registrado en auditoría sin datos del carrito ni del cliente.",
+      "save": "Guardar controles de cobro",
+      "saving": "Guardando…",
+      "toast": {
+        "saved": "Controles de cobro guardados",
+        "saveError": "No se pudieron guardar los controles de cobro"
+      },
+      "alerts": {
+        "title": "Entrega de alertas",
+        "inAppHelp": "Las reglas nuevas permanecen en el centro de la sede hasta su revisión.",
+        "whatsapp": {
+          "label": "Agregar enlace de WhatsApp a las alertas",
+          "help": "Solo manual: abre un mensaje de WhatsApp sin datos de clientes.",
+          "recipient": "Número de WhatsApp del gerente",
+          "placeholder": "+57 300 123 4567",
+          "validation": "Ingresa un número internacional."
+        }
       }
     },
     "discount": {
@@ -948,14 +1018,38 @@
       "user": "Usuario",
       "role": "Rol",
       "status": "Estado",
+      "pin": "PIN del personal",
+      "pinConfigured": "Configurado",
+      "pinMissing": "Sin configurar",
       "active": "Activo",
       "inactive": "Inactivo"
+    },
+    "actions": {
+      "edit": "Editar a {{name}}",
+      "resetPassword": "Restablecer la contraseña de {{name}}",
+      "managePin": "Gestionar el PIN del personal de {{name}}"
     },
     "roles": {
       "admin": "Administrador",
       "manager": "Gestor",
       "cashier": "Cajero",
       "viewer": "Observador"
+    },
+    "permissions": {
+      "title": "Permisos predeterminados por rol",
+      "description": "Revisa el acceso a espacios de trabajo asignado a cada rol antes de crear o actualizar una cuenta.",
+      "caption": "Acceso predeterminado a espacios de trabajo por rol",
+      "workspace": "Espacio de trabajo",
+      "allowed": "Permitido",
+      "denied": "Sin acceso",
+      "cellLabel": "{{role}}: {{workspace}} — {{access}}",
+      "roleDescriptions": {
+        "admin": "Configuración completa, controles financieros, personal y operación diaria.",
+        "manager": "Operación diaria, catálogo, inventario, compras y clientes.",
+        "cashier": "Ventas y superficies de punto de venta habilitadas.",
+        "viewer": "Acceso de solo lectura al resumen del panel."
+      },
+      "note": "Esta matriz muestra el acceso predeterminado a espacios de trabajo. Los módulos activos pueden ocultar herramientas individuales y el servidor siempre valida la autorización de cada acción."
     },
     "form": {
       "createTitle": "Crear usuario",
@@ -980,6 +1074,19 @@
       "newPassword": "Nueva contraseña",
       "submit": "Restablecer contraseña"
     },
+    "staffPin": {
+      "title": "Gestionar PIN del personal",
+      "description": "Configura un PIN de 6 dígitos para {{name}}. Los PIN de cajero permiten cambiar el operador del puesto; un PIN nunca reemplaza el inicio de sesión completo de un gestor o administrador.",
+      "label": "Nuevo PIN de 6 dígitos",
+      "placeholder": "6 dígitos",
+      "requirement": "Usa exactamente 6 números. El PIN se almacena como un hash Argon2id irreversible.",
+      "cancel": "Cancelar",
+      "save": "Guardar PIN",
+      "saving": "Guardando...",
+      "clear": "Eliminar PIN",
+      "clearConfirm": "¿Quieres eliminar el PIN del personal de {{name}}?",
+      "invalid": "Ingresa exactamente 6 dígitos."
+    },
     "toast": {
       "created": "Usuario creado",
       "createError": "No se pudo crear el usuario",
@@ -987,7 +1094,10 @@
       "updateError": "No se pudo actualizar el usuario",
       "claimsChanged": "Tus permisos han cambiado. Por favor inicia sesión nuevamente",
       "passwordReset": "Contraseña restablecida",
-      "passwordChanged": "Tu contraseña ha cambiado. Por favor inicia sesión nuevamente"
+      "passwordChanged": "Tu contraseña ha cambiado. Por favor inicia sesión nuevamente",
+      "pinSaved": "PIN del personal guardado",
+      "pinCleared": "PIN del personal eliminado",
+      "pinError": "No se pudo actualizar el PIN del personal"
     }
   }
 }

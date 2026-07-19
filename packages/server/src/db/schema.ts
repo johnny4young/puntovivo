@@ -15,6 +15,8 @@
  */
 export * from './schema/base.js';
 export * from './schema/auth.js';
+export * from './schema/labor.js';
+export * from './schema/approvals.js';
 export * from './schema/catalogs.js';
 export * from './schema/products.js';
 export * from './schema/customers.js';
@@ -30,3 +32,4 @@ export * from './schema/hardware.js';
 export * from './schema/syncAi.js';
 export * from './schema/types.js';
 export * from './schema/realtime.js';
+export * from './schema/reports.js';

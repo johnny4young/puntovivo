@@ -84,7 +84,7 @@ export interface HubReceiptBytesPayload {
   transportHint: LocalEscPosTransportHint | null;
 }
 
-/** Server `peripherals.buildDrawerKickBytes` query result projection. */
+/** Server `peripherals.buildDrawerKickBytes` mutation result projection. */
 export interface HubDrawerBytesPayload {
   status: 'ready' | 'no-drawer-registered';
   bytes: number[];

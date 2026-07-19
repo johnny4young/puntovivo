@@ -10,11 +10,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
-import {
-  useRealtimeChannel,
-  type RealtimeEvent,
-} from './useRealtimeChannel';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { useRealtimeChannel, type RealtimeEvent } from './useRealtimeChannel';
 
 type Listener = (ev: MessageEvent) => void;
 
@@ -115,6 +112,60 @@ describe('useRealtimeChannel', () => {
     expect((received[0]!.data as { saleId: string }).saleId).toBe('sale-1');
   });
 
+  it('surfaces replay gaps so consumers can invalidate their read model', async () => {
+    const received: RealtimeEvent[] = [];
+    renderHook(() =>
+      useRealtimeChannel({
+        collection: 'kds',
+        onEvent: (ev: RealtimeEvent) => received.push(ev),
+        apiBaseUrl: 'http://test-host',
+        authorize: async () => {},
+      })
+    );
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+
+    FakeEventSource.instances[0]!.emit('realtime.replay_gap', '{"reason":"history-evicted"}');
+
+    expect(received).toEqual([
+      {
+        type: 'realtime.replay_gap',
+        data: { reason: 'history-evicted' },
+        id: undefined,
+      },
+    ]);
+  });
+
+  it('carries the last cursor when a hard close creates a new EventSource', async () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = renderHook(() =>
+        useRealtimeChannel({
+          collection: 'kds',
+          onEvent: () => {},
+          apiBaseUrl: 'http://test-host',
+          authorize: async () => {},
+        })
+      );
+      await act(async () => Promise.resolve());
+      const first = FakeEventSource.instances[0]!;
+      first.emit('kds.order.created', '{}', '37');
+      first.readyState = 2;
+      first.emit('error', '');
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+
+      expect(FakeEventSource.instances).toHaveLength(2);
+      expect(FakeEventSource.instances[1]!.url).toBe(
+        'http://test-host/api/realtime/subscribe?collections=kds&lastEventId=37'
+      );
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('does not fire onEvent for heartbeat or connected events', async () => {
     const received: RealtimeEvent[] = [];
     renderHook(() =>
@@ -147,7 +198,10 @@ describe('useRealtimeChannel', () => {
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
     expect(authorize).toHaveBeenCalledTimes(1);
 
-    FakeEventSource.instances[0]!.emit('token-refresh-needed', '{"timestamp":"2026-05-26T00:00:00.000Z"}');
+    FakeEventSource.instances[0]!.emit(
+      'token-refresh-needed',
+      '{"timestamp":"2026-05-26T00:00:00.000Z"}'
+    );
 
     await waitFor(() => expect(authorize).toHaveBeenCalledTimes(2));
   });

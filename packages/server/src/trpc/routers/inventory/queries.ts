@@ -174,7 +174,11 @@ export const inventoryQueryProcedures = {
     const conditions = [eq(products.tenantId, ctx.tenantId), eq(products.isActive, true)];
     if (search) {
       conditions.push(
-        or(like(products.name, `%${search}%`), like(products.sku, `%${search}%`), like(products.barcode, `%${search}%`))!
+        or(
+          like(products.name, `%${search}%`),
+          like(products.sku, `%${search}%`),
+          like(products.barcode, `%${search}%`)
+        )!
       );
     }
     if (categoryId) {
@@ -197,6 +201,8 @@ export const inventoryQueryProcedures = {
           categoryName: categories.name,
           stock: productStockTotalSql,
           minStock: products.minStock,
+          tracksLots: products.tracksLots,
+          tracksSerials: products.tracksSerials,
           initialCost: products.initialCost,
           price: products.price,
           isLowStock: sql<boolean>`${productStockTotalSql} <= ${products.minStock}`,

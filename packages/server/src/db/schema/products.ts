@@ -8,8 +8,16 @@
  *
  * @module db/schema/products
  */
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { relations } from 'drizzle-orm';
+import {
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+  type AnySQLiteColumn,
+} from 'drizzle-orm/sqlite-core';
+import { relations, sql } from 'drizzle-orm';
 import { moneyPositiveChecks, nowIso, sqliteNow, syncStatusEnum } from './base.js';
 import { tenants } from './auth.js';
 import { categories, locations, providers, units, vatRates } from './catalogs.js';
@@ -21,6 +29,11 @@ import { currencyCatalog } from './config.js';
 // ============================================================================
 // PRODUCTS
 // ============================================================================
+
+export const productCatalogTypeEnum = ['standard', 'variant_parent', 'variant'] as const;
+export type ProductCatalogType = (typeof productCatalogTypeEnum)[number];
+export type ProductVariantAxis = { name: string; values: string[] };
+export type ProductVariantValues = Record<string, string>;
 
 /** A product is a sellable and purchasable inventory item managed by the tenant, including pricing, stock, tax, and catalog metadata. */
 export const products = sqliteTable(
@@ -75,6 +88,23 @@ export const products = sqliteTable(
     // false (default) the product keeps the single-number stock path. Additive
     // and backward-compatible.
     tracksLots: integer('tracks_lots', { mode: 'boolean' }).notNull().default(false),
+    // ENG-110c — individually serialized inventory is opt-in. Aggregate
+    // writers fail closed for these products; stock enters through the
+    // serial receipt workflow and leaves through explicit POS selection.
+    tracksSerials: integer('tracks_serials', { mode: 'boolean' }).notNull().default(false),
+    // ENG-110b — matrix parents are catalog-only templates. Every sellable
+    // combination remains a normal product row (`catalog_type = variant`) so
+    // the existing productId-based sales, inventory and purchase paths keep
+    // their mature invariants without a parallel variant stock model.
+    catalogType: text('catalog_type', { enum: productCatalogTypeEnum })
+      .notNull()
+      .default('standard'),
+    variantParentId: text('variant_parent_id').references((): AnySQLiteColumn => products.id, {
+      onDelete: 'restrict',
+    }),
+    variantAxes: text('variant_axes', { mode: 'json' }).$type<ProductVariantAxis[] | null>(),
+    variantValues: text('variant_values', { mode: 'json' }).$type<ProductVariantValues | null>(),
+    variantSignature: text('variant_signature'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     barcode: text('barcode'),
     imageUrl: text('image_url'),
@@ -102,7 +132,11 @@ export const products = sqliteTable(
     index('idx_products_category').on(table.categoryId),
     index('idx_products_provider').on(table.providerId),
     index('idx_products_vat_rate').on(table.vatRateId),
+    index('idx_products_variant_parent').on(table.tenantId, table.variantParentId),
     uniqueIndex('idx_products_tenant_sku').on(table.tenantId, table.sku),
+    uniqueIndex('idx_products_variant_signature')
+      .on(table.tenantId, table.variantParentId, table.variantSignature)
+      .where(sql`${table.variantParentId} is not null`),
     // ENG-176a — money invariants. Margin amounts are derived from
     // (cost * margin_percent / 100), so they share the same non-negative
     // contract as cost itself; if a future feature needs a negative

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  areSerialSelectionsComplete,
   buildCartItem,
   getCartItemKey,
   getCartSummary,
+  getCartDiscountAmount,
   getLineTotals,
   getSaleMinimumQuantity,
   getSaleQuantityStep,
@@ -38,6 +40,7 @@ function createSelection(
       sellByFraction: false,
       fractionStep: null,
       fractionMinimum: null,
+      tracksLots: false,
       isActive: true,
       version: 0,
       createdAt: new Date().toISOString(),
@@ -111,18 +114,10 @@ describe('saleCart fraction policy helpers', () => {
   });
 
   it('clamps fractional step to the 0.01 floor when fractionStep is missing/0/negative', () => {
-    expect(
-      getSaleQuantityStep({ sellByFraction: true, fractionStep: undefined })
-    ).toBe(0.01);
-    expect(
-      getSaleQuantityStep({ sellByFraction: true, fractionStep: 0 })
-    ).toBe(0.01);
-    expect(
-      getSaleQuantityStep({ sellByFraction: true, fractionStep: 0.5 })
-    ).toBe(0.5);
-    expect(
-      getSaleQuantityStep({ sellByFraction: false, fractionStep: 0.5 })
-    ).toBe(1);
+    expect(getSaleQuantityStep({ sellByFraction: true, fractionStep: undefined })).toBe(0.01);
+    expect(getSaleQuantityStep({ sellByFraction: true, fractionStep: 0 })).toBe(0.01);
+    expect(getSaleQuantityStep({ sellByFraction: true, fractionStep: 0.5 })).toBe(0.5);
+    expect(getSaleQuantityStep({ sellByFraction: false, fractionStep: 0.5 })).toBe(1);
   });
 
   it('falls back to step when fractionMinimum is missing for fractional products', () => {
@@ -227,5 +222,56 @@ describe('saleCart core helpers', () => {
       taxAmount: 0,
       total: 0,
     });
+  });
+
+  it('getCartDiscountAmount totals line-level percentage discounts', () => {
+    expect(
+      getCartDiscountAmount([
+        makeItem({ key: 'p1:u1', quantity: 2, unitPrice: 100, discount: 10 }),
+        makeItem({ key: 'p2:u1', quantity: 1, unitPrice: 50, discount: 20 }),
+      ])
+    ).toBe(30);
+    expect(
+      getCartDiscountAmount([
+        makeItem({ key: 'p3:u1', unitPrice: 0.05, discount: 10 }),
+        makeItem({ key: 'p4:u1', unitPrice: 0.05, discount: 10 }),
+      ])
+    ).toBe(0.02);
+  });
+
+  it('requires serialized identities to belong to the active site', () => {
+    const serialized = makeItem({
+      tracksSerials: true,
+      serialIds: ['serial-1', 'serial-2'],
+      serialSiteId: 'site-1',
+    });
+
+    expect(areSerialSelectionsComplete([serialized], 'site-1')).toBe(true);
+    expect(areSerialSelectionsComplete([serialized], 'site-2')).toBe(false);
+    expect(
+      areSerialSelectionsComplete([{ ...serialized, serialSiteId: undefined }], 'site-1')
+    ).toBe(false);
+  });
+
+  it('rejects incomplete and duplicate serialized selections across cart lines', () => {
+    const first = makeItem({
+      key: 'p1:u1',
+      tracksSerials: true,
+      serialIds: ['serial-1', 'serial-2'],
+      serialSiteId: 'site-1',
+    });
+    const second = makeItem({
+      key: 'p2:u1',
+      tracksSerials: true,
+      quantity: 1,
+      serialIds: ['serial-2'],
+      serialSiteId: 'site-1',
+    });
+
+    expect(areSerialSelectionsComplete([{ ...first, serialIds: ['serial-1'] }], 'site-1')).toBe(
+      false
+    );
+    expect(areSerialSelectionsComplete([first, second], 'site-1')).toBe(false);
+    expect(areSerialSelectionsComplete([makeItem()], 'site-1')).toBe(true);
   });
 });

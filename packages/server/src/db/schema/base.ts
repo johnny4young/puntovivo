@@ -10,6 +10,9 @@
  */
 import { check, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
+import { UNIT_DIMENSIONS } from '@puntovivo/shared/units';
+import type { UnitDimension } from '@puntovivo/shared/units';
+import { USER_ROLES } from '@puntovivo/shared/roles';
 
 // ============================================================================
 // MONEY INVARIANTS (ENG-176a)
@@ -107,7 +110,7 @@ export const cashMovementTypeEnum = [
   'replenishment',
 ] as const;
 export type CashMovementType = (typeof cashMovementTypeEnum)[number];
-export const userRoleEnum = ['admin', 'manager', 'cashier', 'viewer'] as const;
+export const userRoleEnum = USER_ROLES;
 export const deviceAuthorityRoleEnum = ['authority_node', 'hub_client', 'web_client'] as const;
 export type DeviceAuthorityRole = (typeof deviceAuthorityRoleEnum)[number];
 
@@ -136,6 +139,20 @@ export const initialInventoryModeEnum = ['initial', 'physical'] as const;
 export const lotStatusEnum = ['active', 'depleted', 'expired', 'quarantined'] as const;
 export type LotStatus = (typeof lotStatusEnum)[number];
 
+// ENG-110c — one lifecycle state per individually tracked physical unit.
+// `returned` remains sellable after inspection, while preserving the fact
+// that the unit came back from a completed sale until it is sold again.
+export const productSerialStatusEnum = [
+  'in_stock',
+  'in_transit',
+  'reserved',
+  'sold',
+  'returned',
+  'returned_to_supplier',
+  'defective',
+] as const;
+export type ProductSerialStatus = (typeof productSerialStatusEnum)[number];
+
 /**
  * Physical dimension of a measurement unit (Auditoría 2026-07 — units
  * foundation). Groups otherwise free-form tenant units so the app can
@@ -145,16 +162,8 @@ export type LotStatus = (typeof lotStatusEnum)[number];
  * for piece/each; `other` is the escape hatch for units that do not fit a
  * physical dimension. Nullable on the column so legacy rows round-trip.
  */
-export const unitDimensionEnum = [
-  'count',
-  'mass',
-  'volume',
-  'length',
-  'area',
-  'time',
-  'other',
-] as const;
-export type UnitDimension = (typeof unitDimensionEnum)[number];
+export const unitDimensionEnum = UNIT_DIMENSIONS;
+export type { UnitDimension };
 
 /**
  * Phase 8 / Tier-2 #8 — audit trail for sensitive operations.
@@ -189,6 +198,54 @@ export const auditLogActionEnum = [
   'purchase.void',
   'user.create',
   'user.update',
+  // ENG-106a — PIN configuration and successful shared-terminal identity
+  // switches. Neither row carries the PIN or its hash.
+  'user.pin.update',
+  'auth.staff_switch',
+  // ENG-106b — self-service attendance baseline. The actor is always the
+  // employee whose shift is targeted; schedule edits remain in ENG-140.
+  'employee_shift.clock_in',
+  'employee_shift.clock_out',
+  // ENG-140e — manager-authored effective snapshot; the raw shift remains.
+  'employee_shift.correct',
+  // ENG-140b — self-service rest boundaries remain independent evidence.
+  'employee_shift_break.start',
+  'employee_shift_break.end',
+  // ENG-140a — published schedule lifecycle. Cancel keeps the row as
+  // durable labor evidence instead of deleting it.
+  'scheduled_shift.create',
+  'scheduled_shift.update',
+  'scheduled_shift.cancel',
+  // ENG-106c1 — every approval transition carries requester + approver
+  // identity without creating or exposing a manager browser session.
+  'manager_approval.request',
+  'manager_approval.approve',
+  'manager_approval.reject',
+  'manager_approval.cancel',
+  'manager_approval.consume',
+  // ENG-142 — immutable policy configuration and real-time rule evidence.
+  'loss_prevention.settings.updated',
+  'loss_prevention.triggered',
+  // ENG-142d — shared manager review state for one in-app alert.
+  'loss_prevention.alert.acknowledged',
+  // ENG-106c3 — every direct or approved physical drawer dispatch.
+  'cash_drawer.open',
+  // ENG-123a/ENG-123c — one summary row per committed launch product import.
+  // Metadata carries counts and normalized source format, never filenames or raw rows.
+  'data_import.products',
+  // ENG-123b — party imports retain only counts and normalized source format;
+  // raw contact rows and operator-supplied filenames never enter immutable audit evidence.
+  'data_import.customers',
+  'data_import.providers',
+  // ENG-123d — positive receivable opening balances. Audit evidence keeps
+  // counts/source format only; customer identifiers remain in the ledger.
+  'data_import.customer_balances',
+  // ENG-123e — register opening templates are money-sensitive configuration.
+  // Audit evidence carries counts/source format only, never amounts or register names.
+  'data_import.opening_cash',
+  // ENG-123f — issuer identity/config import. Immutable evidence contains
+  // only counts, country, and source format; never tax IDs or fiscal values.
+  'data_import.fiscal_profile',
   'sale.price_override',
   // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
   // when a cashier suspends a draft sale; `sale.resume` when the same or
@@ -276,6 +333,12 @@ export const auditLogActionEnum = [
   // (the credit-sales feature put the cupo on the customer row instead);
   // these two actions cover the two real mutation surfaces.
   'customer.credit_limit.update',
+  // ENG-129b — every disclosure of a customer's allowlisted personal-data
+  // document is auditable. Metadata carries only schema version + aggregate
+  // section counts; PII remains inside the one-time response document.
+  'customer.personal_data.export',
+  'customer.personal_data.delete',
+  'customer.personal_data.anonymize',
   'sale.credit_override',
   // ENG-103 — audit-grade export contract. `fiscal.xml.downloaded` is
   // emitted every time `reports.fiscal.getXml` returns a signed XML body
@@ -291,6 +354,11 @@ export const auditLogActionEnum = [
   // boolean state so forensics can replay the consent timeline.
   // Free-form text in the SQL layer — no migration needed.
   'telemetry.opt_in.updated',
+  // ENG-129d — retention-policy lifecycle. Policy changes carry only
+  // bounded day counts; manual sweeps carry aggregate deleted counts.
+  // Automatic daily sweeps use system_audit_logs because they have no actor.
+  'data_retention.policy.updated',
+  'data_retention.sweep.run',
   // ENG-199 — expiry radar. `discount_suggested` fires when a manager
   // accepts the radar CTA for an expiring lot (metadata carries lotNumber,
   // productId, discountPct, lotExpiresAt); `discount_suggestion_dismissed`
@@ -298,6 +366,15 @@ export const auditLogActionEnum = [
   // price_suggestions row id. Free-form text at the SQL layer.
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',
+  // ENG-136b — an admin ran a non-destructive readiness drill against the
+  // latest scheduled snapshot. Metadata records pass/fail plus bounded
+  // tenant-scoped count deltas; no filesystem path or encryption key.
+  'backup.restore_drill',
+  // ENG-141b — one irreversible manager/admin attestation of the frozen
+  // comprehensive day-close snapshot. Metadata carries the business date,
+  // schema version, and SHA-256 hash; the report body lives in its dedicated
+  // immutable table rather than duplicating financial detail into audit logs.
+  'day_close.sign_off',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -313,6 +390,20 @@ export const auditLogResourceTypeEnum = [
   // ENG-007 second wave resources.
   'purchase',
   'user',
+  // ENG-106b — durable self-service clock-in/out row.
+  'employee_shift',
+  // ENG-140b — one durable rest interval inside an attendance shift.
+  'employee_shift_break',
+  // ENG-140a — manager-authored expected work interval.
+  'scheduled_shift',
+  // ENG-106c1 — one short-lived authorization request/grant.
+  'manager_approval',
+  // ENG-142 — one configured rule or one checkout rule trigger.
+  'loss_prevention_rule',
+  // ENG-142d — points from an acknowledgement to its trigger audit row.
+  'loss_prevention_alert',
+  // ENG-106c3 — drawer approvals and dispatch evidence bind to a site.
+  'site',
   // ENG-047 wrote anomaly rows keyed to the flagged cashier in early
   // dev databases. Keep the reader tolerant so those rows stay visible.
   'cashier',
@@ -345,6 +436,12 @@ export const auditLogResourceTypeEnum = [
   // audits (resourceId = the suggestion row id; the lot travels in
   // metadata so the row survives lot deletion).
   'price_suggestion',
+  // ENG-136b — scheduler-owned encrypted snapshot targeted by a restore drill.
+  'backup_snapshot',
+  // ENG-123a — an immutable import-run summary keyed by import id.
+  'data_import',
+  // ENG-141b — immutable comprehensive day-close evidence row.
+  'day_close_signoff',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

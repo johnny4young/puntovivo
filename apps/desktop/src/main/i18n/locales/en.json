@@ -12,6 +12,7 @@
     "quit": "Quit"
   },
   "backup": {
+    "scheduleDialogTitle": "Choose scheduled backup folder",
     "createDialogTitle": "Create Database Backup",
     "restoreDialogTitle": "Restore Database Backup",
     "fileFilterName": "SQLite Database",

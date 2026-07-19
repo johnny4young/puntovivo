@@ -128,11 +128,7 @@ describe('captureException (ENG-135)', () => {
   it('skips the sink when no tenantId is supplied (anonymous capture)', async () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
-    await captureException(
-      new Error('boom'),
-      { procedure: 'auth.login' },
-      getDatabase()
-    );
+    await captureException(new Error('boom'), { procedure: 'auth.login' }, getDatabase());
     expect(calls).toHaveLength(0);
   });
 
@@ -170,11 +166,7 @@ describe('captureException (ENG-135)', () => {
     };
     registerTelemetrySink(sink);
     await expect(
-      captureException(
-        new Error('boom'),
-        { tenantId: optInTenantId },
-        getDatabase()
-      )
+      captureException(new Error('boom'), { tenantId: optInTenantId }, getDatabase())
     ).resolves.toBeUndefined();
   });
 });
@@ -222,9 +214,7 @@ describe('withSpan (ENG-135)', () => {
     const spanCalls = calls.filter(c => c.kind === 'span');
     expect(exceptionCalls).toHaveLength(1);
     expect(spanCalls).toHaveLength(1);
-    expect((spanCalls[0]?.payload as Record<string, unknown>).outcome).toBe(
-      'error'
-    );
+    expect((spanCalls[0]?.payload as Record<string, unknown>).outcome).toBe('error');
   });
 });
 
@@ -242,11 +232,7 @@ describe('registerTelemetrySink (ENG-135)', () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
     registerTelemetrySink(noopSink);
-    await captureException(
-      new Error('boom'),
-      { tenantId: optInTenantId },
-      getDatabase()
-    );
+    await captureException(new Error('boom'), { tenantId: optInTenantId }, getDatabase());
     expect(calls).toHaveLength(0);
   });
 });
@@ -274,12 +260,21 @@ describe('redactErrorAttrs (ENG-135)', () => {
     const list = safe.list as Array<Record<string, unknown>>;
     expect(list[0]?.password).toBe('[Redacted]');
     expect(list[0]?.label).toBe('one');
-    const sibling = (safe.nested as Record<string, unknown>).sibling as Record<
-      string,
-      unknown
-    >;
+    const sibling = (safe.nested as Record<string, unknown>).sibling as Record<string, unknown>;
     expect(sibling.token).toBe('[Redacted]');
     expect(sibling.tenantId).toBe('t');
+  });
+
+  it('normalizes database-style sensitive field names before matching', () => {
+    expect(
+      redactErrorAttrs({
+        staff_pin_hash: '$argon2id$database-secret',
+        safe_field: 'visible',
+      })
+    ).toEqual({
+      staff_pin_hash: '[Redacted]',
+      safe_field: 'visible',
+    });
   });
 
   it('tolerates cyclic input without overflowing the stack', () => {
@@ -301,11 +296,7 @@ describe('opt-in cache (ENG-135)', () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
     // First call sees opt-out → sink skipped.
-    await captureException(
-      new Error('one'),
-      { tenantId: optOutTenantId },
-      getDatabase()
-    );
+    await captureException(new Error('one'), { tenantId: optOutTenantId }, getDatabase());
     expect(calls).toHaveLength(0);
     // Flip the flag.
     const db = getDatabase();
@@ -316,19 +307,11 @@ describe('opt-in cache (ENG-135)', () => {
       })
       .where(eq(tenants.id, optOutTenantId));
     // Cache still says opt-out without invalidation — pin that.
-    await captureException(
-      new Error('two'),
-      { tenantId: optOutTenantId },
-      getDatabase()
-    );
+    await captureException(new Error('two'), { tenantId: optOutTenantId }, getDatabase());
     expect(calls).toHaveLength(0);
     // After clearing the cache the new state shows up.
     __clearTelemetryOptInCacheForTests();
-    await captureException(
-      new Error('three'),
-      { tenantId: optOutTenantId },
-      getDatabase()
-    );
+    await captureException(new Error('three'), { tenantId: optOutTenantId }, getDatabase());
     expect(calls).toHaveLength(1);
   });
 
@@ -338,11 +321,7 @@ describe('opt-in cache (ENG-135)', () => {
       const { sink, calls } = buildRecordingSink();
       registerTelemetrySink(sink);
       // Initial: opt-out tenant, sink skipped.
-      await captureException(
-        new Error('one'),
-        { tenantId: optOutTenantId },
-        getDatabase()
-      );
+      await captureException(new Error('one'), { tenantId: optOutTenantId }, getDatabase());
       expect(calls).toHaveLength(0);
       // Flip the tenant to opt-in.
       const db = getDatabase();
@@ -354,11 +333,7 @@ describe('opt-in cache (ENG-135)', () => {
         .where(eq(tenants.id, optOutTenantId));
       // Advance past the 60s TTL.
       vi.advanceTimersByTime(61_000);
-      await captureException(
-        new Error('two'),
-        { tenantId: optOutTenantId },
-        getDatabase()
-      );
+      await captureException(new Error('two'), { tenantId: optOutTenantId }, getDatabase());
       expect(calls).toHaveLength(1);
     } finally {
       vi.useRealTimers();

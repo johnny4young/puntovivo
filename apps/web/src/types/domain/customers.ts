@@ -25,6 +25,8 @@ export interface Customer {
   // make this always present.
   creditLimit?: number;
   isActive: boolean;
+  privacyStatus?: 'active' | 'anonymized';
+  privacyDisposedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   syncStatus?: SyncStatus | null;

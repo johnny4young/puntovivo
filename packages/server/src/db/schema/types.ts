@@ -17,7 +17,7 @@ import { categoryXProvider, productXProvider, products, unitXProduct } from './p
 import { commercialActivities, customers } from './customers.js';
 import { invoiceUploads, orderItems, orders, purchaseItems, purchaseReturnItems, purchaseReturns, purchases } from './purchasing.js';
 import { sales } from './sales.js';
-import { paymentOutbox, saleItems, salePayments, saleReturns } from './salesAux.js';
+import { paymentOutbox, productSerials, productSerialTransfers, saleItemSerials, saleItems, salePayments, saleReturns } from './salesAux.js';
 import { initialInventory, inventoryBalances, inventoryMovements, transferOrderItems, transferOrderStatusEnum, transferOrders } from './inventory.js';
 import { auditLogs, quotationItems, quotations } from './quotationsAudit.js';
 import { devices, idempotencyKeys, operationEvents } from './devices.js';
@@ -119,6 +119,13 @@ export type NewPaymentOutbox = typeof paymentOutbox.$inferInsert;
 
 export type SaleReturn = typeof saleReturns.$inferSelect;
 export type NewSaleReturn = typeof saleReturns.$inferInsert;
+
+export type ProductSerial = typeof productSerials.$inferSelect;
+export type NewProductSerial = typeof productSerials.$inferInsert;
+export type ProductSerialTransfer = typeof productSerialTransfers.$inferSelect;
+export type NewProductSerialTransfer = typeof productSerialTransfers.$inferInsert;
+export type SaleItemSerial = typeof saleItemSerials.$inferSelect;
+export type NewSaleItemSerial = typeof saleItemSerials.$inferInsert;
 
 export type InventoryMovement = typeof inventoryMovements.$inferSelect;
 export type NewInventoryMovement = typeof inventoryMovements.$inferInsert;

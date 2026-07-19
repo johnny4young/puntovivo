@@ -64,9 +64,7 @@ export function SaleCreditCustomerCard({
         {selectedCustomer?.name ?? t('credit.card.unknownCustomer')}
       </p>
       {selectedCustomer?.taxId && (
-        <p className="text-xs text-secondary-500">
-          {selectedCustomer.taxId}
-        </p>
+        <p className="text-xs text-secondary-500">{selectedCustomer.taxId}</p>
       )}
       {/* ENG-218 — the balance read failed. Replace the projection with an
           honest error instead of drawing a $0 balance that would read as
@@ -100,10 +98,7 @@ export function SaleCreditCustomerCard({
           amount, surface a one-line summary so the cashier
           sees the breakdown ("$50 efectivo + $150 a crédito"). */}
       {splitMode && creditAmountInSplit > 0 && (
-        <p
-          className="mt-2 text-xs text-secondary-600"
-          data-testid="credit-sale-partial-summary"
-        >
+        <p className="mt-2 text-xs text-secondary-600" data-testid="credit-sale-partial-summary">
           {t('payment.partialCredit.summary', {
             cashAmount: formatCurrency(grandTotal - creditAmountInSplit),
             creditAmount: formatCurrency(creditAmountInSplit),
@@ -136,9 +131,7 @@ export function SaleCreditCustomerCard({
             {t('credit.card.cupo')}
           </p>
           <p className="mt-1 text-base font-medium tabular-nums">
-            {creditLimit > 0
-              ? formatCurrency(creditLimit)
-              : t('credit.card.unlimited')}
+            {creditLimit > 0 ? formatCurrency(creditLimit) : t('credit.card.unlimited')}
           </p>
         </div>
         <div
@@ -154,40 +147,31 @@ export function SaleCreditCustomerCard({
         </div>
       </div>
       {cupoExceeded && (
-        <p
-          className="mt-3 text-sm text-warning-700"
-          data-testid="credit-sale-warning"
-        >
+        <p className="mt-3 text-sm text-warning-700" data-testid="credit-sale-warning">
           {t('credit.warning.exceedsLimit')}
         </p>
       )}
-      {/* Override checkbox: admin only, only when the
-          projection actually exceeds the cupo. Submitting
-          without it raises the server-side
-          CREDIT_LIMIT_EXCEEDED toast. */}
-      {cupoExceeded && (
+      {/* Admins can opt in directly. Non-admin operators get the approval
+          explanation here and the payload-bound request panel below. */}
+      {cupoExceeded && isAdmin && (
         <label
-          className={`mt-3 flex items-start gap-2 text-sm ${isAdmin ? '' : 'opacity-60'}`}
+          className="mt-3 flex items-start gap-2 text-sm"
           data-testid="credit-sale-override-label"
         >
           <input
             type="checkbox"
             className="mt-0.5"
             data-testid="credit-sale-override-toggle"
-            disabled={!isAdmin}
             {...form.register('creditOverride')}
           />
           <span className="flex flex-col">
-            <span className="font-medium">
-              {t('credit.override.label')}
-            </span>
-            <span className="text-xs text-secondary-500">
-              {isAdmin
-                ? t('credit.override.adminHelp')
-                : t('credit.override.adminOnly')}
-            </span>
+            <span className="font-medium">{t('credit.override.label')}</span>
+            <span className="text-xs text-secondary-500">{t('credit.override.adminHelp')}</span>
           </span>
         </label>
+      )}
+      {cupoExceeded && !isAdmin && (
+        <p className="mt-3 text-xs text-secondary-600">{t('credit.override.approvalRequired')}</p>
       )}
     </div>
   );

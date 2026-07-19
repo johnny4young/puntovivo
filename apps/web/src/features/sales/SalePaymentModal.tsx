@@ -23,6 +23,7 @@ import { SalePaymentTipSection } from './SalePaymentTipSection';
 import { SalePaymentSingleTenderSection } from './SalePaymentSingleTenderSection';
 import { SalePaymentSplitTenderSection } from './SalePaymentSplitTenderSection';
 import { SaleCreditCustomerCard } from './SaleCreditCustomerCard';
+import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
 import type { SalePaymentModalProps } from './salePaymentModal.types';
 
 export type {
@@ -39,6 +40,11 @@ export function SalePaymentModal({
   error,
   serviceChargeRate = 0,
   userRole,
+  approvalSaleId = null,
+  approvalCustomerId = null,
+  approvalItems = [],
+  approvalDiscountAmount = 0,
+  currencyCode = 'COP',
   fastCashTrigger = 0,
   restoreFocusTo,
   onClose,
@@ -68,6 +74,7 @@ export function SalePaymentModal({
     cupoExceeded,
     showCreditCard,
     balanceLoading,
+    checkoutApprovals,
     balanceUnavailable,
     retryBalance,
     tenderSum,
@@ -87,6 +94,11 @@ export function SalePaymentModal({
     isSaving,
     serviceChargeRate,
     userRole,
+    approvalSaleId,
+    approvalCustomerId,
+    approvalItems,
+    approvalDiscountAmount,
+    currencyCode,
     fastCashTrigger,
     onSubmit,
   });
@@ -162,6 +174,7 @@ export function SalePaymentModal({
             onClick={handleSubmit}
             disabled={!canSubmit}
             id="sale-payment-confirm"
+            className="disabled:bg-secondary-200 disabled:text-secondary-500"
           >
             {isSaving ? t('payment.processing') : t('payment.confirm')}
           </ModalButton>
@@ -204,6 +217,7 @@ export function SalePaymentModal({
           <select
             id="sale-payment-customer"
             className="input mt-1"
+            disabled={approvalSaleId !== null}
             {...form.register('customerId')}
           >
             <option value="">{t('payment.walkIn')}</option>
@@ -255,7 +269,8 @@ export function SalePaymentModal({
 
         {/* ENG-090 — V10 credit-sale customer card. Shows the
             customer's current balance, cupo, projected balance
-            after this sale, and (admin only) an override checkbox
+            after this sale, and either an admin override checkbox or
+            an exact approval request for non-admin operators
             when the projection exceeds the cupo. ENG-014 lifted
             this out of the !splitMode branch so it surfaces in
             both modes: legacy single-tender credit projects against
@@ -278,6 +293,18 @@ export function SalePaymentModal({
             retryBalance={retryBalance}
           />
         )}
+
+        <CheckoutApprovalPanel
+          views={checkoutApprovals.views}
+          isLoading={checkoutApprovals.isLoading}
+          isHashing={checkoutApprovals.isHashing}
+          isRequesting={checkoutApprovals.isRequesting}
+          hasError={checkoutApprovals.error !== null}
+          onRequest={checkoutApprovals.requestApproval}
+          onRefresh={() => {
+            void checkoutApprovals.refetch();
+          }}
+        />
 
         <div>
           <label htmlFor="sale-payment-notes" className="label">

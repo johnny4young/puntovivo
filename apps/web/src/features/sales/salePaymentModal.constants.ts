@@ -20,7 +20,7 @@ export const TENDER_SUM_EPSILON = 0.005;
 export const TIP_PRESETS = [0, 10, 15] as const;
 
 // Single-tender method tiles (rediseño §06). The order + icon mapping
-// mirrors the approved mockup; `credit` is gated to manager + admin
+// mirrors the approved mockup; `credit` is gated to operational roles
 // with an attached customer (same rule as the legacy <option>) and is
 // filtered out of this list when `creditMethodAvailable` is false. The
 // labels reuse the existing `payment.*` i18n keys so no copy is
@@ -57,6 +57,7 @@ export function getDefaultValues(
     serviceChargeAmount,
     serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
     creditOverride: false,
+    approvalRequests: [],
   };
 }
 

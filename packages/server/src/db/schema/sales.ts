@@ -8,12 +8,32 @@
  *
  * @module db/schema/sales
  */
-import { check, index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
-import { cashMovementTypeEnum, cashSessionStatusEnum, moneyPositiveChecks, moneyTwoDecimalCheck, nowIso, paymentMethodEnum, paymentStatusEnum, saleStatusEnum, sqliteNow, syncStatusEnum } from './base.js';
+import {
+  cashMovementTypeEnum,
+  cashSessionStatusEnum,
+  moneyPositiveChecks,
+  moneyTwoDecimalCheck,
+  nowIso,
+  paymentMethodEnum,
+  paymentStatusEnum,
+  saleStatusEnum,
+  sqliteNow,
+  syncStatusEnum,
+} from './base.js';
 import type { CashSessionDenomination } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { customers } from './customers.js';
+import { employeeShifts } from './labor.js';
 import { restaurantTables, saleItems, salePayments, saleReturns } from './salesAux.js';
 import { currencyCatalog } from './config.js';
 
@@ -53,9 +73,7 @@ export const sales = sqliteTable(
       .default('COP')
       .references(() => currencyCatalog.code),
     exchangeRateAtSale: real('exchange_rate_at_sale').notNull().default(1),
-    settleCurrencyCode: text('settle_currency_code').references(
-      () => currencyCatalog.code
-    ),
+    settleCurrencyCode: text('settle_currency_code').references(() => currencyCatalog.code),
     // ENG-039d — restaurant tip / propina. `tipAmount` is the resolved
     // currency value added on top of `subtotal + tax - discount` (it
     // rolls into `total` so payment validation stays unchanged).
@@ -81,6 +99,14 @@ export const sales = sqliteTable(
     createdBy: text('created_by')
       .notNull()
       .references(() => users.id),
+    // ENG-209 — client cart/resume start used only for aggregate cashier
+    // pace. Null on historical/non-POS rows; server rejects future or
+    // abandoned (>4h) intervals before persisting it.
+    checkoutStartedAt: text('checkout_started_at'),
+    // Immutable completion boundary paired with checkoutStartedAt. Do not
+    // derive checkout duration from updatedAt: later returns and reprints
+    // deliberately advance that mutable lifecycle timestamp.
+    checkoutCompletedAt: text('checkout_completed_at'),
     // ENG-018 — park-and-resume columns. Populated when a draft sale is
     // suspended (`sales.suspend`) and cleared when resumed (`sales.resume`)
     // or discarded (`sales.discardDraft` → `status='cancelled'`).
@@ -197,6 +223,10 @@ export const cashSessions = sqliteTable(
     cashierId: text('cashier_id')
       .notNull()
       .references(() => users.id),
+    // ENG-140d — nullable only for historical sessions created before
+    // cash/labor lifecycle integration. Every new application open path links
+    // the drawer to the same-site employee shift that owns its labor evidence.
+    employeeShiftId: text('employee_shift_id').references(() => employeeShifts.id),
     registerName: text('register_name').notNull(),
     openingFloat: real('opening_float').notNull().default(0),
     openingCountDenominations: text('opening_count_denominations', { mode: 'json' })
@@ -204,12 +234,16 @@ export const cashSessions = sqliteTable(
       .notNull(),
     expectedBalance: real('expected_balance').notNull().default(0),
     actualCount: real('actual_count'),
-    actualCountDenominations: text('actual_count_denominations', { mode: 'json' })
-      .$type<CashSessionDenomination[] | null>(),
+    actualCountDenominations: text('actual_count_denominations', { mode: 'json' }).$type<
+      CashSessionDenomination[] | null
+    >(),
     overShort: real('over_short'),
     status: text('status', { enum: cashSessionStatusEnum }).notNull().default('open'),
     openedAt: text('opened_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     closedAt: text('closed_at'),
+    // ENG-209 — materialized at close so the private HUD can read a
+    // personal best without rescanning all historical sale items.
+    paceItemsPerMinute: real('pace_items_per_minute'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
@@ -217,6 +251,7 @@ export const cashSessions = sqliteTable(
     index('idx_cash_sessions_tenant').on(table.tenantId),
     index('idx_cash_sessions_site').on(table.siteId),
     index('idx_cash_sessions_cashier').on(table.cashierId),
+    index('idx_cash_sessions_tenant_employee_shift').on(table.tenantId, table.employeeShiftId),
     index('idx_cash_sessions_status').on(table.status),
     index('idx_cash_sessions_site_status').on(table.siteId, table.status),
     index('idx_cash_sessions_register_status').on(table.siteId, table.registerName, table.status),
@@ -242,6 +277,10 @@ export const cashSessionsRelations = relations(cashSessions, ({ one, many }) => 
   cashier: one(users, {
     fields: [cashSessions.cashierId],
     references: [users.id],
+  }),
+  employeeShift: one(employeeShifts, {
+    fields: [cashSessions.employeeShiftId],
+    references: [employeeShifts.id],
   }),
   movements: many(cashMovements),
   sales: many(sales),
@@ -272,7 +311,11 @@ export const denominationTemplates = sqliteTable(
   table => [
     index('idx_denomination_templates_tenant').on(table.tenantId),
     index('idx_denomination_templates_site').on(table.siteId),
-    index('idx_denomination_templates_site_active').on(table.siteId, table.isActive, table.sortOrder),
+    index('idx_denomination_templates_site_active').on(
+      table.siteId,
+      table.isActive,
+      table.sortOrder
+    ),
     uniqueIndex('idx_denomination_templates_site_register').on(table.siteId, table.registerName),
     // ENG-176a — template opening float is non-negative.
     ...moneyPositiveChecks('denomination_templates_opening', table.openingFloat),

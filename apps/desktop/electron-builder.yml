@@ -3,7 +3,7 @@ productName: Puntovivo
 executableName: puntovivo
 # package.json pins electron with a caret range; electron-builder needs the exact
 # release to fetch its platform binaries. Keep in sync with the electron devDep.
-electronVersion: 41.7.1
+electronVersion: 42.6.2
 # The auto-update feed (latest*.yml) is self-hosted on GitHub Pages: this generic
 # provider embeds that base URL into app-update.yml so the packaged app's
 # electron-updater fetches the feed from github.io. The installers themselves are

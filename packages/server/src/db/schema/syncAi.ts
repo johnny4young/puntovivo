@@ -13,7 +13,12 @@ import { relations, sql } from 'drizzle-orm';
 import { nowIso, sqliteNow } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { devices, operationEvents } from './devices.js';
-import { fiscalCertificates, fiscalDocumentItems, fiscalDocuments, fiscalNumberingResolutions } from './fiscal.js';
+import {
+  fiscalCertificates,
+  fiscalDocumentItems,
+  fiscalDocuments,
+  fiscalNumberingResolutions,
+} from './fiscal.js';
 
 // ============================================================================
 // SYNC OUTBOX (ENG-064 — Sync contract v1)
@@ -85,9 +90,7 @@ export const syncOutbox = sqliteTable(
       .notNull()
       .default('auto_lww'),
     /** Snapshot of the entity row at emit time. JSON-serialized. */
-    payload: text('payload', { mode: 'json' })
-      .$type<Record<string, unknown>>()
-      .notNull(),
+    payload: text('payload', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
     payloadVersion: integer('payload_version').notNull().default(1),
     /**
      * Command-envelope key (ENG-052). Nullable because catalog /
@@ -146,13 +149,7 @@ export const syncOutbox = sqliteTable(
     // Drizzle's SQLite dialect cannot emit partial unique indexes
     // generically.
     uniqueIndex('idx_sync_outbox_idempotent')
-      .on(
-        table.tenantId,
-        table.entityType,
-        table.entityId,
-        table.operation,
-        table.idempotencyKey
-      )
+      .on(table.tenantId, table.entityType, table.entityId, table.operation, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} IS NOT NULL`),
   ]
 );
@@ -198,8 +195,16 @@ export type NewFiscalDocumentItem = typeof fiscalDocumentItems.$inferInsert;
 // split attempts across tenants to evade the cap. Documented in
 // docs/SECURITY.md §Rate limiting.
 
-/** Two bucket kinds: by client IP, or by normalized (lowercased) email. */
-export const loginAttemptKindEnum = ['ip', 'username'] as const;
+/**
+ * Credential-throttle buckets. The original login buckets remain global;
+ * ENG-106a adds tenant-qualified actor/target keys for staff PIN failures.
+ */
+export const loginAttemptKindEnum = [
+  'ip',
+  'username',
+  'staff_pin_actor',
+  'staff_pin_target',
+] as const;
 export type LoginAttemptKind = (typeof loginAttemptKindEnum)[number];
 
 export const loginAttempts = sqliteTable(
@@ -207,7 +212,7 @@ export const loginAttempts = sqliteTable(
   {
     id: text('id').primaryKey(),
     kind: text('kind', { enum: loginAttemptKindEnum }).notNull(),
-    /** Either the client IP string or the normalized email. */
+    /** IP/email, or a tenant-qualified opaque user id for staff PIN buckets. */
     key: text('key').notNull(),
     /** Monotonically increasing count inside the current window. */
     count: integer('count').notNull().default(0),
@@ -247,12 +252,16 @@ export type NewLoginAttempt = typeof loginAttempts.$inferInsert;
 export const systemAuditLogActionEnum = [
   'login_attempts.cleanup',
   'rate_limit.exceeded',
+  'data_retention.cleanup',
 ] as const;
 export type SystemAuditLogAction = (typeof systemAuditLogActionEnum)[number];
 
-export const systemAuditLogResourceTypeEnum = ['login_attempts', 'rate_limit'] as const;
-export type SystemAuditLogResourceType =
-  (typeof systemAuditLogResourceTypeEnum)[number];
+export const systemAuditLogResourceTypeEnum = [
+  'login_attempts',
+  'rate_limit',
+  'data_retention',
+] as const;
+export type SystemAuditLogResourceType = (typeof systemAuditLogResourceTypeEnum)[number];
 
 export const systemAuditLogStatusEnum = ['ok', 'error'] as const;
 export type SystemAuditLogStatus = (typeof systemAuditLogStatusEnum)[number];
@@ -331,11 +340,7 @@ export const aiAuditLog = sqliteTable(
   },
   table => [
     index('idx_ai_audit_log_tenant_created').on(table.tenantId, table.createdAt),
-    index('idx_ai_audit_log_tenant_site_created').on(
-      table.tenantId,
-      table.siteId,
-      table.createdAt
-    ),
+    index('idx_ai_audit_log_tenant_site_created').on(table.tenantId, table.siteId, table.createdAt),
     index('idx_ai_audit_log_tenant_feature').on(table.tenantId, table.feature),
     index('idx_ai_audit_log_tenant_provider').on(table.tenantId, table.providerId),
   ]
@@ -389,7 +394,9 @@ export const aiAnomalySnoozes = sqliteTable(
       .notNull()
       .references(() => users.id),
     reason: text('reason'),
-    createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
   },
   table => [
     index('idx_ai_anomaly_snoozes_tenant_until').on(table.tenantId, table.snoozedUntil),

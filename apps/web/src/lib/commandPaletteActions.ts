@@ -144,6 +144,14 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     group: 'navigate',
     perform: ({ navigate }) => navigate('/operations'),
   },
+  {
+    id: 'navigate.dayClose',
+    labelKey: 'actions.navigate.dayClose',
+    descriptionKey: 'descriptions.navigate.dayClose',
+    roles: managerOrAdminRoles,
+    group: 'navigate',
+    perform: ({ navigate }) => navigate('/day-close'),
+  },
   // ENG-131b — Surface Switcher. Each surface is module-gated so the
   // palette never offers a destination the tenant has disabled, and
   // role-gated to mirror App.tsx route gates. POS Touch / KDS /
@@ -203,6 +211,14 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     roles: adminOnlyRoles,
     group: 'navigate',
     perform: ({ navigate }) => navigate('/company'),
+  },
+  {
+    id: 'navigate.dataImport',
+    labelKey: 'actions.navigate.dataImport',
+    descriptionKey: 'descriptions.navigate.dataImport',
+    roles: adminOnlyRoles,
+    group: 'navigate',
+    perform: ({ navigate }) => navigate('/data-import'),
   },
   {
     id: 'navigate.sites',

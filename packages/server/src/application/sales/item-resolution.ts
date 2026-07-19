@@ -58,6 +58,8 @@ export interface ResolvedSaleItem {
    * through suspend / resume / completeDraft unchanged.
    */
   notes: string | null;
+  serialIds: string[];
+  tracksSerials: boolean;
 }
 
 /** The active sale sequential resolved for the (tenant, site) pair. */
@@ -278,6 +280,33 @@ export async function resolveSaleItems(
     });
 
     const normalizedQuantity = getNormalizedSaleQuantity(item.quantity, assignment.equivalence);
+    const serialIds = item.serialIds ?? [];
+    if (product.tracksSerials) {
+      if (
+        Math.abs(assignment.equivalence - 1) > 1e-9 ||
+        !Number.isInteger(normalizedQuantity) ||
+        serialIds.length !== normalizedQuantity ||
+        new Set(serialIds).size !== serialIds.length
+      ) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'PRODUCT_SERIAL_SELECTION_REQUIRED',
+          message: 'Select exactly one unique serial number per serialized base unit',
+          details: {
+            productId: product.id,
+            requiredCount: normalizedQuantity,
+            selectedCount: new Set(serialIds).size,
+          },
+        });
+      }
+    } else if (serialIds.length > 0) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'PRODUCT_SERIAL_SELECTION_NOT_ALLOWED',
+        message: 'Serial numbers were supplied for a product that does not track serials',
+        details: { productId: product.id },
+      });
+    }
     const remainingStock = remainingSiteStockByProduct.get(item.productId) ?? 0;
 
     if (remainingStock < normalizedQuantity) {
@@ -338,6 +367,8 @@ export async function resolveSaleItems(
         typeof item.notes === 'string' && item.notes.trim().length > 0
           ? item.notes.trim()
           : null,
+      serialIds,
+      tracksSerials: product.tracksSerials,
     });
   }
 

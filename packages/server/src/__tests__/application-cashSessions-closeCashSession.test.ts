@@ -38,6 +38,7 @@ import { closeCashSession } from '../application/cash-sessions/closeCashSession.
 import { openCashSession } from '../application/cash-sessions/openCashSession.js';
 import { recordCashMovement } from '../application/cash-sessions/recordCashMovement.js';
 import type { CashSessionContext } from '../application/cash-sessions/types.js';
+import { calculateCashierItemsPerMinute } from '../services/reports/cashier-pace-math.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -76,7 +77,13 @@ async function ensureFreshSession(registerName: string, openingFloat: number) {
     const closedAt = new Date().toISOString();
     await db
       .update(cashSessions)
-      .set({ status: 'closed', closedAt, updatedAt: closedAt, actualCount: s.openingFloat, overShort: 0 })
+      .set({
+        status: 'closed',
+        closedAt,
+        updatedAt: closedAt,
+        actualCount: s.openingFloat,
+        overShort: 0,
+      })
       .where(eq(cashSessions.id, s.id));
   }
   const denominations = openingFloat > 0 ? [{ value: openingFloat, count: 1 }] : [];
@@ -88,16 +95,16 @@ async function ensureFreshSession(registerName: string, openingFloat: number) {
   return result.session.id;
 }
 
-async function seedSaleOnSession(sessionId: string, saleNumber: string, paymentStatus: 'paid' | 'pending' | 'partial' = 'paid') {
+async function seedSaleOnSession(
+  sessionId: string,
+  saleNumber: string,
+  paymentStatus: 'paid' | 'pending' | 'partial' = 'paid'
+) {
   const db = getDatabase();
   const now = new Date().toISOString();
   const saleId = nanoid();
   // Pick any seeded product for FK satisfaction.
-  const product = await db
-    .select()
-    .from(products)
-    .where(eq(products.tenantId, tenantId))
-    .get();
+  const product = await db.select().from(products).where(eq(products.tenantId, tenantId)).get();
   if (!product) throw new Error('Expected at least one seeded product');
   await db.insert(sales).values({
     id: saleId,
@@ -166,11 +173,7 @@ async function seedPendingFiscalDoc(saleId: string, status: 'pending' | 'conting
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -214,7 +217,11 @@ beforeAll(async () => {
 
   // Make sure at least one product exists (the seed normally provides one,
   // but be defensive across environments).
-  const existingProducts = await db.select().from(products).where(eq(products.tenantId, tenantId)).all();
+  const existingProducts = await db
+    .select()
+    .from(products)
+    .where(eq(products.tenantId, tenantId))
+    .all();
   if (existingProducts.length === 0) {
     const baseUnit = await db.select().from(units).where(eq(units.tenantId, tenantId)).get();
     if (!baseUnit) throw new Error('Expected at least one seeded unit');
@@ -305,6 +312,35 @@ describe('closeCashSession — over/short totals', () => {
     expect(result.overShort).toBe(-10);
   });
 
+  it('materializes completed-item pace at close without counting drafts', async () => {
+    const db = getDatabase();
+    const sessionId = await ensureFreshSession('pace-shift', 0);
+    const openedAt = new Date(Date.now() - 30 * 60_000).toISOString();
+    await db.update(cashSessions).set({ openedAt }).where(eq(cashSessions.id, sessionId));
+
+    const completedSaleId = await seedSaleOnSession(sessionId, 'PACE-C-' + nanoid(6));
+    await db
+      .update(saleItems)
+      .set({ quantity: 15, total: 1500 })
+      .where(eq(saleItems.saleId, completedSaleId));
+    const draftSaleId = await seedSaleOnSession(sessionId, 'PACE-D-' + nanoid(6));
+    await db
+      .update(sales)
+      .set({ status: 'draft', paymentStatus: 'pending' })
+      .where(eq(sales.id, draftSaleId));
+    await db
+      .update(saleItems)
+      .set({ quantity: 999, total: 99_900 })
+      .where(eq(saleItems.saleId, draftSaleId));
+
+    const result = await closeCashSession(buildContext(), {
+      actualCount: 0,
+      denominations: [],
+    });
+    const durationMs = Date.parse(result.session.closedAt!) - Date.parse(openedAt);
+    expect(result.session.paceItemsPerMinute).toBe(calculateCashierItemsPerMinute(15, durationMs));
+  });
+
   it('rejects a paid_out that would drive expectedBalance negative and rolls back atomically', async () => {
     // Auditoría 2026-06 — the drawer can never owe money: the storage
     // CHECK chk_cash_sessions_expected_nonneg is the last line of
@@ -369,7 +405,13 @@ describe('closeCashSession — preconditions', () => {
     for (const s of open) {
       await db
         .update(cashSessions)
-        .set({ status: 'closed', closedAt, updatedAt: closedAt, actualCount: s.openingFloat, overShort: 0 })
+        .set({
+          status: 'closed',
+          closedAt,
+          updatedAt: closedAt,
+          actualCount: s.openingFloat,
+          overShort: 0,
+        })
         .where(eq(cashSessions.id, s.id));
     }
     await expect(
@@ -463,10 +505,10 @@ describe('closeCashSession — pending fiscal/payment warnings', () => {
       userId,
       requestHash: 'hash-' + operationId,
     });
-    const result = await closeCashSession(
-      buildContext({ envelope: { operationId } }),
-      { actualCount: 0, denominations: [] }
-    );
+    const result = await closeCashSession(buildContext({ envelope: { operationId } }), {
+      actualCount: 0,
+      denominations: [],
+    });
     expect(result.pendingFiscalDocuments).toBe(1);
     expect(result.pendingPaymentSales).toBe(1);
 
@@ -474,10 +516,7 @@ describe('closeCashSession — pending fiscal/payment warnings', () => {
       .select()
       .from(operationEvents)
       .where(
-        and(
-          eq(operationEvents.tenantId, tenantId),
-          eq(operationEvents.operationId, operationId)
-        )
+        and(eq(operationEvents.tenantId, tenantId), eq(operationEvents.operationId, operationId))
       )
       .get();
     expect(event).toBeTruthy();
@@ -487,7 +526,9 @@ describe('closeCashSession — pending fiscal/payment warnings', () => {
       .where(eq(operationEffects.operationEventId, event!.id))
       .all();
     const warnings = effects.filter(e => e.kind === 'pending_warning');
-    const categories = warnings.map(w => (w.effectData as { category?: string } | null)?.category).sort();
+    const categories = warnings
+      .map(w => (w.effectData as { category?: string } | null)?.category)
+      .sort();
     expect(categories).toEqual(['fiscal', 'payment']);
     const kindsAll = effects.map(e => e.kind);
     expect(kindsAll).toContain('session_close');

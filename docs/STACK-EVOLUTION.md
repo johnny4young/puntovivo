@@ -20,7 +20,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the current shape.
 
 ## Current stack (shipped)
 
-- Electron 41 (desktop cross-platform)
+- Electron 42 (desktop cross-platform)
 - Fastify 5 (in-process, embedded in Electron main)
 - tRPC 11 (end-to-end type safety via `AppRouter`)
 - SQLite via `better-sqlite3` (in-process, synchronous, native)

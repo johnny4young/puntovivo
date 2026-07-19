@@ -18,7 +18,7 @@
  * @module application/sales/returnSale
  */
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -30,6 +30,7 @@ import {
   sales,
 } from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
+import { revertPointsForSale } from '../../services/loyalty.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -47,14 +48,24 @@ import {
   enqueueInventoryLotUpdatesForSale,
   restoreLotsForSale,
 } from '../../services/inventory-lots/index.js';
-import { revertPointsForSale } from '../../services/loyalty.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import { getSaleRecord } from './sale-read.js';
+import { transitionSaleSerials } from '../../services/product-serials.js';
 import { updateOperationSummary } from '../../services/operation-journal/journal.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import type { CompleteSaleContext, CompleteSaleLogger, CompleteSaleResult } from './types.js';
 import type { CompleteSaleSaleRecord } from './completeSale.js';
+import {
+  consumeManagerApprovalGrant,
+  enqueueConsumedManagerApprovalBestEffort,
+  releaseManagerApprovalClaim,
+} from '../../services/manager-approvals.js';
+import {
+  claimShiftLossPreventionApproval,
+  evaluateShiftLossPrevention,
+  recordShiftLossPreventionTrigger,
+} from '../../services/loss-prevention/index.js';
 
 const fallbackLog = createModuleLogger('application/sales/returnSale');
 
@@ -104,6 +115,7 @@ export interface ReturnSaleInput {
   id: string;
   // ENG-179b — explicit `| undefined` on Zod-optional field.
   reason?: string | null | undefined;
+  approvalRequestId?: string | undefined;
 }
 
 export async function returnSale(
@@ -244,6 +256,10 @@ export async function returnSale(
   const originalSaleSiteId = originalSaleSession?.siteId ?? null;
 
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
+  const expectedSyncVersion =
+    existing.syncVersion === null
+      ? isNull(sales.syncVersion)
+      : eq(sales.syncVersion, existing.syncVersion);
   const now = new Date().toISOString();
   const refundId = nanoid();
   const refundCashAmount = await getPersistedSaleCashContribution(ctx.db, {
@@ -257,114 +273,197 @@ export async function returnSale(
   let auditLogId: string | null = null;
   let restoredLotIds: string[] = [];
 
-  ctx.db.transaction(tx => {
-    // ENG-042 TOCTOU defense: refunds bind the cash movement to the selected
-    // open session; a session closed mid-flight would attach the refund to a
-    // closed shift.
-    assertCashSessionStillOpen(tx, ctx.tenantId, refundCashSession.id);
+  const lossPreventionEvaluation = evaluateShiftLossPrevention({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    actorId: ctx.user.id,
+    role: ctx.user.role,
+    action: 'sale_refund',
+    amount: existing.total,
+  });
+  recordShiftLossPreventionTrigger({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    actorId: ctx.user.id,
+    siteId: ctx.siteId,
+    resourceType: 'sale',
+    resourceId: input.id,
+    evaluation: lossPreventionEvaluation,
+    approvalRequestId: input.approvalRequestId,
+    operationId: ctx.envelope?.operationId,
+  });
+  const approvalClaim = claimShiftLossPreventionApproval({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    requesterId: ctx.user.id,
+    requesterRole: ctx.user.role,
+    action: 'sale_refund',
+    resourceType: 'sale',
+    resourceId: input.id,
+    requestId: input.approvalRequestId,
+    evaluation: lossPreventionEvaluation,
+  });
 
-    inventoryMovementIds = reverseSaleItemsStock({
-      tx,
-      tenantId: ctx.tenantId,
-      siteId: originalSaleSiteId,
-      userId: ctx.user.id,
-      saleId: input.id,
-      saleNumber: existing.saleNumber,
-      reversalKind: 'return',
-      items: saleLineItems,
-      productStockState,
-      now,
-    });
+  try {
+    ctx.db.transaction(tx => {
+      // ENG-042 TOCTOU defense: refunds bind the cash movement to the selected
+      // open session; a session closed mid-flight would attach the refund to a
+      // closed shift.
+      assertCashSessionStillOpen(tx, ctx.tenantId, refundCashSession.id);
 
-    // Auditoría 2026-07 — credit the exact lots this sale consumed back to
-    // stock (no-op when no line was lot-tracked).
-    restoredLotIds = restoreLotsForSale(tx, {
-      tenantId: ctx.tenantId,
-      saleId: input.id,
-      now,
-    }).lotIds;
+      const markedRefunded = tx
+        .update(sales)
+        .set({
+          paymentStatus: 'refunded',
+          notes: buildReturnedSaleNotes(existing.notes, input.reason),
+          updatedAt: now,
+          syncStatus: 'pending',
+          syncVersion: nextSyncVersion,
+        })
+        .where(
+          and(
+            eq(sales.id, input.id),
+            eq(sales.tenantId, ctx.tenantId),
+            eq(sales.status, 'completed'),
+            ne(sales.paymentStatus, 'refunded'),
+            expectedSyncVersion,
+            eq(sales.updatedAt, existing.updatedAt)
+          )
+        )
+        .run();
+      if (markedRefunded.changes !== 1) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'SALE_RETURN_ALREADY_REFUNDED',
+          message: 'The sale changed while it was being refunded',
+        });
+      }
 
-    // ENG-213 — take back the points this sale earned. Appends a negative
-    // `revert` row (history is never erased) and no-ops when the sale never
-    // earned. Best-effort like the accrual: a loyalty failure must not
-    // block a refund the customer is standing there waiting for.
-    // The nested transaction is a SAVEPOINT: the revert row and the balance
-    // update are two writes, so a failure between them would ride to COMMIT
-    // as a parity break. The savepoint discards the half-write; the refund
-    // still commits.
-    try {
-      tx.transaction(loyaltyTx => {
-        revertPointsForSale(loyaltyTx, { tenantId: ctx.tenantId, saleId: input.id, nowIso: now });
+      inventoryMovementIds = reverseSaleItemsStock({
+        tx,
+        tenantId: ctx.tenantId,
+        siteId: originalSaleSiteId,
+        userId: ctx.user.id,
+        saleId: input.id,
+        saleNumber: existing.saleNumber,
+        reversalKind: 'return',
+        items: saleLineItems,
+        productStockState,
+        now,
       });
-    } catch (error) {
-      ctx.log?.warn?.({ err: error, saleId: input.id }, 'loyalty revert skipped');
-    }
 
-    tx.insert(saleReturns)
-      .values({
-        id: refundId,
+      // Auditoría 2026-07 — credit the exact lots this sale consumed back to
+      // stock (no-op when no line was lot-tracked).
+      restoredLotIds = restoreLotsForSale(tx, {
         tenantId: ctx.tenantId,
         saleId: input.id,
-        refundAmount: existing.total,
-        reason: input.reason ?? null,
+        now,
+      }).lotIds;
+      transitionSaleSerials(tx as unknown as typeof ctx.db, {
+        tenantId: ctx.tenantId,
+        saleItemIds: saleLineItems.map(item => item.id),
+        from: 'sold',
+        to: 'returned',
+        clearSaleItem: true,
+        now,
+        syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+      });
+
+      // ENG-213 — take back the points this sale earned. Appends a negative
+      // `revert` row (history is never erased) and no-ops when the sale never
+      // earned. Best-effort like the accrual: a loyalty failure must not
+      // block a refund the customer is standing there waiting for.
+      // The nested transaction is a SAVEPOINT: the revert row and the balance
+      // update are two writes, so a failure between them would ride to COMMIT
+      // as a parity break. The savepoint discards the half-write; the refund
+      // still commits.
+      try {
+        tx.transaction(loyaltyTx => {
+          revertPointsForSale(loyaltyTx, { tenantId: ctx.tenantId, saleId: input.id, nowIso: now });
+        });
+      } catch (error) {
+        ctx.log?.warn?.({ err: error, saleId: input.id }, 'loyalty revert skipped');
+      }
+
+      tx.insert(saleReturns)
+        .values({
+          id: refundId,
+          tenantId: ctx.tenantId,
+          saleId: input.id,
+          refundAmount: existing.total,
+          reason: input.reason ?? null,
+          createdBy: ctx.user.id,
+          syncStatus: 'pending',
+          syncVersion: 1,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      cashMovementId = insertCashMovement({
+        tx,
+        tenantId: ctx.tenantId,
+        sessionId: refundCashSession.id,
+        type: 'refund',
+        amount: refundCashAmount,
+        referenceId: input.id,
+        note: `Refunded sale ${existing.saleNumber}`,
         createdBy: ctx.user.id,
-        syncStatus: 'pending',
-        syncVersion: 1,
         createdAt: now,
-        updatedAt: now,
-      })
-      .run();
+      });
 
-    tx.update(sales)
-      .set({
-        paymentStatus: 'refunded',
-        notes: buildReturnedSaleNotes(existing.notes, input.reason),
-        updatedAt: now,
-        syncStatus: 'pending',
-        syncVersion: nextSyncVersion,
-      })
-      .where(and(eq(sales.id, input.id), eq(sales.tenantId, ctx.tenantId)))
-      .run();
-
-    cashMovementId = insertCashMovement({
-      tx,
-      tenantId: ctx.tenantId,
-      sessionId: refundCashSession.id,
-      type: 'refund',
-      amount: refundCashAmount,
-      referenceId: input.id,
-      note: `Refunded sale ${existing.saleNumber}`,
-      createdBy: ctx.user.id,
-      createdAt: now,
+      // Phase 8 / Tier-2 #8 — refunds are sensitive: stock restored,
+      // payment reversed, drawer balance moves. Audit row is in-tx so it
+      // is either persisted with the refund or rolls back with it.
+      auditLogId = writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'sale.return',
+        resourceType: 'sale',
+        resourceId: input.id,
+        before: {
+          paymentStatus: existing.paymentStatus,
+          status: existing.status,
+          total: existing.total,
+          saleNumber: existing.saleNumber,
+        },
+        after: {
+          paymentStatus: 'refunded',
+          refundId,
+          refundAmount: existing.total,
+        },
+        metadata: {
+          ...(input.reason ? { reason: input.reason } : {}),
+          refundCashSessionId: refundCashSession.id,
+          lossPreventionCashSessionId: lossPreventionEvaluation.cashSessionId,
+          ...(approvalClaim
+            ? { approvalRequestId: approvalClaim.requestId, approvedBy: approvalClaim.approverId }
+            : {}),
+        },
+      });
+      if (approvalClaim) {
+        consumeManagerApprovalGrant({
+          tx,
+          tenantId: ctx.tenantId,
+          requesterId: ctx.user.id,
+          claim: approvalClaim,
+          consumedResourceType: 'sale',
+          consumedResourceId: input.id,
+          metadata: { saleNumber: existing.saleNumber, refundId },
+        });
+      }
     });
+  } catch (error) {
+    if (approvalClaim) releaseManagerApprovalClaim(ctx.db, ctx.tenantId, approvalClaim);
+    throw error;
+  }
 
-    // Phase 8 / Tier-2 #8 — refunds are sensitive: stock restored,
-    // payment reversed, drawer balance moves. Audit row is in-tx so it
-    // is either persisted with the refund or rolls back with it.
-    auditLogId = writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: 'sale.return',
-      resourceType: 'sale',
-      resourceId: input.id,
-      before: {
-        paymentStatus: existing.paymentStatus,
-        status: existing.status,
-        total: existing.total,
-        saleNumber: existing.saleNumber,
-      },
-      after: {
-        paymentStatus: 'refunded',
-        refundId,
-        refundAmount: existing.total,
-      },
-      metadata: {
-        ...(input.reason ? { reason: input.reason } : {}),
-        refundCashSessionId: refundCashSession.id,
-      },
-    });
-  });
+  if (approvalClaim) {
+    await enqueueConsumedManagerApprovalBestEffort(ctx, approvalClaim);
+  }
 
   await enqueueSync(ctx, {
     entityType: 'sale_returns',

@@ -1,10 +1,10 @@
-import { type ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, type ModalProps } from '@/components/form-controls/Modal';
 import { cn } from '@/lib/utils';
 
 export interface OverlayProps
-  extends Omit<ModalProps, 'title' | 'children' | 'contentClassName'> {
+  extends Omit<ModalProps, 'title' | 'children' | 'contentClassName' | 'ariaLabelledBy'> {
   /**
    * Tracked uppercase micro-label rendered above the title. Use one of
    * the established Puntovivo kickers ("APERTURA DE CAJA", "NOVEDADES",
@@ -63,12 +63,14 @@ export function Overlay({
   ...modalProps
 }: OverlayProps) {
   const { t } = useTranslation('common');
+  const titleId = useId();
   return (
     <Modal
       {...modalProps}
       // Modal renders its own `title` row when this prop is non-empty; we
       // want a custom editorial header instead, so we hand it nothing.
       title={undefined}
+      ariaLabelledBy={titleId}
       // The body slot is where the editorial header + caller children
       // both live. We pad it manually so the title block lines up with
       // the surrounding `modal-body` padding the rest of the app uses.
@@ -84,7 +86,7 @@ export function Overlay({
               </p>
             )}
             <h2
-              id="overlay-title"
+              id={titleId}
               className={cn(
                 'font-display text-[22px] font-normal leading-none tracking-[-0.02em] text-secondary-950',
                 kicker && 'mt-2'

@@ -3,11 +3,17 @@ import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
 import type { Order } from '@/types';
+import {
+  getSerializedQuantity,
+  hasDuplicateSerialNumbers,
+  parseSerialNumbers,
+} from '@/features/inventory/serialNumbers';
 
 interface OrderReceiveFormValues {
   items: Array<{
     orderItemId: string;
     quantity: number;
+    serialNumbers: string;
   }>;
   notes: string;
 }
@@ -16,6 +22,7 @@ export interface OrderReceiveValues {
   items: Array<{
     orderItemId: string;
     quantity: number;
+    serialNumbers?: string[];
   }>;
   notes: string;
 }
@@ -43,13 +50,19 @@ export function OrderReceiveModal({
       items: (order.items ?? []).map(item => ({
         orderItemId: item.id,
         quantity: 0,
+        serialNumbers: '',
       })),
       notes: '',
     },
   });
 
   const handleSubmit = form.handleSubmit(async values => {
-    const selectedItems = values.items.filter(item => Number(item.quantity) > 0);
+    const selectedItems = values.items.filter((item, index) => {
+      const orderItem = order.items?.[index];
+      return orderItem?.tracksSerials
+        ? parseSerialNumbers(item.serialNumbers).length > 0
+        : Number(item.quantity) > 0;
+    });
 
     if (selectedItems.length === 0) {
       form.setError('root', {
@@ -60,10 +73,18 @@ export function OrderReceiveModal({
     }
 
     await onSubmit({
-      items: selectedItems.map(item => ({
-        orderItemId: item.orderItemId,
-        quantity: Number(item.quantity),
-      })),
+      items: selectedItems.map(item => {
+        const serialNumbers = parseSerialNumbers(item.serialNumbers);
+        const orderItem = order.items?.find(candidate => candidate.id === item.orderItemId);
+        return {
+          orderItemId: item.orderItemId,
+          quantity:
+            serialNumbers.length > 0
+              ? getSerializedQuantity(serialNumbers.length, orderItem?.unitEquivalence ?? 1)
+              : Number(item.quantity),
+          ...(serialNumbers.length > 0 ? { serialNumbers } : {}),
+        };
+      }),
       notes: values.notes,
     });
   });
@@ -87,16 +108,16 @@ export function OrderReceiveModal({
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-          <p className="text-sm text-primary-700">
-            {t('orders.hint')}
-          </p>
+          <p className="text-sm text-primary-700">{t('orders.hint')}</p>
         </div>
 
         <div className="space-y-3">
           {(order.items ?? []).map((item, index) => {
             const receivedQuantity = item.receivedQuantity ?? 0;
             const remainingQuantity = item.remainingQuantity ?? item.quantity;
+            const remainingSerialCount = Math.round(remainingQuantity * item.unitEquivalence);
             const fieldError = form.formState.errors.items?.[index]?.quantity?.message;
+            const serialFieldError = form.formState.errors.items?.[index]?.serialNumbers?.message;
 
             return (
               <div key={item.id} className="rounded-xl border border-secondary-200 px-4 py-4">
@@ -131,6 +152,44 @@ export function OrderReceiveModal({
                   </div>
                 </div>
 
+                {item.tracksSerials && (
+                  <div className="mt-4">
+                    <label htmlFor={`order-receive-serials-${item.id}`} className="label">
+                      {t('orders.serialNumbers')}
+                    </label>
+                    <textarea
+                      id={`order-receive-serials-${item.id}`}
+                      className="input mt-1 min-h-24 font-mono text-xs"
+                      placeholder={t('orders.serialNumbersPlaceholder')}
+                      {...form.register(`items.${index}.serialNumbers`, {
+                        validate: value => {
+                          const count = parseSerialNumbers(value).length;
+                          if (hasDuplicateSerialNumbers(value)) {
+                            return t('orders.serialNumbersDuplicate');
+                          }
+                          return (
+                            count <= remainingSerialCount ||
+                            t('orders.receiveQtyMax', { count: remainingSerialCount })
+                          );
+                        },
+                        onChange: event => {
+                          form.setValue(
+                            `items.${index}.quantity`,
+                            getSerializedQuantity(
+                              parseSerialNumbers(event.target.value).length,
+                              item.unitEquivalence
+                            ),
+                            { shouldValidate: true }
+                          );
+                        },
+                      })}
+                    />
+                    {serialFieldError && (
+                      <p className="mt-1 text-sm text-danger-500">{serialFieldError}</p>
+                    )}
+                  </div>
+                )}
+
                 <div className="mt-4 max-w-[180px]">
                   <label htmlFor={`order-receive-${item.id}`} className="label">
                     {t('orders.receiveQty')}
@@ -143,6 +202,8 @@ export function OrderReceiveModal({
                     step="any"
                     className="input mt-1"
                     disabled={remainingQuantity <= 0}
+                    readOnly={item.tracksSerials}
+                    aria-readonly={item.tracksSerials}
                     {...form.register(`items.${index}.quantity`, {
                       valueAsNumber: true,
                       min: {
@@ -174,9 +235,7 @@ export function OrderReceiveModal({
         </div>
 
         {(form.formState.errors.root?.message || error) && (
-          <p className="text-sm text-danger-500">
-            {form.formState.errors.root?.message ?? error}
-          </p>
+          <p className="text-sm text-danger-500">{form.formState.errors.root?.message ?? error}</p>
         )}
       </form>
     </Modal>

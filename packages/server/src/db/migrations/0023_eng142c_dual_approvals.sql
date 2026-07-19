@@ -1,0 +1,2 @@
+ALTER TABLE `manager_approval_requests` ADD `required_approvals` integer DEFAULT 1 NOT NULL;--> statement-breakpoint
+ALTER TABLE `manager_approval_requests` ADD `approval_evidence` text DEFAULT '[]' NOT NULL;

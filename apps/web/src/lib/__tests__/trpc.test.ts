@@ -3,6 +3,7 @@ import {
   clearAccessToken,
   createTrpcClientWithHeaders,
   createTrpcFetch,
+  fetchProtectedApi,
   getTrpcHeaders,
   setAccessToken,
   setAuthSessionExpiredHandler,
@@ -29,8 +30,7 @@ describe('trpc auth transport', () => {
     clearAccessToken();
     setAuthSessionExpiredHandler(null);
     vi.unstubAllGlobals();
-    document.cookie =
-      'puntovivo_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+    document.cookie = 'puntovivo_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
   });
 
   it('refreshes an expired access token and retries the request once', async () => {
@@ -78,7 +78,9 @@ describe('trpc auth transport', () => {
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('http://localhost:8090/api/trpc/auth.refresh?batch=1');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      'http://localhost:8090/api/trpc/auth.refresh?batch=1'
+    );
 
     const retryInit = fetchMock.mock.calls[2]?.[1];
     const retryHeaders = new Headers(retryInit?.headers);
@@ -160,5 +162,30 @@ describe('trpc auth transport', () => {
     const headers = new Headers(init?.headers);
     expect(headers.get(DEVICE_ID_HEADER)).toBe('device-test-id');
     expect(headers.get(COMMAND_ENVELOPE_HEADER)).toBe(envelopeHeader);
+  });
+
+  it('downloads protected binary routes with the active auth and CSRF transport', async () => {
+    setAccessToken('pdf-access-token');
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('%PDF-1.7', {
+        status: 200,
+        headers: { 'content-type': 'application/pdf' },
+      })
+    );
+
+    const response = await fetchProtectedApi(
+      '/api/reports/day-close/artifacts/artifact-123',
+      { method: 'GET' },
+      fetchMock
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'http://localhost:8090/api/reports/day-close/artifacts/artifact-123'
+    );
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(headers.get('authorization')).toBe('Bearer pdf-access-token');
+    expect(headers.get('x-csrf-token')).toBe('test-csrf-token');
   });
 });

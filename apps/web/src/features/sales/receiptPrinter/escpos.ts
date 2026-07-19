@@ -80,7 +80,7 @@ export function createEscposReceiptDispatcher({
 /**
  * Dispatch a cash-drawer kick respecting the runtime authority mode.
  * Same routing decision as `createEscposReceiptDispatcher` but for
- * the manager-only drawer-kick action.
+ * the role-aware, one-time-approved drawer-kick action.
  */
 export async function dispatchDrawerKick({
   serverKick,

@@ -1,9 +1,17 @@
+import path from 'node:path';
+import { mkdir } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
-import {
-  attachClientIssueTracker,
-  expectNoClientIssues,
-  loginAs,
-} from './support/app';
+import { attachClientIssueTracker, expectNoClientIssues, loginAs } from './support/app';
+
+async function captureEvidence(page: import('@playwright/test').Page, name: string) {
+  const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
+  if (!auditDir) return;
+  await mkdir(auditDir, { recursive: true });
+  await page.screenshot({
+    animations: 'disabled',
+    path: path.join(auditDir, `${name}.png`),
+  });
+}
 
 const RESPONSIVE_VIEWPORTS = [
   { name: 'tablet', width: 768, height: 1024 },
@@ -25,12 +33,14 @@ test.describe('responsive workspace navigation (ENG-131d)', () => {
       });
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole('radiogroup', { name: 'Choose a workspace' })).toBeVisible();
-      await expect(dialog.getByRole('radio', { name: 'Sell' })).toHaveAttribute(
+      await expect(dialog.getByRole('radio', { name: 'Operate' })).toHaveAttribute(
         'aria-checked',
         'true'
       );
-      await expect(dialog.getByRole('link', { name: 'Sales' })).toBeVisible();
+      await expect(dialog.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+      await expect(dialog.getByRole('link', { name: 'Operations' })).toBeVisible();
       await expect(dialog.getByRole('link', { name: 'Products' })).toHaveCount(0);
+      await captureEvidence(page, `eng-131e-navigation-${viewport.name}-en`);
 
       await dialog.getByRole('radio', { name: 'Catalog' }).click();
       await expect(dialog.getByRole('radio', { name: 'Catalog' })).toHaveAttribute(
@@ -42,7 +52,9 @@ test.describe('responsive workspace navigation (ENG-131d)', () => {
 
       await dialog.getByRole('link', { name: 'Products' }).click();
       await expect(page).toHaveURL(/\/products$/);
-      await expect(page.getByRole('dialog', { name: 'Mobile workspace navigation' })).toHaveCount(0);
+      await expect(page.getByRole('dialog', { name: 'Mobile workspace navigation' })).toHaveCount(
+        0
+      );
 
       await opener.click();
       await expect(page.getByRole('radio', { name: 'Catalog' })).toHaveAttribute(
@@ -58,7 +70,9 @@ test.describe('responsive workspace navigation (ENG-131d)', () => {
         'true'
       );
       await page.keyboard.press('Escape');
-      await expect(page.getByRole('dialog', { name: 'Mobile workspace navigation' })).toHaveCount(0);
+      await expect(page.getByRole('dialog', { name: 'Mobile workspace navigation' })).toHaveCount(
+        0
+      );
       await expect(opener).toBeFocused();
 
       await expect(
@@ -83,6 +97,38 @@ test.describe('responsive workspace navigation (ENG-131d)', () => {
     await expect(dialog.getByRole('link', { name: 'Sales' })).toBeVisible();
     await expect(dialog.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
     await expect(dialog.getByText('Catalog', { exact: true })).toHaveCount(0);
+    await expectNoClientIssues(tracker);
+  });
+
+  test('admin sees Dashboard folded into Operate on Spanish desktop', async ({ page }) => {
+    const tracker = attachClientIssueTracker(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await loginAs(page, 'admin', { spanish: true });
+
+    const operate = page.getByTestId('sidebar-workspace-operate');
+    await expect(operate).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByTestId('sidebar-workspace-link-operate')).toContainText('Operar');
+    await expect(page.getByRole('link', { name: 'Panel' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Operaciones' })).toBeVisible();
+    await captureEvidence(page, 'eng-131e-navigation-desktop-es');
+    await expectNoClientIssues(tracker);
+  });
+
+  test('keeps existing child URLs canonical instead of redirecting them', async ({ page }) => {
+    const tracker = attachClientIssueTracker(page);
+    await loginAs(page, 'admin');
+
+    await page.goto('/products');
+    await expect(page).toHaveURL(/\/products$/);
+    await expect(
+      page.getByRole('main').getByRole('heading', { name: 'Products', exact: true })
+    ).toBeVisible();
+
+    await page.goto('/orders');
+    await expect(page).toHaveURL(/\/orders$/);
+    await expect(
+      page.getByRole('main').getByRole('heading', { name: 'Purchase Orders', exact: true })
+    ).toBeVisible();
     await expectNoClientIssues(tracker);
   });
 });

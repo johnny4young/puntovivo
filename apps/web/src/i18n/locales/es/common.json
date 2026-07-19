@@ -94,15 +94,76 @@
     "error": "Algo salió mal"
   },
   "changePassword": "Cambiar contraseña",
+  "switchCashier": "Cambiar cajero",
   "signOut": "Cerrar sesión",
   "user": "Usuario",
   "session": "sesión",
   "userMenu": {
-    "aria": "Abre el menú de usuario de {{name}}"
+    "aria": "Abre el menú de usuario de {{name}}",
+    "cashierPace": {
+      "preference": "Mostrar mi ritmo de cobro",
+      "on": "Activo",
+      "off": "Inactivo"
+    },
+    "timeClock": {
+      "title": "Control de turno",
+      "loading": "Consultando turno…",
+      "clockedIn": "Entrada registrada a las {{time}}",
+      "site": "Sede: {{site}}",
+      "noSite": "Selecciona una sede para registrar tu entrada.",
+      "clockIn": "Marcar entrada",
+      "clockOut": "Marcar salida",
+      "clockInSuccess": "Turno iniciado",
+      "clockOutSuccess": "Turno finalizado",
+      "errorTitle": "No se pudo actualizar el turno",
+      "breakLoading": "Consultando pausa…",
+      "breakStatusError": "No se pudo consultar la pausa. Intenta de nuevo antes de marcar la salida.",
+      "startBreak": "Iniciar pausa",
+      "endBreak": "Finalizar pausa",
+      "breakActive": "En pausa desde las {{time}}",
+      "clockOutBlocked": "Finaliza la pausa antes de marcar la salida.",
+      "cashSessionActive": "Cierra {{registerName}} antes de marcar la salida. Tu asistencia seguirá activa hasta entonces.",
+      "breakStartSuccess": "Pausa iniciada",
+      "breakEndSuccess": "Pausa finalizada",
+      "breakErrorTitle": "No se pudo actualizar la pausa"
+    },
+    "approvals": {
+      "title": "Aprobaciones",
+      "loading": "Consultando solicitudes…",
+      "empty": "No hay solicitudes pendientes.",
+      "errorTitle": "No se pudieron actualizar las aprobaciones",
+      "pinMissing": "Configura tu PIN de personal en Usuarios antes de decidir solicitudes.",
+      "freshPinHint": "Ingresa tu propio PIN en cada decisión. No se crea una sesión elevada.",
+      "checkoutSummary": "Solicitud exacta de cobro",
+      "requestedBy": "Solicitada por {{name}} · {{site}}",
+      "expiresAt": "Vence {{time}}",
+      "pinLabel": "Tu PIN de personal",
+      "pinPlaceholder": "6 dígitos",
+      "rejectionReasonLabel": "Motivo del rechazo",
+      "rejectionReasonPlaceholder": "Explica por qué no se puede continuar con la solicitud",
+      "approve": "Aprobar",
+      "reject": "Rechazar",
+      "confirmApprove": "Confirmar aprobación",
+      "confirmReject": "Confirmar rechazo",
+      "approvedSuccess": "Solicitud aprobada",
+      "partialSuccess": "Aprobación {{collected}} de {{required}} registrada",
+      "rejectedSuccess": "Solicitud rechazada",
+      "progress": "{{collected}} de {{required}} aprobaciones recibidas",
+      "actions": {
+        "credit_override": "Excepción de crédito",
+        "sale_void": "Anular venta",
+        "sale_discount": "Descuento de venta",
+        "sale_after_hours": "Cobro durante el horario bloqueado",
+        "cash_drawer_open": "Abrir cajón de efectivo",
+        "sale_refund": "Reembolso de venta",
+        "credit_sale": "Venta a crédito"
+      }
+    }
   },
   "loadingSites": "Cargando sedes...",
   "selectSite": "Seleccionar sede",
-  "quickSearch": "Búsqueda rápida de productos, clientes, recibos",
+  "quickSearch": "Buscar productos y acciones",
+  "quickSearchAria": "Abrir búsqueda global",
   "toolbar": {
     "toggleColumns": "Alternar columnas",
     "showAllColumns": "Mostrar todas las columnas",
@@ -254,6 +315,37 @@
   },
   "desktopOnly": {
     "label": "Solo escritorio"
+  },
+  "lossPreventionAlerts": {
+    "title": "Alertas de prevención de pérdidas",
+    "openAria": "Abre las alertas de prevención de pérdidas; pendientes de revisión: {{count}}",
+    "closeAria": "Cierra las alertas de prevención de pérdidas",
+    "siteScope": "Reglas activadas recientemente en la sede actual",
+    "loading": "Consultando alertas…",
+    "empty": "No hay alertas de prevención de pérdidas en esta sede.",
+    "errorTitle": "No se pudieron consultar las alertas de prevención de pérdidas",
+    "triggeredBy": "{{name}} · {{site}}",
+    "approvalProvided": "Se proporcionó la aprobación",
+    "approvalPending": "La acción quedó bloqueada hasta recibir aprobación",
+    "markReviewed": "Marcar como revisada",
+    "reviewedBy": "Revisada por {{name}} · {{time}}",
+    "reviewedSuccess": "Alerta marcada como revisada",
+    "unknownManager": "otro gerente",
+    "unknownOperator": "Persona no disponible",
+    "unknownSite": "Sede no disponible",
+    "kinds": {
+      "max_discount": "Se superó el descuento máximo",
+      "after_hours_sale": "Venta durante el horario bloqueado",
+      "shift_refund_limit": "Se superó el límite de reembolsos del turno",
+      "shift_void_limit": "Se superó el límite de anulaciones del turno",
+      "no_sale_limit": "Se superó el límite de aperturas sin venta",
+      "dual_approval_threshold": "Se superó el monto de doble aprobación"
+    },
+    "whatsapp": {
+      "action": "WhatsApp",
+      "aria": "Comparte {{rule}} por WhatsApp",
+      "message": "Alerta de prevención de pérdidas\\nRegla: {{rule}}\\nPersona: {{operator}}\\nSede: {{site}}\\nHora: {{time}}"
+    }
   },
   "form": {
     "selectPlaceholder": "Selecciona una opción..."

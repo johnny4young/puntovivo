@@ -219,13 +219,17 @@ export async function initDatabase(
         const journal = JSON.parse(
           readFileSync(resolve(effectiveMigrationsFolder, 'meta', '_journal.json'), 'utf8')
         ) as DrizzleJournal;
-        const appliedRow = sqlite
-          .prepare('SELECT COUNT(*) AS n FROM __drizzle_migrations')
-          .get() as { n?: number } | undefined;
-        const applied = appliedRow?.n ?? 0;
         const ordered = [...journal.entries].sort((a, b) => a.idx - b.idx);
+        // Adoption can seed sparse no-op markers for absent target tables.
+        // Drizzle advances from the newest created_at marker, so row count is
+        // not the logical migration position and can mislabel the failure.
+        const latestAppliedRow = sqlite
+          .prepare('SELECT MAX(created_at) AS createdAt FROM __drizzle_migrations')
+          .get() as { createdAt?: number | null } | undefined;
+        const latestAppliedAt = Number(latestAppliedRow?.createdAt ?? 0);
+        const applied = ordered.filter(entry => entry.when <= latestAppliedAt).length;
         progress = `${applied}/${ordered.length}`;
-        failedTag = ordered[applied]?.tag ?? 'unknown';
+        failedTag = ordered.find(entry => entry.when > latestAppliedAt)?.tag ?? 'unknown';
       } catch {
         // best-effort context only
       }

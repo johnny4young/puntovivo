@@ -14,7 +14,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { cashSessions } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 
-export async function getActiveCashSessionForCashier(
+export function getActiveCashSessionForCashier(
   db: DatabaseInstance,
   tenantId: string,
   siteId: string,

@@ -17,18 +17,24 @@
  */
 
 import { and, eq } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
-import { products } from '../../db/schema.js';
+import { inventoryMovements, products } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { assertTenantSite } from '../../services/devices/authority/helpers.js';
+import {
+  applyInventoryBalanceDelta,
+  getProductStockTotal,
+} from '../../services/inventory-balances.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import {
   listExpiringLots,
   listLotsForProduct,
   receiveInventoryLot,
 } from '../../services/inventory-lots/index.js';
+import { assertCatalogStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import {
   createExpirySuggestion,
   dismissSuggestion,
@@ -49,7 +55,11 @@ export const inventoryLotsRouter = router({
     await assertTenantSite(ctx.db, ctx.tenantId, input.siteId);
 
     const product = await ctx.db
-      .select({ id: products.id })
+      .select({
+        id: products.id,
+        tracksLots: products.tracksLots,
+        catalogType: products.catalogType,
+      })
       .from(products)
       .where(and(eq(products.id, input.productId), eq(products.tenantId, ctx.tenantId)))
       .get();
@@ -61,14 +71,27 @@ export const inventoryLotsRouter = router({
         details: { productId: input.productId },
       });
     }
-
+    assertCatalogStockMutationAllowed({
+      catalogType: product.catalogType,
+      delta: input.quantity,
+    });
+    if (!product.tracksLots) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'PRODUCT_LOT_TRACKING_REQUIRED',
+        message: 'Lot tracking must be enabled before receiving a lot',
+        details: { productId: input.productId },
+      });
+    }
     const now = new Date().toISOString();
+    const movementId = nanoid();
     // Wrap the read-then-write (select + update/insert) in a transaction so a
     // lot receipt is atomic — the function is designed to run inside the
     // caller's transaction, and this keeps the blended-cost read consistent
     // if the DB backend ever allows the select and write to interleave.
-    const result = ctx.db.transaction(tx =>
-      receiveInventoryLot(tx, {
+    const result = ctx.db.transaction(tx => {
+      const previousStock = getProductStockTotal(tx, ctx.tenantId, input.productId);
+      const lot = receiveInventoryLot(tx, {
         tenantId: ctx.tenantId,
         siteId: input.siteId,
         productId: input.productId,
@@ -78,8 +101,34 @@ export const inventoryLotsRouter = router({
         unitCost: input.unitCost,
         notes: input.notes ?? null,
         now,
-      })
-    );
+      });
+      applyInventoryBalanceDelta(tx, {
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        productId: input.productId,
+        delta: input.quantity,
+        initialOnHandIfMissing: 0,
+        now,
+      });
+      tx.insert(inventoryMovements)
+        .values({
+          id: movementId,
+          tenantId: ctx.tenantId,
+          productId: input.productId,
+          type: 'purchase',
+          quantity: input.quantity,
+          previousStock,
+          newStock: previousStock + input.quantity,
+          reference: lot.lotId,
+          notes: input.notes ?? `Lot receipt ${input.lotNumber}`,
+          createdBy: ctx.user!.id,
+          syncStatus: 'pending',
+          syncVersion: 1,
+          createdAt: now,
+        })
+        .run();
+      return lot;
+    });
 
     await enqueueSync(ctx, {
       entityType: 'inventory_lots',
@@ -92,6 +141,17 @@ export const inventoryLotsRouter = router({
         lotNumber: input.lotNumber,
         onHand: result.onHand,
         unitCost: result.unitCost,
+      },
+    });
+    await enqueueSync(ctx, {
+      entityType: 'inventory_movements',
+      entityId: movementId,
+      operation: 'create',
+      data: {
+        id: movementId,
+        productId: input.productId,
+        lotId: result.lotId,
+        quantity: input.quantity,
       },
     });
 

@@ -8,8 +8,8 @@
  * - sales.getById    (tenant) - Get a single sale with items
  * - sales.create     (tenant) - Create sale + items + inventory movements (transaction)
  * - sales.update     (tenant, manager/admin) - Update payment method/status/notes
- * - sales.returnSale (tenant, manager/admin) - Refund a completed sale and restore stock
- * - sales.void       (tenant, admin) - Void a sale
+ * - sales.returnSale (sales role; cashier grant) - Refund and restore stock
+ * - sales.void       (sales role; manager/cashier grant) - Void a sale
  *
  * ENG-178 — this barrel preserves the public surface of the former flat
  * `trpc/routers/sales.ts` (1479 LOC), decomposed into per-concern procedure

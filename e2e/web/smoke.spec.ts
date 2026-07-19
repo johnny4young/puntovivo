@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import {
   attachClientIssueTracker,
@@ -23,6 +24,11 @@ const adminRoutes = [
       }),
   },
   {
+    label: 'Team schedule',
+    path: '/schedule',
+    assertion: async (page) => page.getByTestId('team-schedule-page'),
+  },
+  {
     label: 'Inventory',
     path: '/inventory',
     assertion: async (page) => page.getByRole('button', { name: /Movements|By Site|Por sede/i }).first(),
@@ -42,6 +48,12 @@ const adminRoutes = [
       page.getByRole('heading', {
         name: /Ready to open|Listo para abrir|Setup readiness|Configuración inicial/i,
       }),
+  },
+  {
+    label: 'Import data',
+    path: '/data-import',
+    assertion: async (page) =>
+      page.getByRole('main').getByRole('heading', { level: 1, name: /Import data|Importar datos/i }),
   },
   { label: 'Sites', path: '/sites', assertion: async (page) => page.getByRole('button', { name: /Add Site|Agregar sede/i }) },
   {
@@ -63,6 +75,7 @@ const adminRoutes = [
 
 const routeWorkspaceLabels = new Map<string, string>([
   ['Sales', 'Sell'],
+  ['Team schedule', 'Operate'],
   ['Inventory', 'Inventory'],
   ['Orders', 'Procurement'],
   ['Purchases', 'Procurement'],
@@ -78,13 +91,14 @@ const routeWorkspaceLabels = new Map<string, string>([
   ['VAT Rates', 'Catalog'],
   ['Audit log', 'Finance'],
   ['Company', 'Setup'],
+  ['Import data', 'Setup'],
   ['Sites', 'Setup'],
   ['Sequentials', 'Setup'],
   ['Users', 'Setup'],
 ]);
 
 async function revealSidebarLink(page: Page, label: string, workspaceLabel?: string) {
-  const link = page.getByRole('link', { name: label });
+  const link = page.getByRole('link', { name: label, exact: true });
   if ((await link.count()) === 0 && workspaceLabel) {
     const escapedLabel = workspaceLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     await page
@@ -146,7 +160,18 @@ test.describe('web smoke', () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Company' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Import data' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /Team schedule|Horario del equipo/i })
+    ).toBeVisible();
+    await page.goto('/day-close');
+    await expect(page.getByTestId('day-close-report-page')).toBeVisible();
+    await page.goto('/schedule');
+    await expect(page.getByTestId('team-schedule-page')).toBeVisible();
     await page.goto('/company');
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await page.goto('/data-import');
     await expect(page).toHaveURL(/\/dashboard$/);
 
     // AUDIT-09: /audit-logs is guarded by `adminOnlyRoles`. A manager
@@ -159,13 +184,133 @@ test.describe('web smoke', () => {
     await expectNoClientIssues(tracker);
   });
 
+  test('manager publishes, edits, cancels, and reloads a team schedule', async ({ page }) => {
+    const tracker = attachClientIssueTracker(page);
+    await loginAs(page, 'manager');
+    await page.goto('/schedule');
+    await expect(page.getByTestId('team-schedule-page')).toBeVisible();
+
+    const activeShiftCard = page
+      .locator('[data-testid^="scheduled-shift-"]')
+      .filter({ hasText: 'E2E Cashier' })
+      .filter({ hasNotText: /Cancelled|Cancelado/i })
+      .first();
+
+    // A retry can inherit the row published by its first attempt. Reuse the
+    // active shift instead of colliding with the database overlap invariant.
+    if (!(await activeShiftCard.isVisible())) {
+      await page
+        .getByRole('button', { name: /Add shift|Agregar turno/i })
+        .first()
+        .click();
+      const createDialog = page.getByRole('dialog');
+      const employeeSelect = createDialog.getByLabel(/Employee|Empleado/i);
+      const cashierOptionValue = await employeeSelect
+        .locator('option', { hasText: /^E2E Cashier · / })
+        .first()
+        .getAttribute('value');
+      expect(cashierOptionValue).not.toBeNull();
+      await employeeSelect.selectOption(cashierOptionValue!);
+      await createDialog.getByLabel(/Start time|Hora de inicio/i).fill('06:30');
+      await createDialog.getByLabel(/End time|Hora de fin/i).fill('14:30');
+      await createDialog.getByLabel(/Notes|Notas/i).fill('E2E opening coverage');
+      await createDialog.getByRole('button', { name: /Save shift|Guardar turno/i }).click();
+    }
+
+    await expect(activeShiftCard).toContainText(/E2E (opening|updated) coverage/);
+    await activeShiftCard
+      .getByRole('button', { name: /Edit E2E Cashier|Editar turno de E2E Cashier/i })
+      .click();
+    const editDialog = page.getByRole('dialog');
+    await editDialog.getByLabel(/End time|Hora de fin/i).fill('15:00');
+    await editDialog.getByLabel(/Notes|Notas/i).fill('E2E updated coverage');
+    await editDialog.getByRole('button', { name: /Save shift|Guardar turno/i }).click();
+    await expect(activeShiftCard).toContainText('E2E updated coverage');
+
+    await activeShiftCard
+      .getByRole('button', { name: /Cancel E2E Cashier|Cancelar turno de E2E Cashier/i })
+      .click();
+    const cancelDialog = page.getByRole('dialog');
+    await cancelDialog.getByRole('button', { name: /Cancel shift|Cancelar turno/i }).click();
+    await expect(activeShiftCard).toHaveCount(0);
+
+    await page.getByLabel(/Show cancelled shifts|Mostrar turnos cancelados/i).check();
+    const cancelledShiftCard = page
+      .locator('[data-testid^="scheduled-shift-"]')
+      .filter({ hasText: 'E2E updated coverage' })
+      .first();
+    await expect(cancelledShiftCard).toContainText(/Cancelled|Cancelado/i);
+    await page.reload();
+    await page.getByLabel(/Show cancelled shifts|Mostrar turnos cancelados/i).check();
+    await expect(cancelledShiftCard).toContainText(/Cancelled|Cancelado/i);
+
+    await expectNoClientIssues(tracker);
+  });
+
+  test('manager signs and reloads immutable day-close evidence', async ({ page }) => {
+    const tracker = attachClientIssueTracker(page);
+    await loginAs(page, 'manager');
+    await page.goto('/day-close');
+
+    const dateInput = page.getByLabel(/^(Business day|Día comercial)$/i);
+    const evidence = page.getByTestId('day-close-signed-evidence');
+    const unsignedCard = page.getByTestId('day-close-signoff-card');
+    await dateInput.fill('2000-01-01');
+    await expect(unsignedCard.or(evidence)).toBeVisible();
+
+    // A retry can inherit evidence written by the first attempt. Keep the
+    // smoke idempotent while the clean first attempt still exercises the
+    // complete irreversible confirmation path.
+    if (await unsignedCard.isVisible()) {
+      await expect(page.getByTestId('day-close-readiness')).toContainText(
+        /ready for manager review|listo para revisión/i
+      );
+      await page.getByRole('checkbox', { name: /I reviewed|Revisé/i }).check();
+      await page.getByRole('button', { name: /Sign day close|Firmar cierre/i }).click();
+      await expect(page.getByRole('dialog')).toContainText(/irreversible/i);
+      await page.getByRole('button', { name: /Sign and freeze|Firmar y proteger/i }).click();
+    }
+
+    await expect(evidence).toContainText(/E2E Manager/);
+    await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
+    await expect(page.getByRole('checkbox')).toHaveCount(0);
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByTestId('day-close-pdf-download').click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(
+      /^puntovivo-cierre-2000-01-01-[a-f0-9]{8}\.pdf$/
+    );
+    const downloadPath = await download.path();
+    expect(downloadPath).not.toBeNull();
+    const pdf = await readFile(downloadPath!);
+    expect(pdf.subarray(0, 8).toString()).toBe('%PDF-1.3');
+    expect(pdf.subarray(-5).toString()).toBe('%%EOF');
+
+    await page.reload();
+    await dateInput.fill('2000-01-01');
+    await expect(evidence).toContainText(/E2E Manager/);
+    await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
+    await expect(page.getByTestId('day-close-pdf-download')).toBeEnabled();
+    await expect(page.getByRole('checkbox')).toHaveCount(0);
+
+    await expectNoClientIssues(tracker);
+  });
+
   test('cashier route gating matches role rules', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
 
     await loginAs(page, 'cashier');
     await expect(page).toHaveURL(/\/sales$/);
-    await expect(page.getByRole('link', { name: 'Sales' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sales', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Inventory' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Team schedule|Horario del equipo/i })).toHaveCount(
+      0
+    );
+    await page.goto('/day-close');
+    await expect(page).toHaveURL(/\/sales$/);
+    await page.goto('/schedule');
+    await expect(page).toHaveURL(/\/sales$/);
     await page.goto('/dashboard');
     await expect(page).toHaveURL(/\/sales$/);
 
@@ -179,6 +324,14 @@ test.describe('web smoke', () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Sales' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Team schedule|Horario del equipo/i })).toHaveCount(
+      0
+    );
+    await page.goto('/day-close');
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await page.goto('/schedule');
+    await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto('/sales');
     await expect(page).toHaveURL(/\/dashboard$/);
 

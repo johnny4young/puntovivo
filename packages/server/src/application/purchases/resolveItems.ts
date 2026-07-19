@@ -24,6 +24,11 @@ import {
 import { roundMoney } from '../../lib/money.js';
 import type { CreatePurchaseInput } from '../../trpc/schemas/purchases.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
+import { normalizeSerialReceiptNumbers } from '../../services/product-serials.js';
+import {
+  assertAggregateStockMutationAllowed,
+  assertCatalogStockMutationAllowed,
+} from '../../services/products/lot-tracking.js';
 import { getNormalizedPurchaseQuantity } from './helpers.js';
 import type {
   ResolvedOrderReceiptItem,
@@ -83,6 +88,24 @@ export async function resolvePurchaseItems(
     }
 
     const normalizedQuantity = getNormalizedPurchaseQuantity(item.quantity, assignment.equivalence);
+    const serialNumbers = normalizeSerialReceiptNumbers({
+      tracksSerials: product.tracksSerials,
+      normalizedQuantity,
+      serialNumbers: item.serialNumbers,
+    });
+    if (product.tracksSerials) {
+      assertCatalogStockMutationAllowed({
+        catalogType: product.catalogType,
+        delta: normalizedQuantity,
+      });
+    } else {
+      assertAggregateStockMutationAllowed({
+        tracksLots: product.tracksLots,
+        tracksSerials: false,
+        catalogType: product.catalogType,
+        delta: normalizedQuantity,
+      });
+    }
     const costPerUnit = roundMoney(item.costPerUnit);
     const baseUnitCost = roundMoney(costPerUnit / assignment.equivalence);
     const total = roundMoney(costPerUnit * item.quantity);
@@ -98,6 +121,8 @@ export async function resolvePurchaseItems(
       baseUnitCost,
       total,
       normalizedQuantity,
+      tracksSerials: product.tracksSerials,
+      serialNumbers,
     });
   }
 
@@ -112,7 +137,7 @@ export async function resolvePurchaseReturnItems(
   db: DatabaseInstance,
   tenantId: string,
   purchaseId: string,
-  inputItems: Array<{ purchaseItemId: string; quantity: number }>
+  inputItems: Array<{ purchaseItemId: string; quantity: number; serialIds?: string[] | undefined }>
 ) {
   const purchaseItemIds = [...new Set(inputItems.map(item => item.purchaseItemId))];
 
@@ -129,6 +154,9 @@ export async function resolvePurchaseReturnItems(
       purchaseId: purchaseItems.purchaseId,
       productId: purchaseItems.productId,
       productName: products.name,
+      tracksLots: products.tracksLots,
+      tracksSerials: products.tracksSerials,
+      catalogType: products.catalogType,
       quantity: purchaseItems.quantity,
       unitId: purchaseItems.unitId,
       unitEquivalence: purchaseItems.unitEquivalence,
@@ -199,6 +227,36 @@ export async function resolvePurchaseReturnItems(
       inputItem.quantity,
       purchaseItem.unitEquivalence
     );
+    const serialIds = inputItem.serialIds ?? [];
+    if (purchaseItem.tracksSerials) {
+      assertCatalogStockMutationAllowed({
+        catalogType: purchaseItem.catalogType,
+        delta: -normalizedQuantity,
+      });
+      if (
+        !Number.isInteger(normalizedQuantity) ||
+        serialIds.length !== normalizedQuantity ||
+        new Set(serialIds).size !== serialIds.length
+      ) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Select exactly one unique serial number per returned serialized unit',
+        });
+      }
+    } else {
+      if (serialIds.length > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Serial identities can only be returned for serialized products',
+        });
+      }
+      assertAggregateStockMutationAllowed({
+        tracksLots: purchaseItem.tracksLots,
+        tracksSerials: false,
+        catalogType: purchaseItem.catalogType,
+        delta: -normalizedQuantity,
+      });
+    }
     const costPerUnit = roundMoney(purchaseItem.costPerUnit);
     const baseUnitCost = roundMoney(purchaseItem.baseUnitCost);
     const total = roundMoney(inputItem.quantity * costPerUnit);
@@ -215,6 +273,8 @@ export async function resolvePurchaseReturnItems(
       baseUnitCost,
       total,
       normalizedQuantity,
+      tracksSerials: purchaseItem.tracksSerials,
+      serialIds,
     });
     returnAmount = roundMoney(returnAmount + total);
     returnedQuantityMap.set(inputItem.purchaseItemId, nextReturnedQuantity);
@@ -237,7 +297,11 @@ export async function resolveOrderReceiptItems(
   db: DatabaseInstance,
   tenantId: string,
   orderId: string,
-  inputItems?: Array<{ orderItemId: string; quantity: number }>
+  inputItems?: Array<{
+    orderItemId: string;
+    quantity: number;
+    serialNumbers?: string[] | undefined;
+  }>
 ) {
   const orderLineItems = await db
     .select({
@@ -245,6 +309,9 @@ export async function resolveOrderReceiptItems(
       orderId: orderItems.orderId,
       productId: orderItems.productId,
       productName: products.name,
+      tracksLots: products.tracksLots,
+      tracksSerials: products.tracksSerials,
+      catalogType: products.catalogType,
       quantity: orderItems.quantity,
       unitId: orderItems.unitId,
       unitEquivalence: orderItems.unitEquivalence,
@@ -288,7 +355,11 @@ export async function resolveOrderReceiptItems(
       .map(item => [item.sourceOrderItemId as string, item.receivedQuantity ?? 0])
   );
 
-  const normalizedInputItems =
+  const normalizedInputItems: Array<{
+    orderItemId: string;
+    quantity: number;
+    serialNumbers?: string[] | undefined;
+  }> =
     inputItems && inputItems.length > 0
       ? inputItems
       : orderLineItems
@@ -352,6 +423,24 @@ export async function resolveOrderReceiptItems(
       inputItem.quantity,
       orderLine.unitEquivalence
     );
+    const serialNumbers = normalizeSerialReceiptNumbers({
+      tracksSerials: orderLine.tracksSerials,
+      normalizedQuantity,
+      serialNumbers: inputItem.serialNumbers,
+    });
+    if (orderLine.tracksSerials) {
+      assertCatalogStockMutationAllowed({
+        catalogType: orderLine.catalogType,
+        delta: normalizedQuantity,
+      });
+    } else {
+      assertAggregateStockMutationAllowed({
+        tracksLots: orderLine.tracksLots,
+        tracksSerials: false,
+        catalogType: orderLine.catalogType,
+        delta: normalizedQuantity,
+      });
+    }
     const costPerUnit = roundMoney(orderLine.costPerUnit);
     const baseUnitCost = roundMoney(orderLine.baseUnitCost);
     const total = roundMoney(inputItem.quantity * costPerUnit);
@@ -368,6 +457,8 @@ export async function resolveOrderReceiptItems(
       baseUnitCost,
       total,
       normalizedQuantity,
+      tracksSerials: orderLine.tracksSerials,
+      serialNumbers,
     });
 
     receivedQuantityMap.set(orderLine.id, alreadyReceivedQuantity + inputItem.quantity);

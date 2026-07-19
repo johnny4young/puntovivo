@@ -1,4 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { BackupProtectionStatus } from '../main/backup-protection.js';
+import type {
+  BackupCloudVaultConfigInput,
+  BackupCloudVaultErrorCode,
+  BackupCloudVaultStatus,
+} from '../main/backup/cloud-vault.js';
+import type { BackupRestoreDrillReport } from '../main/backup/restore-drill.js';
+import type { BackupScheduleFrequency, BackupScheduleStatus } from '../main/backup/scheduler.js';
 
 // Type definitions for exposed API
 export interface ElectronAPI {
@@ -11,6 +19,11 @@ export interface ElectronAPI {
     installMode: 'auto' | 'manual';
     currentVersion: string;
     lastCheckedAt: string | null;
+    lastUpdatedAt: string | null;
+    rolloutMode: 'normal' | 'rollback' | null;
+    rolloutPercentage: 10 | 50 | 100 | null;
+    rolloutTargetVersion: string | null;
+    rolloutPolicyCheckedAt: string | null;
     releaseName: string | null;
     releaseNotes: string | null;
     releaseDate: string | null;
@@ -24,6 +37,11 @@ export interface ElectronAPI {
     installMode: 'auto' | 'manual';
     currentVersion: string;
     lastCheckedAt: string | null;
+    lastUpdatedAt: string | null;
+    rolloutMode: 'normal' | 'rollback' | null;
+    rolloutPercentage: 10 | 50 | 100 | null;
+    rolloutTargetVersion: string | null;
+    rolloutPolicyCheckedAt: string | null;
     releaseName: string | null;
     releaseNotes: string | null;
     releaseDate: string | null;
@@ -39,10 +57,7 @@ export interface ElectronAPI {
     enabled: boolean;
     closeToTray: boolean;
   }>;
-  updateTraySettings: (settings: {
-    enabled: boolean;
-    closeToTray: boolean;
-  }) => Promise<{
+  updateTraySettings: (settings: { enabled: boolean; closeToTray: boolean }) => Promise<{
     enabled: boolean;
     closeToTray: boolean;
   }>;
@@ -54,10 +69,7 @@ export interface ElectronAPI {
     silent: boolean;
     printBackground: boolean;
   }>;
-  updateReceiptPrintSettings: (settings: {
-    silent: boolean;
-    printBackground: boolean;
-  }) => Promise<{
+  updateReceiptPrintSettings: (settings: { silent: boolean; printBackground: boolean }) => Promise<{
     silent: boolean;
     printBackground: boolean;
   }>;
@@ -113,6 +125,63 @@ export interface ElectronAPI {
     success: boolean;
     key?: string;
     error?: string;
+  }>;
+  /** ENG-129e — admin-only protection metadata; never includes the key. */
+  getBackupProtectionStatus: () => Promise<{
+    success: boolean;
+    status?: BackupProtectionStatus;
+    error?: string;
+  }>;
+  /** ENG-136a — device-local encrypted snapshot schedule. */
+  getBackupScheduleStatus: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  updateBackupSchedule: (input: {
+    frequency: BackupScheduleFrequency;
+    destinationMode?: 'managed';
+  }) => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  chooseBackupScheduleDestination: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    cancelled?: boolean;
+    error?: string;
+  }>;
+  runBackupSnapshotNow: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  /** ENG-136b — admin-only, non-destructive restore readiness drill. */
+  runBackupRestoreDrill: () => Promise<
+    | { success: true; report: BackupRestoreDrillReport }
+    | { success: false; error: 'snapshot_unavailable' | 'drill_failed' }
+  >;
+  /** ENG-136c — admin-only S3-compatible backup vault; secrets are write-only. */
+  getBackupCloudVaultStatus: () => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
+  }>;
+  configureBackupCloudVault: (input: BackupCloudVaultConfigInput) => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
+  }>;
+  disconnectBackupCloudVault: () => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
+  }>;
+  testBackupCloudVault: () => Promise<{
+    success: boolean;
+    status?: BackupCloudVaultStatus;
+    error?: BackupCloudVaultErrorCode;
   }>;
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
@@ -249,8 +318,7 @@ const deviceAPI: DeviceAPI = {
 // `ipcMain.on('runtime:get-config', e => e.returnValue = config)`,
 // resolved once at boot and cached.
 const runtimeAPI: RuntimeAPI = {
-  getConfigSync: () =>
-    ipcRenderer.sendSync('runtime:get-config') as RendererRuntimeConfig,
+  getConfigSync: () => ipcRenderer.sendSync('runtime:get-config') as RendererRuntimeConfig,
 };
 
 // ENG-074b — Hub-client local hardware bridge API. Async IPC; the
@@ -259,8 +327,7 @@ const runtimeAPI: RuntimeAPI = {
 // {success, error?, errorCode?} so the renderer can surface a
 // translatable toast on failure.
 const peripheralsAPI: PeripheralsAPI = {
-  dispatchLocalEscpos: payload =>
-    ipcRenderer.invoke('peripherals:dispatch-local-escpos', payload),
+  dispatchLocalEscpos: payload => ipcRenderer.invoke('peripherals:dispatch-local-escpos', payload),
 };
 
 // Custom APIs for renderer
@@ -280,10 +347,19 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke('update-receipt-print-settings', settings),
   createDatabaseBackup: () => ipcRenderer.invoke('create-database-backup'),
   restoreDatabaseBackup: () => ipcRenderer.invoke('restore-database-backup'),
-  provideRestoreKey: (token, keyHex) =>
-    ipcRenderer.invoke('provide-restore-key', token, keyHex),
+  provideRestoreKey: (token, keyHex) => ipcRenderer.invoke('provide-restore-key', token, keyHex),
   cancelRestoreStaging: token => ipcRenderer.invoke('cancel-restore-staging', token),
   getBackupEncryptionKey: () => ipcRenderer.invoke('get-backup-encryption-key'),
+  getBackupProtectionStatus: () => ipcRenderer.invoke('get-backup-protection-status'),
+  getBackupScheduleStatus: () => ipcRenderer.invoke('get-backup-schedule-status'),
+  updateBackupSchedule: input => ipcRenderer.invoke('update-backup-schedule', input),
+  chooseBackupScheduleDestination: () => ipcRenderer.invoke('choose-backup-schedule-destination'),
+  runBackupSnapshotNow: () => ipcRenderer.invoke('run-backup-snapshot-now'),
+  runBackupRestoreDrill: () => ipcRenderer.invoke('run-backup-restore-drill'),
+  getBackupCloudVaultStatus: () => ipcRenderer.invoke('get-backup-cloud-vault-status'),
+  configureBackupCloudVault: input => ipcRenderer.invoke('configure-backup-cloud-vault', input),
+  disconnectBackupCloudVault: () => ipcRenderer.invoke('disconnect-backup-cloud-vault'),
+  testBackupCloudVault: () => ipcRenderer.invoke('test-backup-cloud-vault'),
   printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),
   updateMainLocale: (locale: string) => ipcRenderer.invoke('update-main-locale', locale),
   device: deviceAPI,

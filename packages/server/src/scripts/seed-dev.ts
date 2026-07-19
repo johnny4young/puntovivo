@@ -25,9 +25,8 @@ import {
   DEV_USER_PASSWORD,
   seedDevData,
 } from '../db/seed-dev.js';
+import { resetTenantBySlug } from '../db/tenant-reset.js';
 import { createModuleLogger } from '../logging/logger.js';
-import { tenants } from '../db/schema.js';
-import { eq, sql } from 'drizzle-orm';
 
 const log = createModuleLogger('seed-dev-cli');
 
@@ -178,98 +177,8 @@ function printHelp(): void {
 }
 
 async function resetDemoTenant(db: Awaited<ReturnType<typeof initDatabase>>): Promise<void> {
-  // Delete in FK-safe order for the demo tenant. Cascades on
-  // unit_x_product / product_x_provider / sale_items / sale_payments
-  // do most of the heavy lifting; we touch only the parent tables here
-  // and rely on ON DELETE CASCADE where declared. For tables without
-  // cascade we issue explicit deletes scoped by tenant_id.
-  const existingTenant = await db
-    .select({ id: tenants.id })
-    .from(tenants)
-    .where(eq(tenants.slug, DEV_TENANT_SLUG))
-    .get();
-  if (!existingTenant) {
-    return;
-  }
-  const tenantId = existingTenant.id;
-
-  const tables = [
-    'audit_logs',
-    'ai_anomaly_snoozes',
-    'ai_audit_log',
-    'operation_errors',
-    'operation_effects',
-    'operation_events',
-    'outbox_metadata',
-    'hardware_outbox',
-    'site_peripherals',
-    'fiscal_outbox',
-    'fiscal_cafs',
-    'tenant_locale_settings',
-    'idempotency_keys',
-    'devices',
-    'fiscal_document_items',
-    'fiscal_documents',
-    'fiscal_numbering_resolutions',
-    'fiscal_certificates',
-    'receipt_templates',
-    'sync_conflicts',
-    'sync_outbox',
-    'quotation_items',
-    'quotations',
-    'sale_payments',
-    'sale_items',
-    'sale_returns',
-    'sales',
-    'cash_movements',
-    'cash_sessions',
-    'denomination_templates',
-    'purchase_return_items',
-    'purchase_returns',
-    'purchase_items',
-    'purchases',
-    'order_items',
-    'orders',
-    'transfer_order_items',
-    'transfer_orders',
-    'inventory_movements',
-    'initial_inventory',
-    'inventory_balances',
-    'unit_x_product',
-    'product_x_provider',
-    'category_x_provider',
-    'location_x_site',
-    'products',
-    'sequentials',
-    'customers',
-    'providers',
-    'categories',
-    'vat_rates',
-    'units',
-    'locations',
-    'cities',
-    'departments',
-    'countries',
-    'identification_types',
-    'person_types',
-    'regime_types',
-    'client_types',
-    'commercial_activities',
-    'users',
-    'sites',
-    'companies',
-    'logos',
-  ];
-  for (const table of tables) {
-    try {
-      await db.run(sql.raw(`DELETE FROM "${table}" WHERE tenant_id = '${tenantId}'`));
-    } catch (error) {
-      // Some tables may not have tenant_id (e.g. pure join tables with cascades).
-      log.debug({ table, err: error }, 'reset: skipping table without tenant scope');
-    }
-  }
-  await db.delete(tenants).where(eq(tenants.id, tenantId)).run();
-  log.info({ tenantId }, 'demo tenant wiped');
+  const tenantId = await resetTenantBySlug(db, DEV_TENANT_SLUG);
+  if (tenantId) log.info({ tenantId }, 'demo tenant wiped');
 }
 
 async function main(): Promise<void> {

@@ -10,6 +10,8 @@ import {
   categories,
   inventoryBalances,
   providers,
+  productSerials,
+  productSerialTransfers,
   sites,
   transferOrderItems,
   transferOrders,
@@ -110,9 +112,9 @@ describe('Transfers tRPC Router', () => {
     if (!seededVatRate) throw new Error('Expected seeded VAT rate');
     vatRateId = seededVatRate.id;
 
-    const baseUnit = (
-      await db.select().from(units).where(eq(units.tenantId, tenantId)).all()
-    ).find(unit => unit.abbreviation === 'UND');
+    const baseUnit = (await db.select().from(units).where(eq(units.tenantId, tenantId)).all()).find(
+      unit => unit.abbreviation === 'UND'
+    );
     if (!baseUnit) throw new Error('Expected seeded base unit');
     baseUnitId = baseUnit.id;
 
@@ -164,6 +166,7 @@ describe('Transfers tRPC Router', () => {
     sku: string;
     barcode: string;
     stock: number;
+    tracksSerials?: boolean;
   }) {
     const caller = appRouter.createCaller(createTestContext());
     return caller.products.create({
@@ -190,6 +193,7 @@ describe('Transfers tRPC Router', () => {
       taxRate: 0,
       stock: overrides.stock,
       minStock: 0,
+      tracksSerials: overrides.tracksSerials ?? false,
       isActive: true,
       unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 10, isBase: true }],
     });
@@ -325,11 +329,7 @@ describe('Transfers tRPC Router', () => {
     const caller = appRouter.createCaller(createTestContext());
     const db = getDatabase();
     const countBefore = (
-      await db
-        .select()
-        .from(transferOrders)
-        .where(eq(transferOrders.tenantId, tenantId))
-        .all()
+      await db.select().from(transferOrders).where(eq(transferOrders.tenantId, tenantId)).all()
     ).length;
 
     try {
@@ -421,9 +421,7 @@ describe('Transfers tRPC Router', () => {
       const primaryAfterTransfer = await caller.inventory.listBalancesBySite({
         siteId: primarySiteId,
       });
-      expect(
-        primaryAfterTransfer.items.find(item => item.productId === widget.id)?.onHand
-      ).toBe(9);
+      expect(primaryAfterTransfer.items.find(item => item.productId === widget.id)?.onHand).toBe(9);
 
       const voided = await caller.transfers.void({
         transferId: created.id,
@@ -436,16 +434,12 @@ describe('Transfers tRPC Router', () => {
       const primaryAfterVoid = await caller.inventory.listBalancesBySite({
         siteId: primarySiteId,
       });
-      expect(
-        primaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand
-      ).toBe(15);
+      expect(primaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand).toBe(15);
 
       const secondaryAfterVoid = await caller.inventory.listBalancesBySite({
         siteId: secondarySiteId,
       });
-      expect(
-        secondaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand
-      ).toBe(0);
+      expect(secondaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand).toBe(0);
 
       const list = await caller.transfers.list();
       const entry = list.items.find(item => item.id === created.id);
@@ -566,16 +560,12 @@ describe('Transfers tRPC Router', () => {
       const primaryAfterVoid = await caller.inventory.listBalancesBySite({
         siteId: primarySiteId,
       });
-      expect(
-        primaryAfterVoid.items.find(item => item.productId === reel.id)?.onHand
-      ).toBe(5);
+      expect(primaryAfterVoid.items.find(item => item.productId === reel.id)?.onHand).toBe(5);
 
       const secondaryAfterVoid = await caller.inventory.listBalancesBySite({
         siteId: secondarySiteId,
       });
-      expect(
-        secondaryAfterVoid.items.find(item => item.productId === reel.id)?.onHand
-      ).toBe(0);
+      expect(secondaryAfterVoid.items.find(item => item.productId === reel.id)?.onHand).toBe(0);
     });
 
     it('preserves existing notes when voiding and appends the void reason', async () => {
@@ -631,9 +621,7 @@ describe('Transfers tRPC Router', () => {
       const primaryAfterCreate = await caller.inventory.listBalancesBySite({
         siteId: primarySiteId,
       });
-      expect(
-        primaryAfterCreate.items.find(item => item.productId === cable.id)?.onHand
-      ).toBe(7);
+      expect(primaryAfterCreate.items.find(item => item.productId === cable.id)?.onHand).toBe(7);
 
       // Destination NOT credited until receive.
       const secondaryAfterCreate = await caller.inventory.listBalancesBySite({
@@ -650,9 +638,7 @@ describe('Transfers tRPC Router', () => {
       const secondaryAfterReceive = await caller.inventory.listBalancesBySite({
         siteId: secondarySiteId,
       });
-      expect(
-        secondaryAfterReceive.items.find(item => item.productId === cable.id)?.onHand
-      ).toBe(3);
+      expect(secondaryAfterReceive.items.find(item => item.productId === cable.id)?.onHand).toBe(3);
 
       const list = await caller.transfers.list();
       const entry = list.items.find(item => item.id === created.id);
@@ -715,9 +701,7 @@ describe('Transfers tRPC Router', () => {
       const primaryAfterCreate = await caller.inventory.listBalancesBySite({
         siteId: primarySiteId,
       });
-      expect(
-        primaryAfterCreate.items.find(item => item.productId === widget.id)?.onHand
-      ).toBe(12);
+      expect(primaryAfterCreate.items.find(item => item.productId === widget.id)?.onHand).toBe(12);
 
       await caller.transfers.void({
         transferId: created.id,
@@ -728,17 +712,15 @@ describe('Transfers tRPC Router', () => {
       const primaryAfterVoid = await caller.inventory.listBalancesBySite({
         siteId: primarySiteId,
       });
-      expect(
-        primaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand
-      ).toBe(20);
+      expect(primaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand).toBe(20);
 
       // Destination never had a row (no credit yet), remains zero.
       const secondaryAfterVoid = await caller.inventory.listBalancesBySite({
         siteId: secondarySiteId,
       });
-      expect(
-        secondaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand ?? 0
-      ).toBe(0);
+      expect(secondaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand ?? 0).toBe(
+        0
+      );
 
       const list = await caller.transfers.list();
       expect(list.items.find(item => item.id === created.id)?.status).toBe('void');
@@ -1158,6 +1140,160 @@ describe('Transfers tRPC Router', () => {
 
       const stockTotal = getProductStockTotal(db, tenantId, pipe.id);
       expect(stockTotal).toBe(10);
+    });
+  });
+
+  describe('ENG-110d serialized transfers', () => {
+    it('moves exact identities immediately and preserves immutable transfer provenance', async () => {
+      const db = getDatabase();
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await createProduct({
+        name: 'Serialized Router',
+        sku: `SER-TR-${nanoid()}`,
+        barcode: `SER-TR-${nanoid()}`,
+        stock: 0,
+        tracksSerials: true,
+      });
+      const receipt = await caller.productSerials.receive({
+        siteId: primarySiteId,
+        productId: product.id,
+        serialNumbers: ['RTR-001', 'RTR-002', 'RTR-003'],
+        unitCost: 25,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [
+          {
+            productId: product.id,
+            quantity: 2,
+            serialIds: [receipt.items[0]!.id, receipt.items[2]!.id],
+          },
+        ],
+      });
+
+      const units = await db
+        .select()
+        .from(productSerials)
+        .where(eq(productSerials.productId, product.id))
+        .all();
+      expect(
+        units.filter(unit => unit.currentSiteId === secondarySiteId).map(unit => unit.serialNumber)
+      ).toEqual(['RTR-001', 'RTR-003']);
+      expect(units.find(unit => unit.serialNumber === 'RTR-002')?.currentSiteId).toBe(
+        primarySiteId
+      );
+
+      const detail = await caller.transfers.getById({ id: created.id });
+      expect(detail.items[0]?.serials.map(serial => serial.serialNumber)).toEqual([
+        'RTR-001',
+        'RTR-003',
+      ]);
+      expect(
+        await db
+          .select()
+          .from(productSerialTransfers)
+          .where(eq(productSerialTransfers.transferOrderItemId, created.items[0]!.id))
+          .all()
+      ).toHaveLength(2);
+    });
+
+    it('keeps deferred identities unavailable in transit, receives them exactly, and reverses them safely', async () => {
+      const db = getDatabase();
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await createProduct({
+        name: 'Serialized Scanner',
+        sku: `SER-DF-${nanoid()}`,
+        barcode: `SER-DF-${nanoid()}`,
+        stock: 0,
+        tracksSerials: true,
+      });
+      const receipt = await caller.productSerials.receive({
+        siteId: primarySiteId,
+        productId: product.id,
+        serialNumbers: ['SDF-001'],
+        unitCost: 90,
+      });
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: product.id, quantity: 1, serialIds: [receipt.items[0]!.id] }],
+        defer: true,
+      });
+
+      expect(
+        await db
+          .select({ status: productSerials.status, siteId: productSerials.currentSiteId })
+          .from(productSerials)
+          .where(eq(productSerials.id, receipt.items[0]!.id))
+          .get()
+      ).toMatchObject({ status: 'in_transit', siteId: primarySiteId });
+      expect(
+        (
+          await caller.productSerials.list({
+            siteId: primarySiteId,
+            productId: product.id,
+            sellableOnly: true,
+          })
+        ).items
+      ).toHaveLength(0);
+
+      await expect(
+        caller.transfers.receive({
+          transferId: created.id,
+          lines: [{ itemId: created.items[0]!.id, receivedQuantity: 0 }],
+        })
+      ).rejects.toThrow('exact identity');
+
+      await caller.transfers.receive({ transferId: created.id });
+      expect(
+        await db
+          .select({ status: productSerials.status, siteId: productSerials.currentSiteId })
+          .from(productSerials)
+          .where(eq(productSerials.id, receipt.items[0]!.id))
+          .get()
+      ).toMatchObject({ status: 'in_stock', siteId: secondarySiteId });
+
+      await caller.transfers.void({ transferId: created.id, reason: 'Routing correction' });
+      expect(
+        await db
+          .select({ status: productSerials.status, siteId: productSerials.currentSiteId })
+          .from(productSerials)
+          .where(eq(productSerials.id, receipt.items[0]!.id))
+          .get()
+      ).toMatchObject({ status: 'in_stock', siteId: primarySiteId });
+    });
+
+    it('rejects a serialized transfer without an exact unique identity set', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await createProduct({
+        name: 'Serialized Terminal',
+        sku: `SER-REJ-${nanoid()}`,
+        barcode: `SER-REJ-${nanoid()}`,
+        stock: 0,
+        tracksSerials: true,
+      });
+      const receipt = await caller.productSerials.receive({
+        siteId: primarySiteId,
+        productId: product.id,
+        serialNumbers: ['REJ-001', 'REJ-002'],
+        unitCost: 30,
+      });
+
+      await expect(
+        caller.transfers.create({
+          fromSiteId: primarySiteId,
+          toSiteId: secondarySiteId,
+          items: [
+            {
+              productId: product.id,
+              quantity: 2,
+              serialIds: [receipt.items[0]!.id],
+            },
+          ],
+        })
+      ).rejects.toThrow('exactly one unique serial number');
     });
   });
 });

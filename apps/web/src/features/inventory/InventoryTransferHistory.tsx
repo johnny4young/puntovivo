@@ -20,8 +20,10 @@ import {
 } from './InventoryTransferReceiveModal';
 
 const statusBadgeClasses: Record<TransferHistoryStatus, string> = {
-  completed: 'inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-xs text-success-700',
-  in_transit: 'inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-xs text-warning-800',
+  completed:
+    'inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-xs text-success-700',
+  in_transit:
+    'inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-xs text-warning-800',
   void: 'inline-flex items-center rounded-full bg-secondary-100 px-2 py-0.5 text-xs text-secondary-700',
 };
 
@@ -52,6 +54,10 @@ export function InventoryTransferHistory() {
       utils.transfers.list.invalidate(),
       utils.transfers.getById.invalidate(),
       utils.inventory.listBalancesBySite.invalidate(),
+      utils.productSerials.list.invalidate(),
+      utils.productSerials.lookup.invalidate(),
+      utils.products.list.invalidate(),
+      utils.products.search.invalidate(),
     ]);
   }
 
@@ -129,9 +135,7 @@ export function InventoryTransferHistory() {
       receiveMutation.mutate({
         transferId: receivingTransferId,
         ...(payload.lines ? { lines: payload.lines } : {}),
-        ...(payload.discrepancyNotes
-          ? { discrepancyNotes: payload.discrepancyNotes }
-          : {}),
+        ...(payload.discrepancyNotes ? { discrepancyNotes: payload.discrepancyNotes } : {}),
       });
     },
     [receiveMutation, receivingTransferId]
@@ -247,9 +251,7 @@ export function InventoryTransferHistory() {
 
   const items = historyQuery.data?.items ?? [];
   const confirmingEntry =
-    confirmingVoidId !== null
-      ? items.find(item => item.id === confirmingVoidId) ?? null
-      : null;
+    confirmingVoidId !== null ? (items.find(item => item.id === confirmingVoidId) ?? null) : null;
 
   return (
     <>
@@ -259,9 +261,7 @@ export function InventoryTransferHistory() {
             <h2 className="text-lg font-semibold text-secondary-900">
               {t('transferHistory.title')}
             </h2>
-            <p className="text-sm text-secondary-500">
-              {t('transferHistory.description')}
-            </p>
+            <p className="text-sm text-secondary-500">{t('transferHistory.description')}</p>
           </div>
         </div>
 
@@ -272,11 +272,7 @@ export function InventoryTransferHistory() {
           {historyQuery.error && (
             <TableErrorState
               title={t('transferHistory.error')}
-              message={translateServerError(
-                historyQuery.error,
-                t,
-                t('transferHistory.error')
-              )}
+              message={translateServerError(historyQuery.error, t, t('transferHistory.error'))}
               onRetry={() => {
                 void historyQuery.refetch();
               }}

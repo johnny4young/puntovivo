@@ -8,7 +8,7 @@
  * @module trpc/routers/products/queries
  */
 import { TRPCError } from '@trpc/server';
-import { and, eq, like, or, sql } from 'drizzle-orm';
+import { and, eq, like, ne, or, sql } from 'drizzle-orm';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
 import {
@@ -22,6 +22,7 @@ import {
 import {
   listProductsInput,
   getProductInput,
+  getProductVariantMatrixInput,
   searchProductsInput,
   lookupByBarcodeInput,
 } from '../../schemas/products.js';
@@ -30,17 +31,20 @@ import {
   getProductWithRelations,
   getUnitAssignmentsByProductIds,
   productSelection,
-} from './product-read.js';
+} from '../../../services/products/product-read.js';
 
 export const productQueryProcedures = {
   /**
    * List products for the current tenant with pagination and filtering
    */
   list: tenantProcedure.input(listProductsInput).query(async ({ ctx, input }) => {
-    const { page, perPage, search, categoryId, isActive } = input;
+    const { page, perPage, search, categoryId, isActive, includeVariantParents } = input;
     const offset = (page - 1) * perPage;
 
     const conditions = [eq(products.tenantId, ctx.tenantId)];
+    if (!includeVariantParents) {
+      conditions.push(ne(products.catalogType, 'variant_parent'));
+    }
     if (search) {
       conditions.push(or(like(products.name, `%${search}%`), like(products.sku, `%${search}%`))!);
     }
@@ -96,11 +100,52 @@ export const productQueryProcedures = {
     return product;
   }),
 
+  /** Read a catalog-only parent and its tenant-scoped sellable children. */
+  getVariantMatrix: tenantProcedure
+    .input(getProductVariantMatrixInput)
+    .query(async ({ ctx, input }) => {
+      const parent = await getProductWithRelations(ctx.db, input.parentProductId, ctx.tenantId);
+      if (!parent || parent.catalogType !== 'variant_parent') {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Variant matrix was not found' });
+      }
+
+      const variants = await ctx.db
+        .select(productSelection)
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(locations, eq(products.locationId, locations.id))
+        .leftJoin(providers, eq(products.providerId, providers.id))
+        .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+        .where(
+          and(
+            eq(products.tenantId, ctx.tenantId),
+            eq(products.variantParentId, input.parentProductId),
+            eq(products.catalogType, 'variant')
+          )
+        )
+        .all();
+
+      const axes = parent.variantAxes ?? [];
+      variants.sort((left, right) => {
+        for (const axis of axes) {
+          const leftIndex = axis.values.indexOf(left.variantValues?.[axis.name] ?? '');
+          const rightIndex = axis.values.indexOf(right.variantValues?.[axis.name] ?? '');
+          if (leftIndex !== rightIndex) return leftIndex - rightIndex;
+        }
+        return left.sku.localeCompare(right.sku);
+      });
+
+      return { parent, axes, variants };
+    }),
+
   /**
    * Search products by name, SKU or barcode
    */
   search: tenantProcedure.input(searchProductsInput).query(async ({ ctx, input }) => {
-    const conditions = [eq(products.tenantId, ctx.tenantId)];
+    const conditions = [
+      eq(products.tenantId, ctx.tenantId),
+      ne(products.catalogType, 'variant_parent'),
+    ];
     if (input.categoryId) {
       conditions.push(eq(products.categoryId, input.categoryId));
     }
@@ -214,9 +259,10 @@ export const productQueryProcedures = {
         .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
         .where(
           and(
-            eq(products.tenantId, ctx.tenantId),
-            eq(products.isActive, true),
-            eq(products.barcode, lookupCode)
+              eq(products.tenantId, ctx.tenantId),
+              eq(products.isActive, true),
+              ne(products.catalogType, 'variant_parent'),
+              eq(products.barcode, lookupCode)
           )
         )
         .get();
@@ -234,9 +280,10 @@ export const productQueryProcedures = {
           .innerJoin(products, eq(unitXProduct.productId, products.id))
           .where(
             and(
-              eq(products.tenantId, ctx.tenantId),
-              eq(products.isActive, true),
-              eq(unitXProduct.barcode, lookupCode)
+                eq(products.tenantId, ctx.tenantId),
+                eq(products.isActive, true),
+                ne(products.catalogType, 'variant_parent'),
+                eq(unitXProduct.barcode, lookupCode)
             )
           )
           .get();

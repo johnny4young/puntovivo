@@ -259,6 +259,23 @@ export function createTrpcFetch(fetchImpl: typeof fetch = fetch): typeof fetch {
   };
 }
 
+/**
+ * Authenticated same-authority fetch for server-built binary artifacts.
+ * Reuses the tRPC bearer/refresh transport so a PDF download cannot diverge
+ * from the active renderer session or silently fail at the 15-minute boundary.
+ */
+export function fetchProtectedApi(
+  path: `/api/${string}`,
+  init: RequestInit = {},
+  fetchImpl: typeof fetch = fetch
+): Promise<Response> {
+  const headers = buildHeaders(init.headers);
+  for (const [name, value] of Object.entries(getTrpcHeaders())) {
+    headers.set(name, value);
+  }
+  return createTrpcFetch(fetchImpl)(`${API_URL}${path}`, { ...init, headers });
+}
+
 type HeaderFactory = () => Record<string, string>;
 
 export function createTrpcBatchLink(extraHeaders?: HeaderFactory) {

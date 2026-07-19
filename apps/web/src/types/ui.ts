@@ -1,14 +1,14 @@
 // ENG-179c — UI + enum layer of the former monolithic `types/index.ts`.
 //
-// Everything here is a zero-dependency string-literal union, a generic
+// Everything here is a shared primitive string-literal union, a generic
 // response wrapper, or another primitive helper shape. None of these
-// reference a domain entity, so this module imports nothing — it sits at
+// reference a domain entity, so this module sits at
 // the bottom of the type dependency graph and `domain.ts` imports the
 // unions it needs from here. Re-exported through `types/index.ts` (a
 // shim kept for one release); prefer importing from `@/types/ui`
 // directly in new code.
 
-export type UserRole = 'admin' | 'manager' | 'cashier' | 'viewer';
+export type { UserRole } from '@puntovivo/shared/roles';
 
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
 export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
@@ -55,6 +55,27 @@ export type AuditLogAction =
   | 'purchase.void'
   | 'user.create'
   | 'user.update'
+  | 'user.pin.update'
+  | 'auth.staff_switch'
+  | 'employee_shift.clock_in'
+  | 'employee_shift.clock_out'
+  | 'employee_shift.correct'
+  // ENG-140b — explicit employee break boundaries.
+  | 'employee_shift_break.start'
+  | 'employee_shift_break.end'
+  // ENG-140a — manager-authored schedule lifecycle.
+  | 'scheduled_shift.create'
+  | 'scheduled_shift.update'
+  | 'scheduled_shift.cancel'
+  | 'manager_approval.request'
+  | 'manager_approval.approve'
+  | 'manager_approval.reject'
+  | 'manager_approval.cancel'
+  | 'manager_approval.consume'
+  | 'loss_prevention.settings.updated'
+  | 'loss_prevention.triggered'
+  | 'loss_prevention.alert.acknowledged'
+  | 'cash_drawer.open'
   | 'sale.price_override'
   // ENG-018 — park-and-resume (including discard metadata flag).
   | 'sale.park'
@@ -97,6 +118,13 @@ export type AuditLogAction =
   | 'kds.order.recalled'
   // ENG-007 closure — credit-policy mutations.
   | 'customer.credit_limit.update'
+  // ENG-129b — audited customer personal-data disclosure.
+  | 'customer.personal_data.export'
+  | 'customer.personal_data.delete'
+  | 'customer.personal_data.anonymize'
+  // ENG-129d — tenant retention policy changes and manual sweeps.
+  | 'data_retention.policy.updated'
+  | 'data_retention.sweep.run'
   | 'sale.credit_override'
   // ENG-103 — audit-grade export contract. Emitted by
   // `reports.fiscal.getXml` every time an admin / manager downloads
@@ -109,7 +137,18 @@ export type AuditLogAction =
   | 'telemetry.opt_in.updated'
   // ENG-199 — expiry-radar discount suggestions (accept + dismiss).
   | 'inventory.lot.discount_suggested'
-  | 'inventory.lot.discount_suggestion_dismissed';
+  | 'inventory.lot.discount_suggestion_dismissed'
+  // ENG-136b — admin restore-readiness evidence.
+  | 'backup.restore_drill'
+  // ENG-123a through ENG-123f — launch import summaries.
+  | 'data_import.products'
+  | 'data_import.customers'
+  | 'data_import.providers'
+  | 'data_import.customer_balances'
+  | 'data_import.opening_cash'
+  | 'data_import.fiscal_profile'
+  // ENG-141b — immutable comprehensive day-close attestation.
+  | 'day_close.sign_off';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -122,6 +161,13 @@ export type AuditLogResourceType =
   | 'product'
   | 'purchase'
   | 'user'
+  | 'employee_shift'
+  | 'employee_shift_break'
+  | 'scheduled_shift'
+  | 'manager_approval'
+  | 'loss_prevention_rule'
+  | 'loss_prevention_alert'
+  | 'site'
   | 'cashier'
   // ENG-068 — module activation kernel resource type.
   | 'tenant_module'
@@ -145,7 +191,13 @@ export type AuditLogResourceType =
   // `telemetry.opt_in.updated` action. `resourceId` is the tenantId.
   | 'tenant'
   // ENG-199 — price_suggestions rows targeted by the expiry-radar audits.
-  | 'price_suggestion';
+  | 'price_suggestion'
+  // ENG-136b — scheduler-owned encrypted snapshot.
+  | 'backup_snapshot'
+  // ENG-123a — one auditable launch import run.
+  | 'data_import'
+  // ENG-141b — signed comprehensive day-close evidence.
+  | 'day_close_signoff';
 
 export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';
 

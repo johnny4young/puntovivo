@@ -218,10 +218,10 @@ export function useSalesPageData({
     !registerAssignmentsQuery.isLoading &&
     hasAvailableRegisterAssignment;
 
-  // ENG-062 — manager-gated cash drawer kick. `hasRegisteredDrawer` is
+  // ENG-062 / ENG-106c3 — role-aware cash drawer kick. `hasRegisteredDrawer` is
   // derived here from the shared peripherals query and passed into
   // `useCashDrawerController`; the button is hidden unless a drawer is
-  // registered and the role can kick.
+  // registered and the actor has a sales role (cashiers escalate separately).
   const hasRegisteredDrawer = !!peripheralsForSiteQuery.data?.find(
     r => r.kind === 'cash_drawer' && r.driver === 'escpos'
   );

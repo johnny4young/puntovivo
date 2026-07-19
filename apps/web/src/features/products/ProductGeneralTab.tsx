@@ -38,10 +38,14 @@ export function ProductGeneralTab({
     errors,
     selectedVatRateId,
     sellByFraction,
+    tracksLots,
+    tracksSerials,
     taxRateField,
     stockField,
     minStockField,
     sellByFractionField,
+    tracksLotsField,
+    tracksSerialsField,
     fractionStepField,
     fractionMinimumField,
     vatRateField,
@@ -106,11 +110,7 @@ export function ProductGeneralTab({
             </span>
           </SimpleFormField>
           <SimpleFormField label={t('form.fields.imageUrl')} htmlFor="product-image-url">
-            <input
-              id="product-image-url"
-              className="pv-input"
-              {...form.register('imageUrl')}
-            />
+            <input id="product-image-url" className="pv-input" {...form.register('imageUrl')} />
           </SimpleFormField>
         </div>
 
@@ -210,6 +210,13 @@ export function ProductGeneralTab({
           <SimpleFormField
             label={t('form.fields.stock')}
             htmlFor="product-stock"
+            helperText={
+              tracksLots
+                ? t('form.fields.tracksLotsStockHelp')
+                : tracksSerials
+                  ? t('form.fields.tracksSerialsStockHelp')
+                  : t('form.fields.stockHelp')
+            }
             {...errorProp(errors.stock?.message)}
           >
             <input
@@ -218,6 +225,8 @@ export function ProductGeneralTab({
               min="0"
               step="any"
               className={cn('pv-input', errors.stock && 'error')}
+              readOnly={tracksLots || tracksSerials}
+              aria-readonly={tracksLots || tracksSerials}
               {...stockField}
             />
           </SimpleFormField>
@@ -239,6 +248,69 @@ export function ProductGeneralTab({
         </div>
 
         <div className="rounded-2xl border border-line/80 bg-surface-2/50 p-4">
+          <label className="flex items-start gap-3 text-sm font-medium text-secondary-900">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-secondary-300"
+              aria-label={t('form.fields.tracksSerials')}
+              {...tracksSerialsField}
+              onChange={event => {
+                tracksSerialsField.onChange(event);
+                if (event.target.checked) {
+                  form.setValue('tracksLots', false, { shouldDirty: true, shouldValidate: true });
+                  form.setValue('sellByFraction', false, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                }
+              }}
+            />
+            <span>
+              <span className="block">{t('form.fields.tracksSerials')}</span>
+              <span className="mt-1 block text-xs font-normal text-secondary-600">
+                {t('form.fields.tracksSerialsHelp')}
+              </span>
+            </span>
+          </label>
+          {tracksSerials && (
+            <p className="mt-3 rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-xs text-primary-800">
+              {t('form.fields.tracksSerialsEnabledHelp')}
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-line/80 bg-surface-2/50 p-4">
+          <label className="flex items-start gap-3 text-sm font-medium text-secondary-900">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-secondary-300"
+              aria-label={t('form.fields.tracksLots')}
+              {...tracksLotsField}
+              onChange={event => {
+                tracksLotsField.onChange(event);
+                if (event.target.checked) {
+                  form.setValue('tracksSerials', false, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                }
+              }}
+            />
+            <span>
+              <span className="block">{t('form.fields.tracksLots')}</span>
+              <span className="mt-1 block text-xs font-normal text-secondary-600">
+                {t('form.fields.tracksLotsHelp')}
+              </span>
+            </span>
+          </label>
+          {tracksLots && (
+            <p className="mt-3 rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-xs text-primary-800">
+              {t('form.fields.tracksLotsEnabledHelp')}
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-line/80 bg-surface-2/50 p-4">
           <label className="flex items-center gap-3 text-sm font-medium text-secondary-900">
             <input
               type="checkbox"
@@ -248,6 +320,10 @@ export function ProductGeneralTab({
                 sellByFractionField.onChange(event);
 
                 if (event.target.checked) {
+                  form.setValue('tracksSerials', false, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
                   const nextFractionStep = Math.max(0.01, form.getValues('fractionStep') || 0.01);
                   const nextFractionMinimum = Math.max(
                     form.getValues('fractionMinimum') || 0.01,

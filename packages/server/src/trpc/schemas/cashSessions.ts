@@ -13,6 +13,18 @@ export const getActiveCashSessionInput = z
   })
   .optional();
 
+/** ENG-209 — aggregate-only, self-scoped cashier pace output. */
+export const cashierPaceOutput = z
+  .object({
+    sessionId: z.string(),
+    completedSales: z.number().int().min(0),
+    itemCount: z.number().min(0),
+    itemsPerMinute: z.number().min(0),
+    averageCheckoutSeconds: z.number().int().min(0).nullable(),
+    personalBestItemsPerMinute: z.number().min(0).nullable(),
+  })
+  .nullable();
+
 export const openCashSessionInput = z.object({
   registerName: z
     .string()
@@ -61,8 +73,53 @@ export const dayCloseSummaryInput = z.object({
   sessionId: z.string().min(1, 'Session id is required'),
 });
 
+/** WC-C8 — explicit output contract keeps owner-only pulse redaction and the
+ * share-card metrics visible to the WC-E2 API snapshot gate. */
+export const dayCloseSummaryOutput = z.object({
+  session: z.object({
+    registerName: z.string(),
+    closedAt: z.string(),
+    actualCount: z.number().nullable(),
+    overShort: z.number().nullable(),
+    balanced: z.boolean(),
+  }),
+  day: z.object({
+    date: z.string(),
+    salesCount: z.number().int().min(0),
+    revenue: z.number(),
+  }),
+  pulse: z
+    .object({
+      averageTicket: z.number(),
+      previousWeekRevenue: z.number(),
+      revenueChangePct: z.number().nullable(),
+    })
+    .nullable(),
+  // ENG-205 — same-weekday-last-week revenue for the shareable pulse (all
+  // roles; revenue only, no owner data). Null when that day had no sales.
+  previousWeek: z.object({ revenue: z.number() }).nullable(),
+  topProducts: z.array(
+    z.object({
+      productId: z.string(),
+      name: z.string(),
+      sku: z.string(),
+      revenue: z.number(),
+      grossProfit: z.number().nullable(),
+      grossMarginPct: z.number().nullable(),
+    })
+  ),
+  margin: z
+    .object({
+      grossProfit: z.number(),
+      grossMarginPct: z.number(),
+    })
+    .nullable(),
+  streakDays: z.number().int().min(0),
+});
+
 export type CashSessionDenominationInput = z.infer<typeof cashSessionDenominationInput>;
 export type GetActiveCashSessionInput = z.infer<typeof getActiveCashSessionInput>;
+export type CashierPaceOutput = z.infer<typeof cashierPaceOutput>;
 export type OpenCashSessionInput = z.infer<typeof openCashSessionInput>;
 export type CloseCashSessionInput = z.infer<typeof closeCashSessionInput>;
 export type CashSessionMovementsInput = z.infer<typeof cashSessionMovementsInput>;
@@ -70,3 +127,4 @@ export type CashSessionReportInput = z.infer<typeof cashSessionReportInput>;
 export type RecordCashMovementInput = z.infer<typeof recordCashMovementInput>;
 export type PendingChecksInput = z.infer<typeof pendingChecksInput>;
 export type DayCloseSummaryInput = z.infer<typeof dayCloseSummaryInput>;
+export type DayCloseSummaryOutput = z.infer<typeof dayCloseSummaryOutput>;

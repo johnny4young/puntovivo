@@ -23,6 +23,7 @@ import { PREFLIGHT_PRIMARY_ELEMENT_ID } from './CheckoutPreflightPanel';
 import type { PreflightItem } from './useCheckoutPreflight';
 import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
 
+
 const SITE: Site = {
   id: 'site-1',
   tenantId: 'tenant-1',
@@ -67,12 +68,13 @@ function renderPanel(
     canSuspend?: boolean;
     onSuspend?: () => void;
     userRole?: UserRole;
+    cashSession?: CashSession | null;
   } = {}
 ) {
   return render(
     <SalesCheckoutPanel
       currentSite={SITE}
-      cashSession={CASH_SESSION}
+      cashSession={overrides.cashSession === undefined ? CASH_SESSION : overrides.cashSession}
       registerAssignments={[REGISTER_ASSIGNMENT]}
       selectedRegisterAssignment={REGISTER_ASSIGNMENT}
       isCashSessionLoading={false}

@@ -35,17 +35,17 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { buildFiscalQrPayload } from '../../services/fiscal/qr-builder.js';
 import { readMxFiscalSettings } from '../../services/fiscal/packs/mx/settings.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
+import { listSaleItemSerialNumbers } from '../../services/product-serials.js';
 
-export async function getSaleRecord(
-  db: DatabaseInstance,
-  tenantId: string,
-  saleId: string
-) {
+export async function getSaleRecord(db: DatabaseInstance, tenantId: string, saleId: string) {
   const sale = await db
     .select({
       id: sales.id,
       tenantId: sales.tenantId,
       saleNumber: sales.saleNumber,
+      // ENG-106c3 — exact approval summaries and post-sale UI preserve
+      // the currency frozen on the original sale.
+      currencyCode: sales.currencyCode,
       customerId: sales.customerId,
       customerName: customers.name,
       subtotal: sales.subtotal,
@@ -134,6 +134,15 @@ export async function getSaleRecord(
     .where(eq(saleItems.saleId, saleId))
     .all();
 
+  const serialNumbersByItem = listSaleItemSerialNumbers(db, {
+    tenantId,
+    saleItemIds: items.map(item => item.id),
+  });
+  const itemsWithSerials = items.map(item => ({
+    ...item,
+    serialNumbers: serialNumbersByItem.get(item.id) ?? [],
+  }));
+
   // Phase 2 Tier-2 step 5 — every sale has at least one payment row now.
   const payments = await db
     .select({
@@ -150,7 +159,7 @@ export async function getSaleRecord(
 
   const fiscalDocumentsList = await loadFiscalDocumentsForSale(db, tenantId, saleId);
 
-  return { ...sale, items, payments, fiscalDocuments: fiscalDocumentsList };
+  return { ...sale, items: itemsWithSerials, payments, fiscalDocuments: fiscalDocumentsList };
 }
 
 /**
@@ -262,10 +271,7 @@ async function loadFiscalDocumentsForSale(
   const tenantSettings = (tenantRow?.settings ?? {}) as Record<string, unknown>;
 
   return docs.map(doc => {
-    const countryCode = resolveFiscalDocumentCountryCode(
-      doc.localeCode,
-      locale.countryCode
-    );
+    const countryCode = resolveFiscalDocumentCountryCode(doc.localeCode, locale.countryCode);
     return {
       id: doc.id,
       source: doc.source,

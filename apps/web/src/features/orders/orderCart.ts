@@ -1,4 +1,5 @@
 import { roundMoney } from '@/lib/money';
+import { normalizedQuantity } from '@puntovivo/shared/unit-math';
 import type { ProductSearchSelection } from '@/types';
 
 export interface OrderCartItem {
@@ -74,7 +75,7 @@ export function getOrderLineTotal(item: OrderCartItem) {
 }
 
 export function getOrderNormalizedQuantity(item: OrderCartItem) {
-  return item.quantity * item.unitEquivalence;
+  return normalizedQuantity(item.quantity, item.unitEquivalence);
 }
 
 export function getOrderCartSummary(items: OrderCartItem[]): OrderCartSummary {

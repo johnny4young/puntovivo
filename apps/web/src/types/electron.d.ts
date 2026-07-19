@@ -13,6 +13,11 @@ export interface ElectronAPI {
     installMode?: 'auto' | 'manual';
     currentVersion: string;
     lastCheckedAt: string | null;
+    lastUpdatedAt?: string | null;
+    rolloutMode?: 'normal' | 'rollback' | null;
+    rolloutPercentage?: 10 | 50 | 100 | null;
+    rolloutTargetVersion?: string | null;
+    rolloutPolicyCheckedAt?: string | null;
     releaseName: string | null;
     releaseNotes: string | null;
     releaseDate: string | null;
@@ -26,6 +31,11 @@ export interface ElectronAPI {
     installMode?: 'auto' | 'manual';
     currentVersion: string;
     lastCheckedAt: string | null;
+    lastUpdatedAt?: string | null;
+    rolloutMode?: 'normal' | 'rollback' | null;
+    rolloutPercentage?: 10 | 50 | 100 | null;
+    rolloutTargetVersion?: string | null;
+    rolloutPolicyCheckedAt?: string | null;
     releaseName: string | null;
     releaseNotes: string | null;
     releaseDate: string | null;
@@ -41,10 +51,7 @@ export interface ElectronAPI {
     enabled: boolean;
     closeToTray: boolean;
   }>;
-  updateTraySettings: (settings: {
-    enabled: boolean;
-    closeToTray: boolean;
-  }) => Promise<{
+  updateTraySettings: (settings: { enabled: boolean; closeToTray: boolean }) => Promise<{
     enabled: boolean;
     closeToTray: boolean;
   }>;
@@ -56,10 +63,7 @@ export interface ElectronAPI {
     silent: boolean;
     printBackground: boolean;
   }>;
-  updateReceiptPrintSettings: (settings: {
-    silent: boolean;
-    printBackground: boolean;
-  }) => Promise<{
+  updateReceiptPrintSettings: (settings: { silent: boolean; printBackground: boolean }) => Promise<{
     silent: boolean;
     printBackground: boolean;
   }>;
@@ -104,12 +108,154 @@ export interface ElectronAPI {
     key?: string;
     error?: string;
   }>;
-  printReceipt: (
-    receiptHtml: string
-  ) => Promise<{ success: boolean; error?: string }>;
+  /** ENG-129e — non-secret SQLCipher and key-custody attestation. */
+  getBackupProtectionStatus?: () => Promise<{
+    success: boolean;
+    status?: BackupProtectionStatus;
+    error?: string;
+  }>;
+  /** ENG-136a — device-local encrypted snapshot schedule. */
+  getBackupScheduleStatus?: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  updateBackupSchedule?: (input: {
+    frequency: BackupScheduleFrequency;
+    destinationMode?: 'managed';
+  }) => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  chooseBackupScheduleDestination?: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    cancelled?: boolean;
+    error?: string;
+  }>;
+  runBackupSnapshotNow?: () => Promise<{
+    success: boolean;
+    status?: BackupScheduleStatus;
+    error?: string;
+  }>;
+  /** ENG-136b — non-destructive comparison against the latest snapshot. */
+  runBackupRestoreDrill?: () => Promise<
+    | { success: true; report: BackupRestoreDrillReport }
+    | { success: false; error: 'snapshot_unavailable' | 'drill_failed' }
+  >;
+  /** ENG-136c — admin-only S3-compatible backup vault; secrets are write-only. */
+  getBackupCloudVaultStatus?: () => Promise<BackupCloudVaultResult>;
+  configureBackupCloudVault?: (
+    input: BackupCloudVaultConfigInput
+  ) => Promise<BackupCloudVaultResult>;
+  disconnectBackupCloudVault?: () => Promise<BackupCloudVaultResult>;
+  testBackupCloudVault?: () => Promise<BackupCloudVaultResult>;
+  printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale?: (locale: string) => Promise<'en' | 'es'>;
   runtime?: RuntimeAPI;
   peripherals?: PeripheralsAPI;
+}
+
+export type BackupProtectionKeyStorage =
+  'environment' | 'os_keychain' | 'basic_text' | 'unavailable';
+
+export type BackupProtectionProvider =
+  | 'environment'
+  | 'macos_keychain'
+  | 'windows_dpapi'
+  | 'linux_libsecret'
+  | 'linux_kwallet'
+  | 'linux_basic_text'
+  | 'unknown';
+
+export interface BackupProtectionStatus {
+  protected: boolean;
+  databaseEncrypted: boolean;
+  backupEncryption: 'sqlcipher';
+  keyStorage: BackupProtectionKeyStorage;
+  provider: BackupProtectionProvider;
+  recoveryKeyAvailable: boolean;
+}
+
+export type BackupScheduleFrequency = 'off' | 'daily' | 'weekly';
+export type BackupDestinationMode = 'managed' | 'custom';
+
+export interface BackupScheduleStatus {
+  tenantId: string;
+  frequency: BackupScheduleFrequency;
+  destinationMode: BackupDestinationMode;
+  destinationDirectory: string;
+  updatedAt: string;
+  nextRunAt: string | null;
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  lastPath: string | null;
+  lastSizeBytes: number | null;
+  lastError: 'snapshot_failed' | null;
+  inProgress: boolean;
+}
+
+export type BackupCloudVaultErrorCode =
+  | 'configuration_invalid'
+  | 'configuration_missing'
+  | 'secure_storage_unavailable'
+  | 'cloud_vault_unavailable'
+  | 'connection_failed'
+  | 'upload_failed'
+  | 'operation_in_progress';
+
+export interface BackupCloudVaultStatus {
+  configured: boolean;
+  secureStorageAvailable: boolean;
+  endpoint: string | null;
+  region: string | null;
+  bucket: string | null;
+  prefix: string | null;
+  forcePathStyle: boolean;
+  accessKeyHint: string | null;
+  configuredAt: string | null;
+  updatedAt: string | null;
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  lastObjectKey: string | null;
+  lastError: 'connection_failed' | 'upload_failed' | null;
+  inProgress: boolean;
+}
+
+export interface BackupCloudVaultConfigInput {
+  endpoint: string;
+  region: string;
+  bucket: string;
+  prefix?: string;
+  forcePathStyle: boolean;
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
+export interface BackupCloudVaultResult {
+  success: boolean;
+  status?: BackupCloudVaultStatus;
+  error?: BackupCloudVaultErrorCode;
+}
+
+export type BackupRestoreDrillTable =
+  'products' | 'customers' | 'sales' | 'inventory_movements' | 'audit_logs';
+
+export interface BackupRestoreDrillReport {
+  outcome: 'passed';
+  checkedAt: string;
+  snapshotGeneratedAt: string;
+  snapshotSchemaVersion: number;
+  snapshotSizeBytes: number;
+  currentTotal: number;
+  snapshotTotal: number;
+  tables: Array<{
+    table: BackupRestoreDrillTable;
+    currentCount: number;
+    snapshotCount: number;
+    delta: number;
+  }>;
 }
 
 export interface RendererRuntimeConfig {

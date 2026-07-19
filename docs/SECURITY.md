@@ -1,12 +1,13 @@
 # Security Notes
 
-> Updated: June 11, 2026 (ENG-166 + ENG-174 closure + ENG-167 Step-1 + ENG-167b)
+> Updated: July 14, 2026 (ENG-106a staff PIN isolation)
 
 ## Current Security Posture
 
 The project already includes the main baseline controls expected for the current app shape:
 
 - Argon2 password hashing
+- Argon2id staff PIN hashing with persistent brute-force throttles
 - cryptographically generated seeded admin password
 - hybrid auth with short-lived access JWTs and rotated refresh cookies
 - CSRF protection on cookie-backed auth flows
@@ -159,6 +160,46 @@ already carries `details.kind` / `details.key` for that follow-up hook.
 - IP allowlist / denylist for deployments that know their customer subnets.
 - Optional multi-factor on the login procedure.
 
+## Staff PIN switching (ENG-106a)
+
+Staff PINs are an opt-in shared-terminal credential, not a replacement for a
+user password. An admin can set, rotate, or remove a six-digit PIN through the
+critical `users.setStaffPin` command. The server stores only an Argon2id hash
+of a domain-separated credential (`puntovivo:staff-pin:v1:<pin>`), so neither
+the plaintext PIN nor a password hash is reusable across credential types.
+
+Fast switching is deliberately privilege-constrained:
+
+- only an authenticated cashier, manager, or admin can request a switch;
+- the target must be an active cashier in the same tenant;
+- a manager or admin identity can never be adopted through a PIN;
+- unavailable, unenrolled, self-targeted, and wrong-PIN attempts run the same
+  dummy Argon2 verification path and return `AUTH_STAFF_PIN_INVALID`;
+- successful adoption creates a new refresh family for the target and writes
+  `auth.staff_switch` with the source actor and target cashier, but no secret;
+- PIN-authenticated access, refresh, and realtime tokens share one fixed
+  eight-hour `authSessionExpiresAt` ceiling. Refresh rotation preserves that
+  ceiling and never extends the shift session.
+
+Two failure-only buckets persist in `login_attempts` for 15 minutes:
+
+| Bucket          | Key                  | Cap | Reset rule                                        |
+| --------------- | -------------------- | --- | ------------------------------------------------- |
+| Actor aggregate | tenant + source user | 10  | TTL only; success never grants actor-wide amnesty |
+| Target cashier  | tenant + target user | 5   | cleared only after the switch transaction commits |
+
+The browser verifies the PIN before changing local identity. After success it
+broadcasts the handoff so other same-origin tabs immediately discard the
+source identity, then purges React Query state, cart workspaces, quick-create
+state, and stored auth ownership; in Electron it also waits for the old
+desktop session to clear before registering the target token. If local
+adoption fails, the client fails closed to the login screen.
+
+Secret handling is defense in depth: `pin` and `staffPinHash` are included in
+the pino, telemetry, and diagnostic-bundle redaction policies. Sync and audit
+payloads carry only a boolean lifecycle marker (`staffPinUpdated`) or
+configured-state metadata, never a PIN or hash.
+
 ## Dependency audit gate (ENG-009)
 
 Every CI script (`ci:web`, `ci:server`, `ci:desktop`) begins with a shared
@@ -208,6 +249,9 @@ safe:
 | ----------------------- | -------------------------------------- |
 | `password`              | plaintext secret                       |
 | `passwordHash`          | argon2 output; reveals hash parameters |
+| `pin`                   | plaintext staff PIN                    |
+| `staffPinHash`          | Argon2id staff PIN hash                |
+| `staff_pin_hash`        | database-shaped staff PIN hash         |
 | `token`                 | JWT access token                       |
 | `refreshToken`          | rotated refresh token                  |
 | `jwtSecret`             | server-side signing secret             |
@@ -218,6 +262,9 @@ safe:
 | `headers.cookie`        | nested in request logs                 |
 | `*.password`            | one-level-deep credential fields       |
 | `*.passwordHash`        | one-level-deep hash fields             |
+| `*.pin`                 | one-level-deep staff PIN fields        |
+| `*.staffPinHash`        | one-level-deep staff PIN hashes        |
+| `*.staff_pin_hash`      | database-shaped staff PIN hashes       |
 | `*.token`               | one-level-deep token fields            |
 | `*.refreshToken`        | one-level-deep refresh fields          |
 | `*.email`               | one-level-deep email fields            |
@@ -497,6 +544,10 @@ helper:
   KWallet). We refuse to write a cleartext fallback — an unreachable
   keychain is an operator-visible error, not a silent
   confidentiality downgrade.
+- Also aborts when Electron reports Linux `basic_text` as the selected
+  storage backend. Electron can report encryption as available in that
+  mode, but `basic_text` is reversible obfuscation rather than libsecret or
+  KWallet custody, so it does not satisfy Puntovivo's at-rest threat model.
 - On first boot, mints a fresh 256-bit key with
   `crypto.randomBytes(32)`, seals it via
   `safeStorage.encryptString()`, and persists the envelope at
@@ -518,12 +569,12 @@ rejects truncated or non-hex keys at boot rather than at the first
 SELECT.
 
 **Native dependency.** `packages/server` (and transitively the
-desktop bundle) now consumes `better-sqlite3-multiple-ciphers@^12.10.0`
+desktop bundle) now consumes `better-sqlite3-multiple-ciphers@^12.11.1`
 under the `better-sqlite3` alias declared in
 [`package.json`](../package.json) at root and in
 [`packages/server/package.json`](../packages/server/package.json). The
 fork preserves the synchronous better-sqlite3 API surface 1:1 and
-ships prebuilds for Node v137 (Node 24) and Electron v145 (Electron 41) across `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`,
+ships prebuilds for Node v137 (Node 24) and Electron v146 (Electron 42) across `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`,
 `win32-x64`, and `win32-arm64`. `scripts/ensure-native-runtime.mjs`
 includes the package name in the cache key so the swap invalidates
 stale plain-better-sqlite3 binaries automatically.
@@ -544,10 +595,12 @@ plain-open failure (`SQLITE_NOTADB`), wrong-key failure, key-shape
 rejection, the `:memory:` skip path, and the ENG-174 PRAGMAs
 co-existing with the keyed connection.
 [`apps/desktop/src/main/__tests__/db-key-store.test.ts`](../apps/desktop/src/main/__tests__/db-key-store.test.ts)
-covers the safeStorage stub on first boot vs reboot vs the
-unavailable-keychain abort, plus the two error paths for a
-corrupt envelope. `backup-restore.test.ts` also verifies that backup
-ZIPs produced from encrypted DBs keep `local.db` encrypted.
+covers the safeStorage stub on first boot vs reboot, the
+unavailable-keychain and Linux `basic_text` aborts, plus the two error
+paths for a corrupt envelope. `backup-protection.test.ts` pins the provider
+mapping across macOS, Windows, and Linux. `backup-restore.test.ts` also
+verifies that backup ZIPs produced from encrypted DBs keep `local.db`
+encrypted.
 
 ### ENG-167b — cleartext migration + cross-device restore (2026-06-11)
 
@@ -586,6 +639,97 @@ device's backups. The UI warns accordingly, the reveal is logged,
 and the key never leaves the machine through any other channel.
 Legacy pre-encryption cleartext bundles restore directly and are
 encrypted by the migration on the next boot.
+
+### ENG-129e — backup protection attestation (2026-07-14)
+
+The Company backup card now verifies protection through the admin-only
+`get-backup-protection-status` IPC. The response contains only attestation
+metadata: whether SQLCipher preparation completed, whether key custody is an
+OS keychain, the selected platform provider, and whether the explicit admin
+recovery flow is available. It has no key or key-shaped value. The renderer
+labels launcher-injected development keys separately instead of claiming they
+are protected by macOS Keychain, Windows DPAPI, libsecret, or KWallet.
+
+This status path does **not** call the recovery-key resolver and cannot reveal
+the secret. The existing `get-backup-encryption-key` flow remains the sole
+renderer-visible exception, requires an authenticated admin session, displays
+an explicit warning, and exists only for cross-device restore recovery.
+
+### ENG-136a — scheduled encrypted snapshots (2026-07-14)
+
+The Electron main process now owns daily or weekly snapshots in addition to
+the native save-dialog flow. Configuration is admin-only and tenant-keyed, but
+device-local: `backup-schedules.v1.json` lives under `userData` with a POSIX
+`0600` best effort instead of inside the operational database. Restoring a DB
+from another workstation therefore cannot silently reactivate a stale custom
+folder. The renderer may choose the app-managed directory or ask Electron's
+native directory picker for a custom one; it never sends an arbitrary path to
+main.
+
+Every scheduled run reuses the SQLCipher `VACUUM INTO` + integrity-check bundle
+contract above. Manual backup, scheduled snapshot, and destructive restore
+share one FIFO main-process operation queue so two database lifecycle operations
+cannot overlap. Scheduled snapshots remain online rather than stopping Fastify;
+the encrypted `VACUUM INTO` transaction and subsequent integrity check are the
+restore-readiness boundary. For manual operations that still require an
+in-process server restart, Electron reuses one cryptographically random JWT
+signing secret for the main-process lifetime so access and refresh tokens are
+not invalidated merely by the restart. Only safe status metadata crosses the
+sandbox boundary: frequency, timestamps, size, destination, and a stable failure
+code. Provider errors and key material remain in structured main logs. The
+scheduler catches up after an offline period on the next desktop boot and drains
+active work before Electron closes the embedded database.
+
+### ENG-136b — non-destructive restore drill (2026-07-14)
+
+The admin-only `run-backup-restore-drill` IPC never accepts a path, tenant id,
+or key from the renderer. Main derives the actor and tenant from the registered
+desktop session, reads the latest scheduler-owned path, and rejects a ZIP whose
+manifest is missing or names another tenant. Extraction uses a fresh OS temp
+directory that is removed in `finally`; the extracted SQLCipher DB is opened
+read-only, integrity-checked, and inspected through a fixed table allowlist.
+
+The live database is never stopped, copied over, rekeyed, or mutated. Its row
+counts come from the already-open embedded-server connection and every query
+has `WHERE tenant_id = ?`. A successful drill means the snapshot can be opened
+and its selected tenant data can be read; a nonzero delta is informational and
+expected when operations continued after the snapshot.
+
+Both pass and fail outcomes attempt an immutable `backup.restore_drill` audit
+row under the sensitive Access category. Success is withheld if pass evidence
+cannot be persisted. The renderer and audit metadata receive only stable error
+codes, timestamps, byte/count aggregates, and per-table deltas — never an
+archive path, SQLite diagnostic, or encryption key.
+
+### ENG-136c — S3-compatible cloud vault credentials (2026-07-14)
+
+Cloud replication is optional, admin-only, tenant-keyed, and local to one
+desktop installation. Electron main validates the endpoint and object-key
+prefix before storing anything. Non-loopback endpoints require HTTPS; plain
+HTTP is accepted only for `localhost`, `127.0.0.1`, or `::1` when the desktop is
+running in development mode. The renderer cannot choose a tenant or filesystem
+path and receives only the endpoint, region, bucket, prefix, path-style flag,
+timestamps, stable error codes, and up to the last four access-key characters.
+At least one identifier character always remains masked.
+
+The full access key and secret are serialized into an Electron `safeStorage`
+envelope in `backup-cloud-vaults.v1.json`, written atomically with POSIX `0600`
+permissions where supported. Storage fails closed when the OS keychain is
+unavailable, including Electron's insecure Linux `basic_text` backend. The
+credentials never enter SQLite, logs, backup ZIPs, renderer state, or audit
+metadata. The file intentionally stays device-local: restoring a merchant DB
+on another workstation cannot reactivate a credential sealed for a different
+OS user. Operators should provision a dedicated provider key limited to
+writing the configured bucket and prefix; Puntovivo cannot enforce remote IAM
+policy.
+
+Connection verification writes one fixed, overwriteable text object under the
+tenant prefix. Snapshot replication streams the already SQLCipher-encrypted ZIP
+with `PutObject`; it does not decrypt or repackage the database. Provider
+diagnostics are reduced to `connection_failed` or `upload_failed` before they
+cross IPC. Local snapshot state is committed first and remains successful if
+the optional cloud write fails, preventing a remote outage from erasing a valid
+recovery point or misreporting local backup health.
 
 **What remains for ENG-167.** Only the cross-OS matrix validation
 through

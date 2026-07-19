@@ -10,6 +10,7 @@
  * @module application/purchases/helpers
  */
 import { TRPCError } from '@trpc/server';
+import { normalizedQuantity as resolveNormalizedQuantity } from '@puntovivo/shared/unit-math';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
@@ -34,16 +35,15 @@ export function buildReturnedPurchaseNotes(existingNotes: string | null, reason:
 }
 
 export function getNormalizedPurchaseQuantity(quantity: number, equivalence: number) {
-  const normalizedQuantity = quantity * equivalence;
-
-  if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
+  try {
+    return resolveNormalizedQuantity(quantity, equivalence);
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error;
     throw new TRPCError({
       code: 'BAD_REQUEST',
       message: 'The selected quantity must resolve to a positive stock quantity',
     });
   }
-
-  return normalizedQuantity;
 }
 
 export async function getPurchaseSiteContext(

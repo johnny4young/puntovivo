@@ -1,7 +1,11 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { inventoryBalances } from '../../db/schema.js';
+import { inventoryBalances, products } from '../../db/schema.js';
+import {
+  assertCatalogStockMutationAllowed,
+  assertSerialStockMutationAllowed,
+} from '../products/lot-tracking.js';
 import { getProductStockTotal } from './derive.js';
 import { getPrimarySiteId, getTimestamp } from './helpers.js';
 
@@ -43,6 +47,11 @@ export function applyInventoryBalanceDelta(
      * product's derived total, which is 0 with no balances yet).
      */
     initialOnHandIfMissing?: number;
+    /**
+     * True only when the caller writes the corresponding product_serials
+     * identity changes in this same transaction.
+     */
+    serialAware?: boolean;
     now?: string;
   }
 ): number | null {
@@ -51,6 +60,27 @@ export function applyInventoryBalanceDelta(
   }
   if (!Number.isFinite(args.delta) || args.delta === 0) {
     return null;
+  }
+
+  // ENG-110b — re-check at the central mutation boundary. A sale or purchase
+  // may resolve a standard product before a concurrent matrix conversion;
+  // checking again inside the caller's transaction prevents that stale read
+  // from restoring stock to the newly catalog-only parent.
+  const product = tx
+    .select({ catalogType: products.catalogType, tracksSerials: products.tracksSerials })
+    .from(products)
+    .where(and(eq(products.tenantId, args.tenantId), eq(products.id, args.productId)))
+    .get();
+  if (product) {
+    assertCatalogStockMutationAllowed({
+      catalogType: product.catalogType,
+      delta: args.delta,
+    });
+    assertSerialStockMutationAllowed({
+      tracksSerials: product.tracksSerials,
+      serialAware: args.serialAware === true,
+      delta: args.delta,
+    });
   }
 
   const now = args.now ?? getTimestamp();

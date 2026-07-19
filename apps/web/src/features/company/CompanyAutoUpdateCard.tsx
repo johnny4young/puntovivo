@@ -23,6 +23,11 @@ interface AutoUpdateStatus {
   installMode?: AutoUpdateInstallMode;
   currentVersion: string;
   lastCheckedAt: string | null;
+  lastUpdatedAt?: string | null;
+  rolloutMode?: 'normal' | 'rollback' | null;
+  rolloutPercentage?: 10 | 50 | 100 | null;
+  rolloutTargetVersion?: string | null;
+  rolloutPolicyCheckedAt?: string | null;
   releaseName: string | null;
   releaseNotes: string | null;
   releaseDate: string | null;
@@ -39,6 +44,11 @@ const defaultAutoUpdateStatus: AutoUpdateStatus = {
   installMode: 'auto',
   currentVersion: '',
   lastCheckedAt: null,
+  lastUpdatedAt: null,
+  rolloutMode: null,
+  rolloutPercentage: null,
+  rolloutTargetVersion: null,
+  rolloutPolicyCheckedAt: null,
   releaseName: null,
   releaseNotes: null,
   releaseDate: null,
@@ -144,8 +154,10 @@ export function CompanyAutoUpdateCard() {
     onSuccess: status => {
       queryClient.setQueryData(autoUpdateStatusQueryKey, status);
       toast.info({
-        title: status.isAvailable ? t('company.updater.toast.checkingForUpdates') : t('company.updater.toast.updatesUnavailable'),
-        description: status.isAvailable ? undefined : status.reason ?? undefined,
+        title: status.isAvailable
+          ? t('company.updater.toast.checkingForUpdates')
+          : t('company.updater.toast.updatesUnavailable'),
+        description: status.isAvailable ? undefined : (status.reason ?? undefined),
       });
     },
     onError: onErrorToast(toast, t, { titleKey: 'settings:company.updater.toast.checkError' }),
@@ -175,8 +187,20 @@ export function CompanyAutoUpdateCard() {
   const installMode: AutoUpdateInstallMode = status.installMode ?? 'auto';
   const canViewRelease = status.state === 'available' && Boolean(status.updateUrl);
   const releaseLabel =
-    status.releaseName ?? (status.state === 'downloaded' ? t('company.updater.downloadedUpdateReady') : t('company.updater.none'));
+    status.releaseName ??
+    (status.state === 'downloaded'
+      ? t('company.updater.downloadedUpdateReady')
+      : t('company.updater.none'));
   const currentVersionLabel = status.currentVersion || t('company.updater.unknown');
+  const rolloutLabel = status.rolloutPercentage
+    ? status.rolloutMode === 'rollback'
+      ? t('company.updater.rollout.rollbackValue', {
+          percentage: status.rolloutPercentage,
+        })
+      : t('company.updater.rollout.stagedValue', {
+          percentage: status.rolloutPercentage,
+        })
+    : t('company.updater.notYet');
 
   const actions = (
     <div className="flex flex-wrap gap-3">
@@ -195,7 +219,9 @@ export function CompanyAutoUpdateCard() {
         }}
       >
         <RefreshCw className={checkMutation.isPending ? 'animate-spin' : ''} aria-hidden="true" />
-        {checkMutation.isPending ? t('company.updater.actions.checking') : t('company.updater.actions.checkForUpdates')}
+        {checkMutation.isPending
+          ? t('company.updater.actions.checking')
+          : t('company.updater.actions.checkForUpdates')}
       </button>
 
       {installMode === 'manual' ? (
@@ -203,12 +229,7 @@ export function CompanyAutoUpdateCard() {
         // download. The https link routes through the main process'
         // setWindowOpenHandler -> shell.openExternal (sandbox-safe).
         canViewRelease && status.updateUrl ? (
-          <a
-            className="pv-btn primary"
-            href={status.updateUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a className="pv-btn primary" href={status.updateUrl} target="_blank" rel="noreferrer">
             <ExternalLink aria-hidden="true" />
             {t('company.updater.actions.viewRelease')}
           </a>
@@ -280,14 +301,42 @@ export function CompanyAutoUpdateCard() {
         <StatusBadge state={status.state} installMode={installMode} />
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
         <UpdateMetric label={t('company.updater.currentVersion')} value={currentVersionLabel} />
         <UpdateMetric label={t('company.updater.latestDownload')} value={releaseLabel} />
         <UpdateMetric
           label={t('company.updater.lastChecked')}
-          value={status.lastCheckedAt ? formatDateTime(status.lastCheckedAt) : t('company.updater.notYet')}
+          value={
+            status.lastCheckedAt
+              ? formatDateTime(status.lastCheckedAt)
+              : t('company.updater.notYet')
+          }
         />
+        <UpdateMetric
+          label={t('company.updater.lastUpdated')}
+          value={
+            status.lastUpdatedAt
+              ? formatDateTime(status.lastUpdatedAt)
+              : t('company.updater.notYet')
+          }
+        />
+        <UpdateMetric label={t('company.updater.rollout.label')} value={rolloutLabel} />
       </div>
+
+      {status.rolloutMode === 'rollback' && status.rolloutTargetVersion && (
+        <div
+          className="pv-strip warning mt-4"
+          data-testid="auto-update-rollback-policy"
+          role="status"
+        >
+          <RotateCcw className="h-4 w-4" aria-hidden="true" />
+          <span>
+            {t('company.updater.rollout.rollbackActive', {
+              version: status.rolloutTargetVersion,
+            })}
+          </span>
+        </div>
+      )}
 
       {status.releaseDate && (
         <p className="mt-4 text-sm text-fg3">
@@ -296,7 +345,9 @@ export function CompanyAutoUpdateCard() {
         </p>
       )}
 
-      <div className="mt-4">{isDesktop ? actions : <DisabledControl>{actions}</DisabledControl>}</div>
+      <div className="mt-4">
+        {isDesktop ? actions : <DisabledControl>{actions}</DisabledControl>}
+      </div>
 
       {status.state === 'available' && installMode === 'auto' && (
         <div className="mt-4 flex items-start gap-2 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">

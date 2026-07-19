@@ -44,6 +44,27 @@ vi.mock('@/features/modules', () => ({
   }),
 }));
 
+vi.mock('@/lib/trpc', () => ({
+  trpc: {
+    useUtils: () => ({
+      products: { lookupByBarcode: { fetch: vi.fn(async () => null) } },
+    }),
+    products: {
+      search: {
+        useQuery: () => ({ data: { items: [] }, isFetching: false }),
+      },
+    },
+  },
+}));
+
+vi.mock('@/components/feedback/ToastProvider', () => ({
+  useToast: () => ({
+    success: vi.fn(),
+    warning: vi.fn(),
+    error: vi.fn(),
+  }),
+}));
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
@@ -74,6 +95,12 @@ afterEach(() => {
 function dispatchKey(init: KeyboardEventInit) {
   act(() => {
     window.dispatchEvent(new KeyboardEvent('keydown', init));
+  });
+}
+
+function dispatchKeyFrom(element: HTMLElement, init: KeyboardEventInit) {
+  act(() => {
+    element.dispatchEvent(new KeyboardEvent('keydown', { ...init, bubbles: true }));
   });
 }
 
@@ -127,6 +154,50 @@ describe('CommandPaletteProvider (ENG-105a)', () => {
     );
     dispatchKey({ key: 'k', ctrlKey: true });
     expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
+  });
+
+  it('does not steal Mod+K from editable fields', () => {
+    render(
+      <CommandPaletteProvider>
+        <input data-testid="editable-field" />
+      </CommandPaletteProvider>
+    );
+    const input = screen.getByTestId('editable-field');
+    input.focus();
+    dispatchKeyFrom(input, { key: 'k', ctrlKey: true });
+    expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('preserves the POS Mod+K contract from the sales product search', async () => {
+    render(
+      <CommandPaletteProvider>
+        <input id="sales-product-search-input" data-testid="sales-search" />
+      </CommandPaletteProvider>
+    );
+    const input = screen.getByTestId('sales-search');
+    input.focus();
+    dispatchKeyFrom(input, { key: 'k', ctrlKey: true });
+    expect(await screen.findByTestId('command-palette')).toBeInTheDocument();
+  });
+
+  it('prefers the sales search target after a cross-route palette action', async () => {
+    window.history.pushState({}, '', '/sales');
+    render(
+      <CommandPaletteProvider>
+        <button type="button" data-testid="connected-opener">
+          Open
+        </button>
+        <input id="sales-product-search-input" data-testid="sales-search" />
+      </CommandPaletteProvider>
+    );
+    screen.getByTestId('connected-opener').focus();
+
+    dispatchKey({ key: 'k', ctrlKey: true });
+    expect(await screen.findByTestId('command-palette')).toBeInTheDocument();
+    dispatchKey({ key: 'k', ctrlKey: true });
+
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('sales-search')));
   });
 
   it('falls back to the sales search input when the opener detached before close', async () => {

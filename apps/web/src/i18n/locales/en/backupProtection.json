@@ -1,0 +1,174 @@
+{
+  "title": "Backup protection",
+  "description": "Verify database encryption and how this device protects its backup key.",
+  "states": {
+    "loading": "Verifying protection…",
+    "browser": "Protection status is verified only by the Electron desktop app.",
+    "unsupported": "Update the desktop app to verify backup protection.",
+    "error": "Backup protection could not be verified. Restart the desktop app and try again.",
+    "protected": {
+      "badge": "Protected",
+      "summary": "SQLCipher encrypts the database and backup files, while the operating system protects the key."
+    },
+    "development": {
+      "badge": "Development key source",
+      "summary": "SQLCipher is active, but this development session receives its key from an environment variable instead of the OS keychain."
+    },
+    "degraded": {
+      "badge": "Action required",
+      "summary": "SQLCipher is active, but the operating-system key provider could not be attested."
+    }
+  },
+  "details": {
+    "encryption": "Database and backups",
+    "sqlcipher": "SQLCipher encrypted",
+    "notPrepared": "Not prepared",
+    "keyStorage": "Key storage",
+    "recovery": "Recovery",
+    "recoveryAvailable": "Admin recovery available",
+    "recoveryUnavailable": "Recovery unavailable"
+  },
+  "providers": {
+    "environment": "Development environment variable",
+    "macosKeychain": "macOS Keychain",
+    "windowsDpapi": "Windows DPAPI",
+    "linuxLibsecret": "Linux libsecret",
+    "linuxKwallet": "Linux KWallet",
+    "linuxBasicText": "Linux basic text",
+    "unknown": "Unverified provider"
+  },
+  "securityNote": "This verification returns protection metadata only. It never reads or exposes the backup key.",
+  "schedule": {
+    "title": "Scheduled encrypted snapshots",
+    "description": "Keep automatic restore points in a device-managed or custom folder. Snapshots stay SQLCipher encrypted.",
+    "unsupported": "Update the desktop app to configure scheduled snapshots.",
+    "loading": "Loading…",
+    "lastSuccess": "Last successful snapshot",
+    "nextRun": "Next snapshot",
+    "never": "Not created yet",
+    "notScheduled": "Not scheduled",
+    "destinationLabel": "Destination",
+    "managed": "App-managed folder",
+    "custom": "Custom folder",
+    "folder": "Folder",
+    "frequencyLabel": "Snapshot frequency",
+    "frequency": {
+      "off": "Off",
+      "daily": "Daily",
+      "weekly": "Weekly"
+    },
+    "save": "Save schedule",
+    "saving": "Saving…",
+    "runNow": "Create snapshot now",
+    "running": "Creating snapshot…",
+    "chooseFolder": "Choose folder",
+    "useManaged": "Use app-managed folder",
+    "lastRunFailed": "The latest scheduled snapshot failed. Check the destination and try again.",
+    "toast": {
+      "saved": "Snapshot schedule saved",
+      "destination": "Snapshot destination updated",
+      "created": "Encrypted snapshot created"
+    },
+    "errors": {
+      "load": "Unable to load the snapshot schedule.",
+      "save": "Unable to save the snapshot schedule.",
+      "destination": "Unable to update the snapshot folder.",
+      "snapshot": "Unable to create the encrypted snapshot."
+    }
+  },
+  "cloud": {
+    "title": "S3-compatible cloud vault",
+    "description": "Replicate each scheduled encrypted snapshot to storage managed by your business.",
+    "connected": "Connected",
+    "unsupported": "Update the desktop app to configure cloud backup replication.",
+    "secureStorageUnavailable": "The operating-system keychain is unavailable. Cloud credentials will not be stored until secure storage is restored.",
+    "destination": "Cloud destination",
+    "prefix": "Object prefix",
+    "credential": "Access key",
+    "lastSuccess": "Last successful cloud write",
+    "lastObject": "Latest object",
+    "never": "Not verified yet",
+    "test": "Test connection",
+    "testing": "Testing connection…",
+    "replace": "Replace configuration",
+    "disconnect": "Disconnect",
+    "saveAndTest": "Save and test",
+    "saving": "Saving and testing…",
+    "cancel": "Cancel",
+    "securityNote": "Credentials are sealed by this device’s operating-system keychain and are never included in backups or returned to the interface. Use a dedicated key limited to writing this bucket and prefix.",
+    "fields": {
+      "endpoint": "S3 endpoint",
+      "region": "Region",
+      "bucket": "Bucket",
+      "prefix": "Object prefix",
+      "accessKey": "Access key ID",
+      "secretKey": "Secret access key",
+      "pathStyle": "Use path-style addressing",
+      "pathStyleHelp": "Recommended for MinIO, Cloudflare R2, and many S3-compatible providers."
+    },
+    "placeholders": {
+      "endpoint": "https://objects.example.com",
+      "region": "auto",
+      "bucket": "merchant-backups",
+      "prefix": "puntovivo-backups",
+      "accessKey": "Enter the access key ID",
+      "secretKey": "Enter the secret access key"
+    },
+    "toast": {
+      "connected": "Cloud vault saved and verified",
+      "testPassed": "Cloud vault connection verified",
+      "disconnected": "Cloud vault disconnected"
+    },
+    "errors": {
+      "load": "Unable to load the cloud vault configuration.",
+      "save": "Unable to save the cloud vault configuration.",
+      "disconnect": "Unable to disconnect the cloud vault.",
+      "configurationInvalid": "Check the endpoint, bucket, prefix, region, and credentials. Production endpoints must use HTTPS.",
+      "configurationMissing": "Configure the cloud vault before testing it.",
+      "secureStorage": "The operating-system keychain cannot protect these credentials.",
+      "connection": "The cloud write test failed. Check the endpoint, credentials, bucket permissions, and network connection.",
+      "upload": "The latest encrypted snapshot could not be copied to the cloud vault. The local snapshot is still valid.",
+      "inProgress": "Another cloud backup operation is still in progress."
+    },
+    "disconnectModal": {
+      "title": "Disconnect cloud vault?",
+      "message": "This removes the sealed credentials from this device. Existing cloud objects and local snapshots are not deleted.",
+      "confirm": "Disconnect vault"
+    }
+  },
+  "drill": {
+    "title": "Restore readiness drill",
+    "description": "Verify the latest encrypted snapshot without changing the live database. The result is recorded in the audit log.",
+    "unsupported": "Update the desktop app to run restore readiness drills.",
+    "run": "Run restore drill",
+    "running": "Verifying snapshot…",
+    "toast": {
+      "passed": "Restore drill passed"
+    },
+    "errors": {
+      "snapshotUnavailable": "Create at least one encrypted snapshot before running a restore drill.",
+      "failed": "The latest snapshot could not be verified. Create a new snapshot and try again."
+    },
+    "result": {
+      "title": "Ready to restore",
+      "description": "The snapshot passed its integrity and tenant-data checks. The live database was not changed.",
+      "checkedAt": "Checked",
+      "snapshotAt": "Snapshot created",
+      "currentTotal": "Current records",
+      "snapshotTotal": "Snapshot records",
+      "tableCaption": "Current and snapshot record comparison",
+      "area": "Data area",
+      "current": "Current",
+      "snapshot": "Snapshot",
+      "delta": "Difference",
+      "deltaNote": "Differences are expected when data changed after the snapshot was created."
+    },
+    "tables": {
+      "products": "Products",
+      "customers": "Customers",
+      "sales": "Sales",
+      "inventory_movements": "Inventory movements",
+      "audit_logs": "Audit events"
+    }
+  }
+}
