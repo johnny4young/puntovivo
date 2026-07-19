@@ -4,6 +4,22 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.7.0](https://github.com/johnny4young/puntovivo/compare/v1.6.0...v1.7.0) (2026-07-19)
+
+
+### Features
+
+* **loyalty:** admin program card, customer ledger panel, and draft-completion customer attach ([#152](https://github.com/johnny4young/puntovivo/issues/152)) ([1aeecee](https://github.com/johnny4young/puntovivo/commit/1aeecee76a8d6180ebbbabe9e2a95ee2182297bd))
+* NIT verification digit, vertical presets, schema-downgrade guard, and website SEO/lead capture ([#157](https://github.com/johnny4young/puntovivo/issues/157)) ([af2dedc](https://github.com/johnny4young/puntovivo/commit/af2dedc6d017c0fd3afbffe9792e849b5bee7d23))
+* **sales:** iteration-2 band 3 — sell omnibox, cashier pace HUD, shareable day pulse (ENG-203/204/205) ([#150](https://github.com/johnny4young/puntovivo/issues/150)) ([00c4bbb](https://github.com/johnny4young/puntovivo/commit/00c4bbb3874e294080b255a4009742ae62cab3f7))
+* **sales:** tunable expiry discount tiers, radar window selector, and points loyalty ([#151](https://github.com/johnny4young/puntovivo/issues/151)) ([f4ba437](https://github.com/johnny4young/puntovivo/commit/f4ba437f661adb18b1ff19a0489b88d2c48d884f))
+
+
+### Bug Fixes
+
+* **web:** server-side customer search, resilient credit-balance read, sticky virtualised header ([#153](https://github.com/johnny4young/puntovivo/issues/153)) ([c9b4a43](https://github.com/johnny4young/puntovivo/commit/c9b4a43e5826a99dc05650f943340f1a81c64332))
+* **web:** translate shared components, drop dead locale fields, gate the migrations-bundle guard ([#154](https://github.com/johnny4young/puntovivo/issues/154)) ([6c250fe](https://github.com/johnny4young/puntovivo/commit/6c250fe9df1bf7a40aaff7fed8bfeb61f47dd8b7))
+
 ## [1.6.0](https://github.com/johnny4young/puntovivo/compare/v1.5.1...v1.6.0) (2026-07-12)
 
 
