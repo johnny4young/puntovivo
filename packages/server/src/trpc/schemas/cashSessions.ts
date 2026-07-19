@@ -95,6 +95,9 @@ export const dayCloseSummaryOutput = z.object({
       revenueChangePct: z.number().nullable(),
     })
     .nullable(),
+  // ENG-205 — same-weekday-last-week revenue for the shareable pulse (all
+  // roles; revenue only, no owner data). Null when that day had no sales.
+  previousWeek: z.object({ revenue: z.number() }).nullable(),
   topProducts: z.array(
     z.object({
       productId: z.string(),

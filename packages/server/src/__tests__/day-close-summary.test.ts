@@ -362,6 +362,26 @@ describe('day-close summary (ENG-198)', () => {
     expect(after.day).toEqual(before.day);
   });
 
+  // ENG-205 — the shareable pulse compares against the same weekday last week.
+  it('reports last-week revenue for the pulse comparison, null without reference', async () => {
+    const db = getDatabase();
+    const caller = appRouter.createCaller(fresh());
+    const before = await caller.cashSessions.dayCloseSummary({ sessionId: closedSessionId });
+    expect(before.previousWeek).toBeNull();
+
+    const productId = await seedProduct('Ritual LastWeek', 'DC-LWEEK', 70, 25);
+    const saleId = await sellProduct(productId, 2, 70);
+    await db
+      .update(sales)
+      .set({ createdAt: isoDaysAgo(7) })
+      .where(eq(sales.id, saleId));
+
+    const after = await caller.cashSessions.dayCloseSummary({ sessionId: closedSessionId });
+    expect(after.previousWeek).toEqual({ revenue: 140 });
+    // Today's stats stay untouched by the relocated sale.
+    expect(after.day).toEqual(before.day);
+  });
+
   it('builds the tenant-scoped pulse against the same weekday one week earlier', async () => {
     const db = getDatabase();
     const caller = appRouter.createCaller(fresh());
@@ -402,29 +422,14 @@ describe('day-close summary (ENG-198)', () => {
       current.day.revenue / current.day.salesCount,
       2
     );
-    expect(summary.pulse?.previousWeekRevenue).toBe(100);
+    // Incremental against whatever earlier tests already put in last week's
+    // window — this test owns exactly +100 of prev-week revenue.
+    const expectedPrev = (current.pulse?.previousWeekRevenue ?? 0) + 100;
+    expect(summary.pulse?.previousWeekRevenue).toBe(expectedPrev);
     expect(summary.pulse?.revenueChangePct).toBeCloseTo(
-      ((current.day.revenue - 100) / 100) * 100,
+      ((current.day.revenue - expectedPrev) / expectedPrev) * 100,
       1
     );
-  // ENG-205 — the shareable pulse compares against the same weekday last week.
-  it('reports last-week revenue for the pulse comparison, null without reference', async () => {
-    const db = getDatabase();
-    const caller = appRouter.createCaller(fresh());
-    const before = await caller.cashSessions.dayCloseSummary({ sessionId: closedSessionId });
-    expect(before.previousWeek).toBeNull();
-
-    const productId = await seedProduct('Ritual LastWeek', 'DC-LWEEK', 70, 25);
-    const saleId = await sellProduct(productId, 2, 70);
-    await db
-      .update(sales)
-      .set({ createdAt: isoDaysAgo(7) })
-      .where(eq(sales.id, saleId));
-
-    const after = await caller.cashSessions.dayCloseSummary({ sessionId: closedSessionId });
-    expect(after.previousWeek).toEqual({ revenue: 140 });
-    // Today's stats stay untouched by the relocated sale.
-    expect(after.day).toEqual(before.day);
   });
 
   it('counts consecutive balanced days into the streak', async () => {

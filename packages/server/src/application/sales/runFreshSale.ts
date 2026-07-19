@@ -187,8 +187,6 @@ export async function runFreshSale(
   const consumedLotIds = new Set<string>();
   /** ENG-213 — points this sale accrued (0 when the program is off). */
   let loyaltyPointsEarned = 0;
-  /** ENG-213 — points this sale accrued (0 when the program is off). */
-  let loyaltyPointsEarned = 0;
 
   // ENG-176b — resolve the tenant default currency once per sale and
   // propagate it to every row written below (sales header + each

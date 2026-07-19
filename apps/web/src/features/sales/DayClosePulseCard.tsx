@@ -11,6 +11,12 @@ import {
 } from './dayClosePulse';
 
 interface DayClosePulseCardProps {
+  /**
+   * ENG-205 — canonical WhatsApp share URL built by the modal from the full
+   * summary (buildDayPulseText). When set it replaces the card-local builder
+   * so the shared text has ONE source of truth.
+   */
+  shareUrl?: string;
   date: string;
   salesCount: number;
   revenue: number;
@@ -33,6 +39,7 @@ function PulseComparisonIcon({
 }
 
 export function DayClosePulseCard({
+  shareUrl,
   date,
   salesCount,
   revenue,
@@ -174,7 +181,7 @@ export function DayClosePulseCard({
           </button>
           <a
             className="pv-btn primary flex-1 justify-center"
-            href={whatsappUrl}
+            href={shareUrl ?? whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
             data-testid="day-close-whatsapp"

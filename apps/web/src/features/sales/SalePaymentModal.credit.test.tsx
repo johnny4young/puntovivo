@@ -79,13 +79,6 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
     },
-  },
-}));
-
-vi.mock('@/lib/useCriticalMutation', () => ({
-  useCriticalMutation: (_path: string, options?: { onSuccess?: ApprovalOnSuccess }) => {
-    mockApprovalOnSuccess = options?.onSuccess;
-    return mockApprovalMutation;
     // ENG-213 — the drawer mounts CustomerLoyaltyChip, which reads this.
     // Zero points keeps the chip silent so the credit assertions below see
     // the same surface they did before loyalty existed.
@@ -94,6 +87,13 @@ vi.mock('@/lib/useCriticalMutation', () => ({
         useQuery: () => ({ data: { points: 0, movements: [] }, isLoading: false, error: null }),
       },
     },
+  },
+}));
+
+vi.mock('@/lib/useCriticalMutation', () => ({
+  useCriticalMutation: (_path: string, options?: { onSuccess?: ApprovalOnSuccess }) => {
+    mockApprovalOnSuccess = options?.onSuccess;
+    return mockApprovalMutation;
   },
 }));
 

@@ -40,6 +40,8 @@ vi.mock('@/lib/trpc', () => ({
           error: null,
           refetch: approvalRefetchMock,
         }),
+      },
+    },
     // ENG-213 — the drawer mounts CustomerLoyaltyChip, which reads this.
     // Zero points keeps the chip silent, so this suite keeps asserting the
     // same surface it did before loyalty existed.

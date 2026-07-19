@@ -116,10 +116,9 @@ describe('DayCloseSummaryModal (ENG-198)', () => {
 
     const link = screen.getByTestId('day-close-whatsapp');
     const decodedHref = decodeURIComponent(link.getAttribute('href') ?? '');
-    expect(decodedHref).toContain('https://wa.me/?text=How your business closed');
+    expect(decodedHref).toContain('https://wa.me/?text=📊 Day pulse');
     expect(decodedHref).toContain('Sales: $950.00');
     expect(decodedHref).toContain('Average ticket: $79.17');
-    expect(decodedHref).not.toContain('Front register');
     expect(decodedHref).not.toContain('Café 500g');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', expect.stringContaining('noreferrer'));
@@ -129,7 +128,7 @@ describe('DayCloseSummaryModal (ENG-198)', () => {
     await i18n.changeLanguage('es');
     render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);
 
-    expect(screen.getByText('Así cerró tu negocio')).toBeInTheDocument();
+    expect(screen.getByTestId('day-close-pulse')).toBeInTheDocument();
     expect(screen.getByText('10 de julio de 2026')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Compartir por WhatsApp' })).toBeInTheDocument();
     const decodedHref = decodeURIComponent(
@@ -137,7 +136,7 @@ describe('DayCloseSummaryModal (ENG-198)', () => {
     );
     expect(decodedHref).toContain('Ventas:');
     expect(decodedHref).toContain('Ticket promedio:');
-    expect(decodedHref).toContain('10 de julio de 2026');
+    expect(decodedHref).toContain('2026-07-10');
     expect(decodedHref).not.toContain('Café 500g');
   });
 
@@ -217,27 +216,24 @@ describe('DayCloseSummaryModal (ENG-198)', () => {
 });
 
 describe('day pulse share (ENG-205)', () => {
-  it('opens the WhatsApp deep link with the aggregate pulse text', async () => {
-    const user = userEvent.setup();
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+  it('links the WhatsApp share to the aggregate pulse text', () => {
     mockQueryState = { data: adminSummary, isPending: false, isError: false };
     render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);
 
-    await user.click(screen.getByRole('button', { name: /Share via WhatsApp/ }));
-
-    expect(openSpy).toHaveBeenCalledTimes(1);
-    const [url, target, features] = openSpy.mock.calls[0] ?? [];
-    expect(String(url)).toMatch(/^https:\/\/wa\.me\/\?text=/);
-    expect(String(url)).toContain(encodeURIComponent('$950.00'));
-    expect(target).toBe('_blank');
-    expect(features).toBe('noopener,noreferrer');
-    openSpy.mockRestore();
+    // The share now lives on the pulse card anchor; one canonical URL built
+    // from buildDayPulseText (see the deep-link test above for its content).
+    const link = screen.getByTestId('day-close-whatsapp');
+    const href = link.getAttribute('href') ?? '';
+    expect(href).toMatch(/^https:\/\/wa\.me\/\?text=/);
+    expect(href).toContain(encodeURIComponent('$950.00'));
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noreferrer'));
   });
 
-  it('hides the share button while the summary has not arrived', () => {
+  it('hides the share link while the summary has not arrived', () => {
     mockQueryState = { data: undefined, isPending: true, isError: false };
     render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);
 
-    expect(screen.queryByRole('button', { name: /Share via WhatsApp/ })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('day-close-whatsapp')).not.toBeInTheDocument();
   });
 });

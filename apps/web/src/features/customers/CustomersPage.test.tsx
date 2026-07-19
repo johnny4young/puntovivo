@@ -100,30 +100,6 @@ vi.mock('@/lib/trpc', () => ({
           reset: vi.fn(),
         }),
       },
-      create: {
-        useMutation: () => ({
-          mutateAsync: vi.fn(),
-          isPending: false,
-          error: null,
-          reset: vi.fn(),
-        }),
-      },
-      update: {
-        useMutation: () => ({
-          mutateAsync: vi.fn(),
-          isPending: false,
-          error: null,
-          reset: vi.fn(),
-        }),
-      },
-      delete: {
-        useMutation: () => ({
-          mutateAsync: vi.fn(),
-          isPending: false,
-          error: null,
-          reset: vi.fn(),
-        }),
-      },
       previewPersonalDataDisposition: {
         useQuery: () => ({
           data: {
