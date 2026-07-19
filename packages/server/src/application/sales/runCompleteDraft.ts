@@ -37,6 +37,8 @@ import {
 import { assertServiceChargeMatchesTenant } from '../../services/restaurant/settings.js';
 import { transitionSaleSerials } from '../../services/product-serials.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { earnPointsForSale, resolveLoyaltySettings } from '../../services/loyalty.js';
+import { validateCustomer } from './item-resolution.js';
 import { resolveSalePaymentPlan } from './pricing.js';
 import { runCreditPreflight, safelyRecordCreditSaleLedger } from './creditPolicy.js';
 import { emitSaleFiscalDocument, enqueueSaleKdsOrder } from './fiscalPostHook.js';
@@ -204,11 +206,28 @@ export async function runCompleteDraft(
       collectCash: true,
     });
 
-  // ENG-014 — same credit-sale pre-flight as the fresh path, but the
-  // customer comes from the draft row (`existing.customerId`) rather
-  // than from the input. The draft customer is locked at create-time;
-  // completeDraft cannot re-assign it.
-  const draftCustomerId = existing.customerId;
+  // ENG-216 — the customer is resolved from the input when it carries one,
+  // falling back to whatever the draft stored. ENG-014 used to lock the
+  // draft's customer at create-time, but the payment drawer is the only
+  // customer-attach surface in the app and a suspended ticket is created
+  // without one, so the lock silently recorded every resumed sale as a
+  // walk-in. `undefined` (field omitted) keeps the stored value; an
+  // explicit `null` clears it.
+  //
+  // Validation runs BEFORE the credit pre-flight below, and the pre-flight
+  // then projects against the RESOLVED customer — so re-assigning at
+  // payment time cannot dodge the new customer's cupo.
+  const draftCustomerId =
+    input.customerId === undefined ? existing.customerId : (input.customerId ?? null);
+  if (input.customerId !== undefined && input.customerId !== existing.customerId) {
+    await validateCustomer(ctx.db, ctx.tenantId, draftCustomerId);
+  }
+  // ENG-213 — resolved before the tx (a settings read is a DB round trip and
+  // the tx body is sync). A resumed draft is the same sale as a fresh one for
+  // the customer, so it must earn the same points.
+  const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
+
+  let loyaltyPointsEarned = 0;
   const creditProjection = await runCreditPreflight({
     db: ctx.db,
     tenantId: ctx.tenantId,
@@ -313,6 +332,10 @@ export async function runCompleteDraft(
           paymentMethod: resolvedPayments.dominantMethod,
           paymentStatus,
           status: 'completed',
+          // ENG-216 — persist the customer attached at payment time. Resolves
+          // to the draft's stored value when the caller omitted the field, so
+          // an older client that never sends it is a no-op.
+          customerId: draftCustomerId,
           // Re-bind to the active session so cash reports show the
           // income where it physically arrived.
           cashSessionId: activeCashSession.id,
@@ -393,6 +416,28 @@ export async function runCompleteDraft(
         createdAt: now,
       });
 
+      // ENG-213 — a resumed draft earns exactly like a fresh sale: same money,
+      // same customer, so the same points. Suspending a ticket is a cashier
+      // workflow detail the customer never agreed to be charged for. Mirrors
+      // the fresh path: idempotent per (account, sale), wrapped in a SAVEPOINT
+      // so a half-written ledger can never ride to COMMIT, and best-effort so
+      // a loyalty failure never blocks the register.
+      try {
+        tx.transaction(loyaltyTx => {
+          loyaltyPointsEarned = earnPointsForSale(loyaltyTx, {
+            tenantId: ctx.tenantId,
+            customerId: draftCustomerId ?? null,
+            saleId: input.saleId,
+            total,
+            settings: loyaltySettings,
+            nowIso: now,
+          });
+        });
+      } catch (error) {
+        loyaltyPointsEarned = 0;
+        log?.warn?.({ err: error, saleId: input.saleId }, 'loyalty accrual skipped');
+      }
+
       // Parity with void / return / park / resume / discard / reprint:
       // every state-change on an existing sale leaves a `sale.*` audit row.
       completionAuditId = writeAuditLog({
@@ -406,12 +451,19 @@ export async function runCompleteDraft(
           status: 'draft',
           cashSessionId: existing.cashSessionId,
           paymentStatus: existing.paymentStatus,
+          // ENG-216 — the customer became mutable at completion, and a
+          // manager can complete someone else's draft. Re-assigning moves the
+          // receivable, the loyalty accrual, and the fiscal buyer, so the
+          // before/after pair has to carry it or the change is
+          // unreconstructible from the audit log.
+          customerId: existing.customerId,
         },
         after: {
           status: 'completed',
           cashSessionId: activeCashSession.id,
           paymentStatus,
           total,
+          customerId: draftCustomerId,
         },
         metadata: {
           completedFromDraft: true,
@@ -438,8 +490,8 @@ export async function runCompleteDraft(
       // balance exceeded the customer's cupo. `overrideApplied` is true
       // only when (exceedsLimit && allowOverride === true), so the row
       // never fires for admin-completed sales that stayed under the limit.
-      // `draftCustomerId` is captured from the existing sale row above
-      // because the `fromDraft` input shape does not carry `customerId`.
+      // `draftCustomerId` is the customer resolved above — the input's when
+      // it carried one, the draft row's otherwise (ENG-216).
       if (creditProjection?.overrideApplied === true && draftCustomerId) {
         writeAuditLog({
           tx,
@@ -500,6 +552,9 @@ export async function runCompleteDraft(
       completedFromDraft: true,
       total,
       paymentStatus,
+      // ENG-216 — the completion can attach or re-assign the customer, so
+      // the peer must learn about it or it keeps the draft's stale value.
+      customerId: draftCustomerId,
     },
   });
 
@@ -579,5 +634,6 @@ export async function runCompleteDraft(
     sale: completed as CompleteSaleSaleRecord,
     change,
     journalEventId,
+    loyaltyPointsEarned,
   };
 }

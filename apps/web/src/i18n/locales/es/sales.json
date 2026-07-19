@@ -248,13 +248,13 @@
       "noSales": "Hoy no se registraron ventas.",
       "pulse": {
         "eyebrow": "Pulso diario",
-        "title": "Así cerró tu negocio",
+        "title": "📊 Pulso del día — {{date}} · {{registerName}}",
         "brand": "Puntovivo · Pulso diario",
         "ownerOnly": "Vista de gestión",
-        "sales": "Ventas",
+        "sales": "Ventas: {{amount}} ({{count}} ventas)",
         "salesCount_one": "{{count}} venta completada",
         "salesCount_other": "{{count}} ventas completadas",
-        "margin": "Margen bruto",
+        "margin": "Ganancia bruta: {{amount}} ({{percent}}%)",
         "marginDetail": "{{amount}} de utilidad bruta",
         "averageTicket": "Ticket promedio",
         "comparisonLabel": "Comparación semanal",
@@ -268,7 +268,14 @@
         "download": "Descargar imagen",
         "generating": "Generando imagen…",
         "whatsapp": "Compartir por WhatsApp",
-        "imageError": "No pudimos generar la imagen. Puedes compartir el texto por WhatsApp."
+        "imageError": "No pudimos generar la imagen. Puedes compartir el texto por WhatsApp.",
+        "avgTicket": "Ticket promedio: {{amount}}",
+        "vsLastWeekUp": "vs semana pasada: ↑{{percent}}%",
+        "vsLastWeekDown": "vs semana pasada: ↓{{percent}}%",
+        "vsLastWeekFlat": "vs semana pasada: igual",
+        "share": "Compartir por WhatsApp",
+        "streak_one": "🔥 {{count}} día cuadrando la caja",
+        "streak_other": "🔥 {{count}} días cuadrando la caja"
       },
       "finish": "Terminar"
     },
@@ -595,7 +602,10 @@
       "balance": "Saldo actual",
       "cupo": "Cupo",
       "projected": "Saldo proyectado",
-      "unlimited": "Sin cupo"
+      "unlimited": "Sin cupo",
+      "balanceUnavailable": "No se pudo cargar el saldo",
+      "balanceUnavailableHelp": "Sin el saldo no se puede proyectar el cupo, así que la venta queda bloqueada. Reintenta o cobra por otro medio.",
+      "balanceRetry": "Reintentar"
     },
     "warning": {
       "exceedsLimit": "El saldo proyectado supera el cupo del cliente. Pide a un administrador autorizar el sobregiro o cobra el excedente en efectivo."
@@ -718,5 +728,23 @@
     "itemsPerMinute": "Ítems/min",
     "averageCheckout": "Cobro prom.",
     "personalBest": "Mejor marca"
+  },
+  "omnibox": {
+    "added": "{{product}} agregado al carrito"
+  },
+  "paceHud": {
+    "title": "Ritmo de la sesión",
+    "enable": "Muestra tu ritmo de sesión",
+    "disable": "Oculta tu ritmo de sesión",
+    "itemsPerMinute": "Ítems/min",
+    "secondsPerSale": "Seg/venta",
+    "personalBest": "Mejor",
+    "noRecordYet": "—"
+  },
+  "loyalty": {
+    "pointsBalance_one": "{{count}} punto",
+    "pointsBalance_other": "{{count}} puntos",
+    "earned_one": "+{{count}} punto ganado",
+    "earned_other": "+{{count}} puntos ganados"
   }
 }

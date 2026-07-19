@@ -107,6 +107,13 @@ export type CompleteSaleInput =
   | {
       mode: 'fromDraft';
       saleId: string;
+      /**
+       * ENG-216 — customer attached at payment time. `undefined` keeps the
+       * draft's stored customer; an id attaches or re-assigns; `null`
+       * clears it. Validated tenant-side and re-projected against the
+       * credit cupo before the sale commits.
+       */
+      customerId?: string | null | undefined;
       payments?: CompleteSaleTender[] | undefined;
       paymentMethod: SalePaymentMethod;
       amountReceived?: number | undefined;
@@ -178,4 +185,11 @@ export interface CompleteSaleResult<TSaleRecord = unknown> {
    * effects path ran (or was deliberately skipped).
    */
   journalEventId: string | null;
+  /**
+   * ENG-213 — loyalty points this sale accrued for its customer. 0 when
+   * the program is off, the sale had no customer, or the total earned
+   * nothing. Both completion paths (fresh and resumed draft) report it;
+   * optional only so a future non-completing path need not restate it.
+   */
+  loyaltyPointsEarned?: number;
 }

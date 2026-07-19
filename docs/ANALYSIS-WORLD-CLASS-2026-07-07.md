@@ -261,7 +261,7 @@ vuelto ventaja vendible.
 - **AC**: apagado por defecto; habilitarlo prueba el speaker en el mismo gesto;
   toggle persiste por dispositivo; audio nunca rompe checkout.
 
-### WC-C3 · Radar de vencimientos accionable `[stock]` — **M** ⭐
+### WC-C3 · Radar de vencimientos accionable `[stock]` — **M** ⭐ — ✅ ENG-199 shipped; tiers por tenant (ENG-211) + selector de ventana (ENG-212) shipped 2026-07-17
 
 - **Qué**: panel "Se vencen pronto" (el endpoint `inventoryLots.expiring` YA
   existe) con CTA por lote: "Sugerir descuento" — regla determinista: ≤ 7 días
@@ -273,7 +273,7 @@ vuelto ventaja vendible.
 - **AC**: lista FEFO-ordenada con valor en riesgo; CTA registra auditoría;
   EN/ES; smoke live.
 
-### WC-C4 · HUD de cajero (opt-in) `[checkout]` — **M** ✅ ENG-209
+### WC-C4 · HUD de cajero (opt-in) `[checkout]` — **M** — ✅ ENG-204 shipped 2026-07-16
 
 - **Qué**: mini-strip en el cockpit: ítems/min de la sesión, tiempo medio de
   checkout, mejor marca personal. Opt-in por usuario (esto motiva, no vigila:
@@ -327,7 +327,7 @@ vuelto ventaja vendible.
 - **AC**: tenant nuevo ve el checklist; cada paso deep-linkea; se auto-oculta
   al completarse; reaparece solo desde ayuda.
 
-### WC-C8 · Pulso diario del negocio `[audit]` — **S (v1)** ✅
+### WC-C8 · Pulso diario del negocio `[audit]` — **S (v1)** — ✅ ENG-205 shipped 2026-07-16
 
 - **Qué**: card compartible (imagen/PDF ligero) al cierre: ventas, margen,
   ticket promedio, comparación vs mismo día semana anterior. v1: botón
@@ -443,7 +443,7 @@ cambiar una lista jamás reescribe historia. Sync: `manual` (dinero).
 **Compat**: los 3 tiers actuales se migran como lista "General" con 3
 escalones; las columnas legacy quedan derivadas hasta deprecarse.
 
-### WC-D2 · Lealtad mínima viable (núcleo de ENG-108) `[checkout]` — **M**
+### WC-D2 · Lealtad mínima viable (núcleo de ENG-108) `[checkout]` — **M** — ✅ ENG-213 shipped 2026-07-17 (acumulación + reversa + chip de saldo); superficies de admin (card del programa + panel por cliente) ENG-214/215 shipped 2026-07-17; redención diferida a WC-D2b
 
 Ledger append-only, mismo patrón que `sale_item_lots` (auditable, snapshot):
 
@@ -608,10 +608,10 @@ serial; garantía = lookup por serial. Product-gated (electrónica/herramienta).
 | 13  | ✅ WC-B2 packages/shared — ENG-203 shipped 2026-07-12                                                                           | M        | mantenibilidad        |
 | 14  | ✅ WC-B3 FiscalAdapter ya existía; auditoría corregida 2026-07-12                                                               | M        | fiscal                |
 | 15  | WC-D1 listas de precios (con WC-F2)                                                                                             | L        | checkout              |
-| 16  | ✅ WC-C5 omnibox de venta — ENG-205 shipped 2026-07-12                                                                          | M        | checkout              |
-| 17  | WC-D2 lealtad mínima                                                                                                            | M        | checkout              |
+| 16  | ✅ WC-C5 omnibox de venta (fila Vender en el palette: barcode exacto → carrito, miss → búsqueda prefilled) — ENG-203 shipped 2026-07-16 | M        | checkout              |
+| 17  | ✅ WC-D2 lealtad mínima (ledger append-only, acumulación en la venta, reversa por reembolso, chip de saldo en el cobro) — ENG-213 shipped 2026-07-17 | M        | checkout              |
 | 18  | ✅ WC-B1 application/ por fases — ENG-206/207/208 shipped 2026-07-13                                                            | L        | mantenibilidad        |
-| 19  | ✅ WC-A2 SSE backpressure + replay — ENG-204 shipped 2026-07-12                                                                 | M        | offline               |
+| 19  | ✅ WC-A2 SSE backpressure + replay — shipped 2026-07-12                                                                         | M        | offline               |
 | 20  | WC-D3/WC-D4 bins + seriales                                                                                                     | M        | stock (product-gated) |
 | 21  | ✅ WC-C4 HUD privado de cajero (opt-in) — ENG-209 shipped 2026-07-13                                                            | M        | checkout              |
 | 22  | ✅ WC-E3 E2E prerelease de venta, cierre y devolución — ENG-210 shipped 2026-07-13                                              | M        | testeabilidad         |

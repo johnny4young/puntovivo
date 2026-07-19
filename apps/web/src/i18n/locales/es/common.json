@@ -58,7 +58,10 @@
     "showing": "Mostrando {{from}} a {{to}} de {{total}} entradas",
     "page": "Página {{current}} de {{total}}",
     "columns": "Columnas",
-    "scrollableLabel": "Región de tabla con desplazamiento"
+    "scrollableLabel": "Región de tabla con desplazamiento",
+    "searchPlaceholder": "Buscar...",
+    "retry": "Reintentar",
+    "loadError": "No se pudo cargar {{resource}}"
   },
   "notifications": "Notificaciones",
   "language": {
@@ -343,5 +346,8 @@
       "aria": "Comparte {{rule}} por WhatsApp",
       "message": "Alerta de prevención de pérdidas\\nRegla: {{rule}}\\nPersona: {{operator}}\\nSede: {{site}}\\nHora: {{time}}"
     }
+  },
+  "form": {
+    "selectPlaceholder": "Selecciona una opción..."
   }
 }

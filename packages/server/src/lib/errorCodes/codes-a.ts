@@ -296,6 +296,12 @@ export const SERVER_ERROR_CODES_A = {
   /** ENG-199 — dismiss targeted a suggestion id that does not exist (or is
    * not active) under the caller's tenant. details: { suggestionId }. */
   PRICE_SUGGESTION_NOT_FOUND: 'PRICE_SUGGESTION_NOT_FOUND',
+  /** ENG-213 — a loyalty operation targeted a customer that does not exist
+   * under the caller's tenant. details: { customerId }. */
+  LOYALTY_CUSTOMER_NOT_FOUND: 'LOYALTY_CUSTOMER_NOT_FOUND',
+  /** ENG-213 — a negative adjustment would leave the balance below zero.
+   * details: { customerId, balance, points }. */
+  LOYALTY_INSUFFICIENT_POINTS: 'LOYALTY_INSUFFICIENT_POINTS',
   /** Applied discount amount exceeds the computed sale total. */
   SALE_DISCOUNT_EXCEEDS_TOTAL: 'SALE_DISCOUNT_EXCEEDS_TOTAL',
   /** Amount received is below the sale total when the payment status is paid. */

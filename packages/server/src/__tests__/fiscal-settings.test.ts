@@ -130,14 +130,8 @@ afterAll(async () => {
 beforeEach(async () => {
   // Limpiar settings entre tests para que cada uno arranque fresco.
   const db = getDatabase();
-  await db
-    .update(tenants)
-    .set({ settings: {} })
-    .where(eq(tenants.id, tenantA));
-  await db
-    .update(tenants)
-    .set({ settings: {} })
-    .where(eq(tenants.id, tenantB));
+  await db.update(tenants).set({ settings: {} }).where(eq(tenants.id, tenantA));
+  await db.update(tenants).set({ settings: {} }).where(eq(tenants.id, tenantB));
 });
 
 describe('fiscalSettings.getByCountry (ENG-035a)', () => {
@@ -159,11 +153,7 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
     });
     expect(result.validation.ok).toBe(false);
     const codes = result.validation.issues.map(i => i.code).sort();
-    expect(codes).toEqual([
-      'MISSING_CERTIFICATE',
-      'MISSING_RESOLUTION',
-      'MISSING_RFC',
-    ]);
+    expect(codes).toEqual(['MISSING_CERTIFICATE', 'MISSING_RESOLUTION', 'MISSING_RFC']);
     // ENG-035b promovió MX de NotImplemented a real adapter — los
     // flags `notImplemented` / `availableInTicket` ya no aplican.
     // El readiness sigue siendo rojo porque los settings están
@@ -295,9 +285,7 @@ describe('fiscalSettings.updateMx (ENG-035a)', () => {
     expect(caught).toBeInstanceOf(TRPCError);
     const cause = (caught as TRPCError).cause;
     expect(cause).toBeInstanceOf(ServerErrorWithCode);
-    expect((cause as ServerErrorWithCode).errorCode).toBe(
-      'FISCAL_REGIMEN_INVALID'
-    );
+    expect((cause as ServerErrorWithCode).errorCode).toBe('FISCAL_REGIMEN_INVALID');
   });
 
   it('aislamiento multi-tenant: update del A no toca settings del B', async () => {
@@ -402,9 +390,7 @@ describe('fiscalSettings.updateCl (ENG-036a)', () => {
     expect(caught).toBeInstanceOf(TRPCError);
     const cause = (caught as TRPCError).cause;
     expect(cause).toBeInstanceOf(ServerErrorWithCode);
-    expect((cause as ServerErrorWithCode).errorCode).toBe(
-      'FISCAL_REGIMEN_INVALID'
-    );
+    expect((cause as ServerErrorWithCode).errorCode).toBe('FISCAL_REGIMEN_INVALID');
   });
 
   it('aislamiento multi-tenant: update CL del A no toca settings del B', async () => {
@@ -457,7 +443,7 @@ describe('fiscalSettings.updateCo (ENG-184)', () => {
     );
     const result = await caller.fiscalSettings.updateCo({
       enabled: true,
-      nit: '900123456-7',
+      nit: '900123456-8',
       dianResolutionNumber: '18760000001',
       prefix: 'setp',
       rangeFrom: 1,
@@ -467,7 +453,7 @@ describe('fiscalSettings.updateCo (ENG-184)', () => {
     expect(result.ok).toBe(true);
     expect(result.settings).toMatchObject({
       enabled: true,
-      nit: '900123456-7',
+      nit: '900123456-8',
       dianResolutionNumber: '18760000001',
       prefix: 'SETP', // normalizado a mayúsculas
       rangeFrom: 1,
@@ -482,7 +468,7 @@ describe('fiscalSettings.updateCo (ENG-184)', () => {
     });
     expect(fetched.settings).toMatchObject({
       enabled: true,
-      nit: '900123456-7',
+      nit: '900123456-8',
       prefix: 'SETP',
     });
 
@@ -503,7 +489,7 @@ describe('fiscalSettings.updateCo (ENG-184)', () => {
     );
     const result = await caller.fiscalSettings.updateCo({
       enabled: true,
-      nit: '900123456-7',
+      nit: '900123456-8',
     });
     expect(result.validation.ok).toBe(false);
     const codes = result.validation.issues.map(i => i.code).sort();
@@ -526,6 +512,26 @@ describe('fiscalSettings.updateCo (ENG-184)', () => {
     expect((cause as ServerErrorWithCode).errorCode).toBe('FISCAL_NIT_INVALID');
   });
 
+  // A-33 — a NIT with valid FORMAT but a wrong verification digit used to
+  // save and only blow up at emission. Now it is rejected, and the message
+  // carries the correct DV so the admin can fix it without a lookup.
+  it('DV incorrecto → tira FISCAL_NIT_INVALID con el DV correcto en el mensaje', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
+    );
+    let caught: unknown;
+    try {
+      // 900123456 has DV 8; -7 is a valid-shaped but wrong NIT.
+      await caller.fiscalSettings.updateCo({ nit: '900123456-7' });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    const cause = (caught as TRPCError).cause as ServerErrorWithCode;
+    expect(cause.errorCode).toBe('FISCAL_NIT_INVALID');
+    expect(cause.message).toContain('8'); // the correct DV, surfaced to the admin
+  });
+
   it('rango invertido (from > to) → tira FISCAL_NUMBERING_RANGE_INVALID', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
@@ -539,9 +545,7 @@ describe('fiscalSettings.updateCo (ENG-184)', () => {
     expect(caught).toBeInstanceOf(TRPCError);
     const cause = (caught as TRPCError).cause;
     expect(cause).toBeInstanceOf(ServerErrorWithCode);
-    expect((cause as ServerErrorWithCode).errorCode).toBe(
-      'FISCAL_NUMBERING_RANGE_INVALID'
-    );
+    expect((cause as ServerErrorWithCode).errorCode).toBe('FISCAL_NUMBERING_RANGE_INVALID');
   });
 
   it('no toca otras ramas fiscales (preserva fiscal.mx)', async () => {
@@ -554,7 +558,7 @@ describe('fiscalSettings.updateCo (ENG-184)', () => {
     });
     await caller.fiscalSettings.updateCo({
       enabled: true,
-      nit: '900123456-7',
+      nit: '900123456-8',
       dianResolutionNumber: '18760000001',
       rangeFrom: 1,
       rangeTo: 5000,

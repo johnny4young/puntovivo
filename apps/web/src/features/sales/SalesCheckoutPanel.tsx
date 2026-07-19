@@ -7,22 +7,18 @@ import {
   ScanLine,
   WalletCards,
 } from 'lucide-react';
-import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CheckoutPreflightPanel,
   PREFLIGHT_PRIMARY_ELEMENT_ID,
 } from '@/features/sales/CheckoutPreflightPanel';
+import { CashierPaceStrip } from '@/features/sales/CashierPaceStrip';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
-import { useAuthOwnerKey } from '@/features/auth/AuthProvider';
-import { useCashierPacePreference } from '@/features/sales/useCashierPacePreference';
 import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
-
-const LazyCashierPaceSlot = lazy(() => import('@/features/sales/CashierPaceSlot'));
 
 // ENG-179b — explicit `| undefined` on optional fields.
 interface SalesCheckoutPanelProps {
@@ -114,7 +110,6 @@ export function SalesCheckoutPanel({
   preflightItems = [],
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
-  const { enabled: isCashierPaceEnabled } = useCashierPacePreference(useAuthOwnerKey());
   const hasSupervisedClose = userRole === 'admin' || userRole === 'manager';
   // ENG-074 — when the parent passes `hubReachable === false`, every
   // operational primary action is gated. The renderer never reaches
@@ -171,11 +166,6 @@ export function SalesCheckoutPanel({
       </div>
 
       <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto pos:scroll-pb-28 pos:pb-28">
-        {currentSite && cashSession && isCashierPaceEnabled && (
-          <Suspense fallback={null}>
-            <LazyCashierPaceSlot siteId={currentSite.id} />
-          </Suspense>
-        )}
         {/* ENG-081 V4 — "Último escaneado" + "Sugerencia rápida". When the
          * cart is empty we surface a 4-tile dashed-border grid as a hint
          * to the cashier (scan, scan again, search, suggest). When the
@@ -292,6 +282,8 @@ export function SalesCheckoutPanel({
                   <p>
                     {t('cashSession.openedAt')}: {formatDateTime(cashSession.openedAt)}
                   </p>
+                  {/* ENG-204 — opt-in pace HUD; renders nothing while off. */}
+                  <CashierPaceStrip hasActiveCashSession />
                   <p>
                     {t(
                       hasSupervisedClose

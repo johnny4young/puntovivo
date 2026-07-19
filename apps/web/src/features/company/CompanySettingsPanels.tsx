@@ -26,6 +26,12 @@ import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
 
 // ENG-129e — backup and recovery modals are needed only on the data tab.
 // Keep that security-heavy surface out of the initial Company route chunk.
+// ENG-214 — loyalty program admin card, lazy for the same chunk reason.
+const CompanyLoyaltySettingsCard = lazy(() =>
+  import('./CompanyLoyaltySettingsCard').then(module => ({
+    default: module.CompanyLoyaltySettingsCard,
+  }))
+);
 const CompanyBackupCard = lazy(() =>
   import('./CompanyBackupCard').then(module => ({ default: module.CompanyBackupCard }))
 );
@@ -77,15 +83,28 @@ export function CompanySettingsPanels({
       )}
 
       {activeTab === 'general' && (
-        <CompanyProfileSettings
-          key={company?.id ?? 'new-company'}
-          company={company}
-          canEdit
-          isSaving={isSaving}
-          error={saveError}
-          includeCashClose
-          onSubmit={onSubmit}
-        />
+        <div className="space-y-6">
+          <CompanyProfileSettings
+            key={company?.id ?? 'new-company'}
+            company={company}
+            canEdit
+            isSaving={isSaving}
+            error={saveError}
+            includeCashClose
+            onSubmit={onSubmit}
+          />
+          <Suspense
+            fallback={
+              <div
+                className="h-48 animate-pulse rounded-2xl border border-line bg-surface"
+                role="status"
+                aria-label={t('company.loyalty.title')}
+              />
+            }
+          >
+            <CompanyLoyaltySettingsCard />
+          </Suspense>
+        </div>
       )}
 
       {activeTab === 'locale' && (

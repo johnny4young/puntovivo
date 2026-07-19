@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "07ad1266-80ce-486e-982b-62fa6ab317f2",
-  "prevId": "6aa109c4-fc2c-4f4b-9363-c352574eb0d5",
+  "id": "6aa109c4-fc2c-4f4b-9363-c352574eb0d5",
+  "prevId": "ca59e3e8-d3d9-40fb-b8dc-7653f2ae1dd0",
   "tables": {
     "auth_refresh_families": {
       "name": "auth_refresh_families",
@@ -11213,52 +11213,6 @@
           "name": "fiscal_identification_types_country_code_code_pk"
         }
       },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "loss_prevention_settings": {
-      "name": "loss_prevention_settings",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "policy": {
-          "name": "policy",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "loss_prevention_settings_tenant_id_tenants_id_fk": {
-          "name": "loss_prevention_settings_tenant_id_tenants_id_fk",
-          "tableFrom": "loss_prevention_settings",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     },

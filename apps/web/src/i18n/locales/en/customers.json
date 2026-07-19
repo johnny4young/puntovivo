@@ -229,5 +229,31 @@
       "updated": "Catalog item updated",
       "deleted": "Catalog item deleted"
     }
+  },
+  "loyalty": {
+    "title": "Loyalty points",
+    "pointsBalance": "{{count}} point",
+    "pointsBalance_other": "{{count}} points",
+    "empty": "No loyalty point movements yet.",
+    "kind": {
+      "earn": "Earned on a sale",
+      "redeem": "Redeemed",
+      "adjust": "Manual adjustment",
+      "revert": "Returned with a refund"
+    },
+    "adjust": {
+      "heading": "Manual adjustment",
+      "pointsLabel": "Points",
+      "pointsAria": "Points to add or subtract",
+      "noteLabel": "Reason",
+      "noteAria": "Reason for the adjustment",
+      "notePlaceholder": "Why are you changing the balance?",
+      "submit": "Apply",
+      "help": "Use a negative number to take points back. The reason is stored with the movement and cannot be edited later."
+    },
+    "toast": {
+      "adjusted": "Balance adjusted",
+      "adjustError": "The balance could not be adjusted"
+    }
   }
 }

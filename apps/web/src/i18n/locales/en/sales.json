@@ -248,13 +248,13 @@
       "noSales": "No sales recorded today.",
       "pulse": {
         "eyebrow": "Daily pulse",
-        "title": "How your business closed",
+        "title": "📊 Day pulse — {{date}} · {{registerName}}",
         "brand": "Puntovivo · Daily pulse",
         "ownerOnly": "Management view",
-        "sales": "Sales",
+        "sales": "Sales: {{amount}} ({{count}} sales)",
         "salesCount_one": "{{count}} completed sale",
         "salesCount_other": "{{count}} completed sales",
-        "margin": "Gross margin",
+        "margin": "Gross profit: {{amount}} ({{percent}}%)",
         "marginDetail": "{{amount}} gross profit",
         "averageTicket": "Average ticket",
         "comparisonLabel": "Weekly comparison",
@@ -268,7 +268,14 @@
         "download": "Download image",
         "generating": "Generating image…",
         "whatsapp": "Share via WhatsApp",
-        "imageError": "We could not generate the image. You can still share the text via WhatsApp."
+        "imageError": "We could not generate the image. You can still share the text via WhatsApp.",
+        "avgTicket": "Average ticket: {{amount}}",
+        "vsLastWeekUp": "vs last week: ↑{{percent}}%",
+        "vsLastWeekDown": "vs last week: ↓{{percent}}%",
+        "vsLastWeekFlat": "vs last week: even",
+        "share": "Share via WhatsApp",
+        "streak_one": "🔥 {{count}} day balancing the register",
+        "streak_other": "🔥 {{count}} days balancing the register"
       },
       "finish": "Done"
     },
@@ -595,7 +602,10 @@
       "balance": "Current balance",
       "cupo": "Credit limit",
       "projected": "Projected balance",
-      "unlimited": "No limit"
+      "unlimited": "No limit",
+      "balanceUnavailable": "The balance could not be loaded",
+      "balanceUnavailableHelp": "Without it the cupo cannot be projected, so the sale stays blocked. Retry, or charge by another method.",
+      "balanceRetry": "Retry"
     },
     "warning": {
       "exceedsLimit": "The projected balance exceeds the customer's credit limit. Ask an administrator to authorize an override or split the excess as cash."
@@ -718,5 +728,23 @@
     "itemsPerMinute": "Items/min",
     "averageCheckout": "Avg. checkout",
     "personalBest": "Personal best"
+  },
+  "omnibox": {
+    "added": "{{product}} added to the cart"
+  },
+  "paceHud": {
+    "title": "Session pace",
+    "enable": "Show my session pace",
+    "disable": "Hide my session pace",
+    "itemsPerMinute": "Items/min",
+    "secondsPerSale": "Sec/sale",
+    "personalBest": "Best",
+    "noRecordYet": "—"
+  },
+  "loyalty": {
+    "pointsBalance_one": "{{count}} point",
+    "pointsBalance_other": "{{count}} points",
+    "earned_one": "+{{count}} point earned",
+    "earned_other": "+{{count}} points earned"
   }
 }

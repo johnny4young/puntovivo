@@ -68,5 +68,20 @@
     "salesSurfaces": "Sales surfaces",
     "operations": "Operations",
     "integrations": "Integrations"
+  },
+  "presets": {
+    "title": "Business presets",
+    "description": "One click sets the register surfaces for your type of business. It leaves the AI modules exactly as you have them.",
+    "applying": "Applying…",
+    "applied_one": "Preset applied — 1 module changed",
+    "applied_other": "Preset applied — {{count}} modules changed",
+    "noChange": "That preset is already applied",
+    "error": "The preset could not be applied",
+    "verticals": {
+      "retail": "Shop / minimarket",
+      "restaurant": "Restaurant",
+      "quickservice": "Quick service / café",
+      "wholesale": "Wholesale"
+    }
   }
 }

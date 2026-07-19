@@ -21,7 +21,8 @@ import { tenantProcedure } from '../middleware/tenant.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { criticalCommandProcedure } from '../middleware/criticalCommand.js';
 import { computeDayCloseSummary } from '../../services/reports/day-close.js';
-import { computeCashierPace } from '../../services/reports/cashier-pace.js';
+import { computeCashierPace as computeCashierPaceFromTiming } from '../../services/reports/cashier-pace.js';
+import { computeCashierPace } from '../../services/cashier-pace.js';
 import {
   cashierPaceOutput,
   cashSessionMovementsInput,
@@ -242,13 +243,38 @@ export const cashSessionsRouter = router({
       if (!ctx.siteId || !ctx.user) {
         return null;
       }
-      return computeCashierPace({
+      return computeCashierPaceFromTiming({
         db: ctx.db,
         tenantId: ctx.tenantId,
         siteId: ctx.siteId,
         cashierId: ctx.user.id,
       });
     }),
+  /**
+   * ENG-204 — pace metrics for the opt-in cashier HUD. Always the CALLER's
+   * own data: the active session resolves for (tenant, site, ctx.user) and
+   * the personal best scans only that cashier's closed sessions. Null when
+   * no session is open (the HUD simply hides).
+   */
+  pace: tenantProcedure.query(async ({ ctx }) => {
+    if (!ctx.siteId || !ctx.user) {
+      return null;
+    }
+    const activeSession = await getActiveCashSessionForCashier(
+      ctx.db,
+      ctx.tenantId,
+      ctx.siteId,
+      ctx.user.id
+    );
+    if (!activeSession) {
+      return null;
+    }
+    return computeCashierPace(ctx.db, {
+      tenantId: ctx.tenantId,
+      cashierId: ctx.user.id,
+      session: { id: activeSession.id, openedAt: activeSession.openedAt },
+    });
+  }),
 
   listRecent: managerOrAdminProcedure.query(async ({ ctx }) => {
     return ctx.db

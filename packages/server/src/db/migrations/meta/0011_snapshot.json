@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2e8a81d5-3b0e-47a2-b5ba-3623aa93bfe7",
-  "prevId": "1e9f8524-e56a-4fbf-b71c-420160cae15f",
+  "id": "1e9f8524-e56a-4fbf-b71c-420160cae15f",
+  "prevId": "abeecf37-a98d-4788-a86a-28b7235f960c",
   "tables": {
     "auth_refresh_families": {
       "name": "auth_refresh_families",
@@ -69,12 +69,16 @@
       "indexes": {
         "idx_auth_refresh_families_user": {
           "name": "idx_auth_refresh_families_user",
-          "columns": ["user_id"],
+          "columns": [
+            "user_id"
+          ],
           "isUnique": false
         },
         "idx_auth_refresh_families_expires": {
           "name": "idx_auth_refresh_families_expires",
-          "columns": ["expires_at"],
+          "columns": [
+            "expires_at"
+          ],
           "isUnique": false
         }
       },
@@ -83,8 +87,12 @@
           "name": "auth_refresh_families_tenant_id_tenants_id_fk",
           "tableFrom": "auth_refresh_families",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -92,8 +100,12 @@
           "name": "auth_refresh_families_user_id_users_id_fk",
           "tableFrom": "auth_refresh_families",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -188,17 +200,24 @@
       "indexes": {
         "idx_companies_tenant": {
           "name": "idx_companies_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_companies_logo": {
           "name": "idx_companies_logo",
-          "columns": ["logo_id"],
+          "columns": [
+            "logo_id"
+          ],
           "isUnique": false
         },
         "idx_companies_tenant_name": {
           "name": "idx_companies_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -207,8 +226,12 @@
           "name": "companies_tenant_id_tenants_id_fk",
           "tableFrom": "companies",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -216,8 +239,12 @@
           "name": "companies_logo_id_logos_id_fk",
           "tableFrom": "companies",
           "tableTo": "logos",
-          "columnsFrom": ["logo_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "logo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -285,12 +312,17 @@
       "indexes": {
         "idx_logos_tenant": {
           "name": "idx_logos_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_logos_tenant_name": {
           "name": "idx_logos_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -299,8 +331,12 @@
           "name": "logos_tenant_id_tenants_id_fk",
           "tableFrom": "logos",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -382,17 +418,24 @@
       "indexes": {
         "idx_sites_tenant": {
           "name": "idx_sites_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_sites_company": {
           "name": "idx_sites_company",
-          "columns": ["company_id"],
+          "columns": [
+            "company_id"
+          ],
           "isUnique": false
         },
         "idx_sites_tenant_name": {
           "name": "idx_sites_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -401,8 +444,12 @@
           "name": "sites_tenant_id_tenants_id_fk",
           "tableFrom": "sites",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -410,8 +457,12 @@
           "name": "sites_company_id_companies_id_fk",
           "tableFrom": "sites",
           "tableTo": "companies",
-          "columnsFrom": ["company_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -488,12 +539,16 @@
       "indexes": {
         "tenants_slug_unique": {
           "name": "tenants_slug_unique",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": true
         },
         "idx_tenants_slug": {
           "name": "idx_tenants_slug",
-          "columns": ["slug"],
+          "columns": [
+            "slug"
+          ],
           "isUnique": true
         }
       },
@@ -502,8 +557,12 @@
           "name": "tenants_default_currency_code_currency_catalog_code_fk",
           "tableFrom": "tenants",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["default_currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "default_currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -594,17 +653,23 @@
       "indexes": {
         "users_email_unique": {
           "name": "users_email_unique",
-          "columns": ["email"],
+          "columns": [
+            "email"
+          ],
           "isUnique": true
         },
         "idx_users_tenant": {
           "name": "idx_users_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_users_email": {
           "name": "idx_users_email",
-          "columns": ["email"],
+          "columns": [
+            "email"
+          ],
           "isUnique": true
         }
       },
@@ -613,8 +678,12 @@
           "name": "users_tenant_id_tenants_id_fk",
           "tableFrom": "users",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -689,12 +758,16 @@
       "indexes": {
         "idx_categories_tenant": {
           "name": "idx_categories_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_categories_parent": {
           "name": "idx_categories_parent",
-          "columns": ["parent_id"],
+          "columns": [
+            "parent_id"
+          ],
           "isUnique": false
         }
       },
@@ -703,8 +776,12 @@
           "name": "categories_tenant_id_tenants_id_fk",
           "tableFrom": "categories",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -779,22 +856,33 @@
       "indexes": {
         "idx_cities_tenant": {
           "name": "idx_cities_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_cities_department": {
           "name": "idx_cities_department",
-          "columns": ["department_id"],
+          "columns": [
+            "department_id"
+          ],
           "isUnique": false
         },
         "idx_cities_tenant_code": {
           "name": "idx_cities_tenant_code",
-          "columns": ["tenant_id", "code"],
+          "columns": [
+            "tenant_id",
+            "code"
+          ],
           "isUnique": true
         },
         "idx_cities_scope_name": {
           "name": "idx_cities_scope_name",
-          "columns": ["tenant_id", "department_id", "name"],
+          "columns": [
+            "tenant_id",
+            "department_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -803,8 +891,12 @@
           "name": "cities_tenant_id_tenants_id_fk",
           "tableFrom": "cities",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -812,8 +904,12 @@
           "name": "cities_department_id_departments_id_fk",
           "tableFrom": "cities",
           "tableTo": "departments",
-          "columnsFrom": ["department_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "department_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -881,17 +977,25 @@
       "indexes": {
         "idx_countries_tenant": {
           "name": "idx_countries_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_countries_tenant_code": {
           "name": "idx_countries_tenant_code",
-          "columns": ["tenant_id", "code"],
+          "columns": [
+            "tenant_id",
+            "code"
+          ],
           "isUnique": true
         },
         "idx_countries_tenant_name": {
           "name": "idx_countries_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -900,8 +1004,12 @@
           "name": "countries_tenant_id_tenants_id_fk",
           "tableFrom": "countries",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -976,17 +1084,25 @@
       "indexes": {
         "idx_departments_tenant": {
           "name": "idx_departments_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_departments_tenant_code": {
           "name": "idx_departments_tenant_code",
-          "columns": ["tenant_id", "code"],
+          "columns": [
+            "tenant_id",
+            "code"
+          ],
           "isUnique": true
         },
         "idx_departments_tenant_name": {
           "name": "idx_departments_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -995,8 +1111,12 @@
           "name": "departments_tenant_id_tenants_id_fk",
           "tableFrom": "departments",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1004,8 +1124,12 @@
           "name": "departments_country_id_countries_id_fk",
           "tableFrom": "departments",
           "tableTo": "countries",
-          "columnsFrom": ["country_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "country_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1065,22 +1189,32 @@
       "indexes": {
         "idx_location_x_site_tenant": {
           "name": "idx_location_x_site_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_location_x_site_location": {
           "name": "idx_location_x_site_location",
-          "columns": ["location_id"],
+          "columns": [
+            "location_id"
+          ],
           "isUnique": false
         },
         "idx_location_x_site_site": {
           "name": "idx_location_x_site_site",
-          "columns": ["site_id"],
+          "columns": [
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_location_x_site_scope": {
           "name": "idx_location_x_site_scope",
-          "columns": ["tenant_id", "location_id", "site_id"],
+          "columns": [
+            "tenant_id",
+            "location_id",
+            "site_id"
+          ],
           "isUnique": true
         }
       },
@@ -1089,8 +1223,12 @@
           "name": "location_x_site_tenant_id_tenants_id_fk",
           "tableFrom": "location_x_site",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1098,8 +1236,12 @@
           "name": "location_x_site_location_id_locations_id_fk",
           "tableFrom": "location_x_site",
           "tableTo": "locations",
-          "columnsFrom": ["location_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "location_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1107,8 +1249,12 @@
           "name": "location_x_site_site_id_sites_id_fk",
           "tableFrom": "location_x_site",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1183,17 +1329,25 @@
       "indexes": {
         "idx_locations_tenant": {
           "name": "idx_locations_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_locations_tenant_code": {
           "name": "idx_locations_tenant_code",
-          "columns": ["tenant_id", "code"],
+          "columns": [
+            "tenant_id",
+            "code"
+          ],
           "isUnique": true
         },
         "idx_locations_tenant_name": {
           "name": "idx_locations_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -1202,8 +1356,12 @@
           "name": "locations_tenant_id_tenants_id_fk",
           "tableFrom": "locations",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1314,12 +1472,17 @@
       "indexes": {
         "idx_providers_tenant": {
           "name": "idx_providers_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_providers_tenant_name": {
           "name": "idx_providers_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -1328,8 +1491,12 @@
           "name": "providers_tenant_id_tenants_id_fk",
           "tableFrom": "providers",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1405,17 +1572,25 @@
       "indexes": {
         "idx_sequentials_tenant": {
           "name": "idx_sequentials_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_sequentials_site": {
           "name": "idx_sequentials_site",
-          "columns": ["site_id"],
+          "columns": [
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_sequentials_scope": {
           "name": "idx_sequentials_scope",
-          "columns": ["tenant_id", "site_id", "document_type"],
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "document_type"
+          ],
           "isUnique": true
         }
       },
@@ -1424,8 +1599,12 @@
           "name": "sequentials_tenant_id_tenants_id_fk",
           "tableFrom": "sequentials",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1433,8 +1612,12 @@
           "name": "sequentials_site_id_sites_id_fk",
           "tableFrom": "sequentials",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1523,17 +1706,24 @@
       "indexes": {
         "idx_units_tenant": {
           "name": "idx_units_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_units_tenant_abbreviation": {
           "name": "idx_units_tenant_abbreviation",
-          "columns": ["tenant_id", "abbreviation"],
+          "columns": [
+            "tenant_id",
+            "abbreviation"
+          ],
           "isUnique": true
         },
         "idx_units_dimension": {
           "name": "idx_units_dimension",
-          "columns": ["dimension"],
+          "columns": [
+            "dimension"
+          ],
           "isUnique": false
         }
       },
@@ -1542,8 +1732,12 @@
           "name": "units_tenant_id_tenants_id_fk",
           "tableFrom": "units",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1612,12 +1806,17 @@
       "indexes": {
         "idx_vat_rates_tenant": {
           "name": "idx_vat_rates_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_vat_rates_tenant_name": {
           "name": "idx_vat_rates_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -1626,8 +1825,12 @@
           "name": "vat_rates_tenant_id_tenants_id_fk",
           "tableFrom": "vat_rates",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1687,22 +1890,32 @@
       "indexes": {
         "idx_category_x_provider_tenant": {
           "name": "idx_category_x_provider_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_category_x_provider_category": {
           "name": "idx_category_x_provider_category",
-          "columns": ["category_id"],
+          "columns": [
+            "category_id"
+          ],
           "isUnique": false
         },
         "idx_category_x_provider_provider": {
           "name": "idx_category_x_provider_provider",
-          "columns": ["provider_id"],
+          "columns": [
+            "provider_id"
+          ],
           "isUnique": false
         },
         "idx_category_x_provider_scope": {
           "name": "idx_category_x_provider_scope",
-          "columns": ["tenant_id", "category_id", "provider_id"],
+          "columns": [
+            "tenant_id",
+            "category_id",
+            "provider_id"
+          ],
           "isUnique": true
         }
       },
@@ -1711,8 +1924,12 @@
           "name": "category_x_provider_tenant_id_tenants_id_fk",
           "tableFrom": "category_x_provider",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1720,8 +1937,12 @@
           "name": "category_x_provider_category_id_categories_id_fk",
           "tableFrom": "category_x_provider",
           "tableTo": "categories",
-          "columnsFrom": ["category_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1729,8 +1950,12 @@
           "name": "category_x_provider_provider_id_providers_id_fk",
           "tableFrom": "category_x_provider",
           "tableTo": "providers",
-          "columnsFrom": ["provider_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "provider_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1783,17 +2008,24 @@
       "indexes": {
         "idx_product_x_provider_product": {
           "name": "idx_product_x_provider_product",
-          "columns": ["product_id"],
+          "columns": [
+            "product_id"
+          ],
           "isUnique": false
         },
         "idx_product_x_provider_provider": {
           "name": "idx_product_x_provider_provider",
-          "columns": ["provider_id"],
+          "columns": [
+            "provider_id"
+          ],
           "isUnique": false
         },
         "idx_product_x_provider_scope": {
           "name": "idx_product_x_provider_scope",
-          "columns": ["product_id", "provider_id"],
+          "columns": [
+            "product_id",
+            "provider_id"
+          ],
           "isUnique": true
         }
       },
@@ -1802,8 +2034,12 @@
           "name": "product_x_provider_product_id_products_id_fk",
           "tableFrom": "product_x_provider",
           "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1811,8 +2047,12 @@
           "name": "product_x_provider_provider_id_providers_id_fk",
           "tableFrom": "product_x_provider",
           "tableTo": "providers",
-          "columnsFrom": ["provider_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "provider_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2116,37 +2356,52 @@
       "indexes": {
         "idx_products_tenant": {
           "name": "idx_products_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_products_sku": {
           "name": "idx_products_sku",
-          "columns": ["sku"],
+          "columns": [
+            "sku"
+          ],
           "isUnique": false
         },
         "idx_products_barcode": {
           "name": "idx_products_barcode",
-          "columns": ["barcode"],
+          "columns": [
+            "barcode"
+          ],
           "isUnique": false
         },
         "idx_products_category": {
           "name": "idx_products_category",
-          "columns": ["category_id"],
+          "columns": [
+            "category_id"
+          ],
           "isUnique": false
         },
         "idx_products_provider": {
           "name": "idx_products_provider",
-          "columns": ["provider_id"],
+          "columns": [
+            "provider_id"
+          ],
           "isUnique": false
         },
         "idx_products_vat_rate": {
           "name": "idx_products_vat_rate",
-          "columns": ["vat_rate_id"],
+          "columns": [
+            "vat_rate_id"
+          ],
           "isUnique": false
         },
         "idx_products_tenant_sku": {
           "name": "idx_products_tenant_sku",
-          "columns": ["tenant_id", "sku"],
+          "columns": [
+            "tenant_id",
+            "sku"
+          ],
           "isUnique": true
         }
       },
@@ -2155,8 +2410,12 @@
           "name": "products_tenant_id_tenants_id_fk",
           "tableFrom": "products",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2164,8 +2423,12 @@
           "name": "products_category_id_categories_id_fk",
           "tableFrom": "products",
           "tableTo": "categories",
-          "columnsFrom": ["category_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2173,8 +2436,12 @@
           "name": "products_vat_rate_id_vat_rates_id_fk",
           "tableFrom": "products",
           "tableTo": "vat_rates",
-          "columnsFrom": ["vat_rate_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "vat_rate_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2182,8 +2449,12 @@
           "name": "products_provider_id_providers_id_fk",
           "tableFrom": "products",
           "tableTo": "providers",
-          "columnsFrom": ["provider_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "provider_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2191,8 +2462,12 @@
           "name": "products_currency_code_currency_catalog_code_fk",
           "tableFrom": "products",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2341,22 +2616,31 @@
       "indexes": {
         "idx_unit_x_product_product": {
           "name": "idx_unit_x_product_product",
-          "columns": ["product_id"],
+          "columns": [
+            "product_id"
+          ],
           "isUnique": false
         },
         "idx_unit_x_product_unit": {
           "name": "idx_unit_x_product_unit",
-          "columns": ["unit_id"],
+          "columns": [
+            "unit_id"
+          ],
           "isUnique": false
         },
         "idx_unit_x_product_barcode": {
           "name": "idx_unit_x_product_barcode",
-          "columns": ["barcode"],
+          "columns": [
+            "barcode"
+          ],
           "isUnique": false
         },
         "idx_unit_x_product_scope": {
           "name": "idx_unit_x_product_scope",
-          "columns": ["product_id", "unit_id"],
+          "columns": [
+            "product_id",
+            "unit_id"
+          ],
           "isUnique": true
         }
       },
@@ -2365,8 +2649,12 @@
           "name": "unit_x_product_product_id_products_id_fk",
           "tableFrom": "unit_x_product",
           "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2374,8 +2662,12 @@
           "name": "unit_x_product_unit_id_units_id_fk",
           "tableFrom": "unit_x_product",
           "tableTo": "units",
-          "columnsFrom": ["unit_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2450,17 +2742,25 @@
       "indexes": {
         "idx_client_types_tenant": {
           "name": "idx_client_types_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_client_types_tenant_code": {
           "name": "idx_client_types_tenant_code",
-          "columns": ["tenant_id", "code"],
+          "columns": [
+            "tenant_id",
+            "code"
+          ],
           "isUnique": true
         },
         "idx_client_types_tenant_name": {
           "name": "idx_client_types_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -2469,8 +2769,12 @@
           "name": "client_types_tenant_id_tenants_id_fk",
           "tableFrom": "client_types",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2545,17 +2849,25 @@
       "indexes": {
         "idx_commercial_activities_tenant": {
           "name": "idx_commercial_activities_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_commercial_activities_tenant_code": {
           "name": "idx_commercial_activities_tenant_code",
-          "columns": ["tenant_id", "code"],
+          "columns": [
+            "tenant_id",
+            "code"
+          ],
           "isUnique": true
         },
         "idx_commercial_activities_tenant_name": {
           "name": "idx_commercial_activities_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -2564,8 +2876,12 @@
           "name": "commercial_activities_tenant_id_tenants_id_fk",
           "tableFrom": "commercial_activities",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2719,21 +3035,6 @@
           "autoincrement": false,
           "default": true
         },
-        "privacy_status": {
-          "name": "privacy_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'active'"
-        },
-        "privacy_disposed_at": {
-          "name": "privacy_disposed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -2778,12 +3079,16 @@
       "indexes": {
         "idx_customers_tenant": {
           "name": "idx_customers_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_customers_email": {
           "name": "idx_customers_email",
-          "columns": ["email"],
+          "columns": [
+            "email"
+          ],
           "isUnique": false
         }
       },
@@ -2792,8 +3097,12 @@
           "name": "customers_tenant_id_tenants_id_fk",
           "tableFrom": "customers",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2801,8 +3110,12 @@
           "name": "customers_credit_limit_currency_code_currency_catalog_code_fk",
           "tableFrom": "customers",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["credit_limit_currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "credit_limit_currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2886,17 +3199,25 @@
       "indexes": {
         "idx_identification_types_tenant": {
           "name": "idx_identification_types_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_identification_types_tenant_code": {
           "name": "idx_identification_types_tenant_code",
-          "columns": ["tenant_id", "code"],
+          "columns": [
+            "tenant_id",
+            "code"
+          ],
           "isUnique": true
         },
         "idx_identification_types_tenant_name": {
           "name": "idx_identification_types_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -2905,8 +3226,12 @@
           "name": "identification_types_tenant_id_tenants_id_fk",
           "tableFrom": "identification_types",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2981,17 +3306,25 @@
       "indexes": {
         "idx_person_types_tenant": {
           "name": "idx_person_types_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_person_types_tenant_code": {
           "name": "idx_person_types_tenant_code",
-          "columns": ["tenant_id", "code"],
+          "columns": [
+            "tenant_id",
+            "code"
+          ],
           "isUnique": true
         },
         "idx_person_types_tenant_name": {
           "name": "idx_person_types_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -3000,8 +3333,12 @@
           "name": "person_types_tenant_id_tenants_id_fk",
           "tableFrom": "person_types",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3076,17 +3413,25 @@
       "indexes": {
         "idx_regime_types_tenant": {
           "name": "idx_regime_types_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_regime_types_tenant_code": {
           "name": "idx_regime_types_tenant_code",
-          "columns": ["tenant_id", "code"],
+          "columns": [
+            "tenant_id",
+            "code"
+          ],
           "isUnique": true
         },
         "idx_regime_types_tenant_name": {
           "name": "idx_regime_types_tenant_name",
-          "columns": ["tenant_id", "name"],
+          "columns": [
+            "tenant_id",
+            "name"
+          ],
           "isUnique": true
         }
       },
@@ -3095,8 +3440,12 @@
           "name": "regime_types_tenant_id_tenants_id_fk",
           "tableFrom": "regime_types",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3183,17 +3532,26 @@
       "indexes": {
         "idx_invoice_uploads_tenant_created": {
           "name": "idx_invoice_uploads_tenant_created",
-          "columns": ["tenant_id", "created_at"],
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_invoice_uploads_tenant_site_created": {
           "name": "idx_invoice_uploads_tenant_site_created",
-          "columns": ["tenant_id", "site_id", "created_at"],
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_invoice_uploads_payload_hash": {
           "name": "idx_invoice_uploads_payload_hash",
-          "columns": ["payload_hash"],
+          "columns": [
+            "payload_hash"
+          ],
           "isUnique": false
         }
       },
@@ -3202,8 +3560,12 @@
           "name": "invoice_uploads_tenant_id_tenants_id_fk",
           "tableFrom": "invoice_uploads",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3211,8 +3573,12 @@
           "name": "invoice_uploads_site_id_sites_id_fk",
           "tableFrom": "invoice_uploads",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3220,8 +3586,12 @@
           "name": "invoice_uploads_user_id_users_id_fk",
           "tableFrom": "invoice_uploads",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3305,12 +3675,16 @@
       "indexes": {
         "idx_order_items_order": {
           "name": "idx_order_items_order",
-          "columns": ["order_id"],
+          "columns": [
+            "order_id"
+          ],
           "isUnique": false
         },
         "idx_order_items_product": {
           "name": "idx_order_items_product",
-          "columns": ["product_id"],
+          "columns": [
+            "product_id"
+          ],
           "isUnique": false
         }
       },
@@ -3319,8 +3693,12 @@
           "name": "order_items_order_id_orders_id_fk",
           "tableFrom": "order_items",
           "tableTo": "orders",
-          "columnsFrom": ["order_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3328,8 +3706,12 @@
           "name": "order_items_product_id_products_id_fk",
           "tableFrom": "order_items",
           "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3337,8 +3719,12 @@
           "name": "order_items_unit_id_units_id_fk",
           "tableFrom": "order_items",
           "tableTo": "units",
-          "columnsFrom": ["unit_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3484,27 +3870,38 @@
       "indexes": {
         "idx_orders_tenant": {
           "name": "idx_orders_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_orders_provider": {
           "name": "idx_orders_provider",
-          "columns": ["provider_id"],
+          "columns": [
+            "provider_id"
+          ],
           "isUnique": false
         },
         "idx_orders_site": {
           "name": "idx_orders_site",
-          "columns": ["site_id"],
+          "columns": [
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_orders_created_by": {
           "name": "idx_orders_created_by",
-          "columns": ["created_by"],
+          "columns": [
+            "created_by"
+          ],
           "isUnique": false
         },
         "idx_orders_tenant_number": {
           "name": "idx_orders_tenant_number",
-          "columns": ["tenant_id", "order_number"],
+          "columns": [
+            "tenant_id",
+            "order_number"
+          ],
           "isUnique": true
         }
       },
@@ -3513,8 +3910,12 @@
           "name": "orders_tenant_id_tenants_id_fk",
           "tableFrom": "orders",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3522,8 +3923,12 @@
           "name": "orders_provider_id_providers_id_fk",
           "tableFrom": "orders",
           "tableTo": "providers",
-          "columnsFrom": ["provider_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "provider_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3531,8 +3936,12 @@
           "name": "orders_site_id_sites_id_fk",
           "tableFrom": "orders",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3540,8 +3949,12 @@
           "name": "orders_created_by_users_id_fk",
           "tableFrom": "orders",
           "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3649,17 +4062,23 @@
       "indexes": {
         "idx_purchase_items_purchase": {
           "name": "idx_purchase_items_purchase",
-          "columns": ["purchase_id"],
+          "columns": [
+            "purchase_id"
+          ],
           "isUnique": false
         },
         "idx_purchase_items_product": {
           "name": "idx_purchase_items_product",
-          "columns": ["product_id"],
+          "columns": [
+            "product_id"
+          ],
           "isUnique": false
         },
         "idx_purchase_items_source_order_item": {
           "name": "idx_purchase_items_source_order_item",
-          "columns": ["source_order_item_id"],
+          "columns": [
+            "source_order_item_id"
+          ],
           "isUnique": false
         }
       },
@@ -3668,8 +4087,12 @@
           "name": "purchase_items_purchase_id_purchases_id_fk",
           "tableFrom": "purchase_items",
           "tableTo": "purchases",
-          "columnsFrom": ["purchase_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "purchase_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3677,8 +4100,12 @@
           "name": "purchase_items_product_id_products_id_fk",
           "tableFrom": "purchase_items",
           "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3686,8 +4113,12 @@
           "name": "purchase_items_source_order_item_id_order_items_id_fk",
           "tableFrom": "purchase_items",
           "tableTo": "order_items",
-          "columnsFrom": ["source_order_item_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "source_order_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3695,8 +4126,12 @@
           "name": "purchase_items_unit_id_units_id_fk",
           "tableFrom": "purchase_items",
           "tableTo": "units",
-          "columnsFrom": ["unit_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3812,17 +4247,23 @@
       "indexes": {
         "idx_purchase_return_items_return": {
           "name": "idx_purchase_return_items_return",
-          "columns": ["purchase_return_id"],
+          "columns": [
+            "purchase_return_id"
+          ],
           "isUnique": false
         },
         "idx_purchase_return_items_purchase_item": {
           "name": "idx_purchase_return_items_purchase_item",
-          "columns": ["purchase_item_id"],
+          "columns": [
+            "purchase_item_id"
+          ],
           "isUnique": false
         },
         "idx_purchase_return_items_product": {
           "name": "idx_purchase_return_items_product",
-          "columns": ["product_id"],
+          "columns": [
+            "product_id"
+          ],
           "isUnique": false
         }
       },
@@ -3831,8 +4272,12 @@
           "name": "purchase_return_items_purchase_return_id_purchase_returns_id_fk",
           "tableFrom": "purchase_return_items",
           "tableTo": "purchase_returns",
-          "columnsFrom": ["purchase_return_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "purchase_return_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3840,8 +4285,12 @@
           "name": "purchase_return_items_purchase_item_id_purchase_items_id_fk",
           "tableFrom": "purchase_return_items",
           "tableTo": "purchase_items",
-          "columnsFrom": ["purchase_item_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "purchase_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3849,8 +4298,12 @@
           "name": "purchase_return_items_product_id_products_id_fk",
           "tableFrom": "purchase_return_items",
           "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3858,8 +4311,12 @@
           "name": "purchase_return_items_unit_id_units_id_fk",
           "tableFrom": "purchase_return_items",
           "tableTo": "units",
-          "columnsFrom": ["unit_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3950,17 +4407,23 @@
       "indexes": {
         "idx_purchase_returns_tenant": {
           "name": "idx_purchase_returns_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_purchase_returns_purchase": {
           "name": "idx_purchase_returns_purchase",
-          "columns": ["purchase_id"],
+          "columns": [
+            "purchase_id"
+          ],
           "isUnique": false
         },
         "idx_purchase_returns_created_by": {
           "name": "idx_purchase_returns_created_by",
-          "columns": ["created_by"],
+          "columns": [
+            "created_by"
+          ],
           "isUnique": false
         }
       },
@@ -3969,8 +4432,12 @@
           "name": "purchase_returns_tenant_id_tenants_id_fk",
           "tableFrom": "purchase_returns",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3978,8 +4445,12 @@
           "name": "purchase_returns_purchase_id_purchases_id_fk",
           "tableFrom": "purchase_returns",
           "tableTo": "purchases",
-          "columnsFrom": ["purchase_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "purchase_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3987,8 +4458,12 @@
           "name": "purchase_returns_created_by_users_id_fk",
           "tableFrom": "purchase_returns",
           "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4125,32 +4600,45 @@
       "indexes": {
         "idx_purchases_tenant": {
           "name": "idx_purchases_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_purchases_provider": {
           "name": "idx_purchases_provider",
-          "columns": ["provider_id"],
+          "columns": [
+            "provider_id"
+          ],
           "isUnique": false
         },
         "idx_purchases_order": {
           "name": "idx_purchases_order",
-          "columns": ["order_id"],
+          "columns": [
+            "order_id"
+          ],
           "isUnique": false
         },
         "idx_purchases_site": {
           "name": "idx_purchases_site",
-          "columns": ["site_id"],
+          "columns": [
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_purchases_created_by": {
           "name": "idx_purchases_created_by",
-          "columns": ["created_by"],
+          "columns": [
+            "created_by"
+          ],
           "isUnique": false
         },
         "idx_purchases_tenant_number": {
           "name": "idx_purchases_tenant_number",
-          "columns": ["tenant_id", "purchase_number"],
+          "columns": [
+            "tenant_id",
+            "purchase_number"
+          ],
           "isUnique": true
         }
       },
@@ -4159,8 +4647,12 @@
           "name": "purchases_tenant_id_tenants_id_fk",
           "tableFrom": "purchases",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4168,8 +4660,12 @@
           "name": "purchases_provider_id_providers_id_fk",
           "tableFrom": "purchases",
           "tableTo": "providers",
-          "columnsFrom": ["provider_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "provider_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4177,8 +4673,12 @@
           "name": "purchases_order_id_orders_id_fk",
           "tableFrom": "purchases",
           "tableTo": "orders",
-          "columnsFrom": ["order_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4186,8 +4686,12 @@
           "name": "purchases_site_id_sites_id_fk",
           "tableFrom": "purchases",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4195,8 +4699,12 @@
           "name": "purchases_created_by_users_id_fk",
           "tableFrom": "purchases",
           "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4294,27 +4802,38 @@
       "indexes": {
         "idx_cash_movements_tenant": {
           "name": "idx_cash_movements_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_cash_movements_session": {
           "name": "idx_cash_movements_session",
-          "columns": ["session_id"],
+          "columns": [
+            "session_id"
+          ],
           "isUnique": false
         },
         "idx_cash_movements_type": {
           "name": "idx_cash_movements_type",
-          "columns": ["type"],
+          "columns": [
+            "type"
+          ],
           "isUnique": false
         },
         "idx_cash_movements_created_by": {
           "name": "idx_cash_movements_created_by",
-          "columns": ["created_by"],
+          "columns": [
+            "created_by"
+          ],
           "isUnique": false
         },
         "idx_cash_movements_session_created": {
           "name": "idx_cash_movements_session_created",
-          "columns": ["session_id", "created_at"],
+          "columns": [
+            "session_id",
+            "created_at"
+          ],
           "isUnique": false
         }
       },
@@ -4323,8 +4842,12 @@
           "name": "cash_movements_tenant_id_tenants_id_fk",
           "tableFrom": "cash_movements",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4332,8 +4855,12 @@
           "name": "cash_movements_session_id_cash_sessions_id_fk",
           "tableFrom": "cash_movements",
           "tableTo": "cash_sessions",
-          "columnsFrom": ["session_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4341,8 +4868,12 @@
           "name": "cash_movements_created_by_users_id_fk",
           "tableFrom": "cash_movements",
           "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4488,32 +5019,47 @@
       "indexes": {
         "idx_cash_sessions_tenant": {
           "name": "idx_cash_sessions_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_cash_sessions_site": {
           "name": "idx_cash_sessions_site",
-          "columns": ["site_id"],
+          "columns": [
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_cash_sessions_cashier": {
           "name": "idx_cash_sessions_cashier",
-          "columns": ["cashier_id"],
+          "columns": [
+            "cashier_id"
+          ],
           "isUnique": false
         },
         "idx_cash_sessions_status": {
           "name": "idx_cash_sessions_status",
-          "columns": ["status"],
+          "columns": [
+            "status"
+          ],
           "isUnique": false
         },
         "idx_cash_sessions_site_status": {
           "name": "idx_cash_sessions_site_status",
-          "columns": ["site_id", "status"],
+          "columns": [
+            "site_id",
+            "status"
+          ],
           "isUnique": false
         },
         "idx_cash_sessions_register_status": {
           "name": "idx_cash_sessions_register_status",
-          "columns": ["site_id", "register_name", "status"],
+          "columns": [
+            "site_id",
+            "register_name",
+            "status"
+          ],
           "isUnique": false
         }
       },
@@ -4522,8 +5068,12 @@
           "name": "cash_sessions_tenant_id_tenants_id_fk",
           "tableFrom": "cash_sessions",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4531,8 +5081,12 @@
           "name": "cash_sessions_site_id_sites_id_fk",
           "tableFrom": "cash_sessions",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4540,8 +5094,12 @@
           "name": "cash_sessions_cashier_id_users_id_fk",
           "tableFrom": "cash_sessions",
           "tableTo": "users",
-          "columnsFrom": ["cashier_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "cashier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4660,22 +5218,33 @@
       "indexes": {
         "idx_denomination_templates_tenant": {
           "name": "idx_denomination_templates_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_denomination_templates_site": {
           "name": "idx_denomination_templates_site",
-          "columns": ["site_id"],
+          "columns": [
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_denomination_templates_site_active": {
           "name": "idx_denomination_templates_site_active",
-          "columns": ["site_id", "is_active", "sort_order"],
+          "columns": [
+            "site_id",
+            "is_active",
+            "sort_order"
+          ],
           "isUnique": false
         },
         "idx_denomination_templates_site_register": {
           "name": "idx_denomination_templates_site_register",
-          "columns": ["site_id", "register_name"],
+          "columns": [
+            "site_id",
+            "register_name"
+          ],
           "isUnique": true
         }
       },
@@ -4684,8 +5253,12 @@
           "name": "denomination_templates_tenant_id_tenants_id_fk",
           "tableFrom": "denomination_templates",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4693,8 +5266,12 @@
           "name": "denomination_templates_site_id_sites_id_fk",
           "tableFrom": "denomination_templates",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4973,42 +5550,61 @@
       "indexes": {
         "idx_sales_tenant": {
           "name": "idx_sales_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_sales_tenant_created": {
           "name": "idx_sales_tenant_created",
-          "columns": ["tenant_id", "created_at"],
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_sales_customer": {
           "name": "idx_sales_customer",
-          "columns": ["customer_id"],
+          "columns": [
+            "customer_id"
+          ],
           "isUnique": false
         },
         "idx_sales_cash_session": {
           "name": "idx_sales_cash_session",
-          "columns": ["cash_session_id"],
+          "columns": [
+            "cash_session_id"
+          ],
           "isUnique": false
         },
         "idx_sales_created_by": {
           "name": "idx_sales_created_by",
-          "columns": ["created_by"],
+          "columns": [
+            "created_by"
+          ],
           "isUnique": false
         },
         "idx_sales_suspended_by": {
           "name": "idx_sales_suspended_by",
-          "columns": ["suspended_by"],
+          "columns": [
+            "suspended_by"
+          ],
           "isUnique": false
         },
         "idx_sales_tenant_table": {
           "name": "idx_sales_tenant_table",
-          "columns": ["tenant_id", "table_id"],
+          "columns": [
+            "tenant_id",
+            "table_id"
+          ],
           "isUnique": false
         },
         "idx_sales_tenant_number": {
           "name": "idx_sales_tenant_number",
-          "columns": ["tenant_id", "sale_number"],
+          "columns": [
+            "tenant_id",
+            "sale_number"
+          ],
           "isUnique": true
         }
       },
@@ -5017,8 +5613,12 @@
           "name": "sales_tenant_id_tenants_id_fk",
           "tableFrom": "sales",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5026,8 +5626,12 @@
           "name": "sales_customer_id_customers_id_fk",
           "tableFrom": "sales",
           "tableTo": "customers",
-          "columnsFrom": ["customer_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5035,8 +5639,12 @@
           "name": "sales_table_id_restaurant_tables_id_fk",
           "tableFrom": "sales",
           "tableTo": "restaurant_tables",
-          "columnsFrom": ["table_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "table_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5044,8 +5652,12 @@
           "name": "sales_currency_code_currency_catalog_code_fk",
           "tableFrom": "sales",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5053,8 +5665,12 @@
           "name": "sales_settle_currency_code_currency_catalog_code_fk",
           "tableFrom": "sales",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["settle_currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "settle_currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5062,8 +5678,12 @@
           "name": "sales_cash_session_id_cash_sessions_id_fk",
           "tableFrom": "sales",
           "tableTo": "cash_sessions",
-          "columnsFrom": ["cash_session_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "cash_session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5071,8 +5691,12 @@
           "name": "sales_created_by_users_id_fk",
           "tableFrom": "sales",
           "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5080,8 +5704,12 @@
           "name": "sales_suspended_by_users_id_fk",
           "tableFrom": "sales",
           "tableTo": "users",
-          "columnsFrom": ["suspended_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "suspended_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5089,8 +5717,12 @@
           "name": "sales_last_reprinted_by_users_id_fk",
           "tableFrom": "sales",
           "tableTo": "users",
-          "columnsFrom": ["last_reprinted_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "last_reprinted_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5313,27 +5945,45 @@
       "indexes": {
         "idx_payment_outbox_tenant_status_retry": {
           "name": "idx_payment_outbox_tenant_status_retry",
-          "columns": ["tenant_id", "status", "next_retry_at"],
+          "columns": [
+            "tenant_id",
+            "status",
+            "next_retry_at"
+          ],
           "isUnique": false
         },
         "idx_payment_outbox_tenant_created": {
           "name": "idx_payment_outbox_tenant_created",
-          "columns": ["tenant_id", "created_at"],
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_payment_outbox_sale_payment": {
           "name": "idx_payment_outbox_sale_payment",
-          "columns": ["sale_payment_id"],
+          "columns": [
+            "sale_payment_id"
+          ],
           "isUnique": false
         },
         "idx_payment_outbox_rail_status": {
           "name": "idx_payment_outbox_rail_status",
-          "columns": ["tenant_id", "rail_id", "status"],
+          "columns": [
+            "tenant_id",
+            "rail_id",
+            "status"
+          ],
           "isUnique": false
         },
         "idx_payment_outbox_idempotent": {
           "name": "idx_payment_outbox_idempotent",
-          "columns": ["tenant_id", "rail_id", "kind", "idempotency_key"],
+          "columns": [
+            "tenant_id",
+            "rail_id",
+            "kind",
+            "idempotency_key"
+          ],
           "isUnique": true,
           "where": "\"payment_outbox\".\"idempotency_key\" IS NOT NULL"
         }
@@ -5343,8 +5993,12 @@
           "name": "payment_outbox_tenant_id_tenants_id_fk",
           "tableFrom": "payment_outbox",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5352,8 +6006,12 @@
           "name": "payment_outbox_sale_payment_id_sale_payments_id_fk",
           "tableFrom": "payment_outbox",
           "tableTo": "sale_payments",
-          "columnsFrom": ["sale_payment_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "sale_payment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -5449,12 +6107,19 @@
       "indexes": {
         "idx_restaurant_tables_tenant_site": {
           "name": "idx_restaurant_tables_tenant_site",
-          "columns": ["tenant_id", "site_id"],
+          "columns": [
+            "tenant_id",
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_restaurant_tables_unique_active_name": {
           "name": "idx_restaurant_tables_unique_active_name",
-          "columns": ["tenant_id", "site_id", "name"],
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "name"
+          ],
           "isUnique": true,
           "where": "\"restaurant_tables\".\"is_active\" = 1"
         }
@@ -5464,8 +6129,12 @@
           "name": "restaurant_tables_tenant_id_tenants_id_fk",
           "tableFrom": "restaurant_tables",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5473,8 +6142,12 @@
           "name": "restaurant_tables_site_id_sites_id_fk",
           "tableFrom": "restaurant_tables",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5541,17 +6214,23 @@
       "indexes": {
         "idx_sale_item_lots_tenant": {
           "name": "idx_sale_item_lots_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_sale_item_lots_sale_item": {
           "name": "idx_sale_item_lots_sale_item",
-          "columns": ["sale_item_id"],
+          "columns": [
+            "sale_item_id"
+          ],
           "isUnique": false
         },
         "idx_sale_item_lots_lot": {
           "name": "idx_sale_item_lots_lot",
-          "columns": ["lot_id"],
+          "columns": [
+            "lot_id"
+          ],
           "isUnique": false
         }
       },
@@ -5560,8 +6239,12 @@
           "name": "sale_item_lots_tenant_id_tenants_id_fk",
           "tableFrom": "sale_item_lots",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5569,8 +6252,12 @@
           "name": "sale_item_lots_sale_item_id_sale_items_id_fk",
           "tableFrom": "sale_item_lots",
           "tableTo": "sale_items",
-          "columnsFrom": ["sale_item_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "sale_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5578,8 +6265,12 @@
           "name": "sale_item_lots_lot_id_inventory_lots_id_fk",
           "tableFrom": "sale_item_lots",
           "tableTo": "inventory_lots",
-          "columnsFrom": ["lot_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "lot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5726,12 +6417,16 @@
       "indexes": {
         "idx_sale_items_sale": {
           "name": "idx_sale_items_sale",
-          "columns": ["sale_id"],
+          "columns": [
+            "sale_id"
+          ],
           "isUnique": false
         },
         "idx_sale_items_product": {
           "name": "idx_sale_items_product",
-          "columns": ["product_id"],
+          "columns": [
+            "product_id"
+          ],
           "isUnique": false
         }
       },
@@ -5740,8 +6435,12 @@
           "name": "sale_items_sale_id_sales_id_fk",
           "tableFrom": "sale_items",
           "tableTo": "sales",
-          "columnsFrom": ["sale_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "sale_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5749,8 +6448,12 @@
           "name": "sale_items_product_id_products_id_fk",
           "tableFrom": "sale_items",
           "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5758,8 +6461,12 @@
           "name": "sale_items_unit_id_units_id_fk",
           "tableFrom": "sale_items",
           "tableTo": "units",
-          "columnsFrom": ["unit_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5767,8 +6474,12 @@
           "name": "sale_items_currency_code_currency_catalog_code_fk",
           "tableFrom": "sale_items",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5776,8 +6487,12 @@
           "name": "sale_items_settle_currency_code_currency_catalog_code_fk",
           "tableFrom": "sale_items",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["settle_currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "settle_currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5900,17 +6615,23 @@
       "indexes": {
         "idx_sale_payments_tenant": {
           "name": "idx_sale_payments_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_sale_payments_sale": {
           "name": "idx_sale_payments_sale",
-          "columns": ["sale_id"],
+          "columns": [
+            "sale_id"
+          ],
           "isUnique": false
         },
         "idx_sale_payments_method": {
           "name": "idx_sale_payments_method",
-          "columns": ["method"],
+          "columns": [
+            "method"
+          ],
           "isUnique": false
         }
       },
@@ -5919,8 +6640,12 @@
           "name": "sale_payments_tenant_id_tenants_id_fk",
           "tableFrom": "sale_payments",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5928,8 +6653,12 @@
           "name": "sale_payments_sale_id_sales_id_fk",
           "tableFrom": "sale_payments",
           "tableTo": "sales",
-          "columnsFrom": ["sale_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "sale_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -6025,22 +6754,30 @@
       "indexes": {
         "idx_sale_returns_tenant": {
           "name": "idx_sale_returns_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_sale_returns_sale": {
           "name": "idx_sale_returns_sale",
-          "columns": ["sale_id"],
+          "columns": [
+            "sale_id"
+          ],
           "isUnique": false
         },
         "idx_sale_returns_created_by": {
           "name": "idx_sale_returns_created_by",
-          "columns": ["created_by"],
+          "columns": [
+            "created_by"
+          ],
           "isUnique": false
         },
         "idx_sale_returns_sale_unique": {
           "name": "idx_sale_returns_sale_unique",
-          "columns": ["sale_id"],
+          "columns": [
+            "sale_id"
+          ],
           "isUnique": true
         }
       },
@@ -6049,8 +6786,12 @@
           "name": "sale_returns_tenant_id_tenants_id_fk",
           "tableFrom": "sale_returns",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6058,8 +6799,12 @@
           "name": "sale_returns_sale_id_sales_id_fk",
           "tableFrom": "sale_returns",
           "tableTo": "sales",
-          "columnsFrom": ["sale_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "sale_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -6067,8 +6812,12 @@
           "name": "sale_returns_created_by_users_id_fk",
           "tableFrom": "sale_returns",
           "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6217,27 +6966,37 @@
       "indexes": {
         "idx_initial_inventory_tenant": {
           "name": "idx_initial_inventory_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_initial_inventory_product": {
           "name": "idx_initial_inventory_product",
-          "columns": ["product_id"],
+          "columns": [
+            "product_id"
+          ],
           "isUnique": false
         },
         "idx_initial_inventory_unit": {
           "name": "idx_initial_inventory_unit",
-          "columns": ["unit_id"],
+          "columns": [
+            "unit_id"
+          ],
           "isUnique": false
         },
         "idx_initial_inventory_site": {
           "name": "idx_initial_inventory_site",
-          "columns": ["site_id"],
+          "columns": [
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_initial_inventory_created_by": {
           "name": "idx_initial_inventory_created_by",
-          "columns": ["created_by"],
+          "columns": [
+            "created_by"
+          ],
           "isUnique": false
         }
       },
@@ -6246,8 +7005,12 @@
           "name": "initial_inventory_tenant_id_tenants_id_fk",
           "tableFrom": "initial_inventory",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6255,8 +7018,12 @@
           "name": "initial_inventory_product_id_products_id_fk",
           "tableFrom": "initial_inventory",
           "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6264,8 +7031,12 @@
           "name": "initial_inventory_unit_id_units_id_fk",
           "tableFrom": "initial_inventory",
           "tableTo": "units",
-          "columnsFrom": ["unit_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6273,8 +7044,12 @@
           "name": "initial_inventory_site_id_sites_id_fk",
           "tableFrom": "initial_inventory",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6282,8 +7057,12 @@
           "name": "initial_inventory_created_by_users_id_fk",
           "tableFrom": "initial_inventory",
           "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6384,22 +7163,32 @@
       "indexes": {
         "idx_inventory_balances_tenant": {
           "name": "idx_inventory_balances_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_inventory_balances_site": {
           "name": "idx_inventory_balances_site",
-          "columns": ["site_id"],
+          "columns": [
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_inventory_balances_product": {
           "name": "idx_inventory_balances_product",
-          "columns": ["product_id"],
+          "columns": [
+            "product_id"
+          ],
           "isUnique": false
         },
         "idx_inventory_balances_scope": {
           "name": "idx_inventory_balances_scope",
-          "columns": ["tenant_id", "site_id", "product_id"],
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "product_id"
+          ],
           "isUnique": true
         }
       },
@@ -6408,8 +7197,12 @@
           "name": "inventory_balances_tenant_id_tenants_id_fk",
           "tableFrom": "inventory_balances",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6417,8 +7210,12 @@
           "name": "inventory_balances_site_id_sites_id_fk",
           "tableFrom": "inventory_balances",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6426,500 +7223,13 @@
           "name": "inventory_balances_product_id_products_id_fk",
           "tableFrom": "inventory_balances",
           "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "inventory_movements": {
-      "name": "inventory_movements",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "product_id": {
-          "name": "product_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "quantity": {
-          "name": "quantity",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "previous_stock": {
-          "name": "previous_stock",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "new_stock": {
-          "name": "new_stock",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "reference": {
-          "name": "reference",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sync_status": {
-          "name": "sync_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": "'pending'"
-        },
-        "sync_version": {
-          "name": "sync_version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": 0
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_inventory_tenant": {
-          "name": "idx_inventory_tenant",
-          "columns": ["tenant_id"],
-          "isUnique": false
-        },
-        "idx_inventory_product": {
-          "name": "idx_inventory_product",
-          "columns": ["product_id"],
-          "isUnique": false
-        },
-        "idx_inventory_created_by": {
-          "name": "idx_inventory_created_by",
-          "columns": ["created_by"],
-          "isUnique": false
-        },
-        "idx_inventory_movements_tenant_created": {
-          "name": "idx_inventory_movements_tenant_created",
-          "columns": ["tenant_id", "created_at"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "inventory_movements_tenant_id_tenants_id_fk": {
-          "name": "inventory_movements_tenant_id_tenants_id_fk",
-          "tableFrom": "inventory_movements",
-          "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "inventory_movements_product_id_products_id_fk": {
-          "name": "inventory_movements_product_id_products_id_fk",
-          "tableFrom": "inventory_movements",
-          "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "inventory_movements_created_by_users_id_fk": {
-          "name": "inventory_movements_created_by_users_id_fk",
-          "tableFrom": "inventory_movements",
-          "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "product_stock_totals": {
-      "name": "product_stock_totals",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "product_id": {
-          "name": "product_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "total": {
-          "name": "total",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_product_stock_totals_tenant": {
-          "name": "idx_product_stock_totals_tenant",
-          "columns": ["tenant_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "product_stock_totals_tenant_id_tenants_id_fk": {
-          "name": "product_stock_totals_tenant_id_tenants_id_fk",
-          "tableFrom": "product_stock_totals",
-          "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "product_stock_totals_product_id_products_id_fk": {
-          "name": "product_stock_totals_product_id_products_id_fk",
-          "tableFrom": "product_stock_totals",
-          "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "product_stock_totals_tenant_id_product_id_pk": {
-          "columns": ["tenant_id", "product_id"],
-          "name": "product_stock_totals_tenant_id_product_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "transfer_order_items": {
-      "name": "transfer_order_items",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "transfer_order_id": {
-          "name": "transfer_order_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "product_id": {
-          "name": "product_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "quantity": {
-          "name": "quantity",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "received_quantity": {
-          "name": "received_quantity",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_transfer_order_items_order": {
-          "name": "idx_transfer_order_items_order",
-          "columns": ["transfer_order_id"],
-          "isUnique": false
-        },
-        "idx_transfer_order_items_product": {
-          "name": "idx_transfer_order_items_product",
-          "columns": ["product_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "transfer_order_items_transfer_order_id_transfer_orders_id_fk": {
-          "name": "transfer_order_items_transfer_order_id_transfer_orders_id_fk",
-          "tableFrom": "transfer_order_items",
-          "tableTo": "transfer_orders",
-          "columnsFrom": ["transfer_order_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "transfer_order_items_product_id_products_id_fk": {
-          "name": "transfer_order_items_product_id_products_id_fk",
-          "tableFrom": "transfer_order_items",
-          "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "transfer_orders": {
-      "name": "transfer_orders",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "from_site_id": {
-          "name": "from_site_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "to_site_id": {
-          "name": "to_site_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'completed'"
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "received_at": {
-          "name": "received_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "received_by": {
-          "name": "received_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "discrepancy_notes": {
-          "name": "discrepancy_notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "sync_status": {
-          "name": "sync_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": "'pending'"
-        },
-        "sync_version": {
-          "name": "sync_version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": 0
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_transfer_orders_tenant": {
-          "name": "idx_transfer_orders_tenant",
-          "columns": ["tenant_id"],
-          "isUnique": false
-        },
-        "idx_transfer_orders_from_site": {
-          "name": "idx_transfer_orders_from_site",
-          "columns": ["from_site_id"],
-          "isUnique": false
-        },
-        "idx_transfer_orders_to_site": {
-          "name": "idx_transfer_orders_to_site",
-          "columns": ["to_site_id"],
-          "isUnique": false
-        },
-        "idx_transfer_orders_status": {
-          "name": "idx_transfer_orders_status",
-          "columns": ["status"],
-          "isUnique": false
-        },
-        "idx_transfer_orders_received_by": {
-          "name": "idx_transfer_orders_received_by",
-          "columns": ["received_by"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "transfer_orders_tenant_id_tenants_id_fk": {
-          "name": "transfer_orders_tenant_id_tenants_id_fk",
-          "tableFrom": "transfer_orders",
-          "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "transfer_orders_from_site_id_sites_id_fk": {
-          "name": "transfer_orders_from_site_id_sites_id_fk",
-          "tableFrom": "transfer_orders",
-          "tableTo": "sites",
-          "columnsFrom": ["from_site_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "transfer_orders_to_site_id_sites_id_fk": {
-          "name": "transfer_orders_to_site_id_sites_id_fk",
-          "tableFrom": "transfer_orders",
-          "tableTo": "sites",
-          "columnsFrom": ["to_site_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "transfer_orders_created_by_users_id_fk": {
-          "name": "transfer_orders_created_by_users_id_fk",
-          "tableFrom": "transfer_orders",
-          "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "transfer_orders_received_by_users_id_fk": {
-          "name": "transfer_orders_received_by_users_id_fk",
-          "tableFrom": "transfer_orders",
-          "tableTo": "users",
-          "columnsFrom": ["received_by"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -7047,32 +7357,51 @@
       "indexes": {
         "idx_inventory_lots_tenant": {
           "name": "idx_inventory_lots_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_inventory_lots_site": {
           "name": "idx_inventory_lots_site",
-          "columns": ["site_id"],
+          "columns": [
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_inventory_lots_product": {
           "name": "idx_inventory_lots_product",
-          "columns": ["product_id"],
+          "columns": [
+            "product_id"
+          ],
           "isUnique": false
         },
         "idx_inventory_lots_fefo": {
           "name": "idx_inventory_lots_fefo",
-          "columns": ["tenant_id", "site_id", "product_id", "expires_at"],
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "product_id",
+            "expires_at"
+          ],
           "isUnique": false
         },
         "idx_inventory_lots_expires": {
           "name": "idx_inventory_lots_expires",
-          "columns": ["tenant_id", "expires_at"],
+          "columns": [
+            "tenant_id",
+            "expires_at"
+          ],
           "isUnique": false
         },
         "idx_inventory_lots_scope": {
           "name": "idx_inventory_lots_scope",
-          "columns": ["tenant_id", "site_id", "product_id", "lot_number"],
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "product_id",
+            "lot_number"
+          ],
           "isUnique": true
         }
       },
@@ -7081,8 +7410,12 @@
           "name": "inventory_lots_tenant_id_tenants_id_fk",
           "tableFrom": "inventory_lots",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7090,8 +7423,12 @@
           "name": "inventory_lots_site_id_sites_id_fk",
           "tableFrom": "inventory_lots",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7099,8 +7436,12 @@
           "name": "inventory_lots_product_id_products_id_fk",
           "tableFrom": "inventory_lots",
           "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -7117,6 +7458,180 @@
           "value": "round(\"inventory_lots\".\"unit_cost\", 2) = \"inventory_lots\".\"unit_cost\""
         }
       }
+    },
+    "inventory_movements": {
+      "name": "inventory_movements",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "previous_stock": {
+          "name": "previous_stock",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "new_stock": {
+          "name": "new_stock",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sync_status": {
+          "name": "sync_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "sync_version": {
+          "name": "sync_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_inventory_tenant": {
+          "name": "idx_inventory_tenant",
+          "columns": [
+            "tenant_id"
+          ],
+          "isUnique": false
+        },
+        "idx_inventory_product": {
+          "name": "idx_inventory_product",
+          "columns": [
+            "product_id"
+          ],
+          "isUnique": false
+        },
+        "idx_inventory_created_by": {
+          "name": "idx_inventory_created_by",
+          "columns": [
+            "created_by"
+          ],
+          "isUnique": false
+        },
+        "idx_inventory_movements_tenant_created": {
+          "name": "idx_inventory_movements_tenant_created",
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "inventory_movements_tenant_id_tenants_id_fk": {
+          "name": "inventory_movements_tenant_id_tenants_id_fk",
+          "tableFrom": "inventory_movements",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "inventory_movements_product_id_products_id_fk": {
+          "name": "inventory_movements_product_id_products_id_fk",
+          "tableFrom": "inventory_movements",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "inventory_movements_created_by_users_id_fk": {
+          "name": "inventory_movements_created_by_users_id_fk",
+          "tableFrom": "inventory_movements",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "price_suggestions": {
       "name": "price_suggestions",
@@ -7213,17 +7728,26 @@
       "indexes": {
         "idx_price_suggestions_tenant_status": {
           "name": "idx_price_suggestions_tenant_status",
-          "columns": ["tenant_id", "status"],
+          "columns": [
+            "tenant_id",
+            "status"
+          ],
           "isUnique": false
         },
         "idx_price_suggestions_tenant_product": {
           "name": "idx_price_suggestions_tenant_product",
-          "columns": ["tenant_id", "product_id"],
+          "columns": [
+            "tenant_id",
+            "product_id"
+          ],
           "isUnique": false
         },
         "idx_price_suggestions_active_lot": {
           "name": "idx_price_suggestions_active_lot",
-          "columns": ["tenant_id", "lot_id"],
+          "columns": [
+            "tenant_id",
+            "lot_id"
+          ],
           "isUnique": true,
           "where": "\"price_suggestions\".\"status\" = 'active'"
         }
@@ -7233,8 +7757,12 @@
           "name": "price_suggestions_tenant_id_tenants_id_fk",
           "tableFrom": "price_suggestions",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7242,8 +7770,12 @@
           "name": "price_suggestions_site_id_sites_id_fk",
           "tableFrom": "price_suggestions",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7251,8 +7783,12 @@
           "name": "price_suggestions_product_id_products_id_fk",
           "tableFrom": "price_suggestions",
           "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -7260,8 +7796,12 @@
           "name": "price_suggestions_lot_id_inventory_lots_id_fk",
           "tableFrom": "price_suggestions",
           "tableTo": "inventory_lots",
-          "columnsFrom": ["lot_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "lot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -7269,8 +7809,405 @@
           "name": "price_suggestions_created_by_users_id_fk",
           "tableFrom": "price_suggestions",
           "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "product_stock_totals": {
+      "name": "product_stock_totals",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total": {
+          "name": "total",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_product_stock_totals_tenant": {
+          "name": "idx_product_stock_totals_tenant",
+          "columns": [
+            "tenant_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "product_stock_totals_tenant_id_tenants_id_fk": {
+          "name": "product_stock_totals_tenant_id_tenants_id_fk",
+          "tableFrom": "product_stock_totals",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "product_stock_totals_product_id_products_id_fk": {
+          "name": "product_stock_totals_product_id_products_id_fk",
+          "tableFrom": "product_stock_totals",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "product_stock_totals_tenant_id_product_id_pk": {
+          "columns": [
+            "tenant_id",
+            "product_id"
+          ],
+          "name": "product_stock_totals_tenant_id_product_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "transfer_order_items": {
+      "name": "transfer_order_items",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "transfer_order_id": {
+          "name": "transfer_order_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "received_quantity": {
+          "name": "received_quantity",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_transfer_order_items_order": {
+          "name": "idx_transfer_order_items_order",
+          "columns": [
+            "transfer_order_id"
+          ],
+          "isUnique": false
+        },
+        "idx_transfer_order_items_product": {
+          "name": "idx_transfer_order_items_product",
+          "columns": [
+            "product_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "transfer_order_items_transfer_order_id_transfer_orders_id_fk": {
+          "name": "transfer_order_items_transfer_order_id_transfer_orders_id_fk",
+          "tableFrom": "transfer_order_items",
+          "tableTo": "transfer_orders",
+          "columnsFrom": [
+            "transfer_order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "transfer_order_items_product_id_products_id_fk": {
+          "name": "transfer_order_items_product_id_products_id_fk",
+          "tableFrom": "transfer_order_items",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "transfer_orders": {
+      "name": "transfer_orders",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "from_site_id": {
+          "name": "from_site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "to_site_id": {
+          "name": "to_site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'completed'"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "received_by": {
+          "name": "received_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "discrepancy_notes": {
+          "name": "discrepancy_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sync_status": {
+          "name": "sync_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "sync_version": {
+          "name": "sync_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_transfer_orders_tenant": {
+          "name": "idx_transfer_orders_tenant",
+          "columns": [
+            "tenant_id"
+          ],
+          "isUnique": false
+        },
+        "idx_transfer_orders_from_site": {
+          "name": "idx_transfer_orders_from_site",
+          "columns": [
+            "from_site_id"
+          ],
+          "isUnique": false
+        },
+        "idx_transfer_orders_to_site": {
+          "name": "idx_transfer_orders_to_site",
+          "columns": [
+            "to_site_id"
+          ],
+          "isUnique": false
+        },
+        "idx_transfer_orders_status": {
+          "name": "idx_transfer_orders_status",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        },
+        "idx_transfer_orders_received_by": {
+          "name": "idx_transfer_orders_received_by",
+          "columns": [
+            "received_by"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "transfer_orders_tenant_id_tenants_id_fk": {
+          "name": "transfer_orders_tenant_id_tenants_id_fk",
+          "tableFrom": "transfer_orders",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "transfer_orders_from_site_id_sites_id_fk": {
+          "name": "transfer_orders_from_site_id_sites_id_fk",
+          "tableFrom": "transfer_orders",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "from_site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "transfer_orders_to_site_id_sites_id_fk": {
+          "name": "transfer_orders_to_site_id_sites_id_fk",
+          "tableFrom": "transfer_orders",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "to_site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "transfer_orders_created_by_users_id_fk": {
+          "name": "transfer_orders_created_by_users_id_fk",
+          "tableFrom": "transfer_orders",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "transfer_orders_received_by_users_id_fk": {
+          "name": "transfer_orders_received_by_users_id_fk",
+          "tableFrom": "transfer_orders",
+          "tableTo": "users",
+          "columnsFrom": [
+            "received_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7363,42 +8300,62 @@
       "indexes": {
         "idx_audit_logs_tenant": {
           "name": "idx_audit_logs_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_audit_logs_actor": {
           "name": "idx_audit_logs_actor",
-          "columns": ["actor_id"],
+          "columns": [
+            "actor_id"
+          ],
           "isUnique": false
         },
         "idx_audit_logs_action": {
           "name": "idx_audit_logs_action",
-          "columns": ["action"],
+          "columns": [
+            "action"
+          ],
           "isUnique": false
         },
         "idx_audit_logs_resource": {
           "name": "idx_audit_logs_resource",
-          "columns": ["resource_type", "resource_id"],
+          "columns": [
+            "resource_type",
+            "resource_id"
+          ],
           "isUnique": false
         },
         "idx_audit_logs_created_at": {
           "name": "idx_audit_logs_created_at",
-          "columns": ["created_at"],
+          "columns": [
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_audit_logs_operation_id": {
           "name": "idx_audit_logs_operation_id",
-          "columns": ["operation_id"],
+          "columns": [
+            "operation_id"
+          ],
           "isUnique": false
         },
         "idx_audit_logs_tenant_created": {
           "name": "idx_audit_logs_tenant_created",
-          "columns": ["tenant_id", "created_at"],
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_audit_logs_tenant_action_created": {
           "name": "idx_audit_logs_tenant_action_created",
-          "columns": ["tenant_id", "action", "created_at"],
+          "columns": [
+            "tenant_id",
+            "action",
+            "created_at"
+          ],
           "isUnique": false
         }
       },
@@ -7407,8 +8364,12 @@
           "name": "audit_logs_tenant_id_tenants_id_fk",
           "tableFrom": "audit_logs",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7416,8 +8377,12 @@
           "name": "audit_logs_actor_id_users_id_fk",
           "tableFrom": "audit_logs",
           "tableTo": "users",
-          "columnsFrom": ["actor_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7533,12 +8498,16 @@
       "indexes": {
         "idx_quotation_items_quotation": {
           "name": "idx_quotation_items_quotation",
-          "columns": ["quotation_id"],
+          "columns": [
+            "quotation_id"
+          ],
           "isUnique": false
         },
         "idx_quotation_items_product": {
           "name": "idx_quotation_items_product",
-          "columns": ["product_id"],
+          "columns": [
+            "product_id"
+          ],
           "isUnique": false
         }
       },
@@ -7547,8 +8516,12 @@
           "name": "quotation_items_quotation_id_quotations_id_fk",
           "tableFrom": "quotation_items",
           "tableTo": "quotations",
-          "columnsFrom": ["quotation_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "quotation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -7556,8 +8529,12 @@
           "name": "quotation_items_product_id_products_id_fk",
           "tableFrom": "quotation_items",
           "tableTo": "products",
-          "columnsFrom": ["product_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7565,8 +8542,12 @@
           "name": "quotation_items_currency_code_currency_catalog_code_fk",
           "tableFrom": "quotation_items",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7574,8 +8555,12 @@
           "name": "quotation_items_settle_currency_code_currency_catalog_code_fk",
           "tableFrom": "quotation_items",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["settle_currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "settle_currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7789,37 +8774,54 @@
       "indexes": {
         "idx_quotations_tenant": {
           "name": "idx_quotations_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_quotations_site": {
           "name": "idx_quotations_site",
-          "columns": ["site_id"],
+          "columns": [
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_quotations_customer": {
           "name": "idx_quotations_customer",
-          "columns": ["customer_id"],
+          "columns": [
+            "customer_id"
+          ],
           "isUnique": false
         },
         "idx_quotations_status": {
           "name": "idx_quotations_status",
-          "columns": ["status"],
+          "columns": [
+            "status"
+          ],
           "isUnique": false
         },
         "idx_quotations_created_by": {
           "name": "idx_quotations_created_by",
-          "columns": ["created_by"],
+          "columns": [
+            "created_by"
+          ],
           "isUnique": false
         },
         "idx_quotations_tenant_number": {
           "name": "idx_quotations_tenant_number",
-          "columns": ["tenant_id", "quotation_number"],
+          "columns": [
+            "tenant_id",
+            "quotation_number"
+          ],
           "isUnique": true
         },
         "idx_quotations_tenant_status_valid_until": {
           "name": "idx_quotations_tenant_status_valid_until",
-          "columns": ["tenant_id", "status", "valid_until"],
+          "columns": [
+            "tenant_id",
+            "status",
+            "valid_until"
+          ],
           "isUnique": false
         }
       },
@@ -7828,8 +8830,12 @@
           "name": "quotations_tenant_id_tenants_id_fk",
           "tableFrom": "quotations",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7837,8 +8843,12 @@
           "name": "quotations_site_id_sites_id_fk",
           "tableFrom": "quotations",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7846,8 +8856,12 @@
           "name": "quotations_customer_id_customers_id_fk",
           "tableFrom": "quotations",
           "tableTo": "customers",
-          "columnsFrom": ["customer_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7855,8 +8869,12 @@
           "name": "quotations_currency_code_currency_catalog_code_fk",
           "tableFrom": "quotations",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7864,8 +8882,12 @@
           "name": "quotations_settle_currency_code_currency_catalog_code_fk",
           "tableFrom": "quotations",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["settle_currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "settle_currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7873,8 +8895,12 @@
           "name": "quotations_created_by_users_id_fk",
           "tableFrom": "quotations",
           "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7882,8 +8908,12 @@
           "name": "quotations_status_changed_by_users_id_fk",
           "tableFrom": "quotations",
           "tableTo": "users",
-          "columnsFrom": ["status_changed_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "status_changed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8017,22 +9047,32 @@
       "indexes": {
         "idx_device_pairing_codes_hash": {
           "name": "idx_device_pairing_codes_hash",
-          "columns": ["code_hash"],
+          "columns": [
+            "code_hash"
+          ],
           "isUnique": true
         },
         "idx_device_pairing_codes_tenant_status": {
           "name": "idx_device_pairing_codes_tenant_status",
-          "columns": ["tenant_id", "status"],
+          "columns": [
+            "tenant_id",
+            "status"
+          ],
           "isUnique": false
         },
         "idx_device_pairing_codes_tenant_site": {
           "name": "idx_device_pairing_codes_tenant_site",
-          "columns": ["tenant_id", "site_id"],
+          "columns": [
+            "tenant_id",
+            "site_id"
+          ],
           "isUnique": false
         },
         "idx_device_pairing_codes_claimed_device": {
           "name": "idx_device_pairing_codes_claimed_device",
-          "columns": ["claimed_by_device_id"],
+          "columns": [
+            "claimed_by_device_id"
+          ],
           "isUnique": false
         }
       },
@@ -8041,8 +9081,12 @@
           "name": "device_pairing_codes_tenant_id_tenants_id_fk",
           "tableFrom": "device_pairing_codes",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8050,8 +9094,12 @@
           "name": "device_pairing_codes_site_id_sites_id_fk",
           "tableFrom": "device_pairing_codes",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -8059,8 +9107,12 @@
           "name": "device_pairing_codes_created_by_user_id_users_id_fk",
           "tableFrom": "device_pairing_codes",
           "tableTo": "users",
-          "columnsFrom": ["created_by_user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8068,8 +9120,12 @@
           "name": "device_pairing_codes_claimed_by_device_id_devices_id_fk",
           "tableFrom": "device_pairing_codes",
           "tableTo": "devices",
-          "columnsFrom": ["claimed_by_device_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "claimed_by_device_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -8184,22 +9240,34 @@
       "indexes": {
         "idx_devices_tenant_active": {
           "name": "idx_devices_tenant_active",
-          "columns": ["tenant_id", "is_active"],
+          "columns": [
+            "tenant_id",
+            "is_active"
+          ],
           "isUnique": false
         },
         "idx_devices_tenant_last_seen": {
           "name": "idx_devices_tenant_last_seen",
-          "columns": ["tenant_id", "last_seen_at"],
+          "columns": [
+            "tenant_id",
+            "last_seen_at"
+          ],
           "isUnique": false
         },
         "idx_devices_tenant_authority_role": {
           "name": "idx_devices_tenant_authority_role",
-          "columns": ["tenant_id", "authority_role"],
+          "columns": [
+            "tenant_id",
+            "authority_role"
+          ],
           "isUnique": false
         },
         "idx_devices_tenant_paired_site": {
           "name": "idx_devices_tenant_paired_site",
-          "columns": ["tenant_id", "paired_site_id"],
+          "columns": [
+            "tenant_id",
+            "paired_site_id"
+          ],
           "isUnique": false
         }
       },
@@ -8208,8 +9276,12 @@
           "name": "devices_tenant_id_tenants_id_fk",
           "tableFrom": "devices",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8217,8 +9289,12 @@
           "name": "devices_registered_by_user_id_users_id_fk",
           "tableFrom": "devices",
           "tableTo": "users",
-          "columnsFrom": ["registered_by_user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "registered_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8226,8 +9302,12 @@
           "name": "devices_paired_site_id_sites_id_fk",
           "tableFrom": "devices",
           "tableTo": "sites",
-          "columnsFrom": ["paired_site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "paired_site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -8329,17 +9409,27 @@
       "indexes": {
         "idx_idempotency_keys_unique": {
           "name": "idx_idempotency_keys_unique",
-          "columns": ["tenant_id", "device_id", "idempotency_key", "operation_kind"],
+          "columns": [
+            "tenant_id",
+            "device_id",
+            "idempotency_key",
+            "operation_kind"
+          ],
           "isUnique": true
         },
         "idx_idempotency_keys_expires_at": {
           "name": "idx_idempotency_keys_expires_at",
-          "columns": ["expires_at"],
+          "columns": [
+            "expires_at"
+          ],
           "isUnique": false
         },
         "idx_idempotency_keys_status_expires_at": {
           "name": "idx_idempotency_keys_status_expires_at",
-          "columns": ["status", "expires_at"],
+          "columns": [
+            "status",
+            "expires_at"
+          ],
           "isUnique": false
         }
       },
@@ -8348,8 +9438,12 @@
           "name": "idempotency_keys_tenant_id_tenants_id_fk",
           "tableFrom": "idempotency_keys",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8357,8 +9451,12 @@
           "name": "idempotency_keys_device_id_devices_id_fk",
           "tableFrom": "idempotency_keys",
           "tableTo": "devices",
-          "columnsFrom": ["device_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "device_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8423,17 +9521,25 @@
       "indexes": {
         "idx_operation_effects_event": {
           "name": "idx_operation_effects_event",
-          "columns": ["operation_event_id"],
+          "columns": [
+            "operation_event_id"
+          ],
           "isUnique": false
         },
         "idx_operation_effects_event_kind": {
           "name": "idx_operation_effects_event_kind",
-          "columns": ["operation_event_id", "kind"],
+          "columns": [
+            "operation_event_id",
+            "kind"
+          ],
           "isUnique": false
         },
         "idx_operation_effects_resource": {
           "name": "idx_operation_effects_resource",
-          "columns": ["resource_type", "resource_id"],
+          "columns": [
+            "resource_type",
+            "resource_id"
+          ],
           "isUnique": false
         }
       },
@@ -8442,8 +9548,12 @@
           "name": "operation_effects_operation_event_id_operation_events_id_fk",
           "tableFrom": "operation_effects",
           "tableTo": "operation_events",
-          "columnsFrom": ["operation_event_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "operation_event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -8509,12 +9619,16 @@
       "indexes": {
         "idx_operation_errors_event": {
           "name": "idx_operation_errors_event",
-          "columns": ["operation_event_id"],
+          "columns": [
+            "operation_event_id"
+          ],
           "isUnique": false
         },
         "idx_operation_errors_code": {
           "name": "idx_operation_errors_code",
-          "columns": ["error_code"],
+          "columns": [
+            "error_code"
+          ],
           "isUnique": false
         }
       },
@@ -8523,8 +9637,12 @@
           "name": "operation_errors_operation_event_id_operation_events_id_fk",
           "tableFrom": "operation_errors",
           "tableTo": "operation_events",
-          "columnsFrom": ["operation_event_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "operation_event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -8625,32 +9743,47 @@
       "indexes": {
         "idx_operation_events_tenant_operation": {
           "name": "idx_operation_events_tenant_operation",
-          "columns": ["tenant_id", "operation_id"],
+          "columns": [
+            "tenant_id",
+            "operation_id"
+          ],
           "isUnique": true
         },
         "idx_operation_events_status": {
           "name": "idx_operation_events_status",
-          "columns": ["status"],
+          "columns": [
+            "status"
+          ],
           "isUnique": false
         },
         "idx_operation_events_kind_status": {
           "name": "idx_operation_events_kind_status",
-          "columns": ["operation_kind", "status"],
+          "columns": [
+            "operation_kind",
+            "status"
+          ],
           "isUnique": false
         },
         "idx_operation_events_device": {
           "name": "idx_operation_events_device",
-          "columns": ["device_id"],
+          "columns": [
+            "device_id"
+          ],
           "isUnique": false
         },
         "idx_operation_events_user": {
           "name": "idx_operation_events_user",
-          "columns": ["user_id"],
+          "columns": [
+            "user_id"
+          ],
           "isUnique": false
         },
         "idx_operation_events_status_created": {
           "name": "idx_operation_events_status_created",
-          "columns": ["status", "created_at"],
+          "columns": [
+            "status",
+            "created_at"
+          ],
           "isUnique": false
         }
       },
@@ -8659,8 +9792,12 @@
           "name": "operation_events_tenant_id_tenants_id_fk",
           "tableFrom": "operation_events",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8668,8 +9805,12 @@
           "name": "operation_events_device_id_devices_id_fk",
           "tableFrom": "operation_events",
           "tableTo": "devices",
-          "columnsFrom": ["device_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "device_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8677,8 +9818,12 @@
           "name": "operation_events_user_id_users_id_fk",
           "tableFrom": "operation_events",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8751,12 +9896,18 @@
       "indexes": {
         "idx_outbox_metadata_tenant_kind": {
           "name": "idx_outbox_metadata_tenant_kind",
-          "columns": ["tenant_id", "outbox_kind"],
+          "columns": [
+            "tenant_id",
+            "outbox_kind"
+          ],
           "isUnique": true
         },
         "idx_outbox_metadata_kind_pending": {
           "name": "idx_outbox_metadata_kind_pending",
-          "columns": ["outbox_kind", "pending_count"],
+          "columns": [
+            "outbox_kind",
+            "pending_count"
+          ],
           "isUnique": false
         }
       },
@@ -8765,8 +9916,12 @@
           "name": "outbox_metadata_tenant_id_tenants_id_fk",
           "tableFrom": "outbox_metadata",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8911,8 +10066,12 @@
           "name": "country_catalog_default_currency_code_currency_catalog_code_fk",
           "tableFrom": "country_catalog",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["default_currency_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "default_currency_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9026,15 +10185,22 @@
           "name": "fiscal_identification_types_country_code_country_catalog_code_fk",
           "tableFrom": "fiscal_identification_types",
           "tableTo": "country_catalog",
-          "columnsFrom": ["country_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "country_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "fiscal_identification_types_country_code_code_pk": {
-          "columns": ["country_code", "code"],
+          "columns": [
+            "country_code",
+            "code"
+          ],
           "name": "fiscal_identification_types_country_code_code_pk"
         }
       },
@@ -9137,22 +10303,33 @@
       "indexes": {
         "idx_receipt_templates_tenant": {
           "name": "idx_receipt_templates_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_receipt_templates_tenant_kind": {
           "name": "idx_receipt_templates_tenant_kind",
-          "columns": ["tenant_id", "kind"],
+          "columns": [
+            "tenant_id",
+            "kind"
+          ],
           "isUnique": false
         },
         "idx_receipt_templates_tenant_active": {
           "name": "idx_receipt_templates_tenant_active",
-          "columns": ["tenant_id", "is_active"],
+          "columns": [
+            "tenant_id",
+            "is_active"
+          ],
           "isUnique": false
         },
         "idx_receipt_templates_tenant_kind_default": {
           "name": "idx_receipt_templates_tenant_kind_default",
-          "columns": ["tenant_id", "kind"],
+          "columns": [
+            "tenant_id",
+            "kind"
+          ],
           "isUnique": true,
           "where": "\"receipt_templates\".\"is_default\" = 1"
         }
@@ -9162,8 +10339,12 @@
           "name": "receipt_templates_tenant_id_tenants_id_fk",
           "tableFrom": "receipt_templates",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9171,8 +10352,12 @@
           "name": "receipt_templates_created_by_users_id_fk",
           "tableFrom": "receipt_templates",
           "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9180,8 +10365,12 @@
           "name": "receipt_templates_updated_by_users_id_fk",
           "tableFrom": "receipt_templates",
           "tableTo": "users",
-          "columnsFrom": ["updated_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9269,12 +10458,16 @@
       "indexes": {
         "idx_sync_conflicts_tenant": {
           "name": "idx_sync_conflicts_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_sync_conflicts_status": {
           "name": "idx_sync_conflicts_status",
-          "columns": ["status"],
+          "columns": [
+            "status"
+          ],
           "isUnique": false
         }
       },
@@ -9283,8 +10476,12 @@
           "name": "sync_conflicts_tenant_id_tenants_id_fk",
           "tableFrom": "sync_conflicts",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9361,8 +10558,12 @@
           "name": "tenant_locale_settings_tenant_id_tenants_id_fk",
           "tableFrom": "tenant_locale_settings",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9370,8 +10571,12 @@
           "name": "tenant_locale_settings_country_code_country_catalog_code_fk",
           "tableFrom": "tenant_locale_settings",
           "tableTo": "country_catalog",
-          "columnsFrom": ["country_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "country_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9379,8 +10584,12 @@
           "name": "tenant_locale_settings_currency_override_currency_catalog_code_fk",
           "tableFrom": "tenant_locale_settings",
           "tableTo": "currency_catalog",
-          "columnsFrom": ["currency_override"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "currency_override"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9476,7 +10685,9 @@
       "indexes": {
         "idx_fiscal_certificates_tenant": {
           "name": "idx_fiscal_certificates_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         }
       },
@@ -9485,8 +10696,12 @@
           "name": "fiscal_certificates_tenant_id_tenants_id_fk",
           "tableFrom": "fiscal_certificates",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -9605,7 +10820,9 @@
       "indexes": {
         "idx_fiscal_document_items_doc": {
           "name": "idx_fiscal_document_items_doc",
-          "columns": ["fiscal_document_id"],
+          "columns": [
+            "fiscal_document_id"
+          ],
           "isUnique": false
         }
       },
@@ -9614,8 +10831,12 @@
           "name": "fiscal_document_items_fiscal_document_id_fiscal_documents_id_fk",
           "tableFrom": "fiscal_document_items",
           "tableTo": "fiscal_documents",
-          "columnsFrom": ["fiscal_document_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "fiscal_document_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -9918,27 +11139,39 @@
       "indexes": {
         "idx_fiscal_documents_tenant": {
           "name": "idx_fiscal_documents_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_fiscal_documents_source": {
           "name": "idx_fiscal_documents_source",
-          "columns": ["source", "source_id"],
+          "columns": [
+            "source",
+            "source_id"
+          ],
           "isUnique": false
         },
         "idx_fiscal_documents_cufe": {
           "name": "idx_fiscal_documents_cufe",
-          "columns": ["cufe"],
+          "columns": [
+            "cufe"
+          ],
           "isUnique": true
         },
         "idx_fiscal_documents_tenant_doc": {
           "name": "idx_fiscal_documents_tenant_doc",
-          "columns": ["tenant_id", "document_number"],
+          "columns": [
+            "tenant_id",
+            "document_number"
+          ],
           "isUnique": true
         },
         "idx_fiscal_documents_status": {
           "name": "idx_fiscal_documents_status",
-          "columns": ["status"],
+          "columns": [
+            "status"
+          ],
           "isUnique": false
         }
       },
@@ -9947,8 +11180,12 @@
           "name": "fiscal_documents_tenant_id_tenants_id_fk",
           "tableFrom": "fiscal_documents",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9956,8 +11193,12 @@
           "name": "fiscal_documents_resolution_id_fiscal_numbering_resolutions_id_fk",
           "tableFrom": "fiscal_documents",
           "tableTo": "fiscal_numbering_resolutions",
-          "columnsFrom": ["resolution_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "resolution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9965,8 +11206,12 @@
           "name": "fiscal_documents_customer_id_customers_id_fk",
           "tableFrom": "fiscal_documents",
           "tableTo": "customers",
-          "columnsFrom": ["customer_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9974,8 +11219,12 @@
           "name": "fiscal_documents_buyer_country_code_country_catalog_code_fk",
           "tableFrom": "fiscal_documents",
           "tableTo": "country_catalog",
-          "columnsFrom": ["buyer_country_code"],
-          "columnsTo": ["code"],
+          "columnsFrom": [
+            "buyer_country_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9983,8 +11232,12 @@
           "name": "fiscal_documents_emitted_by_user_id_users_id_fk",
           "tableFrom": "fiscal_documents",
           "tableTo": "users",
-          "columnsFrom": ["emitted_by_user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "emitted_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9992,8 +11245,14 @@
           "name": "fiscal_documents_buyer_fiscal_identification_fk",
           "tableFrom": "fiscal_documents",
           "tableTo": "fiscal_identification_types",
-          "columnsFrom": ["buyer_country_code", "buyer_tax_id_type_code"],
-          "columnsTo": ["country_code", "code"],
+          "columnsFrom": [
+            "buyer_country_code",
+            "buyer_tax_id_type_code"
+          ],
+          "columnsTo": [
+            "country_code",
+            "code"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10150,12 +11409,18 @@
       "indexes": {
         "idx_fiscal_resolutions_tenant": {
           "name": "idx_fiscal_resolutions_tenant",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "isUnique": false
         },
         "idx_fiscal_resolutions_site_kind": {
           "name": "idx_fiscal_resolutions_site_kind",
-          "columns": ["site_id", "kind", "is_active"],
+          "columns": [
+            "site_id",
+            "kind",
+            "is_active"
+          ],
           "isUnique": false
         }
       },
@@ -10164,8 +11429,12 @@
           "name": "fiscal_numbering_resolutions_tenant_id_tenants_id_fk",
           "tableFrom": "fiscal_numbering_resolutions",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -10173,8 +11442,12 @@
           "name": "fiscal_numbering_resolutions_site_id_sites_id_fk",
           "tableFrom": "fiscal_numbering_resolutions",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10314,17 +11587,26 @@
       "indexes": {
         "idx_fiscal_outbox_tenant_status_retry": {
           "name": "idx_fiscal_outbox_tenant_status_retry",
-          "columns": ["tenant_id", "status", "next_retry_at"],
+          "columns": [
+            "tenant_id",
+            "status",
+            "next_retry_at"
+          ],
           "isUnique": false
         },
         "idx_fiscal_outbox_fiscal_document": {
           "name": "idx_fiscal_outbox_fiscal_document",
-          "columns": ["fiscal_document_id"],
+          "columns": [
+            "fiscal_document_id"
+          ],
           "isUnique": false
         },
         "idx_fiscal_outbox_tenant_created": {
           "name": "idx_fiscal_outbox_tenant_created",
-          "columns": ["tenant_id", "created_at"],
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ],
           "isUnique": false
         }
       },
@@ -10333,8 +11615,12 @@
           "name": "fiscal_outbox_tenant_id_tenants_id_fk",
           "tableFrom": "fiscal_outbox",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10342,8 +11628,12 @@
           "name": "fiscal_outbox_fiscal_document_id_fiscal_documents_id_fk",
           "tableFrom": "fiscal_outbox",
           "tableTo": "fiscal_documents",
-          "columnsFrom": ["fiscal_document_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "fiscal_document_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -10475,22 +11765,35 @@
       "indexes": {
         "idx_hardware_outbox_tenant_status_retry": {
           "name": "idx_hardware_outbox_tenant_status_retry",
-          "columns": ["tenant_id", "status", "next_retry_at"],
+          "columns": [
+            "tenant_id",
+            "status",
+            "next_retry_at"
+          ],
           "isUnique": false
         },
         "idx_hardware_outbox_peripheral": {
           "name": "idx_hardware_outbox_peripheral",
-          "columns": ["peripheral_id"],
+          "columns": [
+            "peripheral_id"
+          ],
           "isUnique": false
         },
         "idx_hardware_outbox_tenant_created": {
           "name": "idx_hardware_outbox_tenant_created",
-          "columns": ["tenant_id", "created_at"],
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_hardware_outbox_idempotent": {
           "name": "idx_hardware_outbox_idempotent",
-          "columns": ["tenant_id", "kind", "idempotency_key"],
+          "columns": [
+            "tenant_id",
+            "kind",
+            "idempotency_key"
+          ],
           "isUnique": true,
           "where": "\"hardware_outbox\".\"idempotency_key\" IS NOT NULL"
         }
@@ -10500,8 +11803,12 @@
           "name": "hardware_outbox_tenant_id_tenants_id_fk",
           "tableFrom": "hardware_outbox",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10509,8 +11816,12 @@
           "name": "hardware_outbox_peripheral_id_site_peripherals_id_fk",
           "tableFrom": "hardware_outbox",
           "tableTo": "site_peripherals",
-          "columnsFrom": ["peripheral_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "peripheral_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -10619,17 +11930,28 @@
       "indexes": {
         "idx_site_peripherals_tenant_site_kind": {
           "name": "idx_site_peripherals_tenant_site_kind",
-          "columns": ["tenant_id", "site_id", "kind"],
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "kind"
+          ],
           "isUnique": false
         },
         "idx_site_peripherals_tenant_kind": {
           "name": "idx_site_peripherals_tenant_kind",
-          "columns": ["tenant_id", "kind"],
+          "columns": [
+            "tenant_id",
+            "kind"
+          ],
           "isUnique": false
         },
         "idx_site_peripherals_active_per_kind": {
           "name": "idx_site_peripherals_active_per_kind",
-          "columns": ["tenant_id", "site_id", "kind"],
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "kind"
+          ],
           "isUnique": true,
           "where": "\"site_peripherals\".\"is_active\" = 1"
         }
@@ -10639,8 +11961,12 @@
           "name": "site_peripherals_tenant_id_tenants_id_fk",
           "tableFrom": "site_peripherals",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10648,8 +11974,12 @@
           "name": "site_peripherals_site_id_sites_id_fk",
           "tableFrom": "site_peripherals",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10728,12 +12058,21 @@
       "indexes": {
         "idx_ai_anomaly_snoozes_tenant_until": {
           "name": "idx_ai_anomaly_snoozes_tenant_until",
-          "columns": ["tenant_id", "snoozed_until"],
+          "columns": [
+            "tenant_id",
+            "snoozed_until"
+          ],
           "isUnique": false
         },
         "idx_ai_anomaly_snoozes_lookup": {
           "name": "idx_ai_anomaly_snoozes_lookup",
-          "columns": ["tenant_id", "kind", "cashier_id", "evidence_ref", "snoozed_until"],
+          "columns": [
+            "tenant_id",
+            "kind",
+            "cashier_id",
+            "evidence_ref",
+            "snoozed_until"
+          ],
           "isUnique": false
         }
       },
@@ -10742,8 +12081,12 @@
           "name": "ai_anomaly_snoozes_tenant_id_tenants_id_fk",
           "tableFrom": "ai_anomaly_snoozes",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10751,8 +12094,12 @@
           "name": "ai_anomaly_snoozes_cashier_id_users_id_fk",
           "tableFrom": "ai_anomaly_snoozes",
           "tableTo": "users",
-          "columnsFrom": ["cashier_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "cashier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10760,8 +12107,12 @@
           "name": "ai_anomaly_snoozes_snoozed_by_users_id_fk",
           "tableFrom": "ai_anomaly_snoozes",
           "tableTo": "users",
-          "columnsFrom": ["snoozed_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "snoozed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10884,22 +12235,35 @@
       "indexes": {
         "idx_ai_audit_log_tenant_created": {
           "name": "idx_ai_audit_log_tenant_created",
-          "columns": ["tenant_id", "created_at"],
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_ai_audit_log_tenant_site_created": {
           "name": "idx_ai_audit_log_tenant_site_created",
-          "columns": ["tenant_id", "site_id", "created_at"],
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_ai_audit_log_tenant_feature": {
           "name": "idx_ai_audit_log_tenant_feature",
-          "columns": ["tenant_id", "feature"],
+          "columns": [
+            "tenant_id",
+            "feature"
+          ],
           "isUnique": false
         },
         "idx_ai_audit_log_tenant_provider": {
           "name": "idx_ai_audit_log_tenant_provider",
-          "columns": ["tenant_id", "provider_id"],
+          "columns": [
+            "tenant_id",
+            "provider_id"
+          ],
           "isUnique": false
         }
       },
@@ -10908,8 +12272,12 @@
           "name": "ai_audit_log_tenant_id_tenants_id_fk",
           "tableFrom": "ai_audit_log",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10917,8 +12285,12 @@
           "name": "ai_audit_log_site_id_sites_id_fk",
           "tableFrom": "ai_audit_log",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10926,8 +12298,12 @@
           "name": "ai_audit_log_user_id_users_id_fk",
           "tableFrom": "ai_audit_log",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11002,12 +12378,17 @@
       "indexes": {
         "idx_login_attempts_kind_key": {
           "name": "idx_login_attempts_kind_key",
-          "columns": ["kind", "key"],
+          "columns": [
+            "kind",
+            "key"
+          ],
           "isUnique": true
         },
         "idx_login_attempts_expires_at": {
           "name": "idx_login_attempts_expires_at",
-          "columns": ["expires_at"],
+          "columns": [
+            "expires_at"
+          ],
           "isUnique": false
         }
       },
@@ -11175,22 +12556,39 @@
       "indexes": {
         "idx_sync_outbox_tenant_status_retry": {
           "name": "idx_sync_outbox_tenant_status_retry",
-          "columns": ["tenant_id", "status", "next_retry_at"],
+          "columns": [
+            "tenant_id",
+            "status",
+            "next_retry_at"
+          ],
           "isUnique": false
         },
         "idx_sync_outbox_entity": {
           "name": "idx_sync_outbox_entity",
-          "columns": ["entity_type", "entity_id", "status"],
+          "columns": [
+            "entity_type",
+            "entity_id",
+            "status"
+          ],
           "isUnique": false
         },
         "idx_sync_outbox_tenant_created": {
           "name": "idx_sync_outbox_tenant_created",
-          "columns": ["tenant_id", "created_at"],
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_sync_outbox_idempotent": {
           "name": "idx_sync_outbox_idempotent",
-          "columns": ["tenant_id", "entity_type", "entity_id", "operation", "idempotency_key"],
+          "columns": [
+            "tenant_id",
+            "entity_type",
+            "entity_id",
+            "operation",
+            "idempotency_key"
+          ],
           "isUnique": true,
           "where": "\"sync_outbox\".\"idempotency_key\" IS NOT NULL"
         }
@@ -11200,8 +12598,12 @@
           "name": "sync_outbox_tenant_id_tenants_id_fk",
           "tableFrom": "sync_outbox",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11209,8 +12611,12 @@
           "name": "sync_outbox_device_id_devices_id_fk",
           "tableFrom": "sync_outbox",
           "tableTo": "devices",
-          "columnsFrom": ["device_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "device_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -11218,8 +12624,12 @@
           "name": "sync_outbox_operation_event_id_operation_events_id_fk",
           "tableFrom": "sync_outbox",
           "tableTo": "operation_events",
-          "columnsFrom": ["operation_event_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "operation_event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -11285,17 +12695,27 @@
       "indexes": {
         "idx_system_audit_logs_action_created": {
           "name": "idx_system_audit_logs_action_created",
-          "columns": ["action", "created_at"],
+          "columns": [
+            "action",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_system_audit_logs_resource_created": {
           "name": "idx_system_audit_logs_resource_created",
-          "columns": ["resource_type", "resource_id", "created_at"],
+          "columns": [
+            "resource_type",
+            "resource_id",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_system_audit_logs_status_created": {
           "name": "idx_system_audit_logs_status_created",
-          "columns": ["status", "created_at"],
+          "columns": [
+            "status",
+            "created_at"
+          ],
           "isUnique": false
         }
       },
@@ -11383,12 +12803,19 @@
       "indexes": {
         "idx_customer_ledger_tenant_customer_occurred": {
           "name": "idx_customer_ledger_tenant_customer_occurred",
-          "columns": ["tenant_id", "customer_id", "occurred_at"],
+          "columns": [
+            "tenant_id",
+            "customer_id",
+            "occurred_at"
+          ],
           "isUnique": false
         },
         "idx_customer_ledger_tenant_kind": {
           "name": "idx_customer_ledger_tenant_kind",
-          "columns": ["tenant_id", "kind"],
+          "columns": [
+            "tenant_id",
+            "kind"
+          ],
           "isUnique": false
         }
       },
@@ -11397,8 +12824,12 @@
           "name": "customer_ledger_entries_tenant_id_tenants_id_fk",
           "tableFrom": "customer_ledger_entries",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11406,8 +12837,12 @@
           "name": "customer_ledger_entries_customer_id_customers_id_fk",
           "tableFrom": "customer_ledger_entries",
           "tableTo": "customers",
-          "columnsFrom": ["customer_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11415,8 +12850,12 @@
           "name": "customer_ledger_entries_reference_sale_id_sales_id_fk",
           "tableFrom": "customer_ledger_entries",
           "tableTo": "sales",
-          "columnsFrom": ["reference_sale_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "reference_sale_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11424,8 +12863,12 @@
           "name": "customer_ledger_entries_created_by_users_id_fk",
           "tableFrom": "customer_ledger_entries",
           "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11586,12 +13029,19 @@
       "indexes": {
         "idx_delivery_orders_tenant_site_status": {
           "name": "idx_delivery_orders_tenant_site_status",
-          "columns": ["tenant_id", "site_id", "status"],
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "status"
+          ],
           "isUnique": false
         },
         "idx_delivery_orders_tenant_accepted": {
           "name": "idx_delivery_orders_tenant_accepted",
-          "columns": ["tenant_id", "accepted_at"],
+          "columns": [
+            "tenant_id",
+            "accepted_at"
+          ],
           "isUnique": false
         }
       },
@@ -11600,8 +13050,12 @@
           "name": "delivery_orders_tenant_id_tenants_id_fk",
           "tableFrom": "delivery_orders",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11609,8 +13063,12 @@
           "name": "delivery_orders_site_id_sites_id_fk",
           "tableFrom": "delivery_orders",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11618,8 +13076,12 @@
           "name": "delivery_orders_customer_id_customers_id_fk",
           "tableFrom": "delivery_orders",
           "tableTo": "customers",
-          "columnsFrom": ["customer_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11627,8 +13089,12 @@
           "name": "delivery_orders_sale_id_sales_id_fk",
           "tableFrom": "delivery_orders",
           "tableTo": "sales",
-          "columnsFrom": ["sale_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "sale_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11729,13 +13195,19 @@
       "indexes": {
         "idx_fiscal_cafs_active": {
           "name": "idx_fiscal_cafs_active",
-          "columns": ["tenant_id", "tipo_dte"],
+          "columns": [
+            "tenant_id",
+            "tipo_dte"
+          ],
           "isUnique": true,
           "where": "\"fiscal_cafs\".\"status\" = 'active'"
         },
         "idx_fiscal_cafs_tenant": {
           "name": "idx_fiscal_cafs_tenant",
-          "columns": ["tenant_id", "status"],
+          "columns": [
+            "tenant_id",
+            "status"
+          ],
           "isUnique": false
         }
       },
@@ -11744,8 +13216,12 @@
           "name": "fiscal_cafs_tenant_id_tenants_id_fk",
           "tableFrom": "fiscal_cafs",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11885,17 +13361,28 @@
       "indexes": {
         "idx_webhook_outbox_tenant_status_retry": {
           "name": "idx_webhook_outbox_tenant_status_retry",
-          "columns": ["tenant_id", "status", "next_retry_at"],
+          "columns": [
+            "tenant_id",
+            "status",
+            "next_retry_at"
+          ],
           "isUnique": false
         },
         "idx_webhook_outbox_tenant_created": {
           "name": "idx_webhook_outbox_tenant_created",
-          "columns": ["tenant_id", "created_at"],
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_webhook_outbox_idempotent": {
           "name": "idx_webhook_outbox_idempotent",
-          "columns": ["tenant_id", "event_type", "idempotency_key"],
+          "columns": [
+            "tenant_id",
+            "event_type",
+            "idempotency_key"
+          ],
           "isUnique": true,
           "where": "\"webhook_outbox\".\"idempotency_key\" IS NOT NULL"
         }
@@ -11905,8 +13392,12 @@
           "name": "webhook_outbox_tenant_id_tenants_id_fk",
           "tableFrom": "webhook_outbox",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11914,8 +13405,12 @@
           "name": "webhook_outbox_operation_event_id_operation_events_id_fk",
           "tableFrom": "webhook_outbox",
           "tableTo": "operation_events",
-          "columnsFrom": ["operation_event_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "operation_event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -11960,7 +13455,10 @@
       "indexes": {
         "idx_whats_new_acks_unique": {
           "name": "idx_whats_new_acks_unique",
-          "columns": ["entry_id", "user_id"],
+          "columns": [
+            "entry_id",
+            "user_id"
+          ],
           "isUnique": true
         }
       },
@@ -11969,8 +13467,12 @@
           "name": "whats_new_acks_entry_id_whats_new_entries_id_fk",
           "tableFrom": "whats_new_acks",
           "tableTo": "whats_new_entries",
-          "columnsFrom": ["entry_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -11978,8 +13480,12 @@
           "name": "whats_new_acks_user_id_users_id_fk",
           "tableFrom": "whats_new_acks",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -12046,7 +13552,10 @@
       "indexes": {
         "idx_whats_new_entries_tenant_published": {
           "name": "idx_whats_new_entries_tenant_published",
-          "columns": ["tenant_id", "published_at"],
+          "columns": [
+            "tenant_id",
+            "published_at"
+          ],
           "isUnique": false
         }
       },
@@ -12055,8 +13564,12 @@
           "name": "whats_new_entries_tenant_id_tenants_id_fk",
           "tableFrom": "whats_new_entries",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -12181,12 +13694,20 @@
       "indexes": {
         "idx_kds_orders_unique_sale_station": {
           "name": "idx_kds_orders_unique_sale_station",
-          "columns": ["tenant_id", "sale_id", "station"],
+          "columns": [
+            "tenant_id",
+            "sale_id",
+            "station"
+          ],
           "isUnique": true
         },
         "idx_kds_orders_tenant_site_status": {
           "name": "idx_kds_orders_tenant_site_status",
-          "columns": ["tenant_id", "site_id", "status"],
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "status"
+          ],
           "isUnique": false
         }
       },
@@ -12195,8 +13716,12 @@
           "name": "kds_orders_tenant_id_tenants_id_fk",
           "tableFrom": "kds_orders",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -12204,8 +13729,12 @@
           "name": "kds_orders_site_id_sites_id_fk",
           "tableFrom": "kds_orders",
           "tableTo": "sites",
-          "columnsFrom": ["site_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -12213,8 +13742,12 @@
           "name": "kds_orders_sale_id_sales_id_fk",
           "tableFrom": "kds_orders",
           "tableTo": "sales",
-          "columnsFrom": ["sale_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "sale_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -12222,8 +13755,12 @@
           "name": "kds_orders_table_id_restaurant_tables_id_fk",
           "tableFrom": "kds_orders",
           "tableTo": "restaurant_tables",
-          "columnsFrom": ["table_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "table_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -12231,8 +13768,12 @@
           "name": "kds_orders_ready_by_user_id_users_id_fk",
           "tableFrom": "kds_orders",
           "tableTo": "users",
-          "columnsFrom": ["ready_by_user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "ready_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -12313,17 +13854,26 @@
       "indexes": {
         "idx_web_vital_samples_tenant_metric_created": {
           "name": "idx_web_vital_samples_tenant_metric_created",
-          "columns": ["tenant_id", "metric", "created_at"],
+          "columns": [
+            "tenant_id",
+            "metric",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_web_vital_samples_metric_created": {
           "name": "idx_web_vital_samples_metric_created",
-          "columns": ["metric", "created_at"],
+          "columns": [
+            "metric",
+            "created_at"
+          ],
           "isUnique": false
         },
         "idx_web_vital_samples_route": {
           "name": "idx_web_vital_samples_route",
-          "columns": ["route"],
+          "columns": [
+            "route"
+          ],
           "isUnique": false
         }
       },
@@ -12332,8 +13882,12 @@
           "name": "web_vital_samples_tenant_id_tenants_id_fk",
           "tableFrom": "web_vital_samples",
           "tableTo": "tenants",
-          "columnsFrom": ["tenant_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

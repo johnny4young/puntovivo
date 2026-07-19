@@ -54,6 +54,8 @@ import { paymentSettingsRouter } from './routers/payments-settings.js';
 import { restaurantTablesRouter } from './routers/restaurantTables.js';
 import { restaurantSettingsRouter } from './routers/restaurantSettings.js';
 import { cashCloseSettingsRouter } from './routers/cashCloseSettings.js';
+import { discountSettingsRouter } from './routers/discountSettings.js';
+import { loyaltyRouter } from './routers/loyalty.js';
 import { kdsRouter } from './routers/kds.js';
 import { customerLedgerRouter } from './routers/customerLedger.js';
 import { deliveryOrdersRouter } from './routers/deliveryOrders.js';
@@ -126,6 +128,8 @@ export const appRouter = router({
   restaurantTables: restaurantTablesRouter,
   restaurantSettings: restaurantSettingsRouter,
   cashCloseSettings: cashCloseSettingsRouter,
+  discountSettings: discountSettingsRouter,
+  loyalty: loyaltyRouter,
   kds: kdsRouter,
   customerLedger: customerLedgerRouter,
   deliveryOrders: deliveryOrdersRouter,

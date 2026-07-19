@@ -129,6 +129,13 @@ export function useSalesFlows({
       if (activeWorkspace?.serverSaleId) {
         await completeDraftMutation.mutateAsync({
           saleId: activeWorkspace.serverSaleId,
+          // ENG-216 — a suspended ticket is created without a customer, and
+          // this drawer is the only place to attach one; before this the
+          // pick was dropped and the sale filed as a walk-in. Empty maps to
+          // undefined (keep the draft's value) rather than null (clear it):
+          // the drawer does not preload the draft's stored customer, so a
+          // null here would silently detach one that was already set.
+          customerId: values.customerId || undefined,
           paymentMethod: payment.paymentMethod,
           paymentStatus: payment.paymentStatus,
           amountReceived: payment.amountReceived,

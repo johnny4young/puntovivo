@@ -409,6 +409,8 @@
       "dismissedTitle": "Sugerencia descartada",
       "errorTitle": "No se pudo guardar la sugerencia"
     },
-    "loading": "Cargando lotes por vencer..."
+    "loading": "Cargando lotes por vencer...",
+    "windowLabel": "Ventana",
+    "windowOption": "{{days}}d"
   }
 }

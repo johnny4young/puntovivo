@@ -48,9 +48,7 @@ let mockSiteId: string | null = 'site-1';
 let mockProducts: MockProduct[] = [];
 let mockCategories: Array<{ id: string; name: string }> = [];
 let mockActiveSession: { id: string } | null = { id: 'session-1' };
-const createMutate = vi.fn(
-  async (_input: unknown) => ({ id: 'sale-1' }) as { id: string }
-);
+const createMutate = vi.fn(async (_input: unknown) => ({ id: 'sale-1' }) as { id: string });
 const invalidateCash = vi.fn();
 const invalidateProducts = vi.fn();
 const toastSuccess = vi.fn();
@@ -121,7 +119,10 @@ vi.mock('@/lib/trpc', () => ({
     },
     sales: {
       create: {
-        useMutation: (opts?: { onSuccess?: (data: unknown, variables: unknown) => unknown | Promise<unknown>; onError?: (err: unknown) => unknown }) => ({
+        useMutation: (opts?: {
+          onSuccess?: (data: unknown, variables: unknown) => unknown | Promise<unknown>;
+          onError?: (err: unknown) => unknown;
+        }) => ({
           mutateAsync: async (input: unknown) => {
             const result = await createMutate(input);
             await opts?.onSuccess?.(result, input);
@@ -141,6 +142,8 @@ vi.mock('@/lib/trpc', () => ({
         getActive: { invalidate: invalidateCash },
         myPace: { invalidate: vi.fn() },
         movements: { invalidate: vi.fn() },
+        // ENG-204 — the sale epilogue now refreshes the pace HUD too.
+        pace: { invalidate: vi.fn() },
         report: { invalidate: vi.fn() },
         registerAssignments: { invalidate: vi.fn() },
       },
@@ -242,8 +245,18 @@ describe('PosTouchScreen (ENG-087)', () => {
     mockSiteId = 'site-1';
     mockActiveSession = { id: 'session-1' };
     mockProducts = [
-      makeProduct({ id: 'p-1', name: 'Arroz Diana 500g', price: 3200, categoryId: 'cat-abarrotes' }),
-      makeProduct({ id: 'p-2', name: 'Azúcar Incauca 1kg', price: 4500, categoryId: 'cat-abarrotes' }),
+      makeProduct({
+        id: 'p-1',
+        name: 'Arroz Diana 500g',
+        price: 3200,
+        categoryId: 'cat-abarrotes',
+      }),
+      makeProduct({
+        id: 'p-2',
+        name: 'Azúcar Incauca 1kg',
+        price: 4500,
+        categoryId: 'cat-abarrotes',
+      }),
       makeProduct({ id: 'p-3', name: 'Pan Bimbo', price: 5800, categoryId: 'cat-panaderia' }),
       makeProduct({
         id: 'p-4',

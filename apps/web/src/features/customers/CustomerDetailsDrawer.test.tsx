@@ -18,6 +18,14 @@ import type { Customer } from '@/types';
 import { assertNoA11yViolations } from '@/test/a11y';
 import { CustomerDetailsDrawer } from './CustomerDetailsDrawer';
 
+// ENG-215 — the drawer now hosts the loyalty panel, which reads tRPC. This
+// suite pins the drawer's own contract (trimmed fields + edit action) and
+// mounts without a tRPC provider, so the child is stubbed; its behavior has
+// its own suite in CustomerLoyaltyPanel.test.tsx.
+vi.mock('@/features/customers/CustomerLoyaltyPanel', () => ({
+  CustomerLoyaltyPanel: () => null,
+}));
+
 const customer = {
   id: 'c-1',
   name: 'Comercializadora Andina',
@@ -44,9 +52,7 @@ describe('CustomerDetailsDrawer (ENG-132b)', () => {
     expect(screen.getByText('Bogotá, Cundinamarca')).toBeInTheDocument(); // location
     expect(screen.getByText('NIT 900123456')).toBeInTheDocument(); // identification
     // The drawer heading is the customer name.
-    expect(
-      screen.getByRole('heading', { name: 'Comercializadora Andina' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Comercializadora Andina' })).toBeInTheDocument();
   });
 
   it('resolves id-valued identification/type references to human labels', () => {
@@ -94,9 +100,7 @@ describe('CustomerDetailsDrawer (ENG-132b)', () => {
     const onEdit = vi.fn();
     render(<CustomerDetailsDrawer customer={customer} onClose={vi.fn()} onEdit={onEdit} />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /edit customer|editar cliente/i })
-    );
+    fireEvent.click(screen.getByRole('button', { name: /edit customer|editar cliente/i }));
     expect(onEdit).toHaveBeenCalledWith(customer);
   });
 

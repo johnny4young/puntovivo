@@ -19,6 +19,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import {
+  auditLogs,
   cashMovements,
   customerLedgerEntries,
   customers,
@@ -27,6 +28,7 @@ import {
   salePayments,
   sales,
   sites,
+  tenants,
   unitXProduct,
   units,
   users,
@@ -656,5 +658,237 @@ describe('completeSale (ENG-014 credit-mix flow)', () => {
       .all();
     expect(ledgerRows).toHaveLength(1);
     expect(ledgerRows[0]?.amount).toBe(100);
+  });
+  // ENG-216 — the customer attached at payment time.
+  //
+  // ENG-014 locked the draft's customer at create-time, but the payment
+  // drawer is the app's only customer-attach surface and a suspended ticket
+  // is created without one, so every resumed sale was silently filed as a
+  // walk-in. These pin the new contract AND the guard that makes it safe:
+  // re-assignment re-projects against the incoming customer's cupo.
+  describe('draft customer attachment (ENG-216)', () => {
+    it('attaches the customer picked at payment time to a walk-in draft', async () => {
+      const customerId = await seedCustomer({ name: 'Cliente Adjuntado', creditLimit: 0 });
+      const productId = await seedProduct('Attach Item', 'ATTACH-1', 10, 100);
+      const caller = appRouter.createCaller(fresh());
+
+      // The suspend flow creates the draft with no customer.
+      const draft = await caller.sales.create({
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+      expect(draft.customerId ?? null).toBeNull();
+
+      const completed = await appRouter.createCaller(fresh()).sales.completeDraft({
+        saleId: draft.id,
+        customerId,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        amountReceived: 100,
+      });
+
+      expect(completed.customerId).toBe(customerId);
+    });
+
+    it('keeps the draft customer when the field is omitted (older client)', async () => {
+      const customerId = await seedCustomer({ name: 'Cliente Original', creditLimit: 0 });
+      const productId = await seedProduct('Keep Item', 'KEEP-1', 10, 100);
+      const caller = appRouter.createCaller(fresh());
+
+      const draft = await caller.sales.create({
+        customerId,
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+
+      const completed = await appRouter.createCaller(fresh()).sales.completeDraft({
+        saleId: draft.id,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        amountReceived: 100,
+      });
+
+      // Omitting the field must never detach a customer the draft carried.
+      expect(completed.customerId).toBe(customerId);
+    });
+
+    it('clears the stored customer only when null is sent explicitly', async () => {
+      const customerId = await seedCustomer({ name: 'Cliente Para Limpiar', creditLimit: 0 });
+      const productId = await seedProduct('Clear Item', 'CLEAR-1', 10, 100);
+      const caller = appRouter.createCaller(fresh());
+
+      const draft = await caller.sales.create({
+        customerId,
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+
+      const completed = await caller.sales.completeDraft({
+        saleId: draft.id,
+        customerId: null,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        amountReceived: 100,
+      });
+
+      expect(completed.customerId ?? null).toBeNull();
+    });
+
+    it('re-projects the credit cupo against the customer attached at payment time', async () => {
+      // The whole reason re-assignment is risky: a draft created as a
+      // walk-in must not become a credit sale that skips the new
+      // customer's limit. (creditLimit 0 is the sentinel for UNLIMITED, so
+      // a real ceiling needs a positive value.)
+      const brokeCustomerId = await seedCustomer({ name: 'Cliente Sin Cupo', creditLimit: 50 });
+      const productId = await seedProduct('Cupo Item', 'CUPO-DRAFT-1', 10, 100);
+      const caller = appRouter.createCaller(fresh());
+
+      const draft = await caller.sales.create({
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+
+      await expect(
+        appRouter.createCaller(fresh({ role: 'manager' })).sales.completeDraft({
+          saleId: draft.id,
+          customerId: brokeCustomerId,
+          paymentMethod: 'credit',
+          paymentStatus: 'pending',
+          amountReceived: 0,
+        })
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    });
+
+    it('refuses a customer that really belongs to another tenant', async () => {
+      // The customer must EXIST in a foreign tenant, not merely be unknown:
+      // an unknown id is rejected by the row lookup alone, so it would pass
+      // even with the tenant predicate deleted from validateCustomer. This
+      // is the only test in the repo pinning that predicate, and ENG-216
+      // made it the guard between raw client input and sales.customerId.
+      const db = getDatabase();
+      const now = new Date().toISOString();
+      const foreignTenantId = nanoid();
+      const foreignCustomerId = nanoid();
+      await db.insert(tenants).values({
+        id: foreignTenantId,
+        name: 'Tenant Vecino',
+        slug: `tenant-vecino-${foreignTenantId}`,
+        settings: {},
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(customers).values({
+        id: foreignCustomerId,
+        tenantId: foreignTenantId,
+        name: 'Cliente Del Vecino',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const productId = await seedProduct('Foreign Item', 'FOREIGN-1', 10, 100);
+      const caller = appRouter.createCaller(fresh());
+
+      const draft = await caller.sales.create({
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+
+      await expect(
+        appRouter.createCaller(fresh()).sales.completeDraft({
+          saleId: draft.id,
+          customerId: foreignCustomerId,
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          amountReceived: 100,
+        })
+      ).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        // Pin the code too: a generic BAD_REQUEST would also match a Zod
+        // rejection and hide a broken guard.
+        cause: expect.objectContaining({ errorCode: 'SALE_CUSTOMER_INVALID' }),
+      });
+
+      // The draft must be untouched and still completable as a walk-in.
+      const untouched = await db.select().from(sales).where(eq(sales.id, draft.id)).get();
+      expect(untouched?.status).toBe('draft');
+      expect(untouched?.customerId ?? null).toBeNull();
+    });
+
+    it('records the re-assignment in the sale.complete audit row', async () => {
+      // ENG-216 made the customer mutable at completion, and a manager can
+      // complete a draft someone else parked. Re-assigning moves the
+      // receivable, the points, and the fiscal buyer — so the audit row has
+      // to carry both sides or the change leaves no trace.
+      const originalId = await seedCustomer({ name: 'Cliente Original Audit', creditLimit: 0 });
+      const finalId = await seedCustomer({ name: 'Cliente Final Audit', creditLimit: 0 });
+      const productId = await seedProduct('Audit Item', 'AUDIT-REASSIGN-1', 10, 100);
+      const caller = appRouter.createCaller(fresh());
+
+      const draft = await caller.sales.create({
+        customerId: originalId,
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+
+      await appRouter.createCaller(fresh()).sales.completeDraft({
+        saleId: draft.id,
+        customerId: finalId,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        amountReceived: 100,
+      });
+
+      const row = await getDatabase()
+        .select()
+        .from(auditLogs)
+        .where(and(eq(auditLogs.resourceId, draft.id), eq(auditLogs.action, 'sale.complete')))
+        .get();
+
+      expect(row?.before).toMatchObject({ customerId: originalId });
+      expect(row?.after).toMatchObject({ customerId: finalId });
+    });
+
+    it('refuses an unknown customer id', async () => {
+      const productId = await seedProduct('Unknown Item', 'UNKNOWN-1', 10, 100);
+      const caller = appRouter.createCaller(fresh());
+
+      const draft = await caller.sales.create({
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+
+      await expect(
+        appRouter.createCaller(fresh()).sales.completeDraft({
+          saleId: draft.id,
+          customerId: nanoid(),
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          amountReceived: 100,
+        })
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    });
   });
 });

@@ -30,6 +30,7 @@ import {
   sales,
 } from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
+import { revertPointsForSale } from '../../services/loyalty.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -369,6 +370,22 @@ export async function returnSale(
         now,
         syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
       });
+
+      // ENG-213 — take back the points this sale earned. Appends a negative
+      // `revert` row (history is never erased) and no-ops when the sale never
+      // earned. Best-effort like the accrual: a loyalty failure must not
+      // block a refund the customer is standing there waiting for.
+      // The nested transaction is a SAVEPOINT: the revert row and the balance
+      // update are two writes, so a failure between them would ride to COMMIT
+      // as a parity break. The savepoint discards the half-write; the refund
+      // still commits.
+      try {
+        tx.transaction(loyaltyTx => {
+          revertPointsForSale(loyaltyTx, { tenantId: ctx.tenantId, saleId: input.id, nowIso: now });
+        });
+      } catch (error) {
+        ctx.log?.warn?.({ err: error, saleId: input.id }, 'loyalty revert skipped');
+      }
 
       tx.insert(saleReturns)
         .values({

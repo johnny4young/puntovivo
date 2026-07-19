@@ -7,7 +7,6 @@ import { StaffSwitchModal } from '@/features/auth/StaffSwitchModal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
-import { CashierPacePreferenceToggle } from '@/features/sales/CashierPacePreferenceToggle';
 import { TimeClockControl } from '@/features/staff/TimeClockControl';
 import { ManagerApprovalQueue } from '@/features/approvals/ManagerApprovalQueue';
 import { useCommandPalette } from '@/components/feedback/CommandPaletteProvider';
@@ -48,10 +47,6 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const userMenuId = 'header-user-menu';
   const paletteShortcut = getShortcutById('palette.open');
   const paletteShortcutLabel = paletteShortcut ? formatKeysForDisplay(paletteShortcut.keys) : null;
-  const cashierPaceOwnerKey =
-    currentTenant && user && ['admin', 'manager', 'cashier'].includes(user.role)
-      ? `${currentTenant.id}:${user.id}`
-      : null;
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -277,9 +272,6 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                       {t('setup:firstSale.helpAction')}
                     </button>
                   )}
-                {cashierPaceOwnerKey && (
-                  <CashierPacePreferenceToggle ownerKey={cashierPaceOwnerKey} />
-                )}
                 {currentSite && user && ['admin', 'manager'].includes(user.role) && (
                   <Suspense fallback={null}>
                     <LossPreventionAlertCenter siteId={currentSite.id} variant="inline" />

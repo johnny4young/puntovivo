@@ -40,6 +40,7 @@ import {
   dismissSuggestion,
   listActiveSuggestions,
 } from '../../services/price-suggestions.js';
+import { resolveDiscountSettings } from '../../services/discount-settings.js';
 import {
   activeSuggestionsInput,
   dismissSuggestionInput,
@@ -187,13 +188,17 @@ export const inventoryLotsRouter = router({
    */
   suggestDiscount: managerOrAdminProcedure
     .input(suggestDiscountInput)
-    .mutation(async ({ ctx, input }) =>
-      createExpirySuggestion(ctx.db, {
+    .mutation(async ({ ctx, input }) => {
+      // ENG-211 — the tenant's tuned ladder decides the percent; the
+      // service keeps computing it server-side (the client never picks).
+      const { expiryTiers } = await resolveDiscountSettings(ctx.db, ctx.tenantId);
+      return createExpirySuggestion(ctx.db, {
         tenantId: ctx.tenantId,
         actorId: ctx.user!.id,
         lotId: input.lotId,
-      })
-    ),
+        tiers: expiryTiers,
+      });
+    }),
 
   /** ENG-199 — retire an active suggestion (audited). */
   dismissSuggestion: managerOrAdminProcedure

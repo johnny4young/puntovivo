@@ -111,7 +111,14 @@ export const salesLifecycleProcedures = {
           checkoutStartedAt: input.checkoutStartedAt,
         }
       );
-      return result.sale;
+      // ENG-213 — the accrued points ride back alongside the sale record so
+      // the cashier's completion toast can name them without a second round
+      // trip. Additive: existing consumers keep reading the same Sale fields,
+      // and a tenant without the program always sees 0.
+      return {
+        ...result.sale,
+        loyaltyPointsEarned: result.loyaltyPointsEarned ?? 0,
+      };
     }),
 
   /**
@@ -259,6 +266,9 @@ export const salesLifecycleProcedures = {
         {
           mode: 'fromDraft',
           saleId: input.saleId,
+          // ENG-216 — the customer the cashier attached at payment time.
+          // Omitted by an older client, which keeps the draft's value.
+          customerId: input.customerId,
           payments: input.payments,
           paymentMethod: input.paymentMethod,
           amountReceived: input.amountReceived,
@@ -277,7 +287,12 @@ export const salesLifecycleProcedures = {
           checkoutStartedAt: input.checkoutStartedAt,
         }
       );
-      return result.sale;
+      // ENG-213 — same shape as the fresh path, so a resumed draft reports
+      // its points to the cashier too.
+      return {
+        ...result.sale,
+        loyaltyPointsEarned: result.loyaltyPointsEarned ?? 0,
+      };
     }),
 
   /**

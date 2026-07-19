@@ -76,6 +76,12 @@ const SURFACE_ORDER: ModuleSurface[] = [
   'integrations',
 ];
 
+// A-30 — vertical presets offered above the toggle list. Ids mirror the
+// server's VERTICAL_PRESET_IDS; the patch each applies is server-owned, so
+// this array is presentation + the id we send. `icon` is decorative.
+const VERTICAL_PRESETS = ['retail', 'restaurant', 'quickservice', 'wholesale'] as const;
+type VerticalPresetId = (typeof VERTICAL_PRESETS)[number];
+
 function surfaceOf(item: ModulesListItem): ModuleSurface {
   return MODULE_SURFACE[item.i18nKey] ?? 'integrations';
 }
@@ -90,20 +96,47 @@ export function CompanyModulesCard() {
   // changed (not every toggle). Keyed on moduleId.
   const [pendingId, setPendingId] = useState<string | null>(null);
 
+  // A-30 — which preset is being applied, so its button shows the spinner
+  // and the rest disable. Null when idle.
+  const [pendingPreset, setPendingPreset] = useState<VerticalPresetId | null>(null);
+
+  const invalidateModuleReads = () =>
+    Promise.all([utils.modules.list.invalidate(), utils.modules.getEffective.invalidate()]);
+
   const setActive = useCriticalMutation('modules.setActive', {
     onSuccess: async () => {
       // Invalidate BOTH the admin-tab read and the renderer-wide
       // context so route gating + sidebar items pick up the new state
       // on the same tick.
-      await Promise.all([
-        utils.modules.list.invalidate(),
-        utils.modules.getEffective.invalidate(),
-      ]);
+      await invalidateModuleReads();
     },
     onSettled: () => {
       setPendingId(null);
     },
   });
+
+  const applyPreset = useCriticalMutation('modules.applyPreset', {
+    onSuccess: async () => {
+      await invalidateModuleReads();
+    },
+    onSettled: () => {
+      setPendingPreset(null);
+    },
+  });
+
+  async function handlePreset(presetId: VerticalPresetId): Promise<void> {
+    setPendingPreset(presetId);
+    try {
+      const result = await applyPreset.mutateAsync({ presetId });
+      toast.success({
+        title: result.changed
+          ? t('modules:presets.applied', { count: result.applied.length })
+          : t('modules:presets.noChange'),
+      });
+    } catch (err) {
+      onErrorToast(toast, t, { titleKey: 'modules:presets.error' })(err);
+    }
+  }
 
   async function handleToggle(item: ModulesListItem, nextEnabled: boolean): Promise<void> {
     setPendingId(item.id);
@@ -148,9 +181,7 @@ export function CompanyModulesCard() {
     <section className="card p-6 space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-950">
-            {t('modules:section.title')}
-          </h2>
+          <h2 className="text-lg font-semibold text-secondary-950">{t('modules:section.title')}</h2>
           <p className="max-w-prose text-sm text-secondary-600">
             {t('modules:section.description')}
           </p>
@@ -164,6 +195,43 @@ export function CompanyModulesCard() {
 
       {listQuery.isLoading && (
         <p className="text-sm text-secondary-500">{t('modules:toggle.loading')}</p>
+      )}
+
+      {/* A-30 — one-click vertical presets. They shape the sales-surface
+          modules for a business type and leave the AI toggles alone, so an
+          operator picks "Tienda" and stops seeing KDS without losing a
+          copilot key they already configured. */}
+      {!listQuery.isLoading && items.length > 0 && (
+        <div
+          className="rounded-2xl border border-line/70 bg-surface-2/60 p-4"
+          data-testid="modules-presets"
+        >
+          <p className="label">{t('modules:presets.title')}</p>
+          <p className="mt-0.5 text-[12.5px] text-secondary-600">
+            {t('modules:presets.description')}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {VERTICAL_PRESETS.map(presetId => {
+              const presetPending = pendingPreset === presetId;
+              return (
+                <button
+                  key={presetId}
+                  type="button"
+                  className="btn-outline"
+                  disabled={pendingPreset !== null}
+                  data-testid={`modules-preset-${presetId}`}
+                  onClick={() => {
+                    void handlePreset(presetId);
+                  }}
+                >
+                  {presetPending
+                    ? t('modules:presets.applying')
+                    : t(`modules:presets.verticals.${presetId}`)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {!listQuery.isLoading &&
@@ -180,11 +248,7 @@ export function CompanyModulesCard() {
                   ? t('modules:toggle.disable')
                   : t('modules:toggle.enable');
                 return (
-                  <div
-                    key={item.id}
-                    className="pv-check"
-                    data-testid={`modules-row-${item.id}`}
-                  >
+                  <div key={item.id} className="pv-check" data-testid={`modules-row-${item.id}`}>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="t">{t(labelKey)}</span>

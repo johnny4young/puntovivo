@@ -318,6 +318,22 @@ export const discardDraftInput = z
 export const completeDraftInput = z
   .object({
     saleId: z.string().min(1, 'Sale ID is required'),
+    /**
+     * ENG-216 — the customer attached at payment time.
+     *
+     * ENG-014 originally locked the draft's customer at create-time, but
+     * the payment drawer is the app's ONLY customer-attach surface: a
+     * suspended ticket is created with no customer, so the lock silently
+     * dropped whatever the cashier picked and recorded every resumed sale
+     * as a walk-in — taking credit sales and loyalty accrual with it.
+     *
+     * Omit to keep the draft's stored customer (the pre-ENG-216 shape);
+     * pass an id to attach or re-assign; pass null to clear it. The server
+     * validates the id against the tenant and re-runs the credit-cupo
+     * preflight against whoever is resolved, so re-assignment cannot dodge
+     * a credit limit.
+     */
+    customerId: z.string().min(1).nullish(),
     paymentMethod: paymentMethodEnum.default('cash'),
     paymentStatus: completablePaymentStatusEnum.default('pending'),
     notes: z.string().optional(),
@@ -359,12 +375,14 @@ export const completeDraftInput = z
     path: ['serviceChargeAmount'],
   });
 
-// ENG-014 — no Zod refine here for "credit tender requires customerId":
-// the draft's customer is locked at create-time and lives on the DB row,
-// not in the completeDraft input. The service layer enforces the
-// invariant in `runCompleteDraft` via the `hasCreditPortion` guard,
-// which throws `CREDIT_SALE_CUSTOMER_REQUIRED` when a credit tender
-// arrives on a draft that never had a customerId.
+// ENG-014 / ENG-216 — no Zod refine here for "credit tender requires
+// customerId". The effective customer is the input's when it carries one
+// and the draft row's otherwise (ENG-216 lifted the create-time lock), so
+// the pair can only be judged after that resolution — which Zod, seeing
+// the input alone, cannot do. The service layer enforces the invariant in
+// `runCompleteDraft` via the `hasCreditPortion` guard, which throws
+// `CREDIT_SALE_CUSTOMER_REQUIRED` when a credit tender arrives and neither
+// source yields a customer.
 
 // ============================================================================
 // ENG-019 — receipt reprint input

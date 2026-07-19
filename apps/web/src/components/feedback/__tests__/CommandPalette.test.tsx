@@ -12,20 +12,9 @@
  *
  * @module components/feedback/__tests__/CommandPalette.test
  */
-import { createMockProduct, fireEvent, render, screen, waitFor } from '@/test/utils';
+import { fireEvent, render, screen, waitFor } from '@/test/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
-import type { ProductSearchItem } from '@/types';
 import { CommandPalette } from '../CommandPalette';
-
-const omniboxMocks = vi.hoisted(() => ({
-  productItems: [] as ProductSearchItem[],
-  lookupByBarcode: vi.fn(),
-  searchOptions: null as { enabled?: boolean } | null,
-  toastSuccess: vi.fn(),
-  toastWarning: vi.fn(),
-  toastError: vi.fn(),
-}));
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn(async () => undefined);
@@ -64,33 +53,11 @@ vi.mock('@/features/modules', () => ({
   }),
 }));
 
-vi.mock('@/lib/trpc', () => ({
-  trpc: {
-    useUtils: () => ({
-      products: {
-        lookupByBarcode: { fetch: omniboxMocks.lookupByBarcode },
-      },
-    }),
-    products: {
-      search: {
-        useQuery: (_input: unknown, options: { enabled?: boolean }) => {
-          omniboxMocks.searchOptions = options;
-          return {
-            data: { items: omniboxMocks.productItems },
-            isFetching: false,
-          };
-        },
-      },
-    },
-  },
-}));
-
-vi.mock('@/components/feedback/ToastProvider', () => ({
-  useToast: () => ({
-    success: omniboxMocks.toastSuccess,
-    warning: omniboxMocks.toastWarning,
-    error: omniboxMocks.toastError,
-  }),
+// ENG-203 — the palette body wires the omnibox sell handler (trpc + cart
+// store underneath); mock it so this suite stays network-free. Its behavior
+// is pinned in CommandPaletteProvider.test.tsx and useOmniboxSell.test.ts.
+vi.mock('@/features/sales/useOmniboxSell', () => ({
+  useOmniboxSell: () => vi.fn(async () => undefined),
 }));
 
 beforeEach(() => {
@@ -102,15 +69,6 @@ beforeEach(() => {
     quotations: true,
   };
   mockModulesPlaceholder = false;
-  omniboxMocks.productItems = [];
-  omniboxMocks.lookupByBarcode.mockReset();
-  omniboxMocks.lookupByBarcode.mockResolvedValue(null);
-  omniboxMocks.searchOptions = null;
-  omniboxMocks.toastSuccess.mockReset();
-  omniboxMocks.toastWarning.mockReset();
-  omniboxMocks.toastError.mockReset();
-  useCartWorkspaceStore.getState().resetAllWorkspaces();
-  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -137,178 +95,20 @@ describe('CommandPalette (ENG-105a)', () => {
     expect(screen.queryByTestId('command-palette-item-navigate.products')).not.toBeInTheDocument();
   });
 
-  it('shows the empty state for a query with zero matches', async () => {
+  it('offers the omnibox sell row instead of an empty state for selling roles (ENG-203)', async () => {
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+    const input = await screen.findByTestId('command-palette-search');
+    fireEvent.change(input, { target: { value: 'xyzqq' } });
+    expect(screen.queryByTestId('command-palette-empty')).not.toBeInTheDocument();
+    expect(screen.getByTestId('command-palette-item-sales.sellQuery')).toBeInTheDocument();
+  });
+
+  it('shows the empty state for a zero-match query when the viewer cannot sell', async () => {
+    mockUserRole = 'viewer';
     render(<CommandPalette isOpen onClose={vi.fn()} />);
     const input = await screen.findByTestId('command-palette-search');
     fireEvent.change(input, { target: { value: 'xyzqq' } });
     expect(screen.getByTestId('command-palette-empty')).toBeInTheDocument();
-  });
-
-  it('lists sellable products before command matches and adds one to the owned cart', async () => {
-    const rice = createMockProduct({
-      id: 'rice-1',
-      name: 'Rice Premium',
-      sku: 'RICE-001',
-      price: 3200,
-      unitAssignments: [
-        {
-          id: 'rice-unit-assignment',
-          unitId: 'unit-1',
-          unitName: 'Unit',
-          equivalence: 1,
-          price: 3200,
-          isBase: true,
-        },
-      ],
-    }) as ProductSearchItem;
-    omniboxMocks.productItems = [rice];
-    const onClose = vi.fn();
-    render(<CommandPalette isOpen onClose={onClose} />);
-    const palette = await screen.findByTestId('command-palette');
-    fireEvent.change(screen.getByTestId('command-palette-search'), {
-      target: { value: 'rice' },
-    });
-
-    const productOption = await screen.findByTestId('command-palette-item-sell.rice-1');
-    expect(productOption.getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByTestId('command-palette-products-header')).toBeInTheDocument();
-    fireEvent.keyDown(palette, { key: 'Enter' });
-
-    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/sales'));
-    const state = useCartWorkspaceStore.getState();
-    const active = state.activeId ? state.workspaces[state.activeId] : null;
-    expect(active?.ownerKey).toBe('tenant-1:user-1');
-    expect(active?.items[0]).toMatchObject({
-      productId: 'rice-1',
-      productSku: 'RICE-001',
-      quantity: 1,
-      unitPrice: 3200,
-    });
-    expect(onClose).toHaveBeenCalledOnce();
-    expect(omniboxMocks.toastSuccess).toHaveBeenCalled();
-  });
-
-  it('resolves scanner-only packaging barcodes before search results arrive', async () => {
-    const product = createMockProduct({
-      id: 'coffee-1',
-      name: 'Coffee Case',
-      sku: 'COF-CASE',
-      unitAssignments: [
-        {
-          id: 'base-assignment',
-          unitId: 'unit-base',
-          unitName: 'Unit',
-          equivalence: 1,
-          price: 10,
-          isBase: true,
-        },
-        {
-          id: 'case-assignment',
-          unitId: 'unit-case',
-          unitName: 'Case',
-          equivalence: 12,
-          price: 100,
-          isBase: false,
-        },
-      ],
-    }) as ProductSearchItem;
-    omniboxMocks.lookupByBarcode.mockResolvedValue({
-      product,
-      resolvedUnitId: 'unit-case',
-      suggestedPrice: 95,
-      suggestedQuantity: 2.5,
-    });
-    render(<CommandPalette isOpen onClose={vi.fn()} />);
-    const palette = await screen.findByTestId('command-palette');
-    fireEvent.change(screen.getByTestId('command-palette-search'), {
-      target: { value: '770000123456' },
-    });
-    fireEvent.keyDown(palette, { key: 'Enter' });
-
-    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/sales'));
-    const state = useCartWorkspaceStore.getState();
-    const active = state.activeId ? state.workspaces[state.activeId] : null;
-    expect(active?.items[0]).toMatchObject({
-      productId: 'coffee-1',
-      unitId: 'unit-case',
-      quantity: 2.5,
-      unitPrice: 95,
-    });
-  });
-
-  it('prefers an exact scan over a stale debounced product result', async () => {
-    const staleProduct = createMockProduct({
-      id: 'stale-product',
-      name: 'Previous result',
-      sku: 'OLD-001',
-      unitAssignments: [
-        {
-          id: 'stale-assignment',
-          unitId: 'unit-stale',
-          unitName: 'Unit',
-          equivalence: 1,
-          price: 10,
-          isBase: true,
-        },
-      ],
-    }) as ProductSearchItem;
-    const exactProduct = createMockProduct({
-      id: 'exact-product',
-      name: 'Scanned product',
-      sku: 'SCAN-001',
-      unitAssignments: [
-        {
-          id: 'exact-assignment',
-          unitId: 'unit-exact',
-          unitName: 'Unit',
-          equivalence: 1,
-          price: 25,
-          isBase: true,
-        },
-      ],
-    }) as ProductSearchItem;
-    omniboxMocks.productItems = [staleProduct];
-    omniboxMocks.lookupByBarcode.mockResolvedValue({
-      product: exactProduct,
-      resolvedUnitId: null,
-      suggestedPrice: null,
-      suggestedQuantity: null,
-    });
-    render(<CommandPalette isOpen onClose={vi.fn()} />);
-    const palette = await screen.findByTestId('command-palette');
-    fireEvent.change(screen.getByTestId('command-palette-search'), {
-      target: { value: '770000987654' },
-    });
-    expect(screen.getByTestId('command-palette-item-sell.stale-product')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
-    fireEvent.keyDown(palette, { key: 'Enter' });
-
-    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/sales'));
-    const state = useCartWorkspaceStore.getState();
-    const active = state.activeId ? state.workspaces[state.activeId] : null;
-    expect(active?.items).toHaveLength(1);
-    expect(active?.items[0]).toMatchObject({
-      productId: 'exact-product',
-      unitId: 'unit-exact',
-      quantity: 1,
-      unitPrice: 25,
-    });
-  });
-
-  it('does not query or render sell options for a viewer', async () => {
-    mockUserRole = 'viewer';
-    omniboxMocks.productItems = [createMockProduct({ id: 'hidden-product' }) as ProductSearchItem];
-    render(<CommandPalette isOpen onClose={vi.fn()} />);
-    fireEvent.change(await screen.findByTestId('command-palette-search'), {
-      target: { value: 'product' },
-    });
-
-    expect(
-      screen.queryByTestId('command-palette-item-sell.hidden-product')
-    ).not.toBeInTheDocument();
-    expect(omniboxMocks.searchOptions?.enabled).toBe(false);
   });
 
   it('ArrowDown advances the aria-selected option', async () => {
@@ -348,9 +148,6 @@ describe('CommandPalette (ENG-105a)', () => {
     expect(screen.queryByTestId('command-palette-item-navigate.sales')).toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.auditLogs')).not.toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.company')).not.toBeInTheDocument();
-    expect(
-      screen.queryByTestId('command-palette-item-navigate.dataImport')
-    ).not.toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.users')).not.toBeInTheDocument();
   });
 

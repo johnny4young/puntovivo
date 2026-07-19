@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "04753492-608c-423c-ac89-f988df0fdc09",
-  "prevId": "253d8e92-7bc1-430a-aba1-88f3f7a5ffbe",
+  "id": "253d8e92-7bc1-430a-aba1-88f3f7a5ffbe",
+  "prevId": "07ad1266-80ce-486e-982b-62fa6ab317f2",
   "tables": {
     "auth_refresh_families": {
       "name": "auth_refresh_families",
@@ -3251,42 +3251,6 @@
           "autoincrement": false,
           "default": false
         },
-        "catalog_type": {
-          "name": "catalog_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'standard'"
-        },
-        "variant_parent_id": {
-          "name": "variant_parent_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "variant_axes": {
-          "name": "variant_axes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "variant_values": {
-          "name": "variant_values",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "variant_signature": {
-          "name": "variant_signature",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "is_active": {
           "name": "is_active",
           "type": "integer",
@@ -3414,14 +3378,6 @@
           ],
           "isUnique": false
         },
-        "idx_products_variant_parent": {
-          "name": "idx_products_variant_parent",
-          "columns": [
-            "tenant_id",
-            "variant_parent_id"
-          ],
-          "isUnique": false
-        },
         "idx_products_tenant_sku": {
           "name": "idx_products_tenant_sku",
           "columns": [
@@ -3429,16 +3385,6 @@
             "sku"
           ],
           "isUnique": true
-        },
-        "idx_products_variant_signature": {
-          "name": "idx_products_variant_signature",
-          "columns": [
-            "tenant_id",
-            "variant_parent_id",
-            "variant_signature"
-          ],
-          "isUnique": true,
-          "where": "\"products\".\"variant_parent_id\" is not null"
         }
       },
       "foreignKeys": {
@@ -3505,19 +3451,6 @@
             "code"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "products_variant_parent_id_products_id_fk": {
-          "name": "products_variant_parent_id_products_id_fk",
-          "tableFrom": "products",
-          "tableTo": "products",
-          "columnsFrom": [
-            "variant_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },

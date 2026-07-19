@@ -1,134 +1,89 @@
-/** ENG-209 — self-scoped, aggregate-only cashier pace metrics. */
+/**
+ * ENG-204 — cashier pace metrics (`cashSessions.pace`).
+ *
+ * Exercises the endpoint through REAL session and sale lifecycles (open →
+ * sell → close via the routers/use-cases) so the metrics reflect exactly
+ * what production rows produce:
+ *   - null without an active session (the HUD hides);
+ *   - live counts in base units with refunds excluded;
+ *   - the personal best derives from the caller's own CLOSED sessions and
+ *     requires the minimum sale count before a record can be set or beaten.
+ */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { cashSessions, products, saleItems, sales, sites, users } from '../db/schema.js';
-import { computeCashierPace } from '../services/reports/cashier-pace.js';
-import {
-  resolveCheckoutTiming,
-  resolveFreshCheckoutTiming,
-} from '../application/sales/checkout-timing.js';
+import { inventoryBalances, products, sites, unitXProduct, units, users } from '../db/schema.js';
+import { completeSale } from '../application/sales/completeSale.js';
+import { returnSale } from '../application/sales/returnSale.js';
+import type { CompleteSaleContext } from '../application/sales/types.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 import { appRouter } from '../trpc/router.js';
-import type { Context } from '../trpc/context.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
+let userId: string;
 let siteId: string;
-let otherSiteId: string;
+let baseUnitId: string;
 let productId: string;
-let cashierId: string;
-let otherCashierId: string;
-let activeSessionId: string;
-let fixedNow: Date;
+let fresh: ReturnType<typeof makeFreshContextFactory>;
 
-function isoBefore(minutes: number): string {
-  return new Date(fixedNow.getTime() - minutes * 60_000).toISOString();
-}
-
-async function insertSession(args: {
-  cashierId: string;
-  status: 'open' | 'closed';
-  openedMinutesAgo: number;
-  closedMinutesAgo?: number;
-  siteId?: string;
-  paceItemsPerMinute?: number;
-}) {
-  const id = nanoid();
-  const openedAt = isoBefore(args.openedMinutesAgo);
-  const closedAt = args.status === 'closed' ? isoBefore(args.closedMinutesAgo ?? 0) : null;
-  await getDatabase()
-    .insert(cashSessions)
-    .values({
-      id,
-      tenantId,
-      siteId: args.siteId ?? siteId,
-      cashierId: args.cashierId,
-      registerName: `Pace ${id}`,
-      openingFloat: 0,
-      openingCountDenominations: [],
-      expectedBalance: 0,
-      status: args.status,
-      openedAt,
-      closedAt,
-      paceItemsPerMinute: args.paceItemsPerMinute,
-      createdAt: openedAt,
-      updatedAt: closedAt ?? openedAt,
-    });
-  return id;
-}
-
-async function insertSale(args: {
-  sessionId: string;
-  cashierId: string;
-  quantity: number;
-  status?: 'draft' | 'completed' | 'voided';
-  checkoutStartedMinutesAgo?: number;
-  completedMinutesAgo?: number;
-}) {
-  const id = nanoid();
-  const status = args.status ?? 'completed';
-  await getDatabase()
-    .insert(sales)
-    .values({
-      id,
-      tenantId,
-      saleNumber: `PACE-${nanoid(8)}`,
-      subtotal: args.quantity,
-      taxAmount: 0,
-      discountAmount: 0,
-      total: args.quantity,
-      paymentMethod: 'cash',
-      paymentStatus: status === 'completed' ? 'paid' : 'pending',
-      status,
-      cashSessionId: args.sessionId,
-      createdBy: args.cashierId,
-      checkoutStartedAt:
-        args.checkoutStartedMinutesAgo === undefined
-          ? null
-          : isoBefore(args.checkoutStartedMinutesAgo),
-      checkoutCompletedAt:
-        args.checkoutStartedMinutesAgo === undefined
-          ? null
-          : isoBefore(args.completedMinutesAgo ?? 1),
-      createdAt: isoBefore(args.completedMinutesAgo ?? 1),
-      updatedAt: isoBefore(args.completedMinutesAgo ?? 1),
-    });
-  await getDatabase().insert(saleItems).values({
-    id: nanoid(),
-    saleId: id,
-    productId,
-    quantity: args.quantity,
-    unitPrice: 1,
-    total: args.quantity,
-  });
-}
-
-function createCallerContext(userId: string, role = 'cashier'): Context {
+function buildSaleContext(): CompleteSaleContext {
   return {
-    req: {} as Context['req'],
-    res: {} as Context['res'],
     db: getDatabase(),
-    user: {
-      id: userId,
-      email: `${userId}@example.com`,
-      role,
-      tenantId,
-    },
     tenantId,
     siteId,
+    user: { id: userId, role: 'admin' },
+    envelope: null,
+    deviceId: null,
+    log: undefined,
   };
 }
 
-describe('cashier pace (ENG-209)', () => {
+async function sell(quantity: number): Promise<string> {
+  const result = await completeSale(buildSaleContext(), {
+    mode: 'fresh',
+    customerId: null,
+    items: [{ productId, unitId: baseUnitId, quantity, unitPrice: 100, discount: 0 }],
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    status: 'completed',
+    amountReceived: quantity * 100,
+    discountAmount: 0,
+  });
+  return (result.sale as { id: string }).id;
+}
+
+async function openSession(registerName: string) {
+  return appRouter.createCaller(fresh()).cashSessions.open({
+    registerName,
+    openingFloat: 0,
+    denominations: [],
+  });
+}
+
+async function closeSession() {
+  // Close balanced: the fixtures only move multiples of $100, so the
+  // expected balance always decomposes into $100 bills. Over/short does not
+  // gate the pace metrics — the balanced close just keeps the flow clean.
+  const active = await appRouter.createCaller(fresh()).cashSessions.getActive();
+  const expected = active?.expectedBalance ?? 0;
+  return appRouter.createCaller(fresh()).cashSessions.close({
+    actualCount: expected,
+    denominations: expected > 0 ? [{ value: 100, count: Math.round(expected / 100) }] : [],
+  });
+}
+
+describe('cashier pace (ENG-204)', () => {
   beforeAll(async () => {
-    fixedNow = new Date('2026-07-13T18:00:00.000Z');
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
     const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
-    if (!admin) throw new Error('Expected seeded admin');
+    if (!admin) throw new Error('Expected seeded admin user');
     tenantId = admin.tenantId;
+    userId = admin.id;
     const site = await db
       .select()
       .from(sites)
@@ -136,185 +91,114 @@ describe('cashier pace (ENG-209)', () => {
       .get();
     if (!site) throw new Error('Expected seeded site');
     siteId = site.id;
-    otherSiteId = nanoid();
-    await db.insert(sites).values({
-      id: otherSiteId,
+    const baseUnit = (await db.select().from(units).where(eq(units.tenantId, tenantId)).all()).find(
+      unit => unit.abbreviation === 'UND'
+    );
+    if (!baseUnit) throw new Error('Expected seeded base unit');
+    baseUnitId = baseUnit.id;
+
+    const reg = await registerDeviceService(db, {
       tenantId,
-      companyId: site.companyId,
-      name: `Pace secondary ${nanoid(6)}`,
-      isActive: true,
-      createdAt: fixedNow.toISOString(),
-      updatedAt: fixedNow.toISOString(),
+      userId,
+      kind: 'web',
+      name: 'cashier-pace.test',
     });
+    fresh = makeFreshContextFactory({
+      db,
+      serverApp: server.app,
+      tenantId,
+      userId,
+      email: 'admin@localhost',
+      siteId,
+      deviceId: reg.deviceId,
+      defaultRole: 'admin',
+    });
+
+    // One product with plenty of stock for every scenario.
+    const now = new Date().toISOString();
     productId = nanoid();
     await db.insert(products).values({
       id: productId,
       tenantId,
-      name: 'Pace product',
-      sku: `PACE-${nanoid(6)}`,
-      createdAt: fixedNow.toISOString(),
-      updatedAt: fixedNow.toISOString(),
+      name: 'Pace Product',
+      sku: 'PACE-1',
+      price: 100,
+      cost: 40,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
     });
-
-    cashierId = nanoid();
-    otherCashierId = nanoid();
-    const createdAt = fixedNow.toISOString();
-    await db.insert(users).values([
-      {
-        id: cashierId,
-        tenantId,
-        email: 'pace-cashier@example.com',
-        passwordHash: 'x',
-        name: 'Pace Cashier',
-        role: 'cashier',
-        isActive: true,
-        createdAt,
-        updatedAt: createdAt,
-      },
-      {
-        id: otherCashierId,
-        tenantId,
-        email: 'pace-other@example.com',
-        passwordHash: 'x',
-        name: 'Other Cashier',
-        role: 'cashier',
-        isActive: true,
-        createdAt,
-        updatedAt: createdAt,
-      },
-    ]);
-
-    activeSessionId = await insertSession({
-      cashierId,
-      status: 'open',
-      openedMinutesAgo: 10,
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 100,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
     });
-    const bestSessionId = await insertSession({
-      cashierId,
-      status: 'closed',
-      openedMinutesAgo: 30,
-      closedMinutesAgo: 25,
-      paceItemsPerMinute: 2,
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 1000,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
     });
-    await insertSession({
-      cashierId,
-      siteId: otherSiteId,
-      status: 'closed',
-      openedMinutesAgo: 2,
-      closedMinutesAgo: 1,
-      paceItemsPerMinute: 99,
-    });
-    const otherSessionId = await insertSession({
-      cashierId: otherCashierId,
-      status: 'open',
-      openedMinutesAgo: 1,
-    });
-
-    // Fresh + resumed-completed sales count once each. Still-draft and voided
-    // rows remain outside the performance totals.
-    await insertSale({
-      sessionId: activeSessionId,
-      cashierId,
-      quantity: 2,
-      checkoutStartedMinutesAgo: 9,
-      completedMinutesAgo: 8,
-    });
-    await insertSale({
-      sessionId: activeSessionId,
-      cashierId,
-      quantity: 3,
-      checkoutStartedMinutesAgo: 6,
-      completedMinutesAgo: 1,
-    });
-    await insertSale({ sessionId: activeSessionId, cashierId, quantity: 100, status: 'draft' });
-    await insertSale({ sessionId: activeSessionId, cashierId, quantity: 200, status: 'voided' });
-    await insertSale({ sessionId: bestSessionId, cashierId, quantity: 10 });
-    await insertSale({ sessionId: otherSessionId, cashierId: otherCashierId, quantity: 1000 });
   });
 
   afterAll(async () => {
     await server.close();
   });
 
-  it('counts completed fresh/resumed work and excludes drafts, voids, and other cashiers', async () => {
-    const result = await computeCashierPace({
-      db: getDatabase(),
-      tenantId,
-      siteId,
-      cashierId,
-      now: fixedNow,
-    });
-
-    expect(result).toEqual({
-      sessionId: activeSessionId,
-      completedSales: 2,
-      itemCount: 5,
-      itemsPerMinute: 0.5,
-      averageCheckoutSeconds: 180,
-      personalBestItemsPerMinute: 2,
-    });
-
-    // Reprints, refunds, or metadata edits advance updatedAt after checkout.
-    // The pace metric must keep the immutable completion boundary.
-    await getDatabase()
-      .update(sales)
-      .set({ updatedAt: fixedNow.toISOString() })
-      .where(
-        and(
-          eq(sales.tenantId, tenantId),
-          eq(sales.cashSessionId, activeSessionId),
-          eq(sales.status, 'completed')
-        )
-      );
-    const afterLifecycleUpdate = await computeCashierPace({
-      db: getDatabase(),
-      tenantId,
-      siteId,
-      cashierId,
-      now: fixedNow,
-    });
-    expect(afterLifecycleUpdate?.averageCheckoutSeconds).toBe(180);
+  it('returns null without an active session', async () => {
+    const pace = await appRouter.createCaller(fresh()).cashSessions.pace();
+    expect(pace).toBeNull();
   });
 
-  it('keeps abandoned, future, and uninstrumented carts out of the average', () => {
-    expect(resolveCheckoutTiming(isoBefore(30), fixedNow.toISOString())).toEqual({
-      checkoutStartedAt: isoBefore(30),
-      checkoutCompletedAt: fixedNow.toISOString(),
-    });
-    expect(resolveCheckoutTiming(undefined, fixedNow.toISOString())).toEqual({
-      checkoutStartedAt: null,
-      checkoutCompletedAt: null,
-    });
-    expect(resolveCheckoutTiming(isoBefore(241), fixedNow.toISOString())).toEqual({
-      checkoutStartedAt: null,
-      checkoutCompletedAt: null,
-    });
-    expect(
-      resolveCheckoutTiming(
-        new Date(fixedNow.getTime() + 1_000).toISOString(),
-        fixedNow.toISOString()
-      )
-    ).toEqual({ checkoutStartedAt: null, checkoutCompletedAt: null });
+  it('builds the personal best from a closed session, then tracks the live one', async () => {
+    // Session 1: 3 sales / 6 base units, then closed — the history record.
+    await openSession('pace register 1');
+    await sell(1);
+    await sell(2);
+    await sell(3);
+    await closeSession();
+
+    // Session 2 (live): 1 sale / 2 units so far.
+    await openSession('pace register 2');
+    await sell(2);
+    const refundedId = await sell(5);
+    await returnSale(buildSaleContext(), { id: refundedId, reason: 'pace exclusion' });
+
+    const pace = await appRouter.createCaller(fresh()).cashSessions.pace();
+    expect(pace).not.toBeNull();
+    // The refunded sale contributes nothing.
+    expect(pace?.salesCount).toBe(1);
+    expect(pace?.itemsQty).toBeCloseTo(2, 6);
+    expect(pace?.sessionMinutes).toBeGreaterThanOrEqual(1);
+    // In-memory runs finish in seconds → minutes clamps to 1, so the rate
+    // equals itemsQty; the closed session sets the 6.0 record the same way.
+    expect(pace?.itemsPerMinute).toBeCloseTo(2, 1);
+    expect(pace?.personalBestItemsPerMinute).toBeCloseTo(6, 1);
+    // Below the minimum sale count AND below the record → not a best.
+    expect(pace?.isPersonalBest).toBe(false);
+    expect(pace?.avgSecondsBetweenSales).toBeNull();
   });
 
-  it.each(['draft', 'cancelled', 'voided'] as const)(
-    'does not mark a %s fresh-sale state as a completed checkout',
-    status => {
-      expect(resolveFreshCheckoutTiming(status, isoBefore(1), fixedNow.toISOString())).toEqual({
-        checkoutStartedAt: null,
-        checkoutCompletedAt: null,
-      });
-    }
-  );
+  it('flags a personal best once the live session meets count and rate', async () => {
+    // Same live session: push past the 6.0 record with 3+ sales.
+    await sell(3);
+    await sell(4);
 
-  it('exposes only the authenticated cashier and rejects non-sales roles', async () => {
-    const own = await appRouter.createCaller(createCallerContext(cashierId)).cashSessions.myPace();
-    expect(own?.sessionId).toBe(activeSessionId);
-    expect(own?.itemCount).toBe(5);
-    expect(own?.personalBestItemsPerMinute).toBe(2);
-
-    await expect(
-      appRouter.createCaller(createCallerContext(cashierId, 'viewer')).cashSessions.myPace()
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    const pace = await appRouter.createCaller(fresh()).cashSessions.pace();
+    expect(pace?.salesCount).toBe(3);
+    expect(pace?.itemsQty).toBeCloseTo(9, 6);
+    expect(pace?.itemsPerMinute).toBeGreaterThanOrEqual(9);
+    expect(pace?.personalBestItemsPerMinute).toBeCloseTo(6, 1);
+    expect(pace?.isPersonalBest).toBe(true);
+    expect(pace?.avgSecondsBetweenSales).not.toBeNull();
   });
 });

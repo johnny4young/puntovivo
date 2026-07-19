@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "253d8e92-7bc1-430a-aba1-88f3f7a5ffbe",
-  "prevId": "07ad1266-80ce-486e-982b-62fa6ab317f2",
+  "id": "07ad1266-80ce-486e-982b-62fa6ab317f2",
+  "prevId": "6aa109c4-fc2c-4f4b-9363-c352574eb0d5",
   "tables": {
     "auth_refresh_families": {
       "name": "auth_refresh_families",
@@ -1482,22 +1482,6 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "required_approvals": {
-          "name": "required_approvals",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
-        "approval_evidence": {
-          "name": "approval_evidence",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'[]'"
         },
         "requested_at": {
           "name": "requested_at",

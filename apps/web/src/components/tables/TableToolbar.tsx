@@ -108,7 +108,8 @@ export function TableToolbar({
   onShowAllColumns,
   searchValue = '',
   onSearchChange,
-  searchPlaceholder = 'Search...',
+  // ENG-220 — resolved at the use site so it can be translated.
+  searchPlaceholder,
   selectedCount = 0,
   totalCount,
   isExporting = false,
@@ -140,7 +141,7 @@ export function TableToolbar({
               type="text"
               value={searchValue}
               onChange={e => onSearchChange(e.target.value)}
-              placeholder={searchPlaceholder}
+              placeholder={searchPlaceholder ?? t('table.searchPlaceholder')}
               className="input pl-10 pr-8 w-64"
             />
             {searchValue && (

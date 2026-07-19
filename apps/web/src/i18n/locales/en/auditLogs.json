@@ -104,6 +104,7 @@
     "ai.copilot.query": "Co-pilot query",
     "ai.semantic_search.regenerate_embeddings": "Embeddings regenerated",
     "module.toggle": "Module toggled",
+    "module.preset_applied": "Module preset applied",
     "device.revoke": "Device revoked",
     "device.pairing.claimed": "Device pairing claimed",
     "restaurant_table.create": "Restaurant table created",

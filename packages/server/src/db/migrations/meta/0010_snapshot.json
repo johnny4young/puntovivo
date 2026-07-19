@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1e9f8524-e56a-4fbf-b71c-420160cae15f",
+  "id": "f0bf9786-439b-4cf2-8053-40f28e0cc591",
   "prevId": "abeecf37-a98d-4788-a86a-28b7235f960c",
   "tables": {
     "auth_refresh_families": {
@@ -3240,6 +3240,256 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "loyalty_accounts": {
+      "name": "loyalty_accounts",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "points": {
+          "name": "points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_loyalty_accounts_customer": {
+          "name": "idx_loyalty_accounts_customer",
+          "columns": [
+            "tenant_id",
+            "customer_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "loyalty_accounts_tenant_id_tenants_id_fk": {
+          "name": "loyalty_accounts_tenant_id_tenants_id_fk",
+          "tableFrom": "loyalty_accounts",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "loyalty_accounts_customer_id_customers_id_fk": {
+          "name": "loyalty_accounts_customer_id_customers_id_fk",
+          "tableFrom": "loyalty_accounts",
+          "tableTo": "customers",
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "loyalty_movements": {
+      "name": "loyalty_movements",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sale_id": {
+          "name": "sale_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "points": {
+          "name": "points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rate_at_earn": {
+          "name": "rate_at_earn",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_loyalty_movements_account": {
+          "name": "idx_loyalty_movements_account",
+          "columns": [
+            "account_id"
+          ],
+          "isUnique": false
+        },
+        "idx_loyalty_movements_tenant_sale": {
+          "name": "idx_loyalty_movements_tenant_sale",
+          "columns": [
+            "tenant_id",
+            "sale_id"
+          ],
+          "isUnique": false
+        },
+        "idx_loyalty_movements_sale_earn": {
+          "name": "idx_loyalty_movements_sale_earn",
+          "columns": [
+            "account_id",
+            "sale_id"
+          ],
+          "isUnique": true,
+          "where": "\"loyalty_movements\".\"kind\" = 'earn'"
+        }
+      },
+      "foreignKeys": {
+        "loyalty_movements_tenant_id_tenants_id_fk": {
+          "name": "loyalty_movements_tenant_id_tenants_id_fk",
+          "tableFrom": "loyalty_movements",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "loyalty_movements_account_id_loyalty_accounts_id_fk": {
+          "name": "loyalty_movements_account_id_loyalty_accounts_id_fk",
+          "tableFrom": "loyalty_movements",
+          "tableTo": "loyalty_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "loyalty_movements_sale_id_sales_id_fk": {
+          "name": "loyalty_movements_sale_id_sales_id_fk",
+          "tableFrom": "loyalty_movements",
+          "tableTo": "sales",
+          "columnsFrom": [
+            "sale_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "loyalty_movements_created_by_users_id_fk": {
+          "name": "loyalty_movements_created_by_users_id_fk",
+          "tableFrom": "loyalty_movements",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "person_types": {
       "name": "person_types",
       "columns": {
@@ -4992,13 +5242,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "pace_items_per_minute": {
-          "name": "pace_items_per_minute",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -5455,20 +5698,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "checkout_started_at": {
-          "name": "checkout_started_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "checkout_completed_at": {
-          "name": "checkout_completed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "suspended_at": {

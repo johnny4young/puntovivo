@@ -27,6 +27,14 @@ interface SaleCreditCustomerCardProps {
   cupoExceeded: boolean;
   isAdmin: boolean;
   balanceLoading: boolean;
+  /**
+   * ENG-218 — the balance read failed, so the cupo projection below is
+   * unknowable. The card says so and the checkout stays blocked; a wrong
+   * projection is worse than none, because the cashier acts on it.
+   */
+  balanceUnavailable?: boolean | undefined;
+  /** ENG-218 — retry the balance read. Required with `balanceUnavailable`. */
+  retryBalance?: (() => void) | undefined;
 }
 
 export function SaleCreditCustomerCard({
@@ -41,6 +49,8 @@ export function SaleCreditCustomerCard({
   cupoExceeded,
   isAdmin,
   balanceLoading,
+  balanceUnavailable = false,
+  retryBalance,
 }: SaleCreditCustomerCardProps) {
   const { t } = useTranslation('sales');
 
@@ -48,12 +58,41 @@ export function SaleCreditCustomerCard({
     <div
       className="rounded-xl border border-secondary-200 p-4"
       data-testid="credit-sale-customer-card"
+      aria-busy={balanceLoading}
     >
       <p className="text-sm font-medium text-secondary-900">
         {selectedCustomer?.name ?? t('credit.card.unknownCustomer')}
       </p>
       {selectedCustomer?.taxId && (
         <p className="text-xs text-secondary-500">{selectedCustomer.taxId}</p>
+      )}
+      {/* ENG-218 — the balance read failed. Replace the projection with an
+          honest error instead of drawing a $0 balance that would read as
+          "full cupo available"; Confirm is disabled upstream. Loading is
+          also unknown, but stays represented by the compact ellipsis below. */}
+      {balanceUnavailable && (
+        <div
+          className="mt-3 rounded-lg border border-danger-200 bg-danger-50 p-3"
+          role="alert"
+          data-testid="credit-balance-error"
+        >
+          <p className="text-xs font-medium text-danger-700">
+            {t('credit.card.balanceUnavailable')}
+          </p>
+          <p className="mt-0.5 text-xs text-danger-600">
+            {t('credit.card.balanceUnavailableHelp')}
+          </p>
+          {retryBalance && (
+            <button
+              type="button"
+              className="btn-outline mt-2 h-7 px-2 text-xs"
+              onClick={retryBalance}
+              data-testid="credit-balance-retry"
+            >
+              {t('credit.card.balanceRetry')}
+            </button>
+          )}
+        </div>
       )}
       {/* ENG-014 — when split mode pushes a partial credit
           amount, surface a one-line summary so the cashier
@@ -68,14 +107,20 @@ export function SaleCreditCustomerCard({
       )}
       <div className="mt-3 grid grid-cols-3 gap-3">
         <div
-          className={`rounded border p-2 ${currentBalance > 0 ? 'border-danger-300 bg-danger-50 text-danger-700' : 'border-line bg-white text-secondary-900'}`}
+          className={`rounded border p-2 ${
+            currentBalance > 0 && !balanceLoading && !balanceUnavailable
+              ? 'border-danger-300 bg-danger-50 text-danger-700'
+              : 'border-line bg-white text-secondary-900'
+          }`}
           data-testid="credit-sale-current-balance"
         >
           <p className="text-xs uppercase tracking-wide text-secondary-500">
             {t('credit.card.balance')}
           </p>
           <p className="mt-1 text-base font-medium tabular-nums">
-            {balanceLoading ? '…' : formatCurrency(currentBalance)}
+            {/* ENG-218 — an em dash on failure and an ellipsis while loading,
+                never a formatted 0 while the balance is unknown. */}
+            {balanceUnavailable ? '—' : balanceLoading ? '…' : formatCurrency(currentBalance)}
           </p>
         </div>
         <div
@@ -97,7 +142,7 @@ export function SaleCreditCustomerCard({
             {t('credit.card.projected')}
           </p>
           <p className="mt-1 text-base font-medium tabular-nums">
-            {formatCurrency(projectedBalance)}
+            {balanceUnavailable ? '—' : balanceLoading ? '…' : formatCurrency(projectedBalance)}
           </p>
         </div>
       </div>

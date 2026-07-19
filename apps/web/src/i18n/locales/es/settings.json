@@ -710,6 +710,38 @@
           "validation": "Ingresa un número internacional."
         }
       }
+    },
+    "discount": {
+      "title": "Descuentos por vencimiento",
+      "description": "La escala que sugiere el radar de vencimientos: un lote que vence dentro de los días que definas gana ese descuento. Gana la primera coincidencia.",
+      "maxDaysLabel": "Días restantes",
+      "maxDaysAria": "Días restantes del nivel {{position}}",
+      "pctLabel": "Descuento %",
+      "pctAria": "Porcentaje de descuento del nivel {{position}}",
+      "addTier": "Agregar nivel",
+      "removeTier": "Quitar el nivel {{position}}",
+      "save": "Guardar escala",
+      "sessionNote": "El radar toma la escala nueva en el próximo inicio de sesión o al refrescar la página.",
+      "toast": {
+        "saved": "Escala de descuentos guardada",
+        "saveError": "No se pudo guardar la escala de descuentos"
+      }
+    },
+    "loyalty": {
+      "title": "Programa de lealtad",
+      "description": "Los clientes acumulan puntos en cada venta completada. Desactivado de forma predeterminada: actívalo solo cuando planees reconocer los puntos.",
+      "enabledLabel": "Otorgar puntos en las ventas",
+      "enabledHelp": "Mientras está apagado, ninguna venta acumula y el cobro no cambia. Los puntos ya ganados se conservan, no se borran.",
+      "rateLabel": "Valor de un punto",
+      "rateHelp": "Cuánto tiene que gastar un cliente para ganar un punto.",
+      "ratePreview": "Una venta de {{total}} otorga {{count}} punto.",
+      "ratePreview_other": "Una venta de {{total}} otorga {{count}} puntos.",
+      "rateInvalid": "Ingresa un monto de {{min}} o más.",
+      "save": "Guardar tasa",
+      "toast": {
+        "saved": "Programa de lealtad actualizado",
+        "saveError": "No se pudo actualizar el programa de lealtad"
+      }
     }
   },
   "units": {

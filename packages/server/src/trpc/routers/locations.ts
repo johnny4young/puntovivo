@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq, like, or, sql } from 'drizzle-orm';
+import { and, eq, like, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { locationXSite, locations, products } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
@@ -7,6 +7,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { paginatedList } from '../lib/paginatedList.js';
 import {
   createLocationInput,
   deleteLocationInput,
@@ -64,7 +65,6 @@ async function ensureLocationUniqueness(
 export const locationsRouter = router({
   list: tenantProcedure.input(listLocationsInput).query(async ({ ctx, input }) => {
     const { page, perPage, search, isActive } = input;
-    const offset = (page - 1) * perPage;
     const conditions = [eq(locations.tenantId, ctx.tenantId)];
 
     if (search) {
@@ -81,21 +81,14 @@ export const locationsRouter = router({
       conditions.push(eq(locations.isActive, isActive));
     }
 
-    const where = and(...conditions);
-    const [items, countRow] = await Promise.all([
-      ctx.db.select().from(locations).where(where).limit(perPage).offset(offset).all(),
-      ctx.db.select({ count: sql<number>`count(*)` }).from(locations).where(where).get(),
-    ]);
-
-    const totalItems = countRow?.count ?? 0;
-
-    return {
-      items,
+    // A-22 — one predicate feeds both the page and the count.
+    return paginatedList({
+      db: ctx.db,
+      table: locations,
+      where: and(...conditions),
       page,
       perPage,
-      totalItems,
-      totalPages: Math.ceil(totalItems / perPage),
-    };
+    });
   }),
 
   getById: tenantProcedure.input(getLocationInput).query(async ({ ctx, input }) => {
@@ -211,9 +204,7 @@ export const locationsRouter = router({
     const assignedSite = await ctx.db
       .select({ id: locationXSite.id })
       .from(locationXSite)
-      .where(
-        and(eq(locationXSite.tenantId, ctx.tenantId), eq(locationXSite.locationId, input.id))
-      )
+      .where(and(eq(locationXSite.tenantId, ctx.tenantId), eq(locationXSite.locationId, input.id)))
       .get();
 
     if (assignedSite) {

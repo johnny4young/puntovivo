@@ -13,26 +13,13 @@
  * @module components/feedback/CommandPalette
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { LoaderCircle, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
-import {
-  CommandPaletteResults,
-  type PaletteOption,
-} from '@/components/feedback/CommandPaletteResults';
-import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { canAccessRole, salesRoles } from '@/features/auth/roleAccess';
 import { useModulesSnapshot } from '@/features/modules';
-import {
-  addOmniboxSelectionToCart,
-  resolveBarcodeCartSelection,
-  resolveProductCartSelection,
-  type ResolvedCartSelection,
-} from '@/features/sales/salesOmnibox';
-import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
   filterActionsByQuery,
   visibleActionsForRole,
@@ -40,9 +27,19 @@ import {
   type CommandActionContext,
 } from '@/lib/commandPaletteActions';
 import { loadPaletteUsage, rankRecentActions, recordPaletteActionUsage } from '@/lib/paletteUsage';
-import { translateServerError } from '@/lib/translateServerError';
-import { trpc } from '@/lib/trpc';
-import type { ProductSearchItem } from '@/types';
+import { formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
+import { cn } from '@/lib/utils';
+import { useOmniboxSell } from '@/features/sales/useOmniboxSell';
+
+/**
+ * ENG-203 — synthetic omnibox row id. Never recorded into the Recent
+ * ranking (its label depends on the live query, so a remembered entry
+ * would render meaninglessly) and never part of the static catalogue.
+ */
+const SELL_QUERY_ACTION_ID = 'sales.sellQuery';
+
+/** Roles allowed to push a product into the active cart from anywhere. */
+const SELL_QUERY_ROLES: ReadonlyArray<string> = ['admin', 'manager', 'cashier'];
 
 export interface CommandPaletteProps {
   isOpen: boolean;
@@ -82,37 +79,18 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   const { user, logout } = useAuth();
   const { modules, isPlaceholder } = useModulesSnapshot();
   const navigate = useNavigate();
-  const toast = useToast();
-  const utils = trpc.useUtils();
+  const omniboxSell = useOmniboxSell();
   const [query, setQuery] = useState('');
   const [rawSelectedIndex, setRawSelectedIndex] = useState(0);
-  const [isAddingProduct, setIsAddingProduct] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const normalizedQuery = query.trim();
-  const debouncedProductQuery = useDebouncedValue(normalizedQuery, 180);
-  const canSell = canAccessRole(user?.role, salesRoles);
-  const productSearchQuery = trpc.products.search.useQuery(
-    {
-      q: debouncedProductQuery,
-      limit: 8,
-      isActive: true,
-    },
-    {
-      enabled: canSell && debouncedProductQuery.length > 0,
-    }
-  );
-  const productResults = useMemo(
-    () => (productSearchQuery.data?.items ?? []) as ProductSearchItem[],
-    [productSearchQuery.data?.items]
-  );
 
   // Resolve label/description through translation. Memoised so the
   // filter closure does not recompute the catalogue every keystroke.
   const resolveLabel = useMemo(
     () =>
       (action: CommandAction): string =>
-        t(`palette:${action.labelKey}`, { defaultValue: action.id }),
+        t(`palette:${action.labelKey}`, { defaultValue: action.id, ...action.labelArgs }),
     [t]
   );
   const resolveDescription = useMemo(
@@ -133,7 +111,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   const tenantId = user?.tenantId ?? null;
   const usage = useMemo(() => loadPaletteUsage(tenantId), [tenantId]);
 
-  const filteredActions = useMemo(
+  const filtered = useMemo(
     () => filterActionsByQuery(visibleActions, query, resolveLabel, resolveDescription),
     [visibleActions, query, resolveLabel, resolveDescription]
   );
@@ -152,52 +130,43 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   // recent section first, then the catalogue WITHOUT the duplicated
   // recent ids. Section headers are presentational only — indexes,
   // wrap-around, and aria-activedescendant all run over this array.
-  const orderedActionOptions = useMemo<PaletteOption[]>(() => {
-    if (recentActions.length === 0) {
-      return filteredActions.map(action => ({
-        kind: 'action',
-        id: action.id,
-        action,
-      }));
+  // ENG-203 — the omnibox sell row. Appended LAST so a text query that
+  // matches navigation still activates it with a plain Enter; a scanned
+  // barcode matches no catalogue action, leaving the sell row as the only
+  // option — scan + Enter sells. Viewer role never sees it.
+  const sellQueryAction = useMemo<CommandAction | null>(() => {
+    const trimmed = query.trim();
+    if (trimmed === '' || !SELL_QUERY_ROLES.includes(user?.role ?? '')) {
+      return null;
     }
-    const recentIds = new Set(recentActions.map(action => action.id));
-    return [
-      ...recentActions.map(action => ({
-        kind: 'action' as const,
-        id: action.id,
-        action,
-      })),
-      ...filteredActions
-        .filter(action => !recentIds.has(action.id))
-        .map(action => ({
-          kind: 'action' as const,
-          id: action.id,
-          action,
-        })),
-    ];
-  }, [recentActions, filteredActions]);
+    return {
+      id: SELL_QUERY_ACTION_ID,
+      labelKey: 'actions.sellQuery.label',
+      descriptionKey: 'actions.sellQuery.description',
+      labelArgs: { query: trimmed },
+      roles: SELL_QUERY_ROLES as CommandAction['roles'],
+      perform: ctx => ctx.sellQuery?.(trimmed),
+      group: 'command',
+    };
+  }, [query, user?.role]);
 
-  // ENG-205 — product matches lead while a query is active, turning the
-  // existing navigation palette into a sales omnibox without hiding command
-  // matches. Empty-query recent ranking remains byte-for-byte action-only.
-  const orderedOptions = useMemo<PaletteOption[]>(() => {
-    const productOptions =
-      canSell && normalizedQuery.length > 0
-        ? productResults.map(product => ({
-            kind: 'product' as const,
-            id: `sell.${product.id}`,
-            product,
-          }))
-        : [];
-    return [...productOptions, ...orderedActionOptions];
-  }, [canSell, normalizedQuery, orderedActionOptions, productResults]);
+  const orderedActions = useMemo(() => {
+    const catalogue = (() => {
+      if (recentActions.length === 0) {
+        return filtered;
+      }
+      const recentIds = new Set(recentActions.map(action => action.id));
+      return [...recentActions, ...filtered.filter(action => !recentIds.has(action.id))];
+    })();
+    return sellQueryAction ? [...catalogue, sellQueryAction] : catalogue;
+  }, [recentActions, filtered, sellQueryAction]);
 
   // Derive a clamped selection at render time — when the filter
   // shrinks, the index automatically follows without a setState in
   // an effect (avoids cascading renders).
   const selectedIndex = Math.min(
     Math.max(0, rawSelectedIndex),
-    Math.max(0, orderedOptions.length - 1)
+    Math.max(0, orderedActions.length - 1)
   );
   const setSelectedIndex = setRawSelectedIndex;
 
@@ -214,7 +183,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   // Keep the selected row scrolled into view as the user navigates
   // through a long list. Reads the DOM after render; no setState.
   useEffect(() => {
-    if (orderedOptions.length === 0) return;
+    if (orderedActions.length === 0) return;
     const items = listRef.current?.querySelectorAll('[data-palette-item]');
     if (!items) return;
     const target = items[selectedIndex];
@@ -223,88 +192,25 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     if (target instanceof HTMLElement && typeof target.scrollIntoView === 'function') {
       target.scrollIntoView({ block: 'nearest' });
     }
-  }, [selectedIndex, orderedOptions]);
+  }, [selectedIndex, orderedActions]);
 
   const performAction = (action: CommandAction) => {
-    const ctx: CommandActionContext = { navigate, logout };
-    // ENG-105g — remember the activation (device-local, best-effort)
-    // so the next open ranks this action into the Recent section.
-    recordPaletteActionUsage(action.id, tenantId);
+    const ctx: CommandActionContext = {
+      navigate,
+      logout,
+      sellQuery: q => omniboxSell(q, navigate),
+    };
+    // ENG-105g — remember the activation (device-local, best-effort) so the
+    // next open ranks this action into the Recent section. The synthetic
+    // sell row is excluded: its label depends on the live query, so a
+    // remembered entry would render meaninglessly.
+    if (action.id !== SELL_QUERY_ACTION_ID) {
+      recordPaletteActionUsage(action.id, tenantId);
+    }
     onClose();
     void Promise.resolve(action.perform(ctx)).catch(err => {
       console.error('command palette action threw', { actionId: action.id, err });
     });
-  };
-
-  const performProduct = async (
-    product: ProductSearchItem | null,
-    showNotFound = true,
-    preferExact = false
-  ): Promise<boolean> => {
-    if (!user || !canSell || normalizedQuery.length === 0 || isAddingProduct) {
-      return false;
-    }
-    setIsAddingProduct(true);
-    try {
-      let resolved: ResolvedCartSelection | null = null;
-      try {
-        const exact = await utils.products.lookupByBarcode.fetch({
-          barcode: normalizedQuery,
-          gs1Scheme: 'generic',
-        });
-        const exactProduct = exact?.product as unknown as ProductSearchItem | undefined;
-        if (exact && exactProduct && (preferExact || !product || exactProduct.id === product.id)) {
-          resolved = resolveBarcodeCartSelection({
-            product: exactProduct,
-            resolvedUnitId: exact.resolvedUnitId,
-            suggestedPrice: exact.suggestedPrice,
-            suggestedQuantity: exact.suggestedQuantity,
-          });
-        }
-      } catch (error) {
-        // A visible text result is still actionable if the exact-barcode
-        // optimization fails. Scanner-only activation has no such fallback,
-        // so surface its transport error below.
-        if (!product) throw error;
-      }
-      resolved ??= product ? resolveProductCartSelection(product) : null;
-      if (!resolved) {
-        if (showNotFound) {
-          toast.warning({ title: t('palette:products.notFound') });
-        }
-        return false;
-      }
-
-      const ownerKey = `${user.tenantId}:${user.id}`;
-      addOmniboxSelectionToCart({ ownerKey, ...resolved });
-      // Navigate first so Modal's focus-restoration callback observes /sales
-      // and lands on the checkout product input instead of the prior route.
-      navigate('/sales');
-      onClose();
-      toast.success({
-        title: t('palette:products.added', {
-          name: resolved.selection.product.name,
-        }),
-      });
-      return true;
-    } catch (error) {
-      const fallback = t('palette:products.addFailed');
-      toast.error({
-        title: fallback,
-        description: translateServerError(error, t, fallback),
-      });
-      return false;
-    } finally {
-      setIsAddingProduct(false);
-    }
-  };
-
-  const performOption = (option: PaletteOption) => {
-    if (option.kind === 'product') {
-      void performProduct(option.product);
-      return;
-    }
-    performAction(option.action);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
@@ -313,14 +219,14 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     // detouring through Home/End. Empty-list guards stay no-op.
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      if (orderedOptions.length === 0) return;
-      setSelectedIndex(selectedIndex + 1 >= orderedOptions.length ? 0 : selectedIndex + 1);
+      if (orderedActions.length === 0) return;
+      setSelectedIndex(selectedIndex + 1 >= orderedActions.length ? 0 : selectedIndex + 1);
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      if (orderedOptions.length === 0) return;
-      setSelectedIndex(selectedIndex - 1 < 0 ? orderedOptions.length - 1 : selectedIndex - 1);
+      if (orderedActions.length === 0) return;
+      setSelectedIndex(selectedIndex - 1 < 0 ? orderedActions.length - 1 : selectedIndex - 1);
       return;
     }
     if (event.key === 'Home') {
@@ -330,24 +236,14 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     }
     if (event.key === 'End') {
       event.preventDefault();
-      setSelectedIndex(Math.max(0, orderedOptions.length - 1));
+      setSelectedIndex(Math.max(0, orderedActions.length - 1));
       return;
     }
     if (event.key === 'Enter') {
       event.preventDefault();
-      if (isAddingProduct) return;
-      const option = orderedOptions[selectedIndex];
-      const looksLikeScan = normalizedQuery.length >= 6 && !/\s/.test(normalizedQuery);
-      if (option?.kind === 'product') {
-        void performProduct(option.product, true, looksLikeScan);
-      } else if (looksLikeScan && canSell) {
-        void performProduct(null, option === undefined).then(added => {
-          if (!added && option?.kind === 'action') performAction(option.action);
-        });
-      } else if (option) {
-        performOption(option);
-      } else if (canSell && normalizedQuery.length > 0) {
-        void performProduct(null);
+      const action = orderedActions[selectedIndex];
+      if (action) {
+        performAction(action);
       }
     }
   };
@@ -364,11 +260,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
       aria-owns="command-palette-listbox"
     >
       <div className="flex items-center gap-3 border-b border-line/70 px-4 py-3">
-        {productSearchQuery.isFetching || isAddingProduct ? (
-          <LoaderCircle className="h-4 w-4 animate-spin text-primary-600" aria-hidden="true" />
-        ) : (
-          <Search className="h-4 w-4 text-secondary-500" aria-hidden="true" />
-        )}
+        <Search className="h-4 w-4 text-secondary-500" aria-hidden="true" />
         <input
           ref={searchInputRef}
           type="text"
@@ -381,29 +273,99 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
           aria-label={t('palette:searchPlaceholder')}
           aria-controls="command-palette-listbox"
           aria-autocomplete="list"
-          aria-busy={productSearchQuery.isFetching || isAddingProduct}
           aria-activedescendant={
-            orderedOptions[selectedIndex]
-              ? `command-palette-item-${orderedOptions[selectedIndex]!.id}`
+            orderedActions[selectedIndex]
+              ? `command-palette-item-${orderedActions[selectedIndex]!.id}`
               : undefined
           }
           data-testid="command-palette-search"
           className="w-full bg-transparent text-[14px] text-secondary-900 outline-none placeholder:text-secondary-500"
         />
       </div>
-      <CommandPaletteResults
-        options={orderedOptions}
-        selectedIndex={selectedIndex}
-        isAddingProduct={isAddingProduct}
-        isFetching={productSearchQuery.isFetching}
-        productOptionCount={canSell && normalizedQuery.length > 0 ? productResults.length : 0}
-        recentActionCount={recentActions.length}
-        listRef={listRef}
-        resolveLabel={resolveLabel}
-        resolveDescription={resolveDescription}
-        onSelectIndex={setSelectedIndex}
-        onPerformOption={performOption}
-      />
+      {orderedActions.length === 0 ? (
+        <div
+          className="px-4 py-6 text-center text-sm text-secondary-500"
+          data-testid="command-palette-empty"
+        >
+          <p className="font-medium text-secondary-700">{t('palette:noResults')}</p>
+          <p className="mt-1 text-xs text-secondary-500">{t('palette:noResultsHint')}</p>
+        </div>
+      ) : (
+        <ul
+          ref={listRef}
+          id="command-palette-listbox"
+          role="listbox"
+          aria-label={t('palette:title')}
+          className="max-h-[20rem] overflow-y-auto py-1"
+        >
+          {orderedActions.map((action, index) => {
+            const isSelected = index === selectedIndex;
+            const shortcut = action.shortcutId ? getShortcutById(action.shortcutId) : undefined;
+            const shortcutHint = shortcut ? formatKeysForDisplay(shortcut.keys) : null;
+            // ENG-105g — presentational section headers. They are
+            // NOT options: no data-palette-item (the scroll/index
+            // machinery skips them) and aria-hidden (the listbox
+            // stays a flat option list for assistive tech).
+            const sectionHeader =
+              recentActions.length > 0 && index === 0 ? (
+                <li
+                  aria-hidden="true"
+                  role="presentation"
+                  data-testid="command-palette-recent-header"
+                  className="px-4 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-secondary-500"
+                >
+                  {t('palette:groups.recent')}
+                </li>
+              ) : recentActions.length > 0 && index === recentActions.length ? (
+                <li
+                  aria-hidden="true"
+                  role="presentation"
+                  data-testid="command-palette-catalogue-divider"
+                  className="mx-4 mb-1 mt-2 border-t border-line/70"
+                />
+              ) : null;
+            return (
+              <Fragment key={action.id}>
+                {sectionHeader}
+                <li
+                  id={`command-palette-item-${action.id}`}
+                  data-palette-item
+                  data-testid={`command-palette-item-${action.id}`}
+                  role="option"
+                  aria-selected={isSelected}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-3 px-4 py-2.5 text-[13px] transition',
+                    isSelected
+                      ? 'bg-primary-50/80 text-primary-900'
+                      : 'text-secondary-700 hover:bg-secondary-50/60'
+                  )}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  onClick={() => performAction(action)}
+                >
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate font-medium text-secondary-950">
+                      {resolveLabel(action)}
+                    </span>
+                    {action.descriptionKey && (
+                      <span className="truncate text-[11.5px] text-secondary-500">
+                        {resolveDescription(action)}
+                      </span>
+                    )}
+                  </div>
+                  {shortcutHint && (
+                    <span
+                      className="rounded-md border border-line/70 bg-surface-2/80 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-secondary-600"
+                      data-testid={`command-palette-shortcut-${action.id}`}
+                    >
+                      {shortcutHint}
+                    </span>
+                  )}
+                </li>
+              </Fragment>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

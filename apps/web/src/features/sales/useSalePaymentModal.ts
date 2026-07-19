@@ -234,6 +234,20 @@ export function useSalePaymentModal({
     { customerId: watchedCustomerId },
     { enabled: creditQueryEnabled, staleTime: 30_000 }
   );
+  // ENG-218 — a FAILED balance read used to be indistinguishable from a
+  // balance of zero: `data` is undefined either way, so a customer $95.000
+  // into a $100.000 cupo was drawn as having the whole cupo free. The
+  // cashier confirmed against that picture and the server — which re-reads
+  // the ledger itself — rejected the sale. Nothing was ever corrupted; the
+  // cashier was simply shown a number that was not true and then blamed for
+  // it. The projection is unknowable without this read, so the checkout
+  // blocks instead of guessing.
+  const balanceLoading = creditQueryEnabled && creditBalanceQuery.isLoading;
+  const balanceUnavailable = creditQueryEnabled && creditBalanceQuery.isError;
+  // Loading and failure are both unknown states. Until the first successful
+  // read lands, neither the projected cupo nor the submit decision may use
+  // the numeric fallback below as if it were a real zero balance.
+  const balanceUnknown = balanceLoading || balanceUnavailable;
   const currentBalance = creditBalanceQuery.data?.balance ?? 0;
   const creditLimit = selectedCustomer?.creditLimit ?? 0;
   // ENG-014 — the projection sizes to the credit portion only. Pure
@@ -243,7 +257,10 @@ export function useSalePaymentModal({
   const creditProjectionAmount = isCredit ? grandTotal : creditAmountInSplit;
   const projectedBalance = currentBalance + creditProjectionAmount;
   const cupoExceeded =
-    creditLimit > 0 && creditProjectionAmount > 0 && projectedBalance > creditLimit;
+    !balanceUnknown &&
+    creditLimit > 0 &&
+    creditProjectionAmount > 0 &&
+    projectedBalance > creditLimit;
   // ENG-014 — V10 card surfaces whenever the sale carries a credit
   // portion (legacy single-tender OR split with a credit row).
   const showCreditCard = isCredit || creditAmountInSplit > 0;
@@ -424,6 +441,10 @@ export function useSalePaymentModal({
   const canSubmit =
     !isSaving &&
     (!splitMode || splitIsValid) &&
+    // ENG-218 — never let a credit sale be confirmed against a projection we
+    // could not compute. Cash-only checkouts are untouched (the query is
+    // disabled, so balanceUnknown is false).
+    !balanceUnknown &&
     checkoutApprovals.allApproved &&
     (!lossPreventionQueryEnabled ||
       (!lossPreventionQuery.isFetching && lossPreventionQuery.error === null)) &&
@@ -536,7 +557,10 @@ export function useSalePaymentModal({
     projectedBalance,
     cupoExceeded,
     showCreditCard,
-    balanceLoading: creditBalanceQuery.isLoading,
+    balanceLoading,
+    // ENG-218 — the card renders the inline error + retry from these.
+    balanceUnavailable,
+    retryBalance: () => void creditBalanceQuery.refetch(),
     checkoutApprovals: checkoutApprovalState,
     tenderSum,
     tenderDelta,

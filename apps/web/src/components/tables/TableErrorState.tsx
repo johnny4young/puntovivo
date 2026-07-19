@@ -1,4 +1,5 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // ENG-179b — explicit `| undefined` on optional fields.
 interface TableErrorStateProps {
@@ -12,8 +13,10 @@ export function TableErrorState({
   title,
   message,
   onRetry,
-  retryLabel = 'Retry',
+  // ENG-220 — resolved below rather than defaulted to English here.
+  retryLabel,
 }: TableErrorStateProps) {
+  const { t } = useTranslation('common');
   return (
     <div className="flex items-start gap-3.5 rounded-[24px] border border-line/80 bg-card/82 p-[18px] shadow-[var(--shadow-card)]">
       <span className="pv-gt pv-gt-danger h-9 w-9" aria-hidden="true">
@@ -25,7 +28,7 @@ export function TableErrorState({
         {onRetry && (
           <button type="button" className="pv-btn outline mt-3" onClick={onRetry}>
             <RefreshCw />
-            {retryLabel}
+            {retryLabel ?? t('table.retry')}
           </button>
         )}
       </div>

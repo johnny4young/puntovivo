@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8fe770e1-34e4-4b8d-806e-4e5f47cfa059",
-  "prevId": "2e8a81d5-3b0e-47a2-b5ba-3623aa93bfe7",
+  "id": "2e8a81d5-3b0e-47a2-b5ba-3623aa93bfe7",
+  "prevId": "1e9f8524-e56a-4fbf-b71c-420160cae15f",
   "tables": {
     "auth_refresh_families": {
       "name": "auth_refresh_families",
@@ -548,13 +548,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "staff_pin_hash": {
-          "name": "staff_pin_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "session_version": {

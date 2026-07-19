@@ -265,7 +265,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
 
     const eng209 = readExpectedMigrations().find(
-      migration => migration.tag === '0010_eng209_checkout_timing'
+      migration => migration.tag === '0011_eng209_checkout_timing'
     );
     expect(eng209).toBeDefined();
     const pinnedLatest = sqlite
@@ -274,7 +274,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(pinnedLatest).toBeUndefined();
 
     const eng129c = readExpectedMigrations().find(
-      migration => migration.tag === '0011_eng129c_customer_privacy_disposition'
+      migration => migration.tag === '0012_eng129c_customer_privacy_disposition'
     );
     expect(eng129c).toBeDefined();
     const pinnedPrivacy = sqlite
@@ -283,7 +283,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(pinnedPrivacy).toBeUndefined();
 
     const eng106a = readExpectedMigrations().find(
-      migration => migration.tag === '0012_eng106a_staff_pin'
+      migration => migration.tag === '0013_eng106a_staff_pin'
     );
     expect(eng106a).toBeDefined();
     const pinnedStaffPin = sqlite
@@ -292,7 +292,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(pinnedStaffPin).toBeUndefined();
 
     const eng140d = readExpectedMigrations().find(
-      migration => migration.tag === '0019_eng140d_cash_session_attendance'
+      migration => migration.tag === '0020_eng140d_cash_session_attendance'
     );
     expect(eng140d).toBeDefined();
     const pinnedCashAttendance = sqlite
@@ -301,7 +301,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(pinnedCashAttendance).toBeUndefined();
 
     const eng142c = readExpectedMigrations().find(
-      migration => migration.tag === '0022_eng142c_dual_approvals'
+      migration => migration.tag === '0023_eng142c_dual_approvals'
     );
     expect(eng142c).toBeDefined();
     const pinnedDualApproval = sqlite
@@ -310,7 +310,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(pinnedDualApproval).toBeUndefined();
 
     const eng110b = readExpectedMigrations().find(
-      migration => migration.tag === '0023_eng110b_product_variants'
+      migration => migration.tag === '0024_eng110b_product_variants'
     );
     expect(eng110b).toBeDefined();
     const pinnedVariants = sqlite
@@ -319,7 +319,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(pinnedVariants).toBeUndefined();
 
     const eng110c = readExpectedMigrations().find(
-      migration => migration.tag === '0024_eng110c_product_serials'
+      migration => migration.tag === '0025_eng110c_product_serials'
     );
     expect(eng110c).toBeDefined();
     const pinnedSerials = sqlite
@@ -336,7 +336,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
 
     const eng129c = readExpectedMigrations().find(
-      migration => migration.tag === '0011_eng129c_customer_privacy_disposition'
+      migration => migration.tag === '0012_eng129c_customer_privacy_disposition'
     );
     expect(eng129c).toBeDefined();
     const pinnedPrivacy = sqlite
@@ -345,7 +345,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(pinnedPrivacy).toBeDefined();
 
     const eng106a = readExpectedMigrations().find(
-      migration => migration.tag === '0012_eng106a_staff_pin'
+      migration => migration.tag === '0013_eng106a_staff_pin'
     );
     expect(eng106a).toBeDefined();
     const pinnedStaffPin = sqlite
@@ -354,7 +354,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(pinnedStaffPin).toBeDefined();
 
     const eng140d = readExpectedMigrations().find(
-      migration => migration.tag === '0019_eng140d_cash_session_attendance'
+      migration => migration.tag === '0020_eng140d_cash_session_attendance'
     );
     expect(eng140d).toBeDefined();
     const pinnedCashAttendance = sqlite
@@ -363,7 +363,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(pinnedCashAttendance).toBeDefined();
 
     const eng142c = readExpectedMigrations().find(
-      migration => migration.tag === '0022_eng142c_dual_approvals'
+      migration => migration.tag === '0023_eng142c_dual_approvals'
     );
     expect(eng142c).toBeDefined();
     const pinnedDualApproval = sqlite
@@ -372,7 +372,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(pinnedDualApproval).toBeDefined();
 
     const eng110b = readExpectedMigrations().find(
-      migration => migration.tag === '0023_eng110b_product_variants'
+      migration => migration.tag === '0024_eng110b_product_variants'
     );
     expect(eng110b).toBeDefined();
     const pinnedVariants = sqlite
@@ -381,7 +381,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(pinnedVariants).toBeDefined();
 
     const eng110c = readExpectedMigrations().find(
-      migration => migration.tag === '0024_eng110c_product_serials'
+      migration => migration.tag === '0025_eng110c_product_serials'
     );
     expect(eng110c).toBeDefined();
     const pinnedSerials = sqlite

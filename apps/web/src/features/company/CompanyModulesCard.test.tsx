@@ -17,6 +17,8 @@ import i18n from '@/i18n';
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 const setActiveMutate = vi.fn();
+// A-30 — the card now uses two critical mutations; the mock routes by path.
+const applyPresetMutate = vi.fn();
 const invalidateList = vi.fn(async () => undefined);
 const invalidateEffective = vi.fn(async () => undefined);
 let listResponse: {
@@ -81,11 +83,12 @@ vi.mock('@/lib/trpc', () => ({
 
 vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: (
-    _path: string,
+    path: string,
     options: { onSuccess?: () => Promise<void>; onSettled?: () => void }
   ) => ({
     mutateAsync: async (input: unknown) => {
-      const result = await setActiveMutate(input);
+      const mutate = path === 'modules.applyPreset' ? applyPresetMutate : setActiveMutate;
+      const result = await mutate(input);
       await options.onSuccess?.();
       options.onSettled?.();
       return result;
@@ -149,7 +152,9 @@ describe('CompanyModulesCard (ENG-068)', () => {
     expect(copy).not.toMatch(/\bendpoints?\b/i);
     expect(copy).not.toMatch(/plug-and-play|plugs the real/i);
     expect(copy).not.toMatch(/webhook_outbox|deliveryOrders|quotations\.\*/);
-    expect(copy).not.toMatch(/\/(co-pilot|operations|quotations|touch|kds|customer-display|delivery|m)\b/);
+    expect(copy).not.toMatch(
+      /\/(co-pilot|operations|quotations|touch|kds|customer-display|delivery|m)\b/
+    );
   });
 
   it('shows the default vs explicit indicator per row', () => {
@@ -202,5 +207,60 @@ describe('CompanyModulesCard (ENG-068)', () => {
     listResponse = { modules: [] };
     render(<CompanyModulesCard />);
     expect(screen.getByText(/Cargando el estado actual/i)).toBeInTheDocument();
+  });
+
+  // A-30 — vertical presets.
+  it('renders a button per vertical preset', () => {
+    render(<CompanyModulesCard />);
+    for (const id of ['retail', 'restaurant', 'quickservice', 'wholesale']) {
+      expect(screen.getByTestId(`modules-preset-${id}`)).toBeInTheDocument();
+    }
+  });
+
+  it('applies a preset by id and reports how many modules changed', async () => {
+    applyPresetMutate.mockResolvedValue({
+      presetId: 'restaurant',
+      changed: true,
+      applied: [
+        { moduleId: 'pos-touch', enabled: true },
+        { moduleId: 'kds', enabled: true },
+      ],
+    });
+    render(<CompanyModulesCard />);
+
+    fireEvent.click(screen.getByTestId('modules-preset-restaurant'));
+
+    await waitFor(() => {
+      expect(applyPresetMutate).toHaveBeenCalledWith({ presetId: 'restaurant' });
+    });
+    // The preset invalidates the same reads a toggle does, so sidebar +
+    // route gating refetch on the same tick.
+    expect(invalidateList).toHaveBeenCalled();
+    expect(invalidateEffective).toHaveBeenCalled();
+    expect(toastSuccess).toHaveBeenCalled();
+  });
+
+  it('reports the no-change case when the preset is already applied', async () => {
+    applyPresetMutate.mockResolvedValue({ presetId: 'retail', changed: false, applied: [] });
+    render(<CompanyModulesCard />);
+
+    fireEvent.click(screen.getByTestId('modules-preset-retail'));
+
+    await waitFor(() => {
+      expect(toastSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({ title: expect.stringMatching(/ya está aplicado/i) })
+      );
+    });
+  });
+
+  it('surfaces a translated error toast when a preset fails', async () => {
+    applyPresetMutate.mockRejectedValueOnce(new Error('boom'));
+    render(<CompanyModulesCard />);
+
+    fireEvent.click(screen.getByTestId('modules-preset-wholesale'));
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalled();
+    });
   });
 });

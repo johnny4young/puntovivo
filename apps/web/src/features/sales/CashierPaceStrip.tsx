@@ -1,62 +1,67 @@
-import { Gauge } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { CashierPaceMetrics } from './useCashierPace';
+import { Gauge, Timer, Trophy } from 'lucide-react';
+import { useCashierPace } from './useCashierPace';
 
-interface CashierPaceStripProps {
-  pace: CashierPaceMetrics;
-}
+/**
+ * ENG-204 (WC-C4) — the opt-in cashier pace HUD. Three quiet micro-metrics
+ * of the ACTIVE session (base items per minute, average seconds between
+ * sales, personal best) rendered inside the checkout panel's session block.
+ * Self-contained: reads the shared opt-in + the pace query through
+ * `useCashierPace`, renders nothing while opted out, without a session, or
+ * before the first payload — the cockpit stays untouched for everyone who
+ * did not ask for it. When the live rate meets the cashier's own record the
+ * trophy tile lights up: this motivates, it does not surveil.
+ */
+export function CashierPaceStrip({ hasActiveCashSession }: { hasActiveCashSession: boolean }) {
+  const { t } = useTranslation('sales');
+  const { enabled, pace } = useCashierPace(hasActiveCashSession);
 
-function formatSeconds(seconds: number | null, language: string): string {
-  if (seconds === null) return '—';
-  if (seconds < 60) return `${new Intl.NumberFormat(language).format(seconds)} s`;
-  return `${new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(seconds / 60)} min`;
-}
-
-/** Compact, aggregate-only HUD visible only to the operator who opted in. */
-export function CashierPaceStrip({ pace }: CashierPaceStripProps) {
-  const { t, i18n } = useTranslation('sales');
-  const language = i18n.resolvedLanguage ?? i18n.language;
-  const rate = (value: number | null) =>
-    value === null
-      ? '—'
-      : new Intl.NumberFormat(language, {
-          minimumFractionDigits: 1,
-          maximumFractionDigits: 1,
-        }).format(value);
+  if (!enabled || !pace) return null;
 
   return (
-    <section
-      className="rounded-2xl border border-primary-200/80 bg-primary-50/70 px-3.5 py-3"
-      aria-label={t('pace.title')}
+    <div
+      className="mt-3 grid grid-cols-3 gap-2"
       data-testid="cashier-pace-strip"
+      role="status"
+      aria-label={t('paceHud.title')}
     >
-      <div className="flex items-center justify-between gap-3">
-        <span className="inline-flex items-center gap-2 text-xs font-semibold text-primary-900">
-          <Gauge className="h-4 w-4" aria-hidden="true" />
-          {t('pace.title')}
-        </span>
-        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary-700">
-          {t('pace.private')}
-        </span>
+      <div className="rounded-[12px] border border-line/70 bg-surface-2/60 px-2.5 py-2">
+        <p className="flex items-center gap-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-secondary-500">
+          <Gauge className="h-3 w-3" aria-hidden="true" />
+          {t('paceHud.itemsPerMinute')}
+        </p>
+        <p className="mt-1 font-mono text-[15px] font-semibold tabular-nums text-secondary-950">
+          {pace.itemsPerMinute.toFixed(1)}
+        </p>
       </div>
-      <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <div>
-          <dt className="text-[10px] text-primary-800">{t('pace.itemsPerMinute')}</dt>
-          <dd className="mt-1 text-sm font-bold text-primary-950">{rate(pace.itemsPerMinute)}</dd>
-        </div>
-        <div className="border-x border-primary-200/80 px-1">
-          <dt className="text-[10px] text-primary-800">{t('pace.averageCheckout')}</dt>
-          <dd className="mt-1 text-sm font-bold text-primary-950">
-            {formatSeconds(pace.averageCheckoutSeconds, language)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[10px] text-primary-800">{t('pace.personalBest')}</dt>
-          <dd className="mt-1 text-sm font-bold text-primary-950">
-            {rate(pace.personalBestItemsPerMinute)}
-          </dd>
-        </div>
-      </dl>
-    </section>
+      <div className="rounded-[12px] border border-line/70 bg-surface-2/60 px-2.5 py-2">
+        <p className="flex items-center gap-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-secondary-500">
+          <Timer className="h-3 w-3" aria-hidden="true" />
+          {t('paceHud.secondsPerSale')}
+        </p>
+        <p className="mt-1 font-mono text-[15px] font-semibold tabular-nums text-secondary-950">
+          {pace.avgSecondsBetweenSales !== null ? `${pace.avgSecondsBetweenSales}s` : '—'}
+        </p>
+      </div>
+      <div
+        className={`rounded-[12px] border px-2.5 py-2 ${
+          pace.isPersonalBest
+            ? 'border-warning-400/50 bg-warning-500/10'
+            : 'border-line/70 bg-surface-2/60'
+        }`}
+        data-testid="cashier-pace-best"
+      >
+        <p className="flex items-center gap-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-secondary-500">
+          <Trophy className="h-3 w-3" aria-hidden="true" />
+          {t('paceHud.personalBest')}
+        </p>
+        <p className="mt-1 font-mono text-[15px] font-semibold tabular-nums text-secondary-950">
+          {pace.isPersonalBest && <span aria-hidden="true">🏆 </span>}
+          {pace.personalBestItemsPerMinute !== null
+            ? pace.personalBestItemsPerMinute.toFixed(1)
+            : t('paceHud.noRecordYet')}
+        </p>
+      </div>
+    </div>
   );
 }

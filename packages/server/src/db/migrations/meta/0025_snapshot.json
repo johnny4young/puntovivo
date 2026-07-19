@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "fa0931bc-a46d-4620-a2f3-84babc9a6875",
-  "prevId": "97f95cea-eef3-43a9-890a-8af2e0306c8d",
+  "id": "97f95cea-eef3-43a9-890a-8af2e0306c8d",
+  "prevId": "04753492-608c-423c-ac89-f988df0fdc09",
   "tables": {
     "auth_refresh_families": {
       "name": "auth_refresh_families",
@@ -7129,130 +7129,6 @@
         }
       }
     },
-    "product_serial_transfers": {
-      "name": "product_serial_transfers",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "transfer_order_item_id": {
-          "name": "transfer_order_item_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "product_serial_id": {
-          "name": "product_serial_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "serial_number": {
-          "name": "serial_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_product_serial_transfers_tenant": {
-          "name": "idx_product_serial_transfers_tenant",
-          "columns": [
-            "tenant_id"
-          ],
-          "isUnique": false
-        },
-        "idx_product_serial_transfers_item": {
-          "name": "idx_product_serial_transfers_item",
-          "columns": [
-            "transfer_order_item_id"
-          ],
-          "isUnique": false
-        },
-        "idx_product_serial_transfers_serial": {
-          "name": "idx_product_serial_transfers_serial",
-          "columns": [
-            "product_serial_id"
-          ],
-          "isUnique": false
-        },
-        "idx_product_serial_transfers_item_serial": {
-          "name": "idx_product_serial_transfers_item_serial",
-          "columns": [
-            "tenant_id",
-            "transfer_order_item_id",
-            "product_serial_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "product_serial_transfers_tenant_id_tenants_id_fk": {
-          "name": "product_serial_transfers_tenant_id_tenants_id_fk",
-          "tableFrom": "product_serial_transfers",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "product_serial_transfers_transfer_order_item_id_transfer_order_items_id_fk": {
-          "name": "product_serial_transfers_transfer_order_item_id_transfer_order_items_id_fk",
-          "tableFrom": "product_serial_transfers",
-          "tableTo": "transfer_order_items",
-          "columnsFrom": [
-            "transfer_order_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "product_serial_transfers_product_serial_id_product_serials_id_fk": {
-          "name": "product_serial_transfers_product_serial_id_product_serials_id_fk",
-          "tableFrom": "product_serial_transfers",
-          "tableTo": "product_serials",
-          "columnsFrom": [
-            "product_serial_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "product_serials": {
       "name": "product_serials",
       "columns": {
@@ -7282,13 +7158,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "source_purchase_item_id": {
-          "name": "source_purchase_item_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "serial_number": {
@@ -7415,13 +7284,6 @@
           ],
           "isUnique": false
         },
-        "idx_product_serials_source_purchase_item": {
-          "name": "idx_product_serials_source_purchase_item",
-          "columns": [
-            "source_purchase_item_id"
-          ],
-          "isUnique": false
-        },
         "idx_product_serials_tenant_product_number": {
           "name": "idx_product_serials_tenant_product_number",
           "columns": [
@@ -7465,19 +7327,6 @@
           "tableTo": "products",
           "columnsFrom": [
             "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "product_serials_source_purchase_item_id_purchase_items_id_fk": {
-          "name": "product_serials_source_purchase_item_id_purchase_items_id_fk",
-          "tableFrom": "product_serials",
-          "tableTo": "purchase_items",
-          "columnsFrom": [
-            "source_purchase_item_id"
           ],
           "columnsTo": [
             "id"

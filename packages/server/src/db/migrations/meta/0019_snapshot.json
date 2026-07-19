@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ca59e3e8-d3d9-40fb-b8dc-7653f2ae1dd0",
-  "prevId": "ad844bad-ab96-4124-bb0c-5ef13d430f42",
+  "id": "ad844bad-ab96-4124-bb0c-5ef13d430f42",
+  "prevId": "a657bee7-040f-434a-9fb5-a1f86aaa9549",
   "tables": {
     "auth_refresh_families": {
       "name": "auth_refresh_families",
@@ -5743,13 +5743,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "employee_shift_id": {
-          "name": "employee_shift_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "register_name": {
           "name": "register_name",
           "type": "text",
@@ -5870,14 +5863,6 @@
           ],
           "isUnique": false
         },
-        "idx_cash_sessions_tenant_employee_shift": {
-          "name": "idx_cash_sessions_tenant_employee_shift",
-          "columns": [
-            "tenant_id",
-            "employee_shift_id"
-          ],
-          "isUnique": false
-        },
         "idx_cash_sessions_status": {
           "name": "idx_cash_sessions_status",
           "columns": [
@@ -5936,19 +5921,6 @@
           "tableTo": "users",
           "columnsFrom": [
             "cashier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "cash_sessions_employee_shift_id_employee_shifts_id_fk": {
-          "name": "cash_sessions_employee_shift_id_employee_shifts_id_fk",
-          "tableFrom": "cash_sessions",
-          "tableTo": "employee_shifts",
-          "columnsFrom": [
-            "employee_shift_id"
           ],
           "columnsTo": [
             "id"

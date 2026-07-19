@@ -27,6 +27,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
+import { nitHint } from './coNit';
 
 function getFormString(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -39,6 +40,50 @@ function parsePositiveInt(value: string): number | null {
   if (trimmed.length === 0) return null;
   const parsed = Number.parseInt(trimmed, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+/** A-33 — controlled NIT input remounted when the persisted seed changes. */
+function CoNitField({ seed }: { seed: string }) {
+  const { t } = useTranslation(['fiscal']);
+  const [nitValue, setNitValue] = useState(seed);
+  const hint = nitHint(nitValue);
+
+  return (
+    <SimpleFormField
+      label={t('fiscal:settings.co.fields.nit')}
+      htmlFor="fiscal-co-nit"
+      helperText={t('fiscal:settings.co.fields.nitHelp')}
+    >
+      <input
+        id="fiscal-co-nit"
+        name="nit"
+        type="text"
+        value={nitValue}
+        onChange={event => setNitValue(event.target.value)}
+        placeholder={t('fiscal:settings.co.fields.nitPlaceholder')}
+        className="pv-input"
+        maxLength={20}
+      />
+      {/* A-33 — live DV hint. `suggest` shows the correct check
+          digit for a bare NIT; `mismatch` warns before the admin
+          saves and blocks a DIAN rejection at emission time. */}
+      {hint.kind === 'suggest' && (
+        <p className="mt-1 text-[12px] text-secondary-600" data-testid="co-nit-hint-suggest">
+          {t('fiscal:settings.co.fields.nitDvSuggest', { nit: hint.nit, dv: hint.dv })}
+        </p>
+      )}
+      {hint.kind === 'match' && (
+        <p className="mt-1 text-[12px] text-success-700" data-testid="co-nit-hint-match">
+          {t('fiscal:settings.co.fields.nitDvMatch')}
+        </p>
+      )}
+      {hint.kind === 'mismatch' && (
+        <p className="mt-1 text-[12px] text-danger-600" data-testid="co-nit-hint-mismatch">
+          {t('fiscal:settings.co.fields.nitDvMismatch', { dv: hint.dv })}
+        </p>
+      )}
+    </SimpleFormField>
+  );
 }
 
 export function CompanyCoFiscalCard() {
@@ -54,8 +99,7 @@ export function CompanyCoFiscalCard() {
     { enabled: tenantCountry === 'CO' }
   );
 
-  const coSettings =
-    settingsQuery.data?.countryCode === 'CO' ? settingsQuery.data.settings : null;
+  const coSettings = settingsQuery.data?.countryCode === 'CO' ? settingsQuery.data.settings : null;
 
   // "Sin configurar" = no significant field captured yet (DIAN off and
   // every issuer field empty). In that state we show an EmptyState with
@@ -63,15 +107,17 @@ export function CompanyCoFiscalCard() {
   // form directly.
   const isConfigured = Boolean(
     coSettings &&
-      (coSettings.enabled ||
-        coSettings.nit ||
-        coSettings.dianResolutionNumber ||
-        coSettings.prefix ||
-        coSettings.rangeFrom !== null ||
-        coSettings.rangeTo !== null)
+    (coSettings.enabled ||
+      coSettings.nit ||
+      coSettings.dianResolutionNumber ||
+      coSettings.prefix ||
+      coSettings.rangeFrom !== null ||
+      coSettings.rangeTo !== null)
   );
   const [revealed, setRevealed] = useState(false);
   const showForm = isConfigured || revealed;
+
+  const nitSeed = coSettings?.nit ?? '';
 
   const formKey = coSettings
     ? [
@@ -116,10 +162,7 @@ export function CompanyCoFiscalCard() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const nextNit = getFormString(formData, 'nit').trim();
-    const nextResolution = getFormString(
-      formData,
-      'dianResolutionNumber'
-    ).trim();
+    const nextResolution = getFormString(formData, 'dianResolutionNumber').trim();
     const nextPrefix = getFormString(formData, 'prefix').trim();
     const nextRangeFrom = parsePositiveInt(getFormString(formData, 'rangeFrom'));
     const nextRangeTo = parsePositiveInt(getFormString(formData, 'rangeTo'));
@@ -132,8 +175,7 @@ export function CompanyCoFiscalCard() {
       prefix: nextPrefix.length > 0 ? nextPrefix : null,
       rangeFrom: nextRangeFrom,
       rangeTo: nextRangeTo,
-      environment:
-        nextEnvironment === 'produccion' ? 'produccion' : 'habilitacion',
+      environment: nextEnvironment === 'produccion' ? 'produccion' : 'habilitacion',
     });
   };
 
@@ -156,11 +198,7 @@ export function CompanyCoFiscalCard() {
       </div>
 
       {validation && (
-        <div
-          className="space-y-3"
-          aria-live="polite"
-          data-testid="fiscal-co-readiness"
-        >
+        <div className="space-y-3" aria-live="polite" data-testid="fiscal-co-readiness">
           <span className={cn('pv-badge', isReady ? 'success' : 'danger')}>
             {isReady ? (
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -231,21 +269,7 @@ export function CompanyCoFiscalCard() {
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <SimpleFormField
-              label={t('fiscal:settings.co.fields.nit')}
-              htmlFor="fiscal-co-nit"
-              helperText={t('fiscal:settings.co.fields.nitHelp')}
-            >
-              <input
-                id="fiscal-co-nit"
-                name="nit"
-                type="text"
-                defaultValue={coSettings?.nit ?? ''}
-                placeholder={t('fiscal:settings.co.fields.nitPlaceholder')}
-                className="pv-input"
-                maxLength={20}
-              />
-            </SimpleFormField>
+            <CoNitField key={nitSeed} seed={nitSeed} />
 
             <SimpleFormField
               label={t('fiscal:settings.co.fields.resolution')}
@@ -329,11 +353,7 @@ export function CompanyCoFiscalCard() {
           </div>
 
           <div className="flex justify-end">
-            <button
-              type="submit"
-              className="pv-btn primary"
-              disabled={updateMutation.isPending}
-            >
+            <button type="submit" className="pv-btn primary" disabled={updateMutation.isPending}>
               {updateMutation.isPending
                 ? t('fiscal:settings.co.actions.saving')
                 : t('fiscal:settings.co.actions.save')}

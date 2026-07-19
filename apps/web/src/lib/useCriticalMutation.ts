@@ -83,7 +83,10 @@ export type CriticalCommandPath =
   // ENG-142a — money-sensitive per-role checkout authority policy.
   | 'lossPrevention.updateSettings'
   // ENG-142d — shared, auditable manager review of one alert.
-  | 'lossPrevention.acknowledgeAlert';
+  | 'lossPrevention.acknowledgeAlert'
+  // A-30 — apply a vertical module preset. Same critical-command gate as
+  // setActive (admin + envelope + device id).
+  | 'modules.applyPreset';
 
 /**
  * Recursively project router inputs / outputs through a dotted path. Most

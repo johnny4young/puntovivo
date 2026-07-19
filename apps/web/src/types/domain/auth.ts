@@ -26,9 +26,15 @@ export interface Tenant {
 }
 
 export interface TenantSettings {
-  currency: string;
-  timezone: string;
-  dateFormat: string;
+  /*
+   * ENG-221 — `currency`, `timezone` and `dateFormat` used to live here and
+   * were declared REQUIRED, but ENG-017 moved locale resolution to the
+   * `tenant_locale_settings` table (country defaults + explicit overrides;
+   * see `services/tenant-locale.ts` and the note atop `lib/currency.ts`).
+   * Nothing wrote them any more and nothing read them, so the type was
+   * promising three fields the payload no longer carries — the worst kind of
+   * dead code, because it type-checks.
+   */
   taxRate: number;
   logo?: string;
   theme?: 'light' | 'dark' | 'system';
@@ -48,6 +54,14 @@ export interface TenantSettings {
    */
   cashClose?: {
     blindClose: boolean;
+  };
+  /**
+   * ENG-211 — tenant-tuned expiry-discount ladder (first match wins,
+   * always sorted ascending by `maxDays` server-side). Absent for tenants
+   * that never tuned it; the radar falls back to the ENG-199 defaults.
+   */
+  discount?: {
+    expiryTiers: Array<{ maxDays: number; pct: number }>;
   };
 }
 

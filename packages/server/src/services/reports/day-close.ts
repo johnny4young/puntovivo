@@ -81,6 +81,13 @@ export interface DayCloseSummary {
      * previous period has no positive revenue and no finite baseline exists. */
     revenueChangePct: number | null;
   } | null;
+  /**
+   * ENG-205 — same-weekday-last-week comparison for the shareable pulse.
+   * Revenue only (no owner data leaks through it); null when that day had
+   * zero eligible sales, so the pulse can say "sin referencia" instead of
+   * rendering a division by zero.
+   */
+  previousWeek: { revenue: number } | null;
   topProducts: DayCloseTopProduct[];
   margin: { grossProfit: number; grossMarginPct: number } | null;
   streakDays: number;
@@ -181,6 +188,31 @@ export function computeDayCloseSummary(
   // ENG-176a — the SQL float sum is a monetary accumulation; round it once
   // before deriving every WC-C8 pulse metric.
   const revenue = roundMoney(dayStats?.revenue ?? 0);
+
+  // ENG-205 — same weekday last week, for the shareable pulse comparison.
+  const prevWeekDay = new Date(Date.parse(dayStart) - 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const prevWeekStats = db
+    .select({
+      salesCount: sql<number>`count(*)`,
+      revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
+    })
+    .from(sales)
+    .where(
+      and(
+        eq(sales.tenantId, input.tenantId),
+        eq(sales.status, 'completed'),
+        sql`${sales.paymentStatus} != 'refunded'`,
+        gte(sales.createdAt, `${prevWeekDay}T00:00:00.000Z`),
+        lte(sales.createdAt, `${prevWeekDay}T23:59:59.999Z`)
+      )
+    )
+    .get();
+  const previousWeek =
+    (prevWeekStats?.salesCount ?? 0) > 0
+      ? { revenue: roundMoney(prevWeekStats?.revenue ?? 0) }
+      : null;
 
   let topProducts: DayCloseTopProduct[];
   let margin: DayCloseSummary['margin'];
@@ -306,6 +338,7 @@ export function computeDayCloseSummary(
       overShort,
       balanced: Math.abs(overShort ?? 0) <= DAY_CLOSE_BALANCED_EPSILON,
     },
+    previousWeek,
     day: {
       date: day,
       salesCount,

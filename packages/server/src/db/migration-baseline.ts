@@ -202,28 +202,36 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     if (entry.tag === '0009_price_suggestions') {
       return !tableExists('products');
     }
+    // ENG-213 — loyalty tables carry FKs to `customers` (baseline) and
+    // `sales`. A partial legacy DB without customers cannot host them; mark
+    // applied so minimal shapes keep booting. Guard on the BASELINE table,
+    // never on a table a post-baseline migration creates (ENG-199 lesson:
+    // seeding a newer entry makes the migrator skip every older one).
+    if (entry.tag === '0010_loyalty') {
+      return !tableExists('customers');
+    }
     // ENG-209 — checkout timing ALTERs `sales` and materializes pace on
     // `cash_sessions`. Seed this latest marker only for truly minimal
     // partial DBs that have neither the sales target nor the products
     // sentinel used by 0009. A mixed DB with products but no sales must
     // not advance Drizzle past older applicable migrations.
-    if (entry.tag === '0010_eng209_checkout_timing') {
+    if (entry.tag === '0011_eng209_checkout_timing') {
       return !tableExists('sales') && !tableExists('products');
     }
     // ENG-129c — customer privacy disposition ALTERs `customers`. The
     // purchase-only adoption fixture has none of the post-baseline targets,
-    // so 0010 is already safe to pin and this latest migration is a no-op as
+    // so 0011 is already safe to pin and this latest migration is a no-op as
     // well. Keep the sales/products guard: a mixed partial DB must not advance
     // Drizzle past older applicable migrations merely because customers is
     // absent.
-    if (entry.tag === '0011_eng129c_customer_privacy_disposition') {
+    if (entry.tag === '0012_eng129c_customer_privacy_disposition') {
       return !tableExists('customers') && !tableExists('sales') && !tableExists('products');
     }
     // ENG-106a — staff PIN enrollment ALTERs `users`. Pin it only for a
     // truly minimal partial DB with none of the preceding late-migration
     // targets; otherwise advancing to this latest marker could skip an
     // applicable customer, checkout-timing, or product migration.
-    if (entry.tag === '0012_eng106a_staff_pin') {
+    if (entry.tag === '0013_eng106a_staff_pin') {
       return (
         !tableExists('users') &&
         !tableExists('customers') &&
@@ -237,7 +245,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     // no-op. Keep every earlier sentinel in the guard: a mixed partial DB with
     // any applicable staff, cash, sales, customer, or catalog surface must let
     // Drizzle run the pending chain instead of advancing past it.
-    if (entry.tag === '0019_eng140d_cash_session_attendance') {
+    if (entry.tag === '0020_eng140d_cash_session_attendance') {
       return (
         !tableExists('cash_sessions') &&
         !tableExists('employee_shifts') &&
@@ -254,7 +262,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     // isolated shape. Requiring every earlier late-migration target to be
     // absent prevents Drizzle's newest-created_at semantics from skipping an
     // applicable migration on a mixed partial DB.
-    if (entry.tag === '0022_eng142c_dual_approvals') {
+    if (entry.tag === '0023_eng142c_dual_approvals') {
       return (
         !tableExists('manager_approval_requests') &&
         !tableExists('tenants') &&
@@ -267,10 +275,10 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       );
     }
     // ENG-110b — variant metadata ALTERs `products`. Preserve the same
-    // narrow purchase-only fixture guard as 0022 before advancing the newest
+    // narrow purchase-only fixture guard as 0023 before advancing the newest
     // marker: a mixed partial DB with any intervening target must still run
     // its applicable migrations rather than skipping ahead.
-    if (entry.tag === '0023_eng110b_product_variants') {
+    if (entry.tag === '0024_eng110b_product_variants') {
       return (
         !tableExists('products') &&
         !tableExists('manager_approval_requests') &&
@@ -286,7 +294,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     // tables and ALTERs products. The purchase-only adoption fixture has
     // none of those targets, so advance the marker only for that same narrow
     // shape; mixed partial databases must still run the migration.
-    if (entry.tag === '0024_eng110c_product_serials') {
+    if (entry.tag === '0025_eng110c_product_serials') {
       return (
         !tableExists('products') &&
         !tableExists('sales') &&
@@ -300,9 +308,9 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     }
     // ENG-110d — serial logistics ALTERs `product_serials` and creates a
     // transfer bridge that references the ENG-110c tables. A purchase-only
-    // adoption fixture that legitimately skipped 0024 has no ALTER target,
+    // adoption fixture that legitimately skipped 0025 has no ALTER target,
     // so pin this migration under the exact same narrow partial-DB guard.
-    if (entry.tag === '0025_eng110d_serial_logistics') {
+    if (entry.tag === '0026_eng110d_serial_logistics') {
       return (
         !tableExists('product_serials') &&
         !tableExists('products') &&

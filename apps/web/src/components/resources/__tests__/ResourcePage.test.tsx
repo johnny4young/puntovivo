@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
+import i18n from '@/i18n';
 import { render, screen } from '@/test/utils';
 import { ResourcePage } from '../ResourcePage';
 
@@ -98,5 +99,43 @@ describe('ResourcePage', () => {
     await user.type(search, 'Imported provider');
 
     expect(onSearchChange).toHaveBeenLastCalledWith('Imported provider');
+  });
+});
+
+/**
+ * ENG-220 — the error title used to be built as
+ * `Unable to load ${title.toLowerCase()}` in the component. Unlike the other
+ * English strings in the shared components, it was NOT a default a caller
+ * could override: it rendered for every locale, so a Spanish operator whose
+ * network hiccuped read "Unable to load clientes" — half a sentence in a
+ * language this product does not ship in.
+ */
+describe('ResourcePage error title localization (ENG-220)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('states the load failure in the active locale', async () => {
+    await i18n.changeLanguage('es');
+
+    render(
+      <ResourcePage
+        title="Clientes"
+        action={<button type="button">Agregar</button>}
+        columns={columns}
+        data={[]}
+        isLoading={false}
+        error="Fallo de red"
+        searchKey="name"
+        searchPlaceholder="Buscar clientes..."
+        loadingMessage="Cargando clientes..."
+        onRetry={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('No se pudo cargar clientes')).toBeInTheDocument();
+    expect(screen.queryByText(/unable to load/i)).not.toBeInTheDocument();
+    // The retry label defaulted to English too.
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
   });
 });

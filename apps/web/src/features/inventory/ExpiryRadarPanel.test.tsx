@@ -51,6 +51,8 @@ let mockSuggestions: {
 };
 const suggestMutate = vi.fn();
 const dismissMutate = vi.fn();
+/** Every `expiring.useQuery` input, newest last (ENG-212 window assertions). */
+const expiringQueryInputs: Array<{ withinDays: number }> = [];
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -61,7 +63,14 @@ vi.mock('@/lib/trpc', () => ({
       },
     }),
     inventoryLots: {
-      expiring: { useQuery: () => mockExpiring },
+      expiring: {
+        // ENG-212 — record the input so the window-selector test can assert
+        // the query actually re-runs with the picked sweep.
+        useQuery: (input: { withinDays: number }) => {
+          expiringQueryInputs.push(input);
+          return mockExpiring;
+        },
+      },
       activeSuggestions: { useQuery: () => mockSuggestions },
       suggestDiscount: {
         useMutation: () => ({ mutate: suggestMutate, isPending: false }),
@@ -75,6 +84,15 @@ vi.mock('@/lib/trpc', () => ({
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
+}));
+
+// ENG-211 — the panel previews the percent from the tenant's tuned ladder
+// (auth.me session payload). Default to an untuned tenant so the existing
+// assertions keep exercising the ENG-199 fallback ladder.
+let mockTenantSettings: { discount?: { expiryTiers: Array<{ maxDays: number; pct: number }> } } =
+  {};
+vi.mock('@/features/tenant/TenantProvider', () => ({
+  useTenant: () => ({ tenantSettings: mockTenantSettings }),
 }));
 
 function makeLot(overrides: Partial<MockLot>): MockLot {
@@ -97,12 +115,45 @@ describe('ExpiryRadarPanel (ENG-199)', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en');
     vi.clearAllMocks();
+    expiringQueryInputs.length = 0;
+    mockTenantSettings = {};
     mockExpiring = {
       data: { items: [], cutoff: inDays(30) },
       isLoading: false,
       error: null,
     };
     mockSuggestions = { data: { items: [] }, isLoading: false, error: null };
+  });
+
+  // ENG-211 — the row preview follows the tenant's ladder, not a hardcode.
+  it('previews the percent from the tenant tuned ladder', () => {
+    mockTenantSettings = {
+      discount: {
+        expiryTiers: [
+          { maxDays: 3, pct: 40 },
+          { maxDays: 10, pct: 15 },
+        ],
+      },
+    };
+    mockExpiring.data = {
+      items: [makeLot({ id: 'lot-t', expiresAt: inDays(5) })],
+      cutoff: inDays(30),
+    };
+    render(<ExpiryRadarPanel />);
+
+    // 5 days out: default ladder would say -30%, the tuned one says -15%.
+    expect(screen.getByTestId('expiry-suggest-lot-t')).toHaveTextContent('Suggest -15%');
+  });
+
+  it('offers no CTA for a lot outside the tuned ladder window', () => {
+    mockTenantSettings = { discount: { expiryTiers: [{ maxDays: 3, pct: 40 }] } };
+    mockExpiring.data = {
+      items: [makeLot({ id: 'lot-far', expiresAt: inDays(20) })],
+      cutoff: inDays(30),
+    };
+    render(<ExpiryRadarPanel />);
+
+    expect(screen.queryByTestId('expiry-suggest-lot-far')).not.toBeInTheDocument();
   });
 
   it('prices the risk per row and in the summary, with the urgency chip', () => {
@@ -178,6 +229,25 @@ describe('ExpiryRadarPanel (ENG-199)', () => {
     expect(screen.getByText('Nothing expiring soon')).toBeInTheDocument();
     expect(
       screen.getByText('No lots with stock expire within the next 30 days.')
+    ).toBeInTheDocument();
+  });
+
+  // ENG-212 — the window selector drives the query input and the copy.
+  it('defaults to the 30-day sweep and re-queries on a window change', async () => {
+    const user = userEvent.setup();
+    render(<ExpiryRadarPanel />);
+
+    expect(screen.getByTestId('expiry-window-30')).toHaveAttribute('aria-pressed', 'true');
+    expect(expiringQueryInputs.at(-1)).toEqual({ withinDays: 30 });
+
+    await user.click(screen.getByTestId('expiry-window-7'));
+    expect(screen.getByTestId('expiry-window-7')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('expiry-window-30')).toHaveAttribute('aria-pressed', 'false');
+    // The query re-runs with the picked window (the key carries it).
+    expect(expiringQueryInputs.at(-1)).toEqual({ withinDays: 7 });
+    // And the empty-state copy follows the selection.
+    expect(
+      screen.getByText('No lots with stock expire within the next 7 days.')
     ).toBeInTheDocument();
   });
 });

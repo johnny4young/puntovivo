@@ -60,10 +60,17 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * exists to sell BEFORE expiry, not to discount spoiled goods), or falls
  * outside the largest tier window. Day distance rounds UP: a lot expiring
  * in 6.2 days is 7 days out.
+ *
+ * ENG-211 — `tiers` defaults to the built-in ladder so existing callers and
+ * the pure rule tests are unchanged; the router passes the tenant's tuned
+ * ladder (`services/discount-settings`). The parameter direction matters:
+ * this module must NOT import the settings service, or the two would form
+ * an import cycle (settings reads the default ladder from here).
  */
 export function suggestedDiscountPctForExpiry(
   expiresAt: string | null,
-  nowIso: string
+  nowIso: string,
+  tiers: readonly ExpiryDiscountTier[] = EXPIRY_DISCOUNT_TIERS
 ): number | null {
   if (!expiresAt) return null;
   const expiry = Date.parse(expiresAt);
@@ -71,7 +78,7 @@ export function suggestedDiscountPctForExpiry(
   if (Number.isNaN(expiry) || Number.isNaN(now)) return null;
   if (expiry < now) return null;
   const daysUntil = Math.ceil((expiry - now) / DAY_MS);
-  for (const tier of EXPIRY_DISCOUNT_TIERS) {
+  for (const tier of tiers) {
     if (daysUntil <= tier.maxDays) return tier.pct;
   }
   return null;
@@ -135,7 +142,11 @@ function isActiveLotUniqueConstraint(error: unknown): boolean {
  */
 export function createExpirySuggestion(
   db: DatabaseInstance,
-  input: SuggestionActorInput & { lotId: string }
+  input: SuggestionActorInput & {
+    lotId: string;
+    /** ENG-211 — the tenant's tuned ladder; omit for the built-in default. */
+    tiers?: readonly ExpiryDiscountTier[];
+  }
 ): ActivePriceSuggestion {
   const nowIso = new Date().toISOString();
   return db.transaction(tx => {
@@ -171,7 +182,7 @@ export function createExpirySuggestion(
         details: { lotId: input.lotId, reason: 'no_stock' },
       });
     }
-    const discountPct = suggestedDiscountPctForExpiry(lot.expiresAt, nowIso);
+    const discountPct = suggestedDiscountPctForExpiry(lot.expiresAt, nowIso, input.tiers);
     if (discountPct === null) {
       throwServerError({
         trpcCode: 'BAD_REQUEST',

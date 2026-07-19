@@ -269,6 +269,10 @@ export const auditLogActionEnum = [
   // module on/off via `modules.setActive`; metadata carries
   // `{moduleId, wasExplicit, defaultEnabled}` for activation history.
   'module.toggle',
+  // A-30 — admin applies a vertical preset (retail/restaurant/…) that
+  // sets several surface modules at once. Metadata carries the preset id
+  // plus the before/after of every module the patch touched.
+  'module.preset_applied',
   // ENG-075 — Authority Node operability. Admin revokes a hub-client
   // terminal from the Operations Center Authority tab.
   'device.revoke',
