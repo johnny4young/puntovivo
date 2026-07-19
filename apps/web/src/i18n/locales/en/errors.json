@@ -113,7 +113,7 @@
     "FISCAL_RFC_INVALID": "The Mexican issuer RFC is not valid. Check length (12 for company, 13 for individual), structure, embedded date, and homoclave.",
     "FISCAL_REGIMEN_INVALID": "The fiscal regime or business activity code is not in the catalog. Pick one of the supported codes.",
     "FISCAL_RUT_INVALID": "The Chilean issuer RUT is not valid. Check format (body-verifier digit), and that the verifier digit matches the body.",
-    "FISCAL_NIT_INVALID": "The Colombian issuer NIT is not valid. Enter 9 to 10 digits, with an optional verification digit (for example 900123456-7).",
+    "FISCAL_NIT_INVALID": "The Colombian issuer NIT is not valid: check the verification digit (for example 900373115-3).",
     "FISCAL_NUMBERING_RANGE_INVALID": "The DIAN numbering range is not valid. The starting consecutive must be a positive number and cannot be greater than the ending consecutive.",
     "FISCAL_DOCUMENT_NOT_FOUND": "The fiscal document or its retry row could not be found.",
     "DEVICE_NOT_REGISTERED": "This device is not registered for your organization. Sign out and sign back in to reconnect the device.",

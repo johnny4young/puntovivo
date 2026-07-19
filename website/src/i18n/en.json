@@ -155,21 +155,33 @@
       "topProducts": {
         "q": "What are the 10 best-selling products of the last month by quantity and amount?",
         "ans": "At <b>Sede Norte</b> the top sellers last month are <pill>Ground beef 500g · 37</pill> <pill>Toilet paper x12 · 33</pill> <pill>Doria Spaghetti · 32</pill> and seven more. Combined they total <b>$5.73M</b> across 282 units.",
-        "chips": ["+ view executed SQL", "+ export CSV", "+ compare to last month"],
+        "chips": [
+          "+ view executed SQL",
+          "+ export CSV",
+          "+ compare to last month"
+        ],
         "headTitle": "total_quantity",
         "headSub": "Top 10 · last 30 days"
       },
       "cashierTicket": {
         "q": "Which cashier has the best average ticket this week across all sites?",
         "ans": "<b>Carolina Cajera</b> (Sede Norte) leads with an average ticket of <pill>$48,200 · 84 tickets</pill> <pill>+23% vs team</pill> followed by <b>María R.</b> (Centro) at <b>$39,140</b>. Andrés (Centro) closes the pack at <b>$24,100</b>.",
-        "chips": ["+ view executed SQL", "+ open cashier report", "+ compare to last week"],
+        "chips": [
+          "+ view executed SQL",
+          "+ open cashier report",
+          "+ compare to last week"
+        ],
         "headTitle": "avg_ticket",
         "headSub": "Cashiers · current week"
       },
       "marginDairy": {
         "q": "Which sites have low margin on dairy over the last 7 days?",
         "ans": "<b>Sede Sur</b> has a margin of <pill>14% · dairy</pill> <pill>−8 pts vs average</pill> over the last 7 days. The most affected SKU is <b>Cream 250ml</b>, with cost raised last week. Norte and Centro stay healthy.",
-        "chips": ["+ view executed SQL", "+ adjust site prices", "+ view detail by SKU"],
+        "chips": [
+          "+ view executed SQL",
+          "+ adjust site prices",
+          "+ view detail by SKU"
+        ],
         "headTitle": "margin_pct",
         "headSub": "Dairy · last 7 days"
       }
@@ -313,22 +325,31 @@
       {
         "t": "Open the register",
         "p": "Count the opening base by denomination. The register is ready to charge right away.",
-        "k": ["denominations"]
+        "k": [
+          "denominations"
+        ]
       },
       {
         "t": "Scan and build the sale",
         "p": "SKU, barcode, quantities and discounts without opening unnecessary modals.",
-        "k": ["Alt+P", "F5"]
+        "k": [
+          "Alt+P",
+          "F5"
+        ]
       },
       {
         "t": "Charge",
         "p": "Cash, card, transfer, credit — or a split payment that adds up to the total. The receipt prints at 58 or 80 mm.",
-        "k": ["F1"]
+        "k": [
+          "F1"
+        ]
       },
       {
         "t": "Close blind",
         "p": "Count the drawer by denomination. The system hides the expected balance until you submit the final count.",
-        "k": ["blind close"]
+        "k": [
+          "blind close"
+        ]
       }
     ]
   },
@@ -423,6 +444,10 @@
     "title": "What owners and cashiers ask before switching systems.",
     "items": [
       {
+        "q": "Does it issue DIAN electronic invoices?",
+        "a": "Not yet. Valid DIAN emission is on the roadmap: today the fiscal layer is a simulation to exercise the flow, not real document transmission. When it lands, the design already targets what matters most in Colombia — keep selling when the internet drops and transmit afterward, within the contingency window the regulation allows. We would rather say this plainly than promise a stamp we do not have yet."
+      },
+      {
         "q": "What does a site need to get started?",
         "a": "A computer running Windows 10+, macOS 12+ or a recent Linux. The desktop app runs right there and the cloud isn't required to sell. Thermal printing, a cash drawer and USB scanners are on the roadmap — we haven't validated physical hardware yet, so today the demo is on screen."
       },
@@ -456,11 +481,26 @@
   "footer": {
     "tagline": "POS, inventory and purchasing for LatAm retail. Open source, local-first, bilingual.",
     "productTitle": "Product",
-    "productLinks": ["Register", "Blind close", "Inventory", "Purchasing", "Transfers"],
+    "productLinks": [
+      "Register",
+      "Blind close",
+      "Inventory",
+      "Purchasing",
+      "Transfers"
+    ],
     "companyTitle": "Company",
-    "companyLinks": ["About the project", "Roadmap", "Contact"],
+    "companyLinks": [
+      "About the project",
+      "Roadmap",
+      "Contact"
+    ],
     "resourcesTitle": "Resources",
-    "resourcesLinks": ["Documentation", "Keyboard shortcuts", "Migration guide", "GitHub"],
+    "resourcesLinks": [
+      "Documentation",
+      "Keyboard shortcuts",
+      "Migration guide",
+      "GitHub"
+    ],
     "copyright": "© 2026 Puntovivo · Made in Colombia.",
     "versionDev": "open source · MIT",
     "versionTagged": "{{version}} · MIT"
@@ -634,7 +674,6 @@
         "tag": "Developers"
       }
     ],
-    "categoryArticles": "{{count}} articles",
     "sidebarTitle": "Sections",
     "sidebarItems": [
       "Start here",
@@ -648,18 +687,47 @@
       "API & webhooks",
       "Changes & versions"
     ],
-    "sidebarSub": ["Installation", "Your first site", "First sale", "Print a receipt"],
+    "sidebarSub": [
+      "Installation",
+      "Your first site",
+      "First sale",
+      "Print a receipt"
+    ],
     "mainKicker": "By area",
     "mainTitle": "Start where you are.",
-    "popularKicker": "Most read this week",
-    "popularTitle": "What owners and cashiers look up most.",
+    "popularKicker": "What we will document first",
+    "popularTitle": "The guides at the front of the queue.",
     "popular": [
-      { "t": "Set up a 58 mm thermal printer", "time": "4 min", "tag": "Register" },
-      { "t": "Run a blind close with a difference", "time": "6 min", "tag": "Register" },
-      { "t": "Migrate your catalog from Loyverse", "time": "12 min", "tag": "Migration" },
-      { "t": "Create custom roles per site", "time": "5 min", "tag": "Multi-tenant" },
-      { "t": "Void a sale without affecting inventory", "time": "3 min", "tag": "Register" },
-      { "t": "Connect the co-pilot to a site", "time": "7 min", "tag": "AI" }
+      {
+        "t": "Set up a 58 mm thermal printer",
+        "time": "4 min",
+        "tag": "Register"
+      },
+      {
+        "t": "Run a blind close with a difference",
+        "time": "6 min",
+        "tag": "Register"
+      },
+      {
+        "t": "Migrate your catalog from Loyverse",
+        "time": "12 min",
+        "tag": "Migration"
+      },
+      {
+        "t": "Create custom roles per site",
+        "time": "5 min",
+        "tag": "Multi-tenant"
+      },
+      {
+        "t": "Void a sale without affecting inventory",
+        "time": "3 min",
+        "tag": "Register"
+      },
+      {
+        "t": "Connect the co-pilot to a site",
+        "time": "7 min",
+        "tag": "AI"
+      }
     ],
     "exampleKicker": "This is what a page looks like",
     "exampleTitle": "An article, with no extra decoration.",
@@ -749,33 +817,25 @@
             "t": "Co-pilot with actionable answers",
             "d": "Suggest a transfer between sites, a supplier order or a price adjustment — with one click to execute.",
             "area": "AI Core",
-            "size": "L",
-            "votes": 142,
-            "sede": "Sede Centro"
+            "size": "L"
           },
           {
             "t": "Blind close with linked safe",
             "d": "Reconcile the shift balance against the site's safe balance. Difference visible to the manager.",
             "area": "Register",
-            "size": "M",
-            "votes": 89,
-            "sede": "Mercado Las Aguas"
+            "size": "M"
           },
           {
             "t": "Catalog importer from Loyverse",
             "d": "Load SKU, VAT, cost and stock with a single XLSX. Detects duplicates by barcode.",
             "area": "Migration",
-            "size": "S",
-            "votes": 67,
-            "sede": "—"
+            "size": "S"
           },
           {
             "t": "Digital receipt over WhatsApp",
             "d": "Generates a short link to the receipt and sends it to the customer with one tap. Keeps the thermal one for whoever prefers it.",
             "area": "Register",
-            "size": "M",
-            "votes": 124,
-            "sede": "Café Andes"
+            "size": "M"
           }
         ]
       },
@@ -788,33 +848,25 @@
             "t": "Customer credit with payment plan",
             "d": "Credit sale with installments, optional WhatsApp reminders and a per-site receivables report.",
             "area": "Sales",
-            "size": "L",
-            "votes": 198,
-            "sede": "—"
+            "size": "L"
           },
           {
             "t": "Linked electronic scale",
             "d": "Direct support for USB/serial scales. Products sold by weight go into the cart without a modal.",
             "area": "Register",
-            "size": "M",
-            "votes": 76,
-            "sede": "Tienda Ñero"
+            "size": "M"
           },
           {
             "t": "Manager mobile app",
             "d": "Read-only version to review sales and alerts on a phone. Close and register stay on desktop.",
             "area": "Mobile",
-            "size": "L",
-            "votes": 211,
-            "sede": "—"
+            "size": "L"
           },
           {
             "t": "Reconciliation with Bancolombia + Nequi",
             "d": "Cross-checks electronic payments against the day's sales. Flags differences for review.",
             "area": "Finance",
-            "size": "M",
-            "votes": 154,
-            "sede": "Mercado Las Aguas"
+            "size": "M"
           }
         ]
       },
@@ -827,33 +879,25 @@
             "t": "Native DIAN electronic invoicing",
             "d": "Issue and look up documents without going through a middleman. Requires certification; exploring a signing provider.",
             "area": "Compliance",
-            "size": "XL",
-            "votes": 312,
-            "sede": "—"
+            "size": "XL"
           },
           {
             "t": "Restaurant: tables and orders",
             "d": "Restaurant mode with a floor plan, kitchen tickets, tips and bill splitting.",
             "area": "Verticals",
-            "size": "XL",
-            "votes": 87,
-            "sede": "—"
+            "size": "XL"
           },
           {
             "t": "Extensions marketplace",
             "d": "Let partners publish integrations (accountants, e-commerce, loyalty).",
             "area": "Platform",
-            "size": "L",
-            "votes": 49,
-            "sede": "—"
+            "size": "L"
           },
           {
             "t": "Kiosk / self-checkout mode",
             "d": "Touchscreen for customers to build their own order. Useful in high-traffic bakeries and ice-cream shops.",
             "area": "Register",
-            "size": "XL",
-            "votes": 41,
-            "sede": "—"
+            "size": "XL"
           }
         ]
       }
@@ -861,13 +905,41 @@
     "shippedKicker": "Already built",
     "shippedTitle": "What already works in the console.",
     "shipped": [
-      { "when": "Built", "t": "AI core (optional)", "area": "AI" },
-      { "when": "Built", "t": "Blind close by denominations", "area": "Register" },
-      { "when": "Built", "t": "Transfers between sites", "area": "Inventory" },
-      { "when": "Built", "t": "Split payments", "area": "Register" },
-      { "when": "Built", "t": "Purchasing + returns", "area": "Purchasing" },
-      { "when": "Built", "t": "Per-site sequentials", "area": "Multi-tenant" },
-      { "when": "Built", "t": "Per-shift audit log", "area": "Security" }
+      {
+        "when": "Built",
+        "t": "AI core (optional)",
+        "area": "AI"
+      },
+      {
+        "when": "Built",
+        "t": "Blind close by denominations",
+        "area": "Register"
+      },
+      {
+        "when": "Built",
+        "t": "Transfers between sites",
+        "area": "Inventory"
+      },
+      {
+        "when": "Built",
+        "t": "Split payments",
+        "area": "Register"
+      },
+      {
+        "when": "Built",
+        "t": "Purchasing + returns",
+        "area": "Purchasing"
+      },
+      {
+        "when": "Built",
+        "t": "Per-site sequentials",
+        "area": "Multi-tenant"
+      },
+      {
+        "when": "Built",
+        "t": "Per-shift audit log",
+        "area": "Security"
+      }
     ],
     "voteKicker": "Propose an idea",
     "voteTitle": "Need something that isn't here?",
@@ -919,6 +991,28 @@
         "Open an issue describing the bug or proposal with its context.",
         "Send a pull request; it's reviewed and discussed in the open."
       ]
+    },
+    "leadForm": {
+      "kicker": "Waitlist",
+      "title": "Leave your email and hear it first.",
+      "desc": "The managed cloud and stable installers are on the way. Tell us how many stores you run and what you care about — no spam, just the heads-up.",
+      "emailLabel": "Your email",
+      "emailPlaceholder": "owner@mystore.co",
+      "sedesLabel": "How many stores?",
+      "sedes1": "1 store",
+      "sedes2": "2 to 5 stores",
+      "sedes6": "6 or more",
+      "interestLabel": "What interests you?",
+      "interestNube": "The managed cloud",
+      "interestEscritorio": "The desktop app",
+      "interestAmbas": "Both",
+      "submit": "Notify me",
+      "sending": "Sending…",
+      "invalidEmail": "Check the email — it does not look valid.",
+      "sendError": "Could not send. Try again or write us by email.",
+      "sentTitle": "Done, you are on the list!",
+      "sentDesc": "We will write as soon as there is news. Thanks for the interest.",
+      "privacy": "We only use your email to tell you about Puntovivo. No shared lists."
     }
   },
   "atajos": {
@@ -1064,10 +1158,22 @@
         "time": "5 min",
         "d": "From your current system, export the catalog to CSV or XLSX. It must include SKU or barcode, description, cost, price, VAT and stock per site.",
         "checks": [
-          { "t": "Unique SKU per product", "ok": true },
-          { "t": "Prices excluding VAT or with VAT marked", "ok": true },
-          { "t": "Stock per site in separate columns", "ok": true },
-          { "t": "UTF-8 encoding (accents render correctly)", "ok": false }
+          {
+            "t": "Unique SKU per product",
+            "ok": true
+          },
+          {
+            "t": "Prices excluding VAT or with VAT marked",
+            "ok": true
+          },
+          {
+            "t": "Stock per site in separate columns",
+            "ok": true
+          },
+          {
+            "t": "UTF-8 encoding (accents render correctly)",
+            "ok": false
+          }
         ]
       },
       {
@@ -1076,9 +1182,18 @@
         "time": "10-30 min",
         "d": "Puntovivo deduplicates by barcode and then by SKU. If you sell by weight or by unit, leave the matching column marked. Delete discontinued products before importing.",
         "checks": [
-          { "t": "No empty or subtotal rows", "ok": true },
-          { "t": "13-digit barcodes without a hyphen", "ok": true },
-          { "t": "Sale unit: unit, kg, pound or pack", "ok": true }
+          {
+            "t": "No empty or subtotal rows",
+            "ok": true
+          },
+          {
+            "t": "13-digit barcodes without a hyphen",
+            "ok": true
+          },
+          {
+            "t": "Sale unit: unit, kg, pound or pack",
+            "ok": true
+          }
         ]
       },
       {
@@ -1087,9 +1202,18 @@
         "time": "2 min",
         "d": "From the console, open Settings → Import. Drop the CSV with the expected headers and confirm the column mapping field by field before continuing.",
         "checks": [
-          { "t": "Column map confirmed by you", "ok": true },
-          { "t": "Default VAT selected (0/5/19 %)", "ok": true },
-          { "t": "Destination site selected", "ok": true }
+          {
+            "t": "Column map confirmed by you",
+            "ok": true
+          },
+          {
+            "t": "Default VAT selected (0/5/19 %)",
+            "ok": true
+          },
+          {
+            "t": "Destination site selected",
+            "ok": true
+          }
         ]
       },
       {
@@ -1098,8 +1222,14 @@
         "time": "10 min",
         "d": "Before applying, you'll see the summary: how many new products, how many will be updated, how many need your decision. Approve in batches — nothing is applied until you confirm.",
         "checks": [
-          { "t": "Conflicts resolved one by one", "ok": true },
-          { "t": "Per-site balance preview reviewed", "ok": true }
+          {
+            "t": "Conflicts resolved one by one",
+            "ok": true
+          },
+          {
+            "t": "Per-site balance preview reviewed",
+            "ok": true
+          }
         ]
       },
       {
@@ -1108,9 +1238,18 @@
         "time": "1 shift",
         "d": "Do a physical count of the main site and compare it against the imported balance. The first register opening uses the base you define, not the imported balance. From there on, the flow is normal.",
         "checks": [
-          { "t": "Physical count done at the main site", "ok": true },
-          { "t": "Opening with a base you define", "ok": true },
-          { "t": "First test sale completed", "ok": true }
+          {
+            "t": "Physical count done at the main site",
+            "ok": true
+          },
+          {
+            "t": "Opening with a base you define",
+            "ok": true
+          },
+          {
+            "t": "First test sale completed",
+            "ok": true
+          }
         ]
       }
     ],

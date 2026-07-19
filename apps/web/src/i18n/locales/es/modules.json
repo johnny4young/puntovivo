@@ -68,5 +68,20 @@
     "salesSurfaces": "Superficies de venta",
     "operations": "Operación",
     "integrations": "Integraciones"
+  },
+  "presets": {
+    "title": "Presets por tipo de negocio",
+    "description": "Un clic configura las superficies de caja para tu tipo de negocio. Deja los módulos de IA tal como los tengas.",
+    "applying": "Aplicando…",
+    "applied_one": "Preset aplicado — 1 módulo cambió",
+    "applied_other": "Preset aplicado — {{count}} módulos cambiaron",
+    "noChange": "Ese preset ya está aplicado",
+    "error": "No se pudo aplicar el preset",
+    "verticals": {
+      "retail": "Tienda / minimarket",
+      "restaurant": "Restaurante",
+      "quickservice": "Comida rápida / café",
+      "wholesale": "Mayorista"
+    }
   }
 }

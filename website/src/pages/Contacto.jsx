@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 
 import { Icon } from '../components/Icon.jsx';
+import { LeadForm } from '../components/LeadForm.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 
 const REPO_URL = 'https://github.com/johnny4young/puntovivo';
@@ -26,6 +27,24 @@ const CHANNELS = [
   },
   { key: 'email', icon: 'mail', href: `mailto:${EMAIL}`, value: EMAIL },
 ];
+
+// A-05 — the waitlist section the "avísame cuando salga" CTA finally lands
+// on. Above the channels: it is the conversion element of the page.
+function Waitlist() {
+  const { t } = useTranslation();
+  return (
+    <section className="pv-shell pv-section" style={{ paddingTop: 48 }}>
+      <div className="ct-lead">
+        <div className="ct-lead-copy">
+          <span className="pv-kicker">{t('contacto.leadForm.kicker')}</span>
+          <h2 className="pv-display">{t('contacto.leadForm.title')}</h2>
+          <p className="desc">{t('contacto.leadForm.desc')}</p>
+        </div>
+        <LeadForm source="contacto" fallbackEmail={EMAIL} />
+      </div>
+    </section>
+  );
+}
 
 function Channels() {
   const { t } = useTranslation();
@@ -145,6 +164,7 @@ export default function Contacto() {
         }
       />
 
+      <Waitlist />
       <Channels />
       <Contribute />
     </>

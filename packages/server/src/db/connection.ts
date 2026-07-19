@@ -24,6 +24,7 @@ import {
   getDefaultMigrationsFolder,
   normalizeSqliteBusyTimeoutMs,
 } from './options.js';
+import { assertSchemaNotNewerThanApp } from './schema-downgrade-guard.js';
 import * as schema from './schema.js';
 import { seedDefaultData } from './seed.js';
 import type { DatabaseInstance } from './types.js';
@@ -161,6 +162,14 @@ export async function initDatabase(
         `migrations folder missing at ${effectiveMigrationsFolder}; ship the Drizzle migrations alongside the server bundle (dev resolves the module-local path; packaged builds pass migrationsFolder explicitly)`
       );
     }
+
+    // A-06 — refuse to run an OLDER binary against a DB a NEWER binary
+    // already migrated (auto-update rollback path; ENG-137 remaining). The
+    // failure otherwise surfaces later as a random `no such column`
+    // mid-operation; here it becomes an operator-facing boot error with the
+    // remediation in the message. Runs after the journal-exists check so the
+    // guard can trust the file, and before drizzleMigrate touches anything.
+    assertSchemaNotNewerThanApp(sqlite, effectiveMigrationsFolder);
     // ENG-177c — snapshot the applied-migration count so the
     // post-migrate integrity check below runs ONLY on a boot that
     // actually lands a migration. A steady-state boot must not pay a

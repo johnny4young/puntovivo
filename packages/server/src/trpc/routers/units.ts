@@ -15,7 +15,7 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { and, eq, like, or, sql } from 'drizzle-orm';
+import { and, eq, like, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
@@ -23,6 +23,7 @@ import { adminProcedure } from '../middleware/roles.js';
 import { units } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { lookupUnitStandard } from '../../services/units/unit-standards.js';
+import { paginatedList } from '../lib/paginatedList.js';
 import {
   createUnitInput,
   deleteUnitInput,
@@ -35,7 +36,6 @@ import {
 export const unitsRouter = router({
   list: tenantProcedure.input(listUnitsInput).query(async ({ ctx, input }) => {
     const { page, perPage, search, isActive } = input;
-    const offset = (page - 1) * perPage;
 
     const conditions = [eq(units.tenantId, ctx.tenantId)];
     if (search) {
@@ -47,26 +47,8 @@ export const unitsRouter = router({
       conditions.push(eq(units.isActive, isActive));
     }
 
-    const where = and(...conditions);
-
-    const [items, countResult] = await Promise.all([
-      ctx.db.select().from(units).where(where).limit(perPage).offset(offset).all(),
-      ctx.db
-        .select({ count: sql<number>`count(*)` })
-        .from(units)
-        .where(where)
-        .get(),
-    ]);
-
-    const totalItems = countResult?.count ?? 0;
-
-    return {
-      items,
-      page,
-      perPage,
-      totalItems,
-      totalPages: Math.ceil(totalItems / perPage),
-    };
+    // A-22 — one predicate feeds both the page and the count.
+    return paginatedList({ db: ctx.db, table: units, where: and(...conditions), page, perPage });
   }),
 
   getById: tenantProcedure.input(getUnitInput).query(async ({ ctx, input }) => {
@@ -171,9 +153,7 @@ export const unitsRouter = router({
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Unit not found' });
     }
 
-    await ctx.db
-      .delete(units)
-      .where(and(eq(units.id, input.id), eq(units.tenantId, ctx.tenantId)));
+    await ctx.db.delete(units).where(and(eq(units.id, input.id), eq(units.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'units',

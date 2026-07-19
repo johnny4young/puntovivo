@@ -17,7 +17,12 @@ const CATEGORY_ICONS = [
   'sparkles',
   'code-2',
 ];
-const CATEGORY_COUNTS = [12, 28, 14, 23, 9, 18, 16, 11, 21];
+// A-35 — the per-category article counts (and the "154" total in the sidebar)
+// used to be invented numbers for pages that do not exist: every card links to
+// the GitHub repo. The site's own /sobre page stakes its credibility on "sin
+// clientes inventados", and a competitor would point at these first. Counts
+// removed rather than corrected — writing the real docs is A-40, and until
+// they exist the honest number is no number.
 // Per-sidebar-row icon (order matches docs.sidebarItems).
 const SIDEBAR_ICONS = [
   'rocket',
@@ -77,7 +82,6 @@ function Sidebar() {
     <aside className="dc-sidebar">
       <div className="dc-sidebar-head">
         <span className="pv-label">{t('docs.sidebarTitle')}</span>
-        <span className="count">154</span>
       </div>
       <nav>
         {items.map((label, idx) => {
@@ -122,10 +126,6 @@ function Categories() {
           <h3>{c.t}</h3>
           <p>{c.d}</p>
           <footer>
-            <span className="count">
-              <Icon name="file-text" size={11} />{' '}
-              {t('docs.categoryArticles', { count: CATEGORY_COUNTS[i] })}
-            </span>
             <span className="arrow">
               <Icon name="arrow-right" size={14} />
             </span>

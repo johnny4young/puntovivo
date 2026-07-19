@@ -15,10 +15,11 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { eq, and, sql, like, isNull, asc } from 'drizzle-orm';
+import { eq, and, like, isNull, asc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import { router } from '../init.js';
+import { paginatedList } from '../lib/paginatedList.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { categories, categoryXProvider } from '../../db/schema.js';
@@ -104,7 +105,6 @@ export const categoriesRouter = router({
    */
   list: tenantProcedure.input(listCategoriesInput).query(async ({ ctx, input }) => {
     const { page, perPage, search, parentId } = input;
-    const offset = (page - 1) * perPage;
 
     const conditions = [eq(categories.tenantId, ctx.tenantId)];
     if (search) {
@@ -118,26 +118,14 @@ export const categoriesRouter = router({
       }
     }
 
-    const where = and(...conditions);
-
-    const [items, countResult] = await Promise.all([
-      ctx.db.select().from(categories).where(where).limit(perPage).offset(offset).all(),
-      ctx.db
-        .select({ count: sql<number>`count(*)` })
-        .from(categories)
-        .where(where)
-        .get(),
-    ]);
-
-    const totalItems = countResult?.count ?? 0;
-
-    return {
-      items,
+    // A-22 — one predicate feeds both the page and the count.
+    return paginatedList({
+      db: ctx.db,
+      table: categories,
+      where: and(...conditions),
       page,
       perPage,
-      totalItems,
-      totalPages: Math.ceil(totalItems / perPage),
-    };
+    });
   }),
 
   /**

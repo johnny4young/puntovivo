@@ -609,6 +609,26 @@ describe('AuditLogsTable', () => {
     expect(screen.getByText('Tenant module')).toBeInTheDocument();
   });
 
+  it('renders the vertical module preset action label', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'module.preset_applied',
+            resourceType: 'tenant_module',
+            resourceId: 'restaurant',
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Module preset applied')).toBeInTheDocument();
+    expect(screen.getByText('Tenant module')).toBeInTheDocument();
+  });
+
   it('falls back to actorEmail when actorName is null, and to actorId when both are null', () => {
     render(
       <AuditLogsTable

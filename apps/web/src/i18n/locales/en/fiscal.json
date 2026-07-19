@@ -166,7 +166,10 @@
         "rangeToPlaceholder": "e.g. 5000",
         "environment": "Environment",
         "environmentHabilitacion": "Enablement (testing)",
-        "environmentProduccion": "Production"
+        "environmentProduccion": "Production",
+        "nitDvSuggest": "Verification digit for {{nit}}: {{dv}}. Add it as {{nit}}-{{dv}}.",
+        "nitDvMatch": "Verification digit is correct.",
+        "nitDvMismatch": "Wrong verification digit — the correct one is {{dv}}. The DIAN would reject this."
       },
       "issueCodes": {
         "MISSING_NIT": "Issuer NIT is missing",

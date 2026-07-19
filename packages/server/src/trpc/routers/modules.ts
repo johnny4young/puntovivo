@@ -27,11 +27,12 @@ import {
   visibleDescriptors,
   type ModuleId,
 } from '../../services/modules/manifest.js';
+import { resolvePresetPatch } from '../../services/modules/presets.js';
 import { router } from '../init.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { criticalCommandAdminProcedure } from '../middleware/criticalCommand.js';
-import { setModuleActiveInput } from '../schemas/modules.js';
+import { applyModulePresetInput, setModuleActiveInput } from '../schemas/modules.js';
 
 function normalizeActorRole(role: string | undefined): 'admin' | 'manager' | 'cashier' | 'viewer' {
   if (role === 'admin' || role === 'manager' || role === 'cashier' || role === 'viewer') {
@@ -91,9 +92,7 @@ export const modulesRouter = router({
       .get();
     const blob = (row?.settings as Record<string, unknown> | null | undefined) ?? null;
     const stored =
-      blob && typeof blob === 'object'
-        ? (blob as Record<string, unknown>).modules
-        : undefined;
+      blob && typeof blob === 'object' ? (blob as Record<string, unknown>).modules : undefined;
     return { modules: resolveModulesState(stored) };
   }),
 
@@ -121,8 +120,7 @@ export const modulesRouter = router({
       const beforeBlob =
         beforeRow?.settings && typeof beforeRow.settings === 'object'
           ? ((beforeRow.settings as Record<string, unknown>).modules as
-              | Record<string, unknown>
-              | undefined)
+              Record<string, unknown> | undefined)
           : undefined;
       const beforeEffective = resolveModulesState(beforeBlob);
       const beforeEnabled = beforeEffective[moduleId as ModuleId];
@@ -140,8 +138,7 @@ export const modulesRouter = router({
       const path = `$.modules.${moduleId}`;
       const now = new Date().toISOString();
       await ctx.db.transaction(tx => {
-        tx
-          .update(tenants)
+        tx.update(tenants)
           .set({
             settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), ${path}, ${
               enabled ? sql`json('true')` : sql`json('false')`
@@ -172,6 +169,76 @@ export const modulesRouter = router({
       });
 
       return { moduleId, enabled, changed: true as const };
+    }),
+
+  /**
+   * A-30 — apply a vertical preset. Resolves the server-owned patch for
+   * the preset, then json_sets ONLY the modules the patch names (the AI
+   * trio + events-api are never in a patch, so an operator's paid-feature
+   * choices survive). Writes ONE audit row with the preset id and the
+   * before/after of every touched module. Idempotent: keys already at the
+   * target state are skipped, and an all-no-op apply writes nothing.
+   */
+  applyPreset: criticalCommandAdminProcedure
+    .input(applyModulePresetInput)
+    .mutation(async ({ ctx, input }) => {
+      const patch = resolvePresetPatch(input.presetId);
+
+      const beforeRow = await ctx.db
+        .select({ settings: tenants.settings })
+        .from(tenants)
+        .where(eq(tenants.id, ctx.tenantId))
+        .get();
+      const beforeBlob =
+        beforeRow?.settings && typeof beforeRow.settings === 'object'
+          ? ((beforeRow.settings as Record<string, unknown>).modules as
+              Record<string, unknown> | undefined)
+          : undefined;
+      const beforeEffective = resolveModulesState(beforeBlob);
+
+      // Only the keys that actually change — an idempotent re-apply is a
+      // no-op with no audit row, matching setActive's posture.
+      const changes = (Object.entries(patch) as Array<[ModuleId, boolean]>).filter(
+        ([id, target]) => beforeEffective[id] !== target
+      );
+
+      if (changes.length === 0) {
+        return { presetId: input.presetId, changed: false as const, applied: [] };
+      }
+
+      const now = new Date().toISOString();
+      await ctx.db.transaction(tx => {
+        for (const [id, target] of changes) {
+          const path = `$.modules.${id}`;
+          tx.update(tenants)
+            .set({
+              settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), ${path}, ${
+                target ? sql`json('true')` : sql`json('false')`
+              })`,
+              updatedAt: now,
+            })
+            .where(eq(tenants.id, ctx.tenantId))
+            .run();
+        }
+
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'module.preset_applied',
+          resourceType: 'tenant_module',
+          resourceId: input.presetId,
+          before: Object.fromEntries(changes.map(([id]) => [id, beforeEffective[id]])),
+          after: Object.fromEntries(changes),
+          metadata: { presetId: input.presetId, changedCount: changes.length },
+        });
+      });
+
+      return {
+        presetId: input.presetId,
+        changed: true as const,
+        applied: changes.map(([id, enabled]) => ({ moduleId: id, enabled })),
+      };
     }),
 });
 

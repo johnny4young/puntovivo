@@ -113,7 +113,7 @@
     "FISCAL_RFC_INVALID": "El RFC del emisor mexicano no es válido. Revisa la longitud (12 para persona moral, 13 para persona física), la estructura, la fecha embebida y la homoclave.",
     "FISCAL_REGIMEN_INVALID": "El código de régimen fiscal o giro comercial no está en el catálogo. Elige uno de los códigos soportados.",
     "FISCAL_RUT_INVALID": "El RUT del emisor chileno no es válido. Revisa el formato (cuerpo-dígito verificador) y que el dígito coincida con el cuerpo.",
-    "FISCAL_NIT_INVALID": "El NIT del emisor colombiano no es válido. Ingresa de 9 a 10 dígitos, con un dígito de verificación opcional (por ejemplo 900123456-7).",
+    "FISCAL_NIT_INVALID": "El NIT del emisor colombiano no es válido: revisa el dígito de verificación (por ejemplo 900373115-3).",
     "FISCAL_NUMBERING_RANGE_INVALID": "El rango de numeración de la DIAN no es válido. El consecutivo inicial debe ser un número positivo y no puede ser mayor que el consecutivo final.",
     "FISCAL_DOCUMENT_NOT_FOUND": "No se pudo encontrar el documento fiscal o su fila de reintento.",
     "DEVICE_NOT_REGISTERED": "Este equipo aún no está registrado para tu organización. Cierra sesión y vuelve a iniciar para reconectar el dispositivo.",

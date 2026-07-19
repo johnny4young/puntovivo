@@ -3,11 +3,8 @@
  */
 
 import { z } from 'zod';
-import {
-  MODULE_IDS,
-  isModuleId,
-  type ModuleId,
-} from '../../services/modules/manifest.js';
+import { MODULE_IDS, isModuleId, type ModuleId } from '../../services/modules/manifest.js';
+import { VERTICAL_PRESET_IDS } from '../../services/modules/presets.js';
 
 /**
  * Module id input. Refines against the closed list from
@@ -31,3 +28,11 @@ export const setModuleActiveInput = z.object({
   enabled: z.boolean(),
 });
 export type SetModuleActiveInput = z.infer<typeof setModuleActiveInput>;
+
+// A-30 — apply a vertical preset. The preset id is validated against the
+// closed list; the patch it resolves to is server-owned (never client
+// input), so a forged id is the only attack surface and it fails here.
+export const applyModulePresetInput = z.object({
+  presetId: z.enum(VERTICAL_PRESET_IDS),
+});
+export type ApplyModulePresetInput = z.infer<typeof applyModulePresetInput>;
