@@ -4,7 +4,7 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
-## Unreleased
+## [1.8.0](https://github.com/johnny4young/puntovivo/compare/v1.7.0...v1.8.0) (2026-07-19)
 
 ### Features
 
@@ -17,9 +17,7 @@ All notable product changes to Puntovivo are documented here.
 - Launch imports, customer privacy disposition, and retention controls.
 
 These capabilities were merged in
-[#158](https://github.com/johnny4young/puntovivo/pull/158) and are candidates
-for the next minor release after the release checks in
-[`docs/PROJECT-STATUS.md`](./docs/PROJECT-STATUS.md) pass.
+[#158](https://github.com/johnny4young/puntovivo/pull/158).
 
 ## [1.7.0](https://github.com/johnny4young/puntovivo/compare/v1.6.0...v1.7.0) (2026-07-19)
 
