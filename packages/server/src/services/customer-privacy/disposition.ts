@@ -1,5 +1,5 @@
 /**
- * ENG-129c — Customer privacy disposition planning primitives.
+ * Customer privacy disposition planning primitives.
  *
  * A customer can be physically deleted only when no operational record keeps
  * a foreign-key reference. Otherwise the mutable profile is anonymized while

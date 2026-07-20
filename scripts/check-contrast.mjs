@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ENG-134 — Contrast CI gate.
+ * Contrast CI gate.
  *
  * Reads `apps/web/src/styles/theme.css`, walks each top-level scope
  * (`:root`, `.dark`, etc.), extracts CSS custom properties of the
@@ -24,14 +24,7 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const DEFAULT_THEME_FILE = join(
-  REPO_ROOT,
-  'apps',
-  'web',
-  'src',
-  'styles',
-  'theme.css'
-);
+const DEFAULT_THEME_FILE = join(REPO_ROOT, 'apps', 'web', 'src', 'styles', 'theme.css');
 
 /**
  * WCAG 2.x body-text floor. The default applies to every pair unless
@@ -54,7 +47,7 @@ export const ENFORCED_PAIRS = [
   ['primary', 'primary-foreground'],
   ['secondary', 'secondary-foreground'],
   ['destructive', 'destructive-foreground'],
-  // ENG-134 slice B: `text-muted-foreground` is the canonical "dim
+  // slice B: `text-muted-foreground` is the canonical "dim
   // body" text token in this codebase. It renders against three
   // surface colors in practice — the page `--background`, the
   // `--card` background of any Card-family component, and the
@@ -66,7 +59,7 @@ export const ENFORCED_PAIRS = [
   ['background', 'muted-foreground'],
   ['card', 'muted-foreground'],
   ['popover', 'muted-foreground'],
-  // ENG-134c: the `.badge-warning` design-system surface renders
+  // : the `.badge-warning` design-system surface renders
   // `text-warning-700` on `bg-warning-50`. The Playwright a11y smoke
   // caught this pair at 4.27:1 — below the 4.5:1 body-text floor —
   // on the `/sales` admin and `/purchases` history rows. Adding the
@@ -142,11 +135,7 @@ export function extractScopes(cssSource) {
     }
     if (closeIdx >= len) break;
     const body = cssSource.slice(openIdx + 1, closeIdx);
-    if (
-      selectorRaw &&
-      !selectorRaw.startsWith('@') &&
-      selectorRaw.match(/^[:.\[a-zA-Z][^{]*$/)
-    ) {
+    if (selectorRaw && !selectorRaw.startsWith('@') && selectorRaw.match(/^[:.\[a-zA-Z][^{]*$/)) {
       const declarations = {};
       const declMatcher = /--([a-zA-Z0-9_-]+)\s*:\s*([^;]+);/g;
       let m;
@@ -242,16 +231,12 @@ export async function runCli({ themeFile = DEFAULT_THEME_FILE } = {}) {
   try {
     source = readFileSync(themeFile, 'utf8');
   } catch (err) {
-    console.error(
-      `check-contrast: cannot read theme file at ${themeFile}: ${err.message}`
-    );
+    console.error(`check-contrast: cannot read theme file at ${themeFile}: ${err.message}`);
     return 1;
   }
   const scopes = extractScopes(source);
   if (scopes.length === 0) {
-    console.error(
-      `check-contrast: no concrete CSS scopes found in ${themeFile}.`
-    );
+    console.error(`check-contrast: no concrete CSS scopes found in ${themeFile}.`);
     return 1;
   }
   const perScopeResults = scopes.map(scope => ({

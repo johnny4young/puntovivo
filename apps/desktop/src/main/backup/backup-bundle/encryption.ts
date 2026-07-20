@@ -1,5 +1,5 @@
-// ENG-167 / ENG-167b — SQLCipher key handling for backup bundles: key-shape
-// validation, applying a key to a connection, and in-place rekey (ENG-178
+// /  — SQLCipher key handling for backup bundles: key-shape
+// validation, applying a key to a connection, and in-place rekey (
 // slice 31). assertEncryptionKeyShape + applySqlCipherKey are internal and
 // shared with create.ts / integrity.ts; rekeySqliteDatabase is public.
 
@@ -22,14 +22,14 @@ export function applySqlCipherKey(db: Database.Database, encryptionKey?: string)
 }
 
 /**
- * ENG-167b — re-encrypt a SQLite database IN PLACE to `toKey`.
+ * re-encrypt a SQLite database IN PLACE to `toKey`.
  *
  * Two callers, one contract:
- *   - First-boot migration: `fromKey` undefined (cleartext source)
- *     → the file ends up SQLCipher-v4-encrypted under the install key.
- *   - Cross-device restore: `fromKey` = the SOURCE device's key →
- *     the staged file is rekeyed to THIS device's key so every
- *     install keeps exactly one key envelope.
+ * - First-boot migration: `fromKey` undefined (cleartext source)
+ * → the file ends up SQLCipher-v4-encrypted under the install key.
+ * - Cross-device restore: `fromKey` = the SOURCE device's key →
+ * the staged file is rekeyed to THIS device's key so every
+ * install keeps exactly one key envelope.
  *
  * `PRAGMA rekey` rewrites every page under the new key (verified
  * empirically against better-sqlite3-multiple-ciphers 12.11.1: the

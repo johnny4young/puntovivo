@@ -1,5 +1,5 @@
 /**
- * Rediseño FASE 1 — Aviso global compacto (propuesta §01 hallazgo 02, §08).
+ * Aviso global compacto (propuesta §01 hallazgo 02, §08).
  *
  * Reemplaza los dos banners fijos apilados (OfflineStatusBanner +
  * ReadinessBanner, ~150px sobre el contenido) por UN solo strip de 44px
@@ -8,8 +8,8 @@
  * aparece la rejilla de capacidades offline (OfflineModePanel).
  *
  * Fusiona dos fuentes de estado sin perder comportamiento:
- *   - useOfflineSync + useHubReachability  → offline / pendientes / conflictos / hub.
- *   - setupReadiness.get (solo admin, fuera de /company) → bloqueadores de setup.
+ * - useOfflineSync + useHubReachability  → offline / pendientes / conflictos / hub.
+ * - setupReadiness.get (solo admin, fuera de /company) → bloqueadores de setup.
  *
  * La severidad del strip colapsado es la del aviso más grave (danger >
  * warning > info). El gating admin, el dismiss por sesión del readiness y
@@ -102,7 +102,7 @@ export function GlobalStatusStrip() {
   const [, setReadinessDismissRevision] = useState(0);
   const readinessDismissed = readReadinessDismissed();
 
-  // ENG-104 carryover — solo admins corren la consulta de readiness; el
+  // carryover — solo admins corren la consulta de readiness; el
   // CTA apunta a /company?tab=readiness (solo admin). Fuera de /company.
   const isSetupAdmin = user?.role === 'admin';
   const onCompanyRoute = location.pathname.startsWith('/company');

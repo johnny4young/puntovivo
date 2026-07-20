@@ -1,5 +1,5 @@
 /**
- * ENG-098 — `removeKdsOrders` hook.
+ * `removeKdsOrders` hook.
  *
  * Deletes every `kds_orders` row for a given sale and broadcasts
  * one `kds.order.removed` event per deleted row so the board

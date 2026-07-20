@@ -12,7 +12,7 @@ import {
 
 interface DayClosePulseCardProps {
   /**
-   * ENG-205 — canonical WhatsApp share URL built by the modal from the full
+   * canonical WhatsApp share URL built by the modal from the full
    * summary (buildDayPulseText). When set it replaces the card-local builder
    * so the shared text has ONE source of truth.
    */

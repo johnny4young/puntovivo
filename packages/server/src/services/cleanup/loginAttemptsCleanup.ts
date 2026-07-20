@@ -1,8 +1,8 @@
 /**
- * ENG-168 — login_attempts cleanup worker.
+ * login_attempts cleanup worker.
  *
  * The `login_attempts` table records per-IP and per-email rate-limit
- * buckets that ENG-008 / ENG-166 use to throttle login probes. Each
+ * buckets that  /  use to throttle login probes. Each
  * row carries an `expires_at` (epoch ms) and is consulted on every
  * login + refresh; once the window closes, the row is logically dead
  * but stays on disk because the rate-limit middleware only updates
@@ -11,7 +11,7 @@
  * Without housekeeping, a busy POS accumulates one row per distinct
  * (ip, email) pair seen over the lifetime of the install — easily
  * tens of thousands on a public-facing site over a year. The audit
- * (ENG-168) flagged this as the second
+ * () flagged this as the second
  * unbounded table on disk and asked for a 24 h cleanup sweep.
  *
  * Why a worker (not a TRIGGER): SQLite triggers fire per-write, which

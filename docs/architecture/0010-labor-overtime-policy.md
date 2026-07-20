@@ -2,7 +2,6 @@
 
 > Status: Accepted
 > Date: 2026-07-15
-> Owner: ENG-140c
 
 ## Decision
 
@@ -27,10 +26,10 @@ Calculations cover all of an employee's shifts inside the tenant and complete la
 - `apps/web/src/features/staff/TeamAttendancePanel.tsx` displays regular/overtime duration, premium buckets, the applied profile, official provenance, and an advisory warning.
 - Future payroll and accounting exports must consume these duration/category results and add contract/rate/calendar data; they must not duplicate country thresholds.
 
-## Affected Tickets
+## Implementation map
 
-- `ENG-140` — shift management, attendance evidence, overtime, and future payroll exports.
-- `ENG-145` — tip distribution by hours must consume the same net-work evidence boundaries.
-- `ENG-160` — Colombia electronic payroll is gated but will consume classified duration plus payroll-specific data.
+- shift management, attendance evidence, overtime, and future payroll exports.
+- tip distribution by hours must consume the same net-work evidence boundaries.
+- Colombia electronic payroll is gated but will consume classified duration plus payroll-specific data.
 
-Updated: 2026-07-15 — accepted with ENG-140c.
+Updated: 2026-07-15 — accepted with .

@@ -1,4 +1,4 @@
-// HTML XSS guard for the print-window output (ENG-178 slice 30). Internal:
+// HTML XSS guard for the print-window output ( slice 30). Internal:
 // every value interpolated into the printTable HTML passes through here.
 
 /**

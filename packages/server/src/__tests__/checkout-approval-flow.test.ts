@@ -228,7 +228,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('checkout approval consumption (ENG-106c2)', () => {
+describe('checkout approval consumption', () => {
   it('binds a discounted sale to its exact payload and consumes the grant once', async () => {
     const productId = await seedProduct('Approval Discount Product', 'APPROVAL-DISCOUNT');
     const input = {

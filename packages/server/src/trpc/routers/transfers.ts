@@ -1,5 +1,5 @@
 /**
- * Transfers tRPC Router (Phase 2 DB-102 / API-102 steps 1-3).
+ * Transfers tRPC router.
  *
  * Procedures:
  * - `transfers.create`  (manager+) — immediate or deferred transfer between two sites

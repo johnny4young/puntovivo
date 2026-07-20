@@ -1,5 +1,5 @@
 /**
- * ENG-030 — AI Provider strategy interface.
+ * AI Provider strategy interface.
  *
  * One contract every concrete provider implements. The pipeline in
  * `services/ai/client.ts` is provider-agnostic — it routes through this
@@ -12,11 +12,7 @@
  *
  * @module services/ai/providers/types
  */
-import type {
-  LanguageModelV4,
-  EmbeddingModelV4,
-  TranscriptionModelV4,
-} from '@ai-sdk/provider';
+import type { LanguageModelV4, EmbeddingModelV4, TranscriptionModelV4 } from '@ai-sdk/provider';
 
 /** Identifier for the configured AI provider. */
 export type AIProviderId = 'anthropic' | 'openai' | 'ollama';
@@ -67,8 +63,8 @@ export interface AIProvider {
   languageModel(modelId: string): LanguageModelV4;
 
   /**
-   * Optional. ENG-033 activated this for OpenAI (`text-embedding-3-small`);
-   * ENG-040b slice 2 added Ollama (`nomic-embed-text`). Anthropic does
+   * Optional. OpenAI uses `text-embedding-3-small` and Ollama uses
+   * `nomic-embed-text`. Anthropic does
    * not embed and leaves this undefined so semantic-search callers
    * fall back to LIKE.
    */
@@ -90,13 +86,13 @@ export interface AIProvider {
    * and OpenAI vision-capable models route through the existing
    * `languageModel` factory; this method is a capability signal — if
    * the provider does not implement it, `ai.extractInvoiceLines`
-   * returns `AI_VISION_NOT_AVAILABLE`. ENG-040a activated this for
-   * Anthropic + OpenAI; Ollama follows in ENG-040b.
+   * returns `AI_VISION_NOT_AVAILABLE`. Anthropic and OpenAI expose
+   * vision-capable models; Ollama currently does not.
    */
   visionModel?(modelId: string): LanguageModelV4;
 
   /**
-   * Optional. ENG-040c slice 1 — Whisper-style audio transcription.
+   * Optional. Whisper-style audio transcription.
    * Provider returns a `TranscriptionModelV4` consumed by the AI SDK
    * `transcribe({ model, audio })`. OpenAI activates
    * `whisper-1` and the `gpt-4o-transcribe` family; Anthropic + Ollama
@@ -134,21 +130,4 @@ export interface AIProvider {
    * OpenAI / Ollama return `undefined` (no caching at this level).
    */
   cacheControlForSystemPrompt(): Record<string, unknown> | undefined;
-}
-
-/**
- * Marker variant for providers that exist only as type-completeness
- * stubs. Selecting a `notImplemented` provider via
- * `ai.settings.update` throws an `AI_PROVIDER_ERROR` referencing the
- * ticket that will turn it on.
- */
-export interface NotImplementedProvider extends AIProvider {
-  readonly notImplemented: true;
-  readonly availableInTicket: string;
-}
-
-export function isNotImplemented(
-  provider: AIProvider | NotImplementedProvider
-): provider is NotImplementedProvider {
-  return 'notImplemented' in provider && provider.notImplemented === true;
 }

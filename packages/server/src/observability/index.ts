@@ -1,5 +1,5 @@
 /**
- * ENG-135 — Observability module barrel.
+ * Observability module barrel.
  *
  * Public surface for application code that wants to capture errors
  * or record measured spans. See `docs/OBSERVABILITY.md` for the
@@ -24,13 +24,10 @@ export {
   type TelemetrySink,
 } from './sink.js';
 export { redactErrorAttrs } from './redact.js';
-// ENG-135c — client-supplied correlation id intake (strict
+// client-supplied correlation id intake (strict
 // sanitization; correlation-only usage, never logic).
-export {
-  CORRELATION_ID_HEADER,
-  sanitizeCorrelationId,
-} from './correlation.js';
-// ENG-135b — Sentry / GlitchTip adapter (DSN-gated; see the module
+export { CORRELATION_ID_HEADER, sanitizeCorrelationId } from './correlation.js';
+// Sentry / GlitchTip adapter (DSN-gated; see the module
 // doc for the consent layers and the never-throw contract).
 export {
   initServerTelemetryAdapter,

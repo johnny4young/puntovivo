@@ -6,12 +6,12 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
 
 /**
- * ENG-092 — per-release announcement overlay.
+ * per-release announcement overlay.
  *
  * Mounted at the app shell level (above MainLayout). After every
  * authenticated render it fetches the unseen whats-new entries for
  * the current user via `whatsNew.listUnseen`; if any are returned,
- * the most recent one fires the Overlay primitive from ENG-082 with
+ * the most recent one fires the Overlay primitive from  with
  * a "NOVEDADES" kicker. Clicking "Lo vi" calls `whatsNew.markSeen`
  * so the same entry does not reappear for the user.
  *
@@ -70,18 +70,12 @@ export function WhatsNewOverlay() {
         version: current.version,
       })}
       footer={
-        <ModalButton
-          variant="primary"
-          onClick={handleDismiss}
-          disabled={markSeen.isPending}
-        >
+        <ModalButton variant="primary" onClick={handleDismiss} disabled={markSeen.isPending}>
           {t('whatsNew.acknowledge', { defaultValue: 'Lo vi' })}
         </ModalButton>
       }
     >
-      <div className="whitespace-pre-line text-sm leading-6 text-secondary-700">
-        {current.body}
-      </div>
+      <div className="whitespace-pre-line text-sm leading-6 text-secondary-700">{current.body}</div>
     </Overlay>
   );
 }

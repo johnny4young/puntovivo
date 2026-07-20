@@ -1,5 +1,5 @@
 /**
- * ENG-137a — fixed-origin desktop update policy.
+ * fixed-origin desktop update policy.
  *
  * The mutable GitHub Pages appcast says which release is active. This adjacent
  * JSON policy is the only signal that can enable a downgrade, and a rollback is

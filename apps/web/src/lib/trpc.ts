@@ -12,7 +12,7 @@ import { DEVICE_ID_HEADER } from './commandEnvelope';
 import { getCachedDeviceIdSync } from './deviceId';
 import { resolveApiBaseUrl } from './runtimeConfigClient';
 
-// ENG-074 — `API_URL` is resolved through the runtime config client
+// `API_URL` is resolved through the runtime config client
 // at module init. In `hub_client` mode the renderer points at the
 // remote Store Hub URL (synchronous Electron IPC); otherwise it
 // stays on the historical `VITE_API_URL` default. Computed once
@@ -42,7 +42,7 @@ function getCookieValue(name: string): string | null {
 }
 
 /**
- * ENG-135c — renderer-minted correlation id, one per tRPC request.
+ * renderer-minted correlation id, one per tRPC request.
  * Mirrors the server-side constant in
  * packages/server/src/observability/correlation.ts (the client does
  * not import server runtime modules, only the AppRouter type).
@@ -94,7 +94,7 @@ export function getTrpcHeaders(): Record<string, string> {
   const csrfToken = getCookieValue(CSRF_COOKIE_NAME);
   const deviceId = getCachedDeviceIdSync();
 
-  // ENG-135c — a NEW id per request: the server adopts it (after
+  // a NEW id per request: the server adopts it (after
   // strict sanitization) into its request-scoped logs, tracing
   // middleware attrs, and sink events.
   const correlationId = generateCorrelationId();
@@ -113,7 +113,7 @@ export function getTrpcHeaders(): Record<string, string> {
     headers[CSRF_HEADER_NAME] = csrfToken;
   }
 
-  // ENG-052 — every request that runs after device registration
+  // every request that runs after device registration
   // ships the id; the server only enforces it on procedures wrapped
   // with `criticalCommandProcedure` (ADR-0002), so unwrapped reads
   // and catalog mutations stay unaffected by an unset id.
@@ -156,7 +156,7 @@ function buildHeaders(init?: HeadersInit): Headers {
  * On failure (non-2xx or missing token) the access token is cleared and the
  * `authSessionExpired` handler fires so the app can route to login. On success
  * the rotated token is re-registered with the desktop session singleton — a
- * no-op in pure-browser mode (ENG-025).
+ * no-op in pure-browser mode ().
  */
 async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<string | null> {
   if (refreshRequest) {
@@ -171,7 +171,7 @@ async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<strin
       headers.set(CSRF_HEADER_NAME, csrfToken);
     }
 
-    // ENG-135c — the refresh round-trip builds its headers manually
+    // the refresh round-trip builds its headers manually
     // (it bypasses getTrpcHeaders), so mint its correlation id here;
     // a failing refresh is exactly the kind of trace support needs
     // to find from a renderer auth error.
@@ -208,7 +208,7 @@ async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<strin
     }
 
     setAccessToken(nextToken);
-    // ENG-025 — re-register the rotated token with the desktop
+    // re-register the rotated token with the desktop
     // session singleton so the IPC bridge keeps validating against
     // the current sessionVersion. No-op in pure-browser mode. A
     // failure here means the bridge handlers will throw
@@ -279,7 +279,7 @@ export function fetchProtectedApi(
 type HeaderFactory = () => Record<string, string>;
 
 export function createTrpcBatchLink(extraHeaders?: HeaderFactory) {
-  // ENG-179b — tRPC's `FetchEsque` accepts `RequestInitEsque` where
+  // tRPC's `FetchEsque` accepts `RequestInitEsque` where
   // `signal?: AbortSignal | undefined`; the lib DOM `RequestInit.signal`
   // is `AbortSignal | null`. Under exactOptionalPropertyTypes these are
   // not bidirectionally assignable, so route through `unknown` at the

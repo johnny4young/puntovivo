@@ -23,7 +23,7 @@ const RETRYABLE_STATUSES = new Set<ApprovalRequestView['status']>([
   'expired',
 ]);
 
-/** ENG-106c2 — cashier-facing status, never an elevated manager session. */
+/** cashier-facing status, never an elevated manager session. */
 export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
   views,
   isLoading,

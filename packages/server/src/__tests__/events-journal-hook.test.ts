@@ -1,17 +1,17 @@
 /**
- * ENG-070 — Operation-journal → webhook_outbox hook integration test.
+ * Operation-journal → webhook_outbox hook integration test.
  *
  * Drives the full hook end-to-end against an in-memory DB:
  *
- *   - When the events-api module is OFF (default), `markOperationCompleted`
- *     does NOT enqueue a webhook_outbox row.
- *   - When the module is ON, a succeeded `sales.create` → one
- *     webhook_outbox row of type sale.completed.
- *   - When the op fails, no row is enqueued (status≠succeeded short-
- *     circuit).
- *   - Re-marking the same op (idempotent terminal-state guard) does
- *     NOT enqueue a second row — the partial unique idx on
- *     `(tenantId, eventType, idempotencyKey)` collapses replays.
+ * - When the events-api module is OFF (default), `markOperationCompleted`
+ * does NOT enqueue a webhook_outbox row.
+ * - When the module is ON, a succeeded `sales.create` → one
+ * webhook_outbox row of type sale.completed.
+ * - When the op fails, no row is enqueued (status≠succeeded short-
+ * circuit).
+ * - Re-marking the same op (idempotent terminal-state guard) does
+ * NOT enqueue a second row — the partial unique idx on
+ * `(tenantId, eventType, idempotencyKey)` collapses replays.
  *
  * The fixture uses `recordOperationStart` + `markOperationCompleted`
  * directly — no full sales.create round-trip needed because the
@@ -22,12 +22,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  devices,
-  tenants,
-  users,
-  webhookOutbox,
-} from '../db/schema.js';
+import { devices, tenants, users, webhookOutbox } from '../db/schema.js';
 import {
   markOperationCompleted,
   recordOperationStart,
@@ -96,10 +91,7 @@ async function setEventsApiActive(tenantId: string, enabled: boolean): Promise<v
     .where(eq(tenants.id, tenantId));
 }
 
-async function startSalesOp(
-  h: HookHarness,
-  operationId: string
-): Promise<string> {
+async function startSalesOp(h: HookHarness, operationId: string): Promise<string> {
   const db = getDatabase();
   const result = await recordOperationStart(db, {
     tenantId: h.tenantId,
@@ -138,7 +130,7 @@ beforeEach(async () => {
   await db.delete(webhookOutbox).run();
 });
 
-describe('operation-journal → webhook_outbox hook (ENG-070)', () => {
+describe('operation-journal → webhook_outbox hook', () => {
   it('does NOT enqueue when events-api is OFF (default)', async () => {
     const h = await seedHarness('off');
     const eventId = await startSalesOp(h, 'op-off-1');

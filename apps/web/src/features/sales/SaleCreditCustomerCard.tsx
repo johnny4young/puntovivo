@@ -1,7 +1,7 @@
 /**
- * Credit-sale customer card of the sale payment modal (ENG-090 + ENG-014).
+ * Credit-sale customer card of the sale payment modal ( + ).
  *
- * ENG-178 — JSX extracted verbatim from the former single-file
+ * JSX extracted verbatim from the former single-file
  * `SalePaymentModal.tsx`. Presentational: receives the RHF `form` (for the
  * admin override checkbox) + the projection values from `useSalePaymentModal`.
  * Surfaces in both single-tender credit and split-credit modes.
@@ -28,12 +28,12 @@ interface SaleCreditCustomerCardProps {
   isAdmin: boolean;
   balanceLoading: boolean;
   /**
-   * ENG-218 — the balance read failed, so the cupo projection below is
+   * the balance read failed, so the cupo projection below is
    * unknowable. The card says so and the checkout stays blocked; a wrong
    * projection is worse than none, because the cashier acts on it.
    */
   balanceUnavailable?: boolean | undefined;
-  /** ENG-218 — retry the balance read. Required with `balanceUnavailable`. */
+  /** retry the balance read. Required with `balanceUnavailable`. */
   retryBalance?: (() => void) | undefined;
 }
 
@@ -66,7 +66,7 @@ export function SaleCreditCustomerCard({
       {selectedCustomer?.taxId && (
         <p className="text-xs text-secondary-500">{selectedCustomer.taxId}</p>
       )}
-      {/* ENG-218 — the balance read failed. Replace the projection with an
+      {/* the balance read failed. Replace the projection with an
           honest error instead of drawing a $0 balance that would read as
           "full cupo available"; Confirm is disabled upstream. Loading is
           also unknown, but stays represented by the compact ellipsis below. */}
@@ -94,7 +94,7 @@ export function SaleCreditCustomerCard({
           )}
         </div>
       )}
-      {/* ENG-014 — when split mode pushes a partial credit
+      {/* when split mode pushes a partial credit
           amount, surface a one-line summary so the cashier
           sees the breakdown ("$50 efectivo + $150 a crédito"). */}
       {splitMode && creditAmountInSplit > 0 && (
@@ -118,7 +118,7 @@ export function SaleCreditCustomerCard({
             {t('credit.card.balance')}
           </p>
           <p className="mt-1 text-base font-medium tabular-nums">
-            {/* ENG-218 — an em dash on failure and an ellipsis while loading,
+            {/* an em dash on failure and an ellipsis while loading,
                 never a formatted 0 while the balance is unknown. */}
             {balanceUnavailable ? '—' : balanceLoading ? '…' : formatCurrency(currentBalance)}
           </p>

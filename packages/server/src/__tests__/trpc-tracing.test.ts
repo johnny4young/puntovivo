@@ -1,19 +1,19 @@
 /**
- * ENG-135 — Unit coverage for the tRPC tracing middleware.
+ * Unit coverage for the tRPC tracing middleware.
  *
  * Pins four contracts:
  *
- *   1. A successful procedure emits one info log with the expected
- *      shape (procedure, outcome=ok, durationMs, correlationId,
- *      tenantId, userId).
- *   2. A failing procedure emits one error log AND routes the
- *      exception through `captureException` (we register a recording
- *      sink and verify the call) AND re-throws so the tRPC error
- *      formatter still runs downstream.
- *   3. An anonymous call (no tenantId, no user) still stamps a
- *      correlationId; the tenantId / userId bindings are null.
- *   4. Two parallel procedures each carry their own correlationId
- *      — the middleware holds no shared mutable state.
+ * 1. A successful procedure emits one info log with the expected
+ * shape (procedure, outcome=ok, durationMs, correlationId,
+ * tenantId, userId).
+ * 2. A failing procedure emits one error log AND routes the
+ * exception through `captureException` (we register a recording
+ * sink and verify the call) AND re-throws so the tRPC error
+ * formatter still runs downstream.
+ * 3. An anonymous call (no tenantId, no user) still stamps a
+ * correlationId; the tenantId / userId bindings are null.
+ * 4. Two parallel procedures each carry their own correlationId
+ * the middleware holds no shared mutable state.
  *
  * @module __tests__/trpc-tracing.test
  */
@@ -49,7 +49,7 @@ function buildCtx(args: {
   tenantId: string | null;
   userId: string | null;
   reqId?: string;
-  /** ENG-135c — optional request headers (e.g. x-correlation-id). */
+  /** optional request headers (e.g. x-correlation-id). */
   headers?: Record<string, string | string[]>;
   server: PuntovivoServer;
 }): BuiltCtx {
@@ -124,11 +124,7 @@ beforeEach(async () => {
   const db = getDatabase();
   // Use the seeded admin tenant + user (created by createServer) and
   // flip their telemetryOptIn so captureException forwards.
-  const adminUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const adminUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!adminUser) throw new Error('expected seeded admin user');
   optInTenantId = adminUser.tenantId;
   optInUserId = adminUser.id;
@@ -146,7 +142,7 @@ afterEach(async () => {
   await server.close();
 });
 
-describe('trpc tracing middleware (ENG-135)', () => {
+describe('trpc tracing middleware', () => {
   // A tiny self-contained router so the test does not depend on the
   // exact shape of any real router. The middleware lives on
   // `publicProcedure`, so a procedure built on top inherits it.
@@ -284,7 +280,7 @@ describe('trpc tracing middleware (ENG-135)', () => {
     expect(b.logs[0]?.bindings.correlationId).toBe('corr-b');
   });
 
-  // ENG-135c — the renderer-minted x-correlation-id header (after
+  // the renderer-minted x-correlation-id header (after
   // strict sanitization) takes precedence over the Fastify reqId so
   // client error events and server traces share one identifier.
   it('adopts a valid x-correlation-id header over the Fastify reqId', async () => {

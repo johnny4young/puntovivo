@@ -1,5 +1,5 @@
 /**
- * ENG-075 — Authority Node pairing + health router tests.
+ * Authority Node pairing + health router tests.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -112,10 +112,7 @@ async function seedHarness(suffix: string): Promise<Harness> {
   return { tenantId, adminId, managerId, cashierId, siteId };
 }
 
-function buildCtx(
-  h: Harness,
-  role: 'admin' | 'manager' | 'cashier'
-): Context {
+function buildCtx(h: Harness, role: 'admin' | 'manager' | 'cashier'): Context {
   const userId = role === 'admin' ? h.adminId : role === 'manager' ? h.managerId : h.cashierId;
   return {
     req: {
@@ -132,7 +129,7 @@ function buildCtx(
   };
 }
 
-describe('authority router (ENG-075)', () => {
+describe('authority router', () => {
   let tenantA: Harness;
   let tenantB: Harness;
 
@@ -249,9 +246,9 @@ describe('authority router (ENG-075)', () => {
   it('lets manager read status but not create pairing codes', async () => {
     const manager = appRouter.createCaller(buildCtx(tenantA, 'manager'));
     await expect(manager.authority.status()).resolves.toBeDefined();
-    await expect(
-      manager.authority.createPairingCode({ siteId: tenantA.siteId })
-    ).rejects.toThrow(/FORBIDDEN|administrators/i);
+    await expect(manager.authority.createPairingCode({ siteId: tenantA.siteId })).rejects.toThrow(
+      /FORBIDDEN|administrators/i
+    );
   });
 
   it('revokes only hub-client devices and writes an audit row', async () => {
@@ -262,9 +259,9 @@ describe('authority router (ENG-075)', () => {
       siteId: tenantA.siteId,
     });
 
-    await expect(
-      caller.authority.revokeDevice({ deviceId: registered.deviceId })
-    ).resolves.toEqual({ success: true, deviceId: registered.deviceId });
+    await expect(caller.authority.revokeDevice({ deviceId: registered.deviceId })).resolves.toEqual(
+      { success: true, deviceId: registered.deviceId }
+    );
 
     const deviceRow = await getDatabase()
       .select()
@@ -287,9 +284,9 @@ describe('authority router (ENG-075)', () => {
     expect(audit).toBeDefined();
   });
 
-  // ENG-168 — pin the sessionVersion bump on revoke + the device.pairing.claimed
+  // pin the sessionVersion bump on revoke + the device.pairing.claimed
   // audit row. Both close the audit's "token + session lifecycle" gaps.
-  it('bumps the registering user sessionVersion when its device is revoked (ENG-168)', async () => {
+  it('bumps the registering user sessionVersion when its device is revoked', async () => {
     const caller = appRouter.createCaller(buildCtx(tenantA, 'admin'));
     const registered = await caller.auth.registerDevice({
       kind: 'hub_client',
@@ -332,7 +329,7 @@ describe('authority router (ENG-075)', () => {
     });
   });
 
-  it('writes a device.pairing.claimed audit row inside the same tx (ENG-168)', async () => {
+  it('writes a device.pairing.claimed audit row inside the same tx', async () => {
     const caller = appRouter.createCaller(buildCtx(tenantA, 'admin'));
     const pairing = await caller.authority.createPairingCode({
       siteId: tenantA.siteId,

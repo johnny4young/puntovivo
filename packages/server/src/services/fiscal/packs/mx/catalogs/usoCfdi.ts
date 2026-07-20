@@ -1,5 +1,5 @@
 /**
- * ENG-035a — Catálogo SAT de usos de CFDI (c_UsoCFDI).
+ * Catálogo SAT de usos de CFDI (c_UsoCFDI).
  *
  * El "uso de CFDI" es el campo que el comprador declara para
  * justificar fiscalmente la compra. El SAT publica la lista
@@ -7,8 +7,8 @@
  * facturar a un cliente con RFC (los tickets a público en general
  * usan S01 implícitamente).
  *
- * Catálogo estático en compilación. ENG-035b lo consume cuando
- * arme el XML CFDI 4.0; ENG-035a sólo lo expone para que el form
+ * Catálogo estático en compilación.  lo consume cuando
+ * arme el XML CFDI 4.0;  sólo lo expone para que el form
  * `CompanyMxFiscalCard` muestre la lista en un Select cuando llegue
  * la fase de captura de cliente con RFC (por ahora la card sólo
  * configura el emisor; el uso queda capturado en futuro).
@@ -24,7 +24,7 @@ export interface UsoCfdiEntry {
   /**
    * Regímenes fiscales válidos para este uso. La lista vacía
    * significa "todos los regímenes" (raro). Se valida al armar el
-   * CFDI en ENG-035b.
+   * CFDI en .
    */
   applicableRegimens?: ReadonlyArray<string>;
 }
@@ -56,7 +56,10 @@ export const USO_CFDI_CATALOG: ReadonlyArray<UsoCfdiEntry> = [
   { code: 'D06', name: 'Aportaciones voluntarias al SAR' },
   { code: 'D07', name: 'Primas por seguros de gastos médicos' },
   { code: 'D08', name: 'Gastos de transportación escolar obligatoria' },
-  { code: 'D09', name: 'Depósitos en cuentas para el ahorro, primas que tengan como base planes de pensiones' },
+  {
+    code: 'D09',
+    name: 'Depósitos en cuentas para el ahorro, primas que tengan como base planes de pensiones',
+  },
   { code: 'D10', name: 'Pagos por servicios educativos (colegiaturas)' },
   { code: 'S01', name: 'Sin efectos fiscales' },
   { code: 'CP01', name: 'Pagos' },

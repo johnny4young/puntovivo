@@ -1,5 +1,5 @@
 /**
- * Receipt template expression engine — evaluate back-end (ENG-016/017, ENG-178 split).
+ * Receipt template expression engine — evaluate back-end (,  split).
  *
  * Coercion helpers (incl. the MAX_DECIMALS clamp), the date-pattern formatter,
  * the whitelisted FUNCTION_REGISTRY, the evaluator (catch-all + arity guard),
@@ -10,7 +10,6 @@
  */
 import { parseTemplate, MAX_FUNCTION_ARGS, MAX_DECIMALS } from './parse.js';
 import type { ExpressionNode } from './parse.js';
-
 
 // ---------------------------------------------------------------------------
 // Evaluation
@@ -33,8 +32,7 @@ interface FunctionSpec {
 
 function toScalarString(value: unknown): string {
   if (value === null || value === undefined) return '';
-  if (typeof value === 'number')
-    return Number.isFinite(value) ? value.toString() : '';
+  if (typeof value === 'number') return Number.isFinite(value) ? value.toString() : '';
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   return String(value);
 }
@@ -104,10 +102,7 @@ export const FUNCTION_REGISTRY: Record<string, FunctionSpec> = {
     maxArgs: 2,
     evaluate: (args, ctx) => {
       const value = toNumberValue(args[0]);
-      const decimals =
-        args[1] !== undefined
-          ? clampDecimals(toNumberValue(args[1]))
-          : undefined;
+      const decimals = args[1] !== undefined ? clampDecimals(toNumberValue(args[1])) : undefined;
       if (ctx.formatCurrency) return ctx.formatCurrency(value, decimals);
       return value.toFixed(decimals ?? 2);
     },
@@ -117,8 +112,7 @@ export const FUNCTION_REGISTRY: Record<string, FunctionSpec> = {
     maxArgs: 2,
     evaluate: (args, ctx) => {
       const value = args[0];
-      const pattern =
-        args[1] !== undefined ? toScalarString(args[1]) : undefined;
+      const pattern = args[1] !== undefined ? toScalarString(args[1]) : undefined;
       if (ctx.formatDate) return ctx.formatDate(value, pattern);
       const d = coerceDate(value);
       if (!d) return '';
@@ -140,8 +134,7 @@ export const FUNCTION_REGISTRY: Record<string, FunctionSpec> = {
     maxArgs: 2,
     evaluate: args => {
       const value = toNumberValue(args[0]);
-      const decimals =
-        args[1] !== undefined ? clampDecimals(toNumberValue(args[1])) : 0;
+      const decimals = args[1] !== undefined ? clampDecimals(toNumberValue(args[1])) : 0;
       const factor = Math.pow(10, decimals);
       return Math.round(value * factor) / factor;
     },
@@ -185,15 +178,11 @@ export const FUNCTION_REGISTRY: Record<string, FunctionSpec> = {
   sum: {
     minArgs: 1,
     maxArgs: MAX_FUNCTION_ARGS,
-    evaluate: args =>
-      args.map(toNumberValue).reduce((acc, n) => acc + n, 0),
+    evaluate: args => args.map(toNumberValue).reduce((acc, n) => acc + n, 0),
   },
 };
 
-export function evaluateExpression(
-  node: ExpressionNode,
-  ctx: EvalContext
-): unknown {
+export function evaluateExpression(node: ExpressionNode, ctx: EvalContext): unknown {
   switch (node.type) {
     case 'number':
       return node.value;
@@ -212,10 +201,7 @@ export function evaluateExpression(
       // input rather than producing NaN / undefined surprises like
       // `Math.max(...[])` → `-Infinity` or `default([only-one-arg])`
       // reading `args[1] === undefined`.
-      if (
-        node.args.length < spec.minArgs ||
-        node.args.length > spec.maxArgs
-      ) {
+      if (node.args.length < spec.minArgs || node.args.length > spec.maxArgs) {
         return '';
       }
       const args = node.args.map(arg => evaluateExpression(arg, ctx));
@@ -250,7 +236,7 @@ export interface ValidationIssue {
   raw: string;
 }
 
-// ENG-179b — explicit `| undefined` on each optional field.
+// explicit `| undefined` on each optional field.
 export interface ValidateOptions {
   allowedNamespaces?: ReadonlySet<string> | undefined;
   /** Restrict which namespaces are allowed (e.g. `qr.source` may exclude `tender`). */
@@ -269,10 +255,7 @@ function walkExpression(
     case 'number':
       return;
     case 'string': {
-      if (
-        options.rejectStringScheme &&
-        options.rejectStringScheme.test(node.value.trim())
-      ) {
+      if (options.rejectStringScheme && options.rejectStringScheme.test(node.value.trim())) {
         issues.push({
           message: `String literal "${node.value}" uses a disallowed URL scheme. javascript:, data:, vbscript: and file: are not permitted.`,
           raw,
@@ -314,14 +297,9 @@ function walkExpression(
         });
         return;
       }
-      if (
-        node.args.length < spec.minArgs ||
-        node.args.length > spec.maxArgs
-      ) {
+      if (node.args.length < spec.minArgs || node.args.length > spec.maxArgs) {
         const arity =
-          spec.minArgs === spec.maxArgs
-            ? `${spec.minArgs}`
-            : `${spec.minArgs}-${spec.maxArgs}`;
+          spec.minArgs === spec.maxArgs ? `${spec.minArgs}` : `${spec.minArgs}-${spec.maxArgs}`;
         issues.push({
           message: `Function "${node.name}" takes ${arity} argument(s), got ${node.args.length}`,
           raw,

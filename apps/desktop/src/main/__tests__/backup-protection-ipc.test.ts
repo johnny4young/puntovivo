@@ -67,7 +67,7 @@ async function registerRole(role: AuthTokenPayload['role']): Promise<void> {
   }));
 }
 
-describe('handleGetBackupProtectionStatus (ENG-129e)', () => {
+describe('handleGetBackupProtectionStatus', () => {
   beforeEach(() => {
     __resetForTests();
   });

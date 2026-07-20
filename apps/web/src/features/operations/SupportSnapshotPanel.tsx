@@ -1,4 +1,4 @@
-/** ENG-128 — copy/download controls for the allowlist-only support snapshot. */
+/** copy/download controls for the allowlist-only support snapshot. */
 
 import { Copy, Download, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

@@ -1,14 +1,14 @@
 /**
- * ENG-132b — CustomerDetailsDrawer tests.
+ * CustomerDetailsDrawer tests.
  *
  * Pins the row-detail Drawer that holds the columns trimmed off the
  * default CustomersPage table:
- *   - renders every trimmed field (identification, email, phone, type,
- *     location, status) for the given customer;
- *   - the Edit footer action calls onEdit (and is absent when onEdit is
- *     omitted);
- *   - stays closed when `customer` is null;
- *   - no serious accessibility violations.
+ * - renders every trimmed field (identification, email, phone, type,
+ * location, status) for the given customer;
+ * - the Edit footer action calls onEdit (and is absent when onEdit is
+ * omitted);
+ * - stays closed when `customer` is null;
+ * - no serious accessibility violations.
  *
  * @module features/customers/CustomerDetailsDrawer.test
  */
@@ -18,7 +18,7 @@ import type { Customer } from '@/types';
 import { assertNoA11yViolations } from '@/test/a11y';
 import { CustomerDetailsDrawer } from './CustomerDetailsDrawer';
 
-// ENG-215 — the drawer now hosts the loyalty panel, which reads tRPC. This
+// the drawer now hosts the loyalty panel, which reads tRPC. This
 // suite pins the drawer's own contract (trimmed fields + edit action) and
 // mounts without a tRPC provider, so the child is stubbed; its behavior has
 // its own suite in CustomerLoyaltyPanel.test.tsx.
@@ -40,7 +40,7 @@ const customer = {
   isActive: true,
 } as unknown as Customer;
 
-describe('CustomerDetailsDrawer (ENG-132b)', () => {
+describe('CustomerDetailsDrawer', () => {
   it('renders the trimmed customer fields', () => {
     render(<CustomerDetailsDrawer customer={customer} onClose={vi.fn()} />);
 

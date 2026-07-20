@@ -1,4 +1,4 @@
-/** ENG-110a — safe transitions into and out of lot-tracked inventory. */
+/** safe transitions into and out of lot-tracked inventory. */
 import { and, eq, sql } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
@@ -81,7 +81,7 @@ export function assertAggregateStockMutationAllowed(input: {
 }
 
 /**
- * ENG-110c — central fail-closed guard for every inventory balance writer.
+ * central fail-closed guard for every inventory balance writer.
  * Serial-aware workflows must opt in explicitly after they have written the
  * corresponding registry identities in the same transaction.
  */
@@ -99,7 +99,7 @@ export function assertSerialStockMutationAllowed(input: {
   }
 }
 
-/** ENG-110b — catalog-only matrix parents can never regain inventory. */
+/** catalog-only matrix parents can never regain inventory. */
 export function assertCatalogStockMutationAllowed(input: {
   catalogType: ProductCatalogType;
   delta: number;

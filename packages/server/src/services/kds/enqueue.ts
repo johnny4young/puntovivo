@@ -1,5 +1,5 @@
 /**
- * ENG-098 — `enqueueKdsOrder` hook.
+ * `enqueueKdsOrder` hook.
  *
  * Best-effort post-tx call invoked from `sales.suspend`,
  * `completeSale`, and `sales.splitDraft` (for the carved-out split).
@@ -14,9 +14,9 @@
  * watching the board don't see a phantom flash.
  *
  * Skips silently when:
- *   - the sale has no `tableId` (regular retail POS path)
- *   - the `kds` module is not active for the tenant
- *   - the sale row has no items (synthetic / empty cart)
+ * - the sale has no `tableId` (regular retail POS path)
+ * - the `kds` module is not active for the tenant
+ * - the sale row has no items (synthetic / empty cart)
  *
  * Errors are logged and swallowed — the caller already committed
  * the sale; failing the response over a kitchen-display side-effect
@@ -169,12 +169,7 @@ async function loadSaleSnapshot(
     const tableRow = await db
       .select({ name: restaurantTables.name })
       .from(restaurantTables)
-      .where(
-        and(
-          eq(restaurantTables.id, row.tableId),
-          eq(restaurantTables.tenantId, tenantId)
-        )
-      )
+      .where(and(eq(restaurantTables.id, row.tableId), eq(restaurantTables.tenantId, tenantId)))
       .get();
     tableLabel = tableRow?.name ?? tableLabel;
   }

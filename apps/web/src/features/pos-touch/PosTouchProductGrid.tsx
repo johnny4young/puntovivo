@@ -1,5 +1,5 @@
 /**
- * ENG-087 — Touch POS V1 product tile grid.
+ * Touch POS V1 product tile grid.
  *
  * Responsive 2 / 3 / 4 / 6 column grid mirroring
  * `RestaurantFloorMapPreview` and `DeliveryPage`. Each tile
@@ -7,14 +7,14 @@
  * name never makes a row shorter than its neighbours.
  *
  * Touch-first design notes:
- *  - Every tile is ≥ 96 × 96 px so the tap target clears the
- *    44 px minimum even with the inner padding.
- *  - `truncate` + `line-clamp-2` keep long product names from
- *    breaking the grid rhythm.
- *  - Prices use `font-display tabular-nums` so the column reads
- *    as a single rhythm regardless of locale digit width.
- *  - Empty / loading / error states have dedicated visuals so the
- *    grid never collapses into a blank gray box.
+ * - Every tile is ≥ 96 × 96 px so the tap target clears the
+ * 44 px minimum even with the inner padding.
+ * - `truncate` + `line-clamp-2` keep long product names from
+ * breaking the grid rhythm.
+ * - Prices use `font-display tabular-nums` so the column reads
+ * as a single rhythm regardless of locale digit width.
+ * - Empty / loading / error states have dedicated visuals so the
+ * grid never collapses into a blank gray box.
  */
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';

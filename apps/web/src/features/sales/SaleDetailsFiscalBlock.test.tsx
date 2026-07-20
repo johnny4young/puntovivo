@@ -12,7 +12,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   }),
 }));
 
-// ENG-103 — `FiscalDocumentXmlModal` now lazy-fetches the XML body
+// `FiscalDocumentXmlModal` now lazy-fetches the XML body
 // via `reports.fiscal.getXml`; the surrounding test only verifies
 // that clicking "View XML" opens the modal, so a minimal trpc mock
 // keeps the loading state in place without exercising the network.
@@ -84,7 +84,7 @@ describe('SaleDetailsFiscalBlock', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /View XML/i }));
 
-    // Post-ENG-103: the modal opens and shows its loading state while
+    // Post-: the modal opens and shows its loading state while
     // `reports.fiscal.getXml` resolves. The XML body itself comes
     // from the server, not from the list prop, so this assertion now
     // focuses on the modal heading + loading affordance.

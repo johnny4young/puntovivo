@@ -31,7 +31,7 @@ function profitTone(value: number): 'success' | 'danger' {
 }
 
 /**
- * ENG-190 — admin Profitability report.
+ * admin Profitability report.
  *
  * Realized gross margin over a date range, sourcing COGS from the per-lot
  * ledger (`sale_item_lots`) for lot-tracked lines and the `cost_at_sale`

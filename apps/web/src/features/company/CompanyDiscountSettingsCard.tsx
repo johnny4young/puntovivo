@@ -1,11 +1,11 @@
 /**
- * ENG-211 — Admin-only card for the tenant's expiry-discount ladder.
+ * Admin-only card for the tenant's expiry-discount ladder.
  *
  * Sits inside `CompanyPage`'s "general" tab next to the cash-close card.
  * Reads `discountSettings.get`, writes via `discountSettings.update`, and
  * invalidates on success so admins see the persisted ladder immediately.
  *
- * The ladder drives the ENG-199 expiry radar: a lot expiring within
+ * The ladder drives the  expiry radar: a lot expiring within
  * `maxDays` earns `pct`, first match wins. The editor is deliberately a
  * small fixed list of rows (add/remove/edit) rather than a free-form JSON
  * box — pricing policy is owner territory, but it should not require
@@ -40,9 +40,7 @@ function isIntegerWithin(value: number, min: number, max: number): boolean {
 
 function nextTierMaxDays(rows: TierDraft[]): number {
   const used = new Set(
-    rows
-      .map(row => row.maxDays)
-      .filter(value => isIntegerWithin(value, 1, MAX_DAYS_LIMIT))
+    rows.map(row => row.maxDays).filter(value => isIntegerWithin(value, 1, MAX_DAYS_LIMIT))
   );
   const largest = Math.max(0, ...used);
   const preferred = Math.min(largest + 15, MAX_DAYS_LIMIT);
@@ -177,9 +175,7 @@ export function CompanyDiscountSettingsCard() {
             className="btn-outline"
             disabled={disabled || draft.length >= MAX_TIERS}
             data-testid="discount-add-tier"
-            onClick={() =>
-              setDraft(rows => [...rows, { maxDays: nextTierMaxDays(rows), pct: 10 }])
-            }
+            onClick={() => setDraft(rows => [...rows, { maxDays: nextTierMaxDays(rows), pct: 10 }])}
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             {t('settings:company.discount.addTier')}

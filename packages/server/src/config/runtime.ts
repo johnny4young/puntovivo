@@ -1,19 +1,18 @@
 /**
- * ENG-072 — Authority Node runtime config resolver.
+ * Authority Node runtime config resolver.
  *
  * Resolves the local runtime configuration that selects which Authority
  * Node mode the boot is running under. The default is `device_local`,
- * matching every existing install before this ticket. `site_hub` and
- * `hub_client` modes are accepted by the resolver here so the type
- * surface is complete; their actual behavior (LAN bind, hub URL plumbing,
- * pairing) lands in ENG-073 and ENG-074.
+ * matching existing standalone installations. `site_hub` and
+ * `hub_client` complete the supported runtime-mode type surface.
  *
  * Pure function — no side effects, no env mutation, no logging. Callers
  * resolve once at boot and pass the result into `createServer`.
  *
- * See [docs/AUTHORITY-NODE.md](../../../docs/AUTHORITY-NODE.md) for the
- * vocabulary and [docs/architecture/0008-authority-node-runtime-modes.md](../../../docs/architecture/0008-authority-node-runtime-modes.md)
- * for the ADR.
+ * See [docs/ARCHITECTURE.md](../../../docs/ARCHITECTURE.md#sync-and-authority-node)
+ * for the runtime shape and
+ * [ADR-0008](../../../docs/architecture/0008-authority-node-runtime-modes.md)
+ * for the decision record.
  *
  * @module config/runtime
  */
@@ -27,9 +26,8 @@
 export type AuthorityMode = 'device_local' | 'site_hub' | 'hub_client';
 
 /**
- * Resolved runtime config. Fixed at boot. Read by the diagnostics
- * export and the boot banner; future ENG-073..075 layers will read it
- * to decide LAN binding, CORS allowlists, and pairing flows.
+ * Resolved runtime config. Fixed at boot and consumed by diagnostics,
+ * the boot banner, LAN binding, CORS allowlists, and pairing flows.
  */
 export interface RuntimeConfig {
   /** Authority mode per ADR-0008. */
@@ -74,10 +72,7 @@ export function getRuntimeDefaults(): RuntimeConfig {
 }
 
 function isAuthorityMode(value: unknown): value is AuthorityMode {
-  return (
-    typeof value === 'string' &&
-    (VALID_AUTHORITY_MODES as readonly string[]).includes(value)
-  );
+  return typeof value === 'string' && (VALID_AUTHORITY_MODES as readonly string[]).includes(value);
 }
 
 function readTrimmed(env: NodeJS.ProcessEnv, key: string): string | undefined {
@@ -101,31 +96,30 @@ export interface ResolveRuntimeConfigOptions {
  * Resolve the runtime config from env vars + caller defaults.
  *
  * Env precedence:
- *   1. `PUNTOVIVO_*` vars (preferred, explicit prefix).
- *   2. Legacy `HOST` / `PORT` for bind host/port (kept for existing
- *      standalone deployments — the standalone server has read these
- *      since day one).
- *   3. Caller-supplied `defaults`.
- *   4. `FALLBACK_DEFAULTS` (`device_local` + `127.0.0.1` + `8090`).
+ * 1. `PUNTOVIVO_*` vars (preferred, explicit prefix).
+ * 2. Legacy `HOST` / `PORT` for bind host/port (kept for existing
+ * standalone deployments — the standalone server has read these
+ * since day one).
+ * 3. Caller-supplied `defaults`.
+ * 4. `FALLBACK_DEFAULTS` (`device_local` + `127.0.0.1` + `8090`).
  *
  * Throws when:
- *   - `PUNTOVIVO_AUTHORITY_MODE` is set to a value outside
- *     {`device_local`, `site_hub`, `hub_client`}.
- *   - The resolved bind port is not a finite integer in `[1, 65535]`.
+ * - `PUNTOVIVO_AUTHORITY_MODE` is set to a value outside
+ * {`device_local`, `site_hub`, `hub_client`}.
+ * - The resolved bind port is not a finite integer in `[1, 65535]`.
  *
  * Fail-fast behavior is intentional: a misconfigured boot should crash
  * the server with an actionable error message instead of silently
  * falling back to defaults.
  */
-export function resolveRuntimeConfig(
-  options: ResolveRuntimeConfigOptions = {}
-): RuntimeConfig {
+export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}): RuntimeConfig {
   const env = options.env ?? process.env;
   const merged: RuntimeConfig = {
     ...FALLBACK_DEFAULTS,
     ...options.defaults,
-    allowedLanOrigins:
-      options.defaults?.allowedLanOrigins ?? [...FALLBACK_DEFAULTS.allowedLanOrigins],
+    allowedLanOrigins: options.defaults?.allowedLanOrigins ?? [
+      ...FALLBACK_DEFAULTS.allowedLanOrigins,
+    ],
   };
 
   const rawMode = readTrimmed(env, 'PUNTOVIVO_AUTHORITY_MODE');

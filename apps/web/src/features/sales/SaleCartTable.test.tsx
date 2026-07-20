@@ -5,7 +5,7 @@ import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import { render } from '@/test/utils';
 import type { SaleCartItem } from '@/features/sales/saleCart';
 
-// ENG-199 — the cart lines read the expiry-radar suggestions through this
+// the cart lines read the expiry-radar suggestions through this
 // hook (a trpc query underneath); mock it so the suite stays network-free.
 let mockDiscountSuggestions = new Map<string, number>();
 vi.mock('@/features/sales/useDiscountSuggestions', () => ({
@@ -116,7 +116,7 @@ describe('SaleCartTable', () => {
     expect(onRemove).toHaveBeenCalledWith('product-1:unit-1');
   });
 
-  // ENG-199 — cart lines badge the product when the expiry radar has an
+  // cart lines badge the product when the expiry radar has an
   // active suggestion for it; silent otherwise.
   it('renders the discount-suggestion badge only for suggested products', () => {
     mockDiscountSuggestions = new Map([['product-1', 20]]);

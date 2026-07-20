@@ -560,7 +560,7 @@ export const managerApprovalsRouter = router({
       }
 
       const outcome = criticalCtx.db.transaction(tx => {
-        // ENG-142c — PIN verification suspends. Base the distinct-approver
+        // PIN verification suspends. Base the distinct-approver
         // update on a fresh row inside one synchronous SQLite transaction.
         const current = tx
           .select()

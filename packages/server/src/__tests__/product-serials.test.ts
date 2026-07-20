@@ -1,4 +1,4 @@
-/** ENG-110c — serialized-unit receipt, checkout and reversal lifecycle. */
+/** serialized-unit receipt, checkout and reversal lifecycle. */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -75,7 +75,7 @@ async function receiveSerials(productId: string, serialNumbers: string[], unitCo
     serialNumbers,
     unitCost,
     warrantyExpiresAt: '2028-12-31',
-    notes: 'ENG-110c test receipt',
+    notes: ' test receipt',
   });
 }
 

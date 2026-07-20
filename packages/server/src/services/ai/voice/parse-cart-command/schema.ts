@@ -1,13 +1,13 @@
 /**
- * Voice cart-command LLM-output schema + transcript bound (ENG-040c).
+ * Voice cart-command LLM-output schema + transcript bound ().
  *
  * @module services/ai/voice/parse-cart-command/schema
  */
 import { z } from 'zod';
 
 /** Bounded transcript size — a 60s burst at average speech density
- *  caps around 150 words. 1000 chars covers that with margin and
- *  bounds parser-prompt cost. */
+ * caps around 150 words. 1000 chars covers that with margin and
+ * bounds parser-prompt cost. */
 export const VOICE_CART_COMMAND_MAX_TRANSCRIPT_CHARS = 1000;
 
 /**
@@ -39,9 +39,9 @@ export const VoiceCartCommandSchema = z.object({
           .number()
           .nullable()
           .describe('Quantity stated by the cashier; null if not stated.'),
-        // ENG-039a — Free-form modifier ("sin queso", "extra
+        // Free-form modifier ("sin queso", "extra
         // picante") preserved verbatim as a note until structured
-        // modifiers ship in a later ENG-039 child. The schema
+        // modifiers ship in a later  child. The schema
         // accepts null or any string up to 200 chars; the service
         // layer collapses whitespace-only strings to null so the
         // downstream cart row never stores empty padding.

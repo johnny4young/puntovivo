@@ -1,11 +1,11 @@
 /**
- * ENG-132g — Inventory Entry detail Drawer.
+ * Inventory Entry detail Drawer.
  *
  * Read-only slide-over holding the Entries-table fields trimmed off the default
  * table (unit, normalized quantity, cost, stock-after, notes) plus the mode +
  * counted quantity, so the table can default to the smallest useful column set
  * (date, mode, product, counted qty). Reuses the shared `Drawer` primitive
- * (ENG-186) and mirrors `InventoryStockDetailsDrawer`.
+ * () and mirrors `InventoryStockDetailsDrawer`.
  *
  * @module features/inventory/InventoryEntryDetailsDrawer
  */
@@ -63,9 +63,7 @@ export function InventoryEntryDetailsDrawer({ item, onClose }: InventoryEntryDet
             label={t('table.mode')}
             value={
               <span className={cn('pv-badge', item.mode === 'initial' ? 'primary' : 'warning')}>
-                {item.mode === 'initial'
-                  ? t('table.initialInventory')
-                  : t('table.physicalCount')}
+                {item.mode === 'initial' ? t('table.initialInventory') : t('table.physicalCount')}
               </span>
             }
           />

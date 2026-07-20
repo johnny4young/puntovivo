@@ -33,23 +33,12 @@ describe('AuditLogsTable', () => {
   });
 
   it('renders the empty state when there are no entries', () => {
-    render(
-      <AuditLogsTable items={[]} isLoading={false} error={null} onRetry={() => {}} />
-    );
-    expect(
-      screen.getByText(/No audit events yet/i)
-    ).toBeInTheDocument();
+    render(<AuditLogsTable items={[]} isLoading={false} error={null} onRetry={() => {}} />);
+    expect(screen.getByText(/No audit events yet/i)).toBeInTheDocument();
   });
 
   it('renders one row per entry with the translated action label', () => {
-    render(
-      <AuditLogsTable
-        items={[build()]}
-        isLoading={false}
-        error={null}
-        onRetry={() => {}}
-      />
-    );
+    render(<AuditLogsTable items={[build()]} isLoading={false} error={null} onRetry={() => {}} />);
     expect(screen.getByText('Transfer voided')).toBeInTheDocument();
     expect(screen.getByText('Administrator')).toBeInTheDocument();
     expect(screen.getByText('admin@localhost')).toBeInTheDocument();
@@ -193,7 +182,7 @@ describe('AuditLogsTable', () => {
     expect(screen.getByText('Deleted q-xyz')).toBeInTheDocument();
   });
 
-  // ─── Phase 8 step 3 — new sensitive-action summaries ────────────────────
+  // ─── new sensitive-action summaries ────────────────────
 
   it('renders sale.void as saleNumber + reason when metadata.reason is a string', () => {
     render(
@@ -213,9 +202,7 @@ describe('AuditLogsTable', () => {
         onRetry={() => {}}
       />
     );
-    expect(
-      screen.getByText('POS-000042 — Customer mind change')
-    ).toBeInTheDocument();
+    expect(screen.getByText('POS-000042 — Customer mind change')).toBeInTheDocument();
     expect(screen.getByText('Sale voided')).toBeInTheDocument();
   });
 
@@ -259,9 +246,7 @@ describe('AuditLogsTable', () => {
       />
     );
     // formatCurrency renders $150.00 in the en locale.
-    expect(
-      screen.getByText('Refunded $150.00 — Damaged goods')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Refunded $150.00 — Damaged goods')).toBeInTheDocument();
   });
 
   it('renders cash_session.close showing the signed over/short delta', () => {
@@ -314,12 +299,8 @@ describe('AuditLogsTable', () => {
       />
     );
 
-    expect(
-      screen.getByText('-30% for Yogur Fresa (lot RADAR-001)')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Dismissed -30% for Yogur Fresa (lot RADAR-001)')
-    ).toBeInTheDocument();
+    expect(screen.getByText('-30% for Yogur Fresa (lot RADAR-001)')).toBeInTheDocument();
+    expect(screen.getByText('Dismissed -30% for Yogur Fresa (lot RADAR-001)')).toBeInTheDocument();
   });
 
   it('renders inventory.adjust_stock with the transition and signed delta', () => {
@@ -367,7 +348,7 @@ describe('AuditLogsTable', () => {
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 
-  // ─── ENG-007 second wave — purchase, user, price-override summaries ────
+  // ───  second wave — purchase, user, price-override summaries ────
 
   it('renders purchase.void as purchaseNumber + reason when metadata.reason is a string', () => {
     render(
@@ -414,9 +395,7 @@ describe('AuditLogsTable', () => {
         onRetry={() => {}}
       />
     );
-    expect(
-      screen.getByText('newcashier@example.com (cashier)')
-    ).toBeInTheDocument();
+    expect(screen.getByText('newcashier@example.com (cashier)')).toBeInTheDocument();
     expect(screen.getByText('User created')).toBeInTheDocument();
   });
 
@@ -485,9 +464,7 @@ describe('AuditLogsTable', () => {
       />
     );
     // Both facets separated by a middle dot — keeps the summary scannable.
-    expect(
-      screen.getByText('Role manager → cashier · Deactivated')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Role manager → cashier · Deactivated')).toBeInTheDocument();
   });
 
   it('renders sale.price_override with the overridden line count', () => {
@@ -527,9 +504,7 @@ describe('AuditLogsTable', () => {
         onRetry={() => {}}
       />
     );
-    expect(
-      screen.getByText('POS-000067 — 2 lines overridden')
-    ).toBeInTheDocument();
+    expect(screen.getByText('POS-000067 — 2 lines overridden')).toBeInTheDocument();
     expect(screen.getByText('Sale price override')).toBeInTheDocument();
   });
 
@@ -562,9 +537,7 @@ describe('AuditLogsTable', () => {
         onRetry={() => {}}
       />
     );
-    expect(
-      screen.getByText('POS-000068 — 1 line overridden')
-    ).toBeInTheDocument();
+    expect(screen.getByText('POS-000068 — 1 line overridden')).toBeInTheDocument();
   });
 
   it('falls back to — for user.update rows with neither role nor isActive transitions', () => {

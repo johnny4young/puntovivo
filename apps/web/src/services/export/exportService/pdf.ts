@@ -1,4 +1,4 @@
-// PDF exporter via jspdf + jspdf-autotable v5 (ENG-178 slice 30).
+// PDF exporter via jspdf + jspdf-autotable v5 ( slice 30).
 
 import { generateFilename } from './filename';
 import { formatValue, getNestedValue } from './format';

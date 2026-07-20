@@ -15,12 +15,12 @@
  * - sync.pull    - Return a sync snapshot
  * - sync.resolve - Resolve a sync conflict
  *
- * ENG-064 contract v1 procedures:
- * - sync.getContract   - Manifest negotiation for ENG-068+ multi-store sync
+ * contract v1 procedures:
+ * - sync.getContract   - Manifest negotiation for + multi-store sync
  * - sync.peekOutbox    - Operations Center tail
  * - sync.retry         - Operator-driven retry of stuck rows
  *
- * ENG-178 — decomposed into per-concern record modules (status / queue /
+ * decomposed into per-concern record modules (status / queue /
  * conflicts / push / contract) + a `helpers.ts` leaf. This barrel re-assembles
  * the flat router so every path (`sync.status` … `sync.retry`) is preserved.
  *

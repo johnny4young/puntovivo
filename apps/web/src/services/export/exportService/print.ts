@@ -1,4 +1,4 @@
-// Print-to-window exporter (ENG-178 slice 30). Opens a transient Blob-backed
+// Print-to-window exporter ( slice 30). Opens a transient Blob-backed
 // window with an escapeHtml-guarded table for the browser print dialog.
 
 import { openHtmlInPrintWindow } from '@/lib/printWindow';

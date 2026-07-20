@@ -1,14 +1,14 @@
 /**
- * ENG-184 — Tests for `CompanyCoFiscalCard`.
+ * Tests for `CompanyCoFiscalCard`.
  *
  * Coverage:
  * - Renders the card when the tenant is CO with a red readiness badge
- *   and the presence issues the server reports.
+ * and the presence issues the server reports.
  * - Renders nothing when the tenant is MX/CL (defensive layer; the
- *   CompanyPage dispatches by country).
+ * CompanyPage dispatches by country).
  * - The "Set up DIAN" CTA reveals the form from the optional EmptyState.
  * - Submitting the form calls `fiscalSettings.updateCo` with the right
- *   shape (numbers parsed for the range bounds).
+ * shape (numbers parsed for the range bounds).
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -123,7 +123,7 @@ vi.mock('@/lib/trpc', () => ({
 
 import { CompanyCoFiscalCard } from './CompanyCoFiscalCard';
 
-describe('CompanyCoFiscalCard (ENG-184)', () => {
+describe('CompanyCoFiscalCard', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockCountryCode = 'CO';

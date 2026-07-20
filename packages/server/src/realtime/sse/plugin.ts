@@ -116,7 +116,7 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
         }
       }, 30000);
 
-      // ENG-168 — emit `token-refresh-needed` on a 10-minute cadence so
+      // emit `token-refresh-needed` on a 10-minute cadence so
       // the client can mint a fresh realtime cookie before the 15-minute
       // TTL elapses. The client listens for this event and calls
       // `auth.realtimeToken.mutate()` without dropping the SSE socket —

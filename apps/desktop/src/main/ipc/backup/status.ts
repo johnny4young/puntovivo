@@ -1,4 +1,4 @@
-/** ENG-129e — admin-only, non-secret backup protection attestation. */
+/** admin-only, non-secret backup protection attestation. */
 
 import { createModuleLogger } from '@puntovivo/server';
 import type { BackupProtectionStatus } from '../../backup-protection.ts';

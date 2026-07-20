@@ -1,40 +1,40 @@
 /**
- * ENG-167 — SQLCipher key bootstrap.
+ * SQLCipher key bootstrap.
  *
  * The embedded SQLite database is encrypted with a per-install
  * 32-byte key that lives only on disk inside an OS-keychain-sealed
  * envelope. The mechanics:
  *
- *   1. `getOrCreateDbKey(dataDir)` is called once at Electron main
- *      startup, BEFORE `createServer()`. The function looks for
- *      `<dataDir>/.dbkey.enc`.
- *   2. If the file is missing (fresh install, post-wipe), the module
- *      generates a fresh 32-byte secret via `crypto.randomBytes`, asks
- *      Electron's `safeStorage` to encrypt it with the platform
- *      keychain (macOS Keychain, Windows DPAPI, Linux libsecret/KWallet), and
- *      persists the ciphertext at the canonical path with `0600`
- *      permissions.
- *   3. If the file exists, it is decrypted via `safeStorage.decryptString`
- *      and the recovered hex is returned.
- *   4. The hex is forwarded to `createServer({ encryptionKey })` and
- *      from there into `initDatabase`, which selects SQLCipher v4 and
- *      issues `PRAGMA key` before any other file-touching PRAGMA so the
- *      on-disk `local.db` is unreadable without it.
+ * 1. `getOrCreateDbKey(dataDir)` is called once at Electron main
+ * startup, BEFORE `createServer()`. The function looks for
+ * `<dataDir>/.dbkey.enc`.
+ * 2. If the file is missing (fresh install, post-wipe), the module
+ * generates a fresh 32-byte secret via `crypto.randomBytes`, asks
+ * Electron's `safeStorage` to encrypt it with the platform
+ * keychain (macOS Keychain, Windows DPAPI, Linux libsecret/KWallet), and
+ * persists the ciphertext at the canonical path with `0600`
+ * permissions.
+ * 3. If the file exists, it is decrypted via `safeStorage.decryptString`
+ * and the recovered hex is returned.
+ * 4. The hex is forwarded to `createServer({ encryptionKey })` and
+ * from there into `initDatabase`, which selects SQLCipher v4 and
+ * issues `PRAGMA key` before any other file-touching PRAGMA so the
+ * on-disk `local.db` is unreadable without it.
  *
  * Threat model defended:
- *   - Device theft / stolen laptop → attacker has the encrypted DB
- *     but not the OS user's keychain unlock.
- *   - Disk side-channel / forensic image → same: keychain-sealed
- *     envelope is unreadable without the live OS user session.
+ * - Device theft / stolen laptop → attacker has the encrypted DB
+ * but not the OS user's keychain unlock.
+ * - Disk side-channel / forensic image → same: keychain-sealed
+ * envelope is unreadable without the live OS user session.
  *
  * Threat model NOT defended:
- *   - A running process with the unlocked key. Once Electron is
- *     running and safeStorage has handed the key over, the key sits
- *     in process memory; a malicious agent inside the same process
- *     can read it. ENG-167 deliberately scopes to disk-at-rest.
+ * - A running process with the unlocked key. Once Electron is
+ * running and safeStorage has handed the key over, the key sits
+ * in process memory; a malicious agent inside the same process
+ * can read it.  deliberately scopes to disk-at-rest.
  *
- * ENG-167b subsequently added cleartext migration and cross-device restore.
- * ENG-129e rejects Electron's Linux `basic_text` backend because
+ * subsequently added cleartext migration and cross-device restore.
+ * rejects Electron's Linux `basic_text` backend because
  * `isEncryptionAvailable()` alone does not prove that a keyring is in use.
  */
 import { randomBytes } from 'node:crypto';
@@ -91,23 +91,23 @@ const KEY_HEX_LENGTH = 64;
  * Resolve (or initialise) the SQLCipher key for the current install.
  *
  * @param dataDir Absolute path to the directory that holds the SQLite
- *   DB file. The key envelope lives next to the DB so local diagnostics
- *   can find both pieces, but app-level backup ZIPs intentionally keep
- *   shipping only the encrypted DB plus device identity. Cross-device
- *   restore asks an administrator for the source install's recovery key.
+ * DB file. The key envelope lives next to the DB so local diagnostics
+ * can find both pieces, but app-level backup ZIPs intentionally keep
+ * shipping only the encrypted DB plus device identity. Cross-device
+ * restore asks an administrator for the source install's recovery key.
  *
  * @throws when Electron's `safeStorage` reports the platform keychain
- *   is unavailable. We refuse to persist a key in cleartext as a
- *   silent fallback — an unreachable keychain on Linux (no
- *   libsecret / gnome-keyring / KWallet) is an operator-visible
- *   error, not a confidentiality downgrade.
+ * is unavailable. We refuse to persist a key in cleartext as a
+ * silent fallback — an unreachable keychain on Linux (no
+ * libsecret / gnome-keyring / KWallet) is an operator-visible
+ * error, not a confidentiality downgrade.
  *
  * @throws when the envelope file exists but `safeStorage.decryptString`
- *   rejects it (corrupt, truncated, or sealed by a different OS user).
- *   The message points at the canonical recovery path: wipe the data
- *   directory and let the next boot regenerate, OR restore from a
- *   matching backup. Surfacing the error is preferable to a silent
- *   key regeneration that would orphan the existing encrypted DB.
+ * rejects it (corrupt, truncated, or sealed by a different OS user).
+ * The message points at the canonical recovery path: wipe the data
+ * directory and let the next boot regenerate, OR restore from a
+ * matching backup. Surfacing the error is preferable to a silent
+ * key regeneration that would orphan the existing encrypted DB.
  */
 export async function getOrCreateDbKey(
   dataDir: string,
@@ -126,7 +126,7 @@ export async function getOrCreateDbKey(
     );
   }
 
-  // ENG-129e — on Linux, Electron may return true above while selecting
+  // on Linux, Electron may return true above while selecting
   // `basic_text`, which is only obfuscation backed by a hard-coded password.
   // Fail closed instead of silently claiming keychain protection.
   if (platform === 'linux' && safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
@@ -154,8 +154,8 @@ export async function getOrCreateDbKey(
           'This means the OS keychain rejected the sealed blob — typically because the ' +
           'envelope was sealed by a different OS user, the keychain entry was revoked, or ' +
           'the file is corrupt. Restore from a matching backup or wipe the data directory ' +
-          'to regenerate (cleartext DBs from before ENG-167 must be migrated separately ' +
-          'in ENG-167b).',
+          'to regenerate (cleartext DBs from before  must be migrated separately ' +
+          'in ).',
         { cause: err }
       );
     }

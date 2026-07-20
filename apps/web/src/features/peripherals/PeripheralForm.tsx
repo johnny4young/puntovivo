@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 
 /**
- * ENG-060 — Peripheral register/update modal.
+ * Peripheral register/update modal.
  *
  * The form is intentionally minimal: kind picker, driver picker
  * filtered by kind, optional display name, and a raw JSON textarea
- * for `config`. ENG-061/062/063 will swap the JSON textarea for
+ * for `config`.  will swap the JSON textarea for
  * typed per-driver forms once their adapters land.
  *
  * The kind field is locked when editing an existing peripheral
@@ -17,11 +17,7 @@ import { Modal, ModalButton } from '@/components/form-controls/Modal';
  */
 
 type PeripheralKind =
-  | 'printer'
-  | 'cash_drawer'
-  | 'scanner'
-  | 'payment_terminal'
-  | 'customer_display';
+  'printer' | 'cash_drawer' | 'scanner' | 'payment_terminal' | 'customer_display';
 
 const KIND_ORDER: PeripheralKind[] = [
   'printer',
@@ -32,23 +28,20 @@ const KIND_ORDER: PeripheralKind[] = [
 ];
 
 // Map of (kind → drivers shown in the picker). The flag `available`
-// reflects whether ENG-060 ships the adapter; non-available rows
-// surface a driverHint copy explaining which ENG-NNN unlocks them.
-const DRIVER_OPTIONS: Record<
-  PeripheralKind,
-  Array<{ id: string; available: boolean }>
-> = {
+// reflects whether  ships the adapter; non-available rows
+// surface a driverHint copy explaining which  unlocks them.
+const DRIVER_OPTIONS: Record<PeripheralKind, Array<{ id: string; available: boolean }>> = {
   printer: [
     { id: 'system', available: true },
-    // ENG-062 — ESC/POS thermal printer driver shipped.
+    // ESC/POS thermal printer driver shipped.
     { id: 'escpos', available: true },
   ],
   cash_drawer: [
-    // ENG-062 — RJ11 cash drawer via the ESC/POS printer stream.
+    // RJ11 cash drawer via the ESC/POS printer stream.
     { id: 'escpos', available: true },
   ],
   scanner: [
-    // ENG-061 — USB HID keyboard-wedge driver shipped.
+    // USB HID keyboard-wedge driver shipped.
     { id: 'wedge', available: true },
   ],
   payment_terminal: [
@@ -57,9 +50,7 @@ const DRIVER_OPTIONS: Record<
     { id: 'wompi', available: false },
     { id: 'mercadopago', available: false },
   ],
-  customer_display: [
-    { id: 'escpos', available: false },
-  ],
+  customer_display: [{ id: 'escpos', available: false }],
 };
 
 function defaultConfigFor(kind: PeripheralKind, driver: string): Record<string, unknown> {
@@ -114,7 +105,7 @@ export function PeripheralForm({
   const isEditing = initial !== null;
 
   // Default to (printer, system) for new entries — these are the
-  // only fully-supported pair in ENG-060.
+  // only fully-supported pair in .
   const [kind, setKind] = useState<PeripheralKind>(initial?.kind ?? 'printer');
   const [driver, setDriver] = useState<string>(initial?.driver ?? 'system');
   const [displayName, setDisplayName] = useState<string>(initial?.displayName ?? '');
@@ -125,7 +116,7 @@ export function PeripheralForm({
 
   const driverOptions = useMemo(() => DRIVER_OPTIONS[kind] ?? [], [kind]);
 
-  // ENG-097 — derive the `autoPrintOnComplete` printer flag from the
+  // derive the `autoPrintOnComplete` printer flag from the
   // JSON textarea so the toggle + the raw editor stay in sync without
   // a second state mirror. Returns `null` when the JSON does not parse
   // (so the toggle reflects "unknown" via its derived defaultChecked).
@@ -134,11 +125,7 @@ export function PeripheralForm({
       const trimmed = configRaw.trim();
       if (trimmed === '') return {};
       const value = JSON.parse(trimmed) as unknown;
-      if (
-        typeof value !== 'object' ||
-        value === null ||
-        Array.isArray(value)
-      ) {
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) {
         return null;
       }
       return value as Record<string, unknown>;
@@ -147,8 +134,7 @@ export function PeripheralForm({
     }
   }, [configRaw]);
   const showAutoPrintToggle = kind === 'printer' && driver === 'escpos';
-  const autoPrintChecked =
-    showAutoPrintToggle && parsedConfig?.autoPrintOnComplete === true;
+  const autoPrintChecked = showAutoPrintToggle && parsedConfig?.autoPrintOnComplete === true;
   const autoPrintToggleDisabled = isSaving || parsedConfig === null;
 
   function handleAutoPrintToggle(nextChecked: boolean) {
@@ -192,7 +178,11 @@ export function PeripheralForm({
     try {
       const trimmed = configRaw.trim();
       parsedConfig = trimmed === '' ? {} : (JSON.parse(trimmed) as Record<string, unknown>);
-      if (typeof parsedConfig !== 'object' || parsedConfig === null || Array.isArray(parsedConfig)) {
+      if (
+        typeof parsedConfig !== 'object' ||
+        parsedConfig === null ||
+        Array.isArray(parsedConfig)
+      ) {
         throw new Error('Config must be a JSON object');
       }
     } catch {
@@ -300,10 +290,7 @@ export function PeripheralForm({
 
         {showAutoPrintToggle && (
           <div className="rounded border border-line bg-secondary-50 p-3">
-            <label
-              htmlFor="peripheral-auto-print"
-              className="flex items-start gap-2 text-sm"
-            >
+            <label htmlFor="peripheral-auto-print" className="flex items-start gap-2 text-sm">
               <input
                 id="peripheral-auto-print"
                 type="checkbox"
@@ -314,9 +301,7 @@ export function PeripheralForm({
                 data-testid="peripheral-auto-print-toggle"
               />
               <span className="flex flex-col">
-                <span className="font-medium">
-                  {t('fields.autoPrintOnComplete.label')}
-                </span>
+                <span className="font-medium">{t('fields.autoPrintOnComplete.label')}</span>
                 <span className="text-xs text-secondary-600">
                   {t('fields.autoPrintOnComplete.help')}
                 </span>
@@ -338,12 +323,8 @@ export function PeripheralForm({
             disabled={isSaving}
             onChange={event => setConfigRaw(event.target.value)}
           />
-          <p className="mt-1 text-xs text-secondary-500">
-            {t('fields.configHelp')}
-          </p>
-          {validationError && (
-            <p className="mt-1 text-sm text-danger-600">{validationError}</p>
-          )}
+          <p className="mt-1 text-xs text-secondary-500">{t('fields.configHelp')}</p>
+          {validationError && <p className="mt-1 text-sm text-danger-600">{validationError}</p>}
         </div>
       </form>
     </Modal>

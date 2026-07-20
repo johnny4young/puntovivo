@@ -1,5 +1,5 @@
 /**
- * ENG-056 — `closeCashSession` use-case service.
+ * `closeCashSession` use-case service.
  *
  * Replaces the inline body that lived at
  * `trpc/routers/cashSessions.ts::close`. Mirrors the structural shape of
@@ -7,21 +7,21 @@
  * one synchronous `db.transaction(...)` for the row update + audit log,
  * post-commit pending-check enrichment + journal effects.
  *
- * Pending semantics (per ENG-056 plan): close NEVER blocks on pending
+ * Pending semantics (per  plan): close NEVER blocks on pending
  * fiscal/payment state. The counts ride two channels —
  *
- *   1. `cash_session.close` audit log metadata (forensic snapshot at
- *      close-time).
- *   2. `pending_warning` journal effects, one per non-zero category,
- *      so the future Operations Center (ENG-065) can render
- *      "shift X closed with N pending DEEs".
+ * 1. `cash_session.close` audit log metadata (forensic snapshot at
+ * close-time).
+ * 2. `pending_warning` journal effects, one per non-zero category,
+ * so the future Operations Center () can render
+ * "shift X closed with N pending DEEs".
  *
  * The new `cashSessions.pendingChecks` tRPC query is the UI's pre-close
  * gate. Close itself trusts the cashier's intent.
  *
- * Known asymmetry (deferred to a follow-up ticket): `voidSale.ts:166-179`
+ * Known asymmetry (deferred to a follow-up change): `voidSale.ts:166-179`
  * does a manual SQL fetch on the original session's `status='open'`
- * instead of using a shared helper. Not unified here to keep ENG-056
+ * instead of using a shared helper. Not unified here to keep
  * scope tight.
  *
  * @module application/cash-sessions/closeCashSession
@@ -88,19 +88,19 @@ async function safeUpdateCashSessionClosedSummary(
  *
  * Invariants:
  * - over/short = `roundMoney(actualCount - expectedBalance)`; the closing
- *   count must reconcile against the supplied denomination breakdown
- *   (`getClosingCountTotal`). The over/short is the audited reconciliation
- *   figure, not a corrective write — `expectedBalance` is left as-is.
+ * count must reconcile against the supplied denomination breakdown
+ * (`getClosingCountTotal`). The over/short is the audited reconciliation
+ * figure, not a corrective write — `expectedBalance` is left as-is.
  * - The status flip to `closed` + the `cash_session.close` audit-log row are
- *   written in ONE transaction, fronted by `assertCashSessionStillOpen`
- *   (in-tx TOCTOU re-check) so an over/short row never exists without its
- *   paired audit entry and a concurrent close cannot double-close.
+ * written in ONE transaction, fronted by `assertCashSessionStillOpen`
+ * (in-tx TOCTOU re-check) so an over/short row never exists without its
+ * paired audit entry and a concurrent close cannot double-close.
  * - Close NEVER blocks on pending fiscal/payment state: pending counts are
- *   resolved read-only BEFORE the tx and ride two channels — the audit-log
- *   metadata (forensic snapshot) and one `pending_warning` journal effect
- *   per non-zero category. These are warning-only; the `cashSessions.pendingChecks`
- *   query is the UI's pre-close gate, but close itself trusts the cashier's
- *   intent.
+ * resolved read-only BEFORE the tx and ride two channels — the audit-log
+ * metadata (forensic snapshot) and one `pending_warning` journal effect
+ * per non-zero category. These are warning-only; the `cashSessions.pendingChecks`
+ * query is the UI's pre-close gate, but close itself trusts the cashier's
+ * intent.
  *
  * Preconditions: `ctx.user` authenticated (`CASH_SESSION_REQUIRED`),
  * `ctx.siteId` non-null (`CASH_SESSION_SITE_REQUIRED`), and an open session

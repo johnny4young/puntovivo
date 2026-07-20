@@ -2,10 +2,10 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { resolveRuntimeConfig } from '@puntovivo/server';
 
-// ENG-072 regression pin. The Authority Node ADR (ADR-0008) keeps
+// regression pin. The Authority Node ADR (ADR-0008) keeps
 // `device_local` as the default runtime mode and the embedded Electron
 // server bound to loopback so a fresh desktop install boots exactly
-// like every existing tenant's install before this ticket.
+// like every existing tenant's install before this change.
 //
 // `apps/desktop/src/main/index.ts::startEmbeddedServer` calls
 // `resolveRuntimeConfig({ env: process.env })` and pipes the result to
@@ -17,7 +17,7 @@ import { resolveRuntimeConfig } from '@puntovivo/server';
 // `node --test --experimental-strip-types`, so the import resolves
 // against the built `@puntovivo/server` package (`ci:desktop` always
 // builds the server first).
-describe('Authority Node default runtime (ENG-072)', () => {
+describe('Authority Node default runtime', () => {
   it('returns device_local + 127.0.0.1 + 8090 when no env vars are set', () => {
     const cfg = resolveRuntimeConfig({ env: {} });
     assert.equal(
@@ -41,7 +41,7 @@ describe('Authority Node default runtime (ENG-072)', () => {
     assert.deepEqual(
       cfg.allowedLanOrigins,
       [],
-      'allowedLanOrigins default must stay empty in device_local; LAN origins are an ENG-073 site_hub concern.'
+      'allowedLanOrigins default must stay empty in device_local; LAN origins are an  site_hub concern.'
     );
   });
 

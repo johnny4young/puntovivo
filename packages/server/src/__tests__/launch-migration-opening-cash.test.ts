@@ -1,4 +1,4 @@
-/** ENG-123e — Opening-cash register-template import. */
+/** Opening-cash register-template import. */
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -43,7 +43,7 @@ function row(rowNumber: number, values: Record<string, string>) {
   return { rowNumber, values };
 }
 
-describe('ENG-123e opening cash migration', () => {
+describe(' opening cash migration', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     db = getDatabase();

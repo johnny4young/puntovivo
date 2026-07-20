@@ -1,5 +1,5 @@
 /**
- * ENG-067 — Chaos: provider outage recovery.
+ * Chaos: provider outage recovery.
  *
  * The retail-store failure mode this guards against: the DIAN PT (or
  * any fiscal provider) returns 502 for several minutes. The current
@@ -14,14 +14,14 @@
  * ticks so the kernel picks the row up immediately. The assertions
  * pin:
  *
- *   1. After 3 recoverable failures, `attempts=3` and the doc is in
- *      `contingency`. Tick #4 succeeds — `attempts=3`,
- *      `status='accepted'`, doc.status='accepted'.
- *   2. Non-recoverable error sends the row straight to the
- *      dead_letter line and a subsequent tick is a no-op.
- *   3. With no outbox rows in scope, `tickOnce` returns
- *      `processed: false` immediately — the worker doesn't burn
- *      cycles.
+ * 1. After 3 recoverable failures, `attempts=3` and the doc is in
+ * `contingency`. Tick #4 succeeds — `attempts=3`,
+ * `status='accepted'`, doc.status='accepted'.
+ * 2. Non-recoverable error sends the row straight to the
+ * dead_letter line and a subsequent tick is a no-op.
+ * 3. With no outbox rows in scope, `tickOnce` returns
+ * `processed: false` immediately — the worker doesn't burn
+ * cycles.
  *
  * @module __tests__/chaos-provider-outage-recovery
  */
@@ -126,7 +126,9 @@ class StatefulStubAdapter implements FiscalAdapter {
  * Bypasses the full sale → orchestrator flow because the chaos
  * scenario only cares about the worker's retry-on-failure path.
  */
-async function seedFiscalRow(args: { tenantId: string }): Promise<{ docId: string; outboxId: string }> {
+async function seedFiscalRow(args: {
+  tenantId: string;
+}): Promise<{ docId: string; outboxId: string }> {
   const db = getDatabase();
   const docId = `chaos-doc-${nanoid()}`;
   const outboxId = `chaos-outbox-${nanoid()}`;
@@ -269,7 +271,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('chaos: provider outage recovery (ENG-067)', () => {
+describe('chaos: provider outage recovery', () => {
   it('drains a row that fails 3 times then succeeds — final state accepted', async () => {
     if (!server.fiscalWorker) throw new Error('fiscal worker missing on server');
     const stub = new StatefulStubAdapter({
@@ -288,10 +290,7 @@ describe('chaos: provider outage recovery (ENG-067)', () => {
       const result = await server.fiscalWorker.tickOnce(tenantId);
       expect(result.processed).toBe(true);
       // Clear backoff between attempts.
-      await db
-        .update(fiscalOutbox)
-        .set({ nextRetryAt: null })
-        .where(eq(fiscalOutbox.id, outboxId));
+      await db.update(fiscalOutbox).set({ nextRetryAt: null }).where(eq(fiscalOutbox.id, outboxId));
     }
 
     // Adapter saw 4 attempts (3 failures + 1 success).

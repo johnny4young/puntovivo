@@ -1,4 +1,4 @@
-/** ENG-123f — Server-authoritative fiscal issuer-profile import. */
+/** Server-authoritative fiscal issuer-profile import. */
 import { createHash } from 'node:crypto';
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';

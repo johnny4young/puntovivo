@@ -1,7 +1,7 @@
 /**
- * ENG-032 — Pattern 3 / Refunds fraudulentos detector.
+ * Pattern 3 / Refunds fraudulentos detector.
  *
- * ENG-178 — extracted verbatim from the former flat
+ * extracted verbatim from the former flat
  * `services/ai/anomalyDetection.ts` (SUB-DETECTORS section) during the
  * megafile decomposition.
  *

@@ -145,7 +145,7 @@ describe('receiptPrinter', () => {
     expect(html).toContain('&mdash;');
   });
 
-  // ENG-058 — fiscal proof block (CUFE / status / QR).
+  // fiscal proof block (CUFE / status / QR).
   it('omits the fiscal section for a non-fiscal sale', async () => {
     const html = await buildSaleReceiptHtml(sale);
     expect(html).not.toContain('class="receipt-fiscal"');
@@ -178,7 +178,7 @@ describe('receiptPrinter', () => {
     expect(html).toContain('data:image/'); // QR data URL
   });
 
-  // ENG-058 — Live-smoke regression: MockAdapter (and DIAN happy path)
+  // Live-smoke regression: MockAdapter (and DIAN happy path)
   // returns status='sent', not 'accepted'. The fiscal section must render
   // the real CUFE and QR for sent documents, not "(Pendiente)".
   it('renders the fiscal section with full CUFE and QR for a sent document', async () => {

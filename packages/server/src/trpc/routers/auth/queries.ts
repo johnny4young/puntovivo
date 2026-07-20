@@ -1,5 +1,5 @@
 /**
- * Auth router — read procedures (ENG-178 split).
+ * Auth router — read procedures ( split).
  *
  * `me` (protectedProcedure) — current user + tenant + schema version.
  *

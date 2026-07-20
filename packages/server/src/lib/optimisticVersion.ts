@@ -1,5 +1,5 @@
 /**
- * ENG-177a — optimistic-concurrency guard for user-edited catalogs.
+ * optimistic-concurrency guard for user-edited catalogs.
  *
  * Each versioned catalog row (`products`, `customers`, `providers`,
  * `categories`, `tenant_locale_settings`) carries a monotonically increasing
@@ -14,19 +14,19 @@
  * This is the *live-edit* layer guard (two browser tabs against the same
  * authoritative embedded DB) and is intentionally distinct from the
  * *sync-layer* auto-LWW reconciliation policy in
- * `docs/architecture/0004-conflict-policy.md` (ENG-064), which handles
+ * `docs/architecture/0004-conflict-policy.md` (), which handles
  * offline cross-device merges with an audit trail.
  *
  * Invariants:
  * - The matching UPDATE MUST pin `version = suppliedVersion` in its WHERE and
- *   set `version = suppliedVersion + 1`. A single better-sqlite3 UPDATE
- *   statement is atomic, so no surrounding read is required and there is no
- *   TOCTOU window — `changes === 0` unambiguously means the stored version
- *   diverged (or the row was concurrently deleted), both of which the
- *   operator resolves the same way: reload and retry.
+ * set `version = suppliedVersion + 1`. A single better-sqlite3 UPDATE
+ * statement is atomic, so no surrounding read is required and there is no
+ * TOCTOU window — `changes === 0` unambiguously means the stored version
+ * diverged (or the row was concurrently deleted), both of which the
+ * operator resolves the same way: reload and retry.
  * - Callers must already have established row existence + tenant scope
- *   (NOT_FOUND / `ensureTenant*`) before this guard runs, so a zero-change
- *   result is attributed to a stale version rather than a missing row.
+ * (NOT_FOUND / `ensureTenant*`) before this guard runs, so a zero-change
+ * result is attributed to a stale version rather than a missing row.
  */
 import { throwServerError } from './errorCodes.js';
 
@@ -35,8 +35,8 @@ import { throwServerError } from './errorCodes.js';
  * No-op when at least one row changed.
  *
  * @param entity   stable catalog identifier for the error `details` (e.g.
- *                 `'product'`, `'customer'`) so the renderer / logs can
- *                 attribute the conflict without leaking row data.
+ * `'product'`, `'customer'`) so the renderer / logs can
+ * attribute the conflict without leaking row data.
  * @param changes  the `changes` count returned by the better-sqlite3 UPDATE.
  * @param suppliedVersion the `version` the client round-tripped in the input.
  */

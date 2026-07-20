@@ -1,5 +1,5 @@
 /**
- * ENG-058 — Unit tests for `services/fiscal/qr-builder.ts`.
+ * Unit tests for `services/fiscal/qr-builder.ts`.
  *
  * Pure module tests. No DB / no Fastify / no fixtures beyond plain
  * objects.
@@ -148,7 +148,7 @@ describe('buildFiscalQrPayload — Mexico (SAT CFDI)', () => {
   });
 });
 
-describe('buildFiscalQrPayload — Chile (TODO ENG-036b)', () => {
+describe('buildFiscalQrPayload — Chile (TODO )', () => {
   it('returns null for CL until the SII pack ships TED', () => {
     const result = buildFiscalQrPayload(
       buildInput({ country: 'CL', tenant: { taxId: '76123456-7' } })

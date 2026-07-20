@@ -1,7 +1,7 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface TableErrorStateProps {
   title: string;
   message: string;
@@ -13,7 +13,7 @@ export function TableErrorState({
   title,
   message,
   onRetry,
-  // ENG-220 — resolved below rather than defaulted to English here.
+  // resolved below rather than defaulted to English here.
   retryLabel,
 }: TableErrorStateProps) {
   const { t } = useTranslation('common');

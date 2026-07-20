@@ -1,10 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '@/i18n';
-import {
-  getActiveTenantLocale,
-  setActiveTenantLocale,
-} from '@/lib/utils';
+import { getActiveTenantLocale, setActiveTenantLocale } from '@/lib/utils';
 import {
   LocaleSync,
   useResolvedLocale,
@@ -65,7 +62,7 @@ function LocaleProbe() {
   return <span>{resolved.locale}</span>;
 }
 
-describe('LocaleSync (ENG-171 store-backed locale)', () => {
+describe('LocaleSync ( store-backed locale)', () => {
   beforeEach(async () => {
     mockIsAuthenticated = false;
     mockTenant = null;

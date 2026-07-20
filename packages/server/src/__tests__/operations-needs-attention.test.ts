@@ -1,17 +1,17 @@
 /**
- * ENG-187 — `operations.needsAttention` tests.
+ * `operations.needsAttention` tests.
  *
  * Pins the contract for the Operations "Needs attention" landing:
  *
- *   - All clear → empty `areas`, `totalCount` 0, `highestSeverity` null.
- *   - Fiscal / hardware / payment outbox failures → that area as `danger`
- *     with the failing-row count.
- *   - Sync conflicts → `danger`; a large pending backlog with no
- *     conflicts → `warning`; conflicts outrank the backlog.
- *   - Multiple areas aggregate `totalCount` + `highestSeverity`.
- *   - Cross-tenant isolation: tenant A's outbox failures never surface
- *     for tenant B.
- *   - Cashier is rejected (manager/admin only).
+ * - All clear → empty `areas`, `totalCount` 0, `highestSeverity` null.
+ * - Fiscal / hardware / payment outbox failures → that area as `danger`
+ * with the failing-row count.
+ * - Sync conflicts → `danger`; a large pending backlog with no
+ * conflicts → `warning`; conflicts outrank the backlog.
+ * - Multiple areas aggregate `totalCount` + `highestSeverity`.
+ * - Cross-tenant isolation: tenant A's outbox failures never surface
+ * for tenant B.
+ * - Cashier is rejected (manager/admin only).
  *
  * @module __tests__/operations-needs-attention.test
  */
@@ -181,11 +181,7 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const admin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!admin) throw new Error('Expected seeded admin');
   tenantId = admin.tenantId;
   userId = admin.id;
@@ -224,7 +220,7 @@ beforeEach(async () => {
   await clearOutboxes();
 });
 
-describe('operations.needsAttention (ENG-187)', () => {
+describe('operations.needsAttention', () => {
   it('returns all-clear when no outbox failures exist', async () => {
     const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
     const result = await caller.operations.needsAttention();
@@ -325,9 +321,7 @@ describe('operations.needsAttention (ENG-187)', () => {
   });
 
   it('rejects a cashier (manager/admin only)', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx({ tenantId, userId, role: 'cashier' })
-    );
+    const caller = appRouter.createCaller(buildCtx({ tenantId, userId, role: 'cashier' }));
     await expect(caller.operations.needsAttention()).rejects.toThrow();
   });
 });

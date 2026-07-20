@@ -1,4 +1,4 @@
-// Shared input/option types for the table export service (ENG-178 slice 30).
+// Shared input/option types for the table export service ( slice 30).
 
 export interface ExportColumn<T = unknown> {
   /** Column key/accessor */
@@ -9,7 +9,7 @@ export interface ExportColumn<T = unknown> {
   formatter?: (value: unknown, row: T) => string;
 }
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export interface ExportOptions {
   /** Title for the export (used in PDF/Excel headers) */
   title?: string | undefined;
@@ -20,11 +20,11 @@ export interface ExportOptions {
 }
 
 /**
- * ENG-103 — Semantic filename builder. Resolves the canonical
+ * Semantic filename builder. Resolves the canonical
  * `<kind>-<context>-<date|id>.<ext>` pattern so every surface that
  * downloads an artifact picks a name the operator can recognise after
  * download. Anchors the convention before the settlement statement
- * downloads of ENG-124 land — when those arrive, they only have to
+ * downloads of  land — when those arrive, they only have to
  * import `'statement'` from this union without re-deciding the shape.
  *
  * The builder routes the final string through `generateFilename` so

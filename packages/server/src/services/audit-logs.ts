@@ -1,5 +1,5 @@
 /**
- * Audit Log Service (Phase 8 / Tier-2 #8).
+ * Audit Log Service ().
  *
  * Every call writes a single immutable row into `audit_logs`. The writer is
  * designed to be invoked from **inside the caller's transaction** so the
@@ -66,7 +66,7 @@ function parseAuditLogResourceType(value: string): AuditLogResourceType {
  * the row and the audited action share the same atomic boundary.
  *
  * Returns the inserted row id so callers can correlate downstream
- * effects (e.g. ENG-053 `operation_effects` rows of kind `audit_log`)
+ * effects (e.g.  `operation_effects` rows of kind `audit_log`)
  * against the audit row that was just written.
  */
 export function writeAuditLog(args: WriteAuditLogArgs): string {
@@ -90,7 +90,7 @@ export function writeAuditLog(args: WriteAuditLogArgs): string {
   return id;
 }
 
-// ENG-179b — explicit `| undefined` so the tRPC `auditLogs.list`
+// explicit `| undefined` so the tRPC `auditLogs.list`
 // router can forward Zod-optional filter fields without violating
 // `exactOptionalPropertyTypes`.
 export interface ListAuditLogsOptions {
@@ -103,7 +103,7 @@ export interface ListAuditLogsOptions {
   createdAfter?: string | undefined;
   /** ISO datetime; rows with `created_at <= createdBefore` are kept. */
   createdBefore?: string | undefined;
-  /** Curated ENG-129f sensitive-event category. */
+  /** Curated  sensitive-event category. */
   sensitiveCategory?: AuditReviewCategory | undefined;
 }
 

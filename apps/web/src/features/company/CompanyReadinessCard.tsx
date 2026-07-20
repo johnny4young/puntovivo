@@ -1,5 +1,5 @@
 /**
- * ENG-104 — Company readiness card.
+ * Company readiness card.
  *
  * Renders the aggregate readiness payload from
  * `setupReadiness.get`. Lives as the first tab of `/company` for
@@ -9,29 +9,29 @@
  * component.
  *
  * Visual model (rediseño §08 — readiness reconstruida como onboarding):
- *   - Blockers are hoisted to the top as `.pv-strip.danger` rows with a
- *     direct primary CTA ("Resolver <paso>"), instead of being buried in
- *     a flat list of equal steps.
- *   - A `.pv-ring` progress ring + "{ready} de {total} listos · {n}
- *     bloqueador(es)" tells the readiness story at a glance.
- *   - The remaining steps group by state into `.pv-check` lists:
- *     attention (`warning` → ic.opt + alert glyph), completed
- *     (`ready` → ic.done), and optional (`optional-pending` and
- *     `not-applicable` → ic.opt). The closing CTA is contextual:
- *     "Resolver bloqueador" while one remains, "Abrir tienda" once
- *     none do.
+ * - Blockers are hoisted to the top as `.pv-strip.danger` rows with a
+ * direct primary CTA ("Resolver <paso>"), instead of being buried in
+ * a flat list of equal steps.
+ * - A `.pv-ring` progress ring + "{ready} de {total} listos · {n}
+ * bloqueador(es)" tells the readiness story at a glance.
+ * - The remaining steps group by state into `.pv-check` lists:
+ * attention (`warning` → ic.opt + alert glyph), completed
+ * (`ready` → ic.done), and optional (`optional-pending` and
+ * `not-applicable` → ic.opt). The closing CTA is contextual:
+ * "Resolver bloqueador" while one remains, "Abrir tienda" once
+ * none do.
  *
  * Ring fill (`--p`) and tone flip both follow the score:
- *   - `< 50`  → danger
- *   - `50-79` → warning
- *   - `>= 80` → success
+ * - `< 50`  → danger
+ * - `50-79` → warning
+ * - `>= 80` → success
  *
  * Section icons (mapped onto the `.pv-check .ic` chip):
- *   - `ready` → Check (ic.done)
- *   - `blocker` → AlertTriangle (ic.block)
- *   - `optional-pending` → Clock (ic.opt)
- *   - `warning` → AlertTriangle (ic.opt)
- *   - `not-applicable` → Minus (ic.opt, muted)
+ * - `ready` → Check (ic.done)
+ * - `blocker` → AlertTriangle (ic.block)
+ * - `optional-pending` → Clock (ic.opt)
+ * - `warning` → AlertTriangle (ic.opt)
+ * - `not-applicable` → Minus (ic.opt, muted)
  *
  * @module features/company/CompanyReadinessCard
  */
@@ -47,12 +47,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 
-type SectionStatus =
-  | 'ready'
-  | 'blocker'
-  | 'optional-pending'
-  | 'warning'
-  | 'not-applicable';
+type SectionStatus = 'ready' | 'blocker' | 'optional-pending' | 'warning' | 'not-applicable';
 
 /**
  * Renders the round status chip used inside every `.pv-check` row. The
@@ -81,7 +76,7 @@ function StatusChip({ status, label }: { status: SectionStatus; label: string })
         </span>
       );
     case 'warning':
-      // ENG-184 — configured-but-degraded / opt-in reminder. Amber
+      // configured-but-degraded / opt-in reminder. Amber
       // attention glyph, distinct from the red blocker chip.
       return (
         <span className="ic opt">
@@ -153,11 +148,14 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
     // flip the tab via setSearchParams so React Query keeps the
     // readiness payload warm.
     if (cta.route === '/company' && cta.tab) {
-      setSearchParams(prev => {
-        const next = new URLSearchParams(prev);
-        next.set('tab', cta.tab!);
-        return next;
-      }, { replace: true });
+      setSearchParams(
+        prev => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', cta.tab!);
+          return next;
+        },
+        { replace: true }
+      );
       return;
     }
     // Cross-page navigation falls back to a hard anchor — react-router
@@ -184,7 +182,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
     const sections = readinessQuery.data?.sections ?? [];
     return {
       blockers: sections.filter(s => s.status === 'blocker'),
-      // ENG-184 — warnings are a soft "needs attention" group between the
+      // warnings are a soft "needs attention" group between the
       // danger blockers and the completed steps. Never block opening.
       attention: sections.filter(s => s.status === 'warning'),
       completed: sections.filter(s => s.status === 'ready'),
@@ -195,23 +193,14 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
   }, [readinessQuery.data]);
 
   if (readinessQuery.isLoading) {
-    return (
-      <PageLoadingState
-        title={t('readiness.title')}
-        description={t('readiness.loading')}
-      />
-    );
+    return <PageLoadingState title={t('readiness.title')} description={t('readiness.loading')} />;
   }
 
   if (readinessQuery.error) {
     return (
       <QueryErrorState
         title={t('readiness.title')}
-        message={translateServerError(
-          readinessQuery.error,
-          t,
-          t('errors:server.unknown')
-        )}
+        message={translateServerError(readinessQuery.error, t, t('errors:server.unknown'))}
         onRetry={() => {
           void readinessQuery.refetch();
         }}
@@ -236,7 +225,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
     const hintKey = `readiness.sections.${section.id}.hint`;
     const statusLabelKey = `readiness.status.${section.status}`;
     const isOptionalPending = section.status === 'optional-pending';
-    // ENG-184 — optional-pending + warning render as soft (outline) CTAs.
+    // optional-pending + warning render as soft (outline) CTAs.
     const isSoft = isOptionalPending || section.status === 'warning';
     return (
       <div
@@ -258,9 +247,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
             onClick={() => handleSectionCta(section.cta!)}
             data-testid={`company-readiness-cta-${section.id}`}
           >
-            {isOptionalPending
-              ? t('readiness.cta.configure')
-              : t('readiness.cta.review')}
+            {isOptionalPending ? t('readiness.cta.configure') : t('readiness.cta.review')}
           </button>
         )}
       </div>
@@ -273,9 +260,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
         <div className="max-w-[46ch]">
           <p className="pv-kicker">{t('readiness.kicker')}</p>
           <h2 className="pv-title text-xl">{t('readiness.heading')}</h2>
-          <p className="text-sm text-secondary-600 mt-2">
-            {t('readiness.description')}
-          </p>
+          <p className="text-sm text-secondary-600 mt-2">{t('readiness.description')}</p>
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <div className="flex flex-col items-end gap-1 text-right">

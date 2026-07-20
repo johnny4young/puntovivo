@@ -1,11 +1,10 @@
 /**
- * ENG-131 (slice A) — Canonical workspace catalogue for the sidebar.
+ * Canonical workspace catalogue for the sidebar.
  *
  * The sidebar previously rendered four flat sections (`overview`,
  * `flow`, `surfaces`, `setup`) carrying 32 individual route entries.
  * Admin saw all of them collapsed into one wall of links — the
- * UI-REFRACTOR-V3 live audit (May 20) called that out as the
- * primary density problem in the app.
+ * the former flat navigation made the app unnecessarily dense.
  *
  * This module is the source of truth for the new model: eight
  * role-shaped workspaces (Sell, Operate, Catalog, Inventory,
@@ -15,8 +14,7 @@
  * sidebar component reads this list to render workspace groups +
  * their child NavigationItems.
  *
- * ENG-131e closes the navigation model by folding Dashboard into
- * Operate. Operate inherits the dashboard role set so viewer keeps
+ * Dashboard is folded into Operate. Operate inherits the dashboard role set so viewer keeps
  * its only eligible destination, while the Operations child remains
  * manager/admin-only. Existing leaf URLs remain canonical on purpose:
  * redirecting `/products`, `/orders`, etc. would add churn without a
@@ -111,8 +109,8 @@ export interface Workspace {
 }
 
 /**
- * Eight workspaces from UI-REFRACTOR-V3 §3. The mapping reproduces
- * every route the old four-section sidebar declared.
+ * Eight role-shaped workspaces. The mapping preserves every route from
+ * the former four-section sidebar.
  */
 export const WORKSPACES: readonly Workspace[] = [
   {
@@ -171,7 +169,7 @@ export const WORKSPACES: readonly Workspace[] = [
     id: 'operate',
     labelKey: 'operate.label',
     icon: Activity,
-    // ENG-131e — viewer previously reached Dashboard through a separate
+    // viewer previously reached Dashboard through a separate
     // top-level link. Operate now owns that route, so its workspace gate
     // must match the Dashboard route while the Operations child keeps the
     // narrower manager/admin gate below.
@@ -210,7 +208,7 @@ export const WORKSPACES: readonly Workspace[] = [
     labelKey: 'catalog.label',
     icon: Package,
     allowedRoles: managerOrAdminRoles,
-    // ENG-131c — workspace landing route. Header click navigates here;
+    // workspace landing route. Header click navigates here;
     // deep links to leaf routes (/products, /categories, …) keep
     // working unchanged.
     defaultRoute: '/catalog',
@@ -276,7 +274,7 @@ export const WORKSPACES: readonly Workspace[] = [
     labelKey: 'procurement.label',
     icon: ShoppingBasket,
     allowedRoles: managerOrAdminRoles,
-    // ENG-131c — workspace landing route. Header click navigates here.
+    // workspace landing route. Header click navigates here.
     defaultRoute: '/procurement',
     items: [
       {
@@ -327,7 +325,7 @@ export const WORKSPACES: readonly Workspace[] = [
     labelKey: 'finance.label',
     icon: HandCoins,
     allowedRoles: adminOnlyRoles,
-    // ENG-131c — workspace landing route. Header click navigates here.
+    // workspace landing route. Header click navigates here.
     defaultRoute: '/finance',
     items: [
       {

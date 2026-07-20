@@ -1,4 +1,4 @@
-/** ENG-209 — per-tenant, per-user opt-in for the private cashier pace HUD. */
+/** per-tenant, per-user opt-in for the private cashier pace HUD. */
 const STORAGE_PREFIX = 'puntovivo:cashier-pace-enabled:';
 const CHANGE_EVENT = 'puntovivo:cashier-pace-preference-change';
 const volatilePreferences = new Map<string, boolean>();

@@ -110,7 +110,7 @@ function insertClosedShift(args: {
   return shiftId;
 }
 
-describe('employee attendance and breaks (ENG-140b)', () => {
+describe('employee attendance and breaks', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     db = getDatabase();

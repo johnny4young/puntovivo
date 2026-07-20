@@ -1,26 +1,26 @@
 /**
- * ENG-064 / ENG-064b — `enqueueSync` helper.
+ * /  — `enqueueSync` helper.
  *
  * Single entry point for every router that needs to enqueue an
  * entity change for downstream replication. Replaced the inline
- * `db.insert(...).values({ ... })` blocks that ENG-064b cut over
+ * `db.insert(...).values({ ... })` blocks that  cut over
  * across 19 routers + 4 application services + the dev seed with
  * a typed call that:
  *
- *   1. Resolves the per-entity `conflictPolicy` from the manifest
- *      (`services/sync/contract.ts`). Throws when the entityType is
- *      unknown — TypeScript exhaustiveness usually catches this at
- *      build time; the runtime guard is defense-in-depth.
- *   2. Reads the command envelope from the procedure context when
- *      present (`ctx.envelope` injected by ENG-052's middleware).
- *      Populates `idempotencyKey + deviceId + operationEventId` so
- *      retries can dedup at the queue layer.
- *   3. Writes one `sync_outbox` row + emits an `operation_effects`
- *      row (kind=`outbox_enqueue:sync`) for the journal trail when
- *      the operation event is in scope. Catalog writes that run
- *      outside the envelope middleware leave the trail null, in
- *      line with ADR-0002's "envelope only on critical commands"
- *      rule.
+ * 1. Resolves the per-entity `conflictPolicy` from the manifest
+ * (`services/sync/contract.ts`). Throws when the entityType is
+ * unknown — TypeScript exhaustiveness usually catches this at
+ * build time; the runtime guard is defense-in-depth.
+ * 2. Reads the command envelope from the procedure context when
+ * present (`ctx.envelope` injected by 's middleware).
+ * Populates `idempotencyKey + deviceId + operationEventId` so
+ * retries can dedup at the queue layer.
+ * 3. Writes one `sync_outbox` row + emits an `operation_effects`
+ * row (kind=`outbox_enqueue:sync`) for the journal trail when
+ * the operation event is in scope. Catalog writes that run
+ * outside the envelope middleware leave the trail null, in
+ * line with ADR-0002's "envelope only on critical commands"
+ * rule.
  *
  * The duplicate-suppression UNIQUE index on
  * `(tenant_id, entity_type, entity_id, operation, idempotency_key)`
@@ -34,23 +34,15 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import {
-  operationEvents,
-  syncOutbox,
-  type SyncOperation,
-} from '../../db/schema.js';
+import { operationEvents, syncOutbox, type SyncOperation } from '../../db/schema.js';
 import { recordEffect } from '../operation-journal/journal.js';
-import {
-  resolveConflictPolicy,
-  resolveDefaultPriority,
-  type SyncEntityType,
-} from './contract.js';
+import { resolveConflictPolicy, resolveDefaultPriority, type SyncEntityType } from './contract.js';
 
 /**
  * Shape of the procedure context the helper expects. Stays
  * structural so any tRPC ctx (or a unit-test fake) can pass.
  * `envelope` and `deviceId` are populated by the
- * `commandEnvelope` middleware (ENG-052) when the procedure runs
+ * `commandEnvelope` middleware () when the procedure runs
  * inside `criticalCommandProcedure`; otherwise they're undefined
  * (or `null` when the application services explicitly model
  * "envelope absent" as null instead of undefined).
@@ -126,9 +118,8 @@ function writeSyncRow(
   operationEventId: string | null
 ): EnqueueSyncResult {
   const conflictPolicy = resolveConflictPolicy(args.entityType);
-  const priority = typeof args.priority === 'number'
-    ? args.priority
-    : resolveDefaultPriority(args.entityType);
+  const priority =
+    typeof args.priority === 'number' ? args.priority : resolveDefaultPriority(args.entityType);
   const idempotencyKey = ctx.envelope?.idempotencyKey ?? null;
   const deviceId = ctx.deviceId ?? null;
   const id = nanoid();

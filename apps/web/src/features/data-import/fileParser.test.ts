@@ -7,7 +7,7 @@ import {
   parseImportFile,
 } from './fileParser';
 
-describe('ENG-123a import file parser', () => {
+describe(' import file parser', () => {
   it('parses BOM, semicolon CSV, escaped quotes, CRLF, and skips empty rows', () => {
     const parsed = parseCsvText(
       '\uFEFFNombre;SKU;Precio\r\n"Café ""Origen""";CAF-1;12,50\r\n;;\r\nPan;PAN-1;4,20\r\n',

@@ -1,12 +1,12 @@
 /**
- * ENG-132a — ProductsPage column-trim + row-detail integration.
+ * ProductsPage column-trim + row-detail integration.
  *
  * Renders the page with the REAL DataTable + ProductDetailsDrawer (only
  * the heavy form / confirm modals are stubbed) to prove:
- *   - the default table renders the smallest useful column set — provider,
- *     location, tier-2 and tier-3 headers are gone;
- *   - the Details (eye) action opens the row-detail Drawer, which surfaces
- *     exactly those trimmed fields.
+ * - the default table renders the smallest useful column set — provider,
+ * location, tier-2 and tier-3 headers are gone;
+ * - the Details (eye) action opens the row-detail Drawer, which surfaces
+ * exactly those trimmed fields.
  *
  * @module features/products/ProductsPage.details.test
  */
@@ -82,7 +82,7 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: () => ({ mutateAsync: vi.fn(), reset: vi.fn(), isPending: false }),
       },
     },
-    // ENG-195 - the margin column query; null data keeps the column hidden.
+    // - the margin column query; null data keeps the column hidden.
     reports: {
       profit: { margin: { useQuery: () => ({ data: null, isLoading: false }) } },
     },
@@ -96,7 +96,7 @@ vi.mock('@/lib/trpc', () => ({
 
 import { ProductsPage } from './ProductsPage';
 
-describe('ProductsPage default column set (ENG-132a)', () => {
+describe('ProductsPage default column set', () => {
   beforeEach(() => {
     useAuthMock.mockReset();
     useIsModuleActiveMock.mockReset();

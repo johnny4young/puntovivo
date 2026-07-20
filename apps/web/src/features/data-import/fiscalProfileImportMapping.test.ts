@@ -8,7 +8,7 @@ import {
   mapFiscalProfileImportRows,
 } from './fiscalProfileImportMapping';
 
-describe('ENG-123f fiscal profile import mapping', () => {
+describe(' fiscal profile import mapping', () => {
   it('maps accent-insensitive CO headers and keeps only selected columns', () => {
     const headers = [
       'Código de país',

@@ -1,4 +1,4 @@
-/** ENG-123b — Customer/provider column mapping and payload helpers. */
+/** Customer/provider column mapping and payload helpers. */
 import type { ParsedImportFile } from './fileParser';
 import { normalizeImportHeader } from './mappingUtils';
 

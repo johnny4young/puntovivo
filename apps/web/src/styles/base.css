@@ -46,7 +46,7 @@
     letter-spacing: -0.03em;
   }
 
-  /* Rediseño FASE 0/1 — anillo de foco global accesible (WCAG 2.1 AA,
+  /* anillo de foco global accesible (WCAG 2.1 AA,
    * objetivo táctil + navegación por teclado). Se aplica a TODO control
    * enfocable (botones, enlaces, inputs, filas clicables, tabs, switches).
    * Usamos `outline` en vez de `box-shadow` porque los botones del sistema

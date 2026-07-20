@@ -1,5 +1,5 @@
 /**
- * ENG-061 — Pure barcode parser unit tests.
+ * Pure barcode parser unit tests.
  *
  * Locks the EAN-13/EAN-8/UPC-A checksum behavior, GS1 prefix-2
  * weight/price decoding, and the discriminated-union shape the
@@ -86,9 +86,7 @@ describe('parseGs1WeightOrPrice', () => {
   });
 
   it('returns null when scheme is none', () => {
-    expect(
-      parseGs1WeightOrPrice({ code: '2012345012349', scheme: 'none' })
-    ).toBeNull();
+    expect(parseGs1WeightOrPrice({ code: '2012345012349', scheme: 'none' })).toBeNull();
   });
 
   it('decodes under per-country schemes (currently piggyback on generic)', () => {

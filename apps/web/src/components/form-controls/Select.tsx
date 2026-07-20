@@ -46,7 +46,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
       options,
       value,
       onChange,
-      // ENG-220 — resolved below rather than defaulted to English here.
+      // resolved below rather than defaulted to English here.
       placeholder,
       label,
       error,
@@ -199,7 +199,11 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
             aria-expanded={isOpen}
           >
             <span
-              className={cn('min-w-0 flex-1 truncate', !selectedOption && 'text-secondary-400', triggerLabelClassName)}
+              className={cn(
+                'min-w-0 flex-1 truncate',
+                !selectedOption && 'text-secondary-400',
+                triggerLabelClassName
+              )}
               title={selectedOption?.label ?? resolvedPlaceholder}
             >
               {selectedOption?.label || resolvedPlaceholder}
@@ -246,7 +250,11 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
                 </div>
               )}
 
-              <ul ref={listRef} role="listbox" className="scrollbar-thin max-h-64 overflow-auto py-1.5">
+              <ul
+                ref={listRef}
+                role="listbox"
+                className="scrollbar-thin max-h-64 overflow-auto py-1.5"
+              >
                 {filteredOptions.length === 0 ? (
                   <li className="px-3 py-4 text-center text-sm text-secondary-500">
                     No options found
@@ -261,7 +269,9 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
                       className={cn(
                         'flex cursor-pointer items-center justify-between rounded-2xl px-3 py-2.5 text-sm transition-colors',
                         option.value === value && 'bg-primary-50 text-primary-700',
-                        option.value !== value && index === highlightedIndex && 'bg-secondary-100/90',
+                        option.value !== value &&
+                          index === highlightedIndex &&
+                          'bg-secondary-100/90',
                         option.value !== value &&
                           index !== highlightedIndex &&
                           'hover:bg-secondary-100/70',

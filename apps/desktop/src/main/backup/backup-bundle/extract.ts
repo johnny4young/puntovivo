@@ -1,5 +1,5 @@
-// ENG-066 / ENG-169 — extract a backup ZIP (or pass a legacy raw .db through)
-// with the restore-boundary entry allowlist (ENG-178 slice 31).
+// /  — extract a backup ZIP (or pass a legacy raw .db through)
+// with the restore-boundary entry allowlist ( slice 31).
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
@@ -20,10 +20,10 @@ import type { BackupManifest, ExtractBackupBundleResult } from './types.ts';
  * before swapping into the live location.
  *
  * Throws on:
- *   - Unknown file format (not ZIP, not SQLite header).
- *   - ZIP missing the required `local.db` entry.
- *   - Manifest entry that doesn't parse as JSON (warning-level —
- *     manifest is informational; we still return the dbPath).
+ * - Unknown file format (not ZIP, not SQLite header).
+ * - ZIP missing the required `local.db` entry.
+ * - Manifest entry that doesn't parse as JSON (warning-level —
+ * manifest is informational; we still return the dbPath).
  */
 export async function extractBackupBundle(
   bundlePath: string,
@@ -47,7 +47,7 @@ export async function extractBackupBundle(
   const zipBuffer = await readFile(bundlePath);
   const zip = await JSZip.loadAsync(zipBuffer);
 
-  // ENG-169 — gate the whole archive against an allowlist BEFORE writing
+  // gate the whole archive against an allowlist BEFORE writing
   // anything to disk. We only ever extract the three constant-named
   // entries by name (so a `../evil` entry was already never written),
   // but refusing the bundle outright turns a silent ignore into an

@@ -1,5 +1,5 @@
 /**
- * ENG-098 — `useRealtimeChannel` unit tests.
+ * `useRealtimeChannel` unit tests.
  *
  * Covered:
  * - Constructs an EventSource against the resolved API base URL.
@@ -18,7 +18,7 @@ type Listener = (ev: MessageEvent) => void;
 class FakeEventSource {
   static instances: FakeEventSource[] = [];
   url: string;
-  // ENG-179b — explicit `| undefined` on optional fields.
+  // explicit `| undefined` on optional fields.
   init?: EventSourceInit | undefined;
   readyState = 0;
   listeners = new Map<string, Listener[]>();

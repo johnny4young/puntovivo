@@ -116,7 +116,7 @@ Cash sessions:
 ## Free / Pro licensing
 
 There is **no Free / Pro licence tier in the Puntovivo codebase today**.
-The roadmap does not mention any
+The product does not define any
 per-tenant feature flag or billing tier. The suite therefore does NOT
 model Free vs Pro scenarios — doing so without a real implementation
 would be speculative testing.
@@ -129,7 +129,7 @@ per tier.
 ## CI
 
 `.github/workflows/ci.yml` runs four jobs: `web`, `backend`, `desktop`
-(matrix: ubuntu / macos / windows), and **`e2e-web`** (added in ENG-001
+(matrix: ubuntu / macos / windows), and **`e2e-web`** (added in
 Step 3). The `e2e-web` job runs on `ubuntu-latest`:
 
 - Caches the Playwright browser binary in `.playwright-browsers/` keyed

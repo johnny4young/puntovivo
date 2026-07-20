@@ -22,7 +22,7 @@ export type ReceiptBlockKind =
   | 'separator'
   | 'barcode128'
   | 'appFooter'
-  // ENG-086 — Puntovivo brand wordmark and 2-column meta band.
+  // Puntovivo brand wordmark and 2-column meta band.
   | 'wordmark'
   | 'metaTable';
 
@@ -31,9 +31,13 @@ export interface EditorMetaTableRow {
   value: string;
 }
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export type EditorReceiptBlock =
-  | { type: 'logo'; align?: 'left' | 'center' | 'right' | undefined; maxHeightMm?: number | undefined }
+  | {
+      type: 'logo';
+      align?: 'left' | 'center' | 'right' | undefined;
+      maxHeightMm?: number | undefined;
+    }
   | {
       type: 'text';
       value: string;
@@ -48,27 +52,28 @@ export type EditorReceiptBlock =
     }
   | {
       type: 'totalsBlock';
-      show: Array<
-        | 'subtotal'
-        | 'discount'
-        | 'taxTotal'
-        | 'tip'
-        | 'serviceCharge'
-        | 'grandTotal'
-      >;
+      show: Array<'subtotal' | 'discount' | 'taxTotal' | 'tip' | 'serviceCharge' | 'grandTotal'>;
     }
   | { type: 'tendersTable'; showChange?: boolean | undefined }
   | { type: 'qr'; source: string; sizeMm?: number | undefined }
   | { type: 'separator'; char?: string | undefined }
   | { type: 'barcode128'; source: string; heightMm?: number | undefined }
-  // ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
+  // pass 1 (item #5) — Puntovivo-branded footer block.
   // `show` defaults to `true`; setting it `false` keeps the block
   // in the layout but hides its rendered output (soft toggle).
-  | { type: 'appFooter'; show?: boolean | undefined; align?: 'left' | 'center' | 'right' | undefined }
-  // ENG-086 — Brand wordmark. No editable content; `show: false`
+  | {
+      type: 'appFooter';
+      show?: boolean | undefined;
+      align?: 'left' | 'center' | 'right' | undefined;
+    }
+  // Brand wordmark. No editable content; `show: false`
   // collapses the block without removing it from the layout.
-  | { type: 'wordmark'; show?: boolean | undefined; align?: 'left' | 'center' | 'right' | undefined }
-  // ENG-086 — Compact key/value band. Each row's `key` and `value`
+  | {
+      type: 'wordmark';
+      show?: boolean | undefined;
+      align?: 'left' | 'center' | 'right' | undefined;
+    }
+  // Compact key/value band. Each row's `key` and `value`
   // accept the same `{{...}}` whitelist as `text.value`.
   | { type: 'metaTable'; rows: EditorMetaTableRow[] };
 
@@ -91,8 +96,8 @@ export function buildDefaultLayouts(
   t: Translate
 ): Record<ReceiptTemplateKind, EditorReceiptLayout> {
   return {
-    // ENG-086 — sale + fiscal_dee defaults match
-    // `preview/25-print-thermal.html` from the 2026-05-15 handoff:
+    // sale + fiscal_dee defaults match
+    // `preview/25-print-thermal.html` from the print specification:
     // wordmark header band, compact metaTable for Factura / Fecha /
     // Caja, then the standard items + totals + tenders strip. Existing
     // tenant templates are untouched — the new structure only applies
@@ -132,7 +137,7 @@ export function buildDefaultLayouts(
         { type: 'tendersTable', showChange: true },
         { type: 'separator' },
         { type: 'text', value: t('editor.defaults.thankYou'), align: 'center', style: 'muted' },
-        // ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
+        // pass 1 (item #5) — Puntovivo-branded footer block.
         // Admins can toggle `show: false` to hide without deleting.
         { type: 'appFooter', show: true, align: 'center' },
       ],
@@ -143,10 +148,7 @@ export function buildDefaultLayouts(
         { type: 'text', value: '{{company.name}}', style: 'title', align: 'center' },
         {
           type: 'text',
-          value: interpolateLabel(
-            t('editor.defaults.quotationNumberLabel'),
-            '{{sale.saleNumber}}'
-          ),
+          value: interpolateLabel(t('editor.defaults.quotationNumberLabel'), '{{sale.saleNumber}}'),
           style: 'subtitle',
           align: 'center',
         },
@@ -198,17 +200,11 @@ export function buildDefaultLayouts(
   };
 }
 
-export function getDefaultLayout(
-  kind: ReceiptTemplateKind,
-  t: Translate
-): EditorReceiptLayout {
+export function getDefaultLayout(kind: ReceiptTemplateKind, t: Translate): EditorReceiptLayout {
   return cloneLayout(buildDefaultLayouts(t)[kind]);
 }
 
-export function createEmptyBlock(
-  kind: ReceiptBlockKind,
-  t: Translate
-): EditorReceiptBlock {
+export function createEmptyBlock(kind: ReceiptBlockKind, t: Translate): EditorReceiptBlock {
   switch (kind) {
     case 'logo':
       return { type: 'logo', align: 'center', maxHeightMm: 18 };
@@ -227,15 +223,15 @@ export function createEmptyBlock(
     case 'barcode128':
       return { type: 'barcode128', source: '{{sale.saleNumber}}', heightMm: 12 };
     case 'appFooter':
-      // ENG-016 pass 1 (item #5) — new block defaults to visible +
+      // pass 1 (item #5) — new block defaults to visible +
       // centered; admins can toggle the `show` field from the form.
       return { type: 'appFooter', show: true, align: 'center' };
     case 'wordmark':
-      // ENG-086 — wordmark defaults to visible + centered. There is no
+      // wordmark defaults to visible + centered. There is no
       // editable copy because the wordmark is brand identity.
       return { type: 'wordmark', show: true, align: 'center' };
     case 'metaTable':
-      // ENG-086 — start with a single row so the operator sees the
+      // start with a single row so the operator sees the
       // shape immediately; they can add up to 11 more before the Zod
       // 12-row cap kicks in.
       return {

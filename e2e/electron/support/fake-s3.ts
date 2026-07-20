@@ -16,7 +16,7 @@ export interface FakeS3Provider {
   close(): Promise<void>;
 }
 
-/** ENG-136c — deterministic local S3-compatible PUT target for Electron E2E. */
+/** deterministic local S3-compatible PUT target for Electron E2E. */
 export async function startFakeS3Provider(): Promise<FakeS3Provider> {
   const uploads: FakeS3Upload[] = [];
   const server = createServer((request, response) => {

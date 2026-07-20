@@ -1,7 +1,7 @@
 /**
- * ENG-053 — `outbox_metadata` helpers.
+ * `outbox_metadata` helpers.
  *
- * The metadata table is the cross-outbox health surface ENG-065
+ * The metadata table is the cross-outbox health surface
  * (Operations Center) reads to render its panels. Every concrete
  * outbox refreshes its row periodically: the worker calls
  * `recordSuccess` after a completed row and `recordFailure` on
@@ -83,7 +83,7 @@ export async function recordFailure(
  *
  * Why not query the table here: the kernel doesn't know the SHAPE
  * of the concrete outbox table (only the base columns). The caller
- * — which DOES know its table — runs the aggregate and feeds the
+ * which DOES know its table — runs the aggregate and feeds the
  * results in.
  */
 export async function refreshPendingCount(
@@ -126,16 +126,12 @@ export async function readMetadata(
 
 /**
  * Read every metadata row for a tenant in one shot. Used by the
- * Operations Center landing page (ENG-065) so the panel grid is
+ * Operations Center landing page () so the panel grid is
  * served by a single query.
  */
 export async function listMetadata(
   db: DatabaseInstance,
   args: { tenantId: string }
 ): Promise<(typeof outboxMetadata.$inferSelect)[]> {
-  return db
-    .select()
-    .from(outboxMetadata)
-    .where(eq(outboxMetadata.tenantId, args.tenantId))
-    .all();
+  return db.select().from(outboxMetadata).where(eq(outboxMetadata.tenantId, args.tenantId)).all();
 }

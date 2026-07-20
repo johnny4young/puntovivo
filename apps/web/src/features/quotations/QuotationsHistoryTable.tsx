@@ -12,10 +12,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
-import type {
-  QuotationListEntry,
-  QuotationTransitionStatus,
-} from '@/types';
+import type { QuotationListEntry, QuotationTransitionStatus } from '@/types';
 import {
   QUOTATION_STATUS_BADGE_CLASSES,
   canDeleteQuotation,
@@ -36,7 +33,7 @@ const TRANSITION_BUTTON_CLASSES: Record<QuotationTransitionStatus, string> = {
 };
 
 /**
- * Phase 5 / Tier-2 #6 step 1 — quotation list with status transitions and a
+ * quotation list with status transitions and a
  * draft-only delete action.
  *
  * Status transitions and deletes both invalidate the list + the active
@@ -50,15 +47,10 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
 
   const listQuery = trpc.quotations.list.useQuery(undefined, { staleTime: 30_000 });
 
-  const [confirmingDelete, setConfirmingDelete] = useState<QuotationListEntry | null>(
-    null
-  );
+  const [confirmingDelete, setConfirmingDelete] = useState<QuotationListEntry | null>(null);
 
   async function invalidateAfterMutation(): Promise<void> {
-    await Promise.all([
-      utils.quotations.list.invalidate(),
-      utils.quotations.getById.invalidate(),
-    ]);
+    await Promise.all([utils.quotations.list.invalidate(), utils.quotations.getById.invalidate()]);
   }
 
   const statusMutation = trpc.quotations.updateStatus.useMutation({
@@ -125,7 +117,7 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
             <span className="text-secondary-500">{t('history.customerNone')}</span>
           ),
       },
-      // ENG-132d — site / items / valid-until / created-at trimmed from the
+      // site / items / valid-until / created-at trimmed from the
       // default table; the detail stays reachable via the View modal.
       {
         accessorKey: 'total',
@@ -202,17 +194,13 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
       <div className="card p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-secondary-900">
-              {t('history.title')}
-            </h2>
+            <h2 className="text-lg font-semibold text-secondary-900">{t('history.title')}</h2>
             <p className="text-sm text-secondary-500">{t('history.description')}</p>
           </div>
         </div>
 
         <div className="mt-4">
-          {listQuery.isLoading && (
-            <TableLoadingState message={t('history.loading')} rowCount={4} />
-          )}
+          {listQuery.isLoading && <TableLoadingState message={t('history.loading')} rowCount={4} />}
           {listQuery.error && (
             <TableErrorState
               title={t('history.error')}
@@ -241,7 +229,7 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
                 searchKey="customerName"
                 searchPlaceholder={t('history.search')}
                 pageSize={10}
-                // ENG-134f — Enter / Space on the focused row opens the
+                // Enter / Space on the focused row opens the
                 // quotation details, mirroring the row's primary View button.
                 onRowActivate={row => onOpenDetails(row.id)}
               />

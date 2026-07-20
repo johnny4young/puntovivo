@@ -46,7 +46,7 @@ export function formatSseMessage(event: SseEvent): string {
 }
 
 /**
- * Generate a unique client ID using crypto-strong entropy (ENG-166).
+ * Generate a unique client ID using crypto-strong entropy ().
  *
  * Replaces the legacy `Date.now()` + `Math.random()` recipe — both
  * components were predictable enough for an attacker who could guess a

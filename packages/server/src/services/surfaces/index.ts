@@ -1,5 +1,5 @@
 /**
- * ENG-069 — Public surface for the multi-surface POS shell kernel.
+ * Public surface for the multi-surface POS shell kernel.
  *
  * @module services/surfaces
  */

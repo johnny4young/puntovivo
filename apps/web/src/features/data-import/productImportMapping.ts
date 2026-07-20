@@ -1,4 +1,4 @@
-/** ENG-123a — Product import column mapping and server-payload helpers. */
+/** Product import column mapping and server-payload helpers. */
 import type { ParsedImportFile } from './fileParser';
 import { normalizeImportHeader } from './mappingUtils';
 

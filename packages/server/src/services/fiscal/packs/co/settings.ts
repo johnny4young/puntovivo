@@ -1,5 +1,5 @@
 /**
- * ENG-184 — Read/write of the Colombia fiscal config over the
+ * Read/write of the Colombia fiscal config over the
  * `tenants.settings` JSON blob, plus a presence-only readiness probe.
  *
  * Namespace nuance (deliberate, non-obvious): Colombia is the LEGACY
@@ -7,24 +7,21 @@
  * top-level `tenants.settings.fiscal_dian_enabled` (read by the fiscal
  * orchestrator's emission gate AND by `setupReadiness`). The MX/CL
  * packs instead nest `enabled` under `fiscal.<country>.enabled`.
- * ENG-184 does NOT migrate CO to that nested flag (the rename is
- * ENG-035c's job) — it keeps writing the legacy top-level flag so the
+ * does NOT migrate CO to that nested flag (the rename is
+ * 's job) — it keeps writing the legacy top-level flag so the
  * config card and the emission path never disagree. The CO-specific
  * issuer fields live under `tenants.settings.fiscal.co.*`, mirroring
  * where MX/CL keep theirs.
  *
  * Real DIAN transmission, certificate and CUFE crypto validation stay
- * mock / gated behind ENG-021 — `validateCoFiscalConfig` here is a
+ * mock / gated behind  — `validateCoFiscalConfig` here is a
  * PRESENCE probe only (are NIT / resolution / numbering range filled?),
  * never a cryptographic check.
  *
  * @module services/fiscal/packs/co/settings
  */
 
-import type {
-  FiscalAdapterValidationIssue,
-  FiscalAdapterValidationResult,
-} from '../../adapter.js';
+import type { FiscalAdapterValidationIssue, FiscalAdapterValidationResult } from '../../adapter.js';
 
 /**
  * Resolved Colombia fiscal config. `enabled` mirrors the legacy
@@ -49,7 +46,7 @@ export interface CoFiscalSettings {
   /**
    * DIAN environment. `habilitacion` = the DIAN test/enablement set
    * (CUFE environment `2`); `produccion` = live (CUFE environment `1`).
-   * ENG-021 maps this to the provider's naming at transmission time.
+   * maps this to the provider's naming at transmission time.
    */
   environment: 'habilitacion' | 'produccion';
 }
@@ -73,9 +70,7 @@ function readString(value: unknown): string | null {
 }
 
 function readPositiveInt(value: unknown): number | null {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0
-    ? value
-    : null;
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
 }
 
 /**
@@ -156,13 +151,11 @@ export function mergeCoFiscalSettingsIntoTenantSettings(
  * which mandatory issuer fields are still missing so the config card
  * can paint an honest badge. This is NOT a cryptographic / transmission
  * check — certificate, CUFE signing and provider connectivity land with
- * ENG-021. `ok` is true once NIT + resolution + a valid numbering range
+ * . `ok` is true once NIT + resolution + a valid numbering range
  * are captured (independent of the `enabled` toggle: the merchant can
  * complete the config before flipping DIAN on).
  */
-export function validateCoFiscalConfig(
-  settings: CoFiscalSettings
-): FiscalAdapterValidationResult {
+export function validateCoFiscalConfig(settings: CoFiscalSettings): FiscalAdapterValidationResult {
   const issues: FiscalAdapterValidationIssue[] = [];
 
   if (!settings.nit) {

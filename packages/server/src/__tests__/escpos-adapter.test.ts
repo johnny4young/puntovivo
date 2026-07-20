@@ -1,5 +1,5 @@
 /**
- * ENG-062 — EscPosReceiptPrinterAdapter + EscPosCashDrawerAdapter tests.
+ * EscPosReceiptPrinterAdapter + EscPosCashDrawerAdapter tests.
  *
  * Drives the adapters through the in-memory `MockEscPosTransport`
  * via the `__setEscPosTransportForTest` seam so we can assert the

@@ -11,7 +11,7 @@ const defaultRuntime = {
   hubUrl: null,
 };
 
-describe('renderer security headers (ENG-166)', () => {
+describe('renderer security headers', () => {
   it('allows the default loopback API and Vite websocket origins', () => {
     const csp = buildRendererContentSecurityPolicy({
       isPackagedBuild: false,
@@ -56,13 +56,10 @@ describe('renderer security headers (ENG-166)', () => {
       isFastifyApiResponse('http://hub.tienda.local:8090/api/trpc/auth.me', runtime),
       true
     );
-    assert.equal(
-      isFastifyApiResponse('http://hub.tienda.local:8090/dashboard', runtime),
-      false
-    );
+    assert.equal(isFastifyApiResponse('http://hub.tienda.local:8090/dashboard', runtime), false);
   });
 
-  // ENG-135b — a telemetry-enabled renderer must be able to POST
+  // a telemetry-enabled renderer must be able to POST
   // envelopes to the DSN origin; without a DSN the baseline CSP
   // stays strict, and a malformed DSN never widens it.
   it('adds the telemetry DSN origin to connect-src only when a valid DSN is set', () => {

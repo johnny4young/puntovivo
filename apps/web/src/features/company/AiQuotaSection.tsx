@@ -1,11 +1,11 @@
-// ENG-102 — per-site monthly AI quota panel, extracted from
-// CompanyAISettingsCard.tsx (ENG-178 slice 34). Presentational: the card gates
+// per-site monthly AI quota panel, extracted from
+// CompanyAISettingsCard.tsx ( slice 34). Presentational: the card gates
 // the render (AI on + both quota keys present) and passes the quota shape.
 
 import { useTranslation } from 'react-i18next';
 
 /** One feature's monthly usage window. `resetsAt` is an ISO date (the calendar
- *  rollover boundary) or null when the server has no window yet. */
+ * rollover boundary) or null when the server has no window yet. */
 interface AiQuotaUsage {
   used: number;
   limit: number;
@@ -80,7 +80,7 @@ export function AiQuotaSection({ quotas }: AiQuotaSectionProps) {
       {/*
         Reset date footer reads from the copilot quota because
         v1 has all features reset on the same calendar boundary
-        (server-side `monthBounds` snapshot). If a future ticket
+        (server-side `monthBounds` snapshot). If a future change
         decouples per-feature windows, move this into each row.
       */}
       <p className="text-xs text-fg3">

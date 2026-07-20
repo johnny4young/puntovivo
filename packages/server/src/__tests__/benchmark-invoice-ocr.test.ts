@@ -1,5 +1,5 @@
 /**
- * ENG-040d — Unit tests for the OCR benchmark scoring helper.
+ * Unit tests for the OCR benchmark scoring helper.
  *
  * Pure-math tests over `scoreFixture` + `aggregateBenchmark` so the
  * threshold gate stays stable independent of the live benchmark in
@@ -43,7 +43,9 @@ function makeTruth(lines: FixtureGroundTruth['lines']): FixtureGroundTruth {
   };
 }
 
-function makeScore(partial: Partial<FixtureScore> & { fixtureId: string; truthLines: number; matchedLines: number }): FixtureScore {
+function makeScore(
+  partial: Partial<FixtureScore> & { fixtureId: string; truthLines: number; matchedLines: number }
+): FixtureScore {
   return {
     fixtureId: partial.fixtureId,
     truthLines: partial.truthLines,
@@ -92,7 +94,7 @@ describe('benchmark-scoring helpers', () => {
           quantity: 2,
           unitPrice: 5025,
           totalLine: 10050,
-        }),
+        })
       ).toBe(true);
     });
 
@@ -109,7 +111,7 @@ describe('benchmark-scoring helpers', () => {
           quantity: 1,
           unitPrice: 102,
           totalLine: 102,
-        }),
+        })
       ).toBe(false);
     });
 
@@ -126,7 +128,7 @@ describe('benchmark-scoring helpers', () => {
           quantity: null,
           unitPrice: 50000,
           totalLine: 50000,
-        }),
+        })
       ).toBe(true);
     });
   });
@@ -158,7 +160,12 @@ describe('benchmark-scoring helpers', () => {
       ]);
       const extracted = makeOcr([
         { description: 'Pan baguette', quantity: 1, unitPrice: 2500, totalLine: 2500 },
-        { description: 'Servilletas extra (fantasma)', quantity: 1, unitPrice: 500, totalLine: 500 },
+        {
+          description: 'Servilletas extra (fantasma)',
+          quantity: 1,
+          unitPrice: 500,
+          totalLine: 500,
+        },
       ]);
       expect(scoreFixture(truth, extracted)).toEqual({ matchedLines: 1, truthLines: 1 });
     });
@@ -261,8 +268,20 @@ describe('benchmark-scoring helpers', () => {
 
     it('sums costUsd + durationMs across fixtures', () => {
       const scores: FixtureScore[] = [
-        makeScore({ fixtureId: '01', truthLines: 1, matchedLines: 1, costUsd: 0.005, durationMs: 800 }),
-        makeScore({ fixtureId: '02', truthLines: 1, matchedLines: 1, costUsd: 0.007, durationMs: 1100 }),
+        makeScore({
+          fixtureId: '01',
+          truthLines: 1,
+          matchedLines: 1,
+          costUsd: 0.005,
+          durationMs: 800,
+        }),
+        makeScore({
+          fixtureId: '02',
+          truthLines: 1,
+          matchedLines: 1,
+          costUsd: 0.007,
+          durationMs: 1100,
+        }),
       ];
       const result = aggregateBenchmark(scores);
       expect(result.costUsd).toBeCloseTo(0.012, 5);

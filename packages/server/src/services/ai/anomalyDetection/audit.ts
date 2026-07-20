@@ -1,7 +1,7 @@
 /**
- * ENG-047 — audit-log persistence for surfaced anomalies.
+ * audit-log persistence for surfaced anomalies.
  *
- * ENG-178 — extracted verbatim from the former flat
+ * extracted verbatim from the former flat
  * `services/ai/anomalyDetection.ts` during the megafile decomposition.
  *
  * @module services/ai/anomalyDetection/audit
@@ -11,7 +11,7 @@ import { auditLogs } from '../../../db/schema.js';
 import type { AnomalyAlert } from './types.js';
 
 /**
- * ENG-047 — persist newly-surfaced alerts to `audit_logs`. The
+ * persist newly-surfaced alerts to `audit_logs`. The
  * deterministic dedup key `kind:cashierId:occurredAt[date]:evidenceRef`
  * means re-running the detector inside the same 24h window does not
  * write the same row twice; a fresh outlier on the next day creates a
@@ -63,7 +63,7 @@ export async function persistAnomalyAuditLogs(
   });
   // Skip rows with null actorId — auditLogs.actor_id is NOT NULL.
   const insertable = rows.filter(r => r.actorId !== null) as Array<
-    typeof rows[number] & { actorId: string }
+    (typeof rows)[number] & { actorId: string }
   >;
   if (insertable.length === 0) return;
   // INSERT OR IGNORE so re-runs in the same 24h bucket do not write

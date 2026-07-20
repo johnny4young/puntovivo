@@ -26,7 +26,7 @@ async function captureEvidence(page: Page, name: string) {
   });
 }
 
-test.describe('manager approval queue (ENG-106c1)', () => {
+test.describe('manager approval queue', () => {
   test('approves and rejects with a fresh manager PIN in both locales', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
     await page.setViewportSize({ width: 1440, height: 900 });

@@ -4,7 +4,7 @@ import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
 const SALE_PAYMENT_FORM_ID = 'sale-payment-form';
 const PRODUCT_SEARCH_UNIT_SELECT_ID = 'product-search-unit-select';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface SalesKeyboardShortcutsOptions {
   selectedItemKey: string | null;
   canCharge: boolean;
@@ -16,7 +16,7 @@ interface SalesKeyboardShortcutsOptions {
   focusProductInput: () => void;
   focusQuantityInput: (itemKey: string) => void;
   focusDiscountInput: (itemKey: string) => void;
-  // ENG-018b — optional Ctrl/Cmd shortcuts. Omitting any of these
+  // optional Ctrl/Cmd shortcuts. Omitting any of these
   // keeps the corresponding key from firing so consumers that do not
   // (yet) implement the flow are never surprised.
   /**
@@ -46,7 +46,7 @@ interface SalesKeyboardShortcutsOptions {
    */
   onReprintSelectedHistoryRow?: (() => void) | undefined;
   /**
-   * ENG-105d — Ctrl/Cmd+Z undo for the active cart workspace.
+   * Ctrl/Cmd+Z undo for the active cart workspace.
    *
    * The hook never reads the undo stack itself; the callback is
    * always invoked when the user presses the binding outside
@@ -60,7 +60,7 @@ interface SalesKeyboardShortcutsOptions {
    */
   onUndo?: (() => void) | undefined;
   /**
-   * ENG-105e — F2 rapid-cash. Unlike most shortcuts, F2 stays
+   * F2 rapid-cash. Unlike most shortcuts, F2 stays
    * active even when the payment modal is open: outside the modal
    * it opens it in fast-cash mode; inside the modal it re-applies
    * the exact-cash amount on top of whatever was tipped. The
@@ -117,8 +117,8 @@ export function useSalesKeyboardShortcuts({
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
 
-      // ENG-134d — Whitelist the page-level product search input from
-      // the editable-target guards below. ENG-105F restores focus to
+      // Whitelist the page-level product search input from
+      // the editable-target guards below.  restores focus to
       // this input after every modal close, so the cashier's natural
       // resting focus is here. Without the whitelist, Mod+Z / F2 from
       // the search input get suppressed and the keyboard-first
@@ -128,10 +128,9 @@ export function useSalesKeyboardShortcuts({
       // when the cashier is mid-edit on a numeric field.
       const target = event.target;
       const isSalesSearchInput =
-        target instanceof HTMLElement &&
-        target.id === 'sales-product-search-input';
+        target instanceof HTMLElement && target.id === 'sales-product-search-input';
 
-      // ENG-018b — Ctrl/Cmd-based shortcuts. These compete with
+      // Ctrl/Cmd-based shortcuts. These compete with
       // browser defaults (print, reload, devtools) so we
       // `preventDefault()` aggressively when we accept the key. Modal
       // overlays suppress them to avoid cross-talk with the payment
@@ -140,11 +139,7 @@ export function useSalesKeyboardShortcuts({
         if (isPaymentModalOpen || isProductSearchOpen) {
           return;
         }
-        if (
-          !isPaymentModalOpen &&
-          !isSalesSearchInput &&
-          isEditableShortcutTarget(event.target)
-        ) {
+        if (!isPaymentModalOpen && !isSalesSearchInput && isEditableShortcutTarget(event.target)) {
           return;
         }
 
@@ -187,7 +182,7 @@ export function useSalesKeyboardShortcuts({
         }
 
         if (key === 'z') {
-          // ENG-105d — Ctrl/Cmd+Z undo. The
+          // Ctrl/Cmd+Z undo. The
           // `isEditableShortcutTarget` short-circuit above already
           // preserved the browser-native text undo inside inputs,
           // so reaching this branch means the focus is outside an
@@ -225,22 +220,18 @@ export function useSalesKeyboardShortcuts({
       }
 
       if (event.key === 'F2') {
-        // ENG-105e — F2 fast-cash. Active both with the modal open
+        // F2 fast-cash. Active both with the modal open
         // and closed; the caller decides whether to open the modal
         // (closed-state) or re-apply exact cash on top of the
         // form (open-state). Suppressed inside the product search
         // overlay so the cashier does not jump out of mid-search.
-        // ENG-134d — the page-level search input is whitelisted (see
+        // the page-level search input is whitelisted (see
         // isSalesSearchInput above): the cashier's natural focus
         // after a scan is there, and F2 should still fire.
         if (isProductSearchOpen) {
           return;
         }
-        if (
-          !isPaymentModalOpen &&
-          !isSalesSearchInput &&
-          isEditableShortcutTarget(event.target)
-        ) {
+        if (!isPaymentModalOpen && !isSalesSearchInput && isEditableShortcutTarget(event.target)) {
           return;
         }
         if (onFastCash) {
@@ -276,11 +267,7 @@ export function useSalesKeyboardShortcuts({
         return;
       }
 
-      if (
-        event.key === 'Delete' &&
-        selectedItemKey &&
-        !isEditableShortcutTarget(event.target)
-      ) {
+      if (event.key === 'Delete' && selectedItemKey && !isEditableShortcutTarget(event.target)) {
         event.preventDefault();
         onRemoveSelectedItem(selectedItemKey);
       }

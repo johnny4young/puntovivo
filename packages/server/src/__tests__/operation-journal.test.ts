@@ -1,16 +1,16 @@
 /**
- * ENG-053 — Operation journal service tests.
+ * Operation journal service tests.
  *
  * Verifies the per-row helpers in
  * `services/operation-journal/journal.ts`:
  *
  * - `recordOperationStart` is idempotent on (tenantId, operationId).
  * - `recordEffect` / `recordError` write FK-linked rows that the
- *   trail query can read back.
+ * trail query can read back.
  * - `markOperationCompleted` refuses to transition out of a
- *   terminal state.
+ * terminal state.
  * - Multi-tenant scoping: same `operationId` across two tenants does
- *   NOT collide.
+ * NOT collide.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -47,11 +47,7 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const seededAdmin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededAdmin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededAdmin) throw new Error('Expected seeded admin user');
   tenantId = seededAdmin.tenantId;
   userId = seededAdmin.id;

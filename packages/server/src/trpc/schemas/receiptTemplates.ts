@@ -10,27 +10,22 @@
  * before HTML emission as a second line of defence.
  *
  * Hard limits chosen for safety + UX, not for performance:
- *  - ≤ 50 blocks per layout (the editor UI also enforces it)
- *  - ≤ 500 characters per text/value field (so a single block cannot
- *    bloat a thermal-printer job; ESC/POS rolls of 80mm paper handle
- *    ~32-48 chars per line so 500 chars is already ~10-15 printed lines)
- *  - 1 ≤ items-table column count ≤ 6
- *  - QR / barcode source strings ≤ 200 chars
+ * - ≤ 50 blocks per layout (the editor UI also enforces it)
+ * - ≤ 500 characters per text/value field (so a single block cannot
+ * bloat a thermal-printer job; ESC/POS rolls of 80mm paper handle
+ * ~32-48 chars per line so 500 chars is already ~10-15 printed lines)
+ * - 1 ≤ items-table column count ≤ 6
+ * - QR / barcode source strings ≤ 200 chars
  *
  * @module trpc/schemas/receiptTemplates
  */
 
 import { z } from 'zod';
-import {
-  receiptTemplateKindEnum,
-  receiptTemplatePaperWidthEnum,
-} from '../../db/schema.js';
+import { receiptTemplateKindEnum, receiptTemplatePaperWidthEnum } from '../../db/schema.js';
 import { validateTemplate } from '../../services/template-expression.js';
 
 export const receiptTemplateKindSchema = z.enum(receiptTemplateKindEnum);
-export const receiptTemplatePaperWidthSchema = z.enum(
-  receiptTemplatePaperWidthEnum
-);
+export const receiptTemplatePaperWidthSchema = z.enum(receiptTemplatePaperWidthEnum);
 
 /**
  * Variable references look like `{{namespace.path}}` and must resolve
@@ -38,25 +33,19 @@ export const receiptTemplatePaperWidthSchema = z.enum(
  * the dot-path lookup; the schema only validates the surface form.
  *
  * Allowed namespaces:
- *  - `company.*` — tenant company snapshot (name, taxId, address, …)
- *  - `sale.*` — sale-level fields (saleNumber, createdAt, totals, …)
- *  - `item.*` — line-level fields (only valid inside `itemsTable`)
- *  - `fiscal.*` — fiscal document fields (cufe, qrUrl, …)
- *  - `tender.*` — payment-tender fields (only valid inside `tendersTable`)
+ * - `company.*` — tenant company snapshot (name, taxId, address, …)
+ * - `sale.*` — sale-level fields (saleNumber, createdAt, totals, …)
+ * - `item.*` — line-level fields (only valid inside `itemsTable`)
+ * - `fiscal.*` — fiscal document fields (cufe, qrUrl, …)
+ * - `tender.*` — payment-tender fields (only valid inside `tendersTable`)
  *
- * ENG-016 pass 3 — Substitutions also accept whitelisted formatter
+ * pass 3 — Substitutions also accept whitelisted formatter
  * functions like `{{ currency(sale.grandTotal) }}` and
  * `{{ limit(sale.notes, 30) }}`. The grammar + function whitelist live
  * in `services/template-expression.ts`; this module wires the AST-level
  * validator into the Zod refinement so Zod issues stay translatable.
  */
-const ALLOWED_NAMESPACES = new Set([
-  'company',
-  'sale',
-  'item',
-  'fiscal',
-  'tender',
-]);
+const ALLOWED_NAMESPACES = new Set(['company', 'sale', 'item', 'fiscal', 'tender']);
 
 /**
  * Reject any URL that uses a JS-executable scheme. Used as a guard on
@@ -125,17 +114,14 @@ const totalsLineSchema = z.enum([
   'discount',
   'taxTotal',
   'tip',
-  // ENG-039d3 — restaurant service charge / propina sugerida.
+  // restaurant service charge / propina sugerida.
   'serviceCharge',
   'grandTotal',
 ]);
 
 const totalsBlockSchema = z.object({
   type: z.literal('totalsBlock'),
-  show: z
-    .array(totalsLineSchema)
-    .min(1, 'totalsBlock must show at least one line')
-    .max(6),
+  show: z.array(totalsLineSchema).min(1, 'totalsBlock must show at least one line').max(6),
 });
 
 const tendersTableBlockSchema = z.object({
@@ -182,7 +168,7 @@ const barcode128BlockSchema = z.object({
 });
 
 /**
- * ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
+ * pass 1 (item #5) — Puntovivo-branded footer block.
  *
  * Non-editable atomic block. Renders the `Puntovivo` name, version, and
  * contact URL resolved from `APP_FOOTER_METADATA` in
@@ -203,7 +189,7 @@ const appFooterBlockSchema = z.object({
 });
 
 /**
- * ENG-086 — Puntovivo brand wordmark.
+ * Puntovivo brand wordmark.
  *
  * Atomic block that renders the canonical `puntovivo·` lockup at the
  * top of the receipt (regular `punto` + bold `vivo` + 6 px square dot,
@@ -211,7 +197,7 @@ const appFooterBlockSchema = z.object({
  * is brand identity, not configurable copy.
  *
  * The block sits in the header band of every default thermal layout
- * per the 2026-05-15 handoff. `show` defaults to `true`; toggling it
+ * per the print specification. `show` defaults to `true`; toggling it
  * `false` keeps the block in the layout but hides it, which lets
  * admins do white-label prints without deleting the block.
  */
@@ -238,7 +224,7 @@ const metaTableRowSchema = z.object({
 });
 
 /**
- * ENG-086 — Compact 2-column key/value grid.
+ * Compact 2-column key/value grid.
  *
  * Replaces the three loose text blocks (Factura / Fecha / Caja) that
  * the original default layout used for the receipt meta band. Each row
@@ -351,7 +337,7 @@ const receiptRenderLabelsInput = z.object({
     discount: z.string().trim().min(1).max(50),
     taxTotal: z.string().trim().min(1).max(50),
     tip: z.string().trim().min(1).max(50),
-    // ENG-039d3 — service charge label, paired with the receipt
+    // service charge label, paired with the receipt
     // renderer's `serviceCharge` totals line.
     serviceCharge: z.string().trim().min(1).max(50),
     grandTotal: z.string().trim().min(1).max(50),
@@ -382,13 +368,7 @@ export type UpdateReceiptTemplateInput = z.infer<typeof updateReceiptTemplateInp
 export type DeleteReceiptTemplateInput = z.infer<typeof deleteReceiptTemplateInput>;
 export type GetReceiptTemplateInput = z.infer<typeof getReceiptTemplateInput>;
 export type ListReceiptTemplatesInput = z.infer<typeof listReceiptTemplatesInput>;
-export type SetDefaultReceiptTemplateInput = z.infer<
-  typeof setDefaultReceiptTemplateInput
->;
-export type DuplicateReceiptTemplateInput = z.infer<
-  typeof duplicateReceiptTemplateInput
->;
-export type RenderPreviewReceiptTemplateInput = z.infer<
-  typeof renderPreviewReceiptTemplateInput
->;
+export type SetDefaultReceiptTemplateInput = z.infer<typeof setDefaultReceiptTemplateInput>;
+export type DuplicateReceiptTemplateInput = z.infer<typeof duplicateReceiptTemplateInput>;
+export type RenderPreviewReceiptTemplateInput = z.infer<typeof renderPreviewReceiptTemplateInput>;
 export type ReceiptRenderLabelsInput = z.infer<typeof receiptRenderLabelsInput>;

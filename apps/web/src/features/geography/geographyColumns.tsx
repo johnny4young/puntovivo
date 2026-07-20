@@ -15,7 +15,7 @@ export function buildCountryColumns(
       accessorKey: 'name',
       header: t('geography.columns.country'),
       size: 260,
-      // Rediseño FASE 3/7 — celda ancla (.pv-table .prod/.pic/.pname/.sku).
+      // celda ancla (.pv-table .prod/.pic/.pname/.sku).
       cell: ({ row }) => (
         <div className="prod">
           <span className="pic">
@@ -80,7 +80,7 @@ export function buildDepartmentColumns(
       accessorKey: 'name',
       header: t('geography.columns.department'),
       size: 260,
-      // Rediseño FASE 3/7 — celda ancla (.pv-table .prod/.pic/.pname/.sku).
+      // celda ancla (.pv-table .prod/.pic/.pname/.sku).
       cell: ({ row }) => (
         <div className="prod">
           <span className="pic">
@@ -151,7 +151,7 @@ export function buildCityColumns(
       accessorKey: 'name',
       header: t('geography.columns.city'),
       size: 260,
-      // Rediseño FASE 3/7 — celda ancla (.pv-table .prod/.pic/.pname/.sku).
+      // celda ancla (.pv-table .prod/.pic/.pname/.sku).
       cell: ({ row }) => (
         <div className="prod">
           <span className="pic">

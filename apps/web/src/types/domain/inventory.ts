@@ -1,4 +1,4 @@
-// ENG-179c — inventory domain shapes (ENG-178 slice 28).
+// inventory domain shapes ( slice 28).
 
 import type { InitialInventoryMode, MovementType, SyncStatus } from '../ui';
 import type { Product } from './products';

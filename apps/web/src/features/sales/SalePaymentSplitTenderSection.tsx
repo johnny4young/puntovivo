@@ -1,7 +1,7 @@
 /**
- * Split-tender section of the sale payment modal (ENG-014).
+ * Split-tender section of the sale payment modal ().
  *
- * ENG-178 — JSX extracted verbatim from the former single-file
+ * JSX extracted verbatim from the former single-file
  * `SalePaymentModal.tsx`. Presentational: receives the RHF `form` + the tender
  * field array + derived sums from `useSalePaymentModal`. Rows key on
  * `field.id` (NOT index) so focus survives array mutations.
@@ -43,9 +43,7 @@ export function SalePaymentSplitTenderSection({
   return (
     <div className="space-y-3 rounded-xl border border-secondary-200 p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-medium text-secondary-900">
-          {t('payment.splitHeading')}
-        </p>
+        <p className="text-sm font-medium text-secondary-900">{t('payment.splitHeading')}</p>
         <button
           type="button"
           className="btn-ghost text-xs text-secondary-600"
@@ -62,7 +60,10 @@ export function SalePaymentSplitTenderSection({
           // Using it alone (not composed with `index`) keeps DOM nodes
           // stable across removes/reorders so focus and transient input
           // state survive array mutations.
-          <div key={field.id} className="grid gap-2 md:grid-cols-[160px_minmax(0,1fr)_minmax(0,1fr)_auto]">
+          <div
+            key={field.id}
+            className="grid gap-2 md:grid-cols-[160px_minmax(0,1fr)_minmax(0,1fr)_auto]"
+          >
             <select
               className="input"
               aria-label={t('payment.splitMethodLabel', { index: index + 1 })}
@@ -71,16 +72,13 @@ export function SalePaymentSplitTenderSection({
               <option value="cash">{t('payment.cash')}</option>
               <option value="card">{t('payment.card')}</option>
               <option value="transfer">{t('payment.transfer')}</option>
-              {/* ENG-014 — credit option in split tender mirrors
+              {/* credit option in split tender mirrors
                   the single-tender gate: only managers + admins
                   with an attached customer can pick it. The
                   server enforces the same gate via Zod refine
                   + the credit-limit invariant. */}
               {creditMethodAvailable && (
-                <option
-                  value="credit"
-                  data-testid={`split-tender-credit-option-${index}`}
-                >
+                <option value="credit" data-testid={`split-tender-credit-option-${index}`}>
                   {t('payment.credit')}
                 </option>
               )}

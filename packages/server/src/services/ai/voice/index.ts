@@ -1,10 +1,10 @@
 /**
- * ENG-040c voice barrel.
+ * voice barrel.
  *
  * - slice 1 (`transcribe.ts`) — Whisper transcription pipeline.
  * - slice 3 (`parse-cart-command.ts`) — cart-command parser that
- *   maps transcripts to add-to-cart actions via `generateObject` +
- *   ENG-033 embeddings.
+ * maps transcripts to add-to-cart actions via `generateObject` +
+ * embeddings.
  *
  * @module services/ai/voice
  */

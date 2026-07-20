@@ -8,7 +8,7 @@ import { DayClosePulseCard } from './DayClosePulseCard';
 import { buildDayPulseText, buildWhatsAppShareUrl } from './dayPulse';
 
 /**
- * Props for {@link DayCloseSummaryModal} (ENG-198).
+ * Props for {@link DayCloseSummaryModal} ().
  *
  * The modal is additive to the close flow: it mounts AFTER
  * `cashSessions.close` succeeds (the toast stays intact) and fetches the
@@ -163,7 +163,7 @@ export function DayCloseSummaryModal({ sessionId, onClose }: DayCloseSummaryModa
             </section>
 
             {summary.pulse && summary.margin && (
-              // ENG-205 — the card's share anchor uses the canonical
+              // the card's share anchor uses the canonical
               // buildDayPulseText payload (aggregate metrics only).
               <DayClosePulseCard
                 shareUrl={buildWhatsAppShareUrl(buildDayPulseText(summary, t))}

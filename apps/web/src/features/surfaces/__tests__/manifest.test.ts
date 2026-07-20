@@ -1,21 +1,17 @@
 /**
- * ENG-069 — Renderer-side surface manifest mirror tests.
+ * Renderer-side surface manifest mirror tests.
  *
  * Pins parity with the server's `services/surfaces/manifest.ts`:
- *   - Same SURFACE_IDS tuple.
- *   - Same moduleId for each non-default surface.
- *   - POS Desktop is the implicit default (moduleId === null).
- *   - i18nKey + defaultRoute uniqueness.
+ * - Same SURFACE_IDS tuple.
+ * - Same moduleId for each non-default surface.
+ * - POS Desktop is the implicit default (moduleId === null).
+ * - i18nKey + defaultRoute uniqueness.
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  CLIENT_SURFACE_IDS,
-  CLIENT_SURFACES_MANIFEST,
-  isClientSurfaceId,
-} from '../manifest';
+import { CLIENT_SURFACE_IDS, CLIENT_SURFACES_MANIFEST, isClientSurfaceId } from '../manifest';
 
-describe('CLIENT_SURFACES_MANIFEST (ENG-069)', () => {
+describe('CLIENT_SURFACES_MANIFEST', () => {
   it('has 5 surfaces in v1 — POS Desktop + 4 new', () => {
     expect(CLIENT_SURFACE_IDS.length).toBe(5);
     expect(CLIENT_SURFACE_IDS).toEqual([
@@ -42,18 +38,12 @@ describe('CLIENT_SURFACES_MANIFEST (ENG-069)', () => {
   it('non-default surfaces map to their corresponding module id', () => {
     expect(CLIENT_SURFACES_MANIFEST['pos-touch'].moduleId).toBe('pos-touch');
     expect(CLIENT_SURFACES_MANIFEST['kds'].moduleId).toBe('kds');
-    expect(CLIENT_SURFACES_MANIFEST['customer-display'].moduleId).toBe(
-      'customer-display'
-    );
-    expect(CLIENT_SURFACES_MANIFEST['mobile-waiter'].moduleId).toBe(
-      'mobile-waiter'
-    );
+    expect(CLIENT_SURFACES_MANIFEST['customer-display'].moduleId).toBe('customer-display');
+    expect(CLIENT_SURFACES_MANIFEST['mobile-waiter'].moduleId).toBe('mobile-waiter');
   });
 
   it('defaultRoute is unique across surfaces', () => {
-    const routes = CLIENT_SURFACE_IDS.map(
-      id => CLIENT_SURFACES_MANIFEST[id].defaultRoute
-    );
+    const routes = CLIENT_SURFACE_IDS.map(id => CLIENT_SURFACES_MANIFEST[id].defaultRoute);
     expect(new Set(routes).size).toBe(routes.length);
   });
 
@@ -63,7 +53,7 @@ describe('CLIENT_SURFACES_MANIFEST (ENG-069)', () => {
   });
 });
 
-describe('isClientSurfaceId (ENG-069)', () => {
+describe('isClientSurfaceId', () => {
   it('returns true for every known id', () => {
     for (const id of CLIENT_SURFACE_IDS) {
       expect(isClientSurfaceId(id)).toBe(true);

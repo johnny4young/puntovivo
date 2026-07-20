@@ -1,4 +1,4 @@
-/** ENG-123b — Shared customer-catalog validation for canonical profile writes. */
+/** Shared customer-catalog validation for canonical profile writes. */
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 

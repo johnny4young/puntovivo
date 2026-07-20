@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — sales domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -51,21 +51,21 @@ export const sales = sqliteTable(
       .references(() => tenants.id),
     saleNumber: text('sale_number').notNull(),
     customerId: text('customer_id').references(() => customers.id),
-    // ENG-039c — optional restaurant-table FK. When non-null the draft
+    // optional restaurant-table FK. When non-null the draft
     // is "open" on that physical table; `listWithDraftStatus` reads
     // this column to surface occupancy. Nullable so non-restaurant
-    // tenants and pre-ENG-039c drafts pass through unchanged.
+    // tenants and pre- drafts pass through unchanged.
     tableId: text('table_id').references(() => restaurantTables.id),
     subtotal: real('subtotal').notNull().default(0),
     taxAmount: real('tax_amount').notNull().default(0),
     discountAmount: real('discount_amount').notNull().default(0),
     total: real('total').notNull().default(0),
-    // ENG-176b — multi-currency seam. `currencyCode` is the currency
+    // multi-currency seam. `currencyCode` is the currency
     // the sale was priced in (subtotal/taxAmount/tipAmount/total are
     // all denominated in it). `exchangeRateAtSale` is the factor that
     // converts `settleCurrencyCode → currencyCode`; 1.0 when settle
     // matches sale (most flows today). `settleCurrencyCode` is set
-    // only when ENG-156 lands multi-currency settle: a sale priced
+    // only when  lands multi-currency settle: a sale priced
     // in USD but cashed in COP carries currencyCode='USD',
     // settleCurrencyCode='COP', exchangeRateAtSale=4200.
     currencyCode: text('currency_code')
@@ -74,14 +74,14 @@ export const sales = sqliteTable(
       .references(() => currencyCatalog.code),
     exchangeRateAtSale: real('exchange_rate_at_sale').notNull().default(1),
     settleCurrencyCode: text('settle_currency_code').references(() => currencyCatalog.code),
-    // ENG-039d — restaurant tip / propina. `tipAmount` is the resolved
+    // restaurant tip / propina. `tipAmount` is the resolved
     // currency value added on top of `subtotal + tax - discount` (it
     // rolls into `total` so payment validation stays unchanged).
     // `tipMethod` records how the operator picked it; null means the
     // operator did not enter a tip (default for retail tenants).
     tipAmount: real('tip_amount').notNull().default(0),
     tipMethod: text('tip_method', { enum: ['percentage', 'fixed'] as const }),
-    // ENG-039d3 — restaurant service charge / propina sugerida.
+    // restaurant service charge / propina sugerida.
     // `serviceChargeAmount` is the resolved currency value auto-applied
     // from `tenants.settings.restaurant.serviceChargeRate` (mandatory,
     // unlike the voluntary tip). Rolls into `total` after tax + tip so
@@ -99,7 +99,7 @@ export const sales = sqliteTable(
     createdBy: text('created_by')
       .notNull()
       .references(() => users.id),
-    // ENG-209 — client cart/resume start used only for aggregate cashier
+    // client cart/resume start used only for aggregate cashier
     // pace. Null on historical/non-POS rows; server rejects future or
     // abandoned (>4h) intervals before persisting it.
     checkoutStartedAt: text('checkout_started_at'),
@@ -107,7 +107,7 @@ export const sales = sqliteTable(
     // derive checkout duration from updatedAt: later returns and reprints
     // deliberately advance that mutable lifecycle timestamp.
     checkoutCompletedAt: text('checkout_completed_at'),
-    // ENG-018 — park-and-resume columns. Populated when a draft sale is
+    // park-and-resume columns. Populated when a draft sale is
     // suspended (`sales.suspend`) and cleared when resumed (`sales.resume`)
     // or discarded (`sales.discardDraft` → `status='cancelled'`).
     // `suspendedBy` is the cashier who suspended it; resume by a different
@@ -115,7 +115,7 @@ export const sales = sqliteTable(
     suspendedAt: text('suspended_at'),
     suspendedBy: text('suspended_by').references(() => users.id),
     suspendedLabel: text('suspended_label'),
-    // ENG-019 — receipt reprint counters. Incremented inside
+    // receipt reprint counters. Incremented inside
     // `sales.getForReprint`; the audit trail lives in `audit_logs` as
     // one `sale.reprint` row per invocation.
     reprintCount: integer('reprint_count').notNull().default(0),
@@ -138,13 +138,13 @@ export const sales = sqliteTable(
     index('idx_sales_customer').on(table.customerId),
     index('idx_sales_cash_session').on(table.cashSessionId),
     index('idx_sales_created_by').on(table.createdBy),
-    // ENG-018 — filter drafts quickly by owning cashier in `listDrafts`.
+    // filter drafts quickly by owning cashier in `listDrafts`.
     index('idx_sales_suspended_by').on(table.suspendedBy),
-    // ENG-039c — cover the leftJoin that drives
+    // cover the leftJoin that drives
     // `restaurantTables.listWithDraftStatus`.
     index('idx_sales_tenant_table').on(table.tenantId, table.tableId),
     uniqueIndex('idx_sales_tenant_number').on(table.tenantId, table.saleNumber),
-    // ENG-176a — sale amounts: subtotal, tax, tip, and service charge are
+    // sale amounts: subtotal, tax, tip, and service charge are
     // always positive; total is the rolled-up sum (also positive in every
     // legitimate flow — a return is a sale_return row, not a negative
     // sale). discountAmount is signed: a negative discount (additional
@@ -155,15 +155,15 @@ export const sales = sqliteTable(
     ...moneyPositiveChecks('sales_tip', table.tipAmount),
     ...moneyPositiveChecks('sales_service', table.serviceChargeAmount),
     moneyTwoDecimalCheck('sales_discount', table.discountAmount),
-    // ENG-176b — exchange rate must be strictly positive. 1.0 for
+    // exchange rate must be strictly positive. 1.0 for
     // single-currency sales (currencyCode === settleCurrencyCode or
     // settleCurrencyCode IS NULL). A negative or zero rate has no
     // accounting meaning and would silently zero out totals.
     check('chk_sales_exchange_rate_positive', sql`${table.exchangeRateAtSale} > 0`),
-    // ENG-177c — defense-in-depth for the cash-session invariant. The
+    // defense-in-depth for the cash-session invariant. The
     // rule "every committed sale is bound to a cash session" is enforced
     // in application code (requireActiveCashSession + the in-tx
-    // assertCashSessionStillOpen, ENG-042/055), but a raw write, a future
+    // assertCashSessionStillOpen, ), but a raw write, a future
     // sync path, or a bug could otherwise persist a non-draft sale with a
     // null cashSessionId. Drafts are exempt by design (a sale may be
     // started before its session is resolved); every other status must
@@ -195,7 +195,7 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
     fields: [sales.cashSessionId],
     references: [cashSessions.id],
   }),
-  // ENG-039c — optional link to the physical restaurant table.
+  // optional link to the physical restaurant table.
   restaurantTable: one(restaurantTables, {
     fields: [sales.tableId],
     references: [restaurantTables.id],
@@ -223,7 +223,7 @@ export const cashSessions = sqliteTable(
     cashierId: text('cashier_id')
       .notNull()
       .references(() => users.id),
-    // ENG-140d — nullable only for historical sessions created before
+    // nullable only for historical sessions created before
     // cash/labor lifecycle integration. Every new application open path links
     // the drawer to the same-site employee shift that owns its labor evidence.
     employeeShiftId: text('employee_shift_id').references(() => employeeShifts.id),
@@ -241,7 +241,7 @@ export const cashSessions = sqliteTable(
     status: text('status', { enum: cashSessionStatusEnum }).notNull().default('open'),
     openedAt: text('opened_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     closedAt: text('closed_at'),
-    // ENG-209 — materialized at close so the private HUD can read a
+    // materialized at close so the private HUD can read a
     // personal best without rescanning all historical sale items.
     paceItemsPerMinute: real('pace_items_per_minute'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
@@ -255,7 +255,7 @@ export const cashSessions = sqliteTable(
     index('idx_cash_sessions_status').on(table.status),
     index('idx_cash_sessions_site_status').on(table.siteId, table.status),
     index('idx_cash_sessions_register_status').on(table.siteId, table.registerName, table.status),
-    // ENG-176a — opening float and the running expected balance can never
+    // opening float and the running expected balance can never
     // go negative without indicating either a robbery or a runtime bug
     // (Counter must net cash inflows). over_short is the variance at
     // close and is intentionally signed (positive over, negative short).
@@ -317,7 +317,7 @@ export const denominationTemplates = sqliteTable(
       table.sortOrder
     ),
     uniqueIndex('idx_denomination_templates_site_register').on(table.siteId, table.registerName),
-    // ENG-176a — template opening float is non-negative.
+    // template opening float is non-negative.
     ...moneyPositiveChecks('denomination_templates_opening', table.openingFloat),
   ]
 );
@@ -359,7 +359,7 @@ export const cashMovements = sqliteTable(
     index('idx_cash_movements_type').on(table.type),
     index('idx_cash_movements_created_by').on(table.createdBy),
     index('idx_cash_movements_session_created').on(table.sessionId, table.createdAt),
-    // ENG-176a-rounding — cash_movements.amount is intentionally
+    // cash_movements.amount is intentionally
     // signed (paid_out / refund / skim store negative deltas). Only
     // the precision invariant applies; the application uses
     // roundMoney() before every write.

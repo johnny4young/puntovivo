@@ -1,16 +1,16 @@
 /**
- * ENG-065a — Tests for `peripherals.retryHardwareOutbox`.
+ * Tests for `peripherals.retryHardwareOutbox`.
  *
  * Mirrors the structure of `sync-contract-v1.test.ts`'s retry suite.
  * Asserts:
- *   - Admin gate (cashier + manager FORBIDDEN).
- *   - `HARDWARE_OUTBOX_NOT_FOUND` on unknown id.
- *   - `retrying` and `dead_letter` and `failed` rows reset to `queued`
- *     with attempts=0, lastError=null, claimToken=null, lockedAt=null,
- *     nextRetryAt=null.
- *   - `queued` / `submitting` / `printed` rows are no-ops (so a
- *     drained row cannot be replayed).
- *   - Cross-tenant isolation (foreign tenant cannot retry).
+ * - Admin gate (cashier + manager FORBIDDEN).
+ * - `HARDWARE_OUTBOX_NOT_FOUND` on unknown id.
+ * - `retrying` and `dead_letter` and `failed` rows reset to `queued`
+ * with attempts=0, lastError=null, claimToken=null, lockedAt=null,
+ * nextRetryAt=null.
+ * - `queued` / `submitting` / `printed` rows are no-ops (so a
+ * drained row cannot be replayed).
+ * - Cross-tenant isolation (foreign tenant cannot retry).
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -54,13 +54,7 @@ function expectErrorCode(error: unknown, code: string) {
 }
 
 async function insertHardwareRow(opts: {
-  status:
-    | 'queued'
-    | 'submitting'
-    | 'printed'
-    | 'failed'
-    | 'retrying'
-    | 'dead_letter';
+  status: 'queued' | 'submitting' | 'printed' | 'failed' | 'retrying' | 'dead_letter';
   attempts?: number;
   lastError?: Record<string, unknown> | null;
   claimToken?: string | null;
@@ -92,11 +86,7 @@ async function insertHardwareRow(opts: {
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -118,16 +108,16 @@ afterAll(async () => {
 describe('peripherals.retryHardwareOutbox — admin gate', () => {
   it('rejects cashier with FORBIDDEN', async () => {
     const caller = appRouter.createCaller(buildContext('cashier'));
-    await expect(
-      caller.peripherals.retryHardwareOutbox({ id: 'whatever' })
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(caller.peripherals.retryHardwareOutbox({ id: 'whatever' })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
   });
 
   it('rejects manager with FORBIDDEN (read-only role)', async () => {
     const caller = appRouter.createCaller(buildContext('manager'));
-    await expect(
-      caller.peripherals.retryHardwareOutbox({ id: 'whatever' })
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(caller.peripherals.retryHardwareOutbox({ id: 'whatever' })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
   });
 });
 

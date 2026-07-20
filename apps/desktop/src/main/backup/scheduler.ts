@@ -1,5 +1,5 @@
 /**
- * ENG-136a — device-local scheduler for encrypted database snapshots.
+ * device-local scheduler for encrypted database snapshots.
  *
  * Schedule metadata is intentionally stored outside the operational DB. A
  * restored database must not silently re-enable a custom path from another
@@ -73,7 +73,7 @@ interface BackupSchedulerDeps {
   getAppVersion: () => string;
   resolveDatabaseEncryptionKey: () => Promise<string>;
   runExclusive: <T>(operation: () => Promise<T>) => Promise<T>;
-  /** ENG-136c — optional post-snapshot cloud replication. Local success wins. */
+  /** optional post-snapshot cloud replication. Local success wins. */
   replicateSnapshot?: (input: {
     tenantId: string;
     zipPath: string;
@@ -320,7 +320,7 @@ export function createBackupScheduler(deps: BackupSchedulerDeps): BackupSchedule
             );
           }
         } catch {
-          // ENG-136c — cloud is an optional second copy. A provider or
+          // cloud is an optional second copy. A provider or
           // credential failure must never invalidate a completed local backup.
           deps.log.warn(
             { tenantId: next.tenantId, errorCode: 'upload_failed' },

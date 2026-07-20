@@ -2,8 +2,8 @@
  * Sales router lifecycle procedures (create, update, returnSale, void,
  * completeDraft, getForReprint).
  *
- * ENG-178 — extracted verbatim from the former flat `trpc/routers/sales.ts`
- * during the megafile decomposition. ENG-054 / ENG-055 — the heavy sale
+ * extracted verbatim from the former flat `trpc/routers/sales.ts`
+ * during the megafile decomposition.  /  — the heavy sale
  * orchestration already lives in `application/sales/`; these procedures
  * adapt tRPC input to the use-case shape (create / completeDraft) or are
  * thin wrappers (returnSale / void / discardDraft). `update` and
@@ -52,14 +52,14 @@ export const salesLifecycleProcedures = {
    * - Decrements product stock using normalized quantities
    * - Creates inventory movements and advances the site sequential
    *
-   * ENG-054 — orchestration delegated to
+   * orchestration delegated to
    * `application/sales/completeSale`. The router only adapts tRPC
    * input to the use-case shape and returns the resulting record.
    */
   create: criticalCommandCashierManagerOrAdminProcedure
     .input(createSaleInput)
     .mutation(async ({ ctx, input }) => {
-      // ENG-039c — when the renderer passes a tableId (voice-ordering
+      // when the renderer passes a tableId (voice-ordering
       // screen), resolve + validate it against the tenant/site catalog BEFORE
       // entering the transactional sale flow so a cross-tenant or
       // archived FK fails fast with a clear error code.
@@ -99,19 +99,19 @@ export const salesLifecycleProcedures = {
           tableId: input.tableId,
           tipAmount: input.tipAmount,
           tipMethod: input.tipMethod ?? null,
-          // ENG-039d3 — auto-applied restaurant service charge passes
+          // auto-applied restaurant service charge passes
           // through to the use-case. The Zod schema defaults amount to 0
           // and leaves rate optional so retail tenants pay zero contract
           // cost; `runFreshSale` re-validates against the tenant rate.
           serviceChargeAmount: input.serviceChargeAmount,
           serviceChargeRate: input.serviceChargeRate ?? null,
-          // ENG-090 — admin override for the credit-limit invariant.
+          // admin override for the credit-limit invariant.
           creditOverride: input.creditOverride ?? false,
           approvalRequests: input.approvalRequests,
           checkoutStartedAt: input.checkoutStartedAt,
         }
       );
-      // ENG-213 — the accrued points ride back alongside the sale record so
+      // the accrued points ride back alongside the sale record so
       // the cashier's completion toast can name them without a second round
       // trip. Additive: existing consumers keep reading the same Sale fields,
       // and a tenant without the program always sees 0.
@@ -184,7 +184,7 @@ export const salesLifecycleProcedures = {
   /**
    * Refund a completed sale and restore the related stock movements.
    *
-   * ENG-055 — orchestration delegated to `application/sales/returnSale`.
+   * orchestration delegated to `application/sales/returnSale`.
    */
   returnSale: criticalCommandCashierManagerOrAdminProcedure
     .input(returnSaleInput)
@@ -200,7 +200,7 @@ export const salesLifecycleProcedures = {
   /**
    * Void a completed sale and reverse the related stock movements.
    *
-   * ENG-055 — orchestration delegated to `application/sales/voidSale`.
+   * orchestration delegated to `application/sales/voidSale`.
    * Admins act directly; managers and cashiers require an exact admin grant.
    * The reversal remains decoupled from the caller's register and is
    * conditional on the ORIGINAL session still being open; once closed,
@@ -218,7 +218,7 @@ export const salesLifecycleProcedures = {
     }),
 
   /**
-   * ENG-018c — Complete a draft sale that was previously created via
+   * Complete a draft sale that was previously created via
    * `sales.create({ status: 'draft' })` and possibly suspended +
    * resumed in between. Flips `status` to `'completed'`, attaches
    * payments + the cash movement, and binds the sale to the caller's
@@ -227,27 +227,27 @@ export const salesLifecycleProcedures = {
    *
    * Invariants:
    * - Target must be `status='draft'` and NOT currently suspended
-   *   (caller must `sales.resume` first to clear `suspended_at`).
+   * (caller must `sales.resume` first to clear `suspended_at`).
    * - Items are locked at complete-time: no `items` input is accepted.
-   *   If the operator wants to change the basket they discard this
-   *   draft (which now reverses stock) and start a fresh one.
+   * If the operator wants to change the basket they discard this
+   * draft (which now reverses stock) and start a fresh one.
    * - The draft's stock was already debited at `sales.create` time, so
-   *   completing does NOT touch `inventory_balances` (the single source of
-   *   truth for stock). This is the whole point of the split — double-debit
-   *   is what we're avoiding.
+   * completing does NOT touch `inventory_balances` (the single source of
+   * truth for stock). This is the whole point of the split — double-debit
+   * is what we're avoiding.
    * - Any pre-existing `sale_payments` rows (drafts carry placeholder
-   *   rows from the initial create) are deleted and replaced with the
-   *   real tenders supplied by the operator.
+   * rows from the initial create) are deleted and replaced with the
+   * real tenders supplied by the operator.
    *
    * Permissions:
    * - Cashier who created the draft, or any manager / admin.
    * - Caller must have an active cash session for their (tenant, site)
-   *   pair — enforced via `requireActiveCashSession`.
+   * pair — enforced via `requireActiveCashSession`.
    */
   completeDraft: criticalCommandCashierManagerOrAdminProcedure
     .input(completeDraftInput)
     .mutation(async ({ ctx, input }) => {
-      // ENG-054 — orchestration delegated to
+      // orchestration delegated to
       // `application/sales/completeSale`. The fromDraft path covers:
       // ownership check, suspension check, draft-only invariant, line
       // item count, payment resolution, cash session rebind, audit
@@ -266,7 +266,7 @@ export const salesLifecycleProcedures = {
         {
           mode: 'fromDraft',
           saleId: input.saleId,
-          // ENG-216 — the customer the cashier attached at payment time.
+          // the customer the cashier attached at payment time.
           // Omitted by an older client, which keeps the draft's value.
           customerId: input.customerId,
           payments: input.payments,
@@ -276,18 +276,18 @@ export const salesLifecycleProcedures = {
           notes: input.notes,
           tipAmount: input.tipAmount,
           tipMethod: input.tipMethod ?? null,
-          // ENG-039d3 — same pass-through as the fresh path; the
+          // same pass-through as the fresh path; the
           // use-case re-validates the amount against the live tenant
           // rate at commit time.
           serviceChargeAmount: input.serviceChargeAmount,
           serviceChargeRate: input.serviceChargeRate ?? null,
-          // ENG-090 — admin override for the credit-limit invariant.
+          // admin override for the credit-limit invariant.
           creditOverride: input.creditOverride ?? false,
           approvalRequests: input.approvalRequests,
           checkoutStartedAt: input.checkoutStartedAt,
         }
       );
-      // ENG-213 — same shape as the fresh path, so a resumed draft reports
+      // same shape as the fresh path, so a resumed draft reports
       // its points to the cashier too.
       return {
         ...result.sale,
@@ -296,18 +296,18 @@ export const salesLifecycleProcedures = {
     }),
 
   /**
-   * ENG-019 — Reprint a sale receipt. Returns the full sale record so
+   * Reprint a sale receipt. Returns the full sale record so
    * the caller can hand it to the receipt renderer, AND increments
    * `reprintCount` + stamps `lastReprintedAt` / `lastReprintedBy`.
    * One `sale.reprint` audit row is emitted per call.
    *
    * Permissions:
    * - Completed and voided sales can be reprinted (voided prints a
-   *   copy with an "ANULADA" watermark on the renderer side).
+   * copy with an "ANULADA" watermark on the renderer side).
    * - Drafts cannot be reprinted — there is no receipt for a draft.
    * - Cashiers can only reprint sales whose `cashSessionId` matches
-   *   their currently-active session; manager and admin override the
-   *   session check.
+   * their currently-active session; manager and admin override the
+   * session check.
    */
   getForReprint: criticalCommandProcedure
     .input(getForReprintInput)

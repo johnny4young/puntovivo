@@ -1,5 +1,5 @@
 /**
- * ENG-038c — AI tie-break degradation paths.
+ * AI tie-break degradation paths.
  *
  * Exercises the four short-circuit gates without touching the provider
  * registry: AI disabled, monthly budget zero, monthly budget exhausted.
@@ -51,7 +51,7 @@ async function seedTenant(settings: Record<string, unknown>): Promise<void> {
   const now = new Date().toISOString();
   await db.insert(tenants).values({
     id: TENANT_ID,
-    name: 'ENG-038c AI tie-break tenant',
+    name: ' AI tie-break tenant',
     slug: 'eng038c-aitb',
     settings,
     isActive: true,

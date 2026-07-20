@@ -1,5 +1,5 @@
 /**
- * ENG-178 — shared main-process helpers for backup create and restore.
+ * shared main-process helpers for backup create and restore.
  *
  * @module main/ipc/backup/runtime
  */
@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 import { createModuleLogger } from '@puntovivo/server';
 import { DEVICE_ID_FILENAME } from '../../device-id-store.js';
 
-// ENG-006 — `backup` is one of the frequent-error surfaces split out of
+// `backup` is one of the frequent-error surfaces split out of
 // `electron-main` so operators can filter the stream by module=backup
 // without additional tagging.
 export const backupLog = createModuleLogger('backup');

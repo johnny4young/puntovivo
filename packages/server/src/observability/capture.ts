@@ -1,5 +1,5 @@
 /**
- * ENG-135 — captureException + withSpan helpers.
+ * captureException + withSpan helpers.
  *
  * These two functions are the entry points every production code
  * path uses to record an error or a measured operation. They run
@@ -84,10 +84,7 @@ export function clearTelemetryOptInCacheForTenant(tenantId: string): void {
  * cache. Returns false on any error path so a transient DB issue
  * never silently flips a tenant into the centralized pipe.
  */
-async function isTenantOptedIn(
-  db: DatabaseInstance,
-  tenantId: string
-): Promise<boolean> {
+async function isTenantOptedIn(db: DatabaseInstance, tenantId: string): Promise<boolean> {
   const cached = optInCache.get(tenantId);
   const now = Date.now();
   if (cached && cached.expiresAt > now) {
@@ -106,10 +103,7 @@ async function isTenantOptedIn(
     const settings = (row?.settings ?? {}) as Record<string, unknown>;
     optedIn = settings.telemetryOptIn === true;
   } catch (err) {
-    log.warn(
-      { tenantId, err },
-      'telemetry opt-in lookup failed; defaulting to opt-out'
-    );
+    log.warn({ tenantId, err }, 'telemetry opt-in lookup failed; defaulting to opt-out');
     optedIn = false;
   }
   optInCache.set(tenantId, { optedIn, expiresAt: now + OPT_IN_TTL_MS });
@@ -131,9 +125,9 @@ function safeInvokeSink(action: () => void): void {
  * bag.
  *
  * Tolerant of partial input:
- *   - `db` undefined → skip opt-in lookup, sink never fires.
- *   - `tenantId` null/undefined → anonymous capture, local log only.
- *   - Sink throws → swallowed (see safeInvokeSink).
+ * - `db` undefined → skip opt-in lookup, sink never fires.
+ * - `tenantId` null/undefined → anonymous capture, local log only.
+ * - Sink throws → swallowed (see safeInvokeSink).
  *
  * The function is async because the opt-in lookup is async; the
  * helper returns a Promise the caller may or may not await. In hot
@@ -186,18 +180,12 @@ export async function withSpan<T>(
   try {
     const result = await fn();
     const durationMs = Math.max(0, performance.now() - startedAt);
-    log.info(
-      { ...attrs, span: name, durationMs, outcome: 'ok' },
-      'span ok'
-    );
+    log.info({ ...attrs, span: name, durationMs, outcome: 'ok' }, 'span ok');
     await recordSpan(name, attrs, durationMs, 'ok', db);
     return result;
   } catch (err) {
     const durationMs = Math.max(0, performance.now() - startedAt);
-    log.error(
-      { ...attrs, span: name, durationMs, outcome: 'error', err },
-      'span error'
-    );
+    log.error({ ...attrs, span: name, durationMs, outcome: 'error', err }, 'span error');
     await captureException(err, { ...attrs, procedure: name }, db);
     await recordSpan(name, attrs, durationMs, 'error', db);
     throw err;
@@ -205,7 +193,7 @@ export async function withSpan<T>(
 }
 
 /**
- * ENG-135b — capture a process-level crash (Electron main
+ * capture a process-level crash (Electron main
  * `uncaughtException` / `unhandledRejection`, or any other
  * tenant-less lifecycle failure).
  *
@@ -221,10 +209,7 @@ export async function withSpan<T>(
  * Synchronous on purpose — crash paths cannot await a DB lookup,
  * and there is none to make. Never throws.
  */
-export function captureProcessCrash(
-  err: unknown,
-  attrs: TelemetryEventAttrs = {}
-): void {
+export function captureProcessCrash(err: unknown, attrs: TelemetryEventAttrs = {}): void {
   // Local log is unconditional, exactly like captureException.
   log.error({ ...attrs, err }, 'process crash captured');
 

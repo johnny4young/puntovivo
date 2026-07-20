@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — base domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -15,38 +15,38 @@ import type { UnitDimension } from '@puntovivo/shared/units';
 import { USER_ROLES } from '@puntovivo/shared/roles';
 
 // ============================================================================
-// MONEY INVARIANTS (ENG-176a)
+// MONEY INVARIANTS ()
 // ============================================================================
 //
 // Every monetary column in the schema is stored as `real()` (SQLite IEEE-754
 // double). The application layer rounds to two decimals at the Zod boundary
-// (ENG-166 hardened that with `.strict()`), but the storage layer itself had
+// ( hardened that with `.strict()`), but the storage layer itself had
 // no defence against an unrounded write — a bug in a future feature, a raw
 // SQL CLI session, or a botched import could persist values like
 // `100.005000000001` or a negative `total = -50`. The audit
-// (ENG-176) names this as a data-integrity gap
-// that blocks ENG-156 (multi-currency operations) and ENG-161 (NFe Brazil).
+// () names this as a data-integrity gap
+// that blocks  (multi-currency operations) and  (NFe Brazil).
 //
-// ENG-176a closes the gap with table-level CHECK constraints. The
+// closes the gap with table-level CHECK constraints. The
 // decision is documented in `docs/architecture/0009-money-storage-and-validation.md`
 // (real + CHECK invariants chosen over integer minor units; the latter
 // remains a future option if rounding bugs surface at the IEEE-754 layer).
 //
 // Two helpers cover the two categories of monetary columns:
 //
-//   - `moneyPositiveChecks(name, col)` — emits BOTH a non-negative
-//     (`>= 0`) CHECK AND a two-decimal precision (`round(col, 2) = col`)
-//     CHECK. Apply to columns that can NEVER hold a negative value
-//     (totals, subtotals, taxes, costs, tips, service charges, opening
-//     floats, credit limits, refund amounts).
+// - `moneyPositiveChecks(name, col)` — emits BOTH a non-negative
+// (`>= 0`) CHECK AND a two-decimal precision (`round(col, 2) = col`)
+// CHECK. Apply to columns that can NEVER hold a negative value
+// (totals, subtotals, taxes, costs, tips, service charges, opening
+// floats, credit limits, refund amounts).
 //
-//   - `moneyTwoDecimalCheck(name, col)` — emits ONLY the precision
-//     CHECK. Apply to signed columns (discounts, cash-movement
-//     amounts, sale-payment reverses, cash-session over/short
-//     variance) where negative values are semantically meaningful but
-//     decimal drift beyond two digits is not.
+// - `moneyTwoDecimalCheck(name, col)` — emits ONLY the precision
+// CHECK. Apply to signed columns (discounts, cash-movement
+// amounts, sale-payment reverses, cash-session over/short
+// variance) where negative values are semantically meaningful but
+// decimal drift beyond two digits is not.
 //
-// The 2-decimal rule is hard-coded for now. ENG-176b stores
+// The 2-decimal rule is hard-coded for now.  stores
 // `currency_code` on transactional rows, and a future iteration can
 // refine the CHECK to honour the per-currency decimal count from
 // `currency_catalog` (JPY = 0, BHD = 3). For the current LATAM-only
@@ -55,8 +55,8 @@ import { USER_ROLES } from '@puntovivo/shared/roles';
 //
 // The precision invariant relies on the application layer rounding
 // every monetary value to two decimals at the write boundary using
-// `roundMoney()` from `lib/money.ts`. ENG-176a Step-a shipped the
-// `_nonneg` invariant alone; ENG-176a-rounding Step-b extended the
+// `roundMoney()` from `lib/money.ts`.  Step-a shipped the
+// `_nonneg` invariant alone;  Step-b extended the
 // schema to both invariants once the application sweep landed (see
 // `lib/money.ts` for the canonical helper and the call-site policy:
 // every `db.insert/update` to a monetary column passes through
@@ -139,7 +139,7 @@ export const initialInventoryModeEnum = ['initial', 'physical'] as const;
 export const lotStatusEnum = ['active', 'depleted', 'expired', 'quarantined'] as const;
 export type LotStatus = (typeof lotStatusEnum)[number];
 
-// ENG-110c — one lifecycle state per individually tracked physical unit.
+// one lifecycle state per individually tracked physical unit.
 // `returned` remains sellable after inspection, while preserving the fact
 // that the unit came back from a completed sale until it is sold again.
 export const productSerialStatusEnum = [
@@ -166,7 +166,7 @@ export const unitDimensionEnum = UNIT_DIMENSIONS;
 export type { UnitDimension };
 
 /**
- * Phase 8 / Tier-2 #8 — audit trail for sensitive operations.
+ * audit trail for sensitive operations.
  *
  * The list is intentionally open-ended: the full set of `action` / `resource_type`
  * values is enforced in the service layer (`services/audit-logs.ts`), not at
@@ -178,94 +178,94 @@ export const auditLogActionEnum = [
   'transfer.void',
   'quotation.delete',
   'quotation.convert',
-  // Phase 8 / Tier-2 #8 — sensitive sale, cash, and inventory actions.
+  // sensitive sale, cash, and inventory actions.
   // The DB column is free-form text (no enum constraint at the SQL layer)
   // so adding entries here NEVER requires a migration; only the TS-level
   // narrowing is widened.
   'sale.void',
   'sale.return',
   'cash_session.close',
-  // ENG-056 — shift-lifecycle parity. open had no audit row before; add
+  // shift-lifecycle parity. open had no audit row before; add
   // it alongside close so the audit trail brackets every shift symmetrically.
   // movement covers the manual paid_in / paid_out / skim / replenishment
   // mutations routed through `application/cash-sessions/recordCashMovement`.
   'cash_session.open',
   'cash_session.movement',
   'inventory.adjust_stock',
-  // ENG-007 second wave — purchase voids, admin user lifecycle, manual
+  // second wave — purchase voids, admin user lifecycle, manual
   // price overrides at checkout. Same free-form-text rule applies: no
   // migration is needed to add audit actions here.
   'purchase.void',
   'user.create',
   'user.update',
-  // ENG-106a — PIN configuration and successful shared-terminal identity
+  // PIN configuration and successful shared-terminal identity
   // switches. Neither row carries the PIN or its hash.
   'user.pin.update',
   'auth.staff_switch',
-  // ENG-106b — self-service attendance baseline. The actor is always the
-  // employee whose shift is targeted; schedule edits remain in ENG-140.
+  // self-service attendance baseline. The actor is always the
+  // employee whose shift is targeted; schedule edits remain in .
   'employee_shift.clock_in',
   'employee_shift.clock_out',
-  // ENG-140e — manager-authored effective snapshot; the raw shift remains.
+  // manager-authored effective snapshot; the raw shift remains.
   'employee_shift.correct',
-  // ENG-140b — self-service rest boundaries remain independent evidence.
+  // self-service rest boundaries remain independent evidence.
   'employee_shift_break.start',
   'employee_shift_break.end',
-  // ENG-140a — published schedule lifecycle. Cancel keeps the row as
+  // published schedule lifecycle. Cancel keeps the row as
   // durable labor evidence instead of deleting it.
   'scheduled_shift.create',
   'scheduled_shift.update',
   'scheduled_shift.cancel',
-  // ENG-106c1 — every approval transition carries requester + approver
+  // every approval transition carries requester + approver
   // identity without creating or exposing a manager browser session.
   'manager_approval.request',
   'manager_approval.approve',
   'manager_approval.reject',
   'manager_approval.cancel',
   'manager_approval.consume',
-  // ENG-142 — immutable policy configuration and real-time rule evidence.
+  // immutable policy configuration and real-time rule evidence.
   'loss_prevention.settings.updated',
   'loss_prevention.triggered',
-  // ENG-142d — shared manager review state for one in-app alert.
+  // shared manager review state for one in-app alert.
   'loss_prevention.alert.acknowledged',
-  // ENG-106c3 — every direct or approved physical drawer dispatch.
+  // every direct or approved physical drawer dispatch.
   'cash_drawer.open',
-  // ENG-123a/ENG-123c — one summary row per committed launch product import.
+  // -123c — one summary row per committed launch product import.
   // Metadata carries counts and normalized source format, never filenames or raw rows.
   'data_import.products',
-  // ENG-123b — party imports retain only counts and normalized source format;
+  // party imports retain only counts and normalized source format;
   // raw contact rows and operator-supplied filenames never enter immutable audit evidence.
   'data_import.customers',
   'data_import.providers',
-  // ENG-123d — positive receivable opening balances. Audit evidence keeps
+  // positive receivable opening balances. Audit evidence keeps
   // counts/source format only; customer identifiers remain in the ledger.
   'data_import.customer_balances',
-  // ENG-123e — register opening templates are money-sensitive configuration.
+  // register opening templates are money-sensitive configuration.
   // Audit evidence carries counts/source format only, never amounts or register names.
   'data_import.opening_cash',
-  // ENG-123f — issuer identity/config import. Immutable evidence contains
+  // issuer identity/config import. Immutable evidence contains
   // only counts, country, and source format; never tax IDs or fiscal values.
   'data_import.fiscal_profile',
   'sale.price_override',
-  // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
+  // park-and-resume (multi-cart workspace). `sale.park` is emitted
   // when a cashier suspends a draft sale; `sale.resume` when the same or
   // another cashier (manager/admin override) reopens it. Gated at the
   // service level by the optional `audit_park_sale` tenant setting so
   // tenants that consider park churn noise can suppress the rows.
   'sale.park',
   'sale.resume',
-  // ENG-019 — receipt reprint. One row per reprint invocation, metadata
+  // receipt reprint. One row per reprint invocation, metadata
   // carries the reason dropdown value + reprint ordinal count.
   'sale.reprint',
-  // ENG-018c — draft completion. Emitted by `sales.completeDraft` when
+  // draft completion. Emitted by `sales.completeDraft` when
   // a draft sale transitions to `status='completed'`. Creates the audit
   // parity with void/return/park — any state-change on an existing sale
   // leaves a row in the log.
   'sale.complete',
-  // ENG-047 — local anomaly detector persistence. Emitted when the
+  // local anomaly detector persistence. Emitted when the
   // dashboard detector surfaces a new non-snoozed alert.
   'ai.anomaly.detected',
-  // ENG-068 — module activation kernel. Admin toggles a tenant
+  // module activation kernel. Admin toggles a tenant
   // module on/off via `modules.setActive`; metadata carries
   // `{moduleId, wasExplicit, defaultEnabled}` for activation history.
   'module.toggle',
@@ -273,10 +273,10 @@ export const auditLogActionEnum = [
   // sets several surface modules at once. Metadata carries the preset id
   // plus the before/after of every module the patch touched.
   'module.preset_applied',
-  // ENG-075 — Authority Node operability. Admin revokes a hub-client
+  // Authority Node operability. Admin revokes a hub-client
   // terminal from the Operations Center Authority tab.
   'device.revoke',
-  // ENG-168 — every successful pairing claim (the moment a fresh
+  // every successful pairing claim (the moment a fresh
   // Electron install consumes its short-lived pairing code) leaves an
   // audit row scoped to the claiming user. `metadata` carries the
   // last 4 chars of the code + the resolved siteId + kind so an
@@ -286,7 +286,7 @@ export const auditLogActionEnum = [
   // when the caller passes an `actorUserId` (the tRPC routers always
   // do).
   'device.pairing.claimed',
-  // ENG-065d — Operations Center payment reconciliation admin gestures.
+  // Operations Center payment reconciliation admin gestures.
   // `payment.retry` resets a `payment_outbox` row back to `queued` so
   // the worker re-dispatches it. `payment.mark_settled` is a manual
   // override the operator uses when the provider already confirmed
@@ -294,19 +294,19 @@ export const auditLogActionEnum = [
   // attempts in `before` so forensics can replay the lifecycle.
   'payment.retry',
   'payment.mark_settled',
-  // ENG-039b — restaurant table catalog admin gestures. Every CRUD on
+  // restaurant table catalog admin gestures. Every CRUD on
   // a `restaurant_tables` row emits an audit entry carrying the row's
   // prior + post-action snapshot so forensics can replay the catalog
   // history across pilots.
   'restaurant_table.create',
   'restaurant_table.update',
   'restaurant_table.archive',
-  // ENG-039c — `sales.changeTable` moves a suspended draft between
+  // `sales.changeTable` moves a suspended draft between
   // restaurant tables (or detaches it back to free text). Audit row
   // captures the prior + post tableId so forensics can reconstruct
   // table occupancy timelines.
   'sale.changeTable',
-  // ENG-039c3 — `sales.splitDraft` carves a subset of items out of a
+  // `sales.splitDraft` carves a subset of items out of a
   // suspended draft into a brand-new suspended draft so the operator
   // can bill guests separately. Audit row's `resourceId` is the NEW
   // draft id (the forensic primary); `metadata.sourceSaleNumber`
@@ -317,30 +317,30 @@ export const auditLogActionEnum = [
   'ai.copilot.query',
   'ai.anomaly.silenced',
   'ai.semantic_search.regenerate_embeddings',
-  // ENG-098 — kitchen display lifecycle. `kds.order.ready` is the cook
+  // kitchen display lifecycle. `kds.order.ready` is the cook
   // marking a card Listo; `kds.order.recalled` is the recovery affordance
   // when the cook misclicks and needs to flip a ready row back to pending.
   // Both rows carry the row's prior + post snapshot so forensics can
   // reconstruct the kitchen timeline.
   'kds.order.ready',
   'kds.order.recalled',
-  // ENG-007 closure — credit-policy mutations. `customer.credit_limit.update`
+  // closure — credit-policy mutations. `customer.credit_limit.update`
   // captures every per-customer cupo adjustment from the customers admin;
   // `sale.credit_override` fires when an admin authorised a sale whose
   // projected balance exceeded the customer's credit_limit (overrideApplied
-  // === true in the credit-limit projection). The ENG-007 original wording
-  // mentioned a `company_credit_settings` table that ENG-090 never created
+  // === true in the credit-limit projection). The  original wording
+  // mentioned a `company_credit_settings` table that  never created
   // (the credit-sales feature put the cupo on the customer row instead);
   // these two actions cover the two real mutation surfaces.
   'customer.credit_limit.update',
-  // ENG-129b — every disclosure of a customer's allowlisted personal-data
+  // every disclosure of a customer's allowlisted personal-data
   // document is auditable. Metadata carries only schema version + aggregate
   // section counts; PII remains inside the one-time response document.
   'customer.personal_data.export',
   'customer.personal_data.delete',
   'customer.personal_data.anonymize',
   'sale.credit_override',
-  // ENG-103 — audit-grade export contract. `fiscal.xml.downloaded` is
+  // audit-grade export contract. `fiscal.xml.downloaded` is
   // emitted every time `reports.fiscal.getXml` returns a signed XML body
   // to the operator. The audit row carries the document id + cufe in
   // `metadata` so forensics can reconstruct who downloaded which XML
@@ -348,29 +348,29 @@ export const auditLogActionEnum = [
   // tenant — emitted on the server side of the procedure right before
   // the response.
   'fiscal.xml.downloaded',
-  // ENG-135 — production observability foundation rail. Emitted every
+  // production observability foundation rail. Emitted every
   // time an admin flips `tenants.settings.telemetryOptIn` via
   // `companies.updateTelemetryOptIn`. `before` / `after` carry the
   // boolean state so forensics can replay the consent timeline.
   // Free-form text in the SQL layer — no migration needed.
   'telemetry.opt_in.updated',
-  // ENG-129d — retention-policy lifecycle. Policy changes carry only
+  // retention-policy lifecycle. Policy changes carry only
   // bounded day counts; manual sweeps carry aggregate deleted counts.
   // Automatic daily sweeps use system_audit_logs because they have no actor.
   'data_retention.policy.updated',
   'data_retention.sweep.run',
-  // ENG-199 — expiry radar. `discount_suggested` fires when a manager
+  // expiry radar. `discount_suggested` fires when a manager
   // accepts the radar CTA for an expiring lot (metadata carries lotNumber,
   // productId, discountPct, lotExpiresAt); `discount_suggestion_dismissed`
   // when the suggestion is retired without a promo. Both key on the
   // price_suggestions row id. Free-form text at the SQL layer.
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',
-  // ENG-136b — an admin ran a non-destructive readiness drill against the
+  // an admin ran a non-destructive readiness drill against the
   // latest scheduled snapshot. Metadata records pass/fail plus bounded
   // tenant-scoped count deltas; no filesystem path or encryption key.
   'backup.restore_drill',
-  // ENG-141b — one irreversible manager/admin attestation of the frozen
+  // one irreversible manager/admin attestation of the frozen
   // comprehensive day-close snapshot. Metadata carries the business date,
   // schema version, and SHA-256 hash; the report body lives in its dedicated
   // immutable table rather than duplicating financial detail into audit logs.
@@ -383,64 +383,64 @@ export const auditLogResourceTypeEnum = [
   'quotation',
   'sale',
   'cash_session',
-  // ENG-056 — manual cash movements emit cash_session.movement audit rows
+  // manual cash movements emit cash_session.movement audit rows
   // keyed to the inserted cash_movements row id.
   'cash_movement',
   'product',
-  // ENG-007 second wave resources.
+  // second wave resources.
   'purchase',
   'user',
-  // ENG-106b — durable self-service clock-in/out row.
+  // durable self-service clock-in/out row.
   'employee_shift',
-  // ENG-140b — one durable rest interval inside an attendance shift.
+  // one durable rest interval inside an attendance shift.
   'employee_shift_break',
-  // ENG-140a — manager-authored expected work interval.
+  // manager-authored expected work interval.
   'scheduled_shift',
-  // ENG-106c1 — one short-lived authorization request/grant.
+  // one short-lived authorization request/grant.
   'manager_approval',
-  // ENG-142 — one configured rule or one checkout rule trigger.
+  // one configured rule or one checkout rule trigger.
   'loss_prevention_rule',
-  // ENG-142d — points from an acknowledgement to its trigger audit row.
+  // points from an acknowledgement to its trigger audit row.
   'loss_prevention_alert',
-  // ENG-106c3 — drawer approvals and dispatch evidence bind to a site.
+  // drawer approvals and dispatch evidence bind to a site.
   'site',
-  // ENG-047 wrote anomaly rows keyed to the flagged cashier in early
+  // wrote anomaly rows keyed to the flagged cashier in early
   // dev databases. Keep the reader tolerant so those rows stay visible.
   'cashier',
-  // ENG-068 — module activation kernel. `module.toggle` audit rows
+  // module activation kernel. `module.toggle` audit rows
   // key on the module id (one row per module per tenant per toggle).
   'tenant_module',
-  // ENG-075 — hub-client terminal registry lifecycle.
+  // hub-client terminal registry lifecycle.
   'device',
-  // ENG-065d — payment_outbox rows targeted by admin retry / mark_settled.
+  // payment_outbox rows targeted by admin retry / mark_settled.
   'payment_outbox',
-  // ENG-039b — restaurant table catalog rows.
+  // restaurant table catalog rows.
   'restaurant_table',
   'ai_feature',
-  // ENG-098 — kitchen display rows.
+  // kitchen display rows.
   'kds_order',
-  // ENG-007 closure — customer rows targeted by credit-limit audits.
-  // ENG-089/090 shipped the credit-sales feature without ever emitting
+  // closure — customer rows targeted by credit-limit audits.
+  // shipped the credit-sales feature without ever emitting
   // audit rows from the customers router, so this resource type is new.
   'customer',
-  // ENG-103 — fiscal documents targeted by the new `getXml` download
+  // fiscal documents targeted by the new `getXml` download
   // procedure. The audit row's `resourceId` is the `fiscal_documents.id`
   // (internal id, NOT cufe) so cross-tenant collapse stays consistent
   // with the rest of the resource catalog.
   'fiscal_document',
-  // ENG-135 — tenant-level settings rows targeted by
+  // tenant-level settings rows targeted by
   // `telemetry.opt_in.updated`. `resourceId` is the tenantId itself
   // so cross-tenant collapse keeps the toggle history scoped.
   'tenant',
-  // ENG-199 — price_suggestions rows targeted by the expiry-radar CTA
+  // price_suggestions rows targeted by the expiry-radar CTA
   // audits (resourceId = the suggestion row id; the lot travels in
   // metadata so the row survives lot deletion).
   'price_suggestion',
-  // ENG-136b — scheduler-owned encrypted snapshot targeted by a restore drill.
+  // scheduler-owned encrypted snapshot targeted by a restore drill.
   'backup_snapshot',
-  // ENG-123a — an immutable import-run summary keyed by import id.
+  // an immutable import-run summary keyed by import id.
   'data_import',
-  // ENG-141b — immutable comprehensive day-close evidence row.
+  // immutable comprehensive day-close evidence row.
   'day_close_signoff',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];

@@ -1,12 +1,12 @@
 /**
- * ENG-190 — Tests for ProfitMarginReportPage.
+ * Tests for ProfitMarginReportPage.
  *
  * Asserts:
- *   - Loading state shows the localized loading copy.
- *   - Error state renders the translated fallback.
- *   - Summary tiles render revenue / COGS / gross profit / margin values.
- *   - The per-product table renders rows (name + sku + figures).
- *   - An empty product list surfaces the localized empty-state copy.
+ * - Loading state shows the localized loading copy.
+ * - Error state renders the translated fallback.
+ * - Summary tiles render revenue / COGS / gross profit / margin values.
+ * - The per-product table renders rows (name + sku + figures).
+ * - An empty product list surfaces the localized empty-state copy.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';

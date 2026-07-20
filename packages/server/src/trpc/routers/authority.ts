@@ -1,5 +1,5 @@
 /**
- * ENG-075 — Authority Node pairing + health.
+ * Authority Node pairing + health.
  *
  * Manager/admin callers can inspect the active topology; admin callers
  * create pairing codes and revoke hub-client terminals.
@@ -98,14 +98,14 @@ export const authorityRouter = router({
           .where(and(eq(devices.tenantId, ctx.tenantId), eq(devices.id, input.deviceId)))
           .run();
 
-        // ENG-168 — bump the registering user's sessionVersion in the
+        // bump the registering user's sessionVersion in the
         // same transaction so every access + refresh token they hold
         // fails verification on the next request. The current schema
         // does not track session-per-device (no `device_sessions`
         // table), so this is the closest proxy to "kick the device's
         // owner out everywhere it is signed in". A finer-grained
         // device-scoped revocation requires a session-binding table
-        // — captured as a follow-up; out of scope for this slice.
+        // captured as a follow-up; out of scope for this slice.
         tx.update(users)
           .set({
             sessionVersion: sql`${users.sessionVersion} + 1`,

@@ -1,19 +1,19 @@
 /**
- * ENG-105 (slice A) — Canonical keyboard-shortcut catalogue.
+ * (slice A) — Canonical keyboard-shortcut catalogue.
  *
  * This module is the single source of truth for every keyboard
  * shortcut the renderer exposes. Three downstream consumers read
  * from it:
  *
- *   1. The Command Palette (`CommandPalette.tsx`) — displays the
- *      shortcut hint on the right of every action it knows about.
- *   2. The `aria-keyshortcuts` attribute on the real buttons in
- *      the DOM (Charge / Suspend / Toggle Suspended / ...). The
- *      attribute closes the Remaining slice of ENG-134 (AA
- *      accessibility) that was waiting on this canonical map.
- *   3. `docs/SHORTCUTS.md` documents the catalogue — adding a
- *      shortcut here without updating the doc is a review-time
- *      flag.
+ * 1. The Command Palette (`CommandPalette.tsx`) — displays the
+ * shortcut hint on the right of every action it knows about.
+ * 2. The `aria-keyshortcuts` attribute on the real buttons in
+ * the DOM (Charge / Suspend / Toggle Suspended / ...). The
+ * attribute closes the Remaining slice of  (AA
+ * accessibility) that was waiting on this canonical map.
+ * 3. `docs/SHORTCUTS.md` documents the catalogue — adding a
+ * shortcut here without updating the doc is a review-time
+ * flag.
  *
  * Existing imperative handlers (`useSalesKeyboardShortcuts.ts`,
  * Modal ESC handler, etc.) stay where they are — the catalogue
@@ -79,7 +79,7 @@ export interface ShortcutDefinition {
  * `docs/SHORTCUTS.md` should land in the same PR.
  */
 export const SHORTCUTS: readonly ShortcutDefinition[] = [
-  // ENG-105a (this slice) — the only NEW handler wired in this PR.
+  // (this slice) — the only NEW handler wired in this PR.
   {
     id: 'palette.open',
     keys: ['Mod+K'],
@@ -87,7 +87,7 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'palette.open',
   },
 
-  // ENG-018 / ENG-018b — pre-existing /sales shortcuts declared
+  // /  — pre-existing /sales shortcuts declared
   // here for the palette hint + aria-keyshortcuts hookup. The
   // imperative handler lives in `useSalesKeyboardShortcuts.ts`.
   {
@@ -160,7 +160,7 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'sales.removeItem',
     roles: ['admin', 'manager', 'cashier'],
   },
-  // ENG-105d — undo the last cart mutation (add / qty / discount /
+  // undo the last cart mutation (add / qty / discount /
   // remove). The imperative handler lives in
   // `useSalesKeyboardShortcuts.ts`; the catalogue entry powers the
   // visible chip on the SaleCartTable "Deshacer" button + the
@@ -172,7 +172,7 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'sales.undo',
     roles: ['admin', 'manager', 'cashier'],
   },
-  // ENG-105e — fast-cash rapid checkout. F2 opens the payment
+  // fast-cash rapid checkout. F2 opens the payment
   // modal in exact-cash mode (paymentMethod=cash + amountReceived
   // = grand total + Confirmar focused) for a one-keystroke checkout
   // on the most common LATAM-retail case. When the modal is already
@@ -217,14 +217,11 @@ export function isMacPlatform(): boolean {
  * resolves to `⌘` on macOS and `Ctrl` on every other platform.
  *
  * @example
- *   formatKeysForDisplay(['Mod+K'])      → '⌘K' (mac) / 'Ctrl+K'
- *   formatKeysForDisplay(['F1'])         → 'F1'
- *   formatKeysForDisplay(['Mod+Shift+P'])→ '⌘⇧P' (mac) / 'Ctrl+Shift+P'
+ * formatKeysForDisplay(['Mod+K'])      → '⌘K' (mac) / 'Ctrl+K'
+ * formatKeysForDisplay(['F1'])         → 'F1'
+ * formatKeysForDisplay(['Mod+Shift+P'])→ '⌘⇧P' (mac) / 'Ctrl+Shift+P'
  */
-export function formatKeysForDisplay(
-  keys: ShortcutKey[],
-  mac: boolean = isMacPlatform()
-): string {
+export function formatKeysForDisplay(keys: ShortcutKey[], mac: boolean = isMacPlatform()): string {
   if (keys.length === 0) return '';
   const first = keys[0]!;
   const parts = first.split('+');
@@ -258,14 +255,11 @@ export function formatKeysForDisplay(
  * elsewhere.
  *
  * @example
- *   formatKeysForAria(['Mod+P'])        → 'Meta+P' (mac) / 'Control+P'
- *   formatKeysForAria(['F1'])           → 'F1'
- *   formatKeysForAria(['Mod+Shift+P'])  → 'Meta+Shift+P' (mac) / 'Control+Shift+P'
+ * formatKeysForAria(['Mod+P'])        → 'Meta+P' (mac) / 'Control+P'
+ * formatKeysForAria(['F1'])           → 'F1'
+ * formatKeysForAria(['Mod+Shift+P'])  → 'Meta+Shift+P' (mac) / 'Control+Shift+P'
  */
-export function formatKeysForAria(
-  keys: ShortcutKey[],
-  mac: boolean = isMacPlatform()
-): string {
+export function formatKeysForAria(keys: ShortcutKey[], mac: boolean = isMacPlatform()): string {
   if (keys.length === 0) return '';
   return keys
     .map(k =>
@@ -310,11 +304,7 @@ export function matchesShortcut(
   return shortcut.keys.some(combo => matchesSingleCombo(event, combo, mac));
 }
 
-function matchesSingleCombo(
-  event: KeyboardEvent,
-  combo: string,
-  mac: boolean
-): boolean {
+function matchesSingleCombo(event: KeyboardEvent, combo: string, mac: boolean): boolean {
   const parts = combo.split('+');
   const finalKey = parts[parts.length - 1]!;
   const required = new Set(parts.slice(0, -1));

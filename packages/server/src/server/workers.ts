@@ -56,7 +56,7 @@ export function registerWorkers(
   db: DatabaseInstance,
   { stopRateLimitSweep }: RegisterWorkersOptions
 ): RegisteredWorkers {
-  // ENG-057 — boot the fiscal outbox worker daemon. Registered as the
+  // boot the fiscal outbox worker daemon. Registered as the
   // default singleton so `safelyEmitFiscalDocument` can fire-and-forget
   // an immediate tick after enqueue without taking a worker reference
   // through every call site. The periodic interval starts on `listen`
@@ -69,13 +69,13 @@ export function registerWorkers(
     setDefaultFiscalWorker(null);
   });
 
-  // ENG-166 — release the rate-limit sweeper timer on server close so
+  // release the rate-limit sweeper timer on server close so
   // tests do not leak timers when they tear down a server instance.
   app.addHook('onClose', async () => {
     stopRateLimitSweep();
   });
 
-  // ENG-062 — boot the hardware outbox worker daemon parallel to the
+  // boot the hardware outbox worker daemon parallel to the
   // fiscal worker. Same boot/teardown pattern; the periodic interval
   // starts on `listen` so test harnesses that build without listening
   // never accumulate background timers.
@@ -86,7 +86,7 @@ export function registerWorkers(
     setDefaultHardwareWorker(null);
   });
 
-  // ENG-038c — boot the payment worker. v1 ships the housekeeping +
+  // boot the payment worker. v1 ships the housekeeping +
   // statement-import skeleton without a live `fetchStatement` wired —
   // production calls `createPaymentWorker` directly when a real
   // provider client lands, and the test harness injects a stub
@@ -97,7 +97,7 @@ export function registerWorkers(
     await paymentWorker.stop();
   });
 
-  // ENG-168 — login_attempts cleanup worker. Same pattern as the
+  // login_attempts cleanup worker. Same pattern as the
   // outbox workers above: the factory builds the handle, the periodic
   // timer is armed only inside listen(), and onClose releases it.
   const loginAttemptsCleanup = createLoginAttemptsCleanup({ db });
@@ -105,7 +105,7 @@ export function registerWorkers(
     loginAttemptsCleanup.stop();
   });
 
-  // ENG-129d — daily tenant-scoped retention enforcement. The handle
+  // daily tenant-scoped retention enforcement. The handle
   // owns no timer until listen() starts it, keeping direct-router tests hermetic.
   const dataRetentionCleanup = createDataRetentionCleanup({ db });
   app.addHook('onClose', async () => {

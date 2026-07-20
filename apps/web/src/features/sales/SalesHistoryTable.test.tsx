@@ -40,7 +40,7 @@ describe('SalesHistoryTable', () => {
     expect(screen.getByText('Voided')).toBeInTheDocument();
   });
 
-  it('fires onView with the sale id when Enter is pressed on a focused row (ENG-134f)', async () => {
+  it('fires onView with the sale id when Enter is pressed on a focused row', async () => {
     const user = userEvent.setup();
     const onView = vi.fn();
 

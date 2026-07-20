@@ -1,20 +1,20 @@
 /**
- * ENG-040c slice 2 — Browser MediaRecorder wrapper for the "Test
+ * slice 2 — Browser MediaRecorder wrapper for the "Test
  * transcription" affordance on the AI settings card.
  *
  * Responsibilities:
- *   - Detect the first supported audio MIME type that matches the
- *     server-side whitelist (see
- *     `VOICE_TRANSCRIBE_MIME_TYPES` in
- *     `services/ai/voice/transcribe.ts`).
- *   - Request microphone access, start recording, and resolve a
- *     final `Blob` when the caller calls `stop()`.
- *   - Auto-stop at the 30-second hard cap so the operator can never
- *     blow the 10 MB byte budget the server already enforces.
- *   - Release MediaStream tracks on stop / unmount.
- *   - Surface three error modes (permission-denied, no-microphone,
- *     unsupported-browser) so the consuming component can render
- *     the right localized hint.
+ * - Detect the first supported audio MIME type that matches the
+ * server-side whitelist (see
+ * `VOICE_TRANSCRIBE_MIME_TYPES` in
+ * `services/ai/voice/transcribe.ts`).
+ * - Request microphone access, start recording, and resolve a
+ * final `Blob` when the caller calls `stop()`.
+ * - Auto-stop at the 30-second hard cap so the operator can never
+ * blow the 10 MB byte budget the server already enforces.
+ * - Release MediaStream tracks on stop / unmount.
+ * - Surface three error modes (permission-denied, no-microphone,
+ * unsupported-browser) so the consuming component can render
+ * the right localized hint.
  *
  * The hook owns no DOM — pure state + browser APIs — so the
  * consumer keeps full control over button labels, countdowns, and
@@ -58,10 +58,7 @@ export const MAX_TEST_RECORDING_MS = 30_000;
  * surfaces without a typed cause.
  */
 export type VoiceRecorderErrorKind =
-  | 'permission-denied'
-  | 'no-microphone'
-  | 'unsupported-browser'
-  | 'unknown';
+  'permission-denied' | 'no-microphone' | 'unsupported-browser' | 'unknown';
 
 export interface VoiceRecorderError {
   kind: VoiceRecorderErrorKind;
@@ -72,21 +69,21 @@ export interface VoiceRecorderHook {
   /** True while the MediaRecorder is actively capturing audio. */
   recording: boolean;
   /** Whether `MediaRecorder` is available + at least one MIME from
-   *  the whitelist is supported. Computed once on mount. */
+   * the whitelist is supported. Computed once on mount. */
   supported: boolean;
   /** Most recent error, if any. Cleared by `reset()`. */
   error: VoiceRecorderError | null;
   /** MIME type the active recording uses. Null until `start()` is
-   *  called and MediaRecorder picks one. */
+   * called and MediaRecorder picks one. */
   recordedMimeType: VoiceRecorderMimeType | null;
   /** Start a recording. Rejects with a `VoiceRecorderError` if mic
-   *  permission is denied or hardware is missing. */
+   * permission is denied or hardware is missing. */
   start: () => Promise<void>;
   /** Stop the active recording. Resolves with the captured Blob;
-   *  rejects if no recording is in flight. */
+   * rejects if no recording is in flight. */
   stop: () => Promise<Blob>;
   /** Clear the last error + reset state. Does NOT stop a live
-   *  recording — call `stop()` first if needed. */
+   * recording — call `stop()` first if needed. */
   reset: () => void;
 }
 
@@ -141,8 +138,7 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
   const [supported] = useState<boolean>(() => detectSupportedMimeType() !== null);
   const [recording, setRecording] = useState<boolean>(false);
   const [error, setError] = useState<VoiceRecorderError | null>(null);
-  const [recordedMimeType, setRecordedMimeType] =
-    useState<VoiceRecorderMimeType | null>(null);
+  const [recordedMimeType, setRecordedMimeType] = useState<VoiceRecorderMimeType | null>(null);
 
   // Refs survive re-renders without triggering them, which keeps the
   // MediaRecorder lifecycle decoupled from React state updates.

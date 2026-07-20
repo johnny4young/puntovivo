@@ -1,11 +1,11 @@
 /**
- * ENG-038c — Payment reconciliation matcher benchmark.
+ * Payment reconciliation matcher benchmark.
  *
  * Operator-runnable. Walks the deterministic 30-day fixture across
  * every rail and asserts the matcher meets the ≥95% AC. Exits non-zero
  * below `--threshold` (default 0.95).
  *
- *   npm run benchmark:payment-reconciliation --workspace=@puntovivo/server
+ * npm run benchmark:payment-reconciliation --workspace=@puntovivo/server
  *
  * No live provider call — the harness invokes the matcher against the
  * synthetic fixture. The benchmark exists so the operator can confirm
@@ -14,13 +14,7 @@
  */
 import { createServer } from '../src/index.js';
 import type { DatabaseInstance } from '../src/db/index.js';
-import {
-  paymentOutbox,
-  salePayments,
-  sales,
-  tenants,
-  users,
-} from '../src/db/schema.js';
+import { paymentOutbox, salePayments, sales, tenants, users } from '../src/db/schema.js';
 import {
   generatePaymentStatementFixture,
   listOutboxRows,

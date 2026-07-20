@@ -1,14 +1,14 @@
 /**
- * ENG-105 (slice A) — CommandPalette component tests.
+ * (slice A) — CommandPalette component tests.
  *
  * Pins:
- *   - Renders with the search input auto-focused.
- *   - Typing filters the action list in real time.
- *   - ArrowUp / ArrowDown move the selection.
- *   - Enter on a selected item calls navigate.
- *   - Click on an item calls navigate.
- *   - Role filtering hides admin destinations from a cashier.
- *   - Empty-result state surfaces the no-results hint.
+ * - Renders with the search input auto-focused.
+ * - Typing filters the action list in real time.
+ * - ArrowUp / ArrowDown move the selection.
+ * - Enter on a selected item calls navigate.
+ * - Click on an item calls navigate.
+ * - Role filtering hides admin destinations from a cashier.
+ * - Empty-result state surfaces the no-results hint.
  *
  * @module components/feedback/__tests__/CommandPalette.test
  */
@@ -53,7 +53,7 @@ vi.mock('@/features/modules', () => ({
   }),
 }));
 
-// ENG-203 — the palette body wires the omnibox sell handler (trpc + cart
+// the palette body wires the omnibox sell handler (trpc + cart
 // store underneath); mock it so this suite stays network-free. Its behavior
 // is pinned in CommandPaletteProvider.test.tsx and useOmniboxSell.test.ts.
 vi.mock('@/features/sales/useOmniboxSell', () => ({
@@ -76,7 +76,7 @@ afterEach(() => {
   delete document.body.dataset.commandPaletteOpen;
 });
 
-describe('CommandPalette (ENG-105a)', () => {
+describe('CommandPalette', () => {
   it('renders with the search input present and the action listbox visible', async () => {
     render(<CommandPalette isOpen onClose={vi.fn()} />);
     expect(screen.getByRole('dialog', { name: /command palette/i })).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe('CommandPalette (ENG-105a)', () => {
     expect(screen.queryByTestId('command-palette-item-navigate.products')).not.toBeInTheDocument();
   });
 
-  it('offers the omnibox sell row instead of an empty state for selling roles (ENG-203)', async () => {
+  it('offers the omnibox sell row instead of an empty state for selling roles', async () => {
     render(<CommandPalette isOpen onClose={vi.fn()} />);
     const input = await screen.findByTestId('command-palette-search');
     fireEvent.change(input, { target: { value: 'xyzqq' } });
@@ -186,8 +186,8 @@ describe('CommandPalette (ENG-105a)', () => {
     expect(screen.getByTestId('command-palette-item-navigate.products')).toBeInTheDocument();
   });
 
-  // ENG-105d — wrap-around navigation.
-  describe('ENG-105d wrap-around', () => {
+  // wrap-around navigation.
+  describe(' wrap-around', () => {
     it('ArrowDown from the last item wraps back to the first', async () => {
       render(<CommandPalette isOpen onClose={vi.fn()} />);
       const container = await screen.findByTestId('command-palette');
@@ -231,10 +231,10 @@ describe('CommandPalette (ENG-105a)', () => {
     });
   });
 
-  // ENG-131b — Surface Switcher additions. Each surface action is
+  // Surface Switcher additions. Each surface action is
   // module-gated to mirror the route's RequireModule + role-gated
   // exactly like the matching sidebar item.
-  describe('ENG-131b Surface Switcher', () => {
+  describe(' Surface Switcher', () => {
     function enableSurfaceModules() {
       mockModules = {
         ...mockModules,
@@ -329,10 +329,10 @@ describe('CommandPalette (ENG-105a)', () => {
     });
   });
 
-  // ENG-105g — most-used / recent ordering. The Recent section only
+  // most-used / recent ordering. The Recent section only
   // exists when usage was recorded for THIS tenant; a clean storage
-  // renders the exact pre-ENG-105g catalogue order (pinned below).
-  describe('recent ordering (ENG-105g)', () => {
+  // renders the exact pre- catalogue order (pinned below).
+  describe('recent ordering', () => {
     const USAGE_KEY = 'palette_usage:tenant-1';
 
     const seedUsage = (usage: Record<string, { count: number; lastUsedAt: number }>) => {
@@ -348,7 +348,7 @@ describe('CommandPalette (ENG-105a)', () => {
       await screen.findByTestId('command-palette');
 
       expect(screen.queryByTestId('command-palette-recent-header')).not.toBeInTheDocument();
-      // The catalogue-order contract from ENG-105a stays intact: the
+      // The catalogue-order contract from  stays intact: the
       // first option is still the dashboard.
       const listbox = screen.getByRole('listbox');
       const firstOption = listbox.querySelector('[data-palette-item]');

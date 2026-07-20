@@ -1,5 +1,5 @@
 /**
- * ENG-077 — Pin the Anthropic prompt-cache contract on the co-pilot.
+ * Pin the Anthropic prompt-cache contract on the co-pilot.
  *
  * Before this slice the co-pilot system prompt embedded the resolved
  * analytics window (`from` / `to` ISO timestamps + `defaulted` flag) and
@@ -378,7 +378,9 @@ describe('runCopilotChat — generateText receives the static system + context-p
       id: tenantId,
       name: 'Disabled tenant',
       slug: 'cop-disabled',
-      settings: { ai: { enabled: false, monthlyBudgetUsd: 100, providerId: 'anthropic', modelId: null } },
+      settings: {
+        ai: { enabled: false, monthlyBudgetUsd: 100, providerId: 'anthropic', modelId: null },
+      },
       isActive: true,
       createdAt: now,
       updatedAt: now,

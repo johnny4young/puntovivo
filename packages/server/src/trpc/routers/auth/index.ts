@@ -1,5 +1,5 @@
 /**
- * Auth tRPC Router (ENG-178 split).
+ * Auth tRPC Router ( split).
  *
  * Re-assembles the flat router so all 7 paths (`auth.login` … `auth.registerDevice`)
  * are preserved; the public/protected boundary lives on each procedure's builder.

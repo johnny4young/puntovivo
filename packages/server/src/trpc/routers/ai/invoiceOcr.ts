@@ -1,7 +1,7 @@
 /**
- * AI router — invoice OCR sub-router (ENG-178 split).
+ * AI router — invoice OCR sub-router ( split).
  *
- * ENG-094 / AI Núcleo 2026-05-15 — `ai.invoiceOcr.{extract,confirm}`.
+ * / AI Núcleo 2026-05-15 — `ai.invoiceOcr.{extract,confirm}`.
  *
  * Sits next to the legacy `ai.extractInvoiceLines` mutation (still
  * consumed by the deprecated `InvoiceOcrPreviewModal`). The new
@@ -26,10 +26,7 @@ import { extractInvoiceWithTextract } from '../../../services/ai/invoice/textrac
 import { requireAiQuotaAvailable } from '../../../services/ai/quotas.js';
 import { createOcrDraftPurchase } from '../../../application/purchases/index.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
-import {
-  confirmInvoiceDraftInput,
-  extractInvoiceOcrInput,
-} from '../../schemas/ai-vision.js';
+import { confirmInvoiceDraftInput, extractInvoiceOcrInput } from '../../schemas/ai-vision.js';
 import { invoiceUploads } from '../../../db/schema.js';
 import { findProviderIdForInvoice } from './helpers.js';
 
@@ -45,7 +42,7 @@ export const invoiceOcrRouter = router({
           message: 'Invoice OCR is disabled for this tenant',
         });
       }
-      // ENG-102 — per-site monthly quota check fires BEFORE the
+      // per-site monthly quota check fires BEFORE the
       // OCR provider call so a blocked request never writes an
       // audit row. Bypass when the request has no site context.
       if (ctx.siteId) {
@@ -60,7 +57,9 @@ export const invoiceOcrRouter = router({
       const upload = await ctx.db
         .select()
         .from(invoiceUploads)
-        .where(and(eq(invoiceUploads.id, input.uploadId), eq(invoiceUploads.tenantId, ctx.tenantId)))
+        .where(
+          and(eq(invoiceUploads.id, input.uploadId), eq(invoiceUploads.tenantId, ctx.tenantId))
+        )
         .get();
 
       if (!upload) {
@@ -252,7 +251,9 @@ export const invoiceOcrRouter = router({
           sizeBytes: invoiceUploads.sizeBytes,
         })
         .from(invoiceUploads)
-        .where(and(eq(invoiceUploads.id, input.uploadId), eq(invoiceUploads.tenantId, ctx.tenantId)))
+        .where(
+          and(eq(invoiceUploads.id, input.uploadId), eq(invoiceUploads.tenantId, ctx.tenantId))
+        )
         .get();
 
       if (!upload) {
@@ -262,22 +263,25 @@ export const invoiceOcrRouter = router({
         });
       }
 
-      const purchase = await createOcrDraftPurchase({ ...ctx, user: ctx.user! }, {
-        providerId: input.providerId,
-        items: input.lines.map(line => ({
-          productId: line.matchedProductId,
-          unitId: line.unitId,
-          quantity: line.quantity,
-          costPerUnit: line.unitPrice,
-        })),
-        notes: [
-          'OCR invoice draft',
-          input.invoiceNumber ? `Invoice ${input.invoiceNumber}` : null,
-          input.supplier.name ? `Supplier ${input.supplier.name}` : null,
-        ]
-          .filter((part): part is string => part !== null)
-          .join(' · '),
-      });
+      const purchase = await createOcrDraftPurchase(
+        { ...ctx, user: ctx.user! },
+        {
+          providerId: input.providerId,
+          items: input.lines.map(line => ({
+            productId: line.matchedProductId,
+            unitId: line.unitId,
+            quantity: line.quantity,
+            costPerUnit: line.unitPrice,
+          })),
+          notes: [
+            'OCR invoice draft',
+            input.invoiceNumber ? `Invoice ${input.invoiceNumber}` : null,
+            input.supplier.name ? `Supplier ${input.supplier.name}` : null,
+          ]
+            .filter((part): part is string => part !== null)
+            .join(' · '),
+        }
+      );
 
       const userId = ctx.user!.id;
       writeAuditLog({

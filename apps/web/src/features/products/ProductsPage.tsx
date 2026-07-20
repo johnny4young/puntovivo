@@ -42,7 +42,7 @@ function createMarginWindow() {
 }
 
 export function ProductsPage() {
-  // ENG-170b — `semanticSearch` is referenced via bare `i18next.t('semanticSearch:…')`
+  // `semanticSearch` is referenced via bare `i18next.t('semanticSearch:…')`
   // in the match column; declare it here so the lazy namespace loads (and the page
   // suspends) before those tooltips render, instead of showing a raw key.
   const { t } = useTranslation(['products', 'errors', 'semanticSearch']);
@@ -54,7 +54,7 @@ export function ProductsPage() {
   const canRegenerate = user?.role === 'admin';
   const isAdmin = user?.role === 'admin';
 
-  // ENG-195 — realized 30-day gross margin per product for the owner-mode
+  // realized 30-day gross margin per product for the owner-mode
   // traffic light. Admin-only: the procedure is managerOrAdmin on the server,
   // and the column is an owner decision surface, so `enabled` keeps every
   // other role from even issuing the query.
@@ -70,7 +70,7 @@ export function ProductsPage() {
     );
   }, [isAdmin, marginQuery.data]);
 
-  // ENG-048 — the semantic-search toggle/state machine + module gate lives in
+  // the semantic-search toggle/state machine + module gate lives in
   // its own hook; the page keeps the literal `products.list` query (fed by the
   // hook's debounced `literalFallbackSearch`) and the trivial displayProducts merge.
   const semantic = useProductsSemanticSearch({ canManage, canRegenerate });
@@ -92,7 +92,7 @@ export function ProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  // ENG-132a — row-detail Drawer for the columns trimmed off the default
+  // row-detail Drawer for the columns trimmed off the default
   // table (provider / location / tier-2 / tier-3 prices, SKU, min stock).
   const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
   const [matrixProduct, setMatrixProduct] = useState<Product | null>(null);
@@ -122,7 +122,7 @@ export function ProductsPage() {
       handleCloseModal();
       toast.success({ title: t('toast.updated') });
     },
-    // ENG-177a — on a STALE_VERSION conflict refresh the cached row so the
+    // on a STALE_VERSION conflict refresh the cached row so the
     // next time the operator opens the form they edit the latest version.
     onError: onErrorToast(toast, t, {
       titleKey: 'products:toast.updateError',
@@ -164,7 +164,7 @@ export function ProductsPage() {
     syncVersion: product.syncVersion ?? undefined,
   }));
 
-  // ENG-048 — when semantic mode is active and the server returned results, the
+  // when semantic mode is active and the server returned results, the
   // hook hands back the ranked + normalized rows; otherwise render the literal list.
   const displayProducts: DisplayProduct[] = semantic.semanticIsActive
     ? semantic.semanticResults
@@ -219,15 +219,15 @@ export function ProductsPage() {
     setIsModalOpen(true);
   };
 
-  // ENG-132a — shared edit entry point used by the table (Pencil button +
-  // onRowActivate, ENG-134f) AND the row-detail Drawer's Edit footer.
+  // shared edit entry point used by the table (Pencil button +
+  // onRowActivate, ) AND the row-detail Drawer's Edit footer.
   const handleOpenEdit = (product: Product) => {
     setEditingProduct(product);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   };
 
-  // ENG-132a — read-only product detail Drawer (holds the trimmed columns).
+  // read-only product detail Drawer (holds the trimmed columns).
   const handleOpenDetails = (product: Product) => setDetailsProduct(product);
   const handleCloseDetails = () => setDetailsProduct(null);
   const handleEditFromDetails = (product: Product) => {
@@ -241,7 +241,7 @@ export function ProductsPage() {
   };
 
   const handleSubmit = async (values: ProductFormValues) => {
-    // ENG-110a — stock is derived inventory state for a lot-tracked product.
+    // stock is derived inventory state for a lot-tracked product.
     // Omitting it on tracked updates prevents a metadata save from replaying
     // the stale stock value captured when the modal opened.
     const payload = buildProductPayload(values, {
@@ -255,7 +255,7 @@ export function ProductsPage() {
     if (editingProduct) {
       await updateMutation.mutateAsync({
         id: editingProduct.id,
-        // ENG-177a — round-trip the version the form was loaded with so a
+        // round-trip the version the form was loaded with so a
         // concurrent edit from another tab is rejected with STALE_VERSION.
         version: editingProductDetailQuery.data?.version ?? editingProduct.version,
         ...payload,
@@ -288,7 +288,7 @@ export function ProductsPage() {
 
       {semantic.canUseSemantic && <EmbeddingDriftBanner data={semantic.embeddingHealthData} />}
 
-      {/* ENG-104 — when the tenant has no products yet, surface a
+      {/* when the tenant has no products yet, surface a
           nudge toward the readiness checklist for admins. */}
       {!productsQuery.isLoading && !productsQuery.error && products.length === 0 && (
         <EmptyStateReadinessNudge scope="products" />
@@ -324,7 +324,7 @@ export function ProductsPage() {
 
             {semantic.canUseSemantic && (
               <>
-                {/* ENG-048 — semantic toolbar: toggle, dedicated input, regen button */}
+                {/* semantic toolbar: toggle, dedicated input, regen button */}
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
@@ -406,9 +406,9 @@ export function ProductsPage() {
               searchKey={semantic.semanticModeEnabled ? undefined : 'name'}
               searchPlaceholder={t('table.search')}
               pageSize={10}
-              // ENG-134f — keyboard row-activate mirrors the Pencil (edit)
+              // keyboard row-activate mirrors the Pencil (edit)
               // action for manager / admin; viewer / cashier have no
-              // editable row so it stays a no-op. ENG-132a added a separate
+              // editable row so it stays a no-op.  added a separate
               // Details affordance (Eye button, all roles) that is focusable
               // in tab order, so this keyboard edit parity is unchanged.
               onRowActivate={

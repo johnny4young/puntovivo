@@ -1,11 +1,11 @@
 /**
- * ENG-135 — CompanyTelemetryCard tests.
+ * CompanyTelemetryCard tests.
  *
  * Pins:
- *   - The status panel reflects the current `telemetryOptIn` value.
- *   - Clicking the toggle calls `updateTelemetryOptIn` with the
- *     inverted boolean and invalidates the company cache.
- *   - A failed mutation surfaces the error via the toast hook.
+ * - The status panel reflects the current `telemetryOptIn` value.
+ * - Clicking the toggle calls `updateTelemetryOptIn` with the
+ * inverted boolean and invalidates the company cache.
+ * - A failed mutation surfaces the error via the toast hook.
  *
  * @module features/company/__tests__/CompanyTelemetryCard.test
  */
@@ -42,8 +42,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 vi.mock('@/lib/translateServerError', () => ({
-  translateServerError: (err: unknown) =>
-    err instanceof Error ? err.message : 'unknown error',
+  translateServerError: (err: unknown) => (err instanceof Error ? err.message : 'unknown error'),
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -86,12 +85,10 @@ beforeEach(() => {
   mutationCallbacks = {};
 });
 
-describe('CompanyTelemetryCard (ENG-135)', () => {
+describe('CompanyTelemetryCard', () => {
   it('renders the disabled state when opt-in is false', () => {
     render(<CompanyTelemetryCard />);
-    expect(screen.getByTestId('company-telemetry-status').textContent).toMatch(
-      /off|desactivada/i
-    );
+    expect(screen.getByTestId('company-telemetry-status').textContent).toMatch(/off|desactivada/i);
     const button = screen.getByTestId('company-telemetry-toggle');
     expect(button.textContent).toMatch(/enable|activar/i);
   });
@@ -99,9 +96,7 @@ describe('CompanyTelemetryCard (ENG-135)', () => {
   it('renders the enabled state when opt-in is true', () => {
     companyQueryRef.current = { data: { telemetryOptIn: true }, isLoading: false };
     render(<CompanyTelemetryCard />);
-    expect(screen.getByTestId('company-telemetry-status').textContent).toMatch(
-      /on|activa/i
-    );
+    expect(screen.getByTestId('company-telemetry-status').textContent).toMatch(/on|activa/i);
     const button = screen.getByTestId('company-telemetry-toggle');
     expect(button.textContent).toMatch(/disable|desactivar/i);
   });

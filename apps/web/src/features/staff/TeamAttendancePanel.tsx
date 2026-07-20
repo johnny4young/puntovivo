@@ -278,7 +278,7 @@ function AttendanceCard({
   );
 }
 
-/** ENG-140b/c — manager evidence plus advisory country overtime classification. */
+/** manager evidence plus advisory country overtime classification. */
 export function TeamAttendancePanel({
   fromDate,
   toDate,

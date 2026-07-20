@@ -22,7 +22,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'EMPLOYEE_SHIFT_SITE_INACTIVE',
   'EMPLOYEE_SHIFT_PERSIST_FAILED',
   'EMPLOYEE_SHIFT_CASH_SESSION_OPEN',
-  // ENG-140b — explicit breaks and manager attendance detail.
+  // explicit breaks and manager attendance detail.
   'EMPLOYEE_SHIFT_BREAK_ALREADY_ACTIVE',
   'EMPLOYEE_SHIFT_BREAK_NOT_ACTIVE',
   'EMPLOYEE_SHIFT_BREAK_ACTIVE',
@@ -35,7 +35,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'EMPLOYEE_SHIFT_CORRECTION_WINDOW_INVALID',
   'EMPLOYEE_SHIFT_CORRECTION_BREAKS_INVALID',
   'EMPLOYEE_SHIFT_CORRECTION_PERSIST_FAILED',
-  // ENG-140a — manager-authored team schedules.
+  // manager-authored team schedules.
   'SCHEDULE_DATE_RANGE_INVALID',
   'SCHEDULE_WINDOW_INVALID',
   'SCHEDULE_EMPLOYEE_NOT_FOUND',
@@ -72,7 +72,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'CASH_MOVEMENT_INVALID_AMOUNT',
   'CASH_MOVEMENT_UNSUPPORTED_TYPE',
   'CASH_MOVEMENT_PERSIST_FAILED',
-  // Phase 1 DB-050: fraction policy errors.
+  // fraction policy errors.
   'PRODUCT_FRACTION_STEP_REQUIRED',
   'PRODUCT_FRACTION_MINIMUM_REQUIRED',
   'PRODUCT_FRACTION_MINIMUM_BELOW_STEP',
@@ -117,10 +117,10 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'TRANSFER_ALREADY_VOID',
   'TRANSFER_VOID_INSUFFICIENT_STOCK',
   'TRANSFER_NOT_IN_TRANSIT',
-  // Phase 2 UI-103: variance reporting on `transfers.receive`.
+  // variance reporting on `transfers.receive`.
   'TRANSFER_RECEIVED_EXCEEDS_SHIPPED',
   'TRANSFER_RECEIVE_LINE_MISMATCH',
-  // Phase 5 / Tier-2 #6: quotations.
+  // quotations.
   'QUOTATION_NOT_FOUND',
   'QUOTATION_ITEMS_REQUIRED',
   'QUOTATION_PRODUCT_NOT_FOUND',
@@ -136,7 +136,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'RECEIPT_TEMPLATE_LAST_FOR_KIND',
   'RECEIPT_TEMPLATE_NAME_DUPLICATE',
   'RECEIPT_TEMPLATE_PERSIST_FAILED',
-  // Sales domain — added together with ENG-018 + ENG-019 while sweeping
+  // Sales domain — added together with  +  while sweeping
   // sales.ts. Every entry here needs a matching translation in
   // errors.json under `server.<CODE>` in both locales, and the server
   // throw path must use throwServerError() (not raw new TRPCError) so
@@ -152,12 +152,12 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'LOT_QUANTITY_INVALID',
   'LOT_COST_INVALID',
   'LOT_PRODUCT_NOT_FOUND',
-  // --- ENG-199 expiry radar ---
+  // ---  expiry radar ---
   'LOT_NOT_FOUND',
   'LOT_DISCOUNT_NOT_ELIGIBLE',
   'LOT_DISCOUNT_ALREADY_ACTIVE',
   'PRICE_SUGGESTION_NOT_FOUND',
-  // --- ENG-213 loyalty ---
+  // ---  loyalty ---
   'LOYALTY_CUSTOMER_NOT_FOUND',
   'LOYALTY_INSUFFICIENT_POINTS',
   'SALE_DISCOUNT_EXCEEDS_TOTAL',
@@ -184,39 +184,39 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SALE_SPLIT_INVALID_STATUS',
   'SALE_SPLIT_NO_ITEMS_SELECTED',
   'SALE_SPLIT_ITEMS_NOT_FOUND',
-  // --- ENG-042 sync resolve TOCTOU close-out ---
+  // ---  sync resolve TOCTOU close-out ---
   'SYNC_LOCAL_RECORD_MISSING',
-  // --- ENG-034 multi-country fiscal packs ---
+  // ---  multi-country fiscal packs ---
   'FISCAL_PACK_NOT_AVAILABLE',
-  // --- ENG-035a pack México fundación ---
+  // ---  pack México fundación ---
   'FISCAL_RFC_INVALID',
   'FISCAL_REGIMEN_INVALID',
-  // --- ENG-036a pack Chile fundación ---
+  // ---  pack Chile fundación ---
   'FISCAL_RUT_INVALID',
-  // --- ENG-184 pack Colombia config card ---
+  // ---  pack Colombia config card ---
   'FISCAL_NIT_INVALID',
   'FISCAL_NUMBERING_RANGE_INVALID',
   // --- Fiscal document recovery ---
   'FISCAL_DOCUMENT_NOT_FOUND',
-  // --- ENG-030 AI foundation ---
+  // ---  AI foundation ---
   'AI_DISABLED',
   'AI_BUDGET_EXCEEDED',
   'AI_PROVIDER_ERROR',
   'AI_COPILOT_SQL_REJECTED',
   'AI_COPILOT_QUERY_LIMIT_EXCEEDED',
-  // --- ENG-040a AI Wave 2 vision ---
+  // ---  AI Wave 2 vision ---
   'AI_VISION_NOT_AVAILABLE',
   'AI_VISION_PARSE_FAILED',
   'AI_VISION_IMAGE_TOO_LARGE',
-  // --- ENG-040c slice 1 AI Wave 2 voice ---
+  // ---  slice 1 AI Wave 2 voice ---
   'AI_VOICE_NOT_AVAILABLE',
   'AI_VOICE_PARSE_FAILED',
   'AI_VOICE_AUDIO_TOO_LARGE',
-  // --- ENG-040c slice 3 voice cart commands ---
+  // ---  slice 3 voice cart commands ---
   'AI_VOICE_COMMAND_UNRECOGNIZED',
-  // --- ENG-052 device registry + command envelope ---
+  // ---  device registry + command envelope ---
   'DEVICE_NOT_REGISTERED',
-  // --- ENG-075 Authority Node pairing + health ---
+  // ---  Authority Node pairing + health ---
   'AUTHORITY_SITE_NOT_FOUND',
   'AUTHORITY_PAIRING_CODE_INVALID',
   'AUTHORITY_PAIRING_CODE_EXPIRED',
@@ -226,7 +226,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'MISSING_COMMAND_ENVELOPE',
   'IDEMPOTENCY_KEY_CONFLICT',
   'COMMAND_IN_PROGRESS',
-  // --- ENG-060 peripheral registry ---
+  // ---  peripheral registry ---
   'PERIPHERAL_NOT_FOUND',
   'PERIPHERAL_DRIVER_INVALID',
   'PERIPHERAL_CONFIG_INVALID',
@@ -235,42 +235,42 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'HARDWARE_NO_DRAWER_REGISTERED',
   'HARDWARE_TRANSPORT_FAILED',
   'HARDWARE_OUTBOX_NOT_FOUND',
-  // --- ENG-068 module activation kernel ---
+  // ---  module activation kernel ---
   'MODULE_NOT_ACTIVATED',
   'MODULE_UNKNOWN',
-  // --- ENG-036b Chile DTE CAF ---
+  // ---  Chile DTE CAF ---
   'CAF_NOT_AVAILABLE',
   'CAF_EXHAUSTED',
-  // --- ENG-038c payment reconciliation matcher ---
+  // ---  payment reconciliation matcher ---
   'PAYMENT_CREDENTIAL_UNKNOWN_FIELD',
   'PAYMENT_RECONCILIATION_NO_MATCH',
   'PAYMENT_RECONCILIATION_AMBIGUOUS',
   'PAYMENT_RECONCILIATION_AI_DEGRADED',
-  // --- ENG-065d Operations Center payment admin actions ---
+  // ---  Operations Center payment admin actions ---
   'PAYMENT_OUTBOX_NOT_FOUND',
   'PAYMENT_OUTBOX_NOT_RETRIABLE',
-  // --- ENG-064 sync contract v1 ---
+  // ---  sync contract v1 ---
   'SYNC_OUTBOX_NOT_FOUND',
   'SYNC_OUTBOX_DEAD_LETTER',
-  // --- ENG-039b restaurant table catalog ---
+  // ---  restaurant table catalog ---
   'RESTAURANT_TABLE_NOT_FOUND',
   'RESTAURANT_TABLE_NAME_DUPLICATE',
-  // --- kitchen display (ENG-098) ---
+  // --- kitchen display () ---
   'KDS_ORDER_NOT_FOUND',
   'KDS_ORDER_NOT_READY',
-  // --- ENG-090 credit sales ---
+  // ---  credit sales ---
   'CREDIT_LIMIT_EXCEEDED',
   'CREDIT_SALE_CUSTOMER_REQUIRED',
   'CREDIT_OVERRIDE_FORBIDDEN',
   'CREDIT_SALE_FORBIDDEN',
-  // --- ENG-014 split-credit refund guard ---
+  // ---  split-credit refund guard ---
   'REFUND_PARTIAL_CREDIT_NOT_SUPPORTED',
-  // --- ENG-102 per-site AI monthly quotas ---
+  // ---  per-site AI monthly quotas ---
   'AI_QUOTA_EXCEEDED',
-  // --- ENG-181 error wrapping cleanup ---
+  // ---  error wrapping cleanup ---
   'FISCAL_SEQUENTIAL_NOT_ADVANCED',
   'CREDIT_LEDGER_INVALID_AMOUNT',
-  // --- ENG-177a optimistic concurrency ---
+  // ---  optimistic concurrency ---
   'STALE_VERSION',
 ] as const;
 
@@ -354,7 +354,7 @@ export function isNetworkConnectivityError(error: unknown): boolean {
  * "[" is never misclassified:
  * - the tRPC error data carries `code: 'BAD_REQUEST'`, AND/OR
  * - the message parses as a JSON array whose entries look like Zod issues
- *   (objects carrying a `code` and a `path`).
+ * (objects carrying a `code` and a `path`).
  */
 export function isZodValidationError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
@@ -403,9 +403,9 @@ export function isZodValidationError(error: unknown): boolean {
  * Translate a server error into a localized user-facing message.
  *
  * Resolution order:
- *   1. Stable `errorCode` → `errors:server.<CODE>` translation key
- *   2. The server's English `message` field (if present and non-empty)
- *   3. The supplied fallback (typically `t('errors:server.unknown')`)
+ * 1. Stable `errorCode` → `errors:server.<CODE>` translation key
+ * 2. The server's English `message` field (if present and non-empty)
+ * 3. The supplied fallback (typically `t('errors:server.unknown')`)
  *
  * This guarantees every error reaches the user in the active locale when the
  * server has been converted to the code-based pattern, while still showing
@@ -413,7 +413,7 @@ export function isZodValidationError(error: unknown): boolean {
  *
  * @param error - The tRPC client error (or any error-shaped object)
  * @param t - The i18next translation function (must be bound to a namespace
- *   list that includes `errors`, e.g. `useTranslation(['errors', ...])`)
+ * list that includes `errors`, e.g. `useTranslation(['errors', ...])`)
  * @param fallback - Last-resort message when neither code nor message is available
  */
 export function translateServerError(error: unknown, t: TFunction, fallback: string): string {

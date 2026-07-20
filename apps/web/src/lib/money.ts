@@ -1,5 +1,5 @@
 /**
- * Renderer compatibility facade for the shared money primitive (ENG-203).
+ * Renderer compatibility facade for the shared money primitive ().
  *
  * The renderer only computes
  * display-side previews (cart summary, payment grand total, pricing

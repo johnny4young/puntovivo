@@ -1,10 +1,10 @@
 /**
- * ENG-132a — Product detail Drawer.
+ * Product detail Drawer.
  *
  * Read-only slide-over that holds the product fields trimmed off the
  * default `ProductsPage` table (provider, location, tier-2 / tier-3
  * prices, SKU, min-stock) so the table can default to the smallest useful
- * column set. Reuses the shared `Drawer` primitive (ENG-186) for the
+ * column set. Reuses the shared `Drawer` primitive () for the
  * dialog a11y contract (focus-trap / ESC / labelled-by title). The
  * optional `onEdit` footer action is wired only for manager / admin by the
  * caller, so viewer / cashier see a read-only panel.

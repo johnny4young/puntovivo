@@ -1,14 +1,14 @@
 /**
- * ENG-198 — day-close ritual summary.
+ * day-close ritual summary.
  *
  * Computes everything the post-close screen shows for the day a cash session
  * was closed on: the day's realized sales, the session's over/short outcome,
  * the top products, the day's real gross margin (per-lot COGS via the
- * ENG-190 ledger), the tenant's balanced-close streak, and the owner-only
- * WC-C8 pulse comparison against the same weekday one week earlier.
+ * ledger), the tenant's balanced-close streak, and the owner-only
+ * pulse comparison against the same weekday one week earlier.
  *
  * Role gating happens HERE, not in the client: the closer is usually a
- * cashier, and margin/profit are owner data (same philosophy as the ENG-194
+ * cashier, and margin/profit are owner data (same philosophy as the
  * blind close). With `includeProfit: false` the summary strips `margin` to
  * null and the top products carry revenue only, re-ranked by revenue.
  *
@@ -28,7 +28,7 @@ import { computeProfitMarginReport } from './profit-margin.js';
 
 /**
  * Tolerance under which a closed session counts as balanced for the streak.
- * Mirrors CASH_OVER_SHORT_EPSILON (Operations cash panel) and the ENG-194
+ * Mirrors CASH_OVER_SHORT_EPSILON (Operations cash panel) and the
  * live-delta epsilon so every surface agrees on "cuadrada".
  */
 export const DAY_CLOSE_BALANCED_EPSILON = 0.009;
@@ -72,7 +72,7 @@ export interface DayCloseSummary {
     salesCount: number;
     revenue: number;
   };
-  /** WC-C8 — aggregate-only business pulse. Kept null for cashiers so the
+  /** aggregate-only business pulse. Kept null for cashiers so the
    * previous-period revenue signal is role-gated alongside owner margin. */
   pulse: {
     averageTicket: number;
@@ -82,7 +82,7 @@ export interface DayCloseSummary {
     revenueChangePct: number | null;
   } | null;
   /**
-   * ENG-205 — same-weekday-last-week comparison for the shareable pulse.
+   * same-weekday-last-week comparison for the shareable pulse.
    * Revenue only (no owner data leaks through it); null when that day had
    * zero eligible sales, so the pulse can say "sin referencia" instead of
    * rendering a division by zero.
@@ -185,11 +185,11 @@ export function computeDayCloseSummary(
     .where(eligibleSales)
     .get();
   const salesCount = dayStats?.salesCount ?? 0;
-  // ENG-176a — the SQL float sum is a monetary accumulation; round it once
-  // before deriving every WC-C8 pulse metric.
+  // the SQL float sum is a monetary accumulation; round it once
+  // before deriving every  pulse metric.
   const revenue = roundMoney(dayStats?.revenue ?? 0);
 
-  // ENG-205 — same weekday last week, for the shareable pulse comparison.
+  // same weekday last week, for the shareable pulse comparison.
   const prevWeekDay = new Date(Date.parse(dayStart) - 7 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
@@ -218,7 +218,7 @@ export function computeDayCloseSummary(
   let margin: DayCloseSummary['margin'];
   let pulse: DayCloseSummary['pulse'];
   if (input.includeProfit) {
-    // Owner view: real per-lot COGS/margin from ENG-190, bounded to the three
+    // Owner view: real per-lot COGS/margin from , bounded to the three
     // profit leaders the ritual renders.
     const profitReport = computeProfitMarginReport(db, {
       tenantId: input.tenantId,
@@ -239,7 +239,7 @@ export function computeDayCloseSummary(
       grossMarginPct: profitReport.summary.grossMarginPct,
     };
 
-    // WC-C8 — owner pulse compares identical UTC calendar windows. This
+    // owner pulse compares identical UTC calendar windows. This
     // intentionally follows the existing day-close/dashboard boundary until
     // the tracked tenant-timezone follow-up moves both surfaces together.
     const previousWeekDay = utcDayOffset(day, -PULSE_COMPARISON_DAYS);
@@ -281,7 +281,7 @@ export function computeDayCloseSummary(
       productId: row.productId,
       name: row.name,
       sku: row.sku,
-      // ENG-176a — aggregated monetary values cross the money boundary here.
+      // aggregated monetary values cross the money boundary here.
       revenue: roundMoney(row.revenue),
       grossProfit: null,
       grossMarginPct: null,

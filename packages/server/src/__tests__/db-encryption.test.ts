@@ -1,20 +1,20 @@
 /**
- * ENG-167 — pins the SQLCipher boot behaviour added by Step-1.
+ * pins the SQLCipher boot behaviour added by Step-1.
  *
  * `initDatabase({ encryptionKey })` must:
- *   1. Select SQLCipher v4 (`PRAGMA cipher='sqlcipher'` +
- *      `PRAGMA legacy=4`) and apply `PRAGMA key` BEFORE any other
- *      PRAGMA, so the very first read (the ENG-174 PRAGMA cluster)
- *      speaks to a successfully-keyed page cipher.
- *   2. Leave the on-disk file unreadable by a vanilla `new Database()`
- *      open (no key) — the canonical "stolen laptop" defence.
- *   3. Reject obviously-broken keys (truncated, non-hex, wrong length)
- *      at boot rather than at the first SELECT.
- *   4. Tolerate `dbPath === ':memory:'` (the fork rejects keys on
- *      transient DBs; we skip the PRAGMA when there is no on-disk
- *      surface to protect).
- *   5. Still apply the ENG-174 PRAGMAs (WAL, foreign_keys, cache_size,
- *      …) on the encrypted connection.
+ * 1. Select SQLCipher v4 (`PRAGMA cipher='sqlcipher'` +
+ * `PRAGMA legacy=4`) and apply `PRAGMA key` BEFORE any other
+ * PRAGMA, so the very first read (the  PRAGMA cluster)
+ * speaks to a successfully-keyed page cipher.
+ * 2. Leave the on-disk file unreadable by a vanilla `new Database()`
+ * open (no key) — the canonical "stolen laptop" defence.
+ * 3. Reject obviously-broken keys (truncated, non-hex, wrong length)
+ * at boot rather than at the first SELECT.
+ * 4. Tolerate `dbPath === ':memory:'` (the fork rejects keys on
+ * transient DBs; we skip the PRAGMA when there is no on-disk
+ * surface to protect).
+ * 5. Still apply the  PRAGMAs (WAL, foreign_keys, cache_size,
+ * …) on the encrypted connection.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -62,7 +62,7 @@ function writeCanary(live: DatabaseT.Database, value: number): void {
   live.prepare('INSERT INTO canary (id) VALUES (?)').run(value);
 }
 
-describe('SQLite encryption at rest (ENG-167)', () => {
+describe('SQLite encryption at rest', () => {
   it('writes an encrypted DB that vanilla better-sqlite3 cannot open', async () => {
     const dbPath = freshTempDbPath('enc-roundtrip');
     await initDatabase({ dbPath, seedData: false, encryptionKey: HEX64 });
@@ -143,7 +143,7 @@ describe('SQLite encryption at rest (ENG-167)', () => {
     expect(row.id).toBe(1);
   });
 
-  it('preserves the ENG-174 PRAGMA cluster on the encrypted connection', async () => {
+  it('preserves the  PRAGMA cluster on the encrypted connection', async () => {
     const dbPath = freshTempDbPath('enc-pragma-cluster');
     await initDatabase({ dbPath, seedData: false, encryptionKey: HEX64 });
     const live = (getDatabase() as unknown as LiveDatabase).$client;
@@ -161,7 +161,7 @@ describe('SQLite encryption at rest (ENG-167)', () => {
 
   it('omitting encryptionKey leaves the file readable in cleartext (legacy dev mode)', async () => {
     // Standalone `dev:server` boots without `PUNTOVIVO_DB_KEY` until
-    // ENG-167b ships the migration UX. The legacy cleartext path
+    // ships the migration UX. The legacy cleartext path
     // therefore MUST remain functional so the dev workflow does not
     // require running Electron just to seed the DB.
     const dbPath = freshTempDbPath('enc-omitted');

@@ -1,5 +1,5 @@
 /**
- * ENG-184 — Market-profile resolver for the setup-readiness gate.
+ * Market-profile resolver for the setup-readiness gate.
  *
  * Readiness was profile-blind: fiscal showed `not-applicable` whenever
  * the DIAN flag was off, so a Colombia store got no signal that it was
@@ -7,7 +7,7 @@
  * tenant's country, whether readiness should SURFACE fiscal / sync
  * state as visible reminders.
  *
- * Crucially (ENG-184 operator decision): surfacing a reminder NEVER
+ * Crucially ( operator decision): surfacing a reminder NEVER
  * escalates to a hard blocker. Selling is never gated on DIAN or
  * hardware — a merchant with no DIAN, or a broken printer, keeps
  * selling. The profile only controls whether the signal is VISIBLE
@@ -38,9 +38,7 @@ export interface ReadinessProfile {
  * legacy (non-surfacing) profile so non-Colombia behaviour is
  * unchanged.
  */
-export function resolveReadinessProfile(
-  countryCode: string | null | undefined
-): ReadinessProfile {
+export function resolveReadinessProfile(countryCode: string | null | undefined): ReadinessProfile {
   const normalized = (countryCode ?? '').trim().toUpperCase();
   return {
     countryCode: normalized,

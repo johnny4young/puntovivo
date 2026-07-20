@@ -1,5 +1,5 @@
 /**
- * ENG-040c slice 2 — convert a recorded audio Blob into a base64
+ * slice 2 — convert a recorded audio Blob into a base64
  * payload + the resolved MIME type the server expects.
  *
  * Uses `FileReader.readAsDataURL` because it is the only browser
@@ -24,8 +24,7 @@ export interface BlobBase64Payload {
 export async function blobToBase64(blob: Blob): Promise<BlobBase64Payload> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () =>
-      reject(reader.error ?? new Error('FileReader failed to read blob'));
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader failed to read blob'));
     reader.onload = () => {
       const result = reader.result;
       if (typeof result !== 'string') {

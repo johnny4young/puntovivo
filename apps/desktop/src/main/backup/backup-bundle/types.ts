@@ -1,4 +1,4 @@
-// ENG-066 — backup-bundle shared types (ENG-178 slice 31).
+// backup-bundle shared types ( slice 31).
 
 export interface BackupManifest {
   schemaVersion: number;
@@ -25,7 +25,7 @@ export interface CreateBackupBundleArgs {
   /** Optional metadata for the manifest entry. */
   manifest?: Partial<BackupManifest>;
   /**
-   * ENG-167 — SQLCipher key for encrypted local.db files. When supplied,
+   * SQLCipher key for encrypted local.db files. When supplied,
    * every read connection applies SQLCipher v4 before touching the file,
    * and the staged backup DB remains encrypted with the same key.
    */
@@ -38,7 +38,7 @@ export interface CreateBackupBundleResult {
   manifest: BackupManifest;
 }
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export interface ExtractBackupBundleResult {
   /** Path of the extracted (or as-is) DB file. */
   dbPath: string;

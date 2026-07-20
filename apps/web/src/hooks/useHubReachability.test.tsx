@@ -1,5 +1,5 @@
 /**
- * ENG-074 — useHubReachability hook tests.
+ * useHubReachability hook tests.
  *
  * Drives the hook with a fake `fetch` and asserts the state
  * transitions across success / non-2xx / network error / abort
@@ -13,7 +13,10 @@ import { useHubReachability } from './useHubReachability';
 
 const ORIGINAL_ELECTRON = (window as unknown as { electron?: unknown }).electron;
 
-function setBridge(authorityMode: 'device_local' | 'site_hub' | 'hub_client', hubUrl: string | null): void {
+function setBridge(
+  authorityMode: 'device_local' | 'site_hub' | 'hub_client',
+  hubUrl: string | null
+): void {
   (window as unknown as { electron?: { runtime?: { getConfigSync: () => unknown } } }).electron = {
     runtime: {
       getConfigSync: () => ({
@@ -43,7 +46,11 @@ describe('useHubReachability', () => {
     setBridge('device_local', null);
     const fetchSpy = vi.fn();
     const { result } = renderHook(() =>
-      useHubReachability({ intervalMs: 5_000, timeoutMs: 1_000, fetchImpl: fetchSpy as typeof fetch })
+      useHubReachability({
+        intervalMs: 5_000,
+        timeoutMs: 1_000,
+        fetchImpl: fetchSpy as typeof fetch,
+      })
     );
     expect(result.current).toEqual({
       reachable: null,
@@ -59,7 +66,11 @@ describe('useHubReachability', () => {
     setBridge('site_hub', null);
     const fetchSpy = vi.fn();
     const { result } = renderHook(() =>
-      useHubReachability({ intervalMs: 5_000, timeoutMs: 1_000, fetchImpl: fetchSpy as typeof fetch })
+      useHubReachability({
+        intervalMs: 5_000,
+        timeoutMs: 1_000,
+        fetchImpl: fetchSpy as typeof fetch,
+      })
     );
     expect(result.current.reachable).toBeNull();
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -70,7 +81,11 @@ describe('useHubReachability', () => {
     setBridge('hub_client', null);
     const fetchSpy = vi.fn();
     renderHook(() =>
-      useHubReachability({ intervalMs: 5_000, timeoutMs: 1_000, fetchImpl: fetchSpy as typeof fetch })
+      useHubReachability({
+        intervalMs: 5_000,
+        timeoutMs: 1_000,
+        fetchImpl: fetchSpy as typeof fetch,
+      })
     );
     await new Promise(resolve => setTimeout(resolve, 50));
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -80,7 +95,11 @@ describe('useHubReachability', () => {
     setBridge('hub_client', 'http://hub.local:8090');
     const fetchSpy = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
     const { result } = renderHook(() =>
-      useHubReachability({ intervalMs: 60_000, timeoutMs: 1_000, fetchImpl: fetchSpy as typeof fetch })
+      useHubReachability({
+        intervalMs: 60_000,
+        timeoutMs: 1_000,
+        fetchImpl: fetchSpy as typeof fetch,
+      })
     );
     await waitFor(() => expect(result.current.reachable).toBe(true));
     expect(fetchSpy).toHaveBeenCalledWith(
@@ -95,7 +114,11 @@ describe('useHubReachability', () => {
     setBridge('hub_client', 'http://hub.local:8090');
     const fetchSpy = vi.fn().mockResolvedValue(new Response('', { status: 503 }));
     const { result } = renderHook(() =>
-      useHubReachability({ intervalMs: 60_000, timeoutMs: 1_000, fetchImpl: fetchSpy as typeof fetch })
+      useHubReachability({
+        intervalMs: 60_000,
+        timeoutMs: 1_000,
+        fetchImpl: fetchSpy as typeof fetch,
+      })
     );
     await waitFor(() => expect(result.current.reachable).toBe(false));
     expect(result.current.lastError).toBe('HTTP 503');
@@ -105,7 +128,11 @@ describe('useHubReachability', () => {
     setBridge('hub_client', 'http://hub.local:8090');
     const fetchSpy = vi.fn().mockRejectedValue(new TypeError('Network unreachable'));
     const { result } = renderHook(() =>
-      useHubReachability({ intervalMs: 60_000, timeoutMs: 1_000, fetchImpl: fetchSpy as typeof fetch })
+      useHubReachability({
+        intervalMs: 60_000,
+        timeoutMs: 1_000,
+        fetchImpl: fetchSpy as typeof fetch,
+      })
     );
     await waitFor(() => expect(result.current.reachable).toBe(false));
     expect(result.current.lastError).toBe('Network unreachable');
@@ -138,7 +165,11 @@ describe('useHubReachability', () => {
     setBridge('hub_client', 'http://hub.local:8090/');
     const fetchSpy = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
     renderHook(() =>
-      useHubReachability({ intervalMs: 60_000, timeoutMs: 1_000, fetchImpl: fetchSpy as typeof fetch })
+      useHubReachability({
+        intervalMs: 60_000,
+        timeoutMs: 1_000,
+        fetchImpl: fetchSpy as typeof fetch,
+      })
     );
     await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
     expect(fetchSpy.mock.calls[0]?.[0]).toBe('http://hub.local:8090/api/health');

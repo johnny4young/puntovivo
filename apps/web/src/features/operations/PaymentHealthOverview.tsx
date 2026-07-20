@@ -9,7 +9,7 @@ interface PaymentHealthSummaryProps {
   data: PaymentReconciliation;
 }
 
-/** ENG-178 — Payment reconciliation KPI summary. */
+/** Payment reconciliation KPI summary. */
 export function PaymentHealthSummary({ data }: PaymentHealthSummaryProps): React.ReactElement {
   const { t } = useTranslation('operations');
 
@@ -44,7 +44,7 @@ export function PaymentHealthSummary({ data }: PaymentHealthSummaryProps): React
   );
 }
 
-/** ENG-178 — Payment reconciliation totals grouped by payment rail. */
+/** Payment reconciliation totals grouped by payment rail. */
 export function PaymentRailSummary({ data }: PaymentHealthSummaryProps): React.ReactElement {
   const { t } = useTranslation('operations');
 

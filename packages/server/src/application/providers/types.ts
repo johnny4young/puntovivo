@@ -1,4 +1,4 @@
-/** ENG-123b — Public structural context for provider mutation use-cases. */
+/** Public structural context for provider mutation use-cases. */
 import type { DatabaseInstance } from '../../db/index.js';
 
 export interface ProviderMutationContext {

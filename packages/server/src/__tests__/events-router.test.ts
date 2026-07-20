@@ -1,16 +1,16 @@
 /**
- * ENG-070 — `events.*` tRPC router integration tests.
+ * `events.*` tRPC router integration tests.
  *
  * Drives the kernel's read procedures end-to-end against an
  * in-memory DB. Coverage:
  *
- *   - `events.getContract` returns the manifest + per-event field
- *     metadata.
- *   - `events.peekOutbox` returns empty for a fresh tenant.
- *   - `events.peekOutbox` returns inserted rows ordered by priority
- *     desc + createdAt asc.
- *   - Manager + admin can call; cashier FORBIDDEN.
- *   - Cross-tenant isolation: A's rows never leak to B.
+ * - `events.getContract` returns the manifest + per-event field
+ * metadata.
+ * - `events.peekOutbox` returns empty for a fresh tenant.
+ * - `events.peekOutbox` returns inserted rows ordered by priority
+ * desc + createdAt asc.
+ * - Manager + admin can call; cashier FORBIDDEN.
+ * - Cross-tenant isolation: A's rows never leak to B.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -155,15 +155,13 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('events.getContract (ENG-070)', () => {
+describe('events.getContract', () => {
   it('returns the manifest version + every event type', async () => {
     const h = await seedHarness('contract');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
     const result = await caller.events.getContract();
     expect(result.version).toBeGreaterThan(0);
-    expect([...result.eventTypes].sort()).toEqual(
-      [...PUBLIC_EVENT_TYPES].sort()
-    );
+    expect([...result.eventTypes].sort()).toEqual([...PUBLIC_EVENT_TYPES].sort());
   });
 
   it('returns per-event field metadata with required flags', async () => {
@@ -189,7 +187,7 @@ describe('events.getContract (ENG-070)', () => {
   });
 });
 
-describe('events.peekOutbox (ENG-070)', () => {
+describe('events.peekOutbox', () => {
   it('returns an empty list for a fresh tenant', async () => {
     const h = await seedHarness('peek-empty');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
@@ -223,11 +221,7 @@ describe('events.peekOutbox (ENG-070)', () => {
 
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
     const rows = await caller.events.peekOutbox({ limit: 50 });
-    expect(rows.map(r => r.id)).toEqual([
-      'row-high-old',
-      'row-high-new',
-      'row-low',
-    ]);
+    expect(rows.map(r => r.id)).toEqual(['row-high-old', 'row-high-new', 'row-low']);
   });
 
   it('respects the limit clamp', async () => {
@@ -270,13 +264,11 @@ describe('events.peekOutbox (ENG-070)', () => {
   it('cashier FORBIDDEN', async () => {
     const h = await seedHarness('peek-csh');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.cashierId, 'cashier'));
-    await expect(
-      caller.events.peekOutbox({ limit: 50 })
-    ).rejects.toBeInstanceOf(TRPCError);
+    await expect(caller.events.peekOutbox({ limit: 50 })).rejects.toBeInstanceOf(TRPCError);
   });
 });
 
-describe('events.peekOutbox cleanup (ENG-070)', () => {
+describe('events.peekOutbox cleanup', () => {
   it('lookup against the local in-memory DB sees zero pre-seed leakage between tests', async () => {
     // Defensive — the beforeEach above is implicit (tenants are unique
     // per suffix). This test asserts the harness assumption.
@@ -289,7 +281,10 @@ describe('events.peekOutbox cleanup (ENG-070)', () => {
     expect(allRows.length).toBeGreaterThanOrEqual(0);
     // Cleanup so a subsequent run sees an empty table.
     for (const t of ['iso-a', 'iso-b']) {
-      await db.delete(webhookOutbox).where(eq(webhookOutbox.tenantId, `events-rtr-tenant-${t}`)).run();
+      await db
+        .delete(webhookOutbox)
+        .where(eq(webhookOutbox.tenantId, `events-rtr-tenant-${t}`))
+        .run();
     }
   });
 });

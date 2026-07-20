@@ -1,9 +1,9 @@
 /**
- * ENG-074 — Hub reachability poll for cashier terminals running in
+ * Hub reachability poll for cashier terminals running in
  * `authorityMode === 'hub_client'`.
  *
  * Polls `${hubUrl}/api/health` (unauthenticated, CORS-enabled per
- * ENG-073) on a configurable interval with an abort timer. Returns
+ * ) on a configurable interval with an abort timer. Returns
  * `{reachable, lastChecked, lastError}`. The hook is a no-op when
  * the runtime is NOT `hub_client` so existing `device_local` boots
  * pay zero overhead.
@@ -86,7 +86,7 @@ export function useHubReachability(options: UseHubReachabilityOptions = {}): Hub
         const response = await fetchImpl(pollUrl, {
           method: 'GET',
           signal: controller.signal,
-          // Hub /api/health is unauthenticated per ENG-073, but we
+          // Hub /api/health is unauthenticated per , but we
           // omit credentials anyway — the cookies belong to the hub
           // origin and are not needed for this status check.
           credentials: 'omit',

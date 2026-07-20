@@ -1,5 +1,5 @@
 /**
- * ENG-038 — Payment rail adapter contract.
+ * Payment rail adapter contract.
  *
  * Rails model software payment providers and semi-integrated terminal
  * providers without storing raw card data. v1 ships deterministic
@@ -12,12 +12,7 @@
 import type { PaymentRailId } from '../../db/schema.js';
 
 export type PaymentRailMethod =
-  | 'card'
-  | 'bank_transfer'
-  | 'wallet'
-  | 'cash_reference'
-  | 'terminal_card'
-  | 'qr';
+  'card' | 'bank_transfer' | 'wallet' | 'cash_reference' | 'terminal_card' | 'qr';
 
 export interface PaymentRailCapabilities {
   readonly methods: readonly PaymentRailMethod[];
@@ -84,7 +79,7 @@ export type PaymentStatusResult = {
 };
 
 /**
- * ENG-038 slice 2 — readiness probe for a payment rail.
+ * slice 2 — readiness probe for a payment rail.
  *
  * Adapters declare which credential fields the rail needs and expose
  * `validateConfig` so the admin UI can render a readiness badge before

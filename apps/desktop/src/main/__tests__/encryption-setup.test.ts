@@ -45,7 +45,7 @@ function makeSafeStorage(): SafeStorage {
   };
 }
 
-describe('createEncryptionSetup backup protection status (ENG-129e)', () => {
+describe('createEncryptionSetup backup protection status', () => {
   let dir: string;
 
   beforeEach(async () => {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ENG-133e — portable Lighthouse web-vitals CI gate runner.
+ * portable Lighthouse web-vitals CI gate runner.
  *
  * Seeds the demo dataset into an isolated SQLite database, starts the
  * standalone Fastify server plus an already-built Vite preview, then runs
@@ -20,7 +20,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_WEB_HOST = 'localhost';
-// ENG-133e — serve the preview on a CORS-allowed origin. The built web app calls
+// serve the preview on a CORS-allowed origin. The built web app calls
 // the API at an absolute http://localhost:8090 (no preview proxy), so the preview
 // origin must be in the server's CORS allow-list (packages/server/src/server/config.ts
 // resolveServerConfig default: localhost:3000 / :5173). Vite preview's own default
@@ -67,7 +67,10 @@ function parseFlagValue(argv, index, prefix, fallback) {
  * - `--ready-timeout-ms <ms>` / `--ready-timeout-ms=<ms>`
  * - `--skip-seed`, `--skip-server`, `--skip-preview`
  */
-export function resolveRunLighthouseGateOptions({ argv = process.argv.slice(2), env = process.env } = {}) {
+export function resolveRunLighthouseGateOptions({
+  argv = process.argv.slice(2),
+  env = process.env,
+} = {}) {
   let webHost = env.PUNTOVIVO_LIGHTHOUSE_WEB_HOST || DEFAULT_WEB_HOST;
   let webPort = parsePositiveInteger(env.PUNTOVIVO_LIGHTHOUSE_WEB_PORT, DEFAULT_WEB_PORT);
   let apiHost = env.PUNTOVIVO_LIGHTHOUSE_API_HOST || DEFAULT_API_HOST;
@@ -90,12 +93,18 @@ export function resolveRunLighthouseGateOptions({ argv = process.argv.slice(2), 
     }
 
     const stringFlags = [
-      ['--web-host', value => {
-        webHost = value;
-      }],
-      ['--api-host', value => {
-        apiHost = value;
-      }],
+      [
+        '--web-host',
+        value => {
+          webHost = value;
+        },
+      ],
+      [
+        '--api-host',
+        value => {
+          apiHost = value;
+        },
+      ],
     ];
     let handled = false;
     for (const [flag, apply] of stringFlags) {
@@ -110,18 +119,30 @@ export function resolveRunLighthouseGateOptions({ argv = process.argv.slice(2), 
     if (handled) continue;
 
     const numericFlags = [
-      ['--web-port', value => {
-        webPort = parsePositiveInteger(value, webPort);
-      }],
-      ['--api-port', value => {
-        apiPort = parsePositiveInteger(value, apiPort);
-      }],
-      ['--cdp-port', value => {
-        cdpPort = parsePositiveInteger(value, cdpPort);
-      }],
-      ['--ready-timeout-ms', value => {
-        readyTimeoutMs = parsePositiveInteger(value, readyTimeoutMs);
-      }],
+      [
+        '--web-port',
+        value => {
+          webPort = parsePositiveInteger(value, webPort);
+        },
+      ],
+      [
+        '--api-port',
+        value => {
+          apiPort = parsePositiveInteger(value, apiPort);
+        },
+      ],
+      [
+        '--cdp-port',
+        value => {
+          cdpPort = parsePositiveInteger(value, cdpPort);
+        },
+      ],
+      [
+        '--ready-timeout-ms',
+        value => {
+          readyTimeoutMs = parsePositiveInteger(value, readyTimeoutMs);
+        },
+      ],
     ];
     handled = false;
     for (const [flag, apply] of numericFlags) {
@@ -274,12 +295,15 @@ async function stopChild(child) {
 }
 
 /** Wait until a URL answers with any HTTP response. */
-export async function waitForUrl(url, {
-  timeoutMs = DEFAULT_READY_TIMEOUT_MS,
-  intervalMs = DEFAULT_POLL_INTERVAL_MS,
-  fetchImpl = fetch,
-  shouldAbort = () => false,
-} = {}) {
+export async function waitForUrl(
+  url,
+  {
+    timeoutMs = DEFAULT_READY_TIMEOUT_MS,
+    intervalMs = DEFAULT_POLL_INTERVAL_MS,
+    fetchImpl = fetch,
+    shouldAbort = () => false,
+  } = {}
+) {
   const deadline = Date.now() + timeoutMs;
   let lastError;
   while (Date.now() < deadline) {
@@ -297,7 +321,9 @@ export async function waitForUrl(url, {
     }
     await delay(intervalMs);
   }
-  throw new Error(`Timed out waiting for ${url}${lastError?.message ? ` (${lastError.message})` : ''}`);
+  throw new Error(
+    `Timed out waiting for ${url}${lastError?.message ? ` (${lastError.message})` : ''}`
+  );
 }
 
 function pipeWithPrefix(stream, prefix, output) {
@@ -441,7 +467,8 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
   }
 }
 
-const isDirectInvocation = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const isDirectInvocation =
+  process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isDirectInvocation) {
   process.exit(await runCli());
 }

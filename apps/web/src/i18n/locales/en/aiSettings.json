@@ -7,7 +7,7 @@
     "enableLabel": "Enable AI features",
     "enableHint": "When off, every AI surface short-circuits with a friendly notice.",
     "providerLabel": "OCR provider",
-    "providerHint": "AWS Textract processes OCR today. Google Document AI and Azure Form Recognizer stay listed for configuration, but need credentials and provider wiring before production use.",
+    "providerHint": "Choose Anthropic, OpenAI, or Ollama. The selected provider needs its own API credential or local daemon before use.",
     "providerLocked": "Available once provider credentials and support are connected.",
     "providerComingSoon": "Soon",
     "providerComingIn": "available with",

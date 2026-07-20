@@ -1,5 +1,5 @@
 /**
- * ENG-105c — Coverage for `useQuickCreateStore`.
+ * Coverage for `useQuickCreateStore`.
  *
  * Pins the lifecycle invariants: independent slots, single-shot
  * consume that resets the slot, reset() that wipes both, and stable
@@ -106,7 +106,7 @@ describe('useQuickCreateStore', () => {
     expect(result).toEqual({ defaultName: null });
   });
 
-  // ENG-105c2 — pendingCustomerAttachId slot lifecycle.
+  // pendingCustomerAttachId slot lifecycle.
 
   it('starts with pendingCustomerAttachId null', () => {
     expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();

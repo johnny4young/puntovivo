@@ -2,7 +2,7 @@
  * A-06 — schema downgrade guard.
  *
  * The reachable field failure: auto-update migrates the DB, the operator
- * rolls back to an older installer (ENG-137 rollback does not exist yet),
+ * rolls back to an older installer ( rollback does not exist yet),
  * and the old binary opens a DB from the future. Pre-guard, that died
  * mid-operation with `no such column`; the guard turns it into a refusal at
  * boot with the remediation in the message.

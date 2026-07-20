@@ -1,5 +1,5 @@
 /**
- * ENG-184 — Admin card for the Colombia (DIAN) fiscal config.
+ * Admin card for the Colombia (DIAN) fiscal config.
  *
  * Lives in the `Fiscal` tab of `CompanyPage`, replacing the old
  * "coming soon" placeholder. Reads `fiscalSettings.getByCountry({CO})`,
@@ -9,7 +9,7 @@
  * DIAN is OPTIONAL: a merchant can keep selling without it. This card
  * captures the issuer config so they are "ready to activate" whenever
  * they choose. Real CUFE signing + provider transmission stay mock /
- * gated behind ENG-021 — this card only captures + probes presence.
+ * gated behind  — this card only captures + probes presence.
  *
  * Mirrors the structure of `CompanyMxFiscalCard` (uncontrolled FormData
  * + tRPC + readiness badge + EmptyState/reveal). When the tenant is not
@@ -209,7 +209,7 @@ export function CompanyCoFiscalCard() {
               ? t('fiscal:settings.readiness.ready')
               : t('fiscal:settings.readiness.notReady')}
           </span>
-          {/* ENG-185 — honest demo/draft label: DIAN config can be ready,
+          {/* honest demo/draft label: DIAN config can be ready,
               but electronic invoicing does not transmit yet (optional). */}
           {settingsQuery.data?.maturity && (
             <FiscalMaturityBadge maturity={settingsQuery.data.maturity} className="ml-2" />

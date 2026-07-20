@@ -1,5 +1,5 @@
 /**
- * ENG-035a — Tests del validador RFC para el pack México.
+ * Tests del validador RFC para el pack México.
  *
  * Cobertura:
  * - Inputs vacíos / no-string → EMPTY.
@@ -23,7 +23,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateRfc } from './rfc.js';
 
-describe('validateRfc — entradas inválidas (ENG-035a)', () => {
+describe('validateRfc — entradas inválidas', () => {
   it('rechaza string vacío', () => {
     const result = validateRfc('');
     expect(result.ok).toBe(false);
@@ -55,7 +55,7 @@ describe('validateRfc — entradas inválidas (ENG-035a)', () => {
   });
 });
 
-describe('validateRfc — RFCs genéricos del SAT (ENG-035a)', () => {
+describe('validateRfc — RFCs genéricos del SAT', () => {
   it('acepta XEXX010101000 como persona moral', () => {
     const result = validateRfc('XEXX010101000');
     expect(result.ok).toBe(true);
@@ -69,7 +69,7 @@ describe('validateRfc — RFCs genéricos del SAT (ENG-035a)', () => {
   });
 });
 
-describe('validateRfc — estructura (ENG-035a)', () => {
+describe('validateRfc — estructura', () => {
   it('rechaza caracteres no alfabéticos en la parte del nombre', () => {
     // Letras inválidas en el nombre (números): "ABC1" no es alfabético
     const result = validateRfc('AB12345678901');
@@ -103,7 +103,7 @@ describe('validateRfc — estructura (ENG-035a)', () => {
   });
 });
 
-describe('validateRfc — lista negra del SAT (ENG-035a)', () => {
+describe('validateRfc — lista negra del SAT', () => {
   it('rechaza el prefijo BUEY', () => {
     const result = validateRfc('BUEY010101XYZ');
     expect(result.ok).toBe(false);
@@ -123,7 +123,7 @@ describe('validateRfc — lista negra del SAT (ENG-035a)', () => {
   });
 });
 
-describe('validateRfc — homoclave (ENG-035a)', () => {
+describe('validateRfc — homoclave', () => {
   it('rechaza homoclave con dígito verificador equivocado', () => {
     // Estructura válida + fecha válida + prefijo no en blacklist,
     // pero la homoclave "XYZ" tiene un dígito final que no
@@ -134,7 +134,7 @@ describe('validateRfc — homoclave (ENG-035a)', () => {
   });
 });
 
-describe('validateRfc — normalización (ENG-035a)', () => {
+describe('validateRfc — normalización', () => {
   it('normaliza minúsculas a mayúsculas', () => {
     const result = validateRfc('xexx010101000');
     expect(result.ok).toBe(true);

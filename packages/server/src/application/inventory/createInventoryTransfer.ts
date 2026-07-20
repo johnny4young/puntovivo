@@ -1,9 +1,9 @@
 /**
  * Inventory-transfer create orchestrator.
  *
- * ENG-206 — promoted from services into the application use-case boundary.
+ * promoted from services into the application use-case boundary.
  *
- * Phase 2 DB-102 / API-102 step 1 — immediate inventory transfers.
+ * Immediate inventory transfers.
  *
  * A transfer atomically decreases `inventory_balances.on_hand` at
  * `fromSiteId` and increases it at `toSiteId` for one or more products,

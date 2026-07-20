@@ -1,12 +1,12 @@
 /**
  * Helper for the recurring tRPC react-query invalidation pattern in mutation
- * `onSuccess` handlers. Introduced by ENG-028 to collapse the
+ * `onSuccess` handlers. Introduced by  to collapse the
  *
- *   await Promise.all([
- *     utils.foo.list.invalidate(),
- *     utils.bar.summary.invalidate(),
- *     ...
- *   ]);
+ * await Promise.all([
+ * utils.foo.list.invalidate(),
+ * utils.bar.summary.invalidate(),
+ * ...
+ * ]);
  *
  * boilerplate that recurs across SalesPage, SaleDetailsModal,
  * SuspendedSalesPanel, PurchasesPage, and PurchaseDetailsModal.
@@ -34,9 +34,9 @@ export type InvalidationPicker = (u: TrpcUtils) => Invalidatable;
  *
  * @example
  * await invalidateGroups(utils, [
- *   u => u.sales.list,
- *   u => u.cashSessions.getActive,
- *   u => u.products.list,
+ * u => u.sales.list,
+ * u => u.cashSessions.getActive,
+ * u => u.products.list,
  * ]);
  */
 export async function invalidateGroups(
@@ -69,13 +69,13 @@ export const SERIAL_INVENTORY_INVALIDATIONS: ReadonlyArray<InvalidationPicker> =
  * showing pre-sale data for the whole staleTime window.
  */
 export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
-  // ENG-202 — the shell celebrates only after the server confirms the
+  // the shell celebrates only after the server confirms the
   // tenant's first completed sale.
   u => u.setupReadiness.firstSale,
   u => u.cashSessions.getActive,
   u => u.cashSessions.myPace,
   u => u.cashSessions.movements,
-  // ENG-204 — the pace HUD should jump the moment a sale lands, not on
+  // the pace HUD should jump the moment a sale lands, not on
   // its 60 s poll; no-op while the HUD is opted out (query disabled).
   u => u.cashSessions.pace,
   u => u.cashSessions.report,
@@ -88,11 +88,11 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   u => u.products.list,
   u => u.products.search,
   ...SERIAL_INVENTORY_INVALIDATIONS,
-  // ENG-090 — credit sales mutate the ledger, so the cupo card
+  // credit sales mutate the ledger, so the cupo card
   // inside SalePaymentModal must refetch on the next open.
   u => u.customerLedger.getBalance,
   u => u.customerLedger.list,
-  // ENG-213 — the sale may have accrued points; refresh the balance chip
+  // the sale may have accrued points; refresh the balance chip
   // so the next checkout shows the customer's real total.
   u => u.loyalty.forCustomer,
 ];
@@ -104,7 +104,7 @@ export const CASH_SESSION_OPEN_INVALIDATIONS: ReadonlyArray<InvalidationPicker> 
   u => u.cashSessions.myPace,
   u => u.cashSessions.report,
   u => u.cashSessions.registerAssignments,
-  // ENG-140d — opening a drawer can atomically clock the cashier in.
+  // opening a drawer can atomically clock the cashier in.
   u => u.employeeShifts.current,
   u => u.employeeShifts.attendance.list,
 ];

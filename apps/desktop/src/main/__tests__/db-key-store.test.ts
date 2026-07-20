@@ -12,7 +12,7 @@ import {
   type SafeStorageLike,
 } from '../db-key-store.ts';
 
-// ENG-167 — exercises the safeStorage-backed key bootstrap. We pass a
+// exercises the safeStorage-backed key bootstrap. We pass a
 // deterministic stub so the test is hermetic: real `safeStorage`
 // would require a running Electron context (Keychain prompts on
 // macOS, DPAPI handles on Windows, libsecret on Linux) — none of
@@ -52,7 +52,7 @@ function makeUnavailableStub(): SafeStorageLike {
   };
 }
 
-describe('db-key-store (ENG-167)', () => {
+describe('db-key-store', () => {
   let workdir: string;
 
   before(async () => {

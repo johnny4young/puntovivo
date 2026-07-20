@@ -1,5 +1,5 @@
 /**
- * ENG-039b — `restaurantTables.*` router tests.
+ * `restaurantTables.*` router tests.
  *
  * Coverage: role gates, tenant scope, partial-unique on active rows,
  * archived-row exclusion, idempotent archive, audit-log emission.
@@ -106,7 +106,7 @@ async function seedHarness(suffix: string): Promise<Harness> {
       updatedAt: now,
     },
   ]);
-  // ENG-177c — a committed sale now requires a cash session at the
+  // a committed sale now requires a cash session at the
   // schema level (CHECK cash_session_id IS NOT NULL OR status='draft').
   // Seed one closed session per harness so the `insertDraftOnTable`
   // fixture can stamp it on its non-draft rows; the draft-status read
@@ -131,7 +131,7 @@ async function seedHarness(suffix: string): Promise<Harness> {
   return { tenantId, adminId, managerId, cashierId, siteId };
 }
 
-// ENG-177c — maps each seeded tenant to its fixture cash session so the
+// maps each seeded tenant to its fixture cash session so the
 // non-draft `insertDraftOnTable` rows satisfy the committed-sale CHECK.
 const cashSessionByTenant = new Map<string, string>();
 
@@ -165,10 +165,7 @@ function buildCtx(
 async function readLatestAudit(
   tenantId: string,
   resourceId: string,
-  action:
-    | 'restaurant_table.create'
-    | 'restaurant_table.update'
-    | 'restaurant_table.archive'
+  action: 'restaurant_table.create' | 'restaurant_table.update' | 'restaurant_table.archive'
 ) {
   const db = getDatabase();
   return db
@@ -193,7 +190,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('restaurantTables.create (ENG-039b)', () => {
+describe('restaurantTables.create', () => {
   it('admin creates a table; row exists with tenant + site scope; audit row written', async () => {
     const h = await seedHarness('create-ok');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
@@ -274,7 +271,7 @@ describe('restaurantTables.create (ENG-039b)', () => {
   });
 });
 
-describe('restaurantTables.list + getById (ENG-039b)', () => {
+describe('restaurantTables.list + getById', () => {
   it('manager can list tables; cashier listing is FORBIDDEN', async () => {
     const h = await seedHarness('list-roles');
     const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
@@ -283,9 +280,9 @@ describe('restaurantTables.list + getById (ENG-039b)', () => {
     const res = await manager.restaurantTables.list({ siteId: h.siteId });
     expect(res.items).toHaveLength(1);
     const cashier = appRouter.createCaller(buildCtx(h.tenantId, h.cashierId, 'cashier'));
-    await expect(
-      cashier.restaurantTables.list({ siteId: h.siteId })
-    ).rejects.toBeInstanceOf(TRPCError);
+    await expect(cashier.restaurantTables.list({ siteId: h.siteId })).rejects.toBeInstanceOf(
+      TRPCError
+    );
   });
 
   it('includeArchived false filters archived rows; true includes them', async () => {
@@ -312,15 +309,13 @@ describe('restaurantTables.list + getById (ENG-039b)', () => {
       name: 'Mesa B1',
     });
     const adminA = appRouter.createCaller(buildCtx(a.tenantId, a.adminId, 'admin'));
-    await expect(
-      adminA.restaurantTables.getById({ id: row.id })
-    ).rejects.toMatchObject({
+    await expect(adminA.restaurantTables.getById({ id: row.id })).rejects.toMatchObject({
       cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_NOT_FOUND' }),
     });
   });
 });
 
-describe('restaurantTables.update (ENG-039b)', () => {
+describe('restaurantTables.update', () => {
   it('admin can update name + seat count; audit row carries before/after', async () => {
     const h = await seedHarness('update-ok');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
@@ -391,7 +386,7 @@ describe('restaurantTables.update (ENG-039b)', () => {
   });
 });
 
-describe('restaurantTables.listWithDraftStatus (ENG-039c)', () => {
+describe('restaurantTables.listWithDraftStatus', () => {
   // Insert a draft sale directly so we don't have to plumb the
   // `sales.create` mutation (which would need a cash session). The
   // read model only needs tenant + table + status + suspended_at, so a
@@ -424,9 +419,9 @@ describe('restaurantTables.listWithDraftStatus (ENG-039c)', () => {
       paymentMethod: 'cash',
       paymentStatus: 'pending',
       status,
-      // ENG-177c — committed rows need a session; drafts stay null
+      // committed rows need a session; drafts stay null
       // (exempt) so this fixture still exercises the null-session path.
-      cashSessionId: status === 'draft' ? null : cashSessionByTenant.get(tenantIdValue) ?? null,
+      cashSessionId: status === 'draft' ? null : (cashSessionByTenant.get(tenantIdValue) ?? null),
       createdBy: actorId,
       suspendedAt: suspended ? now : null,
       suspendedBy: suspended ? actorId : null,
@@ -487,9 +482,7 @@ describe('restaurantTables.listWithDraftStatus (ENG-039c)', () => {
     const h = await seedHarness('list-draft-csh');
     const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
     await admin.restaurantTables.create({ siteId: h.siteId, name: 'Mesa Csh' });
-    const cashier = appRouter.createCaller(
-      buildCtx(h.tenantId, h.cashierId, 'cashier')
-    );
+    const cashier = appRouter.createCaller(buildCtx(h.tenantId, h.cashierId, 'cashier'));
     await expect(
       cashier.restaurantTables.listWithDraftStatus({ siteId: h.siteId })
     ).rejects.toBeInstanceOf(TRPCError);
@@ -539,18 +532,14 @@ describe('restaurantTables.listWithDraftStatus (ENG-039c)', () => {
   });
 });
 
-describe('restaurantTables.archive (ENG-039b)', () => {
+describe('restaurantTables.archive', () => {
   it('archive flips isActive to false; second archive is idempotent (no second audit row)', async () => {
     const h = await seedHarness('archive-idem');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
     const row = await caller.restaurantTables.create({ siteId: h.siteId, name: 'Mesa X' });
     const first = await caller.restaurantTables.archive({ id: row.id });
     expect(first.isActive).toBe(false);
-    const audit1 = await readLatestAudit(
-      h.tenantId,
-      row.id,
-      'restaurant_table.archive'
-    );
+    const audit1 = await readLatestAudit(h.tenantId, row.id, 'restaurant_table.archive');
     expect(audit1).toBeDefined();
     const second = await caller.restaurantTables.archive({ id: row.id });
     expect(second.isActive).toBe(false);

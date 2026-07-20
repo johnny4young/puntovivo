@@ -1,4 +1,4 @@
-/** ENG-123d — Customer receivable opening-balance import. */
+/** Customer receivable opening-balance import. */
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -39,7 +39,7 @@ function row(rowNumber: number, values: Record<string, string>) {
   return { rowNumber, values };
 }
 
-describe('ENG-123d customer opening-balance migration', () => {
+describe(' customer opening-balance migration', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     db = getDatabase();

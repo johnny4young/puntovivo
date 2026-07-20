@@ -187,7 +187,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('ENG-142a loss-prevention policy', () => {
+describe(' loss-prevention policy', () => {
   it('uses boundary-safe aggregate discount math and overnight windows', () => {
     expect(checkoutDiscountPercent(items, 10)).toBe(10);
     expect(checkoutDiscountPercent(items, 10.001)).toBe(10.001);

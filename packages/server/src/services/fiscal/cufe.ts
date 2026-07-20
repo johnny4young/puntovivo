@@ -1,29 +1,29 @@
 /**
- * ENG-020 — CUFE (Código Único de Factura Electrónica) compute helper.
+ * CUFE (Código Único de Factura Electrónica) compute helper.
  *
  * CUFE is the deterministic 96-character hexadecimal hash DIAN requires
  * on every electronic fiscal document. The algorithm is spelled out in
  * Colombia's Resolución DIAN 165/2023 §12.1 and Anexo Técnico 1.9
  * §A.2.5:
  *
- *   cufe = SHA-384(
- *     numFactura ||
- *     fechaFactura ||           // YYYY-MM-DD
- *     horaFactura ||            // HH:mm:ssZZ (ISO offset)
- *     valorSubtotal ||          // two-decimal fixed, dot separator
- *     codigoImpuesto1 ||        // '01' IVA by default
- *     valorImpuesto1 ||
- *     codigoImpuesto2 ||        // '04' INC, '0.00' when absent
- *     valorImpuesto2 ||
- *     codigoImpuesto3 ||        // '03' ICA, '0.00' when absent
- *     valorImpuesto3 ||
- *     valorTotal ||
- *     nitEmisor ||
- *     tipoAdquiriente ||        // '31' for NIT, '13' for CC, …
- *     numeroAdquiriente ||
- *     claveTecnica ||           // DIAN-issued resolution technical key
- *     tipoAmbiente              // '1' production, '2' sandbox
- *   )
+ * cufe = SHA-384(
+ * numFactura ||
+ * fechaFactura ||           // YYYY-MM-DD
+ * horaFactura ||            // HH:mm:ssZZ (ISO offset)
+ * valorSubtotal ||          // two-decimal fixed, dot separator
+ * codigoImpuesto1 ||        // '01' IVA by default
+ * valorImpuesto1 ||
+ * codigoImpuesto2 ||        // '04' INC, '0.00' when absent
+ * valorImpuesto2 ||
+ * codigoImpuesto3 ||        // '03' ICA, '0.00' when absent
+ * valorImpuesto3 ||
+ * valorTotal ||
+ * nitEmisor ||
+ * tipoAdquiriente ||        // '31' for NIT, '13' for CC, …
+ * numeroAdquiriente ||
+ * claveTecnica ||           // DIAN-issued resolution technical key
+ * tipoAmbiente              // '1' production, '2' sandbox
+ * )
  *
  * This module holds the PURE algorithm so the MockAdapter, the
  * architectural-lint tests, and any future FactureAdapter/HkaAdapter
@@ -38,7 +38,7 @@ import { createHash } from 'node:crypto';
 
 /**
  * Environment flag DIAN uses to distinguish production ('1') from
- * sandbox ('2') CUFE inputs. The MockAdapter always uses '2'; ENG-021
+ * sandbox ('2') CUFE inputs. The MockAdapter always uses '2';
  * will flip to '1' when the real PT integration ships.
  */
 export type FiscalEnvironment = '1' | '2';

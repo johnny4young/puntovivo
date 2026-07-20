@@ -1,5 +1,5 @@
 /**
- * ENG-217 — `customers.list` server-side search.
+ * `customers.list` server-side search.
  *
  * The param has existed since the router was written and had NO coverage,
  * which is how the web could ship a client-side filter over one 50-row page
@@ -82,7 +82,7 @@ afterEach(async () => {
   await server.close();
 });
 
-describe('customers.list search (ENG-217)', () => {
+describe('customers.list search', () => {
   it('finds a match that lives beyond the first page', async () => {
     // THE bug: 60 customers, and the one we want sorts past the 50-row page
     // the web loads. A client-side filter over that page reports "no
@@ -101,7 +101,7 @@ describe('customers.list search (ENG-217)', () => {
   });
 
   it('matches on email and phone, not just the name', async () => {
-    // The table shows neither column by default (ENG-132b trimmed them), so
+    // The table shows neither column by default ( trimmed them), so
     // the old name-only client filter could not find a customer by the phone
     // number the cashier was reading off a receipt.
     const byEmail = await seedCustomer({

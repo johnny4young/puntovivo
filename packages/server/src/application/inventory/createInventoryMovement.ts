@@ -1,4 +1,4 @@
-/** ENG-206 — Create a typed movement and atomically apply its stock delta. */
+/** Create a typed movement and atomically apply its stock delta. */
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';

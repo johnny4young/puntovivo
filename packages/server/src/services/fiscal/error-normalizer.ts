@@ -1,23 +1,23 @@
 /**
- * ENG-057 — Normalize a raw adapter throw into a
+ * Normalize a raw adapter throw into a
  * `NormalizedFiscalError`.
  *
  * Dispatch order:
  *
  * 1. If the error is already a `FiscalProviderError`, lift its kind
- *    and providerCode directly.
+ * and providerCode directly.
  * 2. Otherwise, dispatch by `providerId` to the per-pack mapper
- *    (`packs/co/error-mapping.ts`, `packs/mx/error-mapping.ts`,
- *    `packs/cl/error-mapping.ts`). Each mapper inspects the raw
- *    error and returns either a `NormalizedFiscalError` or `null`
- *    when it cannot classify.
+ * (`packs/co/error-mapping.ts`, `packs/mx/error-mapping.ts`,
+ * `packs/cl/error-mapping.ts`). Each mapper inspects the raw
+ * error and returns either a `NormalizedFiscalError` or `null`
+ * when it cannot classify.
  * 3. Fall back to the universal heuristic: `TypeError` /
- *    `SyntaxError` → `MALFORMED_REQUEST` (non-recoverable);
- *    anything else → `PROVIDER_5XX` (recoverable).
+ * `SyntaxError` → `MALFORMED_REQUEST` (non-recoverable);
+ * anything else → `PROVIDER_5XX` (recoverable).
  *
  * The fallback is intentional: the only adapter that ships with
  * real provider semantics today is the Colombia mock (which does
- * not throw on its own) — until ENG-021 / ENG-035c / ENG-036c land
+ * not throw on its own) — until  /  /  land
  * provider-specific code dispatch, recoverable-by-default keeps
  * pilot retries flowing without burning the budget on transient
  * failures. The 6-attempt cap bounds the damage if a permanent
@@ -36,10 +36,7 @@ import { mapColombiaProviderError } from './packs/co/error-mapping.js';
 import { mapMexicoProviderError } from './packs/mx/error-mapping.js';
 import { mapChileProviderError } from './packs/cl/error-mapping.js';
 
-const PER_PACK_MAPPERS: Record<
-  string,
-  (err: unknown) => NormalizedFiscalError | null
-> = {
+const PER_PACK_MAPPERS: Record<string, (err: unknown) => NormalizedFiscalError | null> = {
   'mock-co': mapColombiaProviderError,
   'cfdi-mx': mapMexicoProviderError,
   'sii-cl': mapChileProviderError,
@@ -70,7 +67,7 @@ function buildError(
  */
 function defaultHeuristic(err: unknown): NormalizedFiscalError {
   const message = err instanceof Error ? err.message : String(err);
-  const stack = err instanceof Error ? err.stack ?? null : null;
+  const stack = err instanceof Error ? (err.stack ?? null) : null;
 
   if (err instanceof TypeError || err instanceof SyntaxError) {
     return buildError('MALFORMED_REQUEST', {

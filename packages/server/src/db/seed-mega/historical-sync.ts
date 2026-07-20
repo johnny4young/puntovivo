@@ -1,9 +1,9 @@
 /**
- * ENG-052b — MEGA seed: sync outbox + sync conflicts. Populates the
+ * MEGA seed: sync outbox + sync conflicts. Populates the
  * /sync admin pages with pending entries and a mix of resolved /
  * unresolved conflicts so the conflict-resolution flow has data.
  *
- * ENG-064b cutover: writes directly to `sync_outbox` (the legacy
+ * cutover: writes directly to `sync_outbox` (the legacy
  * `sync_queue` was dropped in migration 0017). The bulk insert path
  * skips `enqueueSync` because there is no envelope context at seed
  * time and the per-row `operation_events` lookup adds gratuitous
@@ -53,7 +53,8 @@ export async function seedHistoricalSync(
       operationEventId: null,
       attempts,
       nextRetryAt: null,
-      lastError: attempts > 0 ? { kind: 'NETWORK_TIMEOUT', message: 'connectivity timeout (seed)' } : null,
+      lastError:
+        attempts > 0 ? { kind: 'NETWORK_TIMEOUT', message: 'connectivity timeout (seed)' } : null,
       priority: 0,
       claimToken: null,
       lockedAt: null,

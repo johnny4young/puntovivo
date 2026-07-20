@@ -1,7 +1,7 @@
 /**
- * ENG-141a — comprehensive manager day-close preview.
+ * comprehensive manager day-close preview.
  *
- * This is intentionally separate from ENG-198's per-cash-session ritual. It
+ * This is intentionally separate from 's per-cash-session ritual. It
  * aggregates the whole tenant-local day and is only exposed through a
  * manager/admin procedure. Every query carries tenant scope explicitly.
  */

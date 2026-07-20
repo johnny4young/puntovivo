@@ -1,4 +1,4 @@
-/** ENG-110c — live serialized receipt, explicit POS selection and warranty lookup. */
+/** live serialized receipt, explicit POS selection and warranty lookup. */
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';

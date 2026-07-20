@@ -52,7 +52,7 @@ function getTenantTablesInDeleteOrder(sqlite: Database.Database): string[] {
       .prepare(`PRAGMA foreign_key_list(${quoteIdentifier(child)})`)
       .all() as SqliteForeignKeyRow[];
     for (const foreignKey of foreignKeys) {
-      // ENG-110b — self-references are cleared inside the reset transaction
+      // self-references are cleared inside the reset transaction
       // before deletion. They therefore do not create a cross-table ordering
       // edge (which would only manufacture a cycle here).
       if (foreignKey.table !== child && tenantTableSet.has(foreignKey.table)) {
@@ -122,8 +122,7 @@ function clearTenantSelfReferences(
         .prepare(`PRAGMA foreign_key_list(${quoteIdentifier(table)})`)
         .all() as SqliteForeignKeyRow[]
     ).filter(
-      foreignKey =>
-        foreignKey.table === table && foreignKey.on_delete.toUpperCase() !== 'CASCADE'
+      foreignKey => foreignKey.table === table && foreignKey.on_delete.toUpperCase() !== 'CASCADE'
     );
     for (const foreignKey of selfReferences) {
       sqlite

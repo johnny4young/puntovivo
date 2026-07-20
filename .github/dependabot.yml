@@ -1,4 +1,4 @@
-# ENG-009 — Dependabot config. Monthly grouped updates from the shared
+# Dependabot config. Monthly grouped updates from the shared
 # root lockfile keep the CVE attack surface fresh without overwhelming
 # the reviewer with a PR per patch.
 #

@@ -8,7 +8,7 @@ import { FullscreenLoadingState } from '@/components/feedback/LoadingState';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  // ENG-179b — explicit `| undefined`.
+  // explicit `| undefined`.
   allowedRoles?: readonly UserRole[] | undefined;
 }
 

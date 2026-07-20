@@ -4,7 +4,7 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { isSoundEnabled, playScanSuccess, setSoundEnabled } from '@/lib/sound';
 
 /**
- * ENG-193 — device-local checkout-sound toggle.
+ * device-local checkout-sound toggle.
  *
  * Self-contained: owns its on/off state (backed by localStorage via
  * `lib/sound`) so it can sit anywhere in the POS chrome without threading

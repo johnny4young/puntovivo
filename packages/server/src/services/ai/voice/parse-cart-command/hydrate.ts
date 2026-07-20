@@ -1,5 +1,5 @@
 /**
- * Product/unit hydration for matched cart hints (ENG-040c). Private to
+ * Product/unit hydration for matched cart hints (). Private to
  * the parse-cart-command module group.
  *
  * @module services/ai/voice/parse-cart-command/hydrate

@@ -1,5 +1,5 @@
 /**
- * ENG-070 — Public events module barrel.
+ * Public events module barrel.
  *
  * @module services/events
  */

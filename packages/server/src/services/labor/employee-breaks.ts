@@ -56,7 +56,7 @@ function isClosedParentConstraint(error: unknown): boolean {
   return error instanceof Error && /EMPLOYEE_SHIFT_BREAK_OUTSIDE_SHIFT/i.test(error.message);
 }
 
-/** ENG-140b — start one explicit self-service rest interval. */
+/** start one explicit self-service rest interval. */
 export function startEmployeeBreak(context: EmployeeBreakCommandContext) {
   const id = nanoid();
 
@@ -117,7 +117,7 @@ export function startEmployeeBreak(context: EmployeeBreakCommandContext) {
   return created;
 }
 
-/** ENG-140b — finish the current rest interval without rewriting its start. */
+/** finish the current rest interval without rewriting its start. */
 export function endEmployeeBreak(context: EmployeeBreakCommandContext) {
   let endedBreakId = '';
 

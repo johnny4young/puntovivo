@@ -70,22 +70,22 @@ export interface ProductFormModalProps {
   onClose: () => void;
   /**
    * Persists the form. May return the newly created product so the
-   * quick-create flow (ENG-105c) can hand it back to the caller via
+   * quick-create flow () can hand it back to the caller via
    * `onCreated`. Existing callers that ignore the return value stay
    * backward compatible — TypeScript treats `Promise<Product | void>`
    * as compatible with a `Promise<void>` consumer.
    */
   onSubmit: (values: ProductFormValues) => Promise<Product | void>;
   /**
-   * ENG-105c — pre-fill the `name` field on `mode='create'`. Useful
+   * pre-fill the `name` field on `mode='create'`. Useful
    * when the dialog is opened from the ProductSearchDialog empty
    * state with the typed query. Ignored on `mode='edit'` (the
    * existing product's name wins). Defaults to no pre-fill.
    */
-  // ENG-179b — explicit `| undefined` on optional fields.
+  // explicit `| undefined` on optional fields.
   defaultName?: string | undefined;
   /**
-   * ENG-105c — fired once `onSubmit` succeeds AND `mode='create'`
+   * fired once `onSubmit` succeeds AND `mode='create'`
    * AND the resolved value is a real product. Lets the caller add
    * the new product to the cart, attach to a sale, etc. Skipped on
    * error or on edit-mode submits.

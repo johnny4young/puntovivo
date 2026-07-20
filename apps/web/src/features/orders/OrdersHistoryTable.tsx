@@ -46,7 +46,7 @@ export function OrdersHistoryTable({
           <span className="font-mono font-medium text-primary-800">{row.original.orderNumber}</span>
         ),
       },
-      // ENG-132e — date / site / receipts trimmed from the default table;
+      // date / site / receipts trimmed from the default table;
       // each stays reachable via the View detail modal (created, site,
       // staged-delivery + receipts list). Status keeps receiving progress
       // legible at a glance.
@@ -70,7 +70,9 @@ export function OrdersHistoryTable({
         accessorKey: 'total',
         header: t('table.total'),
         size: 120,
-        cell: ({ row }) => <span className="font-medium">{formatCurrency(row.original.total)}</span>,
+        cell: ({ row }) => (
+          <span className="font-medium">{formatCurrency(row.original.total)}</span>
+        ),
       },
       {
         id: 'actions',
@@ -110,9 +112,7 @@ export function OrdersHistoryTable({
   return (
     <div className="card p-6">
       {isLoading && <TableLoadingState message={t('table.loading')} rowCount={6} />}
-      {error && (
-        <TableErrorState title={t('table.loadError')} message={error} onRetry={onRetry} />
-      )}
+      {error && <TableErrorState title={t('table.loadError')} message={error} onRetry={onRetry} />}
       {!isLoading && !error && (
         <DataTable
           columns={columns}
@@ -120,7 +120,7 @@ export function OrdersHistoryTable({
           searchKey="orderNumber"
           searchPlaceholder={t('table.searchPlaceholder')}
           pageSize={8}
-          // ENG-134f — Enter / Space on the focused row opens the
+          // Enter / Space on the focused row opens the
           // order detail modal, mirroring the row's Eye button click.
           onRowActivate={row => onView(row.id)}
         />

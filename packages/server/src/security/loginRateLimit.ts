@@ -1,17 +1,17 @@
 /**
- * ENG-008 / ENG-008b — per-IP and per-username rate limiting for the
+ * /  — per-IP and per-username rate limiting for the
  * `auth.login` tRPC procedure.
  *
  * Two independent TTL buckets keyed by client IP and by (normalized) email.
  * The IP bucket blunts brute-force from a single origin; the username bucket
  * blunts credential-stuffing attacks that rotate IPs against one account.
  *
- * ## Persistence (ENG-008b)
+ * ## Persistence ()
  *
  * Buckets are persisted to the `login_attempts` table so the 10/IP/60s and
  * 5-fail/username/15min caps survive a server restart. The in-memory Maps
- * from ENG-008 remain as a **write-through cache** keyed on `${kind}:${key}`
- * — reads consult the cache first and fall back to the DB, writes mutate
+ * from  remain as a **write-through cache** keyed on `${kind}:${key}`
+ * reads consult the cache first and fall back to the DB, writes mutate
  * the DB first and then mirror the state into the cache.
  *
  * **NOT tenant-scoped**: one `login_attempts` row per (kind, key) across the

@@ -14,14 +14,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  companies,
-  inventoryBalances,
-  products,
-  sites,
-  tenants,
-  users,
-} from '../db/schema.js';
+import { companies, inventoryBalances, products, sites, tenants, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -132,10 +125,7 @@ interface ProductSeed {
   balances: Array<{ siteId: string; onHand: number }>;
 }
 
-async function seedProductWithBalances(
-  tenantId: string,
-  seed: ProductSeed
-): Promise<void> {
+async function seedProductWithBalances(tenantId: string, seed: ProductSeed): Promise<void> {
   const db = getDatabase();
   const now = new Date().toISOString();
   await db.insert(products).values({
@@ -196,7 +186,7 @@ function buildCtx(
   };
 }
 
-describe('reports.inventory.discrepancies (ENG-065b)', () => {
+describe('reports.inventory.discrepancies', () => {
   let harnessA: InvHarness;
   let harnessB: InvHarness;
 
@@ -206,10 +196,10 @@ describe('reports.inventory.discrepancies (ENG-065b)', () => {
     harnessB = await seedHarness('b');
 
     // Tenant A — three products covering every assertion shape:
-    //   ok        : cached=10, sites=[3+7=10] → no drift, NOT surfaced.
-    //   driftPos  : cached=20, sites=[5+5=10] → +10 drift (cache too high).
-    //   driftNeg  : cached=4,  sites=[3+5=8]  → -4 drift (cache too low).
-    //   tiny      : cached=2,  sites=[1.0005+0.9995=2] → 0 within epsilon → NOT surfaced.
+    // ok        : cached=10, sites=[3+7=10] → no drift, NOT surfaced.
+    // driftPos  : cached=20, sites=[5+5=10] → +10 drift (cache too high).
+    // driftNeg  : cached=4,  sites=[3+5=8]  → -4 drift (cache too low).
+    // tiny      : cached=2,  sites=[1.0005+0.9995=2] → 0 within epsilon → NOT surfaced.
     await seedProductWithBalances(harnessA.tenantId, {
       productId: 'rinv-prod-ok',
       name: 'Producto OK',
@@ -287,19 +277,19 @@ describe('reports.inventory.discrepancies (ENG-065b)', () => {
       buildCtx(harnessA.tenantId, harnessA.cashierId, 'cashier')
     );
 
-    await expect(adminCaller.reports.inventory.discrepancies({ limit: 100 })).resolves.toBeDefined();
+    await expect(
+      adminCaller.reports.inventory.discrepancies({ limit: 100 })
+    ).resolves.toBeDefined();
     await expect(
       managerCaller.reports.inventory.discrepancies({ limit: 100 })
     ).resolves.toBeDefined();
-    await expect(
-      cashierCaller.reports.inventory.discrepancies({ limit: 100 })
-    ).rejects.toThrow(/TRPCError|administrators|managers/i);
+    await expect(cashierCaller.reports.inventory.discrepancies({ limit: 100 })).rejects.toThrow(
+      /TRPCError|administrators|managers/i
+    );
   });
 
   it('returns an empty discrepancy set even when balances would look like drift', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.inventory.discrepancies({ limit: 100 });
 
     // Drift is structurally impossible now: nothing is ever surfaced.
@@ -309,17 +299,13 @@ describe('reports.inventory.discrepancies (ENG-065b)', () => {
   });
 
   it('isolates tenants — tenant A scan never returns tenant B rows', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.inventory.discrepancies({ limit: 100 });
     expect(result.rows.every(row => row.productId !== 'rinv-prod-b-leak')).toBe(true);
   });
 
   it('always returns an empty set regardless of the limit', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.inventory.discrepancies({ limit: 1 });
     expect(result.rows).toHaveLength(0);
     expect(result.summary.discrepancyCount).toBe(0);

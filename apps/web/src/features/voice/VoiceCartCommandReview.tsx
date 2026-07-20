@@ -20,7 +20,7 @@ export interface MatchedProduct {
 export interface CartMatch {
   productHint: string;
   quantity: number | null;
-  /** ENG-039a — free-form modifier captured by the parser. */
+  /** free-form modifier captured by the parser. */
   note: string | null;
   product: MatchedProduct | null;
 }

@@ -1,4 +1,4 @@
-/** ENG-140b — self-scoped attendance break lifecycle. */
+/** self-scoped attendance break lifecycle. */
 import { endEmployeeBreak, startEmployeeBreak } from '../../services/labor/employee-breaks.js';
 import { getOpenEmployeeBreak } from '../../services/labor/attendance-state.js';
 import { router } from '../init.js';

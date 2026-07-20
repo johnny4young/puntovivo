@@ -1,5 +1,5 @@
 /**
- * Receipt template inline linter (ENG-016 pass 4 — items #2 + #7).
+ * Receipt template inline linter ( pass 4 — items #2 + #7).
  *
  * Wraps a thin web-side parser around the same grammar that the
  * server's `services/template-expression.ts` validates against, then
@@ -14,22 +14,19 @@
  * `@puntovivo/server` exports a single root entry point. The
  * duplication is pinned by:
  *
- *   - The function-name parity tests on both sides
- *     (`templateAutocomplete.test.ts` + `template-expression.test.ts`).
- *   - The fixture-based parity test in `templateLinter.test.ts` that
- *     runs the same "valid / unknown namespace / unknown function /
- *     wrong arity / unparseable" matrix and asserts the issue counts
- *     match.
+ * - The function-name parity tests on both sides
+ * (`templateAutocomplete.test.ts` + `template-expression.test.ts`).
+ * - The fixture-based parity test in `templateLinter.test.ts` that
+ * runs the same "valid / unknown namespace / unknown function /
+ * wrong arity / unparseable" matrix and asserts the issue counts
+ * match.
  *
  * @module features/receipt-templates/templateLinter
  */
 
 import { linter, type Diagnostic } from '@codemirror/lint';
 import type { Extension } from '@codemirror/state';
-import {
-  TEMPLATE_FUNCTION_NAMES,
-  TEMPLATE_NAMESPACES,
-} from './templateAutocomplete';
+import { TEMPLATE_FUNCTION_NAMES, TEMPLATE_NAMESPACES } from './templateAutocomplete';
 
 // ---------------------------------------------------------------------------
 // Function arity table — mirrors FUNCTION_REGISTRY on the server side.
@@ -76,23 +73,13 @@ export interface LintIssue {
   detail: LintIssueKind;
 }
 
-export type LinterTranslate = (
-  key: string,
-  params?: Record<string, string | number>
-) => string;
+export type LinterTranslate = (key: string, params?: Record<string, string | number>) => string;
 
 // ---------------------------------------------------------------------------
 // Tokenizer
 // ---------------------------------------------------------------------------
 
-type TokenType =
-  | 'IDENT'
-  | 'NUMBER'
-  | 'STRING'
-  | 'LPAREN'
-  | 'RPAREN'
-  | 'COMMA'
-  | 'DOT';
+type TokenType = 'IDENT' | 'NUMBER' | 'STRING' | 'LPAREN' | 'RPAREN' | 'COMMA' | 'DOT';
 
 interface Token {
   type: TokenType;
@@ -175,14 +162,16 @@ function tokenizeInner(source: string, baseOffset: number): TokenizeResult {
       });
       continue;
     }
-    if (
-      DIGIT.test(ch) ||
-      (ch === '-' && i + 1 < source.length && DIGIT.test(source[i + 1]!))
-    ) {
+    if (DIGIT.test(ch) || (ch === '-' && i + 1 < source.length && DIGIT.test(source[i + 1]!))) {
       const start = i;
       if (ch === '-') i++;
       while (i < source.length && DIGIT.test(source[i]!)) i++;
-      if (i < source.length && source[i] === '.' && i + 1 < source.length && DIGIT.test(source[i + 1]!)) {
+      if (
+        i < source.length &&
+        source[i] === '.' &&
+        i + 1 < source.length &&
+        DIGIT.test(source[i + 1]!)
+      ) {
         i++;
         while (i < source.length && DIGIT.test(source[i]!)) i++;
       }

@@ -1,5 +1,5 @@
 /**
- * ENG-136b — non-destructive recovery-readiness drill.
+ * non-destructive recovery-readiness drill.
  *
  * The drill reads the latest scheduler-owned snapshot into an ephemeral
  * directory, verifies SQLite integrity, and compares tenant-scoped row counts

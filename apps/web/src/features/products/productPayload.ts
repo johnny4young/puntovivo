@@ -1,5 +1,5 @@
 // Product create/update payload builder, extracted from ProductsPage.tsx
-// (ENG-178 slice 32). Pure: maps the form values to the tRPC mutation input,
+// ( slice 32). Pure: maps the form values to the tRPC mutation input,
 // normalizing the provider list (legacy single providerId + the multi-provider
 // assignments) through normalizeProductProviders.
 

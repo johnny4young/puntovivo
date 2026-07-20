@@ -80,7 +80,7 @@
   --shadow-soft: 0 30px 80px -42px rgb(10 18 33 / 0.45);
   --shadow-card: 0 20px 60px -36px rgb(15 23 42 / 0.18);
   --shadow-panel: 0 28px 80px -44px rgb(15 23 42 / 0.24);
-  /* Rediseño FASE 0 — dialog/drawer elevation. Mirrors the proposal's
+  /* dialog/drawer elevation. Mirrors the proposal's
    * colors_and_type.css --shadow-modal (45% depth). The .dark block
    * nulls it to none so elevation reads through the 1px line instead. */
   --shadow-modal: 0 30px 80px -42px rgb(10 18 33 / 0.45);
@@ -122,7 +122,7 @@
     }
   }
 
-  /* ENG-186 — slide-over entrance for the desktop Drawer (right panel).
+  /* slide-over entrance for the desktop Drawer (right panel).
      The bottom-sheet variant on mobile reuses slide-up. */
   @keyframes slide-in-right {
     from {
@@ -147,7 +147,7 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ENG-189 — `pos:` gates the ENG-186 /sales no-page-scroll lockup (internal
+/* `pos:` gates the  /sales no-page-scroll lockup (internal
  * column scroll) on BOTH a wide AND a tall-enough viewport. The lockup pins
  * the checkout total + Cobrar and scrolls the cart/checkout panels inside a
  * fixed-height grid. At short viewports (e.g. 1280x720 / 1366x768, common
@@ -155,14 +155,14 @@
  * 0 and buries the cash-session controls (Registrar movimiento / Cerrar caja)
  * off-screen with no way to reach them. Below this threshold the lockup
  * classes fall back to the natural stacked flow and the app shell scrolls, so
- * every control stays reachable; at >= 900px tall the ENG-186 layout applies.
- * 900px is the ENG-186 design target (1440x900) where the Cobrar footer stays
+ * every control stays reachable; at >= 900px tall the  layout applies.
+ * 900px is the  design target (1440x900) where the Cobrar footer stays
  * pinned; below it the checkout scroll region collapses (measured: a 0px region
  * at 840px tall with the sync-conflict banner present), so we fall back to page
  * scroll there to keep the cash-session controls reachable. */
 @custom-variant pos (@media (min-width: 1280px) and (min-height: 900px));
 
-/* ENG-080b — Inter is the canonical UI face per the design-system
+/* Inter is the canonical UI face per the design-system
  * handoff. Locally-served 400 / 700 ship as woff2 next to the app
  * bundle; the heavier weights (500 / 600 / 800) come from Google
  * Fonts and are imported once in index.html so they're available
@@ -185,7 +185,7 @@
 }
 
 :root {
-  /* ENG-080b — Inter is the UI face; Iowan Old Style / Source Serif 4
+  /* Inter is the UI face; Iowan Old Style / Source Serif 4
    * is reserved for marketing / landing surfaces and opt-in via
    * `class="display"`. It is NOT wired into h1..h3 by default. */
   --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -202,7 +202,7 @@
   --input: oklch(0.92 0.014 84);
   --ring: oklch(0.63 0.126 244);
   --muted: oklch(0.94 0.011 84);
-  /* ENG-134 slice B (2026-05-21): dropped from 0.5 to 0.4 so
+  /* slice B (2026-05-21): dropped from 0.5 to 0.4 so
    * `text-muted-foreground` rendered against `--background`,
    * `--card`, and `--popover` clears WCAG AA 4.5:1. The Playwright
    * a11y smoke caught the old token at 3.69:1 across every
@@ -211,7 +211,7 @@
   --muted-foreground: oklch(0.4 0.02 255);
   --accent: oklch(0.95 0.022 226);
   --accent-foreground: oklch(0.25 0.025 255);
-  /* ENG-134c (2026-05-21): bumped from L=0.55 to L=0.43 so `bg-primary`
+  /* (2026-05-21): bumped from L=0.55 to L=0.43 so `bg-primary`
    * + `text-primary-foreground` (the F1 Charge button surface) clears
    * WCAG AA 4.5:1 in axe-core. The L=0.55 baseline computed at ~4.6:1
    * by the OkLab→sRGB approximation in `scripts/check-contrast.mjs`
@@ -236,7 +236,7 @@
   --ink: oklch(0.21 0.019 255);
   --ink-soft: oklch(0.56 0.019 255);
 
-  /* ENG-080b — explicit foreground ramp per the design-system handoff.
+  /* explicit foreground ramp per the design specification.
    * `--ink` / `--ink-soft` still exist for legacy consumers but new
    * code should reach for the fg1..fg4 contract directly. */
   --fg1: oklch(0.18 0.016 255);
@@ -244,7 +244,7 @@
   --fg3: oklch(0.52 0.019 255);
   --fg4: oklch(0.74 0.018 84);
 
-  /* ENG-080b — semantic type tokens. Heads only ever consume these
+  /* semantic type tokens. Heads only ever consume these
    * (no inline font-size). Bumping a single heading rhythm is a
    * one-token edit. */
   --h1-font: var(--font-ui);
@@ -267,7 +267,7 @@
   --h4-weight: 600;
   --h4-tracking: -0.005em;
   --h4-leading: 1.3;
-  /* Rediseño FASE 0 — h5/h6 rhythm completed to match the proposal's
+  /* h5/h6 rhythm completed to match the proposal's
    * colors_and_type.css (15px / 13px sub-section heads). */
   --h5-font: var(--font-ui);
   --h5-size: 0.9375rem;
@@ -311,7 +311,7 @@
   --secondary-200: oklch(0.94 0.011 84);
   --secondary-300: oklch(0.88 0.014 84);
   --secondary-400: oklch(0.74 0.018 84);
-  /* ENG-134 slice B (2026-05-21, operator-decided): the codebase
+  /* slice B (2026-05-21, operator-decided): the codebase
    * historically used `text-secondary-500` as the canonical "muted
    * label" semantic token rather than as a strict ramp step. At its
    * original value (oklch L=0.61) it rendered at 3.69:1 against the
@@ -321,7 +321,7 @@
    * components (cards, tables, badges, headers, login) that use
    * `text-secondary-500` for body text. The cleaner long-term fix
    * is to migrate those usages to `text-fg2` (semantic token) and
-   * restore the ramp; tracked as ENG-134c follow-up. */
+   * restore the ramp; tracked as  follow-up. */
   --secondary-500: oklch(0.42 0.02 255);
   --secondary-600: oklch(0.48 0.022 255);
   --secondary-700: oklch(0.37 0.022 255);
@@ -334,7 +334,7 @@
   --success-700: oklch(0.5 0.12 154);
   --warning-50: oklch(0.98 0.03 85);
   --warning-500: oklch(0.77 0.15 75);
-  /* ENG-134c (2026-05-21): bumped from L=0.57 to L=0.50 so
+  /* (2026-05-21): bumped from L=0.57 to L=0.50 so
    * `.badge-warning` (`bg-warning-50` + `text-warning-700`) clears
    * WCAG AA 4.5:1. Both axe-core and `scripts/check-contrast.mjs`
    * measured ~4.27:1 on the original token — uniformly below the
@@ -347,7 +347,7 @@
   --danger-600: oklch(0.57 0.18 24);
   --danger-700: oklch(0.49 0.15 24);
 
-  /* Rediseño FASE 0 — global keyboard-focus ring. Box-shadow form so it
+  /* global keyboard-focus ring. Box-shadow form so it
    * follows the element border-radius and never clips inside
    * overflow:hidden surfaces. The base layer applies an `outline` ring
    * to every interactive element (see base.css); components that live
@@ -357,8 +357,8 @@
   --focus-ring: 0 0 0 3px color-mix(in oklch, var(--primary) 55%, transparent);
   --focus-ring-color: color-mix(in oklch, var(--primary) 60%, transparent);
 
-  /* ENG-080 + ENG-080b — brand accent (Puntovivo "punto naranja").
-   * Three-stop scale per the design-system handoff. The 500 stop lives
+  /* +  — brand accent (Puntovivo "punto naranja").
+   * Three-stop scale per the design specification. The 500 stop lives
    * inside the brand mark as the counter dot; the 50 and 700 stops back
    * accent flourishes (hover chips, motion moments) and a deep
    * matching foreground when typography crosses an accent surface.
@@ -371,7 +371,7 @@
   --brand-accent: var(--brand-accent-500);
   --brand-accent-foreground: oklch(0.22 0.02 60);
 
-  /* ENG-080 + ENG-080b — motion tokens lifted from the design-system
+  /* +  — motion tokens lifted from the design-system
    * handoff. The existing @theme animations already use the same easings
    * inline; these names let components reference the curve instead of
    * duplicating the cubic-bezier.
@@ -387,7 +387,7 @@
   --duration-normal: var(--dur-base);
   --duration-slow: var(--dur-slow);
 
-  /* ENG-080 + ENG-080b — print tokens. ENG-086 consumes these for the
+  /* +  — print tokens.  consumes these for the
    * thermal renderer; ink/paper aliases keep print-only CSS readable.
    */
   --print-dpi: 203;
@@ -465,7 +465,7 @@
   --danger-600: oklch(0.79 0.16 24);
   --danger-700: oklch(0.86 0.13 24);
 
-  /* ENG-080 + ENG-080b — brand accent in dark mode. The accent must
+  /* +  — brand accent in dark mode. The accent must
    * read as warm but never glow against deep ink, so the 500 stop is
    * desaturated a touch and the 50/700 stops shift to keep contrast.
    */
@@ -473,13 +473,13 @@
   --brand-accent-500: oklch(0.78 0.16 62);
   --brand-accent-700: oklch(0.88 0.12 60);
 
-  /* ENG-080b — explicit fg ramp for dark (mirror of light). */
+  /* explicit fg ramp for dark (mirror of light). */
   --fg1: oklch(0.95 0.006 84);
   --fg2: oklch(0.81 0.012 84);
   --fg3: oklch(0.66 0.016 84);
   --fg4: oklch(0.53 0.02 255);
 
-  /* ENG-080b — dark-mode shadow rule. Box shadows on a 0.19-L base are
+  /* dark-mode shadow rule. Box shadows on a 0.19-L base are
    * effectively invisible, so the design system replaces elevation
    * with a 1 px line. Components that still need a colored glow
    * (CTA buttons, accent moments) opt out by re-declaring their own
@@ -490,7 +490,7 @@
   --shadow-modal: none;
 }
 
-/* ENG-080b — semantic element styles. Pure CSS so artifacts (printed
+/* semantic element styles. Pure CSS so artifacts (printed
  * receipts, embedded preview iframes) inherit the design-system rhythm
  * without depending on Tailwind utility classes. */
 body { font-family: var(--font-ui); color: var(--fg1); background: var(--background); }

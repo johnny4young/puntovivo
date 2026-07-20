@@ -13,7 +13,7 @@ import { getPrimarySiteId, getTimestamp } from './helpers.js';
  * Applies a signed delta (positive = credit, negative = debit) to the
  * (tenantId, siteId, productId) balance row inside an existing transaction.
  *
- * Phase 2 API-103 wires this into `sales.create` / `returnSale` / `void` so
+ * wires this into `sales.create` / `returnSale` / `void` so
  * the site's `inventory_balances` tracks real POS activity, not just
  * transfers.
  *
@@ -28,8 +28,8 @@ import { getPrimarySiteId, getTimestamp } from './helpers.js';
  * call is a no-op.
  *
  * No-op cases:
- *   - `siteId` is falsy (legacy/pre-site sales) — returns `null`.
- *   - `delta` is 0 or not finite — returns `null`.
+ * - `siteId` is falsy (legacy/pre-site sales) — returns `null`.
+ * - `delta` is 0 or not finite — returns `null`.
  *
  * Does NOT enforce non-negative balances; stock validation is the caller's
  * responsibility earlier in the pipeline.
@@ -62,7 +62,7 @@ export function applyInventoryBalanceDelta(
     return null;
   }
 
-  // ENG-110b — re-check at the central mutation boundary. A sale or purchase
+  // re-check at the central mutation boundary. A sale or purchase
   // may resolve a standard product before a concurrent matrix conversion;
   // checking again inside the caller's transaction prevents that stale read
   // from restoring stock to the newly catalog-only parent.

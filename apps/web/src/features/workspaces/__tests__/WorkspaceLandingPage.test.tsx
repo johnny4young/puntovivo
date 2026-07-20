@@ -1,5 +1,5 @@
 /**
- * ENG-131c — WorkspaceLandingPage contract tests.
+ * WorkspaceLandingPage contract tests.
  *
  * Pins the role/module filtering + redirect/link semantics of the
  * generic landing component used by `/catalog`, `/procurement`, and
@@ -38,9 +38,7 @@ vi.mock('@/features/auth/AuthProvider', () => ({
 }));
 
 vi.mock('@/features/modules', async () => {
-  const actual = await vi.importActual<typeof import('@/features/modules')>(
-    '@/features/modules'
-  );
+  const actual = await vi.importActual<typeof import('@/features/modules')>('@/features/modules');
   return {
     ...actual,
     useModulesSnapshot: () => ({
@@ -60,7 +58,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('WorkspaceLandingPage (ENG-131c)', () => {
+describe('WorkspaceLandingPage', () => {
   it('admin with every module on sees all nine catalog items', () => {
     render(<WorkspaceLandingPage workspaceId="catalog" />);
     expect(screen.getByTestId('workspace-landing-catalog')).toBeInTheDocument();
@@ -87,9 +85,7 @@ describe('WorkspaceLandingPage (ENG-131c)', () => {
     mockUserRole = 'manager';
     render(<WorkspaceLandingPage workspaceId="catalog" />);
     // The other 8 catalog items are gated to adminOnlyRoles.
-    expect(
-      screen.getByRole('link', { name: /products/i }).getAttribute('href')
-    ).toBe('/products');
+    expect(screen.getByRole('link', { name: /products/i }).getAttribute('href')).toBe('/products');
     expect(screen.queryByRole('link', { name: /^categories$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /^providers$/i })).not.toBeInTheDocument();
   });

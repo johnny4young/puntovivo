@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
 import type { AuditLogEntry } from '@/types';
 
-// ENG-179b — use i18next's `TFunction` directly so the multi-namespace
+// use i18next's `TFunction` directly so the multi-namespace
 // projection from `useTranslation([...])` flows in without per-call casts.
 function translateQuotationStatus(status: unknown, t: TFunction): string {
   return typeof status === 'string'
@@ -50,7 +50,7 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
-  // Phase 8 / Tier-2 #8 — sensitive sale + cash + inventory branches.
+  // sensitive sale + cash + inventory branches.
   if (entry.action === 'sale.void') {
     const reason =
       entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
@@ -131,7 +131,7 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
-  // ENG-199 — expiry-radar discount suggestions. Both branches read the
+  // expiry-radar discount suggestions. Both branches read the
   // product + lot from metadata (the resource row is the suggestion, which
   // may outlive the lot) and surface the percent the manager accepted.
   if (
@@ -168,7 +168,7 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
-  // ENG-007 second wave — purchase voids, admin user lifecycle, price
+  // second wave — purchase voids, admin user lifecycle, price
   // overrides. Each branch renders a compact, searchable summary the
   // auditor can scan without expanding the raw JSON payload.
   if (entry.action === 'purchase.void') {
@@ -246,7 +246,7 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
-  // ENG-018 — park / resume / discard. Each renders a short
+  // park / resume / discard. Each renders a short
   // descriptor pulled from the `after` snapshot + metadata so the
   // auditor sees the label and discard flag at a glance.
   if (entry.action === 'sale.park') {
@@ -378,7 +378,7 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
-  // ENG-018c — draft completion. Pulls the sale number from metadata
+  // draft completion. Pulls the sale number from metadata
   // (the server copies it at write-time so we do not rely on a join).
   if (entry.action === 'sale.complete') {
     const saleNumber =
@@ -392,7 +392,7 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
-  // ENG-047 — anomaly detector persistence. The row links to the
+  // anomaly detector persistence. The row links to the
   // cashier user and keeps metric details in metadata for audit drilldown.
   if (entry.action === 'ai.anomaly.detected') {
     const kind =

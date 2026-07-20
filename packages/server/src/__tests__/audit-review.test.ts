@@ -57,7 +57,7 @@ async function insertAudit(
   });
 }
 
-describe('sensitive audit review (ENG-129f)', () => {
+describe('sensitive audit review', () => {
   it('classifies launch party imports by operational risk', () => {
     expect(getAuditReviewActions('privacy')).toContain('data_import.customers');
     expect(getAuditReviewActions('inventory')).toContain('data_import.providers');

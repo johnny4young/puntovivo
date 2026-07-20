@@ -1,5 +1,5 @@
 /**
- * ENG-038 — Payment rails manifest.
+ * Payment rails manifest.
  *
  * Single source of truth for rail ids, labels and deterministic v1
  * capabilities. Real credentials remain out of scope for this slice;
@@ -127,7 +127,7 @@ export function buildPaymentRailsContract(): PaymentRailsContract {
 }
 
 /**
- * ENG-038 slice 2 — per-rail credential descriptor.
+ * slice 2 — per-rail credential descriptor.
  *
  * Declares the exact fields a rail needs from the operator before the
  * future worker slice can dispatch a real charge. The admin UI iterates
@@ -170,9 +170,7 @@ export const CREDENTIAL_FIELDS_BY_RAIL: Record<
     { key: 'privateKey', labelKey: 'privateKey', required: true, sensitive: true },
     { key: 'pKey', labelKey: 'pKey', required: true, sensitive: true },
   ],
-  mercado_pago: [
-    { key: 'accessToken', labelKey: 'accessToken', required: true, sensitive: true },
-  ],
+  mercado_pago: [{ key: 'accessToken', labelKey: 'accessToken', required: true, sensitive: true }],
   nequi: [
     { key: 'apiKey', labelKey: 'apiKey', required: true, sensitive: true },
     { key: 'merchantId', labelKey: 'merchantId', required: true, sensitive: true },

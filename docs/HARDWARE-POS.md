@@ -1,190 +1,57 @@
-# POS Hardware Integration
+# POS Hardware
 
-> Status: **Stub — design document, not yet implemented.**
-> Phase 12 of the internal roadmap, re-prioritized to P0 (Tier-1 3b).
-> Created: April 21, 2026.
+Puntovivo keeps hardware effects outside the sale transaction. A completed sale
+is durable before printing, drawer, scanner, or terminal work is attempted.
+Hardware failures are queued, observable, and recoverable.
 
-## Scope
+## Current support boundary
 
-Four peripherals that a real Colombian retail store expects out of the box:
+| Device or transport         | Current state                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------------- |
+| System printer              | Implemented through the Electron print boundary.                                                    |
+| ESC/POS over TCP            | Implemented with target validation and failure reporting.                                           |
+| Direct USB ESC/POS          | Not implemented; configuration must not claim support.                                              |
+| Direct serial ESC/POS       | Not implemented; configuration must not claim support.                                              |
+| RJ11 drawer through ESC/POS | Implemented where the selected printer transport supports the drawer pulse.                         |
+| USB HID barcode scanner     | Implemented as keyboard-wedge input with cashier focus protection.                                  |
+| Manual payment terminal     | Implemented as a recorded manual tender path.                                                       |
+| Provider terminal SDK/API   | Adapter seam exists; no provider is production-qualified.                                           |
+| Hub-client local bridge     | Implemented as a renderer-to-main IPC bridge that dispatches bytes locally without database access. |
 
-1. **Thermal receipt printer** (ESC/POS over USB / network / Bluetooth)
-2. **Cash drawer** (RJ11 cable into the receipt printer)
-3. **Barcode scanner** (USB HID keyboard-wedge, EAN-13 / Code 128 / UPC-A)
-4. **Payment terminal** (Bold, Wompi, Mercado Pago Point — Bluetooth or HTTPS)
+## Architecture
 
-Each is behind an **adapter interface**, so new models or providers drop
-in without touching business logic.
+- Device configuration and status are tenant and site scoped.
+- The hardware outbox records retryable effects and terminal states.
+- Renderer code never opens sockets or native devices directly.
+- Electron preload exposes narrow invoke/handle APIs; main owns local transport.
+- A hub-client bridge may print or open a drawer locally, but it cannot write
+  sales, cash, inventory, fiscal, journal, or sync tables.
+- Printer or drawer failure must not roll back a committed sale.
+- Test and diagnostic actions must be auditable and role protected.
 
-## Architectural pattern
+## Main implementation areas
 
-All peripheral integration goes through the **main process** (Node),
-never the renderer directly, except barcode scanners which are HID
-keyboard events naturally arriving in the renderer.
+- `packages/server/src/services/peripherals/` — contracts, registry, worker,
+  transports, target policy, and drivers.
+- `packages/server/src/db/schema/hardware.ts` — peripheral and hardware-outbox
+  persistence.
+- `apps/desktop/src/main/peripherals/` — local bridge and Electron transport.
+- `apps/desktop/src/main/ipc/peripherals.ts` — IPC registration and validation.
+- `apps/web/src/features/peripherals/` — administrative configuration and tests.
 
-```
-Renderer          Main process                    Device
-─────────         ────────────                    ──────
-                  PrinterAdapter (system|escpos)  ESC/POS printer
- trpc/IPC  ─────▶ CashDrawerAdapter                (via printer RJ11)
-                  PaymentAdapter  (manual|bold|wompi)  Payment terminal
+## Physical qualification gate
 
-Renderer  ◀────── keydown capture ─────────────   USB HID scanner
-```
+A device is supported only after a release candidate proves:
 
-## Printer adapter
+1. print, cut, drawer pulse, reconnect, timeout, and duplicate-job behavior;
+2. cashier-speed scans, focus restoration, and duplicate-scan handling;
+3. power loss and application restart with pending hardware work;
+4. safe fallbacks that preserve the sale and tell the operator what failed;
+5. model, firmware, operating system, connection type, and recovery steps in a
+   maintained support matrix;
+6. terminal cancellation, timeout, duplicate response, and offline-risk policy
+   for every payment provider advertised as supported.
 
-### Interface
-
-```ts
-interface PrinterAdapter {
-  print(job: PrintJob): Promise<void>;
-  openCashDrawer(): Promise<void>; // no-op for system adapter
-  testPrint(): Promise<void>;
-}
-
-type PrintJob = {
-  kind: 'sale-receipt' | 'fiscal-dee' | 'quotation' | 'kitchen-ticket';
-  payload: ReceiptLayout; // from RECEIPT-TEMPLATES.md
-};
-```
-
-### Drivers
-
-| Driver   | Channel                         | Cash drawer | 58mm    | 80mm    | Notes                                                 |
-| -------- | ------------------------------- | ----------- | ------- | ------- | ----------------------------------------------------- |
-| `system` | `webContents.print()` — current | ❌          | via CSS | via CSS | Universal, any installed printer, no drawer control   |
-| `escpos` | USB / TCP / serial              | ✅          | ✅      | ✅      | **New** — uses `escpos` or `node-thermal-printer` npm |
-
-`escpos` implementation targets:
-
-- **Xprinter XP-58 / XP-80** (ubiquitous in CO retail, ~$200-400k COP)
-- **Epson TM-T20 / TM-T88**
-- **Bixolon SRP-350**
-- Generic ESC/POS-compatible with 58mm or 80mm paper width
-
-### Cash drawer
-
-Cash drawers open via a pulse on the `ESC p m t1 t2` command
-(`0x1B 0x70 0x00 0x19 0xFA`) sent through the receipt printer stream.
-Only the `escpos` driver supports this — `system` cannot, since macOS
-and Windows print drivers generate PDFs and hide the device channel.
-
-**Configuration**: one printer per site (stored in `site_peripherals`
-table, below). The cash drawer command is integrated into the same
-print stream as the receipt — opens as the cashier tears the paper.
-
-## Barcode scanner
-
-USB HID scanners (Honeywell Voyager, Zebra DS2208, Datalogic QuickScan,
-Xprinter) emit the decoded string as fast keystrokes followed by
-`Enter`. The renderer detects the burst:
-
-```ts
-// apps/web/src/features/sales/useBarcodeScanner.ts (planned)
-const useBarcodeScanner = (opts: {
-  onScan: (code: string) => void;
-  minRateMs?: number; // default 50ms between keys for scan detection
-  targetInput?: HTMLInputElement | null;
-}) => {
-  // Collect keydown bursts. Flush on Enter if burst is fast enough.
-  // Ignore when an input/textarea has focus unless it is targetInput.
-};
-```
-
-Validation:
-
-- **EAN-13** checksum (reject misreads)
-- **Price-embedded** codes (prefix 20-29): parse weight/price from the
-  13-digit payload (carnicería, fruver)
-- **QR codes** from 2D scanners: detected when payload is not numeric
-
-## Payment terminal
-
-Initial targets ordered by market share in CO:
-
-- **Bold** — dominant in neighborhood retail, Bluetooth/WiFi + REST SDK
-- **Wompi** (Bancolombia) — REST + Bluetooth
-- **Mercado Pago Point** — Bluetooth SDK
-
-### Interface
-
-```ts
-interface PaymentAdapter {
-  charge(amount: number, reference: string): Promise<PaymentResult>;
-  void(txnId: string): Promise<void>;
-  printSlip(txnId: string): Promise<void>;
-}
-
-type PaymentResult =
-  | { status: 'approved'; authCode: string; last4?: string; brand?: string }
-  | { status: 'declined'; reason: string }
-  | { status: 'cancelled' };
-```
-
-`ManualAdapter` (shipped today — the cashier reads and types the auth
-code) remains the fallback when no terminal is configured.
-
-## Peripheral configuration schema
-
-```sql
-CREATE TABLE site_peripherals (
-  id TEXT PRIMARY KEY,
-  tenant_id TEXT NOT NULL,
-  site_id TEXT NOT NULL REFERENCES sites(id),
-  kind TEXT NOT NULL CHECK (kind IN ('printer', 'cash_drawer', 'scanner', 'payment_terminal', 'customer_display')),
-  driver TEXT NOT NULL,             -- 'system', 'escpos', 'bold', 'wompi', 'manual'
-  config_json TEXT NOT NULL,        -- driver-specific connection info
-  is_active INTEGER NOT NULL DEFAULT 1,
-  last_tested_at TEXT,
-  last_test_result TEXT             -- 'ok' | 'failed' | NULL
-);
-```
-
-## UI
-
-- `/setup/peripherals` (admin or per-site manager) — per-site list +
-  test buttons: "Test print", "Open drawer", "Scan test", "Charge $0.01"
-- Status indicator in the POS topbar: green/yellow/red per peripheral
-
-## Implementation status
-
-- **ENG-060** (Shipped) — peripheral registry + 4 contracts + admin UI
-  - 2 default drivers (`system` printer, `manual` payment terminal).
-- **ENG-061** (Shipped) — barcode scanner pipeline (USB HID keyboard
-  wedge), pure parser with EAN-13/EAN-8/UPC-A checksums and GS1
-  prefix-2x weight/price labels, `useBarcodeWedgeListener` hook
-  wired on SalesPage.
-- **ENG-062** (Shipped) — ESC/POS printer driver
-  (`EscPosReceiptPrinterAdapter` at
-  `services/peripherals/drivers/escpos-receipt-printer.ts`) +
-  RJ11 cash drawer driver
-  (`EscPosCashDrawerAdapter` at
-  `services/peripherals/drivers/escpos-cash-drawer.ts`) +
-  `hardware_outbox` (migration `0015_hardware_outbox.sql`) +
-  hardware worker mirror of the fiscal worker. Mock + TCP
-  transports ship today; USB + serial transports are stubs that
-  throw `DRIVER_NOT_IMPLEMENTED` until a follow-up ticket adds the
-  native bindings against a physical hardware lab.
-- **ENG-063** (Gated) — Bold / Wompi / MercadoPago payment terminals,
-  blocked on signed PT contract + sandbox credentials.
-
-## Testing plan
-
-- Unit: ESC/POS byte sequence builder (print, cut, drawer)
-- Unit: EAN-13 checksum validation + price-embedded parsing
-- Integration: optional — requires a physical printer/scanner; gated
-  behind a `PHYSICAL_HARDWARE=1` env flag in the test runner
-- Manual smoke: documented in [TEST-PLAN.md](./TEST-PLAN.md) under HW-01..HW-10
-
-## Open questions
-
-- Native USB/serial access in Electron: **Node.js `usb` npm** vs
-  **Electron `webusb` API** — current choice: `node-thermal-printer`
-  which wraps native Node bindings, keeps main process as the single
-  owner of the device
-- Windows driver compatibility: printer sometimes requires vendor
-  driver even for ESC/POS direct — mitigation: fallback to the `system`
-  driver path is always available
-- Bluetooth pairing UX on Windows vs macOS vs Linux: likely need
-  per-OS "pair scanner" wizard
+Follow the release-candidate checks in [TESTING.md](./TESTING.md). Remaining
+hardware and payment gates are summarized in
+[PROJECT-STATUS.md](./PROJECT-STATUS.md).

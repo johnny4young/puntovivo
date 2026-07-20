@@ -1,13 +1,13 @@
 /**
- * ENG-065b — Tests for CashHealthPanel.
+ * Tests for CashHealthPanel.
  *
  * Asserts:
- *   - Loading state shows the localized loading copy.
- *   - Summary tiles render the four counters with the values from the
- *     mocked reconciliation response.
- *   - bySite + recentDiscrepancies tables render the rows.
- *   - Empty arrays surface the localized empty-state copy.
- *   - Error state renders the generic translated error.
+ * - Loading state shows the localized loading copy.
+ * - Summary tiles render the four counters with the values from the
+ * mocked reconciliation response.
+ * - bySite + recentDiscrepancies tables render the rows.
+ * - Empty arrays surface the localized empty-state copy.
+ * - Error state renders the generic translated error.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -84,9 +84,7 @@ describe('CashHealthPanel', () => {
     mockError = { message: 'boom' };
     render(<CashHealthPanel />);
     // Shape of the page renders the rendered translateServerError fallback.
-    expect(
-      screen.getByText(/Algo salió mal|Something went wrong/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Algo salió mal|Something went wrong/i)).toBeInTheDocument();
   });
 
   it('renders the four summary tiles with values', () => {
@@ -182,9 +180,7 @@ describe('CashHealthPanel', () => {
     // exist in the rendered tree when their arrays are empty. The shared
     // EmptyState renders a title AND a description, so the site / discrepancy
     // wording can land in more than one node — assert at least one match each.
-    expect(
-      screen.getAllByText(/No hay sedes|No sites/i).length
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/No hay sedes|No sites/i).length).toBeGreaterThan(0);
     expect(
       screen.getAllByText(/No hay cierres con discrepancia|No closures with discrepancy/i).length
     ).toBeGreaterThan(0);

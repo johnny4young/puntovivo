@@ -1,17 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { TFunction } from 'i18next';
-import {
-  getSyncQueueIssueMessage,
-  normalizeSyncLastError,
-} from './companySyncDisplay';
+import { getSyncQueueIssueMessage, normalizeSyncLastError } from './companySyncDisplay';
 
 /**
- * ENG-064b — `lastError` arrives as one of two shapes after the
+ * `lastError` arrives as one of two shapes after the
  * sync_queue → sync_outbox cutover:
- *   - a plain string from the legacy IndexedDB offline buffer, OR
- *   - a `NormalizedOutboxError` JSON object `{ kind, message? }`
- *     from the server's `sync_outbox` rows (the kernel only
- *     guarantees `kind`; `message` is best-effort).
+ * - a plain string from the legacy IndexedDB offline buffer, OR
+ * - a `NormalizedOutboxError` JSON object `{ kind, message? }`
+ * from the server's `sync_outbox` rows (the kernel only
+ * guarantees `kind`; `message` is best-effort).
  *
  * `normalizeSyncLastError` and `getSyncQueueIssueMessage` are the
  * two consumer-facing helpers. These tests pin both shapes plus
@@ -36,9 +33,9 @@ describe('normalizeSyncLastError', () => {
   });
 
   it('extracts the message field from NormalizedOutboxError objects', () => {
-    expect(
-      normalizeSyncLastError({ kind: 'NETWORK_TIMEOUT', message: 'connection reset' })
-    ).toBe('connection reset');
+    expect(normalizeSyncLastError({ kind: 'NETWORK_TIMEOUT', message: 'connection reset' })).toBe(
+      'connection reset'
+    );
   });
 
   it('falls back to kind when the message field is missing', () => {
@@ -72,9 +69,9 @@ describe('getSyncQueueIssueMessage', () => {
   });
 
   it('routes string-shape "pending conflict blocks" to the localized key', () => {
-    expect(
-      getSyncQueueIssueMessage(tStub, 'Pending conflict blocks products:abc')
-    ).toBe('company.sync.queue.errorConflictBlocked');
+    expect(getSyncQueueIssueMessage(tStub, 'Pending conflict blocks products:abc')).toBe(
+      'company.sync.queue.errorConflictBlocked'
+    );
   });
 
   it('routes JSON-shape errors through the same matcher via the message field', () => {

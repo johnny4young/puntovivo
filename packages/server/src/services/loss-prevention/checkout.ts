@@ -100,7 +100,7 @@ function policyRole(role: UserRole): LossPreventionRole | null {
   return role === 'cashier' || role === 'manager' ? role : null;
 }
 
-/** ENG-142a — deterministic checkout policy evaluated by the local authority. */
+/** deterministic checkout policy evaluated by the local authority. */
 export async function evaluateCheckoutLossPrevention(args: {
   db: DatabaseInstance;
   tenantId: string;

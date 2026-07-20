@@ -386,7 +386,7 @@ describe('lot consumption on the sale path', () => {
     expect(provenance).toHaveLength(0);
   });
 
-  // ENG-192 — the consumed/restored lots must reach sync_outbox, not just be
+  // the consumed/restored lots must reach sync_outbox, not just be
   // marked sync-pending on the row (they used to wait for the next receive).
   it('enqueues the mutated lots to sync_outbox on sale and on reversal', async () => {
     const db = getDatabase();

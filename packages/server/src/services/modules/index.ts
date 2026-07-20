@@ -1,5 +1,5 @@
 /**
- * ENG-068 — Module activation kernel barrel.
+ * Module activation kernel barrel.
  */
 export {
   MODULE_IDS,

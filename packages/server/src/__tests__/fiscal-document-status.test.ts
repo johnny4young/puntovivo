@@ -1,8 +1,8 @@
 /**
- * ENG-176c — pins the expanded `fiscal_documents.status` enum.
+ * pins the expanded `fiscal_documents.status` enum.
  *
- * Pre-ENG-176c the enum was closed to DIAN-native states (`pending`,
- * `sent`, `accepted`, `rejected`, `contingency`). ENG-176c added
+ * Pre- the enum was closed to DIAN-native states (`pending`,
+ * `sent`, `accepted`, `rejected`, `contingency`).  added
  * `voided`, `notified_correction`, and `partial_send` so SAT México,
  * SUNAT Perú, SII Chile, and NFe Brazil acknowledgements can be
  * expressed without per-country surrogate columns.
@@ -31,9 +31,9 @@ function liveClient(): Database.Database {
   return (getDatabase() as unknown as LiveDatabase).$client;
 }
 
-describe('fiscal_documents.status enum (ENG-176c)', () => {
+describe('fiscal_documents.status enum', () => {
   it('declares the eight canonical status values in lockstep with the audit set', () => {
-    // Sentinel: if a future ticket adds / removes a status, the test
+    // Sentinel: if a future change adds / removes a status, the test
     // forces an explicit update to the union below so the FiscalStatusBadge
     // tone map + i18n keys stay in lockstep with the server enum.
     expect([...fiscalDocumentStatusEnum].sort()).toEqual(
@@ -66,9 +66,9 @@ describe('fiscal_documents.status enum (ENG-176c)', () => {
       const id = `fd-${status}`;
       insert.run(id, `s-${status}`, `F-${status}`, `cufe-${status}`, status);
     }
-    const row = c
-      .prepare('SELECT COUNT(DISTINCT status) AS count FROM fiscal_documents')
-      .get() as { count: number };
+    const row = c.prepare('SELECT COUNT(DISTINCT status) AS count FROM fiscal_documents').get() as {
+      count: number;
+    };
     expect(row.count).toBe(8);
   });
 });

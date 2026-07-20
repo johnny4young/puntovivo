@@ -1,5 +1,5 @@
 /**
- * ENG-136a — single-flight boundary for every operation that can stop or
+ * single-flight boundary for every operation that can stop or
  * replace the embedded database.
  *
  * Manual backups, scheduled snapshots and restores all share the same

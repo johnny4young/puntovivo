@@ -1,5 +1,5 @@
 /**
- * ENG-090 — credit-sale ledger hook regression.
+ * credit-sale ledger hook regression.
  *
  * Pins the contract for `recordCreditSaleLedger`: writes a signed
  * delta to `customer_ledger_entries` so SUM(amount) over the

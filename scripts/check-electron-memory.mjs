@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ENG-133b — Electron main + renderer memory CI gate.
+ * Electron main + renderer memory CI gate.
  *
  * Launches the built Electron app in measurement mode
  * (`PUNTOVIVO_MEASURE_MEMORY=1`), reads each Electron process'
@@ -21,12 +21,12 @@
  * `scripts/check-electron-memory.test.mjs` without launching Electron.
  *
  * Exit codes:
- *   0 — measured within budget+threshold, OR warn-first over-ceiling, OR
- *       local self-skip because Electron could not be launched.
- *   1 — `--strict` and a process overshot budget,
- *       `--require-measurement` and Electron could not be measured,
- *       `--require-measurement` and a budgeted process is missing, OR
- *       perf-budget.json is malformed.
+ * 0 — measured within budget+threshold, OR warn-first over-ceiling, OR
+ * local self-skip because Electron could not be launched.
+ * 1 — `--strict` and a process overshot budget,
+ * `--require-measurement` and Electron could not be measured,
+ * `--require-measurement` and a budgeted process is missing, OR
+ * perf-budget.json is malformed.
  *
  * @module scripts/check-electron-memory
  */
@@ -49,7 +49,7 @@ const MEASURE_DB_KEY = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
  * Hard ceiling on the launch. The app self-quits ~2 s after the renderer
  * loads, so a real measure returns in well under this. The timeout only bites
  * when the renderer cannot load (e.g. the gate is run without a dev-web server)
- * — the spawn is killed and the gate self-skips warn-first.
+ * the spawn is killed and the gate self-skips warn-first.
  */
 const LAUNCH_TIMEOUT_MS = 60_000;
 
@@ -102,7 +102,9 @@ export function renderReport({ regressions, ok, missing }, threshold) {
     lines.push('| process | budget (MB) | actual (MB) | delta % |');
     lines.push('| --- | ---: | ---: | ---: |');
     for (const r of regressions) {
-      lines.push(`| ${r.name} | ${r.budget} | ${r.actual.toFixed(1)} | +${r.deltaPercent.toFixed(1)}% |`);
+      lines.push(
+        `| ${r.name} | ${r.budget} | ${r.actual.toFixed(1)} | +${r.deltaPercent.toFixed(1)}% |`
+      );
     }
   }
   if (missing.length > 0) {
@@ -116,7 +118,9 @@ export function renderReport({ regressions, ok, missing }, threshold) {
     lines.push('| --- | ---: | ---: | ---: |');
     for (const o of ok) {
       const sign = o.deltaPercent >= 0 ? '+' : '';
-      lines.push(`| ${o.name} | ${o.budget} | ${o.actual.toFixed(1)} | ${sign}${o.deltaPercent.toFixed(1)}% |`);
+      lines.push(
+        `| ${o.name} | ${o.budget} | ${o.actual.toFixed(1)} | ${sign}${o.deltaPercent.toFixed(1)}% |`
+      );
     }
   }
   return lines.join('\n');
@@ -126,7 +130,8 @@ export function renderReport({ regressions, ok, missing }, threshold) {
 export function resolveMemoryGateMode({ argv = process.argv.slice(2), env = process.env } = {}) {
   return {
     enforce: argv.includes('--strict') || env.PUNTOVIVO_MEMORY_STRICT === '1',
-    requireMeasurement: argv.includes('--require-measurement') || env.PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT === '1',
+    requireMeasurement:
+      argv.includes('--require-measurement') || env.PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT === '1',
   };
 }
 
@@ -165,11 +170,9 @@ function ensureNativeRuntime(runtime, { warnPrefix = 'WARN skipped' } = {}) {
     return true;
   }
 
-  const details = [
-    run.error?.message,
-    run.stderr?.trim(),
-    run.stdout?.trim(),
-  ].filter(Boolean).join('\n');
+  const details = [run.error?.message, run.stderr?.trim(), run.stdout?.trim()]
+    .filter(Boolean)
+    .join('\n');
   console.warn(
     `check-electron-memory: ${warnPrefix} — unable to prepare ${runtime} native runtime${details ? `:\n${details}` : ''}`
   );
@@ -184,14 +187,18 @@ function ensureNativeRuntime(runtime, { warnPrefix = 'WARN skipped' } = {}) {
  */
 export function launchAndMeasure() {
   if (!existsSync(ELECTRON_MAIN_ENTRY)) {
-    console.warn(`check-electron-memory: WARN skipped — main bundle not built (${ELECTRON_MAIN_ENTRY}). Run "pnpm --filter @puntovivo/desktop run build:main".`);
+    console.warn(
+      `check-electron-memory: WARN skipped — main bundle not built (${ELECTRON_MAIN_ENTRY}). Run "pnpm --filter @puntovivo/desktop run build:main".`
+    );
     return null;
   }
   let electronBin;
   try {
     electronBin = createRequire(DESKTOP_PACKAGE_JSON)('electron');
   } catch (err) {
-    console.warn(`check-electron-memory: WARN skipped — electron binary not resolvable: ${err.message}`);
+    console.warn(
+      `check-electron-memory: WARN skipped — electron binary not resolvable: ${err.message}`
+    );
     return null;
   }
   if (!ensureNativeRuntime('electron')) {
@@ -243,7 +250,9 @@ export function launchAndMeasure() {
     return summarizeProcesses(metrics);
   }
   if (/^PUNTOVIVO_MEMORY_SKIP=/m.test(run.stdout ?? '')) {
-    console.warn('check-electron-memory: WARN skipped — the renderer did not load the app (run with dev:web up so the measurement reflects the real renderer, not the Chromium error page).');
+    console.warn(
+      'check-electron-memory: WARN skipped — the renderer did not load the app (run with dev:web up so the measurement reflects the real renderer, not the Chromium error page).'
+    );
     return null;
   }
   if (run.error) {
@@ -279,20 +288,26 @@ export function runCli({ measure = launchAndMeasure, strict, requireMeasurement 
   try {
     budgetFile = JSON.parse(readFileSync(BUDGET_PATH, 'utf8'));
   } catch (err) {
-    console.error(`check-electron-memory: cannot read budget file at ${BUDGET_PATH}: ${err.message}`);
+    console.error(
+      `check-electron-memory: cannot read budget file at ${BUDGET_PATH}: ${err.message}`
+    );
     return 1;
   }
   const budget = budgetFile?.electronMemoryMb?.perProcessMb;
   const thresholdPercent = budgetFile?.electronMemoryMb?.thresholdPercent;
   if (!budget || typeof thresholdPercent !== 'number') {
-    console.error('check-electron-memory: perf-budget.json is missing electronMemoryMb.perProcessMb or electronMemoryMb.thresholdPercent');
+    console.error(
+      'check-electron-memory: perf-budget.json is missing electronMemoryMb.perProcessMb or electronMemoryMb.thresholdPercent'
+    );
     return 1;
   }
 
   const measured = measure();
   if (!measured) {
     if (requireMeasured) {
-      console.error('check-electron-memory: FAIL (--require-measurement) — Electron did not produce memory metrics.');
+      console.error(
+        'check-electron-memory: FAIL (--require-measurement) — Electron did not produce memory metrics.'
+      );
       return 1;
     }
     // Self-skip: the warning was already printed by launchAndMeasure.
@@ -304,7 +319,9 @@ export function runCli({ measure = launchAndMeasure, strict, requireMeasurement 
   console.log(report);
 
   if (result.missing.length > 0 && requireMeasured) {
-    console.error('check-electron-memory: FAIL (--require-measurement) — a budgeted process was not measured.');
+    console.error(
+      'check-electron-memory: FAIL (--require-measurement) — a budgeted process was not measured.'
+    );
     return 1;
   }
   if (result.regressions.length > 0 && enforce) {
@@ -312,7 +329,9 @@ export function runCli({ measure = launchAndMeasure, strict, requireMeasurement 
     return 1;
   }
   if (result.regressions.length > 0) {
-    console.warn('check-electron-memory: WARN — over the memory ceiling (warn-first; pass --strict to enforce).');
+    console.warn(
+      'check-electron-memory: WARN — over the memory ceiling (warn-first; pass --strict to enforce).'
+    );
   }
   return 0;
 }

@@ -3,7 +3,7 @@ import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
 import type { QuotationListEntry } from '@/types';
 
 /**
- * Phase 5 / Tier-2 #6 step 3 — CSV/Excel/PDF export columns for the
+ * CSV/Excel/PDF export columns for the
  * quotations history table. Mirrors the convention used by
  * `sales/saleHistoryExport.ts` and `purchases/purchasesHistoryExport.ts`.
  *
@@ -22,8 +22,7 @@ export const quotationHistoryExportColumns: ExportColumn<QuotationListEntry>[] =
   {
     key: 'customerName',
     header: 'Customer',
-    formatter: value =>
-      typeof value === 'string' && value.length > 0 ? value : 'Walk-in',
+    formatter: value => (typeof value === 'string' && value.length > 0 ? value : 'Walk-in'),
   },
   { key: 'siteName', header: 'Site' },
   { key: 'itemCount', header: 'Items' },

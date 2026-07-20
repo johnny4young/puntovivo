@@ -27,7 +27,7 @@ const LazySurfaceShell = lazy(async () => ({
   default: () => <div data-testid="lazy-surface-shell" />,
 }));
 
-describe('SurfaceShellRoute (ENG-069)', () => {
+describe('SurfaceShellRoute', () => {
   it('provides the Suspense boundary required by lazy top-level surface shells', async () => {
     render(
       <SurfaceShellRoute>

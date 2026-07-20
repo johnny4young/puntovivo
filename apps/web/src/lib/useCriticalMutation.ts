@@ -9,7 +9,7 @@ type RouterInputs = inferRouterInputs<AppRouter>;
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 /**
- * ENG-052b — closed list of critical procedure paths from ADR-0002.
+ * closed list of critical procedure paths from ADR-0002.
  *
  * Each entry is the dotted tRPC path (`namespace.procedure`). Adding
  * a new entry here is the only change required when a new procedure
@@ -32,14 +32,14 @@ export type CriticalCommandPath =
   | 'sales.returnSale'
   | 'sales.void'
   | 'sales.getForReprint'
-  // ENG-039c2 — change the restaurant table a suspended draft is
+  // change the restaurant table a suspended draft is
   // open on (or detach the FK to free-text). Server uses
   // `criticalCommandManagerOrAdminProcedure` (manager/admin only —
   // transferring drafts between physical tables is an operations
   // override) so the client must mint an envelope AND the panel CTA
   // must gate on role.
   | 'sales.changeTable'
-  // ENG-039c3 — split-bill: subset of items moved out of a suspended
+  // split-bill: subset of items moved out of a suspended
   // draft into a brand-new suspended draft. Server uses
   // `criticalCommandManagerOrAdminProcedure` (manager/admin only —
   // same rationale as `changeTable`); the client must mint an
@@ -57,14 +57,14 @@ export type CriticalCommandPath =
   | 'users.setStaffPin'
   | 'employeeShifts.clockIn'
   | 'employeeShifts.clockOut'
-  // ENG-140b — explicit, auditable rest intervals for the active employee shift.
+  // explicit, auditable rest intervals for the active employee shift.
   | 'employeeShifts.breaks.start'
   | 'employeeShifts.breaks.end'
-  // ENG-140a — durable manager-authored schedule lifecycle.
+  // durable manager-authored schedule lifecycle.
   | 'employeeShifts.schedule.create'
   | 'employeeShifts.schedule.update'
   | 'employeeShifts.schedule.cancel'
-  // ENG-140e — append one immutable effective attendance snapshot.
+  // append one immutable effective attendance snapshot.
   | 'employeeShifts.attendance.corrections.create'
   | 'managerApprovals.request'
   | 'managerApprovals.decideWithPin'
@@ -72,17 +72,17 @@ export type CriticalCommandPath =
   | 'peripherals.kickCashDrawer'
   | 'peripherals.buildDrawerKickBytes'
   | 'auth.changePassword'
-  // ENG-068 — module activation toggle. Server-side wraps with
+  // module activation toggle. Server-side wraps with
   // `criticalCommandAdminProcedure` so the client must mint an
   // envelope + ship the device id; the audit row carries the
   // operationId for after-the-fact traceability.
   | 'modules.setActive'
-  // ENG-141b — irreversible manager/admin attestation of one frozen
+  // irreversible manager/admin attestation of one frozen
   // comprehensive day-close snapshot.
   | 'reports.dayClose.signOff'
-  // ENG-142a — money-sensitive per-role checkout authority policy.
+  // money-sensitive per-role checkout authority policy.
   | 'lossPrevention.updateSettings'
-  // ENG-142d — shared, auditable manager review of one alert.
+  // shared, auditable manager review of one alert.
   | 'lossPrevention.acknowledgeAlert'
   // A-30 — apply a vertical module preset. Same critical-command gate as
   // setActive (admin + envelope + device id).
@@ -90,7 +90,7 @@ export type CriticalCommandPath =
 
 /**
  * Recursively project router inputs / outputs through a dotted path. Most
- * commands are `namespace.procedure`; ENG-141b is the first critical command
+ * commands are `namespace.procedure`;  is the first critical command
  * under a nested sub-router (`reports.dayClose.signOff`).
  */
 type ValueAtPath<T, P extends string> = P extends `${infer Head}.${infer Tail}`
@@ -149,16 +149,16 @@ async function invokeCriticalMutation(
  * `CriticalCommandPath`. Behaviour:
  *
  * 1. Reads the cached device id synchronously. Throws
- *    `DEVICE_NOT_REGISTERED` if absent (caller must surface the
- *    error so the operator re-runs `auth.registerDevice`).
+ * `DEVICE_NOT_REGISTERED` if absent (caller must surface the
+ * error so the operator re-runs `auth.registerDevice`).
  * 2. Mints a fresh `CommandEnvelope` per `mutate()` call so each
- *    invocation has its own `idempotencyKey` + `operationId`. Retry
- *    semantics are intentionally orchestrated through the Query
- *    layer: re-calling `mutate()` mints a new envelope (server
- *    produces a new row); only an explicit React Query retry with
- *    the same envelope hits the server's idempotent cache.
+ * invocation has its own `idempotencyKey` + `operationId`. Retry
+ * semantics are intentionally orchestrated through the Query
+ * layer: re-calling `mutate()` mints a new envelope (server
+ * produces a new row); only an explicit React Query retry with
+ * the same envelope hits the server's idempotent cache.
  * 3. Builds a one-shot tRPC client with the device + envelope
- *    headers and dispatches against the resolved procedure.
+ * headers and dispatches against the resolved procedure.
  *
  * The generic `TPath` extends `CriticalCommandPath`; input + output
  * types are inferred automatically from `AppRouter`.

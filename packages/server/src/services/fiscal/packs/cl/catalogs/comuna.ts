@@ -1,5 +1,5 @@
 /**
- * ENG-036a — Catálogo SUBDERE de comunas de Chile (subset curado).
+ * Catálogo SUBDERE de comunas de Chile (subset curado).
  *
  * El SII pide el código de comuna del lugar de emisión en cada
  * DTE. El catálogo oficial de la SUBDERE (Subsecretaría de
@@ -16,7 +16,7 @@
  * Santiago (1) + Comuna Santiago (01).
  *
  * El catálogo completo (346 comunas) queda parqueado para
- * ENG-036b — el modelado XML del DTE va a necesitar match exacto
+ * el modelado XML del DTE va a necesitar match exacto
  * de la comuna del lugar de emisión, ahí decidimos si lo
  * shippeamos como TS module gigante o como DB table con seed.
  *
@@ -35,7 +35,7 @@ export interface ComunaEntry {
 /**
  * Default cuando no hay match: Santiago (13101). Se usa como
  * fallback en el armado de DTE cuando la comuna del lugar de
- * emisión no está en el catálogo curado. ENG-036b refina cuando
+ * emisión no está en el catálogo curado.  refina cuando
  * llega el catálogo completo.
  */
 export const COMUNA_FALLBACK = 13101;
@@ -73,7 +73,7 @@ export const COMUNA_CATALOG: ReadonlyArray<ComunaEntry> = [
   { code: 3101, name: 'Copiapó', region: 'Atacama' },
   { code: 4101, name: 'La Serena', region: 'Coquimbo' },
   { code: 5109, name: 'Valparaíso', region: 'Valparaíso' },
-  { code: 6101, name: 'Rancagua', region: 'Libertador General Bernardo O\'Higgins' },
+  { code: 6101, name: 'Rancagua', region: "Libertador General Bernardo O'Higgins" },
   { code: 7101, name: 'Talca', region: 'Maule' },
   { code: 8101, name: 'Concepción', region: 'Biobío' },
   { code: 9112, name: 'Temuco', region: 'La Araucanía' },

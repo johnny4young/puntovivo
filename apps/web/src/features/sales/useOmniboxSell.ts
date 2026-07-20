@@ -11,15 +11,15 @@ import { getCartItemKey, mergeCartItem, updateCartItem } from './saleCart';
 import { useCartWorkspaceStore } from './useCartWorkspaceStore';
 
 /**
- * ENG-203 (WC-C5) — "la app entera es una caja". Resolves an omnibox query
+ * () — "la app entera es una caja". Resolves an omnibox query
  * from the command palette into the cashier's active cart:
  *
  * - Exact barcode hit (base or packaging code, same `lookupByBarcode`
- *   pipeline the POS scanner uses, including price/weight-label overrides)
- *   → merge into the owner's cart workspace and land on /sales with the
- *   line already selected.
+ * pipeline the POS scanner uses, including price/weight-label overrides)
+ * → merge into the owner's cart workspace and land on /sales with the
+ * line already selected.
  * - No exact match → land on /sales with the product-search dialog
- *   prefilled with the query (router state, consumed once by SalesPage).
+ * prefilled with the query (router state, consumed once by SalesPage).
  *
  * The cart write goes STRAIGHT to the zustand workspace store, so it works
  * from ANY screen — SalesPage does not need to be mounted. Resumed drafts

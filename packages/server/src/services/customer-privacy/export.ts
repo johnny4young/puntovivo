@@ -1,5 +1,5 @@
 /**
- * ENG-129b — Allowlist-only customer personal-data export.
+ * Allowlist-only customer personal-data export.
  *
  * The document intentionally excludes tenant configuration, employee
  * identities, sync metadata, provider payloads, secrets, claim tokens and

@@ -1,5 +1,5 @@
 /**
- * ENG-090 — SalePaymentModal credit-sale branch.
+ * SalePaymentModal credit-sale branch.
  *
  * Pins the role + customer gating on the credit method, the V10
  * customer card rendering (Saldo / Cupo / Saldo proyectado with
@@ -33,7 +33,7 @@ type ApprovalOnSuccess = (
   variables: Record<string, unknown>
 ) => Promise<void> | void;
 let mockApprovalOnSuccess: ApprovalOnSuccess | undefined;
-// ENG-218 — flip these to simulate an unresolved or failed balance read.
+// flip these to simulate an unresolved or failed balance read.
 let mockBalanceLoading = false;
 let mockBalanceError = false;
 const refetchBalanceMock = vi.fn();
@@ -79,7 +79,7 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
     },
-    // ENG-213 — the drawer mounts CustomerLoyaltyChip, which reads this.
+    // the drawer mounts CustomerLoyaltyChip, which reads this.
     // Zero points keeps the chip silent so the credit assertions below see
     // the same surface they did before loyalty existed.
     loyalty: {
@@ -97,7 +97,7 @@ vi.mock('@/lib/useCriticalMutation', () => ({
   },
 }));
 
-// ENG-105c2 — stub the toast pipeline so SalePaymentModal mounts
+// stub the toast pipeline so SalePaymentModal mounts
 // without needing ToastProvider in the credit-branch test wrappers.
 vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({
@@ -141,7 +141,7 @@ function renderModal(overrides: Partial<React.ComponentProps<typeof SalePaymentM
   return render(buildModal(overrides));
 }
 
-describe('SalePaymentModal (ENG-090 credit branch)', () => {
+describe('SalePaymentModal ( credit branch)', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     let uuidCounter = 0;
@@ -652,10 +652,10 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
   });
 
   // ============================================================
-  // ENG-014 — split-credit ("apartado") cases
+  // split-credit ("apartado") cases
   // ============================================================
 
-  it('ENG-014: cashier can request approval for credit inside split tender', async () => {
+  it(': cashier can request approval for credit inside split tender', async () => {
     const user = userEvent.setup();
     renderModal({ userRole: 'cashier' });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
@@ -666,7 +666,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     expect(screen.getByTestId('split-tender-credit-option-0')).toBeInTheDocument();
   });
 
-  it('ENG-014: split tender exposes credit option when admin + customer attached', async () => {
+  it(': split tender exposes credit option when admin + customer attached', async () => {
     const user = userEvent.setup();
     renderModal({
       userRole: 'admin',
@@ -677,7 +677,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     expect(screen.getByTestId('split-tender-credit-option-0')).toBeInTheDocument();
   });
 
-  it('ENG-014: V10 customer card surfaces in split mode when a tender is credit, sized to the credit portion only', async () => {
+  it(': V10 customer card surfaces in split mode when a tender is credit, sized to the credit portion only', async () => {
     const user = userEvent.setup();
     mockBalance = 0;
     renderModal({
@@ -710,7 +710,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     expect(screen.getByTestId('credit-sale-partial-summary')).toBeInTheDocument();
   });
 
-  it('ENG-014: submits split payload carrying cash + credit tenders', async () => {
+  it(': submits split payload carrying cash + credit tenders', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async () => undefined);
     mockBalance = 0;
@@ -745,7 +745,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
 });
 
 /**
- * ENG-218 — a failed balance read must not masquerade as a zero balance.
+ * a failed balance read must not masquerade as a zero balance.
  *
  * `data` is undefined on both a fresh error and a genuine zero, so the card
  * used to draw "$0 owed / full cupo free" for a customer who might be at
@@ -753,7 +753,7 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
  * which re-reads the ledger — said no. Nothing was corrupted, but the
  * cashier was shown a number that was not true.
  */
-describe('SalePaymentModal credit balance failure (ENG-218)', () => {
+describe('SalePaymentModal credit balance failure', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');

@@ -31,7 +31,7 @@ interface BrandMarkProps {
  */
 export function BrandMark({ className, monochrome, size, label = 'Puntovivo' }: BrandMarkProps) {
   const dimension = size ?? undefined;
-  // ENG-080c — official P-mark shape lifted verbatim from the design
+  // official P-mark shape lifted verbatim from the design
   // system handoff (`ui_kits/pos/shell.jsx`). The path renders a
   // stylized lowercase "p" with the counter (the bowl) carved out via
   // fillRule="evenodd"; the punto naranja sits inside that counter at

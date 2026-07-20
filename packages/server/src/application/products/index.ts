@@ -1,4 +1,4 @@
-/** ENG-207 — Product catalog mutation use-case boundary. */
+/** Product catalog mutation use-case boundary. */
 export { createProduct } from './createProduct.js';
 export { createProductVariantMatrix } from './createVariantMatrix.js';
 export { updateProduct } from './updateProduct.js';

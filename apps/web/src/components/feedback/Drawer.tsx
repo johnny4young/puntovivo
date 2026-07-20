@@ -1,5 +1,5 @@
 /**
- * ENG-186 — Reusable side Drawer (slide-over).
+ * Reusable side Drawer (slide-over).
  *
  * A portal-based overlay that keeps the primary screen in place while
  * secondary content slides in from the edge. On desktop (`sm:+`) it is a
@@ -7,12 +7,12 @@
  *
  * It shares the dialog a11y contract with `Modal` through the common
  * `useDialogA11y` hook (focus-trap, ESC close, focus-restoration via the
- * ENG-105f `restoreFocusTo` override, body-scroll-lock), and adds two
+ * `restoreFocusTo` override, body-scroll-lock), and adds two
  * things on top of Modal's baseline:
- *   - a unique `useId()` title id, so several labelled drawers can mount
- *     without clashing `aria-labelledby` targets;
- *   - topmost-dialog arbitration (`requireTopmost`), so a single ESC only
- *     closes the frontmost dialog and stacked focus-traps do not fight.
+ * - a unique `useId()` title id, so several labelled drawers can mount
+ * without clashing `aria-labelledby` targets;
+ * - topmost-dialog arbitration (`requireTopmost`), so a single ESC only
+ * closes the frontmost dialog and stacked focus-traps do not fight.
  *
  * Why a separate primitive (not a Modal size): a drawer must not steal the
  * whole viewport — the operator should still see the screen it slid over.
@@ -26,7 +26,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useDialogA11y } from './useDialogA11y';
 
-// ENG-179b — explicit `| undefined` on every optional field so callers can
+// explicit `| undefined` on every optional field so callers can
 // spread props from a parent state shape under `exactOptionalPropertyTypes`.
 export interface DrawerProps {
   /** Whether the drawer is open. */
@@ -56,7 +56,7 @@ export interface DrawerProps {
   /** Extra classes for the scrollable body. */
   contentClassName?: string | undefined;
   /**
-   * ENG-105f — focus-restoration override. When it returns a focusable
+   * focus-restoration override. When it returns a focusable
    * element, that element receives focus on close instead of the element
    * focused at open time. `/sales` uses it to send focus back to the
    * product search input regardless of how the drawer was opened.

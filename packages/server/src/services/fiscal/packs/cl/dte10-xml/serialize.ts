@@ -1,5 +1,5 @@
 /**
- * ENG-036b — Serializador de XML DTE 1.0 según especificación SII.
+ * Serializador de XML DTE 1.0 según especificación SII.
  *
  * Construye un Documento Tributario Electrónico estructuralmente
  * válido a partir del input estándar del orchestrator
@@ -7,44 +7,44 @@
  * pre-allocación de folio del CAF allocator. El resultado:
  *
  * - Devuelve un string XML serializado listo para persistir en
- *   `fiscal_documents.xml_ref`.
+ * `fiscal_documents.xml_ref`.
  * - NO firma con XAdES, NO calcula el TED RSA. La FRMT del TED queda
- *   vacía como placeholder; ENG-036c reemplaza con la firma RSA real
- *   leyendo la RSAPK del CAF.
+ * vacía como placeholder;  reemplaza con la firma RSA real
+ * leyendo la RSAPK del CAF.
  * - Persiste el Documento.TED.DD completamente — RE / TD / F / FE /
- *   RR / RSR / MNT / IT1 / CAF<DA> / TSTED — para que la boleta
- *   impresa muestre folio + RUT + monto en la forma SII pre-firma.
+ * RR / RSR / MNT / IT1 / CAF<DA> / TSTED — para que la boleta
+ * impresa muestre folio + RUT + monto en la forma SII pre-firma.
  *
  * Cobertura DTE 1.0 implementada:
  *
  * - DTE > Documento[ID="F<folio>T<tipoDte>"] root con namespace
- *   `xmlns="http://www.sii.cl/SiiDte"` + version 1.0.
+ * `xmlns="http://www.sii.cl/SiiDte"` + version 1.0.
  * - Encabezado.IdDoc con TipoDTE, Folio, FchEmis, IndServicio? y
- *   FmaPago.
+ * FmaPago.
  * - Encabezado.Emisor con RUTEmisor, RznSoc (companies.name), GiroEmis
- *   (catálogo CIIU.cl), Acteco (giro code), DirOrigen (casa matriz),
- *   CmnaOrigen (catálogo SUBDERE).
+ * (catálogo CIIU.cl), Acteco (giro code), DirOrigen (casa matriz),
+ * CmnaOrigen (catálogo SUBDERE).
  * - Encabezado.Receptor con RUTRecep + RznSocRecep. Boletas (TipoDTE
- *   39/41) sin buyer usan el RUT genérico SII '66666666-6'. Facturas
- *   (33/34) requieren RUT identificado.
+ * 39/41) sin buyer usan el RUT genérico SII '66666666-6'. Facturas
+ * (33/34) requieren RUT identificado.
  * - Encabezado.Totales con MntNeto, MntExe, IVA, TasaIVA=19,
- *   MntTotal — todos enteros (CLP no acepta decimales).
+ * MntTotal — todos enteros (CLP no acepta decimales).
  * - Detalle (1..n) con NroLinDet, NmbItem, QtyItem, UnmdItem,
- *   PrcItem, MontoItem, IndExe? (1 cuando línea exenta).
+ * PrcItem, MontoItem, IndExe? (1 cuando línea exenta).
  * - Referencia (cuando source='return' u 'void' con originalCufe):
- *   TpoDocRef='61', FolioRef del original, CodRef='1' (Anula
- *   documento de referencia) para void / '3' (Corrige montos) para
- *   return.
+ * TpoDocRef='61', FolioRef del original, CodRef='1' (Anula
+ * documento de referencia) para void / '3' (Corrige montos) para
+ * return.
  * - TED.DD con RE, TD, F, FE, RR, RSR, MNT, IT1, CAF<DA>, TSTED.
  * - TED.FRMT placeholder vacío con algoritmo declarado.
  *
- * Cobertura DIFERIDA (ENG-036c):
+ * Cobertura DIFERIDA ():
  *
  * - Firma XAdES sobre el Documento entero.
  * - TED.FRMT real con RSA de la RSAPK del CAF.
  * - Envío al SII (timbraje real, intercambio sobre).
  * - Anulación SII (anulación POS aún se emite como NC; cancelación
- *   formal SII es una operación API separada).
+ * formal SII es una operación API separada).
  * - Múltiples impuestos retenidos (ImptoReten) — out of scope retail.
  *
  * @module services/fiscal/packs/cl/dte10-xml/serialize
@@ -101,7 +101,7 @@ export function serializeDte10(
   }
   if (input.currencyCode !== 'CLP') {
     throw new Error(
-      `DTE 1.0 requiere Moneda='CLP'. Recibido: ${input.currencyCode}. Foreign currency requiere extensión SII (ENG-036c).`,
+      `DTE 1.0 requiere Moneda='CLP'. Recibido: ${input.currencyCode}. Foreign currency requiere extensión SII ().`,
       {
         cause: {
           country: 'CL',
@@ -266,7 +266,7 @@ export function serializeDte10(
   }
 
   // TED — placeholder pre-firma. El allocator nos da el rawCafXml;
-  // extraemos el bloque <DA> textualmente para que ENG-036c lo
+  // extraemos el bloque <DA> textualmente para que  lo
   // empate con la RSAPK al firmar.
   documentoBody.TED = buildTedNode({
     rutEmisor: settings.rut,

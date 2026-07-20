@@ -107,7 +107,7 @@ describe('Users tRPC Router', () => {
     tenantId = seededUser.tenantId;
     userId = seededUser.id;
 
-    // ENG-052b — register one device for the active tenant; reused
+    // register one device for the active tenant; reused
     // by every critical user-management mutation (`users.create`,
     // `users.update`).
     const registration = await registerDeviceService(getDatabase(), {

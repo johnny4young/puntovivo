@@ -1,5 +1,5 @@
 /**
- * ENG-133c — unit tests for the pure helpers of the Lighthouse web-vitals gate.
+ * unit tests for the pure helpers of the Lighthouse web-vitals gate.
  *
  * Mirrors check-electron-memory.test.mjs: exercises extractMetrics /
  * compareToLighthouseBudget / renderReport with fixtures, and the runCli

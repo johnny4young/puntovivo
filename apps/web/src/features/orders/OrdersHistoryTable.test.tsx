@@ -57,7 +57,7 @@ describe('OrdersHistoryTable', () => {
       />
     );
 
-    // ENG-132e — receipt progress moved into the detail modal; only the
+    // receipt progress moved into the detail modal; only the
     // open order (submitted / partial_received) keeps a Receive action.
     await user.click(screen.getByRole('button', { name: 'Receive' }));
     expect(onReceive).toHaveBeenCalledWith('order-1');
@@ -68,7 +68,7 @@ describe('OrdersHistoryTable', () => {
     expect(onView).toHaveBeenCalledWith('order-1');
   });
 
-  it('renders the smallest useful column set — date / site / receipts trimmed (ENG-132e)', () => {
+  it('renders the smallest useful column set — date / site / receipts trimmed', () => {
     render(
       <OrdersHistoryTable
         orders={[createOrder()]}
@@ -94,7 +94,7 @@ describe('OrdersHistoryTable', () => {
     expect(screen.queryByRole('columnheader', { name: 'Receipts' })).not.toBeInTheDocument();
   });
 
-  it('fires onView with the order id when Enter is pressed on a focused row (ENG-134f)', async () => {
+  it('fires onView with the order id when Enter is pressed on a focused row', async () => {
     const user = userEvent.setup();
     const onView = vi.fn();
 

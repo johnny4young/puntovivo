@@ -13,22 +13,21 @@ const NO_LITERAL_JSX_ATTRS = [
   {
     selector:
       'JSXAttribute[name.name="title"] > Literal[value=/^[A-Za-zÁ-Úá-ú][A-Za-zÁ-Úá-ú0-9 ,.!?\'""-]*[a-zA-Z]$/]',
-    message:
-      'Hardcoded JSX `title` attribute. Wrap with `t(\'namespace:key\')` from useTranslation.',
+    message: "Hardcoded JSX `title` attribute. Wrap with `t('namespace:key')` from useTranslation.",
   },
   {
     selector:
       'JSXAttribute[name.name="placeholder"] > Literal[value=/^[A-Za-zÁ-Úá-ú][A-Za-zÁ-Úá-ú0-9 ,.!?\'""-]*[a-zA-Z]$/]',
     message:
-      'Hardcoded JSX `placeholder` attribute. Wrap with `t(\'namespace:key\')` from useTranslation.',
+      "Hardcoded JSX `placeholder` attribute. Wrap with `t('namespace:key')` from useTranslation.",
   },
   {
     selector:
       'JSXAttribute[name.name="aria-label"] > Literal[value=/^[A-Za-zÁ-Úá-ú][A-Za-zÁ-Úá-ú0-9 ,.!?\'""-]*[a-zA-Z]$/]',
     message:
-      'Hardcoded JSX `aria-label` attribute. Wrap with `t(\'namespace:key\')` from useTranslation.',
+      "Hardcoded JSX `aria-label` attribute. Wrap with `t('namespace:key')` from useTranslation.",
   },
-  // ENG-181 — every mutation `onError` must funnel through `onErrorToast(...)` so
+  // every mutation `onError` must funnel through `onErrorToast(...)` so
   // server `errorCode` values get translated via the i18n parity contract and so
   // structured error logging stays consistent. Inline `onError: (err) => toast.x(...)`
   // bypasses translation and silently drops the `cause` chain context.
@@ -36,7 +35,7 @@ const NO_LITERAL_JSX_ATTRS = [
     selector:
       'Property[key.name="onError"][value.type="ArrowFunctionExpression"]:has(CallExpression[callee.object.name="toast"])',
     message:
-      'Use `onErrorToast(toast, t, options)` from `@/lib/mutationHelpers` instead of inline `onError` that calls `toast.*` directly. ENG-181 — single funnel for translation + tracing.',
+      'Use `onErrorToast(toast, t, options)` from `@/lib/mutationHelpers` instead of inline `onError` that calls `toast.*` directly.  — single funnel for translation + tracing.',
   },
 ];
 
@@ -57,19 +56,14 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      '@typescript-eslint/no-explicit-any': 'error', // ENG-179c — promoted warn -> error (was inherited as warn from tseslint recommended)
+      '@typescript-eslint/no-explicit-any': 'error', // promoted warn -> error (was inherited as warn from tseslint recommended)
     },
   },
   {
     // i18n guard: only applies to production source (tests and i18n locale
     // files are allowed to use literal strings).
     files: ['src/**/*.{ts,tsx}'],
-    ignores: [
-      'src/**/*.test.{ts,tsx}',
-      'src/**/__tests__/**',
-      'src/test/**',
-      'src/i18n/**',
-    ],
+    ignores: ['src/**/*.test.{ts,tsx}', 'src/**/__tests__/**', 'src/test/**', 'src/i18n/**'],
     rules: {
       'no-restricted-syntax': ['error', ...NO_LITERAL_JSX_ATTRS],
     },

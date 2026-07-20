@@ -1,14 +1,14 @@
 /**
- * Delivery Orders tRPC Router — ENG-091
+ * Delivery Orders tRPC Router —
  *
  * Per-site delivery queue. Status flow accepted → preparing →
  * dispatched → delivered, with cancelled reachable from any state.
  *
  * Procedures:
- *  - deliveryOrders.list    (manager+) — queue rows for a site
- *  - deliveryOrders.create  (manager+) — accept a new delivery
- *  - deliveryOrders.advance (manager+) — move status forward
- *  - deliveryOrders.cancel  (manager+) — mark as cancelled
+ * - deliveryOrders.list    (manager+) — queue rows for a site
+ * - deliveryOrders.create  (manager+) — accept a new delivery
+ * - deliveryOrders.advance (manager+) — move status forward
+ * - deliveryOrders.cancel  (manager+) — mark as cancelled
  *
  * Site scoping mirrors the inventory routers: callers must pass
  * `siteId` and we verify it belongs to the caller's tenant.
@@ -25,13 +25,7 @@ import { managerOrAdminProcedure } from '../middleware/roles.js';
 import { deliveryOrders, sites } from '../../db/schema.js';
 import type { DatabaseInstance } from '../../db/index.js';
 
-const statusEnum = z.enum([
-  'accepted',
-  'preparing',
-  'dispatched',
-  'delivered',
-  'cancelled',
-]);
+const statusEnum = z.enum(['accepted', 'preparing', 'dispatched', 'delivered', 'cancelled']);
 
 const listInput = z.object({
   siteId: z.string().min(1),
@@ -115,12 +109,7 @@ export const deliveryOrdersRouter = router({
     const [existing] = await ctx.db
       .select()
       .from(deliveryOrders)
-      .where(
-        and(
-          eq(deliveryOrders.id, input.id),
-          eq(deliveryOrders.tenantId, ctx.tenantId)
-        )
-      )
+      .where(and(eq(deliveryOrders.id, input.id), eq(deliveryOrders.tenantId, ctx.tenantId)))
       .limit(1);
     if (!existing) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'DELIVERY_ORDER_NOT_FOUND' });
@@ -150,9 +139,7 @@ export const deliveryOrdersRouter = router({
     await ctx.db
       .update(deliveryOrders)
       .set(updates)
-      .where(
-        and(eq(deliveryOrders.id, input.id), eq(deliveryOrders.tenantId, ctx.tenantId))
-      );
+      .where(and(eq(deliveryOrders.id, input.id), eq(deliveryOrders.tenantId, ctx.tenantId)));
     return { id: input.id, status: input.toStatus };
   }),
 });

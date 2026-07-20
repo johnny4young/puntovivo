@@ -24,9 +24,9 @@ import { CompanyDataRetentionCard } from './CompanyDataRetentionCard';
 import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
 import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
 
-// ENG-129e — backup and recovery modals are needed only on the data tab.
+// backup and recovery modals are needed only on the data tab.
 // Keep that security-heavy surface out of the initial Company route chunk.
-// ENG-214 — loyalty program admin card, lazy for the same chunk reason.
+// loyalty program admin card, lazy for the same chunk reason.
 const CompanyLoyaltySettingsCard = lazy(() =>
   import('./CompanyLoyaltySettingsCard').then(module => ({
     default: module.CompanyLoyaltySettingsCard,
@@ -36,7 +36,7 @@ const CompanyBackupCard = lazy(() =>
   import('./CompanyBackupCard').then(module => ({ default: module.CompanyBackupCard }))
 );
 
-// ENG-142a — checkout policy controls are needed only on the Controls tab.
+// checkout policy controls are needed only on the Controls tab.
 // Keep the editor and critical-mutation rail out of the initial Company chunk.
 const CompanyLossPreventionCard = lazy(() =>
   import('./CompanyLossPreventionCard').then(module => ({
@@ -56,7 +56,7 @@ interface CompanySettingsPanelsProps {
   onSubmit: (values: CompanyFormValues) => Promise<void>;
 }
 
-/** ENG-178 — Admin-only company setup panel rendering. */
+/** Admin-only company setup panel rendering. */
 export function CompanySettingsPanels({
   activeTab,
   company,
@@ -199,7 +199,7 @@ export function CompanySettingsPanels({
           {!isLocaleLoading && (localeError === null || localeError === undefined) && (
             <>
               {/*
-                ENG-035a + ENG-036a — dispatch por país. Cada card se monta
+                 +  — dispatch por país. Cada card se monta
                 solamente para su país; no existe fallback con forma Colombia.
               */}
               {tenantCountryCode === 'MX' && <CompanyMxFiscalCard />}
@@ -207,7 +207,7 @@ export function CompanySettingsPanels({
               {tenantCountryCode === 'CO' && <CompanyCoFiscalCard />}
               {tenantCountryCode !== null && !['MX', 'CL', 'CO'].includes(tenantCountryCode) && (
                 <div className="card space-y-2 p-6">
-                  {/* ENG-185 — explicit unsupported-country state. */}
+                  {/* explicit unsupported-country state. */}
                   <h2 className="text-lg font-semibold text-secondary-950">
                     {t('fiscal:settings.unsupported.title')}
                   </h2>

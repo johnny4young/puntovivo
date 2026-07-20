@@ -1,5 +1,5 @@
 /**
- * ENG-052 — Canonical input hashing for the idempotency cache.
+ * Canonical input hashing for the idempotency cache.
  *
  * The Command Envelope (ADR-0002) caches procedure results in
  * `idempotency_keys` keyed by `(tenantId, deviceId, idempotencyKey,
@@ -8,9 +8,9 @@
  * returning the wrong cached result, so the hash function MUST be:
  *
  * - Deterministic across object key reordering (`{a:1,b:2}` and
- *   `{b:2,a:1}` produce the same hash).
+ * `{b:2,a:1}` produce the same hash).
  * - Stable for the same input across processes (no `Date.now()` or
- *   nondeterministic content in the canonical form).
+ * nondeterministic content in the canonical form).
  * - Safe for nested arrays / objects.
  *
  * Implementation: stable JSON serialization with sorted keys, then

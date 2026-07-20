@@ -1,7 +1,7 @@
 /**
- * ENG-052 — End-to-end tests for the `commandEnvelope` middleware,
+ * End-to-end tests for the `commandEnvelope` middleware,
  * exercising the full chain via `auth.changePassword` (the proof
- * procedure for ENG-052a).
+ * procedure for ).
  *
  * Coverage:
  * - Missing x-device-id → DEVICE_NOT_REGISTERED.
@@ -9,8 +9,8 @@
  * - Invalid envelope JSON → MISSING_COMMAND_ENVELOPE.
  * - Cross-tenant deviceId → DEVICE_NOT_REGISTERED.
  * - Replay with same canonical input hash → cached result returned,
- *   procedure NOT re-invoked (verified by checking sessionVersion is
- *   only bumped once).
+ * procedure NOT re-invoked (verified by checking sessionVersion is
+ * only bumped once).
  * - Replay with mismatched hash → IDEMPOTENCY_KEY_CONFLICT.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -20,17 +20,10 @@ import { eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  idempotencyKeys,
-  tenants,
-  users,
-} from '../db/schema.js';
+import { idempotencyKeys, tenants, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
-import {
-  COMMAND_ENVELOPE_HEADER,
-  DEVICE_ID_HEADER,
-} from '../trpc/schemas/envelope.js';
+import { COMMAND_ENVELOPE_HEADER, DEVICE_ID_HEADER } from '../trpc/schemas/envelope.js';
 import { registerDevice } from '../services/devices/devicesService.js';
 import { reserveKey } from '../services/idempotency/idempotencyService.js';
 import { hashCanonicalInput } from '../services/idempotency/keyHasher.js';
@@ -92,13 +85,11 @@ function makeCaller(opts: CallerOptions = {}): ReturnType<typeof appRouter.creat
       headers[COMMAND_ENVELOPE_HEADER] = opts.rawEnvelopeOverride;
     }
   } else {
-    const env =
-      opts.envelope ??
-      {
-        operationId: randomUUID(),
-        idempotencyKey: randomUUID(),
-        clientCreatedAt: new Date().toISOString(),
-      };
+    const env = opts.envelope ?? {
+      operationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      clientCreatedAt: new Date().toISOString(),
+    };
     headers[COMMAND_ENVELOPE_HEADER] = JSON.stringify(env);
   }
   const ctx: Context = {
@@ -134,7 +125,7 @@ beforeEach(async () => {
   await getDatabase().delete(idempotencyKeys);
 });
 
-describe('commandEnvelope middleware: device id (ENG-052)', () => {
+describe('commandEnvelope middleware: device id', () => {
   it('rejects missing x-device-id header with DEVICE_NOT_REGISTERED', async () => {
     const caller = makeCaller({ deviceIdHeader: '__skip__' });
     let caught: unknown;
@@ -170,22 +161,26 @@ describe('commandEnvelope middleware: device id (ENG-052)', () => {
     // Register a device on a DIFFERENT tenant; supplying its id should fail.
     const otherTenantId = nanoid();
     const otherUserId = nanoid();
-    await getDatabase().insert(tenants).values({
-      id: otherTenantId,
-      name: 'Other',
-      slug: `other-${otherTenantId.slice(0, 6)}`,
-      settings: {},
-      isActive: true,
-    });
-    await getDatabase().insert(users).values({
-      id: otherUserId,
-      tenantId: otherTenantId,
-      email: `other-${otherUserId.slice(0, 6)}@test.local`,
-      passwordHash: await hash('TestPassword123!'),
-      name: 'Other',
-      role: 'admin',
-      isActive: true,
-    });
+    await getDatabase()
+      .insert(tenants)
+      .values({
+        id: otherTenantId,
+        name: 'Other',
+        slug: `other-${otherTenantId.slice(0, 6)}`,
+        settings: {},
+        isActive: true,
+      });
+    await getDatabase()
+      .insert(users)
+      .values({
+        id: otherUserId,
+        tenantId: otherTenantId,
+        email: `other-${otherUserId.slice(0, 6)}@test.local`,
+        passwordHash: await hash('TestPassword123!'),
+        name: 'Other',
+        role: 'admin',
+        isActive: true,
+      });
     const otherDevice = await registerDevice(getDatabase(), {
       tenantId: otherTenantId,
       userId: otherUserId,
@@ -208,7 +203,7 @@ describe('commandEnvelope middleware: device id (ENG-052)', () => {
   });
 });
 
-describe('commandEnvelope middleware: envelope header (ENG-052)', () => {
+describe('commandEnvelope middleware: envelope header', () => {
   it('rejects missing x-puntovivo-envelope with MISSING_COMMAND_ENVELOPE', async () => {
     const caller = makeCaller({ rawEnvelopeOverride: '__skip__' });
     let caught: unknown;
@@ -257,7 +252,7 @@ describe('commandEnvelope middleware: envelope header (ENG-052)', () => {
   });
 });
 
-describe('commandEnvelope middleware: idempotency replay (ENG-052)', () => {
+describe('commandEnvelope middleware: idempotency replay', () => {
   it('replay with same envelope + same input returns cached result, procedure NOT re-invoked', async () => {
     const envelope = {
       operationId: randomUUID(),
@@ -362,7 +357,7 @@ describe('commandEnvelope middleware: idempotency replay (ENG-052)', () => {
   });
 });
 
-describe('commandEnvelope middleware: device telemetry (ENG-052)', () => {
+describe('commandEnvelope middleware: device telemetry', () => {
   it('successful call updates devices.last_seen_at', async () => {
     const caller = makeCaller();
     await caller.auth.changePassword({
@@ -380,7 +375,7 @@ describe('commandEnvelope middleware: device telemetry (ENG-052)', () => {
   });
 });
 
-describe('commandEnvelope middleware: operation journal (ENG-053)', () => {
+describe('commandEnvelope middleware: operation journal', () => {
   beforeEach(async () => {
     await resetPassword();
   });

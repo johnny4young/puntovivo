@@ -11,18 +11,18 @@
  * - products.update               (manager/admin) - Update a product
  * - products.delete               (admin) - Soft-delete a product
  * - products.search               (tenant) - Full-text search
- * - products.lookupByBarcode      (tenant) - ENG-061 exact-match scanner lookup
- * - products.semanticSearch       (manager/admin, semantic-search module) - ENG-033
- * - products.regenerateEmbeddings (admin, semantic-search module) - ENG-068
- * - products.embeddingHealth      (manager/admin, semantic-search module) - ENG-040
- * - products.suggestCategory      (manager/admin, semantic-search module) - ENG-068
+ * - products.lookupByBarcode      (tenant) -  exact-match scanner lookup
+ * - products.semanticSearch       (manager/admin, semantic-search module) -
+ * - products.regenerateEmbeddings (admin, semantic-search module) -
+ * - products.embeddingHealth      (manager/admin, semantic-search module) -
+ * - products.suggestCategory      (manager/admin, semantic-search module) -
  *
- * ENG-178 — this barrel preserves the public surface of the former flat
+ * this barrel preserves the public surface of the former flat
  * `trpc/routers/products.ts` (1280 LOC), decomposed into per-concern modules
  * during the megafile wave. The procedure bodies + shared helpers moved
  * verbatim; only the file layout changed. The procedure paths
  * (`products.create`, etc.) and `AppRouter`'s inferred shape are unchanged, so
- * the web client and the caller-based tests are unaffected. ENG-207 moved
+ * the web client and the caller-based tests are unaffected.  moved
  * create/update use-cases into `application/products/` and shared catalog
  * primitives into `services/products/` while keeping procedure paths stable.
  *

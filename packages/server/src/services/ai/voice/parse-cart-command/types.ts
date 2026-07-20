@@ -1,5 +1,5 @@
 /**
- * Public result/context types for the voice cart-command parser (ENG-040c).
+ * Public result/context types for the voice cart-command parser ().
  *
  * @module services/ai/voice/parse-cart-command/types
  */
@@ -34,8 +34,8 @@ export interface CartCommandMatch {
   productHint: string;
   quantity: number | null;
   /** Free-form modifier captured by the parser (e.g. "sin queso").
-   *  Null when no modifier was spoken. Consumers route this to the
-   *  cart row's `notes` field at hydration time. */
+   * Null when no modifier was spoken. Consumers route this to the
+   * cart row's `notes` field at hydration time. */
   note: string | null;
   product: MatchedCartProduct | null;
 }

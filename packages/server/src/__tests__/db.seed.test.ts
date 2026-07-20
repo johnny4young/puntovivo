@@ -6,15 +6,7 @@ import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { closeDatabase, initDatabase } from '../db/index.js';
-import {
-  companies,
-  sequentials,
-  sites,
-  tenants,
-  units,
-  users,
-  vatRates,
-} from '../db/schema.js';
+import { companies, sequentials, sites, tenants, units, users, vatRates } from '../db/schema.js';
 import {
   DEFAULT_ADMIN,
   DEFAULT_DEVELOPMENT_ADMIN_PASSWORD,
@@ -42,7 +34,7 @@ describe('database foundation seed', () => {
     }
   });
 
-  it('seeds the phase 0 foundation data into a fresh database', async () => {
+  it('seeds the foundation data into a fresh database', async () => {
     const db = await initDatabase({
       dbPath: ':memory:',
       runMigrations: true,
@@ -66,7 +58,7 @@ describe('database foundation seed', () => {
     expect(sequentialCount?.value).toBeGreaterThanOrEqual(3);
   });
 
-  it('writes the Ring-1 retail module profile into a fresh tenant (ENG-183)', async () => {
+  it('writes the Ring-1 retail module profile into a fresh tenant', async () => {
     const db = await initDatabase({
       dbPath: ':memory:',
       runMigrations: true,
@@ -111,7 +103,7 @@ describe('database foundation seed', () => {
   });
 
   it('adopts a legacy DB that already has the migrated purchase_items shape without regressing its columns or indexes', async () => {
-    // ENG-002 Step 3 regression pin. The previous incarnation of this
+    // Step 3 regression pin. The previous incarnation of this
     // test validated the now-retired `runSchemaSync()` path that used
     // `ensureColumn()` to backfill newer columns onto adopted DBs.
     // After retirement the adoption contract is strictly: operators
@@ -174,20 +166,20 @@ describe('database foundation seed', () => {
       });
 
       const inspectionDb = new Database(dbPath, { readonly: true, nativeBinding });
-      const columns = inspectionDb
-        .prepare('PRAGMA table_info(purchase_items)')
-        .all() as Array<{ name: string }>;
-      const indexes = inspectionDb
-        .prepare('PRAGMA index_list(purchase_items)')
-        .all() as Array<{ name: string }>;
+      const columns = inspectionDb.prepare('PRAGMA table_info(purchase_items)').all() as Array<{
+        name: string;
+      }>;
+      const indexes = inspectionDb.prepare('PRAGMA index_list(purchase_items)').all() as Array<{
+        name: string;
+      }>;
       inspectionDb.close();
 
       // The shim must NOT drop columns or indexes that the adopted DB
       // already carried.
       expect(columns.some(column => column.name === 'source_order_item_id')).toBe(true);
-      expect(
-        indexes.some(index => index.name === 'idx_purchase_items_source_order_item')
-      ).toBe(true);
+      expect(indexes.some(index => index.name === 'idx_purchase_items_source_order_item')).toBe(
+        true
+      );
     } finally {
       await rm(dbPath, { force: true });
       await rm(`${dbPath}-wal`, { force: true });

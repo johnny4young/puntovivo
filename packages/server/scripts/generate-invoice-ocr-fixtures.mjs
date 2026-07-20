@@ -1,12 +1,12 @@
 /**
- * ENG-040d — Render the OCR benchmark HTML fixtures to PNG.
+ * Render the OCR benchmark HTML fixtures to PNG.
  *
  * Idempotent helper for re-generating the rendered PNGs that live next
  * to each `NN-<slug>.html` template in
  * `packages/server/__fixtures__/invoice-ocr/`. Run after any template
  * change:
  *
- *   node packages/server/scripts/generate-invoice-ocr-fixtures.mjs
+ * node packages/server/scripts/generate-invoice-ocr-fixtures.mjs
  *
  * Uses the workspace-root `playwright` package (already in devDeps for
  * E2E). Each PNG renders the full body element at the natural viewport
@@ -22,7 +22,7 @@ const fixturesDir = join(here, '..', '__fixtures__', 'invoice-ocr');
 
 async function main() {
   const htmlFiles = readdirSync(fixturesDir)
-    .filter((entry) => extname(entry) === '.html')
+    .filter(entry => extname(entry) === '.html')
     .sort();
 
   if (htmlFiles.length === 0) {

@@ -1,5 +1,5 @@
 /**
- * ENG-056 — Invariant tests for `application/cash-sessions/openCashSession`.
+ * Invariant tests for `application/cash-sessions/openCashSession`.
  *
  * Direct use-case calls (no Fastify boot for the call path itself; the
  * server is booted only to seed the in-memory DB + run migrations).
@@ -49,11 +49,7 @@ function buildContext(overrides: Partial<CashSessionContext> = {}): CashSessionC
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -135,9 +131,7 @@ describe('openCashSession', () => {
     const result = await openCashSession(buildContext(), {
       registerName: 'open-test-1',
       openingFloat: 200,
-      denominations: [
-        { value: 100, count: 2 },
-      ],
+      denominations: [{ value: 100, count: 2 }],
     });
     expect(result.session.status).toBe('open');
     expect(result.session.expectedBalance).toBe(200);
@@ -492,23 +486,17 @@ describe('openCashSession', () => {
       userId,
       requestHash: 'hash-' + operationId,
     });
-    const result = await openCashSession(
-      buildContext({ envelope: { operationId } }),
-      {
-        registerName: 'envelope-open',
-        openingFloat: 100,
-        denominations: [{ value: 100, count: 1 }],
-      }
-    );
+    const result = await openCashSession(buildContext({ envelope: { operationId } }), {
+      registerName: 'envelope-open',
+      openingFloat: 100,
+      denominations: [{ value: 100, count: 1 }],
+    });
     expect(result.journalEventId).toBeTruthy();
     const event = await db
       .select()
       .from(operationEvents)
       .where(
-        and(
-          eq(operationEvents.tenantId, tenantId),
-          eq(operationEvents.operationId, operationId)
-        )
+        and(eq(operationEvents.tenantId, tenantId), eq(operationEvents.operationId, operationId))
       )
       .get();
     expect(event).toBeTruthy();
@@ -579,7 +567,11 @@ describe('openCashSession', () => {
       updatedAt: now,
     });
     await openCashSession(
-      buildContext({ tenantId: otherTenantId, siteId: otherSiteId, user: { id: otherUserId, role: 'admin' } }),
+      buildContext({
+        tenantId: otherTenantId,
+        siteId: otherSiteId,
+        user: { id: otherUserId, role: 'admin' },
+      }),
       {
         registerName: 'tb-register',
         openingFloat: 0,

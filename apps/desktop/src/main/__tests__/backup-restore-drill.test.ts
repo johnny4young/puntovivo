@@ -67,7 +67,7 @@ function scheduleStatus(
   };
 }
 
-describe('backup restore drill (ENG-136b)', () => {
+describe('backup restore drill', () => {
   it('verifies an encrypted snapshot and compares only the active tenant', async () => {
     const snapshotDbPath = join(scratch, 'snapshot-source.db');
     const snapshotDb = createTenantDatabase(snapshotDbPath, {

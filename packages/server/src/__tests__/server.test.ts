@@ -114,9 +114,7 @@ describe('HTTP transport hardening', () => {
     expect(server.app.server.headersTimeout).toBe(SERVER_HEADERS_TIMEOUT_MS);
     expect(server.app.server.requestTimeout).toBe(SERVER_REQUEST_TIMEOUT_MS);
     expect(server.app.server.timeout).toBe(SERVER_SOCKET_TIMEOUT_MS);
-    expect(server.app.server.headersTimeout).toBeGreaterThan(
-      server.app.server.keepAliveTimeout
-    );
+    expect(server.app.server.headersTimeout).toBeGreaterThan(server.app.server.keepAliveTimeout);
   });
 });
 
@@ -139,7 +137,7 @@ describe('CSRF protection', () => {
     });
 
     expect(response.statusCode).toBe(403);
-    // ENG-135b follow-up — tRPC-shaped envelope (see index.ts CSRF hook).
+    // follow-up — tRPC-shaped envelope (see index.ts CSRF hook).
     const body = JSON.parse(response.body) as { error: { message: string } };
     expect(body.error.message).toContain('CSRF_VALIDATION_FAILED');
   });
@@ -177,7 +175,7 @@ describe('CSRF protection', () => {
     });
 
     expect(response.statusCode).toBe(403);
-    // ENG-135b follow-up — tRPC-shaped envelope (see index.ts CSRF hook).
+    // follow-up — tRPC-shaped envelope (see index.ts CSRF hook).
     expect(response.json()).toEqual({
       error: {
         message: 'CSRF_VALIDATION_FAILED: missing or invalid CSRF token',

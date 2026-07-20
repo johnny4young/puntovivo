@@ -86,7 +86,7 @@
     "error": "No se pudieron cargar los balances por sede",
     "search": "Buscar balances por producto…",
     "noSites": "Aún no hay sedes activas. Crea una para hacer seguimiento de stock por sede.",
-    "projectionNote": "Fase 2 pasos 3-4: los balances por sede son la fuente de verdad. Las transferencias pueden quedar en tránsito y el stock agregado del producto se mantiene sincronizado con la suma de sedes.",
+    "projectionNote": "pasos 3-4: los balances por sede son la fuente de verdad. Las transferencias pueden quedar en tránsito y el stock agregado del producto se mantiene sincronizado con la suma de sedes.",
     "transferButton": "Transferir stock",
     "transferRequiresTwoSites": "Se requieren al menos dos sedes activas para transferir stock.",
     "columns": {

@@ -1,5 +1,5 @@
 /**
- * Consumidor-final RUT constants for DTE 1.0 serialization (ENG-036b).
+ * Consumidor-final RUT constants for DTE 1.0 serialization ().
  *
  * @module services/fiscal/packs/cl/dte10-xml/constants
  */

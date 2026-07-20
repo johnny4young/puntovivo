@@ -1,4 +1,4 @@
-/** ENG-123a — Launch-migration product import contracts. */
+/** Launch-migration product import contracts. */
 import { z } from 'zod';
 
 export const importDecimalFormatSchema = z.enum(['auto', 'dot', 'comma']);

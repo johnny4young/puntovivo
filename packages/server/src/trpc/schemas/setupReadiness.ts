@@ -1,5 +1,5 @@
 /**
- * ENG-104 — Setup readiness Zod schemas.
+ * Setup readiness Zod schemas.
  *
  * Output shape consumed by `setupReadiness.get` and rendered by the
  * `CompanyReadinessCard` + `GlobalStatusStrip`. The section ids are a
@@ -27,7 +27,7 @@ export const setupReadinessSectionIdEnum = [
   'ai',
   'catalog',
   'cashSession',
-  // ENG-184 — sync-outbox backlog reminder (local-first: never a
+  // sync-outbox backlog reminder (local-first: never a
   // blocker, surfaced as a warning when replication is behind).
   'sync',
 ] as const;
@@ -36,18 +36,18 @@ export type SetupReadinessSectionId = (typeof setupReadinessSectionIdEnum)[numbe
 /**
  * - `ready`: the underlying signal is configured and operational.
  * - `blocker`: the operator cannot run the day without this (e.g.
- *   no products in catalog, no sites). Counted by `blockerCount`.
+ * no products in catalog, no sites). Counted by `blockerCount`.
  * - `optional-pending`: nice-to-have but not blocking the daily flow
- *   (e.g. zero peripherals registered, only manual payment rails).
- *   Counted at half-weight by the score.
- * - `warning` (ENG-184): configured-but-degraded, or an optional-yet-
- *   recommended signal that needs attention (e.g. DIAN turned on but
- *   incomplete, fiscal documents failing transmission, sync backlog).
- *   A reminder — NEVER blocks selling. Counted at half-weight by the
- *   score, like `optional-pending`.
+ * (e.g. zero peripherals registered, only manual payment rails).
+ * Counted at half-weight by the score.
+ * - `warning` (): configured-but-degraded, or an optional-yet-
+ * recommended signal that needs attention (e.g. DIAN turned on but
+ * incomplete, fiscal documents failing transmission, sync backlog).
+ * A reminder — NEVER blocks selling. Counted at half-weight by the
+ * score, like `optional-pending`.
  * - `not-applicable`: the tenant opted out of the feature (e.g. AI
- *   master toggle off, fiscal disabled for non-Colombian tenant) and
- *   the section is excluded from the score denominator.
+ * master toggle off, fiscal disabled for non-Colombian tenant) and
+ * the section is excluded from the score denominator.
  */
 export const setupReadinessStatusEnum = [
   'ready',
@@ -93,7 +93,7 @@ export const setupReadinessOutputSchema = z.object({
 export type SetupReadinessOutput = z.infer<typeof setupReadinessOutputSchema>;
 
 /**
- * ENG-184 — Checkout readiness items surfaced to the cashier at the
+ * Checkout readiness items surfaced to the cashier at the
  * point of sale via `setupReadiness.checkout`. Closed id union; each id
  * is an i18n key suffix under `sales.preflight.items.<id>`.
  */
@@ -106,15 +106,14 @@ export const checkoutReadinessItemIdEnum = [
 export type CheckoutReadinessItemId = (typeof checkoutReadinessItemIdEnum)[number];
 
 /**
- * Severity of a checkout readiness item. Under the ENG-184 local-first
+ * Severity of a checkout readiness item. Under the  local-first
  * model EVERY checkout readiness item is a `warning` (a reminder that
  * leaves the charge button enabled); `blocker` stays in the union for
  * future use + parity with the client preflight severity contract, but
  * nothing in the checkout query emits it today.
  */
 export const checkoutReadinessSeverityEnum = ['blocker', 'warning'] as const;
-export type CheckoutReadinessSeverity =
-  (typeof checkoutReadinessSeverityEnum)[number];
+export type CheckoutReadinessSeverity = (typeof checkoutReadinessSeverityEnum)[number];
 
 export const checkoutReadinessItemSchema = z.object({
   id: z.enum(checkoutReadinessItemIdEnum),
@@ -124,9 +123,7 @@ export const checkoutReadinessItemSchema = z.object({
    * when there is nothing to navigate to (the web layer only renders a
    * recovery button for manager/admin anyway).
    */
-  cta: z
-    .object({ route: z.string(), tab: z.string().optional() })
-    .nullable(),
+  cta: z.object({ route: z.string(), tab: z.string().optional() }).nullable(),
 });
 
 export type CheckoutReadinessItem = z.infer<typeof checkoutReadinessItemSchema>;
@@ -140,21 +137,14 @@ export const checkoutReadinessOutputSchema = z.object({
   items: z.array(checkoutReadinessItemSchema),
 });
 
-export type CheckoutReadinessOutput = z.infer<
-  typeof checkoutReadinessOutputSchema
->;
+export type CheckoutReadinessOutput = z.infer<typeof checkoutReadinessOutputSchema>;
 
 /**
- * ENG-202 — Three milestones that take a new tenant to its first real sale.
+ * Three milestones that take a new tenant to its first real sale.
  * The order is part of the public contract and mirrors the shell checklist.
  */
-export const firstSaleReadinessStepIdEnum = [
-  'product',
-  'cashSession',
-  'firstSale',
-] as const;
-export type FirstSaleReadinessStepId =
-  (typeof firstSaleReadinessStepIdEnum)[number];
+export const firstSaleReadinessStepIdEnum = ['product', 'cashSession', 'firstSale'] as const;
+export type FirstSaleReadinessStepId = (typeof firstSaleReadinessStepIdEnum)[number];
 
 export const firstSaleReadinessInputSchema = z.object({
   siteId: z.string().min(1),
@@ -170,6 +160,4 @@ export const firstSaleReadinessOutputSchema = z.object({
   steps: z.array(firstSaleReadinessStepSchema).length(3),
 });
 
-export type FirstSaleReadinessOutput = z.infer<
-  typeof firstSaleReadinessOutputSchema
->;
+export type FirstSaleReadinessOutput = z.infer<typeof firstSaleReadinessOutputSchema>;

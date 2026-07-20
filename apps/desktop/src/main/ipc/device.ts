@@ -1,8 +1,8 @@
 /**
- * ENG-178 — persistent-device-id IPC handlers, extracted verbatim from
+ * persistent-device-id IPC handlers, extracted verbatim from
  * the former monolithic `main/index.ts`.
  *
- * ENG-052b — persistent device id under the user's data folder. The
+ * persistent device id under the user's data folder. The
  * renderer prefers this path over localStorage so a browser cache
  * wipe does not lose the device registration; the localStorage copy
  * stays as a fallback for the pure-browser build. The atomic

@@ -1,5 +1,5 @@
 /**
- * ENG-098 review follow-up - realtime SSE tenant boundary tests.
+ * review follow-up - realtime SSE tenant boundary tests.
  *
  * The browser EventSource API cannot send Authorization headers, so
  * KDS obtains a short-lived realtime token via authenticated tRPC and
@@ -71,7 +71,7 @@ function createClient(args: { id: string; tenantId: string | null; collections?:
   };
 }
 
-describe('SSE client id generator (ENG-166)', () => {
+describe('SSE client id generator', () => {
   it('emits 32-hex-char ids with the sse_ prefix', () => {
     for (let i = 0; i < 5; i++) {
       const id = generateClientId();
@@ -156,7 +156,7 @@ describe('SSE realtime tenant boundary', () => {
   });
 });
 
-describe('SSE replay and backpressure (ENG-204)', () => {
+describe('SSE replay and backpressure', () => {
   it('honors Last-Event-ID before the hard-reopen query fallback', () => {
     expect(resolveLastEventId(' 41 ', '12')).toBe('41');
     expect(resolveLastEventId([' 42 ', '43'], '12')).toBe('42');

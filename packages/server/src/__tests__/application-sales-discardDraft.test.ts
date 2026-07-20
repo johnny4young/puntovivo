@@ -1,5 +1,5 @@
 /**
- * ENG-055 — Invariant tests for `application/sales/discardDraft`.
+ * Invariant tests for `application/sales/discardDraft`.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -102,9 +102,7 @@ async function seedDraftSale(productId: string) {
   const result = await completeSale(buildContext(), {
     mode: 'fresh',
     customerId: null,
-    items: [
-      { productId, unitId: baseUnitId, quantity: 1, unitPrice: 11.9, discount: 0 },
-    ],
+    items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 11.9, discount: 0 }],
     paymentMethod: 'cash',
     paymentStatus: 'pending',
     status: 'draft',
@@ -117,11 +115,7 @@ async function seedDraftSale(productId: string) {
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -132,11 +126,7 @@ beforeAll(async () => {
     .get();
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
-  const seededUnits = await db
-    .select()
-    .from(units)
-    .where(eq(units.tenantId, tenantId))
-    .all();
+  const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
   if (!baseUnit) throw new Error('Expected seeded unit UND');
   baseUnitId = baseUnit.id;
@@ -239,9 +229,9 @@ describe('discardDraft (state guards)', () => {
     const draftId = await seedDraftSale(productId);
     await db.update(sales).set({ status: 'completed' }).where(eq(sales.id, draftId)).run();
 
-    await expect(
-      discardDraft(buildContext(), { saleId: draftId })
-    ).rejects.toMatchObject({ message: expect.stringMatching(/draft/i) });
+    await expect(discardDraft(buildContext(), { saleId: draftId })).rejects.toMatchObject({
+      message: expect.stringMatching(/draft/i),
+    });
   });
 
   it('rejects when caller is not creator nor suspender nor manager/admin', async () => {
@@ -253,10 +243,7 @@ describe('discardDraft (state guards)', () => {
     const draftId = await seedDraftSale(productId);
 
     await expect(
-      discardDraft(
-        buildContext({ user: { id: cashier2Id, role: 'cashier' } }),
-        { saleId: draftId }
-      )
+      discardDraft(buildContext({ user: { id: cashier2Id, role: 'cashier' } }), { saleId: draftId })
     ).rejects.toMatchObject({
       message: expect.stringMatching(/created.*suspended/i),
     });
@@ -271,10 +258,7 @@ describe('discardDraft (state guards)', () => {
     const draftId = await seedDraftSale(productId);
 
     await expect(
-      discardDraft(
-        buildContext({ user: { id: cashier2Id, role: 'manager' } }),
-        { saleId: draftId }
-      )
+      discardDraft(buildContext({ user: { id: cashier2Id, role: 'manager' } }), { saleId: draftId })
     ).resolves.toMatchObject({ status: 'cancelled' });
   });
 });
@@ -332,10 +316,9 @@ describe('discardDraft (journal effects)', () => {
       requestHash: 'dd-journal',
     });
 
-    const result = await discardDraft(
-      buildContext({ envelope: { operationId } }),
-      { saleId: draftId }
-    );
+    const result = await discardDraft(buildContext({ envelope: { operationId } }), {
+      saleId: draftId,
+    });
     expect(result.journalEventId).toBeTruthy();
 
     const effects = await db

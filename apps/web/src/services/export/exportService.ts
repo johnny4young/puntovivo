@@ -1,6 +1,6 @@
-// Table export service (CSV / Excel / PDF / print) + the ENG-103 download /
+// Table export service (CSV / Excel / PDF / print) + the  download /
 // filename / MIME layer, split into per-concern modules under ./exportService/
-// (ENG-178 slice 30: types, format, escape, mime, filename, csv, excel, pdf,
+// ( slice 30: types, format, escape, mime, filename, csv, excel, pdf,
 // print, index). This thin re-export barrel keeps the
 // @/services/export/exportService import path stable for all consumers and the
 // two test suites. The file shadows the ./exportService/ directory in module

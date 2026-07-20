@@ -1,29 +1,29 @@
 /**
- * ENG-213 — minimum viable loyalty (WC-D2).
+ * minimum viable loyalty ().
  *
  * Append-only points ledger with a materialized balance, same discipline as
- * the cash session (ENG-055): `loyalty_movements` is the truth,
+ * the cash session (): `loyalty_movements` is the truth,
  * `loyalty_accounts.points` is the fast read, and BOTH move inside one
  * transaction so a crash can never leave a balance that its ledger does not
  * explain. Parity `points ≡ Σ(movements.points)` is pinned by `loyalty.test.ts`.
  *
- * v1 rule (per the WC-D2 spec): `earn = floor(total × rate)` where `rate` is
+ * v1 rule (per the  spec): `earn = floor(total × rate)` where `rate` is
  * points per currency unit, tuned per tenant (`tenants.settings.loyalty`).
  * The earned rate is SNAPSHOT on the movement, so a later rate change never
  * rewrites what a customer was already told they earned.
  *
  * Sale-path integration:
  * - `earnPointsForSale` runs inside the completeSale transaction, on BOTH
- *   completion paths (fresh sale and resumed draft) — suspending a ticket is
- *   a cashier workflow detail, not something the customer should lose points
- *   over. It is idempotent per (account, sale) via a partial unique index,
- *   and best-effort by contract: loyalty must NEVER block a sale (the
- *   register is the pilot gate), so each caller wraps it in a SAVEPOINT
- *   (nested tx) and logs failures — the savepoint is what keeps a swallowed
- *   failure from committing a half-written ledger.
+ * completion paths (fresh sale and resumed draft) — suspending a change is
+ * a cashier workflow detail, not something the customer should lose points
+ * over. It is idempotent per (account, sale) via a partial unique index,
+ * and best-effort by contract: loyalty must NEVER block a sale (the
+ * register is the pilot gate), so each caller wraps it in a SAVEPOINT
+ * (nested tx) and logs failures — the savepoint is what keeps a swallowed
+ * failure from committing a half-written ledger.
  * - `revertPointsForSale` appends a negative `revert` row on a sale
- *   reversal — history is never erased (same posture as restoreLotsForSale
- *   clearing provenance, but append-only because points are money-like).
+ * reversal — history is never erased (same posture as restoreLotsForSale
+ * clearing provenance, but append-only because points are money-like).
  *
  * Redemption as a `loyalty` tender is deliberately NOT here: it touches the
  * payment split and is tracked as its own slice.
@@ -42,7 +42,7 @@ export interface LoyaltySettings {
   /** Off by default: a tenant opts in explicitly (no silent point liability). */
   enabled: boolean;
   /**
-   * Points per currency unit. The WC-D2 spec writes the rule as
+   * Points per currency unit. The  spec writes the rule as
    * `floor(total / rate)`; this is the same rule expressed as a multiplier
    * (`floor(total × pointsPerUnit)`), which keeps a sane default for COP
    * (0.001 → 1 point per $1.000) without a divide-by-zero footgun.

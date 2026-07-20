@@ -2,7 +2,7 @@
  * Receipt renderer formatting helpers (currency, dates, item/totals cells,
  * paper width, alignment).
  *
- * ENG-178 — extracted verbatim from the former single-file
+ * extracted verbatim from the former single-file
  * `services/receipt-renderer.ts`. These were module-private; they gain `export`
  * so the HTML + ESC/POS block modules and the eval-context builder share them.
  * Import leaf relative to the block renderers (depends only on types + the
@@ -28,17 +28,10 @@ export const PAPER_WIDTH_PX: Record<ReceiptLayout['paperWidth'], number> = {
 };
 
 export function alignClass(align?: string): string {
-  return align === 'center'
-    ? 'align-center'
-    : align === 'right'
-      ? 'align-right'
-      : 'align-left';
+  return align === 'center' ? 'align-center' : align === 'right' ? 'align-right' : 'align-left';
 }
 
-export function itemColumnLabel(
-  column: string,
-  labels: ReceiptRenderLabels
-): string {
+export function itemColumnLabel(column: string, labels: ReceiptRenderLabels): string {
   switch (column) {
     case 'name':
       return labels.itemColumns.name;
@@ -63,14 +56,14 @@ export function formatNumber(value: number): string {
 }
 
 /**
- * ENG-017 — format a currency amount honoring the tenant's resolved
+ * format a currency amount honoring the tenant's resolved
  * locale. When `locale` is missing (legacy test callers), falls back
- * to raw `.toFixed(2)` without a symbol so the pre-ENG-017 contract
+ * to raw `.toFixed(2)` without a symbol so the pre- contract
  * keeps working. When present, `Intl.NumberFormat` produces the
  * country-correct output (COP = `$ 1.234`, USD = `$1,234.50`,
  * CLP = `$ 1.234`).
  *
- * ENG-016 pass 3 — `decimalsOverride` lets the `{{ currency(value, n) }}`
+ * pass 3 — `decimalsOverride` lets the `{{ currency(value, n) }}`
  * template function pin a specific decimal count regardless of the
  * tenant locale (useful when a receipt deliberately wants `123.00` even
  * for COP, or `123` even for USD).
@@ -81,13 +74,9 @@ export function formatReceiptAmount(
   decimalsOverride?: number
 ): string {
   if (!Number.isFinite(value)) return '0';
-  const fallbackDecimals =
-    decimalsOverride !== undefined ? decimalsOverride : 2;
+  const fallbackDecimals = decimalsOverride !== undefined ? decimalsOverride : 2;
   if (!locale) return value.toFixed(fallbackDecimals);
-  const decimals =
-    decimalsOverride !== undefined
-      ? decimalsOverride
-      : locale.displayDecimals;
+  const decimals = decimalsOverride !== undefined ? decimalsOverride : locale.displayDecimals;
   return new Intl.NumberFormat(locale.locale, {
     style: 'currency',
     currency: locale.currency,
@@ -97,17 +86,14 @@ export function formatReceiptAmount(
 }
 
 /**
- * ENG-016 pass 3 — Format a date for `{{ date(value, pattern?) }}`.
+ * pass 3 — Format a date for `{{ date(value, pattern?) }}`.
  * Coerces ISO strings, Date instances, and unix-ms numbers to a Date,
  * then runs `applyDatePattern` against the tenant's `dateFormat` (when
  * available) or `yyyy-MM-dd` (the deterministic fallback). Returns the
  * empty string when the input cannot be parsed — keeps the receipt
  * clean for partially-configured tenants.
  */
-export function formatTemplateDate(
-  value: unknown,
-  pattern: string | undefined
-): string {
+export function formatTemplateDate(value: unknown, pattern: string | undefined): string {
   let date: Date | null = null;
   if (value instanceof Date) {
     date = Number.isFinite(value.getTime()) ? value : null;
@@ -147,10 +133,7 @@ export function formatItemCell(
   }
 }
 
-export function totalsLabel(
-  line: string,
-  labels: ReceiptRenderLabels
-): string {
+export function totalsLabel(line: string, labels: ReceiptRenderLabels): string {
   switch (line) {
     case 'subtotal':
       return labels.totalsLines.subtotal;

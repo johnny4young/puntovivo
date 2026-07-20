@@ -1,5 +1,5 @@
 /**
- * Fiscal orchestrator — pure helpers (ENG-178 split).
+ * Fiscal orchestrator — pure helpers ( split).
  *
  * Timestamp split, DIAN id-type code mapping, the plain-record guard, the
  * per-country fiscal-enabled check, and the tenant DIAN-enabled flag read.
@@ -9,7 +9,6 @@
 import { eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../../db/index.js';
 import { tenants } from '../../../db/schema.js';
-
 
 /** ISO `YYYY-MM-DD` + `HH:mm:ssZZ` pair for the emission timestamp. */
 export function splitIssueTimestamp(now: Date): { issueDate: string; issueTime: string } {
@@ -23,7 +22,7 @@ export function splitIssueTimestamp(now: Date): { issueDate: string; issueTime: 
 /**
  * Maps an identification-type abbreviation to the DIAN 2-digit code.
  * Used when the tenant's own catalog does not carry a DIAN code
- * mapping (Fase A limitation — ENG-021 wires the mapping explicitly).
+ * mapping (estado actual limitation —  wires the mapping explicitly).
  */
 export function abbrToDianCode(abbr: string | null | undefined): string {
   switch ((abbr ?? '').toUpperCase()) {
@@ -73,10 +72,7 @@ export function isCountryFiscalEnabled(
  * JSON settings blob to avoid a migration until the feature is widely
  * adopted. `true`, `"true"`, or `1` all count as enabled.
  */
-export async function isDianEnabled(
-  tx: DatabaseInstance,
-  tenantId: string
-): Promise<boolean> {
+export async function isDianEnabled(tx: DatabaseInstance, tenantId: string): Promise<boolean> {
   const row = await tx
     .select({ settings: tenants.settings })
     .from(tenants)

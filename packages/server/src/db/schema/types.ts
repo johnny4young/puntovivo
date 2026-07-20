@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — types domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -12,16 +12,55 @@ import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-or
 import { relations, sql } from 'drizzle-orm';
 import { sqliteNow } from './base.js';
 import { companies, logos, sites, tenants, users } from './auth.js';
-import { categories, cities, countries, departments, providers, sequentials, units, vatRates } from './catalogs.js';
+import {
+  categories,
+  cities,
+  countries,
+  departments,
+  providers,
+  sequentials,
+  units,
+  vatRates,
+} from './catalogs.js';
 import { categoryXProvider, productXProvider, products, unitXProduct } from './products.js';
 import { commercialActivities, customers } from './customers.js';
-import { invoiceUploads, orderItems, orders, purchaseItems, purchaseReturnItems, purchaseReturns, purchases } from './purchasing.js';
+import {
+  invoiceUploads,
+  orderItems,
+  orders,
+  purchaseItems,
+  purchaseReturnItems,
+  purchaseReturns,
+  purchases,
+} from './purchasing.js';
 import { sales } from './sales.js';
-import { paymentOutbox, productSerials, productSerialTransfers, saleItemSerials, saleItems, salePayments, saleReturns } from './salesAux.js';
-import { initialInventory, inventoryBalances, inventoryMovements, transferOrderItems, transferOrderStatusEnum, transferOrders } from './inventory.js';
+import {
+  paymentOutbox,
+  productSerials,
+  productSerialTransfers,
+  saleItemSerials,
+  saleItems,
+  salePayments,
+  saleReturns,
+} from './salesAux.js';
+import {
+  initialInventory,
+  inventoryBalances,
+  inventoryMovements,
+  transferOrderItems,
+  transferOrderStatusEnum,
+  transferOrders,
+} from './inventory.js';
 import { auditLogs, quotationItems, quotations } from './quotationsAudit.js';
 import { devices, idempotencyKeys, operationEvents } from './devices.js';
-import { appSettings, countryCatalog, currencyCatalog, receiptTemplates, syncConflicts, tenantLocaleSettings } from './config.js';
+import {
+  appSettings,
+  countryCatalog,
+  currencyCatalog,
+  receiptTemplates,
+  syncConflicts,
+  tenantLocaleSettings,
+} from './config.js';
 
 // ============================================================================
 // TYPE EXPORTS
@@ -175,12 +214,12 @@ export type TenantLocaleSettingsRow = typeof tenantLocaleSettings.$inferSelect;
 export type NewTenantLocaleSettingsRow = typeof tenantLocaleSettings.$inferInsert;
 
 // ============================================================================
-// FISCAL CAFS (ENG-036b — Pack Chile DTE 1.0 — Códigos de Autorización
+// FISCAL CAFS (Pack Chile DTE 1.0 — Códigos de Autorización
 // de Folios). The SII issues a signed XML CAF that authorizes a tenant
 // to emit a TipoDTE in a folio range; this table stores the per-tenant
 // metadata + raw CAF XML so the allocator can advance the folio cursor
 // atomically with the fiscal_documents insert. Mexico's CFDI 4.0 model
-// has no equivalent. ENG-036c adds the upload UI + RSA signature parse.
+// has no equivalent.  adds the upload UI + RSA signature parse.
 // ============================================================================
 
 export const fiscalCafStatusEnum = ['active', 'exhausted', 'revoked'] as const;
@@ -196,7 +235,7 @@ export const fiscalCafs = sqliteTable(
     /**
      * SII TipoDTE — '33' factura electrónica, '39' boleta electrónica,
      * '61' nota crédito, etc. See `services/fiscal/packs/cl/catalogs/tipoDte.ts`
-     * for the curated set ENG-036a shipped.
+     * for the curated set  shipped.
      */
     tipoDte: text('tipo_dte').notNull(),
     /** RUT emisor — soft-FK to `tenants.settings.fiscal.cl.rut` at ingestion. */
@@ -209,7 +248,7 @@ export const fiscalCafs = sqliteTable(
      */
     currentFolio: integer('current_folio').notNull(),
     fechaAutorizacion: text('fecha_autorizacion').notNull(),
-    /** Raw CAF XML preserved for ENG-036c TED RSA signing. */
+    /** Raw CAF XML preserved for  TED RSA signing. */
     rawXml: text('raw_xml').notNull(),
     status: text('status', { enum: fiscalCafStatusEnum }).notNull().default('active'),
     createdAt: text('created_at').notNull(),
@@ -238,10 +277,10 @@ export type FiscalCafRow = typeof fiscalCafs.$inferSelect;
 export type NewFiscalCafRow = typeof fiscalCafs.$inferInsert;
 
 // ============================================================================
-// WEBHOOK OUTBOX (ENG-070 — public events foundation, 5th outbox per
+// WEBHOOK OUTBOX (public events foundation, 5th outbox per
 // ADR-0003). The operation-journal projector + the fiscal worker
 // emit rows here when a public event is published. The HTTP delivery
-// worker that drains them lands in ENG-070b.
+// worker that drains them lands in .
 // ============================================================================
 
 export const webhookOutboxStatusEnum = [
@@ -263,7 +302,7 @@ export const webhookOutbox = sqliteTable(
       .references(() => tenants.id),
     /** Public event type from `services/events/manifest.PUBLIC_EVENT_TYPES`. */
     eventType: text('event_type').notNull(),
-    /** Schema version of the payload — ENG-070 v1 ships version 1. */
+    /** Schema version of the payload —  v1 ships version 1. */
     eventVersion: integer('event_version').notNull().default(1),
     /**
      * Soft-FK to the `operation_events` row that triggered this
@@ -272,18 +311,13 @@ export const webhookOutbox = sqliteTable(
      * operation_id (the accept happens out-of-band of the original
      * sale's command envelope).
      */
-    operationEventId: text('operation_event_id').references(
-      () => operationEvents.id,
-      { onDelete: 'set null' }
-    ),
+    operationEventId: text('operation_event_id').references(() => operationEvents.id, {
+      onDelete: 'set null',
+    }),
     /** Public-contract payload (validated by the manifest's Zod schema before insert). */
-    payload: text('payload', { mode: 'json' })
-      .$type<Record<string, unknown>>()
-      .notNull(),
+    payload: text('payload', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
     payloadVersion: integer('payload_version').notNull().default(1),
-    status: text('status', { enum: webhookOutboxStatusEnum })
-      .notNull()
-      .default('queued'),
+    status: text('status', { enum: webhookOutboxStatusEnum }).notNull().default('queued'),
     attempts: integer('attempts').notNull().default(0),
     nextRetryAt: text('next_retry_at'),
     /** Normalized error written by the kernel on `fail`. */
@@ -292,7 +326,7 @@ export const webhookOutbox = sqliteTable(
     claimToken: text('claim_token'),
     lockedAt: text('locked_at'),
     /**
-     * Envelope-keyed idempotency. Mirrors ENG-067b's
+     * Envelope-keyed idempotency. Mirrors 's
      * `hardware_outbox.idempotency_key` shape: a duplicate enqueue
      * with the same key collapses to one row via the partial unique
      * idx; rows with NULL stay independent (admin-triggered replays).
@@ -334,11 +368,11 @@ export type WebhookOutboxRow = typeof webhookOutbox.$inferSelect;
 export type NewWebhookOutboxRow = typeof webhookOutbox.$inferInsert;
 
 // ============================================================================
-// ENG-089 — customer ledger (Phase 5 extension promoted to active backlog).
+// customer ledger (extension promoted to active backlog).
 //
 // Captures the running receivable balance for a customer as signed
 // deltas. `sale` rows credit the balance when a sale closes with the
-// `credit` payment method (ENG-090); `payment` rows debit it when the
+// `credit` payment method (); `payment` rows debit it when the
 // customer abona; `adjustment` covers manual reconciliations.
 // Current balance = SUM(amount) WHERE customer_id = X (no denorm column
 // to avoid dual-write drift).
@@ -351,8 +385,12 @@ export const customerLedgerEntries = sqliteTable(
   'customer_ledger_entries',
   {
     id: text('id').primaryKey(),
-    tenantId: text('tenant_id').notNull().references(() => tenants.id),
-    customerId: text('customer_id').notNull().references(() => customers.id),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
     occurredAt: text('occurred_at').notNull().default(sqliteNow),
     kind: text('kind', { enum: customerLedgerKindEnum }).notNull(),
     amount: real('amount').notNull(),
@@ -373,7 +411,10 @@ export const customerLedgerEntries = sqliteTable(
 
 export const customerLedgerEntriesRelations = relations(customerLedgerEntries, ({ one }) => ({
   tenant: one(tenants, { fields: [customerLedgerEntries.tenantId], references: [tenants.id] }),
-  customer: one(customers, { fields: [customerLedgerEntries.customerId], references: [customers.id] }),
+  customer: one(customers, {
+    fields: [customerLedgerEntries.customerId],
+    references: [customers.id],
+  }),
   sale: one(sales, { fields: [customerLedgerEntries.referenceSaleId], references: [sales.id] }),
 }));
 
@@ -381,7 +422,7 @@ export type CustomerLedgerEntryRow = typeof customerLedgerEntries.$inferSelect;
 export type NewCustomerLedgerEntryRow = typeof customerLedgerEntries.$inferInsert;
 
 // ============================================================================
-// ENG-091 — delivery orders (Phase 5 extension promoted to active backlog).
+// delivery orders (extension promoted to active backlog).
 //
 // Per-site delivery queue. Status flows linearly accepted → preparing →
 // dispatched → delivered, with cancelled reachable from any state.
@@ -402,8 +443,12 @@ export const deliveryOrders = sqliteTable(
   'delivery_orders',
   {
     id: text('id').primaryKey(),
-    tenantId: text('tenant_id').notNull().references(() => tenants.id),
-    siteId: text('site_id').notNull().references(() => sites.id),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
     customerId: text('customer_id').references(() => customers.id),
     customerName: text('customer_name').notNull(),
     customerPhone: text('customer_phone'),
@@ -423,11 +468,7 @@ export const deliveryOrders = sqliteTable(
     updatedAt: text('updated_at').notNull().default(sqliteNow),
   },
   table => [
-    index('idx_delivery_orders_tenant_site_status').on(
-      table.tenantId,
-      table.siteId,
-      table.status
-    ),
+    index('idx_delivery_orders_tenant_site_status').on(table.tenantId, table.siteId, table.status),
     index('idx_delivery_orders_tenant_accepted').on(table.tenantId, table.acceptedAt),
   ]
 );
@@ -443,7 +484,7 @@ export type DeliveryOrderRow = typeof deliveryOrders.$inferSelect;
 export type NewDeliveryOrderRow = typeof deliveryOrders.$inferInsert;
 
 // ============================================================================
-// ENG-092 — whats-new entries + acknowledgements.
+// whats-new entries + acknowledgements.
 //
 // Per-release announcement records. AuthProvider checks for unread
 // entries against the current user on login; the Overlay primitive
@@ -463,22 +504,22 @@ export const whatsNewEntries = sqliteTable(
     publishedAt: text('published_at').notNull().default(sqliteNow),
     createdAt: text('created_at').notNull().default(sqliteNow),
   },
-  table => [
-    index('idx_whats_new_entries_tenant_published').on(table.tenantId, table.publishedAt),
-  ]
+  table => [index('idx_whats_new_entries_tenant_published').on(table.tenantId, table.publishedAt)]
 );
 
 export const whatsNewAcks = sqliteTable(
   'whats_new_acks',
   {
     id: text('id').primaryKey(),
-    entryId: text('entry_id').notNull().references(() => whatsNewEntries.id, { onDelete: 'cascade' }),
-    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    entryId: text('entry_id')
+      .notNull()
+      .references(() => whatsNewEntries.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
     acknowledgedAt: text('acknowledged_at').notNull().default(sqliteNow),
   },
-  table => [
-    uniqueIndex('idx_whats_new_acks_unique').on(table.entryId, table.userId),
-  ]
+  table => [uniqueIndex('idx_whats_new_acks_unique').on(table.entryId, table.userId)]
 );
 
 export type WhatsNewEntryRow = typeof whatsNewEntries.$inferSelect;

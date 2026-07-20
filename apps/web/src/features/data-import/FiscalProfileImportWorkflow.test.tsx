@@ -119,7 +119,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 
 vi.mock('@/services/export/exportService', () => ({ exportToCSV: mocks.exportToCSV }));
 
-describe('ENG-123f FiscalProfileImportWorkflow', () => {
+describe(' FiscalProfileImportWorkflow', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     for (const invalidate of [

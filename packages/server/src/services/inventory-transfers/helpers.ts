@@ -1,7 +1,7 @@
 /**
  * Inventory-transfer shared helpers.
  *
- * ENG-178 — function bodies extracted verbatim from the former flat
+ * function bodies extracted verbatim from the former flat
  * `services/inventory-transfers.ts` during the megafile decomposition.
  * The helpers are exported from this leaf only so the create / void / receive
  * orchestrators can share them; they receive the active `tx` so transaction
@@ -73,11 +73,7 @@ export function seedMissingBalanceRow(args: {
       updatedAt: args.now,
     })
     .onConflictDoNothing({
-      target: [
-        inventoryBalances.tenantId,
-        inventoryBalances.siteId,
-        inventoryBalances.productId,
-      ],
+      target: [inventoryBalances.tenantId, inventoryBalances.siteId, inventoryBalances.productId],
     })
     .run();
 }

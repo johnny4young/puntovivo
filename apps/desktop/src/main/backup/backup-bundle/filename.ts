@@ -1,4 +1,4 @@
-// ENG-066 — canonical backup filename builder (ENG-178 slice 31).
+// canonical backup filename builder ( slice 31).
 
 /**
  * Build the canonical backup filename. Includes the tenant slug

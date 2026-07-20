@@ -1,5 +1,5 @@
 /**
- * ENG-166 — pins `.strict()` on the auth-critical Zod schemas. The audit
+ * pins `.strict()` on the auth-critical Zod schemas. The audit
  * found that every `z.object` in the schemas folder was running under
  * the default `strip` mode, silently dropping unrecognised keys. Adding
  * `.strict()` to the auth + users + sales-mutation + payments-mutation
@@ -30,7 +30,11 @@ import {
   paymentMethodBreakdownInput,
 } from '../trpc/schemas/payments.js';
 
-function expectExtraKeyRejected<T>(schema: { parse: (v: T) => unknown }, valid: T, extra: object): void {
+function expectExtraKeyRejected<T>(
+  schema: { parse: (v: T) => unknown },
+  valid: T,
+  extra: object
+): void {
   const polluted = { ...valid, ...extra } as T;
   expect(() => schema.parse(polluted)).toThrow();
 }
@@ -51,11 +55,7 @@ describe('sales schemas reject extra keys', () => {
   });
 
   it('salePaymentInput', () => {
-    expectExtraKeyRejected(
-      salePaymentInput,
-      { method: 'cash', amount: 100 },
-      { hijack: 'value' }
-    );
+    expectExtraKeyRejected(salePaymentInput, { method: 'cash', amount: 100 }, { hijack: 'value' });
   });
 
   it('updateSaleInput', () => {
@@ -79,11 +79,7 @@ describe('sales schemas reject extra keys', () => {
   });
 
   it('changeSaleTableInput', () => {
-    expectExtraKeyRejected(
-      changeSaleTableInput,
-      { saleId: 'x', tableId: null },
-      { extra: 1 }
-    );
+    expectExtraKeyRejected(changeSaleTableInput, { saleId: 'x', tableId: null }, { extra: 1 });
   });
 
   it('splitDraftInput', () => {
@@ -135,11 +131,7 @@ describe('payments schemas reject extra keys', () => {
   });
 
   it('markPaymentOutboxSettledInput', () => {
-    expectExtraKeyRejected(
-      markPaymentOutboxSettledInput,
-      { outboxId: 'x' },
-      { extra: 1 }
-    );
+    expectExtraKeyRejected(markPaymentOutboxSettledInput, { outboxId: 'x' }, { extra: 1 });
   });
 
   it('paymentMethodBreakdownInput', () => {

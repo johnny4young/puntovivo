@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { resolveBackupProtectionStatus } from '../backup-protection.ts';
 
-describe('resolveBackupProtectionStatus (ENG-129e)', () => {
+describe('resolveBackupProtectionStatus', () => {
   it('reports an unavailable state before encryption preparation completes', () => {
     assert.deepEqual(
       resolveBackupProtectionStatus({

@@ -1,5 +1,5 @@
 /**
- * ENG-198 — DayCloseSummaryModal render contract.
+ * DayCloseSummaryModal render contract.
  *
  * The payload arrives pre-gated from the server, so the component contract
  * is purely presentational: render what the payload carries, hide owner-only
@@ -73,7 +73,7 @@ const cashierSummary = {
   })),
 };
 
-describe('DayCloseSummaryModal (ENG-198)', () => {
+describe('DayCloseSummaryModal', () => {
   beforeEach(async () => {
     mockQueryState = { data: adminSummary, isPending: false, isError: false };
     await i18n.changeLanguage('en');
@@ -215,7 +215,7 @@ describe('DayCloseSummaryModal (ENG-198)', () => {
   });
 });
 
-describe('day pulse share (ENG-205)', () => {
+describe('day pulse share', () => {
   it('links the WhatsApp share to the aggregate pulse text', () => {
     mockQueryState = { data: adminSummary, isPending: false, isError: false };
     render(<DayCloseSummaryModal sessionId="cs-1" onClose={vi.fn()} />);

@@ -1,5 +1,5 @@
 /**
- * ENG-103 — Server export envelope.
+ * Server export envelope.
  *
  * Every server procedure that returns a downloadable payload speaks the
  * same shape: `{ data, filename, mimeType }`. The renderer always wraps
@@ -19,10 +19,10 @@
  * base64-encoded server-side and decoded client-side, costing ~33% of
  * payload bloat for every download — wasteful when the client already
  * builds the binary today (xlsx via `exceljs`, pdf via `jspdf`, zip via
- * `jszip`). When a future ticket needs server-built binaries, route the
+ * `jszip`). When a future change needs server-built binaries, route the
  * download through a Fastify REST endpoint with explicit
  * `Content-Disposition` + `Content-Type` headers instead of widening
- * this type. `ENG-124` (payment settlement v2) is the first plausible
+ * this type.  (payment settlement v2) is the first plausible
  * caller — its provider statements may need server-side parsing into a
  * branded format we never want the client to re-encode.
  *
@@ -105,10 +105,7 @@ export function buildFiscalXmlFilename(args: {
  * timestamp is the server's current ISO timestamp collapsed to a
  * filesystem-safe shape.
  */
-export function buildDiagnosticZipFilename(args: {
-  tenantSlug: string;
-  now?: Date;
-}): string {
+export function buildDiagnosticZipFilename(args: { tenantSlug: string; now?: Date }): string {
   const tenantSlug = args.tenantSlug.trim().toLowerCase() || 'tenant';
   const sanitizedSlug = tenantSlug
     .normalize('NFD')
@@ -132,5 +129,4 @@ export function buildDiagnosticZipFilename(args: {
  * because the Chilean DTE10 XML preamble pins that encoding.
  */
 export const FISCAL_XML_MIME_UTF8 = 'application/xml;charset=utf-8' as const;
-export const FISCAL_XML_MIME_ISO_8859_1 =
-  'application/xml;charset=iso-8859-1' as const;
+export const FISCAL_XML_MIME_ISO_8859_1 = 'application/xml;charset=iso-8859-1' as const;

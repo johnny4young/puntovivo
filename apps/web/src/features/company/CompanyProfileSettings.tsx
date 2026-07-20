@@ -53,7 +53,7 @@ function errorProp(message: string | undefined): { error?: string } {
   return message ? { error: message } : {};
 }
 
-/** ENG-178 — Shared company profile form and adjacent general settings. */
+/** Shared company profile form and adjacent general settings. */
 export function CompanyProfileSettings({
   company,
   canEdit,

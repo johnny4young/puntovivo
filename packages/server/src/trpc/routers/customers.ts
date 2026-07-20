@@ -363,7 +363,7 @@ export const customersRouter = router({
       updatedAt: now,
       syncStatus: 'pending',
       syncVersion: (existing.syncVersion ?? 0) + 1,
-      // ENG-177a — optimistic-concurrency bump (see the versioned WHERE below).
+      // optimistic-concurrency bump (see the versioned WHERE below).
       version: input.version + 1,
     };
     const [
@@ -438,12 +438,12 @@ export const customersRouter = router({
       updateData.commercialActivityId = commercialActivityCode;
     }
     if (updates.notes !== undefined) updateData.notes = updates.notes;
-    // ENG-089 — `creditLimit` can be set to 0 to remove the cupo so an
+    // `creditLimit` can be set to 0 to remove the cupo so an
     // explicit `undefined` is the only way to skip the update.
     if (updates.creditLimit !== undefined) {
       const nextLimit = roundMoney(updates.creditLimit);
       updateData.creditLimit = nextLimit;
-      // ENG-176b — keep credit_limit_currency_code in lockstep with
+      // keep credit_limit_currency_code in lockstep with
       // creditLimit. When the limit drops to 0 ("sin cupo") we clear
       // the currency to avoid stale metadata; when it rises from 0
       // we stamp the tenant default.
@@ -452,7 +452,7 @@ export const customersRouter = router({
     }
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    // ENG-007 closure — credit-limit changes must leave an audit trail.
+    // closure — credit-limit changes must leave an audit trail.
     // Only emit when the field is explicitly in the payload AND the new
     // value differs from the prior row state; an update that touches only
     // name / phone / address never writes a credit-policy audit row.
@@ -463,7 +463,7 @@ export const customersRouter = router({
       updates.creditLimit !== undefined && nextCreditLimit !== priorCreditLimit;
 
     await ctx.db.transaction(tx => {
-      // ENG-177a — optimistic-concurrency guard. The version predicate makes
+      // optimistic-concurrency guard. The version predicate makes
       // the UPDATE a no-op when another tab already saved; the throw rolls
       // back the whole transaction so no audit row is written on a stale edit.
       const versionedUpdate = tx
@@ -504,7 +504,7 @@ export const customersRouter = router({
       data: { id, ...updateData },
     });
 
-    // ENG-089 collateral — mirror the tenant-scoped pattern used by
+    // collateral — mirror the tenant-scoped pattern used by
     // `getById` / the pre-write guard. The nanoid collision risk is
     // vanishingly small but the multi-tenant invariant
     // calls for every query to scope by tenantId; the re-fetch is

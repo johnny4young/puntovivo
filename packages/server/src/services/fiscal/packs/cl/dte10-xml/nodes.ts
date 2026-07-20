@@ -1,5 +1,5 @@
 /**
- * DTE 1.0 node builders (ENG-036b): Detalle item, Totales, Referencia,
+ * DTE 1.0 node builders (): Detalle item, Totales, Referencia,
  * TED, and CAF <DA> extraction.
  *
  * @module services/fiscal/packs/cl/dte10-xml/nodes
@@ -47,9 +47,9 @@ export function buildTotalesNode(totals: ReturnType<typeof computeDteTotals>): T
 
 export function buildReferenciaNode(input: FiscalAdapterIssueInput): ReferenciaNode {
   // SII codes:
-  //   1 = Anula documento de referencia (void).
-  //   2 = Corrige texto (typo correction).
-  //   3 = Corrige montos (return — adjustment of amounts).
+  // 1 = Anula documento de referencia (void).
+  // 2 = Corrige texto (typo correction).
+  // 3 = Corrige montos (return — adjustment of amounts).
   const codRef: 1 | 2 | 3 = input.source === 'void' ? 1 : 3;
 
   // Extract original folio from the cufe shape `sii-cl:<RUT>:<TipoDTE>:<F>`
@@ -92,7 +92,7 @@ export function buildTedNode(args: TedDdInput): TedNode {
     },
     FRMT: {
       '@_algoritmo': 'SHA1withRSA',
-      // ENG-036c lifts this placeholder with the real RSA signature
+      // lifts this placeholder with the real RSA signature
       // computed over DD's canonical form.
       '#text': '',
     },

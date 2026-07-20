@@ -1,5 +1,5 @@
 /**
- * ENG-069 — Renderer-side mirror of the server's surfaces manifest.
+ * Renderer-side mirror of the server's surfaces manifest.
  *
  * The server lives in `packages/server/src/services/surfaces/manifest.ts`
  * and is the single source of truth. This file ships a STRUCTURAL
@@ -10,7 +10,7 @@
  * Drift protection: when a surface is added or removed, the server
  * router's `surfaces.list` response shape flows through tRPC types
  * into the renderer; the editor flags any consumer that references
- * a stale id. Smoke tests in Phase 4 also double-read the server's
+ * a stale id. Smoke tests in also double-read the server's
  * canonical surface list to confirm parity.
  */
 
@@ -36,12 +36,9 @@ export interface ClientSurfaceDescriptor {
 
 /**
  * Mirror of the server `SURFACES_MANIFEST`. Stays in sync with the
- * server file by review + parity test in Phase 1.
+ * server file by review + parity test in .
  */
-export const CLIENT_SURFACES_MANIFEST: Record<
-  ClientSurfaceId,
-  ClientSurfaceDescriptor
-> = {
+export const CLIENT_SURFACES_MANIFEST: Record<ClientSurfaceId, ClientSurfaceDescriptor> = {
   'pos-desktop': {
     id: 'pos-desktop',
     moduleId: null,
@@ -54,7 +51,7 @@ export const CLIENT_SURFACES_MANIFEST: Record<
     defaultRoute: '/touch',
     i18nKey: 'posTouch',
   },
-  'kds': {
+  kds: {
     id: 'kds',
     moduleId: 'kds',
     defaultRoute: '/kds',

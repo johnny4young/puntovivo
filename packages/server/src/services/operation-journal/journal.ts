@@ -1,7 +1,7 @@
 /**
- * ENG-053 — Operation journal service.
+ * Operation journal service.
  *
- * The journal closes the loop opened by ENG-052: every critical
+ * The journal closes the loop opened by : every critical
  * mutation that flows through `commandEnvelope` produces a row in
  * `operation_events`, possibly with one or more `operation_effects`
  * (audit log emissions, sync queue pushes, fiscal outbox enqueues,
@@ -10,39 +10,39 @@
  *
  * Lifecycle for a single click:
  *
- *   1. `commandEnvelope` middleware reserves the idempotency key.
- *   2. `recordOperationStart` writes the `operation_events` row
- *      with `status='started'`. Idempotent on `(tenant_id,
- *      operation_id)` — replay-cached calls reuse the existing row.
- *   3. The procedure runs inside its own DB transaction. Audit logs
- *      written during this transaction reference `operation_id`
- *      directly via `audit_logs.operation_id`.
- *   4. On success: services emit `recordEffect` for each meaningful
- *      side effect (one row per audit log write, one per sync queue
- *      emission, etc.). The middleware then calls
- *      `markOperationCompleted(eventId, 'succeeded')`.
- *   5. On primary failure: the middleware catches, calls
- *      `recordError` with the typed code, then
- *      `markOperationCompleted(eventId, 'failed')`. The procedure
- *      rolled back its transaction, so no effects exist.
- *   6. On post-commit failure (e.g. a future `fiscal_outbox` push
- *      fails AFTER the sale committed): the post-commit hook calls
- *      `recordError` and `markOperationCompleted(eventId,
- *      'partial')`. The original work stays intact; the operator
- *      retries the missing fan-out from the Operations Center.
+ * 1. `commandEnvelope` middleware reserves the idempotency key.
+ * 2. `recordOperationStart` writes the `operation_events` row
+ * with `status='started'`. Idempotent on `(tenant_id,
+ * operation_id)` — replay-cached calls reuse the existing row.
+ * 3. The procedure runs inside its own DB transaction. Audit logs
+ * written during this transaction reference `operation_id`
+ * directly via `audit_logs.operation_id`.
+ * 4. On success: services emit `recordEffect` for each meaningful
+ * side effect (one row per audit log write, one per sync queue
+ * emission, etc.). The middleware then calls
+ * `markOperationCompleted(eventId, 'succeeded')`.
+ * 5. On primary failure: the middleware catches, calls
+ * `recordError` with the typed code, then
+ * `markOperationCompleted(eventId, 'failed')`. The procedure
+ * rolled back its transaction, so no effects exist.
+ * 6. On post-commit failure (e.g. a future `fiscal_outbox` push
+ * fails AFTER the sale committed): the post-commit hook calls
+ * `recordError` and `markOperationCompleted(eventId,
+ * 'partial')`. The original work stays intact; the operator
+ * retries the missing fan-out from the Operations Center.
  *
  * Design constraints documented per ADR-0001 / ADR-0002 / ADR-0003:
  *
  * - All writes are tenant-scoped via the rows themselves; query
- *   helpers require a `tenantId` argument explicitly so cross-tenant
- *   lookups are physically impossible at this layer.
+ * helpers require a `tenantId` argument explicitly so cross-tenant
+ * lookups are physically impossible at this layer.
  * - `recordEffect` and `recordError` are best-effort POST-procedure
- *   helpers — the journal MUST NEVER cause a rollback of the
- *   primary work it's recording. Callers should wrap them in
- *   try/catch where the catch is "log and continue".
+ * helpers — the journal MUST NEVER cause a rollback of the
+ * primary work it's recording. Callers should wrap them in
+ * try/catch where the catch is "log and continue".
  * - The service has zero tRPC surface — it's a backend primitive.
- *   ENG-065 (Operations Center) exposes `getOperationTrail` via a
- *   read-only procedure when the time comes.
+ * (Operations Center) exposes `getOperationTrail` via a
+ * read-only procedure when the time comes.
  *
  * @module services/operation-journal
  */
@@ -220,9 +220,9 @@ export async function recordEffect(
  * places:
  *
  * - From `commandEnvelope` middleware when the procedure throws
- *   (primary failure, with rollback).
+ * (primary failure, with rollback).
  * - From a post-commit fan-out helper when a downstream step fails
- *   AFTER the primary committed (partial completion, no rollback).
+ * AFTER the primary committed (partial completion, no rollback).
  *
  * The caller distinguishes the two by also calling
  * `markOperationCompleted` with `'failed'` (primary failure) vs
@@ -287,7 +287,7 @@ export async function markOperationCompleted(
     .where(eq(operationEvents.id, eventId))
     .run();
 
-  // ENG-070 — Public events projection. Best-effort hook: only fires
+  // Public events projection. Best-effort hook: only fires
   // on succeeded transitions, only when the tenant has the
   // `events-api` module ON, only enqueues when the projector returns
   // a valid event. Never throws past the hook — a webhook projection
@@ -302,7 +302,7 @@ export async function markOperationCompleted(
 }
 
 /**
- * ENG-070 — Internal helper: read the freshly-completed
+ * Internal helper: read the freshly-completed
  * operation_events row, project it to a public event, and enqueue
  * into webhook_outbox if the tenant has events-api active.
  *
@@ -311,15 +311,8 @@ export async function markOperationCompleted(
  * journal module so the import cycle stays shallow (events imports
  * journal types; journal imports events helpers).
  */
-async function projectAndEnqueueWebhook(
-  db: DatabaseInstance,
-  eventId: string
-): Promise<void> {
-  const op = await db
-    .select()
-    .from(operationEvents)
-    .where(eq(operationEvents.id, eventId))
-    .get();
+async function projectAndEnqueueWebhook(db: DatabaseInstance, eventId: string): Promise<void> {
+  const op = await db.select().from(operationEvents).where(eq(operationEvents.id, eventId)).get();
   if (!op) {
     return;
   }

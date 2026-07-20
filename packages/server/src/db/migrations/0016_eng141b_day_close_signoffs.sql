@@ -16,7 +16,7 @@ CREATE TABLE `day_close_signoffs` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `idx_day_close_signoffs_tenant_date` ON `day_close_signoffs` (`tenant_id`,`business_date`);--> statement-breakpoint
 CREATE INDEX `idx_day_close_signoffs_tenant_signed_at` ON `day_close_signoffs` (`tenant_id`,`signed_at`);--> statement-breakpoint
--- ENG-141b: Drizzle cannot express immutable-table triggers. Keep both
+-- : Drizzle cannot express immutable-table triggers. Keep both
 -- guards idempotent so databases that adopted the shape manually remain safe.
 CREATE TRIGGER IF NOT EXISTS `trg_day_close_signoffs_no_update`
 BEFORE UPDATE ON `day_close_signoffs`

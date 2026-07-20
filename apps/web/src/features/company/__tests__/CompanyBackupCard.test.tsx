@@ -104,7 +104,7 @@ describe('CompanyBackupCard', () => {
     expect(restoreDatabaseBackup).toHaveBeenCalledTimes(1);
   });
 
-  describe('backup protection attestation (ENG-129e)', () => {
+  describe('backup protection attestation', () => {
     function installElectronStub(
       getBackupProtectionStatus: NonNullable<
         NonNullable<typeof window.electron>['getBackupProtectionStatus']
@@ -220,8 +220,8 @@ describe('CompanyBackupCard', () => {
     });
   });
 
-  // ENG-167b — cross-device key prompt + admin key reveal.
-  describe('cross-device restore key flow (ENG-167b)', () => {
+  // cross-device key prompt + admin key reveal.
+  describe('cross-device restore key flow', () => {
     const FOREIGN_KEY = 'c'.repeat(64);
 
     function buildElectronStub(overrides: Partial<NonNullable<typeof window.electron>> = {}) {

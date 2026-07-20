@@ -23,13 +23,13 @@ const seedLog = createModuleLogger('seed');
  * `process.stdout.write` (NOT routed through pino) on purpose:
  *
  * 1. The plaintext password must be visible to the operator on first
- *    install so they can log in and rotate it. If it flowed through
- *    the structured stream, the redact policy would mask it to
- *    `[Redacted]` and the operator would have to query the DB to find
- *    the value — worse UX, not better security.
+ * install so they can log in and rotate it. If it flowed through
+ * the structured stream, the redact policy would mask it to
+ * `[Redacted]` and the operator would have to query the DB to find
+ * the value — worse UX, not better security.
  * 2. Keeping the banner on stdout but outside the log stream means any
- *    log aggregator or JSON-ingesting tool skips it cleanly; the
- *    plaintext never leaks to shared observability infrastructure.
+ * log aggregator or JSON-ingesting tool skips it cleanly; the
+ * plaintext never leaks to shared observability infrastructure.
  *
  * Treat this helper as the ONLY sanctioned path to print a plaintext
  * credential from server code. All other credential fields get
@@ -152,18 +152,14 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
   const now = new Date().toISOString();
   let seededAnything = false;
 
-  let tenant = await db
-    .select()
-    .from(tenants)
-    .where(eq(tenants.slug, DEFAULT_TENANT.slug))
-    .get();
+  let tenant = await db.select().from(tenants).where(eq(tenants.slug, DEFAULT_TENANT.slug)).get();
 
   if (!tenant) {
     tenant = {
       id: nanoid(),
       name: DEFAULT_TENANT.name,
       slug: DEFAULT_TENANT.slug,
-      // ENG-183 — a fresh tenant is a RETAIL tenant: write the explicit
+      // a fresh tenant is a RETAIL tenant: write the explicit
       // Ring-1 retail profile so it boots showing only the sellable retail
       // surfaces. Restaurant / KDS / customer-display / mobile-waiter /
       // delivery / public-API / AI modules stay OFF until an admin enables
@@ -172,7 +168,7 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
       // Spread into a fresh object so the seeded tenant never aliases the
       // shared module-level constant (defensive against in-place mutation).
       settings: { modules: { ...RING1_RETAIL_PROFILE } },
-      // ENG-176b — explicit default so the type-required column lands
+      // explicit default so the type-required column lands
       // with a known value during seed; matches the schema-level
       // DEFAULT used by migration 0037 for legacy backfill.
       defaultCurrencyCode: 'COP',
@@ -462,16 +458,22 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
     // `printCredentialsBanner` above — the plaintext password must be
     // readable by the operator on first install, and pino's redact
     // would mask it if we routed through the module logger.
-    printCredentialsBanner('[Database] ═══════════════════════════════════════════════════════════');
+    printCredentialsBanner(
+      '[Database] ═══════════════════════════════════════════════════════════'
+    );
     printCredentialsBanner(
       seededAdminPassword.isFixed
         ? '[Database] Development admin credentials are ready'
         : '[Database] ⚠️  IMPORTANT: Save these admin credentials securely!'
     );
-    printCredentialsBanner('[Database] ═══════════════════════════════════════════════════════════');
+    printCredentialsBanner(
+      '[Database] ═══════════════════════════════════════════════════════════'
+    );
     printCredentialsBanner(`[Database] Email:    ${DEFAULT_ADMIN.email}`);
     printCredentialsBanner(`[Database] Password: ${seededAdminPassword.value}`);
-    printCredentialsBanner('[Database] ═══════════════════════════════════════════════════════════');
+    printCredentialsBanner(
+      '[Database] ═══════════════════════════════════════════════════════════'
+    );
     if (seededAdminPassword.isFixed) {
       printCredentialsBanner(
         `[Database] Non-production mode uses a fixed password. Override it with ${DEVELOPMENT_ADMIN_PASSWORD_ENV}.`
@@ -480,6 +482,8 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
       printCredentialsBanner('[Database] ⚠️  This password will NOT be shown again!');
       printCredentialsBanner('[Database] ⚠️  Please change it immediately after first login.');
     }
-    printCredentialsBanner('[Database] ═══════════════════════════════════════════════════════════');
+    printCredentialsBanner(
+      '[Database] ═══════════════════════════════════════════════════════════'
+    );
   }
 }

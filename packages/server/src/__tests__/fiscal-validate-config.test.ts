@@ -1,21 +1,21 @@
 /**
- * ENG-034 + ENG-035a + ENG-036a — Tests de `validateConfig` por pack.
+ * +  +  — Tests de `validateConfig` por pack.
  *
  * El probe de pre-flight es lo que la futura card de readiness
  * fiscal va a consumir para pintar el badge verde/rojo por país.
  * Cada pack reporta sus propios issue codes:
  *
  * - ColombiaMockAdapter → ok=true, sin issues (mock no tiene config
- *   real; ENG-021 lo reemplaza con probe de NIT / certificado /
- *   resolución / ambiente).
- * - MexicoCFDIAdapter (ENG-035a) → ok=false con MISSING_RFC /
- *   MISSING_RESOLUTION / MISSING_CERTIFICATE cuando los settings
- *   están vacíos; ok=true cuando RFC válido + régimen válido +
- *   lugar de expedición de 5 dígitos.
- * - ChileSIIAdapter (ENG-036a) → ok=false con MISSING_RUT /
- *   MISSING_RESOLUTION / MISSING_CERTIFICATE cuando los settings
- *   están vacíos; ok=true cuando RUT válido + giro CIIU.cl +
- *   casa matriz + comuna SUBDERE válida.
+ * real;  lo reemplaza con probe de NIT / certificado /
+ * resolución / ambiente).
+ * - MexicoCFDIAdapter () → ok=false con MISSING_RFC /
+ * MISSING_RESOLUTION / MISSING_CERTIFICATE cuando los settings
+ * están vacíos; ok=true cuando RFC válido + régimen válido +
+ * lugar de expedición de 5 dígitos.
+ * - ChileSIIAdapter () → ok=false con MISSING_RUT /
+ * MISSING_RESOLUTION / MISSING_CERTIFICATE cuando los settings
+ * están vacíos; ok=true cuando RUT válido + giro CIIU.cl +
+ * casa matriz + comuna SUBDERE válida.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -33,17 +33,16 @@ const baseConfig = (
   settings,
 });
 
-describe('validateConfig (ENG-034 + ENG-035a)', () => {
+describe('validateConfig ( + )', () => {
   it('ColombiaMockAdapter reporta ok=true sin issues', async () => {
     const adapter = new ColombiaMockAdapter();
     const result = await adapter.validateConfig(baseConfig('CO'));
     expect(result.ok).toBe(true);
     expect(result.issues).toEqual([]);
   });
-
 });
 
-describe('ChileSIIAdapter.validateConfig (ENG-036a)', () => {
+describe('ChileSIIAdapter.validateConfig', () => {
   it('settings vacíos → ok=false con MISSING_RUT + MISSING_RESOLUTION + MISSING_CERTIFICATE (×2)', async () => {
     const adapter = new ChileSIIAdapter();
     const result = await adapter.validateConfig(baseConfig('CL'));
@@ -120,9 +119,7 @@ describe('ChileSIIAdapter.validateConfig (ENG-036a)', () => {
       })
     );
     expect(result.ok).toBe(false);
-    const giroIssue = result.issues.find(
-      issue => issue.code === 'MISSING_RESOLUTION'
-    );
+    const giroIssue = result.issues.find(issue => issue.code === 'MISSING_RESOLUTION');
     expect(giroIssue).toBeDefined();
     expect(giroIssue?.field).toBe('fiscal.cl.giroCode');
   });
@@ -145,15 +142,13 @@ describe('ChileSIIAdapter.validateConfig (ENG-036a)', () => {
     );
     expect(result.ok).toBe(false);
     const comunaIssue = result.issues.find(
-      issue =>
-        issue.code === 'MISSING_CERTIFICATE' &&
-        issue.field === 'fiscal.cl.comunaCode'
+      issue => issue.code === 'MISSING_CERTIFICATE' && issue.field === 'fiscal.cl.comunaCode'
     );
     expect(comunaIssue).toBeDefined();
   });
 
-  it('issue() con settings vacíos tira FISCAL_PACK_NOT_AVAILABLE (ENG-036b shipped real emission)', async () => {
-    // ENG-036b lifted the unconditional stub: issue() now serializes
+  it('issue() con settings vacíos tira FISCAL_PACK_NOT_AVAILABLE ( shipped real emission)', async () => {
+    // lifted the unconditional stub: issue() now serializes
     // a real DTE 1.0 XML draft when settings + chileAllocation are
     // populated. With empty settings the adapter still surfaces
     // FISCAL_PACK_NOT_AVAILABLE so the orchestrator skips emission.
@@ -204,25 +199,23 @@ describe('ChileSIIAdapter.validateConfig (ENG-036a)', () => {
       caught = err;
     }
     expect(caught).toBeDefined();
-    const cause = (caught as {
-      cause?: { errorCode?: string; details?: { countryCode?: string } };
-    }).cause;
+    const cause = (
+      caught as {
+        cause?: { errorCode?: string; details?: { countryCode?: string } };
+      }
+    ).cause;
     expect(cause?.errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
     expect(cause?.details?.countryCode).toBe('CL');
   });
 });
 
-describe('MexicoCFDIAdapter.validateConfig (ENG-035a)', () => {
+describe('MexicoCFDIAdapter.validateConfig', () => {
   it('settings vacíos → ok=false con MISSING_RFC + MISSING_RESOLUTION + MISSING_CERTIFICATE', async () => {
     const adapter = new MexicoCFDIAdapter();
     const result = await adapter.validateConfig(baseConfig('MX'));
     expect(result.ok).toBe(false);
     const codes = result.issues.map(issue => issue.code).sort();
-    expect(codes).toEqual([
-      'MISSING_CERTIFICATE',
-      'MISSING_RESOLUTION',
-      'MISSING_RFC',
-    ]);
+    expect(codes).toEqual(['MISSING_CERTIFICATE', 'MISSING_RESOLUTION', 'MISSING_RFC']);
   });
 
   it('settings completos y válidos → ok=true sin issues', async () => {
@@ -283,9 +276,7 @@ describe('MexicoCFDIAdapter.validateConfig (ENG-035a)', () => {
       })
     );
     expect(result.ok).toBe(false);
-    const regimenIssue = result.issues.find(
-      issue => issue.code === 'MISSING_RESOLUTION'
-    );
+    const regimenIssue = result.issues.find(issue => issue.code === 'MISSING_RESOLUTION');
     expect(regimenIssue).toBeDefined();
     expect(regimenIssue?.field).toBe('fiscal.mx.regimenFiscalCode');
   });
@@ -306,14 +297,12 @@ describe('MexicoCFDIAdapter.validateConfig (ENG-035a)', () => {
       })
     );
     expect(result.ok).toBe(false);
-    const lugarIssue = result.issues.find(
-      issue => issue.code === 'MISSING_CERTIFICATE'
-    );
+    const lugarIssue = result.issues.find(issue => issue.code === 'MISSING_CERTIFICATE');
     expect(lugarIssue).toBeDefined();
     expect(lugarIssue?.field).toBe('fiscal.mx.lugarExpedicion');
   });
 
-  // ENG-035b promovió `issue()` de stub a emisión real. La cobertura
+  // promovió `issue()` de stub a emisión real. La cobertura
   // exhaustiva del happy path + edge cases vive en
   // `fiscal-mx-adapter.test.ts`. Aquí solo verificamos que cuando los
   // settings están incompletos (RFC ausente) el adapter levanta
@@ -366,9 +355,11 @@ describe('MexicoCFDIAdapter.validateConfig (ENG-035a)', () => {
       caught = err;
     }
     expect(caught).toBeDefined();
-    const cause = (caught as {
-      cause?: { errorCode?: string; details?: { missingSettings?: boolean } };
-    }).cause;
+    const cause = (
+      caught as {
+        cause?: { errorCode?: string; details?: { missingSettings?: boolean } };
+      }
+    ).cause;
     expect(cause?.errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
     expect(cause?.details?.missingSettings).toBe(true);
   });

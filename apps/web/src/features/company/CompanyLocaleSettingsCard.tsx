@@ -1,5 +1,5 @@
 /**
- * ENG-017 — admin Locale & currency card.
+ * admin Locale & currency card.
  *
  * Lets the admin pick the tenant's country, optionally override
  * currency / locale / timezone / firstDayOfWeek, and see a live
@@ -61,7 +61,7 @@ export function CompanyLocaleSettingsCard() {
     onError: onErrorToast(toast, t, {
       titleKey: 'localeSettings:toast.saveErrorTitle',
       fallbackKey: 'localeSettings:toast.saveErrorFallback',
-      // ENG-177a — refresh the resolved locale on a STALE_VERSION conflict so
+      // refresh the resolved locale on a STALE_VERSION conflict so
       // the next save round-trips the latest version.
       extra: (_description, error) => {
         if (extractServerErrorCode(error) === 'STALE_VERSION') {
@@ -76,16 +76,12 @@ export function CompanyLocaleSettingsCard() {
   const current = currentQuery.data;
 
   const effectiveCountryCode = pickedCountry ?? current?.countryCode ?? null;
-  const effectiveCurrencyOverride =
-    currencyOverride ?? current?.currencyOverride ?? '';
-  const effectiveLocaleOverride =
-    localeOverride ?? current?.localeOverride ?? '';
-  const effectiveTimezoneOverride =
-    timezoneOverride ?? current?.timezoneOverride ?? '';
+  const effectiveCurrencyOverride = currencyOverride ?? current?.currencyOverride ?? '';
+  const effectiveLocaleOverride = localeOverride ?? current?.localeOverride ?? '';
+  const effectiveTimezoneOverride = timezoneOverride ?? current?.timezoneOverride ?? '';
   const effectiveFirstDayOverride =
     firstDayOverride ??
-    (current?.firstDayOfWeekOverride === null ||
-    current?.firstDayOfWeekOverride === undefined
+    (current?.firstDayOfWeekOverride === null || current?.firstDayOfWeekOverride === undefined
       ? ''
       : String(current.firstDayOfWeekOverride));
   const countryRow = useMemo(
@@ -113,9 +109,7 @@ export function CompanyLocaleSettingsCard() {
     const currencyRow = currencies.find(c => c.code === currencyCode);
     return {
       locale:
-        effectiveLocaleOverride.length > 0
-          ? effectiveLocaleOverride
-          : countryRow.defaultLocale,
+        effectiveLocaleOverride.length > 0 ? effectiveLocaleOverride : countryRow.defaultLocale,
       currency: currencyCode,
       displayDecimals: currencyRow?.displayDecimals ?? 2,
       dateFormatShort: countryRow.dateFormatShort,
@@ -148,35 +142,24 @@ export function CompanyLocaleSettingsCard() {
   const handleSave = () => {
     if (!effectiveCountryCode) return;
     mutation.mutate({
-      // ENG-177a — round-trip the resolved row's version so a concurrent
+      // round-trip the resolved row's version so a concurrent
       // edit from another admin tab is rejected with STALE_VERSION. Undefined
       // on legacy/no-row clients; the server treats fallback 0 as virtual and
       // stores the first real write as version 1.
       version: current?.version,
       countryCode: effectiveCountryCode,
       localeOverride:
-        effectiveLocaleOverride.trim().length > 0
-          ? effectiveLocaleOverride.trim()
-          : null,
+        effectiveLocaleOverride.trim().length > 0 ? effectiveLocaleOverride.trim() : null,
       currencyOverride:
-        effectiveCurrencyOverride.trim().length > 0
-          ? effectiveCurrencyOverride.trim()
-          : null,
+        effectiveCurrencyOverride.trim().length > 0 ? effectiveCurrencyOverride.trim() : null,
       timezoneOverride:
-        effectiveTimezoneOverride.trim().length > 0
-          ? effectiveTimezoneOverride.trim()
-          : null,
+        effectiveTimezoneOverride.trim().length > 0 ? effectiveTimezoneOverride.trim() : null,
       firstDayOfWeekOverride:
-        effectiveFirstDayOverride === '0'
-          ? 0
-          : effectiveFirstDayOverride === '1'
-            ? 1
-            : null,
+        effectiveFirstDayOverride === '0' ? 0 : effectiveFirstDayOverride === '1' ? 1 : null,
     });
   };
 
-  const saveDisabled =
-    mutation.isPending || !effectiveCountryCode || currentQuery.isLoading;
+  const saveDisabled = mutation.isPending || !effectiveCountryCode || currentQuery.isLoading;
 
   return (
     <section className="card p-6 space-y-6" data-testid="company-locale-card">

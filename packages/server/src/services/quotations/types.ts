@@ -1,13 +1,12 @@
 /**
- * Quotation service — type surface (ENG-178 split).
+ * Quotation service — type surface ( split).
  *
- * Public input/result shapes; ENG-179b marks the explicit `| undefined`
+ * Public input/result shapes;  marks the explicit `| undefined`
  * on Zod-optional filter fields. Leaf module.
  *
  * @module services/quotations/types
  */
 import { type QuotationStatus } from '../../db/schema.js';
-
 
 export interface QuotationItemInput {
   productId: string;
@@ -96,7 +95,7 @@ export interface QuotationListEntry {
   createdBy: string;
 }
 
-// ENG-179b — explicit `| undefined` on Zod-optional filter fields.
+// explicit `| undefined` on Zod-optional filter fields.
 export interface ListQuotationsOptions {
   limit?: number | undefined;
   status?: QuotationStatus | undefined;

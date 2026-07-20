@@ -1,5 +1,5 @@
 /**
- * ENG-098 — input schemas for the `kds.*` router.
+ * input schemas for the `kds.*` router.
  *
  * Surface is intentionally tiny: a read for the board, a transition
  * to "Listo", and a recall affordance for the cook who misclicked.

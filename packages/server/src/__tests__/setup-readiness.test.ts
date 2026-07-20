@@ -1,18 +1,18 @@
 /**
- * ENG-104 — `setupReadiness.*` + `companies.acknowledgeSetup` tests.
+ * `setupReadiness.*` + `companies.acknowledgeSetup` tests.
  *
  * Pins the contract:
  *
- *   - Fresh tenant (no products, no fiscal profile) → blockers in
- *     `catalog` + `fiscal`; locale + sites depend on baseline seed.
- *   - Mature tenant (products + fiscal config) → score >= 80,
- *     `blockerCount = 0`.
- *   - Cross-tenant isolation: T1 cannot see T2's product / site
- *     counts.
- *   - Cashier rejected with FORBIDDEN.
- *   - `acknowledgeSetup` writes the ISO timestamp and is idempotent.
- *   - `acknowledgeSetup` is tenant-scoped — admin of T1 cannot
- *     affect T2's settings blob.
+ * - Fresh tenant (no products, no fiscal profile) → blockers in
+ * `catalog` + `fiscal`; locale + sites depend on baseline seed.
+ * - Mature tenant (products + fiscal config) → score >= 80,
+ * `blockerCount = 0`.
+ * - Cross-tenant isolation: T1 cannot see T2's product / site
+ * counts.
+ * - Cashier rejected with FORBIDDEN.
+ * - `acknowledgeSetup` writes the ISO timestamp and is idempotent.
+ * - `acknowledgeSetup` is tenant-scoped — admin of T1 cannot
+ * affect T2's settings blob.
  *
  * @module __tests__/setup-readiness.test
  */
@@ -54,7 +54,12 @@ function buildCtx(args: {
     req: {
       server: server.app,
       headers: {},
-      user: { userId: args.userId, email: `${args.userId}@example.com`, role, tenantId: args.tenantId },
+      user: {
+        userId: args.userId,
+        email: `${args.userId}@example.com`,
+        role,
+        tenantId: args.tenantId,
+      },
       jwtVerify: async () => {},
     } as unknown as Context['req'],
     res: {} as Context['res'],
@@ -109,30 +114,19 @@ async function clearReadinessFixtures() {
   await db.delete(products).where(eq(products.sku, `SKU-RDY-A`));
   await db.delete(products).where(eq(products.sku, `SKU-RDY-B`));
   // Reset acknowledged timestamp for the primary tenant.
-  await db
-    .update(tenants)
-    .set({ settings: {} })
-    .where(eq(tenants.id, tenantId));
+  await db.update(tenants).set({ settings: {} }).where(eq(tenants.id, tenantId));
 }
 
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const admin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!admin) throw new Error('Expected seeded admin');
   tenantId = admin.tenantId;
   userId = admin.id;
 
-  const allSites = await db
-    .select()
-    .from(sites)
-    .where(eq(sites.tenantId, tenantId))
-    .all();
+  const allSites = await db.select().from(sites).where(eq(sites.tenantId, tenantId)).all();
   if (allSites.length === 0) {
     throw new Error('Expected at least one seeded site for the active tenant');
   }
@@ -187,7 +181,7 @@ beforeEach(async () => {
   await clearReadinessFixtures();
 });
 
-describe('setupReadiness (ENG-104)', () => {
+describe('setupReadiness', () => {
   it('returns a stable 11-section shape for a fresh tenant', async () => {
     const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
     const result = await caller.setupReadiness.get();
@@ -231,9 +225,7 @@ describe('setupReadiness (ENG-104)', () => {
 
     const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
     const result = await caller.setupReadiness.get();
-    const ctas = Object.fromEntries(
-      result.sections.map(section => [section.id, section.cta])
-    );
+    const ctas = Object.fromEntries(result.sections.map(section => [section.id, section.cta]));
 
     expect(ctas.locale).toEqual({ route: '/company', tab: 'locale' });
     expect(ctas.sites).toEqual({ route: '/sites' });
@@ -314,9 +306,7 @@ describe('setupReadiness (ENG-104)', () => {
   });
 
   it('rejects cashier callers with FORBIDDEN', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx({ tenantId, userId, role: 'cashier' })
-    );
+    const caller = appRouter.createCaller(buildCtx({ tenantId, userId, role: 'cashier' }));
     try {
       await caller.setupReadiness.get();
       throw new Error('Expected FORBIDDEN');
@@ -350,7 +340,7 @@ describe('setupReadiness (ENG-104)', () => {
   });
 });
 
-describe('setupReadiness — Colombia profile + checkout (ENG-184)', () => {
+describe('setupReadiness — Colombia profile + checkout', () => {
   let coTenantId: string;
   let coAdminId: string;
   let coCashierId: string;
@@ -358,10 +348,7 @@ describe('setupReadiness — Colombia profile + checkout (ENG-184)', () => {
 
   async function setCoSettings(settings: Record<string, unknown>) {
     const db = getDatabase();
-    await db
-      .update(tenants)
-      .set({ settings })
-      .where(eq(tenants.id, coTenantId));
+    await db.update(tenants).set({ settings }).where(eq(tenants.id, coTenantId));
   }
 
   beforeAll(async () => {
@@ -431,39 +418,29 @@ describe('setupReadiness — Colombia profile + checkout (ENG-184)', () => {
   beforeEach(async () => {
     await setCoSettings({});
     const db = getDatabase();
-    await db
-      .delete(sitePeripherals)
-      .where(eq(sitePeripherals.tenantId, coTenantId));
+    await db.delete(sitePeripherals).where(eq(sitePeripherals.tenantId, coTenantId));
   });
 
   it('DIAN off → fiscal is an optional-pending reminder, never a blocker', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx({ tenantId: coTenantId, userId: coAdminId })
-    );
+    const caller = appRouter.createCaller(buildCtx({ tenantId: coTenantId, userId: coAdminId }));
     const result = await caller.setupReadiness.get();
     const fiscal = result.sections.find(s => s.id === 'fiscal');
     expect(fiscal?.status).toBe('optional-pending');
     expect(fiscal?.cta).toEqual({ route: '/company', tab: 'fiscal' });
-    // The whole point of ENG-184: DIAN never blocks for a CO tenant.
-    expect(result.sections.find(s => s.id === 'fiscal')?.status).not.toBe(
-      'blocker'
-    );
+    // The whole point of : DIAN never blocks for a CO tenant.
+    expect(result.sections.find(s => s.id === 'fiscal')?.status).not.toBe('blocker');
   });
 
   it('DIAN on but config incomplete → fiscal warning', async () => {
     await setCoSettings({ fiscal_dian_enabled: true });
-    const caller = appRouter.createCaller(
-      buildCtx({ tenantId: coTenantId, userId: coAdminId })
-    );
+    const caller = appRouter.createCaller(buildCtx({ tenantId: coTenantId, userId: coAdminId }));
     const result = await caller.setupReadiness.get();
     expect(result.sections.find(s => s.id === 'fiscal')?.status).toBe('warning');
   });
 
   it('DIAN on + complete config → fiscal ready, and scores higher than the incomplete state', async () => {
     await setCoSettings({ fiscal_dian_enabled: true });
-    const caller = appRouter.createCaller(
-      buildCtx({ tenantId: coTenantId, userId: coAdminId })
-    );
+    const caller = appRouter.createCaller(buildCtx({ tenantId: coTenantId, userId: coAdminId }));
     const incomplete = await caller.setupReadiness.get();
 
     await setCoSettings({
@@ -485,9 +462,7 @@ describe('setupReadiness — Colombia profile + checkout (ENG-184)', () => {
   });
 
   it('exposes a sync section that is ready when there is no backlog', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx({ tenantId: coTenantId, userId: coAdminId })
-    );
+    const caller = appRouter.createCaller(buildCtx({ tenantId: coTenantId, userId: coAdminId }));
     const result = await caller.setupReadiness.get();
     const sync = result.sections.find(s => s.id === 'sync');
     expect(sync?.status).toBe('ready');
@@ -527,9 +502,7 @@ describe('setupReadiness — Colombia profile + checkout (ENG-184)', () => {
       buildCtx({ tenantId: coTenantId, userId: coCashierId, role: 'cashier' })
     );
     // `siteId` belongs to the primary (non-CO) tenant — must be rejected.
-    await expect(
-      caller.setupReadiness.checkout({ siteId })
-    ).rejects.toThrow();
+    await expect(caller.setupReadiness.checkout({ siteId })).rejects.toThrow();
   });
 
   it('checkout returns no reminders for a non-Colombia tenant', async () => {
@@ -539,7 +512,7 @@ describe('setupReadiness — Colombia profile + checkout (ENG-184)', () => {
   });
 });
 
-describe('setupReadiness.firstSale (ENG-202)', () => {
+describe('setupReadiness.firstSale', () => {
   let onboardingTenantId: string;
   let onboardingUserId: string;
   let onboardingOtherUserId: string;
@@ -606,23 +579,14 @@ describe('setupReadiness.firstSale (ENG-202)', () => {
   beforeEach(async () => {
     const db = getDatabase();
     await db.delete(sales).where(eq(sales.tenantId, onboardingTenantId));
-    await db
-      .delete(cashSessions)
-      .where(eq(cashSessions.tenantId, onboardingTenantId));
+    await db.delete(cashSessions).where(eq(cashSessions.tenantId, onboardingTenantId));
     await db.delete(products).where(eq(products.tenantId, onboardingTenantId));
     await db
       .delete(products)
-      .where(
-        and(
-          eq(products.tenantId, foreignTenantId),
-          eq(products.sku, 'FIRST-SALE-FOREIGN')
-        )
-      );
+      .where(and(eq(products.tenantId, foreignTenantId), eq(products.sku, 'FIRST-SALE-FOREIGN')));
   });
 
-  function callerFor(
-    role: 'admin' | 'manager' | 'cashier' | 'viewer' = 'cashier'
-  ) {
+  function callerFor(role: 'admin' | 'manager' | 'cashier' | 'viewer' = 'cashier') {
     return appRouter.createCaller(
       buildCtx({
         tenantId: onboardingTenantId,
@@ -632,33 +596,34 @@ describe('setupReadiness.firstSale (ENG-202)', () => {
     );
   }
 
-  async function seedOnboardingProduct(args?: {
-    tenantId?: string;
-    sku?: string;
-  }) {
+  async function seedOnboardingProduct(args?: { tenantId?: string; sku?: string }) {
     const targetTenantId = args?.tenantId ?? onboardingTenantId;
-    await getDatabase().insert(products).values({
-      id: nanoid(),
-      tenantId: targetTenantId,
-      name: 'First Sale Product',
-      sku: args?.sku ?? `FIRST-SALE-${nanoid(6)}`,
-      isActive: true,
-    });
+    await getDatabase()
+      .insert(products)
+      .values({
+        id: nanoid(),
+        tenantId: targetTenantId,
+        name: 'First Sale Product',
+        sku: args?.sku ?? `FIRST-SALE-${nanoid(6)}`,
+        isActive: true,
+      });
   }
 
   async function seedOpenSession(cashierId = onboardingUserId) {
     const id = nanoid();
-    await getDatabase().insert(cashSessions).values({
-      id,
-      tenantId: onboardingTenantId,
-      siteId: onboardingSiteId,
-      cashierId,
-      registerName: `Register ${id.slice(0, 4)}`,
-      openingFloat: 0,
-      openingCountDenominations: [],
-      expectedBalance: 0,
-      status: 'open',
-    });
+    await getDatabase()
+      .insert(cashSessions)
+      .values({
+        id,
+        tenantId: onboardingTenantId,
+        siteId: onboardingSiteId,
+        cashierId,
+        registerName: `Register ${id.slice(0, 4)}`,
+        openingFloat: 0,
+        openingCountDenominations: [],
+        expectedBalance: 0,
+        status: 'open',
+      });
     return id;
   }
 
@@ -743,9 +708,7 @@ describe('setupReadiness.firstSale (ENG-202)', () => {
   });
 
   it('rejects foreign sites and viewer access while allowing sales roles', async () => {
-    await expect(
-      callerFor().setupReadiness.firstSale({ siteId })
-    ).rejects.toThrow();
+    await expect(callerFor().setupReadiness.firstSale({ siteId })).rejects.toThrow();
     await expect(
       callerFor('viewer').setupReadiness.firstSale({
         siteId: onboardingSiteId,

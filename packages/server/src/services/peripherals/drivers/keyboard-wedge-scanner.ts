@@ -1,5 +1,5 @@
 /**
- * ENG-061 — `wedge` USB HID keyboard scanner driver.
+ * `wedge` USB HID keyboard scanner driver.
  *
  * USB HID keyboard-wedge scanners pretend to be USB keyboards and
  * type the decoded code into whatever has focus. The actual
@@ -28,10 +28,7 @@
  */
 
 import { z } from 'zod';
-import type {
-  BarcodeScannerAdapter,
-  ScannerStatus,
-} from '../contracts/barcode-scanner.js';
+import type { BarcodeScannerAdapter, ScannerStatus } from '../contracts/barcode-scanner.js';
 import type { TestResult } from '../types.js';
 
 export const wedgeScannerConfigSchema = z
@@ -87,8 +84,7 @@ export class KeyboardWedgeScannerAdapter implements BarcodeScannerAdapter {
     // A real scan is verified by the cashier on /sales.
     return {
       status: 'ok',
-      message:
-        'Keyboard wedge scanner registered. Open /sales and scan a code to verify.',
+      message: 'Keyboard wedge scanner registered. Open /sales and scan a code to verify.',
     };
   }
 }

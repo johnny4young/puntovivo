@@ -1,12 +1,12 @@
 /**
- * ENG-135 — Unit tests for the observability capture helpers.
+ * Unit tests for the observability capture helpers.
  *
  * Pins three contracts:
  *
- *   1. The local pino log emits unconditionally.
- *   2. The registered sink is only invoked when the active tenant
- *      has opted in (`tenants.settings.telemetryOptIn = true`).
- *   3. Redaction runs before the attrs bag reaches the sink.
+ * 1. The local pino log emits unconditionally.
+ * 2. The registered sink is only invoked when the active tenant
+ * has opted in (`tenants.settings.telemetryOptIn = true`).
+ * 3. Redaction runs before the attrs bag reaches the sink.
  *
  * Uses an in-memory SQLite DB seeded with two tenants — one
  * opt-in, one opt-out — and a stub sink that records its calls.
@@ -100,7 +100,7 @@ afterEach(async () => {
   await server.close();
 });
 
-describe('captureException (ENG-135)', () => {
+describe('captureException', () => {
   it('skips the sink when the tenant is opted out', async () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
@@ -171,7 +171,7 @@ describe('captureException (ENG-135)', () => {
   });
 });
 
-describe('withSpan (ENG-135)', () => {
+describe('withSpan', () => {
   it('measures duration and records ok outcome via the sink when opted in', async () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
@@ -218,7 +218,7 @@ describe('withSpan (ENG-135)', () => {
   });
 });
 
-describe('registerTelemetrySink (ENG-135)', () => {
+describe('registerTelemetrySink', () => {
   it('swaps the active sink and returns the previous one', () => {
     const first = buildRecordingSink();
     const second = buildRecordingSink();
@@ -237,7 +237,7 @@ describe('registerTelemetrySink (ENG-135)', () => {
   });
 });
 
-describe('redactErrorAttrs (ENG-135)', () => {
+describe('redactErrorAttrs', () => {
   it('masks every name listed in __REDACT_FIELD_NAMES_FOR_TESTS', () => {
     const attrs: Record<string, unknown> = {};
     for (const field of __REDACT_FIELD_NAMES_FOR_TESTS) {
@@ -291,7 +291,7 @@ describe('redactErrorAttrs (ENG-135)', () => {
   });
 });
 
-describe('opt-in cache (ENG-135)', () => {
+describe('opt-in cache', () => {
   it('honours a tenant flip after the cache is cleared', async () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);

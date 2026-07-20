@@ -1,5 +1,5 @@
 /**
- * ENG-073 — `/api/health` Authority Node identity surface.
+ * `/api/health` Authority Node identity surface.
  *
  * The endpoint stays unauthenticated (Kubernetes-style status) but
  * gains five fields so an operator can run `curl /api/health`
@@ -17,7 +17,7 @@ import { fingerprintDbPath } from '../lib/runtimeMetadata.js';
 let server: PuntovivoServer;
 
 beforeAll(async () => {
-  // ENG-073 — `app.inject` exercises the route handler without
+  // `app.inject` exercises the route handler without
   // opening a real socket, so the test stays parallel-safe and
   // never collides with another server on port 8090 (e.g. a dev
   // preview running in the background).
@@ -39,7 +39,7 @@ async function getHealth(): Promise<Record<string, unknown>> {
   return response.json() as Record<string, unknown>;
 }
 
-describe('GET /api/health (ENG-073)', () => {
+describe('GET /api/health', () => {
   it('returns the legacy compatibility fields plus the new Authority Node identity block', async () => {
     const body = await getHealth();
     // Pre-existing fields stay intact.
@@ -47,7 +47,7 @@ describe('GET /api/health (ENG-073)', () => {
     expect(body.compatibility).toBe(true);
     expect(body.canonicalProcedure).toBe('health.check');
     expect(typeof body.timestamp).toBe('string');
-    // ENG-073 additions.
+    // additions.
     expect(body.authorityMode).toBe('device_local');
     expect(body.appVersion).toBe('1.2.3-test');
     expect(typeof body.dbSchemaVersion).toBe('number');
@@ -71,7 +71,7 @@ describe('GET /api/health (ENG-073)', () => {
   it('reports dbSchemaVersion > 0 because initDatabase always runs migrations before listen', async () => {
     const body = await getHealth();
     const version = body.dbSchemaVersion as number;
-    // ENG-073 — strictly positive: initDatabase runs the full
+    // strictly positive: initDatabase runs the full
     // migration journal before listen, so a server reporting 0
     // here would indicate the migration runner did not execute
     // (the bug the old `>= 0` assertion would have hidden).
@@ -86,7 +86,7 @@ describe('GET /api/health (ENG-073)', () => {
   });
 });
 
-describe('GET /api/health under explicit site_hub runtime (ENG-073)', () => {
+describe('GET /api/health under explicit site_hub runtime', () => {
   let hubServer: PuntovivoServer;
 
   beforeAll(async () => {

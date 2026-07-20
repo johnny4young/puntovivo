@@ -8,9 +8,7 @@ import {
   hasSplitPayments,
 } from './checkoutPayment';
 
-function buildPaymentValues(
-  overrides?: Partial<SalePaymentValues>
-): SalePaymentValues {
+function buildPaymentValues(overrides?: Partial<SalePaymentValues>): SalePaymentValues {
   return {
     customerId: '',
     paymentMethod: 'cash',
@@ -101,7 +99,7 @@ describe('checkoutPayment', () => {
     }
 
     it('returns false when payments is missing or empty', () => {
-      // ENG-179b — exactOptional rejects `{ payments: undefined }`; pass the bare object instead.
+      // exactOptional rejects `{ payments: undefined }`; pass the bare object instead.
       expect(hasSplitPayments({} as { payments?: SalePayment[] })).toBe(false);
       expect(hasSplitPayments({ payments: [] })).toBe(false);
     });

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '@/i18n';
 import { CashSessionCloseModal } from './CashSessionCloseModal';
 
-// ENG-194 — the modal role-gates the live over/short semaphore; default to
+// the modal role-gates the live over/short semaphore; default to
 // cashier so the pre-existing blind-close assertions exercise the strict
 // (no-feedback) path.
 let mockRole = 'cashier';
@@ -12,7 +12,7 @@ vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({ user: { id: 'user-1', role: mockRole } }),
 }));
 
-// ENG-194b — tenant-level blind-close policy; default true mirrors the
+// tenant-level blind-close policy; default true mirrors the
 // server default so the strict path stays the baseline.
 let mockBlindClose = true;
 vi.mock('@/features/tenant/TenantProvider', () => ({
@@ -59,7 +59,7 @@ describe('CashSessionCloseModal', () => {
     );
 
     expect(screen.queryByText('Expected balance')).not.toBeInTheDocument();
-    // V6 reskin (ENG-083) now renders "Blind close" both as a header
+    // V6 reskin () now renders "Blind close" both as a header
     // badge and as an inline label inside the form, so use the
     // multi-match query to verify the term surfaces at least once.
     expect(screen.getAllByText('Blind close').length).toBeGreaterThan(0);
@@ -97,7 +97,7 @@ describe('CashSessionCloseModal', () => {
     );
   });
 
-  it('surfaces an ENG-018b warning when suspended drafts remain in flight', () => {
+  it('surfaces an  warning when suspended drafts remain in flight', () => {
     render(
       <CashSessionCloseModal
         cashSession={activeCashSession}
@@ -129,7 +129,7 @@ describe('CashSessionCloseModal', () => {
     expect(screen.queryByTestId('close-session-suspended-warning')).not.toBeInTheDocument();
   });
 
-  // ENG-194 — live over/short semaphore, role-gated.
+  // live over/short semaphore, role-gated.
   it('never shows the live delta to a cashier, even while counting', async () => {
     mockRole = 'cashier';
     const user = userEvent.setup();
@@ -241,7 +241,7 @@ describe('CashSessionCloseModal', () => {
     expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
   });
 
-  // ENG-194b — tenant opt-out of blind close shows the semaphore to cashiers.
+  // tenant opt-out of blind close shows the semaphore to cashiers.
   it('shows the live delta to a cashier when the tenant disabled blind close', async () => {
     mockRole = 'cashier';
     mockBlindClose = false;

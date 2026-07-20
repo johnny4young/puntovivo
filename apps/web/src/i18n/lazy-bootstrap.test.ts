@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import i18next, { BOOTSTRAP_NAMESPACES } from './index';
 
 /**
- * ENG-170b — pins the lazy-i18n bootstrap contract.
+ * pins the lazy-i18n bootstrap contract.
  *
  * Production lazy-loads every non-bootstrap namespace through the
  * resourcesToBackend glob loader, so only the bootstrap set is preloaded /
@@ -15,7 +15,7 @@ import i18next, { BOOTSTRAP_NAMESPACES } from './index';
  * resolvability. The "entry no longer ships fiscal/kds/aiSettings" claim is a
  * build-graph fact verified by the bundle gate + the live smoke.
  */
-describe('ENG-170b — i18n lazy bootstrap contract', () => {
+describe(' — i18n lazy bootstrap contract', () => {
   it('declares exactly the audited bootstrap namespace set', () => {
     expect([...BOOTSTRAP_NAMESPACES].sort()).toEqual(
       ['auth', 'common', 'errors', 'nav', 'palette', 'setup', 'workspaces'].sort()
@@ -23,7 +23,15 @@ describe('ENG-170b — i18n lazy bootstrap contract', () => {
   });
 
   it('keeps the heavy feature namespaces OUT of the bootstrap (they lazy-load)', () => {
-    for (const ns of ['fiscal', 'kds', 'aiSettings', 'restaurants', 'copilot', 'sales', 'products']) {
+    for (const ns of [
+      'fiscal',
+      'kds',
+      'aiSettings',
+      'restaurants',
+      'copilot',
+      'sales',
+      'products',
+    ]) {
       expect(BOOTSTRAP_NAMESPACES).not.toContain(ns);
     }
   });

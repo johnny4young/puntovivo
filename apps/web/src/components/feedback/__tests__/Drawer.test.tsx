@@ -1,17 +1,17 @@
 /**
- * ENG-186 — Tests for the reusable <Drawer> slide-over.
+ * Tests for the reusable <Drawer> slide-over.
  *
  * Pins the dialog a11y contract it inherits from <Modal>:
- *   - Renders nothing when closed; portals a labelled dialog when open.
- *   - Close button, ESC, and backdrop click all call onClose (each
- *     individually gateable via closeOnEsc / closeOnBackdrop).
- *   - A click inside the panel does NOT close it.
- *   - Focus moves into the panel on open and the Tab trap wraps.
- *   - restoreFocusTo overrides focus restoration on close (the
- *     cashier-speed /sales seam: focus returns to the search input).
- *   - Body scroll is locked while open and restored on close.
- *   - Background content is inert/hidden from screen readers while open.
- *   - No serious/critical axe violations.
+ * - Renders nothing when closed; portals a labelled dialog when open.
+ * - Close button, ESC, and backdrop click all call onClose (each
+ * individually gateable via closeOnEsc / closeOnBackdrop).
+ * - A click inside the panel does NOT close it.
+ * - Focus moves into the panel on open and the Tab trap wraps.
+ * - restoreFocusTo overrides focus restoration on close (the
+ * cashier-speed /sales seam: focus returns to the search input).
+ * - Body scroll is locked while open and restored on close.
+ * - Background content is inert/hidden from screen readers while open.
+ * - No serious/critical axe violations.
  *
  * @module components/feedback/__tests__/Drawer.test
  */
@@ -32,7 +32,7 @@ function renderDrawer(props: Partial<React.ComponentProps<typeof Drawer>> = {}) 
   return { onClose, ...utils };
 }
 
-describe('Drawer (ENG-186)', () => {
+describe('Drawer', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en');
     document.body.style.overflow = '';

@@ -1,5 +1,5 @@
 /**
- * ENG-135c — sanitizeCorrelationId contract.
+ * sanitizeCorrelationId contract.
  *
  * The header is attacker-controlled; the sanitizer is the single
  * gate between the wire and every log/telemetry consumer. These
@@ -12,21 +12,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  CORRELATION_ID_HEADER,
-  sanitizeCorrelationId,
-} from '../observability/index.js';
+import { CORRELATION_ID_HEADER, sanitizeCorrelationId } from '../observability/index.js';
 
-describe('sanitizeCorrelationId (ENG-135c)', () => {
+describe('sanitizeCorrelationId', () => {
   it('accepts a UUID v4 (the web client default)', () => {
     const id = '6f1a2b3c-4d5e-4f60-8a9b-0c1d2e3f4a5b';
     expect(sanitizeCorrelationId(id)).toBe(id);
   });
 
   it('accepts nanoid-style and hex ids', () => {
-    expect(sanitizeCorrelationId('V1StGXR8_Z5jdHi6B-myT')).toBe(
-      'V1StGXR8_Z5jdHi6B-myT'
-    );
+    expect(sanitizeCorrelationId('V1StGXR8_Z5jdHi6B-myT')).toBe('V1StGXR8_Z5jdHi6B-myT');
     expect(sanitizeCorrelationId('deadbeefcafe1234')).toBe('deadbeefcafe1234');
   });
 
@@ -46,9 +41,7 @@ describe('sanitizeCorrelationId (ENG-135c)', () => {
   });
 
   it('takes the first entry of a header array (Fastify multi-value shape)', () => {
-    expect(
-      sanitizeCorrelationId(['client-id-first', 'client-id-shadow'])
-    ).toBe('client-id-first');
+    expect(sanitizeCorrelationId(['client-id-first', 'client-id-shadow'])).toBe('client-id-first');
     expect(sanitizeCorrelationId(['bad id', 'valid-id-12345'])).toBeNull();
   });
 

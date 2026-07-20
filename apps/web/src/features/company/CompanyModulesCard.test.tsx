@@ -1,13 +1,13 @@
 /**
- * ENG-068 — CompanyModulesCard regression tests.
+ * CompanyModulesCard regression tests.
  *
  * Coverage:
- *   - Renders the manifest descriptors with translated labels +
- *     descriptions.
- *   - Toggling a module fires `modules.setActive` with the right
- *     payload and shows the success toast.
- *   - Failure path surfaces the translated error toast.
- *   - Default-vs-explicit indicator reflects the server flag.
+ * - Renders the manifest descriptors with translated labels +
+ * descriptions.
+ * - Toggling a module fires `modules.setActive` with the right
+ * payload and shows the success toast.
+ * - Failure path surfaces the translated error toast.
+ * - Default-vs-explicit indicator reflects the server flag.
  */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -99,7 +99,7 @@ vi.mock('@/lib/useCriticalMutation', () => ({
 
 import { CompanyModulesCard } from './CompanyModulesCard';
 
-describe('CompanyModulesCard (ENG-068)', () => {
+describe('CompanyModulesCard', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     listLoading = false;
@@ -141,13 +141,13 @@ describe('CompanyModulesCard (ENG-068)', () => {
     expect(copilotRow.querySelector('.d')?.textContent?.trim().length ?? 0).toBeGreaterThan(0);
   });
 
-  it('keeps dev jargon out of operator-facing copy (FASE 7 F5)', () => {
+  it('keeps dev jargon out of operator-facing copy (F5)', () => {
     render(<CompanyModulesCard />);
     const card = screen.getByText('Co-piloto').closest('section');
     const copy = card?.textContent ?? '';
     // No ticket ids, server error codes, route paths or router/internal
     // identifiers should ever surface in operator copy.
-    expect(copy).not.toMatch(/ENG-\d+/);
+    expect(copy).not.toMatch(/\b[A-Z]{2,}-\d+\b/);
     expect(copy).not.toMatch(/FORBIDDEN/);
     expect(copy).not.toMatch(/\bendpoints?\b/i);
     expect(copy).not.toMatch(/plug-and-play|plugs the real/i);

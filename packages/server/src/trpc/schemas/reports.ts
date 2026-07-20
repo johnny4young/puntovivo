@@ -1,5 +1,5 @@
 /**
- * ENG-065b — Zod schemas for `reports.cash.*` + `reports.inventory.*`
+ * Zod schemas for `reports.cash.*` + `reports.inventory.*`
  * sub-routers (Operations Center cash + inventory reconciliation tabs).
  *
  * The fiscal sub-router already keeps its schemas in `schemas/fiscal.ts`
@@ -47,7 +47,7 @@ export type InventoryDiscrepanciesInput = z.infer<typeof inventoryDiscrepanciesI
 
 // ─────────────────────────────────────────────────────────────────
 // reports.diagnostics.preview / reports.diagnostics.export
-// ENG-065c — Operations Center diagnostic export.
+// Operations Center diagnostic export.
 // ─────────────────────────────────────────────────────────────────
 
 const isoDateTime = z.string().datetime({ offset: true });
@@ -58,8 +58,8 @@ function isChronologicalRange(value: { fromDate: string; toDate: string }): bool
 
 /**
  * Lock list of outboxes the export can include. Mirrors ADR-0003
- * taxonomy. `payment` and `webhook` are reserved names for ENG-063 +
- * ENG-070 and currently rejected — keeping them out of the literal
+ * taxonomy. `payment` and `webhook` are reserved names for  +
+ * and currently rejected — keeping them out of the literal
  * keeps the input shape honest about what's wired today.
  */
 export const diagnosticIncludeOutbox = z.enum(['sync', 'fiscal', 'hardware']);
@@ -97,7 +97,7 @@ export type DiagnosticsExportInput = z.infer<typeof diagnosticsExportInput>;
 
 // ─────────────────────────────────────────────────────────────────
 // reports.profit.margin
-// ENG-190 — margin / COGS report sourced from the sale_item_lots ledger.
+// margin / COGS report sourced from the sale_item_lots ledger.
 // ─────────────────────────────────────────────────────────────────
 
 export const profitMarginInput = z
@@ -122,7 +122,7 @@ export type ProfitMarginInput = z.infer<typeof profitMarginInput>;
 
 // ─────────────────────────────────────────────────────────────────
 // reports.dayClose.preview / signoff / signOff
-// ENG-141a/ENG-141b — tenant-local comprehensive manager report + evidence.
+// -141b — tenant-local comprehensive manager report + evidence.
 // ─────────────────────────────────────────────────────────────────
 
 const calendarDay = z
@@ -242,7 +242,7 @@ export const dayCloseSignoffMetadataOutput = z.object({
     id: z.string().min(1),
     name: z.string().min(1),
   }),
-  /** Null only for ENG-141b evidence created before stored PDFs shipped. */
+  /** Null only for  evidence created before stored PDFs shipped. */
   pdf: dayClosePdfArtifactOutput.nullable(),
 });
 

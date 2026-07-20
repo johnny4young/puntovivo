@@ -1,5 +1,5 @@
 /**
- * ENG-171 — usePrefetchSales unit test. Pins the hover-prefetch contract:
+ * usePrefetchSales unit test. Pins the hover-prefetch contract:
  * the four SalesPage entry queries are warmed with the exact inputs the
  * page subscribes to, and `cashSessions.getActive` is only prefetched when
  * a site is active.

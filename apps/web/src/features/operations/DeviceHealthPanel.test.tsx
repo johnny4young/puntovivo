@@ -1,11 +1,11 @@
 /**
- * ENG-065a — Tests for DeviceHealthPanel.
+ * Tests for DeviceHealthPanel.
  *
  * Asserts:
- *   - Both sections render (peripherals + outbox).
- *   - Default outbox view filters to "problems only" status set.
- *   - "Show all" toggle reveals queued/printed rows.
- *   - Admin retry button fires the mutation.
+ * - Both sections render (peripherals + outbox).
+ * - Default outbox view filters to "problems only" status set.
+ * - "Show all" toggle reveals queued/printed rows.
+ * - Admin retry button fires the mutation.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -108,9 +108,7 @@ describe('DeviceHealthPanel', () => {
     ];
 
     render(<DeviceHealthPanel />);
-    expect(
-      screen.getByText(/No hardware jobs are currently failing/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No hardware jobs are currently failing/i)).toBeInTheDocument();
   });
 
   it('toggles "show all" to surface non-problem rows', () => {
@@ -128,9 +126,7 @@ describe('DeviceHealthPanel', () => {
     ];
 
     render(<DeviceHealthPanel />);
-    expect(
-      screen.getByText(/No hardware jobs are currently failing/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No hardware jobs are currently failing/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('device-outbox-toggle'));
 

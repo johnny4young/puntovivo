@@ -2,10 +2,10 @@ import { useTranslation } from 'react-i18next';
 import { FileKey } from 'lucide-react';
 
 /**
- * ENG-020 Fase A — placeholder for the DIAN habilitación wizard.
+ * estado actual — placeholder for the DIAN habilitación wizard.
  *
  * A real wizard (captures NIT, DIAN resolution id, technical key, p12
- * certificate upload, passphrase) arrives in ENG-021 together with
+ * certificate upload, passphrase) arrives in  together with
  * the live Proveedor Tecnológico adapter. Until then, admins see a
  * gated card explaining why the flow is not yet available.
  */

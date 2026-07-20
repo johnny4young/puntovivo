@@ -45,7 +45,7 @@ export async function registerHttpPlugins(
   app: FastifyInstance,
   { effectiveCorsOrigins, jwtSecret }: RegisterHttpPluginsOptions
 ): Promise<void> {
-  // ENG-166 — security headers. helmet ships sane defaults for
+  // security headers. helmet ships sane defaults for
   // X-Frame-Options (DENY), X-Content-Type-Options (nosniff),
   // Referrer-Policy (no-referrer), Cross-Origin-Resource-Policy, etc.
   // The CSP is overridden so the renderer (web + Electron) can pull
@@ -82,7 +82,7 @@ export async function registerHttpPlugins(
     strictTransportSecurity: false,
     // Cross-origin embedder policy would block the OCR pipeline (data:
     // URLs sourced from the renderer's File input). Re-enable when the
-    // renderer migrates to module workers — captured in ENG-170.
+    // renderer migrates to module workers — captured in .
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: 'same-origin' },
     referrerPolicy: { policy: 'no-referrer' },
@@ -100,10 +100,10 @@ export async function registerHttpPlugins(
       'Authorization',
       'x-site-id',
       CSRF_HEADER_NAME,
-      // ENG-052 — Command Envelope (ADR-0002) headers.
+      // Command Envelope (ADR-0002) headers.
       'x-device-id',
       'x-puntovivo-envelope',
-      // ENG-135c — renderer-minted correlation id; the allowlist is
+      // renderer-minted correlation id; the allowlist is
       // explicit (not reflective), so without this entry the browser
       // preflight strips the header silently.
       CORRELATION_ID_HEADER,
@@ -121,7 +121,7 @@ export async function registerHttpPlugins(
     },
   });
 
-  // ENG-052b — request-scoped child logger so every log line emitted
+  // request-scoped child logger so every log line emitted
   // during a request carries `requestId` (Fastify reqId) plus the
   // best-effort `deviceId` from the Command Envelope header. The
   // tenant + user ids are NOT yet known here (auth runs later in the
@@ -149,7 +149,7 @@ export async function registerHttpPlugins(
       return;
     }
 
-    // ENG-135b follow-up — reply with a tRPC-shaped error envelope so
+    // follow-up — reply with a tRPC-shaped error envelope so
     // the web client surfaces the real message instead of the cryptic
     // 'Unable to transform response from server' it produced for the
     // previous plain {error,message} body (the hook answers before the
@@ -165,7 +165,7 @@ export async function registerHttpPlugins(
     });
   });
 
-  // ENG-025 vector 2 — global rate-limit on every HTTP surface
+  // vector 2 — global rate-limit on every HTTP surface
   // (tRPC, SSE, /api/health). Previously registered with
   // `global: false`, which meant nothing on the wire was throttled —
   // `auth.refresh`, `auth.changePassword`, and every mutation were
@@ -180,12 +180,12 @@ export async function registerHttpPlugins(
   // `loginRateLimit.ts` (per-IP 10/60s + per-username 5/15min), which
   // stays stricter for failed-login traffic. The global bucket still
   // caps aggregate login traffic, matching every other HTTP route
-  // until ENG-025's per-procedure follow-up lands.
+  // until 's per-procedure follow-up lands.
   //
   // Per-procedure stricter buckets (e.g. `auth.changePassword`
   // tightened to 5/15min) need a tRPC-layer middleware similar to
   // `loginRateLimit.ts`. Captured as a follow-up; the 100/min cap
-  // closes the bulk of the SEC-2 finding.
+  // closes the bulk of the original rate-limit finding.
   const rateLimit = await import('@fastify/rate-limit');
   const globalRateLimitMax = Number.parseInt(process.env.PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX ?? '', 10);
   await app.register(rateLimit.default, {

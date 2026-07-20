@@ -8,18 +8,18 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 
 /**
- * ENG-030 follow-up (dedup-ai) — core hook centralizing the AI settings
+ * follow-up (dedup-ai) — core hook centralizing the AI settings
  * read + write seam shared by both AI surfaces:
  *
- *   - `/ai-config` (`AiConfigPage`) — feature toggles + OCR provider + audit.
- *   - `CompanyAISettingsCard` — admin card with budget meter + transcription.
+ * - `/ai-config` (`AiConfigPage`) — feature toggles + OCR provider + audit.
+ * - `CompanyAISettingsCard` — admin card with budget meter + transcription.
  *
  * Both surfaces previously duplicated the exact same trio:
- *   1. `trpc.ai.settings.get.useQuery()` — the provider / feature-toggle read.
- *   2. `trpc.ai.settings.update.useMutation()` whose `onSuccess` invalidates
- *      `ai.settings.get` and fires a success toast, and whose `onError` runs
- *      `onErrorToast`.
- *   3. `trpc.useUtils()` purely to invalidate the read after a write.
+ * 1. `trpc.ai.settings.get.useQuery()` — the provider / feature-toggle read.
+ * 2. `trpc.ai.settings.update.useMutation()` whose `onSuccess` invalidates
+ * `ai.settings.get` and fires a success toast, and whose `onError` runs
+ * `onErrorToast`.
+ * 3. `trpc.useUtils()` purely to invalidate the read after a write.
  *
  * This hook owns all three so the two consumers stay byte-for-byte identical
  * in behavior. The only per-surface difference is the toast title keys, so
@@ -33,7 +33,7 @@ export interface UseAiSettingsOptions {
   /**
    * `t` from the consumer's `useTranslation`. Passed in (rather than created
    * inside the hook) so each surface keeps control of its own namespace list
-   * — the toast title keys resolve against the caller's loaded namespaces.
+   * the toast title keys resolve against the caller's loaded namespaces.
    */
   t: TFunction;
   /**
@@ -54,8 +54,7 @@ export type AiSettingsData = inferRouterOutputs<AppRouter>['ai']['settings']['ge
 
 export function useAiSettings(options: UseAiSettingsOptions) {
   const { t, saveErrorTitleKey } = options;
-  const saveSuccessTitleKey =
-    options.saveSuccessTitleKey ?? 'aiSettings:toast.saveSuccessTitle';
+  const saveSuccessTitleKey = options.saveSuccessTitleKey ?? 'aiSettings:toast.saveSuccessTitle';
 
   const toast = useToast();
   const utils = trpc.useUtils();

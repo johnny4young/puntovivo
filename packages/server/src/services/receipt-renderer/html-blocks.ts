@@ -1,11 +1,11 @@
 /**
  * Receipt renderer HTML block renderers + document builder.
  *
- * ENG-178 — extracted verbatim from the former single-file
+ * extracted verbatim from the former single-file
  * `services/receipt-renderer.ts`. The per-block `render*BlockHtml` functions
  * stay module-private (only `renderBlockHtml` dispatches to them); the
- * dispatcher + `buildHtmlDocument` are exported for the orchestrator. ENG-086
- * thermal CSS, ENG-025 logo re-escape, and ENG-097 QR fallback move byte-for-byte.
+ * dispatcher + `buildHtmlDocument` are exported for the orchestrator.
+ * thermal CSS,  logo re-escape, and  QR fallback move byte-for-byte.
  *
  * @module services/receipt-renderer/html-blocks
  */
@@ -48,10 +48,8 @@ function renderLogoBlockHtml(
   if (!data.logoDataUrl) {
     return `<div class="block block-logo block-logo-empty ${alignClass(block.align)}"></div>`;
   }
-  const heightStyle = block.maxHeightMm
-    ? ` style="max-height: ${block.maxHeightMm}mm;"`
-    : '';
-  // ENG-025 vector 3 — defense in depth on top of the Zod
+  const heightStyle = block.maxHeightMm ? ` style="max-height: ${block.maxHeightMm}mm;"` : '';
+  // vector 3 — defense in depth on top of the Zod
   // `imageUrl` refine in `trpc/schemas/logos.ts`. The data URL is
   // tenant-controlled but still ends up inside an attribute value
   // loaded by `printWindow.loadURL('data:text/html;...')`; escape it
@@ -94,7 +92,7 @@ function renderTotalsBlockHtml(
     .map(line => {
       const label = totalsLabel(line, labels);
       const value = totalsValue(line, data);
-      // ENG-086 — flag the grand-total row so the thermal CSS can apply
+      // flag the grand-total row so the thermal CSS can apply
       // the 1pt black top/bottom border + 14pt weight from the
       // design-system thermal preview rules.
       const rowClass = line === 'grandTotal' ? ' class="grand-total"' : '';
@@ -121,12 +119,9 @@ function renderTendersTableHtml(
   return `<div class="block block-tenders"><table><thead><tr><th>${escapeHtml(labels.tendersTable.method)}</th><th>${escapeHtml(labels.tendersTable.reference)}</th><th class="tender-amount">${escapeHtml(labels.tendersTable.amount)}</th></tr></thead><tbody>${rows}${change}</tbody></table></div>`;
 }
 
-function renderQrBlockHtml(
-  block: Extract<ReceiptBlock, { type: 'qr' }>,
-  data: RenderData
-): string {
-  // ENG-097 — emit a real inline SVG QR when the resolved source is
-  // present; fall back to the ENG-086 CSS placeholder when the source
+function renderQrBlockHtml(block: Extract<ReceiptBlock, { type: 'qr' }>, data: RenderData): string {
+  // emit a real inline SVG QR when the resolved source is
+  // present; fall back to the  CSS placeholder when the source
   // is empty (no fiscal data yet) or the encoder rejects the payload
   // (too long for the chosen EC level). The placeholder keeps the
   // editor preview footprint stable so designers see a consistent
@@ -139,21 +134,17 @@ function renderQrBlockHtml(
   if (!safeSource) {
     return `<div class="block block-qr"><div class="qr-placeholder qr-placeholder-empty" data-qr-source=""${sizeStyle}></div></div>`;
   }
-  const pixelSize = block.sizeMm
-    ? Math.round(block.sizeMm * QR_MM_TO_PX)
-    : QR_DEFAULT_PIXEL_SIZE;
+  const pixelSize = block.sizeMm ? Math.round(block.sizeMm * QR_MM_TO_PX) : QR_DEFAULT_PIXEL_SIZE;
   const svg = encodeQrSvg(resolved, { pixelSize });
   if (!svg) {
     // Encoder rejected (payload too large or invalid); keep the
-    // receipt printable with the ENG-086 silhouette.
+    // receipt printable with the  silhouette.
     return `<div class="block block-qr"><div class="qr-placeholder" data-qr-source="${safeSource}"${sizeStyle}>${QR_MODULE_SPANS}<span class="qr-finder qr-finder-tl"></span><span class="qr-finder qr-finder-tr"></span><span class="qr-finder qr-finder-bl"></span></div></div>`;
   }
   return `<div class="block block-qr"><div class="qr-svg" data-qr-source="${safeSource}"${sizeStyle}>${svg}</div></div>`;
 }
 
-function renderSeparatorBlockHtml(
-  block: Extract<ReceiptBlock, { type: 'separator' }>
-): string {
+function renderSeparatorBlockHtml(block: Extract<ReceiptBlock, { type: 'separator' }>): string {
   const char = block.char ?? '-';
   // Repeat enough times to span typical thermal width without
   // overflowing letter paper — pick 32 as a sensible default.
@@ -162,15 +153,13 @@ function renderSeparatorBlockHtml(
 }
 
 /**
- * ENG-016 pass 1 (item #5) — HTML renderer for the Puntovivo-branded
+ * pass 1 (item #5) — HTML renderer for the Puntovivo-branded
  * footer block. Outputs three lines (name+version, URL, support contact)
  * from `APP_FOOTER_METADATA`. `show: false` collapses the block to an
  * empty string so admins can toggle the branding off without removing
  * the block.
  */
-function renderAppFooterBlockHtml(
-  block: Extract<ReceiptBlock, { type: 'appFooter' }>
-): string {
+function renderAppFooterBlockHtml(block: Extract<ReceiptBlock, { type: 'appFooter' }>): string {
   if (block.show === false) return '';
   const align = alignClass(block.align ?? 'center');
   const { appName, appVersion, appUrl, appSupport } = APP_FOOTER_METADATA;
@@ -181,7 +170,7 @@ function renderAppFooterBlockHtml(
 }
 
 /**
- * ENG-086 — HTML renderer for the canonical `puntovivo·` wordmark.
+ * HTML renderer for the canonical `puntovivo·` wordmark.
  *
  * Emits a sans-serif lockup with regular `punto` + bold `vivo` + a
  * square dot, sized to fit the active paper, followed by the handoff
@@ -190,16 +179,14 @@ function renderAppFooterBlockHtml(
  * regardless of the source CSS the editor preview overrides. `show`
  * defaults to `true`; `show: false` collapses the block.
  */
-function renderWordmarkBlockHtml(
-  block: Extract<ReceiptBlock, { type: 'wordmark' }>
-): string {
+function renderWordmarkBlockHtml(block: Extract<ReceiptBlock, { type: 'wordmark' }>): string {
   if (block.show === false) return '';
   const align = alignClass(block.align ?? 'center');
   return `<div class="block block-wordmark ${align}"><div class="wordmark">punto<b>vivo</b><span class="wordmark-dot"></span></div><div class="wordmark-tagline">${WORDMARK_TAGLINE}</div></div>`;
 }
 
 /**
- * ENG-086 — HTML renderer for the 2-column key/value meta band.
+ * HTML renderer for the 2-column key/value meta band.
  *
  * Each row renders as `<dt>` + `<dd>` inside a `<dl>`. The bound CSS
  * grids the pair so the value column lines up flush right and keeps
@@ -232,9 +219,7 @@ function renderBarcode128BlockHtml(
   // applies as for QR (a phone barcode app could auto-open a URL).
   const resolved = safeResolvedScannerSource(block.source, data);
   const safeSource = escapeHtml(resolved);
-  const heightStyle = block.heightMm
-    ? ` style="height: ${block.heightMm}mm;"`
-    : '';
+  const heightStyle = block.heightMm ? ` style="height: ${block.heightMm}mm;"` : '';
   return `<div class="block block-barcode"><div class="barcode-placeholder" data-barcode-source="${safeSource}"${heightStyle}>${safeSource}</div></div>`;
 }
 
@@ -283,16 +268,16 @@ export function buildHtmlDocument(
 ): string {
   const widthPx = PAPER_WIDTH_PX[layout.paperWidth] ?? 300;
   const is80mm = layout.paperWidth === '80mm';
-  // ENG-086 — adopt the design-system thermal preview rules
-  // (`preview/25-print-thermal.html` from the 2026-05-15 handoff):
-  //   * 1-bit only: pure #000 on #fff, no grays, no gradients.
-  //   * Monospace everywhere; tabular-nums on every numeric column so
-  //     amounts line up under poor ESC/POS rendering.
-  //   * Body 11pt, grand total 14pt, min 10pt label size.
-  //   * Grand-total row gets a thick black top + bottom border so it
-  //     reads as the dominant value when scanning the strip quickly.
+  // adopt the design-system thermal preview rules
+  // (`preview/25-print-thermal.html` from the print specification):
+  // * 1-bit only: pure #000 on #fff, no grays, no gradients.
+  // * Monospace everywhere; tabular-nums on every numeric column so
+  // amounts line up under poor ESC/POS rendering.
+  // * Body 11pt, grand total 14pt, min 10pt label size.
+  // * Grand-total row gets a thick black top + bottom border so it
+  // reads as the dominant value when scanning the strip quickly.
   // Tokens come from `PRINT_TOKENS` (mirrors `apps/web/src/styles/theme.css`
-  // ENG-080 `--print-*` properties); update both surfaces together.
+  // `--print-*` properties); update both surfaces together.
   const mono = PRINT_TOKENS.monoFace;
   const brand = PRINT_TOKENS.brandFace;
   const dotSize = is80mm ? '8px' : '6px';

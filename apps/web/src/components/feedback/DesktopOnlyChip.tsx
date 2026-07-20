@@ -1,5 +1,5 @@
 /**
- * Rediseño FASE 3 — DesktopOnlyChip + DisabledControl (receta
+ * DesktopOnlyChip + DisabledControl (receta
  * `.pv-chip-desktop` / `.pv-disabled`, propuesta §16).
  *
  * Patrón ÚNICO para los controles que solo existen en la app Electron

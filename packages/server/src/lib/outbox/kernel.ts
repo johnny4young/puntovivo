@@ -1,5 +1,5 @@
 /**
- * ENG-053 — Outbox kernel factory.
+ * Outbox kernel factory.
  *
  * `createOutboxKernel(opts)` returns the shared lifecycle helpers
  * every concrete outbox composes — `enqueue`, `claimNext`,
@@ -10,23 +10,23 @@
  * Why a factory instead of a base class:
  *
  * - Each concrete outbox table has DIFFERENT extra columns
- *   (`fiscal_document_id`, `peripheral_id`, etc). A base class would
- *   either over-constrain those or force `as any` casts.
+ * (`fiscal_document_id`, `peripheral_id`, etc). A base class would
+ * either over-constrain those or force `as any` casts.
  * - Drizzle's column inference works best with concrete table refs;
- *   the factory closure captures the ref once at construction time.
+ * the factory closure captures the ref once at construction time.
  * - The factory pattern lets the test suite spin up an in-memory
- *   `testOutboxTable` and exercise every lifecycle without needing
- *   one of the five concrete outboxes to ship first.
+ * `testOutboxTable` and exercise every lifecycle without needing
+ * one of the five concrete outboxes to ship first.
  *
  * Concurrency:
  *
  * - `claimNext` UPDATEs `(status, claim_token, locked_at)`
- *   atomically. `status` is the operator-facing lifecycle;
- *   `claim_token` is the worker lock. Two workers calling
- *   concurrently will both attempt the UPDATE; SQLite's statement
- *   atomicity means exactly one wins.
+ * atomically. `status` is the operator-facing lifecycle;
+ * `claim_token` is the worker lock. Two workers calling
+ * concurrently will both attempt the UPDATE; SQLite's statement
+ * atomicity means exactly one wins.
  * - `nextRetryAt` is consulted in the SELECT predicate; rows whose
- *   retry time hasn't arrived stay invisible until then.
+ * retry time hasn't arrived stay invisible until then.
  *
  * @module lib/outbox/kernel
  */
@@ -35,14 +35,10 @@ import { and, asc, desc, eq, isNull, lte, or } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import type {
-  NormalizedOutboxError,
-  OutboxRetryPolicy,
-  OutboxRow,
-} from './types.js';
+import type { NormalizedOutboxError, OutboxRetryPolicy, OutboxRow } from './types.js';
 
 /**
- * ENG-179c — Drizzle's `insert` / `select` / `update` query builders
+ * Drizzle's `insert` / `select` / `update` query builders
  * do not accept a *parametric* `SQLiteTable` (their generics infer
  * from a concrete table literal, not a type parameter), so calling
  * `db.insert(table)` where `table: SQLiteTable` is a generic ref
@@ -136,18 +132,12 @@ export interface OutboxKernel<TStatus extends string, TPayload> {
     db: DatabaseInstance,
     args: { tenantId: string; workerId: string; nowIso?: string }
   ) => Promise<OutboxRow<TPayload, TStatus> | null>;
-  complete: (
-    db: DatabaseInstance,
-    args: { id: string }
-  ) => Promise<void>;
+  complete: (db: DatabaseInstance, args: { id: string }) => Promise<void>;
   fail: (
     db: DatabaseInstance,
     args: { id: string; error: NormalizedOutboxError; nowIso?: string }
   ) => Promise<{ nextRetryAt: string | null; status: TStatus }>;
-  deadLetter: (
-    db: DatabaseInstance,
-    args: { id: string }
-  ) => Promise<void>;
+  deadLetter: (db: DatabaseInstance, args: { id: string }) => Promise<void>;
   peek: (
     db: DatabaseInstance,
     args: { tenantId: string; limit?: number }
@@ -282,10 +272,8 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
 
     async complete(db, args) {
       const nowIso = new Date().toISOString();
-      const current = (await selectAll(db)
-        .from(table)
-        .where(eq(table.id, args.id))
-        .get()) as Record<string, unknown> | undefined;
+      const current = (await selectAll(db).from(table).where(eq(table.id, args.id)).get()) as
+        Record<string, unknown> | undefined;
       if (!current) return;
       if (terminalSet.has(current.status as string)) return;
       await updateOf(db, table)
@@ -302,10 +290,8 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
 
     async fail(db, args) {
       const nowIso = args.nowIso ?? new Date().toISOString();
-      const row = (await selectAll(db)
-        .from(table)
-        .where(eq(table.id, args.id))
-        .get()) as Record<string, unknown> | undefined;
+      const row = (await selectAll(db).from(table).where(eq(table.id, args.id)).get()) as
+        Record<string, unknown> | undefined;
       if (!row) {
         return { nextRetryAt: null, status: opts.deadLetterStatus };
       }

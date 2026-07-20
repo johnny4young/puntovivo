@@ -1,5 +1,5 @@
 /**
- * ENG-038c — Payment worker (Timer A housekeeping + Timer B statement
+ * Payment worker (Timer A housekeeping + Timer B statement
  * import + catch-up on boot) unit tests.
  */
 
@@ -27,7 +27,7 @@ async function seedTenant(): Promise<void> {
   const now = new Date().toISOString();
   await db.insert(tenants).values({
     id: TENANT_ID,
-    name: 'ENG-038c worker tenant',
+    name: ' worker tenant',
     slug: 'eng038c-worker',
     settings: {},
     isActive: true,

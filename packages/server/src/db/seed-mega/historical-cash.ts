@@ -1,12 +1,12 @@
 /**
- * ENG-052b — MEGA seed: historical cash sessions + movements.
+ * MEGA seed: historical cash sessions + movements.
  *
  * Bulk-inserts (cashier × site × day) cash sessions across the
  * historical window. Each closed session emits 1-2 cash movements
  * (paid_in / paid_out / skim / replenishment) so the report page +
  * over/short surfaces have real data.
  *
- * Bulk SQL bypasses the tRPC envelope path; for ENG-052 verification
+ * Bulk SQL bypasses the tRPC envelope path; for  verification
  * the recent-via-tRPC pass exercises that flow on the last 3 days.
  *
  * @module db/seed-mega/historical-cash
@@ -104,12 +104,13 @@ export async function seedHistoricalCash(
       });
 
       // 1-2 cash movements per session
-      const movementCount = (seed % 3 === 0) ? 2 : 1;
+      const movementCount = seed % 3 === 0 ? 2 : 1;
       for (let m = 0; m < movementCount; m += 1) {
         const movementType = MOVEMENT_TYPES[(seed + m) % MOVEMENT_TYPES.length]!;
-        const amount = (movementType === 'paid_out' || movementType === 'skim')
-          ? -((seed % 5 + 1) * 5_000)
-          : (seed % 5 + 1) * 5_000;
+        const amount =
+          movementType === 'paid_out' || movementType === 'skim'
+            ? -(((seed % 5) + 1) * 5_000)
+            : ((seed % 5) + 1) * 5_000;
         const movementIso = businessHourIso(clock, daysAgo, m + assignmentIdx);
         rowsToInsertMovements.push({
           id: nanoid(),
@@ -187,7 +188,7 @@ async function chunkedInsert<T extends Record<string, unknown>>(
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per ENG-179c.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per .
     await (db.insert(table) as any).values(chunk).run();
   }
 }

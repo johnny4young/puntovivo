@@ -24,16 +24,16 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      '@typescript-eslint/no-explicit-any': 'error', // ENG-179c — promoted warn -> error
+      '@typescript-eslint/no-explicit-any': 'error', // promoted warn -> error
       '@typescript-eslint/no-require-imports': 'off',
     },
   },
   {
-    // ENG-006 — the Electron main process imports the pino logger via
+    // the Electron main process imports the pino logger via
     // @puntovivo/server (createModuleLogger). Every diagnostic must flow
     // through it so operators get structured JSON and PII redaction.
     // Scoped to src/main/** only; the preload (sandboxed) and renderer-
-    // bundled code are not touched by ENG-006.
+    // bundled code are not touched by .
     files: ['src/main/**/*.ts'],
     rules: {
       'no-console': 'error',

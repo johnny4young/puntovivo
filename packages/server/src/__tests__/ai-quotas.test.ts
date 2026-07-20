@@ -1,18 +1,18 @@
 /**
- * ENG-102 — AI per-site monthly quota enforcement.
+ * AI per-site monthly quota enforcement.
  *
  * Pins the contract from `services/ai/quotas.ts`:
  *
- *   - Under quota → `requireAiQuotaAvailable` returns the projection
- *     without throwing.
- *   - At quota → throws `AI_QUOTA_EXCEEDED` with details
- *     `{feature, used, limit, resetsAt}`.
- *   - Errored audit rows do NOT consume quota — the counter only
- *     reflects successful provider calls.
- *   - Quotas are per (tenant, site). Filling Site A does not bleed
- *     into Site B; Tenant T1's bucket is isolated from Tenant T2.
- *   - Calendar boundary: rows from the previous month don't count
- *     toward this month's bucket.
+ * - Under quota → `requireAiQuotaAvailable` returns the projection
+ * without throwing.
+ * - At quota → throws `AI_QUOTA_EXCEEDED` with details
+ * `{feature, used, limit, resetsAt}`.
+ * - Errored audit rows do NOT consume quota — the counter only
+ * reflects successful provider calls.
+ * - Quotas are per (tenant, site). Filling Site A does not bleed
+ * into Site B; Tenant T1's bucket is isolated from Tenant T2.
+ * - Calendar boundary: rows from the previous month don't count
+ * toward this month's bucket.
  *
  * @module __tests__/ai-quotas.test
  */
@@ -94,11 +94,7 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const admin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!admin) throw new Error('Expected seeded admin');
   tenantId = admin.tenantId;
 
@@ -106,11 +102,7 @@ beforeAll(async () => {
   // tests have real FK targets. The dev seed ships one site per
   // tenant; we add a second one programmatically to keep the test
   // standalone (no dependency on a future seed change).
-  const allSites = await db
-    .select()
-    .from(sites)
-    .where(eq(sites.tenantId, tenantId))
-    .all();
+  const allSites = await db.select().from(sites).where(eq(sites.tenantId, tenantId)).all();
   if (allSites.length === 0) {
     throw new Error('Expected at least one seeded site for the active tenant');
   }
@@ -171,7 +163,7 @@ beforeEach(async () => {
   await clearAuditRows();
 });
 
-describe('AI quotas (ENG-102)', () => {
+describe('AI quotas', () => {
   it('projects empty site-less quotas from the same constants', () => {
     const quotas = projectEmptyAiQuotas(NOW);
     expect(quotas.copilot).toEqual({

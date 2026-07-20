@@ -1,5 +1,5 @@
 // Lazy-loaded page registry for the app router, extracted from App.tsx
-// (ENG-178 slice 35). Each entry is its own dynamic import() chunk; the route
+// ( slice 35). Each entry is its own dynamic import() chunk; the route
 // tree in App.tsx renders these by name. Moving the registry here keeps the
 // same chunk boundaries (vite emits identical per-route chunks).
 
@@ -108,24 +108,24 @@ export const PeripheralsPage = lazyPage(async () => ({
 export const OperationsPage = lazyPage(async () => ({
   default: (await import('@/features/operations/OperationsPage')).OperationsPage,
 }));
-// ENG-069 — surface shells + placeholder pages. Each surface mounts
+// surface shells + placeholder pages. Each surface mounts
 // as a top-level route OUTSIDE of <MainLayout> so it owns its full
 // viewport (KDS fullscreen, customer-display second monitor, mobile
 // waiter phone-width). Real workflows plug into the existing shells
-// in ENG-039 without forking the App component.
+// in  without forking the App component.
 export const TouchShell = lazyPage(async () => ({
   default: (await import('@/features/surfaces/TouchShell')).TouchShell,
 }));
-// ENG-039a — real restaurant voice-ordering surface replaces the
+// real restaurant voice-ordering surface replaces the
 // `TouchHomePlaceholder` for `/touch`. The placeholder file stays
 // in the repo as the reference for the KDS / customer-display
-// surfaces that still ship the "Coming with ENG-039" chrome.
+// surfaces that still ship the "Coming with " chrome.
 export const TouchHome = lazyPage(async () => ({
   default: (await import('@/features/restaurants/TouchHome')).default,
 }));
-// ENG-087 — voice ordering was the previous default of `/touch`.
-// After ENG-087 ships the V1 POS grid as the `/touch` home, the
-// voice ordering surface moves to `/touch/voice` so the ENG-039a
+// voice ordering was the previous default of `/touch`.
+// After  ships the V1 POS grid as the `/touch` home, the
+// voice ordering surface moves to `/touch/voice` so the
 // flow stays reachable for operators who rely on it. The wrapper
 // pins `variant="touch"` so the route component matches the
 // existing tablet two-column shape used before this slice.
@@ -135,7 +135,7 @@ export const TouchVoiceRoute = lazyPage(async () => {
     default: () => <mod.VoiceOrderingScreen variant="touch" />,
   };
 });
-// ENG-039b — admin page for the restaurant table catalog.
+// admin page for the restaurant table catalog.
 export const RestaurantTablesPage = lazyPage(async () => ({
   default: (await import('@/features/restaurants/RestaurantTablesPage')).RestaurantTablesPage,
 }));
@@ -155,12 +155,12 @@ export const CustomerDisplayHomePlaceholder = lazyPage(async () => ({
 export const MobileWaiterShell = lazyPage(async () => ({
   default: (await import('@/features/surfaces/MobileWaiterShell')).MobileWaiterShell,
 }));
-// ENG-039a — real restaurant voice-ordering surface replaces the
+// real restaurant voice-ordering surface replaces the
 // `MobileWaiterHomePlaceholder` for `/m`.
 export const MobileWaiterHome = lazyPage(async () => ({
   default: (await import('@/features/restaurants/MobileWaiterHome')).default,
 }));
-// ENG-131c — workspace landing pages for /catalog, /procurement,
+// workspace landing pages for /catalog, /procurement,
 // and /finance. Each lazy wrapper pins the workspaceId so the same
 // generic component renders the right workspace catalogue.
 export const CatalogLandingRoute = lazyPage(async () => {

@@ -8,7 +8,7 @@ import type {
 } from './types.js';
 
 /**
- * ENG-065b — Read-only discrepancy detector, retired by the single-source
+ * Read-only discrepancy detector, retired by the single-source
  * unification (Auditoría 2026-07).
  *
  * Discrepancies used to mean drift between the denormalized `products.stock`

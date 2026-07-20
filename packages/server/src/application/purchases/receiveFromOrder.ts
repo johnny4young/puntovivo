@@ -1,7 +1,7 @@
 /**
  * Receive a purchase against an existing order (full or partial receipt).
  *
- * ENG-178 — extracted from the former monolithic `trpc/routers/purchases.ts`
+ * extracted from the former monolithic `trpc/routers/purchases.ts`
  * during the megafile decomposition. The order lookup + status guards + the
  * receive transaction (stock-in per line + order status transition) relocate
  * verbatim; the tRPC procedure adapts its context and calls this use-case.

@@ -1,16 +1,16 @@
 /**
- * ENG-036a — Tests de `CompanyClFiscalCard`.
+ * Tests de `CompanyClFiscalCard`.
  *
  * Cobertura:
  * - Renderiza la card cuando el tenant es CL con badge rojo y los
- *   issues que el adapter reporta.
+ * issues que el adapter reporta.
  * - Renderiza nada cuando el tenant es CO (defensive layer; el
- *   dispatch real vive en CompanyPage).
+ * dispatch real vive en CompanyPage).
  * - Submit del form llama a `fiscalSettings.updateCl` con el shape
- *   correcto.
+ * correcto.
  * - Cuando la config fiscal está sin configurar (pack apagado + todos
- *   los campos vacíos) muestra un EmptyState con CTA Configurar que
- *   revela el form; con config existente el form se renderiza directo.
+ * los campos vacíos) muestra un EmptyState con CTA Configurar que
+ * revela el form; con config existente el form se renderiza directo.
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -113,7 +113,7 @@ vi.mock('@/lib/trpc', () => ({
           error: null,
         }),
       },
-      // ENG-036b — read-only CAF lookup. Default to "no active CAF" so
+      // read-only CAF lookup. Default to "no active CAF" so
       // the existing tests render the empty branch; tests that need a
       // populated CAF override `mockCafResponse` before render.
       getActiveCaf: {
@@ -126,8 +126,7 @@ vi.mock('@/lib/trpc', () => ({
       updateCl: {
         useMutation: (options: { onSuccess?: unknown; onError?: unknown }) => ({
           mutate: (...args: unknown[]) => updateMutate(options, ...args),
-          mutateAsync: async (...args: unknown[]) =>
-            updateMutate(options, ...args),
+          mutateAsync: async (...args: unknown[]) => updateMutate(options, ...args),
           isPending: false,
         }),
       },
@@ -137,7 +136,7 @@ vi.mock('@/lib/trpc', () => ({
 
 import { CompanyClFiscalCard } from './CompanyClFiscalCard';
 
-describe('CompanyClFiscalCard (ENG-036a)', () => {
+describe('CompanyClFiscalCard', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockCountryCode = 'CL';
@@ -149,12 +148,8 @@ describe('CompanyClFiscalCard (ENG-036a)', () => {
     render(<CompanyClFiscalCard />);
     // El header + el badge de readiness siguen visibles.
     expect(screen.getByText(/Chile — SII/i)).toBeInTheDocument();
-    expect(screen.getByTestId('fiscal-cl-readiness')).toHaveTextContent(
-      /Not ready/i
-    );
-    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(
-      /Draft/i
-    );
+    expect(screen.getByTestId('fiscal-cl-readiness')).toHaveTextContent(/Not ready/i);
+    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(/Draft/i);
     // EmptyState visible; form oculto hasta el CTA.
     expect(screen.getByTestId('fiscal-cl-empty')).toBeInTheDocument();
     expect(screen.queryByLabelText(/Issuer RUT/i)).not.toBeInTheDocument();
@@ -165,12 +160,8 @@ describe('CompanyClFiscalCard (ENG-036a)', () => {
     fireEvent.click(screen.getByTestId('fiscal-cl-configure'));
     expect(screen.queryByTestId('fiscal-cl-empty')).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Issuer RUT/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole('option', { name: /4711/i })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('option', { name: /Santiago/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /4711/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Santiago/i })).toBeInTheDocument();
   });
 
   it('con config existente renderiza el form directo (sin EmptyState)', () => {

@@ -1,5 +1,5 @@
 /**
- * ENG-098 — KdsBoard unit tests.
+ * KdsBoard unit tests.
  *
  * Drives the board against synthetic `kds.list` payloads with the
  * realtime hook stubbed. Covers:
@@ -138,7 +138,7 @@ function setListData(items: MockKdsOrder[]) {
   };
 }
 
-describe('KdsBoard (ENG-098)', () => {
+describe('KdsBoard', () => {
   beforeEach(() => {
     invalidateListMock.mockClear();
     markReadyMutateMock.mockClear();

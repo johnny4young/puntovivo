@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — hardware domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -13,17 +13,17 @@ import { relations, sql } from 'drizzle-orm';
 import { sites, tenants } from './auth.js';
 
 // ============================================================================
-// SITE PERIPHERALS (ENG-060 — peripheral registry + hardware ports)
+// SITE PERIPHERALS (peripheral registry + hardware ports)
 // ============================================================================
 
 /**
  * Closed list of peripheral kinds a site can configure. The contracts +
  * default drivers for `printer` (system) and `payment_terminal` (manual)
- * ship with ENG-060; ENG-061 (scanner pipeline), ENG-062 (ESC/POS + cash
- * drawer), and ENG-063 (Bold/Wompi/MercadoPago) extend the driver matrix
+ * ship with ;  (scanner pipeline),  (ESC/POS + cash
+ * drawer), and  (Bold/Wompi/MercadoPago) extend the driver matrix
  * without touching this enum.
  *
- * `customer_display` is reserved for a future ticket; ENG-060 surfaces
+ * `customer_display` is reserved for a future change;  surfaces
  * the enum value but no driver registration is permitted.
  */
 export const peripheralKindEnum = [
@@ -85,9 +85,10 @@ export const sitePeripherals = sqliteTable(
     /** Result of the most recent test; null until first run. */
     lastTestResult: text('last_test_result', { enum: peripheralTestResultEnum }),
     /** Free-form forensics blob for the last test (errors, latency, etc.). */
-    lastTestDetails: text('last_test_details', { mode: 'json' }).$type<
-      Record<string, unknown> | null
-    >(),
+    lastTestDetails: text('last_test_details', { mode: 'json' }).$type<Record<
+      string,
+      unknown
+    > | null>(),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -97,11 +98,7 @@ export const sitePeripherals = sqliteTable(
   },
   table => [
     // Primary lookup path for the registry resolver.
-    index('idx_site_peripherals_tenant_site_kind').on(
-      table.tenantId,
-      table.siteId,
-      table.kind
-    ),
+    index('idx_site_peripherals_tenant_site_kind').on(table.tenantId, table.siteId, table.kind),
     // Cross-site listing for the admin index page.
     index('idx_site_peripherals_tenant_kind').on(table.tenantId, table.kind),
     // Partial unique: at most one ACTIVE peripheral per kind per site.
@@ -126,12 +123,12 @@ export type SitePeripheralRow = typeof sitePeripherals.$inferSelect;
 export type NewSitePeripheralRow = typeof sitePeripherals.$inferInsert;
 
 // ============================================================================
-// HARDWARE OUTBOX (ENG-062 — ESC/POS printer + cash drawer queue)
+// HARDWARE OUTBOX (ESC/POS printer + cash drawer queue)
 // ============================================================================
 //
-// Mirror of `fiscal_outbox` (ENG-057) for peripheral I/O. ENG-060 deferred
+// Mirror of `fiscal_outbox` () for peripheral I/O.  deferred
 // this table to here because the two default drivers (`system` printer +
-// `manual` payment terminal) had no async fan-out. With ENG-062's `escpos`
+// `manual` payment terminal) had no async fan-out. With 's `escpos`
 // driver landing real device I/O — which can fail recoverably on USB
 // unplug, paper out, or TCP-host unreachable — the queue lets the cashier
 // keep moving while the worker retries in the background.
@@ -191,9 +188,7 @@ export const hardwareOutbox = sqliteTable(
       onDelete: 'set null',
     }),
     /** Snapshot of the print job + transport opts so the worker can retry without re-resolving. */
-    payload: text('payload', { mode: 'json' })
-      .$type<Record<string, unknown>>()
-      .notNull(),
+    payload: text('payload', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
     payloadVersion: integer('payload_version').notNull().default(1),
     attempts: integer('attempts').notNull().default(0),
     nextRetryAt: text('next_retry_at'),
@@ -203,7 +198,7 @@ export const hardwareOutbox = sqliteTable(
     claimToken: text('claim_token'),
     lockedAt: text('locked_at'),
     /**
-     * ENG-067b — envelope-derived dedup key. Nullable so legacy
+     * envelope-derived dedup key. Nullable so legacy
      * callers without an envelope keep producing independent rows.
      * The partial unique index in 0018 only guards rows where this
      * is non-null. Set by `enqueueHardware` from the input
@@ -226,11 +221,11 @@ export const hardwareOutbox = sqliteTable(
       table.nextRetryAt
     ),
     // Drilldown for "show retry history of this peripheral" + admin
-    // peripheral-detail surfaces planned for ENG-065.
+    // peripheral-detail surfaces planned for .
     index('idx_hardware_outbox_peripheral').on(table.peripheralId),
     // Operations Center listing + peek.
     index('idx_hardware_outbox_tenant_created').on(table.tenantId, table.createdAt),
-    // ENG-067b — partial unique idempotency guard: at most one outbox row
+    // partial unique idempotency guard: at most one outbox row
     // per (tenant, kind, idempotency_key) among rows that CARRY a key;
     // null-keyed rows are unlimited. Previously hand-appended SQL (the old
     // 0018_hardware_outbox_idempotency.sql); declared here since the

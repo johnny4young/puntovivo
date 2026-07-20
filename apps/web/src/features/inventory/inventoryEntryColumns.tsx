@@ -1,9 +1,9 @@
 /**
- * ENG-132g — Inventory Entries (initial inventory / physical count) table columns.
+ * Inventory Entries (initial inventory / physical count) table columns.
  *
  * Extracted from `InventoryPage` so the column-set test can import a pure
  * function without the heavy page module, and to keep `InventoryPage` a
- * component-only export. Mirrors `inventoryStockColumns` (ENG-132c).
+ * component-only export. Mirrors `inventoryStockColumns` ().
  *
  * The Entries log renders the smallest useful column set (date, mode, product,
  * counted quantity). Unit, normalized quantity, cost, stock-after and notes are
@@ -70,7 +70,7 @@ export function getEntryColumns(
       meta: { cellClassName: 'num', headerClassName: 'num' },
       cell: ({ row }) => row.original.quantity.toLocaleString(),
     },
-    // ENG-132g — unit / normalized / cost / stock-after / notes trimmed into the
+    // unit / normalized / cost / stock-after / notes trimmed into the
     // row-detail Drawer (`onViewDetails`); date + mode + product + qty carry the scan.
     {
       id: 'actions',

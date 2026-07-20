@@ -99,7 +99,7 @@ function createTestContext(userPayload?: {
   const mockReq = {
     server: server.app,
     headers: {},
-    // ENG-008 — the login rate-limit service reads `ctx.req.ip`; the
+    // the login rate-limit service reads `ctx.req.ip`; the
     // Fastify request provides this in production via the connection
     // remote address. Pin a stable value so every createCaller-driven
     // test shares one IP bucket.
@@ -192,7 +192,7 @@ describe('Auth tRPC Router', () => {
     }
   });
 
-  // ENG-008 / ENG-008b — the login rate-limit service keeps both
+  // /  — the login rate-limit service keeps both
   // module-level cache state AND DB rows across invocations. Reset both
   // between every test so failed-login paths exercised by one case do not
   // saturate the bucket for the next.
@@ -318,23 +318,23 @@ describe('Auth tRPC Router', () => {
       expect(result.message).toBe('Logged out successfully');
     });
 
-    // ENG-025 vector 4 — logout must promote to protectedProcedure
+    // vector 4 — logout must promote to protectedProcedure
     // so the bump of sessionVersion has a user id to target. An
     // unauthenticated logout call would have no way to identify
     // whose tokens to invalidate; rejecting it is the correct
     // contract.
-    it('should reject unauthenticated callers (ENG-025)', async () => {
+    it('should reject unauthenticated callers', async () => {
       const caller = appRouter.createCaller(createTestContext());
       await expect(caller.auth.logout()).rejects.toThrow(TRPCError);
     });
 
-    // ENG-025 vector 4 — the signature feature: every successful
+    // vector 4 — the signature feature: every successful
     // logout increments users.sessionVersion. The next access token
     // verification for that user (via verifyAccessToken) sees the
     // mismatch and rejects, even within the 15-minute access TTL.
     // Without this, a leaked access token survives logout for up
     // to 15 minutes.
-    it('should bump users.sessionVersion on every successful logout (ENG-025 SEC-4)', async () => {
+    it('should bump users.sessionVersion on every successful logout', async () => {
       const db = getDatabase();
       const before = await db
         .select({ sessionVersion: users.sessionVersion })
@@ -395,7 +395,7 @@ describe('Auth tRPC Router', () => {
     });
   });
 
-  describe('auth staff switching (ENG-106a)', () => {
+  describe('auth staff switching', () => {
     function adminCaller() {
       return appRouter.createCaller(
         createTestContext({
@@ -642,7 +642,7 @@ describe('Auth tRPC Router', () => {
       });
 
       expect(response.statusCode).toBe(403);
-      // ENG-135b follow-up — the 403 body is a tRPC-shaped error
+      // follow-up — the 403 body is a tRPC-shaped error
       // envelope so the web client renders the real message instead
       // of 'Unable to transform response from server'.
       expect(response.json()).toEqual({
@@ -727,7 +727,7 @@ describe('Auth tRPC Router', () => {
   });
 
   describe('auth.changePassword', () => {
-    // ENG-052 — auth.changePassword is wrapped with
+    // auth.changePassword is wrapped with
     // criticalCommandProcedure (ADR-0002). Each createCaller test
     // pre-registers a device and mints a fresh envelope via
     // createCriticalCommandFixture. The HTTP-inject case at the end
@@ -825,7 +825,7 @@ describe('Auth tRPC Router', () => {
       expect(refreshCookie).toBeTruthy();
       expect(csrfCookie).toBeTruthy();
 
-      // ENG-052 — register device + mint envelope inline for the
+      // register device + mint envelope inline for the
       // HTTP-injected request. This mirrors what the renderer does
       // post-login.
       const dbForDevice = getDatabase();
@@ -899,7 +899,7 @@ describe('Auth tRPC Router', () => {
   });
 
   /**
-   * ENG-008 acceptance — `auth.login` enforces both a per-IP cap
+   * acceptance — `auth.login` enforces both a per-IP cap
    * (LOGIN_RATE_LIMIT_IP_MAX attempts per 60s) and a per-username cap
    * (LOGIN_RATE_LIMIT_USERNAME_MAX failures per 15 minutes).
    *
@@ -910,7 +910,7 @@ describe('Auth tRPC Router', () => {
    * buckets therefore key off the same identity and saturate
    * deterministically.
    */
-  describe('auth.login rate limiting (ENG-008)', () => {
+  describe('auth.login rate limiting', () => {
     async function attemptLogin(email: string, password: string) {
       const caller = appRouter.createCaller(createTestContext());
       return caller.auth.login({ email, password });
@@ -930,7 +930,7 @@ describe('Auth tRPC Router', () => {
       }
     }
 
-    it('ROADMAP acceptance: 50 bad-password attempts from one IP return TOO_MANY_REQUESTS inside 60s', async () => {
+    it('documented acceptance: 50 bad-password attempts from one IP return TOO_MANY_REQUESTS inside 60s', async () => {
       const startMs = Date.now();
 
       // Attempts 1..USERNAME_MAX hit the existing invalid-credentials surface.
@@ -945,7 +945,7 @@ describe('Auth tRPC Router', () => {
       // Attempts USERNAME_MAX+1 through 50 must bounce with TOO_MANY_REQUESTS
       // (the username bucket saturates first; the IP bucket is still below
       // its own cap but the outcome is the same 429 from the operator's
-      // perspective, which is what the ROADMAP gate requires).
+      // perspective, which is what the acceptance gate requires).
       const remaining = 50 - LOGIN_RATE_LIMIT_USERNAME_MAX;
       for (let i = 0; i < remaining; i += 1) {
         await expectCode(
@@ -1031,11 +1031,11 @@ describe('Auth tRPC Router', () => {
       );
     });
 
-    // ENG-008b — a failed login must now write rows to the `login_attempts`
+    // a failed login must now write rows to the `login_attempts`
     // table so the buckets survive a server restart. Assert on the DB
     // directly to pin that guarantee in the integration surface as well as
     // in the unit tests.
-    it('persists rate-limit rows to login_attempts on a failed login (ENG-008b)', async () => {
+    it('persists rate-limit rows to login_attempts on a failed login', async () => {
       const db = getDatabase();
 
       await expectCode(
@@ -1065,7 +1065,7 @@ describe('Auth tRPC Router', () => {
     });
   });
 
-  // ENG-025 vector 2 — @fastify/rate-limit registered with
+  // vector 2 — @fastify/rate-limit registered with
   // global:false; an onRoute hook in `index.ts` injects a 60/min/IP
   // bucket onto every `/api/trpc/*` wildcard route. The bucket is
   // intentionally a single tier because tRPC's Fastify adapter
@@ -1073,7 +1073,7 @@ describe('Auth tRPC Router', () => {
   // distinction would require a tRPC-layer middleware. Pin the
   // bucket via app.inject so a future edit that drops the hook
   // trips the suite.
-  describe('ENG-025 vector 2 — tRPC rate-limit hook', () => {
+  describe(' vector 2 — tRPC rate-limit hook', () => {
     it('rejects calls to /api/trpc/* after the per-IP bucket saturates (100/min)', async () => {
       // @fastify/rate-limit keys by request.ip + route. inject()
       // honors `remoteAddress` by setting the underlying socket's
@@ -1126,7 +1126,7 @@ describe('Auth tRPC Router', () => {
     });
   });
 
-  describe('auth.registerDevice (ENG-074 hub_client kind)', () => {
+  describe('auth.registerDevice ( hub_client kind)', () => {
     it('accepts kind=hub_client for cashier terminals pointing at a remote hub', async () => {
       const { accessToken } = await loginOverHttp();
       const csrfResponse = await server.app.inject({

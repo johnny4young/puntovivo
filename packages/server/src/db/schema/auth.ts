@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — auth domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -50,7 +50,7 @@ export const tenants = sqliteTable(
     name: text('name').notNull(),
     slug: text('slug').notNull().unique(),
     settings: text('settings', { mode: 'json' }).$type<Record<string, unknown>>().default({}),
-    // ENG-176b — canonical default currency for the tenant. Filled by
+    // canonical default currency for the tenant. Filled by
     // migration 0037 via COALESCE(tenant_locale_settings.currency_override,
     // country_catalog.default_currency_code via tenant_locale_settings.country_code,
     // json_extract(settings, '$.currency'), 'COP'). Read by
@@ -119,7 +119,7 @@ export const users = sqliteTable(
     email: text('email').notNull().unique(),
     name: text('name').notNull(),
     passwordHash: text('password_hash').notNull(),
-    // ENG-106a — optional fast-switch credential. Stored as an Argon2id
+    // optional fast-switch credential. Stored as an Argon2id
     // hash and never projected into user/sync/audit responses.
     staffPinHash: text('staff_pin_hash'),
     sessionVersion: integer('session_version').notNull().default(1),

@@ -1,5 +1,5 @@
 /**
- * ENG-035a — Catálogo SAT c_ClaveUnidad (subset curado).
+ * Catálogo SAT c_ClaveUnidad (subset curado).
  *
  * El SAT publica un catálogo enorme con más de 3500 unidades de
  * medida basadas en el estándar UN/CEFACT. La mayoría son
@@ -9,12 +9,12 @@
  *
  * El SAT exige que cada concepto del CFDI lleve un `ClaveUnidad`
  * válido. Cuando el catálogo interno de Puntovivo (`units` table)
- * no tiene un mapeo explícito, ENG-035b cae a `H87` (Pieza) como
+ * no tiene un mapeo explícito,  cae a `H87` (Pieza) como
  * fallback seguro — es el código más genérico que el SAT acepta
  * para mercancía contable por unidad.
  *
  * El mapeo `unit interno → ClaveUnidad` no vive aquí; vive en
- * ENG-035b cuando se modele el armado del XML CFDI. Por ahora
+ * cuando se modele el armado del XML CFDI. Por ahora
  * sólo exponemos el catálogo + el constante de fallback.
  *
  * @module services/fiscal/packs/mx/catalogs/claveUnidad
@@ -32,7 +32,7 @@ export interface ClaveUnidadEntry {
 /**
  * Fallback estándar para productos sin mapeo explícito. El SAT
  * acepta H87 como unidad genérica de mercancía contable por unidad
- * — el equivalente a "cada uno" en POS retail.
+ * el equivalente a "cada uno" en POS retail.
  */
 export const CLAVE_UNIDAD_FALLBACK = 'H87';
 

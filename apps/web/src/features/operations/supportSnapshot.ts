@@ -1,5 +1,5 @@
 /**
- * ENG-128 — allowlist-only support snapshot projection.
+ * allowlist-only support snapshot projection.
  *
  * This helper intentionally accepts richer device records structurally but
  * projects only health counts and app versions. Never spread source records

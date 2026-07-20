@@ -1,16 +1,16 @@
 /**
- * ENG-174 — pins the explicit WAL checkpoint added before the online
+ * pins the explicit WAL checkpoint added before the online
  * backup. SQLite's backup API already includes committed WAL frames;
  * this checkpoint keeps the source WAL flushed before the packaged
  * snapshot is produced. Three behaviours guarded here:
  *
- *   1. Writes that landed in the WAL pre-backup survive the round-trip
- *      to the restored DB.
- *   2. After the backup completes the source WAL is fully merged
- *      (the WAL file is truncated to zero or near-zero), proving that
- *      wal_checkpoint FULL actually ran.
- *   3. The backup path keeps working while the embedded server holds
- *      its writer connection open.
+ * 1. Writes that landed in the WAL pre-backup survive the round-trip
+ * to the restored DB.
+ * 2. After the backup completes the source WAL is fully merged
+ * (the WAL file is truncated to zero or near-zero), proving that
+ * wal_checkpoint FULL actually ran.
+ * 3. The backup path keeps working while the embedded server holds
+ * its writer connection open.
  *
  * Runs under node test --experimental-strip-types per the desktop
  * workspace test convention.
@@ -54,7 +54,7 @@ function seedDbWithDirtyWal(dbPath: string, rowCount: number): void {
   db.close();
 }
 
-describe('createBackupBundle WAL safety (ENG-174)', () => {
+describe('createBackupBundle WAL safety', () => {
   it('checkpoints the WAL before snapshotting and preserves uncheckpointed writes', async () => {
     const dir = await mkdtemp(join(scratchDir, 'wal-survive-'));
     const sourceDbPath = join(dir, 'live.db');
@@ -153,7 +153,11 @@ describe('createBackupBundle WAL safety (ENG-174)', () => {
         n: number;
       };
       verifier.close();
-      assert.equal(row.n, 100, 'every committed row must survive the round-trip while writer is alive');
+      assert.equal(
+        row.n,
+        100,
+        'every committed row must survive the round-trip while writer is alive'
+      );
     } finally {
       writer.close();
     }

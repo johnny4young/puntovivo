@@ -1,4 +1,4 @@
-/** ENG-123d — Row-complete customer receivable import report projection. */
+/** Row-complete customer receivable import report projection. */
 import type {
   CustomerBalanceImportIssue,
   CustomerBalanceImportPreview,

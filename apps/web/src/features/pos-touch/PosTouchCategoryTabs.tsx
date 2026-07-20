@@ -1,5 +1,5 @@
 /**
- * ENG-087 — Touch POS V1 category tabs.
+ * Touch POS V1 category tabs.
  *
  * Horizontal scroll row of category pills with per-category item
  * counts. The "Todas" / "All" tab is always first and shows the
@@ -7,13 +7,13 @@
  * Human Interface Guidelines minimum.
  *
  * Touch-first design notes:
- *  - Horizontal `overflow-x-auto` so categories overflow
- *    gracefully on narrow viewports instead of wrapping into
- *    multiple rows.
- *  - `snap-x snap-mandatory` for the scroll-snap feel on tablets.
- *  - Active pill uses the primary-tinted radial-gradient surface
- *    shared with DeliveryPage / CustomerLedgerModal so the touch
- *    POS reads as one cohesive product.
+ * - Horizontal `overflow-x-auto` so categories overflow
+ * gracefully on narrow viewports instead of wrapping into
+ * multiple rows.
+ * - `snap-x snap-mandatory` for the scroll-snap feel on tablets.
+ * - Active pill uses the primary-tinted radial-gradient surface
+ * shared with DeliveryPage / CustomerLedgerModal so the touch
+ * POS reads as one cohesive product.
  */
 import { useTranslation } from 'react-i18next';
 
@@ -70,7 +70,9 @@ export function PosTouchCategoryTabs({
             <span
               className={[
                 'rounded-full px-2 py-0.5 text-xs tabular-nums',
-                isActive ? 'bg-primary-100 text-primary-900' : 'bg-secondary-100 text-secondary-600',
+                isActive
+                  ? 'bg-primary-100 text-primary-900'
+                  : 'bg-secondary-100 text-secondary-600',
               ].join(' ')}
               data-testid={`${testId}-count`}
             >

@@ -1,4 +1,4 @@
-/** ENG-110b — live product-matrix creation, catalog round-trip and POS reachability. */
+/** live product-matrix creation, catalog round-trip and POS reachability. */
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';

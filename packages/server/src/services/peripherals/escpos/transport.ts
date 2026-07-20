@@ -1,17 +1,17 @@
 /**
- * ENG-062 — ESC/POS transport layer.
+ * ESC/POS transport layer.
  *
  * Abstracts the byte-to-device write so the adapter can dispatch
  * over any of {USB, TCP, serial, mock} without ESC/POS-aware code
  * elsewhere in the stack.
  *
- * **ENG-062 ships Mock + TCP fully**. USB and Serial transports
+ * ** ships Mock + TCP fully**. USB and Serial transports
  * lazy-load native modules (`node-thermal-printer`, `serialport`,
  * `usb`) which are NOT installed by default — the adapter
  * gracefully degrades to `NormalizedHardwareError` of kind
  * `DRIVER_NOT_IMPLEMENTED` when the operator registers a USB or
  * serial peripheral but the host environment lacks the bindings. A
- * follow-up ticket adds the native deps + the live USB/serial
+ * follow-up change adds the native deps + the live USB/serial
  * implementations once a physical hardware lab is available.
  *
  * The Mock transport captures bytes into an in-memory buffer so
@@ -23,10 +23,7 @@
 
 import { Socket } from 'node:net';
 import type { NormalizedHardwareError } from '../types.js';
-import {
-  EscPosTcpTargetPolicyError,
-  resolveEscPosTcpTarget,
-} from './tcp-target-policy.js';
+import { EscPosTcpTargetPolicyError, resolveEscPosTcpTarget } from './tcp-target-policy.js';
 
 // =============================================================================
 // Public types
@@ -34,7 +31,7 @@ import {
 
 export type EscPosChannel = 'usb' | 'tcp' | 'serial' | 'mock';
 
-// ENG-179b — explicit `| undefined` on every optional field so device
+// explicit `| undefined` on every optional field so device
 // drivers (`escpos-cash-drawer`, `escpos-receipt-printer`) can build
 // the config by spreading nullable DB rows under
 // `exactOptionalPropertyTypes`.
@@ -152,11 +149,14 @@ export class TcpEscPosTransport implements EscPosTransport {
       const onError = (err: Error) => {
         socket.destroy();
         reject(
-          new EscPosTransportError(`TCP connect to ${this.host}:${this.port} failed: ${err.message}`, {
-            kind: 'DEVICE_OFFLINE',
-            message: err.message,
-            details: { host: this.host, port: this.port },
-          })
+          new EscPosTransportError(
+            `TCP connect to ${this.host}:${this.port} failed: ${err.message}`,
+            {
+              kind: 'DEVICE_OFFLINE',
+              message: err.message,
+              details: { host: this.host, port: this.port },
+            }
+          )
         );
       };
       const timer = setTimeout(() => {
@@ -208,13 +208,13 @@ export class TcpEscPosTransport implements EscPosTransport {
 }
 
 // =============================================================================
-// USB / Serial stubs (deferred — no native deps in ENG-062)
+// USB / Serial stubs (deferred — no native deps in )
 // =============================================================================
 
 /**
  * USB transport stub. Lazy-loads `node-thermal-printer` (or `usb`)
  * on first write; throws `DRIVER_NOT_IMPLEMENTED` if the binding
- * is not installed. A follow-up ticket replaces this with a real
+ * is not installed. A follow-up change replaces this with a real
  * implementation once the physical hardware lab is online and the
  * native deps are wired into the Electron rebuild step.
  */
@@ -255,7 +255,7 @@ export class SerialEscPosStubTransport implements EscPosTransport {
 // =============================================================================
 
 /**
- * ENG-062 test seam. When set, `resolveTransport` returns the
+ * test seam. When set, `resolveTransport` returns the
  * override regardless of `config.channel`. Tests inject a
  * `MockEscPosTransport` and assert against `captured` after the
  * adapter fires.

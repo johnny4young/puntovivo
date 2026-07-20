@@ -1,5 +1,5 @@
 /**
- * ENG-052b — Shared types passed across the MEGA seed helpers.
+ * Shared types passed across the MEGA seed helpers.
  *
  * The orchestrator (`index.ts`) gathers the foundation rows from the
  * default seed (tenant, sites, users, products, customers) and hands
@@ -100,7 +100,7 @@ export const MEGA_TARGET: MegaTarget = {
   historicalDays: 95,
   salesPerActiveDay: 6,
   cashierActivityRate: 0.7,
-  refundRate: 0.10,
+  refundRate: 0.1,
   voidRate: 0.05,
   suspendedDrafts: 12,
 

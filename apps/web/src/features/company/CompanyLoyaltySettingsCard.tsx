@@ -1,5 +1,5 @@
 /**
- * ENG-214 — Admin-only card for the tenant's loyalty program (ENG-213).
+ * Admin-only card for the tenant's loyalty program ().
  *
  * Sits inside `CompanyPage`'s "general" tab beside the cash-close and
  * discount cards. Reads `loyalty.settings`, writes via
@@ -8,7 +8,7 @@
  * Unit inversion is the point of this card. The server stores
  * `pointsPerUnit` (0.001 = one point per $1.000) because the accrual is a
  * multiplication, but "0.001" is a number only the implementer can read.
- * The operator thinks in the WC-D2 spec's own phrasing — "how much does a
+ * The operator thinks in the  spec's own phrasing — "how much does a
  * point cost?" — so the input is currency-per-point and the card converts
  * on the way in and out. The live example line below the field is the real
  * validation: the admin sees what a $50.000 sale would earn before saving.

@@ -1,11 +1,11 @@
 /**
- * ENG-132c — Inventory Stock detail Drawer.
+ * Inventory Stock detail Drawer.
  *
  * Read-only slide-over that holds the Stock-table fields trimmed off the
  * default table (min stock, sell price, valuation, updated date) plus the
  * SKU + category, so the table can default to the smallest useful column
  * set (name + stock + status). Reuses the shared `Drawer` primitive
- * (ENG-186) for the dialog a11y contract and mirrors `ProductDetailsDrawer`
+ * () for the dialog a11y contract and mirrors `ProductDetailsDrawer`
  * / `CustomerDetailsDrawer`. The optional `onAdjust` footer action is wired
  * only for manager / admin by the caller (mirrors the row's Adjust gating).
  *
@@ -83,19 +83,13 @@ export function InventoryStockDetailsDrawer({
           <DetailField label={t('stock.details.sku')} value={item.sku} />
           <DetailField label={t('stock.details.category')} value={item.categoryName || '-'} />
           <DetailField label={t('stock.columns.stock')} value={item.stock.toLocaleString()} />
-          <DetailField
-            label={t('stock.columns.minStock')}
-            value={item.minStock.toLocaleString()}
-          />
+          <DetailField label={t('stock.columns.minStock')} value={item.minStock.toLocaleString()} />
           <DetailField label={t('stock.columns.sellPrice')} value={formatCurrency(item.price)} />
           <DetailField
             label={t('stock.columns.valuation')}
             value={formatCurrency(item.inventoryValue)}
           />
-          <DetailField
-            label={t('stock.columns.updated')}
-            value={formatDateTime(item.updatedAt)}
-          />
+          <DetailField label={t('stock.columns.updated')} value={formatDateTime(item.updatedAt)} />
           <DetailField
             label={t('stock.columns.status')}
             value={

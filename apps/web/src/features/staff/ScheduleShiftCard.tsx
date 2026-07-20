@@ -11,7 +11,7 @@ interface ScheduleShiftCardProps {
   onCancel: (shift: ScheduledShift) => void;
 }
 
-/** ENG-140a — dense weekly-card presentation with full accessible labels. */
+/** dense weekly-card presentation with full accessible labels. */
 export function ScheduleShiftCard({
   shift,
   dateLabel,

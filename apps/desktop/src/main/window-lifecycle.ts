@@ -1,4 +1,4 @@
-/** ENG-201 — BrowserWindow creation, navigation policy, and measurement mode. */
+/** BrowserWindow creation, navigation policy, and measurement mode. */
 
 import { app, BrowserWindow, shell, type WebContentsConsoleMessageEventParams } from 'electron';
 import { join } from 'node:path';
@@ -87,7 +87,7 @@ export function createWindowLifecycle({
       show: false,
       autoHideMenuBar: true,
       title: t('app.windowTitle'),
-      // ENG-004 — exact sandboxed webPreferences live in window-config.ts.
+      // exact sandboxed webPreferences live in window-config.ts.
       webPreferences: buildMainWindowWebPreferences(join(__dirname, '../preload/index.cjs')),
     });
 
@@ -134,7 +134,7 @@ export function createWindowLifecycle({
       log.warn({ url }, 'blocked unsupported renderer navigation');
     });
 
-    // ENG-133b — machine-readable Electron memory gate. Verify the React root
+    // machine-readable Electron memory gate. Verify the React root
     // mounted before measuring so Chromium error pages never report a false pass.
     if (process.env.PUNTOVIVO_MEASURE_MEMORY === '1') {
       const measuredWebContents = mainWindow.webContents;

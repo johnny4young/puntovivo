@@ -1,14 +1,22 @@
 /**
  * Drizzle schema — fiscal domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
  *
  * @module db/schema/fiscal
  */
-import { foreignKey, index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  foreignKey,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
 import { moneyPositiveChecks, nowIso, sqliteNow } from './base.js';
 import { sites, tenants, users } from './auth.js';
@@ -16,12 +24,12 @@ import { customers } from './customers.js';
 import { countryCatalog, fiscalIdentificationTypes } from './config.js';
 
 // ============================================================================
-// FISCAL DOCUMENTS (ENG-020 Phase A — Colombia DIAN MVP)
+// FISCAL DOCUMENTS ( current — Colombia DIAN MVP)
 // ============================================================================
 //
 // Four tenant-scoped tables that together model the fiscal-document
 // lifecycle without committing to any specific Proveedor Tecnológico.
-// ENG-021 (Fase B) swaps the `MockAdapter` implementation behind the
+// (Fase B) swaps the `MockAdapter` implementation behind the
 // `FiscalAdapter` interface for a real PT integration — the tables
 // themselves do not change shape.
 //
@@ -34,9 +42,9 @@ import { countryCatalog, fiscalIdentificationTypes } from './config.js';
 //
 // Scope per tenant:
 // - `fiscal_numbering_resolutions` — DIAN-issued consecutive ranges.
-//   Each site holds one active range per kind (DEE, FEV, NC, ND).
+// Each site holds one active range per kind (DEE, FEV, NC, ND).
 // - `fiscal_certificates` — references to the p12 cert + passphrase
-//   (stored out of band; only the ref + validity metadata lives here).
+// (stored out of band; only the ref + validity metadata lives here).
 // - `fiscal_documents` — one row per emitted fiscal event.
 // - `fiscal_document_items` — line snapshot; frozen product name/sku.
 
@@ -47,19 +55,19 @@ export type FiscalDocumentKind = (typeof fiscalDocumentKindEnum)[number];
 /**
  * Lifecycle states a fiscal document can occupy.
  *
- * ENG-176c extended the set so the same enum can carry the
+ * extended the set so the same enum can carry the
  * acknowledgement language of every LATAM authority Puntovivo plans to
  * integrate, not just DIAN:
  * - `pending` / `sent` / `accepted` / `rejected` / `contingency` —
- *   DIAN-native states from ENG-020 Phase A.
+ * DIAN-native states from  current.
  * - `voided` — terminal state for SAT CFDI cancelaciones, SII DTE
- *   anulaciones, and NFe (Brazil) cancelamento; the original
- *   document is unrecoverable.
+ * anulaciones, and NFe (Brazil) cancelamento; the original
+ * document is unrecoverable.
  * - `notified_correction` — SAT acuse de notificación de corrección;
- *   the authority asks the emitter to fix and re-submit. Non-terminal.
+ * the authority asks the emitter to fix and re-submit. Non-terminal.
  * - `partial_send` — SUNAT batch acknowledgement where a subset of
- *   the lote's comprobantes was accepted and the rest must be
- *   resent. Non-terminal.
+ * the lote's comprobantes was accepted and the rest must be
+ * resent. Non-terminal.
  *
  * Adapters map their provider-specific status code to the closest
  * canonical value here. The frontend (`FiscalStatusBadge.tsx`) keeps
@@ -108,11 +116,7 @@ export const fiscalNumberingResolutions = sqliteTable(
   },
   table => [
     index('idx_fiscal_resolutions_tenant').on(table.tenantId),
-    index('idx_fiscal_resolutions_site_kind').on(
-      table.siteId,
-      table.kind,
-      table.isActive
-    ),
+    index('idx_fiscal_resolutions_site_kind').on(table.siteId, table.kind, table.isActive),
   ]
 );
 
@@ -163,15 +167,13 @@ export const fiscalDocuments = sqliteTable(
      * computed via SHA-384 per DIAN Resolución 165/2023. Unique.
      */
     cufe: text('cufe').notNull(),
-    status: text('status', { enum: fiscalDocumentStatusEnum })
-      .notNull()
-      .default('pending'),
+    status: text('status', { enum: fiscalDocumentStatusEnum }).notNull().default('pending'),
     // --- Buyer snapshot (frozen at emission) ---------------------------------
     /** null when consumidor final; otherwise the source customer id. */
     customerId: text('customer_id').references(() => customers.id),
     buyerTaxId: text('buyer_tax_id').notNull(),
     /**
-     * ENG-176c — country whose authority issued the buyer's
+     * country whose authority issued the buyer's
      * identification type. Defaults to `'CO'` for legacy rows
      * (DIAN-only era). FK composes with `buyerTaxIdTypeCode` to
      * resolve a row in `fiscal_identification_types`.
@@ -206,12 +208,13 @@ export const fiscalDocuments = sqliteTable(
      */
     originalCufe: text('original_cufe'),
     reasonCode: text('reason_code'),
-    /** Provider that emitted the document. Fase A = 'mock'. */
+    /** Provider that emitted the document. estado actual = 'mock'. */
     providerId: text('provider_id').notNull(),
     /** PT response JSON snapshot for troubleshooting. Null for MockAdapter. */
-    providerResponse: text('provider_response', { mode: 'json' }).$type<
-      Record<string, unknown> | null
-    >(),
+    providerResponse: text('provider_response', { mode: 'json' }).$type<Record<
+      string,
+      unknown
+    > | null>(),
     /** Reference to the XML blob (storage path). Null until stored. */
     xmlRef: text('xml_ref'),
     /** Retry count for the contingency queue. */
@@ -226,29 +229,23 @@ export const fiscalDocuments = sqliteTable(
     index('idx_fiscal_documents_tenant').on(table.tenantId),
     index('idx_fiscal_documents_source').on(table.source, table.sourceId),
     uniqueIndex('idx_fiscal_documents_cufe').on(table.cufe),
-    uniqueIndex('idx_fiscal_documents_tenant_doc').on(
-      table.tenantId,
-      table.documentNumber
-    ),
+    uniqueIndex('idx_fiscal_documents_tenant_doc').on(table.tenantId, table.documentNumber),
     index('idx_fiscal_documents_status').on(table.status),
-    // ENG-176b — pin both invariants (nonneg + 2dec precision) on the
+    // pin both invariants (nonneg + 2dec precision) on the
     // sale-header snapshot stored on the fiscal document. Recreation
     // of this table by migration 0037 also retro-fits the CHECKs the
-    // Drizzle snapshot chain could not emit during ENG-176a.
+    // Drizzle snapshot chain could not emit during .
     ...moneyPositiveChecks('fiscal_documents_subtotal', table.subtotal),
     ...moneyPositiveChecks('fiscal_documents_tax', table.taxAmount),
     ...moneyPositiveChecks('fiscal_documents_discount', table.discountAmount),
     ...moneyPositiveChecks('fiscal_documents_total', table.totalAmount),
-    // ENG-176c — composite FK against `fiscal_identification_types`
+    // composite FK against `fiscal_identification_types`
     // PK (country_code, code). Replaces the legacy single-column FK
     // to `dian_identification_types.code` so SAT / SUNAT / SII rows
     // can resolve without colliding with DIAN codes.
     foreignKey({
       columns: [table.buyerCountryCode, table.buyerTaxIdTypeCode],
-      foreignColumns: [
-        fiscalIdentificationTypes.countryCode,
-        fiscalIdentificationTypes.code,
-      ],
+      foreignColumns: [fiscalIdentificationTypes.countryCode, fiscalIdentificationTypes.code],
       name: 'fiscal_documents_buyer_fiscal_identification_fk',
     }),
   ]
@@ -280,7 +277,7 @@ export const fiscalDocumentItems = sqliteTable(
   },
   table => [
     index('idx_fiscal_document_items_doc').on(table.fiscalDocumentId),
-    // ENG-176b — line-level invariants on the fiscal snapshot.
+    // line-level invariants on the fiscal snapshot.
     // currency_code is inherited implicitly from
     // `fiscal_documents.currency_code` via the `fiscal_document_id`
     // FK (no per-item column to avoid duplication; an item never
@@ -306,37 +303,31 @@ export const fiscalNumberingResolutionsRelations = relations(
   })
 );
 
-export const fiscalDocumentsRelations = relations(
-  fiscalDocuments,
-  ({ one, many }) => ({
-    tenant: one(tenants, {
-      fields: [fiscalDocuments.tenantId],
-      references: [tenants.id],
-    }),
-    resolution: one(fiscalNumberingResolutions, {
-      fields: [fiscalDocuments.resolutionId],
-      references: [fiscalNumberingResolutions.id],
-    }),
-    emittedBy: one(users, {
-      fields: [fiscalDocuments.emittedByUserId],
-      references: [users.id],
-    }),
-    items: many(fiscalDocumentItems),
-  })
-);
+export const fiscalDocumentsRelations = relations(fiscalDocuments, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [fiscalDocuments.tenantId],
+    references: [tenants.id],
+  }),
+  resolution: one(fiscalNumberingResolutions, {
+    fields: [fiscalDocuments.resolutionId],
+    references: [fiscalNumberingResolutions.id],
+  }),
+  emittedBy: one(users, {
+    fields: [fiscalDocuments.emittedByUserId],
+    references: [users.id],
+  }),
+  items: many(fiscalDocumentItems),
+}));
 
-export const fiscalDocumentItemsRelations = relations(
-  fiscalDocumentItems,
-  ({ one }) => ({
-    fiscalDocument: one(fiscalDocuments, {
-      fields: [fiscalDocumentItems.fiscalDocumentId],
-      references: [fiscalDocuments.id],
-    }),
-  })
-);
+export const fiscalDocumentItemsRelations = relations(fiscalDocumentItems, ({ one }) => ({
+  fiscalDocument: one(fiscalDocuments, {
+    fields: [fiscalDocumentItems.fiscalDocumentId],
+    references: [fiscalDocuments.id],
+  }),
+}));
 
 // ============================================================================
-// FISCAL OUTBOX (ENG-057 — first concrete consumer of the outbox kernel)
+// FISCAL OUTBOX (first concrete consumer of the outbox kernel)
 // ============================================================================
 
 /**
@@ -360,7 +351,7 @@ export const fiscalOutboxStatusEnum = [
 export type FiscalOutboxStatus = (typeof fiscalOutboxStatusEnum)[number];
 
 /**
- * Closed list of fiscal outbox kinds. ENG-057 ships only `emit`;
+ * Closed list of fiscal outbox kinds.  ships only `emit`;
  * `cancel` (DIAN cancellation), `retry_contingency` (re-enqueue
  * after manual operator action), and `fetch_status` (poll PT for
  * an in-flight CUFE) land incrementally per ADR-0003 sequencing.
@@ -394,20 +385,17 @@ export const fiscalOutbox = sqliteTable(
      * FK to the pre-created `fiscal_documents` row (status='pending'
      * at enqueue time). Nullable to leave room for a future
      * raw-enqueue path (admin batch issue) that does not pre-create.
-     * In ENG-057's flow this is always populated.
+     * In 's flow this is always populated.
      */
-    fiscalDocumentId: text('fiscal_document_id').references(
-      () => fiscalDocuments.id,
-      { onDelete: 'set null' }
-    ),
+    fiscalDocumentId: text('fiscal_document_id').references(() => fiscalDocuments.id, {
+      onDelete: 'set null',
+    }),
     /** Snapshot of the resolved adapter providerId at enqueue. */
     providerId: text('provider_id'),
     /** Filled by the worker on `accepted`; redundant with `fiscal_documents.cufe`. */
     cufe: text('cufe'),
     /** `FiscalAdapterIssueInput` snapshot — worker MUST be able to retry without re-resolving. */
-    payload: text('payload', { mode: 'json' })
-      .$type<Record<string, unknown>>()
-      .notNull(),
+    payload: text('payload', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
     payloadVersion: integer('payload_version').notNull().default(1),
     attempts: integer('attempts').notNull().default(0),
     nextRetryAt: text('next_retry_at'),

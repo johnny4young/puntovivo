@@ -1,5 +1,5 @@
 /**
- * ENG-020 — `emitFiscalDocument` integration tests.
+ * `emitFiscalDocument` integration tests.
  *
  * Runs HTTP-less against the in-memory sqlite DB seeded by `createServer`.
  * Uses `ColombiaMockAdapter` directly so the CUFE stays deterministic and we
@@ -8,15 +8,15 @@
  * Coverage:
  * - Feature flag off → returns null, no fiscal document row inserted.
  * - Happy path → CUFE matches pure `computeCufe`; buyer + line snapshots
- *   land on the fiscal_documents / fiscal_document_items rows.
+ * land on the fiscal_documents / fiscal_document_items rows.
  * - Consumidor final (customerId null) → buyer defaults to DIAN constants
- *   (222222222222, '31', 'Consumidor final') without touching customers.
+ * (222222222222, '31', 'Consumidor final') without touching customers.
  * - Buyer snapshot immutability: mutating `customers.name` post-emission
- *   leaves `fiscal_documents.buyer_name` unchanged.
+ * leaves `fiscal_documents.buyer_name` unchanged.
  * - Line snapshot immutability: mutating `products.name` post-emission
- *   leaves `fiscal_document_items.product_name` unchanged.
+ * leaves `fiscal_document_items.product_name` unchanged.
  * - Idempotency: calling emit twice with the same
- *   (tenantId, source, sourceId, kind) returns the first row (no dup).
+ * (tenantId, source, sourceId, kind) returns the first row (no dup).
  * - Cross-tenant isolation: tenant B cannot see tenant A's documents.
  * - Resolution consecutive advancement after each emission.
  */
@@ -43,10 +43,7 @@ import {
 } from '../db/schema.js';
 import { CONSUMIDOR_FINAL, computeCufe } from '../services/fiscal/cufe.js';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
-import {
-  emitFiscalDocument,
-  enqueueFiscalEmission,
-} from '../services/fiscal/orchestrator.js';
+import { emitFiscalDocument, enqueueFiscalEmission } from '../services/fiscal/orchestrator.js';
 
 let server: PuntovivoServer;
 
@@ -303,7 +300,7 @@ async function seedSecondSiteResolution(
   };
 }
 
-describe('emitFiscalDocument (ENG-020)', () => {
+describe('emitFiscalDocument', () => {
   let harness: TenantHarness;
   let adapter: ColombiaMockAdapter;
 
@@ -332,10 +329,7 @@ describe('emitFiscalDocument (ENG-020)', () => {
   it('returns null and inserts no row when fiscal_dian_enabled is false', async () => {
     const db = getDatabase();
     // Flip the flag off for this single assertion then restore.
-    await db
-      .update(tenants)
-      .set({ settings: {} })
-      .where(eq(tenants.id, harness.tenantId));
+    await db.update(tenants).set({ settings: {} }).where(eq(tenants.id, harness.tenantId));
 
     const saleId = await seedCompletedSale({
       harness,
@@ -369,10 +363,10 @@ describe('emitFiscalDocument (ENG-020)', () => {
       .where(eq(tenants.id, harness.tenantId));
   });
 
-  it('skips emission (no row) for an unsupported country, sale stays non-fatal (ENG-185)', async () => {
+  it('skips emission (no row) for an unsupported country, sale stays non-fatal', async () => {
     const db = getDatabase();
     // Move the tenant to a country with no fiscal pack; keep DIAN enabled.
-    // ENG-185 — the registry no longer falls back to a Colombia-shaped
+    // the registry no longer falls back to a Colombia-shaped
     // document; the orchestrator must skip emission cleanly so the sale
     // still completes.
     await db
@@ -726,26 +720,30 @@ describe('emitFiscalDocument (ENG-020)', () => {
       total: 119,
     });
 
-    await db.run(sql.raw(`
+    await db.run(
+      sql.raw(`
       CREATE TRIGGER fail_second_fiscal_item
       BEFORE INSERT ON fiscal_document_items
       WHEN NEW.line_number = 2
       BEGIN
         SELECT RAISE(ABORT, 'forced fiscal item failure');
       END
-    `));
+    `)
+    );
 
     try {
-      await expect(emitFiscalDocument({
-        tx: db,
-        tenantId: harness.tenantId,
-        userId: harness.userId,
-        source: 'sale',
-        sourceId: saleId,
-        saleId,
-        kind: 'DEE',
-        adapter,
-      })).rejects.toThrow(/forced fiscal item failure/);
+      await expect(
+        emitFiscalDocument({
+          tx: db,
+          tenantId: harness.tenantId,
+          userId: harness.userId,
+          source: 'sale',
+          sourceId: saleId,
+          saleId,
+          kind: 'DEE',
+          adapter,
+        })
+      ).rejects.toThrow(/forced fiscal item failure/);
     } finally {
       await db.run(sql.raw('DROP TRIGGER IF EXISTS fail_second_fiscal_item'));
     }
@@ -754,10 +752,7 @@ describe('emitFiscalDocument (ENG-020)', () => {
       .select()
       .from(fiscalDocuments)
       .where(
-        and(
-          eq(fiscalDocuments.tenantId, harness.tenantId),
-          eq(fiscalDocuments.sourceId, saleId)
-        )
+        and(eq(fiscalDocuments.tenantId, harness.tenantId), eq(fiscalDocuments.sourceId, saleId))
       )
       .all();
     expect(docs).toHaveLength(0);

@@ -1,5 +1,5 @@
 /**
- * ENG-067 — Chaos: app restart after sale.
+ * Chaos: app restart after sale.
  *
  * The retail-store failure mode this guards against: a cajero apaga
  * la laptop mid-tick. The fiscal/hardware worker had claimed a row
@@ -15,17 +15,17 @@
  * `queued`.
  *
  * This file exercises the sweep by:
- *   1. Booting a server (which auto-starts both workers + runs an
- *      initial sweep against an empty table).
- *   2. Inserting an outbox row with a stale claim token + a
- *      `lockedAt` from 6 minutes ago.
- *   3. Calling `worker.stop()` then `worker.start()` to force a
- *      fresh sweep without waiting 5 minutes.
- *   4. Asserting the row was reclaimed.
+ * 1. Booting a server (which auto-starts both workers + runs an
+ * initial sweep against an empty table).
+ * 2. Inserting an outbox row with a stale claim token + a
+ * `lockedAt` from 6 minutes ago.
+ * 3. Calling `worker.stop()` then `worker.start()` to force a
+ * fresh sweep without waiting 5 minutes.
+ * 4. Asserting the row was reclaimed.
  *
  * Sync worker daemon does NOT exist today (sync remains
- * operator-driven per ENG-064 close-out). The third case asserts
- * this gap explicitly so a future ticket that introduces the daemon
+ * operator-driven per  close-out). The third case asserts
+ * this gap explicitly so a future change that introduces the daemon
  * can mirror the assertion shape.
  *
  * @module __tests__/chaos-app-restart-after-sale
@@ -36,12 +36,7 @@ import { eq, isNotNull, lte, and, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  fiscalOutbox,
-  hardwareOutbox,
-  syncOutbox,
-  tenants,
-} from '../db/schema.js';
+import { fiscalOutbox, hardwareOutbox, syncOutbox, tenants } from '../db/schema.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -88,7 +83,7 @@ async function bounceHardwareWorker(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 100));
 }
 
-describe('chaos: app restart after sale (ENG-067)', () => {
+describe('chaos: app restart after sale', () => {
   it('fiscal worker reclaims a stale `submitting` row on boot', async () => {
     const db = getDatabase();
     const rowId = `chaos-fiscal-${nanoid()}`;
@@ -200,10 +195,10 @@ describe('chaos: app restart after sale (ENG-067)', () => {
     expect(after?.lockedAt).toBe(freshLockedAt);
   });
 
-  it('sync worker daemon gap is documented (ENG-064 close-out)', async () => {
-    // Sync remains operator-driven per ENG-064. There's no scheduled
+  it('sync worker daemon gap is documented ( close-out)', async () => {
+    // Sync remains operator-driven per . There's no scheduled
     // sweep for sync_outbox today — `sync.retry` is the only re-arm
-    // path. This test pins the gap so a future ticket that adds the
+    // path. This test pins the gap so a future change that adds the
     // sync worker daemon can mirror the assertion shape used by the
     // fiscal + hardware tests above.
     expect((server as Record<string, unknown>).syncWorker).toBeUndefined();
@@ -242,9 +237,7 @@ describe('chaos: app restart after sale (ENG-067)', () => {
         status: sql`CASE WHEN ${syncOutbox.status} = 'submitting' THEN 'queued' ELSE ${syncOutbox.status} END`,
         updatedAt: new Date().toISOString(),
       })
-      .where(
-        and(isNotNull(syncOutbox.lockedAt), lte(syncOutbox.lockedAt, cutoff))
-      );
+      .where(and(isNotNull(syncOutbox.lockedAt), lte(syncOutbox.lockedAt, cutoff)));
 
     const swept = await db
       .select({

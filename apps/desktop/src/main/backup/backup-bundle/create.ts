@@ -1,5 +1,5 @@
-// ENG-066 / ENG-174 — atomic, integrity-checked ZIP backup of the live DB
-// (ENG-178 slice 31).
+// /  — atomic, integrity-checked ZIP backup of the live DB
+// ( slice 31).
 
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -20,9 +20,9 @@ import type { BackupManifest, CreateBackupBundleArgs, CreateBackupBundleResult }
  * Produce an atomic, integrity-checked ZIP backup of the live DB.
  *
  * Throws when:
- *   - `dbPath` does not exist or is unreadable.
- *   - `db.backup()` fails (disk full, permission denied).
- *   - `PRAGMA integrity_check` returns anything other than `'ok'`.
+ * - `dbPath` does not exist or is unreadable.
+ * - `db.backup()` fails (disk full, permission denied).
+ * - `PRAGMA integrity_check` returns anything other than `'ok'`.
  *
  * Callers serialize backup lifecycle work, but do not need to stop normal
  * database traffic. SQLite's online backup path and encrypted VACUUM INTO
@@ -38,7 +38,7 @@ export async function createBackupBundle(
   const stagingDbPath = join(stagingDir, ZIP_DB_ENTRY);
 
   try {
-    // ENG-174 — flush the WAL into the main DB file BEFORE the online
+    // flush the WAL into the main DB file BEFORE the online
     // backup snapshots the bytes. Without this, a power loss between
     // when the backup resolves and when the OS finishes flushing the
     // bundle ZIP to disk could leave the .db file and its .db-wal

@@ -1,5 +1,5 @@
 /**
- * ENG-068 — Admin-only card for module activation.
+ * Admin-only card for module activation.
  *
  * Sits inside `CompanyPage`'s admin grid under the `Modules` tab.
  * Reads `modules.list` to discover the current state per module + the
@@ -13,7 +13,7 @@
  * gated routes therefore reflect the new state on the same tick the
  * toast lands.
  *
- * Presentation (FASE 7 F5): modules group by surface (Inteligencia ·
+ * Presentation (F5): modules group by surface (Inteligencia ·
  * Superficies de venta · Operación · Integraciones) under a section
  * `.label`, each row is a `.pv-check` with title + muted description +
  * an on/off `.pv-switch` on the right, and the header carries an active

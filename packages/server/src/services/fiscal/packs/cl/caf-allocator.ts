@@ -1,5 +1,5 @@
 /**
- * ENG-036b — CAF (Códigos de Autorización de Folios) folio allocator.
+ * CAF (Códigos de Autorización de Folios) folio allocator.
  *
  * The SII issues each emisor a signed XML CAF that authorizes
  * emission of a specific TipoDTE in a folio range
@@ -8,16 +8,16 @@
  *
  * Two entry points:
  *
- *   - `allocateNextFolio(tx, args)` — runs INSIDE the orchestrator's
- *     write transaction so the folio advance + the
- *     `fiscal_documents` insert happen atomically. Throws
- *     `CAF_NOT_AVAILABLE` when no active CAF exists for the pair, or
- *     `CAF_EXHAUSTED` when the cursor would exceed `folio_hasta` (and
- *     atomically flips the row to `status='exhausted'` so the next
- *     CAF the operator uploads can claim the active slot).
- *   - `peekActiveCaf(db, tenantId, tipoDte)` — read-only lookup the
- *     admin tab + getActiveCaf tRPC query use to render "folios
- *     remaining" without mutating state.
+ * - `allocateNextFolio(tx, args)` — runs INSIDE the orchestrator's
+ * write transaction so the folio advance + the
+ * `fiscal_documents` insert happen atomically. Throws
+ * `CAF_NOT_AVAILABLE` when no active CAF exists for the pair, or
+ * `CAF_EXHAUSTED` when the cursor would exceed `folio_hasta` (and
+ * atomically flips the row to `status='exhausted'` so the next
+ * CAF the operator uploads can claim the active slot).
+ * - `peekActiveCaf(db, tenantId, tipoDte)` — read-only lookup the
+ * admin tab + getActiveCaf tRPC query use to render "folios
+ * remaining" without mutating state.
  *
  * Concurrency: better-sqlite3 transactions wrap with BEGIN IMMEDIATE,
  * so concurrent allocators across separate transactions serialize
@@ -48,7 +48,7 @@ export interface ChileFolioAllocation {
   rutEmisor: string;
   /**
    * Raw CAF XML text. The DTE serializer extracts the `<DA>` block
-   * for the `Documento.TED.DD.CAF` slot and (in ENG-036c) the `<RSAPK>`
+   * for the `Documento.TED.DD.CAF` slot and (in ) the `<RSAPK>`
    * block for the TED RSA signature.
    */
   rawCafXml: string;
@@ -80,18 +80,15 @@ interface AllocateArgs {
  * `BEGIN IMMEDIATE` so concurrent allocators serialize.
  *
  * Throws on:
- *   - No active CAF for (tenantId, tipoDte) → `CAF_NOT_AVAILABLE`.
- *   - Cursor exceeds `folio_hasta` → atomically flips the row to
- *     `status='exhausted'` then throws `CAF_EXHAUSTED`. The flip
- *     means the next call to `allocateNextFolio` for the same pair
- *     will surface `CAF_NOT_AVAILABLE` (because the partial unique
- *     idx no longer carries this row), letting the operator upload
- *     the next CAF.
+ * - No active CAF for (tenantId, tipoDte) → `CAF_NOT_AVAILABLE`.
+ * - Cursor exceeds `folio_hasta` → atomically flips the row to
+ * `status='exhausted'` then throws `CAF_EXHAUSTED`. The flip
+ * means the next call to `allocateNextFolio` for the same pair
+ * will surface `CAF_NOT_AVAILABLE` (because the partial unique
+ * idx no longer carries this row), letting the operator upload
+ * the next CAF.
  */
-export function allocateNextFolio(
-  tx: DatabaseInstance,
-  args: AllocateArgs
-): ChileFolioAllocation {
+export function allocateNextFolio(tx: DatabaseInstance, args: AllocateArgs): ChileFolioAllocation {
   const { tenantId, tipoDte } = args;
 
   const row = tx
@@ -120,7 +117,7 @@ export function allocateNextFolio(
   // DB or pre-seeded a stale state. We do NOT flip status here
   // because the throw rolls back any same-tx side effect — the flip
   // would not persist. The operator must manually mark the row
-  // exhausted via an admin path (out of scope for v1; ENG-036c
+  // exhausted via an admin path (out of scope for v1;
   // ships the upload UI which can take over).
   if (row.currentFolio > row.folioHasta) {
     throw new ServerErrorWithCode(

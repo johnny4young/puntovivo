@@ -1,17 +1,13 @@
 /**
- * ENG-032 — math primitives for the anomaly detector.
+ * math primitives for the anomaly detector.
  *
- * ENG-178 — extracted verbatim from the former flat
+ * extracted verbatim from the former flat
  * `services/ai/anomalyDetection.ts` (the MATH PRIMITIVES section)
  * during the megafile decomposition. Pure functions, no DB access.
  *
  * @module services/ai/anomalyDetection/stats
  */
-import {
-  HIGH_SEVERITY_THRESHOLD,
-  MAHALANOBIS_THRESHOLD,
-  type AnomalySeverity,
-} from './types.js';
+import { HIGH_SEVERITY_THRESHOLD, MAHALANOBIS_THRESHOLD, type AnomalySeverity } from './types.js';
 
 /** Arithmetic mean. Returns 0 for empty input (callers guard size). */
 export function mean(xs: number[]): number {

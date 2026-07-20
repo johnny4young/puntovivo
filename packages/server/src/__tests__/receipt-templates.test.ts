@@ -57,14 +57,22 @@ function basicLayout() {
   return {
     paperWidth: '80mm' as const,
     blocks: [
-      { type: 'text' as const, value: '{{company.name}}', style: 'title' as const, align: 'center' as const },
+      {
+        type: 'text' as const,
+        value: '{{company.name}}',
+        style: 'title' as const,
+        align: 'center' as const,
+      },
       { type: 'separator' as const },
       { type: 'text' as const, value: 'Sale {{sale.saleNumber}}' },
       {
         type: 'itemsTable' as const,
         columns: ['name' as const, 'qty' as const, 'unitPrice' as const, 'total' as const],
       },
-      { type: 'totalsBlock' as const, show: ['subtotal' as const, 'taxTotal' as const, 'grandTotal' as const] },
+      {
+        type: 'totalsBlock' as const,
+        show: ['subtotal' as const, 'taxTotal' as const, 'grandTotal' as const],
+      },
       { type: 'tendersTable' as const, showChange: true },
     ],
   };
@@ -302,7 +310,7 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(r80.escpos.length).toBeGreaterThan(r58.escpos.length);
     });
 
-    // ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
+    // pass 1 (item #5) — Puntovivo-branded footer block.
     it('renders the appFooter block with Puntovivo metadata (HTML + ESC/POS)', () => {
       const data = buildPreviewData('sale');
       const layout = {
@@ -323,7 +331,7 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(escposText).toContain(appSupport);
     });
 
-    // ENG-016 pass 1 (item #5) — toggle hides both HTML and ESC/POS output.
+    // pass 1 (item #5) — toggle hides both HTML and ESC/POS output.
     it('renders an empty appFooter when show is false (soft-hide)', () => {
       const data = buildPreviewData('sale');
       const layout = {
@@ -339,7 +347,7 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(escposText).not.toContain(appName);
     });
 
-    // ENG-016 pass 1 (item #5) — schema acceptance + rejection of unknown fields.
+    // pass 1 (item #5) — schema acceptance + rejection of unknown fields.
     it('Zod schema accepts appFooter and rejects unknown block fields', () => {
       const ok = receiptLayoutSchema.safeParse({
         paperWidth: '80mm',
@@ -361,7 +369,7 @@ describe('Receipt Templates (Iter 2)', () => {
     });
 
     // -------------------------------------------------------------------------
-    // ENG-086 — thermal-handoff blocks: wordmark + metaTable + QR placeholder
+    // thermal-handoff blocks: wordmark + metaTable + QR placeholder
     // -------------------------------------------------------------------------
 
     it('renders the wordmark block as the puntovivo lockup with a brand dot (HTML)', () => {
@@ -488,7 +496,7 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(escposText).toContain(`A${' '.repeat(30)}B`);
     });
 
-    it('renders a real inline SVG QR for a non-empty source (ENG-097)', () => {
+    it('renders a real inline SVG QR for a non-empty source', () => {
       const data = buildPreviewData('sale');
       const layout = {
         paperWidth: '80mm' as const,
@@ -508,7 +516,7 @@ describe('Receipt Templates (Iter 2)', () => {
       // The 1-bit rule still holds: no gradient, no opacity tweaks.
       expect(bodyHtml).not.toContain('gradient');
       expect(bodyHtml).not.toContain('opacity:');
-      // ENG-086 placeholder finder-pattern markup is no longer emitted
+      // placeholder finder-pattern markup is no longer emitted
       // on the happy path (it lives only in the encoder-fallback branch
       // and the empty-source branch).
       expect(bodyHtml).not.toContain('class="qr-finder qr-finder-tl"');
@@ -528,15 +536,12 @@ describe('Receipt Templates (Iter 2)', () => {
       // finder-pattern span elements. The CSS rule `.qr-finder-tl`
       // still lives in the stylesheet, so we strip the <style> block
       // before asserting against the rendered body.
-      const bodyHtml = result.html.replace(
-        /<style>[\s\S]*?<\/style>/g,
-        ''
-      );
+      const bodyHtml = result.html.replace(/<style>[\s\S]*?<\/style>/g, '');
       expect(bodyHtml).not.toContain('qr-finder-tl');
       expect(bodyHtml).not.toContain('<svg');
     });
 
-    it('emits the GS ( k QR opcode sequence in the ESC/POS payload (ENG-097)', () => {
+    it('emits the GS ( k QR opcode sequence in the ESC/POS payload', () => {
       const data = buildPreviewData('sale');
       const layout = {
         paperWidth: '80mm' as const,
@@ -555,21 +560,13 @@ describe('Receipt Templates (Iter 2)', () => {
         return -1;
       };
       // Model select: GS ( k 04 00 31 41 32 00.
-      const modelIdx = indexOfSequence([
-        0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00,
-      ]);
+      const modelIdx = indexOfSequence([0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]);
       // Module size: GS ( k 03 00 31 43 06 (default moduleSize 6).
-      const sizeIdx = indexOfSequence([
-        0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x06,
-      ]);
+      const sizeIdx = indexOfSequence([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x06]);
       // Error correction level M: GS ( k 03 00 31 45 31.
-      const ecIdx = indexOfSequence([
-        0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31,
-      ]);
+      const ecIdx = indexOfSequence([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31]);
       // Print: GS ( k 03 00 31 51 30.
-      const printIdx = indexOfSequence([
-        0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30,
-      ]);
+      const printIdx = indexOfSequence([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]);
       expect(modelIdx).toBeGreaterThanOrEqual(0);
       expect(sizeIdx).toBeGreaterThan(modelIdx);
       expect(ecIdx).toBeGreaterThan(sizeIdx);
@@ -611,7 +608,7 @@ describe('Receipt Templates (Iter 2)', () => {
       };
       const result = renderReceipt(layout, data);
       // Body font, grand-total size, ink, and paper must come from the
-      // shared tokens — mirrors `apps/web/src/styles/theme.css` ENG-080
+      // shared tokens — mirrors `apps/web/src/styles/theme.css`
       // print-tokens block. Drift on either side fails this test.
       expect(result.html).toContain("'IBM Plex Mono'");
       expect(result.html).toContain('font-size:14pt');
@@ -666,19 +663,17 @@ describe('Receipt Templates (Iter 2)', () => {
 
       const unknownNs = receiptLayoutSchema.safeParse({
         paperWidth: '80mm',
-        blocks: [
-          { type: 'metaTable', rows: [{ key: 'X', value: '{{evil.path}}' }] },
-        ],
+        blocks: [{ type: 'metaTable', rows: [{ key: 'X', value: '{{evil.path}}' }] }],
       });
       expect(unknownNs.success).toBe(false);
     });
   });
 
   // -------------------------------------------------------------------------
-  // Template functions (ENG-016 pass 3 — item #3)
+  // Template functions ( pass 3 — item #3)
   // -------------------------------------------------------------------------
 
-  describe('Template functions (ENG-016 pass 3)', () => {
+  describe('Template functions ( pass 3)', () => {
     const buildSampleData = () => ({
       ...buildPreviewData('sale'),
       locale: {
@@ -763,8 +758,7 @@ describe('Receipt Templates (Iter 2)', () => {
         blocks: [
           {
             type: 'text' as const,
-            value:
-              "{{ concat('Caja: ', sale.cashier, ' | Total: ', currency(sale.grandTotal)) }}",
+            value: "{{ concat('Caja: ', sale.cashier, ' | Total: ', currency(sale.grandTotal)) }}",
           },
         ],
       });
@@ -817,8 +811,7 @@ describe('Receipt Templates (Iter 2)', () => {
         blocks: [
           {
             type: 'text' as const,
-            value:
-              '{{ default(sale.notes, "<script>alert(1)</script>") }}',
+            value: '{{ default(sale.notes, "<script>alert(1)</script>") }}',
           },
         ],
       });
@@ -848,9 +841,7 @@ describe('Receipt Templates (Iter 2)', () => {
     it('Zod rejects unknown function names', () => {
       const result = receiptLayoutSchema.safeParse({
         paperWidth: '80mm',
-        blocks: [
-          { type: 'text', value: "{{ notAWhitelistedName('hi') }}" },
-        ],
+        blocks: [{ type: 'text', value: "{{ notAWhitelistedName('hi') }}" }],
       });
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -859,11 +850,7 @@ describe('Receipt Templates (Iter 2)', () => {
     });
 
     it('Zod rejects wrong arity for whitelisted functions', () => {
-      const cases = [
-        '{{ upper() }}',
-        "{{ limit('hola') }}",
-        "{{ default('only one') }}",
-      ];
+      const cases = ['{{ upper() }}', "{{ limit('hola') }}", "{{ default('only one') }}"];
       for (const value of cases) {
         const result = receiptLayoutSchema.safeParse({
           paperWidth: '80mm',
@@ -996,9 +983,7 @@ describe('Receipt Templates (Iter 2)', () => {
         name: `Solo ${nanoid(4)}`,
         layout: basicLayout(),
       });
-      await expect(
-        caller.receiptTemplates.delete({ id: only.id })
-      ).rejects.toMatchObject({
+      await expect(caller.receiptTemplates.delete({ id: only.id })).rejects.toMatchObject({
         code: 'BAD_REQUEST',
       });
     });
@@ -1032,9 +1017,7 @@ describe('Receipt Templates (Iter 2)', () => {
         isActive: false,
       });
 
-      await expect(
-        caller.receiptTemplates.delete({ id: active.id })
-      ).rejects.toMatchObject({
+      await expect(caller.receiptTemplates.delete({ id: active.id })).rejects.toMatchObject({
         code: 'BAD_REQUEST',
       });
 
@@ -1127,7 +1110,7 @@ describe('Receipt Templates (Iter 2)', () => {
   // -------------------------------------------------------------------------
 
   describe('cross-tenant isolation', () => {
-    it("does not leak templates from a foreign tenant in list/getById", async () => {
+    it('does not leak templates from a foreign tenant in list/getById', async () => {
       const db = getDatabase();
       const foreignTenantId = `foreign-${nanoid(6)}`;
       const foreignUserId = `foreign-${nanoid(6)}`;
@@ -1184,9 +1167,7 @@ describe('Receipt Templates (Iter 2)', () => {
 
   describe('permissions', () => {
     it('rejects non-admin callers (manager) on create', async () => {
-      const caller = appRouter.createCaller(
-        createAdminContext({ role: 'manager' })
-      );
+      const caller = appRouter.createCaller(createAdminContext({ role: 'manager' }));
       await expect(
         caller.receiptTemplates.create({
           kind: 'sale',
@@ -1197,17 +1178,13 @@ describe('Receipt Templates (Iter 2)', () => {
     });
 
     it('rejects cashier callers on list', async () => {
-      const caller = appRouter.createCaller(
-        createAdminContext({ role: 'cashier' })
-      );
-      await expect(
-        caller.receiptTemplates.list()
-      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      const caller = appRouter.createCaller(createAdminContext({ role: 'cashier' }));
+      await expect(caller.receiptTemplates.list()).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
   });
 
   // -------------------------------------------------------------------------
-  // Variable availability (ENG-016 pass 5 — closes item #7)
+  // Variable availability ( pass 5 — closes item #7)
   // -------------------------------------------------------------------------
 
   describe('variableAvailability', () => {
@@ -1233,13 +1210,7 @@ describe('Receipt Templates (Iter 2)', () => {
     it('publishes the documented property keys per namespace (web parity)', async () => {
       const caller = appRouter.createCaller(createAdminContext());
       const map = await caller.receiptTemplates.variableAvailability();
-      expect(Object.keys(map).sort()).toEqual([
-        'company',
-        'fiscal',
-        'item',
-        'sale',
-        'tender',
-      ]);
+      expect(Object.keys(map).sort()).toEqual(['company', 'fiscal', 'item', 'sale', 'tender']);
       expect(Object.keys(map.company).sort()).toEqual([
         'address',
         'city',
@@ -1258,7 +1229,7 @@ describe('Receipt Templates (Iter 2)', () => {
         'grandTotal',
         'notes',
         'saleNumber',
-        // ENG-039d3 — service charge fields exposed to the editor's
+        // service charge fields exposed to the editor's
         // variable autocomplete alongside the existing tip field.
         'serviceCharge',
         'serviceChargeRate',
@@ -1282,11 +1253,7 @@ describe('Receipt Templates (Iter 2)', () => {
         'qrUrl',
         'resolution',
       ]);
-      expect(Object.keys(map.tender).sort()).toEqual([
-        'amount',
-        'method',
-        'reference',
-      ]);
+      expect(Object.keys(map.tender).sort()).toEqual(['amount', 'method', 'reference']);
     });
 
     it('reflects fiscal_dian_enabled flag — disabled tenant gets fiscal.* false', async () => {
@@ -1353,10 +1320,7 @@ describe('Receipt Templates (Iter 2)', () => {
         .where(eq(tenants.id, tenantId))
         .get();
       try {
-        await db
-          .update(tenants)
-          .set({ settings })
-          .where(eq(tenants.id, tenantId));
+        await db.update(tenants).set({ settings }).where(eq(tenants.id, tenantId));
 
         const map = await appRouter
           .createCaller(createAdminContext())
@@ -1418,7 +1382,7 @@ describe('Receipt Templates (Iter 2)', () => {
         expect(map.company.address).toBe(true);
         expect(map.company.phone).toBe(true);
         expect(map.company.email).toBe(true);
-        // city has no schema column — pinned to false until that ticket lands.
+        // city has no schema column — pinned to false until that change lands.
         expect(map.company.city).toBe(false);
       } finally {
         // Restore previous state regardless of intermediate assertion failure
@@ -1443,10 +1407,7 @@ describe('Receipt Templates (Iter 2)', () => {
         .where(eq(companies.tenantId, tenantId))
         .get();
       try {
-        await db
-          .update(companies)
-          .set({ phone: '   ' })
-          .where(eq(companies.tenantId, tenantId));
+        await db.update(companies).set({ phone: '   ' }).where(eq(companies.tenantId, tenantId));
         const map = await appRouter
           .createCaller(createAdminContext())
           .receiptTemplates.variableAvailability();
@@ -1460,19 +1421,15 @@ describe('Receipt Templates (Iter 2)', () => {
     });
 
     it('rejects manager and cashier callers (admin-only)', async () => {
-      const managerCaller = appRouter.createCaller(
-        createAdminContext({ role: 'manager' })
-      );
-      await expect(
-        managerCaller.receiptTemplates.variableAvailability()
-      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      const managerCaller = appRouter.createCaller(createAdminContext({ role: 'manager' }));
+      await expect(managerCaller.receiptTemplates.variableAvailability()).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
 
-      const cashierCaller = appRouter.createCaller(
-        createAdminContext({ role: 'cashier' })
-      );
-      await expect(
-        cashierCaller.receiptTemplates.variableAvailability()
-      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      const cashierCaller = appRouter.createCaller(createAdminContext({ role: 'cashier' }));
+      await expect(cashierCaller.receiptTemplates.variableAvailability()).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
     });
   });
 });

@@ -1,5 +1,5 @@
 /**
- * ENG-105b — Coverage for `<CheckoutPreflightPanel />`.
+ * Coverage for `<CheckoutPreflightPanel />`.
  *
  * Pins the rendering contract (hidden when empty, blockers vs
  * warnings styling, recovery CTA wiring, axe-AA pass under the
@@ -13,10 +13,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '@/i18n';
 import { assertNoA11yViolations } from '@/test/a11y';
-import {
-  CheckoutPreflightPanel,
-  PREFLIGHT_PRIMARY_ELEMENT_ID,
-} from './CheckoutPreflightPanel';
+import { CheckoutPreflightPanel, PREFLIGHT_PRIMARY_ELEMENT_ID } from './CheckoutPreflightPanel';
 import type { PreflightItem } from './useCheckoutPreflight';
 
 function blocker(overrides?: Partial<PreflightItem>): PreflightItem {
@@ -51,7 +48,9 @@ describe('<CheckoutPreflightPanel />', () => {
   it('renders a single blocker with the danger styling and the title', () => {
     render(<CheckoutPreflightPanel items={[blocker()]} />);
     expect(screen.getByTestId('checkout-preflight-panel')).toBeInTheDocument();
-    expect(screen.getByTestId('checkout-preflight-blocker-cash_session_required')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('checkout-preflight-blocker-cash_session_required')
+    ).toBeInTheDocument();
   });
 
   it('anchors only the FIRST blocker with the primary element id (for aria-describedby)', () => {
@@ -68,16 +67,12 @@ describe('<CheckoutPreflightPanel />', () => {
     );
     const primary = document.getElementById(PREFLIGHT_PRIMARY_ELEMENT_ID);
     expect(primary).not.toBeNull();
-    expect(primary?.dataset.testid).toBe(
-      'checkout-preflight-blocker-cash_session_required'
-    );
+    expect(primary?.dataset.testid).toBe('checkout-preflight-blocker-cash_session_required');
   });
 
   it('renders a warning with the warning styling', () => {
     render(<CheckoutPreflightPanel items={[warning()]} />);
-    expect(
-      screen.getByTestId('checkout-preflight-warning-insufficient_stock')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('checkout-preflight-warning-insufficient_stock')).toBeInTheDocument();
     // Warnings should NOT receive the primary id (only blockers do).
     expect(document.getElementById(PREFLIGHT_PRIMARY_ELEMENT_ID)).toBeNull();
   });
@@ -103,11 +98,7 @@ describe('<CheckoutPreflightPanel />', () => {
   });
 
   it('renders blockers first then warnings (caller-provided order is preserved)', () => {
-    render(
-      <CheckoutPreflightPanel
-        items={[blocker(), warning()]}
-      />
-    );
+    render(<CheckoutPreflightPanel items={[blocker(), warning()]} />);
     const list = screen.getByTestId('checkout-preflight-panel').querySelector('ul');
     expect(list).not.toBeNull();
     const liDataAttrs = Array.from(list!.querySelectorAll('li')).map(
@@ -147,9 +138,7 @@ describe('<CheckoutPreflightPanel />', () => {
     // The panel title key is `sales:preflight.title` — verify it renders
     // a non-empty Spanish string (we do not pin the exact wording to
     // avoid coupling the test to copy iterations).
-    const title = screen
-      .getByTestId('checkout-preflight-panel')
-      .querySelector('p');
+    const title = screen.getByTestId('checkout-preflight-panel').querySelector('p');
     expect(title?.textContent ?? '').not.toBe('');
     expect(title?.textContent ?? '').not.toMatch(/^preflight\./);
   });

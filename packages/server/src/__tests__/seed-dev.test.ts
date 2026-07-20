@@ -2,18 +2,18 @@
  * Tests for the developer seed (`src/db/seed-dev.ts`).
  *
  * We run the full seed against an in-memory DB and assert:
- *   1. All target row counts land (6 users, 2 sites, 50 products, 30 customers,
- *      3 receipt templates, and — within tolerance — the target purchase / sale /
- *      quotation / transfer / adjustment batches).
- *   2. The invariant `products.stock = Σ(inventory_balances.on_hand)` holds for
- *      every seeded product, proving the seed walked through the service
- *      transaction paths without drift.
- *   3. A second `seedDevData()` call on the same DB is a no-op (idempotent
- *      short-circuit via the tenant slug lookup).
- *   4. Cross-tenant isolation: the default `admin@localhost` tenant sees ZERO
- *      of the demo data.
- *   5. Sanity: every created user is tagged to the demo tenant and has a
- *      working argon2 hash.
+ * 1. All target row counts land (6 users, 2 sites, 50 products, 30 customers,
+ * 3 receipt templates, and — within tolerance — the target purchase / sale /
+ * quotation / transfer / adjustment batches).
+ * 2. The invariant `products.stock = Σ(inventory_balances.on_hand)` holds for
+ * every seeded product, proving the seed walked through the service
+ * transaction paths without drift.
+ * 3. A second `seedDevData()` call on the same DB is a no-op (idempotent
+ * short-circuit via the tenant slug lookup).
+ * 4. Cross-tenant isolation: the default `admin@localhost` tenant sees ZERO
+ * of the demo data.
+ * 5. Sanity: every created user is tagged to the demo tenant and has a
+ * working argon2 hash.
  *
  * @module __tests__/seed-dev
  */
@@ -22,12 +22,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as argon2 from 'argon2';
 import { and, eq, sql } from 'drizzle-orm';
 
-import {
-  closeDatabase,
-  getDatabase,
-  initDatabase,
-  type DatabaseInstance,
-} from '../db/index.js';
+import { closeDatabase, getDatabase, initDatabase, type DatabaseInstance } from '../db/index.js';
 import {
   DEV_ADMIN_EMAIL,
   DEV_TENANT_SLUG,
@@ -67,21 +62,13 @@ describe('Dev seed (`seedDevData`)', () => {
   });
 
   it('creates the demo tenant with the expected slug', async () => {
-    const tenant = await db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.slug, DEV_TENANT_SLUG))
-      .get();
+    const tenant = await db.select().from(tenants).where(eq(tenants.slug, DEV_TENANT_SLUG)).get();
     expect(tenant).toBeTruthy();
     expect(tenant?.name).toBe('Demo Retail Colombia');
   });
 
   it('creates 6 users tagged to the demo tenant with the shared dev password', async () => {
-    const rows = await db
-      .select()
-      .from(users)
-      .where(eq(users.tenantId, tenantId))
-      .all();
+    const rows = await db.select().from(users).where(eq(users.tenantId, tenantId)).all();
     expect(rows).toHaveLength(6);
     const roles = rows.map(r => r.role).sort();
     // 1 admin, 2 managers, 2 cashiers, 1 viewer (sorted)
@@ -129,10 +116,7 @@ describe('Dev seed (`seedDevData`)', () => {
         .select({ total: sql<number>`COALESCE(SUM(${inventoryBalances.onHand}), 0)` })
         .from(inventoryBalances)
         .where(
-          and(
-            eq(inventoryBalances.tenantId, tenantId),
-            eq(inventoryBalances.productId, product.id)
-          )
+          and(eq(inventoryBalances.tenantId, tenantId), eq(inventoryBalances.productId, product.id))
         )
         .get();
       expect(summed?.total ?? 0).toBe(getProductStockTotal(db, tenantId, product.id));
@@ -152,17 +136,13 @@ describe('Dev seed (`seedDevData`)', () => {
     expect(result?.c ?? 0).toBeLessThanOrEqual(40);
   });
 
-  // ENG-020 — the demo tenant seeds `fiscal_dian_enabled=true` plus one
+  // the demo tenant seeds `fiscal_dian_enabled=true` plus one
   // DEE resolution per site + placeholder certificate so every historical
   // sale goes through the full fiscal emission path. The orchestrator is
   // best-effort — a failed emission does not block the sale — so the seed
   // count equality proves the happy path fired cleanly.
   it('emits a fiscal_document for every seeded sale and materializes resolution/certificate rows', async () => {
-    const tenant = await db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.slug, DEV_TENANT_SLUG))
-      .get();
+    const tenant = await db.select().from(tenants).where(eq(tenants.slug, DEV_TENANT_SLUG)).get();
     expect(tenant?.settings).toMatchObject({ fiscal_dian_enabled: true });
 
     const [resolutionRows, certRows, saleCount, fiscalCount] = await Promise.all([
@@ -171,11 +151,7 @@ describe('Dev seed (`seedDevData`)', () => {
         .from(fiscalNumberingResolutions)
         .where(eq(fiscalNumberingResolutions.tenantId, tenantId))
         .all(),
-      db
-        .select()
-        .from(fiscalCertificates)
-        .where(eq(fiscalCertificates.tenantId, tenantId))
-        .all(),
+      db.select().from(fiscalCertificates).where(eq(fiscalCertificates.tenantId, tenantId)).all(),
       count(db, sales, tenantId),
       count(db, fiscalDocuments, tenantId),
     ]);
@@ -204,11 +180,7 @@ describe('Dev seed (`seedDevData`)', () => {
   });
 
   it('keeps the demo tenant isolated from the default seed tenant', async () => {
-    const defaultTenant = await db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.slug, 'default'))
-      .get();
+    const defaultTenant = await db.select().from(tenants).where(eq(tenants.slug, 'default')).get();
     expect(defaultTenant).toBeTruthy();
     expect(defaultTenant?.id).not.toBe(tenantId);
 
@@ -226,7 +198,7 @@ describe('Dev seed (`seedDevData`)', () => {
 
 async function count(
   db: DatabaseInstance,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: test count() helper accepts any tenant-scoped Drizzle table; parametric-table ref. Test fixture, exempt per ENG-179c.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: test count() helper accepts any tenant-scoped Drizzle table; parametric-table ref. Test fixture, exempt per .
   table: any,
   tenantId: string
 ): Promise<number> {

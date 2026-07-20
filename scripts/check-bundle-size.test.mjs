@@ -1,13 +1,13 @@
 /**
- * ENG-133 — Unit coverage for the bundle-size CI gate.
+ * Unit coverage for the bundle-size CI gate.
  *
  * The script itself runs in `ci:web` against the real `vite build`
  * output. This colocated test pins the pieces that would silently
  * break under a Vite upgrade or a refactor of the comparison logic:
  *
- *   - The chunk-name hash strip regex (Rolldown hash format).
- *   - The pass / fail classification against thresholdPercent.
- *   - The new-chunk and missing-chunk warning paths.
+ * - The chunk-name hash strip regex (Rolldown hash format).
+ * - The pass / fail classification against thresholdPercent.
+ * - The new-chunk and missing-chunk warning paths.
  *
  * Lives outside vitest because the script is Node-only and we want
  * to keep the gate's runtime independent of the web workspace.
@@ -21,11 +21,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  stripHash,
-  measureChunks,
-  compareToBudget,
-} from './check-bundle-size.mjs';
+import { stripHash, measureChunks, compareToBudget } from './check-bundle-size.mjs';
 
 test('stripHash strips Rolldown-style content hashes', () => {
   assert.equal(stripHash('SalesPage-Br3xY9Q_.js'), 'SalesPage');

@@ -4,7 +4,7 @@ import { USER_ROLES } from '@puntovivo/shared/roles';
 import { ROLE_PERMISSION_TEMPLATES } from '@/features/auth/workspaceRoleTemplates';
 
 /**
- * ENG-129a — Workspace-level role template shown to administrators.
+ * Workspace-level role template shown to administrators.
  *
  * A parity test pins the matrix to the catalogue that renders the sidebar, so
  * it cannot silently disagree with route discovery while both runtime chunks

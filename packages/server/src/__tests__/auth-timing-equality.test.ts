@@ -1,5 +1,5 @@
 /**
- * ENG-166 — pins the login timing equaliser. The not-found branch must
+ * pins the login timing equaliser. The not-found branch must
  * call `verifyPasswordSecurely` against the dummy hash so an attacker
  * cannot enumerate accounts via response timing. Asserting a wall-clock
  * delta would be flaky in CI; instead we hook into `verifyPasswordSecurely`
@@ -63,16 +63,9 @@ describe('auth.login timing equality', () => {
   it('invokes verifyPasswordSecurely on the disabled-user branch with the stored hash, not the dummy', async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     // Disable the seeded admin to exercise the isActive=false branch.
-    const seededAdmin = await server.db
-      .select()
-      .from(users)
-      .where(eq(users.role, 'admin'))
-      .get();
+    const seededAdmin = await server.db.select().from(users).where(eq(users.role, 'admin')).get();
     if (!seededAdmin) throw new Error('expected a seeded admin user');
-    await server.db
-      .update(users)
-      .set({ isActive: false })
-      .where(eq(users.id, seededAdmin.id));
+    await server.db.update(users).set({ isActive: false }).where(eq(users.id, seededAdmin.id));
 
     const verifySpy = vi.spyOn(passwords, 'verifyPasswordSecurely');
     const dummyHash = await passwords.getDummyPasswordHash();

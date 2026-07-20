@@ -1,4 +1,4 @@
-/** ENG-207 — Update-product application use-case. */
+/** Update-product application use-case. */
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 
@@ -155,7 +155,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     updatedAt: now,
     syncStatus: 'pending',
     syncVersion: (existing.syncVersion ?? 0) + 1,
-    // ENG-177a — optimistic-concurrency bump. The versioned WHERE below
+    // optimistic-concurrency bump. The versioned WHERE below
     // guarantees the stored version still equals input.version, so the
     // next value is unconditionally input.version + 1.
     version: input.version + 1,
@@ -190,7 +190,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
   if (updates.barcode !== undefined) updateData.barcode = updates.barcode;
   if (updates.imageUrl !== undefined) updateData.imageUrl = updates.imageUrl;
 
-  // ENG-177a — optimistic-concurrency guard. The version predicate makes
+  // optimistic-concurrency guard. The version predicate makes
   // this UPDATE a no-op when another tab already saved (stored version no
   // longer matches), and the tenant predicate keeps the multi-tenant
   // invariant explicit rather than relying solely on the pre-read above.

@@ -1,5 +1,5 @@
 /**
- * ENG-039c3 — SplitBillModal.
+ * SplitBillModal.
  *
  * Lets a manager/admin carve a subset of items out of a suspended
  * draft into a brand-new suspended draft. Wires the server-side
@@ -7,7 +7,7 @@
  *
  * Reads `sales.getById` for the source draft's items (no new read
  * surface) and reuses `restaurantTables.listWithDraftStatus` for the
- * target table picker (same source ENG-039c2 uses). The parent
+ * target table picker (same source  uses). The parent
  * (`SuspendedSalesPanel`) is responsible for gating the CTA on role +
  * catalog availability, just like `TransferTableModal`.
  *
@@ -48,16 +48,13 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
   const utils = trpc.useUtils();
   const { currentSite } = useTenant();
 
-  const itemsQuery = trpc.sales.getById.useQuery(
-    draft ? { id: draft.id } : (undefined as never),
-    { enabled: draft !== null }
-  );
+  const itemsQuery = trpc.sales.getById.useQuery(draft ? { id: draft.id } : (undefined as never), {
+    enabled: draft !== null,
+  });
   const items = itemsQuery.data?.items ?? [];
 
   const tablesQuery = trpc.restaurantTables.listWithDraftStatus.useQuery(
-    currentSite
-      ? { siteId: currentSite.id, includeArchived: false }
-      : (undefined as never),
+    currentSite ? { siteId: currentSite.id, includeArchived: false } : (undefined as never),
     { enabled: Boolean(currentSite) && draft !== null }
   );
   const tables = tablesQuery.data?.items ?? [];
@@ -69,9 +66,7 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
   // line). Default target: "Misma mesa" (keep the same FK as the
   // source) — that's the most common restaurant flow ("split the
   // check, leave the table assignment alone").
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
-    () => new Set()
-  );
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => new Set());
   const [selectedTableValue, setSelectedTableValue] = useState<string>(() =>
     draft?.tableId ? SAME_TABLE_VALUE : CLEAR_TABLE_VALUE
   );
@@ -88,17 +83,14 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
       // `AppRouter`. Server returns `{ source, created }` where
       // `created.suspendedLabel` may be null (free-text drafts) and
       // `created.saleNumber` is always present.
-      const createdLabel =
-        data.created.suspendedLabel ?? data.created.saleNumber;
+      const createdLabel = data.created.suspendedLabel ?? data.created.saleNumber;
       toast.success({
         title: t('restaurants:split.successToast', { label: createdLabel }),
       });
       onClose();
     },
     onError: error => {
-      setErrorMessage(
-        translateServerError(error, t, t('errors:server.unknown'))
-      );
+      setErrorMessage(translateServerError(error, t, t('errors:server.unknown')));
     },
   });
 
@@ -135,10 +127,7 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
       sourceSaleId: draft.id,
       saleItemIds: [...selectedItemIds],
       tableId,
-      label:
-        tableId === null && labelDraft.trim().length > 0
-          ? labelDraft.trim()
-          : undefined,
+      label: tableId === null && labelDraft.trim().length > 0 ? labelDraft.trim() : undefined,
     });
   };
 
@@ -177,10 +166,7 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
       <div className="space-y-4">
         <div className="rounded-xl bg-secondary-50 p-3 text-sm text-secondary-700">
           <p className="font-semibold text-secondary-950">{draft.saleNumber}</p>
-          <p
-            className="mt-1 text-xs text-secondary-600"
-            data-testid="split-modal-current-label"
-          >
+          <p className="mt-1 text-xs text-secondary-600" data-testid="split-modal-current-label">
             {t('restaurants:split.currentLine', { current: currentLabel })}
           </p>
         </div>
@@ -203,17 +189,12 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
                 }}
                 data-testid="split-modal-toggle-all"
               >
-                {allSelected
-                  ? t('restaurants:split.clearAll')
-                  : t('restaurants:split.selectAll')}
+                {allSelected ? t('restaurants:split.clearAll') : t('restaurants:split.selectAll')}
               </button>
             )}
           </div>
           {itemsQuery.isLoading ? (
-            <p
-              className="mt-2 text-sm text-secondary-500"
-              data-testid="split-modal-items-loading"
-            >
+            <p className="mt-2 text-sm text-secondary-500" data-testid="split-modal-items-loading">
               {t('restaurants:split.loading')}
             </p>
           ) : itemsQuery.isError ? (
@@ -222,17 +203,10 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
               data-testid="split-modal-items-error"
               role="alert"
             >
-              {translateServerError(
-                itemsQuery.error,
-                t,
-                t('errors:server.unknown')
-              )}
+              {translateServerError(itemsQuery.error, t, t('errors:server.unknown'))}
             </p>
           ) : items.length === 0 ? (
-            <p
-              className="mt-2 text-sm text-secondary-500"
-              data-testid="split-modal-items-empty"
-            >
+            <p className="mt-2 text-sm text-secondary-500" data-testid="split-modal-items-empty">
               {t('restaurants:split.emptyItems')}
             </p>
           ) : (
@@ -275,10 +249,7 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
             {t('restaurants:split.selectTableLabel')}
           </label>
           {tablesQuery.isLoading ? (
-            <p
-              className="mt-2 text-sm text-secondary-500"
-              data-testid="split-modal-tables-loading"
-            >
+            <p className="mt-2 text-sm text-secondary-500" data-testid="split-modal-tables-loading">
               {t('restaurants:split.loading')}
             </p>
           ) : tablesQuery.isError ? (
@@ -287,11 +258,7 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
               data-testid="split-modal-tables-error"
               role="alert"
             >
-              {translateServerError(
-                tablesQuery.error,
-                t,
-                t('errors:server.unknown')
-              )}
+              {translateServerError(tablesQuery.error, t, t('errors:server.unknown'))}
             </p>
           ) : (
             <select
@@ -309,9 +276,7 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
                   })}
                 </option>
               )}
-              <option value={CLEAR_TABLE_VALUE}>
-                {t('restaurants:split.clearOption')}
-              </option>
+              <option value={CLEAR_TABLE_VALUE}>{t('restaurants:split.clearOption')}</option>
               {tables.map(row => {
                 const isSource = row.id === draft.tableId;
                 const isOccupiedElsewhere = !isSource && row.openDraft !== null;

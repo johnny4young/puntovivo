@@ -1,4 +1,4 @@
-/** ENG-123b — Row-complete customer/provider report projection. */
+/** Row-complete customer/provider report projection. */
 import type { PartyImportIssue, PartyImportPreview, PartyImportReport } from './types';
 
 export type PartyImportReportStatus = 'imported' | 'skipped' | 'invalid' | 'failed';

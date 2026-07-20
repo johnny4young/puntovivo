@@ -7,7 +7,7 @@ import {
   mapPartyImportRows,
 } from './partyImportMapping';
 
-describe('ENG-123b party import mapping', () => {
+describe(' party import mapping', () => {
   it('maps neutral Spanish customer headers and keeps only selected columns', () => {
     const file: ParsedImportFile = {
       sourceName: 'clientes.csv',

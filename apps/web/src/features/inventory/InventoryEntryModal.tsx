@@ -19,7 +19,7 @@ export interface InventoryEntryFormValues {
   notes: string;
 }
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface InventoryEntryModalProps {
   isOpen: boolean;
   selection: ProductSearchSelection | null;

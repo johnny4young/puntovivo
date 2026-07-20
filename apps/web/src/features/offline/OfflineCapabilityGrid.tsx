@@ -1,6 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { OFFLINE_CAPABILITY_CATALOG, type OfflineCapabilityStatus } from './OfflineCapabilityCatalog';
+import {
+  OFFLINE_CAPABILITY_CATALOG,
+  type OfflineCapabilityStatus,
+} from './OfflineCapabilityCatalog';
 
 interface OfflineCapabilityGridProps {
   /**
@@ -24,8 +27,8 @@ const STATUS_TONE: Record<OfflineCapabilityStatus, string> = {
 };
 
 /**
- * ENG-088 — V12 "Modo offline" capability grid from the Claude
- * Design handoff.
+ * V12 "Modo offline" capability grid from the Claude
+ * Design specification.
  *
  * Surfaces six tiles that tell the cashier exactly what still works
  * when the device drops off the hub: vender · cobrar efectivo work
@@ -35,7 +38,10 @@ const STATUS_TONE: Record<OfflineCapabilityStatus, string> = {
  * are offline" banner with a calm "tranquila, sigue vendiendo"
  * affordance.
  */
-export function OfflineCapabilityGrid({ visible, variant = 'standalone' }: OfflineCapabilityGridProps) {
+export function OfflineCapabilityGrid({
+  visible,
+  variant = 'standalone',
+}: OfflineCapabilityGridProps) {
   const { t } = useTranslation('common');
   if (!visible) return null;
 
@@ -73,10 +79,7 @@ export function OfflineCapabilityGrid({ visible, variant = 'standalone' }: Offli
         {CAPABILITIES.map(cap => {
           const Icon = cap.icon;
           return (
-            <div
-              key={cap.id}
-              className="rounded-2xl border border-line/70 bg-surface/95 p-3"
-            >
+            <div key={cap.id} className="rounded-2xl border border-line/70 bg-surface/95 p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="glyph-tile glyph-tile-primary h-9 w-9">
                   <Icon className="h-4 w-4" aria-hidden="true" />

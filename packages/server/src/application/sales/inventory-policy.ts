@@ -1,16 +1,16 @@
 /**
- * ENG-055 — Shared stock reversal policy for sale lifecycle services.
+ * Shared stock reversal policy for sale lifecycle services.
  *
  * `returnSale`, `voidSale` and `discardDraft` all share the same
  * mechanical loop: for every line on the sale,
  *
- *   1. compute the normalized quantity (units × equivalence),
- *   2. raise `previousStock + normalizedQuantity` against the in-memory
- *      `productStockState` map the caller is tracking,
- *   3. insert an `inventory_movements` row of type `'return'` with the
- *      reversal note,
- *   4. apply the same delta to `inventory_balances` via
- *      `applyInventoryBalanceDelta` (the single source of truth).
+ * 1. compute the normalized quantity (units × equivalence),
+ * 2. raise `previousStock + normalizedQuantity` against the in-memory
+ * `productStockState` map the caller is tracking,
+ * 3. insert an `inventory_movements` row of type `'return'` with the
+ * reversal note,
+ * 4. apply the same delta to `inventory_balances` via
+ * `applyInventoryBalanceDelta` (the single source of truth).
  *
  * The only thing that varies across the three paths is the human-readable
  * note string ("Refunded sale", "Voided sale", "Discarded draft"). This
@@ -39,8 +39,8 @@ export interface ReverseSaleItemsStockArgs {
   tx: DatabaseInstance;
   tenantId: string;
   /** Site whose `inventory_balances` row gets the credit; null falls
-   *  back to a no-op on the balance side (legacy sales without a cash
-   *  session). */
+   * back to a no-op on the balance side (legacy sales without a cash
+   * session). */
   siteId: string | null;
   userId: string;
   saleId: string;
@@ -48,9 +48,9 @@ export interface ReverseSaleItemsStockArgs {
   reversalKind: ReversalKind;
   items: ReverseSaleItem[];
   /** Tracks `previousStock → newStock` between iterations so the same
-   *  product appearing twice on a sale does not double-credit. The
-   *  caller seeds the map from the current derived stock total
-   *  (`getProductStockTotals`). */
+   * product appearing twice on a sale does not double-credit. The
+   * caller seeds the map from the current derived stock total
+   * (`getProductStockTotals`). */
   productStockState: Map<string, number>;
   now: string;
 }

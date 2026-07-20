@@ -3,7 +3,7 @@ import { initReactI18next } from 'react-i18next';
 import resourcesToBackend from 'i18next-resources-to-backend';
 import { readLanguagePreference, resolveLocale, toSupportedAppLocale } from './resolveLocale';
 
-// ENG-170b — Bootstrap namespaces are bundled at build time (static
+// Bootstrap namespaces are bundled at build time (static
 // imports below) so login + the always-mounted shell render synchronously
 // and offline. Every OTHER namespace lazy-loads on first use through the
 // resourcesToBackend glob loader, so the entry chunk no longer carries
@@ -32,13 +32,13 @@ import esPalette from './locales/es/palette.json';
  * that render OUTSIDE a route-level `<Suspense>` boundary — i.e. the
  * persistent app shell plus the error boundary, none of which has a
  * suspense fallback of its own:
- *   - common      — Header, GlobalStatusStrip, ToastProvider, WhatsNewOverlay, route fallbacks
- *   - auth        — Header, ProtectedRoute, login route fallback
- *   - nav         — Sidebar, Header
- *   - errors      — AppErrorBoundary (an error boundary must never suspend)
- *   - workspaces  — Sidebar workspace groups
- *   - setup       — GlobalStatusStrip onboarding banner
- *   - palette     — Command palette (triggerable from any screen)
+ * - common      — Header, GlobalStatusStrip, ToastProvider, WhatsNewOverlay, route fallbacks
+ * - auth        — Header, ProtectedRoute, login route fallback
+ * - nav         — Sidebar, Header
+ * - errors      — AppErrorBoundary (an error boundary must never suspend)
+ * - workspaces  — Sidebar workspace groups
+ * - setup       — GlobalStatusStrip onboarding banner
+ * - palette     — Command palette (triggerable from any screen)
  *
  * Invariant: adding a non-bootstrap `useTranslation()` to always-mounted
  * chrome requires adding that namespace here. The root `<Suspense>` in
@@ -88,7 +88,7 @@ function syncElectronMainLocale(language: string) {
 }
 
 void i18next
-  // ENG-170b — lazy backend for every non-bootstrap namespace. Resolves a
+  // lazy backend for every non-bootstrap namespace. Resolves a
   // regional tag (es-CO) to its base locale file (es); rejects when no
   // bundled file matches so i18next walks the fallback chain (es-CO → es →
   // en) instead of caching an empty bundle.

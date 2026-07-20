@@ -1,6 +1,6 @@
 /**
  * Concepto + aggregated-Impuestos builders for CFDI 4.0 serialization
- * (ENG-035b).
+ * ().
  *
  * @module services/fiscal/packs/mx/cfdi40-xml/concepto
  */
@@ -89,7 +89,7 @@ export function consolidateImpuestos(
       importe: number;
       impuesto: string;
       tipoFactor: 'Tasa' | 'Exento';
-      // ENG-179b — explicit `| undefined` so `TrasladoData.TasaOCuota`
+      // explicit `| undefined` so `TrasladoData.TasaOCuota`
       // (which carries explicit-undefined for exento rows) maps cleanly.
       tasaOCuota?: string | undefined;
     }

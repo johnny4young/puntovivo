@@ -1,4 +1,4 @@
-/** ENG-110c — canonical client-side serial identity normalization. */
+/** canonical client-side serial identity normalization. */
 function normalizeSerialLines(value: string): string[] {
   return value
     .split(/\r?\n/)

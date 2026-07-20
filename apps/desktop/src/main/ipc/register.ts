@@ -1,5 +1,5 @@
 /**
- * ENG-178 — the thin registration layer that wires the Electron-free
+ * the thin registration layer that wires the Electron-free
  * `db:*` / `sync:*` handler bodies (./db.ts, ./sync.ts) to
  * `ipcMain.handle`, extracted verbatim from the former monolithic
  * `main/index.ts`. This is the only place the desktop data bridge
@@ -12,7 +12,7 @@
 import { ipcMain } from 'electron';
 import type { createModuleLogger } from '@puntovivo/server';
 import * as desktopSession from '../session/desktopSession.js';
-// ENG-178 — desktop database-bridge handlers extracted to ipc/db.ts.
+// desktop database-bridge handlers extracted to ipc/db.ts.
 import {
   assertRowBelongsToActiveTenant,
   assertSaleItemWriteBelongsToActiveTenant,
@@ -26,7 +26,7 @@ import {
   handleDesktopInsert,
   handleDesktopUpdate,
 } from './db.js';
-// ENG-178 — desktop sync-bridge handlers extracted to ipc/sync.ts.
+// desktop sync-bridge handlers extracted to ipc/sync.ts.
 import {
   assertDesktopSyncOperation,
   getDesktopSyncStatus,
@@ -43,7 +43,7 @@ export interface DataBridgeIpcDeps {
 }
 
 export function registerDataBridgeIpc(deps: DataBridgeIpcDeps): void {
-  // ENG-025 vector 1 — every db:* / sync:* handler now derives tenantId
+  // vector 1 — every db:* / sync:* handler now derives tenantId
   // from the registered desktopSession instead of trusting the
   // renderer-supplied argument. The legacy renderer call sites still
   // pass a tenantId for backward compatibility while the offlineStorage
@@ -59,7 +59,7 @@ export function registerDataBridgeIpc(deps: DataBridgeIpcDeps): void {
     ) {
       deps.log.warn(
         { sessionTenantId, rendererTenantId: rendererTenantIdHint },
-        'ENG-025: ignored renderer-supplied tenantId — desktopSession wins'
+        ': ignored renderer-supplied tenantId — desktopSession wins'
       );
     }
     return sessionTenantId;
@@ -120,7 +120,7 @@ export function registerDataBridgeIpc(deps: DataBridgeIpcDeps): void {
     return handleDesktopCountByTenant(table, activeTenantId(rendererTenantId));
   });
   ipcMain.handle('db:addToSyncQueue', async (_event, item: DesktopSyncQueueInput) => {
-    // SEC-003 — validate the renderer-supplied operation against the
+    // Validate the renderer-supplied operation against the
     // allowlist before it reaches the DB; an unrecognised value throws.
     const operation = assertDesktopSyncOperation(item?.operation);
     // Force the tenantId of the queued item to the active session,

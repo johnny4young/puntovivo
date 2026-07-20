@@ -1,5 +1,5 @@
 /**
- * ENG-193 — device-local sound toggle in the POS header.
+ * device-local sound toggle in the POS header.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent } from '@testing-library/react';

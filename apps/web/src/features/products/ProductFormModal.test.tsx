@@ -1,15 +1,15 @@
 /**
- * ENG-078 — ProductFormModal AI category suggestion.
+ * ProductFormModal AI category suggestion.
  *
  * Pins the confidence-tiered behavior:
- *  - HIGH confidence (>= 0.7) auto-preselects the category in CREATE mode
- *    when the dropdown is empty, plus renders the "Sugerido por IA" badge.
- *    In EDIT mode or when the operator already picked, the chip appears
- *    instead — preselect never overrides operator intent.
- *  - MEDIUM confidence (0.3..0.7) renders a chip with an "Aplicar
- *    sugerencia" CTA the operator clicks to accept.
- *  - Below 0.3 is silent.
- *  - Module `semantic-search` off ⇒ the mutation never fires.
+ * - HIGH confidence (>= 0.7) auto-preselects the category in CREATE mode
+ * when the dropdown is empty, plus renders the "Sugerido por IA" badge.
+ * In EDIT mode or when the operator already picked, the chip appears
+ * instead — preselect never overrides operator intent.
+ * - MEDIUM confidence (0.3..0.7) renders a chip with an "Aplicar
+ * sugerencia" CTA the operator clicks to accept.
+ * - Below 0.3 is silent.
+ * - Module `semantic-search` off ⇒ the mutation never fires.
  */
 import { act, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -147,7 +147,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('ProductFormModal — AI category suggestion (ENG-078)', () => {
+describe('ProductFormModal — AI category suggestion', () => {
   it('A1 — HIGH confidence + create mode + empty categoryId → auto-preselects category and shows badge', () => {
     renderModal({ mode: 'create' });
     fireDebouncedSuggestion('Pan tajado integral 500g');
@@ -371,7 +371,7 @@ describe('ProductFormModal — AI category suggestion (ENG-078)', () => {
     expect(suggestCategoryMutateMock).not.toHaveBeenCalled();
   });
 
-  it('ENG-110a — exposes opt-in lot tracking and locks direct stock edits', () => {
+  it(' — exposes opt-in lot tracking and locks direct stock edits', () => {
     renderModal({ mode: 'create' });
     const stock = screen.getByLabelText('Stock') as HTMLInputElement;
     const toggle = screen.getByRole('checkbox', { name: 'Track lots and expiry' });
@@ -386,7 +386,7 @@ describe('ProductFormModal — AI category suggestion (ENG-078)', () => {
     ).toBeInTheDocument();
   });
 
-  it('ENG-110c — makes serial tracking exclusive and locks aggregate stock', () => {
+  it(' — makes serial tracking exclusive and locks aggregate stock', () => {
     renderModal({ mode: 'create' });
     const stock = screen.getByLabelText('Stock') as HTMLInputElement;
     const serialToggle = screen.getByRole('checkbox', { name: 'Track serial numbers' });
@@ -408,7 +408,7 @@ describe('ProductFormModal — AI category suggestion (ENG-078)', () => {
     expect(stock).not.toHaveAttribute('readonly');
   });
 
-  it('ENG-110a — permits metadata edits when persisted lot stock is positive', async () => {
+  it(' — permits metadata edits when persisted lot stock is positive', async () => {
     renderModal({ mode: 'edit', product: createMockProduct({ stock: 4, tracksLots: true }) });
 
     expect(screen.getByRole('checkbox', { name: 'Track lots and expiry' })).toBeChecked();
@@ -430,7 +430,7 @@ describe('ProductFormModal — AI category suggestion (ENG-078)', () => {
     );
   });
 
-  it('ENG-110a — rejects changing stock before re-enabling persisted lot tracking', async () => {
+  it(' — rejects changing stock before re-enabling persisted lot tracking', async () => {
     renderModal({ mode: 'edit', product: createMockProduct({ stock: 4, tracksLots: true }) });
     const toggle = screen.getByRole('checkbox', { name: 'Track lots and expiry' });
 

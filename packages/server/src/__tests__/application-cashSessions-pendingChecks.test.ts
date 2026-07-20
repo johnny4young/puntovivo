@@ -1,5 +1,5 @@
 /**
- * ENG-056 — Invariant tests for the pending-checks helpers in
+ * Invariant tests for the pending-checks helpers in
  * `application/cash-sessions/pending-checks`.
  *
  * Pure read queries — fast tests, no use-case orchestration.
@@ -135,11 +135,7 @@ async function seedFiscalDoc(args: {
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -231,7 +227,12 @@ describe('getPendingChecksForSession', () => {
 
   it('counts pending fiscal documents (status=pending)', async () => {
     const sessionId = await seedSession('one-pending');
-    const saleId = await seedSale({ sessionId, saleNumber: 'OP-' + nanoid(6), status: 'completed', paymentStatus: 'paid' });
+    const saleId = await seedSale({
+      sessionId,
+      saleNumber: 'OP-' + nanoid(6),
+      status: 'completed',
+      paymentStatus: 'paid',
+    });
     await seedFiscalDoc({ saleId, status: 'pending' });
     const result = await getPendingChecksForSession(getDatabase(), tenantId, sessionId);
     expect(result.pendingFiscalDocuments).toBe(1);
@@ -240,7 +241,12 @@ describe('getPendingChecksForSession', () => {
 
   it('counts contingency fiscal documents alongside pending', async () => {
     const sessionId = await seedSession('contingency');
-    const saleId = await seedSale({ sessionId, saleNumber: 'CT-' + nanoid(6), status: 'completed', paymentStatus: 'paid' });
+    const saleId = await seedSale({
+      sessionId,
+      saleNumber: 'CT-' + nanoid(6),
+      status: 'completed',
+      paymentStatus: 'paid',
+    });
     await seedFiscalDoc({ saleId, status: 'contingency' });
     const result = await getPendingChecksForSession(getDatabase(), tenantId, sessionId);
     expect(result.pendingFiscalDocuments).toBe(1);
@@ -249,7 +255,12 @@ describe('getPendingChecksForSession', () => {
 
   it('excludes accepted/sent/rejected fiscal documents', async () => {
     const sessionId = await seedSession('accepted-only');
-    const saleId = await seedSale({ sessionId, saleNumber: 'AC-' + nanoid(6), status: 'completed', paymentStatus: 'paid' });
+    const saleId = await seedSale({
+      sessionId,
+      saleNumber: 'AC-' + nanoid(6),
+      status: 'completed',
+      paymentStatus: 'paid',
+    });
     await seedFiscalDoc({ saleId, status: 'accepted' });
     const result = await getPendingChecksForSession(getDatabase(), tenantId, sessionId);
     expect(result.pendingFiscalDocuments).toBe(0);
@@ -257,7 +268,12 @@ describe('getPendingChecksForSession', () => {
 
   it('counts partial paymentStatus on completed sales', async () => {
     const sessionId = await seedSession('partial-payment');
-    await seedSale({ sessionId, saleNumber: 'PT-' + nanoid(6), status: 'completed', paymentStatus: 'partial' });
+    await seedSale({
+      sessionId,
+      saleNumber: 'PT-' + nanoid(6),
+      status: 'completed',
+      paymentStatus: 'partial',
+    });
     const result = await getPendingChecksForSession(getDatabase(), tenantId, sessionId);
     expect(result.pendingPaymentSales).toBe(1);
     expect(result.paymentSamples[0].paymentStatus).toBe('partial');
@@ -265,7 +281,12 @@ describe('getPendingChecksForSession', () => {
 
   it('excludes pending paymentStatus on draft sales (filter status=completed)', async () => {
     const sessionId = await seedSession('draft-pending');
-    await seedSale({ sessionId, saleNumber: 'DR-' + nanoid(6), status: 'draft', paymentStatus: 'pending' });
+    await seedSale({
+      sessionId,
+      saleNumber: 'DR-' + nanoid(6),
+      status: 'draft',
+      paymentStatus: 'pending',
+    });
     const result = await getPendingChecksForSession(getDatabase(), tenantId, sessionId);
     expect(result.pendingPaymentSales).toBe(0);
   });
@@ -291,7 +312,12 @@ describe('getPendingChecksForSession', () => {
 
   it('isolates pending counts across tenants', async () => {
     const sessionId = await seedSession('tenant-iso');
-    const saleId = await seedSale({ sessionId, saleNumber: 'TI-' + nanoid(6), status: 'completed', paymentStatus: 'paid' });
+    const saleId = await seedSale({
+      sessionId,
+      saleNumber: 'TI-' + nanoid(6),
+      status: 'completed',
+      paymentStatus: 'paid',
+    });
     await seedFiscalDoc({ saleId, status: 'pending' });
 
     // Query under a different tenant id; the row must be invisible.

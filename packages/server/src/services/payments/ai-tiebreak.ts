@@ -1,5 +1,5 @@
 /**
- * ENG-038c — AI tie-break for ambiguous payment reconciliation matches.
+ * AI tie-break for ambiguous payment reconciliation matches.
  *
  * The deterministic matcher in `reconciliation.ts` covers exact + epsilon
  * matches across (reference, providerTransactionId, amount). When two or
@@ -27,7 +27,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { currentMonthSpend, recordCall } from '../ai/auditLog.js';
 import { resolveAISettings, toBillableTokenUsage } from '../ai/client.js';
-import { getProvider, isNotImplemented } from '../ai/providers/registry.js';
+import { getProvider } from '../ai/providers/registry.js';
 
 const log = createModuleLogger('services/payments/ai-tiebreak');
 
@@ -60,11 +60,7 @@ export interface TiebreakInput {
 }
 
 export type TiebreakDegradationReason =
-  | 'ai-disabled'
-  | 'ai-budget-exceeded'
-  | 'ai-provider-error'
-  | 'ai-not-implemented'
-  | 'ai-not-decisive';
+  'ai-disabled' | 'ai-budget-exceeded' | 'ai-provider-error' | 'ai-not-decisive';
 
 export type TiebreakResult =
   | {
@@ -94,12 +90,8 @@ const TiebreakSchema = z.object({
     .string()
     .min(1)
     .nullable()
-    .describe(
-      'salePaymentId of the chosen candidate, or null when nothing is decisively a match.'
-    ),
-  confidence: z
-    .enum(['high', 'medium', 'low'])
-    .describe('Self-rated confidence in the pick.'),
+    .describe('salePaymentId of the chosen candidate, or null when nothing is decisively a match.'),
+  confidence: z.enum(['high', 'medium', 'low']).describe('Self-rated confidence in the pick.'),
   explanation: z
     .string()
     .max(400)
@@ -136,9 +128,6 @@ export async function aiTiebreak(
   }
 
   const provider = getProvider(settings.providerId);
-  if (isNotImplemented(provider)) {
-    return { ok: false, reason: 'ai-not-implemented', costUsd: 0, auditLogId: null };
-  }
   if (!provider.isConfigured()) {
     return { ok: false, reason: 'ai-provider-error', costUsd: 0, auditLogId: null };
   }
@@ -264,7 +253,4 @@ function buildUserPrompt(input: TiebreakInput): string {
  * Tests pass a stub here to drive the AI path deterministically without
  * touching the provider registry.
  */
-export type TiebreakFn = (
-  ctx: TiebreakContext,
-  input: TiebreakInput
-) => Promise<TiebreakResult>;
+export type TiebreakFn = (ctx: TiebreakContext, input: TiebreakInput) => Promise<TiebreakResult>;

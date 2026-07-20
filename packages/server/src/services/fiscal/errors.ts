@@ -1,9 +1,9 @@
 /**
- * ENG-057 — Fiscal provider error normalization.
+ * Fiscal provider error normalization.
  *
  * Closed list of `NormalizedFiscalErrorKind` values that the fiscal
  * worker maps every adapter throw into. The Operations Center
- * (ENG-065) renders consistent operator-facing messages keyed off
+ * () renders consistent operator-facing messages keyed off
  * the normalized kind regardless of which country pack threw.
  *
  * Adapters that want to be precise can throw `FiscalProviderError`
@@ -26,7 +26,7 @@ export type NormalizedFiscalErrorKind =
   // Recoverable: the kernel reschedules the row at the next backoff stage.
   | 'NETWORK_TIMEOUT'
   | 'PROVIDER_5XX'
-  | 'RATE_LIMITED' // ENG-057 treats as PROVIDER_5XX; differentiated backoff lands ENG-058
+  | 'RATE_LIMITED' //  treats as PROVIDER_5XX; differentiated backoff lands
   | 'UNKNOWN' // safety fallback when the error doesn't pattern-match
   // Non-recoverable: the kernel dead-letters immediately.
   | 'PROVIDER_4XX'

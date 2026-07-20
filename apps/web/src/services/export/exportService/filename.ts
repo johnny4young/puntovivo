@@ -1,5 +1,5 @@
-// ENG-103 — download filename generation + the browser download trigger +
-// the semantic filename builder (ENG-178 slice 30).
+// download filename generation + the browser download trigger +
+// the semantic filename builder ( slice 30).
 
 import { mimeTypeForExtension, type SupportedExportExtension } from './mime';
 import type { SemanticExportKind } from './types';
@@ -53,7 +53,7 @@ export function generateFilename(
  * `download` filename alive long enough for the OS handoff without leaking
  * the URL for the lifetime of the page.
  *
- * ENG-103 — exported so every download surface in the app routes through
+ * exported so every download surface in the app routes through
  * the same anchor + revoke pattern. Re-implementing this dance inline (as
  * the v1 fiscal XML modal did) bypasses the cache-friendly revoke delay
  * and risks the extensionless-filename regression on slow Electron

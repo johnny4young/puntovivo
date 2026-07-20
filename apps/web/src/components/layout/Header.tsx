@@ -97,7 +97,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
           data-testid="header-page-heading"
           className="flex min-w-0 shrink-0 flex-col gap-0.5 border-r border-line/70 pr-3"
         >
-          {/* ENG-134 slice B: bumped the header page-kicker from
+          {/*  slice B: bumped the header page-kicker from
               text-primary-600 (oklch L=0.61, axe 3.65:1) to
               text-primary-800 (oklch L=0.45) so the brand-blue
               uppercase kicker clears WCAG AA 4.5:1 against
@@ -109,7 +109,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             {t(titleKey)}
           </h2>
           <p
-            // ENG-134 slice B: bumped tenant-badge from
+            // slice B: bumped tenant-badge from
             // text-secondary-500 to text-fg2 so the 9.5px uppercase
             // tag clears WCAG AA 4.5:1 against --background.
             className="hidden truncate text-[9.5px] font-semibold uppercase tracking-[0.2em] text-fg2 lg:block"

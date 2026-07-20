@@ -1,9 +1,9 @@
 /**
- * ENG-178 — receipt-print IPC flow, extracted verbatim from the former
+ * receipt-print IPC flow, extracted verbatim from the former
  * monolithic `main/index.ts`.
  *
- * Owns the ephemeral sandboxed print window, the DK-006 print timeout
- * and the ENG-166 HTML sanitisation at the IPC trust boundary. Print
+ * Owns the ephemeral sandboxed print window and the bounded print timeout
+ * and the  HTML sanitisation at the IPC trust boundary. Print
  * settings persistence lives in `./settings.js`.
  *
  * @module main/ipc/print
@@ -15,12 +15,12 @@ import { t } from '../i18n';
 import { sanitisePrintHtml } from '../print-html-sanitizer.js';
 import { getReceiptPrintSettings, type ReceiptPrintSettings } from './settings.js';
 
-// ENG-006 — `print` is one of the frequent-error surfaces split out of
+// `print` is one of the frequent-error surfaces split out of
 // `electron-main` so operators can filter the stream by module=print
 // without additional tagging.
 const printLog = createModuleLogger('print');
 
-// DK-006 — upper bound on how long we wait for `webContents.print`'s
+// Upper bound on how long we wait for `webContents.print`'s
 // completion callback. The native print path can hang indefinitely if
 // the OS print dialog/spooler never returns a result (stuck driver,
 // dismissed dialog on some platforms); without a ceiling the print
@@ -29,10 +29,7 @@ const printLog = createModuleLogger('print');
 // the `finally` always runs and the window is closed.
 const RECEIPT_PRINT_TIMEOUT_MS = 60_000;
 
-async function printReceipt(
-  receiptHtml: string,
-  settings: ReceiptPrintSettings
-): Promise<void> {
+async function printReceipt(receiptHtml: string, settings: ReceiptPrintSettings): Promise<void> {
   const printWindow = new BrowserWindow({
     show: false,
     webPreferences: {
@@ -45,7 +42,7 @@ async function printReceipt(
   try {
     await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHtml)}`);
 
-    // DK-006 — race the print callback against a hard timeout so a
+    // Race the print callback against a hard timeout so a
     // native print path that never invokes its callback cannot pin the
     // promise open (which would skip the `finally` and leak the window).
     let timeoutHandle: NodeJS.Timeout | undefined;
@@ -94,7 +91,7 @@ export function registerPrintIpc(): void {
       };
     }
 
-    // ENG-166 — strip every active HTML construct (scripts, iframes,
+    // strip every active HTML construct (scripts, iframes,
     // event-handler attributes, non-data: image srcs) at the IPC trust
     // boundary BEFORE the HTML is loaded into the ephemeral print window.
     // The print window already runs sandbox: true, but defense-in-depth

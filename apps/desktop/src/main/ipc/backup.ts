@@ -1,5 +1,5 @@
 /**
- * ENG-178 — stable IPC registration surface for desktop backup and restore.
+ * stable IPC registration surface for desktop backup and restore.
  *
  * Main-process state that must remain owned by `main/index.ts` is injected
  * through BackupIpcDeps. Focused modules own backup creation and validated
@@ -38,7 +38,7 @@ export { clearPendingRestore } from './backup/restore.js';
 export function registerBackupIpc(deps: BackupIpcDeps): void {
   ipcMain.handle('create-database-backup', () => handleCreateDatabaseBackup(deps));
   ipcMain.handle('restore-database-backup', () => handleRestoreDatabaseBackup(deps));
-  // ENG-167b — cross-device restore completion + admin key reveal.
+  // cross-device restore completion + admin key reveal.
   ipcMain.handle('provide-restore-key', (_event, token: unknown, keyHex: unknown) =>
     handleProvideRestoreKey(deps, token, keyHex)
   );

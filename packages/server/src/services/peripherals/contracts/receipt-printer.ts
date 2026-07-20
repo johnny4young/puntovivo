@@ -1,13 +1,13 @@
 /**
- * ENG-060 — Receipt printer contract.
+ * Receipt printer contract.
  *
  * Two drivers will conform to this interface:
- *   - `system` (ENG-060): wraps the existing `webContents.print()` IPC
- *     path. The `print(job)` method is a typed identifier; the actual
- *     print continues to flow through the legacy renderer→main IPC.
- *   - `escpos` (ENG-062): generates ESC/POS bytes and writes them
- *     over USB / TCP / serial. Includes the `ESC p m t1 t2` sequence
- *     to kick the cash drawer.
+ * - `system` (): wraps the existing `webContents.print()` IPC
+ * path. The `print(job)` method is a typed identifier; the actual
+ * print continues to flow through the legacy renderer→main IPC.
+ * - `escpos` (): generates ESC/POS bytes and writes them
+ * over USB / TCP / serial. Includes the `ESC p m t1 t2` sequence
+ * to kick the cash drawer.
  *
  * The PrintJob discriminator (`sale-receipt | fiscal-dee | quotation
  * | kitchen-ticket`) lets future drivers route different receipt
@@ -17,26 +17,18 @@
  * @module services/peripherals/contracts/receipt-printer
  */
 
-import type {
-  BasePeripheralAdapter,
-  NormalizedHardwareError,
-  TestResult,
-} from '../types.js';
+import type { BasePeripheralAdapter, NormalizedHardwareError, TestResult } from '../types.js';
 
-export type PrintJobKind =
-  | 'sale-receipt'
-  | 'fiscal-dee'
-  | 'quotation'
-  | 'kitchen-ticket';
+export type PrintJobKind = 'sale-receipt' | 'fiscal-dee' | 'quotation' | 'kitchen-ticket';
 
-// ENG-179b — explicit `| undefined` on every optional field so the
+// explicit `| undefined` on every optional field so the
 // hardware-worker can compose a `PrintJob` from partial sources without
 // violating `exactOptionalPropertyTypes`.
 export interface PrintJob {
   kind: PrintJobKind;
   /** Server-rendered HTML body (the system driver path) — see receipt-renderer.ts. */
   html?: string | undefined;
-  /** Pre-built ESC/POS byte buffer (the escpos driver path, ENG-062). */
+  /** Pre-built ESC/POS byte buffer (the escpos driver path, ). */
   escposBytes?: Uint8Array | undefined;
   /** Free-form metadata (saleId, fiscalDocumentId) for logging / journal correlation. */
   metadata?: Record<string, unknown> | undefined;

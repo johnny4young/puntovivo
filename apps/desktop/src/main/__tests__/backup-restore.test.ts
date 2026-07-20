@@ -1,19 +1,19 @@
 /**
- * ENG-066 — backup-bundle helpers regression test.
+ * backup-bundle helpers regression test.
  *
  * Pins the contract the IPC handlers in `index.ts` rely on:
  *
- *   - `createBackupBundle()` produces a ZIP that opens cleanly,
- *     contains `local.db` + (optionally) `device-id.txt`, and the
- *     embedded DB passes `PRAGMA integrity_check`.
- *   - `extractBackupBundle()` round-trips: a freshly-created bundle
- *     extracts back to a usable DB + device-id pair.
- *   - `assertSqliteIntegrity()` rejects a corrupted file before any
- *     IPC handler tries to swap it into the live location.
- *   - `detectBackupFormat()` distinguishes ZIP vs raw SQLite from the
- *     first 4 magic bytes — the basis for legacy `.db` restore.
- *   - `createBackupFileName()` produces ISO-sortable, tenant-scoped
- *     names so attached support tickets sort cleanly.
+ * - `createBackupBundle()` produces a ZIP that opens cleanly,
+ * contains `local.db` + (optionally) `device-id.txt`, and the
+ * embedded DB passes `PRAGMA integrity_check`.
+ * - `extractBackupBundle()` round-trips: a freshly-created bundle
+ * extracts back to a usable DB + device-id pair.
+ * - `assertSqliteIntegrity()` rejects a corrupted file before any
+ * IPC handler tries to swap it into the live location.
+ * - `detectBackupFormat()` distinguishes ZIP vs raw SQLite from the
+ * first 4 magic bytes — the basis for legacy `.db` restore.
+ * - `createBackupFileName()` produces ISO-sortable, tenant-scoped
+ * names so attached support tickets sort cleanly.
  *
  * Runs under `node --test --experimental-strip-types` per the desktop
  * workspace test convention; no Vitest, no transpiler.
@@ -55,7 +55,7 @@ after(() => {
 
 function seedSourceDb(path: string): { count: number } {
   const db = new Database(path);
-  db.exec("CREATE TABLE sales (id TEXT PRIMARY KEY, total REAL NOT NULL);");
+  db.exec('CREATE TABLE sales (id TEXT PRIMARY KEY, total REAL NOT NULL);');
   db.exec("INSERT INTO sales VALUES ('s-1', 100.5);");
   db.exec("INSERT INTO sales VALUES ('s-2', 250.0);");
   db.exec("INSERT INTO sales VALUES ('s-3', 999.99);");
@@ -81,7 +81,7 @@ function seedEncryptedSourceDb(path: string): { count: number } {
   return { count: row.n };
 }
 
-describe('createBackupFileName (ENG-066)', () => {
+describe('createBackupFileName', () => {
   it('produces an ISO-sortable filename with .zip extension', () => {
     const fixed = new Date('2026-05-07T13:30:45.123Z');
     const name = createBackupFileName({ now: fixed });
@@ -99,11 +99,14 @@ describe('createBackupFileName (ENG-066)', () => {
       tenantSlug: 'tenant/with spaces?',
       now: new Date('2026-05-07T00:00:00.000Z'),
     });
-    assert.ok(!/[/\s?]/.test(name), `filename '${name}' must not carry path separators or whitespace`);
+    assert.ok(
+      !/[/\s?]/.test(name),
+      `filename '${name}' must not carry path separators or whitespace`
+    );
   });
 });
 
-describe('createBackupBundle + assertSqliteIntegrity (ENG-066)', () => {
+describe('createBackupBundle + assertSqliteIntegrity', () => {
   it('produces a ZIP that contains local.db + device-id.txt + manifest.json with integrity ok', async () => {
     const dir = await mkdtemp(join(scratchDir, 'bundle-'));
     const sourceDbPath = join(dir, 'live.db');
@@ -213,7 +216,7 @@ describe('createBackupBundle + assertSqliteIntegrity (ENG-066)', () => {
   });
 });
 
-describe('assertSqliteIntegrity (ENG-066)', () => {
+describe('assertSqliteIntegrity', () => {
   it('passes on a clean DB', async () => {
     const dir = await mkdtemp(join(scratchDir, 'integrity-ok-'));
     const path = join(dir, 'clean.db');
@@ -230,14 +233,11 @@ describe('assertSqliteIntegrity (ENG-066)', () => {
     const truncated = join(dir, 'truncated.db');
     await writeFile(truncated, bytes);
 
-    await assert.rejects(
-      assertSqliteIntegrity(truncated),
-      /Backup integrity check failed/i
-    );
+    await assert.rejects(assertSqliteIntegrity(truncated), /Backup integrity check failed/i);
   });
 });
 
-describe('detectBackupFormat (ENG-066)', () => {
+describe('detectBackupFormat', () => {
   it('returns "zip" for a ZIP file', async () => {
     const dir = await mkdtemp(join(scratchDir, 'detect-zip-'));
     const path = join(dir, 'sample.zip');
@@ -262,7 +262,7 @@ describe('detectBackupFormat (ENG-066)', () => {
   });
 });
 
-describe('extractBackupBundle (ENG-066)', () => {
+describe('extractBackupBundle', () => {
   it('round-trips a ZIP bundle: DB extracts, integrity passes, device-id preserved', async () => {
     const dir = await mkdtemp(join(scratchDir, 'extract-zip-'));
     const sourceDbPath = join(dir, 'live.db');
@@ -310,17 +310,14 @@ describe('extractBackupBundle (ENG-066)', () => {
     const path = join(dir, 'random.txt');
     await writeFile(path, 'totally not a backup');
 
-    await assert.rejects(
-      extractBackupBundle(path, join(dir, 'unused')),
-      /unrecognized/i
-    );
+    await assert.rejects(extractBackupBundle(path, join(dir, 'unused')), /unrecognized/i);
   });
 
   it('throws when ZIP is missing the required local.db entry', async () => {
     const dir = await mkdtemp(join(scratchDir, 'extract-empty-zip-'));
     const path = join(dir, 'empty.zip');
     const zip = new JSZip();
-    // ENG-169 — use an allowlisted entry so the archive clears the
+    // use an allowlisted entry so the archive clears the
     // allowlist gate and reaches the missing-local.db check below.
     zip.file(ZIP_MANIFEST_ENTRY, '{}');
     await writeFile(path, await zip.generateAsync({ type: 'nodebuffer' }));
@@ -331,7 +328,7 @@ describe('extractBackupBundle (ENG-066)', () => {
     );
   });
 
-  it('rejects a ZIP carrying a path-traversal entry (ENG-169)', async () => {
+  it('rejects a ZIP carrying a path-traversal entry', async () => {
     const dir = await mkdtemp(join(scratchDir, 'extract-traversal-'));
     const path = join(dir, 'evil.zip');
     const zip = new JSZip();
@@ -343,13 +340,10 @@ describe('extractBackupBundle (ENG-066)', () => {
     zip.file('../local.db', 'pwned', { createFolders: false });
     await writeFile(path, await zip.generateAsync({ type: 'nodebuffer' }));
 
-    await assert.rejects(
-      extractBackupBundle(path, join(dir, 'out')),
-      /path-traversal/i
-    );
+    await assert.rejects(extractBackupBundle(path, join(dir, 'out')), /path-traversal/i);
   });
 
-  it('rejects a ZIP carrying an unexpected, non-allowlisted entry (ENG-169)', async () => {
+  it('rejects a ZIP carrying an unexpected, non-allowlisted entry', async () => {
     const dir = await mkdtemp(join(scratchDir, 'extract-extra-'));
     const path = join(dir, 'extra.zip');
     const zip = new JSZip();
@@ -357,16 +351,13 @@ describe('extractBackupBundle (ENG-066)', () => {
     zip.file('notes.txt', 'extra payload');
     await writeFile(path, await zip.generateAsync({ type: 'nodebuffer' }));
 
-    await assert.rejects(
-      extractBackupBundle(path, join(dir, 'out')),
-      /unexpected entry/i
-    );
+    await assert.rejects(extractBackupBundle(path, join(dir, 'out')), /unexpected entry/i);
   });
 });
 
-// ENG-167b — helpers the cross-device restore and the first-boot
+// helpers the cross-device restore and the first-boot
 // encryption migration are built on.
-describe('isCleartextSqliteFile / rekeySqliteDatabase (ENG-167b)', () => {
+describe('isCleartextSqliteFile / rekeySqliteDatabase', () => {
   const FOREIGN_KEY = 'b'.repeat(64);
 
   it('detects cleartext SQLite, rejects encrypted files and missing paths', async () => {
@@ -392,14 +383,12 @@ describe('isCleartextSqliteFile / rekeySqliteDatabase (ENG-167b)', () => {
     source.pragma("cipher = 'sqlcipher'");
     source.pragma('legacy = 4');
     source.pragma(`key = "x'${FOREIGN_KEY}'"`);
-    source.exec("CREATE TABLE sales (id TEXT PRIMARY KEY, total REAL NOT NULL);");
+    source.exec('CREATE TABLE sales (id TEXT PRIMARY KEY, total REAL NOT NULL);');
     source.exec("INSERT INTO sales VALUES ('s-1', 42.0);");
     source.close();
 
     // The local key cannot open it before the rekey.
-    await assert.rejects(
-      assertSqliteIntegrity(dbPath, { encryptionKey: ENCRYPTION_KEY })
-    );
+    await assert.rejects(assertSqliteIntegrity(dbPath, { encryptionKey: ENCRYPTION_KEY }));
 
     rekeySqliteDatabase(dbPath, { fromKey: FOREIGN_KEY, toKey: ENCRYPTION_KEY });
 
@@ -416,9 +405,7 @@ describe('isCleartextSqliteFile / rekeySqliteDatabase (ENG-167b)', () => {
     assert.equal(row.total, 42.0);
 
     // …and the foreign key no longer does.
-    await assert.rejects(
-      assertSqliteIntegrity(dbPath, { encryptionKey: FOREIGN_KEY })
-    );
+    await assert.rejects(assertSqliteIntegrity(dbPath, { encryptionKey: FOREIGN_KEY }));
   });
 
   it('rejects malformed keys without touching the file', async () => {
@@ -427,14 +414,12 @@ describe('isCleartextSqliteFile / rekeySqliteDatabase (ENG-167b)', () => {
     seedSourceDb(dbPath);
     const before = await readFile(dbPath);
 
-    assert.throws(() =>
-      rekeySqliteDatabase(dbPath, { toKey: 'definitely-not-hex' })
-    );
+    assert.throws(() => rekeySqliteDatabase(dbPath, { toKey: 'definitely-not-hex' }));
     assert.deepEqual(await readFile(dbPath), before);
   });
 });
 
-describe('sweepStaleBackupStaging (ENG-167b)', () => {
+describe('sweepStaleBackupStaging', () => {
   async function dirExists(path: string): Promise<boolean> {
     try {
       return (await stat(path)).isDirectory();

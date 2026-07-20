@@ -1,13 +1,13 @@
 /**
- * ENG-185 — Fiscal pack maturity chip (the "truth guard" label).
+ * Fiscal pack maturity chip (the "truth guard" label).
  *
  * Orthogonal to `FiscalStatusBadge` (which carries a document's lifecycle
  * status). This badge tells the operator HOW REAL a pack's emission is, so
  * a mock/draft document never reads as production/accepted:
- *   - `mock`      -> "Demo"     (computes a CUFE but never transmits — CO).
- *   - `draft`     -> "Draft"    (structurally-valid but unsigned XML — MX/CL).
- *   - `certified` -> renders NOTHING (a genuinely production-ready pack; no
- *                    pack ships this yet, so the chip is reserved).
+ * - `mock`      -> "Demo"     (computes a CUFE but never transmits — CO).
+ * - `draft`     -> "Draft"    (structurally-valid but unsigned XML — MX/CL).
+ * - `certified` -> renders NOTHING (a genuinely production-ready pack; no
+ * pack ships this yet, so the chip is reserved).
  *
  * Display-only: it never blocks anything. Reused on the fiscal config cards,
  * the fiscal document views, and the Operations diagnostics panel.
@@ -26,10 +26,7 @@ export interface FiscalMaturityBadgeProps {
   className?: string;
 }
 
-export function FiscalMaturityBadge({
-  maturity,
-  className,
-}: FiscalMaturityBadgeProps) {
+export function FiscalMaturityBadge({ maturity, className }: FiscalMaturityBadgeProps) {
   const { t } = useTranslation('fiscal');
   // A certified pack is genuinely production-ready — no demo label needed.
   if (maturity === 'certified') return null;

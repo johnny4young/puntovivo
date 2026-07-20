@@ -1,5 +1,5 @@
 /**
- * Delivery Orders tRPC Router (ENG-091) — tests.
+ * Delivery Orders tRPC Router () — tests.
  *
  * Covers the per-site delivery queue happy path plus the cross-tenant
  * isolation invariant on the hardened `advance` UPDATE: a caller from
@@ -114,7 +114,7 @@ function buildCtx(h: Harness): Context {
   };
 }
 
-describe('Delivery Orders tRPC Router (ENG-091)', () => {
+describe('Delivery Orders tRPC Router', () => {
   let tenantA: Harness;
   let tenantB: Harness;
 
@@ -168,11 +168,7 @@ describe('Delivery Orders tRPC Router (ENG-091)', () => {
       callerB.deliveryOrders.advance({ id, toStatus: 'cancelled' })
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
 
-    const survivor = await db
-      .select()
-      .from(deliveryOrders)
-      .where(eq(deliveryOrders.id, id))
-      .get();
+    const survivor = await db.select().from(deliveryOrders).where(eq(deliveryOrders.id, id)).get();
     expect(survivor).toBeTruthy();
     expect(survivor?.tenantId).toBe(tenantA.tenantId);
     // Status must still be the original 'accepted' — never moved to

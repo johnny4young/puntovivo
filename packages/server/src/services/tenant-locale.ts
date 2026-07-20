@@ -1,5 +1,5 @@
 /**
- * Tenant locale resolver (ENG-017).
+ * Tenant locale resolver ().
  *
  * A single function — `resolveTenantLocale` — reads the tenant's row
  * in `tenant_locale_settings`, joins `country_catalog` + `currency_catalog`,
@@ -58,7 +58,7 @@ export interface ResolvedLocale {
   timezoneOverride: string | null;
   firstDayOfWeekOverride: number | null;
   /**
-   * ENG-177a — optimistic-concurrency token of the underlying
+   * optimistic-concurrency token of the underlying
    * `tenant_locale_settings` row (0 for the fallback / unconfigured tenant).
    * The admin locale card round-trips this on save so a stale overwrite is
    * rejected with STALE_VERSION.
@@ -104,9 +104,7 @@ function combine(
   // The primary language subtag (BCP-47 before the first hyphen) is
   // what i18next can resolve today. Fine to recompute on every call;
   // the function is cheap and consumers memoize on their side.
-  const language = locale.includes('-')
-    ? locale.slice(0, locale.indexOf('-'))
-    : locale;
+  const language = locale.includes('-') ? locale.slice(0, locale.indexOf('-')) : locale;
   return {
     locale,
     language,
@@ -116,8 +114,7 @@ function combine(
     legalDecimals: currency.decimals,
     displayDecimals: currency.displayDecimals,
     timezone: settings.timezoneOverride ?? country.defaultTimezone,
-    firstDayOfWeek:
-      settings.firstDayOfWeekOverride ?? country.firstDayOfWeek,
+    firstDayOfWeek: settings.firstDayOfWeekOverride ?? country.firstDayOfWeek,
     dateFormatShort: country.dateFormatShort,
     localeOverride: settings.localeOverride,
     currencyOverride: settings.currencyOverride,
@@ -164,8 +161,7 @@ export async function resolveTenantLocale(
   }
 
   // Override wins; default comes from the country row when null.
-  const effectiveCurrencyCode =
-    settings.currencyOverride ?? country.defaultCurrencyCode;
+  const effectiveCurrencyCode = settings.currencyOverride ?? country.defaultCurrencyCode;
   const currency = await db
     .select()
     .from(currencyCatalog)

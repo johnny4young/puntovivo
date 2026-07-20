@@ -8,7 +8,7 @@
  * repetition is not just noise — it is where a subtle bug lives: the count
  * query MUST carry the same `where` as the items query, or the pager offers
  * pages of a result set the filter already narrowed (the exact class of bug
- * ENG-217's server test pins for customers). This helper takes ONE `where`
+ * 's server test pins for customers). This helper takes ONE `where`
  * and feeds both queries, so that drift is impossible by construction.
  *
  * Tenant scoping stays the caller's job: the `where` it passes must already

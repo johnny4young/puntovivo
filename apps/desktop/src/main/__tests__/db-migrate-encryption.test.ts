@@ -4,20 +4,17 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import {
-  migrateCleartextDatabase,
-  type MigrationLogger,
-} from '../db-migrate-encryption.ts';
+import { migrateCleartextDatabase, type MigrationLogger } from '../db-migrate-encryption.ts';
 
-// ENG-167b regression pins, exercised against REAL database files
+// regression pins, exercised against REAL database files
 // and the REAL better-sqlite3-multiple-ciphers binding:
-//   1. A cleartext DB is encrypted in place, verifiable with the key
-//      and unreadable without it; the .bak and stale sidecars are gone.
-//   2. The migration is idempotent (second boot: already-encrypted).
-//   3. Fresh installs (no file) and the dev-shared route (skip) are
-//      no-ops.
-//   4. A failed attempt restores the cleartext original byte-for-byte
-//      and throws — the boot must never proceed on a half-written file.
+// 1. A cleartext DB is encrypted in place, verifiable with the key
+// and unreadable without it; the .bak and stale sidecars are gone.
+// 2. The migration is idempotent (second boot: already-encrypted).
+// 3. Fresh installs (no file) and the dev-shared route (skip) are
+// no-ops.
+// 4. A failed attempt restores the cleartext original byte-for-byte
+// and throws — the boot must never proceed on a half-written file.
 //
 // Run via `pnpm --filter @puntovivo/desktop run test` (node --test
 // --experimental-strip-types; the script runs native:ensure:node
@@ -74,7 +71,7 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-describe('migrateCleartextDatabase (ENG-167b)', () => {
+describe('migrateCleartextDatabase', () => {
   it('encrypts a cleartext database in place and cleans up the .bak and sidecars', async () => {
     seedCleartextDb(dbPath);
 

@@ -1,5 +1,5 @@
 /**
- * ENG-186 (review follow-up) — shared dialog accessibility hook.
+ * (review follow-up) — shared dialog accessibility hook.
  *
  * Encapsulates the focus-trap + ESC-to-close + focus-restoration +
  * body-scroll-lock behaviour that both `Modal` (form-controls/Modal.tsx)
@@ -10,7 +10,7 @@
  * `requireTopmost` is false (Modal keeps its exact prior behaviour). When
  * `requireTopmost` is true (Drawer), ESC and the Tab-trap only act when
  * this dialog is the last `[role="dialog"][aria-modal="true"]` in the DOM
- * — so stacked dialogs do not all close on a single ESC and their focus
+ * so stacked dialogs do not all close on a single ESC and their focus
  * traps do not fight.
  *
  * @module components/feedback/useDialogA11y
@@ -28,7 +28,7 @@ interface IsolationState {
   previousInert: boolean;
 }
 
-// ENG-134h — several dialogs can be stacked. Reference counts prevent a
+// several dialogs can be stacked. Reference counts prevent a
 // closing parent/child from exposing the application while another dialog
 // still owns the screen-reader cursor.
 const isolatedElements = new WeakMap<HTMLElement, IsolationState>();
@@ -63,7 +63,7 @@ function releaseIsolation(element: HTMLElement): void {
   isolatedElements.delete(element);
 }
 
-// ENG-179b — explicit `| undefined` on optional fields for callers spreading
+// explicit `| undefined` on optional fields for callers spreading
 // a parent state shape under `exactOptionalPropertyTypes`.
 export interface UseDialogA11yOptions {
   /** Whether the dialog is open (drives every effect). */
@@ -75,7 +75,7 @@ export interface UseDialogA11yOptions {
   /** Ref to the panel that owns the focus-trap + initial focus target. */
   containerRef: RefObject<HTMLElement | null>;
   /**
-   * ENG-105f — focus-restoration override. When it returns a focusable
+   * focus-restoration override. When it returns a focusable
    * element, that element receives focus on close instead of the element
    * focused at open time.
    */
@@ -157,7 +157,7 @@ export function useDialogA11y({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, closeOnEsc, onClose, handleTabKey, isActive]);
 
-  // ENG-134h — aria-modal alone is advisory and VoiceOver can still walk the
+  // aria-modal alone is advisory and VoiceOver can still walk the
   // page behind a dialog. Isolate background siblings at every ancestor level
   // so both portals and inline dialogs work. The topmost dialog additionally
   // isolates lower dialogs; lower dialogs keep their own application isolation

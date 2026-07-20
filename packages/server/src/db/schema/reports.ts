@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — immutable report evidence.
  *
- * ENG-141b stores one manager-signed comprehensive day-close snapshot per
+ * stores one manager-signed comprehensive day-close snapshot per
  * tenant business date. There is deliberately no updated_at column: the row
  * is append-only evidence, and the migration adds database triggers that
  * reject UPDATE and DELETE in addition to the service exposing no mutator.
@@ -54,7 +54,7 @@ export const dayCloseSignoffs = sqliteTable(
 );
 
 /**
- * ENG-141c — binary evidence generated before the irreversible sign-off commits.
+ * binary evidence generated before the irreversible sign-off commits.
  *
  * The BLOB lives in a separate one-to-one table so future delivery records do
  * not expand the core attestation row. Composite tenant/signoff ownership is

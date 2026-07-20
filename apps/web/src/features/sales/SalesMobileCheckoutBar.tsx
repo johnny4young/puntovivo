@@ -1,17 +1,10 @@
-import {
-  FilePlus2,
-  ListTree,
-  PauseCircle,
-  Receipt,
-  Search,
-  WalletCards,
-} from 'lucide-react';
+import { FilePlus2, ListTree, PauseCircle, Receipt, Search, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession } from '@/types';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface SalesMobileCheckoutBarProps {
   draftSummary: SaleCartSummary;
   cashSession: CashSession | null;
@@ -28,7 +21,7 @@ interface SalesMobileCheckoutBarProps {
   suspendedDraftsCount?: number | undefined;
   onToggleSuspendedPanel?: (() => void) | undefined;
   /**
-   * ENG-074 — same hub-reachability gate as `SalesCheckoutPanel`. The
+   * same hub-reachability gate as `SalesCheckoutPanel`. The
    * mobile bar mirrors the desktop panel's behavior so a `hub_client`
    * terminal on a phone or tablet cannot bypass the gate by routing
    * checkout through the mobile-width primary action.
@@ -55,7 +48,7 @@ export function SalesMobileCheckoutBar({
 }: SalesMobileCheckoutBarProps) {
   const { t } = useTranslation('sales');
   const hasDraftItems = draftSummary.itemCount > 0;
-  // ENG-074 — mirror the SalesCheckoutPanel gate so a hub_client
+  // mirror the SalesCheckoutPanel gate so a hub_client
   // terminal on a phone or tablet cannot bypass the hub-unreachable
   // state by triggering checkout from the mobile bar.
   const isHubGated = hubReachable === false;

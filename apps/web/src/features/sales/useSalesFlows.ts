@@ -21,7 +21,7 @@ type SalesMutationHandles = ReturnType<typeof useSalesMutations>;
 /**
  * Params for {@link useSalesFlows}.
  *
- * ENG-178 slice 16 — the coupled sale-lifecycle flow handlers (checkout,
+ * slice 16 — the coupled sale-lifecycle flow handlers (checkout,
  * suspend, resume, new/select workspace) were extracted verbatim from
  * SalesPage. ALL shared state stays in the shell; the read values + the raw
  * useState setters + the five mutation handles are injected so the dependency
@@ -92,7 +92,7 @@ export function useSalesFlows({
       return;
     }
     try {
-      // ENG-039d — tip rolls into total server-side; we pass it through
+      // tip rolls into total server-side; we pass it through
       // unchanged. `tipMethod` is normalized to `undefined` when the
       // operator did not capture a tip so the Zod refinement on the
       // server (method requires positive amount) does not fire on the
@@ -102,7 +102,7 @@ export function useSalesFlows({
       // the tip in here before forwarding.
       const tipAmount = Math.max(0, values.tipAmount ?? 0);
       const tipMethod = tipAmount > 0 ? (values.tipMethod ?? 'fixed') : undefined;
-      // ENG-039d3 — service charge is auto-applied from the tenant rate
+      // service charge is auto-applied from the tenant rate
       // (resolved by SalePaymentModal); we forward whatever the modal
       // produced. `serviceChargeRate: null` → `undefined` so the Zod
       // optional() schema accepts the no-charge path without firing
@@ -114,11 +114,11 @@ export function useSalesFlows({
           : undefined;
       const grandTotal = draftSummary.total + tipAmount + serviceChargeAmount;
       const payment = getCheckoutPaymentState(values, grandTotal);
-      // ENG-018c — resumed carts complete via `sales.completeDraft` so
+      // resumed carts complete via `sales.completeDraft` so
       // we do not re-send items (locked at create-time) and do not
       // double-debit stock. Fresh carts continue on the classic
       // `sales.create` path.
-      // ENG-090 / ENG-014 — admin override for the credit-limit invariant.
+      // /  — admin override for the credit-limit invariant.
       // Split-credit can demote the legacy paymentMethod to cash/card, so the
       // forwarding decision must inspect the modal tenders instead of only
       // the dominant legacy method. The server accepts direct admin authority
@@ -129,7 +129,7 @@ export function useSalesFlows({
       if (activeWorkspace?.serverSaleId) {
         await completeDraftMutation.mutateAsync({
           saleId: activeWorkspace.serverSaleId,
-          // ENG-216 — a suspended ticket is created without a customer, and
+          // a suspended change is created without a customer, and
           // this drawer is the only place to attach one; before this the
           // pick was dropped and the sale filed as a walk-in. Empty maps to
           // undefined (keep the draft's value) rather than null (clear it):
@@ -169,7 +169,7 @@ export function useSalesFlows({
         amountReceived: payment.amountReceived,
         discountAmount: 0,
         notes: values.notes || undefined,
-        // Phase 2 Tier-2 step 5 — split-tender list, or undefined on the
+        // split-tender list, or undefined on the
         // legacy single-tender path. Shape is owned by `getCheckoutPaymentState`
         // so the "is-this-a-split?" decision lives in exactly one place.
         payments: payment.payments,
@@ -186,7 +186,7 @@ export function useSalesFlows({
     }
   };
 
-  // ENG-018b — multi-cart orchestration.
+  // multi-cart orchestration.
   const handleOpenSuspendPrompt = () => {
     if (!canCharge || isResumedCart) {
       return;
@@ -262,7 +262,7 @@ export function useSalesFlows({
         description: translateServerError(error, t, t('errors:server.unknown')),
       });
       // Compensate: step 1 succeeded (stock already debited) but
-      // step 2 threw. Discard the orphan so ENG-018c's reversal
+      // step 2 threw. Discard the orphan so 's reversal
       // loop returns the items to stock — otherwise the cashier
       // would permanently leak inventory with no UI path to
       // recover (listDrafts filters out non-suspended drafts).

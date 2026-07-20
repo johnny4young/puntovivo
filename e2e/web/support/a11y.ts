@@ -1,5 +1,5 @@
 /**
- * ENG-134 slice B — axe-core helper for Playwright e2e smoke.
+ * slice B — axe-core helper for Playwright e2e smoke.
  *
  * Mirrors the contract of `apps/web/src/test/a11y.ts` used by the
  * component-test suite, so a failure message reads identically across
@@ -105,10 +105,7 @@ async function waitForFiniteAnimations(page: Page): Promise<void> {
  * `serious`). Returns the raw `AxeResults` so callers can do follow-up
  * assertions on the lower-severity surface if needed.
  */
-export async function runAxeOnPage(
-  page: Page,
-  options: RunAxeOptions = {}
-): Promise<AxeResults> {
+export async function runAxeOnPage(page: Page, options: RunAxeOptions = {}): Promise<AxeResults> {
   const { include, exclude, severityFloor = 'serious', extraTags = [] } = options;
 
   await waitForFiniteAnimations(page);
@@ -119,9 +116,7 @@ export async function runAxeOnPage(
 
   const results = await builder.analyze();
   const floorRank = severityRank(severityFloor);
-  const offending = results.violations.filter(
-    v => severityRank(v.impact) >= floorRank
-  );
+  const offending = results.violations.filter(v => severityRank(v.impact) >= floorRank);
 
   if (offending.length > 0) {
     throw new Error(

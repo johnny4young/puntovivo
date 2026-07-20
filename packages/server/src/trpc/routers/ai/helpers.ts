@@ -1,5 +1,5 @@
 /**
- * AI router shared helpers (ENG-178 split).
+ * AI router shared helpers ( split).
  *
  * Leaf module: the tax-id normalizer + the provider lookup used by the invoice
  * OCR extract path to map a parsed supplier (NIT / name) to an existing
@@ -36,7 +36,11 @@ export async function findProviderIdForInvoice(
   if (!supplierName) return null;
   const byName = rows.find(row => {
     const candidate = row.name.trim().toLowerCase();
-    return candidate === supplierName || supplierName.includes(candidate) || candidate.includes(supplierName);
+    return (
+      candidate === supplierName ||
+      supplierName.includes(candidate) ||
+      candidate.includes(supplierName)
+    );
   });
   return byName?.id ?? null;
 }

@@ -60,10 +60,7 @@ export function buildApiOrigins(runtime: RuntimeSecurityConfig): string[] {
   ]);
 }
 
-export function isFastifyApiResponse(
-  url: string,
-  runtime: RuntimeSecurityConfig
-): boolean {
+export function isFastifyApiResponse(url: string, runtime: RuntimeSecurityConfig): boolean {
   try {
     const parsed = new URL(url);
     return buildApiOrigins(runtime).includes(parsed.origin) && parsed.pathname.startsWith('/api/');
@@ -77,7 +74,7 @@ export function buildRendererContentSecurityPolicy(args: {
   runtime: RuntimeSecurityConfig;
   webDevServerUrl: string;
   /**
-   * ENG-135b — telemetry DSN (PUNTOVIVO_SENTRY_DSN). When set, its
+   * telemetry DSN (PUNTOVIVO_SENTRY_DSN). When set, its
    * origin joins connect-src so a renderer built with the lazy
    * Sentry adapter can POST envelopes; unset keeps the strict
    * baseline. Invalid values are ignored (originFromUrl → null).
@@ -93,9 +90,7 @@ export function buildRendererContentSecurityPolicy(args: {
     ...FONT_CONNECT_SOURCES,
     originFromUrl(args.sentryDsn),
   ]);
-  const scriptSrc = args.isPackagedBuild
-    ? "'self'"
-    : "'self' 'unsafe-inline' 'unsafe-eval'";
+  const scriptSrc = args.isPackagedBuild ? "'self'" : "'self' 'unsafe-inline' 'unsafe-eval'";
 
   return (
     `default-src 'self'; ` +

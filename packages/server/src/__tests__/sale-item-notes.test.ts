@@ -1,16 +1,16 @@
 /**
- * ENG-039d2 — per-line `sale_items.notes` round-trip.
+ * per-line `sale_items.notes` round-trip.
  *
  * Pins:
- *  - `sales.create` accepts a `notes` field per item; persisted as
- *    `sale_items.notes` on the inserted row.
- *  - Items without a note land as NULL.
- *  - Empty / whitespace-only notes collapse to NULL (the schema
- *    `.trim()` runs at the Zod boundary; the resolver finishes the
- *    coercion so the column never stores empty strings).
- *  - `getSaleRecord` surfaces the column to downstream readers.
- *  - The KDS snapshot includes per-item notes in `items_json` so
- *    the kitchen board renders modifiers inline.
+ * - `sales.create` accepts a `notes` field per item; persisted as
+ * `sale_items.notes` on the inserted row.
+ * - Items without a note land as NULL.
+ * - Empty / whitespace-only notes collapse to NULL (the schema
+ * `.trim()` runs at the Zod boundary; the resolver finishes the
+ * coercion so the column never stores empty strings).
+ * - `getSaleRecord` surfaces the column to downstream readers.
+ * - The KDS snapshot includes per-item notes in `items_json` so
+ * the kitchen board renders modifiers inline.
  *
  * Reuses the credit-sale-flow harness for the `completeSale` direct
  * invocation pattern.
@@ -47,9 +47,7 @@ let baseUnitId: string;
 let mesaId: string;
 let fresh: ReturnType<typeof makeFreshContextFactory>;
 
-function buildContext(
-  overrides: Partial<CompleteSaleContext> = {}
-): CompleteSaleContext {
+function buildContext(overrides: Partial<CompleteSaleContext> = {}): CompleteSaleContext {
   return {
     db: getDatabase(),
     tenantId,
@@ -131,11 +129,7 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const seededAdmin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededAdmin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededAdmin) throw new Error('Expected seeded admin user');
   tenantId = seededAdmin.tenantId;
   userId = seededAdmin.id;
@@ -148,11 +142,7 @@ beforeAll(async () => {
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
 
-  const seededUnits = await db
-    .select()
-    .from(units)
-    .where(eq(units.tenantId, tenantId))
-    .all();
+  const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(u => u.abbreviation === 'UND');
   if (!baseUnit) throw new Error('Expected seeded UND unit');
   baseUnitId = baseUnit.id;
@@ -201,7 +191,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('sale_items.notes (ENG-039d2)', () => {
+describe('sale_items.notes', () => {
   it('persists per-line notes provided at sale creation', async () => {
     const productId = await seedProduct('Bandeja paisa', 'NOTE-A-1');
     const result = await completeSale(buildContext(), {
@@ -226,11 +216,7 @@ describe('sale_items.notes (ENG-039d2)', () => {
 
     const saleId = (result.sale as { id: string }).id;
     const db = getDatabase();
-    const rows = await db
-      .select()
-      .from(saleItems)
-      .where(eq(saleItems.saleId, saleId))
-      .all();
+    const rows = await db.select().from(saleItems).where(eq(saleItems.saleId, saleId)).all();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.notes).toBe('sin cebolla');
   });
@@ -258,11 +244,7 @@ describe('sale_items.notes (ENG-039d2)', () => {
 
     const saleId = (result.sale as { id: string }).id;
     const db = getDatabase();
-    const rows = await db
-      .select()
-      .from(saleItems)
-      .where(eq(saleItems.saleId, saleId))
-      .all();
+    const rows = await db.select().from(saleItems).where(eq(saleItems.saleId, saleId)).all();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.notes).toBeNull();
   });
@@ -293,11 +275,7 @@ describe('sale_items.notes (ENG-039d2)', () => {
 
     const saleId = (result.sale as { id: string }).id;
     const db = getDatabase();
-    const rows = await db
-      .select()
-      .from(saleItems)
-      .where(eq(saleItems.saleId, saleId))
-      .all();
+    const rows = await db.select().from(saleItems).where(eq(saleItems.saleId, saleId)).all();
     expect(rows[0]?.notes).toBeNull();
   });
 

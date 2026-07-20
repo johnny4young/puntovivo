@@ -15,7 +15,7 @@ interface PaymentMismatchSectionProps {
   mismatches: PaymentReconciliation['mismatches'];
 }
 
-/** ENG-178 — Paginated payment-reconciliation mismatch table. */
+/** Paginated payment-reconciliation mismatch table. */
 export function PaymentMismatchSection({
   mismatches,
 }: PaymentMismatchSectionProps): React.ReactElement {

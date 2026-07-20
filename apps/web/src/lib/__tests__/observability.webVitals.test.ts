@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// ENG-173 — capture the web-vitals callbacks + spy on the tRPC mutation.
+// capture the web-vitals callbacks + spy on the tRPC mutation.
 // `vi.hoisted` keeps these references valid inside the hoisted `vi.mock`
 // factories below.
 const { mutateMock, handlers } = vi.hoisted(() => ({
@@ -12,7 +12,7 @@ vi.mock('../trpc', () => ({
   vanillaClient: {
     observability: { reportWebVital: { mutate: mutateMock } },
   },
-  // ENG-135c — captureRenderError defaults its correlationId from
+  // captureRenderError defaults its correlationId from
   // this; the webVitals cases never mint requests, so null is right.
   getLastCorrelationId: () => null,
 }));
@@ -62,7 +62,7 @@ afterEach(() => {
   setHardwareConcurrency(originalCores);
 });
 
-describe('resolveDeviceClass (ENG-173)', () => {
+describe('resolveDeviceClass', () => {
   it('buckets by logical core count', () => {
     setHardwareConcurrency(2);
     expect(resolveDeviceClass()).toBe('low');
@@ -82,7 +82,7 @@ describe('resolveDeviceClass (ENG-173)', () => {
   });
 });
 
-describe('installWebVitalsReporter (ENG-173)', () => {
+describe('installWebVitalsReporter', () => {
   it('registers all five Web Vitals callbacks when the load is sampled', () => {
     setHardwareConcurrency(4);
     vi.spyOn(Math, 'random').mockReturnValue(0.5); // < default dev rate (1.0)

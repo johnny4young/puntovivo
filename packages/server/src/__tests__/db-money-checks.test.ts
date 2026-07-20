@@ -1,5 +1,5 @@
 /**
- * ENG-176a — pins the CHECK invariants added by migrations 0035 and
+ * pins the CHECK invariants added by migrations 0035 and
  * 0036 across 17 monetary tables.
  *
  * Step-a ships the `>= 0` invariant on "always positive" columns
@@ -14,7 +14,7 @@
  * `SQLITE_CONSTRAINT_CHECK` so a future refactor that accidentally
  * drops a constraint surfaces at the test suite, not in production.
  *
- * ENG-176b (migration 0037) reinstates both invariants on the three
+ * (migration 0037) reinstates both invariants on the three
  * tables the snapshot chain had skipped (fiscal_documents,
  * fiscal_document_items, payment_outbox) while adding the
  * currency_code seam to transactional tables. New cases below cover
@@ -52,7 +52,7 @@ function expectCheckViolation(write: () => unknown, constraintHint: string): voi
   );
 }
 
-describe('money CHECK invariants (ENG-176a)', () => {
+describe('money CHECK invariants', () => {
   describe('"always positive" category — rejects negative writes', () => {
     it('products.price rejects a negative write', async () => {
       await initDatabase({ dbPath: ':memory:', seedData: false });
@@ -146,9 +146,9 @@ describe('money CHECK invariants (ENG-176a)', () => {
       c.prepare(
         "INSERT INTO sales (id, tenant_id, sale_number, total, discount_amount, created_by) VALUES ('s1', 't1', 'SO-1', 100, -25, 'u1')"
       ).run();
-      const row = c
-        .prepare("SELECT discount_amount FROM sales WHERE id = 's1'")
-        .get() as { discount_amount: number };
+      const row = c.prepare("SELECT discount_amount FROM sales WHERE id = 's1'").get() as {
+        discount_amount: number;
+      };
       expect(row.discount_amount).toBe(-25);
     });
 
@@ -156,9 +156,7 @@ describe('money CHECK invariants (ENG-176a)', () => {
       await initDatabase({ dbPath: ':memory:', seedData: false });
       const c = liveClient();
       c.prepare("INSERT INTO tenants (id, name, slug) VALUES ('t1', 't', 's')").run();
-      c.prepare(
-        "INSERT INTO companies (id, tenant_id, name) VALUES ('co1', 't1', 'c')"
-      ).run();
+      c.prepare("INSERT INTO companies (id, tenant_id, name) VALUES ('co1', 't1', 'c')").run();
       c.prepare(
         "INSERT INTO sites (id, tenant_id, company_id, name) VALUES ('site1', 't1', 'co1', 's')"
       ).run();
@@ -171,9 +169,9 @@ describe('money CHECK invariants (ENG-176a)', () => {
       c.prepare(
         "INSERT INTO cash_movements (id, tenant_id, session_id, type, amount, created_by, created_at) VALUES ('cm1', 't1', 'cs1', 'paid_out', -50, 'u1', '2026-05-25T00:00:00Z')"
       ).run();
-      const row = c
-        .prepare("SELECT amount FROM cash_movements WHERE id = 'cm1'")
-        .get() as { amount: number };
+      const row = c.prepare("SELECT amount FROM cash_movements WHERE id = 'cm1'").get() as {
+        amount: number;
+      };
       expect(row.amount).toBe(-50);
     });
 
@@ -181,9 +179,7 @@ describe('money CHECK invariants (ENG-176a)', () => {
       await initDatabase({ dbPath: ':memory:', seedData: false });
       const c = liveClient();
       c.prepare("INSERT INTO tenants (id, name, slug) VALUES ('t1', 't', 's')").run();
-      c.prepare(
-        "INSERT INTO companies (id, tenant_id, name) VALUES ('co1', 't1', 'c')"
-      ).run();
+      c.prepare("INSERT INTO companies (id, tenant_id, name) VALUES ('co1', 't1', 'c')").run();
       c.prepare(
         "INSERT INTO sites (id, tenant_id, company_id, name) VALUES ('site1', 't1', 'co1', 's')"
       ).run();
@@ -193,9 +189,9 @@ describe('money CHECK invariants (ENG-176a)', () => {
       c.prepare(
         "INSERT INTO cash_sessions (id, tenant_id, site_id, cashier_id, register_name, opening_float, opening_count_denominations, expected_balance, over_short, status, opened_at) VALUES ('cs1', 't1', 'site1', 'u1', 'r1', 100, '[]', 90, -10, 'closed', '2026-05-25T00:00:00Z')"
       ).run();
-      const row = c
-        .prepare("SELECT over_short FROM cash_sessions WHERE id = 'cs1'")
-        .get() as { over_short: number };
+      const row = c.prepare("SELECT over_short FROM cash_sessions WHERE id = 'cs1'").get() as {
+        over_short: number;
+      };
       expect(row.over_short).toBe(-10);
     });
   });
@@ -229,16 +225,16 @@ describe('money CHECK invariants (ENG-176a)', () => {
       c.prepare(
         "INSERT INTO customers (id, tenant_id, name, credit_limit) VALUES ('c1', 't1', 'n', 500000)"
       ).run();
-      const row = c
-        .prepare("SELECT credit_limit FROM customers WHERE id = 'c1'")
-        .get() as { credit_limit: number };
+      const row = c.prepare("SELECT credit_limit FROM customers WHERE id = 'c1'").get() as {
+        credit_limit: number;
+      };
       // SQLite stores integers fed into REAL columns as 500000.0 — both
       // round(x, 2) and x equal 500000.0 so the precision CHECK passes.
       expect(row.credit_limit).toBe(500000);
     });
   });
 
-  describe('fiscal tables — ENG-176b retro-fitted CHECKs', () => {
+  describe('fiscal tables —  retro-fitted CHECKs', () => {
     // The migration-0037 recreation finally attaches both invariants to
     // the three tables the Drizzle snapshot chain had skipped. These
     // cases pin SQLite rejects negative + sub-cent writes on each
@@ -448,7 +444,7 @@ describe('money CHECK invariants (ENG-176a)', () => {
         table: 'initial_inventory',
         constraint: 'chk_initial_inventory_cost_nonneg',
       },
-      // ENG-176b — fiscal tables + payment_outbox CHECKs landed in 0037.
+      // fiscal tables + payment_outbox CHECKs landed in 0037.
       {
         table: 'fiscal_documents',
         constraint: 'chk_fiscal_documents_subtotal_nonneg',
@@ -494,9 +490,7 @@ describe('money CHECK invariants (ENG-176a)', () => {
       for (const { table, constraint } of expectedConstraints) {
         if (!grouped.has(table)) {
           const row = c
-            .prepare(
-              `SELECT sql FROM sqlite_master WHERE type='table' AND name = ?`
-            )
+            .prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name = ?`)
             .get(table) as { sql: string } | undefined;
           if (!row) {
             throw new Error(`expected table ${table} to exist post-migration`);
@@ -504,10 +498,7 @@ describe('money CHECK invariants (ENG-176a)', () => {
           grouped.set(table, row.sql);
         }
         const sql = grouped.get(table)!;
-        expect(
-          sql,
-          `${constraint} missing from ${table} table DDL`
-        ).toContain(constraint);
+        expect(sql, `${constraint} missing from ${table} table DDL`).toContain(constraint);
       }
     });
 
@@ -528,17 +519,14 @@ describe('money CHECK invariants (ENG-176a)', () => {
       const c = liveClient();
       for (const { table, column } of signedColumns) {
         const row = c
-          .prepare(
-            `SELECT sql FROM sqlite_master WHERE type='table' AND name = ?`
-          )
+          .prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name = ?`)
           .get(table) as { sql: string } | undefined;
         if (!row) {
           throw new Error(`expected table ${table} to exist post-migration`);
         }
-        expect(
-          row.sql,
-          `chk_${column}_2dec must exist — precision invariant`
-        ).toContain(`chk_${column}_2dec`);
+        expect(row.sql, `chk_${column}_2dec must exist — precision invariant`).toContain(
+          `chk_${column}_2dec`
+        );
         expect(
           row.sql,
           `chk_${column}_nonneg must NOT exist — column is intentionally signed`

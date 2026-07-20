@@ -1,4 +1,4 @@
-/** ENG-110c — every sale unit for a serialized product is one physical unit. */
+/** every sale unit for a serialized product is one physical unit. */
 export function validateSerialUnitEquivalence(
   tracksSerials: boolean,
   equivalence: number,

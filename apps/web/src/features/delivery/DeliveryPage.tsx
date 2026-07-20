@@ -1,5 +1,5 @@
 /**
- * ENG-091 — Domicilios touch V5.
+ * Domicilios touch V5.
  *
  * Operational queue for delivery / domicilio orders. Surfaces the
  * five status columns (Por aceptar · Preparando · En camino ·
@@ -17,7 +17,7 @@
  * Counts are derived from 5 parallel `list` queries (one per
  * status, each bounded by the existing `(tenant, site, status)`
  * index). A future `deliveryOrders.statusCounts` endpoint could
- * collapse this into a single roundtrip — tracked as ENG-091b.
+ * collapse this into a single roundtrip — tracked as .
  */
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -27,12 +27,7 @@ import { trpc } from '@/lib/trpc';
 import { DeliveryOrderCard } from './DeliveryOrderCard';
 import { DeliveryOrderDetail } from './DeliveryOrderDetail';
 
-export type DeliveryStatus =
-  | 'accepted'
-  | 'preparing'
-  | 'dispatched'
-  | 'delivered'
-  | 'cancelled';
+export type DeliveryStatus = 'accepted' | 'preparing' | 'dispatched' | 'delivered' | 'cancelled';
 
 const STATUS_COLUMNS: DeliveryStatus[] = [
   'accepted',
@@ -49,7 +44,7 @@ export function DeliveryPage() {
   const [activeStatus, setActiveStatus] = useState<DeliveryStatus>('accepted');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  // ENG-091 — one query per status column. The (tenant, site,
+  // one query per status column. The (tenant, site,
   // status) index keeps each query cheap; the per-column count
   // surfaces in the left rail badges. We bump `limit` to 200 so
   // the count is honest up to a busy day's queue (default router
@@ -75,7 +70,9 @@ export function DeliveryPage() {
     { enabled: siteId.length > 0, staleTime: 30_000 }
   );
 
-  const queriesByStatus = useMemo<Record<DeliveryStatus, ReturnType<typeof trpc.deliveryOrders.list.useQuery>>>(
+  const queriesByStatus = useMemo<
+    Record<DeliveryStatus, ReturnType<typeof trpc.deliveryOrders.list.useQuery>>
+  >(
     () => ({
       accepted: acceptedQuery,
       preparing: preparingQuery,
@@ -115,9 +112,7 @@ export function DeliveryPage() {
   return (
     <section className="flex h-full flex-col gap-4" data-testid="delivery-page">
       <header className="space-y-1">
-        <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">
-          {t('page.kicker')}
-        </p>
+        <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">{t('page.kicker')}</p>
         <h2 className="font-display text-3xl">{t('page.title')}</h2>
         <p className="max-w-3xl text-sm text-secondary-600">{t('page.subtitle')}</p>
       </header>
@@ -152,9 +147,7 @@ export function DeliveryPage() {
               >
                 <span className="flex items-center gap-2">
                   <Truck className="h-4 w-4" aria-hidden="true" />
-                  <span className="text-sm font-medium">
-                    {t(`status.${status}.label`)}
-                  </span>
+                  <span className="text-sm font-medium">{t(`status.${status}.label`)}</span>
                 </span>
                 <span
                   className="rounded-full bg-secondary-100 px-2 py-0.5 text-xs font-medium text-secondary-700 tabular-nums"
@@ -183,9 +176,7 @@ export function DeliveryPage() {
               data-testid="delivery-cards-error"
             >
               <p className="font-medium">{t('page.errorTitle')}</p>
-              <p className="mt-1 text-xs text-danger-600">
-                {activeQuery.error.message}
-              </p>
+              <p className="mt-1 text-xs text-danger-600">{activeQuery.error.message}</p>
               <button
                 type="button"
                 onClick={() => activeQuery.refetch()}

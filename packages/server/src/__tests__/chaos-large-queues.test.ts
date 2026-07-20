@@ -1,5 +1,5 @@
 /**
- * ENG-067 — Chaos: large queues.
+ * Chaos: large queues.
  *
  * Locks the perf + correctness contract of the outbox kernel under
  * deep queue depth. The risk this guards: a future refactor of
@@ -14,12 +14,12 @@
  *
  * Cases:
  *
- *   1. 10k mixed-priority rows split across two tenants — claimNext
- *      returns rows in priority-DESC + createdAt-ASC order, scoped
- *      strictly by tenantId.
- *   2. peek surfaces (Operations Center) clamp to limit + ordering.
- *   3. Indexed read surfaces the highest-priority tenant-local head
- *      inside the generous time ceiling.
+ * 1. 10k mixed-priority rows split across two tenants — claimNext
+ * returns rows in priority-DESC + createdAt-ASC order, scoped
+ * strictly by tenantId.
+ * 2. peek surfaces (Operations Center) clamp to limit + ordering.
+ * 3. Indexed read surfaces the highest-priority tenant-local head
+ * inside the generous time ceiling.
  *
  * @module __tests__/chaos-large-queues
  */
@@ -116,7 +116,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('chaos: large queues (ENG-067)', () => {
+describe('chaos: large queues', () => {
   describe(`with ${QUEUE_DEPTH} rows split across two tenants`, () => {
     let harness: LargeHarness;
 

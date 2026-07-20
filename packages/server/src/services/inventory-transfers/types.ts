@@ -1,7 +1,7 @@
 /**
  * Inventory-transfer public types.
  *
- * ENG-178 — extracted verbatim from the former flat
+ * extracted verbatim from the former flat
  * `services/inventory-transfers.ts` during the megafile decomposition.
  * Pure type declarations (no runtime imports beyond the shared
  * `TransferOrderStatus` enum), so every other module in the package can
@@ -81,12 +81,12 @@ export interface ReceiveTransferArgs {
   transferId: string;
   receivedBy: string;
   /**
-   * Phase 2 UI-103. Optional per-line received quantities keyed by
+   * . Optional per-line received quantities keyed by
    * `transfer_order_items.id`. When omitted or empty, every line is credited
    * at its shipped quantity (legacy one-click receive behaviour). When
    * supplied, unknown ids or `received > shipped` are rejected.
    */
-  // ENG-179b — explicit `| undefined` on Zod-optional fields.
+  // explicit `| undefined` on Zod-optional fields.
   lines?: readonly ReceiveTransferLine[] | undefined;
   /** Optional receiver-side note captured when variance is present. */
   discrepancyNotes?: string | null | undefined;
@@ -126,7 +126,7 @@ export interface TransferHistoryEntry {
   itemCount: number;
   totalQuantity: number;
   /**
-   * Phase 2 UI-103. True when any line's received quantity diverges from the
+   * . True when any line's received quantity diverges from the
    * shipped quantity. Null-safe against legacy rows (received_quantity is
    * null until the line is actually received).
    */
@@ -140,7 +140,7 @@ export interface TransferDetailLine {
   productName: string;
   productSku: string;
   quantity: number;
-  /** Phase 2 UI-103. Null until the transfer is received. */
+  /** . Null until the transfer is received. */
   receivedQuantity: number | null;
   tracksSerials: boolean;
   serials: Array<{ id: string; serialNumber: string }>;
@@ -160,7 +160,7 @@ export interface TransferDetail {
   receivedBy: string | null;
   updatedAt: string;
   items: TransferDetailLine[];
-  /** Phase 2 UI-103. */
+  /** . */
   hasDiscrepancy: boolean;
   discrepancyNotes: string | null;
 }

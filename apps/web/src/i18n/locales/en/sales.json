@@ -435,7 +435,7 @@
   "refund": {
     "kicker": "Return",
     "title": "Return sale",
-    "description": "Confirm a reason to register the return for this ticket.",
+    "description": "Confirm a reason to register the return for this change.",
     "descriptionWithNumber": "Confirm a reason to register the return for ticket {{number}}.",
     "totalLabel": "Refund total",
     "reasonLabel": "Reason",

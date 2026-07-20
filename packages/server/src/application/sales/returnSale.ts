@@ -1,5 +1,5 @@
 /**
- * ENG-055 — `returnSale` use-case service.
+ * `returnSale` use-case service.
  *
  * Refunds a completed sale: validates state, restores stock to the
  * site that originally sold it, persists a `sale_returns` row, flips
@@ -11,7 +11,7 @@
  * DEE's CUFE.
  *
  * Behavior parity with the previous inline router code is the explicit
- * acceptance criterion (ROADMAP §3b ENG-055). The control flow, shape
+ * acceptance criterion (acceptance contract ). The control flow, shape
  * of the rows written, and ordering of side effects all match what the
  * legacy `sales.returnSale` procedure used to do.
  *
@@ -113,7 +113,7 @@ async function safeUpdateSaleRefundedSummary(
 
 export interface ReturnSaleInput {
   id: string;
-  // ENG-179b — explicit `| undefined` on Zod-optional field.
+  // explicit `| undefined` on Zod-optional field.
   reason?: string | null | undefined;
   approvalRequestId?: string | undefined;
 }
@@ -176,7 +176,7 @@ export async function returnSale(
     });
   }
 
-  // ENG-014 — refund of a sale that included a credit tender (split
+  // refund of a sale that included a credit tender (split
   // cash + credit, "apartado") requires reversing both the cash
   // movement and the customer-ledger entry, with operator-facing copy
   // for partial reversals. That dedicated flow lives behind a future
@@ -249,7 +249,7 @@ export async function returnSale(
     originalSaleSession && originalSaleSession.status === 'open'
       ? originalSaleSession
       : fallbackActiveCashSession!;
-  // Phase 2 API-103 — credit back the site that originally sold the stock,
+  // credit back the site that originally sold the stock,
   // not the refunding cashier's active site. Falls back to null for legacy
   // sales without a cash session — `applyInventoryBalanceDelta` treats
   // that as a safe no-op.
@@ -308,7 +308,7 @@ export async function returnSale(
 
   try {
     ctx.db.transaction(tx => {
-      // ENG-042 TOCTOU defense: refunds bind the cash movement to the selected
+      // TOCTOU defense: refunds bind the cash movement to the selected
       // open session; a session closed mid-flight would attach the refund to a
       // closed shift.
       assertCashSessionStillOpen(tx, ctx.tenantId, refundCashSession.id);
@@ -371,7 +371,7 @@ export async function returnSale(
         syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
       });
 
-      // ENG-213 — take back the points this sale earned. Appends a negative
+      // take back the points this sale earned. Appends a negative
       // `revert` row (history is never erased) and no-ops when the sale never
       // earned. Best-effort like the accrual: a loyalty failure must not
       // block a refund the customer is standing there waiting for.
@@ -414,7 +414,7 @@ export async function returnSale(
         createdAt: now,
       });
 
-      // Phase 8 / Tier-2 #8 — refunds are sensitive: stock restored,
+      // refunds are sensitive: stock restored,
       // payment reversed, drawer balance moves. Audit row is in-tx so it
       // is either persisted with the refund or rolls back with it.
       auditLogId = writeAuditLog({
@@ -477,7 +477,7 @@ export async function returnSale(
     },
   });
 
-  // ENG-192 — the restore above credited these lots back (on_hand bumped,
+  // the restore above credited these lots back (on_hand bumped,
   // depleted ones reactivated); enqueue each so the mutation reaches
   // sync_outbox.
   await enqueueInventoryLotUpdatesForSale(ctx, restoredLotIds, input.id);
@@ -494,7 +494,7 @@ export async function returnSale(
     },
   });
 
-  // ENG-020 — emit DIAN credit note (NC) for the refunded sale.
+  // emit DIAN credit note (NC) for the refunded sale.
   const originalCufe = await getOriginalDeeCufe(ctx.db, ctx.tenantId, input.id);
   const fiscalResult = await safelyEmitFiscalDocument({
     db: ctx.db,

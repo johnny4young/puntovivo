@@ -1,16 +1,16 @@
 /**
- * ENG-068 — `createModuleGuard` middleware regression test.
+ * `createModuleGuard` middleware regression test.
  *
  * Pins the contract every gated procedure relies on:
  *
- *   - Active module → next() runs.
- *   - Deactivated module → FORBIDDEN with `errorCode: 'MODULE_NOT_ACTIVATED'`
- *     and `details.moduleId` matching the guarded id.
- *   - Cross-tenant: tenant A's setting does NOT leak into tenant B's call.
- *   - Default fallback: a tenant with NO `settings.modules` entry resolves
- *     to the manifest default (true today for every demo module).
- *   - Fixed-point: re-toggling within a transaction fires next() vs
- *     FORBIDDEN per the latest persisted state.
+ * - Active module → next() runs.
+ * - Deactivated module → FORBIDDEN with `errorCode: 'MODULE_NOT_ACTIVATED'`
+ * and `details.moduleId` matching the guarded id.
+ * - Cross-tenant: tenant A's setting does NOT leak into tenant B's call.
+ * - Default fallback: a tenant with NO `settings.modules` entry resolves
+ * to the manifest default (true today for every demo module).
+ * - Fixed-point: re-toggling within a transaction fires next() vs
+ * FORBIDDEN per the latest persisted state.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -20,10 +20,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { tenants, users } from '../db/schema.js';
 import { router } from '../trpc/init.js';
-import {
-  adminProcedureWithModule,
-  isModuleActiveForTenant,
-} from '../trpc/middleware/modules.js';
+import { adminProcedureWithModule, isModuleActiveForTenant } from '../trpc/middleware/modules.js';
 import type { Context } from '../trpc/context.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 
@@ -80,11 +77,7 @@ async function seedHarness(suffix: string): Promise<GateHarness> {
   return { tenantId, adminId, managerId };
 }
 
-async function setModuleState(
-  tenantId: string,
-  moduleId: string,
-  enabled: boolean
-): Promise<void> {
+async function setModuleState(tenantId: string, moduleId: string, enabled: boolean): Promise<void> {
   const db = getDatabase();
   await db
     .update(tenants)
@@ -136,7 +129,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('createModuleGuard (ENG-068)', () => {
+describe('createModuleGuard', () => {
   it('allows the call when the module resolves to true via default', async () => {
     const h = await seedHarness('default-on');
     // No settings.modules → defaults apply → copilot defaults to true.
@@ -205,7 +198,7 @@ describe('createModuleGuard (ENG-068)', () => {
   });
 });
 
-describe('isModuleActiveForTenant (ENG-068)', () => {
+describe('isModuleActiveForTenant', () => {
   it('returns true for an unknown tenant (no row matched) — defensive fallback', async () => {
     const db = getDatabase();
     // No row matches → resolveModulesState gets undefined → defaults

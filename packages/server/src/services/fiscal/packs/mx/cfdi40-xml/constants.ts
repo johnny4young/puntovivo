@@ -1,5 +1,5 @@
 /**
- * SAT generic-receptor constants for CFDI 4.0 serialization (ENG-035b).
+ * SAT generic-receptor constants for CFDI 4.0 serialization ().
  *
  * @module services/fiscal/packs/mx/cfdi40-xml/constants
  */

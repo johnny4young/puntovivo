@@ -1,5 +1,5 @@
 // Inventory screen summary KPI cards (total units / value / low stock / recent
-// flow), extracted from InventoryPage.tsx (ENG-178 slice 33).
+// flow), extracted from InventoryPage.tsx ( slice 33).
 
 import { useTranslation } from 'react-i18next';
 import { ArrowDownCircle, Boxes, ClipboardList, RefreshCw } from 'lucide-react';
@@ -28,7 +28,7 @@ export function InventorySummaryCards({
   entriesLoading,
 }: InventorySummaryProps) {
   const { t } = useTranslation('inventory');
-  // Rediseño FASE 2 — receta KpiTile compartida (igual que Dashboard / POS):
+  // receta KpiTile compartida (igual que Dashboard / POS):
   // glifo tonal, microetiqueta, cifra alineada. `danger` para stock bajo,
   // `mono` para el valor de inventario (dinero). La rejilla replica la del
   // Dashboard para que los cuatro grupos de KPIs se lean idénticos.

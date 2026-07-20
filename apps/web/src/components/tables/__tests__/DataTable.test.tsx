@@ -117,7 +117,7 @@ describe('DataTable', () => {
 
       const scrollRegion = screen.getByRole('table').parentElement;
       expect(scrollRegion).toHaveClass('data-table-scroll');
-      // ENG-134c: axe rule `scrollable-region-focusable` requires the
+      // : axe rule `scrollable-region-focusable` requires the
       // wrapper to be tab-reachable (not just programmatically
       // focusable), semantically named, and given a role.
       expect(scrollRegion).toHaveAttribute('tabindex', '0');
@@ -574,7 +574,7 @@ describe('DataTable', () => {
 
       render(<DataTable columns={columns} data={products} />);
 
-      // ENG-134c: the scroll wrapper is now the first focusable
+      // : the scroll wrapper is now the first focusable
       // stop (axe `scrollable-region-focusable`). Tab once to land
       // on the wrapper, again to enter the row's roving tabindex.
       await user.tab();
@@ -596,7 +596,7 @@ describe('DataTable', () => {
 
       render(<DataTable columns={columns} data={products} />);
 
-      // ENG-134c: tab twice — once to the scroll wrapper, once into
+      // : tab twice — once to the scroll wrapper, once into
       // the first row.
       await user.tab();
       await user.tab();
@@ -652,7 +652,7 @@ describe('DataTable', () => {
     });
   });
 
-  describe('Row activation (ENG-134f)', () => {
+  describe('Row activation', () => {
     it('fires onRowActivate with the row data when Enter is pressed on the focused row', async () => {
       const user = userEvent.setup();
       const onRowActivate = vi.fn();
@@ -708,8 +708,8 @@ describe('DataTable', () => {
     });
 
     it('falls back to toggleSelected when onRowActivate is undefined and selection is enabled', async () => {
-      // Regression guard for the legacy path (ENG-134c shipped roving
-      // tabindex; ENG-134f adds onRowActivate without breaking the
+      // Regression guard for the legacy path ( shipped roving
+      // tabindex;  adds onRowActivate without breaking the
       // existing toggleSelected branch).
       const user = userEvent.setup();
       const selectionColumns: ColumnDef<Product, unknown>[] = [
@@ -805,7 +805,7 @@ describe('DataTable', () => {
     });
   });
 
-  describe('Virtualisation (ENG-172)', () => {
+  describe('Virtualisation', () => {
     // jsdom has no layout engine, so `@tanstack/react-virtual` measures a
     // 0px scroll element and cannot report a stable rendered-row count.
     // These tests therefore assert the *mode* (which row model + footer is
@@ -854,9 +854,7 @@ describe('DataTable', () => {
     });
 
     it('honours explicit virtualised={false} on a large dataset (override wins)', () => {
-      render(
-        <DataTable columns={columns} data={createTestProducts(50)} virtualised={false} />
-      );
+      render(<DataTable columns={columns} data={createTestProducts(50)} virtualised={false} />);
 
       expect(getScrollRegion()).not.toHaveAttribute('data-virtualised');
       expect(screen.getByLabelText(/first page/i)).toBeInTheDocument();
@@ -876,8 +874,8 @@ describe('DataTable', () => {
       expect(screen.getByText('No results.')).toBeInTheDocument();
     });
   });
-  // ENG-217 — controlled (server-side) search.
-  describe('Controlled search (ENG-217)', () => {
+  // controlled (server-side) search.
+  describe('Controlled search', () => {
     it('reports keystrokes to the owner instead of filtering', async () => {
       const user = userEvent.setup();
       const onSearchChange = vi.fn();
@@ -943,9 +941,9 @@ describe('DataTable', () => {
     });
   });
 
-  // ENG-219 — the virtualised wrapper is the scroll container, so the header
+  // the virtualised wrapper is the scroll container, so the header
   // has to stick to it or it scrolls away.
-  describe('Virtualised header (ENG-219)', () => {
+  describe('Virtualised header', () => {
     it('marks the wrapper as virtualised so the sticky header rule applies', () => {
       render(<DataTable columns={columns} data={createTestProducts(40)} />);
 

@@ -1,7 +1,7 @@
 /**
- * ENG-047 — snooze lookup for the anomaly detector.
+ * snooze lookup for the anomaly detector.
  *
- * ENG-178 — extracted verbatim from the former flat
+ * extracted verbatim from the former flat
  * `services/ai/anomalyDetection.ts` during the megafile decomposition.
  *
  * @module services/ai/anomalyDetection/snooze
@@ -28,10 +28,10 @@ export function snoozeKey(
 }
 
 /**
- * ENG-047 — load the active snoozes for a tenant and return a Set of
+ * load the active snoozes for a tenant and return a Set of
  * lookup keys the orchestrator uses to filter alerts. Active means
  * `snoozed_until > now`; expired rows linger on disk (cheap) and are
- * pruned by a future cron (BACKLOG follow-up).
+ * pruned by a future cron (deferred).
  */
 export async function loadActiveSnoozeKeys(
   db: DatabaseInstance,

@@ -1,4 +1,4 @@
-// ENG-179c — audit-log domain shape (ENG-178 slice 28).
+// audit-log domain shape ( slice 28).
 
 import type { AuditLogAction, AuditLogResourceType } from '../ui';
 

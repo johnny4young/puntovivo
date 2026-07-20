@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addCalendarDays, calendarDateInTimeZone, zonedWallTimeToIso } from './timezone.js';
 
-describe('labor timezone conversion (ENG-140a)', () => {
+describe('labor timezone conversion', () => {
   it('converts tenant wall time without inheriting the host timezone', () => {
     expect(zonedWallTimeToIso('2026-07-20', '08:30', 'America/Bogota')).toBe(
       '2026-07-20T13:30:00.000Z'

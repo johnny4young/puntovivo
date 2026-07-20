@@ -1,5 +1,5 @@
 /**
- * ENG-136c — device-local, per-tenant S3-compatible backup replication.
+ * device-local, per-tenant S3-compatible backup replication.
  *
  * Credentials are sealed with Electron safeStorage and never enter the
  * operational database or renderer. Focused helpers own validation, atomic

@@ -1,5 +1,5 @@
 /**
- * Quotation service — reads (ENG-178 split).
+ * Quotation service — reads ( split).
  *
  * `listQuotations` + `getQuotationById` (tenant-scoped selects).
  *
@@ -10,7 +10,6 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { customers, products, quotationItems, quotations, sites, users } from '../../db/schema.js';
 
 import type { QuotationListEntry, ListQuotationsOptions, QuotationDetail } from './types.js';
-
 
 export function listQuotations(
   db: DatabaseInstance,
@@ -117,9 +116,7 @@ export function getQuotationById(
     .leftJoin(customers, eq(quotations.customerId, customers.id))
     .innerJoin(sites, eq(quotations.siteId, sites.id))
     .leftJoin(users, eq(quotations.createdBy, users.id))
-    .where(
-      and(eq(quotations.id, quotationId), eq(quotations.tenantId, tenantId))
-    )
+    .where(and(eq(quotations.id, quotationId), eq(quotations.tenantId, tenantId)))
     .get();
 
   if (!header) {

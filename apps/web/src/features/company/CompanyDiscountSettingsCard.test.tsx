@@ -1,5 +1,5 @@
 /**
- * ENG-211 — discount-ladder editor contract: it hydrates from the server
+ * discount-ladder editor contract: it hydrates from the server
  * value, keeps a local draft until Save, enforces the row bounds the server
  * mirrors, and never sends a partial edit the operator did not confirm.
  */
@@ -40,7 +40,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
 
-describe('CompanyDiscountSettingsCard (ENG-211)', () => {
+describe('CompanyDiscountSettingsCard', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en');
     vi.clearAllMocks();

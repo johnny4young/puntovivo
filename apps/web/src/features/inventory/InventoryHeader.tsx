@@ -1,5 +1,5 @@
 // Inventory screen header: title + the segmented view tabs + the new-entry /
-// new-adjustment buttons, extracted from InventoryPage.tsx (ENG-178 slice 33).
+// new-adjustment buttons, extracted from InventoryPage.tsx ( slice 33).
 
 import { useTranslation } from 'react-i18next';
 import { ClipboardList, Search } from 'lucide-react';

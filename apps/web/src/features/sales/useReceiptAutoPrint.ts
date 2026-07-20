@@ -16,7 +16,7 @@ import type { Sale } from '@/types';
  *
  * `autoPrintEnabled` is derived in SalesPage from the SHARED
  * `peripherals.activeForSite` query (one tRPC subscription feeds the
- * scanner + cash-drawer + auto-print consumers — ENG-061/062/097), so it
+ * scanner + cash-drawer + auto-print consumers — ), so it
  * is passed in rather than re-queried here; re-querying would silently
  * reintroduce the duplicate-subscription the shell comment warns against.
  */
@@ -26,10 +26,10 @@ interface UseReceiptAutoPrintParams {
 }
 
 /**
- * ENG-097 — auto-print on sale completion.
+ * auto-print on sale completion.
  *
  * The active site's active printer config is read via the SAME
- * `peripherals.activeForSite` query that ENG-061 already mounts for the
+ * `peripherals.activeForSite` query that  already mounts for the
  * barcode scanner + cash-drawer detection; the shell hoists that query
  * and passes the derived `autoPrintEnabled` flag in. When the active
  * printer ships with `config.autoPrintOnComplete: true`, every successful

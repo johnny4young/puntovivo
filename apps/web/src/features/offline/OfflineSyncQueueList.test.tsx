@@ -1,5 +1,5 @@
 /**
- * ENG-088 — OfflineSyncQueueList behavior tests.
+ * OfflineSyncQueueList behavior tests.
  *
  * Pins the sync queue contract: empty state, multi-item rendering
  * with elapsed-time + status badge mapping, loading skeleton,
@@ -71,7 +71,7 @@ function makeRow(overrides: Partial<MockQueueRow> = {}): MockQueueRow {
   };
 }
 
-describe('OfflineSyncQueueList (ENG-088)', () => {
+describe('OfflineSyncQueueList', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
@@ -95,9 +95,30 @@ describe('OfflineSyncQueueList (ENG-088)', () => {
   it('renders each queued row with ticket id + entity label + status badge', () => {
     const now = new Date('2026-05-18T18:00:00Z');
     mockRows = [
-      makeRow({ id: 'r1', entityId: 'sale-ABCDEFGH', entityType: 'sales', attempts: 0, lastError: null, createdAt: new Date(now.getTime() - 2 * 60_000).toISOString() }),
-      makeRow({ id: 'r2', entityId: 'sale-IJKLMNOP', entityType: 'sale_items', attempts: 1, lastError: 'tx aborted', createdAt: new Date(now.getTime() - 30 * 60_000).toISOString() }),
-      makeRow({ id: 'r3', entityId: 'sale-QRSTUVWX', entityType: 'inventory_movements', attempts: 5, lastError: 'permanent failure', createdAt: new Date(now.getTime() - 90 * 60_000).toISOString() }),
+      makeRow({
+        id: 'r1',
+        entityId: 'sale-ABCDEFGH',
+        entityType: 'sales',
+        attempts: 0,
+        lastError: null,
+        createdAt: new Date(now.getTime() - 2 * 60_000).toISOString(),
+      }),
+      makeRow({
+        id: 'r2',
+        entityId: 'sale-IJKLMNOP',
+        entityType: 'sale_items',
+        attempts: 1,
+        lastError: 'tx aborted',
+        createdAt: new Date(now.getTime() - 30 * 60_000).toISOString(),
+      }),
+      makeRow({
+        id: 'r3',
+        entityId: 'sale-QRSTUVWX',
+        entityType: 'inventory_movements',
+        attempts: 5,
+        lastError: 'permanent failure',
+        createdAt: new Date(now.getTime() - 90 * 60_000).toISOString(),
+      }),
     ];
     render(<OfflineSyncQueueList now={now} />);
 

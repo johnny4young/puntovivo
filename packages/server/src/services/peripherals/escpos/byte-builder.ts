@@ -1,25 +1,25 @@
 /**
- * ENG-062 — Pure ESC/POS byte builder.
+ * Pure ESC/POS byte builder.
  *
  * Renders a structured `ReceiptDocument` (lines + alignment + cut +
  * optional drawer pulse) into a `Uint8Array` of canonical ESC/POS
  * commands. Pure module: zero I/O, zero native deps, fully unit
  * testable. Mirrors the purity convention of
- * `services/peripherals/barcode/parser.ts` (ENG-061) and
- * `services/fiscal/qr-builder.ts` (ENG-058).
+ * `services/peripherals/barcode/parser.ts` () and
+ * `services/fiscal/qr-builder.ts` ().
  *
  * The reference printer family is the Epson TM-T20/T88 + Xprinter
  * XP-58/XP-80 that dominate LATAM retail today; their bytes follow
  * the original Epson "ESC/POS Application Programming Guide". We
  * only emit the subset every modern thermal printer accepts:
  *
- *   ESC @           init
- *   ESC t n         select codepage
- *   ESC a n         alignment (0=left, 1=center, 2=right)
- *   ESC E n         bold (0=off, 1=on)
- *   GS !  n         character size (low nibble width, high nibble height)
- *   ESC p 0 25 250  drawer pulse (RJ11 connector pin 2/5)
- *   GS V 0          full paper cut
+ * ESC @           init
+ * ESC t n         select codepage
+ * ESC a n         alignment (0=left, 1=center, 2=right)
+ * ESC E n         bold (0=off, 1=on)
+ * GS !  n         character size (low nibble width, high nibble height)
+ * ESC p 0 25 250  drawer pulse (RJ11 connector pin 2/5)
+ * GS V 0          full paper cut
  *
  * Codepage selection: cp858 is the LATAM default — Latin-1 with
  * EUR added at 0xD5. It encodes ñáéíóú correctly. cp437 is the
@@ -94,20 +94,20 @@ export const ESCPOS_BYTES = {
 // Subset of cp858 mapping for the Spanish characters we actually emit
 // in receipts. Anything outside this map falls back to '?' (0x3f).
 const CP858_OVERRIDES: Record<string, number> = {
-  'ñ': 0xa4,
-  'Ñ': 0xa5,
-  'á': 0xa0,
-  'é': 0x82,
-  'í': 0xa1,
-  'ó': 0xa2,
-  'ú': 0xa3,
-  'Á': 0xb5,
-  'É': 0x90,
-  'Í': 0xd6,
-  'Ó': 0xe0,
-  'Ú': 0xe9,
-  'ü': 0x81,
-  'Ü': 0x9a,
+  ñ: 0xa4,
+  Ñ: 0xa5,
+  á: 0xa0,
+  é: 0x82,
+  í: 0xa1,
+  ó: 0xa2,
+  ú: 0xa3,
+  Á: 0xb5,
+  É: 0x90,
+  Í: 0xd6,
+  Ó: 0xe0,
+  Ú: 0xe9,
+  ü: 0x81,
+  Ü: 0x9a,
   '¿': 0xa8,
   '¡': 0xad,
   '€': 0xd5,
@@ -235,10 +235,7 @@ function concatBytes(chunks: Uint8Array[]): Uint8Array {
  * + the optional cut, so the cashier tears the paper after the
  * drawer pops.
  */
-export function buildEscPosBytes(
-  doc: ReceiptDocument,
-  opts: BuildEscPosBytesOptions
-): Uint8Array {
+export function buildEscPosBytes(doc: ReceiptDocument, opts: BuildEscPosBytesOptions): Uint8Array {
   const charset = opts.characterSet ?? 'cp858';
   const charsetCode = CHARSET_CODES[charset];
   if (typeof charsetCode !== 'number') {
@@ -317,7 +314,7 @@ export function buildEscPosBytes(
 // Convenience builder for sale receipts
 // =============================================================================
 
-// ENG-179b — explicit `| undefined` on every optional field so the
+// explicit `| undefined` on every optional field so the
 // caller can spread partial sale data without violating
 // `exactOptionalPropertyTypes`.
 export interface SaleReceiptInput {

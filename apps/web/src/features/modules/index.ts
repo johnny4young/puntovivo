@@ -1,5 +1,5 @@
 /**
- * ENG-068 — Public surface for the modules kernel on the renderer.
+ * Public surface for the modules kernel on the renderer.
  *
  * @module features/modules
  */

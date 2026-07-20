@@ -57,7 +57,10 @@ function buildCategoryTreeRows(categories: Category[]): CategoryTreeRow[] {
   return rows;
 }
 
-function getParentOptions(rows: CategoryTreeRow[], editingCategoryId: string | null): CategoryLookupOption[] {
+function getParentOptions(
+  rows: CategoryTreeRow[],
+  editingCategoryId: string | null
+): CategoryLookupOption[] {
   return rows
     .filter(row => row.id !== editingCategoryId)
     .map(row => ({
@@ -102,7 +105,7 @@ export function CategoriesPage() {
       handleCloseModal();
       toast.success({ title: t('categories.toast.updated') });
     },
-    // ENG-177a — refresh the cached tree/list on a STALE_VERSION conflict.
+    // refresh the cached tree/list on a STALE_VERSION conflict.
     onError: onErrorToast(toast, t, {
       titleKey: 'settings:categories.toast.updateError',
       extra: (_description, error) => {
@@ -158,7 +161,7 @@ export function CategoriesPage() {
     if (editingCategory) {
       await updateMutation.mutateAsync({
         id: editingCategory.id,
-        // ENG-177a — round-trip the loaded version for the concurrency guard.
+        // round-trip the loaded version for the concurrency guard.
         version: editingCategory.version,
         name: values.name,
         description: toOptionalString(values.description),
@@ -180,7 +183,10 @@ export function CategoriesPage() {
       header: t('categories.columns.category'),
       size: 320,
       cell: ({ row }) => (
-        <div className="flex items-center gap-3" style={{ paddingLeft: `${row.original.depth * 24}px` }}>
+        <div
+          className="flex items-center gap-3"
+          style={{ paddingLeft: `${row.original.depth * 24}px` }}
+        >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100">
             <FolderTree className="h-4 w-4 text-primary-700" />
           </div>

@@ -7,7 +7,7 @@ describe('receipt template default layouts', () => {
     await i18next.changeLanguage('en');
   });
 
-  // ENG-086 — the sale preset moved the per-cashier / customer / sale
+  // the sale preset moved the per-cashier / customer / sale
   // number lines into a compact `metaTable` band per the 2026-05-15
   // print-thermal handoff. The Spanish thank-you copy stays in its own
   // `text` block so the existing copy lands without changes.
@@ -47,7 +47,7 @@ describe('receipt template default layouts', () => {
     });
   });
 
-  // ENG-016 pass 1 (item #5) — appFooter included in every default
+  // pass 1 (item #5) — appFooter included in every default
   // preset so fresh templates ship with Puntovivo branding enabled.
   it('includes a visible appFooter block in every default preset', () => {
     const t = i18next.getFixedT('en', 'receiptTemplates');
@@ -63,7 +63,7 @@ describe('receipt template default layouts', () => {
     }
   });
 
-  // ENG-016 pass 1 (item #5) — createEmptyBlock returns a visible
+  // pass 1 (item #5) — createEmptyBlock returns a visible
   // appFooter when the operator adds the block from the menu.
   it('createEmptyBlock("appFooter") returns a visible centered block', () => {
     const t = i18next.getFixedT('en', 'receiptTemplates');
@@ -104,7 +104,7 @@ describe('receipt template default layouts', () => {
       source: '{{sale.saleNumber}}',
       heightMm: 12,
     });
-    // ENG-086 — wordmark and metaTable get visible-by-default values
+    // wordmark and metaTable get visible-by-default values
     // so the operator sees the shape right after adding from the menu.
     expect(createEmptyBlock('wordmark', t)).toEqual({
       type: 'wordmark',
@@ -117,7 +117,7 @@ describe('receipt template default layouts', () => {
     });
   });
 
-  // ENG-086 — both new block types ship in the thermal sale + fiscal_dee
+  // both new block types ship in the thermal sale + fiscal_dee
   // presets so a freshly seeded tenant gets the handoff look on first
   // save without manual block-add work.
   it('sale + fiscal_dee presets ship a wordmark + metaTable header band', () => {
@@ -141,7 +141,7 @@ describe('receipt template default layouts', () => {
     }
   });
 
-  // ENG-086 — quotation kept the existing letter layout (out of the
+  // quotation kept the existing letter layout (out of the
   // thermal scope) so it intentionally does NOT carry the new blocks.
   it('quotation preset keeps the existing letter layout (no wordmark / metaTable)', () => {
     const t = i18next.getFixedT('en', 'receiptTemplates');
@@ -155,9 +155,7 @@ describe('receipt template default layouts', () => {
     const t = i18next.getFixedT('en', 'receiptTemplates');
     expect(() =>
       createEmptyBlock(
-        'definitely-not-a-real-kind' as unknown as Parameters<
-          typeof createEmptyBlock
-        >[0],
+        'definitely-not-a-real-kind' as unknown as Parameters<typeof createEmptyBlock>[0],
         t
       )
     ).toThrow(/Unknown block kind/);

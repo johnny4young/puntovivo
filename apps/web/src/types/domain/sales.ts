@@ -1,4 +1,4 @@
-// ENG-179c — sales domain shapes (ENG-178 slice 28).
+// sales domain shapes ( slice 28).
 
 import type { PaymentMethod, PaymentStatus, SaleStatus, SyncStatus } from '../ui';
 import type { Customer } from './customers';

@@ -1,5 +1,5 @@
 /**
- * ENG-178 — Post-commit orchestration for the fresh-sale path.
+ * Post-commit orchestration for the fresh-sale path.
  *
  * The primary transaction has already committed when this helper runs. It
  * keeps every best-effort side effect in the original order: lot-drift
@@ -95,7 +95,7 @@ export async function finalizeFreshSale(
 
   const created = await getSaleRecord(ctx.db, ctx.tenantId, sale.id);
 
-  // ENG-064b — sync_outbox emit moved POST-tx. The helper writes the
+  // sync_outbox emit moved POST-tx. The helper writes the
   // operation_effects row (kind=outbox_enqueue:sync) itself when an
   // envelope context is present.
   await enqueueSync(ctx, {
@@ -112,13 +112,13 @@ export async function finalizeFreshSale(
     },
   });
 
-  // ENG-192 — the FEFO consumption above mutated these lots (on_hand drawn
+  // the FEFO consumption above mutated these lots (on_hand drawn
   // down, possibly depleted) and marked them sync-pending; enqueue each one
   // so the mutation actually reaches sync_outbox instead of waiting for the
   // next receive to touch the row.
   await enqueueInventoryLotUpdatesForSale(ctx, inventory.consumedLotIds, sale.id);
 
-  // ENG-090 — write the customer ledger receivable for full-credit
+  // write the customer ledger receivable for full-credit
   // sales. Best-effort post-tx (a ledger write failure does not roll
   // back the already-committed sale).
   await safelyRecordCreditSaleLedger({
@@ -135,7 +135,7 @@ export async function finalizeFreshSale(
     logLabel: '[completeSale]',
   });
 
-  // ENG-020 — emit DIAN DEE when a direct-sale (non-draft) lands as
+  // emit DIAN DEE when a direct-sale (non-draft) lands as
   // `completed`. Drafts never emit. Runs post-tx best-effort.
   const fiscalEmitId = await emitSaleFiscalDocument({
     db: ctx.db,
@@ -187,7 +187,7 @@ export async function finalizeFreshSale(
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
 
-  // ENG-098 — push to the kitchen display when the sale carries a
+  // push to the kitchen display when the sale carries a
   // tableId. Idempotent against the suspend-then-complete progression
   // via UNIQUE(tenant_id, sale_id, station); a second fire is a no-op.
   await enqueueSaleKdsOrder(ctx, input.tableId, sale.id);

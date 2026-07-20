@@ -1,5 +1,5 @@
 /**
- * URL safety helpers (ENG-025 vector 3).
+ * URL safety helpers ( vector 3).
  *
  * Server-side gate against URL schemes that turn an `<img src=...>`
  * (or any other URL-bearing attribute) into an XSS / privilege-

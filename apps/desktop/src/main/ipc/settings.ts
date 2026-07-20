@@ -1,5 +1,5 @@
 /**
- * ENG-178 — desktop settings IPC (receipt printing, theme, tray,
+ * desktop settings IPC (receipt printing, theme, tray,
  * main-process locale), extracted verbatim from the former monolithic
  * `main/index.ts`.
  *
@@ -84,10 +84,7 @@ export async function getReceiptPrintSettings(): Promise<ReceiptPrintSettings> {
 async function saveReceiptPrintSettings(settings: unknown): Promise<ReceiptPrintSettings> {
   const database = getServerDatabase();
   const now = new Date().toISOString();
-  const nextSettings = normalizeReceiptPrintSettings(
-    settings,
-    await getReceiptPrintSettings()
-  );
+  const nextSettings = normalizeReceiptPrintSettings(settings, await getReceiptPrintSettings());
   const existing = await database
     .select({ key: appSettings.key })
     .from(appSettings)

@@ -1,11 +1,11 @@
 /**
- * ENG-031 — co-pilot read-only SQL guard + analytics window resolution.
+ * co-pilot read-only SQL guard + analytics window resolution.
  *
  * `validateReadOnlySQL` enforces the SELECT/WITH-only, single-statement,
  * comment-free, allowlisted-table contract the co-pilot's `runReadOnlySQL`
  * tool depends on; `resolveWindow` derives the bounded analytics window
  * (default 90 days) shared by the snapshot loader + the chat orchestrator.
- * Split out of `copilot.ts` (ENG-178).
+ * Split out of `copilot.ts` ().
  *
  * @module services/ai/copilot/sql
  */
@@ -64,7 +64,10 @@ function extractCTENames(query: string): Set<string> {
 }
 
 function sanitizeTableName(raw: string): string {
-  return raw.replace(/["'`[\]]/g, '').split('.')[0]!.toLowerCase();
+  return raw
+    .replace(/["'`[\]]/g, '')
+    .split('.')[0]!
+    .toLowerCase();
 }
 
 export function validateReadOnlySQL(query: string): string {
@@ -91,7 +94,9 @@ export function validateReadOnlySQL(query: string): string {
   }
 
   const cteNames = extractCTENames(inspected);
-  for (const match of inspected.matchAll(/\b(?:from|join)\s+([`"]?[a-zA-Z_][a-zA-Z0-9_."`]*\]?)/gi)) {
+  for (const match of inspected.matchAll(
+    /\b(?:from|join)\s+([`"]?[a-zA-Z_][a-zA-Z0-9_."`]*\]?)/gi
+  )) {
     const table = sanitizeTableName(match[1]!);
     if (!ALLOWED_TABLES.has(table) && !cteNames.has(table)) {
       rejectSQL(`Table ${table} is not available in the analytics snapshot`, {

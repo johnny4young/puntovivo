@@ -1,5 +1,5 @@
 /**
- * ENG-053 — Outbox worker tests.
+ * Outbox worker tests.
  *
  * Verifies `tickOutbox` against the synthetic outbox kernel from
  * `outbox-kernel.test.ts`. Each test rebuilds a fresh kernel + a
@@ -121,11 +121,7 @@ describe('tickOutbox', () => {
     if (result.processed) {
       expect(result.outcome).toBe('completed');
     }
-    const row = await db
-      .select()
-      .from(workerOutbox)
-      .where(eq(workerOutbox.id, id))
-      .get();
+    const row = await db.select().from(workerOutbox).where(eq(workerOutbox.id, id)).get();
     expect(row?.status).toBe('succeeded');
   });
 
@@ -164,11 +160,7 @@ describe('tickOutbox', () => {
     if (result.processed) {
       expect(['retrying', 'dead_letter']).toContain(result.outcome);
     }
-    const row = await db
-      .select()
-      .from(workerOutbox)
-      .where(eq(workerOutbox.id, id))
-      .get();
+    const row = await db.select().from(workerOutbox).where(eq(workerOutbox.id, id)).get();
     expect(row?.attempts).toBe(1);
     expect(row?.lastError).toMatchObject({ errorCode: 'OUTBOX_PROCESSOR_THREW' });
   });
@@ -204,11 +196,7 @@ describe('tickOutbox', () => {
       });
       await new Promise(r => setTimeout(r, 12));
     }
-    const row = await db
-      .select()
-      .from(workerOutbox)
-      .where(eq(workerOutbox.id, id))
-      .get();
+    const row = await db.select().from(workerOutbox).where(eq(workerOutbox.id, id)).get();
     expect(row?.status).toBe('dead_letter');
   });
 

@@ -1,4 +1,4 @@
-/** WC-E2 — committed tRPC procedure contract snapshot. */
+/** committed tRPC procedure contract snapshot. */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { appRouter } from '../trpc/router.js';

@@ -17,7 +17,7 @@ type SalesMutationHandles = ReturnType<typeof useSalesMutations>;
 /**
  * Params for {@link useSalesModals}.
  *
- * ENG-178 slice 16b-1 — the modal/UI open-close handlers + the checkout
+ * slice 16b-1 — the modal/UI open-close handlers + the checkout
  * preflight were extracted verbatim from SalesPage. The hook OWNS only the
  * pure modal-control state nothing else injects setters for (the search-open
  * flag, the per-modal remount key counters, and the fast-cash trigger). The
@@ -37,7 +37,7 @@ export interface UseSalesModalsParams {
   selectedRegisterAssignment: RegisterAssignment | null;
   /** The currently keyboard-selected history row, or null — drives the reprint shortcut. */
   selectedHistorySaleId: string | null;
-  /** Server-derived checkout reminders (ENG-184), mapped to PreflightItems by the shell. */
+  /** Server-derived checkout reminders (), mapped to PreflightItems by the shell. */
   checkoutReadinessItems: PreflightItem[];
   /** Read by `handleFastCash` to decide open-vs-bump; the value stays shell-owned. */
   isPaymentModalOpen: boolean;
@@ -100,7 +100,7 @@ export function useSalesModals({
   const [productSearchInitialQuery, setProductSearchInitialQuery] = useState('');
   const [productSearchDialogKey, setProductSearchDialogKey] = useState(0);
   const [paymentModalKey, setPaymentModalKey] = useState(0);
-  // ENG-105e — F2 fast-cash signal routed to SalePaymentModal.
+  // F2 fast-cash signal routed to SalePaymentModal.
   // Zero means normal F1 open; positive values apply exact cash on
   // mount and each later increment re-applies while the modal is open.
   const [fastCashTrigger, setFastCashTrigger] = useState(0);
@@ -122,7 +122,7 @@ export function useSalesModals({
     serverItems: checkoutReadinessItems,
   });
 
-  // ENG-105e — F2 fast-cash entry point. Closed modal delegates to
+  // F2 fast-cash entry point. Closed modal delegates to
   // the same F1 payment-open gate with `fastCash=true`; open modal
   // bumps the trigger so the modal re-applies exact cash.
   const handleFastCash = () => {
@@ -144,7 +144,7 @@ export function useSalesModals({
       return;
     }
 
-    // ENG-105b — preflight gate. If any blocker is showing, surface a
+    // preflight gate. If any blocker is showing, surface a
     // toast pointing at the first blocker instead of opening the
     // payment modal blindly. The `cash_session_required` case keeps
     // the legacy convenience of jumping to the cash session modal so
@@ -154,7 +154,7 @@ export function useSalesModals({
         handleOpenCashSessionModal();
         return;
       }
-      // ENG-179b — exactOptional rejects `t(key, undefined)`; gate on the values.
+      // exactOptional rejects `t(key, undefined)`; gate on the values.
       const blockerMessage = preflight.primaryBlocker.messageValues
         ? t(preflight.primaryBlocker.messageKey, preflight.primaryBlocker.messageValues)
         : t(preflight.primaryBlocker.messageKey);
@@ -234,7 +234,7 @@ export function useSalesModals({
   };
 
   // Ctrl+Shift+P on a focused history row → open the SaleDetailsModal
-  // which is where the Reprint action lives (landed with ENG-019). The
+  // which is where the Reprint action lives (landed with ). The
   // modal owns the reason picker + completeDraft chain; this shortcut
   // is just the "jump there quickly" surface.
   const handleReprintSelectedHistoryRow = () => {

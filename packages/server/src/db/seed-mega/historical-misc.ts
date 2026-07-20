@@ -1,5 +1,5 @@
 /**
- * ENG-052b — MEGA seed: misc tables (logos + category↔provider
+ * MEGA seed: misc tables (logos + category↔provider
  * assignments). These are small surfaces but the / company + filters
  * UI depend on them being populated to render meaningfully.
  *
@@ -24,9 +24,7 @@ interface CreatedHistoricalMisc {
 const PLACEHOLDER_LOGO_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
 
-export async function seedHistoricalMisc(
-  ctx: MegaContext
-): Promise<CreatedHistoricalMisc> {
+export async function seedHistoricalMisc(ctx: MegaContext): Promise<CreatedHistoricalMisc> {
   const { db, clock, tenantId, providerIds } = ctx;
 
   // ----- Logo placeholder -----

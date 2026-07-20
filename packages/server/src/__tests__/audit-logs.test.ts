@@ -5,15 +5,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
-import {
-  auditLogs,
-  categories,
-  providers,
-  sites,
-  units,
-  users,
-  vatRates,
-} from '../db/schema.js';
+import { auditLogs, categories, providers, sites, units, users, vatRates } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -55,10 +47,7 @@ function createTestContext(): Context {
   };
 }
 
-async function getLatestAuditRow(args: {
-  resourceType: string;
-  resourceId: string;
-}) {
+async function getLatestAuditRow(args: { resourceType: string; resourceId: string }) {
   const db = getDatabase();
   return db
     .select()
@@ -74,7 +63,7 @@ async function getLatestAuditRow(args: {
     .get();
 }
 
-describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
+describe('Audit Logs', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
@@ -117,9 +106,9 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
     if (!seededVat) throw new Error('Expected seeded VAT rate');
     vatRateId = seededVat.id;
 
-    const baseUnit = (
-      await db.select().from(units).where(eq(units.tenantId, tenantId)).all()
-    ).find(unit => unit.abbreviation === 'UND');
+    const baseUnit = (await db.select().from(units).where(eq(units.tenantId, tenantId)).all()).find(
+      unit => unit.abbreviation === 'UND'
+    );
     if (!baseUnit) throw new Error('Expected seeded base unit');
     baseUnitId = baseUnit.id;
 
@@ -150,7 +139,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
       updatedAt: now,
     });
 
-    // ENG-052b — register one device per test file. Audit-log tests
+    // register one device per test file. Audit-log tests
     // exercise critical procedures (sale.void, sale.return,
     // inventory.adjustStock, cashSessions.close, users.create,
     // users.update) which now require the Command Envelope.
@@ -232,9 +221,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
     const product = await createProduct(`AUD-QD-${nanoid(6)}`);
 
     const draft = await caller.quotations.create({
-      items: [
-        { productId: product.id, quantity: 2, unitPrice: 50, discount: 0, taxRate: 0 },
-      ],
+      items: [{ productId: product.id, quantity: 2, unitPrice: 50, discount: 0, taxRate: 0 }],
     });
 
     await caller.quotations.delete({ id: draft.id });
@@ -260,9 +247,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
     const product = await createProduct(`AUD-QC-${nanoid(6)}`);
 
     const draft = await caller.quotations.create({
-      items: [
-        { productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 },
-      ],
+      items: [{ productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 }],
     });
 
     // Intermediate transitions — draft → sent → accepted — must NOT audit.
@@ -302,7 +287,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
     expect(afterConverted[0]?.after).toMatchObject({ status: 'converted' });
   });
 
-  // ─── Phase 8 step 2 — auditLogs.list procedure ────────────────────────────
+  // ─── auditLogs.list procedure ────────────────────────────
 
   describe('auditLogs.list', () => {
     it('returns reverse-chronological rows with the actor name joined', async () => {
@@ -338,9 +323,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
       await caller.transfers.void({ transferId: transfer.id });
 
       const draft = await caller.quotations.create({
-        items: [
-          { productId: product.id, quantity: 1, unitPrice: 50, discount: 0, taxRate: 0 },
-        ],
+        items: [{ productId: product.id, quantity: 1, unitPrice: 50, discount: 0, taxRate: 0 }],
       });
       await caller.quotations.delete({ id: draft.id });
 
@@ -352,9 +335,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
       const onlyQuotationRows = await caller.auditLogs.list({
         resourceType: 'quotation',
       });
-      expect(
-        onlyQuotationRows.items.every(row => row.resourceType === 'quotation')
-      ).toBe(true);
+      expect(onlyQuotationRows.items.every(row => row.resourceType === 'quotation')).toBe(true);
     });
 
     it('lists legacy cashier resource rows without crashing', async () => {
@@ -391,9 +372,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
       const product = await createProduct(`AUD-L3-${nanoid(6)}`);
 
       const draft = await caller.quotations.create({
-        items: [
-          { productId: product.id, quantity: 1, unitPrice: 40, discount: 0, taxRate: 0 },
-        ],
+        items: [{ productId: product.id, quantity: 1, unitPrice: 40, discount: 0, taxRate: 0 }],
       });
       await caller.quotations.updateStatus({ id: draft.id, status: 'sent' });
       await caller.quotations.updateStatus({ id: draft.id, status: 'accepted' });
@@ -418,9 +397,11 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
       const foreignTenantId = `foreign-tenant-${nanoid(6)}`;
       const foreignUserId = `foreign-user-${nanoid(6)}`;
       const now = new Date().toISOString();
-      const { auditLogs: auditLogsTable, tenants, users: usersTable } = await import(
-        '../db/schema.js'
-      );
+      const {
+        auditLogs: auditLogsTable,
+        tenants,
+        users: usersTable,
+      } = await import('../db/schema.js');
       await db.insert(tenants).values({
         id: foreignTenantId,
         name: 'Foreign Tenant',
@@ -460,9 +441,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
       });
 
       const list = await caller.auditLogs.list({ action: 'transfer.void' });
-      const leakRow = list.items.find(
-        row => row.actorId === foreignUserId
-      );
+      const leakRow = list.items.find(row => row.actorId === foreignUserId);
       expect(leakRow).toBeTruthy();
       // The tenant-guarded join collapses foreign actor PII to null.
       expect(leakRow?.actorName).toBeNull();
@@ -487,7 +466,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
     });
   });
 
-  // ─── Phase 8 step 3 — audit sensitive sale + cash + inventory actions ─────
+  // ─── audit sensitive sale + cash + inventory actions ─────
 
   describe('sensitive sale, cash and inventory actions', () => {
     /**
@@ -694,7 +673,10 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
       const caller = appRouter.createCaller(createTestContext());
       await caller.cashSessions.close({
         actualCount: 90,
-        denominations: [{ value: 50, count: 1 }, { value: 20, count: 2 }],
+        denominations: [
+          { value: 50, count: 1 },
+          { value: 20, count: 2 },
+        ],
       });
 
       const audit = await getLatestAuditRow({
@@ -715,9 +697,9 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
     });
   });
 
-  // ─── ENG-007 second wave — purchase voids, admin user lifecycle, price overrides ──
+  // ───  second wave — purchase voids, admin user lifecycle, price overrides ──
 
-  describe('purchase voids, user lifecycle, price overrides (ENG-007 second wave)', () => {
+  describe('purchase voids, user lifecycle, price overrides ( second wave)', () => {
     async function openCashSessionForTest(registerName: string) {
       const caller = appRouter.createCaller(createTestContext());
       return caller.cashSessions.open({
@@ -772,7 +754,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
 
     it('writes a user.create audit row with email/role/isActive in the after snapshot but no password hash', async () => {
       const caller = appRouter.createCaller(createTestContext());
-      // ENG-166 — email normalisation lowercases at parse time so the
+      // email normalisation lowercases at parse time so the
       // stored value never matches a nanoid that happens to include
       // uppercase characters; pre-lowercase the test value.
       const email = `aud-uc-${nanoid(4).toLowerCase()}@example.com`;
@@ -894,8 +876,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
       expect(audit?.action).toBe('sale.price_override');
       expect(audit?.after).toMatchObject({ overrideCount: 1 });
 
-      const overrides = (audit?.metadata as Record<string, unknown> | null)
-        ?.overrides;
+      const overrides = (audit?.metadata as Record<string, unknown> | null)?.overrides;
       expect(Array.isArray(overrides)).toBe(true);
       expect(overrides).toHaveLength(1);
       expect((overrides as Array<Record<string, unknown>>)[0]).toMatchObject({
@@ -949,9 +930,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
     const product = await createProduct(`AUD-RB-${nanoid(6)}`);
 
     const draft = await caller.quotations.create({
-      items: [
-        { productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 },
-      ],
+      items: [{ productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 }],
     });
     await caller.quotations.updateStatus({ id: draft.id, status: 'sent' });
 

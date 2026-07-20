@@ -1,17 +1,17 @@
 /**
- * ENG-045 — CompanyPage tab behavior.
+ * CompanyPage tab behavior.
  *
- * ENG-188 — Covers the grouped Setup nav (readiness pinned as the admin
+ * Covers the grouped Setup nav (readiness pinned as the admin
  * landing + the remaining tabs demoted into labeled category groups)
  * that replaced the flat segmented strip. Heavy children (CompanyForm,
  * CompanyLocaleSettingsCard, CompanyAISettingsCard, CompanyMxFiscalCard, …)
  * are mocked
  * to keep the focus on:
- *  - admin sees the grouped nav and the active panel
- *  - URL `?tab=ai` deep-links into the AI panel (used by
- *    AnomalyDetectionCard's "Activa la IA" CTA)
- *  - clicking a tab updates aria-current and the URL
- *  - non-admin users see no nav (only company form + logos)
+ * - admin sees the grouped nav and the active panel
+ * - URL `?tab=ai` deep-links into the AI panel (used by
+ * AnomalyDetectionCard's "Activa la IA" CTA)
+ * - clicking a tab updates aria-current and the URL
+ * - non-admin users see no nav (only company form + logos)
  */
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -124,13 +124,13 @@ vi.mock('../CompanyTraySettingsCard', () => ({
 vi.mock('../CompanyModulesCard', () => ({
   CompanyModulesCard: () => <div data-testid="card-modules">Modules</div>,
 }));
-// ENG-104 — Stub the readiness card too; the real implementation
+// Stub the readiness card too; the real implementation
 // reaches the trpc surface and the rest of this suite already mocks
 // the trpc layer at the page level.
 vi.mock('../CompanyReadinessCard', () => ({
   CompanyReadinessCard: () => <div data-testid="card-readiness">Readiness</div>,
 }));
-// ENG-135 — Stub the telemetry card. The CompanyPage tab test does
+// Stub the telemetry card. The CompanyPage tab test does
 // not exercise the toggle round-trip; the dedicated
 // `CompanyTelemetryCard.test.tsx` pins that contract.
 vi.mock('../CompanyTelemetryCard', () => ({
@@ -145,10 +145,10 @@ describe('CompanyPage tab behavior', () => {
     mockCountryCode = 'CO';
   });
 
-  it('renders the grouped Setup nav with readiness pinned as the admin landing (ENG-188/ENG-104)', () => {
+  it('renders the grouped Setup nav with readiness pinned as the admin landing (-104)', () => {
     render(<CompanyPage />);
 
-    // ENG-188 — readiness is the pinned landing, current by default.
+    // readiness is the pinned landing, current by default.
     expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute('aria-current', 'page');
 
     // The three category groups render with their localized labels.
@@ -268,21 +268,21 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
   });
 
-  it('renders the CO fiscal card under the Fiscal tab when tenant countryCode is CO (ENG-184)', async () => {
+  it('renders the CO fiscal card under the Fiscal tab when tenant countryCode is CO', async () => {
     mockCountryCode = 'CO';
     const user = userEvent.setup();
     render(<CompanyPage />);
 
     await user.click(screen.getByTestId('company-tab-fiscal'));
 
-    // Neither MX nor CL render; the real CO config card does (ENG-184
+    // Neither MX nor CL render; the real CO config card does (
     // replaced the old "coming soon" placeholder).
     expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-fiscal-cl')).not.toBeInTheDocument();
     expect(screen.getByTestId('card-fiscal-co')).toBeInTheDocument();
   });
 
-  it('does not fall back to the CO fiscal card while tenant locale is loading (ENG-185)', async () => {
+  it('does not fall back to the CO fiscal card while tenant locale is loading', async () => {
     mockCountryCode = null;
     const user = userEvent.setup();
     render(<CompanyPage />);
@@ -295,7 +295,7 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.getByText(/Country-specific fiscal configuration/i)).toBeInTheDocument();
   });
 
-  it('renders the unsupported-country fiscal message instead of a fallback card (ENG-185)', async () => {
+  it('renders the unsupported-country fiscal message instead of a fallback card', async () => {
     mockCountryCode = 'US';
     const user = userEvent.setup();
     render(<CompanyPage />);
@@ -307,7 +307,7 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.getByText(/There is no fiscal pack for US yet/i)).toBeInTheDocument();
   });
 
-  it('has no serious accessibility violations in the grouped Setup nav (ENG-188)', async () => {
+  it('has no serious accessibility violations in the grouped Setup nav', async () => {
     const { container } = render(<CompanyPage />);
     await assertNoA11yViolations(container);
   });
@@ -325,7 +325,7 @@ describe('CompanyPage non-admin behavior', () => {
         user: { id: 'u-2', name: 'Cashier', email: 'c@b.co', role: 'cashier' },
       }),
     }));
-    // ENG-170b — resetModules rebuilds the @/i18n singleton with only the
+    // resetModules rebuilds the @/i18n singleton with only the
     // bootstrap namespaces inlined; re-prime the fresh instance so the
     // re-imported CompanyPage does not suspend on its feature namespaces.
     const { registerAllNamespacesForTest } = await import('@/test/i18nTestResources');
@@ -334,7 +334,7 @@ describe('CompanyPage non-admin behavior', () => {
     const Reloaded = mod.CompanyPage;
     render(<Reloaded />);
 
-    // ENG-188 — no grouped Setup nav rendered for non-admin (the
+    // no grouped Setup nav rendered for non-admin (the
     // readiness landing + category groups are admin-only).
     expect(screen.queryByTestId('company-tab-readiness')).not.toBeInTheDocument();
     // Form + logos still visible.

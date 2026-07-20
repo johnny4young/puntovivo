@@ -1,13 +1,13 @@
 /**
- * ENG-132h — FiscalDocumentDetailsDrawer tests.
+ * FiscalDocumentDetailsDrawer tests.
  *
  * Pins the row-detail Drawer holding the columns trimmed off the default
  * fiscal-documents table:
- *   - renders the trimmed fields (provider id + the FULL untruncated CUFE);
- *   - the "View XML" footer action calls onViewXml only when the document has
- *     an xmlRef, and the Close action calls onClose;
- *   - stays closed when `item` is null;
- *   - no serious accessibility violations.
+ * - renders the trimmed fields (provider id + the FULL untruncated CUFE);
+ * - the "View XML" footer action calls onViewXml only when the document has
+ * an xmlRef, and the Close action calls onClose;
+ * - stays closed when `item` is null;
+ * - no serious accessibility violations.
  *
  * @module features/fiscal/FiscalDocumentDetailsDrawer.test
  */
@@ -45,7 +45,7 @@ function makeDoc(overrides?: Partial<FiscalDocumentListItem>): FiscalDocumentLis
   } as FiscalDocumentListItem;
 }
 
-describe('FiscalDocumentDetailsDrawer (ENG-132h)', () => {
+describe('FiscalDocumentDetailsDrawer', () => {
   it('renders the trimmed provider + full CUFE fields', () => {
     render(<FiscalDocumentDetailsDrawer item={makeDoc()} onClose={vi.fn()} />);
 
@@ -67,9 +67,7 @@ describe('FiscalDocumentDetailsDrawer (ENG-132h)', () => {
     expect(onViewXml).toHaveBeenCalledWith(doc);
 
     const noXml = makeDoc({ id: 'fd-2', xmlRef: false });
-    rerender(
-      <FiscalDocumentDetailsDrawer item={noXml} onClose={vi.fn()} onViewXml={onViewXml} />
-    );
+    rerender(<FiscalDocumentDetailsDrawer item={noXml} onClose={vi.fn()} onViewXml={onViewXml} />);
     expect(screen.queryByRole('button', { name: /view xml|ver xml/i })).not.toBeInTheDocument();
 
     const numericNoXml = makeDoc({
@@ -95,9 +93,7 @@ describe('FiscalDocumentDetailsDrawer (ENG-132h)', () => {
   it('stays closed when item is null', () => {
     render(<FiscalDocumentDetailsDrawer item={null} onClose={vi.fn()} />);
 
-    expect(
-      screen.queryByTestId('fiscal-document-details-drawer')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('fiscal-document-details-drawer')).not.toBeInTheDocument();
   });
 
   it('has no serious accessibility violations', async () => {

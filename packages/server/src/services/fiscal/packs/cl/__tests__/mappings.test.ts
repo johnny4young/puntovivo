@@ -1,12 +1,12 @@
 /**
- * ENG-036b — Tests del módulo de mapeos CL.
+ * Tests del módulo de mapeos CL.
  *
  * Pure-function tests; sin DB. Cubren:
- *   - mapPaymentMethodToFmaPago: contado vs crédito vs default.
- *   - mapInternalKindToTipoDte: factura vs boleta vs nota crédito.
- *   - mapUnitToUnmdItem: catálogo de equivalencias + fallback.
- *   - roundClp: rounding sin decimales.
- *   - computeDteTotals: afecto + exento + IVA aritmética.
+ * - mapPaymentMethodToFmaPago: contado vs crédito vs default.
+ * - mapInternalKindToTipoDte: factura vs boleta vs nota crédito.
+ * - mapUnitToUnmdItem: catálogo de equivalencias + fallback.
+ * - roundClp: rounding sin decimales.
+ * - computeDteTotals: afecto + exento + IVA aritmética.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -19,9 +19,19 @@ import {
   TASA_IVA_CL,
 } from '../mappings.js';
 
-describe('mapPaymentMethodToFmaPago (ENG-036b)', () => {
+describe('mapPaymentMethodToFmaPago', () => {
   it('mapea cash/card/transfer/etc → 1 (contado)', () => {
-    for (const m of ['cash', 'card', 'card_credit', 'card_debit', 'transfer', 'check', 'mercado_pago', 'nequi', 'other']) {
+    for (const m of [
+      'cash',
+      'card',
+      'card_credit',
+      'card_debit',
+      'transfer',
+      'check',
+      'mercado_pago',
+      'nequi',
+      'other',
+    ]) {
       expect(mapPaymentMethodToFmaPago(m)).toBe(1);
     }
   });
@@ -37,7 +47,7 @@ describe('mapPaymentMethodToFmaPago (ENG-036b)', () => {
   });
 });
 
-describe('mapInternalKindToTipoDte (ENG-036b)', () => {
+describe('mapInternalKindToTipoDte', () => {
   it('sale + buyer con RUT → 33 (factura)', () => {
     expect(mapInternalKindToTipoDte('sale', true)).toBe('33');
   });
@@ -57,7 +67,7 @@ describe('mapInternalKindToTipoDte (ENG-036b)', () => {
   });
 });
 
-describe('mapUnitToUnmdItem (ENG-036b)', () => {
+describe('mapUnitToUnmdItem', () => {
   it('mapea unidades comunes a strings SII abreviados', () => {
     expect(mapUnitToUnmdItem('unit')).toBe('un');
     expect(mapUnitToUnmdItem('PIEZA')).toBe('un'); // case-insensitive
@@ -73,7 +83,7 @@ describe('mapUnitToUnmdItem (ENG-036b)', () => {
   });
 });
 
-describe('roundClp (ENG-036b)', () => {
+describe('roundClp', () => {
   it('redondea a entero', () => {
     expect(roundClp(100.49)).toBe(100);
     expect(roundClp(100.5)).toBe(101);
@@ -91,11 +101,9 @@ describe('roundClp (ENG-036b)', () => {
   });
 });
 
-describe('computeDteTotals (ENG-036b)', () => {
+describe('computeDteTotals', () => {
   it('una sola línea afecta', () => {
-    const totals = computeDteTotals([
-      { taxRate: 19, lineTotal: 1190, taxAmount: 190 },
-    ]);
+    const totals = computeDteTotals([{ taxRate: 19, lineTotal: 1190, taxAmount: 190 }]);
     expect(totals.mntNeto).toBe(1000);
     expect(totals.mntExe).toBe(0);
     expect(totals.iva).toBe(190);
@@ -105,7 +113,7 @@ describe('computeDteTotals (ENG-036b)', () => {
   it('mezcla afecto + exento', () => {
     const totals = computeDteTotals([
       { taxRate: 19, lineTotal: 1190, taxAmount: 190 }, // neto 1000 + IVA 190
-      { taxRate: 0, lineTotal: 500, taxAmount: 0 },     // exento 500
+      { taxRate: 0, lineTotal: 500, taxAmount: 0 }, // exento 500
     ]);
     expect(totals.mntNeto).toBe(1000);
     expect(totals.mntExe).toBe(500);

@@ -1,4 +1,4 @@
-/** ENG-123 — live launch-import journeys, persistence proof, and visual evidence. */
+/** live launch-import journeys, persistence proof, and visual evidence. */
 import path from 'node:path';
 import { mkdir, readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
@@ -63,7 +63,7 @@ async function confirmRealData(page: Page, spanish = false) {
     .check();
 }
 
-test.describe('launch data import (ENG-123)', () => {
+test.describe('launch data import', () => {
   test('admin previews, imports, downloads a report, and sees catalog stock', async ({
     page,
   }, testInfo) => {

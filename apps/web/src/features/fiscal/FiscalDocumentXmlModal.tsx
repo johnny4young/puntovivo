@@ -4,16 +4,13 @@ import { Copy, Download, Check } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
-import {
-  buildSemanticFilename,
-  downloadFile,
-} from '@/services/export/exportService';
+import { buildSemanticFilename, downloadFile } from '@/services/export/exportService';
 
 export interface FiscalDocumentXmlModalProps {
   isOpen: boolean;
   onClose: () => void;
   /**
-   * ENG-103 — internal `fiscal_documents.id` (NOT cufe). The modal
+   * internal `fiscal_documents.id` (NOT cufe). The modal
    * lazily fetches the signed XML body via `reports.fiscal.getXml`
    * the first time it opens, so the list query no longer has to
    * ship ~10kb per row to render the "Ver XML" affordance.
@@ -26,11 +23,11 @@ export interface FiscalDocumentXmlModalProps {
 }
 
 /**
- * ENG-035b — Modal admin-only que muestra el XML CFDI 4.0 / DTE10 / FE
+ * Modal admin-only que muestra el XML CFDI 4.0 / DTE10 / FE
  * emitido por el adapter fiscal del país activo. Read-only: el operador
  * puede copiar al portapapeles o descargar el archivo .xml.
  *
- * ENG-103 — La descarga ahora pasa por `downloadFile` del helper
+ * La descarga ahora pasa por `downloadFile` del helper
  * centralizado en `services/export/exportService.ts`, y el XML se
  * pide lazy via `reports.fiscal.getXml`. El server arma el filename
  * canónico (`cfdi-<country>-<documentNumber>.xml`) y el MIME type
@@ -103,9 +100,7 @@ export function FiscalDocumentXmlModal({
       size="xl"
       footer={
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-secondary-500">
-            {t('document.xml.draftHint')}
-          </p>
+          <p className="text-xs text-secondary-500">{t('document.xml.draftHint')}</p>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -118,11 +113,7 @@ export function FiscalDocumentXmlModal({
               ) : (
                 <Copy className="h-4 w-4" aria-hidden />
               )}
-              <span>
-                {justCopied
-                  ? t('document.xml.copied')
-                  : t('document.xml.copy')}
-              </span>
+              <span>{justCopied ? t('document.xml.copied') : t('document.xml.copy')}</span>
             </button>
             <button
               type="button"
@@ -161,9 +152,7 @@ export function FiscalDocumentXmlModal({
             <code>{xml}</code>
           </pre>
         ) : (
-          <p className="text-sm text-secondary-500">
-            {t('document.xml.emptyState')}
-          </p>
+          <p className="text-sm text-secondary-500">{t('document.xml.emptyState')}</p>
         )}
       </div>
     </Modal>

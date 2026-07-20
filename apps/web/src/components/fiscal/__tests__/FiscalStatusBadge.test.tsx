@@ -8,7 +8,7 @@ const STATUS_LABELS: Record<FiscalDocumentStatus, string> = {
   accepted: 'Accepted',
   rejected: 'Rejected',
   contingency: 'Contingency',
-  // ENG-176c — three new statuses added so non-DIAN adapters can
+  // three new statuses added so non-DIAN adapters can
   // express their lifecycle without surrogate columns.
   voided: 'Voided',
   notified_correction: 'Correction notified',

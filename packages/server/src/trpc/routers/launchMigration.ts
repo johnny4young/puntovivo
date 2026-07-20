@@ -1,4 +1,4 @@
-/** ENG-123a/ENG-123b — Admin-only launch-migration workbench transport. */
+/** -123b — Admin-only launch-migration workbench transport. */
 import {
   commitLaunchCustomerBalanceImport,
   commitLaunchCustomerImport,

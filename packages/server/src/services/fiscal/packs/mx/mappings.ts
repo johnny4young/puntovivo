@@ -1,5 +1,5 @@
 /**
- * ENG-035b — Mapeos del modelo interno de Puntovivo a la
+ * Mapeos del modelo interno de Puntovivo a la
  * taxonomía SAT para CFDI 4.0.
  *
  * Cada país traduce el `payment_method` interno y las unidades de
@@ -7,15 +7,15 @@
  * traducciones usadas en el XML CFDI son:
  *
  * - `payment_method` → c_FormaPago (01 Efectivo, 03 Transferencia,
- *   04 Tarjeta de crédito, 28 Tarjeta de débito, etc.).
+ * 04 Tarjeta de crédito, 28 Tarjeta de débito, etc.).
  * - `unit code` → c_ClaveUnidad UN/CEFACT (H87 Pieza, KGM
- *   Kilogramo, LTR Litro, etc.).
+ * Kilogramo, LTR Litro, etc.).
  * - `tax rate (%)` → nodo cfdi:Traslado con Impuesto='002' (IVA),
- *   TipoFactor='Tasa' / 'Exento', y TasaOCuota formateada con 6
- *   decimales.
+ * TipoFactor='Tasa' / 'Exento', y TasaOCuota formateada con 6
+ * decimales.
  * - `product nombre + categoría` → c_ClaveProdServ (heurística por
- *   substring match contra los `hints` del catálogo curado;
- *   fallback a 01010101 cuando no matches).
+ * substring match contra los `hints` del catálogo curado;
+ * fallback a 01010101 cuando no matches).
  *
  * El módulo es 100% puro — sin dependencias del DB, sin acceso a
  * tenants. Recibe valores escalares y retorna estructuras
@@ -50,12 +50,12 @@ import {
  * - `check` → 02 Cheque nominativo
  * - `mercado_pago` → 06 Dinero electrónico
  * - `nequi` → 06 Dinero electrónico (CO; cuando un tenant MX usa
- *   el método Nequi por algún flujo cross-border, sigue siendo
- *   dinero electrónico)
+ * el método Nequi por algún flujo cross-border, sigue siendo
+ * dinero electrónico)
  * - `credit` → 99 Por definir (parcialidades requieren complemento
- *   de Pago 2.0; ENG-035c)
+ * de Pago 2.0; )
  * - `other` → 01 Efectivo (fallback conservador para mantener
- *   PUE válido; el cajero debe corregir el tender real en ENG-035c)
+ * PUE válido; el cajero debe corregir el tender real en )
  *
  * Métodos no listados caen al fallback '99 Por definir', que el
  * SAT acepta cuando el comprobante se emite antes de conocer la
@@ -91,17 +91,14 @@ export function mapPaymentMethodToFormaPago(internal: string): FormaPagoEntry {
   // devuelve undefined. Defensive cast para mantener el tipo.
   const entry = findFormaPago(code);
   if (!entry) {
-    throw new Error(
-      `Catálogo SAT c_FormaPago no contiene el código ${code}; revisa formaPago.ts`,
-      {
-        cause: {
-          country: 'MX',
-          catalog: 'c_FormaPago',
-          missingCode: code,
-          internal,
-        },
-      }
-    );
+    throw new Error(`Catálogo SAT c_FormaPago no contiene el código ${code}; revisa formaPago.ts`, {
+      cause: {
+        country: 'MX',
+        catalog: 'c_FormaPago',
+        missingCode: code,
+        internal,
+      },
+    });
   }
   return entry;
 }
@@ -196,7 +193,7 @@ export interface TrasladoData {
    * IVA, '0.080000' para frontera. Ausente cuando TipoFactor =
    * 'Exento'.
    */
-  // ENG-179b — explicit `| undefined` so the impuestos consolidator
+  // explicit `| undefined` so the impuestos consolidator
   // can spread partial entries under `exactOptionalPropertyTypes`.
   TasaOCuota?: string | undefined;
   /**

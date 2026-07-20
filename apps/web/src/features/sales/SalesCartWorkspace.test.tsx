@@ -1,5 +1,5 @@
 /**
- * ENG-105d — Cart toolbar coverage focused on the undo affordance.
+ * Cart toolbar coverage focused on the undo affordance.
  *
  * The component is otherwise a thin shell around `SaleCartTable`;
  * the row-level table behaviour is exercised in
@@ -12,14 +12,14 @@ import { fireEvent, screen } from '@testing-library/react';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { render } from '@/test/utils';
 
-// ENG-199 — the inner SaleCartTable reads the expiry-discount suggestions
+// the inner SaleCartTable reads the expiry-discount suggestions
 // through this hook (a trpc query underneath); mock it so this shell suite
 // stays network-free.
 vi.mock('@/features/sales/useDiscountSuggestions', () => ({
   useDiscountSuggestions: () => new Map<string, number>(),
 }));
 
-describe('SalesCartWorkspace — ENG-105d undo button', () => {
+describe('SalesCartWorkspace —  undo button', () => {
   const baseProps = {
     items: [] as never[],
     selectedItemKey: null,
@@ -39,7 +39,7 @@ describe('SalesCartWorkspace — ENG-105d undo button', () => {
     expect(screen.queryByTestId('sales-cart-undo')).toBeNull();
   });
 
-  // ENG-134d — the disabled-but-visible affordance was retired
+  // the disabled-but-visible affordance was retired
   // because `disabled:opacity-45` on the btn primitive collapsed the
   // text contrast below WCAG AA. The discoverability of `Mod+Z`
   // moved to the CommandPalette catalogue (Mod+K), which renders

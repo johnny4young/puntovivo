@@ -1,12 +1,12 @@
 /**
- * ENG-105 (slice A) — CommandPaletteProvider tests.
+ * (slice A) — CommandPaletteProvider tests.
  *
  * Pins:
- *   - Mod+K (Ctrl on non-mac) opens the palette.
- *   - A second Mod+K closes it (toggle).
- *   - The provider sets / clears the `data-command-palette-open`
- *     body dataset flag in lockstep with `isOpen`.
- *   - `useCommandPalette` throws when invoked outside the provider.
+ * - Mod+K (Ctrl on non-mac) opens the palette.
+ * - A second Mod+K closes it (toggle).
+ * - The provider sets / clears the `data-command-palette-open`
+ * body dataset flag in lockstep with `isOpen`.
+ * - `useCommandPalette` throws when invoked outside the provider.
  *
  * @module components/feedback/__tests__/CommandPaletteProvider.test
  */
@@ -25,7 +25,7 @@ vi.mock('@/features/auth/AuthProvider', () => ({
   }),
 }));
 
-// ENG-203 — the palette body wires the omnibox sell handler (trpc + cart
+// the palette body wires the omnibox sell handler (trpc + cart
 // store underneath); mock it so this suite stays network-free and can
 // assert the synthetic row's activation contract.
 const omniboxSellMock = vi.fn(async () => undefined);
@@ -104,7 +104,7 @@ function dispatchKeyFrom(element: HTMLElement, init: KeyboardEventInit) {
   });
 }
 
-describe('CommandPaletteProvider (ENG-105a)', () => {
+describe('CommandPaletteProvider', () => {
   it('opens the palette on Ctrl+K (non-mac Mod)', async () => {
     render(
       <CommandPaletteProvider>
@@ -229,7 +229,7 @@ describe('CommandPaletteProvider (ENG-105a)', () => {
   });
 });
 
-describe('omnibox sell row (ENG-203)', () => {
+describe('omnibox sell row', () => {
   async function openPaletteAndType(query: string) {
     render(
       <CommandPaletteProvider>
@@ -265,9 +265,7 @@ describe('omnibox sell row (ENG-203)', () => {
     mockRole = 'viewer';
     await openPaletteAndType('7702001');
 
-    expect(
-      screen.queryByTestId('command-palette-item-sales.sellQuery')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('command-palette-item-sales.sellQuery')).not.toBeInTheDocument();
   });
 
   it('does not offer the sell row while the query is empty', async () => {
@@ -279,8 +277,6 @@ describe('omnibox sell row (ENG-203)', () => {
     dispatchKey({ key: 'k', ctrlKey: true });
     await screen.findByTestId('command-palette');
 
-    expect(
-      screen.queryByTestId('command-palette-item-sales.sellQuery')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('command-palette-item-sales.sellQuery')).not.toBeInTheDocument();
   });
 });

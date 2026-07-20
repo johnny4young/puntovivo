@@ -1,7 +1,7 @@
 import i18next from '@/i18n';
 
 /**
- * ENG-170b — test-only synchronous priming of every i18n namespace.
+ * test-only synchronous priming of every i18n namespace.
  *
  * Production lazy-loads each non-bootstrap namespace through the
  * resourcesToBackend glob loader, but unit tests assert translated strings
@@ -17,10 +17,10 @@ import i18next from '@/i18n';
  * renders or its `useTranslation('<feature-ns>')` suspends with no boundary.
  */
 export function registerAllNamespacesForTest(): void {
-  const resources = import.meta.glob<Record<string, unknown>>(
-    '../i18n/locales/{en,es}/*.json',
-    { eager: true, import: 'default' }
-  );
+  const resources = import.meta.glob<Record<string, unknown>>('../i18n/locales/{en,es}/*.json', {
+    eager: true,
+    import: 'default',
+  });
   for (const [filePath, resource] of Object.entries(resources)) {
     const match = /\/locales\/(en|es)\/([^/]+)\.json$/.exec(filePath);
     if (!match) continue;

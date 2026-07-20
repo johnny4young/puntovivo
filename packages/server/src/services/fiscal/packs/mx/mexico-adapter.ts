@@ -1,38 +1,11 @@
 /**
- * ENG-035a / ENG-035b — Pack fiscal de México (`MexicoCFDIAdapter`).
+ * Mexico fiscal pack (`MexicoCFDIAdapter`).
  *
- * **ENG-035a (shipped)**: validación de configuración. El adapter
- * lee los settings `tenants.settings.fiscal.mx.*` y reporta
- * problemas accionables (RFC, régimen fiscal, lugar de
- * expedición, ambiente).
- *
- * **ENG-035b (este ticket)**: emisión real de XML CFDI 4.0
- * estructuralmente válido contra Anexo 20. El adapter sale del
- * stub `NotImplementedFiscalAdapter` y pasa a implementar el
- * contract `FiscalAdapter` directamente. `issue()` devuelve un
- * resultado con `cufe = uuid local`, `status = 'pending'`, y
- * `xmlRef = string XML`. Sin firmado CSD ni transmisión a PAC —
- * eso queda para ENG-035c.
- *
- * **ENG-035c (parqueado)**: integración PAC + firmado CSD +
- * complemento Pago 2.0 + cancelación SAT.
- *
- * El adapter es stateless y puro: lee `input.tenantSettings` para
- * extraer los settings MX y `input.issuerName` para el nombre del
- * emisor. El orchestrator es responsable de poblar ambos antes de
- * llamar `issue()`.
- *
- * `voidDocument()` (operación de cancelación SAT explícita, NO la
- * misma cosa que un sale.void en el lifecycle del POS) sigue
- * tirando `FISCAL_PACK_NOT_AVAILABLE` apuntando a ENG-035c —
- * cancelación SAT requiere el endpoint API del PAC, no es una
- * nueva emisión XML. El sale.void del POS, en cambio, sí pasa
- * por `issue()` con source='void' kind='ND' y se trata como CFDI
- * Egreso con CfdiRelacionados.
- *
- * `fetchStatus()` retorna 'pending' — sin PAC no hay status real
- * para reportar. El daemon de contingencia que llega con
- * ENG-035c lo va a usar para polling.
+ * Validates tenant settings and emits structurally valid CFDI 4.0 XML in
+ * `draft` maturity. Documents remain pending because CSD signing, PAC
+ * transmission, status polling, and SAT cancellation are not implemented.
+ * The adapter is stateless; the orchestrator supplies tenant settings and
+ * issuer context.
  *
  * @module services/fiscal/packs/mx/mexico-adapter
  */
@@ -54,22 +27,14 @@ import { findRegimenFiscal } from './catalogs/index.js';
 import { validateRfc } from './rfc.js';
 import { readMxFiscalSettings } from './settings.js';
 
-/**
- * Ticket que cierra cancelación SAT + PAC + firmado CSD. La
- * emisión XML ya shipa con ENG-035b.
- */
-const MX_CANCELACION_GATED_BY = 'ENG-035c';
 const MX_PROVIDER_ID = 'cfdi-mx';
 
 const MX_CAPABILITIES: FiscalAdapterCapabilities = {
-  // ENG-035b: la emisión está implementada para todos los flows
-  // que el orchestrator llama (sale, return, void → todos pasan
-  // por issue() con su source). voidDocument explícito (cancelación
-  // SAT) sigue parqueado.
+  // Sale, return y void emiten mediante issue(); la cancelación SAT
+  // explícita no está disponible.
   supportsVoid: false,
   supportsDebitNote: false,
   // fetchStatus no hace polling real — retorna 'pending' siempre.
-  // ENG-035c lo enchufa al daemon de contingencia.
   supportsFetchStatus: false,
 };
 
@@ -92,13 +57,11 @@ export class MexicoCFDIAdapter implements FiscalAdapter {
   readonly providerId = MX_PROVIDER_ID;
   readonly countryCode = 'MX';
   readonly capabilities = MX_CAPABILITIES;
-  // ENG-185 — draft: structurally-valid CFDI 4.0 XML, but unsigned (no CSD)
-  // and not transmitted to a PAC. Signing + cancelación are gated as ENG-035c.
+  // draft: structurally-valid CFDI 4.0 XML, but unsigned (no CSD)
+  // and not transmitted to a PAC. Signing and cancellation remain unavailable.
   readonly maturity = 'draft' as const;
 
-  async validateConfig(
-    input: FiscalAdapterConfig
-  ): Promise<FiscalAdapterValidationResult> {
+  async validateConfig(input: FiscalAdapterConfig): Promise<FiscalAdapterValidationResult> {
     const mx = readMxFiscalSettings(input.settings);
     const issues: FiscalAdapterValidationIssue[] = [];
 
@@ -164,7 +127,7 @@ export class MexicoCFDIAdapter implements FiscalAdapter {
 
   /**
    * Emite un comprobante CFDI 4.0 estructuralmente válido. Sin
-   * firma digital ni transmisión a PAC — eso llega con ENG-035c.
+   * firma digital ni transmisión a PAC — eso llega con .
    *
    * Lee los settings MX desde `input.tenantSettings` (poblado por
    * el orchestrator). Si los settings no están listos (RFC,
@@ -214,7 +177,7 @@ export class MexicoCFDIAdapter implements FiscalAdapter {
 
   /**
    * Cancelación SAT explícita — operación API separada en SAT, NO
-   * una nueva emisión XML. ENG-035c traerá el endpoint del PAC
+   * una nueva emisión XML.  traerá el endpoint del PAC
    * para cancelar; por ahora levanta `FISCAL_PACK_NOT_AVAILABLE`.
    *
    * Importante: el `sales.void` del POS NO llama esta función. El
@@ -228,13 +191,13 @@ export class MexicoCFDIAdapter implements FiscalAdapter {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'FISCAL_PACK_NOT_AVAILABLE',
-      message: `La cancelación SAT del CFDI 4.0 llega con ${MX_CANCELACION_GATED_BY}.`,
-      details: { countryCode: 'MX', availableInTicket: MX_CANCELACION_GATED_BY },
+      message: 'La cancelación SAT todavía no está disponible en el adaptador de México.',
+      details: { countryCode: 'MX', unavailableCapability: 'sat_cancellation' },
     });
   }
 
   /**
-   * Sin PAC no hay status real para reportar. ENG-035c enchufa el
+   * Sin PAC no hay status real para reportar.  enchufa el
    * polling al daemon de contingencia.
    */
   async fetchStatus(_cufe: string): Promise<FiscalDocumentStatus> {

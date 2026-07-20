@@ -1,5 +1,5 @@
 /**
- * ENG-070 — Public events manifest (v1).
+ * Public events manifest (v1).
  *
  * The single source of truth for the 5 public event types Puntovivo
  * exposes to integrators (future central server, ERP connectors,
@@ -9,15 +9,15 @@
  * the manifest as a discoverable surface.
  *
  * Adding a new event:
- *   1. Append to `PUBLIC_EVENT_TYPES`.
- *   2. Add a Zod schema entry in `PUBLIC_EVENT_PAYLOAD_SCHEMAS` (TS
- *      exhaustiveness on `Record<PublicEventType, ...>` blocks the
- *      forgotten arm at compile time).
- *   3. Wire the projector branch in `services/events/projector.ts`
- *      (or in the appropriate worker for non-command-driven events
- *      like `fiscal_document.accepted`).
- *   4. Bump `PUBLIC_EVENTS_VERSION` if the contract is breaking;
- *      additive changes keep the version.
+ * 1. Append to `PUBLIC_EVENT_TYPES`.
+ * 2. Add a Zod schema entry in `PUBLIC_EVENT_PAYLOAD_SCHEMAS` (TS
+ * exhaustiveness on `Record<PublicEventType, ...>` blocks the
+ * forgotten arm at compile time).
+ * 3. Wire the projector branch in `services/events/projector.ts`
+ * (or in the appropriate worker for non-command-driven events
+ * like `fiscal_document.accepted`).
+ * 4. Bump `PUBLIC_EVENTS_VERSION` if the contract is breaking;
+ * additive changes keep the version.
  *
  * Tied to ADR-0003 (5 outboxes — webhook_outbox is #5) and ADR-0007
  * (events-as-modules pattern; the `events-api` module gates
@@ -29,8 +29,8 @@
 import { z } from 'zod';
 
 /**
- * Closed list of public event types ENG-070 v1 ships. The 5
- * named in the ROADMAP AC.
+ * Closed list of public event types  v1 ships. The 5
+ * named in the acceptance contract.
  */
 export const PUBLIC_EVENT_TYPES = [
   'sale.completed',
@@ -204,7 +204,7 @@ export interface PublicEventContract {
   /**
    * Per-event field metadata. Each entry lists the field names + a
    * boolean for required-ness. Non-Zod-aware integrators get a
-   * minimal but useful surface; ENG-070b can extend this with full
+   * minimal but useful surface;  can extend this with full
    * JSON Schema if needed.
    */
   fields: Record<PublicEventType, ReadonlyArray<{ name: string; required: boolean }>>;

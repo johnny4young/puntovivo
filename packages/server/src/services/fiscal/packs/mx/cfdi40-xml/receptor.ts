@@ -1,5 +1,5 @@
 /**
- * Receptor resolution for CFDI 4.0 serialization (ENG-035b): registered
+ * Receptor resolution for CFDI 4.0 serialization (): registered
  * customer vs consumidor final vs foreign buyer.
  *
  * @module services/fiscal/packs/mx/cfdi40-xml/receptor
@@ -79,7 +79,7 @@ export function buildReceptor(
   }
 
   // El modelo actual de customers no tiene RegimenFiscalReceptor y
-  // `city` es texto libre, no código postal. Hasta que ENG-035c
+  // `city` es texto libre, no código postal. Hasta que
   // capture perfil fiscal MX del receptor, no serializamos esos
   // campos como si fueran datos SAT: caemos a público general.
   return buildPublicReceptor(fallbackPostalCode);

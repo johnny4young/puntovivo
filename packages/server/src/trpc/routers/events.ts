@@ -1,18 +1,18 @@
 /**
- * ENG-070 — `events.*` tRPC namespace.
+ * `events.*` tRPC namespace.
  *
  * Read-only surface for the public events kernel:
  *
- *   - `events.getContract` (managerOrAdmin) — returns the manifest
- *     + per-event field metadata so an integrator (or a future admin
- *     tab) can discover the public payload shapes without reading
- *     server source.
- *   - `events.peekOutbox` (managerOrAdmin) — paginated tail of
- *     `webhook_outbox` ordered by `(priority DESC, createdAt ASC)`
- *     for forensics. Mirrors `sync.peekOutbox` (ENG-064) +
- *     `peripherals.peekHardwareOutbox` (ENG-062).
+ * - `events.getContract` (managerOrAdmin) — returns the manifest
+ * + per-event field metadata so an integrator (or a future admin
+ * tab) can discover the public payload shapes without reading
+ * server source.
+ * - `events.peekOutbox` (managerOrAdmin) — paginated tail of
+ * `webhook_outbox` ordered by `(priority DESC, createdAt ASC)`
+ * for forensics. Mirrors `sync.peekOutbox` () +
+ * `peripherals.peekHardwareOutbox` ().
  *
- * No writes. ENG-070b adds the HTTP delivery worker that drains the
+ * No writes.  adds the HTTP delivery worker that drains the
  * outbox; the subscriber URL config UI gets a separate admin tab.
  *
  * @module trpc/routers/events

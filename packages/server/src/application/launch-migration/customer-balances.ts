@@ -1,4 +1,4 @@
-/** ENG-123d — Server-authoritative customer receivable opening balances. */
+/** Server-authoritative customer receivable opening balances. */
 import { createHash } from 'node:crypto';
 import { TRPCError } from '@trpc/server';
 import { and, eq, inArray, sql } from 'drizzle-orm';
@@ -316,7 +316,7 @@ export async function commitLaunchCustomerBalanceImport(
   for (const row of preview.rows) {
     if (row.status !== 'ready' || !row.normalized.customerId) continue;
     try {
-      const note = `ENG-123d opening balance import ${importId}${
+      const note = `Opening balance import ${importId}${
         row.normalized.note ? ` — ${row.normalized.note}` : ''
       }`;
       const result = importOpeningCustomerBalance(ctx, {

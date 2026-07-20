@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildVariantPreview, parseVariantAxes } from './productVariantMatrix';
 
-describe('productVariantMatrix (ENG-110b)', () => {
+describe('productVariantMatrix', () => {
   it('builds the same deterministic cartesian preview as the server', () => {
     const parsed = parseVariantAxes([
       { name: 'Size', valuesText: 'S, M' },
@@ -87,9 +87,7 @@ describe('productVariantMatrix (ENG-110b)', () => {
   });
 
   it('reserves name space for the option label when the parent name is maximal', () => {
-    const axes = parseVariantAxes([
-      { name: 'Color', valuesText: 'Ocean Blue, Sunset Red' },
-    ]).axes;
+    const axes = parseVariantAxes([{ name: 'Color', valuesText: 'Ocean Blue, Sunset Red' }]).axes;
     const preview = buildVariantPreview({ name: 'P'.repeat(255), sku: 'MAX' }, axes);
 
     expect(preview.map(row => row.name)).toEqual([

@@ -1,7 +1,7 @@
 /**
  * Receipt renderer data-shape contract.
  *
- * ENG-178 — extracted verbatim from the former single-file
+ * extracted verbatim from the former single-file
  * `services/receipt-renderer.ts` (1204 LOC) during the megafile decomposition.
  * Pure types (no runtime), so every module in `receipt-renderer/` can depend on
  * this leaf without a cycle. The barrel re-exports all of these under the same
@@ -48,7 +48,7 @@ export interface RenderSale {
   taxTotal: number;
   tip: number;
   /**
-   * ENG-039d3 — Restaurant service charge / propina sugerida. Currency
+   * Restaurant service charge / propina sugerida. Currency
    * value auto-applied from the tenant's configured rate; rendered on
    * its own totals line. Defaults to 0 for tenants without the setting.
    */
@@ -68,7 +68,7 @@ export interface RenderFiscal {
   resolution?: string | null;
   documentNumber?: string | null;
   /**
-   * ENG-058 — Raw fiscal document status from the outbox lifecycle
+   * Raw fiscal document status from the outbox lifecycle
    * (`pending`, `sent`, `accepted`, `rejected`, `contingency`). The
    * renderer never infers acceptance from CUFE presence — when a
    * template wants to display the status it binds `{{fiscal.status}}`
@@ -78,7 +78,7 @@ export interface RenderFiscal {
    */
   status?: FiscalDocumentStatus | null;
   /**
-   * ENG-058 — Pre-resolved i18n label for `status`. The renderer is
+   * Pre-resolved i18n label for `status`. The renderer is
    * a pure function and does not load i18n; callers (the editor
    * preview, the future `sales.renderReceiptHtml` procedure) resolve
    * the label via `t('fiscal:status.<status>')` and pass it in.
@@ -98,14 +98,14 @@ export interface RenderData {
   fiscal?: RenderFiscal;
   logoDataUrl?: string | null;
   /**
-   * ENG-017 — resolved tenant locale. When present the renderer
+   * resolved tenant locale. When present the renderer
    * formats currency-typed fields (unitPrice, total, subtotal, tax,
    * tenders, change) through `Intl.NumberFormat` so receipts match
    * the tenant's country (COP with 0 decimals for Colombia, USD with
    * 2 for USA, CLP with 0 for Chile, etc.). Optional for backwards
    * compatibility with test callers that synthesise RenderData by
    * hand — when absent the renderer falls back to raw `.toFixed(2)`
-   * without a currency symbol (pre-ENG-017 behaviour).
+   * without a currency symbol (pre- behaviour).
    */
   locale?: ReceiptRenderLocale;
 }

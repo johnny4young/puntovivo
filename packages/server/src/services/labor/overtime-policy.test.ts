@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveOvertimePolicy } from './overtime-policy.js';
 
-describe('overtime policy catalogue (ENG-140c)', () => {
+describe('overtime policy catalogue', () => {
   it('resolves Colombia weekly and night-window transitions by local date', () => {
     expect(resolveOvertimePolicy('CO', '2026-07-14')).toMatchObject({
       id: 'CO-2025-44H-NIGHT-19',

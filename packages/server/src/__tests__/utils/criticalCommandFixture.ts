@@ -1,5 +1,5 @@
 /**
- * ENG-052 — Test fixture for procedures wrapped with
+ * Test fixture for procedures wrapped with
  * `criticalCommandProcedure`.
  *
  * Pre-registers a device for the active tenant + user, and returns a
@@ -9,18 +9,18 @@
  * Three call patterns:
  *
  * - `createCriticalCommandFixture(input)` — one-shot: registers a
- *   device and returns a context + fresh envelope. Good for unit
- *   tests that exercise a single critical procedure.
+ * device and returns a context + fresh envelope. Good for unit
+ * tests that exercise a single critical procedure.
  * - `freshCriticalContext(input)` — pure builder: takes an already
- *   registered `deviceId` and returns a context with a fresh
- *   envelope. Used by the factory below for high-volume test files.
+ * registered `deviceId` and returns a context with a fresh
+ * envelope. Used by the factory below for high-volume test files.
  * - `makeFreshContextFactory(setup)` — closure: pre-binds tenant /
- *   user / device / site / role and returns a function that mints a
- *   new context (with fresh envelope) per call. Pair with
- *   `appRouter.createCaller(fresh())` for ergonomic replacement of
- *   the legacy `createTestContext()` pattern in test files where
- *   most procedures are critical (sales, cashSessions, transfers,
- *   inventory, users — ENG-052b).
+ * user / device / site / role and returns a function that mints a
+ * new context (with fresh envelope) per call. Pair with
+ * `appRouter.createCaller(fresh())` for ergonomic replacement of
+ * the legacy `createTestContext()` pattern in test files where
+ * most procedures are critical (sales, cashSessions, transfers,
+ * inventory, users — ).
  *
  * The helper does NOT spin up a tRPC caller — it returns the raw
  * Context so each test can decide whether to use
@@ -69,12 +69,14 @@ export async function createCriticalCommandFixture(
 ): Promise<CriticalCommandFixture> {
   const deviceId =
     input.deviceId ??
-    (await registerDeviceService(input.db, {
-      tenantId: input.tenantId,
-      userId: input.userId,
-      kind: 'web',
-      name: 'test-device',
-    })).deviceId;
+    (
+      await registerDeviceService(input.db, {
+        tenantId: input.tenantId,
+        userId: input.userId,
+        kind: 'web',
+        name: 'test-device',
+      })
+    ).deviceId;
 
   const envelope: CommandEnvelope = input.envelope ?? {
     operationId: randomUUID(),
@@ -138,7 +140,7 @@ export function freshCriticalContext(input: {
   role: 'admin' | 'manager' | 'cashier' | 'viewer';
   siteId: string;
   deviceId: string;
-  // ENG-179b — explicit `| undefined` on optional fixture override.
+  // explicit `| undefined` on optional fixture override.
   envelope?: CommandEnvelope | undefined;
 }): Context {
   const envelope: CommandEnvelope = input.envelope ?? {
@@ -206,7 +208,7 @@ export interface FreshContextOverrides {
  * that mints a fresh `Context` per call. The returned factory is the
  * recommended replacement for the legacy `createTestContext()` helper
  * in test files where the dominant procedure surface is critical
- * (ENG-052b).
+ * ().
  *
  * Usage:
  *
@@ -214,11 +216,11 @@ export interface FreshContextOverrides {
  * let fresh: ReturnType<typeof makeFreshContextFactory>;
  *
  * beforeAll(async () => {
- *   const reg = await registerDeviceService(db, { tenantId, userId, kind: 'web', name: 'test' });
- *   fresh = makeFreshContextFactory({
- *     db, serverApp: server.app, tenantId, userId, email,
- *     siteId, deviceId: reg.deviceId, defaultRole: 'admin',
- *   });
+ * const reg = await registerDeviceService(db, { tenantId, userId, kind: 'web', name: 'test' });
+ * fresh = makeFreshContextFactory({
+ * db, serverApp: server.app, tenantId, userId, email,
+ * siteId, deviceId: reg.deviceId, defaultRole: 'admin',
+ * });
  * });
  *
  * const caller = appRouter.createCaller(fresh());

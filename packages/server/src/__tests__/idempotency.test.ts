@@ -1,5 +1,5 @@
 /**
- * ENG-052 — Tests for the idempotency service + keyHasher.
+ * Tests for the idempotency service + keyHasher.
  */
 import { describe, expect, it, beforeEach, beforeAll } from 'vitest';
 import { nanoid } from 'nanoid';
@@ -7,10 +7,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { devices, tenants, users } from '../db/schema.js';
 import { hash } from 'argon2';
-import {
-  hashCanonicalInput,
-  __test_canonicalize,
-} from '../services/idempotency/keyHasher.js';
+import { hashCanonicalInput, __test_canonicalize } from '../services/idempotency/keyHasher.js';
 import {
   IDEMPOTENCY_DEFAULT_TTL_MS,
   cleanupExpired,
@@ -58,7 +55,7 @@ beforeAll(async () => {
   });
 });
 
-describe('keyHasher canonicalize (ENG-052)', () => {
+describe('keyHasher canonicalize', () => {
   it('produces identical hash regardless of object key order', () => {
     const a = hashCanonicalInput({ foo: 1, bar: 2 });
     const b = hashCanonicalInput({ bar: 2, foo: 1 });
@@ -89,7 +86,7 @@ describe('keyHasher canonicalize (ENG-052)', () => {
   });
 });
 
-describe('idempotencyService reservation lifecycle (ENG-052)', () => {
+describe('idempotencyService reservation lifecycle', () => {
   it('first call reserves a key before the command runs', async () => {
     const result = await reserveKey(getDatabase(), {
       tenantId,
@@ -296,22 +293,26 @@ describe('idempotencyService reservation lifecycle (ENG-052)', () => {
     const otherTenantId = nanoid();
     const otherUserId = nanoid();
     const otherDeviceId = nanoid();
-    await getDatabase().insert(tenants).values({
-      id: otherTenantId,
-      name: 'Other',
-      slug: `other-${otherTenantId.slice(0, 6)}`,
-      settings: {},
-      isActive: true,
-    });
-    await getDatabase().insert(users).values({
-      id: otherUserId,
-      tenantId: otherTenantId,
-      email: `other-${otherUserId.slice(0, 6)}@test.local`,
-      passwordHash: await hash('TestPassword123!'),
-      name: 'Other',
-      role: 'admin',
-      isActive: true,
-    });
+    await getDatabase()
+      .insert(tenants)
+      .values({
+        id: otherTenantId,
+        name: 'Other',
+        slug: `other-${otherTenantId.slice(0, 6)}`,
+        settings: {},
+        isActive: true,
+      });
+    await getDatabase()
+      .insert(users)
+      .values({
+        id: otherUserId,
+        tenantId: otherTenantId,
+        email: `other-${otherUserId.slice(0, 6)}@test.local`,
+        passwordHash: await hash('TestPassword123!'),
+        name: 'Other',
+        role: 'admin',
+        isActive: true,
+      });
     await getDatabase().insert(devices).values({
       id: otherDeviceId,
       tenantId: otherTenantId,

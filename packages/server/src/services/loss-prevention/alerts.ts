@@ -87,7 +87,7 @@ function alertAcknowledgedCondition(tenantId: string) {
   )`;
 }
 
-/** ENG-142d — project immutable trigger evidence into the manager notification center. */
+/** project immutable trigger evidence into the manager notification center. */
 export function listLossPreventionAlerts(args: {
   db: DatabaseInstance;
   tenantId: string;

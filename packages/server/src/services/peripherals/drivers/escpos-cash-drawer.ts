@@ -1,5 +1,5 @@
 /**
- * ENG-062 — `escpos` cash drawer driver.
+ * `escpos` cash drawer driver.
  *
  * RJ11 cash drawers open via a single 5-byte pulse on the printer
  * stream (`ESC p 0 25 250`). The drawer is physically wired into
@@ -15,8 +15,8 @@
  * `kick()` writes the canonical drawer-pulse bytes to the
  * configured transport. The action is idempotent: a stale retry
  * just re-pulses the relay, which is harmless on every drawer
- * model we've tested. ENG-062 ships only the `escpos` driver for
- * cash drawers; ENG-060's contract leaves room for future drivers
+ * model we've tested.  ships only the `escpos` driver for
+ * cash drawers; 's contract leaves room for future drivers
  * (USB-HID drawers, networked relays) without contract churn.
  *
  * @module services/peripherals/drivers/escpos-cash-drawer
@@ -26,11 +26,7 @@ import { z } from 'zod';
 import type { CashDrawerAdapter, KickResult } from '../contracts/cash-drawer.js';
 import type { NormalizedHardwareError, TestResult } from '../types.js';
 import { ESCPOS_BYTES } from '../escpos/byte-builder.js';
-import {
-  EscPosTransportError,
-  resolveTransport,
-  type EscPosChannel,
-} from '../escpos/transport.js';
+import { EscPosTransportError, resolveTransport, type EscPosChannel } from '../escpos/transport.js';
 import { addEscPosTcpTargetIssues } from '../escpos/tcp-target-policy.js';
 
 // =============================================================================
@@ -114,9 +110,7 @@ export class EscPosCashDrawerAdapter implements CashDrawerAdapter {
     return {
       status: 'failed',
       message: result.error?.message ?? 'Drawer kick failed',
-      details: result.error
-        ? { kind: result.error.kind, ...(result.error.details ?? {}) }
-        : null,
+      details: result.error ? { kind: result.error.kind, ...(result.error.details ?? {}) } : null,
     };
   }
 }

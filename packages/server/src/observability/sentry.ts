@@ -1,5 +1,5 @@
 /**
- * ENG-135b — Sentry / GlitchTip adapter for the server-side
+ * Sentry / GlitchTip adapter for the server-side
  * `TelemetrySink`.
  *
  * This module is the ONLY file that touches the `@sentry/node` API
@@ -11,17 +11,17 @@
  * choice is just whose DSN the env var carries.
  *
  * Consent layers (documented in docs/OBSERVABILITY.md):
- *   - Tenant-attributed events still flow through the per-tenant
- *     opt-in gate in `capture.ts` — this adapter only receives what
- *     that gate forwards, already redacted.
- *   - Setting the DSN is the operator-level consent for tenant-less
- *     app diagnostics (process crash captures via
- *     `captureProcessCrash`).
+ * - Tenant-attributed events still flow through the per-tenant
+ * opt-in gate in `capture.ts` — this adapter only receives what
+ * that gate forwards, already redacted.
+ * - Setting the DSN is the operator-level consent for tenant-less
+ * app diagnostics (process crash captures via
+ * `captureProcessCrash`).
  *
  * The adapter never throws: a malformed DSN or an SDK init failure
  * logs a structured warning and leaves the `noopSink` in place — a
  * telemetry failure can never block a boot or a sale (mirrors the
- * ENG-020/054 fiscal stance).
+ * fiscal stance).
  */
 
 import { createModuleLogger } from '../logging/logger.js';
@@ -88,16 +88,10 @@ export function isServerTelemetryAdapterActive(): boolean {
  * carry arbitrary values. Drop everything non-primitive instead of
  * stringifying — nested payloads belong on exceptions, not spans.
  */
-function toSpanAttributes(
-  attrs: TelemetryEventAttrs
-): Record<string, string | number | boolean> {
+function toSpanAttributes(attrs: TelemetryEventAttrs): Record<string, string | number | boolean> {
   const out: Record<string, string | number | boolean> = {};
   for (const [key, value] of Object.entries(attrs)) {
-    if (
-      typeof value === 'string' ||
-      typeof value === 'number' ||
-      typeof value === 'boolean'
-    ) {
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
       out[key] = value;
     }
   }
@@ -166,17 +160,17 @@ function resolveTracesSampleRate(raw: string | undefined): number {
  * standalone server and the embedded desktop server flow through it.
  *
  * Behaviour:
- *   - `PUNTOVIVO_SENTRY_DSN` unset/empty → returns false without
- *     importing the SDK; the `noopSink` stays active.
- *   - Already active → returns true without re-initialising (tests
- *     boot many servers per process; only the first DSN-set boot
- *     wires the pipe).
- *   - SDK import/init failure → logs a warning, returns false, and
- *     leaves the `noopSink` in place. NEVER throws.
+ * - `PUNTOVIVO_SENTRY_DSN` unset/empty → returns false without
+ * importing the SDK; the `noopSink` stays active.
+ * - Already active → returns true without re-initialising (tests
+ * boot many servers per process; only the first DSN-set boot
+ * wires the pipe).
+ * - SDK import/init failure → logs a warning, returns false, and
+ * leaves the `noopSink` in place. NEVER throws.
  *
  * `defaultIntegrations: false` is deliberate: the SDK's
  * auto-instrumentation monkey-patches http/undici and would distort
- * the ENG-133 p95 latency budgets; every event in this codebase
+ * the  p95 latency budgets; every event in this codebase
  * reaches the sink through the explicit capture helpers instead.
  */
 export async function initServerTelemetryAdapter(
@@ -194,13 +188,10 @@ export async function initServerTelemetryAdapter(
     const sdk = (await import('@sentry/node')) as unknown as SentryNodeLike;
     sdk.init({
       dsn,
-      environment:
-        env.PUNTOVIVO_RUNTIME_ENV ?? env.NODE_ENV ?? 'development',
+      environment: env.PUNTOVIVO_RUNTIME_ENV ?? env.NODE_ENV ?? 'development',
       release: options.appVersion ?? 'unknown',
       defaultIntegrations: false,
-      tracesSampleRate: resolveTracesSampleRate(
-        env.PUNTOVIVO_SENTRY_TRACES_SAMPLE_RATE
-      ),
+      tracesSampleRate: resolveTracesSampleRate(env.PUNTOVIVO_SENTRY_TRACES_SAMPLE_RATE),
     });
     registerTelemetrySink(buildSink(sdk));
     activeSdk = sdk;
@@ -210,10 +201,7 @@ export async function initServerTelemetryAdapter(
     );
     return true;
   } catch (err) {
-    log.warn(
-      { err },
-      'telemetry adapter init failed; staying on local-only logging'
-    );
+    log.warn({ err }, 'telemetry adapter init failed; staying on local-only logging');
     return false;
   }
 }

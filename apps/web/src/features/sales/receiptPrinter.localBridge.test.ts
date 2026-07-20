@@ -11,15 +11,15 @@ import {
   type RendererRuntimeConfig,
 } from '@/lib/runtimeConfigClient';
 
-// ENG-074b — renderer fork pins for the local hardware bridge.
+// renderer fork pins for the local hardware bridge.
 //
 // The helpers under test route ESC/POS dispatch based on the
 // authority mode reported by `getRuntimeConfigSync()`:
-//   - device_local / site_hub → server-managed (existing path).
-//   - hub_client + IPC bridge → fetch bytes from hub + pipe through
-//     `window.electron.peripherals.dispatchLocalEscpos`.
-//   - hub_client + IPC missing → graceful fallback so the legacy
-//     HTML print path still runs.
+// - device_local / site_hub → server-managed (existing path).
+// - hub_client + IPC bridge → fetch bytes from hub + pipe through
+// `window.electron.peripherals.dispatchLocalEscpos`.
+// - hub_client + IPC missing → graceful fallback so the legacy
+// HTML print path still runs.
 
 type BridgeIpcFn = (payload: {
   bytes: number[];
@@ -69,7 +69,7 @@ afterEach(() => {
   delete getMutableWindow().electron;
 });
 
-describe('createEscposReceiptDispatcher (ENG-074b)', () => {
+describe('createEscposReceiptDispatcher', () => {
   it('routes through serverPrint in device_local mode', async () => {
     setBridgeRuntime({
       authorityMode: 'device_local',
@@ -77,9 +77,7 @@ describe('createEscposReceiptDispatcher (ENG-074b)', () => {
       siteId: null,
       deviceId: null,
     });
-    const serverPrint = vi.fn(
-      async (): Promise<EscPosDispatchOutcome> => ({ status: 'printed' })
-    );
+    const serverPrint = vi.fn(async (): Promise<EscPosDispatchOutcome> => ({ status: 'printed' }));
     const fetchHubReceiptBytes = vi.fn();
     const dispatcher = createEscposReceiptDispatcher({
       serverPrint,
@@ -98,9 +96,9 @@ describe('createEscposReceiptDispatcher (ENG-074b)', () => {
       siteId: 'site_1',
       deviceId: 'dev_1',
     });
-    const serverPrint = vi.fn(
-      async (): Promise<EscPosDispatchOutcome> => ({ status: 'system-fallback' })
-    );
+    const serverPrint = vi.fn(async (): Promise<EscPosDispatchOutcome> => ({
+      status: 'system-fallback',
+    }));
     const fetchHubReceiptBytes = vi.fn();
     const dispatcher = createEscposReceiptDispatcher({
       serverPrint,
@@ -124,13 +122,11 @@ describe('createEscposReceiptDispatcher (ENG-074b)', () => {
       captured.push(payload.bytes);
       return { success: true };
     });
-    const fetchHubReceiptBytes = vi.fn(
-      async (): Promise<HubReceiptBytesPayload> => ({
-        status: 'ready',
-        bytes: [0x1b, 0x40, 0x41, 0x42, 0x43],
-        transportHint: { channel: 'tcp', host: '127.0.0.1', port: 9100 },
-      })
-    );
+    const fetchHubReceiptBytes = vi.fn(async (): Promise<HubReceiptBytesPayload> => ({
+      status: 'ready',
+      bytes: [0x1b, 0x40, 0x41, 0x42, 0x43],
+      transportHint: { channel: 'tcp', host: '127.0.0.1', port: 9100 },
+    }));
     const serverPrint = vi.fn();
     const dispatcher = createEscposReceiptDispatcher({
       serverPrint,
@@ -175,13 +171,11 @@ describe('createEscposReceiptDispatcher (ENG-074b)', () => {
     });
     const dispatchSpy = vi.fn();
     setBridgeIpc(dispatchSpy);
-    const fetchHubReceiptBytes = vi.fn(
-      async (): Promise<HubReceiptBytesPayload> => ({
-        status: 'system-fallback',
-        bytes: [],
-        transportHint: null,
-      })
-    );
+    const fetchHubReceiptBytes = vi.fn(async (): Promise<HubReceiptBytesPayload> => ({
+      status: 'system-fallback',
+      bytes: [],
+      transportHint: null,
+    }));
     const dispatcher = createEscposReceiptDispatcher({
       serverPrint: vi.fn(),
       fetchHubReceiptBytes,
@@ -203,13 +197,11 @@ describe('createEscposReceiptDispatcher (ENG-074b)', () => {
       error: 'connection refused',
       errorCode: 'TCP_REFUSED',
     }));
-    const fetchHubReceiptBytes = vi.fn(
-      async (): Promise<HubReceiptBytesPayload> => ({
-        status: 'ready',
-        bytes: [0x1b],
-        transportHint: { channel: 'tcp', host: '127.0.0.1', port: 9100 },
-      })
-    );
+    const fetchHubReceiptBytes = vi.fn(async (): Promise<HubReceiptBytesPayload> => ({
+      status: 'ready',
+      bytes: [0x1b],
+      transportHint: { channel: 'tcp', host: '127.0.0.1', port: 9100 },
+    }));
     const dispatcher = createEscposReceiptDispatcher({
       serverPrint: vi.fn(),
       fetchHubReceiptBytes,
@@ -246,7 +238,7 @@ describe('createEscposReceiptDispatcher (ENG-074b)', () => {
   });
 });
 
-describe('dispatchDrawerKick (ENG-074b)', () => {
+describe('dispatchDrawerKick', () => {
   it('routes through serverKick in device_local mode', async () => {
     setBridgeRuntime({
       authorityMode: 'device_local',
@@ -277,13 +269,11 @@ describe('dispatchDrawerKick (ENG-074b)', () => {
       captured.push(payload.bytes);
       return { success: true };
     });
-    const fetchHubDrawerBytes = vi.fn(
-      async (): Promise<HubDrawerBytesPayload> => ({
-        status: 'ready',
-        bytes: [0x1b, 0x70, 0x00, 0x19, 0xfa],
-        transportHint: { channel: 'tcp', host: '127.0.0.1', port: 9100 },
-      })
-    );
+    const fetchHubDrawerBytes = vi.fn(async (): Promise<HubDrawerBytesPayload> => ({
+      status: 'ready',
+      bytes: [0x1b, 0x70, 0x00, 0x19, 0xfa],
+      transportHint: { channel: 'tcp', host: '127.0.0.1', port: 9100 },
+    }));
     const result = await dispatchDrawerKick({
       serverKick: vi.fn(),
       fetchHubDrawerBytes,
@@ -301,13 +291,11 @@ describe('dispatchDrawerKick (ENG-074b)', () => {
     });
     const dispatchSpy = vi.fn();
     setBridgeIpc(dispatchSpy);
-    const fetchHubDrawerBytes = vi.fn(
-      async (): Promise<HubDrawerBytesPayload> => ({
-        status: 'no-drawer-registered',
-        bytes: [],
-        transportHint: null,
-      })
-    );
+    const fetchHubDrawerBytes = vi.fn(async (): Promise<HubDrawerBytesPayload> => ({
+      status: 'no-drawer-registered',
+      bytes: [],
+      transportHint: null,
+    }));
     const result = await dispatchDrawerKick({
       serverKick: vi.fn(),
       fetchHubDrawerBytes,

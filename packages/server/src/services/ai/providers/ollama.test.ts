@@ -1,5 +1,5 @@
 /**
- * ENG-040b slice 1 — Ollama provider activation tests.
+ * slice 1 — Ollama provider activation tests.
  *
  * The provider routes through the community `ollama-ai-provider-v2`
  * package, which constructs a Vercel AI SDK language-model factory.
@@ -9,24 +9,24 @@
  * of `completeAI` / `extractInvoiceFromImage` / `matchInvoiceLinesToProducts`.
  *
  * What this test pins:
- *  - `id`, `defaultModelId`, free pricing for any usage shape.
- *  - `isConfigured()` is unconditionally `true` (no API key surface;
- *    the daemon either answers on the configured base URL or it
- *    doesn't, and the first real call surfaces that).
- *  - The base-URL resolver honours `OLLAMA_BASE_URL` and falls back to
- *    `http://localhost:11434` when the env var is unset or blank.
- *  - `languageModel` and `visionModel` exist and return non-null
- *    builders (so the existing vision-capability check in
- *    `extractInvoiceFromImage` passes).
- *  - `cacheControlForSystemPrompt()` returns `undefined`.
- *  - `embeddingModel` returns the Ollama embedding factory and
- *    advertises `nomic-embed-text` as the provider default.
+ * - `id`, `defaultModelId`, free pricing for any usage shape.
+ * - `isConfigured()` is unconditionally `true` (no API key surface;
+ * the daemon either answers on the configured base URL or it
+ * doesn't, and the first real call surfaces that).
+ * - The base-URL resolver honours `OLLAMA_BASE_URL` and falls back to
+ * `http://localhost:11434` when the env var is unset or blank.
+ * - `languageModel` and `visionModel` exist and return non-null
+ * builders (so the existing vision-capability check in
+ * `extractInvoiceFromImage` passes).
+ * - `cacheControlForSystemPrompt()` returns `undefined`.
+ * - `embeddingModel` returns the Ollama embedding factory and
+ * advertises `nomic-embed-text` as the provider default.
  */
 import { describe, expect, it } from 'vitest';
 
 import { __ollamaInternals, ollamaProvider } from './ollama.js';
 
-describe('ai/providers/ollama (ENG-040b slice 1)', () => {
+describe('ai/providers/ollama ( slice 1)', () => {
   describe('identity + pricing', () => {
     it('id is ollama', () => {
       expect(ollamaProvider.id).toBe('ollama');
@@ -82,12 +82,8 @@ describe('ai/providers/ollama (ENG-040b slice 1)', () => {
       const original = process.env.OLLAMA_BASE_URL;
       try {
         delete process.env.OLLAMA_BASE_URL;
-        expect(__ollamaInternals.resolveBaseUrl()).toBe(
-          'http://localhost:11434'
-        );
-        expect(__ollamaInternals.DEFAULT_OLLAMA_BASE_URL).toBe(
-          'http://localhost:11434'
-        );
+        expect(__ollamaInternals.resolveBaseUrl()).toBe('http://localhost:11434');
+        expect(__ollamaInternals.DEFAULT_OLLAMA_BASE_URL).toBe('http://localhost:11434');
       } finally {
         if (original === undefined) {
           delete process.env.OLLAMA_BASE_URL;
@@ -101,9 +97,7 @@ describe('ai/providers/ollama (ENG-040b slice 1)', () => {
       const original = process.env.OLLAMA_BASE_URL;
       try {
         process.env.OLLAMA_BASE_URL = 'https://gpu.lan:11434';
-        expect(__ollamaInternals.resolveBaseUrl()).toBe(
-          'https://gpu.lan:11434'
-        );
+        expect(__ollamaInternals.resolveBaseUrl()).toBe('https://gpu.lan:11434');
       } finally {
         if (original === undefined) {
           delete process.env.OLLAMA_BASE_URL;
@@ -117,9 +111,7 @@ describe('ai/providers/ollama (ENG-040b slice 1)', () => {
       const original = process.env.OLLAMA_BASE_URL;
       try {
         process.env.OLLAMA_BASE_URL = '   ';
-        expect(__ollamaInternals.resolveBaseUrl()).toBe(
-          'http://localhost:11434'
-        );
+        expect(__ollamaInternals.resolveBaseUrl()).toBe('http://localhost:11434');
       } finally {
         if (original === undefined) {
           delete process.env.OLLAMA_BASE_URL;
@@ -159,11 +151,11 @@ describe('ai/providers/ollama (ENG-040b slice 1)', () => {
   });
 
   describe('embeddingModel', () => {
-    // ENG-040b slice 2 — Ollama embeddings activated via
+    // slice 2 — Ollama embeddings activated via
     // `ollama-ai-provider-v2.embedding(modelId)`. The factory itself
     // doesn't hit the network until `embedMany({ model, ... })` runs,
     // so the unit assertion is limited to the contract shape.
-    it('is implemented and returns a model factory (ENG-040b slice 2)', () => {
+    it('is implemented and returns a model factory ( slice 2)', () => {
       expect(ollamaProvider.embeddingModel).toBeDefined();
       expect(typeof ollamaProvider.embeddingModel).toBe('function');
       const model = ollamaProvider.embeddingModel?.('nomic-embed-text');
@@ -180,9 +172,7 @@ describe('ai/providers/ollama (ENG-040b slice 1)', () => {
       expect(ollamaProvider.defaultEmbeddingModelId).toBe(
         __ollamaInternals.FALLBACK_EMBEDDING_MODEL_ID
       );
-      expect(__ollamaInternals.FALLBACK_EMBEDDING_MODEL_ID).toBe(
-        'nomic-embed-text'
-      );
+      expect(__ollamaInternals.FALLBACK_EMBEDDING_MODEL_ID).toBe('nomic-embed-text');
     });
   });
 });

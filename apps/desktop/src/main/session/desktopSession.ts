@@ -1,5 +1,5 @@
 /**
- * Desktop session singleton (ENG-025 vector 1).
+ * Desktop session singleton.
  *
  * The Electron preload exposes a `db.*` / `sync.*` IPC bridge that
  * historically accepted the `tenantId` as a renderer-supplied
@@ -34,9 +34,7 @@ const sessionLog = createModuleLogger('desktop-session');
  * tests pass a stub that returns a fabricated payload (or null) without
  * booting Fastify.
  */
-export type AccessTokenVerifier = (
-  token: string
-) => Promise<AuthTokenPayload | null>;
+export type AccessTokenVerifier = (token: string) => Promise<AuthTokenPayload | null>;
 
 /**
  * Error thrown when an IPC handler runs without a registered
@@ -70,18 +68,15 @@ let current: DesktopSessionState | null = null;
  * authenticated identity for subsequent IPC handlers.
  *
  * @param accessToken The bearer token the renderer just received from
- *               `auth.login` (or a successful `auth.refresh`).
+ * `auth.login` (or a successful `auth.refresh`).
  * @param verify Closure that resolves the token to an `AuthTokenPayload`
- *               (or `null` when invalid). Production callers pass
- *               `t => verifyTokenWithServer(server.app, t, 'access')`;
- *               tests pass a stub.
+ * (or `null` when invalid). Production callers pass
+ * `t => verifyTokenWithServer(server.app, t, 'access')`;
+ * tests pass a stub.
  * @throws Error(SESSION_REGISTER_REJECTED) when the token cannot be
- *               validated. Caller should treat this as "log out".
+ * validated. Caller should treat this as "log out".
  */
-export async function register(
-  accessToken: string,
-  verify: AccessTokenVerifier
-): Promise<void> {
+export async function register(accessToken: string, verify: AccessTokenVerifier): Promise<void> {
   if (typeof accessToken !== 'string' || accessToken.length === 0) {
     sessionLog.warn({ reason: 'empty-token' }, 'session:register rejected');
     throw new Error(SESSION_REGISTER_REJECTED);

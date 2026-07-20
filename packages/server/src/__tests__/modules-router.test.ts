@@ -1,20 +1,20 @@
 /**
- * ENG-068 — `modules.*` tRPC router integration tests.
+ * `modules.*` tRPC router integration tests.
  *
  * Drives the kernel's three procedures end-to-end against an
  * in-memory DB. Coverage:
  *
- *   - `modules.list` returns every manifest entry joined with the
- *     tenant's effective state + the explicit-vs-default flag.
- *   - `modules.getEffective` returns a complete `Record<ModuleId, boolean>`.
- *   - `modules.setActive` flips `tenants.settings.modules[id]` AND
- *     writes an audit log row with before/after snapshot.
- *   - `modules.setActive` is a no-op when state already matches
- *     (idempotent path returns `changed: false`).
- *   - `modules.setActive` admin-only — manager + cashier FORBIDDEN.
- *   - Cross-tenant isolation: A's setActive doesn't affect B.
- *   - Unknown module id → BAD_REQUEST via Zod refine.
- *   - JSON merge preserves sibling settings (fiscal, ai, locale).
+ * - `modules.list` returns every manifest entry joined with the
+ * tenant's effective state + the explicit-vs-default flag.
+ * - `modules.getEffective` returns a complete `Record<ModuleId, boolean>`.
+ * - `modules.setActive` flips `tenants.settings.modules[id]` AND
+ * writes an audit log row with before/after snapshot.
+ * - `modules.setActive` is a no-op when state already matches
+ * (idempotent path returns `changed: false`).
+ * - `modules.setActive` admin-only — manager + cashier FORBIDDEN.
+ * - Cross-tenant isolation: A's setActive doesn't affect B.
+ * - Unknown module id → BAD_REQUEST via Zod refine.
+ * - JSON merge preserves sibling settings (fiscal, ai, locale).
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -167,8 +167,7 @@ async function freshFor(
   h: RouterHarness,
   role: 'admin' | 'manager' | 'cashier'
 ): Promise<CriticalCommandFixture> {
-  const userId =
-    role === 'admin' ? h.adminId : role === 'manager' ? h.managerId : h.cashierId;
+  const userId = role === 'admin' ? h.adminId : role === 'manager' ? h.managerId : h.cashierId;
   return createCriticalCommandFixture({
     db: getDatabase(),
     serverApp: server.app,
@@ -188,7 +187,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('modules.list (ENG-068)', () => {
+describe('modules.list', () => {
   it('returns every manifest entry with the effective state for a fresh tenant (defaults)', async () => {
     const h = await seedHarness('list-fresh');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
@@ -237,7 +236,7 @@ describe('modules.list (ENG-068)', () => {
   });
 });
 
-describe('modules.getEffective (ENG-068)', () => {
+describe('modules.getEffective', () => {
   it('returns a complete map keyed on every known module', async () => {
     const h = await seedHarness('eff-fresh');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
@@ -256,7 +255,7 @@ describe('modules.getEffective (ENG-068)', () => {
   });
 });
 
-describe('modules.setActive (ENG-068)', () => {
+describe('modules.setActive', () => {
   it('flips the persisted state + writes an audit log row', async () => {
     const h = await seedHarness('set-flip');
     const db = getDatabase();
@@ -278,11 +277,7 @@ describe('modules.setActive (ENG-068)', () => {
     expect(modules?.copilot).toBe(false);
 
     // Audit row.
-    const audit = await db
-      .select()
-      .from(auditLogs)
-      .where(eq(auditLogs.tenantId, h.tenantId))
-      .all();
+    const audit = await db.select().from(auditLogs).where(eq(auditLogs.tenantId, h.tenantId)).all();
     const moduleRows = audit.filter(r => r.action === 'module.toggle');
     expect(moduleRows).toHaveLength(1);
     expect(moduleRows[0]?.resourceType).toBe('tenant_module');

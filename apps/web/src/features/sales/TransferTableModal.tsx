@@ -1,7 +1,7 @@
 /**
- * ENG-039c2 — Transfer-to-table modal.
+ * Transfer-to-table modal.
  *
- * Wires the `sales.changeTable` mutation (shipped in ENG-039c) into a
+ * Wires the `sales.changeTable` mutation (shipped in ) into a
  * dialog a manager/admin opens from `SuspendedSalesPanel`. The mutation
  * already validates tenant + site scope + role server-side; this UI
  * exists only to pick the target table and surface the resolved outcome
@@ -12,7 +12,7 @@
  * see which tables already have an open draft — those rows get an
  * "(ocupada)" suffix but stay selectable. The server has the final
  * say (one draft per table is not yet enforced in this slice; that
- * conflict-resolution work travels with the deferred ENG-039c3
+ * conflict-resolution work travels with the deferred
  * split-bill slice).
  *
  * Defensive: when the catalog is empty / errors / loading, the parent
@@ -53,9 +53,7 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
   const { currentSite } = useTenant();
 
   const tablesQuery = trpc.restaurantTables.listWithDraftStatus.useQuery(
-    currentSite
-      ? { siteId: currentSite.id, includeArchived: false }
-      : (undefined as never),
+    currentSite ? { siteId: currentSite.id, includeArchived: false } : (undefined as never),
     { enabled: Boolean(currentSite) && draft !== null }
   );
   const tables = tablesQuery.data?.items ?? [];
@@ -63,7 +61,7 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
   // Selection state. The `<select>` value is either a real tableId or
   // the sentinel CLEAR_TABLE_VALUE. We map the sentinel back to `null`
   // on confirm — the server's `changeTable` mutation accepts
-  // `{ tableId: string | null }` per the ENG-039c contract.
+  // `{ tableId: string | null }` per the  contract.
   //
   // The parent (`SuspendedSalesPanel`) wraps this component with a
   // `key={draft?.id}` so React remounts a fresh instance whenever the
@@ -84,7 +82,7 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
       ]);
       const resolvedName =
         variables && 'tableId' in variables && variables.tableId
-          ? tables.find(row => row.id === variables.tableId)?.name ?? null
+          ? (tables.find(row => row.id === variables.tableId)?.name ?? null)
           : null;
       toast.success({
         title: resolvedName
@@ -94,9 +92,7 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
       onClose();
     },
     onError: error => {
-      setErrorMessage(
-        translateServerError(error, t, t('errors:server.unknown'))
-      );
+      setErrorMessage(translateServerError(error, t, t('errors:server.unknown')));
     },
   });
 
@@ -150,10 +146,7 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
       <div className="space-y-4">
         <div className="rounded-xl bg-secondary-50 p-3 text-sm text-secondary-700">
           <p className="font-semibold text-secondary-950">{draft.saleNumber}</p>
-          <p
-            className="mt-1 text-xs text-secondary-600"
-            data-testid="transfer-modal-current-label"
-          >
+          <p className="mt-1 text-xs text-secondary-600" data-testid="transfer-modal-current-label">
             {t('restaurants:transfer.currentLine', { current: currentLabel })}
           </p>
         </div>
@@ -166,10 +159,7 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
             {t('restaurants:transfer.selectLabel')}
           </label>
           {tablesQuery.isLoading ? (
-            <p
-              className="mt-2 text-sm text-secondary-500"
-              data-testid="transfer-modal-loading"
-            >
+            <p className="mt-2 text-sm text-secondary-500" data-testid="transfer-modal-loading">
               {t('restaurants:transfer.loading')}
             </p>
           ) : tablesQuery.isError ? (
@@ -178,11 +168,7 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
               data-testid="transfer-modal-load-error"
               role="alert"
             >
-              {translateServerError(
-                tablesQuery.error,
-                t,
-                t('errors:server.unknown')
-              )}
+              {translateServerError(tablesQuery.error, t, t('errors:server.unknown'))}
             </p>
           ) : (
             <select
@@ -193,13 +179,10 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
               onChange={event => setSelectedValue(event.target.value)}
               disabled={transferMutation.isPending}
             >
-              <option value={CLEAR_TABLE_VALUE}>
-                {t('restaurants:transfer.clearOption')}
-              </option>
+              <option value={CLEAR_TABLE_VALUE}>{t('restaurants:transfer.clearOption')}</option>
               {tables.map(row => {
                 const isCurrent = row.id === draft.tableId;
-                const isOccupiedElsewhere =
-                  !isCurrent && row.openDraft !== null;
+                const isOccupiedElsewhere = !isCurrent && row.openDraft !== null;
                 const suffix = isCurrent
                   ? t('restaurants:transfer.currentSuffix')
                   : isOccupiedElsewhere

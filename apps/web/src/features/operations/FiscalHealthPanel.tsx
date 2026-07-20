@@ -15,15 +15,15 @@ import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { TablePagination } from '@/components/tables/TablePagination';
 
 /**
- * ENG-065a — Operations Center: Fiscal Health panel.
+ * Operations Center: Fiscal Health panel.
  *
  * Surfaces fiscal documents that need operator action (status
  * `contingency` or `rejected`) plus a tail of recent `accepted` rows
  * for context. Per-row "Reintentar" button is admin-only and wires
  * through `reports.fiscal.retryDocument`. Read-only access is
- * manager + admin (the procedure was widened in ENG-065a).
+ * manager + admin (the procedure was widened in ).
  *
- * Rediseño FASE 6 (O1) — hereda las recetas pv-*: titulación de panel
+ * hereda las recetas pv-*: titulación de panel
  * (.pv-kicker / .pv-title), filtro segmented (.pv-seg), KPI con la
  * receta única (danger cuando hay documentos por resolver), tabla densa
  * (.pv-table) y estado vacío del sistema (EmptyState).
@@ -120,9 +120,7 @@ export function FiscalHealthPanel() {
         })}
       </nav>
 
-      {listQuery.isLoading && (
-        <p className="text-sm text-secondary-500">{t('common.loading')}</p>
-      )}
+      {listQuery.isLoading && <p className="text-sm text-secondary-500">{t('common.loading')}</p>}
 
       {listQuery.error && (
         <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
@@ -166,20 +164,15 @@ export function FiscalHealthPanel() {
                       <td>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <FiscalStatusBadge status={item.status} />
-                          {/* ENG-185 — flag demo/draft provider docs. */}
+                          {/* flag demo/draft provider docs. */}
                           <FiscalMaturityBadge maturity={item.maturity} />
                         </div>
                       </td>
-                      <td className="muted whitespace-nowrap">
-                        {formatDateTime(item.emittedAt)}
-                      </td>
+                      <td className="muted whitespace-nowrap">{formatDateTime(item.emittedAt)}</td>
                       <td>{item.buyerName}</td>
+                      <td className="num">{formatCurrency(item.totalAmount, item.currencyCode)}</td>
                       <td className="num">
-                        {formatCurrency(item.totalAmount, item.currencyCode)}
-                      </td>
-                      <td className="num">
-                        {(item.status === 'contingency' ||
-                          item.status === 'rejected') && (
+                        {(item.status === 'contingency' || item.status === 'rejected') && (
                           <button
                             type="button"
                             className="pv-btn outline ml-auto"
@@ -204,9 +197,7 @@ export function FiscalHealthPanel() {
               </tbody>
             </table>
           </div>
-          {hasPagination && (
-            <TablePagination {...pagination} onPageChange={pagination.setPage} />
-          )}
+          {hasPagination && <TablePagination {...pagination} onPageChange={pagination.setPage} />}
         </div>
       )}
     </section>

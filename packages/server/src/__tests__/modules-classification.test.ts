@@ -1,13 +1,13 @@
 /**
- * ENG-183 — Module classification + Ring-1 retail profile invariants.
+ * Module classification + Ring-1 retail profile invariants.
  *
  * Guards the product-scope contract that the runtime now enforces:
- *   - every module is classified (core / compliance / optional / experimental)
- *     and assigned a market ring;
- *   - the Ring-1 retail profile written for a fresh tenant covers every module
- *     id and enables ONLY the core (Ring-1 sellability) modules, so a fresh
- *     retail tenant never lands on restaurant / delivery / public-API / AI
- *     surfaces.
+ * - every module is classified (core / compliance / optional / experimental)
+ * and assigned a market ring;
+ * - the Ring-1 retail profile written for a fresh tenant covers every module
+ * id and enables ONLY the core (Ring-1 sellability) modules, so a fresh
+ * retail tenant never lands on restaurant / delivery / public-API / AI
+ * surfaces.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -26,7 +26,7 @@ const CLASSIFICATIONS: readonly ModuleClassification[] = [
   'experimental',
 ];
 
-describe('module classification (ENG-183)', () => {
+describe('module classification', () => {
   it('classifies every module with a valid class and ring', () => {
     for (const id of MODULE_IDS) {
       const descriptor = MODULES_MANIFEST[id];
@@ -41,7 +41,7 @@ describe('module classification (ENG-183)', () => {
   });
 });
 
-describe('RING1_RETAIL_PROFILE (ENG-183)', () => {
+describe('RING1_RETAIL_PROFILE', () => {
   it('covers every known module id with an explicit boolean', () => {
     expect(Object.keys(RING1_RETAIL_PROFILE).sort()).toEqual([...MODULE_IDS].sort());
     for (const id of MODULE_IDS) {

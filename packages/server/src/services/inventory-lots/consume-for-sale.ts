@@ -107,7 +107,7 @@ export interface RestoreLotsForSaleInput {
  * Result of {@link restoreLotsForSale}: how many provenance rows were
  * reversed and which distinct lots were credited back. `lotIds` exists so
  * the reversal use-cases can enqueue the mutated lots to the sync outbox
- * post-commit (ENG-192) — the lot rows are marked sync-pending in here, but
+ * post-commit () — the lot rows are marked sync-pending in here, but
  * enqueueing is the caller's post-transaction responsibility.
  */
 export interface RestoreLotsForSaleResult {

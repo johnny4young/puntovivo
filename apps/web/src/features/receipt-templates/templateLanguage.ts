@@ -1,24 +1,24 @@
 /**
- * Receipt template StreamLanguage (ENG-016 pass 4 — CodeMirror 6).
+ * Receipt template StreamLanguage ( pass 4 — CodeMirror 6).
  *
  * Tokenizes the moustache-style grammar that the renderer accepts:
  *
- *   text                             — anything outside `{{ ... }}`
- *   {{ namespace.path }}             — bare-path substitution
- *   {{ fn(arg, arg, …) }}            — whitelisted formatter call
- *   {{ fn(literal, "string", 1.5) }} — literals as args
- *   {{ fn(other(arg)) }}             — one level of nested call
+ * text                             — anything outside `{{ ... }}`
+ * {{ namespace.path }}             — bare-path substitution
+ * {{ fn(arg, arg, …) }}            — whitelisted formatter call
+ * {{ fn(literal, "string", 1.5) }} — literals as args
+ * {{ fn(other(arg)) }}             — one level of nested call
  *
  * Token classes line up with `@lezer/highlight` standard tags so any
  * default CodeMirror theme (one-dark, one-light, etc.) renders the
  * tokens in distinct colors. The tags chosen:
  *
- *   bracket          — the `{{` and `}}` delimiters
- *   variableName     — namespace + property identifiers
- *   function(varName)— function-call names
- *   string           — quoted literal arguments
- *   number           — numeric literal arguments
- *   punctuation      — `.` `,` `(` `)`
+ * bracket          — the `{{` and `}}` delimiters
+ * variableName     — namespace + property identifiers
+ * function(varName)— function-call names
+ * string           — quoted literal arguments
+ * number           — numeric literal arguments
+ * punctuation      — `.` `,` `(` `)`
  *
  * The grammar is shallow enough that StreamLanguage's per-line token
  * stream is sufficient — there is no need for the full Lezer parser
@@ -118,7 +118,9 @@ const streamParser: StreamParser<State> = {
 
     if (
       DIGIT.test(ch) ||
-      (ch === '-' && stream.string[stream.pos + 1] !== undefined && DIGIT.test(stream.string[stream.pos + 1]!))
+      (ch === '-' &&
+        stream.string[stream.pos + 1] !== undefined &&
+        DIGIT.test(stream.string[stream.pos + 1]!))
     ) {
       stream.next();
       while (!stream.eol() && DIGIT.test(stream.peek() ?? '')) stream.next();

@@ -11,7 +11,7 @@ import { paginationInput } from './common.js';
 import { isUrlSchemeBlocked } from '../../lib/urlSafety.js';
 
 /**
- * ENG-169 — product image: refine-only (no `.url()`) so existing
+ * product image: refine-only (no `.url()`) so existing
  * relative paths and `data:image/...` values keep validating, while
  * dangerous schemes (javascript:, data:text/html, …) are rejected at
  * the schema boundary. Nullable/optional pass through untouched.
@@ -62,7 +62,7 @@ export const listProductsInput = paginationInput.extend({
   search: z.string().optional(),
   categoryId: z.string().optional(),
   isActive: z.boolean().optional(),
-  // ENG-110b — operational consumers keep the safe default and never receive
+  // operational consumers keep the safe default and never receive
   // catalog-only matrix parents. The catalog page opts in explicitly.
   includeVariantParents: z.boolean().default(false),
 });
@@ -92,7 +92,7 @@ export const createProductInput = z
     providerId: z.string().nullable().optional(),
     locationId: z.string().nullable().optional(),
     initialCost: z.number().min(0, 'Initial cost must be non-negative').default(0),
-    // Phase 1 DB-050: stock accepts real numbers so ferreterías (2.5 m cable)
+    // stock accepts real numbers so ferreterías (2.5 m cable)
     // and supermarkets (0.75 kg produce) can track fractional quantities.
     stock: z.number().min(0).default(0),
     minStock: z.number().min(0).default(0),
@@ -131,7 +131,7 @@ export const createProductInput = z
 export const updateProductInput = z
   .object({
     id: z.string().min(1, 'ID is required'),
-    // ENG-177a — optimistic-concurrency token (see updateCustomerInput).
+    // optimistic-concurrency token (see updateCustomerInput).
     version: z.number().int().nonnegative(),
     name: z.string().min(1).max(255).optional(),
     sku: z.string().min(1).max(100).optional(),
@@ -152,7 +152,7 @@ export const updateProductInput = z
     providerId: z.string().nullable().optional(),
     locationId: z.string().nullable().optional(),
     initialCost: z.number().min(0).optional(),
-    // Phase 1 DB-050: see createProductInput above.
+    // see createProductInput above.
     stock: z.number().min(0).optional(),
     minStock: z.number().min(0).optional(),
     sellByFraction: z.boolean().optional(),
@@ -247,7 +247,7 @@ export const searchProductsInput = z.object({
   isActive: z.boolean().optional(),
 });
 
-// ENG-061 — exact-match scanner lookup. Distinct from `searchProductsInput`
+// exact-match scanner lookup. Distinct from `searchProductsInput`
 // because the scanner pipeline needs deterministic resolution (no
 // substring false positives) plus GS1-aware decoding.
 export const lookupByBarcodeInput = z.object({

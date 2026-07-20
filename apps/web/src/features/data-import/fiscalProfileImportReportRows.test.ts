@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildFiscalProfileImportReportRows } from './fiscalProfileImportReportRows';
 
-describe('ENG-123f fiscal profile report rows', () => {
+describe(' fiscal profile report rows', () => {
   it('prefers commit-time row classifications over stale preview state', () => {
     const preview = {
       dataMode: 'real' as const,

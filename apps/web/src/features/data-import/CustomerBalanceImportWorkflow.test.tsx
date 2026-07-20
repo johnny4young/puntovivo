@@ -131,7 +131,7 @@ vi.mock('@/services/export/exportService', () => ({
   exportToCSV: mocks.exportToCSV,
 }));
 
-describe('ENG-123d CustomerBalanceImportWorkflow', () => {
+describe(' CustomerBalanceImportWorkflow', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     for (const invalidate of [

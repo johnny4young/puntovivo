@@ -1,5 +1,5 @@
 /**
- * ENG-105c — Quick-create product mounter for SalesPage.
+ * Quick-create product mounter for SalesPage.
  *
  * Subscribes to `useQuickCreateStore.requestedCreateProduct`. When a
  * request lands, lazily loads the product-form lookups (categories,
@@ -25,10 +25,7 @@ import {
 } from '@/features/products/ProductFormModal';
 import { trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import {
-  selectRequestedCreateProduct,
-  useQuickCreateStore,
-} from './useQuickCreateStore';
+import { selectRequestedCreateProduct, useQuickCreateStore } from './useQuickCreateStore';
 import type { Product } from '@/types';
 
 interface QuickCreateProductGateProps {

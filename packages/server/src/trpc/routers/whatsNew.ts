@@ -1,15 +1,15 @@
 /**
- * What's-New tRPC Router — ENG-092
+ * What's-New tRPC Router —
  *
  * Per-release announcement records. Tenant-scoped or product-wide
  * (tenant_id IS NULL). Auth-checked users see unseen entries; the
- * Overlay primitive (ENG-082) surfaces the most recent unseen one,
+ * Overlay primitive () surfaces the most recent unseen one,
  * and `markSeen` writes an ack so the same release does not repeat.
  *
  * Procedures:
- *  - whatsNew.listUnseen (auth)     — entries the user hasn't acked
- *  - whatsNew.markSeen   (auth)     — write an ack
- *  - whatsNew.publish    (admin)    — create a new entry
+ * - whatsNew.listUnseen (auth)     — entries the user hasn't acked
+ * - whatsNew.markSeen   (auth)     — write an ack
+ * - whatsNew.publish    (admin)    — create a new entry
  *
  * @module trpc/routers/whatsNew
  */
@@ -37,7 +37,7 @@ export const whatsNewRouter = router({
   listUnseen: tenantProcedure.query(async ({ ctx }) => {
     // Read every entry visible to this tenant (own + product-wide)
     // and remove the ones the current user has already acked.
-    // ENG-092 surfaces only the most recent unseen one to the
+    // surfaces only the most recent unseen one to the
     // Overlay, but the listing returns the full set so a Settings
     // → Novedades archive can render history later.
     const ackedRows = await ctx.db

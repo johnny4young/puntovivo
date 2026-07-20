@@ -37,11 +37,7 @@ function makePreviewSafeBlock(block: EditorReceiptBlock): EditorReceiptBlock {
  * utilities and the receipt is hard-coded to a courier monospace look
  * that would clash if rendered inline.
  */
-export function ReceiptTemplatePreview({
-  layout,
-  kind,
-  className,
-}: ReceiptTemplatePreviewProps) {
+export function ReceiptTemplatePreview({ layout, kind, className }: ReceiptTemplatePreviewProps) {
   const { t } = useTranslation(['receiptTemplates', 'errors']);
   // Debounce client-side so a fast typist in a text block does not
   // blast the server with one query per keystroke. The renderer is
@@ -80,7 +76,7 @@ export function ReceiptTemplatePreview({
         discount: t('editor.totalsLines.discount'),
         taxTotal: t('editor.totalsLines.taxTotal'),
         tip: t('editor.totalsLines.tip'),
-        // ENG-039d3 — service charge label paired with the receipt
+        // service charge label paired with the receipt
         // renderer's `serviceCharge` totals line.
         serviceCharge: t('editor.totalsLines.serviceCharge'),
         grandTotal: t('editor.totalsLines.grandTotal'),
@@ -127,24 +123,16 @@ export function ReceiptTemplatePreview({
   );
 
   return (
-    <div
-      className={className ?? 'rounded-lg border border-line bg-surface p-4 shadow-sm'}
-    >
+    <div className={className ?? 'rounded-lg border border-line bg-surface p-4 shadow-sm'}>
       {hasTemplateLintIssues ? (
         <div className="text-sm text-error" role="alert">
           {t('editor.previewPanel.templateIssues')}
         </div>
       ) : previewQuery.isLoading ? (
-        <div className="flex h-72 items-center justify-center text-sm text-secondary-500">
-          …
-        </div>
+        <div className="flex h-72 items-center justify-center text-sm text-secondary-500">…</div>
       ) : previewQuery.error ? (
         <div className="text-sm text-error">
-          {translateServerError(
-            previewQuery.error,
-            t,
-            t('errors:server.unknown')
-          )}
+          {translateServerError(previewQuery.error, t, t('errors:server.unknown'))}
         </div>
       ) : (
         <iframe

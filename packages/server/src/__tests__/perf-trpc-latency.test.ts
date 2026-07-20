@@ -1,5 +1,5 @@
 /**
- * ENG-133 — tRPC p95 latency CI gate.
+ * tRPC p95 latency CI gate.
  *
  * Runs a curated set of read procedures with measured warmup +
  * samples and asserts the p95 fits inside the per-procedure budget
@@ -13,10 +13,10 @@
  * `createCaller` — no HTTP layer, no JWT verification overhead.
  *
  * Mitigations against CI runner jitter:
- *   - `warmupIterations` discarded measurements (JIT settling).
- *   - `samplesPerProcedure` per procedure (= 50 by default).
- *   - p95 (not p99) for less tail noise.
- *   - 20% threshold over budget.
+ * - `warmupIterations` discarded measurements (JIT settling).
+ * - `samplesPerProcedure` per procedure (= 50 by default).
+ * - p95 (not p99) for less tail noise.
+ * - 20% threshold over budget.
  *
  * @module __tests__/perf-trpc-latency.test
  */
@@ -66,19 +66,11 @@ function buildCtx(): Context {
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const admin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!admin) throw new Error('Expected seeded admin');
   tenantId = admin.tenantId;
   userId = admin.id;
-  const siteRow = await db
-    .select()
-    .from(sites)
-    .where(eq(sites.tenantId, tenantId))
-    .get();
+  const siteRow = await db.select().from(sites).where(eq(sites.tenantId, tenantId)).get();
   if (!siteRow) throw new Error('Expected at least one seeded site');
   siteId = siteRow.id;
 
@@ -134,7 +126,7 @@ afterAll(async () => {
  * Dispatch map: budget key → caller invocation. Adding a procedure
  * to the gate means adding a JSON key in `perf-budget.json` AND a
  * branch here so the suite knows how to call it. Inputs are minimal
- * — pagination + identity defaults.
+ * pagination + identity defaults.
  */
 async function invokeProcedureForLatency(key: string): Promise<void> {
   const caller = appRouter.createCaller(buildCtx());
@@ -161,7 +153,7 @@ async function invokeProcedureForLatency(key: string): Promise<void> {
   }
 }
 
-describe('tRPC p95 latency budgets (ENG-133)', () => {
+describe('tRPC p95 latency budgets', () => {
   it('computePercentile matches the canonical formula', () => {
     // Linear interpolation (NumPy default): rank = (p/100) * (n-1).
     // p50 of [10,20,30] → rank 1 → exact 20.

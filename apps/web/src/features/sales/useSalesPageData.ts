@@ -2,14 +2,8 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useReceiptAutoPrint } from '@/features/sales/useReceiptAutoPrint';
-import {
-  type PreflightBlockerId,
-  type PreflightItem,
-} from '@/features/sales/useCheckoutPreflight';
-import {
-  DEFAULT_WEDGE_CONFIG,
-  type WedgeConfig,
-} from '@/features/sales/useBarcodeWedgeListener';
+import { type PreflightBlockerId, type PreflightItem } from '@/features/sales/useCheckoutPreflight';
+import { DEFAULT_WEDGE_CONFIG, type WedgeConfig } from '@/features/sales/useBarcodeWedgeListener';
 import { trpc } from '@/lib/trpc';
 import type {
   CashSession,
@@ -26,7 +20,7 @@ import type {
 /**
  * Params for {@link useSalesPageData}.
  *
- * ENG-178 slice 16b-2 — the SalesPage data layer (the nine tRPC queries +
+ * slice 16b-2 — the SalesPage data layer (the nine tRPC queries +
  * their derived/normalized values + the checkout-readiness memo + the shared
  * peripherals derivations) was extracted verbatim from SalesPage. The hook
  * reads the tenant/site/user context + the selected-register id from the
@@ -49,7 +43,7 @@ export interface UseSalesPageDataParams {
  * `checkoutReadinessItems` preflight memo, and the normalized arrays + derived
  * flags the shell threads into the checkout panel, the modal clusters, and the
  * scanner/drawer hooks. The single `peripherals.activeForSite` subscription
- * (ENG-061/062/097) lives here and is exposed only as derived values
+ * () lives here and is exposed only as derived values
  * (`autoPrintEnabled`/`scannerConfig`/`hasRegisteredDrawer`), never re-queried.
  */
 export function useSalesPageData({
@@ -58,7 +52,7 @@ export function useSalesPageData({
   user,
   selectedRegisterAssignmentId,
 }: UseSalesPageDataParams) {
-  // ENG-171 — `placeholderData: keepPreviousData` on the high-traffic
+  // `placeholderData: keepPreviousData` on the high-traffic
   // entry queries so navigating into /sales (or re-fetching on a key
   // change such as a site switch) keeps the last data on screen instead
   // of blanking the shell while the new request is in flight. Paired with
@@ -84,7 +78,7 @@ export function useSalesPageData({
   const registerAssignmentsQuery = trpc.cashSessions.registerAssignments.useQuery(undefined, {
     enabled: !!currentSite,
   });
-  // ENG-018b — pre-fetch suspended-drafts count for the close-session
+  // pre-fetch suspended-drafts count for the close-session
   // modal warning. Query stays enabled so the panel toggle + the
   // modal warning always see a fresh count; the payload is tiny
   // (paginated, 50 rows max).
@@ -94,12 +88,12 @@ export function useSalesPageData({
   );
   const suspendedDraftsCount = draftsQuery.data?.totalItems ?? 0;
 
-  // ENG-097 — auto-print on sale completion.
+  // auto-print on sale completion.
   //
   // The active site's active printer config is read via the SAME
-  // `peripherals.activeForSite` query that ENG-061 already mounts for
+  // `peripherals.activeForSite` query that  already mounts for
   // the barcode scanner + cash-drawer detection. This hook owns that
-  // single subscription so both ENG-097 and the ENG-061/062 consumers
+  // single subscription so both  and the  consumers
   // (scanner, cash drawer) share it — two separate `useQuery` calls
   // would resolve to the same cache key but generate duplicate
   // background refetches with mismatched `staleTime`. When the active
@@ -129,13 +123,13 @@ export function useSalesPageData({
     const config = printer.config as Record<string, unknown> | null;
     return config?.autoPrintOnComplete === true;
   })();
-  // ENG-097 — auto-print on sale completion. `autoPrintEnabled` is derived
+  // auto-print on sale completion. `autoPrintEnabled` is derived
   // from the SHARED `peripherals.activeForSite` query (single subscription
   // for scanner + drawer + auto-print); `maybeAutoPrint` fires from the
   // mutation success paths after the completion toast.
   const maybeAutoPrint = useReceiptAutoPrint({ autoPrintEnabled });
 
-  // ENG-105b — Checkout preflight. Surfaces actionable blockers above
+  // Checkout preflight. Surfaces actionable blockers above
   // the Cobrar button so the cashier resolves them BEFORE pressing F1
   // instead of bouncing off a server toast mid-checkout. Pre-modal
   // primitives (paymentMethod, selectedCustomer, pendingDiscountAmount)
@@ -143,7 +137,7 @@ export function useSalesPageData({
   // blocker families, leaving the current modal-level fallback toasts
   // in place. Future slices will plumb pre-attach customer / cart-level
   // discount through here.
-  // ENG-184 — checkout readiness reminders from the server (fiscal not
+  // checkout readiness reminders from the server (fiscal not
   // active, no printer, no payment rail, sync backlog). Loading / errored
   // → no items, so a slow or offline server NEVER blocks the sale
   // (local-first). All warnings; cashiers see the message, only
@@ -153,8 +147,7 @@ export function useSalesPageData({
     { siteId: currentSite?.id ?? '' },
     { enabled: !!currentSite, staleTime: 60_000 }
   );
-  const canNavigateToSetup =
-    user?.role === 'admin' || user?.role === 'manager';
+  const canNavigateToSetup = user?.role === 'admin' || user?.role === 'manager';
   const checkoutReadinessItems = useMemo<PreflightItem[]>(() => {
     const items = checkoutReadinessQuery.data?.items;
     if (!items || items.length === 0) return [];
@@ -218,14 +211,14 @@ export function useSalesPageData({
     !registerAssignmentsQuery.isLoading &&
     hasAvailableRegisterAssignment;
 
-  // ENG-062 / ENG-106c3 — role-aware cash drawer kick. `hasRegisteredDrawer` is
+  // /  — role-aware cash drawer kick. `hasRegisteredDrawer` is
   // derived here from the shared peripherals query and passed into
   // `useCashDrawerController`; the button is hidden unless a drawer is
   // registered and the actor has a sales role (cashiers escalate separately).
   const hasRegisteredDrawer = !!peripheralsForSiteQuery.data?.find(
     r => r.kind === 'cash_drawer' && r.driver === 'escpos'
   );
-  // ENG-061 — barcode scanner pipeline. `scannerConfig` is derived from
+  // barcode scanner pipeline. `scannerConfig` is derived from
   // the shared peripherals query and passed into `useBarcodeProductScanner`;
   // GS1 weight/price-embedded labels override quantity / unitPrice
   // server-side so the cart line reflects the weighed package.

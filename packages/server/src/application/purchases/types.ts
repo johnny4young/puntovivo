@@ -1,7 +1,7 @@
 /**
  * Purchase use-case types.
  *
- * ENG-178 — extracted from the former monolithic `trpc/routers/purchases.ts`
+ * extracted from the former monolithic `trpc/routers/purchases.ts`
  * during the megafile decomposition. The purchase logic moved into this
  * `application/purchases/` layer (mirroring `application/sales/`), leaving the
  * router thin. Behavior is unchanged.
@@ -17,12 +17,12 @@ import type { CreatePurchaseInput } from '../../trpc/schemas/purchases.js';
  * so the application layer does not depend on the tRPC context type.
  *
  * - `siteId` is nullable: a purchase tolerates a missing active site and
- *   falls back to the tenant's first active purchase sequential's site
- *   (see `getPurchaseSequentialContext` / `getPurchaseSiteContext`).
+ * falls back to the tenant's first active purchase sequential's site
+ * (see `getPurchaseSequentialContext` / `getPurchaseSiteContext`).
  * - `envelope` / `deviceId` are optional and structurally compatible with
- *   `enqueueSync`'s `EnqueueSyncContext`; the purchase procedures run on the
- *   plain manager/admin guards (no command-envelope middleware), so they are
- *   normally absent — `enqueueSync` reads them defensively.
+ * `enqueueSync`'s `EnqueueSyncContext`; the purchase procedures run on the
+ * plain manager/admin guards (no command-envelope middleware), so they are
+ * normally absent — `enqueueSync` reads them defensively.
  */
 export interface PurchaseContext {
   db: DatabaseInstance;

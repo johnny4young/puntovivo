@@ -103,14 +103,14 @@ describe('ResourcePage', () => {
 });
 
 /**
- * ENG-220 — the error title used to be built as
+ * the error title used to be built as
  * `Unable to load ${title.toLowerCase()}` in the component. Unlike the other
  * English strings in the shared components, it was NOT a default a caller
  * could override: it rendered for every locale, so a Spanish operator whose
  * network hiccuped read "Unable to load clientes" — half a sentence in a
  * language this product does not ship in.
  */
-describe('ResourcePage error title localization (ENG-220)', () => {
+describe('ResourcePage error title localization', () => {
   afterEach(async () => {
     await i18n.changeLanguage('en');
   });

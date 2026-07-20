@@ -1,4 +1,4 @@
-/** ENG-202 — living, role-aware checklist for a tenant's first completed sale. */
+/** living, role-aware checklist for a tenant's first completed sale. */
 
 import { useEffect, useState } from 'react';
 import { ArrowRight, Check, Circle, PartyPopper, Rocket, X } from 'lucide-react';
@@ -27,8 +27,7 @@ interface FirstSaleGuideProps {
 export function FirstSaleGuide({ openRequest }: FirstSaleGuideProps) {
   const { user } = useAuth();
   const { currentSite } = useTenant();
-  const canSell =
-    user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier';
+  const canSell = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier';
   const siteId = currentSite?.id ?? '';
   const readinessQuery = trpc.setupReadiness.firstSale.useQuery(
     { siteId },
@@ -66,11 +65,7 @@ interface GuideUiState {
   closedRequest: number | null;
 }
 
-function FirstSaleGuideContent({
-  openRequest,
-  role,
-  readiness,
-}: FirstSaleGuideContentProps) {
+function FirstSaleGuideContent({ openRequest, role, readiness }: FirstSaleGuideContentProps) {
   const { t } = useTranslation('setup');
   const [ui, setUi] = useState<GuideUiState>(() => ({
     lastCompleted: readiness.completed,
@@ -101,9 +96,7 @@ function FirstSaleGuideContent({
   const canManageCatalog = role === 'admin' || role === 'manager';
   const manualOpen = openRequest > 0 && ui.closedRequest !== openRequest;
   const visible =
-    ui.celebrating ||
-    manualOpen ||
-    (!readiness.completed && ui.closedRequest === null);
+    ui.celebrating || manualOpen || (!readiness.completed && ui.closedRequest === null);
 
   if (!visible) return null;
 
@@ -136,9 +129,7 @@ function FirstSaleGuideContent({
             >
               {t('firstSale.completedTitle')}
             </h2>
-            <p className="mt-0.5 text-sm text-fg2">
-              {t('firstSale.completedDescription')}
-            </p>
+            <p className="mt-0.5 text-sm text-fg2">{t('firstSale.completedDescription')}</p>
           </div>
           <button
             type="button"

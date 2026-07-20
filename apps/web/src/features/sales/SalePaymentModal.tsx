@@ -1,7 +1,7 @@
 /**
  * Sale payment drawer shell.
  *
- * ENG-178 — decomposed from the former 1048-LOC single file during the
+ * decomposed from the former 1048-LOC single file during the
  * megafile wave. This shell keeps the Drawer wrapper, the grand-total header,
  * the service-charge line, the customer picker, the notes field, the footer,
  * and composes the tip / single-tender / split-tender / credit sub-components.
@@ -120,11 +120,10 @@ export function SalePaymentModal({
       >
         {formatCurrency(grandTotal)}
       </p>
-      {/*
-        ENG-039d3 — breakdown line picks one of three i18n keys so
+      {/* breakdown line picks one of three i18n keys so
         the renderer never interpolates "+ servicio $0.00" when the
         tenant has no rate configured. Tip-only matches the original
-        ENG-039d copy; service-only and service-with-tip add the
+         copy; service-only and service-with-tip add the
         extra segment in neutral LATAM tú.
       */}
       {serviceChargeAmount > 0 && tipAmount > 0 && (
@@ -182,8 +181,7 @@ export function SalePaymentModal({
       }
     >
       <form id="sale-payment-form" className="space-y-4" onSubmit={handleSubmit}>
-        {/*
-          ENG-039d3 — read-only service charge line. Hidden when the
+        {/* read-only service charge line. Hidden when the
           tenant has no rate configured so non-restaurant operators see
           no extra surface. The amount is derived from the prop rate;
           the server re-validates at submit time.
@@ -227,7 +225,7 @@ export function SalePaymentModal({
               </option>
             ))}
           </select>
-          {/* ENG-213 — the picked customer's point balance; silent for
+          {/* the picked customer's point balance; silent for
            * walk-ins and for customers without points. */}
           <CustomerLoyaltyChip customerId={selectedCustomer?.id ?? null} />
         </div>
@@ -267,11 +265,11 @@ export function SalePaymentModal({
           />
         )}
 
-        {/* ENG-090 — V10 credit-sale customer card. Shows the
+        {/* V10 credit-sale customer card. Shows the
             customer's current balance, cupo, projected balance
             after this sale, and either an admin override checkbox or
             an exact approval request for non-admin operators
-            when the projection exceeds the cupo. ENG-014 lifted
+            when the projection exceeds the cupo.  lifted
             this out of the !splitMode branch so it surfaces in
             both modes: legacy single-tender credit projects against
             grandTotal; split-credit ("apartado") projects against

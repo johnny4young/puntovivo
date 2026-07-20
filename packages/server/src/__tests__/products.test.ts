@@ -465,7 +465,7 @@ describe('Products tRPC Router', () => {
       });
   });
 
-  // Phase 1 DB-050: ferreterías (2.5 m cable) and supermarkets (0.75 kg
+  // ferreterías (2.5 m cable) and supermarkets (0.75 kg
   // produce) need fractional stock. This test locks in the end-to-end
   // contract: Zod validation accepts decimals, SQLite round-trips them, and
   // `products.update` preserves precision.
@@ -1100,7 +1100,8 @@ describe('Products tRPC Router', () => {
       price: 25,
     });
 
-    await db.run(sql.raw(`
+    await db.run(
+      sql.raw(`
       CREATE TRIGGER fail_variant_child_sync
       BEFORE INSERT ON sync_outbox
       WHEN NEW.entity_type = 'products'
@@ -1109,7 +1110,8 @@ describe('Products tRPC Router', () => {
       BEGIN
         SELECT RAISE(ABORT, 'forced variant child sync failure');
       END
-    `));
+    `)
+    );
     try {
       await expect(
         caller.products.createVariantMatrix({
@@ -1131,9 +1133,7 @@ describe('Products tRPC Router', () => {
       await db
         .select({ id: products.id })
         .from(products)
-        .where(
-          and(eq(products.tenantId, tenantId), eq(products.variantParentId, parent.id))
-        )
+        .where(and(eq(products.tenantId, tenantId), eq(products.variantParentId, parent.id)))
         .all()
     ).toHaveLength(0);
     expect(
@@ -1185,23 +1185,19 @@ describe('Products tRPC Router', () => {
   });
 
   it('keeps adversarial suffix collisions and Unicode SKU cuts deterministic', () => {
-    const sameAxis = buildProductVariantPreview(
-      { name: 'Collision', sku: 'COLLISION' },
-      [{ name: 'Style', values: ['A', 'A!', 'A-1'] }]
-    );
+    const sameAxis = buildProductVariantPreview({ name: 'Collision', sku: 'COLLISION' }, [
+      { name: 'Style', values: ['A', 'A!', 'A-1'] },
+    ]);
     expect(sameAxis.map(variant => variant.sku)).toEqual([
       'COLLISION-A-1',
       'COLLISION-A-2',
       'COLLISION-A-1-2',
     ]);
 
-    const crossAxis = buildProductVariantPreview(
-      { name: 'Cross axis', sku: 'CROSS' },
-      [
-        { name: 'Left', values: ['A', 'A-B'] },
-        { name: 'Right', values: ['B-C', 'C'] },
-      ]
-    );
+    const crossAxis = buildProductVariantPreview({ name: 'Cross axis', sku: 'CROSS' }, [
+      { name: 'Left', values: ['A', 'A-B'] },
+      { name: 'Right', values: ['B-C', 'C'] },
+    ]);
     expect(crossAxis.map(variant => variant.sku)).toEqual([
       'CROSS-A-B-C',
       'CROSS-A-C',
@@ -1212,10 +1208,9 @@ describe('Products tRPC Router', () => {
 
     const unicodeParentSku = `${'A'.repeat(97)}😀B`;
     expect(unicodeParentSku).toHaveLength(100);
-    const unicode = buildProductVariantPreview(
-      { name: 'Unicode SKU', sku: unicodeParentSku },
-      [{ name: 'Size', values: ['S'] }]
-    );
+    const unicode = buildProductVariantPreview({ name: 'Unicode SKU', sku: unicodeParentSku }, [
+      { name: 'Size', values: ['S'] },
+    ]);
     expect(unicode[0]?.sku).toBe(`${'A'.repeat(97)}-S`);
     expect(unicode[0]?.sku).not.toMatch(/[\uD800-\uDFFF]/u);
   });
@@ -1295,5 +1290,4 @@ describe('Products tRPC Router', () => {
       cause: { errorCode: 'PRODUCT_VARIANT_PARENT_HAS_HISTORY' },
     });
   });
-
 });

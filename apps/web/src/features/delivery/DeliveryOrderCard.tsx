@@ -1,5 +1,5 @@
 /**
- * ENG-091 — Domicilios touch V5: single order card.
+ * Domicilios touch V5: single order card.
  *
  * Renders the master-list tile per the V5 spec: ID tile + customer
  * name + phone + address + items snapshot summary + total currency
@@ -52,11 +52,7 @@ function summarizeItems(snapshot: string | null | undefined): string | null {
   }
 }
 
-export function DeliveryOrderCard({
-  order,
-  isSelected,
-  onSelect,
-}: DeliveryOrderCardProps) {
+export function DeliveryOrderCard({ order, isSelected, onSelect }: DeliveryOrderCardProps) {
   const { t } = useTranslation('delivery');
   const itemsSummary = summarizeItems(order.itemsSnapshot);
 
@@ -76,9 +72,7 @@ export function DeliveryOrderCard({
           <p className="text-[10px] uppercase tracking-[0.18em] text-secondary-500">
             {t('card.idLabel')}
           </p>
-          <p className="font-display text-lg tabular-nums">
-            {order.id.slice(-8)}
-          </p>
+          <p className="font-display text-lg tabular-nums">{order.id.slice(-8)}</p>
         </div>
         <button
           type="button"

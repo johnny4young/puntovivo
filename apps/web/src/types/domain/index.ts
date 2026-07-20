@@ -1,4 +1,4 @@
-// ENG-179c — domain-entity type barrel (ENG-178 slice 28).
+// domain-entity type barrel ( slice 28).
 //
 // Re-assembles the per-domain modules into the original `types/domain`
 // public surface so importers (`types/index.ts` shim + the direct

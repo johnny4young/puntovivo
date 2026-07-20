@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next';
 import { Select, type SelectOption } from '@/components/form-controls/Select';
 import type { RegisterAssignment } from '@/types';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface SalesRegisterAssignmentFieldProps {
   assignments: RegisterAssignment[];
   selectedAssignment: RegisterAssignment | null;
@@ -11,12 +11,9 @@ interface SalesRegisterAssignmentFieldProps {
   onChange: (assignmentId: string | null) => void;
 }
 
-// ENG-179b — use i18next's `TFunction` directly so the call site's
+// use i18next's `TFunction` directly so the call site's
 // namespace-projected t flows in without a structural shim.
-function getAssignmentOptionLabel(
-  assignment: RegisterAssignment,
-  t: TFunction
-) {
+function getAssignmentOptionLabel(assignment: RegisterAssignment, t: TFunction) {
   if (!assignment.isOccupied) {
     return assignment.label;
   }

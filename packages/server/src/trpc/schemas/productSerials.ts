@@ -1,4 +1,4 @@
-/** ENG-110c — serialized inventory API schemas. */
+/** serialized inventory API schemas. */
 import { z } from 'zod';
 
 const isoDate = z

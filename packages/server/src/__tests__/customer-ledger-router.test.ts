@@ -1,10 +1,10 @@
 /**
- * ENG-089 — `customerLedger.*` tRPC router coverage.
+ * `customerLedger.*` tRPC router coverage.
  *
  * Pins the contract that the schema scaffold (commit e4a1294) shipped
  * but never tested directly: `list`, `getBalance`, `addPayment`,
  * `addAdjustment`. Also covers the new `creditLimit` field on
- * `customers.create` / `customers.update` (this ticket) so the
+ * `customers.create` / `customers.update` (this change) so the
  * persistence layer + Zod input round-trip both sides of the V5
  * "Cuenta corriente" UI panel.
  *
@@ -13,22 +13,16 @@
  * Cross-tenant attempts must throw `CUSTOMER_NOT_FOUND`.
  *
  * Role gates:
- *  - list / getBalance / addPayment → manager + admin
- *  - addAdjustment                  → admin only
- *  - cashier never reaches any procedure
+ * - list / getBalance / addPayment → manager + admin
+ * - addAdjustment                  → admin only
+ * - cashier never reaches any procedure
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { and, desc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  customers,
-  customerLedgerEntries,
-  sites,
-  tenants,
-  users,
-} from '../db/schema.js';
+import { customers, customerLedgerEntries, sites, tenants, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -85,7 +79,7 @@ async function seedCustomer(name: string, tenantOverride?: string): Promise<stri
   return id;
 }
 
-describe('customerLedger.* router (ENG-089)', () => {
+describe('customerLedger.* router', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
@@ -150,9 +144,7 @@ describe('customerLedger.* router (ENG-089)', () => {
   beforeEach(async () => {
     // Keep ledger isolated per test so balance math is predictable.
     const db = getDatabase();
-    await db
-      .delete(customerLedgerEntries)
-      .where(eq(customerLedgerEntries.tenantId, tenantId));
+    await db.delete(customerLedgerEntries).where(eq(customerLedgerEntries.tenantId, tenantId));
   });
 
   // -------------------------------------------------------------------------
@@ -342,12 +334,12 @@ describe('customerLedger.* router (ENG-089)', () => {
           email: 'admin@localhost',
         })
       );
-      await expect(
-        caller.customerLedger.addPayment({ customerId, amount: -100 })
-      ).rejects.toThrow(/positive/i);
-      await expect(
-        caller.customerLedger.addPayment({ customerId, amount: 0 })
-      ).rejects.toThrow(/positive/i);
+      await expect(caller.customerLedger.addPayment({ customerId, amount: -100 })).rejects.toThrow(
+        /positive/i
+      );
+      await expect(caller.customerLedger.addPayment({ customerId, amount: 0 })).rejects.toThrow(
+        /positive/i
+      );
     });
 
     it('rejects a customerId from a foreign tenant', async () => {
@@ -391,9 +383,9 @@ describe('customerLedger.* router (ENG-089)', () => {
           email: 'cashier@localhost',
         })
       );
-      await expect(
-        caller.customerLedger.addPayment({ customerId, amount: 100 })
-      ).rejects.toThrow(/FORBIDDEN|UNAUTHORIZED|forbidden|Only administrators/i);
+      await expect(caller.customerLedger.addPayment({ customerId, amount: 100 })).rejects.toThrow(
+        /FORBIDDEN|UNAUTHORIZED|forbidden|Only administrators/i
+      );
     });
   });
 
@@ -504,7 +496,7 @@ describe('customerLedger.* router (ENG-089)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // customers.{create,update} — creditLimit round-trip (ENG-089)
+  // customers.{create,update} — creditLimit round-trip ()
   // -------------------------------------------------------------------------
 
   describe('creditLimit on customers.{create,update}', () => {

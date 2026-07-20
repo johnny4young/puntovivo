@@ -1,5 +1,5 @@
 /**
- * ENG-035b — Tests del catálogo SAT c_ClaveProdServ.
+ * Tests del catálogo SAT c_ClaveProdServ.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -8,7 +8,7 @@ import {
   findClaveProdServ,
 } from '../services/fiscal/packs/mx/catalogs/claveProdServ.js';
 
-describe('claveProdServ catalog (ENG-035b)', () => {
+describe('claveProdServ catalog', () => {
   it('expone exactamente la cantidad esperada de entradas curadas', () => {
     // 40 entradas curadas para retail LATAM. Si este conteo cambia,
     // ajusta intencionalmente — significa que se agregaron / quitaron

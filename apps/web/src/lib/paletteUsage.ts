@@ -1,5 +1,5 @@
 /**
- * ENG-105g — local usage tracking for the CommandPalette.
+ * local usage tracking for the CommandPalette.
  *
  * Records how often (and how recently) each palette action is
  * performed so the palette can surface a "Recent" section with the
@@ -70,9 +70,7 @@ function isUsageRecord(value: unknown): value is PaletteActionUsage {
  * degrades to "no usage yet". Entries with an invalid shape are
  * dropped individually so one bad record cannot poison the rest.
  */
-export function loadPaletteUsage(
-  tenantId: string | null | undefined
-): PaletteUsageMap {
+export function loadPaletteUsage(tenantId: string | null | undefined): PaletteUsageMap {
   if (!tenantId || typeof window === 'undefined') {
     return {};
   }
@@ -161,9 +159,7 @@ export function rankRecentActions<T extends { id: string }>(
 }
 
 /** Test-only: remove a tenant's stored usage between cases. */
-export function __clearPaletteUsageForTests(
-  tenantId: string | null | undefined
-): void {
+export function __clearPaletteUsageForTests(tenantId: string | null | undefined): void {
   if (!tenantId || typeof window === 'undefined') {
     return;
   }

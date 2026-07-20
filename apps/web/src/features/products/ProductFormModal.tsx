@@ -14,11 +14,7 @@ import type { ProductFormModalProps, ProductFormTab } from './productForm.types'
 
 // Re-exported for the existing consumers (ProductsPage, QuickCreateProductGate)
 // and ProductFormModal.test.tsx, which import these types from this module.
-export type {
-  LookupOption,
-  VatRateOption,
-  ProductFormValues,
-} from './productForm.types';
+export type { LookupOption, VatRateOption, ProductFormValues } from './productForm.types';
 
 export function ProductFormModal({
   mode,
@@ -48,14 +44,13 @@ export function ProductFormModal({
     { id: 'providers', label: t('form.tabs.providers') },
   ];
 
-  // ENG-078 — Gate: only fires when the semantic-search module is active AND
+  // Gate: only fires when the semantic-search module is active AND
   // the caller has manager+ role. Cashiers never reach this modal but we still
   // defend.
   const auth = useAuth();
   const semanticSearchActive = useIsModuleActive('semantic-search');
   const suggestionsEnabled =
-    semanticSearchActive &&
-    (auth.user?.role === 'admin' || auth.user?.role === 'manager');
+    semanticSearchActive && (auth.user?.role === 'admin' || auth.user?.role === 'manager');
 
   return (
     <Modal
@@ -85,9 +80,18 @@ export function ProductFormModal({
             <button type="button" className="pv-btn outline" onClick={onClose} disabled={isSaving}>
               {t('form.cancel')}
             </button>
-            <button type="button" className="pv-btn primary" onClick={handleSubmit} disabled={isSaving}>
+            <button
+              type="button"
+              className="pv-btn primary"
+              onClick={handleSubmit}
+              disabled={isSaving}
+            >
               {mode === 'create' && <Plus aria-hidden="true" />}
-              {isSaving ? t('form.submitting') : mode === 'create' ? t('form.create') : t('form.save')}
+              {isSaving
+                ? t('form.submitting')
+                : mode === 'create'
+                  ? t('form.create')
+                  : t('form.save')}
             </button>
           </div>
         </div>

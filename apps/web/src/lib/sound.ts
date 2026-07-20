@@ -1,20 +1,20 @@
 /**
- * ENG-193 — checkout sound feedback.
+ * checkout sound feedback.
  *
  * Pure Web Audio (oscillators — no assets, no deps). Three cues:
- *   - scan success: one short high beep.
- *   - scan error: two low pulses (clearly distinct from success).
- *   - sale complete: a brief ascending arpeggio.
+ * - scan success: one short high beep.
+ * - scan error: two low pulses (clearly distinct from success).
+ * - sale complete: a brief ascending arpeggio.
  *
  * Design constraints:
- *   - OFF by default; the preference is device-local (localStorage) because
- *     sound is a property of the till hardware, not of the tenant or user.
- *   - The AudioContext is created lazily on first playback, which in practice
- *     happens after a user gesture (scan/keypress/click), so the autoplay
- *     policy never blocks it.
- *   - Every entry point is a silent no-op when disabled or when the runtime
- *     has no AudioContext (jsdom/tests, odd webviews) — audio must never
- *     break checkout.
+ * - OFF by default; the preference is device-local (localStorage) because
+ * sound is a property of the till hardware, not of the tenant or user.
+ * - The AudioContext is created lazily on first playback, which in practice
+ * happens after a user gesture (scan/keypress/click), so the autoplay
+ * policy never blocks it.
+ * - Every entry point is a silent no-op when disabled or when the runtime
+ * has no AudioContext (jsdom/tests, odd webviews) — audio must never
+ * break checkout.
  */
 
 const STORAGE_KEY = 'puntovivo-sound-enabled';

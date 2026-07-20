@@ -19,7 +19,7 @@ interface VoiceOrderingControlsProps {
   onOpenSearch: () => void;
 }
 
-/** ENG-178 — Presentational table and item-entry controls for voice ordering. */
+/** Presentational table and item-entry controls for voice ordering. */
 export function VoiceOrderingControls({
   tableLabel,
   tableCatalog,
@@ -50,9 +50,7 @@ export function VoiceOrderingControls({
             value={tableLabel}
             onChange={event => onTableLabelChange(event.target.value)}
           >
-            <option value="">
-              {t('restaurants:tables.dropdown.selectPlaceholder')}
-            </option>
+            <option value="">{t('restaurants:tables.dropdown.selectPlaceholder')}</option>
             {tableCatalog.map(row => (
               <option key={row.id} value={row.name}>
                 {row.name}
@@ -73,9 +71,7 @@ export function VoiceOrderingControls({
           />
         )}
         {tableLabel.trim().length === 0 && (
-          <p className="mt-1 text-xs text-warning-700">
-            {t('restaurants:tableLabel.required')}
-          </p>
+          <p className="mt-1 text-xs text-warning-700">{t('restaurants:tableLabel.required')}</p>
         )}
       </div>
 
@@ -95,10 +91,7 @@ export function VoiceOrderingControls({
           {t('restaurants:actions.voiceCTA')}
         </button>
         {micDisabled && (
-          <p
-            className="text-xs text-warning-700"
-            data-testid="voice-ordering-mic-disabled-hint"
-          >
+          <p className="text-xs text-warning-700" data-testid="voice-ordering-mic-disabled-hint">
             {micDisabledReason}
           </p>
         )}

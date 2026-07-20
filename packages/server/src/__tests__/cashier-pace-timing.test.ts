@@ -1,4 +1,4 @@
-/** ENG-209 — self-scoped, aggregate-only cashier pace metrics. */
+/** self-scoped, aggregate-only cashier pace metrics. */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -121,7 +121,7 @@ function createCallerContext(userId: string, role = 'cashier'): Context {
   };
 }
 
-describe('cashier pace (ENG-209)', () => {
+describe('cashier pace', () => {
   beforeAll(async () => {
     fixedNow = new Date('2026-07-13T18:00:00.000Z');
     server = await createServer({ dbPath: ':memory:', verbose: false });

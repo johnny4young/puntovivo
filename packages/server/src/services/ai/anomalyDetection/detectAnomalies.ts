@@ -1,7 +1,7 @@
 /**
- * ENG-032 — anomaly detection orchestrator.
+ * anomaly detection orchestrator.
  *
- * ENG-178 — extracted verbatim from the former flat
+ * extracted verbatim from the former flat
  * `services/ai/anomalyDetection.ts` (PUBLIC ORCHESTRATOR section)
  * during the megafile decomposition. Wires the four sub-detectors
  * together with the snooze filter and the best-effort audit write.
@@ -29,14 +29,14 @@ import type {
  * misleading partial risk picture. Multi-tenant isolation is enforced
  * inside every query via `eq(*.tenantId, tenantId)`.
  *
- * ENG-047 — alerts whose `(kind, cashierId, evidenceRef)` matches an
+ * alerts whose `(kind, cashierId, evidenceRef)` matches an
  * active snooze are filtered out, AND non-snoozed alerts are persisted
  * to `audit_logs` for historical traceability + cross-reference from
  * `/audit-logs`. The audit-log write is best-effort fire-and-forget:
  * a failure there does not poison the response.
  *
  * @returns Sorted by descending severity then descending distance,
- *          so the most extreme alerts appear first in the dashboard.
+ * so the most extreme alerts appear first in the dashboard.
  */
 export async function detectAnomalies(
   db: DatabaseInstance,

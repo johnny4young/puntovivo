@@ -1,5 +1,5 @@
-// ENG-066 / ENG-167b — backup-file format detection + cleartext-SQLite probe
-// (ENG-178 slice 31). Pure 16-byte header reads; no connection, no key.
+// /  — backup-file format detection + cleartext-SQLite probe
+// ( slice 31). Pure 16-byte header reads; no connection, no key.
 
 import { open } from 'node:fs/promises';
 
@@ -29,7 +29,7 @@ export async function detectBackupFormat(path: string): Promise<'zip' | 'sqlite'
 }
 
 /**
- * ENG-167b — is the file a readable-header (CLEARTEXT) SQLite DB?
+ * is the file a readable-header (CLEARTEXT) SQLite DB?
  *
  * A pre-encryption database keeps the plain "SQLite format 3\0"
  * magic in its first bytes; a SQLCipher database encrypts page 1

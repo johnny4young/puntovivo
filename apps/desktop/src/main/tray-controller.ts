@@ -1,4 +1,4 @@
-/** ENG-201 — native tray lifecycle, isolated from application bootstrap. */
+/** native tray lifecycle, isolated from application bootstrap. */
 
 import { app, Menu, nativeImage, Tray, type BrowserWindow } from 'electron';
 import { t } from './i18n';
@@ -38,7 +38,7 @@ export function createTrayController({
 
   function destroy(): void {
     if (!tray) return;
-    // DK-007 — detach native listeners so repeated enable/disable cannot leak.
+    // Detach native listeners so repeated enable/disable cannot leak.
     tray.removeAllListeners('click');
     tray.destroy();
     tray = null;

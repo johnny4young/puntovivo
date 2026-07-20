@@ -1,4 +1,4 @@
-/** ENG-123a — Pure row projection for the downloadable post-import report. */
+/** Pure row projection for the downloadable post-import report. */
 import type { ProductImportIssue, ProductImportPreview, ProductImportReport } from './types';
 
 export type ProductImportReportStatus =

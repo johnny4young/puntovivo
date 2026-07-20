@@ -25,7 +25,8 @@ import { SYNC_BACKLOG_WARN_THRESHOLD } from './constants.js';
 /**
  * Aggregates the fiscal, payments, peripherals, modules, users, sites,
  * products, AI, locale, cash-session, and sync signals in one projection.
- * The matrix stays aligned with docs/SELLABILITY.md lines 28-37.
+ * The matrix stays aligned with the pilot-readiness contract in
+ * docs/PROJECT-STATUS.md.
  *
  * Score = round((ready + 0.5 * (optional-pending + warning)) / applicable
  * sections * 100). Blockers contribute zero and not-applicable sections do
@@ -126,7 +127,7 @@ export async function buildReadiness(args: {
     localeRow?.countryCode && localeRow.countryCode.trim().length > 0 ? 'ready' : 'blocker';
   const sitesStatus: SetupReadinessSection['status'] = siteCount >= 1 ? 'ready' : 'blocker';
 
-  // ENG-184 — fiscal readiness depends on the market profile. Colombia keeps
+  // fiscal readiness depends on the market profile. Colombia keeps
   // DIAN optional and never blocks selling; other markets retain the legacy
   // kill-switch behavior.
   const profile = resolveReadinessProfile(localeRow?.countryCode);
@@ -190,7 +191,7 @@ export async function buildReadiness(args: {
   const cashSessionStatus: SetupReadinessSection['status'] =
     openCashSessionCount >= 1 ? 'ready' : 'optional-pending';
 
-  // ENG-184 — local-first replication never blocks. A sustained backlog or
+  // local-first replication never blocks. A sustained backlog or
   // unresolved conflict is visible as a warning only.
   const syncBacklog = await readSyncBacklog(db, tenantId);
   const syncStatus: SetupReadinessSection['status'] =
@@ -214,7 +215,7 @@ export async function buildReadiness(args: {
 
   const applicable = sections.filter(s => s.status !== 'not-applicable');
   const readyCount = applicable.filter(s => s.status === 'ready').length;
-  // ENG-184 — warning and optional-pending states both carry half weight.
+  // warning and optional-pending states both carry half weight.
   const halfWeightCount = applicable.filter(
     s => s.status === 'optional-pending' || s.status === 'warning'
   ).length;

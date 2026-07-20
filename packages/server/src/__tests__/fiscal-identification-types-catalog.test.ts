@@ -1,5 +1,5 @@
 /**
- * ENG-176c — pins the renamed + reshaped fiscal identification catalog.
+ * pins the renamed + reshaped fiscal identification catalog.
  *
  * The catalog moved from `dian_identification_types` (10 rows, single
  * `code` PK) to `fiscal_identification_types` (23 rows after seed,
@@ -29,14 +29,14 @@ function liveClient(): Database.Database {
   return (getDatabase() as unknown as LiveDatabase).$client;
 }
 
-describe('fiscal identification catalog (ENG-176c)', () => {
+describe('fiscal identification catalog', () => {
   describe('seed', () => {
     it('seeds 23 rows total across CO / MX / PE / CL', async () => {
       await initDatabase({ dbPath: ':memory:', seedData: false });
       const c = liveClient();
-      const row = c
-        .prepare('SELECT COUNT(*) AS count FROM fiscal_identification_types')
-        .get() as { count: number };
+      const row = c.prepare('SELECT COUNT(*) AS count FROM fiscal_identification_types').get() as {
+        count: number;
+      };
       expect(row.count).toBe(23);
     });
 
@@ -111,9 +111,9 @@ describe('fiscal identification catalog (ENG-176c)', () => {
       // INSERT OR IGNORE so re-execution against an already-seeded DB
       // would be a no-op at the SQL level.
       const c = liveClient();
-      const row = c
-        .prepare('SELECT COUNT(*) AS count FROM fiscal_identification_types')
-        .get() as { count: number };
+      const row = c.prepare('SELECT COUNT(*) AS count FROM fiscal_identification_types').get() as {
+        count: number;
+      };
       expect(row.count).toBe(23);
     });
   });
@@ -145,9 +145,7 @@ describe('fiscal identification catalog (ENG-176c)', () => {
         "INSERT INTO fiscal_identification_types (country_code, code, abbr, name_es, name_en, natural_person) VALUES ('BR', '13', 'TEST', 'Prueba', 'Test', 1)"
       ).run();
       const row = c
-        .prepare(
-          "SELECT COUNT(*) AS count FROM fiscal_identification_types WHERE code = '13'"
-        )
+        .prepare("SELECT COUNT(*) AS count FROM fiscal_identification_types WHERE code = '13'")
         .get() as { count: number };
       // Both ('CO', '13') and the new ('BR', '13') coexist.
       expect(row.count).toBe(2);
@@ -161,8 +159,12 @@ describe('fiscal identification catalog (ENG-176c)', () => {
       c.pragma('foreign_keys = ON');
       // Minimal FK skeleton.
       c.prepare("INSERT INTO tenants (id, name, slug) VALUES ('t1', 't', 's')").run();
-      c.prepare("INSERT INTO companies (id, tenant_id, name) VALUES ('co1', 't1', 'Company')").run();
-      c.prepare("INSERT INTO sites (id, tenant_id, company_id, name) VALUES ('site1', 't1', 'co1', 'Main')").run();
+      c.prepare(
+        "INSERT INTO companies (id, tenant_id, name) VALUES ('co1', 't1', 'Company')"
+      ).run();
+      c.prepare(
+        "INSERT INTO sites (id, tenant_id, company_id, name) VALUES ('site1', 't1', 'co1', 'Main')"
+      ).run();
       c.prepare(
         "INSERT INTO users (id, tenant_id, email, password_hash, name, role) VALUES ('u1', 't1', 'a@b', 'x', 'a', 'admin')"
       ).run();

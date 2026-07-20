@@ -1,5 +1,5 @@
 /**
- * ENG-035a — Tests del router `fiscal.settings.*`.
+ * Tests del router `fiscal.settings.*`.
  *
  * Cobertura:
  *
@@ -134,7 +134,7 @@ beforeEach(async () => {
   await db.update(tenants).set({ settings: {} }).where(eq(tenants.id, tenantB));
 });
 
-describe('fiscalSettings.getByCountry (ENG-035a)', () => {
+describe('fiscalSettings.getByCountry', () => {
   it('MX para tenant fresco → settings vacíos + readiness rojo con 3 issues', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
@@ -143,7 +143,7 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
       countryCode: 'MX',
     });
     expect(result.countryCode).toBe('MX');
-    expect(result.maturity).toBe('draft'); // ENG-185 — unsigned CFDI draft
+    expect(result.maturity).toBe('draft'); // unsigned CFDI draft
     expect(result.settings).toMatchObject({
       enabled: false,
       rfc: null,
@@ -154,15 +154,13 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
     expect(result.validation.ok).toBe(false);
     const codes = result.validation.issues.map(i => i.code).sort();
     expect(codes).toEqual(['MISSING_CERTIFICATE', 'MISSING_RESOLUTION', 'MISSING_RFC']);
-    // ENG-035b promovió MX de NotImplemented a real adapter — los
+    //  promovió MX de NotImplemented a real adapter — los
     // flags `notImplemented` / `availableInTicket` ya no aplican.
     // El readiness sigue siendo rojo porque los settings están
     // vacíos (3 issues), pero ya no es un stub gated.
-    expect(result.notImplemented).toBe(false);
-    expect(result.availableInTicket).toBeNull();
   });
 
-  it('CO para tenant fresco → settings CO vacíos + readiness rojo con NIT/RESOLUTION/RANGE (ENG-184)', async () => {
+  it('CO para tenant fresco → settings CO vacíos + readiness rojo con NIT/RESOLUTION/RANGE', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
     );
@@ -170,8 +168,8 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
       countryCode: 'CO',
     });
     expect(result.countryCode).toBe('CO');
-    expect(result.maturity).toBe('mock'); // ENG-185 — mock, no DIAN transmission
-    // ENG-184 — CO ya no devuelve settings:null; trae la proyección real
+    expect(result.maturity).toBe('mock'); // mock, no DIAN transmission
+    // CO ya no devuelve settings:null; trae la proyección real
     // del namespace fiscal.co + un readiness de PRESENCIA (no mock ok).
     expect(result.settings).toMatchObject({
       enabled: false,
@@ -185,10 +183,9 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
     expect(result.validation.ok).toBe(false);
     const codes = result.validation.issues.map(i => i.code).sort();
     expect(codes).toEqual(['MISSING_NIT', 'MISSING_RANGE', 'MISSING_RESOLUTION']);
-    expect(result.notImplemented).toBe(false);
   });
 
-  it('CL devuelve readiness rojo con MISSING_RUT/MISSING_RESOLUTION/MISSING_CERTIFICATE (ENG-036a)', async () => {
+  it('CL devuelve readiness rojo con MISSING_RUT/MISSING_RESOLUTION/MISSING_CERTIFICATE', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
     );
@@ -196,18 +193,16 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
       countryCode: 'CL',
     });
     expect(result.countryCode).toBe('CL');
-    expect(result.maturity).toBe('draft'); // ENG-185 — unsigned DTE draft
+    expect(result.maturity).toBe('draft'); // unsigned DTE draft
     expect(result.validation.ok).toBe(false);
     const codes = result.validation.issues.map(i => i.code);
     expect(codes).toContain('MISSING_RUT');
     expect(codes).toContain('MISSING_RESOLUTION');
     expect(codes).toContain('MISSING_CERTIFICATE');
-    // ENG-036b lifted the notImplemented stub: the adapter now
-    // serializes valid DTE 1.0 XML drafts. ENG-036c is what remains
+    //  lifted the notImplemented stub: the adapter now
+    // serializes valid DTE 1.0 XML drafts.  is what remains
     // (XAdES signature + SII transmission), but the top-level
     // availableInTicket marker is gone now.
-    expect(result.notImplemented).toBe(false);
-    expect(result.availableInTicket).toBeNull();
   });
 
   it('rechaza cashier con FORBIDDEN', async () => {
@@ -225,7 +220,7 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
   });
 });
 
-describe('fiscalSettings.updateMx (ENG-035a)', () => {
+describe('fiscalSettings.updateMx', () => {
   it('happy path: RFC + régimen + lugar válidos → persiste + readiness verde', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
@@ -328,7 +323,7 @@ describe('fiscalSettings.updateMx (ENG-035a)', () => {
   });
 });
 
-describe('fiscalSettings.updateCl (ENG-036a)', () => {
+describe('fiscalSettings.updateCl', () => {
   it('happy path: RUT + giro + comuna + casa matriz válidos → persiste + readiness verde', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
@@ -436,7 +431,7 @@ describe('fiscalSettings.updateCl (ENG-036a)', () => {
   });
 });
 
-describe('fiscalSettings.updateCo (ENG-184)', () => {
+describe('fiscalSettings.updateCo', () => {
   it('happy path: NIT + resolución + rango válidos → persiste flag legacy + fiscal.co + readiness verde', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })

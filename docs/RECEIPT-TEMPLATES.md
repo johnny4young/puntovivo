@@ -242,7 +242,7 @@ ready-to-use presets per kind so the editor never starts blank:
   - tenders + thank-you footer).
 - `quotation` — letter layout with discount column and itemized totals.
 - `fiscal_dee` — 80mm thermal with QR + CUFE footer for Colombia DIAN
-  DEE (placeholder values until Iter 3 Fase A wires the snapshot).
+  DEE (placeholder values until Iter 3 estado actual wires the snapshot).
 
 When an admin opens **New template** the editor loads the preset for
 the selected `kind`, localized to the active app language at creation
@@ -307,7 +307,7 @@ apps/web/src/lib/translateServerError.ts                         # KNOWN_SERVER_
 - **Iter 7 (Reimpresión)** reuses the same `renderReceipt` to produce
   the HTML for a re-print, ensuring re-prints look identical to the
   original.
-- **Iter 3 Fase A (Fiscal DIAN)** populates `fiscal.cufe`,
+- **Iter 3 estado actual (Fiscal DIAN)** populates `fiscal.cufe`,
   `fiscal.qrUrl`, `fiscal.resolution` and `fiscal.documentNumber` from
   the immutable `fiscal_documents` snapshot when emitting a DEE/FEV.
 
@@ -319,9 +319,9 @@ here so the next pass on the editor picks them up in order. Each item
 carries a short rationale + implementation sketch so an engineer can
 estimate without re-deriving the context.
 
-### 1. Drag-and-drop reordering with animation — **shipped (ENG-016 pass 2)**
+### 1. Drag-and-drop reordering with animation — **shipped ( pass 2)**
 
-Shipped as part of ENG-016 pass 2:
+Shipped as part of pass 2:
 
 - Adopted `@dnd-kit/core` + `@dnd-kit/sortable` (~8kB gzipped, no peer
   conflicts on React 19). Wrapped the block list with `<DndContext>` +
@@ -350,9 +350,9 @@ toIndex)` helper that mirrors the keyboard `moveBlock` semantics —
   dnd-kit wrapping (regression gate for pass-1's FLIP), and the
   `↑/↓` buttons coexist with the grip per row.
 
-### 2. `text.value` field — authoring UX — **shipped (ENG-016 pass 4)**
+### 2. `text.value` field — authoring UX — **shipped ( pass 4)**
 
-Shipped as part of ENG-016 pass 4 via CodeMirror 6 adoption:
+Shipped as part of pass 4 via CodeMirror 6 adoption:
 
 - **Auto-close pairs**: a custom `EditorView.inputHandler` watches
   for a `{` keystroke that immediately follows another `{` and
@@ -415,9 +415,9 @@ and the main `index` chunk at 681.98 kB / 210.76 kB gzip.
 **Remaining for item #2**: nothing. All four originally-listed
 sub-features ship in pass 4.
 
-### 3. Template functions (basic batch) — **shipped (ENG-016 pass 3)**
+### 3. Template functions (basic batch) — **shipped ( pass 3)**
 
-Shipped as part of ENG-016 pass 3:
+Shipped as part of pass 3:
 
 - New module `packages/server/src/services/template-expression.ts`
   hosts a recursive-descent parser, AST evaluator, and a static
@@ -435,7 +435,7 @@ Shipped as part of ENG-016 pass 3:
   family (`if/eq/gt`) was tagged "(later)" in the original spec and
   stays parked.
 - `currency()` reuses the renderer's `formatReceiptAmount` callback
-  so it inherits ENG-017's tenant-locale (COP 0 decimals, USD 2,
+  so it inherits 's tenant-locale (COP 0 decimals, USD 2,
   CLP 0, etc.) without duplicating the `Intl.NumberFormat` config.
   An optional second argument forces a specific decimal count
   (capped at 20 — `Math.pow(10, 1000)` would otherwise produce
@@ -485,7 +485,7 @@ obj` to `Object.prototype.hasOwnProperty.call(obj, seg)` so
   substitutions.
 
 **Remaining**: the conditional family (`if/eq/gt`) stays parked
-inside the broader ENG-016 "Remaining" list (items 2, 7, 8). Item
+inside the broader "Remaining" list (items 2, 7, 8). Item
 #2 (rich text-authoring UX) and item #7 (in-preview error markers)
 will benefit from this AST: the autocomplete panel can introspect
 the same `FUNCTION_REGISTRY`, and the error markers can highlight
@@ -505,9 +505,9 @@ the autocomplete syntax:
   but pipe-based (`{{variable | limit:9}}`). Worth copying the UX
   of the autocomplete popover.
 
-### 4. Bindings documentation exposed in the editor — **shipped (ENG-016 pass 1)**
+### 4. Bindings documentation exposed in the editor — **shipped ( pass 1)**
 
-Shipped as part of ENG-016 pass 1:
+Shipped as part of pass 1:
 
 - Permanent caption above `itemsTable` in the editor reads (translated):
   "Rows are bound to the items in the current sale. Use the columns
@@ -520,9 +520,9 @@ Shipped as part of ENG-016 pass 1:
 - Both captions live under `apps/web/src/features/receipt-templates/ReceiptTemplateEditor.tsx` and are exercised by
   `ReceiptTemplateEditor.test.tsx`.
 
-### 5. Puntovivo-branded footer elements — **shipped (ENG-016 pass 1)**
+### 5. Puntovivo-branded footer elements — **shipped ( pass 1)**
 
-Shipped as part of ENG-016 pass 1:
+Shipped as part of pass 1:
 
 - New atomic block type `appFooter` in the Zod schema (`packages/server/src/trpc/schemas/receiptTemplates.ts`) with fields
   `show: boolean?` + `align: 'left' | 'center' | 'right'?`.
@@ -535,13 +535,13 @@ Shipped as part of ENG-016 pass 1:
 - Available from the "add block" menu; admins can toggle visibility
   or remove the block entirely for a branding-free receipt.
 - Default footer content is intentionally stable across tenants (see
-  §Risks in the ENG-016 pass 1 summary). White-label mode is a
-  future ticket; the current design matches DIAN Anexo 1.9
+  §Risks in the pass 1 summary). White-label mode is a
+  future change; the current design matches DIAN Anexo 1.9
   free-text footer rules.
 
-### 6. Reorder animation and keyboard-move transitions — **shipped (ENG-016 pass 1)**
+### 6. Reorder animation and keyboard-move transitions — **shipped ( pass 1)**
 
-Shipped as part of ENG-016 pass 1:
+Shipped as part of pass 1:
 
 - Small in-house FLIP helper at `apps/web/src/lib/flipAnimate.ts`
   (~60 LoC) — framework-agnostic so subsequent features can reuse
@@ -560,7 +560,7 @@ Shipped as part of ENG-016 pass 1:
   short-circuit, inverse transform, new-element skip, null
   container).
 
-### 7. Explicit i18n/variable error strategy — **shipped (ENG-016 pass 4 + 5)**
+### 7. Explicit i18n/variable error strategy — **shipped ( pass 4 + 5)**
 
 **Pass 4** closed the parser-side bullet via the CM6 linter under
 item #2: invalid syntax / unknown namespace / unknown function /
@@ -656,7 +656,7 @@ Builds on follow-up #2:
 - Real raster QR / barcode emission (waits for Iter 4 hardware
   adapter and the `EscPosPrinterAdapter` GS ( k command).
 
-### 9. Developer seed command (cross-cutting, separate ticket)
+### 9. Developer seed command (cross-cutting, separate change)
 
 Independent of the editor, the user also requested a single command
 to load a realistic test-data set so developers, QA, and early

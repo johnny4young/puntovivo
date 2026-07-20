@@ -1,5 +1,5 @@
 /**
- * ENG-068 — Products semantic-search module gate.
+ * Products semantic-search module gate.
  *
  * The server now rejects `products.semanticSearch` when the
  * `semantic-search` module is inactive. ProductsPage must hide the
@@ -118,7 +118,7 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: () => ({ mutateAsync: vi.fn(), reset: vi.fn(), isPending: false }),
       },
     },
-    // ENG-195 — the margin query is admin-only; the page keeps a stable
+    // the margin query is admin-only; the page keeps a stable
     // empty column while an enabled query loads.
     reports: {
       profit: { margin: { useQuery: marginUseQueryMock } },

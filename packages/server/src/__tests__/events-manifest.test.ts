@@ -1,12 +1,12 @@
 /**
- * ENG-070 — Events manifest regression tests.
+ * Events manifest regression tests.
  *
  * Pin the public-event contract every integrator relies on:
- *   - Tuple exhaustiveness + uniqueness.
- *   - Each event type has a Zod payload schema entry.
- *   - Schemas accept valid fixtures.
- *   - Schemas reject malformed payloads.
- *   - `buildPublicEventContract` exposes per-field required flags.
+ * - Tuple exhaustiveness + uniqueness.
+ * - Each event type has a Zod payload schema entry.
+ * - Schemas accept valid fixtures.
+ * - Schemas reject malformed payloads.
+ * - `buildPublicEventContract` exposes per-field required flags.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -19,7 +19,7 @@ import {
   isPublicEventType,
 } from '../services/events/manifest.js';
 
-describe('PUBLIC_EVENT_TYPES (ENG-070)', () => {
+describe('PUBLIC_EVENT_TYPES', () => {
   it('lists exactly the 5 events the AC enumerates', () => {
     expect([...PUBLIC_EVENT_TYPES].sort()).toEqual([
       'cash_session.closed',
@@ -53,13 +53,13 @@ describe('PUBLIC_EVENT_TYPES (ENG-070)', () => {
 
   it('getPayloadSchema returns the schema or throws for unknown', () => {
     expect(getPayloadSchema('sale.completed')).toBeDefined();
-    expect(() =>
-      getPayloadSchema('not.a.real.event' as never)
-    ).toThrow(/Unknown public event type/);
+    expect(() => getPayloadSchema('not.a.real.event' as never)).toThrow(
+      /Unknown public event type/
+    );
   });
 });
 
-describe('payload schemas accept valid fixtures (ENG-070)', () => {
+describe('payload schemas accept valid fixtures', () => {
   it('sale.completed accepts a populated payload', () => {
     const result = PUBLIC_EVENT_PAYLOAD_SCHEMAS['sale.completed'].safeParse({
       saleId: 'sale-1',
@@ -123,9 +123,7 @@ describe('payload schemas accept valid fixtures (ENG-070)', () => {
   });
 
   it('fiscal_document.accepted accepts a populated payload', () => {
-    const result = PUBLIC_EVENT_PAYLOAD_SCHEMAS[
-      'fiscal_document.accepted'
-    ].safeParse({
+    const result = PUBLIC_EVENT_PAYLOAD_SCHEMAS['fiscal_document.accepted'].safeParse({
       fiscalDocumentId: 'fd-1',
       cufe: 'sii-cl:76123456-0:39:1',
       documentNumber: '1',
@@ -139,7 +137,7 @@ describe('payload schemas accept valid fixtures (ENG-070)', () => {
   });
 });
 
-describe('payload schemas reject malformed fixtures (ENG-070)', () => {
+describe('payload schemas reject malformed fixtures', () => {
   it('sale.completed rejects missing required field', () => {
     const result = PUBLIC_EVENT_PAYLOAD_SCHEMAS['sale.completed'].safeParse({
       saleId: 'sale-1',
@@ -167,13 +165,11 @@ describe('payload schemas reject malformed fixtures (ENG-070)', () => {
   });
 });
 
-describe('buildPublicEventContract (ENG-070)', () => {
+describe('buildPublicEventContract', () => {
   it('returns the manifest version + every event type', () => {
     const contract = buildPublicEventContract();
     expect(contract.version).toBe(PUBLIC_EVENTS_VERSION);
-    expect([...contract.eventTypes].sort()).toEqual(
-      [...PUBLIC_EVENT_TYPES].sort()
-    );
+    expect([...contract.eventTypes].sort()).toEqual([...PUBLIC_EVENT_TYPES].sort());
   });
 
   it('exposes per-event field metadata with required flags', () => {

@@ -1,18 +1,18 @@
 /**
- * ENG-066 — Unit tests for the diagnostic export sanitizer.
+ * Unit tests for the diagnostic export sanitizer.
  *
- * Locks the leak-prevention contract that ships with ENG-066:
+ * Locks the leak-prevention contract that ships with :
  *
- *   - Sensitive keys (password, token, jwt, apiKey, pan, cvv, etc.)
- *     are replaced with [REDACTED] at any nesting depth.
- *   - Benign keys (saleId, total, entityType, etc.) are preserved.
- *   - The matcher is anchored — `pancake_count` does NOT match `pan`,
- *     `panel_layout` does NOT match `pan`, `passwordless` does NOT match
- *     `password` (it would need an exact-match canonicalization).
- *   - Sanitizing already-sanitized output is a no-op (idempotent).
- *   - Primitives, null, undefined pass through.
- *   - Arrays of objects are walked element-by-element.
- *   - The `sanitizeRows` helper aggregates redacted keys across rows.
+ * - Sensitive keys (password, token, jwt, apiKey, pan, cvv, etc.)
+ * are replaced with [REDACTED] at any nesting depth.
+ * - Benign keys (saleId, total, entityType, etc.) are preserved.
+ * - The matcher is anchored — `pancake_count` does NOT match `pan`,
+ * `panel_layout` does NOT match `pan`, `passwordless` does NOT match
+ * `password` (it would need an exact-match canonicalization).
+ * - Sanitizing already-sanitized output is a no-op (idempotent).
+ * - Primitives, null, undefined pass through.
+ * - Arrays of objects are walked element-by-element.
+ * - The `sanitizeRows` helper aggregates redacted keys across rows.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -257,7 +257,7 @@ describe('SENSITIVE_KEYS lock — anti-regression', () => {
     expect(__TEST_SENSITIVE_KEYS.has('certificate')).toBe(true);
     expect(__TEST_SENSITIVE_KEYS.has('clientsecret')).toBe(true);
 
-    // ENG-038 slice 2 — payment provider credential fields land
+    // slice 2 — payment provider credential fields land
     // under tenants.settings.payments.<railId>.credentials.* and
     // must redact in the diagnostic bundle. Locks the additions.
     expect(__TEST_SENSITIVE_KEYS.has('merchantid')).toBe(true);
@@ -301,7 +301,9 @@ describe('SENSITIVE_KEYS lock — anti-regression', () => {
         },
       },
     });
-    const payments = (clean as Record<string, Record<string, Record<string, Record<string, string>>>>).payments;
+    const payments = (
+      clean as Record<string, Record<string, Record<string, Record<string, string>>>>
+    ).payments;
     expect(payments.wompi?.credentials).toEqual({
       publicKey: REDACTED_PLACEHOLDER,
       privateKey: REDACTED_PLACEHOLDER,

@@ -66,7 +66,7 @@ function SectionTitle({ icon: Icon, title }: { icon: typeof ShoppingBag; title: 
   );
 }
 
-/** ENG-141a/ENG-141b — manager report with immutable sign-off evidence. */
+/** -141b — manager report with immutable sign-off evidence. */
 export function DayCloseReportPage() {
   const { t } = useTranslation(['reports', 'errors']);
   const toast = useToast();

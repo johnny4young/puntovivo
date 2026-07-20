@@ -70,18 +70,18 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// ENG-017 — `currency`, `timezone`, and `dateFormat` no longer live in the
+// `currency`, `timezone`, and `dateFormat` no longer live in the
 // tenant JSON blob; they are resolved by `LocaleProvider` against
 // `tenant_locale_settings` and the global catalogs. Kept `taxRate` as a
 // neutral default because credit-sale / discount flows still key off the
 // JSON blob until that feature retires.
-// ENG-221 — the three locale keys used to be defaulted here anyway, to
+// the three locale keys used to be defaulted here anyway, to
 // USD / UTC / YYYY-MM-DD. Nothing read them, but the values were wrong for
 // every tenant this product sells to, so any future reader would have
 // silently priced a Colombian shop in dollars. Removed together with the
 // fields on `TenantSettings`: the honest way to say "resolved elsewhere" is
 // to not be here at all.
-// ENG-039d3 — `restaurant.serviceChargeRate` baseline (0 = disabled)
+// `restaurant.serviceChargeRate` baseline (0 = disabled)
 // so `useTenant().tenantSettings.restaurant?.serviceChargeRate` is
 // always readable. Real value flows from the admin Company tab.
 const DEFAULT_TENANT_SETTINGS: Tenant['settings'] = {
@@ -134,7 +134,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // ENG-171 — stable identity (only stable refs inside: module helpers,
+  // stable identity (only stable refs inside: module helpers,
   // store getState, and useState setters) so `logout` can list it as a
   // dependency without invalidating its own useCallback every render.
   const resetIdentityOwnedState = useCallback(
@@ -142,12 +142,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (options.clearPersistedSession !== false) {
         clearAuthSession();
       }
-      // ENG-018b — drop any parked multi-cart workspaces so a new cashier
+      // drop any parked multi-cart workspaces so a new cashier
       // signing in on the same machine never sees the previous user's
       // drafts. The ownerKey filter also prevents rendering, but clearing
       // the localStorage entry avoids the stale data sitting on disk.
       useCartWorkspaceStore.getState().resetAllWorkspaces();
-      // ENG-105c — quick-create requests are one-shot UI intents. Clear
+      // quick-create requests are one-shot UI intents. Clear
       // them with the session so a different user never inherits an
       // in-flight product/customer modal after logout or token expiry.
       useQuickCreateStore.getState().reset();
@@ -169,7 +169,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const clearLocalSession = useCallback(() => {
     clearAccessToken();
     resetIdentityOwnedState({ clearVisibleSession: true });
-    // ENG-025 — clear the desktop session singleton so the main
+    // clear the desktop session singleton so the main
     // process IPC handlers reject any subsequent db:* / sync:* call
     // until the next successful login. Best-effort: any failure here
     // does not block the local cleanup. window.api is undefined in
@@ -224,7 +224,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     let isMounted = true;
 
     const initAuth = async () => {
-      // ENG-052 — restore the cached device id from local storage
+      // restore the cached device id from local storage
       // (or Electron userData) before any tRPC call runs. The cache
       // backs `getTrpcHeaders()` synchronously so the first
       // post-refresh request already ships `x-device-id`. Failures
@@ -240,7 +240,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await vanillaClient.health.check.query();
         const refreshResult = await vanillaClient.auth.refresh.mutate();
         setAccessToken(refreshResult.token);
-        // ENG-025 — register the rotated access token with the
+        // register the rotated access token with the
         // desktop session singleton so the IPC bridge handlers can
         // derive tenantId server-side. No-op in pure-browser mode.
         // Best-effort: a register failure means the bridge stays
@@ -261,7 +261,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(session.user);
         setTenant(session.tenant);
         setError(null);
-        // ENG-135 — stamp the tenantId on the observability surface
+        // stamp the tenantId on the observability surface
         // so window-level error listeners can attribute crashes to
         // the right tenant.
         setActiveTenantId(session.user.tenantId);
@@ -292,7 +292,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       isMounted = false;
     };
-    // ENG-171 — `clearLocalSession` is now a stable useCallback; listing it
+    // `clearLocalSession` is now a stable useCallback; listing it
     // keeps the mount-once semantics (stable ref → never re-runs) while
     // satisfying exhaustive-deps.
   }, [clearLocalSession]);
@@ -308,7 +308,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           password: credentials.password,
         });
         setAccessToken(authData.token);
-        // ENG-025 — bind the access token to the desktop session
+        // bind the access token to the desktop session
         // singleton so subsequent IPC db:*/sync:* calls can derive
         // tenantId server-side. No-op in pure-browser mode.
         try {
@@ -317,7 +317,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           console.warn('Desktop session register failed during login:', registerErr);
         }
 
-        // ENG-052 — register the device with the active tenant before
+        // register the device with the active tenant before
         // any critical mutation runs. The server-issued id is cached
         // synchronously so `getTrpcHeaders()` ships `x-device-id` on
         // every subsequent request. Failures here only block critical
@@ -328,8 +328,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const isElectron =
             typeof window !== 'undefined' &&
             Boolean((window as unknown as { electron?: unknown }).electron);
-          // ENG-074 — discriminate hub_client terminals so the
-          // Operations Center Authority tab (ENG-075) can render
+          // discriminate hub_client terminals so the
+          // Operations Center Authority tab () can render
           // which devices are hub clients vs full local installs.
           // Reading the runtime config is cheap (cached at module
           // init) and a no-op for the pure-web build (returns
@@ -372,11 +372,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         persistAuthSession(session);
         setUser(session.user);
         setTenant(session.tenant);
-        // ENG-135 — see init path; same tenant attribution applies on
+        // see init path; same tenant attribution applies on
         // an interactive login.
         setActiveTenantId(session.user.tenantId);
 
-        // ENG-104 — Post-login routing considers setup readiness so
+        // Post-login routing considers setup readiness so
         // admins see the readiness checklist when there are unresolved
         // blockers. Defense in depth: any readiness error collapses to
         // the legacy default — a broken aggregator NEVER traps the
@@ -408,7 +408,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } finally {
         setIsLoading(false);
       }
-      // ENG-171 — `navigate` is the only reactive dependency (react-router
+      // `navigate` is the only reactive dependency (react-router
       // returns a stable reference); every other ref is a module helper or a
       // stable useState setter, so the callback identity holds across renders.
     },
@@ -434,7 +434,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         clearAccessToken();
         resetIdentityOwnedState({ clearVisibleSession: false });
 
-        // ENG-106a — await the old desktop singleton clear before registering
+        // await the old desktop singleton clear before registering
         // the new token. Fire-and-forget here can race and erase the cashier
         // session we just installed.
         try {
@@ -487,7 +487,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [clearLocalSession, navigate]);
 
-  // ENG-171 — memoize the context value so the 52 `useAuth` consumers only
+  // memoize the context value so the 52 `useAuth` consumers only
   // re-render when an auth field actually changes, not on every incidental
   // AuthProvider render. `login` + `logout` are now stable useCallbacks.
   const value = useMemo<AuthContextType>(

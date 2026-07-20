@@ -49,7 +49,7 @@ async function ensureCatalogUniqueness(
     code,
     name,
   }: {
-    // ENG-179b — explicit `| undefined` on Zod-derived optional fields.
+    // explicit `| undefined` on Zod-derived optional fields.
     id?: string | undefined;
     code?: string | undefined;
     name?: string | undefined;
@@ -112,7 +112,11 @@ function buildCustomerCatalogRouter(definition: CustomerCatalogDefinition) {
       const where = and(...conditions);
       const [items, countRow] = await Promise.all([
         ctx.db.select().from(table).where(where).limit(perPage).offset(offset).all(),
-        ctx.db.select({ count: sql<number>`count(*)` }).from(table).where(where).get(),
+        ctx.db
+          .select({ count: sql<number>`count(*)` })
+          .from(table)
+          .where(where)
+          .get(),
       ]);
 
       const totalItems = countRow?.count ?? 0;
@@ -143,108 +147,114 @@ function buildCustomerCatalogRouter(definition: CustomerCatalogDefinition) {
       return item;
     }),
 
-    create: adminProcedure.input(createCustomerCatalogItemInput).mutation(async ({ ctx, input }) => {
-      await ensureCatalogUniqueness(ctx.db, ctx.tenantId, definition, {
-        code: input.code,
-        name: input.name,
-      });
-
-      const now = new Date().toISOString();
-      const id = nanoid();
-
-      await ctx.db.insert(table).values({
-        id,
-        tenantId: ctx.tenantId,
-        code: input.code,
-        name: input.name,
-        description: input.description ?? null,
-        isActive: input.isActive,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      await enqueueSync(ctx, {
-        entityType: definition.entityType,
-        entityId: id,
-        operation: 'create',
-        data: { id, ...input },
-      });
-
-      return ctx.db.select().from(table).where(eq(table.id, id)).get();
-    }),
-
-    update: adminProcedure.input(updateCustomerCatalogItemInput).mutation(async ({ ctx, input }) => {
-      const { id, ...updates } = input;
-
-      const existing = await ctx.db
-        .select()
-        .from(table)
-        .where(and(eq(table.id, id), eq(table.tenantId, ctx.tenantId)))
-        .get();
-
-      if (!existing) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: `${definition.singularName} not found`,
+    create: adminProcedure
+      .input(createCustomerCatalogItemInput)
+      .mutation(async ({ ctx, input }) => {
+        await ensureCatalogUniqueness(ctx.db, ctx.tenantId, definition, {
+          code: input.code,
+          name: input.name,
         });
-      }
 
-      await ensureCatalogUniqueness(ctx.db, ctx.tenantId, definition, {
-        id,
-        code: updates.code,
-        name: updates.name,
-      });
+        const now = new Date().toISOString();
+        const id = nanoid();
 
-      const now = new Date().toISOString();
-      const updateData: Record<string, unknown> = { updatedAt: now };
-
-      if (updates.code !== undefined) updateData.code = updates.code;
-      if (updates.name !== undefined) updateData.name = updates.name;
-      if (updates.description !== undefined) updateData.description = updates.description;
-      if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
-
-      await ctx.db
-        .update(table)
-        .set(updateData)
-        .where(and(eq(table.id, id), eq(table.tenantId, ctx.tenantId)));
-
-      await enqueueSync(ctx, {
-        entityType: definition.entityType,
-        entityId: id,
-        operation: 'update',
-        data: { id, ...updateData },
-      });
-
-      return ctx.db.select().from(table).where(eq(table.id, id)).get();
-    }),
-
-    delete: adminProcedure.input(deleteCustomerCatalogItemInput).mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db
-        .select()
-        .from(table)
-        .where(and(eq(table.id, input.id), eq(table.tenantId, ctx.tenantId)))
-        .get();
-
-      if (!existing) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: `${definition.singularName} not found`,
+        await ctx.db.insert(table).values({
+          id,
+          tenantId: ctx.tenantId,
+          code: input.code,
+          name: input.name,
+          description: input.description ?? null,
+          isActive: input.isActive,
+          createdAt: now,
+          updatedAt: now,
         });
-      }
 
-      await ctx.db
-        .delete(table)
-        .where(and(eq(table.id, input.id), eq(table.tenantId, ctx.tenantId)));
+        await enqueueSync(ctx, {
+          entityType: definition.entityType,
+          entityId: id,
+          operation: 'create',
+          data: { id, ...input },
+        });
 
-      await enqueueSync(ctx, {
-        entityType: definition.entityType,
-        entityId: input.id,
-        operation: 'delete',
-        data: { id: input.id },
-      });
+        return ctx.db.select().from(table).where(eq(table.id, id)).get();
+      }),
 
-      return { success: true, id: input.id };
-    }),
+    update: adminProcedure
+      .input(updateCustomerCatalogItemInput)
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...updates } = input;
+
+        const existing = await ctx.db
+          .select()
+          .from(table)
+          .where(and(eq(table.id, id), eq(table.tenantId, ctx.tenantId)))
+          .get();
+
+        if (!existing) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: `${definition.singularName} not found`,
+          });
+        }
+
+        await ensureCatalogUniqueness(ctx.db, ctx.tenantId, definition, {
+          id,
+          code: updates.code,
+          name: updates.name,
+        });
+
+        const now = new Date().toISOString();
+        const updateData: Record<string, unknown> = { updatedAt: now };
+
+        if (updates.code !== undefined) updateData.code = updates.code;
+        if (updates.name !== undefined) updateData.name = updates.name;
+        if (updates.description !== undefined) updateData.description = updates.description;
+        if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
+
+        await ctx.db
+          .update(table)
+          .set(updateData)
+          .where(and(eq(table.id, id), eq(table.tenantId, ctx.tenantId)));
+
+        await enqueueSync(ctx, {
+          entityType: definition.entityType,
+          entityId: id,
+          operation: 'update',
+          data: { id, ...updateData },
+        });
+
+        return ctx.db.select().from(table).where(eq(table.id, id)).get();
+      }),
+
+    delete: adminProcedure
+      .input(deleteCustomerCatalogItemInput)
+      .mutation(async ({ ctx, input }) => {
+        const existing = await ctx.db
+          .select()
+          .from(table)
+          .where(and(eq(table.id, input.id), eq(table.tenantId, ctx.tenantId)))
+          .get();
+
+        if (!existing) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: `${definition.singularName} not found`,
+          });
+        }
+
+        await ctx.db
+          .delete(table)
+          .where(and(eq(table.id, input.id), eq(table.tenantId, ctx.tenantId)));
+
+        await enqueueSync(ctx, {
+          entityType: definition.entityType,
+          entityId: input.id,
+          operation: 'delete',
+          data: { id: input.id },
+        });
+
+        return { success: true, id: input.id };
+      }),
 
     search: tenantProcedure.input(searchCustomerCatalogItemsInput).query(async ({ ctx, input }) => {
       const conditions = [eq(table.tenantId, ctx.tenantId)];

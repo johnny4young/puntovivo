@@ -1,5 +1,5 @@
 /**
- * ENG-141c — server-side printable day-close evidence.
+ * server-side printable day-close evidence.
  *
  * The PDF is rendered before the irreversible sign-off transaction. It is a
  * human-readable projection of the exact report snapshot whose canonical hash

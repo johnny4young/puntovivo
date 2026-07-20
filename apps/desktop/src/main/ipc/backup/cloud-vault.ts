@@ -1,4 +1,4 @@
-/** ENG-136c — admin-gated S3-compatible backup vault IPC boundary. */
+/** admin-gated S3-compatible backup vault IPC boundary. */
 
 import { createModuleLogger } from '@puntovivo/server';
 import {

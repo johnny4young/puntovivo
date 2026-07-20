@@ -1,10 +1,10 @@
 /**
- * ENG-069 — SurfacePlaceholder render tests.
+ * SurfacePlaceholder render tests.
  *
  * Pins the contract:
- *   - Reads `surfaces.<i18nKey>.label` + `.description` + `.upcomingTicket`.
- *   - Renders the dashboard CTA link.
- *   - Each per-surface wrapper passes the right i18nKey down.
+ * - Reads `surfaces.<i18nKey>.label` + `.description` + `.upcomingTicket`.
+ * - Renders the dashboard CTA link.
+ * - Each per-surface wrapper passes the right i18nKey down.
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -25,14 +25,14 @@ vi.mock('react-i18next', async () => {
 
 import { SurfacePlaceholder } from '../SurfacePlaceholder';
 import { TouchHomePlaceholder } from '../TouchHomePlaceholder';
-// ENG-098 — KdsHomePlaceholder no longer routes through SurfacePlaceholder;
+// KdsHomePlaceholder no longer routes through SurfacePlaceholder;
 // the real KdsBoard now mounts there. The Touch / CustomerDisplay /
 // MobileWaiter wrappers stay as placeholder shells and still pin the
 // SurfacePlaceholder contract below.
 import { CustomerDisplayHomePlaceholder } from '../CustomerDisplayHomePlaceholder';
 import { MobileWaiterHomePlaceholder } from '../MobileWaiterHomePlaceholder';
 
-describe('SurfacePlaceholder (ENG-069)', () => {
+describe('SurfacePlaceholder', () => {
   it('renders the surface label, description, upcoming ticket badge, and CTA', () => {
     render(
       <MemoryRouter>
@@ -47,7 +47,7 @@ describe('SurfacePlaceholder (ENG-069)', () => {
   });
 });
 
-describe('Per-surface placeholder wrappers (ENG-069)', () => {
+describe('Per-surface placeholder wrappers', () => {
   function renderInRouter(node: ReactElement) {
     return render(<MemoryRouter>{node}</MemoryRouter>);
   }
@@ -57,7 +57,7 @@ describe('Per-surface placeholder wrappers (ENG-069)', () => {
     expect(screen.getByText('tx:posTouch.label')).toBeInTheDocument();
   });
 
-  // ENG-098 — KdsHomePlaceholder now mounts the real KdsBoard, so the
+  // KdsHomePlaceholder now mounts the real KdsBoard, so the
   // "i18nKey kds" placeholder assertion is no longer applicable. Live
   // smoke + KdsBoard.test.tsx cover the new behavior.
 

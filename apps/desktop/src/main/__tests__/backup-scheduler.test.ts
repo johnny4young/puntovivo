@@ -79,7 +79,7 @@ function makeScheduler(
   });
 }
 
-describe('backup scheduler time policy (ENG-136a)', () => {
+describe('backup scheduler time policy', () => {
   it('computes daily and weekly next runs and disables off schedules', () => {
     const anchor = new Date('2026-07-14T12:00:00.000Z');
     assert.equal(computeNextBackupRunAt('off', anchor), null);
@@ -93,7 +93,7 @@ describe('backup scheduler time policy (ENG-136a)', () => {
   });
 });
 
-describe('backup scheduler persistence and execution (ENG-136a)', () => {
+describe('backup scheduler persistence and execution', () => {
   it('returns a managed, disabled default when no state exists', async () => {
     const scheduler = makeScheduler({ now: () => new Date('2026-07-14T12:00:00.000Z') });
     const status = await scheduler.getStatus('tenant-a');

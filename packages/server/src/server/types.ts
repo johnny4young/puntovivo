@@ -14,7 +14,7 @@ import type { RuntimeConfig } from '../config/runtime.js';
 import type { DatabaseInstance } from '../db/index.js';
 
 export interface ServerOptions {
-  // ENG-179b — explicit `| undefined` on every optional field so
+  // explicit `| undefined` on every optional field so
   // callers can pass `field: process.env.X` (where the env-var read is
   // `string | undefined`) without violating `exactOptionalPropertyTypes`.
   /** Path to the SQLite database file */
@@ -38,7 +38,7 @@ export interface ServerOptions {
    */
   migrationsFolder?: string | undefined;
   /**
-   * ENG-072 — resolved Authority Node runtime config. Standalone and
+   * resolved Authority Node runtime config. Standalone and
    * Electron callers resolve this via `resolveRuntimeConfig` and pass
    * it in. When omitted (typical in tests), `createServer` synthesizes
    * a `device_local` runtime from `host`/`port` so existing tests stay
@@ -46,14 +46,14 @@ export interface ServerOptions {
    */
   runtime?: RuntimeConfig | undefined;
   /**
-   * ENG-073 — installed app version surfaced on `/api/health`.
+   * installed app version surfaced on `/api/health`.
    * Standalone reads from `process.env.npm_package_version`; Electron
    * passes `app.getVersion()`. Defaults to `'unknown'` when omitted
    * so tests do not need to wire it.
    */
   appVersion?: string | undefined;
   /**
-   * ENG-167 — 64-char hex SQLCipher key forwarded to `initDatabase`.
+   * 64-char hex SQLCipher key forwarded to `initDatabase`.
    * Electron resolves it through `safeStorage` (see
    * `apps/desktop/src/main/db-key-store.ts`); the standalone server
    * accepts `process.env.PUNTOVIVO_DB_KEY` as a parity escape hatch.
@@ -76,20 +76,20 @@ export interface PuntovivoServer {
   /** The database instance */
   db: DatabaseInstance;
   /**
-   * ENG-057 — Fiscal worker daemon registered to drain `fiscal_outbox`.
+   * Fiscal worker daemon registered to drain `fiscal_outbox`.
    * Tests call `fiscalWorker.tickOnce(tenantId)` directly to drive the
    * lifecycle synchronously without waiting for the periodic interval.
    */
   fiscalWorker: import('../services/fiscal/fiscal-worker.js').FiscalWorker;
   /**
-   * ENG-062 — Hardware worker daemon registered to drain
+   * Hardware worker daemon registered to drain
    * `hardware_outbox`. Mirrors the fiscal worker; tests inject a
    * fast retry policy via `createHardwareWorker` directly when they
    * need to assert dead-letter transitions in tight loops.
    */
   hardwareWorker: import('../services/peripherals/hardware-worker.js').HardwareWorker;
   /**
-   * ENG-038c — Payment worker daemon registered to drain
+   * Payment worker daemon registered to drain
    * `payment_outbox` (housekeeping today; live charge dispatch lands
    * with rail-specific API clients) and run statement-import +
    * reconciliation. Tests pass a stub `fetchStatement` via
@@ -97,14 +97,14 @@ export interface PuntovivoServer {
    */
   paymentWorker: import('../services/payments/payment-worker.js').PaymentWorker;
   /**
-   * ENG-168 — login_attempts cleanup worker. Sweeps rate-limit
+   * login_attempts cleanup worker. Sweeps rate-limit
    * buckets whose `expires_at` is older than 24 h on a 1 h cadence.
    * Tests call `.tickOnce()` to assert delete counts without waiting
    * for the periodic interval.
    */
   loginAttemptsCleanup: import('../services/cleanup/loginAttemptsCleanup.js').LoginAttemptsCleanupHandle;
   /**
-   * ENG-129d — daily tenant-scoped retention enforcement for audit, AI
+   * daily tenant-scoped retention enforcement for audit, AI
    * telemetry, and already-synced outbox rows.
    */
   dataRetentionCleanup: import('../services/cleanup/dataRetentionCleanup.js').DataRetentionCleanupHandle;

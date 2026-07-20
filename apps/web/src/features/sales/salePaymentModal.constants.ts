@@ -1,7 +1,7 @@
 /**
  * Constants + pure helpers for the sale payment modal.
  *
- * ENG-178 — extracted verbatim from the former single-file
+ * extracted verbatim from the former single-file
  * `SalePaymentModal.tsx` during the megafile decomposition. Holds the tender
  * epsilon, tip presets, the single-tender method tiles, the form default-value
  * builder, and the tip coercion helper. No React state — safe to import from
@@ -15,7 +15,7 @@ import type { PaymentMethod } from '@/types';
 import type { SalePaymentValues } from './salePaymentModal.types';
 
 export const TENDER_SUM_EPSILON = 0.005;
-// ENG-039d — preset tip percentages. 0% is rendered as "Sin propina"
+// preset tip percentages. 0% is rendered as "Sin propina"
 // so the cashier can explicitly clear after picking 10/15.
 export const TIP_PRESETS = [0, 10, 15] as const;
 
@@ -46,7 +46,7 @@ export function getDefaultValues(
   return {
     customerId: '',
     paymentMethod: 'cash',
-    // ENG-039d3 — seed amountReceived at total+service so the cashier
+    // seed amountReceived at total+service so the cashier
     // sees the auto-applied service line reflected upfront. Tip layers
     // on later via `syncPaymentInputsForTip`.
     amountReceived: total + serviceChargeAmount,

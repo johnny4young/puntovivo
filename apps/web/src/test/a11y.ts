@@ -1,5 +1,5 @@
 /**
- * ENG-134 — axe-core helper for component tests.
+ * axe-core helper for component tests.
  *
  * `assertNoA11yViolations(container)` runs axe against the rendered
  * subtree with the WCAG 2 AA ruleset by default and throws on any
@@ -53,9 +53,7 @@ const SEVERITY_ORDER: Array<'minor' | 'moderate' | 'serious' | 'critical'> = [
 
 function severityRank(level: string | null | undefined): number {
   if (!level) return -1;
-  return SEVERITY_ORDER.indexOf(
-    level as 'minor' | 'moderate' | 'serious' | 'critical'
-  );
+  return SEVERITY_ORDER.indexOf(level as 'minor' | 'moderate' | 'serious' | 'critical');
 }
 
 function renderNodeTarget(node: NodeResult): string {
@@ -72,9 +70,7 @@ function renderViolations(violations: Result[]): string {
     for (const node of v.nodes) {
       lines.push(`      target: ${renderNodeTarget(node)}`);
       if (node.failureSummary) {
-        lines.push(
-          `      ${node.failureSummary.split('\n').join('\n      ')}`
-        );
+        lines.push(`      ${node.failureSummary.split('\n').join('\n      ')}`);
       }
     }
     if (v.helpUrl) lines.push(`      helpUrl: ${v.helpUrl}`);
@@ -92,13 +88,10 @@ export async function assertNoA11yViolations(
   container: HTMLElement,
   options: AssertA11yOptions = {}
 ): Promise<AxeResults> {
-  const { runOptions = DEFAULT_RUN_OPTIONS, severityFloor = 'serious' } =
-    options;
+  const { runOptions = DEFAULT_RUN_OPTIONS, severityFloor = 'serious' } = options;
   const results = await axe.run(container, runOptions);
   const floorRank = severityRank(severityFloor);
-  const offending = results.violations.filter(
-    v => severityRank(v.impact) >= floorRank
-  );
+  const offending = results.violations.filter(v => severityRank(v.impact) >= floorRank);
   if (offending.length > 0) {
     throw new Error(
       `Accessibility violations (>= ${severityFloor}):\n${renderViolations(offending)}`

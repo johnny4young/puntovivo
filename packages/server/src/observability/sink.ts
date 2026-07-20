@@ -1,16 +1,16 @@
 /**
- * ENG-135 — Telemetry sink interface (centralized side).
+ * Telemetry sink interface (centralized side).
  *
  * The sink is the seam between Puntovivo internals and an external
  * observability backend (Sentry, GlitchTip, OTLP collector, etc.).
- * The local NDJSON pino log (ENG-006) is the operator-side artifact;
+ * The local NDJSON pino log () is the operator-side artifact;
  * the sink is the centralized pipe that lets support see fleet
  * health without a tenant-by-tenant phone call.
  *
  * V1 ships the interface plus a `noopSink` default. The Sentry /
  * GlitchTip adapter is a follow-up that lands once the operator has
  * provisioned a DSN — installing the SDK in deps before that point
- * would bump the bundle-size budget (ENG-133) for zero immediate
+ * would bump the bundle-size budget () for zero immediate
  * value. Adapter authors implement these two methods, call
  * `registerTelemetrySink(adapter)` at boot, and the existing
  * captureException / withSpan helpers route through them
@@ -31,14 +31,14 @@ import type { TelemetryEventAttrs } from './capture.js';
  * Pluggable destination for captured exceptions and recorded spans.
  *
  * Adapter implementations should:
- *   - Be tolerant of partial attrs (any field can be missing).
- *   - Honour the redaction contract — the helpers in `capture.ts`
- *     run `redactErrorAttrs` before invoking the sink, but adapters
- *     should still avoid logging the raw `err.stack` to third-party
- *     services if the project policy disallows it.
- *   - Never throw — the helpers wrap calls in a try/catch but a
- *     misbehaving adapter that blocks the event loop will still hurt
- *     latency budgets (ENG-133).
+ * - Be tolerant of partial attrs (any field can be missing).
+ * - Honour the redaction contract — the helpers in `capture.ts`
+ * run `redactErrorAttrs` before invoking the sink, but adapters
+ * should still avoid logging the raw `err.stack` to third-party
+ * services if the project policy disallows it.
+ * - Never throw — the helpers wrap calls in a try/catch but a
+ * misbehaving adapter that blocks the event loop will still hurt
+ * latency budgets ().
  */
 export interface TelemetrySink {
   /**

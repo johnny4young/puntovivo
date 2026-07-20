@@ -1,20 +1,20 @@
 /**
- * ENG-062 — Hardware outbox integration tests.
+ * Hardware outbox integration tests.
  *
  * Drives `peripherals.printReceipt` + `peripherals.kickCashDrawer`
  * through the in-memory MockEscPosTransport via the
  * `__setEscPosTransportForTest` seam. Asserts:
  *
- *   - happy path: escpos+mock printer flushes bytes, returns
- *     `{status:'printed'}`, NO outbox row enqueued
- *   - failure path: forced transport error returns
- *     `{status:'fallback'}` AND a `hardware_outbox` row is queued
- *   - drawer kick: success returns `{status:'ok'}`, mock buffer
- *     contains the canonical pulse
- *   - drawer kick: no drawer registered returns
- *     `{status:'no-drawer-registered'}`
- *   - peekHardwareOutbox: cross-tenant isolation
- *   - peekHardwareOutbox: rejects cashier role
+ * - happy path: escpos+mock printer flushes bytes, returns
+ * `{status:'printed'}`, NO outbox row enqueued
+ * - failure path: forced transport error returns
+ * `{status:'fallback'}` AND a `hardware_outbox` row is queued
+ * - drawer kick: success returns `{status:'ok'}`, mock buffer
+ * contains the canonical pulse
+ * - drawer kick: no drawer registered returns
+ * `{status:'no-drawer-registered'}`
+ * - peekHardwareOutbox: cross-tenant isolation
+ * - peekHardwareOutbox: rejects cashier role
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';

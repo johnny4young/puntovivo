@@ -1,4 +1,4 @@
-/** ENG-201 — embedded Fastify lifecycle for the Electron main process. */
+/** embedded Fastify lifecycle for the Electron main process. */
 
 import type { BrowserWindow } from 'electron';
 import { randomBytes } from 'node:crypto';
@@ -51,7 +51,7 @@ export function createServerLifecycle({
   const jwtSecret = generateJwtSecret();
 
   async function start(): Promise<PuntovivoServer> {
-    // ENG-072 — Authority Node host/mode/port remain environment-resolved.
+    // Authority Node host/mode/port remain environment-resolved.
     const runtime = resolveRuntimeConfig({ env });
     const encryptionKey = await prepareDatabaseEncryption();
 
@@ -73,7 +73,7 @@ export function createServerLifecycle({
       verbose: isDev,
       migrationsFolder: migrationsPath,
       runtime,
-      // ENG-073 / ENG-075 — expose desktop version through health/Operations.
+      // /  — expose desktop version through health/Operations.
       appVersion,
       encryptionKey,
       jwtSecret,
@@ -97,7 +97,7 @@ export function createServerLifecycle({
     operation: () => Promise<T>,
     options?: { reloadWindow?: boolean }
   ): Promise<T> {
-    // ENG-178 — backup/restore IPC receives this choreography by dependency.
+    // backup/restore IPC receives this choreography by dependency.
     await stop();
     try {
       return await operation();

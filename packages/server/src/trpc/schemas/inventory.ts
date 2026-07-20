@@ -45,7 +45,7 @@ export const getMovementInput = z.object({
 export const createMovementInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
   type: movementTypeEnum,
-  // Phase 1 DB-050: movements accept fractional quantities.
+  // movements accept fractional quantities.
   quantity: z.number().positive('Quantity must be greater than zero'),
   reference: z.string().optional(),
   notes: z.string().optional(),
@@ -53,10 +53,10 @@ export const createMovementInput = z.object({
 
 export const adjustStockInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
-  // Phase 1 DB-050: adjustments accept fractional stock targets.
+  // adjustments accept fractional stock targets.
   newStock: z.number().min(0, 'Stock must be non-negative'),
   notes: z.string().optional(),
-  // Phase 2 API-103 step 3: optional target site. When omitted, the router
+  // optional target site. When omitted, the router
   // falls back to `ctx.siteId` and finally the tenant primary site.
   siteId: z.string().min(1, 'Site ID is required').optional(),
 });
@@ -78,7 +78,7 @@ export const listBalancesBySiteInput = z.object({
   siteId: z.string().min(1, 'Site ID is required'),
 });
 
-// Phase 2 API-103 step 4: admin reconciliation has no input. The explicit
+// admin reconciliation has no input. The explicit
 // empty object is declared here so every tRPC procedure has a schema anchor
 // in this file, matching project convention.
 export const reconcileBalancesInput = z.void().optional();

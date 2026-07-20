@@ -1,10 +1,10 @@
-// ENG-179c — product / category domain shapes (ENG-178 slice 28).
+// product / category domain shapes ( slice 28).
 
 import type { SyncStatus } from '../ui';
 
 // Domain Models
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export interface Product {
   id: string;
   tenantId: string;
@@ -53,7 +53,7 @@ export interface Product {
   updatedAt: string;
   syncStatus?: SyncStatus | null | undefined;
   syncVersion?: number | null | undefined;
-  // ENG-177a — optimistic-concurrency token (round-tripped on update).
+  // optimistic-concurrency token (round-tripped on update).
   version: number;
 }
 
@@ -105,7 +105,7 @@ export interface Category {
   name: string;
   description?: string | null;
   parentId?: string | null;
-  // ENG-177a — optimistic-concurrency token (round-tripped on update).
+  // optimistic-concurrency token (round-tripped on update).
   version: number;
   createdAt: string;
   updatedAt: string;

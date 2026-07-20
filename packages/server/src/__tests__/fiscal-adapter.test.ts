@@ -1,5 +1,5 @@
 /**
- * ENG-020 — `ColombiaMockAdapter` tests (renamed in ENG-034 from
+ * `ColombiaMockAdapter` tests (renamed in  from
  * `MockAdapter` when the file moved into `services/fiscal/packs/co/`).
  *
  * The mock is the reference implementation of `FiscalAdapter` for
@@ -8,9 +8,9 @@
  *
  * - `issue()` produces a valid CUFE matching `computeCufe` directly.
  * - Default status is `'sent'`; the contingencyOracle hook can force
- *   `'contingency'` for offline-path tests.
+ * `'contingency'` for offline-path tests.
  * - `voidDocument()` returns a distinct CUFE from the original so the
- *   unique index on `fiscal_documents.cufe` never collides.
+ * unique index on `fiscal_documents.cufe` never collides.
  * - `fetchStatus()` returns `'accepted'` (mock terminal state).
  * - `capabilities` are stable.
  */
@@ -77,7 +77,7 @@ function buildIssueInput(
   };
 }
 
-describe('ColombiaMockAdapter.issue (ENG-020 + ENG-034)', () => {
+describe('ColombiaMockAdapter.issue ( + )', () => {
   it('returns a CUFE that matches the pure computeCufe result', async () => {
     const adapter = new ColombiaMockAdapter();
     const input = buildIssueInput();
@@ -123,9 +123,7 @@ describe('ColombiaMockAdapter.issue (ENG-020 + ENG-034)', () => {
   it('produces distinct CUFEs when any field changes', async () => {
     const adapter = new ColombiaMockAdapter();
     const base = await adapter.issue(buildIssueInput());
-    const mutated = await adapter.issue(
-      buildIssueInput({ totalAmount: 119.01 })
-    );
+    const mutated = await adapter.issue(buildIssueInput({ totalAmount: 119.01 }));
     expect(mutated.cufe).not.toBe(base.cufe);
   });
 
@@ -144,9 +142,7 @@ describe('ColombiaMockAdapter.issue (ENG-020 + ENG-034)', () => {
 
   it('fetchStatus reports the mock terminal state', async () => {
     const adapter = new ColombiaMockAdapter();
-    await expect(adapter.fetchStatus('deadbeef'.repeat(12))).resolves.toBe(
-      'accepted'
-    );
+    await expect(adapter.fetchStatus('deadbeef'.repeat(12))).resolves.toBe('accepted');
   });
 
   it('exposes stable capability flags', () => {

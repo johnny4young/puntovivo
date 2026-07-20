@@ -1,5 +1,5 @@
 /**
- * ENG-168 — pins the login_attempts cleanup worker.
+ * pins the login_attempts cleanup worker.
  *
  * The worker sweeps rate-limit buckets whose `expires_at` is older
  * than 24 h. These tests drive the sweep synchronously via
@@ -7,14 +7,14 @@
  * fast (no setInterval timing).
  *
  * Scenarios:
- *  1. Rows whose `expires_at` is well beyond the 24 h cutoff are
- *     deleted and a system audit row is written.
- *  2. Rows whose `expires_at` is recent (or in the future) survive.
- *  3. `tickOnce` is idempotent — calling twice deletes once but
- *     still records one audit row per run.
- *  4. Failed sweeps write a global error audit row.
- *  5. The factory's `stop()` releases the interval without throwing
- *     even if `start()` was never invoked.
+ * 1. Rows whose `expires_at` is well beyond the 24 h cutoff are
+ * deleted and a system audit row is written.
+ * 2. Rows whose `expires_at` is recent (or in the future) survive.
+ * 3. `tickOnce` is idempotent — calling twice deletes once but
+ * still records one audit row per run.
+ * 4. Failed sweeps write a global error audit row.
+ * 5. The factory's `stop()` releases the interval without throwing
+ * even if `start()` was never invoked.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -74,7 +74,7 @@ function auditMetadata(row: SystemAuditLog): Record<string, unknown> {
   return (row.metadata ?? {}) as Record<string, unknown>;
 }
 
-describe('login_attempts cleanup worker (ENG-168)', () => {
+describe('login_attempts cleanup worker', () => {
   it('deletes rows whose expires_at is older than the 24 h cutoff', () => {
     const fakeNow = 1_780_000_000_000;
     seedAttempts([

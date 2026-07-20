@@ -1,5 +1,5 @@
 /**
- * Audit Logs tRPC Router (Phase 8 / Tier-2 #8).
+ * Audit Logs tRPC Router ().
  *
  * Read-only surface for the admin-facing audit viewer. There is no write
  * procedure because audit rows are persisted by the sensitive actions

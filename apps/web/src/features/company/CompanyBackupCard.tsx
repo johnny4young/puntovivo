@@ -13,7 +13,7 @@ import { BackupSchedulePanel } from './BackupSchedulePanel';
 
 type BackupAction = 'backup' | 'restore' | null;
 
-/** ENG-167b — shape of the server's backup encryption key. */
+/** shape of the server's backup encryption key. */
 const BACKUP_KEY_PATTERN = /^[0-9a-f]{64}$/i;
 
 interface BackupStatus {
@@ -39,13 +39,13 @@ export function CompanyBackupCard() {
   const [cloudVaultRefreshKey, setCloudVaultRefreshKey] = useState(0);
   const [isRestoreConfirmOpen, setIsRestoreConfirmOpen] = useState(false);
   const [status, setStatus] = useState<BackupStatus | null>(null);
-  // ENG-167b — cross-device restore key prompt. Non-null while the
+  // cross-device restore key prompt. Non-null while the
   // main process holds a staged bundle waiting for the source
   // device's key (the token must be echoed back to complete it).
   const [restoreKeyToken, setRestoreKeyToken] = useState<string | null>(null);
   const [restoreKeyInput, setRestoreKeyInput] = useState('');
   const [restoreKeyError, setRestoreKeyError] = useState<string | null>(null);
-  // ENG-167b — admin-gated reveal of this install's backup key.
+  // admin-gated reveal of this install's backup key.
   const [isRevealConfirmOpen, setIsRevealConfirmOpen] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const toast = useToast();
@@ -135,7 +135,7 @@ export function CompanyBackupCard() {
         return;
       }
 
-      // ENG-167b — the bundle comes from another device: the main
+      // the bundle comes from another device: the main
       // process holds the staged copy and waits for its backup key.
       if (result.needsKey && result.token) {
         setIsRestoreConfirmOpen(false);
@@ -174,7 +174,7 @@ export function CompanyBackupCard() {
     }
   };
 
-  // ENG-167b — abandoning the key prompt must also clear the
+  // abandoning the key prompt must also clear the
   // "waiting for the key" status banner (leaving it up would claim
   // an in-flight restore that no longer exists) AND tell the main
   // process to discard the staged copy right away instead of leaving
@@ -194,7 +194,7 @@ export function CompanyBackupCard() {
     }
   };
 
-  // ENG-167b — complete the cross-device restore with the key the
+  // complete the cross-device restore with the key the
   // operator copied from the SOURCE device. A wrong key keeps the
   // staged bundle on the main side so the prompt can retry.
   const handleSubmitRestoreKey = async () => {
@@ -237,7 +237,7 @@ export function CompanyBackupCard() {
     }
   };
 
-  // ENG-167b — reveal this install's backup key after an explicit
+  // reveal this install's backup key after an explicit
   // warning confirmation. Needed to restore this device's bundles on
   // another machine; documented trade-off in docs/SECURITY.md.
   const handleRevealKey = async () => {
@@ -382,7 +382,7 @@ export function CompanyBackupCard() {
         variant="danger"
       />
 
-      {/* ENG-167b — cross-device restore key prompt */}
+      {/* cross-device restore key prompt */}
       <Modal
         isOpen={restoreKeyToken !== null}
         onClose={handleCancelRestoreKey}
@@ -440,7 +440,7 @@ export function CompanyBackupCard() {
         </div>
       </Modal>
 
-      {/* ENG-167b — reveal warning gate */}
+      {/* reveal warning gate */}
       <ConfirmModal
         isOpen={isRevealConfirmOpen}
         onClose={() => setIsRevealConfirmOpen(false)}
@@ -453,7 +453,7 @@ export function CompanyBackupCard() {
         variant="danger"
       />
 
-      {/* ENG-167b — revealed key (one showing; closes on dismiss) */}
+      {/* revealed key (one showing; closes on dismiss) */}
       <Modal
         isOpen={revealedKey !== null}
         onClose={() => setRevealedKey(null)}

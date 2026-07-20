@@ -7,10 +7,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { ProviderCategoryAssignmentsModal } from '@/features/providers/ProviderCategoryAssignmentsModal';
-import {
-  ProviderFormModal,
-  type ProviderFormValues,
-} from '@/features/providers/ProviderFormModal';
+import { ProviderFormModal, type ProviderFormValues } from '@/features/providers/ProviderFormModal';
 import { createProviderColumns } from '@/features/providers/providerColumns';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { extractServerErrorCode } from '@/lib/translateServerError';
@@ -64,7 +61,7 @@ export function ProvidersPage() {
       handleCloseModal();
       toast.success({ title: t('providers.toast.updated') });
     },
-    // ENG-177a — refresh the cached list on a STALE_VERSION conflict.
+    // refresh the cached list on a STALE_VERSION conflict.
     onError: onErrorToast(toast, t, {
       titleKey: 'settings:providers.toast.updateError',
       extra: (_description, error) => {
@@ -149,7 +146,7 @@ export function ProvidersPage() {
     if (editingProvider) {
       await updateMutation.mutateAsync({
         id: editingProvider.id,
-        // ENG-177a — round-trip the loaded version for the concurrency guard.
+        // round-trip the loaded version for the concurrency guard.
         version: editingProvider.version,
         ...payload,
       });
@@ -192,7 +189,11 @@ export function ProvidersPage() {
       <ResourcePage
         title={t('providers.title')}
         action={
-          <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canManage}>
+          <button
+            className="btn-primary flex items-center gap-2"
+            onClick={handleOpenCreate}
+            disabled={!canManage}
+          >
             <Plus className="h-5 w-5" />
             {t('providers.add')}
           </button>

@@ -1,5 +1,5 @@
 /**
- * ENG-213 — the checkout loyalty chip only speaks when it has something to
+ * the checkout loyalty chip only speaks when it has something to
  * say: a picked customer WITH points. Walk-ins, point-less customers, and
  * the in-flight read stay silent so the payment surface is untouched for
  * every tenant that never enabled the program.
@@ -26,7 +26,7 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
-describe('CustomerLoyaltyChip (ENG-213)', () => {
+describe('CustomerLoyaltyChip', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en');
     vi.clearAllMocks();
@@ -56,7 +56,7 @@ describe('CustomerLoyaltyChip (ENG-213)', () => {
 
   it('does not leak a cached balance to a walk-in', () => {
     // `enabled: false` still serves cached data from the previous customer;
-    // the component must gate on the flag too (ENG-199 lesson).
+    // the component must gate on the flag too ( lesson).
     mockData = { points: 500, movements: [] };
     render(<CustomerLoyaltyChip customerId={null} />);
     expect(screen.queryByTestId('customer-loyalty-chip')).not.toBeInTheDocument();

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ENG-174 — guarantees the Drizzle migrations folder is present and
+// guarantees the Drizzle migrations folder is present and
 // populated before Electron Forge packages the app or launches in dev.
 //
 // The desktop bundle expects `packages/server/dist/db/migrations/` to
@@ -18,8 +18,8 @@
 // `dist/` has not been built yet there are no migrations to verify.
 //
 // Exit code policy (CLI mode):
-//   0 — the folder + journal + every journal-referenced `.sql` migration exist.
-//   1 — anything missing or malformed. The log emits the exact remediation.
+// 0 — the folder + journal + every journal-referenced `.sql` migration exist.
+// 1 — anything missing or malformed. The log emits the exact remediation.
 //
 // The core check is also exported as `checkMigrationsBundle()` so the
 // colocated test can drive it without spawning a subprocess.
@@ -29,14 +29,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
-const DEFAULT_MIGRATIONS_DIR = join(
-  repoRoot,
-  'packages',
-  'server',
-  'dist',
-  'db',
-  'migrations'
-);
+const DEFAULT_MIGRATIONS_DIR = join(repoRoot, 'packages', 'server', 'dist', 'db', 'migrations');
 
 const REMEDIATION_REBUILD = [
   'pnpm --filter @puntovivo/server run build',
@@ -58,11 +51,11 @@ function listSqlFiles(dir) {
 
 /**
  * Pure check function. Returns:
- *   { ok: true, journalEntries, sqlFiles } when the folder, journal, and every
- *   journal-referenced SQL file are present.
- *   { ok: false, code, message, remediation } when anything is missing
- *   or malformed. The caller decides whether to log + exit (CLI) or
- *   assert on the shape (test).
+ * { ok: true, journalEntries, sqlFiles } when the folder, journal, and every
+ * journal-referenced SQL file are present.
+ * { ok: false, code, message, remediation } when anything is missing
+ * or malformed. The caller decides whether to log + exit (CLI) or
+ * assert on the shape (test).
  */
 export function checkMigrationsBundle({ migrationsDir = DEFAULT_MIGRATIONS_DIR } = {}) {
   if (!existsSync(migrationsDir)) {
@@ -157,8 +150,7 @@ function log(line) {
 const scriptUrl = fileURLToPath(import.meta.url);
 const argv1 = typeof process.argv[1] === 'string' ? process.argv[1] : null;
 const isDirectExecution =
-  argv1 !== null &&
-  (argv1 === scriptUrl || argv1.endsWith('ensure-migrations-bundled.mjs'));
+  argv1 !== null && (argv1 === scriptUrl || argv1.endsWith('ensure-migrations-bundled.mjs'));
 
 if (isDirectExecution) {
   const result = checkMigrationsBundle();

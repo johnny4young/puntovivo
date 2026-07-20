@@ -1,5 +1,5 @@
 /**
- * ENG-035a — Schemas de input para `fiscal.settings.*` admin router.
+ * Schemas de input para `fiscal.settings.*` admin router.
  *
  * Las validaciones de dominio fiscal (RFC válido, régimen presente
  * en catálogo SAT, lugar de expedición de 5 dígitos) viven en el
@@ -12,7 +12,7 @@
 
 import { z } from 'zod';
 
-/** Códigos de país soportados por el registry fiscal (ENG-034). */
+/** Códigos de país soportados por el registry fiscal (). */
 export const fiscalCountryCodeEnum = z.enum(['CO', 'MX', 'CL']);
 
 export const getFiscalSettingsInput = z.object({
@@ -43,7 +43,7 @@ export const updateMxFiscalSettingsInput = z.object({
 });
 
 /**
- * ENG-036a — Input parcial de `fiscal.settings.updateCl`. Mismo
+ * Input parcial de `fiscal.settings.updateCl`. Mismo
  * shape que el de México pero con los campos del SII (RUT, giro
  * CIIU.cl, comuna SUBDERE, casa matriz, ambiente
  * certificacion/produccion).
@@ -62,13 +62,13 @@ export const updateClFiscalSettingsInput = z.object({
 });
 
 /**
- * ENG-184 — Input parcial de `fiscal.settings.updateCo`. Captura la
+ * Input parcial de `fiscal.settings.updateCo`. Captura la
  * config básica de DIAN de Colombia: NIT del emisor, número de
  * resolución de numeración, prefijo, rango autorizado (from/to) y
  * ambiente. La validación semántica (NIT, orden del rango) vive en el
  * router; el switch maestro `enabled` se persiste en el flag legacy
  * `tenants.settings.fiscal_dian_enabled`. La transmisión real + el
- * certificado siguen mock / gated en ENG-021.
+ * certificado siguen mock / gated en .
  */
 export const updateCoFiscalSettingsInput = z.object({
   enabled: z.boolean().optional(),
@@ -81,7 +81,7 @@ export const updateCoFiscalSettingsInput = z.object({
 });
 
 /**
- * ENG-036b — Input para `fiscal.settings.getActiveCaf`. Surface
+ * Input para `fiscal.settings.getActiveCaf`. Surface
  * read-only que la admin tab consume para mostrar el estado del CAF
  * activo (folios disponibles, rango). El countryCode debe ser 'CL';
  * si llega otro código el router responde con null para mantener la
@@ -94,13 +94,7 @@ export const getActiveCafInput = z.object({
 });
 
 export type GetFiscalSettingsInput = z.infer<typeof getFiscalSettingsInput>;
-export type UpdateMxFiscalSettingsInput = z.infer<
-  typeof updateMxFiscalSettingsInput
->;
-export type UpdateClFiscalSettingsInput = z.infer<
-  typeof updateClFiscalSettingsInput
->;
-export type UpdateCoFiscalSettingsInput = z.infer<
-  typeof updateCoFiscalSettingsInput
->;
+export type UpdateMxFiscalSettingsInput = z.infer<typeof updateMxFiscalSettingsInput>;
+export type UpdateClFiscalSettingsInput = z.infer<typeof updateClFiscalSettingsInput>;
+export type UpdateCoFiscalSettingsInput = z.infer<typeof updateCoFiscalSettingsInput>;
 export type GetActiveCafInput = z.infer<typeof getActiveCafInput>;

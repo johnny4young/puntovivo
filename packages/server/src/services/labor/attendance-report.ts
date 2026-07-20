@@ -213,7 +213,7 @@ async function buildEmployeeAttendanceReport(
   };
 }
 
-/** ENG-140b/c/e — effective attendance evidence with country overtime classification. */
+/** effective attendance evidence with country overtime classification. */
 export async function listEmployeeAttendance(
   db: DatabaseInstance,
   tenantId: string,
@@ -227,7 +227,7 @@ export async function listEmployeeAttendance(
 }
 
 /**
- * ENG-140f — one complete, 31-day-bounded evidence snapshot for browser-side
+ * one complete, 31-day-bounded evidence snapshot for browser-side
  * CSV/XLSX construction. The server owns filtering, role visibility, timezone,
  * corrections, and overtime; the renderer only serializes these canonical rows.
  */

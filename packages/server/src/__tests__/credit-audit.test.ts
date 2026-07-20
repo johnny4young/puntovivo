@@ -1,16 +1,16 @@
 /**
- * ENG-007 closure — audit-log coverage for credit-policy mutations.
+ * closure — audit-log coverage for credit-policy mutations.
  *
  * Pins:
- *  - `customers.update` writes a `customer.credit_limit.update` audit
- *    row when `creditLimit` is in the payload AND differs from the
- *    prior value. Same-value updates and updates that don't touch
- *    creditLimit do NOT write the row.
- *  - `completeSale` writes a `sale.credit_override` audit row on both
- *    fresh and fromDraft paths when `creditProjection.overrideApplied
- *    === true` (i.e. the admin bypass actually rescued a sale that
- *    would have exceeded the cupo). When override was passed but
- *    never needed (sale fit under the limit), no audit row fires.
+ * - `customers.update` writes a `customer.credit_limit.update` audit
+ * row when `creditLimit` is in the payload AND differs from the
+ * prior value. Same-value updates and updates that don't touch
+ * creditLimit do NOT write the row.
+ * - `completeSale` writes a `sale.credit_override` audit row on both
+ * fresh and fromDraft paths when `creditProjection.overrideApplied
+ * === true` (i.e. the admin bypass actually rescued a sale that
+ * would have exceeded the cupo). When override was passed but
+ * never needed (sale fit under the limit), no audit row fires.
  *
  * Reuses the credit-sale-flow harness for the completeSale path and
  * the appRouter caller for customers.update.
@@ -58,11 +58,7 @@ function buildCompleteSaleContext(
   };
 }
 
-async function seedCustomer(args: {
-  name: string;
-  creditLimit: number;
-  email?: string;
-}) {
+async function seedCustomer(args: { name: string; creditLimit: number; email?: string }) {
   const db = getDatabase();
   const id = nanoid();
   const now = new Date().toISOString();
@@ -128,11 +124,7 @@ async function seedProduct(name: string, sku: string, stock: number) {
   return productId;
 }
 
-async function latestAuditRow(args: {
-  resourceType: string;
-  resourceId: string;
-  action: string;
-}) {
+async function latestAuditRow(args: { resourceType: string; resourceId: string; action: string }) {
   const db = getDatabase();
   return db
     .select()
@@ -149,11 +141,7 @@ async function latestAuditRow(args: {
     .get();
 }
 
-async function countAuditRows(args: {
-  resourceType: string;
-  resourceId: string;
-  action: string;
-}) {
+async function countAuditRows(args: { resourceType: string; resourceId: string; action: string }) {
   const db = getDatabase();
   const rows = await db
     .select()
@@ -174,11 +162,7 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const seededAdmin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededAdmin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededAdmin) throw new Error('Expected seeded admin user');
   tenantId = seededAdmin.tenantId;
   userId = seededAdmin.id;
@@ -191,11 +175,7 @@ beforeAll(async () => {
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
 
-  const seededUnits = await db
-    .select()
-    .from(units)
-    .where(eq(units.tenantId, tenantId))
-    .all();
+  const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(u => u.abbreviation === 'UND');
   if (!baseUnit) throw new Error('Expected seeded UND unit');
   baseUnitId = baseUnit.id;
@@ -230,7 +210,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('customers.update audit (ENG-007 closure)', () => {
+describe('customers.update audit ( closure)', () => {
   it('writes one customer.credit_limit.update row when the limit changes', async () => {
     const customerId = await seedCustomer({
       name: 'Cliente Cupo Cambio',
@@ -317,7 +297,7 @@ describe('customers.update audit (ENG-007 closure)', () => {
   });
 });
 
-describe('completeSale credit-override audit (ENG-007 closure)', () => {
+describe('completeSale credit-override audit ( closure)', () => {
   it('writes one sale.credit_override row when the admin bypass rescues an exceeded cupo', async () => {
     const customerId = await seedCustomer({
       name: 'Cliente Sobregiro',
@@ -467,7 +447,7 @@ describe('completeSale credit-override audit (ENG-007 closure)', () => {
   });
 
   it('writes no sale.credit_override row for the creditLimit=0 sentinel even when override is passed', async () => {
-    // ENG-089 sentinel: creditLimit === 0 means "sin cupo / no limit". The
+    // sentinel: creditLimit === 0 means "sin cupo / no limit". The
     // credit-limit helper returns overrideApplied=false before evaluating
     // the override flag, so the audit must NOT fire. Pinning this so a
     // future refactor of the sentinel logic in services/credit-limit.ts

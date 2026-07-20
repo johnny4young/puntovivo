@@ -77,7 +77,7 @@ function makeVault(
   });
 }
 
-describe('backup cloud vault configuration (ENG-136c)', () => {
+describe('backup cloud vault configuration', () => {
   it('requires HTTPS except for explicit loopback development endpoints', () => {
     assert.throws(
       () => normalizeBackupCloudVaultConfig({ ...CONFIG, endpoint: 'http://storage.example.test' }),
@@ -161,7 +161,7 @@ describe('backup cloud vault configuration (ENG-136c)', () => {
   });
 });
 
-describe('backup cloud vault writes (ENG-136c)', () => {
+describe('backup cloud vault writes', () => {
   it('signs and sends a real S3-compatible path-style PUT to a loopback provider', async () => {
     const requests: Array<{ method: string | undefined; url: string | undefined; body: string }> =
       [];

@@ -1,5 +1,5 @@
 /**
- * ENG-199 — ExpiryRadarPanel render + interaction contract.
+ * ExpiryRadarPanel render + interaction contract.
  *
  * The panel merges two mocked reads (expiring lots + active suggestions),
  * prices the risk per row (on hand × unit cost) and in the summary strip,
@@ -51,7 +51,7 @@ let mockSuggestions: {
 };
 const suggestMutate = vi.fn();
 const dismissMutate = vi.fn();
-/** Every `expiring.useQuery` input, newest last (ENG-212 window assertions). */
+/** Every `expiring.useQuery` input, newest last ( window assertions). */
 const expiringQueryInputs: Array<{ withinDays: number }> = [];
 
 vi.mock('@/lib/trpc', () => ({
@@ -64,7 +64,7 @@ vi.mock('@/lib/trpc', () => ({
     }),
     inventoryLots: {
       expiring: {
-        // ENG-212 — record the input so the window-selector test can assert
+        // record the input so the window-selector test can assert
         // the query actually re-runs with the picked sweep.
         useQuery: (input: { withinDays: number }) => {
           expiringQueryInputs.push(input);
@@ -86,9 +86,9 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
 
-// ENG-211 — the panel previews the percent from the tenant's tuned ladder
+// the panel previews the percent from the tenant's tuned ladder
 // (auth.me session payload). Default to an untuned tenant so the existing
-// assertions keep exercising the ENG-199 fallback ladder.
+// assertions keep exercising the  fallback ladder.
 let mockTenantSettings: { discount?: { expiryTiers: Array<{ maxDays: number; pct: number }> } } =
   {};
 vi.mock('@/features/tenant/TenantProvider', () => ({
@@ -111,7 +111,7 @@ function makeLot(overrides: Partial<MockLot>): MockLot {
   };
 }
 
-describe('ExpiryRadarPanel (ENG-199)', () => {
+describe('ExpiryRadarPanel', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en');
     vi.clearAllMocks();
@@ -125,7 +125,7 @@ describe('ExpiryRadarPanel (ENG-199)', () => {
     mockSuggestions = { data: { items: [] }, isLoading: false, error: null };
   });
 
-  // ENG-211 — the row preview follows the tenant's ladder, not a hardcode.
+  // the row preview follows the tenant's ladder, not a hardcode.
   it('previews the percent from the tenant tuned ladder', () => {
     mockTenantSettings = {
       discount: {
@@ -232,7 +232,7 @@ describe('ExpiryRadarPanel (ENG-199)', () => {
     ).toBeInTheDocument();
   });
 
-  // ENG-212 — the window selector drives the query input and the copy.
+  // the window selector drives the query input and the copy.
   it('defaults to the 30-day sweep and re-queries on a window change', async () => {
     const user = userEvent.setup();
     render(<ExpiryRadarPanel />);

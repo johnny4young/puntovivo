@@ -1,11 +1,11 @@
 /**
  * Drizzle schema — labor/attendance domain.
  *
- * ENG-106b deliberately starts with the smallest durable attendance record:
+ * deliberately starts with the smallest durable attendance record:
  * one employee, one site, immutable clock-in time, and an optional clock-out
- * time. ENG-140a adds manager-authored scheduled shifts; ENG-140b adds
- * explicit rest intervals and weekly actual-attendance reporting. ENG-140c
- * derives overtime without mutating this evidence; ENG-140e appends complete
+ * time.  adds manager-authored scheduled shifts;  adds
+ * explicit rest intervals and weekly actual-attendance reporting.
+ * derives overtime without mutating this evidence;  appends complete
  * effective snapshots for manager corrections without rewriting the raw
  * clock or break records.
  *
@@ -75,7 +75,7 @@ export const scheduledShiftStatusEnum = ['scheduled', 'cancelled'] as const;
 export type ScheduledShiftStatus = (typeof scheduledShiftStatusEnum)[number];
 
 /**
- * ENG-140a — durable manager-authored schedule entry.
+ * durable manager-authored schedule entry.
  *
  * UTC instants drive overlap checks while timeZone freezes the tenant wall
  * time context used when the schedule was authored. Cancellation is a state
@@ -171,7 +171,7 @@ export type ScheduledShift = typeof scheduledShifts.$inferSelect;
 export type NewScheduledShift = typeof scheduledShifts.$inferInsert;
 
 /**
- * ENG-140b — one immutable rest interval inside an employee attendance shift.
+ * one immutable rest interval inside an employee attendance shift.
  *
  * Actor columns are deliberately separate from the employee so a later
  * manager-correction band can preserve who authored each boundary without
@@ -251,7 +251,7 @@ export interface EmployeeShiftCorrectionBreak {
 }
 
 /**
- * ENG-140e — immutable, versioned effective attendance snapshot.
+ * immutable, versioned effective attendance snapshot.
  *
  * Each correction repeats the full effective shift and break interval set.
  * Payroll and overtime readers only need the newest version, while auditors

@@ -13,7 +13,7 @@ import { SaleSerialSelector } from '@/features/sales/SaleSerialSelector';
 
 interface SaleCartTableProps {
   items: SaleCartItem[];
-  /** ENG-199 — active site scopes the expiry-suggestion badge to this POS. */
+  /** active site scopes the expiry-suggestion badge to this POS. */
   discountSuggestionSiteId?: string | null;
   selectedItemKey: string | null;
   onQuantityChange: (itemKey: string, quantity: number) => void;
@@ -40,7 +40,7 @@ export function SaleCartTable({
 }: SaleCartTableProps) {
   const { t } = useTranslation('sales');
 
-  // ENG-199 — expiry-radar badge on cart lines; the table only renders in
+  // expiry-radar badge on cart lines; the table only renders in
   // the POS, so the query is gated on having lines at all.
   const discountSuggestions = useDiscountSuggestions(items.length > 0, discountSuggestionSiteId);
 

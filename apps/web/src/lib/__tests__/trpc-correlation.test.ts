@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  getTrpcHeaders,
-  getLastCorrelationId,
-  __resetCorrelationForTests,
-} from '../trpc';
+import { getTrpcHeaders, getLastCorrelationId, __resetCorrelationForTests } from '../trpc';
 import {
   captureRenderError,
   __resetRenderObservabilityForTests,
@@ -11,15 +7,15 @@ import {
   type RenderTelemetrySink,
 } from '../observability';
 
-// ENG-135c — pins the renderer side of the correlation contract:
+// pins the renderer side of the correlation contract:
 //
-//   1. Every tRPC request mints a FRESH x-correlation-id that
-//      satisfies the server's strict intake ([A-Za-z0-9_-]{8,64}).
-//   2. The most recent id is exposed via getLastCorrelationId so
-//      captureRenderError can stamp client error events with the id
-//      of the request they (most likely) belong to.
-//   3. Before any request fires, the id is null and render events
-//      carry correlationId: null instead of a fabricated value.
+// 1. Every tRPC request mints a FRESH x-correlation-id that
+// satisfies the server's strict intake ([A-Za-z0-9_-]{8,64}).
+// 2. The most recent id is exposed via getLastCorrelationId so
+// captureRenderError can stamp client error events with the id
+// of the request they (most likely) belong to.
+// 3. Before any request fires, the id is null and render events
+// carry correlationId: null instead of a fabricated value.
 
 const SERVER_INTAKE_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
@@ -46,7 +42,7 @@ afterEach(() => {
   __resetRenderObservabilityForTests();
 });
 
-describe('correlation id minting (ENG-135c)', () => {
+describe('correlation id minting', () => {
   it('attaches a fresh x-correlation-id on every header build', () => {
     const first = getTrpcHeaders()['x-correlation-id'];
     const second = getTrpcHeaders()['x-correlation-id'];
@@ -57,9 +53,7 @@ describe('correlation id minting (ENG-135c)', () => {
 
   it('mints ids that pass the server intake pattern', () => {
     for (let i = 0; i < 5; i += 1) {
-      expect(getTrpcHeaders()['x-correlation-id']).toMatch(
-        SERVER_INTAKE_PATTERN
-      );
+      expect(getTrpcHeaders()['x-correlation-id']).toMatch(SERVER_INTAKE_PATTERN);
     }
   });
 
@@ -70,7 +64,7 @@ describe('correlation id minting (ENG-135c)', () => {
   });
 });
 
-describe('captureRenderError correlation stamp (ENG-135c)', () => {
+describe('captureRenderError correlation stamp', () => {
   function buildRecordingSink() {
     const events: RenderErrorContext[] = [];
     const sink: RenderTelemetrySink = {

@@ -1,5 +1,5 @@
 /**
- * ENG-074 — SalesCheckoutPanel hub-reachability gate tests.
+ * SalesCheckoutPanel hub-reachability gate tests.
  *
  * The panel disables the primary action whenever the parent passes
  * `hubReachable === false`. `undefined` (the device_local default
@@ -13,7 +13,7 @@ import { screen } from '@testing-library/react';
 import { render } from '@/test/utils';
 import { SalesCheckoutPanel } from './SalesCheckoutPanel';
 
-// ENG-204 — the panel mounts the pace strip (trpc + shared preference
+// the panel mounts the pace strip (trpc + shared preference
 // underneath); mock the hook so this suite stays network-free. Its own
 // behavior is pinned in CashierPaceStrip.test.tsx.
 vi.mock('@/features/sales/useCashierPace', () => ({
@@ -22,7 +22,6 @@ vi.mock('@/features/sales/useCashierPace', () => ({
 import { PREFLIGHT_PRIMARY_ELEMENT_ID } from './CheckoutPreflightPanel';
 import type { PreflightItem } from './useCheckoutPreflight';
 import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
-
 
 const SITE: Site = {
   id: 'site-1',
@@ -97,8 +96,8 @@ function renderPanel(
   );
 }
 
-describe('SalesCheckoutPanel hub gate (ENG-074)', () => {
-  it('ENG-194 — keeps cashier guidance blind and labels privileged closes as supervised', () => {
+describe('SalesCheckoutPanel hub gate', () => {
+  it(' — keeps cashier guidance blind and labels privileged closes as supervised', () => {
     const cashier = renderPanel({ userRole: 'cashier' });
     expect(screen.getByText(/blind close keeps/i)).toBeInTheDocument();
     expect(screen.queryByText(/supervised close shows/i)).not.toBeInTheDocument();
@@ -148,7 +147,7 @@ describe('SalesCheckoutPanel hub gate (ENG-074)', () => {
     expect(hint.textContent).toMatch(/hub/i);
   });
 
-  it('ENG-105b — renders the preflight panel only when items are provided', () => {
+  it(' — renders the preflight panel only when items are provided', () => {
     const empty = renderPanel({ preflightItems: [] });
     expect(empty.queryByTestId('checkout-preflight-panel')).not.toBeInTheDocument();
     empty.unmount();
@@ -165,7 +164,7 @@ describe('SalesCheckoutPanel hub gate (ENG-074)', () => {
     expect(screen.getByTestId('checkout-preflight-panel')).toBeInTheDocument();
   });
 
-  it('ENG-105b — disables the Cobrar button and links aria-describedby to the primary blocker', () => {
+  it(' — disables the Cobrar button and links aria-describedby to the primary blocker', () => {
     renderPanel({
       preflightItems: [
         {
@@ -181,7 +180,7 @@ describe('SalesCheckoutPanel hub gate (ENG-074)', () => {
     expect(document.getElementById(PREFLIGHT_PRIMARY_ELEMENT_ID)).not.toBeNull();
   });
 
-  it('ENG-105b — leaves Cobrar enabled when the only preflight item is a warning', () => {
+  it(' — leaves Cobrar enabled when the only preflight item is a warning', () => {
     renderPanel({
       preflightItems: [
         {

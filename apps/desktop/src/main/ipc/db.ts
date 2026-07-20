@@ -1,9 +1,9 @@
 /**
- * ENG-178 — desktop database-bridge handlers, extracted verbatim from the
+ * desktop database-bridge handlers, extracted verbatim from the
  * former monolithic `main/index.ts`.
  *
  * Owns the `db:*` IPC handler bodies + their table helpers + the table
- * allowlist + the ENG-025 cross-tenant guards. Electron-free: it reaches
+ * allowlist + the  cross-tenant guards. Electron-free: it reaches
  * the embedded SQLite store only through `runtime.getSqliteClient()` and
  * the `desktopSession` singleton, so the logic is unit-testable under
  * `node --test` without booting Electron (mirroring the `backup-bundle.ts`
@@ -72,9 +72,9 @@ function getTableColumns(table: AllowedDesktopTable): Set<string> {
     return cached;
   }
 
-  const rows = getSqliteClient().$client
-    .prepare(`PRAGMA table_info(${table})`)
-    .all() as Array<{ name: string }>;
+  const rows = getSqliteClient().$client.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+    name: string;
+  }>;
   const columns = new Set(rows.map(row => row.name));
   tableColumnsCache.set(table, columns);
   return columns;
@@ -84,11 +84,7 @@ function isJsonColumn(table: AllowedDesktopTable, column: string): boolean {
   return table === 'sync_outbox' && (column === 'payload' || column === 'last_error');
 }
 
-function serializeColumnValue(
-  table: AllowedDesktopTable,
-  column: string,
-  value: unknown
-): unknown {
+function serializeColumnValue(table: AllowedDesktopTable, column: string, value: unknown): unknown {
   if (value === undefined) {
     return undefined;
   }
@@ -176,7 +172,7 @@ export function mapRowToRendererRecord(
   if (table === 'sync_outbox') {
     const queueRow = mapped as Record<string, unknown>;
     // Renderer historically expected `payload` + `retryCount` (matching
-    // the IndexedDB shadow shape). After the ENG-064b cutover the
+    // the IndexedDB shadow shape). After the  cutover the
     // server columns are `payload` + `attempts` directly, so we just
     // alias `attempts` over to `retryCount` for the renderer payload.
     const payload = queueRow.payload as Record<string, unknown> | undefined;
@@ -200,14 +196,13 @@ async function getDesktopRecordById(
 ): Promise<Record<string, unknown> | null> {
   const sqlite = getSqliteClient().$client;
   const row = sqlite.prepare(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`).get(id) as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
 
   return mapRowToRendererRecord(table, row);
 }
 
 /**
- * ENG-025 — guard that blocks single-record operations (`db:getById`,
+ * guard that blocks single-record operations (`db:getById`,
  * `db:update`, `db:delete`) when the target row belongs to a tenant
  * other than the one held by `desktopSession`. Returns silently when
  * the row is reachable; throws `CROSS_TENANT_ACCESS` otherwise. For
@@ -240,9 +235,8 @@ export async function assertRowBelongsToActiveTenant(
       .get(id) as { tenant_id?: string } | undefined;
     rowTenantId = joined?.tenant_id ?? null;
   } else if (DIRECT_TENANT_TABLES.has(table)) {
-    const row = sqlite
-      .prepare(`SELECT tenant_id FROM ${table} WHERE id = ? LIMIT 1`)
-      .get(id) as { tenant_id?: string } | undefined;
+    const row = sqlite.prepare(`SELECT tenant_id FROM ${table} WHERE id = ? LIMIT 1`).get(id) as
+      { tenant_id?: string } | undefined;
     rowTenantId = row?.tenant_id ?? null;
   } else {
     // Catalog / global tables (none in ALLOWED_DESKTOP_TABLES today,
@@ -279,8 +273,8 @@ export async function assertSaleItemWriteBelongsToActiveTenant(
   }
 
   const activeTenantId = desktopSession.requireTenantId();
-  const row = getSqliteClient().$client
-    .prepare('SELECT tenant_id FROM sales WHERE id = ? LIMIT 1')
+  const row = getSqliteClient()
+    .$client.prepare('SELECT tenant_id FROM sales WHERE id = ? LIMIT 1')
     .get(saleId) as { tenant_id?: string } | undefined;
 
   if (!row?.tenant_id || row.tenant_id !== activeTenantId) {
@@ -303,9 +297,10 @@ export async function handleDesktopGetAll(tableName: string, tenantId: string): 
           )
           .all(tenantId) as Record<string, unknown>[])
       : DIRECT_TENANT_TABLES.has(table)
-        ? (sqlite
-            .prepare(`SELECT * FROM ${table} WHERE tenant_id = ?`)
-            .all(tenantId) as Record<string, unknown>[])
+        ? (sqlite.prepare(`SELECT * FROM ${table} WHERE tenant_id = ?`).all(tenantId) as Record<
+            string,
+            unknown
+          >[])
         : (sqlite.prepare(`SELECT * FROM ${table}`).all() as Record<string, unknown>[]);
 
   return rows
@@ -399,16 +394,20 @@ export async function handleDesktopGetByField(
         ? (sqlite
             .prepare(`SELECT * FROM ${table} WHERE ${field} = ? AND tenant_id = ?`)
             .all(value, activeTenantId) as Record<string, unknown>[])
-        : (sqlite
-            .prepare(`SELECT * FROM ${table} WHERE ${field} = ?`)
-            .all(value) as Record<string, unknown>[]);
+        : (sqlite.prepare(`SELECT * FROM ${table} WHERE ${field} = ?`).all(value) as Record<
+            string,
+            unknown
+          >[]);
 
   return rows
     .map(row => mapRowToRendererRecord(table, row))
     .filter((row): row is Record<string, unknown> => row !== null);
 }
 
-export async function handleDesktopDeleteByTenant(tableName: string, tenantId: string): Promise<number> {
+export async function handleDesktopDeleteByTenant(
+  tableName: string,
+  tenantId: string
+): Promise<number> {
   const table = getAllowedDesktopTable(tableName);
   const sqlite = getSqliteClient().$client;
   const result =
@@ -424,7 +423,10 @@ export async function handleDesktopDeleteByTenant(tableName: string, tenantId: s
   return result.changes;
 }
 
-export async function handleDesktopCountByTenant(tableName: string, tenantId: string): Promise<number> {
+export async function handleDesktopCountByTenant(
+  tableName: string,
+  tenantId: string
+): Promise<number> {
   const table = getAllowedDesktopTable(tableName);
   const sqlite = getSqliteClient().$client;
   const row =

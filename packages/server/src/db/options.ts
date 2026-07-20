@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_SQLITE_BUSY_TIMEOUT_MS = 5000;
 
-// ENG-002 — versioned Drizzle migrations live next to this module. Resolved
+// versioned Drizzle migrations live next to this module. Resolved
 // lazily so `import.meta.url` is only touched in ESM contexts (standalone
 // server, tests). The Electron main process always passes an explicit
 // `migrationsFolder`, because Vite bundles this file into CJS where
@@ -24,7 +24,7 @@ export function getDefaultMigrationsFolder(): string {
 }
 
 export interface DatabaseOptions {
-  // ENG-179b — explicit `| undefined` on every optional field so
+  // explicit `| undefined` on every optional field so
   // callers can forward `ServerOptions.X` (which carry
   // explicit-undefined under `exactOptionalPropertyTypes`) cleanly.
   /** Path to the SQLite database file */
@@ -36,7 +36,7 @@ export interface DatabaseOptions {
   /** Enable verbose logging (default: false) */
   verbose?: boolean | undefined;
   /**
-   * SQLite writer-lock wait in milliseconds. Defaults to the ENG-174
+   * SQLite writer-lock wait in milliseconds. Defaults to the
    * production floor. High-contention harnesses may raise this so
    * parallel fixture writers do not surface transient `database is locked`
    * errors as operator-facing sale failures.
@@ -52,7 +52,7 @@ export interface DatabaseOptions {
    */
   migrationsFolder?: string | undefined;
   /**
-   * ENG-167 — 64-char hex string (32 raw bytes) used as the SQLCipher
+   * 64-char hex string (32 raw bytes) used as the SQLCipher
    * page-encryption key. When supplied, the runtime issues
    * `PRAGMA cipher='sqlcipher'`, `PRAGMA legacy=4`, and `PRAGMA key`
    * immediately after the native `Database` constructor and before any
@@ -84,7 +84,7 @@ export interface DatabaseOptions {
 }
 
 /**
- * ENG-167 — Validate the SQLCipher key. We accept only the raw-bytes
+ * Validate the SQLCipher key. We accept only the raw-bytes
  * form (`x'<hex64>'`) to keep the boot path KDF-free and to surface
  * obviously-broken keys (truncated hex, accidental passphrase) as a
  * boot-time error instead of a `SQLITE_NOTADB` later when the first

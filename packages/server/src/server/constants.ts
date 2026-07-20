@@ -2,7 +2,7 @@
  * HTTP server timing + body-size constants.
  *
  * The Fastify socket/keep-alive/header/request timeouts and the body
- * limit (sized against the ENG-040a invoice-OCR transport ceiling).
+ * limit (sized against the  invoice-OCR transport ceiling).
  * Exported so create-server and any timing test consume one source.
  *
  * @module server/constants

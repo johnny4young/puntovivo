@@ -1,5 +1,5 @@
 /**
- * ENG-075 Authority Node service — public barrel.
+ * Authority Node service — public barrel.
  *
  * Re-assembles the per-concern modules into the original public surface
  * (5 types + 5 functions) so importers resolve unchanged.

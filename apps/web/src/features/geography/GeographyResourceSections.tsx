@@ -41,7 +41,7 @@ export function GeographyTabs({ activeTab, onChange }: GeographyTabsProps) {
 }
 
 /**
- * Rediseño FASE 6 — control de filtro encadenado de la jerarquía geográfica.
+ * control de filtro encadenado de la jerarquía geográfica.
  * Reutiliza la receta canónica `.pv-field` + `.pv-input` (el mismo seam que
  * los selects de formulario en §07) para que el `<select>` nativo herede
  * altura, foco y tokens del sistema sin chrome legacy. El `<label>` queda
@@ -114,7 +114,11 @@ export function CountryCatalogSection({
       title={t('geography.title')}
       description={t('geography.countries.description')}
       action={
-        <button className="btn-primary flex items-center gap-2" onClick={onCreate} disabled={!canManage}>
+        <button
+          className="btn-primary flex items-center gap-2"
+          onClick={onCreate}
+          disabled={!canManage}
+        >
           <Plus className="h-5 w-5" />
           {t('geography.countries.add')}
         </button>
@@ -155,12 +159,15 @@ export function DepartmentCatalogSection({
   onRetry,
 }: DepartmentCatalogSectionProps) {
   const { t } = useTranslation('settings');
-  // Rediseño FASE 6 — filtro encadenado: el país elegido acota la lista de
+  // filtro encadenado: el país elegido acota la lista de
   // departamentos. Estado local de presentación; no toca el contrato tRPC.
   const [countryId, setCountryId] = useState('');
 
   const visibleDepartments = useMemo(
-    () => (countryId ? departments.filter(department => department.countryId === countryId) : departments),
+    () =>
+      countryId
+        ? departments.filter(department => department.countryId === countryId)
+        : departments,
     [departments, countryId]
   );
 
@@ -178,7 +185,11 @@ export function DepartmentCatalogSection({
             allLabel={t('geography.filters.allCountries')}
             options={countries}
           />
-          <button className="btn-primary flex items-center gap-2" onClick={onCreate} disabled={!canManage}>
+          <button
+            className="btn-primary flex items-center gap-2"
+            onClick={onCreate}
+            disabled={!canManage}
+          >
             <Plus className="h-5 w-5" />
             {t('geography.departments.add')}
           </button>
@@ -222,7 +233,7 @@ export function CityCatalogSection({
   onRetry,
 }: CityCatalogSectionProps) {
   const { t } = useTranslation('settings');
-  // Rediseño FASE 6 — filtro encadenado País → Departamento → Ciudad. Elegir
+  // filtro encadenado País → Departamento → Ciudad. Elegir
   // un país acota la lista de departamentos y de ciudades; elegir un
   // departamento acota las ciudades. Estado local de presentación.
   const [countryId, setCountryId] = useState('');
@@ -232,7 +243,10 @@ export function CityCatalogSection({
   // país, ofrece todos. Cambiar el país limpia el departamento que ya no
   // pertenezca a la nueva selección (se resuelve en el handler de abajo).
   const departmentOptions = useMemo(
-    () => (countryId ? departments.filter(department => department.countryId === countryId) : departments),
+    () =>
+      countryId
+        ? departments.filter(department => department.countryId === countryId)
+        : departments,
     [departments, countryId]
   );
 
@@ -279,7 +293,11 @@ export function CityCatalogSection({
             allLabel={t('geography.filters.allDepartments')}
             options={departmentOptions}
           />
-          <button className="btn-primary flex items-center gap-2" onClick={onCreate} disabled={!canManage}>
+          <button
+            className="btn-primary flex items-center gap-2"
+            onClick={onCreate}
+            disabled={!canManage}
+          >
             <Plus className="h-5 w-5" />
             {t('geography.cities.add')}
           </button>

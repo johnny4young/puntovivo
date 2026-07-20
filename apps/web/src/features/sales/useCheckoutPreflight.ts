@@ -1,5 +1,5 @@
 /**
- * ENG-105b — Checkout preflight hook.
+ * Checkout preflight hook.
  *
  * Computes the list of blockers + warnings that would stop the cashier
  * from completing the current cart, BEFORE the F1/Cobrar press. The
@@ -11,10 +11,10 @@
  *
  * Severity contract:
  * - `blocker` → disables the Cobrar button and short-circuits F1 with
- *   a toast pointing at the first item.
+ * a toast pointing at the first item.
  * - `warning` → leaves Cobrar enabled but surfaces the concern (stock
- *   estimates can race a parallel cashier; the server will still throw
- *   `SALE_INSUFFICIENT_STOCK` if the race lands badly).
+ * estimates can race a parallel cashier; the server will still throw
+ * `SALE_INSUFFICIENT_STOCK` if the race lands badly).
  *
  * The recovery wiring is owned by the caller: `SalesPage` passes the
  * callbacks (open cash session modal, focus customer picker, flip
@@ -24,13 +24,13 @@
  *
  * Server-side blockers NOT modelled here:
  * - `CASH_SESSION_SITE_REQUIRED` — handled by site/setup redirects,
- *   not a per-checkout decision.
+ * not a per-checkout decision.
  * - `SALE_PRODUCT_INVALID` / `SALE_UNIT_INVALID` — bad seed data,
- *   should never reach the preflight in normal operation.
+ * should never reach the preflight in normal operation.
  * - `SALE_SERVICE_CHARGE_DRIFT` — race condition only surfaced at
- *   mutation time; the toast fallback stays.
+ * mutation time; the toast fallback stays.
  * - `SALE_AMOUNT_RECEIVED_BELOW_TOTAL` — payment-modal-only state,
- *   not visible from `SalesPage`.
+ * not visible from `SalesPage`.
  *
  * @module features/sales/useCheckoutPreflight
  */
@@ -45,7 +45,7 @@ export type PreflightBlockerId =
   | 'credit_limit_exceeded'
   | 'discount_exceeds_total'
   | 'insufficient_stock'
-  // ENG-184 — server-derived checkout reminders. All `warning` severity
+  // server-derived checkout reminders. All `warning` severity
   // (never disable the charge button): the sale proceeds, the cashier is
   // just informed. Surfaced by `setupReadiness.checkout`.
   | 'fiscal_not_active'
@@ -60,7 +60,7 @@ export interface PreflightRecoveryAction {
   onClick: () => void;
 }
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export interface PreflightItem {
   id: PreflightBlockerId;
   severity: PreflightSeverity;
@@ -79,7 +79,7 @@ export interface PreflightCustomerInput {
   creditLimit: number | null;
 }
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export interface PreflightRecoveryWiring {
   onOpenCashSession?: (() => void) | undefined;
   onFocusCustomerPicker?: (() => void) | undefined;
@@ -101,7 +101,7 @@ export interface PreflightInput {
   isResumedDraft: boolean;
   recovery?: PreflightRecoveryWiring | undefined;
   /**
-   * ENG-184 — server-derived checkout reminders (from
+   * server-derived checkout reminders (from
    * `setupReadiness.checkout`), already mapped to `PreflightItem`s by
    * the caller. All `warning` severity; merged after the local cart
    * checks. MUST stay empty while the readiness query is loading or
@@ -139,9 +139,9 @@ function computeItems(input: PreflightInput): PreflightItem[] {
   }
 
   // 1. CASH_SESSION_REQUIRED — only applies to fresh carts. Resumed
-  //    drafts can be charged via `sales.completeDraft` without a cash
-  //    session (the server already booked them when the draft was
-  //    created).
+  // drafts can be charged via `sales.completeDraft` without a cash
+  // session (the server already booked them when the draft was
+  // created).
   if (!cashSession && !isResumedDraft) {
     items.push({
       id: 'cash_session_required',
@@ -172,9 +172,9 @@ function computeItems(input: PreflightInput): PreflightItem[] {
   }
 
   // 3. CREDIT_LIMIT_EXCEEDED — warning only. The payment modal now lets an
-  //    admin override directly or lets a cashier/manager request an exact,
-  //    one-time admin grant. Blocking here would make that recovery path
-  //    unreachable if the caller starts forwarding a payment method.
+  // admin override directly or lets a cashier/manager request an exact,
+  // one-time admin grant. Blocking here would make that recovery path
+  // unreachable if the caller starts forwarding a payment method.
   if (paymentMethod === 'credit' && selectedCustomer && selectedCustomer.creditLimit !== null) {
     const projection = selectedCustomer.currentBalance + cartSummary.total;
     if (projection > selectedCustomer.creditLimit) {
@@ -216,8 +216,8 @@ function computeItems(input: PreflightInput): PreflightItem[] {
   }
 
   // 5. INSUFFICIENT_STOCK — qty * unitEquivalence > availableStock for
-  //    any item. WARNING, not blocker — the snapshot can race; the
-  //    server will throw the hard error if the race lands badly.
+  // any item. WARNING, not blocker — the snapshot can race; the
+  // server will throw the hard error if the race lands badly.
   const stockShortItems = cartItems.filter(item => {
     const normalizedQuantity = item.quantity * item.unitEquivalence;
     return normalizedQuantity > item.availableStock;
@@ -245,9 +245,9 @@ function computeItems(input: PreflightInput): PreflightItem[] {
     });
   }
 
-  // 7. ENG-184 — server-derived checkout reminders (fiscal not active,
-  //    no printer, no payment rail, sync backlog). Appended after the
-  //    local checks; all `warning` severity so they never gate Cobrar.
+  // 7.  — server-derived checkout reminders (fiscal not active,
+  // no printer, no payment rail, sync backlog). Appended after the
+  // local checks; all `warning` severity so they never gate Cobrar.
   if (input.serverItems && input.serverItems.length > 0) {
     items.push(...input.serverItems);
   }

@@ -1,7 +1,7 @@
 /**
- * ENG-215 — the customer's loyalty ledger, inside their detail drawer.
+ * the customer's loyalty ledger, inside their detail drawer.
  *
- * ENG-213 shipped the ledger and the checkout chip, but the history had no
+ * shipped the ledger and the checkout chip, but the history had no
  * surface and `loyalty.adjust` was reachable only by API — so a cashier who
  * mis-attributed a sale left the admin with no way to fix the balance. This
  * panel closes that: the balance, the movements behind it, and (admins only)
@@ -58,7 +58,7 @@ export function CustomerLoyaltyPanel({ customerId }: { customerId: string }) {
     onSettled: () => utils.loyalty.forCustomer.invalidate(),
   });
 
-  // Cache-leak guard (ENG-199 lesson): `enabled: false` still serves the
+  // Cache-leak guard ( lesson): `enabled: false` still serves the
   // previous customer's cached data, so gate the read on the flag too.
   const data = customerId ? loyaltyQuery.data : undefined;
   const balance = data?.points ?? 0;

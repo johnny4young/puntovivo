@@ -1,16 +1,16 @@
 /**
- * ENG-038 slice 2 — admin card for payment provider credentials.
+ * slice 2 — admin card for payment provider credentials.
  *
  * Renders a credential vault: one collapsible accordion section per
- * payment rail (FASE 7 §12 redesign). Each section shows:
+ * payment rail (§12 redesign). Each section shows:
  * - a glyph tile + the rail name and a one-line description,
  * - a readiness chip (configured / missing credentials) driven by the
- *   server-side `validateConfig` result,
+ * server-side `validateConfig` result,
  * - one form field per descriptor declared in
- *   `services/payments/manifest.ts::CREDENTIAL_FIELDS_BY_RAIL`,
+ * `services/payments/manifest.ts::CREDENTIAL_FIELDS_BY_RAIL`,
  * - a single "Save" button per rail, anchored to the right, that calls
- *   `paymentSettings.updateRail` and re-paints the section with the
- *   fresh masked credentials + readiness.
+ * `paymentSettings.updateRail` and re-paints the section with the
+ * fresh masked credentials + readiness.
  *
  * Sensitive fields render as password inputs and display a "Show /
  * Hide" toggle so the operator can confirm the value they pasted.
@@ -24,7 +24,7 @@
  * so the read-side stays addressable; visual collapse is driven by the
  * `.pv-acc.open` recipe.
  *
- * Mirror-structural with `CompanyMxFiscalCard` (ENG-035a) — same
+ * Mirror-structural with `CompanyMxFiscalCard` () — same
  * glyph header + readiness chip + save CTA vocabulary. Lives inside
  * the `payments` tab on `CompanyPage`.
  *
@@ -52,8 +52,7 @@ import { cn } from '@/lib/utils';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 
-type PaymentSettingsResponse =
-  inferRouterOutputs<AppRouter>['paymentSettings']['getAll'];
+type PaymentSettingsResponse = inferRouterOutputs<AppRouter>['paymentSettings']['getAll'];
 type RailEntry = PaymentSettingsResponse['rails'][number];
 type CredentialView = RailEntry['credentials'][number];
 
@@ -118,8 +117,7 @@ export function CompanyPaymentsCard() {
   const firstUnconfigured = rails.find(rail => !rail.validation.ok);
   // Resolve the effective open section: explicit operator choice wins;
   // otherwise default to the first rail that needs attention.
-  const effectiveOpenId =
-    openRailId !== null ? openRailId : (firstUnconfigured?.railId ?? null);
+  const effectiveOpenId = openRailId !== null ? openRailId : (firstUnconfigured?.railId ?? null);
 
   return (
     <div className="space-y-5" data-testid="payments-card">
@@ -128,9 +126,7 @@ export function CompanyPaymentsCard() {
           <span className="pv-gt pv-gt-primary h-9 w-9">
             <ShieldCheck className="h-5 w-5" aria-hidden="true" />
           </span>
-          <h2 className="pv-title text-lg">
-            {t('operations:payments.settings.title')}
-          </h2>
+          <h2 className="pv-title text-lg">{t('operations:payments.settings.title')}</h2>
         </div>
         <p className="text-sm text-secondary-600">
           {t('operations:payments.settings.description')}
@@ -144,14 +140,9 @@ export function CompanyPaymentsCard() {
             rail={rail}
             isOpen={effectiveOpenId === rail.railId}
             onToggle={() =>
-              setOpenRailId(current =>
-                current === rail.railId ? null : rail.railId
-              )
+              setOpenRailId(current => (current === rail.railId ? null : rail.railId))
             }
-            isSaving={
-              updateMutation.isPending &&
-              updateMutation.variables?.railId === rail.railId
-            }
+            isSaving={updateMutation.isPending && updateMutation.variables?.railId === rail.railId}
             onSubmit={async credentials => {
               await updateMutation.mutateAsync({
                 railId: rail.railId,
@@ -173,18 +164,10 @@ interface RailSectionProps {
   onSubmit: (credentials: Record<string, string>) => Promise<void>;
 }
 
-function RailSection({
-  rail,
-  isOpen,
-  onToggle,
-  isSaving,
-  onSubmit,
-}: RailSectionProps) {
+function RailSection({ rail, isOpen, onToggle, isSaving, onSubmit }: RailSectionProps) {
   const { t } = useTranslation('operations');
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
-  const [touchedCredentials, setTouchedCredentials] = useState<
-    Record<string, boolean>
-  >({});
+  const [touchedCredentials, setTouchedCredentials] = useState<Record<string, boolean>>({});
 
   const isReady = rail.validation.ok;
   const Glyph = RAIL_GLYPHS[rail.railId] ?? CreditCard;
@@ -229,10 +212,7 @@ function RailSection({
   };
 
   return (
-    <div
-      className={cn('pv-acc', isOpen && 'open')}
-      data-testid={`payments-rail-${rail.railId}`}
-    >
+    <div className={cn('pv-acc', isOpen && 'open')} data-testid={`payments-rail-${rail.railId}`}>
       <button
         type="button"
         className="pv-acc-hd w-full text-left"
@@ -241,12 +221,7 @@ function RailSection({
         onClick={onToggle}
         data-testid={`payments-rail-${rail.railId}-toggle`}
       >
-        <span
-          className={cn(
-            'pv-gt h-[30px] w-[30px]',
-            isOpen ? 'pv-gt-primary' : 'pv-gt-ink'
-          )}
-        >
+        <span className={cn('pv-gt h-[30px] w-[30px]', isOpen ? 'pv-gt-primary' : 'pv-gt-ink')}>
           <Glyph className="h-4 w-4" aria-hidden="true" />
         </span>
         <span className="min-w-0">
@@ -263,10 +238,7 @@ function RailSection({
             : t('payments.settings.readiness.notReady')}
         </span>
         <ChevronDown
-          className={cn(
-            'chev h-4 w-4 transition-transform',
-            isOpen && 'rotate-180'
-          )}
+          className={cn('chev h-4 w-4 transition-transform', isOpen && 'rotate-180')}
           aria-hidden="true"
         />
       </button>
@@ -310,10 +282,7 @@ function RailSection({
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="flex items-center gap-1.5 text-xs text-secondary-500">
-              <ShieldCheck
-                className="h-3.5 w-3.5 text-success-700"
-                aria-hidden="true"
-              />
+              <ShieldCheck className="h-3.5 w-3.5 text-success-700" aria-hidden="true" />
               {t('payments.settings.form.encryptedNote')}
             </span>
             <button
@@ -323,9 +292,7 @@ function RailSection({
               data-testid={`payments-rail-${rail.railId}-save`}
             >
               <Save className="h-4 w-4" aria-hidden="true" />
-              {isSaving
-                ? t('payments.settings.form.saving')
-                : t('payments.settings.form.save')}
+              {isSaving ? t('payments.settings.form.saving') : t('payments.settings.form.save')}
             </button>
           </div>
         </form>
@@ -416,10 +383,7 @@ function CredentialInput({
         )}
       </div>
       {credential.hasStoredValue && (
-        <p
-          className="help"
-          data-testid={`payments-${railId}-${credential.key}-hint`}
-        >
+        <p className="help" data-testid={`payments-${railId}-${credential.key}-hint`}>
           {t('payments.settings.form.storedHint')}{' '}
           <span className="font-mono">{credential.value}</span>{' '}
           <button

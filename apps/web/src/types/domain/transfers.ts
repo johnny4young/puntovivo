@@ -1,4 +1,4 @@
-// ENG-179c — inter-site transfer domain shapes (ENG-178 slice 28).
+// inter-site transfer domain shapes ( slice 28).
 
 import type { TransferHistoryStatus } from '../ui';
 

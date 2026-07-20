@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { createBackupOperationQueue } from '../backup/operation-queue.ts';
 
-describe('backup operation queue (ENG-136a)', () => {
+describe('backup operation queue', () => {
   it('serializes database lifecycle operations in FIFO order', async () => {
     const queue = createBackupOperationQueue();
     const events: string[] = [];

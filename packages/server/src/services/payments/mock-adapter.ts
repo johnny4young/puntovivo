@@ -1,5 +1,5 @@
 /**
- * ENG-038 — deterministic payment rail adapter.
+ * deterministic payment rail adapter.
  *
  * This adapter deliberately avoids network I/O. It lets tests, demos
  * and the Operations reconciliation tab exercise every provider
@@ -24,10 +24,7 @@ import type {
   PaymentStatusResult,
 } from './contracts.js';
 import { readPaymentRailCredentials } from './credentials.js';
-import {
-  CREDENTIAL_FIELDS_BY_RAIL,
-  PAYMENT_RAILS_MANIFEST,
-} from './manifest.js';
+import { CREDENTIAL_FIELDS_BY_RAIL, PAYMENT_RAILS_MANIFEST } from './manifest.js';
 
 function stableId(parts: readonly unknown[]): string {
   return createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 18);
@@ -124,16 +121,14 @@ export class DeterministicPaymentRailAdapter implements PaymentRailAdapter {
   }
 
   /**
-   * ENG-038 slice 2 — readiness probe. Walks the rail's declared
+   * slice 2 — readiness probe. Walks the rail's declared
    * credential descriptor; required fields with no stored value
    * surface as `PAYMENT_CREDENTIAL_MISSING` issues so the admin UI can
    * pinpoint exactly which inputs the operator still owes. Real
    * provider clients will replace this with a stronger probe (e.g. an
    * actual sandbox round-trip) when they swap into the registry.
    */
-  validateConfig(
-    ctx: PaymentRailValidationContext
-  ): PaymentRailValidationResult {
+  validateConfig(ctx: PaymentRailValidationContext): PaymentRailValidationResult {
     const credentials = readPaymentRailCredentials(ctx.settings, this.railId);
     const issues: PaymentRailValidationIssue[] = [];
     for (const descriptor of CREDENTIAL_FIELDS_BY_RAIL[this.railId]) {

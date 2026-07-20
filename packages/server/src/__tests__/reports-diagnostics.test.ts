@@ -1,18 +1,18 @@
 /**
- * ENG-065c — `reports.diagnostics.*` integration tests.
+ * `reports.diagnostics.*` integration tests.
  *
  * Verifies the admin-only bulk export that drives the Operations
  * Center Diagnostics tab. Coverage:
  *
- *   - Empty tenant → preview zero counts, export empty arrays + no warnings.
- *   - Manager / cashier FORBIDDEN; admin allowed for both procedures.
- *   - Date range narrows correctly — fixtures inside vs outside the window.
- *   - Cross-tenant isolation — tenant B fixtures never leak.
- *   - `includeOutboxes: ['sync']` populates only sync_outbox in `tables.*`,
- *     leaves the others as empty arrays, but `manifest.counts` still
- *     reports every source.
- *   - Row-limit warning surfaces when sync_outbox fixture exceeds 10000.
- *   - Invalid input (`fromDate > toDate`) surfaces a TRPCError BAD_REQUEST.
+ * - Empty tenant → preview zero counts, export empty arrays + no warnings.
+ * - Manager / cashier FORBIDDEN; admin allowed for both procedures.
+ * - Date range narrows correctly — fixtures inside vs outside the window.
+ * - Cross-tenant isolation — tenant B fixtures never leak.
+ * - `includeOutboxes: ['sync']` populates only sync_outbox in `tables.*`,
+ * leaves the others as empty arrays, but `manifest.counts` still
+ * reports every source.
+ * - Row-limit warning surfaces when sync_outbox fixture exceeds 10000.
+ * - Invalid input (`fromDate > toDate`) surfaces a TRPCError BAD_REQUEST.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -140,10 +140,7 @@ async function insertEvent(args: {
   return id;
 }
 
-async function insertEffect(args: {
-  eventId: string;
-  createdAt: string;
-}): Promise<void> {
+async function insertEffect(args: { eventId: string; createdAt: string }): Promise<void> {
   const db = getDatabase();
   await getDatabase()
     .insert(operationEffects)
@@ -159,10 +156,7 @@ async function insertEffect(args: {
   void db;
 }
 
-async function insertSyncOutbox(args: {
-  tenantId: string;
-  createdAt: string;
-}): Promise<void> {
+async function insertSyncOutbox(args: { tenantId: string; createdAt: string }): Promise<void> {
   await getDatabase()
     .insert(syncOutbox)
     .values({
@@ -182,10 +176,7 @@ async function insertSyncOutbox(args: {
     });
 }
 
-async function insertFiscalOutbox(args: {
-  tenantId: string;
-  createdAt: string;
-}): Promise<void> {
+async function insertFiscalOutbox(args: { tenantId: string; createdAt: string }): Promise<void> {
   // fiscalDocumentId is nullable (set null on delete) — keeping it null
   // here avoids a fiscal_documents + fiscal_numbering_resolutions
   // fixture cascade that's irrelevant to the diagnostic export's read.
@@ -207,10 +198,7 @@ async function insertFiscalOutbox(args: {
     });
 }
 
-async function insertHardwareOutbox(args: {
-  tenantId: string;
-  createdAt: string;
-}): Promise<void> {
+async function insertHardwareOutbox(args: { tenantId: string; createdAt: string }): Promise<void> {
   await getDatabase()
     .insert(hardwareOutbox)
     .values({
@@ -255,7 +243,7 @@ const IN_RANGE_TS = '2026-05-15T12:00:00.000Z';
 const BEFORE_RANGE_TS = '2026-04-01T12:00:00.000Z';
 const AFTER_RANGE_TS = '2026-06-15T12:00:00.000Z';
 
-describe('reports.diagnostics (ENG-065c)', () => {
+describe('reports.diagnostics', () => {
   let harnessA: DiagHarness;
   let harnessB: DiagHarness;
 
@@ -352,7 +340,7 @@ describe('reports.diagnostics (ENG-065c)', () => {
     expect(result.willHitLimit).toBe(false);
     expect(result.estimatedSizeBytes).toBe(0);
     expect(result.rowLimit).toBe(__TEST_ROW_LIMIT);
-    // ENG-072 — runtime metadata is surfaced on every preview so an
+    // runtime metadata is surfaced on every preview so an
     // admin can confirm the boot mode without downloading the bundle.
     expect(result.runtime.authorityMode).toBe('device_local');
     expect(typeof result.runtime.bindHost).toBe('string');
@@ -365,9 +353,7 @@ describe('reports.diagnostics (ENG-065c)', () => {
   });
 
   it('preview narrows by date range and reports per-source counts', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.diagnostics.preview({
       fromDate: RANGE_FROM,
       toDate: RANGE_TO,
@@ -414,9 +400,7 @@ describe('reports.diagnostics (ENG-065c)', () => {
   });
 
   it('export returns full bundle with manifest counts and tables', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.diagnostics.export({
       fromDate: RANGE_FROM,
       toDate: RANGE_TO,
@@ -433,7 +417,7 @@ describe('reports.diagnostics (ENG-065c)', () => {
     expect(result.tables.sync_outbox).toHaveLength(4);
     expect(result.tables.fiscal_outbox).toHaveLength(2);
     expect(result.tables.hardware_outbox).toHaveLength(1);
-    // ENG-072 — runtime metadata is captured into the export manifest
+    // runtime metadata is captured into the export manifest
     // so support tickets carry the boot identity of the box that
     // produced the bundle. The default test runtime is `device_local`
     // because none of the test harness boots set the env override.
@@ -447,20 +431,16 @@ describe('reports.diagnostics (ENG-065c)', () => {
         expect.objectContaining({ id: harnessA.deviceId, authorityRole: 'web_client' }),
       ])
     );
-    // ENG-103 — server suggests the canonical ZIP filename so the
+    // server suggests the canonical ZIP filename so the
     // client never has to invent one. Pattern:
     // `puntovivo-diagnostic-<tenant-slug>-<YYYYMMDD-HHMMSS>.zip`.
-    expect(result.suggestedFilename).toMatch(
-      /^puntovivo-diagnostic-[a-z0-9-]+-\d{8}-\d{6}\.zip$/
-    );
+    expect(result.suggestedFilename).toMatch(/^puntovivo-diagnostic-[a-z0-9-]+-\d{8}-\d{6}\.zip$/);
     expect(result.suggestedFilename).toContain('puntovivo-diagnostic-');
     expect(result.suggestedFilename.endsWith('.zip')).toBe(true);
   });
 
   it('respects includeOutboxes filter while keeping counts honest', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.diagnostics.export({
       fromDate: RANGE_FROM,
       toDate: RANGE_TO,
@@ -477,9 +457,7 @@ describe('reports.diagnostics (ENG-065c)', () => {
   });
 
   it('allows exporting only journal tables when includeOutboxes is empty', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.diagnostics.export({
       fromDate: RANGE_FROM,
       toDate: RANGE_TO,
@@ -494,9 +472,7 @@ describe('reports.diagnostics (ENG-065c)', () => {
   });
 
   it('isolates tenants — tenant A export never returns tenant B rows', async () => {
-    const callerA = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const callerA = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await callerA.reports.diagnostics.export({
       fromDate: RANGE_FROM,
       toDate: RANGE_TO,
@@ -505,15 +481,11 @@ describe('reports.diagnostics (ENG-065c)', () => {
     // count would jump from 4 to 4+99.
     expect(result.tables.sync_outbox).toHaveLength(4);
     expect(result.manifest.counts.sync_outbox).toBe(4);
-    expect(result.tables.sync_outbox.every(row => row.tenantId === harnessA.tenantId)).toBe(
-      true
-    );
+    expect(result.tables.sync_outbox.every(row => row.tenantId === harnessA.tenantId)).toBe(true);
   });
 
   it('rejects fromDate > toDate with BAD_REQUEST', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     await expect(
       caller.reports.diagnostics.preview({
         fromDate: RANGE_TO,
@@ -523,9 +495,7 @@ describe('reports.diagnostics (ENG-065c)', () => {
   });
 
   it('accepts chronological ranges when the ISO offsets differ', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     await expect(
       caller.reports.diagnostics.preview({
         fromDate: '2026-05-02T00:30:00+02:00',

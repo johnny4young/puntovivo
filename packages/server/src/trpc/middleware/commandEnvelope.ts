@@ -1,28 +1,28 @@
 /**
- * ENG-052 — `commandEnvelope` tRPC middleware.
+ * `commandEnvelope` tRPC middleware.
  *
  * Wraps every critical mutation listed in ADR-0002. Responsibilities,
  * in order:
  *
  * 1. Read the `x-device-id` header. Validate against the `devices`
- *    table for the active tenant. Reject with `DEVICE_NOT_REGISTERED`
- *    on miss / mismatch / deactivated.
+ * table for the active tenant. Reject with `DEVICE_NOT_REGISTERED`
+ * on miss / mismatch / deactivated.
  * 2. Read the `x-puntovivo-envelope` header (JSON). Validate shape
- *    via Zod. Reject with `MISSING_COMMAND_ENVELOPE` on missing /
- *    malformed.
+ * via Zod. Reject with `MISSING_COMMAND_ENVELOPE` on missing /
+ * malformed.
  * 3. Hash the canonical input. Atomically reserve `idempotency_keys`
- *    by `(tenantId, deviceId, idempotencyKey, operationKind)`.
- *    - First caller reserves the key and invokes the procedure.
- *    - Hit with matching hash while first caller runs → throw
- *      `COMMAND_IN_PROGRESS` (procedure NOT invoked).
- *    - Hit with matching hash after success → return cached
- *      `result_ref` (procedure NOT invoked).
- *    - Hit with mismatched hash → throw `IDEMPOTENCY_KEY_CONFLICT`
- *      with both hashes in `details`.
+ * by `(tenantId, deviceId, idempotencyKey, operationKind)`.
+ * - First caller reserves the key and invokes the procedure.
+ * - Hit with matching hash while first caller runs → throw
+ * `COMMAND_IN_PROGRESS` (procedure NOT invoked).
+ * - Hit with matching hash after success → return cached
+ * `result_ref` (procedure NOT invoked).
+ * - Hit with mismatched hash → throw `IDEMPOTENCY_KEY_CONFLICT`
+ * with both hashes in `details`.
  * 4. Inject `ctx.envelope`, `ctx.deviceId`, `ctx.log` (request-scoped
- *    child logger) for downstream procedure code.
+ * child logger) for downstream procedure code.
  * 5. Mark the device as seen (best-effort; failure does not roll
- *    back the procedure).
+ * back the procedure).
  *
  * Composes after `tenantProcedure` (depends on `ctx.tenantId`).
  *
@@ -31,11 +31,7 @@
 
 import { TRPCError } from '@trpc/server';
 import { findActiveDevice, markSeen } from '../../services/devices/devicesService.js';
-import {
-  completeKey,
-  failKey,
-  reserveKey,
-} from '../../services/idempotency/idempotencyService.js';
+import { completeKey, failKey, reserveKey } from '../../services/idempotency/idempotencyService.js';
 import { hashCanonicalInput } from '../../services/idempotency/keyHasher.js';
 import {
   markOperationCompleted,
@@ -59,7 +55,7 @@ const log = createModuleLogger('commandEnvelope');
 type CommandLogger = ReturnType<typeof createModuleLogger>;
 
 /**
- * ENG-179c — the context shape every `criticalCommand*Procedure`
+ * the context shape every `criticalCommand*Procedure`
  * resolver sees after `commandEnvelope` has run. The middleware
  * injects `deviceId`, the validated `envelope`, and a request-scoped
  * child `log`; declaring the augmented shape once lets resolvers (and
@@ -81,7 +77,7 @@ export interface CriticalCommandContext extends Omit<Context, 'tenantId' | 'user
 }
 
 /**
- * ENG-179c — narrow a resolver's `ctx` to `CriticalCommandContext` at a
+ * narrow a resolver's `ctx` to `CriticalCommandContext` at a
  * single documented boundary.
  *
  * tRPC does NOT propagate the `commandEnvelope` context override to
@@ -134,8 +130,7 @@ function parseEnvelope(rawHeader: string | null): CommandEnvelope {
     // diagnose malformed envelopes from logs. The errorCode + trpc
     // code stay stable for the client; details carry the diagnostic
     // payload behind a structured shape.
-    const parseMessage =
-      parseError instanceof Error ? parseError.message : String(parseError);
+    const parseMessage = parseError instanceof Error ? parseError.message : String(parseError);
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'MISSING_COMMAND_ENVELOPE',
@@ -202,7 +197,7 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   const rawEnvelope = readHeader(ctx.req, COMMAND_ENVELOPE_HEADER);
   const envelope = parseEnvelope(rawEnvelope);
 
-  // ENG-052b — Build a request-scoped child off the Fastify request
+  // Build a request-scoped child off the Fastify request
   // logger so every line carries `requestId` (set by the
   // `onRequest` hook in `index.ts`) in addition to envelope-level
   // bindings. Falling back to the module logger keeps tests that
@@ -210,9 +205,11 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   const baseLog =
     typeof (ctx.req as unknown as { log?: { child: (b: Record<string, unknown>) => unknown } }).log
       ?.child === 'function'
-      ? ((ctx.req as unknown as {
-          log: { child: (b: Record<string, unknown>) => typeof log };
-        }).log)
+      ? (
+          ctx.req as unknown as {
+            log: { child: (b: Record<string, unknown>) => typeof log };
+          }
+        ).log
       : log;
   const requestLog = baseLog.child({
     operationId: envelope.operationId,
@@ -302,7 +299,7 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
       requestHash,
     });
 
-  // ENG-053 — Operation journal start row. Idempotent on
+  // Operation journal start row. Idempotent on
   // (tenantId, operationId), so a retry with the same envelope
   // (same operationId, same idempotencyKey) reuses the existing
   // event id. Best-effort: if the journal insert fails we log and
@@ -328,7 +325,7 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   // 4. Run the procedure with envelope context, then persist.
   let result: Awaited<ReturnType<typeof next>>;
   try {
-    // ENG-179c — build the augmented context as an explicitly typed
+    // build the augmented context as an explicitly typed
     // const so tRPC propagates `CriticalCommandContext` to every
     // downstream `criticalCommand*Procedure` resolver (no more
     // `(ctx as unknown as { envelope?: ... })` casts in the routers).
@@ -343,15 +340,16 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     result = await next({ ctx: criticalCtx });
   } catch (error) {
     await failReservation();
-    // ENG-053 — Capture the failure on the journal trail. The
+    // Capture the failure on the journal trail. The
     // caught error is typically a TRPCError carrying our
     // structured ServerErrorWithCode in `cause`; extract the
     // stable code when possible so the trail has consistent
     // vocabulary.
     if (journalEventId) {
-      const code = error instanceof TRPCError && error.cause instanceof ServerErrorWithCode
-        ? error.cause.errorCode
-        : 'PROCEDURE_THREW';
+      const code =
+        error instanceof TRPCError && error.cause instanceof ServerErrorWithCode
+          ? error.cause.errorCode
+          : 'PROCEDURE_THREW';
       const message = error instanceof Error ? error.message : String(error);
       try {
         await recordError(ctx.db, {
@@ -359,9 +357,10 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
           errorCode: code,
           message,
           recoverable: false,
-          errorData: error instanceof TRPCError && error.cause instanceof ServerErrorWithCode
-            ? error.cause.details ?? null
-            : null,
+          errorData:
+            error instanceof TRPCError && error.cause instanceof ServerErrorWithCode
+              ? (error.cause.details ?? null)
+              : null,
         });
         await markOperationCompleted(ctx.db, journalEventId, 'failed');
       } catch (journalErr) {
@@ -411,7 +410,7 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     requestLog.error('idempotency reservation could not be completed after procedure success');
   }
 
-  // ENG-053 — Mark the operation as succeeded. Best-effort; the
+  // Mark the operation as succeeded. Best-effort; the
   // primary work is already committed by this point.
   if (journalEventId) {
     try {
@@ -423,7 +422,7 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
 
   // Best-effort device liveness update — log via the request-scoped
   // child logger so recurring failures (e.g. DB lock contention)
-  // surface in the operations dashboard later (ENG-065).
+  // surface in the operations dashboard later ().
   markSeen(ctx.db, { tenantId, deviceId: device.id }).catch(err => {
     requestLog.warn({ err }, 'markSeen failed after successful command');
   });

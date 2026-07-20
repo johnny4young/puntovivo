@@ -1,6 +1,6 @@
 /**
- * ENG-175 — pins the six composite indexes added in migration 0034,
- * plus the restaurant_tables partial unique that ENG-175 declared in
+ * pins the six composite indexes added in migration 0034,
+ * plus the restaurant_tables partial unique that  declared in
  * schema.ts after it originally shipped in migration 0023.
  *
  * Each new index targets a hot listing query (audit logs, inventory
@@ -39,9 +39,7 @@ interface IndexColumn {
 function readIndex(name: string): IndexInfo {
   const sqlite = (getDatabase() as unknown as LiveDatabase).$client;
   const row = sqlite
-    .prepare(
-      "SELECT name, tbl_name, sql FROM sqlite_master WHERE type='index' AND name = ?"
-    )
+    .prepare("SELECT name, tbl_name, sql FROM sqlite_master WHERE type='index' AND name = ?")
     .get(name) as IndexInfo | undefined;
   if (!row) {
     throw new Error(`index ${name} not found in sqlite_master`);
@@ -56,15 +54,12 @@ function readIndexColumns(name: string): string[] {
     .map(row => row.name);
 }
 
-describe('composite indexes added by ENG-175 (migration 0034)', () => {
+describe('composite indexes added by  (migration 0034)', () => {
   it('audit_logs gains tenant_created and tenant_action_created composites', async () => {
     await initDatabase({ dbPath: ':memory:', seedData: false });
 
     expect(readIndex('idx_audit_logs_tenant_created').tbl_name).toBe('audit_logs');
-    expect(readIndexColumns('idx_audit_logs_tenant_created')).toEqual([
-      'tenant_id',
-      'created_at',
-    ]);
+    expect(readIndexColumns('idx_audit_logs_tenant_created')).toEqual(['tenant_id', 'created_at']);
 
     expect(readIndex('idx_audit_logs_tenant_action_created').tbl_name).toBe('audit_logs');
     expect(readIndexColumns('idx_audit_logs_tenant_action_created')).toEqual([
@@ -88,7 +83,7 @@ describe('composite indexes added by ENG-175 (migration 0034)', () => {
 
   it('restaurant_tables carries a partial unique on the active name (originally from 0023) so archived names free for re-use', async () => {
     // The partial unique was first shipped by `0023_restaurant_tables.sql`
-    // as `idx_restaurant_tables_unique_active_name`. ENG-175 brings the
+    // as `idx_restaurant_tables_unique_active_name`.  brings the
     // declaration into Drizzle's schema source-of-truth under the same
     // name so `drizzle-kit generate` cannot drift. This test pins the
     // canonical name + the partial WHERE clause that gates re-use.
@@ -113,9 +108,7 @@ describe('composite indexes added by ENG-175 (migration 0034)', () => {
   it('operation_events gains status_created composite for the kernel worker poll', async () => {
     await initDatabase({ dbPath: ':memory:', seedData: false });
 
-    expect(readIndex('idx_operation_events_status_created').tbl_name).toBe(
-      'operation_events'
-    );
+    expect(readIndex('idx_operation_events_status_created').tbl_name).toBe('operation_events');
     expect(readIndexColumns('idx_operation_events_status_created')).toEqual([
       'status',
       'created_at',
@@ -125,9 +118,7 @@ describe('composite indexes added by ENG-175 (migration 0034)', () => {
   it('quotations gains tenant_status_valid_until composite for the expiring-soon dashboard', async () => {
     await initDatabase({ dbPath: ':memory:', seedData: false });
 
-    expect(readIndex('idx_quotations_tenant_status_valid_until').tbl_name).toBe(
-      'quotations'
-    );
+    expect(readIndex('idx_quotations_tenant_status_valid_until').tbl_name).toBe('quotations');
     expect(readIndexColumns('idx_quotations_tenant_status_valid_until')).toEqual([
       'tenant_id',
       'status',

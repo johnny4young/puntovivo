@@ -1,7 +1,7 @@
 /**
  * Purchase use-case barrel.
  *
- * ENG-178 — public surface of the `application/purchases/` layer extracted
+ * public surface of the `application/purchases/` layer extracted
  * from the former monolithic `trpc/routers/purchases.ts`. The thin router and
  * the AI invoice-upload flow import the use-cases + the read model from here.
  *

@@ -1,5 +1,5 @@
 /**
- * ENG-098 — Kitchen Display Screen board.
+ * Kitchen Display Screen board.
  *
  * Owns the `kds.list` query, the realtime channel subscription, and
  * the mark-ready / recall mutations. The board re-fetches the list
@@ -20,9 +20,7 @@ import { useRealtimeChannel } from '@/hooks/useRealtimeChannel';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { KdsEmptyState } from './KdsEmptyState';
-import {
-  KdsStationColumn,
-} from './KdsStationColumn';
+import { KdsStationColumn } from './KdsStationColumn';
 import type { KdsCardData } from './KdsOrderCard';
 
 const REFRESH_INTERVAL_MS = 30_000;
@@ -34,13 +32,10 @@ export function KdsBoard() {
   const siteId = currentSite?.id ?? null;
 
   const utils = trpc.useUtils();
-  const listQuery = trpc.kds.list.useQuery(
-    siteId ? { siteId } : {},
-    {
-      enabled: siteId !== null,
-      refetchInterval: REFRESH_INTERVAL_MS,
-    }
-  );
+  const listQuery = trpc.kds.list.useQuery(siteId ? { siteId } : {}, {
+    enabled: siteId !== null,
+    refetchInterval: REFRESH_INTERVAL_MS,
+  });
 
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
 

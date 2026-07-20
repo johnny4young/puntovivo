@@ -59,7 +59,11 @@ describe('Dashboard tRPC Router', () => {
     });
 
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
     }
@@ -179,13 +183,49 @@ describe('Dashboard tRPC Router', () => {
     // low-stock derivation (Σ on_hand ≤ minStock) reproduces the original
     // per-product stock levels.
     await db.insert(inventoryBalances).values([
-      { id: nanoid(), tenantId, siteId, productId: productOneId, onHand: 3, reserved: 0, createdAt: todayIso, updatedAt: todayIso },
-      { id: nanoid(), tenantId, siteId, productId: productTwoId, onHand: 12, reserved: 0, createdAt: todayIso, updatedAt: todayIso },
-      { id: nanoid(), tenantId, siteId, productId: productThreeId, onHand: 1, reserved: 0, createdAt: todayIso, updatedAt: todayIso },
-      { id: nanoid(), tenantId, siteId, productId: refundedProductId, onHand: 10, reserved: 0, createdAt: todayIso, updatedAt: todayIso },
+      {
+        id: nanoid(),
+        tenantId,
+        siteId,
+        productId: productOneId,
+        onHand: 3,
+        reserved: 0,
+        createdAt: todayIso,
+        updatedAt: todayIso,
+      },
+      {
+        id: nanoid(),
+        tenantId,
+        siteId,
+        productId: productTwoId,
+        onHand: 12,
+        reserved: 0,
+        createdAt: todayIso,
+        updatedAt: todayIso,
+      },
+      {
+        id: nanoid(),
+        tenantId,
+        siteId,
+        productId: productThreeId,
+        onHand: 1,
+        reserved: 0,
+        createdAt: todayIso,
+        updatedAt: todayIso,
+      },
+      {
+        id: nanoid(),
+        tenantId,
+        siteId,
+        productId: refundedProductId,
+        onHand: 10,
+        reserved: 0,
+        createdAt: todayIso,
+        updatedAt: todayIso,
+      },
     ]);
 
-    // ENG-177c — committed sales need a cash session; one shared closed
+    // committed sales need a cash session; one shared closed
     // session satisfies the CHECK without affecting any dashboard metric
     // (the aggregates sum sales, never sessions).
     const dashSessionId = await seedCommittedSaleSession({ tenantId, cashierId: userId });

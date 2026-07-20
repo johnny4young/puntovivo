@@ -1,15 +1,15 @@
 /**
- * ENG-105c — Quick-create transient state for SalesPage.
+ * Quick-create transient state for SalesPage.
  *
  * Coordinates the "request to open ProductFormModal / CustomerFormModal
  * with optional pre-fill" handshake between three places that cannot
  * wire a callback directly:
  * - `ProductSearchDialog` empty-state CTA (open product form with
- *   `defaultName=query`).
+ * `defaultName=query`).
  * - `CommandPalette` actions (`Mod+K` → "Create product" / "Create
- *   customer"; may fire from any route, navigates to `/sales` first).
+ * customer"; may fire from any route, navigates to `/sales` first).
  * - Customer quick-create dispatchers that need the resulting customer
- *   attached when the payment modal opens.
+ * attached when the payment modal opens.
  *
  * `SalesPage` subscribes to both slots, mounts the appropriate modal
  * when the slot has a value, and calls `consume*()` on close so the
@@ -34,7 +34,7 @@ interface QuickCreateState {
   requestedCreateProduct: QuickCreateRequest | null;
   requestedCreateCustomer: QuickCreateRequest | null;
   /**
-   * ENG-105c2 — id of the customer most recently created via the
+   * id of the customer most recently created via the
    * quick-create flow, waiting to be auto-attached to the next
    * `SalePaymentModal` mount. `null` means nothing pending. The
    * payment modal consumes this slot on its open transition so the
@@ -57,13 +57,13 @@ interface QuickCreateActions {
   /** Mirror of `consumeCreateProduct` for the customer slot. */
   consumeCreateCustomer(): QuickCreateRequest | null;
   /**
-   * ENG-105c2 — flag a freshly-created customer for auto-attach to
+   * flag a freshly-created customer for auto-attach to
    * the next `SalePaymentModal` mount. Overwrites any previous
    * pending id (last-created wins).
    */
   setPendingCustomerAttach(id: string): void;
   /**
-   * ENG-105c2 — read and clear the auto-attach slot. Returns the
+   * read and clear the auto-attach slot. Returns the
    * pending id or `null` when nothing is waiting. Called from
    * SalePaymentModal on the open transition.
    */

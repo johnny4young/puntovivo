@@ -1,16 +1,16 @@
 /**
- * ENG-040c slice 2 — CompanyAISettingsCard tests.
+ * slice 2 — CompanyAISettingsCard tests.
  *
  * Focus: the Test transcription affordance. The save / Test
- * connection paths shipped earlier (ENG-030) — this suite locks
+ * connection paths shipped earlier () — this suite locks
  * the new pieces:
- *   (a) Button renders when admin + AI on + provider configured +
- *       capable.
- *   (b) Button is disabled with the unavailable hint when the active
- *       provider lacks `transcriptionAvailable`.
- *   (c) Start → Stop fires `trpc.ai.transcribeAudio.mutate` with the
- *       base64 + MIME payload.
- *   (d) Mutation success renders the transcript panel inline.
+ * (a) Button renders when admin + AI on + provider configured +
+ * capable.
+ * (b) Button is disabled with the unavailable hint when the active
+ * provider lacks `transcriptionAvailable`.
+ * (c) Start → Stop fires `trpc.ai.transcribeAudio.mutate` with the
+ * base64 + MIME payload.
+ * (d) Mutation success renders the transcript panel inline.
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -98,7 +98,7 @@ type SettingsPayload = {
   currentMonthSpendUsd: number;
   availableProviders: Array<{ id: string; defaultModelId: string; isImplemented: boolean }>;
   transcriptionAvailable: boolean;
-  // ENG-102 — per-site monthly quota projection.
+  // per-site monthly quota projection.
   quotas: {
     copilot: QuotaProjection;
     invoiceOcr: QuotaProjection;
@@ -177,7 +177,7 @@ vi.mock('@/lib/trpc', () => ({
 
 import { CompanyAISettingsCard } from './CompanyAISettingsCard';
 
-describe('CompanyAISettingsCard (ENG-040c slice 2 — Test transcription)', () => {
+describe('CompanyAISettingsCard ( slice 2 — Test transcription)', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockSettingsState = { ...defaultSettings };
@@ -222,9 +222,7 @@ describe('CompanyAISettingsCard (ENG-040c slice 2 — Test transcription)', () =
     render(<CompanyAISettingsCard />);
     const button = screen.getByTestId('ai-transcribe-button');
     expect(button).toBeDisabled();
-    expect(screen.getByTestId('ai-transcribe-hint')).toHaveTextContent(
-      /Turn on AI features/
-    );
+    expect(screen.getByTestId('ai-transcribe-hint')).toHaveTextContent(/Turn on AI features/);
   });
 
   it('start → stop fires ai.transcribeAudio.mutate with the expected base64 + MIME payload', async () => {
@@ -242,9 +240,7 @@ describe('CompanyAISettingsCard (ENG-040c slice 2 — Test transcription)', () =
     // now carries the "Recording…" hint rather than the empty idle
     // string.
     rerender(<CompanyAISettingsCard />);
-    expect(screen.getByTestId('ai-transcribe-countdown')).toHaveTextContent(
-      /Recording|Grabando/
-    );
+    expect(screen.getByTestId('ai-transcribe-countdown')).toHaveTextContent(/Recording|Grabando/);
 
     // Second click: stop recording → blobToBase64 → mutate.
     await act(async () => {
@@ -279,18 +275,16 @@ describe('CompanyAISettingsCard (ENG-040c slice 2 — Test transcription)', () =
       });
     });
     expect(screen.getByTestId('ai-transcript-panel')).toBeInTheDocument();
-    expect(screen.getByTestId('ai-transcript-text')).toHaveTextContent(
-      'agrega dos cocas y un pan'
-    );
+    expect(screen.getByTestId('ai-transcript-text')).toHaveTextContent('agrega dos cocas y un pan');
     expect(screen.getByTestId('ai-transcript-language')).toHaveTextContent('es');
     expect(screen.getByTestId('ai-transcript-duration')).toHaveTextContent('4.2s');
   });
 
   // ============================================================
-  // ENG-102 — Cuotas section
+  // Cuotas section
   // ============================================================
 
-  it('ENG-102: renders the quotas section with idle bars (success tone)', () => {
+  it(': renders the quotas section with idle bars (success tone)', () => {
     mockSettingsState = {
       ...defaultSettings,
       quotas: {
@@ -313,13 +307,10 @@ describe('CompanyAISettingsCard (ENG-040c slice 2 — Test transcription)', () =
     expect(section).toBeInTheDocument();
     expect(screen.getByTestId('ai-quota-copilot')).toHaveTextContent('100 / 800');
     expect(screen.getByTestId('ai-quota-invoiceOcr')).toHaveTextContent('50 / 200');
-    expect(screen.getByTestId('ai-quota-copilot-bar')).toHaveAttribute(
-      'data-tone',
-      'success'
-    );
+    expect(screen.getByTestId('ai-quota-copilot-bar')).toHaveAttribute('data-tone', 'success');
   });
 
-  it('ENG-102: flips to warning tone at 80% and danger at 100%', () => {
+  it(': flips to warning tone at 80% and danger at 100%', () => {
     mockSettingsState = {
       ...defaultSettings,
       quotas: {
@@ -338,17 +329,11 @@ describe('CompanyAISettingsCard (ENG-040c slice 2 — Test transcription)', () =
       },
     };
     render(<CompanyAISettingsCard />);
-    expect(screen.getByTestId('ai-quota-copilot-bar')).toHaveAttribute(
-      'data-tone',
-      'warning'
-    );
-    expect(screen.getByTestId('ai-quota-invoiceOcr-bar')).toHaveAttribute(
-      'data-tone',
-      'danger'
-    );
+    expect(screen.getByTestId('ai-quota-copilot-bar')).toHaveAttribute('data-tone', 'warning');
+    expect(screen.getByTestId('ai-quota-invoiceOcr-bar')).toHaveAttribute('data-tone', 'danger');
   });
 
-  it('ENG-102: hides the quotas section when the master AI toggle is off', () => {
+  it(': hides the quotas section when the master AI toggle is off', () => {
     mockSettingsState = {
       ...defaultSettings,
       enabled: false,

@@ -73,7 +73,7 @@ function MobileNavigationLink({
 }
 
 /**
- * ENG-131d — drawer-specific two-level workspace navigation.
+ * drawer-specific two-level workspace navigation.
  *
  * The desktop rail keeps its persisted disclosure widgets. Mobile and tablet
  * instead choose one job first and render only that workspace's routes, which

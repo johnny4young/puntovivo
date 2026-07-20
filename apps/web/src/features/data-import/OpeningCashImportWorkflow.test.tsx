@@ -126,7 +126,7 @@ vi.mock('@/services/export/exportService', () => ({
   exportToCSV: mocks.exportToCSV,
 }));
 
-describe('ENG-123e OpeningCashImportWorkflow', () => {
+describe(' OpeningCashImportWorkflow', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mocks.invalidateAssignments.mockResolvedValue(undefined);

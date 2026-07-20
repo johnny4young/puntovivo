@@ -26,7 +26,7 @@ async function hasIsolatedAncestor(locator: Locator): Promise<boolean> {
   });
 }
 
-test.describe('assistive-technology sweep (ENG-134h)', () => {
+test.describe('assistive-technology sweep', () => {
   test('admin mobile workspace dialog isolates the page and exposes one labelled modal', async ({
     page,
   }) => {

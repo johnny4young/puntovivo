@@ -18,16 +18,16 @@ const SupportHealthPanel = lazy(async () => {
 });
 
 /**
- * ENG-065a / ENG-065b / ENG-065c — Operations Center.
+ * /  /  — Operations Center.
  *
  * Tabbed admin/manager surface that surfaces the three already-shipped
  * outboxes (sync, fiscal, hardware) plus the two reconciliation views
- * shipped in ENG-065b (cash; the obsolete inventory cache panel was retired
+ * shipped in  (cash; the obsolete inventory cache panel was retired
  * after inventory_balances became the single stock source), the diagnostic
- * export shipped in ENG-065c, the authority-node panel (ENG-075), and the
- * payment reconciliation foundation (ENG-038).
+ * export shipped in , the authority-node panel (), and the
+ * payment reconciliation foundation ().
  *
- * ENG-187 — the default landing is the "Needs attention" queue (an
+ * the default landing is the "Needs attention" queue (an
  * aggregated view of the retryable failures across sync / fiscal /
  * hardware / payments), so a manager sees what failed first instead of
  * the flat Sync tab. Each queue row deep-links to the resolving panel.
@@ -89,7 +89,7 @@ export function OperationsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Rediseño FASE 6 (O1) — encabezado de panel con titulación del
+      {/* encabezado de panel con titulación del
           sistema (.pv-kicker / .pv-title) + glifo tonal. El h1 se conserva
           para mantener el contrato de jerarquía semántica del shell. */}
       <header className="flex items-start gap-3">

@@ -1,5 +1,5 @@
 /**
- * ENG-065d — admin retry + mark-settled mutation tests for the
+ * admin retry + mark-settled mutation tests for the
  * `payments.*` router. Pinned: role gates, tenant scope, state
  * transitions, audit-log emission, idempotency on already-settled rows.
  */
@@ -9,13 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, desc, eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  auditLogs,
-  paymentOutbox,
-  tenants,
-  users,
-  type PaymentRailId,
-} from '../db/schema.js';
+import { auditLogs, paymentOutbox, tenants, users, type PaymentRailId } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -157,11 +151,7 @@ function buildCtx(
 
 async function readOutbox(outboxId: string) {
   const db = getDatabase();
-  return db
-    .select()
-    .from(paymentOutbox)
-    .where(eq(paymentOutbox.id, outboxId))
-    .get();
+  return db.select().from(paymentOutbox).where(eq(paymentOutbox.id, outboxId)).get();
 }
 
 async function readLatestAudit(
@@ -192,7 +182,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('payments.retryOutbox (ENG-065d)', () => {
+describe('payments.retryOutbox', () => {
   it('admin resets a dead_letter row back to queued with zeroed retry budget', async () => {
     const h = await seedHarness('retry-deadletter');
     await insertOutboxRow({
@@ -250,9 +240,7 @@ describe('payments.retryOutbox (ENG-065d)', () => {
       attempts: 0,
     });
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
-    await expect(
-      caller.payments.retryOutbox({ outboxId: 'retry-st' })
-    ).rejects.toMatchObject({
+    await expect(caller.payments.retryOutbox({ outboxId: 'retry-st' })).rejects.toMatchObject({
       cause: expect.objectContaining({ errorCode: 'PAYMENT_OUTBOX_NOT_RETRIABLE' }),
     });
   });
@@ -267,9 +255,7 @@ describe('payments.retryOutbox (ENG-065d)', () => {
       attempts: 0,
     });
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
-    await expect(
-      caller.payments.retryOutbox({ outboxId: 'retry-ap' })
-    ).rejects.toMatchObject({
+    await expect(caller.payments.retryOutbox({ outboxId: 'retry-ap' })).rejects.toMatchObject({
       cause: expect.objectContaining({ errorCode: 'PAYMENT_OUTBOX_NOT_RETRIABLE' }),
     });
     const row = await readOutbox('retry-ap');
@@ -286,9 +272,7 @@ describe('payments.retryOutbox (ENG-065d)', () => {
       attempts: 1,
     });
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
-    await expect(
-      caller.payments.retryOutbox({ outboxId: 'retry-sb' })
-    ).rejects.toMatchObject({
+    await expect(caller.payments.retryOutbox({ outboxId: 'retry-sb' })).rejects.toMatchObject({
       cause: expect.objectContaining({ errorCode: 'PAYMENT_OUTBOX_NOT_RETRIABLE' }),
     });
   });
@@ -296,9 +280,7 @@ describe('payments.retryOutbox (ENG-065d)', () => {
   it('returns PAYMENT_OUTBOX_NOT_FOUND for a missing id', async () => {
     const h = await seedHarness('retry-missing');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
-    await expect(
-      caller.payments.retryOutbox({ outboxId: 'nope' })
-    ).rejects.toMatchObject({
+    await expect(caller.payments.retryOutbox({ outboxId: 'nope' })).rejects.toMatchObject({
       cause: expect.objectContaining({ errorCode: 'PAYMENT_OUTBOX_NOT_FOUND' }),
     });
   });
@@ -335,13 +317,13 @@ describe('payments.retryOutbox (ENG-065d)', () => {
       attempts: 6,
     });
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.managerId, 'manager'));
-    await expect(
-      caller.payments.retryOutbox({ outboxId: 'retry-mgr' })
-    ).rejects.toBeInstanceOf(TRPCError);
+    await expect(caller.payments.retryOutbox({ outboxId: 'retry-mgr' })).rejects.toBeInstanceOf(
+      TRPCError
+    );
   });
 });
 
-describe('payments.markSettled (ENG-065d)', () => {
+describe('payments.markSettled', () => {
   it('admin flips an approved row to settled and writes audit', async () => {
     const h = await seedHarness('settle-approved');
     await insertOutboxRow({
@@ -458,11 +440,7 @@ describe('payments.markSettled (ENG-065d)', () => {
     // an active claim from a worker that crashed mid-settle.
     expect(row?.claimToken).toBeNull();
     expect(row?.lockedAt).toBeNull();
-    const audit = await readLatestAudit(
-      h.tenantId,
-      'settle-update',
-      'payment.mark_settled'
-    );
+    const audit = await readLatestAudit(h.tenantId, 'settle-update', 'payment.mark_settled');
     expect(audit?.metadata).toMatchObject({ alreadySettled: true });
   });
 
@@ -494,8 +472,8 @@ describe('payments.markSettled (ENG-065d)', () => {
       status: 'declined',
     });
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.managerId, 'manager'));
-    await expect(
-      caller.payments.markSettled({ outboxId: 'settle-mgr' })
-    ).rejects.toBeInstanceOf(TRPCError);
+    await expect(caller.payments.markSettled({ outboxId: 'settle-mgr' })).rejects.toBeInstanceOf(
+      TRPCError
+    );
   });
 });

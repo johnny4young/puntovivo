@@ -1,5 +1,5 @@
 /**
- * Sync router — read-side aggregations (ENG-178 split).
+ * Sync router — read-side aggregations ( split).
  *
  * `sync.status` (tenant) + `sync.pull` (manager/admin): the overview snapshot
  * and the read-only mirror with the actual queue + conflict payloads.

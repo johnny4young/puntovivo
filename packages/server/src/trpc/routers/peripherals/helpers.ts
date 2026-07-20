@@ -1,5 +1,5 @@
 /**
- * Peripherals router shared helpers (ENG-178 split).
+ * Peripherals router shared helpers ( split).
  *
  * Leaf module: the tenant-scoped peripheral row loader and the adapter test
  * dispatcher. Imported by crud.ts; never imports a procedure module.
@@ -11,19 +11,19 @@ import type { DatabaseInstance } from '../../../db/index.js';
 import { sitePeripherals } from '../../../db/schema.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { instantiateAdapter } from '../../../services/peripherals/index.js';
-import type { CashDrawerAdapter, PaymentTerminalAdapter, ReceiptPrinterAdapter, BarcodeScannerAdapter, TestResult } from '../../../services/peripherals/index.js';
+import type {
+  CashDrawerAdapter,
+  PaymentTerminalAdapter,
+  ReceiptPrinterAdapter,
+  BarcodeScannerAdapter,
+  TestResult,
+} from '../../../services/peripherals/index.js';
 
-export async function loadPeripheralOrThrow(
-  db: DatabaseInstance,
-  tenantId: string,
-  id: string
-) {
+export async function loadPeripheralOrThrow(db: DatabaseInstance, tenantId: string, id: string) {
   const row = await db
     .select()
     .from(sitePeripherals)
-    .where(
-      and(eq(sitePeripherals.id, id), eq(sitePeripherals.tenantId, tenantId))
-    )
+    .where(and(eq(sitePeripherals.id, id), eq(sitePeripherals.tenantId, tenantId)))
     .get();
   if (!row) {
     throwServerError({
@@ -35,7 +35,9 @@ export async function loadPeripheralOrThrow(
   return row!;
 }
 
-export async function runAdapterTest(adapter: ReturnType<typeof instantiateAdapter>): Promise<TestResult> {
+export async function runAdapterTest(
+  adapter: ReturnType<typeof instantiateAdapter>
+): Promise<TestResult> {
   if (!adapter) {
     return {
       status: 'failed',

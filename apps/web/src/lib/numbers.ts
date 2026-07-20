@@ -3,7 +3,7 @@
  * room for future helpers (clamp, roundTo, ...) without bloating
  * `lib/utils.ts`.
  *
- * Introduced by ENG-028 to collapse the ad-hoc
+ * Introduced by  to collapse the ad-hoc
  * `items.reduce((s, x) => s + x.field, 0)` pattern that recurs across cart
  * and totals computations.
  */
@@ -20,10 +20,7 @@
  * sumBy(completedPurchases, p => p.total)
  * sumBy(tenders, t => Number(t.amount) || 0)
  */
-export function sumBy<T>(
-  items: readonly T[],
-  selector: (item: T) => number
-): number {
+export function sumBy<T>(items: readonly T[], selector: (item: T) => number): number {
   let total = 0;
   for (const item of items) {
     total += selector(item);

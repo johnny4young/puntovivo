@@ -1,12 +1,12 @@
 /**
- * Per-procedure rate-limit middleware — ENG-166 (auth-critical subset).
+ * Per-procedure rate-limit middleware —  (auth-critical subset).
  *
  * The Fastify global rate-limit caps the whole tRPC surface at
  * 100 req/min/IP, which is generous enough to leave high-leverage auth
  * procedures (refresh, changePassword, resetPassword, user create,
  * desktopSession.register) exposed to brute-force at 100/min. This
  * middleware wraps those procedures with stricter buckets keyed by IP +
- * authenticated user. Wider tRPC coverage lands in ENG-165.
+ * authenticated user. Wider tRPC coverage lands in .
  *
  * The state is kept in-memory (process-local Map). For Puntovivo's
  * single-process Electron-embedded backend this is sufficient; the
@@ -26,7 +26,7 @@ import { throwServerError } from '../../lib/errorCodes.js';
 interface Bucket {
   count: number;
   expiresAt: number;
-  // ENG-165 — flips true once we have reported the FIRST denial of the
+  // flips true once we have reported the FIRST denial of the
   // current window, so a caller can audit a rate-limit hit exactly once
   // per window instead of once per rejected request (avoids flooding the
   // audit log under a sustained abuse burst).
@@ -35,7 +35,7 @@ interface Bucket {
 
 const buckets = new Map<string, Bucket>();
 
-/** ENG-165 — bucket key dimensions. `siteId` enables per-site sales buckets. */
+/** bucket key dimensions. `siteId` enables per-site sales buckets. */
 export type RateLimitKeyDimension = 'ip' | 'userId' | 'tenantId' | 'siteId';
 
 export interface ProcedureRateLimitOptions {
@@ -53,7 +53,7 @@ export interface ProcedureRateLimitOptions {
 }
 
 /**
- * ENG-165 — outcome of consuming a token from a bucket.
+ * outcome of consuming a token from a bucket.
  *
  * `firstDenial` is true only on the FIRST denial within the current
  * window, so the caller can write a single auditable event per window.
@@ -111,16 +111,16 @@ function isE2eBypassEnabled(): boolean {
 export type RateLimitConsumeOptions = ProcedureRateLimitOptions & {
   ip?: string | null;
   userId?: string | null;
-  /** ENG-165 — tenant the request belongs to (for per-tenant buckets). */
+  /** tenant the request belongs to (for per-tenant buckets). */
   tenantId?: string | null;
-  /** ENG-165 — active site for sales buckets. */
+  /** active site for sales buckets. */
   siteId?: string | null;
   now?: number;
   enforceInTest?: boolean;
 };
 
 /**
- * ENG-165 — consume one token from a bucket and report the outcome plus
+ * consume one token from a bucket and report the outcome plus
  * a once-per-window `firstDenial` signal. Returns `allowed` (with the
  * bucket store mutated) when there is spare capacity or the env/test
  * bypass is active, and `denied` when the bucket is saturated.

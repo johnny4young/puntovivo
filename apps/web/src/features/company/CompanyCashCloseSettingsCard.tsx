@@ -1,5 +1,5 @@
 /**
- * ENG-194b — Admin-only card for the tenant's cash-close policy.
+ * Admin-only card for the tenant's cash-close policy.
  *
  * Sits inside `CompanyPage`'s "general" tab. Reads `cashCloseSettings.get`,
  * writes via `cashCloseSettings.update`, and invalidates the query on

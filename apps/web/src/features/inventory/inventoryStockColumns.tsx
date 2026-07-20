@@ -1,5 +1,5 @@
 /**
- * ENG-132c — Inventory Stock table columns.
+ * Inventory Stock table columns.
  *
  * Extracted from `InventoryPage` so the column-set test can import a pure
  * function without pulling the heavy page module, and so `InventoryPage`
@@ -28,7 +28,7 @@ export function getStockColumns(
       accessorKey: 'name',
       header: () => i18next.t('inventory:table.product'),
       size: 250,
-      // Rediseño FASE 6 — celda ancla (.pv-table .prod/.pic/.pname/.sku):
+      // celda ancla (.pv-table .prod/.pic/.pname/.sku):
       // glifo tonal + nombre fuerte + SKU mono con categoría debajo.
       cell: ({ row }) => (
         <div className="prod">
@@ -49,7 +49,7 @@ export function getStockColumns(
       accessorKey: 'stock',
       header: () => i18next.t('inventory:stock.columns.stock'),
       size: 130,
-      // Rediseño FASE 6 — barra de nivel proporcional (.pv-stock); `low` la
+      // barra de nivel proporcional (.pv-stock); `low` la
       // pinta en danger. Llena al 50% cuando stock == mínimo y crece hacia
       // 100% (2x mínimo), con piso visible para que siempre se lea.
       meta: { cellClassName: 'num', headerClassName: 'num' },
@@ -74,7 +74,7 @@ export function getStockColumns(
         );
       },
     },
-    // ENG-132c — minStock / sell price / valuation / updated trimmed into the
+    // minStock / sell price / valuation / updated trimmed into the
     // row-detail Drawer (`onViewDetails`); stock + status carry the scan.
     {
       id: 'status',
@@ -94,7 +94,7 @@ export function getStockColumns(
       size: 110,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          {/* ENG-132c — Details (Eye) is the progressive-disclosure affordance
+          {/* Details (Eye) is the progressive-disclosure affordance
               for the trimmed columns; all roles, focusable in tab order. */}
           <button
             className="btn-ghost btn-icon h-8 w-8"

@@ -1,5 +1,5 @@
 /**
- * ENG-132g — Movements column-set + delta contract.
+ * Movements column-set + delta contract.
  *
  * Pins that the Movements table defaults to the smallest useful column set
  * (date / product / delta / type / actions) and that stock-after, reference
@@ -33,13 +33,12 @@ function makeMovement(overrides?: Partial<InventoryMovement>): InventoryMovement
   };
 }
 
-describe('getMovementColumns column set (ENG-132g)', () => {
+describe('getMovementColumns column set', () => {
   it('renders the smallest useful set — stock-after / reference / notes trimmed', () => {
     const cols = getMovementColumns(vi.fn());
     const ids = cols.map(
       col =>
-        (col as { accessorKey?: string; id?: string }).accessorKey ??
-        (col as { id?: string }).id
+        (col as { accessorKey?: string; id?: string }).accessorKey ?? (col as { id?: string }).id
     );
 
     expect(ids).toEqual(['createdAt', 'productName', 'delta', 'type', 'actions']);
@@ -56,9 +55,7 @@ describe('getMovementDelta sign convention', () => {
 
   it('infers a negative delta for a sale that lowered stock', () => {
     expect(
-      getMovementDelta(
-        makeMovement({ type: 'sale', quantity: 4, previousStock: 23, newStock: 19 })
-      )
+      getMovementDelta(makeMovement({ type: 'sale', quantity: 4, previousStock: 23, newStock: 19 }))
     ).toBe(-4);
   });
 

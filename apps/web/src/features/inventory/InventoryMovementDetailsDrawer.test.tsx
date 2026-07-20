@@ -1,13 +1,13 @@
 /**
- * ENG-132g — InventoryMovementDetailsDrawer tests.
+ * InventoryMovementDetailsDrawer tests.
  *
  * Pins the row-detail Drawer holding the columns trimmed off the default
  * Movements table:
- *   - renders the trimmed fields (stock-after, reference, notes) + the signed
- *     delta and type for the given movement;
- *   - the Close footer action calls onClose;
- *   - stays closed when `item` is null;
- *   - no serious accessibility violations.
+ * - renders the trimmed fields (stock-after, reference, notes) + the signed
+ * delta and type for the given movement;
+ * - the Close footer action calls onClose;
+ * - stays closed when `item` is null;
+ * - no serious accessibility violations.
  *
  * @module features/inventory/InventoryMovementDetailsDrawer.test
  */
@@ -34,7 +34,7 @@ const item = {
   createdAt: '2026-06-01T10:00:00.000Z',
 } as InventoryMovement;
 
-describe('InventoryMovementDetailsDrawer (ENG-132g)', () => {
+describe('InventoryMovementDetailsDrawer', () => {
   it('renders the trimmed movement fields', () => {
     render(<InventoryMovementDetailsDrawer item={item} onClose={vi.fn()} />);
 
@@ -68,9 +68,7 @@ describe('InventoryMovementDetailsDrawer (ENG-132g)', () => {
   it('stays closed when item is null', () => {
     render(<InventoryMovementDetailsDrawer item={null} onClose={vi.fn()} />);
 
-    expect(
-      screen.queryByTestId('inventory-movement-details-drawer')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('inventory-movement-details-drawer')).not.toBeInTheDocument();
   });
 
   it('has no serious accessibility violations', async () => {

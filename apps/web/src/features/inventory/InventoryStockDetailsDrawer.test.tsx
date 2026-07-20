@@ -1,14 +1,14 @@
 /**
- * ENG-132c — InventoryStockDetailsDrawer tests.
+ * InventoryStockDetailsDrawer tests.
  *
  * Pins the row-detail Drawer that holds the columns trimmed off the
  * default Stock table:
- *   - renders the trimmed fields (sku, category, stock, min stock, sell
- *     price, valuation, updated, status) for the given item;
- *   - the Adjust footer action calls onAdjust (and is absent when onAdjust
- *     is omitted);
- *   - stays closed when `item` is null;
- *   - no serious accessibility violations.
+ * - renders the trimmed fields (sku, category, stock, min stock, sell
+ * price, valuation, updated, status) for the given item;
+ * - the Adjust footer action calls onAdjust (and is absent when onAdjust
+ * is omitted);
+ * - stays closed when `item` is null;
+ * - no serious accessibility violations.
  *
  * @module features/inventory/InventoryStockDetailsDrawer.test
  */
@@ -33,7 +33,7 @@ const item = {
   updatedAt: '2026-06-01T10:00:00.000Z',
 } as InventoryStockItem;
 
-describe('InventoryStockDetailsDrawer (ENG-132c)', () => {
+describe('InventoryStockDetailsDrawer', () => {
   it('renders the trimmed stock fields', () => {
     render(<InventoryStockDetailsDrawer item={item} onClose={vi.fn()} />);
 
@@ -41,18 +41,14 @@ describe('InventoryStockDetailsDrawer (ENG-132c)', () => {
     expect(screen.getByText('ABR-0001')).toBeInTheDocument(); // sku
     expect(screen.getByText('Abarrotes')).toBeInTheDocument(); // category
     // The drawer heading is the item name.
-    expect(
-      screen.getByRole('heading', { name: 'Arroz Diana 500g' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Arroz Diana 500g' })).toBeInTheDocument();
   });
 
   it('calls onAdjust with the item when the Adjust footer action is clicked', () => {
     const onAdjust = vi.fn();
     render(<InventoryStockDetailsDrawer item={item} onClose={vi.fn()} onAdjust={onAdjust} />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /adjust stock|ajustar stock/i })
-    );
+    fireEvent.click(screen.getByRole('button', { name: /adjust stock|ajustar stock/i }));
     expect(onAdjust).toHaveBeenCalledWith(item);
   });
 
@@ -80,9 +76,7 @@ describe('InventoryStockDetailsDrawer (ENG-132c)', () => {
   it('stays closed when item is null', () => {
     render(<InventoryStockDetailsDrawer item={null} onClose={vi.fn()} />);
 
-    expect(
-      screen.queryByTestId('inventory-stock-details-drawer')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('inventory-stock-details-drawer')).not.toBeInTheDocument();
   });
 
   it('has no serious accessibility violations', async () => {

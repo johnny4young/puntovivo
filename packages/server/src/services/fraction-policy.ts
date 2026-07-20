@@ -13,7 +13,7 @@ export interface FractionPolicy {
   fractionMinimum: number | null;
 }
 
-// ENG-179b — explicit `| undefined` so tRPC `products.create / update`
+// explicit `| undefined` so tRPC `products.create / update`
 // can forward Zod-optional fields.
 export interface FractionPolicyInput {
   sellByFraction?: boolean | null | undefined;
@@ -48,13 +48,13 @@ const EMPTY_POLICY: FractionPolicy = {
  * Normalize and validate a fraction policy input against an existing policy.
  *
  * Resolution rules:
- *   - Each field in `input` that is `undefined` inherits from `existing` so
- *     partial updates don't accidentally wipe configured values.
- *   - When `sellByFraction` is false, the other fields are forced to `null`.
- *     Callers never need to clear them manually.
- *   - When `sellByFraction` is true, the step and minimum are validated
- *     against the business rules. Each failure throws a TRPCError with a
- *     stable error code so the client can translate the message.
+ * - Each field in `input` that is `undefined` inherits from `existing` so
+ * partial updates don't accidentally wipe configured values.
+ * - When `sellByFraction` is false, the other fields are forced to `null`.
+ * Callers never need to clear them manually.
+ * - When `sellByFraction` is true, the step and minimum are validated
+ * against the business rules. Each failure throws a TRPCError with a
+ * stable error code so the client can translate the message.
  */
 export function resolveFractionPolicy(
   input: FractionPolicyInput,
@@ -112,10 +112,7 @@ export function resolveFractionPolicy(
  * policy. Throws a coded TRPCError with structured details so the client can
  * render a localized message that includes the offending step / minimum.
  */
-export function assertSaleQuantityAllowed(
-  quantity: number,
-  product: QuantityPolicyProduct
-): void {
+export function assertSaleQuantityAllowed(quantity: number, product: QuantityPolicyProduct): void {
   if (!Number.isFinite(quantity) || quantity <= 0) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',

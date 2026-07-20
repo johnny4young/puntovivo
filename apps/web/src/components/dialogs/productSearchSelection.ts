@@ -1,4 +1,4 @@
-/** ENG-178 — Product-search selection primitives shared by the dialog sections. */
+/** Product-search selection primitives shared by the dialog sections. */
 import type { ProductSearchItem, ProductUnitAssignment } from '@/types';
 
 export interface ProductSelectionState {

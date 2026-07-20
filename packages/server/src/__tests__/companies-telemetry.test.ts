@@ -1,14 +1,14 @@
 /**
- * ENG-135 — `companies.updateTelemetryOptIn` contract tests.
+ * `companies.updateTelemetryOptIn` contract tests.
  *
  * Pins:
- *   - Flipping the flag persists in `tenants.settings.telemetryOptIn`.
- *   - Each call writes an audit row `telemetry.opt_in.updated` with
- *     before / after snapshots.
- *   - Cashier role is rejected (FORBIDDEN).
- *   - Cross-tenant: admin of T1 cannot affect T2's settings blob.
- *   - `companies.getCurrent` surfaces the resolved flag on its
- *     response shape, defaulting to false.
+ * - Flipping the flag persists in `tenants.settings.telemetryOptIn`.
+ * - Each call writes an audit row `telemetry.opt_in.updated` with
+ * before / after snapshots.
+ * - Cashier role is rejected (FORBIDDEN).
+ * - Cross-tenant: admin of T1 cannot affect T2's settings blob.
+ * - `companies.getCurrent` surfaces the resolved flag on its
+ * response shape, defaulting to false.
  *
  * @module __tests__/companies-telemetry.test
  */
@@ -69,11 +69,7 @@ beforeAll(async () => {
     verbose: false,
   });
   const db = getDatabase();
-  const seededAdmin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededAdmin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededAdmin) throw new Error('expected seeded admin user');
   primaryTenantId = seededAdmin.tenantId;
   primaryAdminId = seededAdmin.id;
@@ -124,7 +120,7 @@ afterEach(() => {
   __clearTelemetryOptInCacheForTests();
 });
 
-describe('companies.updateTelemetryOptIn (ENG-135)', () => {
+describe('companies.updateTelemetryOptIn', () => {
   it('flips the flag to true and writes an audit row', async () => {
     const caller = appRouter.createCaller(
       buildCtx({ tenantId: primaryTenantId, userId: primaryAdminId })
@@ -197,9 +193,9 @@ describe('companies.updateTelemetryOptIn (ENG-135)', () => {
         role: 'cashier',
       })
     );
-    await expect(
-      caller.companies.updateTelemetryOptIn({ optedIn: true })
-    ).rejects.toThrow(/administrators/i);
+    await expect(caller.companies.updateTelemetryOptIn({ optedIn: true })).rejects.toThrow(
+      /administrators/i
+    );
   });
 
   it('isolates tenants — flipping T1 does not affect T2', async () => {
@@ -221,12 +217,8 @@ describe('companies.updateTelemetryOptIn (ENG-135)', () => {
       .from(tenants)
       .where(eq(tenants.id, foreignTenantId))
       .get();
-    expect((tenantA?.settings as Record<string, unknown>).telemetryOptIn).toBe(
-      true
-    );
-    expect((tenantB?.settings as Record<string, unknown>).telemetryOptIn).toBe(
-      false
-    );
+    expect((tenantA?.settings as Record<string, unknown>).telemetryOptIn).toBe(true);
+    expect((tenantB?.settings as Record<string, unknown>).telemetryOptIn).toBe(false);
   });
 
   it('companies.getCurrent surfaces the resolved telemetryOptIn flag', async () => {
@@ -244,8 +236,7 @@ describe('companies.updateTelemetryOptIn (ENG-135)', () => {
   });
 
   it('revokes centralized capture immediately after disabling telemetry', async () => {
-    const exceptionCalls: Array<{ err: unknown; attrs: Record<string, unknown> }> =
-      [];
+    const exceptionCalls: Array<{ err: unknown; attrs: Record<string, unknown> }> = [];
     const sink: TelemetrySink = {
       captureException(err, attrs) {
         exceptionCalls.push({ err, attrs });
@@ -268,11 +259,7 @@ describe('companies.updateTelemetryOptIn (ENG-135)', () => {
     expect(exceptionCalls).toHaveLength(1);
 
     await caller.companies.updateTelemetryOptIn({ optedIn: false });
-    await captureException(
-      new Error('after revoke'),
-      { tenantId: primaryTenantId },
-      getDatabase()
-    );
+    await captureException(new Error('after revoke'), { tenantId: primaryTenantId }, getDatabase());
     expect(exceptionCalls).toHaveLength(1);
   });
 });

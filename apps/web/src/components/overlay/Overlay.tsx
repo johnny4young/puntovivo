@@ -3,8 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Modal, type ModalProps } from '@/components/form-controls/Modal';
 import { cn } from '@/lib/utils';
 
-export interface OverlayProps
-  extends Omit<ModalProps, 'title' | 'children' | 'contentClassName' | 'ariaLabelledBy'> {
+export interface OverlayProps extends Omit<
+  ModalProps,
+  'title' | 'children' | 'contentClassName' | 'ariaLabelledBy'
+> {
   /**
    * Tracked uppercase micro-label rendered above the title. Use one of
    * the established Puntovivo kickers ("APERTURA DE CAJA", "NOVEDADES",
@@ -41,15 +43,15 @@ export interface OverlayProps
 /**
  * Editorial overlay primitive built on top of `Modal`.
  *
- * Born from ENG-082's "Apertura de caja · primer día" V11 screen but
+ * Born from 's "Apertura de caja · primer día" V11 screen but
  * designed to be re-used by every announcement / first-run / what's-new
- * surface in the app (ENG-092 will consume it for the per-release
+ * surface in the app ( will consume it for the per-release
  * announcement system).
  *
  * The chrome — backdrop, focus trap, ESC handling, portal mount, body
  * scroll lock — is delegated to the underlying Modal so we never fork
  * those invariants. Overlay's only job is to render the editorial
- * `kicker → title → description` header that the design-system handoff
+ * `kicker → title → description` header that the design specification
  * keeps reaching for.
  */
 export function Overlay({
@@ -95,7 +97,9 @@ export function Overlay({
               {title}
             </h2>
             {description && (
-              <p className="mt-2.5 text-[12.5px] leading-[1.55] text-secondary-600">{description}</p>
+              <p className="mt-2.5 text-[12.5px] leading-[1.55] text-secondary-600">
+                {description}
+              </p>
             )}
           </div>
           <div className="flex items-start gap-2">

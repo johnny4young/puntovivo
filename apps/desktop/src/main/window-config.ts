@@ -20,7 +20,7 @@ export type MainWindowResolvedWebPreferences = Pick<
 >;
 
 /**
- * ENG-004 — the main BrowserWindow renderer runs under the Chromium
+ * the main BrowserWindow renderer runs under the Chromium
  * sandbox. Every Node-level capability must go through the preload's
  * contextBridge APIs, which in turn dispatch to `ipcMain.handle`
  * channels defined in `main/index.ts`. Direct Node access from the
@@ -28,7 +28,7 @@ export type MainWindowResolvedWebPreferences = Pick<
  *
  * This constant is the single source of truth for the invariant.
  * Changing any field here is a security-relevant edit and must be
- * accompanied by a ROADMAP note — see ENG-004.
+ * accompanied by a documented rationale — see .
  */
 export const MAIN_WINDOW_WEB_PREFERENCES: MainWindowWebPreferences = {
   sandbox: true,
@@ -45,9 +45,7 @@ export const MAIN_WINDOW_WEB_PREFERENCES: MainWindowWebPreferences = {
  * so weakening the runtime shape in `main/index.ts` requires editing this
  * module and trips CI.
  */
-export function buildMainWindowWebPreferences(
-  preload: string
-): MainWindowResolvedWebPreferences {
+export function buildMainWindowWebPreferences(preload: string): MainWindowResolvedWebPreferences {
   return {
     preload,
     ...MAIN_WINDOW_WEB_PREFERENCES,

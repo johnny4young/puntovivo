@@ -1,5 +1,5 @@
 /**
- * ENG-052b — MEGA seed orchestrator.
+ * MEGA seed orchestrator.
  *
  * Runs AFTER the default seed has populated the foundation (tenant,
  * sites, users, products, customers, sequentials, etc.). Layers on
@@ -17,8 +17,8 @@
  * 10. Login attempts (failed + successful).
  * 11. Misc: company logo, category↔provider matrix.
  * 12. Last 3 days driven via the live `appRouter.createCaller()`
- *     critical-procedure path so the envelope plumbing is exercised
- *     end-to-end (idempotency_keys + fiscal_documents emission).
+ * critical-procedure path so the envelope plumbing is exercised
+ * end-to-end (idempotency_keys + fiscal_documents emission).
  *
  * Dates are anchored on `Date.now()` at seed start — re-running the
  * mega seed any future day produces a fresh 90-day window centered
@@ -82,20 +82,56 @@ export async function seedMegaData(input: SeedMegaInput): Promise<MegaCounts> {
     tenantVatRates,
     productUnitMap,
   ] = await Promise.all([
-    db.select({ id: sitesTable.id, name: sitesTable.name }).from(sitesTable).where(eq(sitesTable.tenantId, tenantId)).all(),
-    db.select({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role }).from(usersTable).where(eq(usersTable.tenantId, tenantId)).all(),
-    db.select({
-      id: productsTable.id,
-      sku: productsTable.sku,
-      cost: productsTable.cost,
-      price: productsTable.price,
-      taxRate: productsTable.taxRate,
-      stock: productStockTotalSql,
-    }).from(productsTable).where(eq(productsTable.tenantId, tenantId)).all(),
-    db.select({ id: customersTable.id, name: customersTable.name }).from(customersTable).where(eq(customersTable.tenantId, tenantId)).all(),
-    db.select({ id: providersTable.id }).from(providersTable).where(eq(providersTable.tenantId, tenantId)).all(),
-    db.select({ id: vatRatesTable.id, name: vatRatesTable.name, rate: vatRatesTable.rate }).from(vatRatesTable).where(eq(vatRatesTable.tenantId, tenantId)).all(),
-    db.select({ productId: unitXProduct.productId, unitId: unitXProduct.unitId, isBase: unitXProduct.isBase }).from(unitXProduct).all(),
+    db
+      .select({ id: sitesTable.id, name: sitesTable.name })
+      .from(sitesTable)
+      .where(eq(sitesTable.tenantId, tenantId))
+      .all(),
+    db
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+        name: usersTable.name,
+        role: usersTable.role,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.tenantId, tenantId))
+      .all(),
+    db
+      .select({
+        id: productsTable.id,
+        sku: productsTable.sku,
+        cost: productsTable.cost,
+        price: productsTable.price,
+        taxRate: productsTable.taxRate,
+        stock: productStockTotalSql,
+      })
+      .from(productsTable)
+      .where(eq(productsTable.tenantId, tenantId))
+      .all(),
+    db
+      .select({ id: customersTable.id, name: customersTable.name })
+      .from(customersTable)
+      .where(eq(customersTable.tenantId, tenantId))
+      .all(),
+    db
+      .select({ id: providersTable.id })
+      .from(providersTable)
+      .where(eq(providersTable.tenantId, tenantId))
+      .all(),
+    db
+      .select({ id: vatRatesTable.id, name: vatRatesTable.name, rate: vatRatesTable.rate })
+      .from(vatRatesTable)
+      .where(eq(vatRatesTable.tenantId, tenantId))
+      .all(),
+    db
+      .select({
+        productId: unitXProduct.productId,
+        unitId: unitXProduct.unitId,
+        isBase: unitXProduct.isBase,
+      })
+      .from(unitXProduct)
+      .all(),
   ]);
 
   const baseUnitByProduct = new Map<string, string>();

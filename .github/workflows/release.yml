@@ -52,7 +52,7 @@ permissions:
 
 jobs:
   # ============================================================================
-  # Prerelease money-path gate (ENG-210)
+  # Prerelease money-path gate ()
   # ============================================================================
   # Validate the exact release tag before any web archive or desktop installer
   # is built. The reusable workflow is also independently dispatchable for an

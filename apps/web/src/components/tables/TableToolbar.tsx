@@ -108,7 +108,7 @@ export function TableToolbar({
   onShowAllColumns,
   searchValue = '',
   onSearchChange,
-  // ENG-220 — resolved at the use site so it can be translated.
+  // resolved at the use site so it can be translated.
   searchPlaceholder,
   selectedCount = 0,
   totalCount,
@@ -158,9 +158,13 @@ export function TableToolbar({
 
         {selectedCount > 0 && (
           <div className="flex items-center gap-2 text-sm">
-            <span className="badge-primary">{selectedCount} {t('toolbar.selected')}</span>
+            <span className="badge-primary">
+              {selectedCount} {t('toolbar.selected')}
+            </span>
             {totalCount !== undefined && (
-              <span className="text-secondary-500">{t('toolbar.ofTotal', { total: totalCount })}</span>
+              <span className="text-secondary-500">
+                {t('toolbar.ofTotal', { total: totalCount })}
+              </span>
             )}
           </div>
         )}
@@ -238,7 +242,9 @@ export function TableToolbar({
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              <span className="hidden sm:inline">{isExporting ? t('toolbar.exporting') : t('toolbar.export')}</span>
+              <span className="hidden sm:inline">
+                {isExporting ? t('toolbar.exporting') : t('toolbar.export')}
+              </span>
               <ChevronDown
                 className={cn('h-4 w-4 transition-transform', exportDropdownOpen && 'rotate-180')}
               />
@@ -262,7 +268,9 @@ export function TableToolbar({
                     <File className="h-4 w-4 text-green-600" />
                     <div className="flex flex-col items-start">
                       <span>{t('toolbar.exportCSV')}</span>
-                      <span className="text-xs text-secondary-400">{t('toolbar.exportCSVDesc')}</span>
+                      <span className="text-xs text-secondary-400">
+                        {t('toolbar.exportCSVDesc')}
+                      </span>
                     </div>
                     {exportFormat === 'csv' && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
                   </button>
@@ -279,7 +287,9 @@ export function TableToolbar({
                     <FileSpreadsheet className="h-4 w-4 text-green-700" />
                     <div className="flex flex-col items-start">
                       <span>{t('toolbar.exportExcel')}</span>
-                      <span className="text-xs text-secondary-400">{t('toolbar.exportExcelDesc')}</span>
+                      <span className="text-xs text-secondary-400">
+                        {t('toolbar.exportExcelDesc')}
+                      </span>
                     </div>
                     {exportFormat === 'excel' && (
                       <Loader2 className="ml-auto h-4 w-4 animate-spin" />
@@ -298,7 +308,9 @@ export function TableToolbar({
                     <FileText className="h-4 w-4 text-red-600" />
                     <div className="flex flex-col items-start">
                       <span>{t('toolbar.exportPDF')}</span>
-                      <span className="text-xs text-secondary-400">{t('toolbar.exportPDFDesc')}</span>
+                      <span className="text-xs text-secondary-400">
+                        {t('toolbar.exportPDFDesc')}
+                      </span>
                     </div>
                     {exportFormat === 'pdf' && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
                   </button>
@@ -310,7 +322,11 @@ export function TableToolbar({
 
         {/* Print button */}
         {showPrint && onPrint && (
-          <button onClick={onPrint} className="btn-outline h-9 px-3 gap-2" aria-label={t('toolbar.print')}>
+          <button
+            onClick={onPrint}
+            className="btn-outline h-9 px-3 gap-2"
+            aria-label={t('toolbar.print')}
+          >
             <Printer className="h-4 w-4" />
             <span className="hidden sm:inline">{t('toolbar.print')}</span>
           </button>

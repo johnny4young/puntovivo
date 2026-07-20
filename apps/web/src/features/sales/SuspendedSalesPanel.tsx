@@ -1,5 +1,5 @@
 /**
- * ENG-018b — SuspendedSalesPanel.
+ * SuspendedSalesPanel.
  *
  * Renders the server-side list of suspended drafts owned by the
  * signed-in cashier (or every draft under the tenant for manager /
@@ -7,11 +7,11 @@
  * per row:
  *
  * - Resume: calls `sales.resume` and lets the parent (SalesPage)
- *   hydrate the returned items into a fresh workspace via
- *   `useCartWorkspaceStore.hydrateFromResumed`.
+ * hydrate the returned items into a fresh workspace via
+ * `useCartWorkspaceStore.hydrateFromResumed`.
  * - Discard: opens a ConfirmModal, then calls `sales.discardDraft`.
- *   ENG-018c makes that server-side procedure reverse stock so
- *   cancelling a parked sale no longer leaks inventory.
+ * makes that server-side procedure reverse stock so
+ * cancelling a parked sale no longer leaks inventory.
  *
  * The panel is a plain `<aside>` — the parent decides when to render
  * it. A typical host toggles it via Ctrl+R.
@@ -34,10 +34,7 @@ import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import {
-  invalidateGroups,
-  SERIAL_INVENTORY_INVALIDATIONS,
-} from '@/lib/invalidateGroups';
+import { invalidateGroups, SERIAL_INVENTORY_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
@@ -56,9 +53,9 @@ export interface SuspendedDraftSummary {
   total: number;
   itemCount: number;
   /**
-   * ENG-039c — when the draft was opened on a restaurant table the
+   * when the draft was opened on a restaurant table the
    * server surfaces the FK + the resolved table name through the
-   * `sales.listDrafts` leftJoin. Free-text drafts (legacy ENG-039a/b)
+   * `sales.listDrafts` leftJoin. Free-text drafts (legacy )
    * leave both fields `null` and the panel falls back to `label`.
    */
   tableId: string | null;
@@ -77,11 +74,7 @@ interface SuspendedSalesPanelProps {
   onResume: (draft: SuspendedDraftSummary) => void | Promise<void>;
 }
 
-export function SuspendedSalesPanel({
-  isOpen,
-  onClose,
-  onResume,
-}: SuspendedSalesPanelProps) {
+export function SuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSalesPanelProps) {
   const { t } = useTranslation(['sales', 'restaurants', 'errors', 'common']);
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -89,32 +82,26 @@ export function SuspendedSalesPanel({
   const { currentSite } = useTenant();
   const canTransferTables = user?.role === 'manager' || user?.role === 'admin';
 
-  const [discardTarget, setDiscardTarget] = useState<
-    SuspendedDraftSummary | null
-  >(null);
+  const [discardTarget, setDiscardTarget] = useState<SuspendedDraftSummary | null>(null);
   // In-flight resume tracking so a double-click cannot fire `sales.resume`
   // twice for the same draft (the flows hook also guards on the mutation's
   // isPending; this keeps the row button visibly disabled meanwhile).
   const [resumingId, setResumingId] = useState<string | null>(null);
-  // ENG-039c2 — the operator picks a draft to transfer to a different
+  // the operator picks a draft to transfer to a different
   // restaurant table. Holding the full summary (not just the id) lets
   // `<TransferTableModal>` render the current label without re-fetching.
-  const [transferTarget, setTransferTarget] = useState<
-    SuspendedDraftSummary | null
-  >(null);
-  // ENG-039c3 — same shape as transferTarget but drives the
+  const [transferTarget, setTransferTarget] = useState<SuspendedDraftSummary | null>(null);
+  // same shape as transferTarget but drives the
   // `<SplitBillModal>`. Separated so the operator can hold two modals
   // open against different drafts in principle (in practice only one
   // mounts at a time because `<Modal>` portals to the same DOM root).
-  const [splitTarget, setSplitTarget] = useState<
-    SuspendedDraftSummary | null
-  >(null);
+  const [splitTarget, setSplitTarget] = useState<SuspendedDraftSummary | null>(null);
 
   const listQuery = trpc.sales.listDrafts.useQuery(
     { page: 1, perPage: 50 },
     { enabled: isOpen, staleTime: 5_000 }
   );
-  // ENG-039c2 — "Cambiar mesa" is manager/admin only. Gate the CTA on
+  // "Cambiar mesa" is manager/admin only. Gate the CTA on
   // both role and catalog availability so cashiers do not call the
   // manager/admin restaurant-table read procedures from `/sales`.
   const tableCatalogQuery = trpc.restaurantTables.list.useQuery(
@@ -182,9 +169,7 @@ export function SuspendedSalesPanel({
               {t('sales:park.panelTitle')}{' '}
               <span className="text-secondary-500">({drafts.length})</span>
             </h2>
-            <p className="mt-1 text-sm text-secondary-600">
-              {t('sales:park.panelDescription')}
-            </p>
+            <p className="mt-1 text-sm text-secondary-600">{t('sales:park.panelDescription')}</p>
           </div>
           <button
             type="button"
@@ -211,15 +196,9 @@ export function SuspendedSalesPanel({
               <div className="flex items-start gap-3">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-danger-700">
-                    {t('sales:park.loadError')}
-                  </p>
+                  <p className="font-semibold text-danger-700">{t('sales:park.loadError')}</p>
                   <p className="mt-1">
-                    {translateServerError(
-                      listQuery.error,
-                      t,
-                      t('errors:server.unknown')
-                    )}
+                    {translateServerError(listQuery.error, t, t('errors:server.unknown'))}
                   </p>
                   <button
                     type="button"
@@ -243,115 +222,114 @@ export function SuspendedSalesPanel({
               {t('sales:park.emptyState')}
             </div>
           )}
-          {!listQuery.isError && drafts.map(draft => (
-            <div
-              key={draft.id}
-              className="card-inset flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-              data-testid="suspended-draft-card"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-semibold text-secondary-950">
-                    {draft.label ?? draft.saleNumber}
+          {!listQuery.isError &&
+            drafts.map(draft => (
+              <div
+                key={draft.id}
+                className="card-inset flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                data-testid="suspended-draft-card"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-secondary-950">
+                      {draft.label ?? draft.saleNumber}
+                    </p>
+                    {draft.tableId && draft.tableName && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-wide text-primary-700"
+                        data-testid="suspended-draft-table-badge"
+                        title={t('restaurants:tables.draftStatus.badgeTooltip', {
+                          tableName: draft.tableName,
+                        })}
+                      >
+                        <MapPin className="h-3 w-3" />
+                        {t('restaurants:tables.draftStatus.badgeLabel', {
+                          tableName: draft.tableName,
+                        })}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-sm text-secondary-600">
+                    {draft.saleNumber}
+                    {draft.customerName && ` · ${draft.customerName}`}
                   </p>
-                  {draft.tableId && draft.tableName && (
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-wide text-primary-700"
-                      data-testid="suspended-draft-table-badge"
-                      title={t('restaurants:tables.draftStatus.badgeTooltip', {
-                        tableName: draft.tableName,
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-secondary-500">
+                    {draft.suspendedAt && (
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDateTime(draft.suspendedAt)}
+                      </span>
+                    )}
+                    {draft.suspendedBy && (
+                      <span className="inline-flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {t('sales:park.suspendedBy', {
+                          cashier: draft.suspendedBy,
+                        })}
+                      </span>
+                    )}
+                    <span>{t('sales:park.items', { count: draft.itemCount })}</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    disabled={resumingId !== null}
+                    onClick={() => {
+                      if (resumingId !== null) {
+                        return;
+                      }
+                      setResumingId(draft.id);
+                      void Promise.resolve(onResume(draft)).finally(() => {
+                        setResumingId(null);
+                      });
+                    }}
+                    data-testid="suspended-draft-resume"
+                  >
+                    <PlayCircle className="h-4 w-4" />
+                    {t('sales:park.resumeAction')}
+                  </button>
+                  {restaurantTablesAvailable && (
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={() => setTransferTarget(draft)}
+                      data-testid="suspended-draft-transfer"
+                      aria-label={t('restaurants:transfer.ctaAriaLabel', {
+                        saleNumber: draft.saleNumber,
                       })}
                     >
-                      <MapPin className="h-3 w-3" />
-                      {t('restaurants:tables.draftStatus.badgeLabel', {
-                        tableName: draft.tableName,
+                      <ArrowRightLeft className="h-4 w-4" />
+                      {t('restaurants:transfer.ctaLabel')}
+                    </button>
+                  )}
+                  {restaurantTablesAvailable && draft.itemCount > 0 && (
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={() => setSplitTarget(draft)}
+                      data-testid="suspended-draft-split"
+                      aria-label={t('restaurants:split.ctaAriaLabel', {
+                        saleNumber: draft.saleNumber,
                       })}
-                    </span>
+                    >
+                      <Split className="h-4 w-4" />
+                      {t('restaurants:split.ctaLabel')}
+                    </button>
                   )}
-                </div>
-                <p className="mt-1 text-sm text-secondary-600">
-                  {draft.saleNumber}
-                  {draft.customerName && ` · ${draft.customerName}`}
-                </p>
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-secondary-500">
-                  {draft.suspendedAt && (
-                    <span className="inline-flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatDateTime(draft.suspendedAt)}
-                    </span>
-                  )}
-                  {draft.suspendedBy && (
-                    <span className="inline-flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      {t('sales:park.suspendedBy', {
-                        cashier: draft.suspendedBy,
-                      })}
-                    </span>
-                  )}
-                  <span>
-                    {t('sales:park.items', { count: draft.itemCount })}
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="btn-outline"
-                  disabled={resumingId !== null}
-                  onClick={() => {
-                    if (resumingId !== null) {
-                      return;
-                    }
-                    setResumingId(draft.id);
-                    void Promise.resolve(onResume(draft)).finally(() => {
-                      setResumingId(null);
-                    });
-                  }}
-                  data-testid="suspended-draft-resume"
-                >
-                  <PlayCircle className="h-4 w-4" />
-                  {t('sales:park.resumeAction')}
-                </button>
-                {restaurantTablesAvailable && (
                   <button
                     type="button"
-                    className="btn-outline"
-                    onClick={() => setTransferTarget(draft)}
-                    data-testid="suspended-draft-transfer"
-                    aria-label={t('restaurants:transfer.ctaAriaLabel', {
-                      saleNumber: draft.saleNumber,
-                    })}
+                    className="btn-outline text-danger-600 hover:bg-danger-50"
+                    onClick={() => setDiscardTarget(draft)}
+                    data-testid="suspended-draft-discard"
                   >
-                    <ArrowRightLeft className="h-4 w-4" />
-                    {t('restaurants:transfer.ctaLabel')}
+                    <Trash2 className="h-4 w-4" />
+                    {t('sales:park.discard')}
                   </button>
-                )}
-                {restaurantTablesAvailable && draft.itemCount > 0 && (
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={() => setSplitTarget(draft)}
-                    data-testid="suspended-draft-split"
-                    aria-label={t('restaurants:split.ctaAriaLabel', {
-                      saleNumber: draft.saleNumber,
-                    })}
-                  >
-                    <Split className="h-4 w-4" />
-                    {t('restaurants:split.ctaLabel')}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="btn-outline text-danger-600 hover:bg-danger-50"
-                  onClick={() => setDiscardTarget(draft)}
-                  data-testid="suspended-draft-discard"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {t('sales:park.discard')}
-                </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       </aside>
 
@@ -373,7 +351,7 @@ export function SuspendedSalesPanel({
         loading={discardMutation.isPending}
       />
 
-      {/* ENG-039c2 — Transfer-to-table modal. The `key` forces a
+      {/* Transfer-to-table modal. The `key` forces a
           fresh remount whenever the operator picks a different draft
           so the modal's `useState` initializer seeds the dropdown
           with the right starting value (the draft's current tableId)
@@ -384,7 +362,7 @@ export function SuspendedSalesPanel({
         onClose={() => setTransferTarget(null)}
       />
 
-      {/* ENG-039c3 — Split-bill modal. Same key-based remount strategy
+      {/* Split-bill modal. Same key-based remount strategy
           so the per-draft selection state seeds fresh every time. The
           `canTransferTables` gate is reused intentionally — splitting
           a draft is also a manager/admin operations override. */}

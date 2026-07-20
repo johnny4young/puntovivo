@@ -21,7 +21,7 @@ function makeFakeT(map: Record<string, string>): TFunction {
 }
 
 function loadServerErrorCodesFromSource(): string[] {
-  // ENG-178 — the server `SERVER_ERROR_CODES` map was split into two domain
+  // the server `SERVER_ERROR_CODES` map was split into two domain
   // halves (`errorCodes/codes-a.ts` + `codes-b.ts`) re-assembled in
   // `errorCodes/registry.ts` (`{ ...SERVER_ERROR_CODES_A, ...SERVER_ERROR_CODES_B }`).
   // Read both halves so this web allowlist stays in sync with the full
@@ -85,7 +85,7 @@ describe('extractServerErrorCode', () => {
     expect(extractServerErrorCode(error)).toBe('PERIPHERAL_ACTIVE_DUPLICATE');
   });
 
-  it('recognizes the optimistic-concurrency STALE_VERSION code (ENG-177a)', () => {
+  it('recognizes the optimistic-concurrency STALE_VERSION code', () => {
     // The catalog pages branch on this code to refetch the stale list.
     const error = { data: { errorCode: 'STALE_VERSION' } };
     expect(extractServerErrorCode(error)).toBe('STALE_VERSION');
@@ -148,7 +148,7 @@ describe('translateServerError', () => {
     expect(result).toBe('Ya hay otro periférico activo de este tipo en esta sede.');
   });
 
-  it('translates the STALE_VERSION optimistic-concurrency code (ENG-177a)', () => {
+  it('translates the STALE_VERSION optimistic-concurrency code', () => {
     const t = makeFakeT({
       'errors:server.STALE_VERSION':
         'Otro usuario modificó este registro mientras lo editabas. Recarga para ver la versión más reciente e intenta de nuevo.',

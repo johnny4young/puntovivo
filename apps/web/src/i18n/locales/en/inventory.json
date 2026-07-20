@@ -86,7 +86,7 @@
     "error": "Unable to load site balances",
     "search": "Search balances by product…",
     "noSites": "No active sites yet. Create one to start tracking per-site stock.",
-    "projectionNote": "Phase 2 steps 3-4: site balances are authoritative. Transfers can remain in transit, and aggregate product stock stays synchronized with the sum of site balances.",
+    "projectionNote": "site balances are authoritative. Transfers can remain in transit, and aggregate product stock stays synchronized with the sum of site balances.",
     "transferButton": "Transfer stock",
     "transferRequiresTwoSites": "At least two active sites are required to transfer stock.",
     "columns": {

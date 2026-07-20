@@ -1,5 +1,5 @@
 /**
- * ENG-039b — create/edit form modal for the restaurant table catalog.
+ * create/edit form modal for the restaurant table catalog.
  */
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -34,9 +34,7 @@ const defaultValues: RestaurantTableFormValues = {
   notes: '',
 };
 
-function mapInitialToForm(
-  initial: RestaurantTableFormInitial | null
-): RestaurantTableFormValues {
+function mapInitialToForm(initial: RestaurantTableFormInitial | null): RestaurantTableFormValues {
   if (!initial) return defaultValues;
   return {
     name: initial.name,
@@ -46,9 +44,7 @@ function mapInitialToForm(
   };
 }
 
-function parseFormPayload(
-  values: RestaurantTableFormValues
-): RestaurantTableFormPayload {
+function parseFormPayload(values: RestaurantTableFormValues): RestaurantTableFormPayload {
   const trimmedName = values.name.trim();
   const trimmedArea = values.area.trim();
   const trimmedNotes = values.notes.trim();
@@ -94,9 +90,7 @@ export function RestaurantTableFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={
-        isCreate ? t('tables.form.createTitle') : t('tables.form.editTitle')
-      }
+      title={isCreate ? t('tables.form.createTitle') : t('tables.form.editTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
@@ -124,9 +118,7 @@ export function RestaurantTableFormModal({
             })}
           />
           {form.formState.errors.name && (
-            <p className="mt-1 text-sm text-danger-500">
-              {form.formState.errors.name.message}
-            </p>
+            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
           )}
         </div>
 

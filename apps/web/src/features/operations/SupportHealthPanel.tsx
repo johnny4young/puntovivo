@@ -1,5 +1,5 @@
 /**
- * ENG-128 — support-facing health summary.
+ * support-facing health summary.
  *
  * This panel composes existing safe read models instead of introducing a
  * second diagnostics backend: module state comes from the renderer cache,

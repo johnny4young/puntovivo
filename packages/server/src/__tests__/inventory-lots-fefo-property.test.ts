@@ -1,15 +1,15 @@
 /**
- * ENG-196 — property-based invariants for the FEFO allocation engine.
+ * property-based invariants for the FEFO allocation engine.
  *
  * `selectLotsFefo` is pure, so its money/stock invariants can be asserted
  * over generated lot sets instead of hand-picked fixtures:
- *   - conservation: Σ allocated + shortfall === requested;
- *   - no allocation ever exceeds its lot's on-hand;
- *   - allocations respect the FEFO order (soonest expiry, nulls last, then
- *     receipt, then id) and every non-final draw exhausts its lot;
- *   - the COGS layer is exact: lineCost = roundMoney(qty × cost) and
- *     totalCost accumulates with roundMoney at every step;
- *   - weightedAverageUnitCost is the rounded blend of the plan.
+ * - conservation: Σ allocated + shortfall === requested;
+ * - no allocation ever exceeds its lot's on-hand;
+ * - allocations respect the FEFO order (soonest expiry, nulls last, then
+ * receipt, then id) and every non-final draw exhausts its lot;
+ * - the COGS layer is exact: lineCost = roundMoney(qty × cost) and
+ * totalCost accumulates with roundMoney at every step;
+ * - weightedAverageUnitCost is the rounded blend of the plan.
  */
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
@@ -56,7 +56,7 @@ const quantityArb = fc.oneof(
 
 const RUNS = { numRuns: 500 };
 
-describe('selectLotsFefo properties (ENG-196)', () => {
+describe('selectLotsFefo properties', () => {
   it('conserves quantity: Σ allocations + shortfall === requested', () => {
     fc.assert(
       fc.property(lotsArb, quantityArb, (lots, quantity) => {

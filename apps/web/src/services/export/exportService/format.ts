@@ -1,5 +1,5 @@
 // Cell-value access + formatting helpers shared by every exporter
-// (ENG-178 slice 30). Internal: not part of the public barrel surface.
+// ( slice 30). Internal: not part of the public barrel surface.
 
 import type { ExportColumn } from './types';
 

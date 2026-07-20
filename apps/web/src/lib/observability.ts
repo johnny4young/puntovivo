@@ -1,5 +1,5 @@
 /**
- * ENG-135 — Renderer-side observability surface.
+ * Renderer-side observability surface.
  *
  * The browser bundle has no Sentry / GlitchTip SDK in v1: the
  * adapter follow-up will install one once the operator has
@@ -7,23 +7,23 @@
  * responsibilities the AppErrorBoundary + global error listeners
  * need:
  *
- *   1. A single `captureRenderError(err, context)` entry point that
- *      always console.errors with a structured shape (so a tail of
- *      `dev:web` output still gives a complete event) and forwards
- *      to the future SDK adapter when one is installed.
- *   2. `installGlobalErrorListeners()` wires `window.error` +
- *      `window.unhandledrejection` to the same entry point — those
- *      escape the React boundary and would otherwise vanish without
- *      a trace in production.
+ * 1. A single `captureRenderError(err, context)` entry point that
+ * always console.errors with a structured shape (so a tail of
+ * `dev:web` output still gives a complete event) and forwards
+ * to the future SDK adapter when one is installed.
+ * 2. `installGlobalErrorListeners()` wires `window.error` +
+ * `window.unhandledrejection` to the same entry point — those
+ * escape the React boundary and would otherwise vanish without
+ * a trace in production.
  *
  * The forwarder is a tiny `RenderTelemetrySink` interface; the
  * adapter PR registers an implementation at boot. Until then a noop
  * sink is the default. This mirrors the server-side `TelemetrySink`
- * (packages/server/src/observability/sink.ts), and ENG-135c now
+ * (packages/server/src/observability/sink.ts), and  now
  * stamps renderer errors with the last renderer-minted correlation id
  * sent to the server.
  *
- * ENG-173 extends this module with `installWebVitalsReporter()`, which
+ * extends this module with `installWebVitalsReporter()`, which
  * forwards Core Web Vitals (LCP / CLS / INP / TTFB / FCP) to the public
  * `observability.reportWebVital` tRPC mutation. It is background-only (no UI)
  * and sampled once per page load.
@@ -56,7 +56,7 @@ export interface RenderErrorContext {
    */
   source: 'render' | 'window' | 'rejection';
   /**
-   * ENG-135c — the correlation id of the MOST RECENT tRPC request
+   * the correlation id of the MOST RECENT tRPC request
    * from this page (renderer-minted; the server adopts the same id
    * into its logs and sink events). An approximation under
    * concurrent in-flight requests; null before the first request.
@@ -122,12 +122,11 @@ export function captureRenderError(
   err: unknown,
   context: Omit<RenderErrorContext, 'tenantId'> & { tenantId?: string | null }
 ): void {
-  const resolvedTenant =
-    context.tenantId !== undefined ? context.tenantId : activeTenantId;
+  const resolvedTenant = context.tenantId !== undefined ? context.tenantId : activeTenantId;
   const payload: RenderErrorContext = {
     ...context,
     tenantId: resolvedTenant,
-    // ENG-135c — stamp the id of the page's most recent tRPC request
+    // stamp the id of the page's most recent tRPC request
     // so this event and the server trace it (most likely) belongs to
     // share one identifier. See RenderErrorContext.correlationId.
     correlationId: context.correlationId ?? getLastCorrelationId(),
@@ -141,7 +140,7 @@ export function captureRenderError(
 let renderAdapterInstallRequested = false;
 
 /**
- * ENG-135b — load and register the Sentry / GlitchTip adapter when
+ * load and register the Sentry / GlitchTip adapter when
  * the operator provisioned `VITE_PUNTOVIVO_SENTRY_DSN`. The adapter
  * module (`lib/sentry.ts`) statically imports `@sentry/browser`, so
  * the dynamic `import()` below is what keeps the SDK out of the
@@ -163,8 +162,8 @@ export function installRenderTelemetryAdapter(): void {
   }
   renderAdapterInstallRequested = true;
   void import('./sentry')
-    .then((mod) => mod.initSentryRenderSink(dsn))
-    .catch((err) => {
+    .then(mod => mod.initSentryRenderSink(dsn))
+    .catch(err => {
       if (typeof console !== 'undefined' && console.error) {
         console.error('render telemetry adapter failed to load', err);
       }
@@ -203,7 +202,7 @@ export function installGlobalErrorListeners(): void {
 }
 
 // ============================================================================
-// ENG-173 — Web Vitals real-user monitoring (RUM)
+// Web Vitals real-user monitoring (RUM)
 // ============================================================================
 
 /**
@@ -220,8 +219,7 @@ export type DeviceClass = 'low' | 'mid' | 'high' | 'unknown';
  * the API is unavailable or returns a nonsensical value.
  */
 export function resolveDeviceClass(): DeviceClass {
-  const cores =
-    typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined;
+  const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined;
   if (typeof cores !== 'number' || !Number.isFinite(cores) || cores <= 0) {
     return 'unknown';
   }
@@ -304,8 +302,7 @@ export function __resetRenderObservabilityForTests(): void {
   renderAdapterInstallRequested = false;
   if (typeof window !== 'undefined') {
     if (errorListener) window.removeEventListener('error', errorListener);
-    if (rejectionListener)
-      window.removeEventListener('unhandledrejection', rejectionListener);
+    if (rejectionListener) window.removeEventListener('unhandledrejection', rejectionListener);
   }
   errorListener = null;
   rejectionListener = null;

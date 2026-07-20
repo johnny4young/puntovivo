@@ -1,13 +1,13 @@
 /**
- * ENG-211 — tenant-tunable expiry-discount tiers.
+ * tenant-tunable expiry-discount tiers.
  *
  * Pins three contracts:
- *   - normalization is defensive: the settings blob is free-form JSON, so a
- *     corrupt/partial/unsorted ladder can never leave the radar ruleless or
- *     order-dependent-broken;
- *   - the settings round-trip through the router with admin-only writes;
- *   - the tuned ladder actually decides the percent the radar CTA records
- *     (the whole point of the follow-up).
+ * - normalization is defensive: the settings blob is free-form JSON, so a
+ * corrupt/partial/unsorted ladder can never leave the radar ruleless or
+ * order-dependent-broken;
+ * - the settings round-trip through the router with admin-only writes;
+ * - the tuned ladder actually decides the percent the radar CTA records
+ * (the whole point of the follow-up).
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
@@ -68,7 +68,7 @@ async function seedLot(expiresAt: string): Promise<string> {
   return lotId;
 }
 
-describe('discount settings (ENG-211)', () => {
+describe('discount settings', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
@@ -121,7 +121,7 @@ describe('discount settings (ENG-211)', () => {
       ]);
     });
 
-    it('falls back to the ENG-199 ladder on garbage, empty, or non-array blobs', () => {
+    it('falls back to the  ladder on garbage, empty, or non-array blobs', () => {
       expect(normalizeExpiryTiers(undefined)).toEqual(DEFAULT_EXPIRY_DISCOUNT_TIERS);
       expect(normalizeExpiryTiers([])).toEqual(DEFAULT_EXPIRY_DISCOUNT_TIERS);
       expect(normalizeExpiryTiers('nope')).toEqual(DEFAULT_EXPIRY_DISCOUNT_TIERS);
@@ -145,7 +145,7 @@ describe('discount settings (ENG-211)', () => {
     });
   });
 
-  it('defaults to the ENG-199 ladder and round-trips a tuned one', async () => {
+  it('defaults to the  ladder and round-trips a tuned one', async () => {
     const caller = appRouter.createCaller(fresh());
     const initial = await caller.discountSettings.get();
     expect(initial.expiryTiers).toEqual(DEFAULT_EXPIRY_DISCOUNT_TIERS);

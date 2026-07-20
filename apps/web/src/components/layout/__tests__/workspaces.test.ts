@@ -1,13 +1,13 @@
 /**
- * ENG-131 (slice A) — Workspace catalogue contract tests.
+ * (slice A) — Workspace catalogue contract tests.
  *
  * Pins the invariants the sidebar refactor must keep:
  *
- *   - Every workspace declares at least one item.
- *   - The catalogue covers exactly the same routes the old four-
- *     section sidebar declared (no orphans, no duplicates).
- *   - Role + module filtering produces the expected admin / cashier
- *     visibility shape.
+ * - Every workspace declares at least one item.
+ * - The catalogue covers exactly the same routes the old four-
+ * section sidebar declared (no orphans, no duplicates).
+ * - Role + module filtering produces the expected admin / cashier
+ * visibility shape.
  *
  * @module components/layout/__tests__/workspaces.test
  */
@@ -189,7 +189,7 @@ describe('visibleWorkspacesForRole', () => {
   });
 });
 
-describe('Operate Dashboard fold (ENG-131e)', () => {
+describe('Operate Dashboard fold', () => {
   it('makes Dashboard the first Operate item and keeps viewer access', () => {
     const operate = WORKSPACES.find(workspace => workspace.id === 'operate');
     expect(operate?.defaultRoute).toBe('/dashboard');
@@ -204,7 +204,7 @@ describe('Operate Dashboard fold (ENG-131e)', () => {
   });
 });
 
-describe('workspace defaultRoute (ENG-131c)', () => {
+describe('workspace defaultRoute', () => {
   it('operate and dedicated landing workspaces default to their overview route', () => {
     const landings: Record<string, string> = {
       operate: '/dashboard',
@@ -228,7 +228,7 @@ describe('workspace defaultRoute (ENG-131c)', () => {
   });
 });
 
-describe('launch migration navigation (ENG-123a)', () => {
+describe('launch migration navigation', () => {
   it('exposes data import only to admins in Setup', () => {
     const setup = WORKSPACES.find(workspace => workspace.id === 'setup')!;
     const item = setup.items.find(candidate => candidate.href === '/data-import');

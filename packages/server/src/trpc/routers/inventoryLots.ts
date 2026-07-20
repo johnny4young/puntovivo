@@ -2,16 +2,16 @@
  * Inventory lots tRPC router (Auditoría 2026-07 — lots, expiry & costing).
  *
  * - `receive` (manager/admin) — record a received batch; increments an
- *   existing (site, product, lot) or inserts a new one, blending cost.
+ * existing (site, product, lot) or inserts a new one, blending cost.
  * - `list` (tenant) — a product's lots at a site, FEFO-ordered.
  * - `expiring` (manager/admin) — lots with stock expiring within a window,
- *   for the ENG-199 radar. Tightened from tenant to manager/admin in ENG-199:
- *   the rows expose `unitCost` (owner data) and the only UI consumer,
- *   /inventory, is already role-gated the same way in App.tsx.
- * - `suggestDiscount` / `dismissSuggestion` / `activeSuggestions` (ENG-199)
- *   — the expiry-radar discount-suggestion lifecycle; logic in
- *   `services/price-suggestions.ts`. `activeSuggestions` stays tenant-wide
- *   because the POS badge is read by cashiers — its payload carries no cost.
+ * for the  radar. Tightened from tenant to manager/admin in :
+ * the rows expose `unitCost` (owner data) and the only UI consumer,
+ * /inventory, is already role-gated the same way in App.tsx.
+ * - `suggestDiscount` / `dismissSuggestion` / `activeSuggestions` ()
+ * the expiry-radar discount-suggestion lifecycle; logic in
+ * `services/price-suggestions.ts`. `activeSuggestions` stays tenant-wide
+ * because the POS badge is read by cashiers — its payload carries no cost.
  *
  * @module trpc/routers/inventoryLots
  */
@@ -182,14 +182,14 @@ export const inventoryLotsRouter = router({
   }),
 
   /**
-   * ENG-199 — accept the radar CTA for a lot. The discount percent comes
+   * accept the radar CTA for a lot. The discount percent comes
    * from the server-side expiry tiers; multi-tenant scoping, eligibility,
    * the race-safe duplicate guard, and the audit row live in the service.
    */
   suggestDiscount: managerOrAdminProcedure
     .input(suggestDiscountInput)
     .mutation(async ({ ctx, input }) => {
-      // ENG-211 — the tenant's tuned ladder decides the percent; the
+      // the tenant's tuned ladder decides the percent; the
       // service keeps computing it server-side (the client never picks).
       const { expiryTiers } = await resolveDiscountSettings(ctx.db, ctx.tenantId);
       return createExpirySuggestion(ctx.db, {
@@ -200,7 +200,7 @@ export const inventoryLotsRouter = router({
       });
     }),
 
-  /** ENG-199 — retire an active suggestion (audited). */
+  /** retire an active suggestion (audited). */
   dismissSuggestion: managerOrAdminProcedure
     .input(dismissSuggestionInput)
     .mutation(async ({ ctx, input }) => {
@@ -213,7 +213,7 @@ export const inventoryLotsRouter = router({
     }),
 
   /**
-   * ENG-199 — the active suggestions the POS badge and the radar share.
+   * the active suggestions the POS badge and the radar share.
    * Tenant-wide on purpose (cashiers read it); the payload carries no cost
    * fields — see `listActiveSuggestions`.
    */

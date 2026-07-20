@@ -1,5 +1,5 @@
 /**
- * Orders router — write procedures (ENG-178 split).
+ * Orders router — write procedures ( split).
  *
  * `create` (purchase order via order sequential, no stock effect) + `void`
  * (admin; blocked after partial receipt). Tx-free; stock untouched.
@@ -13,10 +13,15 @@ import { orderItems, orders, sequentials } from '../../../db/schema.js';
 import { enqueueSync } from '../../../services/sync/enqueue.js';
 import { managerOrAdminProcedure, adminProcedure } from '../../middleware/roles.js';
 import { createOrderInput, voidOrderInput } from '../../schemas/orders.js';
-import { buildVoidedOrderNotes, getOrderSequentialContext, validateProvider, resolveOrderItems, getOrderRecord } from './helpers.js';
+import {
+  buildVoidedOrderNotes,
+  getOrderSequentialContext,
+  validateProvider,
+  resolveOrderItems,
+  getOrderRecord,
+} from './helpers.js';
 
 export const ordersMutationProcedures = {
-
   create: managerOrAdminProcedure.input(createOrderInput).mutation(async ({ ctx, input }) => {
     await validateProvider(ctx.db, ctx.tenantId, input.providerId);
 

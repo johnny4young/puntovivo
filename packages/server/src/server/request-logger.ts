@@ -1,9 +1,9 @@
 /**
  * Request-scoped child-logger bindings.
  *
- * ENG-052b — every log line emitted during a request carries the
+ * every log line emitted during a request carries the
  * Fastify requestId plus the best-effort Command-Envelope deviceId and
- * the ENG-135c renderer-minted correlationId. Extracted to module scope
+ * the  renderer-minted correlationId. Extracted to module scope
  * so the unit test can drive `buildRequestScopedLoggerBindings` with a
  * stub request without spinning up the full Fastify server.
  *
@@ -14,7 +14,7 @@ import type { FastifyRequest } from 'fastify';
 import { CORRELATION_ID_HEADER, sanitizeCorrelationId } from '../observability/index.js';
 
 /**
- * ENG-052b — Build the request-scoped child logger bindings used by
+ * Build the request-scoped child logger bindings used by
  * the `onRequest` hook below. Extracted so unit tests can call it
  * with a stub request without spinning up the full Fastify server.
  *
@@ -31,7 +31,7 @@ export function buildRequestScopedLoggerBindings(
   if (typeof deviceId === 'string' && deviceId.length > 0) {
     bindings.deviceId = deviceId;
   }
-  // ENG-135c — adopt the renderer-minted correlation id (strictly
+  // adopt the renderer-minted correlation id (strictly
   // sanitized; correlation-only) so every log line of this request —
   // including the DB-adjacent work it triggers — carries the same id
   // the client attached to its own error events. The Fastify

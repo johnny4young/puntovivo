@@ -37,7 +37,7 @@ import { createServerLifecycle } from './server-lifecycle.js';
 import { createTrayController } from './tray-controller.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
 
-// ENG-006 — structured main/renderer/backup child loggers.
+// structured main/renderer/backup child loggers.
 const mainLog = createModuleLogger('electron-main');
 const rendererLog = createModuleLogger('renderer');
 const backupLog = createModuleLogger('backup');
@@ -45,7 +45,7 @@ const backupLog = createModuleLogger('backup');
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) app.quit();
 
-// ENG-135b — install crash handling before any asynchronous boot work.
+// install crash handling before any asynchronous boot work.
 installProcessCrashHandlers({
   log: mainLog,
   captureCrash: captureProcessCrash,
@@ -60,7 +60,7 @@ app.setName('Puntovivo');
 
 const WEB_DEV_SERVER_URL = process.env.WEB_DEV_SERVER_URL || 'http://localhost:3000';
 const isDev = !app.isPackaged;
-// ENG-166 — a packaged build never opens DevTools from an inherited env var.
+// a packaged build never opens DevTools from an inherited env var.
 const shouldOpenDevTools = !app.isPackaged && process.env.PUNTOVIVO_OPEN_DEVTOOLS === 'true';
 process.env.PUNTOVIVO_RUNTIME_ENV ??= isDev ? 'development' : 'production';
 mainLog.info({ isPackaged: app.isPackaged, isDev }, 'electron runtime detected');
@@ -143,7 +143,7 @@ const trayController = createTrayController({
 trayControllerRef.current = trayController;
 windowLifecycle.installGlobalWebContentsPolicy();
 
-// ENG-178 — IPC registration remains synchronous and before app-ready. Every channel is
+// IPC registration remains synchronous and before app-ready. Every channel is
 // still owned by the same focused module; only lifecycle state moved out.
 registerAppLifecycleIpc();
 registerPeripheralsIpc();
@@ -209,14 +209,14 @@ app.whenReady().then(async () => {
   setMainLocale(normalizeMainLocale(app.getLocale()));
   refreshAutoUpdateTranslations();
 
-  // ENG-166 — baseline CSP for renderer-served responses. Fastify API responses already
+  // baseline CSP for renderer-served responses. Fastify API responses already
   // carry Helmet's CSP and must not receive a duplicate concatenated header.
   const isPackagedBuild = app.isPackaged;
   const rendererSecurityRuntime = resolveRuntimeConfig({ env: process.env });
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const url = details.url ?? '';
     if (isFastifyApiResponse(url, rendererSecurityRuntime)) {
-      // ENG-179b — omit responseHeaders rather than passing explicit undefined.
+      // omit responseHeaders rather than passing explicit undefined.
       callback(
         details.responseHeaders === undefined ? {} : { responseHeaders: details.responseHeaders }
       );
@@ -229,7 +229,7 @@ app.whenReady().then(async () => {
           isPackagedBuild,
           runtime: rendererSecurityRuntime,
           webDevServerUrl: WEB_DEV_SERVER_URL,
-          // ENG-135b — allow the configured renderer telemetry origin only.
+          // allow the configured renderer telemetry origin only.
           sentryDsn: process.env.PUNTOVIVO_SENTRY_DSN,
         }),
       },
@@ -256,7 +256,7 @@ app.whenReady().then(async () => {
     applyThemePreference(await getThemePreference());
     initialTraySettings = await getTraySettings();
   } catch (err) {
-    // DK-004 — every app API depends on the in-process Fastify server; fail loud.
+    // Every app API depends on the in-process Fastify server; fail loud.
     mainLog.fatal({ err }, 'embedded server failed to start');
     const detail = err instanceof Error ? err.message : String(err);
     dialog.showErrorBox(t('app.name'), detail);
@@ -291,7 +291,7 @@ app.on('will-quit', event => {
   stopAutoUpdater();
   if (serverShutdownComplete) return;
 
-  // DK-005 — Electron quit listeners are synchronous. Defer exit until the embedded
+  // Electron quit listeners are synchronous. Defer exit until the embedded
   // server, pending restore staging, and SQLite handles have closed.
   event.preventDefault();
   void backupScheduler

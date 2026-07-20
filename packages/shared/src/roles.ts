@@ -1,5 +1,5 @@
 /**
- * ENG-129a — Canonical user-role and role-group contract.
+ * Canonical user-role and role-group contract.
  *
  * These tuples are consumed by the database enum, tRPC validation and
  * middleware, and the renderer's route catalogue. Keeping the groups here

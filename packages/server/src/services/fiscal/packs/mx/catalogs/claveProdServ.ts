@@ -1,5 +1,5 @@
 /**
- * ENG-035b — Catálogo SAT c_ClaveProdServ (subset curado).
+ * Catálogo SAT c_ClaveProdServ (subset curado).
  *
  * El SAT publica un catálogo enorme con más de 50 mil claves de
  * producto/servicio basadas en el United Nations Standard Products
@@ -16,13 +16,13 @@
  * El SAT exige que cada concepto del CFDI 4.0 lleve una
  * `ClaveProdServ` válida. Cuando ningún match aplica, caemos a
  * `CLAVE_PROD_SERV_FALLBACK = '01010101'` (No existe en el catálogo)
- * — código SAT genérico que el SAT acepta como fallback explícito
+ * código SAT genérico que el SAT acepta como fallback explícito
  * para mercancía no clasificable.
  *
  * El catálogo completo de 50k+ entradas queda capturado como
- * follow-up en BACKLOG (working title `ENG-035d`); requiere o un
+ * follow-up work (working title ); requiere o un
  * seed-from-CSV en una tabla DB nueva o un pull periódico del API
- * SAT. Para los pilots de ENG-035c con PAC el subset curado +
+ * SAT. Para los pilots de  con PAC el subset curado +
  * fallback es suficiente porque PAC valida + corrige antes de
  * timbrar.
  *

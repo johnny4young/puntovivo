@@ -1,5 +1,5 @@
 /**
- * ENG-194b — Tenant-level cash-close settings router.
+ * Tenant-level cash-close settings router.
  *
  * Reads + writes `tenants.settings.cashClose`. Current shape carries a
  * single field (`blindClose`); the namespace is intentionally a nested
@@ -7,9 +7,9 @@
  * thresholds) can land here without re-shaping the client.
  *
  * - `.get` — managerOrAdmin (serves the admin settings card; the POS
- *   modal reads the value from the `auth.me` session payload instead).
+ * modal reads the value from the `auth.me` session payload instead).
  * - `.update` — admin-only. Writes the partial patch back via
- *   `writeCashCloseSettings`.
+ * `writeCashCloseSettings`.
  *
  * @module trpc/routers/cashCloseSettings
  */

@@ -1,5 +1,5 @@
 /**
- * ENG-088 — Offline V12 sync queue list.
+ * Offline V12 sync queue list.
  *
  * Right-side panel inside `OfflineModePanel` that surfaces every
  * row sitting in `sync_outbox` waiting to upload to the hub.
@@ -7,22 +7,22 @@
  * time since `createdAt`, and a status badge driven by
  * `attempts` + `lastError`.
  *
- * Data source: `trpc.sync.listQueue` (ENG-067). The query is
+ * Data source: `trpc.sync.listQueue` (). The query is
  * tenant-scoped via `tenantProcedure` server-side; the renderer
  * does NOT pass any tenantId.
  *
  * Reuses:
- *  - `useOfflineSync` for the retry CTA action — when the user
- *    taps "Reintentar" we re-fire the same `triggerSync()` the
- *    banner exposes.
- *  - `formatRelativeElapsed` (below) for the localized
- *    "Hace N min" / "N min ago" copy via i18next plurals.
+ * - `useOfflineSync` for the retry CTA action — when the user
+ * taps "Reintentar" we re-fire the same `triggerSync()` the
+ * banner exposes.
+ * - `formatRelativeElapsed` (below) for the localized
+ * "Hace N min" / "N min ago" copy via i18next plurals.
  *
  * Accessibility:
- *  - Empty / loading / error states each carry distinct visuals
- *    (no blank gray boxes).
- *  - Retry CTA is a real `<button>` with `min-h-[44px]` per the
- *    standing tap-target rule.
+ * - Empty / loading / error states each carry distinct visuals
+ * (no blank gray boxes).
+ * - Retry CTA is a real `<button>` with `min-h-[44px]` per the
+ * standing tap-target rule.
  */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -50,7 +50,7 @@ type DerivedStatus = 'pending' | 'retrying' | 'failed';
 
 /**
  * Derive the badge tone from the row's attempts. Live device
- * retries cap at ENG-067's MAX_RETRIES (3); once exceeded the
+ * retries cap at 's MAX_RETRIES (3); once exceeded the
  * server flips the row to `failed` / `dead_letter`. Gate purely
  * on `attempts` so a dead-letter row whose `lastError` was
  * administratively cleared still surfaces as failed (not as a
@@ -74,14 +74,15 @@ const STATUS_ICON: Record<DerivedStatus, typeof Clock> = {
   failed: AlertTriangle,
 };
 
-const ENTITY_TYPE_LABEL_KEY: Record<string, 'sale' | 'sale_item' | 'inventory_movement' | 'other'> = {
-  sale: 'sale',
-  sales: 'sale',
-  sale_item: 'sale_item',
-  sale_items: 'sale_item',
-  inventory_movement: 'inventory_movement',
-  inventory_movements: 'inventory_movement',
-};
+const ENTITY_TYPE_LABEL_KEY: Record<string, 'sale' | 'sale_item' | 'inventory_movement' | 'other'> =
+  {
+    sale: 'sale',
+    sales: 'sale',
+    sale_item: 'sale_item',
+    sale_items: 'sale_item',
+    inventory_movement: 'inventory_movement',
+    inventory_movements: 'inventory_movement',
+  };
 
 /**
  * Render-time elapsed-time helper. Computes the gap in seconds,
@@ -171,9 +172,7 @@ export function OfflineSyncQueueList({ now }: OfflineSyncQueueListProps = {}) {
             {t('offlineGrid.syncQueue.errorTitle')}
           </p>
         </header>
-        <p className="text-xs text-danger-600">
-          {t('offlineGrid.syncQueue.errorDescription')}
-        </p>
+        <p className="text-xs text-danger-600">{t('offlineGrid.syncQueue.errorDescription')}</p>
         <button
           type="button"
           data-testid="offline-sync-queue-error-retry"
@@ -199,31 +198,22 @@ export function OfflineSyncQueueList({ now }: OfflineSyncQueueListProps = {}) {
       >
         <header>
           <p className="page-kicker">{t('offlineGrid.syncQueue.title')}</p>
-          <p className="mt-1 text-xs text-secondary-600">
-            {t('offlineGrid.syncQueue.subtitle')}
-          </p>
+          <p className="mt-1 text-xs text-secondary-600">{t('offlineGrid.syncQueue.subtitle')}</p>
         </header>
         <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-success-200 bg-success-50/40 p-4 text-center">
           <CheckCircle2 className="h-6 w-6 text-success-600" aria-hidden="true" />
-          <p className="text-sm font-medium text-success-700">
-            {t('offlineGrid.syncQueue.empty')}
-          </p>
+          <p className="text-sm font-medium text-success-700">{t('offlineGrid.syncQueue.empty')}</p>
         </div>
       </section>
     );
   }
 
   return (
-    <section
-      data-testid="offline-sync-queue"
-      className="card flex h-full flex-col gap-3 p-4"
-    >
+    <section data-testid="offline-sync-queue" className="card flex h-full flex-col gap-3 p-4">
       <header className="flex items-start justify-between gap-2">
         <div>
           <p className="page-kicker">{t('offlineGrid.syncQueue.title')}</p>
-          <p className="mt-1 text-xs text-secondary-600">
-            {t('offlineGrid.syncQueue.subtitle')}
-          </p>
+          <p className="mt-1 text-xs text-secondary-600">{t('offlineGrid.syncQueue.subtitle')}</p>
         </div>
         <button
           type="button"
@@ -269,7 +259,10 @@ export function OfflineSyncQueueList({ now }: OfflineSyncQueueListProps = {}) {
                 </div>
               </div>
               <span className={`${STATUS_TONE[status]} inline-flex items-center gap-1`}>
-                <StatusIcon className={`h-3 w-3 ${status === 'retrying' ? 'animate-spin' : ''}`} aria-hidden="true" />
+                <StatusIcon
+                  className={`h-3 w-3 ${status === 'retrying' ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
                 {t(`offlineGrid.syncQueue.status.${status}`)}
               </span>
             </li>

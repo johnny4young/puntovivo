@@ -1,15 +1,10 @@
 /**
- * ENG-020 — `FiscalAdapter` interface.
- * ENG-034 — extended with `validateConfig` + `countryCode` + the
- * `NotImplementedFiscalAdapter` stub flag so the typed factory in
- * `registry.ts` can dispatch by country code (CO, MX, CL, ...).
+ * Country-neutral fiscal adapter contract.
  *
  * Every fiscal-document emitter implements this contract. The
- * `ColombiaMockAdapter` ships in Fase A for schema validation and
- * CUFE round-trip tests; ENG-021 (Fase B) swaps it for
- * `FactureAdapter` or `HkaAdapter` when a Proveedor Tecnológico
- * contract lands. Mexico (`ENG-035`) and Chile (`ENG-036`) packs
- * land as new files implementing the same contract.
+ * Colombia currently uses a deterministic mock; Mexico and Chile emit
+ * structurally valid draft XML. Certified authority integrations can
+ * replace those adapters without changing the orchestration contract.
  *
  * Methods map 1:1 to DIAN-style lifecycle events:
  * - `validateConfig(input)` — pre-flight check: does the tenant
@@ -84,8 +79,8 @@ export interface FiscalAdapterIssueInput {
   issueTime: string;
   environment: FiscalEnvironment;
   issuerNit: string;
-  /** Legal name of the issuer — read from `companies.legalName`. ENG-035b reads this for CFDI cfdi:Emisor.Nombre. */
-  // ENG-179b — explicit `| undefined` on optional fields lets callers
+  /** Legal issuer name; Mexico writes it to `cfdi:Emisor.Nombre`. */
+  // Explicit `| undefined` lets callers
   // pass `field: undefined` (typical when destructuring a parent ctx)
   // without violating `exactOptionalPropertyTypes`.
   issuerName?: string | undefined;
@@ -112,12 +107,12 @@ export interface FiscalAdapterIssueInput {
   /**
    * Raw `tenants.settings` blob so country packs (MX, CL, ...) can
    * read their pack-specific settings (`fiscal.mx.*`, `fiscal.cl.*`)
-   * without coupling the adapter to the DB. ENG-035b adopted this
-   * pattern; `ColombiaMockAdapter` ignores it.
+   * without coupling the adapter to the DB. `ColombiaMockAdapter`
+   * ignores it.
    */
   tenantSettings?: Record<string, unknown> | undefined;
   /**
-   * ENG-036b — Pre-allocated Chile CAF folio. The orchestrator
+   * Pre-allocated Chile CAF folio. The orchestrator
    * detects `adapter.countryCode === 'CL'`, runs the CAF allocator
    * inside its write transaction, and embeds the result here so the
    * `ChileSIIAdapter` can serialize the DTE without re-reading the
@@ -130,14 +125,16 @@ export interface FiscalAdapterIssueInput {
    * `fiscal_outbox.payload` round-trip; the actual `ChileFolioAllocation`
    * type lives in `services/fiscal/packs/cl/caf-allocator.ts`.
    */
-  chileAllocation?: {
-    cafId: string;
-    folio: number;
-    tipoDte: string;
-    rutEmisor: string;
-    rawCafXml: string;
-    rangeRemaining: number;
-  } | undefined;
+  chileAllocation?:
+    | {
+        cafId: string;
+        folio: number;
+        tipoDte: string;
+        rutEmisor: string;
+        rawCafXml: string;
+        rangeRemaining: number;
+      }
+    | undefined;
 }
 
 /** Result the orchestrator persists into `fiscal_documents`. */
@@ -164,14 +161,14 @@ export interface FiscalAdapterCapabilities {
 }
 
 /**
- * ENG-185 — fiscal pack maturity: the "truth guard" axis, orthogonal to a
+ * Fiscal pack maturity is orthogonal to a
  * document's lifecycle status. Tells the UI how real a pack's emission is:
  *   - `mock`      — computes a deterministic CUFE but NEVER signs or
  *                   transmits (Colombia today; the real Proveedor
- *                   Tecnologico swap is gated as ENG-021).
+ *                   Tecnologico integration remains unavailable).
  *   - `draft`     — emits structurally-valid but UNSIGNED, untransmitted
  *                   XML (Mexico CFDI / Chile DTE today; signing +
- *                   transmission are gated as ENG-035c / ENG-036c).
+ *                   transmission remain unavailable).
  *   - `certified` — signs and transmits to the real tax authority. NO pack
  *                   ships this yet; reserved so a surface can read as
  *                   production-ready only when a pack genuinely is.
@@ -180,7 +177,7 @@ export interface FiscalAdapterCapabilities {
 export type FiscalAdapterMaturity = 'mock' | 'draft' | 'certified';
 
 /**
- * ENG-034 — `validateConfig` issue codes. Stable string union so
+ * `validateConfig` issue codes. Stable string union so
  * future packs can add new codes without breaking the rest of the
  * matrix. The web layer maps each to a localized hint.
  */
@@ -228,7 +225,7 @@ export interface FiscalAdapter {
   readonly countryCode: string;
   readonly capabilities: FiscalAdapterCapabilities;
   /**
-   * ENG-185 — production-readiness truth marker (see
+   * production-readiness truth marker (see
    * `FiscalAdapterMaturity`). The registry + UI use it to label demo /
    * draft packs honestly; nothing below `certified` may be shown as
    * production-ready, and unsupported countries never reach an adapter.
@@ -244,15 +241,4 @@ export interface FiscalAdapter {
   issue(input: FiscalAdapterIssueInput): Promise<FiscalAdapterIssueResult>;
   voidDocument(input: FiscalAdapterVoidInput): Promise<FiscalAdapterIssueResult>;
   fetchStatus(cufe: string): Promise<FiscalDocumentStatus>;
-}
-
-/**
- * ENG-034 — stub flag that lets the registry list adapters that exist
- * for type completeness but throw `FISCAL_PACK_NOT_AVAILABLE` on use
- * (Mexico parked for ENG-035, Chile parked for ENG-036). Mirrors the
- * AI provider `notImplemented` pattern from `services/ai/providers/`.
- */
-export interface NotImplementedFiscalAdapter extends FiscalAdapter {
-  readonly notImplemented: true;
-  readonly availableInTicket: string;
 }

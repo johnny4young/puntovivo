@@ -1,5 +1,5 @@
 /**
- * ENG-062 — Hardware worker daemon.
+ * Hardware worker daemon.
  *
  * Drains `hardware_outbox` rows. Each tick: claim one row scoped to
  * a tenant, instantiate the adapter via the peripherals registry,
@@ -9,10 +9,10 @@
  *
  * Lifecycle:
  *
- *   queued -> submitting -> printed | failed
- *                       \-> retrying -> dead_letter
+ * queued -> submitting -> printed | failed
+ * \-> retrying -> dead_letter
  *
- * Mirrors the fiscal worker (ENG-057) structurally: stale-claim
+ * Mirrors the fiscal worker () structurally: stale-claim
  * sweep at startup + periodic, BOUNDED_EXPONENTIAL_BACKOFF retry
  * policy, per-tenant fan-out with a hard cap so a hot tenant
  * doesn't starve others. The two outboxes do NOT share a kernel
@@ -21,7 +21,7 @@
  *
  * The adapter result IS the outbox verdict — we don't sync to a
  * separate `last_error` field on the peripheral row because the
- * outbox row itself is the audit trail. ENG-065 (Operations
+ * outbox row itself is the audit trail.  (Operations
  * Center) will surface dead-letter rows via `peekHardwareOutbox`.
  *
  * @module services/peripherals/hardware-worker
@@ -49,10 +49,7 @@ import {
 } from '../../lib/outbox/index.js';
 import { createModuleLogger, type PuntovivoLogger } from '../../logging/logger.js';
 import { instantiateAdapter } from './registry.js';
-import type {
-  CashDrawerAdapter,
-  ReceiptPrinterAdapter,
-} from './index.js';
+import type { CashDrawerAdapter, ReceiptPrinterAdapter } from './index.js';
 import type { ReceiptDocument } from './escpos/byte-builder.js';
 import type { NormalizedHardwareError } from './types.js';
 import type { NormalizedOutboxError } from '../../lib/outbox/types.js';
@@ -132,23 +129,19 @@ async function withAdapterTimeout<T>(promise: Promise<T>, timeoutMs: number): Pr
   }
 }
 
-function toOutboxError(
-  err: NormalizedHardwareError | { message: string }
-): NormalizedOutboxError {
+function toOutboxError(err: NormalizedHardwareError | { message: string }): NormalizedOutboxError {
   // DRIVER_NOT_IMPLEMENTED + INVALID_CONFIG + PERMISSION_DENIED are
   // non-recoverable; everything else (DEVICE_OFFLINE, DEVICE_TIMEOUT,
   // PROTOCOL_ERROR, UNKNOWN) is recoverable. The kernel needs the
   // boolean to decide retry vs dead-letter.
   const kind = 'kind' in err ? err.kind : 'UNKNOWN';
   const recoverable =
-    kind !== 'DRIVER_NOT_IMPLEMENTED' &&
-    kind !== 'INVALID_CONFIG' &&
-    kind !== 'PERMISSION_DENIED';
+    kind !== 'DRIVER_NOT_IMPLEMENTED' && kind !== 'INVALID_CONFIG' && kind !== 'PERMISSION_DENIED';
   return {
     errorCode: kind,
     providerMessage: err.message,
     recoverable,
-    details: 'kind' in err ? err.details ?? null : null,
+    details: 'kind' in err ? (err.details ?? null) : null,
   };
 }
 
@@ -188,12 +181,7 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
           status: sql`CASE WHEN ${hardwareOutbox.status} = 'submitting' THEN 'queued' ELSE ${hardwareOutbox.status} END`,
           updatedAt: new Date().toISOString(),
         })
-        .where(
-          and(
-            isNotNull(hardwareOutbox.lockedAt),
-            lte(hardwareOutbox.lockedAt, cutoff)
-          )
-        );
+        .where(and(isNotNull(hardwareOutbox.lockedAt), lte(hardwareOutbox.lockedAt, cutoff)));
     } catch (err) {
       log.warn({ err }, 'hardware worker stale-claim sweep failed');
     }
@@ -285,10 +273,7 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
           },
         };
       }
-      const printPayload =
-        payload.kind === 'kick-drawer'
-          ? null
-          : payload;
+      const printPayload = payload.kind === 'kick-drawer' ? null : payload;
       if (!printPayload || !('document' in printPayload)) {
         return {
           ok: false,
@@ -301,13 +286,14 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
       }
       const result = await withAdapterTimeout(
         (adapter as ReceiptPrinterAdapter).print({
-          kind: payload.kind === 'print-receipt'
-            ? 'sale-receipt'
-            : payload.kind === 'print-fiscal-dee'
-              ? 'fiscal-dee'
-              : payload.kind === 'print-quotation'
-                ? 'quotation'
-                : 'kitchen-ticket',
+          kind:
+            payload.kind === 'print-receipt'
+              ? 'sale-receipt'
+              : payload.kind === 'print-fiscal-dee'
+                ? 'fiscal-dee'
+                : payload.kind === 'print-quotation'
+                  ? 'quotation'
+                  : 'kitchen-ticket',
           escposBytes: printPayload.escposBytes
             ? new Uint8Array(printPayload.escposBytes)
             : undefined,

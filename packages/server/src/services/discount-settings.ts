@@ -1,9 +1,9 @@
 /**
- * ENG-211 — Per-tenant expiry-discount settings.
+ * Per-tenant expiry-discount settings.
  *
  * Mirrors the `cash-close-settings` pattern (defensive read of
  * `tenants.settings.discount.*`, merge with defaults, persist a partial
- * patch). It closes the ENG-199 follow-up: the radar's discount tiers
+ * patch). It closes the  follow-up: the radar's discount tiers
  * shipped as exported constants (`EXPIRY_DISCOUNT_TIERS`) precisely so the
  * SOURCE of the values could move here without rewriting any caller.
  *
@@ -11,7 +11,7 @@
  * `{ maxDays, pct }` — but a tenant can now tune it: a bakery discounting
  * at 3 days is a different business from a pharmacy discounting at 60.
  * Invalid or absent blobs fall back to `DEFAULT_EXPIRY_DISCOUNT_TIERS`
- * (the ENG-199 rule), so a corrupt settings JSON can never leave the radar
+ * (the  rule), so a corrupt settings JSON can never leave the radar
  * without a rule.
  *
  * @module services/discount-settings
@@ -34,7 +34,7 @@ export interface DiscountSettings {
   expiryTiers: ExpiryDiscountTier[];
 }
 
-/** The ENG-199 rule stays the baseline for every tenant that never tuned it. */
+/** The  rule stays the baseline for every tenant that never tuned it. */
 export const DEFAULT_EXPIRY_DISCOUNT_TIERS: ExpiryDiscountTier[] = EXPIRY_DISCOUNT_TIERS.map(
   tier => ({ ...tier })
 );

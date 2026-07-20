@@ -1,5 +1,5 @@
 /**
- * Server error-code registry — part B (ENG-178 split).
+ * Server error-code registry — part B ( split).
  *
  * Domains sync-resolve … optimistic-concurrency. Merged with part A in
  * `registry.ts`. Leaf module.
@@ -7,8 +7,7 @@
  * @module lib/errorCodes/codes-b
  */
 export const SERVER_ERROR_CODES_B = {
-
-  // --- ENG-042 sync resolve TOCTOU close-out ---
+  // ---  sync resolve TOCTOU close-out ---
   /**
    * `sync.resolve` refused a `local_wins` or `merged` resolution because the
    * local record no longer exists at the moment the transaction opens. The
@@ -18,7 +17,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   SYNC_LOCAL_RECORD_MISSING: 'SYNC_LOCAL_RECORD_MISSING',
 
-  // --- ENG-052 device registry + command envelope ---
+  // ---  device registry + command envelope ---
   /**
    * The `x-device-id` header is missing, malformed, or names a device row
    * that does not exist for the active tenant (or has been deactivated).
@@ -27,21 +26,20 @@ export const SERVER_ERROR_CODES_B = {
    * retrying the critical mutation.
    */
   DEVICE_NOT_REGISTERED: 'DEVICE_NOT_REGISTERED',
-  // --- ENG-075 Authority Node pairing + health ---
+  // ---  Authority Node pairing + health ---
   AUTHORITY_SITE_NOT_FOUND: 'AUTHORITY_SITE_NOT_FOUND',
   AUTHORITY_PAIRING_CODE_INVALID: 'AUTHORITY_PAIRING_CODE_INVALID',
   AUTHORITY_PAIRING_CODE_EXPIRED: 'AUTHORITY_PAIRING_CODE_EXPIRED',
   AUTHORITY_PAIRING_CODE_USED: 'AUTHORITY_PAIRING_CODE_USED',
   AUTHORITY_DEVICE_NOT_REVOKABLE: 'AUTHORITY_DEVICE_NOT_REVOKABLE',
   /**
-   * ENG-181 — pairing-code generator exhausted its allocation retries
+   * pairing-code generator exhausted its allocation retries
    * without finding a unique value. `services/devices/authority/pairing.ts`
    * picks a random 8-character code (formatted as XXXX-XXXX), and a saturated
    * keyspace under heavy onboarding load could cause this. `details` carries
    * `{ tenantId, siteId, attempts }`.
    */
-  DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED:
-    'DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED',
+  DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED: 'DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED',
   /**
    * A procedure decorated with `criticalCommandProcedure` (per ADR-0002)
    * received an empty or malformed Command Envelope header. Renderers
@@ -65,7 +63,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   COMMAND_IN_PROGRESS: 'COMMAND_IN_PROGRESS',
 
-  // --- ENG-030 AI foundation ---
+  // ---  AI foundation ---
   /**
    * AI features are turned off at the tenant level
    * (`tenants.settings.ai.enabled === false`). The renderer should gray
@@ -80,7 +78,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   AI_BUDGET_EXCEEDED: 'AI_BUDGET_EXCEEDED',
   /**
-   * ENG-102 — the active site has already consumed the per-site
+   * the active site has already consumed the per-site
    * monthly quota for an AI feature (e.g. 800 Co-pilot questions or
    * 200 OCR invoices). Pre-checked BEFORE the provider call so a
    * blocked request never produces an audit row. The error `details`
@@ -108,7 +106,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   AI_COPILOT_QUERY_LIMIT_EXCEEDED: 'AI_COPILOT_QUERY_LIMIT_EXCEEDED',
 
-  // --- ENG-040a AI Wave 2 vision slice ---
+  // ---  AI Wave 2 vision slice ---
   /**
    * The tenant's configured AI provider does not implement a vision
    * model (e.g. Ollama stub). The caller should switch providers or
@@ -129,7 +127,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   AI_VISION_IMAGE_TOO_LARGE: 'AI_VISION_IMAGE_TOO_LARGE',
 
-  // --- ENG-040c slice 1 — voice / Whisper transcription ---
+  // ---  slice 1 — voice / Whisper transcription ---
   /**
    * The tenant's configured AI provider does not implement a
    * transcription model (Anthropic + Ollama today). The caller should
@@ -150,7 +148,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   AI_VOICE_AUDIO_TOO_LARGE: 'AI_VOICE_AUDIO_TOO_LARGE',
   /**
-   * ENG-040c slice 3 — the cart-command parser couldn't extract any
+   * slice 3 — the cart-command parser couldn't extract any
    * actions from the transcript (either empty input or the cashier
    * said something that wasn't an "agregar producto" command). The
    * common path returns `mode='unrecognized'` instead so the modal
@@ -159,7 +157,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   AI_VOICE_COMMAND_UNRECOGNIZED: 'AI_VOICE_COMMAND_UNRECOGNIZED',
 
-  // --- module activation kernel (ENG-068) ---
+  // --- module activation kernel () ---
   /**
    * The caller hit a procedure that requires a tenant module that
    * is currently deactivated. Distinct from a role-based FORBIDDEN
@@ -176,7 +174,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   MODULE_UNKNOWN: 'MODULE_UNKNOWN',
   /**
-   * ENG-036b — Pack Chile DTE 1.0. The orchestrator tried to emit a
+   * Pack Chile DTE 1.0. The orchestrator tried to emit a
    * fiscal document for a CL tenant but no active CAF (Código de
    * Autorización de Folios) exists for the resolved (tenantId, tipoDte).
    * The operator must register a CAF from the SII portal before any
@@ -186,7 +184,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   CAF_NOT_AVAILABLE: 'CAF_NOT_AVAILABLE',
   /**
-   * ENG-036b — Pack Chile DTE 1.0. The active CAF's folio cursor has
+   * Pack Chile DTE 1.0. The active CAF's folio cursor has
    * exceeded `folio_hasta`; the allocator atomically flipped the row
    * to `status='exhausted'`. The operator must register the next CAF
    * range from the SII portal. SII forbids reusing exhausted folios.
@@ -195,7 +193,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   CAF_EXHAUSTED: 'CAF_EXHAUSTED',
   /**
-   * ENG-038 slice 2 — payment provider credential settings. The admin
+   * slice 2 — payment provider credential settings. The admin
    * tried to save a credential map for a rail but included a field key
    * that the rail does not declare in
    * `services/payments/manifest.ts::CREDENTIAL_FIELDS_BY_RAIL`. Tirado
@@ -207,16 +205,16 @@ export const SERVER_ERROR_CODES_B = {
    */
   PAYMENT_CREDENTIAL_UNKNOWN_FIELD: 'PAYMENT_CREDENTIAL_UNKNOWN_FIELD',
   /**
-   * ENG-038c — reconciliation matcher could not find any provider
+   * reconciliation matcher could not find any provider
    * statement row matching a POS tender. Carries
    * `{ tenantId, salePaymentId, reference }`. Surfaced from the
    * server-side worker logs and (via translateServerError) the
-   * Operations Center mismatch tooltips once ENG-065d ships the
+   * Operations Center mismatch tooltips once  ships the
    * retry UI.
    */
   PAYMENT_RECONCILIATION_NO_MATCH: 'PAYMENT_RECONCILIATION_NO_MATCH',
   /**
-   * ENG-038c — reconciliation matcher found multiple plausible matches
+   * reconciliation matcher found multiple plausible matches
    * for the same statement row and the AI tie-break path was either
    * disabled, over-budget, or returned a non-decisive answer. Carries
    * `{ tenantId, statementReference, candidates }`. The worker keeps
@@ -224,7 +222,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   PAYMENT_RECONCILIATION_AMBIGUOUS: 'PAYMENT_RECONCILIATION_AMBIGUOUS',
   /**
-   * ENG-038c — AI tie-break call failed (provider unavailable, budget
+   * AI tie-break call failed (provider unavailable, budget
    * exceeded, module off) AND the matcher had to degrade to a
    * deterministic suggestion. Operator-visible warning; not a fatal
    * error. Carries `{ tenantId, reason }` where reason is one of
@@ -232,7 +230,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   PAYMENT_RECONCILIATION_AI_DEGRADED: 'PAYMENT_RECONCILIATION_AI_DEGRADED',
   /**
-   * ENG-065d — admin tried to act on a `payment_outbox` row that does
+   * admin tried to act on a `payment_outbox` row that does
    * not exist for the active tenant. The lookup is tenant-scoped so a
    * cross-tenant attempt collapses to NOT_FOUND (not FORBIDDEN) — never
    * leak existence across tenants. Mirrors `HARDWARE_OUTBOX_NOT_FOUND`.
@@ -241,7 +239,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   PAYMENT_OUTBOX_NOT_FOUND: 'PAYMENT_OUTBOX_NOT_FOUND',
   /**
-   * ENG-065d — admin tried to retry a `payment_outbox` row that is in
+   * admin tried to retry a `payment_outbox` row that is in
    * a terminal status the matcher should not undo via a retry gesture
    * (today this is just `settled`; the operator can still use
    * mark-settled to reverse-confirm if needed). Cause carries
@@ -249,7 +247,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   PAYMENT_OUTBOX_NOT_RETRIABLE: 'PAYMENT_OUTBOX_NOT_RETRIABLE',
   /**
-   * ENG-039b — admin tried to act on a `restaurant_tables` row that
+   * admin tried to act on a `restaurant_tables` row that
    * does not exist for the active tenant. The lookup is tenant-scoped
    * so a cross-tenant attempt collapses to NOT_FOUND (not FORBIDDEN) —
    * never leak existence across tenants. Mirrors the
@@ -257,16 +255,16 @@ export const SERVER_ERROR_CODES_B = {
    */
   RESTAURANT_TABLE_NOT_FOUND: 'RESTAURANT_TABLE_NOT_FOUND',
   /**
-   * ENG-039b — partial-unique conflict on `(tenant_id, site_id, name)`
+   * partial-unique conflict on `(tenant_id, site_id, name)`
    * among active `restaurant_tables` rows. Archived rows are excluded
    * from the unique index so the same display name can be re-created
    * after archiving the original. Cause carries `{ siteId, name }`.
    */
   RESTAURANT_TABLE_NAME_DUPLICATE: 'RESTAURANT_TABLE_NAME_DUPLICATE',
 
-  // --- kitchen display (ENG-098) ---
+  // --- kitchen display () ---
   /**
-   * ENG-098 — `kds_orders` row not found for the (tenant, id) pair.
+   * `kds_orders` row not found for the (tenant, id) pair.
    * Mirrors the cross-tenant collapse contract: a card from another
    * tenant returns NOT_FOUND with this code so existence never leaks.
    * Also raised by `markReady` / `recall` when the row has already
@@ -274,13 +272,13 @@ export const SERVER_ERROR_CODES_B = {
    */
   KDS_ORDER_NOT_FOUND: 'KDS_ORDER_NOT_FOUND',
   /**
-   * ENG-098 — `kds.recall` was called on a row whose status is not
+   * `kds.recall` was called on a row whose status is not
    * `ready`. Cause carries the actual `currentStatus` so the UI can
    * render the right toast.
    */
   KDS_ORDER_NOT_READY: 'KDS_ORDER_NOT_READY',
 
-  // --- credit sales domain (ENG-090) ---
+  // --- credit sales domain () ---
   /**
    * `completeSale` refused the credit-sale payload because the projected
    * balance (`currentBalance + grandTotal`) would exceed the customer's
@@ -313,7 +311,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   CREDIT_SALE_FORBIDDEN: 'CREDIT_SALE_FORBIDDEN',
   /**
-   * ENG-014 — refund of a sale that included a credit tender (split
+   * refund of a sale that included a credit tender (split
    * cash + credit, "apartado") is not yet supported because reversing
    * a partial-credit sale requires reversing both the cash session
    * movement and the customer-ledger entry, with operator-facing copy
@@ -323,7 +321,7 @@ export const SERVER_ERROR_CODES_B = {
    */
   REFUND_PARTIAL_CREDIT_NOT_SUPPORTED: 'REFUND_PARTIAL_CREDIT_NOT_SUPPORTED',
   /**
-   * ENG-181 — `recordCreditSaleLedger` refused a non-positive /
+   * `recordCreditSaleLedger` refused a non-positive /
    * non-finite credit amount. The completeSale resolver already
    * rounds + validates earlier, so this surfaces as a defensive
    * guard against a caller that bypasses the application service.
@@ -331,9 +329,9 @@ export const SERVER_ERROR_CODES_B = {
    */
   CREDIT_LEDGER_INVALID_AMOUNT: 'CREDIT_LEDGER_INVALID_AMOUNT',
 
-  // --- ENG-177a optimistic concurrency ---
+  // ---  optimistic concurrency ---
   /**
-   * ENG-177a — a catalog `*.update` mutation (products / customers /
+   * a catalog `*.update` mutation (products / customers /
    * providers / categories / tenant locale) received a `version` that no
    * longer matches the stored row, meaning another tab or operator already
    * saved an edit. The write is rejected instead of silently clobbering the

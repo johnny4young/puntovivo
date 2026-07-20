@@ -1,5 +1,5 @@
 /**
- * ENG-178 — Draft-completion path of the `completeSale` use-case,
+ * Draft-completion path of the `completeSale` use-case,
  * extracted from the former monolithic `completeSale.ts` during the
  * megafile decomposition.
  *
@@ -71,14 +71,14 @@ import {
  *
  * Invariants:
  * - The draft's items + subtotal + tax + discount are IMMUTABLE from the
- *   create-time call; only tip / service charge are captured at completion.
- *   `baseTotal` is RECOMPUTED from the frozen monetary pieces
- *   (`existing.subtotal + existing.taxAmount - existing.discountAmount`),
- *   NOT from `existing.total`. This is the no-compounding rule: a draft
- *   created with a tip/service-charge already baked into `total` would
- *   otherwise see the second tip/charge stack on top of the first and leave
- *   `total` out of sync with the `tipAmount` / `serviceChargeAmount`
- *   columns. All amounts `roundMoney`-ed, country-agnostic (see `completeSale`).
+ * create-time call; only tip / service charge are captured at completion.
+ * `baseTotal` is RECOMPUTED from the frozen monetary pieces
+ * (`existing.subtotal + existing.taxAmount - existing.discountAmount`),
+ * NOT from `existing.total`. This is the no-compounding rule: a draft
+ * created with a tip/service-charge already baked into `total` would
+ * otherwise see the second tip/charge stack on top of the first and leave
+ * `total` out of sync with the `tipAmount` / `serviceChargeAmount`
+ * columns. All amounts `roundMoney`-ed, country-agnostic (see `completeSale`).
  *
  * Preconditions: the sale exists, is still `draft` (not already completed),
  * is not suspended (`SALE_COMPLETE_DRAFT_SUSPENDED`), has line items, the
@@ -165,7 +165,7 @@ export async function runCompleteDraft(
     });
   }
 
-  // ENG-039d — tip / propina layered on top of the frozen draft base.
+  // tip / propina layered on top of the frozen draft base.
   // The draft's items + subtotal + tax + discount are immutable from
   // the create-time call (sales.create stored them with status='draft');
   // tip is captured at complete-time so the cashier can confirm it
@@ -176,7 +176,7 @@ export async function runCompleteDraft(
   // `total` out of sync with the new `tipAmount` column.
   const tipAmount = roundMoney(Math.max(0, input.tipAmount ?? 0));
   const tipMethod = tipAmount > 0 ? (input.tipMethod ?? null) : null;
-  // ENG-039d3 — service charge layered onto the frozen draft base. The
+  // service charge layered onto the frozen draft base. The
   // same baseTotal-from-frozen-pieces logic that prevents tip compounding
   // (a draft that was opened with a service charge already in `total`
   // would otherwise see the new charge double-stacked) applies here too.
@@ -193,7 +193,7 @@ export async function runCompleteDraft(
   const serviceChargeRate = serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
   const total = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
 
-  // Phase 2 Tier-2 step 5 — resolve the tender list (split or legacy),
+  // resolve the tender list (split or legacy),
   // payment status, change, and cash collected. The draft is always
   // completing, so `collectCash` is unconditionally true.
   const { resolvedPayments, creditSaleAmount, paymentStatus, change, cashCollectedAmount } =
@@ -206,10 +206,10 @@ export async function runCompleteDraft(
       collectCash: true,
     });
 
-  // ENG-216 — the customer is resolved from the input when it carries one,
-  // falling back to whatever the draft stored. ENG-014 used to lock the
+  // the customer is resolved from the input when it carries one,
+  // falling back to whatever the draft stored.  used to lock the
   // draft's customer at create-time, but the payment drawer is the only
-  // customer-attach surface in the app and a suspended ticket is created
+  // customer-attach surface in the app and a suspended change is created
   // without one, so the lock silently recorded every resumed sale as a
   // walk-in. `undefined` (field omitted) keeps the stored value; an
   // explicit `null` clears it.
@@ -222,7 +222,7 @@ export async function runCompleteDraft(
   if (input.customerId !== undefined && input.customerId !== existing.customerId) {
     await validateCustomer(ctx.db, ctx.tenantId, draftCustomerId);
   }
-  // ENG-213 — resolved before the tx (a settings read is a DB round trip and
+  // resolved before the tx (a settings read is a DB round trip and
   // the tx body is sync). A resumed draft is the same sale as a fresh one for
   // the customer, so it must earn the same points.
   const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
@@ -280,7 +280,7 @@ export async function runCompleteDraft(
   const baselineApprovalActions = requiredCheckoutApprovalActions({
     role: ctx.user.role as UserRole,
     isCompletion: true,
-    // ENG-142a — discounts now use the configured per-role threshold.
+    // discounts now use the configured per-role threshold.
     hasDiscount: false,
     hasCreditTender: creditSaleAmount > 0,
     creditOverride: input.creditOverride === true,
@@ -319,10 +319,10 @@ export async function runCompleteDraft(
 
   try {
     ctx.db.transaction(tx => {
-      // ENG-042 TOCTOU defense.
+      // TOCTOU defense.
       assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
 
-      // ENG-106c2 — claim the exact draft snapshot before writing any
+      // claim the exact draft snapshot before writing any
       // payments or consuming approvals. Suspend, discard, split, and draft
       // edits advance syncVersion/updatedAt, so a concurrent lifecycle change
       // cannot be resurrected as a completed sale from this stale snapshot.
@@ -332,7 +332,7 @@ export async function runCompleteDraft(
           paymentMethod: resolvedPayments.dominantMethod,
           paymentStatus,
           status: 'completed',
-          // ENG-216 — persist the customer attached at payment time. Resolves
+          // persist the customer attached at payment time. Resolves
           // to the draft's stored value when the caller omitted the field, so
           // an older client that never sends it is a no-op.
           customerId: draftCustomerId,
@@ -340,12 +340,12 @@ export async function runCompleteDraft(
           // income where it physically arrived.
           cashSessionId: activeCashSession.id,
           notes: input.notes ?? existing.notes,
-          // ENG-039d — persist the tip captured at complete-time. When
+          // persist the tip captured at complete-time. When
           // no tip was entered we still write 0 / null so a previously
           // partially-staged value never sticks.
           tipAmount,
           tipMethod,
-          // ENG-039d3 — persist service charge captured at complete-time.
+          // persist service charge captured at complete-time.
           serviceChargeAmount,
           serviceChargeRate,
           total,
@@ -416,8 +416,8 @@ export async function runCompleteDraft(
         createdAt: now,
       });
 
-      // ENG-213 — a resumed draft earns exactly like a fresh sale: same money,
-      // same customer, so the same points. Suspending a ticket is a cashier
+      // a resumed draft earns exactly like a fresh sale: same money,
+      // same customer, so the same points. Suspending a change is a cashier
       // workflow detail the customer never agreed to be charged for. Mirrors
       // the fresh path: idempotent per (account, sale), wrapped in a SAVEPOINT
       // so a half-written ledger can never ride to COMMIT, and best-effort so
@@ -451,7 +451,7 @@ export async function runCompleteDraft(
           status: 'draft',
           cashSessionId: existing.cashSessionId,
           paymentStatus: existing.paymentStatus,
-          // ENG-216 — the customer became mutable at completion, and a
+          // the customer became mutable at completion, and a
           // manager can complete someone else's draft. Re-assigning moves the
           // receivable, the loyalty accrual, and the fiscal buyer, so the
           // before/after pair has to carry it or the change is
@@ -471,12 +471,12 @@ export async function runCompleteDraft(
           ...(input.payments && input.payments.length > 0
             ? { tenderCount: input.payments.length }
             : {}),
-          // ENG-039d — surface tip in the audit row only when captured;
+          // surface tip in the audit row only when captured;
           // suppressing the keys at zero keeps audit reads scannable.
           // `tipMethod` is omitted (rather than written as `null`) when
           // the caller did not specify a method.
           ...(tipAmount > 0 ? { tipAmount, ...(tipMethod ? { tipMethod } : {}) } : {}),
-          // ENG-039d3 — mirror the tip pattern for service charge.
+          // mirror the tip pattern for service charge.
           ...(serviceChargeAmount > 0
             ? {
                 serviceChargeAmount,
@@ -486,12 +486,12 @@ export async function runCompleteDraft(
         },
       });
 
-      // ENG-007 closure — admin authorised a credit sale whose projected
+      // closure — admin authorised a credit sale whose projected
       // balance exceeded the customer's cupo. `overrideApplied` is true
       // only when (exceedsLimit && allowOverride === true), so the row
       // never fires for admin-completed sales that stayed under the limit.
       // `draftCustomerId` is the customer resolved above — the input's when
-      // it carried one, the draft row's otherwise (ENG-216).
+      // it carried one, the draft row's otherwise ().
       if (creditProjection?.overrideApplied === true && draftCustomerId) {
         writeAuditLog({
           tx,
@@ -539,7 +539,7 @@ export async function runCompleteDraft(
 
   await enqueueCheckoutApprovalConsumptions(ctx, approvalClaims);
 
-  // ENG-064b — sync_outbox emit moved POST-tx (was inline `tx.insert`
+  // sync_outbox emit moved POST-tx (was inline `tx.insert`
   // before the cutover). The helper writes the operation_effects row
   // (kind=outbox_enqueue:sync) itself when the envelope is present.
   await enqueueSync(ctx, {
@@ -552,13 +552,13 @@ export async function runCompleteDraft(
       completedFromDraft: true,
       total,
       paymentStatus,
-      // ENG-216 — the completion can attach or re-assign the customer, so
+      // the completion can attach or re-assign the customer, so
       // the peer must learn about it or it keeps the draft's stale value.
       customerId: draftCustomerId,
     },
   });
 
-  // ENG-090 — same best-effort ledger-write as the fresh path. The
+  // same best-effort ledger-write as the fresh path. The
   // draft already finalized as `completed`; a ledger failure here
   // does NOT roll the sale back.
   await safelyRecordCreditSaleLedger({
@@ -576,7 +576,7 @@ export async function runCompleteDraft(
   });
   void creditProjection;
 
-  // ENG-020 — emit DIAN DEE on first completion of the draft.
+  // emit DIAN DEE on first completion of the draft.
   const fiscalEmitId = await emitSaleFiscalDocument({
     db: ctx.db,
     tenantId: ctx.tenantId,
@@ -623,7 +623,7 @@ export async function runCompleteDraft(
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
 
-  // ENG-098 — push to the kitchen display when the underlying draft
+  // push to the kitchen display when the underlying draft
   // carried a tableId. Idempotent against the suspend → complete
   // progression via UNIQUE(tenant_id, sale_id, station). For the
   // common path (suspend already created the card) this is a no-op

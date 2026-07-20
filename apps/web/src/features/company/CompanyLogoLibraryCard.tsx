@@ -11,10 +11,7 @@ import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { cn } from '@/lib/utils';
 import type { Company, Logo } from '@/types';
-import {
-  CompanyLogoFormModal,
-  type CompanyLogoFormValues,
-} from './CompanyLogoFormModal';
+import { CompanyLogoFormModal, type CompanyLogoFormValues } from './CompanyLogoFormModal';
 
 interface CompanyLogoLibraryCardProps {
   company: Company | null;
@@ -112,9 +109,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-secondary-900">{t('company.logo.title')}</h2>
-            <p className="mt-1 text-sm text-secondary-500">
-              {t('company.logo.description')}
-            </p>
+            <p className="mt-1 text-sm text-secondary-500">{t('company.logo.description')}</p>
           </div>
           <button className="pv-btn outline" onClick={handleOpenCreate} disabled={!canEdit}>
             <Plus className="h-4 w-4" aria-hidden="true" />
@@ -129,7 +124,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
               <img
                 src={company.logoUrl}
                 alt={company.logoName ?? company.name}
-                // ENG-172 — explicit dimensions reserve the layout box before
+                // explicit dimensions reserve the layout box before
                 // the bitmap loads (defeats CLS); match the h-16 w-16 (64px) box.
                 width={64}
                 height={64}
@@ -137,7 +132,9 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
               />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="font-medium text-secondary-900">{company.logoName ?? t('company.logo.selectedLogo')}</p>
+                  <p className="font-medium text-secondary-900">
+                    {company.logoName ?? t('company.logo.selectedLogo')}
+                  </p>
                   <span className="pv-badge success">{t('company.logo.active')}</span>
                 </div>
                 <p className="truncate text-sm text-secondary-500">{company.logoUrl}</p>
@@ -153,7 +150,10 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
 
         {logosQuery.isLoading && (
           <div className="mt-6">
-            <PageLoadingState title={t('company.logo.loadingTitle')} description={t('company.logo.loadingDescription')} />
+            <PageLoadingState
+              title={t('company.logo.loadingTitle')}
+              description={t('company.logo.loadingDescription')}
+            />
           </div>
         )}
 
@@ -197,7 +197,11 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-medium text-secondary-900">{logo.name}</p>
-                      <p className="text-xs text-secondary-500">{t('company.logo.companyAssignments', { count: logo.assignedCompanyCount ?? 0 })}</p>
+                      <p className="text-xs text-secondary-500">
+                        {t('company.logo.companyAssignments', {
+                          count: logo.assignedCompanyCount ?? 0,
+                        })}
+                      </p>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
@@ -222,7 +226,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                   <img
                     src={logo.imageUrl}
                     alt={logo.name}
-                    // ENG-172 — explicit dimensions give the browser an
+                    // explicit dimensions give the browser an
                     // aspect-ratio hint so it reserves the box before load
                     // (defeats CLS). The card height is fixed by h-32 (128px);
                     // width is fluid (w-full) and object-contain prevents any
@@ -252,7 +256,9 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                           disabled={!canEdit || isMutatingSelection}
                         >
                           <Check className="h-4 w-4" aria-hidden="true" />
-                          {isMutatingSelection ? t('company.logo.selecting') : t('company.logo.use')}
+                          {isMutatingSelection
+                            ? t('company.logo.selecting')
+                            : t('company.logo.use')}
                         </button>
                       )}
                     </div>
@@ -278,7 +284,9 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
         isOpen={!!logoToDelete}
         title={t('company.logo.deleteConfirmTitle')}
         message={t('company.logo.deleteConfirmMessage', { name: logoToDelete?.name ?? '' })}
-        confirmText={deleteMutation.isPending ? t('company.logo.deleting') : t('company.logo.deleteConfirm')}
+        confirmText={
+          deleteMutation.isPending ? t('company.logo.deleting') : t('company.logo.deleteConfirm')
+        }
         cancelText={t('company.logo.cancel')}
         loading={deleteMutation.isPending}
         variant="danger"

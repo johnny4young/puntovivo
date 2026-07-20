@@ -79,13 +79,13 @@ export interface ElectronAPI {
     path?: string;
     error?: string;
     /**
-     * ENG-167b — the bundle is encrypted with another device's key;
+     * the bundle is encrypted with another device's key;
      * prompt the operator and complete via `provideRestoreKey`.
      */
     needsKey?: boolean;
     token?: string;
   }>;
-  /** ENG-167b — complete a cross-device restore with the source key. */
+  /** complete a cross-device restore with the source key. */
   provideRestoreKey?: (
     token: string,
     keyHex: string
@@ -98,23 +98,23 @@ export interface ElectronAPI {
     token?: string;
   }>;
   /**
-   * ENG-167b — discard the pending restore staging when the key
+   * discard the pending restore staging when the key
    * prompt is dismissed; stale tokens are a silent no-op.
    */
   cancelRestoreStaging?: (token: string) => Promise<{ success: boolean }>;
-  /** ENG-167b — admin-gated reveal of this install's backup key. */
+  /** admin-gated reveal of this install's backup key. */
   getBackupEncryptionKey?: () => Promise<{
     success: boolean;
     key?: string;
     error?: string;
   }>;
-  /** ENG-129e — non-secret SQLCipher and key-custody attestation. */
+  /** non-secret SQLCipher and key-custody attestation. */
   getBackupProtectionStatus?: () => Promise<{
     success: boolean;
     status?: BackupProtectionStatus;
     error?: string;
   }>;
-  /** ENG-136a — device-local encrypted snapshot schedule. */
+  /** device-local encrypted snapshot schedule. */
   getBackupScheduleStatus?: () => Promise<{
     success: boolean;
     status?: BackupScheduleStatus;
@@ -139,12 +139,12 @@ export interface ElectronAPI {
     status?: BackupScheduleStatus;
     error?: string;
   }>;
-  /** ENG-136b — non-destructive comparison against the latest snapshot. */
+  /** non-destructive comparison against the latest snapshot. */
   runBackupRestoreDrill?: () => Promise<
     | { success: true; report: BackupRestoreDrillReport }
     | { success: false; error: 'snapshot_unavailable' | 'drill_failed' }
   >;
-  /** ENG-136c — admin-only S3-compatible backup vault; secrets are write-only. */
+  /** admin-only S3-compatible backup vault; secrets are write-only. */
   getBackupCloudVaultStatus?: () => Promise<BackupCloudVaultResult>;
   configureBackupCloudVault?: (
     input: BackupCloudVaultConfigInput
@@ -270,7 +270,7 @@ export interface RuntimeAPI {
 }
 
 /**
- * ENG-074b — local hardware bridge for hub_client terminals. The
+ * local hardware bridge for hub_client terminals. The
  * renderer fetches ESC/POS bytes from the hub via tRPC and pipes
  * them here so the Electron main process writes them to the
  * locally-attached printer / drawer. Per ADR-0008 rule 6 the bridge
@@ -294,7 +294,7 @@ export interface PeripheralsAPI {
 }
 
 /**
- * ENG-025 vector 1 — tenantId is no longer a wire argument. Main
+ * vector 1 — tenantId is no longer a wire argument. Main
  * derives it from the registered desktopSession singleton.
  */
 export interface DatabaseAPI {
@@ -330,7 +330,7 @@ export interface SyncAPI {
 }
 
 /**
- * ENG-025 vector 1 — desktop session lifecycle bound to the JWT
+ * vector 1 — desktop session lifecycle bound to the JWT
  * access token. Renderer registers the token after login and clears
  * on logout; main validates against the embedded server.
  */
@@ -346,7 +346,7 @@ export interface DesktopBridgeAPI extends ElectronAPI {
 }
 
 declare global {
-  // ENG-179b — explicit `| undefined` on optional fields.
+  // explicit `| undefined` on optional fields.
   interface Window {
     electron?: ElectronAPI | undefined;
     db?: DatabaseAPI | undefined;

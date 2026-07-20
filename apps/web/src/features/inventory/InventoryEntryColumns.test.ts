@@ -1,5 +1,5 @@
 /**
- * ENG-132g — Entries column-set contract.
+ * Entries column-set contract.
  *
  * Pins that the Entries table defaults to the smallest useful column set
  * (date / mode / product / counted-qty / actions) and that unit, normalized
@@ -11,13 +11,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getEntryColumns } from './inventoryEntryColumns';
 
-describe('getEntryColumns column set (ENG-132g)', () => {
+describe('getEntryColumns column set', () => {
   it('renders the smallest useful set — unit / normalized / cost / stock-after / notes trimmed', () => {
     const cols = getEntryColumns(vi.fn());
     const ids = cols.map(
       col =>
-        (col as { accessorKey?: string; id?: string }).accessorKey ??
-        (col as { id?: string }).id
+        (col as { accessorKey?: string; id?: string }).accessorKey ?? (col as { id?: string }).id
     );
 
     expect(ids).toEqual(['createdAt', 'mode', 'productName', 'quantity', 'actions']);

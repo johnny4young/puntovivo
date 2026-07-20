@@ -1,5 +1,5 @@
 /**
- * ENG-141b — immutable manager sign-off for the comprehensive day close.
+ * immutable manager sign-off for the comprehensive day close.
  *
  * One row is allowed per tenant business date. The service freezes the exact
  * report presented to the manager, hashes its canonical JSON representation,

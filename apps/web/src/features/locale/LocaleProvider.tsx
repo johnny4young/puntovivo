@@ -1,18 +1,18 @@
 /**
- * ENG-017 / ENG-171 — tenant locale state.
+ * /  — tenant locale state.
  *
- * Originally a React context provider; ENG-171 migrated it to a Zustand
+ * Originally a React context provider;  migrated it to a Zustand
  * store so it no longer re-creates a context value on every render of the
  * provider stack. `useLocaleSync()` (mounted once via `<LocaleSync />` in
  * `App.tsx`) fetches the resolved locale from `tenantLocale.get` on mount
  * and whenever `currentTenant.id` changes, then:
  * - writes the snapshot into the store (read by `useResolvedLocale()`),
  * - pushes a snapshot into the `setActiveTenantLocale` singleton in
- *   `apps/web/src/lib/utils.ts` so the existing ~140 call sites of
- *   `formatCurrency(amount)` pick up the new defaults without a
- *   render-path change,
+ * `apps/web/src/lib/utils.ts` so the existing ~140 call sites of
+ * `formatCurrency(amount)` pick up the new defaults without a
+ * render-path change,
  * - dispatches `i18n.changeLanguage(language)` when the resolved language
- *   changes AND the user has not pinned an explicit preference.
+ * changes AND the user has not pinned an explicit preference.
  *
  * On logout / unauthenticated the singleton is reset to `null` and the
  * store falls back to en-US so a subsequent login as a different tenant
@@ -141,11 +141,7 @@ export function useLocaleSync(): void {
     // what the user picked.
     const userPreference = readLanguagePreference();
     const currentLang = i18n.resolvedLanguage ?? i18n.language;
-    if (
-      userPreference === 'system' &&
-      data.language &&
-      currentLang !== data.language
-    ) {
+    if (userPreference === 'system' && data.language && currentLang !== data.language) {
       void i18n.changeLanguage(data.language);
     }
   }, [isAuthenticated, tenantId, query.data]);

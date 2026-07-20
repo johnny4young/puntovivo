@@ -1,4 +1,4 @@
-// ENG-179c — UI + enum layer of the former monolithic `types/index.ts`.
+// UI + enum layer of the former monolithic `types/index.ts`.
 //
 // Everything here is a shared primitive string-literal union, a generic
 // response wrapper, or another primitive helper shape. None of these
@@ -20,7 +20,7 @@ export type CashMovementType =
 export type TransferHistoryStatus = 'completed' | 'in_transit' | 'void';
 
 // ============================================================================
-// QUOTATIONS (Phase 5 / Tier-2 #6)
+// QUOTATIONS ()
 // ============================================================================
 
 export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
@@ -32,7 +32,7 @@ export type QuotationTransitionStatus = Extract<
 >;
 
 // ============================================================================
-// AUDIT LOGS (Phase 8 / Tier-2 #8)
+// AUDIT LOGS ()
 // ============================================================================
 
 // Mirror of `auditLogActionEnum` in packages/server/src/db/schema.ts. The
@@ -47,11 +47,11 @@ export type AuditLogAction =
   | 'sale.void'
   | 'sale.return'
   | 'cash_session.close'
-  // ENG-056 — shift-lifecycle parity (open + manual movement audits).
+  // shift-lifecycle parity (open + manual movement audits).
   | 'cash_session.open'
   | 'cash_session.movement'
   | 'inventory.adjust_stock'
-  // ENG-007 second wave — admin-surface events.
+  // second wave — admin-surface events.
   | 'purchase.void'
   | 'user.create'
   | 'user.update'
@@ -60,10 +60,10 @@ export type AuditLogAction =
   | 'employee_shift.clock_in'
   | 'employee_shift.clock_out'
   | 'employee_shift.correct'
-  // ENG-140b — explicit employee break boundaries.
+  // explicit employee break boundaries.
   | 'employee_shift_break.start'
   | 'employee_shift_break.end'
-  // ENG-140a — manager-authored schedule lifecycle.
+  // manager-authored schedule lifecycle.
   | 'scheduled_shift.create'
   | 'scheduled_shift.update'
   | 'scheduled_shift.cancel'
@@ -77,77 +77,77 @@ export type AuditLogAction =
   | 'loss_prevention.alert.acknowledged'
   | 'cash_drawer.open'
   | 'sale.price_override'
-  // ENG-018 — park-and-resume (including discard metadata flag).
+  // park-and-resume (including discard metadata flag).
   | 'sale.park'
   | 'sale.resume'
-  // ENG-019 — receipt reprint.
+  // receipt reprint.
   | 'sale.reprint'
-  // ENG-018c — draft completion (state change on an existing draft).
+  // draft completion (state change on an existing draft).
   | 'sale.complete'
-  // ENG-047 — local anomaly detector audit persistence.
+  // local anomaly detector audit persistence.
   | 'ai.anomaly.detected'
-  // ENG-068 — module activation kernel toggle audit row.
+  // module activation kernel toggle audit row.
   | 'module.toggle'
   // A-30 — vertical preset applied (sets several surface modules at once).
   | 'module.preset_applied'
-  // ENG-075 — hub-client terminal revocation.
+  // hub-client terminal revocation.
   | 'device.revoke'
-  // ENG-168 — fresh device claims its pairing code (handover trail).
+  // fresh device claims its pairing code (handover trail).
   | 'device.pairing.claimed'
-  // ENG-065d — Operations Center payment admin gestures.
+  // Operations Center payment admin gestures.
   | 'payment.retry'
   | 'payment.mark_settled'
-  // ENG-039b — restaurant table catalog admin gestures.
+  // restaurant table catalog admin gestures.
   | 'restaurant_table.create'
   | 'restaurant_table.update'
   | 'restaurant_table.archive'
-  // ENG-039c — restaurant table FK move on a suspended draft.
+  // restaurant table FK move on a suspended draft.
   | 'sale.changeTable'
-  // ENG-039c3 — split-bill: subset of items moved out of a suspended
+  // split-bill: subset of items moved out of a suspended
   // draft into a brand-new suspended draft. resourceId references the
   // new draft; metadata.sourceSaleNumber names the donor.
   | 'sale.splitDraft'
-  // ENG-094 / AI Núcleo 2026-05-15 — generic AI-feature audit rows.
+  // / AI Núcleo 2026-05-15 — generic AI-feature audit rows.
   | 'ai.invoice_ocr.extract'
   | 'ai.invoice_ocr.confirm'
   | 'ai.copilot.query'
   | 'ai.anomaly.silenced'
   | 'ai.semantic_search.regenerate_embeddings'
-  // ENG-098 — kitchen display Listo + recall actions.
+  // kitchen display Listo + recall actions.
   | 'kds.order.ready'
   | 'kds.order.recalled'
-  // ENG-007 closure — credit-policy mutations.
+  // closure — credit-policy mutations.
   | 'customer.credit_limit.update'
-  // ENG-129b — audited customer personal-data disclosure.
+  // audited customer personal-data disclosure.
   | 'customer.personal_data.export'
   | 'customer.personal_data.delete'
   | 'customer.personal_data.anonymize'
-  // ENG-129d — tenant retention policy changes and manual sweeps.
+  // tenant retention policy changes and manual sweeps.
   | 'data_retention.policy.updated'
   | 'data_retention.sweep.run'
   | 'sale.credit_override'
-  // ENG-103 — audit-grade export contract. Emitted by
+  // audit-grade export contract. Emitted by
   // `reports.fiscal.getXml` every time an admin / manager downloads
   // a signed XML body. Metadata carries `{ cufe, documentNumber }`.
   | 'fiscal.xml.downloaded'
-  // ENG-135 — production observability rail. Emitted every time an
+  // production observability rail. Emitted every time an
   // admin flips `tenants.settings.telemetryOptIn` via
   // `companies.updateTelemetryOptIn`. before/after carry the boolean
   // state so forensics can replay the consent timeline.
   | 'telemetry.opt_in.updated'
-  // ENG-199 — expiry-radar discount suggestions (accept + dismiss).
+  // expiry-radar discount suggestions (accept + dismiss).
   | 'inventory.lot.discount_suggested'
   | 'inventory.lot.discount_suggestion_dismissed'
-  // ENG-136b — admin restore-readiness evidence.
+  // admin restore-readiness evidence.
   | 'backup.restore_drill'
-  // ENG-123a through ENG-123f — launch import summaries.
+  // through  — launch import summaries.
   | 'data_import.products'
   | 'data_import.customers'
   | 'data_import.providers'
   | 'data_import.customer_balances'
   | 'data_import.opening_cash'
   | 'data_import.fiscal_profile'
-  // ENG-141b — immutable comprehensive day-close attestation.
+  // immutable comprehensive day-close attestation.
   | 'day_close.sign_off';
 
 export type AuditLogResourceType =
@@ -155,7 +155,7 @@ export type AuditLogResourceType =
   | 'quotation'
   | 'sale'
   | 'cash_session'
-  // ENG-056 — manual cash movements emit audit rows keyed to the
+  // manual cash movements emit audit rows keyed to the
   // cash_movements row id.
   | 'cash_movement'
   | 'product'
@@ -169,34 +169,34 @@ export type AuditLogResourceType =
   | 'loss_prevention_alert'
   | 'site'
   | 'cashier'
-  // ENG-068 — module activation kernel resource type.
+  // module activation kernel resource type.
   | 'tenant_module'
-  // ENG-075 — hub-client terminal registry lifecycle.
+  // hub-client terminal registry lifecycle.
   | 'device'
-  // ENG-065d — payment_outbox rows targeted by admin retry / mark_settled.
+  // payment_outbox rows targeted by admin retry / mark_settled.
   | 'payment_outbox'
-  // ENG-039b — restaurant_tables catalog rows.
+  // restaurant_tables catalog rows.
   | 'restaurant_table'
-  // ENG-094 / AI Núcleo 2026-05-15 — generic AI-feature resource rows.
+  // / AI Núcleo 2026-05-15 — generic AI-feature resource rows.
   | 'ai_feature'
-  // ENG-098 — kitchen display rows.
+  // kitchen display rows.
   | 'kds_order'
-  // ENG-007 closure — customer rows targeted by credit-limit audits.
+  // closure — customer rows targeted by credit-limit audits.
   | 'customer'
-  // ENG-103 — fiscal documents targeted by the `getXml` download
+  // fiscal documents targeted by the `getXml` download
   // procedure. `resourceId` is the internal `fiscal_documents.id`,
   // not the cufe.
   | 'fiscal_document'
-  // ENG-135 — tenant-level settings rows targeted by the
+  // tenant-level settings rows targeted by the
   // `telemetry.opt_in.updated` action. `resourceId` is the tenantId.
   | 'tenant'
-  // ENG-199 — price_suggestions rows targeted by the expiry-radar audits.
+  // price_suggestions rows targeted by the expiry-radar audits.
   | 'price_suggestion'
-  // ENG-136b — scheduler-owned encrypted snapshot.
+  // scheduler-owned encrypted snapshot.
   | 'backup_snapshot'
-  // ENG-123a — one auditable launch import run.
+  // one auditable launch import run.
   | 'data_import'
-  // ENG-141b — signed comprehensive day-close evidence.
+  // signed comprehensive day-close evidence.
   | 'day_close_signoff';
 
 export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';

@@ -13,7 +13,7 @@ export const getActiveCashSessionInput = z
   })
   .optional();
 
-/** ENG-209 — aggregate-only, self-scoped cashier pace output. */
+/** aggregate-only, self-scoped cashier pace output. */
 export const cashierPaceOutput = z
   .object({
     sessionId: z.string(),
@@ -68,13 +68,13 @@ export const pendingChecksInput = z
   })
   .optional();
 
-/** ENG-198 — day-close ritual: the closed session the summary is about. */
+/** day-close ritual: the closed session the summary is about. */
 export const dayCloseSummaryInput = z.object({
   sessionId: z.string().min(1, 'Session id is required'),
 });
 
-/** WC-C8 — explicit output contract keeps owner-only pulse redaction and the
- * share-card metrics visible to the WC-E2 API snapshot gate. */
+/** explicit output contract keeps owner-only pulse redaction and the
+ * share-card metrics visible to the  API snapshot gate. */
 export const dayCloseSummaryOutput = z.object({
   session: z.object({
     registerName: z.string(),
@@ -95,7 +95,7 @@ export const dayCloseSummaryOutput = z.object({
       revenueChangePct: z.number().nullable(),
     })
     .nullable(),
-  // ENG-205 — same-weekday-last-week revenue for the shareable pulse (all
+  // same-weekday-last-week revenue for the shareable pulse (all
   // roles; revenue only, no owner data). Null when that day had no sales.
   previousWeek: z.object({ revenue: z.number() }).nullable(),
   topProducts: z.array(

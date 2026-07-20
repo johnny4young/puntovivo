@@ -1,5 +1,5 @@
 /**
- * ENG-178 — lot costing, expiry, and price-suggestion schema.
+ * lot costing, expiry, and price-suggestion schema.
  *
  * @module db/schema/inventory/lots
  */
@@ -96,7 +96,7 @@ export const inventoryLotsRelations = relations(inventoryLots, ({ one }) => ({
 }));
 
 // ============================================================================
-// PRICE SUGGESTIONS (ENG-199 — expiry radar)
+// PRICE SUGGESTIONS (expiry radar)
 // ============================================================================
 
 /** Why a suggestion exists. v1 only emits `expiry` (radar de vencimientos);
@@ -110,11 +110,11 @@ export const priceSuggestionReasonEnum = ['expiry'] as const;
 export const priceSuggestionStatusEnum = ['active', 'dismissed'] as const;
 
 /**
- * A discount suggestion recorded from the expiry radar (ENG-199 / WC-C3).
+ * A discount suggestion recorded from the expiry radar ( / ).
  * One row per accepted CTA: the manager saw a lot expiring soon and accepted
  * the deterministic tier discount (see EXPIRY_DISCOUNT_TIERS in
  * services/price-suggestions.ts). The POS reads active rows to badge the
- * product ("sugerido -20%"); v2 (WC-D1 price lists) will consume this same
+ * product ("sugerido -20%"); v2 ( price lists) will consume this same
  * table to turn suggestions into real promos.
  */
 export const priceSuggestions = sqliteTable(

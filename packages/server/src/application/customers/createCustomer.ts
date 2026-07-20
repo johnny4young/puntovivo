@@ -1,4 +1,4 @@
-/** ENG-123b — Canonical customer-profile create use-case. */
+/** Canonical customer-profile create use-case. */
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -64,7 +64,7 @@ export async function createCustomer(ctx: CustomerMutationContext, input: Create
     ),
   ]);
 
-  // ENG-176b — stamp credit_limit_currency_code only when the customer
+  // stamp credit_limit_currency_code only when the customer
   // actually has a credit limit. `0 = sin cupo` is the legacy sentinel;
   // setting a currency on a customer with no active limit would be misleading.
   const normalizedCreditLimit = roundMoney(input.creditLimit ?? 0);
@@ -89,7 +89,7 @@ export async function createCustomer(ctx: CustomerMutationContext, input: Create
     clientTypeId: clientTypeCode,
     commercialActivityId: commercialActivityCode,
     notes: input.notes,
-    // ENG-089 — default cupo to 0 (sin cupo) when the operator did not pick
+    // default cupo to 0 (sin cupo) when the operator did not pick
     // a value; the persistence-layer NOT NULL guard protects the column.
     creditLimit: normalizedCreditLimit,
     creditLimitCurrencyCode,

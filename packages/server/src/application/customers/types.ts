@@ -1,4 +1,4 @@
-/** ENG-208 — Public types for manual customer-ledger write use-cases. */
+/** Public types for manual customer-ledger write use-cases. */
 import type { DatabaseInstance } from '../../db/index.js';
 
 export interface CustomerLedgerContext {

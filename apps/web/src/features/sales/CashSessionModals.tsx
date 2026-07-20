@@ -43,7 +43,7 @@ interface CashSessionModalsProps {
   cashSessionMovementError: string | null;
   onCloseMovementModal: () => void;
   onSubmitMovement: (values: CashSessionMovementValues) => Promise<void>;
-  /** ENG-198 — non-null mounts the day-close ritual for that session. */
+  /** non-null mounts the day-close ritual for that session. */
   dayCloseSessionId: string | null;
   onCloseDayClose: () => void;
 }

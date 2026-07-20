@@ -163,7 +163,7 @@ beforeEach(() => {
   mocks.list.error = null;
 });
 
-describe('TeamSchedulePage (ENG-140a)', () => {
+describe('TeamSchedulePage', () => {
   it('renders a responsive weekly schedule with tenant timezone and KPIs', async () => {
     render(<TeamSchedulePage />);
 

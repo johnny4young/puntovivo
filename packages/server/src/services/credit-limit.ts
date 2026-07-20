@@ -1,10 +1,10 @@
 /**
- * Credit limit invariant — ENG-090.
+ * Credit limit invariant — .
  *
  * `requireCreditLimitNotExceeded` is the server-side guard that
  * `completeSale` calls before writing a `customer_ledger_entries`
  * row of `kind='sale'`. The invariant reads the customer's
- * `creditLimit` column (introduced by ENG-089) and the running
+ * `creditLimit` column (introduced by ) and the running
  * balance computed as `SUM(amount)` over the existing ledger rows,
  * then projects what the balance would be after the attempted
  * sale. If the projection exceeds the limit, the helper throws
@@ -13,12 +13,12 @@
  *
  * Two bypass paths:
  *
- *   - `creditLimit === 0` is the explicit "no limit" sentinel per
- *     ENG-089. The helper returns immediately; sales proceed.
- *   - `allowOverride === true` is the admin-override path. The
- *     router gates the flag to admin callers; the helper trusts
- *     the bool and skips the throw. The ledger row is still
- *     written so the receivable remains visible.
+ * - `creditLimit === 0` is the explicit "no limit" sentinel per
+ * . The helper returns immediately; sales proceed.
+ * - `allowOverride === true` is the admin-override path. The
+ * router gates the flag to admin callers; the helper trusts
+ * the bool and skips the throw. The ledger row is still
+ * written so the receivable remains visible.
  *
  * The helper is pure-with-db (no DOM, no globals); a given input
  * always reads the same row + sum so it is safe to call inside the
@@ -52,8 +52,8 @@ export interface CreditLimitProjection {
   projectedBalance: number;
   attemptedAmount: number;
   /** True when the projection exceeded the limit but the override
-   *  flag was set; lets callers surface override metadata if they
-   *  choose to persist it. */
+   * flag was set; lets callers surface override metadata if they
+   * choose to persist it. */
   overrideApplied: boolean;
 }
 
@@ -87,20 +87,14 @@ export async function requireCreditLimitNotExceeded(
   const customer = await input.db
     .select({ creditLimit: customers.creditLimit })
     .from(customers)
-    .where(
-      and(
-        eq(customers.id, input.customerId),
-        eq(customers.tenantId, input.tenantId)
-      )
-    )
+    .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, input.tenantId)))
     .get();
 
   if (!customer) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'CREDIT_SALE_CUSTOMER_REQUIRED',
-      message:
-        'Credit sale requires an existing customer attached to the sale',
+      message: 'Credit sale requires an existing customer attached to the sale',
       details: { customerId: input.customerId },
     });
   }
@@ -121,9 +115,7 @@ export async function requireCreditLimitNotExceeded(
 
   const balanceRow = await input.db
     .select({
-      balance: sql<number>`COALESCE(SUM(${customerLedgerEntries.amount}), 0)`.as(
-        'balance'
-      ),
+      balance: sql<number>`COALESCE(SUM(${customerLedgerEntries.amount}), 0)`.as('balance'),
     })
     .from(customerLedgerEntries)
     .where(

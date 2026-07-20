@@ -36,7 +36,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   const toast = useToast();
   const utils = trpc.useUtils();
   const { currentSite } = useTenant();
-  // ENG-062 + ENG-074b — ESC/POS dispatch decision is collapsed into
+  // +  — ESC/POS dispatch decision is collapsed into
   // `createEscposReceiptDispatcher`. In `device_local` / `site_hub`
   // it calls `peripherals.printReceipt` (server-side flush); in
   // `hub_client` it asks the hub for the bytes via
@@ -81,7 +81,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
   const [returnError, setReturnError] = useState<string | null>(null);
   const [voidError, setVoidError] = useState<string | null>(null);
-  // ENG-019 — reprint controls. Opens a small inline modal so the cashier
+  // reprint controls. Opens a small inline modal so the cashier
   // can pick a reason (or leave it blank) before the server-side call.
   const [isReprintModalOpen, setIsReprintModalOpen] = useState(false);
   const [reprintReason, setReprintReason] = useState<ReprintReason | ''>('');
@@ -260,7 +260,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   });
   const canReturnSale = isSalesRole && isPostSaleEligible;
   const canVoidSale = isSalesRole && isPostSaleEligible;
-  // ENG-019 — any non-draft sale is reprintable. The server enforces the
+  // any non-draft sale is reprintable. The server enforces the
   // cashier-active-session rule; UI surfaces the button for everyone and
   // shows the translated error on denial.
   const canReprintSale = !!sale && sale.status !== 'draft';

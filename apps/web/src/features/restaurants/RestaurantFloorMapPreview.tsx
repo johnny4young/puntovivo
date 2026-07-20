@@ -22,15 +22,15 @@ interface RestaurantFloorMapPreviewProps {
 }
 
 /**
- * ENG-087 — V2 floor map preview from the design-system handoff.
+ * V2 floor map preview from the design specification.
  *
  * Sits above the admin CRUD table on RestaurantTablesPage and
  * visualises the mesa catalog as a grid of cards grouped by area.
  * Each card carries:
- *   - the mesa name in a large display font
- *   - a status pill (libre · archivada — derived from `isActive`
- *     until ENG-NNN adds live order state)
- *   - a seat-count line ("Cupo · N pers.")
+ * - the mesa name in a large display font
+ * - a status pill (libre · archivada — derived from `isActive`
+ * until  adds live order state)
+ * - a seat-count line ("Cupo · N pers.")
  *
  * This is read-only today; clicking a card surfaces a selection so
  * the CRUD form below can pre-focus the right row. The richer comanda
@@ -112,10 +112,7 @@ export function RestaurantFloorMapPreview({
                         <Table2 className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <span
-                        className={cn(
-                          'badge',
-                          mesa.isActive ? 'badge-success' : 'badge-secondary'
-                        )}
+                        className={cn('badge', mesa.isActive ? 'badge-success' : 'badge-secondary')}
                       >
                         {mesa.isActive
                           ? t('floorMap.status.free', { defaultValue: 'Libre' })

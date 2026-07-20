@@ -1,14 +1,14 @@
 /**
- * ENG-213 — loyalty router (WC-D2 minimum viable).
+ * loyalty router ( minimum viable).
  *
  * - `.forCustomer` — tenant-wide read: the cashier needs the balance to
- *   tell the customer what they have, so it is NOT manager-gated. The
- *   payload is points + ledger, no cost or margin data.
+ * tell the customer what they have, so it is NOT manager-gated. The
+ * payload is points + ledger, no cost or margin data.
  * - `.settings` / `.updateSettings` — managerOrAdmin read, admin write:
- *   the accrual rate is a point-liability decision, i.e. owner territory.
+ * the accrual rate is a point-liability decision, i.e. owner territory.
  * - `.adjust` — admin-only manual correction, always with a note (the row
- *   is the audit trail; an unexplained balance change is a support ticket
- *   waiting to happen).
+ * is the audit trail; an unexplained balance change is a support ticket
+ * waiting to happen).
  *
  * Accrual itself has no procedure: it happens inside the sale transaction
  * (`application/sales/runFreshSale`), never as a separate client call.

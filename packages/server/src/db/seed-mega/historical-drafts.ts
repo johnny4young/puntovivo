@@ -1,5 +1,5 @@
 /**
- * ENG-052b — MEGA seed: suspended drafts spread 0-7 days back.
+ * MEGA seed: suspended drafts spread 0-7 days back.
  *
  * Each draft is a fully-shaped sale row with status='draft' +
  * suspended_at populated; sales lifecycle UI (SuspendedSalesPanel)
@@ -9,11 +9,7 @@
  */
 
 import { nanoid } from 'nanoid';
-import {
-  inventoryMovements,
-  saleItems,
-  sales,
-} from '../schema.js';
+import { inventoryMovements, saleItems, sales } from '../schema.js';
 import { laterIso, randomDaysAgoIso } from './time-helpers.js';
 import type { MegaContext, MegaTarget } from './types.js';
 
@@ -49,7 +45,17 @@ export async function seedHistoricalDrafts(
     const itemsCount = 1 + (i % 3);
     let subtotal = 0;
     let taxAmount = 0;
-    const itemsBuilt: Array<{ id: string; productId: string; quantity: number; unitPrice: number; taxRate: number; cost: number; taxLine: number; total: number; baseUnitId: string }> = [];
+    const itemsBuilt: Array<{
+      id: string;
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      taxRate: number;
+      cost: number;
+      taxLine: number;
+      total: number;
+      baseUnitId: string;
+    }> = [];
     for (let li = 0; li < itemsCount; li += 1) {
       const product = products[(i * 5 + li * 3) % products.length]!;
       const quantity = 1 + (i % 4);

@@ -1,14 +1,14 @@
 /**
- * ENG-196 — property-based invariants for roundMoney.
+ * property-based invariants for roundMoney.
  *
  * The golden-vector parity suites pin both implementations to a reference
  * formula over a fixed sweep; these properties cover the space between the
  * vectors with generated doubles. The invariants:
- *   - idempotence: rounding a rounded value is a fixed point;
- *   - sign symmetry: roundMoney(-x) === -roundMoney(x) (half-away-from-zero
- *     must mirror across zero — the documented Math.round pitfall);
- *   - bounded error: |x − roundMoney(x)| never exceeds half a cent (plus
- *     float noise at large magnitudes).
+ * - idempotence: rounding a rounded value is a fixed point;
+ * - sign symmetry: roundMoney(-x) === -roundMoney(x) (half-away-from-zero
+ * must mirror across zero — the documented Math.round pitfall);
+ * - bounded error: |x − roundMoney(x)| never exceeds half a cent (plus
+ * float noise at large magnitudes).
  */
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
@@ -23,7 +23,7 @@ const finiteMoney = fc.double({
 
 const RUNS = { numRuns: 1000 };
 
-describe('roundMoney properties (ENG-196)', () => {
+describe('roundMoney properties', () => {
   it('is idempotent: roundMoney(roundMoney(x)) === roundMoney(x)', () => {
     fc.assert(
       fc.property(finiteMoney, x => {

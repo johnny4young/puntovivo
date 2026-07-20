@@ -1,17 +1,17 @@
 /**
- * ENG-001 Step 3 — shared E2E baseline preparation.
+ * Step 3 — shared E2E baseline preparation.
  *
  * Both the web Playwright suite (`e2e/web/global-setup.ts`) and the
  * Electron smoke runner (`e2e/electron/global-setup.ts`) need the same
  * tenant to end up with:
  *
- *   - 4 template users with known credentials
- *     (`e2e.admin@local.test`, `e2e.manager@local.test`,
- *     `e2e.cashier@local.test`, `e2e.viewer@local.test`; shared password
- *     `PuntovivoE2E!123`).
- *   - At least 2 active sites so inventory transfers have somewhere to go.
- *   - Artefacts from prior runs pruned so the catalog and history lists
- *     stay bounded under parallel reruns.
+ * - 4 template users with known credentials
+ * (`e2e.admin@local.test`, `e2e.manager@local.test`,
+ * `e2e.cashier@local.test`, `e2e.viewer@local.test`; shared password
+ * `PuntovivoE2E!123`).
+ * - At least 2 active sites so inventory transfers have somewhere to go.
+ * - Artefacts from prior runs pruned so the catalog and history lists
+ * stay bounded under parallel reruns.
  *
  * This module performs those three tasks against ANY `better-sqlite3`
  * database handle supplied by the caller. The web runner opens
@@ -47,7 +47,7 @@ export const E2E_USERS: readonly E2EUserProfile[] = [
 export const SECONDARY_SITE_NAME = 'E2E Branch Site';
 
 /**
- * ENG-141b — signed day closes are immutable in production, including direct
+ * signed day closes are immutable in production, including direct
  * SQL writes. The shared E2E database must still start each suite from a
  * repeatable baseline, so fixture setup temporarily removes the sign-off and
  * PDF guards, deletes only the isolated E2E tenant's artifacts before their
@@ -241,7 +241,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
 
   resetDayCloseSignoffs(db, tenantId);
 
-  // ENG-106c1 — approval decisions reference both the requesting cashier and
+  // approval decisions reference both the requesting cashier and
   // approving manager. Clear the sync/audit children first so a failed smoke
   // never strands a request that blocks user cleanup or appears in the next
   // manager queue.
@@ -253,7 +253,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   ).run(tenantId);
   db.prepare('delete from manager_approval_requests where tenant_id = ?').run(tenantId);
 
-  // ENG-106b — attendance belongs to the shared template employees, so a
+  // attendance belongs to the shared template employees, so a
   // failed prior smoke could otherwise leave the next run already clocked
   // in. This is an isolated E2E tenant; clear both the rows and their soft
   // audit references before recreating the deterministic baseline.
@@ -263,7 +263,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
     )
     .get();
   if (employeeShiftCorrectionsTableExists) {
-    // ENG-140e correction snapshots deliberately use NO ACTION foreign keys
+    // correction snapshots deliberately use NO ACTION foreign keys
     // and immutable triggers. E2E owns this isolated tenant, so drop the
     // append-only children before their raw attendance parents.
     db.prepare('delete from employee_shift_corrections where tenant_id = ?').run(tenantId);
@@ -277,7 +277,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
     ).run(tenantId);
     db.prepare('delete from employee_shift_breaks where tenant_id = ?').run(tenantId);
   }
-  // ENG-140d — cash sessions now retain nullable attendance evidence. The
+  // cash sessions now retain nullable attendance evidence. The
   // isolated baseline deliberately resets every shift while preserving the
   // template drawers, so detach those historical/session rows before deleting
   // the labor parent. The column check keeps this cleanup compatible with a
@@ -295,7 +295,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   );
   db.prepare('delete from employee_shifts where tenant_id = ?').run(tenantId);
 
-  // ENG-140a — published schedules reference template users/sites and keep
+  // published schedules reference template users/sites and keep
   // their own audit chain. Clear the isolated tenant before user cleanup so
   // repeat E2E runs never retain a foreign-key or overlap from a prior smoke.
   const scheduledShiftsTableExists = db
@@ -318,7 +318,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
        )`
   ).run(tenantId, tenantId, ...keepUserArgs);
 
-  // ENG-053 journal rows reference both users and devices. Clear the
+  // journal rows reference both users and devices. Clear the
   // children explicitly so older DBs without FK cascades stay cleanup-safe.
   db.prepare(
     `delete from operation_errors
@@ -461,7 +461,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
        )
      )`
   ).run(tenantId, ...keepUserArgs);
-  // ENG-110d — procurement provenance uses a restrictive FK from each
+  // procurement provenance uses a restrictive FK from each
   // received serial to its source purchase line. Remove exact identities
   // before pruning the disposable purchase_items parent rows.
   if (
@@ -546,7 +546,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // the same children by product id so the cleanup is idempotent against
   // any historical state.
   db.prepare(`delete from sale_items where product_id in (${e2eProductIds})`).run(tenantId);
-  // ENG-110c — sale_item_serials cascades with the sale lines above, then
+  // sale_item_serials cascades with the sale lines above, then
   // the current serial registry must be removed before its product parent.
   if (
     db
@@ -613,7 +613,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
 }
 
 /**
- * ENG-104 added a post-login redirect that sends admin users to
+ * added a post-login redirect that sends admin users to
  * `/company?tab=readiness` when `tenants.settings.setupAcknowledgedAt`
  * is null and the readiness aggregate reports blockers. E2E tests
  * expect the admin to land on `/dashboard` (and every other test that
@@ -637,7 +637,7 @@ export function ensureSetupAcknowledged(db: Database.Database, tenantId: string)
 }
 
 /**
- * ENG-134g — the module-gated surfaces (`/touch`, `/kds`,
+ * the module-gated surfaces (`/touch`, `/kds`,
  * `/customer-display`, `/m`, `/delivery`) ship OFF by default on a
  * fresh retail tenant, so the Playwright a11y smoke could never reach
  * them (`SurfaceShellRoute` redirects to `/dashboard` when the module
@@ -728,7 +728,7 @@ export async function prepareBaseline(db: Database.Database): Promise<void> {
 }
 
 /**
- * ENG-202 — Reset the dedicated first-sale tenant to a true zero-product,
+ * Reset the dedicated first-sale tenant to a true zero-product,
  * zero-drawer, zero-sale state. Reuses the baseline's disposal choreography
  * so reruns remove the prior sale's children, inventory rows, device/session
  * records, and disposable actor before recreating the known admin account.

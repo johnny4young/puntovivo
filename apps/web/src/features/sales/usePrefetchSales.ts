@@ -1,5 +1,5 @@
 /**
- * ENG-171 — hover/focus prefetch for the sidebar `/sales` entry.
+ * hover/focus prefetch for the sidebar `/sales` entry.
  *
  * Warms the four heaviest SalesPage entry queries into the React Query
  * cache the moment the operator hovers (or keyboard-focuses) the Sales

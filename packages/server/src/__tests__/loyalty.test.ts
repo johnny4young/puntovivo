@@ -1,17 +1,17 @@
 /**
- * ENG-213 — minimum viable loyalty (WC-D2).
+ * minimum viable loyalty ().
  *
  * Pins the contracts that make points trustworthy:
- *   - the ledger is the truth and the balance is its rollup — parity
- *     `points ≡ Σ(movements.points)` holds through earn / revert / adjust;
- *   - accrual rides the REAL sale transaction (floor rule, snapshot rate),
- *     is idempotent per sale, and is silent when the program is off, the
- *     sale has no customer, or the total earns nothing;
- *   - a reversed sale takes its points back by APPENDING a negative row,
- *     never by erasing history, and never twice;
- *   - manual adjustments are gated (admin), audited by their note, and can
- *     never leave a negative balance;
- *   - multi-tenant isolation on every read/write.
+ * - the ledger is the truth and the balance is its rollup — parity
+ * `points ≡ Σ(movements.points)` holds through earn / revert / adjust;
+ * - accrual rides the REAL sale transaction (floor rule, snapshot rate),
+ * is idempotent per sale, and is silent when the program is off, the
+ * sale has no customer, or the total earns nothing;
+ * - a reversed sale takes its points back by APPENDING a negative row,
+ * never by erasing history, and never twice;
+ * - manual adjustments are gated (admin), audited by their note, and can
+ * never leave a negative balance;
+ * - multi-tenant isolation on every read/write.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type Database from 'better-sqlite3';
@@ -101,7 +101,7 @@ async function expectParity(customer = customerId) {
   expect(account.points).toBe(ledger?.total ?? 0);
 }
 
-describe('loyalty (ENG-213)', () => {
+describe('loyalty', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
@@ -346,7 +346,7 @@ describe('loyalty (ENG-213)', () => {
   });
 
   it('earns the same points when the sale is completed from a suspended draft', async () => {
-    // A cashier suspending a ticket is a workflow detail; the customer paid
+    // A cashier suspending a change is a workflow detail; the customer paid
     // the same money for the same goods and must earn the same points.
     await writeLoyaltySettings(getDatabase(), tenantId, { enabled: true, pointsPerUnit: 0.01 });
     const caller = appRouter.createCaller(fresh());
@@ -380,7 +380,7 @@ describe('loyalty (ENG-213)', () => {
   });
 
   it('earns points for the customer attached while completing a walk-in draft', async () => {
-    // ENG-216 regression: the web only picks a customer in the payment
+    // regression: the web only picks a customer in the payment
     // drawer, after the ticket has already been suspended without one. The
     // resolved customer must drive both the completed sale and accrual.
     await writeLoyaltySettings(getDatabase(), tenantId, { enabled: true, pointsPerUnit: 0.01 });

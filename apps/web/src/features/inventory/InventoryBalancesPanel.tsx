@@ -16,7 +16,7 @@ import type { InventoryBalanceListItem } from '@/types';
 import type { InventoryTransferFormValues } from './InventoryTransferModal';
 import { InventoryTransferHistory } from './InventoryTransferHistory';
 
-// ENG-110d — exact serial selection makes the transfer form materially heavier.
+// exact serial selection makes the transfer form materially heavier.
 // Keep it out of the already budget-sensitive inventory route until requested.
 const InventoryTransferModal = lazy(() =>
   import('./InventoryTransferModal').then(module => ({ default: module.InventoryTransferModal }))
@@ -39,7 +39,7 @@ function buildBalanceColumns(t: (key: string) => string): ColumnDef<InventoryBal
       accessorKey: 'productName',
       header: () => t('balances.columns.product'),
       size: 280,
-      // Rediseño FASE 6 — celda ancla (.pv-table .prod/.pic/.pname/.sku):
+      // celda ancla (.pv-table .prod/.pic/.pname/.sku):
       // glifo tonal + nombre fuerte + SKU mono debajo.
       cell: ({ row }) => (
         <div className="prod">
@@ -82,8 +82,8 @@ function buildBalanceColumns(t: (key: string) => string): ColumnDef<InventoryBal
 }
 
 /**
- * Phase 2 "By Site" panel — per-site inventory balances plus the immediate
- * transfer mutation (DB-101 / API-101 read + DB-102 / API-102 write).
+ * "By Site" panel — per-site inventory balances plus the immediate
+ * transfer mutation (site-scoped balance read and atomic transfer write).
  *
  * Balances are seeded lazily from `products.stock` onto the primary site on
  * first read. Once rows exist they are authoritative and every inventory
@@ -161,7 +161,7 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
   }
 
   if (activeSites.length === 0) {
-    // Rediseño FASE 6 — estado vacío único (.pv-empty) cuando no hay sedes
+    // estado vacío único (.pv-empty) cuando no hay sedes
     // activas; conserva el mensaje guía como descripción.
     return (
       <div className="card p-6">
@@ -185,7 +185,7 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
 
   return (
     <div className="space-y-4">
-      {/* Rediseño FASE 6 — selector de sede con receta de formulario
+      {/* selector de sede con receta de formulario
           (.pv-field/.pv-input) y botón de traslado .pv-btn. */}
       <div className="card p-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="pv-field md:max-w-sm md:flex-1">
@@ -218,7 +218,7 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
         </button>
       </div>
 
-      {/* Rediseño FASE 6 — KPIs por sede con la receta única (.pv-kpi). */}
+      {/* KPIs por sede con la receta única (.pv-kpi). */}
       <div className="pv-kpis grid gap-4 md:grid-cols-3">
         <KpiTile
           icon={Boxes}

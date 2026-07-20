@@ -1,5 +1,5 @@
 /**
- * Orders router — read procedures (ENG-178 split).
+ * Orders router — read procedures ( split).
  *
  * `list` (paginated, receipt-progress metadata) + `getById`. Both manager/admin.
  *

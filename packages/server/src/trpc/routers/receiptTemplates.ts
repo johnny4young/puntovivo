@@ -4,14 +4,14 @@
  * Procedures (all admin-only — receipt templates are tenant-wide
  * configuration that affects every printed sale, so cashiers must not
  * edit them):
- *  - `receiptTemplates.list`           — list templates, optionally filtered by kind
- *  - `receiptTemplates.getById`        — single template detail
- *  - `receiptTemplates.create`         — insert a template
- *  - `receiptTemplates.update`         — update name / layout / active flag
- *  - `receiptTemplates.delete`         — delete (with last-template-for-kind guard)
- *  - `receiptTemplates.setDefault`     — promote to default for its kind atomically
- *  - `receiptTemplates.duplicate`      — copy with " (copy)" name suffix
- *  - `receiptTemplates.renderPreview`  — render mock data through a saved or inline layout
+ * - `receiptTemplates.list`           — list templates, optionally filtered by kind
+ * - `receiptTemplates.getById`        — single template detail
+ * - `receiptTemplates.create`         — insert a template
+ * - `receiptTemplates.update`         — update name / layout / active flag
+ * - `receiptTemplates.delete`         — delete (with last-template-for-kind guard)
+ * - `receiptTemplates.setDefault`     — promote to default for its kind atomically
+ * - `receiptTemplates.duplicate`      — copy with " (copy)" name suffix
+ * - `receiptTemplates.renderPreview`  — render mock data through a saved or inline layout
  *
  * The `renderPreview` procedure exists so the live editor can produce
  * an HTML preview without a save round-trip; it accepts an inline
@@ -36,10 +36,7 @@ import {
   setDefaultReceiptTemplate,
   updateReceiptTemplate,
 } from '../../services/receipt-templates.js';
-import {
-  buildPreviewData,
-  renderReceipt,
-} from '../../services/receipt-renderer/index.js';
+import { buildPreviewData, renderReceipt } from '../../services/receipt-renderer/index.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import {
   createReceiptTemplateInput,
@@ -62,70 +59,58 @@ function isFiscalDianEnabled(settings: unknown): boolean {
 }
 
 export const receiptTemplatesRouter = router({
-  list: adminProcedure
-    .input(listReceiptTemplatesInput)
-    .query(({ ctx, input }) => {
-      const items = listReceiptTemplates(ctx.db, ctx.tenantId, {
-        kind: input?.kind,
-        includeInactive: input?.includeInactive,
-        limit: input?.limit,
-      });
-      return { items };
-    }),
+  list: adminProcedure.input(listReceiptTemplatesInput).query(({ ctx, input }) => {
+    const items = listReceiptTemplates(ctx.db, ctx.tenantId, {
+      kind: input?.kind,
+      includeInactive: input?.includeInactive,
+      limit: input?.limit,
+    });
+    return { items };
+  }),
 
-  getById: adminProcedure
-    .input(getReceiptTemplateInput)
-    .query(({ ctx, input }) => {
-      const detail = getReceiptTemplateById(ctx.db, ctx.tenantId, input.id);
-      if (!detail) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Receipt template not found',
-          cause: new ServerErrorWithCode(
-            'RECEIPT_TEMPLATE_NOT_FOUND',
-            'Receipt template not found',
-            { templateId: input.id }
-          ),
-        });
-      }
-      return detail;
-    }),
-
-  create: adminProcedure
-    .input(createReceiptTemplateInput)
-    .mutation(async ({ ctx, input }) => {
-      return createReceiptTemplate(ctx.db, {
-        tenantId: ctx.tenantId,
-        kind: input.kind,
-        name: input.name,
-        layout: input.layout,
-        isDefault: input.isDefault,
-        isActive: input.isActive,
-        createdBy: ctx.user!.id,
+  getById: adminProcedure.input(getReceiptTemplateInput).query(({ ctx, input }) => {
+    const detail = getReceiptTemplateById(ctx.db, ctx.tenantId, input.id);
+    if (!detail) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Receipt template not found',
+        cause: new ServerErrorWithCode('RECEIPT_TEMPLATE_NOT_FOUND', 'Receipt template not found', {
+          templateId: input.id,
+        }),
       });
-    }),
+    }
+    return detail;
+  }),
 
-  update: adminProcedure
-    .input(updateReceiptTemplateInput)
-    .mutation(async ({ ctx, input }) => {
-      return updateReceiptTemplate(ctx.db, {
-        tenantId: ctx.tenantId,
-        templateId: input.id,
-        name: input.name,
-        layout: input.layout,
-        isActive: input.isActive,
-        actorId: ctx.user!.id,
-      });
-    }),
+  create: adminProcedure.input(createReceiptTemplateInput).mutation(async ({ ctx, input }) => {
+    return createReceiptTemplate(ctx.db, {
+      tenantId: ctx.tenantId,
+      kind: input.kind,
+      name: input.name,
+      layout: input.layout,
+      isDefault: input.isDefault,
+      isActive: input.isActive,
+      createdBy: ctx.user!.id,
+    });
+  }),
 
-  delete: adminProcedure
-    .input(deleteReceiptTemplateInput)
-    .mutation(async ({ ctx, input }) => {
-      return deleteReceiptTemplate(ctx.db, {
-        tenantId: ctx.tenantId,
-        templateId: input.id,
-      });
-    }),
+  update: adminProcedure.input(updateReceiptTemplateInput).mutation(async ({ ctx, input }) => {
+    return updateReceiptTemplate(ctx.db, {
+      tenantId: ctx.tenantId,
+      templateId: input.id,
+      name: input.name,
+      layout: input.layout,
+      isActive: input.isActive,
+      actorId: ctx.user!.id,
+    });
+  }),
+
+  delete: adminProcedure.input(deleteReceiptTemplateInput).mutation(async ({ ctx, input }) => {
+    return deleteReceiptTemplate(ctx.db, {
+      tenantId: ctx.tenantId,
+      templateId: input.id,
+    });
+  }),
 
   setDefault: adminProcedure
     .input(setDefaultReceiptTemplateInput)
@@ -179,15 +164,12 @@ export const receiptTemplatesRouter = router({
         kind = kind ?? persisted.kind;
       }
 
-      // ENG-017 — resolve the tenant's locale once so the preview
+      // resolve the tenant's locale once so the preview
       // renders currency amounts in the operator's country format
       // (COP 0 decimals, USD 2 decimals, CLP 0/0, etc.). Fallback
       // inside `resolveTenantLocale` keeps the preview rendering when
       // the tenant has not yet configured locale settings.
-      const resolvedLocale = await resolveTenantLocale(
-        ctx.db,
-        ctx.tenantId
-      );
+      const resolvedLocale = await resolveTenantLocale(ctx.db, ctx.tenantId);
       const data = {
         ...buildPreviewData(kind ?? 'sale'),
         locale: {
@@ -210,7 +192,7 @@ export const receiptTemplatesRouter = router({
     }),
 
   /**
-   * ENG-016 pass 5 — Per-tenant variable availability map.
+   * pass 5 — Per-tenant variable availability map.
    *
    * Reports whether each documented `namespace.field` will resolve to
    * a non-empty value at render time on the active tenant. The editor
@@ -220,21 +202,21 @@ export const receiptTemplatesRouter = router({
    * companies row never set the optional email column).
    *
    * Contract:
-   *  - `company.*` reflects the actual `companies` row's columns.
-   *    `name` is `notNull` in the schema so always `true`. The other
-   *    fields (`taxId`, `address`, `phone`, `email`) are nullable, so
-   *    return whether the column carries a non-empty value. `city`
-   *    has no schema column today and pins to `false` until that gap
-   *    is closed in a separate ticket.
-   *  - `sale.*`, `item.*`, `tender.*` always come back `true`. These
-   *    fields exist on every sale / line / payment row at render time
-   *    (some are nullable per-row, but the editor cannot reason about
-   *    per-sale data — only per-tenant). The keys are still returned
-   *    so the consumer can do `availability.sale[prop]` without a
-   *    fallback ternary.
-   *  - `fiscal.*` returns the value of `tenants.settings.fiscal_dian_enabled`.
-   *    When off, the renderer never populates these fields and the
-   *    editor dims them at edit time as a hint.
+   * - `company.*` reflects the actual `companies` row's columns.
+   * `name` is `notNull` in the schema so always `true`. The other
+   * fields (`taxId`, `address`, `phone`, `email`) are nullable, so
+   * return whether the column carries a non-empty value. `city`
+   * has no schema column today and pins to `false` until that gap
+   * is closed in a separate change.
+   * - `sale.*`, `item.*`, `tender.*` always come back `true`. These
+   * fields exist on every sale / line / payment row at render time
+   * (some are nullable per-row, but the editor cannot reason about
+   * per-sale data — only per-tenant). The keys are still returned
+   * so the consumer can do `availability.sale[prop]` without a
+   * fallback ternary.
+   * - `fiscal.*` returns the value of `tenants.settings.fiscal_dian_enabled`.
+   * When off, the renderer never populates these fields and the
+   * editor dims them at edit time as a hint.
    */
   variableAvailability: adminProcedure.query(async ({ ctx }) => {
     const company = await ctx.db
@@ -267,7 +249,7 @@ export const receiptTemplatesRouter = router({
         phone: isPopulated(company?.phone),
         email: isPopulated(company?.email),
         // No schema column maps to `company.city` today. Pin to false
-        // until that gap is closed in a separate ticket.
+        // until that gap is closed in a separate change.
         city: false,
       },
       sale: {
@@ -281,7 +263,7 @@ export const receiptTemplatesRouter = router({
         discount: true,
         taxTotal: true,
         tip: true,
-        // ENG-039d3 — service charge surfaces alongside tip on every
+        // service charge surfaces alongside tip on every
         // sale render. The rate is per-sale (frozen at finalize time)
         // so editors can bind `{{ sale.serviceChargeRate }}` for the
         // "Servicio (10%)" label.

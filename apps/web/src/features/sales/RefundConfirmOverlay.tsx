@@ -15,7 +15,7 @@ import { Overlay } from '@/components/overlay/Overlay';
 import { cn, formatCurrency } from '@/lib/utils';
 
 /**
- * Catalog of return reasons drawn from the V8 design-system handoff.
+ * Catalog of return reasons drawn from the V8 design specification.
  * Kept in the client because the existing `sales.returnSale` schema
  * accepts a free-text `reason` string; the catalog values double as
  * i18n keys (`sales:refund.reasons.<id>`).
@@ -46,7 +46,7 @@ interface RefundLineSummary {
   total: number;
 }
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface RefundConfirmOverlayProps {
   isOpen: boolean;
   isPending: boolean;
@@ -74,16 +74,16 @@ interface RefundConfirmOverlayProps {
 }
 
 /**
- * ENG-084 — V8 "Devolución · ticket original" refund flow.
+ * V8 "Devolución · ticket original" refund flow.
  *
  * Replaces the previous one-button ConfirmModal with an editorial
  * Overlay that lets the cashier:
- *   1. Pick a reason (Vencido / Compra duplicada / Cambio / Otro)
- *      from a pill grid; reason is forwarded to `sales.returnSale`
- *      so the audit log captures it.
- *   2. Read the refund total in the warning-tinted card.
- *   3. See the admin-approval lock when the refund crosses the
- *      tenant threshold.
+ * 1. Pick a reason (Vencido / Compra duplicada / Cambio / Otro)
+ * from a pill grid; reason is forwarded to `sales.returnSale`
+ * so the audit log captures it.
+ * 2. Read the refund total in the warning-tinted card.
+ * 3. See the admin-approval lock when the refund crosses the
+ * tenant threshold.
  *
  * Server contract unchanged; this is presentation only.
  */
@@ -131,7 +131,7 @@ export function RefundConfirmOverlay({
   const handleConfirm = () => {
     // Bake selected lines + their refund qty into the free-text reason
     // so the audit log captures intent without extending the server
-    // schema. Server still refunds the whole ticket — handoff §8 says
+    // schema. Server still refunds the whole ticket — design specification says
     // "presentation only".
     const lineMeta =
       lines && lines.length > 0

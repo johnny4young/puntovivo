@@ -87,7 +87,7 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
-// ENG-052b — `transfers.void` and `transfers.receive` migrated to
+// `transfers.void` and `transfers.receive` migrated to
 // `useCriticalMutation`. Mock that hook here so tests can still
 // capture the onSuccess / onError options for assertion.
 vi.mock('@/lib/useCriticalMutation', () => ({

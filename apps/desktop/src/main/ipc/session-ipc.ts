@@ -1,8 +1,8 @@
 /**
- * ENG-178 — desktop session lifecycle IPC handlers, extracted verbatim
+ * desktop session lifecycle IPC handlers, extracted verbatim
  * from the former monolithic `main/index.ts`.
  *
- * ENG-025 — `../session/desktopSession.ts` is the single source of truth
+ * `../session/desktopSession.ts` is the single source of truth
  * for the authenticated identity at the IPC boundary. Every db:* / sync:*
  * handler reads tenantId from there instead of trusting the
  * renderer-supplied argument. The `SESSION_NOT_REGISTERED` and
@@ -18,7 +18,7 @@ import { verifyTokenWithServer } from '@puntovivo/server';
 import { getServer } from '../runtime.js';
 import * as desktopSession from '../session/desktopSession.js';
 
-// ENG-025 vector 1 — session lifecycle. `session:register` is called
+// vector 1 — session lifecycle. `session:register` is called
 // by the renderer's AuthProvider after a successful login (or after a
 // successful refresh that rotated the access token); `session:clear`
 // is called on logout. Until a session is registered, every db:* and

@@ -1,5 +1,5 @@
 /**
- * ENG-040a — AI vision barrel.
+ * AI vision barrel.
  *
  * Exposes the provider-invoice OCR pipeline. Slice 1b adds line-to-
  * product matching helpers under the same namespace.

@@ -1,10 +1,10 @@
 /**
- * ENG-040d — 10-invoice OCR accuracy benchmark.
+ * 10-invoice OCR accuracy benchmark.
  *
  * Operator-runnable. NOT wired into CI (real OpenAI vision call per
  * fixture; consumes the tenant's `monthlyBudgetUsd`).
  *
- *   OPENAI_API_KEY=sk-... npm run benchmark:invoice-ocr --workspace=@puntovivo/server
+ * OPENAI_API_KEY=sk-... npm run benchmark:invoice-ocr --workspace=@puntovivo/server
  *
  * The harness boots an in-memory SQLite, seeds one tenant with AI
  * enabled + OpenAI provider, then walks every NN-<slug>.png in
@@ -69,13 +69,13 @@ interface FixturePair {
 
 function loadFixtures(): FixturePair[] {
   const entries = readdirSync(fixturesDir).sort();
-  const pngs = entries.filter((e) => extname(e) === '.png');
+  const pngs = entries.filter(e => extname(e) === '.png');
   if (pngs.length === 0) {
     throw new Error(
-      `No PNG fixtures under ${fixturesDir}. Run generate-invoice-ocr-fixtures.mjs first.`,
+      `No PNG fixtures under ${fixturesDir}. Run generate-invoice-ocr-fixtures.mjs first.`
     );
   }
-  return pngs.map((png) => {
+  return pngs.map(png => {
     const id = basename(png, '.png');
     const truthPath = join(fixturesDir, `${id}.json`);
     const truthRaw = readFileSync(truthPath, 'utf8');
@@ -89,7 +89,7 @@ function loadFixtures(): FixturePair[] {
 
 async function configureTenantForOpenAI(
   db: DatabaseInstance,
-  modelId: string | null,
+  modelId: string | null
 ): Promise<void> {
   const now = new Date().toISOString();
   await db.insert(tenants).values({
@@ -112,7 +112,7 @@ async function configureTenantForOpenAI(
 
 function formatTable(scores: FixtureScore[]): string {
   const headers = ['Fixture', 'Matched', 'Truth', 'Accuracy', 'Cost USD', 'Duration'];
-  const rows = scores.map((s) => [
+  const rows = scores.map(s => [
     s.fixtureId,
     String(s.matchedLines),
     String(s.truthLines),
@@ -120,12 +120,10 @@ function formatTable(scores: FixtureScore[]): string {
     `$${s.costUsd.toFixed(4)}`,
     `${s.durationMs}ms`,
   ]);
-  const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map((r) => r[i]?.length ?? 0)),
-  );
+  const widths = headers.map((h, i) => Math.max(h.length, ...rows.map(r => r[i]?.length ?? 0)));
   const formatRow = (cells: string[]) =>
     cells.map((c, i) => c.padEnd(widths[i] ?? c.length)).join('  ');
-  const separator = widths.map((w) => '-'.repeat(w)).join('  ');
+  const separator = widths.map(w => '-'.repeat(w)).join('  ');
   return [formatRow(headers), separator, ...rows.map(formatRow)].join('\n');
 }
 
@@ -158,7 +156,7 @@ async function main(): Promise<void> {
             siteId: null,
             userId: null,
           },
-          { imageBase64, mimeType: 'image/png' },
+          { imageBase64, mimeType: 'image/png' }
         );
         const { matchedLines, truthLines } = scoreFixture(fixture.truth, result.invoice);
         scores.push({
@@ -172,7 +170,7 @@ async function main(): Promise<void> {
         console.log(
           `  ${fixture.id}: ${matchedLines}/${truthLines} (${
             truthLines === 0 ? 'N/A' : ((matchedLines / truthLines) * 100).toFixed(1) + '%'
-          }) cost=$${result.costUsd.toFixed(4)} ${result.durationMs}ms`,
+          }) cost=$${result.costUsd.toFixed(4)} ${result.durationMs}ms`
         );
       } catch (error) {
         const elapsed = Date.now() - started;
@@ -196,11 +194,9 @@ async function main(): Promise<void> {
       `\nAggregate: ${aggregate.matched}/${aggregate.total} lines matched ` +
         `(${(aggregate.accuracy * 100).toFixed(2)}%) ` +
         `vs threshold ${(aggregate.threshold * 100).toFixed(0)}% — ` +
-        `${aggregate.passed ? 'PASS' : 'FAIL'}`,
+        `${aggregate.passed ? 'PASS' : 'FAIL'}`
     );
-    console.log(
-      `Total cost: $${aggregate.costUsd.toFixed(4)} over ${aggregate.durationMs}ms`,
-    );
+    console.log(`Total cost: $${aggregate.costUsd.toFixed(4)} over ${aggregate.durationMs}ms`);
 
     process.exitCode = aggregate.passed ? 0 : 1;
   } finally {

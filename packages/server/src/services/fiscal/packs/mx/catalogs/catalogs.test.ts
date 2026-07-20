@@ -1,29 +1,22 @@
 /**
- * ENG-035a — Tests de los catálogos SAT del pack México.
+ * Tests de los catálogos SAT del pack México.
  *
  * Cobertura mínima:
  * - Cada catálogo tiene la longitud esperada (curado para retail).
  * - Códigos clave que el adapter consume están presentes.
  * - El finder por código funciona y devuelve undefined para códigos
- *   desconocidos.
+ * desconocidos.
  * - El fallback `CLAVE_UNIDAD_FALLBACK` (H87 Pieza) existe en el
- *   catálogo (defensa contra una edición que rompa el contrato).
+ * catálogo (defensa contra una edición que rompa el contrato).
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  CLAVE_UNIDAD_CATALOG,
-  CLAVE_UNIDAD_FALLBACK,
-  findClaveUnidad,
-} from './claveUnidad.js';
+import { CLAVE_UNIDAD_CATALOG, CLAVE_UNIDAD_FALLBACK, findClaveUnidad } from './claveUnidad.js';
 import { FORMA_PAGO_CATALOG, findFormaPago } from './formaPago.js';
-import {
-  REGIMEN_FISCAL_CATALOG,
-  findRegimenFiscal,
-} from './regimenFiscal.js';
+import { REGIMEN_FISCAL_CATALOG, findRegimenFiscal } from './regimenFiscal.js';
 import { USO_CFDI_CATALOG, findUsoCfdi } from './usoCfdi.js';
 
-describe('regimenFiscal — catálogo SAT (ENG-035a)', () => {
+describe('regimenFiscal — catálogo SAT', () => {
   it('contiene al menos 23 regímenes curados', () => {
     expect(REGIMEN_FISCAL_CATALOG.length).toBeGreaterThanOrEqual(23);
   });
@@ -51,7 +44,7 @@ describe('regimenFiscal — catálogo SAT (ENG-035a)', () => {
   });
 });
 
-describe('usoCfdi — catálogo SAT (ENG-035a)', () => {
+describe('usoCfdi — catálogo SAT', () => {
   it('contiene al menos 22 usos curados', () => {
     expect(USO_CFDI_CATALOG.length).toBeGreaterThanOrEqual(22);
   });
@@ -69,7 +62,7 @@ describe('usoCfdi — catálogo SAT (ENG-035a)', () => {
   });
 });
 
-describe('formaPago — catálogo SAT (ENG-035a)', () => {
+describe('formaPago — catálogo SAT', () => {
   it('contiene al menos 22 formas de pago curadas', () => {
     expect(FORMA_PAGO_CATALOG.length).toBeGreaterThanOrEqual(22);
   });
@@ -92,7 +85,7 @@ describe('formaPago — catálogo SAT (ENG-035a)', () => {
   });
 });
 
-describe('claveUnidad — catálogo SAT (ENG-035a)', () => {
+describe('claveUnidad — catálogo SAT', () => {
   it('contiene al menos 20 unidades curadas', () => {
     expect(CLAVE_UNIDAD_CATALOG.length).toBeGreaterThanOrEqual(20);
   });

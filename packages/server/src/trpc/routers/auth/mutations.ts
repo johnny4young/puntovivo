@@ -1,10 +1,10 @@
 /**
- * Auth router — write procedures (ENG-178 split).
+ * Auth router — write procedures ( split).
  *
  * `login` / `refresh` (publicProcedure — pre-auth, rate-limited), `logout` /
  * `changePassword` (protected / critical-command), `realtimeToken` /
  * `registerDevice` (tenant). The public-vs-protected boundary is carried by
- * each procedure's builder, preserved verbatim. ENG-008/025/052/074/166, ADR-0002.
+ * each procedure's builder, preserved verbatim. , ADR-0002.
  *
  * @module trpc/routers/auth/mutations
  */
@@ -68,7 +68,7 @@ import { writeAuditLog } from '../../../services/audit-logs.js';
 
 export const authMutationProcedures = {
   /**
-   * ENG-106a — switch a shared terminal to another active cashier without
+   * switch a shared terminal to another active cashier without
    * exposing manager/admin privilege through a low-entropy PIN.
    */
   switchStaff: cashierManagerOrAdminProcedure
@@ -152,14 +152,14 @@ export const authMutationProcedures = {
   /**
    * Login with email and password.
    *
-   * ENG-008 — dual rate-limit gate runs BEFORE the credential check:
+   * dual rate-limit gate runs BEFORE the credential check:
    *
    * - per-IP bucket: 10 attempts per 60s from a single origin. Stops
-   *   local brute-force.
+   * local brute-force.
    * - per-username bucket: 5 failed attempts per 15 minutes against one
-   *   email, counted even when the user does not exist (prevents
-   *   enumeration via timing + 404-style responses). Stops credential
-   *   stuffing that rotates IPs to target one account.
+   * email, counted even when the user does not exist (prevents
+   * enumeration via timing + 404-style responses). Stops credential
+   * stuffing that rotates IPs to target one account.
    *
    * Both buckets increment on every unauthorized branch. A successful
    * login resets the username bucket; the IP bucket decays via TTL so a
@@ -172,8 +172,8 @@ export const authMutationProcedures = {
     const { email, password } = input;
     const ip = ctx.req.ip;
 
-    // ENG-008 / ENG-008b — refuse before any DB work when the buckets are
-    // saturated. Since ENG-008b the buckets are DB-backed so a server restart
+    // /  — refuse before any DB work when the buckets are
+    // saturated. Since  the buckets are DB-backed so a server restart
     // no longer wipes mid-attack state; pass `ctx.db` through on every call.
     checkLoginIp(ctx.db, ip);
     checkLoginUsername(ctx.db, email);
@@ -182,7 +182,7 @@ export const authMutationProcedures = {
     const user = await ctx.db.select().from(users).where(eq(users.email, email)).get();
 
     if (!user) {
-      // ENG-166 — equalise login timing. Burn roughly one Argon2 verify on
+      // equalise login timing. Burn roughly one Argon2 verify on
       // the not-found branch against a cached dummy hash so an attacker
       // cannot enumerate accounts by measuring response time. The result
       // is intentionally ignored; the surrounding error is still raised.
@@ -196,7 +196,7 @@ export const authMutationProcedures = {
       });
     }
 
-    // Verify password (ENG-166 — wrapped helper pins Argon2 params).
+    // Verify password (wrapped helper pins Argon2 params).
     // The verify runs BEFORE the `isActive` check so a disabled-account
     // probe pays the same Argon2 cost as the not-found probe. Without
     // this re-ordering, an attacker could distinguish "user exists but
@@ -234,10 +234,10 @@ export const authMutationProcedures = {
       });
     }
 
-    // ENG-008 — clear the username bucket after every field cleared.
+    // clear the username bucket after every field cleared.
     registerLoginSuccess(ctx.db, email);
 
-    // ENG-166 — lazy rehash: if the stored hash was produced with
+    // lazy rehash: if the stored hash was produced with
     // weaker Argon2 params (or a legacy library default), upgrade it
     // now while we have the plaintext. Failure of the rehash itself
     // must never block a valid login — it is best-effort hardening.
@@ -292,7 +292,7 @@ export const authMutationProcedures = {
    * `sessionVersion` no longer matches the JWT payload.
    *
    * Promoted from `publicProcedure` to `protectedProcedure` in
-   * ENG-025 vector 4: only an authenticated caller can sign their
+   * vector 4: only an authenticated caller can sign their
    * own session out, and the `ctx.user.id` we need for the bump
    * comes from the validated JWT.
    */
@@ -309,7 +309,7 @@ export const authMutationProcedures = {
   }),
 
   /**
-   * Refresh the JWT token. ENG-166 — per-IP cap of 30/min to blunt
+   * Refresh the JWT token.  — per-IP cap of 30/min to blunt
    * refresh-storm probing without affecting normal session lifecycles
    * (a renderer refreshes every ~14 minutes against the 15-min access
    * token TTL).
@@ -420,7 +420,7 @@ export const authMutationProcedures = {
   /**
    * Change password for current user.
    *
-   * ENG-052 — wrapped with `criticalCommandProcedure` (ADR-0002).
+   * wrapped with `criticalCommandProcedure` (ADR-0002).
    * Caller must include the `x-device-id` header (after registering
    * via `auth.registerDevice`) and a fresh `x-puntovivo-envelope`
    * JSON header per request. Replays with the same idempotency key
@@ -476,7 +476,7 @@ export const authMutationProcedures = {
         });
       }
 
-      // Verify current password (ENG-166 — pinned Argon2 params).
+      // Verify current password (pinned Argon2 params).
       const isValidPassword = await verifyPasswordSecurely(user.passwordHash, currentPassword);
       if (!isValidPassword) {
         throwServerError({
@@ -486,7 +486,7 @@ export const authMutationProcedures = {
         });
       }
 
-      // Hash new password (ENG-166 — pinned Argon2 params).
+      // Hash new password (pinned Argon2 params).
       const newPasswordHash = await hashPasswordSecurely(newPassword);
 
       // Update password
@@ -508,7 +508,7 @@ export const authMutationProcedures = {
     }),
 
   /**
-   * ENG-052 — Register a device with the active tenant. Idempotent
+   * Register a device with the active tenant. Idempotent
    * when an existing active device id is supplied. Returns the
    * server-issued (or echoed) device id; the renderer persists it
    * locally (Electron userData file or browser localStorage) and
@@ -519,7 +519,7 @@ export const authMutationProcedures = {
    */
   registerDevice: tenantProcedure
     .use(
-      // ENG-166 — cap pairing-flow registration at 10/hour per IP. The
+      // cap pairing-flow registration at 10/hour per IP. The
       // legitimate flow registers once per device install; bursts above
       // that indicate enumeration or pairing-code probing.
       rateLimitFor({
@@ -531,7 +531,7 @@ export const authMutationProcedures = {
     )
     .input(
       z.object({
-        // ENG-074 — `hub_client` discriminates a cashier terminal
+        // `hub_client` discriminates a cashier terminal
         // whose renderer points at a remote Store Hub. Stays in
         // lockstep with the `devices.kind` enum in db/schema.ts.
         kind: z.enum(['desktop', 'web', 'hub_client']),

@@ -2,7 +2,7 @@ import type { TFunction } from 'i18next';
 import { formatCurrency } from '@/lib/utils';
 
 /**
- * ENG-205 (WC-C8) — the fields the shareable day pulse consumes. A local
+ * () — the fields the shareable day pulse consumes. A local
  * structural type (instead of the router inference) so the pure builder
  * stays unit-testable without a tRPC harness; it matches the
  * `cashSessions.dayCloseSummary` payload by construction.
@@ -16,7 +16,7 @@ export interface DayPulseSummary {
 }
 
 /**
- * Build the WhatsApp-ready day pulse. Plain text on purpose (v1 of WC-C8):
+ * Build the WhatsApp-ready day pulse. Plain text on purpose (v1 of ):
  * every line is aggregate business data — sales, average ticket, optional
  * margin (only present when the server sent it, i.e. owner roles), the
  * same-weekday-last-week delta, and the balanced streak. NO customer data
@@ -69,7 +69,7 @@ export function buildDayPulseText(summary: DayPulseSummary, t: TFunction): strin
   return lines.join('\n');
 }
 
-/** wa.me deep link for the pulse (v1 share channel per the WC-C8 spec). */
+/** wa.me deep link for the pulse (v1 share channel per the  spec). */
 export function buildWhatsAppShareUrl(text: string): string {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }

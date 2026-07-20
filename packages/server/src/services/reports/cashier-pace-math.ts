@@ -1,4 +1,4 @@
-/** ENG-209 — shared rate math for live and materialized cashier pace. */
+/** shared rate math for live and materialized cashier pace. */
 const MIN_RATE_WINDOW_MS = 60_000;
 const MS_PER_MINUTE = 60_000;
 

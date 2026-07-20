@@ -13,31 +13,27 @@ import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { TablePagination } from '@/components/tables/TablePagination';
 
 /**
- * ENG-065a — Operations Center: Device Health panel.
+ * Operations Center: Device Health panel.
  *
  * Two stacked sections:
- *   1. Registered peripherals via `peripherals.list` (across all
- *      sites the manager + admin caller can see), grouped by `kind`,
- *      with last-test result + timestamp.
- *   2. Hardware outbox tail via `peripherals.peekHardwareOutbox`,
- *      defaulting to "problems only" (status `failed` / `retrying` /
- *      `dead_letter`); a toggle reveals all rows.
+ * 1. Registered peripherals via `peripherals.list` (across all
+ * sites the manager + admin caller can see), grouped by `kind`,
+ * with last-test result + timestamp.
+ * 2. Hardware outbox tail via `peripherals.peekHardwareOutbox`,
+ * defaulting to "problems only" (status `failed` / `retrying` /
+ * `dead_letter`); a toggle reveals all rows.
  *
  * Per-row "Reintentar" wires to `peripherals.retryHardwareOutbox`
  * (admin-only). Manager callers see the data but the button is
  * disabled with a translated tooltip.
  *
- * Rediseño FASE 6 (O1) — hereda las recetas pv-*: titulación de panel,
+ * hereda las recetas pv-*: titulación de panel,
  * KPI de salud del outbox (danger cuando hay trabajos fallando), tablas
  * densas (.pv-table) con badge semántico por estado, y estado vacío del
  * sistema (EmptyState).
  */
 
-const PROBLEM_STATUSES = new Set<string>([
-  'failed',
-  'retrying',
-  'dead_letter',
-]);
+const PROBLEM_STATUSES = new Set<string>(['failed', 'retrying', 'dead_letter']);
 
 const PERIPHERAL_KINDS = [
   'printer',
@@ -55,8 +51,7 @@ function getHardwareErrorMessage(value: unknown): string | null {
     kind?: unknown;
     errorCode?: unknown;
   };
-  const message =
-    error.message ?? error.providerMessage ?? error.kind ?? error.errorCode ?? null;
+  const message = error.message ?? error.providerMessage ?? error.kind ?? error.errorCode ?? null;
   return typeof message === 'string' && message.length > 0 ? message : null;
 }
 
@@ -66,9 +61,7 @@ function testResultTone(result: string | null | undefined): 'success' | 'danger'
   return 'neutral';
 }
 
-function outboxStatusTone(
-  status: string
-): 'success' | 'danger' | 'warning' | 'neutral' {
+function outboxStatusTone(status: string): 'success' | 'danger' | 'warning' | 'neutral' {
   if (status === 'printed') return 'success';
   if (status === 'dead_letter' || status === 'failed') return 'danger';
   if (status === 'retrying') return 'warning';
@@ -92,9 +85,7 @@ export function DeviceHealthPanel() {
   // Center surfaces per-tenant health, so we merge across sites and
   // group client-side by kind.
   const peripheralQueries = trpc.useQueries(t =>
-    allSites.map(site =>
-      t.peripherals.list({ siteId: site.id }, { staleTime: 30_000 })
-    )
+    allSites.map(site => t.peripherals.list({ siteId: site.id }, { staleTime: 30_000 }))
   );
   const peripherals = useMemo(
     () =>
@@ -168,9 +159,7 @@ export function DeviceHealthPanel() {
           <div>
             <p className="pv-kicker">{t('device.kicker')}</p>
             <h2 className="pv-title text-lg">{t('device.peripherals.title')}</h2>
-            <p className="mt-1 text-sm text-secondary-500">
-              {t('device.peripherals.description')}
-            </p>
+            <p className="mt-1 text-sm text-secondary-500">{t('device.peripherals.description')}</p>
           </div>
         </header>
 
@@ -203,9 +192,7 @@ export function DeviceHealthPanel() {
                     <tr key={row.id}>
                       <td>{row.siteName}</td>
                       <td className="muted">{row.driver}</td>
-                      <td className="font-medium text-secondary-900">
-                        {row.displayName ?? '—'}
-                      </td>
+                      <td className="font-medium text-secondary-900">{row.displayName ?? '—'}</td>
                       <td className="muted whitespace-nowrap">
                         {row.lastTestedAt
                           ? formatDateTime(row.lastTestedAt)
@@ -227,10 +214,7 @@ export function DeviceHealthPanel() {
         ))}
 
         {peripheralsHavePagination && (
-          <TablePagination
-            {...peripheralsPagination}
-            onPageChange={setPeripheralsPage}
-          />
+          <TablePagination {...peripheralsPagination} onPageChange={setPeripheralsPage} />
         )}
       </section>
 
@@ -243,9 +227,7 @@ export function DeviceHealthPanel() {
             <div>
               <p className="pv-kicker">{t('device.kicker')}</p>
               <h2 className="pv-title text-lg">{t('device.outbox.title')}</h2>
-              <p className="mt-1 text-sm text-secondary-500">
-                {t('device.outbox.description')}
-              </p>
+              <p className="mt-1 text-sm text-secondary-500">{t('device.outbox.description')}</p>
             </div>
           </div>
           <button
@@ -254,9 +236,7 @@ export function DeviceHealthPanel() {
             onClick={() => setShowAll(prev => !prev)}
             data-testid="device-outbox-toggle"
           >
-            {showAll
-              ? t('device.outbox.filter.problemsOnly')
-              : t('device.outbox.filter.showAll')}
+            {showAll ? t('device.outbox.filter.problemsOnly') : t('device.outbox.filter.showAll')}
           </button>
         </header>
 
@@ -292,9 +272,7 @@ export function DeviceHealthPanel() {
             icon={Inbox}
             title={t('device.outbox.title')}
             description={
-              showAll
-                ? t('device.outbox.emptyState.all')
-                : t('device.outbox.emptyState.problems')
+              showAll ? t('device.outbox.emptyState.all') : t('device.outbox.emptyState.problems')
             }
           />
         )}
@@ -302,68 +280,62 @@ export function DeviceHealthPanel() {
         {outboxRows.length > 0 && (
           <>
             <div className="overflow-x-auto rounded-2xl border border-line/75">
-            <table className="pv-table">
-              <thead>
-                <tr>
-                  <th>{t('device.outbox.columns.kind')}</th>
-                  <th>{t('device.outbox.columns.status')}</th>
-                  <th className="num">{t('device.outbox.columns.attempts')}</th>
-                  <th>{t('device.outbox.columns.lastError')}</th>
-                  <th>{t('device.outbox.columns.createdAt')}</th>
-                  <th className="num">{t('device.outbox.columns.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {outboxPageRows.map(row => {
-                  const errorMessage = getHardwareErrorMessage(row.lastError);
-                  const canRetry = PROBLEM_STATUSES.has(row.status);
-                  const isRetrying =
-                    retryMutation.isPending &&
-                    retryMutation.variables?.id === row.id;
-                  return (
-                    <tr key={row.id}>
-                      <td className="muted">{row.kind}</td>
-                      <td>
-                        <span className={`pv-badge ${outboxStatusTone(row.status)}`}>
-                          {t(`device.outbox.status.${row.status}`, {
-                            defaultValue: row.status,
-                          })}
-                        </span>
-                      </td>
-                      <td className="num">{row.attempts}</td>
-                      <td className="muted break-all">{errorMessage ?? '—'}</td>
-                      <td className="muted whitespace-nowrap">
-                        {formatDateTime(row.createdAt)}
-                      </td>
-                      <td className="num">
-                        {canRetry && (
-                          <button
-                            type="button"
-                            className="pv-btn outline ml-auto"
-                            disabled={!isAdmin || isRetrying}
-                            title={!isAdmin ? t('device.retry.noPermission') : undefined}
-                            onClick={() => {
-                              if (!isAdmin) return;
-                              void retryMutation.mutateAsync({ id: row.id });
-                            }}
-                            data-testid={`device-retry-${row.id}`}
-                          >
-                            <RefreshCw className={isRetrying ? 'animate-spin' : undefined} />
-                            {t('device.retry.cta')}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+              <table className="pv-table">
+                <thead>
+                  <tr>
+                    <th>{t('device.outbox.columns.kind')}</th>
+                    <th>{t('device.outbox.columns.status')}</th>
+                    <th className="num">{t('device.outbox.columns.attempts')}</th>
+                    <th>{t('device.outbox.columns.lastError')}</th>
+                    <th>{t('device.outbox.columns.createdAt')}</th>
+                    <th className="num">{t('device.outbox.columns.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {outboxPageRows.map(row => {
+                    const errorMessage = getHardwareErrorMessage(row.lastError);
+                    const canRetry = PROBLEM_STATUSES.has(row.status);
+                    const isRetrying =
+                      retryMutation.isPending && retryMutation.variables?.id === row.id;
+                    return (
+                      <tr key={row.id}>
+                        <td className="muted">{row.kind}</td>
+                        <td>
+                          <span className={`pv-badge ${outboxStatusTone(row.status)}`}>
+                            {t(`device.outbox.status.${row.status}`, {
+                              defaultValue: row.status,
+                            })}
+                          </span>
+                        </td>
+                        <td className="num">{row.attempts}</td>
+                        <td className="muted break-all">{errorMessage ?? '—'}</td>
+                        <td className="muted whitespace-nowrap">{formatDateTime(row.createdAt)}</td>
+                        <td className="num">
+                          {canRetry && (
+                            <button
+                              type="button"
+                              className="pv-btn outline ml-auto"
+                              disabled={!isAdmin || isRetrying}
+                              title={!isAdmin ? t('device.retry.noPermission') : undefined}
+                              onClick={() => {
+                                if (!isAdmin) return;
+                                void retryMutation.mutateAsync({ id: row.id });
+                              }}
+                              data-testid={`device-retry-${row.id}`}
+                            >
+                              <RefreshCw className={isRetrying ? 'animate-spin' : undefined} />
+                              {t('device.retry.cta')}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
             {outboxHasPagination && (
-              <TablePagination
-                {...outboxPagination}
-                onPageChange={setOutboxPage}
-              />
+              <TablePagination {...outboxPagination} onPageChange={setOutboxPage} />
             )}
           </>
         )}

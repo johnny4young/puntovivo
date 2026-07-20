@@ -1,5 +1,5 @@
 /**
- * ENG-020 — `computeCufe` tests.
+ * `computeCufe` tests.
  *
  * Coverage:
  * - Deterministic hash for canonical sandbox input (known-good vector).
@@ -10,7 +10,7 @@
  *
  * Note: the "known-good" hash below is a RECONSTRUCTED vector — it
  * was computed from the official Resolución 165/2023 algorithm
- * against a synthetic sandbox input. When ENG-021 (Fase B) integrates
+ * against a synthetic sandbox input. When  (Fase B) integrates
  * a real PT this test should be replaced with the PT's Anexo 1.9
  * canonical vectors. Until then, the reconstructed vector locks the
  * implementation against accidental refactors.
@@ -35,7 +35,7 @@ const BASE_INPUT = {
   environment: '2' as const,
 };
 
-describe('computeCufe (ENG-020)', () => {
+describe('computeCufe', () => {
   it('produces a 96-character lowercase hex string', () => {
     const cufe = computeCufe(BASE_INPUT);
     expect(cufe).toMatch(/^[0-9a-f]{96}$/);

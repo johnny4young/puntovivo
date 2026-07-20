@@ -17,7 +17,7 @@ interface UseAiFeatureFlagResult {
  * AnomaliesCard dashboard tile, ProductsPage toggle) share a single
  * round-trip per session.
  *
- * Added 2026-05-15 per AI Núcleo handoff §1.5 — `useAiFeatureFlag('invoiceOcr')`.
+ * Added 2026-05-15 per AI feature contract — `useAiFeatureFlag('invoiceOcr')`.
  */
 export function useAiFeatureFlag(feature: AiFeatureKey): UseAiFeatureFlagResult {
   const query = trpc.ai.settings.get.useQuery(undefined, {
@@ -26,9 +26,7 @@ export function useAiFeatureFlag(feature: AiFeatureKey): UseAiFeatureFlagResult 
   });
 
   return useMemo(() => {
-    const features = (query.data?.features ?? null) as
-      | Record<string, { enabled?: boolean }>
-      | null;
+    const features = (query.data?.features ?? null) as Record<string, { enabled?: boolean }> | null;
     const enabled = Boolean(query.data?.enabled) && Boolean(features?.[feature]?.enabled);
     return { enabled, isLoading: query.isLoading };
   }, [query.data, query.isLoading, feature]);

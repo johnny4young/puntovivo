@@ -1,5 +1,5 @@
 /**
- * ENG-032 — admin/manager dashboard tile for the anomaly detector.
+ * admin/manager dashboard tile for the anomaly detector.
  *
  * Reads `ai.anomalies.list` for the alerts and the master enabled
  * flag. The server short-circuits this query to `enabled=false` +
@@ -7,11 +7,11 @@
  * disabled state without calling the admin-only settings endpoint.
  *
  * States surfaced:
- *  - loading
- *  - error
- *  - disabled (ai.enabled = false → CTA to /company)
- *  - empty (no alerts)
- *  - has-alerts (counter + severity pills + open-modal button)
+ * - loading
+ * - error
+ * - disabled (ai.enabled = false → CTA to /company)
+ * - empty (no alerts)
+ * - has-alerts (counter + severity pills + open-modal button)
  *
  * Cashier role never reaches this component — `dashboardRoles`
  * already excludes them at the route level. Defense-in-depth at
@@ -38,7 +38,7 @@ export function AnomalyDetectionCard() {
       // open seeing fresh signal without manual reload. Recompute is
       // server-side and cheap (~30-60ms on 30 days of pilot data).
       staleTime: 5 * 60 * 1000,
-      // ENG-171 — no window-focus refetch; the staleTime window is the
+      // no window-focus refetch; the staleTime window is the
       // freshness contract, not every tab-back-in.
       refetchOnWindowFocus: false,
     }
@@ -55,8 +55,12 @@ export function AnomalyDetectionCard() {
             <Sparkles className="h-5 w-5 text-primary-700" />
           </div>
           <div className="space-y-1">
-            <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('aiAnomalies:card.kicker')}</p>
-            <h2 className="text-lg font-semibold text-secondary-900">{t('aiAnomalies:card.title')}</h2>
+            <p className="page-kicker text-[0.62rem] tracking-[0.24em]">
+              {t('aiAnomalies:card.kicker')}
+            </p>
+            <h2 className="text-lg font-semibold text-secondary-900">
+              {t('aiAnomalies:card.title')}
+            </h2>
           </div>
         </div>
         <p className="mt-4 text-sm text-secondary-500">{t('aiAnomalies:card.states.loading')}</p>
@@ -73,8 +77,12 @@ export function AnomalyDetectionCard() {
             <ShieldAlert className="h-5 w-5 text-danger-700" />
           </div>
           <div className="space-y-1">
-            <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('aiAnomalies:card.kicker')}</p>
-            <h2 className="text-lg font-semibold text-secondary-900">{t('aiAnomalies:card.title')}</h2>
+            <p className="page-kicker text-[0.62rem] tracking-[0.24em]">
+              {t('aiAnomalies:card.kicker')}
+            </p>
+            <h2 className="text-lg font-semibold text-secondary-900">
+              {t('aiAnomalies:card.title')}
+            </h2>
           </div>
         </div>
         <p className="mt-4 text-sm text-danger-700">{t('aiAnomalies:card.states.error')}</p>
@@ -91,8 +99,12 @@ export function AnomalyDetectionCard() {
             <Sparkles className="h-5 w-5 text-secondary-500" />
           </div>
           <div className="space-y-1">
-            <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('aiAnomalies:card.kicker')}</p>
-            <h2 className="text-lg font-semibold text-secondary-900">{t('aiAnomalies:card.title')}</h2>
+            <p className="page-kicker text-[0.62rem] tracking-[0.24em]">
+              {t('aiAnomalies:card.kicker')}
+            </p>
+            <h2 className="text-lg font-semibold text-secondary-900">
+              {t('aiAnomalies:card.title')}
+            </h2>
           </div>
         </div>
         <p className="mt-4 text-sm text-secondary-600">{t('aiAnomalies:card.states.disabled')}</p>
@@ -114,8 +126,12 @@ export function AnomalyDetectionCard() {
             <ShieldCheck className="h-5 w-5 text-success-700" />
           </div>
           <div className="space-y-1">
-            <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('aiAnomalies:card.kicker')}</p>
-            <h2 className="text-lg font-semibold text-secondary-900">{t('aiAnomalies:card.title')}</h2>
+            <p className="page-kicker text-[0.62rem] tracking-[0.24em]">
+              {t('aiAnomalies:card.kicker')}
+            </p>
+            <h2 className="text-lg font-semibold text-secondary-900">
+              {t('aiAnomalies:card.title')}
+            </h2>
           </div>
         </div>
         <p className="mt-4 text-sm text-secondary-600">{t('aiAnomalies:card.states.empty')}</p>

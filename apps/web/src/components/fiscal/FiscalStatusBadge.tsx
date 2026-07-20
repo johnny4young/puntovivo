@@ -1,5 +1,5 @@
 /**
- * ENG-058 — Reusable fiscal status chip.
+ * Reusable fiscal status chip.
  *
  * Maps each of the 8 fiscal-document statuses (`pending`, `sent`,
  * `accepted`, `rejected`, `contingency`, `voided`,
@@ -8,7 +8,7 @@
  * `SaleDetailsModal`, the admin `FiscalDocumentListPage` row, and (in
  * the future) the Operations Center.
  *
- * ENG-176c extended the union from 5 to 8 values so SAT CFDI
+ * extended the union from 5 to 8 values so SAT CFDI
  * cancelaciones, SUNAT envíos parciales, and SII/NFe void lifecycles
  * can be expressed alongside the DIAN-native states. The union here
  * mirrors `fiscalDocumentStatusEnum` in `packages/server/src/db/schema.ts`
@@ -37,7 +37,7 @@ const STATUS_TO_VARIANT: Record<FiscalDocumentStatus, BadgeProps['variant']> = {
   pending: 'secondary',
   contingency: 'warning',
   rejected: 'danger',
-  // ENG-176c — `voided` is terminal (the document is unrecoverable),
+  // `voided` is terminal (the document is unrecoverable),
   // same tone as `rejected`. `notified_correction` is non-terminal but
   // demands operator action, so it shares the warning tone with
   // `contingency`. `partial_send` is in-progress (subset accepted),

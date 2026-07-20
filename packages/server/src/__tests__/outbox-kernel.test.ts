@@ -1,5 +1,5 @@
 /**
- * ENG-053 — Outbox kernel tests.
+ * Outbox kernel tests.
  *
  * Exercises the kernel through a synthetic `test_outbox` table whose
  * shape matches what the five concrete outboxes (sync, fiscal,
@@ -10,8 +10,8 @@
  * The synthetic outbox status enum mirrors the ADR-0003 fiscal
  * lifecycle as the reference shape:
  *
- *   queued → submitting → succeeded | dead_letter
- *           ↘ retrying  ↗
+ * queued → submitting → succeeded | dead_letter
+ * ↘ retrying  ↗
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -182,11 +182,7 @@ describe('createOutboxKernel — happy path', () => {
       payload: { saleId: 'cs', total: 1 },
     });
     await kernel.complete(db, { id });
-    const row = await db
-      .select()
-      .from(testOutbox)
-      .where(eq(testOutbox.id, id))
-      .get();
+    const row = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
     expect(row?.status).toBe('succeeded');
     expect(row?.claimToken).toBeNull();
   });
@@ -198,17 +194,9 @@ describe('createOutboxKernel — happy path', () => {
       payload: { saleId: 'cs2', total: 1 },
     });
     await kernel.complete(db, { id });
-    const before = await db
-      .select()
-      .from(testOutbox)
-      .where(eq(testOutbox.id, id))
-      .get();
+    const before = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
     await kernel.complete(db, { id });
-    const after = await db
-      .select()
-      .from(testOutbox)
-      .where(eq(testOutbox.id, id))
-      .get();
+    const after = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
     expect(after?.updatedAt).toBe(before?.updatedAt);
   });
 });
@@ -230,11 +218,7 @@ describe('createOutboxKernel — failure + retry', () => {
     });
     expect(result.status).toBe('retrying');
     expect(result.nextRetryAt).toBeTruthy();
-    const row = await db
-      .select()
-      .from(testOutbox)
-      .where(eq(testOutbox.id, id))
-      .get();
+    const row = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
     expect(row?.attempts).toBe(1);
     expect(row?.lastError).toMatchObject({ errorCode: 'PROVIDER_5XX' });
     expect(row?.claimToken).toBeNull();
@@ -274,11 +258,7 @@ describe('createOutboxKernel — failure + retry', () => {
         },
       });
     }
-    const row = await db
-      .select()
-      .from(testOutbox)
-      .where(eq(testOutbox.id, id))
-      .get();
+    const row = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
     expect(row?.status).toBe('dead_letter');
     expect(row?.attempts).toBe(3);
   });
@@ -363,7 +343,8 @@ describe('createOutboxKernel — concurrency', () => {
     const racingDb = new Proxy(db as Record<PropertyKey, unknown>, {
       get(target, property, receiver) {
         if (property === 'select') {
-          return (...args: unknown[]) => wrapBuilder((db.select as (...args: unknown[]) => unknown)(...args));
+          return (...args: unknown[]) =>
+            wrapBuilder((db.select as (...args: unknown[]) => unknown)(...args));
         }
         const value = Reflect.get(target, property, receiver);
         return typeof value === 'function' ? value.bind(target) : value;
@@ -372,11 +353,7 @@ describe('createOutboxKernel — concurrency', () => {
 
     const claimed = await kernel.claimNext(racingDb, { tenantId, workerId: 'w-race' });
     expect(claimed).toBeNull();
-    const row = await db
-      .select()
-      .from(testOutbox)
-      .where(eq(testOutbox.id, id))
-      .get();
+    const row = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
     expect(row?.status).toBe('succeeded');
     expect(row?.claimToken).toBeNull();
   });
@@ -390,20 +367,14 @@ describe('deadLetter (manual)', () => {
       payload: { saleId: 'dl', total: 1 },
     });
     await kernel.deadLetter(db, { id });
-    const row = await db
-      .select()
-      .from(testOutbox)
-      .where(eq(testOutbox.id, id))
-      .get();
+    const row = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
     expect(row?.status).toBe('dead_letter');
   });
 });
 
 describe('BOUNDED_EXPONENTIAL_BACKOFF policy', () => {
   it('returns increasing delays through the bounded schedule', () => {
-    const delays = [0, 1, 2, 3, 4, 5].map(n =>
-      BOUNDED_EXPONENTIAL_BACKOFF.nextDelayMs(n)
-    );
+    const delays = [0, 1, 2, 3, 4, 5].map(n => BOUNDED_EXPONENTIAL_BACKOFF.nextDelayMs(n));
     expect(delays).toEqual([
       60_000,
       5 * 60_000,

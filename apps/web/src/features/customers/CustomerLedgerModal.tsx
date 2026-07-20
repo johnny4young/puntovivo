@@ -1,23 +1,23 @@
 /**
- * ENG-089 — V5 "Cuenta corriente" panel for a single customer.
+ * V5 "Cuenta corriente" panel for a single customer.
  *
  * Shows the running balance + last-N ledger entries with three CTAs:
- *  - `Recibir abono` (manager+): opens the abono modal, fires
- *    `customerLedger.addPayment`.
- *  - `Estado cuenta` (manager+): exports the visible rows as CSV via
- *    the shared `exportToCSV` helper. Filename includes the localized
- *    statement label, customer name, optional tax ID, and local date.
- *  - `Cargar a cuenta` (admin only): opens the same modal in the
- *    adjustment variant. Manager sees the button disabled with a
- *    tooltip explaining the gate. Cashier never reaches this surface
- *    (manager+ row action gating on the parent).
+ * - `Recibir abono` (manager+): opens the abono modal, fires
+ * `customerLedger.addPayment`.
+ * - `Estado cuenta` (manager+): exports the visible rows as CSV via
+ * the shared `exportToCSV` helper. Filename includes the localized
+ * statement label, customer name, optional tax ID, and local date.
+ * - `Cargar a cuenta` (admin only): opens the same modal in the
+ * adjustment variant. Manager sees the button disabled with a
+ * tooltip explaining the gate. Cashier never reaches this surface
+ * (manager+ row action gating on the parent).
  *
  * The ledger panel never writes a denormalized balance; `getBalance`
  * is a separate query that the server resolves via `SUM(amount)`. The
  * two queries share invalidation so a successful abono / ajuste
  * refreshes both in one click.
  *
- * Frecuente badge is documented as deferred to ENG-089b — a
+ * Frecuente badge is documented as deferred to  — a
  * placeholder slot stays for future wiring.
  */
 import { useState } from 'react';
@@ -69,7 +69,7 @@ function formatFilenameDate(date = new Date()): string {
 }
 
 /**
- * ENG-103 — Customer ledger statement filename. The semantic helper
+ * Customer ledger statement filename. The semantic helper
  * resolves the canonical `ledger-estadocuenta-<customer>-<date>` shape
  * (plus the customer tax id when available) and re-uses the
  * accent / casing normalisation baked into `generateFilename`.
@@ -155,7 +155,7 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
 
   const balance = balanceQuery.data?.balance ?? 0;
   const creditLimit = customer?.creditLimit ?? 0;
-  // ENG-090 will project the in-flight cart total on top of the
+  // will project the in-flight cart total on top of the
   // current balance; today the projection equals the balance.
   const projectedBalance = balance;
   const cupoExceeded = creditLimit > 0 && projectedBalance > creditLimit;
@@ -187,8 +187,7 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
   };
 
   const isMutating = addPayment.isPending || addAdjustment.isPending;
-  const mutationError =
-    addPayment.error?.message ?? addAdjustment.error?.message ?? null;
+  const mutationError = addPayment.error?.message ?? addAdjustment.error?.message ?? null;
 
   if (!customer) {
     return (
@@ -207,9 +206,7 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
         closeOnEsc={!abonoMode}
         size="xl"
         title={t('ledger.modal.title')}
-        footer={
-          <ModalButton onClick={onClose}>{t('ledger.actions.close')}</ModalButton>
-        }
+        footer={<ModalButton onClick={onClose}>{t('ledger.actions.close')}</ModalButton>}
       >
         <div className="space-y-5">
           {/* Customer card */}
@@ -228,7 +225,7 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
                 <p className="text-xs text-secondary-500">
                   {customer.taxId || t('ledger.modal.noTaxId')}
                 </p>
-                {/* ENG-089b — Frecuente badge slot (deferred). */}
+                {/* Frecuente badge slot (deferred). */}
               </div>
             </div>
           </header>
@@ -243,9 +240,7 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
             />
             <MetricCell
               label={t('ledger.modal.cupoLabel')}
-              value={
-                creditLimit > 0 ? formatCurrency(creditLimit) : t('ledger.modal.cupoUnset')
-              }
+              value={creditLimit > 0 ? formatCurrency(creditLimit) : t('ledger.modal.cupoUnset')}
               testId="ledger-metric-cupo"
             />
             <MetricCell
@@ -292,18 +287,10 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
             <table className="min-w-full text-sm" data-testid="ledger-rows-table">
               <thead className="bg-secondary-50 text-xs uppercase text-secondary-600">
                 <tr>
-                  <th className="px-3 py-2 text-left">
-                    {t('ledger.modal.column.occurredAt')}
-                  </th>
-                  <th className="px-3 py-2 text-left">
-                    {t('ledger.modal.column.kind')}
-                  </th>
-                  <th className="px-3 py-2 text-right">
-                    {t('ledger.modal.column.amount')}
-                  </th>
-                  <th className="px-3 py-2 text-left">
-                    {t('ledger.modal.column.note')}
-                  </th>
+                  <th className="px-3 py-2 text-left">{t('ledger.modal.column.occurredAt')}</th>
+                  <th className="px-3 py-2 text-left">{t('ledger.modal.column.kind')}</th>
+                  <th className="px-3 py-2 text-right">{t('ledger.modal.column.amount')}</th>
+                  <th className="px-3 py-2 text-left">{t('ledger.modal.column.note')}</th>
                 </tr>
               </thead>
               <tbody>

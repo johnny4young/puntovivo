@@ -1,5 +1,5 @@
 /**
- * ENG-105c — Coverage for the empty-state CTA in `ProductSearchDialog`.
+ * Coverage for the empty-state CTA in `ProductSearchDialog`.
  *
  * The dialog renders a quick-create CTA when (a) the caller wired
  * `onQuickCreateRequested`, (b) the typed query produced zero
@@ -25,7 +25,7 @@ const trpcQueryState = {
   error: null as { message: string } | null,
 };
 
-// ENG-199 — the opt-in discount-suggestion read (useDiscountSuggestions).
+// the opt-in discount-suggestion read (useDiscountSuggestions).
 const suggestionsQueryState = {
   data: {
     items: [] as Array<{ id: string; productId: string; lotId: string; discountPct: number }>,
@@ -71,7 +71,7 @@ function renderDialog(overrides: Partial<React.ComponentProps<typeof ProductSear
   return render(<ProductSearchDialog {...baseProps} />);
 }
 
-describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
+describe('<ProductSearchDialog /> empty-state CTA', () => {
   it('does not surface the empty-state block when the query is empty', () => {
     renderDialog({ onQuickCreateRequested: vi.fn() });
     expect(screen.queryByTestId('product-search-empty-state')).not.toBeInTheDocument();
@@ -220,7 +220,7 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
     expect(screen.queryByTestId('product-search-empty-state')).not.toBeInTheDocument();
   });
 
-  // ENG-199 — the expiry-radar badge is opt-in per caller: only rows whose
+  // the expiry-radar badge is opt-in per caller: only rows whose
   // product has an active suggestion AND showDiscountSuggestions is on
   // render the chip.
   it('renders the discount-suggestion badge only when the caller opts in', async () => {
@@ -308,7 +308,7 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
 });
 
 /**
- * ENG-134e — Coverage for the roving tabindex + ArrowDown/Up/Home/End/Enter
+ * Coverage for the roving tabindex + ArrowDown/Up/Home/End/Enter
  * keyboard navigation on product rows. Before this slice, rows had only
  * `onClick` — a cashier with keyboard alone could not select a product.
  * The slice adds:
@@ -317,9 +317,9 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
  * - `aria-selected` reflecting the selection state for screen readers.
  * - `onKeyDown` with switch on ArrowDown / ArrowUp / Home / End / Enter / Space.
  * - `onFocus` that syncs `activeRowIndex` when a row receives focus via
- *   mouse click or programmatic focus.
+ * mouse click or programmatic focus.
  * - Same-render reset that returns `activeRowIndex` to 0 when the
- *   product result identities change (new search query).
+ * product result identities change (new search query).
  *
  * The mouse-click path stays intact (existing `onClick` still fires).
  */
@@ -365,7 +365,7 @@ async function fillSearchAndAwaitRows(rowsCount: number) {
   return user;
 }
 
-describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
+describe('<ProductSearchDialog /> keyboard navigation', () => {
   beforeEach(() => {
     trpcQueryState.data = { items: THREE_PRODUCTS, total: THREE_PRODUCTS.length };
     trpcQueryState.isLoading = false;

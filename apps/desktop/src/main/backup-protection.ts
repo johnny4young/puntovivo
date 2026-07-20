@@ -1,5 +1,5 @@
 /**
- * ENG-129e — non-secret attestation for encrypted database backups.
+ * non-secret attestation for encrypted database backups.
  *
  * The renderer needs to tell an administrator whether SQLCipher and the
  * platform credential store are protecting backups. It must never receive the

@@ -1,5 +1,5 @@
 /**
- * ENG-064 — Sync contract manifest exhaustiveness checks.
+ * Sync contract manifest exhaustiveness checks.
  *
  * Locks the per-entity conflict-policy mapping against ADR-0004's
  * lists and against the literal `entityType: '...'` strings every

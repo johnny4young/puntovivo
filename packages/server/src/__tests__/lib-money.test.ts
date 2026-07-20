@@ -1,6 +1,6 @@
 /**
  * Auditoría 2026-06 — dedicated regression suite for `roundMoney`
- * (ENG-176a), the single source of truth for every monetary rounding in
+ * (), the single source of truth for every monetary rounding in
  * the application layer. Until now the helper was only exercised
  * indirectly (through completeSale / cash-session flows), so a refactor
  * could silently swap it for banker's rounding or drop the EPSILON
@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { roundMoney } from '../lib/money.js';
 
-describe('roundMoney (ENG-176a)', () => {
+describe('roundMoney', () => {
   it('rounds the 0.005 half-cent boundary UP (defeats IEEE-754 representation drift)', () => {
     // 1.005 is stored as 1.00499999... in IEEE-754; a plain
     // Math.round(v * 100) / 100 rounds it DOWN to 1.00. The EPSILON
@@ -35,7 +35,7 @@ describe('roundMoney (ENG-176a)', () => {
   });
 
   it('keeps per-line accumulation stable across a long cart (round-after-each-line contract)', () => {
-    // ENG-176a requires rounding AFTER each line, not only at the end.
+    // requires rounding AFTER each line, not only at the end.
     // 12 lines of 50 / 1.19 each: per-line rounding gives an exact
     // 2-decimal accumulator at every step.
     let subtotal = 0;

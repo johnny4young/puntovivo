@@ -1,5 +1,5 @@
 /**
- * ENG-018b — Multi-cart workspace store for the sales screen.
+ * Multi-cart workspace store for the sales screen.
  *
  * One cashier can keep several carts in flight at the same time. A cart
  * is called a "workspace" inside the store so we do not collide with
@@ -11,20 +11,20 @@
  * Persistence:
  * - Backed by `zustand/middleware/persist` against `localStorage`.
  * - The storage key is static (`cart-workspace-store`) but each
- *   workspace carries an `ownerKey` (`${tenantId}:${userId}`). The UI
- *   selects workspaces by the current owner so two cashiers signing
- *   into the same machine never see each other's drafts.
+ * workspace carries an `ownerKey` (`${tenantId}:${userId}`). The UI
+ * selects workspaces by the current owner so two cashiers signing
+ * into the same machine never see each other's drafts.
  * - `AuthProvider.logout()` clears auth localStorage; we mirror that
- *   cleanup via `resetAllWorkspaces()` so the store does not retain a
- *   signed-out user's carts.
+ * cleanup via `resetAllWorkspaces()` so the store does not retain a
+ * signed-out user's carts.
  *
  * Locked items on resume:
  * - When a workspace has a non-null `serverSaleId`, the cart was
- *   hydrated from a server-side draft via `sales.resume`. Charging
- *   that workspace must call `sales.completeDraft({ saleId: serverSaleId })`
- *   (items locked — ENG-018c contract). The UI uses the `isResumed`
- *   derived flag to disable item edits and show a "Draft resumed"
- *   banner on top of the cart.
+ * hydrated from a server-side draft via `sales.resume`. Charging
+ * that workspace must call `sales.completeDraft({ saleId: serverSaleId })`
+ * (items locked —  contract). The UI uses the `isResumed`
+ * derived flag to disable item edits and show a "Draft resumed"
+ * banner on top of the cart.
  */
 
 import { create } from 'zustand';
@@ -52,11 +52,11 @@ export interface CartWorkspace {
   serverCustomerId: string | null;
   /** Operator-provided label ("Mesa 5") inherited from the server row. */
   label: string | null;
-  /** ENG-209 — first real cart interaction; null while the workspace is empty. */
+  /** first real cart interaction; null while the workspace is empty. */
   checkoutStartedAt: string | null;
   createdAt: string;
   /**
-   * ENG-105d — per-workspace undo history. Each entry is the
+   * per-workspace undo history. Each entry is the
    * `items` snapshot that existed BEFORE an `updateCart` mutation.
    * The most recent change sits at the end of the array, so
    * `pop()` restores the immediately previous state.
@@ -75,7 +75,7 @@ export interface CartWorkspace {
 }
 
 /**
- * ENG-105d — bound the per-workspace undo stack. 20 reverts is
+ * bound the per-workspace undo stack. 20 reverts is
  * the longest reasonable run before the cashier should restart
  * the cart; bigger stacks burn memory without giving back useful
  * affordance.
@@ -99,7 +99,7 @@ interface CartWorkspaceActions {
   /**
    * Replace the items of a workspace.
    *
-   * ENG-105d — the current `items` array is pushed onto the
+   * the current `items` array is pushed onto the
    * workspace's `historyStack` BEFORE the mutation lands (capped
    * via FIFO eviction at {@link HISTORY_CAP}). When the new array
    * is referentially identical to the previous one, the push is
@@ -109,7 +109,7 @@ interface CartWorkspaceActions {
   /** Record the keyboard-selected row inside a workspace. */
   setSelectedItem(id: string, itemKey: string | null): void;
   /**
-   * ENG-105d — pop the last entry off the workspace's undo
+   * pop the last entry off the workspace's undo
    * history and reinstate it as the workspace's `items`.
    *
    * Returns `true` when an entry was actually popped, `false`
@@ -148,7 +148,7 @@ interface CartWorkspaceActions {
 type CartWorkspaceStore = CartWorkspaceState & CartWorkspaceActions;
 
 const PERSIST_KEY = 'cart-workspace-store';
-// ENG-105d — bump to 2 to add `historyStack`. The migration below
+// bump to 2 to add `historyStack`. The migration below
 // backfills missing stacks to `[]` so previously-persisted
 // workspaces hydrate cleanly without surfacing a runtime error
 // for cashiers who upgrade mid-shift.
@@ -169,7 +169,7 @@ function generateId(): string {
 }
 
 /**
- * ENG-105d — bound the per-workspace undo stack. Returns a NEW
+ * bound the per-workspace undo stack. Returns a NEW
  * array (never mutates the input) so React subscribers always see a
  * fresh reference. When the input is already within `HISTORY_CAP`
  * the function returns it unchanged for cheap referential equality.
@@ -222,7 +222,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           if (!existing) {
             return state;
           }
-          // ENG-105d — only record the previous snapshot when the
+          // only record the previous snapshot when the
           // mutation is a genuine change. Referential identity is
           // enough — every cart mutation flows through helpers
           // (`mergeCartItem`, `updateCartItem`, `filter`) that
@@ -254,9 +254,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         const nextStack = existing.historyStack.slice(0, -1);
         const restored = existing.historyStack[existing.historyStack.length - 1]!;
         const checkoutStartedAt =
-          restored.length === 0
-            ? null
-            : (existing.checkoutStartedAt ?? new Date().toISOString());
+          restored.length === 0 ? null : (existing.checkoutStartedAt ?? new Date().toISOString());
         set(state => ({
           ...state,
           workspaces: {
@@ -314,7 +312,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           label,
           checkoutStartedAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
-          // ENG-105d — resumed drafts arrive with the server state as
+          // resumed drafts arrive with the server state as
           // their "first state". The cashier should NOT be able to
           // undo past that baseline (it would delete persisted lines
           // out of the UI without touching the server row).
@@ -335,7 +333,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
       name: PERSIST_KEY,
       version: PERSIST_VERSION,
       storage: createJSONStorage(() => localStorage),
-      // ENG-105d — persist only serializable workspace state. Store
+      // persist only serializable workspace state. Store
       // actions stay runtime-only, and future transient flags cannot
       // accidentally bloat localStorage.
       //
@@ -354,7 +352,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         ),
         activeId: state.activeId,
       }),
-      // ENG-105d / ENG-209 — migrate old persisted workspaces by
+      // /  — migrate old persisted workspaces by
       // backfilling runtime-safe history and an unmeasured checkout clock.
       // Existing non-empty carts intentionally stay null until their next
       // cart interaction rather than fabricating a start from createdAt.
@@ -385,9 +383,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
 // =============================================================================
 
 /** The single active workspace, or `null` if the panel is empty. */
-export function selectActiveWorkspace(
-  state: CartWorkspaceStore
-): CartWorkspace | null {
+export function selectActiveWorkspace(state: CartWorkspaceStore): CartWorkspace | null {
   if (!state.activeId) {
     return null;
   }
@@ -417,7 +413,7 @@ export function selectActiveIsResumed(state: CartWorkspaceStore): boolean {
 }
 
 /**
- * ENG-105d — depth of the undo stack on the active workspace.
+ * depth of the undo stack on the active workspace.
  * Returns `0` when no workspace is active or the stack is empty.
  * Consumed by `SaleCartTable` / `SalesCartWorkspace` to drive the
  * disabled state of the "Deshacer" button without forcing a

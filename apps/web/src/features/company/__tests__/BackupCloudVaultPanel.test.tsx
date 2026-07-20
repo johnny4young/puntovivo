@@ -81,7 +81,7 @@ function renderPanel(props: React.ComponentProps<typeof BackupCloudVaultPanel> =
   );
 }
 
-describe('BackupCloudVaultPanel (ENG-136c)', () => {
+describe('BackupCloudVaultPanel', () => {
   beforeEach(() => {
     delete window.electron;
   });

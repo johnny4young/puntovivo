@@ -1,23 +1,23 @@
 /**
- * ENG-199 — expiry-radar discount suggestions (WC-C3).
+ * expiry-radar discount suggestions ().
  *
  * The radar (Inventario → Vencimientos) lists lots expiring soon; its CTA
  * records a DISCOUNT SUGGESTION computed from a deterministic tier rule.
  * This module owns that lifecycle:
  *
  * - the tier rule (`EXPIRY_DISCOUNT_TIERS` / `suggestedDiscountPctForExpiry`)
- *   — exported constants so a future tenant setting can replace them without
- *   rewriting callers (same posture as the ENG-195 margin thresholds);
+ * exported constants so a future tenant setting can replace them without
+ * rewriting callers (same posture as the  margin thresholds);
  * - `createExpirySuggestion` / `dismissSuggestion` — the two mutations, each
- *   atomic with its `writeAuditLog` row (the AC is that the CTA leaves an
- *   audit trail);
+ * atomic with its `writeAuditLog` row (the AC is that the CTA leaves an
+ * audit trail);
  * - `listActiveSuggestions` — the read the POS badge and the radar share.
- *   Its shape deliberately carries NO cost fields: the POS caller is a
- *   cashier and lot costs are owner data.
+ * Its shape deliberately carries NO cost fields: the POS caller is a
+ * cashier and lot costs are owner data.
  *
  * A suggestion has no `expired` status: read-side filtering hides it as soon
  * as its lot depletes, deactivates, or passes its expiry — no sweeper runs.
- * v2 (WC-D1 price lists) will consume the same table to emit real promos.
+ * v2 ( price lists) will consume the same table to emit real promos.
  *
  * @module services/price-suggestions
  */
@@ -41,7 +41,7 @@ export interface ExpiryDiscountTier {
 }
 
 /**
- * The v1 rule from the WC-C3 spec: ≤7 days → 30%, ≤15 → 20%, ≤30 → 10%.
+ * The v1 rule from the  spec: ≤7 days → 30%, ≤15 → 20%, ≤30 → 10%.
  * Exported so the radar UI can show the would-be percent per row and so a
  * future tenant setting can override the values in one place.
  */
@@ -61,7 +61,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * outside the largest tier window. Day distance rounds UP: a lot expiring
  * in 6.2 days is 7 days out.
  *
- * ENG-211 — `tiers` defaults to the built-in ladder so existing callers and
+ * `tiers` defaults to the built-in ladder so existing callers and
  * the pure rule tests are unchanged; the router passes the tenant's tuned
  * ladder (`services/discount-settings`). The parameter direction matters:
  * this module must NOT import the settings service, or the two would form
@@ -144,7 +144,7 @@ export function createExpirySuggestion(
   db: DatabaseInstance,
   input: SuggestionActorInput & {
     lotId: string;
-    /** ENG-211 — the tenant's tuned ladder; omit for the built-in default. */
+    /** the tenant's tuned ladder; omit for the built-in default. */
     tiers?: readonly ExpiryDiscountTier[];
   }
 ): ActivePriceSuggestion {

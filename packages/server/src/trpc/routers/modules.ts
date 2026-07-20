@@ -1,19 +1,19 @@
 /**
- * ENG-068 — `modules.*` tRPC router.
+ * `modules.*` tRPC router.
  *
  * Three procedures:
  *
- *   - `modules.list` (managerOrAdmin) — admin-tab read. Returns the
- *     full descriptor list joined with the tenant's current state so
- *     the admin UI can render labels + descriptions + the toggle.
- *   - `modules.setActive` (admin, criticalCommandProcedure) — flips
- *     `tenants.settings.modules[moduleId]`. Writes an audit log row
- *     `action='module.toggle'` with metadata carrying the before /
- *     after snapshot.
- *   - `modules.getEffective` (tenantProcedure) — render-side read.
- *     Returns `Record<ModuleId, boolean>` resolved against defaults
- *     so the renderer's `useIsModuleActive` hook always sees a
- *     complete map, even for a tenant that has never been toggled.
+ * - `modules.list` (managerOrAdmin) — admin-tab read. Returns the
+ * full descriptor list joined with the tenant's current state so
+ * the admin UI can render labels + descriptions + the toggle.
+ * - `modules.setActive` (admin, criticalCommandProcedure) — flips
+ * `tenants.settings.modules[moduleId]`. Writes an audit log row
+ * `action='module.toggle'` with metadata carrying the before /
+ * after snapshot.
+ * - `modules.getEffective` (tenantProcedure) — render-side read.
+ * Returns `Record<ModuleId, boolean>` resolved against defaults
+ * so the renderer's `useIsModuleActive` hook always sees a
+ * complete map, even for a tenant that has never been toggled.
  *
  * @module trpc/routers/modules
  */

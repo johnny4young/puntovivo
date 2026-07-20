@@ -1,5 +1,5 @@
 /**
- * ENG-135b — ambient-environment isolation for the test suite.
+ * ambient-environment isolation for the test suite.
  *
  * Every server test that boots `createServer()` (most of the suite)
  * runs the telemetry adapter init, which reads PUNTOVIVO_SENTRY_DSN

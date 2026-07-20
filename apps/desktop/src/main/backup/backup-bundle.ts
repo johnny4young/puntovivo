@@ -1,6 +1,6 @@
 /**
- * ENG-066 — Backup bundle helpers, split into per-concern modules under
- * ./backup-bundle/ (ENG-178 slice 31: constants, types, encryption, integrity,
+ * Backup bundle helpers, split into per-concern modules under
+ * ./backup-bundle/ ( slice 31: constants, types, encryption, integrity,
  * detect, create, extract, sweep, filename, index).
  *
  * This thin re-export barrel keeps the `backup/backup-bundle` import path

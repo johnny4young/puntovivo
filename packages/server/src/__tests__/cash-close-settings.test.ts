@@ -1,5 +1,5 @@
 /**
- * ENG-194b — tenant-level cash-close settings (blind close toggle).
+ * tenant-level cash-close settings (blind close toggle).
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';

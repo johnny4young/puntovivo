@@ -1,5 +1,5 @@
 /**
- * ENG-177c — committed-sale cash-session fixture.
+ * committed-sale cash-session fixture.
  *
  * The `sales` table now enforces `CHECK (cash_session_id IS NOT NULL OR
  * status = 'draft')`, so any test that inserts a committed sale DIRECTLY

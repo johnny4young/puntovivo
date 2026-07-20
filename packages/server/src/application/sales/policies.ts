@@ -1,5 +1,5 @@
 /**
- * ENG-054 — Pure policy functions extracted from the sales tRPC router.
+ * Pure policy functions extracted from the sales tRPC router.
  *
  * Every function here is pure: same inputs → same output, no DB access,
  * no logging, no side effects. They encode the business rules around
@@ -8,7 +8,7 @@
  *
  * Lift the move-only refactor: the implementations below are
  * byte-equivalent to what lived inline in `trpc/routers/sales.ts`
- * before ENG-054. Tests in `sales.test.ts` and
+ * before . Tests in `sales.test.ts` and
  * `sales-park-and-reprint.test.ts` continue to pass without touching
  * a single assertion.
  *
@@ -18,11 +18,7 @@
 import { normalizedQuantity as resolveNormalizedQuantity } from '@puntovivo/shared/unit-math';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
-import type {
-  CompleteSaleTender,
-  SalePaymentMethod,
-  SalePaymentStatus,
-} from './types.js';
+import type { CompleteSaleTender, SalePaymentMethod, SalePaymentStatus } from './types.js';
 
 /**
  * Tolerance for Σ(tenders) vs sale total. Tender amounts are 2-decimal
@@ -31,7 +27,7 @@ import type {
  * reject legitimate split payments. Half a cent is the tightest bound
  * that absorbs that drift while still rejecting any real 1-cent
  * mismatch — do NOT widen it; see the PAYMENT_SUM_EPSILON regression
- * tests in application-sales-completeSale.test.ts (ENG-176a context).
+ * tests in application-sales-completeSale.test.ts ( context).
  */
 const PAYMENT_SUM_EPSILON = 0.005;
 
@@ -39,13 +35,13 @@ const PAYMENT_SUM_EPSILON = 0.005;
  * Decide the persisted `paymentStatus` of a sale at completion time.
  *
  * - Split payments are validated up-front to sum exactly to the sale
- *   total, so the moment we reach here the sale is fully paid by
- *   construction.
+ * total, so the moment we reach here the sale is fully paid by
+ * construction.
  * - Credit (on-account) tenders honor whatever the client requested —
- *   the cashier may post a credit sale as `pending` until the customer
- *   pays it down.
+ * the cashier may post a credit sale as `pending` until the customer
+ * pays it down.
  * - Single-tender sales derive `paid` / `partial` / `pending` from
- *   `amountReceived` against `total`.
+ * `amountReceived` against `total`.
  */
 export function getPaymentStatus({
   amountReceived,
@@ -61,7 +57,7 @@ export function getPaymentStatus({
   total: number;
   isSplit?: boolean;
   /**
-   * ENG-014 — sum of credit-tender amounts within the resolved payments
+   * sum of credit-tender amounts within the resolved payments
    * list. When a split sale carries a credit portion (cash + credit
    * mix, "apartado") the persisted status flips to `'partial'`: some
    * tenders settle at the register, the rest land on the customer
@@ -131,10 +127,10 @@ export interface ResolvedSalePayments {
  * payment rows the persistence layer can write verbatim:
  *
  * - Multi-tender: caller supplied `args.payments`. Validate that the
- *   sum matches the sale total within a cent of tolerance.
+ * sum matches the sale total within a cent of tolerance.
  * - Legacy single-tender: derive one row from `legacyMethod`, cap its
- *   amount at the total (cash tenders may receive > total — the
- *   overage is change, not a persisted tender).
+ * amount at the total (cash tenders may receive > total — the
+ * overage is change, not a persisted tender).
  *
  * Returns the normalized list plus the dominant `paymentMethod` to
  * echo onto `sales.paymentMethod`. For split payments the dominant
@@ -163,7 +159,7 @@ export function resolveSalePayments(args: {
       });
     }
 
-    // ENG-014 — when split tender mixes credit with other methods,
+    // when split tender mixes credit with other methods,
     // the dominant `paymentMethod` echoed onto `sales.payment_method`
     // must NOT be 'credit'. The operator thinks of the sale through
     // the lens of the initial-installment tender (cash / card), not
@@ -185,7 +181,7 @@ export function resolveSalePayments(args: {
   // Legacy single-tender path: one payment row whose amount equals the
   // sale total (cash overage is change, not a tender). Credit tenders
   // ignore `amountReceived` entirely because the customer pays nothing
-  // at the register — the whole sale lands on the ledger (ENG-090).
+  // at the register — the whole sale lands on the ledger ().
   const legacyAmount =
     args.legacyMethod === 'credit'
       ? args.total
@@ -229,7 +225,7 @@ export function getNormalizedSaleQuantity(quantity: number, equivalence: number)
  * `reason` is empty so the column never gets a trailing separator
  * with nothing after it.
  *
- * Originally inlined in `trpc/routers/sales.ts`; ENG-055 promoted to
+ * Originally inlined in `trpc/routers/sales.ts`;  promoted to
  * the policies module for reuse by `voidSale`.
  */
 export function buildVoidedSaleNotes(
@@ -247,7 +243,7 @@ export function buildVoidedSaleNotes(
  * notes string. Pure: no DB access. Returns the original notes when
  * `reason` is empty.
  *
- * Originally inlined in `trpc/routers/sales.ts`; ENG-055 promoted to
+ * Originally inlined in `trpc/routers/sales.ts`;  promoted to
  * the policies module for reuse by `returnSale`.
  */
 export function buildReturnedSaleNotes(
@@ -267,7 +263,7 @@ export function buildReturnedSaleNotes(
  *
  * - Non-cash tenders contribute zero.
  * - Pending or refunded sales contribute zero (no cash actually
- *   landed in the drawer for them).
+ * landed in the drawer for them).
  * - Otherwise the full sale total is the persisted cash contribution.
  */
 export function getPersistedCashContribution(sale: {
@@ -281,7 +277,7 @@ export function getPersistedCashContribution(sale: {
   if (sale.paymentStatus === 'pending' || sale.paymentStatus === 'refunded') {
     return 0;
   }
-  // ENG-014 — `'partial'` covers two distinct cases since the
+  // `'partial'` covers two distinct cases since the
   // credit-mix slice landed: legacy single-tender cash with
   // `amountReceived < total`, AND split sales with a credit portion.
   // For partial sales the sale.total no longer matches the actual

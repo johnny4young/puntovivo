@@ -1,17 +1,17 @@
 /**
- * ENG-175b — pins the foreign-key onDelete policy documented in
+ * pins the foreign-key onDelete policy documented in
  * docs/ARCHITECTURE.md. Three behaviours need explicit regression
  * coverage so a future schema edit cannot silently flip the contract:
  *
- *   - CASCADE on parent-of-items relations (sale_items, quotation_items,
- *     transfer_order_items, fiscal_document_items, sale_payments,
- *     purchase_items, order_items). Deleting the parent must atomically
- *     remove the child rows.
- *   - SET NULL on optional context pointers (sync_outbox.device_id ->
- *     devices). Deleting the device must null the pointer, NOT cascade.
- *   - RESTRICT on the multi-tenant invariant and audit immutability.
- *     Deleting a tenant while audit rows reference it must throw
- *     FOREIGN KEY constraint failed.
+ * - CASCADE on parent-of-items relations (sale_items, quotation_items,
+ * transfer_order_items, fiscal_document_items, sale_payments,
+ * purchase_items, order_items). Deleting the parent must atomically
+ * remove the child rows.
+ * - SET NULL on optional context pointers (sync_outbox.device_id ->
+ * devices). Deleting the device must null the pointer, NOT cascade.
+ * - RESTRICT on the multi-tenant invariant and audit immutability.
+ * Deleting a tenant while audit rows reference it must throw
+ * FOREIGN KEY constraint failed.
  *
  * The tests use raw SQL inserts to bypass the application layer
  * (procedures may enforce additional guards). The point is to pin the
@@ -59,13 +59,13 @@ afterEach(() => {
   closeDatabase();
 });
 
-describe('FK onDelete cascade behaviour (ENG-175b)', () => {
+describe('FK onDelete cascade behaviour', () => {
   it('deletes sale_items when the parent sale is deleted (cascade)', async () => {
     await initDatabase({ dbPath: ':memory:', seedData: false });
     const { tenantId, userId } = seedTenantAndUser();
 
     const saleId = newId();
-    // ENG-177c — this exercises the sale → sale_items cascade, which is
+    // this exercises the sale → sale_items cascade, which is
     // status-agnostic. Use a draft (exempt from the new
     // chk_sales_cash_session_or_draft CHECK) so the fixture needs no
     // cash session; a draft cart legitimately carries line items.
@@ -116,9 +116,9 @@ describe('FK onDelete cascade behaviour (ENG-175b)', () => {
       )
       .run(newId(), tenantId, userId, NOW);
 
-    expect(() =>
-      db().prepare('DELETE FROM tenants WHERE id = ?').run(tenantId)
-    ).toThrow(/FOREIGN KEY constraint failed/);
+    expect(() => db().prepare('DELETE FROM tenants WHERE id = ?').run(tenantId)).toThrow(
+      /FOREIGN KEY constraint failed/
+    );
   });
 
   it('blocks user deletion while audit_logs reference them (audit immutability)', async () => {
@@ -133,13 +133,13 @@ describe('FK onDelete cascade behaviour (ENG-175b)', () => {
       )
       .run(newId(), tenantId, userId, NOW);
 
-    expect(() =>
-      db().prepare('DELETE FROM users WHERE id = ?').run(userId)
-    ).toThrow(/FOREIGN KEY constraint failed/);
+    expect(() => db().prepare('DELETE FROM users WHERE id = ?').run(userId)).toThrow(
+      /FOREIGN KEY constraint failed/
+    );
   });
 
   it('nulls sync_outbox.device_id when the referenced device is deleted (set null)', async () => {
-    // ENG-175b SET NULL contract: decommissioning a device must NOT
+    // SET NULL contract: decommissioning a device must NOT
     // cascade-delete the in-flight sync_outbox rows pointing at it.
     // The historical link is preserved with `device_id = NULL` so the
     // outbox row can still replay against the destination.
@@ -170,9 +170,8 @@ describe('FK onDelete cascade behaviour (ENG-175b)', () => {
 
     db().prepare('DELETE FROM devices WHERE id = ?').run(deviceId);
 
-    const row = db()
-      .prepare('SELECT device_id FROM sync_outbox WHERE id = ?')
-      .get(outboxId) as { device_id: string | null } | undefined;
+    const row = db().prepare('SELECT device_id FROM sync_outbox WHERE id = ?').get(outboxId) as
+      { device_id: string | null } | undefined;
     expect(row).toBeDefined();
     expect(row?.device_id).toBeNull();
   });

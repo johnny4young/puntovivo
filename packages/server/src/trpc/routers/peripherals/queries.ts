@@ -1,8 +1,8 @@
 /**
- * Peripherals router — read procedures (ENG-178 split).
+ * Peripherals router — read procedures ( split).
  *
- * ENG-061/062/065/074b — list / activeForSite / peekHardwareOutbox +
- * buildReceiptBytes. ENG-106c3 promotes buildDrawerKickBytes to an audited
+ * list / activeForSite / peekHardwareOutbox +
+ * buildReceiptBytes.  promotes buildDrawerKickBytes to an audited
  * critical mutation because returning the pulse authorizes physical I/O.
  *
  * @module trpc/routers/peripherals/queries
@@ -56,10 +56,10 @@ export const peripheralsQueryProcedures = {
   }),
 
   /**
-   * ENG-061 — sales-role read of the active peripherals for a site.
+   * sales-role read of the active peripherals for a site.
    *
    * The SalesPage uses this to load the active scanner's timing
-   * config (`useBarcodeWedgeListener`); ENG-062 will let cashiers
+   * config (`useBarcodeWedgeListener`);  will let cashiers
    * read printer config the same way. Returns a minimal projection
    * (kind + driver + config) so we never expose admin-only fields
    * like `lastTestDetails` or `displayName` to non-admin roles.
@@ -88,7 +88,7 @@ export const peripheralsQueryProcedures = {
   }),
 
   /**
-   * ENG-074b — read-only "give me the bytes" for the hub_client
+   * read-only "give me the bytes" for the hub_client
    * local hardware bridge.
    *
    * Composes the same `ReceiptDocument` `printReceipt` would build,
@@ -202,7 +202,7 @@ export const peripheralsQueryProcedures = {
   }),
 
   /**
-   * ENG-074b / ENG-106c3 — audited drawer-kick bytes for the hub_client
+   * /  — audited drawer-kick bytes for the hub_client
    * local hardware bridge. Same shape contract as
    * `buildReceiptBytes`: returns `ESCPOS_BYTES.DRAWER_KICK` plus
    * the transport hint of the active escpos cash_drawer
@@ -281,8 +281,8 @@ export const peripheralsQueryProcedures = {
     }),
 
   /**
-   * ENG-062 — operator-visible peek into the hardware outbox tail.
-   * Stub for ENG-065's Operations Center; returns a minimal
+   * operator-visible peek into the hardware outbox tail.
+   * Stub for 's Operations Center; returns a minimal
    * projection so the UI doesn't load the full payload by default.
    * Tenant-scoped + manager-or-admin gated.
    */

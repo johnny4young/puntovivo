@@ -42,7 +42,7 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
     },
-    // ENG-213 — the drawer mounts CustomerLoyaltyChip, which reads this.
+    // the drawer mounts CustomerLoyaltyChip, which reads this.
     // Zero points keeps the chip silent, so this suite keeps asserting the
     // same surface it did before loyalty existed.
     loyalty: {
@@ -59,7 +59,7 @@ vi.mock('@/lib/useCriticalMutation', () => ({
 
 const toastSuccessMock = vi.hoisted(() => vi.fn());
 
-// ENG-105c2 — SalePaymentModal now consumes the toast pipeline to
+// SalePaymentModal now consumes the toast pipeline to
 // surface the auto-attach confirmation. The existing test suite does
 // not mount ToastProvider, so we stub `useToast` with a stable mock for
 // the new assertions and no-op shapes for the unused methods.
@@ -156,7 +156,7 @@ describe('SalePaymentModal — quick-created customer auto-attach', () => {
   });
 });
 
-describe('SalePaymentModal — stable drawer shell (ENG-105h)', () => {
+describe('SalePaymentModal — stable drawer shell', () => {
   beforeAll(async () => {
     await i18next.changeLanguage('en');
   });
@@ -298,7 +298,7 @@ describe('SalePaymentModal — split payments', () => {
   });
 });
 
-describe('SalePaymentModal — tip / propina (ENG-039d)', () => {
+describe('SalePaymentModal — tip / propina', () => {
   beforeAll(async () => {
     await i18next.changeLanguage('en');
   });
@@ -397,7 +397,7 @@ describe('SalePaymentModal — tip / propina (ENG-039d)', () => {
   });
 });
 
-describe('SalePaymentModal — service charge / propina sugerida (ENG-039d3)', () => {
+describe('SalePaymentModal — service charge / propina sugerida', () => {
   beforeAll(async () => {
     await i18next.changeLanguage('en');
   });
@@ -471,9 +471,9 @@ describe('SalePaymentModal — service charge / propina sugerida (ENG-039d3)', (
   });
 });
 
-// ENG-105e — F2 fast-cash flow. Mount-time + trigger-while-open
+// F2 fast-cash flow. Mount-time + trigger-while-open
 // behaviour, plus backward-compat (defaults do nothing).
-describe('SalePaymentModal — ENG-105e fast-cash', () => {
+describe('SalePaymentModal —  fast-cash', () => {
   it('does not auto-fill when fastCashTrigger is omitted (backward compat)', () => {
     render(<SalePaymentModal {...createProps({ total: 100 })} />);
     const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;

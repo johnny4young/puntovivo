@@ -1,5 +1,5 @@
 /**
- * ENG-105 (slice A) — Command Palette context + global listener.
+ * (slice A) — Command Palette context + global listener.
  *
  * Mounts `<CommandPalette />` once at the top of the React tree and
  * registers a single `keydown` listener for `Mod+K` (Cmd on macOS,
@@ -34,9 +34,7 @@ interface CommandPaletteContextValue {
   togglePalette: () => void;
 }
 
-const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(
-  null
-);
+const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(null);
 const SALES_PRODUCT_SEARCH_ID = 'sales-product-search-input';
 
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
@@ -89,7 +87,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // ENG-205 — never steal focus from a field where the operator is
+      // never steal focus from a field where the operator is
       // editing text or choosing a value. The sales product search is the
       // deliberate exception: it owns the long-standing POS Mod+K workflow
       // and opening the broader product/action palette there is lossless.
@@ -101,9 +99,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
       // Skip when another modal owns focus. Stacking the palette on
       // top of a payment/search/confirm modal creates dueling focus
       // traps; the palette itself is handled by the `isOpen` branch.
-      const anotherModalIsOpen = document.querySelector(
-        '[role="dialog"][aria-modal="true"]'
-      );
+      const anotherModalIsOpen = document.querySelector('[role="dialog"][aria-modal="true"]');
       if (anotherModalIsOpen) {
         return;
       }
@@ -156,9 +152,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
 export function useCommandPalette(): CommandPaletteContextValue {
   const ctx = useContext(CommandPaletteContext);
   if (!ctx) {
-    throw new Error(
-      'useCommandPalette must be used inside <CommandPaletteProvider>'
-    );
+    throw new Error('useCommandPalette must be used inside <CommandPaletteProvider>');
   }
   return ctx;
 }

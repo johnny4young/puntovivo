@@ -23,7 +23,7 @@ interface SaleReprintModalProps {
   onReasonDetailChange: (detail: string) => void;
 }
 
-// ENG-019 — keep the reprint form presentational; SaleDetailsModal owns
+// keep the reprint form presentational; SaleDetailsModal owns
 // mutation state, printing, query invalidation, and the close lifecycle.
 export function SaleReprintModal({
   isOpen,

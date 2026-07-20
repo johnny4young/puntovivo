@@ -1,4 +1,4 @@
-/** ENG-206 — Set tenant stock to an absolute value with audit + journal effects. */
+/** Set tenant stock to an absolute value with audit + journal effects. */
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';

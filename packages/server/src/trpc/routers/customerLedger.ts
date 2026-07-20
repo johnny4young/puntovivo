@@ -1,5 +1,5 @@
 /**
- * Customer Ledger tRPC Router — ENG-089 / ENG-208
+ * Customer Ledger tRPC Router —  /
  *
  * Read-side receivable queries remain transport-local. Manual payment and
  * adjustment writes delegate to application/customers.

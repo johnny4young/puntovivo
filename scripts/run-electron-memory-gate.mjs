@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ENG-133d — portable Electron memory gate runner.
+ * portable Electron memory gate runner.
  *
  * Starts a Vite preview for the already-built web app, points the Electron
  * measurement launch at that renderer, then runs `check-electron-memory.mjs`.
@@ -39,10 +39,16 @@ function parsePositiveInteger(value, fallback) {
  * - `--ready-timeout-ms <ms>` / `--ready-timeout-ms=<ms>`
  * - `--skip-preview` (for operators who already started a renderer target)
  */
-export function resolveRunElectronMemoryGateOptions({ argv = process.argv.slice(2), env = process.env } = {}) {
+export function resolveRunElectronMemoryGateOptions({
+  argv = process.argv.slice(2),
+  env = process.env,
+} = {}) {
   let host = env.PUNTOVIVO_MEMORY_WEB_HOST || DEFAULT_PREVIEW_HOST;
   let port = parsePositiveInteger(env.PUNTOVIVO_MEMORY_WEB_PORT, DEFAULT_PREVIEW_PORT);
-  let readyTimeoutMs = parsePositiveInteger(env.PUNTOVIVO_MEMORY_WEB_READY_TIMEOUT_MS, DEFAULT_READY_TIMEOUT_MS);
+  let readyTimeoutMs = parsePositiveInteger(
+    env.PUNTOVIVO_MEMORY_WEB_READY_TIMEOUT_MS,
+    DEFAULT_READY_TIMEOUT_MS
+  );
   let skipPreview = env.PUNTOVIVO_MEMORY_SKIP_PREVIEW === '1';
   const passThroughArgs = [];
 
@@ -73,7 +79,10 @@ export function resolveRunElectronMemoryGateOptions({ argv = process.argv.slice(
       continue;
     }
     if (arg.startsWith('--ready-timeout-ms=')) {
-      readyTimeoutMs = parsePositiveInteger(arg.slice('--ready-timeout-ms='.length), readyTimeoutMs);
+      readyTimeoutMs = parsePositiveInteger(
+        arg.slice('--ready-timeout-ms='.length),
+        readyTimeoutMs
+      );
       continue;
     }
     if (arg === '--skip-preview') {
@@ -152,12 +161,15 @@ async function stopChild(child) {
 }
 
 /** Wait until a URL answers with any HTTP response (including SPA 404s). */
-export async function waitForUrl(url, {
-  timeoutMs = DEFAULT_READY_TIMEOUT_MS,
-  intervalMs = DEFAULT_POLL_INTERVAL_MS,
-  fetchImpl = fetch,
-  shouldAbort = () => false,
-} = {}) {
+export async function waitForUrl(
+  url,
+  {
+    timeoutMs = DEFAULT_READY_TIMEOUT_MS,
+    intervalMs = DEFAULT_POLL_INTERVAL_MS,
+    fetchImpl = fetch,
+    shouldAbort = () => false,
+  } = {}
+) {
   const deadline = Date.now() + timeoutMs;
   let lastError;
   while (Date.now() < deadline) {
@@ -177,7 +189,9 @@ export async function waitForUrl(url, {
     }
     await delay(intervalMs);
   }
-  throw new Error(`Timed out waiting for ${url}${lastError?.message ? ` (${lastError.message})` : ''}`);
+  throw new Error(
+    `Timed out waiting for ${url}${lastError?.message ? ` (${lastError.message})` : ''}`
+  );
 }
 
 function pipeWithPrefix(stream, prefix, output) {
@@ -260,7 +274,8 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
   }
 }
 
-const isDirectInvocation = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const isDirectInvocation =
+  process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isDirectInvocation) {
   process.exit(await runCli());
 }

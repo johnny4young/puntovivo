@@ -1,5 +1,5 @@
 /**
- * ENG-052b — MEGA seed: last 3 days of operational data driven
+ * MEGA seed: last 3 days of operational data driven
  * through the live tRPC critical-procedure path.
  *
  * Why mix bulk SQL with tRPC: the historical 90-day backlog is
@@ -117,7 +117,7 @@ export async function seedRecentViaTrpc(
       } catch (err) {
         // Stock-related rejections are acceptable — seed has tighter
         // stock than tRPC expects on a hot path. Log + continue so
-        // ENG-052b smoke completes regardless.
+        // smoke completes regardless.
         // eslint-disable-next-line no-console
         console.warn('seed mega recent sale skipped:', err);
       }

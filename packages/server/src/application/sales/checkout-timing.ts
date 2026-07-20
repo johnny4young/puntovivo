@@ -1,6 +1,6 @@
 import type { FreshSaleStatus } from './types.js';
 
-/** ENG-209 — discard abandoned carts from the motivational checkout average. */
+/** discard abandoned carts from the motivational checkout average. */
 export const MAX_CHECKOUT_DURATION_MS = 4 * 60 * 60 * 1000;
 
 export interface CheckoutTiming {

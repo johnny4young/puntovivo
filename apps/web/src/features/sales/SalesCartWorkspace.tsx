@@ -2,15 +2,11 @@ import { Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import type { SaleCartItem } from '@/features/sales/saleCart';
-import {
-  ariaKeyshortcutsFor,
-  formatKeysForDisplay,
-  getShortcutById,
-} from '@/lib/shortcuts';
+import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 
 interface SalesCartWorkspaceProps {
   items: SaleCartItem[];
-  /** ENG-199 — active POS site for the cart's suggestion badges. */
+  /** active POS site for the cart's suggestion badges. */
   discountSuggestionSiteId?: string | null;
   selectedItemKey: string | null;
   itemCount: number;
@@ -25,7 +21,7 @@ interface SalesCartWorkspaceProps {
   quantityInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   discountInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   /**
-   * ENG-105d — `true` when the active workspace has at least one
+   * `true` when the active workspace has at least one
    * undoable mutation in its history stack and the cart is not a
    * locked resumed-draft. The toolbar button only renders when this
    * is true; the canonical shortcut catalogue owns discovery when
@@ -33,7 +29,7 @@ interface SalesCartWorkspaceProps {
    */
   canUndo?: boolean;
   /**
-   * ENG-105d — invoked from the visible "Deshacer" button. Optional
+   * invoked from the visible "Deshacer" button. Optional
    * so existing consumers that do not yet wire undo (component
    * tests, future surfaces) keep compiling. When undefined the
    * button is hidden entirely.
@@ -59,40 +55,40 @@ export function SalesCartWorkspace({
   onUndo,
 }: SalesCartWorkspaceProps) {
   const { t } = useTranslation('sales');
-  // ENG-105d — visible shortcut chip pulled from the canonical
+  // visible shortcut chip pulled from the canonical
   // catalogue so the surface stays in sync with `Mod+Z` (and any
   // future rebind).
   const undoShortcut = onUndo ? getShortcutById('sales.undo') : undefined;
-  const undoShortcutHint = undoShortcut
-    ? formatKeysForDisplay(undoShortcut.keys)
-    : null;
-  const undoAriaKeyshortcuts = onUndo
-    ? ariaKeyshortcutsFor('sales.undo')
-    : undefined;
+  const undoShortcutHint = undoShortcut ? formatKeysForDisplay(undoShortcut.keys) : null;
+  const undoAriaKeyshortcuts = onUndo ? ariaKeyshortcutsFor('sales.undo') : undefined;
   return (
-    // ENG-186/189 — at the `pos:` breakpoint (wide + >=900px tall) the card
+    // at the `pos:` breakpoint (wide + >=900px tall) the card
     // becomes a bounded flex column so the line-item table scrolls internally
     // and the page itself does not scroll while completing a sale. Below `pos:`
     // it is plain flow so short cashier viewports can reach every control.
     <div className="card p-5 sm:p-6 xl:flex pos:h-full pos:min-h-0 xl:flex-col pos:overflow-hidden">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between xl:shrink-0">
         <div>
-          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('checkout.activeTicket')}</p>
-          <h2 className="mt-2 font-display text-3xl text-secondary-950">{t('checkout.currentCart')}</h2>
-          <p className="mt-2 max-w-2xl text-sm text-secondary-600">
-            {t('checkout.adjustHint')}
+          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">
+            {t('checkout.activeTicket')}
           </p>
+          <h2 className="mt-2 font-display text-3xl text-secondary-950">
+            {t('checkout.currentCart')}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-secondary-600">{t('checkout.adjustHint')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="badge badge-secondary">{t('checkout.lineItems', { count: itemCount })}</span>
-          {/* ENG-134d — only render Undo + Clear when actually usable.
-            * Disabled toolbar buttons tank WCAG AA contrast through the
-            * shared `disabled:opacity-45` rule on every btn variant; the
-            * cleaner UX is to hide affordances that have nothing to act
-            * on. The keyboard shortcut Mod+Z still fires from the
-            * document-level handler when there is something to undo,
-            * and CommandPalette (Mod+K) is the canonical place to
-            * discover keybindings. */}
+          <span className="badge badge-secondary">
+            {t('checkout.lineItems', { count: itemCount })}
+          </span>
+          {/* only render Undo + Clear when actually usable.
+           * Disabled toolbar buttons tank WCAG AA contrast through the
+           * shared `disabled:opacity-45` rule on every btn variant; the
+           * cleaner UX is to hide affordances that have nothing to act
+           * on. The keyboard shortcut Mod+Z still fires from the
+           * document-level handler when there is something to undo,
+           * and CommandPalette (Mod+K) is the canonical place to
+           * discover keybindings. */}
           {onUndo && canUndo && (
             <button
               className="btn-ghost flex items-center gap-2"
@@ -120,7 +116,7 @@ export function SalesCartWorkspace({
         </div>
       </div>
 
-      {/* ENG-186/189 — the scrollable region at `pos:`; flex-1 + min-h-0 lets the
+      {/* the scrollable region at `pos:`; flex-1 + min-h-0 lets the
           table take the remaining card height and scroll on overflow. */}
       <div className="pos:min-h-0 pos:flex-1 pos:overflow-y-auto">
         <SaleCartTable

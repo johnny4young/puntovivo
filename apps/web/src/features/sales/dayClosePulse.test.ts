@@ -28,7 +28,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('day-close pulse helpers (WC-C8)', () => {
+describe('day-close pulse helpers', () => {
   it('builds deterministic aggregate-only text and an encoded WhatsApp URL', () => {
     const text = buildDayClosePulseText(model);
     expect(text).toContain('Sales: $950.00 (12 completed sales)');

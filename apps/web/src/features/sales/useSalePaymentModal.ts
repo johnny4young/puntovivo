@@ -1,7 +1,7 @@
 /**
  * State + behavior hook for the sale payment modal.
  *
- * ENG-178 — extracted verbatim from the former single-file
+ * extracted verbatim from the former single-file
  * `SalePaymentModal.tsx` during the megafile decomposition. Owns the
  * react-hook-form instance, the tender field array, all derived flags
  * (grand total, change, credit projection, split validity) and every
@@ -70,10 +70,10 @@ export function useSalePaymentModal({
   const { t } = useTranslation('sales');
   const toast = useToast();
   const [splitMode, setSplitMode] = useState(false);
-  // ENG-090 — credit method gating + projection.
+  // credit method gating + projection.
   const canLendCredit = userRole === 'admin' || userRole === 'manager' || userRole === 'cashier';
   const isAdmin = userRole === 'admin';
-  // ENG-039d3 — service charge is derived from `total × rate / 100`,
+  // service charge is derived from `total × rate / 100`,
   // not a form field. The operator cannot edit it; the server
   // re-validates against the tenant rate at submit time.
   const serviceChargeAmount = useMemo(
@@ -90,13 +90,13 @@ export function useSalePaymentModal({
     control: form.control,
     name: 'tenders',
   });
-  // ENG-142a — F2 may arrive while the server-owned checkout policy is
+  // F2 may arrive while the server-owned checkout policy is
   // still loading. A disabled button cannot receive focus, so remember the
   // cashier's intent and restore the fast-cash focus contract as soon as the
   // fail-closed gate becomes submit-ready.
   const pendingFastCashFocusRef = useRef(false);
 
-  // ENG-105c2 — auto-attach the customer that was just created via the
+  // auto-attach the customer that was just created via the
   // quick-create flow (customer picker or palette dispatch route).
   // The store holds a one-shot `pendingCustomerAttachId`; the gate
   // sets it after a successful `customers.create`, and this effect
@@ -161,7 +161,7 @@ export function useSalePaymentModal({
   const isCash = paymentMethod === 'cash';
   const isCredit = paymentMethod === 'credit';
 
-  // ENG-105e — F2 fast-cash apply. Shared by mount-time F2 open
+  // F2 fast-cash apply. Shared by mount-time F2 open
   // and later in-modal F2 presses; always captures the freshest
   // grand total for tip/service-charge edits.
   const applyFastCash = () => {
@@ -187,7 +187,7 @@ export function useSalePaymentModal({
     });
   };
 
-  // ENG-105e — apply on F2-open and re-apply when the parent
+  // apply on F2-open and re-apply when the parent
   // increments the trigger while the modal is already open. The ref
   // indirection (same pattern as useRealtimeChannel) guarantees the
   // deferred call always reads the latest grandTotal — a direct
@@ -203,14 +203,14 @@ export function useSalePaymentModal({
   const outstanding = Math.max(0, grandTotal - amountReceivedValue);
   const creditMethodAvailable = canLendCredit && watchedCustomerId.length > 0;
 
-  // ENG-090 — read the active customer's current balance + creditLimit
+  // read the active customer's current balance + creditLimit
   // when credit is the active method. The query short-circuits via
   // `enabled` so non-credit flows pay zero contract cost. balance is
   // the running SUM(amount) across the ledger (positive = customer
   // owes); creditLimit comes from the customers row (0 = sin cupo).
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
   const tenderSum = useMemo(() => sumBy(tenders, tender => Number(tender.amount) || 0), [tenders]);
-  // ENG-014 — sum credit tenders in split mode. The V10 customer card
+  // sum credit tenders in split mode. The V10 customer card
   // surfaces the projected balance based on this portion only (not
   // grandTotal). Outside split mode the value is 0 and the legacy
   // single-tender credit branch still drives the projection.
@@ -227,14 +227,14 @@ export function useSalePaymentModal({
   const tenderDelta = tenderSum - grandTotal;
   const tendersAreAllPositive = tenders.every(tender => (Number(tender.amount) || 0) > 0);
 
-  // ENG-014 — the balance query also fires when a split tender row is
+  // the balance query also fires when a split tender row is
   // credit so the V10 card has live data to project against.
   const creditQueryEnabled = creditMethodAvailable && (isCredit || creditAmountInSplit > 0);
   const creditBalanceQuery = trpc.customerLedger.getBalance.useQuery(
     { customerId: watchedCustomerId },
     { enabled: creditQueryEnabled, staleTime: 30_000 }
   );
-  // ENG-218 — a FAILED balance read used to be indistinguishable from a
+  // a FAILED balance read used to be indistinguishable from a
   // balance of zero: `data` is undefined either way, so a customer $95.000
   // into a $100.000 cupo was drawn as having the whole cupo free. The
   // cashier confirmed against that picture and the server — which re-reads
@@ -250,7 +250,7 @@ export function useSalePaymentModal({
   const balanceUnknown = balanceLoading || balanceUnavailable;
   const currentBalance = creditBalanceQuery.data?.balance ?? 0;
   const creditLimit = selectedCustomer?.creditLimit ?? 0;
-  // ENG-014 — the projection sizes to the credit portion only. Pure
+  // the projection sizes to the credit portion only. Pure
   // legacy credit (single-tender) projects against grandTotal as
   // before; split-credit projects against the credit tender sum so
   // the cashier sees "$150 a crédito" rather than the full "$200".
@@ -261,7 +261,7 @@ export function useSalePaymentModal({
     creditLimit > 0 &&
     creditProjectionAmount > 0 &&
     projectedBalance > creditLimit;
-  // ENG-014 — V10 card surfaces whenever the sale carries a credit
+  // V10 card surfaces whenever the sale carries a credit
   // portion (legacy single-tender OR split with a credit row).
   const showCreditCard = isCredit || creditAmountInSplit > 0;
   const hasCreditTender = showCreditCard;
@@ -292,7 +292,7 @@ export function useSalePaymentModal({
   );
   const baselineApprovalActions = requiredCheckoutApprovalActions({
     role: userRole,
-    // ENG-142a — the server-owned policy query decides discount authority.
+    // the server-owned policy query decides discount authority.
     hasDiscount: false,
     hasCreditTender,
     creditOverrideRequired: hasCreditTender && cupoExceeded,
@@ -371,7 +371,7 @@ export function useSalePaymentModal({
   }, [creditMethodAvailable, form, paymentMethod]);
 
   function handleTipPreset(percentage: number): void {
-    // ENG-039d — percentage base is `total` (subtotal + tax - discount)
+    // percentage base is `total` (subtotal + tax - discount)
     // before tip is layered on. This is the customer-facing "what I
     // owe" amount and matches the LATAM hospitality convention.
     const nextAmount = roundMoney((total * percentage) / 100);
@@ -382,7 +382,7 @@ export function useSalePaymentModal({
 
   function syncPaymentInputsForTip(nextTipAmount: number): void {
     const previousGrandTotal = grandTotal;
-    // ENG-039d3 — service charge is fixed for the cart; only the tip
+    // service charge is fixed for the cart; only the tip
     // delta moves grandTotal across calls. Including it keeps the
     // auto-sync of amountReceived / first tender consistent.
     const nextGrandTotal = roundMoney(total + serviceChargeAmount + nextTipAmount);
@@ -441,7 +441,7 @@ export function useSalePaymentModal({
   const canSubmit =
     !isSaving &&
     (!splitMode || splitIsValid) &&
-    // ENG-218 — never let a credit sale be confirmed against a projection we
+    // never let a credit sale be confirmed against a projection we
     // could not compute. Cash-only checkouts are untouched (the query is
     // disabled, so balanceUnknown is false).
     !balanceUnknown &&
@@ -455,16 +455,16 @@ export function useSalePaymentModal({
     // form, bypassing the disabled footer button — without this guard a
     // single checkout can submit twice with two distinct idempotency
     // envelopes and double-charge the sale.
-    // ENG-142a — requestSubmit also bypasses the footer's disabled state
+    // requestSubmit also bypasses the footer's disabled state
     // while policy evaluation or an exact approval is still outstanding.
     if (!canSubmit) {
       return;
     }
     const sanitizedTip = Math.max(0, Number(values.tipAmount) || 0);
-    // ENG-090 / ENG-106c2 — admins opt into an override directly;
+    // /  — admins opt into an override directly;
     // non-admins may carry it only when this exact checkout has an approved
     // credit_override request. Stale form state cannot elevate a later cart.
-    // ENG-014 — also accept override when split mode carries a
+    // also accept override when split mode carries a
     // credit tender ("apartado"). Non-credit sales (split or single)
     // never pass override through.
     const hasSplitCredit = splitMode && values.tenders.some(tender => tender.method === 'credit');
@@ -481,7 +481,7 @@ export function useSalePaymentModal({
       tenders: splitMode ? values.tenders : [],
       tipAmount: sanitizedTip,
       tipMethod: sanitizedTip > 0 ? (values.tipMethod ?? 'fixed') : null,
-      // ENG-039d3 — service charge is derived from the prop rate, not
+      // service charge is derived from the prop rate, not
       // operator-editable, so submit always carries the freshly
       // computed pair. `serviceChargeRate: null` signals "no charge
       // configured" to the server.
@@ -558,7 +558,7 @@ export function useSalePaymentModal({
     cupoExceeded,
     showCreditCard,
     balanceLoading,
-    // ENG-218 — the card renders the inline error + retry from these.
+    // the card renders the inline error + retry from these.
     balanceUnavailable,
     retryBalance: () => void creditBalanceQuery.refetch(),
     checkoutApprovals: checkoutApprovalState,

@@ -23,7 +23,7 @@ import type {
 import { SYNC_BACKLOG_WARN_THRESHOLD } from './constants.js';
 
 /**
- * ENG-184 — Build cashier-facing checkout reminders for a tenant and site.
+ * Build cashier-facing checkout reminders for a tenant and site.
  * Every item is a warning: selling is never blocked by readiness state.
  */
 export async function buildCheckoutReadiness(args: {
@@ -92,7 +92,7 @@ export async function buildCheckoutReadiness(args: {
 }
 
 /**
- * ENG-202 — Build the living first-sale checklist for the current operator.
+ * Build the living first-sale checklist for the current operator.
  * Tenant-wide history wins, while an open drawer is site and user scoped.
  */
 export async function buildFirstSaleReadiness(args: {

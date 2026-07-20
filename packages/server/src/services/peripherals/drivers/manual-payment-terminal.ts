@@ -1,16 +1,16 @@
 /**
- * ENG-060 — `manual` payment terminal driver.
+ * `manual` payment terminal driver.
  *
  * Formalizes today's "cashier reads the slip and types the auth
  * code" flow. `charge()` returns `{status: 'manual', requiresOperator-
  * Input: true}` so the renderer routes to its existing manual-entry
- * modal. ENG-063 will add Bold/Wompi/MercadoPago siblings that drive
+ * modal.  will add Bold/Wompi/MercadoPago siblings that drive
  * the terminal end-to-end.
  *
  * Config:
- *   - `prompt?: string` — optional copy override for the renderer's
- *     manual-entry dialog. Defaults to the i18n key
- *     `peripherals:driver.manual.defaultPrompt` resolved client-side.
+ * - `prompt?: string` — optional copy override for the renderer's
+ * manual-entry dialog. Defaults to the i18n key
+ * `peripherals:driver.manual.defaultPrompt` resolved client-side.
  *
  * @module services/peripherals/drivers/manual-payment-terminal
  */
@@ -28,9 +28,7 @@ export const manualPaymentTerminalConfigSchema = z
     prompt: z.string().trim().min(1).max(200).optional(),
   })
   .strict();
-export type ManualPaymentTerminalConfig = z.infer<
-  typeof manualPaymentTerminalConfigSchema
->;
+export type ManualPaymentTerminalConfig = z.infer<typeof manualPaymentTerminalConfigSchema>;
 
 export class ManualPaymentTerminalAdapter implements PaymentTerminalAdapter {
   readonly kind = 'payment_terminal' as const;
@@ -65,8 +63,7 @@ export class ManualPaymentTerminalAdapter implements PaymentTerminalAdapter {
   async testCharge(): Promise<TestResult> {
     return {
       status: 'ok',
-      message:
-        'Manual entry adapter — no real terminal to test. Use the sales flow to charge.',
+      message: 'Manual entry adapter — no real terminal to test. Use the sales flow to charge.',
     };
   }
 }

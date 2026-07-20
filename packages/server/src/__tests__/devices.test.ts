@@ -1,5 +1,5 @@
 /**
- * ENG-052 — Tests for the devices service + auth.registerDevice
+ * Tests for the devices service + auth.registerDevice
  * tRPC procedure.
  */
 import { describe, expect, it, beforeAll } from 'vitest';
@@ -46,7 +46,7 @@ beforeAll(async () => {
   });
 });
 
-describe('devicesService.registerDevice (ENG-052)', () => {
+describe('devicesService.registerDevice', () => {
   it('creates a new active device row with server-generated id', async () => {
     const { deviceId, registeredAt } = await registerDevice(getDatabase(), {
       tenantId,
@@ -57,11 +57,7 @@ describe('devicesService.registerDevice (ENG-052)', () => {
     expect(deviceId).toMatch(/^[A-Za-z0-9_-]{10,}$/);
     expect(registeredAt).toBeDefined();
 
-    const row = await getDatabase()
-      .select()
-      .from(devices)
-      .where(eq(devices.id, deviceId))
-      .get();
+    const row = await getDatabase().select().from(devices).where(eq(devices.id, deviceId)).get();
     expect(row).toMatchObject({
       tenantId,
       kind: 'web',
@@ -97,22 +93,26 @@ describe('devicesService.registerDevice (ENG-052)', () => {
   it('cross-tenant deviceId is treated as a new registration', async () => {
     const otherTenantId = nanoid();
     const otherUserId = nanoid();
-    await getDatabase().insert(tenants).values({
-      id: otherTenantId,
-      name: 'Other',
-      slug: `other-${otherTenantId.slice(0, 6)}`,
-      settings: {},
-      isActive: true,
-    });
-    await getDatabase().insert(users).values({
-      id: otherUserId,
-      tenantId: otherTenantId,
-      email: `other-${otherUserId.slice(0, 6)}@test.local`,
-      passwordHash: await hash('Pass123!'),
-      name: 'Other',
-      role: 'admin',
-      isActive: true,
-    });
+    await getDatabase()
+      .insert(tenants)
+      .values({
+        id: otherTenantId,
+        name: 'Other',
+        slug: `other-${otherTenantId.slice(0, 6)}`,
+        settings: {},
+        isActive: true,
+      });
+    await getDatabase()
+      .insert(users)
+      .values({
+        id: otherUserId,
+        tenantId: otherTenantId,
+        email: `other-${otherUserId.slice(0, 6)}@test.local`,
+        passwordHash: await hash('Pass123!'),
+        name: 'Other',
+        role: 'admin',
+        isActive: true,
+      });
     const orig = await registerDevice(getDatabase(), {
       tenantId,
       userId,
@@ -138,16 +138,12 @@ describe('devicesService.registerDevice (ENG-052)', () => {
       name: 'meta',
       metadata: { os: 'macOS', ua: 'Chrome', appVersion: '1.0.0' },
     });
-    const row = await getDatabase()
-      .select()
-      .from(devices)
-      .where(eq(devices.id, deviceId))
-      .get();
+    const row = await getDatabase().select().from(devices).where(eq(devices.id, deviceId)).get();
     expect(row?.metadata).toMatchObject({ os: 'macOS', ua: 'Chrome' });
   });
 });
 
-describe('devicesService.findActiveDevice (ENG-052)', () => {
+describe('devicesService.findActiveDevice', () => {
   it('returns row for active device on matching tenant', async () => {
     const reg = await registerDevice(getDatabase(), {
       tenantId,
@@ -200,7 +196,7 @@ describe('devicesService.findActiveDevice (ENG-052)', () => {
   });
 });
 
-describe('devicesService.markSeen (ENG-052)', () => {
+describe('devicesService.markSeen', () => {
   it('updates last_seen_at', async () => {
     const reg = await registerDevice(getDatabase(), {
       tenantId,
@@ -219,8 +215,10 @@ describe('devicesService.markSeen (ENG-052)', () => {
   });
 });
 
-describe('auth.registerDevice tRPC procedure (ENG-052)', () => {
-  function callerWith(role: 'admin' | 'cashier' | 'manager'): ReturnType<typeof appRouter.createCaller> {
+describe('auth.registerDevice tRPC procedure', () => {
+  function callerWith(
+    role: 'admin' | 'cashier' | 'manager'
+  ): ReturnType<typeof appRouter.createCaller> {
     const ctx: Context = {
       req: {
         server: server.app,
@@ -261,7 +259,12 @@ describe('auth.registerDevice tRPC procedure (ENG-052)', () => {
 
   it('rejects unauthenticated callers (no user in context)', async () => {
     const ctx: Context = {
-      req: { server: server.app, headers: {}, user: null, jwtVerify: async () => {} } as unknown as Context['req'],
+      req: {
+        server: server.app,
+        headers: {},
+        user: null,
+        jwtVerify: async () => {},
+      } as unknown as Context['req'],
       res: {} as unknown as Context['res'],
       db: getDatabase(),
       user: null,
@@ -269,8 +272,8 @@ describe('auth.registerDevice tRPC procedure (ENG-052)', () => {
       siteId: null,
     };
     const caller = appRouter.createCaller(ctx);
-    await expect(
-      caller.auth.registerDevice({ kind: 'web', name: 'no-auth' })
-    ).rejects.toThrow(TRPCError);
+    await expect(caller.auth.registerDevice({ kind: 'web', name: 'no-auth' })).rejects.toThrow(
+      TRPCError
+    );
   });
 });

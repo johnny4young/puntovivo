@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — purchasing domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -10,7 +10,14 @@
  */
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
-import { moneyPositiveChecks, nowIso, orderStatusEnum, purchaseStatusEnum, sqliteNow, syncStatusEnum } from './base.js';
+import {
+  moneyPositiveChecks,
+  nowIso,
+  orderStatusEnum,
+  purchaseStatusEnum,
+  sqliteNow,
+  syncStatusEnum,
+} from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { providers, units } from './catalogs.js';
 import { products } from './products.js';
@@ -54,7 +61,7 @@ export const purchases = sqliteTable(
     index('idx_purchases_site').on(table.siteId),
     index('idx_purchases_created_by').on(table.createdBy),
     uniqueIndex('idx_purchases_tenant_number').on(table.tenantId, table.purchaseNumber),
-    // ENG-176a — purchase totals are always positive (a refund creates a
+    // purchase totals are always positive (a refund creates a
     // separate purchase_returns row, never a negative purchase).
     ...moneyPositiveChecks('purchases_subtotal', table.subtotal),
     ...moneyPositiveChecks('purchases_total', table.total),
@@ -156,7 +163,7 @@ export const purchaseItems = sqliteTable(
     index('idx_purchase_items_purchase').on(table.purchaseId),
     index('idx_purchase_items_product').on(table.productId),
     index('idx_purchase_items_source_order_item').on(table.sourceOrderItemId),
-    // ENG-176a — purchase-item costs are always positive.
+    // purchase-item costs are always positive.
     ...moneyPositiveChecks('purchase_items_cost_per_unit', table.costPerUnit),
     ...moneyPositiveChecks('purchase_items_base_cost', table.baseUnitCost),
     ...moneyPositiveChecks('purchase_items_total', table.total),
@@ -212,7 +219,7 @@ export const purchaseReturns = sqliteTable(
     index('idx_purchase_returns_tenant').on(table.tenantId),
     index('idx_purchase_returns_purchase').on(table.purchaseId),
     index('idx_purchase_returns_created_by').on(table.createdBy),
-    // ENG-176a — refund amount is the absolute value being returned.
+    // refund amount is the absolute value being returned.
     ...moneyPositiveChecks('purchase_returns_amount', table.returnAmount),
   ]
 );
@@ -322,7 +329,7 @@ export const orders = sqliteTable(
     index('idx_orders_site').on(table.siteId),
     index('idx_orders_created_by').on(table.createdBy),
     uniqueIndex('idx_orders_tenant_number').on(table.tenantId, table.orderNumber),
-    // ENG-176a — orders are planning artifacts; totals never go negative.
+    // orders are planning artifacts; totals never go negative.
     ...moneyPositiveChecks('orders_subtotal', table.subtotal),
     ...moneyPositiveChecks('orders_total', table.total),
   ]
@@ -375,7 +382,7 @@ export const orderItems = sqliteTable(
   table => [
     index('idx_order_items_order').on(table.orderId),
     index('idx_order_items_product').on(table.productId),
-    // ENG-176a — order-item costs are always positive.
+    // order-item costs are always positive.
     ...moneyPositiveChecks('order_items_cost_per_unit', table.costPerUnit),
     ...moneyPositiveChecks('order_items_base_cost', table.baseUnitCost),
     ...moneyPositiveChecks('order_items_total', table.total),

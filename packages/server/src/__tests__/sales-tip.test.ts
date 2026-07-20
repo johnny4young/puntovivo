@@ -1,5 +1,5 @@
 /**
- * ENG-039d — restaurant tip / propina invariants.
+ * restaurant tip / propina invariants.
  *
  * Covers the contract the UI relies on: tipAmount rolls into `total`
  * server-side, the persisted columns reflect the operator's choice,
@@ -102,11 +102,7 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const admin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!admin) throw new Error('Expected seeded admin user');
   tenantId = admin.tenantId;
   userId = admin.id;
@@ -119,11 +115,7 @@ beforeAll(async () => {
   if (!site) throw new Error('Expected seeded site');
   siteId = site.id;
 
-  const seededUnits = await db
-    .select()
-    .from(units)
-    .where(eq(units.tenantId, tenantId))
-    .all();
+  const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
   if (!baseUnit) throw new Error('Expected seeded unit UND');
   baseUnitId = baseUnit.id;
@@ -525,7 +517,11 @@ describe('completeSale tip support (fromDraft path)', () => {
     });
 
     const persisted = await getDatabase()
-      .select({ paymentStatus: sales.paymentStatus, total: sales.total, tipAmount: sales.tipAmount })
+      .select({
+        paymentStatus: sales.paymentStatus,
+        total: sales.total,
+        tipAmount: sales.tipAmount,
+      })
       .from(sales)
       .where(eq(sales.id, draftId))
       .get();
@@ -538,15 +534,15 @@ describe('completeSale tip support (fromDraft path)', () => {
 describe('createSale / completeDraft Zod refinement', () => {
   it('rejects tipMethod without a positive tipAmount on createSaleInput', () => {
     const result = createSaleInput.safeParse({
-      items: [
-        { productId: 'p', unitId: 'u', quantity: 1, unitPrice: 1, discount: 0 },
-      ],
+      items: [{ productId: 'p', unitId: 'u', quantity: 1, unitPrice: 1, discount: 0 }],
       tipAmount: 0,
       tipMethod: 'percentage',
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(JSON.stringify(result.error.issues)).toMatch(/tipMethod requires a positive tipAmount/);
+      expect(JSON.stringify(result.error.issues)).toMatch(
+        /tipMethod requires a positive tipAmount/
+      );
     }
   });
 
@@ -560,9 +556,7 @@ describe('createSale / completeDraft Zod refinement', () => {
 
   it('accepts a tipAmount=0 default on createSaleInput', () => {
     const result = createSaleInput.safeParse({
-      items: [
-        { productId: 'p', unitId: 'u', quantity: 1, unitPrice: 1, discount: 0 },
-      ],
+      items: [{ productId: 'p', unitId: 'u', quantity: 1, unitPrice: 1, discount: 0 }],
     });
     expect(result.success).toBe(true);
     if (result.success) {

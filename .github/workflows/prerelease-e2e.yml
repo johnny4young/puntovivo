@@ -1,6 +1,6 @@
 name: Prerelease Web Money Flows
 
-# ENG-210 — Run the expensive money-path browser gate only when an operator
+# Run the expensive money-path browser gate only when an operator
 # dispatches it or the release workflow calls it. Push/PR CI intentionally does
 # not invoke this workflow so the closed-source repository keeps its Actions
 # minute budget bounded.

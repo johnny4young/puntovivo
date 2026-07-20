@@ -1,14 +1,14 @@
 /**
- * ENG-089 — CustomerLedgerModal smoke tests.
+ * CustomerLedgerModal smoke tests.
  *
  * Mocks the trpc client + auth so the render assertions stay
  * deterministic. Covers:
- *  - empty state when the customer has no ledger entries
- *  - populated ledger renders kinds + amounts
- *  - balance metric flips to the danger tone when > 0 (customer owes)
- *  - cupo + projected balance behave correctly per `creditLimit`
- *  - role gating: cashier never reaches this surface; manager sees
- *    Cargar a cuenta disabled; admin sees it enabled.
+ * - empty state when the customer has no ledger entries
+ * - populated ledger renders kinds + amounts
+ * - balance metric flips to the danger tone when > 0 (customer owes)
+ * - cupo + projected balance behave correctly per `creditLimit`
+ * - role gating: cashier never reaches this surface; manager sees
+ * Cargar a cuenta disabled; admin sees it enabled.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
@@ -54,7 +54,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 
 vi.mock('@/services/export/exportService', () => ({
   exportToCSV: exportToCSVMock,
-  // ENG-103 — CustomerLedgerModal now imports buildSemanticFilename to
+  // CustomerLedgerModal now imports buildSemanticFilename to
   // resolve the canonical ledger-statement filename pattern; the test
   // does not care about the exact name (it only verifies the export
   // helper was invoked) so a passthrough constant is enough.
@@ -115,7 +115,7 @@ function makeCustomer(overrides: Partial<Customer> = {}): Customer {
   } as Customer;
 }
 
-describe('CustomerLedgerModal (ENG-089)', () => {
+describe('CustomerLedgerModal', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
@@ -126,9 +126,7 @@ describe('CustomerLedgerModal (ENG-089)', () => {
   });
 
   it('renders the empty state when the customer has no ledger entries', () => {
-    render(
-      <CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />
-    );
+    render(<CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />);
     expect(screen.getByTestId('ledger-empty')).toBeInTheDocument();
     // Estado cuenta button is disabled because there is nothing to
     // export.
@@ -154,9 +152,7 @@ describe('CustomerLedgerModal (ENG-089)', () => {
         referenceSaleId: 'sale-1',
       },
     ];
-    render(
-      <CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />
-    );
+    render(<CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />);
     expect(screen.getByText('Payment')).toBeInTheDocument();
     expect(screen.getByText('Credit sale')).toBeInTheDocument();
   });
@@ -185,7 +181,7 @@ describe('CustomerLedgerModal (ENG-089)', () => {
 
     fireEvent.click(screen.getByTestId('ledger-cta-estado-cuenta'));
 
-    // ENG-103 — `CustomerLedgerModal` now resolves the filename via
+    // `CustomerLedgerModal` now resolves the filename via
     // the centralized `buildSemanticFilename` helper (mocked above to
     // a deterministic string). The component strips the `.csv`
     // extension before invoking `exportToCSV` (which appends it
@@ -200,20 +196,14 @@ describe('CustomerLedgerModal (ENG-089)', () => {
 
   it('flips the balance pill to the danger tone when the customer owes money', () => {
     mockBalance = 150;
-    render(
-      <CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />
-    );
+    render(<CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />);
     const balanceCell = screen.getByTestId('ledger-metric-balance');
     expect(balanceCell.className).toMatch(/danger/);
   });
 
   it('renders Sin cupo when creditLimit is 0', () => {
     render(
-      <CustomerLedgerModal
-        isOpen
-        customer={makeCustomer({ creditLimit: 0 })}
-        onClose={vi.fn()}
-      />
+      <CustomerLedgerModal isOpen customer={makeCustomer({ creditLimit: 0 })} onClose={vi.fn()} />
     );
     expect(screen.getByTestId('ledger-metric-cupo')).toHaveTextContent('No limit');
   });
@@ -221,11 +211,7 @@ describe('CustomerLedgerModal (ENG-089)', () => {
   it('flips the projected pill to the warning tone when balance exceeds cupo', () => {
     mockBalance = 300;
     render(
-      <CustomerLedgerModal
-        isOpen
-        customer={makeCustomer({ creditLimit: 200 })}
-        onClose={vi.fn()}
-      />
+      <CustomerLedgerModal isOpen customer={makeCustomer({ creditLimit: 200 })} onClose={vi.fn()} />
     );
     const projected = screen.getByTestId('ledger-metric-projected');
     expect(projected.className).toMatch(/warning/);
@@ -233,18 +219,14 @@ describe('CustomerLedgerModal (ENG-089)', () => {
 
   it('enables Cargar a cuenta for admin users', () => {
     mockRole = 'admin';
-    render(
-      <CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />
-    );
+    render(<CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />);
     const cta = screen.getByTestId('ledger-cta-cargar-cuenta');
     expect(cta).not.toBeDisabled();
   });
 
   it('disables Cargar a cuenta for manager users (admin-only gate)', () => {
     mockRole = 'manager';
-    render(
-      <CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />
-    );
+    render(<CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />);
     const cta = screen.getByTestId('ledger-cta-cargar-cuenta');
     expect(cta).toBeDisabled();
     expect(cta).toHaveAttribute('title', expect.stringMatching(/Admin/i));

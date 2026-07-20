@@ -1,4 +1,4 @@
-/** ENG-123a — Browser-only CSV/XLSX reader for the launch import workbench. */
+/** Browser-only CSV/XLSX reader for the launch import workbench. */
 
 export const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 500;

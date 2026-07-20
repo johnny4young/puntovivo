@@ -1,7 +1,7 @@
 /**
  * Receipt renderer scanner-source URL guards + QR placeholder geometry.
  *
- * ENG-178 — extracted verbatim from the former single-file
+ * extracted verbatim from the former single-file
  * `services/receipt-renderer.ts`. Security-critical: `safeResolvedScannerSource`
  * + `RESOLVED_URL_SCHEME_BLOCKLIST` collapse a hostile resolved URL scheme to
  * the empty string before it reaches a phone scanner. Bodies moved byte-for-byte;
@@ -47,8 +47,7 @@ const QR_MODULE_COORDS: ReadonlyArray<readonly [number, number]> = [
   [48, 70],
 ];
 export const QR_MODULE_SPANS = QR_MODULE_COORDS.map(
-  ([left, top]) =>
-    `<span class="qr-module" style="left:${left}px;top:${top}px"></span>`
+  ([left, top]) => `<span class="qr-module" style="left:${left}px;top:${top}px"></span>`
 ).join('');
 
 export function safeResolvedScannerSource(template: string, data: RenderData): string {
@@ -59,16 +58,16 @@ export function safeResolvedScannerSource(template: string, data: RenderData): s
   return resolved;
 }
 
-/** ENG-097 — default pixel size for the rendered QR SVG when the
- *  block omits `sizeMm`. 78 px matches the handoff placeholder so the
- *  editor preview footprint does not jump when the renderer switches
- *  from the placeholder to the real SVG.
+/** default pixel size for the rendered QR SVG when the
+ * block omits `sizeMm`. 78 px matches the handoff placeholder so the
+ * editor preview footprint does not jump when the renderer switches
+ * from the placeholder to the real SVG.
  */
 export const QR_DEFAULT_PIXEL_SIZE = 78;
-/** ENG-097 — mm-to-pixel scale used to size the inline SVG when the
- *  block declares `sizeMm`. Matches the design-system ratio (1 mm ≈
- *  3.78 px on screen at 96 dpi); the printer firmware re-rasters from
- *  the ESC/POS payload at its native dpi so this constant only affects
- *  the preview iframe.
+/** mm-to-pixel scale used to size the inline SVG when the
+ * block declares `sizeMm`. Matches the design-system ratio (1 mm ≈
+ * 3.78 px on screen at 96 dpi); the printer firmware re-rasters from
+ * the ESC/POS payload at its native dpi so this constant only affects
+ * the preview iframe.
  */
 export const QR_MM_TO_PX = 3.78;

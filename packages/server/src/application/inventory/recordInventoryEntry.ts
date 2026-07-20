@@ -1,4 +1,4 @@
-/** ENG-206 — Record an initial inventory or physical-count entry. */
+/** Record an initial inventory or physical-count entry. */
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 

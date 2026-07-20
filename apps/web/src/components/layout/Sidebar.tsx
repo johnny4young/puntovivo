@@ -21,7 +21,7 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
-// ENG-131d — keep the JS rendering boundary aligned with Tailwind's `xl`
+// keep the JS rendering boundary aligned with Tailwind's `xl`
 // shell breakpoint. Rendering one navigation model at a time avoids duplicate
 // links in the accessibility tree and lets the mobile drawer be a real dialog.
 const DESKTOP_SIDEBAR_QUERY = '(min-width: 1280px)';
@@ -53,7 +53,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
   );
   const mobileDialogRef = useRef<HTMLElement>(null);
 
-  // ENG-047 — dashboard badge for high-severity AI anomalies. Keep the query
+  // dashboard badge for high-severity AI anomalies. Keep the query
   // above the responsive rendering split so mobile and desktop never issue
   // duplicate requests for the same shell signal.
   const isManagerOrAdmin = (managerOrAdminRoles as readonly string[]).includes(user?.role ?? '');

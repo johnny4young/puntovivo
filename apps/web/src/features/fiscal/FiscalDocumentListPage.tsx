@@ -17,7 +17,7 @@ import { FiscalDocumentDetailsDrawer } from './FiscalDocumentDetailsDrawer';
 type FiscalKind = 'DEE' | 'FEV' | 'NC' | 'ND';
 type FiscalSource = 'sale' | 'void' | 'return';
 
-// ENG-172 — server-side page size. The list page used to fetch a fixed
+// server-side page size. The list page used to fetch a fixed
 // 50-row window (`limit: 50, offset: 0`) and paginate it client-side, so a
 // tenant with >50 fiscal documents could never reach the older rows. We now
 // drive `reports.fiscal.list`'s `offset` from a page index so history is
@@ -38,12 +38,12 @@ const STATUS_OPTIONS: readonly FiscalDocumentStatus[] = [
 const SOURCE_OPTIONS: readonly FiscalSource[] = ['sale', 'void', 'return'];
 
 /**
- * ENG-020 Fase A — read-only admin list of emitted fiscal documents.
+ * estado actual — read-only admin list of emitted fiscal documents.
  *
  * The page reads straight from the frozen `fiscal_documents` snapshot
  * columns (buyer name, total, CUFE) without ever joining `customers` /
  * `products` — that invariant is enforced by
- * `architectural-lint.test.ts` in the server package. ENG-021 extends
+ * `architectural-lint.test.ts` in the server package.  extends
  * this surface with a detail drawer, XML download, and contingency
  * retry actions.
  */
@@ -53,13 +53,13 @@ export function FiscalDocumentListPage() {
   const [kind, setKind] = useState<FiscalKind | ''>('');
   const [status, setStatus] = useState<FiscalDocumentStatus | ''>('');
   const [source, setSource] = useState<FiscalSource | ''>('');
-  // ENG-172 — zero-based server page. Any filter change resets it to 0 in the
+  // zero-based server page. Any filter change resets it to 0 in the
   // same event (see the select handlers) so we never request an out-of-range
   // offset for a now-shorter result set.
   const [pageIndex, setPageIndex] = useState(0);
-  // ENG-035b: documento seleccionado para mostrar el XML CFDI 4.0
+  // : documento seleccionado para mostrar el XML CFDI 4.0
   // del adapter MX en un modal admin-only.
-  // ENG-103: el modal ahora resuelve el XML body server-side via
+  // : el modal ahora resuelve el XML body server-side via
   // `reports.fiscal.getXml` — el list page sólo necesita pasar el
   // `documentId` interno + metadata visible.
   const [xmlModalDoc, setXmlModalDoc] = useState<{
@@ -67,7 +67,7 @@ export function FiscalDocumentListPage() {
     cufe: string;
     documentNumber: string;
   } | null>(null);
-  // ENG-132h — row-detail Drawer holding the columns trimmed off the default
+  // row-detail Drawer holding the columns trimmed off the default
   // table (provider id, full CUFE) plus the full record.
   const [detailsDoc, setDetailsDoc] = useState<FiscalDocumentListItem | null>(null);
 
@@ -84,12 +84,12 @@ export function FiscalDocumentListPage() {
 
   const listQuery = trpc.reports.fiscal.list.useQuery(queryInput, {
     staleTime: 30_000,
-    // ENG-172 — keep the current page rendered while the next page loads so
+    // keep the current page rendered while the next page loads so
     // paging does not flash an empty table (also avoids a CLS jolt).
     placeholderData: keepPreviousData,
   });
 
-  // ENG-172 — `setKind` etc. must reset the page in the same event; doing it
+  // `setKind` etc. must reset the page in the same event; doing it
   // in an effect would briefly query the old offset against the new filter.
   const resetPage = () => setPageIndex(0);
 
@@ -167,9 +167,7 @@ export function FiscalDocumentListPage() {
 
       <div className="card p-6">
         <div className="mb-4 space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">
-            {t('list.title')}
-          </h2>
+          <h2 className="text-lg font-semibold text-secondary-900">{t('list.title')}</h2>
           <p className="text-sm text-secondary-500">{t('list.description')}</p>
         </div>
 
@@ -190,7 +188,7 @@ export function FiscalDocumentListPage() {
                   <th className="py-2 pr-4">{t('list.columns.documentNumber')}</th>
                   <th className="py-2 pr-4">{t('list.columns.buyer')}</th>
                   <th className="py-2 pr-4 text-right">{t('list.columns.total')}</th>
-                  {/* ENG-132h — provider id + (truncated) CUFE trimmed into the
+                  {/* provider id + (truncated) CUFE trimmed into the
                       row-detail drawer; the drawer shows the full CUFE + XML. */}
                   <th className="py-2 text-right">
                     <span className="sr-only">{t('list.columns.actions')}</span>
@@ -209,7 +207,7 @@ export function FiscalDocumentListPage() {
                     <td className="py-2 pr-4 text-secondary-800">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <FiscalStatusBadge status={row.status} />
-                        {/* ENG-185 — never let a mock/draft doc read as production. */}
+                        {/* never let a mock/draft doc read as production. */}
                         <FiscalMaturityBadge maturity={row.maturity} />
                       </div>
                     </td>
@@ -222,7 +220,7 @@ export function FiscalDocumentListPage() {
                     </td>
                     <td className="py-2 text-right">
                       <div className="inline-flex items-center justify-end gap-1">
-                        {/* ENG-132h — Details (eye) is the progressive-disclosure
+                        {/* Details (eye) is the progressive-disclosure
                             affordance for the trimmed provider / CUFE columns. */}
                         <button
                           type="button"

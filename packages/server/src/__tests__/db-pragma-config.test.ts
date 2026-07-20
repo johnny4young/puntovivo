@@ -1,5 +1,5 @@
 /**
- * ENG-174 — pins the SQLite PRAGMA cluster applied by `initDatabase`.
+ * pins the SQLite PRAGMA cluster applied by `initDatabase`.
  *
  * If a future maintainer drops or tweaks one of these PRAGMAs the
  * production-config code path (db/index.ts) regresses to under-tuned
@@ -36,14 +36,10 @@ afterEach(() => {
 
 function readPragma(name: string): number | string | undefined | null {
   const sqlite = (getDatabase() as unknown as LiveDatabase).$client;
-  return sqlite.pragma(name, { simple: true }) as
-    | number
-    | string
-    | undefined
-    | null;
+  return sqlite.pragma(name, { simple: true }) as number | string | undefined | null;
 }
 
-describe('SQLite PRAGMA cluster (ENG-174)', () => {
+describe('SQLite PRAGMA cluster', () => {
   it('pins the file-based PRAGMA values to the audit floor', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'puntovivo-pragma-'));
     createdDirs.push(dir);

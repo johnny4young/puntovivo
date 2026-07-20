@@ -1,5 +1,5 @@
 /**
- * ENG-035a — Card admin para los ajustes fiscales del pack México.
+ * Card admin para los ajustes fiscales del pack México.
  *
  * Vive dentro del tab `Fiscal` de `CompanyPage`. Lee
  * `fiscalSettings.getByCountry({ MX })`, escribe vía
@@ -7,17 +7,14 @@
  * los issues que el adapter MX reporta cuando faltan campos
  * (RFC, régimen fiscal, lugar de expedición, ambiente).
  *
- * La emisión real de CFDI 4.0 sigue parqueada hasta ENG-035b
- * (modelado XML) + ENG-035c (integración PAC + firma). Esta card
- * cubre sólo la captura de configuración + el probe de readiness
- * — espejo del shape de `CompanyAISettingsCard` (ENG-030).
+ * El adaptador genera CFDI 4.0 estructural en estado draft. Esta card
+ * captura la configuración y muestra su readiness; firma CSD,
+ * transmisión PAC y cancelación SAT siguen fuera del alcance actual.
  *
  * Cuando el `countryCode` del tenant no es MX, la card muestra un
- * placeholder en lugar de los campos. CO + CL traen sus propias
- * cards en ENG-035c / ENG-036; aquí solo apuntamos al ticket que
- * lo trae.
+ * placeholder en lugar de los campos. CO y CL tienen sus propias cards.
  *
- * Rediseño FASE 6 — el contenido del panel adopta las recetas pv-*:
+ * el contenido del panel adopta las recetas pv-*:
  * encabezado `.pv-kicker`/`.pv-title` con glifo tonal, formulario
  * con `.pv-field`/`.pv-input` (vía `SimpleFormField`), readiness con
  * `.pv-badge` + checklist `.pv-check`, y acción `.pv-btn primary`.
@@ -71,9 +68,8 @@ export function CompanyMxFiscalCard() {
   const toast = useToast();
   const utils = trpc.useUtils();
 
-  // El `countryCode` del tenant lo leemos del resolver de locale
-  // (ENG-017). Cuando el tenant es MX renderizamos el form; cuando
-  // es CO/CL el placeholder apunta al ticket pendiente.
+  // El `countryCode` del tenant viene del resolver de locale. MX muestra
+  // el formulario; CO y CL muestran su configuración correspondiente.
   const localeQuery = trpc.tenantLocale.get.useQuery();
   const tenantCountry = localeQuery.data?.countryCode ?? 'CO';
 
@@ -82,8 +78,7 @@ export function CompanyMxFiscalCard() {
     { enabled: tenantCountry === 'MX' }
   );
 
-  const mxSettings =
-    settingsQuery.data?.countryCode === 'MX' ? settingsQuery.data.settings : null;
+  const mxSettings = settingsQuery.data?.countryCode === 'MX' ? settingsQuery.data.settings : null;
 
   // Fiscal "sin configurar" = no hay ningún dato significativo capturado
   // todavía (pack apagado y todos los campos vacíos). El `environment`
@@ -93,10 +88,10 @@ export function CompanyMxFiscalCard() {
   // se renderiza directo como antes.
   const isConfigured = Boolean(
     mxSettings &&
-      (mxSettings.enabled ||
-        mxSettings.rfc ||
-        mxSettings.regimenFiscalCode ||
-        mxSettings.lugarExpedicion)
+    (mxSettings.enabled ||
+      mxSettings.rfc ||
+      mxSettings.regimenFiscalCode ||
+      mxSettings.lugarExpedicion)
   );
   const [revealed, setRevealed] = useState(false);
   const showForm = isConfigured || revealed;
@@ -141,29 +136,20 @@ export function CompanyMxFiscalCard() {
     const formData = new FormData(event.currentTarget);
     const nextEnvironment = getFormString(formData, 'environment');
     const nextRfc = getFormString(formData, 'rfc').trim();
-    const nextRegimenFiscalCode = getFormString(
-      formData,
-      'regimenFiscalCode'
-    );
-    const nextLugarExpedicion = getFormString(
-      formData,
-      'lugarExpedicion'
-    ).trim();
+    const nextRegimenFiscalCode = getFormString(formData, 'regimenFiscalCode');
+    const nextLugarExpedicion = getFormString(formData, 'lugarExpedicion').trim();
 
     await updateMutation.mutateAsync({
       enabled: formData.get('enabled') === 'on',
       rfc: nextRfc.length > 0 ? nextRfc : null,
-      regimenFiscalCode:
-        nextRegimenFiscalCode.length > 0 ? nextRegimenFiscalCode : null,
-      lugarExpedicion:
-        nextLugarExpedicion.length > 0 ? nextLugarExpedicion : null,
-      environment:
-        nextEnvironment === 'production' ? 'production' : 'sandbox',
+      regimenFiscalCode: nextRegimenFiscalCode.length > 0 ? nextRegimenFiscalCode : null,
+      lugarExpedicion: nextLugarExpedicion.length > 0 ? nextLugarExpedicion : null,
+      environment: nextEnvironment === 'production' ? 'production' : 'sandbox',
     });
   };
 
-  // Defensive: ENG-035a renderizaba placeholders para CO/CL aquí.
-  // ENG-036a movió ese dispatch a CompanyPage, así que la card MX
+  // Defensive:  renderizaba placeholders para CO/CL aquí.
+  // movió ese dispatch a CompanyPage, así que la card MX
   // ahora asume que se renderiza únicamente cuando tenantCountry
   // === 'MX'. Esta guarda existe por si alguien reutiliza el
   // componente fuera del tab Fiscal de CompanyPage.
@@ -186,11 +172,7 @@ export function CompanyMxFiscalCard() {
 
       {/* Badge de readiness */}
       {validation && (
-        <div
-          className="space-y-3"
-          aria-live="polite"
-          data-testid="fiscal-mx-readiness"
-        >
+        <div className="space-y-3" aria-live="polite" data-testid="fiscal-mx-readiness">
           <span className={cn('pv-badge', isReady ? 'success' : 'danger')}>
             {isReady ? (
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -201,7 +183,7 @@ export function CompanyMxFiscalCard() {
               ? t('fiscal:settings.readiness.ready')
               : t('fiscal:settings.readiness.notReady')}
           </span>
-          {/* ENG-185 — CFDI emission is an unsigned draft today (optional). */}
+          {/* CFDI emission is an unsigned draft today (optional). */}
           {settingsQuery.data?.maturity && (
             <FiscalMaturityBadge maturity={settingsQuery.data.maturity} className="ml-2" />
           )}
@@ -243,107 +225,96 @@ export function CompanyMxFiscalCard() {
         </div>
       ) : (
         <form key={formKey} onSubmit={handleSubmit} className="space-y-5">
-        <label className="flex items-center gap-3 text-sm font-medium text-secondary-800">
-          <input
-            name="enabled"
-            type="checkbox"
-            defaultChecked={mxSettings?.enabled ?? false}
-            className="h-4 w-4 shrink-0 rounded border-line-strong text-primary-600 focus-visible:ring-2 focus-visible:ring-primary-400"
-            aria-label={t('fiscal:settings.mx.fields.enabled')}
-          />
-          <span className="flex flex-col gap-0.5">
-            <span>{t('fiscal:settings.mx.fields.enabled')}</span>
-            <span className="text-xs font-normal text-secondary-500">
-              {t('fiscal:settings.mx.fields.enabledHelp')}
+          <label className="flex items-center gap-3 text-sm font-medium text-secondary-800">
+            <input
+              name="enabled"
+              type="checkbox"
+              defaultChecked={mxSettings?.enabled ?? false}
+              className="h-4 w-4 shrink-0 rounded border-line-strong text-primary-600 focus-visible:ring-2 focus-visible:ring-primary-400"
+              aria-label={t('fiscal:settings.mx.fields.enabled')}
+            />
+            <span className="flex flex-col gap-0.5">
+              <span>{t('fiscal:settings.mx.fields.enabled')}</span>
+              <span className="text-xs font-normal text-secondary-500">
+                {t('fiscal:settings.mx.fields.enabledHelp')}
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <SimpleFormField
-            label={t('fiscal:settings.mx.fields.rfc')}
-            htmlFor="fiscal-mx-rfc"
-            helperText={t('fiscal:settings.mx.fields.rfcHelp')}
-          >
-            <input
-              id="fiscal-mx-rfc"
-              name="rfc"
-              type="text"
-              defaultValue={mxSettings?.rfc ?? ''}
-              placeholder={t('fiscal:settings.mx.fields.rfcPlaceholder')}
-              className="pv-input"
-              maxLength={13}
-            />
-          </SimpleFormField>
-
-          <SimpleFormField
-            label={t('fiscal:settings.mx.fields.regimen')}
-            htmlFor="fiscal-mx-regimen"
-          >
-            <select
-              id="fiscal-mx-regimen"
-              name="regimenFiscalCode"
-              defaultValue={mxSettings?.regimenFiscalCode ?? ''}
-              className="pv-input"
+          <div className="grid gap-4 md:grid-cols-2">
+            <SimpleFormField
+              label={t('fiscal:settings.mx.fields.rfc')}
+              htmlFor="fiscal-mx-rfc"
+              helperText={t('fiscal:settings.mx.fields.rfcHelp')}
             >
-              <option value="">
-                {t('fiscal:settings.mx.fields.regimenPlaceholder')}
-              </option>
-              {REGIMEN_OPTIONS.map(opt => (
-                <option key={opt.code} value={opt.code}>
-                  {opt.name}
+              <input
+                id="fiscal-mx-rfc"
+                name="rfc"
+                type="text"
+                defaultValue={mxSettings?.rfc ?? ''}
+                placeholder={t('fiscal:settings.mx.fields.rfcPlaceholder')}
+                className="pv-input"
+                maxLength={13}
+              />
+            </SimpleFormField>
+
+            <SimpleFormField
+              label={t('fiscal:settings.mx.fields.regimen')}
+              htmlFor="fiscal-mx-regimen"
+            >
+              <select
+                id="fiscal-mx-regimen"
+                name="regimenFiscalCode"
+                defaultValue={mxSettings?.regimenFiscalCode ?? ''}
+                className="pv-input"
+              >
+                <option value="">{t('fiscal:settings.mx.fields.regimenPlaceholder')}</option>
+                {REGIMEN_OPTIONS.map(opt => (
+                  <option key={opt.code} value={opt.code}>
+                    {opt.name}
+                  </option>
+                ))}
+              </select>
+            </SimpleFormField>
+
+            <SimpleFormField label={t('fiscal:settings.mx.fields.lugar')} htmlFor="fiscal-mx-lugar">
+              <input
+                id="fiscal-mx-lugar"
+                name="lugarExpedicion"
+                type="text"
+                defaultValue={mxSettings?.lugarExpedicion ?? ''}
+                placeholder={t('fiscal:settings.mx.fields.lugarPlaceholder')}
+                className="pv-input"
+                maxLength={5}
+              />
+            </SimpleFormField>
+
+            <SimpleFormField
+              label={t('fiscal:settings.mx.fields.environment')}
+              htmlFor="fiscal-mx-environment"
+            >
+              <select
+                id="fiscal-mx-environment"
+                name="environment"
+                defaultValue={mxSettings?.environment ?? 'sandbox'}
+                className="pv-input"
+              >
+                <option value="sandbox">{t('fiscal:settings.mx.fields.environmentSandbox')}</option>
+                <option value="production">
+                  {t('fiscal:settings.mx.fields.environmentProduction')}
                 </option>
-              ))}
-            </select>
-          </SimpleFormField>
+              </select>
+            </SimpleFormField>
+          </div>
 
-          <SimpleFormField
-            label={t('fiscal:settings.mx.fields.lugar')}
-            htmlFor="fiscal-mx-lugar"
-          >
-            <input
-              id="fiscal-mx-lugar"
-              name="lugarExpedicion"
-              type="text"
-              defaultValue={mxSettings?.lugarExpedicion ?? ''}
-              placeholder={t('fiscal:settings.mx.fields.lugarPlaceholder')}
-              className="pv-input"
-              maxLength={5}
-            />
-          </SimpleFormField>
-
-          <SimpleFormField
-            label={t('fiscal:settings.mx.fields.environment')}
-            htmlFor="fiscal-mx-environment"
-          >
-            <select
-              id="fiscal-mx-environment"
-              name="environment"
-              defaultValue={mxSettings?.environment ?? 'sandbox'}
-              className="pv-input"
-            >
-              <option value="sandbox">
-                {t('fiscal:settings.mx.fields.environmentSandbox')}
-              </option>
-              <option value="production">
-                {t('fiscal:settings.mx.fields.environmentProduction')}
-              </option>
-            </select>
-          </SimpleFormField>
-        </div>
-
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            className="pv-btn primary"
-            disabled={updateMutation.isPending}
-          >
-            {updateMutation.isPending
-              ? t('fiscal:settings.mx.actions.saving')
-              : t('fiscal:settings.mx.actions.save')}
-          </button>
-        </div>
-      </form>
+          <div className="flex justify-end">
+            <button type="submit" className="pv-btn primary" disabled={updateMutation.isPending}>
+              {updateMutation.isPending
+                ? t('fiscal:settings.mx.actions.saving')
+                : t('fiscal:settings.mx.actions.save')}
+            </button>
+          </div>
+        </form>
       )}
     </section>
   );

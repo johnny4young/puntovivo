@@ -1,4 +1,4 @@
-/** ENG-140b/e — manager attendance evidence and immutable corrections. */
+/** manager attendance evidence and immutable corrections. */
 import {
   createEmployeeAttendanceCorrection,
   listEmployeeAttendanceCorrections,

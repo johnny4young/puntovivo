@@ -1,4 +1,4 @@
-/** ENG-123b — Customer/provider launch-import contracts and persistence. */
+/** Customer/provider launch-import contracts and persistence. */
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -38,7 +38,7 @@ function row<T extends Record<string, string>>(rowNumber: number, values: Partia
   return { rowNumber, values };
 }
 
-describe('ENG-123b customer and provider launch migration', () => {
+describe(' customer and provider launch migration', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     db = getDatabase();

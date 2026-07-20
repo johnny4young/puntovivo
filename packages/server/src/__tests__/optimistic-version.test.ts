@@ -1,5 +1,5 @@
 /**
- * ENG-177a — optimistic-concurrency versioning tests.
+ * optimistic-concurrency versioning tests.
  *
  * Exercises the `version` guard on the four user-edited catalogs that wire
  * it through their `*.update` procedures (products / customers / providers /
@@ -125,7 +125,7 @@ async function expectStaleVersion(promise: Promise<unknown>): Promise<void> {
 let tenantA: TenantFixture;
 let tenantB: TenantFixture;
 
-describe('ENG-177a optimistic concurrency', () => {
+describe(' optimistic concurrency', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     tenantA = await seedTenant('Alpha');
@@ -253,9 +253,7 @@ describe('ENG-177a optimistic concurrency', () => {
       expect(first.countryCode).toBe('CO');
       expect(first.version).toBe(1);
 
-      await expectStaleVersion(
-        caller.tenantLocale.update({ version: 0, countryCode: 'CL' })
-      );
+      await expectStaleVersion(caller.tenantLocale.update({ version: 0, countryCode: 'CL' }));
       expect((await caller.tenantLocale.get()).countryCode).toBe('CO');
 
       const updated = await caller.tenantLocale.update({

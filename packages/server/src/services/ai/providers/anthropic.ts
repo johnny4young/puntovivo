@@ -1,5 +1,5 @@
 /**
- * ENG-030 — Anthropic provider implementation.
+ * Anthropic provider implementation.
  *
  * Wraps `@ai-sdk/anthropic` with Puntovivo's pricing table + prompt-
  * cache helper. The SDK reads the API key from `ANTHROPIC_API_KEY`
@@ -28,7 +28,7 @@ import type { AIProvider, ModelPricing, ProviderPricing, TokenUsage } from './ty
  *
  * Default ships as Haiku 4.5 — significantly cheaper than Sonnet
  * (~$1 / $5 per 1M vs $3 / $15) and more than capable for the
- * connection-test smoke and most ENG-031 co-pilot turns. Operators
+ * connection-test smoke and most  co-pilot turns. Operators
  * with a higher quality bar can flip to Sonnet 4.6 (or Opus 4.7) per
  * tenant via the AI Settings card.
  */
@@ -55,11 +55,11 @@ const FALLBACK_MODEL_ID = 'claude-haiku-4-5';
 
 /**
  * Returns the pricing row for `modelId` or falls back to
- * `FALLBACK_MODEL_ID`. Throws (Categoría B per ENG-181) when the
+ * `FALLBACK_MODEL_ID`. Throws (Categoría B per ) when the
  * fallback itself is missing — that is a programmer-assert: the
  * registry is statically defined above, so this branch only fires
  * if someone removes the fallback row without updating
- * `FALLBACK_MODEL_ID`. ENG-179a — added the explicit guard so
+ * `FALLBACK_MODEL_ID`.  — added the explicit guard so
  * `noUncheckedIndexedAccess` can narrow the lookup to a defined row.
  */
 function resolvePricingRow(modelId: string): {
@@ -111,7 +111,7 @@ export const anthropicProvider: AIProvider = {
     return anthropic(modelId);
   },
 
-  // ENG-040a — every Claude 3+ language model supports image content in
+  // every Claude 3+ language model supports image content in
   // user messages, so the vision factory routes through the same SDK
   // entry point as `languageModel`. Capability advertised so the UI +
   // service layer can gate on `provider.visionModel` rather than
@@ -124,7 +124,7 @@ export const anthropicProvider: AIProvider = {
     // Anthropic ephemeral cache: 5-minute TTL, ~90% cost reduction on
     // the cached portion of subsequent calls. The provider applies
     // this to the system prompt by default; per-message cache markers
-    // can be added by callers in ENG-031 + ENG-033 if they want to
+    // can be added by callers in  +  if they want to
     // cache reusable scaffolding.
     return { anthropic: { cacheControl: { type: 'ephemeral' } } };
   },

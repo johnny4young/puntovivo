@@ -95,7 +95,7 @@ async function registerRole(role: AuthTokenPayload['role']): Promise<void> {
   }));
 }
 
-describe('backup cloud vault IPC permissions and validation (ENG-136c)', () => {
+describe('backup cloud vault IPC permissions and validation', () => {
   beforeEach(() => {
     __resetForTests();
   });

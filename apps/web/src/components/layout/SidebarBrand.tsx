@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils';
 
 export function SidebarBrand({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation('nav');
-  // ENG-080 + ENG-080c — Puntovivo BrandMark + the "punto" 400 / "vivo"
-  // 700 lowercase wordmark in Inter (primary) per the handoff
+  // +  — Puntovivo BrandMark + the "punto" 400 / "vivo"
+  // 700 lowercase wordmark in Inter (primary) per the design specification
   // shell.jsx lockup. The orange punto accent is visible in both
   // expanded and collapsed rail; the tagline only renders expanded.
   return (

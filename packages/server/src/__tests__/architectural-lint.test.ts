@@ -1,5 +1,5 @@
 /**
- * ENG-020 — Architectural lint.
+ * Architectural lint.
  *
  * A static guard that fails CI when any file under
  * `trpc/routers/reports/` names `customers` or `products` in its
@@ -15,9 +15,9 @@
  *
  * The lint is deliberately regex-based rather than AST-based:
  *
- *   - Every `import ... from '<db/schema>'` in the file is scanned.
- *   - The named-import list is checked for the forbidden identifiers.
- *   - Barrel re-exports are out of scope (this is a file-local check).
+ * - Every `import ... from '<db/schema>'` in the file is scanned.
+ * - The named-import list is checked for the forbidden identifiers.
+ * - Barrel re-exports are out of scope (this is a file-local check).
  *
  * If a legitimate future need arises to reference those tables from
  * a reports surface (e.g. a dashboard row that *counts* customers),
@@ -33,9 +33,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const REPORTS_DIR = fileURLToPath(
-  new URL('../trpc/routers/reports/', import.meta.url)
-);
+const REPORTS_DIR = fileURLToPath(new URL('../trpc/routers/reports/', import.meta.url));
 
 function walkTsFiles(dir: string): string[] {
   const out: string[] = [];
@@ -58,8 +56,7 @@ function walkTsFiles(dir: string): string[] {
  */
 function namedImportsFromSchema(source: string): string[] {
   const identifiers: string[] = [];
-  const importRe =
-    /import\s*(?:type\s*)?\{([\s\S]*?)\}\s*from\s*['"][^'"]*db\/schema\.js['"]\s*;/g;
+  const importRe = /import\s*(?:type\s*)?\{([\s\S]*?)\}\s*from\s*['"][^'"]*db\/schema\.js['"]\s*;/g;
   for (const match of source.matchAll(importRe)) {
     const list = match[1] ?? '';
     for (const raw of list.split(',')) {
@@ -76,7 +73,7 @@ function namedImportsFromSchema(source: string): string[] {
 
 const FORBIDDEN_IN_REPORTS = new Set(['customers', 'products']);
 
-describe('architectural lint (ENG-020)', () => {
+describe('architectural lint', () => {
   it('covers the reports directory with at least one file', () => {
     const files = walkTsFiles(REPORTS_DIR);
     // Sanity check — we want the test to fail if someone accidentally
@@ -102,7 +99,7 @@ describe('architectural lint (ENG-020)', () => {
       );
       throw new Error(
         [
-          `Architectural invariant violated (ENG-020):`,
+          `Architectural invariant violated ():`,
           ``,
           `  Files under \`trpc/routers/reports/\` must NOT import`,
           `  \`customers\` or \`products\` from \`db/schema.js\`. The`,
@@ -144,7 +141,7 @@ import {
 });
 
 // ─────────────────────────────────────────────────────────────────
-// ENG-066 — schema-level PAN/CVV ban.
+// schema-level PAN/CVV ban.
 // ─────────────────────────────────────────────────────────────────
 
 const SCHEMA_PATH = fileURLToPath(new URL('../db/schema.ts', import.meta.url));
@@ -185,17 +182,15 @@ function columnLiteralsFromSchema(source: string): string[] {
   return out;
 }
 
-describe('architectural lint — no PAN/CVV columns (ENG-066)', () => {
+describe('architectural lint — no PAN/CVV columns', () => {
   it('schema.ts does not declare any column with a forbidden card-data name', () => {
     const source = readFileSync(SCHEMA_PATH, 'utf8');
     const literals = columnLiteralsFromSchema(source);
-    const offenders = literals.filter(name =>
-      FORBIDDEN_COLUMN_NAMES.has(name.toLowerCase())
-    );
+    const offenders = literals.filter(name => FORBIDDEN_COLUMN_NAMES.has(name.toLowerCase()));
     if (offenders.length > 0) {
       throw new Error(
         [
-          `Architectural invariant violated (ENG-066 / ADR-0006):`,
+          `Architectural invariant violated ( / ADR-0006):`,
           ``,
           `  Column names matching the PAN / CVV / cardholder list MUST`,
           `  NOT land in db/schema.ts. Puntovivo POS does not store`,
@@ -222,9 +217,7 @@ const sale_payments = sqliteTable('sale_payments', {
 `;
     const positiveLiterals = columnLiteralsFromSchema(positive);
     expect(positiveLiterals).toContain('pan');
-    expect(
-      positiveLiterals.some(n => FORBIDDEN_COLUMN_NAMES.has(n.toLowerCase()))
-    ).toBe(true);
+    expect(positiveLiterals.some(n => FORBIDDEN_COLUMN_NAMES.has(n.toLowerCase()))).toBe(true);
 
     // Negative case: lookalike benign column names pass.
     const negative = `
@@ -236,8 +229,6 @@ const sale_payments = sqliteTable('sale_payments', {
 });
 `;
     const negativeLiterals = columnLiteralsFromSchema(negative);
-    expect(
-      negativeLiterals.some(n => FORBIDDEN_COLUMN_NAMES.has(n.toLowerCase()))
-    ).toBe(false);
+    expect(negativeLiterals.some(n => FORBIDDEN_COLUMN_NAMES.has(n.toLowerCase()))).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 /**
- * ENG-074b — Hub-client local hardware bridge.
+ * Hub-client local hardware bridge.
  *
  * When the renderer runs in `authorityMode === 'hub_client'` and
  * needs to print a receipt or kick the cash drawer, the hub returns
@@ -36,7 +36,7 @@ export interface LocalEscPosDispatchInput {
   /**
    * Transport hint mirrored from the hub-side `site_peripherals.config`
    * row. The bridge passes it through to `resolveTransport` without
-   * translation — same shape on both sides per ENG-074b.
+   * translation — same shape on both sides per .
    */
   transport: EscPosTransportConfig;
 }
@@ -55,9 +55,7 @@ function coerceEscPosBytes(bytes: LocalEscPosDispatchInput['bytes']): Uint8Array
   }
   if (
     !Array.isArray(bytes) ||
-    !bytes.every(
-      byte => Number.isInteger(byte) && byte >= 0 && byte <= 0xff
-    )
+    !bytes.every(byte => Number.isInteger(byte) && byte >= 0 && byte <= 0xff)
   ) {
     return null;
   }
@@ -86,7 +84,11 @@ export async function dispatchLocalEscpos(
   }
 
   if (buffer.length === 0) {
-    return { success: false, error: 'No bytes supplied to local bridge', errorCode: 'EMPTY_PAYLOAD' };
+    return {
+      success: false,
+      error: 'No bytes supplied to local bridge',
+      errorCode: 'EMPTY_PAYLOAD',
+    };
   }
 
   let transport;
@@ -96,7 +98,8 @@ export async function dispatchLocalEscpos(
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Failed to resolve transport',
-      errorCode: err instanceof EscPosTransportError ? err.normalized.kind : 'TRANSPORT_RESOLVE_FAILED',
+      errorCode:
+        err instanceof EscPosTransportError ? err.normalized.kind : 'TRANSPORT_RESOLVE_FAILED',
     };
   }
 

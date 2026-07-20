@@ -1,5 +1,5 @@
 /**
- * ENG-057 — Colombia provider error mapping (placeholder for ENG-021).
+ * Colombia provider error mapping (placeholder for ).
  *
  * The Colombia mock adapter does not throw on its own; this mapper
  * is wired so the registry stays symmetric with MX / CL packs and
@@ -15,7 +15,7 @@
 import type { NormalizedFiscalError } from '../../errors.js';
 
 export function mapColombiaProviderError(_err: unknown): NormalizedFiscalError | null {
-  // ENG-021 will populate the Facture / HKA / Gosocket code dispatch
+  // will populate the Facture / HKA / Gosocket code dispatch
   // (e.g. AAB10 → MALFORMED_REQUEST, GS-503 → PROVIDER_5XX). The
   // current mock adapter never reaches this path because it does not
   // throw; the placeholder stays so the file path is registered in

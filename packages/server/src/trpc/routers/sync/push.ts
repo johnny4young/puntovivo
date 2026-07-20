@@ -1,10 +1,10 @@
 /**
- * Sync router — outbox push processing (ENG-178 split).
+ * Sync router — outbox push processing ( split).
  *
  * `sync.push` (tenant): process pending `sync_outbox` rows, mark them synced
  * locally, or open a conflict / bump to retrying when the local record is
  * missing or unsupported. Operator-driven; the periodic worker daemon lands in
- * ENG-066.
+ * .
  *
  * @module trpc/routers/sync/push
  */
@@ -28,7 +28,7 @@ export const syncPushProcedures = {
   /**
    * Process pending sync_outbox rows and mark them as synced
    * locally. Operator-driven; the periodic worker daemon lands in
-   * ENG-066.
+   * .
    */
   push: tenantProcedure.input(pushSyncInput).mutation(async ({ ctx, input }) => {
     const items = await ctx.db

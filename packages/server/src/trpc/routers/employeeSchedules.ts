@@ -1,4 +1,4 @@
-/** ENG-140a — manager/admin schedule editor API. */
+/** manager/admin schedule editor API. */
 import {
   cancelScheduledShift,
   createScheduledShift,

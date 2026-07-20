@@ -1,10 +1,10 @@
 /**
  * Void a completed purchase, reversing destination-site stock.
  *
- * ENG-178 — extracted from the former monolithic `trpc/routers/purchases.ts`
+ * extracted from the former monolithic `trpc/routers/purchases.ts`
  * during the megafile decomposition. The status guards + the void
  * transaction (per-item stock reversal + the in-transaction `writeAuditLog`,
- * ENG-007) relocate verbatim; the tRPC procedure adapts its context and
+ * ) relocate verbatim; the tRPC procedure adapts its context and
  * calls this use-case.
  *
  * @module application/purchases/voidPurchase
@@ -196,7 +196,7 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
       .where(eq(purchases.id, input.id))
       .run();
 
-    // ENG-007 — voiding a purchase reverses destination stock at the
+    // voiding a purchase reverses destination stock at the
     // receiving site and pushes the purchase row into `voided`. Audit row
     // is written inside the same transaction as the reversal so either
     // both land or neither does.

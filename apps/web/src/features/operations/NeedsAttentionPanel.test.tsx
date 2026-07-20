@@ -1,12 +1,12 @@
 /**
- * ENG-187 — NeedsAttentionPanel tests.
+ * NeedsAttentionPanel tests.
  *
  * Pins:
- *   - All-clear state when no area needs attention.
- *   - A row per area with the localized label, count, and severity tone.
- *   - The "Review" CTA calls onReviewArea with the area (deep-link seam).
- *   - Loading skeleton + error-with-retry states.
- *   - No serious axe violations.
+ * - All-clear state when no area needs attention.
+ * - A row per area with the localized label, count, and severity tone.
+ * - The "Review" CTA calls onReviewArea with the area (deep-link seam).
+ * - Loading skeleton + error-with-retry states.
+ * - No serious axe violations.
  *
  * @module features/operations/NeedsAttentionPanel.test
  */
@@ -69,7 +69,7 @@ function successState(areas: AttentionEntry[]): AttentionQueryState {
   };
 }
 
-describe('NeedsAttentionPanel (ENG-187)', () => {
+describe('NeedsAttentionPanel', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en');
     mockState = successState([]);

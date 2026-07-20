@@ -8,7 +8,7 @@ import {
   type PaletteUsageMap,
 } from '../paletteUsage';
 
-// ENG-105g — pins the device-local usage store contract: counting,
+// pins the device-local usage store contract: counting,
 // recency tiebreaks, tenant scoping, defensive parsing, and the
 // best-effort write semantics (a broken storage never throws).
 
@@ -26,7 +26,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('recordPaletteActionUsage / loadPaletteUsage (ENG-105g)', () => {
+describe('recordPaletteActionUsage / loadPaletteUsage', () => {
   it('records a first use with count 1 and accumulates on repeat', () => {
     recordPaletteActionUsage('navigate.sales', TENANT);
     expect(loadPaletteUsage(TENANT)['navigate.sales']?.count).toBe(1);
@@ -79,9 +79,7 @@ describe('recordPaletteActionUsage / loadPaletteUsage (ENG-105g)', () => {
     vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
       throw new Error('QuotaExceededError');
     });
-    expect(() =>
-      recordPaletteActionUsage('navigate.sales', TENANT)
-    ).not.toThrow();
+    expect(() => recordPaletteActionUsage('navigate.sales', TENANT)).not.toThrow();
   });
 
   it('evicts the least-recently-used entries past the tracked cap', () => {
@@ -89,10 +87,7 @@ describe('recordPaletteActionUsage / loadPaletteUsage (ENG-105g)', () => {
     for (let i = 0; i < 64; i += 1) {
       bloated[`retired.action${i}`] = { count: 1, lastUsedAt: i };
     }
-    window.localStorage.setItem(
-      `palette_usage:${TENANT}`,
-      JSON.stringify(bloated)
-    );
+    window.localStorage.setItem(`palette_usage:${TENANT}`, JSON.stringify(bloated));
 
     recordPaletteActionUsage('navigate.sales', TENANT);
     const usage = loadPaletteUsage(TENANT);
@@ -104,7 +99,7 @@ describe('recordPaletteActionUsage / loadPaletteUsage (ENG-105g)', () => {
   });
 });
 
-describe('rankRecentActions (ENG-105g)', () => {
+describe('rankRecentActions', () => {
   const actions = [
     { id: 'navigate.dashboard' },
     { id: 'navigate.sales' },
@@ -137,9 +132,7 @@ describe('rankRecentActions (ENG-105g)', () => {
     for (const action of actions) {
       usage[action.id] = { count: 1, lastUsedAt: 1 };
     }
-    expect(rankRecentActions(actions, usage)).toHaveLength(
-      MAX_RECENT_ACTIONS
-    );
+    expect(rankRecentActions(actions, usage)).toHaveLength(MAX_RECENT_ACTIONS);
   });
 
   it('prunes usage ids that are not in the provided action list (retired or role-gated)', () => {
@@ -147,8 +140,6 @@ describe('rankRecentActions (ENG-105g)', () => {
       'navigate.retired-route': { count: 99, lastUsedAt: 999 },
       'navigate.sales': { count: 1, lastUsedAt: 1 },
     };
-    expect(rankRecentActions(actions, usage).map(a => a.id)).toEqual([
-      'navigate.sales',
-    ]);
+    expect(rankRecentActions(actions, usage).map(a => a.id)).toEqual(['navigate.sales']);
   });
 });

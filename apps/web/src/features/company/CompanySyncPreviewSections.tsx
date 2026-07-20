@@ -36,24 +36,23 @@ interface CompanySyncQueuePreviewProps {
   items: SyncQueueItem[];
 }
 
-export function CompanySyncQueuePreview({
-  isLoading,
-  items,
-}: CompanySyncQueuePreviewProps) {
+export function CompanySyncQueuePreview({ isLoading, items }: CompanySyncQueuePreviewProps) {
   const { t } = useTranslation('settings');
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="text-sm font-semibold text-secondary-900">{t('company.sync.queue.title')}</h3>
-        <p className="mt-1 text-sm text-secondary-500">
-          {t('company.sync.queue.description')}
-        </p>
+        <h3 className="text-sm font-semibold text-secondary-900">
+          {t('company.sync.queue.title')}
+        </h3>
+        <p className="mt-1 text-sm text-secondary-500">{t('company.sync.queue.description')}</p>
       </div>
 
       {isLoading ? (
         <p className="text-sm text-secondary-500">{t('company.sync.queue.loading')}</p>
       ) : items.length === 0 ? (
-        <p className="surface-panel-muted text-sm text-secondary-600">{t('company.sync.queue.empty')}</p>
+        <p className="surface-panel-muted text-sm text-secondary-600">
+          {t('company.sync.queue.empty')}
+        </p>
       ) : (
         <div className="space-y-3">
           {items.map(item => {
@@ -70,7 +69,9 @@ export function CompanySyncQueuePreview({
                 <p className="mt-3 text-sm font-medium text-secondary-900">
                   {t('company.sync.queue.itemTitle', { entity: entityLabel })}
                 </p>
-                <p className="mt-1 text-xs text-secondary-500">{t('company.sync.queue.queued', { date: formatDateTime(item.createdAt) })}</p>
+                <p className="mt-1 text-xs text-secondary-500">
+                  {t('company.sync.queue.queued', { date: formatDateTime(item.createdAt) })}
+                </p>
                 {(item.attempts ?? 0) > 0 && (
                   <p className="mt-2 text-xs font-medium uppercase tracking-wide text-warning-700">
                     {t('company.sync.queue.retryAttempt', { count: item.attempts })}
@@ -109,16 +110,18 @@ export function CompanySyncConflictPreview({
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="text-sm font-semibold text-secondary-900">{t('company.sync.conflict.title')}</h3>
-        <p className="mt-1 text-sm text-secondary-500">
-          {t('company.sync.conflict.description')}
-        </p>
+        <h3 className="text-sm font-semibold text-secondary-900">
+          {t('company.sync.conflict.title')}
+        </h3>
+        <p className="mt-1 text-sm text-secondary-500">{t('company.sync.conflict.description')}</p>
       </div>
 
       {isLoading ? (
         <p className="text-sm text-secondary-500">{t('company.sync.conflict.loading')}</p>
       ) : conflicts.length === 0 ? (
-        <p className="surface-panel-muted text-sm text-secondary-600">{t('company.sync.conflict.empty')}</p>
+        <p className="surface-panel-muted text-sm text-secondary-600">
+          {t('company.sync.conflict.empty')}
+        </p>
       ) : (
         <div className="space-y-3">
           {conflicts.map(conflict => (
@@ -226,7 +229,9 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
         </div>
       ) : (
         !localRecordMissing && (
-          <p className="mt-3 text-sm text-secondary-600">{t('company.sync.conflict.noFieldDiff')}</p>
+          <p className="mt-3 text-sm text-secondary-600">
+            {t('company.sync.conflict.noFieldDiff')}
+          </p>
         )
       )}
 
@@ -276,7 +281,7 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
   );
 }
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface SyncTechnicalDetailsProps {
   entityType: string;
   entityId: string;

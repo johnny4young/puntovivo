@@ -1,5 +1,5 @@
 /**
- * ENG-075 pairing-code lifecycle: create + claim (claim is ENG-168
+ * pairing-code lifecycle: create + claim (claim is
  * transactional with an in-tx audit row).
  *
  * @module services/devices/authority/pairing
@@ -27,7 +27,7 @@ export async function createPairingCode(
     tenantId: string;
     siteId: string;
     createdByUserId: string;
-    // ENG-179b — explicit `| undefined` on Zod-optional fields.
+    // explicit `| undefined` on Zod-optional fields.
     deviceName?: string | undefined;
     expiresInMinutes?: number | undefined;
   },
@@ -83,7 +83,7 @@ export async function claimPairingCodeForDevice(
     code: string;
     deviceId: string;
     /**
-     * ENG-168 — the authenticated user who is claiming the pairing
+     * the authenticated user who is claiming the pairing
      * code on behalf of the device. When supplied, a
      * `device.pairing.claimed` audit row lands inside the same
      * transaction as the device + pairing_code mutations. Made
@@ -203,7 +203,7 @@ export async function claimPairingCodeForDevice(
       .where(and(eq(devices.tenantId, args.tenantId), eq(devices.id, args.deviceId)))
       .run();
 
-    // ENG-168 — emit the audit row inside the same transaction so a
+    // emit the audit row inside the same transaction so a
     // claim that ultimately rolls back (e.g. constraint violation on
     // the devices UPDATE above) does not leave an orphan audit
     // entry. Mask the pairing code down to its last 4 characters in

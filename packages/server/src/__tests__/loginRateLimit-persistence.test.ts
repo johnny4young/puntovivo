@@ -1,24 +1,24 @@
 /**
- * ENG-008b acceptance — login rate-limit state persists across a
+ * acceptance — login rate-limit state persists across a
  * server restart.
  *
- * Acceptance criteria (ENG-008b):
+ * Acceptance criteria ():
  *
- *   "Attacker tripping the username cap, server restart, next attempt
- *    still 429."
+ * "Attacker tripping the username cap, server restart, next attempt
+ * still 429."
  *
  * Setup:
  *
- *   1. Open a fresh SQLite file in a tmpdir (NOT `:memory:` — the whole
- *      point is that state survives closing the connection).
- *   2. Saturate the username bucket with LOGIN_RATE_LIMIT_USERNAME_MAX
- *      failures for one email.
- *   3. Close the DB (simulates server shutdown).
- *   4. Re-open the same file (simulates server restart). The freshly
- *      booted service has NO in-memory cache yet.
- *   5. Call `checkUsername` for the same email. It must still throw
- *      `TOO_MANY_REQUESTS` / `AUTH_RATE_LIMIT_EXCEEDED` because the
- *      DB row is the source of truth.
+ * 1. Open a fresh SQLite file in a tmpdir (NOT `:memory:` — the whole
+ * point is that state survives closing the connection).
+ * 2. Saturate the username bucket with LOGIN_RATE_LIMIT_USERNAME_MAX
+ * failures for one email.
+ * 3. Close the DB (simulates server shutdown).
+ * 4. Re-open the same file (simulates server restart). The freshly
+ * booted service has NO in-memory cache yet.
+ * 5. Call `checkUsername` for the same email. It must still throw
+ * `TOO_MANY_REQUESTS` / `AUTH_RATE_LIMIT_EXCEEDED` because the
+ * DB row is the source of truth.
  *
  * Paired scenario: once the 15-minute window elapses, the lazy-evict
  * path must also work across a restart — the re-opened service sweeps
@@ -43,7 +43,7 @@ import {
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { closeDatabase, initDatabase } from '../db/index.js';
 
-describe('loginRateLimit persistence (ENG-008b acceptance)', () => {
+describe('loginRateLimit persistence ( acceptance)', () => {
   let tmpDir: string;
   let dbPath: string;
 
@@ -63,8 +63,8 @@ describe('loginRateLimit persistence (ENG-008b acceptance)', () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('ROADMAP AC: username cap trips across a server restart', async () => {
-    // === Phase 1 — first boot. Trip the username cap. ===
+  it('acceptance contract: username cap trips across a server restart', async () => {
+    // === first boot. Trip the username cap. ===
     let db = await initDatabase({ dbPath, seedData: false, verbose: false });
 
     // Clear any residual state (other tests in the same worker can share
@@ -82,12 +82,12 @@ describe('loginRateLimit persistence (ENG-008b acceptance)', () => {
     // Sanity check — inside the same process the bucket is saturated.
     expect(() => checkUsername(db, email, now)).toThrow(TRPCError);
 
-    // === Phase 2 — "server restart". Close the DB handle and wipe the
+    // === "server restart". Close the DB handle and wipe the
     // in-memory cache. The DB file on disk retains the saturated bucket. ===
     closeDatabase();
     __resetForTests(); // no db arg → cache-only reset, mirrors a cold boot
 
-    // === Phase 3 — second boot. Re-open the same DB file. ===
+    // === second boot. Re-open the same DB file. ===
     db = await initDatabase({ dbPath, seedData: false, verbose: false });
 
     // Warm the cache (optional, exercises both code paths). Use the

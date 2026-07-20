@@ -71,7 +71,7 @@ export const usersRouter = router({
 
   create: criticalCommandAdminProcedure
     .use(
-      // ENG-166 — cap admin user creation at 20/hour per actor so a
+      // cap admin user creation at 20/hour per actor so a
       // stolen admin token cannot enumerate or seed accounts quickly.
       rateLimitFor({
         name: 'users.create',
@@ -97,7 +97,7 @@ export const usersRouter = router({
       const passwordHash = await hashPasswordSecurely(input.password);
       const actorId = ctx.user!.id;
 
-      // ENG-007 — user lifecycle writes plus their audit row share a single
+      // user lifecycle writes plus their audit row share a single
       // atomic boundary, same pattern as cashSessions.close.
       ctx.db.transaction(tx => {
         tx.insert(users)
@@ -205,7 +205,7 @@ export const usersRouter = router({
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
     const actorId = ctx.user!.id;
 
-    // ENG-007 — only audit genuinely sensitive changes. Name/email edits
+    // only audit genuinely sensitive changes. Name/email edits
     // are bookkeeping; role escalation and disable/enable are security
     // events. Detecting change against the `existing` snapshot keeps the
     // audit timeline free of noise when an admin reopens the form and
@@ -270,7 +270,7 @@ export const usersRouter = router({
 
   resetPassword: adminProcedure
     .use(
-      // ENG-166 — cap admin password resets at 10/hour per actor. Same
+      // cap admin password resets at 10/hour per actor. Same
       // rationale as `users.create`: throttles credential spraying via a
       // compromised admin session.
       rateLimitFor({

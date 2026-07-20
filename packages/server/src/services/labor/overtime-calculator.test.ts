@@ -17,7 +17,7 @@ function calculate(countryCode: OvertimeCountry, shifts: OvertimeShiftInput[], t
   return calculateOvertime({ countryCode, timeZone, firstDayOfWeek: 1, shifts });
 }
 
-describe('overtime calculator (ENG-140c)', () => {
+describe('overtime calculator', () => {
   it('returns no allocations when there is no attendance evidence', () => {
     expect(calculate('CO', [])).toEqual(new Map());
   });

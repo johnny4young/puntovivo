@@ -1,4 +1,4 @@
-/** ENG-123f — Fiscal-profile column mapping and payload helpers. */
+/** Fiscal-profile column mapping and payload helpers. */
 import type { ParsedImportFile } from './fileParser';
 import { normalizeImportHeader } from './mappingUtils';
 

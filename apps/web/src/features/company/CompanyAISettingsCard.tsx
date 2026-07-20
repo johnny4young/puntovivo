@@ -1,15 +1,13 @@
 /**
- * ENG-030 — Admin-only card for AI settings.
+ * Admin-only card for AI settings.
  *
  * Sits inside `CompanyPage`'s admin grid. Reads `ai.settings.get`,
  * writes via `ai.settings.update`, and exposes a "Test connection"
  * button that runs `ai.completeTest` end-to-end so the operator can
- * validate the env-var + provider round-trip without waiting for
- * ENG-031 (co-pilot) or ENG-033 (semantic search) to land.
+ * validate the environment and provider round-trip directly.
  *
- * Provider selector renders all registered providers. Implemented
- * providers are selectable; parked stubs keep a `(disponible con
- * ENG-NNN)` hint so the admin sees the roadmap.
+ * The provider selector renders every registered provider and its
+ * default model. Registry entries are all callable implementations.
  */
 import { useMemo, useState } from 'react';
 import { ChevronDown, Mic, MicOff, Sparkles } from 'lucide-react';
@@ -72,7 +70,7 @@ export function CompanyAISettingsCard() {
 
   const data = settingsQuery.data;
 
-  // ENG-040c slice 2 — the voice-transcription test feature (recorder +
+  // The voice-transcription test feature (recorder +
   // transcribeAudio mutation + countdown + gating) lives in its own hook;
   // the card keeps the transcribe button / hint / countdown JSX below.
   const transcription = useAiTranscriptionTest({
@@ -100,7 +98,7 @@ export function CompanyAISettingsCard() {
   const hasBudget = budgetNumber > 0;
   const overBudget = hasBudget && spentUsd >= budgetNumber;
 
-  // ENG-039d4 FIX — the legacy spend line composed
+  // The legacy spend line composed
   // `formatCurrency(spent) + "de " + formatCurrency(budget)`, which
   // rendered the broken "US$0.35 de US$0.00" whenever no budget was
   // set (budget 0 means "disabled", not "a zero ceiling"). The §15
@@ -111,10 +109,7 @@ export function CompanyAISettingsCard() {
   const budgetRatio = hasBudget ? spentUsd / budgetNumber : 0;
   const budgetWidth = hasBudget ? Math.min(100, Math.round(budgetRatio * 100)) : 0;
 
-  const saveDisabled =
-    updateMutation.isPending ||
-    settingsQuery.isLoading ||
-    selectedProviderEntry?.isImplemented === false;
+  const saveDisabled = updateMutation.isPending || settingsQuery.isLoading;
   const testDisabled = testMutation.isPending || !data?.providerConfigured || !enabled;
 
   function handleSave(): void {
@@ -142,7 +137,7 @@ export function CompanyAISettingsCard() {
           </div>
         </div>
 
-        {/* ENG-039d4 — master toggle promoted from a raw checkbox to the
+        {/* master toggle promoted from a raw checkbox to the
             system switch recipe (the §15 fix: "interruptor, no checkbox").
             The button carries the toggle semantics so the visual switch
             stays a presentational span. */}
@@ -183,11 +178,8 @@ export function CompanyAISettingsCard() {
               data-testid="ai-provider-select"
             >
               {availableProviders.map(provider => (
-                <option key={provider.id} value={provider.id} disabled={!provider.isImplemented}>
+                <option key={provider.id} value={provider.id}>
                   {provider.id}
-                  {!provider.isImplemented
-                    ? ` (${t('aiSettings:card.providerComingIn')} ${provider.availableInTicket})`
-                    : ''}
                 </option>
               ))}
             </select>
@@ -236,7 +228,7 @@ export function CompanyAISettingsCard() {
         <p className="help">{t('aiSettings:card.budgetHint')}</p>
       </div>
 
-      {/* ENG-039d4 — tonal budget meter (replaces the broken
+      {/* tonal budget meter (replaces the broken
           "US$0.35 de US$0.00" line). Track is surface-3, fill is
           primary, flips to danger once spend reaches the limit. When
           no limit is set the reading says "sin límite" instead of
@@ -281,8 +273,7 @@ export function CompanyAISettingsCard() {
         <p className="text-xs text-fg3">{t('aiSettings:card.budgetMeterHint')}</p>
       </div>
 
-      {/*
-        ENG-102 — per-site monthly AI quotas. Hidden when the master
+      {/* per-site monthly AI quotas. Hidden when the master
         AI toggle is off (cuota is irrelevant if AI is disabled).
         Each row renders a progress bar that flips warning at >=80%
         and danger at >=100%. The reset date footer tells the cashier

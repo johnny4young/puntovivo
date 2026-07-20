@@ -1,7 +1,7 @@
 /**
- * Peripherals tRPC Router (ENG-060).
+ * Peripherals tRPC Router ().
  *
- * ENG-178 — decomposed into per-concern record modules (queries / crud /
+ * decomposed into per-concern record modules (queries / crud /
  * actions) + a helpers.ts leaf. This barrel re-assembles the flat router so
  * every path (`peripherals.list` … `peripherals.retryHardwareOutbox`) is
  * preserved.

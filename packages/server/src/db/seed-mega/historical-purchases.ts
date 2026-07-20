@@ -1,5 +1,5 @@
 /**
- * ENG-052b — MEGA seed: historical purchases + supplier returns.
+ * MEGA seed: historical purchases + supplier returns.
  *
  * Bulk-inserts purchases distributed across the historical window.
  * 3% of purchases get a `purchase_returns` row with at least one
@@ -51,7 +51,14 @@ export async function seedHistoricalPurchases(
 
     const itemsCount = 2 + (i % 3);
     let subtotal = 0;
-    const builtItems: Array<{ id: string; productId: string; quantity: number; cost: number; total: number; baseUnitId: string }> = [];
+    const builtItems: Array<{
+      id: string;
+      productId: string;
+      quantity: number;
+      cost: number;
+      total: number;
+      baseUnitId: string;
+    }> = [];
     for (let li = 0; li < itemsCount; li += 1) {
       const product = products[(i * 7 + li * 3) % products.length]!;
       const quantity = 5 + (i % 15);
@@ -180,7 +187,7 @@ async function chunkedInsert<T extends Record<string, unknown>>(
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per ENG-179c.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per .
     await (db.insert(table) as any).values(chunk).run();
   }
 }

@@ -1,4 +1,4 @@
-/** ENG-208 — Record a customer payment as a negative ledger delta. */
+/** Record a customer payment as a negative ledger delta. */
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';

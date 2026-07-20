@@ -1,4 +1,4 @@
-/** ENG-129d — admin-only retention policy, preview, and on-demand sweep. */
+/** admin-only retention policy, preview, and on-demand sweep. */
 
 import { eq } from 'drizzle-orm';
 

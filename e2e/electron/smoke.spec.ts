@@ -1,5 +1,5 @@
 /**
- * ENG-001 Step 3 — Electron smoke test.
+ * Step 3 — Electron smoke test.
  *
  * Launches the Electron main process against a pre-seeded tmpdir DB
  * (see `global-setup.ts`), drives the first-window renderer through
@@ -8,23 +8,23 @@
  *
  * Kept deliberately minimal — a single happy-path flow that proves:
  *
- *   1. The Electron main process starts the embedded Fastify server
- *      in-process without crashing.
- *   2. The renderer loads the web dev bundle served by Playwright.
- *   3. The renderer can reach the embedded Fastify server through the
- *      same tRPC HTTP client used by the web app.
- *   4. The login flow round-trips with the seeded `e2e.admin@local.test`
- *      user and the admin lands on `/dashboard`.
- *   5. The admin-only backup-protection IPC reports SQLCipher and the
- *      development key source without exposing the key value.
- *   6. The admin can configure and create a real encrypted scheduled
- *      snapshot through the sandboxed preload bridge, with an optional
- *      S3-compatible second copy written through the real AWS client.
- *   7. A non-destructive restore drill verifies that snapshot, reports
- *      tenant-scoped differences, and leaves an immutable audit event.
- *   8. No `console.error` / `pageerror` events fire during the flow —
- *      the contract enforced by the web suite's smoke also applies
- *      here.
+ * 1. The Electron main process starts the embedded Fastify server
+ * in-process without crashing.
+ * 2. The renderer loads the web dev bundle served by Playwright.
+ * 3. The renderer can reach the embedded Fastify server through the
+ * same tRPC HTTP client used by the web app.
+ * 4. The login flow round-trips with the seeded `e2e.admin@local.test`
+ * user and the admin lands on `/dashboard`.
+ * 5. The admin-only backup-protection IPC reports SQLCipher and the
+ * development key source without exposing the key value.
+ * 6. The admin can configure and create a real encrypted scheduled
+ * snapshot through the sandboxed preload bridge, with an optional
+ * S3-compatible second copy written through the real AWS client.
+ * 7. A non-destructive restore drill verifies that snapshot, reports
+ * tenant-scoped differences, and leaves an immutable audit event.
+ * 8. No `console.error` / `pageerror` events fire during the flow —
+ * the contract enforced by the web suite's smoke also applies
+ * here.
  *
  * Extensive role / business-flow coverage stays in the web suite. The
  * Electron runner exists to catch main-process regressions (IPC
@@ -40,7 +40,7 @@ import { electronTest as test, ELECTRON_E2E_DB_KEY, expect } from './fixtures.js
 import { attachClientIssueTracker, E2E_USERS, expectNoClientIssues } from '../web/support/app.js';
 import { startFakeS3Provider } from './support/fake-s3.js';
 
-test.describe('Electron smoke (ENG-001 Step 3)', () => {
+test.describe('Electron smoke', () => {
   test('launches, logs in as admin, and loads the dashboard shell', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
     const admin = E2E_USERS.admin;
@@ -81,7 +81,7 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
       });
     }
 
-    // ENG-129e — exercise the real preload + IPC boundary, not a renderer
+    // exercise the real preload + IPC boundary, not a renderer
     // mock. Electron E2E injects PUNTOVIVO_DB_KEY deliberately, so the honest
     // status is the development-key variant even on macOS. The raw 64-hex key
     // must never appear in the renderer text.
@@ -93,7 +93,7 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
       .evaluate(link => (link as HTMLElement).click());
     await expect(page).toHaveURL(/\/company/);
 
-    // ENG-137a — exercise the real updater IPC contract before moving to the
+    // exercise the real updater IPC contract before moving to the
     // data tab. A fresh E2E userData directory establishes the installed
     // version baseline without inventing a last-updated timestamp; development
     // builds also have no release rollout policy to report.
@@ -112,9 +112,7 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
     await expect(updaterPanel.getByText(/rollout|despliegue/i)).toBeVisible();
     await expect(updaterPanel.getByText(/not yet|aún no/i).first()).toBeVisible();
 
-    const desktopUpdateStatus = await page.evaluate(() =>
-      window.electron?.getAutoUpdateStatus()
-    );
+    const desktopUpdateStatus = await page.evaluate(() => window.electron?.getAutoUpdateStatus());
     expect(desktopUpdateStatus).toMatchObject({
       lastUpdatedAt: null,
       rolloutMode: null,
@@ -146,7 +144,7 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
     ).toBeVisible();
     await expect(protectionPanel).not.toContainText(ELECTRON_E2E_DB_KEY);
 
-    // ENG-136c — configure a device-local vault against a deterministic
+    // configure a device-local vault against a deterministic
     // S3-compatible endpoint. The renderer provides write-only credentials;
     // the real main process seals them and the AWS client signs each PUT.
     const cloudPanel = page.getByTestId('backup-cloud-vault-panel');
@@ -191,7 +189,7 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
         ).toBeDisabled();
       }
 
-      // ENG-136a — exercise schedule persistence + the real encrypted
+      // exercise schedule persistence + the real encrypted
       // VACUUM INTO snapshot. The app-managed folder avoids a native folder
       // picker in automation while proving the same main-process scheduler
       // used by daily/weekly runs.
@@ -229,7 +227,7 @@ test.describe('Electron smoke (ENG-001 Step 3)', () => {
       await fakeS3?.close();
     }
 
-    // ENG-136b — the real main process extracts and opens the encrypted
+    // the real main process extracts and opens the encrypted
     // snapshot in a temporary directory, compares only this tenant's rows,
     // and returns bounded metadata through preload. No destructive restore or
     // renderer-supplied path participates in this flow.

@@ -1,14 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  AlertTriangle,
-  Clock,
-  CloudUpload,
-  RefreshCw,
-  RotateCw,
-  XCircle,
-} from 'lucide-react';
+import { AlertTriangle, Clock, CloudUpload, RefreshCw, RotateCw, XCircle } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { CompanySyncActions } from '@/features/company/CompanySyncActions';
 import {
@@ -47,13 +40,7 @@ interface SyncKpiProps {
  */
 function SyncKpi({ icon: Icon, label, value, alarming = false, mono = false }: SyncKpiProps) {
   return (
-    <div
-      className={
-        alarming
-          ? 'pv-kpi border-danger-500/35 bg-danger-50/50'
-          : 'pv-kpi'
-      }
-    >
+    <div className={alarming ? 'pv-kpi border-danger-500/35 bg-danger-50/50' : 'pv-kpi'}>
       <div className="hd">
         <span className={alarming ? 'pv-gt pv-gt-danger' : 'pv-gt pv-gt-ink'}>
           <Icon className="h-3.5 w-3.5" />
@@ -62,11 +49,7 @@ function SyncKpi({ icon: Icon, label, value, alarming = false, mono = false }: S
       </div>
       <div
         className={
-          mono
-            ? 'val mono mt-[18px] text-[15px]'
-            : alarming
-              ? 'val text-danger-700'
-              : 'val'
+          mono ? 'val mono mt-[18px] text-[15px]' : alarming ? 'val text-danger-700' : 'val'
         }
       >
         {value}
@@ -84,11 +67,16 @@ export function CompanySyncCard() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [pendingResolution, setPendingResolution] = useState<PendingResolution | null>(null);
-  const { snapshotQuery, queryKey: syncSnapshotQueryKey, snapshot, queueItems, conflicts } =
-    useSyncSnapshot({
-      queueLimit: syncPreviewLimit,
-      conflictLimit: syncPreviewLimit,
-    });
+  const {
+    snapshotQuery,
+    queryKey: syncSnapshotQueryKey,
+    snapshot,
+    queueItems,
+    conflicts,
+  } = useSyncSnapshot({
+    queueLimit: syncPreviewLimit,
+    conflictLimit: syncPreviewLimit,
+  });
 
   const refreshSyncSnapshot = async () => {
     await queryClient.invalidateQueries({ queryKey: ['sync', 'snapshot'] });
@@ -135,7 +123,7 @@ export function CompanySyncCard() {
       resolution,
       mergedData,
     }: {
-      // ENG-179b — explicit `| undefined` on optional fields.
+      // explicit `| undefined` on optional fields.
       id: string;
       resolution: ConflictResolution;
       mergedData?: Record<string, unknown> | undefined;
@@ -168,9 +156,7 @@ export function CompanySyncCard() {
         </div>
         <div className="space-y-1">
           <h2 className="text-lg font-semibold text-secondary-900">{t('company.sync.title')}</h2>
-          <p className="text-sm text-secondary-500">
-            {t('company.sync.description')}
-          </p>
+          <p className="text-sm text-secondary-500">{t('company.sync.description')}</p>
         </div>
       </div>
 
@@ -206,7 +192,9 @@ export function CompanySyncCard() {
         <SyncKpi
           icon={RefreshCw}
           label={t('company.sync.lastSync')}
-          value={snapshot?.lastSyncAt ? formatDateTime(snapshot.lastSyncAt) : t('company.sync.notYet')}
+          value={
+            snapshot?.lastSyncAt ? formatDateTime(snapshot.lastSyncAt) : t('company.sync.notYet')
+          }
           mono
         />
       </div>
@@ -214,7 +202,9 @@ export function CompanySyncCard() {
       {snapshot && snapshot.pendingCount > 0 && (
         <div className="surface-panel-muted text-sm text-secondary-700">
           <span className="font-medium text-secondary-900">{t('company.sync.oldestQueued')}</span>{' '}
-          {snapshot.oldestPendingAt ? formatDateTime(snapshot.oldestPendingAt) : t('company.sync.unknown')}
+          {snapshot.oldestPendingAt
+            ? formatDateTime(snapshot.oldestPendingAt)
+            : t('company.sync.unknown')}
           {snapshot.failedCount > 0 && (
             <>
               {' · '}

@@ -1,8 +1,8 @@
 /**
- * ENG-068 / ENG-171 — effective-modules state for the renderer.
+ * /  — effective-modules state for the renderer.
  *
  * Originally a React context (`ModulesProvider`) mounted between
- * `AuthProvider` and the route tree. ENG-171 migrated it to a Zustand
+ * `AuthProvider` and the route tree.  migrated it to a Zustand
  * store so an `AuthProvider` re-render no longer cascades a new context
  * value through every `useIsModuleActive` consumer; components now
  * subscribe to the store via selectors and only re-render when the slice
@@ -27,11 +27,7 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
-import {
-  CLIENT_MODULE_DEFAULTS,
-  CLIENT_MODULE_IDS,
-  type ClientModuleId,
-} from './manifest';
+import { CLIENT_MODULE_DEFAULTS, CLIENT_MODULE_IDS, type ClientModuleId } from './manifest';
 
 /**
  * Read model exposed by `useModulesSnapshot()`. Mirrors the shape the old
@@ -60,7 +56,10 @@ export interface ModulesSnapshot {
  * previous tenant's module flags.
  */
 interface ModulesStore extends ModulesSnapshot {
-  setSnapshot(data: { modules?: Partial<Record<string, boolean>> } | undefined, isLoading: boolean): void;
+  setSnapshot(
+    data: { modules?: Partial<Record<string, boolean>> } | undefined,
+    isLoading: boolean
+  ): void;
   reset(): void;
 }
 
@@ -119,7 +118,7 @@ export function useModulesSync(): void {
   const query = trpc.modules.getEffective.useQuery(undefined, {
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000,
-    // ENG-171 — no window-focus refetch; the 5-minute staleTime is the
+    // no window-focus refetch; the 5-minute staleTime is the
     // freshness contract and admin flips invalidate explicitly.
     refetchOnWindowFocus: false,
   });

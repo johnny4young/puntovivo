@@ -1,5 +1,5 @@
 /**
- * ENG-178 — desktop sync-bridge IPC handlers (the `sync:*` + the
+ * desktop sync-bridge IPC handlers (the `sync:*` + the
  * `db:addToSyncQueue` / `db:getPendingSyncItems` surface index.ts registers).
  * The where-clause / conflict / queue helpers + the entity-config constants
  * live in `./sync-helpers.js` (split out in slice 9 to clear the 500-LOC
@@ -8,15 +8,7 @@
  * @module main/ipc/sync
  */
 import { randomUUID } from 'node:crypto';
-import {
-  and,
-  eq,
-  inArray,
-  sql,
-  appSettings,
-  syncConflicts,
-  syncOutbox,
-} from '@puntovivo/server';
+import { and, eq, inArray, sql, appSettings, syncConflicts, syncOutbox } from '@puntovivo/server';
 import { getServerDatabase } from '../runtime.js';
 import { mapRowToRendererRecord } from './db.js';
 import {
@@ -36,7 +28,7 @@ import {
   type DesktopPendingSyncStatus,
 } from './sync-helpers.js';
 
-// SEC-003 — single source of truth for the operations the desktop sync
+// Single source of truth for the operations the desktop sync
 // bridge accepts. The IPC handler validates the renderer-supplied value
 // against this list before any DB write, so a malformed/hostile payload
 // cannot enqueue an outbox row with an unrecognised operation.
@@ -44,10 +36,7 @@ const DESKTOP_SYNC_OPERATIONS = ['create', 'update', 'delete'] as const;
 type DesktopSyncOperation = (typeof DESKTOP_SYNC_OPERATIONS)[number];
 
 export function assertDesktopSyncOperation(value: unknown): DesktopSyncOperation {
-  if (
-    typeof value === 'string' &&
-    (DESKTOP_SYNC_OPERATIONS as readonly string[]).includes(value)
-  ) {
+  if (typeof value === 'string' && (DESKTOP_SYNC_OPERATIONS as readonly string[]).includes(value)) {
     return value as DesktopSyncOperation;
   }
   throw new Error(`Sync operation "${String(value)}" is not allowed in the desktop bridge`);
@@ -178,7 +167,7 @@ export async function handleDesktopAddToSyncQueue(input: DesktopSyncQueueInput):
     return;
   }
 
-  // ENG-064b: write directly to `sync_outbox` from the Electron IPC
+  // : write directly to `sync_outbox` from the Electron IPC
   // bridge. Mirror ADR-0004's high-risk manual policy here because
   // this path can enqueue sales, inventory, orders, and purchases
   // without passing through the server-side `enqueueSync` helper.
@@ -211,7 +200,9 @@ export async function handleDesktopGetPendingSyncItems(tenantId: string): Promis
     .filter((item): item is Record<string, unknown> => item !== null);
 }
 
-export async function handleDesktopTriggerSync(tenantId: string): Promise<DesktopSyncTriggerResult> {
+export async function handleDesktopTriggerSync(
+  tenantId: string
+): Promise<DesktopSyncTriggerResult> {
   const database = getServerDatabase();
   const items = await database
     .select()

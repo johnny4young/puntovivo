@@ -87,7 +87,7 @@ const DEFAULT_ALERT_POLICY: LossPreventionAlertPolicy = {
 export const DEFAULT_LOSS_PREVENTION_SETTINGS: LossPreventionSettings = {
   version: 4,
   roles: {
-    // Preserve the pre-ENG-142 authorization baseline: any cashier discount
+    // Preserve the pre- authorization baseline: any cashier discount
     // escalates, while managers retain direct authority unless configured.
     cashier: {
       maxDiscountPercent: 0,
@@ -253,7 +253,7 @@ const DUAL_APPROVAL_ACTIONS = new Set([
   'sale_void',
 ]);
 
-/** ENG-142c — derive the distinct-approver count from server-owned request evidence. */
+/** derive the distinct-approver count from server-owned request evidence. */
 export function requiredLossPreventionApprovalCount(args: {
   db: DatabaseInstance;
   tenantId: string;
@@ -282,7 +282,7 @@ function readPersistedPolicy(db: DatabaseInstance, tenantId: string): unknown {
     .get();
 }
 
-/** ENG-142a — resolve fail-safe per-role rules from the isolated tenant row. */
+/** resolve fail-safe per-role rules from the isolated tenant row. */
 export function resolveLossPreventionSettings(
   db: DatabaseInstance,
   tenantId: string

@@ -20,7 +20,7 @@ interface DayCloseSignoffCardProps {
   onDownloadPdf: () => void;
 }
 
-/** ENG-141b — explicit irreversible attestation + immutable evidence state. */
+/** explicit irreversible attestation + immutable evidence state. */
 export function DayCloseSignoffCard({
   date,
   report,

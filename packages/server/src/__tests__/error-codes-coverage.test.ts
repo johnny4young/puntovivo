@@ -1,5 +1,5 @@
 /**
- * ENG-181 — server error code → i18n key parity sentinel.
+ * server error code → i18n key parity sentinel.
  *
  * `SERVER_ERROR_CODES` in `lib/errorCodes.ts` is the canonical
  * enumeration of every `errorCode` the frontend may receive from a
@@ -16,8 +16,8 @@
  * pins en ⊆ es and es ⊆ en for every namespace — the two tests
  * together close the gap from both directions:
  *
- *   server-side (this file)  → every CODE ⊆ en + es
- *   web-side (parity test)   → en ⇔ es key trees
+ * server-side (this file)  → every CODE ⊆ en + es
+ * web-side (parity test)   → en ⇔ es key trees
  *
  * Drift in either lane fails CI before it reaches the user.
  */
@@ -73,7 +73,7 @@ function getServerNamespace(tree: Record<string, unknown>): Record<string, unkno
   return server as Record<string, unknown>;
 }
 
-describe('ENG-181 — SERVER_ERROR_CODES ↔ i18n key parity', () => {
+describe(' — SERVER_ERROR_CODES ↔ i18n key parity', () => {
   const enErrors = loadLocaleErrors('en');
   const esErrors = loadLocaleErrors('es');
   const enServer = getServerNamespace(enErrors);
@@ -97,12 +97,8 @@ describe('ENG-181 — SERVER_ERROR_CODES ↔ i18n key parity', () => {
   // - `unknown`: catch-all when the error has no resolvable code.
   // - `networkUnavailable`: the tRPC client never got past TCP/DNS.
   // - `validationFailed`: client-side reshaping of a raw Zod BAD_REQUEST
-  //   so the operator never sees the stringified issues array.
-  const CLIENT_ONLY_KEYS = new Set<string>([
-    'unknown',
-    'networkUnavailable',
-    'validationFailed',
-  ]);
+  // so the operator never sees the stringified issues array.
+  const CLIENT_ONLY_KEYS = new Set<string>(['unknown', 'networkUnavailable', 'validationFailed']);
 
   it('no orphan errors.server.<CODE> keys exist that the enum does not declare', () => {
     const allowed = new Set<string>([...CLIENT_ONLY_KEYS, ...codes]);

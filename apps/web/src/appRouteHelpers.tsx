@@ -1,5 +1,5 @@
 // Route-wrapper components for the app router, extracted from App.tsx
-// (ENG-178 slice 35). HomeRedirect resolves the role default; LoginRoute is the
+// ( slice 35). HomeRedirect resolves the role default; LoginRoute is the
 // login Suspense fallback; ShellRoute is the protected + module-gated Suspense
 // wrapper every in-layout route uses.
 
@@ -45,7 +45,7 @@ export function ShellRoute({
 }: {
   allowedRoles?: readonly UserRole[];
   /**
-   * ENG-068 — when set, the route renders only when the module is
+   * when set, the route renders only when the module is
    * active for the active tenant. When the module is off, the route
    * redirects to `/dashboard` (the closest universally-allowed
    * destination) so a stale URL or a manager who flipped the module
@@ -72,7 +72,7 @@ export function ShellRoute({
 
   const content =
     allowedModule && isPlaceholder ? (
-      // ENG-183 reviewer fix — hidden modules must not flash while the
+      // reviewer fix — hidden modules must not flash while the
       // tenant's explicit module profile is still hydrating. This matters
       // for Ring-1 fresh tenants because AI modules have manifest defaults
       // of ON for legacy tenants, but the fresh profile writes them OFF.

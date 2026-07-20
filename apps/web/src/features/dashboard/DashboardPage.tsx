@@ -47,7 +47,7 @@ export function DashboardPage() {
   const { t } = useTranslation('dashboard');
   const { user } = useAuth();
   const anomalyModuleActive = useIsModuleActive('anomaly-detection');
-  // ENG-032 + ENG-068: anomaly detection is manager+ AND module-gated.
+  // + : anomaly detection is manager+ AND module-gated.
   // Do not render a card that would always call a gated procedure and
   // return MODULE_NOT_ACTIVATED/role FORBIDDEN for the current user.
   const showAnomalyCard = user
@@ -82,7 +82,10 @@ export function DashboardPage() {
     {
       title: t('metrics.todaySales.title'),
       value: formatCurrency(getMetricValue(getStatMetric(stats, 'todayRevenue', 'revenue'))),
-      label: getMetricLabel(getStatMetric(stats, 'todayRevenue', 'revenue'), t('metrics.todaySales.fallbackLabel')),
+      label: getMetricLabel(
+        getStatMetric(stats, 'todayRevenue', 'revenue'),
+        t('metrics.todaySales.fallbackLabel')
+      ),
       icon: DollarSign,
       tone: 'success',
       mono: true,
@@ -90,7 +93,10 @@ export function DashboardPage() {
     {
       title: t('metrics.ordersToday.title'),
       value: getMetricValue(getStatMetric(stats, 'todayOrders', 'orders')).toLocaleString(),
-      label: getMetricLabel(getStatMetric(stats, 'todayOrders', 'orders'), t('metrics.ordersToday.fallbackLabel')),
+      label: getMetricLabel(
+        getStatMetric(stats, 'todayOrders', 'orders'),
+        t('metrics.ordersToday.fallbackLabel')
+      ),
       icon: ShoppingCart,
       tone: 'primary',
     },
@@ -121,7 +127,8 @@ export function DashboardPage() {
   const lowStockItems = Array.isArray(data.lowStockItems) ? data.lowStockItems : [];
   const recentSales = Array.isArray(data.recentSales) ? data.recentSales : [];
   const topProducts = Array.isArray(data.topProducts) ? data.topProducts : [];
-  const generatedAt = typeof data.generatedAt === 'string' ? data.generatedAt : new Date().toISOString();
+  const generatedAt =
+    typeof data.generatedAt === 'string' ? data.generatedAt : new Date().toISOString();
 
   return (
     <div className="space-y-6">
@@ -133,7 +140,9 @@ export function DashboardPage() {
 
           <div className="card-inset space-y-4 p-5">
             <div>
-              <h2 className="text-xl font-semibold text-secondary-950">{t('page.freshness.title')}</h2>
+              <h2 className="text-xl font-semibold text-secondary-950">
+                {t('page.freshness.title')}
+              </h2>
               <p className="mt-2 text-sm text-secondary-600">
                 {t('page.freshness.description', { time: formatDateTime(generatedAt) })}
               </p>
@@ -144,13 +153,17 @@ export function DashboardPage() {
                 <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
                   {t('page.revenueWindow.label')}
                 </p>
-                <p className="mt-2 text-base font-semibold text-secondary-950">{t('page.revenueWindow.value')}</p>
+                <p className="mt-2 text-base font-semibold text-secondary-950">
+                  {t('page.revenueWindow.value')}
+                </p>
               </div>
               <div className="metric-tile p-4">
                 <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
                   {t('page.focus.label')}
                 </p>
-                <p className="mt-2 text-base font-semibold text-secondary-950">{t('page.focus.value')}</p>
+                <p className="mt-2 text-base font-semibold text-secondary-950">
+                  {t('page.focus.value')}
+                </p>
               </div>
             </div>
           </div>

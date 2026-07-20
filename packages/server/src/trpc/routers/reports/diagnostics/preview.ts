@@ -162,7 +162,7 @@ export const previewProcedures = {
       rowLimit: ROW_LIMIT,
       willHitLimit,
       schemaVersion: SCHEMA_VERSION,
-      // ENG-072 — surface the Authority Node runtime metadata so an
+      // surface the Authority Node runtime metadata so an
       // admin can verify the boot mode without downloading the
       // bundle.
       runtime: projectRuntimeForManifest(runtime),

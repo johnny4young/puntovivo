@@ -1,8 +1,8 @@
 /**
  * Sales router draft-state procedures (suspend, resume, discardDraft, changeTable).
  *
- * ENG-178 — extracted verbatim from the former flat `trpc/routers/sales.ts`
- * during the megafile decomposition. ENG-018 / ENG-039c draft lifecycle.
+ * extracted verbatim from the former flat `trpc/routers/sales.ts`
+ * during the megafile decomposition.  /  draft lifecycle.
  * Exported as a procedure record that `index.ts` spreads into `salesRouter`
  * (paths unchanged). `splitDraft` lives in its own module for size.
  *
@@ -36,18 +36,18 @@ import {
 
 export const salesDraftProcedures = {
   /**
-   * ENG-018 — Suspend a draft sale so the cashier can start another cart
+   * Suspend a draft sale so the cashier can start another cart
    * without losing the in-progress one. Idempotent: re-suspending an
    * already-suspended sale just refreshes `suspendedAt` and the label.
    *
    * Invariants:
    * - Only draft sales may be suspended. Completed, cancelled, or voided
-   *   sales throw BAD_REQUEST.
+   * sales throw BAD_REQUEST.
    * - The suspending cashier (`ctx.user.id`) is recorded in
-   *   `suspendedBy`; resumes/discards by anyone else require manager or
-   *   admin role.
+   * `suspendedBy`; resumes/discards by anyone else require manager or
+   * admin role.
    * - No stock impact: drafts never decrement inventory in the first
-   *   place, so there is nothing to revert.
+   * place, so there is nothing to revert.
    */
   suspend: criticalCommandProcedure.input(suspendSaleInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
@@ -73,26 +73,16 @@ export const salesDraftProcedures = {
       });
     }
 
-    // ENG-039c — when the caller passes a tableId, resolve it first so
+    // when the caller passes a tableId, resolve it first so
     // (a) cross-tenant / archived FKs fail before the UPDATE lands and
     // (b) we can refresh `suspendedLabel` from the catalog row to keep
     // the panel display in sync with the FK. A free-text label keeps
     // working when no tableId is supplied.
     const saleSiteId = input.tableId
-      ? await resolveSaleSiteId(
-          ctx.db,
-          ctx.tenantId,
-          existing.cashSessionId,
-          ctx.siteId
-        )
+      ? await resolveSaleSiteId(ctx.db, ctx.tenantId, existing.cashSessionId, ctx.siteId)
       : null;
     const resolvedTable = input.tableId
-      ? await resolveActiveRestaurantTable(
-          ctx.db,
-          ctx.tenantId,
-          input.tableId,
-          saleSiteId
-        )
+      ? await resolveActiveRestaurantTable(ctx.db, ctx.tenantId, input.tableId, saleSiteId)
       : null;
 
     const now = new Date().toISOString();
@@ -102,9 +92,9 @@ export const salesDraftProcedures = {
         ? input.label
         : null;
 
-    // ENG-039c — await the transaction so a constraint violation in
+    // await the transaction so a constraint violation in
     // the audit-log write surfaces to the tRPC caller instead of
-    // becoming an unhandled rejection. The pre-ENG-039c code missed
+    // becoming an unhandled rejection. The pre- code missed
     // the await; fixing it inline because this slice already touches
     // the procedure body.
     await ctx.db.transaction(tx => {
@@ -113,7 +103,7 @@ export const salesDraftProcedures = {
           suspendedAt: now,
           suspendedBy: ctx.user!.id,
           suspendedLabel: label,
-          tableId: resolvedTable ? resolvedTable.id : existing.tableId ?? null,
+          tableId: resolvedTable ? resolvedTable.id : (existing.tableId ?? null),
           syncStatus: 'pending',
           syncVersion: (existing.syncVersion ?? 0) + 1,
           updatedAt: now,
@@ -138,7 +128,7 @@ export const salesDraftProcedures = {
           status: 'draft',
           suspendedAt: now,
           suspendedLabel: label,
-          tableId: resolvedTable ? resolvedTable.id : existing.tableId ?? null,
+          tableId: resolvedTable ? resolvedTable.id : (existing.tableId ?? null),
         },
         metadata: {
           ...(label ? { label } : {}),
@@ -147,7 +137,7 @@ export const salesDraftProcedures = {
       });
     });
 
-    // ENG-098 — push to the kitchen display when the suspended draft
+    // push to the kitchen display when the suspended draft
     // carries a tableId. Best-effort post-tx hook; module-disabled or
     // tableless suspends are no-ops inside the helper.
     if (resolvedTable || existing.tableId) {
@@ -161,7 +151,7 @@ export const salesDraftProcedures = {
   }),
 
   /**
-   * ENG-018 — Resume a suspended draft. Clears the suspension metadata
+   * Resume a suspended draft. Clears the suspension metadata
    * so the cashier can keep editing the cart, but keeps
    * `status='draft'` so `sales.create`/`sales.update` flows still apply
    * as the terminal commit path.
@@ -255,12 +245,12 @@ export const salesDraftProcedures = {
   }),
 
   /**
-   * ENG-018 — Discard a suspended draft. Flips `status` to `cancelled`
+   * Discard a suspended draft. Flips `status` to `cancelled`
    * (not `voided`, which is reserved for completed sales), clears the
    * suspension columns, and **reverses the stock** that was debited
    * when the draft was first created.
    *
-   * ENG-055 — orchestration delegated to `application/sales/discardDraft`.
+   * orchestration delegated to `application/sales/discardDraft`.
    * Lock: cashier who created OR suspended the draft; manager and
    * admin can override.
    */
@@ -274,23 +264,23 @@ export const salesDraftProcedures = {
     }),
 
   /**
-   * ENG-039c — Move a suspended draft between restaurant tables, or
+   * Move a suspended draft between restaurant tables, or
    * detach it back to free-text mode by passing `tableId: null`.
    *
    * Invariants:
    * - Target sale must be `status='draft'` AND suspended (otherwise
-   *   `SALE_CHANGE_TABLE_INVALID_STATUS`).
+   * `SALE_CHANGE_TABLE_INVALID_STATUS`).
    * - Manager/admin only. Cashiers can suspend / resume their own
-   *   drafts, but moving a draft between physical tables is an
-   *   operations override.
+   * drafts, but moving a draft between physical tables is an
+   * operations override.
    * - When `tableId` is non-null, the new row must belong to the
-   *   tenant and be active; otherwise `RESTAURANT_TABLE_NOT_FOUND`.
+   * tenant and be active; otherwise `RESTAURANT_TABLE_NOT_FOUND`.
    * - `suspendedLabel` is refreshed to the new table's name when
-   *   moving onto a table; when detaching (`tableId: null`) we keep
-   *   any prior free-text label so the panel display stays stable.
+   * moving onto a table; when detaching (`tableId: null`) we keep
+   * any prior free-text label so the panel display stays stable.
    * - Emits a `sale.changeTable` audit row inside the UPDATE
-   *   transaction with before/after `tableId` + the resolved table
-   *   names in metadata for forensics.
+   * transaction with before/after `tableId` + the resolved table
+   * names in metadata for forensics.
    */
   changeTable: criticalCommandManagerOrAdminProcedure
     .input(changeSaleTableInput)
@@ -323,23 +313,13 @@ export const salesDraftProcedures = {
       }
 
       const saleSiteId = input.tableId
-        ? await resolveSaleSiteId(
-            ctx.db,
-            ctx.tenantId,
-            existing.cashSessionId,
-            ctx.siteId
-          )
+        ? await resolveSaleSiteId(ctx.db, ctx.tenantId, existing.cashSessionId, ctx.siteId)
         : null;
 
       // Resolve the new table BEFORE the transaction so a cross-tenant
       // or cross-site FK fails fast with a clean NOT_FOUND.
       const resolvedTable = input.tableId
-        ? await resolveActiveRestaurantTable(
-            ctx.db,
-            ctx.tenantId,
-            input.tableId,
-            saleSiteId
-          )
+        ? await resolveActiveRestaurantTable(ctx.db, ctx.tenantId, input.tableId, saleSiteId)
         : null;
 
       // Resolve the prior table name (when one was set) for the audit
@@ -366,9 +346,7 @@ export const salesDraftProcedures = {
       // display tracks the catalog row. When detaching, keep the prior
       // free-text label intact — there is no FK-derived value to swap
       // in, and clearing it would surprise the operator.
-      const nextLabel = resolvedTable
-        ? resolvedTable.name
-        : existing.suspendedLabel;
+      const nextLabel = resolvedTable ? resolvedTable.name : existing.suspendedLabel;
 
       await ctx.db.transaction(tx => {
         tx.update(sales)
@@ -408,7 +386,7 @@ export const salesDraftProcedures = {
         });
       });
 
-      // ENG-098 — refresh the existing KDS card with the new table
+      // refresh the existing KDS card with the new table
       // label / detachment. No-op when no card exists for the sale.
       await refreshKdsOrderItems({
         ctx: buildKdsHookContext(ctx),

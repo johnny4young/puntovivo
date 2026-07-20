@@ -1,4 +1,4 @@
-/** WC-C8 — client-only, aggregate-only daily pulse image and share helpers. */
+/** client-only, aggregate-only daily pulse image and share helpers. */
 
 const PULSE_IMAGE_SIZE = 1_200;
 const PULSE_IMAGE_TYPE = 'image/png';

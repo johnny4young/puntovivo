@@ -1,5 +1,5 @@
 /**
- * ENG-178 — Fresh-sale path of the `completeSale` use-case, extracted
+ * Fresh-sale path of the `completeSale` use-case, extracted
  * from the former monolithic `completeSale.ts` during the megafile
  * decomposition.
  *
@@ -110,10 +110,10 @@ export async function runFreshSale(
   const saleSiteId = activeCashSession.siteId;
   const resolvedItems = await resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items);
 
-  // ENG-178 — fresh-sale header math (subtotal/tax re-round, header
+  // fresh-sale header math (subtotal/tax re-round, header
   // discount + negative-base guard, tip + service charge folded into
   // total) lives in resolveFreshSaleTotals; see its jsdoc for the
-  // ENG-176a / ENG-039d / ENG-039d3 invariants.
+  // /  /  invariants.
   const {
     subtotal,
     taxAmount,
@@ -135,7 +135,7 @@ export async function runFreshSale(
     status: input.status,
   });
 
-  // Phase 2 Tier-2 step 5 — resolve the tender list (split or legacy),
+  // resolve the tender list (split or legacy),
   // payment status, change, and cash collected. `collectCash` carries
   // the fresh-only gate: a fresh sale persisted as a draft never hits
   // the drawer, so cash collected stays 0 until it lands `completed`.
@@ -149,7 +149,7 @@ export async function runFreshSale(
       collectCash: input.status === 'completed',
     });
 
-  // ENG-014 — credit-sale pre-flight. Only the credit portion creates a
+  // credit-sale pre-flight. Only the credit portion creates a
   // `customer_ledger_entries.kind='sale'` row; the non-credit tenders
   // settle through the cash session as usual. The invariant + the
   // customer-required throw run BEFORE the sale tx so a cupo violation
@@ -180,17 +180,17 @@ export async function runFreshSale(
   const inventoryMovementIds: string[] = [];
   const paymentEffects: PersistedPaymentEffect[] = [];
   const lotShortfalls: Array<{ productId: string; shortfall: number }> = [];
-  // ENG-192 — distinct lots this sale drew down. Collected inside the tx so
+  // distinct lots this sale drew down. Collected inside the tx so
   // the mutated inventory_lots rows can be enqueued to the sync outbox
   // post-commit (they are marked sync-pending by consumeLotsForSaleLine, but
   // nothing pushed them to sync_outbox before this).
   const consumedLotIds = new Set<string>();
-  /** ENG-213 — points this sale accrued (0 when the program is off). */
+  /** points this sale accrued (0 when the program is off). */
   let loyaltyPointsEarned = 0;
 
-  // ENG-176b — resolve the tenant default currency once per sale and
+  // resolve the tenant default currency once per sale and
   // propagate it to every row written below (sales header + each
-  // sale_item). settle = sale and rate = 1.0 until ENG-156 lights up
+  // sale_item). settle = sale and rate = 1.0 until  lights up
   // multi-currency operations.
   const saleCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
 
@@ -209,9 +209,7 @@ export async function runFreshSale(
           tracksSerials: products.tracksSerials,
         })
         .from(products)
-        .where(
-          and(eq(products.tenantId, ctx.tenantId), inArray(products.id, cartProductIds))
-        )
+        .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, cartProductIds)))
         .all();
       for (const row of lotRows) {
         if (row.tracksLots) lotTrackedProductIds.add(row.id);
@@ -248,7 +246,7 @@ export async function runFreshSale(
   const baselineApprovalActions = requiredCheckoutApprovalActions({
     role: ctx.user.role as UserRole,
     isCompletion: input.status === 'completed',
-    // ENG-142a — discount authority is tenant policy, not a hard-coded
+    // discount authority is tenant policy, not a hard-coded
     // cashier boolean. Credit and override rules remain in the shared kernel.
     hasDiscount: false,
     hasCreditTender: creditSaleAmount > 0,
@@ -286,14 +284,14 @@ export async function runFreshSale(
     context: approvalContext,
   });
 
-  // ENG-213 — loyalty rule resolved BEFORE the tx (the settings read is
+  // loyalty rule resolved BEFORE the tx (the settings read is
   // async; the tx body is synchronous). Off by default, so an untuned
   // tenant pays one cheap settings read and nothing else.
   const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
 
   try {
     ctx.db.transaction(tx => {
-      // ENG-042 TOCTOU defense — see helper jsdoc.
+      // TOCTOU defense — see helper jsdoc.
       assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
 
       tx.update(sequentials)
@@ -310,23 +308,23 @@ export async function runFreshSale(
           tenantId: ctx.tenantId,
           saleNumber,
           customerId: input.customerId,
-          // ENG-039c — restaurant table FK passed through from the
+          // restaurant table FK passed through from the
           // tRPC layer (already tenant/site-scoped + active-validated there).
           tableId: input.tableId ?? null,
           subtotal,
           taxAmount,
           discountAmount: headerDiscount,
-          // ENG-176b — currency seam: every row stamps the tenant
-          // default currency. ENG-156 will replace these defaults with
+          // currency seam: every row stamps the tenant
+          // default currency.  will replace these defaults with
           // explicit operator-supplied currency + rate when the sale
           // crosses currencies.
           currencyCode: saleCurrencyCode,
           exchangeRateAtSale: 1,
           settleCurrencyCode: null,
-          // ENG-039d — tip persisted alongside the existing money columns.
+          // tip persisted alongside the existing money columns.
           tipAmount,
           tipMethod,
-          // ENG-039d3 — service charge persisted alongside tip; both feed
+          // service charge persisted alongside tip; both feed
           // `total` so payment + receipt rendering stay consistent.
           serviceChargeAmount,
           serviceChargeRate,
@@ -348,10 +346,10 @@ export async function runFreshSale(
         })
         .run();
 
-      // Phase 2 Tier-2 step 5 — persist one row per tender.
+      // persist one row per tender.
       for (const payment of resolvedPayments.rows) {
         const paymentId = nanoid();
-        // ENG-176a-rounding — sale_payments.amount carries a precision
+        // sale_payments.amount carries a precision
         // CHECK; round at the write boundary because split-payment
         // resolvers can compute fractional shares
         // (`total * weight`) that leave sub-cent drift.
@@ -391,13 +389,13 @@ export async function runFreshSale(
             taxAmount: row.taxAmount,
             costAtSale: row.costAtSale,
             total: row.total,
-            // ENG-176b — line inherits the header currency seam so a
+            // line inherits the header currency seam so a
             // future row-level join can answer "what currency was this
             // line in?" without re-joining to sales.
             currencyCode: saleCurrencyCode,
             exchangeRateAtSale: 1,
             settleCurrencyCode: null,
-            // ENG-039d2 — per-line modifier captured at sale creation.
+            // per-line modifier captured at sale creation.
             notes: row.notes,
           })
           .run();
@@ -453,7 +451,7 @@ export async function runFreshSale(
           .run();
         inventoryMovementIds.push(inventoryMovementId);
 
-        // Phase 2 API-103 — debit the cash session's site so per-site
+        // debit the cash session's site so per-site
         // balances reflect where the sale actually happened.
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
@@ -500,7 +498,7 @@ export async function runFreshSale(
         createdAt: now,
       });
 
-      // ENG-213 — accrue loyalty points for a completed sale with a customer.
+      // accrue loyalty points for a completed sale with a customer.
 
       // Inside the tx so points and the sale commit together; best-effort by
 
@@ -523,13 +521,9 @@ export async function runFreshSale(
       // The savepoint rolls back the half-write only; the sale still commits.
 
       if (input.status === 'completed') {
-
         try {
-
           tx.transaction(loyaltyTx => {
-
             loyaltyPointsEarned = earnPointsForSale(loyaltyTx, {
-
               tenantId: ctx.tenantId,
 
               customerId: input.customerId ?? null,
@@ -541,24 +535,17 @@ export async function runFreshSale(
               settings: loyaltySettings,
 
               nowIso: now,
-
             });
-
           });
-
         } catch (error) {
-
           loyaltyPointsEarned = 0;
 
           ctx.log?.warn?.({ err: error, saleId }, 'loyalty accrual skipped');
-
         }
-
       }
 
-
       if (overrides.length > 0) {
-        // ENG-007 — single audit row summarizing every overridden line.
+        // single audit row summarizing every overridden line.
         priceOverrideAuditId = writeAuditLog({
           tx,
           tenantId: ctx.tenantId,
@@ -576,7 +563,7 @@ export async function runFreshSale(
         priceOverrideAuditEmitted = priceOverrideAuditId !== null;
       }
 
-      // ENG-007 closure — admin authorised a credit sale whose projected
+      // closure — admin authorised a credit sale whose projected
       // balance exceeded the customer's cupo. `overrideApplied` is true
       // only when (exceedsLimit && allowOverride === true), so the row
       // never fires for admin-completed sales that stayed under the
@@ -650,7 +637,7 @@ export async function runFreshSale(
     },
     creditProjection,
   });
-  // ENG-213 — surfaced so the POS can celebrate the accrual right after
+  // surfaced so the POS can celebrate the accrual right after
   // checkout; 0 when the program is off or the sale had no customer.
   return { ...finalized, loyaltyPointsEarned };
 }

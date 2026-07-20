@@ -1,11 +1,11 @@
 /**
- * ENG-031 - Conversational analytics co-pilot.
+ * - Conversational analytics co-pilot.
  *
  * The model never queries the production SQLite connection directly. Its
  * `runReadOnlySQL` tool executes against a tenant-scoped, bounded in-memory
  * analytics snapshot built from completed sales only.
  *
- * ENG-178 - decomposed into per-concern modules under `./copilot/`
+ * - decomposed into per-concern modules under `./copilot/`
  * (types / constants / sql / snapshot / prompts / chat). This file stays at
  * the original path as a thin re-export barrel so every importer (the
  * `services/ai/index.ts` barrel AND the direct `__tests__/ai-copilot-cache`
@@ -27,5 +27,9 @@ export type {
 export { copilotLimits } from './copilot/constants.js';
 export { validateReadOnlySQL } from './copilot/sql.js';
 export { runReadOnlySQL } from './copilot/snapshot.js';
-export { buildSystemPrompt, buildContextBlock, injectContextIntoMessages } from './copilot/prompts.js';
+export {
+  buildSystemPrompt,
+  buildContextBlock,
+  injectContextIntoMessages,
+} from './copilot/prompts.js';
 export { runCopilotChat } from './copilot/chat.js';

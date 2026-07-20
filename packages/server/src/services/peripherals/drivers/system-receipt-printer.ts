@@ -1,16 +1,16 @@
 /**
- * ENG-060 — `system` receipt printer driver.
+ * `system` receipt printer driver.
  *
  * The default printer driver. The actual print continues to flow
  * through the legacy `apps/desktop/src/main/index.ts:1933`
  * `ipcMain.handle('print-receipt')` path — this adapter exists to
  * identify "this site uses the system driver" so the registry can
- * dispatch `escpos` (ENG-062) as a sibling without rewriting the
+ * dispatch `escpos` () as a sibling without rewriting the
  * receipt-printer.ts call site.
  *
  * The `print(job)` method returns a synchronous `{status: 'ok'}`
  * because the renderer (not this adapter) drives the actual print
- * via `window.electron.printReceipt(html)`. Future ENG-062's
+ * via `window.electron.printReceipt(html)`. Future 's
  * `EscPosReceiptPrinterAdapter` will intercept here, build the
  * ESC/POS bytes, and call a new IPC channel.
  *
@@ -21,11 +21,7 @@
  */
 
 import { z } from 'zod';
-import type {
-  ReceiptPrinterAdapter,
-  PrintJob,
-  PrintResult,
-} from '../contracts/receipt-printer.js';
+import type { ReceiptPrinterAdapter, PrintJob, PrintResult } from '../contracts/receipt-printer.js';
 import type { TestResult } from '../types.js';
 
 export const systemReceiptPrinterConfigSchema = z.object({}).strict();
@@ -56,7 +52,7 @@ export class SystemReceiptPrinterAdapter implements ReceiptPrinterAdapter {
   async testPrint(): Promise<TestResult> {
     // Non-destructive: do NOT trigger a real print dialog on the
     // operator's screen. The acknowledgement is enough — once the
-    // ESC/POS driver lands (ENG-062), its testPrint will perform an
+    // ESC/POS driver lands (), its testPrint will perform an
     // actual paper test.
     return {
       status: 'ok',
