@@ -164,13 +164,25 @@ export async function initDatabase(
       );
     }
 
+    // A-06 — refuse to run an OLDER binary against a DB a NEWER binary
+    // already migrated (auto-update rollback path;  remaining). The
+    // failure otherwise surfaces later as a random `no such column`
+    // mid-operation; here it becomes an operator-facing boot error with the
+    // remediation in the message. Runs after the journal-exists check so the
+    // guard can trust the file, BEFORE the timestamp alignment below so a
+    // refused downgrade never mutates `__drizzle_migrations` (the guard is
+    // count-based, so unaligned timestamps cannot affect its verdict), and
+    // before drizzleMigrate touches anything.
+    assertSchemaNotNewerThanApp(sqlite, effectiveMigrationsFolder);
+
     // Drizzle decides what is pending by comparing only the greatest
     // `created_at` in its tracking table with every journal timestamp. If a
     // merged journal ever corrects out-of-order timestamps, already-applied
     // DBs must be aligned by immutable SQL hash before that comparison or
     // pending migrations can be skipped (and current DBs can be replayed).
     // This is a metadata-only repair; migration SQL and application rows are
-    // untouched.
+    // untouched. It runs AFTER the A-06 guard so a downgrade refusal is
+    // strictly non-mutating.
     const alignedMigrationRows = alignMigrationTrackingTimestamps(
       sqlite,
       effectiveMigrationsFolder
@@ -181,14 +193,6 @@ export async function initDatabase(
         'aligned migration tracking timestamps with bundled journal'
       );
     }
-
-    // A-06 — refuse to run an OLDER binary against a DB a NEWER binary
-    // already migrated (auto-update rollback path;  remaining). The
-    // failure otherwise surfaces later as a random `no such column`
-    // mid-operation; here it becomes an operator-facing boot error with the
-    // remediation in the message. Runs after the journal-exists check so the
-    // guard can trust the file, and before drizzleMigrate touches anything.
-    assertSchemaNotNewerThanApp(sqlite, effectiveMigrationsFolder);
     // snapshot the applied-migration count so the
     // post-migrate integrity check below runs ONLY on a boot that
     // actually lands a migration. A steady-state boot must not pay a
