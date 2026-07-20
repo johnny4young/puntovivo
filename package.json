@@ -46,14 +46,14 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
-    "@types/node": "^25.9.2",
+    "@types/node": "^26.1.1",
     "argon2": "^0.45.0",
     "axe-core": "^4.12.1",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^12.11.1",
     "lighthouse": "^13.4.0",
     "nanoid": "^6.0.0",
     "prettier": "^3.9.5",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": ">=24.0.0"
