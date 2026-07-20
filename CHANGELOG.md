@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.8.1](https://github.com/johnny4young/puntovivo/compare/v1.8.0...v1.8.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* **build:** invoke shared compiler portably ([fe36d4e](https://github.com/johnny4young/puntovivo/commit/fe36d4ef65cfaedab4b84ed82ab6663eb046f057))
+
 ## [1.8.0](https://github.com/johnny4young/puntovivo/compare/v1.7.0...v1.8.0) (2026-07-19)
 
 ### Features
