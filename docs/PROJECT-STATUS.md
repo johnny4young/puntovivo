@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-07-19. This is the public source of truth for shipped
+> Updated: 2026-07-20. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -42,7 +42,7 @@ The current `main` branch includes:
 | Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                   |
 | ------------------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Development demo               | **Ready**                     | Core retail journeys, administrative surfaces, recovery controls, and representative vertical modules are demonstrable with automated coverage.                               |
-| Controlled internal beta       | **Ready with release checks** | Requires a clean release candidate, upgrade/restore rehearsal, and platform packaging validation.                                                                             |
+| Controlled internal beta       | **Ready with release checks** | Automated local upgrade and isolated encrypted restore evidence is available; a clean release candidate and platform packaging validation remain required.                    |
 | Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal. |
 | Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, signed installers, hardware support policy, incident runbooks, and an observed pilot.                                |
 
@@ -53,8 +53,9 @@ The current `main` branch includes:
 - Validate packaged desktop artifacts on every supported operating system.
 - Complete code signing, notarization, update-rollout, rollback, and clean
   upgrade rehearsals using production-equivalent credentials.
-- Prove encrypted backup recovery on a separate device and document recovery
-  time and recovery point expectations.
+- Repeat the automated encrypted recovery rehearsal against packaged artifacts
+  on Linux, macOS, and Windows, then set operational recovery-time and
+  recovery-point expectations using production-equivalent data volume.
 - Add operator runbooks for fiscal outage, failed update, lost device,
   corrupted local storage, and cloud-vault failure.
 
@@ -104,7 +105,8 @@ minor release is appropriate after the release candidate passes:
 1. web, server, and desktop CI gates;
 2. browser and Electron end-to-end suites;
 3. database upgrade plus downgrade-refusal validation;
-4. encrypted backup, restore drill, and separate-device recovery check;
+4. automated encrypted backup and isolated cross-key restore evidence, plus a
+   packaged platform recovery check;
 5. manual Linux, macOS, and Windows package validation;
 6. release notes that preserve the fiscal and hardware limitations above.
 

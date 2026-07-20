@@ -26,13 +26,26 @@ Three structural guarantees, each with a concrete enforcement mechanism:
 
 Backups produce a single ZIP file at the operator-chosen path. The ZIP contains:
 
-- `local.db` — an atomic snapshot of the live SQLite DB obtained via `better-sqlite3`'s `db.backup(destPath)` (SQLite's online backup API). No WAL/SHM sidecars travel; the snapshot has already absorbed the WAL state.
+- `local.db` — an atomic snapshot of the live SQLite DB. Cleartext legacy DBs
+  use `better-sqlite3`'s online backup API; SQLCipher DBs use keyed
+  `VACUUM INTO` so the staged file stays encrypted under the source
+  installation key. No WAL/SHM sidecars travel.
 - `device-id.txt` — the device identity from `${userData}/device-id.txt`. Travels with the data so a full-disk-failure recovery on new hardware can restore "the same device" from the server's perspective. Per ADR-0001's local-store-authority promise, the device IS the authoritative identity holder.
-- `manifest.json` — `{schemaVersion, generatedAt, appVersion?, tenantSlug?, dbBytes}`. Operationally informational; neither the backup nor the restore path needs it.
+- `manifest.json` — `{schemaVersion, generatedAt, appVersion?, tenantSlug?,
+dbBytes}`. Interactive restore treats it as operator metadata; automated
+  restore drills and release rehearsals validate its supported schema, version,
+  and byte evidence before claiming recovery readiness.
 
-After `db.backup()` produces the staging file, the helper runs `PRAGMA integrity_check` against the staging copy. If the result isn't `'ok'`, the helper throws and no ZIP is written. This catches the rare case of a `db.backup()` that succeeded at the API level but produced an inconsistent file.
+After either snapshot path produces the staging file, the helper runs keyed
+`PRAGMA integrity_check` against the staging copy. If the result is not `ok`,
+the helper throws and no ZIP is written. This catches the rare case where the
+snapshot API succeeds but produces an inconsistent file.
 
-The backup operation runs inside `runWithServerRestart` so the embedded Fastify is stopped during the operation. SQLite's online backup API is safe under concurrent writes, but stopping the server keeps the post-backup mental model simple: "the snapshot is exactly the state the user saw when they pressed the button".
+The manual backup operation runs inside `runWithServerRestart` so embedded
+Fastify is stopped while the operator-requested snapshot is created. Scheduled
+snapshots instead serialize through the backup-operation queue and rely on the
+snapshot helper's concurrent-write safety; they do not interrupt the embedded
+server.
 
 ### 2. Validated restore with corruption rejection
 
@@ -42,7 +55,11 @@ Restore detects format from the first four magic bytes:
 - `53 51 4c 69` → "SQLite format 3" header (legacy raw `.db` from before ). Treat as the DB to swap in; the destination's `device-id.txt` stays untouched.
 - Anything else → reject as "Backup file format is unrecognized".
 
-The staging DB MUST pass `PRAGMA integrity_check` BEFORE the swap. If the check fails, the live state stays untouched and the operator sees a translated error toast. This forecloses the failure mode where a corrupted file half-overwrites the live DB.
+The staging DB MUST pass keyed `PRAGMA integrity_check` BEFORE the swap. A
+bundle from another installation is first verified with the source backup key,
+rekeyed in staging to the destination installation key, and verified again.
+The source key must stop working after rekey. If any check fails, the live
+state stays untouched and the operator sees a translated error toast.
 
 For ZIP bundles, the bundled `device-id.txt` overwrites the destination's identity. For raw `.db` legacy bundles, the destination's identity is preserved (the legacy backup didn't carry one). This matches the operator intent: a ZIP bundle is "this is the device, now living on this hardware"; a raw `.db` is "I just want the data".
 
@@ -97,7 +114,11 @@ The `sale_payments.reference` column stays as-is. It is documented as "free-form
 
 ## Alternatives Rejected
 
-- **Encrypt the local DB at rest with SQLCipher or per-OS DPAPI/Keychain.** Trade-off: every local read pays a decrypt cost, the per-OS binary has to ship the right native library, and customer-site recovery becomes harder (lost keys = lost data). Encryption-at-rest is a follow-up if a customer-site requires it; the OS user account is the v1 trust boundary.
+- **Keep the OS user account as the only at-rest boundary.** Rejected by the
+  later storage-hardening implementation: packaged databases and backup
+  snapshots now use SQLCipher, while safeStorage protects the local key
+  envelope. Recovery therefore requires explicit backup-key custody and
+  cross-installation rekey rather than relying on filesystem permissions.
 - **Allowlist-based sanitization (only these specific keys ship).** More conservative but requires per-table schemas and updates every time a new payload field lands. The denylist with anchored matching is the right v1; a future change can promote to allowlist if the denylist proves insufficient.
 - **Skip the device-id.txt in backups; force re-registration on restore.** Considered for the "operator clones a device for a second register" use case. Rejected for the more common "full-disk failure → restore on new hardware" path. Operators who genuinely want to clone a device need a separate "Reset device identity" admin action — out of scope.
 - **Implement per-OS keychain integration in this change.** Defer. (payment terminal adapter) is the first caller that needs persistent secrets (Bold OAuth tokens, Wompi credentials). The natural abstraction is `@node-gyp-build/keytar` which wraps macOS Keychain (Security.framework), Windows DPAPI, and Linux libsecret behind one API. Pinning the choice now without a caller risks the integration being wrong; picks.
@@ -108,10 +129,13 @@ The `sale_payments.reference` column stays as-is. It is documented as "free-form
 ### Files added
 
 - `packages/server/src/services/diagnostics/sanitize.ts` — `sanitizePayload`, `sanitizeRows`, `isSensitiveKey`, `REDACTED_PLACEHOLDER`, denylist.
-- `apps/desktop/src/main/backup/backup-bundle.ts` — `createBackupBundle`, `extractBackupBundle`, `assertSqliteIntegrity`, `detectBackupFormat`, `createBackupFileName`.
+- `apps/desktop/src/main/backup/backup-bundle/` — bundle creation, extraction,
+  SQLCipher integrity/rekey, format detection, allowlisted ZIP contents, and
+  staging cleanup.
 - `packages/server/src/__tests__/diagnostics-sanitize.test.ts` — 15 unit cases.
 - `packages/server/src/__tests__/diagnostics-export-sanitization.test.ts` — 4 integration cases against the tRPC caller.
-- `apps/desktop/src/main/__tests__/backup-restore.test.ts` — 15 `node --test` cases.
+- `apps/desktop/src/main/__tests__/backup-restore.test.ts` — focused bundle,
+  encryption, extraction, traversal, rekey, and staging-cleanup coverage.
 
 ### Files modified
 
@@ -132,4 +156,4 @@ The `sale_payments.reference` column stays as-is. It is documented as "free-form
 - ** (Event-based public API + webhook foundation)** — when `webhook_outbox` lands, the diagnostic export must include it AND its payloads MUST flow through the sanitizer. The bundle's `manifest.counts` keyset already reserves `webhook_outbox: 0` per .
 - ** (potential follow-up)** — audit log entry on backup/restore action, written to the post-restore DB with proper actor attribution. Out of v1 scope.
 
-Updated: 2026-05-07 (initial decision).
+Updated: 2026-07-20 (SQLCipher backup and isolated cross-key restore evidence).

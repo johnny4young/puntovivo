@@ -45,10 +45,10 @@ export async function handleCreateDatabaseBackup(
   }
 
   try {
-    // atomic backup via SQLite online backup API. The
-    // server is stopped first so the backup bundle is consistent
-    // with operator expectations even though `db.backup()` is safe
-    // under concurrent writes.
+    // Atomic snapshot through the shared backup helper. The server is
+    // stopped first so the manual bundle is consistent with operator
+    // expectations; the helper chooses the online backup API for cleartext
+    // databases and keyed VACUUM INTO for encrypted databases.
     const result = await deps.runExclusiveBackupOperation(() =>
       deps.runWithServerRestart(async () => {
         await access(deps.dbPath);

@@ -71,7 +71,11 @@ export function countAppliedMigrations(sqlite: Database.Database): number {
   return row.count;
 }
 
-export function assertCurrentSchemaReady(sqlite: Database.Database): void {
+export function assertCurrentSchemaReady(
+  sqlite: Database.Database,
+  options: { expectedTracksSerials?: number } = {}
+): void {
+  const expectedTracksSerials = options.expectedTracksSerials ?? 0;
   const requiredTables = [
     'employee_shifts',
     'manager_approval_requests',
@@ -110,10 +114,12 @@ export function assertCurrentSchemaReady(sqlite: Database.Database): void {
     defaults.length !== 2 ||
     defaults.some(
       row =>
-        row.privacyStatus !== 'active' || row.catalogType !== 'standard' || row.tracksSerials !== 0
+        row.privacyStatus !== 'active' ||
+        row.catalogType !== 'standard' ||
+        row.tracksSerials !== expectedTracksSerials
     )
   ) {
-    throw new Error('new-column defaults are not safe for historical rows');
+    throw new Error('new-column state is not safe for rehearsal rows');
   }
 
   const violations = sqlite.pragma('foreign_key_check') as unknown[];

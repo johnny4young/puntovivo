@@ -14,6 +14,8 @@ export interface RecoveryTimingReport {
   upgradeMs: number;
   downgradeRefusalMs: number;
   idempotentBootMs: number;
+  backupMs: number;
+  restoreMs: number;
   totalMs: number;
 }
 
@@ -23,8 +25,27 @@ export interface RecoveryEnvironmentReport {
   nodeVersion: string;
 }
 
+export interface RecoveryBackupReport {
+  bundleSha256: string | null;
+  bundleBytes: number;
+  manifestSchemaVersion: number | null;
+  snapshotGeneratedAt: string | null;
+  deviceIdentityIncluded: boolean;
+}
+
+export interface RecoveryRestoreReport {
+  databaseSha256: string | null;
+  migrationCount: number;
+  historicalTableCount: number;
+  currentTableCount: number;
+  destinationKeyVerified: boolean;
+  sourceKeyRejected: boolean;
+  deviceIdentityPreserved: boolean;
+  snapshotAgeAtRestoreMs: number | null;
+}
+
 export interface RecoveryRehearsalReport {
-  reportVersion: 1;
+  reportVersion: 2;
   runId: string;
   outcome: RecoveryCheckOutcome;
   sourceVersion: string;
@@ -37,6 +58,8 @@ export interface RecoveryRehearsalReport {
   encryptionEnabled: true;
   environment: RecoveryEnvironmentReport;
   timings: RecoveryTimingReport;
+  backup: RecoveryBackupReport;
+  restore: RecoveryRestoreReport;
   checks: RecoveryCheck[];
   failureCode: string | null;
 }
