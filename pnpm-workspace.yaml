@@ -46,6 +46,13 @@ overrides:
   tmp: '0.2.7'
   '@electron/get@5.0.0>undici': '7.28.0'
   'node-gyp@12.4.0>undici': '6.27.0'
+  # Security floors for transitive toolchain/runtime dependencies. Keep the
+  # narrow parent or vulnerable-version selectors so unrelated dependency
+  # lines can continue following their owners' compatible ranges.
+  'jspdf>dompurify': '3.4.11'
+  'tar@6.2.1': '7.5.16'
+  '@esbuild-kit/core-utils@3.3.2>esbuild': '0.25.12'
+  'esbuild@0.28.0': '0.28.1'
 
 # @electron-forge/cli bundles @electron/rebuild@3.7.2, which depends on
 # @electron/node-gyp resolved via a git repository. pnpm 11 blocks
