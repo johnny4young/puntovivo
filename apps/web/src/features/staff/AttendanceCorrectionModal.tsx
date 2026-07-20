@@ -68,7 +68,7 @@ function defaultValues(
   };
 }
 
-/** ENG-140e — author one complete effective snapshot while raw evidence stays immutable. */
+/** author one complete effective snapshot while raw evidence stays immutable. */
 export function AttendanceCorrectionModal({
   isOpen,
   isSaving,

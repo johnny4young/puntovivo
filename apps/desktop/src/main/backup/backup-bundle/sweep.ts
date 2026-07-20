@@ -1,5 +1,5 @@
-// ENG-167b — best-effort sweep of stale backup/restore staging dirs left in
-// the OS tmpdir by a crash or a quit mid-restore (ENG-178 slice 31).
+// best-effort sweep of stale backup/restore staging dirs left in
+// the OS tmpdir by a crash or a quit mid-restore ( slice 31).
 
 import { readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { STAGING_PREFIXES } from './constants.ts';
 
 /**
- * ENG-167b — remove stale staging directories left in the OS tmpdir
+ * remove stale staging directories left in the OS tmpdir
  * by a crash, or by an app quit while a cross-device restore was
  * waiting for its key (the pending staging is deliberately kept
  * alive between needsKey and provideRestoreKey, so a quit in that

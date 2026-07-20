@@ -145,7 +145,7 @@ describe('Transfers tRPC Router', () => {
       updatedAt: now,
     });
 
-    // ENG-052b — register one device for the active tenant; reused
+    // register one device for the active tenant; reused
     // by every critical transfer mutation (`transfers.create`,
     // `transfers.receive`, `transfers.void`).
     const registration = await registerDeviceService(db, {
@@ -595,7 +595,7 @@ describe('Transfers tRPC Router', () => {
     });
   });
 
-  // ─── Phase 2 API-102 step 3 — deferred receive lifecycle ─────────────────
+  // ─── deferred receive lifecycle ─────────────────
 
   describe('receive / in_transit lifecycle', () => {
     it('defers destination credit and later receives to complete the transfer', async () => {
@@ -755,7 +755,7 @@ describe('Transfers tRPC Router', () => {
     });
   });
 
-  // ─── Phase 2 — transfers.getById (detail drawer) ─────────────────────────
+  // ─── transfers.getById (detail drawer) ─────────────────────────
 
   describe('getById', () => {
     it('returns the transfer with joined product names and site names', async () => {
@@ -843,7 +843,7 @@ describe('Transfers tRPC Router', () => {
     });
   });
 
-  // ─── Phase 2 UI-103 — per-line received quantities + discrepancy notes ──
+  // ─── per-line received quantities + discrepancy notes ──
 
   describe('receive variance', () => {
     it('treats a receive call with no lines as accepting shipped quantities', async () => {
@@ -1143,7 +1143,7 @@ describe('Transfers tRPC Router', () => {
     });
   });
 
-  describe('ENG-110d serialized transfers', () => {
+  describe(' serialized transfers', () => {
     it('moves exact identities immediately and preserves immutable transfer provenance', async () => {
       const db = getDatabase();
       const caller = appRouter.createCaller(createTestContext());

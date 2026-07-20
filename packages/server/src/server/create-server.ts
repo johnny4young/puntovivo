@@ -65,36 +65,36 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     sqliteBusyTimeoutMs: options.sqliteBusyTimeoutMs,
   });
 
-  // ENG-008b — prime the loginRateLimit in-memory cache from the persisted
+  // prime the loginRateLimit in-memory cache from the persisted
   // `login_attempts` table so the first post-restart check hits the cache
   // instead of paying a DB round-trip. `warmCacheFromDb` is safe to call
   // against an adopted DB missing migration 0006 (no-op + warn).
   warmCacheFromDb(db);
 
-  // ENG-166 — pre-compute the dummy Argon2 hash used by `auth.login` to
+  // pre-compute the dummy Argon2 hash used by `auth.login` to
   // equalise response time on the not-found branch. Without this the
   // first not-found login attempt pays an extra 50-100 ms (a small but
   // real timing leak); warming once at boot amortises the cost.
   await warmUpPasswordSecurity();
-  // ENG-106a — same timing equalizer for unavailable staff-switch targets.
+  // same timing equalizer for unavailable staff-switch targets.
   await warmUpStaffPinSecurity();
 
-  // ENG-166 — schedule the periodic sweep of the in-memory rate-limit
+  // schedule the periodic sweep of the in-memory rate-limit
   // bucket map so a long-running Electron session (or hub) does not
   // accumulate entries indefinitely. The handle is released via the
   // server's onClose hook below so tests do not leak timers.
   const stopRateLimitSweep = startProcedureRateLimitSweeper();
 
-  // ENG-006 — Fastify adopts the shared pino rootLogger so HTTP request
+  // Fastify adopts the shared pino rootLogger so HTTP request
   // logs and application logs share one NDJSON stream with the same
   // redact config. Kept behind the existing `verbose` toggle so
-  // production stays silent (matching the pre-ENG-006 posture) while
+  // production stays silent (matching the pre- posture) while
   // dev/test runs get structured HTTP logs that automatically mask
   // credentials. App-level logging via createModuleLogger is always on
   // regardless of this flag.
   // Fastify 5.8 split the `logger` option into two:
-  //   - `logger`: accepts booleans and plain-object config only
-  //   - `loggerInstance`: accepts a pre-constructed logger (pino, etc.)
+  // - `logger`: accepts booleans and plain-object config only
+  // - `loggerInstance`: accepts a pre-constructed logger (pino, etc.)
   // Passing a pino instance to `logger` now throws
   // `FST_ERR_LOG_INVALID_LOGGER_CONFIG`. Keep `logger: false` as the
   // disabled-logging signal and use `loggerInstance` for the verbose
@@ -111,7 +111,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     : { logger: false as const };
   const app = Fastify({
     ...fastifyLoggerOption,
-    // ENG-040a uploads invoice photos through tRPC. The OCR service caps
+    // uploads invoice photos through tRPC. The OCR service caps
     // decoded documents at 10 MB; JSON/base64 transport needs ~4/3 overhead
     // plus a small data-URL prefix allowance, otherwise Fastify rejects
     // valid OCR inputs before Zod can return the localized error code.
@@ -122,7 +122,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     routerOptions: {
       maxParamLength: 1024,
     },
-    // ENG-166 — only trust X-Forwarded-* headers when the server is
+    // only trust X-Forwarded-* headers when the server is
     // running as a site_hub (the only deployment shape that legitimately
     // sits behind a reverse proxy). On the device_local loopback the
     // renderer could otherwise inject a spoofed X-Forwarded-For and
@@ -135,12 +135,12 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   app.server.requestTimeout = SERVER_REQUEST_TIMEOUT_MS;
   app.server.setTimeout(SERVER_SOCKET_TIMEOUT_MS);
 
-  // ENG-135b — wire the centralized telemetry adapter (Sentry /
+  // wire the centralized telemetry adapter (Sentry /
   // GlitchTip) when the operator provisioned PUNTOVIVO_SENTRY_DSN.
   // Without the DSN this is a single env read — the SDK is never
   // imported and the noopSink stays active. The adapter never
   // throws, so a malformed DSN can never block a boot (a telemetry
-  // failure must never block a sale — same stance as ENG-020/054).
+  // failure must never block a sale — same stance as ).
   await initServerTelemetryAdapter({ appVersion });
 
   // Register the HTTP plugin + security-hook stack (helmet -> cors ->
@@ -151,7 +151,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // Decorate request with database instance
   app.decorate('db', db);
 
-  // ENG-141c — binary evidence bypasses JSON/tRPC to avoid base64 bloat,
+  // binary evidence bypasses JSON/tRPC to avoid base64 bloat,
   // but keeps the same live access-token, tenant, and role checks.
   await registerDayCloseArtifactRoutes(app);
 
@@ -162,7 +162,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     trpcOptions: {
       router: appRouter,
       createContext,
-      // ENG-179b — `path?: string | undefined` matches the trpc plugin
+      // `path?: string | undefined` matches the trpc plugin
       // contract under `exactOptionalPropertyTypes`.
       onError({ path, error }: { path?: string | undefined; error: unknown }) {
         trpcLog.error({ path: path ?? 'unknown', err: error }, 'tRPC procedure error');
@@ -170,7 +170,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     },
   });
 
-  // ENG-073 — fingerprint the dbPath once at boot. The endpoint
+  // fingerprint the dbPath once at boot. The endpoint
   // re-reads schema version + active device count on every request
   // (cheap point queries), but the fingerprint is deterministic so
   // there is no need to recompute it.
@@ -178,7 +178,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
 
   // Keep the legacy health endpoint as a compatibility surface while
   // `health.check` on `/api/trpc` remains the canonical health procedure.
-  // ENG-073 extends the body with Authority Node identity fields so
+  // extends the body with Authority Node identity fields so
   // an operator running `curl /api/health` against a hub can verify
   // the boot mode + active device count + DB lineage without logging
   // in. None of the new fields carry secrets — the dbPath fingerprint
@@ -199,7 +199,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     };
   });
 
-  // ENG-072 — initialize from the resolved bind host/port so the
+  // initialize from the resolved bind host/port so the
   // pre-listen `getUrl()` matches what the server will bind to. The
   // legacy options destructure (`host`, `port`) only matches when the
   // caller did NOT pass an explicit `runtime`; when they did, the
@@ -229,7 +229,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     listen: async () => {
       const address = await app.listen({ port: bindPort, host: bindHost });
       serverUrl = address;
-      // ENG-072 — when callers pass `port: 0` / `bindPort: 0` to let
+      // when callers pass `port: 0` / `bindPort: 0` to let
       // the OS assign a random port, the resolved runtime captured
       // before listen reads `bindPort: 0`. After listen the actual
       // port is known via Fastify's address — refresh the singleton
@@ -251,7 +251,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
       fiscalWorker.start();
       hardwareWorker.start();
       paymentWorker.start();
-      // ENG-168 — sweep stale login_attempts rows on a 1 h cadence;
+      // sweep stale login_attempts rows on a 1 h cadence;
       // the boot-time `tickOnce` runs the first pass synchronously so
       // a freshly-restarted POS that accumulated rows during downtime
       // clears them immediately.
@@ -271,7 +271,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
           'data-retention cleanup boot tick failed; will retry next interval'
         );
       });
-      // ENG-038c — kick the boot catch-up sweep after the timers
+      // kick the boot catch-up sweep after the timers
       // are armed so a long-offline POS reconciles missed statement
       // windows before the first regular Timer B tick fires.
       void paymentWorker.catchUpOnBoot();

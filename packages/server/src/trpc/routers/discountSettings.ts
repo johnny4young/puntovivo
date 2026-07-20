@@ -1,5 +1,5 @@
 /**
- * ENG-211 — Tenant-level discount settings router.
+ * Tenant-level discount settings router.
  *
  * Reads + writes `tenants.settings.discount`. Current shape carries the
  * expiry-radar tier ladder; the namespace is a nested object so future
@@ -7,8 +7,8 @@
  * re-shaping the client.
  *
  * - `.get` — managerOrAdmin (serves the admin settings card; the radar
- *   panel reads the ladder from the `auth.me` session payload instead,
- *   same as the ENG-194b blind-close flag).
+ * panel reads the ladder from the `auth.me` session payload instead,
+ * same as the  blind-close flag).
  * - `.update` — admin-only: pricing policy is owner territory.
  *
  * @module trpc/routers/discountSettings

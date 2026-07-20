@@ -109,12 +109,8 @@ describe('generateFilename', () => {
       }
       return originalCreateElement(tagName);
     });
-    vi.spyOn(document.body, 'appendChild').mockImplementation(
-      node => node
-    );
-    vi.spyOn(document.body, 'removeChild').mockImplementation(
-      node => node
-    );
+    vi.spyOn(document.body, 'appendChild').mockImplementation(node => node);
+    vi.spyOn(document.body, 'removeChild').mockImplementation(node => node);
   });
 
   afterEach(() => {
@@ -148,9 +144,7 @@ describe('generateFilename', () => {
   });
 
   it('lowercases the base name for cross-filesystem portability', () => {
-    expect(generateFilename('Sales-HISTORY', 'csv', false)).toBe(
-      'sales-history.csv'
-    );
+    expect(generateFilename('Sales-HISTORY', 'csv', false)).toBe('sales-history.csv');
   });
 
   it('normalizes accents so customer-facing filenames stay readable', () => {
@@ -176,9 +170,7 @@ describe('generateFilename', () => {
   });
 
   it('exports PDF through jspdf-autotable v5 named function', async () => {
-    const columns: ExportColumn<{ number: string }>[] = [
-      { key: 'number', header: 'Number' },
-    ];
+    const columns: ExportColumn<{ number: string }>[] = [{ key: 'number', header: 'Number' }];
 
     await exportToPDF([{ number: 'COT-000001' }], columns, 'quotations-history', {
       title: 'Export quotations',
@@ -190,9 +182,7 @@ describe('generateFilename', () => {
   });
 
   it('exports Excel through the browser-only exceljs bundle', async () => {
-    const columns: ExportColumn<{ number: string }>[] = [
-      { key: 'number', header: 'Number' },
-    ];
+    const columns: ExportColumn<{ number: string }>[] = [{ key: 'number', header: 'Number' }];
 
     await exportToExcel([{ number: 'COT-000001' }], columns, 'quotations-history', {
       includeTimestamp: false,
@@ -204,8 +194,8 @@ describe('generateFilename', () => {
   });
 });
 
-// ENG-103 — Audit-grade export and download contract.
-describe('buildSemanticFilename (ENG-103)', () => {
+// Audit-grade export and download contract.
+describe('buildSemanticFilename', () => {
   it('builds statement filenames with the canonical pattern', () => {
     const filename = buildSemanticFilename(
       {
@@ -231,9 +221,7 @@ describe('buildSemanticFilename (ENG-103)', () => {
       'csv'
     );
     // Accents normalize and the tax id rides as a discriminator.
-    expect(filename).toBe(
-      'ledger-estadocuenta-juan-perez-900654321-2026-05-20.csv'
-    );
+    expect(filename).toBe('ledger-estadocuenta-juan-perez-900654321-2026-05-20.csv');
   });
 
   it('keeps the ledger filename clean when no tax id is provided', () => {
@@ -246,17 +234,12 @@ describe('buildSemanticFilename (ENG-103)', () => {
       },
       'csv'
     );
-    expect(filename).toBe(
-      'ledger-estadocuenta-anonymous-customer-2026-05-20.csv'
-    );
+    expect(filename).toBe('ledger-estadocuenta-anonymous-customer-2026-05-20.csv');
   });
 
   it('builds fiscal filenames anchored on country + document number', () => {
     expect(
-      buildSemanticFilename(
-        { kind: 'fiscal', country: 'mx', documentNumber: 'F0000000042' },
-        'xml'
-      )
+      buildSemanticFilename({ kind: 'fiscal', country: 'mx', documentNumber: 'F0000000042' }, 'xml')
     ).toBe('cfdi-mx-f0000000042.xml');
   });
 
@@ -283,7 +266,7 @@ describe('buildSemanticFilename (ENG-103)', () => {
   });
 });
 
-describe('MIME_BY_EXT registry (ENG-103)', () => {
+describe('MIME_BY_EXT registry', () => {
   it('maps every supported extension to a Blob-ready MIME type', () => {
     // The registry is the only source of truth; treat each entry as a
     // contract pin so adding an extension never silently downgrades to
@@ -298,9 +281,7 @@ describe('MIME_BY_EXT registry (ENG-103)', () => {
   });
 
   it('throws on unknown extensions via mimeTypeForExtension', () => {
-    expect(() => mimeTypeForExtension('docx')).toThrow(
-      /Unsupported export extension/
-    );
+    expect(() => mimeTypeForExtension('docx')).toThrow(/Unsupported export extension/);
   });
 
   it('normalises leading dots + casing in mimeTypeForExtension', () => {

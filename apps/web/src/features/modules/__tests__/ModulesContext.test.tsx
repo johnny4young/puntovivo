@@ -1,14 +1,14 @@
 /**
- * ENG-068 / ENG-171 — modules store regression test.
+ * /  — modules store regression test.
  *
  * Pins the contract every gated route relies on, now that the state lives
  * in a Zustand store fed by `useModulesSync` (mounted via `<ModulesSync />`)
  * instead of a React context:
- *   - Defaults applied while the query is loading (no flash).
- *   - Server response overrides defaults once it lands.
- *   - Unknown ids in the response are ignored (forwards-compat).
- *   - Disabled when not authenticated (avoid UNAUTHORIZED on /login).
- *   - Reset to defaults on logout so no stale tenant snapshot leaks.
+ * - Defaults applied while the query is loading (no flash).
+ * - Server response overrides defaults once it lands.
+ * - Unknown ids in the response are ignored (forwards-compat).
+ * - Disabled when not authenticated (avoid UNAUTHORIZED on /login).
+ * - Reset to defaults on logout so no stale tenant snapshot leaks.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -160,7 +160,7 @@ describe('ModulesSync — server response', () => {
       </>
     );
     expect(screen.getByTestId('keys')).toHaveTextContent(
-      // ENG-068 demo modules + ENG-069 surface modules + ENG-091
+      // demo modules +  surface modules +
       // delivery — sorted before joining.
       'anomaly-detection,copilot,customer-display,delivery,events-api,kds,mobile-waiter,operations-center,pos-touch,quotations,semantic-search'
     );

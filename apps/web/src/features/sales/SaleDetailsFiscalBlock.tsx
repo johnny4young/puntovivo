@@ -1,12 +1,12 @@
 /**
- * ENG-058 — In-app fiscal proof block for SaleDetailsModal.
+ * In-app fiscal proof block for SaleDetailsModal.
  *
  * Per linked fiscal_document, renders:
- *   - Kind label + status badge + document number header
- *   - CUFE: full mono text + copy button when accepted+non-placeholder;
- *           "Pendiente de aceptación" copy in any other state.
- *   - "Verificar en DIAN/SAT/SII" link when qrPayload non-null.
- *   - "Ver XML" link when xmlRef present (admin-only).
+ * - Kind label + status badge + document number header
+ * - CUFE: full mono text + copy button when accepted+non-placeholder;
+ * "Pendiente de aceptación" copy in any other state.
+ * - "Verificar en DIAN/SAT/SII" link when qrPayload non-null.
+ * - "Ver XML" link when xmlRef present (admin-only).
  *
  * Status copy is the SINGLE source of truth — the UI never infers
  * "Aceptado" from CUFE presence.
@@ -49,23 +49,17 @@ function isPlaceholderCufe(cufe: string | null | undefined): boolean {
  * The CUFE display mirrors the QR builder's eligibility: only render the
  * real CUFE when the document is in a status the provider has acknowledged
  * AND the cufe is no longer the `pending-<nanoid>` placeholder. The
- * MockAdapter (and real DIAN PT after ENG-021) returns `sent` on the happy
+ * MockAdapter (and real DIAN PT after ) returns `sent` on the happy
  * path; widening the gate beyond `accepted` keeps real receipts from
  * rendering "Pendiente de aceptación" while a verifiable CUFE exists.
  */
-const CUFE_ELIGIBLE_STATUSES: ReadonlySet<FiscalDocumentStatus> = new Set([
-  'accepted',
-  'sent',
-]);
+const CUFE_ELIGIBLE_STATUSES: ReadonlySet<FiscalDocumentStatus> = new Set(['accepted', 'sent']);
 
 function normalizeCountryCode(countryCode: string): string {
   return countryCode.toUpperCase();
 }
 
-function getFiscalAuthorityLabel(
-  t: TFunction,
-  countryCode: string
-): string {
+function getFiscalAuthorityLabel(t: TFunction, countryCode: string): string {
   const normalized = normalizeCountryCode(countryCode);
   return t(`receipts:fiscal.authority.${normalized}`, {
     defaultValue: normalized,
@@ -83,13 +77,9 @@ function getFiscalIdentifierLabelKey(countryCode: string): string {
   }
 }
 
-export function SaleDetailsFiscalBlock({
-  fiscalDocuments,
-  isAdmin,
-}: SaleDetailsFiscalBlockProps) {
+export function SaleDetailsFiscalBlock({ fiscalDocuments, isAdmin }: SaleDetailsFiscalBlockProps) {
   const { t } = useTranslation(['receipts', 'fiscal']);
-  const [selectedXmlDoc, setSelectedXmlDoc] =
-    useState<SaleFiscalDocumentSummary | null>(null);
+  const [selectedXmlDoc, setSelectedXmlDoc] = useState<SaleFiscalDocumentSummary | null>(null);
 
   return (
     <>
@@ -102,19 +92,14 @@ export function SaleDetailsFiscalBlock({
           const authorityLabel = getFiscalAuthorityLabel(t, doc.countryCode);
 
           return (
-            <div
-              key={doc.id}
-              className="rounded-lg border border-border bg-surface-muted p-4"
-            >
+            <div key={doc.id} className="rounded-lg border border-border bg-surface-muted p-4">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm font-semibold text-foreground">
                   {t('receipts:fiscal.sectionTitle')}
                 </span>
                 <FiscalStatusBadge status={doc.status} />
                 <span className="text-xs text-muted-foreground">{kindLabel}</span>
-                <span className="ml-auto text-xs font-mono">
-                  {doc.documentNumber}
-                </span>
+                <span className="ml-auto text-xs font-mono">{doc.documentNumber}</span>
               </div>
 
               <dl className="mt-3 grid grid-cols-1 gap-2 text-xs">
@@ -129,16 +114,12 @@ export function SaleDetailsFiscalBlock({
                         : 'italic text-right text-muted-foreground'
                     }
                   >
-                    {showRealCufe
-                      ? doc.cufe
-                      : t('receipts:fiscal.cufePlaceholder')}
+                    {showRealCufe ? doc.cufe : t('receipts:fiscal.cufePlaceholder')}
                   </dd>
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <dt className="text-muted-foreground">
-                    {t('receipts:fiscal.sourceLabel')}
-                  </dt>
+                  <dt className="text-muted-foreground">{t('receipts:fiscal.sourceLabel')}</dt>
                   <dd>{sourceLabel}</dd>
                 </div>
               </dl>

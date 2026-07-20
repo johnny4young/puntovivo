@@ -1,5 +1,5 @@
 /**
- * ENG-193 — checkout sound feedback.
+ * checkout sound feedback.
  *
  * The invariants that matter: audio must never break checkout (no-op when
  * disabled or when the runtime has no AudioContext), the preference is

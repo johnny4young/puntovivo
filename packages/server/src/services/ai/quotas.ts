@@ -1,21 +1,21 @@
 /**
- * ENG-102 — AI usage quotas (first slice of website claim alignment).
+ * AI usage quotas (first slice of website claim alignment).
  *
  * The website draft promises "800 Co-pilot questions + 200 OCR invoices
  * per site per month". This module is the enforcement layer that backs
  * those numbers with real product behavior:
  *
- *   - `AI_QUOTAS` carries the v1 hardcoded limits per feature.
- *   - `countMonthlyAiCalls` counts SUCCESSFUL calls (`errorCode IS NULL`)
- *     in the current calendar month for a given (tenant, site, feature)
- *     using the `idx_ai_audit_log_tenant_site_created` composite index.
- *     Failed calls (provider 5xx, AI_DISABLED short-circuits, quota
- *     rejections themselves) do NOT consume quota — a flaky upstream
- *     cannot cook the tenant.
- *   - `requireAiQuotaAvailable` runs the count + throws
- *     `AI_QUOTA_EXCEEDED` when the limit is reached. Call sites wire
- *     this BEFORE invoking the provider so a rejected request never
- *     produces an audit row.
+ * - `AI_QUOTAS` carries the v1 hardcoded limits per feature.
+ * - `countMonthlyAiCalls` counts SUCCESSFUL calls (`errorCode IS NULL`)
+ * in the current calendar month for a given (tenant, site, feature)
+ * using the `idx_ai_audit_log_tenant_site_created` composite index.
+ * Failed calls (provider 5xx, AI_DISABLED short-circuits, quota
+ * rejections themselves) do NOT consume quota — a flaky upstream
+ * cannot cook the tenant.
+ * - `requireAiQuotaAvailable` runs the count + throws
+ * `AI_QUOTA_EXCEEDED` when the limit is reached. Call sites wire
+ * this BEFORE invoking the provider so a rejected request never
+ * produces an audit row.
  *
  * Calendar-month reset is implicit: queries use
  * `startOfMonth ≤ createdAt < startOfNextMonth`, so the counter "rolls
@@ -79,9 +79,7 @@ function monthBounds(now: Date): { start: string; end: string } {
  * month for (tenant, site). Errored rows are excluded so a flaky
  * provider does not consume quota.
  */
-export async function countMonthlyAiCalls(
-  args: CountMonthlyAiCallsArgs
-): Promise<number> {
+export async function countMonthlyAiCalls(args: CountMonthlyAiCallsArgs): Promise<number> {
   const { db, tenantId, siteId, feature, now = new Date() } = args;
   const { start, end } = monthBounds(now);
   const row = await db
@@ -203,7 +201,8 @@ export async function projectAiQuotas(args: {
       };
     })
   );
-  return Object.fromEntries(
-    projections.map(p => [p.feature, p])
-  ) as Record<QuotaFeature, QuotaProjection>;
+  return Object.fromEntries(projections.map(p => [p.feature, p])) as Record<
+    QuotaFeature,
+    QuotaProjection
+  >;
 }

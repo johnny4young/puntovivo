@@ -1,5 +1,5 @@
 /**
- * ENG-166 — pins the email normalisation transform on every auth +
+ * pins the email normalisation transform on every auth +
  * users mutation schema. Without this, two operators could register
  * `Admin@x.com` and `admin@x.com` as different accounts and SSO / IdP
  * mappings would break later.
@@ -7,11 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loginInput } from '../trpc/schemas/auth.js';
-import {
-  createUserInput,
-  updateUserInput,
-  listUsersInput,
-} from '../trpc/schemas/users.js';
+import { createUserInput, updateUserInput, listUsersInput } from '../trpc/schemas/users.js';
 
 describe('email normalisation', () => {
   it('trims and lowercases the login email', () => {

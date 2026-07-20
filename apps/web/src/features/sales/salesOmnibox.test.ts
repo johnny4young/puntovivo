@@ -55,7 +55,7 @@ function product(overrides: Partial<ProductSearchItem> = {}): ProductSearchItem 
   };
 }
 
-describe('sales omnibox cart helpers (ENG-205)', () => {
+describe('sales omnibox cart helpers', () => {
   beforeEach(() => {
     useCartWorkspaceStore.getState().resetAllWorkspaces();
     localStorage.clear();

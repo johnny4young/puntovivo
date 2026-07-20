@@ -1,16 +1,16 @@
 /**
- * ENG-054 — Public types for the `completeSale` application service.
+ * Public types for the `completeSale` application service.
  *
  * Two responsibilities:
  *
  * 1. `CompleteSaleInput` — discriminated union that covers both the
- *    fresh-sale path (formerly `sales.create`) and the draft-completion
- *    path (formerly `sales.completeDraft`). The router narrows tRPC
- *    input into this shape; tests construct it directly.
+ * fresh-sale path (formerly `sales.create`) and the draft-completion
+ * path (formerly `sales.completeDraft`). The router narrows tRPC
+ * input into this shape; tests construct it directly.
  * 2. `CompleteSaleContext` — minimal subset of the tRPC `Context` that
- *    the use-case actually reads. Tests pass a hand-built object;
- *    procedures pass `ctx` (the field shape is compatible with
- *    `tRPC Context + envelope`).
+ * the use-case actually reads. Tests pass a hand-built object;
+ * procedures pass `ctx` (the field shape is compatible with
+ * `tRPC Context + envelope`).
  *
  * @module application/sales/types
  */
@@ -47,7 +47,7 @@ export type FreshSaleStatus = 'draft' | 'completed' | 'cancelled' | 'voided';
 export interface CompleteSaleTender {
   method: SalePaymentMethod;
   amount: number;
-  // ENG-179b — explicit `| undefined` on Zod-optional field.
+  // explicit `| undefined` on Zod-optional field.
   reference?: string | null | undefined;
 }
 
@@ -66,7 +66,7 @@ export interface CompleteSaleItemInput {
   quantity: number;
   unitPrice: number;
   discount: number;
-  // ENG-179b — explicit `| undefined` on Zod-optional fields.
+  // explicit `| undefined` on Zod-optional fields.
   taxRate?: number | null | undefined;
   notes?: string | null | undefined;
   serialIds?: string[] | undefined;
@@ -80,7 +80,7 @@ export interface CompleteSaleItemInput {
  */
 export type SaleTipMethod = 'percentage' | 'fixed';
 
-// ENG-179b — explicit `| undefined` on every optional field across
+// explicit `| undefined` on every optional field across
 // both union variants so Zod-decoded input shapes (which carry
 // explicit-undefined for unset optionals) assign cleanly.
 export type CompleteSaleInput =
@@ -108,7 +108,7 @@ export type CompleteSaleInput =
       mode: 'fromDraft';
       saleId: string;
       /**
-       * ENG-216 — customer attached at payment time. `undefined` keeps the
+       * customer attached at payment time. `undefined` keeps the
        * draft's stored customer; an id attaches or re-assigns; `null`
        * clears it. Validated tenant-side and re-projected against the
        * credit cupo before the sale commits.
@@ -132,17 +132,17 @@ export type CompleteSaleInput =
  * Subset of the tRPC `Context` that the use-case actually reads.
  *
  * - `db` — the Drizzle handle. The procedure passes `ctx.db`; tests
- *   build their own in-memory DB and pass it through.
+ * build their own in-memory DB and pass it through.
  * - `tenantId` / `siteId` / `user` — multi-tenant + auth scope. Never
- *   resolved inside the service.
+ * resolved inside the service.
  * - `envelope` — when the call comes from `criticalCommandProcedure`,
- *   this carries the `operationId` minted by the renderer. The
- *   service uses it to look up the corresponding `operation_events`
- *   row and emit `operation_effects` against it. When absent (test
- *   call without an envelope, future internal worker call) effects
- *   are skipped silently.
+ * this carries the `operationId` minted by the renderer. The
+ * service uses it to look up the corresponding `operation_events`
+ * row and emit `operation_effects` against it. When absent (test
+ * call without an envelope, future internal worker call) effects
+ * are skipped silently.
  * - `log` — request-scoped logger; falls back to a module logger if
- *   the caller did not provide one.
+ * the caller did not provide one.
  */
 export interface CompleteSaleContext {
   db: DatabaseInstance;
@@ -153,7 +153,7 @@ export interface CompleteSaleContext {
   deviceId?: string | null;
   log?: CompleteSaleLogger;
   /**
-   * ENG-098 — optional SSE broadcaster used by the KDS post-tx hook
+   * optional SSE broadcaster used by the KDS post-tx hook
    * to notify the kitchen surface live. When omitted (unit tests,
    * internal callers without an HTTP boundary), the helper writes
    * the `kds_orders` row but skips the broadcast — the board picks
@@ -186,7 +186,7 @@ export interface CompleteSaleResult<TSaleRecord = unknown> {
    */
   journalEventId: string | null;
   /**
-   * ENG-213 — loyalty points this sale accrued for its customer. 0 when
+   * loyalty points this sale accrued for its customer. 0 when
    * the program is off, the sale had no customer, or the total earned
    * nothing. Both completion paths (fresh and resumed draft) report it;
    * optional only so a future non-completing path need not restate it.

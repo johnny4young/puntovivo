@@ -8,11 +8,15 @@ import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import type { Site } from '@/types';
-import { PeripheralForm, type PeripheralFormInitial, type PeripheralFormValues } from './PeripheralForm';
+import {
+  PeripheralForm,
+  type PeripheralFormInitial,
+  type PeripheralFormValues,
+} from './PeripheralForm';
 import { PeripheralStatusBadge } from './PeripheralStatusBadge';
 
 /**
- * ENG-060 — Per-site peripherals admin page.
+ * Per-site peripherals admin page.
  *
  * Admin-only. Lists every registered peripheral for the active site
  * grouped by kind (printer, cash drawer, scanner, payment terminal,
@@ -24,15 +28,11 @@ import { PeripheralStatusBadge } from './PeripheralStatusBadge';
  * The legacy system-print path under
  * `apps/desktop/src/main/index.ts:print-receipt` keeps working
  * untouched; the registry adapter is a typed identifier rather than
- * a code-path swap (ENG-062 introduces ESC/POS as a sibling driver).
+ * a code-path swap ( introduces ESC/POS as a sibling driver).
  */
 
 type PeripheralKind =
-  | 'printer'
-  | 'cash_drawer'
-  | 'scanner'
-  | 'payment_terminal'
-  | 'customer_display';
+  'printer' | 'cash_drawer' | 'scanner' | 'payment_terminal' | 'customer_display';
 
 type PeripheralRow = {
   id: string;
@@ -58,10 +58,7 @@ const KIND_ORDER: PeripheralKind[] = [
   'customer_display',
 ];
 
-type DialogState =
-  | { mode: 'closed' }
-  | { mode: 'create' }
-  | { mode: 'edit'; row: PeripheralRow };
+type DialogState = { mode: 'closed' } | { mode: 'create' } | { mode: 'edit'; row: PeripheralRow };
 
 export function PeripheralsPage() {
   const { t } = useTranslation(['peripherals', 'errors', 'common']);
@@ -117,9 +114,7 @@ export function PeripheralsPage() {
     onSuccess: async (_data, variables) => {
       await invalidatePeripheralReadiness();
       toast.success({
-        title: variables.isActive
-          ? t('toast.activated')
-          : t('toast.deactivated'),
+        title: variables.isActive ? t('toast.activated') : t('toast.deactivated'),
       });
     },
     onError: onErrorToast(toast, t, { titleKey: 'peripherals:toast.errorTitle' }),
@@ -196,12 +191,8 @@ export function PeripheralsPage() {
     <div className="space-y-6" data-testid="peripherals-page">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">
-            {t('peripherals:title')}
-          </h1>
-          <p className="mt-1 text-sm text-secondary-500">
-            {t('peripherals:description')}
-          </p>
+          <h1 className="text-2xl font-bold text-secondary-900">{t('peripherals:title')}</h1>
+          <p className="mt-1 text-sm text-secondary-500">{t('peripherals:description')}</p>
         </div>
         <button
           type="button"
@@ -238,16 +229,11 @@ export function PeripheralsPage() {
         {peripheralsQuery.isLoading ? (
           <p className="text-sm text-secondary-500">…</p>
         ) : rows.length === 0 ? (
-          <div
-            className="space-y-3 py-8 text-center"
-            data-testid="peripherals-empty-state"
-          >
+          <div className="space-y-3 py-8 text-center" data-testid="peripherals-empty-state">
             <p className="text-base font-semibold text-secondary-900">
               {t('peripherals:emptyState.title')}
             </p>
-            <p className="text-sm text-secondary-500">
-              {t('peripherals:emptyState.body')}
-            </p>
+            <p className="text-sm text-secondary-500">{t('peripherals:emptyState.body')}</p>
             <button
               type="button"
               className="btn-primary"
@@ -349,10 +335,7 @@ function PeripheralKindSection({
   const { pageRows, hasPagination, ...pagination } = usePaginatedRows(items, 8);
 
   return (
-    <section
-      className="space-y-3"
-      data-testid={`peripherals-section-${kind}`}
-    >
+    <section className="space-y-3" data-testid={`peripherals-section-${kind}`}>
       <h2 className="text-sm font-semibold uppercase tracking-wide text-secondary-500">
         {t(`peripherals:kind.${kind}`)}
       </h2>
@@ -369,10 +352,7 @@ function PeripheralKindSection({
           {pageRows.map(row => (
             <tr
               key={row.id}
-              className={
-                'border-t border-line ' +
-                (row.isActive ? '' : 'opacity-60')
-              }
+              className={'border-t border-line ' + (row.isActive ? '' : 'opacity-60')}
               data-testid={`peripherals-row-${row.id}`}
             >
               <td className="py-3 font-medium text-secondary-900">
@@ -380,9 +360,7 @@ function PeripheralKindSection({
                   defaultValue: row.driver,
                 })}
               </td>
-              <td className="text-secondary-700">
-                {row.displayName ?? '—'}
-              </td>
+              <td className="text-secondary-700">{row.displayName ?? '—'}</td>
               <td>
                 <PeripheralStatusBadge
                   lastTestResult={row.lastTestResult}
@@ -441,9 +419,7 @@ function PeripheralKindSection({
           ))}
         </tbody>
       </table>
-      {hasPagination && (
-        <TablePagination {...pagination} onPageChange={pagination.setPage} />
-      )}
+      {hasPagination && <TablePagination {...pagination} onPageChange={pagination.setPage} />}
     </section>
   );
 }

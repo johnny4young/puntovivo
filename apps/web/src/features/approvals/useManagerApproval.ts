@@ -15,7 +15,7 @@ export interface UseManagerApprovalInput<Action extends ManagerApprovalAction> {
   enabled: boolean;
 }
 
-/** ENG-106c3 — one exact non-checkout resource approval for the current actor. */
+/** one exact non-checkout resource approval for the current actor. */
 export function useManagerApproval<Action extends ManagerApprovalAction>(
   input: UseManagerApprovalInput<Action>
 ) {

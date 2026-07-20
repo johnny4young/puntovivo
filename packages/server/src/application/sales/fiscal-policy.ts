@@ -1,12 +1,12 @@
 /**
- * ENG-055 — Shared fiscal helpers for the sale lifecycle services.
+ * Shared fiscal helpers for the sale lifecycle services.
  *
  * Today this module hosts a single helper, `getOriginalDeeCufe`, used
  * by `returnSale` and `voidSale` to look up the CUFE of the original
  * DIAN DEE so the credit note (NC) can reference it. The query lived
- * duplicated in two places before ENG-055.
+ * duplicated in two places before .
  *
- * Future additions: helpers around contingency lookups (ENG-057),
+ * Future additions: helpers around contingency lookups (),
  * resolution snapshots, and per-country fiscal validation will land
  * here as more lifecycle services need them.
  *

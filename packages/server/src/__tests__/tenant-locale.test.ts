@@ -1,17 +1,17 @@
 /**
- * ENG-017 — tenant locale resolver tests.
+ * tenant locale resolver tests.
  *
  * Coverage:
  * - Resolver round-trip for 4 canonical countries (CO/US/MX/CL)
- *   exercising the full override-shadow matrix.
+ * exercising the full override-shadow matrix.
  * - Override precedence (locale / currency / timezone /
- *   firstDayOfWeek each tested independently against country defaults).
+ * firstDayOfWeek each tested independently against country defaults).
  * - Fallback when the tenant has no row in `tenant_locale_settings`.
  * - Fallback when the tenant references a country/currency that no
- *   longer exists (shouldn't happen in practice but the resolver
- *   must degrade gracefully).
+ * longer exists (shouldn't happen in practice but the resolver
+ * must degrade gracefully).
  * - Cross-tenant isolation — two tenants with different countries
- *   resolve independently.
+ * resolve independently.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -19,16 +19,8 @@ import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  countryCatalog,
-  tenantLocaleSettings,
-  tenants,
-  users,
-} from '../db/schema.js';
-import {
-  LOCALE_FALLBACK,
-  resolveTenantLocale,
-} from '../services/tenant-locale.js';
+import { countryCatalog, tenantLocaleSettings, tenants, users } from '../db/schema.js';
+import { LOCALE_FALLBACK, resolveTenantLocale } from '../services/tenant-locale.js';
 
 let server: PuntovivoServer;
 let primaryTenantId: string;
@@ -85,7 +77,7 @@ async function setLocaleSettings(
     .run();
 }
 
-describe('resolveTenantLocale (ENG-017)', () => {
+describe('resolveTenantLocale', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     // The default seed creates an admin@localhost user + its tenant.
@@ -102,10 +94,7 @@ describe('resolveTenantLocale (ENG-017)', () => {
     secondaryTenantId = await ensureTenant(`locale-secondary-${nanoid(6)}`);
 
     // Sanity: the boot-time seed must have populated the catalogs.
-    const countryCount = await db
-      .select({ count: countryCatalog.code })
-      .from(countryCatalog)
-      .all();
+    const countryCount = await db.select({ count: countryCatalog.code }).from(countryCatalog).all();
     expect(countryCount.length).toBeGreaterThanOrEqual(21);
   });
 

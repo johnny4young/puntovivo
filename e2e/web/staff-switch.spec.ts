@@ -36,7 +36,7 @@ async function openCashierPinModal(page: Page) {
   return dialog;
 }
 
-test.describe('shared-terminal staff PIN switching (ENG-106a)', () => {
+test.describe('shared-terminal staff PIN switching', () => {
   test('admin enrolls a cashier PIN and the cashier safely takes over', async ({
     page,
     context,

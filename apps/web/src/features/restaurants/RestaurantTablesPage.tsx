@@ -1,5 +1,5 @@
 /**
- * ENG-039b — admin page for the restaurant table catalog.
+ * admin page for the restaurant table catalog.
  *
  * Mirrors the `LocationsPage` shape: `ResourcePage` wrapper + a
  * dedicated form modal + a `ConfirmModal` for archive. Adds a site
@@ -62,8 +62,7 @@ function buildColumns(
       accessorKey: 'seatCount',
       header: t('tables.columns.seatCount'),
       size: 100,
-      cell: ({ row }) =>
-        row.original.seatCount !== null ? String(row.original.seatCount) : '—',
+      cell: ({ row }) => (row.original.seatCount !== null ? String(row.original.seatCount) : '—'),
     },
     {
       accessorKey: 'area',
@@ -76,12 +75,8 @@ function buildColumns(
       header: t('tables.columns.status'),
       size: 120,
       cell: ({ row }) => (
-        <span
-          className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}
-        >
-          {row.original.isActive
-            ? t('tables.status.active')
-            : t('tables.status.archived')}
+        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+          {row.original.isActive ? t('tables.status.active') : t('tables.status.archived')}
         </span>
       ),
     },
@@ -154,9 +149,7 @@ export function RestaurantTablesPage() {
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [editing, setEditing] = useState<RestaurantTableFormInitial | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [archiveTarget, setArchiveTarget] = useState<RestaurantTableRow | null>(
-    null
-  );
+  const [archiveTarget, setArchiveTarget] = useState<RestaurantTableRow | null>(null);
 
   const tablesQuery = trpc.restaurantTables.list.useQuery(
     {
@@ -358,9 +351,7 @@ export function RestaurantTablesPage() {
         title={t('tables.archive.title')}
         message={archiveTarget ? t('tables.archive.message') : ''}
         confirmText={
-          archiveMutation.isPending
-            ? t('tables.archive.submitting')
-            : t('tables.archive.confirm')
+          archiveMutation.isPending ? t('tables.archive.submitting') : t('tables.archive.confirm')
         }
         cancelText={t('tables.archive.cancel')}
         variant="primary"

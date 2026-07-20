@@ -1,5 +1,5 @@
 /**
- * ENG-056 — Public types for the `cash-sessions` application service
+ * Public types for the `cash-sessions` application service
  * bundle.
  *
  * Mirrors `application/sales/types.ts` so the two aggregates expose a
@@ -18,10 +18,7 @@ import type { CashSessionDenomination, CashMovementType } from '../../db/schema.
  * Both `PuntovivoLogger` (pino) and Fastify's `FastifyBaseLogger`
  * satisfy it.
  */
-export type CashSessionLogger = Pick<
-  PuntovivoLogger,
-  'warn' | 'info' | 'debug' | 'error'
->;
+export type CashSessionLogger = Pick<PuntovivoLogger, 'warn' | 'info' | 'debug' | 'error'>;
 
 /**
  * Subset of the tRPC `Context` that the use-cases actually read.
@@ -29,9 +26,9 @@ export type CashSessionLogger = Pick<
  * - `db` — Drizzle handle.
  * - `tenantId` / `siteId` / `user` — multi-tenant + auth scope.
  * - `envelope` — when present, carries the `operationId` minted by the
- *   renderer; the use-case looks up the matching `operation_events` row
- *   and emits effects against it. Absent for tests built without an
- *   envelope.
+ * renderer; the use-case looks up the matching `operation_events` row
+ * and emits effects against it. Absent for tests built without an
+ * envelope.
  * - `log` — request-scoped logger; falls back to a module logger.
  */
 export interface CashSessionContext {

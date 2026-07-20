@@ -1,13 +1,13 @@
 /**
- * ENG-036b — CAF allocator tests.
+ * CAF allocator tests.
  *
  * Pin the contract every fiscal-CL emission relies on:
- *   - Folio allocation advances cursor atomically.
- *   - CAF_NOT_AVAILABLE when no active row matches.
- *   - CAF_EXHAUSTED when cursor would exceed folio_hasta + status flips.
- *   - Cross-tenant isolation: tenant A's CAF doesn't satisfy tenant B.
- *   - Atomicity: a failing transaction rolls back the cursor.
- *   - peekActiveCaf is read-only (no cursor mutation).
+ * - Folio allocation advances cursor atomically.
+ * - CAF_NOT_AVAILABLE when no active row matches.
+ * - CAF_EXHAUSTED when cursor would exceed folio_hasta + status flips.
+ * - Cross-tenant isolation: tenant A's CAF doesn't satisfy tenant B.
+ * - Atomicity: a failing transaction rolls back the cursor.
+ * - peekActiveCaf is read-only (no cursor mutation).
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -16,10 +16,7 @@ import { createServer, type PuntovivoServer } from '../../../../../index.js';
 import { getDatabase } from '../../../../../db/index.js';
 import { fiscalCafs, tenants } from '../../../../../db/schema.js';
 import { ServerErrorWithCode } from '../../../../../lib/errorCodes.js';
-import {
-  allocateNextFolio,
-  peekActiveCaf,
-} from '../caf-allocator.js';
+import { allocateNextFolio, peekActiveCaf } from '../caf-allocator.js';
 
 let server: PuntovivoServer;
 
@@ -82,15 +79,13 @@ beforeEach(async () => {
   await db.delete(fiscalCafs).run();
 });
 
-describe('allocateNextFolio (ENG-036b)', () => {
+describe('allocateNextFolio', () => {
   it('allocates folio_desde on the first call and advances the cursor', async () => {
     const tenantId = await seedTenant('first');
     await seedCaf({ tenantId, tipoDte: '39', folioDesde: 1, folioHasta: 100 });
 
     const db = getDatabase();
-    const result = db.transaction(tx =>
-      allocateNextFolio(tx, { tenantId, tipoDte: '39' })
-    );
+    const result = db.transaction(tx => allocateNextFolio(tx, { tenantId, tipoDte: '39' }));
 
     expect(result.folio).toBe(1);
     expect(result.tipoDte).toBe('39');
@@ -127,9 +122,7 @@ describe('allocateNextFolio (ENG-036b)', () => {
     });
 
     const db = getDatabase();
-    const result = db.transaction(tx =>
-      allocateNextFolio(tx, { tenantId, tipoDte: '39' })
-    );
+    const result = db.transaction(tx => allocateNextFolio(tx, { tenantId, tipoDte: '39' }));
     expect(result.folio).toBe(2);
     expect(result.rangeRemaining).toBe(0);
 
@@ -142,9 +135,9 @@ describe('allocateNextFolio (ENG-036b)', () => {
     const tenantId = await seedTenant('empty');
     // No CAF seeded.
     const db = getDatabase();
-    expect(() =>
-      db.transaction(tx => allocateNextFolio(tx, { tenantId, tipoDte: '39' }))
-    ).toThrow(ServerErrorWithCode);
+    expect(() => db.transaction(tx => allocateNextFolio(tx, { tenantId, tipoDte: '39' }))).toThrow(
+      ServerErrorWithCode
+    );
 
     try {
       db.transaction(tx => allocateNextFolio(tx, { tenantId, tipoDte: '39' }));
@@ -241,7 +234,7 @@ describe('allocateNextFolio (ENG-036b)', () => {
   });
 });
 
-describe('peekActiveCaf (ENG-036b)', () => {
+describe('peekActiveCaf', () => {
   it('returns null when no active CAF exists', async () => {
     const tenantId = await seedTenant('peek-empty');
     const db = getDatabase();

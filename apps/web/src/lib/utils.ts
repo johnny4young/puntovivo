@@ -86,7 +86,7 @@ function getActiveLocale(): string {
   return 'en-US';
 }
 
-// ENG-017 — module-level locale singleton. `LocaleProvider` calls
+// module-level locale singleton. `LocaleProvider` calls
 // `setActiveTenantLocale` when the tenant's resolved locale mutates,
 // and the formatters below read from this cell when the caller did
 // not pass explicit args. Avoids touching the ~140 existing call
@@ -108,9 +108,7 @@ let activeTenantLocale: ActiveTenantLocaleSnapshot | null = null;
  * Invoked by `LocaleProvider` on mount and on tenant switch. Pass
  * `null` to revert to the hardcoded USA fallback (e.g. during logout).
  */
-export function setActiveTenantLocale(
-  snapshot: ActiveTenantLocaleSnapshot | null
-): void {
+export function setActiveTenantLocale(snapshot: ActiveTenantLocaleSnapshot | null): void {
   activeTenantLocale = snapshot;
 }
 
@@ -127,16 +125,10 @@ export function getActiveTenantLocale(): ActiveTenantLocaleSnapshot | null {
 const currencyFormatterCache = new Map<string, Intl.NumberFormat>();
 const CURRENCY_FORMATTER_CACHE_CAP = 32;
 
-export function formatCurrency(
-  amount: number,
-  currency?: string,
-  locale?: string
-): string {
-  const resolvedCurrency =
-    currency ?? activeTenantLocale?.currency ?? 'USD';
+export function formatCurrency(amount: number, currency?: string, locale?: string): string {
+  const resolvedCurrency = currency ?? activeTenantLocale?.currency ?? 'USD';
   const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
-  const displayDecimals =
-    currency === undefined ? activeTenantLocale?.displayDecimals : undefined;
+  const displayDecimals = currency === undefined ? activeTenantLocale?.displayDecimals : undefined;
   const cacheKey = `${resolvedLocale}|${resolvedCurrency}|${displayDecimals ?? ''}`;
   let formatter = currencyFormatterCache.get(cacheKey);
   if (!formatter) {
@@ -175,11 +167,7 @@ export function formatDate(
   const resolvedTimezone = activeTenantLocale?.timezone;
 
   if (!options && !locale && activeTenantLocale?.dateFormatShort) {
-    return formatDateByPattern(
-      d,
-      activeTenantLocale.dateFormatShort,
-      activeTenantLocale.timezone
-    );
+    return formatDateByPattern(d, activeTenantLocale.dateFormatShort, activeTenantLocale.timezone);
   }
 
   return new Intl.DateTimeFormat(resolvedLocale, {
@@ -215,11 +203,7 @@ export function formatDateTime(date: Date | string, locale?: string): string {
   }).format(d);
 }
 
-function formatDateByPattern(
-  date: Date,
-  pattern: string,
-  timeZone: string
-): string {
+function formatDateByPattern(date: Date, pattern: string, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
     year: 'numeric',
@@ -227,9 +211,7 @@ function formatDateByPattern(
     day: '2-digit',
   }).formatToParts(date);
   const values = new Map(
-    parts
-      .filter(part => part.type !== 'literal')
-      .map(part => [part.type, part.value])
+    parts.filter(part => part.type !== 'literal').map(part => [part.type, part.value])
   );
   const year = values.get('year') ?? '0000';
   const month = values.get('month') ?? '01';

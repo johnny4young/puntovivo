@@ -1,4 +1,4 @@
-// CSV exporter (ENG-178 slice 30).
+// CSV exporter ( slice 30).
 
 import { downloadFile, generateFilename } from './filename';
 import { formatValue, getNestedValue } from './format';

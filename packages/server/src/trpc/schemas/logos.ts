@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { isUrlSchemeBlocked } from '../../lib/urlSafety.js';
 
-// ENG-025 vector 3 — `imageUrl` may be persisted into
+// vector 3 — `imageUrl` may be persisted into
 // `companies.logoDataUrl` and inlined into a receipt HTML loaded by
 // `printWindow.loadURL('data:text/html;...')`. A scheme like
 // `javascript:` or `data:text/html,...` would fire as live HTML in

@@ -1,5 +1,5 @@
 /**
- * Inventory router — read procedures (ENG-178 split).
+ * Inventory router — read procedures ( split).
  *
  * The six tenant-scoped reads: `listEntries` / `listMovements` / `listStock`
  * (paginated lists with valuation summary), `getMovement` / `productStock`
@@ -272,7 +272,7 @@ export const inventoryQueryProcedures = {
   }),
 
   /**
-   * List on-hand balances attributed to a specific site (Phase 2 DB-101).
+   * List on-hand balances attributed to a specific site ().
    *
    * Seeds the site on first access with 0-on_hand rows. `inventory_balances`
    * is the single source of truth; opening quantities come from the mutation

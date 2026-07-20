@@ -1,5 +1,5 @@
 /**
- * ENG-185 — FiscalMaturityBadge tests.
+ * FiscalMaturityBadge tests.
  *
  * Pins the truth-guard contract: mock/draft packs render a visible
  * Demo/Draft chip, a certified pack renders nothing.
@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import i18n from '@/i18n';
 import { FiscalMaturityBadge } from './FiscalMaturityBadge';
 
-describe('FiscalMaturityBadge (ENG-185)', () => {
+describe('FiscalMaturityBadge', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en');
   });
@@ -33,8 +33,6 @@ describe('FiscalMaturityBadge (ENG-185)', () => {
   it('localizes the draft label to Spanish (Borrador)', async () => {
     await i18n.changeLanguage('es');
     render(<FiscalMaturityBadge maturity="draft" />);
-    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(
-      /Borrador/i
-    );
+    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(/Borrador/i);
   });
 });

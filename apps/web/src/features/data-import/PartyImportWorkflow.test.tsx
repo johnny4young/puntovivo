@@ -198,7 +198,7 @@ vi.mock('@/services/export/exportService', () => ({
   exportToCSV: mocks.exportToCSV,
 }));
 
-describe('ENG-123b PartyImportWorkflow', () => {
+describe(' PartyImportWorkflow', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mocks.customerPreviewPending = false;

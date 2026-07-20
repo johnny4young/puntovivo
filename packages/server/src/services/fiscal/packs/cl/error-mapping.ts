@@ -1,8 +1,8 @@
 /**
- * ENG-057 — Chile (SII) provider error mapping (placeholder for ENG-036c).
+ * Chile (SII) provider error mapping (placeholder for ).
  *
  * Will dispatch SII rechazo codes once the certificación + XAdES
- * signing flow lands with ENG-036c.
+ * signing flow lands with .
  *
  * Returns `null` so the normalizer falls back to its default
  * heuristic.

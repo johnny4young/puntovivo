@@ -11,14 +11,14 @@
  * - sales.returnSale (sales role; cashier grant) - Refund and restore stock
  * - sales.void       (sales role; manager/cashier grant) - Void a sale
  *
- * ENG-178 — this barrel preserves the public surface of the former flat
+ * this barrel preserves the public surface of the former flat
  * `trpc/routers/sales.ts` (1479 LOC), decomposed into per-concern procedure
  * modules during the megafile wave. The procedure bodies moved verbatim;
  * only the file layout changed. The procedure paths (`sales.create`, etc.)
  * and `AppRouter`'s inferred shape are unchanged, so the web client and the
  * caller-based tests are unaffected.
  *
- * ENG-054 / ENG-055 — sale lifecycle orchestration lives in
+ * /  — sale lifecycle orchestration lives in
  * `application/sales/`. The router keeps the lightweight reads
  * (summary, list, getById, listDrafts) and the suspend / resume /
  * changeTable / splitDraft / getForReprint procedures inline; the rest

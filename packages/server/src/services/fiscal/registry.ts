@@ -1,18 +1,14 @@
 /**
- * ENG-020 — fiscal adapter registry.
- * ENG-034 — promoted from implicit singleton (`new MockAdapter()`)
- * to a typed factory keyed by ISO 3166-1 alpha-2 `countryCode`.
+ * Fiscal adapter registry keyed by ISO 3166-1 alpha-2 `countryCode`.
  *
  * Dispatch:
  *
- * - `'CO'` → `ColombiaMockAdapter` (real PT swap lands with ENG-021).
- * - `'MX'` → `MexicoCFDIAdapter` (real CFDI 4.0 lands with
- *   ENG-035).
- * - `'CL'` → `ChileSIIAdapter` (real SII boleta/factura
- *   lands with ENG-036).
- * - Unknown country → THROWS `FISCAL_PACK_NOT_AVAILABLE` (ENG-185).
+ * - `'CO'` → deterministic `ColombiaMockAdapter`.
+ * - `'MX'` → draft `MexicoCFDIAdapter` for CFDI 4.0.
+ * - `'CL'` → draft `ChileSIIAdapter` for DTE 1.0.
+ * - Unknown country → `FISCAL_PACK_NOT_AVAILABLE`.
  *
- * ENG-185 — the registry NO LONGER falls back an unknown country to the
+ * the registry NO LONGER falls back an unknown country to the
  * Colombia mock. Emitting a Colombia-shaped CUFE for, say, an Argentine
  * tenant is a lie: the document looks real but targets the wrong
  * authority. Instead `getFiscalAdapter` throws a typed error for any
@@ -22,19 +18,14 @@
  * non-fatal) rather than throwing into the lifecycle. The throw is the
  * defensive backstop for any direct misuse.
  *
- * Mirrors the AI provider Strategy/Factory shipped in ENG-030 +
- * ENG-044 (`services/ai/providers/registry.ts`).
+ * Mirrors the AI provider Strategy/Factory.
  *
  * @module services/fiscal/registry
  */
 
 import type { FiscalAdapter, FiscalAdapterMaturity } from './adapter.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import {
-  ChileSIIAdapter,
-  ColombiaMockAdapter,
-  MexicoCFDIAdapter,
-} from './packs/index.js';
+import { ChileSIIAdapter, ColombiaMockAdapter, MexicoCFDIAdapter } from './packs/index.js';
 
 /**
  * ISO 3166-1 alpha-2 codes the registry knows how to dispatch.
@@ -52,13 +43,13 @@ const ADAPTER_FACTORIES: Record<SupportedFiscalCountry, () => FiscalAdapter> = {
 /** Default country code when the caller does not supply one. */
 export const DEFAULT_FISCAL_COUNTRY: SupportedFiscalCountry = 'CO';
 
-/** ENG-185 — the ISO codes that have a real pack (no silent fallback). */
+/** the ISO codes that have a real pack (no silent fallback). */
 export const SUPPORTED_FISCAL_COUNTRIES = Object.keys(
   ADAPTER_FACTORIES
 ) as readonly SupportedFiscalCountry[];
 
 /**
- * ENG-185 — type guard: does this country have a fiscal pack? Sale-path
+ * type guard: does this country have a fiscal pack? Sale-path
  * callers MUST check this before `getFiscalAdapter` so an unsupported
  * country skips emission cleanly instead of throwing into the sale.
  */
@@ -69,7 +60,7 @@ export function isSupportedFiscalCountry(
 }
 
 /**
- * ENG-057 — Test-only override map. Production code MUST NEVER write
+ * Test-only override map. Production code MUST NEVER write
  * here; the `__` prefix + JSDoc warning + the `as never` cast on the
  * test seam below enforce this by convention. Tests inject a stub
  * adapter via `__setFiscalAdapterForTest('CO', stub)` so the fiscal
@@ -79,20 +70,18 @@ export function isSupportedFiscalCountry(
 const TEST_ADAPTER_OVERRIDES: Map<string, FiscalAdapter> = new Map();
 
 /**
- * Resolve the active fiscal adapter for a given country code. ENG-185 —
+ * Resolve the active fiscal adapter for a given country code.
  * an unsupported country THROWS `FISCAL_PACK_NOT_AVAILABLE` instead of
  * silently returning a Colombia-shaped mock. The no-arg call still
  * defaults to CO. Callers on the sale path guard with
  * `isSupportedFiscalCountry()` first so the sale stays non-fatal.
  */
-export function getFiscalAdapter(
-  countryCode: string = DEFAULT_FISCAL_COUNTRY
-): FiscalAdapter {
+export function getFiscalAdapter(countryCode: string = DEFAULT_FISCAL_COUNTRY): FiscalAdapter {
   const overridden = TEST_ADAPTER_OVERRIDES.get(countryCode);
   if (overridden) return overridden;
-  const factory = (
-    ADAPTER_FACTORIES as Record<string, (() => FiscalAdapter) | undefined>
-  )[countryCode];
+  const factory = (ADAPTER_FACTORIES as Record<string, (() => FiscalAdapter) | undefined>)[
+    countryCode
+  ];
   if (!factory) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -105,7 +94,7 @@ export function getFiscalAdapter(
 }
 
 /**
- * ENG-057 — TEST-ONLY adapter override seam. The double-underscore
+ * TEST-ONLY adapter override seam. The double-underscore
  * prefix marks it as never-call-from-production; integration tests
  * use it to inject a stub adapter (typically with a `throwOracle`
  * for outage simulation) without monkey-patching the registry.
@@ -125,7 +114,7 @@ export function __setFiscalAdapterForTest(
 }
 
 /**
- * ENG-057 — TEST-ONLY: clear every override. Useful in `afterEach`
+ * TEST-ONLY: clear every override. Useful in `afterEach`
  * to keep tests isolated.
  */
 export function __clearFiscalAdapterOverridesForTest(): void {
@@ -134,30 +123,24 @@ export function __clearFiscalAdapterOverridesForTest(): void {
 
 /**
  * Discovery surface for an admin UI: lists every country code the
- * registry knows about plus whether the pack is implemented or
- * stubbed (with the gating ticket id). Mirrors
- * `listProviders()` from the AI provider registry so the future
- * fiscal-readiness card can render the same shape.
+ * registry knows about plus the adapter maturity used by product
+ * surfaces to distinguish mock, draft, and certified packs.
  */
 export function listFiscalAdapterCountries(): ReadonlyArray<{
   code: SupportedFiscalCountry;
-  isImplemented: boolean;
-  // ENG-179b — explicit `| undefined`.
-  availableInTicket?: string | undefined;
+  maturity: FiscalAdapterMaturity;
 }> {
   return (Object.keys(ADAPTER_FACTORIES) as SupportedFiscalCountry[]).map(code => {
     const adapter = ADAPTER_FACTORIES[code]();
-    const stubbed = (adapter as { availableInTicket?: string }).availableInTicket;
     return {
       code,
-      isImplemented: !stubbed,
-      availableInTicket: stubbed,
+      maturity: adapter.maturity,
     };
   });
 }
 
 /**
- * ENG-185 — descriptor lookup for a STORED `providerId` (e.g. `mock-co`
+ * descriptor lookup for a STORED `providerId` (e.g. `mock-co`
  * on a `fiscal_documents` row). Lets document views + diagnostics label a
  * historical document's maturity without re-resolving by country. Built
  * once from the registry, so adding a real (`certified`) pack registers
@@ -170,10 +153,7 @@ const PROVIDER_DESCRIPTORS: ReadonlyMap<
 > = new Map(
   (Object.keys(ADAPTER_FACTORIES) as SupportedFiscalCountry[]).map(code => {
     const adapter = ADAPTER_FACTORIES[code]();
-    return [
-      adapter.providerId,
-      { maturity: adapter.maturity, countryCode: code },
-    ] as const;
+    return [adapter.providerId, { maturity: adapter.maturity, countryCode: code }] as const;
   })
 );
 

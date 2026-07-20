@@ -61,7 +61,7 @@ const readyReport = {
   readiness: { readyToSign: true, blockers: [], warnings: [] },
 };
 
-describe('DayCloseSignoffCard (ENG-141b)', () => {
+describe('DayCloseSignoffCard', () => {
   it('requires explicit attestation and an irreversible confirmation', async () => {
     const user = userEvent.setup();
     const onSign = vi.fn();

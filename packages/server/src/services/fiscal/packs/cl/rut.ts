@@ -1,24 +1,24 @@
 /**
- * ENG-036a — Validador RUT (Rol Único Tributario) para el pack
+ * Validador RUT (Rol Único Tributario) para el pack
  * fiscal de Chile.
  *
  * Reglas SII:
  *
  * - **Formato**: `<cuerpo>-<dv>` donde cuerpo son 7 u 8 dígitos y
- *   dv (dígito verificador) es `0-9` o `K`.
+ * dv (dígito verificador) es `0-9` o `K`.
  * - **Algoritmo del dígito verificador**: módulo 11 con pesos
- *   cíclicos `{2, 3, 4, 5, 6, 7}` aplicados de derecha a izquierda
- *   sobre el cuerpo. Suma ponderada modulo 11; el resultado se
- *   mapea: r=0 → '0', r=1 → 'K' (porque 11-r=10 no cabe en un
- *   dígito), 2..10 → String(11-r).
+ * cíclicos `{2, 3, 4, 5, 6, 7}` aplicados de derecha a izquierda
+ * sobre el cuerpo. Suma ponderada modulo 11; el resultado se
+ * mapea: r=0 → '0', r=1 → 'K' (porque 11-r=10 no cabe en un
+ * dígito), 2..10 → String(11-r).
  * - **Persona natural vs jurídica**: regla práctica del SII (no
- *   formal) — RUTs con cuerpo ≥ 50.000.000 son personas jurídicas;
- *   los menores son personas naturales. La distinción no bloquea
- *   la emisión, pero la marcamos en el resultado por si la UI
- *   quiere diferenciar.
+ * formal) — RUTs con cuerpo ≥ 50.000.000 son personas jurídicas;
+ * los menores son personas naturales. La distinción no bloquea
+ * la emisión, pero la marcamos en el resultado por si la UI
+ * quiere diferenciar.
  * - **RUT genérico extranjero**: `55555555-5` se acepta sin
- *   checksum estricto — el SII lo permite para clientes sin RUT
- *   propio (similar a `XEXX010101000` en MX).
+ * checksum estricto — el SII lo permite para clientes sin RUT
+ * propio (similar a `XEXX010101000` en MX).
  *
  * El validador es puro: sin acceso a DB ni red. Reusable desde el
  * server (validar antes de persistir) y desde el cliente (hint en
@@ -27,7 +27,7 @@
  * Referencias SII:
  * - Resolución Exenta SII Nº 1 de 2003, modificada por Nº 80/2014.
  * - Catálogo de RUT pre-asignados: requiere acceso PAC (no shipa
- *   en ENG-036a; queda para ENG-036b si llega a ser necesario).
+ * en ; queda para  si llega a ser necesario).
  *
  * @module services/fiscal/packs/cl/rut
  */
@@ -65,7 +65,7 @@ const PERSONA_JURIDICA_THRESHOLD = 50_000_000;
  * - Trim + uppercase.
  * - Remueve puntos (`12.345.678-9` → `12345678-9`).
  * - Si el operador escribió sin guión (`12345678X`), inserta guión
- *   antes del último carácter.
+ * antes del último carácter.
  *
  * Esta función nunca lanza; un input que no se pueda normalizar
  * (vacío, muy corto) sale tal cual y la validación posterior lo

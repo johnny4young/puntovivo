@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — products domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -62,7 +62,7 @@ export const products = sqliteTable(
     providerId: text('provider_id').references(() => providers.id),
     locationId: text('location_id'),
     initialCost: real('initial_cost').notNull().default(0),
-    // ENG-176b — currency for every monetary column on this row (price /
+    // currency for every monetary column on this row (price /
     // price2 / price3 / cost / margin amounts / initialCost). Default
     // 'COP' for backfill; the application sets this from
     // `resolveTenantCurrency(ctx.tenantId)` or from the operator's
@@ -88,11 +88,11 @@ export const products = sqliteTable(
     // false (default) the product keeps the single-number stock path. Additive
     // and backward-compatible.
     tracksLots: integer('tracks_lots', { mode: 'boolean' }).notNull().default(false),
-    // ENG-110c — individually serialized inventory is opt-in. Aggregate
+    // individually serialized inventory is opt-in. Aggregate
     // writers fail closed for these products; stock enters through the
     // serial receipt workflow and leaves through explicit POS selection.
     tracksSerials: integer('tracks_serials', { mode: 'boolean' }).notNull().default(false),
-    // ENG-110b — matrix parents are catalog-only templates. Every sellable
+    // matrix parents are catalog-only templates. Every sellable
     // combination remains a normal product row (`catalog_type = variant`) so
     // the existing productId-based sales, inventory and purchase paths keep
     // their mature invariants without a parallel variant stock model.
@@ -108,14 +108,14 @@ export const products = sqliteTable(
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     barcode: text('barcode'),
     imageUrl: text('image_url'),
-    // ENG-033 — semantic search support. The vector is JSON-encoded
+    // semantic search support. The vector is JSON-encoded
     // float array (`[0.123, -0.456, ...]`); ~6KB for 1536 dims with
     // text-embedding-3-small. Null until embedded; null also means the
     // tenant has AI disabled and we should fall back to LIKE search.
     embedding: text('embedding'),
     embeddingModel: text('embedding_model'),
     embeddedAt: text('embedded_at'),
-    // ENG-177a — optimistic-concurrency guard. Bumped on every catalog
+    // optimistic-concurrency guard. Bumped on every catalog
     // UPDATE; a stale client version raises STALE_VERSION. Mirrors
     // users.session_version. Distinct from sync_version (sync-outbox replay).
     version: integer('version').notNull().default(0),
@@ -137,7 +137,7 @@ export const products = sqliteTable(
     uniqueIndex('idx_products_variant_signature')
       .on(table.tenantId, table.variantParentId, table.variantSignature)
       .where(sql`${table.variantParentId} is not null`),
-    // ENG-176a — money invariants. Margin amounts are derived from
+    // money invariants. Margin amounts are derived from
     // (cost * margin_percent / 100), so they share the same non-negative
     // contract as cost itself; if a future feature needs a negative
     // margin (loss leader) the schema can be re-categorised then.
@@ -289,7 +289,11 @@ export const categoryXProvider = sqliteTable(
     index('idx_category_x_provider_tenant').on(table.tenantId),
     index('idx_category_x_provider_category').on(table.categoryId),
     index('idx_category_x_provider_provider').on(table.providerId),
-    uniqueIndex('idx_category_x_provider_scope').on(table.tenantId, table.categoryId, table.providerId),
+    uniqueIndex('idx_category_x_provider_scope').on(
+      table.tenantId,
+      table.categoryId,
+      table.providerId
+    ),
   ]
 );
 

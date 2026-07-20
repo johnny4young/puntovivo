@@ -42,7 +42,7 @@ interface UseCashDrawerControllerResult {
 }
 
 /**
- * ENG-062 / ENG-074b / ENG-106c3 — role-aware cash-drawer kick.
+ * /  /  — role-aware cash-drawer kick.
  *
  * The button only renders when (a) the user has a sales role
  * and (b) an active cash drawer is registered for the site; otherwise

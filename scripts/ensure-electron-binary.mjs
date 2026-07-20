@@ -9,8 +9,8 @@
 // during `pnpm install`. The package stays on disk but `dist/` and
 // `path.txt` are missing — so the next `require('electron')` throws
 //
-//     Error: Electron failed to install correctly, please delete
-//     node_modules/electron and try installing again
+// Error: Electron failed to install correctly, please delete
+// node_modules/electron and try installing again
 //
 // …and `electron-forge start` crashes at "Locating application".
 //
@@ -26,7 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
-// ENG-072 — resolve electron via Node module resolution starting from the
+// resolve electron via Node module resolution starting from the
 // desktop workspace so the script works whether npm hoists `electron` to
 // `node_modules/electron` (single-package install) or keeps it nested under
 // `apps/desktop/node_modules/electron` (workspace dedup).
@@ -70,11 +70,7 @@ function codeSignatureIssue() {
     return null;
   }
 
-  return (
-    result.stderr.trim() ||
-    result.stdout.trim() ||
-    'codesign verification failed'
-  );
+  return result.stderr.trim() || result.stdout.trim() || 'codesign verification failed';
 }
 
 function healthIssue() {
@@ -93,7 +89,7 @@ function healthIssue() {
 
 function runInstall() {
   log('running node_modules/electron/install.js to fetch the runtime');
-  // ENG-072 / Electron 42 — the `ELECTRON_SKIP_BINARY_DOWNLOAD` env var was
+  // / Electron 42 — the `ELECTRON_SKIP_BINARY_DOWNLOAD` env var was
   // removed upstream when the binary download moved out of `postinstall` and
   // became lazy on first execution. We just inherit env now.
   const result = spawnSync(process.execPath, [installJs], {
@@ -115,14 +111,10 @@ function runAdHocCodesign() {
   }
 
   log('applying local ad-hoc codesign to Electron.app');
-  const result = spawnSync(
-    'codesign',
-    ['--force', '--deep', '--sign', '-', electronApp],
-    {
-      cwd: electronDir,
-      stdio: 'inherit',
-    }
-  );
+  const result = spawnSync('codesign', ['--force', '--deep', '--sign', '-', electronApp], {
+    cwd: electronDir,
+    stdio: 'inherit',
+  });
 
   if (result.status !== 0) {
     log('codesign repair exited with a non-zero status');

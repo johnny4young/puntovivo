@@ -1,5 +1,5 @@
 /**
- * Fiscal orchestrator — legacy synchronous emit (ENG-020).
+ * Fiscal orchestrator — legacy synchronous emit ().
  *
  * `emitFiscalDocument` calls the adapter inline, then persists the document +
  * items + advances the consecutive in ONE write transaction with the
@@ -9,7 +9,15 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { companies, cashSessions, fiscalDocumentItems, fiscalDocuments, fiscalNumberingResolutions, sales, tenants } from '../../../db/schema.js';
+import {
+  companies,
+  cashSessions,
+  fiscalDocumentItems,
+  fiscalDocuments,
+  fiscalNumberingResolutions,
+  sales,
+  tenants,
+} from '../../../db/schema.js';
 import { resolveTenantLocale } from '../../tenant-locale.js';
 import type { FiscalAdapterIssueInput, FiscalAdapterLine } from '../adapter.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
@@ -17,47 +25,46 @@ import type { EmitFiscalDocumentArgs, EmitFiscalDocumentResult } from './types.j
 import { splitIssueTimestamp, isCountryFiscalEnabled, isDianEnabled } from './helpers.js';
 import { resolveBuyer, resolveLines } from './snapshots.js';
 
-
 /**
  * Emit a fiscal document for a sale-lifecycle event (legacy synchronous
  * path — the live sale lifecycle now routes through `enqueueFiscalEmission`
- * since ENG-057; this entry point is retained for adapters/tests that need
+ * since ; this entry point is retained for adapters/tests that need
  * the in-band issue + persist in a single call).
  *
  * Invariants:
  * - Idempotent by `(tenantId, source, sourceId, kind)`: a replay returns
- *   the existing row instead of issuing a second document. The check runs
- *   twice — once before the adapter call (fast path) and once again INSIDE
- *   the write transaction (`duplicate` probe at the top of `writeTx`) so a
- *   concurrent emitter that won the race is honoured rather than producing a
- *   duplicate insert.
+ * the existing row instead of issuing a second document. The check runs
+ * twice — once before the adapter call (fast path) and once again INSIDE
+ * the write transaction (`duplicate` probe at the top of `writeTx`) so a
+ * concurrent emitter that won the race is honoured rather than producing a
+ * duplicate insert.
  * - Buyer + line data are SNAPSHOT into `fiscal_documents` /
- *   `fiscal_document_items` at emission time. Editing the customer or the
- *   product later never mutates an already-emitted document — the legal
- *   record reflects the state at the instant of issue, per Resolución DIAN
- *   165/2023 (the CUFE is computed over this frozen payload).
+ * `fiscal_document_items` at emission time. Editing the customer or the
+ * product later never mutates an already-emitted document — the legal
+ * record reflects the state at the instant of issue, per Resolución DIAN
+ * 165/2023 (the CUFE is computed over this frozen payload).
  * - The numbering consecutive advances INSIDE the same write transaction as
- *   the document insert (`update(fiscalNumberingResolutions)` with a
- *   versioned WHERE on the resolution row). The post-update guard
- *   `updateResult.changes !== 1` throws `FISCAL_SEQUENTIAL_NOT_ADVANCED`
- *   (CONFLICT) when a concurrent emitter advanced the same resolution first
- *   — a TOCTOU guard that rolls the whole transaction back rather than
- *   burning a gapped/duplicated consecutive.
+ * the document insert (`update(fiscalNumberingResolutions)` with a
+ * versioned WHERE on the resolution row). The post-update guard
+ * `updateResult.changes !== 1` throws `FISCAL_SEQUENTIAL_NOT_ADVANCED`
+ * (CONFLICT) when a concurrent emitter advanced the same resolution first
+ * a TOCTOU guard that rolls the whole transaction back rather than
+ * burning a gapped/duplicated consecutive.
  *
  * Preconditions:
  * - The tenant has opted into DIAN (`fiscal_dian_enabled`) AND the country
- *   pack is enabled for `adapter.countryCode`; otherwise returns `null`.
+ * pack is enabled for `adapter.countryCode`; otherwise returns `null`.
  * - The sale exists, carries a `cashSessionId` (the site is resolved through
- *   it), has an active numbering resolution for its `(site, kind)`, and has
- *   at least one line. Any missing prerequisite returns `null` cleanly — the
- *   caller treats `null` as "no document for this sale", never an error.
+ * it), has an active numbering resolution for its `(site, kind)`, and has
+ * at least one line. Any missing prerequisite returns `null` cleanly — the
+ * caller treats `null` as "no document for this sale", never an error.
  *
  * Postconditions:
  * - On success: one `fiscal_documents` row + N `fiscal_document_items` rows
- *   committed, the resolution consecutive advanced by exactly 1, and the
- *   `{ id, cufe, documentNumber, status }` summary returned.
+ * committed, the resolution consecutive advanced by exactly 1, and the
+ * `{ id, cufe, documentNumber, status }` summary returned.
  * - On idempotent replay: the existing summary, no new rows, no consecutive
- *   advance.
+ * advance.
  * - On any prerequisite miss: `null`, no rows, no consecutive advance.
  */
 export async function emitFiscalDocument(
@@ -116,12 +123,7 @@ export async function emitFiscalDocument(
   const saleSite = await tx
     .select({ siteId: cashSessions.siteId })
     .from(cashSessions)
-    .where(
-      and(
-        eq(cashSessions.id, sale.cashSessionId),
-        eq(cashSessions.tenantId, tenantId)
-      )
-    )
+    .where(and(eq(cashSessions.id, sale.cashSessionId), eq(cashSessions.tenantId, tenantId)))
     .get();
   if (!saleSite) return null;
 
@@ -144,7 +146,7 @@ export async function emitFiscalDocument(
   const lines = await resolveLines(tx, tenantId, saleId);
   if (lines.length === 0) return null;
 
-  // ENG-035b: surface tenant settings + emisor legal name to the
+  // : surface tenant settings + emisor legal name to the
   // adapter so country packs (MX, CL) can read their pack-specific
   // settings without coupling to the DB layer.
   const tenantRow = await tx
@@ -253,7 +255,8 @@ export async function emitFiscalDocument(
       return duplicate;
     }
 
-    writeTx.insert(fiscalDocuments)
+    writeTx
+      .insert(fiscalDocuments)
       .values({
         id: fiscalDocumentId,
         tenantId,
@@ -293,7 +296,8 @@ export async function emitFiscalDocument(
       .run();
 
     for (const line of lines) {
-      writeTx.insert(fiscalDocumentItems)
+      writeTx
+        .insert(fiscalDocumentItems)
         .values({
           id: nanoid(),
           fiscalDocumentId,
@@ -313,7 +317,8 @@ export async function emitFiscalDocument(
         .run();
     }
 
-    const updateResult = writeTx.update(fiscalNumberingResolutions)
+    const updateResult = writeTx
+      .update(fiscalNumberingResolutions)
       .set({ currentNumber: consecutive, updatedAt: now })
       .where(
         and(

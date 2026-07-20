@@ -1,5 +1,5 @@
 /**
- * ENG-020 — `reports.fiscal.*` router integration tests.
+ * `reports.fiscal.*` router integration tests.
  *
  * Exercises the admin-only fiscal reports surface end-to-end against
  * an in-memory sqlite DB. Coverage:
@@ -243,7 +243,7 @@ function buildCtx(
   };
 }
 
-describe('reports.fiscal (ENG-020)', () => {
+describe('reports.fiscal', () => {
   let harnessA: Harness;
   let harnessB: Harness;
   let cufeA1: string;
@@ -269,7 +269,7 @@ describe('reports.fiscal (ENG-020)', () => {
     expect(result.total).toBe(2);
     expect(result.items.every(i => typeof i.cufe === 'string')).toBe(true);
     expect(result.items.map(i => i.cufe).sort()).toEqual([cufeA1, cufeA2].sort());
-    // ENG-185 — every CO row is labelled mock (no production transmission).
+    // every CO row is labelled mock (no production transmission).
     expect(result.items.every(i => i.maturity === 'mock')).toBe(true);
   });
 
@@ -309,7 +309,7 @@ describe('reports.fiscal (ENG-020)', () => {
     const row = await caller.reports.fiscal.getByCufe({ cufe: cufeA1 });
     expect(row.header.cufe).toBe(cufeA1);
     expect(row.header.buyerName).toBe('Customer rep-a');
-    // ENG-185 — the seeded CO documents come from the mock provider.
+    // the seeded CO documents come from the mock provider.
     expect(row.header.maturity).toBe('mock');
     expect(row.lines).toHaveLength(1);
     expect(row.lines[0]?.productName).toBe('Product rep-a');
@@ -334,14 +334,12 @@ describe('reports.fiscal (ENG-020)', () => {
   });
 
   it('rejects cashier callers with FORBIDDEN', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.userId, 'cashier')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId, 'cashier'));
     try {
       await caller.reports.fiscal.list({ limit: 10, offset: 0 });
       throw new Error('Expected FORBIDDEN');
     } catch (err) {
-      // ENG-065a: list moved from admin-only to managerOrAdmin; the
+      // : list moved from admin-only to managerOrAdmin; the
       // role-guard message now mentions "administrators and managers"
       // instead of "admin only", so we match against the role-name
       // hint plus the underlying TRPC code.
@@ -349,20 +347,18 @@ describe('reports.fiscal (ENG-020)', () => {
     }
   });
 
-  it('allows manager callers (ENG-065a Operations Center read access)', async () => {
-    // ENG-065a — managers can read fiscal_documents for the
+  it('allows manager callers ( Operations Center read access)', async () => {
+    // managers can read fiscal_documents for the
     // Operations Center Fiscal Health panel; the retry mutation
     // (`retryDocument`) stays admin-only because it advances
     // fiscal state.
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.userId, 'manager')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId, 'manager'));
     const result = await caller.reports.fiscal.list({ limit: 10, offset: 0 });
     expect(Array.isArray(result.items)).toBe(true);
     expect(typeof result.total).toBe('number');
   });
 
-  // ENG-103 — Audit-grade export and download contract.
+  // Audit-grade export and download contract.
   // `reports.fiscal.getXml` lazily returns the signed XML body for a
   // single fiscal document, wrapped in the canonical
   // `ServerExportEnvelope` shape `{ data, filename, mimeType }`. The
@@ -370,7 +366,7 @@ describe('reports.fiscal (ENG-020)', () => {
   // generic error code, and emits a `fiscal.xml.downloaded` audit row
   // so the trail is intact even when the download itself is dropped
   // mid-transit.
-  describe('getXml (ENG-103)', () => {
+  describe('getXml', () => {
     /**
      * Helper: seed an `xmlRef` value onto the freshest document
      * emitted for the given harness. The Colombia mock adapter
@@ -398,12 +394,7 @@ describe('reports.fiscal (ENG-020)', () => {
       if (!row) throw new Error('Expected at least one fiscal document');
       db.update(fiscalDocuments)
         .set({ xmlRef: args.xml, localeCode: args.localeCode ?? 'es-CO' })
-        .where(
-          and(
-            eq(fiscalDocuments.tenantId, args.tenantId),
-            eq(fiscalDocuments.id, row.id)
-          )
-        )
+        .where(and(eq(fiscalDocuments.tenantId, args.tenantId), eq(fiscalDocuments.id, row.id)))
         .run();
       return { documentId: row.id, xml: args.xml, documentNumber: row.documentNumber };
     }
@@ -475,10 +466,7 @@ describe('reports.fiscal (ENG-020)', () => {
         .where(eq(fiscalDocuments.tenantId, harnessA.tenantId))
         .get();
       if (!row) throw new Error('Expected a fiscal document');
-      db.update(fiscalDocuments)
-        .set({ xmlRef: null })
-        .where(eq(fiscalDocuments.id, row.id))
-        .run();
+      db.update(fiscalDocuments).set({ xmlRef: null }).where(eq(fiscalDocuments.id, row.id)).run();
       const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId));
       try {
         await caller.reports.fiscal.getXml({ documentId: row.id });

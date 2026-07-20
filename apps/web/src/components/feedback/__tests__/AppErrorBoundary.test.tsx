@@ -43,7 +43,7 @@ describe('AppErrorBoundary', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('routes render-tree errors through captureRenderError (ENG-135)', () => {
+  it('routes render-tree errors through captureRenderError', () => {
     const captureSpy = vi.fn();
     registerRenderTelemetrySink({ captureRenderError: captureSpy });
 
@@ -63,7 +63,9 @@ describe('AppErrorBoundary', () => {
     const [err, context] = captureSpy.mock.calls[0]!;
     expect((err as Error).message).toBe('boom render');
     expect(context).toMatchObject({ source: 'render' });
-    expect(typeof context.componentStack === 'string' || context.componentStack === null).toBe(true);
+    expect(typeof context.componentStack === 'string' || context.componentStack === null).toBe(
+      true
+    );
     consoleErrorSpy.mockRestore();
   });
 });

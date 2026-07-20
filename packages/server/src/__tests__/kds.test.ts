@@ -1,11 +1,11 @@
 /**
- * ENG-098 — Kitchen Display System tests.
+ * Kitchen Display System tests.
  *
  * Coverage:
  * - Enqueue lifecycle (suspend → KDS row, suspend idempotency, complete
- *   without prior suspend, regular POS sale skipped, module gate skip).
+ * without prior suspend, regular POS sale skipped, module gate skip).
  * - Refresh lifecycle (changeTable rewrites label; splitDraft refreshes
- *   source + enqueues new card).
+ * source + enqueues new card).
  * - Remove lifecycle (discardDraft + voidSale delete the card).
  * - Router `list` site scope + ready TTL eviction.
  * - Router `markReady` transition + idempotency + audit emission.
@@ -113,9 +113,7 @@ async function disableKdsModule(forTenantId: string): Promise<void> {
 }
 
 async function openSession(userId: string, role: 'admin' | 'cashier') {
-  const caller = appRouter.createCaller(
-    createContext(userId, role, tenantId, primarySiteId)
-  );
+  const caller = appRouter.createCaller(createContext(userId, role, tenantId, primarySiteId));
   const session = await caller.cashSessions.open({
     registerName: `Register ${userId.slice(0, 6)}-${nanoid(4)}`,
     openingFloat: 100,
@@ -154,11 +152,7 @@ beforeAll(async () => {
   const db = getDatabase();
   const now = new Date().toISOString();
 
-  const seededAdmin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededAdmin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededAdmin) throw new Error('Expected seeded admin user');
   tenantId = seededAdmin.tenantId;
   adminId = seededAdmin.id;
@@ -328,7 +322,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('KDS — enqueue lifecycle (ENG-098)', () => {
+describe('KDS — enqueue lifecycle', () => {
   it('suspending a draft with a tableId creates exactly one kds_orders row', async () => {
     const saleId = await createDraftAtTable(mesa1Id);
     const cashierCaller = appRouter.createCaller(
@@ -410,7 +404,7 @@ describe('KDS — enqueue lifecycle (ENG-098)', () => {
   });
 });
 
-describe('KDS — refresh lifecycle (ENG-098)', () => {
+describe('KDS — refresh lifecycle', () => {
   it('changeTable rewrites the table label on the existing KDS row', async () => {
     const saleId = await createDraftAtTable(mesa1Id);
     const cashierCaller = appRouter.createCaller(
@@ -465,7 +459,7 @@ describe('KDS — refresh lifecycle (ENG-098)', () => {
   });
 });
 
-describe('KDS — remove lifecycle (ENG-098)', () => {
+describe('KDS — remove lifecycle', () => {
   it('discardDraft removes the KDS row', async () => {
     const saleId = await createDraftAtTable(mesa1Id);
     const cashierCaller = appRouter.createCaller(
@@ -484,7 +478,7 @@ describe('KDS — remove lifecycle (ENG-098)', () => {
   });
 });
 
-describe('KDS router — list (ENG-098)', () => {
+describe('KDS router — list', () => {
   it('list returns pending cards scoped by site, hydrating table label live', async () => {
     const saleId = await createDraftAtTable(mesa1Id);
     const cashierCaller = appRouter.createCaller(
@@ -519,7 +513,7 @@ describe('KDS router — list (ENG-098)', () => {
   });
 });
 
-describe('KDS router — markReady (ENG-098)', () => {
+describe('KDS router — markReady', () => {
   it('markReady transitions pending → ready and writes audit row', async () => {
     const saleId = await createDraftAtTable(mesa1Id);
     const cashierCaller = appRouter.createCaller(
@@ -607,7 +601,7 @@ describe('KDS router — markReady (ENG-098)', () => {
   });
 });
 
-describe('KDS router — recall (ENG-098)', () => {
+describe('KDS router — recall', () => {
   it('recall transitions ready → pending and writes audit row', async () => {
     const saleId = await createDraftAtTable(mesa1Id);
     const cashierCaller = appRouter.createCaller(
@@ -659,7 +653,7 @@ describe('KDS router — recall (ENG-098)', () => {
   });
 });
 
-describe('KDS router — module gate (ENG-098)', () => {
+describe('KDS router — module gate', () => {
   it('list refused when kds module is off', async () => {
     await disableKdsModule(tenantId);
     const cashierCaller = appRouter.createCaller(

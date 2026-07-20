@@ -6,7 +6,7 @@ export const MAX_LIST_DAYS = 31;
 export const MAX_SHIFT_DURATION_MS = 24 * 60 * 60_000;
 export const BROAD_QUERY_MARGIN_MS = 36 * 60 * 60_000;
 
-/** ENG-140a — admins may target every labor role; managers never target admins. */
+/** admins may target every labor role; managers never target admins. */
 export function managerCanTarget(actorRole: UserRole, targetRole: UserRole): boolean {
   if (actorRole === 'admin') {
     return SCHEDULE_ROLES.includes(targetRole as (typeof SCHEDULE_ROLES)[number]);

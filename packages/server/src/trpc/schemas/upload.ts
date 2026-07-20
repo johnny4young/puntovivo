@@ -1,7 +1,7 @@
 /**
  * Upload tRPC schemas.
  *
- * Sprint-1 invoice OCR uses a two-step contract: upload the document
+ * Initial invoice OCR uses a two-step contract: upload the document
  * first, then pass the opaque `uploadId` to the AI router. This keeps
  * OCR providers from seeing tenant/user metadata and lets cloud
  * deployments swap local SQLite storage for S3 later.

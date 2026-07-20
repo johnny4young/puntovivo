@@ -1,14 +1,14 @@
 /**
- * ENG-056 — Invariant tests for `application/cash-sessions/recordCashMovement`.
+ * Invariant tests for `application/cash-sessions/recordCashMovement`.
  *
  * Verifies:
- *   - Movement insertion routes through `insertCashMovement` (no
- *     duplicate INSERT path), so `expectedBalance` updates correctly.
- *   - Signed-amount math: paid_in / replenishment add; paid_out / skim
- *     subtract.
- *   - Audit log row + journal effects emitted symmetrically with
- *     openCashSession / closeCashSession.
- *   - Cross-tenant isolation.
+ * - Movement insertion routes through `insertCashMovement` (no
+ * duplicate INSERT path), so `expectedBalance` updates correctly.
+ * - Signed-amount math: paid_in / replenishment add; paid_out / skim
+ * subtract.
+ * - Audit log row + journal effects emitted symmetrically with
+ * openCashSession / closeCashSession.
+ * - Cross-tenant isolation.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -56,11 +56,7 @@ function buildContext(overrides: Partial<CashSessionContext> = {}): CashSessionC
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -194,19 +190,17 @@ describe('recordCashMovement', () => {
       userId,
       requestHash: 'hash-' + operationId,
     });
-    const result = await recordCashMovement(
-      buildContext({ envelope: { operationId } }),
-      { type: 'paid_in', amount: 3, note: 'Envelope-tagged inflow' }
-    );
+    const result = await recordCashMovement(buildContext({ envelope: { operationId } }), {
+      type: 'paid_in',
+      amount: 3,
+      note: 'Envelope-tagged inflow',
+    });
     expect(result.journalEventId).toBeTruthy();
     const event = await db
       .select()
       .from(operationEvents)
       .where(
-        and(
-          eq(operationEvents.tenantId, tenantId),
-          eq(operationEvents.operationId, operationId)
-        )
+        and(eq(operationEvents.tenantId, tenantId), eq(operationEvents.operationId, operationId))
       )
       .get();
     expect(event).toBeTruthy();
@@ -237,10 +231,11 @@ describe('recordCashMovement', () => {
       updatedAt: now,
     });
     await expect(
-      recordCashMovement(
-        buildContext({ user: { id: otherUserId, role: 'cashier' } }),
-        { type: 'paid_in', amount: 5, note: 'no-session test' }
-      )
+      recordCashMovement(buildContext({ user: { id: otherUserId, role: 'cashier' } }), {
+        type: 'paid_in',
+        amount: 5,
+        note: 'no-session test',
+      })
     ).rejects.toMatchObject({ cause: { errorCode: 'CASH_SESSION_REQUIRED' } });
   });
 
@@ -296,7 +291,11 @@ describe('recordCashMovement', () => {
       updatedAt: now,
     });
     await openCashSession(
-      buildContext({ tenantId: otherTenantId, siteId: otherSiteId, user: { id: otherUserId, role: 'admin' } }),
+      buildContext({
+        tenantId: otherTenantId,
+        siteId: otherSiteId,
+        user: { id: otherUserId, role: 'admin' },
+      }),
       {
         registerName: 'iso-register',
         openingFloat: 0,
@@ -304,7 +303,11 @@ describe('recordCashMovement', () => {
       }
     );
     await recordCashMovement(
-      buildContext({ tenantId: otherTenantId, siteId: otherSiteId, user: { id: otherUserId, role: 'admin' } }),
+      buildContext({
+        tenantId: otherTenantId,
+        siteId: otherSiteId,
+        user: { id: otherUserId, role: 'admin' },
+      }),
       { type: 'paid_in', amount: 9, note: 'tenant B paid in' }
     );
     const tenantAMovements = await db

@@ -1,12 +1,11 @@
 /**
- * ENG-030 — Provider-agnostic AI completion pipeline.
+ * Provider-agnostic AI completion pipeline.
  *
  * Reads tenant settings → enforces enabled / budget gates → calls the
  * configured provider → records cost + tokens to `ai_audit_log`.
  *
- * The renderer never invokes this module directly; the tRPC layer
- * (`ai.completeTest` in this ticket; `ai.copilot.chat` in ENG-031;
- * `ai.embedProducts` in ENG-033) is the single entry point.
+ * The renderer never invokes this module directly; the tRPC layer is
+ * the single entry point for connection tests, copilot, and embeddings.
  *
  * @module services/ai/client
  */
@@ -19,7 +18,7 @@ import { tenants } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 
 import { currentMonthSpend, recordCall } from './auditLog.js';
-import { getProvider, isNotImplemented } from './providers/registry.js';
+import { getProvider } from './providers/registry.js';
 import type { AIProvider, TokenUsage } from './providers/types.js';
 import type { AICompletionInput, AICompletionResult, AISettings } from './types.js';
 import { DEFAULT_AI_FEATURE_FLAGS, DEFAULT_AI_SETTINGS } from './types.js';
@@ -55,9 +54,7 @@ export async function resolveAISettings(
         ? ai.monthlyBudgetUsd
         : DEFAULT_AI_SETTINGS.monthlyBudgetUsd,
     providerId:
-      ai.providerId === 'anthropic' ||
-      ai.providerId === 'openai' ||
-      ai.providerId === 'ollama'
+      ai.providerId === 'anthropic' || ai.providerId === 'openai' || ai.providerId === 'ollama'
         ? ai.providerId
         : DEFAULT_AI_SETTINGS.providerId,
     modelId: typeof ai.modelId === 'string' && ai.modelId.length > 0 ? ai.modelId : null,
@@ -119,7 +116,7 @@ function mergePatchFeatures(
 ): AIFeatureFlags {
   const base = current ?? DEFAULT_AI_FEATURE_FLAGS;
   if (!patch) return base;
-  // ENG-179b — patch fields are `T | undefined` under
+  // patch fields are `T | undefined` under
   // `exactOptionalPropertyTypes`; `stripUndefined` drops the
   // explicit-undefined keys so the spread merges only defined values
   // (matching the historical pre-flag runtime behavior).
@@ -141,14 +138,27 @@ function mergePatchFeatures(
   // assertion captures that runtime invariant for the type-checker.
   return {
     copilot: { ...base.copilot, ...stripUndefined(patch.copilot) } as AIFeatureFlags['copilot'],
-    anomalies: { ...base.anomalies, ...stripUndefined(patch.anomalies) } as AIFeatureFlags['anomalies'],
-    semanticSearch: { ...base.semanticSearch, ...stripUndefined(patch.semanticSearch) } as AIFeatureFlags['semanticSearch'],
-    invoiceOcr: { ...base.invoiceOcr, ...stripUndefined(patch.invoiceOcr) } as AIFeatureFlags['invoiceOcr'],
-    privacy: { ...base.privacy, ...stripUndefined(patch.privacy), piiRedaction: true } as AIFeatureFlags['privacy'],
+    anomalies: {
+      ...base.anomalies,
+      ...stripUndefined(patch.anomalies),
+    } as AIFeatureFlags['anomalies'],
+    semanticSearch: {
+      ...base.semanticSearch,
+      ...stripUndefined(patch.semanticSearch),
+    } as AIFeatureFlags['semanticSearch'],
+    invoiceOcr: {
+      ...base.invoiceOcr,
+      ...stripUndefined(patch.invoiceOcr),
+    } as AIFeatureFlags['invoiceOcr'],
+    privacy: {
+      ...base.privacy,
+      ...stripUndefined(patch.privacy),
+      piiRedaction: true,
+    } as AIFeatureFlags['privacy'],
   };
 }
 
-// ENG-179b — explicit `| undefined` on every optional field, including
+// explicit `| undefined` on every optional field, including
 // inside the nested feature partials, so Zod-decoded payloads (which
 // carry explicit-undefined fields) assign under
 // `exactOptionalPropertyTypes`. Plain `Partial<T>` makes fields
@@ -173,7 +183,7 @@ type PartialAIFeatureFlags = {
  * sends the leaves that the operator touched. `mergePatchFeatures`
  * merges shallowly while preserving the rest of the resolved shape.
  */
-// ENG-179b — explicit `| undefined` on each optional field so the
+// explicit `| undefined` on each optional field so the
 // tRPC router can forward Zod-optional fields (which decode to
 // `T | null | undefined` for `.nullable().optional()` schemas).
 export type WriteAISettingsPatch = {
@@ -193,11 +203,8 @@ export async function writeAISettings(
   const next: AISettings = {
     enabled: patch.enabled ?? current.enabled,
     monthlyBudgetUsd:
-      patch.monthlyBudgetUsd !== undefined
-        ? patch.monthlyBudgetUsd
-        : current.monthlyBudgetUsd,
-    providerId:
-      patch.providerId !== undefined ? patch.providerId : current.providerId,
+      patch.monthlyBudgetUsd !== undefined ? patch.monthlyBudgetUsd : current.monthlyBudgetUsd,
+    providerId: patch.providerId !== undefined ? patch.providerId : current.providerId,
     modelId: patch.modelId !== undefined ? patch.modelId : current.modelId,
     features: mergePatchFeatures(current.features, patch.features),
   };
@@ -223,19 +230,9 @@ export async function writeAISettings(
  */
 export type ProviderFactory = (id: AISettings['providerId']) => AIProvider;
 
-const defaultFactory: ProviderFactory = id => {
-  const provider = getProvider(id);
-  if (isNotImplemented(provider)) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'AI_PROVIDER_ERROR',
-      message: `${provider.id} provider lands with ${provider.availableInTicket}`,
-    });
-  }
-  return provider;
-};
+const defaultFactory: ProviderFactory = id => getProvider(id);
 
-// ENG-179b — explicit `| undefined` on all optionals so the Vercel AI
+// explicit `| undefined` on all optionals so the Vercel AI
 // SDK's `LanguageModelUsage` shape (which carries explicit-undefined
 // fields) assigns cleanly under `exactOptionalPropertyTypes`.
 interface UsageForPricing {
@@ -326,9 +323,7 @@ export async function completeAI(
       model: provider.languageModel(modelId),
       ...(input.system !== undefined ? { instructions: input.system } : {}),
       prompt: input.prompt,
-      ...(input.maxOutputTokens !== undefined
-        ? { maxOutputTokens: input.maxOutputTokens }
-        : {}),
+      ...(input.maxOutputTokens !== undefined ? { maxOutputTokens: input.maxOutputTokens } : {}),
       ...(providerOptions !== undefined
         ? { providerOptions: providerOptions as ProviderOptions }
         : {}),
@@ -338,10 +333,7 @@ export async function completeAI(
     const outputTokens = result.usage.outputTokens ?? 0;
     const cacheReadTokens = result.usage.inputTokenDetails?.cacheReadTokens ?? 0;
     const cacheWriteTokens = result.usage.inputTokenDetails?.cacheWriteTokens ?? 0;
-    const costUsd = provider.pricing.calculateCostUsd(
-      modelId,
-      toBillableTokenUsage(result.usage)
-    );
+    const costUsd = provider.pricing.calculateCostUsd(modelId, toBillableTokenUsage(result.usage));
     const durationMs = Date.now() - startedAt;
 
     const { id: auditLogId } = await recordCall(ctx.db, {
@@ -394,8 +386,7 @@ export async function completeAI(
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message:
-        error instanceof Error ? error.message : 'AI provider call failed',
+      message: error instanceof Error ? error.message : 'AI provider call failed',
       details: { cause: String(error) },
     });
   }

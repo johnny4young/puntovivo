@@ -1,15 +1,15 @@
 /**
- * ENG-068 — Module manifest regression tests.
+ * Module manifest regression tests.
  *
  * Pins the contract every kernel consumer relies on:
  *
- *   - `MODULE_IDS` + `MODULES_MANIFEST` stay exhaustively keyed.
- *   - `resolveModulesState` is defensive in three directions:
- *     missing / null input → defaults; unknown keys → dropped;
- *     non-boolean values → ignored.
- *   - `isModuleId` rejects garbage at the runtime boundary.
- *   - `visibleDescriptors` scopes the admin tab by role.
- *   - `buildModulesBlob` round-trips partial state into a complete map.
+ * - `MODULE_IDS` + `MODULES_MANIFEST` stay exhaustively keyed.
+ * - `resolveModulesState` is defensive in three directions:
+ * missing / null input → defaults; unknown keys → dropped;
+ * non-boolean values → ignored.
+ * - `isModuleId` rejects garbage at the runtime boundary.
+ * - `visibleDescriptors` scopes the admin tab by role.
+ * - `buildModulesBlob` round-trips partial state into a complete map.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -25,7 +25,7 @@ import {
   type ModuleId,
 } from '../services/modules/manifest.js';
 
-describe('module manifest exhaustiveness (ENG-068)', () => {
+describe('module manifest exhaustiveness', () => {
   it('every MODULE_IDS entry has a matching descriptor', () => {
     for (const id of MODULE_IDS) {
       expect(MODULES_MANIFEST[id]).toBeDefined();
@@ -49,12 +49,12 @@ describe('module manifest exhaustiveness (ENG-068)', () => {
     expect(MODULES_SCHEMA_VERSION).toBeGreaterThanOrEqual(1);
   });
 
-  it('locks the v1 + ENG-069 surfaces + ENG-070 events + ENG-091 delivery module set so deletions trigger CI failure', () => {
+  it('locks the v1 +  surfaces +  events +  delivery module set so deletions trigger CI failure', () => {
     // Pin the count so a silent removal of a module from the list
     // is caught by the regression test before it lands. The 5 demo
-    // modules from ENG-068 default ON; the 4 surface modules from
-    // ENG-069 default OFF; the events-api module from ENG-070 also
-    // default OFF; the delivery module from ENG-091 also defaults
+    // modules from  default ON; the 4 surface modules from
+    // default OFF; the events-api module from  also
+    // default OFF; the delivery module from  also defaults
     // OFF (each new surface or integration is opt-in per tenant).
     expect(MODULE_IDS.length).toBe(11);
     expect(MODULE_IDS).toEqual([
@@ -72,13 +72,9 @@ describe('module manifest exhaustiveness (ENG-068)', () => {
     ]);
   });
 
-  it('ENG-068 demo modules default ON; ENG-069 surfaces + ENG-070 events + ENG-091 delivery default OFF', () => {
-    const onByDefault = MODULE_IDS.filter(
-      id => MODULES_MANIFEST[id].defaultEnabled === true
-    );
-    const offByDefault = MODULE_IDS.filter(
-      id => MODULES_MANIFEST[id].defaultEnabled === false
-    );
+  it(' demo modules default ON;  surfaces +  events +  delivery default OFF', () => {
+    const onByDefault = MODULE_IDS.filter(id => MODULES_MANIFEST[id].defaultEnabled === true);
+    const offByDefault = MODULE_IDS.filter(id => MODULES_MANIFEST[id].defaultEnabled === false);
     expect(onByDefault).toEqual([
       'copilot',
       'operations-center',
@@ -97,7 +93,7 @@ describe('module manifest exhaustiveness (ENG-068)', () => {
   });
 });
 
-describe('isModuleId (ENG-068)', () => {
+describe('isModuleId', () => {
   it('returns true for every known id', () => {
     for (const id of MODULE_IDS) {
       expect(isModuleId(id)).toBe(true);
@@ -118,7 +114,7 @@ describe('isModuleId (ENG-068)', () => {
   });
 });
 
-describe('resolveModulesState (ENG-068)', () => {
+describe('resolveModulesState', () => {
   it('returns every module at its default state when raw is null', () => {
     const state = resolveModulesState(null);
     for (const id of MODULE_IDS) {
@@ -170,9 +166,7 @@ describe('resolveModulesState (ENG-068)', () => {
       quotations: null, // null instead of bool
     });
     expect(state.copilot).toBe(MODULES_MANIFEST.copilot.defaultEnabled);
-    expect(state['operations-center']).toBe(
-      MODULES_MANIFEST['operations-center'].defaultEnabled
-    );
+    expect(state['operations-center']).toBe(MODULES_MANIFEST['operations-center'].defaultEnabled);
     expect(state.quotations).toBe(MODULES_MANIFEST.quotations.defaultEnabled);
   });
 
@@ -191,7 +185,7 @@ describe('resolveModulesState (ENG-068)', () => {
   });
 });
 
-describe('visibleDescriptors (ENG-068)', () => {
+describe('visibleDescriptors', () => {
   it('admin sees every admin-visible module', () => {
     const visible = visibleDescriptors('admin').map(d => d.id);
     // Today every demo module is admin-only.
@@ -214,13 +208,11 @@ describe('visibleDescriptors (ENG-068)', () => {
   });
 });
 
-describe('buildModulesBlob (ENG-068)', () => {
+describe('buildModulesBlob', () => {
   it('fills missing keys with defaults', () => {
     const blob = buildModulesBlob({ copilot: false });
     expect(blob.copilot).toBe(false);
-    expect(blob['operations-center']).toBe(
-      MODULES_MANIFEST['operations-center'].defaultEnabled
-    );
+    expect(blob['operations-center']).toBe(MODULES_MANIFEST['operations-center'].defaultEnabled);
     expect(Object.keys(blob).sort()).toEqual([...MODULE_IDS].sort());
   });
 
@@ -246,7 +238,7 @@ describe('buildModulesBlob (ENG-068)', () => {
   });
 });
 
-describe('isModuleActiveInSettings (ENG-070)', () => {
+describe('isModuleActiveInSettings', () => {
   it('returns the manifest default for null / undefined settings', () => {
     expect(isModuleActiveInSettings(null, 'events-api')).toBe(false);
     expect(isModuleActiveInSettings(undefined, 'events-api')).toBe(false);
@@ -254,27 +246,15 @@ describe('isModuleActiveInSettings (ENG-070)', () => {
   });
 
   it('returns the explicit boolean when the blob carries one', () => {
-    expect(
-      isModuleActiveInSettings(
-        { modules: { 'events-api': true } },
-        'events-api'
-      )
-    ).toBe(true);
-    expect(
-      isModuleActiveInSettings(
-        { modules: { 'events-api': false } },
-        'events-api'
-      )
-    ).toBe(false);
+    expect(isModuleActiveInSettings({ modules: { 'events-api': true } }, 'events-api')).toBe(true);
+    expect(isModuleActiveInSettings({ modules: { 'events-api': false } }, 'events-api')).toBe(
+      false
+    );
   });
 
   it('falls back to default when modules key is missing or non-object', () => {
-    expect(
-      isModuleActiveInSettings({ otherKey: 1 }, 'events-api')
-    ).toBe(false);
-    expect(
-      isModuleActiveInSettings({ modules: 'oops' }, 'events-api')
-    ).toBe(false);
+    expect(isModuleActiveInSettings({ otherKey: 1 }, 'events-api')).toBe(false);
+    expect(isModuleActiveInSettings({ modules: 'oops' }, 'events-api')).toBe(false);
   });
 
   it('falls back to default when the module entry is non-boolean', () => {

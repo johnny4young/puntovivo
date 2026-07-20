@@ -55,7 +55,7 @@ export function FormField<TFieldValues extends FieldValues = FieldValues>({
           )}
 
           {isValidElement(children)
-            ? // BUG-002 — OMIT `label` from the cloned props instead of
+            ? // Omit `label` from the cloned props instead of
               // passing `label: undefined`. Under exactOptionalPropertyTypes
               // an explicit `undefined` is NOT assignable to an optional
               // `label?: string` prop on the child; the previous code hid that

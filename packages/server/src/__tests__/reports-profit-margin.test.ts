@@ -1,13 +1,13 @@
 /**
- * ENG-190 — reports.profit.margin (margin / COGS over the sale_item_lots ledger).
+ * reports.profit.margin (margin / COGS over the sale_item_lots ledger).
  *
  * Verifies the correctness invariants that make the report trustworthy:
- *   - COGS for a lot-tracked line comes from `sale_item_lots` (the real
- *     per-lot cost), NOT the `cost_at_sale` snapshot.
- *   - COGS for a non-lot line comes from `cost_at_sale × normalized quantity`.
- *   - Refunded (paymentStatus='refunded', still status='completed'), voided,
- *     draft, and out-of-range sales are excluded.
- *   - Tenant isolation and the manager/admin role gate.
+ * - COGS for a lot-tracked line comes from `sale_item_lots` (the real
+ * per-lot cost), NOT the `cost_at_sale` snapshot.
+ * - COGS for a non-lot line comes from `cost_at_sale × normalized quantity`.
+ * - Refunded (paymentStatus='refunded', still status='completed'), voided,
+ * draft, and out-of-range sales are excluded.
+ * - Tenant isolation and the manager/admin role gate.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -409,77 +409,67 @@ describe('reports.profit.margin', () => {
     const tenantB = `pm-tenant-b-${nanoid(6)}`;
     const userB = nanoid();
     const productB = nanoid();
-    await db
-      .insert(tenants)
-      .values({
-        id: tenantB,
-        name: 'PM Tenant B',
-        slug: `pm-b-${nanoid(6)}`,
-        settings: {},
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-    await db
-      .insert(users)
-      .values({
-        id: userB,
-        tenantId: tenantB,
-        email: `b-${nanoid(6)}@example.com`,
-        passwordHash: 'x',
-        name: 'B Admin',
-        role: 'admin',
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
-      });
+    await db.insert(tenants).values({
+      id: tenantB,
+      name: 'PM Tenant B',
+      slug: `pm-b-${nanoid(6)}`,
+      settings: {},
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(users).values({
+      id: userB,
+      tenantId: tenantB,
+      email: `b-${nanoid(6)}@example.com`,
+      passwordHash: 'x',
+      name: 'B Admin',
+      role: 'admin',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
     const sessionB = await seedCommittedSaleSession({ tenantId: tenantB, cashierId: userB });
-    await db
-      .insert(products)
-      .values({
-        id: productB,
-        tenantId: tenantB,
-        name: 'B Product',
-        sku: 'B-1',
-        price: 100,
-        cost: 1,
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
-      });
+    await db.insert(products).values({
+      id: productB,
+      tenantId: tenantB,
+      name: 'B Product',
+      sku: 'B-1',
+      price: 100,
+      cost: 1,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
     const saleB = nanoid();
-    await db
-      .insert(sales)
-      .values({
-        id: saleB,
-        tenantId: tenantB,
-        saleNumber: 'B-1',
-        subtotal: 99999,
-        taxAmount: 0,
-        discountAmount: 0,
-        total: 99999,
-        paymentMethod: 'cash',
-        paymentStatus: 'paid',
-        status: 'completed',
-        cashSessionId: sessionB,
-        createdBy: userB,
-        createdAt: now,
-        updatedAt: now,
-      });
-    await db
-      .insert(saleItems)
-      .values({
-        id: nanoid(),
-        saleId: saleB,
-        productId: productB,
-        quantity: 1000,
-        unitPrice: 100,
-        discount: 0,
-        taxRate: 0,
-        taxAmount: 0,
-        costAtSale: 1,
-        total: 99999,
-      });
+    await db.insert(sales).values({
+      id: saleB,
+      tenantId: tenantB,
+      saleNumber: 'B-1',
+      subtotal: 99999,
+      taxAmount: 0,
+      discountAmount: 0,
+      total: 99999,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      cashSessionId: sessionB,
+      createdBy: userB,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(saleItems).values({
+      id: nanoid(),
+      saleId: saleB,
+      productId: productB,
+      quantity: 1000,
+      unitPrice: 100,
+      discount: 0,
+      taxRate: 0,
+      taxAmount: 0,
+      costAtSale: 1,
+      total: 99999,
+    });
 
     // Tenant A's report is unchanged; tenant B's own report sees only its sale.
     const reportA = computeProfitMarginReport(db, {

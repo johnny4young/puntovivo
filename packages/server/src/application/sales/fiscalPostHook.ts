@@ -1,15 +1,15 @@
 /**
- * ENG-178 — Post-commit best-effort external hooks for the `completeSale`
+ * Post-commit best-effort external hooks for the `completeSale`
  * use-case, extracted from the former monolithic `completeSale.ts`.
  *
  * Both hooks run AFTER the sale transaction has already committed and
  * NEVER roll the sale back:
  *
- * - `emitSaleFiscalDocument` — ENG-020 DIAN DEE emission via
- *   `safelyEmitFiscalDocument` (itself best-effort / outbox-backed).
- * - `enqueueSaleKdsOrder` (+ `buildKdsHookContextFromAppCtx`) — ENG-098
- *   kitchen-display enqueue, idempotent against the suspend → complete
- *   progression.
+ * - `emitSaleFiscalDocument` —  DIAN DEE emission via
+ * `safelyEmitFiscalDocument` (itself best-effort / outbox-backed).
+ * - `enqueueSaleKdsOrder` (+ `buildKdsHookContextFromAppCtx`) —
+ * kitchen-display enqueue, idempotent against the suspend → complete
+ * progression.
  *
  * The fresh-vs-draft differences (the fresh-only `status === 'completed'`
  * gate, the saleId / tableId source) are carried as parameters so each
@@ -25,7 +25,7 @@ import type { KdsHookContext } from '../../services/kds/types.js';
 import type { CompleteSaleContext, CompleteSaleLogger } from './types.js';
 
 /**
- * ENG-020 — emit the DIAN DEE for a completed sale. Runs post-tx,
+ * emit the DIAN DEE for a completed sale. Runs post-tx,
  * best-effort: a fiscal failure never rolls the sale back. Returns the
  * emitted `fiscal_documents` row id (for the journal `fiscal_emit`
  * effect) or null.
@@ -60,7 +60,7 @@ export async function emitSaleFiscalDocument(args: {
 }
 
 /**
- * ENG-098 — adapt the application-layer context shape to the KDS
+ * adapt the application-layer context shape to the KDS
  * hook helper input. `siteId` is widened to `string | null` here
  * because the application context types it as `string` (defaulting
  * to ''); the helper short-circuits on falsy site ids.
@@ -77,7 +77,7 @@ export function buildKdsHookContextFromAppCtx(ctx: CompleteSaleContext): KdsHook
 }
 
 /**
- * ENG-098 — push to the kitchen display when the sale carries a
+ * push to the kitchen display when the sale carries a
  * tableId. Idempotent against the suspend → complete progression via
  * UNIQUE(tenant_id, sale_id, station); a second fire is a no-op at the
  * DB layer. `tableId` is sourced per-path (fresh: `input.tableId`;

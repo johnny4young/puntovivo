@@ -29,7 +29,7 @@ function serializedSelection(): ProductSearchSelection {
   };
 }
 
-describe('InventoryEntryModal (ENG-110a)', () => {
+describe('InventoryEntryModal', () => {
   it('collects lot evidence instead of showing the aggregate count mode', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(

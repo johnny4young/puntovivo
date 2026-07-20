@@ -1,19 +1,19 @@
 /**
- * ENG-105f — Scanner-focus restoration for the SalesPage cashier flow.
+ * Scanner-focus restoration for the SalesPage cashier flow.
  *
  * Keeps the page-level product search input as the focus target so a
  * USB HID barcode scanner always lands keystrokes on the right field
  * across the typical cashier-flow events:
  *
  * - Initial /sales mount — focus the search input so the first scan
- *   works without a click.
+ * works without a click.
  * - ProductSearchDialog open → close (with or without selection).
  * - SalePaymentModal open → close (success completing a sale or
- *   user-driven cancel).
+ * user-driven cancel).
  * - QuickCreateProductGate mount → unmount (after creating or
- *   canceling a quick-create product).
+ * canceling a quick-create product).
  * - QuickCreateCustomerGate mount → unmount (after creating or
- *   canceling a quick-create customer).
+ * canceling a quick-create customer).
  *
  * The restoration is invisible — no toast, no visible indicator. The
  * `useBarcodeWedgeListener` guards against editable inputs (qty,

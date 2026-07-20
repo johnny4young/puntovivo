@@ -1,5 +1,5 @@
 /**
- * ENG-038 slice 2 — `paymentSettings.*` integration tests.
+ * slice 2 — `paymentSettings.*` integration tests.
  *
  * Drives the admin router via `createCaller` against an in-memory
  * server. Confirms tenant-scoped storage under
@@ -127,12 +127,10 @@ beforeEach(async () => {
   // randomized per test.
 });
 
-describe('paymentSettings.getAll (ENG-038 slice 2)', () => {
+describe('paymentSettings.getAll ( slice 2)', () => {
   it('returns a row per manifest rail with empty credentials and missing-field issues for a fresh tenant', async () => {
     const { tenantId, adminId } = await seedTenant('fresh');
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     const result = await caller.paymentSettings.getAll();
     expect(result.rails).toHaveLength(6);
     for (const rail of result.rails) {
@@ -179,12 +177,10 @@ describe('paymentSettings.getAll (ENG-038 slice 2)', () => {
   });
 });
 
-describe('paymentSettings.updateRail (ENG-038 slice 2)', () => {
+describe('paymentSettings.updateRail ( slice 2)', () => {
   it('persists credentials, masks sensitive values and flips readiness to ok', async () => {
     const { tenantId, adminId } = await seedTenant('save');
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
 
     const response = await caller.paymentSettings.updateRail({
       railId: 'wompi',
@@ -221,17 +217,17 @@ describe('paymentSettings.updateRail (ENG-038 slice 2)', () => {
       .get();
     const settings = stored?.settings as Record<string, unknown>;
     const payments = settings.payments as Record<string, unknown>;
-    const wompiCreds = (payments.wompi as Record<string, unknown>)
-      .credentials as Record<string, string>;
+    const wompiCreds = (payments.wompi as Record<string, unknown>).credentials as Record<
+      string,
+      string
+    >;
     expect(wompiCreds.publicKey).toBe('pub_test_abcdef123456');
     expect(wompiCreds.privateKey).toBe('prv_test_secret789xyz');
   });
 
   it('rejects undeclared credential field keys with PAYMENT_CREDENTIAL_UNKNOWN_FIELD', async () => {
     const { tenantId, adminId } = await seedTenant('unknown-field');
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     let caught: unknown;
     try {
       await caller.paymentSettings.updateRail({
@@ -248,16 +244,12 @@ describe('paymentSettings.updateRail (ENG-038 slice 2)', () => {
     expect((caught as TRPCError).code).toBe('BAD_REQUEST');
     const cause = (caught as TRPCError).cause;
     expect(cause).toBeInstanceOf(ServerErrorWithCode);
-    expect((cause as ServerErrorWithCode).errorCode).toBe(
-      'PAYMENT_CREDENTIAL_UNKNOWN_FIELD'
-    );
+    expect((cause as ServerErrorWithCode).errorCode).toBe('PAYMENT_CREDENTIAL_UNKNOWN_FIELD');
   });
 
   it('clears a stored credential when an empty string is passed', async () => {
     const { tenantId, adminId } = await seedTenant('clear');
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     await caller.paymentSettings.updateRail({
       railId: 'bold',
       credentials: {
@@ -276,16 +268,12 @@ describe('paymentSettings.updateRail (ENG-038 slice 2)', () => {
     const merchantId = cleared.rail.credentials.find(c => c.key === 'merchantId');
     expect(merchantId?.hasStoredValue).toBe(true);
     expect(cleared.rail.validation.ok).toBe(false);
-    expect(
-      cleared.rail.validation.issues.some(issue => issue.field === 'apiKey')
-    ).toBe(true);
+    expect(cleared.rail.validation.issues.some(issue => issue.field === 'apiKey')).toBe(true);
   });
 
   it('preserves stored credentials when the patch is empty', async () => {
     const { tenantId, adminId } = await seedTenant('empty-patch');
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     await caller.paymentSettings.updateRail({
       railId: 'mercado_pago',
       credentials: { accessToken: 'MP_TEST_TOKEN_123' },
@@ -370,9 +358,7 @@ describe('paymentSettings.updateRail (ENG-038 slice 2)', () => {
         },
       })
       .where(eq(tenants.id, tenantId));
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     await caller.paymentSettings.updateRail({
       railId: 'mercado_pago',
       credentials: { accessToken: 'MP_TEST_TOKEN_123' },
@@ -389,12 +375,8 @@ describe('paymentSettings.updateRail (ENG-038 slice 2)', () => {
     });
     expect((settings.ai as Record<string, unknown>).enabled).toBe(true);
     expect(
-      (
-        (settings.payments as Record<string, unknown>).mercado_pago as Record<
-          string,
-          unknown
-        >
-      ).credentials
+      ((settings.payments as Record<string, unknown>).mercado_pago as Record<string, unknown>)
+        .credentials
     ).toMatchObject({ accessToken: 'MP_TEST_TOKEN_123' });
   });
 });

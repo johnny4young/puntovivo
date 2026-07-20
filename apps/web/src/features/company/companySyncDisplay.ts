@@ -52,9 +52,9 @@ export function getSyncOperationLabel(t: TFunction, operation?: string | null) {
 /**
  * Normalize the `lastError` field which can be:
  * - a plain string (legacy IndexedDB offline buffer shape, retained
- *   for backward-compat),
+ * for backward-compat),
  * - a `NormalizedOutboxError` JSON object `{ kind, message? }` from
- *   the server `sync_outbox` rows (post ENG-064b cutover),
+ * the server `sync_outbox` rows (post  cutover),
  * - or null/undefined when no error has been recorded.
  *
  * `message` is preferred when present; otherwise we fall back to

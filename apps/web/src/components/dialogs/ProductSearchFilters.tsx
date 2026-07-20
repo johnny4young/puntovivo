@@ -1,4 +1,4 @@
-/** ENG-178 — Search and catalog filters for ProductSearchDialog. */
+/** Search and catalog filters for ProductSearchDialog. */
 import { Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

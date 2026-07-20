@@ -16,13 +16,13 @@ import { cn, formatCurrency, formatDate } from '@/lib/utils';
 
 /** The radar's fixed look-ahead window (days). A selector is a captured
  * follow-up; 30 days covers every discount tier. */
-/** ENG-212 — selectable look-ahead windows. 30 stays the default (it covers
+/** selectable look-ahead windows. 30 stays the default (it covers
  * every default tier); 60 lets a pharmacy-style catalog sweep wider, 7/15
  * narrow the list to what is actually urgent this week. */
 const EXPIRY_WINDOW_OPTIONS = [7, 15, 30, 60] as const;
 const DEFAULT_EXPIRY_WINDOW_DAYS = 30;
 
-/** ENG-211 — the ENG-199 ladder stays the fallback for tenants that never
+/** the  ladder stays the fallback for tenants that never
  * tuned it (and for a session payload that predates the setting). */
 const DEFAULT_TIERS: ReadonlyArray<{ maxDays: number; pct: number }> = [
   { maxDays: 7, pct: 30 },
@@ -32,7 +32,7 @@ const DEFAULT_TIERS: ReadonlyArray<{ maxDays: number; pct: number }> = [
 
 /**
  * Display mirror of the server tier rule (services/price-suggestions.ts),
- * evaluated against the TENANT's ladder (ENG-211). The server RECOMPUTES
+ * evaluated against the TENANT's ladder (). The server RECOMPUTES
  * the percent on accept from its own copy of the same settings, so drift
  * shows a stale preview, never a wrong stored value.
  */
@@ -70,7 +70,7 @@ function urgencyTone(daysLeft: number): 'danger' | 'warning' | 'neutral' {
 }
 
 /**
- * ENG-199 (WC-C3) — the actionable expiry radar. Lists the tenant's lots
+ * () — the actionable expiry radar. Lists the tenant's lots
  * expiring within 30 days (FEFO order comes from the server), prices the
  * risk per row (on hand × unit cost), and lets a manager accept the
  * deterministic tier discount per lot. Active suggestions render as a badge
@@ -80,15 +80,15 @@ function urgencyTone(daysLeft: number): 'danger' | 'warning' | 'neutral' {
  */
 export function ExpiryRadarPanel() {
   const { t } = useTranslation('inventory');
-  // ENG-211 — the tenant's tuned ladder rides the auth.me session payload
-  // (same channel as the ENG-194b blind-close flag); fall back to the
-  // ENG-199 defaults when the tenant never tuned it.
+  // the tenant's tuned ladder rides the auth.me session payload
+  // (same channel as the  blind-close flag); fall back to the
+  // defaults when the tenant never tuned it.
   const { tenantSettings } = useTenant();
   const tiers = tenantSettings?.discount?.expiryTiers ?? DEFAULT_TIERS;
   const toast = useToast();
   const utils = trpc.useUtils();
 
-  // ENG-212 — the operator picks the sweep; the query key carries it, so
+  // the operator picks the sweep; the query key carries it, so
   // switching windows refetches (and caches) per window.
   const [windowDays, setWindowDays] = useState<number>(DEFAULT_EXPIRY_WINDOW_DAYS);
   const expiringQuery = trpc.inventoryLots.expiring.useQuery({ withinDays: windowDays });
@@ -122,7 +122,7 @@ export function ExpiryRadarPanel() {
     onError: onErrorToast(toast, t),
   });
 
-  // Frozen at mount (ENG-195 precedent): day distances are day-granular and
+  // Frozen at mount ( precedent): day distances are day-granular and
   // the panel remounts per tab visit, so a per-render clock read buys
   // nothing and trips react-hooks/purity.
   const [now] = useState(() => Date.now());
@@ -263,7 +263,7 @@ export function ExpiryRadarPanel() {
 
   return (
     <div className="space-y-4" data-testid="expiry-radar-panel">
-      {/* ENG-212 — window sweep selector. A segmented control (not a select)
+      {/* window sweep selector. A segmented control (not a select)
        * so the four options are one tap away on the tablet the manager
        * actually walks the aisles with. */}
       <div className="flex flex-wrap items-center gap-2">

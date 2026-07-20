@@ -1,5 +1,5 @@
 /**
- * ENG-165 — tRPC-aware rate limiting with per-tenant/site/user buckets.
+ * tRPC-aware rate limiting with per-tenant/site/user buckets.
  *
  * The Fastify global limit (`@fastify/rate-limit`, 100/min/IP) stays as
  * the coarse cross-route DOS backstop. This middleware runs on the base
@@ -10,13 +10,13 @@
  *
  * Buckets (env-tunable; defaults are deliberately generous — the goal is
  * per-tenant/site isolation, not tight caps):
- *   - `auth.*`        → SKIPPED. The strict auth buckets already exist
- *                       (`procedureRateLimit` + `security/loginRateLimit`).
- *   - `publicApi.*`   → public-api bucket (for ENG-118; no routes yet).
- *   - authed `sales.*` mutation → sales-write bucket (tenant + site + user).
- *   - authed other mutation     → write bucket (tenant + user).
- *   - authed query              → read bucket (tenant + user).
- *   - unauthenticated non-auth  → public bucket (IP).
+ * - `auth.*`        → SKIPPED. The strict auth buckets already exist
+ * (`procedureRateLimit` + `security/loginRateLimit`).
+ * - `publicApi.*`   → public-api bucket (for ; no routes yet).
+ * - authed `sales.*` mutation → sales-write bucket (tenant + site + user).
+ * - authed other mutation     → write bucket (tenant + user).
+ * - authed query              → read bucket (tenant + user).
+ * - unauthenticated non-auth  → public bucket (IP).
  *
  * A bucket hit writes ONE `systemAuditLogs` row per window (the offending
  * tenant / site / user / ip live in metadata) and throws `TOO_MANY_REQUESTS`.
@@ -54,10 +54,10 @@ function envInt(name: string, fallback: number): number {
 }
 
 /**
- * ENG-165 — the bucket taxonomy, resolved once at module load from env.
+ * the bucket taxonomy, resolved once at module load from env.
  * Defaults: sales-write 240/min (per tenant+site+user), write
  * 120/min and read 600/min (per tenant+user), public 60/min (per
- * IP), public-api 120/min (per tenant+ip, ready for ENG-118).
+ * IP), public-api 120/min (per tenant+ip, ready for ).
  */
 const BUCKETS = {
   salesWrite: {
@@ -93,7 +93,7 @@ const BUCKETS = {
 } as const satisfies Record<string, BucketConfig>;
 
 /**
- * ENG-165 — pick the bucket for a procedure by its path + type +
+ * pick the bucket for a procedure by its path + type +
  * authentication state. Returns `null` for procedures this middleware
  * does not throttle (the `auth.*` family, which carries its own strict
  * limits). Exported pure for unit testing.

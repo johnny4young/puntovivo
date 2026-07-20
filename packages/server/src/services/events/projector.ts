@@ -1,5 +1,5 @@
 /**
- * ENG-070 — Operation event → public event projector.
+ * Operation event → public event projector.
  *
  * Pure function. Given an `operation_events` row, return the
  * corresponding `PublicEvent` (or `null` when the operation does not
@@ -9,22 +9,22 @@
  * owning worker via `projectFiscalDocumentAccepted`.
  *
  * The projector is INTENTIONALLY pure:
- *   - No DB reads / writes (caller passes the operation_events row).
- *   - No HTTP / network.
- *   - No throws — a malformed `summary` returns null + leaves a log
- *     entry for forensics. The caller (the operation-journal hook)
- *     never lets the original commit fail because of a webhook
- *     projection issue.
+ * - No DB reads / writes (caller passes the operation_events row).
+ * - No HTTP / network.
+ * - No throws — a malformed `summary` returns null + leaves a log
+ * entry for forensics. The caller (the operation-journal hook)
+ * never lets the original commit fail because of a webhook
+ * projection issue.
  *
  * Mapping table (`operationKind` + `status='succeeded'` only):
  *
- *   | operationKind            | event type                |
- *   |--------------------------|---------------------------|
- *   | sales.create             | sale.completed            |
- *   | sales.completeDraft      | sale.completed            |
- *   | sales.returnSale         | sale.refunded             |
- *   | inventory.adjustStock    | inventory.adjusted        |
- *   | cashSessions.close       | cash_session.closed       |
+ * | operationKind            | event type                |
+ * |--------------------------|---------------------------|
+ * | sales.create             | sale.completed            |
+ * | sales.completeDraft      | sale.completed            |
+ * | sales.returnSale         | sale.refunded             |
+ * | inventory.adjustStock    | inventory.adjusted        |
+ * | cashSessions.close       | cash_session.closed       |
  *
  * `fiscal_document.accepted` is wired in the fiscal worker rather
  * than here because the trigger is a row-level UPDATE, not an
@@ -96,14 +96,14 @@ const KIND_TO_EVENT: Record<
  * Project an operation_events row into a public event envelope.
  *
  * Returns `null` when:
- *   - The op's `operationKind` is not in the mapping table (most
- *     ops don't map — that's expected).
- *   - The op's `status` is not 'succeeded' (failed / partial / started
- *     ops never project).
- *   - The op's `summary` is missing or non-object.
- *   - The payload builder returns null (defensive — missing required
- *     fields).
- *   - The Zod schema rejects the built payload.
+ * - The op's `operationKind` is not in the mapping table (most
+ * ops don't map — that's expected).
+ * - The op's `status` is not 'succeeded' (failed / partial / started
+ * ops never project).
+ * - The op's `summary` is missing or non-object.
+ * - The payload builder returns null (defensive — missing required
+ * fields).
+ * - The Zod schema rejects the built payload.
  */
 export function projectOperationEvent(input: ProjectionInput): PublicEvent | null {
   const { op } = input;
@@ -149,7 +149,7 @@ export function projectOperationEvent(input: ProjectionInput): PublicEvent | nul
 }
 
 /**
- * ENG-070 — Special-case projector for fiscal_document.accepted.
+ * Special-case projector for fiscal_document.accepted.
  *
  * The fiscal worker drives the status flip on `fiscal_documents`,
  * not the operation-journal. This builder accepts the same kind of
@@ -354,11 +354,7 @@ function buildCashSessionClosedPayload(
 // ---------------------------------------------------------------------------
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value)
-  );
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function readString(value: unknown): string | null {

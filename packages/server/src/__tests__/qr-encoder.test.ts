@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  encodeQrEscposBytes,
-  encodeQrSvg,
-} from '../services/qr-encoder.js';
+import { encodeQrEscposBytes, encodeQrSvg } from '../services/qr-encoder.js';
 
-describe('qr-encoder (ENG-097)', () => {
+describe('qr-encoder', () => {
   describe('encodeQrSvg', () => {
     it('returns a self-contained SVG for a valid URL source', () => {
       const svg = encodeQrSvg(
@@ -45,21 +42,13 @@ describe('qr-encoder (ENG-097)', () => {
       expect(bytes).not.toBeNull();
       const arr = bytes!;
       // Model select: GS ( k 04 00 31 41 32 00 = [0x1d 0x28 0x6b 0x04 0x00 0x31 0x41 0x32 0x00].
-      expect(arr.slice(0, 9)).toEqual([
-        0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00,
-      ]);
+      expect(arr.slice(0, 9)).toEqual([0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]);
       // Module size: GS ( k 03 00 31 43 06.
-      expect(arr.slice(9, 17)).toEqual([
-        0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x06,
-      ]);
+      expect(arr.slice(9, 17)).toEqual([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x06]);
       // Error correction: GS ( k 03 00 31 45 31 (M = 0x31).
-      expect(arr.slice(17, 25)).toEqual([
-        0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31,
-      ]);
+      expect(arr.slice(17, 25)).toEqual([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31]);
       // Print: last 8 bytes are GS ( k 03 00 31 51 30.
-      expect(arr.slice(-8)).toEqual([
-        0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30,
-      ]);
+      expect(arr.slice(-8)).toEqual([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]);
     });
 
     it('encodes the payload bytes between the store-data header and the print opcode', () => {

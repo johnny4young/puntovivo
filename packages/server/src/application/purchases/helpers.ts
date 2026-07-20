@@ -1,7 +1,7 @@
 /**
  * Purchase shared helpers (validation, site/sequential/balance context, notes).
  *
- * ENG-178 — extracted verbatim from the former monolithic
+ * extracted verbatim from the former monolithic
  * `trpc/routers/purchases.ts` during the megafile decomposition. The `db`
  * parameters are typed `DatabaseInstance` (the standalone DB type) rather
  * than `Context['db']` so the application layer stays decoupled from the
@@ -26,7 +26,10 @@ export function buildVoidedPurchaseNotes(existingNotes: string | null, reason: s
   return `${existingNotes ? `${existingNotes} | ` : ''}Voided: ${reason}`;
 }
 
-export function buildReturnedPurchaseNotes(existingNotes: string | null, reason: string | undefined) {
+export function buildReturnedPurchaseNotes(
+  existingNotes: string | null,
+  reason: string | undefined
+) {
   if (!reason) {
     return existingNotes;
   }

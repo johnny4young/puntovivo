@@ -28,7 +28,7 @@ import type { Sale } from '@/types';
 interface UseSalesMutationsParams {
   /** `${tenantId}:${userId}` or null when signed out — drives the post-sale workspace reset. */
   ownerKey: string | null;
-  /** Best-effort auto-print invoked after the completion toast (ENG-097). */
+  /** Best-effort auto-print invoked after the completion toast (). */
   maybeAutoPrint: (sale: Sale) => Promise<void>;
   setProductSearchQuery: Dispatch<SetStateAction<string>>;
   setSaleError: Dispatch<SetStateAction<string | null>>;
@@ -40,7 +40,7 @@ interface UseSalesMutationsParams {
   setCashSessionMovementError: Dispatch<SetStateAction<string | null>>;
   setIsCashSessionMovementModalOpen: Dispatch<SetStateAction<boolean>>;
   /**
-   * ENG-198 — hands the just-closed session id to the shell so it mounts
+   * hands the just-closed session id to the shell so it mounts
    * the day-close ritual (DayCloseSummaryModal). Additive to the close
    * toast, which stays intact.
    */
@@ -50,7 +50,7 @@ interface UseSalesMutationsParams {
 /**
  * Owns the sales + cash-session mutation handles for SalesPage: the fresh
  * create / completeDraft sale paths (with the shared `finishSaleEpilogue`
- * + ENG-097 auto-print), the suspend / resume / discard-draft trio, and
+ * +  auto-print), the suspend / resume / discard-draft trio, and
  * the cash-session open / close / record-movement trio. The flow handlers
  * that orchestrate these (handleCheckout, handleSuspendConfirm, …) stay in
  * SalesPage and call the returned handles; this hook only centralizes the
@@ -92,7 +92,7 @@ export function useSalesMutations({
       setSaleError(null);
       setIsPaymentModalOpen(false);
       playSaleComplete();
-      // ENG-213 — when the sale accrued points, the cashier should be able
+      // when the sale accrued points, the cashier should be able
       // to tell the customer without opening another screen. The base copy
       // is unchanged for every tenant without the program (0 points).
       const description =
@@ -121,7 +121,7 @@ export function useSalesMutations({
   const createMutation = useCriticalMutation('sales.create', {
     onSuccess: async (data, variables) => {
       // Drafts created via the Suspend orchestration skip the epilogue
-      // — `handleSuspendConfirm` handles invalidation + workspace
+      // `handleSuspendConfirm` handles invalidation + workspace
       // reset + the localized "Sale suspended" toast itself so the
       // operator never sees the "Sale completed" message on a
       // still-in-flight suspend.
@@ -129,7 +129,7 @@ export function useSalesMutations({
         return;
       }
       await finishSaleEpilogue(variables.items.length, data.loyaltyPointsEarned);
-      // ENG-097 — best-effort auto-print after the epilogue toast so
+      // best-effort auto-print after the epilogue toast so
       // the cashier sees "Sale completed" before any printer fallback
       // warning lands.
       await maybeAutoPrint(data as Sale);
@@ -137,19 +137,19 @@ export function useSalesMutations({
     onError: onErrorToast(toast, t),
   });
 
-  // ENG-018c — completing a resumed draft. `items` is locked server
+  // completing a resumed draft. `items` is locked server
   // side so we do not send it; the cashier can only add payments /
   // notes at this point.
   const completeDraftMutation = useCriticalMutation('sales.completeDraft', {
     onSuccess: async result => {
       await finishSaleEpilogue(result.items.length, result.loyaltyPointsEarned);
-      // ENG-097 — auto-print mirror of the fresh-create path.
+      // auto-print mirror of the fresh-create path.
       await maybeAutoPrint(result as Sale);
     },
     onError: onErrorToast(toast, t),
   });
 
-  // ENG-018b — server calls for the suspend / resume orchestration.
+  // server calls for the suspend / resume orchestration.
   // Suspend is a two-step flow: persist the local cart as a server
   // draft via `sales.create({ status: 'draft' })`, then mark it
   // suspended via `sales.suspend`. The two mutations are chained
@@ -158,7 +158,7 @@ export function useSalesMutations({
   // yet suspended" state never surfaces in the UI.
   const suspendMutation = useCriticalMutation('sales.suspend');
   const resumeMutation = useCriticalMutation('sales.resume');
-  // ENG-018b — used both by the SuspendedSalesPanel (which has its own
+  // used both by the SuspendedSalesPanel (which has its own
   // internal mutation) AND by the orphan-cleanup path inside
   // `handleSuspendConfirm` below. Keeping a page-level handle lets us
   // compensate if `sales.suspend` throws after `sales.create(draft)`
@@ -219,7 +219,7 @@ export function useSalesMutations({
         description,
       });
 
-      // ENG-198 — hand off to the day-close ritual after the toast fires.
+      // hand off to the day-close ritual after the toast fires.
       setDayCloseSessionId(cashSession.id);
     },
     onError: onErrorToast(toast, t, {

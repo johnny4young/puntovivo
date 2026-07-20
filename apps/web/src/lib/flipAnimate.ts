@@ -1,5 +1,5 @@
 /**
- * ENG-016 pass 1 (item #6) — small FLIP animation helper.
+ * pass 1 (item #6) — small FLIP animation helper.
  *
  * FLIP (First, Last, Invert, Play) lets the caller snapshot DOM
  * positions before a layout change, then re-animate the invert back
@@ -33,7 +33,7 @@
  * - No React / framework imports: this helper is a plain DOM utility.
  * - No globals beyond `window` / `document` / `matchMedia`.
  * - Uses the standard Web Animations API (`Element.animate`) so no
- *   extra dependency is needed.
+ * extra dependency is needed.
  *
  * @module lib/flipAnimate
  */
@@ -127,10 +127,7 @@ export function playFlip(
     // journey.
     if (typeof node.animate !== 'function') return;
     const animation = node.animate(
-      [
-        { transform: `translate(${dx}px, ${dy}px)` },
-        { transform: 'translate(0, 0)' },
-      ],
+      [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }],
       { duration, easing }
     );
     animations.push(animation);

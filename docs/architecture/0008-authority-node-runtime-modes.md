@@ -2,7 +2,6 @@
 
 > Status: Accepted
 > Date: 2026-05-08
-> Owner: ENG-071
 > Supersedes: none; amends ADR-0001 by making "local store authority" a runtime mode, not only a per-cashier-machine rule.
 
 ## Decision
@@ -79,13 +78,13 @@ authoritative for the operation. It is not required for local selling.
   must not read arbitrary POS tables or require every terminal to sync
   independently.
 
-## Affected Tickets
+## Implementation map
 
-- `ENG-071` - Authority Node ADR + runtime config contract.
-- `ENG-072` - Device-local default hardening.
-- `ENG-073` - Store Hub server mode.
-- `ENG-074` - Hub Client mode.
-- `ENG-075` - Device pairing and authority health.
-- `ENG-076` - Satellite offline fallback spike.
+- - Authority Node ADR + runtime config contract.
+- - Device-local default hardening.
+- - Store Hub server mode.
+- - Hub Client mode.
+- - Device pairing and authority health.
+- - Satellite offline fallback spike.
 
 Updated: 2026-05-08 - initial Authority Node runtime-mode decision.

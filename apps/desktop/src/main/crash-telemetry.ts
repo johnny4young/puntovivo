@@ -1,5 +1,5 @@
 /**
- * ENG-135b — Electron main-process crash-path telemetry.
+ * Electron main-process crash-path telemetry.
  *
  * Before this module the main process installed NO
  * `uncaughtException` / `unhandledRejection` handlers: a crash in
@@ -8,17 +8,17 @@
  * nothing in the NDJSON log and nothing in the centralized pipe.
  *
  * The handlers here guarantee three things:
- *   1. A structured local log line ALWAYS lands (pino mainLog).
- *   2. The crash is forwarded to the telemetry sink via
- *      `captureProcessCrash` — tenant-less app diagnostics, only
- *      live when the operator provisioned PUNTOVIVO_SENTRY_DSN
- *      (see docs/OBSERVABILITY.md § consent layers).
- *   3. `uncaughtException` keeps its fail-fast semantics: after a
- *      best-effort telemetry flush (bounded by a hard deadline so a
- *      hanging transport cannot wedge a dying process), the process
- *      exits 1. `unhandledRejection` logs + captures WITHOUT
- *      exiting — rejections are recoverable and killing the POS for
- *      one is worse than the bug itself.
+ * 1. A structured local log line ALWAYS lands (pino mainLog).
+ * 2. The crash is forwarded to the telemetry sink via
+ * `captureProcessCrash` — tenant-less app diagnostics, only
+ * live when the operator provisioned PUNTOVIVO_SENTRY_DSN
+ * (see docs/OBSERVABILITY.md § consent layers).
+ * 3. `uncaughtException` keeps its fail-fast semantics: after a
+ * best-effort telemetry flush (bounded by a hard deadline so a
+ * hanging transport cannot wedge a dying process), the process
+ * exits 1. `unhandledRejection` logs + captures WITHOUT
+ * exiting — rejections are recoverable and killing the POS for
+ * one is worse than the bug itself.
  *
  * Every collaborator is injected so the logic is testable under
  * `node --test` without Electron, the server bundle, or real timers

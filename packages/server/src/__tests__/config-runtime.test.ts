@@ -1,5 +1,5 @@
 /**
- * ENG-072 — `resolveRuntimeConfig` + active-singleton tests.
+ * `resolveRuntimeConfig` + active-singleton tests.
  *
  * Pure function tests; no DB, no Fastify, no env mutation. Each case
  * passes its own env object so tests stay deterministic and parallel-safe.
@@ -51,10 +51,7 @@ describe('resolveRuntimeConfig', () => {
     });
     expect(cfg.authorityMode).toBe('site_hub');
     expect(cfg.bindHost).toBe('0.0.0.0');
-    expect(cfg.allowedLanOrigins).toEqual([
-      'http://192.168.1.10:3000',
-      'http://192.168.1.11:3000',
-    ]);
+    expect(cfg.allowedLanOrigins).toEqual(['http://192.168.1.10:3000', 'http://192.168.1.11:3000']);
   });
 
   it('reads PUNTOVIVO_AUTHORITY_MODE for hub_client + hub URL', () => {
@@ -71,12 +68,12 @@ describe('resolveRuntimeConfig', () => {
   });
 
   it('throws on invalid PUNTOVIVO_AUTHORITY_MODE', () => {
-    expect(() =>
-      resolveRuntimeConfig({ env: { PUNTOVIVO_AUTHORITY_MODE: 'cluster' } })
-    ).toThrow(/Invalid PUNTOVIVO_AUTHORITY_MODE/);
-    expect(() =>
-      resolveRuntimeConfig({ env: { PUNTOVIVO_AUTHORITY_MODE: 'cluster' } })
-    ).toThrow(/device_local, site_hub, hub_client/);
+    expect(() => resolveRuntimeConfig({ env: { PUNTOVIVO_AUTHORITY_MODE: 'cluster' } })).toThrow(
+      /Invalid PUNTOVIVO_AUTHORITY_MODE/
+    );
+    expect(() => resolveRuntimeConfig({ env: { PUNTOVIVO_AUTHORITY_MODE: 'cluster' } })).toThrow(
+      /device_local, site_hub, hub_client/
+    );
   });
 
   it('treats blank/whitespace PUNTOVIVO_AUTHORITY_MODE as unset', () => {
@@ -107,15 +104,15 @@ describe('resolveRuntimeConfig', () => {
   });
 
   it('throws when bind port is non-numeric', () => {
-    expect(() =>
-      resolveRuntimeConfig({ env: { PUNTOVIVO_BIND_PORT: 'eighty-ninety' } })
-    ).toThrow(/Invalid bind port/);
-    expect(() =>
-      resolveRuntimeConfig({ env: { PUNTOVIVO_BIND_PORT: '8090abc' } })
-    ).toThrow(/Invalid bind port/);
-    expect(() =>
-      resolveRuntimeConfig({ env: { PUNTOVIVO_BIND_PORT: '1.5' } })
-    ).toThrow(/Invalid bind port/);
+    expect(() => resolveRuntimeConfig({ env: { PUNTOVIVO_BIND_PORT: 'eighty-ninety' } })).toThrow(
+      /Invalid bind port/
+    );
+    expect(() => resolveRuntimeConfig({ env: { PUNTOVIVO_BIND_PORT: '8090abc' } })).toThrow(
+      /Invalid bind port/
+    );
+    expect(() => resolveRuntimeConfig({ env: { PUNTOVIVO_BIND_PORT: '1.5' } })).toThrow(
+      /Invalid bind port/
+    );
   });
 
   it('throws when bind port is out of range', () => {

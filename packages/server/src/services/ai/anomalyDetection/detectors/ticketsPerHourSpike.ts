@@ -1,7 +1,7 @@
 /**
- * ENG-032 — Pattern 5 / Hours raras detector.
+ * Pattern 5 / Hours raras detector.
  *
- * ENG-178 — extracted verbatim from the former flat
+ * extracted verbatim from the former flat
  * `services/ai/anomalyDetection.ts` (SUB-DETECTORS section) during the
  * megafile decomposition.
  *
@@ -12,11 +12,7 @@ import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../../../../db/index.js';
 import { sales, users } from '../../../../db/schema.js';
-import {
-  MIN_PERSONAL_HOURS,
-  type AnomalyAlert,
-  type AnomalyDetectionInput,
-} from '../types.js';
+import { MIN_PERSONAL_HOURS, type AnomalyAlert, type AnomalyDetectionInput } from '../types.js';
 import { mean, severityFromDistance, stdDev, zScore } from '../stats.js';
 
 /**
@@ -63,7 +59,10 @@ export async function detectTicketsPerHourSpikes(
     .all();
 
   // Group by cashier so we can compute personal baselines.
-  const byCashier = new Map<string, { name: string | null; counts: { hourBucket: string; count: number }[] }>();
+  const byCashier = new Map<
+    string,
+    { name: string | null; counts: { hourBucket: string; count: number }[] }
+  >();
   for (const row of rows) {
     if (!row.cashierId) continue;
     const entry = byCashier.get(row.cashierId);
@@ -90,7 +89,7 @@ export async function detectTicketsPerHourSpikes(
       const severity = severityFromDistance(z);
       // Only flag UPWARD spikes (high count). Downward dips are the
       // sweethearting signal but require traffic correlation we do
-      // not have in v1; captured as a BACKLOG follow-up.
+      // not have in v1; captured as follow-up work.
       if (severity === null || z < 0) continue;
       alerts.push({
         id: nanoid(),

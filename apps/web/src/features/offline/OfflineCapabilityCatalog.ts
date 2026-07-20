@@ -25,26 +25,26 @@ export interface OfflineCapabilityTile {
 }
 
 /**
- * ENG-100 — single source of truth for the product's offline-capability
+ * single source of truth for the product's offline-capability
  * surface area. Renderable in `OfflineCapabilityGrid` AND consumable
  * by tests, by the website-copy audit, and by any future marketing
  * material that needs to declare what works without connectivity.
  *
  * Contract (enforced by review, see `OfflineCapabilityGrid.audit.test.ts`):
  *
- *   1. Each tile MUST correspond to a shipped feature, not a promise.
- *      `status='available'` requires a backing ENG ticket that delivered
- *      the offline behavior. `status='limited' | 'pending' | 'blocked'`
- *      requires the description to be honest about the constraint.
- *   2. `status` MUST be one of `'available' | 'limited' | 'pending' |
- *      'blocked'` and MUST reflect the real runtime behavior of the
- *      backing feature. Do not soften `'blocked'` to `'limited'` to
- *      make the grid look nicer — operators rely on it.
- *   3. Any change to this catalog (adding a tile, renaming an id,
- *      flipping a status) MUST keep the capability catalog in sync in
- *      the SAME commit. The website (when it ships) consumes that table
- *      as authoritative copy; drift between the array and the catalog
- *      produces marketing overstatement.
+ * 1. Each tile MUST correspond to a shipped feature, not a promise.
+ * `status='available'` requires a backing ENG change that delivered
+ * the offline behavior. `status='limited' | 'pending' | 'blocked'`
+ * requires the description to be honest about the constraint.
+ * 2. `status` MUST be one of `'available' | 'limited' | 'pending' |
+ * 'blocked'` and MUST reflect the real runtime behavior of the
+ * backing feature. Do not soften `'blocked'` to `'limited'` to
+ * make the grid look nicer — operators rely on it.
+ * 3. Any change to this catalog (adding a tile, renaming an id,
+ * flipping a status) MUST keep the capability catalog in sync in
+ * the SAME commit. The website (when it ships) consumes that table
+ * as authoritative copy; drift between the array and the catalog
+ * produces marketing overstatement.
  *
  * The audit test pins this array's cardinality + id set + status enum
  * so a casual edit cannot land an overstatement silently.

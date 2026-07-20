@@ -1,5 +1,5 @@
 /**
- * ENG-105c — Quick-create customer mounter for SalesPage / SalePaymentModal.
+ * Quick-create customer mounter for SalesPage / SalePaymentModal.
  *
  * Subscribes to `useQuickCreateStore.requestedCreateCustomer`. When a
  * request lands, lazily loads the customer-form catalogs
@@ -17,16 +17,10 @@
 
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
-import {
-  CustomerFormModal,
-  type CustomerFormValues,
-} from '@/features/customers/CustomerFormModal';
+import { CustomerFormModal, type CustomerFormValues } from '@/features/customers/CustomerFormModal';
 import { trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import {
-  selectRequestedCreateCustomer,
-  useQuickCreateStore,
-} from './useQuickCreateStore';
+import { selectRequestedCreateCustomer, useQuickCreateStore } from './useQuickCreateStore';
 import type { Customer, CustomerCatalogItem } from '@/types';
 
 interface QuickCreateCustomerGateProps {
@@ -85,7 +79,8 @@ export function QuickCreateCustomerGate({ onCreated }: QuickCreateCustomerGatePr
   const personTypes = (personTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
   const regimeTypes = (regimeTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
   const clientTypes = (clientTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
-  const commercialActivities = (commercialActivitiesQuery.data?.items ?? []) as CustomerCatalogItem[];
+  const commercialActivities = (commercialActivitiesQuery.data?.items ??
+    []) as CustomerCatalogItem[];
 
   const handleClose = () => {
     consumeCreateCustomer();
@@ -118,7 +113,7 @@ export function QuickCreateCustomerGate({ onCreated }: QuickCreateCustomerGatePr
   };
 
   const handleCreated = (customer: Customer) => {
-    // ENG-105c2 — flag the new customer for auto-attach so the next
+    // flag the new customer for auto-attach so the next
     // SalePaymentModal mount selects it without a manual pick. The
     // store action runs BEFORE the parent's onCreated callback so a
     // SalesPage handler that observes the store sees the pending id

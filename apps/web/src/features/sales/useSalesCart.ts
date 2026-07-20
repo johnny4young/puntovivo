@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  type Dispatch,
-  type SetStateAction,
-} from 'react';
+import { useCallback, useEffect, type Dispatch, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import {
@@ -21,7 +16,7 @@ import {
 /**
  * Params for {@link useSalesCart}.
  *
- * ENG-178 slice 16b-1 — the cart-edit handlers + the two store-wrapper
+ * slice 16b-1 — the cart-edit handlers + the two store-wrapper
  * callbacks were extracted verbatim from SalesPage. The cart-edit path
  * reads/writes the active workspace through `useCartWorkspaceStore`; the
  * hook receives only the `ownerKey` (to materialize/own the active cart)
@@ -40,9 +35,7 @@ export interface UseSalesCartParams {
 
 /** A `useState`-style updater accepted by {@link useSalesCart}'s `setCartItems`
  * wrapper: either the next item array or a function of the previous array. */
-type SetCartItemsArg =
-  | SaleCartItem[]
-  | ((previous: SaleCartItem[]) => SaleCartItem[]);
+type SetCartItemsArg = SaleCartItem[] | ((previous: SaleCartItem[]) => SaleCartItem[]);
 
 /**
  * Owns the active-cart lifecycle for SalesPage: materializes a fresh local
@@ -73,15 +66,12 @@ export function useSalesCart({
       return;
     }
     const state = useCartWorkspaceStore.getState();
-    const active = state.activeId
-      ? state.workspaces[state.activeId] ?? null
-      : null;
+    const active = state.activeId ? (state.workspaces[state.activeId] ?? null) : null;
     if (active && active.ownerKey === ownerKey) {
       return;
     }
     const reusableOwned = Object.values(state.workspaces).find(
-      workspace =>
-        workspace.ownerKey === ownerKey && workspace.serverSaleId === null
+      workspace => workspace.ownerKey === ownerKey && workspace.serverSaleId === null
     );
     if (reusableOwned) {
       state.setActive(reusableOwned.id);
@@ -98,38 +88,30 @@ export function useSalesCart({
     : [];
   const selectedCartItemKey = activeWorkspace?.selectedItemKey ?? null;
   const isResumedCart = activeWorkspace?.serverSaleId != null;
-  const canUndoActiveCart =
-    !isResumedCart && (activeWorkspace?.historyStack.length ?? 0) > 0;
+  const canUndoActiveCart = !isResumedCart && (activeWorkspace?.historyStack.length ?? 0) > 0;
 
-  const setCartItems = useCallback(
-    (update: SetCartItemsArg) => {
-      const state = useCartWorkspaceStore.getState();
-      const activeId = state.activeId;
-      if (!activeId) {
-        return;
-      }
-      const current = state.workspaces[activeId]?.items ?? [];
-      const next =
-        typeof update === 'function' ? update(current) : update;
-      state.updateCart(activeId, next);
-    },
-    []
-  );
-  const setSelectedCartItemKey = useCallback(
-    (key: string | null) => {
-      const state = useCartWorkspaceStore.getState();
-      const activeId = state.activeId;
-      if (!activeId) {
-        return;
-      }
-      state.setSelectedItem(activeId, key);
-    },
-    []
-  );
+  const setCartItems = useCallback((update: SetCartItemsArg) => {
+    const state = useCartWorkspaceStore.getState();
+    const activeId = state.activeId;
+    if (!activeId) {
+      return;
+    }
+    const current = state.workspaces[activeId]?.items ?? [];
+    const next = typeof update === 'function' ? update(current) : update;
+    state.updateCart(activeId, next);
+  }, []);
+  const setSelectedCartItemKey = useCallback((key: string | null) => {
+    const state = useCartWorkspaceStore.getState();
+    const activeId = state.activeId;
+    if (!activeId) {
+      return;
+    }
+    state.setSelectedItem(activeId, key);
+  }, []);
 
   const activeSelectedCartItemKey = getActiveCartSelectionKey(cartItems, selectedCartItemKey);
 
-  // ENG-018b — resumed carts (serverSaleId set) have server-locked
+  // resumed carts (serverSaleId set) have server-locked
   // items: the server-side `sales.completeDraft` contract re-finalizes
   // the draft as-is. Any client edit to quantity, discount, add, or
   // remove would be silently discarded at Charge time and the amount
@@ -164,17 +146,11 @@ export function useSalesCart({
     );
   };
 
-  const handleSerialSelectionChange = (
-    itemKey: string,
-    serialIds: string[],
-    siteId: string
-  ) => {
+  const handleSerialSelectionChange = (itemKey: string, serialIds: string[], siteId: string) => {
     if (isResumedCart) return;
     setCartItems(currentItems =>
       currentItems.map(item =>
-        item.key === itemKey
-          ? updateCartItem(item, { serialIds, serialSiteId: siteId })
-          : item
+        item.key === itemKey ? updateCartItem(item, { serialIds, serialSiteId: siteId }) : item
       )
     );
   };
@@ -182,9 +158,7 @@ export function useSalesCart({
   const handleDiscountChange = (itemKey: string, discount: number) => {
     if (isResumedCart) return;
     setCartItems(currentItems =>
-      currentItems.map(item =>
-        item.key === itemKey ? updateCartItem(item, { discount }) : item
-      )
+      currentItems.map(item => (item.key === itemKey ? updateCartItem(item, { discount }) : item))
     );
   };
 
@@ -199,7 +173,7 @@ export function useSalesCart({
     setSelectedCartItemKey(null);
   };
 
-  // ENG-105d — undo the last cart mutation on the active workspace.
+  // undo the last cart mutation on the active workspace.
   // Routed by both the Mod+Z shortcut (via `useSalesKeyboardShortcuts`)
   // and the visible "Deshacer" button on the cart toolbar so the
   // toast surface is identical in both paths. Resumed-draft carts

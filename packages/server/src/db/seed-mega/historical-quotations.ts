@@ -1,5 +1,5 @@
 /**
- * ENG-052b — MEGA seed: quotations distributed across all 5 states
+ * MEGA seed: quotations distributed across all 5 states
  * (draft, sent, accepted, rejected, expired) so the /quotations page
  * exercises every filter and chip color.
  *
@@ -11,13 +11,7 @@ import { quotationItems, quotations } from '../schema.js';
 import { laterIso, randomDaysAgoIso } from './time-helpers.js';
 import type { MegaContext, MegaTarget } from './types.js';
 
-const QUOTATION_STATES = [
-  'draft',
-  'sent',
-  'accepted',
-  'rejected',
-  'expired',
-] as const;
+const QUOTATION_STATES = ['draft', 'sent', 'accepted', 'rejected', 'expired'] as const;
 
 interface CreatedHistoricalQuotations {
   count: number;
@@ -50,7 +44,15 @@ export async function seedHistoricalQuotations(
     const itemsCount = 2 + (i % 3);
     let subtotal = 0;
     let taxAmount = 0;
-    const itemsBuilt: Array<{ id: string; productId: string; quantity: number; unitPrice: number; taxRate: number; taxLine: number; total: number }> = [];
+    const itemsBuilt: Array<{
+      id: string;
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      taxRate: number;
+      taxLine: number;
+      total: number;
+    }> = [];
     for (let li = 0; li < itemsCount; li += 1) {
       const product = products[(i * 7 + li * 5) % products.length]!;
       const quantity = 1 + (i % 3) + li;
@@ -74,9 +76,7 @@ export async function seedHistoricalQuotations(
     const createdAtIso = randomDaysAgoIso(clock, 2, target.historicalDays - 1, i);
     const validUntilIso = laterIso(createdAtIso, 14 * 24 * 60 * 60 * 1000);
     const isActedOn = state !== 'draft';
-    const statusChangedAtIso = isActedOn
-      ? laterIso(createdAtIso, 24 * 60 * 60 * 1000)
-      : null;
+    const statusChangedAtIso = isActedOn ? laterIso(createdAtIso, 24 * 60 * 60 * 1000) : null;
 
     quoteRows.push({
       id,
@@ -129,7 +129,7 @@ async function chunkedInsert<T extends Record<string, unknown>>(
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per ENG-179c.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per .
     await (db.insert(table) as any).values(chunk).run();
   }
 }

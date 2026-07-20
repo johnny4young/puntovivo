@@ -1,5 +1,5 @@
 /**
- * ENG-068 — Renderer-side mirror of the server's module manifest.
+ * Renderer-side mirror of the server's module manifest.
  *
  * The server lives in `packages/server/src/services/modules/manifest.ts`
  * and is the single source of truth. This file ships a STRUCTURAL
@@ -9,7 +9,7 @@
  * Drift protection: when a module is added or removed, the server
  * router's tRPC types flow into `getEffective` (response shape) and
  * `setActive` (input refine), so the editor flags any renderer that
- * references a stale id. The smoke test in Phase 4 also double-reads
+ * references a stale id. The smoke test in also double-reads
  * the server's effective state to confirm parity.
  */
 
@@ -19,7 +19,7 @@ export const CLIENT_MODULE_IDS = [
   'quotations',
   'anomaly-detection',
   'semantic-search',
-  // ENG-069 — surface modules. Each ships defaultEnabled=false so the
+  // surface modules. Each ships defaultEnabled=false so the
   // renderer never flashes a new sidebar entry on cold boot for
   // existing tenants. Operators flip them on per tenant via
   // /company?tab=modules.
@@ -27,12 +27,12 @@ export const CLIENT_MODULE_IDS = [
   'kds',
   'customer-display',
   'mobile-waiter',
-  // ENG-070 — public events foundation. Default OFF; admins flip on
+  // public events foundation. Default OFF; admins flip on
   // when they want the tenant's critical commands to populate
   // webhook_outbox. v1 ships the contract + projector + outbox; the
-  // HTTP delivery worker arrives in ENG-070b.
+  // HTTP delivery worker arrives in .
   'events-api',
-  // ENG-091 — Domicilios touch V5. Default OFF so non-delivery
+  // Domicilios touch V5. Default OFF so non-delivery
   // tenants never flash the new /delivery surface on cold boot.
   'delivery',
 ] as const;
@@ -51,14 +51,14 @@ export const CLIENT_MODULE_DEFAULTS: Record<ClientModuleId, boolean> = {
   quotations: true,
   'anomaly-detection': true,
   'semantic-search': true,
-  // ENG-069 — surface modules opt-in.
+  // surface modules opt-in.
   'pos-touch': false,
-  'kds': false,
+  kds: false,
   'customer-display': false,
   'mobile-waiter': false,
-  // ENG-070 — public events module opt-in.
+  // public events module opt-in.
   'events-api': false,
-  // ENG-091 — Domicilios touch V5 opt-in.
+  // Domicilios touch V5 opt-in.
   delivery: false,
 };
 

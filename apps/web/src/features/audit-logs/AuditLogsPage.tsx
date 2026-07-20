@@ -34,21 +34,21 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'transfer.void',
   'user.create',
   'user.update',
-  // ENG-106a — staff credential lifecycle and shared-terminal identity handoff.
+  // staff credential lifecycle and shared-terminal identity handoff.
   'user.pin.update',
   'auth.staff_switch',
-  // ENG-106b — self-service attendance lifecycle.
+  // self-service attendance lifecycle.
   'employee_shift.clock_in',
   'employee_shift.clock_out',
   'employee_shift.correct',
-  // ENG-140b — explicit employee break boundaries.
+  // explicit employee break boundaries.
   'employee_shift_break.start',
   'employee_shift_break.end',
-  // ENG-140a — manager-authored schedule lifecycle.
+  // manager-authored schedule lifecycle.
   'scheduled_shift.create',
   'scheduled_shift.update',
   'scheduled_shift.cancel',
-  // ENG-106c — dual-control request and decision lifecycle.
+  // dual-control request and decision lifecycle.
   'manager_approval.request',
   'manager_approval.approve',
   'manager_approval.reject',
@@ -68,19 +68,19 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'customer.personal_data.anonymize',
   'data_retention.policy.updated',
   'data_retention.sweep.run',
-  // ENG-199 — expiry-radar discount suggestions.
+  // expiry-radar discount suggestions.
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',
-  // ENG-136b — admin recovery-readiness evidence.
+  // admin recovery-readiness evidence.
   'backup.restore_drill',
-  // ENG-123a/ENG-123b — launch import summaries.
+  // -123b — launch import summaries.
   'data_import.products',
   'data_import.customers',
   'data_import.providers',
   'data_import.customer_balances',
   'data_import.opening_cash',
   'data_import.fiscal_profile',
-  // ENG-141b — irreversible manager/admin day-close attestation.
+  // irreversible manager/admin day-close attestation.
   'day_close.sign_off',
 ];
 
@@ -105,18 +105,18 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'kds_order',
   'customer',
   'tenant',
-  // ENG-199 — expiry-radar discount suggestions.
+  // expiry-radar discount suggestions.
   'price_suggestion',
-  // ENG-136b — scheduler-owned encrypted snapshots.
+  // scheduler-owned encrypted snapshots.
   'backup_snapshot',
-  // ENG-123a — one auditable launch import run.
+  // one auditable launch import run.
   'data_import',
-  // ENG-141b — immutable comprehensive day-close evidence.
+  // immutable comprehensive day-close evidence.
   'day_close_signoff',
 ];
 
 /**
- * Phase 8 / Tier-2 #8 — admin-only audit trail viewer.
+ * admin-only audit trail viewer.
  *
  * Composition-only: the filter bar drives the trpc query input, and the
  * table renders the result + the export toolbar. Keeping filter state in

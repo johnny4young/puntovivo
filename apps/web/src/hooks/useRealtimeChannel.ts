@@ -1,5 +1,5 @@
 /**
- * ENG-098 — `useRealtimeChannel` SSE subscription hook.
+ * `useRealtimeChannel` SSE subscription hook.
  *
  * Lightweight React wrapper around the browser-native `EventSource`
  * API targetting the server's `/api/realtime/subscribe` endpoint
@@ -10,14 +10,14 @@
  * own React Query cache.
  *
  * Reconnect strategy:
- *   - `EventSource` reconnects automatically when the network drops
- *     mid-stream, with the server-sent `retry:` interval (defaults
- *     to ~3s on most browsers).
- *   - On a hard close (server restart) we close and re-open with a
- *     5-second exponential backoff capped at 30s.
- *   - On `visibilitychange` (tab becomes visible after being hidden
- *     for a while), we force a fresh subscribe so the board picks
- *     up missed events on the next `list` refetch.
+ * - `EventSource` reconnects automatically when the network drops
+ * mid-stream, with the server-sent `retry:` interval (defaults
+ * to ~3s on most browsers).
+ * - On a hard close (server restart) we close and re-open with a
+ * 5-second exponential backoff capped at 30s.
+ * - On `visibilitychange` (tab becomes visible after being hidden
+ * for a while), we force a fresh subscribe so the board picks
+ * up missed events on the next `list` refetch.
  *
  * Sandbox: `EventSource` is a browser-native API. No Node imports,
  * no preload bridge. The Electron sandboxed renderer reaches the
@@ -30,7 +30,7 @@ import { useEffect, useRef } from 'react';
 import { resolveApiBaseUrl } from '@/lib/runtimeConfigClient';
 import { vanillaClient } from '@/lib/trpc';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export interface RealtimeEvent {
   /** Event name from the SSE stream (e.g. `kds.order.created`). */
   type: string;
@@ -169,7 +169,7 @@ export function useRealtimeChannel(options: UseRealtimeChannelOptions): void {
         next.addEventListener(name, ev => dispatchEvent(ev as MessageEvent, name));
       }
       next.addEventListener('message', ev => dispatchEvent(ev as MessageEvent, 'message'));
-      // ENG-168 — the server emits `token-refresh-needed` every 10
+      // the server emits `token-refresh-needed` every 10
       // minutes (under the 15-minute realtime cookie TTL) so a long-
       // lived SSE connection can rotate its bearer without dropping.
       // The mutation refreshes the puntovivo_realtime cookie on the

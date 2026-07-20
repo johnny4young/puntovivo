@@ -62,9 +62,7 @@ function escapeRegExp(value: string) {
 }
 
 async function pollForRecord<T>(reader: () => T | null, timeout = 10_000): Promise<T> {
-  await expect
-    .poll(() => reader(), { timeout })
-    .not.toBeNull();
+  await expect.poll(() => reader(), { timeout }).not.toBeNull();
 
   const record = reader();
   if (record === null) {
@@ -81,10 +79,7 @@ function formatUsd(amount: number) {
   }).format(amount);
 }
 
-async function createCompletedCashSale(
-  page: Page,
-  product: { name: string; sku: string }
-) {
+async function createCompletedCashSale(page: Page, product: { name: string; sku: string }) {
   await page.goto('/sales');
   await page.locator('#sales-product-search-input').fill(product.sku);
   await page.locator('#sales-product-search-input').press('Enter');
@@ -260,9 +255,12 @@ async function createDeferredTransfer(
 }
 
 function getTransferHistorySection(page: Page) {
-  return page.locator('.card').filter({
-    has: page.getByRole('heading', { name: 'Transfer history' }),
-  }).first();
+  return page
+    .locator('.card')
+    .filter({
+      has: page.getByRole('heading', { name: 'Transfer history' }),
+    })
+    .first();
 }
 
 // Locate a transfer-history row deterministically by its domain id.
@@ -308,7 +306,10 @@ async function assertCashClosureInOperationsReport(
   }
 ) {
   await page.goto('/operations?tab=cash');
-  const closureRow = page.locator('tr').filter({ has: page.getByText(args.registerName) }).first();
+  const closureRow = page
+    .locator('tr')
+    .filter({ has: page.getByText(args.registerName) })
+    .first();
   await expect(closureRow).toBeVisible();
   await expect(closureRow).toContainText(args.signedOverShort);
 }
@@ -334,124 +335,128 @@ async function assertAuditEventInUi(
 }
 
 test.describe('web business flows', () => {
-  test('cashier completes a sale and sensitive actions remain grant-gated', { tag: PRERELEASE_MONEY_TAG }, async ({
-    page,
-  }, testInfo) => {
-    const tracker = attachClientIssueTracker(page);
-    const scenario = seedSaleScenario(`sale-create-${testInfo.parallelIndex}-${Date.now()}`);
+  test(
+    'cashier completes a sale and sensitive actions remain grant-gated',
+    { tag: PRERELEASE_MONEY_TAG },
+    async ({ page }, testInfo) => {
+      const tracker = attachClientIssueTracker(page);
+      const scenario = seedSaleScenario(`sale-create-${testInfo.parallelIndex}-${Date.now()}`);
 
-    await login(page, {
-      email: scenario.cashier.email,
-      password: scenario.cashier.password,
-      defaultPath: '/sales',
-    });
+      await login(page, {
+        email: scenario.cashier.email,
+        password: scenario.cashier.password,
+        defaultPath: '/sales',
+      });
 
-    await createCompletedCashSale(page, scenario.product);
+      await createCompletedCashSale(page, scenario.product);
 
-    const sale = await pollForRecord(() =>
-      findLatestSaleForProduct(scenario.product.id, scenario.cashier.id)
-    );
+      const sale = await pollForRecord(() =>
+        findLatestSaleForProduct(scenario.product.id, scenario.cashier.id)
+      );
 
-    expect(sale.status).toBe('completed');
-    expect(sale.paymentStatus).toBe('paid');
-    expect(sale.siteId).toBeTruthy();
+      expect(sale.status).toBe('completed');
+      expect(sale.paymentStatus).toBe('paid');
+      expect(sale.siteId).toBeTruthy();
 
-    expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock - 1);
-    expect(getInventoryBalance(sale.siteId!, scenario.product.id)?.onHand).toBe(
-      scenario.product.stockPerSite - 1
-    );
+      expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock - 1);
+      expect(getInventoryBalance(sale.siteId!, scenario.product.id)?.onHand).toBe(
+        scenario.product.stockPerSite - 1
+      );
 
-    await openSaleDetails(page, sale.saleNumber);
-    await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
+      await openSaleDetails(page, sale.saleNumber);
+      await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
 
-    await capturePrereleaseEvidence(page, 'prerelease-sale-details');
-    await expectNoClientIssues(tracker);
-  });
+      await capturePrereleaseEvidence(page, 'prerelease-sale-details');
+      await expectNoClientIssues(tracker);
+    }
+  );
 
-  test('manager refunds a completed sale and the refund restores inventory plus audit evidence', { tag: PRERELEASE_MONEY_TAG }, async ({
-    page,
-  }, testInfo) => {
-    const tracker = attachClientIssueTracker(page);
-    const scenario = seedSaleScenario(`sale-refund-${testInfo.parallelIndex}-${Date.now()}`);
+  test(
+    'manager refunds a completed sale and the refund restores inventory plus audit evidence',
+    { tag: PRERELEASE_MONEY_TAG },
+    async ({ page }, testInfo) => {
+      const tracker = attachClientIssueTracker(page);
+      const scenario = seedSaleScenario(`sale-refund-${testInfo.parallelIndex}-${Date.now()}`);
 
-    await login(page, {
-      email: scenario.cashier.email,
-      password: scenario.cashier.password,
-      defaultPath: '/sales',
-    });
-    await createCompletedCashSale(page, scenario.product);
+      await login(page, {
+        email: scenario.cashier.email,
+        password: scenario.cashier.password,
+        defaultPath: '/sales',
+      });
+      await createCompletedCashSale(page, scenario.product);
 
-    const sale = await pollForRecord(() =>
-      findLatestSaleForProduct(scenario.product.id, scenario.cashier.id)
-    );
+      const sale = await pollForRecord(() =>
+        findLatestSaleForProduct(scenario.product.id, scenario.cashier.id)
+      );
 
-    await resetSession(page);
-    await login(page, {
-      email: scenario.manager.email,
-      password: scenario.manager.password,
-      defaultPath: '/dashboard',
-    });
-    await openSaleDetails(page, sale.saleNumber);
+      await resetSession(page);
+      await login(page, {
+        email: scenario.manager.email,
+        password: scenario.manager.password,
+        defaultPath: '/dashboard',
+      });
+      await openSaleDetails(page, sale.saleNumber);
 
-    await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Refund Sale', exact: true }).first().click();
-    // ENG-084 V8 reskin — the trigger keeps the legacy "Refund Sale" copy,
-    // but the editorial Overlay primitive uses "Return sale" heading + a
-    // "Confirm return" CTA inside.
-    const refundDialog = page
-      .locator('[role="dialog"]')
-      .filter({ has: page.getByRole('heading', { name: 'Return sale' }) })
-      .last();
-    await expect(refundDialog).toBeVisible();
-    await refundDialog.getByRole('button', { name: 'Confirm return', exact: true }).click();
-    await expect(refundDialog).toBeHidden({ timeout: 15_000 });
-    await expectSuccessToast(page, 'Sale refunded and stock restored');
+      await page.getByRole('button', { name: 'Refund Sale', exact: true }).first().click();
+      // V8 reskin — the trigger keeps the legacy "Refund Sale" copy,
+      // but the editorial Overlay primitive uses "Return sale" heading + a
+      // "Confirm return" CTA inside.
+      const refundDialog = page
+        .locator('[role="dialog"]')
+        .filter({ has: page.getByRole('heading', { name: 'Return sale' }) })
+        .last();
+      await expect(refundDialog).toBeVisible();
+      await refundDialog.getByRole('button', { name: 'Confirm return', exact: true }).click();
+      await expect(refundDialog).toBeHidden({ timeout: 15_000 });
+      await expectSuccessToast(page, 'Sale refunded and stock restored');
 
-    await expect
-      .poll(() => getSaleById(sale.id), { timeout: 10_000 })
-      .toMatchObject({ paymentStatus: 'refunded', status: 'completed' });
+      await expect
+        .poll(() => getSaleById(sale.id), { timeout: 10_000 })
+        .toMatchObject({ paymentStatus: 'refunded', status: 'completed' });
 
-    const saleReturn = await pollForRecord(() => getSaleReturnBySaleId(sale.id));
+      const saleReturn = await pollForRecord(() => getSaleReturnBySaleId(sale.id));
 
-    expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock);
-    expect(getInventoryBalance(sale.siteId!, scenario.product.id)?.onHand).toBe(
-      scenario.product.stockPerSite
-    );
+      expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock);
+      expect(getInventoryBalance(sale.siteId!, scenario.product.id)?.onHand).toBe(
+        scenario.product.stockPerSite
+      );
 
-    const audit = await pollForRecord(() => getAuditLog('sale.return', sale.id));
+      const audit = await pollForRecord(() => getAuditLog('sale.return', sale.id));
 
-    expect(audit.after?.refundId).toBe(saleReturn.id);
+      expect(audit.after?.refundId).toBe(saleReturn.id);
 
-    await assertInventoryBalanceInUi(page, {
-      siteId: sale.siteId!,
-      productName: scenario.product.name,
-      productSku: scenario.product.sku,
-      expectedOnHand: scenario.product.stockPerSite,
-    });
-    await assertAggregateStockInUi(page, {
-      productName: scenario.product.name,
-      productSku: scenario.product.sku,
-      expectedStock: scenario.product.totalStock,
-    });
+      await assertInventoryBalanceInUi(page, {
+        siteId: sale.siteId!,
+        productName: scenario.product.name,
+        productSku: scenario.product.sku,
+        expectedOnHand: scenario.product.stockPerSite,
+      });
+      await assertAggregateStockInUi(page, {
+        productName: scenario.product.name,
+        productSku: scenario.product.sku,
+        expectedStock: scenario.product.totalStock,
+      });
 
-    await resetSession(page);
-    await login(page, {
-      email: scenario.admin.email,
-      password: scenario.admin.password,
-      defaultPath: '/dashboard',
-    });
-    await assertAuditEventInUi(page, {
-      action: 'sale.return',
-      expectedActor: scenario.manager.email,
-      expectedText: /Sale refunded|Venta reembolsada/i,
-    });
+      await resetSession(page);
+      await login(page, {
+        email: scenario.admin.email,
+        password: scenario.admin.password,
+        defaultPath: '/dashboard',
+      });
+      await assertAuditEventInUi(page, {
+        action: 'sale.return',
+        expectedActor: scenario.manager.email,
+        expectedText: /Sale refunded|Venta reembolsada/i,
+      });
 
-    await capturePrereleaseEvidence(page, 'prerelease-refund-audit');
-    await expectNoClientIssues(tracker);
-  });
+      await capturePrereleaseEvidence(page, 'prerelease-refund-audit');
+      await expectNoClientIssues(tracker);
+    }
+  );
 
   test('admin voids a completed sale and the void restores inventory plus audit evidence', async ({
     page,
@@ -541,9 +546,12 @@ test.describe('web business flows', () => {
     });
     await page.goto('/inventory');
 
-    await page.locator('header').getByRole('button', {
-      name: new RegExp(scenario.sites.map(site => escapeRegExp(site.name)).join('|')),
-    }).click();
+    await page
+      .locator('header')
+      .getByRole('button', {
+        name: new RegExp(scenario.sites.map(site => escapeRegExp(site.name)).join('|')),
+      })
+      .click();
     await page.getByRole('option', { name: targetSite.name }).click();
 
     await page.getByRole('button', { name: 'Stock Query' }).click();
@@ -577,9 +585,7 @@ test.describe('web business flows', () => {
     expect(audit.metadata?.siteId).toBe(targetSite.id);
 
     expect(getProductStock(scenario.product.id)).toBe(nextAggregateStock);
-    expect(getInventoryBalance(targetSite.id, scenario.product.id)?.onHand).toBe(
-      nextPrimaryStock
-    );
+    expect(getInventoryBalance(targetSite.id, scenario.product.id)?.onHand).toBe(nextPrimaryStock);
 
     await assertAggregateStockInUi(page, {
       productName: scenario.product.name,
@@ -612,7 +618,9 @@ test.describe('web business flows', () => {
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
-    const scenario = seedPurchaseScenario(`purchase-complete-${testInfo.parallelIndex}-${Date.now()}`);
+    const scenario = seedPurchaseScenario(
+      `purchase-complete-${testInfo.parallelIndex}-${Date.now()}`
+    );
 
     await login(page, {
       email: scenario.manager.email,
@@ -641,7 +649,9 @@ test.describe('web business flows', () => {
     // Scope to the purchase details drawer: the provider name and status
     // badge render in both the purchase list row and the drawer itself, so
     // an unscoped getByText would trip strict-mode multiplicity.
-    const purchaseDetailsDrawer = page.getByRole('dialog', { name: new RegExp(`Purchase ${escapeRegExp(purchase.purchaseNumber)}`) });
+    const purchaseDetailsDrawer = page.getByRole('dialog', {
+      name: new RegExp(`Purchase ${escapeRegExp(purchase.purchaseNumber)}`),
+    });
     await expect(purchaseDetailsDrawer.getByText(scenario.provider.name)).toBeVisible();
     await expect(purchaseDetailsDrawer.getByText('Completed', { exact: true })).toBeVisible();
 
@@ -664,7 +674,9 @@ test.describe('web business flows', () => {
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
-    const scenario = seedPurchaseScenario(`purchase-return-${testInfo.parallelIndex}-${Date.now()}`);
+    const scenario = seedPurchaseScenario(
+      `purchase-return-${testInfo.parallelIndex}-${Date.now()}`
+    );
 
     await login(page, {
       email: scenario.manager.email,
@@ -689,7 +701,9 @@ test.describe('web business flows', () => {
     await page.getByRole('button', { name: 'Return Items', exact: true }).click();
     const returnDialog = page
       .locator('[role="dialog"]')
-      .filter({ has: page.getByRole('heading', { name: `Return Items for ${purchase.purchaseNumber}` }) })
+      .filter({
+        has: page.getByRole('heading', { name: `Return Items for ${purchase.purchaseNumber}` }),
+      })
       .last();
     await expect(returnDialog).toBeVisible();
     await returnDialog.locator('input[type="number"]').first().fill('1');
@@ -713,7 +727,9 @@ test.describe('web business flows', () => {
 
     // Scope to the purchase details drawer: status + reason render in
     // both the list row and the drawer after the mutation invalidates.
-    const purchaseDetailsDrawer = page.getByRole('dialog', { name: new RegExp(`Purchase ${escapeRegExp(purchase.purchaseNumber)}`) });
+    const purchaseDetailsDrawer = page.getByRole('dialog', {
+      name: new RegExp(`Purchase ${escapeRegExp(purchase.purchaseNumber)}`),
+    });
     await expect(purchaseDetailsDrawer.getByText('Partial returned').first()).toBeVisible();
     // "E2E supplier return" appears in multiple places in the drawer: in
     // the returned-items panel, in the notes, and in the audit summary.
@@ -813,7 +829,9 @@ test.describe('web business flows', () => {
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
-    const scenario = seedTransferScenario(`transfer-receive-${testInfo.parallelIndex}-${Date.now()}`);
+    const scenario = seedTransferScenario(
+      `transfer-receive-${testInfo.parallelIndex}-${Date.now()}`
+    );
     const [originSite, destinationSite] = scenario.sites;
     const transferNotes = `E2E deferred transfer ${Date.now()}`;
 
@@ -850,9 +868,7 @@ test.describe('web business flows', () => {
       .filter({ has: page.getByRole('heading', { name: 'Receive transfer' }) })
       .last();
     await expect(receiveDialog).toBeVisible();
-    await receiveDialog
-      .getByLabel(`Received quantity for ${scenario.product.name}`)
-      .fill('2');
+    await receiveDialog.getByLabel(`Received quantity for ${scenario.product.name}`).fill('2');
     await receiveDialog
       .locator('#transfer-receive-discrepancy-notes')
       .fill('One unit arrived damaged');
@@ -899,78 +915,84 @@ test.describe('web business flows', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('cashier closes a cash session with an overage and the closure is visible in audit plus reporting', { tag: PRERELEASE_MONEY_TAG }, async ({
-    page,
-  }, testInfo) => {
-    const tracker = attachClientIssueTracker(page);
-    const scenario = seedCashSessionScenario(`cash-close-${testInfo.parallelIndex}-${Date.now()}`);
-    const expectedOverShort = 1000;
+  test(
+    'cashier closes a cash session with an overage and the closure is visible in audit plus reporting',
+    { tag: PRERELEASE_MONEY_TAG },
+    async ({ page }, testInfo) => {
+      const tracker = attachClientIssueTracker(page);
+      const scenario = seedCashSessionScenario(
+        `cash-close-${testInfo.parallelIndex}-${Date.now()}`
+      );
+      const expectedOverShort = 1000;
 
-    await login(page, {
-      email: scenario.cashier.email,
-      password: scenario.cashier.password,
-      defaultPath: '/sales',
-    });
-    await page.goto('/sales');
-    // The cashier has open cash sessions at both sites (global-setup seeds
-    // one session per site). The scenario prepared the register we want to
-    // close at `scenario.activeSite` (sites[0]); the tenant default may be
-    // sites[1], so we must explicitly switch to ensure the Close button on
-    // the Sales page targets the prepared session.
-    await switchToSite(page, scenario.activeSite.name);
-    await page.getByRole('button', { name: 'Close cash session' }).first().click();
+      await login(page, {
+        email: scenario.cashier.email,
+        password: scenario.cashier.password,
+        defaultPath: '/sales',
+      });
+      await page.goto('/sales');
+      // The cashier has open cash sessions at both sites (global-setup seeds
+      // one session per site). The scenario prepared the register we want to
+      // close at `scenario.activeSite` (sites[0]); the tenant default may be
+      // sites[1], so we must explicitly switch to ensure the Close button on
+      // the Sales page targets the prepared session.
+      await switchToSite(page, scenario.activeSite.name);
+      await page.getByRole('button', { name: 'Close cash session' }).first().click();
 
-    const closeDialog = page
-      .locator('[role="dialog"]')
-      .filter({ has: page.getByRole('heading', { name: 'Close cash session' }) })
-      .last();
-    await expect(closeDialog).toBeVisible();
-    await closeDialog.locator('#cash-session-closing-count').fill('2000');
-    await closeDialog.locator('#cash-session-close-count-6').fill('2');
-    await closeDialog.getByRole('button', { name: 'Close session' }).click();
-    await expect(closeDialog).toBeHidden({ timeout: 15_000 });
-    await expectSuccessToast(
-      page,
-      new RegExp(`${escapeRegExp(scenario.registerName)} closed with an overage`)
-    );
+      const closeDialog = page
+        .locator('[role="dialog"]')
+        .filter({ has: page.getByRole('heading', { name: 'Close cash session' }) })
+        .last();
+      await expect(closeDialog).toBeVisible();
+      await closeDialog.locator('#cash-session-closing-count').fill('2000');
+      await closeDialog.locator('#cash-session-close-count-6').fill('2');
+      await closeDialog.getByRole('button', { name: 'Close session' }).click();
+      await expect(closeDialog).toBeHidden({ timeout: 15_000 });
+      await expectSuccessToast(
+        page,
+        new RegExp(`${escapeRegExp(scenario.registerName)} closed with an overage`)
+      );
 
-    await expect
-      .poll(
-        () => getLatestCashSessionForCashierSite(scenario.cashier.id, scenario.activeSite.id),
-        { timeout: 10_000 }
-      )
-      .toMatchObject({
-        id: scenario.cashSessionId,
-        status: 'closed',
-        actualCount: 2000,
-        overShort: expectedOverShort,
+      await expect
+        .poll(
+          () => getLatestCashSessionForCashierSite(scenario.cashier.id, scenario.activeSite.id),
+          { timeout: 10_000 }
+        )
+        .toMatchObject({
+          id: scenario.cashSessionId,
+          status: 'closed',
+          actualCount: 2000,
+          overShort: expectedOverShort,
+        });
+
+      const audit = await pollForRecord(() =>
+        getAuditLog('cash_session.close', scenario.cashSessionId)
+      );
+
+      expect(audit.after?.actualCount).toBe(2000);
+      expect(audit.after?.overShort).toBe(expectedOverShort);
+      expect(audit.metadata?.registerName).toBe(scenario.registerName);
+
+      await resetSession(page);
+      await login(page, {
+        email: scenario.admin.email,
+        password: scenario.admin.password,
+        defaultPath: '/dashboard',
+      });
+      await assertCashClosureInOperationsReport(page, {
+        registerName: scenario.registerName,
+        signedOverShort: formatUsd(expectedOverShort),
+      });
+      await assertAuditEventInUi(page, {
+        action: 'cash_session.close',
+        expectedActor: scenario.cashier.email,
+        expectedText: `Over/short: ${formatUsd(expectedOverShort)}`,
       });
 
-    const audit = await pollForRecord(() => getAuditLog('cash_session.close', scenario.cashSessionId));
-
-    expect(audit.after?.actualCount).toBe(2000);
-    expect(audit.after?.overShort).toBe(expectedOverShort);
-    expect(audit.metadata?.registerName).toBe(scenario.registerName);
-
-    await resetSession(page);
-    await login(page, {
-      email: scenario.admin.email,
-      password: scenario.admin.password,
-      defaultPath: '/dashboard',
-    });
-    await assertCashClosureInOperationsReport(page, {
-      registerName: scenario.registerName,
-      signedOverShort: formatUsd(expectedOverShort),
-    });
-    await assertAuditEventInUi(page, {
-      action: 'cash_session.close',
-      expectedActor: scenario.cashier.email,
-      expectedText: `Over/short: ${formatUsd(expectedOverShort)}`,
-    });
-
-    await capturePrereleaseEvidence(page, 'prerelease-cash-close-audit');
-    await expectNoClientIssues(tracker);
-  });
+      await capturePrereleaseEvidence(page, 'prerelease-cash-close-audit');
+      await expectNoClientIssues(tracker);
+    }
+  );
 
   test('cashier closes a cash session with a shortage and the shortage renders as a negative over/short', async ({
     page,
@@ -998,8 +1020,8 @@ test.describe('web business flows', () => {
     // The Close button is disabled unless the denomination grid sums to
     // `actualCount` (cashSessionTotalsMatch in CashSessionCloseModal.tsx).
     // Denominations live at fixed indices in the seeded template:
-    //   [0]100000 [1]50000 [2]20000 [3]10000 [4]5000 [5]2000
-    //   [6]1000  [7]500   [8]200   [9]100   [10]50
+    // [0]100000 [1]50000 [2]20000 [3]10000 [4]5000 [5]2000
+    // [6]1000  [7]500   [8]200   [9]100   [10]50
     // For actualCount=700 we count one 500 bill + one 200 bill.
     await closeDialog.locator('#cash-session-closing-count').fill(String(actualCount));
     await closeDialog.locator('#cash-session-close-count-7').fill('1'); // 500
@@ -1012,10 +1034,9 @@ test.describe('web business flows', () => {
     );
 
     await expect
-      .poll(
-        () => getLatestCashSessionForCashierSite(scenario.cashier.id, scenario.activeSite.id),
-        { timeout: 10_000 }
-      )
+      .poll(() => getLatestCashSessionForCashierSite(scenario.cashier.id, scenario.activeSite.id), {
+        timeout: 10_000,
+      })
       .toMatchObject({
         id: scenario.cashSessionId,
         status: 'closed',
@@ -1023,7 +1044,9 @@ test.describe('web business flows', () => {
         overShort: expectedOverShort,
       });
 
-    const audit = await pollForRecord(() => getAuditLog('cash_session.close', scenario.cashSessionId));
+    const audit = await pollForRecord(() =>
+      getAuditLog('cash_session.close', scenario.cashSessionId)
+    );
 
     expect(audit.after?.actualCount).toBe(actualCount);
     expect(audit.after?.overShort).toBe(expectedOverShort);
@@ -1046,7 +1069,9 @@ test.describe('web business flows', () => {
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
-    const scenario = seedCashSessionScenario(`cash-balanced-${testInfo.parallelIndex}-${Date.now()}`);
+    const scenario = seedCashSessionScenario(
+      `cash-balanced-${testInfo.parallelIndex}-${Date.now()}`
+    );
     const actualCount = scenario.expectedBalance; // 1000
 
     await login(page, {
@@ -1069,17 +1094,16 @@ test.describe('web business flows', () => {
     await closeDialog.getByRole('button', { name: 'Close session' }).click();
     await expect(closeDialog).toBeHidden({ timeout: 15_000 });
     // When actual == expected the i18n closeBalancedDescription fires:
-    //   "{{registerName}} closed balanced at {{amount}}."
+    // "{{registerName}} closed balanced at {{amount}}."
     await expectSuccessToast(
       page,
       new RegExp(`${escapeRegExp(scenario.registerName)} closed balanced`)
     );
 
     await expect
-      .poll(
-        () => getLatestCashSessionForCashierSite(scenario.cashier.id, scenario.activeSite.id),
-        { timeout: 10_000 }
-      )
+      .poll(() => getLatestCashSessionForCashierSite(scenario.cashier.id, scenario.activeSite.id), {
+        timeout: 10_000,
+      })
       .toMatchObject({
         id: scenario.cashSessionId,
         status: 'closed',
@@ -1087,7 +1111,9 @@ test.describe('web business flows', () => {
         overShort: 0,
       });
 
-    const audit = await pollForRecord(() => getAuditLog('cash_session.close', scenario.cashSessionId));
+    const audit = await pollForRecord(() =>
+      getAuditLog('cash_session.close', scenario.cashSessionId)
+    );
     expect(audit.after?.overShort).toBe(0);
 
     await expectNoClientIssues(tracker);
@@ -1097,7 +1123,9 @@ test.describe('web business flows', () => {
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
-    const scenario = seedTransferScenario(`transfer-perfect-${testInfo.parallelIndex}-${Date.now()}`);
+    const scenario = seedTransferScenario(
+      `transfer-perfect-${testInfo.parallelIndex}-${Date.now()}`
+    );
     const [originSite, destinationSite] = scenario.sites;
     const shippedQty = 3;
     const transferNotes = `E2E perfect transfer ${Date.now()}`;
@@ -1185,9 +1213,7 @@ test.describe('web business flows', () => {
     await receiveDialog
       .getByLabel(`Received quantity for ${scenario.product.name}`)
       .fill(String(shippedQty + 1));
-    await expect(
-      receiveDialog.getByRole('button', { name: 'Confirm receipt' })
-    ).toBeDisabled();
+    await expect(receiveDialog.getByRole('button', { name: 'Confirm receipt' })).toBeDisabled();
 
     // The transfer must stay in_transit — no partial-receive or
     // completed state can land while the receipt is over-shipped.
@@ -1202,7 +1228,7 @@ test.describe('web business flows', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('cashier completes a split-payment sale with cash + card and both tenders render in the details drawer (SALES-19 / SALES-22)', async ({
+  test('cashier completes a split-payment sale with cash + card and both tenders render in the details drawer', async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
@@ -1235,9 +1261,7 @@ test.describe('web business flows', () => {
 
     // Flip to split mode, tender 0 defaults to cash. Set its amount and
     // add a second tender (card).
-    await chargeDialog
-      .getByRole('button', { name: 'Split payment across tenders' })
-      .click();
+    await chargeDialog.getByRole('button', { name: 'Split payment across tenders' }).click();
     await chargeDialog.getByLabel('Amount for tender 1').fill(String(cashPortion));
     await chargeDialog.getByRole('button', { name: 'Add payment method' }).click();
     await chargeDialog.getByLabel('Method for tender 2').selectOption('card');
@@ -1258,16 +1282,18 @@ test.describe('web business flows', () => {
     expect(sale.paymentStatus).toBe('paid');
     expect(sale.total).toBe(expectedTotal);
 
-    // SALES-22: opening the sale details drawer shows one row per tender.
+    // Opening the sale details drawer shows one row per tender.
     await openSaleDetails(page, sale.saleNumber);
-    const drawer = page.getByRole('dialog', { name: new RegExp(`Sale ${escapeRegExp(sale.saleNumber)}`) });
+    const drawer = page.getByRole('dialog', {
+      name: new RegExp(`Sale ${escapeRegExp(sale.saleNumber)}`),
+    });
     await expect(drawer.getByText(/Cash/i).first()).toBeVisible();
     await expect(drawer.getByText(/Card/i).first()).toBeVisible();
 
     await expectNoClientIssues(tracker);
   });
 
-  test('cashier opens a cash session from zero and completes the linked attendance lifecycle (CASH-01 / CASH-03 / ENG-140d)', async ({
+  test('cashier opens a cash session from zero and completes the linked attendance lifecycle', async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
@@ -1287,7 +1313,7 @@ test.describe('web business flows', () => {
     const targetSite = scenario.sites[0];
     await switchToSite(page, targetSite.name);
 
-    // CASH-01: with no open session, the primary CTA on the Sales page
+    // With no open session, the primary CTA on the Sales page
     // is "Open cash session" (Charge is disabled).
     const openButton = page.getByRole('button', { name: 'Open cash session' }).first();
     await expect(openButton).toBeEnabled();
@@ -1401,11 +1427,13 @@ test.describe('web business flows', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('cashier records a manual paid-in movement and the drawer balance reflects the inflow (CASH-05)', async ({
+  test('cashier records a manual paid-in movement and the drawer balance reflects the inflow', async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
-    const scenario = seedCashSessionScenario(`cash-movement-${testInfo.parallelIndex}-${Date.now()}`);
+    const scenario = seedCashSessionScenario(
+      `cash-movement-${testInfo.parallelIndex}-${Date.now()}`
+    );
     const topUpAmount = 250;
 
     await login(page, {
@@ -1435,10 +1463,9 @@ test.describe('web business flows', () => {
     // Expected balance jumps from the seeded opening float by exactly
     // the paid-in amount.
     await expect
-      .poll(
-        () => getLatestCashSessionForCashierSite(scenario.cashier.id, scenario.activeSite.id),
-        { timeout: 10_000 }
-      )
+      .poll(() => getLatestCashSessionForCashierSite(scenario.cashier.id, scenario.activeSite.id), {
+        timeout: 10_000,
+      })
       .toMatchObject({
         id: scenario.cashSessionId,
         expectedBalance: scenario.expectedBalance + topUpAmount,
@@ -1447,13 +1474,11 @@ test.describe('web business flows', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('cashier parks a cart, charges a second one, resumes the first, and charges it via completeDraft (ENG-018b / 018c round-trip)', async ({
+  test('cashier parks a cart, charges a second one, resumes the first, and charges it via completeDraft', async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
-    const scenario = seedSaleScenario(
-      `park-roundtrip-${testInfo.parallelIndex}-${Date.now()}`
-    );
+    const scenario = seedSaleScenario(`park-roundtrip-${testInfo.parallelIndex}-${Date.now()}`);
 
     await login(page, {
       email: scenario.cashier.email,
@@ -1537,15 +1562,15 @@ test.describe('web business flows', () => {
     await expectSuccessToast(page, 'Sale completed');
 
     // Stock settled at -2 because cart A was already debited at
-    // create-draft time (ENG-018 baseline model). completeDraft does
-    // NOT re-debit — the whole point of ENG-018c.
+    // create-draft time ( baseline model). completeDraft does
+    // NOT re-debit — the whole point of .
     const stockFinal = getProductStock(scenario.product.id);
     expect(stockFinal).toBe(scenario.product.totalStock - 2);
 
     // Per-site inventory balance should mirror the product-level total.
-    expect(
-      getInventoryBalance(activeSite.id, scenario.product.id)?.onHand
-    ).toBe(scenario.product.stockPerSite - 2);
+    expect(getInventoryBalance(activeSite.id, scenario.product.id)?.onHand).toBe(
+      scenario.product.stockPerSite - 2
+    );
 
     // Audit trail of the draft → completed transition is exercised by
     // the server-side test `completeDraft flips a non-suspended draft

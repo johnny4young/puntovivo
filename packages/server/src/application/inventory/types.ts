@@ -1,5 +1,5 @@
 /**
- * ENG-206 — Public types for inventory stock mutation use-cases.
+ * Public types for inventory stock mutation use-cases.
  *
  * The context is deliberately structural: tRPC resolvers and direct tests can
  * provide only the authenticated tenant, site and command-envelope data that

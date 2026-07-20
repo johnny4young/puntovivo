@@ -22,15 +22,15 @@ import {
 } from './paymentHealthPresentation';
 
 /**
- * ENG-038 + ENG-065d — Operations Center: Payment Health panel.
+ * +  — Operations Center: Payment Health panel.
  *
- * ENG-038 shipped the read-only reconciliation surface; ENG-065d adds
+ * shipped the read-only reconciliation surface;  adds
  * per-row admin actions (Retry + Mark settled) and a per-rail × status
  * breakdown card. Both admin gestures wire through the `payments.*`
  * router and invalidate every payment-side cache on success so the
  * panel re-fetches without a manual reload.
  *
- * Rediseño FASE 6 (O2) — recetas pv-*: KPIs con `KpiTile` (`.pv-kpi`),
+ * recetas pv-*: KPIs con `KpiTile` (`.pv-kpi`),
  * tablas con `.pv-table`, estados con `.pv-badge`, vacíos con
  * `EmptyState` y botones con `.pv-btn`. Encabezados de panel con
  * `.pv-kicker` / `.pv-title`.

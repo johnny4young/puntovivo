@@ -1,6 +1,6 @@
 ALTER TABLE `cash_sessions` ADD `employee_shift_id` text REFERENCES employee_shifts(id);--> statement-breakpoint
 CREATE INDEX `idx_cash_sessions_tenant_employee_shift` ON `cash_sessions` (`tenant_id`,`employee_shift_id`);--> statement-breakpoint
--- ENG-140d — a linked drawer and employee shift always share tenant, user,
+--  — a linked drawer and employee shift always share tenant, user,
 -- and site. Historical rows may keep a null link; new application opens do not.
 CREATE TRIGGER IF NOT EXISTS `cash_sessions_employee_shift_scope_insert`
 BEFORE INSERT ON `cash_sessions`

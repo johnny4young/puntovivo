@@ -1,5 +1,5 @@
 /**
- * ENG-134d — Shared helpers for the keyboard-only `/sales` smoke spec.
+ * Shared helpers for the keyboard-only `/sales` smoke spec.
  *
  * Centralises a few small utilities the spec at
  * `e2e/web/sales-keyboard-only.spec.ts` reuses across its ten test
@@ -8,7 +8,7 @@
  * tangle of Playwright locators.
  *
  * The mount-autofocus + close-restore poll mirrors the contract
- * shipped by ENG-105F. The MOD_KEY constant mirrors the platform
+ * shipped by . The MOD_KEY constant mirrors the platform
  * branch shipped in `sales-scanner-focus.spec.ts:36` so a local Mac
  * dev run picks `Meta+K` and a Linux CI run picks `Control+K`.
  *
@@ -22,8 +22,7 @@ import { expect, type Page } from '@playwright/test';
  * Linux but `npx playwright test` on the operator's macOS box also
  * needs the spec to work, so we branch here before pressing the key.
  */
-export const MOD_KEY: 'Meta' | 'Control' =
-  process.platform === 'darwin' ? 'Meta' : 'Control';
+export const MOD_KEY: 'Meta' | 'Control' = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 /** The id of the page-level sales product search input. */
 export const SEARCH_INPUT_ID = 'sales-product-search-input';
@@ -34,8 +33,8 @@ export const SEARCH_INPUT_SELECTOR = `#${SEARCH_INPUT_ID}`;
  * Polls `document.activeElement.id` and asserts it lands on the page-level
  * search input within 10 seconds. Equal to the helper used by the
  * scanner-focus spec but exported here so future keyboard-flow specs can
- * reuse it. Use after a modal close to validate the ENG-105F restore
- * contract, or after `/sales` mount to validate the ENG-105F autofocus.
+ * reuse it. Use after a modal close to validate the  restore
+ * contract, or after `/sales` mount to validate the  autofocus.
  */
 export async function expectSearchInputFocused(page: Page): Promise<void> {
   await expect
@@ -47,24 +46,21 @@ export async function expectSearchInputFocused(page: Page): Promise<void> {
 
 /**
  * Adds a product to the in-progress cart using only the keyboard:
- *  1. Type the SKU into the page-level search input.
- *  2. Press Enter to open ProductSearchDialog (ENG-105F + form submit path).
- *  3. Focus the row whose data-testid matches the SKU (ENG-134e).
- *  4. Press Enter on the row to select (handleProductSelect).
- *  5. Press the dialog's primary action ("Add to cart") via getByRole.
+ * 1. Type the SKU into the page-level search input.
+ * 2. Press Enter to open ProductSearchDialog ( + form submit path).
+ * 3. Focus the row whose data-testid matches the SKU ().
+ * 4. Press Enter on the row to select (handleProductSelect).
+ * 5. Press the dialog's primary action ("Add to cart") via getByRole.
  *
  * After this returns, the dialog is closed and focus has restored to the
- * page-level search input (ENG-105F close→restore). The cart contains
+ * page-level search input ( close→restore). The cart contains
  * one new row referencing the product.
  *
  * The helper does NOT use mouse clicks at any step — callers that need
  * to validate the mouse path should use `business.spec.ts`'s
  * `createCompletedCashSale` instead.
  */
-export async function addProductToCartViaKeyboard(
-  page: Page,
-  sku: string
-): Promise<void> {
+export async function addProductToCartViaKeyboard(page: Page, sku: string): Promise<void> {
   const search = page.locator(SEARCH_INPUT_SELECTOR);
   await search.waitFor();
   await search.fill(sku);

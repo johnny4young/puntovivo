@@ -1,5 +1,5 @@
 /**
- * Receipt template "unset variable" decorations (ENG-016 pass 5 — closes item #7).
+ * Receipt template "unset variable" decorations ( pass 5 — closes item #7).
  *
  * Adds a CodeMirror 6 Decoration layer that dims `{{namespace.field}}`
  * tokens whose path the active tenant has not configured (e.g.
@@ -15,12 +15,7 @@
  * @module features/receipt-templates/templateUnavailableDecorations
  */
 
-import {
-  StateEffect,
-  StateField,
-  type Extension,
-  type Range,
-} from '@codemirror/state';
+import { StateEffect, StateField, type Extension, type Range } from '@codemirror/state';
 import { Decoration, EditorView, type DecorationSet, hoverTooltip } from '@codemirror/view';
 import { TEMPLATE_NAMESPACES } from './templateAutocomplete';
 
@@ -145,16 +140,11 @@ interface AvailabilityState {
 
 const dimDecoration = Decoration.mark({ class: 'cm-variable-unavailable' });
 
-function buildDecorations(
-  doc: string,
-  availability: AvailabilityMap | null
-): DecorationSet {
+function buildDecorations(doc: string, availability: AvailabilityMap | null): DecorationSet {
   if (!availability) return Decoration.none;
   const spans = findUnavailableSpans(doc, availability);
   if (spans.length === 0) return Decoration.none;
-  const ranges: Range<Decoration>[] = spans.map(span =>
-    dimDecoration.range(span.from, span.to)
-  );
+  const ranges: Range<Decoration>[] = spans.map(span => dimDecoration.range(span.from, span.to));
   return Decoration.set(ranges, true);
 }
 

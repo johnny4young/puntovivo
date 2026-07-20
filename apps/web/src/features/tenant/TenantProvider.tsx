@@ -34,7 +34,7 @@ export function TenantProvider({ children }: TenantProviderProps) {
     enabled: isAuthenticated && !!tenant,
   });
 
-  // ENG-171 — memoize `sites` so its reference is stable while the
+  // memoize `sites` so its reference is stable while the
   // underlying query data is unchanged. Without this the array is rebuilt
   // every render, which (a) defeats `switchSite`'s useCallback (it depends
   // on `sites`) and (b) would defeat the context-value memo below.
@@ -65,7 +65,7 @@ export function TenantProvider({ children }: TenantProviderProps) {
     }
   }, [currentSiteId, queryClient]);
 
-  // ENG-171 — memoize the context value so the 19 `useTenant` consumers do
+  // memoize the context value so the 19 `useTenant` consumers do
   // not re-render on every TenantProvider render (e.g. when an ancestor
   // re-renders). `currentSite` + `switchSite` are already memoized in
   // `useActiveSite`; with `sites` now stable, this memo only changes when a

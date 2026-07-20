@@ -1,4 +1,4 @@
-/** ENG-178 — Search-result table and keyboard navigation for ProductSearchDialog. */
+/** Search-result table and keyboard navigation for ProductSearchDialog. */
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { PlusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -36,7 +36,7 @@ export function ProductSearchResults({
   onProductSelect,
 }: ProductSearchResultsProps) {
   const { t } = useTranslation('common');
-  // ENG-134e — roving tabindex state for keyboard navigation across
+  // roving tabindex state for keyboard navigation across
   // product rows. Identity changes reset the active row during render,
   // following the React 19 derived-state pattern used by the original dialog.
   const [activeRowIndex, setActiveRowIndex] = useState(0);
@@ -123,7 +123,7 @@ export function ProductSearchResults({
             {isEmptyState && (
               <tr>
                 <td colSpan={5} className="px-4 py-6">
-                  {/* ENG-105c — preserve the role-gated quick-create state. */}
+                  {/* preserve the role-gated quick-create state. */}
                   {quickCreateAvailable ? (
                     <div
                       className="flex flex-col items-start gap-3 text-sm"

@@ -1,5 +1,5 @@
 /**
- * ENG-039d3 — Tenant-level restaurant settings router.
+ * Tenant-level restaurant settings router.
  *
  * Reads + writes `tenants.settings.restaurant`. Current shape carries a
  * single field (`serviceChargeRate`); the namespace is intentionally a
@@ -8,10 +8,10 @@
  * client.
  *
  * - `.get` — managerOrAdmin (the cashier needs the rate at checkout
- *   time, but the AuthProvider session already carries it; this
- *   endpoint serves the admin / settings page instead).
+ * time, but the AuthProvider session already carries it; this
+ * endpoint serves the admin / settings page instead).
  * - `.update` — admin-only. Writes the partial patch back via
- *   `writeRestaurantSettings`.
+ * `writeRestaurantSettings`.
  *
  * @module trpc/routers/restaurantSettings
  */
@@ -30,10 +30,7 @@ export const updateRestaurantSettingsInput = z.object({
   serviceChargeRate: z
     .number()
     .min(0, 'serviceChargeRate must be non-negative')
-    .max(
-      SERVICE_CHARGE_RATE_MAX,
-      `serviceChargeRate cannot exceed ${SERVICE_CHARGE_RATE_MAX}%`
-    )
+    .max(SERVICE_CHARGE_RATE_MAX, `serviceChargeRate cannot exceed ${SERVICE_CHARGE_RATE_MAX}%`)
     .optional(),
 });
 
@@ -47,18 +44,15 @@ export const restaurantSettingsRouter = router({
     };
   }),
 
-  update: adminProcedure
-    .input(updateRestaurantSettingsInput)
-    .mutation(async ({ ctx, input }) => {
-      // ENG-179b — `input.serviceChargeRate` may be `undefined` under
-      // Zod's optional; `exactOptionalPropertyTypes` rejects spreading
-      // an explicit-undefined field into `Partial<RestaurantSettings>`.
-      // Build the patch with a conditional spread so absent input
-      // truly omits the field.
-      const patch = input.serviceChargeRate !== undefined
-        ? { serviceChargeRate: input.serviceChargeRate }
-        : {};
-      const next = await writeRestaurantSettings(ctx.db, ctx.tenantId, patch);
-      return { serviceChargeRate: next.serviceChargeRate };
-    }),
+  update: adminProcedure.input(updateRestaurantSettingsInput).mutation(async ({ ctx, input }) => {
+    // `input.serviceChargeRate` may be `undefined` under
+    // Zod's optional; `exactOptionalPropertyTypes` rejects spreading
+    // an explicit-undefined field into `Partial<RestaurantSettings>`.
+    // Build the patch with a conditional spread so absent input
+    // truly omits the field.
+    const patch =
+      input.serviceChargeRate !== undefined ? { serviceChargeRate: input.serviceChargeRate } : {};
+    const next = await writeRestaurantSettings(ctx.db, ctx.tenantId, patch);
+    return { serviceChargeRate: next.serviceChargeRate };
+  }),
 });

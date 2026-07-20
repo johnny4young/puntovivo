@@ -2,8 +2,8 @@
  * Database connection lifecycle.
  *
  * Opens the better-sqlite3 + Drizzle handle, applies the SQLCipher /
- * WAL / ENG-174 PRAGMA cluster, runs versioned migrations (with the
- * ENG-002 adoption shim + ENG-177c integrity gates), seeds catalogs +
+ * WAL /  PRAGMA cluster, runs versioned migrations (with the
+ * adoption shim +  integrity gates), seeds catalogs +
  * default data, and owns the process-wide `db` / `sqlite` singletons.
  *
  * @module db/connection
@@ -78,7 +78,7 @@ export async function initDatabase(
     nativeBinding: nativeBindingPath ?? resolveCachedNodeBinding(),
   });
 
-  // ENG-167 — Apply the SQLCipher key BEFORE any other PRAGMA so the
+  // Apply the SQLCipher key BEFORE any other PRAGMA so the
   // very first read (including `journal_mode`, which the next line
   // touches) speaks to a successfully-keyed page cipher. The fork
   // (`better-sqlite3-multiple-ciphers`) defaults to a non-SQLCipher
@@ -88,7 +88,7 @@ export async function initDatabase(
   // in-memory or temporary databases) and a RAM-backed surface has no
   // cleartext to protect anyway — the standalone `dev:server`
   // therefore boots unkeyed when `PUNTOVIVO_DB_KEY` is unset,
-  // preserving the legacy cleartext dev flow until ENG-167b ships the
+  // preserving the legacy cleartext dev flow until  ships the
   // one-shot migration UX.
   if (encryptionKey !== undefined && dbPath !== ':memory:') {
     assertEncryptionKeyShape(encryptionKey);
@@ -103,7 +103,7 @@ export async function initDatabase(
   }
   sqlite.pragma('foreign_keys = ON');
 
-  // ENG-174 — pinned PRAGMA cluster for concurrent-read performance and
+  // pinned PRAGMA cluster for concurrent-read performance and
   // WAL-file health. Five readers/writers compete for the writer slot on
   // a busy POS (HTTP, SSE, sync worker, hardware worker, fiscal worker,
   // payment worker); without busy_timeout a lock collision aborts a
@@ -129,7 +129,7 @@ export async function initDatabase(
   // Create Drizzle instance
   db = drizzle(sqlite, { schema });
 
-  // ENG-002 Step 3 — versioned migrations are the single schema path.
+  // Step 3 — versioned migrations are the single schema path.
   // The legacy `runSchemaSync()` raw-DDL mirror has been retired; the
   // only CREATE TABLE / ALTER TABLE / CREATE INDEX statements the
   // server runs at boot are the ones Drizzle generates from
@@ -164,13 +164,13 @@ export async function initDatabase(
     }
 
     // A-06 — refuse to run an OLDER binary against a DB a NEWER binary
-    // already migrated (auto-update rollback path; ENG-137 remaining). The
+    // already migrated (auto-update rollback path;  remaining). The
     // failure otherwise surfaces later as a random `no such column`
     // mid-operation; here it becomes an operator-facing boot error with the
     // remediation in the message. Runs after the journal-exists check so the
     // guard can trust the file, and before drizzleMigrate touches anything.
     assertSchemaNotNewerThanApp(sqlite, effectiveMigrationsFolder);
-    // ENG-177c — snapshot the applied-migration count so the
+    // snapshot the applied-migration count so the
     // post-migrate integrity check below runs ONLY on a boot that
     // actually lands a migration. A steady-state boot must not pay a
     // full-DB `foreign_key_check`, and must never refuse to start over a
@@ -192,7 +192,7 @@ export async function initDatabase(
     };
     const appliedMigrationsBefore = countAppliedMigrations();
 
-    // ENG-177c — table-rebuild migrations (e.g. adding a CHECK to a core
+    // table-rebuild migrations (e.g. adding a CHECK to a core
     // table) must run with foreign-key enforcement OFF at the connection
     // level. drizzle-orm wraps every pending migration in a single
     // BEGIN/COMMIT, and `PRAGMA foreign_keys` is a no-op inside a
@@ -255,7 +255,7 @@ export async function initDatabase(
       sqlite.pragma('foreign_keys = ON');
     }
 
-    // ENG-177c — with enforcement re-enabled, surface any orphaned row a
+    // with enforcement re-enabled, surface any orphaned row a
     // migration may have introduced (e.g. a botched table rebuild that
     // dropped a parent without re-pointing children) instead of limping
     // on with silent corruption. Gated on "a migration actually ran this
@@ -277,7 +277,7 @@ export async function initDatabase(
       }
     }
 
-    // ENG-002 Step 3 — post-migration catalog seeds. Idempotent via
+    // Step 3 — post-migration catalog seeds. Idempotent via
     // `INSERT OR IGNORE`; table-existence-gated, so adopted DBs
     // missing a catalog table log a warning instead of crashing.
     seedCatalogs(db);

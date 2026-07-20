@@ -1,5 +1,5 @@
 /**
- * ENG-098 — shared types for the KDS hook helpers.
+ * shared types for the KDS hook helpers.
  *
  * Helpers run as POST-tx best-effort hooks from a handful of sale
  * lifecycle entry points (`sales.suspend`, `sales.changeTable`,
@@ -35,7 +35,7 @@ export interface KdsHookContext {
    * `list` always re-scopes by `ctx.siteId` so the data is safe even
    * when the broadcast crosses sites; this is purely an optimisation.
    */
-  // ENG-179b — explicit `| undefined` on optional fields satisfies
+  // explicit `| undefined` on optional fields satisfies
   // `exactOptionalPropertyTypes`: callers can pass either `field:
   // undefined` (often the case when destructuring a parent context
   // that may not carry the field) or omit the key entirely.
@@ -56,7 +56,7 @@ export interface KdsItemSnapshot {
   productName: string;
   quantity: number;
   /**
-   * ENG-039d2 — per-line modifier ("sin cebolla", "extra queso").
+   * per-line modifier ("sin cebolla", "extra queso").
    * Null when no modifier was captured. Optional in the type so
    * snapshots persisted before this field shipped still parse on
    * the board (the renderer treats `notes ?? null` uniformly).

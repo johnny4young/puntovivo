@@ -1,5 +1,5 @@
 /**
- * Quotation service — delete (ENG-178 split).
+ * Quotation service — delete ( split).
  *
  * `deleteQuotation` (draft-only; audit snapshot before delete; tx whole).
  *
@@ -13,14 +13,10 @@ import { writeAuditLog } from '../audit-logs.js';
 
 import type { DeleteQuotationArgs } from './types.js';
 
-
-export function deleteQuotation(
-  db: DatabaseInstance,
-  args: DeleteQuotationArgs
-): { id: string } {
+export function deleteQuotation(db: DatabaseInstance, args: DeleteQuotationArgs): { id: string } {
   return db.transaction(tx => {
     // Load the snapshot we want to persist in the audit trail BEFORE deleting
-    // — the row (and its cascade children) is gone after the DELETE.
+    // the row (and its cascade children) is gone after the DELETE.
     const current = tx
       .select({
         id: quotations.id,
@@ -31,12 +27,7 @@ export function deleteQuotation(
         total: quotations.total,
       })
       .from(quotations)
-      .where(
-        and(
-          eq(quotations.id, args.quotationId),
-          eq(quotations.tenantId, args.tenantId)
-        )
-      )
+      .where(and(eq(quotations.id, args.quotationId), eq(quotations.tenantId, args.tenantId)))
       .get();
 
     if (!current) {
@@ -63,15 +54,10 @@ export function deleteQuotation(
     // keeps the invariant consistent and blocks any TOCTOU race against a
     // hypothetical second caller.
     tx.delete(quotations)
-      .where(
-        and(
-          eq(quotations.id, args.quotationId),
-          eq(quotations.tenantId, args.tenantId)
-        )
-      )
+      .where(and(eq(quotations.id, args.quotationId), eq(quotations.tenantId, args.tenantId)))
       .run();
 
-    // Phase 8 / Tier-2 #8 — record the deletion with the pre-delete snapshot
+    // record the deletion with the pre-delete snapshot
     // as `before` so the audit trail can reconstruct what was removed.
     // `after` is null by design (the row no longer exists).
     writeAuditLog({

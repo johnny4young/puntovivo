@@ -1,16 +1,32 @@
 /**
  * Drizzle schema — salesAux domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
  *
  * @module db/schema/salesAux
  */
-import { check, index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
-import { moneyPositiveChecks, moneyTwoDecimalCheck, nowIso, paymentMethodEnum, productSerialStatusEnum, sqliteNow, syncStatusEnum } from './base.js';
+import {
+  moneyPositiveChecks,
+  moneyTwoDecimalCheck,
+  nowIso,
+  paymentMethodEnum,
+  productSerialStatusEnum,
+  sqliteNow,
+  syncStatusEnum,
+} from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { units } from './catalogs.js';
 import { products } from './products.js';
@@ -42,7 +58,7 @@ export const saleItems = sqliteTable(
     taxAmount: real('tax_amount').notNull().default(0),
     costAtSale: real('cost_at_sale').notNull().default(0),
     total: real('total').notNull().default(0),
-    // ENG-176b — line-level currency seam. By contract these three
+    // line-level currency seam. By contract these three
     // columns mirror the parent `sales.currency_code` /
     // `exchange_rate_at_sale` / `settle_currency_code`. The redundant
     // storage avoids a join on every line render and keeps the
@@ -55,21 +71,19 @@ export const saleItems = sqliteTable(
       .default('COP')
       .references(() => currencyCatalog.code),
     exchangeRateAtSale: real('exchange_rate_at_sale').notNull().default(1),
-    settleCurrencyCode: text('settle_currency_code').references(
-      () => currencyCatalog.code
-    ),
-    // ENG-039d2 — per-line free-form modifier note ("sin cebolla",
+    settleCurrencyCode: text('settle_currency_code').references(() => currencyCatalog.code),
+    // per-line free-form modifier note ("sin cebolla",
     // "extra queso", etc.). Captured at sale creation time by the
     // voice-ordering surface and snapshotted into the KDS card so
     // the cook sees the modifier inline with each product instead
     // of aggregated at the bottom of the ticket. Nullable so retail
-    // tenants and pre-ENG-039d2 sales pass through unchanged.
+    // tenants and pre- sales pass through unchanged.
     notes: text('notes'),
   },
   table => [
     index('idx_sale_items_sale').on(table.saleId),
     index('idx_sale_items_product').on(table.productId),
-    // ENG-176a — line totals, prices, tax, and snapshot cost are always
+    // line totals, prices, tax, and snapshot cost are always
     // positive; discount is signed (per-line discount represented as a
     // negative delta in some legacy fixtures, positive in newer flows —
     // both shapes round-trip safely with only the precision invariant).
@@ -78,11 +92,8 @@ export const saleItems = sqliteTable(
     ...moneyPositiveChecks('sale_items_cost', table.costAtSale),
     ...moneyPositiveChecks('sale_items_total', table.total),
     moneyTwoDecimalCheck('sale_items_discount', table.discount),
-    // ENG-176b — exchange rate must be strictly positive (mirror sales).
-    check(
-      'chk_sale_items_exchange_rate_positive',
-      sql`${table.exchangeRateAtSale} > 0`
-    ),
+    // exchange rate must be strictly positive (mirror sales).
+    check('chk_sale_items_exchange_rate_positive', sql`${table.exchangeRateAtSale} > 0`),
   ]
 );
 
@@ -155,7 +166,7 @@ export const saleItemLotsRelations = relations(saleItemLots, ({ one }) => ({
 }));
 
 // ============================================================================
-// PRODUCT SERIALS (ENG-110c — per-unit inventory and sale provenance)
+// PRODUCT SERIALS (per-unit inventory and sale provenance)
 // ============================================================================
 
 /**
@@ -178,7 +189,7 @@ export const productSerials = sqliteTable(
     productId: text('product_id')
       .notNull()
       .references(() => products.id, { onDelete: 'restrict' }),
-    // ENG-110d — immutable receiving provenance when the unit entered through
+    // immutable receiving provenance when the unit entered through
     // procurement. Legacy/manual inventory receipts remain null.
     sourcePurchaseItemId: text('source_purchase_item_id').references(() => purchaseItems.id, {
       onDelete: 'restrict',
@@ -239,7 +250,7 @@ export const productSerialsRelations = relations(productSerials, ({ one }) => ({
 }));
 
 // ============================================================================
-// PRODUCT SERIAL TRANSFERS (ENG-110d — exact inter-site identity provenance)
+// PRODUCT SERIAL TRANSFERS (exact inter-site identity provenance)
 // ============================================================================
 
 /**
@@ -291,7 +302,7 @@ export const productSerialTransfersRelations = relations(productSerialTransfers,
 }));
 
 // ============================================================================
-// SALE ITEM SERIALS (ENG-110c — immutable serialized-sale provenance)
+// SALE ITEM SERIALS (immutable serialized-sale provenance)
 // ============================================================================
 
 /**
@@ -345,7 +356,7 @@ export const saleItemSerialsRelations = relations(saleItemSerials, ({ one }) => 
 }));
 
 // ============================================================================
-// SALE PAYMENTS (Phase 2 Tier-2 step 5 — multi-tender / split payments)
+// SALE PAYMENTS (multi-tender / split payments)
 // ============================================================================
 
 /**
@@ -380,7 +391,7 @@ export const salePayments = sqliteTable(
     index('idx_sale_payments_tenant').on(table.tenantId),
     index('idx_sale_payments_sale').on(table.saleId),
     index('idx_sale_payments_method').on(table.method),
-    // ENG-176a-rounding — sale_payments.amount is intentionally
+    // sale_payments.amount is intentionally
     // signed (reverse-payment + split-refund flows). Only precision
     // enforced; application rounds via roundMoney() before writing.
     moneyTwoDecimalCheck('sale_payments_amount', table.amount),
@@ -399,11 +410,11 @@ export const salePaymentsRelations = relations(salePayments, ({ one }) => ({
 }));
 
 // ============================================================================
-// PAYMENT OUTBOX (ENG-038 — LATAM payment rails foundation)
+// PAYMENT OUTBOX (LATAM payment rails foundation)
 // ============================================================================
 
 /**
- * Closed list of payment rails Puntovivo models in ENG-038. Real
+ * Closed list of payment rails Puntovivo models in . Real
  * provider credentials and terminal SDK handshakes remain follow-up
  * work; this enum locks the public rail ids used by the outbox,
  * registry and Operations Center reconciliation tab.
@@ -500,7 +511,7 @@ export const paymentOutbox = sqliteTable(
     uniqueIndex('idx_payment_outbox_idempotent')
       .on(table.tenantId, table.railId, table.kind, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} IS NOT NULL`),
-    // ENG-176b — payment_outbox.amount is always positive: both
+    // payment_outbox.amount is always positive: both
     // `charge` and `refund` kinds store the absolute amount being
     // moved (the direction is encoded in `kind`, not the sign of
     // amount). Precision must match the rest of the money model.
@@ -523,17 +534,17 @@ export type PaymentOutboxRow = typeof paymentOutbox.$inferSelect;
 export type NewPaymentOutboxRow = typeof paymentOutbox.$inferInsert;
 
 // ============================================================================
-// RESTAURANT TABLES (ENG-039b)
+// RESTAURANT TABLES ()
 // ============================================================================
 
 /**
- * ENG-039b — restaurant table catalog.
+ * restaurant table catalog.
  *
  * Persistent per-site list of physical tables a waiter can pick when
  * opening an order on the voice-ordering / mobile-waiter surfaces.
  * v1 keeps `sales.suspendedLabel` as the persistence column (no
  * `sales.tableId` FK yet) — the dropdown just resolves the picked
- * row's `name` into the existing text label. ENG-039c will introduce
+ * row's `name` into the existing text label.  will introduce
  * the FK + open/seat/transfer/split state machine on top.
  *
  * The partial-unique index lives in `0023_restaurant_tables.sql` as a
@@ -564,11 +575,11 @@ export const restaurantTables = sqliteTable(
   },
   table => [
     index('idx_restaurant_tables_tenant_site').on(table.tenantId, table.siteId),
-    // ENG-175 — partial unique on the active name so archived (isActive=0)
+    // partial unique on the active name so archived (isActive=0)
     // rows free the name for re-use without colliding. The index itself
     // was first introduced by migration `0023_restaurant_tables.sql` as a
     // hand-appended `CREATE UNIQUE INDEX ... WHERE is_active = 1`;
-    // ENG-175 brings the declaration into Drizzle's schema source-of-truth
+    // brings the declaration into Drizzle's schema source-of-truth
     // (reusing the existing index name) so `drizzle-kit generate` does
     // not drift on future schema edits.
     uniqueIndex('idx_restaurant_tables_unique_active_name')
@@ -621,7 +632,7 @@ export const saleReturns = sqliteTable(
     index('idx_sale_returns_sale').on(table.saleId),
     index('idx_sale_returns_created_by').on(table.createdBy),
     uniqueIndex('idx_sale_returns_sale_unique').on(table.saleId),
-    // ENG-176a — refund amount stores the absolute value being returned.
+    // refund amount stores the absolute value being returned.
     ...moneyPositiveChecks('sale_returns_refund', table.refundAmount),
   ]
 );

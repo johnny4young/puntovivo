@@ -9,7 +9,7 @@
  * fail the second insert with a constraint violation — the transaction
  * makes the failure mode "first writer wins" predictably).
  *
- * Decomposed into per-concern modules under `receipt-templates/` (ENG-178
+ * Decomposed into per-concern modules under `receipt-templates/` (
  * slice 22). This file stays as a thin re-export barrel so existing
  * importers resolve unchanged.
  *

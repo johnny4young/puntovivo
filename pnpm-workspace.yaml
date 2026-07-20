@@ -1,4 +1,4 @@
-# pnpm workspace manifest (migrated from npm workspaces, ENG-182).
+# pnpm workspace manifest (migrated from npm workspaces, ).
 # Mirrors the previous package.json "workspaces" globs.
 #
 # NOTE (pnpm 11): the package.json "pnpm" field is no longer read; all
@@ -22,14 +22,14 @@ nodeLinker: hoisted
 # default as a supply-chain defence, and replaced the v10 list-style
 # onlyBuiltDependencies with this allowBuilds map (pkg -> bool). Puntovivo
 # genuinely needs the natives below to produce a usable checkout:
-#   - electron                        -> downloads the platform runtime
-#   - better-sqlite3-multiple-ciphers -> compiles the native SQLite binding
-#   - argon2                          -> compiles the native hashing binding
-#   - esbuild                         -> fetches/links its platform binary (vite)
+# - electron                        -> downloads the platform runtime
+# - better-sqlite3-multiple-ciphers -> compiles the native SQLite binding
+# - argon2                          -> compiles the native hashing binding
+# - esbuild                         -> fetches/links its platform binary (vite)
 # Denied: core-js (postinstall only prints a funding banner) and
 # electron-winstaller (a transitive @electron-forge/cli dep we keep for the dev
 # loop but never use for packaging — electron-builder produces the NSIS installer
-# — so its Squirrel.Windows download build script is skipped).
+# so its Squirrel.Windows download build script is skipped).
 allowBuilds:
   electron: true
   better-sqlite3-multiple-ciphers: true

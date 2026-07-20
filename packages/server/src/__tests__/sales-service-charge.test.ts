@@ -1,19 +1,19 @@
 /**
- * ENG-039d3 — restaurant service charge / propina sugerida invariants.
+ * restaurant service charge / propina sugerida invariants.
  *
  * Mirrors `sales-tip.test.ts` for the mandatory twin of the voluntary
  * tip. The contract under test:
- *   - serviceChargeAmount rolls into `total` after tip on both
- *     fresh-create and fromDraft paths;
- *   - the server validates the amount against the live tenant rate at
- *     submit time (drift → SALE_SERVICE_CHARGE_DRIFT, charge submitted
- *     under a disabled rate → SALE_SERVICE_CHARGE_DISABLED);
- *   - the `sale.complete` audit row carries the metadata;
- *   - Zod rejects negative amounts, out-of-range rates, and a
- *     serviceChargeRate without a positive serviceChargeAmount;
- *   - the fromDraft path uses `baseTotal` from frozen pieces so a
- *     draft-time charge does NOT compound at completion (same
- *     regression shape as ENG-039d's tip fix).
+ * - serviceChargeAmount rolls into `total` after tip on both
+ * fresh-create and fromDraft paths;
+ * - the server validates the amount against the live tenant rate at
+ * submit time (drift → SALE_SERVICE_CHARGE_DRIFT, charge submitted
+ * under a disabled rate → SALE_SERVICE_CHARGE_DISABLED);
+ * - the `sale.complete` audit row carries the metadata;
+ * - Zod rejects negative amounts, out-of-range rates, and a
+ * serviceChargeRate without a positive serviceChargeAmount;
+ * - the fromDraft path uses `baseTotal` from frozen pieces so a
+ * draft-time charge does NOT compound at completion (same
+ * regression shape as 's tip fix).
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -115,11 +115,7 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const admin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!admin) throw new Error('Expected seeded admin user');
   tenantId = admin.tenantId;
   userId = admin.id;
@@ -132,11 +128,7 @@ beforeAll(async () => {
   if (!site) throw new Error('Expected seeded site');
   siteId = site.id;
 
-  const seededUnits = await db
-    .select()
-    .from(units)
-    .where(eq(units.tenantId, tenantId))
-    .all();
+  const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
   if (!baseUnit) throw new Error('Expected seeded unit UND');
   baseUnitId = baseUnit.id;
@@ -541,7 +533,7 @@ describe('completeSale service charge support (fromDraft path)', () => {
   });
 
   it('does not compound a draft-time service charge when completeDraft applies another', async () => {
-    // Regression: same shape as ENG-039d's compound-tip bug. The
+    // Regression: same shape as 's compound-tip bug. The
     // fromDraft path must recompute `baseTotal` from frozen subtotal /
     // tax / discount pieces; otherwise the second service charge
     // stacks on the first.
@@ -652,9 +644,7 @@ describe('completeSale service charge support (fromDraft path)', () => {
 describe('createSale / completeDraft Zod refinement (service charge)', () => {
   it('rejects serviceChargeRate without a positive serviceChargeAmount', () => {
     const result = createSaleInput.safeParse({
-      items: [
-        { productId: 'p', unitId: 'u', quantity: 1, unitPrice: 1, discount: 0 },
-      ],
+      items: [{ productId: 'p', unitId: 'u', quantity: 1, unitPrice: 1, discount: 0 }],
       serviceChargeAmount: 0,
       serviceChargeRate: 10,
     });
@@ -676,9 +666,7 @@ describe('createSale / completeDraft Zod refinement (service charge)', () => {
 
   it('rejects a serviceChargeRate above the regulatory ceiling', () => {
     const result = createSaleInput.safeParse({
-      items: [
-        { productId: 'p', unitId: 'u', quantity: 1, unitPrice: 1, discount: 0 },
-      ],
+      items: [{ productId: 'p', unitId: 'u', quantity: 1, unitPrice: 1, discount: 0 }],
       serviceChargeAmount: 50,
       serviceChargeRate: 50,
     });
@@ -687,9 +675,7 @@ describe('createSale / completeDraft Zod refinement (service charge)', () => {
 
   it('accepts a serviceChargeAmount=0 default with no rate', () => {
     const result = createSaleInput.safeParse({
-      items: [
-        { productId: 'p', unitId: 'u', quantity: 1, unitPrice: 1, discount: 0 },
-      ],
+      items: [{ productId: 'p', unitId: 'u', quantity: 1, unitPrice: 1, discount: 0 }],
     });
     expect(result.success).toBe(true);
     if (result.success) {

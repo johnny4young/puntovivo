@@ -1,7 +1,7 @@
 /**
  * Products tRPC write adapters.
  *
- * ENG-207 — create/update orchestration lives in application/products; the
+ * create/update orchestration lives in application/products; the
  * router owns only input/role middleware and the admin-only soft delete.
  *
  * @module trpc/routers/products/mutations

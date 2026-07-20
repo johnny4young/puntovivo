@@ -1,7 +1,7 @@
 /**
- * ENG-032 — Pattern 2 / Voids fantasma detector.
+ * Pattern 2 / Voids fantasma detector.
  *
- * ENG-178 — extracted verbatim from the former flat
+ * extracted verbatim from the former flat
  * `services/ai/anomalyDetection.ts` (SUB-DETECTORS section) during the
  * megafile decomposition.
  *
@@ -12,11 +12,7 @@ import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../../../../db/index.js';
 import { auditLogs, sales, users } from '../../../../db/schema.js';
-import {
-  MIN_SAMPLE_SIZE,
-  type AnomalyAlert,
-  type AnomalyDetectionInput,
-} from '../types.js';
+import { MIN_SAMPLE_SIZE, type AnomalyAlert, type AnomalyDetectionInput } from '../types.js';
 import { leaveOneOutZScore, mean, severityFromDistance, stdDev } from '../stats.js';
 
 /**

@@ -1,10 +1,10 @@
 /**
  * Pre-Fastify server configuration resolution.
  *
- * Runs before the Fastify instance is built: the ENG-169 verbose-prod
+ * Runs before the Fastify instance is built: the  verbose-prod
  * refusal, JWT-secret resolution (explicit vs auto-generated), the
- * ENG-072 Authority Node runtime resolution + bind host/port, the
- * ENG-073 site_hub LAN-bind hardening, and the effective CORS allow-list.
+ * Authority Node runtime resolution + bind host/port, the
+ * site_hub LAN-bind hardening, and the effective CORS allow-list.
  * Owns the `setActiveRuntimeConfig` side effect, exactly where it ran
  * inline in createServer.
  *
@@ -60,7 +60,7 @@ export function resolveServerConfig(options: ServerOptions): ResolvedServerConfi
     runtime,
   } = options;
 
-  // ENG-169 — refuse to start a production server with verbose logging
+  // refuse to start a production server with verbose logging
   // unless the operator opts in explicitly. Verbose mode attaches the
   // full pino instance to every request (headers + bodies), which is a
   // dev convenience but a data-leak + throughput cost in production. The
@@ -80,7 +80,7 @@ export function resolveServerConfig(options: ServerOptions): ResolvedServerConfi
     );
   }
 
-  // ENG-073 — track whether the operator explicitly supplied the
+  // track whether the operator explicitly supplied the
   // JWT secret. Auto-generated secrets reset on every restart, which
   // is fine on a single device_local cashier (the operator just logs
   // back in once after a desktop relaunch) but unacceptable on a
@@ -93,7 +93,7 @@ export function resolveServerConfig(options: ServerOptions): ResolvedServerConfi
     normalizedExplicitJwtSecret !== undefined && normalizedExplicitJwtSecret.length > 0;
   const jwtSecret = jwtSecretWasExplicit ? normalizedExplicitJwtSecret : generateSecret();
 
-  // ENG-072 — resolve the Authority Node runtime config. Explicit
+  // resolve the Authority Node runtime config. Explicit
   // option wins; otherwise synthesize a `device_local` runtime from
   // the host/port options so callers that predate the runtime field
   // (existing tests, internal tooling) keep working without change.
@@ -114,15 +114,15 @@ export function resolveServerConfig(options: ServerOptions): ResolvedServerConfi
   const bindHost = runtime ? resolvedRuntime.bindHost : host;
   const bindPort = runtime ? resolvedRuntime.bindPort : port;
 
-  // ENG-073 — Store Hub LAN bind hardening. When the operator opts
+  // Store Hub LAN bind hardening. When the operator opts
   // into `site_hub` mode the embedded Fastify becomes reachable to
   // every cashier terminal on the LAN, which widens the trust
   // surface beyond the loopback default. Refuse the boot when:
-  //   - JWT_SECRET was not supplied explicitly OR does not meet the
-  //     Store Hub strength policy (auto-generated or weak secrets
-  //     reset/break cashier sessions or make LAN tokens guessable), OR
-  //   - allowedLanOrigins is empty (no operator-defined CORS
-  //     surface; we never accept arbitrary origins on a hub).
+  // - JWT_SECRET was not supplied explicitly OR does not meet the
+  // Store Hub strength policy (auto-generated or weak secrets
+  // reset/break cashier sessions or make LAN tokens guessable), OR
+  // - allowedLanOrigins is empty (no operator-defined CORS
+  // surface; we never accept arbitrary origins on a hub).
   // device_local and hub_client modes skip this check — the former
   // is loopback-only, the latter only consumes a remote hub and
   // does not accept LAN traffic on its own.
@@ -141,12 +141,12 @@ export function resolveServerConfig(options: ServerOptions): ResolvedServerConfi
       throw new Error(
         `[runtime-config] site_hub mode requires explicit ` +
           `${missing.join(' and ')}. ` +
-          `See docs/AUTHORITY-NODE.md > Store Hub Mode for the operator setup.`
+          `See docs/ARCHITECTURE.md > Sync and Authority Node for the operator setup.`
       );
     }
   }
 
-  // ENG-073 — extend the CORS allow-list with operator-configured
+  // extend the CORS allow-list with operator-configured
   // LAN origins when in site_hub mode. The default dev origins stay
   // intact so an operator setting up a hub can still load the
   // renderer from `localhost:3000` while bringing the LAN

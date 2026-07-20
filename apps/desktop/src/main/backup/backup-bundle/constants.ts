@@ -1,5 +1,5 @@
-// ENG-066 — backup-bundle constants: ZIP entry names, schema version, the
-// ENG-169 entry allowlist, and the staging-dir prefixes (ENG-178 slice 31).
+// backup-bundle constants: ZIP entry names, schema version, the
+// entry allowlist, and the staging-dir prefixes ( slice 31).
 
 /** Path inside the ZIP for the SQLite snapshot. */
 export const ZIP_DB_ENTRY = 'local.db';
@@ -9,7 +9,7 @@ export const ZIP_DEVICE_ID_ENTRY = 'device-id.txt';
 export const ZIP_MANIFEST_ENTRY = 'manifest.json';
 
 /**
- * ENG-169 — the only entries a legitimate Puntovivo backup ZIP may
+ * the only entries a legitimate Puntovivo backup ZIP may
  * contain. `extractBackupBundle` refuses any bundle carrying an entry
  * outside this allowlist (or one using a traversal / absolute path)
  * instead of silently ignoring it, so a hand-crafted ZIP can never
@@ -25,7 +25,7 @@ export const ALLOWED_ZIP_ENTRIES: ReadonlySet<string> = new Set([
 export const BACKUP_BUNDLE_SCHEMA_VERSION = 1;
 
 /**
- * ENG-167b — staging-directory prefixes this module family creates
+ * staging-directory prefixes this module family creates
  * under the OS tmpdir (`createBackupBundle` and the restore flow in
  * the desktop main, respectively).
  */

@@ -1,5 +1,5 @@
 /**
- * ENG-035a — Catálogo SAT de regímenes fiscales (c_RegimenFiscal).
+ * Catálogo SAT de regímenes fiscales (c_RegimenFiscal).
  *
  * Datos publicados por el SAT en el Anexo 20 (CFDI 4.0). Cada
  * contribuyente declara su régimen al inscribirse al RFC; el
@@ -9,11 +9,11 @@
  * - **PM** (persona moral): aplica sólo a personas jurídicas.
  * - **PF** (persona física): aplica sólo a personas físicas.
  * - **BOTH**: aplica a ambas (caso típico: 616 Sin obligaciones
- *   fiscales, 615 Régimen de los ingresos por intereses).
+ * fiscales, 615 Régimen de los ingresos por intereses).
  *
  * El catálogo es estático en compilación. La política de refresh
  * (TS module vs DB table con seed + cron job de SAT) se decide en
- * ENG-035b cuando llegue el modelado de XML CFDI; el SAT publica
+ * cuando llegue el modelado de XML CFDI; el SAT publica
  * actualizaciones ~anuales y el catálogo cambia poco.
  *
  * @module services/fiscal/packs/mx/catalogs/regimenFiscal
@@ -43,21 +43,45 @@ export const REGIMEN_FISCAL_CATALOG: ReadonlyArray<RegimenFiscalEntry> = [
   { code: '607', name: 'Régimen de Enajenación o Adquisición de Bienes', appliesTo: 'PF' },
   { code: '608', name: 'Demás ingresos', appliesTo: 'PF' },
   { code: '609', name: 'Consolidación', appliesTo: 'PM' },
-  { code: '610', name: 'Residentes en el Extranjero sin Establecimiento Permanente en México', appliesTo: 'BOTH' },
+  {
+    code: '610',
+    name: 'Residentes en el Extranjero sin Establecimiento Permanente en México',
+    appliesTo: 'BOTH',
+  },
   { code: '611', name: 'Ingresos por Dividendos (socios y accionistas)', appliesTo: 'PF' },
-  { code: '612', name: 'Personas Físicas con Actividades Empresariales y Profesionales', appliesTo: 'PF' },
+  {
+    code: '612',
+    name: 'Personas Físicas con Actividades Empresariales y Profesionales',
+    appliesTo: 'PF',
+  },
   { code: '614', name: 'Ingresos por intereses', appliesTo: 'PF' },
   { code: '615', name: 'Régimen de los ingresos por obtención de premios', appliesTo: 'PF' },
   { code: '616', name: 'Sin obligaciones fiscales', appliesTo: 'BOTH' },
-  { code: '620', name: 'Sociedades Cooperativas de Producción que optan por diferir sus ingresos', appliesTo: 'PM' },
+  {
+    code: '620',
+    name: 'Sociedades Cooperativas de Producción que optan por diferir sus ingresos',
+    appliesTo: 'PM',
+  },
   { code: '621', name: 'Incorporación Fiscal', appliesTo: 'PF' },
-  { code: '622', name: 'Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras', appliesTo: 'PM' },
+  {
+    code: '622',
+    name: 'Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras',
+    appliesTo: 'PM',
+  },
   { code: '623', name: 'Opcional para Grupos de Sociedades', appliesTo: 'PM' },
   { code: '624', name: 'Coordinados', appliesTo: 'PM' },
-  { code: '625', name: 'Régimen de las Actividades Empresariales con ingresos a través de Plataformas Tecnológicas', appliesTo: 'PF' },
+  {
+    code: '625',
+    name: 'Régimen de las Actividades Empresariales con ingresos a través de Plataformas Tecnológicas',
+    appliesTo: 'PF',
+  },
   { code: '626', name: 'Régimen Simplificado de Confianza (RESICO)', appliesTo: 'BOTH' },
   { code: '628', name: 'Hidrocarburos', appliesTo: 'PM' },
-  { code: '629', name: 'De los Regímenes Fiscales Preferentes y de las Empresas Multinacionales', appliesTo: 'PM' },
+  {
+    code: '629',
+    name: 'De los Regímenes Fiscales Preferentes y de las Empresas Multinacionales',
+    appliesTo: 'PM',
+  },
   { code: '630', name: 'Enajenación de acciones en bolsa de valores', appliesTo: 'PF' },
 ];
 

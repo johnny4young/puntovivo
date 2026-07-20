@@ -5,24 +5,16 @@ import {
   expectSuccessToast,
   login,
 } from './support/app';
-import {
-  getInventoryBalance,
-  getProductStock,
-  seedSaleScenario,
-} from './support/db';
+import { getInventoryBalance, getProductStock, seedSaleScenario } from './support/db';
 
-// Maps TEST-PLAN quotation cases into the automated surface.
+// Covers quotation creation, conversion, and tenant-safe list behavior.
 // Current coverage:
-//   QUOT-01 — page header + New button (exercised indirectly by QUOT-02)
-//   QUOT-02 — create draft quotation with one product line
-//   QUOT-08 — send a draft (Draft → Sent)
-//   QUOT-09 — accept a sent quotation (Sent → Accepted)
-//   QUOT-15 — inventory unchanged across the whole lifecycle
-//   QUOT-19 — mark accepted as converted (terminal state)
+// The journey covers the page entry point, draft creation, send, acceptance,
+// conversion, and inventory invariance across the complete lifecycle.
 //
 // The lifecycle test below collapses those six ids into a single focused
 // flow that walks draft → sent → accepted → converted and re-checks
-// inventory at every transition. QUOT-12 (delete a draft) and QUOT-13
+// inventory at every transition. Draft deletion and expiry
 // (delete action hidden on non-drafts) used to live here as separate
 // E2E tests; they were retired in favour of the equivalent component
 // tests in `apps/web/src/features/quotations/QuotationsHistoryTable.test.tsx`
@@ -86,7 +78,7 @@ test.describe('web quotations', () => {
     const tracker = attachClientIssueTracker(page);
     const scenario = seedSaleScenario(`quot-lifecycle-${testInfo.parallelIndex}-${Date.now()}`);
 
-    // Snapshot inventory BEFORE the quotation. QUOT-15 asserts that no
+    // Snapshot inventory before the quotation and assert that no
     // transition alters stock; quotations are pre-sale documents.
     const preStock = getProductStock(scenario.product.id);
     const preBySiteA = getInventoryBalance(scenario.sites[0].id, scenario.product.id)?.onHand;
@@ -108,21 +100,21 @@ test.describe('web quotations', () => {
     const row = getHistoryRow(page, quotationNumber);
     await expect(row).toContainText('Draft');
 
-    // QUOT-08: Draft → Sent via the Send action.
+    // Draft → Sent via the Send action.
     await row.getByRole('button', { name: 'Send' }).click();
     await expect(getHistoryRow(page, quotationNumber)).toContainText('Sent');
 
-    // QUOT-09: Sent → Accepted.
+    // Sent → Accepted.
     await getHistoryRow(page, quotationNumber).getByRole('button', { name: 'Accept' }).click();
     await expect(getHistoryRow(page, quotationNumber)).toContainText('Accepted');
 
-    // QUOT-19: Accepted → Converted (terminal).
+    // Accepted → Converted (terminal).
     await getHistoryRow(page, quotationNumber)
       .getByRole('button', { name: 'Mark as converted' })
       .click();
     await expect(getHistoryRow(page, quotationNumber)).toContainText('Converted');
 
-    // QUOT-15: inventory must be identical across the full lifecycle.
+    // Inventory must be identical across the full lifecycle.
     expect(getProductStock(scenario.product.id)).toBe(preStock);
     expect(getInventoryBalance(scenario.sites[0].id, scenario.product.id)?.onHand).toBe(preBySiteA);
     expect(getInventoryBalance(scenario.sites[1].id, scenario.product.id)?.onHand).toBe(preBySiteB);
@@ -137,5 +129,4 @@ test.describe('web quotations', () => {
 
     await expectNoClientIssues(tracker);
   });
-
 });

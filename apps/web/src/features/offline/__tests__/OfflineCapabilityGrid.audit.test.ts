@@ -1,19 +1,19 @@
 /**
- * ENG-100 — Offline-capability tile catalog audit.
+ * Offline-capability tile catalog audit.
  *
  * Pins the contract from `OfflineCapabilityGrid` so a casual edit
  * cannot land a marketing overstatement silently:
  *
- *  - Catalog cardinality (exactly 6 tiles today). Adding a 7th
- *    requires updating the capability catalog in the same commit
- *    (enforced by review).
- *  - Tile ids belong to the closed set known to the capability catalog.
- *  - Each tile uses a valid `status` from the closed enum.
- *  - Every `status='available'` tile maps to a documented backing
- *    feature (the test carries a hardcoded reference matrix that
- *    serves as living documentation).
- *  - `limited` / `pending` / `blocked` tiles never use absolute
- *    language in their note copy (en + es).
+ * - Catalog cardinality (exactly 6 tiles today). Adding a 7th
+ * requires updating the capability catalog in the same commit
+ * (enforced by review).
+ * - Tile ids belong to the closed set known to the capability catalog.
+ * - Each tile uses a valid `status` from the closed enum.
+ * - Every `status='available'` tile maps to a documented backing
+ * feature (the test carries a hardcoded reference matrix that
+ * serves as living documentation).
+ * - `limited` / `pending` / `blocked` tiles never use absolute
+ * language in their note copy (en + es).
  *
  * @module features/offline/__tests__/OfflineCapabilityGrid.audit.test
  */
@@ -25,14 +25,7 @@ import {
   type OfflineCapabilityStatus,
 } from '../OfflineCapabilityCatalog';
 
-const KNOWN_TILE_IDS = new Set([
-  'sell',
-  'cash',
-  'card',
-  'receipt',
-  'loyalty',
-  'inventory',
-]);
+const KNOWN_TILE_IDS = new Set(['sell', 'cash', 'card', 'receipt', 'loyalty', 'inventory']);
 
 const VALID_STATUSES: ReadonlySet<OfflineCapabilityStatus> = new Set([
   'available',
@@ -48,13 +41,13 @@ const VALID_STATUSES: ReadonlySet<OfflineCapabilityStatus> = new Set([
  * without naming its backing feature fails the test.
  */
 const AVAILABLE_TILE_BACKING_FEATURE: Readonly<Record<string, string>> = {
-  // ENG-088 ships the local product cache that lets the cashier
+  // ships the local product cache that lets the cashier
   // search SKU / barcode / name without server reachability.
-  sell: 'ENG-088 local product cache',
-  // ENG-090 + ENG-014 let the cashier complete a cash (or split
+  sell: ' local product cache',
+  // +  let the cashier complete a cash (or split
   // cash + credit) sale entirely offline — local sale row + cash
   // movement + sync_outbox queued for drain on reconnect.
-  cash: 'ENG-090 + ENG-014 offline sale completion',
+  cash: ' +  offline sale completion',
 };
 
 const ABSOLUTE_LANGUAGE_FORBIDDEN = [
@@ -78,15 +71,12 @@ interface OfflineGridLocale {
   };
 }
 
-function getCapabilityCopy(
-  locale: 'en' | 'es',
-  id: string
-): OfflineGridCapabilityCopy | undefined {
+function getCapabilityCopy(locale: 'en' | 'es', id: string): OfflineGridCapabilityCopy | undefined {
   const bundle = (locale === 'en' ? enCommon : esCommon) as unknown as OfflineGridLocale;
   return bundle.offlineGrid?.capabilities?.[id];
 }
 
-describe('OfflineCapabilityGrid catalog audit (ENG-100)', () => {
+describe('OfflineCapabilityGrid catalog audit', () => {
   it('exposes exactly 6 tiles — any change requires updating the capability catalog', () => {
     expect(OFFLINE_CAPABILITY_CATALOG).toHaveLength(6);
   });

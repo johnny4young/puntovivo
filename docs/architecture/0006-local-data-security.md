@@ -1,23 +1,22 @@
 # 0006 — Local data security: backup, restore, and the "no PAN/CVV" invariant
 
-> Status: **Accepted** (ENG-066 2026-05-07).
-> Owner: ENG-066.
-> Affects: backup/restore IPC handlers in `apps/desktop/src/main/`; `reports.diagnostics.export` payload sanitization; `db/schema.ts` column lint; future ENG-063 payment integration; future ENG-070 webhook foundation.
+> Status: **Accepted** ( 2026-05-07).
+> Affects: backup/restore IPC handlers in `apps/desktop/src/main/`; `reports.diagnostics.export` payload sanitization; `db/schema.ts` column lint; future payment integration; future webhook foundation.
 > Predecessor ADRs: 0001 (Local Store Authority), 0002 (Command Envelope), 0003 (Outbox Taxonomy), 0004 (Conflict Policy), 0005 (Sync Payload Contract).
 
 ## Threat model
 
 Puntovivo POS deploys to retail terminals that range from a single owner-operated tablet to a multi-cashier desktop in a chain store. The local SQLite DB at `${userData}/data/local.db` plus the device identity at `${userData}/device-id.txt` together form the **authoritative store of operational state** (per ADR-0001). The threats this ADR addresses, and what each can or cannot see:
 
-| Actor | Trusted? | Sees | Cannot see (post-ENG-066) |
-|---|---|---|---|
-| **Logged-in cashier on the box** | Yes (per role) | All data their tRPC procedures expose | Data outside their tenant; admin-only diagnostics |
-| **Local admin user (OS account)** | Yes | Everything in `local.db` (the OS account is the trust boundary) | Encrypted-at-rest data — out of scope; v1 relies on OS user isolation |
-| **Attacker with file-system read** (stolen disk image, careless backup, leaked support ticket) | No | Whatever is in `local.db` + the diagnostic export | PAN/CVV (schema-banned); credentials (sanitized at export time) |
-| **Ex-employee with a copy of disk image** | No | Same as the file-system attacker | Same |
-| **External SaaS receiving a diagnostic ZIP** | No (least-privileged) | ENG-065c export payload, post-sanitization | All sensitive keys redacted by the sanitizer; the manifest's `redactedKeysByTable` tells the recipient what got stripped |
+| Actor                                                                                          | Trusted?              | Sees                                                            | Cannot see (post-)                                                                                                       |
+| ---------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Logged-in cashier on the box**                                                               | Yes (per role)        | All data their tRPC procedures expose                           | Data outside their tenant; admin-only diagnostics                                                                        |
+| **Local admin user (OS account)**                                                              | Yes                   | Everything in `local.db` (the OS account is the trust boundary) | Encrypted-at-rest data — out of scope; v1 relies on OS user isolation                                                    |
+| **Attacker with file-system read** (stolen disk image, careless backup, leaked support ticket) | No                    | Whatever is in `local.db` + the diagnostic export               | PAN/CVV (schema-banned); credentials (sanitized at export time)                                                          |
+| **Ex-employee with a copy of disk image**                                                      | No                    | Same as the file-system attacker                                | Same                                                                                                                     |
+| **External SaaS receiving a diagnostic ZIP**                                                   | No (least-privileged) | export payload, post-sanitization                               | All sensitive keys redacted by the sanitizer; the manifest's `redactedKeysByTable` tells the recipient what got stripped |
 
-The "OS user account is the trust boundary" decision is consistent with how every retail POS we benchmarked (Square Terminal, Clover, Toast) handles local persistence: encryption at rest is offered as a paid tier, never as a baseline. ENG-066 stays at the baseline; encryption-at-rest can land in a follow-up if a customer-site requires it.
+The "OS user account is the trust boundary" decision is consistent with how every retail POS we benchmarked (Square Terminal, Clover, Toast) handles local persistence: encryption at rest is offered as a paid tier, never as a baseline. stays at the baseline; encryption-at-rest can land in a follow-up if a customer-site requires it.
 
 ## Decision
 
@@ -40,7 +39,7 @@ The backup operation runs inside `runWithServerRestart` so the embedded Fastify 
 Restore detects format from the first four magic bytes:
 
 - `50 4b 03 04` → ZIP. Extract `local.db` + `device-id.txt` to a staging directory.
-- `53 51 4c 69` → "SQLite format 3" header (legacy raw `.db` from before ENG-066). Treat as the DB to swap in; the destination's `device-id.txt` stays untouched.
+- `53 51 4c 69` → "SQLite format 3" header (legacy raw `.db` from before ). Treat as the DB to swap in; the destination's `device-id.txt` stays untouched.
 - Anything else → reject as "Backup file format is unrecognized".
 
 The staging DB MUST pass `PRAGMA integrity_check` BEFORE the swap. If the check fails, the live state stays untouched and the operator sees a translated error toast. This forecloses the failure mode where a corrupted file half-overwrites the live DB.
@@ -49,9 +48,9 @@ For ZIP bundles, the bundled `device-id.txt` overwrites the destination's identi
 
 ### 3. Diagnostic export sanitization
 
-`reports.diagnostics.export` (ENG-065c) returned raw `payload` / `summary` / `effectData` JSON blobs from `operation_events`, `operation_effects`, `sync_outbox`, `fiscal_outbox`, `hardware_outbox`. Any future writer that landed a JWT, an OpenAI API key, or a fiscal certificate path in any of those JSON columns would have shipped that secret to the support ticket.
+`reports.diagnostics.export` () returned raw `payload` / `summary` / `effectData` JSON blobs from `operation_events`, `operation_effects`, `sync_outbox`, `fiscal_outbox`, `hardware_outbox`. Any future writer that landed a JWT, an OpenAI API key, or a fiscal certificate path in any of those JSON columns would have shipped that secret to the support ticket.
 
-ENG-066 splices a recursive sanitizer at the export boundary. The sanitizer walks each JSON-shaped column, replaces values whose KEY matches a denylist with the literal `'[REDACTED]'`, and aggregates the set of redacted keys per source. The bundle's manifest gains:
+splices a recursive sanitizer at the export boundary. The sanitizer walks each JSON-shaped column, replaces values whose KEY matches a denylist with the literal `'[REDACTED]'`, and aggregates the set of redacted keys per source. The bundle's manifest gains:
 
 ```json
 {
@@ -94,15 +93,15 @@ primaryaccountnumber, cardholder_name, cardholdername
 
 Enforced by an architectural-lint test in `packages/server/src/__tests__/architectural-lint.test.ts`. The lint regex extracts every column name from `text(...)`, `integer(...)`, `real(...)`, `blob(...)`, `numeric(...)` declarations and fails CI when any match lands. Lookalike benign names (`panel_layout`, `pancake_count`, `password_hash`) pass.
 
-The `sale_payments.reference` column stays as-is. It is documented as "free-form reference (e.g. card authorization code, transfer receipt number) — purely descriptive audit context" and never carries a PAN. ENG-063's payment integration (when it ships) MUST audit any new column it adds against this list before committing.
+The `sale_payments.reference` column stays as-is. It is documented as "free-form reference (e.g. card authorization code, transfer receipt number) — purely descriptive audit context" and never carries a PAN. 's payment integration (when it ships) MUST audit any new column it adds against this list before committing.
 
 ## Alternatives Rejected
 
 - **Encrypt the local DB at rest with SQLCipher or per-OS DPAPI/Keychain.** Trade-off: every local read pays a decrypt cost, the per-OS binary has to ship the right native library, and customer-site recovery becomes harder (lost keys = lost data). Encryption-at-rest is a follow-up if a customer-site requires it; the OS user account is the v1 trust boundary.
-- **Allowlist-based sanitization (only these specific keys ship).** More conservative but requires per-table schemas and updates every time a new payload field lands. The denylist with anchored matching is the right v1; a future ticket can promote to allowlist if the denylist proves insufficient.
-- **Skip the device-id.txt in backups; force re-registration on restore.** Considered for the "operator clones a device for a second register" use case. Rejected for the more common "full-disk failure → restore on new hardware" path. Operators who genuinely want to clone a device need a separate "Reset device identity" admin action — out of ENG-066 scope.
-- **Implement per-OS keychain integration in this ticket.** Defer. ENG-063 (payment terminal adapter) is the first caller that needs persistent secrets (Bold OAuth tokens, Wompi credentials). The natural abstraction is `@node-gyp-build/keytar` which wraps macOS Keychain (Security.framework), Windows DPAPI, and Linux libsecret behind one API. Pinning the choice now without a caller risks the integration being wrong; ENG-063 picks.
-- **Audit log entry on every backup.** The DB swap during restore is followed by a renderer reload; the audit row would have to be written to the *new* DB with the *old* user as actor, which means crossing a session boundary. v1 logs to the structured `backup` module logger only; ENG-066b can land an audit row when the renderer's first post-restore session arrives.
+- **Allowlist-based sanitization (only these specific keys ship).** More conservative but requires per-table schemas and updates every time a new payload field lands. The denylist with anchored matching is the right v1; a future change can promote to allowlist if the denylist proves insufficient.
+- **Skip the device-id.txt in backups; force re-registration on restore.** Considered for the "operator clones a device for a second register" use case. Rejected for the more common "full-disk failure → restore on new hardware" path. Operators who genuinely want to clone a device need a separate "Reset device identity" admin action — out of scope.
+- **Implement per-OS keychain integration in this change.** Defer. (payment terminal adapter) is the first caller that needs persistent secrets (Bold OAuth tokens, Wompi credentials). The natural abstraction is `@node-gyp-build/keytar` which wraps macOS Keychain (Security.framework), Windows DPAPI, and Linux libsecret behind one API. Pinning the choice now without a caller risks the integration being wrong; picks.
+- **Audit log entry on every backup.** The DB swap during restore is followed by a renderer reload; the audit row would have to be written to the _new_ DB with the _old_ user as actor, which means crossing a session boundary. v1 logs to the structured `backup` module logger only; can land an audit row when the renderer's first post-restore session arrives.
 
 ## Implementation Impact
 
@@ -124,13 +123,13 @@ The `sale_payments.reference` column stays as-is. It is documented as "free-form
 ### Backwards compatibility
 
 - **Restore is backwards-compatible**: a new desktop binary reads OLD raw `.db` backups (legacy format detected via the SQLite magic header).
-- **Restore is forwards-incompatible**: an OLD desktop binary trying to restore a NEW ZIP backup will see the dialog's `extensions: ['db', 'sqlite', 'sqlite3']` reject the `.zip` selection, OR (if filtered out) `copyFile`-overwrite the live DB with the ZIP file → the next server restart fails with "file is not a database". The release notes for the version that lands ENG-066 must call this out.
+- **Restore is forwards-incompatible**: an OLD desktop binary trying to restore a NEW ZIP backup will see the dialog's `extensions: ['db', 'sqlite', 'sqlite3']` reject the `.zip` selection, OR (if filtered out) `copyFile`-overwrite the live DB with the ZIP file → the next server restart fails with "file is not a database". The release notes for the version that lands must call this out.
 - **Diagnostic export shape is additive**: existing consumers that don't read `sanitized` / `redactedKeysByTable` keep working unchanged. The `tables.*` row payloads carry `[REDACTED]` instead of the original sensitive value — this is a SEMANTIC change for any consumer that was relying on the original value, but no such consumer exists today (the bundle goes to support tickets).
 
-## Affected Tickets
+## Implementation map
 
-- **ENG-063 (Payment terminal adapter, gated)** — when it ships, MUST add any new column to the architectural-lint forbidden list if applicable AND audit any new outbox payload through the sanitizer. The first caller of per-OS keychain integration is here; this ticket picks the abstraction (`@node-gyp-build/keytar` is the leading candidate).
-- **ENG-070 (Event-based public API + webhook foundation)** — when `webhook_outbox` lands, the diagnostic export must include it AND its payloads MUST flow through the sanitizer. The bundle's `manifest.counts` keyset already reserves `webhook_outbox: 0` per ENG-065c.
-- **ENG-066b (potential follow-up)** — audit log entry on backup/restore action, written to the post-restore DB with proper actor attribution. Out of v1 scope.
+- ** (Payment terminal adapter, gated)** — when it ships, MUST add any new column to the architectural-lint forbidden list if applicable AND audit any new outbox payload through the sanitizer. The first caller of per-OS keychain integration is here; this change picks the abstraction (`@node-gyp-build/keytar` is the leading candidate).
+- ** (Event-based public API + webhook foundation)** — when `webhook_outbox` lands, the diagnostic export must include it AND its payloads MUST flow through the sanitizer. The bundle's `manifest.counts` keyset already reserves `webhook_outbox: 0` per .
+- ** (potential follow-up)** — audit log entry on backup/restore action, written to the post-restore DB with proper actor attribution. Out of v1 scope.
 
-Updated: 2026-05-07 (ENG-066 — initial decision).
+Updated: 2026-05-07 (initial decision).

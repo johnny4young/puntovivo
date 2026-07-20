@@ -1,20 +1,20 @@
 /**
- * ENG-057 — Integration tests for the fiscal outbox + worker.
+ * Integration tests for the fiscal outbox + worker.
  *
  * These tests boot a real Fastify-mounted server (`createServer({
  * dbPath: ':memory:' })`) and complete sales through the full tRPC
  * stack to verify the four acceptance paths:
  *
- *   1. Happy: sale completes, outbox transitions queued -> accepted,
- *      fiscal_documents row mirrors to status='accepted'.
- *   2. Outage-contingency: stub adapter throws a recoverable error,
- *      sale STILL completes, fiscal_documents row exists with
- *      status='contingency', outbox row goes to retrying.
- *   3. Outage-rejected: stub adapter throws a non-recoverable error,
- *      sale STILL completes, fiscal_documents row exists with
- *      status='rejected', outbox row goes to dead_letter.
- *   4. Retry router: a contingency row can be re-armed via
- *      reports.fiscal.retryDocument so the next tick processes it.
+ * 1. Happy: sale completes, outbox transitions queued -> accepted,
+ * fiscal_documents row mirrors to status='accepted'.
+ * 2. Outage-contingency: stub adapter throws a recoverable error,
+ * sale STILL completes, fiscal_documents row exists with
+ * status='contingency', outbox row goes to retrying.
+ * 3. Outage-rejected: stub adapter throws a non-recoverable error,
+ * sale STILL completes, fiscal_documents row exists with
+ * status='rejected', outbox row goes to dead_letter.
+ * 4. Retry router: a contingency row can be re-armed via
+ * reports.fiscal.retryDocument so the next tick processes it.
  *
  * @module __tests__/fiscal-outbox-integration
  */
@@ -44,10 +44,7 @@ import {
   __clearFiscalAdapterOverridesForTest,
   __setFiscalAdapterForTest,
 } from '../services/fiscal/registry.js';
-import {
-  FiscalProviderError,
-  type NormalizedFiscalErrorKind,
-} from '../services/fiscal/errors.js';
+import { FiscalProviderError, type NormalizedFiscalErrorKind } from '../services/fiscal/errors.js';
 import type {
   FiscalAdapter,
   FiscalAdapterCapabilities,
@@ -141,11 +138,7 @@ class StubAdapter implements FiscalAdapter {
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -177,7 +170,7 @@ beforeAll(async () => {
     .where(eq(tenants.id, tenantId))
     .run();
 
-  // ENG-058 — pin the tenant locale to CO so the QR builder dispatches
+  // pin the tenant locale to CO so the QR builder dispatches
   // to the DIAN URL branch. Without this the resolver falls back to
   // LOCALE_FALLBACK (US) and qrPayload always returns null.
   const localeNow = new Date().toISOString();
@@ -346,9 +339,7 @@ async function seedProductAndSale(args: {
     updatedAt: now,
   });
   const sale = await caller.sales.create({
-    items: [
-      { productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 },
-    ],
+    items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
     paymentMethod: 'cash',
     paymentStatus: 'paid',
     status: 'completed',
@@ -363,16 +354,10 @@ async function readFiscalDocAndOutbox(saleId: string) {
   const doc = await db
     .select()
     .from(fiscalDocuments)
-    .where(
-      and(eq(fiscalDocuments.tenantId, tenantId), eq(fiscalDocuments.sourceId, saleId))
-    )
+    .where(and(eq(fiscalDocuments.tenantId, tenantId), eq(fiscalDocuments.sourceId, saleId)))
     .get();
   const outbox = doc
-    ? await db
-        .select()
-        .from(fiscalOutbox)
-        .where(eq(fiscalOutbox.fiscalDocumentId, doc.id))
-        .get()
+    ? await db.select().from(fiscalOutbox).where(eq(fiscalOutbox.fiscalDocumentId, doc.id)).get()
     : undefined;
   return { doc, outbox };
 }
@@ -434,7 +419,7 @@ describe('fiscal outbox — happy path', () => {
     }
   });
 
-  // ENG-058 — getSaleRecord must surface the linked fiscal document
+  // getSaleRecord must surface the linked fiscal document
   // with a non-null qrPayload on accepted status, so the receipt
   // renderer can encode a scannable QR.
   it('exposes fiscalDocuments[0].qrPayload via getSaleRecord on accepted', async () => {
@@ -483,7 +468,7 @@ describe('fiscal outbox — outage path (recoverable)', () => {
     expect(saleRow?.status).toBe('completed');
   });
 
-  // ENG-058 — getSaleRecord must NOT expose a scannable QR for a
+  // getSaleRecord must NOT expose a scannable QR for a
   // contingency document. The receipt renderer relies on this
   // null-gate to skip the QR block while still printing the status
   // copy ("Contingencia") so the customer/operator never sees a

@@ -17,10 +17,10 @@ function NavigationLink({
   onNavigate: () => void;
   badgeCount?: number | undefined;
   /**
-   * ENG-171 — optional hover/focus prefetch handler. Wired only for the
+   * optional hover/focus prefetch handler. Wired only for the
    * `/sales` entry so its heavy entry queries warm the cache before the
    * route mounts; undefined for every other link (no-op). Widened to
-   * include `undefined` per the ENG-179b exactOptionalPropertyTypes rule.
+   * include `undefined` per the  exactOptionalPropertyTypes rule.
    */
   onPrefetch?: (() => void) | undefined;
 }) {
@@ -45,7 +45,7 @@ function NavigationLink({
           collapsed && 'justify-center px-0',
           isActive
             ? 'bg-primary text-primary-foreground shadow-[0_18px_40px_-28px_color-mix(in_oklch,var(--primary)_75%,transparent)]'
-            : // ENG-134 slice B: text-secondary-600 (oklch L=0.48)
+            : //  slice B: text-secondary-600 (oklch L=0.48)
               // sat below WCAG AA 4.5:1 at body text size. text-fg2
               // (semantic mid-contrast foreground, L=0.37) is the
               // accessible default for inactive nav text.
@@ -69,9 +69,9 @@ function NavigationLink({
   );
 }
 
-// ENG-131 (slice A) — localStorage key prefix for the per-workspace
+// (slice A) — localStorage key prefix for the per-workspace
 // collapse state. Mirrors the `puntovivo:sidebar:` prefix used by
-// the legacy setup-section session key; ENG-131 promotes the state
+// the legacy setup-section session key;  promotes the state
 // to localStorage so a workspace expanded by an operator stays
 // expanded across tabs. Each key looks like
 // `puntovivo:sidebar:workspace:<id>:collapsed`.
@@ -116,18 +116,18 @@ function WorkspaceGroupHeader({
   isOpen: boolean;
   onToggle: () => void;
   onNavigate: () => void;
-  /** ENG-171 — prefetch the workspace default route when it is `/sales`. */
+  /** prefetch the workspace default route when it is `/sales`. */
   onPrefetch?: (() => void) | undefined;
   controlsId: string;
 }) {
   const { t } = useTranslation('workspaces');
-  // ENG-131 (slice A) — generalises the ENG-079b collapsible
+  // (slice A) — generalises the  collapsible
   // section header to every workspace. The header carries the
   // workspace icon, label, and a chevron that flips on collapse.
   // aria-expanded + aria-controls satisfy the WAI-ARIA disclosure
   // pattern documented in docs/A11Y.md.
   //
-  // ENG-131c — the header splits into a `<Link>` (icon + label,
+  // the header splits into a `<Link>` (icon + label,
   // navigates to the workspace `defaultRoute` — which for catalog /
   // procurement / finance is the new landing route, and for the
   // others stays the first item) and a sibling `<button>` (chevron,
@@ -138,12 +138,12 @@ function WorkspaceGroupHeader({
   // pre-slice-C test id so existing tests + smoke selectors keep
   // working unchanged.
   //
-  // ENG-134 slice B (2026-05-21) — the label class moved from
+  // slice B (2026-05-21) — the label class moved from
   // `text-secondary-500` (oklch L=0.61) to `text-fg2` (semantic
   // mid-contrast foreground, oklch L=0.37). The original token
   // rendered at 3.69:1 against `--background` on 7.8pt body text,
   // failing WCAG AA 4.5:1. `text-fg2` is the canonical readable-
-  // muted token from the ENG-080b foreground ramp.
+  // muted token from the  foreground ramp.
   return (
     <div className="flex w-full items-center gap-1">
       <Link
@@ -232,12 +232,12 @@ function SidebarWorkspaceSection({
   onNavigate: () => void;
   currentPath: string;
   headerTitle: string;
-  /** ENG-171 — hover-prefetch handler, attached only to the /sales item. */
+  /** hover-prefetch handler, attached only to the /sales item. */
   prefetchSales: () => void;
-  /** ENG-131e — high-severity anomaly count follows Dashboard into Operate. */
+  /** high-severity anomaly count follows Dashboard into Operate. */
   dashboardBadge: number;
 }) {
-  // ENG-131 (slice A) — persisted collapse state applies to inactive
+  // (slice A) — persisted collapse state applies to inactive
   // workspaces, but the workspace that owns the active route must
   // always stay open so direct URLs and command-palette navigation do
   // not hide the current page's nav item.

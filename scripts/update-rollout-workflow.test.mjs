@@ -33,7 +33,7 @@ test('manual rollout workflow uses archived feeds and forces rollback to one exa
   assert.match(workflow, /mode=rollback\s+percentage=100/);
   assert.ok(workflow.includes('--rollout "$percentage" --mode "$mode"'));
   assert.doesNotMatch(workflow, /run:[\s\S]*gh release download "\$\{\{ inputs\.target_tag \}\}"/);
-  assert.match(workflow, /Only releases created after ENG-137a are rollback-ready/);
+  assert.match(workflow, /Only releases with archived feeds are rollback-ready/);
   assert.match(workflow, /^  group: pages$/m);
   assert.match(workflow, /^  cancel-in-progress: false$/m);
 });

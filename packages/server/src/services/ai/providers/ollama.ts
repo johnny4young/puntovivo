@@ -1,5 +1,5 @@
 /**
- * ENG-040b slice 1 — Ollama provider (chat + vision).
+ * slice 1 — Ollama provider (chat + vision).
  *
  * Activated against the community Vercel AI SDK provider
  * `ollama-ai-provider-v2`. Version 4 targets `ai@^7` and ships as a
@@ -27,9 +27,9 @@
  * surfaces a provider-side error at call time, which the service layer
  * maps to `AI_PROVIDER_ERROR`.
  *
- * ENG-040b slice 2 also exposes Ollama embeddings via
+ * slice 2 also exposes Ollama embeddings via
  * `createOllama({ baseURL }).embedding(modelId)`. The default model is
- * `nomic-embed-text`, so ENG-033 semantic search can run fully offline
+ * `nomic-embed-text`, so  semantic search can run fully offline
  * once the operator has pulled that model and regenerated catalog
  * embeddings.
  *
@@ -47,7 +47,7 @@ const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
 const FALLBACK_MODEL_ID = 'llama3.2';
 
 /**
- * ENG-040b slice 2 — canonical Ollama embedding model. `nomic-embed-text`
+ * slice 2 — canonical Ollama embedding model. `nomic-embed-text`
  * is the smallest acceptable default (~270 MB on disk, 768 dimensions,
  * multilingual including Spanish). Operators that want larger embeddings
  * need a follow-up tenant-level embedding-model override; common
@@ -117,7 +117,7 @@ export const ollamaProvider: AIProvider = {
     return buildClient()(modelId);
   },
 
-  // ENG-040b — vision capability advertised. The model id picks which
+  // vision capability advertised. The model id picks which
   // Ollama model serves the request; `llava`, `bakllava`,
   // `llama3.2-vision`, `qwen2-vl`, `granite-3.2-vision` are common
   // operator choices. Same factory as `languageModel` because Ollama
@@ -126,7 +126,7 @@ export const ollamaProvider: AIProvider = {
     return buildClient()(modelId);
   },
 
-  // ENG-040b slice 2 — embeddings capability advertised. Routes through
+  // slice 2 — embeddings capability advertised. Routes through
   // `createOllama({ baseURL }).embedding(modelId)` (the SDK's primary
   // embedding factory; `textEmbedding` / `textEmbeddingModel` are
   // deprecated aliases). Same `EmbeddingModelV4` contract OpenAI
@@ -150,7 +150,7 @@ export const ollamaProvider: AIProvider = {
 };
 
 /** Test helpers — exported so unit tests can verify the URL resolver
- *  + default model ids without spinning up the SDK. */
+ * + default model ids without spinning up the SDK. */
 export const __ollamaInternals = {
   resolveBaseUrl,
   DEFAULT_OLLAMA_BASE_URL,

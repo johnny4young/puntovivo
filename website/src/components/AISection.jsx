@@ -137,7 +137,7 @@ const OCR_FIELDS = [
   { key: 'ocrFieldTotal', v: '$ 174.600', match: true, em: true },
 ];
 
-const ROADMAP = [
+const STATUS_ITEMS = [
   { tagKey: 'tagNext' },
   { tagKey: 'tagNext' },
   { tagKey: 'tagNext' },
@@ -476,7 +476,7 @@ export function AISection({ version }) {
         </div>
       </div>
 
-      {/* Roadmap strip */}
+      {/* Public status strip */}
       <div className="ai-roadmap">
         <div className="l">
           <span className="kicker">{t('ai.roadmap.kicker')}</span>
@@ -486,7 +486,7 @@ export function AISection({ version }) {
           </p>
         </div>
         <div className="r">
-          {ROADMAP.map((r, i) => (
+          {STATUS_ITEMS.map((r, i) => (
             <span key={i} className={`chip${r.coming ? ' coming' : ''}`}>
               <span className="tag">{t(`ai.roadmap.${r.tagKey}`)}</span>
               {anomDescIds[i]}

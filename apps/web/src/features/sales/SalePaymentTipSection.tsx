@@ -1,7 +1,7 @@
 /**
- * Tip / propina section of the sale payment modal (ENG-039d).
+ * Tip / propina section of the sale payment modal ().
  *
- * ENG-178 — JSX extracted verbatim from the former single-file
+ * JSX extracted verbatim from the former single-file
  * `SalePaymentModal.tsx`. Presentational: receives the RHF `form` plus the
  * preset/sync handlers from `useSalePaymentModal`; owns no state.
  *

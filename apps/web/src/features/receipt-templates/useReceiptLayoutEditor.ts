@@ -60,9 +60,7 @@ export function useReceiptLayoutEditor({ initial, onClose }: UseReceiptLayoutEdi
   const { availability } = useVariableAvailability();
 
   const [name, setName] = useState(initial?.name ?? '');
-  const [kind, setKind] = useState<'sale' | 'quotation' | 'fiscal_dee'>(
-    initial?.kind ?? 'sale'
-  );
+  const [kind, setKind] = useState<'sale' | 'quotation' | 'fiscal_dee'>(initial?.kind ?? 'sale');
   const initialLayout = initial?.layout ?? getDefaultLayout('sale', t);
   const [layout, setLayout] = useState<EditorReceiptLayout>(initialLayout);
 
@@ -92,7 +90,7 @@ export function useReceiptLayoutEditor({ initial, onClose }: UseReceiptLayoutEdi
     initialLayout.blocks.length > 0 ? 0 : null
   );
 
-  // ENG-016 pass 1 (item #6) — FLIP reorder animation. `moveBlock`
+  // pass 1 (item #6) — FLIP reorder animation. `moveBlock`
   // captures a snapshot of the block-list card positions into
   // `pendingFlipRef` before React commits the new array; the
   // `useLayoutEffect` below plays the inverse transform once the
@@ -142,15 +140,12 @@ export function useReceiptLayoutEditor({ initial, onClose }: UseReceiptLayoutEdi
   }
 
   function moveBlock(index: number, direction: -1 | 1) {
-    // ENG-016 pass 1 (item #6) — snapshot the DOM positions BEFORE
+    // pass 1 (item #6) — snapshot the DOM positions BEFORE
     // React reorders the block cards so the post-commit FLIP helper
     // can compute the inverse transform per card. Safe to call even
     // when `blockListRef` is null (first render, tests without a DOM)
-    // — `captureFlipSnapshot` short-circuits on null.
-    pendingFlipRef.current = captureFlipSnapshot(
-      blockListRef.current,
-      '[data-flip-key]'
-    );
+    // `captureFlipSnapshot` short-circuits on null.
+    pendingFlipRef.current = captureFlipSnapshot(blockListRef.current, '[data-flip-key]');
     setLayout(prev => {
       const next = prev.blocks.slice();
       const target = index + direction;
@@ -172,7 +167,7 @@ export function useReceiptLayoutEditor({ initial, onClose }: UseReceiptLayoutEdi
     setActiveBlockIndex(index + direction);
   }
 
-  // ENG-016 pass 2 (item #1) — drag-and-drop reorder via @dnd-kit/sortable.
+  // pass 2 (item #1) — drag-and-drop reorder via @dnd-kit/sortable.
   // The pointer + keyboard sensors emit `onDragEnd` with the dragged block's
   // key + the destination key; this helper translates those keys into the
   // existing index-based mutation and reuses the FLIP machinery so the post-
@@ -184,10 +179,7 @@ export function useReceiptLayoutEditor({ initial, onClose }: UseReceiptLayoutEdi
     if (fromIndex >= layout.blocks.length || toIndex >= layout.blocks.length) {
       return;
     }
-    pendingFlipRef.current = captureFlipSnapshot(
-      blockListRef.current,
-      '[data-flip-key]'
-    );
+    pendingFlipRef.current = captureFlipSnapshot(blockListRef.current, '[data-flip-key]');
     setLayout(prev => {
       const next = prev.blocks.slice();
       const [moved] = next.splice(fromIndex, 1);
@@ -205,7 +197,7 @@ export function useReceiptLayoutEditor({ initial, onClose }: UseReceiptLayoutEdi
     setActiveBlockIndex(toIndex);
   }
 
-  // ENG-016 pass 2 (item #1) — dnd-kit sensors. Pointer activation distance
+  // pass 2 (item #1) — dnd-kit sensors. Pointer activation distance
   // (4px) ensures simple clicks on the grip do not start a drag; keyboard
   // sensor wires the standard sortable coordinate getter so arrow keys move
   // the picked-up block one slot per press.

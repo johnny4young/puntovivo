@@ -1,12 +1,12 @@
 /**
- * ENG-008 / ENG-008b — unit tests for
+ * /  — unit tests for
  * `packages/server/src/security/loginRateLimit.ts`.
  *
  * Every test passes an explicit `now` parameter so the suite is deterministic
  * without `vi.useFakeTimers()`. `__resetForTests(db)` runs in `afterEach` so
  * module-level cache state AND the DB table are wiped between cases.
  *
- * The service is DB-backed after ENG-008b; the tests therefore boot an
+ * The service is DB-backed after ; the tests therefore boot an
  * in-memory SQLite via `initDatabase({ dbPath: ':memory:' })` so migration
  * 0006 runs and the `login_attempts` table is live for the full suite.
  */
@@ -76,7 +76,7 @@ function expectTooManyRequests(fn: () => void): TRPCError {
   throw new Error('Expected TOO_MANY_REQUESTS TRPCError, none thrown');
 }
 
-describe('loginRateLimit (ENG-008 / ENG-008b)', () => {
+describe('loginRateLimit ( / )', () => {
   let db: DatabaseInstance;
 
   beforeAll(async () => {
@@ -105,7 +105,7 @@ describe('loginRateLimit (ENG-008 / ENG-008b)', () => {
     const details = (err.cause as ServerErrorWithCode).details;
     expect(details).toMatchObject({ kind: 'ip', key: ip, max: LOGIN_RATE_LIMIT_IP_MAX });
 
-    // ENG-008b — DB row mirrors the saturated bucket.
+    // DB row mirrors the saturated bucket.
     const row = db
       .select()
       .from(loginAttempts)
@@ -192,7 +192,7 @@ describe('loginRateLimit (ENG-008 / ENG-008b)', () => {
     expect(() => checkUsername(db, target, t)).not.toThrow();
     expectTooManyRequests(() => checkUsername(db, other, t));
 
-    // ENG-008b — target row is removed from the DB as well as the cache.
+    // target row is removed from the DB as well as the cache.
     const targetRow = db
       .select()
       .from(loginAttempts)
@@ -314,7 +314,7 @@ describe('loginRateLimit (ENG-008 / ENG-008b)', () => {
     expect(secondsUntilReset(db, 'username', 'never@seen.com')).toBe(0);
   });
 
-  // ENG-008b — warmCacheFromDb loads live rows at boot so the first post-restart
+  // warmCacheFromDb loads live rows at boot so the first post-restart
   // check hits the cache. The lazy `loadBucket()` path also tolerates a cold
   // cache, so this is an optimisation test, not a correctness gate.
   it('warmCacheFromDb rehydrates live rows and drops expired ones', () => {
@@ -326,8 +326,8 @@ describe('loginRateLimit (ENG-008 / ENG-008b)', () => {
 
     // Clear in-memory caches only — the DB row survives.
     // (Doing a manual cache clear via warmCacheFromDb with a far-future `now`
-    //  below would also sweep the row, so we exercise the cold-cache path
-    //  through readBucketFromDb + warmCacheFromDb separately.)
+    // below would also sweep the row, so we exercise the cold-cache path
+    // through readBucketFromDb + warmCacheFromDb separately.)
     __resetForTests(); // no db arg → cache-only reset
     warmCacheFromDb(db, t0);
 

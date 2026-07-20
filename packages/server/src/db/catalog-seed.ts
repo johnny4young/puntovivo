@@ -1,9 +1,9 @@
 /**
- * ENG-002 Step 3 — post-migration catalog-seed hook.
+ * Step 3 — post-migration catalog-seed hook.
  *
  * Idempotent (`INSERT OR IGNORE`), table-existence-gated seeders for the
- * read-only catalogs that must exist on every boot: the ENG-017 locale
- * matrices (currency + country) and the ENG-176c fiscal identification
+ * read-only catalogs that must exist on every boot: the  locale
+ * matrices (currency + country) and the  fiscal identification
  * types (DIAN / SAT / SUNAT / SII). Invoked from `initDatabase()` after
  * `drizzleMigrate()`.
  *
@@ -17,7 +17,7 @@ import type { DatabaseInstance } from './types.js';
 const dbLog = createModuleLogger('db');
 
 /**
- * ENG-002 Step 3 — post-migration catalog-seed hook.
+ * Step 3 — post-migration catalog-seed hook.
  *
  * Invoked from `initDatabase()` after `drizzleMigrate()` runs. Both
  * seeders use `INSERT OR IGNORE`, so re-entry is a no-op on every
@@ -25,7 +25,7 @@ const dbLog = createModuleLogger('db');
  *
  * Defensive design: each call is table-existence-gated. Adopted DBs
  * whose journal was pinned by `ensureMigrationBaseline()` BEFORE the
- * ENG-017 / ENG-020 migrations would have run (i.e. the operator
+ * /  migrations would have run (i.e. the operator
  * skipped the transitional release that materialised those tables)
  * hit the gate and skip the seed with a warning instead of crashing
  * the boot. The warning is actionable — it names the missing table and
@@ -40,7 +40,7 @@ export function seedCatalogs(database: DatabaseInstance): void {
     return Boolean(row);
   };
 
-  // ENG-017 — the read-only locale catalogs (currency + country).
+  // the read-only locale catalogs (currency + country).
   if (tableExists('currency_catalog') && tableExists('country_catalog')) {
     seedLocaleCatalogs(client);
   } else {
@@ -50,7 +50,7 @@ export function seedCatalogs(database: DatabaseInstance): void {
     );
   }
 
-  // ENG-176c — fiscal identification types (renamed from
+  // fiscal identification types (renamed from
   // `dian_identification_types` in 0038). Now keyed by composite
   // (country_code, code) so DIAN + SAT + SUNAT + SII rows coexist.
   if (tableExists('fiscal_identification_types')) {
@@ -65,9 +65,9 @@ export function seedCatalogs(database: DatabaseInstance): void {
 
 /**
  * Seed the global `currency_catalog` + `country_catalog` tables with
- * the ENG-017 matrices (18 currencies, 21 LATAM+USA countries). Uses
+ * the  matrices (18 currencies, 21 LATAM+USA countries). Uses
  * `INSERT OR IGNORE` so the function is safe to re-run on every boot
- * — existing rows are preserved, new rows are added. Updates to
+ * existing rows are preserved, new rows are added. Updates to
  * existing rows (e.g. adjusting `display_decimals`) require a targeted
  * migration; this seeder never writes over prior values.
  */
@@ -75,7 +75,7 @@ function seedLocaleCatalogs(client: Database.Database): void {
   const insertCurrency = client.prepare(
     'INSERT OR IGNORE INTO currency_catalog (code, name_en, name_es, symbol, decimals, display_decimals) VALUES (?, ?, ?, ?, ?, ?)'
   );
-  // ISO 4217 codes ordered to mirror the LOCALE-CURRENCY.md matrix.
+  // ISO 4217 codes used by the supported locale catalog.
   const currencies: Array<[string, string, string, string, number, number]> = [
     ['COP', 'Colombian Peso', 'Peso colombiano', '$', 2, 0],
     ['USD', 'US Dollar', 'Dólar estadounidense', '$', 2, 2],
@@ -169,14 +169,14 @@ function seedLocaleCatalogs(client: Database.Database): void {
  *
  * Sources:
  * - CO (DIAN): Resolución 042/2020 Anexo Técnico — Codificación Tipos
- *   de Documento de Identificación.
+ * de Documento de Identificación.
  * - MX (SAT): Anexo 20 CFDI 4.0 — c_RegimenFiscal + complemento de
- *   identificación de receptor.
+ * identificación de receptor.
  * - PE (SUNAT): Catálogo Nº 6 — Tipo de Documento de Identidad.
  * - CL (SII): Catálogo Nº 11 — Tipo de RUT / RUN.
  *
  * The MX/PE/CL subsets are minimal viable sets that cover the
- * common cases. ENG-156 (multi-currency operations) and ENG-161
+ * common cases.  (multi-currency operations) and
  * (NFe Brazil) may extend per business need.
  */
 function seedFiscalIdentificationTypes(client: Database.Database): void {

@@ -1,24 +1,24 @@
 /**
- * ENG-035a — Validador RFC (Registro Federal de Contribuyentes) para
+ * Validador RFC (Registro Federal de Contribuyentes) para
  * el pack fiscal de México.
  *
  * Reglas SAT (Resolución Miscelánea Fiscal vigente):
  *
  * - **Persona moral (PM)**: 12 caracteres = 3 letras (razón social
- *   abreviada) + 6 dígitos (fecha de constitución AAMMDD) + 3
- *   alfanuméricos (homoclave).
+ * abreviada) + 6 dígitos (fecha de constitución AAMMDD) + 3
+ * alfanuméricos (homoclave).
  * - **Persona física (PF)**: 13 caracteres = 4 letras (apellidos +
- *   nombre) + 6 dígitos (fecha de nacimiento AAMMDD) + 3
- *   alfanuméricos (homoclave).
+ * nombre) + 6 dígitos (fecha de nacimiento AAMMDD) + 3
+ * alfanuméricos (homoclave).
  * - La **homoclave** es un dígito verificador calculado por el SAT
- *   con un algoritmo de suma ponderada módulo 11; los últimos 2
- *   caracteres son letras + el dígito verificador.
+ * con un algoritmo de suma ponderada módulo 11; los últimos 2
+ * caracteres son letras + el dígito verificador.
  * - El SAT publica una **lista negra** de combinaciones de letras
- *   inapropiadas (palabras altisonantes en español); ese filtro
- *   aplica a las primeras 4 letras del RFC.
+ * inapropiadas (palabras altisonantes en español); ese filtro
+ * aplica a las primeras 4 letras del RFC.
  * - **RFC genérico extranjero**: `XEXX010101000` (PM) y
- *   `XAXX010101000` (PF) son aceptados sin validación de homoclave
- *   — el SAT los exime explícitamente para clientes sin RFC propio.
+ * `XAXX010101000` (PF) son aceptados sin validación de homoclave
+ * el SAT los exime explícitamente para clientes sin RFC propio.
  *
  * El validador es puro: sin acceso a DB ni red. Reusable desde el
  * server (RFC validation antes de persistir) y desde el cliente
@@ -27,7 +27,7 @@
  * Referencias SAT:
  * - Resolución Miscelánea Fiscal 2026, Anexo 1-A, Trámite 41/CFF.
  * - Algoritmo de homoclave: tabla de valores letras + suma
- *   ponderada módulo 11.
+ * ponderada módulo 11.
  *
  * @module services/fiscal/packs/mx/rfc
  */
@@ -77,16 +77,58 @@ const RFC_GENERIC_FOREIGN_PF = 'XAXX010101000';
  * ~80 entradas; incluir todas no aporta valor proporcional.
  */
 const BLACKLISTED_PREFIXES = new Set<string>([
-  'BUEI', 'BUEY', 'CACA', 'CACO', 'CAGA', 'CAGO', 'CAKA', 'CAKO',
-  'COGE', 'COJA', 'COJE', 'COJI', 'COJO', 'CULO', 'FETO', 'GUEY',
-  'JOTO', 'KACA', 'KACO', 'KAGA', 'KAGO', 'KAKA', 'KAKO', 'KOGE',
-  'KOJO', 'KULO', 'MAME', 'MAMO', 'MEAR', 'MEAS', 'MEON', 'MIAR',
-  'MION', 'MOCO', 'MULA', 'PEDA', 'PEDO', 'PENE', 'PUTA', 'PUTO',
-  'QULO', 'RATA', 'RUIN',
+  'BUEI',
+  'BUEY',
+  'CACA',
+  'CACO',
+  'CAGA',
+  'CAGO',
+  'CAKA',
+  'CAKO',
+  'COGE',
+  'COJA',
+  'COJE',
+  'COJI',
+  'COJO',
+  'CULO',
+  'FETO',
+  'GUEY',
+  'JOTO',
+  'KACA',
+  'KACO',
+  'KAGA',
+  'KAGO',
+  'KAKA',
+  'KAKO',
+  'KOGE',
+  'KOJO',
+  'KULO',
+  'MAME',
+  'MAMO',
+  'MEAR',
+  'MEAS',
+  'MEON',
+  'MIAR',
+  'MION',
+  'MOCO',
+  'MULA',
+  'PEDA',
+  'PEDO',
+  'PENE',
+  'PUTA',
+  'PUTO',
+  'QULO',
+  'RATA',
+  'RUIN',
   // Subconjunto de 3 letras para PM (sólo aplican cuando son las
   // primeras 3 — el SAT separa los catálogos PM/PF pero la
   // intersección práctica es la misma para los rechazos).
-  'BUI', 'COJ', 'CUL', 'KGA', 'MEA', 'PUT',
+  'BUI',
+  'COJ',
+  'CUL',
+  'KGA',
+  'MEA',
+  'PUT',
 ]);
 
 /**
@@ -102,12 +144,44 @@ const BLACKLISTED_PREFIXES = new Set<string>([
  * (ver branch en `verifyHomoclave`).
  */
 const SAT_CHARACTER_VALUES: Record<string, number> = {
-  '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
-  '8': 8, '9': 9, 'A': 10, 'B': 11, 'C': 12, 'D': 13, 'E': 14,
-  'F': 15, 'G': 16, 'H': 17, 'I': 18, 'J': 19, 'K': 20, 'L': 21,
-  'M': 22, 'N': 23, 'O': 24, 'P': 25, 'Q': 26, 'R': 27, 'S': 28,
-  'T': 29, 'U': 30, 'V': 31, 'W': 32, 'X': 33, 'Y': 34, 'Z': 35,
-  'Ñ': 36, ' ': 37,
+  '0': 0,
+  '1': 1,
+  '2': 2,
+  '3': 3,
+  '4': 4,
+  '5': 5,
+  '6': 6,
+  '7': 7,
+  '8': 8,
+  '9': 9,
+  A: 10,
+  B: 11,
+  C: 12,
+  D: 13,
+  E: 14,
+  F: 15,
+  G: 16,
+  H: 17,
+  I: 18,
+  J: 19,
+  K: 20,
+  L: 21,
+  M: 22,
+  N: 23,
+  O: 24,
+  P: 25,
+  Q: 26,
+  R: 27,
+  S: 28,
+  T: 29,
+  U: 30,
+  V: 31,
+  W: 32,
+  X: 33,
+  Y: 34,
+  Z: 35,
+  Ñ: 36,
+  ' ': 37,
 };
 
 /**
@@ -154,8 +228,7 @@ function verifyHomoclave(rfc: string, isPersonaMoral: boolean): boolean {
   }
 
   const checksum = weightedSum % 11;
-  const expectedDigit =
-    checksum === 0 ? '0' : checksum === 10 ? 'A' : String(checksum);
+  const expectedDigit = checksum === 0 ? '0' : checksum === 10 ? 'A' : String(checksum);
 
   // El último caracter de la homoclave es el dígito verificador.
   // Los dos primeros son alfanuméricos derivados de un hash MD5
@@ -186,11 +259,7 @@ function isValidEmbeddedDate(yymmdd: string): boolean {
   // sólo para validar días por mes (febrero con bisiesto).
   const fullYear = yy >= 30 ? 1900 + yy : 2000 + yy;
   const date = new Date(fullYear, mm - 1, dd);
-  return (
-    date.getFullYear() === fullYear &&
-    date.getMonth() === mm - 1 &&
-    date.getDate() === dd
-  );
+  return date.getFullYear() === fullYear && date.getMonth() === mm - 1 && date.getDate() === dd;
 }
 
 /**

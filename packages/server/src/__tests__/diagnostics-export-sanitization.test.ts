@@ -1,5 +1,5 @@
 /**
- * ENG-066 — `reports.diagnostics.export` sanitization integration tests.
+ * `reports.diagnostics.export` sanitization integration tests.
  *
  * Drives the export procedure through a tRPC caller against an
  * in-memory DB seeded with payloads that contain known-sensitive
@@ -8,14 +8,14 @@
  * actually carry `[REDACTED]` instead of the original secret.
  *
  * Cases:
- *   1. sync_outbox payload with `password` + `token` → both redacted,
- *      benign business fields preserved, manifest reports the keys.
- *   2. fiscal_outbox payload with `clientSecret` + `certificate` →
- *      both redacted, manifest reports them under fiscal_outbox.
- *   3. operation_events.summary with `apiKey` → redacted in summary
- *      column, manifest reports `apiKey` under operation_events.
- *   4. Empty windows surface `redactedKeysByTable.<table> = []` —
- *      sanitization stays opt-out-by-default-empty.
+ * 1. sync_outbox payload with `password` + `token` → both redacted,
+ * benign business fields preserved, manifest reports the keys.
+ * 2. fiscal_outbox payload with `clientSecret` + `certificate` →
+ * both redacted, manifest reports them under fiscal_outbox.
+ * 3. operation_events.summary with `apiKey` → redacted in summary
+ * column, manifest reports `apiKey` under operation_events.
+ * 4. Empty windows surface `redactedKeysByTable.<table> = []` —
+ * sanitization stays opt-out-by-default-empty.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -120,7 +120,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('reports.diagnostics.export sanitization (ENG-066)', () => {
+describe('reports.diagnostics.export sanitization', () => {
   it('redacts sensitive keys in sync_outbox.payload + reports them in manifest', async () => {
     const h = await seedHarness('sync');
     const db = getDatabase();

@@ -1,21 +1,21 @@
 /**
  * Derived product stock totals (Auditoría 2026-07 — single source of truth;
- * ENG-197 — materialized rollup).
+ * materialized rollup).
  *
  * `inventory_balances` is the authoritative per-site stock. The tenant-wide
  * total for a product is `Σ(on_hand)` across its site balances — there is no
- * longer a denormalized `products.stock` column. Since ENG-197 that sum is
+ * longer a denormalized `products.stock` column. Since  that sum is
  * MATERIALIZED into `product_stock_totals`, maintained exclusively by the
  * SQLite triggers of migration 0008 (every insert/update/delete of a balance
  * row upserts the rollup in the same transaction), so these helpers read a
  * PK point-lookup instead of scanning and summing the balances per product:
  *
  * - `productStockTotalSql` — a scalar-subquery SQL fragment usable inside a
- *   `db.select({...})` so a product read can project its total without a
- *   GROUP BY on the outer query.
+ * `db.select({...})` so a product read can project its total without a
+ * GROUP BY on the outer query.
  * - `getProductStockTotal` / `getProductStockTotals` — direct reads for the
- *   write paths (adjust / entry / reversal) that need the current total to
- *   compute a delta or a movement's previous/new snapshot.
+ * write paths (adjust / entry / reversal) that need the current total to
+ * compute a delta or a movement's previous/new snapshot.
  *
  * The API of all three predates the rollup — readers did not change when the
  * implementation swapped. Parity rollup ≡ Σ(balances) is pinned by
@@ -44,7 +44,7 @@ import { productStockTotals } from '../../db/schema.js';
 // bind to the wrong table — silently returning 0. We therefore spell the
 // identifiers out, fully qualified. The (tenant_id, product_id) predicate is
 // the rollup's PRIMARY KEY, so this is an O(1) index point-lookup per row
-// instead of the pre-ENG-197 scan-and-sum over inventory_balances.
+// instead of the pre- scan-and-sum over inventory_balances.
 export const productStockTotalSql = sql<number>`coalesce((select product_stock_totals.total from product_stock_totals where product_stock_totals.product_id = products.id and product_stock_totals.tenant_id = products.tenant_id), 0)`;
 
 /** The current tenant-wide total for a single product (0 when no balances). */

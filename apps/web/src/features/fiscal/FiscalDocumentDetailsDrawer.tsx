@@ -1,11 +1,11 @@
 /**
- * ENG-132h — Fiscal Document detail Drawer.
+ * Fiscal Document detail Drawer.
  *
  * Read-only slide-over holding the fiscal-documents columns trimmed off the
  * default list table (provider id, full CUFE) plus the full record, so the
  * admin compliance table can default to the smallest useful column set (when,
  * document number, kind, status, buyer, total). Reuses the shared `Drawer`
- * primitive (ENG-186) and mirrors the ENG-132c/g detail drawers. The footer
+ * primitive () and mirrors the  detail drawers. The footer
  * "View XML" action hands off to the existing `FiscalDocumentXmlModal` (wired
  * by the caller) and only renders when the document has an XML ref.
  *

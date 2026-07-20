@@ -1,6 +1,6 @@
 # Pattern: Operation Journal
 
-> Status: Active (introduced by ENG-053)
+> Status: Active (introduced by )
 > Companion ADRs: [ADR-0001](../0001-local-store-authority.md), [ADR-0002](../0002-command-envelope.md), [ADR-0003](../0003-outbox-taxonomy.md)
 > Code: `packages/server/src/services/operation-journal/journal.ts`
 
@@ -14,11 +14,11 @@ failures that survived the primary transaction.
 Three tables backed by `operation_id` (the UUID minted by the
 renderer per envelope, ADR-0002):
 
-| Table | Cardinality | Purpose |
-|---|---|---|
-| `operation_events` | one per critical click | "Click X started at T1, transitioned to status S at T2" |
-| `operation_effects` | many per event | "This operation wrote audit row Y, emitted sync queue row Z, etc." |
-| `operation_errors` | zero or more per event | "After commit, the fiscal push failed with code F (recoverable)" |
+| Table               | Cardinality            | Purpose                                                            |
+| ------------------- | ---------------------- | ------------------------------------------------------------------ |
+| `operation_events`  | one per critical click | "Click X started at T1, transitioned to status S at T2"            |
+| `operation_effects` | many per event         | "This operation wrote audit row Y, emitted sync queue row Z, etc." |
+| `operation_errors`  | zero or more per event | "After commit, the fiscal push failed with code F (recoverable)"   |
 
 A successful sale produces:
 
@@ -57,7 +57,7 @@ The pattern also supports the [outbox kernel](./outbox-kernel.md):
 when a future fiscal/payment/sync worker fails on a row, it reads
 the `operation_id` it's working on and writes an `operation_errors`
 entry against the original journal event. The Operations Center
-(ENG-065) renders one panel per outbox plus a dedicated journal
+() renders one panel per outbox plus a dedicated journal
 detail view that joins these tables.
 
 ## When to use it
@@ -70,7 +70,7 @@ records the start row automatically — services do NOT call
 Effects and errors ARE called by services (or workers) explicitly:
 
 - After committing a sale: `recordEffect({operationEventId, kind:
-  'sale_row', resourceType: 'sales', resourceId: saleId})`.
+'sale_row', resourceType: 'sales', resourceId: saleId})`.
 - After a post-commit fan-out fails:
   `recordError({operationEventId, errorCode, recoverable: true})`
   followed by `markOperationCompleted(eventId, 'partial')`.
@@ -105,7 +105,7 @@ Do **not** emit journal entries for:
    markCompleted('succeeded')              markCompleted('failed')
 
 
-      ┌─── post-commit fan-out (workers, ENG-057+) ────┐
+      ┌─── post-commit fan-out (workers, +) ────┐
       ▼                                                ▼
    ok: recordEffect(kind='fiscal_emit', ...)    fail: recordError(...)
                                                        markCompleted('partial')
@@ -162,12 +162,9 @@ journal trail as warnings, not as data integrity violations.
 ## Code example
 
 ```ts
-// In a future application service (ENG-054 will do this for
+// In a future application service ( will do this for
 // `completeSale`):
-import {
-  getOperationTrail,
-  recordEffect,
-} from '../../services/operation-journal/journal.js';
+import { getOperationTrail, recordEffect } from '../../services/operation-journal/journal.js';
 
 async function completeSale(ctx: Context, input: CompleteSaleInput) {
   const { sale, audit } = await ctx.db.transaction(async tx => {
@@ -220,17 +217,5 @@ async function completeSale(ctx: Context, input: CompleteSaleInput) {
   outbox rows write `operation_effects` (success) or
   `operation_errors` (failure) against the originating event.
 - **Local Store Authority (ADR-0001)** — the journal is local-first
-  like every other store. Future sync (ENG-064) publishes journal
+  like every other store. Future sync () publishes journal
   events to a central server; the central never writes back.
-
-## Related tickets
-
-- ENG-052 added `audit_logs.operation_id` (the column) and the
-  `commandEnvelope` middleware that mints the envelope.
-- ENG-053 added the journal tables + service + middleware wiring
-  (this pattern's owner ticket).
-- ENG-054 / ENG-055 / ENG-056 will be the first SERVICE-level
-  consumers — extracting `completeSale` etc. and emitting effects.
-- ENG-057 will be the first WORKER-level consumer (fiscal outbox
-  worker recording effects/errors against the journal).
-- ENG-065 will surface the journal in the Operations Center UI.

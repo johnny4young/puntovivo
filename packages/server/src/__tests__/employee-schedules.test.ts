@@ -72,7 +72,7 @@ function scheduleInput(userId: string, overrides: Record<string, unknown> = {}) 
   };
 }
 
-describe('employee schedule router (ENG-140a)', () => {
+describe('employee schedule router', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     db = getDatabase();

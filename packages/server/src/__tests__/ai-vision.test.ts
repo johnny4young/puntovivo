@@ -1,5 +1,5 @@
 /**
- * ENG-040a — Service-level tests for `extractInvoiceFromImage`.
+ * Service-level tests for `extractInvoiceFromImage`.
  *
  * Drives the OCR pipeline against an in-memory database with a stub
  * AIProvider so no real vision call is made. Verifies gating
@@ -87,7 +87,10 @@ const SAMPLE_INVOICE: InvoiceOcr = {
   total: 78540,
 };
 
-async function enableAI(tenantId: string, opts?: { budgetUsd?: number; spentUsd?: number }): Promise<void> {
+async function enableAI(
+  tenantId: string,
+  opts?: { budgetUsd?: number; spentUsd?: number }
+): Promise<void> {
   const db = getDatabase();
   await db
     .update(tenants)
@@ -151,7 +154,7 @@ beforeEach(() => {
   generateObjectMock.mockReset();
 });
 
-describe('extractInvoiceFromImage (ENG-040a)', () => {
+describe('extractInvoiceFromImage', () => {
   it('returns the parsed invoice and writes an audit-log row on success', async () => {
     const tenantId = await seedTenant('happy');
     await enableAI(tenantId);

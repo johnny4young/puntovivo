@@ -1,8 +1,8 @@
 /**
- * ENG-056 — Best-effort journal effect emission for the cash-session
+ * Best-effort journal effect emission for the cash-session
  * use-cases.
  *
- * Mirror of `application/sales/journal-effects.ts` (ENG-054). Kept as a
+ * Mirror of `application/sales/journal-effects.ts` (). Kept as a
  * sibling module instead of cross-importing so each aggregate boundary
  * stays self-contained and discoverable: a future reader looking at
  * `application/cash-sessions/closeCashSession.ts` finds its effect
@@ -48,10 +48,7 @@ export async function lookupCashSessionJournalEventId(
     .select({ id: operationEvents.id })
     .from(operationEvents)
     .where(
-      and(
-        eq(operationEvents.tenantId, tenantId),
-        eq(operationEvents.operationId, operationId)
-      )
+      and(eq(operationEvents.tenantId, tenantId), eq(operationEvents.operationId, operationId))
     )
     .get();
   return row?.id ?? null;

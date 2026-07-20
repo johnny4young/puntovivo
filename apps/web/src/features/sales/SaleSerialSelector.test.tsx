@@ -36,7 +36,7 @@ beforeEach(async () => {
   await i18n.changeLanguage('en');
 });
 
-describe('SaleSerialSelector (ENG-110c)', () => {
+describe('SaleSerialSelector', () => {
   it('requires exactly one available identity per base unit', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

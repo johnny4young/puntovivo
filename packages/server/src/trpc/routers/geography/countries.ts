@@ -1,7 +1,7 @@
 /**
  * Countries tRPC router (geography).
  *
- * ENG-178 — extracted verbatim from the former flat `trpc/routers/geography.ts`
+ * extracted verbatim from the former flat `trpc/routers/geography.ts`
  * during the megafile decomposition. The barrel re-exports `countriesRouter`
  * under the same name, so `appRouter` and the caller-based tests are unchanged.
  *
@@ -33,7 +33,9 @@ export const countriesRouter = router({
     const conditions = [eq(countries.tenantId, ctx.tenantId)];
 
     if (search) {
-      conditions.push(or(like(countries.code, `%${search}%`), like(countries.name, `%${search}%`))!);
+      conditions.push(
+        or(like(countries.code, `%${search}%`), like(countries.name, `%${search}%`))!
+      );
     }
 
     if (isActive !== undefined) {
@@ -43,7 +45,11 @@ export const countriesRouter = router({
     const where = and(...conditions);
     const [items, countRow] = await Promise.all([
       ctx.db.select().from(countries).where(where).limit(perPage).offset(offset).all(),
-      ctx.db.select({ count: sql<number>`count(*)` }).from(countries).where(where).get(),
+      ctx.db
+        .select({ count: sql<number>`count(*)` })
+        .from(countries)
+        .where(where)
+        .get(),
     ]);
 
     const totalItems = countRow?.count ?? 0;

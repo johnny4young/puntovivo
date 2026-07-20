@@ -1,4 +1,4 @@
-// ENG-179c — cash-session domain shapes (ENG-178 slice 28).
+// cash-session domain shapes ( slice 28).
 
 import type { CashMovementType, CashSessionStatus } from '../ui';
 

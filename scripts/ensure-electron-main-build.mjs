@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ENG-001 Step 3 — guard that fails fast when the Electron smoke tries
+ * Step 3 — guard that fails fast when the Electron smoke tries
  * to run without the Vite main-process build in place.
  *
  * The Electron smoke suite (`playwright.electron.config.ts`) launches
@@ -26,10 +26,7 @@ const repoRoot = resolve(here, '..');
 // so both must agree on this layout.
 const mainEntry = join(repoRoot, 'apps/desktop/.vite/build/index.cjs');
 const preloadEntry = join(repoRoot, 'apps/desktop/.vite/preload/index.cjs');
-const migrationsJournal = join(
-  repoRoot,
-  'apps/desktop/.vite/build/migrations/meta/_journal.json'
-);
+const migrationsJournal = join(repoRoot, 'apps/desktop/.vite/build/migrations/meta/_journal.json');
 
 const missing = [];
 if (!existsSync(mainEntry)) missing.push(relative(repoRoot, mainEntry));
@@ -44,7 +41,7 @@ if (missing.length === 0) {
 
 const lines = [
   '',
-  'ENG-001 Step 3 — Electron smoke aborted.',
+  ' Step 3 — Electron smoke aborted.',
   '',
   `  Missing build artefacts:`,
   ...missing.map(path => `    - ${path}`),

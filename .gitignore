@@ -66,6 +66,7 @@ backend/server
 .playwright-browsers/
 playwright-report/
 test-results/
+.playwright-cli/
 
 # Audit evidence (screenshots, scratch notes) — kept on disk for the
 # operator to review, never committed (binary churn).
@@ -86,20 +87,24 @@ test-results/
 .claude/launch.json
 .claude/preview.json
 
-# Private strategy docs — kept local in their normal path, never public (release prep)
-docs/PLAN.md
-docs/PLAN-V2.md
-docs/PLAN-V3.md
-docs/BACKLOG.md
-docs/ROADMAP.md
-docs/SPRINT-PLAN.md
-docs/ARCHIVED.md
-docs/AUDIT-2026-05-24.md
-docs/LATAM-EXPANSION.md
-docs/LONG-TERM-VISION.md
-docs/MARKET-SEGMENTS.md
-docs/FUTURE-VERTICALS.md
-docs/WEBSITE-CAPABILITY-AUDIT.md
+# Private planning and strategy — never publish execution queues, estimates,
+# ticket maps, agent handoffs, or market notes. Public product truth belongs in
+# docs/PROJECT-STATUS.md instead.
+docs/planning/
+docs/private/
+docs/**/*.local.md
+docs/ANALYSIS-*.md
+docs/AUDIT-*.md
+docs/HANDOFF-*.md
+docs/*PLAN*.md
+docs/*STRATEGY*.md
+docs/*SPRINT*.md
+docs/*follow-up work*.md
+docs/*public status*.md
+docs/*VISION*.md
+docs/*MARKET*.md
+docs/*VERTICAL*.md
+docs/*CAPABILITY-AUDIT*.md
 
 # Agent instructions + config — local only, never public (release prep)
 AGENTS.md

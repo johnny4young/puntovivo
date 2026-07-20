@@ -1,5 +1,5 @@
 /**
- * ENG-039d3 — Admin-only card for restaurant-mode tenant settings.
+ * Admin-only card for restaurant-mode tenant settings.
  *
  * Sits inside `CompanyPage`'s admin "restaurant" tab. Reads
  * `restaurantSettings.get`, writes via `restaurantSettings.update`,
@@ -83,12 +83,8 @@ export function CompanyRestaurantSettingsCard() {
           <Utensils className="h-5 w-5" aria-hidden="true" />
         </span>
         <div>
-          <h2 className="pv-title text-lg">
-            {t('settings:company.restaurant.title')}
-          </h2>
-          <p className="mt-1 text-sm text-fg3">
-            {t('settings:company.restaurant.description')}
-          </p>
+          <h2 className="pv-title text-lg">{t('settings:company.restaurant.title')}</h2>
+          <p className="mt-1 text-sm text-fg3">{t('settings:company.restaurant.description')}</p>
         </div>
       </div>
 
@@ -124,9 +120,7 @@ export function CompanyRestaurantSettingsCard() {
             </p>
           )}
           {persistedRate === 0 && !rateInput && !rangeError && (
-            <p className="help">
-              {t('settings:company.restaurant.serviceChargeDisabledHint')}
-            </p>
+            <p className="help">{t('settings:company.restaurant.serviceChargeDisabledHint')}</p>
           )}
         </div>
       </div>

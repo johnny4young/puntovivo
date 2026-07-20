@@ -1,11 +1,8 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import {
-  buildMainWindowWebPreferences,
-  MAIN_WINDOW_WEB_PREFERENCES,
-} from '../window-config.ts';
+import { buildMainWindowWebPreferences, MAIN_WINDOW_WEB_PREFERENCES } from '../window-config.ts';
 
-// ENG-004 regression pin. These assertions encode the renderer security
+// regression pin. These assertions encode the renderer security
 // invariant: the main BrowserWindow runs sandboxed, contextIsolation stays
 // on, and nodeIntegration stays off. Any edit to window-config.ts that
 // weakens these must be blocked at CI.
@@ -14,7 +11,7 @@ import {
 // invokes `node --test --experimental-strip-types` so no transpiler is
 // needed. The import path uses `.ts` because strip-types consumes the
 // source directly.
-describe('MAIN_WINDOW_WEB_PREFERENCES (ENG-004)', () => {
+describe('MAIN_WINDOW_WEB_PREFERENCES', () => {
   it('locks the main BrowserWindow to sandbox mode', () => {
     assert.equal(
       MAIN_WINDOW_WEB_PREFERENCES.sandbox,

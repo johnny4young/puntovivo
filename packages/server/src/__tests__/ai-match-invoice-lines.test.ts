@@ -1,5 +1,5 @@
 /**
- * ENG-040 slice 1b — `ai.matchInvoiceLines` integration tests.
+ * slice 1b — `ai.matchInvoiceLines` integration tests.
  *
  * Drives the procedure via `createCaller` against an in-memory database
  * + a stubbed `ai` SDK so no real embedding round-trip is needed. The
@@ -18,14 +18,7 @@ import type { EmbeddingModelV4 } from '@ai-sdk/provider';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  aiAuditLog,
-  products,
-  tenants,
-  unitXProduct,
-  units,
-  users,
-} from '../db/schema.js';
+import { aiAuditLog, products, tenants, unitXProduct, units, users } from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
@@ -220,7 +213,7 @@ beforeEach(() => {
   embedMock.mockReset();
 });
 
-describe('ai.matchInvoiceLines (ENG-040 slice 1b)', () => {
+describe('ai.matchInvoiceLines ( slice 1b)', () => {
   it('returns top-1 product match per line and writes a single audit row', async () => {
     const { tenantId, adminId } = await seedTenant('happy', { aiEnabled: true });
     await seedProducts(tenantId, [
@@ -253,9 +246,7 @@ describe('ai.matchInvoiceLines (ENG-040 slice 1b)', () => {
       ],
     });
 
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     const result = await caller.ai.matchInvoiceLines({
       lines: [
         { description: 'Coca Cola 1.5L', quantity: 12, unitPrice: 4500, totalLine: 54000 },
@@ -292,9 +283,7 @@ describe('ai.matchInvoiceLines (ENG-040 slice 1b)', () => {
       { id: 'prod-x', name: 'Producto', sku: 'X-1', embedding: [1, 0, 0] },
     ]);
 
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     const result = await caller.ai.matchInvoiceLines({
       lines: [{ description: 'Producto', quantity: 1, unitPrice: 10, totalLine: 10 }],
     });
@@ -314,9 +303,7 @@ describe('ai.matchInvoiceLines (ENG-040 slice 1b)', () => {
       { id: 'prod-b', name: 'Producto B', sku: 'B-1' },
     ]);
 
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     const result = await caller.ai.matchInvoiceLines({
       lines: [{ description: 'Producto A', quantity: 1, unitPrice: 10, totalLine: 10 }],
     });
@@ -343,9 +330,7 @@ describe('ai.matchInvoiceLines (ENG-040 slice 1b)', () => {
     // conservative so the purchase form marks the line pending.
     embedManyMock.mockResolvedValue({ embeddings: [[0.84, 0.54, 0]] });
 
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     const result = await caller.ai.matchInvoiceLines({
       lines: [{ description: 'Detergente líquido', quantity: 1, unitPrice: 5000, totalLine: 5000 }],
     });
@@ -424,9 +409,7 @@ describe('ai.matchInvoiceLines (ENG-040 slice 1b)', () => {
       })
       .where(eq(tenants.id, tenantId));
 
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     let caught: unknown;
     try {
       await caller.ai.matchInvoiceLines({
@@ -448,9 +431,7 @@ describe('ai.matchInvoiceLines (ENG-040 slice 1b)', () => {
       { id: 'prod-e', name: 'Producto', sku: 'E-1', embedding: [1, 0, 0] },
     ]);
 
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     const result = await caller.ai.matchInvoiceLines({ lines: [] });
     expect(result.mode).toBe('matched');
     if (result.mode !== 'matched') throw new Error('expected matched mode');

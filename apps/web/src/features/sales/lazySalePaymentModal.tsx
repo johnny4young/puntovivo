@@ -1,5 +1,5 @@
 /**
- * ENG-200 — deferred payment drawer boundary.
+ * deferred payment drawer boundary.
  *
  * The checkout drawer is substantial but is not needed for the first paint of
  * `/sales`. Keep it in a dedicated chunk, then warm that chunk during the

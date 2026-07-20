@@ -1,5 +1,5 @@
 /**
- * ENG-129d — daily enforcement of each active tenant's data-retention policy.
+ * daily enforcement of each active tenant's data-retention policy.
  *
  * The timer is armed only after Fastify starts listening, matching every other
  * worker. A global system-audit row records aggregate counts without exposing

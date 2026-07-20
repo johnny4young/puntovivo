@@ -1,5 +1,5 @@
 /**
- * ENG-052b — `useCriticalMutation` generic regression suite.
+ * `useCriticalMutation` generic regression suite.
  *
  * Verifies the runtime behaviour of the hook (the type-level
  * inference is enforced by `tsc` at build time):
@@ -15,18 +15,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getCachedDeviceIdSyncMock, createTrpcClientWithHeadersMock, mintEnvelopeMock, mutateMocks } =
-  vi.hoisted(() => ({
-    getCachedDeviceIdSyncMock: vi.fn<() => string | null>(),
-    createTrpcClientWithHeadersMock: vi.fn(),
-    mintEnvelopeMock: vi.fn(),
-    mutateMocks: {
-      salesCreate: vi.fn(),
-      cashSessionsOpen: vi.fn(),
-      usersUpdate: vi.fn(),
-      dayCloseSignOff: vi.fn(),
-    },
-  }));
+const {
+  getCachedDeviceIdSyncMock,
+  createTrpcClientWithHeadersMock,
+  mintEnvelopeMock,
+  mutateMocks,
+} = vi.hoisted(() => ({
+  getCachedDeviceIdSyncMock: vi.fn<() => string | null>(),
+  createTrpcClientWithHeadersMock: vi.fn(),
+  mintEnvelopeMock: vi.fn(),
+  mutateMocks: {
+    salesCreate: vi.fn(),
+    cashSessionsOpen: vi.fn(),
+    usersUpdate: vi.fn(),
+    dayCloseSignOff: vi.fn(),
+  },
+}));
 
 vi.mock('@/lib/deviceId', () => ({
   getCachedDeviceIdSync: getCachedDeviceIdSyncMock,
@@ -79,9 +83,9 @@ describe('useCriticalMutation', () => {
       wrapper,
     });
 
-    await expect(
-      result.current.mutateAsync({} as never)
-    ).rejects.toMatchObject({ errorCode: 'DEVICE_NOT_REGISTERED' });
+    await expect(result.current.mutateAsync({} as never)).rejects.toMatchObject({
+      errorCode: 'DEVICE_NOT_REGISTERED',
+    });
 
     expect(mutateMocks.salesCreate).not.toHaveBeenCalled();
   });
@@ -90,10 +94,7 @@ describe('useCriticalMutation', () => {
     getCachedDeviceIdSyncMock.mockReturnValue('dev-123');
     mutateMocks.cashSessionsOpen.mockResolvedValue({ id: 'cash-1', status: 'open' });
 
-    const { result } = renderHook(
-      () => useCriticalMutation('cashSessions.open'),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useCriticalMutation('cashSessions.open'), { wrapper });
 
     const value = await result.current.mutateAsync({
       registerName: 'Front',
@@ -113,10 +114,9 @@ describe('useCriticalMutation', () => {
     getCachedDeviceIdSyncMock.mockReturnValue('dev-report');
     mutateMocks.dayCloseSignOff.mockResolvedValue({ id: 'signoff-1' });
 
-    const { result } = renderHook(
-      () => useCriticalMutation('reports.dayClose.signOff'),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useCriticalMutation('reports.dayClose.signOff'), {
+      wrapper,
+    });
 
     const value = await result.current.mutateAsync({
       date: '2026-07-14',

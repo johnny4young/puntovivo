@@ -1,4 +1,4 @@
-/** ENG-128 — one lazy boundary for guided recovery and portable evidence. */
+/** one lazy boundary for guided recovery and portable evidence. */
 
 import { SupportRecoveryChecklist } from './SupportRecoveryChecklist';
 import { SupportSnapshotPanel } from './SupportSnapshotPanel';

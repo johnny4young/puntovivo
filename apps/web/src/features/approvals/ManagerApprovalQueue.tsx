@@ -147,7 +147,7 @@ function ApprovalDecisionForm({
 }
 
 /**
- * ENG-106c1 — compact manager/admin queue for shared terminals.
+ * compact manager/admin queue for shared terminals.
  *
  * The component mounts only while the user menu is open, so its five-second
  * polling interval costs nothing while the operator is elsewhere. Every

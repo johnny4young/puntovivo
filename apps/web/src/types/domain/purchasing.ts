@@ -1,4 +1,4 @@
-// ENG-179c — purchasing / order domain shapes (ENG-178 slice 28).
+// purchasing / order domain shapes ( slice 28).
 
 import type { OrderStatus, PurchaseStatus, SyncStatus } from '../ui';
 

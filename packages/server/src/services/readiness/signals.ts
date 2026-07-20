@@ -1,5 +1,5 @@
 /**
- * ENG-184 — Shared readiness signal readers.
+ * Shared readiness signal readers.
  *
  * One implementation of each "is X ready?" probe, consumed by BOTH the
  * company-level `setupReadiness.get` aggregator AND the cashier-facing
@@ -9,7 +9,7 @@
  *
  * These probes gate on configuration PRESENCE + outbox/sync health, not
  * on cryptographic fiscal validity (certificate / CUFE signing /
- * provider transmission are mock and deferred to ENG-021).
+ * provider transmission are mock and deferred to ).
  *
  * @module services/readiness/signals
  */
@@ -17,16 +17,8 @@
 import { and, count, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import {
-  fiscalOutbox,
-  sitePeripherals,
-  syncConflicts,
-  syncOutbox,
-} from '../../db/schema.js';
-import {
-  readCoFiscalSettings,
-  validateCoFiscalConfig,
-} from '../fiscal/packs/co/settings.js';
+import { fiscalOutbox, sitePeripherals, syncConflicts, syncOutbox } from '../../db/schema.js';
+import { readCoFiscalSettings, validateCoFiscalConfig } from '../fiscal/packs/co/settings.js';
 import { readPaymentRailCredentials } from '../payments/credentials.js';
 import { PAYMENT_RAIL_IDS } from '../payments/manifest.js';
 
@@ -75,7 +67,7 @@ const FISCAL_OUTBOX_FAILURE_STATUSES = ['rejected', 'dead_letter'] as const;
  * Count fiscal-document outbox rows in a terminal-failure state
  * (rejected / dead_letter) for the tenant. A positive count means
  * emitted documents are failing to reach DIAN — surfaced as a warning,
- * never a sale blocker (ENG-020/054: emission is out-of-band).
+ * never a sale blocker (: emission is out-of-band).
  */
 export async function countFiscalOutboxFailures(
   db: DatabaseInstance,
@@ -171,17 +163,11 @@ export async function readSyncBacklog(
     db
       .select({ total: count(syncConflicts.id) })
       .from(syncConflicts)
-      .where(
-        and(
-          eq(syncConflicts.tenantId, tenantId),
-          eq(syncConflicts.status, 'pending')
-        )
-      )
+      .where(and(eq(syncConflicts.tenantId, tenantId), eq(syncConflicts.status, 'pending')))
       .get(),
   ]);
   return {
     pending: Number(pendingRow?.total ?? 0),
-    conflicts:
-      Number(terminalOutboxRow?.total ?? 0) + Number(conflictRow?.total ?? 0),
+    conflicts: Number(terminalOutboxRow?.total ?? 0) + Number(conflictRow?.total ?? 0),
   };
 }

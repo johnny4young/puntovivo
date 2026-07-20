@@ -1,20 +1,27 @@
 /**
- * Quotation service — create (ENG-178 split).
+ * Quotation service — create ( split).
  *
- * `resolveQuotationSequential` + `createQuotation` (tx whole; ENG-176b currency).
+ * `resolveQuotationSequential` + `createQuotation` (tx whole;  currency).
  *
  * @module services/quotations/create
  */
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { customers, products, quotationItems, quotations, sequentials, sites, type QuotationStatus } from '../../db/schema.js';
+import {
+  customers,
+  products,
+  quotationItems,
+  quotations,
+  sequentials,
+  sites,
+  type QuotationStatus,
+} from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
 
 import type { CreateQuotationArgs, CreatedQuotation } from './types.js';
 import { getTimestamp, computeQuotationTotals } from './pricing.js';
-
 
 /**
  * Resolve the (siteId, prefix, currentValue) sequential context for the
@@ -72,8 +79,7 @@ export function resolveQuotationSequential(
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'QUOTATION_SEQUENTIAL_MISSING',
-      message:
-        'No active quotation sequential is configured for the current tenant',
+      message: 'No active quotation sequential is configured for the current tenant',
       details: { tenantId, siteId },
     });
   }
@@ -81,10 +87,7 @@ export function resolveQuotationSequential(
   return fallback;
 }
 
-export function createQuotation(
-  db: DatabaseInstance,
-  args: CreateQuotationArgs
-): CreatedQuotation {
+export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs): CreatedQuotation {
   if (args.items.length === 0) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -128,12 +131,7 @@ export function createQuotation(
       const customer = tx
         .select({ id: customers.id, isActive: customers.isActive })
         .from(customers)
-        .where(
-          and(
-            eq(customers.id, args.customerId),
-            eq(customers.tenantId, args.tenantId)
-          )
-        )
+        .where(and(eq(customers.id, args.customerId), eq(customers.tenantId, args.tenantId)))
         .get();
       if (!customer || customer.isActive === false) {
         throwServerError({
@@ -152,9 +150,7 @@ export function createQuotation(
         taxRate: products.taxRate,
       })
       .from(products)
-      .where(
-        and(eq(products.tenantId, args.tenantId), inArray(products.id, productIds))
-      )
+      .where(and(eq(products.tenantId, args.tenantId), inArray(products.id, productIds)))
       .all();
     const productById = new Map(productRows.map(product => [product.id, product]));
 
@@ -184,7 +180,7 @@ export function createQuotation(
       .where(eq(sequentials.id, sequential.id))
       .run();
 
-    // ENG-176b — stamp the tenant default currency on the quotation
+    // stamp the tenant default currency on the quotation
     // header and on every item. If a future conversion path creates a
     // sale, it can carry this seam verbatim instead of re-resolving.
     const quotationCurrencyCode = resolveTenantCurrency(tx, args.tenantId);

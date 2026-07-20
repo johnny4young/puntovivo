@@ -1,10 +1,10 @@
 /**
- * ENG-132g — Inventory Movements table columns.
+ * Inventory Movements table columns.
  *
  * Extracted from `InventoryPage` so the column-set test can import a pure
  * function without pulling the heavy page module, and so `InventoryPage`
  * stays a component-only export (react-refresh hygiene). Mirrors
- * `inventoryStockColumns` (ENG-132c).
+ * `inventoryStockColumns` ().
  *
  * The Movements log renders the smallest useful column set for an at-a-glance
  * scan (date, product, the signed delta, type). Stock-after, reference and
@@ -24,14 +24,16 @@ import type { InventoryMovement, MovementType } from '@/types';
  * Semantic tone per movement type for the type badge — inbound flows read
  * success, outbound reads danger, adjustment warning, transfer primary.
  */
-export const movementBadgeTones: Record<MovementType, 'success' | 'danger' | 'warning' | 'primary'> =
-  {
-    purchase: 'success',
-    sale: 'danger',
-    adjustment: 'warning',
-    transfer: 'primary',
-    return: 'success',
-  };
+export const movementBadgeTones: Record<
+  MovementType,
+  'success' | 'danger' | 'warning' | 'primary'
+> = {
+  purchase: 'success',
+  sale: 'danger',
+  adjustment: 'warning',
+  transfer: 'primary',
+  return: 'success',
+};
 
 /**
  * Signed stock delta for a movement row. Sale / transfer rows infer the sign
@@ -110,7 +112,7 @@ export function getMovementColumns(
         );
       },
     },
-    // ENG-132g — stock-after / reference / notes trimmed into the row-detail
+    // stock-after / reference / notes trimmed into the row-detail
     // Drawer (`onViewDetails`); date + product + delta + type carry the scan.
     {
       id: 'actions',

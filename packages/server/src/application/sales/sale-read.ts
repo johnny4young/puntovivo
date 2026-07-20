@@ -1,10 +1,10 @@
 /**
- * ENG-054 — Post-commit sale reader.
+ * Post-commit sale reader.
  *
  * `getSaleRecord` is the canonical read used by the sale lifecycle to
  * return a fully-hydrated sale (header + items + payments + return
  * info) to the caller. It used to live as a private helper in
- * `trpc/routers/sales.ts`; ENG-054 moved it here so the application
+ * `trpc/routers/sales.ts`;  moved it here so the application
  * service can call it without depending on the router file.
  *
  * The function is a pure read — it does not write, does not throw on
@@ -43,7 +43,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       id: sales.id,
       tenantId: sales.tenantId,
       saleNumber: sales.saleNumber,
-      // ENG-106c3 — exact approval summaries and post-sale UI preserve
+      // exact approval summaries and post-sale UI preserve
       // the currency frozen on the original sale.
       currencyCode: sales.currencyCode,
       customerId: sales.customerId,
@@ -51,12 +51,12 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       subtotal: sales.subtotal,
       taxAmount: sales.taxAmount,
       discountAmount: sales.discountAmount,
-      // ENG-039d — restaurant tip / propina; surfaced on the read shape
+      // restaurant tip / propina; surfaced on the read shape
       // so the receipt renderer, history modals, and reporting tiles
       // can render the captured tip without a second round trip.
       tipAmount: sales.tipAmount,
       tipMethod: sales.tipMethod,
-      // ENG-039d3 — restaurant service charge / propina sugerida. Mirrors
+      // restaurant service charge / propina sugerida. Mirrors
       // the tip surface so receipt rendering + reporting can reconstruct
       // the line without re-reading the row.
       serviceChargeAmount: sales.serviceChargeAmount,
@@ -67,18 +67,18 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       status: sales.status,
       notes: sales.notes,
       createdBy: sales.createdBy,
-      // ENG-018 — park-and-resume bookkeeping. Surfacing these on the
+      // park-and-resume bookkeeping. Surfacing these on the
       // read side lets the resume panel and the sale-details modal show
       // who suspended the draft without a second round trip.
       suspendedAt: sales.suspendedAt,
       suspendedBy: sales.suspendedBy,
       suspendedLabel: sales.suspendedLabel,
-      // ENG-039c — restaurant table FK. The column existed on the row
-      // since ENG-039c but the read shape never exposed it; surfaced
+      // restaurant table FK. The column existed on the row
+      // since  but the read shape never exposed it; surfaced
       // here so consumers (split-bill UI, future restaurant detail
       // surfaces) can read the FK without a second round-trip.
       tableId: sales.tableId,
-      // ENG-019 — reprint counters drive the "reimpresa N veces" banner.
+      // reprint counters drive the "reimpresa N veces" banner.
       reprintCount: sales.reprintCount,
       lastReprintedAt: sales.lastReprintedAt,
       lastReprintedBy: sales.lastReprintedBy,
@@ -123,7 +123,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       taxAmount: saleItems.taxAmount,
       costAtSale: saleItems.costAtSale,
       total: saleItems.total,
-      // ENG-039d2 — surface the per-line modifier so the renderer
+      // surface the per-line modifier so the renderer
       // (KDS card, receipt reprint, history detail modal) reads it
       // alongside each item.
       notes: saleItems.notes,
@@ -143,7 +143,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
     serialNumbers: serialNumbersByItem.get(item.id) ?? [],
   }));
 
-  // Phase 2 Tier-2 step 5 — every sale has at least one payment row now.
+  // every sale has at least one payment row now.
   const payments = await db
     .select({
       id: salePayments.id,
@@ -183,7 +183,7 @@ export interface SaleFiscalDocumentRow {
    * Country-specific QR payload string (URL for DIAN/SAT, TED for SII).
    * Null when the document is not in an eligible status, when the
    * CUFE is still a placeholder, or when the country pack is not yet
-   * implemented (CL pre-ENG-036b).
+   * implemented (CL pre-).
    */
   qrPayload: string | null;
   xmlRef: string | null;
@@ -193,7 +193,7 @@ export interface SaleFiscalDocumentRow {
 }
 
 /**
- * ENG-058 — Resolve every fiscal document linked to the sale: the
+ * Resolve every fiscal document linked to the sale: the
  * original DEE/FEV (source='sale'), any void NC (source='void',
  * sourceId=saleId), and any return NCs (source='return', sourceId
  * IN saleReturns.id).
@@ -285,8 +285,8 @@ async function loadFiscalDocumentsForSale(
       countryCode,
       qrPayload: buildFiscalQrPayload({
         country: countryCode,
-        // The current adapter env is sandbox/'2' per ENG-020 Fase A.
-        // Habilitación support is wired in ENG-021 (PT contract gate).
+        // The current adapter env is sandbox/'2' per  estado actual.
+        // Habilitación support is wired in  (PT contract gate).
         environment: 'production',
         doc: {
           cufe: doc.cufe,

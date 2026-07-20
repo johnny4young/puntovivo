@@ -1,9 +1,9 @@
 /**
- * AI router — anomalies sub-router (ENG-178 split).
+ * AI router — anomalies sub-router ( split).
  *
- * ENG-032 — `ai.anomalies.list` (manager/admin) returns the four-detector
- * aggregate; ENG-047 — `ai.anomalies.snooze` silences an alert for a window.
- * Both ENG-068 gated behind the `anomaly-detection` module.
+ * `ai.anomalies.list` (manager/admin) returns the four-detector
+ * aggregate;  — `ai.anomalies.snooze` silences an alert for a window.
+ * Both  gated behind the `anomaly-detection` module.
  *
  * @module trpc/routers/ai/anomalies
  */
@@ -25,25 +25,25 @@ import { anomalyListInput, anomalySnoozeInput } from '../../schemas/ai.js';
 import { aiAnomalySnoozes, users } from '../../../db/schema.js';
 
 /**
- * ENG-032 — anomalies sub-router.
+ * anomalies sub-router.
  *
  * `list` returns the four-detector aggregate. `managerOrAdminProcedure`
  * gates out cashiers (already excluded from `/dashboard` at the
  * sidebar level; this is defense-in-depth at the API layer).
  *
  * Behavior contract:
- *   - When `tenants.settings.ai.enabled === false`, return an empty
- *     result without running the detector queries. UX consistency
- *     with `ai.copilot.chat` and `ai.completeTest`: the operator can
- *     flip the master toggle off and every AI surface short-circuits
- *     in the same way.
- *   - When `from > to`, throw BAD_REQUEST. No errorCode (plain Zod
- *     input shape error).
- *   - When `from` / `to` omitted, default window is the last
- *     `ANALYSIS_WINDOW_DAYS` (30) days ending at `now`.
+ * - When `tenants.settings.ai.enabled === false`, return an empty
+ * result without running the detector queries. UX consistency
+ * with `ai.copilot.chat` and `ai.completeTest`: the operator can
+ * flip the master toggle off and every AI surface short-circuits
+ * in the same way.
+ * - When `from > to`, throw BAD_REQUEST. No errorCode (plain Zod
+ * input shape error).
+ * - When `from` / `to` omitted, default window is the last
+ * `ANALYSIS_WINDOW_DAYS` (30) days ending at `now`.
  */
 export const anomaliesRouter = router({
-  // ENG-068 — gated behind the `anomaly-detection` module. Tenant
+  // gated behind the `anomaly-detection` module. Tenant
   // can hide the dashboard tile + drill-down modal without disabling
   // the broader `ai.enabled` flag (e.g. AI Wave 1 chat stays on, but
   // anomaly tile hides for tenants on a basic plan).
@@ -92,13 +92,13 @@ export const anomaliesRouter = router({
     }),
 
   /**
-   * ENG-047 — silence an anomaly for a chosen window. The dashboard
+   * silence an anomaly for a chosen window. The dashboard
    * tile + modal call this when the manager has investigated and
    * confirmed an alert is legitimate. Future runs of the detector
    * filter alerts whose `(kind, cashierId, evidenceRef)` matches an
    * unexpired row in `ai_anomaly_snoozes`.
    */
-  // ENG-068 — same module gate as `list`. Snooze is meaningless when
+  // same module gate as `list`. Snooze is meaningless when
   // the surface that would surface the alerts is hidden.
   snooze: managerOrAdminProcedureWithModule('anomaly-detection')
     .input(anomalySnoozeInput)
@@ -145,7 +145,7 @@ export const anomaliesRouter = router({
         reason: input.reason ?? null,
         createdAt: now.toISOString(),
       });
-      // ENG-095 / AI Núcleo 2026-05-15 — surface anomaly silence on
+      // / AI Núcleo 2026-05-15 — surface anomaly silence on
       // AiConfigPage's audit table so the operator sees who muted what.
       writeAuditLog({
         tx: ctx.db,

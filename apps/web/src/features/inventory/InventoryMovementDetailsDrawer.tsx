@@ -1,10 +1,10 @@
 /**
- * ENG-132g — Inventory Movement detail Drawer.
+ * Inventory Movement detail Drawer.
  *
  * Read-only slide-over holding the Movements-table fields trimmed off the
  * default table (stock-after, reference, notes) plus the type + signed delta,
  * so the table can default to the smallest useful column set (date, product,
- * movement, type). Reuses the shared `Drawer` primitive (ENG-186) for the
+ * movement, type). Reuses the shared `Drawer` primitive () for the
  * dialog a11y contract and mirrors `InventoryStockDetailsDrawer`.
  *
  * @module features/inventory/InventoryMovementDetailsDrawer
@@ -14,7 +14,10 @@ import { useTranslation } from 'react-i18next';
 import { Drawer } from '@/components/feedback/Drawer';
 import { cn, formatDateTime } from '@/lib/utils';
 import type { InventoryMovement } from '@/types';
-import { getMovementDelta, movementBadgeTones } from '@/features/inventory/inventoryMovementColumns';
+import {
+  getMovementDelta,
+  movementBadgeTones,
+} from '@/features/inventory/inventoryMovementColumns';
 
 /**
  * Props for {@link InventoryMovementDetailsDrawer}. The Drawer is open exactly

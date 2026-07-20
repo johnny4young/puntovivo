@@ -1,5 +1,5 @@
 /**
- * ENG-129d — tenant-configurable retention for non-authoritative support data.
+ * tenant-configurable retention for non-authoritative support data.
  *
  * Sales, fiscal documents, inventory, payments, cash sessions, and customer
  * transaction evidence are deliberately outside this policy. Only bounded

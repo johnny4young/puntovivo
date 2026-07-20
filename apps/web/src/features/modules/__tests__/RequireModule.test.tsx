@@ -1,9 +1,9 @@
 /**
- * ENG-068 — RequireModule render-side gate.
+ * RequireModule render-side gate.
  *
  * Pins the contract every gated route + sidebar item relies on:
- *   - Active module → children render.
- *   - Inactive module → fallback (default null) renders.
+ * - Active module → children render.
+ * - Inactive module → fallback (default null) renders.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';

@@ -1,5 +1,5 @@
 /**
- * ENG-038 — `payments.*` tRPC router integration tests.
+ * `payments.*` tRPC router integration tests.
  *
  * Drives the read-only Operations Center payment rail surface against
  * an in-memory DB.
@@ -88,7 +88,7 @@ async function seedHarness(suffix: string): Promise<RouterHarness> {
       updatedAt: now,
     },
   ]);
-  // ENG-177c — `sales` now enforces `cash_session_id IS NOT NULL OR
+  // `sales` now enforces `cash_session_id IS NOT NULL OR
   // status = 'draft'`. The reconciliation fixtures insert completed
   // sales directly, so seed a company + site + closed session and stamp
   // it on every fixture sale (the reconciler matches by sale_payment ↔
@@ -131,7 +131,7 @@ async function seedHarness(suffix: string): Promise<RouterHarness> {
   return { tenantId, adminId, managerId, cashierId };
 }
 
-// ENG-177c — maps each seeded tenant to its fixture cash session so
+// maps each seeded tenant to its fixture cash session so
 // `insertSalePayment` can satisfy the committed-sale CHECK constraint.
 const cashSessionByTenant = new Map<string, string>();
 
@@ -248,7 +248,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('payments.getContract (ENG-038)', () => {
+describe('payments.getContract', () => {
   it('returns the manifest version + every rail id', async () => {
     const h = await seedHarness('contract');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
@@ -266,7 +266,7 @@ describe('payments.getContract (ENG-038)', () => {
   });
 });
 
-describe('payments.peekOutbox (ENG-038)', () => {
+describe('payments.peekOutbox', () => {
   it('returns inserted rows ordered by priority desc, createdAt asc', async () => {
     const h = await seedHarness('peek-ordered');
     await insertPaymentOutboxRow({
@@ -320,7 +320,7 @@ describe('payments.peekOutbox (ENG-038)', () => {
   });
 });
 
-describe('payments.reconciliation (ENG-038)', () => {
+describe('payments.reconciliation', () => {
   it('flags non-cash tenders without provider rows and ignores cash', async () => {
     const h = await seedHarness('recon-missing');
     await insertSalePayment({
@@ -404,7 +404,7 @@ describe('payments.reconciliation (ENG-038)', () => {
   });
 });
 
-describe('payment_outbox idempotency invariant (ENG-038)', () => {
+describe('payment_outbox idempotency invariant', () => {
   it('rejects a duplicate (tenant_id, rail_id, kind, idempotency_key) insert via the partial unique index', async () => {
     const h = await seedHarness('idem');
     const db = getDatabase();

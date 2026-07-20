@@ -1,18 +1,18 @@
 /**
- * Receipt template autocomplete (ENG-016 pass 4).
+ * Receipt template autocomplete ( pass 4).
  *
  * Wires a CodeMirror 6 `CompletionSource` to the receipt template
  * grammar. The source inspects the document around the cursor, decides
  * whether the cursor is inside a `{{ ... }}` substitution, and emits
  * suggestions of three flavours:
  *
- *   1. Right after `{{` with no dot yet → the 5 allowed namespaces
- *      plus the 12 whitelisted function names (each tagged so CM6
- *      colors the badge).
- *   2. After a `.` following a known namespace → only that namespace's
- *      documented properties.
- *   3. Inside a function-call argument → still surfaces namespaces +
- *      properties so nested `{{ currency(sale.| ) }}` works.
+ * 1. Right after `{{` with no dot yet → the 5 allowed namespaces
+ * plus the 12 whitelisted function names (each tagged so CM6
+ * colors the badge).
+ * 2. After a `.` following a known namespace → only that namespace's
+ * documented properties.
+ * 3. Inside a function-call argument → still surfaces namespaces +
+ * properties so nested `{{ currency(sale.| ) }}` works.
  *
  * The function catalog mirrors `FUNCTION_REGISTRY` in
  * `packages/server/src/services/template-expression.ts`. A parity
@@ -40,13 +40,7 @@ import type {
 // Catalogs
 // ---------------------------------------------------------------------------
 
-export const TEMPLATE_NAMESPACES = [
-  'company',
-  'sale',
-  'item',
-  'fiscal',
-  'tender',
-] as const;
+export const TEMPLATE_NAMESPACES = ['company', 'sale', 'item', 'fiscal', 'tender'] as const;
 
 export type TemplateNamespace = (typeof TEMPLATE_NAMESPACES)[number];
 
@@ -123,10 +117,7 @@ export interface ActiveSubstitution {
  * Tolerates unterminated substitutions (cursor right after `{{` with
  * no closing `}}` yet) by treating end-of-document as the boundary.
  */
-export function getActiveSubstitution(
-  text: string,
-  cursor: number
-): ActiveSubstitution | null {
+export function getActiveSubstitution(text: string, cursor: number): ActiveSubstitution | null {
   // Find the last `{{` at or before cursor.
   const openerIdx = text.lastIndexOf('{{', Math.max(0, cursor - 1));
   if (openerIdx === -1) return null;
@@ -241,10 +232,7 @@ function buildPropertyCompletions(namespace: TemplateNamespace): Completion[] {
  * plan or null if the cursor is not in a position that should
  * trigger autocomplete.
  */
-export function planSuggestions(
-  text: string,
-  cursor: number
-): SuggestionPlan | null {
+export function planSuggestions(text: string, cursor: number): SuggestionPlan | null {
   const sub = getActiveSubstitution(text, cursor);
   if (!sub) return null;
 

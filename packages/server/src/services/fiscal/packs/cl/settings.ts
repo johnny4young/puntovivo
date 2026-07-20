@@ -1,12 +1,12 @@
 /**
- * ENG-036a — Lectura y escritura de los ajustes fiscales del pack
+ * Lectura y escritura de los ajustes fiscales del pack
  * Chile sobre el blob `tenants.settings` (JSON columna).
  *
  * Namespace: `tenants.settings.fiscal.cl.*`. Espejo del helper de
  * MX (`packs/mx/settings.ts`); convive con `fiscal.mx.*` y con el
  * flag `fiscal_dian_enabled` heredado del pack Colombia. El rename
  * a un namespace country-aware completo se queda parqueado para
- * ENG-035c (cuando el pack CO migre al mismo namespace en lugar
+ * (cuando el pack CO migre al mismo namespace en lugar
  * de la prosa `fiscal_dian_enabled`).
  *
  * @module services/fiscal/packs/cl/settings
@@ -29,7 +29,7 @@ export interface ClFiscalSettings {
   /** Dirección de la casa matriz (texto libre). */
   casaMatriz: string | null;
   /**
-   * Ambiente del SII. ENG-036c lo traduce al naming del proveedor
+   * Ambiente del SII.  lo traduce al naming del proveedor
    * de timbraje al ship time.
    */
   environment: 'certificacion' | 'produccion';
@@ -45,11 +45,7 @@ const DEFAULT_CL_SETTINGS: ClFiscalSettings = {
 };
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value)
-  );
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -68,23 +64,14 @@ export function readClFiscalSettings(
   const cl = (fiscal as Record<string, unknown>).cl;
   if (!isPlainRecord(cl)) return { ...DEFAULT_CL_SETTINGS };
 
-  const enabled =
-    typeof cl.enabled === 'boolean' ? cl.enabled : DEFAULT_CL_SETTINGS.enabled;
+  const enabled = typeof cl.enabled === 'boolean' ? cl.enabled : DEFAULT_CL_SETTINGS.enabled;
   const rut = typeof cl.rut === 'string' && cl.rut.length > 0 ? cl.rut : null;
-  const giroCode =
-    typeof cl.giroCode === 'string' && cl.giroCode.length > 0
-      ? cl.giroCode
-      : null;
+  const giroCode = typeof cl.giroCode === 'string' && cl.giroCode.length > 0 ? cl.giroCode : null;
   const comunaCode =
-    typeof cl.comunaCode === 'number' && Number.isFinite(cl.comunaCode)
-      ? cl.comunaCode
-      : null;
+    typeof cl.comunaCode === 'number' && Number.isFinite(cl.comunaCode) ? cl.comunaCode : null;
   const casaMatriz =
-    typeof cl.casaMatriz === 'string' && cl.casaMatriz.length > 0
-      ? cl.casaMatriz
-      : null;
-  const environment =
-    cl.environment === 'produccion' ? 'produccion' : 'certificacion';
+    typeof cl.casaMatriz === 'string' && cl.casaMatriz.length > 0 ? cl.casaMatriz : null;
+  const environment = cl.environment === 'produccion' ? 'produccion' : 'certificacion';
 
   return { enabled, rut, giroCode, comunaCode, casaMatriz, environment };
 }

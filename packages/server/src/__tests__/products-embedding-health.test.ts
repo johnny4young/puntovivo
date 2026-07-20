@@ -1,5 +1,5 @@
 /**
- * ENG-040 — `products.embeddingHealth` integration tests.
+ * `products.embeddingHealth` integration tests.
  *
  * Drives the procedure via `createCaller` against an in-memory
  * database. No real embedding round-trip is needed — drift is a
@@ -16,7 +16,7 @@ import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
 import type { EmbeddingModelV4 } from '@ai-sdk/provider';
 
-// Same stub the ENG-040 slice 1b test uses: OpenAI advertises an
+// Same stub the  slice 1b test uses: OpenAI advertises an
 // embedding model factory + reports configured. The procedure never
 // calls the factory (drift is a DB-only read), but `resolveActive
 // EmbeddingModelId` walks the same capability gate as `embedText`.
@@ -170,7 +170,7 @@ afterAll(async () => {
   if (server) await server.close();
 });
 
-describe('resolveActiveEmbeddingModelId (ENG-040 helper)', () => {
+describe('resolveActiveEmbeddingModelId ( helper)', () => {
   it('returns OpenAI default model id when AI is enabled + OpenAI provider', async () => {
     const { tenantId } = await seedTenant('resolver-openai', { aiEnabled: true });
     const modelId = await resolveActiveEmbeddingModelId(getDatabase(), tenantId);
@@ -205,7 +205,7 @@ describe('resolveActiveEmbeddingModelId (ENG-040 helper)', () => {
   });
 });
 
-describe('products.embeddingHealth (ENG-040)', () => {
+describe('products.embeddingHealth', () => {
   it('returns mode="unavailable" when AI is disabled', async () => {
     const { tenantId, adminId } = await seedTenant('off', { aiEnabled: false });
     await seedProducts(tenantId, [
@@ -218,9 +218,7 @@ describe('products.embeddingHealth (ENG-040)', () => {
       { id: 'p-2', name: 'Producto 2' },
     ]);
 
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     const result = await caller.products.embeddingHealth();
 
     expect(result.mode).toBe('unavailable');
@@ -249,9 +247,7 @@ describe('products.embeddingHealth (ENG-040)', () => {
       },
     ]);
 
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     const result = await caller.products.embeddingHealth();
 
     expect(result.mode).toBe('available');
@@ -290,9 +286,7 @@ describe('products.embeddingHealth (ENG-040)', () => {
       { id: 'p-naked', name: 'Naked' },
     ]);
 
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     const result = await caller.products.embeddingHealth();
 
     expect(result.mode).toBe('available');
@@ -323,9 +317,7 @@ describe('products.embeddingHealth (ENG-040)', () => {
       })
       .where(eq(tenants.id, tenantId));
 
-    const caller = appRouter.createCaller(
-      createCtx({ tenantId, userId: adminId, role: 'admin' })
-    );
+    const caller = appRouter.createCaller(createCtx({ tenantId, userId: adminId, role: 'admin' }));
     let caught: unknown;
     try {
       await caller.products.embeddingHealth();

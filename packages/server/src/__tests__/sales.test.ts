@@ -130,7 +130,11 @@ describe('Sales tRPC Router', () => {
     });
 
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
     }
@@ -148,11 +152,7 @@ describe('Sales tRPC Router', () => {
     }
     siteId = seededSite.id;
 
-    const seededUnits = await db
-      .select()
-      .from(units)
-      .where(eq(units.tenantId, tenantId))
-      .all();
+    const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
     const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
     const boxUnit = seededUnits.find(unit => unit.abbreviation === 'CJ');
 
@@ -163,7 +163,7 @@ describe('Sales tRPC Router', () => {
     baseUnitId = baseUnit.id;
     boxUnitId = boxUnit.id;
 
-    // ENG-052b — register one device per test file. The id is reused
+    // register one device per test file. The id is reused
     // for every critical mutation; envelopes still mint fresh per
     // call via `freshHeaders()`.
     const registration = await registerDeviceService(db, {
@@ -178,9 +178,7 @@ describe('Sales tRPC Router', () => {
     const activeCashSession = await caller.cashSessions.open({
       registerName: 'Front register',
       openingFloat: 200,
-      denominations: [
-        { value: 100, count: 2 },
-      ],
+      denominations: [{ value: 100, count: 2 }],
     });
 
     activeCashSessionId = activeCashSession.id;
@@ -196,7 +194,7 @@ describe('Sales tRPC Router', () => {
     yesterdayLocal.setHours(12, 0, 0, 0);
     const yesterday = yesterdayLocal.toISOString();
 
-    // ENG-177c — committed sales need a cash session; bind the active
+    // committed sales need a cash session; bind the active
     // one seeded above (these reporting fixtures bypass sales.complete).
     await db.insert(sales).values([
       {
@@ -393,7 +391,11 @@ describe('Sales tRPC Router', () => {
 
     expect(getProductStockTotal(db, tenantId, productId)).toBe(16);
 
-    const storedSaleItems = await db.select().from(saleItems).where(eq(saleItems.saleId, result.id)).all();
+    const storedSaleItems = await db
+      .select()
+      .from(saleItems)
+      .where(eq(saleItems.saleId, result.id))
+      .all();
     expect(storedSaleItems).toHaveLength(1);
     expect(storedSaleItems[0]?.taxAmount).toBeCloseTo(3.8);
 
@@ -644,9 +646,7 @@ describe('Sales tRPC Router', () => {
       });
 
       const result = await caller.sales.create({
-        items: [
-          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 20, discount: 0 },
-        ],
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 20, discount: 0 }],
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
@@ -994,7 +994,9 @@ describe('Sales tRPC Router', () => {
 
     const summaryBeforeVoid = await caller.sales.summary();
     expect(summaryBeforeVoid.transactionCount).toBe(summaryBeforeCreate.transactionCount + 1);
-    expect(summaryBeforeVoid.todaySalesTotal).toBeCloseTo(summaryBeforeCreate.todaySalesTotal + created.total);
+    expect(summaryBeforeVoid.todaySalesTotal).toBeCloseTo(
+      summaryBeforeCreate.todaySalesTotal + created.total
+    );
 
     const cashSessionAfterCreate = await db
       .select({
@@ -1080,7 +1082,10 @@ describe('Sales tRPC Router', () => {
       openingCountDenominations: [{ value: 50, count: 1 }],
       expectedBalance: 70,
       actualCount: 70,
-      actualCountDenominations: [{ value: 50, count: 1 }, { value: 20, count: 1 }],
+      actualCountDenominations: [
+        { value: 50, count: 1 },
+        { value: 20, count: 1 },
+      ],
       overShort: 0,
       status: 'closed',
       openedAt: now,
@@ -1270,7 +1275,9 @@ describe('Sales tRPC Router', () => {
 
     const summaryBeforeRefund = await caller.sales.summary();
     expect(summaryBeforeRefund.transactionCount).toBe(summaryBeforeCreate.transactionCount + 1);
-    expect(summaryBeforeRefund.todaySalesTotal).toBeCloseTo(summaryBeforeCreate.todaySalesTotal + created.total);
+    expect(summaryBeforeRefund.todaySalesTotal).toBeCloseTo(
+      summaryBeforeCreate.todaySalesTotal + created.total
+    );
 
     const refunded = await caller.sales.returnSale({
       id: created.id,
@@ -1351,7 +1358,7 @@ describe('Sales tRPC Router', () => {
       tenantId,
       name: 'Discounted Water',
       sku: 'DISC-01',
-      price: 1190,         // $11.90 price (19% VAT-inclusive)
+      price: 1190, // $11.90 price (19% VAT-inclusive)
       price2: 1190,
       price3: 1190,
       cost: 500,
@@ -1399,7 +1406,7 @@ describe('Sales tRPC Router', () => {
           unitId: baseUnitId,
           quantity: 1,
           unitPrice: 1190,
-          discount: 10,      // 10% discount → effective price = $1,071
+          discount: 10, // 10% discount → effective price = $1,071
         },
       ],
       paymentMethod: 'cash',
@@ -1421,16 +1428,20 @@ describe('Sales tRPC Router', () => {
     expect(getProductStockTotal(db, tenantId, productId)).toBe(9);
 
     // Sale item must record the discount
-    const storedItems = await db.select().from(saleItems).where(eq(saleItems.saleId, result.id)).all();
+    const storedItems = await db
+      .select()
+      .from(saleItems)
+      .where(eq(saleItems.saleId, result.id))
+      .all();
     expect(storedItems).toHaveLength(1);
     expect(storedItems[0]?.discount).toBeCloseTo(10);
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Phase 2 API-103 — sales drive `inventory_balances`
+  // sales drive `inventory_balances`
   // ──────────────────────────────────────────────────────────────────────────
 
-  describe('inventory_balances integration (Phase 2 API-103)', () => {
+  describe('inventory_balances integration', () => {
     async function createBalanceTrackedProduct(overrides: {
       name: string;
       sku: string;
@@ -1501,9 +1512,7 @@ describe('Sales tRPC Router', () => {
       expect(before.items.find(item => item.productId === productId)?.onHand).toBe(20);
 
       await caller.sales.create({
-        items: [
-          { productId, unitId: baseUnitId, quantity: 3, unitPrice: 10, discount: 0 },
-        ],
+        items: [{ productId, unitId: baseUnitId, quantity: 3, unitPrice: 10, discount: 0 }],
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
@@ -1525,9 +1534,7 @@ describe('Sales tRPC Router', () => {
       });
 
       const sale = await caller.sales.create({
-        items: [
-          { productId, unitId: baseUnitId, quantity: 4, unitPrice: 10, discount: 0 },
-        ],
+        items: [{ productId, unitId: baseUnitId, quantity: 4, unitPrice: 10, discount: 0 }],
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
@@ -1554,9 +1561,7 @@ describe('Sales tRPC Router', () => {
       });
 
       const sale = await caller.sales.create({
-        items: [
-          { productId, unitId: baseUnitId, quantity: 2, unitPrice: 10, discount: 0 },
-        ],
+        items: [{ productId, unitId: baseUnitId, quantity: 2, unitPrice: 10, discount: 0 }],
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
@@ -1583,9 +1588,7 @@ describe('Sales tRPC Router', () => {
       });
 
       await caller.sales.create({
-        items: [
-          { productId, unitId: baseUnitId, quantity: 6, unitPrice: 10, discount: 0 },
-        ],
+        items: [{ productId, unitId: baseUnitId, quantity: 6, unitPrice: 10, discount: 0 }],
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
@@ -1605,11 +1608,7 @@ describe('Sales tRPC Router', () => {
       const primaryCaller = appRouter.createCaller(createTestContext());
       const db = getDatabase();
       const secondarySiteId = nanoid();
-      const mainSite = await db
-        .select()
-        .from(sites)
-        .where(eq(sites.id, siteId))
-        .get();
+      const mainSite = await db.select().from(sites).where(eq(sites.id, siteId)).get();
 
       if (!mainSite) {
         throw new Error('Expected seeded main site');
@@ -1650,9 +1649,7 @@ describe('Sales tRPC Router', () => {
       });
 
       await secondaryCaller.sales.create({
-        items: [
-          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 },
-        ],
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 }],
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
@@ -1672,11 +1669,7 @@ describe('Sales tRPC Router', () => {
     it('rejects a sale when the active site has no balance for the product even if tenant stock exists', async () => {
       const db = getDatabase();
       const secondarySiteId = nanoid();
-      const mainSite = await db
-        .select()
-        .from(sites)
-        .where(eq(sites.id, siteId))
-        .get();
+      const mainSite = await db.select().from(sites).where(eq(sites.id, siteId)).get();
 
       if (!mainSite) {
         throw new Error('Expected seeded main site');
@@ -1712,9 +1705,7 @@ describe('Sales tRPC Router', () => {
 
       await expect(
         secondaryCaller.sales.create({
-          items: [
-            { productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 },
-          ],
+          items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 }],
           paymentMethod: 'cash',
           paymentStatus: 'paid',
           status: 'completed',
@@ -1737,7 +1728,7 @@ describe('Sales tRPC Router', () => {
     });
   });
 
-  // ─── Phase 2 Tier-2 step 5 — split payments / multi-tender ───────────────
+  // ─── split payments / multi-tender ───────────────
 
   describe('split payments', () => {
     async function createPaymentTestProduct(overrides: {
@@ -1809,9 +1800,7 @@ describe('Sales tRPC Router', () => {
       });
 
       const result = await caller.sales.create({
-        items: [
-          { productId, unitId: baseUnitId, quantity: 2, unitPrice: 10, discount: 0 },
-        ],
+        items: [{ productId, unitId: baseUnitId, quantity: 2, unitPrice: 10, discount: 0 }],
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
@@ -1843,9 +1832,7 @@ describe('Sales tRPC Router', () => {
       });
 
       const result = await caller.sales.create({
-        items: [
-          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 30, discount: 0 },
-        ],
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 30, discount: 0 }],
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
@@ -1884,9 +1871,7 @@ describe('Sales tRPC Router', () => {
 
       await expect(
         caller.sales.create({
-          items: [
-            { productId, unitId: baseUnitId, quantity: 1, unitPrice: 30, discount: 0 },
-          ],
+          items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 30, discount: 0 }],
           paymentMethod: 'cash',
           paymentStatus: 'paid',
           status: 'completed',
@@ -1913,9 +1898,7 @@ describe('Sales tRPC Router', () => {
 
       await expect(
         caller.sales.create({
-          items: [
-            { productId, unitId: baseUnitId, quantity: 1, unitPrice: 40, discount: 0 },
-          ],
+          items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 40, discount: 0 }],
           paymentMethod: 'cash',
           paymentStatus: 'paid',
           status: 'completed',
@@ -1958,9 +1941,7 @@ describe('Sales tRPC Router', () => {
         .get();
 
       await caller.sales.create({
-        items: [
-          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 50, discount: 0 },
-        ],
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 50, discount: 0 }],
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
@@ -1993,9 +1974,7 @@ describe('Sales tRPC Router', () => {
       });
 
       const created = await caller.sales.create({
-        items: [
-          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 60, discount: 0 },
-        ],
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 60, discount: 0 }],
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',

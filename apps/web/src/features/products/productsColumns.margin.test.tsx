@@ -1,5 +1,5 @@
 /**
- * ENG-195 — owner-mode margin traffic light in the products table.
+ * owner-mode margin traffic light in the products table.
  *
  * The column factory is pure, so the gate (null map → no column) and the
  * threshold → tone mapping are asserted directly on its output.
@@ -42,7 +42,7 @@ function renderMarginCell(marginByProduct: Map<string, number>) {
   return render(<Cell row={{ original: product as DisplayProduct }} />);
 }
 
-describe('productsColumns margin column (ENG-195)', () => {
+describe('productsColumns margin column', () => {
   it('is absent entirely when the margin map is null (non-admin viewers)', () => {
     expect(marginColumn(buildColumns(null))).toBeUndefined();
   });

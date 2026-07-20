@@ -17,7 +17,7 @@ export interface CashDrawerApprovalModalProps {
   onConfirm: () => void;
 }
 
-/** ENG-106c3 — cashier escalation without replacing the active session. */
+/** cashier escalation without replacing the active session. */
 export function CashDrawerApprovalModal({
   isOpen,
   isLoading,

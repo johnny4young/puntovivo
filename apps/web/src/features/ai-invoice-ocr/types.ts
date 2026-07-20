@@ -7,7 +7,7 @@
  * type — which would couple the UI to the router's internal Zod
  * machinery.
  *
- * Added 2026-05-15 per AI Núcleo handoff §5.
+ * Added 2026-05-15 per AI feature contract
  */
 
 export type MatchSource = 'sku' | 'embedding' | 'manual' | null;

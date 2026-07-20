@@ -1,6 +1,6 @@
 /**
  * System + user prompt templates for the voice cart-command parser
- * (ENG-040c). Private to the parse-cart-command module group.
+ * (). Private to the parse-cart-command module group.
  *
  * @module services/ai/voice/parse-cart-command/prompts
  */

@@ -36,7 +36,7 @@ import type {
 
 type SearchMode = 'adjustment' | 'entry';
 
-// ENG-199 — keep the infrequently opened expiry view out of the default
+// keep the infrequently opened expiry view out of the default
 // inventory shell. The tab boundary is a natural, accessible loading point.
 const ExpiryRadarPanel = lazy(() =>
   import('@/features/inventory/ExpiryRadarPanel').then(module => ({
@@ -44,7 +44,7 @@ const ExpiryRadarPanel = lazy(() =>
   }))
 );
 
-// ENG-110a — the entry flow now includes lot and expiry controls. Keep that
+// the entry flow now includes lot and expiry controls. Keep that
 // form out of the default inventory shell until an operator selects a product.
 const InventoryEntryModal = lazy(() =>
   import('@/features/inventory/InventoryEntryModal').then(module => ({
@@ -52,7 +52,7 @@ const InventoryEntryModal = lazy(() =>
   }))
 );
 
-// ENG-110c — warranty traceability is a self-contained secondary panel. Keep
+// warranty traceability is a self-contained secondary panel. Keep
 // its query + presentation code out of the already budget-sensitive inventory
 // route chunk and stream it immediately after the primary inventory shell.
 const SerialWarrantyLookup = lazy(() =>
@@ -132,10 +132,10 @@ export function InventoryPage() {
   const [adjustmentModalKey, setAdjustmentModalKey] = useState(0);
   const [entryModalKey, setEntryModalKey] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<InventoryAdjustmentProduct | null>(null);
-  // ENG-132c — row-detail Drawer for the Stock columns trimmed off the
+  // row-detail Drawer for the Stock columns trimmed off the
   // default table (min stock, sell price, valuation, updated date).
   const [detailsStockItem, setDetailsStockItem] = useState<InventoryStockItem | null>(null);
-  // ENG-132g — row-detail Drawers for the Movements / Entries columns trimmed
+  // row-detail Drawers for the Movements / Entries columns trimmed
   // off their default tables (stock-after, reference, notes / unit, normalized,
   // cost, stock-after, notes).
   const [detailsMovement, setDetailsMovement] = useState<InventoryMovement | null>(null);
@@ -398,7 +398,7 @@ export function InventoryPage() {
         />
       )}
 
-      {/* ENG-199 — expiry radar; self-contained queries fire on mount. */}
+      {/* expiry radar; self-contained queries fire on mount. */}
       {activeView === 'expiry' && (
         <Suspense
           fallback={
@@ -513,8 +513,8 @@ export function InventoryPage() {
               entrySelection.product.tracksSerials
                 ? (receiveSerialsMutation.error?.message ?? null)
                 : entrySelection.product.tracksLots
-                ? (receiveLotMutation.error?.message ?? null)
-                : (recordEntryMutation.error?.message ?? null)
+                  ? (receiveLotMutation.error?.message ?? null)
+                  : (recordEntryMutation.error?.message ?? null)
             }
             onClose={closeEntryModal}
             onSubmit={handleEntrySubmit}

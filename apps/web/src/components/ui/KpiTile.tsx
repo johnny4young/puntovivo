@@ -1,10 +1,10 @@
 /**
- * Rediseño FASE 2 — KpiTile (receta `.pv-kpi`, propuesta §03/§04).
+ * KpiTile (receta `.pv-kpi`, propuesta §03/§04).
  *
  * Receta ÚNICA de métrica compartida por Dashboard, Inventario, Operations
  * y POS, para que los cuatro grupos de KPIs se vean idénticos en altura,
  * glifo, tipografía y alineación numérica. Envuelve las clases tokenizadas
- * `pv-kpi` / `pv-gt-*` definidas en components.css (FASE 0); el caller solo
+ * `pv-kpi` / `pv-gt-*` definidas en components.css (); el caller solo
  * pasa datos ya formateados.
  *
  * @module components/ui/KpiTile

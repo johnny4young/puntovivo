@@ -31,7 +31,7 @@ const LazyCashDrawerApprovalModal = lazy(() =>
 export function SalesPage() {
   const { currentTenant, currentSite, tenantSettings } = useTenant();
   const { currency } = useResolvedLocale();
-  // ENG-039d3 — restaurant service-charge rate flows from the tenant
+  // restaurant service-charge rate flows from the tenant
   // setting into `SalePaymentModal`. 0 means disabled (default for
   // retail tenants); positive values auto-apply on every checkout.
   const serviceChargeRate = tenantSettings?.restaurant?.serviceChargeRate ?? 0;
@@ -42,7 +42,7 @@ export function SalesPage() {
   const shouldRenderQuickCreateCustomerGate = useQuickCreateStore(
     state => state.requestedCreateCustomer !== null
   );
-  // ENG-074 — `useHubReachability` is a no-op outside `hub_client`
+  // `useHubReachability` is a no-op outside `hub_client`
   // mode. In hub_client mode, `reachable === false` flips the
   // checkout primary action to disabled via the panel's gate prop.
   // `null` (initial state before the first poll) and `true` both
@@ -51,19 +51,19 @@ export function SalesPage() {
   const hubReachability = useHubReachability();
   const userRole = user?.role ?? 'cashier';
 
-  // ENG-018b — `ownerKey` (`${tenantId}:${userId}`) identifies the
+  // `ownerKey` (`${tenantId}:${userId}`) identifies the
   // signed-in cashier. It is injected into the cart, mutation, and flow
   // hooks so each scopes its workspace / drafts to the current operator.
   const ownerKey = currentTenant && user ? `${currentTenant.id}:${user.id}` : null;
 
-  // ENG-178 slice 16b-1 — these UI / modal `useState` declarations STAY in
+  // slice 16b-1 — these UI / modal `useState` declarations STAY in
   // the shell because `useSalesMutations` injects their setters (it is wired
   // before `useSalesModals`) and several are read by more than one hook.
-  // ENG-186 — el POS es ahora la única superficie de /sales; el historial y
+  // el POS es ahora la única superficie de /sales; el historial y
   // las ventas suspendidas viven detrás de cajones laterales (Drawer).
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
-  // ENG-018b — multi-cart workspace UX state. The label-prompt modal
+  // multi-cart workspace UX state. The label-prompt modal
   // captures an optional "Mesa 5" annotation before the Suspend server
   // orchestration runs; the suspended panel is toggled by Ctrl+R or
   // operator clicks.
@@ -84,11 +84,11 @@ export function SalesPage() {
   const [cashSessionError, setCashSessionError] = useState<string | null>(null);
   const [cashSessionCloseError, setCashSessionCloseError] = useState<string | null>(null);
   const [cashSessionMovementError, setCashSessionMovementError] = useState<string | null>(null);
-  // ENG-198 — set by the close mutation's success path; non-null mounts the
+  // set by the close mutation's success path; non-null mounts the
   // day-close ritual modal for that session.
   const [dayCloseSessionId, setDayCloseSessionId] = useState<string | null>(null);
 
-  // ENG-178 slice 16b-1 — the active-cart lifecycle (materialization +
+  // slice 16b-1 — the active-cart lifecycle (materialization +
   // store-wrapper setters + the six cart-edit handlers) lives in
   // `useSalesCart`. It owns the workspace subscription; the shell injects
   // `ownerKey` + the two setters `handleProductSelect` touches.
@@ -119,7 +119,7 @@ export function SalesPage() {
     discountInputRefFor,
   } = useSalesInputFocus();
 
-  // ENG-178 slice 16b-2 — the read side (the nine tRPC queries incl. the
+  // slice 16b-2 — the read side (the nine tRPC queries incl. the
   // SINGLE shared peripherals subscription, the normalized arrays + derived
   // flags, the `checkoutReadinessItems` preflight memo, `maybeAutoPrint`, and
   // the scanner/drawer derivations) lives in `useSalesPageData`. It is called
@@ -148,7 +148,7 @@ export function SalesPage() {
     selectedRegisterAssignmentId,
   });
 
-  // ENG-178 slice 10 — the sales + cash-session mutation handles and the
+  // slice 10 — the sales + cash-session mutation handles and the
   // shared finish-sale epilogue live in `useSalesMutations`. ALL the
   // state they mutate stays here in the shell; the setters are injected
   // so the dependency direction is shell → hook → shell, never hook ↔
@@ -185,7 +185,7 @@ export function SalesPage() {
   const canCloseCashSession =
     !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
 
-  // ENG-178 slice 16 — the coupled sale-lifecycle flow handlers
+  // slice 16 — the coupled sale-lifecycle flow handlers
   // (checkout, suspend, resume, new/select workspace) live in
   // `useSalesFlows`. The shell still owns ALL the state they read; the
   // read values + setters + the mutation handles are injected so the
@@ -218,7 +218,7 @@ export function SalesPage() {
     discardDraftMutation,
   });
 
-  // ENG-178 slice 16b-1 — the modal/UI controller (the F1 payment-open gate
+  // slice 16b-1 — the modal/UI controller (the F1 payment-open gate
   // + F2 fast-cash, product search, the three cash-session modals, the
   // suspended-panel toggle, the history-reprint jump) + the checkout
   // preflight live in `useSalesModals`. The payment / cash-session `isOpen`
@@ -274,7 +274,7 @@ export function SalesPage() {
     recordCashMovementMutation,
   });
 
-  // ENG-203 — omnibox landing. When the command palette could not resolve
+  // omnibox landing. When the command palette could not resolve
   // the typed query as an exact barcode, it navigates here with the query in
   // router state; consume it ONCE into the product-search dialog and clear
   // the state so back/refresh does not reopen the dialog.
@@ -292,7 +292,7 @@ export function SalesPage() {
     navigate(location.pathname, { replace: true, state: null });
   }, [omniboxQuery, handleOpenProductSearch, navigate, location.pathname]);
 
-  // ENG-105f — keep the product-search input focused across the cashier flow
+  // keep the product-search input focused across the cashier flow
   // so a USB HID barcode scanner always lands on the right target.
   useScannerFocusRestoration({
     productInputRef,
@@ -319,14 +319,14 @@ export function SalesPage() {
     canToggleSuspendedPanel: suspendedDraftsCount > 0 || isSuspendedPanelOpen,
     onReprintSelectedHistoryRow:
       selectedHistorySaleId !== null ? handleReprintSelectedHistoryRow : undefined,
-    // ENG-105d — Mod+Z routes through the same handler the visible
+    // Mod+Z routes through the same handler the visible
     // "Deshacer" button uses so the toast surface stays consistent.
     onUndo: handleUndoCart,
-    // ENG-105e — F2 routes through handleFastCash.
+    // F2 routes through handleFastCash.
     onFastCash: handleFastCash,
   });
 
-  // ENG-062 / ENG-106c3 — role-aware cash drawer kick + ENG-061 barcode scanner
+  // /  — role-aware cash drawer kick +  barcode scanner
   // pipeline. `hasRegisteredDrawer` / `scannerConfig` are derived from the
   // SHARED `peripherals.activeForSite` query inside `useSalesPageData` and
   // threaded in here; the modal-open flags gate the wedge listener so a scan

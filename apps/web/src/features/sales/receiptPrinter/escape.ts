@@ -1,4 +1,4 @@
-// Receipt-HTML XSS guard (ENG-178 slice 29). Shared by the line/payment
+// Receipt-HTML XSS guard ( slice 29). Shared by the line/payment
 // row builders and the fiscal section. Security-load-bearing: every value
 // interpolated into the receipt HTML passes through here.
 

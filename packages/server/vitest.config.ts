@@ -5,7 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
-    // ENG-135b — strip ambient telemetry env vars before any test
+    // strip ambient telemetry env vars before any test
     // boots a server, so a dev shell with PUNTOVIVO_SENTRY_DSN
     // exported can never activate the real SDK across the suite.
     setupFiles: ['./vitest.setup.ts'],
@@ -19,8 +19,8 @@ export default defineConfig({
       // `html` reporters are dev-only ergonomics — they write 1000+ HTML
       // files on every server run and pinned ci:server at 42 s wall on
       // a warm MacBook. Run them on demand via:
-      //   npx vitest run --coverage --coverage.reporter=html
-      //   npx vitest run --coverage --coverage.reporter=json
+      // npx vitest run --coverage --coverage.reporter=html
+      // npx vitest run --coverage --coverage.reporter=json
       // Restoring them to the default list re-adds the disk-I/O cost.
       reporter: ['text-summary', 'lcov'],
       exclude: [
@@ -36,10 +36,10 @@ export default defineConfig({
         'scripts/**',
         '*.config.{ts,js,mjs}',
       ],
-      // ENG-003 — floor at current coverage with a small buffer so
+      // floor at current coverage with a small buffer so
       // micro-fluctuations do not flake CI, but any real regression
       // fails the build. Raising these is tracked as a follow-up; do
-      // not lower them without a ROADMAP note.
+      // not lower them without a documented rationale.
       thresholds: {
         statements: 80,
         branches: 63,

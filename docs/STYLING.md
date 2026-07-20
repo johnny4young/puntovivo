@@ -13,8 +13,8 @@ Puntovivo currently uses:
 
 Primary files:
 
-- [index.css](apps/web/src/index.css)
-- [utils.ts](apps/web/src/lib/utils.ts)
+- [index.css](../apps/web/src/index.css)
+- [utils.ts](../apps/web/src/lib/utils.ts)
 
 ## Theme Model
 
@@ -25,7 +25,7 @@ The app supports:
 - `system`
 
 Theme state is managed through:
-[ThemeProvider.tsx](apps/web/src/components/feedback/ThemeProvider.tsx)
+[ThemeProvider.tsx](../apps/web/src/components/feedback/ThemeProvider.tsx)
 
 Behavior:
 

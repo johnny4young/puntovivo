@@ -1,5 +1,5 @@
 /**
- * ENG-105 (slice A) — Global Command Palette.
+ * (slice A) — Global Command Palette.
  *
  * A modal launched by `Mod+K` from anywhere in the renderer. Lists
  * navigation destinations and command actions filtered by the
@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils';
 import { useOmniboxSell } from '@/features/sales/useOmniboxSell';
 
 /**
- * ENG-203 — synthetic omnibox row id. Never recorded into the Recent
+ * synthetic omnibox row id. Never recorded into the Recent
  * ranking (its label depends on the live query, so a remembered entry
  * would render meaninglessly) and never part of the static catalogue.
  */
@@ -105,7 +105,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     [user?.role, modules, isPlaceholder]
   );
 
-  // ENG-105g — device-local usage map, read once per palette open
+  // device-local usage map, read once per palette open
   // (the body remounts on every open, so each open sees the latest
   // ranking without any effect/state plumbing).
   const tenantId = user?.tenantId ?? null;
@@ -116,11 +116,11 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     [visibleActions, query, resolveLabel, resolveDescription]
   );
 
-  // ENG-105g — "Recent" section: only when the query is empty (an
+  // "Recent" section: only when the query is empty (an
   // active search keeps the predictable catalogue-filter behaviour),
   // ranked AFTER the role/module gate (visibleActions), top
   // count-then-recency. With no usage recorded this is empty and the
-  // palette renders exactly the pre-ENG-105g list.
+  // palette renders exactly the pre- list.
   const recentActions = useMemo(
     () => (query.trim() === '' ? rankRecentActions(visibleActions, usage) : []),
     [query, visibleActions, usage]
@@ -130,7 +130,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   // recent section first, then the catalogue WITHOUT the duplicated
   // recent ids. Section headers are presentational only — indexes,
   // wrap-around, and aria-activedescendant all run over this array.
-  // ENG-203 — the omnibox sell row. Appended LAST so a text query that
+  // the omnibox sell row. Appended LAST so a text query that
   // matches navigation still activates it with a plain Enter; a scanned
   // barcode matches no catalogue action, leaving the sell row as the only
   // option — scan + Enter sells. Viewer role never sees it.
@@ -200,7 +200,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
       logout,
       sellQuery: q => omniboxSell(q, navigate),
     };
-    // ENG-105g — remember the activation (device-local, best-effort) so the
+    // remember the activation (device-local, best-effort) so the
     // next open ranks this action into the Recent section. The synthetic
     // sell row is excluded: its label depends on the live query, so a
     // remembered entry would render meaninglessly.
@@ -214,7 +214,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
-    // ENG-105d — ArrowDown/ArrowUp wrap around the listbox edges so
+    // ArrowDown/ArrowUp wrap around the listbox edges so
     // the cashier can spin from "Cobrar" back to "Inicio" without
     // detouring through Home/End. Empty-list guards stay no-op.
     if (event.key === 'ArrowDown') {
@@ -302,7 +302,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
             const isSelected = index === selectedIndex;
             const shortcut = action.shortcutId ? getShortcutById(action.shortcutId) : undefined;
             const shortcutHint = shortcut ? formatKeysForDisplay(shortcut.keys) : null;
-            // ENG-105g — presentational section headers. They are
+            // presentational section headers. They are
             // NOT options: no data-palette-item (the scroll/index
             // machinery skips them) and aria-hidden (the listbox
             // stays a flat option list for assistive tech).

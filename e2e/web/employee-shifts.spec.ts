@@ -178,7 +178,7 @@ function readCorrectionEvidence(shiftId: string) {
   }
 }
 
-test.describe('employee attendance evidence (ENG-106b / ENG-140b / ENG-140c / ENG-140e / ENG-140f)', () => {
+test.describe('employee attendance evidence across shift states', () => {
   test('persists shifts and explicit breaks across the user menu in both locales', async ({
     page,
   }) => {
@@ -291,9 +291,7 @@ test.describe('employee attendance evidence (ENG-106b / ENG-140b / ENG-140c / EN
     }
   });
 
-  test('shows overtime and appends a bilingual immutable correction (ENG-140c / ENG-140e)', async ({
-    page,
-  }) => {
+  test('shows overtime and appends a bilingual immutable correction', async ({ page }) => {
     const scenario = seedOvertimeScenario();
     const tracker = attachClientIssueTracker(page);
     await page.setViewportSize({ width: 1440, height: 900 });

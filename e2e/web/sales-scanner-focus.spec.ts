@@ -1,26 +1,22 @@
 import { expect, test } from '@playwright/test';
-import {
-  attachClientIssueTracker,
-  expectNoClientIssues,
-  loginAs,
-} from './support/app';
+import { attachClientIssueTracker, expectNoClientIssues, loginAs } from './support/app';
 
 /**
- * ENG-105f — Scanner focus contract for the /sales cashier flow.
+ * Scanner focus contract for the /sales cashier flow.
  *
  * Covers the four observable promises the slice ships:
  *
- *   1. On /sales mount the page-level product search input is the
- *      focus target so a USB HID barcode scan lands in the right
- *      place without a click.
- *   2. After the ProductSearchDialog closes (Escape or selection)
- *      focus restores to the same search input.
- *   3. After the QuickCreateCustomerGate closes focus restores to
- *      the search input.
- *   4. The wedge-listener whitelist keeps manual typing safe: a
- *      cashier who types slowly into the search input still gets
- *      the form submit (ProductSearchDialog opens with the query)
- *      and the wedge does NOT swallow the Enter.
+ * 1. On /sales mount the page-level product search input is the
+ * focus target so a USB HID barcode scan lands in the right
+ * place without a click.
+ * 2. After the ProductSearchDialog closes (Escape or selection)
+ * focus restores to the same search input.
+ * 3. After the QuickCreateCustomerGate closes focus restores to
+ * the search input.
+ * 4. The wedge-listener whitelist keeps manual typing safe: a
+ * cashier who types slowly into the search input still gets
+ * the form submit (ProductSearchDialog opens with the query)
+ * and the wedge does NOT swallow the Enter.
  *
  * The fast-scan path (wedge fires, cart updates, input clears) is
  * exercised by `useBarcodeWedgeListener.test.ts`. The focus
@@ -43,7 +39,7 @@ async function expectSearchInputFocused(page: import('@playwright/test').Page) {
     .toBe(SEARCH_INPUT_ID);
 }
 
-test.describe('sales scanner focus (ENG-105f)', () => {
+test.describe('sales scanner focus', () => {
   test('mount: page-level search input is auto-focused on /sales load', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
     await loginAs(page, 'cashier');

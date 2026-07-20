@@ -1,5 +1,5 @@
 /**
- * ENG-017 — tenantLocale tRPC boundary coverage.
+ * tenantLocale tRPC boundary coverage.
  *
  * The resolver has focused service tests; this file verifies the
  * caller-facing contract: role guard, catalog validation, response
@@ -70,7 +70,7 @@ async function createTenant(slug: string): Promise<string> {
   return id;
 }
 
-describe('tenantLocale router (ENG-017)', () => {
+describe('tenantLocale router', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
@@ -152,9 +152,9 @@ describe('tenantLocale router (ENG-017)', () => {
       })
     );
 
-    await expect(
-      caller.tenantLocale.update({ countryCode: 'US' })
-    ).rejects.toThrowError(/administrators/i);
+    await expect(caller.tenantLocale.update({ countryCode: 'US' })).rejects.toThrowError(
+      /administrators/i
+    );
   });
 
   it('rejects unknown country and currency codes', async () => {
@@ -166,9 +166,9 @@ describe('tenantLocale router (ENG-017)', () => {
       })
     );
 
-    await expect(
-      caller.tenantLocale.update({ countryCode: 'ZZ' })
-    ).rejects.toThrowError(/country code zz/i);
+    await expect(caller.tenantLocale.update({ countryCode: 'ZZ' })).rejects.toThrowError(
+      /country code zz/i
+    );
 
     await expect(
       caller.tenantLocale.update({

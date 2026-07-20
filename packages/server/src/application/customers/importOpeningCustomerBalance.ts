@@ -1,4 +1,4 @@
-/** ENG-123d — Atomically establish a customer's first receivable balance. */
+/** Atomically establish a customer's first receivable balance. */
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';

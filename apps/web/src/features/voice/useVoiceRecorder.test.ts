@@ -1,24 +1,16 @@
 /**
- * ENG-040c slice 2 — `useVoiceRecorder` hook tests.
+ * slice 2 — `useVoiceRecorder` hook tests.
  *
  * Drives the hook with a fake `MediaRecorder` + `navigator.mediaDevices`
  * pair so each path runs without touching real hardware:
- *   - unsupported browser (MediaRecorder undefined)
- *   - permission denied (`NotAllowedError` from getUserMedia)
- *   - successful round-trip — start → stop resolves with Blob,
- *     stream tracks released
- *   - auto-stop at the 30-second hard cap
+ * - unsupported browser (MediaRecorder undefined)
+ * - permission denied (`NotAllowedError` from getUserMedia)
+ * - successful round-trip — start → stop resolves with Blob,
+ * stream tracks released
+ * - auto-stop at the 30-second hard cap
  */
 import { act, renderHook } from '@testing-library/react';
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-  type Mock,
-} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import {
   MAX_TEST_RECORDING_MS,
@@ -27,7 +19,7 @@ import {
 } from './useVoiceRecorder';
 
 /** Stand-in for the spec MediaRecorder. Captures the `start`,
- *  `stop`, and event handler setters that the hook touches. */
+ * `stop`, and event handler setters that the hook touches. */
 class FakeMediaRecorder {
   static isTypeSupported = vi.fn((mime: string) => mime === 'audio/webm');
   static instances: FakeMediaRecorder[] = [];
@@ -74,13 +66,14 @@ function buildFakeStream(): MediaStream {
 let getUserMediaMock: Mock<(constraints: MediaStreamConstraints) => Promise<MediaStream>>;
 
 const originalMediaRecorder = (globalThis as { MediaRecorder?: unknown }).MediaRecorder;
-const originalMediaDevices = (
-  globalThis.navigator as Navigator & { mediaDevices?: MediaDevices }
-).mediaDevices;
+const originalMediaDevices = (globalThis.navigator as Navigator & { mediaDevices?: MediaDevices })
+  .mediaDevices;
 
-function installFakes(opts: { mediaRecorder: typeof FakeMediaRecorder | undefined } = {
-  mediaRecorder: FakeMediaRecorder,
-}): void {
+function installFakes(
+  opts: { mediaRecorder: typeof FakeMediaRecorder | undefined } = {
+    mediaRecorder: FakeMediaRecorder,
+  }
+): void {
   if (opts.mediaRecorder) {
     (globalThis as { MediaRecorder?: unknown }).MediaRecorder =
       opts.mediaRecorder as unknown as typeof MediaRecorder;
@@ -115,9 +108,7 @@ function uninstallFakes(): void {
 beforeEach(() => {
   FakeMediaRecorder.instances.length = 0;
   FakeMediaRecorder.isTypeSupported.mockReset();
-  FakeMediaRecorder.isTypeSupported.mockImplementation(
-    (mime: string) => mime === 'audio/webm'
-  );
+  FakeMediaRecorder.isTypeSupported.mockImplementation((mime: string) => mime === 'audio/webm');
   trackStopSpy.mockReset();
   getUserMediaMock = vi.fn(async () => buildFakeStream()) as Mock<
     (constraints: MediaStreamConstraints) => Promise<MediaStream>
@@ -130,7 +121,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('useVoiceRecorder (ENG-040c slice 2)', () => {
+describe('useVoiceRecorder ( slice 2)', () => {
   it('reports supported=false when MediaRecorder is not defined', () => {
     uninstallFakes();
     installFakes({ mediaRecorder: undefined });

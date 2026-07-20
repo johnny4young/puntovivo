@@ -1,12 +1,12 @@
 /**
- * ENG-104 — CompanyReadinessCard tests.
+ * CompanyReadinessCard tests.
  *
  * Pins the contract:
- *   - Loading skeleton renders during isLoading.
- *   - Error state renders + retry button visible when query errors.
- *   - Each section status maps to the right icon + status-data attr.
- *   - Score donut tone flips with thresholds (<50 danger, 50-79 warning, >=80 success).
- *   - Acknowledge button shows whenever acknowledgedAt is null.
+ * - Loading skeleton renders during isLoading.
+ * - Error state renders + retry button visible when query errors.
+ * - Each section status maps to the right icon + status-data attr.
+ * - Score donut tone flips with thresholds (<50 danger, 50-79 warning, >=80 success).
+ * - Acknowledge button shows whenever acknowledgedAt is null.
  *
  * @module features/company/__tests__/CompanyReadinessCard.test
  */
@@ -16,7 +16,7 @@ import i18next from '@/i18n';
 import { CompanyReadinessCard } from '../CompanyReadinessCard';
 import { assertNoA11yViolations } from '@/test/a11y';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface ReadinessQueryState {
   data?:
     | {
@@ -103,7 +103,7 @@ function sampleSections() {
   ];
 }
 
-describe('CompanyReadinessCard (ENG-104)', () => {
+describe('CompanyReadinessCard', () => {
   beforeEach(async () => {
     await i18next.changeLanguage('en');
     acknowledgeMutate.mockReset();
@@ -131,12 +131,10 @@ describe('CompanyReadinessCard (ENG-104)', () => {
     };
     render(<CompanyReadinessCard />);
     // QueryErrorState renders a retry button.
-    expect(
-      screen.getByRole('button', { name: /retry|reintentar/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry|reintentar/i })).toBeInTheDocument();
   });
 
-  it('passes axe-core WCAG 2 AA on the happy-render path (ENG-134)', async () => {
+  it('passes axe-core WCAG 2 AA on the happy-render path', async () => {
     readinessQueryRef.current = {
       data: {
         score: 80,
@@ -167,19 +165,20 @@ describe('CompanyReadinessCard (ENG-104)', () => {
       refetch: vi.fn(async () => undefined),
     };
     render(<CompanyReadinessCard />);
-    expect(
-      screen.getByTestId('company-readiness-section-locale')
-    ).toHaveAttribute('data-status', 'ready');
-    expect(
-      screen.getByTestId('company-readiness-section-fiscal')
-    ).toHaveAttribute('data-status', 'blocker');
-    expect(
-      screen.getByTestId('company-readiness-section-ai')
-    ).toHaveAttribute('data-status', 'not-applicable');
+    expect(screen.getByTestId('company-readiness-section-locale')).toHaveAttribute(
+      'data-status',
+      'ready'
+    );
+    expect(screen.getByTestId('company-readiness-section-fiscal')).toHaveAttribute(
+      'data-status',
+      'blocker'
+    );
+    expect(screen.getByTestId('company-readiness-section-ai')).toHaveAttribute(
+      'data-status',
+      'not-applicable'
+    );
     // Blocker count badge is visible.
-    expect(
-      screen.getByTestId('company-readiness-blocker-count').textContent
-    ).toMatch(/2/);
+    expect(screen.getByTestId('company-readiness-blocker-count').textContent).toMatch(/2/);
   });
 
   it('flips the score donut tone by threshold', () => {
@@ -196,9 +195,10 @@ describe('CompanyReadinessCard (ENG-104)', () => {
         refetch: vi.fn(async () => undefined),
       };
       const { unmount, container } = render(<CompanyReadinessCard />);
-      const tone = container
-        .querySelector('[data-testid="company-readiness-score"]')
-        ?.getAttribute('data-tone') ?? null;
+      const tone =
+        container
+          .querySelector('[data-testid="company-readiness-score"]')
+          ?.getAttribute('data-tone') ?? null;
       unmount();
       return tone;
     }
@@ -250,7 +250,7 @@ describe('CompanyReadinessCard (ENG-104)', () => {
     expect(acknowledgeMutate).toHaveBeenCalledTimes(1);
   });
 
-  it('renders warning sections in the attention group (ENG-184)', () => {
+  it('renders warning sections in the attention group', () => {
     readinessQueryRef.current = {
       data: {
         score: 70,
@@ -268,19 +268,17 @@ describe('CompanyReadinessCard (ENG-104)', () => {
       refetch: vi.fn(async () => undefined),
     };
     render(<CompanyReadinessCard />);
-    expect(
-      screen.getByTestId('company-readiness-attention')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('company-readiness-section-sync')
-    ).toHaveAttribute('data-status', 'warning');
-    expect(
-      screen.getByTestId('company-readiness-section-fiscal')
-    ).toHaveAttribute('data-status', 'warning');
+    expect(screen.getByTestId('company-readiness-attention')).toBeInTheDocument();
+    expect(screen.getByTestId('company-readiness-section-sync')).toHaveAttribute(
+      'data-status',
+      'warning'
+    );
+    expect(screen.getByTestId('company-readiness-section-fiscal')).toHaveAttribute(
+      'data-status',
+      'warning'
+    );
     // No blocker strip when nothing is a blocker.
-    expect(
-      screen.queryByTestId('company-readiness-blockers')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('company-readiness-blockers')).not.toBeInTheDocument();
   });
 
   it('hides the acknowledge button once setup was acknowledged', () => {
@@ -297,8 +295,6 @@ describe('CompanyReadinessCard (ENG-104)', () => {
     };
 
     render(<CompanyReadinessCard />);
-    expect(
-      screen.queryByTestId('company-readiness-acknowledge')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('company-readiness-acknowledge')).not.toBeInTheDocument();
   });
 });

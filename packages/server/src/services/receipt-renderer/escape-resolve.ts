@@ -1,9 +1,9 @@
 /**
  * Receipt renderer HTML-escape + template-substitution helpers.
  *
- * ENG-178 — extracted verbatim from the former single-file
+ * extracted verbatim from the former single-file
  * `services/receipt-renderer.ts`. Security-critical: `escapeHtml` +
- * `resolveAndEscape` are the defense-in-depth escaping layer (ENG-016 pass 3)
+ * `resolveAndEscape` are the defense-in-depth escaping layer ( pass 3)
  * and `lookupPath` carries the prototype-pollution guard. Bodies moved
  * byte-for-byte; `resolvePlain` gained `export` for the scanner-url + ESC/POS
  * modules.
@@ -61,13 +61,12 @@ function lookupPath(data: RenderData, path: string): unknown {
  * Build the EvalContext consumed by the template-expression engine.
  * Exposes the path resolver plus tenant-locale-aware currency/date
  * formatters so the `{{ currency(...) }}` and `{{ date(...) }}` helpers
- * inherit ENG-017 behaviour without duplicating the Intl config.
+ * inherit  behaviour without duplicating the Intl config.
  */
 function buildEvalContext(data: RenderData): EvalContext {
   return {
     lookupPath: path => lookupPath(data, path),
-    formatCurrency: (value, decimals) =>
-      formatReceiptAmount(value, data.locale, decimals),
+    formatCurrency: (value, decimals) => formatReceiptAmount(value, data.locale, decimals),
     formatDate: (value, pattern) => {
       const explicit = pattern && pattern.length > 0 ? pattern : undefined;
       const fallback = data.locale?.dateFormat;
@@ -77,7 +76,7 @@ function buildEvalContext(data: RenderData): EvalContext {
 }
 
 /**
- * ENG-016 pass 3 — Resolve `{{variable}}` and `{{ fn(...) }}`
+ * pass 3 — Resolve `{{variable}}` and `{{ fn(...) }}`
  * substitutions and return the result already HTML-escaped. The
  * function NEVER concatenates raw user input into the returned HTML:
  * the entire substituted string passes through `escapeHtml` at the

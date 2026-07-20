@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — customers domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -193,13 +193,13 @@ export const customers = sqliteTable(
     clientTypeId: text('client_type_id'),
     commercialActivityId: text('commercial_activity_id'),
     notes: text('notes'),
-    // ENG-089 — per-customer credit ceiling (cupo de crédito).
+    // per-customer credit ceiling (cupo de crédito).
     // `0 = sin cupo` (no limit); zero is the sentinel so reads never
     // need to handle null. Zod rejects negative values at the input
-    // layer. ENG-090's `requireCreditLimitNotExceeded()` invariant
+    // layer. 's `requireCreditLimitNotExceeded()` invariant
     // gates the "Cargar a cuenta" payment method against this column.
     creditLimit: real('credit_limit').notNull().default(0),
-    // ENG-176b — currency for the creditLimit column. Nullable so
+    // currency for the creditLimit column. Nullable so
     // customers without an active credit limit (creditLimit = 0) do
     // not have to carry a currency. When `creditLimit > 0` the
     // application sets this either to the explicit operator override
@@ -208,14 +208,14 @@ export const customers = sqliteTable(
       () => currencyCatalog.code
     ),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    // ENG-129c — explicit privacy lifecycle state. Anonymized rows remain
+    // explicit privacy lifecycle state. Anonymized rows remain
     // only when linked fiscal/financial records require referential integrity;
     // ordinary customer lists and searches hide them.
     privacyStatus: text('privacy_status', { enum: customerPrivacyStatusEnum })
       .notNull()
       .default('active'),
     privacyDisposedAt: text('privacy_disposed_at'),
-    // ENG-177a — optimistic-concurrency guard (see products.version).
+    // optimistic-concurrency guard (see products.version).
     version: integer('version').notNull().default(0),
     // Sync fields
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
@@ -226,8 +226,8 @@ export const customers = sqliteTable(
   table => [
     index('idx_customers_tenant').on(table.tenantId),
     index('idx_customers_email').on(table.email),
-    // ENG-176a/ENG-176b — credit limit cannot be negative (ENG-089 also
-    // enforces this at the Zod layer); ENG-176b stores the credit-limit
+    // -176b — credit limit cannot be negative ( also
+    // enforces this at the Zod layer);  stores the credit-limit
     // currency while per-currency decimal precision remains a future
     // refinement.
     ...moneyPositiveChecks('customers_credit_limit', table.creditLimit),
@@ -243,15 +243,15 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
 }));
 
 // ============================================================================
-// LOYALTY (ENG-213 — WC-D2 minimum viable loyalty)
+// LOYALTY ( minimum viable loyalty)
 // ============================================================================
 
 /**
- * A customer's materialized point balance (ENG-213 / WC-D2).
+ * A customer's materialized point balance ( / ).
  *
  * `points` is a ROLLUP of `loyalty_movements`, maintained only by
  * `services/loyalty.ts` inside the same transaction as the movement it
- * follows — same discipline as `cash_sessions.expected_balance` (ENG-055):
+ * follows — same discipline as `cash_sessions.expected_balance` ():
  * the ledger is the truth, the balance is the fast read. Parity
  * `points ≡ Σ(movements.points)` is pinned by `loyalty.test.ts`.
  */
@@ -278,11 +278,11 @@ export const loyaltyAccounts = sqliteTable(
 
 /** Why a movement exists. v1 emits `earn` (a completed sale) and `revert`
  * (its reversal); `adjust` covers a manual owner correction. `redeem` is
- * declared for the WC-D1 tender lane and is not written yet. */
+ * declared for the  tender lane and is not written yet. */
 export const loyaltyMovementKindEnum = ['earn', 'redeem', 'adjust', 'revert'] as const;
 
 /**
- * Append-only points ledger (ENG-213 / WC-D2). Same posture as
+ * Append-only points ledger ( / ). Same posture as
  * `sale_item_lots`: every balance change leaves an auditable row carrying
  * its provenance (`saleId` when the sale path drove it, null for a manual
  * adjustment). Rows are NEVER updated or deleted — a reverted earn appends
@@ -313,7 +313,7 @@ export const loyaltyMovements = sqliteTable(
   table => [
     index('idx_loyalty_movements_account').on(table.accountId),
     index('idx_loyalty_movements_tenant_sale').on(table.tenantId, table.saleId),
-    // ENG-213 — one earn per (account, sale): the guard that makes the sale
+    // one earn per (account, sale): the guard that makes the sale
     // path idempotent under a retried completion. Reverts are exempt (a
     // partial index would need `kind='earn'`, which drizzle emits since 0.31).
     uniqueIndex('idx_loyalty_movements_sale_earn')

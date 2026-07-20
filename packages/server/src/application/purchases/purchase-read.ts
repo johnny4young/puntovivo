@@ -1,7 +1,7 @@
 /**
  * Purchase read model — single-purchase record with items + returns.
  *
- * ENG-178 — extracted verbatim from the former monolithic
+ * extracted verbatim from the former monolithic
  * `trpc/routers/purchases.ts` during the megafile decomposition (mirrors
  * `application/sales/sale-read.ts`). Used by the router's `getById` and by
  * every mutation use-case to return the canonical record.

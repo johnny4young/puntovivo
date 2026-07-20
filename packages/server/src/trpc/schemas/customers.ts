@@ -42,16 +42,16 @@ export const disposeCustomerPersonalDataInput = z
   })
   .strict();
 
-// ENG-089 — `creditLimit` is the per-customer cupo de crédito. Zero
+// `creditLimit` is the per-customer cupo de crédito. Zero
 // is the explicit "no limit" sentinel; negative values are rejected
-// here so the persistence layer never sees them. ENG-090 reads this
+// here so the persistence layer never sees them.  reads this
 // to gate the "Cargar a cuenta" payment method against the running
 // ledger balance.
 const creditLimitSchema = z.number().nonnegative('creditLimit must be zero or greater').finite();
 
 export const createCustomerInput = z.object({
   name: z.string().min(1, 'Name is required').max(255),
-  // ENG-169 — normalise (trim + lowercase) at the boundary.
+  // normalise (trim + lowercase) at the boundary.
   email: emailField('Invalid email address').optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
@@ -72,7 +72,7 @@ export const createCustomerInput = z.object({
 
 export const updateCustomerInput = z.object({
   id: z.string().min(1, 'ID is required'),
-  // ENG-177a — optimistic-concurrency token; the client round-trips the
+  // optimistic-concurrency token; the client round-trips the
   // version it last read so a stale overwrite is rejected with STALE_VERSION.
   version: z.number().int().nonnegative(),
   name: z.string().min(1).max(255).optional(),

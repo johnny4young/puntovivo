@@ -1,7 +1,7 @@
 /**
  * Receipt renderer barrel.
  *
- * ENG-178 — preserves the public surface of the former single-file
+ * preserves the public surface of the former single-file
  * `services/receipt-renderer.ts` (1204 LOC), decomposed by render concern
  * during the megafile wave (types / labels / escape-resolve / format-helpers /
  * scanner-urls / html-blocks / escpos / render). The renderer stays a pure

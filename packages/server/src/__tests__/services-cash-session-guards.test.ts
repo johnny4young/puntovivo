@@ -2,13 +2,13 @@
  * `services/cash-session` — direct unit coverage for the drawer-math guards
  * that every cash flow leans on but no suite exercised head-on:
  *
- * - `getCashMovementSignedAmount` — THE sign-convention table (ENG-055/056:
- *   the sign lives only here; a drift silently corrupts expected_balance).
+ * - `getCashMovementSignedAmount` — THE sign-convention table (:
+ * the sign lives only here; a drift silently corrupts expected_balance).
  * - `assertOpeningFloatMatchesDenominations` / `getClosingCountTotal` — the
- *   declared-amount vs counted-denominations reconciliation with its two
- *   distinct rejections and the sub-cent IEEE-754 tolerance.
+ * declared-amount vs counted-denominations reconciliation with its two
+ * distinct rejections and the sub-cent IEEE-754 tolerance.
  * - `assertCashSessionStillOpen` — the in-transaction TOCTOU re-check
- *   (ENG-042/055) on its rejecting branch.
+ * () on its rejecting branch.
  * - `requireActiveCashSession` — the no-active-site rejection.
  * - register-name + default-denomination normalization helpers.
  */
@@ -45,24 +45,18 @@ describe('getCashMovementSignedAmount — sign convention table', () => {
   });
 
   it('rejects zero, negative, and non-finite amounts (sign never rides the magnitude)', () => {
-    expect(() => getCashMovementSignedAmount('sale', 0)).toThrowError(
+    expect(() => getCashMovementSignedAmount('sale', 0)).toThrowError(/greater than zero/);
+    expect(() => getCashMovementSignedAmount('sale', -5)).toThrowError(/greater than zero/);
+    expect(() => getCashMovementSignedAmount('sale', Number.NaN)).toThrowError(/greater than zero/);
+    expect(() => getCashMovementSignedAmount('sale', Number.POSITIVE_INFINITY)).toThrowError(
       /greater than zero/
     );
-    expect(() => getCashMovementSignedAmount('sale', -5)).toThrowError(
-      /greater than zero/
-    );
-    expect(() => getCashMovementSignedAmount('sale', Number.NaN)).toThrowError(
-      /greater than zero/
-    );
-    expect(() =>
-      getCashMovementSignedAmount('sale', Number.POSITIVE_INFINITY)
-    ).toThrowError(/greater than zero/);
   });
 
   it('rejects an unclassified movement type instead of defaulting to zero', () => {
-    expect(() =>
-      getCashMovementSignedAmount('adjustment' as never, 10)
-    ).toThrowError(/Unsupported cash movement type/);
+    expect(() => getCashMovementSignedAmount('adjustment' as never, 10)).toThrowError(
+      /Unsupported cash movement type/
+    );
   });
 });
 
@@ -87,12 +81,10 @@ describe('opening float / closing count vs denomination reconciliation', () => {
   });
 
   it('rejects a negative or non-finite opening float as INVALID', () => {
-    expect(() => assertOpeningFloatMatchesDenominations(-50, [])).toThrowError(
+    expect(() => assertOpeningFloatMatchesDenominations(-50, [])).toThrowError(/zero or greater/);
+    expect(() => assertOpeningFloatMatchesDenominations(Number.NaN, [])).toThrowError(
       /zero or greater/
     );
-    expect(() =>
-      assertOpeningFloatMatchesDenominations(Number.NaN, [])
-    ).toThrowError(/zero or greater/);
   });
 
   it('rejects a real divergence between declared float and counted total as MISMATCH', () => {
@@ -111,9 +103,9 @@ describe('opening float / closing count vs denomination reconciliation', () => {
   });
 
   it('getClosingCountTotal rejects a count that does not match its denominations', () => {
-    expect(() =>
-      getClosingCountTotal(80000, [{ value: 50000, count: 1 }])
-    ).toThrowError(/match the denomination count total/);
+    expect(() => getClosingCountTotal(80000, [{ value: 50000, count: 1 }])).toThrowError(
+      /match the denomination count total/
+    );
   });
 });
 

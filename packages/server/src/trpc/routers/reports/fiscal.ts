@@ -1,5 +1,5 @@
 /**
- * ENG-020 — Fiscal reports sub-router (`reports.fiscal.*`).
+ * Fiscal reports sub-router (`reports.fiscal.*`).
  *
  * Read-only admin surface for the Fiscal Documents page. Lists emitted
  * `fiscal_documents` and looks a single row up by CUFE. Returns the
@@ -9,14 +9,14 @@
  * ---
  * **ARCHITECTURAL INVARIANT (enforced by `architectural-lint.test.ts`)**:
  *
- *   This file and anything under `trpc/routers/reports/` MUST NOT
- *   import from `customers` or `products`. The whole point of the
- *   buyer / product snapshot columns on `fiscal_documents` +
- *   `fiscal_document_items` is that the fiscal surface is immune to
- *   post-emission mutations of the source rows. A join would silently
- *   re-introduce that coupling; the lint test fails the build if any
- *   routers/reports file names those two identifiers in its import
- *   list.
+ * This file and anything under `trpc/routers/reports/` MUST NOT
+ * import from `customers` or `products`. The whole point of the
+ * buyer / product snapshot columns on `fiscal_documents` +
+ * `fiscal_document_items` is that the fiscal surface is immune to
+ * post-emission mutations of the source rows. A join would silently
+ * re-introduce that coupling; the lint test fails the build if any
+ * routers/reports file names those two identifiers in its import
+ * list.
  * ---
  *
  * Response shapes are minimal and stable — the admin UI renders them
@@ -30,11 +30,7 @@ import { and, asc, count, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
-import {
-  fiscalDocumentItems,
-  fiscalDocuments,
-  fiscalOutbox,
-} from '../../../db/schema.js';
+import { fiscalDocumentItems, fiscalDocuments, fiscalOutbox } from '../../../db/schema.js';
 import {
   getFiscalDocumentByCufeInput,
   getFiscalXmlInput,
@@ -44,19 +40,15 @@ import {
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { describeFiscalProvider } from '../../../services/fiscal/registry.js';
 import type { FiscalAdapterMaturity } from '../../../services/fiscal/adapter.js';
-import {
-  getDefaultFiscalWorker,
-} from '../../../services/fiscal/fiscal-worker.js';
+import { getDefaultFiscalWorker } from '../../../services/fiscal/fiscal-worker.js';
 
 /**
- * ENG-185 — resolve a stored `providerId` to its pack maturity so the
+ * resolve a stored `providerId` to its pack maturity so the
  * document views label demo/draft documents honestly. An unknown / null
  * provider id defaults to `mock` (most conservative — never reads as
  * production).
  */
-function maturityForProvider(
-  providerId: string | null | undefined
-): FiscalAdapterMaturity {
+function maturityForProvider(providerId: string | null | undefined): FiscalAdapterMaturity {
   if (!providerId) return 'mock';
   return describeFiscalProvider(providerId)?.maturity ?? 'mock';
 }
@@ -88,7 +80,7 @@ const LIST_SELECT_COLUMNS = {
   emittedAt: fiscalDocuments.emittedAt,
   providerId: fiscalDocuments.providerId,
   retries: fiscalDocuments.retries,
-  // ENG-035b: presence-only flag (boolean) so the list UI knows
+  // : presence-only flag (boolean) so the list UI knows
   // whether to surface the "Ver XML" affordance per row. The XML
   // body is fetched lazily via `reports.fiscal.getXml` to avoid
   // shipping ~10kb per row through the list query.
@@ -98,7 +90,7 @@ const LIST_SELECT_COLUMNS = {
 export const fiscalReportsRouter = router({
   /**
    * Paged list of fiscal documents for the admin Fiscal Documents page
-   * and the ENG-065a Operations Center Fiscal Health panel.
+   * and the  Operations Center Fiscal Health panel.
    * Tenant-scoped via `ctx.tenantId`. Optional filters: kind, status,
    * source, date range.
    *
@@ -106,46 +98,44 @@ export const fiscalReportsRouter = router({
    * (`retryDocument` below) stays admin-only because it advances
    * fiscal document state.
    */
-  list: managerOrAdminProcedure
-    .input(listFiscalDocumentsInput)
-    .query(async ({ ctx, input }) => {
-      const conditions = [eq(fiscalDocuments.tenantId, ctx.tenantId)];
-      if (input.kind) conditions.push(eq(fiscalDocuments.kind, input.kind));
-      if (input.status) conditions.push(eq(fiscalDocuments.status, input.status));
-      if (input.source) conditions.push(eq(fiscalDocuments.source, input.source));
-      if (input.fromDate) conditions.push(gte(fiscalDocuments.emittedAt, input.fromDate));
-      if (input.toDate) conditions.push(lte(fiscalDocuments.emittedAt, input.toDate));
+  list: managerOrAdminProcedure.input(listFiscalDocumentsInput).query(async ({ ctx, input }) => {
+    const conditions = [eq(fiscalDocuments.tenantId, ctx.tenantId)];
+    if (input.kind) conditions.push(eq(fiscalDocuments.kind, input.kind));
+    if (input.status) conditions.push(eq(fiscalDocuments.status, input.status));
+    if (input.source) conditions.push(eq(fiscalDocuments.source, input.source));
+    if (input.fromDate) conditions.push(gte(fiscalDocuments.emittedAt, input.fromDate));
+    if (input.toDate) conditions.push(lte(fiscalDocuments.emittedAt, input.toDate));
 
-      const rows = await ctx.db
-        .select(LIST_SELECT_COLUMNS)
-        .from(fiscalDocuments)
-        .where(and(...conditions))
-        .orderBy(desc(fiscalDocuments.emittedAt))
-        .limit(input.limit)
-        .offset(input.offset)
-        .all();
-      // ENG-185 — derive pack maturity per row from the stored providerId
-      // so the list never presents a mock/draft document as production.
-      const items = rows.map(row => ({
-        ...row,
-        maturity: maturityForProvider(row.providerId),
-      }));
-      const totalRow = await ctx.db
-        .select({ total: count() })
-        .from(fiscalDocuments)
-        .where(and(...conditions))
-        .get();
+    const rows = await ctx.db
+      .select(LIST_SELECT_COLUMNS)
+      .from(fiscalDocuments)
+      .where(and(...conditions))
+      .orderBy(desc(fiscalDocuments.emittedAt))
+      .limit(input.limit)
+      .offset(input.offset)
+      .all();
+    // derive pack maturity per row from the stored providerId
+    // so the list never presents a mock/draft document as production.
+    const items = rows.map(row => ({
+      ...row,
+      maturity: maturityForProvider(row.providerId),
+    }));
+    const totalRow = await ctx.db
+      .select({ total: count() })
+      .from(fiscalDocuments)
+      .where(and(...conditions))
+      .get();
 
-      return {
-        items,
-        total: totalRow?.total ?? 0,
-        limit: input.limit,
-        offset: input.offset,
-      };
-    }),
+    return {
+      items,
+      total: totalRow?.total ?? 0,
+      limit: input.limit,
+      offset: input.offset,
+    };
+  }),
 
   /**
-   * ENG-103 — Lazy fetch of the signed XML body for a single fiscal
+   * Lazy fetch of the signed XML body for a single fiscal
    * document. Returns the canonical `ServerExportEnvelope` (data +
    * filename + mimeType) so the renderer can wrap it in a Blob and
    * trigger the download without re-implementing the URL+anchor
@@ -177,10 +167,7 @@ export const fiscalReportsRouter = router({
         })
         .from(fiscalDocuments)
         .where(
-          and(
-            eq(fiscalDocuments.tenantId, ctx.tenantId),
-            eq(fiscalDocuments.id, input.documentId)
-          )
+          and(eq(fiscalDocuments.tenantId, ctx.tenantId), eq(fiscalDocuments.id, input.documentId))
         )
         .get();
 
@@ -207,15 +194,9 @@ export const fiscalReportsRouter = router({
       // Chile's DTE10 pins ISO-8859-1 in its XML preamble; every other
       // pack we ship today (CO, MX) emits UTF-8. Honor the encoding so
       // the Blob the renderer builds matches the declared charset.
-      const mimeType =
-        countryCode === 'cl'
-          ? FISCAL_XML_MIME_ISO_8859_1
-          : FISCAL_XML_MIME_UTF8;
+      const mimeType = countryCode === 'cl' ? FISCAL_XML_MIME_ISO_8859_1 : FISCAL_XML_MIME_UTF8;
 
-      const xmlByteSize = Buffer.byteLength(
-        row.xmlRef,
-        countryCode === 'cl' ? 'latin1' : 'utf8'
-      );
+      const xmlByteSize = Buffer.byteLength(row.xmlRef, countryCode === 'cl' ? 'latin1' : 'utf8');
 
       writeAuditLog({
         tx: ctx.db,
@@ -244,66 +225,59 @@ export const fiscalReportsRouter = router({
    * from receipts, audit logs, or the contingency queue). Returns the
    * header + all lines. Tenant-scoped.
    */
-  getByCufe: adminProcedure
-    .input(getFiscalDocumentByCufeInput)
-    .query(async ({ ctx, input }) => {
-      const header = await ctx.db
-        .select(LIST_SELECT_COLUMNS)
-        .from(fiscalDocuments)
-        .where(
-          and(
-            eq(fiscalDocuments.tenantId, ctx.tenantId),
-            eq(fiscalDocuments.cufe, input.cufe)
-          )
-        )
-        .get();
-      if (!header) {
-        throwServerError({
-          trpcCode: 'NOT_FOUND',
-          errorCode: 'FISCAL_DOCUMENT_NOT_FOUND',
-          message: 'Fiscal document not found',
-        });
-      }
+  getByCufe: adminProcedure.input(getFiscalDocumentByCufeInput).query(async ({ ctx, input }) => {
+    const header = await ctx.db
+      .select(LIST_SELECT_COLUMNS)
+      .from(fiscalDocuments)
+      .where(and(eq(fiscalDocuments.tenantId, ctx.tenantId), eq(fiscalDocuments.cufe, input.cufe)))
+      .get();
+    if (!header) {
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'FISCAL_DOCUMENT_NOT_FOUND',
+        message: 'Fiscal document not found',
+      });
+    }
 
-      const lines = await ctx.db
-        .select({
-          id: fiscalDocumentItems.id,
-          lineNumber: fiscalDocumentItems.lineNumber,
-          productName: fiscalDocumentItems.productName,
-          productSku: fiscalDocumentItems.productSku,
-          unitMeasureCode: fiscalDocumentItems.unitMeasureCode,
-          quantity: fiscalDocumentItems.quantity,
-          unitPrice: fiscalDocumentItems.unitPrice,
-          discountAmount: fiscalDocumentItems.discountAmount,
-          taxRate: fiscalDocumentItems.taxRate,
-          taxAmount: fiscalDocumentItems.taxAmount,
-          taxCategoryCode: fiscalDocumentItems.taxCategoryCode,
-          lineTotal: fiscalDocumentItems.lineTotal,
-        })
-        .from(fiscalDocumentItems)
-        .where(eq(fiscalDocumentItems.fiscalDocumentId, header.id))
-        .orderBy(asc(fiscalDocumentItems.lineNumber))
-        .all();
+    const lines = await ctx.db
+      .select({
+        id: fiscalDocumentItems.id,
+        lineNumber: fiscalDocumentItems.lineNumber,
+        productName: fiscalDocumentItems.productName,
+        productSku: fiscalDocumentItems.productSku,
+        unitMeasureCode: fiscalDocumentItems.unitMeasureCode,
+        quantity: fiscalDocumentItems.quantity,
+        unitPrice: fiscalDocumentItems.unitPrice,
+        discountAmount: fiscalDocumentItems.discountAmount,
+        taxRate: fiscalDocumentItems.taxRate,
+        taxAmount: fiscalDocumentItems.taxAmount,
+        taxCategoryCode: fiscalDocumentItems.taxCategoryCode,
+        lineTotal: fiscalDocumentItems.lineTotal,
+      })
+      .from(fiscalDocumentItems)
+      .where(eq(fiscalDocumentItems.fiscalDocumentId, header.id))
+      .orderBy(asc(fiscalDocumentItems.lineNumber))
+      .all();
 
-      return {
-        header: { ...header, maturity: maturityForProvider(header.providerId) },
-        lines,
-      };
-    }),
+    return {
+      header: { ...header, maturity: maturityForProvider(header.providerId) },
+      lines,
+    };
+  }),
 
   /**
-   * ENG-057 — Operator-driven manual recovery for a stuck fiscal
+   * Operator-driven manual recovery for a stuck fiscal
    * document. Three behaviors depending on the outbox row state:
    *
-   *   - retrying / contingency: re-arm by clearing `next_retry_at`
-   *     so the next worker tick claims it immediately. Returns
-   *     `{ rearmed: true }`.
-   *   - dead_letter / rejected: enqueue a fresh outbox row carrying
-   *     the same payload, reset `fiscal_documents.status` to
-   *     `pending` so the close-shift gate sees it again. Returns
-   *     `{ rearmed: false, requeuedAs }`.
-   *   - queued / submitting / accepted: no-op. Returns
-   *     `{ rearmed: false }`.
+   * - retrying / contingency: re-arm by clearing `next_retry_at`
+   * so the next worker tick claims it immediately. Returns
+   * `{ rearmed: true }`.
+   * - dead_letter / rejected: enqueue a fresh outbox row carrying
+   * the same payload, reset `fiscal_documents.status` to
+   * `pending` so the close-shift gate sees it again. Returns
+   * `{ rearmed: false, requeuedAs }`.
+   * - queued / submitting / accepted: no-op. Returns
+   * `{ rearmed: false }`.
    *
    * After the DB write, the procedure fires a `tickOnce` on the
    * default fiscal worker so the operator does not wait for the
@@ -311,96 +285,89 @@ export const fiscalReportsRouter = router({
    *
    * Admin-only. Tenant-scoped via `ctx.tenantId`.
    */
-  retryDocument: adminProcedure
-    .input(retryFiscalDocumentInput)
-    .mutation(async ({ ctx, input }) => {
-      const row = await ctx.db
-        .select()
-        .from(fiscalOutbox)
-        .where(
-          and(
-            eq(fiscalOutbox.tenantId, ctx.tenantId),
-            eq(fiscalOutbox.fiscalDocumentId, input.fiscalDocumentId)
-          )
+  retryDocument: adminProcedure.input(retryFiscalDocumentInput).mutation(async ({ ctx, input }) => {
+    const row = await ctx.db
+      .select()
+      .from(fiscalOutbox)
+      .where(
+        and(
+          eq(fiscalOutbox.tenantId, ctx.tenantId),
+          eq(fiscalOutbox.fiscalDocumentId, input.fiscalDocumentId)
         )
-        .orderBy(desc(fiscalOutbox.updatedAt), desc(fiscalOutbox.createdAt))
-        .get();
-      if (!row) {
-        throwServerError({
-          trpcCode: 'NOT_FOUND',
-          errorCode: 'FISCAL_DOCUMENT_NOT_FOUND',
-          message: 'Fiscal document has no outbox row',
+      )
+      .orderBy(desc(fiscalOutbox.updatedAt), desc(fiscalOutbox.createdAt))
+      .get();
+    if (!row) {
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'FISCAL_DOCUMENT_NOT_FOUND',
+        message: 'Fiscal document has no outbox row',
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    const worker = getDefaultFiscalWorker();
+
+    if (row.status === 'retrying' || row.status === 'contingency') {
+      await ctx.db
+        .update(fiscalOutbox)
+        .set({ nextRetryAt: null, updatedAt: nowIso })
+        .where(and(eq(fiscalOutbox.id, row.id), eq(fiscalOutbox.tenantId, ctx.tenantId)));
+      // Best-effort drain. The kernel claim_token guards against
+      // concurrent ticks if the periodic interval fires here too.
+      if (worker) {
+        worker.tickOnce(ctx.tenantId).catch(() => {
+          /* swallow — tick errors are logged inside the worker */
         });
       }
+      return { rearmed: true as const, outboxRowId: row.id };
+    }
 
-      const nowIso = new Date().toISOString();
-      const worker = getDefaultFiscalWorker();
-
-      if (row.status === 'retrying' || row.status === 'contingency') {
-        await ctx.db
-          .update(fiscalOutbox)
-          .set({ nextRetryAt: null, updatedAt: nowIso })
+    if (row.status === 'dead_letter' || row.status === 'rejected') {
+      const newOutboxId = nanoid();
+      await ctx.db.transaction(tx => {
+        tx.insert(fiscalOutbox)
+          .values({
+            id: newOutboxId,
+            tenantId: ctx.tenantId,
+            status: 'queued',
+            kind: row.kind,
+            fiscalDocumentId: row.fiscalDocumentId,
+            providerId: row.providerId,
+            cufe: null,
+            payload: row.payload,
+            payloadVersion: row.payloadVersion,
+            attempts: 0,
+            nextRetryAt: null,
+            lastError: null,
+            priority: -1, // ahead of regular sales
+            claimToken: null,
+            lockedAt: null,
+            createdAt: nowIso,
+            updatedAt: nowIso,
+          })
+          .run();
+        tx.update(fiscalDocuments)
+          .set({ status: 'pending', updatedAt: nowIso })
           .where(
             and(
-              eq(fiscalOutbox.id, row.id),
-              eq(fiscalOutbox.tenantId, ctx.tenantId)
+              eq(fiscalDocuments.id, input.fiscalDocumentId),
+              eq(fiscalDocuments.tenantId, ctx.tenantId)
             )
-          );
-        // Best-effort drain. The kernel claim_token guards against
-        // concurrent ticks if the periodic interval fires here too.
-        if (worker) {
-          worker.tickOnce(ctx.tenantId).catch(() => {
-            /* swallow — tick errors are logged inside the worker */
-          });
-        }
-        return { rearmed: true as const, outboxRowId: row.id };
-      }
-
-      if (row.status === 'dead_letter' || row.status === 'rejected') {
-        const newOutboxId = nanoid();
-        await ctx.db.transaction(tx => {
-          tx.insert(fiscalOutbox)
-            .values({
-              id: newOutboxId,
-              tenantId: ctx.tenantId,
-              status: 'queued',
-              kind: row.kind,
-              fiscalDocumentId: row.fiscalDocumentId,
-              providerId: row.providerId,
-              cufe: null,
-              payload: row.payload,
-              payloadVersion: row.payloadVersion,
-              attempts: 0,
-              nextRetryAt: null,
-              lastError: null,
-              priority: -1, // ahead of regular sales
-              claimToken: null,
-              lockedAt: null,
-              createdAt: nowIso,
-              updatedAt: nowIso,
-            })
-            .run();
-          tx.update(fiscalDocuments)
-            .set({ status: 'pending', updatedAt: nowIso })
-            .where(
-              and(
-                eq(fiscalDocuments.id, input.fiscalDocumentId),
-                eq(fiscalDocuments.tenantId, ctx.tenantId)
-              )
-            )
-            .run();
+          )
+          .run();
+      });
+      if (worker) {
+        worker.tickOnce(ctx.tenantId).catch(() => {
+          /* swallow */
         });
-        if (worker) {
-          worker.tickOnce(ctx.tenantId).catch(() => {
-            /* swallow */
-          });
-        }
-        return { rearmed: false as const, requeuedAs: newOutboxId };
       }
+      return { rearmed: false as const, requeuedAs: newOutboxId };
+    }
 
-      // Queued / submitting / accepted: no-op.
-      return { rearmed: false as const };
-    }),
+    // Queued / submitting / accepted: no-op.
+    return { rearmed: false as const };
+  }),
 });
 
 export type FiscalReportsRouter = typeof fiscalReportsRouter;

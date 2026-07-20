@@ -1,5 +1,5 @@
 /**
- * ENG-038 — Payment rail registry.
+ * Payment rail registry.
  *
  * Strategy/Factory entry point for payment rails. v1 returns
  * deterministic adapters for every manifest rail; real providers swap

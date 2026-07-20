@@ -1,5 +1,5 @@
 /**
- * ENG-058 — Fiscal QR payload builder.
+ * Fiscal QR payload builder.
  *
  * Pure module. Given a fiscal document + sale + tenant context, returns
  * the country-specific QR string that the receipt encodes as a 2D
@@ -9,20 +9,20 @@
  * Three guard layers protect against placeholder CUFE leakage onto a
  * scannable QR:
  *
- *   1. Status gate: returns `null` for any status other than `accepted`
- *      or `sent`. Pending / contingency / rejected / dead_letter never
- *      get a verifiable QR — there is nothing real to scan against.
- *   2. Placeholder gate: returns `null` when `isPlaceholderCufe(cufe)`
- *      is true, even if status disagrees (defense-in-depth).
- *   3. Country gate: unknown countries return `null` — we never invent
- *      a verification URL for an authority we cannot speak to.
+ * 1. Status gate: returns `null` for any status other than `accepted`
+ * or `sent`. Pending / contingency / rejected / dead_letter never
+ * get a verifiable QR — there is nothing real to scan against.
+ * 2. Placeholder gate: returns `null` when `isPlaceholderCufe(cufe)`
+ * is true, even if status disagrees (defense-in-depth).
+ * 3. Country gate: unknown countries return `null` — we never invent
+ * a verification URL for an authority we cannot speak to.
  *
  * Per-country branches:
  *
- *   - **CO** (DIAN): `https://catalogo-vpfe[-hab].dian.gov.co/document/searchqr?documentkey=<CUFE>`.
- *   - **MX** (SAT CFDI): `https://verificacfdi.facturaelectronica.sat.gob.mx/?id=<UUID>&re=<RFC_emisor>&rr=<RFC_receptor>&tt=<total padded 17.6>&fe=<sello last 8>`.
- *   - **CL** (SII boleta): TODO(ENG-036b) — returns `null` until the
- *     SII XML DTE serialization + TED computation lands.
+ * - **CO** (DIAN): `https://catalogo-vpfe[-hab].dian.gov.co/document/searchqr?documentkey=<CUFE>`.
+ * - **MX** (SAT CFDI): `https://verificacfdi.facturaelectronica.sat.gob.mx/?id=<UUID>&re=<RFC_emisor>&rr=<RFC_receptor>&tt=<total padded 17.6>&fe=<sello last 8>`.
+ * - **CL** (SII boleta): TODO() — returns `null` until the
+ * SII XML DTE serialization + TED computation lands.
  *
  * @module services/fiscal/qr-builder
  */
@@ -30,13 +30,10 @@
 import type { FiscalDocumentStatus } from '../../db/schema.js';
 
 /** Statuses that produce a scannable QR. */
-const QR_ELIGIBLE_STATUSES: ReadonlySet<FiscalDocumentStatus> = new Set([
-  'accepted',
-  'sent',
-]);
+const QR_ELIGIBLE_STATUSES: ReadonlySet<FiscalDocumentStatus> = new Set(['accepted', 'sent']);
 
 /**
- * Detect the placeholder CUFE shape that ENG-057 writes at enqueue
+ * Detect the placeholder CUFE shape that  writes at enqueue
  * (`pending-<nanoid>`). The fiscal worker overwrites this with the
  * adapter-returned real CUFE on `accepted` — so a CUFE that still
  * starts with `pending-` is a definitive signal that the document
@@ -99,8 +96,8 @@ export function buildFiscalQrPayload(input: BuildFiscalQrInput): string | null {
         sello: extractSelloDigital(doc.providerResponse),
       });
     case 'CL':
-      // TODO(ENG-036b) — Chile SII TED hash. The CL pack ships
-      // `validateRut` + RUT catalog (ENG-036a) but the XML DTE
+      // TODO() — Chile SII TED hash. The CL pack ships
+      // `validateRut` + RUT catalog () but the XML DTE
       // serialization that produces the TED is parked. Until then
       // CL receipts render the status badge + document number but
       // no scannable QR. The receipt's status copy still tells the
@@ -116,9 +113,7 @@ function buildColombiaDianQr(cufe: string, env: FiscalEnvironment): string {
   // page of the DIAN comprobante catalog. Production uses the bare
   // `catalogo-vpfe` host; habilitación adds the `-hab` suffix.
   const host =
-    env === 'habilitation'
-      ? 'catalogo-vpfe-hab.dian.gov.co'
-      : 'catalogo-vpfe.dian.gov.co';
+    env === 'habilitation' ? 'catalogo-vpfe-hab.dian.gov.co' : 'catalogo-vpfe.dian.gov.co';
   return `https://${host}/document/searchqr?documentkey=${encodeURIComponent(cufe)}`;
 }
 
@@ -132,11 +127,11 @@ interface MexicoSatQrInput {
 
 function buildMexicoSatQr(input: MexicoSatQrInput): string {
   // SAT Anexo 20 v4.0 verification URL. Format:
-  //   https://verificacfdi.facturaelectronica.sat.gob.mx/?id=<UUID>&re=<RFC_emisor>&rr=<RFC_receptor>&tt=<total>&fe=<sello>
+  // https://verificacfdi.facturaelectronica.sat.gob.mx/?id=<UUID>&re=<RFC_emisor>&rr=<RFC_receptor>&tt=<total>&fe=<sello>
   // - tt is the total padded to 17.6 digits (10 integer, 6 decimal,
-  //   leading zeros).
+  // leading zeros).
   // - fe is the last 8 chars of selloDigital. Omit when the sello is
-  //   unavailable; the verifier still resolves UUID + RFC pair.
+  // unavailable; the verifier still resolves UUID + RFC pair.
   const ttRaw = input.total.toFixed(6); // "100.000000"
   const ttDot = ttRaw.indexOf('.');
   const ttInt = ttRaw.slice(0, ttDot).padStart(10, '0');
@@ -156,9 +151,7 @@ function buildMexicoSatQr(input: MexicoSatQrInput): string {
 }
 
 /** Best-effort extractor for the SAT selloDigital from providerResponse. */
-function extractSelloDigital(
-  providerResponse: Record<string, unknown> | null
-): string | null {
+function extractSelloDigital(providerResponse: Record<string, unknown> | null): string | null {
   if (!providerResponse) return null;
   const sello = providerResponse.sello ?? providerResponse.selloDigital;
   if (typeof sello === 'string' && sello.length > 0) return sello;

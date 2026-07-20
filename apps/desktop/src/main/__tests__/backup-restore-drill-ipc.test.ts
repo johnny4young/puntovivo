@@ -81,7 +81,7 @@ async function registerRole(role: AuthTokenPayload['role']): Promise<void> {
   }));
 }
 
-describe('backup restore drill IPC (ENG-136b)', () => {
+describe('backup restore drill IPC', () => {
   beforeEach(() => {
     __resetForTests();
   });

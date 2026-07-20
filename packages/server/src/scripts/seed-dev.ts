@@ -39,7 +39,7 @@ function banner(line = ''): void {
 interface CliOptions {
   preset: 'default' | 'large' | 'mega';
   /**
-   * ENG-035b / ENG-036b — country code for the demo tenant. Default
+   * /  — country code for the demo tenant. Default
    * `'CO'` preserves backward compat with all existing tests + E2E.
    * `'MX'` activates the Mexico CFDI 4.0 pack so seeded sales emit
    * XML; `'CL'` activates the Chile DTE 1.0 pack + inserts fixture
@@ -57,14 +57,8 @@ function parseArgs(argv: string[]): CliOptions {
   const presetFromEnv = process.env.SEED_PRESET;
   const countryFromEnv = (process.env.SEED_COUNTRY ?? '').toUpperCase();
   const options: CliOptions = {
-    preset:
-      presetFromEnv === 'large'
-        ? 'large'
-        : presetFromEnv === 'mega'
-          ? 'mega'
-          : 'default',
-    countryCode:
-      countryFromEnv === 'MX' ? 'MX' : countryFromEnv === 'CL' ? 'CL' : 'CO',
+    preset: presetFromEnv === 'large' ? 'large' : presetFromEnv === 'mega' ? 'mega' : 'default',
+    countryCode: countryFromEnv === 'MX' ? 'MX' : countryFromEnv === 'CL' ? 'CL' : 'CO',
     reset: process.env.SEED_RESET === 'true' || process.env.SEED_RESET === '1',
     help: false,
   };
@@ -105,9 +99,9 @@ function parseArgs(argv: string[]): CliOptions {
  * `npm run dev:desktop` will read on next boot.
  *
  * Per Electron docs the userData directory is:
- *   - macOS:    ~/Library/Application Support/<AppName>
- *   - Linux:    $XDG_CONFIG_HOME/<AppName> or ~/.config/<AppName>
- *   - Windows:  %APPDATA%/<AppName>  (i.e. C:\Users\<U>\AppData\Roaming)
+ * - macOS:    ~/Library/Application Support/<AppName>
+ * - Linux:    $XDG_CONFIG_HOME/<AppName> or ~/.config/<AppName>
+ * - Windows:  %APPDATA%/<AppName>  (i.e. C:\Users\<U>\AppData\Roaming)
  *
  * `<AppName>` matches the `name` field in the Electron package.json,
  * which here is `@puntovivo/desktop`. Electron preserves the scoped
@@ -122,17 +116,11 @@ function resolveElectronUserDataDbPath(): string {
       baseDir = join(home, 'Library', 'Application Support', appName);
       break;
     case 'win32':
-      baseDir = join(
-        process.env.APPDATA ?? join(home, 'AppData', 'Roaming'),
-        appName
-      );
+      baseDir = join(process.env.APPDATA ?? join(home, 'AppData', 'Roaming'), appName);
       break;
     default:
       // Linux / BSD — honour XDG_CONFIG_HOME if set.
-      baseDir = join(
-        process.env.XDG_CONFIG_HOME ?? join(home, '.config'),
-        appName
-      );
+      baseDir = join(process.env.XDG_CONFIG_HOME ?? join(home, '.config'), appName);
       break;
   }
   return join(baseDir, 'data', 'local.db');
@@ -153,10 +141,16 @@ function printHelp(): void {
   banner('Usage:');
   banner('  npm run seed:dev                                  # default preset, no reset');
   banner('  SEED_PRESET=large npm run seed:dev                # bigger catalog and history');
-  banner('  SEED_RESET=true npm run seed:dev                  # wipe the demo tenant first (destructive)');
-  banner('  SEED_COUNTRY=mx npm run seed:dev                  # demo tenant en Mexico (CFDI 4.0); default CO');
+  banner(
+    '  SEED_RESET=true npm run seed:dev                  # wipe the demo tenant first (destructive)'
+  );
+  banner(
+    '  SEED_COUNTRY=mx npm run seed:dev                  # demo tenant en Mexico (CFDI 4.0); default CO'
+  );
   banner('  SEED_COUNTRY=cl npm run seed:dev                  # demo tenant en Chile (DTE 1.0)');
-  banner('  SEED_TARGET=desktop npm run seed:dev              # seed the Electron userData DB instead of the repo-local one');
+  banner(
+    '  SEED_TARGET=desktop npm run seed:dev              # seed the Electron userData DB instead of the repo-local one'
+  );
   banner('  SEED_PRESET=large SEED_RESET=true npm run seed:dev');
   banner('');
   banner('Equivalent --flag form (only works when invoked directly on the workspace):');
@@ -189,17 +183,21 @@ async function main(): Promise<void> {
   }
 
   if (isProduction()) {
-    process.stderr.write('[seed-dev] refusing to run: NODE_ENV / PUNTOVIVO_RUNTIME_ENV is production.\n');
-    process.stderr.write('[seed-dev] If you really want demo data in production (you do not), unset the env var first.\n');
+    process.stderr.write(
+      '[seed-dev] refusing to run: NODE_ENV / PUNTOVIVO_RUNTIME_ENV is production.\n'
+    );
+    process.stderr.write(
+      '[seed-dev] If you really want demo data in production (you do not), unset the env var first.\n'
+    );
     process.exit(1);
   }
 
   // DB path resolution, in priority order:
-  //   1. explicit `DATABASE_URL` env var — always wins
-  //   2. `SEED_TARGET=desktop` env var — points at Electron's
-  //      per-user DB so `npm run dev:desktop` sees the seeded data
-  //   3. default — repo-local DB (`packages/server/data/local.db`),
-  //      shared with `npm run dev:server`
+  // 1. explicit `DATABASE_URL` env var — always wins
+  // 2. `SEED_TARGET=desktop` env var — points at Electron's
+  // per-user DB so `npm run dev:desktop` sees the seeded data
+  // 3. default — repo-local DB (`packages/server/data/local.db`),
+  // shared with `npm run dev:server`
   //
   // Electron reads `app.getPath('userData')` at runtime; we replicate
   // the same location here via the standard OS conventions so the
@@ -285,7 +283,9 @@ async function main(): Promise<void> {
 
 void main().catch(error => {
   log.error({ err: error }, 'dev seed failed');
-  process.stderr.write(`\n[seed-dev] FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
+  process.stderr.write(
+    `\n[seed-dev] FAILED: ${error instanceof Error ? error.message : String(error)}\n`
+  );
   process.stderr.write('[seed-dev] See structured logs above for details.\n');
   closeDatabase();
   process.exit(1);

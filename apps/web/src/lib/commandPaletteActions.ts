@@ -1,5 +1,5 @@
 /**
- * ENG-105 (slice A) — Command Palette action catalogue.
+ * (slice A) — Command Palette action catalogue.
  *
  * Declarative list of every action the Cmd/Ctrl+K palette can
  * fire. Each entry is filtered by the active user's role before
@@ -30,7 +30,7 @@ export interface CommandActionContext {
   navigate: NavigateFunction;
   logout: () => Promise<void>;
   /**
-   * ENG-203 (WC-C5) — omnibox sell handler wired by CommandPaletteBody
+   * () — omnibox sell handler wired by CommandPaletteBody
    * (it needs React context: trpc utils, cart store owner, toasts). The
    * synthetic "Vender «query»" row calls it with the raw typed query.
    * Optional so the static catalogue and its tests stay context-free.
@@ -46,7 +46,7 @@ export interface CommandAction {
   /** Optional secondary description shown below the label. */
   descriptionKey?: string;
   /**
-   * ENG-203 — optional i18n interpolation values for `labelKey`. Lets a
+   * optional i18n interpolation values for `labelKey`. Lets a
    * synthetic action render the live query inside its label (e.g.
    * "Vender «7702001»") without a bespoke render path.
    */
@@ -152,7 +152,7 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     group: 'navigate',
     perform: ({ navigate }) => navigate('/day-close'),
   },
-  // ENG-131b — Surface Switcher. Each surface is module-gated so the
+  // Surface Switcher. Each surface is module-gated so the
   // palette never offers a destination the tenant has disabled, and
   // role-gated to mirror App.tsx route gates. POS Touch / KDS /
   // Customer Display / Mobile Waiter are cashier-facing shells;
@@ -288,7 +288,7 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
       await logout();
     },
   },
-  // ENG-105c — quick-create entry points. Both set a transient
+  // quick-create entry points. Both set a transient
   // request in `useQuickCreateStore`; SalesPage subscribes to the
   // store and mounts the corresponding form modal. Both navigate to
   // `/sales` first so the mount actually happens (modals live inside

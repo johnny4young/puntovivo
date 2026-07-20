@@ -1,5 +1,5 @@
 /**
- * ENG-038 — Payment rail contract tests.
+ * Payment rail contract tests.
  *
  * Pins the v1 manifest and deterministic adapters before real provider
  * credentials exist.
@@ -17,7 +17,7 @@ import {
   listPaymentRailAdapters,
 } from '../services/payments/registry.js';
 
-describe('payment rail manifest (ENG-038)', () => {
+describe('payment rail manifest', () => {
   it('exposes every required LATAM rail id', () => {
     const contract = buildPaymentRailsContract();
     expect(contract.version).toBe(1);
@@ -31,7 +31,7 @@ describe('payment rail manifest (ENG-038)', () => {
   });
 });
 
-describe('deterministic payment rail adapters (ENG-038)', () => {
+describe('deterministic payment rail adapters', () => {
   it('approves the happy-path charge fixture', async () => {
     const adapter = getPaymentRailAdapter('wompi');
     const result = await adapter.charge({
@@ -95,7 +95,7 @@ describe('deterministic payment rail adapters (ENG-038)', () => {
   });
 });
 
-describe('validateConfig (ENG-038 slice 2)', () => {
+describe('validateConfig ( slice 2)', () => {
   it('declares credential field descriptors for every manifest rail', () => {
     for (const railId of PAYMENT_RAIL_IDS) {
       const descriptors = CREDENTIAL_FIELDS_BY_RAIL[railId];
@@ -104,8 +104,7 @@ describe('validateConfig (ENG-038 slice 2)', () => {
       // requiresExternalCredentials in the manifest stays consistent
       // with the descriptor: every rail that needs credentials has
       // at least one required field, and vice-versa.
-      const requiresCreds =
-        PAYMENT_RAILS_MANIFEST[railId].capabilities.requiresExternalCredentials;
+      const requiresCreds = PAYMENT_RAILS_MANIFEST[railId].capabilities.requiresExternalCredentials;
       const hasRequired = descriptors.some(field => field.required);
       expect(hasRequired).toBe(requiresCreds);
     }
@@ -120,9 +119,7 @@ describe('validateConfig (ENG-038 slice 2)', () => {
         settings: {},
       });
       expect(result.ok).toBe(false);
-      const required = CREDENTIAL_FIELDS_BY_RAIL[railId].filter(
-        field => field.required
-      );
+      const required = CREDENTIAL_FIELDS_BY_RAIL[railId].filter(field => field.required);
       expect(result.issues.length).toBe(required.length);
       for (const issue of result.issues) {
         expect(issue.code).toBe('PAYMENT_CREDENTIAL_MISSING');

@@ -1,5 +1,5 @@
 /**
- * ENG-065b — Inventory reports sub-router (`reports.inventory.*`).
+ * Inventory reports sub-router (`reports.inventory.*`).
  *
  * Tenant-wide read-only discrepancy view for the Operations Center
  * Inventory tab.
@@ -13,7 +13,7 @@
  * nothing left to drift against. `listInventoryDiscrepancyCandidates`
  * therefore always returns an empty set and this endpoint always reports
  * zero discrepancies. The procedure is retained for one compatibility
- * window after the web surface was removed in WC-B5.
+ * window after the web surface was removed in .
  *
  * Read-only — manager + admin gated. The (now no-op) reconcile mutation the
  * panel button fires is `inventory.reconcileBalances`.
@@ -43,13 +43,13 @@ export const inventoryReportsRouter = router({
    * calls this procedure; remove after 2026-10-01.
    *
    * Returns:
-   *   - `summary.productsScanned` — total products considered.
-   *   - `summary.discrepancyCount` — products where
-   *     `|cachedStock - sumOfBalances| > INVENTORY_DELTA_EPSILON`.
-   *   - `rows` — the flagged products, ordered by `|delta|` desc and
-   *     capped by `input.limit`. Each row carries enough context for
-   *     the operator to act (or to file a follow-up bug if the drift
-   *     correlates with a known sale path).
+   * - `summary.productsScanned` — total products considered.
+   * - `summary.discrepancyCount` — products where
+   * `|cachedStock - sumOfBalances| > INVENTORY_DELTA_EPSILON`.
+   * - `rows` — the flagged products, ordered by `|delta|` desc and
+   * capped by `input.limit`. Each row carries enough context for
+   * the operator to act (or to file a follow-up bug if the drift
+   * correlates with a known sale path).
    */
   discrepancies: managerOrAdminProcedure
     .input(inventoryDiscrepanciesInput)

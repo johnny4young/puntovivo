@@ -1,35 +1,35 @@
 /**
- * ENG-087 — Touch POS V1 main surface.
+ * Touch POS V1 main surface.
  *
  * 2-col responsive layout for tablet-first checkout:
- *   - Left: category tabs row + product tile grid.
- *   - Right: persistent cart sidebar with customer slot + lines
- *     + Cobrar CTA. Below 1024 px the cart sidebar stacks under
- *     the grid so the tile area can keep its full width.
+ * - Left: category tabs row + product tile grid.
+ * - Right: persistent cart sidebar with customer slot + lines
+ * + Cobrar CTA. Below 1024 px the cart sidebar stacks under
+ * the grid so the tile area can keep its full width.
  *
  * Reuses the same primitives as the desktop sales flow:
- *   - `trpc.products.list` (catalog + category filter)
- *   - `trpc.categories.tree` (sidebar tabs)
- *   - `trpc.cashSessions.getActive` (Cobrar gate)
- *   - `trpc.sales.create` (single-tender cash checkout)
- *   - `mergeCartItem` from features/sales/saleCart for the line
- *     merge + qty math
- *   - `useTenant` from features/tenant/TenantProvider for the
- *     active site context
+ * - `trpc.products.list` (catalog + category filter)
+ * - `trpc.categories.tree` (sidebar tabs)
+ * - `trpc.cashSessions.getActive` (Cobrar gate)
+ * - `trpc.sales.create` (single-tender cash checkout)
+ * - `mergeCartItem` from features/sales/saleCart for the line
+ * merge + qty math
+ * - `useTenant` from features/tenant/TenantProvider for the
+ * active site context
  *
- * Touch-first quality bar (per ENG-087 plan §8):
- *   - Every interactive element ≥ 44 × 44 px.
- *   - Responsive grid: 2 / 3 / 4 / 6 cols across breakpoints.
- *   - `auto-rows-fr` keeps tile heights uniform across long /
- *     short product names.
- *   - No horizontal overflow at 320 px (tested via Playwright).
+ * Touch-first quality bar (per  plan §8):
+ * - Every interactive element ≥ 44 × 44 px.
+ * - Responsive grid: 2 / 3 / 4 / 6 cols across breakpoints.
+ * - `auto-rows-fr` keeps tile heights uniform across long /
+ * short product names.
+ * - No horizontal overflow at 320 px (tested via Playwright).
  *
  * Loyalty:
- *   - The cart sidebar wires a forward-compatible
- *     `customer.loyaltyProfile` slot. The customers schema does
- *     not carry this today; ENG-087b will land it. Until then
- *     the badge + "Sumar puntos" CTA stay invisible because
- *     `loyaltyProfile` is `undefined`.
+ * - The cart sidebar wires a forward-compatible
+ * `customer.loyaltyProfile` slot. The customers schema does
+ * not carry this today;  will land it. Until then
+ * the badge + "Sumar puntos" CTA stay invisible because
+ * `loyaltyProfile` is `undefined`.
  */
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,23 +39,13 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { invalidateGroups, SALE_COMPLETION_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import {
-  getCartSummary,
-  mergeCartItem,
-  type SaleCartItem,
-} from '@/features/sales/saleCart';
+import { getCartSummary, mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
 import type { Product, ProductSearchSelection } from '@/types';
 import { translateServerError } from '@/lib/translateServerError';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import {
-  PosTouchCategoryTabs,
-  type PosTouchCategoryOption,
-} from './PosTouchCategoryTabs';
+import { PosTouchCategoryTabs, type PosTouchCategoryOption } from './PosTouchCategoryTabs';
 import { PosTouchProductGrid } from './PosTouchProductGrid';
-import {
-  PosTouchCartSidebar,
-  type PosTouchCustomer,
-} from './PosTouchCartSidebar';
+import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
 
 /**
  * Build a `ProductSearchSelection` from a `Product` that already
@@ -69,11 +59,8 @@ import {
  * when the hydrated product still has no base unit (mis-seeded
  * catalog) so the caller can surface a toast instead of crashing.
  */
-function selectionFromProduct(
-  product: Product
-): ProductSearchSelection | null {
-  const baseUnit =
-    product.unitAssignments?.find(u => u.isBase) ?? product.unitAssignments?.[0];
+function selectionFromProduct(product: Product): ProductSearchSelection | null {
+  const baseUnit = product.unitAssignments?.find(u => u.isBase) ?? product.unitAssignments?.[0];
   if (!baseUnit) return null;
   const unitPrice = baseUnit.price ?? product.price;
 
@@ -103,7 +90,7 @@ export function PosTouchScreen() {
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
   // V1: customer attach UI is out of scope (operator can still
-  // ring up walk-in sales). The slot stays here so ENG-087b can
+  // ring up walk-in sales). The slot stays here so  can
   // wire a customer picker without rebuilding the cart sidebar.
   const [selectedCustomer] = useState<PosTouchCustomer | null>(null);
 
@@ -173,7 +160,7 @@ export function PosTouchScreen() {
   // instead of silently hiding the tail of a bigger catalog.
   const catalogTotal = productsQuery.data?.totalItems ?? products.length;
 
-  // ENG-052b — `sales.create` is a critical command (idempotency +
+  // `sales.create` is a critical command (idempotency +
   // command envelope), so we ride the same `useCriticalMutation`
   // helper that SalesPage uses instead of `trpc.sales.create.useMutation`
   // directly. Skipping the helper would surface `MISSING_COMMAND_ENVELOPE`
@@ -274,9 +261,7 @@ export function PosTouchScreen() {
         data-testid="pos-touch-page"
         className="flex min-h-[60vh] flex-col items-center justify-center gap-3 p-6 text-center"
       >
-        <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">
-          {t('page.kicker')}
-        </p>
+        <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">{t('page.kicker')}</p>
         <h2 className="font-display text-3xl">{t('page.title')}</h2>
         <p
           data-testid="pos-touch-no-site"

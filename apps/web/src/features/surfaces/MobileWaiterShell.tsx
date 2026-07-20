@@ -1,14 +1,14 @@
 /**
- * ENG-069 — Mobile Waiter shell.
+ * Mobile Waiter shell.
  *
  * Phone-width layout (max-width clamped to mobile breakpoint) for
  * waitstaff taking orders at the table. v1 ships the chrome only;
- * the actual table-side ordering flow lands with ENG-039.
+ * the actual table-side ordering flow lands with .
  *
  * The container is `max-w-md mx-auto` so the layout still works
  * when accessed from a desktop browser during development, but
  * displays exactly as a phone-width app would on a real device.
- * ENG-183 — role + module gating moved up to `SurfaceShellRoute`;
+ * role + module gating moved up to `SurfaceShellRoute`;
  * this shell is pure presentational chrome around its `<Outlet />`.
  *
  * @module features/surfaces/MobileWaiterShell

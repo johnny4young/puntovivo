@@ -1,16 +1,16 @@
 /**
- * ENG-069 — `surfaces.*` tRPC router.
+ * `surfaces.*` tRPC router.
  *
  * One procedure today:
  *
- *   - `surfaces.list` (managerOrAdmin) — returns the manifest joined
- *     with the active modules state so a future "surfaces" admin tab
- *     (or the renderer's `useSurfacesSnapshot()` hook) can render
- *     each surface's `enabled` flag without a second `modules.list`
- *     round-trip.
+ * - `surfaces.list` (managerOrAdmin) — returns the manifest joined
+ * with the active modules state so a future "surfaces" admin tab
+ * (or the renderer's `useSurfacesSnapshot()` hook) can render
+ * each surface's `enabled` flag without a second `modules.list`
+ * round-trip.
  *
  * The list itself is always available regardless of any module state
- * — clients need to know the full universe of surfaces to render the
+ * clients need to know the full universe of surfaces to render the
  * "off" state correctly. The individual surfaces gate via their
  * `moduleId` field, which the renderer joins at render time.
  *
@@ -19,14 +19,8 @@
 
 import { eq } from 'drizzle-orm';
 import { tenants } from '../../db/schema.js';
-import {
-  resolveModulesState,
-  type ModuleId,
-} from '../../services/modules/manifest.js';
-import {
-  SURFACE_IDS,
-  SURFACES_MANIFEST,
-} from '../../services/surfaces/manifest.js';
+import { resolveModulesState, type ModuleId } from '../../services/modules/manifest.js';
+import { SURFACE_IDS, SURFACES_MANIFEST } from '../../services/surfaces/manifest.js';
 import { router } from '../init.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
 
@@ -54,9 +48,7 @@ export const surfacesRouter = router({
       surfaces: SURFACE_IDS.map(id => {
         const descriptor = SURFACES_MANIFEST[id];
         const enabled =
-          descriptor.moduleId === null
-            ? true
-            : effective[descriptor.moduleId as ModuleId];
+          descriptor.moduleId === null ? true : effective[descriptor.moduleId as ModuleId];
         return {
           id,
           moduleId: descriptor.moduleId,

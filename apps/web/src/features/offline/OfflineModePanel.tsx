@@ -1,5 +1,5 @@
 /**
- * ENG-088 — Offline V12 mode panel.
+ * Offline V12 mode panel.
  *
  * Wraps the existing `OfflineCapabilityGrid` (slice 1, shipped
  * in `e97cdc8`) and the new `OfflineSyncQueueList` inside one
@@ -8,16 +8,16 @@
  * unreachable.
  *
  * Layout:
- *  - Above 1024 px (lg): 2-col grid — capability grid (5/12) +
- *    sync queue list (7/12).
- *  - Below 1024 px: stacks vertically so tablet portrait and
- *    mobile keep their full width.
+ * - Above 1024 px (lg): 2-col grid — capability grid (5/12) +
+ * sync queue list (7/12).
+ * - Below 1024 px: stacks vertically so tablet portrait and
+ * mobile keep their full width.
  *
  * Visibility:
- *  - The `visible` prop mirrors `showCapabilityGrid` in
- *    the strip (`!isOnline || hubUnreachable`). When false the
- *    component renders nothing so the surface stays dead chrome
- *    on healthy connections.
+ * - The `visible` prop mirrors `showCapabilityGrid` in
+ * the strip (`!isOnline || hubUnreachable`). When false the
+ * component renders nothing so the surface stays dead chrome
+ * on healthy connections.
  */
 import { useTranslation } from 'react-i18next';
 import { OfflineCapabilityGrid } from './OfflineCapabilityGrid';

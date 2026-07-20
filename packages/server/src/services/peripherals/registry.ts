@@ -1,14 +1,14 @@
 /**
- * ENG-060 — Peripheral adapter registry.
+ * Peripheral adapter registry.
  *
  * Strategy/Factory mirroring `services/fiscal/registry.ts`. Resolves
  * the active row in `site_peripherals` by `(tenantId, siteId, kind)`
  * and dispatches by `driver` to the matching adapter constructor.
  *
- * ENG-060 ships two default drivers — `system` (printer) and
+ * ships two default drivers — `system` (printer) and
  * `manual` (payment_terminal). All other `(kind, driver)` pairs
  * surface `PERIPHERAL_DRIVER_NOT_IMPLEMENTED` via
- * `peripheralsRouter.test`; ENG-061/062/063 add new drivers by
+ * `peripheralsRouter.test`;  add new drivers by
  * extending the dispatcher.
  *
  * Returns `null` (not throws) when no active peripheral is configured
@@ -52,7 +52,7 @@ import {
 /**
  * Static dispatch table: `kind → driverId → factory`. Each factory
  * receives the persisted row + parsed config and returns a typed
- * adapter instance. Adding a driver in ENG-061/062/063 = drop a new
+ * adapter instance. Adding a driver in  = drop a new
  * (kind, driverId) entry here without touching the registry plumbing
  * or the tRPC router.
  */
@@ -79,81 +79,62 @@ const DRIVER_TABLE: {
     system: {
       factory: (ctx, rawConfig) => {
         const config = systemReceiptPrinterConfigSchema.parse(rawConfig);
-        return new SystemReceiptPrinterAdapter(
-          ctx.tenantId,
-          ctx.siteId,
-          ctx.peripheralId,
-          config
-        );
+        return new SystemReceiptPrinterAdapter(ctx.tenantId, ctx.siteId, ctx.peripheralId, config);
       },
-      configSchema: systemReceiptPrinterConfigSchema as unknown as ZodSchema<Record<string, unknown>>,
+      configSchema: systemReceiptPrinterConfigSchema as unknown as ZodSchema<
+        Record<string, unknown>
+      >,
     },
-    // ENG-062 — ESC/POS thermal printer. Sends pre-built bytes to
+    // ESC/POS thermal printer. Sends pre-built bytes to
     // a USB / TCP / serial / mock channel. USB + serial are stubs
     // that throw DRIVER_NOT_IMPLEMENTED until the native deps land
     // in a follow-up; mock + TCP are fully wired today.
     escpos: {
       factory: (ctx, rawConfig) => {
         const config = escposReceiptPrinterConfigSchema.parse(rawConfig);
-        return new EscPosReceiptPrinterAdapter(
-          ctx.tenantId,
-          ctx.siteId,
-          ctx.peripheralId,
-          config
-        );
+        return new EscPosReceiptPrinterAdapter(ctx.tenantId, ctx.siteId, ctx.peripheralId, config);
       },
-      configSchema: escposReceiptPrinterConfigSchema as unknown as ZodSchema<Record<string, unknown>>,
+      configSchema: escposReceiptPrinterConfigSchema as unknown as ZodSchema<
+        Record<string, unknown>
+      >,
     },
   },
   payment_terminal: {
     manual: {
       factory: (ctx, rawConfig) => {
         const config = manualPaymentTerminalConfigSchema.parse(rawConfig);
-        return new ManualPaymentTerminalAdapter(
-          ctx.tenantId,
-          ctx.siteId,
-          ctx.peripheralId,
-          config
-        );
+        return new ManualPaymentTerminalAdapter(ctx.tenantId, ctx.siteId, ctx.peripheralId, config);
       },
-      configSchema: manualPaymentTerminalConfigSchema as unknown as ZodSchema<Record<string, unknown>>,
+      configSchema: manualPaymentTerminalConfigSchema as unknown as ZodSchema<
+        Record<string, unknown>
+      >,
     },
   },
   scanner: {
-    // ENG-061 — USB HID keyboard wedge. The renderer
+    // USB HID keyboard wedge. The renderer
     // (`useBarcodeWedgeListener`) does the keystroke capture; this
     // adapter is a typed identifier carrying the timing config.
     wedge: {
       factory: (ctx, rawConfig) => {
         const config = wedgeScannerConfigSchema.parse(rawConfig);
-        return new KeyboardWedgeScannerAdapter(
-          ctx.tenantId,
-          ctx.siteId,
-          ctx.peripheralId,
-          config
-        );
+        return new KeyboardWedgeScannerAdapter(ctx.tenantId, ctx.siteId, ctx.peripheralId, config);
       },
       configSchema: wedgeScannerConfigSchema as unknown as ZodSchema<Record<string, unknown>>,
     },
   },
   cash_drawer: {
-    // ENG-062 — RJ11 cash drawer attached to an ESC/POS printer.
+    // RJ11 cash drawer attached to an ESC/POS printer.
     // The drawer config slot mirrors the printer's transport shape;
     // operators typically point both at the same physical printer.
     escpos: {
       factory: (ctx, rawConfig) => {
         const config = escposCashDrawerConfigSchema.parse(rawConfig);
-        return new EscPosCashDrawerAdapter(
-          ctx.tenantId,
-          ctx.siteId,
-          ctx.peripheralId,
-          config
-        );
+        return new EscPosCashDrawerAdapter(ctx.tenantId, ctx.siteId, ctx.peripheralId, config);
       },
       configSchema: escposCashDrawerConfigSchema as unknown as ZodSchema<Record<string, unknown>>,
     },
   },
-  // customer_display: no drivers shipped yet. ENG-063 lands
+  // customer_display: no drivers shipped yet.  lands
   // Bold/Wompi/MercadoPago payment terminals; customer_display
   // remains a follow-up once the operator has a concrete display
   // model to integrate.
@@ -190,7 +171,13 @@ export function validatePeripheralConfig(args: {
   kind: PeripheralKind;
   driver: string;
   config: Record<string, unknown>;
-}): { ok: true } | { ok: false; code: 'PERIPHERAL_DRIVER_INVALID' | 'PERIPHERAL_CONFIG_INVALID'; message: string } {
+}):
+  | { ok: true }
+  | {
+      ok: false;
+      code: 'PERIPHERAL_DRIVER_INVALID' | 'PERIPHERAL_CONFIG_INVALID';
+      message: string;
+    } {
   const drivers = DRIVER_TABLE[args.kind];
   if (!drivers) {
     return {
@@ -223,7 +210,7 @@ export function validatePeripheralConfig(args: {
 /**
  * Resolve the active adapter for a tenant + site + kind. Returns
  * null when no active row exists OR when the registered driver is
- * not implemented yet (ENG-060 only ships `system` printer +
+ * not implemented yet ( only ships `system` printer +
  * `manual` payment_terminal). Tenant scoping is enforced via the
  * explicit `tenantId` filter in the SELECT.
  */
@@ -284,7 +271,7 @@ function makeOverrideKey(tenantId: string, siteId: string, kind: PeripheralKind)
 const TEST_ADAPTER_OVERRIDES: Map<string, BasePeripheralAdapter> = new Map();
 
 /**
- * ENG-060 — TEST-ONLY adapter override. Tests inject a stub adapter
+ * TEST-ONLY adapter override. Tests inject a stub adapter
  * scoped to (tenantId, siteId, kind) so registry-driven flows reach
  * a controllable instance without touching the static dispatch
  * table.

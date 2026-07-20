@@ -1,5 +1,5 @@
 /**
- * ENG-034 — fiscal adapter registry dispatch tests.
+ * fiscal adapter registry dispatch tests.
  *
  * The registry is the entry point that the sale lifecycle calls
  * once per fiscal emission with the tenant's `countryCode`. These
@@ -8,11 +8,10 @@
  * - Default-arg path (no country) → ColombiaMockAdapter.
  * - Known country dispatch (CO / MX / CL) → correct concrete adapter
  *   with the right `countryCode` field.
- * - Unsupported country → THROWS FISCAL_PACK_NOT_AVAILABLE (ENG-185 —
+ * - Unsupported country → THROWS FISCAL_PACK_NOT_AVAILABLE;
  *   no Colombia-shaped fallback; the sale path guards with
  *   `isSupportedFiscalCountry` and skips emission instead).
- * - `listFiscalAdapterCountries()` shape: 3 entries; CO implemented;
- *   MX + CL stubbed with their `availableInTicket` strings.
+ * - `listFiscalAdapterCountries()` shape: three entries with explicit maturity.
  * - Each adapter exposes a stable `countryCode` for the orchestrator
  *   to introspect.
  */
@@ -32,7 +31,7 @@ import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js
 import { MexicoCFDIAdapter } from '../services/fiscal/packs/mx/mexico-adapter.js';
 import { ChileSIIAdapter } from '../services/fiscal/packs/cl/chile-adapter.js';
 
-describe('getFiscalAdapter (ENG-034)', () => {
+describe('getFiscalAdapter', () => {
   it('returns ColombiaMockAdapter when called with no argument', () => {
     const adapter = getFiscalAdapter();
     expect(adapter).toBeInstanceOf(ColombiaMockAdapter);
@@ -45,34 +44,23 @@ describe('getFiscalAdapter (ENG-034)', () => {
     expect(adapter.providerId).toBe('mock-co');
   });
 
-  it('returns MexicoCFDIAdapter for "MX" (real CFDI 4.0 emission via ENG-035b)', () => {
+  it('returns MexicoCFDIAdapter for "MX"', () => {
     const adapter = getFiscalAdapter('MX');
     expect(adapter).toBeInstanceOf(MexicoCFDIAdapter);
     expect(adapter.countryCode).toBe('MX');
-    // ENG-035b promotes MX from a NotImplemented stub to a real
-    // adapter — `notImplemented` flag is gone and there is no
-    // `availableInTicket` ticket gating.
-    expect((adapter as { notImplemented?: boolean }).notImplemented).toBeUndefined();
-    expect(
-      (adapter as { availableInTicket?: string }).availableInTicket
-    ).toBeUndefined();
+    // Mexico is a real draft adapter, not a placeholder contract.
   });
 
-  it('returns ChileSIIAdapter for "CL" (real DTE 1.0 emission shipped in ENG-036b)', () => {
+  it('returns ChileSIIAdapter for "CL"', () => {
     const adapter = getFiscalAdapter('CL');
     expect(adapter).toBeInstanceOf(ChileSIIAdapter);
     expect(adapter.countryCode).toBe('CL');
-    // ENG-036b lifted the notImplemented stub; the adapter is now a
-    // full FiscalAdapter implementation. ENG-036c adds SII transmission
-    // and real signing, but the top-level availableInTicket marker is
-    // gone now that the adapter serializes valid DTE XML drafts.
-    expect(
-      (adapter as { availableInTicket?: string }).availableInTicket
-    ).toBeUndefined();
+    // Chile is a real draft adapter that serializes DTE XML; signing and
+    // SII transmission remain outside the current maturity level.
   });
 
-  it('THROWS FISCAL_PACK_NOT_AVAILABLE for an unsupported country code (ENG-185)', () => {
-    // ENG-185 — no more Colombia fallback. Emitting a Colombia-shaped
+  it('THROWS FISCAL_PACK_NOT_AVAILABLE for an unsupported country code', () => {
+    // no more Colombia fallback. Emitting a Colombia-shaped
     // CUFE for an Argentine tenant is a lie; the registry must fail with
     // a typed error so the sale path can skip emission cleanly instead.
     let caught: unknown;
@@ -84,9 +72,7 @@ describe('getFiscalAdapter (ENG-034)', () => {
     expect(caught).toBeInstanceOf(TRPCError);
     const cause = (caught as TRPCError).cause;
     expect(cause).toBeInstanceOf(ServerErrorWithCode);
-    expect((cause as ServerErrorWithCode).errorCode).toBe(
-      'FISCAL_PACK_NOT_AVAILABLE'
-    );
+    expect((cause as ServerErrorWithCode).errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
   });
 
   it('exposes the default country constant', () => {
@@ -94,7 +80,7 @@ describe('getFiscalAdapter (ENG-034)', () => {
   });
 });
 
-describe('isSupportedFiscalCountry + maturity (ENG-185)', () => {
+describe('isSupportedFiscalCountry + maturity', () => {
   it('recognises only CO/MX/CL as supported', () => {
     expect(isSupportedFiscalCountry('CO')).toBe(true);
     expect(isSupportedFiscalCountry('MX')).toBe(true);
@@ -128,31 +114,25 @@ describe('isSupportedFiscalCountry + maturity (ENG-185)', () => {
   });
 });
 
-describe('listFiscalAdapterCountries (ENG-034)', () => {
-  it('returns one entry per registered country with isImplemented + availableInTicket', () => {
+describe('listFiscalAdapterCountries', () => {
+  it('returns one entry per registered country with its maturity', () => {
     const list = listFiscalAdapterCountries();
     expect(list).toHaveLength(3);
 
     const byCode = new Map(list.map(entry => [entry.code, entry]));
     expect(byCode.get('CO')).toEqual({
       code: 'CO',
-      isImplemented: true,
-      availableInTicket: undefined,
+      maturity: 'mock',
     });
     expect(byCode.get('MX')).toEqual({
       code: 'MX',
-      isImplemented: true,
-      availableInTicket: undefined,
+      maturity: 'draft',
     });
-    // ENG-036b — Chile is now implemented for unsigned DTE 1.0 emission.
-    // The remaining gap (signing + SII transmission) lives on the adapter
-    // methods (voidDocument throws ENG-036c) but the top-level marker is
-    // unset because the registry's `isImplemented` flag covers "any of the
-    // emission API actually works" — and issue() does.
+    // Chile is now implemented for unsigned DTE 1.0 emission.
+    // The remaining gap is signing and SII transmission.
     expect(byCode.get('CL')).toEqual({
       code: 'CL',
-      isImplemented: true,
-      availableInTicket: undefined,
+      maturity: 'draft',
     });
   });
 });

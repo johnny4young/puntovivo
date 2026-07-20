@@ -1,4 +1,4 @@
-/** ENG-123e — Row-complete opening-cash import report projection. */
+/** Row-complete opening-cash import report projection. */
 import type {
   OpeningCashImportIssue,
   OpeningCashImportPreview,

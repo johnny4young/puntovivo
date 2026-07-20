@@ -1,5 +1,5 @@
 /**
- * ENG-036b — Mapeos del modelo interno de Puntovivo a la taxonomía
+ * Mapeos del modelo interno de Puntovivo a la taxonomía
  * SII para DTE 1.0.
  *
  * Cada país traduce el `payment_method` interno y otros enums a su
@@ -7,16 +7,16 @@
  * XML DTE son:
  *
  * - `payment_method` → IdDoc.FmaPago (1 Contado, 2 Crédito, 3 Sin
- *   costo). El SII no tiene un catálogo tan granular como el SAT —
- *   la decisión clave es contado vs crédito vs gratuito.
+ * costo). El SII no tiene un catálogo tan granular como el SAT —
+ * la decisión clave es contado vs crédito vs gratuito.
  * - `unit code` → Detalle.UnmdItem (texto libre acotado a 4
- *   caracteres por SII validation: 'unidad', 'kg', 'lt', etc.).
+ * caracteres por SII validation: 'unidad', 'kg', 'lt', etc.).
  * - `sale source + buyer` → Encabezado.IdDoc.TipoDTE (33 Factura
- *   electrónica si hay RUT receptor; 39 Boleta electrónica si no;
- *   61 Nota crédito para returns/voids).
+ * electrónica si hay RUT receptor; 39 Boleta electrónica si no;
+ * 61 Nota crédito para returns/voids).
  * - `tax rate` → Encabezado.Totales.TasaIVA (hardcoded 19% en v1
- *   per regla SII vigente; future-proof para futuros cambios via
- *   tenant-locale settings en ENG-036c).
+ * per regla SII vigente; future-proof para futuros cambios via
+ * tenant-locale settings en ).
  *
  * El módulo es 100% puro — sin dependencias del DB, sin acceso a
  * tenants. Recibe valores escalares y retorna estructuras
@@ -31,7 +31,7 @@ import type { FiscalDocumentSource } from '../../../../db/schema.js';
 /**
  * Tasa IVA Chile vigente desde la reforma tributaria 2014. El SII
  * permite tasa diferenciada solo para casos muy puntuales (frontera,
- * combustibles); los retailers normales emiten al 19%. Cuando ENG-036c
+ * combustibles); los retailers normales emiten al 19%. Cuando
  * agregue tenant-locale tax rate settings esto se vuelve un default.
  */
 export const TASA_IVA_CL = 19;
@@ -46,7 +46,7 @@ export type FmaPago = 1 | 2 | 3;
  * `Pagos`, opcional, no aplicable a boletas).
  *
  * - `cash` / `card` / `card_credit` / `card_debit` / `transfer` /
- *   `check` / `mercado_pago` / `nequi` / `other` → 1 (Contado)
+ * `check` / `mercado_pago` / `nequi` / `other` → 1 (Contado)
  * - `credit` → 2 (Crédito) — pago diferido a plazo cliente.
  *
  * Cuando el SII pide `Sin costo` (3) es para muestras gratis u
@@ -136,12 +136,12 @@ export function mapUnitToUnmdItem(unitCode: string): string {
  *
  * - `sale` + receptor con RUT → 33 (Factura electrónica afecta).
  * - `sale` sin receptor identificado → 39 (Boleta electrónica
- *   afecta — consumidor final).
+ * afecta — consumidor final).
  * - `return` → 61 (Nota de crédito electrónica) referenciando el
- *   DTE original.
+ * DTE original.
  * - `void` → 61 (Nota de crédito electrónica anulando el DTE
- *   original; el SII trata anulaciones POS como NC con código de
- *   referencia '1' = Anula documento de referencia).
+ * original; el SII trata anulaciones POS como NC con código de
+ * referencia '1' = Anula documento de referencia).
  */
 export function mapInternalKindToTipoDte(
   source: FiscalDocumentSource,
@@ -159,16 +159,16 @@ export function mapInternalKindToTipoDte(
  *
  * Invariantes:
  * - Redondea a entero con Math.round() (0.5 hacia arriba; el SII no
- *   especifica regla, este es el default de JS). Es la regla de redondeo
- *   del SII: el organismo rechaza fracciones en la mayoría de los nodos
- *   numéricos del DTE, así que los montos viajan como pesos enteros.
+ * especifica regla, este es el default de JS). Es la regla de redondeo
+ * del SII: el organismo rechaza fracciones en la mayoría de los nodos
+ * numéricos del DTE, así que los montos viajan como pesos enteros.
  * - Es EXCLUSIVO de la serialización XML del DTE (computeDteTotals y
- *   dte10-xml.ts). NO toca la ruta transaccional de dinero: las columnas
- *   de dinero del POS siguen guardándose con dos decimales vía roundMoney
- *   (lib/money.ts), país-agnóstico. El redondeo a entero por país (peso
- *   chileno) vive solo aquí, en el serializador, no en completeSale.
+ * dte10-xml.ts). NO toca la ruta transaccional de dinero: las columnas
+ * de dinero del POS siguen guardándose con dos decimales vía roundMoney
+ * (lib/money.ts), país-agnóstico. El redondeo a entero por país (peso
+ * chileno) vive solo aquí, en el serializador, no en completeSale.
  * - Lanza Error con cause en valor no finito — un total mal calculado
- *   corriente arriba aborta la emisión en vez de escribir un DTE inválido.
+ * corriente arriba aborta la emisión en vez de escribir un DTE inválido.
  *
  * Precondición: value es finito. Postcondición: devuelve el entero CLP
  * listo para el nodo numérico del DTE.

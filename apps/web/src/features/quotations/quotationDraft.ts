@@ -1,4 +1,4 @@
-/** ENG-178 — Pure draft-line state and totals for quotation creation. */
+/** Pure draft-line state and totals for quotation creation. */
 export interface DraftLine {
   /** Unique row id for stable React keys (not persisted on the server). */
   rowId: string;

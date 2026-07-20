@@ -1,5 +1,5 @@
 /**
- * Shared format helpers for DTE 1.0 serialization (ENG-036b): TSTED
+ * Shared format helpers for DTE 1.0 serialization (): TSTED
  * timestamp + SII text/name sanitization.
  *
  * @module services/fiscal/packs/cl/dte10-xml/format

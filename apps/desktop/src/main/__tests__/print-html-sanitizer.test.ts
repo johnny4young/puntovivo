@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { sanitisePrintHtml } from '../print-html-sanitizer.ts';
 
-// ENG-166 — the `print-receipt` IPC handler runs untrusted HTML through
+// the `print-receipt` IPC handler runs untrusted HTML through
 // this sanitiser before loading it into the ephemeral print window.
 // Even though that window already runs sandbox: true, dropping every
 // active HTML construct at the trust boundary makes a corrupted template
@@ -11,11 +11,9 @@ import { sanitisePrintHtml } from '../print-html-sanitizer.ts';
 // Run via `npm run test --workspace=@puntovivo/desktop` (node --test
 // --experimental-strip-types). The import path uses `.ts` because
 // strip-types consumes the source directly.
-describe('sanitisePrintHtml (ENG-166)', () => {
+describe('sanitisePrintHtml', () => {
   it('strips <script> tags wholesale, not just unwrapping them', () => {
-    const out = sanitisePrintHtml(
-      '<div>Total: $100</div><script>alert(1)</script>'
-    );
+    const out = sanitisePrintHtml('<div>Total: $100</div><script>alert(1)</script>');
     assert.match(out, /<div>Total: \$100<\/div>/);
     assert.equal(/<script/i.test(out), false);
     assert.equal(/alert\(1\)/.test(out), false);
@@ -56,9 +54,7 @@ describe('sanitisePrintHtml (ENG-166)', () => {
   });
 
   it('preserves inline style attributes used by receipt templates', () => {
-    const out = sanitisePrintHtml(
-      '<div style="font-weight:700;text-align:right">Total</div>'
-    );
+    const out = sanitisePrintHtml('<div style="font-weight:700;text-align:right">Total</div>');
     assert.match(out, /style="font-weight:700;text-align:right"/);
   });
 
@@ -68,7 +64,8 @@ describe('sanitisePrintHtml (ENG-166)', () => {
   });
 
   it('keeps data: image srcs (receipt logos)', () => {
-    const data = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
+    const data =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
     const out = sanitisePrintHtml(`<img src="${data}" alt="logo" />`);
     assert.match(out, /src="data:image\/png;base64/);
     assert.match(out, /alt="logo"/);

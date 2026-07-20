@@ -85,7 +85,7 @@ export interface ElectronAPI {
     path?: string;
     error?: string;
     /**
-     * ENG-167b — the selected bundle is encrypted with a DIFFERENT
+     * the selected bundle is encrypted with a DIFFERENT
      * device's key; the renderer must prompt for it and complete the
      * restore via `provideRestoreKey(token, keyHex)`.
      */
@@ -93,7 +93,7 @@ export interface ElectronAPI {
     token?: string;
   }>;
   /**
-   * ENG-167b — complete a cross-device restore with the SOURCE
+   * complete a cross-device restore with the SOURCE
    * device's 64-hex backup key. A wrong key returns
    * `{ needsKey: true, error }` and keeps the staged bundle so the
    * operator can retry.
@@ -110,13 +110,13 @@ export interface ElectronAPI {
     token?: string;
   }>;
   /**
-   * ENG-167b — discard the pending cross-device restore staging when
+   * discard the pending cross-device restore staging when
    * the operator dismisses the key prompt. A stale token is a silent
    * no-op (`success: false`).
    */
   cancelRestoreStaging: (token: string) => Promise<{ success: boolean }>;
   /**
-   * ENG-167b — reveal THIS install's backup encryption key (admin
+   * reveal THIS install's backup encryption key (admin
    * only; the renderer gates the reveal behind an explicit
    * confirmation). Needed to restore this device's bundles on
    * another machine.
@@ -126,13 +126,13 @@ export interface ElectronAPI {
     key?: string;
     error?: string;
   }>;
-  /** ENG-129e — admin-only protection metadata; never includes the key. */
+  /** admin-only protection metadata; never includes the key. */
   getBackupProtectionStatus: () => Promise<{
     success: boolean;
     status?: BackupProtectionStatus;
     error?: string;
   }>;
-  /** ENG-136a — device-local encrypted snapshot schedule. */
+  /** device-local encrypted snapshot schedule. */
   getBackupScheduleStatus: () => Promise<{
     success: boolean;
     status?: BackupScheduleStatus;
@@ -157,12 +157,12 @@ export interface ElectronAPI {
     status?: BackupScheduleStatus;
     error?: string;
   }>;
-  /** ENG-136b — admin-only, non-destructive restore readiness drill. */
+  /** admin-only, non-destructive restore readiness drill. */
   runBackupRestoreDrill: () => Promise<
     | { success: true; report: BackupRestoreDrillReport }
     | { success: false; error: 'snapshot_unavailable' | 'drill_failed' }
   >;
-  /** ENG-136c — admin-only S3-compatible backup vault; secrets are write-only. */
+  /** admin-only S3-compatible backup vault; secrets are write-only. */
   getBackupCloudVaultStatus: () => Promise<{
     success: boolean;
     status?: BackupCloudVaultStatus;
@@ -191,7 +191,7 @@ export interface ElectronAPI {
 }
 
 /**
- * ENG-074b — Hub-client local hardware bridge API. The renderer in
+ * Hub-client local hardware bridge API. The renderer in
  * `authorityMode === 'hub_client'` fetches ESC/POS bytes from the
  * hub and pipes them here so the main process can write them to the
  * locally-attached printer / drawer. Per ADR-0008 rule 6 the bridge
@@ -216,7 +216,7 @@ export interface PeripheralsAPI {
 }
 
 /**
- * ENG-074 — Authority Node runtime config exposed to the renderer
+ * Authority Node runtime config exposed to the renderer
  * synchronously so `apps/web/src/lib/trpc.ts` can resolve the tRPC
  * base URL at module init (the alternative — async fetch — would
  * race against the first tRPC call). The shape mirrors the server's
@@ -236,7 +236,7 @@ export interface RuntimeAPI {
 }
 
 /**
- * ENG-052b — Persistent device id under the user's data folder. The
+ * Persistent device id under the user's data folder. The
  * id is server-issued by `auth.registerDevice`; the renderer caches
  * it in localStorage AND mirrors it here so a localStorage clear
  * does not lose the registration.
@@ -251,7 +251,7 @@ export interface DeviceAPI {
 }
 
 /**
- * ENG-025 vector 1 — the `tenantId` argument is no longer accepted on
+ * vector 1 — the `tenantId` argument is no longer accepted on
  * tenant-scoped methods. Main process derives it from the registered
  * desktopSession (set via `session.register` after login). Legacy
  * arities are kept marked deprecated for one release so the
@@ -291,7 +291,7 @@ export interface SyncAPI {
 }
 
 /**
- * ENG-025 vector 1 — desktop session lifecycle. Renderer's
+ * vector 1 — desktop session lifecycle. Renderer's
  * AuthProvider calls `register(accessToken)` after a successful login
  * (and after every successful `auth.refresh` rotation), and `clear()`
  * after logout. Until `register` succeeds, every `db.*` / `sync.*`
@@ -313,7 +313,7 @@ const deviceAPI: DeviceAPI = {
   setId: (id: string) => ipcRenderer.invoke('device:set-id', id),
 };
 
-// ENG-074 — sync IPC for runtime config so the renderer's tRPC client
+// sync IPC for runtime config so the renderer's tRPC client
 // can pick the right base URL at module init. The handler in main is
 // `ipcMain.on('runtime:get-config', e => e.returnValue = config)`,
 // resolved once at boot and cached.
@@ -321,7 +321,7 @@ const runtimeAPI: RuntimeAPI = {
   getConfigSync: () => ipcRenderer.sendSync('runtime:get-config') as RendererRuntimeConfig,
 };
 
-// ENG-074b — Hub-client local hardware bridge API. Async IPC; the
+// Hub-client local hardware bridge API. Async IPC; the
 // main side calls `dispatchLocalEscpos` from the local-bridge
 // module which writes the bytes to the resolved transport. Returns
 // {success, error?, errorCode?} so the renderer can surface a
@@ -368,7 +368,7 @@ const electronAPI: ElectronAPI = {
 };
 
 const dbAPI: DatabaseAPI = {
-  // ENG-025 vector 1 — tenantId stays out of the wire. Main process
+  // vector 1 — tenantId stays out of the wire. Main process
   // reads it from the desktopSession singleton.
   getAll: (table: string) => ipcRenderer.invoke('db:getAll', table),
   getById: (table: string, id: string) => ipcRenderer.invoke('db:getById', table, id),

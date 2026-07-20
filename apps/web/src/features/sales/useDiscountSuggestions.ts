@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { trpc } from '@/lib/trpc';
 
 /**
- * ENG-199 — the POS-side read of the expiry-radar suggestions. Returns a
+ * the POS-side read of the expiry-radar suggestions. Returns a
  * Map of productId → highest active suggested discount percent, so any POS
  * surface (product search dialog, cart lines) can badge a product with
  * "sugerido -N%" from one shared 60-second-fresh query. The payload is

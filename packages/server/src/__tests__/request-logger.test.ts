@@ -1,5 +1,5 @@
 /**
- * ENG-052b — Request-scoped logger bindings.
+ * Request-scoped logger bindings.
  *
  * Verifies the helper that backs the Fastify `onRequest` hook:
  * every request log line should carry `requestId` (Fastify reqId)
@@ -25,9 +25,7 @@ function makeStubRequest(
 
 describe('buildRequestScopedLoggerBindings', () => {
   it('emits requestId only when no device header is set', () => {
-    const bindings = buildRequestScopedLoggerBindings(
-      makeStubRequest('req-001', {})
-    );
+    const bindings = buildRequestScopedLoggerBindings(makeStubRequest('req-001', {}));
     expect(bindings).toEqual({ requestId: 'req-001' });
     expect(bindings.deviceId).toBeUndefined();
   });
@@ -71,7 +69,7 @@ describe('buildRequestScopedLoggerBindings', () => {
     }
   });
 
-  // ENG-135c — renderer-minted correlation id intake.
+  // renderer-minted correlation id intake.
   it('adopts a valid x-correlation-id header alongside the requestId', () => {
     const bindings = buildRequestScopedLoggerBindings(
       makeStubRequest('req-006', {

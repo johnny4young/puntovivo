@@ -1,5 +1,5 @@
 /**
- * ENG-056 — Pending fiscal/payment checks for the cash-session
+ * Pending fiscal/payment checks for the cash-session
  * aggregate.
  *
  * Surfaces two warning categories at close-time and via a dedicated
@@ -7,24 +7,24 @@
  * before invoking close:
  *
  * 1. Pending fiscal documents — `fiscal_documents` rows joined to
- *    `sales` filtered by `cash_session_id`, with `status IN
- *    ('pending', 'contingency')`. These are DEEs/NCs the country
- *    adapter could not finalize at sale-time (typical: PT outage).
- *    Reusing `fiscal_documents.status` rather than the future
- *    `fiscal_outbox` (ENG-057) means coverage today is already correct
- *    for the rows the orchestrator wrote.
+ * `sales` filtered by `cash_session_id`, with `status IN
+ * ('pending', 'contingency')`. These are DEEs/NCs the country
+ * adapter could not finalize at sale-time (typical: PT outage).
+ * Reusing `fiscal_documents.status` rather than the future
+ * `fiscal_outbox` () means coverage today is already correct
+ * for the rows the orchestrator wrote.
  *
  * 2. Pending payment sales — `sales` rows on the session with
- *    `status='completed' AND paymentStatus IN ('pending', 'partial')`.
- *    The `status='completed'` filter is critical: parked drafts and
- *    voided sales may carry `paymentStatus='pending'` for unrelated
- *    reasons and would generate noise.
+ * `status='completed' AND paymentStatus IN ('pending', 'partial')`.
+ * The `status='completed'` filter is critical: parked drafts and
+ * voided sales may carry `paymentStatus='pending'` for unrelated
+ * reasons and would generate noise.
  *
  * Both queries hit indexed paths (`idx_fiscal_documents_status` +
  * `idx_sales_cash_session`); samples are capped at 5 per category so
  * the response stays small enough for the UI confirm modal.
  *
- * Decision (per ENG-056 plan, Pending semantics): close NEVER blocks
+ * Decision (per  plan, Pending semantics): close NEVER blocks
  * on pending state. The counts ride into the audit log metadata
  * (forensic snapshot) and into `pending_warning` journal effects (one
  * per non-zero category). The UI uses this query as a pre-close gate
@@ -37,11 +37,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { fiscalDocuments, sales } from '../../db/schema.js';
-import type {
-  PendingChecksResult,
-  PendingFiscalSample,
-  PendingPaymentSample,
-} from './types.js';
+import type { PendingChecksResult, PendingFiscalSample, PendingPaymentSample } from './types.js';
 
 const PENDING_SAMPLE_LIMIT = 5;
 const PENDING_FISCAL_STATUSES = ['pending', 'contingency'] as const;

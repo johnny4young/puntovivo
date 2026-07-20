@@ -1,7 +1,7 @@
 /**
  * Purchase item resolvers (new purchase, return, order receipt).
  *
- * ENG-178 — extracted verbatim from the former monolithic
+ * extracted verbatim from the former monolithic
  * `trpc/routers/purchases.ts` during the megafile decomposition.
  *
  * @module application/purchases/resolveItems

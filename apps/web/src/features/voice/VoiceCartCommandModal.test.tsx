@@ -1,12 +1,12 @@
 /**
- * ENG-040c slice 3 — VoiceCartCommandModal tests.
+ * slice 3 — VoiceCartCommandModal tests.
  *
  * Focus on the modal's contract with its parent:
- *   (a) idle state renders the mic CTA + intro copy.
- *   (b) recording state shows the live countdown + Stop label.
- *   (c) review state renders matches + Aplicar button.
- *   (d) Aplicar fires the parent `onApply` with the matched-only
- *       payload (un-matched lines stay out).
+ * (a) idle state renders the mic CTA + intro copy.
+ * (b) recording state shows the live countdown + Stop label.
+ * (c) review state renders matches + Aplicar button.
+ * (d) Aplicar fires the parent `onApply` with the matched-only
+ * payload (un-matched lines stay out).
  *
  * The recorder + tRPC mutations are mocked at the module level so
  * each test drives the modal's state machine directly.
@@ -49,9 +49,9 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 vi.mock('@/features/voice/useVoiceRecorder', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/features/voice/useVoiceRecorder')
-  >('@/features/voice/useVoiceRecorder');
+  const actual = await vi.importActual<typeof import('@/features/voice/useVoiceRecorder')>(
+    '@/features/voice/useVoiceRecorder'
+  );
   return {
     ...actual,
     useVoiceRecorder: () => ({
@@ -109,15 +109,9 @@ beforeEach(async () => {
   await i18n.changeLanguage('en');
 });
 
-describe('VoiceCartCommandModal (ENG-040c slice 3)', () => {
+describe('VoiceCartCommandModal ( slice 3)', () => {
   it('renders the idle state with the mic CTA + intro copy', () => {
-    render(
-      <VoiceCartCommandModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onApply={vi.fn()}
-      />
-    );
+    render(<VoiceCartCommandModal isOpen={true} onClose={vi.fn()} onApply={vi.fn()} />);
     expect(screen.getByTestId('voice-cart-modal')).toBeInTheDocument();
     const recordBtn = screen.getByTestId('voice-modal-record');
     expect(recordBtn).toHaveTextContent(/Start recording|Empezar a grabar/);
@@ -129,11 +123,7 @@ describe('VoiceCartCommandModal (ENG-040c slice 3)', () => {
 
   it('shows the live countdown + Stop CTA while recording', async () => {
     const { rerender } = render(
-      <VoiceCartCommandModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onApply={vi.fn()}
-      />
+      <VoiceCartCommandModal isOpen={true} onClose={vi.fn()} onApply={vi.fn()} />
     );
     await act(async () => {
       fireEvent.click(screen.getByTestId('voice-modal-record'));
@@ -142,19 +132,11 @@ describe('VoiceCartCommandModal (ENG-040c slice 3)', () => {
 
     // Force the next render so the recorder's mutated flag flows
     // through the hook mock.
-    rerender(
-      <VoiceCartCommandModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onApply={vi.fn()}
-      />
-    );
+    rerender(<VoiceCartCommandModal isOpen={true} onClose={vi.fn()} onApply={vi.fn()} />);
     expect(screen.getByTestId('voice-modal-record')).toHaveTextContent(
       /Stop recording|Detener grabación/
     );
-    expect(screen.getByTestId('voice-modal-countdown')).toHaveTextContent(
-      /Recording|Grabando/
-    );
+    expect(screen.getByTestId('voice-modal-countdown')).toHaveTextContent(/Recording|Grabando/);
   });
 
   it('stops an active recording on close without forwarding audio', async () => {
@@ -162,13 +144,7 @@ describe('VoiceCartCommandModal (ENG-040c slice 3)', () => {
     recorderState.recording = true;
     recorderState.stopMock = vi.fn(async () => new Blob(['discarded'], { type: 'audio/webm' }));
 
-    render(
-      <VoiceCartCommandModal
-        isOpen={true}
-        onClose={onClose}
-        onApply={vi.fn()}
-      />
-    );
+    render(<VoiceCartCommandModal isOpen={true} onClose={onClose} onApply={vi.fn()} />);
 
     await act(async () => {
       fireEvent.click(screen.getByLabelText(/Close|Cerrar/));
@@ -232,13 +208,7 @@ describe('VoiceCartCommandModal (ENG-040c slice 3)', () => {
     // Start recording, then stop — the stop triggers the
     // transcribe → parse chain which lands the review state.
     recorderState.recording = true;
-    render(
-      <VoiceCartCommandModal
-        isOpen={true}
-        onClose={vi.fn()}
-        onApply={vi.fn()}
-      />
-    );
+    render(<VoiceCartCommandModal isOpen={true} onClose={vi.fn()} onApply={vi.fn()} />);
     await act(async () => {
       fireEvent.click(screen.getByTestId('voice-modal-record'));
     });
@@ -303,9 +273,7 @@ describe('VoiceCartCommandModal (ENG-040c slice 3)', () => {
     });
 
     recorderState.recording = true;
-    render(
-      <VoiceCartCommandModal isOpen={true} onClose={onClose} onApply={onApply} />
-    );
+    render(<VoiceCartCommandModal isOpen={true} onClose={onClose} onApply={onApply} />);
     await act(async () => {
       fireEvent.click(screen.getByTestId('voice-modal-record'));
     });

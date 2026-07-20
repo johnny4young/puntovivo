@@ -1,5 +1,5 @@
 /**
- * ENG-052b — MEGA seed: purchase orders distributed across the
+ * MEGA seed: purchase orders distributed across the
  * historical window. Mix of `submitted` (pending), `partial_received`,
  * `received`, and `voided` so the orders page exercises every state.
  *
@@ -39,15 +39,26 @@ export async function seedHistoricalOrders(
     const id = nanoid();
     const isPending = i < target.ordersPending;
     const status: OrderStatus = isPending
-      ? (i % 3 === 0 ? 'partial_received' : 'submitted')
-      : (i % 4 === 0 ? 'voided' : 'received');
+      ? i % 3 === 0
+        ? 'partial_received'
+        : 'submitted'
+      : i % 4 === 0
+        ? 'voided'
+        : 'received';
     const provider = providerIds[i % providerIds.length] ?? providerIds[0];
     if (!provider) continue;
     const site = sites[i % sites.length]!;
 
     const itemsCount = 2 + (i % 3);
     let subtotal = 0;
-    const itemsBuilt: Array<{ id: string; productId: string; quantity: number; cost: number; total: number; baseUnitId: string }> = [];
+    const itemsBuilt: Array<{
+      id: string;
+      productId: string;
+      quantity: number;
+      cost: number;
+      total: number;
+      baseUnitId: string;
+    }> = [];
     for (let li = 0; li < itemsCount; li += 1) {
       const product = products[(i * 11 + li * 7) % products.length]!;
       const quantity = 10 + (i % 20);
@@ -112,7 +123,7 @@ async function chunkedInsert<T extends Record<string, unknown>>(
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per ENG-179c.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per .
     await (db.insert(table) as any).values(chunk).run();
   }
 }

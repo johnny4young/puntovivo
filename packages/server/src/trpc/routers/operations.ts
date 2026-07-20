@@ -1,5 +1,5 @@
 /**
- * ENG-187 — Operations router.
+ * Operations router.
  *
  * Backs the Operations "Needs attention" landing: one tenant-scoped,
  * read-only aggregation of the retryable outbox / sync failures so the

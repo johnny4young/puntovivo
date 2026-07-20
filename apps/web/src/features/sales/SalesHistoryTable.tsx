@@ -31,7 +31,7 @@ interface SalesHistoryTableProps {
   onRetry: () => void;
   onView: (saleId: string) => void;
   /**
-   * ENG-018b — id of the sale row the operator most recently focused
+   * id of the sale row the operator most recently focused
    * (click or keyboard nav). Used by Ctrl+Shift+P in SalesPage to
    * trigger reprint on the picked row. Controlled from the parent so
    * the shortcut handler has access to it.
@@ -76,7 +76,9 @@ export function SalesHistoryTable({
         accessorKey: 'total',
         header: t('history.columns.total'),
         size: 120,
-        cell: ({ row }) => <span className="font-medium">{formatCurrency(row.original.total)}</span>,
+        cell: ({ row }) => (
+          <span className="font-medium">{formatCurrency(row.original.total)}</span>
+        ),
       },
       {
         accessorKey: 'paymentStatus',
@@ -123,13 +125,13 @@ export function SalesHistoryTable({
           <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('history.kicker')}</p>
           <div>
             <h2 className="font-display text-3xl text-secondary-950">{t('history.title')}</h2>
-            <p className="mt-2 text-sm text-secondary-600">
-              {t('history.description')}
-            </p>
+            <p className="mt-2 text-sm text-secondary-600">{t('history.description')}</p>
           </div>
         </div>
         {!isLoading && !error && (
-          <span className="badge badge-secondary">{sales.length} {t('history.recordsLoaded')}</span>
+          <span className="badge badge-secondary">
+            {sales.length} {t('history.recordsLoaded')}
+          </span>
         )}
       </div>
 
@@ -154,10 +156,8 @@ export function SalesHistoryTable({
                 onSelectedSaleIdChange(row ? row.id : null);
               }
             }}
-            isRowSelected={row =>
-              selectedSaleId != null && row.id === selectedSaleId
-            }
-            // ENG-134f — Enter / Space on the focused row opens the
+            isRowSelected={row => selectedSaleId != null && row.id === selectedSaleId}
+            // Enter / Space on the focused row opens the
             // sale detail modal, mirroring the row's Eye button click.
             onRowActivate={row => onView(row.id)}
           />

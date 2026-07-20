@@ -4,11 +4,7 @@ import type { DatabaseInstance } from '../../../db/index.js';
 import { products, unitXProduct, units } from '../../../db/schema.js';
 import { productStockTotalSql } from '../../inventory-balances/derive.js';
 import { recordCall } from '../auditLog.js';
-import {
-  cosineSimilarity,
-  embedTexts,
-  loadTenantProductEmbeddings,
-} from '../embeddings.js';
+import { cosineSimilarity, embedTexts, loadTenantProductEmbeddings } from '../embeddings.js';
 
 const INVOICE_LINE_SIMILARITY_FLOOR = 0.85;
 
@@ -110,7 +106,7 @@ export async function matchInvoiceLinesToProducts(
 
     lines.forEach((line, idx) => {
       const exactProductId = exactSkuMatches.get(idx);
-      const product = exactProductId ? exactSkuSummaries.get(exactProductId) ?? null : null;
+      const product = exactProductId ? (exactSkuSummaries.get(exactProductId) ?? null) : null;
       if (!product) return;
       matches[idx] = {
         line,
@@ -148,8 +144,8 @@ export async function matchInvoiceLinesToProducts(
       : { mode: 'unavailable', reason: 'ai-disabled', matches: [] };
   }
 
-  const winners: Array<{ productId: string; similarity: number } | null> = embedResult.embeddings.map(
-    queryVec => {
+  const winners: Array<{ productId: string; similarity: number } | null> =
+    embedResult.embeddings.map(queryVec => {
       let best: { productId: string; similarity: number } | null = null;
       for (const row of embedded) {
         const sim = cosineSimilarity(queryVec, row.embedding);
@@ -159,8 +155,7 @@ export async function matchInvoiceLinesToProducts(
         }
       }
       return best;
-    }
-  );
+    });
 
   const matchedIds = Array.from(
     new Set(winners.filter((w): w is NonNullable<typeof w> => w !== null).map(w => w.productId))
@@ -169,9 +164,10 @@ export async function matchInvoiceLinesToProducts(
   // Hydrate one row per distinct match: product card + base unit data
   // so the renderer can call `mergePurchaseCartItem` with the same
   // shape `ProductSearchDialog` already produces.
-  const summaries = matchedIds.length === 0
-    ? new Map<string, MatchedProductSummary>()
-    : await hydrateProductSummaries(ctx.db, ctx.tenantId, matchedIds);
+  const summaries =
+    matchedIds.length === 0
+      ? new Map<string, MatchedProductSummary>()
+      : await hydrateProductSummaries(ctx.db, ctx.tenantId, matchedIds);
 
   remaining.forEach(({ idx }, remainingIdx) => {
     const line = lines[idx]!;
@@ -197,7 +193,7 @@ export async function matchInvoiceLinesToProducts(
 
   // One audit log row covers the whole batch. Cost stays 0 because the
   // embedding pricing isn't surfaced through `ProviderPricing` today —
-  // when ENG-040b adds per-call pricing for embedding models, plumb
+  // when  adds per-call pricing for embedding models, plumb
   // the math through here. The audit row is still valuable as a usage
   // counter even at $0.
   await recordCall(ctx.db, {
@@ -265,8 +261,7 @@ async function hydrateProductSummaries(
       // skip silently so the operator falls back to the manual picker.
       continue;
     }
-    const baseUnit =
-      unitsForProduct.find(u => u.isBase === true) ?? unitsForProduct[0];
+    const baseUnit = unitsForProduct.find(u => u.isBase === true) ?? unitsForProduct[0];
     if (!baseUnit) continue;
     out.set(product.id, {
       productId: product.id,
@@ -284,7 +279,7 @@ async function hydrateProductSummaries(
 }
 
 /** Test seam — exported so unit tests can reach the cosine winner
- *  picker without spinning up the provider mocks. */
+ * picker without spinning up the provider mocks. */
 export const __matcherInternals = {
   hydrateProductSummaries,
 };

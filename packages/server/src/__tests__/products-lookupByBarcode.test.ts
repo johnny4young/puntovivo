@@ -1,5 +1,5 @@
 /**
- * ENG-061 — `products.lookupByBarcode` router tests.
+ * `products.lookupByBarcode` router tests.
  *
  * Covers exact-match resolution, GS1 prefix-2x weight/price decoding,
  * cross-tenant isolation, and the strict/permissive parse policies.
@@ -98,7 +98,7 @@ async function insertProduct(opts: {
   return id;
 }
 
-describe('products.lookupByBarcode (ENG-061)', () => {
+describe('products.lookupByBarcode', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
@@ -110,7 +110,11 @@ describe('products.lookupByBarcode (ENG-061)', () => {
     if (!seededUser) throw new Error('Expected seeded admin user');
     tenantId = seededUser.tenantId;
     userId = seededUser.id;
-    const seededVatRate = await db.select().from(vatRates).where(eq(vatRates.tenantId, tenantId)).get();
+    const seededVatRate = await db
+      .select()
+      .from(vatRates)
+      .where(eq(vatRates.tenantId, tenantId))
+      .get();
     if (!seededVatRate) throw new Error('Expected seeded VAT rate');
     vatRateId = seededVatRate.id;
     const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
@@ -188,7 +192,11 @@ describe('products.lookupByBarcode (ENG-061)', () => {
       createdAt: now(),
       updatedAt: now(),
     });
-    await insertProduct({ tenantId: foreignTenantId, barcode: '7700000000000', name: 'Other tenant product' });
+    await insertProduct({
+      tenantId: foreignTenantId,
+      barcode: '7700000000000',
+      name: 'Other tenant product',
+    });
     const caller = appRouter.createCaller(makeContext('cashier'));
     const result = await caller.products.lookupByBarcode({ barcode: '7700000000000' });
     expect(result).toBeNull();

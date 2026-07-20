@@ -1,13 +1,13 @@
 /**
- * ENG-204 — cashier pace metrics (`cashSessions.pace`).
+ * cashier pace metrics (`cashSessions.pace`).
  *
  * Exercises the endpoint through REAL session and sale lifecycles (open →
  * sell → close via the routers/use-cases) so the metrics reflect exactly
  * what production rows produce:
- *   - null without an active session (the HUD hides);
- *   - live counts in base units with refunds excluded;
- *   - the personal best derives from the caller's own CLOSED sessions and
- *     requires the minimum sale count before a record can be set or beaten.
+ * - null without an active session (the HUD hides);
+ * - live counts in base units with refunds excluded;
+ * - the personal best derives from the caller's own CLOSED sessions and
+ * requires the minimum sale count before a record can be set or beaten.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
@@ -76,7 +76,7 @@ async function closeSession() {
   });
 }
 
-describe('cashier pace (ENG-204)', () => {
+describe('cashier pace', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();

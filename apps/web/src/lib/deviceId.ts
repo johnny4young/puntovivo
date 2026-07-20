@@ -1,5 +1,5 @@
 /**
- * ENG-052 — Device id resolution for the renderer.
+ * Device id resolution for the renderer.
  *
  * The Command Envelope (ADR-0002) requires every critical mutation
  * to ship `x-device-id`. The id comes from `auth.registerDevice`
@@ -9,11 +9,11 @@
  * Storage strategy:
  *
  * - **Electron**: prefer `window.electron.device.getId()` so the id
- *   lives in the user's userData folder (survives browser cache
- *   wipes). The Electron preload populates this in a follow-up
- *   ticket (ENG-052b); for now we fall back to localStorage.
+ * lives in the user's userData folder (survives browser cache
+ * wipes). The Electron preload populates this in a follow-up
+ * ticket (); for now we fall back to localStorage.
  * - **Web (browser)**: localStorage under the key
- *   `puntovivo:deviceId`.
+ * `puntovivo:deviceId`.
  *
  * The id is **server-issued** by `auth.registerDevice`; the
  * renderer never generates one client-side. The server controls the
@@ -36,8 +36,7 @@ interface ElectronDeviceBridge {
  * surface). Returns `undefined` when not running under Electron.
  */
 function getElectronDeviceBridge(): ElectronDeviceBridge | undefined {
-  const electron = (window as unknown as { electron?: { device?: ElectronDeviceBridge } })
-    .electron;
+  const electron = (window as unknown as { electron?: { device?: ElectronDeviceBridge } }).electron;
   return electron?.device;
 }
 
@@ -66,10 +65,7 @@ export async function readDeviceId(): Promise<string | null> {
       if (fromElectron) return fromElectron;
     } catch (error) {
       // Electron bridge failure → fall through to localStorage.
-      warnDeviceIdFailure(
-        'Electron bridge getId() failed; falling back to localStorage',
-        error
-      );
+      warnDeviceIdFailure('Electron bridge getId() failed; falling back to localStorage', error);
     }
   }
   try {
@@ -96,10 +92,7 @@ export async function storeDeviceId(deviceId: string): Promise<void> {
     // localStorage write failure is non-fatal — the in-memory cache
     // below will still serve subsequent requests in the same tab,
     // but the operator should know the id will not survive a reload.
-    warnDeviceIdFailure(
-      'localStorage write failed; device id will not survive page reload',
-      error
-    );
+    warnDeviceIdFailure('localStorage write failed; device id will not survive page reload', error);
   }
 
   const electronBridge = getElectronDeviceBridge();

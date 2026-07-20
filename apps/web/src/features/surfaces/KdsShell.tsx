@@ -1,13 +1,13 @@
 /**
- * ENG-069 — KDS (Kitchen Display Screen) shell.
+ * KDS (Kitchen Display Screen) shell.
  *
  * Fullscreen black backdrop sized for a kitchen-mounted TV. No
  * sidebar / no Header — the kitchen station does not need
  * navigation chrome. v1 shipped the chrome only; the real ticket
- * queue landed with ENG-098 (kitchen display surface, 2026-05-19).
+ * queue landed with  (kitchen display surface, 2026-05-19).
  *
  * Mounted as a top-level route in `App.tsx` so KDS owns its
- * viewport without competing with `MainLayout`. ENG-183 — role +
+ * viewport without competing with `MainLayout`.  — role +
  * module gating moved up to `SurfaceShellRoute`; this shell is pure
  * presentational chrome around its `<Outlet />`.
  *

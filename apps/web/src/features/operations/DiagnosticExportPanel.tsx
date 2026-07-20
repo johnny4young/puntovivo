@@ -10,16 +10,16 @@ import { translateServerError } from '@/lib/translateServerError';
 import { downloadFile } from '@/services/export/exportService';
 
 /**
- * ENG-065c — Operations Center: Diagnostic Export panel.
+ * Operations Center: Diagnostic Export panel.
  *
  * Admin-only bulk export for support tickets. Two flows:
  *
- *   1. "Vista previa" → fires `reports.diagnostics.preview` to size
- *      the bundle before downloading. Surfaces row counts + estimated
- *      size + "rate limit hit" warning.
- *   2. "Descargar ZIP" → fires `reports.diagnostics.export`, builds a
- *      zip via jszip with `manifest.json` + one `<table>.json` per
- *      table, and triggers a Blob download via `URL.createObjectURL`.
+ * 1. "Vista previa" → fires `reports.diagnostics.preview` to size
+ * the bundle before downloading. Surfaces row counts + estimated
+ * size + "rate limit hit" warning.
+ * 2. "Descargar ZIP" → fires `reports.diagnostics.export`, builds a
+ * zip via jszip with `manifest.json` + one `<table>.json` per
+ * table, and triggers a Blob download via `URL.createObjectURL`.
  *
  * Manager + cashier sit at the procedure-level FORBIDDEN gate from
  * `adminProcedure`; the panel still renders for them but the CTAs
@@ -27,7 +27,7 @@ import { downloadFile } from '@/services/export/exportService';
  * visible (operator can still see the count tiles after admin runs
  * the preview, easing handoffs).
  *
- * Rediseño FASE 6 (O2) — recetas pv-*: la vista previa se presenta
+ * recetas pv-*: la vista previa se presenta
  * como una lista de chequeos con estado tonal (`.pv-check`, ok /
  * atención) en lugar de logs crudos, el rango usa el segmentado
  * `.pv-seg` y los campos de fecha la receta `.pv-field` / `.pv-input`.
@@ -71,7 +71,7 @@ function isDateInputValue(value: string): boolean {
 /**
  * Fallback filename used only when the server envelope misses
  * `suggestedFilename` (defense in depth — the export procedure should
- * always include it post-ENG-103). Pattern matches the canonical
+ * always include it post-). Pattern matches the canonical
  * `puntovivo-diagnostic-<slug>-<timestamp>.zip` the server emits.
  */
 function buildExportFilenameFallback(tenantSlug: string | undefined): string {
@@ -103,8 +103,7 @@ export function DiagnosticExportPanel() {
 
   const fromIso = dateInputToFromIso(fromDate);
   const toIso = dateInputToToIso(toDate);
-  const rangeValid =
-    isDateInputValue(fromDate) && isDateInputValue(toDate) && fromDate <= toDate;
+  const rangeValid = isDateInputValue(fromDate) && isDateInputValue(toDate) && fromDate <= toDate;
 
   const previewQuery = trpc.reports.diagnostics.preview.useQuery(
     { fromDate: fromIso, toDate: toIso },
@@ -121,13 +120,11 @@ export function DiagnosticExportPanel() {
       includeOutboxes:
         includeSync && includeFiscal && includeHardware
           ? undefined
-          : (
-              [
-                includeSync && 'sync',
-                includeFiscal && 'fiscal',
-                includeHardware && 'hardware',
-              ].filter(Boolean) as IncludeOutbox[]
-            ),
+          : ([
+              includeSync && 'sync',
+              includeFiscal && 'fiscal',
+              includeHardware && 'hardware',
+            ].filter(Boolean) as IncludeOutbox[]),
     },
     {
       enabled: false, // fires on Descargar click via refetch()
@@ -164,13 +161,12 @@ export function DiagnosticExportPanel() {
       }
 
       const blob = await zip.generateAsync({ type: 'blob' });
-      // ENG-103 — prefer the server-suggested filename so the
+      // prefer the server-suggested filename so the
       // canonical pattern stays consistent across surfaces; fall back
       // to the local builder only when an older server build leaves
       // the field absent. The centralized `downloadFile` helper
       // handles the anchor + delayed revoke pattern.
-      const filename =
-        result.data.suggestedFilename ?? buildExportFilenameFallback(user?.tenantId);
+      const filename = result.data.suggestedFilename ?? buildExportFilenameFallback(user?.tenantId);
       downloadFile(blob, filename);
 
       toast.success({ title: t('diagnostics.export.success') });
@@ -222,11 +218,7 @@ export function DiagnosticExportPanel() {
       </header>
 
       <div className="space-y-3">
-        <div
-          className="pv-seg"
-          role="tablist"
-          aria-label={t('diagnostics.range.presetsAriaLabel')}
-        >
+        <div className="pv-seg" role="tablist" aria-label={t('diagnostics.range.presetsAriaLabel')}>
           {(['last7d', 'last30d', 'custom'] as const).map(preset => {
             const selected = activePreset === preset;
             return (
@@ -325,9 +317,7 @@ export function DiagnosticExportPanel() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="t">{check.label}</p>
-                    <p className="d">
-                      {t('diagnostics.preview.rowCount', { count: check.count })}
-                    </p>
+                    <p className="d">{t('diagnostics.preview.rowCount', { count: check.count })}</p>
                   </div>
                   <span className="font-mono text-sm font-semibold tabular-nums text-secondary-900">
                     {check.count.toLocaleString()}

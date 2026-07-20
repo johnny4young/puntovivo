@@ -2,9 +2,9 @@
  * QR code encoder shared between the HTML and ESC/POS render branches.
  *
  * The receipt renderer (`services/receipt-renderer.ts`) used to emit a
- * pure-CSS placeholder for QR blocks because ENG-086 deliberately
+ * pure-CSS placeholder for QR blocks because  deliberately
  * stopped at the visual silhouette and deferred real PNG generation to
- * the print handler. ENG-097 closes that loop: receipts that ship a
+ * the print handler.  closes that loop: receipts that ship a
  * fiscal `qrUrl` (DIAN, CFDI, DTE) must scan correctly on the customer
  * phone, otherwise the receipt is non-compliant.
  *
@@ -12,21 +12,21 @@
  * JS, no native deps — already used in `apps/web` for fiscal PDFs) and
  * exposes two pure functions:
  *
- *   - `encodeQrSvg(source, options)` → inline SVG with monochrome
- *     modules; safe under the strict `sandbox=""` editor preview iframe
- *     because there is no script + no external resource.
- *   - `encodeQrEscposBytes(source, options)` → the Epson Standard Mode
- *     `GS ( k` sequence (model select + error correction + module size
- *     + store data + print). Universal across 58 mm and 80 mm
- *     ESC/POS-compatible thermal printers.
+ * - `encodeQrSvg(source, options)` → inline SVG with monochrome
+ * modules; safe under the strict `sandbox=""` editor preview iframe
+ * because there is no script + no external resource.
+ * - `encodeQrEscposBytes(source, options)` → the Epson Standard Mode
+ * `GS ( k` sequence (model select + error correction + module size
+ * + store data + print). Universal across 58 mm and 80 mm
+ * ESC/POS-compatible thermal printers.
  *
  * Both functions accept the same `source` and degrade gracefully:
  *
- *   - Empty / whitespace-only source → returns `null` so the caller can
- *     fall back to the editor's empty-state placeholder.
- *   - Encoder rejects the source (payload exceeds version-40 capacity
- *     at the chosen EC level, or invalid input) → returns `null` plus
- *     a `console.warn` so the receipt still prints without throwing.
+ * - Empty / whitespace-only source → returns `null` so the caller can
+ * fall back to the editor's empty-state placeholder.
+ * - Encoder rejects the source (payload exceeds version-40 capacity
+ * at the chosen EC level, or invalid input) → returns `null` plus
+ * a `console.warn` so the receipt still prints without throwing.
  *
  * `errorCorrectionLevel` defaults to `'M'` (15% recovery) — matches the
  * DIAN handoff in `preview/25-print-thermal.html` and stays inside the
@@ -46,7 +46,7 @@ export interface QrSvgOptions {
   pixelSize: number;
   /**
    * QR error correction level. Higher levels survive more scuffs but
-   * shrink the data capacity. `M` matches the 2026-05-15 handoff and is
+   * shrink the data capacity. `M` matches the print specification and is
    * the safe default for fiscal URLs.
    */
   errorCorrectionLevel?: QrErrorCorrectionLevel;
@@ -82,26 +82,19 @@ export interface QrEscposOptions {
  * vs. 625 rects). `xmlns` is explicit so the SVG renders inside the
  * iframe without inheriting the document namespace.
  */
-export function encodeQrSvg(
-  source: string,
-  options: QrSvgOptions
-): string | null {
+export function encodeQrSvg(source: string, options: QrSvgOptions): string | null {
   const trimmed = source.trim();
   if (!trimmed) return null;
   let matrix: ReturnType<typeof QRCode.create>;
   try {
     matrix = QRCode.create(trimmed, {
-      errorCorrectionLevel:
-        options.errorCorrectionLevel ?? DEFAULT_EC_LEVEL,
+      errorCorrectionLevel: options.errorCorrectionLevel ?? DEFAULT_EC_LEVEL,
     });
   } catch (err) {
     // Payload too large for QR version 40 at this EC level, or any
     // upstream encoding error. Keep the receipt printable.
     // eslint-disable-next-line no-console
-    console.warn(
-      '[receipt-renderer] QR SVG encode failed; falling back to placeholder',
-      err
-    );
+    console.warn('[receipt-renderer] QR SVG encode failed; falling back to placeholder', err);
     return null;
   }
 

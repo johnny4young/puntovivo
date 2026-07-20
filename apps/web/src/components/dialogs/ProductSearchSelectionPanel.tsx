@@ -1,4 +1,4 @@
-/** ENG-178 — Selected-product details for ProductSearchDialog. */
+/** Selected-product details for ProductSearchDialog. */
 import { useTranslation } from 'react-i18next';
 
 import { formatCurrency } from '@/lib/utils';

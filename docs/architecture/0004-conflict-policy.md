@@ -2,14 +2,13 @@
 
 > Status: Accepted
 > Date: 2026-05-02
-> Owner: ENG-051
 
 ## Decision
 
 **Sync conflicts on high-risk entities (money, fiscal, cash,
 inventory movements, audit trail) are NEVER resolved automatically.
 The operator must resolve them manually through `sync.resolve` or
-the Operations Center (ENG-065). Non-financial entities (catalog
+the Operations Center (). Non-financial entities (catalog
 data, preferences) accept last-write-wins with mandatory audit log
 entries.**
 
@@ -17,17 +16,17 @@ The split is binary and the lists are closed. New entities must be
 classified at design time; defaulting to "high-risk" is the safe
 choice when the call is ambiguous.
 
-The current implementation (ENG-042) already exposes the building
+The current implementation () already exposes the building
 blocks: `sync.listConflicts` and `sync.pull` return
 `localRecordExists`; `sync.resolve` rejects `keepLocal` and
 `merged` when the local row is missing and steers the operator to
 `acceptRemote` (rebadged as "Discard Local Change" in the UI). This
-ADR formalizes the entity classification so ENG-064 can wire each
+ADR formalizes the entity classification so can wire each
 list to the correct policy without re-arguing per row.
 
 ---
 
-## Entidades de alto riesgo *(en español por convención fiscal y contable)*
+## Entidades de alto riesgo _(en español por convención fiscal y contable)_
 
 Las siguientes entidades **nunca** aceptan resolución automática.
 Cualquier conflicto detectado por el sync queda en estado
@@ -38,8 +37,8 @@ Cualquier conflicto detectado por el sync queda en estado
 - `sales`
 - `sale_payments`
 - `sale_returns`
-- `sale_items` *(snapshot inmutable; un conflicto aquí indica
-  corrupción y debe inspeccionarse, no resolverse)*
+- `sale_items` _(snapshot inmutable; un conflicto aquí indica
+  corrupción y debe inspeccionarse, no resolverse)_
 
 **Caja**
 
@@ -52,7 +51,7 @@ Cualquier conflicto detectado por el sync queda en estado
 - `fiscal_document_items`
 - `fiscal_numbering_resolutions`
 - `fiscal_certificates`
-- `fiscal_outbox` *(introducida por ENG-057)*
+- `fiscal_outbox` _(introducida por )_
 
 **Inventario operacional**
 
@@ -64,7 +63,7 @@ Cualquier conflicto detectado por el sync queda en estado
 
 **Auditoría**
 
-- `audit_logs` *(snapshot inmutable; nunca se sobreescribe)*
+- `audit_logs` _(snapshot inmutable; nunca se sobreescribe)_
 
 **Razón**: estas entidades son la base contable y legal del
 tenant. Una resolución automática podría:
@@ -115,7 +114,7 @@ recording the auto-resolution choice for the loser side:
 
 - `sites`
 - `locations`
-- `site_peripherals` *(when ENG-060 ships)*
+- `site_peripherals` _(when ships)_
 
 **Sync metadata itself**
 
@@ -165,18 +164,18 @@ audit log viewer.
 
 ## Implementation Impact
 
-- **Already in place**: ENG-042 shipped `sync.listConflicts` /
+- **Already in place**: shipped `sync.listConflicts` /
   `sync.pull` / `sync.resolve` with `localRecordExists`. The
   `sync_conflicts` table records `resolution: 'local_wins' |
-  'remote_wins' | 'merged'` and is operator-driven for high-risk
+'remote_wins' | 'merged'` and is operator-driven for high-risk
   rows today. The errorCode `SYNC_LOCAL_RECORD_MISSING` already
   exists.
-- **New mapping** (ENG-064): the sync contract v1 publishes a
+- **New mapping** (): the sync contract v1 publishes a
   per-entity `conflictPolicy` field in the payload header. Values
   are `manual` (high-risk) and `auto_lww` (non-financial). The
   resolver consults this field before deciding to auto-resolve or
   enqueue a manual resolution.
-- **Operations Center (ENG-065)**: shows two distinct panels —
+- **Operations Center ()**: shows two distinct panels —
   "Conflictos pendientes (alto riesgo)" with a count and an
   action button per row, and "Resoluciones automáticas (24h)"
   with a read-only summary of the loser snapshots that landed in
@@ -188,26 +187,26 @@ audit log viewer.
   without producing this audit event.
 - **Forbidden flows**: the resolver MUST NOT carry an automatic
   branch for any high-risk table. Adding one would silently
-  violate the policy; ENG-064 includes a vitest assertion that
+  violate the policy; includes a vitest assertion that
   the high-risk list above maps 1:1 to schema tables tagged
   `conflictPolicy='manual'`.
 
-## Affected Tickets
+## Implementation map
 
-- `ENG-053` — Operation journal + outbox kernel. Logs every
+- Operation journal + outbox kernel. Logs every
   resolver decision (manual or auto) in the journal so the
   Operations Center can render the timeline.
-- `ENG-057` — Fiscal outbox + contingency engine. The
+- Fiscal outbox + contingency engine. The
   `fiscal_outbox` is high-risk by definition and never
   auto-resolves.
-- `ENG-064` — Sync contract v1. Introduces the per-entity
+- Sync contract v1. Introduces the per-entity
   `conflictPolicy` field and the lint that maps the lists above
   to schema tables.
-- `ENG-065` — Operations Center. Renders the two panels and the
+- Operations Center. Renders the two panels and the
   resolution timeline.
-- `ENG-066` — Backup, restore, and local security. Backup must
+- Backup, restore, and local security. Backup must
   preserve the conflict resolution audit history alongside sales
   / fiscal / outbox data so a restored tenant can audit its
   history.
 
-Updated: 2026-05-02 (ENG-051 — initial ADR set).
+Updated: 2026-05-02 (initial ADR set).

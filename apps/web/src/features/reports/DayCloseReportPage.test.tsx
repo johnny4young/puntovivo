@@ -170,7 +170,7 @@ beforeEach(() => {
   signOff.mockReset();
 });
 
-describe('DayCloseReportPage (ENG-141a/ENG-141b)', () => {
+describe('DayCloseReportPage (-141b)', () => {
   it('renders loading and error states', () => {
     mockPending = true;
     const { rerender } = render(<DayCloseReportPage />);

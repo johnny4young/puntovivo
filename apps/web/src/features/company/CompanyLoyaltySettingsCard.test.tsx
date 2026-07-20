@@ -1,5 +1,5 @@
 /**
- * ENG-214 — the admin surface that makes ENG-213 reachable.
+ * the admin surface that makes  reachable.
  *
  * The load-bearing assertion here is the unit inversion: the operator types
  * "a point costs $1.000" and the server must receive `pointsPerUnit: 0.001`.
@@ -35,7 +35,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
 
-describe('CompanyLoyaltySettingsCard (ENG-214)', () => {
+describe('CompanyLoyaltySettingsCard', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('es');
     vi.clearAllMocks();

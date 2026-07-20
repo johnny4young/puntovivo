@@ -1,12 +1,12 @@
 /**
- * ENG-031 — co-pilot chat orchestration.
+ * co-pilot chat orchestration.
  *
  * The public `runCopilotChat` entrypoint (called from `routers/ai/copilot.ts`)
  * plus the provider/budget resolution, the AI-SDK usage parsing (Anthropic
  * nests cache tokens; OpenAI flattens them), and the error-code mapping. Wires
  * the prompt builders + the tenant-scoped `runReadOnlySQL` tool into a single
  * `generateText` call, then records one audit-log row per call. Split out of
- * `copilot.ts` (ENG-178).
+ * `copilot.ts` ().
  *
  * @module services/ai/copilot/chat
  */
@@ -24,7 +24,7 @@ import {
 import { currentMonthSpend, recordCall } from '../auditLog.js';
 import { resolveAISettings, toBillableTokenUsage } from '../client.js';
 import type { AIInvocationContext, ProviderFactory } from '../client.js';
-import { getProvider, isNotImplemented } from '../providers/registry.js';
+import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import type { AISettings } from '../types.js';
 
@@ -45,22 +45,10 @@ import type {
   UsageShape,
 } from './types.js';
 
-const defaultFactory: ProviderFactory = (id: AISettings['providerId']) => {
-  const provider = getProvider(id);
-  if (isNotImplemented(provider)) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'AI_PROVIDER_ERROR',
-      message: `${provider.id} provider lands with ${provider.availableInTicket}`,
-    });
-  }
-  return provider;
-};
+const defaultFactory: ProviderFactory = (id: AISettings['providerId']) => getProvider(id);
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null
-    ? (value as Record<string, unknown>)
-    : null;
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
 }
 
 function usageNumber(value: unknown): number {

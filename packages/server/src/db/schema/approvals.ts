@@ -1,5 +1,5 @@
 /**
- * Drizzle schema — short-lived manager approval requests (ENG-106c1).
+ * Drizzle schema — short-lived manager approval requests ().
  *
  * Approval rows carry identity and decision evidence, never credentials.
  * The manager/admin PIN is verified per decision and is not persisted in
@@ -61,7 +61,7 @@ export const managerApprovalRequests = sqliteTable(
     resourceType: text('resource_type').notNull(),
     resourceId: text('resource_id'),
     summary: text('summary', { mode: 'json' }).$type<ManagerApprovalSummary>().notNull(),
-    // ENG-142c — one exact request can require two distinct fresh-PIN decisions.
+    // one exact request can require two distinct fresh-PIN decisions.
     requiredApprovals: integer('required_approvals').notNull().default(1),
     approvalEvidence: text('approval_evidence', { mode: 'json' })
       .$type<ManagerApprovalEvidence[]>()

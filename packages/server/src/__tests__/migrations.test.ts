@@ -1,12 +1,12 @@
 /**
- * Versioned Drizzle migrations (ENG-002) — integration tests
+ * Versioned Drizzle migrations () — integration tests
  *
  * Covers three end-to-end scenarios:
- *  - Fresh DB boot → the full migration journal lands exactly once.
- *  - Pre-ENG-002 install adopted via the shim → baseline row is seeded
- *    without re-running baseline DDL, then newer migrations run.
- *  - Restarting the server against the same DB file → no-op, count stays
- *    at the journal length, no errors.
+ * - Fresh DB boot → the full migration journal lands exactly once.
+ * - Pre- install adopted via the shim → baseline row is seeded
+ * without re-running baseline DDL, then newer migrations run.
+ * - Restarting the server against the same DB file → no-op, count stays
+ * at the journal length, no errors.
  *
  * The baseline hash check doubles as a regression pin: anyone regenerating
  * the baseline SQL (tightening a default, removing a column, etc.) MUST
@@ -103,7 +103,7 @@ function getTableSql(sqlite: Database.Database, tableName: string): string {
   return row?.sql ?? '';
 }
 
-describe('Versioned Drizzle migrations (ENG-002)', () => {
+describe('Versioned Drizzle migrations', () => {
   const createdPaths: string[] = [];
 
   afterEach(() => {
@@ -171,7 +171,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(baselineSql).not.toMatch(/DEFAULT\s+'null'/i);
   });
 
-  it('adopts a pre-ENG-002 install by seeding only the baseline, then running newer DDL', async () => {
+  it('adopts a pre- install by seeding only the baseline, then running newer DDL', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-'));
     createdPaths.push(dir);
     const dbPath = join(dir, 'legacy.db');
@@ -448,7 +448,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
   });
 
   it('hard-fails with an actionable error when the migrations folder is missing', async () => {
-    // ENG-002 Step 3 — the legacy `runSchemaSync()` fallback used to
+    // Step 3 — the legacy `runSchemaSync()` fallback used to
     // cover the missing-folder case with a warn. After retirement the
     // path must throw loudly so malformed deployments surface instead
     // of silently booting against an empty schema.
@@ -464,7 +464,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
   });
 
   it('populates catalog rows on an adopted DB whose schema was already materialised', async () => {
-    // ENG-002 Step 3 regression pin: adopted DBs whose baseline is
+    // Step 3 regression pin: adopted DBs whose baseline is
     // pinned by ensureMigrationBaseline() still rely on seedCatalogs()
     // to write the catalog rows on every boot. This test materialises
     // the full baseline schema without Drizzle's tracking table and
@@ -495,7 +495,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
         liveDb.$client.prepare('SELECT COUNT(*) AS count FROM country_catalog').get() as
           { count: number } | undefined
       )?.count ?? 0;
-    // ENG-176c — `dian_identification_types` renamed to
+    // `dian_identification_types` renamed to
     // `fiscal_identification_types` in migration 0038. The catalog now
     // carries CO + MX + PE + CL rows; CO still owns the 10 DIAN rows
     // verbatim post-rename.

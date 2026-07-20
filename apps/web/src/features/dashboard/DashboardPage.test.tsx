@@ -1,5 +1,5 @@
 /**
- * ENG-068 — Dashboard module-gate regression.
+ * Dashboard module-gate regression.
  *
  * The anomaly tile calls `ai.anomalies.list`, now guarded by the
  * `anomaly-detection` module. Dashboard must hide the tile when the

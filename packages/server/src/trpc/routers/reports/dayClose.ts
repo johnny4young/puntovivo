@@ -1,10 +1,7 @@
-/** ENG-141a — manager/admin comprehensive day-close report namespace. */
+/** manager/admin comprehensive day-close report namespace. */
 
 import { computeComprehensiveDayCloseReport } from '../../../services/reports/comprehensive-day-close.js';
-import {
-  getDayCloseSignoff,
-  signDayClose,
-} from '../../../services/reports/day-close-signoff.js';
+import { getDayCloseSignoff, signDayClose } from '../../../services/reports/day-close-signoff.js';
 import { router } from '../../init.js';
 import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import { criticalCommandManagerOrAdminProcedure } from '../../middleware/criticalCommand.js';

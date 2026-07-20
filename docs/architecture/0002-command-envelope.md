@@ -2,7 +2,6 @@
 
 > Status: Accepted
 > Date: 2026-05-02
-> Owner: ENG-051
 
 ## Decision
 
@@ -16,9 +15,9 @@ Each envelope field has a single purpose:
 - `operationId` — UUID v4 minted by the cashier device per click /
   user intent. Used to correlate UI events, tRPC calls, DB
   transactions, and outbox effects in the operation journal
-  (ENG-053). Not the same as a sale id; one operation may produce
+  (). Not the same as a sale id; one operation may produce
   multiple downstream effects.
-- `deviceId` — string FK to the `devices` table that ENG-052
+- `deviceId` — string FK to the `devices` table that
   introduces. Identifies which cashier machine fired the operation.
   The `desktopSession` singleton (ADR-0001) registers the device id
   at login and propagates it through tRPC headers and IPC.
@@ -31,7 +30,7 @@ Each envelope field has a single purpose:
   payload under the same key is rejected with a structured conflict.
 - `clientCreatedAt` — ISO 8601 UTC timestamp captured on the cashier
   device. Used for ordering when the local store eventually syncs to
-  a central server (ENG-064) and for debugging clock-skew issues.
+  a central server () and for debugging clock-skew issues.
   The server clock is still authoritative for `created_at` columns
   on the row itself; `clientCreatedAt` is metadata for sync /
   diagnostics, not a substitute.
@@ -63,20 +62,20 @@ outboxes.
 
 ## Implementation Impact
 
-- **New table** (added by ENG-052): `idempotency_keys` with
+- **New table** (added by ): `idempotency_keys` with
   columns `tenant_id`, `device_id`, `idempotency_key`,
   `operation_kind`, `request_hash`, `status`, `result_ref`,
   `locked_at`, `completed_at`, `created_at`, `expires_at`.
   Composite unique index on `(tenant_id, device_id,
-  idempotency_key, operation_kind)`. Replaying a key with a
+idempotency_key, operation_kind)`. Replaying a key with a
   matching `request_hash` returns `COMMAND_IN_PROGRESS` while
   `status='processing'` or `result_ref` after `status='succeeded'`;
   a mismatched hash returns a typed conflict error.
-- **New tRPC middleware** (added by ENG-052): `commandEnvelope`
+- **New tRPC middleware** (added by ): `commandEnvelope`
   wraps procedures listed in the closed list below. It validates
   the envelope shape via Zod, atomically reserves `idempotency_keys`,
   and short-circuits with the cached `result_ref` on a completed hit.
-  ENG-053 will add the operation journal around the same envelope
+  will add the operation journal around the same envelope
   context before the application service runs.
 - **Renderer**: the React layer mints `operationId` and
   `idempotencyKey` per user intent; the existing `useToast` /
@@ -84,14 +83,14 @@ outboxes.
   injects `deviceId` and `clientCreatedAt` so the renderer cannot
   forge either.
 - **Existing primitives reused**: `desktopSession.requireTenantId()`
-  (ENG-025) gives the tenant scope; the envelope adds the device +
+  () gives the tenant scope; the envelope adds the device +
   operation dimensions on top. Audit logs gain an `operation_id`
   column that joins back to the journal.
 
 ### Closed list of critical commands
 
 The Command Envelope applies to exactly these procedures (as of
-ENG-051). Adding to this list requires a Superseder ADR or a
+). Adding to this list requires a Superseder ADR or a
 follow-up amendment.
 
 **Sales lifecycle**
@@ -104,8 +103,8 @@ follow-up amendment.
 - `sales.returnSale`
 - `sales.void`
 - `sales.getForReprint` (writes counter / audit row)
-- `sales.changeTable` (ENG-039c — manager/admin restaurant transfer)
-- `sales.splitDraft` (ENG-039c3 — manager/admin restaurant split-bill)
+- `sales.changeTable` (manager/admin restaurant transfer)
+- `sales.splitDraft` (manager/admin restaurant split-bill)
 
 **Cash sessions**
 
@@ -116,7 +115,7 @@ follow-up amendment.
 
 **Reports / attestations**
 
-- `reports.dayClose.signOff` (ENG-141b — one irreversible manager/admin
+- `reports.dayClose.signOff` (one irreversible manager/admin
   attestation of the frozen comprehensive business-day report)
 
 **Inventory**
@@ -128,54 +127,54 @@ follow-up amendment.
 
 **Peripherals**
 
-- `peripherals.kickCashDrawer` (ENG-106c3 — audited physical dispatch)
-- `peripherals.buildDrawerKickBytes` (ENG-106c3 — audited hub-client dispatch)
+- `peripherals.kickCashDrawer` (audited physical dispatch)
+- `peripherals.buildDrawerKickBytes` (audited hub-client dispatch)
 
 **Fiscal** _(in español por convención fiscal)_
 
 - `fiscal.emitDocument` _(canal interno disparado por sales lifecycle)_
-- `fiscal.cancelDocument` _(cancelación SAT explícita; ENG-035c lo ship)_
-- `fiscal.retryFromContingency` _(operator-initiated retry; ENG-057)_
+- `fiscal.cancelDocument` _(cancelación SAT explícita; lo ship)_
+- `fiscal.retryFromContingency` _(operator-initiated retry; )_
 
 **Payment**
 
 - `payment.charge` (when the payment terminal adapter ships,
-  ENG-063)
+  )
 - `payment.void`
 
 **Users / security**
 
 - `users.create`
 - `users.update` (when changing `role` or `isActive`)
-- `users.setStaffPin` (ENG-106a — staff credential rotation or removal)
+- `users.setStaffPin` (staff credential rotation or removal)
 - `auth.changePassword`
 
 **Employee attendance**
 
-- `employeeShifts.clockIn` (ENG-106b — start the authenticated employee's shift)
-- `employeeShifts.clockOut` (ENG-106b — close the authenticated employee's open shift)
-- `employeeShifts.breaks.start` (ENG-140b — start an explicit rest interval)
-- `employeeShifts.breaks.end` (ENG-140b — close the authenticated employee's active rest interval)
-- `employeeShifts.schedule.create` (ENG-140a — publish a durable scheduled shift)
-- `employeeShifts.schedule.update` (ENG-140a — revise a versioned scheduled shift)
-- `employeeShifts.schedule.cancel` (ENG-140a — cancel without deleting labor evidence)
-- `employeeShifts.attendance.corrections.create` (ENG-140e — append an effective attendance snapshot without rewriting raw evidence)
+- `employeeShifts.clockIn` (start the authenticated employee's shift)
+- `employeeShifts.clockOut` (close the authenticated employee's open shift)
+- `employeeShifts.breaks.start` (start an explicit rest interval)
+- `employeeShifts.breaks.end` (close the authenticated employee's active rest interval)
+- `employeeShifts.schedule.create` (publish a durable scheduled shift)
+- `employeeShifts.schedule.update` (revise a versioned scheduled shift)
+- `employeeShifts.schedule.cancel` (cancel without deleting labor evidence)
+- `employeeShifts.attendance.corrections.create` (append an effective attendance snapshot without rewriting raw evidence)
 
 **Manager approvals**
 
-- `managerApprovals.request` (ENG-106c1 — create one bounded sensitive-action request)
-- `managerApprovals.decideWithPin` (ENG-106c1 — approve/reject with a fresh manager PIN)
-- `managerApprovals.cancel` (ENG-106c1 — requester withdraws a still-pending request)
+- `managerApprovals.request` (create one bounded sensitive-action request)
+- `managerApprovals.decideWithPin` (approve/reject with a fresh manager PIN)
+- `managerApprovals.cancel` (requester withdraws a still-pending request)
 
 **Module activation**
 
-- `modules.setActive` (ENG-068 — admin toggle of a tenant module)
+- `modules.setActive` (admin toggle of a tenant module)
 
 **Loss prevention**
 
-- `lossPrevention.updateSettings` (ENG-142a — audited per-role checkout
+- `lossPrevention.updateSettings` (audited per-role checkout
   authority and blocked-hours policy)
-- `lossPrevention.acknowledgeAlert` (ENG-142d — shared manager review of a
+- `lossPrevention.acknowledgeAlert` (shared manager review of a
   deterministic loss-prevention alert)
 
 Procedures **not** in the envelope: every read query
@@ -185,36 +184,36 @@ Procedures **not** in the envelope: every read query
 preference toggles (`ai.settings.update`, `fiscalSettings.*`),
 notification reads, dashboard reads, and the audit log query API.
 
-## Affected Tickets
+## Implementation map
 
-- `ENG-052` — Device registry + command envelope. Adds the
+- Device registry + command envelope. Adds the
   `devices` and `idempotency_keys` tables, the
   `commandEnvelope` middleware, and the renderer plumbing.
-- `ENG-053` — Operation journal + outbox kernel. Reads
+- Operation journal + outbox kernel. Reads
   `operationId` from the envelope and writes the
   `operation_events` / `operation_effects` / `operation_errors`
   trail.
-- `ENG-054` — Extract `completeSale` application service.
+- Extract `completeSale` application service.
   First service to consume the envelope; behavior parity with
   current `sales.create` / `completeDraft`.
-- `ENG-055` — Extract sale lifecycle services. `returnSale`,
+- Extract sale lifecycle services. `returnSale`,
   `voidSale`, `completeDraft`, `discardDraft` all carry the
   envelope.
-- `ENG-056` — Cash session aggregate boundary. The
+- Cash session aggregate boundary. The
   `CashSessionService` consumes the envelope on every
   cash-affecting operation.
-- `ENG-063` — Payment terminal adapter. Adds `payment.charge` and
+- Payment terminal adapter. Adds `payment.charge` and
   `payment.void` to the closed list with envelope.
 
-Updated: 2026-05-02 (ENG-051 — initial ADR set).
-Updated: 2026-05-02 (ENG-052a — foundation shipped: `devices` and
+Updated: 2026-05-02 (initial ADR set).
+Updated: 2026-05-02 (foundation shipped: `devices` and
 `idempotency_keys` tables, `commandEnvelope` middleware, `auth.registerDevice`,
 and `auth.changePassword` wrapped as the proof procedure. Web
 `deviceId.ts` + `commandEnvelope.ts` + AuthProvider device
-registration. ENG-052b will wire the remaining 17 procedures from
+registration. will wire the remaining 17 procedures from
 the closed list above and add the `useCriticalMutation` web hook +
 Electron `device.getId/setId` preload).
-Updated: 2026-05-03 (ENG-052b — closed: 17 critical procedures
+Updated: 2026-05-03 (closed: 17 critical procedures
 across `sales`, `cashSessions`, `inventory`, `transfers`, `users`
 now flow through the envelope; `useCriticalMutation` generalized
 with `CriticalCommandPath` + type inference so renderer call sites
@@ -223,24 +222,24 @@ exposes `electron.device.getId/setId` backed by an atomic file
 write under `app.getPath('userData')/device-id.txt`; Fastify
 `onRequest` hook hangs `requestId` + `deviceId` on `request.log`
 so non-envelope requests share request-scoped provenance).
-Updated: 2026-07-14 (ENG-106a — added `users.setStaffPin` to the
+Updated: 2026-07-14 (added `users.setStaffPin` to the
 closed list so PIN credential rotation and removal use the same
 idempotent command envelope as other user-security mutations).
-Updated: 2026-07-14 (ENG-106b — added self-service clock-in/out as
+Updated: 2026-07-14 (added self-service clock-in/out as
 critical attendance commands; retries cannot create duplicate open
 shifts or close a different employee's shift).
-Updated: 2026-07-14 (ENG-106c1 — added request, PIN decision, and
+Updated: 2026-07-14 (added request, PIN decision, and
 cancellation commands for the short-lived manager approval rail).
-Updated: 2026-07-15 (ENG-140a/ENG-140b — added manager-authored schedule
+Updated: 2026-07-15 (-140b — added manager-authored schedule
 commands and explicit employee break boundaries to the closed list; weekly
 attendance reporting remains a read query outside the envelope).
-Updated: 2026-07-15 (ENG-141b — added the immutable comprehensive day-close
+Updated: 2026-07-15 (added the immutable comprehensive day-close
 sign-off; the web critical-mutation resolver now supports nested sub-router
 paths while preserving end-to-end input/output inference).
-Updated: 2026-07-16 (ENG-142a — added the audited loss-prevention policy
+Updated: 2026-07-16 (added the audited loss-prevention policy
 mutation so retries cannot split its isolated tenant policy row from the
 immutable audit evidence).
-Updated: 2026-05-03 (ENG-053 — operation journal wired into
+Updated: 2026-05-03 (operation journal wired into
 envelope: `recordOperationStart` runs after the idempotency
 reservation and before `next()`, idempotent on
 `(tenant_id, operation_id)` so replay-cached calls reuse the

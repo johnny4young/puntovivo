@@ -1,7 +1,7 @@
 /**
  * Sales router shared helpers.
  *
- * ENG-178 — function bodies extracted verbatim from the former flat
+ * function bodies extracted verbatim from the former flat
  * `trpc/routers/sales.ts` during the megafile decomposition. The helpers
  * are exported from this leaf only so the sales procedure modules
  * (queries / lifecycle / drafts / splitDraft) can share them; the procedure
@@ -20,7 +20,7 @@ import type { KdsHookContext } from '../../../services/kds/types.js';
 
 /**
  * Adapt the tRPC `Context` to the `CompleteSaleContext` shape the
- * use-case services consume. ENG-179c — the parameter is typed
+ * use-case services consume.  — the parameter is typed
  * `CriticalCommandContext` (the augmented shape the `commandEnvelope`
  * middleware injects), so `ctx.envelope` / `ctx.deviceId` are read
  * directly. Only critical-command procedures call this helper.
@@ -40,7 +40,7 @@ export function buildLifecycleContext(ctx: Context): CompleteSaleContext {
 }
 
 /**
- * ENG-098 — build the structural context shape consumed by the KDS
+ * build the structural context shape consumed by the KDS
  * post-tx hooks. The SSE manager is read off the FastifyInstance
  * decorated at boot (`realtime/sse.ts`). When `req` is absent (unit
  * tests, internal callers) the helpers skip the broadcast silently.
@@ -71,7 +71,7 @@ export function assertCanCreateCreditSale(ctx: Context): void {
 
 export function inputCarriesCreditTender(input: {
   paymentMethod: string;
-  // ENG-179b — explicit `| undefined` so the Zod-parsed input shape
+  // explicit `| undefined` so the Zod-parsed input shape
   // (which carries an explicit-undefined `payments` field when absent)
   // assigns cleanly under `exactOptionalPropertyTypes`.
   payments?: Array<{ method: string }> | undefined;
@@ -83,7 +83,7 @@ export function inputCarriesCreditTender(input: {
 }
 
 /**
- * ENG-039c — resolve a `restaurant_tables` row for the tenant, asserting
+ * resolve a `restaurant_tables` row for the tenant, asserting
  * it belongs to `ctx.tenantId` and is active. Cross-tenant hits collapse
  * to `RESTAURANT_TABLE_NOT_FOUND` so the lookup never leaks existence.
  * Archived rows are also rejected so a draft cannot anchor to a table
@@ -103,19 +103,12 @@ export async function resolveActiveRestaurantTable(
       isActive: restaurantTables.isActive,
     })
     .from(restaurantTables)
-    .where(
-      and(
-        eq(restaurantTables.id, tableId),
-        eq(restaurantTables.tenantId, tenantId)
-      )
-    )
+    .where(and(eq(restaurantTables.id, tableId), eq(restaurantTables.tenantId, tenantId)))
     .get();
   if (
     !row ||
     row.isActive === false ||
-    (expectedSiteId !== null &&
-      expectedSiteId !== undefined &&
-      row.siteId !== expectedSiteId)
+    (expectedSiteId !== null && expectedSiteId !== undefined && row.siteId !== expectedSiteId)
   ) {
     throwServerError({
       trpcCode: 'NOT_FOUND',
@@ -140,15 +133,13 @@ export async function resolveSaleSiteId(
   const session = await db
     .select({ siteId: cashSessions.siteId })
     .from(cashSessions)
-    .where(
-      and(eq(cashSessions.id, cashSessionId), eq(cashSessions.tenantId, tenantId))
-    )
+    .where(and(eq(cashSessions.id, cashSessionId), eq(cashSessions.tenantId, tenantId)))
     .get();
 
   return session?.siteId ?? fallbackSiteId;
 }
 
-// ENG-054 / ENG-055 — every sale lifecycle helper that used to live
+// /  — every sale lifecycle helper that used to live
 // inline (validateCustomer, getSaleSequentialContext, resolveSaleItems,
 // assertCashSessionStillOpen, insertCashMovement,
 // getNormalizedSaleQuantity, buildVoided/ReturnedSaleNotes,

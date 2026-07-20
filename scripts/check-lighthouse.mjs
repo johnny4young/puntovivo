@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * ENG-133c — Lighthouse web-vitals CI gate (warn-first, LOCAL).
+ * Lighthouse web-vitals CI gate (warn-first, LOCAL).
  *
  * Launches a real Chromium (via Playwright), logs in once (so authenticated
  * routes can be measured), and runs Lighthouse against each top user-facing
  * route, comparing LCP / TTI / CLS / performance-score against the budget in
  * the repo's `perf-budget.json` (`lighthouse` section).
  *
- * This is the FOURTH metric of the ENG-133 perf-budget engine, mirroring
+ * This is the FOURTH metric of the  perf-budget engine, mirroring
  * `check-electron-memory.mjs`: WARN-FIRST + SELF-SKIPPING for local operator
  * diagnostics, and hard-fail in CI when `--strict --require-measurement` is
  * passed by `run-lighthouse-gate.mjs`.
@@ -19,9 +19,9 @@
  * measurement work in a fresh tab.
  *
  * Exit codes:
- *   0 — within budget, OR warn-first over-budget, OR self-skipped.
- *   1 — `--strict` and a metric regressed, `--require-measurement` and a
- *       measurement / metric is missing, OR perf-budget.json is malformed.
+ * 0 — within budget, OR warn-first over-budget, OR self-skipped.
+ * 1 — `--strict` and a metric regressed, `--require-measurement` and a
+ * measurement / metric is missing, OR perf-budget.json is malformed.
  *
  * @module scripts/check-lighthouse
  */
@@ -131,7 +131,7 @@ export function compareToLighthouseBudget({ measured, budget, thresholdPercent }
       if (direction === 'lower') {
         isRegression = actual > budgetValue * (1 + thresholdPercent / 100);
       } else {
-        // ENG-200 — score is already a 0-100 quality floor, not a noisy raw
+        // score is already a 0-100 quality floor, not a noisy raw
         // duration. Applying the generic tolerance made a checked score of 58
         // permit a route to fall to 40.6. Treat the declared score as the exact
         // minimum while timing/CLS metrics retain their variance allowance.
@@ -150,7 +150,9 @@ function renderRow(row) {
   const unit = METRIC_UNIT[row.metric] ?? '';
   const suffix = unit ? ` ${unit}` : '';
   const sign = row.deltaPercent >= 0 ? '+' : '';
-  const delta = Number.isFinite(row.deltaPercent) ? `${sign}${row.deltaPercent.toFixed(1)}%` : 'n/a';
+  const delta = Number.isFinite(row.deltaPercent)
+    ? `${sign}${row.deltaPercent.toFixed(1)}%`
+    : 'n/a';
   return `| ${row.route}.${row.metric} | ${row.budget}${suffix} | ${row.actual}${suffix} | ${delta} |`;
 }
 
@@ -209,7 +211,9 @@ export async function launchAndMeasure() {
     ({ chromium } = await import('playwright'));
     lighthouse = (await import('lighthouse')).default;
   } catch (err) {
-    console.warn(`check-lighthouse: WARN skipped — playwright/lighthouse not available: ${err.message}`);
+    console.warn(
+      `check-lighthouse: WARN skipped — playwright/lighthouse not available: ${err.message}`
+    );
     return null;
   }
 
@@ -281,7 +285,9 @@ export async function launchAndMeasure() {
         if (runnerResult?.lhr) {
           measured[route.key] = extractMetrics(runnerResult.lhr);
         } else {
-          console.warn(`check-lighthouse: WARN — route ${route.path} produced no Lighthouse result.`);
+          console.warn(
+            `check-lighthouse: WARN — route ${route.path} produced no Lighthouse result.`
+          );
         }
       } catch (err) {
         console.warn(`check-lighthouse: WARN — route ${route.path} failed: ${err.message}`);
@@ -320,7 +326,8 @@ export async function launchAndMeasure() {
  */
 export async function runCli({ measure = launchAndMeasure, strict, requireMeasurement } = {}) {
   const enforce =
-    strict ?? (process.argv.includes('--strict') || process.env.PUNTOVIVO_LIGHTHOUSE_STRICT === '1');
+    strict ??
+    (process.argv.includes('--strict') || process.env.PUNTOVIVO_LIGHTHOUSE_STRICT === '1');
   const requireProof =
     requireMeasurement ??
     (process.argv.includes('--require-measurement') ||
@@ -335,7 +342,9 @@ export async function runCli({ measure = launchAndMeasure, strict, requireMeasur
   const budget = budgetFile?.lighthouse?.perRoute;
   const thresholdPercent = budgetFile?.lighthouse?.thresholdPercent;
   if (!budget || typeof thresholdPercent !== 'number') {
-    console.error('check-lighthouse: perf-budget.json is missing lighthouse.perRoute or lighthouse.thresholdPercent');
+    console.error(
+      'check-lighthouse: perf-budget.json is missing lighthouse.perRoute or lighthouse.thresholdPercent'
+    );
     return 1;
   }
 
@@ -343,7 +352,9 @@ export async function runCli({ measure = launchAndMeasure, strict, requireMeasur
   if (!measured) {
     // Self-skip: the warning was already printed by launchAndMeasure.
     if (requireProof) {
-      console.error('check-lighthouse: FAIL (--require-measurement) — no Lighthouse measurement was produced.');
+      console.error(
+        'check-lighthouse: FAIL (--require-measurement) — no Lighthouse measurement was produced.'
+      );
       return 1;
     }
     return 0;
@@ -368,7 +379,9 @@ export async function runCli({ measure = launchAndMeasure, strict, requireMeasur
     return 1;
   }
   if (result.regressions.length > 0) {
-    console.warn('check-lighthouse: WARN — over the web-vitals budget (warn-first; pass --strict to enforce).');
+    console.warn(
+      'check-lighthouse: WARN — over the web-vitals budget (warn-first; pass --strict to enforce).'
+    );
   }
   return 0;
 }

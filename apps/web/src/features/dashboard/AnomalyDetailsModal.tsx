@@ -1,8 +1,8 @@
 /**
- * ENG-032 — drill-down modal for the anomaly tile.
+ * drill-down modal for the anomaly tile.
  *
  * Read-only by design in v1. The "investigate cashier" CTA mentioned
- * in the plan is captured as a BACKLOG follow-up; this modal only
+ * in the plan is captured as follow-up work; this modal only
  * surfaces the data + a filter so a manager can scan the list quickly.
  */
 import { useMemo, useState } from 'react';
@@ -16,11 +16,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
 
-export type AnomalyKind =
-  | 'ticketsPerHourSpike'
-  | 'voidRate'
-  | 'refundAmount'
-  | 'noSaleSessions';
+export type AnomalyKind = 'ticketsPerHourSpike' | 'voidRate' | 'refundAmount' | 'noSaleSessions';
 
 export type AnomalySeverity = 'medium' | 'high';
 
@@ -89,7 +85,14 @@ interface SortHeaderProps {
   onToggle: (key: SortKey) => void;
 }
 
-function SortHeader({ label, columnKey, align = 'left', activeKey, activeDir, onToggle }: SortHeaderProps) {
+function SortHeader({
+  label,
+  columnKey,
+  align = 'left',
+  activeKey,
+  activeDir,
+  onToggle,
+}: SortHeaderProps) {
   const isActive = activeKey === columnKey;
   return (
     <th
@@ -109,7 +112,11 @@ function SortHeader({ label, columnKey, align = 'left', activeKey, activeDir, on
       >
         {label}
         {isActive ? (
-          activeDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+          activeDir === 'asc' ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : (
+            <ArrowDown className="h-3 w-3" />
+          )
         ) : null}
       </button>
     </th>
@@ -150,7 +157,7 @@ export function AnomalyDetailsModal({ isOpen, onClose, alerts }: AnomalyDetailsM
     });
   }, [alerts, filter, sortKey, sortDir]);
 
-  // ENG-047 — snooze a flagged pattern for 7 days. The mutation key is
+  // snooze a flagged pattern for 7 days. The mutation key is
   // (kind, cashierId, evidenceRef) so the same dollar value can later
   // surface again from a different sale without re-triggering the
   // silenced row. Optimistically refetches anomalies on success so the

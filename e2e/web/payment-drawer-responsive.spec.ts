@@ -120,7 +120,7 @@ async function captureAuditScreenshot(page: Page, name: string) {
   await page.screenshot({ path: path.join(auditDir, `${name}.png`) });
 }
 
-test.describe('responsive payment drawer (ENG-105h)', () => {
+test.describe('responsive payment drawer', () => {
   test('desktop keeps a fixed right drawer through method and split changes', async ({
     page,
   }, testInfo) => {

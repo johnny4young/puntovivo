@@ -19,7 +19,7 @@ interface AuditLogsTableProps {
 }
 
 /**
- * Phase 8 / Tier-2 #8 — audit log viewer table. Renders the action /
+ * audit log viewer table. Renders the action /
  * actor / resource columns plus a short summary derived from the event's
  * `before` / `after` / `metadata` payload. The underlying data is
  * reverse-chronological (server-enforced).

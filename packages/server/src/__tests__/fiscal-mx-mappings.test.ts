@@ -1,5 +1,5 @@
 /**
- * ENG-035b — Tests de los mapeos del modelo interno a la taxonomía
+ * Tests de los mapeos del modelo interno a la taxonomía
  * SAT (c_FormaPago, c_ClaveUnidad, c_ClaveProdServ, Traslado).
  */
 import { describe, expect, it } from 'vitest';
@@ -11,7 +11,7 @@ import {
   mapUnitToClaveUnidad,
 } from '../services/fiscal/packs/mx/mappings.js';
 
-describe('mapPaymentMethodToFormaPago (ENG-035b)', () => {
+describe('mapPaymentMethodToFormaPago', () => {
   it('cash → 01 Efectivo', () => {
     const result = mapPaymentMethodToFormaPago('cash');
     expect(result.code).toBe('01');
@@ -57,7 +57,7 @@ describe('mapPaymentMethodToFormaPago (ENG-035b)', () => {
   });
 });
 
-describe('mapUnitToClaveUnidad (ENG-035b)', () => {
+describe('mapUnitToClaveUnidad', () => {
   it('unit → H87 Pieza', () => {
     expect(mapUnitToClaveUnidad('unit').code).toBe('H87');
   });
@@ -91,7 +91,7 @@ describe('mapUnitToClaveUnidad (ENG-035b)', () => {
   });
 });
 
-describe('mapTaxRateToTraslado (ENG-035b)', () => {
+describe('mapTaxRateToTraslado', () => {
   it('tasa 0% genera Traslado Exento sin TasaOCuota ni Importe', () => {
     const traslado = mapTaxRateToTraslado(0, 0, 100);
     expect(traslado.Base).toBe('100.00');
@@ -127,7 +127,7 @@ describe('mapTaxRateToTraslado (ENG-035b)', () => {
   });
 });
 
-describe('inferProductClaveProdServ (ENG-035b)', () => {
+describe('inferProductClaveProdServ', () => {
   it('producto con nombre que matchea hint → entrada de catálogo', () => {
     const entry = inferProductClaveProdServ({
       name: 'Refresco Cola 600ml',
@@ -171,7 +171,7 @@ describe('inferProductClaveProdServ (ENG-035b)', () => {
   });
 });
 
-describe('formatDecimal (ENG-035b)', () => {
+describe('formatDecimal', () => {
   it('formatea con la precisión especificada', () => {
     expect(formatDecimal(1, 2)).toBe('1.00');
     expect(formatDecimal(1.5, 2)).toBe('1.50');

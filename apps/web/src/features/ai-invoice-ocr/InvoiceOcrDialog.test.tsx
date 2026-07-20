@@ -42,7 +42,7 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: () => ({ data: { items: [] }, isLoading: false, error: null }),
       },
     },
-    // ENG-199 — ProductSearchDialog reads the expiry-discount suggestions
+    // ProductSearchDialog reads the expiry-discount suggestions
     // through useDiscountSuggestions (opt-in, off for this dialog, but the
     // hook still mounts).
     inventoryLots: {

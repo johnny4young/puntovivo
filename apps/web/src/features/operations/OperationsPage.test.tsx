@@ -1,14 +1,14 @@
 /**
- * ENG-065a / ENG-065b / ENG-065c — Tests for OperationsPage tab shell.
+ * /  /  — Tests for OperationsPage tab shell.
  *
  * Asserts:
- *   - All 9 live tabs render in the role list visible to manager + admin.
- *   - Default tab is `attention` (ENG-187 — the Needs-attention queue).
- *   - `?tab=sync`, `?tab=fiscal`, `?tab=device`, `?tab=cash`,
- *     `?tab=payments`, `?tab=diagnostics`,
- *     `?tab=authority`, and `?tab=support` deep links land on the right panel.
- *   - Garbage tab values fall back to the default.
- *   - Clicking a tab updates URL + aria-selected.
+ * - All 9 live tabs render in the role list visible to manager + admin.
+ * - Default tab is `attention` (the Needs-attention queue).
+ * - `?tab=sync`, `?tab=fiscal`, `?tab=device`, `?tab=cash`,
+ * `?tab=payments`, `?tab=diagnostics`,
+ * `?tab=authority`, and `?tab=support` deep links land on the right panel.
+ * - Garbage tab values fall back to the default.
+ * - Clicking a tab updates URL + aria-selected.
  *
  * Panel internals (data fetching) are exercised by their own
  * dedicated test files; this file only covers the shell.

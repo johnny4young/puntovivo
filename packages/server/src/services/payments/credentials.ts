@@ -1,5 +1,5 @@
 /**
- * ENG-038 slice 2 — payment provider credential storage helpers.
+ * slice 2 — payment provider credential storage helpers.
  *
  * Mirror-structural with the fiscal pack `settings.ts` helpers
  * (`services/fiscal/packs/{mx,cl}/settings.ts`). Credentials live
@@ -10,14 +10,14 @@
  * Three responsibilities:
  *
  * - `readPaymentRailCredentials(blob, railId)` — pure read with
- *   defensive defaults; never throws.
+ * defensive defaults; never throws.
  * - `mergePaymentRailCredentialsIntoTenantSettings(existing, railId, patch)`
- *   — immutable merge that only updates the targeted rail branch.
- *   Empty-string values clear the field.
+ * immutable merge that only updates the targeted rail branch.
+ * Empty-string values clear the field.
  * - `maskCredentialValue(value)` — never returns the plaintext to the
- *   client after save. The admin form re-renders against the masked
- *   form so the operator confirms they pasted the right credential
- *   without the server re-serving the secret.
+ * client after save. The admin form re-renders against the masked
+ * form so the operator confirms they pasted the right credential
+ * without the server re-serving the secret.
  *
  * The shape is intentionally loose `Record<string, string>` rather
  * than a per-rail discriminated union because every descriptor field
@@ -28,10 +28,7 @@
  */
 
 import type { PaymentRailId } from '../../db/schema.js';
-import {
-  CREDENTIAL_FIELDS_BY_RAIL,
-  type PaymentCredentialFieldDescriptor,
-} from './manifest.js';
+import { CREDENTIAL_FIELDS_BY_RAIL, type PaymentCredentialFieldDescriptor } from './manifest.js';
 
 export type RailCredentialMap = Record<string, string>;
 
@@ -57,9 +54,7 @@ export function readPaymentRailCredentials(
   const credentials = (rail as Record<string, unknown>).credentials;
   if (!isPlainRecord(credentials)) return {};
 
-  const declared = new Set(
-    CREDENTIAL_FIELDS_BY_RAIL[railId].map(field => field.key)
-  );
+  const declared = new Set(CREDENTIAL_FIELDS_BY_RAIL[railId].map(field => field.key));
   const out: RailCredentialMap = {};
   for (const [key, value] of Object.entries(credentials)) {
     if (!declared.has(key)) continue;

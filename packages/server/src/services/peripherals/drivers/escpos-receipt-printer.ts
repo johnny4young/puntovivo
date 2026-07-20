@@ -1,24 +1,24 @@
 /**
- * ENG-062 — `escpos` receipt printer driver.
+ * `escpos` receipt printer driver.
  *
  * Real ESC/POS device driver that sends pre-built bytes to a
  * thermal printer over USB / TCP / serial / mock channels. Sibling
- * of `SystemReceiptPrinterAdapter` (ENG-060) — both implement the
+ * of `SystemReceiptPrinterAdapter` () — both implement the
  * same `ReceiptPrinterAdapter` contract; the registry dispatches
  * by `driverId`.
  *
  * `print(job)` pipeline:
  *
- *   1. Resolve transport from `this.config` via `resolveTransport`
- *   2. Read the structured `ReceiptDocument` from `job.metadata.document`
- *      OR fall back to `job.escposBytes` when callers pre-built bytes
- *   3. `buildEscPosBytes(document, opts)` if step 2 yielded a document
- *   4. `transport.write(bytes)` — throws `EscPosTransportError` on
- *      USB unplug, paper out, TCP unreachable, etc.
- *   5. `transport.close()` (best-effort) so a fresh socket gets used
- *      next time
- *   6. On error, return `{status:'error', error: <NormalizedHardwareError>}`
- *      with the kind preserved from the transport layer
+ * 1. Resolve transport from `this.config` via `resolveTransport`
+ * 2. Read the structured `ReceiptDocument` from `job.metadata.document`
+ * OR fall back to `job.escposBytes` when callers pre-built bytes
+ * 3. `buildEscPosBytes(document, opts)` if step 2 yielded a document
+ * 4. `transport.write(bytes)` — throws `EscPosTransportError` on
+ * USB unplug, paper out, TCP unreachable, etc.
+ * 5. `transport.close()` (best-effort) so a fresh socket gets used
+ * next time
+ * 6. On error, return `{status:'error', error: <NormalizedHardwareError>}`
+ * with the kind preserved from the transport layer
  *
  * `testPrint()` writes a short canned banner so the operator can
  * verify the device is reachable without firing a sale.
@@ -27,22 +27,14 @@
  */
 
 import { z } from 'zod';
-import type {
-  PrintJob,
-  PrintResult,
-  ReceiptPrinterAdapter,
-} from '../contracts/receipt-printer.js';
+import type { PrintJob, PrintResult, ReceiptPrinterAdapter } from '../contracts/receipt-printer.js';
 import type { NormalizedHardwareError, TestResult } from '../types.js';
 import {
   buildEscPosBytes,
   type ReceiptDocument,
   type EscPosCharset,
 } from '../escpos/byte-builder.js';
-import {
-  EscPosTransportError,
-  resolveTransport,
-  type EscPosChannel,
-} from '../escpos/transport.js';
+import { EscPosTransportError, resolveTransport, type EscPosChannel } from '../escpos/transport.js';
 import { addEscPosTcpTargetIssues } from '../escpos/tcp-target-policy.js';
 
 // =============================================================================
@@ -67,7 +59,7 @@ export const escposReceiptPrinterConfigSchema = z
      */
     kickDrawerAfterReceipt: z.boolean().default(true),
     /**
-     * ENG-097 — automatically fire `peripherals.printReceipt` when a
+     * automatically fire `peripherals.printReceipt` when a
      * sale completes (fresh or fromDraft path). Defaults `false` so
      * existing tenants do not get surprise auto-prints; opt-in is
      * explicit per site. The SalesPage hook reads this flag through
@@ -194,9 +186,7 @@ export class EscPosReceiptPrinterAdapter implements ReceiptPrinterAdapter {
     return {
       status: 'failed',
       message: result.error?.message ?? 'ESC/POS test failed',
-      details: result.error
-        ? { kind: result.error.kind, ...(result.error.details ?? {}) }
-        : null,
+      details: result.error ? { kind: result.error.kind, ...(result.error.details ?? {}) } : null,
     };
   }
 }

@@ -34,7 +34,7 @@ function mapCatalogItemToForm(item: CustomerCatalogItem | null): CustomerCatalog
 }
 
 /**
- * Rediseño FASE 6 — construye la prop `error` de SimpleFormField bajo
+ * construye la prop `error` de SimpleFormField bajo
  * `exactOptionalPropertyTypes`: la prop se omite por completo cuando no hay
  * mensaje, en vez de pasarla como `undefined`.
  */
@@ -75,7 +75,11 @@ export function CustomerCatalogFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? t('catalogs.form.createTitle', { type: singularLabel }) : t('catalogs.form.editTitle', { type: singularLabel })}
+      title={
+        isCreate
+          ? t('catalogs.form.createTitle', { type: singularLabel })
+          : t('catalogs.form.editTitle', { type: singularLabel })
+      }
       footer={
         <div className="flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
@@ -98,7 +102,12 @@ export function CustomerCatalogFormModal({
             <button type="button" className="pv-btn outline" onClick={onClose} disabled={isSaving}>
               {t('catalogs.form.cancel')}
             </button>
-            <button type="button" className="pv-btn primary" onClick={handleSubmit} disabled={isSaving}>
+            <button
+              type="button"
+              className="pv-btn primary"
+              onClick={handleSubmit}
+              disabled={isSaving}
+            >
               {isCreate && <Plus aria-hidden="true" />}
               {isSaving
                 ? t('catalogs.form.saving')
@@ -122,7 +131,9 @@ export function CustomerCatalogFormModal({
               id="catalog-code"
               aria-required="true"
               className={cn('pv-input', errors.code && 'error')}
-              {...form.register('code', { required: t('catalogs.form.codeRequired', { type: singularLabel }) })}
+              {...form.register('code', {
+                required: t('catalogs.form.codeRequired', { type: singularLabel }),
+              })}
             />
           </SimpleFormField>
 
@@ -136,7 +147,9 @@ export function CustomerCatalogFormModal({
               id="catalog-name"
               aria-required="true"
               className={cn('pv-input', errors.name && 'error')}
-              {...form.register('name', { required: t('catalogs.form.nameRequired', { type: singularLabel }) })}
+              {...form.register('name', {
+                required: t('catalogs.form.nameRequired', { type: singularLabel }),
+              })}
             />
           </SimpleFormField>
         </div>

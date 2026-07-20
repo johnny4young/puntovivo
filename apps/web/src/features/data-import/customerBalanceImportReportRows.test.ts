@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { CustomerBalanceImportPreview, CustomerBalanceImportReport } from './types';
 import { buildCustomerBalanceImportReportRows } from './customerBalanceImportReportRows';
 
-describe('ENG-123d customer balance report rows', () => {
+describe(' customer balance report rows', () => {
   it('keeps imported, skipped, invalid, and failed source rows traceable', () => {
     const normalized = {
       customerId: 'customer-1',

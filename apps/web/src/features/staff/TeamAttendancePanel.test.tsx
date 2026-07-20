@@ -274,7 +274,7 @@ beforeEach(() => {
   mocks.historyQuery.error = null;
 });
 
-describe('TeamAttendancePanel (ENG-140b)', () => {
+describe('TeamAttendancePanel', () => {
   it('shows worked time and explicit break evidence in the tenant timezone', async () => {
     const user = userEvent.setup();
     render(

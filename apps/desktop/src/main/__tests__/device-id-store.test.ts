@@ -10,11 +10,11 @@ import {
   writeDeviceIdToDir,
 } from '../device-id-store.ts';
 
-// ENG-052b regression suite for the device-id atomic store. The
+// regression suite for the device-id atomic store. The
 // store is the desktop-side mirror of the localStorage cache used
 // by the renderer; without it, a browser-cache wipe on the desktop
 // build would force a re-registration on every launch.
-describe('device-id-store (ENG-052b)', () => {
+describe('device-id-store', () => {
   let workdir: string;
 
   before(async () => {
@@ -55,27 +55,16 @@ describe('device-id-store (ENG-052b)', () => {
     const { readdir } = await import('node:fs/promises');
     const entries = await readdir(workdir);
     const stale = entries.filter(name => name.endsWith('.tmp'));
-    assert.deepEqual(
-      stale,
-      [],
-      `tmp files must be renamed atomically; found ${stale.join(', ')}`
-    );
+    assert.deepEqual(stale, [], `tmp files must be renamed atomically; found ${stale.join(', ')}`);
     // Sanity: the canonical filename is still present.
     assert.ok(entries.includes(DEVICE_ID_FILENAME));
   });
 
   it('rejects empty values so a stray write cannot erase the registration', async () => {
     await writeDeviceIdToDir(workdir, 'dev-keep');
-    await assert.rejects(
-      () => writeDeviceIdToDir(workdir, ''),
-      /DEVICE_SET_ID_REJECTED/
-    );
+    await assert.rejects(() => writeDeviceIdToDir(workdir, ''), /DEVICE_SET_ID_REJECTED/);
     const persisted = await readDeviceIdFromDir(workdir);
-    assert.equal(
-      persisted,
-      'dev-keep',
-      'an empty write attempt must NOT wipe the existing id'
-    );
+    assert.equal(persisted, 'dev-keep', 'an empty write attempt must NOT wipe the existing id');
   });
 
   it('treats a whitespace-only file as missing', async () => {

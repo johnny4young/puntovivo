@@ -16,27 +16,27 @@ import {
 } from './support/sales-keyboard';
 
 /**
- * ENG-134d — Keyboard-only `/sales` end-to-end smoke.
+ * Keyboard-only `/sales` end-to-end smoke.
  *
  * Permanent safety net for the keyboard-first cashier promise shipped
- * by ENG-105F (focus contract) + ENG-134e (ProductSearchDialog row
- * keyboard nav) + ENG-134f (DataTable row activation). The cashier
+ * by  (focus contract) +  (ProductSearchDialog row
+ * keyboard nav) +  (DataTable row activation). The cashier
  * must be able to operate the entire sales surface with only the
  * keyboard — agregar producto, pagar con F1 / F2, undo, quick-create
  * mid-sale, navegar al detail de la venta recién hecha.
  *
  * Each test asserts:
- *  - concrete focus state (`document.activeElement.id`) at every
- *    transition,
- *  - concrete user-visible strings via accessible role lookups,
- *  - zero console errors / unhandled requests through
- *    `attachClientIssueTracker`.
+ * - concrete focus state (`document.activeElement.id`) at every
+ * transition,
+ * - concrete user-visible strings via accessible role lookups,
+ * - zero console errors / unhandled requests through
+ * `attachClientIssueTracker`.
  *
  * Axe scans live inline in the happy-path test ONLY (mount, dialog
  * open, payment modal open) to keep runtime sane.
  */
 
-test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
+test.describe('keyboard-only /sales smoke', () => {
   test.describe('base flows', () => {
     test('mount autofocus + close→restore round-trip', async ({ page }) => {
       const tracker = attachClientIssueTracker(page);
@@ -67,9 +67,7 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
 
     test('happy-path E2E sale via keyboard only', async ({ page }, testInfo) => {
       const tracker = attachClientIssueTracker(page);
-      const scenario = seedSaleScenario(
-        `kbd-happy-${testInfo.parallelIndex}-${Date.now()}`
-      );
+      const scenario = seedSaleScenario(`kbd-happy-${testInfo.parallelIndex}-${Date.now()}`);
 
       await login(page, {
         email: scenario.cashier.email,
@@ -79,7 +77,7 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       await expect(page).toHaveURL(/\/sales$/);
 
       // Axe scan #1: settled /sales for this freshly-seeded cashier.
-      // After ENG-134d the Undo / Clear toolbar buttons no longer
+      // After  the Undo / Clear toolbar buttons no longer
       // render when their action is unavailable, so the cart-empty
       // settled state has no disabled-control contrast violations
       // for axe to flag.
@@ -119,7 +117,7 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
         timeout: 10_000,
       });
 
-      // Step 6: F1 opens SalePaymentModal (ENG-105 slice A + slice B preflight).
+      // Step 6: F1 opens SalePaymentModal ( slice A + slice B preflight).
       await expectSearchInputFocused(page);
       await page.keyboard.press('F1');
       const paymentDialog = page.getByRole('dialog', {
@@ -130,7 +128,7 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       // Axe scan #3: SalePaymentModal open.
       await runAxeOnPage(page);
 
-      // Step 7: Tab to Confirm, press Enter. Confirm button id from ENG-105e.
+      // Step 7: Tab to Confirm, press Enter. Confirm button id from .
       const confirm = paymentDialog.locator('#sale-payment-confirm');
       await confirm.focus();
       await page.keyboard.press('Enter');
@@ -145,13 +143,9 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       await expectNoClientIssues(tracker);
     });
 
-    test('F2 exact-cash applies and confirms with keyboard alone', async ({
-      page,
-    }, testInfo) => {
+    test('F2 exact-cash applies and confirms with keyboard alone', async ({ page }, testInfo) => {
       const tracker = attachClientIssueTracker(page);
-      const scenario = seedSaleScenario(
-        `kbd-fastcash-${testInfo.parallelIndex}-${Date.now()}`
-      );
+      const scenario = seedSaleScenario(`kbd-fastcash-${testInfo.parallelIndex}-${Date.now()}`);
 
       await login(page, {
         email: scenario.cashier.email,
@@ -162,14 +156,14 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       await addProductToCartViaKeyboard(page, scenario.product.sku);
 
       // F2 path: opens payment modal in exact-cash mode with focus
-      // already on the Confirm button (ENG-105e contract).
+      // already on the Confirm button ( contract).
       await page.keyboard.press('F2');
       const paymentDialog = page.getByRole('dialog', {
         name: /charge sale|cobrar venta/i,
       });
       await expect(paymentDialog).toBeVisible({ timeout: 10_000 });
 
-      // ENG-105e queues a microtask focus on #sale-payment-confirm;
+      // queues a microtask focus on #sale-payment-confirm;
       // we poll for it rather than relying on a single tick.
       await expect
         .poll(() => page.evaluate(() => document.activeElement?.id ?? ''), {
@@ -219,12 +213,13 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       // page-level interactive set is too sparse and the user has
       // fallen off the focusable tree.
       const bodyHits = trail.filter(step => step.tag === 'BODY');
-      expect(bodyHits, `Tab landed on <body> at steps ${
-        trail
+      expect(
+        bodyHits,
+        `Tab landed on <body> at steps ${trail
           .map((s, idx) => (s.tag === 'BODY' ? idx + 1 : null))
           .filter(idx => idx != null)
-          .join(', ')
-      }`).toHaveLength(0);
+          .join(', ')}`
+      ).toHaveLength(0);
 
       await expectNoClientIssues(tracker);
     });
@@ -252,9 +247,7 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
 
     test('quick-create product mid-sale via Mod+K', async ({ page }, testInfo) => {
       const tracker = attachClientIssueTracker(page);
-      const scenario = seedSaleScenario(
-        `kbd-qc-product-${testInfo.parallelIndex}-${Date.now()}`
-      );
+      const scenario = seedSaleScenario(`kbd-qc-product-${testInfo.parallelIndex}-${Date.now()}`);
       // Use the manager so the role gate on the quick-create CTA opens.
       // Manager lands on /dashboard by default; navigate explicitly.
       await login(page, {
@@ -293,13 +286,9 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       await expectNoClientIssues(tracker);
     });
 
-    test('quick-create customer mid-sale focus contract', async ({
-      page,
-    }, testInfo) => {
+    test('quick-create customer mid-sale focus contract', async ({ page }, testInfo) => {
       const tracker = attachClientIssueTracker(page);
-      const scenario = seedSaleScenario(
-        `kbd-qc-customer-${testInfo.parallelIndex}-${Date.now()}`
-      );
+      const scenario = seedSaleScenario(`kbd-qc-customer-${testInfo.parallelIndex}-${Date.now()}`);
       // Manager defaults to /dashboard; navigate to /sales after login.
       await login(page, {
         email: scenario.manager.email,
@@ -337,9 +326,7 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       page,
     }, testInfo) => {
       const tracker = attachClientIssueTracker(page);
-      const scenario = seedSaleScenario(
-        `kbd-empty-${testInfo.parallelIndex}-${Date.now()}`
-      );
+      const scenario = seedSaleScenario(`kbd-empty-${testInfo.parallelIndex}-${Date.now()}`);
       await login(page, {
         email: scenario.cashier.email,
         password: scenario.cashier.password,
@@ -349,7 +336,7 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       await expectSearchInputFocused(page);
 
       // Cart is empty — F1 should NOT open the payment dialog.
-      // ENG-105b ships a preflight blocker `cart_empty` (Cobrar
+      // ships a preflight blocker `cart_empty` (Cobrar
       // button disabled with aria-describedby pointing at the
       // panel). The keyboard user gets a toast or a no-op.
       await page.keyboard.press('F1');
@@ -368,9 +355,7 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
 
     test('Mod+Z undoes last cart mutation', async ({ page }, testInfo) => {
       const tracker = attachClientIssueTracker(page);
-      const scenario = seedSaleScenario(
-        `kbd-undo-${testInfo.parallelIndex}-${Date.now()}`
-      );
+      const scenario = seedSaleScenario(`kbd-undo-${testInfo.parallelIndex}-${Date.now()}`);
       await login(page, {
         email: scenario.cashier.email,
         password: scenario.cashier.password,
@@ -383,7 +368,7 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       const cartRow = page.getByTestId(`sale-cart-item-${scenario.product.sku}`);
       await expect(cartRow).toBeVisible({ timeout: 10_000 });
 
-      // ENG-105d ships Mod+Z to undo the last cart mutation.
+      // ships Mod+Z to undo the last cart mutation.
       await page.keyboard.press(`${MOD_KEY}+Z`);
 
       // The cart row vanishes; the toast confirms (best-effort).
@@ -394,13 +379,11 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       await expectNoClientIssues(tracker);
     });
 
-    test('SalesHistoryTable row Enter opens detail post-sale (ENG-134f integration)', async ({
+    test('SalesHistoryTable row Enter opens detail post-sale ( integration)', async ({
       page,
     }, testInfo) => {
       const tracker = attachClientIssueTracker(page);
-      const scenario = seedSaleScenario(
-        `kbd-history-${testInfo.parallelIndex}-${Date.now()}`
-      );
+      const scenario = seedSaleScenario(`kbd-history-${testInfo.parallelIndex}-${Date.now()}`);
 
       await login(page, {
         email: scenario.cashier.email,
@@ -437,14 +420,12 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
           name: /sales history|historial de ventas/i,
         }),
       });
-      const firstHistoryRow = historySection
-        .locator('tbody tr[data-row-id]')
-        .first();
+      const firstHistoryRow = historySection.locator('tbody tr[data-row-id]').first();
       await firstHistoryRow.waitFor({ timeout: 15_000 });
       await firstHistoryRow.focus();
       await page.keyboard.press('Enter');
 
-      // ENG-134f wires SalesHistoryTable onRowActivate → onView →
+      // wires SalesHistoryTable onRowActivate → onView →
       // SaleDetailsModal. The modal title is dynamic: while the
       // `sales.getById` query loads it falls back to "Sale Details" /
       // "Detalles de la venta"; once the data lands it becomes

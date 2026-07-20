@@ -2,7 +2,7 @@
  * Create a draft purchase from an OCR-extracted invoice (used by the AI
  * invoice-upload flow in `trpc/routers/ai.ts`).
  *
- * ENG-178 — relocated verbatim from the former monolithic
+ * relocated verbatim from the former monolithic
  * `trpc/routers/purchases.ts` during the megafile decomposition; the only
  * change is the `ctx` parameter type (the standalone `PurchaseContext`
  * instead of the tRPC-coupled `PurchaseMutationContext`).

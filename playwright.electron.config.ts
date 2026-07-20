@@ -1,5 +1,5 @@
 /**
- * ENG-001 Step 3 — Playwright config for the Electron smoke suite.
+ * Step 3 — Playwright config for the Electron smoke suite.
  *
  * Launches Electron directly from `apps/desktop/.vite/build/index.cjs`
  * via the `_electron` fixture (see `e2e/electron/fixtures.ts`). The
@@ -21,10 +21,7 @@
 import path from 'node:path';
 import { defineConfig } from '@playwright/test';
 
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= path.join(
-  process.cwd(),
-  '.playwright-browsers'
-);
+process.env.PLAYWRIGHT_BROWSERS_PATH ??= path.join(process.cwd(), '.playwright-browsers');
 
 export default defineConfig({
   testDir: './e2e/electron',
@@ -32,10 +29,7 @@ export default defineConfig({
   workers: 1,
   globalSetup: './e2e/electron/global-setup.ts',
   outputDir: 'test-results/playwright-electron',
-  reporter: [
-    ['list'],
-    ['html', { open: 'never', outputFolder: 'playwright-report/electron' }],
-  ],
+  reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report/electron' }]],
   // Electron launch + embedded server boot is heavier than the web
   // suite's chromium attach. Give the smoke longer.
   timeout: 120_000,

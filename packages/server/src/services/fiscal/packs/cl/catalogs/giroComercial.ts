@@ -1,5 +1,5 @@
 /**
- * ENG-036a — Catálogo SII de giros comerciales (subset curado del
+ * Catálogo SII de giros comerciales (subset curado del
  * CIIU.cl revisión 4).
  *
  * El SII pide al menos un giro declarado al emitir cualquier DTE.
@@ -35,28 +35,76 @@ export interface GiroEntry {
 export const GIRO_COMERCIAL_CATALOG: ReadonlyArray<GiroEntry> = [
   // Comercio al por menor (47XX)
   { code: '4711', name: 'Comercio al por menor en almacenes no especializados', ciiuRev: 4 },
-  { code: '4719', name: 'Otras actividades de venta al por menor en comercios no especializados', ciiuRev: 4 },
-  { code: '4721', name: 'Comercio al por menor de alimentos en comercios especializados', ciiuRev: 4 },
-  { code: '4722', name: 'Comercio al por menor de bebidas en comercios especializados', ciiuRev: 4 },
+  {
+    code: '4719',
+    name: 'Otras actividades de venta al por menor en comercios no especializados',
+    ciiuRev: 4,
+  },
+  {
+    code: '4721',
+    name: 'Comercio al por menor de alimentos en comercios especializados',
+    ciiuRev: 4,
+  },
+  {
+    code: '4722',
+    name: 'Comercio al por menor de bebidas en comercios especializados',
+    ciiuRev: 4,
+  },
   { code: '4723', name: 'Comercio al por menor de productos del tabaco', ciiuRev: 4 },
-  { code: '4730', name: 'Comercio al por menor de combustible para vehículos automotores', ciiuRev: 4 },
-  { code: '4741', name: 'Comercio al por menor de computadores, equipos periféricos y software', ciiuRev: 4 },
+  {
+    code: '4730',
+    name: 'Comercio al por menor de combustible para vehículos automotores',
+    ciiuRev: 4,
+  },
+  {
+    code: '4741',
+    name: 'Comercio al por menor de computadores, equipos periféricos y software',
+    ciiuRev: 4,
+  },
   { code: '4742', name: 'Comercio al por menor de equipos audio y video', ciiuRev: 4 },
   { code: '4751', name: 'Comercio al por menor de productos textiles', ciiuRev: 4 },
-  { code: '4752', name: 'Comercio al por menor de artículos de ferretería, pintura y vidrio', ciiuRev: 4 },
-  { code: '4753', name: 'Comercio al por menor de tapices, alfombras y cubrimientos para paredes y pisos', ciiuRev: 4 },
-  { code: '4759', name: 'Comercio al por menor de aparatos eléctricos de uso doméstico, muebles, equipos de iluminación', ciiuRev: 4 },
-  { code: '4761', name: 'Comercio al por menor de libros, periódicos y artículos de papelería', ciiuRev: 4 },
+  {
+    code: '4752',
+    name: 'Comercio al por menor de artículos de ferretería, pintura y vidrio',
+    ciiuRev: 4,
+  },
+  {
+    code: '4753',
+    name: 'Comercio al por menor de tapices, alfombras y cubrimientos para paredes y pisos',
+    ciiuRev: 4,
+  },
+  {
+    code: '4759',
+    name: 'Comercio al por menor de aparatos eléctricos de uso doméstico, muebles, equipos de iluminación',
+    ciiuRev: 4,
+  },
+  {
+    code: '4761',
+    name: 'Comercio al por menor de libros, periódicos y artículos de papelería',
+    ciiuRev: 4,
+  },
   { code: '4762', name: 'Comercio al por menor de música y video', ciiuRev: 4 },
   { code: '4763', name: 'Comercio al por menor de artículos deportivos', ciiuRev: 4 },
-  { code: '4771', name: 'Comercio al por menor de prendas de vestir, calzado y artículos de cuero', ciiuRev: 4 },
-  { code: '4772', name: 'Comercio al por menor de productos farmacéuticos y medicinales', ciiuRev: 4 },
+  {
+    code: '4771',
+    name: 'Comercio al por menor de prendas de vestir, calzado y artículos de cuero',
+    ciiuRev: 4,
+  },
+  {
+    code: '4772',
+    name: 'Comercio al por menor de productos farmacéuticos y medicinales',
+    ciiuRev: 4,
+  },
   { code: '4773', name: 'Comercio al por menor de cosméticos y artículos de tocador', ciiuRev: 4 },
   { code: '4774', name: 'Comercio al por menor de artículos de segunda mano', ciiuRev: 4 },
 
   // Comercio al por mayor selectivo (46XX)
   { code: '4630', name: 'Comercio al por mayor de alimentos, bebidas y tabaco', ciiuRev: 4 },
-  { code: '4641', name: 'Comercio al por mayor de productos textiles, prendas de vestir y calzado', ciiuRev: 4 },
+  {
+    code: '4641',
+    name: 'Comercio al por mayor de productos textiles, prendas de vestir y calzado',
+    ciiuRev: 4,
+  },
   { code: '4690', name: 'Comercio al por mayor no especializado', ciiuRev: 4 },
 
   // Restaurantes y servicios de comida (561X)

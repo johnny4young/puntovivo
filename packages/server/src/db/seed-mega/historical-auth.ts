@@ -1,5 +1,5 @@
 /**
- * ENG-052b — MEGA seed: login attempts (rate-limit dual-bucket
+ * MEGA seed: login attempts (rate-limit dual-bucket
  * observability). The seed mixes IP and username buckets across
  * different windows so the audit / observability surfaces show
  * realistic data.
@@ -36,9 +36,7 @@ export async function seedHistoricalAuth(
   // doesn't fight the constraint while still producing realistic
   // observability data.
   const seenKeys = new Set<string>();
-  const pushRow = (
-    row: typeof loginAttempts.$inferInsert
-  ) => {
+  const pushRow = (row: typeof loginAttempts.$inferInsert) => {
     const composite = `${row.kind}:${row.key}`;
     if (seenKeys.has(composite)) return;
     seenKeys.add(composite);
@@ -48,9 +46,11 @@ export async function seedHistoricalAuth(
   // Failed (active) buckets — within the rate-limit window
   for (let i = 0; i < target.loginAttemptsFailed; i += 1) {
     const isIp = i % 2 === 0;
-    const firstAt = clock.nowMs - (i * 30_000);
+    const firstAt = clock.nowMs - i * 30_000;
     const expiresAt = firstAt + (isIp ? ONE_HOUR_MS : 15 * FIFTEEN_MIN_MS);
-    const baseKey = isIp ? SAMPLE_IPS[i % SAMPLE_IPS.length]! : SAMPLE_EMAILS[i % SAMPLE_EMAILS.length]!;
+    const baseKey = isIp
+      ? SAMPLE_IPS[i % SAMPLE_IPS.length]!
+      : SAMPLE_EMAILS[i % SAMPLE_EMAILS.length]!;
     pushRow({
       id: nanoid(),
       kind: isIp ? 'ip' : 'username',

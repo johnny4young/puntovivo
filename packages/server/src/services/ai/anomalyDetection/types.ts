@@ -1,7 +1,7 @@
 /**
- * ENG-032 — public types + tuning constants for the anomaly detector.
+ * public types + tuning constants for the anomaly detector.
  *
- * ENG-178 — extracted verbatim from the former flat
+ * extracted verbatim from the former flat
  * `services/ai/anomalyDetection.ts` during the megafile decomposition.
  * Pure declarations only (no imports), so every other module in the
  * package can depend on this leaf without risking a cycle.
@@ -14,14 +14,9 @@
 // ============================================================================
 
 /**
- * Catalog of anomaly classes the detector emits. Each maps to a
- * specific fraud pattern documented in `docs/AI-ANOMALY-DETECTION.md`.
+ * Catalog of anomaly classes emitted by the detector.
  */
-export type AnomalyKind =
-  | 'ticketsPerHourSpike'
-  | 'voidRate'
-  | 'refundAmount'
-  | 'noSaleSessions';
+export type AnomalyKind = 'ticketsPerHourSpike' | 'voidRate' | 'refundAmount' | 'noSaleSessions';
 
 /**
  * Severity derived from the distance metric, NOT from absolute
@@ -35,35 +30,35 @@ export type AnomalySeverity = 'medium' | 'high';
  * Single anomaly emitted by the detector.
  *
  * @property id           Generated per call (nanoid). Stable for the
- *                        lifetime of a single `ai.anomalies.list`
- *                        response — clients use it as a React key
- *                        and as a target for follow-up actions.
+ * lifetime of a single `ai.anomalies.list`
+ * response — clients use it as a React key
+ * and as a target for follow-up actions.
  * @property kind         Which sub-detector fired.
  * @property cashierId    User who owns the anomalous behavior. Null
- *                        only for tenant-wide refund-amount outliers
- *                        when the underlying sale's `createdBy` is
- *                        unresolvable (defensive null-guard).
+ * only for tenant-wide refund-amount outliers
+ * when the underlying sale's `createdBy` is
+ * unresolvable (defensive null-guard).
  * @property cashierName  Display name; falls back to the user id when
- *                        the user row was deleted (tombstoned).
+ * the user row was deleted (tombstoned).
  * @property severity     `medium` (3 ≤ distance < 4.5) or `high`
- *                        (distance ≥ 4.5). Below 3.0 the alert is
- *                        filtered out.
+ * (distance ≥ 4.5). Below 3.0 the alert is
+ * filtered out.
  * @property observed     Raw metric value the cashier hit (e.g. void
- *                        ratio = 0.42, refund amount = 5000.00).
+ * ratio = 0.42, refund amount = 5000.00).
  * @property baselineMean Reference mean against which `observed` was
- *                        compared. Either personal (per-cashier) or
- *                        cross-cashier (tenant population).
+ * compared. Either personal (per-cashier) or
+ * cross-cashier (tenant population).
  * @property baselineStdDev Reference standard deviation.
  * @property distance     L2 norm of per-dimension z-scores (single
- *                        dimension for v1 detectors → equivalent to
- *                        the absolute z-score).
+ * dimension for v1 detectors → equivalent to
+ * the absolute z-score).
  * @property occurredAt   ISO timestamp identifying the bucket the
- *                        anomaly was observed in. For aggregate
- *                        ratios (voidRate / noSaleSessions), this is
- *                        the upper bound of the analysis window.
+ * anomaly was observed in. For aggregate
+ * ratios (voidRate / noSaleSessions), this is
+ * the upper bound of the analysis window.
  * @property evidenceRef  Optional pointer the operator can use to
- *                        cross-reference. Today populated for
- *                        refundAmount alerts (the saleId).
+ * cross-reference. Today populated for
+ * refundAmount alerts (the saleId).
  */
 export interface AnomalyAlert {
   id: string;
@@ -111,7 +106,7 @@ export const ANALYSIS_WINDOW_DAYS = 30;
 
 /**
  * 3.0 ≈ 0.27% false-positive rate under Gaussian H0. Below this, the
- * detector emits no alert. Tuned per tenant in a future ticket.
+ * detector emits no alert. Tuned per tenant in a future change.
  */
 export const MAHALANOBIS_THRESHOLD = 3.0;
 
@@ -141,8 +136,8 @@ export const REFUND_TOP_K = 10;
 export const MIN_NOSALE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 
 /** Personal-baseline detector ignores cashiers with fewer than this
- *  many active hours in the window — too small a sample for a
- *  meaningful personal mean. */
+ * many active hours in the window — too small a sample for a
+ * meaningful personal mean. */
 export const MIN_PERSONAL_HOURS = 5;
 
 // ============================================================================

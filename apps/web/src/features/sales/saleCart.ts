@@ -3,7 +3,7 @@ import { getCheckoutApprovalDiscountAmount } from '@puntovivo/shared/checkout-ap
 import { normalizedQuantity, roundQuantity } from '@puntovivo/shared/unit-math';
 import type { ProductSearchSelection } from '@/types';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export interface SaleCartItem {
   key: string;
   productId: string;

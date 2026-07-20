@@ -1,5 +1,5 @@
 /**
- * ENG-089 — CustomerLedgerAbonoModal validation + submission contract.
+ * CustomerLedgerAbonoModal validation + submission contract.
  *
  * The modal is a thin form on top of the parent's mutation. These
  * tests pin the validation rules per `mode` ('payment' vs
@@ -13,7 +13,7 @@ import i18next from '@/i18n';
 import { render, screen } from '@/test/utils';
 import { CustomerLedgerAbonoModal } from '../CustomerLedgerAbonoModal';
 
-describe('CustomerLedgerAbonoModal (ENG-089)', () => {
+describe('CustomerLedgerAbonoModal', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
@@ -117,8 +117,6 @@ describe('CustomerLedgerAbonoModal (ENG-089)', () => {
 
   it('surfaces a parent error message inline', () => {
     renderModal({ error: 'Server is down' });
-    expect(screen.getByTestId('customer-ledger-abono-error')).toHaveTextContent(
-      'Server is down'
-    );
+    expect(screen.getByTestId('customer-ledger-abono-error')).toHaveTextContent('Server is down');
   });
 });

@@ -1,5 +1,5 @@
 /**
- * ENG-035b — Serializador de XML CFDI 4.0 según Anexo 20 SAT.
+ * Serializador de XML CFDI 4.0 según Anexo 20 SAT.
  *
  * Construye un comprobante CFDI 4.0 estructuralmente válido a
  * partir del input estándar del orchestrator
@@ -7,46 +7,46 @@
  * resultado:
  *
  * - Genera un UUID local con `crypto.randomUUID()` como
- *   placeholder. El folio fiscal real (UUID asignado por el SAT
- *   al timbrar) llega con ENG-035c cuando integremos PAC.
+ * placeholder. El folio fiscal real (UUID asignado por el SAT
+ * al timbrar) llega con  cuando integremos PAC.
  * - Devuelve un string XML serializado listo para persistir en
- *   `fiscal_documents.xml_ref`.
+ * `fiscal_documents.xml_ref`.
  * - NO firma con CSD ni transmite al PAC. El XML queda en estado
- *   "draft" representado en el schema con `status='pending'`.
+ * "draft" representado en el schema con `status='pending'`.
  *
  * Cobertura del Anexo 20 implementada:
  *
  * - cfdi:Comprobante root con todos los atributos requeridos
- *   (Version, Serie, Folio, Fecha, FormaPago, NoCertificado vacío,
- *   SubTotal, Moneda, Total, TipoDeComprobante, MetodoPago,
- *   LugarExpedicion, Exportacion, Sello vacío) + namespaces
- *   `xmlns:cfdi` + `xmlns:xsi` + `xsi:schemaLocation`.
+ * (Version, Serie, Folio, Fecha, FormaPago, NoCertificado vacío,
+ * SubTotal, Moneda, Total, TipoDeComprobante, MetodoPago,
+ * LugarExpedicion, Exportacion, Sello vacío) + namespaces
+ * `xmlns:cfdi` + `xmlns:xsi` + `xsi:schemaLocation`.
  * - cfdi:Emisor con Rfc, Nombre, RegimenFiscal del catálogo SAT.
  * - cfdi:Receptor con Rfc, Nombre, DomicilioFiscalReceptor,
- *   RegimenFiscalReceptor, UsoCFDI. Consumidor final usa
- *   XAXX010101000 + S01; foreign buyer usa XEXX010101000 + S01.
+ * RegimenFiscalReceptor, UsoCFDI. Consumidor final usa
+ * XAXX010101000 + S01; foreign buyer usa XEXX010101000 + S01.
  * - cfdi:Conceptos > cfdi:Concepto[] con ClaveProdServ,
- *   NoIdentificacion (sku), Cantidad, ClaveUnidad, Descripcion,
- *   ValorUnitario, Importe, Descuento, ObjetoImp, y nested
- *   cfdi:Impuestos > cfdi:Traslados > cfdi:Traslado.
+ * NoIdentificacion (sku), Cantidad, ClaveUnidad, Descripcion,
+ * ValorUnitario, Importe, Descuento, ObjetoImp, y nested
+ * cfdi:Impuestos > cfdi:Traslados > cfdi:Traslado.
  * - cfdi:Comprobante.cfdi:Impuestos agregado con
- *   TotalImpuestosTrasladados + suma de Traslados consolidados.
+ * TotalImpuestosTrasladados + suma de Traslados consolidados.
  * - cfdi:CfdiRelacionados (TipoRelacion='01' Nota crédito) cuando
- *   source='return' u source='void' con originalCufe en input.
+ * source='return' u source='void' con originalCufe en input.
  *
- * Cobertura DIFERIDA (out of scope para ENG-035b):
+ * Cobertura DIFERIDA (out of scope para ):
  *
- * - Firmado XAdES con CSD: ENG-035c.
- * - Sello SAT y NoCertificado real: timbrado PAC, ENG-035c.
- * - cfdi:Pagos 2.0 para parcialidades / crédito: ENG-035c.
+ * - Firmado XAdES con CSD: .
+ * - Sello SAT y NoCertificado real: timbrado PAC, .
+ * - cfdi:Pagos 2.0 para parcialidades / crédito: .
  * - CartaPorte (transporte de mercancías): fuera de scope LATAM.
  * - ComercioExterior (exportación): fuera de scope retail base.
  * - TipoCambio para foreign currency: el adapter rechaza si
- *   currencyCode !== 'MXN' (se modela en ENG-035c con tabla de
- *   tipos de cambio del Banco de México).
+ * currencyCode !== 'MXN' (se modela en  con tabla de
+ * tipos de cambio del Banco de México).
  * - IEPS para alcohol y tabaco: el catálogo claveProdServ marca
- *   las categorías; el cálculo IEPS lo agrega ENG-035c con tasas
- *   vigentes SAT.
+ * las categorías; el cálculo IEPS lo agrega  con tasas
+ * vigentes SAT.
  *
  * @module services/fiscal/packs/mx/cfdi40-xml/serialize
  */
@@ -93,7 +93,7 @@ export function serializeCfdi40(
   }
   if (input.currencyCode !== 'MXN') {
     throw new Error(
-      `CFDI 4.0 requiere Moneda='MXN'. Recibido: ${input.currencyCode}. Foreign currency requiere TipoCambio (ENG-035c).`,
+      `CFDI 4.0 requiere Moneda='MXN'. Recibido: ${input.currencyCode}. Foreign currency requiere TipoCambio ().`,
       {
         cause: {
           country: 'MX',
@@ -154,7 +154,7 @@ export function serializeCfdi40(
   const tipoComprobante: 'I' | 'E' = input.source === 'sale' ? 'I' : 'E';
 
   // -----------------------------------------------------------
-  // UUID local (placeholder hasta ENG-035c PAC timbrado).
+  // UUID local (placeholder hasta  PAC timbrado).
   // -----------------------------------------------------------
   const uuid = randomUUID();
 

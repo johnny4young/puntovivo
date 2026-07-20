@@ -1,10 +1,10 @@
 /**
- * ENG-020 — Fiscal reports Zod schemas.
+ * Fiscal reports Zod schemas.
  *
  * The fiscal reports surface is the first consumer of
  * `fiscal_documents` + `fiscal_document_items`. Inputs are deliberately
- * minimal for Fase A — kind/status filters, paged list, and
- * `getByCufe` lookup. ENG-021 will widen the filters (issuer/buyer
+ * minimal for estado actual — kind/status filters, paged list, and
+ * `getByCufe` lookup.  will widen the filters (issuer/buyer
  * search, contingency queue, exports).
  *
  * @module trpc/schemas/fiscal
@@ -48,7 +48,7 @@ export const getFiscalDocumentByCufeInput = z.object({
 
 export type GetFiscalDocumentByCufeInput = z.infer<typeof getFiscalDocumentByCufeInput>;
 
-/** ENG-057 — operator-driven retry of a stuck fiscal document. */
+/** operator-driven retry of a stuck fiscal document. */
 export const retryFiscalDocumentInput = z.object({
   fiscalDocumentId: z.string().min(1, 'fiscalDocumentId is required'),
 });
@@ -56,7 +56,7 @@ export const retryFiscalDocumentInput = z.object({
 export type RetryFiscalDocumentInput = z.infer<typeof retryFiscalDocumentInput>;
 
 /**
- * ENG-103 — lazy XML body fetch. Input is the internal
+ * lazy XML body fetch. Input is the internal
  * `fiscal_documents.id` (NOT the cufe) so the procedure can reuse the
  * tenant-scoped primary-key index. Cross-tenant access collapses to
  * `FISCAL_DOCUMENT_NOT_FOUND` so we never leak the row's existence.

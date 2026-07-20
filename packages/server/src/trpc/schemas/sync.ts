@@ -62,7 +62,7 @@ export const resolveSyncConflictInput = z
     }
   });
 
-// ENG-064/064b — sync_outbox surfaces. These operator procedures use
+// sync_outbox surfaces. These operator procedures use
 // the canonical sync outbox table after the legacy sync_queue cutover.
 export const peekOutboxInput = z.object({
   limit: z.number().int().min(1).max(100).default(20),

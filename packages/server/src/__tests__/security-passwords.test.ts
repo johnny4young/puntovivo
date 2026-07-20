@@ -1,5 +1,5 @@
 /**
- * ENG-166 — pins the password hashing helpers in `security/passwords.ts`
+ * pins the password hashing helpers in `security/passwords.ts`
  * so a future library bump cannot silently weaken Argon2 parameters or
  * collapse the `needsRehash` upgrade path.
  */

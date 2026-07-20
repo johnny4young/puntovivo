@@ -6,7 +6,7 @@ import {
   mapProductImportRows,
 } from './productImportMapping';
 
-describe('ENG-123a product import mapping', () => {
+describe(' product import mapping', () => {
   it('auto-maps neutral English and accented Spanish aliases', () => {
     const mapping = autoMapProductHeaders([
       'Nombre',

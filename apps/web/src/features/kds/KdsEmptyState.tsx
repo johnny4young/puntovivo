@@ -1,5 +1,5 @@
 /**
- * ENG-098 — quiet empty state for the kitchen board.
+ * quiet empty state for the kitchen board.
  *
  * The kitchen display is mounted on a TV that runs unattended for
  * hours. The empty state intentionally avoids marketing copy or

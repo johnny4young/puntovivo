@@ -1,8 +1,8 @@
 /**
  * Currency seam helper — single source of truth for resolving a
- * tenant's default ISO-4217 currency code (ENG-176b).
+ * tenant's default ISO-4217 currency code.
  *
- * Why this exists. The storage layer was extended in ENG-176b to carry
+ * Why this exists. The storage layer was extended in  to carry
  * a `currency_code` column on every transactional row (sales,
  * sale_items, quotations, quotation_items, products,
  * `customers.credit_limit_currency_code`) plus `exchange_rate_at_sale`
@@ -13,7 +13,7 @@
  * once per write keeps the contract uniform and the multi-tenant
  * boundary intact.
  *
- * Why not parse `tenants.settings` JSON. Until ENG-176b, the tenant
+ * Why not parse `tenants.settings` JSON. Until , the tenant
  * currency lived in `tenants.settings.currency` (undocumented JSON)
  * and `tenant_locale_settings.currency_override` / `country_code →
  * country_catalog.default_currency_code`. The 0037 migration
@@ -30,7 +30,7 @@
  *
  * Apply at the boundary of every monetary write that does not
  * already accept a currency override from the operator (product
- * import, customer credit limit override, future ENG-156 multi-
+ * import, customer credit limit override, future  multi-
  * currency sale). The helper is intentionally small + sync to keep
  * the call site readable: `const currencyCode =
  * resolveTenantCurrency(ctx.db, ctx.tenantId);`.
@@ -57,12 +57,9 @@ export const TENANT_CURRENCY_FALLBACK = 'COP';
  * @param db - The tenant-scoped DB instance from `ctx.db`.
  * @param tenantId - The caller's tenant id (`ctx.tenantId`).
  * @returns The tenant's `default_currency_code`, or
- *   `TENANT_CURRENCY_FALLBACK` if the row is missing / null.
+ * `TENANT_CURRENCY_FALLBACK` if the row is missing / null.
  */
-export function resolveTenantCurrency(
-  db: DatabaseInstance,
-  tenantId: string,
-): string {
+export function resolveTenantCurrency(db: DatabaseInstance, tenantId: string): string {
   const row = db
     .select({ code: tenants.defaultCurrencyCode })
     .from(tenants)

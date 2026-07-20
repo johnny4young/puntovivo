@@ -8,7 +8,7 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 interface ResourcePageProps<TData> {
   title: string;
   /**
-   * ENG-049 — descripción opcional. Las páginas estándar dejaron de
+   * descripción opcional. Las páginas estándar dejaron de
    * renderizarla por la pasada minimalista; la prop se conserva
    * opcional para que un caller que sí necesite contexto pueda
    * pasarla puntualmente.
@@ -22,13 +22,13 @@ interface ResourcePageProps<TData> {
   /**
    * Column filtered client-side. Correct only when `data` holds every row
    * the user could match; with a paged query use {@link searchValue}
-   * instead (ENG-217). Optional since ENG-217 so a controlled-search caller
+   * instead (). Optional since  so a controlled-search caller
    * can omit it entirely.
    */
   searchKey?: string;
   searchPlaceholder: string;
   /**
-   * ENG-217 — controlled (server-side) search, forwarded to DataTable. When
+   * controlled (server-side) search, forwarded to DataTable. When
    * set, the search box is rendered but nothing is filtered locally: the
    * caller feeds `data` from a query that already applied the term.
    */
@@ -40,14 +40,14 @@ interface ResourcePageProps<TData> {
   loadingMessage: string;
   onRetry?: () => void;
   /**
-   * ENG-134f — Forwarded to the underlying DataTable. When set, the
+   * Forwarded to the underlying DataTable. When set, the
    * keyboard user pressing Enter or Space on the focused row fires
    * this callback with the row data, mirroring the primary action
    * button (Edit / View) on each row.
    */
   onRowActivate?: (row: TData) => void;
   /**
-   * Rediseño FASE 3 — densidad del DataTable subyacente. Las páginas CRUD
+   * densidad del DataTable subyacente. Las páginas CRUD
    * canónicas adoptan `dense` (.pv-table: cabecera sticky, cebra, filas
    * 48-52px, primera columna ancla) de forma uniforme. Un caller puede
    * forzar `default` si necesita el chrome legacy.
@@ -89,7 +89,7 @@ export function ResourcePage<TData>({
         {isLoading && <TableLoadingState message={loadingMessage} />}
         {error && (
           <TableErrorState
-            /* ENG-220 — was `Unable to load ${title}`, hardcoded. Not a
+            /* was `Unable to load ${title}`, hardcoded. Not a
                default a caller could override: it rendered for every locale,
                so a Spanish operator hitting a network error read
                "Unable to load clientes" — half a sentence in a language the

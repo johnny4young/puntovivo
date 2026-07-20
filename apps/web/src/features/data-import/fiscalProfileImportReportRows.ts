@@ -1,4 +1,4 @@
-/** ENG-123f — Row-complete fiscal-profile import report projection. */
+/** Row-complete fiscal-profile import report projection. */
 import type {
   FiscalProfileImportIssue,
   FiscalProfileImportPreview,

@@ -97,7 +97,7 @@ function payrollValues(
   ];
 }
 
-/** ENG-140f — stable machine headers plus formula-safe RFC 4180 evidence rows. */
+/** stable machine headers plus formula-safe RFC 4180 evidence rows. */
 export function buildAttendancePayrollCsv(
   report: AttendanceExportReport,
   fromDate: string,
@@ -250,7 +250,7 @@ function exportHeader(t: TFunction, key: string): string {
 }
 
 /**
- * ENG-140f — provider-neutral workbook with aggregate, evidence, premium,
+ * provider-neutral workbook with aggregate, evidence, premium,
  * and handoff-readme sheets. No wage or tax amount is inferred here.
  */
 export async function buildAttendanceAccountingWorkbook(

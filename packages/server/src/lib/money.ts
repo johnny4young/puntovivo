@@ -1,6 +1,6 @@
 /**
  * Server compatibility facade for the shared money primitive
- * (ENG-176a-rounding, centralized by ENG-203).
+ * (, centralized by ).
  *
  * Why this exists. The schema (`db/schema.ts`) declares CHECK invariants
  * on every monetary column: `chk_<col>_nonneg` (no negatives on
@@ -12,12 +12,12 @@
  * Why the codebase needs the shared primitive. Two legitimate flows produce non-2-decimal
  * intermediates:
  *
- *   1. Tax-exclusive math in tax-inclusive sales:
- *      `subtotal = gross / (1 + taxRate)` is non-terminating for most
- *      LATAM rates (e.g. `100 / 1.19 = 84.033...`).
- *   2. Σ accumulation of line totals:
- *      `subtotal += unitPrice * quantity` accumulates sub-cent drift
- *      across multiple line items.
+ * 1. Tax-exclusive math in tax-inclusive sales:
+ * `subtotal = gross / (1 + taxRate)` is non-terminating for most
+ * LATAM rates (e.g. `100 / 1.19 = 84.033...`).
+ * 2. Σ accumulation of line totals:
+ * `subtotal += unitPrice * quantity` accumulates sub-cent drift
+ * across multiple line items.
  *
  * To keep the storage layer's precision contract honest WITHOUT
  * dropping the application's tax / accumulation flow, every monetary
@@ -37,7 +37,7 @@
  * drift across iterations.
  *
  * Out of scope: per-currency exponent (JPY = 0, BHD = 3). Today every
- * LATAM currency we ship uses 2 decimals; ENG-176b will add
+ * LATAM currency we ship uses 2 decimals;  will add
  * `currency_code` per-row and a future iteration can refine to
  * `roundMoney(value, currency_code)` using `currency_catalog.decimals`.
  *

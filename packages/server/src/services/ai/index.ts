@@ -1,8 +1,8 @@
 /**
- * ENG-030 — AI foundation barrel.
+ * AI foundation barrel.
  *
- * Downstream tickets (ENG-031 co-pilot, ENG-033 semantic search,
- * ENG-040 vision/voice) import from this module. Internal modules
+ * Downstream tickets ( co-pilot,  semantic search,
+ *  vision/voice) import from this module. Internal modules
  * (`auditLog`, `client`, provider files) are not re-exported here —
  * the barrel intentionally surfaces only the agreed external API.
  *
@@ -71,7 +71,6 @@ export { DEFAULT_AI_FEATURE_FLAGS, DEFAULT_AI_SETTINGS } from './types.js';
 export {
   DEFAULT_PROVIDER_ID,
   getProvider,
-  isNotImplemented,
   listProviders,
   type ProviderListing,
 } from './providers/registry.js';

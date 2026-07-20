@@ -1,4 +1,4 @@
-/** ENG-123b — Shared tenant-city validation for provider write use-cases. */
+/** Shared tenant-city validation for provider write use-cases. */
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 

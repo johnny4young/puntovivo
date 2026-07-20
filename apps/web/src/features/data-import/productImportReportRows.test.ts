@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildProductImportReportRows } from './productImportReportRows';
 import type { ProductImportPreview, ProductImportReport } from './types';
 
-describe('ENG-123a product import report rows', () => {
+describe(' product import report rows', () => {
   it('preserves imported, skipped, invalid, failed, and warning rows', () => {
     const normalized = {
       name: 'Product',

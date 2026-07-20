@@ -1,12 +1,12 @@
 /**
- * ENG-132h — FiscalDocumentListPage column-trim + row-detail integration.
+ * FiscalDocumentListPage column-trim + row-detail integration.
  *
  * The first test for this page. Renders with the REAL custom table +
  * FiscalDocumentDetailsDrawer (only the heavy XML modal is stubbed) to prove:
- *   - the default table renders the smallest useful column set — the Provider
- *     and CUFE headers are gone;
- *   - the Details (eye) action opens the row-detail Drawer, which surfaces
- *     exactly those trimmed fields (provider id + full CUFE).
+ * - the default table renders the smallest useful column set — the Provider
+ * and CUFE headers are gone;
+ * - the Details (eye) action opens the row-detail Drawer, which surfaces
+ * exactly those trimmed fields (provider id + full CUFE).
  *
  * @module features/fiscal/FiscalDocumentListPage.test
  */
@@ -62,7 +62,7 @@ vi.mock('@/lib/trpc', () => ({
 
 import { FiscalDocumentListPage } from './FiscalDocumentListPage';
 
-describe('FiscalDocumentListPage default column set (ENG-132h)', () => {
+describe('FiscalDocumentListPage default column set', () => {
   it('renders the smallest useful column set — provider / cufe trimmed', () => {
     render(<FiscalDocumentListPage />);
 

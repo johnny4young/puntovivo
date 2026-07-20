@@ -1,5 +1,5 @@
 /**
- * ENG-060 — Integration tests for the `peripherals.*` admin router.
+ * Integration tests for the `peripherals.*` admin router.
  *
  * Boots a real Fastify server + tRPC caller. Asserts write gating,
  * CRUD round-trip, partial-unique enforcement, and the test action's
@@ -59,11 +59,7 @@ function expectErrorCode(error: unknown, code: string) {
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -81,9 +77,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await getDatabase()
-    .delete(sitePeripherals)
-    .where(eq(sitePeripherals.tenantId, tenantId));
+  await getDatabase().delete(sitePeripherals).where(eq(sitePeripherals.tenantId, tenantId));
 });
 
 describe('peripherals.* — admin gate', () => {
@@ -122,9 +116,9 @@ describe('peripherals.list', () => {
 
   it('returns NOT_FOUND when siteId is foreign', async () => {
     const caller = appRouter.createCaller(buildContext());
-    await expect(
-      caller.peripherals.list({ siteId: 'unknown-site' })
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(caller.peripherals.list({ siteId: 'unknown-site' })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
   });
 });
 
@@ -213,10 +207,10 @@ describe('peripherals.register', () => {
     }
   });
 
-  // ENG-097 — `autoPrintOnComplete` is opt-in per site; the printer
+  // `autoPrintOnComplete` is opt-in per site; the printer
   // driver schema must accept + round-trip the boolean so the
   // SalesPage hook can read it back via `activeForSite`.
-  it('round-trips the ENG-097 autoPrintOnComplete printer config flag', async () => {
+  it('round-trips the  autoPrintOnComplete printer config flag', async () => {
     const caller = appRouter.createCaller(buildContext());
     const row = await caller.peripherals.register({
       siteId,
@@ -238,9 +232,7 @@ describe('peripherals.register', () => {
     const active = await caller.peripherals.activeForSite({ siteId });
     const printer = active.find(p => p.kind === 'printer');
     expect(printer).toBeDefined();
-    expect(
-      (printer!.config as Record<string, unknown>).autoPrintOnComplete
-    ).toBe(true);
+    expect((printer!.config as Record<string, unknown>).autoPrintOnComplete).toBe(true);
   });
 
   it('rejects a non-boolean autoPrintOnComplete with PERIPHERAL_CONFIG_INVALID', async () => {
@@ -408,7 +400,7 @@ describe('peripherals.update', () => {
   });
 });
 
-describe('peripherals.activeForSite (ENG-061)', () => {
+describe('peripherals.activeForSite', () => {
   it('returns an empty array when no peripherals are registered', async () => {
     const caller = appRouter.createCaller(buildContext('cashier'));
     const result = await caller.peripherals.activeForSite({ siteId });

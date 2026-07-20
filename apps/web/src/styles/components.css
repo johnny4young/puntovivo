@@ -5,17 +5,17 @@
  * overridden by utility classes when needed.
  *
  * Sections:
- *   1. Shell & Layout        — app-shell, shell-panel, page-header-*
- *   2. Cards & Surfaces      — card, card-inset, surface-panel, surface-empty, metric-tile, hero-surface
- *   3. Buttons               — btn-primary, btn-secondary, btn-outline, btn-ghost, btn-danger, btn-icon
- *   4. Mobile Navigation     — mobile-shell-toggle
- *   5. Segmented Controls    — segmented-control, segmented-tab
- *   6. Settings              — setting-toggle-card
- *   7. Modals                — modal-shell, modal-header, modal-body, modal-footer
- *   8. Forms                 — label, input, select-trigger
- *   9. Badges                — badge, badge-primary, badge-secondary, …
- *  10. Page Typography       — page-heading, page-kicker, page-title, page-description
- *  11. Data Tables           — data-table, data-table-toolbar, data-table-pagination
+ * 1. Shell & Layout        — app-shell, shell-panel, page-header-*
+ * 2. Cards & Surfaces      — card, card-inset, surface-panel, surface-empty, metric-tile, hero-surface
+ * 3. Buttons               — btn-primary, btn-secondary, btn-outline, btn-ghost, btn-danger, btn-icon
+ * 4. Mobile Navigation     — mobile-shell-toggle
+ * 5. Segmented Controls    — segmented-control, segmented-tab
+ * 6. Settings              — setting-toggle-card
+ * 7. Modals                — modal-shell, modal-header, modal-body, modal-footer
+ * 8. Forms                 — label, input, select-trigger
+ * 9. Badges                — badge, badge-primary, badge-secondary, …
+ * 10. Page Typography       — page-heading, page-kicker, page-title, page-description
+ * 11. Data Tables           — data-table, data-table-toolbar, data-table-pagination
  */
 
 @layer components {
@@ -25,7 +25,7 @@
    * .app-shell       — Root wrapper. Sets min-height and text color.
    * .shell-panel     — Header chrome bar. Rounded, bordered, glass-blur panel.
    * .page-header-row — Responsive row that places H1 on the left and action
-   *                     buttons on the right. Stacks vertically on mobile.
+   * buttons on the right. Stacks vertically on mobile.
    * .page-header-actions — Flex container for action buttons inside a header row.
    * ======================================================================== */
 
@@ -50,19 +50,19 @@
    * 2. CARDS & SURFACES
    *
    * .card              — Primary content card. Use for standalone sections like
-   *                       "Sales history", "Revenue trend", form groups.
+   * "Sales history", "Revenue trend", form groups.
    * .card-inset        — Nested card inside a .card or .hero-surface. Use for
-   *                       metric summaries, shortcut hints, embedded panels.
+   * metric summaries, shortcut hints, embedded panels.
    * .surface-panel     — Bordered panel with surface background. Use for list
-   *                       items in reports, timeline entries, metric grids.
+   * items in reports, timeline entries, metric grids.
    * .surface-panel-muted — Softer variant of surface-panel. Use for read-only
-   *                       notes, informational banners, "desktop only" notices.
+   * notes, informational banners, "desktop only" notices.
    * .surface-empty     — Dashed-border empty state. Use when a list or timeline
-   *                       has no items to display yet.
+   * has no items to display yet.
    * .metric-tile       — KPI card with a subtle top-edge highlight. Use for
-   *                       dashboard stats (Today's sales, Low stock, etc.).
+   * dashboard stats (Today's sales, Low stock, etc.).
    * .hero-surface      — Full-width hero banner with layered radial gradients.
-   *                       Use for Sales desk overview and Dashboard header.
+   * Use for Sales desk overview and Dashboard header.
    * ======================================================================== */
 
   .card {
@@ -141,7 +141,7 @@
 
   /* --------------------------------------------------------------------------
    * .glyph-tile
-   * ENG-080 — square leading-glyph tile used next to list rows, search bars,
+   * square leading-glyph tile used next to list rows, search bars,
    * stat tiles, and inline indicators. 4 tones; sized via h-/w-* utilities at
    * the call site (h-10 w-10 default, h-11 w-11 for stat-tile leading icons).
    * ------------------------------------------------------------------------ */
@@ -185,17 +185,17 @@
    * rounded-2xl, gap-2, semibold text, focus ring, disabled state).
    *
    * .btn-primary   — Primary action (charge sale, save, confirm). Solid fill
-   *                   with shadow glow. Use sparingly — one per visible context.
+   * with shadow glow. Use sparingly — one per visible context.
    * .btn-secondary — Secondary action (record movement, add product). Bordered
-   *                   with surface fill. Use next to primary when two actions
-   *                   share equal importance.
+   * with surface fill. Use next to primary when two actions
+   * share equal importance.
    * .btn-outline   — Tertiary action (cancel, close session, filter). Bordered
-   *                   with transparent fill. Default for modal Cancel buttons.
+   * with transparent fill. Default for modal Cancel buttons.
    * .btn-ghost     — Minimal action (close icon, collapse rail). No border.
    * .btn-success   — Positive state transition (accept quotation, approve).
    * .btn-danger    — Destructive action (delete, void). Red fill with glow.
    * .btn-icon      — Square modifier (40×40). Combine with any variant:
-   *                   className="btn-ghost btn-icon"
+   * className="btn-ghost btn-icon"
    * ======================================================================== */
 
   .btn-primary,
@@ -300,7 +300,7 @@
    * 4. MOBILE NAVIGATION
    *
    * .mobile-shell-toggle — Hamburger / close button for mobile sidebar.
-   *                         Apply alongside btn-outline btn-icon.
+   * Apply alongside btn-outline btn-icon.
    * ======================================================================== */
 
   .mobile-shell-toggle {
@@ -324,11 +324,11 @@
    * 5. SEGMENTED CONTROLS
    *
    * .segmented-control    — Pill-shaped container that holds tabs (Inventory
-   *                          views, Geography tabs, Customer Catalog tabs).
+   * views, Geography tabs, Customer Catalog tabs).
    * .segmented-tab        — Individual tab button. Inactive state.
    * .segmented-tab-active — Active tab. Solid primary fill with shadow.
-   *                          Apply conditionally: className={cn('segmented-tab',
-   *                          isActive && 'segmented-tab-active')}
+   * Apply conditionally: className={cn('segmented-tab',
+   * isActive && 'segmented-tab-active')}
    * ======================================================================== */
 
   .segmented-control {
@@ -348,7 +348,7 @@
   }
 
   /* ==========================================================================
-   * 5b. SETUP GROUPED NAV (ENG-188)
+   * 5b. SETUP GROUPED NAV ()
    *
    * `/company` Setup navigation. The readiness hub is the pinned landing
    * (.setup-nav-readiness); the remaining configuration tabs are demoted
@@ -402,9 +402,9 @@
    * 6. SETTINGS
    *
    * .setting-toggle-card        — Selectable card for settings like theme
-   *                                picker. Shows border highlight on hover.
+   * picker. Shows border highlight on hover.
    * .setting-toggle-card-active — Active/selected state with primary border
-   *                                and tinted background.
+   * and tinted background.
    * ======================================================================== */
 
   .setting-toggle-card {
@@ -431,12 +431,12 @@
    * 7. MODALS
    *
    * .modal-shell  — Outer container with rounded corners, border, backdrop
-   *                  blur, and a radial gradient pseudo-element. Used by the
-   *                  reusable <Modal> component in form-controls/Modal.tsx.
+   * blur, and a radial gradient pseudo-element. Used by the
+   * reusable <Modal> component in form-controls/Modal.tsx.
    * .modal-header — Top bar with title and close button. Has bottom border.
    * .modal-body   — Scrollable content area.
    * .modal-footer — Action bar at bottom. Stacks buttons vertically on mobile,
-   *                  aligns right on sm+. Has top border and muted background.
+   * aligns right on sm+. Has top border and muted background.
    *
    * All three inner sections use z-10 to layer above the ::before gradient.
    * ======================================================================== */
@@ -488,12 +488,12 @@
   }
 
   /* ==========================================================================
-   * 7b. DRAWERS (ENG-186)
+   * 7b. DRAWERS ()
    *
    * .drawer-shell          — Sliding panel used by the reusable <Drawer>.
    * .drawer-pinned-content — Optional non-scrolling summary between header and
-   *                          body for operational forms with a stable total or
-   *                          status. It shares the body's horizontal gutters.
+   * body for operational forms with a stable total or
+   * status. It shares the body's horizontal gutters.
    *
    * On mobile the shell is a bottom sheet (rounded top, capped at 85vh,
    * slide-up entrance); from the sm breakpoint up it becomes a full-height
@@ -520,18 +520,18 @@
   }
 
   /* ==========================================================================
-   * 7c. SALES POS SHELL (ENG-186)
+   * 7c. SALES POS SHELL ()
    *
    * .sales-pos-shell — the /sales POS region is bounded to the viewport at xl
-   *                    so the cart list + checkout panel scroll internally and
-   *                    the common sale completes without page scroll. The chrome
-   *                    above it (Header + main padding) is a fixed ~9.25rem, but
-   *                    the GlobalStatusStrip is conditional — so the strip's
-   *                    height is subtracted ONLY when it is actually present
-   *                    (via :has on the app shell) instead of always reserving
-   *                    it, which left a dead gap on healthy tenants. The flex /
-   *                    overflow utilities stay on the element; only the height
-   *                    lives here because it has to react to the strip.
+   * so the cart list + checkout panel scroll internally and
+   * the common sale completes without page scroll. The chrome
+   * above it (Header + main padding) is a fixed ~9.25rem, but
+   * the GlobalStatusStrip is conditional — so the strip's
+   * height is subtracted ONLY when it is actually present
+   * (via :has on the app shell) instead of always reserving
+   * it, which left a dead gap on healthy tenants. The flex /
+   * overflow utilities stay on the element; only the height
+   * lives here because it has to react to the strip.
    * ======================================================================== */
 
   @media (min-width: 1280px) {
@@ -556,9 +556,9 @@
    * ======================================================================== */
 
   .label {
-    /* ENG-134 slice B (2026-05-21): bumped from text-secondary-500
+    /* slice B (2026-05-21): bumped from text-secondary-500
      * (oklch L=0.61) to text-fg2 (oklch L=0.37, semantic
-     * mid-contrast foreground from the ENG-080b ramp) so labels
+     * mid-contrast foreground from the  ramp) so labels
      * rendered against the page background clear WCAG AA 4.5:1. */
     @apply block text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-fg2;
   }
@@ -632,7 +632,7 @@
    *
    * .page-heading     — Flex column container for kicker + title + description.
    * .page-kicker      — Uppercase green micro-label above page titles
-   *                      (SALES DESK, COMMAND CENTER, REVENUE TREND).
+   * (SALES DESK, COMMAND CENTER, REVENUE TREND).
    * .page-title       — Display-font page heading (font-display text-4xl).
    * .page-description — Muted body text below the title (max-w-2xl).
    * ======================================================================== */
@@ -642,7 +642,7 @@
   }
 
   .page-kicker {
-    /* ENG-134 slice B (2026-05-21): brand-blue uppercase kicker
+    /* slice B (2026-05-21): brand-blue uppercase kicker
      * needed to clear WCAG AA 4.5:1 against the page background.
      * Original `text-primary-600` rendered at 3.65:1 on 7.4pt body
      * text. Use `var(--primary-800)` (oklch L=0.45) directly — the
@@ -723,9 +723,9 @@
     @apply px-4 py-3 text-left text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-secondary-500;
   }
 
-  /* ENG-219 — the legacy `.data-table` header is static, which is invisible
+  /* the legacy `.data-table` header is static, which is invisible
      on the paged path (the page scrolls, the table does not) but breaks the
-     moment ENG-172 auto-virtualises a table past 30 rows: the wrapper becomes
+     moment  auto-virtualises a table past 30 rows: the wrapper becomes
      the scroll container, the header slides out of view, and the operator
      scrolls a grid of unlabelled columns. The dense `.pv-table` recipe has
      been sticky since the redesign; this brings the default variant to parity
@@ -798,12 +798,11 @@
   }
 
   /* ==========================================================================
-   * 12. REDISEÑO — RECETAS pv-* (propuesta §02/§03, FASE 0)
+   * 12. REDISEÑO — RECETAS pv-* (propuesta §02/§03, )
    *
    * Set canónico de recetas reconstruidas 1:1 desde propuesta.css con los
    * tokens del design system. Son las piezas que las pantallas consumen en
-   * FASE 2+ (KpiTile, DataTable, Badge, Button, Field, Tabs, Switch,
-   * Accordion, EmptyState, Skeleton, Strip, RefChip, Diff, etc.).
+   * .
    *
    * Regla dark: la elevación se comunica por BORDE (1px var(--line)), no por
    * sombra. Las recetas con `var(--shadow-card)` se anulan solas en .dark
@@ -1024,7 +1023,7 @@
   .pv-btn:hover {
     transform: translateY(-1px);
   }
-  /* POS — variante táctil 48px (FASE 5). */
+  /* POS — variante táctil 48px (). */
   .pv-btn.lg {
     min-height: 48px;
     font-size: 15px;
@@ -1520,7 +1519,7 @@
   .pv-strip.danger .act {
     color: var(--danger-700);
   }
-  /* ENG-187 — amber tone for the Operations Needs-attention warning rows
+  /* amber tone for the Operations Needs-attention warning rows
      (a lagging-but-not-failed signal, e.g. a sync backlog). */
   .pv-strip.warning {
     border-color: color-mix(in oklch, var(--warning-500) 30%, transparent);
@@ -1682,7 +1681,7 @@
 
   /* --- Titulación de panel (.pv-kicker / .pv-title) — propuesta.css:226-227 ---
    * pv-kicker: micro-etiqueta sobre títulos de panel/POS. La propuesta usa
-   * --primary-600; aquí usamos --primary-800 (igual que .page-kicker, ENG-134c)
+   * --primary-600; aquí usamos --primary-800 (igual que .page-kicker, )
    * para que el texto pequeño en mayúsculas mantenga AA 4.5:1 — desviación
    * deliberada y mínima que NO altera la jerarquía visual. */
   .pv-kicker {
@@ -1722,7 +1721,7 @@
     margin-top: 1px;
   }
 
-  /* --- POS táctil (FASE 5, §06) — keycap, total dominante, tile de pago ---
+  /* --- POS táctil (, §06) — keycap, total dominante, tile de pago ---
    * El mockup §06 usa recetas existentes (pv-btn outline 44px para steppers,
    * pv-btn.primary.lg 48px para Cobrar) + estas 3 piezas reutilizables.
    * El panel "Total a pagar" es tinta fija (secondary-950) con texto claro vía

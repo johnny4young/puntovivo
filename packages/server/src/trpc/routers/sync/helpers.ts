@@ -1,7 +1,7 @@
 /**
- * Sync router shared helpers (ENG-178 split).
+ * Sync router shared helpers ( split).
  *
- * Leaf module: the sync-entity allowlist (SEC-003), the last-sync-time
+ * Leaf module: the sync-entity allowlist, the last-sync-time
  * accessors, the sync-overview aggregation, the conflict helpers, and the
  * entity lookup / mark-synced primitives. Imported by the per-concern record
  * modules (status / queue / conflicts / push); never imports them back.
@@ -13,11 +13,7 @@ import type Database from 'better-sqlite3';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../../db/index.js';
-import {
-  appSettings,
-  syncConflicts,
-  syncOutbox,
-} from '../../../db/schema.js';
+import { appSettings, syncConflicts, syncOutbox } from '../../../db/schema.js';
 
 export const LAST_SYNC_KEY_PREFIX = 'sync_last_sync:';
 
@@ -80,7 +76,11 @@ export const syncEntityConfig = {
   },
   logos: { tableName: 'logos', supportsSyncMetadata: false, touchUpdatedAt: false },
   locations: { tableName: 'locations', supportsSyncMetadata: false, touchUpdatedAt: false },
-  location_x_site: { tableName: 'location_x_site', supportsSyncMetadata: false, touchUpdatedAt: false },
+  location_x_site: {
+    tableName: 'location_x_site',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
   order_items: { tableName: 'order_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   orders: { tableName: 'orders', supportsSyncMetadata: true, touchUpdatedAt: true },
   person_types: { tableName: 'person_types', supportsSyncMetadata: false, touchUpdatedAt: false },
@@ -92,7 +92,11 @@ export const syncEntityConfig = {
     supportsSyncMetadata: false,
     touchUpdatedAt: false,
   },
-  purchase_returns: { tableName: 'purchase_returns', supportsSyncMetadata: true, touchUpdatedAt: true },
+  purchase_returns: {
+    tableName: 'purchase_returns',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
   regime_types: { tableName: 'regime_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_item_serials: {
@@ -115,10 +119,7 @@ export function getLastSyncKey(tenantId: string) {
   return `${LAST_SYNC_KEY_PREFIX}${tenantId}`;
 }
 
-export async function getLastSyncAt(
-  db: DatabaseInstance,
-  tenantId: string
-) {
+export async function getLastSyncAt(db: DatabaseInstance, tenantId: string) {
   const row = await db
     .select({ value: appSettings.value })
     .from(appSettings)
@@ -128,11 +129,7 @@ export async function getLastSyncAt(
   return typeof row?.value === 'string' ? row.value : null;
 }
 
-export async function saveLastSyncAt(
-  db: DatabaseInstance,
-  tenantId: string,
-  value: string
-) {
+export async function saveLastSyncAt(db: DatabaseInstance, tenantId: string, value: string) {
   const key = getLastSyncKey(tenantId);
   const existing = await db
     .select({ key: appSettings.key })
@@ -159,16 +156,20 @@ export async function saveLastSyncAt(
   });
 }
 
-export async function getSyncOverview(
-  db: DatabaseInstance,
-  tenantId: string
-) {
+export async function getSyncOverview(db: DatabaseInstance, tenantId: string) {
   const pendingFilter = and(
     eq(syncOutbox.tenantId, tenantId),
     inArray(syncOutbox.status, PENDING_STATUSES as unknown as PendingStatus[])
   );
 
-  const [pendingCountRow, retryingCountRow, failedCountRow, oldestPendingRow, conflictCountRow, lastSyncAt] = await Promise.all([
+  const [
+    pendingCountRow,
+    retryingCountRow,
+    failedCountRow,
+    oldestPendingRow,
+    conflictCountRow,
+    lastSyncAt,
+  ] = await Promise.all([
     db
       .select({ count: sql<number>`count(*)` })
       .from(syncOutbox)

@@ -1,5 +1,5 @@
 /**
- * ENG-129f — curated sensitive-event review model and tenant summary.
+ * curated sensitive-event review model and tenant summary.
  *
  * The audit table remains the immutable source of truth. This module adds a
  * stable risk-oriented projection so administrators can answer "what should I
@@ -22,7 +22,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'data_retention.policy.updated',
     'data_retention.sweep.run',
     'telemetry.opt_in.updated',
-    // ENG-123b — bulk customer PII ingestion belongs in privacy review.
+    // bulk customer PII ingestion belongs in privacy review.
     'data_import.customers',
   ],
   access: [
@@ -51,14 +51,14 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'payment.retry',
     'payment.mark_settled',
     'customer.credit_limit.update',
-    // ENG-123d — opening receivables directly establish money owed.
+    // opening receivables directly establish money owed.
     'data_import.customer_balances',
-    // ENG-123e — imported opening floats affect drawer accountability.
+    // imported opening floats affect drawer accountability.
     'data_import.opening_cash',
-    // ENG-123f — issuer configuration can affect legally binding documents.
+    // issuer configuration can affect legally binding documents.
     'data_import.fiscal_profile',
     'fiscal.xml.downloaded',
-    // ENG-141b — irreversible financial attestation belongs in money review.
+    // irreversible financial attestation belongs in money review.
     'day_close.sign_off',
   ],
   inventory: [
@@ -66,7 +66,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'transfer.void',
     'inventory.lot.discount_suggested',
     'inventory.lot.discount_suggestion_dismissed',
-    // ENG-123a/ENG-123b — bulk catalog, stock, and supplier mutation.
+    // -123b — bulk catalog, stock, and supplier mutation.
     'data_import.products',
     'data_import.providers',
   ],

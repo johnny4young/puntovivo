@@ -1,4 +1,4 @@
-/** ENG-208 — Record an admin reconciliation adjustment as a signed ledger delta. */
+/** Record an admin reconciliation adjustment as a signed ledger delta. */
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';

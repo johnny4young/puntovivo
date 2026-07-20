@@ -1,6 +1,6 @@
 /**
- * ENG-017 — `useTenantSettings` is now a thin compatibility wrapper
- * over `useResolvedLocale` (the canonical ENG-017 entry point).
+ * `useTenantSettings` is now a thin compatibility wrapper
+ * over `useResolvedLocale` (the canonical  entry point).
  * Consumers like `DashboardPage` keep the existing API shape but the
  * underlying formatters read the tenant's resolved locale instead of
  * the stale `tenants.settings` JSON blob.

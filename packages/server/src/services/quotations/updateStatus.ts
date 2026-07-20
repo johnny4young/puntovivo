@@ -1,5 +1,5 @@
 /**
- * Quotation service — status transition (ENG-178 split).
+ * Quotation service — status transition ( split).
  *
  * `ALLOWED_TRANSITIONS` + `updateQuotationStatus` (tx whole).
  *
@@ -13,7 +13,6 @@ import { writeAuditLog } from '../audit-logs.js';
 
 import type { UpdateQuotationStatusArgs } from './types.js';
 import { getTimestamp } from './pricing.js';
-
 
 /**
  * Allowed status transitions. `draft` is the entry state. `accepted` can
@@ -41,12 +40,7 @@ export function updateQuotationStatus(
     const current = tx
       .select({ id: quotations.id, status: quotations.status })
       .from(quotations)
-      .where(
-        and(
-          eq(quotations.id, args.quotationId),
-          eq(quotations.tenantId, args.tenantId)
-        )
-      )
+      .where(and(eq(quotations.id, args.quotationId), eq(quotations.tenantId, args.tenantId)))
       .get();
 
     if (!current) {
@@ -76,15 +70,10 @@ export function updateQuotationStatus(
         syncStatus: 'pending',
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(quotations.id, args.quotationId),
-          eq(quotations.tenantId, args.tenantId)
-        )
-      )
+      .where(and(eq(quotations.id, args.quotationId), eq(quotations.tenantId, args.tenantId)))
       .run();
 
-    // Phase 8 / Tier-2 #8 — audit the terminal-close transitions that
+    // audit the terminal-close transitions that
     // carry business impact. Intermediate transitions (draft → sent, sent
     // → accepted) are not audited because they represent normal workflow
     // progress; a reviewer looking at the log wants to see *outcomes*.

@@ -212,7 +212,7 @@ describe('Collections tRPC Routers', () => {
       updatedAt: new Date().toISOString(),
     });
 
-    // ENG-052b — register one device for the synthetic tenant; reused
+    // register one device for the synthetic tenant; reused
     // by every critical procedure exercised in this suite (sales,
     // cash sessions, inventory adjustments).
     const registration = await registerDeviceService(db, {

@@ -1,5 +1,5 @@
 /**
- * ENG-187 — Operations "Needs attention" Zod schemas.
+ * Operations "Needs attention" Zod schemas.
  *
  * Output shape for `operations.needsAttention`, rendered by the
  * `NeedsAttentionPanel` on the Operations landing. The `area` enum is
@@ -32,6 +32,4 @@ export const operationsNeedsAttentionOutputSchema = z.object({
   highestSeverity: z.enum(operationsAttentionSeverityEnum).nullable(),
 });
 
-export type OperationsNeedsAttentionOutput = z.infer<
-  typeof operationsNeedsAttentionOutputSchema
->;
+export type OperationsNeedsAttentionOutput = z.infer<typeof operationsNeedsAttentionOutputSchema>;

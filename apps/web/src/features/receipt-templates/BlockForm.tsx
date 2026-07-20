@@ -11,7 +11,7 @@ import type { AvailabilityMap } from './templateUnavailableDecorations';
 interface BlockFormProps {
   block: EditorReceiptBlock;
   onPatch: (patch: Partial<EditorReceiptBlock>) => void;
-  /** ENG-016 pass 5 — passed through to TextBlockEditor for unset-variable hints. */
+  /** pass 5 — passed through to TextBlockEditor for unset-variable hints. */
   unavailableVariables?: AvailabilityMap | null;
 }
 
@@ -43,9 +43,7 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
                 unavailableVariables={unavailableVariables}
               />
             </div>
-            <p className="mt-1 text-xs text-secondary-500">
-              {t('editor.blockFields.valueHelp')}
-            </p>
+            <p className="mt-1 text-xs text-secondary-500">{t('editor.blockFields.valueHelp')}</p>
           </div>
           <TemplateFunctionsCheatSheet />
           <div className="grid grid-cols-3 gap-2">
@@ -57,11 +55,7 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
                 onChange={e =>
                   onPatch({
                     style: e.target.value as
-                      | 'title'
-                      | 'subtitle'
-                      | 'normal'
-                      | 'muted'
-                      | 'monospace',
+                      'title' | 'subtitle' | 'normal' | 'muted' | 'monospace',
                   })
                 }
               >
@@ -118,9 +112,7 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
               min={5}
               max={50}
               value={block.maxHeightMm ?? 18}
-              onChange={e =>
-                onPatch({ maxHeightMm: Number(e.target.value) || undefined })
-              }
+              onChange={e => onPatch({ maxHeightMm: Number(e.target.value) || undefined })}
             />
           </label>
         </div>
@@ -129,7 +121,7 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
       return (
         <div className="space-y-2">
           {/*
-            ENG-016 pass 1 (item #4) — bindings caption. Tells the
+             pass 1 (item #4) — bindings caption. Tells the
             operator where the row data comes from so they do not
             wonder why "items" isn't a plain text field. Pure UI + i18n.
           */}
@@ -140,9 +132,7 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
             {t('editor.blockFields.itemsTableCaption')}
           </div>
           <span className="label">{t('editor.blockFields.columns')}</span>
-          <p className="text-xs text-secondary-500">
-            {t('editor.blockFields.columnsHelp')}
-          </p>
+          <p className="text-xs text-secondary-500">{t('editor.blockFields.columnsHelp')}</p>
           <div className="flex flex-wrap gap-2">
             {ITEMS_TABLE_COLUMNS.map(col => {
               const checked = block.columns.includes(col);
@@ -181,14 +171,12 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
       return (
         <div className="space-y-2">
           {/*
-            ENG-016 pass 1 (item #4) — collapsible bindings explainer.
+             pass 1 (item #4) — collapsible bindings explainer.
             Lists which sale fields each totals line resolves to.
           */}
           <TotalsBlockCaption />
           <span className="label">{t('editor.blockFields.totalsLines')}</span>
-          <p className="text-xs text-secondary-500">
-            {t('editor.blockFields.totalsLinesHelp')}
-          </p>
+          <p className="text-xs text-secondary-500">{t('editor.blockFields.totalsLinesHelp')}</p>
           <div className="flex flex-wrap gap-2">
             {TOTALS_LINES.map(line => {
               const checked = block.show.includes(line);
@@ -237,9 +225,7 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
               maxLength={200}
               onChange={e => onPatch({ source: e.target.value })}
             />
-            <p className="mt-1 text-xs text-secondary-500">
-              {t('editor.blockFields.valueHelp')}
-            </p>
+            <p className="mt-1 text-xs text-secondary-500">{t('editor.blockFields.valueHelp')}</p>
           </label>
           <label className="block">
             <span className="label">{t('editor.blockFields.sizeMm')}</span>
@@ -249,9 +235,7 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
               min={10}
               max={60}
               value={block.sizeMm ?? 25}
-              onChange={e =>
-                onPatch({ sizeMm: Number(e.target.value) || undefined })
-              }
+              onChange={e => onPatch({ sizeMm: Number(e.target.value) || undefined })}
             />
           </label>
         </div>
@@ -288,22 +272,18 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
               min={8}
               max={40}
               value={block.heightMm ?? 12}
-              onChange={e =>
-                onPatch({ heightMm: Number(e.target.value) || undefined })
-              }
+              onChange={e => onPatch({ heightMm: Number(e.target.value) || undefined })}
             />
           </label>
         </div>
       );
     case 'appFooter':
       return (
-        // ENG-016 pass 1 (item #5) — single toggle + align. Metadata
+        // pass 1 (item #5) — single toggle + align. Metadata
         // (name, version, URL, support) is rendered from stable
         // constants by the server so there is nothing else to edit here.
         <div className="space-y-2">
-          <p className="text-xs text-secondary-500">
-            {t('editor.blockFields.appFooterHelp')}
-          </p>
+          <p className="text-xs text-secondary-500">{t('editor.blockFields.appFooterHelp')}</p>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -328,14 +308,12 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
         </div>
       );
     case 'wordmark':
-      // ENG-086 — single visibility toggle + align. The wordmark itself
+      // single visibility toggle + align. The wordmark itself
       // is brand identity, rendered by the server from stable
       // constants, so there is nothing else to edit here.
       return (
         <div className="space-y-2">
-          <p className="text-xs text-secondary-500">
-            {t('editor.blockFields.wordmarkHelp')}
-          </p>
+          <p className="text-xs text-secondary-500">{t('editor.blockFields.wordmarkHelp')}</p>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -360,16 +338,14 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
         </div>
       );
     case 'metaTable': {
-      // ENG-086 — rows editor for the 2-column key/value band. Key is
+      // rows editor for the 2-column key/value band. Key is
       // a static label; value accepts the same `{{...}}` expressions as
       // a text block. The Zod schema caps the array at 12 rows.
       const MAX_META_ROWS = 12;
       const rows = block.rows;
       return (
         <div className="space-y-2">
-          <p className="text-xs text-secondary-500">
-            {t('editor.blockFields.metaTableHelp')}
-          </p>
+          <p className="text-xs text-secondary-500">{t('editor.blockFields.metaTableHelp')}</p>
           <ul className="space-y-2" data-testid="meta-table-rows">
             {rows.map((row, rowIndex) => (
               // The row has no persisted id, and its label is edited
@@ -380,9 +356,7 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
                 className="grid grid-cols-[1fr_2fr_auto] gap-2 rounded border border-line p-2"
               >
                 <label className="block">
-                  <span className="label text-xs">
-                    {t('editor.blockFields.metaTableKey')}
-                  </span>
+                  <span className="label text-xs">{t('editor.blockFields.metaTableKey')}</span>
                   <input
                     className="input mt-1"
                     value={row.key}
@@ -395,9 +369,7 @@ export function BlockForm({ block, onPatch, unavailableVariables }: BlockFormPro
                   />
                 </label>
                 <label className="block">
-                  <span className="label text-xs">
-                    {t('editor.blockFields.metaTableValue')}
-                  </span>
+                  <span className="label text-xs">{t('editor.blockFields.metaTableValue')}</span>
                   <input
                     className="input mt-1"
                     value={row.value}

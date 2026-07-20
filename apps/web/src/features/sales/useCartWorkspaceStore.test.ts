@@ -59,14 +59,8 @@ describe('useCartWorkspaceStore', () => {
     store.createDraft('tenant-1:user-a');
     store.createDraft('tenant-1:user-b');
 
-    const ownedA = selectOwnedWorkspaces(
-      useCartWorkspaceStore.getState(),
-      'tenant-1:user-a'
-    );
-    const ownedB = selectOwnedWorkspaces(
-      useCartWorkspaceStore.getState(),
-      'tenant-1:user-b'
-    );
+    const ownedA = selectOwnedWorkspaces(useCartWorkspaceStore.getState(), 'tenant-1:user-a');
+    const ownedB = selectOwnedWorkspaces(useCartWorkspaceStore.getState(), 'tenant-1:user-b');
     expect(ownedA).toHaveLength(2);
     expect(ownedB).toHaveLength(1);
     expect(ownedA.every(w => w.ownerKey === 'tenant-1:user-a')).toBe(true);
@@ -124,8 +118,9 @@ describe('useCartWorkspaceStore', () => {
     expect(useCartWorkspaceStore.getState().workspaces[id]?.checkoutStartedAt).toBeNull();
 
     store.updateCart(id, [sampleItem()]);
-    expect(Date.parse(useCartWorkspaceStore.getState().workspaces[id]?.checkoutStartedAt ?? ''))
-      .not.toBeNaN();
+    expect(
+      Date.parse(useCartWorkspaceStore.getState().workspaces[id]?.checkoutStartedAt ?? '')
+    ).not.toBeNaN();
   });
 
   it('removeWorkspace clears activeId when the removed workspace was active', () => {
@@ -175,13 +170,11 @@ describe('useCartWorkspaceStore', () => {
     expect(raw).toBeTruthy();
     const parsed = JSON.parse(raw ?? '{}');
     expect(parsed.state?.activeId).toBeTruthy();
-    expect(
-      Object.values(parsed.state?.workspaces ?? {}).length
-    ).toBeGreaterThan(0);
+    expect(Object.values(parsed.state?.workspaces ?? {}).length).toBeGreaterThan(0);
   });
 
-  // ENG-105d — undo/recovery history stack.
-  describe('ENG-105d undo history', () => {
+  // undo/recovery history stack.
+  describe(' undo history', () => {
     it('starts a fresh draft with an empty historyStack and undo depth 0', () => {
       const store = useCartWorkspaceStore.getState();
       const id = store.createDraft('tenant-1:user-a');
@@ -214,13 +207,11 @@ describe('useCartWorkspaceStore', () => {
 
       const items = [sampleItem()];
       store.updateCart(id, items);
-      const depthAfterFirst = useCartWorkspaceStore.getState().workspaces[id]
-        ?.historyStack.length;
+      const depthAfterFirst = useCartWorkspaceStore.getState().workspaces[id]?.historyStack.length;
       // Re-applying the SAME reference is a no-op and must not
       // inflate history.
       store.updateCart(id, items);
-      const depthAfterSecond = useCartWorkspaceStore.getState().workspaces[id]
-        ?.historyStack.length;
+      const depthAfterSecond = useCartWorkspaceStore.getState().workspaces[id]?.historyStack.length;
       expect(depthAfterSecond).toBe(depthAfterFirst);
     });
 
@@ -242,9 +233,7 @@ describe('useCartWorkspaceStore', () => {
 
       const restoredAgain = store.undoCart(id);
       expect(restoredAgain).toBe(true);
-      expect(useCartWorkspaceStore.getState().workspaces[id]?.items).toEqual(
-        []
-      );
+      expect(useCartWorkspaceStore.getState().workspaces[id]?.items).toEqual([]);
     });
 
     it('undoCart returns false when the stack is empty', () => {
@@ -276,9 +265,7 @@ describe('useCartWorkspaceStore', () => {
       const store = useCartWorkspaceStore.getState();
       const seed = store.createDraft('tenant-1:user-a');
       store.updateCart(seed, [sampleItem({ quantity: 7 })]);
-      expect(
-        useCartWorkspaceStore.getState().workspaces[seed]?.historyStack
-      ).toHaveLength(1);
+      expect(useCartWorkspaceStore.getState().workspaces[seed]?.historyStack).toHaveLength(1);
 
       const id = store.hydrateFromResumed({
         ownerKey: 'tenant-1:user-a',
@@ -317,9 +304,7 @@ describe('useCartWorkspaceStore', () => {
       const wsBAfter = useCartWorkspaceStore.getState().workspaces[b];
       expect(wsBAfter?.items).toEqual([]);
       // workspace A history untouched
-      expect(
-        useCartWorkspaceStore.getState().workspaces[a]?.historyStack
-      ).toHaveLength(2);
+      expect(useCartWorkspaceStore.getState().workspaces[a]?.historyStack).toHaveLength(2);
     });
 
     it('selectActiveUndoDepth tracks the active workspace', () => {

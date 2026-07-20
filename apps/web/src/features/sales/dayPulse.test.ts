@@ -1,5 +1,5 @@
 /**
- * ENG-205 — day-pulse text builder contract: aggregate lines only (never
+ * day-pulse text builder contract: aggregate lines only (never
  * customer data), owner lines gated by payload presence, weekly delta with
  * direction arrows, and the wa.me URL encoding.
  */
@@ -18,7 +18,7 @@ function makeSummary(overrides: Partial<DayPulseSummary> = {}): DayPulseSummary 
   };
 }
 
-describe('buildDayPulseText (ENG-205)', () => {
+describe('buildDayPulseText', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en');
   });

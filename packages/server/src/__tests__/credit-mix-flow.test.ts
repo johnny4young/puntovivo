@@ -1,7 +1,7 @@
 /**
- * ENG-014 — Split-tender + credit mix ("apartado" / layaway).
+ * Split-tender + credit mix ("apartado" / layaway).
  *
- * Pins the lifted invariant from ENG-090: a sale can carry a credit
+ * Pins the lifted invariant from : a sale can carry a credit
  * tender ALONGSIDE non-credit tenders. Only the credit portion lands
  * on `customer_ledger_entries`; the cash portion settles through the
  * active session as usual; `payment_status` flips to `'partial'`; the
@@ -46,9 +46,7 @@ let baseUnitId: string;
 let cashSessionId: string;
 let fresh: ReturnType<typeof makeFreshContextFactory>;
 
-function buildContext(
-  overrides: Partial<CompleteSaleContext> = {}
-): CompleteSaleContext {
+function buildContext(overrides: Partial<CompleteSaleContext> = {}): CompleteSaleContext {
   return {
     db: getDatabase(),
     tenantId,
@@ -130,11 +128,7 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const seededAdmin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededAdmin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededAdmin) throw new Error('Expected seeded admin user');
   tenantId = seededAdmin.tenantId;
   userId = seededAdmin.id;
@@ -147,11 +141,7 @@ beforeAll(async () => {
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
 
-  const seededUnits = await db
-    .select()
-    .from(units)
-    .where(eq(units.tenantId, tenantId))
-    .all();
+  const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(u => u.abbreviation === 'UND');
   if (!baseUnit) throw new Error('Expected seeded UND unit');
   baseUnitId = baseUnit.id;
@@ -186,7 +176,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('completeSale (ENG-014 credit-mix flow)', () => {
+describe('completeSale ( credit-mix flow)', () => {
   it('mixed cash + credit: ledger writes credit portion only, cash session takes the cash portion, status partial', async () => {
     const customerId = await seedCustomer({
       name: 'Cliente Apartado A',
@@ -227,18 +217,11 @@ describe('completeSale (ENG-014 credit-mix flow)', () => {
     const paymentRows = await db
       .select()
       .from(salePayments)
-      .where(
-        and(
-          eq(salePayments.tenantId, tenantId),
-          eq(salePayments.saleId, saleRow.id)
-        )
-      )
+      .where(and(eq(salePayments.tenantId, tenantId), eq(salePayments.saleId, saleRow.id)))
       .orderBy(asc(salePayments.method))
       .all();
     expect(paymentRows).toHaveLength(2);
-    const methodToAmount = Object.fromEntries(
-      paymentRows.map(row => [row.method, row.amount])
-    );
+    const methodToAmount = Object.fromEntries(paymentRows.map(row => [row.method, row.amount]));
     expect(methodToAmount.cash).toBe(50);
     expect(methodToAmount.credit).toBe(150);
 
@@ -358,9 +341,7 @@ describe('completeSale (ENG-014 credit-mix flow)', () => {
     const saleRows = await db
       .select()
       .from(sales)
-      .where(
-        and(eq(sales.tenantId, tenantId), eq(sales.customerId, customerId))
-      )
+      .where(and(eq(sales.tenantId, tenantId), eq(sales.customerId, customerId)))
       .all();
     expect(saleRows).toHaveLength(0);
     const ledgerRows = await db
@@ -527,12 +508,7 @@ describe('completeSale (ENG-014 credit-mix flow)', () => {
       name: 'Cliente Split Draft Cajero',
       creditLimit: 0,
     });
-    const productId = await seedProduct(
-      'Mix Item Draft Cashier',
-      'MIX-DRAFT-CASHIER-1',
-      10,
-      100
-    );
+    const productId = await seedProduct('Mix Item Draft Cashier', 'MIX-DRAFT-CASHIER-1', 10, 100);
     const adminCaller = appRouter.createCaller(fresh());
     const draft = await adminCaller.sales.create({
       customerId,
@@ -659,14 +635,14 @@ describe('completeSale (ENG-014 credit-mix flow)', () => {
     expect(ledgerRows).toHaveLength(1);
     expect(ledgerRows[0]?.amount).toBe(100);
   });
-  // ENG-216 — the customer attached at payment time.
+  // the customer attached at payment time.
   //
-  // ENG-014 locked the draft's customer at create-time, but the payment
+  // locked the draft's customer at create-time, but the payment
   // drawer is the app's only customer-attach surface and a suspended ticket
   // is created without one, so every resumed sale was silently filed as a
   // walk-in. These pin the new contract AND the guard that makes it safe:
   // re-assignment re-projects against the incoming customer's cupo.
-  describe('draft customer attachment (ENG-216)', () => {
+  describe('draft customer attachment', () => {
     it('attaches the customer picked at payment time to a walk-in draft', async () => {
       const customerId = await seedCustomer({ name: 'Cliente Adjuntado', creditLimit: 0 });
       const productId = await seedProduct('Attach Item', 'ATTACH-1', 10, 100);
@@ -775,7 +751,7 @@ describe('completeSale (ENG-014 credit-mix flow)', () => {
       // The customer must EXIST in a foreign tenant, not merely be unknown:
       // an unknown id is rejected by the row lookup alone, so it would pass
       // even with the tenant predicate deleted from validateCustomer. This
-      // is the only test in the repo pinning that predicate, and ENG-216
+      // is the only test in the repo pinning that predicate, and
       // made it the guard between raw client input and sales.customerId.
       const db = getDatabase();
       const now = new Date().toISOString();
@@ -832,7 +808,7 @@ describe('completeSale (ENG-014 credit-mix flow)', () => {
     });
 
     it('records the re-assignment in the sale.complete audit row', async () => {
-      // ENG-216 made the customer mutable at completion, and a manager can
+      // made the customer mutable at completion, and a manager can
       // complete a draft someone else parked. Re-assigning moves the
       // receivable, the points, and the fiscal buyer — so the audit row has
       // to carry both sides or the change leaves no trace.

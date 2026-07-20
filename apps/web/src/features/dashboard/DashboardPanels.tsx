@@ -41,7 +41,7 @@ export interface DashboardStatMetric {
   value: string;
   label: string;
   icon: ElementType;
-  // Rediseño FASE 2 — `danger` añadido para que "Stock bajo" lea como
+  // `danger` añadido para que "Stock bajo" lea como
   // crítico (propuesta §03); `mono` rinde la cifra en tabular mono (dinero).
   tone: 'primary' | 'success' | 'warning' | 'danger' | 'ink';
   mono?: boolean;
@@ -110,7 +110,7 @@ export function DashboardStatsGrid({ metrics }: DashboardStatsGridProps) {
 export function RevenueTrendCard({ points, formatCurrency, formatDate }: RevenueTrendCardProps) {
   const { t } = useTranslation('dashboard');
   const maxRevenue = points.reduce((highest, point) => Math.max(highest, point.revenue), 0);
-  // BUG-005 — guard against an empty series: `points.at(-1)` returns
+  // Guard against an empty series: `points.at(-1)` returns
   // `undefined` for [] so the latest-day figure and axis labels fall back
   // cleanly instead of indexing `points[-1]` and rendering blanks silently.
   const firstPoint = points.at(0);
@@ -140,7 +140,10 @@ export function RevenueTrendCard({ points, formatCurrency, formatDate }: Revenue
             const height = maxRevenue === 0 ? 10 : Math.max((point.revenue / maxRevenue) * 100, 10);
 
             return (
-              <div key={point.date} className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
+              <div
+                key={point.date}
+                className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"
+              >
                 <div className="text-center opacity-0 transition-opacity group-hover:opacity-100">
                   <p className="text-[11px] font-semibold text-secondary-800">
                     {formatCurrency(point.revenue)}
@@ -182,7 +185,9 @@ export function RecentSalesCard({ sales, formatCurrency, formatDateTime }: Recen
 
       <div className="mt-6">
         {sales.length === 0 ? (
-          <div className="card-inset px-4 py-6 text-sm text-secondary-500">{t('recentSales.empty')}</div>
+          <div className="card-inset px-4 py-6 text-sm text-secondary-500">
+            {t('recentSales.empty')}
+          </div>
         ) : (
           <div className="space-y-3">
             {sales.map(sale => (
@@ -191,7 +196,9 @@ export function RecentSalesCard({ sales, formatCurrency, formatDateTime }: Recen
                 className="card-inset flex items-center justify-between gap-4 px-4 py-3.5"
               >
                 <div className="min-w-0">
-                  <p className="font-mono text-sm font-semibold text-primary-700">{sale.saleNumber}</p>
+                  <p className="font-mono text-sm font-semibold text-primary-700">
+                    {sale.saleNumber}
+                  </p>
                   <p className="truncate text-sm font-semibold text-secondary-950">
                     {translateCustomerName(sale.customerName)}
                   </p>
@@ -237,7 +244,9 @@ export function TopProductsCard({ products, formatCurrency }: TopProductsCardPro
                     <Package className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-secondary-950">{product.name}</p>
+                    <p className="truncate text-sm font-semibold text-secondary-950">
+                      {product.name}
+                    </p>
                     <p className="text-xs text-secondary-500">
                       {t('unitsSold', { count: product.sales })}
                     </p>

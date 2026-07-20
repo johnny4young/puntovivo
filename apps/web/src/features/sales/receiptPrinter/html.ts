@@ -1,4 +1,4 @@
-// Sale-receipt HTML builder + line/payment helpers (ENG-178 slice 29).
+// Sale-receipt HTML builder + line/payment helpers ( slice 29).
 // The fiscal section lives in `./fiscal`; the XSS guard in `./escape`.
 
 import { formatCurrency, formatDateTime } from '@/lib/utils';

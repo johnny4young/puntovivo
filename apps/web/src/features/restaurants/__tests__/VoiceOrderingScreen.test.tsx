@@ -1,15 +1,15 @@
 /**
- * ENG-039a — VoiceOrderingScreen test matrix.
+ * VoiceOrderingScreen test matrix.
  *
  * Covers the rows tagged "Web" in the plan's quality matrix:
- *   A1, A2, A6  → happy paths (touch + mobile variant + manual add)
- *   B4          → duplicate-product merge with notes (MVP last-write)
- *   C1..C4      → mic CTA gating (module, AI, session, MediaRecorder)
- *   D1..D5      → save CTA gating + error path + double-click guard
- *   E4          → no sidebar / Header in the page tree
- *   G3          → pluralised success toast
- *   K1          → mic CTA aria-label localized
- *   K3          → table label input aria-required
+ * A1, A2, A6  → happy paths (touch + mobile variant + manual add)
+ * B4          → duplicate-product merge with notes (MVP last-write)
+ * C1..C4      → mic CTA gating (module, AI, session, MediaRecorder)
+ * D1..D5      → save CTA gating + error path + double-click guard
+ * E4          → no sidebar / Header in the page tree
+ * G3          → pluralised success toast
+ * K1          → mic CTA aria-label localized
+ * K3          → table label input aria-required
  *
  * Mocks every external dependency (auth, tenant, modules, trpc,
  * ProductSearchDialog, VoiceCartCommandModal) so the suite drives
@@ -35,15 +35,13 @@ const cashSessionMock = vi.fn(() => ({
   openedAt: new Date().toISOString(),
 }));
 
-// ENG-039b — restaurant tables catalog mock. Tests override this to
+// restaurant tables catalog mock. Tests override this to
 // flip between dropdown mode (entries > 0) and free-text fallback
 // (empty array or error). Default: empty so the existing assertions
 // against the free-text input keep passing without modification.
 const restaurantTablesMock = vi.fn<
   () => {
-    data:
-      | { items: Array<{ id: string; name: string }> }
-      | undefined;
+    data: { items: Array<{ id: string; name: string }> } | undefined;
     isLoading: boolean;
     error: Error | null;
   }
@@ -59,7 +57,9 @@ const discardMutateAsync = vi.fn();
 
 const logoutMock = vi.fn();
 
-let lastVoiceOnApply: ((items: Array<{ selection: unknown; quantity: number; note: string | null }>) => void) | null = null;
+let lastVoiceOnApply:
+  ((items: Array<{ selection: unknown; quantity: number; note: string | null }>) => void) | null =
+  null;
 let lastSearchOnSelect: ((selection: unknown) => void) | null = null;
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
@@ -73,7 +73,13 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
-    user: { id: 'user-1', name: 'Waiter Wendy', role: 'cashier', email: 'w@x.com', tenantId: 't-1' },
+    user: {
+      id: 'user-1',
+      name: 'Waiter Wendy',
+      role: 'cashier',
+      email: 'w@x.com',
+      tenantId: 't-1',
+    },
     logout: logoutMock,
   }),
 }));
@@ -172,11 +178,7 @@ vi.mock('@/components/dialogs/ProductSearchDialog', () => ({
     if (!isOpen) return null;
     lastSearchOnSelect = onSelect;
     return (
-      <button
-        type="button"
-        data-testid="product-search-stub-select"
-        onClick={() => onClose()}
-      />
+      <button type="button" data-testid="product-search-stub-select" onClick={() => onClose()} />
     );
   },
 }));
@@ -265,7 +267,7 @@ beforeEach(async () => {
   await i18n.changeLanguage('es');
 });
 
-describe('VoiceOrderingScreen (ENG-039a)', () => {
+describe('VoiceOrderingScreen', () => {
   // E4 — no sidebar / Header
   it('renders without the main app sidebar or Header chrome', () => {
     renderScreen('touch');
@@ -295,8 +297,20 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     // Invoke the captured onApply callback with two parser items.
     await act(async () => {
       lastVoiceOnApply?.([
-        { selection: makeSelection({ productId: 'p-coca', productName: 'Coca' }), quantity: 2, note: null },
-        { selection: makeSelection({ productId: 'p-burg', productName: 'Hamburguesa', unitId: 'u-2' }), quantity: 1, note: 'sin queso' },
+        {
+          selection: makeSelection({ productId: 'p-coca', productName: 'Coca' }),
+          quantity: 2,
+          note: null,
+        },
+        {
+          selection: makeSelection({
+            productId: 'p-burg',
+            productName: 'Hamburguesa',
+            unitId: 'u-2',
+          }),
+          quantity: 1,
+          note: 'sin queso',
+        },
       ]);
     });
     const rows = screen.getAllByTestId('voice-ordering-cart-row');
@@ -314,12 +328,20 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     await waitFor(() => expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument());
     await act(async () => {
       lastVoiceOnApply?.([
-        { selection: makeSelection({ productId: 'p-pan', productName: 'Pan' }), quantity: 1, note: 'sin sal' },
+        {
+          selection: makeSelection({ productId: 'p-pan', productName: 'Pan' }),
+          quantity: 1,
+          note: 'sin sal',
+        },
       ]);
     });
     await act(async () => {
       lastVoiceOnApply?.([
-        { selection: makeSelection({ productId: 'p-pan', productName: 'Pan' }), quantity: 1, note: 'con miel' },
+        {
+          selection: makeSelection({ productId: 'p-pan', productName: 'Pan' }),
+          quantity: 1,
+          note: 'con miel',
+        },
       ]);
     });
     const rows = screen.getAllByTestId('voice-ordering-cart-row');
@@ -390,8 +412,20 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     await waitFor(() => expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument());
     await act(async () => {
       lastVoiceOnApply?.([
-        { selection: makeSelection({ productId: 'p-coca', productName: 'Coca' }), quantity: 2, note: null },
-        { selection: makeSelection({ productId: 'p-burg', productName: 'Hamburguesa', unitId: 'u-2' }), quantity: 1, note: 'sin queso' },
+        {
+          selection: makeSelection({ productId: 'p-coca', productName: 'Coca' }),
+          quantity: 2,
+          note: null,
+        },
+        {
+          selection: makeSelection({
+            productId: 'p-burg',
+            productName: 'Hamburguesa',
+            unitId: 'u-2',
+          }),
+          quantity: 1,
+          note: 'sin queso',
+        },
       ]);
     });
 
@@ -406,7 +440,7 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
       discountAmount: 0,
     });
     expect(createCall.items).toHaveLength(2);
-    // ENG-039d2 — per-line notes persist on each item, not aggregated.
+    // per-line notes persist on each item, not aggregated.
     // Coca line has no note → notes is null. Hamburguesa carries the
     // "sin queso" modifier as item.notes. The sale-level `notes`
     // field is no longer populated by the voice surface; the table
@@ -447,9 +481,7 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     fireEvent.click(screen.getByTestId('voice-ordering-mic-cta'));
     await waitFor(() => expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument());
     await act(async () => {
-      lastVoiceOnApply?.([
-        { selection: makeSelection(), quantity: 1, note: null },
-      ]);
+      lastVoiceOnApply?.([{ selection: makeSelection(), quantity: 1, note: null }]);
     });
     fireEvent.click(screen.getByTestId('voice-ordering-save'));
 
@@ -472,15 +504,11 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     fireEvent.click(screen.getByTestId('voice-ordering-mic-cta'));
     await waitFor(() => expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument());
     await act(async () => {
-      lastVoiceOnApply?.([
-        { selection: makeSelection(), quantity: 1, note: null },
-      ]);
+      lastVoiceOnApply?.([{ selection: makeSelection(), quantity: 1, note: null }]);
     });
     fireEvent.click(screen.getByTestId('voice-ordering-save'));
 
-    await waitFor(() =>
-      expect(discardMutateAsync).toHaveBeenCalledWith({ saleId: 'draft-2' })
-    );
+    await waitFor(() => expect(discardMutateAsync).toHaveBeenCalledWith({ saleId: 'draft-2' }));
     expect(toastError).toHaveBeenCalled();
     expect(screen.getAllByTestId('voice-ordering-cart-row')).toHaveLength(1);
   });
@@ -501,7 +529,7 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     expect(screenEl.getAttribute('data-variant')).toBe('mobile');
   });
 
-  // ENG-039b — catalog populated renders a <select> with the names + custom option
+  // catalog populated renders a <select> with the names + custom option
   it('renders a dropdown when restaurantTables.list returns entries', () => {
     restaurantTablesMock.mockReturnValueOnce({
       data: {
@@ -518,14 +546,12 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     const select = screen.getByTestId('voice-ordering-table-select') as HTMLSelectElement;
     expect(select).toBeDefined();
     const optionTexts = Array.from(select.options).map(opt => opt.textContent ?? '');
-    expect(optionTexts).toEqual(
-      expect.arrayContaining(['Mesa 1', 'Barra 1', 'Terraza A'])
-    );
+    expect(optionTexts).toEqual(expect.arrayContaining(['Mesa 1', 'Barra 1', 'Terraza A']));
     // The free-text input should not render simultaneously.
     expect(screen.queryByTestId('voice-ordering-table-input')).toBeNull();
   });
 
-  // ENG-039b — picking from the dropdown flows the table name into the save payload
+  // picking from the dropdown flows the table name into the save payload
   it('picking a table name from the dropdown saves the order with that label', async () => {
     restaurantTablesMock.mockReturnValueOnce({
       data: { items: [{ id: 'rt-1', name: 'Mesa Catalog' }] },
@@ -541,9 +567,7 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     fireEvent.click(screen.getByTestId('voice-ordering-mic-cta'));
     await waitFor(() => expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument());
     await act(async () => {
-      lastVoiceOnApply?.([
-        { selection: makeSelection(), quantity: 1, note: null },
-      ]);
+      lastVoiceOnApply?.([{ selection: makeSelection(), quantity: 1, note: null }]);
     });
     fireEvent.click(screen.getByTestId('voice-ordering-save'));
 
@@ -554,7 +578,7 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     );
   });
 
-  // ENG-039b — defensive: a query error keeps the free-text input rendered
+  // defensive: a query error keeps the free-text input rendered
   it('falls back to the free-text input when the catalog query errors out', () => {
     restaurantTablesMock.mockReturnValueOnce({
       data: undefined,
@@ -566,7 +590,7 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     expect(screen.queryByTestId('voice-ordering-table-select')).toBeNull();
   });
 
-  // ENG-039c — picking a catalog row forwards the FK id on both
+  // picking a catalog row forwards the FK id on both
   // sales.create AND sales.suspend so the server can persist the
   // relationship + drive the listWithDraftStatus surface.
   it('passes tableId on both create and suspend when a catalog row is picked', async () => {
@@ -590,9 +614,7 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     const select = screen.getByTestId('voice-ordering-table-select') as HTMLSelectElement;
     fireEvent.change(select, { target: { value: 'Mesa Pick' } });
     fireEvent.click(screen.getByTestId('voice-ordering-mic-cta'));
-    await waitFor(() =>
-      expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument());
     await act(async () => {
       lastVoiceOnApply?.([{ selection: makeSelection(), quantity: 1, note: null }]);
     });
@@ -610,7 +632,7 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     );
   });
 
-  // ENG-039c — free-text fallback (no catalog dropdown) must NOT
+  // free-text fallback (no catalog dropdown) must NOT
   // synthesize a tableId so non-restaurant tenants keep working as
   // before.
   it('omits tableId on save when the catalog is empty (free-text fallback)', async () => {
@@ -629,9 +651,7 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     const input = screen.getByTestId('voice-ordering-table-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'Mesa libre' } });
     fireEvent.click(screen.getByTestId('voice-ordering-mic-cta'));
-    await waitFor(() =>
-      expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument());
     await act(async () => {
       lastVoiceOnApply?.([{ selection: makeSelection(), quantity: 1, note: null }]);
     });

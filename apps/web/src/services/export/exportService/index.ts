@@ -1,4 +1,4 @@
-// Public barrel for the table export service (ENG-178 slice 30). Re-exports
+// Public barrel for the table export service ( slice 30). Re-exports
 // ONLY the public surface; the internal helpers getNestedValue / formatValue /
 // escapeHtml / DOWNLOAD_URL_REVOKE_DELAY_MS stay module-private.
 

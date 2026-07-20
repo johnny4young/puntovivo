@@ -6,7 +6,7 @@ import { trpc } from '@/lib/trpc';
 import type { LookupOption, ProductFormValues, ProductRole } from './productForm.types';
 
 /**
- * ENG-078 — Confidence thresholds for the AI category suggestion.
+ * Confidence thresholds for the AI category suggestion.
  *
  * HIGH (>= 0.7) triggers an auto-preselect in `create` mode when the
  * operator has not yet picked a category, plus a success-tone "Sugerido
@@ -20,7 +20,7 @@ const HIGH_CONFIDENCE = 0.7;
 const MEDIUM_CONFIDENCE_FLOOR = 0.3;
 const SUGGEST_DEBOUNCE_MS = 800;
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface SuggestCategoryInput {
   name: string;
   description?: string | null | undefined;
@@ -48,12 +48,12 @@ interface AISuggestionsPanelProps {
   isOpen: boolean;
   categories: LookupOption[];
   suggestionsEnabled: boolean;
-  // ENG-179b — explicit `| undefined` on optional fields.
+  // explicit `| undefined` on optional fields.
   productId?: string | undefined;
 }
 
 /**
- * ENG-078 — owns the AI category-suggestion flow plus the Category field it
+ * owns the AI category-suggestion flow plus the Category field it
  * decorates (label + badge + select + chip). The debounce + reset effects are
  * deliberately written with setState wrapped in setTimeout so they stay React
  * Compiler-safe (async, not synchronous-in-effect). Do not convert them.
@@ -68,7 +68,7 @@ export function AISuggestionsPanel({
 }: AISuggestionsPanelProps) {
   const { t } = useTranslation('products');
 
-  // -------- ENG-078: AI category suggestion ----------------------------------
+  // -------- : AI category suggestion ----------------------------------
   const [suggestion, setSuggestion] = useState<{
     categoryId: string;
     confidence: number;
@@ -161,7 +161,7 @@ export function AISuggestionsPanel({
   }, [isOpen, productId]);
 
   const suggestedCategory = useMemo(
-    () => (suggestion ? categories.find(c => c.id === suggestion.categoryId) ?? null : null),
+    () => (suggestion ? (categories.find(c => c.id === suggestion.categoryId) ?? null) : null),
     [suggestion, categories]
   );
 
@@ -172,21 +172,21 @@ export function AISuggestionsPanel({
   // (the AI did, after all, recommend that category).
   const showAutoSelectedBadge = Boolean(
     autoPreselectedCategoryId &&
-      watchedCategoryId === autoPreselectedCategoryId &&
-      dismissedSuggestionId !== autoPreselectedCategoryId
+    watchedCategoryId === autoPreselectedCategoryId &&
+    dismissedSuggestionId !== autoPreselectedCategoryId
   );
 
   const showSuggestionChip = Boolean(
     suggestion &&
-      suggestedCategory &&
-      suggestion.confidence >= MEDIUM_CONFIDENCE_FLOOR &&
-      dismissedSuggestionId !== suggestion.categoryId &&
-      // Avoid double-affordance: when we already auto-preselected, the badge
-      // handles the messaging.
-      !showAutoSelectedBadge &&
-      // No point chipping the category the form already holds (edit-mode
-      // case where the saved value already matches).
-      watchedCategoryId !== suggestion.categoryId
+    suggestedCategory &&
+    suggestion.confidence >= MEDIUM_CONFIDENCE_FLOOR &&
+    dismissedSuggestionId !== suggestion.categoryId &&
+    // Avoid double-affordance: when we already auto-preselected, the badge
+    // handles the messaging.
+    !showAutoSelectedBadge &&
+    // No point chipping the category the form already holds (edit-mode
+    // case where the saved value already matches).
+    watchedCategoryId !== suggestion.categoryId
   );
 
   const handleApplySuggestion = () => {
@@ -199,7 +199,7 @@ export function AISuggestionsPanel({
     if (!suggestion) return;
     setDismissedSuggestionId(suggestion.categoryId);
   };
-  // -------- end ENG-078 ------------------------------------------------------
+  // -------- end  ------------------------------------------------------
 
   return (
     <div className="pv-field">

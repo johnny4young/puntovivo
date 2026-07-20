@@ -1,5 +1,5 @@
 /**
- * Password hashing helpers — ENG-166.
+ * Password hashing helpers — .
  *
  * Pins Argon2 parameters across every call site so a future library bump
  * cannot silently weaken the cost factor. The encoded hash string carries

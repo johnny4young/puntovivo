@@ -1,5 +1,5 @@
 /**
- * Sync router — outbox queue operations (ENG-178 split).
+ * Sync router — outbox queue operations ( split).
  *
  * `sync.listQueue` / `sync.addToQueue` / `sync.removeFromQueue` (manager/admin):
  * the operator-facing recovery surface over `sync_outbox`. System writers go
@@ -12,17 +12,9 @@ import { TRPCError } from '@trpc/server';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
 import { syncOutbox } from '../../../db/schema.js';
-import {
-  listQueueInput,
-  addToQueueInput,
-  removeFromQueueInput,
-} from '../../schemas/sync.js';
+import { listQueueInput, addToQueueInput, removeFromQueueInput } from '../../schemas/sync.js';
 import { enqueueSync } from '../../../services/sync/enqueue.js';
-import {
-  PENDING_STATUSES,
-  type PendingStatus,
-  type SyncEntityType,
-} from './helpers.js';
+import { PENDING_STATUSES, type PendingStatus, type SyncEntityType } from './helpers.js';
 
 export const syncQueueProcedures = {
   /**
@@ -93,22 +85,24 @@ export const syncQueueProcedures = {
    * Remove an item from the sync_outbox (after successful manual
    * recovery, or to discard a stuck row outright).
    */
-  removeFromQueue: managerOrAdminProcedure.input(removeFromQueueInput).mutation(async ({ ctx, input }) => {
-    const item = await ctx.db
-      .select({ id: syncOutbox.id })
-      .from(syncOutbox)
-      .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
-      .get();
+  removeFromQueue: managerOrAdminProcedure
+    .input(removeFromQueueInput)
+    .mutation(async ({ ctx, input }) => {
+      const item = await ctx.db
+        .select({ id: syncOutbox.id })
+        .from(syncOutbox)
+        .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
+        .get();
 
-    if (!item) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Sync outbox item not found' });
-    }
+      if (!item) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Sync outbox item not found' });
+      }
 
-    await ctx.db
-      .delete(syncOutbox)
-      .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
-      .run();
+      await ctx.db
+        .delete(syncOutbox)
+        .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
+        .run();
 
-    return { success: true, id: input.id };
-  }),
+      return { success: true, id: input.id };
+    }),
 };

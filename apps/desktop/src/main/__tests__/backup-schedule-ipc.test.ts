@@ -78,7 +78,7 @@ async function registerRole(role: AuthTokenPayload['role']): Promise<void> {
   }));
 }
 
-describe('backup schedule IPC permissions and validation (ENG-136a)', () => {
+describe('backup schedule IPC permissions and validation', () => {
   beforeEach(() => {
     __resetForTests();
   });

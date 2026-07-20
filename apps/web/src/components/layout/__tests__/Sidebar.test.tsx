@@ -1,15 +1,15 @@
 /**
- * ENG-131 (slice A) — Sidebar workspace-render contract tests.
+ * (slice A) — Sidebar workspace-render contract tests.
  *
  * Pins the user-facing invariants of the workspace refactor:
  *
- *   - Admin sees exactly eight workspace headers with Dashboard
- *     nested under Operate.
- *   - Cashier sees only the Sell workspace (the other seven
- *     workspaces gate to manager or admin).
- *   - The workspace that contains the active route auto-expands.
- *   - Clicking a workspace header toggles aria-expanded.
- *   - localStorage preserves the collapsed state across mounts.
+ * - Admin sees exactly eight workspace headers with Dashboard
+ * nested under Operate.
+ * - Cashier sees only the Sell workspace (the other seven
+ * workspaces gate to manager or admin).
+ * - The workspace that contains the active route auto-expands.
+ * - Clicking a workspace header toggles aria-expanded.
+ * - localStorage preserves the collapsed state across mounts.
  *
  * @module components/layout/__tests__/Sidebar.test
  */
@@ -76,7 +76,7 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
-// ENG-171 — Sidebar now calls usePrefetchSales (trpc.useUtils + useTenant)
+// Sidebar now calls usePrefetchSales (trpc.useUtils + useTenant)
 // for the /sales hover prefetch. Stub the hook to avoid wiring those
 // providers; this suite pins that the visible sidebar anchors call it.
 vi.mock('@/features/sales/usePrefetchSales', () => ({
@@ -122,7 +122,7 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-describe('Sidebar workspaces (ENG-131a)', () => {
+describe('Sidebar workspaces', () => {
   it('admin sees 8 workspace headers with Dashboard inside Operate', () => {
     render(<Sidebar {...sidebarProps} />);
     // Count every workspace header regardless of expanded state by
@@ -196,7 +196,7 @@ describe('Sidebar workspaces (ENG-131a)', () => {
 
   it('clicking a workspace header toggles aria-expanded and persists in localStorage', () => {
     render(<Sidebar {...sidebarProps} />);
-    // /dashboard now belongs to Operate (ENG-131e), so use an inactive
+    // /dashboard now belongs to Operate (), so use an inactive
     // workspace to keep this test focused on disclosure persistence.
     const catalog = screen.getByTestId('sidebar-workspace-catalog');
     expect(catalog.getAttribute('aria-expanded')).toBe('false');
@@ -229,7 +229,7 @@ describe('Sidebar workspaces (ENG-131a)', () => {
   });
 });
 
-describe('Sidebar workspace header navigation (ENG-131c)', () => {
+describe('Sidebar workspace header navigation', () => {
   it('catalog, procurement, finance workspace headers render an anchor link to their landing route', () => {
     render(<Sidebar {...sidebarProps} />);
     const cases: Array<[string, string]> = [
@@ -280,7 +280,7 @@ describe('Sidebar workspace header navigation (ENG-131c)', () => {
   });
 });
 
-describe('responsive workspace navigation (ENG-131d)', () => {
+describe('responsive workspace navigation', () => {
   beforeEach(() => {
     desktopSidebar = false;
   });
@@ -398,7 +398,7 @@ describe('responsive workspace navigation (ENG-131d)', () => {
   });
 });
 
-describe('responsive breakpoint ownership (ENG-131d)', () => {
+describe('responsive breakpoint ownership', () => {
   it('clears stale mobile-open state after crossing into desktop', async () => {
     const onCloseMobile = vi.fn();
     render(<Sidebar {...sidebarProps} onCloseMobile={onCloseMobile} />);

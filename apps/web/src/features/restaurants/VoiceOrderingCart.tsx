@@ -19,7 +19,7 @@ interface VoiceOrderingCartProps {
   onSave: () => void;
 }
 
-/** ENG-178 — Presentational cart preview and save controls for voice ordering. */
+/** Presentational cart preview and save controls for voice ordering. */
 export function VoiceOrderingCart({
   cartItems,
   itemNotes,
@@ -37,9 +37,7 @@ export function VoiceOrderingCart({
     <section className="space-y-3">
       <div className="card overflow-hidden">
         <header className="flex items-center justify-between border-b border-line/60 px-4 py-3">
-          <h2 className="font-display text-lg text-secondary-950">
-            {t('cart.heading')}
-          </h2>
+          <h2 className="font-display text-lg text-secondary-950">{t('cart.heading')}</h2>
           <span className="text-xs text-secondary-500">{cartItems.length}</span>
         </header>
 
@@ -63,9 +61,7 @@ export function VoiceOrderingCart({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-secondary-950">
-                        {item.productName}
-                      </p>
+                      <p className="text-sm font-medium text-secondary-950">{item.productName}</p>
                       <p className="text-xs text-secondary-500">
                         {item.unitName} · {formatCurrency(item.unitPrice)}
                       </p>
@@ -156,18 +152,12 @@ export function VoiceOrderingCart({
         {t('actions.saveOrder')}
       </button>
       {tableLabel.trim().length === 0 && cartItems.length > 0 && (
-        <p
-          className="text-xs text-warning-700"
-          data-testid="voice-ordering-save-table-hint"
-        >
+        <p className="text-xs text-warning-700" data-testid="voice-ordering-save-table-hint">
           {t('save.tableRequired')}
         </p>
       )}
       {cartItems.length === 0 && tableLabel.trim().length > 0 && (
-        <p
-          className="text-xs text-warning-700"
-          data-testid="voice-ordering-save-empty-hint"
-        >
+        <p className="text-xs text-warning-700" data-testid="voice-ordering-save-empty-hint">
           {t('save.emptyCartHint')}
         </p>
       )}

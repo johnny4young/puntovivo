@@ -1,5 +1,5 @@
 /**
- * ENG-178 — admin-gated desktop backup creation IPC flow.
+ * admin-gated desktop backup creation IPC flow.
  *
  * @module main/ipc/backup/create
  */
@@ -12,7 +12,7 @@ import {
   createBackupFileName as createBackupZipFileName,
 } from '../../backup/backup-bundle.js';
 import { t } from '../../i18n';
-// ENG-025 — read authenticated identity from the main-process singleton,
+// read authenticated identity from the main-process singleton,
 // never from renderer-supplied arguments.
 import * as desktopSession from '../../session/desktopSession.js';
 import type { BackupIpcDeps, DesktopDatabaseActionResult } from './contracts.js';
@@ -45,7 +45,7 @@ export async function handleCreateDatabaseBackup(
   }
 
   try {
-    // ENG-066 — atomic backup via SQLite online backup API. The
+    // atomic backup via SQLite online backup API. The
     // server is stopped first so the backup bundle is consistent
     // with operator expectations even though `db.backup()` is safe
     // under concurrent writes.

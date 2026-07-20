@@ -1,6 +1,6 @@
 // Inventory screen data panel: the movements / stock / entries DataTables with
 // their loading / error / export states + the stock-filter slot, extracted from
-// InventoryPage.tsx (ENG-178 slice 33).
+// InventoryPage.tsx ( slice 33).
 
 import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';

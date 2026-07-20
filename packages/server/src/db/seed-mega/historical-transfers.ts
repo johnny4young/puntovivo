@@ -1,5 +1,5 @@
 /**
- * ENG-052b — MEGA seed: inter-site transfers across the historical
+ * MEGA seed: inter-site transfers across the historical
  * window. A subset is "in transit" (recent, awaiting receive); the
  * rest are completed with a destination receipt + variance note.
  *
@@ -7,11 +7,7 @@
  */
 
 import { nanoid } from 'nanoid';
-import {
-  inventoryMovements,
-  transferOrderItems,
-  transferOrders,
-} from '../schema.js';
+import { inventoryMovements, transferOrderItems, transferOrders } from '../schema.js';
 import { laterIso, randomDaysAgoIso } from './time-helpers.js';
 import type { MegaContext, MegaTarget } from './types.js';
 
@@ -123,7 +119,7 @@ async function chunkedInsert<T extends Record<string, unknown>>(
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per ENG-179c.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per .
     await (db.insert(table) as any).values(chunk).run();
   }
 }

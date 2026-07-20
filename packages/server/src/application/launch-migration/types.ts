@@ -1,4 +1,4 @@
-/** ENG-123a/ENG-123b — Structural context and result types for launch imports. */
+/** -123b — Structural context and result types for launch imports. */
 import type { DatabaseInstance } from '../../db/index.js';
 import type { UserRole } from '@puntovivo/shared/roles';
 

@@ -1,7 +1,7 @@
 /**
  * Sales router read-side procedures (summary KPIs, list, getById, listDrafts).
  *
- * ENG-178 — extracted verbatim from the former flat `trpc/routers/sales.ts`
+ * extracted verbatim from the former flat `trpc/routers/sales.ts`
  * during the megafile decomposition. Exported as a procedure record that
  * `index.ts` spreads into the assembled `salesRouter` (paths unchanged).
  *
@@ -150,7 +150,7 @@ export const salesQueryProcedures = {
   }),
 
   /**
-   * ENG-018 — List suspended drafts. Cashiers only see drafts they
+   * List suspended drafts. Cashiers only see drafts they
    * themselves suspended; managers and admins see every suspended
    * draft for the tenant (optionally narrowed by site).
    *
@@ -204,7 +204,7 @@ export const salesQueryProcedures = {
           suspendedAt: sales.suspendedAt,
           suspendedBy: sales.suspendedBy,
           suspendedLabel: sales.suspendedLabel,
-          // ENG-039c — surface the restaurant table linkage so the
+          // surface the restaurant table linkage so the
           // suspended-sales panel can render a resolved badge instead
           // of relying on the denormalized free-text label.
           tableId: sales.tableId,
@@ -219,10 +219,7 @@ export const salesQueryProcedures = {
         .leftJoin(customers, eq(sales.customerId, customers.id))
         .leftJoin(
           restaurantTables,
-          and(
-            eq(sales.tableId, restaurantTables.id),
-            eq(restaurantTables.tenantId, ctx.tenantId)
-          )
+          and(eq(sales.tableId, restaurantTables.id), eq(restaurantTables.tenantId, ctx.tenantId))
         )
         .where(where)
         .orderBy(desc(sales.suspendedAt))

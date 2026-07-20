@@ -1,25 +1,25 @@
 /**
- * ENG-039a — Restaurant voice-ordering screen.
+ * Restaurant voice-ordering screen.
  *
  * Shared component for both `/touch` (tablet two-column) and `/m`
  * (phone-width stacked) surface variants. Builds on the shared voice
- * infrastructure shipped in ENG-040c slice 3 plus the existing
+ * infrastructure shipped in  slice 3 plus the existing
  * `sales.create` + `sales.suspend` orchestration that
  * `SalesPage.handleSuspendConfirm` already uses for retail.
  *
  * Flow:
- *   1. Waiter enters a table label (e.g. "Mesa 5").
- *   2. Mic CTA opens the lazy-loaded `VoiceCartCommandModal`. Modal
- *      reviews the parsed lines + notes; on Aplicar the items hydrate
- *      into the local cart.
- *   3. Operator can adjust quantity (-/+), remove a line, or edit the
- *      inline note before saving.
- *   4. "Guardar orden" runs `sales.create({status:'draft'})` then
- *      `sales.suspend({label})` and clears local state on success.
+ * 1. Waiter enters a table label (e.g. "Mesa 5").
+ * 2. Mic CTA opens the lazy-loaded `VoiceCartCommandModal`. Modal
+ * reviews the parsed lines + notes; on Aplicar the items hydrate
+ * into the local cart.
+ * 3. Operator can adjust quantity (-/+), remove a line, or edit the
+ * inline note before saving.
+ * 4. "Guardar orden" runs `sales.create({status:'draft'})` then
+ * `sales.suspend({label})` and clears local state on success.
  *
  * Per-line notes live in a local `Record<itemKey, string>`; on save
  * each cart line forwards its trimmed note as `sale_items.notes`
- * (ENG-039d2). The sale-level `notes` field is no longer populated
+ * (). The sale-level `notes` field is no longer populated
  * by this surface; `tableId` / `suspendedLabel` already carry the
  * table identifier so no aggregation is needed.
  *
@@ -58,9 +58,7 @@ export interface VoiceOrderingScreenProps {
   variant: 'touch' | 'mobile';
 }
 
-export function VoiceOrderingScreen({
-  variant,
-}: VoiceOrderingScreenProps): React.ReactElement {
+export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): React.ReactElement {
   const { t } = useTranslation(['restaurants', 'voice', 'errors', 'common']);
   const toast = useToast();
   const { logout, user } = useAuth();
@@ -75,22 +73,18 @@ export function VoiceOrderingScreen({
     { enabled: Boolean(currentSite) }
   );
 
-  // ENG-039b — pull the persistent table catalog when the active site
+  // pull the persistent table catalog when the active site
   // resolves. When the catalog has entries the input becomes a
   // <select>; otherwise the existing free-text input renders so
   // tenants without tables do not regress. Errors fall back the same
   // way — defensive against transient DB hiccups.
   const tableCatalogQuery = trpc.restaurantTables.list.useQuery(
-    currentSite
-      ? { siteId: currentSite.id, includeArchived: false }
-      : (undefined as never),
+    currentSite ? { siteId: currentSite.id, includeArchived: false } : (undefined as never),
     { enabled: Boolean(currentSite) }
   );
   const tableCatalog = tableCatalogQuery.data?.items ?? [];
   const useCatalogDropdown =
-    !tableCatalogQuery.isLoading &&
-    !tableCatalogQuery.error &&
-    tableCatalog.length > 0;
+    !tableCatalogQuery.isLoading && !tableCatalogQuery.error && tableCatalog.length > 0;
 
   const utils = trpc.useUtils();
   const createMutation = useCriticalMutation('sales.create');
@@ -98,22 +92,21 @@ export function VoiceOrderingScreen({
   const discardDraftMutation = useCriticalMutation('sales.discardDraft');
 
   const [tableLabel, setTableLabel] = useState<string>('');
-  // ENG-039b — when the catalog resolves AFTER the operator typed into
+  // when the catalog resolves AFTER the operator typed into
   // the free-text input (slow LTE / restaurant Wi-Fi), the visible
   // <select> shows the empty placeholder while `tableLabel` still
   // holds the stale typed value. Guard `saveDisabled` so the button
   // never fires with a phantom label that doesn't match any option;
   // the operator has to explicitly pick a row from the dropdown.
   const tableLabelMatchesCatalog =
-    !useCatalogDropdown ||
-    tableCatalog.some(row => row.name === tableLabel);
-  // ENG-039c — resolve the picked table's id from the label so we can
+    !useCatalogDropdown || tableCatalog.some(row => row.name === tableLabel);
+  // resolve the picked table's id from the label so we can
   // persist the FK alongside the denormalized free-text label. The
-  // dropdown stores the table NAME (back-compat with ENG-039b);
+  // dropdown stores the table NAME (back-compat with );
   // looking up the id on save keeps a single source of truth without
   // doubling the controlled state.
   const resolvedPickedTableId = useCatalogDropdown
-    ? tableCatalog.find(row => row.name === tableLabel)?.id ?? null
+    ? (tableCatalog.find(row => row.name === tableLabel)?.id ?? null)
     : null;
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
@@ -162,9 +155,7 @@ export function VoiceOrderingScreen({
         if (idx >= 0 && row) {
           const minQty = getSaleMinimumQuantity(row);
           const desiredQty = Math.max(item.quantity, minQty);
-          next = next.map((r, i) =>
-            i === idx ? { ...r, quantity: desiredQty } : r
-          );
+          next = next.map((r, i) => (i === idx ? { ...r, quantity: desiredQty } : r));
         }
       }
       return next;
@@ -221,11 +212,11 @@ export function VoiceOrderingScreen({
     try {
       const trimmedLabel = tableLabel.trim();
       const draft = await createMutation.mutateAsync({
-        // ENG-039d2 — per-item notes now persist on `sale_items.notes`
+        // per-item notes now persist on `sale_items.notes`
         // directly (one row per cart line carries its own modifier).
-        // Pre-ENG-039d2 the surface aggregated every note into the
+        // Pre- the surface aggregated every note into the
         // sale-level `sales.notes` field with a table-label prefix;
-        // both were redundant because ENG-039c already persists
+        // both were redundant because  already persists
         // tableId + suspendedLabel separately and the KDS render now
         // shows the modifier inline with each product.
         items: cartItems.map(item => {
@@ -244,7 +235,7 @@ export function VoiceOrderingScreen({
         paymentStatus: 'pending',
         status: 'draft',
         discountAmount: 0,
-        // ENG-039c — pass the FK when the operator picked a row from
+        // pass the FK when the operator picked a row from
         // the catalog dropdown. Free-text fallback keeps `tableId`
         // undefined and the server falls back to the label-only
         // legacy contract.
@@ -315,9 +306,7 @@ export function VoiceOrderingScreen({
             {currentTenant?.name ?? '—'}
             {currentSite ? ` · ${currentSite.name}` : ''}
           </h1>
-          {user?.name && (
-            <p className="text-xs text-secondary-600">{user.name}</p>
-          )}
+          {user?.name && <p className="text-xs text-secondary-600">{user.name}</p>}
         </div>
         <button
           type="button"

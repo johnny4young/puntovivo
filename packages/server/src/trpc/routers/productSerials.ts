@@ -1,4 +1,4 @@
-/** ENG-110c — serialized inventory receipt, availability and warranty lookup. */
+/** serialized inventory receipt, availability and warranty lookup. */
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 

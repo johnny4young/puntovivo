@@ -4,7 +4,7 @@ import { getSyncEntityLabel } from './companySyncDisplay';
 
 export type ConflictResolution = 'local_wins' | 'remote_wins' | 'merged';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export interface PendingResolution {
   id: string;
   entityId: string;
@@ -32,8 +32,10 @@ export function CompanySyncConflictModal({
   const { t } = useTranslation('settings');
   const isLocalResolution = pendingResolution?.resolution === 'local_wins';
   const isMissingLocalRemoteResolution =
-    pendingResolution?.resolution === 'remote_wins' && pendingResolution.localRecordExists === false;
-  const entityLabel = pendingResolution?.entityLabel ?? getSyncEntityLabel(t, pendingResolution?.entityType);
+    pendingResolution?.resolution === 'remote_wins' &&
+    pendingResolution.localRecordExists === false;
+  const entityLabel =
+    pendingResolution?.entityLabel ?? getSyncEntityLabel(t, pendingResolution?.entityType);
 
   const title = isLocalResolution
     ? t('company.sync.conflict.keepLocalTitle')

@@ -1,5 +1,5 @@
 /**
- * ENG-040a + sprint-1 OCR — Schemas for legacy image OCR, upload-id
+ * + initial OCR — Schemas for legacy image OCR, upload-id
  * extraction, catalog matching, and confirming a reviewed draft.
  *
  * @module trpc/schemas/ai-vision
@@ -40,7 +40,7 @@ export const extractInvoiceOcrInput = z.object({
 export type ExtractInvoiceOcrInput = z.infer<typeof extractInvoiceOcrInput>;
 
 /**
- * ENG-040 slice 1b — input for `ai.matchInvoiceLines`. The shape
+ * slice 1b — input for `ai.matchInvoiceLines`. The shape
  * mirrors `InvoiceOcrLineSchema` so the modal can pass the OCR output
  * verbatim. Description is bounded at 500 chars to prevent abuse — a
  * realistic invoice line is well under 200.
@@ -67,7 +67,7 @@ export type MatchInvoiceLinesInput = z.infer<typeof matchInvoiceLinesInput>;
  * an audit-log row (`ai.invoice_ocr.confirm`) so AiConfigPage can
  * surface the operator who approved a given OCR pass. The actual
  * purchase creation is delegated to `purchases.create` via the caller
- * — this RPC stays narrow to keep the audit trail isolated.
+ * this RPC stays narrow to keep the audit trail isolated.
  */
 export const confirmInvoiceDraftInput = z.object({
   uploadId: z.string().min(1).max(100),

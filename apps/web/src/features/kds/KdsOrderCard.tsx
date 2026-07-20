@@ -1,12 +1,12 @@
 /**
- * ENG-098 — single kitchen ticket card.
+ * single kitchen ticket card.
  *
  * Two visual states:
- *   - `pending`: full-opacity white card on the dark backdrop, big
- *     "LISTO" primary button.
- *   - `ready`: 40% opacity, struck-through table label, "Listo · HH:MM"
- *     stamp, "Volver a pendiente" ghost link for the recall recovery
- *     affordance.
+ * - `pending`: full-opacity white card on the dark backdrop, big
+ * "LISTO" primary button.
+ * - `ready`: 40% opacity, struck-through table label, "Listo · HH:MM"
+ * stamp, "Volver a pendiente" ghost link for the recall recovery
+ * affordance.
  *
  * Elapsed time updates locally every 30 seconds without hammering the
  * board query. After 10 minutes the elapsed-time label switches to
@@ -25,8 +25,8 @@ export interface KdsCardItem {
   productName: string;
   quantity: number;
   /**
-   * ENG-039d2 — per-line modifier ("sin cebolla"). Rendered as a
-   * dim caption under the product name. Older cards (pre-ENG-039d2
+   * per-line modifier ("sin cebolla"). Rendered as a
+   * dim caption under the product name. Older cards (pre-
    * snapshots) carry undefined here; the renderer falls back to the
    * sale-level note panel for those.
    */
@@ -101,10 +101,7 @@ export function KdsOrderCard({ order, onReady, onRecall, busy = false }: KdsOrde
     ? 'text-base font-medium text-amber-700'
     : 'text-sm text-secondary-700';
 
-  const tableLabelClass = [
-    'text-2xl font-semibold',
-    isReady ? 'line-through' : '',
-  ]
+  const tableLabelClass = ['text-2xl font-semibold', isReady ? 'line-through' : '']
     .join(' ')
     .trim();
 

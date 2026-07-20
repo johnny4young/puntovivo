@@ -1,13 +1,13 @@
 /**
- * ENG-065a — Tests for FiscalHealthPanel.
+ * Tests for FiscalHealthPanel.
  *
  * Asserts:
- *   - Empty state when status filter returns no rows.
- *   - Rows render with status badge + retry button on
- *     contingency/rejected.
- *   - Retry mutation fires for admin clicks.
- *   - Manager sees the row but the retry button is disabled with a
- *     translated tooltip.
+ * - Empty state when status filter returns no rows.
+ * - Rows render with status badge + retry button on
+ * contingency/rejected.
+ * - Retry mutation fires for admin clicks.
+ * - Manager sees the row but the retry button is disabled with a
+ * translated tooltip.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -99,9 +99,7 @@ describe('FiscalHealthPanel', () => {
     render(<FiscalHealthPanel />);
     expect(screen.getByText('DEE-000001')).toBeInTheDocument();
     expect(screen.getByText(/cufe-abc-123/i)).toBeInTheDocument();
-    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(
-      /Demo/i
-    );
+    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(/Demo/i);
     expect(screen.getByTestId('fiscal-retry-doc-1')).toBeInTheDocument();
     expect(screen.getByTestId('fiscal-retry-doc-1')).not.toBeDisabled();
   });

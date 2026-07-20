@@ -1,27 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// ENG-135b — pins the renderer-side adapter contract:
+// pins the renderer-side adapter contract:
 //
-//   1. `installRenderTelemetryAdapter` is DSN-gated: without
-//      VITE_PUNTOVIVO_SENTRY_DSN the lazy `lib/sentry` chunk is never
-//      imported (zero SDK code, zero traffic); with it the module
-//      loads once and initialises against the DSN.
-//   2. `initSentryRenderSink` initialises the SDK with our minimal
-//      surface (defaultIntegrations off + dedupe only) and registers
-//      a render sink that forwards TENANT-LESS context — tenantId is
-//      stripped before the SDK sees it (consent layers, see
-//      docs/OBSERVABILITY.md).
+// 1. `installRenderTelemetryAdapter` is DSN-gated: without
+// VITE_PUNTOVIVO_SENTRY_DSN the lazy `lib/sentry` chunk is never
+// imported (zero SDK code, zero traffic); with it the module
+// loads once and initialises against the DSN.
+// 2. `initSentryRenderSink` initialises the SDK with our minimal
+// surface (defaultIntegrations off + dedupe only) and registers
+// a render sink that forwards TENANT-LESS context — tenantId is
+// stripped before the SDK sees it (consent layers, see
+// docs/OBSERVABILITY.md).
 //
 // `@sentry/browser` is mocked at the module boundary so the suite
 // pins OUR wrapper contract, not SDK internals.
 
-const { initMock, captureExceptionMock, dedupeIntegrationMock, initSinkSpy } =
-  vi.hoisted(() => ({
-    initMock: vi.fn(),
-    captureExceptionMock: vi.fn(),
-    dedupeIntegrationMock: vi.fn(() => ({ name: 'Dedupe' })),
-    initSinkSpy: vi.fn(),
-  }));
+const { initMock, captureExceptionMock, dedupeIntegrationMock, initSinkSpy } = vi.hoisted(() => ({
+  initMock: vi.fn(),
+  captureExceptionMock: vi.fn(),
+  dedupeIntegrationMock: vi.fn(() => ({ name: 'Dedupe' })),
+  initSinkSpy: vi.fn(),
+}));
 
 vi.mock('@sentry/browser', () => ({
   init: initMock,
@@ -42,7 +41,7 @@ import {
   __resetRenderObservabilityForTests,
 } from '../observability';
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 
 beforeEach(() => {
   __resetRenderObservabilityForTests();
@@ -53,7 +52,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('installRenderTelemetryAdapter (ENG-135b)', () => {
+describe('installRenderTelemetryAdapter', () => {
   it('does nothing when the DSN is unset — the SDK chunk is never imported', async () => {
     installRenderTelemetryAdapter();
     await settle();
@@ -77,10 +76,9 @@ describe('installRenderTelemetryAdapter (ENG-135b)', () => {
   });
 });
 
-describe('initSentryRenderSink (ENG-135b)', () => {
+describe('initSentryRenderSink', () => {
   async function initRealAdapter(): Promise<void> {
-    const real =
-      await vi.importActual<typeof import('../sentry')>('../sentry');
+    const real = await vi.importActual<typeof import('../sentry')>('../sentry');
     real.initSentryRenderSink('http://key@127.0.0.1:9/1');
   }
 

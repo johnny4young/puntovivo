@@ -15,7 +15,7 @@
  * - inventory.productStock    (tenant) - Get current stock for a product
  * - inventory.reconcileBalances (tenant, admin) - No-op (stock is derived from balances)
  *
- * ENG-178 — decomposed into per-concern record modules (queries / mutations) +
+ * decomposed into per-concern record modules (queries / mutations) +
  * a `helpers.ts` leaf. This barrel re-assembles the flat router so every path
  * (`inventory.listEntries` … `inventory.reconcileBalances`) is preserved.
  *

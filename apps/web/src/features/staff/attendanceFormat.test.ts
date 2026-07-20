@@ -6,7 +6,7 @@ import {
   formatDuration,
 } from './attendanceFormat';
 
-describe('attendance formatting (ENG-140b)', () => {
+describe('attendance formatting', () => {
   it('formats instants in the frozen tenant timezone', () => {
     const instant = '2026-07-14T13:30:00.000Z';
     expect(formatAttendanceTime(instant, 'America/Bogota', 'en-US')).toBe('8:30 AM');

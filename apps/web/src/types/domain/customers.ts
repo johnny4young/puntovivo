@@ -1,4 +1,4 @@
-// ENG-179c — customer domain shapes (ENG-178 slice 28).
+// customer domain shapes ( slice 28).
 
 import type { SyncStatus } from '../ui';
 
@@ -20,7 +20,7 @@ export interface Customer {
   clientTypeId?: string | null;
   commercialActivityId?: string | null;
   notes?: string | null;
-  // ENG-089 — per-customer cupo de crédito. `0 = sin cupo` (no
+  // per-customer cupo de crédito. `0 = sin cupo` (no
   // limit); the server NOT-NULL default + Zod nonnegative refinement
   // make this always present.
   creditLimit?: number;
@@ -31,7 +31,7 @@ export interface Customer {
   updatedAt: string;
   syncStatus?: SyncStatus | null;
   syncVersion?: number;
-  // ENG-177a — optimistic-concurrency token (round-tripped on update).
+  // optimistic-concurrency token (round-tripped on update).
   version: number;
 }
 

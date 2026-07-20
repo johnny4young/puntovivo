@@ -68,7 +68,7 @@ beforeEach(async () => {
   await i18n.changeLanguage('en');
 });
 
-describe('SerialWarrantyLookup (ENG-110c)', () => {
+describe('SerialWarrantyLookup', () => {
   it('keeps the latest historical sale visible after a return clears the current pointer', async () => {
     const user = userEvent.setup();
     render(<SerialWarrantyLookup />);

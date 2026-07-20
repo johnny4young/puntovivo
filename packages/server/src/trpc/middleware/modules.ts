@@ -1,5 +1,5 @@
 /**
- * ENG-068 — Module activation gate middleware.
+ * Module activation gate middleware.
  *
  * Companion to `roles.ts`. Adds a per-procedure check that the
  * caller's tenant has the named module activated. Returns FORBIDDEN
@@ -20,10 +20,7 @@ import { eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { tenants } from '../../db/schema.js';
 import { ServerErrorWithCode } from '../../lib/errorCodes.js';
-import {
-  resolveModulesState,
-  type ModuleId,
-} from '../../services/modules/manifest.js';
+import { resolveModulesState, type ModuleId } from '../../services/modules/manifest.js';
 import { middleware } from '../init.js';
 import {
   adminProcedure,
@@ -47,7 +44,8 @@ export async function isModuleActiveForTenant(
     .where(eq(tenants.id, tenantId))
     .get();
   const blob = row?.settings as Record<string, unknown> | null | undefined;
-  const modules = blob && typeof blob === 'object' ? (blob as Record<string, unknown>).modules : undefined;
+  const modules =
+    blob && typeof blob === 'object' ? (blob as Record<string, unknown>).modules : undefined;
   return resolveModulesState(modules)[moduleId];
 }
 

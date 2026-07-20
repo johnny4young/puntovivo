@@ -1,9 +1,9 @@
 /**
  * Sales router splitDraft procedure.
  *
- * ENG-178 — extracted verbatim from the former flat `trpc/routers/sales.ts`
+ * extracted verbatim from the former flat `trpc/routers/sales.ts`
  * during the megafile decomposition. Isolated into its own module because
- * the procedure body alone is ~260 LOC. ENG-039c3 multi-check split.
+ * the procedure body alone is ~260 LOC.  multi-check split.
  * Exported as a procedure record that `index.ts` spreads into `salesRouter`
  * (path unchanged).
  *
@@ -20,38 +20,34 @@ import { throwServerError } from '../../../lib/errorCodes.js';
 import { splitDraftInput } from '../../schemas/sales.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
-import {
-  buildKdsHookContext,
-  resolveActiveRestaurantTable,
-  resolveSaleSiteId,
-} from './helpers.js';
+import { buildKdsHookContext, resolveActiveRestaurantTable, resolveSaleSiteId } from './helpers.js';
 
 export const salesSplitDraftProcedures = {
   /**
-   * ENG-039c3 — Split a suspended draft into a brand-new suspended
+   * Split a suspended draft into a brand-new suspended
    * draft, moving the chosen `saleItemIds` from the source onto the
    * new draft. Designed for restaurant flows where one open table
    * needs to pay in multiple checks.
    *
    * Invariants:
    * - Source must be `status='draft'` AND `suspendedAt IS NOT NULL`
-   *   (otherwise `SALE_SPLIT_INVALID_STATUS`).
+   * (otherwise `SALE_SPLIT_INVALID_STATUS`).
    * - Manager/admin only. Splitting a draft is an operations override
-   *   (same role gate as `changeTable`).
+   * (same role gate as `changeTable`).
    * - `saleItemIds` must be non-empty and every id must currently be
-   *   bound to `sourceSaleId` for the caller's tenant. Mismatches
-   *   collapse to `SALE_SPLIT_ITEMS_NOT_FOUND` so cross-draft
-   *   existence cannot be probed.
+   * bound to `sourceSaleId` for the caller's tenant. Mismatches
+   * collapse to `SALE_SPLIT_ITEMS_NOT_FOUND` so cross-draft
+   * existence cannot be probed.
    * - When `tableId` is non-null, the row must belong to the tenant
-   *   and the same site as the source draft (otherwise
-   *   `RESTAURANT_TABLE_NOT_FOUND`).
+   * and the same site as the source draft (otherwise
+   * `RESTAURANT_TABLE_NOT_FOUND`).
    * - Stock is NOT touched: items are merely relocated. Stock was
-   *   already debited at the source's create time and a future
-   *   `discardDraft` against either draft reverses its OWN current
-   *   items only, so the total debited stays correct.
+   * already debited at the source's create time and a future
+   * `discardDraft` against either draft reverses its OWN current
+   * items only, so the total debited stays correct.
    * - Audit row `sale.splitDraft` lands inside the same transaction
-   *   with `resourceId = newDraftId`; `metadata.sourceSaleNumber`
-   *   carries the donor back-pointer for forensics.
+   * with `resourceId = newDraftId`; `metadata.sourceSaleNumber`
+   * carries the donor back-pointer for forensics.
    */
   splitDraft: criticalCommandManagerOrAdminProcedure
     .input(splitDraftInput)
@@ -112,9 +108,7 @@ export const salesSplitDraftProcedures = {
           message: 'Selected items do not belong to the source draft',
           details: {
             requestedCount: uniqueItemIds.length,
-            matchedCount: sourceItems.filter(
-              row => row.saleId === input.sourceSaleId
-            ).length,
+            matchedCount: sourceItems.filter(row => row.saleId === input.sourceSaleId).length,
           },
         });
       }
@@ -127,12 +121,7 @@ export const salesSplitDraftProcedures = {
       );
 
       const resolvedTable = input.tableId
-        ? await resolveActiveRestaurantTable(
-            ctx.db,
-            ctx.tenantId,
-            input.tableId,
-            saleSiteId
-          )
+        ? await resolveActiveRestaurantTable(ctx.db, ctx.tenantId, input.tableId, saleSiteId)
         : null;
 
       // Source draft's site sequential drives the new draft's sale
@@ -195,7 +184,7 @@ export const salesSplitDraftProcedures = {
             taxAmount: 0,
             discountAmount: 0,
             total: 0,
-            // ENG-176b — split drafts inherit the source draft's
+            // split drafts inherit the source draft's
             // currency seam verbatim. A split that crossed currencies
             // would not make business sense (you cannot move items
             // priced in USD into a COP draft without re-pricing).
@@ -226,10 +215,7 @@ export const salesSplitDraftProcedures = {
           .update(saleItems)
           .set({ saleId: newSaleId })
           .where(
-            and(
-              inArray(saleItems.id, uniqueItemIds),
-              eq(saleItems.saleId, input.sourceSaleId)
-            )
+            and(inArray(saleItems.id, uniqueItemIds), eq(saleItems.saleId, input.sourceSaleId))
           )
           .run() as { changes?: number };
         if ((moveResult.changes ?? 0) !== uniqueItemIds.length) {
@@ -263,10 +249,7 @@ export const salesSplitDraftProcedures = {
               taxAmount: totals?.taxAmount ?? 0,
               total: totals?.total ?? 0,
               syncStatus: 'pending',
-              syncVersion:
-                saleId === newSaleId
-                  ? 1
-                  : (existing.syncVersion ?? 0) + 1,
+              syncVersion: saleId === newSaleId ? 1 : (existing.syncVersion ?? 0) + 1,
               updatedAt: now,
             })
             .where(and(eq(sales.id, saleId), eq(sales.tenantId, ctx.tenantId)))
@@ -304,7 +287,7 @@ export const salesSplitDraftProcedures = {
         getSaleRecord(ctx.db, ctx.tenantId, newSaleId),
       ]);
 
-      // ENG-098 — rewrite the source KDS snapshot (items moved out)
+      // rewrite the source KDS snapshot (items moved out)
       // and create a fresh card for the carved-out draft when it
       // landed on a tableId. Both calls are no-ops when the kds
       // module is off or the rows have no kitchen footprint.

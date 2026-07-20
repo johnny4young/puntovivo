@@ -1,5 +1,5 @@
 /**
- * ENG-128 — permission-aware support recovery checklist.
+ * permission-aware support recovery checklist.
  *
  * The checklist only links managers to Operations surfaces they can open.
  * Admin-only Setup actions remain visible as handoff guidance, but never as

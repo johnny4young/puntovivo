@@ -1,8 +1,8 @@
 /**
- * Fiscal orchestrator — ENG-057 outbox emit.
+ * Fiscal orchestrator —  outbox emit.
  *
  * `enqueueFiscalEmission` pre-creates the document + items, allocates the Chile
- * CAF folio (ENG-036b), advances the consecutive (FISCAL_SEQUENTIAL_NOT_ADVANCED
+ * CAF folio (), advances the consecutive (FISCAL_SEQUENTIAL_NOT_ADVANCED
  * TOCTOU guard) and enqueues the fiscal_outbox row in ONE write transaction; the
  * adapter runs out-of-band via the worker. The write tx is byte-identical.
  *
@@ -11,7 +11,18 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../../db/index.js';
-import { companies, cashSessions, fiscalDocumentItems, fiscalDocuments, fiscalNumberingResolutions, fiscalOutbox, sales, tenants, type FiscalDocumentKind, type FiscalDocumentSource } from '../../../db/schema.js';
+import {
+  companies,
+  cashSessions,
+  fiscalDocumentItems,
+  fiscalDocuments,
+  fiscalNumberingResolutions,
+  fiscalOutbox,
+  sales,
+  tenants,
+  type FiscalDocumentKind,
+  type FiscalDocumentSource,
+} from '../../../db/schema.js';
 import type { PuntovivoLogger } from '../../../logging/logger.js';
 import { resolveTenantLocale } from '../../tenant-locale.js';
 import type { FiscalAdapterIssueInput, FiscalAdapterLine } from '../adapter.js';
@@ -24,10 +35,9 @@ import type { EmitFiscalDocumentResult } from './types.js';
 import { splitIssueTimestamp, isCountryFiscalEnabled, isDianEnabled } from './helpers.js';
 import { resolveBuyer, resolveLines } from './snapshots.js';
 
-
 /**
- * ENG-057 — Pre-create the `fiscal_documents` row + enqueue a
- * `fiscal_outbox` row in ONE local transaction (the ENG-057 inversion of
+ * Pre-create the `fiscal_documents` row + enqueue a
+ * `fiscal_outbox` row in ONE local transaction (the  inversion of
  * the legacy `emitFiscalDocument`: the adapter is NOT called inline here —
  * the fiscal worker `services/fiscal/fiscal-worker.ts` drains the outbox,
  * calls the adapter out-of-band, and mirrors the verdict back to
@@ -35,44 +45,44 @@ import { resolveBuyer, resolveLines } from './snapshots.js';
  *
  * Invariants:
  * - Idempotent by `(tenantId, source, sourceId, kind)`: replay of the same
- *   envelope returns the existing summary. The check runs twice — once on
- *   the outer connection (fast path) and once again INSIDE the write
- *   transaction (`duplicate` probe) so a concurrent enqueue that won the
- *   race is honoured rather than double-inserting.
+ * envelope returns the existing summary. The check runs twice — once on
+ * the outer connection (fast path) and once again INSIDE the write
+ * transaction (`duplicate` probe) so a concurrent enqueue that won the
+ * race is honoured rather than double-inserting.
  * - Buyer + line data are SNAPSHOT into `fiscal_documents` /
- *   `fiscal_document_items` (and embedded in the outbox `adapterInput`
- *   payload) at enqueue time. The worker issues against this frozen payload
- *   without re-querying the customer/products, so a later edit to the
- *   customer or a product never alters the in-flight legal document.
+ * `fiscal_document_items` (and embedded in the outbox `adapterInput`
+ * payload) at enqueue time. The worker issues against this frozen payload
+ * without re-querying the customer/products, so a later edit to the
+ * customer or a product never alters the in-flight legal document.
  * - The numbering consecutive advances INSIDE the same write transaction as
- *   the pre-create. The post-update guard `updateResult.changes !== 1`
- *   throws `FISCAL_SEQUENTIAL_NOT_ADVANCED` (CONFLICT) on a concurrent
- *   advance — a TOCTOU guard that rolls the whole transaction back (no row
- *   inserted, no outbox enqueued, no folio burned). Trade-off: a
- *   dead-lettered emission burns a consecutive DIAN never sees — accepted
- *   per ADR-0003 §Fiscal outbox; ENG-058 may revisit with reserve-on-enqueue.
+ * the pre-create. The post-update guard `updateResult.changes !== 1`
+ * throws `FISCAL_SEQUENTIAL_NOT_ADVANCED` (CONFLICT) on a concurrent
+ * advance — a TOCTOU guard that rolls the whole transaction back (no row
+ * inserted, no outbox enqueued, no folio burned). Trade-off: a
+ * dead-lettered emission burns a consecutive DIAN never sees — accepted
+ * per ADR-0003 §Fiscal outbox;  may revisit with reserve-on-enqueue.
  * - The CUFE column is seeded with a `pending-<nanoid>` placeholder that
- *   satisfies the `fiscal_documents.cufe` UNIQUE constraint at insert; the
- *   worker overwrites it with the adapter-returned CUFE on `accepted`.
- * - Chile only (ENG-036b): the next CAF folio is allocated inside the same
- *   write transaction (`allocateNextFolio`), so the folio cursor advance,
- *   the document insert, and the outbox enqueue commit atomically — a
- *   `CAF_NOT_AVAILABLE` / `CAF_EXHAUSTED` throw rolls all three back.
+ * satisfies the `fiscal_documents.cufe` UNIQUE constraint at insert; the
+ * worker overwrites it with the adapter-returned CUFE on `accepted`.
+ * - Chile only (): the next CAF folio is allocated inside the same
+ * write transaction (`allocateNextFolio`), so the folio cursor advance,
+ * the document insert, and the outbox enqueue commit atomically — a
+ * `CAF_NOT_AVAILABLE` / `CAF_EXHAUSTED` throw rolls all three back.
  *
  * Preconditions:
  * - Same null surface as `emitFiscalDocument`: returns `null` when DIAN is
- *   disabled, the country pack is disabled, the sale has no cash session /
- *   no active resolution / no items, OR the country pack's `validateConfig`
- *   rejects (config error → skip enqueue; the operator must fix settings).
- *   Callers (sale lifecycle services) tolerate `null` without throwing.
+ * disabled, the country pack is disabled, the sale has no cash session /
+ * no active resolution / no items, OR the country pack's `validateConfig`
+ * rejects (config error → skip enqueue; the operator must fix settings).
+ * Callers (sale lifecycle services) tolerate `null` without throwing.
  *
  * Postconditions:
  * - On success: a `fiscal_documents` row at `status='pending'`, its items,
- *   the advanced consecutive, and a `queued` `fiscal_outbox` row — all in
- *   one commit. Returns `{ id, cufe: placeholderCufe, documentNumber,
- *   status: 'pending' }`.
+ * the advanced consecutive, and a `queued` `fiscal_outbox` row — all in
+ * one commit. Returns `{ id, cufe: placeholderCufe, documentNumber,
+ * status: 'pending' }`.
  * - Errors thrown here MUST NOT propagate past the back-compat shim
- *   `safelyEmitFiscalDocument` so the sale lifecycle stays unaffected.
+ * `safelyEmitFiscalDocument` so the sale lifecycle stays unaffected.
  */
 export async function enqueueFiscalEmission(args: {
   db: DatabaseInstance;
@@ -83,7 +93,7 @@ export async function enqueueFiscalEmission(args: {
   sourceId: string;
   saleId: string;
   kind: FiscalDocumentKind;
-  // ENG-179b — explicit `| undefined` on optional fields so the
+  // explicit `| undefined` on optional fields so the
   // sale lifecycle can forward `args.originalCufe` (typed
   // `string | undefined`) without violating `exactOptionalPropertyTypes`.
   originalCufe?: string | undefined;
@@ -137,12 +147,7 @@ export async function enqueueFiscalEmission(args: {
   const saleSite = await db
     .select({ siteId: cashSessions.siteId })
     .from(cashSessions)
-    .where(
-      and(
-        eq(cashSessions.id, sale.cashSessionId),
-        eq(cashSessions.tenantId, tenantId)
-      )
-    )
+    .where(and(eq(cashSessions.id, sale.cashSessionId), eq(cashSessions.tenantId, tenantId)))
     .get();
   if (!saleSite) return null;
 
@@ -161,7 +166,7 @@ export async function enqueueFiscalEmission(args: {
   if (!resolution) return null;
 
   const locale = await resolveTenantLocale(db, tenantId);
-  // ENG-185 — no fiscal pack for this country: skip emission cleanly. This
+  // no fiscal pack for this country: skip emission cleanly. This
   // keeps the sale lifecycle non-fatal (best-effort, like the other null
   // returns here) and never emits a Colombia-shaped fallback document for a
   // country we do not actually support.
@@ -183,13 +188,13 @@ export async function enqueueFiscalEmission(args: {
     return null;
   }
 
-  // ENG-057 — Adapter pre-flight: when the country pack reports
+  // Adapter pre-flight: when the country pack reports
   // structurally invalid configuration (missing RFC for MX, missing
   // RUT for CL, etc.), do NOT pre-create a fiscal_documents row.
   // This is config-error territory, not a provider outage — the
   // operator must fix settings before any emission is attempted.
   // The legacy `safelyEmitFiscalDocument` swallowed the adapter
-  // throw; ENG-057 surfaces the same null behavior more cleanly by
+  // throw;  surfaces the same null behavior more cleanly by
   // calling `validateConfig` first.
   try {
     const validation = await adapter.validateConfig({
@@ -313,7 +318,7 @@ export async function enqueueFiscalEmission(args: {
       return duplicate;
     }
 
-    // ENG-036b — Chile: pre-allocate the next CAF folio inside this
+    // Chile: pre-allocate the next CAF folio inside this
     // write transaction so the cursor advance + the fiscal_documents
     // insert + the outbox enqueue commit atomically. The orchestrator
     // resolves tipoDte from (source, buyerHasRut) and embeds the
@@ -323,8 +328,7 @@ export async function enqueueFiscalEmission(args: {
     // rolls back: no folio burned, no fiscal_documents row created,
     // no outbox row enqueued.
     if (adapter.countryCode === 'CL') {
-      const buyerHasRut =
-        !!buyer.taxId && buyer.taxId !== CONSUMIDOR_FINAL.taxId;
+      const buyerHasRut = !!buyer.taxId && buyer.taxId !== CONSUMIDOR_FINAL.taxId;
       const tipoDte = mapInternalKindToTipoDte(source, buyerHasRut);
       const allocation = allocateNextFolio(writeTx, { tenantId, tipoDte });
       adapterInput.chileAllocation = {
@@ -337,7 +341,8 @@ export async function enqueueFiscalEmission(args: {
       };
     }
 
-    writeTx.insert(fiscalDocuments)
+    writeTx
+      .insert(fiscalDocuments)
       .values({
         id: fiscalDocumentId,
         tenantId,
@@ -377,7 +382,8 @@ export async function enqueueFiscalEmission(args: {
       .run();
 
     for (const line of lines) {
-      writeTx.insert(fiscalDocumentItems)
+      writeTx
+        .insert(fiscalDocumentItems)
         .values({
           id: nanoid(),
           fiscalDocumentId,
@@ -397,7 +403,8 @@ export async function enqueueFiscalEmission(args: {
         .run();
     }
 
-    const updateResult = writeTx.update(fiscalNumberingResolutions)
+    const updateResult = writeTx
+      .update(fiscalNumberingResolutions)
       .set({ currentNumber: consecutive, updatedAt: now })
       .where(
         and(
@@ -427,7 +434,8 @@ export async function enqueueFiscalEmission(args: {
     // on fiscal_documents (rare — the duplicate probe runs first)
     // doesn't leave an orphan outbox row.
     const outboxId = nanoid();
-    writeTx.insert(fiscalOutbox)
+    writeTx
+      .insert(fiscalOutbox)
       .values({
         id: outboxId,
         tenantId,

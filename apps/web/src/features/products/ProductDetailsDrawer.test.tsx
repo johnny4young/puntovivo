@@ -1,14 +1,14 @@
 /**
- * ENG-132a — ProductDetailsDrawer tests.
+ * ProductDetailsDrawer tests.
  *
  * Pins the row-detail Drawer that holds the columns trimmed off the
  * default ProductsPage table:
- *   - renders every trimmed field (SKU, category, provider, location,
- *     tier-2 / tier-3 prices, min-stock, status) for the given product;
- *   - the Edit footer action calls onEdit (and is absent when onEdit is
- *     omitted — viewer / cashier);
- *   - stays closed when `product` is null;
- *   - no serious accessibility violations.
+ * - renders every trimmed field (SKU, category, provider, location,
+ * tier-2 / tier-3 prices, min-stock, status) for the given product;
+ * - the Edit footer action calls onEdit (and is absent when onEdit is
+ * omitted — viewer / cashier);
+ * - stays closed when `product` is null;
+ * - no serious accessibility violations.
  *
  * @module features/products/ProductDetailsDrawer.test
  */
@@ -35,7 +35,7 @@ const product = {
   isActive: true,
 } as unknown as Product;
 
-describe('ProductDetailsDrawer (ENG-132a)', () => {
+describe('ProductDetailsDrawer', () => {
   it('renders the trimmed product fields', () => {
     render(<ProductDetailsDrawer product={product} onClose={vi.fn()} />);
 

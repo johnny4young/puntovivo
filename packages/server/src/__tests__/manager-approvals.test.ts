@@ -107,7 +107,7 @@ function requestInput(
   } as const;
 }
 
-describe('manager approvals router (ENG-106c1)', () => {
+describe('manager approvals router', () => {
   it('counts only distinct approval evidence while preserving legacy decisions', () => {
     const approvedAt = new Date().toISOString();
     expect(

@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — devices domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -10,11 +10,15 @@
  */
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
-import { deviceAuthorityRoleEnum, devicePairingCodeStatusEnum, idempotencyKeyStatusEnum } from './base.js';
+import {
+  deviceAuthorityRoleEnum,
+  devicePairingCodeStatusEnum,
+  idempotencyKeyStatusEnum,
+} from './base.js';
 import { sites, tenants, users } from './auth.js';
 
 // ============================================================================
-// DEVICES + IDEMPOTENCY (ENG-052 — Command Envelope foundation, ADR-0002)
+// DEVICES + IDEMPOTENCY (Command Envelope foundation, ADR-0002)
 // ============================================================================
 
 /**
@@ -29,7 +33,7 @@ import { sites, tenants, users } from './auth.js';
  * `kind` discriminates `desktop` (Electron) from `web` (browser-only,
  * dev or self-hosted). `is_active=false` revokes the device without
  * deleting the row so future audits can still join via
- * `audit_logs.operation_id` → operation journal (ENG-053) → device.
+ * `audit_logs.operation_id` → operation journal () → device.
  */
 export const devices = sqliteTable(
   'devices',
@@ -38,7 +42,7 @@ export const devices = sqliteTable(
     tenantId: text('tenant_id')
       .notNull()
       .references(() => tenants.id),
-    // ENG-074 — `hub_client` discriminates a cashier terminal whose
+    // `hub_client` discriminates a cashier terminal whose
     // renderer points at a remote Store Hub instead of an embedded
     // backend. Per ADR-0008, hub clients are NOT Authority Nodes —
     // they only originate commands. The kind flows from the renderer
@@ -51,7 +55,7 @@ export const devices = sqliteTable(
       .notNull()
       .references(() => users.id),
     lastSeenAt: text('last_seen_at'),
-    // ENG-075 — explicit Authority Node topology metadata. Existing
+    // explicit Authority Node topology metadata. Existing
     // rows may be null; projection code derives a fallback from `kind`.
     authorityRole: text('authority_role', { enum: deviceAuthorityRoleEnum }),
     pairedSiteId: text('paired_site_id').references(() => sites.id, {
@@ -103,9 +107,7 @@ export const devicePairingCodes = sqliteTable(
       .references(() => sites.id, { onDelete: 'cascade' }),
     codeHash: text('code_hash').notNull(),
     deviceName: text('device_name'),
-    status: text('status', { enum: devicePairingCodeStatusEnum })
-      .notNull()
-      .default('pending'),
+    status: text('status', { enum: devicePairingCodeStatusEnum }).notNull().default('pending'),
     createdByUserId: text('created_by_user_id')
       .notNull()
       .references(() => users.id),
@@ -171,9 +173,7 @@ export const idempotencyKeys = sqliteTable(
     idempotencyKey: text('idempotency_key').notNull(),
     operationKind: text('operation_kind').notNull(),
     requestHash: text('request_hash').notNull(),
-    status: text('status', { enum: idempotencyKeyStatusEnum })
-      .notNull()
-      .default('processing'),
+    status: text('status', { enum: idempotencyKeyStatusEnum }).notNull().default('processing'),
     resultRef: text('result_ref', { mode: 'json' }).$type<unknown | null>(),
     lockedAt: text('locked_at').notNull().default('1970-01-01T00:00:00.000Z'),
     completedAt: text('completed_at'),
@@ -206,12 +206,12 @@ export const idempotencyKeysRelations = relations(idempotencyKeys, ({ one }) => 
 }));
 
 // ============================================================================
-// OPERATION JOURNAL + OUTBOX METADATA (ENG-053 — ADR-0001/0002/0003)
+// OPERATION JOURNAL + OUTBOX METADATA (ADR-0001/0002/0003)
 // ============================================================================
 
 /**
  * `operation_events` is the append-only intent log that closes the loop
- * opened by ENG-052 — every critical mutation that flows through
+ * opened by  — every critical mutation that flows through
  * `commandEnvelope` reserves a row here keyed by `(tenant_id,
  * operation_id)`. The envelope's `operationId` becomes the join key
  * across logs, audit rows, outbox effects, and (eventually) the
@@ -219,7 +219,7 @@ export const idempotencyKeysRelations = relations(idempotencyKeys, ({ one }) => 
  *
  * `status` lifecycle:
  *
- *   started → succeeded | failed | partial
+ * started → succeeded | failed | partial
  *
  * `partial` exists for the future case where the procedure committed
  * the primary work but a post-commit fan-out (e.g. fiscal emission
@@ -231,12 +231,7 @@ export const idempotencyKeysRelations = relations(idempotencyKeys, ({ one }) => 
  * time (e.g. `{saleId, total, paymentMethod}`) so forensics queries
  * don't need to re-join 10 tables to reconstruct what happened.
  */
-export const operationEventStatusEnum = [
-  'started',
-  'succeeded',
-  'failed',
-  'partial',
-] as const;
+export const operationEventStatusEnum = ['started', 'succeeded', 'failed', 'partial'] as const;
 
 export type OperationEventStatus = (typeof operationEventStatusEnum)[number];
 
@@ -255,9 +250,7 @@ export const operationEvents = sqliteTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id),
-    status: text('status', { enum: operationEventStatusEnum })
-      .notNull()
-      .default('started'),
+    status: text('status', { enum: operationEventStatusEnum }).notNull().default('started'),
     requestHash: text('request_hash').notNull(),
     summary: text('summary', { mode: 'json' }).$type<Record<string, unknown> | null>(),
     startedAt: text('started_at')
@@ -269,15 +262,12 @@ export const operationEvents = sqliteTable(
       .$defaultFn(() => new Date().toISOString()),
   },
   table => [
-    uniqueIndex('idx_operation_events_tenant_operation').on(
-      table.tenantId,
-      table.operationId
-    ),
+    uniqueIndex('idx_operation_events_tenant_operation').on(table.tenantId, table.operationId),
     index('idx_operation_events_status').on(table.status),
     index('idx_operation_events_kind_status').on(table.operationKind, table.status),
     index('idx_operation_events_device').on(table.deviceId),
     index('idx_operation_events_user').on(table.userId),
-    // ENG-175 — kernel worker polls WHERE status IN ('started','failed','partial')
+    // kernel worker polls WHERE status IN ('started','failed','partial')
     // ORDER BY created_at. The existing status index supports the filter but
     // not the sort; this composite covers both.
     index('idx_operation_events_status_created').on(table.status, table.createdAt),
@@ -295,7 +285,7 @@ export const operationEvents = sqliteTable(
  *
  * Cascade-delete with the parent event row keeps the trail tidy
  * during the eventual journal-rotation policy (operations older than
- * 90 days move to cold storage in a future ticket).
+ * 90 days move to cold storage in a future change).
  */
 export const operationEffects = sqliteTable(
   'operation_effects',
@@ -325,7 +315,7 @@ export const operationEffects = sqliteTable(
  * committed cleanly, but the DIAN adapter rejected the emission with
  * a transient error. The sale row stays intact, the operation event
  * transitions to `partial`, and a row lands here so the operator can
- * retry from the Operations Center (ENG-065).
+ * retry from the Operations Center ().
  *
  * `recoverable` distinguishes retryable failures (provider 5xx,
  * network timeout) from permanent ones (validation rejection at the
@@ -390,20 +380,14 @@ export const operationErrorsRelations = relations(operationErrors, ({ one }) => 
  * `(tenant_id, outbox_kind)`. The five concrete outboxes (sync,
  * fiscal, payment, webhook, hardware — ADR-0003) each refresh their
  * row periodically with `pending_count`, `oldest_pending_at`, and the
- * last success/failure timestamps. ENG-065 (Operations Center) reads
+ * last success/failure timestamps.  (Operations Center) reads
  * this single table to render its status panels without scanning the
  * outbox tables themselves.
  *
  * The kernel at `lib/outbox/metadata.ts` owns the read/write helpers;
  * concrete outboxes never write here directly.
  */
-export const outboxKindEnum = [
-  'sync',
-  'fiscal',
-  'payment',
-  'webhook',
-  'hardware',
-] as const;
+export const outboxKindEnum = ['sync', 'fiscal', 'payment', 'webhook', 'hardware'] as const;
 
 export type OutboxKind = (typeof outboxKindEnum)[number];
 

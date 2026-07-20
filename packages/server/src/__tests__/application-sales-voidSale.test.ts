@@ -1,5 +1,5 @@
 /**
- * ENG-055 — Invariant tests for `application/sales/voidSale`.
+ * Invariant tests for `application/sales/voidSale`.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -282,7 +282,7 @@ describe('voidSale (open session)', () => {
   });
 });
 
-describe('voidSale (ENG-106c3 approval boundary)', () => {
+describe('voidSale ( approval boundary)', () => {
   it('requires an admin grant from a manager and leaves the sale unchanged on denial', async () => {
     const productId = await seedProduct({
       name: 'Void grant denied',

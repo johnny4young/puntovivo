@@ -1,4 +1,4 @@
-/** ENG-137a — persist the last observed desktop version transition. */
+/** persist the last observed desktop version transition. */
 
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';

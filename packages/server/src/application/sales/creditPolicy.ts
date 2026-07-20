@@ -1,17 +1,17 @@
 /**
- * ENG-178 — Credit-sale orchestration for the `completeSale` use-case,
+ * Credit-sale orchestration for the `completeSale` use-case,
  * extracted from the former monolithic `completeSale.ts`.
  *
  * Wraps the two credit touchpoints that were inlined in both
  * `runFreshSale` and `runCompleteDraft`:
  *
- * - `runCreditPreflight` — pre-tx cupo invariant (ENG-014): the
- *   customer-required throw + `requireCreditLimitNotExceeded`. Runs
- *   BEFORE the sale tx so a cupo violation never decrements stock /
- *   inserts a sale row that would have to be voided.
+ * - `runCreditPreflight` — pre-tx cupo invariant (): the
+ * customer-required throw + `requireCreditLimitNotExceeded`. Runs
+ * BEFORE the sale tx so a cupo violation never decrements stock /
+ * inserts a sale row that would have to be voided.
  * - `safelyRecordCreditSaleLedger` — post-tx best-effort ledger write
- *   (ENG-090): a ledger failure NEVER rolls the (already committed) sale
- *   back; it is logged and left for operator retry.
+ * (): a ledger failure NEVER rolls the (already committed) sale
+ * back; it is logged and left for operator retry.
  *
  * The genuine fresh-vs-draft differences (customer source, the fresh
  * `status === 'completed'` gate, the saleId / note / log-label) are
@@ -33,7 +33,7 @@ export type CreditPreflightProjection = Awaited<
 > | null;
 
 /**
- * ENG-014 — credit-sale pre-flight. Only the credit portion creates a
+ * credit-sale pre-flight. Only the credit portion creates a
  * `customer_ledger_entries.kind='sale'` row; the non-credit tenders
  * settle through the cash session as usual. The invariant + the
  * customer-required throw run BEFORE the sale tx so a cupo violation
@@ -43,7 +43,7 @@ export type CreditPreflightProjection = Awaited<
  * `enabled` carries the fresh-only `input.status === 'completed'` gate
  * (the draft path is always completing, so it passes `true`).
  * `customerId` is sourced per-path (fresh: `input.customerId`; draft:
- * ENG-216's resolution of `input.customerId ?? existing.customerId`). The
+ * 's resolution of `input.customerId ?? existing.customerId`). The
  * draft path MUST pass the resolved value, not the stored one, or a
  * customer attached at payment time would be projected against the wrong
  * cupo — or none at all.
@@ -78,13 +78,13 @@ export async function runCreditPreflight(args: {
 }
 
 /**
- * ENG-090 — write the customer ledger receivable for credit sales.
+ * write the customer ledger receivable for credit sales.
  * Best-effort post-tx: a ledger write failure does not roll back the
  * sale (the sale tx already committed). Operators can retry the ledger
  * write from the Cuenta corriente panel via `customerLedger.addAdjustment`
  * if this branch ever fails. `projectedBalance` is captured for the
  * future audit-metadata wire-up (becomes the receipt's saldo posterior
- * when the renderer integration lands as ENG-090b).
+ * when the renderer integration lands as ).
  *
  * `enabled` carries the fresh-only `input.status === 'completed'` gate;
  * the draft path passes `true`. `logLabel` distinguishes the warn line

@@ -1,7 +1,7 @@
 /**
  * Return (partially or fully) a completed purchase, reversing stock.
  *
- * ENG-178 — extracted from the former monolithic `trpc/routers/purchases.ts`
+ * extracted from the former monolithic `trpc/routers/purchases.ts`
  * during the megafile decomposition. The status guards + the return
  * transaction (per-item stock reversal + balance delta + movement, return
  * record + lines, status transition) relocate verbatim; the tRPC procedure

@@ -1,6 +1,6 @@
 # Developer Seed — Test Data Command
 
-> Status: **Shipped — April 22, 2026** (ENG-015)
+> Status: **Shipped — April 22, 2026** ()
 > Spec originally captured April 22, 2026; landed same day.
 
 A single command that populates a fresh Puntovivo install with a rich
@@ -21,7 +21,7 @@ pnpm run seed:dev
 SEED_PRESET=large pnpm run seed:dev
 
 # MEGA: 90+ days of historical operational data + every page
-# populated for visual UI testing (ENG-052b)
+# populated for visual UI testing ()
 SEED_PRESET=mega pnpm run seed:dev
 
 # Wipe the demo tenant first and reseed (destructive)
@@ -35,7 +35,7 @@ SEED_PRESET=mega SEED_RESET=true pnpm run seed:dev
 pnpm --filter @puntovivo/server run seed:dev -- --help
 ```
 
-### `mega` preset (ENG-052b)
+### `mega` preset ()
 
 `SEED_PRESET=mega` builds on `default` and bulk-inserts 90+ days of
 historical operational data so every page has realistic content for
@@ -45,28 +45,28 @@ execution time — re-running the seed any future day produces a fresh
 
 What MEGA fills (counts will vary slightly by run):
 
-| Surface | Volume | Notes |
-|---|---|---|
-| Cash sessions | ~135 closed + 2 open | 1 per active cashier per day across 90d |
-| Sales | ~785 historical + ~6 recent via tRPC | Mix of cash / card / transfer / credit |
-| Refunds (`sales.returnSale`) | ~80 | 10% of completed sales |
-| Voids (`sales.void`) | ~45 | 5% of completed sales |
-| Suspended drafts | 12 | Distributed 0-7 days back |
-| Cash movements | ~175 | paid_in / paid_out / skim / replenishment |
-| Inventory movements | ~2500 | sale + purchase + transfer + adjustment + return |
-| Purchases | ~40 | + 2 supplier returns |
-| Transfers | ~27 | 2 in_transit, rest completed with discrepancy notes |
-| Quotations | ~55 | All 5 states (draft/sent/accepted/rejected/expired) |
-| Purchase orders | 12 | submitted / partial_received / received / voided |
-| Audit logs | ~900 | sale.create + sale.return + sale.void + others |
-| Sync queue | 5 pending | mix of attempts > 0 |
-| Sync conflicts | 4 | 2 pending + 2 resolved (different resolutions) |
-| AI audit log | 12 | mix of providers + features + 1 failure |
-| AI anomaly snoozes | 3 | per cashier or aggregate |
-| Login attempts | 8 | rate-limit observability data |
-| Logos | 1 | placeholder data URL |
-| Category × Provider links | ~16 | populates filter dropdowns |
-| Recent sales via tRPC | ~6 | exercises envelope path end-to-end |
+| Surface                      | Volume                               | Notes                                               |
+| ---------------------------- | ------------------------------------ | --------------------------------------------------- |
+| Cash sessions                | ~135 closed + 2 open                 | 1 per active cashier per day across 90d             |
+| Sales                        | ~785 historical + ~6 recent via tRPC | Mix of cash / card / transfer / credit              |
+| Refunds (`sales.returnSale`) | ~80                                  | 10% of completed sales                              |
+| Voids (`sales.void`)         | ~45                                  | 5% of completed sales                               |
+| Suspended drafts             | 12                                   | Distributed 0-7 days back                           |
+| Cash movements               | ~175                                 | paid_in / paid_out / skim / replenishment           |
+| Inventory movements          | ~2500                                | sale + purchase + transfer + adjustment + return    |
+| Purchases                    | ~40                                  | + 2 supplier returns                                |
+| Transfers                    | ~27                                  | 2 in_transit, rest completed with discrepancy notes |
+| Quotations                   | ~55                                  | All 5 states (draft/sent/accepted/rejected/expired) |
+| Purchase orders              | 12                                   | submitted / partial_received / received / voided    |
+| Audit logs                   | ~900                                 | sale.create + sale.return + sale.void + others      |
+| Sync queue                   | 5 pending                            | mix of attempts > 0                                 |
+| Sync conflicts               | 4                                    | 2 pending + 2 resolved (different resolutions)      |
+| AI audit log                 | 12                                   | mix of providers + features + 1 failure             |
+| AI anomaly snoozes           | 3                                    | per cashier or aggregate                            |
+| Login attempts               | 8                                    | rate-limit observability data                       |
+| Logos                        | 1                                    | placeholder data URL                                |
+| Category × Provider links    | ~16                                  | populates filter dropdowns                          |
+| Recent sales via tRPC        | ~6                                   | exercises envelope path end-to-end                  |
 
 Run time: ~1-2 seconds on a modern laptop. Bulk SQL inserts dominate;
 the recent-via-tRPC pass is small by design (it's there to verify
@@ -94,11 +94,11 @@ The seed CLI resolves the DB path in this order:
 
 Concretely:
 
-| Your next command | Seed against |
-|---|---|
-| `pnpm run dev:server` (standalone / web) | `pnpm run seed:dev` |
-| `pnpm run dev:desktop` (Electron) | `SEED_TARGET=desktop pnpm run seed:dev` |
-| Any custom setup | `DATABASE_URL=/path/to/your.db pnpm run seed:dev` |
+| Your next command                        | Seed against                                      |
+| ---------------------------------------- | ------------------------------------------------- |
+| `pnpm run dev:server` (standalone / web) | `pnpm run seed:dev`                               |
+| `pnpm run dev:desktop` (Electron)        | `SEED_TARGET=desktop pnpm run seed:dev`           |
+| Any custom setup                         | `DATABASE_URL=/path/to/your.db pnpm run seed:dev` |
 
 Electron's `app.getPath('userData')` is platform-specific; the
 CLI replicates the logic so you don't have to look it up:
@@ -132,22 +132,22 @@ Log in with any of these to see the rich seed data (50 products,
 30 customers, 20 historical sales, 6 purchases, 5 quotations,
 receipt templates, etc.):
 
-| Email | Role | Name |
-|---|---|---|
-| `admin@demo.co` | `admin` | Administrador Demo |
-| `manager.norte@demo.co` | `manager` | María Manager (Norte) |
-| `manager.sur@demo.co` | `manager` | Mateo Manager (Sur) |
+| Email                   | Role      | Name                    |
+| ----------------------- | --------- | ----------------------- |
+| `admin@demo.co`         | `admin`   | Administrador Demo      |
+| `manager.norte@demo.co` | `manager` | María Manager (Norte)   |
+| `manager.sur@demo.co`   | `manager` | Mateo Manager (Sur)     |
 | `cashier.norte@demo.co` | `cashier` | Carolina Cajera (Norte) |
-| `cashier.sur@demo.co` | `cashier` | Camilo Cajero (Sur) |
-| `viewer@demo.co` | `viewer` | Visor Demo |
+| `cashier.sur@demo.co`   | `cashier` | Camilo Cajero (Sur)     |
+| `viewer@demo.co`        | `viewer`  | Visor Demo              |
 
 ### Default tenant — `default` (Default Business)
 
 Untouched by the dev seed. Survives every run of `seed:dev` and
 every `--reset`:
 
-| Email | Role | Tenant data |
-|---|---|---|
+| Email             | Role    | Tenant data                                      |
+| ----------------- | ------- | ------------------------------------------------ |
 | `admin@localhost` | `admin` | Empty — 1 site, 0 products, 0 customers, 0 sales |
 
 Useful when you want to test a fresh-install / first-day flow without
@@ -207,9 +207,10 @@ stable and makes bug repros reproducible.
 See [Authentication after running the seed](#authentication-after-running-the-seed)
 above — that section is the canonical list of tenants, users, roles,
 passwords, and which login to use for what. Everything below ("Company
-+ sites", catalogs, historical data) lives inside the `demo-co`
-tenant; the `default` tenant the baseline seed creates stays empty
-and untouched.
+
+- sites", catalogs, historical data) lives inside the `demo-co`
+  tenant; the `default` tenant the baseline seed creates stays empty
+  and untouched.
 
 ### Company + sites + locations
 
@@ -256,7 +257,7 @@ passport-holders:
 - 20 `CC` (natural) — realistic Colombian names (`Juan Pérez`,
   `María López`, ...).
 - 7 `NIT` (juridical) — store / service companies (`Ferretería La
-  13 S.A.S.`, `Restaurante Doña Lucha`, ...).
+13 S.A.S.`, `Restaurante Doña Lucha`, ...).
 - 2 `PA` (passport) — foreign visitors.
 - 1 `Consumidor final` placeholder (NIT `222222222222`) for
   anonymous sales.
@@ -437,11 +438,11 @@ Run with `pnpm --filter @puntovivo/server run test -- seed-dev`:
 - **Generating real logo images** — the seed leaves `logos` empty; the
   receipt preview renders an empty placeholder where the logo block
   would sit.
-- **Seeding fiscal documents** (Iter 3 Fase A). Waits for
+- **Seeding fiscal documents** (Iter 3 estado actual). Waits for
   `fiscal_documents` / `fiscal_document_items` to land.
 - **Backdating history** — all seeded rows currently have the same
   `created_at` timestamp (`now`). The dashboard's time filters will
   show everything under "Today". Adding a backdating pass is a
   follow-up: after seeding, issue one `UPDATE sales SET created_at = ?
-  WHERE id = ?` per sale with a deterministic distribution across the
+WHERE id = ?` per sale with a deterministic distribution across the
   last 14 days.

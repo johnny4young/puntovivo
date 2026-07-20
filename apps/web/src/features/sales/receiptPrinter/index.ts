@@ -1,4 +1,4 @@
-// Sale-receipt printer — public barrel (ENG-178 slice 29).
+// Sale-receipt printer — public barrel ( slice 29).
 //
 // Re-assembles the per-concern modules into the original public surface
 // (buildSaleReceiptHtml + printSaleReceipt + the escpos/drawer dispatchers

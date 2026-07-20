@@ -1,22 +1,22 @@
 /**
- * ENG-070 — `enqueueWebhook`: write a public event to webhook_outbox
+ * `enqueueWebhook`: write a public event to webhook_outbox
  * with envelope-keyed idempotency.
  *
- * Mirror of `services/sync/enqueue.ts::enqueueSync` (ENG-064) and
+ * Mirror of `services/sync/enqueue.ts::enqueueSync` () and
  * `services/peripherals/enqueue-hardware.ts::enqueueHardware`
- * (ENG-067b). Captures the partial-unique-idx UNIQUE conflict and
+ * (). Captures the partial-unique-idx UNIQUE conflict and
  * returns `{deduped: true, id}` instead of throwing — a duplicate
  * envelope replay collapses to one row.
  *
  * Usage shape:
  *
- *   ```ts
- *   const result = enqueueWebhook(tx, {
- *     tenantId,
- *     event: projectedPublicEvent,
- *     idempotencyKey: ctx.envelope?.operationId ?? null,
- *   });
- *   ```
+ * ```ts
+ * const result = enqueueWebhook(tx, {
+ * tenantId,
+ * event: projectedPublicEvent,
+ * idempotencyKey: ctx.envelope?.operationId ?? null,
+ * });
+ * ```
  *
  * The function is INTENTIONALLY synchronous to compose inside the
  * orchestrator's `db.transaction(writeTx => ...)` callback (sync
@@ -68,9 +68,7 @@ export function enqueueWebhook(
 ): EnqueueWebhookResult {
   const { tenantId, event, idempotencyKey } = args;
   const normalizedKey =
-    typeof idempotencyKey === 'string' && idempotencyKey.length > 0
-      ? idempotencyKey
-      : null;
+    typeof idempotencyKey === 'string' && idempotencyKey.length > 0 ? idempotencyKey : null;
 
   const id = nanoid();
   const nowIso = new Date().toISOString();

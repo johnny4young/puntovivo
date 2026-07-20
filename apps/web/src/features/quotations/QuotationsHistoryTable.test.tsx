@@ -132,7 +132,7 @@ describe('QuotationsHistoryTable', () => {
     expect(screen.getByText('Sent')).toBeInTheDocument();
   });
 
-  it('renders the smallest useful column set — site / items / valid-until / created-at trimmed (ENG-132d)', () => {
+  it('renders the smallest useful column set — site / items / valid-until / created-at trimmed', () => {
     setListResult([draftEntry]);
     render(<QuotationsHistoryTable onOpenDetails={() => {}} />);
 
@@ -189,7 +189,7 @@ describe('QuotationsHistoryTable', () => {
     expect(onOpenDetails).toHaveBeenCalledWith('q-1');
   });
 
-  it('fires onOpenDetails when Enter is pressed on a focused row (ENG-134f)', async () => {
+  it('fires onOpenDetails when Enter is pressed on a focused row', async () => {
     setListResult([draftEntry]);
     const onOpenDetails = vi.fn();
     render(<QuotationsHistoryTable onOpenDetails={onOpenDetails} />);

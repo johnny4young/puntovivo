@@ -7,12 +7,12 @@ import {
   type CrashTelemetryDeps,
 } from '../crash-telemetry.ts';
 
-// ENG-135b regression pins. The crash path has three invariants:
-//   1. uncaughtException → structured log + telemetry capture + exit(1)
-//      after the flush settles (resolve OR reject), with a hard exit
-//      deadline when the flush hangs.
-//   2. unhandledRejection → log + capture, NEVER exit.
-//   3. install is idempotent per process.
+// regression pins. The crash path has three invariants:
+// 1. uncaughtException → structured log + telemetry capture + exit(1)
+// after the flush settles (resolve OR reject), with a hard exit
+// deadline when the flush hangs.
+// 2. unhandledRejection → log + capture, NEVER exit.
+// 3. install is idempotent per process.
 //
 // Run via `pnpm --filter @puntovivo/desktop run test` — the script
 // invokes `node --test --experimental-strip-types` so the import path
@@ -47,10 +47,10 @@ function buildHarness(overrides: Partial<CrashTelemetryDeps> = {}) {
   return { proc, logged, captured, exits, deps };
 }
 
-const settle = () => new Promise((resolve) => setImmediate(resolve));
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const settle = () => new Promise(resolve => setImmediate(resolve));
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-describe('installProcessCrashHandlers (ENG-135b)', () => {
+describe('installProcessCrashHandlers', () => {
   beforeEach(() => {
     __resetCrashTelemetryForTests();
   });

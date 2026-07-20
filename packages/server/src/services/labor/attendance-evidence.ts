@@ -38,7 +38,7 @@ function visibilityCondition(actorRole: UserRole) {
 }
 
 /**
- * ENG-140e — load the effective attendance interval for report/payroll reads.
+ * load the effective attendance interval for report/payroll reads.
  *
  * Candidate discovery considers both raw intervals and every correction
  * interval so a corrected shift can move into a requested range. Only the

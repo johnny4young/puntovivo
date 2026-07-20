@@ -1,5 +1,5 @@
 /**
- * ENG-016 pass 1 (item #6) — unit tests for `flipAnimate` helper.
+ * pass 1 (item #6) — unit tests for `flipAnimate` helper.
  *
  * The helper runs under jsdom so DOMRects are deterministic (all
  * zeros unless we set them). We assert the decision logic (reduced
@@ -7,11 +7,7 @@
  * depending on a real layout engine.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  captureFlipSnapshot,
-  playFlip,
-  prefersReducedMotion,
-} from '../flipAnimate';
+import { captureFlipSnapshot, playFlip, prefersReducedMotion } from '../flipAnimate';
 
 function makeContainer(): HTMLElement {
   const container = document.createElement('div');
@@ -57,7 +53,7 @@ function mockMatchMedia(matches: boolean): void {
   });
 }
 
-describe('flipAnimate (ENG-016 pass 1 item #6)', () => {
+describe('flipAnimate ( pass 1 item #6)', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -131,13 +127,11 @@ describe('flipAnimate (ENG-016 pass 1 item #6)', () => {
         toJSON: () => ({}),
       }) as DOMRect;
 
-    const animateSpy = vi.fn(
-      (keyframes: Keyframe[], timing: KeyframeAnimationOptions | number) => {
-        void keyframes;
-        void timing;
-        return { finished: Promise.resolve() } as unknown as Animation;
-      }
-    );
+    const animateSpy = vi.fn((keyframes: Keyframe[], timing: KeyframeAnimationOptions | number) => {
+      void keyframes;
+      void timing;
+      return { finished: Promise.resolve() } as unknown as Animation;
+    });
     moved.animate = animateSpy;
 
     const animations = playFlip(container, '[data-flip-key]', before);

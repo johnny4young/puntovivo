@@ -18,7 +18,7 @@ const RESPONSIVE_VIEWPORTS = [
   { name: 'mobile', width: 390, height: 844 },
 ] as const;
 
-test.describe('responsive workspace navigation (ENG-131d)', () => {
+test.describe('responsive workspace navigation', () => {
   for (const viewport of RESPONSIVE_VIEWPORTS) {
     test(`admin chooses one workspace at a time on ${viewport.name}`, async ({ page }) => {
       const tracker = attachClientIssueTracker(page);

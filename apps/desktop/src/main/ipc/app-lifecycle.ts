@@ -1,5 +1,5 @@
 /**
- * ENG-178 — app metadata / runtime-config / auto-update IPC handlers,
+ * app metadata / runtime-config / auto-update IPC handlers,
  * extracted verbatim from the former monolithic `main/index.ts`.
  *
  * @module main/ipc/app-lifecycle
@@ -7,18 +7,14 @@
 
 import { app, ipcMain } from 'electron';
 import { resolveRuntimeConfig } from '@puntovivo/server';
-import {
-  checkForAppUpdates,
-  getAutoUpdateStatus,
-  restartToApplyAppUpdate,
-} from '../auto-updater';
+import { checkForAppUpdates, getAutoUpdateStatus, restartToApplyAppUpdate } from '../auto-updater';
 import { getServerUrl } from '../runtime.js';
 
 export function registerAppLifecycleIpc(): void {
   ipcMain.handle('get-app-version', () => app.getVersion());
   ipcMain.handle('get-app-path', () => app.getPath('userData'));
 
-  // ENG-074 — Runtime config IPC for the renderer. Resolves once per
+  // Runtime config IPC for the renderer. Resolves once per
   // boot (env vars do not change after Electron starts), so the
   // handler is cheap. The renderer reads this synchronously at module
   // init via `ipcRenderer.sendSync('runtime:get-config')` exposed
@@ -39,7 +35,7 @@ export function registerAppLifecycleIpc(): void {
   });
 
   // The fallback string is only returned before the embedded server has
-  // started. ENG-072 — once the server is up, `getUrl()` returns the
+  // started.  — once the server is up, `getUrl()` returns the
   // real bind address resolved from the Authority Node runtime config.
   ipcMain.handle('get-server-url', () => getServerUrl());
   ipcMain.handle('get-auto-update-status', () => getAutoUpdateStatus());

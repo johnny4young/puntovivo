@@ -1,5 +1,5 @@
 /**
- * ENG-006 — unit coverage for `packages/server/src/logging/logger.ts`.
+ * unit coverage for `packages/server/src/logging/logger.ts`.
  *
  * Each test spins up a fresh pino instance with the same config as the
  * production `rootLogger` but a custom sink so we can read every
@@ -49,7 +49,7 @@ function createCapturingLogger(): {
   return { logger, records };
 }
 
-describe('logger (ENG-006)', () => {
+describe('logger', () => {
   describe('createModuleLogger', () => {
     it('stamps a stable module field on every record', () => {
       const log = createModuleLogger('sync');
@@ -131,7 +131,7 @@ describe('logger (ENG-006)', () => {
   });
 
   describe('REDACT_PATHS surface', () => {
-    it('includes every field the ROADMAP + SECURITY.md policy mandates', () => {
+    it('includes every field the SECURITY.md policy mandates', () => {
       // Lock the surface so adding a new path must come with a plan note.
       for (const required of [
         'password',
@@ -151,10 +151,10 @@ describe('logger (ENG-006)', () => {
     });
   });
 
-  // ENG-181 — Error.cause chain redaction. Plain operational context
+  // Error.cause chain redaction. Plain operational context
   // (tenantId, siteId, errorCode, kind) survives so diagnostics keep
   // working; sensitive nested fields get censored.
-  describe('ENG-181 — cause chain redaction', () => {
+  describe(' — cause chain redaction', () => {
     it('preserves operational context inside cause (tenantId / siteId / errorCode)', () => {
       const { logger, records } = createCapturingLogger();
       logger.error(

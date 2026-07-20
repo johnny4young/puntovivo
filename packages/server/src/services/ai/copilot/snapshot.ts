@@ -1,12 +1,12 @@
 /**
- * ENG-031 — co-pilot tenant-scoped analytics snapshot + read-only execution.
+ * co-pilot tenant-scoped analytics snapshot + read-only execution.
  *
  * The model never queries the production SQLite connection directly. This
  * module loads the tenant-scoped, time-bounded completed-sales + line-item
  * rows into a fresh in-memory SQLite snapshot (`sales_summary` /
  * `sale_line_items`) and executes the validated read-only query against THAT
  * snapshot only, then normalizes the rows + infers a chart. Split out of
- * `copilot.ts` (ENG-178).
+ * `copilot.ts` ().
  *
  * @module services/ai/copilot/snapshot
  */
@@ -70,15 +70,15 @@ function inferChart(columns: string[], rows: CopilotRow[]): CopilotChart | null 
     return null;
   }
 
-  const valueKey = columns.find(column =>
-    rows.some(row => typeof row[column] === 'number')
-  );
+  const valueKey = columns.find(column => rows.some(row => typeof row[column] === 'number'));
   if (!valueKey) {
     return null;
   }
 
   const labelKey =
-    columns.find(column => column !== valueKey && rows.some(row => typeof row[column] === 'string')) ??
+    columns.find(
+      column => column !== valueKey && rows.some(row => typeof row[column] === 'string')
+    ) ??
     columns.find(column => column !== valueKey) ??
     null;
   if (!labelKey) {

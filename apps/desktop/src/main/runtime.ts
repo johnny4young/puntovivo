@@ -1,5 +1,5 @@
 /**
- * ENG-178 — main-process runtime hub for the embedded server handle.
+ * main-process runtime hub for the embedded server handle.
  *
  * Holds the single mutable reference to the in-process Fastify server and
  * the safe accessors every `ipc/*` handler uses to reach the database.

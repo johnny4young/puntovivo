@@ -1,6 +1,6 @@
 /**
- * ENG-069 — POS Touch home placeholder. Replaced by the real
- * touch-optimized sales flow in ENG-039.
+ * POS Touch home placeholder. Replaced by the real
+ * touch-optimized sales flow in .
  */
 import { SurfacePlaceholder } from './SurfacePlaceholder';
 

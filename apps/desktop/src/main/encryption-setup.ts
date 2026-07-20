@@ -1,5 +1,5 @@
 /**
- * ENG-201 — Electron database-path and SQLCipher bootstrap.
+ * Electron database-path and SQLCipher bootstrap.
  *
  * Keeps every key-source and first-boot migration invariant together while
  * delaying path resolution until after index.ts pins the application name.
@@ -70,11 +70,11 @@ export function createEncryptionSetup({
   resourcesPath = process.resourcesPath,
   platform = process.platform,
 }: EncryptionSetupDeps): EncryptionSetup {
-  // ENG-167 — development may opt into the shared encrypted DB; packaged builds always
+  // development may opt into the shared encrypted DB; packaged builds always
   // resolve under userData regardless of inherited shell variables.
   const devSharedDbPath = !app.isPackaged && env.DATABASE_URL ? env.DATABASE_URL : undefined;
   const dbPath = devSharedDbPath ?? join(app.getPath('userData'), 'data', 'local.db');
-  // ENG-002 / ENG-026 — packaged Drizzle resources vs Rolldown dev-bundle path.
+  // Packaged Drizzle resources versus the Rolldown development-bundle path.
   const migrationsPath = app.isPackaged
     ? join(resourcesPath, 'migrations')
     : resolveDevMigrationsPath(app, cwd);
@@ -122,7 +122,7 @@ export function createEncryptionSetup({
 
   async function prepareDatabaseEncryption(): Promise<string> {
     const encryptionKey = await resolveDatabaseEncryptionKey();
-    // ENG-167b — one-shot cleartext migration before createServer opens the DB.
+    // one-shot cleartext migration before createServer opens the DB.
     await migrateCleartextDatabase({
       dbPath,
       encryptionKey,

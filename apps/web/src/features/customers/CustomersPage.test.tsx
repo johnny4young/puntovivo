@@ -1,13 +1,13 @@
 /**
- * ENG-132b — CustomersPage column-trim + row-detail integration.
+ * CustomersPage column-trim + row-detail integration.
  *
  * The first test for this page. Renders with the REAL ResourcePage /
  * DataTable + CustomerDetailsDrawer (only the heavy form / confirm /
  * ledger modals are stubbed) to prove:
- *   - the default table renders the smallest useful column set — email,
- *     phone, type and location headers are gone;
- *   - the Details (eye) action opens the row-detail Drawer, which surfaces
- *     exactly those trimmed fields.
+ * - the default table renders the smallest useful column set — email,
+ * phone, type and location headers are gone;
+ * - the Details (eye) action opens the row-detail Drawer, which surfaces
+ * exactly those trimmed fields.
  *
  * @module features/customers/CustomersPage.test
  */
@@ -34,7 +34,7 @@ vi.mock('@/features/customers/CustomerLedgerModal', () => ({ CustomerLedgerModal
 // vi.hoisted so the (hoisted) vi.mock factory can reference these without a
 // temporal-dead-zone error — `emptyList` is read eagerly as a property value.
 const { customer, emptyList, listQueryInputs } = vi.hoisted(() => ({
-  // ENG-217 — every `customers.list` input the page issued, in order.
+  // every `customers.list` input the page issued, in order.
   listQueryInputs: [] as unknown[],
   customer: {
     id: 'c-1',
@@ -53,7 +53,7 @@ const { customer, emptyList, listQueryInputs } = vi.hoisted(() => ({
   emptyList: { useQuery: () => ({ data: { items: [] } }) },
 }));
 
-// ENG-215 — the row-detail drawer now hosts the loyalty panel. This suite
+// the row-detail drawer now hosts the loyalty panel. This suite
 // pins the page's column set and drawer wiring, not loyalty; the panel has
 // its own suite in CustomerLoyaltyPanel.test.tsx.
 vi.mock('@/features/customers/CustomerLoyaltyPanel', () => ({
@@ -153,7 +153,7 @@ vi.mock('@/lib/trpc', () => ({
 
 import { CustomersPage } from './CustomersPage';
 
-describe('CustomersPage default column set (ENG-132b)', () => {
+describe('CustomersPage default column set', () => {
   beforeEach(() => {
     useAuthMock.mockReset();
     disposePersonalDataMock.mockReset();
@@ -234,14 +234,14 @@ describe('CustomersPage default column set (ENG-132b)', () => {
 });
 
 /**
- * ENG-217 — the search box delegates to the server.
+ * the search box delegates to the server.
  *
  * The page loads one 50-row page, so the old client-side column filter
  * reported "no results" for any customer past row 50 — people who exist and
  * whom the cashier can see on the next page. These pin that the term now
  * leaves the browser, and that the table stopped filtering locally.
  */
-describe('CustomersPage server-side search (ENG-217)', () => {
+describe('CustomersPage server-side search', () => {
   beforeEach(() => {
     useAuthMock.mockReset();
     useAuthMock.mockReturnValue({ user: { id: 'u-1', role: 'admin' } });

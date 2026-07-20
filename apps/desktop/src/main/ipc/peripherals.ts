@@ -1,8 +1,8 @@
 /**
- * ENG-178 — hub-client local hardware bridge IPC, extracted verbatim
+ * hub-client local hardware bridge IPC, extracted verbatim
  * from the former monolithic `main/index.ts`.
  *
- * ENG-074b — the renderer in hub_client mode fetches ESC/POS bytes from
+ * the renderer in hub_client mode fetches ESC/POS bytes from
  * the hub via `peripherals.buildReceiptBytes` / `buildDrawerKickBytes`
  * and pipes them through this handler. The dispatcher reuses the
  * server's `resolveTransport` helper but never opens a DB connection —
@@ -18,7 +18,7 @@ export function registerPeripheralsIpc(): void {
   ipcMain.handle('peripherals:dispatch-local-escpos', async (_event, payload) => {
     // Same renderer-as-attacker posture as the db:*/sync:* handlers: the
     // bridge is a hardware actuator, so it must not be reachable before a
-    // verified login registers a session (ENG-025 vector 1). The bridge
+    // verified login registers a session ( vector 1). The bridge
     // contract is "never throw across IPC", so the rejection is returned
     // as a failure result the existing onEscposFallback toast can surface.
     try {

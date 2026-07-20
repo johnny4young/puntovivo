@@ -137,16 +137,18 @@ describe('Sync tRPC Router', () => {
 
   async function insertSyncProduct(entityId: string, name = 'Sync Product') {
     const now = new Date().toISOString();
-    await getDatabase().insert(products).values({
-      id: entityId,
-      tenantId: testTenantId,
-      name,
-      sku: `sync-${nanoid(6)}`,
-      syncStatus: 'pending',
-      syncVersion: 0,
-      createdAt: now,
-      updatedAt: now,
-    });
+    await getDatabase()
+      .insert(products)
+      .values({
+        id: entityId,
+        tenantId: testTenantId,
+        name,
+        sku: `sync-${nanoid(6)}`,
+        syncStatus: 'pending',
+        syncVersion: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
   }
 
   describe('sync.status', () => {
@@ -332,7 +334,7 @@ describe('Sync tRPC Router', () => {
       expect(result.synced).toBeGreaterThanOrEqual(1);
       expect(result.lastSyncAt).not.toBeNull();
 
-      // ENG-064b: sync_outbox preserves rows post-push as `status='synced'`
+      // : sync_outbox preserves rows post-push as `status='synced'`
       // (mirrors `fiscal_outbox.status='accepted'` and
       // `hardware_outbox.status='printed'`). The legacy `sync_queue`
       // shape deleted the row outright; the new shape keeps it for
@@ -458,7 +460,7 @@ describe('Sync tRPC Router', () => {
         .where(and(eq(syncOutbox.id, queued.id), eq(syncOutbox.tenantId, testTenantId)))
         .get();
       expect(queueRow?.attempts).toBe(1);
-      // ENG-064b: lastError is now a JSON `NormalizedOutboxError` object
+      // : lastError is now a JSON `NormalizedOutboxError` object
       // ({ kind, message }) instead of a plain string.
       const lastErrorJson = queueRow?.lastError as { kind?: string; message?: string } | null;
       expect(lastErrorJson?.message).toContain('local record is missing');
@@ -466,7 +468,12 @@ describe('Sync tRPC Router', () => {
       const conflictRow = await db
         .select()
         .from(syncConflicts)
-        .where(and(eq(syncConflicts.id, result.conflictIds[0]!), eq(syncConflicts.tenantId, testTenantId)))
+        .where(
+          and(
+            eq(syncConflicts.id, result.conflictIds[0]!),
+            eq(syncConflicts.tenantId, testTenantId)
+          )
+        )
         .get();
       expect(conflictRow?.status).toBe('pending');
       expect(conflictRow?.entityId).toBe(missingEntityId);
@@ -689,12 +696,10 @@ describe('Sync tRPC Router', () => {
         } catch (err) {
           expect(err).toBeInstanceOf(TRPCError);
           expect((err as TRPCError).code).toBe('BAD_REQUEST');
-          // ENG-042 close-out — assert the stable errorCode the web layer
+          // close-out — assert the stable errorCode the web layer
           // resolves to a localized string. The English message is a
           // developer-facing fallback that may change without notice.
-          const cause = (err as TRPCError).cause as
-            | { errorCode?: string }
-            | undefined;
+          const cause = (err as TRPCError).cause as { errorCode?: string } | undefined;
           expect(cause?.errorCode).toBe('SYNC_LOCAL_RECORD_MISSING');
         }
       }
@@ -778,7 +783,7 @@ describe('Sync tRPC Router', () => {
     });
 
     it('rejects local_wins with SYNC_LOCAL_RECORD_MISSING without partially resolving the conflict when the local record is missing', async () => {
-      // ENG-042 close-out — verifies both the new errorCode shape AND
+      // close-out — verifies both the new errorCode shape AND
       // the no-partial-write semantics. The findEntity guard now runs
       // INSIDE the transaction before any write, so a throw from there
       // must leave the row `pending` and the queue untouched.
@@ -828,9 +833,7 @@ describe('Sync tRPC Router', () => {
       }
 
       expect(caught).toBeInstanceOf(TRPCError);
-      const cause = (caught as TRPCError).cause as
-        | { errorCode?: string }
-        | undefined;
+      const cause = (caught as TRPCError).cause as { errorCode?: string } | undefined;
       expect(cause?.errorCode).toBe('SYNC_LOCAL_RECORD_MISSING');
 
       // No-partial-write proof: the inner throw must leave the conflict
@@ -854,7 +857,7 @@ describe('Sync tRPC Router', () => {
     });
 
     it('rejects merged with SYNC_LOCAL_RECORD_MISSING when the local record is missing', async () => {
-      // ENG-042 close-out — same path as local_wins above; merged
+      // close-out — same path as local_wins above; merged
       // resolution also reads nextData and so triggers the inner guard.
       const caller = appRouter.createCaller(userCtx());
       const db = getDatabase();
@@ -885,9 +888,7 @@ describe('Sync tRPC Router', () => {
       }
 
       expect(caught).toBeInstanceOf(TRPCError);
-      const cause = (caught as TRPCError).cause as
-        | { errorCode?: string }
-        | undefined;
+      const cause = (caught as TRPCError).cause as { errorCode?: string } | undefined;
       expect(cause?.errorCode).toBe('SYNC_LOCAL_RECORD_MISSING');
 
       const conflictRow = await db

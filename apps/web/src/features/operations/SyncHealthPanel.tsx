@@ -17,7 +17,7 @@ import { computeConflictDiff } from '@/features/company/companySyncDisplay';
 import { useSyncSnapshot } from '@/features/company/useSyncSnapshot';
 
 /**
- * ENG-065a — Operations Center: Sync Health panel.
+ * Operations Center: Sync Health panel.
  *
  * Read-only mirror of the sync outbox + conflict state. Reads
  * `sync.pull` (the server doc calls it a "read-only mirror of
@@ -31,7 +31,7 @@ import { useSyncSnapshot } from '@/features/company/useSyncSnapshot';
  * dedup between the two surfaces is a separate decision — this panel
  * only surfaces the health read so the operator knows where to look.
  *
- * Rediseño FASE 7 (§09) — recetas pv-*: KPIs con `KpiTile` (`.pv-kpi`,
+ * recetas pv-*: KPIs con `KpiTile` (`.pv-kpi`,
  * conflictos y fallos pasan a `danger` cuando son > 0), conflictos
  * renderizados como diff legible local ↔ remoto (`.pv-diff`) con el
  * número de campos que difieren en un `.pv-badge`, y estado vacío del
@@ -99,8 +99,7 @@ export function SyncHealthPanel() {
   const isLoading = snapshotQuery.isLoading;
 
   // §09 — todo sincronizado = sin conflictos, sin fallos y sin cola pendiente.
-  const allSynced =
-    !!snapshot && conflictsCount === 0 && failedCount === 0 && pendingCount === 0;
+  const allSynced = !!snapshot && conflictsCount === 0 && failedCount === 0 && pendingCount === 0;
 
   function entityLabel(entityType: string): string {
     return t(SYNC_ENTITY_LABEL_KEYS[entityType] ?? 'sync.entities.record');
@@ -130,7 +129,10 @@ export function SyncHealthPanel() {
       )}
 
       {snapshot && (
-        <div className="pv-kpis grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5" data-testid="sync-summary">
+        <div
+          className="pv-kpis grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
+          data-testid="sync-summary"
+        >
           <KpiTile
             icon={Clock}
             tone="ink"
@@ -159,7 +161,9 @@ export function SyncHealthPanel() {
             icon={RefreshCw}
             tone="primary"
             label={t('sync.summary.lastSync')}
-            value={snapshot.lastSyncAt ? formatDateTime(snapshot.lastSyncAt) : t('sync.summary.never')}
+            value={
+              snapshot.lastSyncAt ? formatDateTime(snapshot.lastSyncAt) : t('sync.summary.never')
+            }
             mono
           />
         </div>
@@ -195,7 +199,9 @@ export function SyncHealthPanel() {
                     </span>
                     <div>
                       <p className="text-sm font-semibold text-secondary-900">
-                        {t('sync.conflicts.itemTitle', { entity: entityLabel(conflict.entityType) })}
+                        {t('sync.conflicts.itemTitle', {
+                          entity: entityLabel(conflict.entityType),
+                        })}
                       </p>
                       <p className="mt-0.5 text-xs text-secondary-500">
                         {t('sync.conflicts.created', { date: formatDateTime(conflict.createdAt) })}

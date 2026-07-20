@@ -1,5 +1,5 @@
 /**
- * ENG-187 — Operations "Needs attention" aggregation.
+ * Operations "Needs attention" aggregation.
  *
  * One tenant-scoped probe that answers "what failed and needs a retry?"
  * across the retryable outbox / sync surfaces, so the Operations landing
@@ -21,10 +21,7 @@ import { and, count, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { hardwareOutbox, paymentOutbox } from '../../db/schema.js';
-import {
-  countFiscalOutboxFailures,
-  readSyncBacklog,
-} from '../readiness/signals.js';
+import { countFiscalOutboxFailures, readSyncBacklog } from '../readiness/signals.js';
 
 /**
  * The four retryable failure surfaces the Needs-attention queue covers.
@@ -32,14 +29,8 @@ import {
  * to (`sync` / `fiscal` / `device` / `payments`), so they must stay in
  * lockstep with `OperationsPage` `TAB_KEYS`.
  */
-export const OPERATIONS_ATTENTION_AREAS = [
-  'sync',
-  'fiscal',
-  'device',
-  'payments',
-] as const;
-export type OperationsAttentionArea =
-  (typeof OPERATIONS_ATTENTION_AREAS)[number];
+export const OPERATIONS_ATTENTION_AREAS = ['sync', 'fiscal', 'device', 'payments'] as const;
+export type OperationsAttentionArea = (typeof OPERATIONS_ATTENTION_AREAS)[number];
 
 /**
  * Severity of an attention row. `danger` = terminal/stuck failures that
@@ -76,19 +67,10 @@ export interface OperationsNeedsAttention {
 const SYNC_BACKLOG_WARNING_THRESHOLD = 25;
 
 /** Hardware-outbox statuses that mean a print/drawer job is stuck or failed. */
-const HARDWARE_OUTBOX_FAILURE_STATUSES = [
-  'failed',
-  'retrying',
-  'dead_letter',
-] as const;
+const HARDWARE_OUTBOX_FAILURE_STATUSES = ['failed', 'retrying', 'dead_letter'] as const;
 
 /** Payment-outbox statuses that mean a charge/refund is declined or stuck. */
-const PAYMENT_OUTBOX_FAILURE_STATUSES = [
-  'declined',
-  'timeout',
-  'retrying',
-  'dead_letter',
-] as const;
+const PAYMENT_OUTBOX_FAILURE_STATUSES = ['declined', 'timeout', 'retrying', 'dead_letter'] as const;
 
 /**
  * Count hardware-outbox rows in a failed / stuck state for the tenant.
@@ -143,13 +125,12 @@ export async function computeNeedsAttention(
   db: DatabaseInstance,
   tenantId: string
 ): Promise<OperationsNeedsAttention> {
-  const [backlog, fiscalFailures, hardwareFailures, paymentFailures] =
-    await Promise.all([
-      readSyncBacklog(db, tenantId),
-      countFiscalOutboxFailures(db, tenantId),
-      countHardwareOutboxFailures(db, tenantId),
-      countPaymentOutboxFailures(db, tenantId),
-    ]);
+  const [backlog, fiscalFailures, hardwareFailures, paymentFailures] = await Promise.all([
+    readSyncBacklog(db, tenantId),
+    countFiscalOutboxFailures(db, tenantId),
+    countHardwareOutboxFailures(db, tenantId),
+    countPaymentOutboxFailures(db, tenantId),
+  ]);
 
   const areas: OperationsAttentionEntry[] = [];
 

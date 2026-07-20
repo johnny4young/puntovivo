@@ -1,6 +1,6 @@
 # `application/` — use-case boundary
 
-> Status: Active (introduced by ENG-054)
+> Status: Active (introduced by )
 > Companion ADRs: [ADR-0001](../../../../docs/architecture/0001-local-store-authority.md), [ADR-0002](../../../../docs/architecture/0002-command-envelope.md)
 
 The `application/` directory hosts the **stable use-case boundary** for
@@ -11,7 +11,7 @@ all call without re-implementing the orchestration.
 
 ## Why this layer exists
 
-Before ENG-054, the orchestration for sales lived inline inside the
+Before , the orchestration for sales lived inline inside the
 tRPC router (`packages/server/src/trpc/routers/sales.ts`). The router
 file grew past 2670 lines because each procedure inlined:
 
@@ -31,10 +31,10 @@ the use-case input and returns whatever the use-case returns.
 
 ## What goes in `application/` vs `services/`
 
-| Location | What lives there | Examples |
-| --- | --- | --- |
-| `services/` | **Primitives** invoked by multiple use-cases | `audit-logs.ts`, `idempotency/`, `operation-journal/`, `cash-session.ts` (helpers), `fraction-policy.ts`, `inventory-balances.ts` |
-| `application/` | **Use-cases** that orchestrate primitives behind a stable boundary | `sales/completeSale.ts`, future `sales/voidSale.ts`, `sales/returnSale.ts`, `cash-sessions/openSession.ts`, ... |
+| Location       | What lives there                                                   | Examples                                                                                                                          |
+| -------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `services/`    | **Primitives** invoked by multiple use-cases                       | `audit-logs.ts`, `idempotency/`, `operation-journal/`, `cash-session.ts` (helpers), `fraction-policy.ts`, `inventory-balances.ts` |
+| `application/` | **Use-cases** that orchestrate primitives behind a stable boundary | `sales/completeSale.ts`, future `sales/voidSale.ts`, `sales/returnSale.ts`, `cash-sessions/openSession.ts`, ...                   |
 
 A use-case typically:
 
@@ -75,19 +75,19 @@ tRPC. The HTTP-shaped tests (`<feature>.test.ts`) stay as they are —
 they exercise the wiring (auth, role guards, input parsing, error
 codes) but no longer carry the orchestration coverage.
 
-## Related tickets
+## Related implementation
 
-- ENG-054 created this layer with `sales/completeSale`.
-- ENG-055 will add `sales/voidSale`, `sales/returnSale`,
+- created this layer with `sales/completeSale`.
+- will add `sales/voidSale`, `sales/returnSale`,
   `sales/discardDraft` and shared sale lifecycle policies.
-- ENG-056 introduced `cash-sessions/` for the cash session aggregate
+- introduced `cash-sessions/` for the cash session aggregate
   boundary.
-- ENG-206 promoted inventory entry, movement, adjustment and transfer
+- promoted inventory entry, movement, adjustment and transfer
   mutations into `inventory/`, while transfer/read queries remain in
   `services/`.
-- ENG-207 promoted product create/update orchestration into `products/`;
+- promoted product create/update orchestration into `products/`;
   catalog assignment and hydration primitives live in `services/products/`,
   while the tRPC write adapter retains only role/input guards and soft delete.
-- ENG-208 promoted manual customer-ledger payments and adjustments into
+- promoted manual customer-ledger payments and adjustments into
   `customers/`; balance and entry queries remain in the tRPC router, which
   retains the manager/admin and admin-only write guards.

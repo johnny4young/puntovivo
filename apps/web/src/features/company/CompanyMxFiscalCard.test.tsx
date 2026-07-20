@@ -1,17 +1,17 @@
 /**
- * ENG-035a — Tests de `CompanyMxFiscalCard`.
+ * Tests de `CompanyMxFiscalCard`.
  *
  * Cobertura:
  * - Renderiza la card cuando el tenant es MX con badge rojo y los
- *   issues que el adapter reporta.
+ * issues que el adapter reporta.
  * - No renderiza nada cuando el tenant es CO o CL (defensive layer;
- *   ENG-036a movió el dispatch al CompanyPage para que cada país
- *   monte su propia card sin que MX tenga que conocer al resto).
+ * movió el dispatch al CompanyPage para que cada país
+ * monte su propia card sin que MX tenga que conocer al resto).
  * - Submit del form llama a `fiscalSettings.updateMx` con el shape
- *   correcto.
+ * correcto.
  * - Cuando la config fiscal está sin configurar (pack apagado + todos
- *   los campos vacíos) muestra un EmptyState con CTA Configurar que
- *   revela el form; con config existente el form se renderiza directo.
+ * los campos vacíos) muestra un EmptyState con CTA Configurar que
+ * revela el form; con config existente el form se renderiza directo.
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -110,8 +110,7 @@ vi.mock('@/lib/trpc', () => ({
       updateMx: {
         useMutation: (options: { onSuccess?: unknown; onError?: unknown }) => ({
           mutate: (...args: unknown[]) => updateMutate(options, ...args),
-          mutateAsync: async (...args: unknown[]) =>
-            updateMutate(options, ...args),
+          mutateAsync: async (...args: unknown[]) => updateMutate(options, ...args),
           isPending: false,
         }),
       },
@@ -121,7 +120,7 @@ vi.mock('@/lib/trpc', () => ({
 
 import { CompanyMxFiscalCard } from './CompanyMxFiscalCard';
 
-describe('CompanyMxFiscalCard (ENG-035a)', () => {
+describe('CompanyMxFiscalCard', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockCountryCode = 'MX';
@@ -133,12 +132,8 @@ describe('CompanyMxFiscalCard (ENG-035a)', () => {
     render(<CompanyMxFiscalCard />);
     // El header + el badge de readiness siguen visibles.
     expect(screen.getByText(/Mexico — CFDI 4.0/i)).toBeInTheDocument();
-    expect(screen.getByTestId('fiscal-mx-readiness')).toHaveTextContent(
-      /Not ready/i
-    );
-    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(
-      /Draft/i
-    );
+    expect(screen.getByTestId('fiscal-mx-readiness')).toHaveTextContent(/Not ready/i);
+    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(/Draft/i);
     // EmptyState visible; form oculto hasta el CTA.
     expect(screen.getByTestId('fiscal-mx-empty')).toBeInTheDocument();
     expect(screen.queryByLabelText(/Issuer RFC/i)).not.toBeInTheDocument();
@@ -149,9 +144,7 @@ describe('CompanyMxFiscalCard (ENG-035a)', () => {
     fireEvent.click(screen.getByTestId('fiscal-mx-configure'));
     expect(screen.queryByTestId('fiscal-mx-empty')).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Issuer RFC/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole('option', { name: /609 — Consolidación/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /609 — Consolidación/i })).toBeInTheDocument();
   });
 
   it('con config existente renderiza el form directo (sin EmptyState)', () => {

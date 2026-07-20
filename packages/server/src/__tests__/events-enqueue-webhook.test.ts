@@ -1,14 +1,14 @@
 /**
- * ENG-070 — `enqueueWebhook` regression tests.
+ * `enqueueWebhook` regression tests.
  *
  * Pin the contract every projector + worker uses to write to
  * webhook_outbox:
- *   - Fresh enqueue inserts a queued row.
- *   - Same envelope key → second enqueue collapses (deduped: true).
- *   - Different envelope key → independent rows.
- *   - Cross-tenant isolation (same key in tenant A vs B → 2 rows).
- *   - Empty / null key → independent rows (admin-replay path).
- *   - FK violation rethrows so tx rolls back.
+ * - Fresh enqueue inserts a queued row.
+ * - Same envelope key → second enqueue collapses (deduped: true).
+ * - Different envelope key → independent rows.
+ * - Cross-tenant isolation (same key in tenant A vs B → 2 rows).
+ * - Empty / null key → independent rows (admin-replay path).
+ * - FK violation rethrows so tx rolls back.
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -75,7 +75,7 @@ beforeEach(async () => {
   await db.delete(webhookOutbox).run();
 });
 
-describe('enqueueWebhook (ENG-070)', () => {
+describe('enqueueWebhook', () => {
   it('persists a fresh row with status=queued', async () => {
     const tenantId = await seedTenant('fresh');
     const db = getDatabase();
@@ -90,11 +90,7 @@ describe('enqueueWebhook (ENG-070)', () => {
     expect(result.deduped).toBe(false);
     expect(result.id).toBeTruthy();
 
-    const row = await db
-      .select()
-      .from(webhookOutbox)
-      .where(eq(webhookOutbox.id, result.id))
-      .get();
+    const row = await db.select().from(webhookOutbox).where(eq(webhookOutbox.id, result.id)).get();
     expect(row?.status).toBe('queued');
     expect(row?.eventType).toBe('sale.completed');
     expect(row?.idempotencyKey).toBe('envelope-1');
@@ -137,12 +133,8 @@ describe('enqueueWebhook (ENG-070)', () => {
     const db = getDatabase();
     const ev = buildEvent({ tenantId });
 
-    db.transaction(tx =>
-      enqueueWebhook(tx, { tenantId, event: ev, idempotencyKey: 'a' })
-    );
-    db.transaction(tx =>
-      enqueueWebhook(tx, { tenantId, event: ev, idempotencyKey: 'b' })
-    );
+    db.transaction(tx => enqueueWebhook(tx, { tenantId, event: ev, idempotencyKey: 'a' }));
+    db.transaction(tx => enqueueWebhook(tx, { tenantId, event: ev, idempotencyKey: 'b' }));
 
     const rows = await db
       .select()

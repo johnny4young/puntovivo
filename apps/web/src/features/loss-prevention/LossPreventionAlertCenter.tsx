@@ -132,7 +132,7 @@ function AlertList(props: {
   );
 }
 
-/** ENG-142d — tenant/site-scoped in-app alert center for manager and admin roles. */
+/** tenant/site-scoped in-app alert center for manager and admin roles. */
 export function LossPreventionAlertCenter({
   siteId,
   variant = 'popover',

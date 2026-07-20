@@ -1,20 +1,20 @@
 /**
- * ENG-038c — Deterministic 30-day payment-statement fixture generator.
+ * Deterministic 30-day payment-statement fixture generator.
  *
  * Generates a reproducible stream of provider statement rows + the
  * matching POS-side `payment_outbox` rows so the matcher test, the
- * benchmark harness, and any future ENG-065d UX work share the same
+ * benchmark harness, and any future  UX work share the same
  * source of truth.
  *
  * Why a generator instead of static JSON files:
  *
  * - 30 days × 6 rails × ~6 settlements/day ≈ 1080 rows is too noisy to
- *   hand-edit and review in a PR.
+ * hand-edit and review in a PR.
  * - Tests need to seed `payment_outbox` rows that align with the
- *   fixture; both halves are derived from the same `RawSettlement[]`
- *   so they stay in lockstep by construction.
- * - The 5 % deliberate mismatch rate is parameterized so future tickets
- *   can tighten or loosen the noise without rewriting the fixture.
+ * fixture; both halves are derived from the same `RawSettlement[]`
+ * so they stay in lockstep by construction.
+ * - The 5 % deliberate mismatch rate is parameterized so future changes
+ * can tighten or loosen the noise without rewriting the fixture.
  *
  * Determinism: seeded via a small LCG (`mulberry32`-style) so the
  * sequence is byte-identical across runs and platforms without depending
@@ -178,9 +178,7 @@ function pickTransactionId(rng: () => number, railId: PaymentRailId): string {
  * can seed `payment_outbox` and assert directly against the same
  * `RawSettlement` stream.
  */
-export function generatePaymentStatementFixture(
-  opts: FixtureOptions = {}
-): FixtureBundle {
+export function generatePaymentStatementFixture(opts: FixtureOptions = {}): FixtureBundle {
   const seed = opts.seed ?? 1;
   const days = opts.days ?? 30;
   const settlementsPerRailPerDay = opts.settlementsPerRailPerDay ?? 6;
@@ -218,8 +216,7 @@ export function generatePaymentStatementFixture(
         const settledAt = new Date(settledAtMs).toISOString();
 
         const mismatchRoll = rng();
-        const mismatchKind =
-          mismatchRoll < mismatchRate ? pickMismatchKind(rng) : null;
+        const mismatchKind = mismatchRoll < mismatchRate ? pickMismatchKind(rng) : null;
 
         const salePaymentId = `${tenantId}-sp-${globalRowIndex.toString().padStart(5, '0')}`;
         const outboxId = `${tenantId}-pob-${globalRowIndex.toString().padStart(5, '0')}`;
@@ -405,10 +402,7 @@ function pickMismatchKind(rng: () => number): FixtureRow['mismatchKind'] {
   return 'provider_issue';
 }
 
-function pushRow(
-  rails: Record<PaymentRailId, FixtureRow[]>,
-  row: FixtureRow
-): FixtureRow {
+function pushRow(rails: Record<PaymentRailId, FixtureRow[]>, row: FixtureRow): FixtureRow {
   const railId =
     row.statement?.railId ??
     row.outboxRow?.railId ??
@@ -431,9 +425,7 @@ function roundTo2(value: number): number {
  * path to walk a deterministic stream.
  */
 export function listStatementRows(bundle: FixtureBundle): RawSettlement[] {
-  return bundle.rows
-    .filter(row => row.statement !== null)
-    .map(row => row.statement);
+  return bundle.rows.filter(row => row.statement !== null).map(row => row.statement);
 }
 
 /**

@@ -1,4 +1,4 @@
-// ENG-179c — sync (offline buffer + conflict) domain shapes (ENG-178 slice 28).
+// sync (offline buffer + conflict) domain shapes ( slice 28).
 
 // Sync Types
 

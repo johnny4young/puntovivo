@@ -1,5 +1,5 @@
 /**
- * ENG-033 — embeddings test scaffolding.
+ * embeddings test scaffolding.
  *
  * The pure math (cosine similarity, parseEmbedding, canonical text)
  * is the failure mode that scales with every search request, so the
@@ -41,7 +41,7 @@ describe('cosineSimilarity', () => {
   it('approximates real OpenAI semantic distances correctly', () => {
     // Synthetic fixture: two near-aligned vectors should score ~0.95+.
     const a = [0.12, -0.34, 0.78, 0.05, -0.22];
-    const b = [0.15, -0.32, 0.75, 0.07, -0.20];
+    const b = [0.15, -0.32, 0.75, 0.07, -0.2];
     expect(cosineSimilarity(a, b)).toBeGreaterThan(0.95);
 
     // Two semantically unrelated vectors should score below 0.5.
@@ -92,14 +92,12 @@ describe('productCanonicalText', () => {
   });
 
   it('skips description / sku when null', () => {
-    expect(
-      productCanonicalText({ name: 'Manzana', description: null, sku: null })
-    ).toBe('Manzana');
+    expect(productCanonicalText({ name: 'Manzana', description: null, sku: null })).toBe('Manzana');
   });
 
   it('preserves Unicode characters (Spanish accents, ñ)', () => {
-    expect(
-      productCanonicalText({ name: 'Empanada de pollo y piña', sku: 'PIÑA-01' })
-    ).toBe('Empanada de pollo y piña — PIÑA-01');
+    expect(productCanonicalText({ name: 'Empanada de pollo y piña', sku: 'PIÑA-01' })).toBe(
+      'Empanada de pollo y piña — PIÑA-01'
+    );
   });
 });

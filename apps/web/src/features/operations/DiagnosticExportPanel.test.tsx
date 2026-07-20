@@ -1,14 +1,14 @@
 /**
- * ENG-065c — Tests for DiagnosticExportPanel.
+ * Tests for DiagnosticExportPanel.
  *
  * Asserts:
- *   - Default state renders 7-day preset selected.
- *   - Preview refetch fires and surfaces counts + estimated size.
- *   - willHitLimit toggles the warning banner.
- *   - Admin click on Download triggers the export refetch + jszip
- *     bundle build + Blob download (URL.createObjectURL spy).
- *   - Manager role disables the Download button with translated tooltip.
- *   - Invalid date range disables the Preview button + shows inline error.
+ * - Default state renders 7-day preset selected.
+ * - Preview refetch fires and surfaces counts + estimated size.
+ * - willHitLimit toggles the warning banner.
+ * - Admin click on Download triggers the export refetch + jszip
+ * bundle build + Blob download (URL.createObjectURL spy).
+ * - Manager role disables the Download button with translated tooltip.
+ * - Invalid date range disables the Preview button + shows inline error.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -162,9 +162,7 @@ describe('DiagnosticExportPanel', () => {
       schemaVersion: 1,
     };
     render(<DiagnosticExportPanel />);
-    expect(screen.getByTestId('diagnostics-limit-warning').textContent).toMatch(
-      /10000|10\.000/
-    );
+    expect(screen.getByTestId('diagnostics-limit-warning').textContent).toMatch(/10000|10\.000/);
   });
 
   it('builds the zip and triggers the Blob download on admin click', async () => {

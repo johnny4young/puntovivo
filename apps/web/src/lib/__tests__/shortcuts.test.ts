@@ -1,13 +1,13 @@
 /**
- * ENG-105 (slice A) — Canonical shortcut catalogue tests.
+ * (slice A) — Canonical shortcut catalogue tests.
  *
  * Pins:
- *   - `getShortcutById` returns the entry when present, undefined otherwise.
- *   - `formatKeysForDisplay` renders mac vs non-mac symbols correctly.
- *   - `formatKeysForAria` always returns canonical CamelCase + `Control`
- *     for `Mod` regardless of platform.
- *   - `matchesShortcut` accepts both Ctrl + Meta on non-mac for `Mod`
- *     combos and rejects unrelated modifiers.
+ * - `getShortcutById` returns the entry when present, undefined otherwise.
+ * - `formatKeysForDisplay` renders mac vs non-mac symbols correctly.
+ * - `formatKeysForAria` always returns canonical CamelCase + `Control`
+ * for `Mod` regardless of platform.
+ * - `matchesShortcut` accepts both Ctrl + Meta on non-mac for `Mod`
+ * combos and rejects unrelated modifiers.
  *
  * @module lib/__tests__/shortcuts.test
  */
@@ -48,9 +48,9 @@ describe('getShortcutById', () => {
       'sales.toggleSuspended',
       'sales.reprint',
       'sales.removeItem',
-      // ENG-105d — undo binding.
+      // undo binding.
       'sales.undo',
-      // ENG-105e — fast-cash binding.
+      // fast-cash binding.
       'sales.fastCash',
     ];
     for (const id of required) {
@@ -58,7 +58,7 @@ describe('getShortcutById', () => {
     }
   });
 
-  // ENG-105d — registration sanity check + chip rendering.
+  // registration sanity check + chip rendering.
   it('exposes sales.undo on Mod+Z with the cashier role', () => {
     const entry = getShortcutById('sales.undo');
     expect(entry).toBeDefined();
@@ -67,7 +67,7 @@ describe('getShortcutById', () => {
     expect(entry?.roles).toContain('cashier');
   });
 
-  // ENG-105e — fast-cash registration sanity check. F2 is a bare
+  // fast-cash registration sanity check. F2 is a bare
   // function key so the combo carries no Mod / Shift / Alt — the
   // matcher must accept it without modifier interference.
   it('exposes sales.fastCash on F2 with the cashier role', () => {

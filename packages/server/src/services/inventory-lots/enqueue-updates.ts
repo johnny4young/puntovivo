@@ -1,5 +1,5 @@
 /**
- * ENG-192 — post-commit sync enqueue for sale-path inventory-lot mutations.
+ * post-commit sync enqueue for sale-path inventory-lot mutations.
  *
  * The outbox payload is a snapshot contract, so enqueueing only `{ id,
  * saleId }` is insufficient for a remote peer to apply the changed on-hand

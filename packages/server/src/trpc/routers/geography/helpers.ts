@@ -2,7 +2,7 @@
  * Geography routers shared helpers (uniqueness + existence guards + read
  * projections).
  *
- * ENG-178 — extracted verbatim from the former flat `trpc/routers/geography.ts`
+ * extracted verbatim from the former flat `trpc/routers/geography.ts`
  * (878 LOC) during the megafile decomposition. Holds the country / department /
  * city uniqueness + existence validators and the join-aware selection builders
  * shared by the three sibling routers. Import leaf: depends only on the schema +
@@ -20,7 +20,7 @@ export async function ensureCountryUniqueness(
   db: DatabaseInstance,
   tenantId: string,
   values: {
-    // ENG-179b — explicit `| undefined` on Zod-optional fields.
+    // explicit `| undefined` on Zod-optional fields.
     id?: string | undefined;
     code?: string | undefined;
     name?: string | undefined;
@@ -82,7 +82,7 @@ export async function ensureDepartmentUniqueness(
   db: DatabaseInstance,
   tenantId: string,
   values: {
-    // ENG-179b — explicit `| undefined` on Zod-optional fields.
+    // explicit `| undefined` on Zod-optional fields.
     id?: string | undefined;
     code?: string | undefined;
     name?: string | undefined;
@@ -144,7 +144,7 @@ export async function ensureCityUniqueness(
   db: DatabaseInstance,
   tenantId: string,
   values: {
-    // ENG-179b — explicit `| undefined` on Zod-optional fields.
+    // explicit `| undefined` on Zod-optional fields.
     id?: string | undefined;
     departmentId: string;
     code?: string | undefined;

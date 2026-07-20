@@ -1,7 +1,7 @@
 /**
  * Purchases tRPC Router.
  *
- * ENG-178 — the purchase business logic (create / receive-from-order /
+ * the purchase business logic (create / receive-from-order /
  * return / void + the OCR draft helper, resolvers, and read model) was
  * extracted into the `application/purchases/` use-case layer during the
  * megafile decomposition (mirroring `application/sales/`). This router is now

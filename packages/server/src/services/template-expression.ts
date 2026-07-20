@@ -1,5 +1,5 @@
 /**
- * Receipt template expression engine (ENG-016 pass 3 — item #3).
+ * Receipt template expression engine ( pass 3 — item #3).
  *
  * Extends the legacy regex-based `{{namespace.path}}` substitution with a
  * small, whitelisted expression grammar that supports formatter and
@@ -7,13 +7,13 @@
  *
  * Grammar (recursive descent, no precedence):
  *
- *   substitution = '{{' expression '}}'
- *   expression   = funcCall | path | numberLiteral | stringLiteral
- *   funcCall     = identifier '(' (expression (',' expression)*)? ')'
- *   path         = identifier ('.' identifier)+   // namespace.field, ≥1 dot
- *   identifier   = [a-zA-Z_][a-zA-Z0-9_]*
- *   numberLiteral = -? digits ('.' digits)?
- *   stringLiteral = '"' chars '"' | "'" chars "'"
+ * substitution = '{{' expression '}}'
+ * expression   = funcCall | path | numberLiteral | stringLiteral
+ * funcCall     = identifier '(' (expression (',' expression)*)? ')'
+ * path         = identifier ('.' identifier)+   // namespace.field, ≥1 dot
+ * identifier   = [a-zA-Z_][a-zA-Z0-9_]*
+ * numberLiteral = -? digits ('.' digits)?
+ * stringLiteral = '"' chars '"' | "'" chars "'"
  *
  * Function calls are restricted to a static whitelist (FUNCTION_REGISTRY)
  * with explicit arity bounds — the validator rejects unknown names or
@@ -24,18 +24,18 @@
  * Evaluation runs against a caller-supplied `EvalContext` that provides
  * the path resolver and (optionally) locale-aware currency / date
  * formatters. The renderer wires these to `lookupPath` and
- * `formatReceiptAmount` so the new helpers inherit ENG-017's
+ * `formatReceiptAmount` so the new helpers inherit 's
  * tenant-locale behaviour without duplicating the `Intl.NumberFormat`
  * config.
  *
  * Security:
- *  - String literal nodes are checked against `rejectStringScheme` at
- *    validation time so `concat("javascript:", …)` cannot bypass the
- *    `qr.source` URL-scheme guard already on `receiptTemplates.ts`.
- *  - The renderer's existing `safeResolvedScannerSource()` keeps the
- *    post-resolution scheme check as defense-in-depth.
- *  - Output of `evaluateTemplate` is plain text; HTML escaping is the
- *    caller's responsibility (renderer wraps it in `escapeHtml`).
+ * - String literal nodes are checked against `rejectStringScheme` at
+ * validation time so `concat("javascript:", …)` cannot bypass the
+ * `qr.source` URL-scheme guard already on `receiptTemplates.ts`.
+ * - The renderer's existing `safeResolvedScannerSource()` keeps the
+ * post-resolution scheme check as defense-in-depth.
+ * - Output of `evaluateTemplate` is plain text; HTML escaping is the
+ * caller's responsibility (renderer wraps it in `escapeHtml`).
  *
  * @module services/template-expression
  */
@@ -45,7 +45,7 @@
 // template cannot block save/render.
 // ---------------------------------------------------------------------------
 
-// ENG-178 — decomposed into `./template-expression/` (parse front-end +
+// decomposed into `./template-expression/` (parse front-end +
 // evaluate back-end). This file stays at the original path as a thin re-export
 // barrel so the 4 importers (receiptTemplates schema, escape-resolve,
 // format-helpers, test) resolve unchanged.

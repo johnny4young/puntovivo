@@ -37,7 +37,7 @@ export function getDefaultRouteForRole(role: UserRole | undefined): string {
 }
 
 /**
- * ENG-104 — Post-login routing that takes setup readiness into
+ * Post-login routing that takes setup readiness into
  * account. Cashiers always go straight to `/sales` regardless of
  * tenant state — their flow is POS-direct and the setup checklist is
  * an admin concern. Admin lands on `/company?tab=readiness` when

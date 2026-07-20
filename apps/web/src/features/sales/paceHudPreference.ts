@@ -1,5 +1,5 @@
 /**
- * ENG-204 — device-local, per-user opt-in for the cashier pace HUD.
+ * device-local, per-user opt-in for the cashier pace HUD.
  *
  * The toggle button lives in the POS header while the strip renders inside
  * the checkout panel, so the preference is a tiny external store consumed

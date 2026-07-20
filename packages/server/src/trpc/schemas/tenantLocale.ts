@@ -1,11 +1,11 @@
 /**
- * Zod schemas for the `tenantLocale` tRPC router (ENG-017).
+ * Zod schemas for the `tenantLocale` tRPC router ().
  */
 
 import { z } from 'zod';
 
 export const updateTenantLocaleInput = z.object({
-  // ENG-177a — optimistic-concurrency token. Optional because the first
+  // optimistic-concurrency token. Optional because the first
   // save creates the row (no prior version); supplied on every subsequent
   // edit so a stale overwrite is rejected with STALE_VERSION.
   version: z.number().int().nonnegative().optional(),
@@ -29,20 +29,8 @@ export const updateTenantLocaleInput = z.object({
     .toUpperCase()
     .nullable()
     .optional(),
-  timezoneOverride: z
-    .string()
-    .trim()
-    .min(3)
-    .max(64)
-    .nullable()
-    .optional(),
-  firstDayOfWeekOverride: z
-    .number()
-    .int()
-    .min(0)
-    .max(6)
-    .nullable()
-    .optional(),
+  timezoneOverride: z.string().trim().min(3).max(64).nullable().optional(),
+  firstDayOfWeekOverride: z.number().int().min(0).max(6).nullable().optional(),
 });
 
 export type UpdateTenantLocaleInput = z.infer<typeof updateTenantLocaleInput>;

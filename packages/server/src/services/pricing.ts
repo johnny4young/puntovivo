@@ -9,7 +9,7 @@ import { roundMoney as round } from '../lib/money.js';
  * there, or the price the form shows will disagree with what the server
  * persists.
  *
- * Every intermediate rounds through roundMoney (ENG-176a) so derived
+ * Every intermediate rounds through roundMoney () so derived
  * margins/prices stay coherent with the transactional money path.
  */
 export interface PricingInput {

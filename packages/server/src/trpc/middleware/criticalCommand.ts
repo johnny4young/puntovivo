@@ -1,5 +1,5 @@
 /**
- * ENG-052 — `criticalCommandProcedure` decorators.
+ * `criticalCommandProcedure` decorators.
  *
  * Composes `tenantProcedure` (already validates tenant + auth) with
  * the new `commandEnvelope` middleware so the closed list of critical
@@ -12,19 +12,15 @@
  * `trpc/middleware/roles.ts`.
  *
  * Use:
- *   - `criticalCommandProcedure`: any authenticated tenant user.
- *   - `criticalCommandManagerOrAdminProcedure`: manager + admin.
- *   - `criticalCommandAdminProcedure`: admin only.
- *   - `criticalCommandCashierManagerOrAdminProcedure`: cashier + manager + admin.
+ * - `criticalCommandProcedure`: any authenticated tenant user.
+ * - `criticalCommandManagerOrAdminProcedure`: manager + admin.
+ * - `criticalCommandAdminProcedure`: admin only.
+ * - `criticalCommandCashierManagerOrAdminProcedure`: cashier + manager + admin.
  *
  * @module trpc/middleware/criticalCommand
  */
 
-import {
-  ADMIN_ONLY_ROLES,
-  MANAGER_OR_ADMIN_ROLES,
-  SALES_ROLES,
-} from '@puntovivo/shared/roles';
+import { ADMIN_ONLY_ROLES, MANAGER_OR_ADMIN_ROLES, SALES_ROLES } from '@puntovivo/shared/roles';
 import { commandEnvelope } from './commandEnvelope.js';
 import { createRoleGuard } from './roles.js';
 import { tenantProcedure } from './tenant.js';
@@ -47,10 +43,9 @@ export const criticalCommandManagerOrAdminProcedure = criticalCommandProcedure.u
   )
 );
 
-export const criticalCommandCashierManagerOrAdminProcedure =
-  criticalCommandProcedure.use(
-    createRoleGuard(
-      SALES_ROLES,
-      'Only cashiers, managers, and administrators can perform this action'
-    )
-  );
+export const criticalCommandCashierManagerOrAdminProcedure = criticalCommandProcedure.use(
+  createRoleGuard(
+    SALES_ROLES,
+    'Only cashiers, managers, and administrators can perform this action'
+  )
+);

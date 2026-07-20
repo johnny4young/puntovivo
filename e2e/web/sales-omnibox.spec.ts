@@ -1,4 +1,4 @@
-/** ENG-205 — global product-to-cart command palette journey. */
+/** global product-to-cart command palette journey. */
 
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
@@ -18,7 +18,7 @@ async function captureEvidence(page: import('@playwright/test').Page) {
   });
 }
 
-test.describe('sales omnibox (ENG-205)', () => {
+test.describe('sales omnibox', () => {
   test('adds a product from inventory without stealing editable-field shortcuts', async ({
     page,
   }, testInfo) => {
@@ -48,13 +48,22 @@ test.describe('sales omnibox (ENG-205)', () => {
     });
     await expect(palette).toBeVisible();
     await palette.getByRole('textbox').fill(scenario.product.sku);
-    const productOption = palette.getByRole('option', {
-      name: new RegExp(scenario.product.name, 'i'),
+    const sellOption = palette.getByRole('option', {
+      name: new RegExp(scenario.product.sku, 'i'),
     });
-    await expect(productOption).toBeVisible({ timeout: 15_000 });
+    await expect(sellOption).toBeVisible({ timeout: 15_000 });
     await page.keyboard.press('Enter');
 
     await expect(page).toHaveURL(/\/sales$/);
+    const productDialog = page.getByRole('dialog', {
+      name: /add product|agregar producto/i,
+    });
+    await expect(productDialog).toBeVisible({ timeout: 15_000 });
+    const productRow = productDialog.getByTestId(`product-search-row-${scenario.product.sku}`);
+    await expect(productRow).toBeVisible({ timeout: 15_000 });
+    await productRow.click();
+    await productDialog.getByRole('button', { name: /add to cart|agregar al carrito/i }).click();
+    await expect(productDialog).toBeHidden();
     await expect(page.getByTestId(`sale-cart-item-${scenario.product.sku}`)).toBeVisible({
       timeout: 15_000,
     });

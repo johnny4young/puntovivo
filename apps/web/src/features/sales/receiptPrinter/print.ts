@@ -1,4 +1,4 @@
-// Browser/Electron receipt print path (ENG-178 slice 29).
+// Browser/Electron receipt print path ( slice 29).
 
 import { buildSaleReceiptHtml } from './html';
 import type { PrintSaleReceiptOptions, ReceiptSale } from './types';
@@ -15,19 +15,19 @@ async function openBrowserPrintWindow(receiptHtml: string): Promise<void> {
 }
 
 /**
- * ENG-062 — receipt print dispatcher with ESC/POS branch + system
+ * receipt print dispatcher with ESC/POS branch + system
  * fallback. The renderer first asks the server (`printReceipt`)
  * which path to take based on the registered printer driver:
  *
- *   - `system-fallback`: no escpos peripheral registered → print
- *     via the legacy HTML path exactly like before.
- *   - `printed`: server-side ESC/POS bytes flushed; nothing else
- *     to do here.
- *   - `fallback`: ESC/POS attempt failed (USB unplug / TCP
- *     unreachable) → fall through to the legacy HTML path so the
- *     cashier never loses a receipt; the caller (SalesPage) is
- *     responsible for surfacing a translated toast about the
- *     fallback.
+ * - `system-fallback`: no escpos peripheral registered → print
+ * via the legacy HTML path exactly like before.
+ * - `printed`: server-side ESC/POS bytes flushed; nothing else
+ * to do here.
+ * - `fallback`: ESC/POS attempt failed (USB unplug / TCP
+ * unreachable) → fall through to the legacy HTML path so the
+ * cashier never loses a receipt; the caller (SalesPage) is
+ * responsible for surfacing a translated toast about the
+ * fallback.
  *
  * `escposDispatcher` is supplied by the caller as a thin tRPC
  * mutation wrapper so this module stays unaware of the trpc client
@@ -40,9 +40,9 @@ export async function printSaleReceipt(
 ): Promise<void> {
   const { escposDispatcher, onEscposFallback } = options;
 
-  // ENG-062 — server-side ESC/POS branch. When the active printer
+  // server-side ESC/POS branch. When the active printer
   // is escpos and the bytes flush, we are done; otherwise we fall
-  // through to the legacy HTML path that has shipped since ENG-014.
+  // through to the legacy HTML path that has shipped since .
   if (escposDispatcher) {
     try {
       const outcome = await escposDispatcher();

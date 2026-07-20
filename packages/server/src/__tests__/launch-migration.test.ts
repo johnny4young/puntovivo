@@ -63,7 +63,7 @@ function row(
   return { rowNumber, values };
 }
 
-describe('ENG-123a launch migration', () => {
+describe(' launch migration', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     db = getDatabase();

@@ -58,7 +58,7 @@ function parseReceived(raw: string): number {
 }
 
 /**
- * Phase 2 UI-103 — modal that captures per-line received quantities and an
+ * modal that captures per-line received quantities and an
  * optional discrepancy note when a deferred transfer is received at the
  * destination site.
  *

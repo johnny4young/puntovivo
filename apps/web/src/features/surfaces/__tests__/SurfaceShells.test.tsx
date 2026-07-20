@@ -1,16 +1,16 @@
 /**
- * ENG-183 — Route-level scope-gate tests for the 4 full-screen surfaces.
+ * Route-level scope-gate tests for the 4 full-screen surfaces.
  *
  * Gating moved OUT of each shell and UP into `SurfaceShellRoute` (so a
  * hidden module never loads the shell bundle on direct-URL navigation).
  * These tests prove the route-level module gate for every surface — the
  * "hidden modules do not leak visible routes" acceptance criterion:
- *   - Module ON  -> shell chrome + outlet child render.
- *   - Module OFF -> the fallback (Navigate to /dashboard) fires; the shell
- *     and its outlet child never render.
- *   - Module state still HYDRATING (placeholder) -> loading is shown and
- *     NEITHER the shell NOR the redirect fires, so a cold direct-URL hit on
- *     an enabled-but-default-off surface is not bounced to /dashboard.
+ * - Module ON  -> shell chrome + outlet child render.
+ * - Module OFF -> the fallback (Navigate to /dashboard) fires; the shell
+ * and its outlet child never render.
+ * - Module state still HYDRATING (placeholder) -> loading is shown and
+ * NEITHER the shell NOR the redirect fires, so a cold direct-URL hit on
+ * an enabled-but-default-off surface is not bounced to /dashboard.
  *
  * Role gating is exercised by ProtectedRoute's own tests; it is mocked as
  * a passthrough here so the module gate is the only thing under test.
@@ -69,11 +69,7 @@ function setModule(moduleId: ClientModuleId, active: boolean, isPlaceholder = fa
   });
 }
 
-function renderSurface(
-  Shell: () => ReactElement,
-  moduleId: ClientModuleId,
-  path: string
-): void {
+function renderSurface(Shell: () => ReactElement, moduleId: ClientModuleId, path: string): void {
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
@@ -96,7 +92,7 @@ function renderSurface(
   );
 }
 
-describe('POS Touch surface gate (ENG-183)', () => {
+describe('POS Touch surface gate', () => {
   it('renders the shell + outlet child when pos-touch is on', () => {
     setModule('pos-touch', true);
     renderSurface(TouchShell, 'pos-touch', '/touch');
@@ -123,7 +119,7 @@ describe('POS Touch surface gate (ENG-183)', () => {
   });
 });
 
-describe('KDS surface gate (ENG-183)', () => {
+describe('KDS surface gate', () => {
   it('renders the fullscreen shell + outlet child when kds is on', () => {
     setModule('kds', true);
     renderSurface(KdsShell, 'kds', '/kds');
@@ -142,7 +138,7 @@ describe('KDS surface gate (ENG-183)', () => {
   });
 });
 
-describe('Customer Display surface gate (ENG-183)', () => {
+describe('Customer Display surface gate', () => {
   it('renders the shell + outlet child when customer-display is on', () => {
     setModule('customer-display', true);
     renderSurface(CustomerDisplayShell, 'customer-display', '/customer-display');
@@ -159,7 +155,7 @@ describe('Customer Display surface gate (ENG-183)', () => {
   });
 });
 
-describe('Mobile Waiter surface gate (ENG-183)', () => {
+describe('Mobile Waiter surface gate', () => {
   it('renders the phone-width shell + outlet child when mobile-waiter is on', () => {
     setModule('mobile-waiter', true);
     renderSurface(MobileWaiterShell, 'mobile-waiter', '/m');

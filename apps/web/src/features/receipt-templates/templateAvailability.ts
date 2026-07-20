@@ -1,5 +1,5 @@
 /**
- * Receipt template variable availability hook (ENG-016 pass 5).
+ * Receipt template variable availability hook ( pass 5).
  *
  * Thin wrapper around the `receiptTemplates.variableAvailability` tRPC
  * query. The endpoint is admin-only and reads two rows from the DB

@@ -1,5 +1,5 @@
 /**
- * ENG-038 slice 2 — Tests for CompanyPaymentsCard.
+ * slice 2 — Tests for CompanyPaymentsCard.
  *
  * Coverage:
  * - Renders one section per manifest rail with stub badge + missing-fields readiness.
@@ -110,8 +110,7 @@ vi.mock('@/lib/trpc', () => ({
       updateRail: {
         useMutation: (options: { onSuccess?: unknown; onError?: unknown }) => ({
           mutate: (...args: unknown[]) => updateMutate(options, ...args),
-          mutateAsync: async (...args: unknown[]) =>
-            updateMutate(options, ...args),
+          mutateAsync: async (...args: unknown[]) => updateMutate(options, ...args),
           isPending: false,
           variables: undefined,
         }),
@@ -122,7 +121,7 @@ vi.mock('@/lib/trpc', () => ({
 
 import { CompanyPaymentsCard } from './CompanyPaymentsCard';
 
-describe('CompanyPaymentsCard (ENG-038 slice 2)', () => {
+describe('CompanyPaymentsCard ( slice 2)', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockQueryState = {
@@ -140,16 +139,12 @@ describe('CompanyPaymentsCard (ENG-038 slice 2)', () => {
     expect(screen.getByTestId('payments-rail-wompi-readiness')).toHaveTextContent(
       /Missing credentials/i
     );
-    expect(
-      screen.getByTestId('payments-rail-mercado_pago-readiness')
-    ).toHaveTextContent(/Ready/i);
+    expect(screen.getByTestId('payments-rail-mercado_pago-readiness')).toHaveTextContent(/Ready/i);
   });
 
   it('renders sensitive fields as password inputs with a reveal toggle', () => {
     render(<CompanyPaymentsCard />);
-    const input = screen.getByTestId(
-      'payments-wompi-publicKey-input'
-    ) as HTMLInputElement;
+    const input = screen.getByTestId('payments-wompi-publicKey-input') as HTMLInputElement;
     expect(input.type).toBe('password');
     fireEvent.click(screen.getByTestId('payments-wompi-publicKey-reveal'));
     expect(input.type).toBe('text');
@@ -157,9 +152,7 @@ describe('CompanyPaymentsCard (ENG-038 slice 2)', () => {
 
   it('forwards every declared credential field for the rail on save', async () => {
     render(<CompanyPaymentsCard />);
-    const publicKeyInput = screen.getByTestId(
-      'payments-wompi-publicKey-input'
-    ) as HTMLInputElement;
+    const publicKeyInput = screen.getByTestId('payments-wompi-publicKey-input') as HTMLInputElement;
     fireEvent.change(publicKeyInput, {
       target: { value: 'pub_test_aaa111' },
     });
@@ -181,9 +174,9 @@ describe('CompanyPaymentsCard (ENG-038 slice 2)', () => {
 
   it('does not resubmit masked stored credentials when an unchanged rail is saved', async () => {
     render(<CompanyPaymentsCard />);
-    expect(
-      screen.getByTestId('payments-mercado_pago-accessToken-hint')
-    ).toHaveTextContent('••••••••XYZ');
+    expect(screen.getByTestId('payments-mercado_pago-accessToken-hint')).toHaveTextContent(
+      '••••••••XYZ'
+    );
     fireEvent.click(screen.getByTestId('payments-rail-mercado_pago-save'));
     await waitFor(() => expect(updateMutate).toHaveBeenCalledTimes(1));
     const args = updateMutate.mock.calls[0]?.[1];
@@ -195,9 +188,7 @@ describe('CompanyPaymentsCard (ENG-038 slice 2)', () => {
 
   it('submits an explicit empty value when the operator clears a stored credential', async () => {
     render(<CompanyPaymentsCard />);
-    fireEvent.click(
-      screen.getByTestId('payments-mercado_pago-accessToken-clear')
-    );
+    fireEvent.click(screen.getByTestId('payments-mercado_pago-accessToken-clear'));
     fireEvent.click(screen.getByTestId('payments-rail-mercado_pago-save'));
     await waitFor(() => expect(updateMutate).toHaveBeenCalledTimes(1));
     const args = updateMutate.mock.calls[0]?.[1];

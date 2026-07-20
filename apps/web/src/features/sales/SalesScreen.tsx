@@ -23,7 +23,7 @@ type CashModalsProps = ComponentProps<typeof CashSessionModals>;
 /**
  * Props for {@link SalesScreen}.
  *
- * ENG-178 slice 16b-2 — SalesPage's entire `return` JSX was relocated here so
+ * slice 16b-2 — SalesPage's entire `return` JSX was relocated here so
  * the shell drops below the 500-LOC ceiling. SalesScreen is PURELY
  * presentational: it owns no state, runs no queries/mutations, and forwards
  * every value/handler to the already-extracted child components. The shell
@@ -143,7 +143,7 @@ export interface SalesScreenProps {
   cashSessionMovementError: string | null;
   setIsCashSessionMovementModalOpen: Dispatch<SetStateAction<boolean>>;
   handleRecordCashMovement: CashModalsProps['onSubmitMovement'];
-  /** ENG-198 — the just-closed session whose day-close ritual is showing. */
+  /** the just-closed session whose day-close ritual is showing. */
   dayCloseSessionId: string | null;
   setDayCloseSessionId: Dispatch<SetStateAction<string | null>>;
 }
@@ -264,7 +264,7 @@ export function SalesScreen({
   return (
     <>
       <div className="sales-pos-shell space-y-4 pb-24 xl:flex pos:min-h-0 xl:flex-col xl:gap-4 xl:space-y-0 pos:overflow-hidden pos:pb-0">
-        {/* ENG-186/189 — el POS es la única superficie de /sales. En el
+        {/* el POS es la única superficie de /sales. En el
             breakpoint `pos:` (ancho desktop + >=900px alto), la barra de
             búsqueda y los accesos a Historial / Ventas suspendidas viven en
             una fila de acción de altura fija (shrink-0); el carrito y el
@@ -360,11 +360,11 @@ export function SalesScreen({
         hubReachable={hubReachable}
       />
 
-      {/* ENG-186 — Historial detrás de un cajón lateral. El header del
+      {/* Historial detrás de un cajón lateral. El header del
           Drawer aporta el botón de cerrar; la tabla conserva su propio
           título, por eso el Drawer va sin `title` (solo `ariaLabel`).
           `restoreFocusTo` devuelve el foco a la barra de búsqueda al cerrar
-          para mantener el flujo de cajero (ENG-105f). */}
+          para mantener el flujo de cajero (). */}
       <Drawer
         isOpen={isHistoryDrawerOpen}
         onClose={() => setIsHistoryDrawerOpen(false)}
@@ -385,7 +385,7 @@ export function SalesScreen({
         />
       </Drawer>
 
-      {/* ENG-186 — Ventas suspendidas detrás de un cajón lateral. El panel
+      {/* Ventas suspendidas detrás de un cajón lateral. El panel
           trae su propio header (título + cerrar), así que el Drawer va sin
           chrome (`showCloseButton={false}`, sin `title`). Ctrl+R sigue
           abriéndolo vía `handleToggleSuspendedPanel`. */}

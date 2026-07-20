@@ -1,5 +1,5 @@
 /**
- * ENG-141a — tenant-local calendar day boundaries.
+ * tenant-local calendar day boundaries.
  *
  * Business reports accept a calendar day (YYYY-MM-DD), not a UTC range. This
  * helper resolves both local midnights through Intl so America/Bogota and DST

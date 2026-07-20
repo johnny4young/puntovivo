@@ -1,16 +1,16 @@
 /**
- * ENG-199 — expiry-radar discount suggestions.
+ * expiry-radar discount suggestions.
  *
  * Pins the four contracts of the feature:
- *   - the deterministic tier rule (≤7 → 30%, ≤15 → 20%, ≤30 → 10%) at its
- *     exact day boundaries, including the deliberate "expired is NOT
- *     eligible" rule;
- *   - the suggestion lifecycle: audited create, race-safe one-active-per-lot
- *     guard, audited dismiss, re-suggest after dismiss;
- *   - the read-side filter of `activeSuggestions` (no sweeper: depleted,
- *     expired, and dismissed rows drop off) and its cost-free payload;
- *   - role gating: managers own the CTA and the radar read, cashiers keep
- *     the badge read.
+ * - the deterministic tier rule (≤7 → 30%, ≤15 → 20%, ≤30 → 10%) at its
+ * exact day boundaries, including the deliberate "expired is NOT
+ * eligible" rule;
+ * - the suggestion lifecycle: audited create, race-safe one-active-per-lot
+ * guard, audited dismiss, re-suggest after dismiss;
+ * - the read-side filter of `activeSuggestions` (no sweeper: depleted,
+ * expired, and dismissed rows drop off) and its cost-free payload;
+ * - role gating: managers own the CTA and the radar read, cashiers keep
+ * the badge read.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
@@ -92,7 +92,7 @@ async function seedLot(args: {
   return id;
 }
 
-describe('price suggestions (ENG-199)', () => {
+describe('price suggestions', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();

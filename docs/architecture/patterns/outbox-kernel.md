@@ -1,6 +1,6 @@
 # Pattern: Outbox Kernel
 
-> Status: Active (introduced by ENG-053)
+> Status: Active (introduced by )
 > Companion ADRs: [ADR-0003](../0003-outbox-taxonomy.md)
 > Code: `packages/server/src/lib/outbox/`
 
@@ -54,7 +54,7 @@ table (so the schema is honest about each lifecycle's quirks) but
 inherits the shared mechanics (so a stuck DIAN row doesn't share
 code with a stuck webhook delivery).
 
-Without the kernel, ENG-057 / ENG-063 / ENG-064 / ENG-070 / ENG-060
+Without the kernel, the sync, fiscal, payment, webhook, and hardware workers
 would each reimplement attempts++, nextRetryAt math, claim_token
 guards, and dead-letter transitions — five copies that drift over
 time. With the kernel, the mechanics live once and concrete outboxes
@@ -124,7 +124,7 @@ Do NOT build an outbox for:
 
 ## Defining a concrete outbox (example)
 
-ENG-057 will land the `fiscal_outbox` like this:
+will land the `fiscal_outbox` like this:
 
 ```ts
 // packages/server/src/db/schema.ts
@@ -132,7 +132,9 @@ export const fiscalOutbox = sqliteTable(
   'fiscal_outbox',
   {
     id: text('id').primaryKey(),
-    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
     status: text('status', { enum: fiscalOutboxStatusEnum }).notNull().default('queued'),
     payload: text('payload', { mode: 'json' }),
     payloadVersion: integer('payload_version').notNull().default(1),
@@ -251,7 +253,7 @@ serializable isolation makes it safe without explicit locks.
 `outbox_metadata` is the cross-outbox health surface. Each
 concrete outbox refreshes its row periodically with
 `pendingCount`, `oldestPendingAt`, `lastSuccessAt`, and
-`lastFailureAt`. The Operations Center (ENG-065) reads ONLY this
+`lastFailureAt`. The Operations Center () reads ONLY this
 table for its dashboard — never the concrete outbox tables — so
 the panel grid is a single query regardless of how many outboxes
 exist.
@@ -260,7 +262,7 @@ The kernel exposes `recordSuccess`, `recordFailure`, and
 `refreshPendingCount` helpers that workers call after each tick.
 These are NOT called automatically — concrete outboxes opt in.
 That keeps the kernel decoupled from the metadata table during
-early integration (ENG-053 ships the metadata table; ENG-057+
+early integration ( ships the metadata table; +
 turns on metadata refresh as each outbox lands).
 
 ## Relation to other patterns
@@ -274,16 +276,5 @@ turns on metadata refresh as each outbox lands).
   middleware never enqueues directly; services do.
 - **Local Store Authority (ADR-0001)** — outbox rows live in the
   local SQLite. Workers process them locally; results sync upstream
-  via the future sync_outbox (ENG-064). The kernel itself never
+  via the future sync_outbox (). The kernel itself never
   reaches over the network.
-
-## Related tickets
-
-- ENG-053 ships the kernel (this pattern's owner ticket).
-- ENG-057 — `fiscal_outbox` (first concrete consumer).
-- ENG-060 — `hardware_outbox`.
-- ENG-063 — `payment_outbox`.
-- ENG-064 — `sync_outbox` (replaces the legacy `sync_queue`).
-- ENG-070 — `webhook_outbox`.
-- ENG-065 — Operations Center reads `outbox_metadata` and renders
-  one panel per outbox.

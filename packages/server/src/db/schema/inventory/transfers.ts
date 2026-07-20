@@ -1,5 +1,5 @@
 /**
- * ENG-178 — transfer-order schema and deferred receipt relations.
+ * transfer-order schema and deferred receipt relations.
  *
  * @module db/schema/inventory/transfers
  */
@@ -11,14 +11,13 @@ import { sites, tenants, users } from '../auth.js';
 import { products } from '../products.js';
 
 // ============================================================================
-// TRANSFER ORDERS (Phase 2 DB-102 — immediate step, no ship/receive lifecycle)
+// TRANSFER ORDERS (immediate step, no ship/receive lifecycle)
 // ============================================================================
 
 export const transferOrderStatusEnum = ['completed', 'in_transit', 'void'] as const;
 
 /**
- * A transfer order captures a cross-site stock movement. Phase 2 step 1
- * shipped the immediate `completed` transfer (create + ship + receive
+ * A transfer order captures a cross-site stock movement. * shipped the immediate `completed` transfer (create + ship + receive
  * collapsed into one atomic step). Step 3 adds the `in_transit` state for
  * deferred-receive transfers — origin is debited on create, destination is
  * credited later via `transfers.receive`. A future step may add an explicit
@@ -42,11 +41,11 @@ export const transferOrders = sqliteTable(
     createdBy: text('created_by')
       .notNull()
       .references(() => users.id),
-    // Phase 2 API-102 step 3: receipt metadata for the in_transit → completed
+    // receipt metadata for the in_transit → completed
     // transition. Null on immediate transfers that skip the deferred window.
     receivedAt: text('received_at'),
     receivedBy: text('received_by').references(() => users.id),
-    // Phase 2 UI-103: optional note captured by the receiver when they record
+    // optional note captured by the receiver when they record
     // a variance between shipped and received quantities.
     discrepancyNotes: text('discrepancy_notes'),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
@@ -74,7 +73,7 @@ export const transferOrderItems = sqliteTable(
       .notNull()
       .references(() => products.id),
     quantity: real('quantity').notNull(),
-    // Phase 2 UI-103: what the destination actually received. Null for legacy
+    // what the destination actually received. Null for legacy
     // receipts and for lines still in transit; populated on every line at
     // receive time, defaulting to `quantity` when the receiver did not edit.
     receivedQuantity: real('received_quantity'),

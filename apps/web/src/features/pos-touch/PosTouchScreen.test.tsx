@@ -1,5 +1,5 @@
 /**
- * ENG-087 — PosTouchScreen component tests.
+ * PosTouchScreen component tests.
  *
  * Pins the V1 surface contract: no-site fallback, cash-session
  * gating on Cobrar, category counts + filter, add-to-cart via
@@ -54,7 +54,7 @@ const invalidateProducts = vi.fn();
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 
-// ENG-052b critical-mutation helper ships its own envelope/idempotency
+// critical-mutation helper ships its own envelope/idempotency
 // wrapper around React Query. We mock it directly so we don't need to
 // pull in the desktop bridge or fetch the envelope header.
 vi.mock('@/lib/useCriticalMutation', () => ({
@@ -142,7 +142,7 @@ vi.mock('@/lib/trpc', () => ({
         getActive: { invalidate: invalidateCash },
         myPace: { invalidate: vi.fn() },
         movements: { invalidate: vi.fn() },
-        // ENG-204 — the sale epilogue now refreshes the pace HUD too.
+        // the sale epilogue now refreshes the pace HUD too.
         pace: { invalidate: vi.fn() },
         report: { invalidate: vi.fn() },
         registerAssignments: { invalidate: vi.fn() },
@@ -238,7 +238,7 @@ function makeProduct(overrides: Partial<MockProduct> = {}): MockProduct {
   };
 }
 
-describe('PosTouchScreen (ENG-087)', () => {
+describe('PosTouchScreen', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');

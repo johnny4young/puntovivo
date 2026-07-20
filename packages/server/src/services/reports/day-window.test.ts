@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calendarDayInTimeZone, resolveUtcDayWindow } from './day-window.js';
 
-describe('tenant-local report day windows (ENG-141a)', () => {
+describe('tenant-local report day windows', () => {
   it('resolves a fixed-offset LATAM day as a half-open UTC interval', () => {
     expect(resolveUtcDayWindow('2026-07-14', 'America/Bogota')).toEqual({
       startIso: '2026-07-14T05:00:00.000Z',

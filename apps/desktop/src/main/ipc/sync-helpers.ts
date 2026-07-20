@@ -1,5 +1,5 @@
 /**
- * ENG-178 — sync-bridge helpers + constants extracted from ipc/sync.ts
+ * sync-bridge helpers + constants extracted from ipc/sync.ts
  * (slice-7 668-LOC file split to clear the 500 ceiling). Electron-free
  * (DB via runtime.ts), node --test-able.
  * @module main/ipc/sync-helpers
@@ -91,20 +91,32 @@ export const SYNC_ENTITY_CONFIG = {
   },
   logos: { tableName: 'logos', supportsSyncMetadata: false, touchUpdatedAt: false },
   locations: { tableName: 'locations', supportsSyncMetadata: false, touchUpdatedAt: false },
-  location_x_site: { tableName: 'location_x_site', supportsSyncMetadata: false, touchUpdatedAt: false },
+  location_x_site: {
+    tableName: 'location_x_site',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
   order_items: { tableName: 'order_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   orders: { tableName: 'orders', supportsSyncMetadata: true, touchUpdatedAt: true },
   person_types: { tableName: 'person_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
   providers: { tableName: 'providers', supportsSyncMetadata: false, touchUpdatedAt: false },
-  purchase_items: { tableName: 'purchase_items', supportsSyncMetadata: false, touchUpdatedAt: false },
+  purchase_items: {
+    tableName: 'purchase_items',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
   purchases: { tableName: 'purchases', supportsSyncMetadata: true, touchUpdatedAt: true },
   purchase_return_items: {
     tableName: 'purchase_return_items',
     supportsSyncMetadata: false,
     touchUpdatedAt: false,
   },
-  purchase_returns: { tableName: 'purchase_returns', supportsSyncMetadata: true, touchUpdatedAt: true },
+  purchase_returns: {
+    tableName: 'purchase_returns',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
   regime_types: { tableName: 'regime_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_returns: { tableName: 'sale_returns', supportsSyncMetadata: true, touchUpdatedAt: true },
@@ -325,7 +337,7 @@ export async function incrementQueueFailure(
   queueId: string,
   message: string
 ): Promise<void> {
-  // ENG-064b: `sync_outbox.lastError` is a JSON `NormalizedOutboxError`
+  // : `sync_outbox.lastError` is a JSON `NormalizedOutboxError`
   // column, not a plain text. Mirrors `markOutboxFailure` in the
   // server router. Status flips to `retrying` so a subsequent
   // operator retry path picks the row up.

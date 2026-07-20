@@ -1,5 +1,5 @@
 /**
- * ENG-104 — Empty-state readiness nudge.
+ * Empty-state readiness nudge.
  *
  * Compact card rendered above a table when the underlying query
  * returns zero rows. Surfaces the next-step CTA pointing at the
@@ -38,12 +38,8 @@ export function EmptyStateReadinessNudge({ scope }: EmptyStateReadinessNudgeProp
     >
       <Sparkles className="h-5 w-5 text-primary-600 mt-0.5 shrink-0" aria-hidden />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-primary-900">
-          {t(`emptyState.${scope}.title`)}
-        </p>
-        <p className="text-xs text-primary-800 mt-0.5">
-          {t(`emptyState.${scope}.description`)}
-        </p>
+        <p className="text-sm font-medium text-primary-900">{t(`emptyState.${scope}.title`)}</p>
+        <p className="text-xs text-primary-800 mt-0.5">{t(`emptyState.${scope}.description`)}</p>
       </div>
       {/*
         Plain anchor instead of react-router `Link` so the nudge

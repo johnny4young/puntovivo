@@ -46,7 +46,7 @@ flowchart TB
   CUST --> Renderer
   MOB --> Renderer
 
-  subgraph Peripherals["Hardware periphery (planned, Phase 12 POS)"]
+  subgraph Peripherals["Hardware periphery (planned, POS)"]
     direction LR
     ESCP["ESC/POS printer<br/>+ cash drawer<br/>via RJ11"]
     SCAN["Barcode scanner<br/>USB HID keyboard wedge"]
@@ -57,7 +57,7 @@ flowchart TB
   Renderer -. "keydown capture" .-> SCAN
   T -. "HTTPS" .-> DAT
 
-  subgraph External["External services (planned, Phase 11 Fiscal)"]
+  subgraph External["External services (planned, Fiscal)"]
     direction LR
     PT["DIAN Proveedor Tecnológico<br/>HKA / Facture / Gosocket"]
     UPD["GitHub Releases<br/>auto-updater"]

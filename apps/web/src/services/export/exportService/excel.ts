@@ -1,4 +1,4 @@
-// Excel exporter via the prebundled browser ExcelJS bundle (ENG-178 slice 30).
+// Excel exporter via the prebundled browser ExcelJS bundle ( slice 30).
 
 import { downloadFile, generateFilename } from './filename';
 import { formatValue, getNestedValue } from './format';

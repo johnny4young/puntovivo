@@ -1,21 +1,21 @@
 /**
- * ENG-067b — `enqueueHardware` helper tests.
+ * `enqueueHardware` helper tests.
  *
- * Pins the dedup contract that closes the gap ENG-067 documented:
+ * Pins the dedup contract that closes the gap  documented:
  * a same-envelope retry to hardware_outbox MUST collapse to a single
  * row when an idempotencyKey is provided, and MUST stay independent
  * when no key is provided (legacy "user pressed Print twice → two
  * prints" path).
  *
  * Cases:
- *   1. Insert without idempotencyKey → fresh row, deduped: false.
- *   2. Insert with idempotencyKey (first call) → fresh row, deduped: false.
- *   3. Insert with same key (second call) → same id, deduped: true.
- *   4. Insert with same key on a different tenant → independent fresh row.
- *   5. Insert with same key but DIFFERENT kind → two rows (idx includes kind).
- *   6. Empty-string idempotencyKey is normalized to null (no dedup).
- *   7. Helper rethrows non-UNIQUE errors (e.g. FK violation).
- *   8. Public input schemas normalize empty-string idempotencyKey to omitted.
+ * 1. Insert without idempotencyKey → fresh row, deduped: false.
+ * 2. Insert with idempotencyKey (first call) → fresh row, deduped: false.
+ * 3. Insert with same key (second call) → same id, deduped: true.
+ * 4. Insert with same key on a different tenant → independent fresh row.
+ * 5. Insert with same key but DIFFERENT kind → two rows (idx includes kind).
+ * 6. Empty-string idempotencyKey is normalized to null (no dedup).
+ * 7. Helper rethrows non-UNIQUE errors (e.g. FK violation).
+ * 8. Public input schemas normalize empty-string idempotencyKey to omitted.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -25,10 +25,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { hardwareOutbox, tenants } from '../db/schema.js';
 import { enqueueHardware } from '../services/peripherals/enqueue-hardware.js';
-import {
-  kickCashDrawerInput,
-  printReceiptInput,
-} from '../trpc/schemas/peripherals.js';
+import { kickCashDrawerInput, printReceiptInput } from '../trpc/schemas/peripherals.js';
 
 let server: PuntovivoServer;
 
@@ -60,7 +57,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('hardware idempotency input schemas (ENG-067b)', () => {
+describe('hardware idempotency input schemas', () => {
   it('normalizes empty-string idempotencyKey to omitted at the tRPC boundary', () => {
     const printInput = printReceiptInput.parse({
       saleId: 'sale-1',
@@ -77,7 +74,7 @@ describe('hardware idempotency input schemas (ENG-067b)', () => {
   });
 });
 
-describe('enqueueHardware (ENG-067b)', () => {
+describe('enqueueHardware', () => {
   it('inserts a fresh row when idempotencyKey is omitted', async () => {
     const db = getDatabase();
     const h = await seedHarness('omit');
@@ -230,9 +227,7 @@ describe('enqueueHardware (ENG-067b)', () => {
       .where(eq(hardwareOutbox.tenantId, h.tenantId))
       .all();
     expect(rows).toHaveLength(2);
-    expect(new Set(rows.map(r => r.kind))).toEqual(
-      new Set(['print-receipt', 'kick-drawer'])
-    );
+    expect(new Set(rows.map(r => r.kind))).toEqual(new Set(['print-receipt', 'kick-drawer']));
   });
 
   it('empty-string idempotencyKey is normalized to null (no dedup)', async () => {

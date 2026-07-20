@@ -1,7 +1,7 @@
 /**
- * Service helpers for Phase 2 DB-101 / API-101 — per-site inventory balances.
+ * Service helpers for per-site inventory balances.
  *
- * Thin re-export barrel. ENG-178 Slice 20 decomposed the original 553-LOC
+ * Thin re-export barrel.  Slice 20 decomposed the original 553-LOC
  * service into per-concern modules under `inventory-balances/`; this file
  * keeps the public surface stable so every importer resolves through
  * `services/inventory-balances.js` unchanged.

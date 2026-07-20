@@ -15,10 +15,10 @@ import { paginationInput } from './common.js';
 // ============================================================================
 
 export const paymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'credit', 'other']);
-// ENG-014 — split-tender method enum mirrors paymentMethodEnum so a single
+// split-tender method enum mirrors paymentMethodEnum so a single
 // sale can mix instant tenders (cash / card / transfer / other) with a
 // credit portion that lands as an IOU on `customer_ledger_entries`. The
-// "all-or-nothing" credit restriction shipped in ENG-090 was the only thing
+// "all-or-nothing" credit restriction shipped in  was the only thing
 // blocking apartado / layaway; the resolver now sums credit tenders and
 // fires the limit invariant + ledger hook for that portion only.
 export const splitPaymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'credit', 'other']);
@@ -38,7 +38,7 @@ export const saleItemInput = z
     unitPrice: z.number().min(0, 'Unit price must be non-negative'),
     discount: z.number().min(0).max(100).default(0),
     taxRate: z.number().min(0).max(100).optional(),
-    // ENG-039d2 — per-line modifier ("sin cebolla", "extra queso").
+    // per-line modifier ("sin cebolla", "extra queso").
     // 280-char cap mirrors restaurantTables.notes. Empty / whitespace
     // strings collapse to null at the resolver to keep the column
     // semantically two-state: present (real note) or absent.
@@ -63,7 +63,7 @@ export const getSaleInput = z.object({
  * One tender applied to a sale. Split-payment sales supply an array of these;
  * single-tender sales use the legacy `paymentMethod` + `amountReceived`
  * fields, which the server normalizes into a single payment row. Credit sales
- * stay on the legacy path until Phase 5 adds on-account balances and abonos.
+ * stay on the legacy path until adds on-account balances and abonos.
  */
 export const salePaymentInput = z
   .object({
@@ -101,7 +101,7 @@ const checkoutApprovalReferencesInput = z
   });
 
 /**
- * ENG-039d — restaurant tip / propina method enum. `tipAmount` defaults
+ * restaurant tip / propina method enum. `tipAmount` defaults
  * to 0 so retail tenants that ignore the input pay no contract cost.
  * The cross-field `.refine()` below rejects the "method picked, amount
  * zeroed by stale form" bug.
@@ -121,7 +121,7 @@ export const createSaleInput = z
     tipAmount: z.number().min(0).default(0),
     tipMethod: tipMethodEnum.optional(),
     /**
-     * ENG-039d3 — restaurant service charge / propina sugerida. Driven
+     * restaurant service charge / propina sugerida. Driven
      * by `tenants.settings.restaurant.serviceChargeRate`; the server
      * re-validates `serviceChargeAmount ≈ subtotal × rate / 100` to
      * reject stale-form drift. `serviceChargeRate` (0–30%) is echoed
@@ -130,7 +130,7 @@ export const createSaleInput = z
     serviceChargeAmount: z.number().min(0).default(0),
     serviceChargeRate: z.number().min(0).max(30).optional(),
     /**
-     * Phase 2 Tier-2 step 5 — optional multi-tender list. When present, the
+     * optional multi-tender list. When present, the
      * server validates Σ(amount) ≈ total and persists a row per tender. The
      * legacy `paymentMethod` + `amountReceived` pair is ignored for
      * persistence in this mode but still echoed onto `sales.paymentMethod`
@@ -138,20 +138,20 @@ export const createSaleInput = z
      */
     payments: z.array(salePaymentInput).optional(),
     /**
-     * ENG-039c — optional restaurant table the draft is being opened on.
+     * optional restaurant table the draft is being opened on.
      * Server validates the row belongs to the active tenant and is active
      * before persisting the FK. Non-restaurant callers omit it.
      */
     tableId: z.string().min(1).optional(),
     /**
-     * ENG-090 / ENG-106c2 — credit-limit override. Admins carry direct
+     * /  — credit-limit override. Admins carry direct
      * authority; non-admin checkout completions must include the exact
      * credit_override request that the sale transaction consumes.
      */
     creditOverride: z.boolean().optional(),
-    /** ENG-106c2 — one action-specific, one-time approval per cashier gate. */
+    /** one action-specific, one-time approval per cashier gate. */
     approvalRequests: checkoutApprovalReferencesInput.optional(),
-    /** ENG-209 — local cart start; server bounds it against completion time. */
+    /** local cart start; server bounds it against completion time. */
     checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
   })
   .strict()
@@ -172,7 +172,7 @@ export const createSaleInput = z
       path: ['customerId'],
     }
   )
-  // ENG-014 — split tender may include a credit portion; require customer.
+  // split tender may include a credit portion; require customer.
   .refine(
     value =>
       !value.payments?.some(p => p.method === 'credit') ||
@@ -209,7 +209,7 @@ export const returnSaleInput = z
   .strict();
 
 // ============================================================================
-// ENG-018 — park-and-resume inputs
+// park-and-resume inputs
 // ============================================================================
 
 /**
@@ -224,7 +224,7 @@ export const suspendSaleInput = z
     saleId: z.string().min(1, 'Sale ID is required'),
     label: z.string().trim().max(80).optional(),
     /**
-     * ENG-039c — optional restaurant table FK. When present, the server
+     * optional restaurant table FK. When present, the server
      * validates against the tenant catalog and refreshes `suspendedLabel`
      * to the resolved table name so the panel display stays in sync.
      */
@@ -233,7 +233,7 @@ export const suspendSaleInput = z
   .strict();
 
 /**
- * ENG-039c — Input for `sales.changeTable`. Moves a suspended draft
+ * Input for `sales.changeTable`. Moves a suspended draft
  * between restaurant tables, or detaches it back to free-text mode by
  * passing `null`. The mutation gates on the existing owner-or-manager
  * rule mirrored from `sales.resume`.
@@ -247,21 +247,21 @@ export const changeSaleTableInput = z
   .strict();
 
 /**
- * ENG-039c3 — Input for `sales.splitDraft`. Moves the chosen sale items
+ * Input for `sales.splitDraft`. Moves the chosen sale items
  * out of `sourceSaleId` into a brand-new suspended draft so the
  * operator can bill multiple guests separately. v1 moves items at full
  * quantity; partial-quantity splits stay deferred for a later slice.
  *
  * - `saleItemIds` must be non-empty and every id must currently belong
- *   to the source draft. Mismatches collapse to a single error code so
- *   we do not leak cross-draft existence.
+ * to the source draft. Mismatches collapse to a single error code so
+ * we do not leak cross-draft existence.
  * - `tableId` is the FK for the NEW draft. `null` leaves the new draft
- *   free-text; non-null is validated against the active table catalog
- *   for the source draft's site (same shape as `changeTable`).
+ * free-text; non-null is validated against the active table catalog
+ * for the source draft's site (same shape as `changeTable`).
  * - `label` provides an optional free-text fallback when `tableId` is
- *   null. Ignored when `tableId` resolves to a real row (the resolved
- *   table name takes precedence so the panel display stays in sync
- *   with the FK, matching `suspend`/`changeTable`).
+ * null. Ignored when `tableId` resolves to a real row (the resolved
+ * table name takes precedence so the panel display stays in sync
+ * with the FK, matching `suspend`/`changeTable`).
  */
 export const splitDraftInput = z
   .object({
@@ -296,9 +296,9 @@ export const listDraftsInput = z.object({
 
 /**
  * Input for `sales.discardDraft`. Marks a draft as `status='cancelled'`
- * AND reverses the stock debited at draft create-time — the pre-ENG-018c
+ * AND reverses the stock debited at draft create-time — the pre-
  * comment claimed drafts never decremented inventory, but `sales.create`
- * debits on any status. ENG-018c fix restores the symmetry with
+ * debits on any status.  fix restores the symmetry with
  * `sales.void`.
  */
 export const discardDraftInput = z
@@ -308,7 +308,7 @@ export const discardDraftInput = z
   .strict();
 
 /**
- * Input for `sales.completeDraft` (ENG-018c). Transitions an existing
+ * Input for `sales.completeDraft` (). Transitions an existing
  * draft to `status='completed'`, inserts payments + cash movement, and
  * leaves items untouched. The draft must NOT be suspended — if
  * `suspended_at` is non-null the caller must first `sales.resume` to
@@ -319,15 +319,15 @@ export const completeDraftInput = z
   .object({
     saleId: z.string().min(1, 'Sale ID is required'),
     /**
-     * ENG-216 — the customer attached at payment time.
+     * the customer attached at payment time.
      *
-     * ENG-014 originally locked the draft's customer at create-time, but
+     * originally locked the draft's customer at create-time, but
      * the payment drawer is the app's ONLY customer-attach surface: a
-     * suspended ticket is created with no customer, so the lock silently
+     * suspended change is created with no customer, so the lock silently
      * dropped whatever the cashier picked and recorded every resumed sale
      * as a walk-in — taking credit sales and loyalty accrual with it.
      *
-     * Omit to keep the draft's stored customer (the pre-ENG-216 shape);
+     * Omit to keep the draft's stored customer (the pre- shape);
      * pass an id to attach or re-assign; pass null to clear it. The server
      * validates the id against the tenant and re-runs the credit-cupo
      * preflight against whoever is resolved, so re-assignment cannot dodge
@@ -341,7 +341,7 @@ export const completeDraftInput = z
     tipAmount: z.number().min(0).default(0),
     tipMethod: tipMethodEnum.optional(),
     /**
-     * ENG-039d3 — see `createSaleInput.serviceChargeAmount`. The server
+     * see `createSaleInput.serviceChargeAmount`. The server
      * re-validates the amount against the live tenant rate at commit
      * time so a long-suspended draft cannot bypass a rate change.
      */
@@ -356,13 +356,13 @@ export const completeDraftInput = z
      */
     payments: z.array(salePaymentInput).optional(),
     /**
-     * ENG-090 / ENG-106c2 — mirrors createSaleInput.creditOverride for
+     * /  — mirrors createSaleInput.creditOverride for
      * frozen drafts. Non-admin callers need a payload-bound admin grant.
      */
     creditOverride: z.boolean().optional(),
-    /** ENG-106c2 — references are re-bound to the exact frozen draft snapshot. */
+    /** references are re-bound to the exact frozen draft snapshot. */
     approvalRequests: checkoutApprovalReferencesInput.optional(),
-    /** ENG-209 — reset when a suspended draft is resumed into the local cart. */
+    /** reset when a suspended draft is resumed into the local cart. */
     checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
   })
   .strict()
@@ -375,9 +375,9 @@ export const completeDraftInput = z
     path: ['serviceChargeAmount'],
   });
 
-// ENG-014 / ENG-216 — no Zod refine here for "credit tender requires
+// /  — no Zod refine here for "credit tender requires
 // customerId". The effective customer is the input's when it carries one
-// and the draft row's otherwise (ENG-216 lifted the create-time lock), so
+// and the draft row's otherwise ( lifted the create-time lock), so
 // the pair can only be judged after that resolution — which Zod, seeing
 // the input alone, cannot do. The service layer enforces the invariant in
 // `runCompleteDraft` via the `hasCreditPortion` guard, which throws
@@ -385,7 +385,7 @@ export const completeDraftInput = z
 // source yields a customer.
 
 // ============================================================================
-// ENG-019 — receipt reprint input
+// receipt reprint input
 // ============================================================================
 
 /**

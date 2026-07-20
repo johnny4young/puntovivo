@@ -1,5 +1,5 @@
 /**
- * ENG-035a + ENG-036a — Admin router de `fiscal.settings.*`.
+ * Router administrativo de `fiscal.settings.*`.
  *
  * Tres procedures:
  *
@@ -107,13 +107,11 @@ export const fiscalSettingsRouter = router({
         validation,
         providerId: adapter.providerId,
         maturity: adapter.maturity,
-        notImplemented: (adapter as { notImplemented?: boolean }).notImplemented ?? false,
-        availableInTicket: (adapter as { availableInTicket?: string }).availableInTicket ?? null,
       };
     }
 
     if (input.countryCode === 'CL') {
-      // ENG-036a — desempaca settings CL del namespace
+      // desempaca settings CL del namespace
       // `tenants.settings.fiscal.cl.*` para que el frontend
       // hidrate el form sin un segundo round-trip.
       const cl = readClFiscalSettings(tenantSettings);
@@ -123,14 +121,12 @@ export const fiscalSettingsRouter = router({
         validation,
         providerId: adapter.providerId,
         maturity: adapter.maturity,
-        notImplemented: (adapter as { notImplemented?: boolean }).notImplemented ?? false,
-        availableInTicket: (adapter as { availableInTicket?: string }).availableInTicket ?? null,
       };
     }
 
-    // CO (ENG-184): real settings projection + presence-based
+    // CO: proyección de settings y readiness basado en presencia.
     // readiness. The mock adapter's `validateConfig` is always-ok (it
-    // owns CUFE/transmission validation, deferred to ENG-021); for the
+    // owns CUFE/transmission validation); for the
     // config card we surface a PRESENCE probe instead so the badge is
     // honest about whether NIT / resolution / numbering are captured.
     const co = readCoFiscalSettings(tenantSettings);
@@ -140,8 +136,6 @@ export const fiscalSettingsRouter = router({
       validation: validateCoFiscalConfig(co),
       providerId: adapter.providerId,
       maturity: adapter.maturity,
-      notImplemented: (adapter as { notImplemented?: boolean }).notImplemented ?? false,
-      availableInTicket: (adapter as { availableInTicket?: string }).availableInTicket ?? null,
     };
   }),
 
@@ -236,7 +230,7 @@ export const fiscalSettingsRouter = router({
   }),
 
   /**
-   * ENG-036a — Patch parcial sobre `tenants.settings.fiscal.cl`.
+   * Patch parcial sobre `tenants.settings.fiscal.cl`.
    * Espejo de `updateMx`: valida server-side el RUT (algoritmo
    * SII) + el giro contra el catálogo CIIU.cl, persiste, y
    * re-corre `validateConfig` para que la respuesta lleve el
@@ -319,13 +313,13 @@ export const fiscalSettingsRouter = router({
   }),
 
   /**
-   * ENG-184 — Patch parcial sobre la config fiscal de Colombia. El
+   * Patch parcial sobre la config fiscal de Colombia. El
    * switch maestro `enabled` se persiste en el flag legacy
    * `tenants.settings.fiscal_dian_enabled` (leído por el orchestrator
    * de emisión + readiness); los campos del emisor van a
    * `tenants.settings.fiscal.co.*`. Valida el NIT y el orden del rango
    * antes de escribir, y devuelve un readiness de presencia fresco
-   * (no cripto — la transmisión real sigue gated en ENG-021).
+   * (sin firma criptográfica ni transmisión real).
    */
   updateCo: adminProcedure.input(updateCoFiscalSettingsInput).mutation(async ({ ctx, input }) => {
     // A-33 — NIT: valida el DÍGITO DE VERIFICACIÓN DIAN, no solo el
@@ -396,7 +390,7 @@ export const fiscalSettingsRouter = router({
   }),
 
   /**
-   * ENG-036b — Read-only CAF lookup. Surface the admin tab consumes
+   * Read-only CAF lookup. Surface the admin tab consumes
    * to render "folios disponibles" without mutating cursor state.
    * Returns null when the country is not CL (or the country has no
    * CAF concept) — keeps the response shape stable across countries.

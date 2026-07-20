@@ -1,5 +1,5 @@
 /**
- * HTML sanitiser for the `print-receipt` IPC handler — ENG-166.
+ * HTML sanitiser for the `print-receipt` IPC handler — .
  *
  * The renderer hands the main process a fully composed receipt HTML
  * document via `ipcRenderer.invoke('print-receipt', html)`. The main
@@ -12,21 +12,21 @@
  * the boundary kills the class of attack outright.
  *
  * What stays:
- *   - Block + inline structural tags (`<div>`, `<span>`, `<p>`, tables,
- *     `<br>`, `<hr>`, headings, lists) needed for receipt layout.
- *   - Inline `<style>` blocks AND `style="..."` attributes — receipt
- *     templates rely heavily on inline CSS for thermal-printer fidelity.
- *   - `<img>` tags with `src` allowlisted to `data:` URLs only (no
- *     `http(s):` so a poisoned template cannot beacon).
- *   - `class` + `id` attributes, since the renderer's CSS keys off them.
+ * - Block + inline structural tags (`<div>`, `<span>`, `<p>`, tables,
+ * `<br>`, `<hr>`, headings, lists) needed for receipt layout.
+ * - Inline `<style>` blocks AND `style="..."` attributes — receipt
+ * templates rely heavily on inline CSS for thermal-printer fidelity.
+ * - `<img>` tags with `src` allowlisted to `data:` URLs only (no
+ * `http(s):` so a poisoned template cannot beacon).
+ * - `class` + `id` attributes, since the renderer's CSS keys off them.
  *
  * What goes:
- *   - `<script>`, `<iframe>`, `<object>`, `<embed>`, `<link rel>`,
- *     caller-provided `<meta http-equiv>`, every `on*` event handler
- *     attribute. The sanitizer injects its own locked print-window CSP
- *     after stripping the caller payload.
- *   - Any `src`/`href` value with a non-`data:` scheme (no http, no
- *     javascript:, no vbscript:).
+ * - `<script>`, `<iframe>`, `<object>`, `<embed>`, `<link rel>`,
+ * caller-provided `<meta http-equiv>`, every `on*` event handler
+ * attribute. The sanitizer injects its own locked print-window CSP
+ * after stripping the caller payload.
+ * - Any `src`/`href` value with a non-`data:` scheme (no http, no
+ * javascript:, no vbscript:).
  *
  * The whole module is a pure function so it can be unit-tested under
  * `node --test` without booting Electron.
@@ -122,7 +122,7 @@ function injectPrintWindowCsp(html: string): string {
 
 /**
  * Strip every active HTML construct from the receipt payload. Idempotent
- * — running this on already-sanitised HTML is a no-op. Throws never;
+ * running this on already-sanitised HTML is a no-op. Throws never;
  * malformed input produces the empty string (caller decides what to do).
  */
 export function sanitisePrintHtml(input: string): string {
@@ -133,9 +133,9 @@ export function sanitisePrintHtml(input: string): string {
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: ALLOWED_ATTRIBUTES,
     // Style preserved verbatim — receipt CSS is operator-authored and
-    // already constrained by the template editor's allow-list (ENG-016).
+    // already constrained by the template editor's allow-list ().
     // Locking down individual declarations would force every existing
-    // template through a re-validation pass; out of scope for ENG-166.
+    // template through a re-validation pass; out of scope for .
     allowedStyles: {},
     // The print document intentionally keeps inline CSS for thermal
     // fidelity. We account for the risk by injecting a locked CSP below,

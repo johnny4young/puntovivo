@@ -1,5 +1,5 @@
 /**
- * ENG-194b — Per-tenant cash-close settings.
+ * Per-tenant cash-close settings.
  *
  * Mirrors the restaurant-settings pattern (`services/restaurant/settings.ts`):
  * defensive read of `tenants.settings.cashClose.*`, merge with the
@@ -8,7 +8,7 @@
  * Today the only field is `blindClose`. `true` (the default) keeps the
  * anti-fraud blind close: cashiers count the till without seeing the
  * expected balance, and only managers/admins get the live over/short
- * semaphore (ENG-194). `false` is an explicit tenant opt-out — e.g. an
+ * semaphore (). `false` is an explicit tenant opt-out — e.g. an
  * owner-operated shop — that shows the live semaphore to every role.
  *
  * The value reaches the POS through the `auth.me` session payload (the

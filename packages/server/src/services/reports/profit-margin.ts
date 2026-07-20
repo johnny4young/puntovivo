@@ -1,5 +1,5 @@
 /**
- * ENG-190 — Profit / margin report query.
+ * Profit / margin report query.
  *
  * Surfaces realized gross margin by sourcing COGS from the per-lot ledger
  * (`sale_item_lots`) that Phase C.2 populates, falling back to the
@@ -8,21 +8,21 @@
  * `docs/INVENTORY-MODEL.md` §Phase C.
  *
  * Correctness notes baked into the query:
- *   - Eligible sales use the SAME realized-revenue filter as
- *     `dashboard.summary` (completed AND not refunded) so revenue is
- *     consistent across surfaces. A refunded sale keeps `status='completed'`
- *     (returnSale only flips `paymentStatus`) but has its `sale_item_lots`
- *     rows deleted by `restoreLotsForSale`; excluding it here is what stops
- *     its COGS from collapsing to 0 while its revenue still counts.
- *   - Per line, COGS comes from the lot ledger when the line has ≥1 lot row
- *     (the auditable per-lot cost), otherwise from
- *     `cost_at_sale × normalized quantity`. `cost_at_sale` is the product's
- *     base-unit cost snapshot, so packaging / case sales must include the
- *     line's `unit_equivalence`.
- *     Presence of lot rows is the history-faithful signal — a line sold
- *     before `tracks_lots` was enabled has none.
- *   - Every monetary intermediate + accumulation passes through `roundMoney`
- *     (ENG-176a: uniform 2-decimal, half-away-from-zero).
+ * - Eligible sales use the SAME realized-revenue filter as
+ * `dashboard.summary` (completed AND not refunded) so revenue is
+ * consistent across surfaces. A refunded sale keeps `status='completed'`
+ * (returnSale only flips `paymentStatus`) but has its `sale_item_lots`
+ * rows deleted by `restoreLotsForSale`; excluding it here is what stops
+ * its COGS from collapsing to 0 while its revenue still counts.
+ * - Per line, COGS comes from the lot ledger when the line has ≥1 lot row
+ * (the auditable per-lot cost), otherwise from
+ * `cost_at_sale × normalized quantity`. `cost_at_sale` is the product's
+ * base-unit cost snapshot, so packaging / case sales must include the
+ * line's `unit_equivalence`.
+ * Presence of lot rows is the history-faithful signal — a line sold
+ * before `tracks_lots` was enabled has none.
+ * - Every monetary intermediate + accumulation passes through `roundMoney`
+ * (: uniform 2-decimal, half-away-from-zero).
  *
  * @module services/reports/profit-margin
  */
@@ -156,9 +156,7 @@ export function computeProfitMarginReport(
   for (const line of lines) {
     saleIds.add(line.saleId);
     const lineRevenue = roundMoney(line.revenue);
-    const baseQuantity = roundQuantity(
-      normalizedQuantity(line.quantity, line.unitEquivalence)
-    );
+    const baseQuantity = roundQuantity(normalizedQuantity(line.quantity, line.unitEquivalence));
     const hasLots = lotCostByItem.has(line.saleItemId);
     const lineCogs = hasLots
       ? roundMoney(lotCostByItem.get(line.saleItemId) ?? 0)

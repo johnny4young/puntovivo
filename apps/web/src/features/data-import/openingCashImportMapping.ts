@@ -1,4 +1,4 @@
-/** ENG-123e — Opening-cash column mapping and payload helpers. */
+/** Opening-cash column mapping and payload helpers. */
 import type { ParsedImportFile } from './fileParser';
 import { normalizeImportHeader } from './mappingUtils';
 

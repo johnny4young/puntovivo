@@ -1,5 +1,5 @@
 /**
- * ENG-040c slice 1 — Whisper-style audio transcription.
+ * slice 1 — Whisper-style audio transcription.
  *
  * Routes a base64-encoded audio clip through the tenant's configured
  * transcription-capable AI provider and returns the transcript text +
@@ -8,7 +8,7 @@
  * counterpart of `extractInvoiceFromImage` in `vision/invoice-ocr.ts`.
  *
  * Slice 1 ships the pipeline + tRPC mutation. Audio capture UI + the
- * `transcript → cart command` parser land as ENG-040c slice 2 / 3.
+ * `transcript → cart command` parser land as  slice 2 / 3.
  *
  * @module services/ai/voice/transcribe
  */
@@ -23,8 +23,8 @@ import type { AIProvider } from '../providers/types.js';
 import { resolveAISettings } from '../client.js';
 
 /** Supported audio MIME types — covers MediaRecorder outputs across
- *  Chrome / Firefox / Safari plus the common upload mime types Whisper
- *  accepts (mp3, mp4, mpeg, mpga, m4a, wav, webm). */
+ * Chrome / Firefox / Safari plus the common upload mime types Whisper
+ * accepts (mp3, mp4, mpeg, mpga, m4a, wav, webm). */
 export const VOICE_TRANSCRIBE_MIME_TYPES = [
   'audio/webm',
   'audio/mp4',
@@ -77,10 +77,10 @@ export interface VoiceTranscribeResult {
 export type VoiceProviderFactory = (id: AIProvider['id'] | null) => AIProvider;
 
 /** Voice-specific factory: returns the configured provider AS-IS so
- *  the capability check in `transcribeAudio` can surface
- *  `AI_VOICE_NOT_AVAILABLE` for stubs (Anthropic + Ollama) instead of
- *  the generic `AI_PROVIDER_ERROR` that `defaultFactory` in client.ts
- *  emits. */
+ * the capability check in `transcribeAudio` can surface
+ * `AI_VOICE_NOT_AVAILABLE` for stubs (Anthropic + Ollama) instead of
+ * the generic `AI_PROVIDER_ERROR` that `defaultFactory` in client.ts
+ * emits. */
 const defaultVoiceFactory: VoiceProviderFactory = id => getProvider(id);
 
 function decodedByteLength(base64: string): number {
@@ -196,7 +196,7 @@ export async function transcribeAudio(
     const language = result.language ?? null;
     const audioDurationSeconds = result.durationInSeconds ?? 0;
 
-    // ENG-040c slice 1 — Whisper bills per minute of audio, not per
+    // slice 1 — Whisper bills per minute of audio, not per
     // token. Reuse the provider's `transcriptionPricing` map (falling
     // back to the default model id when the operator overrides to a
     // model that isn't priced) and compute the cost inline; the
@@ -215,7 +215,7 @@ export async function transcribeAudio(
     // seconds so cross-feature spend reports stay denormalised under a
     // single column. Bounded by `VOICE_TRANSCRIBE_MAX_BYTES` so the
     // value comfortably fits an INTEGER. Adding a typed
-    // `details JSON` column lives in BACKLOG.
+    // `details JSON` column is deferred.
     const { id: auditLogId } = await recordCall(ctx.db, {
       tenantId: ctx.tenantId,
       siteId: ctx.siteId,

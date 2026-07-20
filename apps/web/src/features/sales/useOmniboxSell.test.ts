@@ -1,5 +1,5 @@
 /**
- * ENG-203 — omnibox sell resolution contract.
+ * omnibox sell resolution contract.
  *
  * The hook writes straight into the cart workspace store (no SalesPage
  * mount), so the suite drives the REAL zustand store and asserts the
@@ -85,7 +85,7 @@ function makeLookupResult(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe('useOmniboxSell (ENG-203)', () => {
+describe('useOmniboxSell', () => {
   let navigate: NavigateFunction;
 
   beforeEach(() => {

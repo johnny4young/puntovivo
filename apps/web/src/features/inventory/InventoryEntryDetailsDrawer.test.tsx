@@ -1,12 +1,12 @@
 /**
- * ENG-132g — InventoryEntryDetailsDrawer tests.
+ * InventoryEntryDetailsDrawer tests.
  *
  * Pins the row-detail Drawer holding the columns trimmed off the default
  * Entries table:
- *   - renders the trimmed fields (unit, normalized, cost, stock-after, notes);
- *   - the Close footer action calls onClose;
- *   - stays closed when `item` is null;
- *   - no serious accessibility violations.
+ * - renders the trimmed fields (unit, normalized, cost, stock-after, notes);
+ * - the Close footer action calls onClose;
+ * - stays closed when `item` is null;
+ * - no serious accessibility violations.
  *
  * @module features/inventory/InventoryEntryDetailsDrawer.test
  */
@@ -37,7 +37,7 @@ const item = {
   unitAbbreviation: 'UND',
 } as InitialInventoryEntry;
 
-describe('InventoryEntryDetailsDrawer (ENG-132g)', () => {
+describe('InventoryEntryDetailsDrawer', () => {
   it('renders the trimmed entry fields', () => {
     render(<InventoryEntryDetailsDrawer item={item} onClose={vi.fn()} />);
 
@@ -70,15 +70,11 @@ describe('InventoryEntryDetailsDrawer (ENG-132g)', () => {
   it('stays closed when item is null', () => {
     render(<InventoryEntryDetailsDrawer item={null} onClose={vi.fn()} />);
 
-    expect(
-      screen.queryByTestId('inventory-entry-details-drawer')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('inventory-entry-details-drawer')).not.toBeInTheDocument();
   });
 
   it('has no serious accessibility violations', async () => {
-    const { baseElement } = render(
-      <InventoryEntryDetailsDrawer item={item} onClose={vi.fn()} />
-    );
+    const { baseElement } = render(<InventoryEntryDetailsDrawer item={item} onClose={vi.fn()} />);
     await assertNoA11yViolations(baseElement);
   });
 });

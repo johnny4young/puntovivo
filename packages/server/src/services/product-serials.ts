@@ -1,4 +1,4 @@
-/** ENG-110c — deterministic per-unit receipt, checkout, reversal and lookup. */
+/** deterministic per-unit receipt, checkout, reversal and lookup. */
 import { and, eq, inArray, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 

@@ -1,7 +1,7 @@
 /**
  * Inventory-transfer void (reversal) orchestrator.
  *
- * ENG-206 — promoted from services into the application use-case boundary.
+ * promoted from services into the application use-case boundary.
  *
  * @module application/inventory/voidInventoryTransfer
  */
@@ -25,8 +25,8 @@ import type { VoidTransferArgs, VoidedTransfer } from '../../services/inventory-
 
 /**
  * Voids a completed transfer by reversing every line item:
- *   - Destination `on_hand` is decremented by the item quantity.
- *   - Origin `on_hand` is incremented by the same quantity.
+ * - Destination `on_hand` is decremented by the item quantity.
+ * - Origin `on_hand` is incremented by the same quantity.
  * The transfer row's `status` becomes `void`.
  *
  * Rejects with `TRANSFER_ALREADY_VOID` if the transfer is already voided, and
@@ -89,7 +89,7 @@ export function voidInventoryTransfer(
       .all();
 
     // The destination debit on void matches whatever was credited at receive
-    // time. Legacy rows (pre-UI-103) have receivedQuantity = null → coalesce
+    // time. Legacy rows have receivedQuantity = null → coalesce
     // to the shipped quantity to preserve existing void semantics.
     const itemsWithReversal = items.map(item => ({
       ...item,
@@ -269,7 +269,7 @@ export function voidInventoryTransfer(
       )
       .run();
 
-    // Phase 8 / Tier-2 #8 — audit this sensitive operation. Inside the same
+    // audit this sensitive operation. Inside the same
     // transaction so either both the void and the audit row land, or neither.
     writeAuditLog({
       tx,

@@ -1,4 +1,4 @@
-/** ENG-123f — Fiscal issuer-profile launch migration. */
+/** Fiscal issuer-profile launch migration. */
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
@@ -46,7 +46,7 @@ const coValues = {
   environment: 'habilitación',
 };
 
-describe('ENG-123f fiscal profile migration', () => {
+describe(' fiscal profile migration', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     db = getDatabase();

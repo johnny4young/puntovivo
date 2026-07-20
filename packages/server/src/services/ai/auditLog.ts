@@ -1,5 +1,5 @@
 /**
- * ENG-030 — AI audit-log persistence + reporting helpers.
+ * AI audit-log persistence + reporting helpers.
  *
  * One module-local boundary around the `ai_audit_log` table so the
  * tRPC router and the client-side pipeline can stay free of Drizzle
@@ -44,11 +44,7 @@ export async function currentMonthSpend(
   now: Date = new Date()
 ): Promise<number> {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const startOfNextMonth = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    1
-  ).toISOString();
+  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
   const result = await db
     .select({ total: sum(aiAuditLog.costUsd) })
     .from(aiAuditLog)
@@ -70,7 +66,7 @@ export async function currentMonthSpend(
 export interface ListUsageOptions {
   limit: number;
   /** Opaque cursor returned by the previous page. */
-  // ENG-179b — explicit `| undefined` so the tRPC router can forward
+  // explicit `| undefined` so the tRPC router can forward
   // a Zod-optional `cursor` field.
   cursor?: string | undefined;
 }
@@ -123,7 +119,8 @@ export async function listUsage(
     .limit(safeLimit + 1);
   const hasMore = rows.length > safeLimit;
   const items = hasMore ? rows.slice(0, safeLimit) : rows;
-  const nextCursor = hasMore && items.length > 0 ? encodeUsageCursor(items[items.length - 1]!) : null;
+  const nextCursor =
+    hasMore && items.length > 0 ? encodeUsageCursor(items[items.length - 1]!) : null;
   return { items, nextCursor };
 }
 
@@ -150,7 +147,7 @@ export async function byBreakdown(
   db: DatabaseInstance,
   tenantId: string,
   scope: BreakdownScope,
-  // ENG-179b — explicit `| undefined` on every optional date field.
+  // explicit `| undefined` on every optional date field.
   opts?: { from?: Date | undefined; to?: Date | undefined } | undefined
 ): Promise<BreakdownEntry[]> {
   const column = SCOPE_COLUMN[scope];
@@ -176,9 +173,8 @@ export async function byBreakdown(
     // Null site / user keys surface as the empty string so the UI can
     // render a `Sin sede` / `No site` row without losing the bucket.
     scopeKey: row.scopeKey ?? '',
-    totalCostUsd: typeof row.totalCostUsd === 'number'
-      ? row.totalCostUsd
-      : Number(row.totalCostUsd) || 0,
+    totalCostUsd:
+      typeof row.totalCostUsd === 'number' ? row.totalCostUsd : Number(row.totalCostUsd) || 0,
     callCount: typeof row.callCount === 'number' ? row.callCount : Number(row.callCount) || 0,
   }));
 }

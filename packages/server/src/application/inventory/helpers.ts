@@ -1,4 +1,4 @@
-/** ENG-206 — Shared inventory mutation helpers. */
+/** Shared inventory mutation helpers. */
 import { TRPCError } from '@trpc/server';
 import { normalizedQuantity as resolveNormalizedQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq } from 'drizzle-orm';
@@ -40,10 +40,7 @@ export async function lookupInventoryJournalEventId(
     .select({ id: operationEvents.id })
     .from(operationEvents)
     .where(
-      and(
-        eq(operationEvents.tenantId, tenantId),
-        eq(operationEvents.operationId, operationId)
-      )
+      and(eq(operationEvents.tenantId, tenantId), eq(operationEvents.operationId, operationId))
     )
     .get();
   return row?.id ?? null;

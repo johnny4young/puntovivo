@@ -113,7 +113,7 @@ describe('Cash sessions tRPC Router', () => {
     siteId = seededSite.id;
     baseUnitId = baseUnit.id;
 
-    // ENG-052b — register one device per test file for the active
+    // register one device per test file for the active
     // tenant. The id is shared across role overrides because device
     // validation in `commandEnvelope` is scoped to (tenantId,
     // deviceId), not user.
@@ -781,7 +781,7 @@ describe('Cash sessions tRPC Router', () => {
     expect(report.recentClosures).toEqual([]);
   });
 
-  // ENG-056 — integration cases proving the router thin wrappers
+  // integration cases proving the router thin wrappers
   // enforce the cash-session boundary: no movement without a session,
   // no movement without a site, and pendingChecks surfaces zero counts
   // for an empty session.

@@ -37,7 +37,7 @@ const CATEGORY_ICONS = {
 
 const AUDIT_REVIEW_CATEGORY_IDS = Object.keys(CATEGORY_ICONS) as AuditReviewCategory[];
 
-/** ENG-129f — risk-oriented overview and filter for immutable audit rows. */
+/** risk-oriented overview and filter for immutable audit rows. */
 export function SensitiveAuditReview({
   total,
   categories,

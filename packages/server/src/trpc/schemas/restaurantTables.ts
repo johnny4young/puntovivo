@@ -1,5 +1,5 @@
 /**
- * ENG-039b — input schemas for the `restaurantTables.*` router.
+ * input schemas for the `restaurantTables.*` router.
  *
  * Tables are scoped to `(tenantId, siteId)`. The list query takes a
  * required `siteId` so callers can render the catalog per active site.
@@ -23,9 +23,7 @@ export type ListRestaurantTablesInput = z.infer<typeof listRestaurantTablesInput
 export const getRestaurantTableByIdInput = z.object({
   id: z.string().min(1),
 });
-export type GetRestaurantTableByIdInput = z.infer<
-  typeof getRestaurantTableByIdInput
->;
+export type GetRestaurantTableByIdInput = z.infer<typeof getRestaurantTableByIdInput>;
 
 const seatCountSchema = z.number().int().min(1).max(200).nullable();
 const areaSchema = z.string().trim().max(80).nullable();
@@ -38,9 +36,7 @@ export const createRestaurantTableInput = z.object({
   area: areaSchema.optional(),
   notes: notesSchema.optional(),
 });
-export type CreateRestaurantTableInput = z.infer<
-  typeof createRestaurantTableInput
->;
+export type CreateRestaurantTableInput = z.infer<typeof createRestaurantTableInput>;
 
 export const updateRestaurantTableInput = z.object({
   id: z.string().min(1),
@@ -50,13 +46,9 @@ export const updateRestaurantTableInput = z.object({
   notes: notesSchema.optional(),
   isActive: z.boolean().optional(),
 });
-export type UpdateRestaurantTableInput = z.infer<
-  typeof updateRestaurantTableInput
->;
+export type UpdateRestaurantTableInput = z.infer<typeof updateRestaurantTableInput>;
 
 export const archiveRestaurantTableInput = z.object({
   id: z.string().min(1),
 });
-export type ArchiveRestaurantTableInput = z.infer<
-  typeof archiveRestaurantTableInput
->;
+export type ArchiveRestaurantTableInput = z.infer<typeof archiveRestaurantTableInput>;

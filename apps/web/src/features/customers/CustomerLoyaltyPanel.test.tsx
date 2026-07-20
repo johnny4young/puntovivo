@@ -1,5 +1,5 @@
 /**
- * ENG-215 — the loyalty ledger inside the customer drawer.
+ * the loyalty ledger inside the customer drawer.
  *
  * Two contracts matter here. First, visibility: the panel must stay silent
  * for the tenants that never enabled the program (nobody has points, so a
@@ -50,7 +50,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
 
-describe('CustomerLoyaltyPanel (ENG-215)', () => {
+describe('CustomerLoyaltyPanel', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('es');
     vi.clearAllMocks();

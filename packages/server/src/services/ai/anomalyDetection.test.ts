@@ -1,13 +1,13 @@
 /**
- * Tests para el detector de anomalías ENG-032.
+ * Tests para el detector de anomalías .
  *
  * Cada describe block representa un escenario operativo concreto. Los
  * fixtures comentan en español neutral lo que se está simulando para
  * que el revisor pueda leer la lógica de fraude sin descifrar las
  * fórmulas. Si agregás un fixture nuevo, mantené el formato:
  *
- *   // Escenario: <patrón de fraude> — <una línea de descripción>
- *   // Esperamos: <resultado del detector y por qué>
+ * // Escenario: <patrón de fraude> — <una línea de descripción>
+ * // Esperamos: <resultado del detector y por qué>
  *
  * Convención: tenant A es el sujeto de la mayoría de los tests; tenant
  * B existe sólo para pinear cross-tenant isolation.
@@ -155,7 +155,7 @@ async function makeSale(opts: MakeSaleOpts): Promise<string> {
   const id = nanoid();
   const iso = opts.createdAt.toISOString();
   const status = opts.status ?? 'completed';
-  // ENG-177c — the schema now enforces `cash_session_id IS NOT NULL OR
+  // the schema now enforces `cash_session_id IS NOT NULL OR
   // status = 'draft'`. These fixtures bypass the application layer, so a
   // committed sale without a supplied session would violate the CHECK.
   // Attach a throwaway closed session; the anomaly detectors group by
@@ -293,9 +293,7 @@ describe('detectAnomalies — empty / degenerate', () => {
     // Aún si un cashier hace muchos voids, no hay población suficiente
     // para comparar. El detector retorna sin alertas cross-cashier.
     const cashiers = await Promise.all(
-      Array.from({ length: 3 }).map((_, i) =>
-        makeUser({ tenantId: tenantA, name: `Cashier ${i}` })
-      )
+      Array.from({ length: 3 }).map((_, i) => makeUser({ tenantId: tenantA, name: `Cashier ${i}` }))
     );
     // Cashier 0 = anomalía: 10 voids con apenas 5 sales.
     for (let i = 0; i < 5; i += 1) {
@@ -329,9 +327,7 @@ describe('detectAnomalies — voidRate (Voids fantasma)', () => {
     // 0.5) — "voids fantasma" clásico.
     // Esperamos: 1 alert kind='voidRate', cashierId=Carlos, severity='high'.
     const honest = await Promise.all(
-      Array.from({ length: 5 }).map((_, i) =>
-        makeUser({ tenantId: tenantA, name: `Honest ${i}` })
-      )
+      Array.from({ length: 5 }).map((_, i) => makeUser({ tenantId: tenantA, name: `Honest ${i}` }))
     );
     const carlos = await makeUser({ tenantId: tenantA, name: 'Carlos' });
 
@@ -383,9 +379,7 @@ describe('detectAnomalies — voidRate (Voids fantasma)', () => {
     // Escenario: 6 cashiers con ratios 0.02 ± noise. Nadie es outlier.
     // Esperamos: cero voidRate alerts.
     const cashiers = await Promise.all(
-      Array.from({ length: 6 }).map((_, i) =>
-        makeUser({ tenantId: tenantA, name: `Even ${i}` })
-      )
+      Array.from({ length: 6 }).map((_, i) => makeUser({ tenantId: tenantA, name: `Even ${i}` }))
     );
     for (const cashierId of cashiers) {
       for (let i = 0; i < 50; i += 1) {
@@ -470,9 +464,7 @@ describe('detectAnomalies — noSaleSessions (No-sale opens)', () => {
     // cashier (Andrés) tiene 12 sesiones vacías, todas > 30 min.
     // Esperamos: 1 alert kind='noSaleSessions', cashierId=Andrés.
     const honest = await Promise.all(
-      Array.from({ length: 5 }).map((_, i) =>
-        makeUser({ tenantId: tenantA, name: `Steady ${i}` })
-      )
+      Array.from({ length: 5 }).map((_, i) => makeUser({ tenantId: tenantA, name: `Steady ${i}` }))
     );
     const andres = await makeUser({ tenantId: tenantA, name: 'Andrés' });
 
@@ -526,9 +518,7 @@ describe('detectAnomalies — noSaleSessions (No-sale opens)', () => {
     // ventas. Esperamos: cero alertas, esas son sesiones de chequeo
     // legítimas, no fraude.
     const cashiers = await Promise.all(
-      Array.from({ length: 6 }).map((_, i) =>
-        makeUser({ tenantId: tenantA, name: `Quick ${i}` })
-      )
+      Array.from({ length: 6 }).map((_, i) => makeUser({ tenantId: tenantA, name: `Quick ${i}` }))
     );
     for (const cashierId of cashiers) {
       for (let i = 0; i < 10; i += 1) {

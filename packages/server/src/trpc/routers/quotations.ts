@@ -1,5 +1,5 @@
 /**
- * Quotations tRPC Router (Phase 5 / Tier-2 #6 step 1).
+ * Quotations tRPC Router ().
  *
  * Procedures:
  * - `quotations.create`       (manager+) — create a draft quotation
@@ -18,7 +18,7 @@ import { TRPCError } from '@trpc/server';
 import { router } from '../init.js';
 import { managerOrAdminProcedureWithModule } from '../middleware/modules.js';
 
-// ENG-068 — every procedure in `quotations.*` is gated behind the
+// every procedure in `quotations.*` is gated behind the
 // `quotations` module. When the module is off, the renderer hides
 // the `/quotations` route + nav item AND every server call returns
 // FORBIDDEN with `MODULE_NOT_ACTIVATED`. The role floor stays at
@@ -41,61 +41,53 @@ import {
 } from '../schemas/quotations.js';
 
 export const quotationsRouter = router({
-  create: gatedManagerOrAdmin
-    .input(createQuotationInput)
-    .mutation(async ({ ctx, input }) => {
-      const siteId = input.siteId ?? ctx.siteId;
-      if (!siteId) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'A site is required to create a quotation',
-        });
-      }
-      return createQuotation(ctx.db, {
-        tenantId: ctx.tenantId,
-        siteId,
-        customerId: input.customerId ?? null,
-        items: input.items.map(item => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discount: item.discount ?? 0,
-          taxRate: item.taxRate ?? 0,
-        })),
-        validUntil: input.validUntil ?? null,
-        notes: input.notes ?? null,
-        createdBy: ctx.user!.id,
+  create: gatedManagerOrAdmin.input(createQuotationInput).mutation(async ({ ctx, input }) => {
+    const siteId = input.siteId ?? ctx.siteId;
+    if (!siteId) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'A site is required to create a quotation',
       });
-    }),
+    }
+    return createQuotation(ctx.db, {
+      tenantId: ctx.tenantId,
+      siteId,
+      customerId: input.customerId ?? null,
+      items: input.items.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discount: item.discount ?? 0,
+        taxRate: item.taxRate ?? 0,
+      })),
+      validUntil: input.validUntil ?? null,
+      notes: input.notes ?? null,
+      createdBy: ctx.user!.id,
+    });
+  }),
 
-  list: gatedManagerOrAdmin
-    .input(listQuotationsInput)
-    .query(({ ctx, input }) => {
-      const items = listQuotations(ctx.db, ctx.tenantId, {
-        limit: input?.limit,
-        status: input?.status,
-        customerId: input?.customerId,
+  list: gatedManagerOrAdmin.input(listQuotationsInput).query(({ ctx, input }) => {
+    const items = listQuotations(ctx.db, ctx.tenantId, {
+      limit: input?.limit,
+      status: input?.status,
+      customerId: input?.customerId,
+    });
+    return { items };
+  }),
+
+  getById: gatedManagerOrAdmin.input(getQuotationInput).query(({ ctx, input }) => {
+    const detail = getQuotationById(ctx.db, ctx.tenantId, input.id);
+    if (!detail) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Quotation not found',
+        cause: new ServerErrorWithCode('QUOTATION_NOT_FOUND', 'Quotation not found', {
+          quotationId: input.id,
+        }),
       });
-      return { items };
-    }),
-
-  getById: gatedManagerOrAdmin
-    .input(getQuotationInput)
-    .query(({ ctx, input }) => {
-      const detail = getQuotationById(ctx.db, ctx.tenantId, input.id);
-      if (!detail) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Quotation not found',
-          cause: new ServerErrorWithCode(
-            'QUOTATION_NOT_FOUND',
-            'Quotation not found',
-            { quotationId: input.id }
-          ),
-        });
-      }
-      return detail;
-    }),
+    }
+    return detail;
+  }),
 
   updateStatus: gatedManagerOrAdmin
     .input(updateQuotationStatusInput)
@@ -108,13 +100,11 @@ export const quotationsRouter = router({
       });
     }),
 
-  delete: gatedManagerOrAdmin
-    .input(deleteQuotationInput)
-    .mutation(async ({ ctx, input }) => {
-      return deleteQuotation(ctx.db, {
-        tenantId: ctx.tenantId,
-        quotationId: input.id,
-        actorId: ctx.user!.id,
-      });
-    }),
+  delete: gatedManagerOrAdmin.input(deleteQuotationInput).mutation(async ({ ctx, input }) => {
+    return deleteQuotation(ctx.db, {
+      tenantId: ctx.tenantId,
+      quotationId: input.id,
+      actorId: ctx.user!.id,
+    });
+  }),
 });

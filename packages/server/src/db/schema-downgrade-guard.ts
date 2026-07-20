@@ -1,7 +1,7 @@
 /**
  * A-06 — schema downgrade guard.
  *
- * `electron-updater` runs with `autoDownload: true` and rollback (ENG-137
+ * `electron-updater` runs with `autoDownload: true` and rollback (
  * remaining) does not exist yet, so this failure mode is reachable in the
  * field: an OLD binary opens a DB that a NEWER binary already migrated. The
  * old binary's bundled journal has fewer migrations than the DB has applied;

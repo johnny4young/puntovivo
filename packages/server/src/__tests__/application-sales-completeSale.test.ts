@@ -1,5 +1,5 @@
 /**
- * ENG-054 — Invariant tests for `application/sales/completeSale`.
+ * Invariant tests for `application/sales/completeSale`.
  *
  * These tests call the use-case service directly, without booting
  * Fastify or going through tRPC. The HTTP-shaped tests in
@@ -9,15 +9,15 @@
  *
  * Coverage focus:
  * - Fresh-sale happy path: stock decrement, sequential advance,
- *   payments persisted, sync queue emit.
+ * payments persisted, sync queue emit.
  * - Fresh-sale invariants: customer cross-tenant, discount excess,
- *   split payment, draft (no fiscal / no cash movement).
+ * split payment, draft (no fiscal / no cash movement).
  * - fromDraft path: ownership, suspension state, missing items,
- *   non-draft rejection, happy path with session rebind.
+ * non-draft rejection, happy path with session rebind.
  * - Journal effects emission: with envelope → effects landed in
- *   `operation_effects`; without envelope → silent skip.
+ * `operation_effects`; without envelope → silent skip.
  * - Cross-tenant isolation: completeSale on tenant A leaves tenant B
- *   untouched.
+ * untouched.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -150,11 +150,7 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -167,11 +163,7 @@ beforeAll(async () => {
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
 
-  const seededUnits = await db
-    .select()
-    .from(units)
-    .where(eq(units.tenantId, tenantId))
-    .all();
+  const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
   if (!baseUnit) throw new Error('Expected seeded unit UND');
   baseUnitId = baseUnit.id;
@@ -377,7 +369,7 @@ describe('completeSale (fresh path)', () => {
     });
   });
 
-  it('accumulates a multi-line IVA 19% cart without sub-cent drift (ENG-176a per-line rounding)', async () => {
+  it('accumulates a multi-line IVA 19% cart without sub-cent drift ( per-line rounding)', async () => {
     const productId = await seedProduct({
       name: 'CS Multi-line IVA',
       sku: 'CS-MULTILINE-19',
@@ -902,10 +894,7 @@ describe('completeSale (fromDraft path)', () => {
     });
     const draftId = (draft.sale as { id: string }).id;
 
-    await getDatabase()
-      .delete(saleItems)
-      .where(eq(saleItems.saleId, draftId))
-      .run();
+    await getDatabase().delete(saleItems).where(eq(saleItems.saleId, draftId)).run();
 
     await expect(
       completeSale(buildContext(), {

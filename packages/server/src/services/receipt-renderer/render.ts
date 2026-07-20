@@ -1,7 +1,7 @@
 /**
  * Receipt renderer public orchestrator.
  *
- * ENG-178 — extracted verbatim from the former single-file
+ * extracted verbatim from the former single-file
  * `services/receipt-renderer.ts`. `renderReceipt` maps the layout blocks
  * through the HTML + ESC/POS renderers and wraps the HTML document;
  * `buildPreviewData` synthesizes the deterministic editor-preview dataset.
@@ -21,9 +21,7 @@ export function renderReceipt(
   data: RenderData,
   labels: ReceiptRenderLabels = DEFAULT_RECEIPT_RENDER_LABELS
 ): RenderResult {
-  const htmlBody = layout.blocks
-    .map(block => renderBlockHtml(block, data, labels))
-    .join('\n');
+  const htmlBody = layout.blocks.map(block => renderBlockHtml(block, data, labels)).join('\n');
   const html = buildHtmlDocument(layout, htmlBody, labels.documentTitle);
 
   const widthChars = paperWidthCharsFor(layout.paperWidth);
@@ -66,11 +64,11 @@ export function buildPreviewData(_kind: ReceiptTemplateKind): RenderData {
       subtotal: 84034,
       discount: 5000,
       taxTotal: 14966,
-      // ENG-039d — non-zero preview tip so template designers can
+      // non-zero preview tip so template designers can
       // visualise how the line renders. The runtime renderer pulls
       // the real tip from `sales.tip_amount`.
       tip: 5000,
-      // ENG-039d3 — non-zero preview service charge mirrors the tip
+      // non-zero preview service charge mirrors the tip
       // pattern. Real values come from `sales.service_charge_amount` +
       // `service_charge_rate`. 8403 ≈ 10% of subtotal 84034 keeps the
       // preview math self-consistent.

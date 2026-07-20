@@ -1,6 +1,6 @@
 # Inventory & Units Model — target design and phased migration
 
-Status: living design doc (Auditoría 2026-07). Phase A shipped; B and C are
+Status: living design doc (Auditoría 2026-07). current shipped; B and C are
 staged. This is the world-class target for the units/inventory core and the
 low-risk, additive path to get there without a big-bang migration.
 
@@ -13,7 +13,7 @@ production gate — a standardized unit code on every fiscal e-invoice line.
 
 ## What the model looks like today (baseline)
 
-- `units` — tenant-scoped, `name` + `abbreviation` (+ Phase A columns below).
+- `units` — tenant-scoped, `name` + `abbreviation` (+ current columns below).
 - `unit_x_product` — per-product unit assignment carrying `equivalence`
   (factor to the product's own base unit), `price`, `isBase`.
 - `products.stock` (legacy denormalized real) **and** `inventory_balances`
@@ -52,7 +52,7 @@ inventory_balances (authoritative)  ── site, product, [location], onHand, re
 cost layers (Phase C: FIFO / weighted-average) ──▶ auditable COGS
 ```
 
-## Phase A — units foundation (SHIPPED)
+## current — units foundation (SHIPPED)
 
 Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
 
@@ -94,7 +94,7 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
    stock check already keyed off `inventory_balances`. Because drift is now
    structurally impossible, `reconcileProductStockFromBalances` and the
    discrepancy report are retained but no-op / always-empty. The derived total
-   is MATERIALIZED since ENG-197: `product_stock_totals` (tenant, product →
+   is MATERIALIZED since : `product_stock_totals` (tenant, product →
    total) is maintained exclusively by the SQLite triggers of migration `0008`
    (insert/update-of-on_hand/delete on `inventory_balances`), so `derive.ts`
    reads an O(1) PK point-lookup instead of re-summing balances per product.
@@ -107,7 +107,7 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
 
 ## Phase C — lots, expiry & costing (FOUNDATION SHIPPED)
 
-Phase 1 (data model + FEFO/costing engine + admin surface) is in;
+(data model + FEFO/costing engine + admin surface) is in;
 auto-consumption on the sale path is the next slice.
 
 1. **Lot/batch + expiry (DONE, foundation).** `inventory_lots` (site, product,
@@ -145,7 +145,7 @@ auto-consumption on the sale path is the next slice.
 4. **Serial numbers (STAGED)** — per-unit serials for warranty (electronics,
    tools); unstarted.
 
-Margin/COGS reporting over `sale_item_lots` (DONE — ENG-190). The
+Margin/COGS reporting over `sale_item_lots` (DONE — ). The
 `reports.profit.margin` procedure + the admin Profitability page
 (`/profitability`) surface realized gross margin over a date range, sourcing
 COGS from the per-lot ledger for lot-tracked lines and the `cost_at_sale`

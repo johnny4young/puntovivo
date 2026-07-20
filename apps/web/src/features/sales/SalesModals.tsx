@@ -46,7 +46,7 @@ type SetCartItemsArg = SaleCartItem[] | ((previous: SaleCartItem[]) => SaleCartI
 interface SalesModalsProps {
   // Product search
   isProductSearchOpen: boolean;
-  /** ENG-199 — active POS site, passed only to the suggestion-enabled dialog. */
+  /** active POS site, passed only to the suggestion-enabled dialog. */
   discountSuggestionSiteId?: string | null;
   productSearchDialogKey: number;
   onCloseProductSearch: () => void;
@@ -129,7 +129,7 @@ export function SalesModals({
     state => state.requestedCreateCustomer !== null
   );
 
-  // ENG-200 — loading the payment drawer after the route's first paint keeps
+  // loading the payment drawer after the route's first paint keeps
   // it out of the Lighthouse-critical SalesPage chunk without moving latency
   // into the cashier's F1 interaction. Chromium supports requestIdleCallback;
   // the timer fallback keeps tests and older webviews portable.
@@ -158,7 +158,7 @@ export function SalesModals({
           initialQuery={productSearchInitialQuery}
           title={t('checkout.addProduct')}
           confirmLabel={t('checkout.addToCart')}
-          // ENG-105c — surface the quick-create CTA in the empty
+          // surface the quick-create CTA in the empty
           // state. The dialog closes itself before firing the
           // callback so we just dispatch the request to the store;
           // QuickCreateProductGate mounts the form modal.
@@ -166,7 +166,7 @@ export function SalesModals({
             useQuickCreateStore.getState().requestCreateProduct({ defaultName });
           }}
           canCreateProducts={user?.role === 'admin' || user?.role === 'manager'}
-          // ENG-199 — the POS is the surface where the expiry-radar
+          // the POS is the surface where the expiry-radar
           // suggestion must reach the cashier; other dialog consumers
           // keep the prop off (zero extra queries).
           showDiscountSuggestions
@@ -175,7 +175,7 @@ export function SalesModals({
       )}
       {(shouldRenderQuickCreateProductGate || shouldRenderQuickCreateCustomerGate) && (
         <Suspense fallback={null}>
-          {/* ENG-105c — Quick-create gates stay split out of the hot
+          {/* Quick-create gates stay split out of the hot
            * SalesPage route chunk and only mount when the store flags
            * a request. On success they invoke onCreated so SalesPage
            * can fold the new entity into the active cart / sale, then
@@ -235,12 +235,12 @@ export function SalesModals({
             isSaving={isPaymentSaving}
             error={saleError}
             serviceChargeRate={serviceChargeRate}
-            // ENG-090 — role gates the credit method tile inside the
+            // role gates the credit method tile inside the
             // modal. Cashier never sees it; manager + admin do; admin
             // additionally sees the override checkbox when cupo is
             // exceeded.
             userRole={user?.role}
-            // ENG-105e — F2 fast-cash signal. Positive values apply
+            // F2 fast-cash signal. Positive values apply
             // at mount; later increments re-apply exact cash while open.
             fastCashTrigger={fastCashTrigger}
             restoreFocusTo={paymentRestoreFocusTo}

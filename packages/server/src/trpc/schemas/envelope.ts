@@ -1,5 +1,5 @@
 /**
- * ENG-052 — Zod schema for the Command Envelope (ADR-0002).
+ * Zod schema for the Command Envelope (ADR-0002).
  *
  * Critical mutations carry the envelope as a JSON header
  * `x-puntovivo-envelope`. The middleware
@@ -36,7 +36,7 @@ export const commandEnvelopeSchema = z.object({
   idempotencyKey: z.string().min(8).max(128),
   /**
    * ISO 8601 UTC timestamp from the cashier device clock. Used for
-   * sync ordering (ENG-064) and clock-skew diagnostics. The
+   * sync ordering () and clock-skew diagnostics. The
    * `created_at` column on each emitted row uses the server clock,
    * so this field is metadata only, not a substitute.
    */

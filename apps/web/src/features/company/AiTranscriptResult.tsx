@@ -1,5 +1,5 @@
-// ENG-040c slice 2 — the transcription result panel, extracted from
-// CompanyAISettingsCard.tsx (ENG-178 slice 34). Presentational: the card gates
+// slice 2 — the transcription result panel, extracted from
+// CompanyAISettingsCard.tsx ( slice 34). Presentational: the card gates
 // the render on a non-null result and passes the clear handler.
 
 import { useTranslation } from 'react-i18next';

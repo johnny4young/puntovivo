@@ -1,11 +1,11 @@
 /**
  * Receipt renderer ESC/POS byte builders + block renderer.
  *
- * ENG-178 — extracted verbatim from the former single-file
+ * extracted verbatim from the former single-file
  * `services/receipt-renderer.ts`. The control-byte primitives stay
  * module-private; `ESC` / `LF` / `escposCut` / `renderBlockEscPos` /
  * `paperWidthCharsFor` gain `export` for the orchestrator. The byte output is
- * unchanged (ENG-097 `GS ( k` QR sequence + the same scanner-scheme guard).
+ * unchanged ( `GS ( k` QR sequence + the same scanner-scheme guard).
  *
  * @module services/receipt-renderer/escpos
  */
@@ -78,7 +78,9 @@ export function renderBlockEscPos(
       const out: number[] = [];
       out.push(...escposAlign('left'));
       for (const item of data.sale.items) {
-        const namePiece = item.name.padEnd(Math.max(0, paperWidthChars - 16)).slice(0, paperWidthChars - 16);
+        const namePiece = item.name
+          .padEnd(Math.max(0, paperWidthChars - 16))
+          .slice(0, paperWidthChars - 16);
         const qtyPiece = formatNumber(item.qty).padStart(6);
         const totalPiece = formatReceiptAmount(item.total, data.locale).padStart(10);
         out.push(...bytesFromString(`${namePiece}${qtyPiece}${totalPiece}`));
@@ -120,7 +122,7 @@ export function renderBlockEscPos(
       return out;
     }
     case 'qr': {
-      // ENG-097 — emit the real Epson Standard Mode `GS ( k` QR
+      // emit the real Epson Standard Mode `GS ( k` QR
       // sequence so the printed code scans. Falls through to a
       // placeholder line when the source is empty or the encoder
       // rejects the payload (too long for the chosen EC level) — the
@@ -130,12 +132,7 @@ export function renderBlockEscPos(
       const resolved = safeResolvedScannerSource(block.source, data);
       const qrBytes = encodeQrEscposBytes(resolved);
       if (qrBytes) {
-        return [
-          ...escposAlign('center'),
-          ...qrBytes,
-          ...escposLine(),
-          ...escposAlign('left'),
-        ];
+        return [...escposAlign('center'), ...qrBytes, ...escposLine(), ...escposAlign('left')];
       }
       return [
         ...escposAlign('center'),
@@ -154,14 +151,10 @@ export function renderBlockEscPos(
     }
     case 'barcode128': {
       const resolved = safeResolvedScannerSource(block.source, data);
-      return [
-        ...escposAlign('center'),
-        ...bytesFromString(`[BC: ${resolved}]`),
-        ...escposLine(),
-      ];
+      return [...escposAlign('center'), ...bytesFromString(`[BC: ${resolved}]`), ...escposLine()];
     }
     case 'appFooter': {
-      // ENG-016 pass 1 (item #5) — 3 centered lines of Puntovivo branding.
+      // pass 1 (item #5) — 3 centered lines of Puntovivo branding.
       if (block.show === false) return [];
       const { appName, appVersion, appUrl, appSupport } = APP_FOOTER_METADATA;
       const out: number[] = [...escposAlign(block.align ?? 'center')];
@@ -172,7 +165,7 @@ export function renderBlockEscPos(
       return out;
     }
     case 'wordmark': {
-      // ENG-086 — centered brand lockup. ESC/POS lacks the
+      // centered brand lockup. ESC/POS lacks the
       // mixed-weight typography the HTML preview ships, so the wordmark
       // collapses to a bold lowercase `puntovivo` line plus the handoff
       // tagline on the printed strip.
@@ -189,7 +182,7 @@ export function renderBlockEscPos(
       return out;
     }
     case 'metaTable': {
-      // ENG-086 — render each `{key, value}` row as a left-padded label
+      // render each `{key, value}` row as a left-padded label
       // and a right-aligned interpolated value so the strip stays
       // readable on 32/48-char paper. Empty resolved values drop the
       // row entirely.
@@ -198,10 +191,7 @@ export function renderBlockEscPos(
         const resolvedValue = resolvePlain(row.value, data);
         if (!resolvedValue) continue;
         const resolvedKey = resolvePlain(row.key, data);
-        const gap = Math.max(
-          1,
-          paperWidthChars - resolvedKey.length - resolvedValue.length
-        );
+        const gap = Math.max(1, paperWidthChars - resolvedKey.length - resolvedValue.length);
         const line = `${resolvedKey}${' '.repeat(gap)}${resolvedValue}`;
         out.push(...bytesFromString(line.slice(0, paperWidthChars)));
         out.push(...escposLine());

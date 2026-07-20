@@ -6,7 +6,7 @@ import { formatCurrency } from '@/lib/utils';
 /**
  * Props for {@link WorkspaceTabsSection}.
  *
- * The ENG-018b multi-cart switcher. Renders nothing unless the cashier
+ * The  multi-cart switcher. Renders nothing unless the cashier
  * owns more than one local workspace. Purely presentational — the
  * workspace list + active id + select handler are owned by SalesPage.
  */
@@ -38,9 +38,7 @@ export function WorkspaceTabsSection({
           <p className="text-sm font-semibold text-secondary-950">
             {t('park.localWorkspacesTitle')}
           </p>
-          <p className="text-xs text-secondary-500">
-            {t('park.localWorkspacesDescription')}
-          </p>
+          <p className="text-xs text-secondary-500">{t('park.localWorkspacesDescription')}</p>
         </div>
       </div>
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -72,9 +70,7 @@ export function WorkspaceTabsSection({
               aria-label={t('park.localWorkspaceSelect', { label })}
               data-testid="cart-workspace-switcher-item"
             >
-              <span className="block whitespace-nowrap font-semibold">
-                {label}
-              </span>
+              <span className="block whitespace-nowrap font-semibold">{label}</span>
               <span className="mt-1 block whitespace-nowrap text-xs opacity-75">
                 {t('park.items', { count: workspaceSummary.itemCount })} ·{' '}
                 {formatCurrency(workspaceSummary.total)}

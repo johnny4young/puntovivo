@@ -104,7 +104,7 @@ function violationKind(action: ShiftLossPreventionAction): ShiftLimitViolation['
   return 'no_sale_limit';
 }
 
-/** ENG-142b — evaluate one sensitive action against the actor's open cash shift. */
+/** evaluate one sensitive action against the actor's open cash shift. */
 export function evaluateShiftLossPrevention(args: {
   db: DatabaseInstance;
   tenantId: string;

@@ -1,4 +1,4 @@
-/** ENG-207 — Create-product application use-case. */
+/** Create-product application use-case. */
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -90,7 +90,7 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
     fractionMinimum: input.fractionMinimum,
   });
 
-  // ENG-176b — products carry their own currency_code so an
+  // products carry their own currency_code so an
   // imported product priced in USD can live inside a COP tenant.
   // Default to the tenant currency; future input schemas can add
   // an explicit override for the import-product flow.

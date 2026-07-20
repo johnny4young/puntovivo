@@ -1,14 +1,14 @@
 /**
- * ENG-070 — Projector regression tests.
+ * Projector regression tests.
  *
  * Pure-function tests; no DB. Cover:
- *   - Every operation_kind in the mapping table projects to the
- *     right event type.
- *   - Non-mapped ops return null.
- *   - status='failed'/'started' ops return null.
- *   - Malformed summary returns null (defensive — never throws).
- *   - The fiscal_document.accepted special-case projector validates
- *     payload via the manifest schema.
+ * - Every operation_kind in the mapping table projects to the
+ * right event type.
+ * - Non-mapped ops return null.
+ * - status='failed'/'started' ops return null.
+ * - Malformed summary returns null (defensive — never throws).
+ * - The fiscal_document.accepted special-case projector validates
+ * payload via the manifest schema.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -50,7 +50,7 @@ const baseSaleSummary = {
   paymentMethod: 'cash',
 };
 
-describe('projectOperationEvent — happy paths (ENG-070)', () => {
+describe('projectOperationEvent — happy paths', () => {
   it('sales.create succeeded → sale.completed', () => {
     const op = buildOp({ summary: baseSaleSummary });
     const result = projectOperationEvent({ op });
@@ -126,7 +126,7 @@ describe('projectOperationEvent — happy paths (ENG-070)', () => {
   });
 });
 
-describe('projectOperationEvent — null branches (ENG-070)', () => {
+describe('projectOperationEvent — null branches', () => {
   it('returns null for unmapped operation_kind', () => {
     const op = buildOp({
       operationKind: 'auth.changePassword',
@@ -163,7 +163,7 @@ describe('projectOperationEvent — null branches (ENG-070)', () => {
   });
 });
 
-describe('projectFiscalDocumentAccepted (ENG-070)', () => {
+describe('projectFiscalDocumentAccepted', () => {
   it('returns a valid PublicEvent for a complete payload', () => {
     const result = projectFiscalDocumentAccepted({
       tenantId: 'tenant-1',

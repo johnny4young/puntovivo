@@ -1,10 +1,10 @@
 /**
- * Rediseño FASE 3 — EmptyState (receta `.pv-empty`, propuesta §16).
+ * EmptyState (receta `.pv-empty`, propuesta §16).
  *
  * Estado vacío ÚNICO del sistema: glifo tonal dentro del contenedor `.ic`
  * (46px), título corto, una frase imperativa de descripción y una acción /
  * CTA opcional. Sin ilustraciones. Envuelve la receta tokenizada `.pv-empty`
- * definida en components.css (FASE 0) para que toda pantalla con cero filas
+ * definida en components.css () para que toda pantalla con cero filas
  * (periféricos, fiscal sin migrar, búsquedas sin resultados, etc.) se vea
  * idéntica en glifo, tipografía, márgenes y borde punteado.
  *

@@ -1,5 +1,5 @@
 /**
- * Receipt template expression engine — parse front-end (ENG-016, ENG-178 split).
+ * Receipt template expression engine — parse front-end (,  split).
  *
  * Bounds + AST node types, the tokenizer, the recursive-descent parser, and the
  * `parseTemplate` entry. Enforces the expression-length, function-arg-count, and
@@ -44,11 +44,7 @@ export interface StringLiteralNode {
   value: string;
 }
 
-export type ExpressionNode =
-  | PathNode
-  | FuncCallNode
-  | NumberLiteralNode
-  | StringLiteralNode;
+export type ExpressionNode = PathNode | FuncCallNode | NumberLiteralNode | StringLiteralNode;
 
 export interface LiteralChunkNode {
   type: 'literal';
@@ -77,14 +73,7 @@ export interface ParseResult {
 // Tokenizer
 // ---------------------------------------------------------------------------
 
-type TokenType =
-  | 'IDENT'
-  | 'NUMBER'
-  | 'STRING'
-  | 'LPAREN'
-  | 'RPAREN'
-  | 'COMMA'
-  | 'DOT';
+type TokenType = 'IDENT' | 'NUMBER' | 'STRING' | 'LPAREN' | 'RPAREN' | 'COMMA' | 'DOT';
 
 interface Token {
   type: TokenType;
@@ -182,10 +171,7 @@ function tokenize(source: string): TokenizeResult {
       });
       continue;
     }
-    if (
-      DIGIT.test(ch) ||
-      (ch === '-' && i + 1 < source.length && DIGIT.test(source[i + 1]!))
-    ) {
+    if (DIGIT.test(ch) || (ch === '-' && i + 1 < source.length && DIGIT.test(source[i + 1]!))) {
       const start = i;
       if (ch === '-') i++;
       while (i < source.length && DIGIT.test(source[i]!)) i++;
@@ -226,11 +212,7 @@ interface ParseExprResult {
   error: string | null;
 }
 
-function parseExpression(
-  tokens: Token[],
-  cursor: ParseCursor,
-  depth: number
-): ParseExprResult {
+function parseExpression(tokens: Token[], cursor: ParseCursor, depth: number): ParseExprResult {
   if (depth > MAX_RECURSION_DEPTH) {
     return {
       node: null,

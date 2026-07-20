@@ -1,37 +1,34 @@
 /**
- * ENG-020 — `ColombiaMockAdapter` (formerly `MockAdapter`).
- * ENG-034 — moved to `packs/co/` and renamed; the CUFE algorithm
+ * `ColombiaMockAdapter` (formerly `MockAdapter`).
+ * moved to `packs/co/` and renamed; the CUFE algorithm
  * encoded by `services/fiscal/cufe.ts` is Colombia-specific, so the
- * old generic name was misleading. ENG-021 will swap the mock body
+ * old generic name was misleading.  will swap the mock body
  * for `FactureAdapter` / `HkaAdapter` once a Proveedor Tecnológico
  * contract lands; this file remains the Colombia pack entry point.
  *
  * Characteristics:
  *
  * - **Deterministic CUFE**: routes through `computeCufe` so the
- *   resulting hex string matches what DIAN would compute from the
- *   same payload. Re-running the same input produces the same CUFE
- *   — the orchestrator can rely on the uniqueness index to fail fast
- *   when the same sale is emitted twice.
+ * resulting hex string matches what DIAN would compute from the
+ * same payload. Re-running the same input produces the same CUFE
+ * the orchestrator can rely on the uniqueness index to fail fast
+ * when the same sale is emitted twice.
  * - **No network**: resolves immediately with `status='sent'` by
- *   default. Contingency simulation is opt-in via the
- *   `MockAdapterOptions.contingencyOracle` hook so tests can assert
- *   the offline path without patching globals.
+ * default. Contingency simulation is opt-in via the
+ * `MockAdapterOptions.contingencyOracle` hook so tests can assert
+ * the offline path without patching globals.
  * - **Void semantics**: issuing a `NC` (credit note) returns the same
- *   shape as a regular issue; the orchestrator is responsible for
- *   storing `originalCufe` on the new `fiscal_documents` row.
+ * shape as a regular issue; the orchestrator is responsible for
+ * storing `originalCufe` on the new `fiscal_documents` row.
  * - **`validateConfig`**: returns `ok=true` unconditionally — the
- *   mock has no real configuration to probe. ENG-021 will replace
- *   this with NIT / certificate / resolution / environment checks
- *   against `tenants.settings.fiscal.co.*`.
+ * mock has no real configuration to probe.  will replace
+ * this with NIT / certificate / resolution / environment checks
+ * against `tenants.settings.fiscal.co.*`.
  *
  * @module services/fiscal/packs/co/mock-adapter
  */
 
-import {
-  computeCufe,
-  type FiscalEnvironment,
-} from '../../cufe.js';
+import { computeCufe, type FiscalEnvironment } from '../../cufe.js';
 import type {
   FiscalAdapter,
   FiscalAdapterCapabilities,
@@ -51,11 +48,9 @@ export interface MockAdapterOptions {
    * pick up. Return `'accepted'` to simulate fast-path PT acceptance.
    * Default path: everything reports `status='sent'`.
    */
-  contingencyOracle?: (
-    input: FiscalAdapterIssueInput
-  ) => FiscalDocumentStatus | undefined;
+  contingencyOracle?: (input: FiscalAdapterIssueInput) => FiscalDocumentStatus | undefined;
   /**
-   * ENG-057 — Optional hook fired before emission to simulate an
+   * Optional hook fired before emission to simulate an
    * outage-via-throw. The fiscal worker's normalizer maps the
    * thrown error into a `NormalizedFiscalError`; the kernel
    * transitions to `retrying` (recoverable) or `dead_letter`
@@ -79,16 +74,14 @@ export class ColombiaMockAdapter implements FiscalAdapter {
   readonly providerId = COLOMBIA_PROVIDER_ID;
   readonly countryCode = 'CO';
   readonly capabilities = COLOMBIA_CAPABILITIES;
-  // ENG-185 — mock: deterministic CUFE, no signing, no DIAN transmission.
-  // The real Proveedor Tecnologico swap is gated as ENG-021.
+  // mock: deterministic CUFE, no signing, no DIAN transmission.
+  // The real Proveedor Tecnologico swap is gated as .
   readonly maturity = 'mock' as const;
 
   constructor(private readonly options: MockAdapterOptions = {}) {}
 
-  async validateConfig(
-    _input: FiscalAdapterConfig
-  ): Promise<FiscalAdapterValidationResult> {
-    // Mock has no real configuration — always ready. ENG-021 replaces
+  async validateConfig(_input: FiscalAdapterConfig): Promise<FiscalAdapterValidationResult> {
+    // Mock has no real configuration — always ready.  replaces
     // this with NIT / certificate / resolution / environment checks.
     return { ok: true, issues: [] };
   }
@@ -127,13 +120,11 @@ export class ColombiaMockAdapter implements FiscalAdapter {
     };
   }
 
-  async voidDocument(
-    input: FiscalAdapterVoidInput
-  ): Promise<FiscalAdapterIssueResult> {
+  async voidDocument(input: FiscalAdapterVoidInput): Promise<FiscalAdapterIssueResult> {
     // The mock cannot re-compose the full CUFE input without the
     // original header + lines; instead it derives a deterministic
     // "void CUFE" from the original hash and the reason so the result
-    // is still idempotent + unique. Real adapters (ENG-021) will call
+    // is still idempotent + unique. Real adapters () will call
     // the PT's void endpoint and return the PT-issued CUFE.
     const voidCufe = computeCufe({
       documentNumber: `VOID-${input.cufe}`,

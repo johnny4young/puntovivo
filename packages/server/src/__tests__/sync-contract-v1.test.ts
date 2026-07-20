@@ -1,19 +1,19 @@
 /**
- * ENG-064 — Sync contract v1 acceptance tests.
+ * Sync contract v1 acceptance tests.
  *
- * Covers the four areas the ROADMAP §3b row demands:
+ * Covers the four areas the acceptance contract demands:
  *
- *   1. **Ordering** — priority + dependency-blocked rows.
- *   2. **Retry** — manual `sync.retry` resets retryable rows and
- *      does not requeue rows that already synced.
- *   3. **Duplicate suppression** — partial unique index collapses
- *      idempotent retries when an envelope key is present.
- *   4. **Manual conflict on high-risk** — sales/cash/fiscal/inventory
- *      rows always carry `conflict_policy='manual'` so consumer UIs
- *      route to operator-driven resolution.
+ * 1. **Ordering** — priority + dependency-blocked rows.
+ * 2. **Retry** — manual `sync.retry` resets retryable rows and
+ * does not requeue rows that already synced.
+ * 3. **Duplicate suppression** — partial unique index collapses
+ * idempotent retries when an envelope key is present.
+ * 4. **Manual conflict on high-risk** — sales/cash/fiscal/inventory
+ * rows always carry `conflict_policy='manual'` so consumer UIs
+ * route to operator-driven resolution.
  *
  * Tests drive `enqueueSync` directly (the helper is the contract
- * surface) and read via `sync.peekOutbox`. ENG-064b cut the 19 router
+ * surface) and read via `sync.peekOutbox`.  cut the 19 router
  * writers + existing `sync.*` procedures over to the same table, so
  * `sync.test.ts` now exercises the canonical `sync_outbox` path too.
  */
@@ -24,17 +24,9 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  syncOutbox,
-  tenants,
-  users,
-  type SyncOutboxStatus,
-} from '../db/schema.js';
+import { syncOutbox, tenants, users, type SyncOutboxStatus } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
-import {
-  enqueueSync,
-  resolveDefaultPriority,
-} from '../services/sync/index.js';
+import { enqueueSync, resolveDefaultPriority } from '../services/sync/index.js';
 import type { Context } from '../trpc/context.js';
 
 let server: PuntovivoServer;
@@ -72,11 +64,7 @@ function buildContext(role: 'admin' | 'manager' | 'cashier' = 'admin'): Context 
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -87,9 +75,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await getDatabase()
-    .delete(syncOutbox)
-    .where(eq(syncOutbox.tenantId, tenantId));
+  await getDatabase().delete(syncOutbox).where(eq(syncOutbox.tenantId, tenantId));
 });
 
 describe('sync contract v1 — ordering', () => {
@@ -187,11 +173,7 @@ describe('sync contract v1 — retry', () => {
     });
     const caller = appRouter.createCaller(buildContext('admin'));
     await caller.sync.retry({ id });
-    const row = await db
-      .select()
-      .from(syncOutbox)
-      .where(eq(syncOutbox.id, id))
-      .get();
+    const row = await db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
     expect(row?.status).toBe('queued');
     expect(row?.attempts).toBe(0);
     expect(row?.nextRetryAt).toBeNull();
@@ -232,11 +214,7 @@ describe('sync contract v1 — retry', () => {
     });
     const caller = appRouter.createCaller(buildContext('admin'));
     await caller.sync.retry({ id });
-    const row = await db
-      .select()
-      .from(syncOutbox)
-      .where(eq(syncOutbox.id, id))
-      .get();
+    const row = await db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
     expect(row?.status).toBe('synced');
     expect(row?.attempts).toBe(1);
   });
@@ -309,12 +287,7 @@ describe('sync contract v1 — duplicate suppression', () => {
     const rows = await db
       .select()
       .from(syncOutbox)
-      .where(
-        and(
-          eq(syncOutbox.tenantId, tenantId),
-          eq(syncOutbox.entityId, 'sale-x')
-        )
-      )
+      .where(and(eq(syncOutbox.tenantId, tenantId), eq(syncOutbox.entityId, 'sale-x')))
       .all();
     expect(rows).toHaveLength(1);
   });
@@ -339,11 +312,7 @@ describe('sync contract v1 — duplicate suppression', () => {
         data: { id: 'cust-x', name: 'B' },
       }
     );
-    const rows = await db
-      .select()
-      .from(syncOutbox)
-      .where(eq(syncOutbox.tenantId, tenantId))
-      .all();
+    const rows = await db.select().from(syncOutbox).where(eq(syncOutbox.tenantId, tenantId)).all();
     expect(rows.length).toBeGreaterThanOrEqual(2);
   });
 

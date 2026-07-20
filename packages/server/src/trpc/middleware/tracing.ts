@@ -1,22 +1,22 @@
 /**
- * ENG-135 — tRPC tracing middleware.
+ * tRPC tracing middleware.
  *
  * Wraps every procedure call with a span:
  *
- *   - Reads `tenantId / userId` from the ctx (populated by
- *     `createContext` from the JWT). Procedures called without a
- *     valid session see both fields as null — that is acceptable,
- *     anonymous calls still get a correlationId.
- *   - Reads `correlationId` from the renderer-minted
- *     `x-correlation-id` header when present and valid; otherwise
- *     falls back to `ctx.req.id` (Fastify reqId, already stamped on
- *     `request.log` by the onRequest hook from ENG-052b).
- *   - Measures `performance.now()` start / end and logs the result
- *     at info level on success, error level on failure.
- *   - On failure routes the error through `captureException` so
- *     the centralized sink (when wired) sees it. The procedure
- *     error is re-thrown so the tRPC error formatter still runs
- *     downstream.
+ * - Reads `tenantId / userId` from the ctx (populated by
+ * `createContext` from the JWT). Procedures called without a
+ * valid session see both fields as null — that is acceptable,
+ * anonymous calls still get a correlationId.
+ * - Reads `correlationId` from the renderer-minted
+ * `x-correlation-id` header when present and valid; otherwise
+ * falls back to `ctx.req.id` (Fastify reqId, already stamped on
+ * `request.log` by the onRequest hook from ).
+ * - Measures `performance.now()` start / end and logs the result
+ * at info level on success, error level on failure.
+ * - On failure routes the error through `captureException` so
+ * the centralized sink (when wired) sees it. The procedure
+ * error is re-thrown so the tRPC error formatter still runs
+ * downstream.
  *
  * Composition: applied to `publicProcedure` in `init.ts`, so every
  * chain (`protectedProcedure`, `tenantProcedure`, `adminProcedure`,
@@ -38,15 +38,13 @@ import type { Context } from '../context.js';
 const fallbackLog = createModuleLogger('trpc-tracing');
 
 function resolveCorrelationId(ctx: Context): string | null {
-  // ENG-135c — the renderer-minted id (strictly sanitized) wins so
+  // the renderer-minted id (strictly sanitized) wins so
   // the client error event and this server trace share one
   // identifier. Header-less callers (SSE, curl, older tests) fall
   // back to the Fastify reqId — exactly today's behaviour. The
   // optional chains keep unit-test ctx stubs without headers safe.
   const fromHeader = sanitizeCorrelationId(
-    (ctx.req as { headers?: Record<string, unknown> } | undefined)?.headers?.[
-      CORRELATION_ID_HEADER
-    ]
+    (ctx.req as { headers?: Record<string, unknown> } | undefined)?.headers?.[CORRELATION_ID_HEADER]
   );
   if (fromHeader) return fromHeader;
   const reqId = ctx.req?.id;

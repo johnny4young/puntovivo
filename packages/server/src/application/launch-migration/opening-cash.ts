@@ -1,4 +1,4 @@
-/** ENG-123e — Server-authoritative opening-cash register templates. */
+/** Server-authoritative opening-cash register templates. */
 import { createHash } from 'node:crypto';
 import { TRPCError } from '@trpc/server';
 import { and, eq, inArray } from 'drizzle-orm';

@@ -75,7 +75,7 @@ function completedPayload() {
   };
 }
 
-describe('FirstSaleGuide (ENG-202)', () => {
+describe('FirstSaleGuide', () => {
   beforeEach(() => {
     state.role = 'admin';
     state.siteId = 'site-1';
@@ -102,14 +102,8 @@ describe('FirstSaleGuide (ENG-202)', () => {
       'href',
       '/products'
     );
-    expect(screen.getByRole('link', { name: /go to sales/i })).toHaveAttribute(
-      'href',
-      '/sales'
-    );
-    expect(screen.getByRole('link', { name: /make a sale/i })).toHaveAttribute(
-      'href',
-      '/sales'
-    );
+    expect(screen.getByRole('link', { name: /go to sales/i })).toHaveAttribute('href', '/sales');
+    expect(screen.getByRole('link', { name: /make a sale/i })).toHaveAttribute('href', '/sales');
     expect(state.queryOptions).toEqual({ enabled: true, staleTime: 30_000 });
   });
 

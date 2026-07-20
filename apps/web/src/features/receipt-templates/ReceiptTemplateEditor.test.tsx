@@ -1,15 +1,15 @@
 /**
- * ENG-016 pass 1 — ReceiptTemplateEditor component tests.
+ * pass 1 — ReceiptTemplateEditor component tests.
  *
  * Covers:
- *  - Item #4: captions render above `itemsTable` + `totalsBlock` when
- *    those blocks are selected in the block list.
- *  - Item #5: `appFooter` block appears in the "add block" menu, and
- *    its form exposes the `show` toggle with the expected default.
- *  - Item #6: reordering a block via the `↑`/`↓` buttons triggers a
- *    FLIP snapshot capture — asserted via spying on the FLIP helper
- *    (jsdom cannot exercise the Web Animations API meaningfully so we
- *    pin the invocation contract).
+ * - Item #4: captions render above `itemsTable` + `totalsBlock` when
+ * those blocks are selected in the block list.
+ * - Item #5: `appFooter` block appears in the "add block" menu, and
+ * its form exposes the `show` toggle with the expected default.
+ * - Item #6: reordering a block via the `↑`/`↓` buttons triggers a
+ * FLIP snapshot capture — asserted via spying on the FLIP helper
+ * (jsdom cannot exercise the Web Animations API meaningfully so we
+ * pin the invocation contract).
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -32,7 +32,7 @@ vi.mock('@/lib/trpc', () => ({
       renderPreview: {
         useQuery: () => ({ data: null, isLoading: false, error: null }),
       },
-      // ENG-016 pass 5 — variable availability hook called from
+      // pass 5 — variable availability hook called from
       // ReceiptTemplateEditor. Returns null while loading so the editor
       // does not paint false-negative dim styles before the real map
       // arrives.
@@ -44,9 +44,7 @@ vi.mock('@/lib/trpc', () => ({
 }));
 
 vi.mock('@/lib/flipAnimate', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/flipAnimate')>(
-    '@/lib/flipAnimate'
-  );
+  const actual = await vi.importActual<typeof import('@/lib/flipAnimate')>('@/lib/flipAnimate');
   return {
     ...actual,
     captureFlipSnapshot: vi.fn(actual.captureFlipSnapshot),
@@ -56,7 +54,7 @@ vi.mock('@/lib/flipAnimate', async () => {
 
 import { captureFlipSnapshot, playFlip } from '@/lib/flipAnimate';
 
-describe('ReceiptTemplateEditor (ENG-016 pass 1)', () => {
+describe('ReceiptTemplateEditor ( pass 1)', () => {
   beforeEach(async () => {
     await i18next.changeLanguage('en');
     vi.mocked(captureFlipSnapshot).mockClear();
@@ -128,7 +126,7 @@ describe('ReceiptTemplateEditor (ENG-016 pass 1)', () => {
   });
 
   // ---------------------------------------------------------------------
-  // ENG-086 — wordmark + metaTable add-block menu entries
+  // wordmark + metaTable add-block menu entries
   // ---------------------------------------------------------------------
 
   it('exposes the brand wordmark + meta band buttons in the add-block menu', () => {
@@ -179,7 +177,7 @@ describe('ReceiptTemplateEditor (ENG-016 pass 1)', () => {
   });
 
   // ---------------------------------------------------------------------
-  // ENG-016 pass 2 (item #1) — drag-and-drop reorder via dnd-kit
+  // pass 2 (item #1) — drag-and-drop reorder via dnd-kit
   // ---------------------------------------------------------------------
 
   it('renders a grip handle with the localized aria-label on every block row', () => {
@@ -193,7 +191,7 @@ describe('ReceiptTemplateEditor (ENG-016 pass 1)', () => {
   });
 
   it('preserves the data-flip-key attribute on every block row after the dnd-kit wrapping', () => {
-    // ENG-016 pass 2 (item #1) — regression gate. The pass-1 FLIP path
+    // pass 2 (item #1) — regression gate. The pass-1 FLIP path
     // depends on every <li> exposing a `data-flip-key` so
     // captureFlipSnapshot/playFlip can correlate before/after rects
     // when the keyboard ↑/↓ buttons mutate the order. Wrapping each row
@@ -224,7 +222,7 @@ describe('ReceiptTemplateEditor (ENG-016 pass 1)', () => {
   });
 
   // ---------------------------------------------------------------------
-  // ENG-016 pass 3 (item #3) — template functions cheat-sheet
+  // pass 3 (item #3) — template functions cheat-sheet
   // ---------------------------------------------------------------------
 
   it('renders the template functions cheat-sheet for text blocks with every whitelisted function', () => {
@@ -265,17 +263,13 @@ describe('ReceiptTemplateEditor (ENG-016 pass 1)', () => {
       .find(el => el.closest('[data-testid^="block-row-"]'));
     expect(totalsRow).toBeDefined();
     fireEvent.click(totalsRow!);
-    expect(
-      screen.queryByTestId('template-functions-cheatsheet')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('template-functions-cheatsheet')).not.toBeInTheDocument();
   });
 
   it('wires localized dnd-kit screen-reader instructions in English and Spanish', async () => {
     const { unmount } = renderEditor();
     await waitFor(() => {
-      expect(
-        screen.getByText(/To pick up a block, press space or enter/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/To pick up a block, press space or enter/i)).toBeInTheDocument();
     });
     unmount();
 

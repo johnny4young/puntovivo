@@ -1,4 +1,4 @@
-// Shared types for the sale-receipt printer (ENG-178 slice 29 — split
+// Shared types for the sale-receipt printer ( slice 29 — split
 // from the former monolithic `receiptPrinter.ts`).
 
 import type { PaymentStatus, PaymentMethod, SaleItem, SalePayment, SaleStatus } from '@/types';
@@ -6,7 +6,7 @@ import type { FiscalDocumentStatus } from '@/components/fiscal/FiscalStatusBadge
 import type { LocalEscPosTransportHint } from '@/types/electron';
 
 /**
- * ENG-058 — Per-fiscal-document data the receipt prints. Mirrors the
+ * Per-fiscal-document data the receipt prints. Mirrors the
  * shape returned by `sales.getById` / `sales.getForReprint` after the
  * `getSaleRecord` widening.
  */
@@ -43,11 +43,11 @@ export type ReceiptSale = {
   notes?: string | null;
   createdAt: string;
   items?: SaleItem[];
-  // Phase 2 Tier-2 step 5 follow-on — include the tender breakdown on the
+  // follow-on — include the tender breakdown on the
   // printed receipt when the sale was settled as a split payment.
   payments?: SalePayment[];
   /**
-   * ENG-058 — fiscal proof block(s). Always rendered when present;
+   * fiscal proof block(s). Always rendered when present;
    * the section is omitted entirely for non-fiscal sales (DIAN-disabled
    * tenants, drafts, sales emitted before fiscal pack activation).
    */
@@ -59,7 +59,7 @@ export type EscPosDispatchOutcome =
   | { status: 'system-fallback' }
   | { status: 'fallback'; error?: string | undefined; errorMessage?: string | undefined };
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export interface PrintSaleReceiptOptions {
   /**
    * When supplied, called first to attempt the ESC/POS path. Returns
@@ -106,7 +106,7 @@ export interface CreateEscposReceiptDispatcherInput {
   fetchHubReceiptBytes: () => Promise<HubReceiptBytesPayload>;
 }
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 /** Cash-drawer kick outcome shape mirrored from server `kickCashDrawer`. */
 export type DrawerKickOutcome =
   | { status: 'ok' }

@@ -1,5 +1,5 @@
 /**
- * ENG-038 — Schemas for the `payments.*` Operations router and the
+ * Schemas for the `payments.*` Operations router and the
  * `paymentSettings.*` admin router (slice 2).
  *
  * @module trpc/schemas/payments
@@ -24,7 +24,7 @@ export const paymentReconciliationInput = z
 export type PaymentReconciliationInput = z.infer<typeof paymentReconciliationInput>;
 
 /**
- * ENG-038 slice 2 — input for `paymentSettings.updateRail`. The
+ * slice 2 — input for `paymentSettings.updateRail`. The
  * router-side handler narrows `credentials` against the rail's
  * declared descriptor (`CREDENTIAL_FIELDS_BY_RAIL`) before persisting,
  * so undeclared keys throw BAD_REQUEST.
@@ -32,9 +32,7 @@ export type PaymentReconciliationInput = z.infer<typeof paymentReconciliationInp
  * Empty-string values are accepted and clear the stored field; `null`
  * is equivalent for callers that prefer JSON-null semantics.
  */
-const credentialValueSchema = z
-  .union([z.string().max(2048), z.null()])
-  .optional();
+const credentialValueSchema = z.union([z.string().max(2048), z.null()]).optional();
 
 export const updatePaymentRailSettingsInput = z
   .object({
@@ -42,12 +40,10 @@ export const updatePaymentRailSettingsInput = z
     credentials: z.record(z.string().min(1), credentialValueSchema),
   })
   .strict();
-export type UpdatePaymentRailSettingsInput = z.infer<
-  typeof updatePaymentRailSettingsInput
->;
+export type UpdatePaymentRailSettingsInput = z.infer<typeof updatePaymentRailSettingsInput>;
 
 /**
- * ENG-065d — input for admin `payments.retryOutbox`. The row id is
+ * input for admin `payments.retryOutbox`. The row id is
  * narrowed at the procedure boundary by a tenant-scoped lookup; the
  * Zod-level `nanoid` shape just rejects empty strings.
  */
@@ -59,7 +55,7 @@ export const retryPaymentOutboxInput = z
 export type RetryPaymentOutboxInput = z.infer<typeof retryPaymentOutboxInput>;
 
 /**
- * ENG-065d — input for admin `payments.markSettled`. The optional
+ * input for admin `payments.markSettled`. The optional
  * `providerTransactionId` lets the operator paste a provider-portal
  * value at override time; an empty string is normalised to omitted
  * (no update on the column).
@@ -75,12 +71,10 @@ export const markPaymentOutboxSettledInput = z
       .optional(),
   })
   .strict();
-export type MarkPaymentOutboxSettledInput = z.infer<
-  typeof markPaymentOutboxSettledInput
->;
+export type MarkPaymentOutboxSettledInput = z.infer<typeof markPaymentOutboxSettledInput>;
 
 /**
- * ENG-065d — input for `payments.methodBreakdown`. `windowDays` bounds
+ * input for `payments.methodBreakdown`. `windowDays` bounds
  * the aggregation window (defaults to 7 days; max 90 to keep the query
  * lightweight). The router groups by `(rail_id, status)` so the panel
  * renders one row per bucket.
@@ -90,6 +84,4 @@ export const paymentMethodBreakdownInput = z
     windowDays: z.number().int().min(1).max(90).default(7),
   })
   .strict();
-export type PaymentMethodBreakdownInput = z.infer<
-  typeof paymentMethodBreakdownInput
->;
+export type PaymentMethodBreakdownInput = z.infer<typeof paymentMethodBreakdownInput>;

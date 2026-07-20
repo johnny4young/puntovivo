@@ -4,25 +4,25 @@
  * Run the Puntovivo server as a standalone process (for development or web deployment).
  *
  * Usage:
- *   npm run dev        - Development with hot reload
- *   npm run start      - Production
+ * npm run dev        - Development with hot reload
+ * npm run start      - Production
  *
  * Environment variables:
- *   PUNTOVIVO_AUTHORITY_MODE   - device_local | site_hub | hub_client (default: device_local; ENG-072)
- *   PUNTOVIVO_BIND_HOST        - Bind host (preferred; falls back to HOST). Default: 127.0.0.1
- *   PUNTOVIVO_BIND_PORT        - Bind port (preferred; falls back to PORT). Default: 8090
- *   PUNTOVIVO_HUB_URL          - Hub URL when authorityMode=hub_client (ENG-074 plumbing)
- *   PUNTOVIVO_SITE_ID          - Operator-supplied site identifier
- *   PUNTOVIVO_DEVICE_ID        - Operator-supplied device identifier
- *   PUNTOVIVO_ALLOWED_LAN_ORIGINS - CSV of CORS origins for site_hub LAN bind (ENG-073)
- *   PORT               - Legacy alias for PUNTOVIVO_BIND_PORT (default: 8090)
- *   HOST               - Legacy alias for PUNTOVIVO_BIND_HOST (default: 127.0.0.1)
- *   DATABASE_URL       - SQLite database path (default: ./data/local.db)
- *   JWT_SECRET         - JWT signing secret (auto-generated if not set)
- *   PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS - Optional SQLite writer-lock wait override
- *   VERBOSE            - Enable verbose logging (default: false)
- *   ANTHROPIC_API_KEY  - Required for AI features (ENG-030 onwards). See
- *                        `.env.example` for the full list.
+ * PUNTOVIVO_AUTHORITY_MODE   - device_local | site_hub | hub_client (default: device_local; )
+ * PUNTOVIVO_BIND_HOST        - Bind host (preferred; falls back to HOST). Default: 127.0.0.1
+ * PUNTOVIVO_BIND_PORT        - Bind port (preferred; falls back to PORT). Default: 8090
+ * PUNTOVIVO_HUB_URL          - Hub URL when authorityMode=hub_client ( plumbing)
+ * PUNTOVIVO_SITE_ID          - Operator-supplied site identifier
+ * PUNTOVIVO_DEVICE_ID        - Operator-supplied device identifier
+ * PUNTOVIVO_ALLOWED_LAN_ORIGINS - CSV of CORS origins for site_hub LAN bind ()
+ * PORT               - Legacy alias for PUNTOVIVO_BIND_PORT (default: 8090)
+ * HOST               - Legacy alias for PUNTOVIVO_BIND_HOST (default: 127.0.0.1)
+ * DATABASE_URL       - SQLite database path (default: ./data/local.db)
+ * JWT_SECRET         - JWT signing secret (auto-generated if not set)
+ * PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS - Optional SQLite writer-lock wait override
+ * VERBOSE            - Enable verbose logging (default: false)
+ * ANTHROPIC_API_KEY  - Required for AI features ( onwards). See
+ * `.env.example` for the full list.
  *
  * `.env` (at repo root) is auto-loaded via `./loadEnv.ts` — that import
  * MUST stay first so its side effect runs before any module that
@@ -37,10 +37,7 @@
 import './loadEnv.js';
 
 import { createServer, createModuleLogger } from './index.js';
-import {
-  captureProcessCrash,
-  flushServerTelemetry,
-} from './observability/index.js';
+import { captureProcessCrash, flushServerTelemetry } from './observability/index.js';
 import { resolveRuntimeConfig } from './config/runtime.js';
 import { createGracefulShutdownHandler } from './lifecycle/gracefulShutdown.js';
 import { join, dirname } from 'path';
@@ -71,7 +68,7 @@ function parseOptionalBusyTimeoutMs(value: string | undefined): number | undefin
 }
 
 async function main(): Promise<void> {
-  // ENG-072 — Resolve the Authority Node runtime config first. The
+  // Resolve the Authority Node runtime config first. The
   // resolver throws on invalid env (bad mode, bad port) so a
   // misconfigured boot dies here with an actionable message instead
   // of silently sliding into defaults.
@@ -79,17 +76,18 @@ async function main(): Promise<void> {
   const dbPath = process.env.DATABASE_URL || join(__dirname, '..', 'data', 'local.db');
   const jwtSecret = process.env.JWT_SECRET;
   const verbose = process.env.VERBOSE === 'true' || process.env.NODE_ENV === 'development';
-  // ENG-167 — optional SQLCipher key. Electron resolves it through
+  // optional SQLCipher key. Electron resolves it through
   // `safeStorage`; the standalone binary accepts it via env so the
   // standalone dev workflow (`npm run dev:server`) can exercise the
   // encrypted code path without booting Electron. Omitted by default,
-  // which keeps the legacy cleartext dev DB working until ENG-167b
+  // which keeps the legacy cleartext dev DB working until
   // ships the one-shot migration UX.
   const encryptionKey = process.env.PUNTOVIVO_DB_KEY;
   const sqliteBusyTimeoutMs = parseOptionalBusyTimeoutMs(
     process.env.PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS
   );
-  process.env.PUNTOVIVO_RUNTIME_ENV ??= process.env.NODE_ENV === 'production' ? 'production' : 'development';
+  process.env.PUNTOVIVO_RUNTIME_ENV ??=
+    process.env.NODE_ENV === 'production' ? 'production' : 'development';
 
   banner('==========================================');
   banner('  Puntovivo Server - Standalone Mode');
@@ -104,7 +102,7 @@ async function main(): Promise<void> {
       jwtSecret,
       verbose,
       runtime,
-      // ENG-073 — Node populates `npm_package_version` when launched
+      // Node populates `npm_package_version` when launched
       // via `npm run start` / `npm run dev`. Falls through to
       // `'unknown'` inside createServer when this is undefined (e.g.
       // a direct `node dist/standalone.js` invocation).
@@ -125,7 +123,7 @@ async function main(): Promise<void> {
     process.on('SIGTERM', () => {
       void shutdown('SIGTERM');
     });
-    // ENG-135b — forward both crash classes to the telemetry sink
+    // forward both crash classes to the telemetry sink
     // (tenant-less app diagnostics, live only when the operator set
     // PUNTOVIVO_SENTRY_DSN; see docs/OBSERVABILITY.md consent layers)
     // and give the SDK a bounded flush window before the existing

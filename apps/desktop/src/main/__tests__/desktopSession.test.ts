@@ -19,7 +19,7 @@ import {
 
 type VerifiedPayload = NonNullable<Awaited<ReturnType<AccessTokenVerifier>>>;
 
-// ENG-025 vector 1 regression pin. These assertions encode the
+// vector 1 regression pin. These assertions encode the
 // multi-tenant boundary at the IPC layer: until `register()` succeeds
 // with a token whose JWT verifies, the session singleton MUST refuse
 // to surface a tenantId / userId / role to the IPC handlers. Any edit
@@ -50,7 +50,7 @@ const acceptVerifier =
 
 const rejectVerifier: AccessTokenVerifier = async () => null;
 
-describe('desktopSession (ENG-025 vector 1)', () => {
+describe('desktopSession ( vector 1)', () => {
   beforeEach(() => {
     __resetForTests();
   });

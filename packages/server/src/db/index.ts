@@ -4,10 +4,10 @@
  * Initializes the SQLite database with better-sqlite3 and Drizzle ORM.
  * Handles migrations and provides the database instance.
  *
- * The implementation lives in focused sibling modules (ENG-178 Slice 17):
+ * The implementation lives in focused sibling modules ( Slice 17):
  * - `connection.ts` — `initDatabase` / `getDatabase` / `closeDatabase` + singletons
  * - `options.ts` — `DatabaseOptions` + boot-time option validation
- * - `migration-baseline.ts` — the ENG-002 versioned-migration adoption shim
+ * - `migration-baseline.ts` — the  versioned-migration adoption shim
  * - `catalog-seed.ts` — the post-migration catalog seeders
  * - `types.ts` — the `DatabaseInstance` type
  *

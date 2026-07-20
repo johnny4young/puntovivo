@@ -199,7 +199,7 @@ export const exportProcedures = {
     if (includeHardware && counts.hardware_outbox > ROW_LIMIT)
       warnings.push('rowLimitHit:hardware_outbox');
 
-    // ENG-066 — sanitize JSON-shaped fields before serialization.
+    // sanitize JSON-shaped fields before serialization.
     // The sanitizer recurses into each row's JSON column and
     // replaces sensitive keys (password / token / jwt / apiKey /
     // pan / cvv / certificate / ...) with [REDACTED]. The bundle's
@@ -222,7 +222,7 @@ export const exportProcedures = {
     const runtime = getActiveRuntimeConfig();
     const authorityTopology = await getAuthorityTopology(ctx.db, ctx.tenantId, runtime);
 
-    // ENG-103 — Suggested filename for the client-side ZIP. The
+    // Suggested filename for the client-side ZIP. The
     // tenant slug is the marketing identifier persisted in
     // `tenants.slug` (lowercase, ASCII, kebab); it falls back to
     // the tenant id when the row is missing or has an empty slug.
@@ -249,13 +249,13 @@ export const exportProcedures = {
         includedOutboxes: includeAll
           ? (['sync', 'fiscal', 'hardware'] as const)
           : (includeOutboxes ?? []),
-        // ENG-066 — redaction surface so the bundle is self-auditable.
+        // redaction surface so the bundle is self-auditable.
         // `sanitized: true` is a stable flag; `redactedKeysByTable`
         // is per-source so a reviewer can quickly answer
         // "did this bundle leak something?".
         sanitized: true as const,
         redactedKeysByTable,
-        // ENG-072 — Authority Node runtime metadata captured at the
+        // Authority Node runtime metadata captured at the
         // time of export. Additive to the manifest; the existing
         // schemaVersion=1 stays valid because consumers tolerate
         // unknown top-level keys per ADR-0003 evolution discipline.

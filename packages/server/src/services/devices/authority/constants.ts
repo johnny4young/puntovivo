@@ -1,5 +1,5 @@
 /**
- * Pairing-code + device-health tuning constants (ENG-075 Authority Node).
+ * Pairing-code + device-health tuning constants ( Authority Node).
  *
  * @module services/devices/authority/constants
  */

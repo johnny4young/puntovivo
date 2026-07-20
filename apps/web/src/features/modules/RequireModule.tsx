@@ -1,5 +1,5 @@
 /**
- * ENG-068 — Render-side gate that mirrors `createModuleGuard` on the
+ * Render-side gate that mirrors `createModuleGuard` on the
  * server. Wraps any subtree (a route, a sidebar item, a dashboard
  * card) and returns `null` (or an explicit fallback) when the module
  * is off for the current tenant.

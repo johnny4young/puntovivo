@@ -1,7 +1,7 @@
 /**
  * Product catalog mutation primitives and validators.
  *
- * ENG-178 — extracted verbatim from the former flat `trpc/routers/products.ts`
+ * extracted verbatim from the former flat `trpc/routers/products.ts`
  * (1280 LOC) during the megafile decomposition. Holds the unit / provider /
  * tax / location resolution + validation helpers shared by `create` and
  * `update`. Import leaf: depends only on the schema + drizzle + input-schema

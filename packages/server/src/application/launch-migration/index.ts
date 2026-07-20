@@ -1,4 +1,4 @@
-/** ENG-123a/ENG-123b — Launch-migration application boundary. */
+/** -123b — Launch-migration application boundary. */
 export {
   commitLaunchProductImport,
   hashLaunchProductImport,

@@ -3,7 +3,7 @@ import { openHtmlInPrintWindow } from '@/lib/printWindow';
 import type { QuotationDetail, QuotationStatus } from '@/types';
 
 /**
- * Phase 5 / Tier-2 #6 step 2 — printable quotation receipt.
+ * printable quotation receipt.
  *
  * Mirrors `features/sales/receiptPrinter.ts` in spirit (same HTML shell,
  * escape helper, Electron bridge fallback) with these differences:
@@ -39,10 +39,7 @@ interface ReceiptHtmlOptions {
 export class QuotationPrintError extends Error {
   code: 'popupBlocked' | 'desktopBridgeFailed' | 'unknown';
 
-  constructor(
-    code: 'popupBlocked' | 'desktopBridgeFailed' | 'unknown',
-    message: string
-  ) {
+  constructor(code: 'popupBlocked' | 'desktopBridgeFailed' | 'unknown', message: string) {
     super(message);
     this.code = code;
     this.name = 'QuotationPrintError';
@@ -104,9 +101,7 @@ export function buildQuotationReceiptHtml(
 ): string {
   const items = quotation.items ?? [];
   const discountAmount = quotation.discountAmount ?? 0;
-  const validityLabel = quotation.validUntil
-    ? formatDate(quotation.validUntil)
-    : '—';
+  const validityLabel = quotation.validUntil ? formatDate(quotation.validUntil) : '—';
   const notesSection = quotation.notes
     ? `
       <section class="notes">

@@ -1,16 +1,16 @@
 /**
- * ENG-089 — modal for recording a ledger entry against a customer.
+ * modal for recording a ledger entry against a customer.
  *
  * Two modes share one component because the layout is identical and
  * only the validation rules + i18n copy differ:
  *
- *  - `payment` (default): fires `customerLedger.addPayment`. Note is
- *    optional. Manager + admin can confirm.
- *  - `adjustment`: fires `customerLedger.addAdjustment`. Note is
- *    REQUIRED (the server rejects an empty note as well). Amount can
- *    be positive or negative. Admin-only — the parent gates the
- *    "Cargar a cuenta" CTA behind `user.role === 'admin'`, so the
- *    modal trusts the prop.
+ * - `payment` (default): fires `customerLedger.addPayment`. Note is
+ * optional. Manager + admin can confirm.
+ * - `adjustment`: fires `customerLedger.addAdjustment`. Note is
+ * REQUIRED (the server rejects an empty note as well). Amount can
+ * be positive or negative. Admin-only — the parent gates the
+ * "Cargar a cuenta" CTA behind `user.role === 'admin'`, so the
+ * modal trusts the prop.
  *
  * Mirrors the shape of `CashSessionMovementModal` (amount input +
  * note textarea + Cancel / Confirm footer) so the operator sees a
@@ -145,10 +145,7 @@ export function CustomerLedgerAbonoModal({
             {...form.register('note', {
               // Adjustment requires a note (both server-side via Zod
               // and here so the operator gets immediate feedback).
-              required:
-                mode === 'adjustment'
-                  ? t('ledger.adjustmentModal.noteRequired')
-                  : false,
+              required: mode === 'adjustment' ? t('ledger.adjustmentModal.noteRequired') : false,
               maxLength: {
                 value: 240,
                 message: t('ledger.actions.noteTooLong'),

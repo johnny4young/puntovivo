@@ -1,5 +1,5 @@
 /**
- * ENG-135c — client-supplied correlation id intake.
+ * client-supplied correlation id intake.
  *
  * The renderer mints a correlation id per tRPC request and ships it
  * in the `x-correlation-id` header so the client-side error event
@@ -31,7 +31,7 @@ const CORRELATION_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
  * raw Fastify header value shape (string, string[], or undefined —
  * arrays take the first entry, mirroring the x-device-id intake).
  * Returns the id when it matches the strict pattern, null otherwise
- * — callers fall back to the Fastify reqId on null, so an invalid
+ * callers fall back to the Fastify reqId on null, so an invalid
  * header degrades to today's behaviour instead of failing.
  */
 export function sanitizeCorrelationId(value: unknown): string | null {

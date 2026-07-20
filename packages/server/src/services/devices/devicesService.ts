@@ -1,5 +1,5 @@
 /**
- * ENG-052 — Device registry service.
+ * Device registry service.
  *
  * Tracks every cashier machine that mutates the local store. The
  * Electron desktop binary or the web client registers itself once via
@@ -16,17 +16,13 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import {
-  devices,
-  type DeviceAuthorityRole,
-  type DeviceKind,
-} from '../../db/schema.js';
+import { devices, type DeviceAuthorityRole, type DeviceKind } from '../../db/schema.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { inferAuthorityRole } from './authority.js';
 
 const log = createModuleLogger('devices');
 
-// ENG-179b — explicit `| undefined` on Zod-optional fields.
+// explicit `| undefined` on Zod-optional fields.
 export interface RegisterDeviceInput {
   tenantId: string;
   userId: string;
@@ -161,7 +157,7 @@ export async function findActiveDevice(
 /**
  * Bump `last_seen_at` to track liveness. Cheap (one row update); the
  * Command Envelope middleware calls it on every successful critical
- * mutation so the Operations Center (ENG-065) can render device
+ * mutation so the Operations Center () can render device
  * health later.
  */
 export async function markSeen(
@@ -178,7 +174,7 @@ export async function markSeen(
 
 /**
  * Soft-delete: marks the device inactive without removing the row,
- * so audit history (operation journal in ENG-053) can still join
+ * so audit history (operation journal in ) can still join
  * via `audit_logs.operation_id` later.
  */
 export async function deactivateDevice(

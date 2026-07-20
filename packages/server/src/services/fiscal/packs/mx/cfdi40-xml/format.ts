@@ -1,5 +1,5 @@
 /**
- * Shared format helpers for CFDI 4.0 serialization (ENG-035b): SAT
+ * Shared format helpers for CFDI 4.0 serialization (): SAT
  * Fecha formatting + attribute name sanitization.
  *
  * @module services/fiscal/packs/mx/cfdi40-xml/format

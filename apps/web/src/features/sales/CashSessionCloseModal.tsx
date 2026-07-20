@@ -14,7 +14,7 @@ import {
 } from './cashSessionDenominations';
 
 /**
- * ENG-194 — tolerance under which counted-vs-expected is considered balanced
+ * tolerance under which counted-vs-expected is considered balanced
  * while typing the close count. Mirrors CASH_OVER_SHORT_EPSILON in the
  * Operations Center cash panel so both surfaces agree on "cuadrada".
  */
@@ -34,7 +34,7 @@ interface CashSessionCloseModalProps {
   onClose: () => void;
   onSubmit: (values: CashSessionCloseValues) => Promise<void>;
   /**
-   * ENG-018b — count of suspended drafts still in flight for this
+   * count of suspended drafts still in flight for this
    * cashier's visibility scope. When greater than zero, the modal
    * surfaces a warning so the operator knows the drafts will survive
    * the close as `status='draft'` rows and must be picked up later.
@@ -63,15 +63,15 @@ export function CashSessionCloseModal({
   const { t } = useTranslation('sales');
   const { user } = useAuth();
   const { tenantSettings } = useTenant();
-  // ENG-194b — tenant-level blind-close policy. Default true keeps the
+  // tenant-level blind-close policy. Default true keeps the
   // anti-fraud control (cashiers must not see the target while counting);
   // an owner-operated tenant can opt out and show the semaphore to everyone.
   const blindClose = tenantSettings?.cashClose?.blindClose ?? true;
-  // ENG-194 — the live counted-vs-expected semaphore. Under blind close it
+  // the live counted-vs-expected semaphore. Under blind close it
   // is role-gated: cashiers keep the blind close while managers/admins
   // closing or supervising a till get live feedback so balancing feels like
   // hitting the mark instead of filling a form. When the tenant relaxed
-  // blind close (ENG-194b), every role sees it.
+  // blind close (), every role sees it.
   const canSeeLiveDelta = !blindClose || user?.role === 'admin' || user?.role === 'manager';
   const actualCountLabel = canSeeLiveDelta
     ? t('cashSession.closeForm.supervisedActualCount')
@@ -265,9 +265,9 @@ export function CashSessionCloseModal({
           </p>
         )}
 
-        {/* ENG-083b V6 — 5-col per-payment-method strip. Cash gets the
+        {/*  V6 — 5-col per-payment-method strip. Cash gets the
          * counted value live; the other four methods surface as "—"
-         * pending server-side aggregation in ENG-083c (extend
+         * pending server-side aggregation in  (extend
          * cashSessions.summary with sales-by-method rollups). Keeping
          * the chrome in place now lets the operator see the structure
          * before the wiring lands. */}
@@ -332,7 +332,7 @@ export function CashSessionCloseModal({
           <p className="mt-2 text-[10.5px] text-secondary-500">
             {t('cashSession.closeForm.byMethodHint', {
               defaultValue:
-                'Tarjeta · Transferencia · Crédito · Otro aparecen cuando ENG-083c sume las ventas por método.',
+                'Tarjeta · Transferencia · Crédito · Otro aparecen cuando  sume las ventas por método.',
             })}
           </p>
         </section>
@@ -411,7 +411,7 @@ export function CashSessionCloseModal({
           </div>
         </section>
 
-        {/* ENG-194 — live over/short semaphore, manager/admin only (the
+        {/* live over/short semaphore, manager/admin only (the
          * cashier keeps the blind close). Reacts per keystroke because
          * `denominations` is a useWatch subscription. */}
         {canSeeLiveDelta && liveDelta !== null && liveDeltaState && (

@@ -1,5 +1,5 @@
 /**
- * Quotation Zod Schemas (Phase 5 / Tier-2 #6 step 1).
+ * Quotation Zod Schemas ().
  *
  * The first slice ships CRUD + status transitions only — convert-to-sale,
  * version history, margin analysis, and follow-up reminders are deferred to
@@ -41,9 +41,7 @@ export const quotationItemInput = z.object({
 
 export const createQuotationInput = z.object({
   customerId: z.string().min(1).optional(),
-  items: z
-    .array(quotationItemInput)
-    .min(1, 'A quotation must include at least one product line'),
+  items: z.array(quotationItemInput).min(1, 'A quotation must include at least one product line'),
   /** ISO datetime — when the quotation expires. Optional. */
   validUntil: z.string().datetime({ offset: true }).optional(),
   notes: z.string().trim().max(1000).optional(),

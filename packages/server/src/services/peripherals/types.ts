@@ -1,10 +1,10 @@
 /**
- * ENG-060 — Shared types for the peripheral adapter layer.
+ * Shared types for the peripheral adapter layer.
  *
  * `NormalizedHardwareError` mirrors the fiscal `NormalizedFiscalError`
- * shape (ENG-057): a closed-set discriminator + raw provider context
+ * shape (): a closed-set discriminator + raw provider context
  * so the Operations Center can render consistent operator copy
- * regardless of which driver surfaced the error. ENG-062 / ENG-063
+ * regardless of which driver surfaced the error.  /
  * extend the kind union as new failure modes appear.
  *
  * @module services/peripherals/types
@@ -16,7 +16,7 @@ export type { PeripheralKind };
 
 /** Closed list of normalized hardware error kinds. */
 export type NormalizedHardwareErrorKind =
-  | 'DRIVER_NOT_IMPLEMENTED' // ENG-060 stubbed driver (escpos / bold / wompi etc.)
+  | 'DRIVER_NOT_IMPLEMENTED' //  stubbed driver (escpos / bold / wompi etc.)
   | 'DEVICE_OFFLINE' // USB unplugged, network host unreachable, Bluetooth out of range
   | 'DEVICE_TIMEOUT' // device responded slowly
   | 'INVALID_CONFIG' // driver-side validation failed

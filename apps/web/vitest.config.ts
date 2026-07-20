@@ -17,15 +17,15 @@ export default defineConfig({
       // terminal, json for programmatic checks, html for drill-down).
       reporter: ['text', 'text-summary', 'json', 'html', 'lcov'],
       exclude: ['node_modules/', 'src/test/', '**/*.d.ts', '**/*.config.*', '**/types/**'],
-      // ENG-003 floored the gate at 65/65/68/60 to match the actual
-      // suite at the time and tracked the lift back to 70 as ENG-003b.
-      // ENG-003b shipped 13 new + 6 extended test files (roleAccess,
+      // floored the gate at 65/65/68/60 to match the actual
+      // suite at the time and tracked the lift back to 70 as .
+      // shipped 13 new + 6 extended test files (roleAccess,
       // useElectron, siteSelection, siteStorage, authStorage,
       // AuthProvider, TenantProvider, sale/purchase/quotation/audit-logs
       // exports, useTableExport, exportService CSV+printTable, pricing,
       // checkoutPayment, providerState, saleCart, defaultLayouts, utils)
       // closing the gap on every axis. Do not lower these without an
-      // accompanying ROADMAP note.
+      // accompanying documented rationale.
       thresholds: {
         statements: 70,
         branches: 70,
@@ -37,7 +37,7 @@ export default defineConfig({
     hookTimeout: 10000,
     server: {
       deps: {
-        // ENG-172 — inline @tanstack/react-virtual so vitest transforms it
+        // inline @tanstack/react-virtual so vitest transforms it
         // through vite (honouring `resolve.dedupe`) instead of loading its
         // CJS build via require(), which would register a second React
         // module instance with a null hooks dispatcher.
@@ -46,7 +46,7 @@ export default defineConfig({
     },
   },
   resolve: {
-    // ENG-172 — force a single React instance. `@tanstack/react-virtual`
+    // force a single React instance. `@tanstack/react-virtual`
     // resolves its own `react` import (it loads as raw source under vitest),
     // which otherwise yields a second copy with a null hooks dispatcher
     // ("Cannot read properties of null (reading 'useReducer')"). Deduping

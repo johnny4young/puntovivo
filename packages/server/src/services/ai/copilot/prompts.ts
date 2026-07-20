@@ -1,9 +1,9 @@
 /**
- * ENG-031 — co-pilot prompt assembly.
+ * co-pilot prompt assembly.
  *
- * The static system prompt (ENG-077 cache-stable), the per-call dynamic
+ * The static system prompt ( cache-stable), the per-call dynamic
  * `<context>` block, the context-injection into the latest user turn, and the
- * flat message transcript builder. Split out of `copilot.ts` (ENG-178).
+ * flat message transcript builder. Split out of `copilot.ts` ().
  *
  * @module services/ai/copilot/prompts
  */
@@ -18,7 +18,7 @@ import type { CopilotChatMessage, CopilotWindow } from './types.js';
  * resolved analytics window and the active UI site — lives in the
  * latest user message via {@link buildContextBlock} so the system
  * prompt stays byte-for-byte identical across calls and the cache
- * actually hits. See ENG-077 for the rationale; before this fix the
+ * actually hits. See  for the rationale; before this fix the
  * cache hit rate on the co-pilot was effectively zero because the
  * default 90-day window embedded a fresh ISO timestamp in every call.
  */

@@ -3,7 +3,7 @@ import { Sparkles } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 
 /**
- * ENG-213 (WC-D2) — the customer's point balance, right where the cashier
+ * () — the customer's point balance, right where the cashier
  * picks them at checkout. Self-contained: renders nothing without a
  * customer (walk-in), while the read is in flight, or when the customer has
  * no points — the chip only appears when it has something to say, so the
@@ -16,7 +16,7 @@ export function CustomerLoyaltyChip({ customerId }: { customerId: string | null 
     { enabled: !!customerId, staleTime: 30_000 }
   );
 
-  // Cache-leak guard (ENG-199 lesson): `enabled: false` still serves cached
+  // Cache-leak guard ( lesson): `enabled: false` still serves cached
   // data from a previous customer, so gate the read on the flag too.
   const points = customerId ? (loyaltyQuery.data?.points ?? 0) : 0;
   if (!customerId || points <= 0) return null;

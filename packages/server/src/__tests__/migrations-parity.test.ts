@@ -1,20 +1,20 @@
 /**
- * ENG-002 Step 3 — Schema parity regression pin.
+ * Step 3 — Schema parity regression pin.
  *
  * Locks the invariant that after retirement of the legacy
  * `runSchemaSync()` raw-DDL bootstrap, booting through
  * `initDatabase({ seedData: false })` still produces:
  *
- *   - Every tenant-scoped and global user table the app needs.
- *   - Every named index the Drizzle schema declares.
- *   - Non-empty catalog tables (country, currency, DIAN identification
- *     types) via the post-migration `seedCatalogs` hook.
+ * - Every tenant-scoped and global user table the app needs.
+ * - Every named index the Drizzle schema declares.
+ * - Non-empty catalog tables (country, currency, DIAN identification
+ * types) via the post-migration `seedCatalogs` hook.
  *
  * The assertions are deliberately generous on table/index counts — the
  * test does NOT freeze the exact list, only confirms that the full
  * surface materialises from the migrations + seed-catalog path, with
  * spot-checks on the tables that the retirement is most likely to
- * regress (the catalog tables and the ENG-020 fiscal tables).
+ * regress (the catalog tables and the  fiscal tables).
  *
  * If a future diff breaks parity — e.g. a migration stops creating
  * `fiscal_identification_types` or `seedCatalogs` is accidentally
@@ -63,13 +63,12 @@ function listIndices(sqlite: Database.Database): string[] {
 }
 
 function countRows(sqlite: Database.Database, tableName: string): number {
-  const row = sqlite
-    .prepare(`SELECT COUNT(*) AS count FROM ${tableName}`)
-    .get() as CountRow | undefined;
+  const row = sqlite.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get() as
+    CountRow | undefined;
   return row?.count ?? 0;
 }
 
-describe('schema parity (ENG-002 Step 3)', () => {
+describe('schema parity ( Step 3)', () => {
   const createdPaths: string[] = [];
 
   afterEach(() => {
@@ -97,7 +96,7 @@ describe('schema parity (ENG-002 Step 3)', () => {
     expect(tables.length).toBeGreaterThanOrEqual(40);
     expect(indices.length).toBeGreaterThanOrEqual(40);
 
-    // Spot-check: the catalog tables (ENG-017 / ENG-020) that
+    // Spot-check: the catalog tables ( / ) that
     // `seedCatalogs` targets must exist. If retirement disconnects the
     // migration path for these, the hook would otherwise crash on every
     // boot.
@@ -115,9 +114,7 @@ describe('schema parity (ENG-002 Step 3)', () => {
       'fiscal_numbering_resolutions',
       'fiscal_certificates',
     ]) {
-      expect(tables, `expected table ${required} in parity set`).toContain(
-        required
-      );
+      expect(tables, `expected table ${required} in parity set`).toContain(required);
     }
   });
 
@@ -128,12 +125,8 @@ describe('schema parity (ENG-002 Step 3)', () => {
 
     // Row counts match the seed matrices in `db/index.ts`
     // (`seedLocaleCatalogs` + `seedFiscalIdentificationTypes`).
-    expect(countRows(live.$client, 'currency_catalog')).toBeGreaterThanOrEqual(
-      18
-    );
-    expect(countRows(live.$client, 'country_catalog')).toBeGreaterThanOrEqual(
-      21
-    );
+    expect(countRows(live.$client, 'currency_catalog')).toBeGreaterThanOrEqual(18);
+    expect(countRows(live.$client, 'country_catalog')).toBeGreaterThanOrEqual(21);
     expect(countRows(live.$client, 'fiscal_identification_types')).toBe(23);
   });
 
@@ -156,19 +149,13 @@ describe('schema parity (ENG-002 Step 3)', () => {
     const secondLive = getDatabase() as unknown as {
       $client: Database.Database;
     };
-    expect(countRows(secondLive.$client, 'currency_catalog')).toBe(
-      firstCurrencies
-    );
-    expect(countRows(secondLive.$client, 'country_catalog')).toBe(
-      firstCountries
-    );
-    expect(countRows(secondLive.$client, 'fiscal_identification_types')).toBe(
-      firstDian
-    );
+    expect(countRows(secondLive.$client, 'currency_catalog')).toBe(firstCurrencies);
+    expect(countRows(secondLive.$client, 'country_catalog')).toBe(firstCountries);
+    expect(countRows(secondLive.$client, 'fiscal_identification_types')).toBe(firstDian);
   });
 
   it('is idempotent on a persistent DB: re-booting the same file does not mutate catalog rows', async () => {
-    // ENG-002 Step 3 regression pin: the `INSERT OR IGNORE` clauses
+    // Step 3 regression pin: the `INSERT OR IGNORE` clauses
     // inside `seedLocaleCatalogs` + `seedFiscalIdentificationTypes` are
     // the only guard against double-insert on every boot. A future
     // diff that accidentally swapped either seeder to
@@ -207,20 +194,18 @@ describe('schema parity (ENG-002 Step 3)', () => {
     };
 
     // Row counts unchanged — no double-insert.
-    expect(countRows(secondLive.$client, 'country_catalog')).toBe(
-      firstCountries
-    );
-    expect(countRows(secondLive.$client, 'fiscal_identification_types')).toBe(
-      firstDian
-    );
+    expect(countRows(secondLive.$client, 'country_catalog')).toBe(firstCountries);
+    expect(countRows(secondLive.$client, 'fiscal_identification_types')).toBe(firstDian);
 
     // Sentinel survived — the seed used `INSERT OR IGNORE`, not
     // `INSERT OR REPLACE`. If this assertion fails, someone swapped
     // the conflict policy and is now silently overwriting operator
     // data on every boot.
-    const usdDecimals = (secondLive.$client
-      .prepare('SELECT decimals FROM currency_catalog WHERE code = ?')
-      .get('USD') as { decimals: number } | undefined)?.decimals;
+    const usdDecimals = (
+      secondLive.$client
+        .prepare('SELECT decimals FROM currency_catalog WHERE code = ?')
+        .get('USD') as { decimals: number } | undefined
+    )?.decimals;
     expect(usdDecimals).toBe(99);
   });
 });

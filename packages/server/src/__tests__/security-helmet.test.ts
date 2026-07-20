@@ -1,5 +1,5 @@
 /**
- * ENG-166 — assert that @fastify/helmet is wired and emits the security
+ * assert that @fastify/helmet is wired and emits the security
  * headers the audit requires. Uses `app.inject` so the test pays for
  * Fastify boot but skips real socket binding.
  */

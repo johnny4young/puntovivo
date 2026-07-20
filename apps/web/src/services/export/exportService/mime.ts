@@ -1,7 +1,7 @@
-// ENG-103 — canonical MIME registry + extension lookup (ENG-178 slice 30).
+// canonical MIME registry + extension lookup ( slice 30).
 
 /**
- * ENG-103 — Canonical MIME registry per extension. Single source of
+ * Canonical MIME registry per extension. Single source of
  * truth so every download surface agrees on the type to declare to
  * `Blob` (and indirectly to `Content-Type` when the renderer uploads
  * via FormData). The Map is intentionally typed as `Record` of a

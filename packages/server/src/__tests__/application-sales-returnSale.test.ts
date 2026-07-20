@@ -1,5 +1,5 @@
 /**
- * ENG-055 — Invariant tests for `application/sales/returnSale`.
+ * Invariant tests for `application/sales/returnSale`.
  *
  * Calls the use-case directly without booting Fastify. The HTTP-shaped
  * tests in `sales.test.ts` continue to exercise the auth / role guards
@@ -362,7 +362,7 @@ describe('returnSale (happy path)', () => {
   });
 });
 
-describe('returnSale (ENG-106c3 approval boundary)', () => {
+describe('returnSale ( approval boundary)', () => {
   it('requires an exact grant for a cashier and leaves the sale unchanged on denial', async () => {
     const productId = await seedProduct({
       name: 'Return grant denied',

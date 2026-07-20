@@ -1,5 +1,5 @@
 /**
- * CFDI 4.0 serializer (ENG-035b) — public barrel.
+ * CFDI 4.0 serializer () — public barrel.
  *
  * Re-assembles the per-concern modules into the original public surface
  * (the two serialize functions + the result type) so importers resolve

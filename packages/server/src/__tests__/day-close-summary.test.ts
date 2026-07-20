@@ -1,13 +1,13 @@
 /**
- * ENG-198 — day-close ritual summary (`cashSessions.dayCloseSummary`).
+ * day-close ritual summary (`cashSessions.dayCloseSummary`).
  *
  * Pins the two contracts the ritual depends on:
- *   - role gating happens SERVER-SIDE: cashiers get `margin: null` and
- *     revenue-ordered top products with profit fields nulled; manager/admin
- *     get the full owner view (profit-ordered, real margin);
- *   - the balanced-close streak walks calendar days backwards from the
- *     session's close day — days without closed sessions are transparent,
- *     any unbalanced close breaks the day, and the scan is tenant-wide.
+ * - role gating happens SERVER-SIDE: cashiers get `margin: null` and
+ * revenue-ordered top products with profit fields nulled; manager/admin
+ * get the full owner view (profit-ordered, real margin);
+ * - the balanced-close streak walks calendar days backwards from the
+ * session's close day — days without closed sessions are transparent,
+ * any unbalanced close breaks the day, and the scan is tenant-wide.
  *
  * Day stats reuse the realized-revenue filter (completed AND not refunded,
  * same UTC day as `closed_at`), asserted here through real completeSale /
@@ -205,7 +205,7 @@ async function insertClosedSession(
   return id;
 }
 
-describe('day-close summary (ENG-198)', () => {
+describe('day-close summary', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
@@ -362,7 +362,7 @@ describe('day-close summary (ENG-198)', () => {
     expect(after.day).toEqual(before.day);
   });
 
-  // ENG-205 — the shareable pulse compares against the same weekday last week.
+  // the shareable pulse compares against the same weekday last week.
   it('reports last-week revenue for the pulse comparison, null without reference', async () => {
     const db = getDatabase();
     const caller = appRouter.createCaller(fresh());

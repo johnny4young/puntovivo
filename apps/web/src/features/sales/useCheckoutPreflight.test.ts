@@ -1,5 +1,5 @@
 /**
- * ENG-105b — Coverage for `useCheckoutPreflight`.
+ * Coverage for `useCheckoutPreflight`.
  *
  * One test per blocker / warning + happy path + empty cart + resumed
  * draft skip. The hook is pure (only depends on its input), so we
@@ -340,7 +340,7 @@ describe('useCheckoutPreflight', () => {
     expect(result.current.primaryBlocker?.id).toBe('cash_session_required');
   });
 
-  it('merges server-derived checkout reminders as warnings without blocking Cobrar (ENG-184)', () => {
+  it('merges server-derived checkout reminders as warnings without blocking Cobrar', () => {
     const { result } = renderHook(() =>
       useCheckoutPreflight(
         buildInput({
@@ -367,7 +367,7 @@ describe('useCheckoutPreflight', () => {
     expect(result.current.warningCount).toBe(2);
   });
 
-  it('ignores serverItems when the cart is empty (nothing to charge) (ENG-184)', () => {
+  it('ignores serverItems when the cart is empty (nothing to charge)', () => {
     const { result } = renderHook(() =>
       useCheckoutPreflight(
         buildInput({

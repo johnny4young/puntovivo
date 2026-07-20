@@ -1688,7 +1688,7 @@ describe('Purchases tRPC Router', () => {
       code: 'FORBIDDEN',
     });
   });
-  describe('ENG-110d serialized procurement', () => {
+  describe(' serialized procurement', () => {
     async function createSerializedFixture(label: string) {
       const db = getDatabase();
       const now = new Date().toISOString();

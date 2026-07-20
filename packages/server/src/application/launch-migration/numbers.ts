@@ -1,4 +1,4 @@
-/** ENG-123a/ENG-123d — Locale-independent spreadsheet number parsing. */
+/** -123d — Locale-independent spreadsheet number parsing. */
 import type { ImportDecimalFormat } from '../../trpc/schemas/launchMigration.js';
 
 function normalizeExplicitNumber(

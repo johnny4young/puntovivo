@@ -1,10 +1,10 @@
 /**
- * ENG-039c — SuspendedSalesPanel component tests.
+ * SuspendedSalesPanel component tests.
  *
- * Closes a BACKLOG gap flagged after ENG-018b shipped: the panel was
+ * Covers a previously missing behavior: the panel was
  * only exercised by the E2E round-trip. This test file covers the
  * local state machine (empty / loading / error / draft rows /
- * discard-confirm flow) plus the new ENG-039c restaurant table badge
+ * discard-confirm flow) plus the new  restaurant table badge
  * surface.
  *
  * The test mounts the panel directly with a stubbed tRPC layer so we
@@ -23,22 +23,22 @@ const authMock = vi.hoisted(() => ({
 
 const listDraftsMock = vi.fn();
 const discardMutateAsync = vi.fn();
-// ENG-039c2 — mutation stub for `sales.changeTable`. Resolves/rejects
+// mutation stub for `sales.changeTable`. Resolves/rejects
 // independently of the discard stub so the transfer-modal flow can be
 // driven in isolation.
 const changeTableMutateAsync = vi.fn();
-// ENG-039c3 — mutation stub for `sales.splitDraft`. Same per-procedure
+// mutation stub for `sales.splitDraft`. Same per-procedure
 // isolation pattern as `changeTableMutateAsync`.
 const splitDraftMutateAsync = vi.fn();
 const refetchMock = vi.fn();
 const invalidateMock = vi.fn();
-// ENG-039c2 — gate query feeding the "Cambiar mesa" CTA. Default
+// gate query feeding the "Cambiar mesa" CTA. Default
 // (empty catalog) keeps the CTA hidden so legacy tests stay green.
 const restaurantTablesListMock = vi.fn();
-// ENG-039c2 — dropdown feed for the transfer modal. Augments each row
+// dropdown feed for the transfer modal. Augments each row
 // with `openDraft` so the modal can mark occupied tables.
 const restaurantTablesListWithDraftStatusMock = vi.fn();
-// ENG-039c3 — SplitBillModal reads the source draft's items through
+// SplitBillModal reads the source draft's items through
 // `sales.getById`. Each test can set the items shape per-case.
 const salesGetByIdMock = vi.fn();
 
@@ -113,8 +113,7 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: (...args: unknown[]) => restaurantTablesListMock(...args),
       },
       listWithDraftStatus: {
-        useQuery: (...args: unknown[]) =>
-          restaurantTablesListWithDraftStatusMock(...args),
+        useQuery: (...args: unknown[]) => restaurantTablesListWithDraftStatusMock(...args),
       },
     },
     useUtils: () => ({
@@ -187,7 +186,7 @@ beforeEach(async () => {
   restaurantTablesListWithDraftStatusMock.mockReset();
   salesGetByIdMock.mockReset();
   authMock.role = 'manager';
-  // ENG-039c2 — default both restaurantTables queries to "empty
+  // default both restaurantTables queries to "empty
   // catalog" so legacy cases stay green. Cases that need the CTA
   // override with `mockReturnValue` per-test.
   restaurantTablesListMock.mockReturnValue({
@@ -200,7 +199,7 @@ beforeEach(async () => {
     isLoading: false,
     error: null,
   });
-  // ENG-039c3 — default the items read to "no items", same defensive
+  // default the items read to "no items", same defensive
   // empty default as the catalog mocks. Cases that mount SplitBillModal
   // override with a populated `items` array.
   salesGetByIdMock.mockReturnValue({
@@ -252,7 +251,7 @@ describe('SuspendedSalesPanel — base render', () => {
   });
 });
 
-describe('SuspendedSalesPanel — draft cards (ENG-018b + ENG-039c)', () => {
+describe('SuspendedSalesPanel — draft cards ( + )', () => {
   it('renders one card per draft and includes the saleNumber + label', () => {
     listDraftsMock.mockReturnValue({
       data: {
@@ -299,9 +298,7 @@ describe('SuspendedSalesPanel — draft cards (ENG-018b + ENG-039c)', () => {
   it('omits the badge when the draft has no tableId (free-text fallback)', () => {
     listDraftsMock.mockReturnValue({
       data: {
-        items: [
-          makeDraft({ suspendedLabel: 'Cliente Juan', tableId: null, tableName: null }),
-        ],
+        items: [makeDraft({ suspendedLabel: 'Cliente Juan', tableId: null, tableName: null })],
       },
       isLoading: false,
       isError: false,
@@ -353,7 +350,7 @@ describe('SuspendedSalesPanel — draft cards (ENG-018b + ENG-039c)', () => {
   });
 });
 
-describe('SuspendedSalesPanel — transfer-to-table CTA (ENG-039c2)', () => {
+describe('SuspendedSalesPanel — transfer-to-table CTA', () => {
   const tableA = {
     id: 'rt-a',
     tenantId: 't-1',
@@ -483,9 +480,7 @@ describe('SuspendedSalesPanel — transfer-to-table CTA (ENG-039c2)', () => {
     });
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-transfer'));
-    const select = screen.getByTestId(
-      'transfer-modal-table-select'
-    ) as HTMLSelectElement;
+    const select = screen.getByTestId('transfer-modal-table-select') as HTMLSelectElement;
     expect(select.value).toBe('rt-a');
     // The "(actual)" marker resolves on the row matching the draft's id.
     const currentOption = Array.from(select.options).find(o => o.value === 'rt-a');
@@ -520,9 +515,7 @@ describe('SuspendedSalesPanel — transfer-to-table CTA (ENG-039c2)', () => {
     });
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-transfer'));
-    const select = screen.getByTestId(
-      'transfer-modal-table-select'
-    ) as HTMLSelectElement;
+    const select = screen.getByTestId('transfer-modal-table-select') as HTMLSelectElement;
     const occupiedOption = Array.from(select.options).find(o => o.value === 'rt-b');
     expect(occupiedOption?.text).toMatch(/ocupada/i);
   });
@@ -549,9 +542,7 @@ describe('SuspendedSalesPanel — transfer-to-table CTA (ENG-039c2)', () => {
     });
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-transfer'));
-    const select = screen.getByTestId(
-      'transfer-modal-table-select'
-    ) as HTMLSelectElement;
+    const select = screen.getByTestId('transfer-modal-table-select') as HTMLSelectElement;
     fireEvent.change(select, { target: { value: 'rt-b' } });
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: /mover orden/i });
@@ -588,9 +579,7 @@ describe('SuspendedSalesPanel — transfer-to-table CTA (ENG-039c2)', () => {
     });
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-transfer'));
-    const select = screen.getByTestId(
-      'transfer-modal-table-select'
-    ) as HTMLSelectElement;
+    const select = screen.getByTestId('transfer-modal-table-select') as HTMLSelectElement;
     fireEvent.change(select, { target: { value: '__clear__' } });
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: /mover orden/i });
@@ -629,26 +618,22 @@ describe('SuspendedSalesPanel — transfer-to-table CTA (ENG-039c2)', () => {
     });
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-transfer'));
-    const select = screen.getByTestId(
-      'transfer-modal-table-select'
-    ) as HTMLSelectElement;
+    const select = screen.getByTestId('transfer-modal-table-select') as HTMLSelectElement;
     fireEvent.change(select, { target: { value: 'rt-b' } });
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: /mover orden/i });
     fireEvent.click(confirm);
-    await waitFor(() =>
-      expect(screen.getByTestId('transfer-modal-error')).toBeDefined()
-    );
+    await waitFor(() => expect(screen.getByTestId('transfer-modal-error')).toBeDefined());
     // Modal stays open after the failure so the operator can retry.
     expect(screen.getByTestId('transfer-modal-table-select')).toBeDefined();
     expect(toastSuccess).not.toHaveBeenCalled();
   });
 });
 
-// ENG-039c3 — split-bill CTA + SplitBillModal coverage. Same mocking
+// split-bill CTA + SplitBillModal coverage. Same mocking
 // surface as the transfer CTA tests; an extra `salesGetByIdMock` feeds
 // the modal's items list.
-describe('SuspendedSalesPanel — split-bill CTA (ENG-039c3)', () => {
+describe('SuspendedSalesPanel — split-bill CTA', () => {
   const tableA = {
     id: 'rt-a',
     tenantId: 't-1',
@@ -858,17 +843,13 @@ describe('SuspendedSalesPanel — split-bill CTA (ENG-039c3)', () => {
       isLoading: false,
       error: null,
     });
-    seedItems([
-      { id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 },
-    ]);
+    seedItems([{ id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 }]);
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-split'));
     fireEvent.click(screen.getByTestId('split-modal-item-item-1'));
     // Pick a real table (rt-b) — the label input is hidden so the
     // operator cannot type one, and the payload must omit it.
-    const tableSelect = screen.getByTestId(
-      'split-modal-table-select'
-    ) as HTMLSelectElement;
+    const tableSelect = screen.getByTestId('split-modal-table-select') as HTMLSelectElement;
     fireEvent.change(tableSelect, { target: { value: 'rt-b' } });
     expect(screen.queryByTestId('split-modal-label-input')).toBeNull();
     const dialog = await screen.findByRole('dialog');
@@ -914,19 +895,13 @@ describe('SuspendedSalesPanel — split-bill CTA (ENG-039c3)', () => {
       isLoading: false,
       error: null,
     });
-    seedItems([
-      { id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 },
-    ]);
+    seedItems([{ id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 }]);
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-split'));
     fireEvent.click(screen.getByTestId('split-modal-item-item-1'));
-    const tableSelect = screen.getByTestId(
-      'split-modal-table-select'
-    ) as HTMLSelectElement;
+    const tableSelect = screen.getByTestId('split-modal-table-select') as HTMLSelectElement;
     fireEvent.change(tableSelect, { target: { value: '__clear__' } });
-    const labelInput = (await screen.findByTestId(
-      'split-modal-label-input'
-    )) as HTMLInputElement;
+    const labelInput = (await screen.findByTestId('split-modal-label-input')) as HTMLInputElement;
     fireEvent.change(labelInput, { target: { value: 'Comensal 2' } });
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', {
@@ -967,9 +942,7 @@ describe('SuspendedSalesPanel — split-bill CTA (ENG-039c3)', () => {
       isLoading: false,
       error: null,
     });
-    seedItems([
-      { id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 },
-    ]);
+    seedItems([{ id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 }]);
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-split'));
     fireEvent.click(screen.getByTestId('split-modal-item-item-1'));
@@ -978,9 +951,7 @@ describe('SuspendedSalesPanel — split-bill CTA (ENG-039c3)', () => {
       name: /dividir cuenta/i,
     });
     fireEvent.click(confirm);
-    await waitFor(() =>
-      expect(screen.getByTestId('split-modal-error')).toBeDefined()
-    );
+    await waitFor(() => expect(screen.getByTestId('split-modal-error')).toBeDefined());
     // Modal stays open for retry — assertion that the table select is
     // still in the DOM.
     expect(screen.getByTestId('split-modal-table-select')).toBeDefined();

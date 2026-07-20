@@ -24,12 +24,12 @@ type PricingInput = { marginPercent: number } | { marginAmount: number } | { pri
  * Inputs the form logic needs. Mirrors the subset of ProductFormModalProps
  * that drives react-hook-form: the mode + product seed the defaults, the
  * optional defaultName pre-fills create mode, and onSubmit / onCreated wire
- * the submit pipeline (ENG-105c).
+ * the submit pipeline ().
  */
 export interface UseProductFormArgs {
   mode: ProductRole;
   product: Product | null;
-  // ENG-179b — explicit `| undefined` on optional fields.
+  // explicit `| undefined` on optional fields.
   defaultName?: string | undefined;
   onSubmit: (values: ProductFormValues) => Promise<Product | void>;
   onCreated?: ((product: Product) => void) | undefined;
@@ -37,8 +37,8 @@ export interface UseProductFormArgs {
 
 /**
  * Owns the react-hook-form wiring for the product form: the `useForm`
- * instance (with the ENG-105c create-mode `defaultName` prefill), the
- * ENG-105c `handleSubmit` wrapper that fires `onCreated` on create, the two
+ * instance (with the  create-mode `defaultName` prefill), the
+ * `handleSubmit` wrapper that fires `onCreated` on create, the two
  * `useFieldArray` controllers, every pre-built `form.register(...)` field
  * config, the price/margin sync helpers, the base-unit + provider-duplicate
  * logic, and the render-time `useWatch` values the tabs/footer read. The
@@ -93,7 +93,7 @@ export function useProductForm({
   const form = useForm<ProductFormValues>({
     defaultValues: (() => {
       const base = mapProductToForm(product);
-      // ENG-105c — only pre-fill on create mode; edit-mode never
+      // only pre-fill on create mode; edit-mode never
       // overwrites the product's existing name.
       if (mode === 'create' && defaultName && defaultName.length > 0) {
         return { ...base, name: defaultName };
@@ -101,7 +101,7 @@ export function useProductForm({
       return base;
     })(),
   });
-  // ENG-105c — wrap onSubmit so we can fire onCreated with the
+  // wrap onSubmit so we can fire onCreated with the
   // returned product. handleSubmit from react-hook-form drops the
   // resolved value of the handler, so we capture it inside the
   // wrapper before the form library swallows it.

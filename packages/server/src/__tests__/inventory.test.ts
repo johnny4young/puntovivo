@@ -134,7 +134,7 @@ describe('Inventory tRPC Router', () => {
       updatedAt: new Date().toISOString(),
     });
 
-    // ENG-052b — register one device for the tenant; reused by every
+    // register one device for the tenant; reused by every
     // critical mutation (`inventory.adjustStock`, etc.).
     const registration = await registerDeviceService(db, {
       tenantId,
@@ -288,7 +288,7 @@ describe('Inventory tRPC Router', () => {
     expect(stock.isLowStock).toBe(false);
   });
 
-  // Phase 1 DB-050: adjusting a product's stock to a fractional target must
+  // adjusting a product's stock to a fractional target must
   // round-trip through the inventory_movements ledger without rounding. This
   // is the end-to-end contract that unblocks ferreterías (2.5 m cable) and
   // supermarkets (0.75 kg produce).
@@ -523,7 +523,7 @@ describe('Inventory tRPC Router', () => {
   });
 
   // --------------------------------------------------------------------------
-  // Phase 2 DB-101 / API-101 — inventory balances by site
+  // Inventory balances by site.
   // --------------------------------------------------------------------------
   describe('listBalancesBySite', () => {
     let primarySiteId: string;
@@ -641,17 +641,14 @@ describe('Inventory tRPC Router', () => {
         .select()
         .from(inventoryBalances)
         .where(
-          and(
-            eq(inventoryBalances.tenantId, tenantId),
-            eq(inventoryBalances.siteId, primarySiteId)
-          )
+          and(eq(inventoryBalances.tenantId, tenantId), eq(inventoryBalances.siteId, primarySiteId))
         )
         .all();
 
       expect(rows.length).toBe(first.items.length);
     });
 
-    // Phase 2 API-103 step 3 made `adjustStock` balance-aware. The delta
+    // made `adjustStock` balance-aware. The delta
     // (`input.newStock - product.stock`) is applied to the resolved site.
     it('adjustStock credits the primary site balance when newStock > product.stock', async () => {
       const caller = appRouter.createCaller(createTestContext());
@@ -938,180 +935,177 @@ describe('Inventory tRPC Router', () => {
       });
     });
 
-  // ────────────────────────────────────────────────────────────────────────
-  // Auditoría 2026-07 — stock is DERIVED from Σ(inventory_balances.on_hand).
-  // The denormalized `products.stock` column was removed, so "drift" is
-  // structurally impossible: the derived total IS Σ(balances) by construction.
-  // These tests pin that the derivation tracks per-site balance writes.
-  // Nested inside `listBalancesBySite` so we reuse its primary/secondary site
-  // fixtures without re-bootstrapping them here.
-  // ────────────────────────────────────────────────────────────────────────
+    // ────────────────────────────────────────────────────────────────────────
+    // Auditoría 2026-07 — stock is DERIVED from Σ(inventory_balances.on_hand).
+    // The denormalized `products.stock` column was removed, so "drift" is
+    // structurally impossible: the derived total IS Σ(balances) by construction.
+    // These tests pin that the derivation tracks per-site balance writes.
+    // Nested inside `listBalancesBySite` so we reuse its primary/secondary site
+    // fixtures without re-bootstrapping them here.
+    // ────────────────────────────────────────────────────────────────────────
 
-  describe('derived stock total tracks inventory_balances', () => {
-    it('derives Σ(site balances) after an adjustStock at the primary site', async () => {
-      const caller = appRouter.createCaller(createTestContext(primarySiteId));
-      const db = getDatabase();
+    describe('derived stock total tracks inventory_balances', () => {
+      it('derives Σ(site balances) after an adjustStock at the primary site', async () => {
+        const caller = appRouter.createCaller(createTestContext(primarySiteId));
+        const db = getDatabase();
 
-      const created = await caller.products.create(
-        buildProductInput({
-          name: 'Balances Derived Primary',
-          sku: 'BAL-LOCK-PRIM',
-          barcode: '91001',
-          stock: 10,
-        })
-      );
+        const created = await caller.products.create(
+          buildProductInput({
+            name: 'Balances Derived Primary',
+            sku: 'BAL-LOCK-PRIM',
+            barcode: '91001',
+            stock: 10,
+          })
+        );
 
-      await caller.inventory.adjustStock({
-        productId: created.id,
-        newStock: 17,
-        notes: 'Primary site cycle count',
+        await caller.inventory.adjustStock({
+          productId: created.id,
+          newStock: 17,
+          notes: 'Primary site cycle count',
+        });
+
+        const derived = getProductStockTotal(db, tenantId, created.id);
+        const balancesSum = await db
+          .select({
+            total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
+          })
+          .from(inventoryBalances)
+          .where(eq(inventoryBalances.productId, created.id))
+          .get();
+
+        expect(derived).toBe(17);
+        expect(balancesSum?.total).toBe(17);
       });
 
-      const derived = getProductStockTotal(db, tenantId, created.id);
-      const balancesSum = await db
-        .select({
-          total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
-        })
-        .from(inventoryBalances)
-        .where(eq(inventoryBalances.productId, created.id))
-        .get();
+      it('derives Σ(site balances) when an adjustment targets a non-primary site', async () => {
+        const caller = appRouter.createCaller(createTestContext(primarySiteId));
+        const db = getDatabase();
 
-      expect(derived).toBe(17);
-      expect(balancesSum?.total).toBe(17);
-    });
+        const created = await caller.products.create(
+          buildProductInput({
+            name: 'Balances Derived Secondary',
+            sku: 'BAL-LOCK-SEC',
+            barcode: '91002',
+            stock: 12,
+          })
+        );
 
-    it('derives Σ(site balances) when an adjustment targets a non-primary site', async () => {
-      const caller = appRouter.createCaller(createTestContext(primarySiteId));
-      const db = getDatabase();
+        // Primary balance seeds at 12 on first read.
+        await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
 
-      const created = await caller.products.create(
-        buildProductInput({
-          name: 'Balances Derived Secondary',
-          sku: 'BAL-LOCK-SEC',
-          barcode: '91002',
-          stock: 12,
-        })
-      );
+        // Adjust at the secondary site: primary snapshot fills with 12, then
+        // the delta (5 - 12 = -7) lands on secondary. Σ(balances) = 12 + (-7) = 5.
+        await caller.inventory.adjustStock({
+          productId: created.id,
+          newStock: 5,
+          siteId: secondarySiteId,
+          notes: 'Secondary count correction',
+        });
 
-      // Primary balance seeds at 12 on first read.
-      await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+        const derived = getProductStockTotal(db, tenantId, created.id);
+        const balancesSum = await db
+          .select({
+            total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
+          })
+          .from(inventoryBalances)
+          .where(eq(inventoryBalances.productId, created.id))
+          .get();
 
-      // Adjust at the secondary site: primary snapshot fills with 12, then
-      // the delta (5 - 12 = -7) lands on secondary. Σ(balances) = 12 + (-7) = 5.
-      await caller.inventory.adjustStock({
-        productId: created.id,
-        newStock: 5,
-        siteId: secondarySiteId,
-        notes: 'Secondary count correction',
+        expect(derived).toBe(5);
+        expect(balancesSum?.total).toBe(5);
       });
 
-      const derived = getProductStockTotal(db, tenantId, created.id);
-      const balancesSum = await db
-        .select({
-          total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
-        })
-        .from(inventoryBalances)
-        .where(eq(inventoryBalances.productId, created.id))
-        .get();
+      it('reconcileBalances is a no-op and the derived total already equals Σ(balances)', async () => {
+        const caller = appRouter.createCaller(createTestContext(primarySiteId));
+        const db = getDatabase();
 
-      expect(derived).toBe(5);
-      expect(balancesSum?.total).toBe(5);
-    });
+        const created = await caller.products.create(
+          buildProductInput({
+            name: 'Balances Reconcile Noop',
+            sku: 'BAL-RECON',
+            barcode: '91003',
+            stock: 30,
+          })
+        );
 
-    it('reconcileBalances is a no-op and the derived total already equals Σ(balances)', async () => {
-      const caller = appRouter.createCaller(createTestContext(primarySiteId));
-      const db = getDatabase();
+        // Seed primary balance at 30.
+        await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
 
-      const created = await caller.products.create(
-        buildProductInput({
-          name: 'Balances Reconcile Noop',
-          sku: 'BAL-RECON',
-          barcode: '91003',
-          stock: 30,
-        })
-      );
+        // With a single source of truth there is no cache to recompute; the
+        // reconcile procedure is retained as a no-op returning productsUpdated: 0.
+        const result = await caller.inventory.reconcileBalances();
+        expect(result.productsUpdated).toBe(0);
 
-      // Seed primary balance at 30.
-      await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
-
-      // With a single source of truth there is no cache to recompute; the
-      // reconcile procedure is retained as a no-op returning productsUpdated: 0.
-      const result = await caller.inventory.reconcileBalances();
-      expect(result.productsUpdated).toBe(0);
-
-      const derived = getProductStockTotal(db, tenantId, created.id);
-      const balancesSum = await db
-        .select({
-          total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
-        })
-        .from(inventoryBalances)
-        .where(eq(inventoryBalances.productId, created.id))
-        .get();
-      expect(derived).toBe(30);
-      expect(derived).toBe(balancesSum?.total);
-    });
-
-    it('adjustStock realizes the target as Σ(balances) with no cache to drift', async () => {
-      const caller = appRouter.createCaller(createTestContext(primarySiteId));
-      const db = getDatabase();
-
-      const created = await caller.products.create(
-        buildProductInput({
-          name: 'Balances Adjust Target',
-          sku: 'BAL-ADJ-DRIFT',
-          barcode: '91005',
-          stock: 10,
-        })
-      );
-
-      // Seed the primary balance to 10.
-      await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
-
-      // Adjust to a new target; the derived total must equal Σ(balances) and
-      // the requested target, by construction.
-      await caller.inventory.adjustStock({
-        productId: created.id,
-        newStock: 15,
+        const derived = getProductStockTotal(db, tenantId, created.id);
+        const balancesSum = await db
+          .select({
+            total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
+          })
+          .from(inventoryBalances)
+          .where(eq(inventoryBalances.productId, created.id))
+          .get();
+        expect(derived).toBe(30);
+        expect(derived).toBe(balancesSum?.total);
       });
 
-      const derived = getProductStockTotal(db, tenantId, created.id);
-      const balancesSum = await db
-        .select({
-          total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
-        })
-        .from(inventoryBalances)
-        .where(eq(inventoryBalances.productId, created.id))
-        .get();
+      it('adjustStock realizes the target as Σ(balances) with no cache to drift', async () => {
+        const caller = appRouter.createCaller(createTestContext(primarySiteId));
+        const db = getDatabase();
 
-      expect(derived).toBe(15);
-      expect(derived).toBe(balancesSum?.total);
+        const created = await caller.products.create(
+          buildProductInput({
+            name: 'Balances Adjust Target',
+            sku: 'BAL-ADJ-DRIFT',
+            barcode: '91005',
+            stock: 10,
+          })
+        );
+
+        // Seed the primary balance to 10.
+        await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+
+        // Adjust to a new target; the derived total must equal Σ(balances) and
+        // the requested target, by construction.
+        await caller.inventory.adjustStock({
+          productId: created.id,
+          newStock: 15,
+        });
+
+        const derived = getProductStockTotal(db, tenantId, created.id);
+        const balancesSum = await db
+          .select({
+            total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
+          })
+          .from(inventoryBalances)
+          .where(eq(inventoryBalances.productId, created.id))
+          .get();
+
+        expect(derived).toBe(15);
+        expect(derived).toBe(balancesSum?.total);
+      });
+
+      it('derives 0 for a product with no balance rows', async () => {
+        const caller = appRouter.createCaller(createTestContext(primarySiteId));
+        const db = getDatabase();
+
+        const created = await caller.products.create(
+          buildProductInput({
+            name: 'Balances Derived Empty',
+            sku: 'BAL-RECON-EMPTY',
+            barcode: '91004',
+            stock: 42,
+          })
+        );
+
+        // Drop all balance rows for this product to simulate a product that
+        // never got seeded (legacy data import).
+        await db.delete(inventoryBalances).where(eq(inventoryBalances.productId, created.id)).run();
+
+        // reconcileBalances is retained but a no-op.
+        await caller.inventory.reconcileBalances();
+
+        expect(getProductStockTotal(db, tenantId, created.id)).toBe(0);
+      });
     });
-
-    it('derives 0 for a product with no balance rows', async () => {
-      const caller = appRouter.createCaller(createTestContext(primarySiteId));
-      const db = getDatabase();
-
-      const created = await caller.products.create(
-        buildProductInput({
-          name: 'Balances Derived Empty',
-          sku: 'BAL-RECON-EMPTY',
-          barcode: '91004',
-          stock: 42,
-        })
-      );
-
-      // Drop all balance rows for this product to simulate a product that
-      // never got seeded (legacy data import).
-      await db
-        .delete(inventoryBalances)
-        .where(eq(inventoryBalances.productId, created.id))
-        .run();
-
-      // reconcileBalances is retained but a no-op.
-      await caller.inventory.reconcileBalances();
-
-      expect(getProductStockTotal(db, tenantId, created.id)).toBe(0);
-    });
-  });
   });
 });

@@ -18,7 +18,7 @@ function canManageCompany(role: UserRole | undefined): boolean {
   return role === 'admin';
 }
 
-/** ENG-178 — Company setup query, mutation, role, and URL-state coordinator. */
+/** Company setup query, mutation, role, and URL-state coordinator. */
 export function CompanyPage(): React.ReactElement {
   const { t } = useTranslation('settings');
   const { user } = useAuth();
@@ -28,17 +28,17 @@ export function CompanyPage(): React.ReactElement {
   const company = companyQuery.data ?? null;
   const canEdit = canManageCompany(user?.role);
 
-  // ENG-036a — el tab Fiscal despacha la card por país. Reusamos
+  // el tab Fiscal despacha la card por país. Reusamos
   // el query que LocaleProvider ya hace al boot; react-query dedupe
   // la trae de cache en este punto.
   const localeQuery = trpc.tenantLocale.get.useQuery();
   const tenantCountryCode = localeQuery.data?.countryCode ?? null;
 
-  // ENG-045 — tab state remains URL-driven so deep links such as
+  // tab state remains URL-driven so deep links such as
   // /company?tab=ai open the intended panel without extra navigation.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  // ENG-104 — admins default to readiness; other allowed roles retain
+  // admins default to readiness; other allowed roles retain
   // the legacy general-form landing.
   const defaultTab: CompanyTabKey = canEdit ? 'readiness' : 'general';
   const activeTab: CompanyTabKey = isCompanyTabKey(tabParam) ? tabParam : defaultTab;
@@ -114,7 +114,7 @@ export function CompanyPage(): React.ReactElement {
 
           {canEdit && (
             <>
-              {/* ENG-188 — grouped Setup nav keeps readiness pinned and
+              {/* grouped Setup nav keeps readiness pinned and
                   preserves the existing ?tab= URL contract. */}
               <CompanySetupNavigation activeTab={activeTab} onTabChange={handleTabChange} />
               <CompanySettingsPanels

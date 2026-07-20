@@ -55,7 +55,7 @@ describe('Modal', () => {
     expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
   });
 
-  describe('focus restoration on close (ENG-105f)', () => {
+  describe('focus restoration on close', () => {
     function FocusHarness({
       restoreFocusTo,
       restoreTarget,
@@ -71,11 +71,7 @@ describe('Modal', () => {
       };
       return (
         <div>
-          <button
-            ref={openerRef}
-            data-testid="opener"
-            onClick={() => setIsOpen(true)}
-          >
+          <button ref={openerRef} data-testid="opener" onClick={() => setIsOpen(true)}>
             Open
           </button>
           <input data-testid="override-target" />
@@ -98,12 +94,7 @@ describe('Modal', () => {
         document.querySelector<HTMLInputElement>('[data-testid="override-target"]')
       );
 
-      render(
-        <FocusHarness
-          restoreFocusTo={restoreFocusTo}
-          restoreTarget="override"
-        />
-      );
+      render(<FocusHarness restoreFocusTo={restoreFocusTo} restoreTarget="override" />);
 
       expect(restoreFocusTo).not.toHaveBeenCalled();
     });
@@ -130,12 +121,7 @@ describe('Modal', () => {
     it('restores focus to the element returned by restoreFocusTo when provided', async () => {
       const restoreFocusTo = () =>
         document.querySelector<HTMLInputElement>('[data-testid="override-target"]');
-      render(
-        <FocusHarness
-          restoreFocusTo={restoreFocusTo}
-          restoreTarget="override"
-        />
-      );
+      render(<FocusHarness restoreFocusTo={restoreFocusTo} restoreTarget="override" />);
       const opener = screen.getByTestId('opener');
       opener.focus();
 
@@ -154,12 +140,7 @@ describe('Modal', () => {
 
     it('falls back to the previously-focused element when restoreFocusTo returns null', async () => {
       const restoreFocusTo = () => null;
-      render(
-        <FocusHarness
-          restoreFocusTo={restoreFocusTo}
-          restoreTarget="opener"
-        />
-      );
+      render(<FocusHarness restoreFocusTo={restoreFocusTo} restoreTarget="opener" />);
       const opener = screen.getByTestId('opener');
       opener.focus();
 

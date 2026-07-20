@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 
 type ToastTone = 'success' | 'error' | 'info' | 'warning';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface ToastInput {
   title: string;
   description?: string | undefined;
@@ -100,7 +100,9 @@ function ToastViewport({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{toast.title}</p>
-                {toast.description && <p className="mt-1 text-sm opacity-90">{toast.description}</p>}
+                {toast.description && (
+                  <p className="mt-1 text-sm opacity-90">{toast.description}</p>
+                )}
               </div>
               <button
                 type="button"
@@ -137,7 +139,11 @@ export function ToastProvider({ children }: ToastProviderProps) {
   }, []);
 
   const show = useCallback(
-    ({ tone = 'info', durationMs = defaultDurationMs, ...toast }: ToastInput & { tone?: ToastTone }) => {
+    ({
+      tone = 'info',
+      durationMs = defaultDurationMs,
+      ...toast
+    }: ToastInput & { tone?: ToastTone }) => {
       const id = crypto.randomUUID();
       setToasts(currentToasts => [...currentToasts, { ...toast, tone, id, durationMs }]);
 

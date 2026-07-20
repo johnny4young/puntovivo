@@ -1,15 +1,15 @@
 /**
- * ENG-197 — materialized product stock rollup (`product_stock_totals`).
+ * materialized product stock rollup (`product_stock_totals`).
  *
  * The rollup is maintained EXCLUSIVELY by the SQLite triggers of migration
  * 0008; application code never writes it. This suite pins the invariant
  * `rollup.total ≡ Σ(inventory_balances.on_hand)` under the mutation shapes
  * production uses:
- *   - direct INSERT of balance rows (the fixture/seed path);
- *   - UPDATE of on_hand (raw and via applyInventoryBalanceDelta);
- *   - DELETE of a balance row;
- *   - a real sale + refund round-trip through the use-cases;
- *   - multi-tenant isolation of the totals.
+ * - direct INSERT of balance rows (the fixture/seed path);
+ * - UPDATE of on_hand (raw and via applyInventoryBalanceDelta);
+ * - DELETE of a balance row;
+ * - a real sale + refund round-trip through the use-cases;
+ * - multi-tenant isolation of the totals.
  *
  * The broader parity net is the whole server suite: transfers/inventory/sales
  * tests assert stock via getProductStockTotal, which now reads the rollup —
@@ -128,7 +128,7 @@ async function seedProduct(name: string, sku: string): Promise<string> {
   return id;
 }
 
-describe('product stock rollup (ENG-197)', () => {
+describe('product stock rollup', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();

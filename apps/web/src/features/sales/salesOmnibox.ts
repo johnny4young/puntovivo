@@ -1,5 +1,5 @@
 /**
- * ENG-205 — shared product-to-cart helpers for the global sales omnibox.
+ * shared product-to-cart helpers for the global sales omnibox.
  *
  * The command palette lives outside SalesPage, so it cannot reuse that
  * page's hook-owned cart callbacks. These helpers keep the cross-route path

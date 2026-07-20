@@ -1,4 +1,4 @@
-/** ENG-123b — Server-authoritative customer and provider launch imports. */
+/** Server-authoritative customer and provider launch imports. */
 import { createHash } from 'node:crypto';
 import { TRPCError } from '@trpc/server';
 import { and, eq, inArray, sql } from 'drizzle-orm';

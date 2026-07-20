@@ -1,5 +1,5 @@
 /**
- * ENG-087 — Touch POS V1 cart sidebar.
+ * Touch POS V1 cart sidebar.
  *
  * Right-side panel that mirrors `SalesCheckoutPanel` for the
  * touch surface: customer slot (with the loyalty badge + "Sumar
@@ -7,20 +7,20 @@
  * stack, and the Cobrar CTA.
  *
  * Loyalty profile:
- *  - V1 wires the badge + CTA but renders them ONLY when the
- *    selected customer carries an optional `loyaltyProfile`
- *    field. The schema does not have the field today; ENG-087b
- *    will land it. The slot is forward-compatible — once the
- *    server starts populating `loyaltyProfile`, the badge + CTA
- *    surface automatically.
+ * - V1 wires the badge + CTA but renders them ONLY when the
+ * selected customer carries an optional `loyaltyProfile`
+ * field. The schema does not have the field today;
+ * will land it. The slot is forward-compatible — once the
+ * server starts populating `loyaltyProfile`, the badge + CTA
+ * surface automatically.
  *
  * Touch-first design notes:
- *  - Every interactive element ≥ 44 × 44 px.
- *  - Line rows truncate the product name so no horizontal
- *    overflow at 320 px.
- *  - Cobrar CTA stays sticky at the bottom of the rail on tall
- *    viewports via `sticky bottom-0` so the cashier can always
- *    reach it.
+ * - Every interactive element ≥ 44 × 44 px.
+ * - Line rows truncate the product name so no horizontal
+ * overflow at 320 px.
+ * - Cobrar CTA stays sticky at the bottom of the rail on tall
+ * viewports via `sticky bottom-0` so the cashier can always
+ * reach it.
  */
 import { useTranslation } from 'react-i18next';
 import { CreditCard, Sparkles, Trash2, X } from 'lucide-react';
@@ -29,7 +29,7 @@ import type { SaleCartItem, SaleCartSummary } from '@/features/sales/saleCart';
 
 /**
  * Forward-compatible loyalty profile shape. The customers schema
- * does not carry this today; ENG-087b will land it. ENG-087 V1
+ * does not carry this today;  will land it.  V1
  * only reads `present || null` so the slot is invisible until the
  * server populates the field.
  */
@@ -75,10 +75,10 @@ export function PosTouchCartSidebar({
     chargeDisabledReason === 'noSession'
       ? t('cart.chargeDisabledNoSession')
       : chargeDisabledReason === 'noSite'
-      ? t('cart.chargeDisabledNoSite')
-      : chargeDisabledReason === 'noItems'
-      ? t('cart.chargeDisabledNoItems')
-      : null;
+        ? t('cart.chargeDisabledNoSite')
+        : chargeDisabledReason === 'noItems'
+          ? t('cart.chargeDisabledNoItems')
+          : null;
 
   return (
     <aside
@@ -86,9 +86,7 @@ export function PosTouchCartSidebar({
       className="flex flex-col gap-3 rounded-xl border border-line/70 bg-surface-1 p-4"
     >
       <header className="space-y-1">
-        <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">
-          {t('cart.title')}
-        </p>
+        <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">{t('cart.title')}</p>
         <p className="text-sm font-medium text-secondary-700">
           {t('cart.lineCount', { count: lineCount })}
         </p>
@@ -121,9 +119,7 @@ export function PosTouchCartSidebar({
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               {t('cart.loyalty.sumarPuntos')}
             </button>
-            <p className="text-[11px] text-warning-600">
-              {t('cart.loyalty.sumarPuntosHelp')}
-            </p>
+            <p className="text-[11px] text-warning-600">{t('cart.loyalty.sumarPuntosHelp')}</p>
           </div>
         ) : null}
       </section>

@@ -1,7 +1,7 @@
 ALTER TABLE `cash_sessions` ADD `pace_items_per_minute` real;--> statement-breakpoint
 ALTER TABLE `sales` ADD `checkout_started_at` text;--> statement-breakpoint
 ALTER TABLE `sales` ADD `checkout_completed_at` text;--> statement-breakpoint
--- ENG-209 — one-time materialization for historical closed shifts. Future
+--  — one-time materialization for historical closed shifts. Future
 -- closes write the same aggregate transactionally in closeCashSession.
 UPDATE `cash_sessions`
 SET `pace_items_per_minute` = round(

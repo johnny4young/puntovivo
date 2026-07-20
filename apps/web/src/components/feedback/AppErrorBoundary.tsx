@@ -30,15 +30,17 @@ function AppErrorFallback({ error, onRetry, variant = 'app' }: AppErrorFallbackP
         </div>
         <div className="mt-6 space-y-2">
           <h1 className="text-2xl font-semibold text-secondary-900">{t('boundary.title')}</h1>
-          <p className="text-sm text-secondary-600">
-            {t('boundary.description')}
-          </p>
+          <p className="text-sm text-secondary-600">{t('boundary.description')}</p>
         </div>
         <div className="mt-5 rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3">
           <p className="text-sm font-medium text-danger-700">{error.message}</p>
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <button type="button" className="btn-primary flex items-center justify-center gap-2" onClick={onRetry}>
+          <button
+            type="button"
+            className="btn-primary flex items-center justify-center gap-2"
+            onClick={onRetry}
+          >
             <RefreshCw className="h-4 w-4" />
             {t('boundary.retry')}
           </button>
@@ -77,7 +79,7 @@ class BoundaryInner extends Component<BoundaryInnerProps, BoundaryInnerState> {
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // ENG-135 — funnel render-tree errors through the observability
+    // funnel render-tree errors through the observability
     // pipe. The console fallback inside `captureRenderError` keeps
     // the previous developer-tail behaviour while the future adapter
     // (Sentry / GlitchTip) gets the same payload.

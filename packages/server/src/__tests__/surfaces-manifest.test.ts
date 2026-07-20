@@ -1,24 +1,21 @@
 /**
- * ENG-069 — Surface manifest regression tests.
+ * Surface manifest regression tests.
  *
  * Pins the contract every surface kernel consumer relies on:
  *
- *   - SURFACE_IDS + SURFACES_MANIFEST stay exhaustively keyed.
- *   - Every non-null moduleId references a real module from the
- *     ENG-068 modules manifest.
- *   - defaultRoute is unique across surfaces (no two surfaces mount
- *     on the same URL).
- *   - i18nKey is unique across surfaces (no two surfaces share copy).
- *   - POS Desktop is the implicit default (moduleId === null).
- *   - assertSurfaceManifestIntegrity throws when a surface points at
- *     a non-existent module id.
+ * - SURFACE_IDS + SURFACES_MANIFEST stay exhaustively keyed.
+ * - Every non-null moduleId references a real module from the
+ * modules manifest.
+ * - defaultRoute is unique across surfaces (no two surfaces mount
+ * on the same URL).
+ * - i18nKey is unique across surfaces (no two surfaces share copy).
+ * - POS Desktop is the implicit default (moduleId === null).
+ * - assertSurfaceManifestIntegrity throws when a surface points at
+ * a non-existent module id.
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  MODULE_IDS,
-  type ModuleId,
-} from '../services/modules/manifest.js';
+import { MODULE_IDS, type ModuleId } from '../services/modules/manifest.js';
 import {
   SURFACE_IDS,
   SURFACES_MANIFEST,
@@ -26,7 +23,7 @@ import {
   isSurfaceId,
 } from '../services/surfaces/manifest.js';
 
-describe('surfaces manifest exhaustiveness (ENG-069)', () => {
+describe('surfaces manifest exhaustiveness', () => {
   it('every SURFACE_IDS entry has a matching descriptor', () => {
     for (const id of SURFACE_IDS) {
       expect(SURFACES_MANIFEST[id]).toBeDefined();
@@ -58,7 +55,7 @@ describe('surfaces manifest exhaustiveness (ENG-069)', () => {
   });
 });
 
-describe('surfaces ↔ modules cross-manifest integrity (ENG-069)', () => {
+describe('surfaces ↔ modules cross-manifest integrity', () => {
   it('POS Desktop is the implicit default (moduleId === null)', () => {
     expect(SURFACES_MANIFEST['pos-desktop'].moduleId).toBeNull();
   });
@@ -72,16 +69,11 @@ describe('surfaces ↔ modules cross-manifest integrity (ENG-069)', () => {
     }
   });
 
-  it('non-null moduleId surfaces match the 4 ENG-069 module ids', () => {
-    const surfaceModuleIds = SURFACE_IDS
-      .map(id => SURFACES_MANIFEST[id].moduleId)
-      .filter((mid): mid is ModuleId => mid !== null);
-    expect(surfaceModuleIds).toEqual([
-      'pos-touch',
-      'kds',
-      'customer-display',
-      'mobile-waiter',
-    ]);
+  it('non-null moduleId surfaces match the 4  module ids', () => {
+    const surfaceModuleIds = SURFACE_IDS.map(id => SURFACES_MANIFEST[id].moduleId).filter(
+      (mid): mid is ModuleId => mid !== null
+    );
+    expect(surfaceModuleIds).toEqual(['pos-touch', 'kds', 'customer-display', 'mobile-waiter']);
   });
 
   it('assertSurfaceManifestIntegrity does not throw on the canonical manifest', () => {
@@ -89,7 +81,7 @@ describe('surfaces ↔ modules cross-manifest integrity (ENG-069)', () => {
   });
 });
 
-describe('surfaces uniqueness invariants (ENG-069)', () => {
+describe('surfaces uniqueness invariants', () => {
   it('defaultRoute is unique across surfaces', () => {
     const routes = SURFACE_IDS.map(id => SURFACES_MANIFEST[id].defaultRoute);
     expect(new Set(routes).size).toBe(routes.length);
@@ -105,16 +97,16 @@ describe('surfaces uniqueness invariants (ENG-069)', () => {
   });
 
   it('every surface uses cashierOrAbove as the v1 role floor', () => {
-    // ENG-069 v1 keeps every surface at cashier+ so existing roles
+    // v1 keeps every surface at cashier+ so existing roles
     // can preview each chrome. New roles (kitchen, waiter) come with
-    // ENG-039 and may raise the floor for KDS / Mobile Waiter then.
+    // and may raise the floor for KDS / Mobile Waiter then.
     for (const id of SURFACE_IDS) {
       expect(SURFACES_MANIFEST[id].defaultRoleSet).toBe('cashierOrAbove');
     }
   });
 });
 
-describe('isSurfaceId (ENG-069)', () => {
+describe('isSurfaceId', () => {
   it('returns true for every known id', () => {
     for (const id of SURFACE_IDS) {
       expect(isSurfaceId(id)).toBe(true);

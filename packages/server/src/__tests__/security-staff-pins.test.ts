@@ -7,7 +7,7 @@ import {
   warmUpStaffPinSecurity,
 } from '../security/staffPins.js';
 
-describe('ENG-106a staff PIN security', () => {
+describe(' staff PIN security', () => {
   it('accepts exactly six digits and rejects malformed values', () => {
     expect(isValidStaffPin('123456')).toBe(true);
     expect(isValidStaffPin('12345')).toBe(false);

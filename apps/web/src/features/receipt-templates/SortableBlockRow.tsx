@@ -26,19 +26,19 @@ interface SortableBlockRowProps {
 }
 
 /**
- * ENG-016 pass 2 (item #1) — sortable wrapper around an existing block
+ * pass 2 (item #1) — sortable wrapper around an existing block
  * card. Owns the `useSortable` hook so the parent component does not
  * have to thread the dnd-kit transforms through. Critical contract:
  *
- *  - `data-flip-key` MUST stay on the outer `<li>` so pass-1's FLIP
- *    helper continues to animate the keyboard `↑/↓` reorder path.
- *  - The drag listeners attach to the grip icon ONLY; the row title,
- *    the `↑/↓` buttons, and the trash button stay clickable without
- *    starting a drag.
- *  - `transform` + `transition` from `useSortable` are applied to the
- *    `<li>` so the dragged item visually follows the pointer until
- *    drop (the `<DragOverlay>` portal in the parent renders the
- *    floating clone).
+ * - `data-flip-key` MUST stay on the outer `<li>` so pass-1's FLIP
+ * helper continues to animate the keyboard `↑/↓` reorder path.
+ * - The drag listeners attach to the grip icon ONLY; the row title,
+ * the `↑/↓` buttons, and the trash button stay clickable without
+ * starting a drag.
+ * - `transform` + `transition` from `useSortable` are applied to the
+ * `<li>` so the dragged item visually follows the pointer until
+ * drop (the `<DragOverlay>` portal in the parent renders the
+ * floating clone).
  */
 export function SortableBlockRow({
   blockKey,

@@ -1,7 +1,7 @@
 /**
  * Create a completed purchase (immediate stock-in).
  *
- * ENG-178 — extracted from the former monolithic `trpc/routers/purchases.ts`
+ * extracted from the former monolithic `trpc/routers/purchases.ts`
  * during the megafile decomposition. The transaction body (sequential
  * advance, purchase + line inserts, per-item stock / balance / movement
  * writes) is relocated verbatim; the tRPC procedure now adapts its context

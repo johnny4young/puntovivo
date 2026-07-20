@@ -12,7 +12,7 @@ import type { UserRole } from '@/types';
  * Display, Mobile Waiter) that live outside `MainLayout` and own their
  * viewport.
  *
- * ENG-183 — gates by role AND module at the ROUTE level, BEFORE the lazy
+ * gates by role AND module at the ROUTE level, BEFORE the lazy
  * surface bundle loads, so a hidden module never fetches its chunk or
  * flashes its chrome on direct-URL navigation. (The old design gated INSIDE
  * each lazily-loaded shell, after the bundle had already mounted.)
@@ -40,10 +40,7 @@ export function SurfaceShellRoute({
   const { modules, isPlaceholder } = useModulesSnapshot();
 
   const loadingState = (
-    <PageLoadingState
-      title={t('loading.pageTitle')}
-      description={t('loading.pageDescription')}
-    />
+    <PageLoadingState title={t('loading.pageTitle')} description={t('loading.pageDescription')} />
   );
 
   let content: ReactNode;

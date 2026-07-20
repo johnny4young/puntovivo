@@ -21,12 +21,12 @@ permissions:
 # Two levers keep GitHub Actions minutes down on this closed-source repo:
 #
 # 1. concurrency + cancel-in-progress: a burst of N commits pushed to the same
-#    ref no longer stacks N full CI runs. Pushing commit N+1 cancels the
-#    in-flight run for commit N, so a rapid sequence costs ~1 run, not N.
+# ref no longer stacks N full CI runs. Pushing commit N+1 cancels the
+# in-flight run for commit N, so a rapid sequence costs ~1 run, not N.
 #
 # 2. detect-changes path filter: each downstream job only runs when files in
-#    its area (or shared root config) changed. A docs-only commit runs just the
-#    ~30s detect-changes job; a web-only commit skips the desktop/server jobs.
+# its area (or shared root config) changed. A docs-only commit runs just the
+# ~30s detect-changes job; a web-only commit skips the desktop/server jobs.
 #
 # The Playwright e2e suite is intentionally NOT in CI — it is the single most
 # expensive job (browser install + full app boot) and is run locally via
@@ -170,7 +170,7 @@ jobs:
       - name: Run web validation
         run: pnpm run ci:web
 
-      # ENG-003 — ci:web now runs vitest with --coverage and the
+      # ci:web now runs vitest with --coverage and the
       # thresholds declared in apps/web/vitest.config.ts. A regression
       # below those floors fails this job. LCOV is uploaded as an
       # artifact so downstream tooling (Codecov, local inspection) can
@@ -184,7 +184,7 @@ jobs:
           if-no-files-found: warn
 
   # ============================================================================
-  # Desktop Workspace Validation (ENG-046 — ubuntu-only on push/PR)
+  # Desktop Workspace Validation ( — ubuntu-only on push/PR)
   # ----------------------------------------------------------------------------
   # The desktop workspace hosts Electron-specific code (builder config, preload,
   # main process). The ubuntu-latest run gates the `ci:desktop` script
@@ -295,7 +295,7 @@ jobs:
       - name: Run backend validation
         run: pnpm run ci:server
 
-      # ENG-003 — ci:server now runs vitest with --coverage and the
+      # ci:server now runs vitest with --coverage and the
       # thresholds declared in packages/server/vitest.config.ts. LCOV
       # is uploaded as an artifact for downstream coverage tooling.
       - name: Upload backend LCOV coverage

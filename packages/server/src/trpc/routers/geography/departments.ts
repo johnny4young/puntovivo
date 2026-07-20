@@ -1,7 +1,7 @@
 /**
  * Departments tRPC router (geography).
  *
- * ENG-178 — extracted verbatim from the former flat `trpc/routers/geography.ts`
+ * extracted verbatim from the former flat `trpc/routers/geography.ts`
  * during the megafile decomposition. The barrel re-exports `departmentsRouter`
  * under the same name, so `appRouter` and the caller-based tests are unchanged.
  *

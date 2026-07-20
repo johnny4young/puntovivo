@@ -1,5 +1,5 @@
 /**
- * ENG-190 — Profit / margin reports sub-router (`reports.profit.*`).
+ * Profit / margin reports sub-router (`reports.profit.*`).
  *
  * Read-only gross-margin surface for the admin Profitability page. COGS is
  * sourced from the per-lot ledger (`sale_item_lots`) for lot-tracked lines and

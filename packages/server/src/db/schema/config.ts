@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — config domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -142,7 +142,7 @@ export const appSettings = sqliteTable('app_settings', {
 });
 
 // ============================================================================
-// LOSS-PREVENTION SETTINGS (ENG-142a)
+// LOSS-PREVENTION SETTINGS ()
 // ============================================================================
 
 /**
@@ -167,7 +167,7 @@ export const lossPreventionSettingsRelations = relations(lossPreventionSettings,
 }));
 
 // ============================================================================
-// LOCALE CATALOGS (ENG-017)
+// LOCALE CATALOGS ()
 // ============================================================================
 //
 // Global read-only catalogs. `country_catalog` + `currency_catalog` are
@@ -256,7 +256,7 @@ export const tenantLocaleSettings = sqliteTable('tenant_locale_settings', {
   currencyOverride: text('currency_override').references(() => currencyCatalog.code),
   timezoneOverride: text('timezone_override'),
   firstDayOfWeekOverride: integer('first_day_of_week_override'),
-  // ENG-177a — optimistic-concurrency guard (see products.version).
+  // optimistic-concurrency guard (see products.version).
   version: integer('version').notNull().default(0),
   updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
 });
@@ -284,12 +284,12 @@ export const tenantLocaleSettingsRelations = relations(tenantLocaleSettings, ({ 
 }));
 
 // ============================================================================
-// DIAN IDENTIFICATION TYPES CATALOG (ENG-020 Phase A)
+// DIAN IDENTIFICATION TYPES CATALOG ( current)
 // ============================================================================
 //
-// ENG-176c — Global, read-only catalog of fiscal identification types
+// Global, read-only catalog of fiscal identification types
 // scoped by ISO-3166 country code. Renamed from `dian_identification_types`
-// (Colombia DIAN, ENG-020 Phase A) to `fiscal_identification_types` so SAT
+// (Colombia DIAN,  current) to `fiscal_identification_types` so SAT
 // México (CFDI), SUNAT Perú (Catálogo Nº 6), and SII Chile (RUT/RUN) rows
 // can coexist with DIAN entries without code collisions — DIAN '13'
 // (Cédula de Ciudadanía) and SUNAT '1' (DNI) are different codes that
@@ -300,7 +300,7 @@ export const tenantLocaleSettingsRelations = relations(tenantLocaleSettings, ({ 
 // Distinct from the existing tenant-scoped `identification_types` table,
 // which stores each tenant's custom catalog for UX flows. The two link
 // only via `abbr` when a tenant wires up their identificationTypes row
-// to a fiscal code (that mapping is out of scope for ENG-176c and is
+// to a fiscal code (that mapping is out of scope for  and is
 // handled by operator choice in the admin fiscal settings later).
 
 /** Global, read-only fiscal identification type catalog. Seeded at boot. */

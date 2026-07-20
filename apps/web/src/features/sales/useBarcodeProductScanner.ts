@@ -26,7 +26,7 @@ type SetCartItemsArg = SaleCartItem[] | ((previous: SaleCartItem[]) => SaleCartI
  *
  * `scannerConfig` is derived in SalesPage from the SHARED
  * `peripherals.activeForSite` query (one subscription for scanner +
- * drawer + auto-print — ENG-061), so it is passed in rather than
+ * drawer + auto-print — ), so it is passed in rather than
  * re-queried here. The modal-open flags gate the wedge listener so a scan
  * never fires while a modal owns the keyboard. `productInputRef` is the
  * page search input whitelisted so the wedge keeps firing even when the
@@ -48,7 +48,7 @@ interface UseBarcodeProductScannerParams {
 }
 
 /**
- * ENG-061 — barcode scanner pipeline.
+ * barcode scanner pipeline.
  *
  * `peripheralsForSiteQuery` is declared once near the top of SalesPage so
  * all peripheral consumers (scanner, cash drawer, auto-print) share a
@@ -166,7 +166,7 @@ export function useBarcodeProductScanner({
     isCashSessionModalOpen:
       isCashSessionModalOpen || isCashSessionCloseModalOpen || isCashSessionMovementModalOpen,
     enabled: !!currentSite,
-    // ENG-105f — Whitelist the page-level search input so the wedge
+    // Whitelist the page-level search input so the wedge
     // continues to fire even when the cashier sees focus on it
     // (autofocus on mount + restore after modal close). Manual
     // typing still works because the >30ms inter-character gap

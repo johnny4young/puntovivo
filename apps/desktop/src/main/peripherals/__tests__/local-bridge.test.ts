@@ -3,13 +3,10 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import {
-  MockEscPosTransport,
-  __setEscPosTransportForTest,
-} from '@puntovivo/server';
+import { MockEscPosTransport, __setEscPosTransportForTest } from '@puntovivo/server';
 import { dispatchLocalEscpos } from '../local-bridge.ts';
 
-// ENG-074b regression pin. The local hardware bridge MUST stay free
+// regression pin. The local hardware bridge MUST stay free
 // of operational-table writes per ADR-0008 rule 6. The dispatcher
 // only knows about ESC/POS bytes and the transport resolver from
 // `@puntovivo/server` — no DB modules.
@@ -27,7 +24,7 @@ after(() => {
   __setEscPosTransportForTest(null);
 });
 
-describe('local-bridge dispatchLocalEscpos (ENG-074b)', () => {
+describe('local-bridge dispatchLocalEscpos', () => {
   it('writes the bytes through the resolved transport on the happy path', async () => {
     const mock = new MockEscPosTransport();
     __setEscPosTransportForTest(mock);
@@ -104,8 +101,8 @@ describe('local-bridge dispatchLocalEscpos (ENG-074b)', () => {
       "from '../../../../../packages/server/src/db/",
       "from '@puntovivo/server/db",
       "from '../../db",
-      "outbox",
-      "drizzle",
+      'outbox',
+      'drizzle',
     ];
     for (const term of forbidden) {
       assert.equal(

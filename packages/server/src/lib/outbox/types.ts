@@ -1,5 +1,5 @@
 /**
- * ENG-053 — Shared types for the outbox kernel.
+ * Shared types for the outbox kernel.
  *
  * These types describe the GENERIC shape every concrete outbox
  * (sync / fiscal / payment / webhook / hardware) must conform to. The
@@ -27,7 +27,7 @@ import type { OutboxKind } from '../../db/schema.js';
  * Normalized error shape that every concrete outbox surfaces in
  * `lastError`. Workers map provider-specific codes (Bold, Wompi,
  * DIAN, SAT, SII) into this taxonomy so the Operations Center
- * (ENG-065) renders consistent messages.
+ * () renders consistent messages.
  */
 export interface NormalizedOutboxError {
   /** Stable code the UI maps to a translation. */

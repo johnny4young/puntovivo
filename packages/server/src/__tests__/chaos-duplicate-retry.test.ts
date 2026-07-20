@@ -1,5 +1,5 @@
 /**
- * ENG-067 — Chaos: duplicate retry across outbox retry paths.
+ * Chaos: duplicate retry across outbox retry paths.
  *
  * Pins the idempotency contract at the boundary every retry hits when a
  * worker process crashes mid-tick: a same-envelope retry MUST collapse
@@ -7,17 +7,17 @@
  *
  * Coverage matrix:
  *
- *   - sync_outbox  — partial unique idx idempotent (ENG-064). Already
- *     exercised end-to-end in `sync-contract-v1.test.ts`. This file
- *     re-asserts the cross-tenant safety story (same key on tenant A
- *     vs tenant B → two rows, not one) so the multi-tenant invariant
- *     stays under chaos coverage.
- *   - hardware_outbox — DOES NOT have a schema-level unique index.
- *     The chaos test documents the gap explicitly: enqueue twice with
- *     the same `(tenantId, kind, payload)` → two rows result. If a
- *     follow-up ticket adds idempotency (e.g. via the operation
- *     envelope `idempotencyKey`), the assertion flips and this test
- *     pins the new contract.
+ * - sync_outbox  — partial unique idx idempotent (). Already
+ * exercised end-to-end in `sync-contract-v1.test.ts`. This file
+ * re-asserts the cross-tenant safety story (same key on tenant A
+ * vs tenant B → two rows, not one) so the multi-tenant invariant
+ * stays under chaos coverage.
+ * - hardware_outbox — DOES NOT have a schema-level unique index.
+ * The chaos test documents the gap explicitly: enqueue twice with
+ * the same `(tenantId, kind, payload)` → two rows result. If a
+ * follow-up change adds idempotency (e.g. via the operation
+ * envelope `idempotencyKey`), the assertion flips and this test
+ * pins the new contract.
  *
  * @module __tests__/chaos-duplicate-retry
  */
@@ -27,12 +27,7 @@ import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  hardwareOutbox,
-  syncOutbox,
-  tenants,
-  users,
-} from '../db/schema.js';
+import { hardwareOutbox, syncOutbox, tenants, users } from '../db/schema.js';
 import { enqueueSync } from '../services/sync/enqueue.js';
 import { enqueueHardware } from '../services/peripherals/enqueue-hardware.js';
 
@@ -81,7 +76,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('chaos: duplicate retry across outboxes (ENG-067)', () => {
+describe('chaos: duplicate retry across outboxes', () => {
   describe('sync_outbox cross-tenant safety with shared idempotencyKey', () => {
     it('produces ONE row per tenant when the same key collides with the partial unique idx', async () => {
       const db = getDatabase();
@@ -150,10 +145,10 @@ describe('chaos: duplicate retry across outboxes (ENG-067)', () => {
     });
   });
 
-  describe('hardware_outbox idempotent retry collapses to one row (ENG-067b)', () => {
+  describe('hardware_outbox idempotent retry collapses to one row', () => {
     /**
-     * ENG-067 documented the gap: two enqueues with the same envelope
-     * produced TWO rows in `hardware_outbox`. ENG-067b closed it by
+     * documented the gap: two enqueues with the same envelope
+     * produced TWO rows in `hardware_outbox`.  closed it by
      * adding a nullable `idempotency_key` column + partial unique idx
      * `(tenant_id, kind, idempotency_key) WHERE idempotency_key IS
      * NOT NULL` and routing both inline insert sites through

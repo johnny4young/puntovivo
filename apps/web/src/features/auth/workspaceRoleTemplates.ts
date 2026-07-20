@@ -13,7 +13,7 @@ export interface WorkspaceRoleTemplate {
 }
 
 /**
- * ENG-129a — Data-only role template for the permission audit.
+ * Data-only role template for the permission audit.
  *
  * Keep this module free of React and icon imports: the Users route can explain
  * workspace access without pulling the icon-heavy sidebar catalogue into its
@@ -30,7 +30,7 @@ export const WORKSPACE_ROLE_TEMPLATES = {
   operate: {
     id: 'operate',
     labelKey: 'workspaces:operate.label',
-    // ENG-131e — Dashboard is the first Operate item, so viewer must keep
+    // Dashboard is the first Operate item, so viewer must keep
     // the same workspace-level access it had through the former top-level
     // Dashboard row. The Operations child remains manager/admin-only.
     allowedRoles: DASHBOARD_ROLES,

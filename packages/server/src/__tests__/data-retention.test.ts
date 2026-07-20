@@ -140,7 +140,7 @@ afterEach(async () => {
   await server.close();
 });
 
-describe('data retention (ENG-129d)', () => {
+describe('data retention', () => {
   it('normalizes malformed persisted settings without shortening the safe defaults', () => {
     expect(
       normalizeDataRetentionPolicy({

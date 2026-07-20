@@ -8,7 +8,7 @@
  * canonical form. Pure functions, no I/O — easy to unit-test in
  * __tests__/ai-invoice-ocr.test.ts.
  *
- * Added 2026-05-15 per AI Núcleo handoff §5.2 — invoice OCR sprint 1.
+ * Added 2026-05-15 per AI feature contract — invoice OCR initial iteration.
  */
 
 const NIT_DIGITS_RE = /(?<!\d)(\d{9,10})(?:-(\d))?(?!\d)/;
@@ -36,7 +36,7 @@ export function extractNit(raw: string | null | undefined): string | null {
   // The regex `NIT_DIGITS_RE` has group 1 as a required capture
   // `(\d{9,10})`, so when `match` is truthy `match[1]` is guaranteed.
   // Group 2 `(\d)` is inside an optional group `(?:-(\d))?` so the
-  // truthy check before `${...}` is enough. ENG-179a — narrow for
+  // truthy check before `${...}` is enough.  — narrow for
   // `noUncheckedIndexedAccess` without weakening the contract.
   const base = match[1] ?? null;
   return match[2] && base ? `${base}-${match[2]}` : base;

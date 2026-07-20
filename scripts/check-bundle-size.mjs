@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ENG-133 — Bundle-size CI gate.
+ * Bundle-size CI gate.
  *
  * Reads `apps/web/dist/assets/*.js` after `vite build`, computes the
  * gzipped size of every chunk, strips Rolldown's content-hash suffix,
@@ -14,10 +14,10 @@
  * the build step (see root `package.json::ci:web`).
  *
  * Exit codes:
- *   0 — every tracked chunk fits inside budget + threshold; new /
- *       removed chunks may have warned.
- *   1 — at least one chunk overshot budget OR the artifacts dir
- *       could not be read OR the budget file is malformed.
+ * 0 — every tracked chunk fits inside budget + threshold; new /
+ * removed chunks may have warned.
+ * 1 — at least one chunk overshot budget OR the artifacts dir
+ * could not be read OR the budget file is malformed.
  *
  * The helpers are also exported for the colocated `node --test`
  * suite so the strip-hash regex + comparison logic stay pinned.
@@ -75,12 +75,12 @@ export function measureChunks(assetsDir) {
 /**
  * Compare measured chunk sizes against the budget. Returns:
  *
- *   {
- *     regressions: [{ name, budget, actual, deltaPercent }],
- *     newChunks:   [{ name, gzKb }],
- *     missing:     [{ name, budget }],
- *     ok:          [{ name, budget, actual, deltaPercent }],
- *   }
+ * {
+ * regressions: [{ name, budget, actual, deltaPercent }],
+ * newChunks:   [{ name, gzKb }],
+ * missing:     [{ name, budget }],
+ * ok:          [{ name, budget, actual, deltaPercent }],
+ * }
  *
  * `regressions` carries every chunk that exceeded budget * (1 +
  * threshold/100). `newChunks` are chunks present in the build but
@@ -90,9 +90,7 @@ export function measureChunks(assetsDir) {
  */
 export function compareToBudget({ measured, budget, thresholdPercent }) {
   const ceiling = key =>
-    budget[key] !== undefined
-      ? budget[key] * (1 + thresholdPercent / 100)
-      : null;
+    budget[key] !== undefined ? budget[key] * (1 + thresholdPercent / 100) : null;
   const measuredByName = new Map(measured.map(m => [m.name, m.gzKb]));
   const result = { regressions: [], newChunks: [], missing: [], ok: [] };
   for (const { name, gzKb } of measured) {
@@ -139,9 +137,7 @@ export function renderReport({ regressions, newChunks, missing, ok }, threshold)
     }
     lines.unshift(`Bundle-size regression past ${threshold}% threshold:`);
   }
-  const noteworthyNewChunks = newChunks.filter(
-    c => c.gzKb >= NEW_CHUNK_WARN_MIN_GZ_KB
-  );
+  const noteworthyNewChunks = newChunks.filter(c => c.gzKb >= NEW_CHUNK_WARN_MIN_GZ_KB);
   if (noteworthyNewChunks.length > 0) {
     if (lines.length) lines.push('');
     lines.push(
@@ -184,9 +180,7 @@ export async function runCli({ assetsDir = DEFAULT_ASSETS_DIR } = {}) {
   try {
     budgetFile = JSON.parse(readFileSync(BUDGET_PATH, 'utf8'));
   } catch (err) {
-    console.error(
-      `check-bundle-size: cannot read budget file at ${BUDGET_PATH}: ${err.message}`
-    );
+    console.error(`check-bundle-size: cannot read budget file at ${BUDGET_PATH}: ${err.message}`);
     return 1;
   }
   const budget = budgetFile?.bundleSize?.perChunkGzKb;
@@ -211,9 +205,7 @@ export async function runCli({ assetsDir = DEFAULT_ASSETS_DIR } = {}) {
       return 1;
     }
   } catch (err) {
-    console.error(
-      `check-bundle-size: cannot read assets dir ${assetsDir}: ${err.message}`
-    );
+    console.error(`check-bundle-size: cannot read assets dir ${assetsDir}: ${err.message}`);
     return 1;
   }
   const result = compareToBudget({

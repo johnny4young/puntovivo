@@ -1,5 +1,5 @@
 /**
- * ENG-052b — Atomic file-backed device id store for the desktop
+ * Atomic file-backed device id store for the desktop
  * runtime.
  *
  * The renderer caches the server-issued device id in localStorage,
@@ -54,10 +54,7 @@ export async function readDeviceIdFromDir(dir: string): Promise<string | null> {
  * `deviceId` is empty so callers cannot accidentally erase a valid
  * registration with a falsy value.
  */
-export async function writeDeviceIdToDir(
-  dir: string,
-  deviceId: string
-): Promise<void> {
+export async function writeDeviceIdToDir(dir: string, deviceId: string): Promise<void> {
   if (typeof deviceId !== 'string' || deviceId.length === 0) {
     throw new Error('DEVICE_SET_ID_REJECTED');
   }

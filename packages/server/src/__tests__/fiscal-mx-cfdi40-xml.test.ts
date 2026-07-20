@@ -1,5 +1,5 @@
 /**
- * ENG-035b — Tests del serializador XML CFDI 4.0.
+ * Tests del serializador XML CFDI 4.0.
  *
  * Verifican estructura Anexo 20 (atributos requeridos del root,
  * Emisor, Receptor, Conceptos, Impuestos), edge cases (consumidor
@@ -8,14 +8,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { XMLParser } from 'fast-xml-parser';
-import type {
-  FiscalAdapterIssueInput,
-  FiscalAdapterLine,
-} from '../services/fiscal/adapter.js';
-import {
-  prettyPrintCfdi,
-  serializeCfdi40,
-} from '../services/fiscal/packs/mx/cfdi40-xml.js';
+import type { FiscalAdapterIssueInput, FiscalAdapterLine } from '../services/fiscal/adapter.js';
+import { prettyPrintCfdi, serializeCfdi40 } from '../services/fiscal/packs/mx/cfdi40-xml.js';
 import type { MxFiscalSettings } from '../services/fiscal/packs/mx/settings.js';
 
 // --------------------------------------------------------------
@@ -45,9 +39,7 @@ const baseLine: FiscalAdapterLine = {
   lineTotal: 116,
 };
 
-function buildInput(
-  overrides: Partial<FiscalAdapterIssueInput> = {}
-): FiscalAdapterIssueInput {
+function buildInput(overrides: Partial<FiscalAdapterIssueInput> = {}): FiscalAdapterIssueInput {
   return {
     tenantId: 'tenant-1',
     source: 'sale',
@@ -101,7 +93,7 @@ const parser = new XMLParser({
 // Tests.
 // --------------------------------------------------------------
 
-describe('serializeCfdi40 — root + namespaces (ENG-035b)', () => {
+describe('serializeCfdi40 — root + namespaces', () => {
   it('genera prólogo XML UTF-8 + cfdi:Comprobante con namespaces correctos', () => {
     const result = serializeCfdi40(buildInput(), baseSettings, 'Demo SA');
     expect(result.xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
@@ -110,7 +102,7 @@ describe('serializeCfdi40 — root + namespaces (ENG-035b)', () => {
     expect(result.xml).toContain('Version="4.0"');
   });
 
-  it('genera UUID v4 válido (placeholder local hasta ENG-035c)', () => {
+  it('genera UUID v4 válido (placeholder local hasta )', () => {
     const result = serializeCfdi40(buildInput(), baseSettings, 'Demo SA');
     expect(result.uuid).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -134,11 +126,7 @@ describe('serializeCfdi40 — root + namespaces (ENG-035b)', () => {
   });
 
   it('venta pagada en efectivo usa MetodoPago=PUE y FormaPago=01', () => {
-    const result = serializeCfdi40(
-      buildInput({ paymentMethod: 'cash' }),
-      baseSettings,
-      'Demo SA'
-    );
+    const result = serializeCfdi40(buildInput({ paymentMethod: 'cash' }), baseSettings, 'Demo SA');
     const comp = parser.parse(result.xml)['cfdi:Comprobante'];
     expect(comp['@_MetodoPago']).toBe('PUE');
     expect(comp['@_FormaPago']).toBe('01');
@@ -183,7 +171,7 @@ describe('serializeCfdi40 — root + namespaces (ENG-035b)', () => {
   });
 });
 
-describe('serializeCfdi40 — Emisor (ENG-035b)', () => {
+describe('serializeCfdi40 — Emisor', () => {
   it('Rfc, Nombre, RegimenFiscal del emisor', () => {
     const result = serializeCfdi40(buildInput(), baseSettings, 'Empresa Demo SA');
     const parsed = parser.parse(result.xml);
@@ -202,7 +190,7 @@ describe('serializeCfdi40 — Emisor (ENG-035b)', () => {
   });
 });
 
-describe('serializeCfdi40 — Receptor (ENG-035b)', () => {
+describe('serializeCfdi40 — Receptor', () => {
   it('cliente mexicano sin perfil fiscal dedicado cae a público general', () => {
     const result = serializeCfdi40(buildInput(), baseSettings, 'Demo');
     const parsed = parser.parse(result.xml);
@@ -287,7 +275,7 @@ describe('serializeCfdi40 — Receptor (ENG-035b)', () => {
   });
 });
 
-describe('serializeCfdi40 — Conceptos (ENG-035b)', () => {
+describe('serializeCfdi40 — Conceptos', () => {
   it('cada line del input genera un cfdi:Concepto', () => {
     const result = serializeCfdi40(
       buildInput({
@@ -391,18 +379,18 @@ describe('serializeCfdi40 — Conceptos (ENG-035b)', () => {
       baseSettings,
       'Demo'
     );
-    const gravadoConcepto = parser.parse(gravado.xml)['cfdi:Comprobante'][
-      'cfdi:Conceptos'
-    ]['cfdi:Concepto'];
-    const exentoConcepto = parser.parse(exento.xml)['cfdi:Comprobante'][
-      'cfdi:Conceptos'
-    ]['cfdi:Concepto'];
+    const gravadoConcepto = parser.parse(gravado.xml)['cfdi:Comprobante']['cfdi:Conceptos'][
+      'cfdi:Concepto'
+    ];
+    const exentoConcepto = parser.parse(exento.xml)['cfdi:Comprobante']['cfdi:Conceptos'][
+      'cfdi:Concepto'
+    ];
     expect(gravadoConcepto['@_ObjetoImp']).toBe('02');
     expect(exentoConcepto['@_ObjetoImp']).toBe('01');
   });
 });
 
-describe('serializeCfdi40 — Impuestos agregados (ENG-035b)', () => {
+describe('serializeCfdi40 — Impuestos agregados', () => {
   it('TotalImpuestosTrasladados = suma de taxAmount de las lines', () => {
     const result = serializeCfdi40(
       buildInput({
@@ -452,7 +440,7 @@ describe('serializeCfdi40 — Impuestos agregados (ENG-035b)', () => {
   });
 });
 
-describe('serializeCfdi40 — CfdiRelacionados (ENG-035b)', () => {
+describe('serializeCfdi40 — CfdiRelacionados', () => {
   it('source=return + originalCufe → cfdi:CfdiRelacionados con TipoRelacion 01', () => {
     const result = serializeCfdi40(
       buildInput({
@@ -476,37 +464,33 @@ describe('serializeCfdi40 — CfdiRelacionados (ENG-035b)', () => {
   });
 });
 
-describe('serializeCfdi40 — validaciones (ENG-035b)', () => {
+describe('serializeCfdi40 — validaciones', () => {
   it('lines vacío → throw', () => {
-    expect(() =>
-      serializeCfdi40(buildInput({ lines: [] }), baseSettings, 'Demo')
-    ).toThrow(/al menos un concepto/);
+    expect(() => serializeCfdi40(buildInput({ lines: [] }), baseSettings, 'Demo')).toThrow(
+      /al menos un concepto/
+    );
   });
 
-  it('currencyCode != MXN → throw con guía hacia ENG-035c', () => {
+  it('currencyCode != MXN → throw con guía hacia ', () => {
     expect(() =>
       serializeCfdi40(buildInput({ currencyCode: 'USD' }), baseSettings, 'Demo')
     ).toThrow(/MXN/);
   });
 
   it('settings sin RFC → throw', () => {
-    expect(() =>
-      serializeCfdi40(buildInput(), { ...baseSettings, rfc: null }, 'Demo')
-    ).toThrow(/RFC del emisor/);
+    expect(() => serializeCfdi40(buildInput(), { ...baseSettings, rfc: null }, 'Demo')).toThrow(
+      /RFC del emisor/
+    );
   });
 
   it('settings con regimenFiscal inválido → throw', () => {
     expect(() =>
-      serializeCfdi40(
-        buildInput(),
-        { ...baseSettings, regimenFiscalCode: '999' },
-        'Demo'
-      )
+      serializeCfdi40(buildInput(), { ...baseSettings, regimenFiscalCode: '999' }, 'Demo')
     ).toThrow(/no existe en el catálogo SAT/);
   });
 });
 
-describe('serializeCfdi40 — idempotencia + parseable (ENG-035b)', () => {
+describe('serializeCfdi40 — idempotencia + parseable', () => {
   it('output es XML parseable por fast-xml-parser', () => {
     const result = serializeCfdi40(buildInput(), baseSettings, 'Demo');
     expect(() => parser.parse(result.xml)).not.toThrow();
@@ -517,14 +501,14 @@ describe('serializeCfdi40 — idempotencia + parseable (ENG-035b)', () => {
     const b = serializeCfdi40(buildInput(), baseSettings, 'Demo');
     // Los UUIDs son distintos por ser random.
     expect(a.uuid).not.toBe(b.uuid);
-    // Pero el resto del XML (sin contar el UUID, que en ENG-035b
+    // Pero el resto del XML (sin contar el UUID, que en
     // todavía no se inyecta dentro del XML — sólo se retorna como
     // metadata) debe ser idéntico.
     expect(a.xml).toBe(b.xml);
   });
 });
 
-describe('prettyPrintCfdi (ENG-035b)', () => {
+describe('prettyPrintCfdi', () => {
   it('agrega saltos de línea + indentación al XML', () => {
     const result = serializeCfdi40(buildInput(), baseSettings, 'Demo');
     const pretty = prettyPrintCfdi(result.xml);

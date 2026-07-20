@@ -1,5 +1,5 @@
 /**
- * ENG-053 — Outbox kernel barrel.
+ * Outbox kernel barrel.
  *
  * Re-exports the public surface of the outbox kernel so concrete
  * outboxes (sync, fiscal, payment, webhook, hardware) only need a

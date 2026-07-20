@@ -96,7 +96,7 @@ function isValidWhatsAppRecipient(value: string): boolean {
   return /^[1-9]\d{7,14}$/.test(normalized);
 }
 
-/** ENG-142a — admin policy editor for local, per-role checkout controls. */
+/** admin policy editor for local, per-role checkout controls. */
 export function CompanyLossPreventionCard(): React.ReactElement {
   const { t } = useTranslation(['settings', 'errors']);
   const toast = useToast();

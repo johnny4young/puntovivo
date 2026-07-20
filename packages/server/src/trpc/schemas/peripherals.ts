@@ -1,5 +1,5 @@
 /**
- * ENG-060 — Zod input schemas for `peripherals.*` admin procedures.
+ * Zod input schemas for `peripherals.*` admin procedures.
  *
  * Driver-specific config validation lives with the driver class (per
  * `services/peripherals/registry.ts::validatePeripheralConfig`); the
@@ -28,19 +28,19 @@ const displayNameSchema = z
   .min(1, 'Display name cannot be empty')
   .max(120, 'Display name must be 120 characters or fewer');
 
-// ENG-067b — opt-in dedup key for `peripherals.printReceipt` /
+// opt-in dedup key for `peripherals.printReceipt` /
 // `kickCashDrawer`. Empty-string from a UI form normalizes to
 // `undefined` at the boundary so callers don't have to special-case
 // "user hasn't typed anything yet".
 //
 // Two `.optional()`s are required:
-//   - INNER (`z.string().min(...).optional()`): so the preprocess
-//     return value of `undefined` (when input was '') type-checks
-//     against the inner schema.
-//   - OUTER (`.optional()` after preprocess): so the field is
-//     optional at the object level — without it, `z.preprocess` makes
-//     the field required with type `unknown` and breaks every
-//     existing call site that omits the key.
+// - INNER (`z.string().min(...).optional()`): so the preprocess
+// return value of `undefined` (when input was '') type-checks
+// against the inner schema.
+// - OUTER (`.optional()` after preprocess): so the field is
+// optional at the object level — without it, `z.preprocess` makes
+// the field required with type `unknown` and breaks every
+// existing call site that omits the key.
 const hardwareIdempotencyKeySchema = z
   .preprocess(value => (value === '' ? undefined : value), z.string().min(1).max(128).optional())
   .optional();
@@ -83,7 +83,7 @@ export const removePeripheralInput = z.object({
 });
 export type RemovePeripheralInput = z.infer<typeof removePeripheralInput>;
 
-// ENG-061 — sales-role read of the active peripherals for a site.
+// sales-role read of the active peripherals for a site.
 // Returns a minimal projection (kind + driver + config) so the
 // SalesPage can drive the wedge listener; admin `peripherals.list`
 // stays the canonical full-row read for the admin UI.
@@ -92,7 +92,7 @@ export const activeForSiteInput = z.object({
 });
 export type ActiveForSiteInput = z.infer<typeof activeForSiteInput>;
 
-// ENG-062 — receipt print orchestrator. Takes a sale id + the
+// receipt print orchestrator. Takes a sale id + the
 // active site so the server can dispatch to the right printer. The
 // server resolves the sale (cross-tenant guard) and the active
 // printer peripheral, then either confirms the bytes flushed or
@@ -103,7 +103,7 @@ export const printReceiptInput = z.object({
   saleId: z.string().min(1, 'saleId is required'),
   siteId: z.string().min(1, 'siteId is required'),
   /**
-   * ENG-067b — opt-in dedup key. The web client may pass a stable
+   * opt-in dedup key. The web client may pass a stable
    * key per logical print attempt so a tRPC retry after a network
    * blip doesn't enqueue twice. When omitted, the legacy "two
    * clicks → two prints" path stays.
@@ -112,18 +112,18 @@ export const printReceiptInput = z.object({
 });
 export type PrintReceiptInput = z.infer<typeof printReceiptInput>;
 
-// ENG-062 / ENG-106c3 — role-aware cash drawer kick. Cashiers bind an
+// /  — role-aware cash drawer kick. Cashiers bind an
 // exact one-time approval; direct-authority roles omit it. Idempotent on
 // the hardware side (a stale retry just re-pulses the relay).
 export const kickCashDrawerInput = z.object({
   siteId: z.string().min(1, 'siteId is required'),
   approvalRequestId: z.string().min(1).optional(),
-  /** ENG-067b — opt-in dedup key (see printReceiptInput). */
+  /** opt-in dedup key (see printReceiptInput). */
   idempotencyKey: hardwareIdempotencyKeySchema,
 });
 export type KickCashDrawerInput = z.infer<typeof kickCashDrawerInput>;
 
-// ENG-074b — "give me the bytes" inputs for the hub_client local
+// "give me the bytes" inputs for the hub_client local
 // hardware bridge. Receipt bytes remain read-only; drawer bytes consume
 // an approval and write dispatch audit evidence but never touch
 // `hardware_outbox`, so a separate hardware dedup key is moot. Per
@@ -142,15 +142,15 @@ export const buildDrawerKickBytesInput = z.object({
 });
 export type BuildDrawerKickBytesInput = z.infer<typeof buildDrawerKickBytesInput>;
 
-// ENG-062 — operator-visible peek into the hardware outbox tail.
-// Consumed by ENG-065a's Operations Center Device Health panel;
+// operator-visible peek into the hardware outbox tail.
+// Consumed by 's Operations Center Device Health panel;
 // tenant-scoped so cross-tenant rows never leak.
 export const peekHardwareOutboxInput = z.object({
   limit: z.number().int().min(1).max(100).default(20),
 });
 export type PeekHardwareOutboxInput = z.infer<typeof peekHardwareOutboxInput>;
 
-// ENG-065a — admin path for "this hardware row got stuck on a
+// admin path for "this hardware row got stuck on a
 // transient error; force a retry now". Mirrors `sync.retry` and
 // `reports.fiscal.retryDocument` shape.
 export const retryHardwareOutboxInput = z.object({

@@ -67,7 +67,7 @@ function App() {
   return (
     <AuthProvider>
       <TenantProvider>
-        {/* ENG-171 — Modules + Locale state moved from context providers to
+        {/* Modules + Locale state moved from context providers to
             Zustand stores. These null-rendering sync hosts run the backing
             tRPC queries (and the locale side-effects) inside Auth+Tenant
             without re-creating a context value every render. */}
@@ -356,7 +356,7 @@ function App() {
                   </ShellRoute>
                 }
               />
-              {/* ENG-131c — workspace landing routes. Each `/catalog`,
+              {/* workspace landing routes. Each `/catalog`,
                 `/procurement`, `/finance` URL now resolves to a
                 grid-of-cards landing page that mirrors the workspace
                 items the operator can see, filtered by role and
@@ -387,11 +387,11 @@ function App() {
                 }
               />
             </Route>
-            {/* ENG-069 — surface shells. Each owns its full viewport
+            {/* surface shells. Each owns its full viewport
               outside MainLayout so the surface chrome (KDS fullscreen
               dark backdrop, customer-display gradient, mobile-waiter
               phone-width container, POS Touch wider buttons) is not
-              boxed inside the desktop sidebar + Header. ENG-183 — role +
+              boxed inside the desktop sidebar + Header.  — role +
               module gating lives in SurfaceShellRoute (route level), BEFORE
               the lazy shell import, so a disabled module never loads its
               chunk or flashes its chrome; the shells are pure chrome. */}

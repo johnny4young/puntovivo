@@ -1,5 +1,5 @@
 /**
- * ENG-036b — Tests del serializador XML DTE 1.0.
+ * Tests del serializador XML DTE 1.0.
  *
  * Verifican estructura SII (atributos + elementos requeridos del
  * Documento, Encabezado, Detalle, TED), edge cases (boleta consumidor
@@ -9,10 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { XMLParser } from 'fast-xml-parser';
-import type {
-  FiscalAdapterIssueInput,
-  FiscalAdapterLine,
-} from '../../../adapter.js';
+import type { FiscalAdapterIssueInput, FiscalAdapterLine } from '../../../adapter.js';
 import type { ChileFolioAllocation } from '../caf-allocator.js';
 import { prettyPrintDte, serializeDte10 } from '../dte10-xml.js';
 import type { ClFiscalSettings } from '../settings.js';
@@ -56,9 +53,7 @@ const baseAllocation: ChileFolioAllocation = {
   rangeRemaining: 58,
 };
 
-function buildInput(
-  overrides: Partial<FiscalAdapterIssueInput> = {}
-): FiscalAdapterIssueInput {
+function buildInput(overrides: Partial<FiscalAdapterIssueInput> = {}): FiscalAdapterIssueInput {
   return {
     tenantId: 'tenant-1',
     source: 'sale',
@@ -114,7 +109,7 @@ const parser = new XMLParser({
 // Tests.
 // --------------------------------------------------------------
 
-describe('serializeDte10 — root + namespace (ENG-036b)', () => {
+describe('serializeDte10 — root + namespace', () => {
   it('genera prólogo XML ISO-8859-1 + DTE root con namespace SII + version 1.0', () => {
     const result = serializeDte10(buildInput(), baseSettings, 'Empresa Demo SA', baseAllocation);
     expect(result.xml.startsWith('<?xml version="1.0" encoding="ISO-8859-1"?>')).toBe(true);
@@ -184,9 +179,7 @@ describe('serializeDte10 — factura con RUT receptor (TipoDTE 33)', () => {
     );
     const parsed = parser.parse(result.xml);
     expect(parsed.DTE.Documento.Encabezado.Receptor.RUTRecep).toBe('11111111-1');
-    expect(parsed.DTE.Documento.Encabezado.Receptor.RznSocRecep).toBe(
-      'Cliente Razon Social SpA'
-    );
+    expect(parsed.DTE.Documento.Encabezado.Receptor.RznSocRecep).toBe('Cliente Razon Social SpA');
     expect(result.tipoDte).toBe('33');
   });
 
@@ -306,13 +299,13 @@ describe('serializeDte10 — TED placeholder estructura', () => {
     expect(result.xml).toContain('&lt;RE&gt;76123456-0&lt;/RE&gt;');
   });
 
-  it('TED.FRMT placeholder con algoritmo declarado y sin firma (ENG-036c lifts)', () => {
+  it('TED.FRMT placeholder con algoritmo declarado y sin firma ( lifts)', () => {
     const result = serializeDte10(buildInput(), baseSettings, 'Empresa Demo SA', baseAllocation);
     const parsed = parser.parse(result.xml);
     const ted = parsed.DTE.Documento.TED;
     expect(ted.FRMT['@_algoritmo']).toBe('SHA1withRSA');
     // FRMT puede venir como string vacío o como objeto vacío del parser.
-    const frmaContent = typeof ted.FRMT === 'object' ? ted.FRMT['#text'] ?? '' : ted.FRMT;
+    const frmaContent = typeof ted.FRMT === 'object' ? (ted.FRMT['#text'] ?? '') : ted.FRMT;
     expect(String(frmaContent ?? '').trim()).toBe('');
   });
 });
@@ -405,7 +398,7 @@ describe('serializeDte10 — defensive validations', () => {
   });
 });
 
-describe('prettyPrintDte (ENG-036b)', () => {
+describe('prettyPrintDte', () => {
   it('indenta el XML serializado preservando la declaración', () => {
     const result = serializeDte10(buildInput(), baseSettings, 'Empresa Demo SA', baseAllocation);
     const pretty = prettyPrintDte(result.xml);

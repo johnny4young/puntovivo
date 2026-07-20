@@ -39,14 +39,14 @@ export function CustomersPage() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [customerToDispose, setCustomerToDispose] = useState<Customer | null>(null);
   const [privacyConfirmation, setPrivacyConfirmation] = useState('');
-  // ENG-089 — V5 ledger panel mounting state. Manager + admin only;
+  // V5 ledger panel mounting state. Manager + admin only;
   // the row action button is hidden for cashier roles via `canViewLedger`.
   const [ledgerCustomer, setLedgerCustomer] = useState<Customer | null>(null);
-  // ENG-132b — row-detail Drawer for the columns trimmed off the default
+  // row-detail Drawer for the columns trimmed off the default
   // table (email / phone / type / location + identification).
   const [detailsCustomer, setDetailsCustomer] = useState<Customer | null>(null);
 
-  // ENG-217 — the search term goes to the SERVER. The table only ever holds
+  // the search term goes to the SERVER. The table only ever holds
   // one page, so the client-side column filter it used to run could not see
   // a match past row 50: a tenant with more customers than that was told
   // "no results" for people who exist. `customers.list` has accepted a
@@ -101,7 +101,7 @@ export function CustomersPage() {
       handleCloseModal();
       toast.success({ title: t('toast.updated') });
     },
-    // ENG-177a — refresh the cached list on a STALE_VERSION conflict so the
+    // refresh the cached list on a STALE_VERSION conflict so the
     // next edit loads the latest version.
     onError: onErrorToast(toast, t, {
       titleKey: 'customers:toast.updateError',
@@ -151,7 +151,7 @@ export function CustomersPage() {
     onError: onErrorToast(toast, t, { titleKey: 'customers:privacy.error' }),
   });
 
-  // ENG-089 — `Estado cuenta` row action mirrors the server's
+  // `Estado cuenta` row action mirrors the server's
   // `customerLedger.list` manager+ gate; cashier never sees the
   // button.
   const canViewLedger = user?.role === 'admin' || user?.role === 'manager';
@@ -189,7 +189,7 @@ export function CustomersPage() {
     if (editingCustomer) {
       await updateMutation.mutateAsync({
         id: editingCustomer.id,
-        // ENG-177a — round-trip the loaded version for the concurrency guard.
+        // round-trip the loaded version for the concurrency guard.
         version: editingCustomer.version,
         name: values.name,
         email: toNullableString(values.email),
@@ -206,7 +206,7 @@ export function CustomersPage() {
         clientTypeId: toNullableString(values.clientTypeId),
         commercialActivityId: toNullableString(values.commercialActivityId),
         notes: toNullableString(values.notes),
-        // ENG-089 — `creditLimit` always sends a number; the form
+        // `creditLimit` always sends a number; the form
         // coerces undefined to 0 via the default value.
         creditLimit: Number.isFinite(values.creditLimit) ? values.creditLimit : 0,
         isActive: values.isActive,
@@ -240,7 +240,7 @@ export function CustomersPage() {
       accessorKey: 'name',
       header: () => i18next.t('customers:table.name'),
       size: 240,
-      // Rediseño FASE 3 — celda ancla (.pv-table .prod): avatar con la
+      // celda ancla (.pv-table .prod): avatar con la
       // inicial + nombre fuerte + identificación legible (tipo + taxId,
       // nunca el id interno) en mono debajo.
       cell: ({ row }) => (
@@ -257,7 +257,7 @@ export function CustomersPage() {
         </div>
       ),
     },
-    // ENG-132b — email / phone / type / location trimmed from the default
+    // email / phone / type / location trimmed from the default
     // table into the row-detail Drawer (`onViewDetails`) so the row stays
     // narrow; name + status carry the at-a-glance signal.
     {
@@ -277,7 +277,7 @@ export function CustomersPage() {
       size: 150,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          {/* ENG-132b — Details is the progressive-disclosure affordance for
+          {/* Details is the progressive-disclosure affordance for
               the trimmed columns (email / phone / type / location); all
               roles, focusable in tab order. */}
           <button
@@ -292,7 +292,7 @@ export function CustomersPage() {
             <button
               className="btn-ghost btn-icon h-8 w-8"
               data-testid={`customer-ledger-${row.original.id}`}
-              // ENG-089 — the row action opens the full ledger panel
+              // the row action opens the full ledger panel
               // (the panel itself exposes the CSV export CTA). Use
               // `verCuenta` for the affordance label so screen-reader
               // users hear "View account" instead of "Statement".
@@ -305,7 +305,7 @@ export function CustomersPage() {
           )}
           <button
             className="btn-ghost btn-icon h-8 w-8"
-            // ENG-134 slice B: icon-only buttons must declare an
+            // slice B: icon-only buttons must declare an
             // accessible name. axe-core flagged the original button
             // with `button-name [critical]`. Pair `aria-label` with
             // `title` so the affordance is also visible to mouse
@@ -336,7 +336,7 @@ export function CustomersPage() {
 
   return (
     <>
-      {/* ENG-104 — fresh tenant nudge toward the readiness checklist.
+      {/* fresh tenant nudge toward the readiness checklist.
           The nudge gates to admin because the target setup surface is admin-only. */}
       {!isLoading && !error && searchInput.trim().length === 0 && customers.length === 0 && (
         <div className="mb-4">
@@ -362,7 +362,7 @@ export function CustomersPage() {
         onRetry={() => {
           void refetch();
         }}
-        // ENG-134f — Enter / Space on a focused row opens the edit
+        // Enter / Space on a focused row opens the edit
         // modal, mirroring the row's Pencil button click.
         onRowActivate={handleOpenEdit}
       />
@@ -409,7 +409,7 @@ export function CustomersPage() {
         }}
       />
 
-      {/* ENG-089 — V5 "Cuenta corriente" panel for the selected
+      {/* V5 "Cuenta corriente" panel for the selected
           customer. Manager + admin only; cashier never reaches this
           surface because the row action button is hidden for them. */}
       <CustomerLedgerModal

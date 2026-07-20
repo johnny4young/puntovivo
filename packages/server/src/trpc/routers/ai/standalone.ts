@@ -1,5 +1,5 @@
 /**
- * AI router — flat procedures (ENG-178 split).
+ * AI router — flat procedures ( split).
  *
  * `ai.usage` / `ai.usageByBreakdown` (admin) audit reads, the legacy
  * `ai.extractInvoiceLines` + `ai.matchInvoiceLines` invoice surfaces, the
@@ -14,29 +14,16 @@ import {
   cashierManagerOrAdminProcedureWithModule,
   managerOrAdminProcedureWithModule,
 } from '../../middleware/modules.js';
-import {
-  byBreakdown,
-  completeAI,
-  listUsage,
-} from '../../../services/ai/index.js';
+import { byBreakdown, completeAI, listUsage } from '../../../services/ai/index.js';
 import {
   extractInvoiceFromImage,
   matchInvoiceLinesToProducts,
 } from '../../../services/ai/vision/index.js';
-import {
-  parseVoiceCartCommand,
-  transcribeAudio,
-} from '../../../services/ai/voice/index.js';
+import { parseVoiceCartCommand, transcribeAudio } from '../../../services/ai/voice/index.js';
 import { requireAiQuotaAvailable } from '../../../services/ai/quotas.js';
 import { aiBreakdownInput, aiUsageInput } from '../../schemas/ai.js';
-import {
-  extractInvoiceLinesInput,
-  matchInvoiceLinesInput,
-} from '../../schemas/ai-vision.js';
-import {
-  parseCartCommandInput,
-  transcribeAudioInput,
-} from '../../schemas/ai-voice.js';
+import { extractInvoiceLinesInput, matchInvoiceLinesInput } from '../../schemas/ai-vision.js';
+import { parseCartCommandInput, transcribeAudioInput } from '../../schemas/ai-voice.js';
 
 export const standaloneProcedures = {
   usage: adminProcedure.input(aiUsageInput).query(async ({ ctx, input }) => {
@@ -46,17 +33,15 @@ export const standaloneProcedures = {
     });
   }),
 
-  usageByBreakdown: adminProcedure
-    .input(aiBreakdownInput)
-    .query(async ({ ctx, input }) => {
-      return byBreakdown(ctx.db, ctx.tenantId, input.scope, {
-        from: input.from ? new Date(input.from) : undefined,
-        to: input.to ? new Date(input.to) : undefined,
-      });
-    }),
+  usageByBreakdown: adminProcedure.input(aiBreakdownInput).query(async ({ ctx, input }) => {
+    return byBreakdown(ctx.db, ctx.tenantId, input.scope, {
+      from: input.from ? new Date(input.from) : undefined,
+      to: input.to ? new Date(input.to) : undefined,
+    });
+  }),
 
   /**
-   * ENG-040a — Provider-invoice OCR. Manager/admin uploads an invoice
+   * Provider-invoice OCR. Manager/admin uploads an invoice
    * photo; the configured vision provider extracts a structured
    * projection (supplier, lines, totals) used by the Purchases page to
    * pre-fill the cart. Slice 1 returns the projection only; line-to-
@@ -66,7 +51,7 @@ export const standaloneProcedures = {
     .input(extractInvoiceLinesInput)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id ?? null;
-      // ENG-102 — legacy OCR still writes `feature: invoiceOcr`
+      // legacy OCR still writes `feature: invoiceOcr`
       // audit rows, so it must share the same per-site quota gate as
       // the newer `ai.invoiceOcr.extract` mutation.
       if (ctx.siteId) {
@@ -100,7 +85,7 @@ export const standaloneProcedures = {
     }),
 
   /**
-   * ENG-040 slice 1b — match OCR-extracted invoice lines to existing
+   * slice 1b — match OCR-extracted invoice lines to existing
    * products. Returns top-1 product per line above the shared cosine
    * floor; lines below land as `product: null` so the modal can fall
    * back to the manual picker. Gated behind the `semantic-search`
@@ -125,9 +110,9 @@ export const standaloneProcedures = {
     }),
 
   /**
-   * ENG-040c slice 1 — Whisper-style audio transcription.
+   * slice 1 — Whisper-style audio transcription.
    *
-   * ENG-040c slice 3 widened the gate from `managerOrAdminProcedure`
+   * slice 3 widened the gate from `managerOrAdminProcedure`
    * to `cashierManagerOrAdminProcedureWithModule('semantic-search')`
    * because the primary consumer is the cashier-driven voice cart
    * command flow (modal lives in `features/voice/`). The role floor
@@ -168,20 +153,20 @@ export const standaloneProcedures = {
     }),
 
   /**
-   * ENG-040c slice 3 — Voice cart command parser. Takes a transcript
+   * slice 3 — Voice cart command parser. Takes a transcript
    * (typically produced by `ai.transcribeAudio`) and extracts a
    * bounded ADD-only set of cart actions via `generateObject`, then
    * resolves each parsed `productHint` to a real catalog row via the
-   * ENG-033 embeddings stack.
+   * embeddings stack.
    *
    * Returns one of two shapes:
-   *   - `mode: 'parsed'` with `matches[]` — each entry carries a
-   *     `productHint`, the (possibly null) parsed `quantity`, and
-   *     either a hydrated product summary or `null` for hints below
-   *     the cosine floor.
-   *   - `mode: 'unrecognized'` — the parser returned zero items.
-   *     The `reason` field carries an operator-readable hint the
-   *     modal can render inline.
+   * - `mode: 'parsed'` with `matches[]` — each entry carries a
+   * `productHint`, the (possibly null) parsed `quantity`, and
+   * either a hydrated product summary or `null` for hints below
+   * the cosine floor.
+   * - `mode: 'unrecognized'` — the parser returned zero items.
+   * The `reason` field carries an operator-readable hint the
+   * modal can render inline.
    *
    * Gated by `cashierManagerOrAdminProcedureWithModule('semantic-search')`
    * because the product resolution step depends on tenant embeddings

@@ -54,7 +54,7 @@ async function assertValidParentCategory({
   parentId,
 }: {
   ctx: Context;
-  // ENG-179b — explicit `| undefined` on Zod-optional fields.
+  // explicit `| undefined` on Zod-optional fields.
   categoryId?: string | undefined;
   parentId?: string | null | undefined;
 }) {
@@ -202,7 +202,7 @@ export const categoriesRouter = router({
     });
 
     const now = new Date().toISOString();
-    // ENG-177a — optimistic-concurrency bump (see the versioned WHERE below).
+    // optimistic-concurrency bump (see the versioned WHERE below).
     const updateData: Record<string, unknown> = {
       updatedAt: now,
       version: input.version + 1,
@@ -211,7 +211,7 @@ export const categoriesRouter = router({
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.parentId !== undefined) updateData.parentId = updates.parentId;
 
-    // ENG-177a — optimistic-concurrency guard. The NOT_FOUND pre-check above
+    // optimistic-concurrency guard. The NOT_FOUND pre-check above
     // established existence + tenant scope, so a zero-change result means
     // another tab bumped the version first.
     const versionedUpdate = ctx.db

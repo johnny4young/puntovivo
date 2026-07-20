@@ -1,5 +1,5 @@
 /**
- * ENG-105f — Unit tests for `useScannerFocusRestoration`.
+ * Unit tests for `useScannerFocusRestoration`.
  *
  * Mounts the hook with a synthetic input ref so we can spy on
  * `focus()` + `select()` calls. `requestAnimationFrame` is stubbed
@@ -8,15 +8,7 @@
  */
 
 import { renderHook } from '@testing-library/react';
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-  type MockInstance,
-} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { useScannerFocusRestoration } from './useScannerFocusRestoration';
 
 interface HookProps {

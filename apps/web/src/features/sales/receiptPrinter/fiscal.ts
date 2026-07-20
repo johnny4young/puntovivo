@@ -1,4 +1,4 @@
-// ENG-058 — fiscal proof section of the sale receipt (ENG-178 slice 29).
+// fiscal proof section of the sale receipt ( slice 29).
 
 import i18next from 'i18next';
 import type { TFunction } from 'i18next';
@@ -44,7 +44,7 @@ function getFiscalIdentifierLabelKey(countryCode: string): string {
 }
 
 /**
- * ENG-058 — Render the fiscal proof block(s) for a receipt.
+ * Render the fiscal proof block(s) for a receipt.
  *
  * Always prints document number + kind + status copy. Conditionally
  * prints the full CUFE (only when status='accepted' AND the cufe is
@@ -64,7 +64,7 @@ function getFiscalIdentifierLabelKey(countryCode: string): string {
 export async function buildFiscalSection(docs: ReceiptFiscalDocument[]): Promise<string> {
   if (!docs.length) return '';
 
-  // ENG-170b — `receipts` + `fiscal` are lazy namespaces; ensure they are
+  // `receipts` + `fiscal` are lazy namespaces; ensure they are
   // loaded before `getFixedT` reads them so a receipt printed from a screen
   // that never mounted them (e.g. straight after a sale) renders real copy
   // instead of raw keys.

@@ -26,9 +26,9 @@ import { TablePagination } from '@/components/tables/TablePagination';
 import { KpiTile } from '@/components/ui';
 
 /**
- * ENG-075 — Operations Center: Authority Health panel.
+ * Operations Center: Authority Health panel.
  *
- * Rediseño FASE 6 (O1) — hereda las recetas pv-*: titulación de panel,
+ * hereda las recetas pv-*: titulación de panel,
  * KPI con la receta única para la topología (códigos pendientes en
  * danger cuando hay > 0), formulario con .pv-field / .pv-input / .pv-btn,
  * tabla densa (.pv-table) con badge semántico de salud, y estado vacío
@@ -120,9 +120,7 @@ export function AuthorityHealthPanel() {
           <div>
             <p className="pv-kicker">{t('authority.kicker')}</p>
             <h2 className="pv-title text-lg">{t('authority.hub.title')}</h2>
-            <p className="mt-1 text-sm text-secondary-500">
-              {t('authority.hub.description')}
-            </p>
+            <p className="mt-1 text-sm text-secondary-500">{t('authority.hub.description')}</p>
           </div>
         </header>
 
@@ -175,9 +173,7 @@ export function AuthorityHealthPanel() {
           <div>
             <p className="pv-kicker">{t('authority.kicker')}</p>
             <h2 className="pv-title text-lg">{t('authority.pairing.title')}</h2>
-            <p className="mt-1 text-sm text-secondary-500">
-              {t('authority.pairing.description')}
-            </p>
+            <p className="mt-1 text-sm text-secondary-500">{t('authority.pairing.description')}</p>
           </div>
         </header>
 
@@ -247,9 +243,7 @@ export function AuthorityHealthPanel() {
           <div className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="pv-kicker text-primary-800">
-                  {t('authority.pairing.latest')}
-                </p>
+                <p className="pv-kicker text-primary-800">{t('authority.pairing.latest')}</p>
                 <p className="mt-1 font-mono text-2xl font-semibold text-primary-900">
                   {latestCode.code}
                 </p>
@@ -327,8 +321,7 @@ export function AuthorityHealthPanel() {
                     device.authorityRole === 'hub_client' &&
                     device.healthStatus !== 'revoked';
                   const isRevoking =
-                    revokeMutation.isPending &&
-                    revokeMutation.variables?.deviceId === device.id;
+                    revokeMutation.isPending && revokeMutation.variables?.deviceId === device.id;
                   return (
                     <tr key={device.id}>
                       <td className="font-medium text-secondary-900">{device.name}</td>

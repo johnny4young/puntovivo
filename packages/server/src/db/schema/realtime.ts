@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — realtime domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -16,13 +16,13 @@ import { sales } from './sales.js';
 import { restaurantTables } from './salesAux.js';
 
 // ============================================================================
-// KDS ORDERS (ENG-098)
+// KDS ORDERS ()
 // ============================================================================
 
 export const kdsOrderStatusEnum = ['pending', 'ready'] as const;
 
 /**
- * ENG-098 — kitchen display queue.
+ * kitchen display queue.
  *
  * One row per (sale, station) pair, materialised from `sales` +
  * `sale_items` whenever a tabled draft is suspended or completed.
@@ -65,11 +65,7 @@ export const kdsOrders = sqliteTable(
       table.saleId,
       table.station
     ),
-    index('idx_kds_orders_tenant_site_status').on(
-      table.tenantId,
-      table.siteId,
-      table.status
-    ),
+    index('idx_kds_orders_tenant_site_status').on(table.tenantId, table.siteId, table.status),
   ]
 );
 
@@ -101,7 +97,7 @@ export type KdsOrderRow = typeof kdsOrders.$inferSelect;
 export type NewKdsOrderRow = typeof kdsOrders.$inferInsert;
 
 // ============================================================================
-// WEB VITALS RUM (ENG-173 — real-user monitoring)
+// WEB VITALS RUM (real-user monitoring)
 // ============================================================================
 
 /** Core Web Vitals + supporting metrics captured once per page load. */
@@ -112,7 +108,7 @@ export const webVitalRatingEnum = ['good', 'needs-improvement', 'poor'] as const
 export const webVitalDeviceClassEnum = ['low', 'mid', 'high', 'unknown'] as const;
 
 /**
- * ENG-173 — Web Vitals real-user monitoring (RUM) samples.
+ * Web Vitals real-user monitoring (RUM) samples.
  *
  * One row per metric per sampled page load, written by the public
  * `observability.reportWebVital` mutation so login / first-paint vitals are
@@ -120,21 +116,21 @@ export const webVitalDeviceClassEnum = ['low', 'mid', 'high', 'unknown'] as cons
  *
  * Invariants:
  * - `tenantId` is nullable on purpose — anonymous (pre-login) page loads carry
- *   no tenant. It is ALWAYS derived server-side from the session, never from
- *   client input (a public mutation must not trust a client-supplied tenant).
+ * no tenant. It is ALWAYS derived server-side from the session, never from
+ * client input (a public mutation must not trust a client-supplied tenant).
  * - `tenantPlan` is a forward-looking placeholder fixed to `'unknown'` until a
- *   billing tier concept lands (ENG-138); the column exists now so the future
- *   aggregation dashboard can slice by plan without a schema change.
+ * billing tier concept lands (); the column exists now so the future
+ * aggregation dashboard can slice by plan without a schema change.
  * - The table is write-optimised; the `(tenant_id, metric, created_at)` index
- *   keeps the future per-tenant median / p95 queries cheap.
+ * keeps the future per-tenant median / p95 queries cheap.
  */
 export const webVitalSamples = sqliteTable(
   'web_vital_samples',
   {
     id: text('id').primaryKey(),
-    // ENG-173 — nullable: anonymous (pre-login) page loads have no tenant.
+    // nullable: anonymous (pre-login) page loads have no tenant.
     tenantId: text('tenant_id').references(() => tenants.id),
-    // ENG-173 / ENG-138 — placeholder tier until billing ships.
+    // /  — placeholder tier until billing ships.
     tenantPlan: text('tenant_plan').notNull().default('unknown'),
     route: text('route').notNull(),
     metric: text('metric', { enum: webVitalMetricEnum }).notNull(),

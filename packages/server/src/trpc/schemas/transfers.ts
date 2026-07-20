@@ -1,5 +1,5 @@
 /**
- * Transfer Zod Schemas (Phase 2 DB-102 / API-102 step 1).
+ * Transfer Zod schemas.
  *
  * Immediate-completion transfers only for now — the lifecycle
  * (`draft`/`in_transit`/`received`) lands in a follow-up step.
@@ -47,7 +47,7 @@ export const voidTransferInput = z.object({
 });
 
 /**
- * Phase 2 UI-103 — per-line received quantity + optional discrepancy notes.
+ * per-line received quantity + optional discrepancy notes.
  *
  * `lines` is optional: when omitted (or empty), the receiver accepts the
  * shipped quantities as-is (legacy one-click Receive behaviour). When

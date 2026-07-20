@@ -1,5 +1,5 @@
 /**
- * Staff PIN policy — ENG-106a.
+ * Staff PIN policy — .
  *
  * PINs are intentionally fixed at six digits: short enough for a shared POS,
  * but paired with Argon2id storage and persistent failure throttles because the

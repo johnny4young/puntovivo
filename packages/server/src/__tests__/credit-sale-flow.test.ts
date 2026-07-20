@@ -1,22 +1,22 @@
 /**
- * ENG-090 — Full credit-sale flow through `completeSale`.
+ * Full credit-sale flow through `completeSale`.
  *
  * Pins:
- *  - Happy path: full-credit single-tender sale lands a `kind='sale'`
- *    row on the ledger (positive signed delta) and does NOT write a
- *    cash movement (the `amount > 0` guard on `insertCashMovement`
- *    short-circuits).
- *  - Cupo enforcement: when `currentBalance + total > creditLimit`
- *    the use-case throws `CREDIT_LIMIT_EXCEEDED` BEFORE the sale row
- *    is inserted (sequential is not advanced, inventory is intact).
- *  - Admin override: passing `creditOverride: true` skips the throw
- *    and the sale lands.
- *  - Sentinel: `creditLimit === 0` is "no limit" and the invariant
- *    returns early.
- *  - Customer required: `paymentMethod === 'credit'` without a
- *    customer throws `CREDIT_SALE_CUSTOMER_REQUIRED` (the Zod
- *    refinement enforces it earlier; the use-case asserts it again
- *    in case a direct caller bypasses Zod).
+ * - Happy path: full-credit single-tender sale lands a `kind='sale'`
+ * row on the ledger (positive signed delta) and does NOT write a
+ * cash movement (the `amount > 0` guard on `insertCashMovement`
+ * short-circuits).
+ * - Cupo enforcement: when `currentBalance + total > creditLimit`
+ * the use-case throws `CREDIT_LIMIT_EXCEEDED` BEFORE the sale row
+ * is inserted (sequential is not advanced, inventory is intact).
+ * - Admin override: passing `creditOverride: true` skips the throw
+ * and the sale lands.
+ * - Sentinel: `creditLimit === 0` is "no limit" and the invariant
+ * returns early.
+ * - Customer required: `paymentMethod === 'credit'` without a
+ * customer throws `CREDIT_SALE_CUSTOMER_REQUIRED` (the Zod
+ * refinement enforces it earlier; the use-case asserts it again
+ * in case a direct caller bypasses Zod).
  *
  * Reuses the `application-sales-completeSale.test.ts` rig
  * (`completeSale` invoked directly with a hand-built
@@ -54,9 +54,7 @@ let baseUnitId: string;
 let cashSessionId: string;
 let fresh: ReturnType<typeof makeFreshContextFactory>;
 
-function buildContext(
-  overrides: Partial<CompleteSaleContext> = {}
-): CompleteSaleContext {
+function buildContext(overrides: Partial<CompleteSaleContext> = {}): CompleteSaleContext {
   return {
     db: getDatabase(),
     tenantId,
@@ -138,11 +136,7 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const seededAdmin = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededAdmin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededAdmin) throw new Error('Expected seeded admin user');
   tenantId = seededAdmin.tenantId;
   userId = seededAdmin.id;
@@ -155,11 +149,7 @@ beforeAll(async () => {
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
 
-  const seededUnits = await db
-    .select()
-    .from(units)
-    .where(eq(units.tenantId, tenantId))
-    .all();
+  const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(u => u.abbreviation === 'UND');
   if (!baseUnit) throw new Error('Expected seeded UND unit');
   baseUnitId = baseUnit.id;
@@ -194,7 +184,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('completeSale (ENG-090 credit-sale flow)', () => {
+describe('completeSale ( credit-sale flow)', () => {
   it('writes a positive ledger row + skips cash movement for a full-credit sale', async () => {
     const customerId = await seedCustomer({
       name: 'Cliente Crédito Feliz',
@@ -242,9 +232,7 @@ describe('completeSale (ENG-090 credit-sale flow)', () => {
       .all();
     expect(ledgerRows).toHaveLength(1);
     expect(ledgerRows[0]?.amount).toBe(20);
-    expect(ledgerRows[0]?.referenceSaleId).toBe(
-      (result.sale as { id: string }).id
-    );
+    expect(ledgerRows[0]?.referenceSaleId).toBe((result.sale as { id: string }).id);
 
     // No cash movement was written for this sale (credit sales do
     // not touch the cash session).
@@ -446,11 +434,7 @@ describe('completeSale (ENG-090 credit-sale flow)', () => {
       name: 'Cliente Draft Cajero',
       creditLimit: 0,
     });
-    const productId = await seedProduct(
-      'Credit Item Draft Cashier',
-      'CR-DRAFT-CASHIER-1',
-      5
-    );
+    const productId = await seedProduct('Credit Item Draft Cashier', 'CR-DRAFT-CASHIER-1', 5);
     const adminCaller = appRouter.createCaller(fresh());
     const draft = await adminCaller.sales.create({
       customerId,

@@ -1,9 +1,9 @@
 /**
- * ENG-052b — Time helpers for the MEGA seed.
+ * Time helpers for the MEGA seed.
  *
  * Every timestamp in the MEGA dataset is computed RELATIVE to the
  * moment the seed runs. Hard-coded ISO strings would freeze the seed
- * — historical depth would shrink each day until the dashboard ran
+ * historical depth would shrink each day until the dashboard ran
  * out of "last 30 days" data. By anchoring on `Date.now()` at seed
  * time, the dataset always carries 90+ days of historical depth from
  * whenever the operator ran `npm run seed:dev`.
@@ -61,13 +61,9 @@ export function daysAgoIso(
  * seed stays reproducible — call sites that need stable ordering
  * pass an incrementing `sequence` index.
  */
-export function businessHourIso(
-  clock: SeedClock,
-  daysAgo: number,
-  sequence: number
-): string {
+export function businessHourIso(clock: SeedClock, daysAgo: number, sequence: number): string {
   // 06:00 to 21:00 = 15 hours of business window
-  const hour = 6 + (sequence * 7) % 15;
+  const hour = 6 + ((sequence * 7) % 15);
   const minute = (sequence * 17) % 60;
   const second = (sequence * 31) % 60;
   return daysAgoIso(clock, daysAgo, hour, minute, second);

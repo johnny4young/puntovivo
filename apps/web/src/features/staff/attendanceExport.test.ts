@@ -78,7 +78,7 @@ beforeEach(async () => {
   await i18n.changeLanguage('en');
 });
 
-describe('attendance payroll and accounting exports (ENG-140f)', () => {
+describe('attendance payroll and accounting exports', () => {
   it('builds a UTF-8 canonical CSV with stable headers, corrected evidence, and formula safety', () => {
     const csv = buildAttendancePayrollCsv(reportFixture(), '2026-07-20', '2026-07-21');
     const lines = csv.slice(1).split('\r\n');

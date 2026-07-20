@@ -1,7 +1,7 @@
 /**
- * Peripherals router — hardware-action procedures (ENG-178 split).
+ * Peripherals router — hardware-action procedures ( split).
  *
- * ENG-062/065a — printReceipt / kickCashDrawer dispatch + retryHardwareOutbox.
+ * printReceipt / kickCashDrawer dispatch + retryHardwareOutbox.
  *
  * @module trpc/routers/peripherals/actions
  */
@@ -37,18 +37,18 @@ import {
 
 export const peripheralsActionProcedures = {
   /**
-   * ENG-062 — orchestrate the receipt print after a sale completes.
+   * orchestrate the receipt print after a sale completes.
    *
    * Server flow:
-   *   1. Resolve the sale (cross-tenant guard via getSaleRecord).
-   *   2. Read the active printer peripheral; if none OR driver=system,
-   *      return `{status:'system-fallback'}` so the renderer prints
-   *      via the legacy `window.electron.printReceipt(html)` path.
-   *   3. If driver=escpos, build the ReceiptDocument server-side and
-   *      synchronously call `adapter.print(job)`. On success →
-   *      `{status:'printed'}`. On error → enqueue a hardware_outbox
-   *      row + return `{status:'fallback', error}` so the renderer
-   *      falls back to the legacy HTML path AND surfaces a toast.
+   * 1. Resolve the sale (cross-tenant guard via getSaleRecord).
+   * 2. Read the active printer peripheral; if none OR driver=system,
+   * return `{status:'system-fallback'}` so the renderer prints
+   * via the legacy `window.electron.printReceipt(html)` path.
+   * 3. If driver=escpos, build the ReceiptDocument server-side and
+   * synchronously call `adapter.print(job)`. On success →
+   * `{status:'printed'}`. On error → enqueue a hardware_outbox
+   * row + return `{status:'fallback', error}` so the renderer
+   * falls back to the legacy HTML path AND surfaces a toast.
    *
    * `tenantProcedure` because cashiers print receipts. Cross-tenant
    * isolation comes from `getSaleRecord(tenantId, saleId)`.
@@ -121,7 +121,7 @@ export const peripheralsActionProcedures = {
     }
 
     // Enqueue a retry row so the worker drains it later.
-    // ENG-067b — pipe the optional input.idempotencyKey through so
+    // pipe the optional input.idempotencyKey through so
     // a tRPC retry of the same logical print attempt collapses to
     // one row instead of stacking duplicates. Helper handles the
     // partial-unique-idx UNIQUE conflict gracefully.
@@ -169,7 +169,7 @@ export const peripheralsActionProcedures = {
   }),
 
   /**
-   * ENG-062 / ENG-106c3 — role-aware cash drawer kick. Managers/admins
+   * /  — role-aware cash drawer kick. Managers/admins
    * act directly; cashiers consume an exact one-time site grant. Re-firing
    * the pulse just relays the drawer again, harmless on every model
    * we've tested. When no drawer is registered, we return a polite
@@ -234,7 +234,7 @@ export const peripheralsActionProcedures = {
       }
 
       // Enqueue retry — drawer kicks are idempotent at the relay
-      // level. ENG-067b also makes the enqueue itself idempotent
+      // level.  also makes the enqueue itself idempotent
       // when the caller passes an idempotencyKey.
       try {
         await enqueueHardware(
@@ -267,7 +267,7 @@ export const peripheralsActionProcedures = {
     }),
 
   /**
-   * ENG-065a — Reset a `hardware_outbox` row so the worker picks it
+   * Reset a `hardware_outbox` row so the worker picks it
    * up fresh. Operator path for "this row got stuck on a transient
    * driver error; force a retry now". Retryable rows
    * (`retrying` / `dead_letter` / `failed`) reset `attempts=0`,
@@ -310,7 +310,7 @@ export const peripheralsActionProcedures = {
           updatedAt: now,
         })
         .where(and(eq(hardwareOutbox.id, input.id), eq(hardwareOutbox.tenantId, ctx.tenantId)));
-      // Mirror of `sync.retry` (ENG-064): no fire-and-forget tick —
+      // Mirror of `sync.retry` (): no fire-and-forget tick —
       // the next periodic worker tick (30s default) drains the
       // requeued row. Avoids re-failing the row immediately when
       // the underlying transient error has not yet cleared.

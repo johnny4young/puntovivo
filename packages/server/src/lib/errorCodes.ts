@@ -5,7 +5,7 @@
  * `SERVER_ERROR_CODES` map, the `ServerErrorCode` union, the
  * `ServerErrorWithCode` cause class, and the `throwServerError` helper.
  *
- * ENG-178 — decomposed into `./errorCodes/` (codes-a / codes-b registry halves,
+ * decomposed into `./errorCodes/` (codes-a / codes-b registry halves,
  * registry merge, error-with-code, throw). This file stays at the original
  * path as a thin re-export barrel so all ~100 importers resolve unchanged.
  *

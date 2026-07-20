@@ -1,5 +1,5 @@
 /**
- * ENG-052b — MEGA seed: historical sales + items + payments + audit
+ * MEGA seed: historical sales + items + payments + audit
  * trail.
  *
  * Bulk-inserts ~`salesPerActiveDay` sales per closed cash session.
@@ -77,11 +77,7 @@ export async function seedHistoricalSales(
   // don't fight Drizzle for one-row updates per insert.
   const siteSequentialMap = new Map<string, { id: string; prefix: string; current: number }>();
   for (const site of sites) {
-    const seq = await db
-      .select()
-      .from(sequentials)
-      .where(eq(sequentials.tenantId, tenantId))
-      .all();
+    const seq = await db.select().from(sequentials).where(eq(sequentials.tenantId, tenantId)).all();
     const sitePrefixed = seq.find(s => s.siteId === site.id);
     if (sitePrefixed) {
       siteSequentialMap.set(site.id, {
@@ -293,7 +289,10 @@ export async function seedHistoricalSales(
             createdBy: ctx.managers[0]?.id ?? session.cashierId,
             createdAt: refundedAtIso,
           });
-          stockSnapshot.set(item.productId, (stockSnapshot.get(item.productId) ?? 0) + item.quantity);
+          stockSnapshot.set(
+            item.productId,
+            (stockSnapshot.get(item.productId) ?? 0) + item.quantity
+          );
         });
         movementsCount += builtItems.length;
         // sale.return audit row
@@ -305,7 +304,12 @@ export async function seedHistoricalSales(
           resourceType: 'sale',
           resourceId: saleId,
           before: { status: 'completed', paymentStatus: 'paid' },
-          after: { status: 'completed', paymentStatus: 'refunded', refundedAmount: refundAmount, returnId },
+          after: {
+            status: 'completed',
+            paymentStatus: 'refunded',
+            refundedAmount: refundAmount,
+            returnId,
+          },
           metadata: { reason: 'Cliente devolvió producto' },
           createdAt: refundedAtIso,
         });
@@ -329,7 +333,10 @@ export async function seedHistoricalSales(
             createdBy: ctx.managers[0]?.id ?? session.cashierId,
             createdAt: voidedAtIso,
           });
-          stockSnapshot.set(item.productId, (stockSnapshot.get(item.productId) ?? 0) + item.quantity);
+          stockSnapshot.set(
+            item.productId,
+            (stockSnapshot.get(item.productId) ?? 0) + item.quantity
+          );
         });
         movementsCount += builtItems.length;
         // sale.void audit row
@@ -387,7 +394,7 @@ async function chunkedInsert<T extends Record<string, unknown>>(
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per ENG-179c.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: seed bulk-insert into a parametric Drizzle table (Parameters<typeof db.insert>[0]); the generic-table builder rejects the typed ref. Seed-only, exempt per .
     await (db.insert(table) as any).values(chunk).run();
   }
 }

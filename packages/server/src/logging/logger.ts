@@ -1,5 +1,5 @@
 /**
- * ENG-006 — single pino logger for the whole server workspace.
+ * single pino logger for the whole server workspace.
  *
  * `rootLogger` is the shared pino instance; Fastify adopts it at
  * `createServer()` so HTTP request logs and application logs share one
@@ -58,7 +58,7 @@ const REDACT_PATHS: readonly string[] = [
   '*.token',
   '*.refreshToken',
   '*.email',
-  // ENG-181 — preserve Error.cause chain for diagnostic context
+  // preserve Error.cause chain for diagnostic context
   // (cause.tenantId, cause.siteId, cause.errorCode, ...) while
   // censoring sensitive nested fields. Pino does not support
   // recursive wildcards, so we list explicit paths covering the
@@ -116,8 +116,8 @@ export const rootLogger: PuntovivoLogger = pino({
  * etc.) should create its own child on module load and reuse it.
  *
  * @example
- *   const log = createModuleLogger('sync');
- *   log.info({ triggeredBy: 'user' }, 'sync cycle started');
+ * const log = createModuleLogger('sync');
+ * log.info({ triggeredBy: 'user' }, 'sync cycle started');
  */
 export function createModuleLogger(module: string): PuntovivoLogger {
   return rootLogger.child({ module });

@@ -1,19 +1,19 @@
 /**
- * ENG-067 — Chaos: intermittent network from the web client.
+ * Chaos: intermittent network from the web client.
  *
  * Pins the auto-sync-on-reconnect behavior of `useOfflineSync`.
  * The retail-store failure mode this guards against: the cashier's
  * device drops WiFi for 30 seconds in the middle of a venta, then
  * reconnects. The hook MUST:
  *
- *   1. Reflect navigator.onLine toggles in the `isOnline` field.
- *   2. NOT auto-sync while offline (no spurious calls to
- *      `sync.push.mutate` when the network is down).
- *   3. Auto-sync exactly once when transitioning offline → online if
- *      `pendingItems > 0`.
- *   4. Recover gracefully when the first sync attempt rejects:
- *      `error` surfaces, buffer counts are preserved, and a manual
- *      `triggerSync()` retry succeeds.
+ * 1. Reflect navigator.onLine toggles in the `isOnline` field.
+ * 2. NOT auto-sync while offline (no spurious calls to
+ * `sync.push.mutate` when the network is down).
+ * 3. Auto-sync exactly once when transitioning offline → online if
+ * `pendingItems > 0`.
+ * 4. Recover gracefully when the first sync attempt rejects:
+ * `error` surfaces, buffer counts are preserved, and a manual
+ * `triggerSync()` retry succeeds.
  *
  * The test uses `renderHook` + a mocked `vanillaClient.sync.{status,push}`
  * to keep the boundary tight — the hook's own state machine is what's
@@ -88,7 +88,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('useOfflineSync chaos: intermittent network (ENG-067)', () => {
+describe('useOfflineSync chaos: intermittent network', () => {
   it('reflects navigator.onLine toggles in the isOnline state', async () => {
     const { result } = renderHook(() => useOfflineSync());
     await waitFor(() => expect(statusFn).toHaveBeenCalled());
@@ -179,17 +179,15 @@ describe('useOfflineSync chaos: intermittent network (ENG-067)', () => {
     });
     // First push rejects — simulates a flaky upstream that resolves
     // its own backend issue between attempt 1 and attempt 2.
-    pushFn
-      .mockRejectedValueOnce(new Error('network blip'))
-      .mockResolvedValueOnce({
-        success: true,
-        pendingCount: 0,
-        conflictsCount: 0,
-        lastSyncAt: new Date('2026-05-06T12:05:00.000Z').toISOString(),
-        errors: [],
-        processedIds: [],
-        conflictIds: [],
-      });
+    pushFn.mockRejectedValueOnce(new Error('network blip')).mockResolvedValueOnce({
+      success: true,
+      pendingCount: 0,
+      conflictsCount: 0,
+      lastSyncAt: new Date('2026-05-06T12:05:00.000Z').toISOString(),
+      errors: [],
+      processedIds: [],
+      conflictIds: [],
+    });
 
     const { result } = renderHook(() => useOfflineSync());
     // The hook auto-fires push because navigator.onLine starts at

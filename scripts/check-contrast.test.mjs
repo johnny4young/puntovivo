@@ -1,14 +1,14 @@
 /**
- * ENG-134 — Unit coverage for the contrast CI gate.
+ * Unit coverage for the contrast CI gate.
  *
  * The real script runs in `ci:web` against `apps/web/src/styles/theme.css`.
  * This colocated test pins the pieces that would silently break
  * under a design-system token refactor:
  *
- *   - OkLCh parser (`oklch(L C H)` shape).
- *   - WCAG luminance + contrast formulas.
- *   - Scope walker (`:root`, `.dark`).
- *   - Default 4.5:1 floor for shared button token pairs.
+ * - OkLCh parser (`oklch(L C H)` shape).
+ * - WCAG luminance + contrast formulas.
+ * - Scope walker (`:root`, `.dark`).
+ * - Default 4.5:1 floor for shared button token pairs.
  *
  * @module scripts/check-contrast.test
  */
@@ -128,7 +128,7 @@ test('evaluateScope keeps shared button token pairs on the 4.5:1 floor', () => {
 });
 
 test('evaluateScope keeps the badge-warning pair on the 4.5:1 floor', () => {
-  // ENG-134c: warning-50 / warning-700 at ~4.27:1 must fail because
+  // : warning-50 / warning-700 at ~4.27:1 must fail because
   // `.badge-warning` ships uppercase tracking-wide labels that
   // routinely render at body-text size on transactional surfaces.
   const declarations = {
@@ -152,9 +152,7 @@ test('evaluateScope warns when one side of a pair is missing', () => {
     selector: ':root',
     declarations: { background: 'oklch(1 0 0)' },
   });
-  const warning = result.warnings.find(
-    w => w.pair === 'background / foreground'
-  );
+  const warning = result.warnings.find(w => w.pair === 'background / foreground');
   assert.ok(warning);
   assert.match(warning.reason, /missing side/);
 });

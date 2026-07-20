@@ -1,5 +1,5 @@
 /**
- * ENG-178 — Pre-transaction DB resolution for the `completeSale`
+ * Pre-transaction DB resolution for the `completeSale`
  * use-case, extracted verbatim from the former monolithic
  * `completeSale.ts` during the megafile decomposition.
  *
@@ -40,7 +40,7 @@ export interface ResolvedSaleItem {
   productId: string;
   quantity: number;
   unitPrice: number;
-  /** ENG-007 — `unit_x_product.price` at line resolution time. */
+  /** `unit_x_product.price` at line resolution time. */
   referenceUnitPrice: number;
   productName: string;
   unitId: string;
@@ -52,7 +52,7 @@ export interface ResolvedSaleItem {
   total: number;
   normalizedQuantity: number;
   /**
-   * ENG-039d2 — free-form per-line modifier captured at sale
+   * free-form per-line modifier captured at sale
    * creation time. Null when no modifier was entered. Items are
    * immutable after draft creation so this value round-trips
    * through suspend / resume / completeDraft unchanged.
@@ -164,19 +164,19 @@ export async function getSaleSequentialContext(
  *
  * Invariants:
  * - Each derived monetary quantity is `roundMoney`-ed to two decimals BEFORE
- *   it accumulates into the running `subtotal` / `taxAmount` or lands in a
- *   row. Critically the tax-exclusive split (`lineTotal / (1 + taxRate/100)`)
- *   produces non-terminating decimals that the storage `chk_*_2dec` CHECK
- *   would reject and that would stack sub-cent drift across a long line list;
- *   rounding per line then re-summing the rounded values keeps every stored
- *   figure cent-clean. Uniform 2-decimal, country-agnostic (see `completeSale`).
+ * it accumulates into the running `subtotal` / `taxAmount` or lands in a
+ * row. Critically the tax-exclusive split (`lineTotal / (1 + taxRate/100)`)
+ * produces non-terminating decimals that the storage `chk_*_2dec` CHECK
+ * would reject and that would stack sub-cent drift across a long line list;
+ * rounding per line then re-summing the rounded values keeps every stored
+ * figure cent-clean. Uniform 2-decimal, country-agnostic (see `completeSale`).
  * - Stock is validated against a per-product running remainder so two lines
- *   of the same product cannot jointly oversell (`SALE_INSUFFICIENT_STOCK`);
- *   the product must be active (`SALE_PRODUCT_INVALID`) and the unit
- *   assignment valid + active (`SALE_UNIT_INVALID`).
+ * of the same product cannot jointly oversell (`SALE_INSUFFICIENT_STOCK`);
+ * the product must be active (`SALE_PRODUCT_INVALID`) and the unit
+ * assignment valid + active (`SALE_UNIT_INVALID`).
  * - `notes` is operator-facing free text; empty/whitespace collapses to
- *   `null` (re-trimmed defensively for non-Zod callers) and is never
- *   auto-translated.
+ * `null` (re-trimmed defensively for non-Zod callers) and is never
+ * auto-translated.
  *
  * Preconditions: `inputItems` has passed the sale input schema, and the
  * `(tenantId, siteId)` pair identifies the site whose inventory will be
@@ -207,7 +207,7 @@ export async function resolveSaleItems(
       productId: unitXProduct.productId,
       unitId: unitXProduct.unitId,
       equivalence: unitXProduct.equivalence,
-      // ENG-007 — read the per-unit catalog price so the use-case can
+      // read the per-unit catalog price so the use-case can
       // detect manual price overrides.
       price: unitXProduct.price,
       unitName: units.name,
@@ -220,10 +220,7 @@ export async function resolveSaleItems(
     .all();
 
   const assignmentMap = new Map(
-    unitAssignments.map(assignment => [
-      `${assignment.productId}:${assignment.unitId}`,
-      assignment,
-    ])
+    unitAssignments.map(assignment => [`${assignment.productId}:${assignment.unitId}`, assignment])
   );
 
   const siteBalanceRows = await db
@@ -324,7 +321,7 @@ export async function resolveSaleItems(
 
     remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
 
-    // ENG-176a-rounding — round each derived monetary quantity to two
+    // round each derived monetary quantity to two
     // decimals BEFORE accumulating into the running totals or pushing
     // into the row buffer. Without this, a tax-exclusive split
     // (`lineTotal / (1 + taxRate)`) produces non-terminating decimals
@@ -334,9 +331,7 @@ export async function resolveSaleItems(
     const discountAmount = roundMoney(grossAmount * (item.discount / 100));
     const lineTotal = roundMoney(grossAmount - discountAmount);
     const taxRate = item.taxRate ?? product.taxRate ?? 0;
-    const lineBase = roundMoney(
-      taxRate > 0 ? lineTotal / (1 + taxRate / 100) : lineTotal
-    );
+    const lineBase = roundMoney(taxRate > 0 ? lineTotal / (1 + taxRate / 100) : lineTotal);
     const lineTax = roundMoney(lineTotal - lineBase);
 
     subtotal = roundMoney(subtotal + lineBase);
@@ -357,16 +352,14 @@ export async function resolveSaleItems(
       costAtSale: roundMoney(product.cost),
       total: lineTotal,
       normalizedQuantity,
-      // ENG-039d2 — empty / whitespace-only notes collapse to null so
+      // empty / whitespace-only notes collapse to null so
       // the column stays semantically two-state (modifier present
       // vs absent). The Zod schema `.trim()`s the input, but callers
       // that bypass the schema (programmatic completeSale callers,
       // future bulk-import flows) may still pass a whitespace-only
       // string, so the resolver re-trims defensively.
       notes:
-        typeof item.notes === 'string' && item.notes.trim().length > 0
-          ? item.notes.trim()
-          : null,
+        typeof item.notes === 'string' && item.notes.trim().length > 0 ? item.notes.trim() : null,
       serialIds,
       tracksSerials: product.tracksSerials,
     });
@@ -392,7 +385,7 @@ export interface SalePriceOverride {
 }
 
 /**
- * ENG-007 — detect manual per-line price overrides: lines whose entered
+ * detect manual per-line price overrides: lines whose entered
  * `unitPrice` diverges from the unit's catalog `referenceUnitPrice` by at
  * least half a cent. The fresh-sale transaction writes a single summary
  * audit row when this returns a non-empty list.
@@ -400,9 +393,7 @@ export interface SalePriceOverride {
 export function detectPriceOverrides(rows: ResolvedSaleItem[]): SalePriceOverride[] {
   const PRICE_OVERRIDE_EPSILON = 0.005;
   return rows
-    .filter(
-      row => Math.abs(row.unitPrice - row.referenceUnitPrice) >= PRICE_OVERRIDE_EPSILON
-    )
+    .filter(row => Math.abs(row.unitPrice - row.referenceUnitPrice) >= PRICE_OVERRIDE_EPSILON)
     .map(row => ({
       saleItemId: row.id,
       productId: row.productId,

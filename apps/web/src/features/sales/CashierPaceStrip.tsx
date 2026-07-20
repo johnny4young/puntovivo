@@ -3,7 +3,7 @@ import { Gauge, Timer, Trophy } from 'lucide-react';
 import { useCashierPace } from './useCashierPace';
 
 /**
- * ENG-204 (WC-C4) — the opt-in cashier pace HUD. Three quiet micro-metrics
+ * () — the opt-in cashier pace HUD. Three quiet micro-metrics
  * of the ACTIVE session (base items per minute, average seconds between
  * sales, personal best) rendered inside the checkout panel's session block.
  * Self-contained: reads the shared opt-in + the pace query through

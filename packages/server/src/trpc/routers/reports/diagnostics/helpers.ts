@@ -21,7 +21,7 @@ export const EVENT_AVG_SIZE_BYTES = 200;
 
 export const SCHEMA_VERSION = 1;
 
-// ENG-068 — `reports.diagnostics.*` exists only inside the Operations
+// `reports.diagnostics.*` exists only inside the Operations
 // Center, so it is module-gated. Cash / inventory / fiscal sub-routers
 // feed dedicated non-Operations Center surfaces too, so gating them
 // would break the Cash, Inventory, and Fiscal Documents pages.
@@ -54,8 +54,8 @@ export function isDefaultIncludeAll(
 }
 
 /**
- * ENG-072 — runtime metadata projection for the diagnostics manifest.
- * Mirrors the AUTHORITY-NODE.md `RuntimeConfig` shape but stays
+ * runtime metadata projection for the diagnostics manifest.
+ * Mirrors the canonical `RuntimeConfig` shape but stays
  * additive (existing manifest fields untouched, schemaVersion still
  * 1) so the export bundle stays consumable by today's tooling. The
  * runtime config carries no secrets — `hubUrl` and `siteId` /
@@ -79,7 +79,7 @@ export function projectRuntimeForManifest(runtime: RuntimeConfig): {
     siteId: runtime.siteId,
     deviceId: runtime.deviceId,
     // Included so an admin debugging a CORS / LAN-bind issue in
-    // ENG-073 `site_hub` mode sees the configured origin set in the
+    // `site_hub` mode sees the configured origin set in the
     // bundle. Empty array in the default `device_local` case is
     // informative ("no LAN origins configured"), not a leak.
     allowedLanOrigins: runtime.allowedLanOrigins,

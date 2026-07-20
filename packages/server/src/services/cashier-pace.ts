@@ -1,5 +1,5 @@
 /**
- * ENG-204 (WC-C4) — cashier pace metrics for the opt-in POS HUD.
+ * () — cashier pace metrics for the opt-in POS HUD.
  *
  * Everything derives from rows that already exist (`cash_sessions` +
  * `sales` + `sale_items`); nothing is written. The HUD motivates, it does

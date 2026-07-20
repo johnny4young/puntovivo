@@ -1,5 +1,5 @@
 /**
- * ENG-140a — deterministic conversion between tenant wall time and UTC.
+ * deterministic conversion between tenant wall time and UTC.
  *
  * Schedules are entered in the tenant's IANA timezone, not the browser or
  * server machine timezone. Intl is used instead of process-local Date parsing

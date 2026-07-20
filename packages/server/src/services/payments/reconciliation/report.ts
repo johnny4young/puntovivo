@@ -1,5 +1,5 @@
 /**
- * ENG-038 — read-side payment reconciliation report.
+ * read-side payment reconciliation report.
  *
  * @module services/payments/reconciliation/report
  */
@@ -19,10 +19,7 @@ import { isRailCandidateTender } from './helpers.js';
 import type { PaymentOutboxRow, SalePaymentRow } from './types.js';
 
 type PaymentMismatchType =
-  | 'missing_provider_reference'
-  | 'provider_issue'
-  | 'amount_mismatch'
-  | 'orphan_provider_row';
+  'missing_provider_reference' | 'provider_issue' | 'amount_mismatch' | 'orphan_provider_row';
 
 export interface PaymentReconciliationInput {
   limit: number;
@@ -66,7 +63,7 @@ export interface PaymentReconciliationResult {
 }
 
 /**
- * ENG-038 — AI-assisted payment reconciliation baseline.
+ * AI-assisted payment reconciliation baseline.
  *
  * This pass is intentionally deterministic: it classifies local POS
  * tenders and provider outbox rows into an operator-readable mismatch

@@ -1,5 +1,5 @@
 /**
- * ENG-165 — tRPC-aware bucket rate limiting.
+ * tRPC-aware bucket rate limiting.
  *
  * Pins the classifier (which bucket each procedure shape lands in), the
  * once-per-window audit event, bucket independence (sales-write vs read,
@@ -63,7 +63,7 @@ function mockCtx(args: {
   };
 }
 
-describe('classifyBucket (ENG-165)', () => {
+describe('classifyBucket', () => {
   it('skips the auth family (its own strict limits apply)', () => {
     expect(classifyBucket('auth.login', 'mutation', false)).toBeNull();
     expect(classifyBucket('auth.refresh', 'query', true)).toBeNull();
@@ -78,7 +78,7 @@ describe('classifyBucket (ENG-165)', () => {
   });
 });
 
-describe('bucket independence (ENG-165)', () => {
+describe('bucket independence', () => {
   it('exhausting sales-write does not deny read, and tenant/site buckets are independent', () => {
     const sales = classifyBucket('sales.complete', 'mutation', true)!;
     const read = classifyBucket('products.list', 'query', true)!;
@@ -107,7 +107,7 @@ describe('bucket independence (ENG-165)', () => {
   });
 });
 
-describe('bucketRateLimitFn middleware (ENG-165)', () => {
+describe('bucketRateLimitFn middleware', () => {
   it('throws TOO_MANY_REQUESTS on a saturated bucket and audits the hit once', async () => {
     __setBucketRateLimitEnforceForTest(true);
     const bucket = classifyBucket('sales.complete', 'mutation', true)!;

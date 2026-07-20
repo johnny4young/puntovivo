@@ -1,4 +1,4 @@
-/** ENG-141c — authenticated binary delivery for immutable day-close PDFs. */
+/** authenticated binary delivery for immutable day-close PDFs. */
 import type { FastifyInstance } from 'fastify';
 import { MANAGER_OR_ADMIN_ROLES } from '@puntovivo/shared/roles';
 import { verifyAccessToken } from '../../security/authTokens.js';

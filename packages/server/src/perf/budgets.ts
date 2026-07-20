@@ -1,13 +1,13 @@
 /**
- * ENG-133 — Loader + helper utilities for the repo-wide
+ * Loader + helper utilities for the repo-wide
  * `perf-budget.json`.
  *
  * The same JSON file is consumed by two surfaces:
  *
- *   - `scripts/check-bundle-size.mjs` (Node-only, post-build gate
- *     for the web bundle).
- *   - `__tests__/perf-trpc-latency.test.ts` (vitest, p95 gate for a
- *     curated set of tRPC procedures).
+ * - `scripts/check-bundle-size.mjs` (Node-only, post-build gate
+ * for the web bundle).
+ * - `__tests__/perf-trpc-latency.test.ts` (vitest, p95 gate for a
+ * curated set of tRPC procedures).
  *
  * This module is the server-side accessor. It loads the file via
  * `node:fs` at import time so the budget is fixed for the duration
@@ -76,9 +76,7 @@ export function loadPerfBudget(): PerfBudget {
     !parsed.bundleSize.perChunkGzKb ||
     typeof parsed.bundleSize.thresholdPercent !== 'number'
   ) {
-    throw new Error(
-      `perf-budget.json at ${BUDGET_PATH} is missing required fields`
-    );
+    throw new Error(`perf-budget.json at ${BUDGET_PATH} is missing required fields`);
   }
   cached = parsed as PerfBudget;
   return cached;
@@ -91,9 +89,9 @@ export function loadPerfBudget(): PerfBudget {
  * crash.
  *
  * Examples:
- *   computePercentile([1..100], 95) === 95
- *   computePercentile([10, 20, 30], 50) === 20
- *   computePercentile([], 95) === 0
+ * computePercentile([1..100], 95) === 95
+ * computePercentile([10, 20, 30], 50) === 20
+ * computePercentile([], 95) === 0
  *
  * Exported here so the latency suite and any future percentile
  * caller share the same implementation.

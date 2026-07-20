@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — catalogs domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -148,7 +148,7 @@ export const providers = sqliteTable(
     cityId: text('city_id'),
     contactName: text('contact_name'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    // ENG-177a — optimistic-concurrency guard (see products.version).
+    // optimistic-concurrency guard (see products.version).
     version: integer('version').notNull().default(0),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
@@ -315,7 +315,7 @@ export const categories = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     parentId: text('parent_id'),
-    // ENG-177a — optimistic-concurrency guard (see products.version).
+    // optimistic-concurrency guard (see products.version).
     version: integer('version').notNull().default(0),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),

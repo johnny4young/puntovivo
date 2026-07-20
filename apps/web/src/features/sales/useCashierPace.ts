@@ -5,7 +5,7 @@ import { trpc } from '@/lib/trpc';
 import { isPaceHudEnabled, setPaceHudEnabled, subscribeToPaceHud } from './paceHudPreference';
 
 /**
- * ENG-204 — the cashier pace HUD state. Bundles the per-user opt-in (shared
+ * the cashier pace HUD state. Bundles the per-user opt-in (shared
  * external store, see paceHudPreference) with the `cashSessions.pace` read.
  * Zero cost while opted out or without an active session: the query never
  * fires (`enabled` gates it) and consumers render nothing. While active it
@@ -35,7 +35,7 @@ export function useCashierPace(hasActiveCashSession: boolean) {
   return {
     enabled,
     toggle,
-    // Cache-leak guard (ENG-199 lesson): enabled:false still serves cached
+    // Cache-leak guard ( lesson): enabled:false still serves cached
     // data, so the payload is also gated on the flag.
     pace: enabled && hasActiveCashSession ? (paceQuery.data ?? null) : null,
   };

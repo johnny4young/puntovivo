@@ -1,5 +1,5 @@
 /**
- * ENG-062 — Pure ESC/POS byte builder unit tests.
+ * Pure ESC/POS byte builder unit tests.
  *
  * Locks the canonical byte sequences (init, codepage, alignment,
  * bold, double-height, drawer pulse, full cut) and the column
@@ -124,10 +124,7 @@ describe('buildEscPosBytes — control sequences', () => {
   });
 
   it('does NOT emit the drawer pulse when kickDrawer is undefined or false', () => {
-    const bytes = buildEscPosBytes(
-      { lines: [{ text: 'abc' }] },
-      { paperWidth: '80mm' }
-    );
+    const bytes = buildEscPosBytes({ lines: [{ text: 'abc' }] }, { paperWidth: '80mm' });
     expect(indexOf(bytes, ESCPOS_BYTES.DRAWER_KICK)).toBe(-1);
   });
 
@@ -192,11 +189,7 @@ describe('buildEscPosBytes — control sequences', () => {
   it('toggles bold via ESC E n based on the line bold flag', () => {
     const bytes = buildEscPosBytes(
       {
-        lines: [
-          { text: 'plain' },
-          { text: 'BOLD', bold: true },
-          { text: 'plain again' },
-        ],
+        lines: [{ text: 'plain' }, { text: 'BOLD', bold: true }, { text: 'plain again' }],
         cut: false,
       },
       { paperWidth: '80mm' }

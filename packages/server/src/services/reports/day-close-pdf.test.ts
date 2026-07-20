@@ -1,4 +1,4 @@
-/** ENG-141c — portable server-side PDF renderer contract. */
+/** portable server-side PDF renderer contract. */
 import { describe, expect, it } from 'vitest';
 import { LOCALE_FALLBACK, type ResolvedLocale } from '../tenant-locale.js';
 import type { ComprehensiveDayCloseReport } from './comprehensive-day-close.js';

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ENG-133b — unit tests for the Electron memory gate's PURE logic.
+ * unit tests for the Electron memory gate's PURE logic.
  *
  * Exercises the helpers in isolation with fixture `getAppMetrics` data — no
  * Electron launch — mirroring `scripts/check-bundle-size.test.mjs`. The
@@ -73,7 +73,11 @@ test('compareToMemoryBudget: a budget key with no measurement is missing', () =>
 
 test('renderReport prints a PASS table when there are no regressions', () => {
   const report = renderReport(
-    { regressions: [], ok: [{ name: 'main', budget: 100, actual: 90, deltaPercent: -10 }], missing: [] },
+    {
+      regressions: [],
+      ok: [{ name: 'main', budget: 100, actual: 90, deltaPercent: -10 }],
+      missing: [],
+    },
     25
   );
   assert.match(report, /Electron memory PASS/);
@@ -81,7 +85,8 @@ test('renderReport prints a PASS table when there are no regressions', () => {
 });
 
 test('parseMetricsLine extracts the metrics array', () => {
-  const stdout = 'some boot log\nPUNTOVIVO_MEMORY_METRICS=[{"type":"Browser","workingSetKb":102400}]\nbye';
+  const stdout =
+    'some boot log\nPUNTOVIVO_MEMORY_METRICS=[{"type":"Browser","workingSetKb":102400}]\nbye';
   assert.deepEqual(parseMetricsLine(stdout), [{ type: 'Browser', workingSetKb: 102400 }]);
 });
 
@@ -100,10 +105,16 @@ test('resolveMemoryGateMode reads strict and require-measurement flags from argv
     enforce: false,
     requireMeasurement: true,
   });
-  assert.deepEqual(resolveMemoryGateMode({ argv: [], env: { PUNTOVIVO_MEMORY_STRICT: '1', PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT: '1' } }), {
-    enforce: true,
-    requireMeasurement: true,
-  });
+  assert.deepEqual(
+    resolveMemoryGateMode({
+      argv: [],
+      env: { PUNTOVIVO_MEMORY_STRICT: '1', PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT: '1' },
+    }),
+    {
+      enforce: true,
+      requireMeasurement: true,
+    }
+  );
 });
 
 test('runCli self-skips (exit 0) when Electron cannot be measured', () => {
@@ -132,6 +143,10 @@ test('runCli --require-measurement fails (exit 1) when a budgeted process is mis
 });
 
 test('runCli passes (exit 0) when the measurement is within budget', () => {
-  const code = runCli({ measure: () => ({ main: 10, renderer: 10 }), strict: true, requireMeasurement: true });
+  const code = runCli({
+    measure: () => ({ main: 10, renderer: 10 }),
+    strict: true,
+    requireMeasurement: true,
+  });
   assert.equal(code, 0);
 });

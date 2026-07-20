@@ -1,5 +1,5 @@
 /**
- * Shared helpers for the ENG-075 Authority Node service: role inference,
+ * Shared helpers for the  Authority Node service: role inference,
  * pairing-code crypto/format/TTL, health derivation, tenant-site guard,
  * and pending-code expiry.
  *

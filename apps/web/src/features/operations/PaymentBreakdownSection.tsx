@@ -18,7 +18,7 @@ interface PaymentBreakdownSectionProps {
   error: unknown;
 }
 
-/** ENG-178 — Payment method and status aggregate with local pagination. */
+/** Payment method and status aggregate with local pagination. */
 export function PaymentBreakdownSection({
   entries,
   isLoading,

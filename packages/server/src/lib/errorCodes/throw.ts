@@ -1,6 +1,6 @@
 /**
  * `throwServerError` — throw a TRPCError carrying a stable code in `cause`
- * (ENG-178 split). ENG-179b explicit `| undefined` preserved.
+ * ( split).  explicit `| undefined` preserved.
  *
  * @module lib/errorCodes/throw
  */
@@ -16,17 +16,17 @@ import type { ServerErrorCode } from './registry.js';
  * client's translation layer keyed by `errorCode`.
  *
  * @example
- *   throwServerError({
- *     trpcCode: 'UNAUTHORIZED',
- *     errorCode: 'AUTH_INVALID_CREDENTIALS',
- *     message: 'Email or password is incorrect',
- *   });
+ * throwServerError({
+ * trpcCode: 'UNAUTHORIZED',
+ * errorCode: 'AUTH_INVALID_CREDENTIALS',
+ * message: 'Email or password is incorrect',
+ * });
  */
 export function throwServerError(args: {
   trpcCode: TRPC_ERROR_CODE_KEY;
   errorCode: ServerErrorCode;
   message: string;
-  // ENG-179b — explicit `| undefined` so callers can spread
+  // explicit `| undefined` so callers can spread
   // `{ details: maybeDetails }` (where maybeDetails is built from a
   // partial source) without violating `exactOptionalPropertyTypes`.
   details?: Record<string, unknown> | undefined;

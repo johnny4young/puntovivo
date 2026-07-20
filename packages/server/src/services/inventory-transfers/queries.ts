@@ -1,7 +1,7 @@
 /**
  * Inventory-transfer read-side queries (history list + detail drawer).
  *
- * ENG-178 — extracted verbatim from the former flat
+ * extracted verbatim from the former flat
  * `services/inventory-transfers.ts` during the megafile decomposition.
  *
  * @module services/inventory-transfers/queries
@@ -26,7 +26,7 @@ import type { TransferDetail, TransferHistoryEntry } from './types.js';
 export async function listRecentTransfers(
   db: DatabaseInstance,
   tenantId: string,
-  // ENG-179b — explicit `| undefined`.
+  // explicit `| undefined`.
   options: { limit?: number | undefined } = {}
 ): Promise<TransferHistoryEntry[]> {
   const limit = Math.max(1, Math.min(options.limit ?? 50, 200));
@@ -62,7 +62,7 @@ export async function listRecentTransfers(
   const sitesMap = new Map(siteRows.map(site => [site.id, site.name]));
 
   // Fan-out per-transfer aggregation. History volumes are bounded by `limit`
-  // (<=200) so the N+1 is acceptable for Phase 2 step 1; a future step can
+  // (<=200) so the N+1 is acceptable for ; a future step can
   // replace this with a single GROUP BY join once `transferOrderItems` gains
   // more metadata worth aggregating.
   const enriched = await Promise.all(

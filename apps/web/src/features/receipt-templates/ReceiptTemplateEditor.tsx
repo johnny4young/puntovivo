@@ -6,10 +6,7 @@ import { ReceiptTemplatePreview } from './ReceiptTemplatePreview';
 import { BlockForm } from './BlockForm';
 import { SortableBlockRow } from './SortableBlockRow';
 import { BLOCK_KINDS, PAPER_WIDTHS } from './receiptEditor.constants';
-import {
-  useReceiptLayoutEditor,
-  type ReceiptTemplateInitial,
-} from './useReceiptLayoutEditor';
+import { useReceiptLayoutEditor, type ReceiptTemplateInitial } from './useReceiptLayoutEditor';
 
 export interface ReceiptTemplateEditorProps {
   /** When set, edits the existing template; when null, creates a new one. */
@@ -17,10 +14,7 @@ export interface ReceiptTemplateEditorProps {
   onClose: () => void;
 }
 
-export function ReceiptTemplateEditor({
-  initial,
-  onClose,
-}: ReceiptTemplateEditorProps) {
+export function ReceiptTemplateEditor({ initial, onClose }: ReceiptTemplateEditorProps) {
   const {
     t,
     name,
@@ -99,9 +93,7 @@ export function ReceiptTemplateEditor({
             <h2 className="text-lg font-semibold text-secondary-900">
               {t('editor.blocksPanel.title')}
             </h2>
-            <p className="text-sm text-secondary-500">
-              {t('editor.blocksPanel.description')}
-            </p>
+            <p className="text-sm text-secondary-500">{t('editor.blocksPanel.description')}</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -120,7 +112,7 @@ export function ReceiptTemplateEditor({
           </div>
 
           {/*
-            ENG-016 pass 2 (item #1) — drag-and-drop reorder. <DndContext>
+             pass 2 (item #1) — drag-and-drop reorder. <DndContext>
             owns the pointer/keyboard sensors; <SortableContext> exposes the
             ordered block-key list to its descendants. The block list itself
             stays as the same <ul> structure so pass-1's FLIP attribute
@@ -136,15 +128,8 @@ export function ReceiptTemplateEditor({
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >
-            <SortableContext
-              items={blockKeys}
-              strategy={verticalListSortingStrategy}
-            >
-              <ul
-                ref={blockListRef}
-                className="space-y-2"
-                data-testid="block-list"
-              >
+            <SortableContext items={blockKeys} strategy={verticalListSortingStrategy}>
+              <ul ref={blockListRef} className="space-y-2" data-testid="block-list">
                 {layout.blocks.length === 0 ? (
                   <li className="rounded border border-dashed border-line p-4 text-center text-sm text-secondary-500">
                     {t('editor.blocksPanel.empty')}
@@ -201,9 +186,7 @@ export function ReceiptTemplateEditor({
                     <GripVertical className="h-4 w-4 text-secondary-500" />
                     <span>
                       {draggingIndex + 1}.{' '}
-                      {t(
-                        `editor.blockTypes.${layout.blocks[draggingIndex]?.type ?? 'text'}`
-                      )}
+                      {t(`editor.blockTypes.${layout.blocks[draggingIndex]?.type ?? 'text'}`)}
                     </span>
                   </div>
                 </div>
@@ -217,29 +200,17 @@ export function ReceiptTemplateEditor({
             <h2 className="text-lg font-semibold text-secondary-900">
               {t('editor.previewPanel.title')}
             </h2>
-            <p className="text-sm text-secondary-500">
-              {t('editor.previewPanel.description')}
-            </p>
+            <p className="text-sm text-secondary-500">{t('editor.previewPanel.description')}</p>
           </div>
           <ReceiptTemplatePreview layout={layout} kind={kind} />
         </div>
       </div>
 
       <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          className="btn-outline"
-          onClick={onClose}
-          disabled={isPending}
-        >
+        <button type="button" className="btn-outline" onClick={onClose} disabled={isPending}>
           {t('actions.cancel')}
         </button>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={handleSave}
-          disabled={isPending}
-        >
+        <button type="button" className="btn-primary" onClick={handleSave} disabled={isPending}>
           {t('actions.save')}
         </button>
       </div>

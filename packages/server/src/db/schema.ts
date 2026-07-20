@@ -4,7 +4,7 @@
  * This is the source-of-truth schema for the SQLite database.
  * All tables support multi-tenant isolation via tenant_id.
  *
- * ENG-178 — this file was a 5430-LOC monolith; it is now a thin barrel that
+ * this file was a 5430-LOC monolith; it is now a thin barrel that
  * re-exports the per-domain modules under `db/schema/`. Kept as `db/schema.ts`
  * (not `schema/index.ts`) so all 263 importers + the drizzle-kit `schema:`
  * path resolve unchanged; the table/column/index/FK/relation shape is

@@ -12,7 +12,7 @@ export function buildCustomerCatalogColumns(
       accessorKey: 'name',
       header: () => i18next.t('customers:table.name'),
       size: 280,
-      // Rediseño FASE 3/7 — celda ancla (.pv-table .prod/.pic/.pname/.sku):
+      // celda ancla (.pv-table .prod/.pic/.pname/.sku):
       // glifo tonal + nombre fuerte + código mono legible debajo.
       cell: ({ row }) => (
         <div className="prod">
@@ -38,7 +38,9 @@ export function buildCustomerCatalogColumns(
       size: 120,
       cell: ({ row }) => (
         <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
-          {row.original.isActive ? i18next.t('customers:table.active') : i18next.t('customers:table.inactive')}
+          {row.original.isActive
+            ? i18next.t('customers:table.active')
+            : i18next.t('customers:table.inactive')}
         </span>
       ),
     },

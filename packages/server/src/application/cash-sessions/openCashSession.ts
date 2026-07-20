@@ -1,5 +1,5 @@
 /**
- * ENG-056 — `openCashSession` use-case service.
+ * `openCashSession` use-case service.
  *
  * Replaces the inline body that lived at
  * `trpc/routers/cashSessions.ts::open`. Mirrors the structural shape of
@@ -7,7 +7,7 @@
  * one synchronous `db.transaction(...)` for the row insert + audit log,
  * post-commit best-effort journal effects.
  *
- * Collateral fix (in scope per ENG-056 plan): adds a `cash_session.open`
+ * Collateral fix (in scope per  plan): adds a `cash_session.open`
  * audit log row inside the transaction. Close had one already; the
  * asymmetry was a real audit-trail gap.
  *
@@ -37,11 +37,7 @@ import {
   lookupCashSessionJournalEventId,
   type CashSessionJournalEffectInput,
 } from './journal-effects.js';
-import type {
-  CashSessionContext,
-  OpenCashSessionInput,
-  OpenCashSessionResult,
-} from './types.js';
+import type { CashSessionContext, OpenCashSessionInput, OpenCashSessionResult } from './types.js';
 
 const fallbackLog = createModuleLogger('application/cash-sessions/openCashSession');
 
@@ -52,16 +48,16 @@ export type OpenedCashSessionRow = typeof cashSessions.$inferSelect;
  *
  * Invariants:
  * - At most ONE open session per cashier per site AND at most one open
- *   session per register: both are enforced as preconditions
- *   (`CASH_SESSION_ALREADY_OPEN_FOR_CASHIER` / `_FOR_REGISTER`) before any
- *   write, so the drawer-ownership model stays one-shift-per-drawer.
+ * session per register: both are enforced as preconditions
+ * (`CASH_SESSION_ALREADY_OPEN_FOR_CASHIER` / `_FOR_REGISTER`) before any
+ * write, so the drawer-ownership model stays one-shift-per-drawer.
  * - The opening float must reconcile against the supplied denomination
- *   breakdown (`assertOpeningFloatMatchesDenominations`); the stored
- *   `openingFloat` and the initial `expectedBalance` are both the
- *   `roundMoney`-ed float, two-decimal clean.
- * - ENG-140d: the same immediate transaction reuses a same-site open labor
- *   shift or creates it, links the drawer to that evidence, and writes every
- *   paired audit row. A session never exists without its labor owner.
+ * breakdown (`assertOpeningFloatMatchesDenominations`); the stored
+ * `openingFloat` and the initial `expectedBalance` are both the
+ * `roundMoney`-ed float, two-decimal clean.
+ * - : the same immediate transaction reuses a same-site open labor
+ * shift or creates it, links the drawer to that evidence, and writes every
+ * paired audit row. A session never exists without its labor owner.
  *
  * Preconditions: `ctx.siteId` non-null (`CASH_SESSION_SITE_REQUIRED`).
  *

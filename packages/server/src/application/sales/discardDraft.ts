@@ -1,5 +1,5 @@
 /**
- * ENG-055 — `discardDraft` use-case service.
+ * `discardDraft` use-case service.
  *
  * Discards a suspended (or orphan) draft sale: validates state +
  * ownership, restores the stock that was debited at draft creation
@@ -10,8 +10,8 @@
  * which writes inventory_movements regardless of `status`). Discarding
  * a draft must therefore credit the same quantities back to
  * `inventory_balances` (the single source of truth). Without the reversal,
- * cancelled drafts would permanently leak inventory — ENG-018c fixed
- * a latent bug here, ENG-055 just preserves the same fix in the
+ * cancelled drafts would permanently leak inventory —  fixed
+ * a latent bug here,  just preserves the same fix in the
  * extracted service.
  *
  * No fiscal emission and no cash movement: drafts never produce a
@@ -231,7 +231,7 @@ export async function discardDraft(
     data: { id: input.saleId, status: 'cancelled', discarded: true },
   });
 
-  // ENG-192 — enqueue the lots the discard credited back so the mutation
+  // enqueue the lots the discard credited back so the mutation
   // reaches sync_outbox.
   await enqueueInventoryLotUpdatesForSale(ctx, restoredLotIds, input.saleId);
 
@@ -270,7 +270,7 @@ export async function discardDraft(
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
 
-  // ENG-098 — drop any kitchen card for the discarded draft so the
+  // drop any kitchen card for the discarded draft so the
   // cook does not keep cooking food for a sale the cashier killed.
   // No-op when no card exists.
   await removeKdsOrders({

@@ -1,4 +1,4 @@
-/** ENG-200 — shared dynamic loader for the deferred payment drawer. */
+/** shared dynamic loader for the deferred payment drawer. */
 
 export const loadSalePaymentModal = () => import('./SalePaymentModal');
 

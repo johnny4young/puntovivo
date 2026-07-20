@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — syncAi domain.
  *
- * ENG-178 — relocated verbatim from the former monolithic `db/schema.ts`
+ * relocated verbatim from the former monolithic `db/schema.ts`
  * (5430 LOC) during the megafile decomposition. The flat `db/schema.ts`
  * is now a thin barrel that re-exports every domain module, so all 263
  * importers + drizzle-kit are unchanged and the schema shape is identical.
@@ -21,18 +21,18 @@ import {
 } from './fiscal.js';
 
 // ============================================================================
-// SYNC OUTBOX (ENG-064 — Sync contract v1)
+// SYNC OUTBOX (Sync contract v1)
 // ============================================================================
 //
 // Closes ADR-0003's promise of five purpose-specific outboxes. Mirrors the
-// kernel projection used by `fiscal_outbox` (ENG-057) and `hardware_outbox`
-// (ENG-062) PLUS adds the per-entity contract columns ADR-0002 + ADR-0004
+// kernel projection used by `fiscal_outbox` () and `hardware_outbox`
+// () PLUS adds the per-entity contract columns ADR-0002 + ADR-0004
 // lock in: payload version, command-envelope correlation
 // (idempotency_key + device_id + operation_event_id), conflict policy
 // per ADR-0004, and a soft `depends_on_operation_id` for topological
 // ordering on the consumer side.
 //
-// ENG-064b cutover history: 0016_sync_contract_v1 introduced this
+// cutover history: 0016_sync_contract_v1 introduced this
 // table and backfilled pending rows from the legacy `sync_queue`;
 // 0017_drop_sync_queue dropped the legacy table once every writer
 // (19 routers + 4 application services + dev seed) routed through
@@ -60,7 +60,7 @@ export type SyncOutboxStatus = (typeof syncOutboxStatusEnum)[number];
  * Per-entity conflict policy per ADR-0004. `manual` for high-risk
  * entities (sales, cash, fiscal, inventory, audit) where the
  * operator MUST resolve any divergence; `auto_lww` for catalog and
- * preferences where last-write-wins is safe. ENG-064 v1 surfaces
+ * preferences where last-write-wins is safe.  v1 surfaces
  * the marker; the actual auto-resolution branch in `sync.push` is
  * parked for a follow-up.
  */
@@ -70,7 +70,7 @@ export type SyncConflictPolicy = (typeof syncConflictPolicyEnum)[number];
 /**
  * Operation kind on the sync row. Three-value enum: `create` /
  * `update` / `delete`. Future: `restore` / `replay` could land
- * here when ENG-066 chaos suite needs them.
+ * here when  chaos suite needs them.
  */
 export const syncOperationEnum = ['create', 'update', 'delete'] as const;
 export type SyncOperation = (typeof syncOperationEnum)[number];
@@ -93,7 +93,7 @@ export const syncOutbox = sqliteTable(
     payload: text('payload', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
     payloadVersion: integer('payload_version').notNull().default(1),
     /**
-     * Command-envelope key (ENG-052). Nullable because catalog /
+     * Command-envelope key (). Nullable because catalog /
      * preferences writes are not envelope-wrapped. When present, the
      * partial unique index `idx_sync_outbox_idempotent` collapses
      * duplicate enqueues for retries.
@@ -134,7 +134,7 @@ export const syncOutbox = sqliteTable(
       table.nextRetryAt
     ),
     // Per-entity drilldown for "what's pending for this customer
-    // record" surfaces (Operations Center). ENG-175 widened this from
+    // record" surfaces (Operations Center).  widened this from
     // (entity_type, entity_id) to include status so the Operations
     // Center peek query "pending syncs for entity X" can resolve via
     // the index without a status post-filter.
@@ -182,11 +182,11 @@ export type FiscalDocumentItem = typeof fiscalDocumentItems.$inferSelect;
 export type NewFiscalDocumentItem = typeof fiscalDocumentItems.$inferInsert;
 
 // ============================================================================
-// LOGIN RATE-LIMIT STATE (ENG-008b)
+// LOGIN RATE-LIMIT STATE ()
 // ============================================================================
 //
-// Persistent counters backing `security/loginRateLimit.ts`. ENG-008
-// shipped the policy against an in-memory Map; ENG-008b promotes the DB to
+// Persistent counters backing `security/loginRateLimit.ts`.
+// shipped the policy against an in-memory Map;  promotes the DB to
 // source of truth so `auth.login` rate limits survive a server restart.
 //
 // **NOT tenant-scoped**: rate limiting applies per-IP and per-email across
@@ -197,7 +197,7 @@ export type NewFiscalDocumentItem = typeof fiscalDocumentItems.$inferInsert;
 
 /**
  * Credential-throttle buckets. The original login buckets remain global;
- * ENG-106a adds tenant-qualified actor/target keys for staff PIN failures.
+ * adds tenant-qualified actor/target keys for staff PIN failures.
  */
 export const loginAttemptKindEnum = [
   'ip',
@@ -245,7 +245,7 @@ export type NewLoginAttempt = typeof loginAttempts.$inferInsert;
 // tenant-scoped surface. This table is the global counterpart for maintenance
 // evidence only.
 
-// ENG-165 — `rate_limit.exceeded` records a tRPC bucket-rate-limit hit
+// `rate_limit.exceeded` records a tRPC bucket-rate-limit hit
 // (the offending tenant / user / ip live in `metadata`, since this table
 // has no tenant/actor columns). TS-level enum only; the column accepts
 // any text, so appending a value needs no migration.
@@ -294,7 +294,7 @@ export type SystemAuditLog = typeof systemAuditLogs.$inferSelect;
 export type NewSystemAuditLog = typeof systemAuditLogs.$inferInsert;
 
 // ============================================================================
-// AI AUDIT LOG (ENG-030 — provider-agnostic call recording + budget control)
+// AI AUDIT LOG (provider-agnostic call recording + budget control)
 // ============================================================================
 //
 // One row per AI provider call (success and failure) so the admin can see
@@ -305,7 +305,7 @@ export type NewSystemAuditLog = typeof systemAuditLogs.$inferInsert;
 //
 // `site_id` and `provider_id` are populated from day 1 so future per-site
 // reporting / per-site BUDGET enforcement does not require a follow-up
-// migration. ENG-030 ships per-tenant single-budget enforcement; the data
+// migration.  ships per-tenant single-budget enforcement; the data
 // is already wide enough for finer-grained controls later.
 //
 // Failed calls are persisted with `error_code` set + `cost_usd = 0` so the
@@ -365,7 +365,7 @@ export type AIAuditLogRow = typeof aiAuditLog.$inferSelect;
 export type NewAIAuditLogRow = typeof aiAuditLog.$inferInsert;
 
 // ============================================================================
-// AI ANOMALY SNOOZES (ENG-047)
+// AI ANOMALY SNOOZES ()
 // ============================================================================
 
 /**

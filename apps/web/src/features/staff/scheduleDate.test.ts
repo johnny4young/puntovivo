@@ -7,7 +7,7 @@ import {
   wallFieldsAt,
 } from './scheduleDate';
 
-describe('schedule calendar helpers (ENG-140a)', () => {
+describe('schedule calendar helpers', () => {
   it('builds locale-independent calendar weeks', () => {
     expect(startOfWeek('2026-07-15', 1)).toBe('2026-07-13');
     expect(startOfWeek('2026-07-15', 0)).toBe('2026-07-12');

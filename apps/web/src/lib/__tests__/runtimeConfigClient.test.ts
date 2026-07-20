@@ -1,5 +1,5 @@
 /**
- * ENG-074 — runtimeConfigClient unit tests.
+ * runtimeConfigClient unit tests.
  *
  * Pure module-init resolver tests; no React, no DOM. Each case
  * mounts a `window.electron` shape on the test harness, calls the
@@ -17,7 +17,9 @@ import {
 const ORIGINAL_ELECTRON = (window as unknown as { electron?: unknown }).electron;
 
 function setBridge(config: RendererRuntimeConfig | null | undefined): void {
-  (window as unknown as { electron?: { runtime?: { getConfigSync: () => unknown } } | undefined }).electron =
+  (
+    window as unknown as { electron?: { runtime?: { getConfigSync: () => unknown } } | undefined }
+  ).electron =
     config === undefined
       ? undefined
       : {
@@ -28,7 +30,9 @@ function setBridge(config: RendererRuntimeConfig | null | undefined): void {
 }
 
 function setBridgeThatThrows(): void {
-  (window as unknown as { electron?: { runtime?: { getConfigSync: () => unknown } } | undefined }).electron = {
+  (
+    window as unknown as { electron?: { runtime?: { getConfigSync: () => unknown } } | undefined }
+  ).electron = {
     runtime: {
       getConfigSync: () => {
         throw new Error('forced sync IPC failure');
@@ -74,7 +78,9 @@ describe('getRuntimeConfigSync', () => {
 
   it('caches across calls so repeated reads do not hit the bridge twice', () => {
     let count = 0;
-    (window as unknown as { electron?: { runtime?: { getConfigSync: () => unknown } } | undefined }).electron = {
+    (
+      window as unknown as { electron?: { runtime?: { getConfigSync: () => unknown } } | undefined }
+    ).electron = {
       runtime: {
         getConfigSync: () => {
           count++;

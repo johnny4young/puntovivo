@@ -6,7 +6,7 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { isPaceHudEnabled, setPaceHudEnabled, subscribeToPaceHud } from './paceHudPreference';
 
 /**
- * ENG-204 — per-user opt-in toggle for the cashier pace HUD. Sits next to
+ * per-user opt-in toggle for the cashier pace HUD. Sits next to
  * the sound toggle in the POS header (same self-contained pattern); the
  * shared preference store keeps the checkout-panel strip in lockstep.
  */

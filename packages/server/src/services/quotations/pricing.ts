@@ -1,7 +1,7 @@
 /**
- * Quotation service — timestamp + totals math (ENG-178 split).
+ * Quotation service — timestamp + totals math ( split).
  *
- * `getTimestamp` + `computeQuotationTotals` (ENG-176a two-decimal rounding).
+ * `getTimestamp` + `computeQuotationTotals` ( two-decimal rounding).
  *
  * @module services/quotations/pricing
  */
@@ -9,7 +9,6 @@ import { nanoid } from 'nanoid';
 import { roundMoney } from '../../lib/money.js';
 
 import type { QuotationItemInput, ResolvedQuotationLine, QuotationTotals } from './types.js';
-
 
 export function getTimestamp(): string {
   return new Date().toISOString();
@@ -21,7 +20,7 @@ export function getTimestamp(): string {
  * Tax model (mirrors sales): the supplied `unitPrice` is treated as the
  * gross/with-tax amount per unit, so the line's tax is extracted from the
  * post-discount total. This matches how operators quote prices in the field
- * — they enter the customer-facing number, not the tax-exclusive base.
+ * they enter the customer-facing number, not the tax-exclusive base.
  */
 export function computeQuotationTotals(
   rawLines: readonly QuotationItemInput[],
@@ -31,7 +30,7 @@ export function computeQuotationTotals(
   let taxAmount = 0;
   let discountAmount = 0;
 
-  // ENG-176a-rounding — mirror completeSale.ts: round every derived
+  // mirror completeSale.ts: round every derived
   // monetary quantity to two decimals before accumulation, and round
   // the running totals after each iteration so a long line list does
   // not stack sub-cent drift.
@@ -41,7 +40,7 @@ export function computeQuotationTotals(
     const lineTotal = roundMoney(grossLine - lineDiscountAmount);
     // Resolve VAT rate: per-line input wins; product VAT is the fallback.
     const effectiveTaxRate =
-      line.taxRate > 0 ? line.taxRate : productTaxRateById.get(line.productId) ?? 0;
+      line.taxRate > 0 ? line.taxRate : (productTaxRateById.get(line.productId) ?? 0);
     const lineBase = roundMoney(
       effectiveTaxRate > 0 ? lineTotal / (1 + effectiveTaxRate / 100) : lineTotal
     );

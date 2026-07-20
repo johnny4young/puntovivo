@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
 
 /**
- * ENG-061 — USB HID keyboard-wedge barcode listener.
+ * USB HID keyboard-wedge barcode listener.
  *
  * USB HID barcode scanners pretend to be USB keyboards: when the
  * cashier scans a code, the scanner emits the decoded characters
@@ -13,32 +13,32 @@ import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
  *
  * Detection rules:
  *
- *   - keydown events with single-character `key` accumulate into a
- *     buffer
- *   - if the gap between two consecutive keystrokes exceeds
- *     `interCharGapMs`, the buffer resets (manual typists never
- *     sustain <30 ms gaps)
- *   - end-of-scan signal flushes the buffer:
- *       'enter'    — Enter pressed flushes; Enter is also swallowed
- *                    when the buffer was a complete scan so the
- *                    document does not see it
- *       'tab'      — Tab pressed flushes (and is swallowed)
- *       'gap-only' — a `interCharGapMs * 4` timer flushes, no key
- *                    needed (some scanners do not emit Enter/Tab)
+ * - keydown events with single-character `key` accumulate into a
+ * buffer
+ * - if the gap between two consecutive keystrokes exceeds
+ * `interCharGapMs`, the buffer resets (manual typists never
+ * sustain <30 ms gaps)
+ * - end-of-scan signal flushes the buffer:
+ * 'enter'    — Enter pressed flushes; Enter is also swallowed
+ * when the buffer was a complete scan so the
+ * document does not see it
+ * 'tab'      — Tab pressed flushes (and is swallowed)
+ * 'gap-only' — a `interCharGapMs * 4` timer flushes, no key
+ * needed (some scanners do not emit Enter/Tab)
  *
  * Guards:
  *
- *   - bail out when any modal flag is true (caller passes
- *     `isProductSearchOpen`, `isPaymentModalOpen`, etc.); the
- *     scanner burst does not capture text inside a dialog
- *   - bail out when `isEditableShortcutTarget(event.target)` is
- *     true — the cashier is typing in an input/textarea, manual
- *     entry must not be misclassified as a scan
- *   - `enabled === false` short-circuits the entire listener
+ * - bail out when any modal flag is true (caller passes
+ * `isProductSearchOpen`, `isPaymentModalOpen`, etc.); the
+ * scanner burst does not capture text inside a dialog
+ * - bail out when `isEditableShortcutTarget(event.target)` is
+ * true — the cashier is typing in an input/textarea, manual
+ * entry must not be misclassified as a scan
+ * - `enabled === false` short-circuits the entire listener
  *
  * The hook is NOT a singleton — multiple instances on the same
  * page would both emit. SalesPage is the only mount point in
- * ENG-061. Inventory / returns adoption is a follow-up.
+ * . Inventory / returns adoption is a follow-up.
  *
  * Paste handling: deliberately NOT supported. Pasting via Ctrl+V
  * fires a single `paste` event (not a series of `keydown`s) and
@@ -70,7 +70,7 @@ export interface UseBarcodeWedgeListenerOptions {
    */
   now?: () => number;
   /**
-   * ENG-105f — Optional reference to the page-level search input that
+   * Optional reference to the page-level search input that
    * is allowed to remain focused without bailing the wedge listener.
    * When the focused element matches this ref, the editable-target
    * guard is bypassed: the scanner burst is processed and a
@@ -100,7 +100,7 @@ interface BufferState {
   /**
    * Most recent keystroke origin, captured so the gap-only flush
    * timer (which fires after the keystrokes stop) can report the
-   * target back to the flush logic that needs it (ENG-105f scanner
+   * target back to the flush logic that needs it ( scanner
    * input clear).
    */
   lastTarget: EventTarget | null;
@@ -160,7 +160,7 @@ export function useBarcodeWedgeListener(options: UseBarcodeWedgeListenerOptions)
       }
       const code = stripPrefixSuffix(raw, config.prefix, config.suffix);
       if (code.length === 0) return;
-      // ENG-105f — When the scan originated from the whitelisted
+      // When the scan originated from the whitelisted
       // scanner input, clear the lingering value so the cashier
       // does not see the barcode in the search box. Same-tick so
       // the cleared input is what the next render sees.
@@ -223,10 +223,7 @@ export function useBarcodeWedgeListener(options: UseBarcodeWedgeListenerOptions)
       }
 
       // Gap detection — manual typing resets the buffer.
-      if (
-        buffer.chars.length > 0 &&
-        now - buffer.lastKeyAt > config.interCharGapMs
-      ) {
+      if (buffer.chars.length > 0 && now - buffer.lastKeyAt > config.interCharGapMs) {
         resetBuffer(buffer);
       }
 

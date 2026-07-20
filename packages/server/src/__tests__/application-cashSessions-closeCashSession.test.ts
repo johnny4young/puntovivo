@@ -1,14 +1,14 @@
 /**
- * ENG-056 — Invariant tests for `application/cash-sessions/closeCashSession`.
+ * Invariant tests for `application/cash-sessions/closeCashSession`.
  *
  * Verifies:
- *   - Happy paths for over/short totals (zero / over / short).
- *   - Denomination mismatch + missing-active-session preconditions.
- *   - Pending fiscal/payment detection at close (counts + samples).
- *   - Audit log row carries pending counts in metadata.
- *   - Journal effects: session_close + audit_log (always); pending_warning
- *     (one per non-zero category).
- *   - Cross-tenant isolation.
+ * - Happy paths for over/short totals (zero / over / short).
+ * - Denomination mismatch + missing-active-session preconditions.
+ * - Pending fiscal/payment detection at close (counts + samples).
+ * - Audit log row carries pending counts in metadata.
+ * - Journal effects: session_close + audit_log (always); pending_warning
+ * (one per non-zero category).
+ * - Cross-tenant isolation.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

@@ -2,7 +2,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export interface InventoryAdjustmentProduct {
   id: string;
   name: string;
@@ -70,9 +70,7 @@ export function InventoryAdjustmentModal({
           <ModalButton
             variant="primary"
             onClick={handleSubmit}
-            disabled={
-              isSaving || !product || product.tracksLots || product.tracksSerials === true
-            }
+            disabled={isSaving || !product || product.tracksLots || product.tracksSerials === true}
           >
             {isSaving ? t('adjustment.submitting') : t('adjustment.save')}
           </ModalButton>

@@ -1,7 +1,7 @@
 /**
- * ENG-032 — Pattern 4 / No-sale opens detector.
+ * Pattern 4 / No-sale opens detector.
  *
- * ENG-178 — extracted verbatim from the former flat
+ * extracted verbatim from the former flat
  * `services/ai/anomalyDetection.ts` (SUB-DETECTORS section) during the
  * megafile decomposition.
  *

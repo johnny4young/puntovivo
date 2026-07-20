@@ -1,14 +1,14 @@
 /**
- * ENG-135 — Attribute redaction for the telemetry sink path.
+ * Attribute redaction for the telemetry sink path.
  *
- * The pino root logger already applies `REDACT_PATHS` (ENG-006) to
+ * The pino root logger already applies `REDACT_PATHS` () to
  * every NDJSON record. That redaction lives on the pino instance —
  * it does not run for objects we hand to an external sink. This
  * helper applies the same spirit on a plain attrs bag before the
  * sink ever sees it.
  *
  * The list intentionally tracks the production REDACT_PATHS in
- * `logging/logger.ts`. When the policy expands (ENG-128 will
+ * `logging/logger.ts`. When the policy expands ( will
  * formalize the diagnostic-bundle redaction surface), the two lists
  * grow together — `assertRedactionPolicyParity` in the test file
  * pins the relationship.
@@ -86,9 +86,9 @@ function redactValue(value: unknown, seen: WeakSet<object>): unknown {
  * caller can keep the unredacted object for local-only logging.
  *
  * @example
- *   const safe = redactErrorAttrs({ tenantId: 't', token: 'abc' });
- *   //  safe.token === '[Redacted]'
- *   //  safe.tenantId === 't'
+ * const safe = redactErrorAttrs({ tenantId: 't', token: 'abc' });
+ * //  safe.token === '[Redacted]'
+ * //  safe.tenantId === 't'
  */
 export function redactErrorAttrs<T extends Record<string, unknown>>(
   attrs: T

@@ -1,5 +1,5 @@
 /**
- * ENG-065d — `payments.methodBreakdown` aggregation tests.
+ * `payments.methodBreakdown` aggregation tests.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -122,7 +122,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('payments.methodBreakdown (ENG-065d)', () => {
+describe('payments.methodBreakdown', () => {
   it('empty tenant returns no entries', async () => {
     const h = await seedHarness('empty');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
@@ -242,11 +242,7 @@ describe('payments.methodBreakdown (ENG-065d)', () => {
   it('rejects out-of-bound windowDays via Zod', async () => {
     const h = await seedHarness('bounds');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
-    await expect(
-      caller.payments.methodBreakdown({ windowDays: 0 })
-    ).rejects.toBeDefined();
-    await expect(
-      caller.payments.methodBreakdown({ windowDays: 91 })
-    ).rejects.toBeDefined();
+    await expect(caller.payments.methodBreakdown({ windowDays: 0 })).rejects.toBeDefined();
+    await expect(caller.payments.methodBreakdown({ windowDays: 91 })).rejects.toBeDefined();
   });
 });

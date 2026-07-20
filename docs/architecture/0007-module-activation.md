@@ -2,7 +2,6 @@
 
 > Status: Accepted
 > Date: 2026-05-07
-> Owner: ENG-068
 
 ## Decision
 
@@ -28,8 +27,8 @@ deactivation is **soft** — rows persist; reading is gated, not
 deleted.
 
 The kernel ships with five demo modules wired end-to-end so future
-work can light up vertical packs (ENG-069) and the public API
-(ENG-070) by registering more entries in the manifest:
+work can light up vertical packs () and the public API
+() by registering more entries in the manifest:
 
 - `copilot` — `/co-pilot` route + `ai.copilot.chat`.
 - `operations-center` — `/operations` route + `reports.diagnostics.*`.
@@ -63,7 +62,7 @@ have never been toggled see no behavior change after the kernel lands.
 - **Hard disable on toggle-off** (data export + scrubbed) — Out of
   scope for v1. Acceptance criteria says "deactivation hides
   behavior without deleting rows"; soft disable matches. A future
-  ticket can add hard disable for compliance scenarios where the
+  change can add hard disable for compliance scenarios where the
   tenant must demonstrate data scrubbing.
 
 ## Implementation Impact
@@ -137,16 +136,16 @@ have never been toggled see no behavior change after the kernel lands.
   tenant whose JSON still carries the stale toggle just stops seeing
   it. Forwards-compat for the SaaS lifecycle.
 
-## Affected Tickets
+## Implementation map
 
-- `ENG-068` — module activation kernel (this ADR's owner).
-- `ENG-069` — multi-surface POS shell. Each surface (mobile, kiosk,
+- module activation kernel (this ADR's owner).
+- multi-surface POS shell. Each surface (mobile, kiosk,
   ipad) registers as a module so a tenant can opt-in/out per
   vertical pack.
-- `ENG-070` — event-based public API. Each event type (sale.created,
+- event-based public API. Each event type (sale.created,
   inventory.adjusted, ...) registers as a module so a tenant can
   control which events leak into outbound webhooks.
-- `ENG-068b` (potential follow-up) — migrate the existing fiscal +
+- (potential follow-up) — migrate the existing fiscal +
   AI flags (`fiscal_dian_enabled`, `fiscal.mx.enabled`,
   `fiscal.cl.enabled`, `ai.enabled`) into the `modules` manifold.
   Out of scope here because every reader for those flags would have
@@ -155,10 +154,10 @@ have never been toggled see no behavior change after the kernel lands.
 
 Updated: 2026-05-07 — initial entry.
 
-## Surfaces (ENG-069)
+## Surfaces
 
-ENG-069 lifted the surface-as-module pattern this ADR named in the
-"Affected Tickets" section above. The kernel did not need a structural
+The surface implementation lifted the surface-as-module pattern named in the
+implementation map above. The kernel did not need a structural
 extension — a "surface" is just a render target gated by the same
 module manifold + the existing `<RequireModule>` + role guard
 composition.
@@ -185,23 +184,23 @@ Concretely:
 - Renderer mirror at `apps/web/src/features/surfaces/manifest.ts`
   plus 4 layout shell components — each composes
   `<ProtectedRoute>` + `<RequireModule fallback={<Navigate to="/dashboard" />}>`
-  + `<Suspense>` around `<Outlet />`. Routes mount as top-level in
-  `App.tsx`, OUTSIDE of `MainLayout`, so each shell owns its full
-  viewport (KDS fullscreen black backdrop, customer-display gradient,
-  mobile-waiter phone-width container, POS Touch wider chrome).
-- ENG-039 (vertical restaurant) plugs real workflows into the
+  - `<Suspense>` around `<Outlet />`. Routes mount as top-level in
+    `App.tsx`, OUTSIDE of `MainLayout`, so each shell owns its full
+    viewport (KDS fullscreen black backdrop, customer-display gradient,
+    mobile-waiter phone-width container, POS Touch wider chrome).
+- The restaurant vertical plugs real workflows into the
   existing shells without forking the App component. The shells +
   manifest are the seam; the placeholders ship as stubs.
 
 The surface-as-module pattern adds zero new architectural primitives —
-it composes ENG-068's module guard + role guard + lazy route exactly
+it composes the module guard, role guard, and lazy route exactly
 the same way the existing demo modules do. Documented here so future
 contributors find the pattern + the manifests in one place.
 
-## Public events (ENG-070)
+## Public events
 
-ENG-070 lifted the event-as-module pattern this ADR named in the
-"Affected Tickets" section above. Events are the second non-route
+The public-event implementation lifted the event-as-module pattern named in the
+implementation map above. Events are the second non-route
 consumer of the manifold (the first being feature toggles like
 `copilot`); like surfaces, the kernel did not need a structural
 extension — events compose the same module guard the procedures use.
@@ -209,7 +208,7 @@ extension — events compose the same module guard the procedures use.
 Concretely:
 
 - New manifest `packages/server/src/services/events/manifest.ts` —
-  `PUBLIC_EVENT_TYPES` tuple closing the 5 events ENG-070 v1 ships
+  `PUBLIC_EVENT_TYPES` tuple closing the 5 events v1 ships
   (`sale.completed`, `sale.refunded`, `inventory.adjusted`,
   `cash_session.closed`, `fiscal_document.accepted`) + a Zod payload
   schema per event under `Record<PublicEventType, z.ZodSchema>` for
@@ -246,13 +245,13 @@ Concretely:
   for forensics + the future Operations Center events tab.
 - HTTP delivery worker (POST to subscriber URLs + retry policy +
   signing + dead-letter handling) + the subscriber URL config UI
-  are deliberately out of scope for ENG-070 v1; ENG-070b lands the
-  delivery side. ENG-070 v1's deliverable is the kernel — exactly
+  are deliberately out of scope for v1; lands the
+  delivery side. v1's deliverable is the kernel — exactly
   what the AC asks for ("design public events ... for the future
   central server").
 
 The event-as-module pattern, like the surface-as-module pattern,
-composes ENG-068's module guard against a non-route consumer. Future
-integrations (a webhook subscriber config UI, ENG-039's restaurant
-events, ENG-038's payment-rail events) extend the same manifest
+composes 's module guard against a non-route consumer. Future
+integrations (a webhook subscriber config UI, 's restaurant
+events, 's payment-rail events) extend the same manifest
 without touching the kernel.

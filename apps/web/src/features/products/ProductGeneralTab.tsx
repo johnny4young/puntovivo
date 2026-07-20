@@ -17,7 +17,7 @@ interface ProductGeneralTabProps {
   locations: LookupOption[];
   vatRates: VatRateOption[];
   suggestionsEnabled: boolean;
-  // ENG-179b — explicit `| undefined` on optional fields.
+  // explicit `| undefined` on optional fields.
   productId?: string | undefined;
 }
 

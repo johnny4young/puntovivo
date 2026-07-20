@@ -1,4 +1,4 @@
-/** ENG-123d — Shared import-header normalization. */
+/** Shared import-header normalization. */
 export function normalizeImportHeader(value: string): string {
   return value
     .normalize('NFD')

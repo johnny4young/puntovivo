@@ -1,5 +1,5 @@
 /**
- * ENG-064 — Sync services barrel.
+ * Sync services barrel.
  *
  * @module services/sync
  */

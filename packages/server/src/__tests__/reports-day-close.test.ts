@@ -1,4 +1,4 @@
-/** ENG-141a/ENG-141b — comprehensive day-close report and immutable sign-off integration. */
+/** -141b — comprehensive day-close report and immutable sign-off integration. */
 
 import { createHash } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
@@ -149,7 +149,7 @@ async function createCriticalActor(
   };
 }
 
-describe('reports.dayClose.preview (ENG-141a)', () => {
+describe('reports.dayClose.preview', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
   });

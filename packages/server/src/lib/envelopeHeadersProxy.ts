@@ -1,5 +1,5 @@
 /**
- * ENG-052b — Headers Proxy used by the test fixtures + the dev seed.
+ * Headers Proxy used by the test fixtures + the dev seed.
  *
  * Returns a `Record<string, string>` Proxy that mints a fresh
  * Command Envelope on every read of `x-puntovivo-envelope`, and
@@ -25,10 +25,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import {
-  COMMAND_ENVELOPE_HEADER,
-  DEVICE_ID_HEADER,
-} from '../trpc/schemas/envelope.js';
+import { COMMAND_ENVELOPE_HEADER, DEVICE_ID_HEADER } from '../trpc/schemas/envelope.js';
 
 export interface EnvelopeHeadersProxyOptions {
   getDeviceId: () => string | null | undefined;

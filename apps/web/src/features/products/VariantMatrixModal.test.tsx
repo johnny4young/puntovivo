@@ -4,7 +4,7 @@ import { createMockProduct } from '@/test/utils';
 import { assertNoA11yViolations } from '@/test/a11y';
 import { VariantMatrixModal } from './VariantMatrixModal';
 
-describe('VariantMatrixModal (ENG-110b)', () => {
+describe('VariantMatrixModal', () => {
   it('previews a cartesian matrix and submits normalized axes', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(

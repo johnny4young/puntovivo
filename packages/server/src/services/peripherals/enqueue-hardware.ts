@@ -1,13 +1,13 @@
 /**
- * ENG-067b — `enqueueHardware` helper.
+ * `enqueueHardware` helper.
  *
  * Single entry point for every router that enqueues a hardware
  * dispatch (print job, drawer kick) into `hardware_outbox`. Replaces
  * the inline `db.insert(hardwareOutbox).values({...})` pattern that
  * `peripherals.printReceipt` + `peripherals.kickCashDrawer` used
- * before this ticket.
+ * before this change.
  *
- * The helper closes the dedup gap that ENG-067's chaos suite
+ * The helper closes the dedup gap that 's chaos suite
  * documented: a tRPC retry after a network blip, an offline-buffered
  * replay, or a worker reboot via stale-claim sweep used to land TWO
  * rows in the outbox with the same logical envelope, and the worker
@@ -15,21 +15,21 @@
  *
  * Behavior mirrors `services/sync/enqueue.ts::enqueueSync`:
  *
- *   1. Try insert. The partial unique idx
- *      `(tenant_id, kind, idempotency_key) WHERE idempotency_key IS NOT NULL`
- *      from migration 0018 collapses idempotent retries.
- *   2. SQLite reports the conflict with a UNIQUE constraint failure.
- *      Catch + look up the existing row by
- *      `(tenantId, kind, idempotencyKey)` and return
- *      `{id, deduped: true}`. Other errors rethrow.
- *   3. Callers without an envelope key omit `idempotencyKey` (or
- *      pass `null`) — the partial idx ignores those rows so the
- *      legacy "user pressed Print twice → two prints" path stays.
+ * 1. Try insert. The partial unique idx
+ * `(tenant_id, kind, idempotency_key) WHERE idempotency_key IS NOT NULL`
+ * from migration 0018 collapses idempotent retries.
+ * 2. SQLite reports the conflict with a UNIQUE constraint failure.
+ * Catch + look up the existing row by
+ * `(tenantId, kind, idempotencyKey)` and return
+ * `{id, deduped: true}`. Other errors rethrow.
+ * 3. Callers without an envelope key omit `idempotencyKey` (or
+ * pass `null`) — the partial idx ignores those rows so the
+ * legacy "user pressed Print twice → two prints" path stays.
  *
  * The procedure decorator on the call sites stays
  * `tenantProcedure` / `managerOrAdminProcedure` — the key is opt-in
  * via the input schema, NOT an envelope-middleware upgrade. A future
- * ticket can promote the procedures to `criticalCommandProcedure`
+ * change can promote the procedures to `criticalCommandProcedure`
  * when the UI wave catches up.
  *
  * @module services/peripherals/enqueue-hardware
@@ -115,9 +115,7 @@ export async function enqueueHardware(
   // unique idx clause is `WHERE idempotency_key IS NOT NULL`, so we
   // normalize anything falsy to null to keep the contract clean.
   const idempotencyKey =
-    args.idempotencyKey && args.idempotencyKey.length > 0
-      ? args.idempotencyKey
-      : null;
+    args.idempotencyKey && args.idempotencyKey.length > 0 ? args.idempotencyKey : null;
 
   const id = nanoid();
   const nowIso = new Date().toISOString();
@@ -133,9 +131,7 @@ export async function enqueueHardware(
       payloadVersion: args.payloadVersion ?? 1,
       attempts: args.attempts ?? 0,
       nextRetryAt: args.nextRetryAt ?? null,
-      lastError: args.lastError
-        ? (args.lastError as Record<string, unknown>)
-        : null,
+      lastError: args.lastError ? (args.lastError as Record<string, unknown>) : null,
       priority: args.priority ?? 0,
       idempotencyKey,
       createdAt: nowIso,

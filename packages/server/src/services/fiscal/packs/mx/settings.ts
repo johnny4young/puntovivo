@@ -1,21 +1,21 @@
 /**
- * ENG-035a — Lectura y escritura de los ajustes fiscales del pack
+ * Lectura y escritura de los ajustes fiscales del pack
  * México sobre el blob `tenants.settings` (JSON columna).
  *
  * Namespace: `tenants.settings.fiscal.mx.*`. Conviven con el flag
  * `tenants.settings.fiscal_dian_enabled` heredado del pack Colombia
- * — el rename a `tenants.settings.fiscal.{country}.enabled` queda
- * capturado para ENG-035c (cuando el pack CO migre al mismo
+ * el rename a `tenants.settings.fiscal.{country}.enabled` queda
+ * capturado para  (cuando el pack CO migre al mismo
  * namespace en lugar de la prosa `fiscal_dian_enabled`).
  *
  * Este módulo expone:
  * - `readMxFiscalSettings(blob)` → forma normalizada con defaults
- *   sensatos (enabled=false, environment='sandbox', resto null).
+ * sensatos (enabled=false, environment='sandbox', resto null).
  * - `buildMxFiscalSettingsPatch(partial)` → arma el patch JSON
- *   para hacer merge contra `tenants.settings`.
+ * para hacer merge contra `tenants.settings`.
  * - `mergeMxFiscalSettingsIntoTenantSettings(...)` → inmutable
- *   merge que respeta otros namespaces (fiscal.co, fiscal.cl, ai,
- *   etc.). Sólo este helper sabe la estructura interna del blob.
+ * merge que respeta otros namespaces (fiscal.co, fiscal.cl, ai,
+ * etc.). Sólo este helper sabe la estructura interna del blob.
  *
  * @module services/fiscal/packs/mx/settings
  */
@@ -34,7 +34,7 @@ export interface MxFiscalSettings {
   regimenFiscalCode: string | null;
   /** Código postal de 5 dígitos del lugar de expedición. */
   lugarExpedicion: string | null;
-  /** Ambiente del PAC. ENG-035c traduce esto al naming del proveedor. */
+  /** Ambiente del PAC.  traduce esto al naming del proveedor. */
   environment: 'sandbox' | 'production';
 }
 
@@ -53,11 +53,7 @@ const DEFAULT_MX_SETTINGS: MxFiscalSettings = {
  * versiones anteriores pudieron haber escrito formas diferentes.
  */
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value)
-  );
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -76,8 +72,7 @@ export function readMxFiscalSettings(
   const mx = (fiscal as Record<string, unknown>).mx;
   if (!isPlainRecord(mx)) return { ...DEFAULT_MX_SETTINGS };
 
-  const enabled =
-    typeof mx.enabled === 'boolean' ? mx.enabled : DEFAULT_MX_SETTINGS.enabled;
+  const enabled = typeof mx.enabled === 'boolean' ? mx.enabled : DEFAULT_MX_SETTINGS.enabled;
   const rfc = typeof mx.rfc === 'string' && mx.rfc.length > 0 ? mx.rfc : null;
   const regimenFiscalCode =
     typeof mx.regimenFiscalCode === 'string' && mx.regimenFiscalCode.length > 0
@@ -87,8 +82,7 @@ export function readMxFiscalSettings(
     typeof mx.lugarExpedicion === 'string' && mx.lugarExpedicion.length > 0
       ? mx.lugarExpedicion
       : null;
-  const environment =
-    mx.environment === 'production' ? 'production' : 'sandbox';
+  const environment = mx.environment === 'production' ? 'production' : 'sandbox';
 
   return { enabled, rfc, regimenFiscalCode, lugarExpedicion, environment };
 }

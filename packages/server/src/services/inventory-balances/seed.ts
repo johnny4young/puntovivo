@@ -5,7 +5,7 @@ import { inventoryBalances, products } from '../../db/schema.js';
 import { getPrimarySiteId, getTimestamp } from './helpers.js';
 
 /**
- * Service helpers for Phase 2 DB-101 / API-101 — per-site inventory balances.
+ * Service helpers for per-site inventory balances.
  *
  * `inventory_balances` is the single source of truth for stock (Auditoría
  * 2026-07). This helper lazily materializes a 0-on_hand row for any active
@@ -46,7 +46,7 @@ export function ensureInventoryBalancesForSite(
       return;
     }
 
-    // ENG-177a — chunked multi-row insert. The previous per-product
+    // chunked multi-row insert. The previous per-product
     // `forEach` issued one INSERT per row, which on a 50k-product tenant
     // held the write lock for >1s during site onboarding. A single
     // `.values([...])` insert is one statement per chunk. 10 bound columns

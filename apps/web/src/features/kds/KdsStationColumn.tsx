@@ -1,5 +1,5 @@
 /**
- * ENG-098 — one column per kitchen station.
+ * one column per kitchen station.
  *
  * v1 always renders exactly one column ("Cocina") because every
  * `kds_orders` row is enqueued with `station='main'`. The component

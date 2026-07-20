@@ -1,5 +1,5 @@
 /**
- * ENG-075 Authority Node topology projection: devices + pairing codes +
+ * Authority Node topology projection: devices + pairing codes +
  * health summary read for the Operations Center Authority tab.
  *
  * @module services/devices/authority/topology

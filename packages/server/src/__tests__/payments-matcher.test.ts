@@ -1,12 +1,12 @@
 /**
- * ENG-038c — Matcher acceptance proof.
+ * Matcher acceptance proof.
  *
  * Boots an in-memory DB, seeds one tenant + the deterministic
  * payment-statement fixture, runs `runReconciliationPass` against every
  * rail, and asserts the matcher meets the ≥95 % match rate stated in
- * the ROADMAP acceptance criteria. Also asserts every classifier kind
+ * the documented acceptance criteria. Also asserts every classifier kind
  * surfaces at least once so the fixture continues to exercise the full
- * mismatch space as future tickets evolve the matcher heuristics.
+ * mismatch space as future changes evolve the matcher heuristics.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -48,7 +48,7 @@ async function seedFromFixture(fixture: FixtureBundle): Promise<void> {
 
   await db.insert(tenants).values({
     id: TENANT_ID,
-    name: 'ENG-038c fixture tenant',
+    name: ' fixture tenant',
     slug: 'eng038c-fixture',
     settings: {},
     isActive: true,
@@ -59,7 +59,7 @@ async function seedFromFixture(fixture: FixtureBundle): Promise<void> {
     id: ADMIN_ID,
     tenantId: TENANT_ID,
     email: 'admin@eng038c.test',
-    name: 'ENG-038c admin',
+    name: ' admin',
     passwordHash: 'x',
     sessionVersion: 1,
     role: 'admin',
@@ -73,7 +73,7 @@ async function seedFromFixture(fixture: FixtureBundle): Promise<void> {
   // through `payment_outbox.sale_payment_id`, but the test invariant is
   // that the deterministic fixture and the seeded DB stay in lockstep.
   const tenders = listPosTenders(fixture);
-  // ENG-177c — committed sales need a cash session; one shared closed
+  // committed sales need a cash session; one shared closed
   // session for the whole fixture satisfies the CHECK (the reconciler
   // matches via sale_payment ↔ payment_outbox, never the session).
   const cashSessionId = await seedCommittedSaleSession({
@@ -142,7 +142,7 @@ async function cleanupTenant(): Promise<void> {
   await db.delete(paymentOutbox).where(eq(paymentOutbox.tenantId, TENANT_ID));
   await db.delete(salePayments).where(eq(salePayments.tenantId, TENANT_ID));
   await db.delete(sales).where(eq(sales.tenantId, TENANT_ID));
-  // ENG-177c — the committed-sale fixture now seeds a cash session +
+  // the committed-sale fixture now seeds a cash session +
   // company + site; delete them in FK order before the tenant so the
   // final tenant delete does not hit a RESTRICT on a dangling reference.
   await db.delete(cashSessions).where(eq(cashSessions.tenantId, TENANT_ID));
@@ -201,12 +201,9 @@ describe('runReconciliationPass — 95% acceptance', () => {
     await seedFromFixture(bundle);
 
     const db = getDatabase();
-    const pass = await runReconciliationPass(
-      db,
-      TENANT_ID,
-      listStatementRows(bundle),
-      { now: FIXED_NOW }
-    );
+    const pass = await runReconciliationPass(db, TENANT_ID, listStatementRows(bundle), {
+      now: FIXED_NOW,
+    });
 
     // The fixture seeds at least one of each mismatch type by construction.
     expect(pass.byKind.amount_mismatch).toBeGreaterThan(0);
@@ -224,12 +221,9 @@ describe('runReconciliationPass — 95% acceptance', () => {
     await seedFromFixture(bundle);
 
     const db = getDatabase();
-    const pass = await runReconciliationPass(
-      db,
-      TENANT_ID,
-      listStatementRows(bundle),
-      { now: FIXED_NOW }
-    );
+    const pass = await runReconciliationPass(db, TENANT_ID, listStatementRows(bundle), {
+      now: FIXED_NOW,
+    });
 
     const settledRows = await db
       .select({ id: paymentOutbox.id })
@@ -491,8 +485,7 @@ describe('runReconciliationPass — strict matching boundaries', () => {
     expect(
       pass.mismatches.some(
         mismatch =>
-          mismatch.kind === 'provider_issue' &&
-          mismatch.paymentOutboxId === sample.outboxRow!.id
+          mismatch.kind === 'provider_issue' && mismatch.paymentOutboxId === sample.outboxRow!.id
       )
     ).toBe(true);
     expect(

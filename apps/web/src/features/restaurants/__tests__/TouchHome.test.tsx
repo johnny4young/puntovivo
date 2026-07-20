@@ -1,6 +1,6 @@
 /**
- * ENG-087 — TouchHome mounting smoke (V1 POS grid replaces the
- * prior VoiceOrderingScreen default from ENG-039a). Confirms the
+ * TouchHome mounting smoke (V1 POS grid replaces the
+ * prior VoiceOrderingScreen default from ). Confirms the
  * page wrapper renders the V1 Touch POS surface. The full
  * behavior matrix lives in `PosTouchScreen.test.tsx`. Voice
  * ordering moves to `/touch/voice` and stays reachable via that
@@ -15,7 +15,7 @@ vi.mock('@/features/pos-touch/PosTouchScreen', () => ({
 
 import TouchHome from '../TouchHome';
 
-describe('TouchHome (ENG-087)', () => {
+describe('TouchHome', () => {
   it('mounts the V1 Touch POS surface by default', () => {
     render(<TouchHome />);
     expect(screen.getByTestId('pos-touch-screen-stub')).toBeInTheDocument();

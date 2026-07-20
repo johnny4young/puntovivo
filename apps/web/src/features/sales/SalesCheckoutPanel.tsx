@@ -20,7 +20,7 @@ import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface SalesCheckoutPanelProps {
   currentSite: Site | null;
   cashSession: CashSession | null;
@@ -31,14 +31,14 @@ interface SalesCheckoutPanelProps {
   canCharge: boolean;
   canOpenCashSession: boolean;
   canCloseCashSession: boolean;
-  /** ENG-194 — selects blind-close versus supervised-close guidance. */
+  /** selects blind-close versus supervised-close guidance. */
   userRole?: UserRole | undefined;
   onOpenSearch: () => void;
   onCharge: () => void;
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
   onOpenMovement: () => void;
-  /** ENG-062 / ENG-106c3 — role-aware cash drawer kick. When undefined
+  /** /  — role-aware cash drawer kick. When undefined
    * the button is hidden because no supported drawer or sales role is active.
    * Cashiers escalate through a one-time approval modal; manager/admin roles
    * dispatch directly. */
@@ -46,7 +46,7 @@ interface SalesCheckoutPanelProps {
   /** Whether the kick mutation is in flight. */
   isKickingCashDrawer?: boolean | undefined;
   onRegisterAssignmentChange: (assignmentId: string | null) => void;
-  // ENG-018b — optional multi-cart affordances. When `onSuspend` /
+  // optional multi-cart affordances. When `onSuspend` /
   // `onNewSale` are omitted the panel renders exactly like before so
   // legacy callers (Storybook, tests) stay green.
   canSuspend?: boolean | undefined;
@@ -60,7 +60,7 @@ interface SalesCheckoutPanelProps {
   suspendedDraftsCount?: number | undefined;
   onToggleSuspendedPanel?: (() => void) | undefined;
   /**
-   * ENG-074 — when the renderer runs in `hub_client` mode and the
+   * when the renderer runs in `hub_client` mode and the
    * Store Hub is unreachable, this prop is set to `false` to
    * gate every operational primary action (charge sale, open
    * cash session). `undefined` keeps the historical behavior for
@@ -69,7 +69,7 @@ interface SalesCheckoutPanelProps {
    */
   hubReachable?: boolean | undefined;
   /**
-   * ENG-105b — checkout preflight items. Each entry blocks (severity
+   * checkout preflight items. Each entry blocks (severity
    * `blocker`, disables Cobrar) or warns (severity `warning`, leaves
    * Cobrar enabled). Default `[]` keeps legacy callers (Storybook,
    * existing tests) rendering exactly like before.
@@ -111,13 +111,13 @@ export function SalesCheckoutPanel({
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const hasSupervisedClose = userRole === 'admin' || userRole === 'manager';
-  // ENG-074 — when the parent passes `hubReachable === false`, every
+  // when the parent passes `hubReachable === false`, every
   // operational primary action is gated. The renderer never reaches
   // this branch in `device_local` mode because the parent does not
   // wire the prop there. `undefined` and `true` are both treated as
   // "do not gate" so existing flows are unchanged.
   const isHubGated = hubReachable === false;
-  // ENG-105b — preflight gate. Any blocker disables Cobrar; warnings
+  // preflight gate. Any blocker disables Cobrar; warnings
   // do not (the operator still controls the call).
   const preflightHasBlockers = preflightItems.some(item => item.severity === 'blocker');
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
@@ -166,7 +166,7 @@ export function SalesCheckoutPanel({
       </div>
 
       <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto pos:scroll-pb-28 pos:pb-28">
-        {/* ENG-081 V4 — "Último escaneado" + "Sugerencia rápida". When the
+        {/*  V4 — "Último escaneado" + "Sugerencia rápida". When the
          * cart is empty we surface a 4-tile dashed-border grid as a hint
          * to the cashier (scan, scan again, search, suggest). When the
          * cart has items, the dashed grid hides and the most-recent line
@@ -282,7 +282,7 @@ export function SalesCheckoutPanel({
                   <p>
                     {t('cashSession.openedAt')}: {formatDateTime(cashSession.openedAt)}
                   </p>
-                  {/* ENG-204 — opt-in pace HUD; renders nothing while off. */}
+                  {/* opt-in pace HUD; renders nothing while off. */}
                   <CashierPaceStrip hasActiveCashSession />
                   <p>
                     {t(
@@ -349,7 +349,7 @@ export function SalesCheckoutPanel({
                   shortcutLabel('sales.charge'),
                   t('checkout.shortcut.charge', { defaultValue: 'Cobrar' }),
                 ],
-                // ENG-105e — F2 fast-cash chip lives next to the F1
+                // F2 fast-cash chip lives next to the F1
                 // Cobrar chip so the cashier discovers the one-keystroke
                 // exact-cash flow without opening the Command Palette.
                 [
@@ -375,7 +375,7 @@ export function SalesCheckoutPanel({
         {preflightItems.length > 0 && <CheckoutPreflightPanel items={preflightItems} />}
       </div>
 
-      {/* ENG-186/189 (review follow-up) — in the `pos:` lockup this is the
+      {/*  (review follow-up) — in the `pos:` lockup this is the
           pinned action footer so Cobrar stays in view while the block above it
           scrolls. At xl-but-short viewports it remains in normal page flow so
           cash controls are reachable. Below xl these actions are hidden (the

@@ -1,5 +1,5 @@
 /**
- * ENG-091 — Domicilios touch V5: right-side detail panel.
+ * Domicilios touch V5: right-side detail panel.
  *
  * Surfaces the customer header, address block, items snapshot
  * list, 5-step status timeline, courier-assignment input, and the
@@ -27,12 +27,7 @@ const STATUS_FORWARD: Record<DeliveryStatus, DeliveryStatus | null> = {
   cancelled: null,
 };
 
-const TIMELINE_STEPS: DeliveryStatus[] = [
-  'accepted',
-  'preparing',
-  'dispatched',
-  'delivered',
-];
+const TIMELINE_STEPS: DeliveryStatus[] = ['accepted', 'preparing', 'dispatched', 'delivered'];
 
 interface DeliveryOrderDetailProps {
   order: DeliveryOrderRow & {
@@ -63,11 +58,7 @@ function parseItems(snapshot: string | null | undefined): Array<{
   }
 }
 
-export function DeliveryOrderDetail({
-  order,
-  onAdvanced,
-  onCancelled,
-}: DeliveryOrderDetailProps) {
+export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: DeliveryOrderDetailProps) {
   const { t } = useTranslation('delivery');
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -226,8 +217,8 @@ export function DeliveryOrderDetail({
                   isCurrent
                     ? 'border-primary-300 bg-primary-50 text-primary-900'
                     : isReached
-                    ? 'border-success-200 bg-success-50 text-success-700'
-                    : 'border-line/50 text-secondary-500',
+                      ? 'border-success-200 bg-success-50 text-success-700'
+                      : 'border-line/50 text-secondary-500',
                 ].join(' ')}
               >
                 <span>{t(`detail.timeline.${step}`)}</span>

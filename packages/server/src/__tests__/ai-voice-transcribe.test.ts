@@ -1,5 +1,5 @@
 /**
- * ENG-040c slice 1 — `ai.transcribeAudio` integration tests.
+ * slice 1 — `ai.transcribeAudio` integration tests.
  *
  * Drives the procedure via `createCaller` against an in-memory
  * database. The AI SDK `transcribe` is mocked so no real
@@ -177,7 +177,7 @@ beforeEach(() => {
   transcribeMock.mockReset();
 });
 
-describe('ai.transcribeAudio (ENG-040c slice 1)', () => {
+describe('ai.transcribeAudio ( slice 1)', () => {
   it('returns transcript + language + writes a single audit row on the happy path', async () => {
     const { tenantId, managerId } = await seedTenant('happy', { aiEnabled: true });
 
@@ -373,7 +373,7 @@ describe('ai.transcribeAudio (ENG-040c slice 1)', () => {
     expect(transcribeMock).not.toHaveBeenCalled();
   });
 
-  it('allows cashier callers (ENG-040c slice 3 widened the gate)', async () => {
+  it('allows cashier callers ( slice 3 widened the gate)', async () => {
     const { tenantId, cashierId } = await seedTenant('cashier-allowed', { aiEnabled: true });
 
     transcribeMock.mockResolvedValue({

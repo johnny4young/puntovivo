@@ -1,5 +1,5 @@
 /**
- * ENG-038c — Reconciliation pass (writes back to payment_outbox).
+ * Reconciliation pass (writes back to payment_outbox).
  *
  * @module services/payments/reconciliation/pass
  */
@@ -75,13 +75,13 @@ export interface RunReconciliationPassOptions {
  * `payment_outbox` row inside the tenant's reconciliation window.
  *
  * For every statement row:
- *   - Strict pass: match by providerTransactionId then by reference
- *     (both with amount inside `AMOUNT_EPSILON`).
- *   - Fuzzy pass: when no strict hit, scan outbox rows within ±2 days
- *     of the statement timestamp whose amount is inside epsilon. Single
- *     candidate → match. ≥ 2 candidates → AI tie-break (when wired)
- *     or surface as `ambiguous`.
- *   - No candidate → surface as `orphan_provider_row`.
+ * - Strict pass: match by providerTransactionId then by reference
+ * (both with amount inside `AMOUNT_EPSILON`).
+ * - Fuzzy pass: when no strict hit, scan outbox rows within ±2 days
+ * of the statement timestamp whose amount is inside epsilon. Single
+ * candidate → match. ≥ 2 candidates → AI tie-break (when wired)
+ * or surface as `ambiguous`.
+ * - No candidate → surface as `orphan_provider_row`.
  *
  * Matched outbox rows transition to `status='settled'` and store the
  * provider transaction id. Statement rows whose status is `declined` or

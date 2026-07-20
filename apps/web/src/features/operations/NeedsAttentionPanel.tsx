@@ -1,5 +1,5 @@
 /**
- * ENG-187 — Operations "Needs attention" panel.
+ * Operations "Needs attention" panel.
  *
  * The default Operations landing: a single glance at the retryable
  * failures across sync / fiscal / hardware / payments, each row
@@ -12,14 +12,7 @@
  */
 import type { ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  ArrowRight,
-  CreditCard,
-  Landmark,
-  Printer,
-  RefreshCw,
-  ShieldCheck,
-} from 'lucide-react';
+import { ArrowRight, CreditCard, Landmark, Printer, RefreshCw, ShieldCheck } from 'lucide-react';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { trpc } from '@/lib/trpc';
@@ -57,22 +50,13 @@ export function NeedsAttentionPanel({ onReviewArea }: NeedsAttentionPanelProps) 
       <header className="mb-5">
         <p className="pv-kicker">{t('attention.kicker')}</p>
         <h2 className="pv-title text-xl">{t('attention.title')}</h2>
-        <p className="mt-2 text-sm text-secondary-600">
-          {t('attention.description')}
-        </p>
+        <p className="mt-2 text-sm text-secondary-600">{t('attention.description')}</p>
       </header>
 
       {query.isLoading && (
-        <div
-          className="space-y-3"
-          data-testid="needs-attention-loading"
-          aria-hidden="true"
-        >
+        <div className="space-y-3" data-testid="needs-attention-loading" aria-hidden="true">
           {[0, 1].map(i => (
-            <div
-              key={i}
-              className="h-16 animate-pulse rounded-2xl bg-secondary-100/70"
-            />
+            <div key={i} className="h-16 animate-pulse rounded-2xl bg-secondary-100/70" />
           ))}
         </div>
       )}
@@ -80,11 +64,7 @@ export function NeedsAttentionPanel({ onReviewArea }: NeedsAttentionPanelProps) 
       {query.isError && (
         <QueryErrorState
           title={t('attention.error.title')}
-          message={translateServerError(
-            query.error,
-            t,
-            t('errors:server.unknown')
-          )}
+          message={translateServerError(query.error, t, t('errors:server.unknown'))}
           onRetry={() => {
             void query.refetch();
           }}
@@ -110,10 +90,7 @@ export function NeedsAttentionPanel({ onReviewArea }: NeedsAttentionPanelProps) 
             return (
               <div
                 key={area.area}
-                className={cn(
-                  'pv-strip',
-                  area.severity === 'danger' ? 'danger' : 'warning'
-                )}
+                className={cn('pv-strip', area.severity === 'danger' ? 'danger' : 'warning')}
                 data-testid={`needs-attention-row-${area.area}`}
                 data-severity={area.severity}
               >

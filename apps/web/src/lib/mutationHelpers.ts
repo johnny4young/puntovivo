@@ -1,12 +1,12 @@
 /**
  * Mutation-side helpers used across feature modules.
  *
- * Introduced by ENG-028 to collapse the recurring `onError` pattern
+ * Introduced by  to collapse the recurring `onError` pattern
  *
- *   onError: error => toast.error({
- *     title: t('toast.error'),
- *     description: getErrorMessage(error, t('toast.error')),
- *   }),
+ * onError: error => toast.error({
+ * title: t('toast.error'),
+ * description: getErrorMessage(error, t('toast.error')),
+ * }),
  *
  * that repeats across ~27 mutation call sites in `apps/web/src/features/`,
  * along with two pages (`SalesPage`, `ProductsPage`) that defined private
@@ -55,16 +55,16 @@ export interface OnErrorToastOptions {
  * @example
  * // Variant A — pure toast.
  * const createMutation = trpc.purchases.create.useMutation({
- *   onError: onErrorToast(toast, t),
- *   onSuccess: ...,
+ * onError: onErrorToast(toast, t),
+ * onSuccess: ...,
  * });
  *
  * @example
  * // Variant B — toast + local state mutation.
  * const openCashSession = trpc.cashSessions.open.useMutation({
- *   onError: onErrorToast(toast, t, {
- *     extra: description => setCashSessionError(description),
- *   }),
+ * onError: onErrorToast(toast, t, {
+ * extra: description => setCashSessionError(description),
+ * }),
  * });
  */
 export function onErrorToast(

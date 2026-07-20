@@ -1,7 +1,7 @@
 /**
  * Receipt renderer label + branding constants.
  *
- * ENG-178 — extracted verbatim from the former single-file
+ * extracted verbatim from the former single-file
  * `services/receipt-renderer.ts`. `WORDMARK_TAGLINE` gained `export` so the
  * HTML + ESC/POS block renderers can share it; `APP_FOOTER_METADATA` and
  * `DEFAULT_RECEIPT_RENDER_LABELS` were already exported (public surface).
@@ -11,11 +11,11 @@
 import type { ReceiptRenderLabels } from './types.js';
 
 /**
- * ENG-016 pass 1 (item #5) — Puntovivo-branded `appFooter` block
+ * pass 1 (item #5) — Puntovivo-branded `appFooter` block
  * metadata. These constants are intentionally stable across tenants:
  * the footer is a product identification surface (Siigo / Alegra
  * parallel) and not a per-tenant setting. If white-label mode is ever
- * needed, it becomes a separate ticket.
+ * needed, it becomes a separate change.
  *
  * `appName` + `appVersion` are split so downstream tests can pin the
  * version independently of the `package.json` read — the renderer

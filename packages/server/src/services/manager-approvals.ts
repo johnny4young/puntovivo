@@ -72,7 +72,7 @@ export function publicManagerApprovalRequest(request: ManagerApprovalRequest) {
   return publicRequest;
 }
 
-/** Legacy approved rows predate ENG-142c evidence; decidedBy proves their single decision. */
+/** Legacy approved rows predate  evidence; decidedBy proves their single decision. */
 export function managerApprovalCount(
   request: Pick<ManagerApprovalRequest, 'approvalEvidence' | 'decidedBy' | 'status'>
 ): number {

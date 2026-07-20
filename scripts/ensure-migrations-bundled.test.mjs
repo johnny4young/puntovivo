@@ -1,5 +1,5 @@
 /**
- * ENG-174 — preflight guard for the migrations bundle.
+ * preflight guard for the migrations bundle.
  *
  * Pins every failure code the guard emits so a future regression
  * (e.g. silently swallowing a missing folder) is caught at CI time.

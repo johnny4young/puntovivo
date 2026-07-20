@@ -26,15 +26,15 @@ interface ProductSearchDialogProps {
   title?: string;
   confirmLabel?: string;
   /**
-   * ENG-105c — opt-in quick-create CTA for empty results. The caller owns
+   * opt-in quick-create CTA for empty results. The caller owns
    * whether it is offered and mounts the follow-up form after this dialog closes.
    */
   onQuickCreateRequested?: (defaultName: string) => void;
-  /** ENG-199 — opt-in expiry-discount badges for the POS consumer only. */
+  /** opt-in expiry-discount badges for the POS consumer only. */
   showDiscountSuggestions?: boolean;
   /** Active site for POS-only expiry suggestions. Other consumers omit it. */
   discountSuggestionSiteId?: string | null;
-  /** ENG-105c — defense-in-depth role gate for the quick-create CTA. */
+  /** defense-in-depth role gate for the quick-create CTA. */
   canCreateProducts?: boolean;
 }
 
@@ -80,7 +80,7 @@ export function ProductSearchDialog({
   );
 
   const items = (productsQuery.data?.items ?? []) as ProductSearchItem[];
-  // ENG-199 — empty Map and no query unless the caller explicitly opts in.
+  // empty Map and no query unless the caller explicitly opts in.
   const discountSuggestions = useDiscountSuggestions(
     showDiscountSuggestions && isOpen,
     discountSuggestionSiteId

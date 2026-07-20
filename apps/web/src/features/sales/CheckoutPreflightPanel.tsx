@@ -1,5 +1,5 @@
 /**
- * ENG-105b — Checkout preflight panel.
+ * Checkout preflight panel.
  *
  * Renders the list of blockers + warnings produced by
  * `useCheckoutPreflight`. Hidden when there is nothing to report.
@@ -9,20 +9,20 @@
  *
  * a11y contract:
  * - The outer wrapper carries `role="status"` + `aria-live="polite"`
- *   so screen readers announce new blockers/warnings as the cart
- *   changes (matches the setup-readiness alert pattern shipped earlier).
+ * so screen readers announce new blockers/warnings as the cart
+ * changes (matches the setup-readiness alert pattern shipped earlier).
  * - The first blocker is rendered with `id="checkout-preflight-primary"`
- *   so the Cobrar button can wire `aria-describedby` to it.
+ * so the Cobrar button can wire `aria-describedby` to it.
  * - Recovery buttons render visible i18n text; no icon-only affordance.
  *
  * Visual contract:
- * - Blockers use the `danger-50` family (red) that ENG-134c already
- *   saneó to clear WCAG AA 4.5:1.
+ * - Blockers use the `danger-50` family (red) that  already
+ * saneó to clear WCAG AA 4.5:1.
  * - Warnings use the `warning-50` family (amber) — same family that
- *   the ENG-134c sweep darkened `--warning-700` to L=0.50 for AA.
+ * the  sweep darkened `--warning-700` to L=0.50 for AA.
  * - The panel does not introduce CLS — its space is `null` when there
- *   are no items, and the SalesCheckoutPanel layout uses `space-y-3`
- *   so the gap collapses cleanly.
+ * are no items, and the SalesCheckoutPanel layout uses `space-y-3`
+ * so the gap collapses cleanly.
  *
  * @module features/sales/CheckoutPreflightPanel
  */
@@ -81,7 +81,7 @@ export function CheckoutPreflightPanel({ items }: CheckoutPreflightPanelProps) {
               <Icon className={iconClass} aria-hidden="true" />
               <div className="min-w-0 flex-1 space-y-1.5">
                 <p className="text-sm">
-                  {/* ENG-179b — exactOptional rejects `t(key, undefined)`; gate on the values. */}
+                  {/* exactOptional rejects `t(key, undefined)`; gate on the values. */}
                   {item.messageValues ? t(item.messageKey, item.messageValues) : t(item.messageKey)}
                 </p>
                 {item.recoveryAction && (

@@ -1,4 +1,4 @@
-/** ENG-136a — admin-gated snapshot schedule IPC boundary. */
+/** admin-gated snapshot schedule IPC boundary. */
 
 import { createModuleLogger } from '@puntovivo/server';
 import * as desktopSession from '../../session/desktopSession.ts';

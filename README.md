@@ -58,7 +58,15 @@ retail POS sellability.
   traffic light.
 - 📦 **Site-owned inventory** — per-site stock authority, a materialized stock
   rollup maintained by SQLite triggers, FEFO lot tracking, and an expiry radar
-  that surfaces value-at-risk before shrinkage happens.
+  that surfaces value-at-risk before shrinkage happens. Variant matrices,
+  serialized logistics, warranty lookup, and exact inter-site transfers are
+  part of the same inventory model.
+- 👥 **Workforce and loss prevention** — shared-terminal staff switching,
+  schedules, attendance evidence, corrections, overtime classification,
+  manager approval grants, and auditable site-level alerts.
+- 💾 **Operational recovery** — encrypted storage, encrypted backup bundles,
+  scheduled snapshots, restore drills, S3-compatible cloud-vault upload,
+  privacy disposition, retention controls, and guided launch imports.
 - 🔒 **Multi-tenant by construction** — every query is tenant-scoped, role
   guards and site-scope guards are shared primitives, and cross-tenant
   isolation is pinned by tests.
@@ -85,17 +93,17 @@ retail POS sellability.
 
 Puntovivo is under active development. Honest gates:
 
-| Stage                | Verdict | Why                                                                                                                                     |
-| -------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo     | Yes     | Demo tenant, POS, inventory, cash sessions, quotations, fiscal mock, AI, sync, receipt templates, and operations surfaces can be shown. |
-| Private retail pilot | Not yet | Fiscal contingency, final fiscal receipt proof, and physical POS hardware need to close first.                                          |
-| Production sale      | No      | Requires a DIAN-authorized provider path, legal XML retention proof, hardware validation, and payment-terminal policy.                  |
+| Stage                    | Verdict                   | Why                                                                                                                                                        |
+| ------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests. |
+| Controlled internal beta | Ready with release checks | Requires a clean release candidate, upgrade/restore rehearsal, and cross-platform package validation.                                                      |
+| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                            |
+| Production sale          | No                        | Requires fiscal certification, legal retention evidence, signed installers, hardware validation, payment-terminal policy, and an observed pilot.           |
 
-The go/no-go checklist lives in [docs/SELLABILITY.md](./docs/SELLABILITY.md),
-which holds the MVP Colombia definition of done across the demo, pilot, and
-production gates.
+The canonical capability inventory, remaining gaps, and release gates live in
+[docs/PROJECT-STATUS.md](./docs/PROJECT-STATUS.md).
 
-### Parked or gated
+### Remaining external gates
 
 - Real DIAN provider integration is gated on provider contract, credentials,
   certificate, and numbering resolution.
@@ -108,16 +116,16 @@ production gates.
 
 ## Tech stack
 
-| Layer    | Choice                                     | Notes                                                          |
-| -------- | ------------------------------------------ | -------------------------------------------------------------- |
-| Desktop  | Electron 41 + electron-builder packaging   | Electron 42 is gated by upstream better-sqlite3 V8 14 support. |
-| Web      | React 19 + Vite 8 + TypeScript 6           | Browser target and Electron renderer share the app code.       |
-| API      | Fastify + tRPC 11                          | `/api/trpc` is the canonical application API.                  |
-| Database | SQLite via better-sqlite3-multiple-ciphers | SQLCipher path is wired; dev modes can share an encrypted DB.  |
-| ORM      | Drizzle                                    | Migrations are the single schema path.                         |
-| State    | TanStack Query + Zustand                   | Server state and local UI state are separated.                 |
-| Styling  | Tailwind CSS v4 + CVA                      | See [docs/STYLING.md](./docs/STYLING.md).                      |
-| Realtime | SSE                                        | `/api/realtime/*` remains for live updates.                    |
+| Layer    | Choice                                     | Notes                                                             |
+| -------- | ------------------------------------------ | ----------------------------------------------------------------- |
+| Desktop  | Electron 42 + electron-builder packaging   | Native Node and Electron ABIs are cached and selected explicitly. |
+| Web      | React 19 + Vite 8 + TypeScript 6           | Browser target and Electron renderer share the app code.          |
+| API      | Fastify + tRPC 11                          | `/api/trpc` is the canonical application API.                     |
+| Database | SQLite via better-sqlite3-multiple-ciphers | SQLCipher path is wired; dev modes can share an encrypted DB.     |
+| ORM      | Drizzle                                    | Migrations are the single schema path.                            |
+| State    | TanStack Query + Zustand                   | Server state and local UI state are separated.                    |
+| Styling  | Tailwind CSS v4 + CVA                      | See [docs/STYLING.md](./docs/STYLING.md).                         |
+| Realtime | SSE                                        | `/api/realtime/*` remains for live updates.                       |
 
 <div align="center">
 
@@ -202,15 +210,16 @@ If standalone server tests fail after desktop packaging with a
 node packages/server/scripts/rebuild-better-sqlite3-node.mjs
 ```
 
-The current desktop runtime is Electron `41.7.1`. Keep manual
+The current desktop runtime is Electron `42.6.2`. Keep manual
 `electron-rebuild` invocations aligned with `apps/desktop/package.json`.
 
 ## Documentation
 
 Start at [docs/README.md](./docs/README.md). The short version:
 
-- [docs/SELLABILITY.md](./docs/SELLABILITY.md) — demo, pilot, production go/no-go.
+- [docs/PROJECT-STATUS.md](./docs/PROJECT-STATUS.md) — shipped scope, remaining gaps, and release readiness.
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — current system shape.
+- [docs/TESTING.md](./docs/TESTING.md) — validation contract and release-candidate checks.
 - [docs/ENVIRONMENT_CONFIGURATION.md](./docs/ENVIRONMENT_CONFIGURATION.md) — env var reference.
 - [docs/DESKTOP_RUNTIME_GUIDE.md](./docs/DESKTOP_RUNTIME_GUIDE.md) — Electron runtime details.
 - [docs/SECURITY.md](./docs/SECURITY.md) — auth, hardening, and audit policy.

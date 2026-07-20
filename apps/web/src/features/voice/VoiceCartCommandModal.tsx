@@ -1,11 +1,11 @@
 /**
- * ENG-040c slice 3 — shared voice cart command modal.
+ * slice 3 — shared voice cart command modal.
  *
  * Three-state UI:
- *   1. **idle**  → big mic button + "Habla ahora" prompt.
- *   2. **recording** → live aria-live countdown + Stop button.
- *   3. **reviewing** → transcript display + parsed match list +
- *      Aplicar al carrito / Volver a grabar / Cerrar.
+ * 1. **idle**  → big mic button + "Habla ahora" prompt.
+ * 2. **recording** → live aria-live countdown + Stop button.
+ * 3. **reviewing** → transcript display + parsed match list +
+ * Aplicar al carrito / Volver a grabar / Cerrar.
  *
  * The component owns the audio flow but delegates cart hydration to
  * the parent via `onApply(items)`. Items carry the
@@ -37,7 +37,7 @@ import {
 import type { ProductSearchSelection } from '@/types';
 
 /** Server whitelist mirror — narrows the recorded MIME before the
- *  tRPC call. */
+ * tRPC call. */
 const SERVER_MIME_LIST: ReadonlyArray<VoiceRecorderMimeType> = VOICE_RECORDER_MIME_TYPES;
 
 /**
@@ -50,8 +50,8 @@ export interface VoiceCartItem {
   selection: ProductSearchSelection;
   quantity: number;
   /** Free-form modifier captured by the parser (e.g. "sin queso").
-   *  Null when no modifier was spoken. Consumers route this to the
-   *  cart row's `notes` field at hydration time. ENG-039a. */
+   * Null when no modifier was spoken. Consumers route this to the
+   * cart row's `notes` field at hydration time. . */
   note: string | null;
 }
 
@@ -59,20 +59,20 @@ export interface VoiceCartCommandModalProps {
   isOpen: boolean;
   onClose: () => void;
   /** Called when the cashier accepts the parsed matches. Receives
-   *  only matched items (product !== null); the parent translates
-   *  each into `mergeCartItem` + `updateCartItem(quantity)`. */
+   * only matched items (product !== null); the parent translates
+   * each into `mergeCartItem` + `updateCartItem(quantity)`. */
   onApply: (items: VoiceCartItem[]) => void;
 }
 
 type ModalState = 'idle' | 'recording' | 'transcribing' | 'parsing' | 'reviewing';
 
 /** Build a `ProductSearchSelection` from the server's matched
- *  product summary — same shape the OCR modal uses for purchase
- *  cart pre-fill. The Product fields not surfaced by the parser
- *  (pricing tiers, margins, sync state) default to 0 because
- *  `mergeCartItem` only reads name / sku / price / taxRate / stock /
- *  fraction-policy + the unit row; the rest are typed metadata
- *  that downstream consumers ignore at the cart-merge step. */
+ * product summary — same shape the OCR modal uses for purchase
+ * cart pre-fill. The Product fields not surfaced by the parser
+ * (pricing tiers, margins, sync state) default to 0 because
+ * `mergeCartItem` only reads name / sku / price / taxRate / stock /
+ * fraction-policy + the unit row; the rest are typed metadata
+ * that downstream consumers ignore at the cart-merge step. */
 function buildSelection(match: MatchedProduct): ProductSearchSelection {
   return {
     product: {
@@ -99,7 +99,7 @@ function buildSelection(match: MatchedProduct): ProductSearchSelection {
       fractionMinimum: match.fractionMinimum ?? null,
       tracksLots: false,
       isActive: true,
-      // ENG-177a — the parser summary does not carry the optimistic-version
+      // the parser summary does not carry the optimistic-version
       // token; 0 is inert here because this synthetic product is only routed
       // through `mergeCartItem`, never an update mutation.
       version: 0,

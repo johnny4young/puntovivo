@@ -1,24 +1,24 @@
 /**
- * ENG-074 — Renderer-side Authority Node runtime config client.
+ * Renderer-side Authority Node runtime config client.
  *
  * Resolves `{authorityMode, hubUrl, siteId, deviceId}` synchronously
  * at module init so `lib/trpc.ts` can pick the right tRPC base URL
  * before the tRPC client is constructed. Three sources, in order:
  *
- *   1. Electron preload sync IPC (`window.electron.runtime.getConfigSync`).
- *      Available when the renderer ships inside the desktop binary.
- *      The handler reads the once-cached `resolveRuntimeConfig` result
- *      from the main process and returns it via `event.returnValue`.
+ * 1. Electron preload sync IPC (`window.electron.runtime.getConfigSync`).
+ * Available when the renderer ships inside the desktop binary.
+ * The handler reads the once-cached `resolveRuntimeConfig` result
+ * from the main process and returns it via `event.returnValue`.
  *
- *   2. Web-standalone fallback. When `window.electron` is absent (the
- *      pure-web build, dev:web target, or any non-Electron host), the
- *      client returns the historical `device_local + null hubUrl`
- *      shape so the existing build behavior is preserved.
+ * 2. Web-standalone fallback. When `window.electron` is absent (the
+ * pure-web build, dev:web target, or any non-Electron host), the
+ * client returns the historical `device_local + null hubUrl`
+ * shape so the existing build behavior is preserved.
  *
- *   3. IPC failure fallback. If the Electron bridge is present but the
- *      sync call throws (preload race, malformed IPC payload), the
- *      client logs a warning and returns the same `device_local`
- *      shape rather than crashing module init.
+ * 3. IPC failure fallback. If the Electron bridge is present but the
+ * sync call throws (preload race, malformed IPC payload), the
+ * client logs a warning and returns the same `device_local`
+ * shape rather than crashing module init.
  *
  * The result is cached for the page lifetime — runtime config is
  * immutable per ADR-0008 (env vars do not change after Electron
@@ -70,11 +70,13 @@ function readBridgeConfig(): RendererRuntimeConfig | null {
       authorityMode: raw.authorityMode,
       hubUrl: typeof raw.hubUrl === 'string' && raw.hubUrl.length > 0 ? raw.hubUrl : null,
       siteId: typeof raw.siteId === 'string' && raw.siteId.length > 0 ? raw.siteId : null,
-      deviceId:
-        typeof raw.deviceId === 'string' && raw.deviceId.length > 0 ? raw.deviceId : null,
+      deviceId: typeof raw.deviceId === 'string' && raw.deviceId.length > 0 ? raw.deviceId : null,
     };
   } catch (err) {
-    console.warn('[runtime-config] Electron bridge sync read failed; falling back to device_local:', err);
+    console.warn(
+      '[runtime-config] Electron bridge sync read failed; falling back to device_local:',
+      err
+    );
     return null;
   }
 }

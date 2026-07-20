@@ -1,5 +1,5 @@
 /**
- * ENG-057 — Fiscal worker daemon.
+ * Fiscal worker daemon.
  *
  * Drains `fiscal_outbox` rows. Each tick: claim one row scoped to a
  * tenant, dispatch the adapter via the registry, mirror the verdict
@@ -8,15 +8,15 @@
  *
  * Lifecycle:
  *
- *   queued -> submitting -> accepted | rejected | contingency
- *                       \-> retrying -> dead_letter
+ * queued -> submitting -> accepted | rejected | contingency
+ * \-> retrying -> dead_letter
  *
  * Mirror invariant (operator-visible state machine):
  *
- *   process success                -> doc=accepted, outbox=accepted
- *   recoverable err + budget left  -> doc=contingency, outbox=retrying
- *   recoverable err + budget gone  -> doc=contingency (kept), outbox=dead_letter
- *   non-recoverable err            -> doc=rejected, outbox=dead_letter
+ * process success                -> doc=accepted, outbox=accepted
+ * recoverable err + budget left  -> doc=contingency, outbox=retrying
+ * recoverable err + budget gone  -> doc=contingency (kept), outbox=dead_letter
+ * non-recoverable err            -> doc=rejected, outbox=dead_letter
  *
  * The worker writes the doc status BEFORE the kernel transition so
  * an operator never sees a torn window where outbox=accepted but
@@ -113,7 +113,9 @@ export interface CreateFiscalWorkerOptions {
  * Pulled out as a factory so tests can spin up a kernel with a fast
  * retry policy without booting the full worker.
  */
-export function createFiscalOutboxKernel(retryPolicy: OutboxRetryPolicy = BOUNDED_EXPONENTIAL_BACKOFF) {
+export function createFiscalOutboxKernel(
+  retryPolicy: OutboxRetryPolicy = BOUNDED_EXPONENTIAL_BACKOFF
+) {
   return createOutboxKernel<FiscalOutboxStatus, FiscalOutboxPayload>({
     table: fiscalOutbox,
     kind: 'fiscal',
@@ -134,10 +136,7 @@ export function createFiscalOutboxKernel(retryPolicy: OutboxRetryPolicy = BOUNDE
  * vs. a regular `Error` (PROVIDER_5XX recoverable). For a hung
  * provider we want recoverable, so we throw a regular Error here.
  */
-async function withAdapterTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number
-): Promise<T> {
+async function withAdapterTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const timeoutPromise = new Promise<T>((_, reject) => {
     timer = setTimeout(() => {
@@ -194,12 +193,7 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
           status: sql`CASE WHEN ${fiscalOutbox.status} = 'submitting' THEN 'queued' ELSE ${fiscalOutbox.status} END`,
           updatedAt: new Date().toISOString(),
         })
-        .where(
-          and(
-            isNotNull(fiscalOutbox.lockedAt),
-            lte(fiscalOutbox.lockedAt, cutoff)
-          )
-        );
+        .where(and(isNotNull(fiscalOutbox.lockedAt), lte(fiscalOutbox.lockedAt, cutoff)));
     } catch (err) {
       log.warn({ err }, 'fiscal worker stale-claim sweep failed');
     }
@@ -241,12 +235,7 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
       await db
         .update(fiscalOutbox)
         .set({ cufe: issued.cufe, updatedAt: nowIso })
-        .where(
-          and(
-            eq(fiscalOutbox.id, row.id),
-            eq(fiscalOutbox.tenantId, row.tenantId)
-          )
-        );
+        .where(and(eq(fiscalOutbox.id, row.id), eq(fiscalOutbox.tenantId, row.tenantId)));
 
       if (issued.status === 'accepted') {
         await maybeEnqueueFiscalAcceptedEvent({
@@ -332,16 +321,12 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
 
   async function tickOnce(tenantId: string): Promise<TickOutcome> {
     if (stopped) return { processed: false };
-    const result = await tickOutbox<FiscalOutboxPayload, FiscalOutboxStatus>(
-      db,
-      tenantId,
-      {
-        kernel,
-        workerId,
-        loggerLabel: 'fiscal-outbox-worker',
-        process: async ({ row }) => processFiscalRow(row),
-      }
-    );
+    const result = await tickOutbox<FiscalOutboxPayload, FiscalOutboxStatus>(db, tenantId, {
+      kernel,
+      workerId,
+      loggerLabel: 'fiscal-outbox-worker',
+      process: async ({ row }) => processFiscalRow(row),
+    });
 
     if (result.processed) {
       try {
@@ -422,13 +407,10 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
     intervalHandle = setInterval(() => {
       void periodicTick();
     }, intervalMs);
-    staleSweepHandle = setInterval(
-      () => {
-        void sweepStaleClaims();
-        void refreshMetadataForAllTenants();
-      },
-      STALE_CLAIM_MS
-    );
+    staleSweepHandle = setInterval(() => {
+      void sweepStaleClaims();
+      void refreshMetadataForAllTenants();
+    }, STALE_CLAIM_MS);
     if (typeof intervalHandle.unref === 'function') intervalHandle.unref();
     if (typeof staleSweepHandle.unref === 'function') staleSweepHandle.unref();
   }

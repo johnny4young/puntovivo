@@ -2,7 +2,6 @@
 
 > Status: Accepted
 > Date: 2026-05-02
-> Owner: ENG-051
 
 ## Decision
 
@@ -38,7 +37,7 @@ Three runtime shapes share this rule:
 
 The tenant-isolation invariant sits on top of this: every operational mutation is
 scoped by `ctx.tenantId`, derived server-side from the validated
-session — never from a renderer-supplied tenant id. ENG-025 already
+session — never from a renderer-supplied tenant id. already
 shipped this through the `desktopSession` singleton in
 `apps/desktop/src/main/session/desktopSession.ts`, which the IPC
 bridge consults before any DB call.
@@ -48,7 +47,7 @@ bridge consults before any DB call.
 - **Server-authoritative cloud (the renderer always talks to a remote
   central DB)** — breaks offline operation, which is a hard
   requirement for Colombian retail pilots and the
-  `SELLABILITY.md` pilot-readiness criteria.
+  `PROJECT-STATUS.md` pilot-readiness criteria.
 - **CRDT mesh peer-to-peer between cashier devices** — overkill for
   POS retail. Conflicts on money, fiscal, and cash require human
   resolution (see ADR-0004), not eventual convergence.
@@ -78,31 +77,31 @@ bridge consults before any DB call.
   `cash_movements`, `inventory_movements`, `inventory_balances`,
   `fiscal_documents`, `fiscal_document_items`, `audit_logs`) carry
   `tenant_id` and the cashier-device-aware columns introduced by
-  ENG-052 (see ADR-0002). The future central server reads these
-  rows through a sync contract (ENG-064), not by direct write.
-- **Contract for the central server**: any Phase 3 sync architecture
+  (see ADR-0002). The future central server reads these
+  rows through a sync contract (), not by direct write.
+- **Contract for the central server**: any sync architecture
   (libSQL embedded replicas spike) MUST preserve
   the local-write-first semantics. The replica may push into a cloud
   read replica, but the operational write always lands in the local
   Electron store first.
 
-## Affected Tickets
+## Implementation map
 
-- `ENG-052` — Device registry + command envelope. The device id is
+- Device registry + command envelope. The device id is
   derived from the local Electron install, not assigned by a server.
-- `ENG-053` — Operation journal + outbox kernel. The journal lives
+- Operation journal + outbox kernel. The journal lives
   in the local store; effects fan out from there to the outboxes.
-- `ENG-054` / `ENG-055` / `ENG-056` — Sale lifecycle services and
+- Sale lifecycle services and
   cash session aggregate boundary. All three operate inside the
   local SQLite transaction; the application services never reach
   out for authoritative state.
-- `ENG-057` — Fiscal outbox + contingency engine. Pulls from the
+- Fiscal outbox + contingency engine. Pulls from the
   local fiscal documents table and pushes to the provider; never
   the other way around.
-- `ENG-064` — Sync contract v1. Defines the shape of the events
+- Sync contract v1. Defines the shape of the events
   the local store publishes to a future central server.
-- `ENG-070` — Event-based public API + webhook foundation. Reads
+- Event-based public API + webhook foundation. Reads
   from the operation journal; the central server publishes events,
   not raw SQL access.
 
-Updated: 2026-05-02 (ENG-051 — initial ADR set).
+Updated: 2026-05-02 (initial ADR set).

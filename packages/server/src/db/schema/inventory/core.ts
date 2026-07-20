@@ -1,5 +1,5 @@
 /**
- * ENG-178 — inventory movements, opening stock, site balances, and stock rollups.
+ * inventory movements, opening stock, site balances, and stock rollups.
  *
  * @module db/schema/inventory/core
  */
@@ -42,7 +42,7 @@ export const inventoryMovements = sqliteTable(
       .notNull()
       .references(() => products.id),
     type: text('type', { enum: movementTypeEnum }).notNull(),
-    // Phase 1 DB-050: movements store real quantities (2.5 m, 0.75 kg, …).
+    // movements store real quantities (2.5 m, 0.75 kg, …).
     quantity: real('quantity').notNull(),
     previousStock: real('previous_stock').notNull(),
     newStock: real('new_stock').notNull(),
@@ -60,7 +60,7 @@ export const inventoryMovements = sqliteTable(
     index('idx_inventory_tenant').on(table.tenantId),
     index('idx_inventory_product').on(table.productId),
     index('idx_inventory_created_by').on(table.createdBy),
-    // ENG-175 — traceability listings filter by tenant + order by date.
+    // traceability listings filter by tenant + order by date.
     index('idx_inventory_movements_tenant_created').on(table.tenantId, table.createdAt),
   ]
 );
@@ -120,7 +120,7 @@ export const initialInventory = sqliteTable(
     index('idx_initial_inventory_unit').on(table.unitId),
     index('idx_initial_inventory_site').on(table.siteId),
     index('idx_initial_inventory_created_by').on(table.createdBy),
-    // ENG-176a — opening cost is always positive.
+    // opening cost is always positive.
     ...moneyPositiveChecks('initial_inventory_cost', table.cost),
   ]
 );
@@ -149,12 +149,12 @@ export const initialInventoryRelations = relations(initialInventory, ({ one }) =
 }));
 
 // ============================================================================
-// INVENTORY BALANCES (Phase 2 DB-101)
+// INVENTORY BALANCES ()
 // ============================================================================
 
 /**
  * An inventory balance is the on-hand stock attributed to a specific site for a
- * product. Phase 2 step 0 introduced the (site, product) grain; step 1 made
+ * product. introduced the (site, product) grain; step 1 made
  * the row authoritative — `transfers.create` is the first write path that
  * mutates it. A future step will add location-level granularity and an
  * in-transit / reserved column for the full transfer lifecycle.
@@ -203,11 +203,11 @@ export const inventoryBalancesRelations = relations(inventoryBalances, ({ one })
 }));
 
 // ============================================================================
-// PRODUCT STOCK TOTALS (ENG-197 — materialized tenant-wide rollup)
+// PRODUCT STOCK TOTALS (materialized tenant-wide rollup)
 // ============================================================================
 
 /**
- * ENG-197 — materialized `Σ(inventory_balances.on_hand)` per (tenant, product).
+ * materialized `Σ(inventory_balances.on_hand)` per (tenant, product).
  *
  * Maintained EXCLUSIVELY by the SQLite triggers shipped in migration
  * `0008_product_stock_totals` (`trg_pst_balance_insert` / `_update` /

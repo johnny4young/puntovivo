@@ -1,36 +1,38 @@
 /**
- * ENG-060 — Payment terminal contract.
+ * Payment terminal contract.
  *
  * Two drivers will conform to this interface:
- *   - `manual` (ENG-060): formalizes today's "cashier reads the slip
- *     and types the auth code" flow. `charge()` returns a `manual`
- *     status that the renderer recognizes and prompts the operator.
- *   - Bold / Wompi / MercadoPago (ENG-063, gated on provider sandbox
- *     + physical terminal): real Bluetooth/HTTPS adapters that drive
- *     the terminal end-to-end and persist auth/reference codes.
+ * - `manual` (): formalizes today's "cashier reads the slip
+ * and types the auth code" flow. `charge()` returns a `manual`
+ * status that the renderer recognizes and prompts the operator.
+ * - Bold / Wompi / MercadoPago (, gated on provider sandbox
+ * + physical terminal): real Bluetooth/HTTPS adapters that drive
+ * the terminal end-to-end and persist auth/reference codes.
  *
  * @module services/peripherals/contracts/payment-terminal
  */
 
-import type {
-  BasePeripheralAdapter,
-  NormalizedHardwareError,
-  TestResult,
-} from '../types.js';
+import type { BasePeripheralAdapter, NormalizedHardwareError, TestResult } from '../types.js';
 
 /**
  * Discriminated union per `docs/HARDWARE-POS.md §Payment terminal §Interface`.
  * The renderer reads `status` and routes to the matching UI:
- *   - `approved` → persist auth/reference, complete sale.
- *   - `declined` → render the reason, allow retry on a different card.
- *   - `cancelled` → operator dismissed; allow another tender.
- *   - `manual` → ENG-060 fallback; render the manual entry modal.
+ * - `approved` → persist auth/reference, complete sale.
+ * - `declined` → render the reason, allow retry on a different card.
+ * - `cancelled` → operator dismissed; allow another tender.
+ * - `manual` →  fallback; render the manual entry modal.
  */
-// ENG-179b — explicit `| undefined` on every optional field so each
+// explicit `| undefined` on every optional field so each
 // driver variant can spread partial data without violating
 // `exactOptionalPropertyTypes`.
 export type PaymentResult =
-  | { status: 'approved'; authCode: string; reference?: string | undefined; last4?: string | undefined; brand?: string | undefined }
+  | {
+      status: 'approved';
+      authCode: string;
+      reference?: string | undefined;
+      last4?: string | undefined;
+      brand?: string | undefined;
+    }
   | { status: 'declined'; reason: string }
   | { status: 'cancelled' }
   | { status: 'manual'; requiresOperatorInput: true; prompt?: string | undefined };
@@ -45,6 +47,8 @@ export interface PaymentTerminalAdapter extends BasePeripheralAdapter {
   charge(amount: number, reference: string): Promise<PaymentResult>;
   voidTxn(txnId: string): Promise<VoidResult>;
   /** Reprint the terminal's customer-copy slip. Optional; manual driver no-ops. */
-  printSlip(txnId: string): Promise<{ status: 'ok' | 'noop' | 'error'; error?: NormalizedHardwareError }>;
+  printSlip(
+    txnId: string
+  ): Promise<{ status: 'ok' | 'noop' | 'error'; error?: NormalizedHardwareError }>;
   testCharge(): Promise<TestResult>;
 }

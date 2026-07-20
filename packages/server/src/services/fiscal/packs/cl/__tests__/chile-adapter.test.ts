@@ -1,13 +1,13 @@
 /**
- * ENG-036a / ENG-036b — Tests del ChileSIIAdapter.
+ *  /  — Tests del ChileSIIAdapter.
  *
  * Cobertura:
  *   - validateConfig: probes individuales (RUT, giro, comuna,
- *     casa matriz, ambiente) — heredados de ENG-036a.
+ *     casa matriz, ambiente) — heredados de .
  *   - issue: emite DTE estructural cuando settings + allocation OK;
  *     levanta FISCAL_PACK_NOT_AVAILABLE cuando settings o allocation
  *     faltan.
- *   - voidDocument + fetchStatus: stubs apuntando a ENG-036c.
+ *   - voidDocument + fetchStatus: stubs apuntando a .
  */
 
 import { describe, expect, it } from 'vitest';
@@ -105,7 +105,7 @@ function buildIssueInput(
   };
 }
 
-describe('ChileSIIAdapter.validateConfig (ENG-036a regression)', () => {
+describe('ChileSIIAdapter.validateConfig ( regression)', () => {
   it('returns ok=true when every setting is captured', async () => {
     const adapter = new ChileSIIAdapter();
     const cfg: FiscalAdapterConfig = {
@@ -145,7 +145,7 @@ describe('ChileSIIAdapter.validateConfig (ENG-036a regression)', () => {
   });
 });
 
-describe('ChileSIIAdapter.issue (ENG-036b)', () => {
+describe('ChileSIIAdapter.issue', () => {
   it('emits a DTE 1.0 XML draft with status=pending and a sii-cl cufe', async () => {
     const adapter = new ChileSIIAdapter();
     const result = await adapter.issue(buildIssueInput());
@@ -179,9 +179,7 @@ describe('ChileSIIAdapter.issue (ENG-036b)', () => {
       expect(err).toBeInstanceOf(TRPCError);
       const cause = (err as TRPCError).cause;
       expect(cause).toBeInstanceOf(ServerErrorWithCode);
-      expect((cause as ServerErrorWithCode).errorCode).toBe(
-        'FISCAL_PACK_NOT_AVAILABLE'
-      );
+      expect((cause as ServerErrorWithCode).errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
     }
   });
 
@@ -194,15 +192,13 @@ describe('ChileSIIAdapter.issue (ENG-036b)', () => {
       expect(err).toBeInstanceOf(TRPCError);
       const cause = (err as TRPCError).cause;
       expect(cause).toBeInstanceOf(ServerErrorWithCode);
-      expect((cause as ServerErrorWithCode).errorCode).toBe(
-        'FISCAL_PACK_NOT_AVAILABLE'
-      );
+      expect((cause as ServerErrorWithCode).errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
     }
   });
 });
 
-describe('ChileSIIAdapter.voidDocument + fetchStatus (ENG-036c stubs)', () => {
-  it('voidDocument throws FISCAL_PACK_NOT_AVAILABLE pointing to ENG-036c', async () => {
+describe('ChileSIIAdapter.voidDocument + fetchStatus ( stubs)', () => {
+  it('voidDocument reports the unavailable SII cancellation capability', async () => {
     const adapter = new ChileSIIAdapter();
     try {
       await adapter.voidDocument({
@@ -215,12 +211,12 @@ describe('ChileSIIAdapter.voidDocument + fetchStatus (ENG-036c stubs)', () => {
       const cause = (err as TRPCError).cause;
       expect((cause as ServerErrorWithCode).errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
       expect((cause as ServerErrorWithCode).details).toMatchObject({
-        availableInTicket: 'ENG-036c',
+        unavailableCapability: 'sii_cancellation',
       });
     }
   });
 
-  it('fetchStatus returns "pending" until ENG-036c lands the SII poller', async () => {
+  it('fetchStatus returns "pending" while no SII poller is configured', async () => {
     const adapter = new ChileSIIAdapter();
     const status = await adapter.fetchStatus('sii-cl:76123456-0:39:7');
     expect(status).toBe('pending');

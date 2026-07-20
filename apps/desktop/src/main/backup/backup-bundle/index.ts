@@ -1,4 +1,4 @@
-// ENG-066 — public barrel for the backup-bundle helpers (ENG-178 slice 31).
+// public barrel for the backup-bundle helpers ( slice 31).
 // Re-exports ONLY the public surface; the internal helpers
 // assertEncryptionKeyShape / applySqlCipherKey / ALLOWED_ZIP_ENTRIES /
 // STAGING_PREFIXES stay module-private.

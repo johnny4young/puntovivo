@@ -1,4 +1,4 @@
-// ENG-074b — Hub-client local hardware bridge fork (ENG-178 slice 29).
+// Hub-client local hardware bridge fork ( slice 29).
 //
 // In `device_local` / `site_hub` modes the dispatch is server-side
 // (`peripherals.printReceipt` mutation) — the byte builder, the
@@ -13,11 +13,11 @@
 //
 // The bridge result maps to the same outcome union the existing
 // `printSaleReceipt` consumer already handles:
-//   - bridge success → `printed`
-//   - hub returned no peripheral → `system-fallback`
-//   - bridge missing OR hub fetch failed OR write failed
-//     → `fallback` (caller's `onEscposFallback` toasts a translated
-//     message; the legacy HTML path runs anyway).
+// - bridge success → `printed`
+// - hub returned no peripheral → `system-fallback`
+// - bridge missing OR hub fetch failed OR write failed
+// → `fallback` (caller's `onEscposFallback` toasts a translated
+// message; the legacy HTML path runs anyway).
 //
 // Per ADR-0008 rule 6, the helpers themselves NEVER write to any
 // operational table. They are a pure routing decision plus an IPC

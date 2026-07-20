@@ -1,15 +1,15 @@
 /**
- * ENG-098 — `refreshKdsOrderItems` hook.
+ * `refreshKdsOrderItems` hook.
  *
  * Rewrites the `items_json` snapshot and `table_id` / `table_label`
  * on an existing `kds_orders` row when the underlying sale changes
  * shape WITHOUT crossing a lifecycle boundary that should create or
  * destroy the card. Two callers:
  *
- *   - `sales.changeTable` — same items, new table label.
- *   - `sales.splitDraft`  — source sale lost items to the split;
- *      refresh shrinks the snapshot in place. The split's NEW draft
- *      goes through `enqueueKdsOrder` (a different row).
+ * - `sales.changeTable` — same items, new table label.
+ * - `sales.splitDraft`  — source sale lost items to the split;
+ * refresh shrinks the snapshot in place. The split's NEW draft
+ * goes through `enqueueKdsOrder` (a different row).
  *
  * The hook is a no-op when no row exists for the sale (kds module
  * disabled, retail sale, draft never reached the kitchen). It does
@@ -20,13 +20,7 @@
  */
 
 import { and, eq } from 'drizzle-orm';
-import {
-  kdsOrders,
-  products,
-  restaurantTables,
-  saleItems,
-  sales,
-} from '../../db/schema.js';
+import { kdsOrders, products, restaurantTables, saleItems, sales } from '../../db/schema.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { removeKdsOrders } from './remove.js';
 import type { KdsHookContext, KdsItemSnapshot } from './types.js';
@@ -65,7 +59,7 @@ export async function refreshKdsOrderItems(args: RefreshKdsOrderArgs): Promise<v
 
     const items = await loadItemSnapshots(ctx.db, saleId);
     if (items.length === 0) {
-      // ENG-098 — `sales.splitDraft` may have carved every item out of
+      // `sales.splitDraft` may have carved every item out of
       // the source, leaving the cart empty. Don't park a zombie card on
       // the kitchen board; remove it instead. The split's new draft
       // already produces its own card via `enqueueKdsOrder`.
@@ -145,9 +139,7 @@ async function resolveTableLabel(
   const row = await db
     .select({ name: restaurantTables.name })
     .from(restaurantTables)
-    .where(
-      and(eq(restaurantTables.id, tableId), eq(restaurantTables.tenantId, tenantId))
-    )
+    .where(and(eq(restaurantTables.id, tableId), eq(restaurantTables.tenantId, tenantId)))
     .get();
   return row?.name ?? fallbackLabel;
 }

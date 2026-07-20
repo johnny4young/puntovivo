@@ -1,5 +1,5 @@
 /**
- * Public + private node types for CFDI 4.0 serialization (ENG-035b).
+ * Public + private node types for CFDI 4.0 serialization ().
  *
  * @module services/fiscal/packs/mx/cfdi40-xml/types
  */
@@ -9,7 +9,7 @@
  * string XML listo para persistir.
  */
 export interface SerializedCfdi40 {
-  /** UUID v4 local (placeholder hasta que ENG-035c lo reemplace por el folio fiscal SAT). */
+  /** UUID v4 local (placeholder hasta que  lo reemplace por el folio fiscal SAT). */
   uuid: string;
   /** XML CFDI 4.0 serializado, encoding UTF-8, listo para almacenar en `fiscal_documents.xml_ref`. */
   xml: string;

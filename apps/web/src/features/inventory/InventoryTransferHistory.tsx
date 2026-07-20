@@ -28,7 +28,7 @@ const statusBadgeClasses: Record<TransferHistoryStatus, string> = {
 };
 
 /**
- * Phase 2 API-102 — transfer history table with a void action.
+ * transfer history table with a void action.
  *
  * Consumes `transfers.list` and invalidates balances + the list itself when a
  * void succeeds. Void requires a confirmation step so the operator cannot

@@ -53,7 +53,7 @@ function renderPanel(props: React.ComponentProps<typeof BackupSchedulePanel> = {
   );
 }
 
-describe('BackupSchedulePanel (ENG-136a)', () => {
+describe('BackupSchedulePanel', () => {
   beforeEach(() => {
     delete window.electron;
   });

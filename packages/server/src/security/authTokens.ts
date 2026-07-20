@@ -6,14 +6,14 @@ import type { UserRole } from '@puntovivo/shared/roles';
 
 export const REFRESH_COOKIE_NAME = 'puntovivo_refresh';
 export const REALTIME_COOKIE_NAME = 'puntovivo_realtime';
-// ENG-168 — realtime token TTL aligned with access-token TTL (15min).
+// realtime token TTL aligned with access-token TTL (15min).
 // Previously 120s, which expired well before the typical SSE connection
 // lifetime (heartbeats keep the socket open for hours). The cookie
 // stays httpOnly + sameSite=strict + secure (in production); the
 // extended lifetime does not widen the attack surface — it removes a
 // reconnect cliff that masked legitimate sessions as dropped.
 export const REALTIME_TOKEN_MAX_AGE_SECONDS = 900;
-// ENG-168 — server-side SSE heartbeat emits a `token-refresh-needed`
+// server-side SSE heartbeat emits a `token-refresh-needed`
 // event this many seconds AFTER the connection opens (and every cycle
 // thereafter), so the client can proactively re-mint the realtime
 // cookie before the 15-minute window elapses. Pegged at 10 minutes so
@@ -22,7 +22,7 @@ export const REALTIME_TOKEN_REFRESH_NEEDED_INTERVAL_MS = 10 * 60 * 1000;
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL = '7d';
 const REALTIME_TOKEN_TTL = `${REALTIME_TOKEN_MAX_AGE_SECONDS}s`;
-/** ENG-106a — a fast-switched cashier must re-enter a PIN after one shift. */
+/** a fast-switched cashier must re-enter a PIN after one shift. */
 export const STAFF_PIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 export type AuthTokenType = 'access' | 'refresh' | 'realtime';
@@ -164,7 +164,7 @@ export function getBearerToken(request: FastifyRequest): string | null {
  *
  * Receives the FastifyInstance directly (not a FastifyRequest) so that
  * non-HTTP callers — specifically the Electron main-process
- * `desktopSession` (ENG-025) — can validate tokens without faking a
+ * `desktopSession` () — can validate tokens without faking a
  * Fastify request object. Both `verifyAccessToken` and
  * `verifyRefreshToken` collapse onto this helper for consistency: any
  * change to the verification contract (e.g. revoking on tenant
@@ -184,7 +184,7 @@ export async function verifyTokenWithServer(
     if (payload.tokenType !== expectedType) {
       return null;
     }
-    // ENG-106a — a refresh rotation may renew JWT expiry, but it never
+    // a refresh rotation may renew JWT expiry, but it never
     // renews the fixed PIN-auth ceiling. Missing/malformed expiry on a
     // staff_pin token is fail-closed.
     if (

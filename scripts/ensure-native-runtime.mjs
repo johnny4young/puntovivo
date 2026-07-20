@@ -54,7 +54,7 @@ async function writeState(nextState) {
 async function getBetterSqliteVersion() {
   const packageJsonPath = require.resolve('better-sqlite3/package.json');
   const packageJson = await readJson(packageJsonPath);
-  // ENG-167 — combine the actual package name with the version so a
+  // combine the actual package name with the version so a
   // swap from `better-sqlite3` to `better-sqlite3-multiple-ciphers`
   // (which preserves the same `12.11.1` semver but ships a different
   // native binary with SQLCipher v4 linked in) invalidates the cache.

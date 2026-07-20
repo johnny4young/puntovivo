@@ -1,15 +1,15 @@
 /**
- * ENG-069 — Multi-surface POS shell manifest.
+ * Multi-surface POS shell manifest.
  *
  * A "surface" is a configured render target on top of the same
  * application bundle. POS Desktop is the existing UI shipping today
  * (sidebar + Header + main content area). The four NEW surfaces in
  * v1 each have their own layout chrome:
  *
- *   - POS Touch — touch-optimized layout for tablets.
- *   - KDS — fullscreen kitchen ticket queue (no sidebar / no Header).
- *   - Customer Display — second-monitor cart mirror (read-only).
- *   - Mobile Waiter — phone-width layout for waitstaff.
+ * - POS Touch — touch-optimized layout for tablets.
+ * - KDS — fullscreen kitchen ticket queue (no sidebar / no Header).
+ * - Customer Display — second-monitor cart mirror (read-only).
+ * - Mobile Waiter — phone-width layout for waitstaff.
  *
  * Each surface gates behind a dedicated module id from
  * `services/modules/manifest.ts`. POS Desktop is the implicit default
@@ -21,7 +21,7 @@
  * entry, (c) add the module id (already gated by the modules manifest's
  * own exhaustiveness), (d) add i18n strings for `surfaces.<i18nKey>.*`.
  *
- * Mirrors the ENG-068 module manifest pattern. ENG-039 (Mexico
+ * Mirrors the  module manifest pattern.  (Mexico
  * restaurant vertical) plugs real workflows into the existing shells
  * without forking the App component or introducing bespoke routing.
  *
@@ -48,7 +48,7 @@ export type SurfaceId = (typeof SURFACE_IDS)[number];
  * Role gate convention. `cashierOrAbove` is the standard cashier+
  * manager+ admin set. `managerOrAbove` raises the floor to manager.
  * `adminOnly` is reserved. v1 puts every surface at `cashierOrAbove`
- * because new roles (kitchen, waiter) come with ENG-039.
+ * because new roles (kitchen, waiter) come with .
  */
 export type SurfaceRoleSet = 'cashierOrAbove' | 'managerOrAbove' | 'adminOnly';
 
@@ -90,7 +90,7 @@ export const SURFACES_MANIFEST: Record<SurfaceId, SurfaceDescriptor> = {
     defaultRoleSet: 'cashierOrAbove',
     i18nKey: 'posTouch',
   },
-  'kds': {
+  kds: {
     id: 'kds',
     moduleId: 'kds',
     defaultRoute: '/kds',

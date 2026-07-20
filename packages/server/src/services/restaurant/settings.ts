@@ -1,5 +1,5 @@
 /**
- * ENG-039d3 — Per-tenant restaurant settings.
+ * Per-tenant restaurant settings.
  *
  * Mirrors the AI-settings client pattern (`services/ai/client.ts`):
  * defensive read of `tenants.settings.restaurant.*`, merge with the
@@ -117,8 +117,8 @@ const DRIFT_TOLERANCE = 0.01;
  *
  * - Tenant rate = 0 + caller amount > 0 → `SALE_SERVICE_CHARGE_DISABLED`.
  * - Tenant rate > 0 + caller amount drifted from the expected value by
- *   more than 1¢ → `SALE_SERVICE_CHARGE_DRIFT` (including a stale or
- *   manipulated client that tries to submit zero).
+ * more than 1¢ → `SALE_SERVICE_CHARGE_DRIFT` (including a stale or
+ * manipulated client that tries to submit zero).
  */
 export async function assertServiceChargeMatchesTenant(
   args: AssertServiceChargeArgs
@@ -131,13 +131,10 @@ export async function assertServiceChargeMatchesTenant(
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_SERVICE_CHARGE_DISABLED',
-      message:
-        'This tenant has no service charge configured; reset the cart to remove the charge',
+      message: 'This tenant has no service charge configured; reset the cart to remove the charge',
     });
   }
-  const expected = roundCurrency(
-    (args.base * tenantSettings.serviceChargeRate) / 100
-  );
+  const expected = roundCurrency((args.base * tenantSettings.serviceChargeRate) / 100);
   if (Math.abs(args.serviceChargeAmount - expected) > DRIFT_TOLERANCE) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',

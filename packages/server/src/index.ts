@@ -5,7 +5,7 @@
  * Can run embedded in Electron or standalone.
  *
  * The server implementation lives in focused modules under `server/`
- * (ENG-178 Slice 18):
+ * ( Slice 18):
  * - `create-server.ts` — the `createServer` lifecycle orchestrator
  * - `config.ts` — pre-Fastify config resolution (runtime, JWT, site_hub)
  * - `plugins.ts` — the HTTP plugin + security-hook stack (ordered)
@@ -39,19 +39,19 @@ export * from './db/schema.js';
 // .pnpm peer instance) and break its typecheck. Consume these instead.
 export { and, eq, inArray, sql } from 'drizzle-orm';
 export { getDatabase, type DatabaseInstance } from './db/index.js';
-// ENG-136b — the embedded Electron main records restore-drill evidence in
+// the embedded Electron main records restore-drill evidence in
 // the same immutable audit table as server-side sensitive operations.
 export { writeAuditLog, type WriteAuditLogArgs } from './services/audit-logs.js';
 export { SseManager, type SseClient } from './realtime/sse.js';
 export type { AppRouter } from './trpc/router.js';
-// ENG-025 — `desktopSession` (apps/desktop/src/main) imports this to
+// `desktopSession` (apps/desktop/src/main) imports this to
 // validate the renderer's access token without a FastifyRequest.
 export { verifyTokenWithServer, type AuthTokenPayload } from './security/authTokens.js';
-// ENG-006 — the Electron main imports createModuleLogger via this
+// the Electron main imports createModuleLogger via this
 // barrel so app-level logs from both the embedded server and the
 // desktop shell flow through the same pino instance.
 export { createModuleLogger, rootLogger, type PuntovivoLogger } from './logging/logger.js';
-// ENG-072 — Authority Node runtime config. The Electron main process
+// Authority Node runtime config. The Electron main process
 // resolves the config from env (or its own future config file) before
 // calling `createServer({ ..., runtime })`.
 export {
@@ -65,13 +65,13 @@ export {
   type RuntimeConfig,
   type ResolveRuntimeConfigOptions,
 } from './config/runtime.js';
-// ENG-135b — the Electron main installs process crash handlers
+// the Electron main installs process crash handlers
 // (apps/desktop/src/main/crash-telemetry.ts) and forwards through
 // these: captureProcessCrash invokes the active telemetry sink
 // directly (tenant-less app diagnostics, redacted, DSN-gated), and
 // flushServerTelemetry drains the SDK buffer before app.exit(1).
 export { captureProcessCrash, flushServerTelemetry } from './observability/index.js';
-// ENG-074b — ESC/POS transport resolver. The Electron main imports
+// ESC/POS transport resolver. The Electron main imports
 // this so the hub_client local hardware bridge can dispatch bytes
 // returned from `peripherals.buildReceiptBytes` /
 // `buildDrawerKickBytes` through the locally-attached printer

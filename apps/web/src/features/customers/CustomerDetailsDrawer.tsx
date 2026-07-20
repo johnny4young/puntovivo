@@ -1,10 +1,10 @@
 /**
- * ENG-132b — Customer detail Drawer.
+ * Customer detail Drawer.
  *
  * Read-only slide-over that holds the customer fields trimmed off the
  * default `CustomersPage` table (email, phone, type, location) plus the
  * identification, so the table can default to the smallest useful column
- * set (name + status). Reuses the shared `Drawer` primitive (ENG-186) for
+ * set (name + status). Reuses the shared `Drawer` primitive () for
  * the dialog a11y contract (focus-trap / ESC / labelled-by title) and
  * mirrors `ProductDetailsDrawer`. The optional `onEdit` footer action is
  * passed unconditionally by the caller because the customer edit
@@ -157,7 +157,7 @@ export function CustomerDetailsDrawer({
           />
         </dl>
       )}
-      {/* ENG-215 — points balance + ledger, and the admin correction. Self-
+      {/* points balance + ledger, and the admin correction. Self-
        * gating: silent for tenants without the program (see the panel). */}
       {/* The key also discards an unsaved manual-adjustment draft when an
        * already-open drawer switches to another customer. Carrying the

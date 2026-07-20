@@ -1,5 +1,5 @@
 /**
- * ENG-052 — Command Envelope minting + per-call header injection
+ * Command Envelope minting + per-call header injection
  * (ADR-0002).
  *
  * Critical mutations require an envelope (`operationId`,
@@ -31,10 +31,7 @@ export interface MintedEnvelope {
  * good enough for the server's Zod check.
  */
 function generateUuid(): string {
-  if (
-    typeof crypto !== 'undefined' &&
-    typeof crypto.randomUUID === 'function'
-  ) {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
   // RFC4122 v4 fallback.

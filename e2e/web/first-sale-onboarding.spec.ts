@@ -1,4 +1,4 @@
-/** ENG-202 — new-tenant journey from an empty catalog to the first sale. */
+/** new-tenant journey from an empty catalog to the first sale. */
 
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
@@ -27,7 +27,7 @@ async function dismissVisibleToasts(page: import('@playwright/test').Page) {
   }
 }
 
-test.describe('first sale onboarding (ENG-202)', () => {
+test.describe('first sale onboarding', () => {
   test('walks a fresh admin through product, drawer, sale, celebration, and Help reopen', async ({
     page,
   }) => {

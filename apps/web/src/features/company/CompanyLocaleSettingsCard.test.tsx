@@ -1,10 +1,10 @@
 /**
- * ENG-017 — CompanyLocaleSettingsCard tests.
+ * CompanyLocaleSettingsCard tests.
  *
  * Covers:
  * - Render with a minimal country/currency catalog mock.
  * - Country picker change drives the live-preview without a server
- *   round-trip (pure Intl formatting on the client).
+ * round-trip (pure Intl formatting on the client).
  * - Save button invokes the mutation with the picked country.
  */
 
@@ -60,8 +60,22 @@ const mockCountries = [
 ];
 
 const mockCurrencies = [
-  { code: 'COP', nameEn: 'Colombian Peso', nameEs: 'Peso colombiano', symbol: '$', decimals: 2, displayDecimals: 0 },
-  { code: 'USD', nameEn: 'US Dollar', nameEs: 'Dólar estadounidense', symbol: '$', decimals: 2, displayDecimals: 2 },
+  {
+    code: 'COP',
+    nameEn: 'Colombian Peso',
+    nameEs: 'Peso colombiano',
+    symbol: '$',
+    decimals: 2,
+    displayDecimals: 0,
+  },
+  {
+    code: 'USD',
+    nameEn: 'US Dollar',
+    nameEs: 'Dólar estadounidense',
+    symbol: '$',
+    decimals: 2,
+    displayDecimals: 2,
+  },
 ];
 
 type MockCurrentLocale = {
@@ -143,7 +157,7 @@ vi.mock('@/lib/trpc', () => ({
 
 import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
 
-describe('CompanyLocaleSettingsCard (ENG-017)', () => {
+describe('CompanyLocaleSettingsCard', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockCurrentLocale = defaultCurrentLocale;

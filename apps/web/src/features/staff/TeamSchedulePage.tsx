@@ -64,7 +64,7 @@ function editFormValues(shift: ScheduledShift): ScheduleFormValues {
   };
 }
 
-/** ENG-140a — responsive, tenant-timezone weekly schedule editor. */
+/** responsive, tenant-timezone weekly schedule editor. */
 export function TeamSchedulePage() {
   const { t, i18n } = useTranslation(['schedule', 'errors']);
   const locale = useResolvedLocale();

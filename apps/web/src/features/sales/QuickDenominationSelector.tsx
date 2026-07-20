@@ -13,7 +13,7 @@ interface QuickDenominationSelectorProps {
 }
 
 /**
- * ENG-081 — design-system V4 "Recibido" panel.
+ * design-system V4 "Recibido" panel.
  *
  * Renders three smart suggestions plus an "Exact" button so the cashier
  * can mark the amount received with one tap. Suggestions ladder up from
@@ -48,15 +48,21 @@ export function QuickDenominationSelector({
       const doubledOnly = Math.ceil((total * 2) / 1_000) * 1_000;
       return [doubledOnly];
     }
-    const biggerBill = sorted.find(d => d > nextBill) ?? Math.ceil((nextBill * 1.5) / 1_000) * 1_000;
+    const biggerBill =
+      sorted.find(d => d > nextBill) ?? Math.ceil((nextBill * 1.5) / 1_000) * 1_000;
     const doubled = Math.ceil((total * 2) / 1_000) * 1_000;
-    return Array.from(new Set([nextBill, biggerBill, doubled])).filter(v => v >= total).slice(0, 3);
+    return Array.from(new Set([nextBill, biggerBill, doubled]))
+      .filter(v => v >= total)
+      .slice(0, 3);
   }, [total, denominations]);
 
   const isActive = (amount: number) => Math.abs(currentValue - amount) < 0.5;
 
   return (
-    <div data-testid="quick-denomination-selector" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div
+      data-testid="quick-denomination-selector"
+      className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+    >
       <button
         type="button"
         onClick={() => onSelect(total)}
@@ -87,7 +93,9 @@ export function QuickDenominationSelector({
           <span className="block text-[0.55rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
             {t('payment.quickAmount.billKicker')}
           </span>
-          <span className="mt-0.5 block font-mono text-sm tabular-nums">{formatCurrency(amount)}</span>
+          <span className="mt-0.5 block font-mono text-sm tabular-nums">
+            {formatCurrency(amount)}
+          </span>
         </button>
       ))}
     </div>

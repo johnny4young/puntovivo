@@ -1,10 +1,10 @@
 /**
- * ENG-039d3 — CompanyRestaurantSettingsCard regression tests.
+ * CompanyRestaurantSettingsCard regression tests.
  *
  * Coverage:
- *   - Renders the current persisted rate from the .get query.
- *   - Reject out-of-range rates (negative + above the 30% ceiling).
- *   - Save fires `restaurantSettings.update` with the new rate.
+ * - Renders the current persisted rate from the .get query.
+ * - Reject out-of-range rates (negative + above the 30% ceiling).
+ * - Save fires `restaurantSettings.update` with the new rate.
  */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -16,7 +16,11 @@ const toastError = vi.fn();
 const updateMutate = vi.fn();
 const invalidateGet = vi.fn(async () => undefined);
 
-let getResponse: { serviceChargeRate: number; defaults: { serviceChargeRate: number }; maxRate: number } = {
+let getResponse: {
+  serviceChargeRate: number;
+  defaults: { serviceChargeRate: number };
+  maxRate: number;
+} = {
   serviceChargeRate: 0,
   defaults: { serviceChargeRate: 0 },
   maxRate: 30,
@@ -49,9 +53,10 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
       update: {
-        useMutation: (
-          options: { onSuccess?: () => Promise<void> | void; onError?: (err: unknown) => void }
-        ) => ({
+        useMutation: (options: {
+          onSuccess?: () => Promise<void> | void;
+          onError?: (err: unknown) => void;
+        }) => ({
           mutateAsync: async (input: unknown) => {
             try {
               const result = await updateMutate(input);
@@ -71,7 +76,7 @@ vi.mock('@/lib/trpc', () => ({
 
 import { CompanyRestaurantSettingsCard } from './CompanyRestaurantSettingsCard';
 
-describe('CompanyRestaurantSettingsCard (ENG-039d3)', () => {
+describe('CompanyRestaurantSettingsCard', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     getResponse = {
@@ -98,9 +103,7 @@ describe('CompanyRestaurantSettingsCard (ENG-039d3)', () => {
 
   it('shows the disabled hint when the persisted rate is zero', () => {
     render(<CompanyRestaurantSettingsCard />);
-    expect(
-      screen.getByText(/Service charge is disabled/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Service charge is disabled/i)).toBeInTheDocument();
   });
 
   it('rejects an out-of-range rate above the 30% ceiling', async () => {

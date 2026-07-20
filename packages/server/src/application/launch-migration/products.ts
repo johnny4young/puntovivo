@@ -1,5 +1,5 @@
 /**
- * ENG-123a — Server-authoritative product, price, and opening-stock import.
+ * Server-authoritative product, price, and opening-stock import.
  *
  * The browser only maps source columns. Every value is reparsed, validated,
  * deduplicated, and tenant-scoped here before any catalog write runs.
@@ -316,7 +316,7 @@ export async function commitLaunchProductImport(
               mode: 'initial',
               quantity: row.normalized.stock,
               cost: row.normalized.cost,
-              notes: `ENG-123a launch import ${importId}`,
+              notes: `Launch import ${importId}`,
             });
             stockInitialized = true;
           } catch (error) {

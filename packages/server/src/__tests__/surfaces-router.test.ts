@@ -1,17 +1,17 @@
 /**
- * ENG-069 — `surfaces.*` tRPC router integration tests.
+ * `surfaces.*` tRPC router integration tests.
  *
  * Drives the kernel's read procedure end-to-end against an in-memory
  * DB. Coverage:
  *
- *   - `surfaces.list` returns every manifest entry with the joined
- *     module-resolved `enabled` flag.
- *   - POS Desktop (moduleId=null) reports enabled=true unconditionally.
- *   - Surface modules default OFF → `enabled: false` on a fresh tenant.
- *   - Flipping a surface's underlying module to true via
- *     `tenants.settings.modules` makes the surface report enabled=true.
- *   - Cross-tenant isolation: A's module flip doesn't bleed into B.
- *   - Manager + admin can call; cashier + viewer FORBIDDEN.
+ * - `surfaces.list` returns every manifest entry with the joined
+ * module-resolved `enabled` flag.
+ * - POS Desktop (moduleId=null) reports enabled=true unconditionally.
+ * - Surface modules default OFF → `enabled: false` on a fresh tenant.
+ * - Flipping a surface's underlying module to true via
+ * `tenants.settings.modules` makes the surface report enabled=true.
+ * - Cross-tenant isolation: A's module flip doesn't bleed into B.
+ * - Manager + admin can call; cashier + viewer FORBIDDEN.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -90,11 +90,7 @@ async function seedHarness(suffix: string): Promise<RouterHarness> {
   return { tenantId, adminId, managerId, cashierId };
 }
 
-async function setModuleState(
-  tenantId: string,
-  moduleId: string,
-  enabled: boolean
-): Promise<void> {
+async function setModuleState(tenantId: string, moduleId: string, enabled: boolean): Promise<void> {
   const db = getDatabase();
   await db
     .update(tenants)
@@ -142,7 +138,7 @@ afterAll(async () => {
   await server.close();
 });
 
-describe('surfaces.list (ENG-069)', () => {
+describe('surfaces.list', () => {
   it('returns the full surface manifest joined with module state', async () => {
     const h = await seedHarness('list');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
@@ -150,13 +146,7 @@ describe('surfaces.list (ENG-069)', () => {
 
     expect(result.surfaces).toHaveLength(SURFACE_IDS.length);
     const ids = result.surfaces.map(s => s.id);
-    expect(ids).toEqual([
-      'pos-desktop',
-      'pos-touch',
-      'kds',
-      'customer-display',
-      'mobile-waiter',
-    ]);
+    expect(ids).toEqual(['pos-desktop', 'pos-touch', 'kds', 'customer-display', 'mobile-waiter']);
 
     // Every entry carries the descriptor fields the renderer needs.
     for (const surface of result.surfaces) {
@@ -183,9 +173,7 @@ describe('surfaces.list (ENG-069)', () => {
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
     const result = await caller.surfaces.list();
 
-    const offByDefault = result.surfaces.filter(
-      s => s.moduleId !== null && s.enabled === false
-    );
+    const offByDefault = result.surfaces.filter(s => s.moduleId !== null && s.enabled === false);
     expect(offByDefault.map(s => s.id)).toEqual([
       'pos-touch',
       'kds',
@@ -224,18 +212,14 @@ describe('surfaces.list (ENG-069)', () => {
 
   it('manager can call the list (managerOrAdmin gate)', async () => {
     const h = await seedHarness('mgr');
-    const caller = appRouter.createCaller(
-      buildCtx(h.tenantId, h.managerId, 'manager')
-    );
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.managerId, 'manager'));
     const result = await caller.surfaces.list();
     expect(result.surfaces).toHaveLength(SURFACE_IDS.length);
   });
 
   it('cashier is FORBIDDEN', async () => {
     const h = await seedHarness('cashier');
-    const caller = appRouter.createCaller(
-      buildCtx(h.tenantId, h.cashierId, 'cashier')
-    );
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.cashierId, 'cashier'));
     await expect(caller.surfaces.list()).rejects.toThrow();
   });
 });

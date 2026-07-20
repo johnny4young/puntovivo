@@ -1,4 +1,4 @@
-// ENG-179c — quotation domain shapes (ENG-178 slice 28).
+// quotation domain shapes ( slice 28).
 
 import type { QuotationStatus } from '../ui';
 

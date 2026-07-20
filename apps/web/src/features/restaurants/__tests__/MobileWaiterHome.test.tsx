@@ -1,5 +1,5 @@
 /**
- * ENG-039a — MobileWaiterHome mounting smoke.
+ * MobileWaiterHome mounting smoke.
  * Confirms the page wrapper renders the shared screen with the
  * `mobile` variant. The full behavior matrix lives in
  * VoiceOrderingScreen.test.tsx.
@@ -15,7 +15,7 @@ vi.mock('../VoiceOrderingScreen', () => ({
 
 import MobileWaiterHome from '../MobileWaiterHome';
 
-describe('MobileWaiterHome (ENG-039a)', () => {
+describe('MobileWaiterHome', () => {
   it('mounts VoiceOrderingScreen with variant="mobile"', () => {
     render(<MobileWaiterHome />);
     const stub = screen.getByTestId('voice-ordering-stub');

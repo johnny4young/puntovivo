@@ -1,5 +1,5 @@
 /**
- * ENG-178 — validated restore, cross-device rekey, and pending-staging IPC flows.
+ * validated restore, cross-device rekey, and pending-staging IPC flows.
  *
  * @module main/ipc/backup/restore
  */
@@ -18,7 +18,7 @@ import {
   type ExtractBackupBundleResult,
 } from '../../backup/backup-bundle.js';
 import { t } from '../../i18n';
-// ENG-025 — read authenticated identity from the main-process singleton,
+// read authenticated identity from the main-process singleton,
 // never from renderer-supplied arguments.
 import * as desktopSession from '../../session/desktopSession.js';
 import type { BackupIpcDeps, DesktopDatabaseActionResult } from './contracts.js';
@@ -52,7 +52,7 @@ export async function handleRestoreDatabaseBackup(
     };
   }
 
-  // ENG-066 — VALIDATE the bundle BEFORE the swap. The integrity
+  // VALIDATE the bundle BEFORE the swap. The integrity
   // check + format detection happens against an extracted staging
   // copy, so a corrupted file never touches the live DB.
   const stagingDir = await mkdtemp(join(tmpdir(), 'puntovivo-restore-'));
@@ -66,14 +66,14 @@ export async function handleRestoreDatabaseBackup(
     try {
       await assertSqliteIntegrity(extracted.dbPath, { encryptionKey });
     } catch {
-      // ENG-167b — the staged DB does not open with THIS device's
+      // the staged DB does not open with THIS device's
       // key. Two legitimate shapes before giving up:
-      //   1. A legacy pre-encryption bundle (cleartext): verify it
-      //      keyless and restore as-is — the one-shot migration on
-      //      the next boot encrypts it under the local key.
-      //   2. A bundle from a DIFFERENT device: hold the staging copy
-      //      and ask the renderer to prompt for the source device's
-      //      backup key (completed via provideRestoreKey).
+      // 1. A legacy pre-encryption bundle (cleartext): verify it
+      // keyless and restore as-is — the one-shot migration on
+      // the next boot encrypts it under the local key.
+      // 2. A bundle from a DIFFERENT device: hold the staging copy
+      // and ask the renderer to prompt for the source device's
+      // backup key (completed via provideRestoreKey).
       if (await isCleartextSqliteFile(extracted.dbPath)) {
         await assertSqliteIntegrity(extracted.dbPath, {});
         backupLog.info(
@@ -121,7 +121,7 @@ export async function handleRestoreDatabaseBackup(
 }
 
 /**
- * ENG-066/167b — promote a validated staging DB into the live
+ * promote a validated staging DB into the live
  * location under a server restart, preserving the bundled device
  * identity when present. Shared by the direct restore path and the
  * foreign-key completion path (provideRestoreKey).
@@ -138,7 +138,7 @@ async function swapRestoredDatabase(
         await copyFile(extracted.dbPath, deps.dbPath);
         await removeSqliteSidecars(deps.dbPath);
 
-        // ENG-066 — preserve the bundled device identity when present;
+        // preserve the bundled device identity when present;
         // legacy raw `.db` restores keep the destination identity
         // since the bundle didn't carry one.
         if (extracted.deviceIdPath) {
@@ -161,7 +161,7 @@ async function swapRestoredDatabase(
 }
 
 /**
- * ENG-167b — single pending cross-device restore slot. Holding ONE
+ * single pending cross-device restore slot. Holding ONE
  * staging at a time is deliberate: the restore flow is operator-
  * driven and modal; a new restore invocation discards any previous
  * pending staging. The token is an opaque random id the renderer
@@ -196,7 +196,7 @@ export async function clearPendingRestore(): Promise<void> {
 }
 
 /**
- * ENG-167b — complete a cross-device restore with the SOURCE
+ * complete a cross-device restore with the SOURCE
  * device's backup key. Validates the staged DB with the foreign key,
  * rekeys it IN STAGING to this device's key (every install keeps
  * exactly one key envelope — the threat model does not change), and
@@ -291,7 +291,7 @@ export async function handleProvideRestoreKey(
 }
 
 /**
- * ENG-167b — discard the pending cross-device restore staging the
+ * discard the pending cross-device restore staging the
  * moment the operator dismisses the key prompt, instead of leaving
  * the staged copy in the tmpdir until the next restore attempt, the
  * app quit, or the startup sweep collects it. Admin-gated BEFORE the
@@ -314,7 +314,7 @@ export async function handleCancelRestoreStaging(token: unknown): Promise<{ succ
 }
 
 /**
- * ENG-167b — reveal this install's backup encryption key so the
+ * reveal this install's backup encryption key so the
  * operator can restore its bundles on ANOTHER device. Admin-only;
  * the renderer gates the reveal behind an explicit confirmation with
  * a strong warning (docs/SECURITY.md documents the trade-off: the

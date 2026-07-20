@@ -1,7 +1,7 @@
 /**
  * Product catalog read/projection primitives.
  *
- * ENG-178 — extracted verbatim from the former flat `trpc/routers/products.ts`
+ * extracted verbatim from the former flat `trpc/routers/products.ts`
  * (1280 LOC) during the megafile decomposition. Holds the shared Drizzle
  * column projection (`productSelection`) and the relation-hydration reads used
  * by query/semantic adapters and product application use-cases. Import leaf:
@@ -65,7 +65,7 @@ export const productSelection = {
   imageUrl: products.imageUrl,
   syncStatus: products.syncStatus,
   syncVersion: products.syncVersion,
-  // ENG-177a — optimistic-concurrency token surfaced so the edit form can
+  // optimistic-concurrency token surfaced so the edit form can
   // round-trip it on update.
   version: products.version,
   createdAt: products.createdAt,

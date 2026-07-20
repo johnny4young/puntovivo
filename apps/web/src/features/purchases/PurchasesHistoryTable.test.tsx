@@ -58,7 +58,7 @@ describe('PurchasesHistoryTable', () => {
       />
     );
 
-    // ENG-132f — return progress (count / amount / reason / creator) moved into
+    // return progress (count / amount / reason / creator) moved into
     // the detail modal; only the returnable order (completed / partial_returned)
     // keeps a Return action.
     await user.click(screen.getByRole('button', { name: 'Return items for COM-000001' }));
@@ -72,7 +72,7 @@ describe('PurchasesHistoryTable', () => {
     expect(onView).toHaveBeenCalledWith('purchase-1');
   });
 
-  it('renders the smallest useful column set — date / site / returns trimmed (ENG-132f)', () => {
+  it('renders the smallest useful column set — date / site / returns trimmed', () => {
     render(
       <PurchasesHistoryTable
         purchases={[createPurchase()]}
@@ -98,7 +98,7 @@ describe('PurchasesHistoryTable', () => {
     expect(screen.queryByRole('columnheader', { name: 'Returns' })).not.toBeInTheDocument();
   });
 
-  it('fires onView with the purchase id when Enter is pressed on a focused row (ENG-134f)', async () => {
+  it('fires onView with the purchase id when Enter is pressed on a focused row', async () => {
     const user = userEvent.setup();
     const onView = vi.fn();
 

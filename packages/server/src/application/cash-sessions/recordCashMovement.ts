@@ -1,5 +1,5 @@
 /**
- * ENG-056 — `recordCashMovement` use-case service.
+ * `recordCashMovement` use-case service.
  *
  * Replaces the inline body that lived at
  * `trpc/routers/cashSessions.ts::recordMovement`. Routes through the
@@ -10,7 +10,7 @@
  *
  * Manual movement types (`paid_in`, `paid_out`, `skim`,
  * `replenishment`) only — `sale` and `refund` flow through the
- * sale-lifecycle use-cases (ENG-054 / ENG-055) and never enter here.
+ * sale-lifecycle use-cases ( / ) and never enter here.
  *
  * Adds `assertCashSessionStillOpen` to the in-tx path so all three
  * shift-lifecycle commands (open / close / recordMovement) have TOCTOU
@@ -63,17 +63,17 @@ export interface RecordedCashMovement {
  *
  * Invariants:
  * - Manual movement types ONLY (`paid_in` / `paid_out` / `skim` /
- *   `replenishment`); `sale` and `refund` flow through the sale-lifecycle
- *   use-cases and never enter here. The drawer-balance math + sign
- *   convention are delegated to the shared `insertCashMovement` /
- *   `getCashMovementSignedAmount`, so this is the only manual entry point and
- *   it never re-implements the `cash_movements` INSERT.
+ * `replenishment`); `sale` and `refund` flow through the sale-lifecycle
+ * use-cases and never enter here. The drawer-balance math + sign
+ * convention are delegated to the shared `insertCashMovement` /
+ * `getCashMovementSignedAmount`, so this is the only manual entry point and
+ * it never re-implements the `cash_movements` INSERT.
  * - `input.note` is OPERATOR-FACING free text persisted verbatim and carried
- *   into the audit-log metadata — it is never auto-translated or normalized.
+ * into the audit-log metadata — it is never auto-translated or normalized.
  * - The movement insert + the `cash_session.movement` audit-log row are
- *   written in ONE transaction, fronted by `assertCashSessionStillOpen`
- *   (in-tx TOCTOU re-check), giving open / close / recordMovement parity with
- *   the sale-lifecycle services.
+ * written in ONE transaction, fronted by `assertCashSessionStillOpen`
+ * (in-tx TOCTOU re-check), giving open / close / recordMovement parity with
+ * the sale-lifecycle services.
  *
  * Preconditions: `ctx.user` authenticated (`CASH_SESSION_REQUIRED`),
  * `ctx.siteId` non-null (`CASH_SESSION_SITE_REQUIRED`), an open session
@@ -208,12 +208,7 @@ export async function recordCashMovement(
     })
     .from(cashMovements)
     .innerJoin(users, eq(cashMovements.createdBy, users.id))
-    .where(
-      and(
-        eq(cashMovements.id, movementId),
-        eq(cashMovements.tenantId, ctx.tenantId)
-      )
-    )
+    .where(and(eq(cashMovements.id, movementId), eq(cashMovements.tenantId, ctx.tenantId)))
     .get();
 
   if (!movement) {

@@ -1,5 +1,5 @@
 /**
- * ENG-030 — Zod schemas for the AI router.
+ * Zod schemas for the AI router.
  *
  * @module trpc/schemas/ai
  */
@@ -9,7 +9,7 @@ export const aiProviderIdSchema = z.enum(['anthropic', 'openai', 'ollama']);
 
 /**
  * Per-feature flag patch shape — added 2026-05-15 per AI Núcleo
- * handoff §1.4. Sent by AiConfigPage when an admin toggles a switch
+ * design specification. Sent by AiConfigPage when an admin toggles a switch
  * or picks a different OCR provider.
  */
 export const aiFeatureFlagsPatchSchema = z
@@ -40,12 +40,7 @@ export const updateAISettingsInput = z.object({
   enabled: z.boolean().optional(),
   monthlyBudgetUsd: z.number().min(0).max(100_000).optional(),
   providerId: aiProviderIdSchema.nullable().optional(),
-  modelId: z
-    .string()
-    .min(1)
-    .max(120)
-    .nullable()
-    .optional(),
+  modelId: z.string().min(1).max(120).nullable().optional(),
   features: aiFeatureFlagsPatchSchema,
 });
 
@@ -77,7 +72,7 @@ export const copilotChatInput = z.object({
 });
 
 /**
- * ENG-032 — input para `ai.anomalies.list`. `from` / `to` son ISO
+ * input para `ai.anomalies.list`. `from` / `to` son ISO
  * strings opcionales; cuando faltan, el router computa una ventana de
  * `ANALYSIS_WINDOW_DAYS` (30) días terminando en `now`.
  *
@@ -91,7 +86,7 @@ export const anomalyListInput = z.object({
 });
 
 /**
- * ENG-047 — input para `ai.anomalies.snooze`. La clave del snooze es
+ * input para `ai.anomalies.snooze`. La clave del snooze es
  * `(kind, cashierId, evidenceRef?)`; un manager elige por cuántos días
  * silenciar el patrón (1-90).
  */

@@ -1,26 +1,26 @@
 /**
- * ENG-038 slice 2 — `paymentSettings.*` admin router.
+ * slice 2 — `paymentSettings.*` admin router.
  *
  * Two procedures:
  *
  * - `paymentSettings.getAll` returns the full readiness view for every
- *   rail in the manifest: descriptor + masked stored credentials +
- *   `validateConfig` issues + the rail's `liveIntegration` flag. The
- *   admin card consumes this in one round-trip.
+ * rail in the manifest: descriptor + masked stored credentials +
+ * `validateConfig` issues + the rail's `liveIntegration` flag. The
+ * admin card consumes this in one round-trip.
  * - `paymentSettings.updateRail({ railId, credentials })` writes a
- *   partial credential patch under
- *   `tenants.settings.payments.<railId>.credentials.*`. Undeclared keys
- *   are rejected with `PAYMENT_CREDENTIAL_UNKNOWN_FIELD`; empty-string
- *   values clear the stored field; sensitive credentials are NEVER
- *   reflected back in plaintext (response uses the same masked
- *   projection as `getAll`).
+ * partial credential patch under
+ * `tenants.settings.payments.<railId>.credentials.*`. Undeclared keys
+ * are rejected with `PAYMENT_CREDENTIAL_UNKNOWN_FIELD`; empty-string
+ * values clear the stored field; sensitive credentials are NEVER
+ * reflected back in plaintext (response uses the same masked
+ * projection as `getAll`).
  *
  * Plaintext credentials live alongside the other JSON namespaces in
  * `tenants.settings` (mirror of `tenants.settings.fiscal.{mx,cl}.*`).
- * Per ADR-0006 / ENG-066 the diagnostic exporter's `SENSITIVE_KEYS`
+ * Per ADR-0006 /  the diagnostic exporter's `SENSITIVE_KEYS`
  * denylist redacts every credential key listed in
  * `CREDENTIAL_FIELDS_BY_RAIL` so the support bundle stays safe out of
- * the box; future per-OS keychain integration is the ENG-063 lane.
+ * the box; future per-OS keychain integration is the  lane.
  *
  * Multi-tenant: every read / write scopes by `ctx.tenantId`. There is
  * no global storage of payment credentials.
@@ -78,10 +78,7 @@ async function buildRailEntry(
 ): Promise<PaymentRailSettingsEntry> {
   const manifest = PAYMENT_RAILS_MANIFEST[railId];
   const adapter = getPaymentRailAdapter(railId);
-  const credentials = projectRailCredentials(
-    railId,
-    readPaymentRailCredentials(settings, railId)
-  );
+  const credentials = projectRailCredentials(railId, readPaymentRailCredentials(settings, railId));
   const validation: PaymentRailValidationResult = adapter.validateConfig
     ? await adapter.validateConfig({ tenantId, settings })
     : { ok: true, issues: [] };
@@ -119,9 +116,7 @@ export const paymentSettingsRouter = router({
   updateRail: adminProcedure
     .input(updatePaymentRailSettingsInput)
     .mutation(async ({ ctx, input }) => {
-      const declaredKeys = new Set(
-        CREDENTIAL_FIELDS_BY_RAIL[input.railId].map(field => field.key)
-      );
+      const declaredKeys = new Set(CREDENTIAL_FIELDS_BY_RAIL[input.railId].map(field => field.key));
       const patch: Record<string, string | null> = {};
       for (const [key, value] of Object.entries(input.credentials)) {
         if (!declaredKeys.has(key)) {

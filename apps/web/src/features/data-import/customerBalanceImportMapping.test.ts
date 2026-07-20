@@ -6,7 +6,7 @@ import {
   mapCustomerBalanceImportRows,
 } from './customerBalanceImportMapping';
 
-describe('ENG-123d customer balance import mapping', () => {
+describe(' customer balance import mapping', () => {
   it.each([
     ['English', ['Tax ID', 'Email', 'Opening balance', 'Note']],
     ['Spanish', ['Identificación tributaria', 'Correo electrónico', 'Cartera inicial', 'Nota']],

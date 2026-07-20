@@ -1,5 +1,5 @@
 /**
- * ENG-204 — pace HUD contract: the strip renders ONLY when the user opted
+ * pace HUD contract: the strip renders ONLY when the user opted
  * in AND a session is active AND the payload arrived; the toggle button and
  * the strip stay in lockstep through the shared preference store; the
  * trophy tile lights up on a personal best.
@@ -60,7 +60,7 @@ function makePace(overrides: Partial<MockPace> = {}): MockPace {
   };
 }
 
-describe('CashierPaceStrip + PaceToggleButton (ENG-204)', () => {
+describe('CashierPaceStrip + PaceToggleButton', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en');
     window.localStorage.clear();

@@ -1,4 +1,4 @@
-/** ENG-136b — admin-gated restore-drill IPC and audit boundary. */
+/** admin-gated restore-drill IPC and audit boundary. */
 
 import { createModuleLogger } from '@puntovivo/server';
 import {

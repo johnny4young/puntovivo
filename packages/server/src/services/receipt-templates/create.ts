@@ -13,7 +13,7 @@ import type { ReceiptLayout } from '../../trpc/schemas/receiptTemplates.js';
 import { nowIso, serializeLayout, toRecord } from './helpers.js';
 import type { ReceiptTemplateRecord } from './types.js';
 
-// ENG-179b — explicit `| undefined` so the tRPC router can forward
+// explicit `| undefined` so the tRPC router can forward
 // Zod-optional flag fields.
 export interface CreateReceiptTemplateArgs {
   tenantId: string;

@@ -11,7 +11,7 @@ import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { TablePagination } from '@/components/tables/TablePagination';
 
 /**
- * ENG-065b — Operations Center: Cash Health panel.
+ * Operations Center: Cash Health panel.
  *
  * Tenant-wide cash reconciliation snapshot. Reads `reports.cash.reconciliation`
  * (managerOrAdmin), aggregating open cash sessions + closed sessions in
@@ -22,7 +22,7 @@ import { TablePagination } from '@/components/tables/TablePagination';
  * surface exists so the operator knows where to look — not to advance
  * state from the UI.
  *
- * Rediseño FASE 6 (O2) — recetas pv-*: KPIs con `KpiTile` (`.pv-kpi`,
+ * recetas pv-*: KPIs con `KpiTile` (`.pv-kpi`,
  * descuadres en tono danger/warning), tablas con `.pv-table`, estados
  * de discrepancia con `.pv-badge` (balanceado / faltante / sobrante) y
  * vacíos con `EmptyState`. Encabezado de panel con `.pv-kicker` /
@@ -173,9 +173,7 @@ function CashBySiteSection({ rows }: { rows: BySiteRow[] }) {
               </tbody>
             </table>
           </div>
-          {hasPagination && (
-            <TablePagination {...pagination} onPageChange={pagination.setPage} />
-          )}
+          {hasPagination && <TablePagination {...pagination} onPageChange={pagination.setPage} />}
         </>
       )}
     </section>
@@ -224,9 +222,7 @@ function CashRecentDiscrepanciesSection({ rows }: { rows: RecentDiscrepancyRow[]
                     <td className="pname">{row.siteName}</td>
                     <td>{row.registerName}</td>
                     <td>{row.cashierName}</td>
-                    <td className="muted">
-                      {row.closedAt ? formatDateTime(row.closedAt) : '—'}
-                    </td>
+                    <td className="muted">{row.closedAt ? formatDateTime(row.closedAt) : '—'}</td>
                     <td className="num">{formatCurrency(row.expectedBalance)}</td>
                     <td className="num">{formatCurrency(row.actualCount)}</td>
                     <td>
@@ -241,9 +237,7 @@ function CashRecentDiscrepanciesSection({ rows }: { rows: RecentDiscrepancyRow[]
               </tbody>
             </table>
           </div>
-          {hasPagination && (
-            <TablePagination {...pagination} onPageChange={pagination.setPage} />
-          )}
+          {hasPagination && <TablePagination {...pagination} onPageChange={pagination.setPage} />}
         </>
       )}
     </section>

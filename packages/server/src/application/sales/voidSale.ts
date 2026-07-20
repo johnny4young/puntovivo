@@ -1,5 +1,5 @@
 /**
- * ENG-055 — `voidSale` use-case service.
+ * `voidSale` use-case service.
  *
  * Voids a completed sale (direct for admins; manager/cashier with an exact
  * admin grant, decoupled from the caller's register): validates state, restores stock to the site that
@@ -10,13 +10,13 @@
  * DIAN credit note (NC).
  *
  * Distinction vs `returnSale`:
- *  - Void does NOT require the caller to have an active cash session.
- *    Authorization is either direct admin authority or an exact admin grant;
- *    reversal goes against the ORIGINAL session when applicable.
- *  - Stock always restores; cash movement reversal is conditional.
+ * - Void does NOT require the caller to have an active cash session.
+ * Authorization is either direct admin authority or an exact admin grant;
+ * reversal goes against the ORIGINAL session when applicable.
+ * - Stock always restores; cash movement reversal is conditional.
  *
  * Behavior parity with the previous inline router code is the explicit
- * acceptance criterion (ROADMAP §3b ENG-055).
+ * acceptance criterion (acceptance contract ).
  *
  * @module application/sales/voidSale
  */
@@ -78,7 +78,7 @@ async function lookupJournalEventId(
 
 export interface VoidSaleInput {
   id: string;
-  // ENG-179b — explicit `| undefined` on Zod-optional field.
+  // explicit `| undefined` on Zod-optional field.
   reason?: string | null | undefined;
   approvalRequestId?: string | undefined;
 }
@@ -169,7 +169,7 @@ export async function voidSale(
     : null;
   const voidReversibleSessionId =
     voidTargetSession && voidTargetSession.status === 'open' ? voidTargetSession.id : null;
-  // Phase 2 API-103 — credit the site that originally sold the stock.
+  // credit the site that originally sold the stock.
   // The reversal happens regardless of whether the cash session is still
   // open — voided stock always goes back on the shelf.
   const originalSaleSiteId = voidTargetSession?.siteId ?? null;
@@ -297,7 +297,7 @@ export async function voidSale(
         });
       }
 
-      // Phase 8 / Tier-2 #8 — record the sensitive action in the same
+      // record the sensitive action in the same
       // transaction as the void so an audit row exists iff the void
       // landed.
       auditLogId = writeAuditLog({
@@ -353,11 +353,11 @@ export async function voidSale(
     data: { id: input.id, status: 'voided', reason: input.reason ?? null },
   });
 
-  // ENG-192 — enqueue the lots the void credited back so the mutation
+  // enqueue the lots the void credited back so the mutation
   // reaches sync_outbox.
   await enqueueInventoryLotUpdatesForSale(ctx, restoredLotIds, input.id);
 
-  // ENG-020 — emit DIAN credit note (NC) for the voided sale. Pulls
+  // emit DIAN credit note (NC) for the voided sale. Pulls
   // the original DEE's CUFE so the NC references it. Best-effort.
   const originalCufe = await getOriginalDeeCufe(ctx.db, ctx.tenantId, input.id);
   const fiscalResult = await safelyEmitFiscalDocument({
@@ -433,7 +433,7 @@ export async function voidSale(
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
 
-  // ENG-098 — drop any kitchen card for the voided sale. No-op when
+  // drop any kitchen card for the voided sale. No-op when
   // the sale never had a tableId (retail path) or when the card has
   // already aged out via the 5-minute ready TTL.
   await removeKdsOrders({

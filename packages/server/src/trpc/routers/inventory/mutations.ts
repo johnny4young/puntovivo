@@ -1,5 +1,5 @@
 /**
- * ENG-206 — Thin tRPC adapters for inventory stock mutations.
+ * Thin tRPC adapters for inventory stock mutations.
  *
  * Transactional orchestration lives in `application/inventory/`; this module
  * owns only role/input middleware and the retained reconciliation endpoint.
@@ -24,21 +24,15 @@ import {
 export const inventoryMutationProcedures = {
   recordEntry: managerOrAdminProcedure
     .input(recordEntryInput)
-    .mutation(({ ctx, input }) =>
-      recordInventoryEntry({ ...ctx, user: ctx.user! }, input)
-    ),
+    .mutation(({ ctx, input }) => recordInventoryEntry({ ...ctx, user: ctx.user! }, input)),
 
   createMovement: managerOrAdminProcedure
     .input(createMovementInput)
-    .mutation(({ ctx, input }) =>
-      createInventoryMovement({ ...ctx, user: ctx.user! }, input)
-    ),
+    .mutation(({ ctx, input }) => createInventoryMovement({ ...ctx, user: ctx.user! }, input)),
 
   adjustStock: criticalCommandManagerOrAdminProcedure
     .input(adjustStockInput)
-    .mutation(({ ctx, input }) =>
-      adjustInventoryStock(asCriticalCommandContext(ctx), input)
-    ),
+    .mutation(({ ctx, input }) => adjustInventoryStock(asCriticalCommandContext(ctx), input)),
 
   /**
    * Compatibility no-op: inventory_balances is already the stock source of

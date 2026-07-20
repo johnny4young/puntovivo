@@ -51,7 +51,7 @@ export function PurchasesHistoryTable({
           </span>
         ),
       },
-      // ENG-132f — date / site / returns trimmed from the default table;
+      // date / site / returns trimmed from the default table;
       // each stays reachable via the View detail modal (created, site,
       // supplier-returns summary + return history). Status keeps the return
       // state legible at a glance.
@@ -75,7 +75,9 @@ export function PurchasesHistoryTable({
         accessorKey: 'total',
         header: t('table.total'),
         size: 120,
-        cell: ({ row }) => <span className="font-medium">{formatCurrency(row.original.total)}</span>,
+        cell: ({ row }) => (
+          <span className="font-medium">{formatCurrency(row.original.total)}</span>
+        ),
       },
       {
         id: 'actions',
@@ -117,9 +119,7 @@ export function PurchasesHistoryTable({
   return (
     <div className="card p-6">
       {isLoading && <TableLoadingState message={t('table.loading')} rowCount={6} />}
-      {error && (
-        <TableErrorState title={t('table.loadError')} message={error} onRetry={onRetry} />
-      )}
+      {error && <TableErrorState title={t('table.loadError')} message={error} onRetry={onRetry} />}
       {!isLoading && !error && (
         <div className="space-y-4">
           <TableExportActions
@@ -134,7 +134,7 @@ export function PurchasesHistoryTable({
             searchKey="purchaseNumber"
             searchPlaceholder={t('table.searchPlaceholder')}
             pageSize={8}
-            // ENG-134f — Enter / Space on the focused row opens the
+            // Enter / Space on the focused row opens the
             // purchase detail modal, mirroring the row's Eye button click.
             onRowActivate={row => onView(row.id)}
           />

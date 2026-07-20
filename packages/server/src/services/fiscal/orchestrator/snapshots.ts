@@ -1,5 +1,5 @@
 /**
- * Fiscal orchestrator — buyer + line snapshots (ENG-178 split).
+ * Fiscal orchestrator — buyer + line snapshots ( split).
  *
  * Materializes the buyer (customer or CONSUMIDOR_FINAL) + the sale lines at
  * emission time; the document freezes these (DIAN 165/2023 CUFE rule).
@@ -9,11 +9,16 @@
  */
 import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../../db/index.js';
-import { customers, fiscalIdentificationTypes, identificationTypes, products, saleItems } from '../../../db/schema.js';
+import {
+  customers,
+  fiscalIdentificationTypes,
+  identificationTypes,
+  products,
+  saleItems,
+} from '../../../db/schema.js';
 import { CONSUMIDOR_FINAL } from '../cufe.js';
 import type { ResolvedBuyer, ResolvedLine } from './types.js';
 import { abbrToDianCode } from './helpers.js';
-
 
 export async function resolveBuyer(
   tx: DatabaseInstance,
@@ -79,9 +84,9 @@ export async function resolveBuyer(
 
   // Sanity: confirm the resolved code exists in the global catalog so
   // the composite FK on `fiscal_documents.(buyer_country_code,
-  // buyer_tax_id_type_code)` does not fail. ENG-176c — the orchestrator
+  // buyer_tax_id_type_code)` does not fail.  — the orchestrator
   // emits DIAN documents (Colombia) today; multi-country support
-  // arrives with ENG-156 / ENG-161 when the adapter routes carry the
+  // arrives with  /  when the adapter routes carry the
   // tenant locale through. Until then, hard-code 'CO' for the lookup.
   const buyerCountryCode = 'CO';
   const catalog = await tx
@@ -131,12 +136,7 @@ export async function resolveLines(
     })
     .from(saleItems)
     .innerJoin(products, eq(saleItems.productId, products.id))
-    .where(
-      and(
-        eq(saleItems.saleId, saleId),
-        eq(products.tenantId, tenantId)
-      )
-    )
+    .where(and(eq(saleItems.saleId, saleId), eq(products.tenantId, tenantId)))
     .all();
 
   return rows.map((row, index) => ({

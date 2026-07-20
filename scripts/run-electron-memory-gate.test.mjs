@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ENG-133d — pure tests for the Electron memory gate runner.
+ * pure tests for the Electron memory gate runner.
  *
  * The real launch is covered by `ci:desktop`; these tests pin argument/env
  * handling and the retry helper without starting Vite or Electron.
@@ -32,7 +32,14 @@ test('resolveRunElectronMemoryGateOptions uses safe defaults and passes strict f
 
 test('resolveRunElectronMemoryGateOptions accepts runner flags without forwarding them', () => {
   const options = resolveRunElectronMemoryGateOptions({
-    argv: ['--host=0.0.0.0', '--port', '4321', '--ready-timeout-ms=1234', '--skip-preview', '--strict'],
+    argv: [
+      '--host=0.0.0.0',
+      '--port',
+      '4321',
+      '--ready-timeout-ms=1234',
+      '--skip-preview',
+      '--strict',
+    ],
     env: {},
   });
   assert.equal(options.host, '0.0.0.0');

@@ -1,5 +1,5 @@
 /**
- * ENG-040c slice 2 — `blobToBase64` tests.
+ * slice 2 — `blobToBase64` tests.
  */
 import { describe, expect, it } from 'vitest';
 

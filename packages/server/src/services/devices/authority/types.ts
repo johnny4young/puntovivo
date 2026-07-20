@@ -1,5 +1,5 @@
 /**
- * Public types for the ENG-075 Authority Node pairing + topology service.
+ * Public types for the  Authority Node pairing + topology service.
  *
  * @module services/devices/authority/types
  */

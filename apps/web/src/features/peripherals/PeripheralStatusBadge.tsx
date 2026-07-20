@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/Badge';
 
 /**
- * ENG-060 — Peripheral last-test-result chip.
+ * Peripheral last-test-result chip.
  *
  * Maps the persisted `last_test_result` enum (`'ok' | 'failed' | null`)
  * to a Badge variant + translated label. Renders the timestamp under
@@ -20,11 +20,7 @@ export function PeripheralStatusBadge({
   const { t, i18n } = useTranslation('peripherals');
 
   const variant =
-    lastTestResult === 'ok'
-      ? 'success'
-      : lastTestResult === 'failed'
-        ? 'danger'
-        : 'secondary';
+    lastTestResult === 'ok' ? 'success' : lastTestResult === 'failed' ? 'danger' : 'secondary';
 
   const label =
     lastTestResult === 'ok'

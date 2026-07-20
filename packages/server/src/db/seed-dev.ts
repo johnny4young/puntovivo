@@ -5,27 +5,27 @@
  * multi-user / multi-product dataset so developers, QA, and demos do
  * not have to click through every catalog form. Invoke via:
  *
- *     npm run seed:dev
- *     npm run seed:dev -- --preset=large
- *     npm run seed:dev -- --reset
+ * npm run seed:dev
+ * npm run seed:dev -- --preset=large
+ * npm run seed:dev -- --reset
  *
  * Design principles:
  *
  * - **Idempotent**: a second run without `--reset` is a no-op because
- *   the tenant slug (`demo-co`) lookup short-circuits. Each other
- *   insert is also existence-checked for safety.
+ * the tenant slug (`demo-co`) lookup short-circuits. Each other
+ * insert is also existence-checked for safety.
  * - **Deterministic**: fixed names / SKUs / prices so two runs
- *   produce byte-identical output. Helps snapshot-style tests.
+ * produce byte-identical output. Helps snapshot-style tests.
  * - **Invariant-safe**: wherever possible the seed goes through the
- *   same tRPC caller the UI uses, so `inventory_balances`,
- *   `products.stock`, `sequentials`, and `cash_sessions.expected_balance`
- *   are all maintained by the existing service transactions. For
- *   rows that do not need service logic (catalogs, customers) we
- *   direct-insert to keep the seed fast.
+ * same tRPC caller the UI uses, so `inventory_balances`,
+ * `products.stock`, `sequentials`, and `cash_sessions.expected_balance`
+ * are all maintained by the existing service transactions. For
+ * rows that do not need service logic (catalogs, customers) we
+ * direct-insert to keep the seed fast.
  * - **Safe in production**: `seedDevData()` itself is innocent and
- *   can be called with any DB, but the CLI entry
- *   (`scripts/seed-dev.mjs`) refuses to run when `NODE_ENV` is
- *   production or the tenant slug already contains a non-dev marker.
+ * can be called with any DB, but the CLI entry
+ * (`scripts/seed-dev.mjs`) refuses to run when `NODE_ENV` is
+ * production or the tenant slug already contains a non-dev marker.
  *
  * @module db/seed-dev
  */
@@ -96,21 +96,21 @@ export interface SeedDevOptions {
    * Dataset size:
    * - `default`: 50 products + 40 sales (fast, for tests + first-boot).
    * - `large`: 500 products + 200 sales (legacy, for catalog stress tests).
-   * - `mega` (ENG-052b): builds on `default` and adds 90+ days of
-   *   historical operational data — sales/refunds/voids, cash sessions,
-   *   purchases + returns, transfers, quotations across all 5 states,
-   *   orders, suspended drafts, sync queue, AI audit, login attempts,
-   *   logos, and a recent-3-days pass through the live tRPC critical
-   *   procedure path. Designed for visual UI testing of every page.
+   * - `mega` (): builds on `default` and adds 90+ days of
+   * historical operational data — sales/refunds/voids, cash sessions,
+   * purchases + returns, transfers, quotations across all 5 states,
+   * orders, suspended drafts, sync queue, AI audit, login attempts,
+   * logos, and a recent-3-days pass through the live tRPC critical
+   * procedure path. Designed for visual UI testing of every page.
    */
   preset?: 'default' | 'large' | 'mega';
   /**
    * Country code para el tenant demo. Default `'CO'` para preservar
    * paridad con todos los tests + E2E existentes que asumen Colombia.
-   * `'MX'` activa el pack México (ENG-035b) — flippea `tenantLocaleSettings.countryCode`,
+   * `'MX'` activa el pack México () — flippea `tenantLocaleSettings.countryCode`,
    * setea el namespace `fiscal.mx.*` con valores de prueba, y deja
    * los seed sales emitiendo CFDI 4.0 vía `MexicoCFDIAdapter`.
-   * `'CL'` activa el pack Chile (ENG-036b) — flippea
+   * `'CL'` activa el pack Chile () — flippea
    * `tenantLocaleSettings.countryCode` a CL, currency a CLP, setea
    * el namespace `fiscal.cl.*` con valores de prueba, e inserta
    * CAFs fixture para TipoDTE 33, 39 y 61 (folios 1..100) para que
@@ -227,19 +227,19 @@ export async function seedDevData(
       id: tenantId,
       name: DEV_TENANT_NAME,
       slug: DEV_TENANT_SLUG,
-      // ENG-020 — enable DIAN emission for the Colombia demo tenant so
+      // enable DIAN emission for the Colombia demo tenant so
       // every sale seeded through `sales.create` also produces a
       // fiscal_documents row. Real tenants opt in via the admin
       // habilitación wizard (stubbed in Fase E as placeholder UI).
-      // ENG-035b — cuando SEED_COUNTRY=mx, también poblamos el
+      // cuando SEED_COUNTRY=mx, también poblamos el
       // namespace `fiscal.mx.*` con valores de prueba para que el
       // adapter MexicoCFDIAdapter emita CFDI 4.0 estructuralmente
       // válido durante el smoke.
-      // ENG-068 — every demo module starts ON for the demo tenant so
+      // every demo module starts ON for the demo tenant so
       // the existing UI tabs continue to look the same to the
       // operator. The admin tab `/company?tab=modules` is the lever to
       // flip them OFF for SaaS-style activation experiments.
-      // ENG-036b — SEED_COUNTRY=cl pobla `fiscal.cl.*` con valores
+      // SEED_COUNTRY=cl pobla `fiscal.cl.*` con valores
       // de prueba; el dev seed CL también inserta CAFs fixture para
       // los TipoDTE que el mapping actual puede producir (33/39/61).
       settings: buildTenantSettings(countryCode),
@@ -249,7 +249,7 @@ export async function seedDevData(
     })
     .run();
 
-  // ENG-017 — bootstrap this dev tenant with Colombia as its country
+  // bootstrap this dev tenant with Colombia as its country
   // so `formatCurrency` renders COP with 0 display decimals and
   // `dd/MM/yyyy` dates out of the box. `INSERT OR IGNORE`-style
   // guard via the `on conflict do nothing` pattern keeps the seed
@@ -259,9 +259,9 @@ export async function seedDevData(
     .insert(tenantLocaleSettings)
     .values({
       tenantId,
-      // ENG-035b — countryCode parametrizable. CO usa COP/dd-MM-yyyy;
+      // countryCode parametrizable. CO usa COP/dd-MM-yyyy;
       // MX flippea a MXN/dd-MM-yyyy y dispatcha al MexicoCFDIAdapter.
-      // ENG-036b — CL flippea a CLP/dd-MM-yyyy y dispatcha al
+      // CL flippea a CLP/dd-MM-yyyy y dispatcha al
       // ChileSIIAdapter.
       countryCode,
       updatedAt: now,
@@ -269,10 +269,10 @@ export async function seedDevData(
     .onConflictDoNothing()
     .run();
 
-  // ENG-036b — Chile dev seed: register fixture CAFs for the
+  // Chile dev seed: register fixture CAFs for the
   // TipoDTE values the current mapping can produce (33 factura,
   // 39 boleta, 61 nota crédito). The rawXml is a structurally valid
-  // CAF skeleton with a synthetic <DA> block; ENG-036c will replace
+  // CAF skeleton with a synthetic <DA> block;  will replace
   // the fixture with a real CAF parser + the upload UI so operators
   // can register CAFs from the SII portal through the admin tab.
   if (countryCode === 'CL') {
@@ -322,7 +322,7 @@ export async function seedDevData(
   const adminUser = seedUsers.find(u => u.role === 'admin')!;
   const cashierUsers = seedUsers.filter(u => u.role === 'cashier');
 
-  // ENG-052b — register a single seed device so the historical
+  // register a single seed device so the historical
   // batches below can drive critical procedures (sales, cash
   // sessions). Real desktop / web clients register their own devices
   // through `auth.registerDevice`; the seed-owned device stays as a
@@ -378,11 +378,11 @@ export async function seedDevData(
       .run();
   }
 
-  // ----- 3b. Fiscal placeholders (ENG-020) --------------------------------
+  // ----- 3b. Fiscal placeholders () --------------------------------
   // The orchestrator skips emission when no active numbering resolution
   // exists for the sale site. Seed one DEE range per site so the dev
   // environment can exercise the full CUFE round-trip across both
-  // registers. ENG-021 swaps the technicalKey for a DIAN-issued value
+  // registers.  swaps the technicalKey for a DIAN-issued value
   // and plugs a real Proveedor Tecnológico certificate.
   const devFiscalValidFrom = new Date();
   const devFiscalValidUntil = new Date(devFiscalValidFrom);
@@ -415,7 +415,7 @@ export async function seedDevData(
       id: nanoid(),
       tenantId,
       alias: 'dev-mock-certificate',
-      // Fase A ships a placeholder ref; Fase B wires a real p12 blob
+      // estado actual ships a placeholder ref; Fase B wires a real p12 blob
       // via a storage service. The ref itself is non-secret.
       p12Ref: 'mock://certificates/demo-co.p12',
       passphraseRef: 'mock://vault/demo-co-passphrase',
@@ -849,7 +849,7 @@ export async function seedDevData(
     deviceId: seedDeviceId,
   });
 
-  // ENG-052b — MEGA preset: layer 90 days of historical data on top
+  // MEGA preset: layer 90 days of historical data on top
   // of the foundation we just built. Decoupled from the default
   // helpers above so the small-N path stays fast for tests.
   let megaCounts: import('./seed-mega/types.js').MegaCounts | null = null;
@@ -914,17 +914,17 @@ interface PresetTarget {
  * Build the `tenants.settings` JSON blob for the demo tenant
  * depending on `SEED_COUNTRY`. Three branches:
  *
- *   - 'CO' (default): fiscal_dian_enabled flag + the 5 demo modules
- *     ON. Existing CO tests + smokes assume this shape.
- *   - 'MX': fiscal_dian_enabled flag + `fiscal.mx.*` namespace with
- *     test RFC + régimen + lugar de expedición + sandbox env (so
- *     MexicoCFDIAdapter can emit CFDI 4.0 drafts) + 5 modules.
- *   - 'CL': fiscal_dian_enabled flag + `fiscal.cl.*` namespace with
- *     test RUT + giro CIIU.cl + comuna SUBDERE + casa matriz +
- *     certificacion env (so ChileSIIAdapter can emit DTE 1.0 drafts)
- *     + 5 modules. The matching fixture `fiscal_cafs` rows are
- *     inserted by `seedDevData` after this blob is written; without
- *     them the allocator throws `CAF_NOT_AVAILABLE` on the first sale.
+ * - 'CO' (default): fiscal_dian_enabled flag + the 5 demo modules
+ * ON. Existing CO tests + smokes assume this shape.
+ * - 'MX': fiscal_dian_enabled flag + `fiscal.mx.*` namespace with
+ * test RFC + régimen + lugar de expedición + sandbox env (so
+ * MexicoCFDIAdapter can emit CFDI 4.0 drafts) + 5 modules.
+ * - 'CL': fiscal_dian_enabled flag + `fiscal.cl.*` namespace with
+ * test RUT + giro CIIU.cl + comuna SUBDERE + casa matriz +
+ * certificacion env (so ChileSIIAdapter can emit DTE 1.0 drafts)
+ * + 5 modules. The matching fixture `fiscal_cafs` rows are
+ * inserted by `seedDevData` after this blob is written; without
+ * them the allocator throws `CAF_NOT_AVAILABLE` on the first sale.
  */
 function buildTenantSettings(countryCode: 'CO' | 'MX' | 'CL'): Record<string, unknown> {
   const modules = {
@@ -1051,11 +1051,35 @@ const DEV_UNITS: Array<{
   standardCode: string;
   referenceFactor: number;
 }> = [
-  { name: 'Unidad', abbreviation: 'UND', dimension: 'count', standardCode: 'C62', referenceFactor: 1 },
-  { name: 'Kilogramo', abbreviation: 'KG', dimension: 'mass', standardCode: 'KGM', referenceFactor: 1000 },
-  { name: 'Litro', abbreviation: 'LT', dimension: 'volume', standardCode: 'LTR', referenceFactor: 1000 },
+  {
+    name: 'Unidad',
+    abbreviation: 'UND',
+    dimension: 'count',
+    standardCode: 'C62',
+    referenceFactor: 1,
+  },
+  {
+    name: 'Kilogramo',
+    abbreviation: 'KG',
+    dimension: 'mass',
+    standardCode: 'KGM',
+    referenceFactor: 1000,
+  },
+  {
+    name: 'Litro',
+    abbreviation: 'LT',
+    dimension: 'volume',
+    standardCode: 'LTR',
+    referenceFactor: 1000,
+  },
   { name: 'Gramo', abbreviation: 'GR', dimension: 'mass', standardCode: 'GRM', referenceFactor: 1 },
-  { name: 'Paquete', abbreviation: 'PQTE', dimension: 'count', standardCode: 'XPK', referenceFactor: 1 },
+  {
+    name: 'Paquete',
+    abbreviation: 'PQTE',
+    dimension: 'count',
+    standardCode: 'XPK',
+    referenceFactor: 1,
+  },
 ];
 
 const DEV_IDENTIFICATION_TYPES: Array<{ code: string; name: string }> = [
@@ -1289,70 +1313,470 @@ interface DevProductDefinition {
 function buildProductDefinitions(target: number): DevProductDefinition[] {
   const catalog: Array<Omit<DevProductDefinition, 'sku' | 'initialStock' | 'providerIndex'>> = [
     // Abarrotes (mostly 0% / 5% VAT, staple food in CO)
-    { name: 'Arroz Diana 500g', price: 3200, cost: 2100, baseUnit: 'UND', categorySlug: 'abarrotes', vatRateName: 'IVA 0%', barcode: '7702011000101' },
-    { name: 'Azúcar Incauca 1kg', price: 4500, cost: 3200, baseUnit: 'UND', categorySlug: 'abarrotes', vatRateName: 'IVA 0%', barcode: '7702011000102' },
-    { name: 'Aceite Girasol 1L', price: 11900, cost: 8900, baseUnit: 'UND', categorySlug: 'abarrotes', vatRateName: 'IVA 19%', barcode: '7702011000103' },
-    { name: 'Frijol Cargamanto 500g', price: 6400, cost: 4800, baseUnit: 'UND', categorySlug: 'abarrotes', vatRateName: 'IVA 0%', barcode: '7702011000104' },
-    { name: 'Pasta Doria Espagueti', price: 3800, cost: 2700, baseUnit: 'UND', categorySlug: 'abarrotes', vatRateName: 'IVA 5%', barcode: '7702011000105' },
-    { name: 'Lentejas 500g', price: 5200, cost: 3900, baseUnit: 'UND', categorySlug: 'abarrotes', vatRateName: 'IVA 0%', barcode: '7702011000106' },
+    {
+      name: 'Arroz Diana 500g',
+      price: 3200,
+      cost: 2100,
+      baseUnit: 'UND',
+      categorySlug: 'abarrotes',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000101',
+    },
+    {
+      name: 'Azúcar Incauca 1kg',
+      price: 4500,
+      cost: 3200,
+      baseUnit: 'UND',
+      categorySlug: 'abarrotes',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000102',
+    },
+    {
+      name: 'Aceite Girasol 1L',
+      price: 11900,
+      cost: 8900,
+      baseUnit: 'UND',
+      categorySlug: 'abarrotes',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000103',
+    },
+    {
+      name: 'Frijol Cargamanto 500g',
+      price: 6400,
+      cost: 4800,
+      baseUnit: 'UND',
+      categorySlug: 'abarrotes',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000104',
+    },
+    {
+      name: 'Pasta Doria Espagueti',
+      price: 3800,
+      cost: 2700,
+      baseUnit: 'UND',
+      categorySlug: 'abarrotes',
+      vatRateName: 'IVA 5%',
+      barcode: '7702011000105',
+    },
+    {
+      name: 'Lentejas 500g',
+      price: 5200,
+      cost: 3900,
+      baseUnit: 'UND',
+      categorySlug: 'abarrotes',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000106',
+    },
 
     // Bebidas
-    { name: 'Coca-Cola 1.5L', price: 6000, cost: 4200, baseUnit: 'UND', categorySlug: 'bebidas', vatRateName: 'IVA 19%', barcode: '7702011000201' },
-    { name: 'Agua Manantial 600ml', price: 2500, cost: 1400, baseUnit: 'UND', categorySlug: 'bebidas', vatRateName: 'IVA 5%', barcode: '7702011000202' },
-    { name: 'Jugo Hit Mora 1L', price: 4800, cost: 3300, baseUnit: 'UND', categorySlug: 'bebidas', vatRateName: 'IVA 19%', barcode: '7702011000203' },
-    { name: 'Café Sello Rojo 250g', price: 9900, cost: 7200, baseUnit: 'UND', categorySlug: 'bebidas', vatRateName: 'IVA 0%', barcode: '7702011000204' },
-    { name: 'Té Hindu 20 bolsitas', price: 5200, cost: 3700, baseUnit: 'UND', categorySlug: 'bebidas', vatRateName: 'IVA 19%', barcode: '7702011000205' },
-    { name: 'Cerveza Águila 330ml', price: 3200, cost: 2200, baseUnit: 'UND', categorySlug: 'bebidas', vatRateName: 'IVA 19%', barcode: '7702011000206' },
-    { name: 'Gatorade Uva 500ml', price: 4800, cost: 3400, baseUnit: 'UND', categorySlug: 'bebidas', vatRateName: 'IVA 19%', barcode: '7702011000207' },
+    {
+      name: 'Coca-Cola 1.5L',
+      price: 6000,
+      cost: 4200,
+      baseUnit: 'UND',
+      categorySlug: 'bebidas',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000201',
+    },
+    {
+      name: 'Agua Manantial 600ml',
+      price: 2500,
+      cost: 1400,
+      baseUnit: 'UND',
+      categorySlug: 'bebidas',
+      vatRateName: 'IVA 5%',
+      barcode: '7702011000202',
+    },
+    {
+      name: 'Jugo Hit Mora 1L',
+      price: 4800,
+      cost: 3300,
+      baseUnit: 'UND',
+      categorySlug: 'bebidas',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000203',
+    },
+    {
+      name: 'Café Sello Rojo 250g',
+      price: 9900,
+      cost: 7200,
+      baseUnit: 'UND',
+      categorySlug: 'bebidas',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000204',
+    },
+    {
+      name: 'Té Hindu 20 bolsitas',
+      price: 5200,
+      cost: 3700,
+      baseUnit: 'UND',
+      categorySlug: 'bebidas',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000205',
+    },
+    {
+      name: 'Cerveza Águila 330ml',
+      price: 3200,
+      cost: 2200,
+      baseUnit: 'UND',
+      categorySlug: 'bebidas',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000206',
+    },
+    {
+      name: 'Gatorade Uva 500ml',
+      price: 4800,
+      cost: 3400,
+      baseUnit: 'UND',
+      categorySlug: 'bebidas',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000207',
+    },
 
     // Lácteos
-    { name: 'Leche Alpina UHT 1L', price: 4900, cost: 3600, baseUnit: 'UND', categorySlug: 'lacteos', vatRateName: 'IVA 0%', barcode: '7702011000301' },
-    { name: 'Queso Campesino 500g', price: 12800, cost: 9500, baseUnit: 'UND', categorySlug: 'lacteos', vatRateName: 'IVA 0%', barcode: '7702011000302' },
-    { name: 'Yogurt Alpina Fresa 200g', price: 2800, cost: 1900, baseUnit: 'UND', categorySlug: 'lacteos', vatRateName: 'IVA 0%', barcode: '7702011000303' },
-    { name: 'Mantequilla 250g', price: 6800, cost: 4900, baseUnit: 'UND', categorySlug: 'lacteos', vatRateName: 'IVA 0%', barcode: '7702011000304' },
-    { name: 'Crema de leche 250ml', price: 4200, cost: 2900, baseUnit: 'UND', categorySlug: 'lacteos', vatRateName: 'IVA 0%', barcode: '7702011000305' },
-    { name: 'Kumis Colanta 1L', price: 6300, cost: 4500, baseUnit: 'UND', categorySlug: 'lacteos', vatRateName: 'IVA 0%', barcode: '7702011000306' },
+    {
+      name: 'Leche Alpina UHT 1L',
+      price: 4900,
+      cost: 3600,
+      baseUnit: 'UND',
+      categorySlug: 'lacteos',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000301',
+    },
+    {
+      name: 'Queso Campesino 500g',
+      price: 12800,
+      cost: 9500,
+      baseUnit: 'UND',
+      categorySlug: 'lacteos',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000302',
+    },
+    {
+      name: 'Yogurt Alpina Fresa 200g',
+      price: 2800,
+      cost: 1900,
+      baseUnit: 'UND',
+      categorySlug: 'lacteos',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000303',
+    },
+    {
+      name: 'Mantequilla 250g',
+      price: 6800,
+      cost: 4900,
+      baseUnit: 'UND',
+      categorySlug: 'lacteos',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000304',
+    },
+    {
+      name: 'Crema de leche 250ml',
+      price: 4200,
+      cost: 2900,
+      baseUnit: 'UND',
+      categorySlug: 'lacteos',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000305',
+    },
+    {
+      name: 'Kumis Colanta 1L',
+      price: 6300,
+      cost: 4500,
+      baseUnit: 'UND',
+      categorySlug: 'lacteos',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000306',
+    },
 
     // Panadería
-    { name: 'Pan tajado integral', price: 5400, cost: 3700, baseUnit: 'UND', categorySlug: 'panaderia', vatRateName: 'IVA 0%', barcode: '7702011000401' },
-    { name: 'Arepa Paisa x5', price: 6500, cost: 4400, baseUnit: 'PQTE', categorySlug: 'panaderia', vatRateName: 'IVA 0%', barcode: '7702011000402' },
-    { name: 'Empanada de carne', price: 2800, cost: 1600, baseUnit: 'UND', categorySlug: 'panaderia', vatRateName: 'IVA 8%', barcode: null },
-    { name: 'Pan Francés', price: 1200, cost: 600, baseUnit: 'UND', categorySlug: 'panaderia', vatRateName: 'IVA 0%', barcode: null },
-    { name: 'Croissant', price: 3800, cost: 2200, baseUnit: 'UND', categorySlug: 'panaderia', vatRateName: 'IVA 0%', barcode: null },
-    { name: 'Buñuelo', price: 1500, cost: 800, baseUnit: 'UND', categorySlug: 'panaderia', vatRateName: 'IVA 0%', barcode: null },
+    {
+      name: 'Pan tajado integral',
+      price: 5400,
+      cost: 3700,
+      baseUnit: 'UND',
+      categorySlug: 'panaderia',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000401',
+    },
+    {
+      name: 'Arepa Paisa x5',
+      price: 6500,
+      cost: 4400,
+      baseUnit: 'PQTE',
+      categorySlug: 'panaderia',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000402',
+    },
+    {
+      name: 'Empanada de carne',
+      price: 2800,
+      cost: 1600,
+      baseUnit: 'UND',
+      categorySlug: 'panaderia',
+      vatRateName: 'IVA 8%',
+      barcode: null,
+    },
+    {
+      name: 'Pan Francés',
+      price: 1200,
+      cost: 600,
+      baseUnit: 'UND',
+      categorySlug: 'panaderia',
+      vatRateName: 'IVA 0%',
+      barcode: null,
+    },
+    {
+      name: 'Croissant',
+      price: 3800,
+      cost: 2200,
+      baseUnit: 'UND',
+      categorySlug: 'panaderia',
+      vatRateName: 'IVA 0%',
+      barcode: null,
+    },
+    {
+      name: 'Buñuelo',
+      price: 1500,
+      cost: 800,
+      baseUnit: 'UND',
+      categorySlug: 'panaderia',
+      vatRateName: 'IVA 0%',
+      barcode: null,
+    },
 
     // Carnicería
-    { name: 'Carne de res molida 500g', price: 16800, cost: 12500, baseUnit: 'KG', categorySlug: 'carniceria', vatRateName: 'IVA 0%', barcode: null },
-    { name: 'Pollo entero 2kg', price: 19500, cost: 13900, baseUnit: 'KG', categorySlug: 'carniceria', vatRateName: 'IVA 0%', barcode: null },
-    { name: 'Chicharrón 500g', price: 14200, cost: 10700, baseUnit: 'KG', categorySlug: 'carniceria', vatRateName: 'IVA 0%', barcode: null },
-    { name: 'Chorizo paisa x6', price: 9800, cost: 7100, baseUnit: 'PQTE', categorySlug: 'carniceria', vatRateName: 'IVA 0%', barcode: '7702011000503' },
-    { name: 'Tilapia fresca 500g', price: 18200, cost: 13800, baseUnit: 'KG', categorySlug: 'carniceria', vatRateName: 'IVA 0%', barcode: null },
-    { name: 'Costilla de cerdo 1kg', price: 22500, cost: 16900, baseUnit: 'KG', categorySlug: 'carniceria', vatRateName: 'IVA 0%', barcode: null },
-    { name: 'Lomo fino de res 1kg', price: 38900, cost: 29800, baseUnit: 'KG', categorySlug: 'carniceria', vatRateName: 'IVA 0%', barcode: null },
+    {
+      name: 'Carne de res molida 500g',
+      price: 16800,
+      cost: 12500,
+      baseUnit: 'KG',
+      categorySlug: 'carniceria',
+      vatRateName: 'IVA 0%',
+      barcode: null,
+    },
+    {
+      name: 'Pollo entero 2kg',
+      price: 19500,
+      cost: 13900,
+      baseUnit: 'KG',
+      categorySlug: 'carniceria',
+      vatRateName: 'IVA 0%',
+      barcode: null,
+    },
+    {
+      name: 'Chicharrón 500g',
+      price: 14200,
+      cost: 10700,
+      baseUnit: 'KG',
+      categorySlug: 'carniceria',
+      vatRateName: 'IVA 0%',
+      barcode: null,
+    },
+    {
+      name: 'Chorizo paisa x6',
+      price: 9800,
+      cost: 7100,
+      baseUnit: 'PQTE',
+      categorySlug: 'carniceria',
+      vatRateName: 'IVA 0%',
+      barcode: '7702011000503',
+    },
+    {
+      name: 'Tilapia fresca 500g',
+      price: 18200,
+      cost: 13800,
+      baseUnit: 'KG',
+      categorySlug: 'carniceria',
+      vatRateName: 'IVA 0%',
+      barcode: null,
+    },
+    {
+      name: 'Costilla de cerdo 1kg',
+      price: 22500,
+      cost: 16900,
+      baseUnit: 'KG',
+      categorySlug: 'carniceria',
+      vatRateName: 'IVA 0%',
+      barcode: null,
+    },
+    {
+      name: 'Lomo fino de res 1kg',
+      price: 38900,
+      cost: 29800,
+      baseUnit: 'KG',
+      categorySlug: 'carniceria',
+      vatRateName: 'IVA 0%',
+      barcode: null,
+    },
 
     // Limpieza
-    { name: 'Detergente Fab 1kg', price: 11500, cost: 8200, baseUnit: 'UND', categorySlug: 'limpieza', vatRateName: 'IVA 19%', barcode: '7702011000601' },
-    { name: 'Jabón Rey x3', price: 7200, cost: 4900, baseUnit: 'PQTE', categorySlug: 'limpieza', vatRateName: 'IVA 19%', barcode: '7702011000602' },
-    { name: 'Limpiador multiusos 1L', price: 6800, cost: 4200, baseUnit: 'UND', categorySlug: 'limpieza', vatRateName: 'IVA 19%', barcode: '7702011000603' },
-    { name: 'Papel Higiénico x12', price: 18500, cost: 13400, baseUnit: 'PQTE', categorySlug: 'limpieza', vatRateName: 'IVA 19%', barcode: '7702011000604' },
-    { name: 'Blanqueador 2L', price: 7900, cost: 5100, baseUnit: 'UND', categorySlug: 'limpieza', vatRateName: 'IVA 19%', barcode: '7702011000605' },
-    { name: 'Esponja Scotch-Brite x2', price: 4800, cost: 3100, baseUnit: 'PQTE', categorySlug: 'limpieza', vatRateName: 'IVA 19%', barcode: '7702011000606' },
+    {
+      name: 'Detergente Fab 1kg',
+      price: 11500,
+      cost: 8200,
+      baseUnit: 'UND',
+      categorySlug: 'limpieza',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000601',
+    },
+    {
+      name: 'Jabón Rey x3',
+      price: 7200,
+      cost: 4900,
+      baseUnit: 'PQTE',
+      categorySlug: 'limpieza',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000602',
+    },
+    {
+      name: 'Limpiador multiusos 1L',
+      price: 6800,
+      cost: 4200,
+      baseUnit: 'UND',
+      categorySlug: 'limpieza',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000603',
+    },
+    {
+      name: 'Papel Higiénico x12',
+      price: 18500,
+      cost: 13400,
+      baseUnit: 'PQTE',
+      categorySlug: 'limpieza',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000604',
+    },
+    {
+      name: 'Blanqueador 2L',
+      price: 7900,
+      cost: 5100,
+      baseUnit: 'UND',
+      categorySlug: 'limpieza',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000605',
+    },
+    {
+      name: 'Esponja Scotch-Brite x2',
+      price: 4800,
+      cost: 3100,
+      baseUnit: 'PQTE',
+      categorySlug: 'limpieza',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000606',
+    },
 
     // Papelería
-    { name: 'Cuaderno cuadros 100h', price: 6500, cost: 4100, baseUnit: 'UND', categorySlug: 'papeleria', vatRateName: 'IVA 19%', barcode: '7702011000701' },
-    { name: 'Lapicero BIC azul', price: 2200, cost: 1200, baseUnit: 'UND', categorySlug: 'papeleria', vatRateName: 'IVA 19%', barcode: '7702011000702' },
-    { name: 'Borrador Pelikan', price: 1800, cost: 900, baseUnit: 'UND', categorySlug: 'papeleria', vatRateName: 'IVA 19%', barcode: '7702011000703' },
-    { name: 'Regla 30cm', price: 3500, cost: 2100, baseUnit: 'UND', categorySlug: 'papeleria', vatRateName: 'IVA 19%', barcode: '7702011000704' },
-    { name: 'Tijeras escolares', price: 6800, cost: 4400, baseUnit: 'UND', categorySlug: 'papeleria', vatRateName: 'IVA 19%', barcode: '7702011000705' },
-    { name: 'Pegante barra Pritt', price: 4200, cost: 2700, baseUnit: 'UND', categorySlug: 'papeleria', vatRateName: 'IVA 19%', barcode: '7702011000706' },
+    {
+      name: 'Cuaderno cuadros 100h',
+      price: 6500,
+      cost: 4100,
+      baseUnit: 'UND',
+      categorySlug: 'papeleria',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000701',
+    },
+    {
+      name: 'Lapicero BIC azul',
+      price: 2200,
+      cost: 1200,
+      baseUnit: 'UND',
+      categorySlug: 'papeleria',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000702',
+    },
+    {
+      name: 'Borrador Pelikan',
+      price: 1800,
+      cost: 900,
+      baseUnit: 'UND',
+      categorySlug: 'papeleria',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000703',
+    },
+    {
+      name: 'Regla 30cm',
+      price: 3500,
+      cost: 2100,
+      baseUnit: 'UND',
+      categorySlug: 'papeleria',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000704',
+    },
+    {
+      name: 'Tijeras escolares',
+      price: 6800,
+      cost: 4400,
+      baseUnit: 'UND',
+      categorySlug: 'papeleria',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000705',
+    },
+    {
+      name: 'Pegante barra Pritt',
+      price: 4200,
+      cost: 2700,
+      baseUnit: 'UND',
+      categorySlug: 'papeleria',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000706',
+    },
 
     // Licores
-    { name: 'Ron Medellín Añejo 3 años 750ml', price: 49900, cost: 34900, baseUnit: 'UND', categorySlug: 'licores', vatRateName: 'IVA 19%', barcode: '7702011000801' },
-    { name: 'Aguardiente Antioqueño 750ml', price: 39900, cost: 27500, baseUnit: 'UND', categorySlug: 'licores', vatRateName: 'IVA 19%', barcode: '7702011000802' },
-    { name: 'Cerveza Club Colombia 330ml', price: 4200, cost: 2800, baseUnit: 'UND', categorySlug: 'licores', vatRateName: 'IVA 19%', barcode: '7702011000803' },
-    { name: 'Vodka Smirnoff 700ml', price: 69900, cost: 48500, baseUnit: 'UND', categorySlug: 'licores', vatRateName: 'IVA 19%', barcode: '7702011000804' },
-    { name: 'Whisky Old Parr 750ml', price: 189900, cost: 139900, baseUnit: 'UND', categorySlug: 'licores', vatRateName: 'IVA 19%', barcode: '7702011000805' },
-    { name: 'Gin Beefeater 700ml', price: 95000, cost: 68900, baseUnit: 'UND', categorySlug: 'licores', vatRateName: 'IVA 19%', barcode: '7702011000806' },
+    {
+      name: 'Ron Medellín Añejo 3 años 750ml',
+      price: 49900,
+      cost: 34900,
+      baseUnit: 'UND',
+      categorySlug: 'licores',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000801',
+    },
+    {
+      name: 'Aguardiente Antioqueño 750ml',
+      price: 39900,
+      cost: 27500,
+      baseUnit: 'UND',
+      categorySlug: 'licores',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000802',
+    },
+    {
+      name: 'Cerveza Club Colombia 330ml',
+      price: 4200,
+      cost: 2800,
+      baseUnit: 'UND',
+      categorySlug: 'licores',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000803',
+    },
+    {
+      name: 'Vodka Smirnoff 700ml',
+      price: 69900,
+      cost: 48500,
+      baseUnit: 'UND',
+      categorySlug: 'licores',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000804',
+    },
+    {
+      name: 'Whisky Old Parr 750ml',
+      price: 189900,
+      cost: 139900,
+      baseUnit: 'UND',
+      categorySlug: 'licores',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000805',
+    },
+    {
+      name: 'Gin Beefeater 700ml',
+      price: 95000,
+      cost: 68900,
+      baseUnit: 'UND',
+      categorySlug: 'licores',
+      vatRateName: 'IVA 19%',
+      barcode: '7702011000806',
+    },
   ];
 
   // Assign initial stock deterministically: first product of each
@@ -1397,7 +1821,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
  */
 function deriveSiteSequentialSuffix(name: string, index: number): string {
   const words = name.split(/\s+/).filter(Boolean);
-  const candidate = words.length >= 2 ? words[1]! : words[0] ?? '';
+  const candidate = words.length >= 2 ? words[1]! : (words[0] ?? '');
   const firstLetter = candidate.charAt(0).toUpperCase();
   if (firstLetter.match(/[A-Z]/)) {
     return firstLetter;
@@ -1435,7 +1859,8 @@ async function insertProductRow(
   }
 ): Promise<void> {
   const { products, unitXProduct, productXProvider } = await import('./schema.js');
-  const { id, tenantId, now, def, categoryId, vatRateId, locationId, unitIds, defaultProviderId } = args;
+  const { id, tenantId, now, def, categoryId, vatRateId, locationId, unitIds, defaultProviderId } =
+    args;
   const baseUnitId = unitIds[def.baseUnit]!;
   // Cost → price margin math is computed upstream in the service; for
   // the seed we store the raw cost and let margin fields stay 0 so
@@ -1770,19 +2195,16 @@ async function runSalesBatch(
   let created = 0;
   for (let i = 0; i < args.count; i += 1) {
     // Mix of sale shapes:
-    //  - every third sale uses a split tender (cash + card)
-    //  - every fifth uses no customer (consumidor final path — null)
-    //  - line count varies 1–3 items
+    // - every third sale uses a split tender (cash + card)
+    // - every fifth uses no customer (consumidor final path — null)
+    // - line count varies 1–3 items
     const useSplit = i % 3 === 0;
     const noCustomer = i % 5 === 0;
     const itemCount = 1 + (i % 3);
     const items = [];
     let subtotalEstimate = 0;
     for (let j = 0; j < itemCount; j += 1) {
-      const product =
-        args.products[
-          (args.cashierIndex * 7 + i * 3 + j) % args.products.length
-        ]!;
+      const product = args.products[(args.cashierIndex * 7 + i * 3 + j) % args.products.length]!;
       const quantity = 1 + (j % 3);
       items.push({
         productId: product.id,
@@ -1806,7 +2228,11 @@ async function runSalesBatch(
           discountAmount: 0,
           payments: [
             { method: 'cash', amount: cashPart },
-            { method: 'card', amount: cardPart, reference: `AUTH-${String(1000 + i).padStart(6, '0')}` },
+            {
+              method: 'card',
+              amount: cardPart,
+              reference: `AUTH-${String(1000 + i).padStart(6, '0')}`,
+            },
           ],
         });
       } else {
@@ -2011,7 +2437,7 @@ function buildDefaultReceiptLayouts(): Record<
           { type: 'tendersTable', showChange: true },
           { type: 'separator' },
           { type: 'text', value: 'Gracias por tu compra', align: 'center', style: 'muted' },
-          // ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
+          // pass 1 (item #5) — Puntovivo-branded footer block.
           // Admins can toggle `show: false` to hide without deleting.
           { type: 'appFooter', show: true, align: 'center' },
         ],
@@ -2023,7 +2449,12 @@ function buildDefaultReceiptLayouts(): Record<
         paperWidth: 'letter',
         blocks: [
           { type: 'text', value: '{{company.name}}', style: 'title', align: 'center' },
-          { type: 'text', value: 'Cotización {{sale.saleNumber}}', style: 'subtitle', align: 'center' },
+          {
+            type: 'text',
+            value: 'Cotización {{sale.saleNumber}}',
+            style: 'subtitle',
+            align: 'center',
+          },
           { type: 'text', value: 'Cliente: {{sale.customer}}' },
           { type: 'separator' },
           {
@@ -2043,7 +2474,12 @@ function buildDefaultReceiptLayouts(): Record<
         blocks: [
           { type: 'text', value: '{{company.name}}', style: 'title', align: 'center' },
           { type: 'text', value: 'NIT {{company.taxId}}', style: 'muted', align: 'center' },
-          { type: 'text', value: 'Resolución {{fiscal.resolution}}', style: 'muted', align: 'center' },
+          {
+            type: 'text',
+            value: 'Resolución {{fiscal.resolution}}',
+            style: 'muted',
+            align: 'center',
+          },
           { type: 'separator' },
           { type: 'text', value: '{{fiscal.documentNumber}}', style: 'subtitle', align: 'center' },
           { type: 'separator' },
@@ -2067,28 +2503,84 @@ async function summarizeTenant(
   db: DatabaseInstance,
   tenantId: string
 ): Promise<{ companyId: string; counts: SeedDevCounts }> {
-  const {
-    products,
-    purchases,
-    sales,
-    quotations,
-    transferOrders,
-    cashSessions,
-  } = await import('./schema.js');
-  const [company, catCount, provCount, custCount, prodCount, siteCount, saleCount, purchCount, quoteCount, trCount, sessCount, tplCount, userCount] = await Promise.all([
+  const { products, purchases, sales, quotations, transferOrders, cashSessions } =
+    await import('./schema.js');
+  const [
+    company,
+    catCount,
+    provCount,
+    custCount,
+    prodCount,
+    siteCount,
+    saleCount,
+    purchCount,
+    quoteCount,
+    trCount,
+    sessCount,
+    tplCount,
+    userCount,
+  ] = await Promise.all([
     db.select({ id: companies.id }).from(companies).where(eq(companies.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from(categories).where(eq(categories.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from(providers).where(eq(providers.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from(customers).where(eq(customers.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from(products).where(eq(products.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from(sites).where(eq(sites.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from(sales).where(eq(sales.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from(purchases).where(eq(purchases.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from(quotations).where(eq(quotations.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from(transferOrders).where(eq(transferOrders.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from(cashSessions).where(eq(cashSessions.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from((await import('./schema.js')).receiptTemplates).where(eq((await import('./schema.js')).receiptTemplates.tenantId, tenantId)).get(),
-    db.select({ c: sql<number>`count(*)` }).from(users).where(eq(users.tenantId, tenantId)).get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(categories)
+      .where(eq(categories.tenantId, tenantId))
+      .get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(providers)
+      .where(eq(providers.tenantId, tenantId))
+      .get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(customers)
+      .where(eq(customers.tenantId, tenantId))
+      .get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(products)
+      .where(eq(products.tenantId, tenantId))
+      .get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(sites)
+      .where(eq(sites.tenantId, tenantId))
+      .get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(sales)
+      .where(eq(sales.tenantId, tenantId))
+      .get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(purchases)
+      .where(eq(purchases.tenantId, tenantId))
+      .get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(quotations)
+      .where(eq(quotations.tenantId, tenantId))
+      .get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(transferOrders)
+      .where(eq(transferOrders.tenantId, tenantId))
+      .get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(cashSessions)
+      .where(eq(cashSessions.tenantId, tenantId))
+      .get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from((await import('./schema.js')).receiptTemplates)
+      .where(eq((await import('./schema.js')).receiptTemplates.tenantId, tenantId))
+      .get(),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(users)
+      .where(eq(users.tenantId, tenantId))
+      .get(),
   ]);
   return {
     companyId: company?.id ?? '',

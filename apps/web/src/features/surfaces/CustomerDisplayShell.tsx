@@ -1,16 +1,16 @@
 /**
- * ENG-069 — Customer Display shell.
+ * Customer Display shell.
  *
  * Second-monitor cart mirror — read-only chrome for a public-facing
  * screen that shows the cashier's cart to the customer. v1 ships
  * the layout chrome only; the actual cart-mirror data flow lands
- * with ENG-039 (or a follow-up that adds a session-token-based
+ * with  (or a follow-up that adds a session-token-based
  * unauthenticated mode).
  *
  * v1 keeps this surface BEHIND the auth shell (cashier role, enforced
  * by `SurfaceShellRoute`) so the operator launches it from inside the
  * authenticated session. A future iteration may add an unauthenticated
- * mode for public second monitors. ENG-183 — role + module gating moved
+ * mode for public second monitors.  — role + module gating moved
  * up to `SurfaceShellRoute`; this shell is pure presentational chrome.
  *
  * @module features/surfaces/CustomerDisplayShell

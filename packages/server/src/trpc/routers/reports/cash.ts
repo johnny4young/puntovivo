@@ -1,5 +1,5 @@
 /**
- * ENG-065b — Cash reports sub-router (`reports.cash.*`).
+ * Cash reports sub-router (`reports.cash.*`).
  *
  * Tenant-wide read-only aggregates for the Operations Center Cash tab.
  *
@@ -41,12 +41,12 @@ export const cashReportsRouter = router({
    * Tenant-wide cash reconciliation snapshot for the Operations Center.
    *
    * Returns:
-   *   - `summary` — tile values (open sessions, closed in window, net
-   *     over/short, largest |overShort|, review count).
-   *   - `bySite` — per-site breakdown so the operator knows which site
-   *     is bleeding cash.
-   *   - `recentDiscrepancies` — top |overShort| closed sessions in the
-   *     30-day window, capped by `input.limit`.
+   * - `summary` — tile values (open sessions, closed in window, net
+   * over/short, largest |overShort|, review count).
+   * - `bySite` — per-site breakdown so the operator knows which site
+   * is bleeding cash.
+   * - `recentDiscrepancies` — top |overShort| closed sessions in the
+   * 30-day window, capped by `input.limit`.
    *
    * The 30-day cutoff keeps the query bounded for tenants with deep
    * historical data and matches operator expectations ("show me what's
@@ -58,7 +58,7 @@ export const cashReportsRouter = router({
       const sinceIso = isoDaysAgo(RECENT_CLOSURE_WINDOW_DAYS);
 
       // 1. Open sessions across the tenant (no date cutoff — every open
-      //    session matters for the live counter).
+      // session matters for the live counter).
       const openRows = await ctx.db
         .select({
           siteId: cashSessions.siteId,
@@ -66,16 +66,11 @@ export const cashReportsRouter = router({
         })
         .from(cashSessions)
         .innerJoin(sites, eq(cashSessions.siteId, sites.id))
-        .where(
-          and(
-            eq(cashSessions.tenantId, ctx.tenantId),
-            eq(cashSessions.status, 'open')
-          )
-        )
+        .where(and(eq(cashSessions.tenantId, ctx.tenantId), eq(cashSessions.status, 'open')))
         .all();
 
       // 2. Closed sessions in the 30-day window — drives both the
-      //    summary tiles and the bySite breakdown.
+      // summary tiles and the bySite breakdown.
       const closedRows = await ctx.db
         .select({
           id: cashSessions.id,
@@ -108,10 +103,7 @@ export const cashReportsRouter = router({
         closedRows.reduce((sum, row) => sum + (row.overShort ?? 0), 0)
       );
       const largestDiscrepancy = roundCurrency(
-        closedRows.reduce(
-          (max, row) => Math.max(max, Math.abs(row.overShort ?? 0)),
-          0
-        )
+        closedRows.reduce((max, row) => Math.max(max, Math.abs(row.overShort ?? 0)), 0)
       );
 
       const summary = {

@@ -1,9 +1,9 @@
 /**
- * ENG-031 — co-pilot type surface.
+ * co-pilot type surface.
  *
  * The public chat / SQL-result shapes consumed across the service + the tRPC
  * router, plus the internal snapshot / usage / run-option shapes shared
- * between the per-concern modules. Split out of `copilot.ts` (ENG-178) so
+ * between the per-concern modules. Split out of `copilot.ts` () so
  * every module imports its types from one leaf.
  *
  * @module services/ai/copilot/types
@@ -15,7 +15,7 @@ export interface CopilotChatMessage {
   content: string;
 }
 
-// ENG-179b — explicit `| undefined` so the tRPC router input (Zod-
+// explicit `| undefined` so the tRPC router input (Zod-
 // parsed; optional fields decode as `T | undefined`) assigns cleanly.
 export interface CopilotContextInput {
   from?: string | undefined;

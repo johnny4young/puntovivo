@@ -1,4 +1,4 @@
-/** ENG-136b — read-only, tenant-scoped backup inspection helpers. */
+/** read-only, tenant-scoped backup inspection helpers. */
 
 import Database from 'better-sqlite3';
 import { applySqlCipherKey } from './encryption.ts';

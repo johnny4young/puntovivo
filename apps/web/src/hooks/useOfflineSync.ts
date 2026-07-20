@@ -49,7 +49,7 @@ export function useOfflineSync() {
 
     if (hasDesktopSync && window.api) {
       try {
-        // ENG-025 — sync APIs derive tenantId from desktopSession.
+        // sync APIs derive tenantId from desktopSession.
         const syncStatus = await window.api.sync.getStatus();
         setStatus(prev => ({
           ...prev,
@@ -125,7 +125,7 @@ export function useOfflineSync() {
     setStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
     try {
-      // ENG-025 — sync APIs derive tenantId from desktopSession.
+      // sync APIs derive tenantId from desktopSession.
       const result = await window.api.sync.triggerSync();
       setStatus(prev => ({
         ...prev,
@@ -176,22 +176,19 @@ export function useOfflineSync() {
     delayMs: 5_000,
   });
   useEffect(() => {
-    if (
-      !(
-        tenantId &&
-        status.isOnline &&
-        status.pendingItems > 0 &&
-        status.conflicts === 0 &&
-        !status.isSyncing &&
-        !status.error
-      )
-    ) {
+    if (!(
+      tenantId &&
+      status.isOnline &&
+      status.pendingItems > 0 &&
+      status.conflicts === 0 &&
+      !status.isSyncing &&
+      !status.error
+    )) {
       return;
     }
     const gate = autoSyncGateRef.current;
     const now = Date.now();
-    const madeProgress =
-      gate.lastPending === -1 || status.pendingItems < gate.lastPending;
+    const madeProgress = gate.lastPending === -1 || status.pendingItems < gate.lastPending;
     if (madeProgress) {
       gate.delayMs = 5_000;
     }

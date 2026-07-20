@@ -1,5 +1,5 @@
 /**
- * recordCreditSaleLedger — ENG-090
+ * recordCreditSaleLedger —
  *
  * Writes a `customer_ledger_entries` row of kind 'sale' when a
  * completed sale is paid (in whole or in part) with the credit

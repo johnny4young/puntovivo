@@ -104,10 +104,10 @@ export function QuotationDetailsModal({
             </span>
           </div>
 
-          {/* ENG-085 — V7 customer card. Surfaces name + NIT + email/phone
-            * inline so the operator can verify the buyer without leaving
-            * the drawer. Credit / cupo / saldo are scaffolded with "—"
-            * placeholders until the ledger from ENG-089 is wired in. */}
+          {/* V7 customer card. Surfaces name + NIT + email/phone
+           * inline so the operator can verify the buyer without leaving
+           * the drawer. Credit / cupo / saldo are scaffolded with "—"
+           * placeholders until the ledger from  is wired in. */}
           <section className="card relative overflow-hidden p-5">
             <div
               aria-hidden="true"
@@ -119,7 +119,9 @@ export function QuotationDetailsModal({
             />
             <div className="relative grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
               <div>
-                <p className="page-kicker">{t('details.customerKicker', { defaultValue: 'Cliente' })}</p>
+                <p className="page-kicker">
+                  {t('details.customerKicker', { defaultValue: 'Cliente' })}
+                </p>
                 <h3 className="mt-1 font-display text-xl tracking-[-0.02em] text-secondary-950">
                   {detailQuery.data.customerName ?? t('history.customerNone')}
                 </h3>
@@ -165,24 +167,22 @@ export function QuotationDetailsModal({
             </div>
             <p className="relative mt-3 text-[10.5px] uppercase tracking-[0.18em] text-secondary-500">
               {t('details.ledgerPending', {
-                defaultValue: 'El estado de cuenta del cliente llegará con ENG-089.',
+                defaultValue: 'El estado de cuenta del cliente llegará con .',
               })}
             </p>
           </section>
 
-          {/* ENG-085 — V7 layout: metadata sits in a card-inset with the
-            * kicker pattern, and a dedicated "Despacho · vigencia" panel
-            * elevates the validity date to a first-class signal. */}
+          {/* V7 layout: metadata sits in a card-inset with the
+           * kicker pattern, and a dedicated "Despacho · vigencia" panel
+           * elevates the validity date to a first-class signal. */}
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,260px)]">
             <dl className="card-inset grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
-              {/* ENG-132d — site moved here from the trimmed history column. */}
+              {/* site moved here from the trimmed history column. */}
               <div>
                 <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
                   {t('details.site')}
                 </dt>
-                <dd className="mt-1 text-sm text-secondary-900">
-                  {detailQuery.data.siteName}
-                </dd>
+                <dd className="mt-1 text-sm text-secondary-900">{detailQuery.data.siteName}</dd>
               </div>
               <div>
                 <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">

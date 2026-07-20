@@ -1,5 +1,5 @@
 /**
- * ENG-040 — EmbeddingDriftBanner unit tests.
+ * EmbeddingDriftBanner unit tests.
  *
  * Drives the banner standalone with synthetic `embeddingHealth`
  * payloads so each render path is independent of ProductsPage layout.
@@ -73,7 +73,7 @@ function buildHealth(overrides: Partial<NonNullable<Health>> = {}): NonNullable<
   } as NonNullable<Health>;
 }
 
-describe('EmbeddingDriftBanner (ENG-040)', () => {
+describe('EmbeddingDriftBanner', () => {
   beforeEach(() => {
     useAuthMock.mockReset();
     regenerateMutateMock.mockReset();

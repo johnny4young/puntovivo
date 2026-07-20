@@ -1,4 +1,4 @@
-/** ENG-178 — Presentational line editor for quotation creation. */
+/** Presentational line editor for quotation creation. */
 import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -119,7 +119,7 @@ export function QuotationLinesEditor({
                     {/* V7 — tier badge column. Read-only display of the
                      * product's first configured price tier. Falls back
                      * to "—" so the chrome stays present even when no
-                     * wholesale tier is configured (handoff §7 read-only). */}
+                     * wholesale tier is configured (design specification read-only). */}
                     {product ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-primary-700">
                         {t('create.tierBadge', { defaultValue: 'Pista 1' })}

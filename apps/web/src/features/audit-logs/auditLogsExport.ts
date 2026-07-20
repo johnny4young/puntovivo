@@ -4,19 +4,17 @@ import { formatDateTime } from '@/lib/utils';
 import type { AuditLogEntry } from '@/types';
 
 /**
- * Phase 8 / Tier-2 #8 — CSV / Excel / PDF export columns for the audit
+ * CSV / Excel / PDF export columns for the audit
  * log viewer. Keep the column config as a pure builder so the table can
  * regenerate localized headers and enum labels when the operator switches
  * languages without duplicating export formatting logic in the component.
  */
-// ENG-179b — accept i18next's `TFunction` directly so any namespace
+// accept i18next's `TFunction` directly so any namespace
 // projection from `useTranslation([...])` flows in without per-test
 // casts.
 type TranslateFn = TFunction;
 
-export function getAuditLogsExportColumns(
-  t: TranslateFn
-): ExportColumn<AuditLogEntry>[] {
+export function getAuditLogsExportColumns(t: TranslateFn): ExportColumn<AuditLogEntry>[] {
   return [
     {
       key: 'createdAt',

@@ -6,7 +6,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { cn } from '@/lib/utils';
 
 /**
- * ENG-135 — Per-tenant telemetry opt-in toggle.
+ * Per-tenant telemetry opt-in toggle.
  *
  * Reads the current state from `companies.getCurrent.telemetryOptIn`
  * (defaulted to false). Admins can flip the flag via
@@ -28,9 +28,7 @@ export function CompanyTelemetryCard() {
     onSuccess: async ({ telemetryOptIn: next }) => {
       await utils.companies.getCurrent.invalidate();
       toast.success({
-        title: next
-          ? t('company.telemetry.toast.enabled')
-          : t('company.telemetry.toast.disabled'),
+        title: next ? t('company.telemetry.toast.enabled') : t('company.telemetry.toast.disabled'),
       });
     },
     onError: onErrorToast(toast, t, {
@@ -60,9 +58,7 @@ export function CompanyTelemetryCard() {
           <h2 className="text-lg font-semibold text-secondary-950">
             {t('company.telemetry.title')}
           </h2>
-          <p className="text-sm text-secondary-500">
-            {t('company.telemetry.description')}
-          </p>
+          <p className="text-sm text-secondary-500">{t('company.telemetry.description')}</p>
         </div>
       </div>
 

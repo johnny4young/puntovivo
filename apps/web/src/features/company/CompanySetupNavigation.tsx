@@ -12,7 +12,7 @@ interface CompanySetupNavigationProps {
   onTabChange: (tab: CompanyTabKey) => void;
 }
 
-/** ENG-178 — Grouped company setup navigation. */
+/** Grouped company setup navigation. */
 export function CompanySetupNavigation({
   activeTab,
   onTabChange,

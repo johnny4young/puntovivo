@@ -8,7 +8,7 @@ import {
 } from './useBarcodeWedgeListener';
 
 /**
- * ENG-061 — useBarcodeWedgeListener tests.
+ * useBarcodeWedgeListener tests.
  *
  * Drives the document-level keydown listener through a controllable
  * clock and asserts that fast bursts emit `onScan` while manual
@@ -27,7 +27,9 @@ function fireKey(key: string) {
   document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
 }
 
-function buildOptions(overrides?: Partial<UseBarcodeWedgeListenerOptions>): UseBarcodeWedgeListenerOptions {
+function buildOptions(
+  overrides?: Partial<UseBarcodeWedgeListenerOptions>
+): UseBarcodeWedgeListenerOptions {
   return {
     config: { ...DEFAULT_WEDGE_CONFIG },
     onScan: vi.fn(),
@@ -95,9 +97,7 @@ describe('useBarcodeWedgeListener', () => {
 
   it('suppresses every emission while ProductSearchDialog is open', () => {
     const onScan = vi.fn();
-    renderHook(() =>
-      useBarcodeWedgeListener(buildOptions({ onScan, isProductSearchOpen: true }))
-    );
+    renderHook(() => useBarcodeWedgeListener(buildOptions({ onScan, isProductSearchOpen: true })));
 
     for (const char of '7702049000031') {
       advance(5);
@@ -156,7 +156,7 @@ describe('useBarcodeWedgeListener', () => {
     document.body.removeChild(input);
   });
 
-  describe('scannerInputRef whitelist (ENG-105f)', () => {
+  describe('scannerInputRef whitelist', () => {
     it('processes a scan whose target is the whitelisted scanner input', () => {
       const onScan = vi.fn();
       const scannerInput = document.createElement('input');
@@ -168,14 +168,10 @@ describe('useBarcodeWedgeListener', () => {
       const code = '7702049000031';
       for (const char of code) {
         advance(5);
-        scannerInput.dispatchEvent(
-          new KeyboardEvent('keydown', { key: char, bubbles: true })
-        );
+        scannerInput.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
       }
       advance(5);
-      scannerInput.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
-      );
+      scannerInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
       expect(onScan).toHaveBeenCalledWith('7702049000031');
       document.body.removeChild(scannerInput);
@@ -194,14 +190,10 @@ describe('useBarcodeWedgeListener', () => {
       scannerInput.value = '7702049000031';
       for (const char of '7702049000031') {
         advance(5);
-        scannerInput.dispatchEvent(
-          new KeyboardEvent('keydown', { key: char, bubbles: true })
-        );
+        scannerInput.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
       }
       advance(5);
-      scannerInput.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
-      );
+      scannerInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
       expect(onScan).toHaveBeenCalledTimes(1);
       expect(scannerInput.value).toBe('');
@@ -220,13 +212,9 @@ describe('useBarcodeWedgeListener', () => {
       otherInput.focus();
       for (const char of '7702049000031') {
         advance(5);
-        otherInput.dispatchEvent(
-          new KeyboardEvent('keydown', { key: char, bubbles: true })
-        );
+        otherInput.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
       }
-      otherInput.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
-      );
+      otherInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
       expect(onScan).not.toHaveBeenCalled();
       document.body.removeChild(scannerInput);
@@ -246,13 +234,9 @@ describe('useBarcodeWedgeListener', () => {
       // enough chars to satisfy minLength on the trailing Enter.
       for (const char of '7702049000031') {
         advance(200);
-        scannerInput.dispatchEvent(
-          new KeyboardEvent('keydown', { key: char, bubbles: true })
-        );
+        scannerInput.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
       }
-      scannerInput.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
-      );
+      scannerInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
       expect(onScan).not.toHaveBeenCalled();
       document.body.removeChild(scannerInput);

@@ -1,5 +1,5 @@
-// ENG-132a / ENG-048 — the ProductsPage table column factory, extracted from
-// ProductsPage.tsx (ENG-178 slice 32). Pure presentational: given the row
+// /  — the ProductsPage table column factory, extracted from
+// ProductsPage.tsx ( slice 32). Pure presentational: given the row
 // action callbacks + role/mode flags it returns the DataTable column set.
 
 import { ColumnDef } from '@tanstack/react-table';
@@ -8,20 +8,20 @@ import i18next from 'i18next';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { Product } from '@/types';
 
-// ENG-048 — when ProductsPage runs in semantic-search mode the rows
+// when ProductsPage runs in semantic-search mode the rows
 // carry an extra optional `similarity` score. Using the loose row type
 // here keeps the literal-mode columns identical and lets the optional
 // "Match" column read the score from the semantic-mode rows without
 // changing the public `Product` type for unrelated callers.
 export type DisplayProduct = Product & { similarity?: number };
 
-// ENG-132a — the default table renders the smallest useful column set for
+// the default table renders the smallest useful column set for
 // an at-a-glance catalog scan (name+SKU, category, lead price, stock,
 // status). Provider, location, and the tier-2 / tier-3 prices are secondary
 // metadata moved behind the row-detail Drawer (`onViewDetails`) so the row
 // stays narrow. Every trimmed field is still exported (productExportColumns)
 // and still shown in the Drawer.
-// ENG-195 — margin traffic-light thresholds (gross margin %, last 30 days).
+// margin traffic-light thresholds (gross margin %, last 30 days).
 // Exported constants so a future tenant-level setting can replace them
 // without touching the column factory.
 export const MARGIN_GOOD_PCT = 30;
@@ -34,7 +34,7 @@ export const productsColumns = (
   canEdit: boolean,
   canDelete: boolean,
   showSimilarity: boolean,
-  // ENG-195 — productId → realized gross margin % (30-day window, from
+  // productId → realized gross margin % (30-day window, from
   // reports.profit.margin). Null hides the column entirely (non-admin
   // viewers); a map without the product renders an em dash (no sales in
   // the window).
@@ -44,7 +44,7 @@ export const productsColumns = (
     accessorKey: 'name',
     header: () => i18next.t('products:table.product'),
     size: 240,
-    // Rediseño FASE 3 — celda ancla (.pv-table .prod/.pic/.pname/.sku):
+    // celda ancla (.pv-table .prod/.pic/.pname/.sku):
     // glifo tonal + nombre fuerte + SKU mono legible debajo.
     cell: ({ row }) => (
       <div className="prod">
@@ -68,7 +68,7 @@ export const productsColumns = (
     accessorKey: 'price',
     header: () => i18next.t('products:table.tier1'),
     size: 110,
-    // Rediseño FASE 3 — montos mono alineados a la derecha (`num`); el
+    // montos mono alineados a la derecha (`num`); el
     // tier líder en negrita vía `.pv-tier .lead`.
     meta: { cellClassName: 'num', headerClassName: 'num' },
     cell: ({ row }) => (
@@ -81,7 +81,7 @@ export const productsColumns = (
     accessorKey: 'stock',
     header: () => i18next.t('products:table.stock'),
     size: 120,
-    // Rediseño FASE 3 — barra de stock proporcional; `low` la pinta en
+    // barra de stock proporcional; `low` la pinta en
     // danger. La barra llena al 50% cuando stock == mínimo y crece hacia
     // 100% (2x mínimo), con piso visible para que siempre se lea.
     meta: { cellClassName: 'num', headerClassName: 'num' },
@@ -204,7 +204,7 @@ export const productsColumns = (
     size: 130,
     cell: ({ row }) => (
       <div className="flex items-center gap-1">
-        {/* ENG-132a — Details is the progressive-disclosure affordance for
+        {/* Details is the progressive-disclosure affordance for
             the trimmed columns (provider / location / tier2 / tier3 …);
             available to every role and focusable in tab order. */}
         <button

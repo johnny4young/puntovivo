@@ -1,4 +1,4 @@
-/** ENG-123c — Explicit real/demo launch-import safety. */
+/** Explicit real/demo launch-import safety. */
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -11,7 +11,7 @@ import { commitLaunchProductImportInput } from '../trpc/schemas/launchMigration.
 
 const rows = [{ rowNumber: 2, values: { name: 'Fixture', sku: 'FIXTURE-123C' } }];
 
-describe('ENG-123c launch import safety', () => {
+describe(' launch import safety', () => {
   it('binds the selected data mode into the preview hash', () => {
     const realHash = hashLaunchProductImport({
       dataMode: 'real',

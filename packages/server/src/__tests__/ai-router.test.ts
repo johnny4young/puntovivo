@@ -1,5 +1,5 @@
 /**
- * ENG-030 — `ai` tRPC router integration tests via createCaller.
+ * `ai` tRPC router integration tests via createCaller.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { TRPCError } from '@trpc/server';
@@ -231,15 +231,12 @@ describe('ai.settings.get', () => {
     expect(result.currentMonthSpendUsd).toBe(0);
     expect(result.availableProviders).toHaveLength(3);
     const byId = Object.fromEntries(result.availableProviders.map(p => [p.id, p]));
-    expect(byId.anthropic.isImplemented).toBe(true);
-    expect(byId.openai.isImplemented).toBe(true);
-    expect(byId.openai.availableInTicket).toBeUndefined();
-    // ENG-040b slice 1 — Ollama activated.
-    expect(byId.ollama.isImplemented).toBe(true);
-    expect(byId.ollama.availableInTicket).toBeUndefined();
+    expect(byId.anthropic.defaultModelId).toBeTruthy();
+    expect(byId.openai.defaultModelId).toBeTruthy();
+    expect(byId.ollama.defaultModelId).toBeTruthy();
   });
 
-  it('reports transcriptionAvailable=false for the default Anthropic tenant (ENG-040c slice 2)', async () => {
+  it('reports transcriptionAvailable=false for the default Anthropic tenant ( slice 2)', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
     );
@@ -250,7 +247,7 @@ describe('ai.settings.get', () => {
     expect(result.transcriptionAvailable).toBe(false);
   });
 
-  it('reports transcriptionAvailable=true once the tenant switches to OpenAI (ENG-040c slice 2)', async () => {
+  it('reports transcriptionAvailable=true once the tenant switches to OpenAI ( slice 2)', async () => {
     const db = getDatabase();
     const row = await db
       .select({ settings: tenants.settings })
@@ -409,7 +406,9 @@ describe('ai.invoiceOcr.confirm', () => {
     const audit = await db
       .select()
       .from(auditLogs)
-      .where(and(eq(auditLogs.action, 'ai.invoice_ocr.confirm'), eq(auditLogs.resourceId, uploadId)))
+      .where(
+        and(eq(auditLogs.action, 'ai.invoice_ocr.confirm'), eq(auditLogs.resourceId, uploadId))
+      )
       .get();
     expect(audit?.actorId).toBe(adminId);
     expect(audit?.metadata).toMatchObject({
@@ -521,9 +520,9 @@ describe('ai.settings.update', () => {
   });
 
   it('rejects unknown providerId values via the Zod enum', async () => {
-    // ENG-040b slice 1 — Ollama is now implemented, so no parked stub
+    //  slice 1 — Ollama is now implemented, so no parked stub
     // remains in the registry. The notImplemented-rejection branch in
-    // the router (it throws AI_PROVIDER_ERROR with the ticket hint)
+    // the router (it throws AI_PROVIDER_ERROR with the internal implementation hint)
     // stays in place for any future stub but cannot be exercised here.
     // Zod's enum validation on providerId still rejects unknown ids
     // with BAD_REQUEST — pin that boundary as the active gate.
@@ -1078,7 +1077,7 @@ describe('ai.anomalies.list', () => {
   });
 });
 
-describe('ai.extractInvoiceLines (ENG-040a)', () => {
+describe('ai.extractInvoiceLines', () => {
   it('rejects a cashier caller with FORBIDDEN', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: cashierId, role: 'cashier', siteId })

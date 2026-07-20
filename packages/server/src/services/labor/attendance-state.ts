@@ -69,7 +69,7 @@ export function getOpenEmployeeBreak(db: DatabaseInstance, tenantId: string, use
 }
 
 /**
- * ENG-140d — locate any open drawer owned by the employee, independent of
+ * locate any open drawer owned by the employee, independent of
  * the currently selected UI site. Legacy sessions may have a null labor link,
  * so the cashier identity remains the fail-closed source for clock-out.
  */

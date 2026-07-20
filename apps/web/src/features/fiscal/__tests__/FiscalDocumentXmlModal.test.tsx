@@ -1,7 +1,7 @@
 /**
- * ENG-035b + ENG-103 — Tests del FiscalDocumentXmlModal.
+ * +  — Tests del FiscalDocumentXmlModal.
  *
- * Post-ENG-103 el modal recibe `documentId` y resuelve el XML body
+ * Post- el modal recibe `documentId` y resuelve el XML body
  * lazy via `reports.fiscal.getXml`, en vez de aceptar el `xml` como
  * prop. La descarga ahora pasa por el helper `downloadFile`
  * centralizado en `services/export/exportService.ts`, y el server
@@ -33,7 +33,7 @@ interface GetXmlEnvelope {
 
 // Ref-based pattern (same as KdsBoard.test.tsx) so each test case can
 // swap the mocked tRPC query state without re-mocking the module.
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 const xmlQueryRef: { current: { data?: GetXmlEnvelope | undefined; isLoading: boolean } } = {
   current: { data: undefined, isLoading: false },
 };
@@ -61,7 +61,7 @@ const sampleEnvelope: GetXmlEnvelope = {
   mimeType: 'application/xml;charset=utf-8',
 };
 
-describe('FiscalDocumentXmlModal (ENG-035b + ENG-103)', () => {
+describe('FiscalDocumentXmlModal ( + )', () => {
   beforeEach(async () => {
     await i18next.changeLanguage('en');
     toastSuccess.mockReset();
@@ -155,10 +155,8 @@ describe('FiscalDocumentXmlModal (ENG-035b + ENG-103)', () => {
     const user = userEvent.setup();
     const createObjectURL = vi.fn().mockReturnValue('blob:fake');
     const revokeObjectURL = vi.fn();
-    const originalCreate = (URL as unknown as { createObjectURL?: unknown })
-      .createObjectURL;
-    const originalRevoke = (URL as unknown as { revokeObjectURL?: unknown })
-      .revokeObjectURL;
+    const originalCreate = (URL as unknown as { createObjectURL?: unknown }).createObjectURL;
+    const originalRevoke = (URL as unknown as { revokeObjectURL?: unknown }).revokeObjectURL;
     Object.assign(URL, { createObjectURL, revokeObjectURL });
 
     // Spy on anchor.download so we can confirm the canonical filename

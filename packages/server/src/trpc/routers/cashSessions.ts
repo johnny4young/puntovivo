@@ -71,7 +71,7 @@ function isPrivilegedCashSessionRole(role: string | undefined) {
 }
 
 /**
- * ENG-194 — enforce blind close at the API boundary, not only in JSX.
+ * enforce blind close at the API boundary, not only in JSX.
  * Cashiers may inspect browser data, so an open session must not serialize
  * its expected balance to them. Managers/admins keep the live value and every
  * role may see it after the session is closed and the final count is locked.
@@ -150,7 +150,7 @@ async function getCashSessionAccessRecord(db: DatabaseInstance, tenantId: string
 
 /**
  * Adapt the tRPC context to the `CashSessionContext` shape the
- * use-case services consume. ENG-179c — the parameter is typed
+ * use-case services consume.  — the parameter is typed
  * `CriticalCommandContext` (the augmented shape `commandEnvelope`
  * injects), so `ctx.envelope` / `ctx.deviceId` are read directly.
  * Only critical-command procedures call this helper.
@@ -235,7 +235,7 @@ export const cashSessionsRouter = router({
     return record ? presentCashSessionRecord(record, ctx.user.role) : null;
   }),
 
-  /** ENG-209 — private by construction: no cashier id is accepted. */
+  /** private by construction: no cashier id is accepted. */
   myPace: cashierManagerOrAdminProcedure
     .input(getActiveCashSessionInput)
     .output(cashierPaceOutput)
@@ -251,7 +251,7 @@ export const cashSessionsRouter = router({
       });
     }),
   /**
-   * ENG-204 — pace metrics for the opt-in cashier HUD. Always the CALLER's
+   * pace metrics for the opt-in cashier HUD. Always the CALLER's
    * own data: the active session resolves for (tenant, site, ctx.user) and
    * the personal best scans only that cashier's closed sessions. Null when
    * no session is open (the HUD simply hides).
@@ -370,10 +370,10 @@ export const cashSessionsRouter = router({
   }),
 
   /**
-   * ENG-198 — day-close ritual. Open to the cashier (they are the one who
+   * day-close ritual. Open to the cashier (they are the one who
    * closes), but owner data is gated SERVER-SIDE: margin, pulse comparison,
    * and per-product profit only serialize for manager/admin, mirroring the
-   * ENG-194 blind close philosophy. Pure read; multi-tenant scoping happens
+   * blind close philosophy. Pure read; multi-tenant scoping happens
    * inside the service (NOT_FOUND for foreign sessions).
    */
   dayCloseSummary: cashierManagerOrAdminProcedure

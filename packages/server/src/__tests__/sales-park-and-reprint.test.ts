@@ -1,5 +1,5 @@
 /**
- * ENG-018 + ENG-019 — sales park-and-resume + receipt reprint.
+ * +  — sales park-and-resume + receipt reprint.
  *
  * HTTP-less integration coverage against an in-memory SQLite DB via
  * `appRouter.createCaller()`, matching the pattern of
@@ -7,19 +7,19 @@
  *
  * Covered invariants:
  * - park (suspend): tenant scope, status guard, idempotent re-suspend,
- *   audit row written.
+ * audit row written.
  * - resume: owner can resume; non-owner cashier is blocked; manager
- *   override allowed; clears suspension state; emits audit row with
- *   override metadata when the caller is not the original cashier.
+ * override allowed; clears suspension state; emits audit row with
+ * override metadata when the caller is not the original cashier.
  * - listDrafts: cashier scope (own only), manager scope (all), search
- *   matches label + saleNumber, pagination.
+ * matches label + saleNumber, pagination.
  * - discardDraft: flips to 'cancelled', same lock rules as resume, and
- *   reverses stock debited at draft creation.
- * - getForReprint (ENG-019): increments `reprintCount`, stamps
- *   timestamps, rejects drafts, cashier limited to active session,
- *   manager override, audit row emitted with reason metadata.
+ * reverses stock debited at draft creation.
+ * - getForReprint (): increments `reprintCount`, stamps
+ * timestamps, rejects drafts, cashier limited to active session,
+ * manager override, audit row emitted with reason metadata.
  * - cross-tenant isolation: a user in tenant B cannot see tenant A's
- *   drafts nor reprint tenant A's sales.
+ * drafts nor reprint tenant A's sales.
  */
 
 import { TRPCError } from '@trpc/server';
@@ -70,7 +70,7 @@ let otherTenantId: string;
 let otherAdminId: string;
 
 /**
- * ENG-052b — Per-tenant device id cache. Cross-tenant tests register
+ * Per-tenant device id cache. Cross-tenant tests register
  * a device for both tenants up-front; the proxy looks up the right
  * one based on the tenant in the active context.
  */
@@ -112,9 +112,7 @@ function createContext(
 }
 
 async function openSession(userId: string, role: 'admin' | 'manager' | 'cashier') {
-  const caller = appRouter.createCaller(
-    createContext(userId, role, tenantId, primarySiteId)
-  );
+  const caller = appRouter.createCaller(createContext(userId, role, tenantId, primarySiteId));
   const session = await caller.cashSessions.open({
     registerName: `Register ${userId.slice(0, 6)}`,
     openingFloat: 100,
@@ -123,7 +121,7 @@ async function openSession(userId: string, role: 'admin' | 'manager' | 'cashier'
   return session;
 }
 
-describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
+describe('Sales park-and-resume + reprint ( / )', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
@@ -156,11 +154,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       updatedAt: now,
     });
 
-    const seededUnits = await db
-      .select()
-      .from(units)
-      .where(eq(units.tenantId, tenantId))
-      .all();
+    const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
     const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
     if (!baseUnit) throw new Error('Expected seeded UND unit');
     baseUnitId = baseUnit.id;
@@ -250,7 +244,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       updatedAt: now,
     });
 
-    // ENG-052b — register the primary tenant device BEFORE
+    // register the primary tenant device BEFORE
     // `openSession()` runs, since `cashSessions.open` is now a
     // critical procedure.
     const primaryRegistration = await registerDeviceService(db, {
@@ -308,7 +302,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       updatedAt: now,
     });
 
-    // ENG-052b — register a device for the second tenant so the
+    // register a device for the second tenant so the
     // cross-tenant isolation tests can drive critical procedures
     // from either side. The primary tenant's device was registered
     // earlier (before `openSession()` ran).
@@ -327,10 +321,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
 
   // Helper: create a draft sale owned by `cashier` and return its id. Uses
   // the tRPC `sales.create` mutation so the active-session wiring is real.
-  async function createDraftSale(
-    cashierId: string,
-    sessionId: string
-  ): Promise<string> {
+  async function createDraftSale(cashierId: string, sessionId: string): Promise<string> {
     const caller = appRouter.createCaller(
       createContext(cashierId, 'cashier', tenantId, primarySiteId)
     );
@@ -354,7 +345,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
     return created.id;
   }
 
-  describe('sales.suspend (ENG-018)', () => {
+  describe('sales.suspend', () => {
     it('stamps suspension columns, writes a sale.park audit row, and is idempotent', async () => {
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       const caller = appRouter.createCaller(
@@ -393,17 +384,12 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       const db = getDatabase();
       // Force status to completed so the guard trips.
-      await db
-        .update(sales)
-        .set({ status: 'completed' })
-        .where(eq(sales.id, saleId));
+      await db.update(sales).set({ status: 'completed' }).where(eq(sales.id, saleId));
 
       const caller = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
-      await expect(
-        caller.sales.suspend({ saleId })
-      ).rejects.toThrowError(TRPCError);
+      await expect(caller.sales.suspend({ saleId })).rejects.toThrowError(TRPCError);
     });
 
     it('is cross-tenant isolated', async () => {
@@ -411,13 +397,11 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       const otherCaller = appRouter.createCaller(
         createContext(otherAdminId, 'admin', otherTenantId, null)
       );
-      await expect(
-        otherCaller.sales.suspend({ saleId })
-      ).rejects.toThrowError(/not found/i);
+      await expect(otherCaller.sales.suspend({ saleId })).rejects.toThrowError(/not found/i);
     });
   });
 
-  describe('sales.resume (ENG-018)', () => {
+  describe('sales.resume', () => {
     it('lets the owning cashier resume and clears suspension state', async () => {
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       const caller = appRouter.createCaller(
@@ -457,9 +441,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       const c2 = appRouter.createCaller(
         createContext(cashier2Id, 'cashier', tenantId, primarySiteId)
       );
-      await expect(c2.sales.resume({ saleId })).rejects.toThrowError(
-        /suspended this sale/i
-      );
+      await expect(c2.sales.resume({ saleId })).rejects.toThrowError(/suspended this sale/i);
 
       const mgr = appRouter.createCaller(
         createContext(managerId, 'manager', tenantId, primarySiteId)
@@ -491,13 +473,11 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       const caller = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
-      await expect(caller.sales.resume({ saleId })).rejects.toThrowError(
-        /not suspended/i
-      );
+      await expect(caller.sales.resume({ saleId })).rejects.toThrowError(/not suspended/i);
     });
   });
 
-  describe('sales.listDrafts (ENG-018)', () => {
+  describe('sales.listDrafts', () => {
     it('scopes cashier drafts to the caller and shows all drafts to managers', async () => {
       const saleA = await createDraftSale(cashier1Id, cashier1SessionId);
       const saleB = await createDraftSale(cashier2Id, cashier2SessionId);
@@ -531,7 +511,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
     });
   });
 
-  describe('sales.discardDraft (ENG-018)', () => {
+  describe('sales.discardDraft', () => {
     it('flips status to cancelled and clears suspension metadata', async () => {
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       const caller = appRouter.createCaller(
@@ -560,7 +540,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       );
     });
 
-    it('reverses stock on discard (ENG-018c fix for 77bb686 bug)', async () => {
+    it('reverses stock on discard ( fix for 77bb686 bug)', async () => {
       // Dedicated product so stock movement is easy to assert without
       // interference from other tests running in the same describe block.
       const db = getDatabase();
@@ -618,7 +598,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       const seededStock = getProductStockTotal(db, tenantId, reversalProductId);
       expect(seededStock).toBe(50);
 
-      // Draft creation debits stock by 3 units (ENG-018 baseline model).
+      // Draft creation debits stock by 3 units ( baseline model).
       const draft = await caller.sales.create({
         items: [
           {
@@ -663,11 +643,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       expect(returnMovement?.newStock).toBe(50);
 
       // Sale row itself is cancelled with the reversal count in metadata.
-      const discardedSale = await db
-        .select()
-        .from(sales)
-        .where(eq(sales.id, draft.id))
-        .get();
+      const discardedSale = await db.select().from(sales).where(eq(sales.id, draft.id)).get();
       expect(discardedSale?.status).toBe('cancelled');
       expect(discardedSale?.suspendedAt).toBeNull();
 
@@ -690,7 +666,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
     });
 
     it('lets the creator discard an orphan draft that was never suspended', async () => {
-      // Regression: pre-ENG-018c lock only accepted suspendedBy, leaving
+      // Regression: pre- lock only accepted suspendedBy, leaving
       // drafts whose suspend call failed mid-flight permanently stuck.
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       const caller = appRouter.createCaller(
@@ -701,7 +677,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
     });
   });
 
-  describe('sales.getForReprint (ENG-019)', () => {
+  describe('sales.getForReprint', () => {
     async function createCompletedSale(cashierId: string) {
       const caller = appRouter.createCaller(
         createContext(cashierId, 'cashier', tenantId, primarySiteId)
@@ -766,9 +742,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       const caller = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
-      await expect(
-        caller.sales.getForReprint({ saleId })
-      ).rejects.toThrowError(/draft/i);
+      await expect(caller.sales.getForReprint({ saleId })).rejects.toThrowError(/draft/i);
     });
 
     it('blocks cashier from reprinting another cashier active-session sale, but manager can', async () => {
@@ -777,9 +751,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       const c2 = appRouter.createCaller(
         createContext(cashier2Id, 'cashier', tenantId, primarySiteId)
       );
-      await expect(c2.sales.getForReprint({ saleId })).rejects.toThrowError(
-        /active cash session/i
-      );
+      await expect(c2.sales.getForReprint({ saleId })).rejects.toThrowError(/active cash session/i);
 
       const mgr = appRouter.createCaller(
         createContext(managerId, 'manager', tenantId, primarySiteId)
@@ -793,13 +765,11 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       const otherCaller = appRouter.createCaller(
         createContext(otherAdminId, 'admin', otherTenantId, null)
       );
-      await expect(
-        otherCaller.sales.getForReprint({ saleId })
-      ).rejects.toThrowError(/not found/i);
+      await expect(otherCaller.sales.getForReprint({ saleId })).rejects.toThrowError(/not found/i);
     });
   });
 
-  describe('sales.completeDraft (ENG-018c)', () => {
+  describe('sales.completeDraft', () => {
     it('flips a non-suspended draft to completed, replaces payments, and binds to the active cash session', async () => {
       const draftId = await createDraftSale(cashier1Id, cashier1SessionId);
       const caller = appRouter.createCaller(
@@ -1016,10 +986,10 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
   });
 
   // --------------------------------------------------------------------
-  // ENG-039c — restaurant table linkage + changeTable mutation
+  // restaurant table linkage + changeTable mutation
   // --------------------------------------------------------------------
 
-  describe('sales table FK + sales.changeTable (ENG-039c)', () => {
+  describe('sales table FK + sales.changeTable', () => {
     // Helper: seed a fresh restaurant_tables row on the primary site.
     // Each test uses a unique name so the partial-unique index never
     // blocks a parallel test.
@@ -1072,10 +1042,10 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
         .where(eq(sites.tenantId, otherTenantId))
         .get();
       if (!otherSite) throw new Error('Expected other tenant to have a site');
-      const foreignTableId = await seedRestaurantTable(
-        `ENG039c cross ${nanoid(6)}`,
-        { tenantIdOverride: otherTenantId, siteIdOverride: otherSite.id }
-      );
+      const foreignTableId = await seedRestaurantTable(`ENG039c cross ${nanoid(6)}`, {
+        tenantIdOverride: otherTenantId,
+        siteIdOverride: otherSite.id,
+      });
       const caller = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
@@ -1094,10 +1064,9 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
     });
 
     it('sales.create rejects an archived tableId', async () => {
-      const archivedId = await seedRestaurantTable(
-        `ENG039c archived ${nanoid(6)}`,
-        { archived: true }
-      );
+      const archivedId = await seedRestaurantTable(`ENG039c archived ${nanoid(6)}`, {
+        archived: true,
+      });
       const caller = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
@@ -1116,10 +1085,9 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
     });
 
     it('sales.create rejects a same-tenant tableId from another site', async () => {
-      const otherSiteTableId = await seedRestaurantTable(
-        `ENG039c other-site ${nanoid(6)}`,
-        { siteIdOverride: secondarySiteId }
-      );
+      const otherSiteTableId = await seedRestaurantTable(`ENG039c other-site ${nanoid(6)}`, {
+        siteIdOverride: secondarySiteId,
+      });
       const caller = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
@@ -1207,13 +1175,13 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       );
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       // Sale is a draft but has not been suspended yet.
-      await expect(
-        caller.sales.changeTable({ saleId, tableId: tableRowId })
-      ).rejects.toMatchObject({
-        cause: expect.objectContaining({
-          errorCode: 'SALE_CHANGE_TABLE_INVALID_STATUS',
-        }),
-      });
+      await expect(caller.sales.changeTable({ saleId, tableId: tableRowId })).rejects.toMatchObject(
+        {
+          cause: expect.objectContaining({
+            errorCode: 'SALE_CHANGE_TABLE_INVALID_STATUS',
+          }),
+        }
+      );
     });
 
     it('sales.changeTable moves the FK between tables and refreshes the label', async () => {
@@ -1257,10 +1225,9 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
 
     it('sales.changeTable rejects a target table from another site', async () => {
       const firstId = await seedRestaurantTable(`Mesa Same Site ${nanoid(6)}`);
-      const otherSiteTableId = await seedRestaurantTable(
-        `Mesa Other Site ${nanoid(6)}`,
-        { siteIdOverride: secondarySiteId }
-      );
+      const otherSiteTableId = await seedRestaurantTable(`Mesa Other Site ${nanoid(6)}`, {
+        siteIdOverride: secondarySiteId,
+      });
       const owner = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
@@ -1306,9 +1273,9 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       );
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       await owner.sales.suspend({ saleId, tableId: tableRowId });
-      await expect(
-        owner.sales.changeTable({ saleId, tableId: altTableId })
-      ).rejects.toThrowError(/administrators and managers/i);
+      await expect(owner.sales.changeTable({ saleId, tableId: altTableId })).rejects.toThrowError(
+        /administrators and managers/i
+      );
 
       const intruder = appRouter.createCaller(
         createContext(cashier2Id, 'cashier', tenantId, primarySiteId)
@@ -1352,12 +1319,12 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       const intruder = appRouter.createCaller(
         createContext(otherAdminId, 'admin', otherTenantId, null)
       );
-      await expect(
-        intruder.sales.changeTable({ saleId, tableId: null })
-      ).rejects.toThrowError(/not found/i);
+      await expect(intruder.sales.changeTable({ saleId, tableId: null })).rejects.toThrowError(
+        /not found/i
+      );
     });
 
-    // ENG-039c3 — split-bill mutation.
+    // split-bill mutation.
     //
     // Helper: build a multi-line suspended draft for the splitDraft
     // tests. Returns the sale id and the resolved sale_items rows so
@@ -1394,7 +1361,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       };
     }
 
-    describe('sales.splitDraft (ENG-039c3)', () => {
+    describe('sales.splitDraft', () => {
       it('moves selected items to a fresh suspended draft and recomputes totals on both', async () => {
         const source = await createSuspendedMultiItemDraft(cashier1Id);
         const manager = appRouter.createCaller(
@@ -1433,11 +1400,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
         expect(createdItems.map(row => row.id).sort()).toEqual([...moved].sort());
 
         // Recomputed totals reflect the new ownership.
-        const sourceRow = await db
-          .select()
-          .from(sales)
-          .where(eq(sales.id, source.id))
-          .get();
+        const sourceRow = await db.select().from(sales).where(eq(sales.id, source.id)).get();
         const createdRow = await db
           .select()
           .from(sales)
@@ -1495,11 +1458,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
           .where(eq(saleItems.saleId, source.id))
           .all();
         expect(sourceItems).toHaveLength(0);
-        const sourceRow = await db
-          .select()
-          .from(sales)
-          .where(eq(sales.id, source.id))
-          .get();
+        const sourceRow = await db.select().from(sales).where(eq(sales.id, source.id)).get();
         expect(sourceRow?.total).toBe(0);
         expect(sourceRow?.subtotal).toBe(0);
         expect(sourceRow?.taxAmount).toBe(0);
@@ -1510,9 +1469,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       });
 
       it('attaches the new draft to a valid restaurant table', async () => {
-        const tableRowId = await seedRestaurantTable(
-          `Mesa Split ${nanoid(6)}`
-        );
+        const tableRowId = await seedRestaurantTable(`Mesa Split ${nanoid(6)}`);
         const source = await createSuspendedMultiItemDraft(cashier1Id);
         const manager = appRouter.createCaller(
           createContext(managerId, 'manager', tenantId, primarySiteId)
@@ -1532,10 +1489,9 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       });
 
       it('rejects an archived target tableId with RESTAURANT_TABLE_NOT_FOUND', async () => {
-        const archivedId = await seedRestaurantTable(
-          `Mesa Archived Split ${nanoid(6)}`,
-          { archived: true }
-        );
+        const archivedId = await seedRestaurantTable(`Mesa Archived Split ${nanoid(6)}`, {
+          archived: true,
+        });
         const source = await createSuspendedMultiItemDraft(cashier1Id);
         const manager = appRouter.createCaller(
           createContext(managerId, 'manager', tenantId, primarySiteId)
@@ -1555,10 +1511,9 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       });
 
       it('rejects a target tableId from another site', async () => {
-        const otherSiteTableId = await seedRestaurantTable(
-          `Mesa Cross-Site Split ${nanoid(6)}`,
-          { siteIdOverride: secondarySiteId }
-        );
+        const otherSiteTableId = await seedRestaurantTable(`Mesa Cross-Site Split ${nanoid(6)}`, {
+          siteIdOverride: secondarySiteId,
+        });
         const source = await createSuspendedMultiItemDraft(cashier1Id);
         const manager = appRouter.createCaller(
           createContext(managerId, 'manager', tenantId, primarySiteId)

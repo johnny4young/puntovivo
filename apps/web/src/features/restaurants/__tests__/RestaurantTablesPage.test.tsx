@@ -1,5 +1,5 @@
 /**
- * ENG-039b — RestaurantTablesPage tests.
+ * RestaurantTablesPage tests.
  *
  * Drives admin CRUD + archive flow against mocked trpc procedures. The
  * row-action buttons mirror the LocationsPage pattern.
@@ -201,9 +201,7 @@ describe('RestaurantTablesPage — admin', () => {
 
   it('toggles show-archived and includes archived rows in the next query', () => {
     renderPage();
-    const toggle = screen.getByTestId(
-      'restaurant-tables-show-archived'
-    ) as HTMLInputElement;
+    const toggle = screen.getByTestId('restaurant-tables-show-archived') as HTMLInputElement;
     expect(toggle.checked).toBe(false);
     fireEvent.click(toggle);
     expect(toggle.checked).toBe(true);
@@ -217,18 +215,14 @@ describe('RestaurantTablesPage — manager', () => {
     await waitFor(() => expect(screen.getAllByText('Mesa 1').length).toBeGreaterThan(0));
     const cta = screen.getByTestId('restaurant-tables-create-cta');
     expect(cta).toBeDisabled();
-    expect(
-      screen.getByTestId('restaurant-tables-permission-note')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('restaurant-tables-permission-note')).toBeInTheDocument();
   });
 
   it('manager does not see the archive button on active rows', async () => {
     mockUserRole = 'manager';
     renderPage();
     await waitFor(() => expect(screen.getAllByText('Mesa 1').length).toBeGreaterThan(0));
-    expect(
-      screen.queryByTestId('restaurant-table-archive-rt-1')
-    ).toBeNull();
+    expect(screen.queryByTestId('restaurant-table-archive-rt-1')).toBeNull();
   });
 });
 

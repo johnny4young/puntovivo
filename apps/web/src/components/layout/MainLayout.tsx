@@ -29,9 +29,7 @@ export function MainLayout() {
       >
         <Header
           onOpenSidebar={() => setMobileSidebarOpen(true)}
-          onOpenFirstSaleGuide={() =>
-            setFirstSaleGuideRequest(request => request + 1)
-          }
+          onOpenFirstSaleGuide={() => setFirstSaleGuideRequest(request => request + 1)}
         />
         <GlobalStatusStrip />
         <FirstSaleGuide openRequest={firstSaleGuideRequest} />
@@ -40,7 +38,7 @@ export function MainLayout() {
           <Outlet />
         </main>
       </div>
-      {/* ENG-092 — per-release announcement overlay. Surfaces once
+      {/* per-release announcement overlay. Surfaces once
         the user has logged in and the whatsNew.listUnseen query
         returns rows; persists dismissals via markSeen so the same
         entry does not reappear. */}

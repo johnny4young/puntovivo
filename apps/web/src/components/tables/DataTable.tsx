@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// ENG-172 — row virtualisation. Above AUTO_VIRTUALISE_THRESHOLD rows the
+// row virtualisation. Above AUTO_VIRTUALISE_THRESHOLD rows the
 // table renders a single continuous scroll (windowed via
 // `@tanstack/react-virtual`) instead of the paged-button footer, so a
 // ≥10k-row dataset scrolls at 60 fps without mounting every <tr>. Below
@@ -41,7 +41,7 @@ const VIRTUAL_ESTIMATED_ROW_PX = 49;
 const VIRTUAL_OVERSCAN_ROWS = 8;
 const VIRTUAL_MAX_HEIGHT_PX = 560;
 
-// Rediseño FASE 3 — per-column class hooks so dense (.pv-table) callers
+// per-column class hooks so dense (.pv-table) callers
 // can opt cells into the recipe modifiers (`num` = right-aligned mono,
 // the product anchor cell, etc.) without the DataTable hard-coding any
 // column semantics. Augments TanStack's ColumnMeta so column defs stay
@@ -56,7 +56,7 @@ declare module '@tanstack/react-table' {
   }
 }
 
-// ENG-179b — explicit `| undefined` on every optional field so callers
+// explicit `| undefined` on every optional field so callers
 // can spread Props from parent state shapes carrying explicit-undefined
 // fields under `exactOptionalPropertyTypes`.
 interface DataTableProps<TData, TValue> {
@@ -66,13 +66,13 @@ interface DataTableProps<TData, TValue> {
    * Column id to filter CLIENT-SIDE as the user types. Correct only when
    * `data` already holds every row the user could match — with a paged
    * query it silently filters the loaded page and reports "no results" for
-   * rows the server never sent (ENG-217). For a paged source use
+   * rows the server never sent (). For a paged source use
    * {@link DataTableProps.searchValue} instead.
    */
   searchKey?: string | undefined;
   searchPlaceholder?: string | undefined;
   /**
-   * ENG-217 — controlled search. When provided, the table renders the same
+   * controlled search. When provided, the table renders the same
    * search box but does NOT filter: the owner is expected to feed `data`
    * from a query that already applied the term (server-side). Mutually
    * exclusive with `searchKey`; passing both is a bug the dev-time warning
@@ -87,18 +87,18 @@ interface DataTableProps<TData, TValue> {
   /**
    * Fires when the keyboard-focused row changes (click, ArrowUp/Down,
    * Home/End). `null` is emitted when focus leaves the table body. Used
-   * by ENG-018b to let SalesHistoryTable surface the currently selected
+   * by  to let SalesHistoryTable surface the currently selected
    * sale id to Ctrl+Shift+P reprint.
    */
   onRowFocusChange?: ((row: TData | null) => void) | undefined;
   /**
    * Extra class applied to the `<tr>` when a predicate says the row is
-   * in an app-level "selected" state (ENG-018b history-table
+   * in an app-level "selected" state ( history-table
    * highlight). The predicate is called with the row's original data.
    */
   isRowSelected?: ((row: TData) => boolean) | undefined;
   /**
-   * ENG-134f — Called when the keyboard user activates a row via
+   * Called when the keyboard user activates a row via
    * Enter or Space on the focused row. Mirrors what a mouse user
    * achieves by clicking the row's primary action button (View,
    * Edit, Open Details). When the prop is undefined, keyboard
@@ -112,7 +112,7 @@ interface DataTableProps<TData, TValue> {
    */
   onRowActivate?: ((row: TData) => void) | undefined;
   /**
-   * Rediseño FASE 3 — visual density of the table chrome.
+   * visual density of the table chrome.
    * `default` keeps the legacy `.data-table` recipe; `dense` switches to
    * the redesign `.pv-table` recipe (sticky header, zebra, 48-52px rows,
    * 196px anchor first column). Opt in per consumer so anchor-style
@@ -122,7 +122,7 @@ interface DataTableProps<TData, TValue> {
    */
   variant?: 'default' | 'dense' | undefined;
   /**
-   * ENG-172 — opt a table into row virtualisation. When `undefined`
+   * opt a table into row virtualisation. When `undefined`
    * (the default), the table auto-flips to the virtualised single-scroll
    * renderer once `data.length > 30` ({@link AUTO_VIRTUALISE_THRESHOLD}) and
    * stays on the legacy TanStack-paginated footer below it. Pass an explicit
@@ -141,7 +141,7 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   searchKey,
-  // ENG-220 — no English default here: a default in the signature cannot
+  // no English default here: a default in the signature cannot
   // call t(). Resolved at the use site below.
   searchPlaceholder,
   searchValue,
@@ -155,9 +155,9 @@ export function DataTable<TData, TValue>({
   variant = 'default',
   virtualised,
 }: DataTableProps<TData, TValue>) {
-  // ENG-172 — explicit prop wins; otherwise auto-flip on row count.
+  // explicit prop wins; otherwise auto-flip on row count.
   const isVirtual = virtualised ?? data.length > AUTO_VIRTUALISE_THRESHOLD;
-  // ENG-217 — controlled search takes over completely: the client-side
+  // controlled search takes over completely: the client-side
   // column filter must NOT also run, or a server-filtered page would be
   // filtered a second time against one column and hide valid matches.
   const isControlledSearch = searchValue !== undefined;
@@ -183,7 +183,7 @@ export function DataTable<TData, TValue>({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [focusedRowIndex, setFocusedRowIndex] = useState(0);
   const rowRefs = useRef<Array<HTMLTableRowElement | null>>([]);
-  // BUG-004 — wrapper anchor so a row blur can tell "focus moved to
+  // Wrapper anchor so a row blur can tell "focus moved to
   // another row / intra-row" (keep selection) from "focus left the
   // table entirely" (clear selection via onRowFocusChange(null)).
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
@@ -227,7 +227,7 @@ export function DataTable<TData, TValue>({
       },
     },
   });
-  // ENG-172 — in virtual mode bypass `getPaginationRowModel` and render the
+  // in virtual mode bypass `getPaginationRowModel` and render the
   // full filtered + sorted set (`getSortedRowModel`) inside the windowing
   // scroll container; the paged path keeps the final (paginated) row model.
   // Keyboard navigation, the empty state, and the roving tabindex all index
@@ -238,7 +238,7 @@ export function DataTable<TData, TValue>({
   const resolvedFocusedRowIndex =
     visibleRows.length === 0 ? -1 : Math.min(focusedRowIndex, visibleRows.length - 1);
 
-  // ENG-172 — the windowing engine. `enabled: isVirtual` keeps it inert (no
+  // the windowing engine. `enabled: isVirtual` keeps it inert (no
   // ResizeObserver, empty virtual items) on the paged path. The scroll
   // element is the existing `.data-table-scroll` wrapper, which gains a
   // bounded max-height only when virtual so it actually scrolls.
@@ -250,7 +250,7 @@ export function DataTable<TData, TValue>({
     enabled: isVirtual,
   });
 
-  // ENG-172 — a keyboard move in virtual mode may target a row that is not
+  // a keyboard move in virtual mode may target a row that is not
   // yet mounted; `scrollToIndex` brings it into the window and this ref lets
   // the post-render effect land focus once the <tr> exists.
   const pendingFocusIndexRef = useRef<number | null>(null);
@@ -318,7 +318,7 @@ export function DataTable<TData, TValue>({
       case ' ':
       case 'Space':
       case 'Enter':
-        // ENG-134f — activate has priority over toggleSelected.
+        // activate has priority over toggleSelected.
         // If the consumer wired `onRowActivate`, fire it
         // unconditionally (no enableRowSelection gate) — opening a
         // detail / edit modal is the cashier's primary keyboard
@@ -341,7 +341,7 @@ export function DataTable<TData, TValue>({
     }
   };
 
-  // ENG-172 — single source of truth for a body `<tr>`, shared by the paged
+  // single source of truth for a body `<tr>`, shared by the paged
   // and virtualised paths so the markup, `data-row-id` contract, keyboard
   // handlers and roving tabindex stay identical in both modes. `rowIndex` is
   // the absolute index into `visibleRows`.
@@ -357,7 +357,7 @@ export function DataTable<TData, TValue>({
         data-index={rowIndex}
         ref={element => {
           rowRefs.current[rowIndex] = element;
-          // ENG-172 — pixel-accurate measurement keeps the virtual window
+          // pixel-accurate measurement keeps the virtual window
           // aligned when a row wraps taller than the estimate. No-op (and
           // unobserved) on the paged path.
           if (isVirtual && element) {
@@ -393,7 +393,7 @@ export function DataTable<TData, TValue>({
           }
         }}
         onBlur={event => {
-          // BUG-004 — clear the parent focus state only when focus leaves the
+          // Clear the parent focus state only when focus leaves the
           // WHOLE table, not on intra-row or row-to-row moves. relatedTarget
           // === null (focus went nowhere focusable) or a target outside the
           // table wrapper both count as "left the table". Moving to another
@@ -424,7 +424,7 @@ export function DataTable<TData, TValue>({
     );
   };
 
-  // ENG-172 — virtual-window geometry. The spacer-row technique (a leading
+  // virtual-window geometry. The spacer-row technique (a leading
   // and trailing <tr> sized to the off-window height) preserves native
   // <table>/<td> column alignment and the sticky `.pv-table` header, which
   // absolute-positioning the rows would break.
@@ -473,7 +473,7 @@ export function DataTable<TData, TValue>({
       </div>
 
       <div className="overflow-hidden rounded-[24px] border border-line/80 bg-card/82 shadow-[var(--shadow-card)]">
-        {/* ENG-134c: the scrollable wrapper needs to satisfy axe rule
+        {/* : the scrollable wrapper needs to satisfy axe rule
          * `scrollable-region-focusable` on wide tables (/products +
          * /purchases hit horizontal overflow under the seeded data).
          * axe requires the wrapper to be tab-reachable, not just
@@ -491,7 +491,7 @@ export function DataTable<TData, TValue>({
           tabIndex={0}
           role="region"
           aria-label={t('table.scrollableLabel')}
-          // ENG-172 — bound the height only in virtual mode so the wrapper
+          // bound the height only in virtual mode so the wrapper
           // becomes the windowing scroll container; the paged path keeps its
           // natural content height. `data-virtualised` lets tests + the live
           // smoke assert the mode flipped without depending on layout math.
@@ -571,7 +571,7 @@ export function DataTable<TData, TValue>({
       </div>
 
       {isVirtual ? (
-        // ENG-172 — virtualised tables scroll instead of paging, so the
+        // virtualised tables scroll instead of paging, so the
         // paged footer is replaced by a plain total-row count.
         <div className="data-table-pagination">
           <div className="text-sm text-secondary-600">

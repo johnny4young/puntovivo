@@ -1,5 +1,5 @@
 /**
- * ENG-018b — useSalesKeyboardShortcuts tests.
+ * useSalesKeyboardShortcuts tests.
  *
  * Focused on the Ctrl/Cmd additions introduced by the multi-cart
  * workspace (Ctrl+P suspend, Ctrl+R toggle panel, Ctrl+Shift+P
@@ -11,10 +11,7 @@ import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useSalesKeyboardShortcuts } from './useSalesKeyboardShortcuts';
 
-function fireKey(
-  key: string,
-  options: Partial<KeyboardEventInit> = {}
-): KeyboardEvent {
+function fireKey(key: string, options: Partial<KeyboardEventInit> = {}): KeyboardEvent {
   const event = new KeyboardEvent('keydown', {
     key,
     bubbles: true,
@@ -25,10 +22,10 @@ function fireKey(
   return event;
 }
 
-describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift (ENG-018b)', () => {
+describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift', () => {
   afterEach(() => {
     // Clean leftover elements between cases without touching innerHTML
-    // — keeps the security-reminder hook silent and is slightly faster.
+    // keeps the security-reminder hook silent and is slightly faster.
     document.body.replaceChildren();
   });
 
@@ -171,20 +168,18 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift (ENG-018b)', () => {
   });
 
   it('still fires Alt+P (focus product input) after the Ctrl guard was lifted', () => {
-    // Regression: the ENG-018b refactor must not break existing
+    // Regression: the  refactor must not break existing
     // Alt-based shortcuts that cashiers already depend on.
     renderHook(() => useSalesKeyboardShortcuts(defaultOptions));
     fireKey('p', { altKey: true });
     expect(defaultOptions.focusProductInput).toHaveBeenCalledOnce();
   });
 
-  // ENG-105d — Mod+Z undo binding.
-  describe('Mod+Z undo (ENG-105d)', () => {
+  // Mod+Z undo binding.
+  describe('Mod+Z undo', () => {
     it('fires onUndo on Ctrl+Z and prevents the browser default', () => {
       const onUndo = vi.fn();
-      renderHook(() =>
-        useSalesKeyboardShortcuts({ ...defaultOptions, onUndo })
-      );
+      renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions, onUndo }));
       const event = fireKey('z', { ctrlKey: true });
       expect(onUndo).toHaveBeenCalledOnce();
       expect(event.defaultPrevented).toBe(true);
@@ -216,9 +211,7 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift (ENG-018b)', () => {
       // (customer-picker, discount input, etc.). The hook returns
       // early when `isEditableShortcutTarget(event.target)` matches.
       const onUndo = vi.fn();
-      renderHook(() =>
-        useSalesKeyboardShortcuts({ ...defaultOptions, onUndo })
-      );
+      renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions, onUndo }));
 
       const input = document.createElement('input');
       document.body.appendChild(input);
@@ -238,13 +231,11 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift (ENG-018b)', () => {
     });
   });
 
-  // ENG-105e — F2 rapid-cash binding.
-  describe('F2 fast-cash (ENG-105e)', () => {
+  // F2 rapid-cash binding.
+  describe('F2 fast-cash', () => {
     it('fires onFastCash on F2 and prevents the browser default outside the modal', () => {
       const onFastCash = vi.fn();
-      renderHook(() =>
-        useSalesKeyboardShortcuts({ ...defaultOptions, onFastCash })
-      );
+      renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions, onFastCash }));
       const event = fireKey('F2');
       expect(onFastCash).toHaveBeenCalledOnce();
       expect(event.defaultPrevented).toBe(true);
@@ -277,9 +268,7 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift (ENG-018b)', () => {
 
     it('ignores F2 inside an editable input outside the payment modal', () => {
       const onFastCash = vi.fn();
-      renderHook(() =>
-        useSalesKeyboardShortcuts({ ...defaultOptions, onFastCash })
-      );
+      renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions, onFastCash }));
 
       const input = document.createElement('input');
       document.body.appendChild(input);

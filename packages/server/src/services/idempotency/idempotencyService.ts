@@ -1,5 +1,5 @@
 /**
- * ENG-052 — Idempotency key persistence + atomic reservation logic.
+ * Idempotency key persistence + atomic reservation logic.
  *
  * Critical commands must reserve `(tenantId, deviceId, idempotencyKey,
  * operationKind)` before the procedure body runs. The composite unique
@@ -10,18 +10,18 @@
  *
  * 1. **Reserve**: first caller inserts `status='processing'`.
  * 2. **Replay while processing** with matching `request_hash` →
- *    caller raises `COMMAND_IN_PROGRESS`; the procedure is NOT invoked.
+ * caller raises `COMMAND_IN_PROGRESS`; the procedure is NOT invoked.
  * 3. **Replay after success** with matching `request_hash` → return
- *    cached `result_ref`; the procedure is NOT invoked.
+ * cached `result_ref`; the procedure is NOT invoked.
  * 4. **Replay with mismatched `request_hash`** → caller raises
- *    `IDEMPOTENCY_KEY_CONFLICT` with both hashes in `details`.
+ * `IDEMPOTENCY_KEY_CONFLICT` with both hashes in `details`.
  * 5. **Expired rows** are treated as misses. **Failed rows** are
- *    retryable for the same payload and replaced lazily.
+ * retryable for the same payload and replaced lazily.
  *
  * Default TTL: 24 hours. POS retry windows are short; a cashier does
  * not retry a sale from yesterday. Tenants that need longer windows
  * configure via `tenants.settings.idempotency_ttl_hours` (out of
- * scope for ENG-052 — uses the default).
+ * scope for  — uses the default).
  *
  * @module services/idempotency/idempotencyService
  */
@@ -116,11 +116,7 @@ async function findRow(
   db: DatabaseInstance,
   input: IdempotencyKeyLookupInput
 ): Promise<IdempotencyKey | undefined> {
-  return db
-    .select()
-    .from(idempotencyKeys)
-    .where(idempotencyPredicate(input))
-    .get();
+  return db.select().from(idempotencyKeys).where(idempotencyPredicate(input)).get();
 }
 
 async function insertProcessing(
@@ -207,7 +203,7 @@ function classifyExistingRow(
   }
 
   // Failed rows that race with a replacement stay non-terminal for the
-  // caller. The idempotency table is not the audit trail; ENG-053 will
+  // caller. The idempotency table is not the audit trail;  will
   // persist richer operation failures in the journal.
   return {
     state: 'processing',
@@ -284,12 +280,7 @@ export async function completeKey(
       completedAt,
       expiresAt,
     })
-    .where(
-      and(
-        idempotencyPredicate(input),
-        eq(idempotencyKeys.id, input.reservationId)
-      )
-    );
+    .where(and(idempotencyPredicate(input), eq(idempotencyKeys.id, input.reservationId)));
   return true;
 }
 

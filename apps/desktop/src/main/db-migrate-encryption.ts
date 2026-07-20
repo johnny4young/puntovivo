@@ -1,25 +1,25 @@
 /**
- * ENG-167b — one-shot first-boot migration of pre-encryption
+ * one-shot first-boot migration of pre-encryption
  * cleartext databases to SQLCipher.
  *
- * ENG-167 Step-1 (2026-05-25) made every NEW install encrypted, but
+ * Step-1 (2026-05-25) made every NEW install encrypted, but
  * an install that predates it still carries a cleartext `local.db`.
  * Booting the upgraded build against it with a key would fail at the
  * first read (SQLITE_NOTADB), bricking the app — which is exactly
- * why the ROADMAP gated the production rollout of Step-1 on this
- * module. The migration is silent (ENG-167
+ * why the acceptance gated the production rollout of Step-1 on this
+ * module. The migration is silent (
  * prescription): detect → checkpoint → backup → rekey in place →
  * verify → drop the backup.
  *
  * Crash-safety contract:
- *   - A `.pre-encryption.bak` copy is taken BEFORE the in-place
- *     rekey. If the process dies mid-rewrite, the next boot detects
- *     the (now unreadable-header) target, fails integrity, restores
- *     the .bak, and throws — the app never starts on a half-written
- *     database.
- *   - On SUCCESS the .bak is DELETED: leaving a cleartext copy on
- *     disk would bypass the at-rest threat model the migration
- *     exists to enforce (see docs/SECURITY.md).
+ * - A `.pre-encryption.bak` copy is taken BEFORE the in-place
+ * rekey. If the process dies mid-rewrite, the next boot detects
+ * the (now unreadable-header) target, fails integrity, restores
+ * the .bak, and throws — the app never starts on a half-written
+ * database.
+ * - On SUCCESS the .bak is DELETED: leaving a cleartext copy on
+ * disk would bypass the at-rest threat model the migration
+ * exists to enforce (see docs/SECURITY.md).
  *
  * The module is pure (injected logger, no Electron imports) so it is
  * unit-testable under `node --test` with real database files.
@@ -62,17 +62,13 @@ export interface MigrateDbEncryptionArgs {
 
 /**
  * Outcome of a migration attempt. Every boot lands on exactly one:
- *   - 'skipped' — dev-shared DB route, never touched.
- *   - 'no-database' — fresh install; Step-1 creates it encrypted.
- *   - 'already-encrypted' — the steady state after the first
- *     migrated boot (and for post-Step-1 installs).
- *   - 'migrated' — the one-shot path actually ran.
+ * - 'skipped' — dev-shared DB route, never touched.
+ * - 'no-database' — fresh install; Step-1 creates it encrypted.
+ * - 'already-encrypted' — the steady state after the first
+ * migrated boot (and for post-Step-1 installs).
+ * - 'migrated' — the one-shot path actually ran.
  */
-export type MigrationOutcome =
-  | 'skipped'
-  | 'no-database'
-  | 'already-encrypted'
-  | 'migrated';
+export type MigrationOutcome = 'skipped' | 'no-database' | 'already-encrypted' | 'migrated';
 
 /** Sidecar suffixes SQLite leaves next to a WAL-mode database. */
 const SIDECAR_SUFFIXES = ['-wal', '-shm'] as const;
@@ -129,7 +125,10 @@ export async function migrateCleartextDatabase(
         await assertSqliteIntegrity(dbPath, { encryptionKey });
         // The previous attempt actually completed; only the .bak
         // cleanup was lost. Finish it.
-        log.warn({ dbPath, bakPath }, 'db encryption migration: completed earlier; removing stale cleartext backup');
+        log.warn(
+          { dbPath, bakPath },
+          'db encryption migration: completed earlier; removing stale cleartext backup'
+        );
         await rm(bakPath, { force: true });
         return 'already-encrypted';
       } catch {
@@ -157,16 +156,16 @@ export async function migrateCleartextDatabase(
   log.info({ dbPath, bakPath }, 'db encryption migration: cleartext database detected');
 
   // 1. Flush + truncate the WAL on a keyless connection so the main
-  //    file carries every committed page before the in-place rewrite.
-  //    UNLIKE the ENG-174 checkpoint in createBackupBundle — where a
-  //    partial checkpoint is tolerable because db.backup() captures
-  //    the leftover WAL frames anyway — the .bak here is a raw
-  //    copyFile of the MAIN file only. A partial checkpoint
-  //    (busy = 1: a concurrent connection held the WAL lock past
-  //    busy_timeout) would silently drop committed frames from the
-  //    safety copy, so it must abort the migration BEFORE anything
-  //    is touched (nothing has been written yet; the boot fails loud
-  //    and a retry without the contender succeeds).
+  // file carries every committed page before the in-place rewrite.
+  // UNLIKE the  checkpoint in createBackupBundle — where a
+  // partial checkpoint is tolerable because db.backup() captures
+  // the leftover WAL frames anyway — the .bak here is a raw
+  // copyFile of the MAIN file only. A partial checkpoint
+  // (busy = 1: a concurrent connection held the WAL lock past
+  // busy_timeout) would silently drop committed frames from the
+  // safety copy, so it must abort the migration BEFORE anything
+  // is touched (nothing has been written yet; the boot fails loud
+  // and a retry without the contender succeeds).
   const checkpointer = new Database(dbPath, { fileMustExist: true });
   try {
     checkpointer.pragma(`busy_timeout = ${Math.trunc(checkpointBusyTimeoutMs)}`);
@@ -188,7 +187,7 @@ export async function migrateCleartextDatabase(
   }
 
   // 2. Cleartext safety copy. Exists only for the duration of the
-  //    migration; deleted on success (see module doc).
+  // migration; deleted on success (see module doc).
   await copyFile(dbPath, bakPath);
 
   try {
@@ -212,8 +211,8 @@ export async function migrateCleartextDatabase(
   }
 
   // 5. Success: drop the cleartext copy and any stale sidecars from
-  //    the pre-migration WAL (checkpoint TRUNCATE already emptied
-  //    the WAL; the files themselves are now meaningless).
+  // the pre-migration WAL (checkpoint TRUNCATE already emptied
+  // the WAL; the files themselves are now meaningless).
   await rm(bakPath, { force: true });
   for (const suffix of SIDECAR_SUFFIXES) {
     await rm(`${dbPath}${suffix}`, { force: true });

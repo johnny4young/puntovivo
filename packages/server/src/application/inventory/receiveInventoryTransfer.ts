@@ -1,7 +1,7 @@
 /**
  * Inventory-transfer receive orchestrator + its line-resolution helper.
  *
- * ENG-206 — promoted from services into the application use-case boundary.
+ * promoted from services into the application use-case boundary.
  * `resolveReceivedQuantitiesByItemId` is receive-only, so it is co-located
  * here rather than in the shared `helpers.ts`.
  *

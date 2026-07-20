@@ -1,15 +1,15 @@
 /**
- * ENG-098 — `kds.*` tRPC namespace.
+ * `kds.*` tRPC namespace.
  *
  * Read + two writes power the kitchen display board:
  *
- *   - `list({siteId?, limit?})` — board view; auto-evicts ready rows
- *      older than `READY_TTL_MINUTES=5` so the surface doesn't grow
- *      indefinitely while the kitchen is busy.
- *   - `markReady({id})` — pending → ready, sets `ready_at +
- *      ready_by_user_id`, emits audit `kds.order.ready`.
- *   - `recall({id})` — ready → pending (recovery affordance for the
- *      cook who misclicked), emits audit `kds.order.recalled`.
+ * - `list({siteId?, limit?})` — board view; auto-evicts ready rows
+ * older than `READY_TTL_MINUTES=5` so the surface doesn't grow
+ * indefinitely while the kitchen is busy.
+ * - `markReady({id})` — pending → ready, sets `ready_at +
+ * ready_by_user_id`, emits audit `kds.order.ready`.
+ * - `recall({id})` — ready → pending (recovery affordance for the
+ * cook who misclicked), emits audit `kds.order.recalled`.
  *
  * Every procedure is wrapped by `cashierManagerOrAdminProcedure`
  * (the kitchen TV is usually opened by a cook with the cashier role)
@@ -24,22 +24,14 @@
  */
 
 import { and, asc, desc, eq, gte, or, sql } from 'drizzle-orm';
-import {
-  kdsOrders,
-  restaurantTables,
-  type KdsOrderRow,
-} from '../../db/schema.js';
+import { kdsOrders, restaurantTables, type KdsOrderRow } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import type { KdsItemSnapshot } from '../../services/kds/types.js';
 import { router } from '../init.js';
 import { cashierManagerOrAdminProcedure } from '../middleware/roles.js';
 import { createModuleGuard } from '../middleware/modules.js';
-import {
-  listKdsOrdersInput,
-  markKdsOrderReadyInput,
-  recallKdsOrderInput,
-} from '../schemas/kds.js';
+import { listKdsOrdersInput, markKdsOrderReadyInput, recallKdsOrderInput } from '../schemas/kds.js';
 
 const READY_TTL_MINUTES = 5;
 const kdsProcedure = cashierManagerOrAdminProcedure.use(createModuleGuard('kds'));
@@ -162,163 +154,159 @@ export const kdsRouter = router({
     };
   }),
 
-  markReady: kdsProcedure
-    .input(markKdsOrderReadyInput)
-    .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db
-        .select()
-        .from(kdsOrders)
-        .where(and(eq(kdsOrders.id, input.id), eq(kdsOrders.tenantId, ctx.tenantId)))
-        .get();
-      if (!existing) {
-        throwServerError({
-          trpcCode: 'NOT_FOUND',
-          errorCode: 'KDS_ORDER_NOT_FOUND',
-          message: 'KDS order not found',
-          details: { id: input.id },
-        });
-      }
-
-      // Idempotent: already-ready row returns the current state
-      // without writing a second audit row. Two cooks hitting the
-      // same card race-safe.
-      if (existing.status === 'ready') {
-        return toResponse(existing);
-      }
-
-      const now = new Date().toISOString();
-      const updated: KdsOrderRow = {
-        ...existing,
-        status: 'ready',
-        readyAt: now,
-        readyByUserId: ctx.user!.id,
-        updatedAt: now,
-      };
-
-      ctx.db.transaction(tx => {
-        tx.update(kdsOrders)
-          .set({
-            status: 'ready',
-            readyAt: now,
-            readyByUserId: ctx.user!.id,
-            updatedAt: now,
-          })
-          .where(and(eq(kdsOrders.id, input.id), eq(kdsOrders.tenantId, ctx.tenantId)))
-          .run();
-
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: ctx.user!.id,
-          action: 'kds.order.ready',
-          resourceType: 'kds_order',
-          resourceId: input.id,
-          before: { status: existing.status },
-          after: { status: 'ready', readyAt: now, readyByUserId: ctx.user!.id },
-          metadata: {
-            saleId: existing.saleId,
-            saleNumber: existing.saleNumber,
-            station: existing.station,
-            tableId: existing.tableId,
-            tableLabel: existing.tableLabel,
-          },
-        });
+  markReady: kdsProcedure.input(markKdsOrderReadyInput).mutation(async ({ ctx, input }) => {
+    const existing = await ctx.db
+      .select()
+      .from(kdsOrders)
+      .where(and(eq(kdsOrders.id, input.id), eq(kdsOrders.tenantId, ctx.tenantId)))
+      .get();
+    if (!existing) {
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'KDS_ORDER_NOT_FOUND',
+        message: 'KDS order not found',
+        details: { id: input.id },
       });
+    }
 
-      ctx.req?.server?.sse?.broadcast(
-        'kds.order.ready',
-        {
-          id: updated.id,
-          saleId: updated.saleId,
-          siteId: updated.siteId,
-          station: updated.station,
+    // Idempotent: already-ready row returns the current state
+    // without writing a second audit row. Two cooks hitting the
+    // same card race-safe.
+    if (existing.status === 'ready') {
+      return toResponse(existing);
+    }
+
+    const now = new Date().toISOString();
+    const updated: KdsOrderRow = {
+      ...existing,
+      status: 'ready',
+      readyAt: now,
+      readyByUserId: ctx.user!.id,
+      updatedAt: now,
+    };
+
+    ctx.db.transaction(tx => {
+      tx.update(kdsOrders)
+        .set({
+          status: 'ready',
           readyAt: now,
-        },
-        ctx.tenantId
-      );
-
-      return toResponse(updated);
-    }),
-
-  recall: kdsProcedure
-    .input(recallKdsOrderInput)
-    .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db
-        .select()
-        .from(kdsOrders)
+          readyByUserId: ctx.user!.id,
+          updatedAt: now,
+        })
         .where(and(eq(kdsOrders.id, input.id), eq(kdsOrders.tenantId, ctx.tenantId)))
-        .get();
-      if (!existing) {
-        throwServerError({
-          trpcCode: 'NOT_FOUND',
-          errorCode: 'KDS_ORDER_NOT_FOUND',
-          message: 'KDS order not found',
-          details: { id: input.id },
-        });
-      }
-      if (existing.status !== 'ready') {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'KDS_ORDER_NOT_READY',
-          message: 'Only ready cards can be recalled to pending',
-          details: { id: input.id, currentStatus: existing.status },
-        });
-      }
+        .run();
 
-      const now = new Date().toISOString();
-      const updated: KdsOrderRow = {
-        ...existing,
-        status: 'pending',
-        readyAt: null,
-        readyByUserId: null,
-        updatedAt: now,
-      };
-
-      ctx.db.transaction(tx => {
-        tx.update(kdsOrders)
-          .set({
-            status: 'pending',
-            readyAt: null,
-            readyByUserId: null,
-            updatedAt: now,
-          })
-          .where(and(eq(kdsOrders.id, input.id), eq(kdsOrders.tenantId, ctx.tenantId)))
-          .run();
-
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: ctx.user!.id,
-          action: 'kds.order.recalled',
-          resourceType: 'kds_order',
-          resourceId: input.id,
-          before: {
-            status: existing.status,
-            readyAt: existing.readyAt,
-            readyByUserId: existing.readyByUserId,
-          },
-          after: { status: 'pending', readyAt: null, readyByUserId: null },
-          metadata: {
-            saleId: existing.saleId,
-            saleNumber: existing.saleNumber,
-            station: existing.station,
-            tableId: existing.tableId,
-            tableLabel: existing.tableLabel,
-          },
-        });
-      });
-
-      ctx.req?.server?.sse?.broadcast(
-        'kds.order.recalled',
-        {
-          id: updated.id,
-          saleId: updated.saleId,
-          siteId: updated.siteId,
-          station: updated.station,
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'kds.order.ready',
+        resourceType: 'kds_order',
+        resourceId: input.id,
+        before: { status: existing.status },
+        after: { status: 'ready', readyAt: now, readyByUserId: ctx.user!.id },
+        metadata: {
+          saleId: existing.saleId,
+          saleNumber: existing.saleNumber,
+          station: existing.station,
+          tableId: existing.tableId,
+          tableLabel: existing.tableLabel,
         },
-        ctx.tenantId
-      );
+      });
+    });
 
-      return toResponse(updated);
-    }),
+    ctx.req?.server?.sse?.broadcast(
+      'kds.order.ready',
+      {
+        id: updated.id,
+        saleId: updated.saleId,
+        siteId: updated.siteId,
+        station: updated.station,
+        readyAt: now,
+      },
+      ctx.tenantId
+    );
+
+    return toResponse(updated);
+  }),
+
+  recall: kdsProcedure.input(recallKdsOrderInput).mutation(async ({ ctx, input }) => {
+    const existing = await ctx.db
+      .select()
+      .from(kdsOrders)
+      .where(and(eq(kdsOrders.id, input.id), eq(kdsOrders.tenantId, ctx.tenantId)))
+      .get();
+    if (!existing) {
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'KDS_ORDER_NOT_FOUND',
+        message: 'KDS order not found',
+        details: { id: input.id },
+      });
+    }
+    if (existing.status !== 'ready') {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'KDS_ORDER_NOT_READY',
+        message: 'Only ready cards can be recalled to pending',
+        details: { id: input.id, currentStatus: existing.status },
+      });
+    }
+
+    const now = new Date().toISOString();
+    const updated: KdsOrderRow = {
+      ...existing,
+      status: 'pending',
+      readyAt: null,
+      readyByUserId: null,
+      updatedAt: now,
+    };
+
+    ctx.db.transaction(tx => {
+      tx.update(kdsOrders)
+        .set({
+          status: 'pending',
+          readyAt: null,
+          readyByUserId: null,
+          updatedAt: now,
+        })
+        .where(and(eq(kdsOrders.id, input.id), eq(kdsOrders.tenantId, ctx.tenantId)))
+        .run();
+
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'kds.order.recalled',
+        resourceType: 'kds_order',
+        resourceId: input.id,
+        before: {
+          status: existing.status,
+          readyAt: existing.readyAt,
+          readyByUserId: existing.readyByUserId,
+        },
+        after: { status: 'pending', readyAt: null, readyByUserId: null },
+        metadata: {
+          saleId: existing.saleId,
+          saleNumber: existing.saleNumber,
+          station: existing.station,
+          tableId: existing.tableId,
+          tableLabel: existing.tableLabel,
+        },
+      });
+    });
+
+    ctx.req?.server?.sse?.broadcast(
+      'kds.order.recalled',
+      {
+        id: updated.id,
+        saleId: updated.saleId,
+        siteId: updated.siteId,
+        station: updated.station,
+      },
+      ctx.tenantId
+    );
+
+    return toResponse(updated);
+  }),
 });

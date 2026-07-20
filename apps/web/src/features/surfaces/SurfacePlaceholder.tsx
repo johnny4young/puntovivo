@@ -1,11 +1,11 @@
 /**
- * ENG-069 — Shared placeholder rendered inside each surface shell.
+ * Shared placeholder rendered inside each surface shell.
  *
  * Renders a centered card with the surface label, description,
  * "próximamente" badge, and a CTA back to /dashboard. The actual
  * surface workflows (touch sales flow, kitchen ticket queue, table
  * grid, etc.) replace this placeholder with real content in
- * ENG-039 (vertical restaurant).
+ * (vertical restaurant).
  *
  * @module features/surfaces/SurfacePlaceholder
  */
@@ -39,28 +39,16 @@ export function SurfacePlaceholder({
   const { t } = useTranslation('surfaces');
 
   return (
-    <div
-      className={
-        containerClassName ??
-        'flex min-h-[60vh] items-center justify-center'
-      }
-    >
+    <div className={containerClassName ?? 'flex min-h-[60vh] items-center justify-center'}>
       <div
-        className={
-          cardClassName ??
-          'card flex max-w-lg flex-col gap-4 p-8 text-center'
-        }
+        className={cardClassName ?? 'card flex max-w-lg flex-col gap-4 p-8 text-center'}
         data-testid="surface-placeholder"
       >
         <div className="inline-flex items-center justify-center self-center rounded-full bg-primary-50 p-3 text-primary-700">
           <Sparkles className="h-5 w-5" />
         </div>
-        <h1 className="text-2xl font-semibold">
-          {t(`${i18nKey}.label`)}
-        </h1>
-        <p className="text-sm text-secondary-700">
-          {t(`${i18nKey}.description`)}
-        </p>
+        <h1 className="text-2xl font-semibold">{t(`${i18nKey}.label`)}</h1>
+        <p className="text-sm text-secondary-700">{t(`${i18nKey}.description`)}</p>
         <div className="self-center rounded-full bg-secondary-100 px-3 py-1 text-xs font-medium uppercase tracking-wider text-secondary-700">
           {t(`${i18nKey}.upcomingTicket`)}
         </div>

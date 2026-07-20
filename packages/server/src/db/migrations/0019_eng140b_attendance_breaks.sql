@@ -20,7 +20,7 @@ CREATE TABLE `employee_shift_breaks` (
 CREATE INDEX `idx_employee_shift_breaks_tenant_shift_start` ON `employee_shift_breaks` (`tenant_id`,`employee_shift_id`,`started_at`);--> statement-breakpoint
 CREATE UNIQUE INDEX `idx_employee_shift_breaks_tenant_user_open` ON `employee_shift_breaks` (`tenant_id`,`user_id`) WHERE "employee_shift_breaks"."ended_at" IS NULL;
 --> statement-breakpoint
--- ENG-140b — every break belongs to the same tenant and employee as its
+--  — every break belongs to the same tenant and employee as its
 -- attendance shift. Actor checks keep future manager corrections scoped too.
 CREATE TRIGGER IF NOT EXISTS `employee_shift_breaks_tenant_scope_insert`
 BEFORE INSERT ON `employee_shift_breaks`

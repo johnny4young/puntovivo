@@ -1,5 +1,5 @@
 /**
- * ENG-060 — Unit tests for `services/peripherals/registry.ts`.
+ * Unit tests for `services/peripherals/registry.ts`.
  *
  * Tests the dispatch table + config validation + cross-tenant
  * isolation + the partial-unique constraint on `site_peripherals`.
@@ -10,13 +10,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  sitePeripherals,
-  sites,
-  users,
-  tenants,
-  companies,
-} from '../db/schema.js';
+import { sitePeripherals, sites, users, tenants, companies } from '../db/schema.js';
 import {
   __clearPeripheralAdapterOverridesForTest,
   __setPeripheralAdapterForTest,
@@ -34,11 +28,7 @@ let siteId: string;
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   const seededSite = await db
@@ -58,22 +48,20 @@ afterAll(async () => {
 afterEach(async () => {
   __clearPeripheralAdapterOverridesForTest();
   // Wipe all peripherals between tests so each starts clean.
-  await getDatabase()
-    .delete(sitePeripherals)
-    .where(eq(sitePeripherals.tenantId, tenantId));
+  await getDatabase().delete(sitePeripherals).where(eq(sitePeripherals.tenantId, tenantId));
 });
 
 describe('listSupportedDrivers', () => {
-  it('returns ENG-060/061/062 default drivers (system + escpos printer, escpos drawer, wedge scanner, manual payment terminal)', () => {
+  it('returns  default drivers (system + escpos printer, escpos drawer, wedge scanner, manual payment terminal)', () => {
     const drivers = listSupportedDrivers();
     expect(drivers).toEqual(
       expect.arrayContaining([
         { kind: 'printer', driverId: 'system' },
-        // ENG-062 — ESC/POS printer driver registered.
+        // ESC/POS printer driver registered.
         { kind: 'printer', driverId: 'escpos' },
         { kind: 'payment_terminal', driverId: 'manual' },
         { kind: 'scanner', driverId: 'wedge' },
-        // ENG-062 — ESC/POS cash drawer driver registered.
+        // ESC/POS cash drawer driver registered.
         { kind: 'cash_drawer', driverId: 'escpos' },
       ])
     );
@@ -251,17 +239,13 @@ describe('instantiateAdapter', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    const row = await db
-      .select()
-      .from(sitePeripherals)
-      .where(eq(sitePeripherals.id, id))
-      .get();
+    const row = await db.select().from(sitePeripherals).where(eq(sitePeripherals.id, id)).get();
     expect(row).toBeTruthy();
     const adapter = instantiateAdapter(row!);
     expect(adapter).toBeNull();
   });
 
-  it('returns an EscPosReceiptPrinterAdapter for the (printer, escpos) pair (ENG-062)', async () => {
+  it('returns an EscPosReceiptPrinterAdapter for the (printer, escpos) pair', async () => {
     const db = getDatabase();
     const id = nanoid();
     await db.insert(sitePeripherals).values({
@@ -275,18 +259,14 @@ describe('instantiateAdapter', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    const row = await db
-      .select()
-      .from(sitePeripherals)
-      .where(eq(sitePeripherals.id, id))
-      .get();
+    const row = await db.select().from(sitePeripherals).where(eq(sitePeripherals.id, id)).get();
     const adapter = instantiateAdapter(row!);
     expect(adapter).not.toBeNull();
     expect(adapter!.kind).toBe('printer');
     expect(adapter!.driverId).toBe('escpos');
   });
 
-  it('returns an EscPosCashDrawerAdapter for the (cash_drawer, escpos) pair (ENG-062)', async () => {
+  it('returns an EscPosCashDrawerAdapter for the (cash_drawer, escpos) pair', async () => {
     const db = getDatabase();
     const id = nanoid();
     await db.insert(sitePeripherals).values({
@@ -300,18 +280,14 @@ describe('instantiateAdapter', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    const row = await db
-      .select()
-      .from(sitePeripherals)
-      .where(eq(sitePeripherals.id, id))
-      .get();
+    const row = await db.select().from(sitePeripherals).where(eq(sitePeripherals.id, id)).get();
     const adapter = instantiateAdapter(row!);
     expect(adapter).not.toBeNull();
     expect(adapter!.kind).toBe('cash_drawer');
     expect(adapter!.driverId).toBe('escpos');
   });
 
-  it('returns a BarcodeScannerAdapter for the wedge driver (ENG-061)', async () => {
+  it('returns a BarcodeScannerAdapter for the wedge driver', async () => {
     const db = getDatabase();
     const id = nanoid();
     await db.insert(sitePeripherals).values({
@@ -326,11 +302,7 @@ describe('instantiateAdapter', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    const row = await db
-      .select()
-      .from(sitePeripherals)
-      .where(eq(sitePeripherals.id, id))
-      .get();
+    const row = await db.select().from(sitePeripherals).where(eq(sitePeripherals.id, id)).get();
     const adapter = instantiateAdapter(row!);
     expect(adapter).not.toBeNull();
     expect(adapter!.kind).toBe('scanner');
@@ -339,7 +311,7 @@ describe('instantiateAdapter', () => {
   });
 });
 
-describe('validatePeripheralConfig — wedge scanner (ENG-061)', () => {
+describe('validatePeripheralConfig — wedge scanner', () => {
   it('accepts an empty config and applies defaults', () => {
     const result = validatePeripheralConfig({
       kind: 'scanner',

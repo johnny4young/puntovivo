@@ -1,5 +1,5 @@
 /**
- * ENG-053 — Outbox worker base class.
+ * Outbox worker base class.
  *
  * Concrete outboxes wire their kernel + processor function via this
  * base class. The `tick()` method runs one claim → process →
@@ -9,8 +9,8 @@
  *
  * The class is intentionally agnostic of the wall-clock loop. The
  * decision to use setInterval, a Bull-style scheduler, or a Fastify
- * job hook lives in the consumer's wiring (e.g. ENG-057 will run
- * the fiscal worker on a 30s interval; ENG-063 will run the payment
+ * job hook lives in the consumer's wiring (e.g.  will run
+ * the fiscal worker on a 30s interval;  will run the payment
  * worker synchronously after each charge).
  *
  * @module lib/outbox/worker
@@ -57,7 +57,7 @@ export interface OutboxWorkerOptions<TPayload, TStatus extends string> {
  *
  * Multi-tenant note: workers are tenant-scoped by design — a single
  * worker process drives one tenant at a time. The orchestrator
- * (ENG-065) decides which tenants get cycled when.
+ * () decides which tenants get cycled when.
  */
 export async function tickOutbox<TPayload, TStatus extends string>(
   db: DatabaseInstance,

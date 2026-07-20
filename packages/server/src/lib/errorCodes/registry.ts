@@ -1,5 +1,5 @@
 /**
- * Server error-code registry — merge + `ServerErrorCode` union (ENG-178 split).
+ * Server error-code registry — merge + `ServerErrorCode` union ( split).
  *
  * Re-assembles the full `SERVER_ERROR_CODES` map from the two domain halves;
  * the `as const` on each half + on the merge preserves the exact 150-member

@@ -12,7 +12,7 @@ export function QueryErrorState({
   title,
   message,
   onRetry,
-  // ENG-220 — resolved below rather than defaulted to English here.
+  // resolved below rather than defaulted to English here.
   retryLabel,
 }: QueryErrorStateProps) {
   const { t } = useTranslation('common');

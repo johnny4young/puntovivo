@@ -1,5 +1,5 @@
 /**
- * ENG-030 — Shared types for the AI foundation.
+ * Shared types for the AI foundation.
  *
  * @module services/ai/types
  */
@@ -18,7 +18,7 @@ export type AIFeature =
 export interface AICompletionInput {
   feature: AIFeature;
   /** Optional system prompt; provider-specific cache markers are
-   *  applied automatically by the pipeline when supported. */
+   * applied automatically by the pipeline when supported. */
   system?: string;
   prompt: string;
   /** Override; defaults to `settings.modelId ?? provider.defaultModelId`. */
@@ -78,7 +78,7 @@ export interface AISettings {
   /** null = use `provider.defaultModelId`. */
   modelId: string | null;
   /** Per-feature opt-in flags. Added 2026-05-15. */
-  // ENG-179b — explicit `| undefined` on optional features field.
+  // explicit `| undefined` on optional features field.
   features?: AIFeatureFlags | undefined;
 }
 

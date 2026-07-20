@@ -52,7 +52,7 @@ function renderPanel() {
   );
 }
 
-describe('BackupRestoreDrillPanel (ENG-136b)', () => {
+describe('BackupRestoreDrillPanel', () => {
   beforeEach(() => {
     delete window.electron;
   });

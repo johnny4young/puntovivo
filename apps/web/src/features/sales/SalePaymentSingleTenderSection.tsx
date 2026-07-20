@@ -1,8 +1,8 @@
 /**
  * Single-tender section of the sale payment modal (method tiles + amount +
- * change/outstanding + split-enable). Rediseño §06 / ENG-090.
+ * change/outstanding + split-enable). Rediseño §06 / .
  *
- * ENG-178 — JSX extracted verbatim from the former single-file
+ * JSX extracted verbatim from the former single-file
  * `SalePaymentModal.tsx`. Presentational: receives the RHF `form` + derived
  * flags from `useSalePaymentModal`. The hidden sr-only `<select>` stays the
  * registered form control (the tiles only drive `setValue`).
@@ -69,7 +69,7 @@ export function SalePaymentSingleTenderSection({
             aria-labelledby="sale-payment-method-label"
           >
             {PAYMENT_METHOD_TILES.filter(
-              // ENG-090 — credit tile gated to manager + admin AND
+              // credit tile gated to manager + admin AND
               // requires a customer attached. Cashier never sees it
               // (server router also enforces the role gate on the
               // credit payment method). Walk-in (no customer) hides
@@ -106,7 +106,7 @@ export function SalePaymentSingleTenderSection({
             <option value="cash">{t('payment.cash')}</option>
             <option value="card">{t('payment.card')}</option>
             <option value="transfer">{t('payment.transfer')}</option>
-            {/* ENG-090 — credit option gated to manager + admin AND
+            {/* credit option gated to manager + admin AND
                 requires a customer attached. Cashier never sees it
                 (server router also enforces the role gate on the
                 credit payment method). Walk-in (no customer) hides the
@@ -157,7 +157,7 @@ export function SalePaymentSingleTenderSection({
         />
       )}
 
-      {/* ENG-090 — the change/outstanding overlay does not
+      {/* the change/outstanding overlay does not
           apply to credit sales (the entire total is deferred
           onto the ledger). The credit customer card above
           already carries the relevant amounts. */}
@@ -165,10 +165,14 @@ export function SalePaymentSingleTenderSection({
         <div className="surface-panel-muted text-sm">
           <div className="flex items-center justify-between">
             <span className="text-secondary-500">{t('payment.amountReceived')}</span>
-            <span className="font-medium text-secondary-900">{formatCurrency(amountReceivedValue)}</span>
+            <span className="font-medium text-secondary-900">
+              {formatCurrency(amountReceivedValue)}
+            </span>
           </div>
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-secondary-500">{isCash ? t('payment.change') : t('payment.balance')}</span>
+            <span className="text-secondary-500">
+              {isCash ? t('payment.change') : t('payment.balance')}
+            </span>
             <span className="font-medium text-secondary-900">
               {formatCurrency(isCash ? change : outstanding)}
             </span>
@@ -176,7 +180,7 @@ export function SalePaymentSingleTenderSection({
         </div>
       )}
 
-      {/* ENG-014 — when the single-tender method is already
+      {/* when the single-tender method is already
           credit, splitting is redundant: the operator has
           signaled the entire sale is on account. To split a
           credit portion, the operator starts from a non-credit

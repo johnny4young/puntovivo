@@ -3,7 +3,6 @@
 > Status: shipped engine (canonical map + global Command Palette
 >
 > - aria-keyshortcuts hookup on `/sales`).
->   Roadmap anchor: `ENG-105` (slice A).
 
 This doc is the operator and reviewer-facing source of truth for
 every keyboard shortcut the renderer exposes. The runtime catalogue
@@ -26,26 +25,26 @@ keeps three concerns aligned without coupling them:
 
 1. The Command Palette can show the hint on every action.
 2. Real buttons in the DOM can stamp `aria-keyshortcuts` from the
-   same source (closes the ENG-134 a11y remaining slice).
+   same source (closes the a11y remaining slice).
 3. Reviewers can audit the full set with one grep.
 
 ## Current shortcuts
 
-| Id                      | Keys          | Scope  | Action                                                                                                                                                                                                                                                                                                                                                                 |
-| ----------------------- | ------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `palette.open`          | `Mod+K`       | global | Open the Command Palette.                                                                                                                                                                                                                                                                                                                                              |
-| `sales.charge`          | `F1`          | sales  | Open the payment modal for the active cart.                                                                                                                                                                                                                                                                                                                            |
-| `sales.productSearch`   | `F5`          | sales  | Open the product search dialog.                                                                                                                                                                                                                                                                                                                                        |
-| `sales.focusProduct`    | `Alt+P`       | sales  | Focus the product / barcode input.                                                                                                                                                                                                                                                                                                                                     |
-| `sales.focusQuantity`   | `Alt+C`       | sales  | Focus the quantity field of the selected row.                                                                                                                                                                                                                                                                                                                          |
-| `sales.focusDiscount`   | `Alt+D`       | sales  | Focus the discount field of the selected row.                                                                                                                                                                                                                                                                                                                          |
-| `sales.focusUnit`       | `Alt+U`       | modal  | Focus the unit selector inside ProductSearchDialog.                                                                                                                                                                                                                                                                                                                    |
-| `sales.suspend`         | `Mod+P`       | sales  | Park the active cart.                                                                                                                                                                                                                                                                                                                                                  |
-| `sales.toggleSuspended` | `Mod+R`       | sales  | Toggle the suspended-carts panel.                                                                                                                                                                                                                                                                                                                                      |
-| `sales.reprint`         | `Mod+Shift+P` | sales  | Reprint the selected history row.                                                                                                                                                                                                                                                                                                                                      |
-| `sales.removeItem`      | `Delete`      | sales  | Drop the selected line from the cart.                                                                                                                                                                                                                                                                                                                                  |
-| `sales.undo`            | `Mod+Z`       | sales  | Undo the last cart mutation (ENG-105d). Disabled inside editable fields so native text undo keeps working.                                                                                                                                                                                                                                                             |
-| `sales.fastCash`        | `F2`          | sales  | Fast-cash rapid checkout (ENG-105e). Opens the payment modal with cash pre-selected, amount = exact total, and the Confirm button focused. Still active while the modal is already open — re-applies the exact amount on top of whatever was typed, even from the amount field. Suppressed inside editable fields outside the payment modal and during product search. |
+| Id                      | Keys          | Scope  | Action                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------- | ------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `palette.open`          | `Mod+K`       | global | Open the Command Palette.                                                                                                                                                                                                                                                                                                                                      |
+| `sales.charge`          | `F1`          | sales  | Open the payment modal for the active cart.                                                                                                                                                                                                                                                                                                                    |
+| `sales.productSearch`   | `F5`          | sales  | Open the product search dialog.                                                                                                                                                                                                                                                                                                                                |
+| `sales.focusProduct`    | `Alt+P`       | sales  | Focus the product / barcode input.                                                                                                                                                                                                                                                                                                                             |
+| `sales.focusQuantity`   | `Alt+C`       | sales  | Focus the quantity field of the selected row.                                                                                                                                                                                                                                                                                                                  |
+| `sales.focusDiscount`   | `Alt+D`       | sales  | Focus the discount field of the selected row.                                                                                                                                                                                                                                                                                                                  |
+| `sales.focusUnit`       | `Alt+U`       | modal  | Focus the unit selector inside ProductSearchDialog.                                                                                                                                                                                                                                                                                                            |
+| `sales.suspend`         | `Mod+P`       | sales  | Park the active cart.                                                                                                                                                                                                                                                                                                                                          |
+| `sales.toggleSuspended` | `Mod+R`       | sales  | Toggle the suspended-carts panel.                                                                                                                                                                                                                                                                                                                              |
+| `sales.reprint`         | `Mod+Shift+P` | sales  | Reprint the selected history row.                                                                                                                                                                                                                                                                                                                              |
+| `sales.removeItem`      | `Delete`      | sales  | Drop the selected line from the cart.                                                                                                                                                                                                                                                                                                                          |
+| `sales.undo`            | `Mod+Z`       | sales  | Undo the last cart mutation (). Disabled inside editable fields so native text undo keeps working.                                                                                                                                                                                                                                                             |
+| `sales.fastCash`        | `F2`          | sales  | Fast-cash rapid checkout (). Opens the payment modal with cash pre-selected, amount = exact total, and the Confirm button focused. Still active while the modal is already open — re-applies the exact amount on top of whatever was typed, even from the amount field. Suppressed inside editable fields outside the payment modal and during product search. |
 
 `Mod` is the platform meta-modifier — `⌘` on macOS, `Ctrl` (or
 `Meta`) on Windows / Linux. The matcher in `shortcuts.ts` accepts
@@ -63,7 +62,7 @@ plugged into a Linux workstation still fires.
   the highlight. `Home` / `End` jump to the first / last item.
   `Enter` fires the highlighted action and closes the palette.
   Mouse hover sets the highlight; click fires the action.
-- **Wrap-around** (ENG-105d): `ArrowDown` from the last item wraps
+- **Wrap-around** (): `ArrowDown` from the last item wraps
   back to the first, and `ArrowUp` from the first wraps to the
   last. `Home` / `End` keep their absolute-jump semantics. An empty
   filter is a no-op (no selection to move).
@@ -78,7 +77,7 @@ plugged into a Linux workstation still fires.
 - **Shortcut hints**: when an action declares `shortcutId`, the
   palette renders the formatted keys on the right gutter. `⌘K` on
   macOS, `Ctrl+K` elsewhere.
-- **Recent ordering** (ENG-105g): the palette records every action
+- **Recent ordering** (): the palette records every action
   activation DEVICE-LOCALLY (`localStorage` key
   `palette_usage:<tenantId>`, helper `lib/paletteUsage.ts`; nothing
   travels to the server). When opened with an EMPTY query, a
@@ -90,8 +89,8 @@ plugged into a Linux workstation still fires.
   used on the same device never leaks into a cashier's section.
   Section headers are presentational (`aria-hidden`): the listbox
   stays a flat option list for assistive tech, and the wrap-around
-  semantics from ENG-105d operate over the combined list. With no
-  usage recorded the palette renders the exact pre-ENG-105g
+  semantics from operate over the combined list. With no
+  usage recorded the palette renders the exact pre-
   catalogue order.
 
 ## How to add a shortcut
@@ -151,8 +150,8 @@ operator's session is more sacred than a feature.
 
 ## Out-of-scope follow-ups
 
-The ENG-105 cell lists 11 deliverables; slice A ships 1 (the
-palette + map). The remaining 10 ride future slices `ENG-105b..`:
+The cell lists 11 deliverables; slice A ships 1 (the
+palette + map). The remaining 10 ride future slices ..`:
 
 - Checkout preflight panel.
 - Quick-create modals for product / customer / provider mid-flow.
@@ -164,7 +163,7 @@ palette + map). The remaining 10 ride future slices `ENG-105b..`:
 - Focus rules tuned against barcode wedge input.
 - Layout stability tweaks across desktop and tablet smoke targets.
 - Most-used / recent-actions ordering in the palette (depends on
-  ENG-135 observability sink).
+  observability sink).
 
 ## Running the contract locally
 
@@ -182,5 +181,5 @@ pnpm run ci:web
 ```
 
 Live smoke evidence for each shortcut slice belongs in the review
-handoff and in the internal sprint plan when the slice ships; do not
+public status and tests when the shortcut ships; do not
 link repo docs to per-machine agent plan files.

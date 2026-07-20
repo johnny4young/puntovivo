@@ -151,7 +151,7 @@ export interface TransferSerialRecord {
   serialNumber: string;
 }
 
-/** Reset the dedicated ENG-202 tenant before each attempt, including retries. */
+/** Reset the dedicated  tenant before each attempt, including retries. */
 export async function resetFirstSaleScenario(): Promise<void> {
   const db = openDb();
   try {
@@ -571,8 +571,8 @@ export function seedFiscalProfileScenario(seed: string): SeededFiscalProfileScen
 
 /**
  * Seeds a fresh cashier with NO open cash sessions. Use this when the
- * test needs to exercise the "open session from zero" flow (CASH-01 /
- * CASH-02 / CASH-03) — `seedSaleScenario` always opens a session per
+ * test needs to exercise the "open session from zero" flow;
+ * `seedSaleScenario` always opens a session per
  * site by default, which short-circuits the open-modal test path.
  *
  * The tenant, product, and sites are still seeded identically to the

@@ -1,5 +1,5 @@
 /**
- * ENG-140c — effective-dated statutory overtime baselines.
+ * effective-dated statutory overtime baselines.
  *
  * These profiles classify attendance evidence; they do not calculate payroll.
  * Contract terms, collective agreements, holidays, and authorised schedule

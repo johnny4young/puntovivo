@@ -12,13 +12,12 @@ const adminRoutes = [
   {
     label: 'Dashboard',
     path: '/dashboard',
-    assertion: async (page) =>
-      page.getByText(/Today's Sales|Ventas de hoy/i).first(),
+    assertion: async page => page.getByText(/Today's Sales|Ventas de hoy/i).first(),
   },
   {
     label: 'Sales',
     path: '/sales',
-    assertion: async (page) =>
+    assertion: async page =>
       page.getByRole('heading', {
         name: /Charge summary|Resumen de cobro/i,
       }),
@@ -26,25 +25,60 @@ const adminRoutes = [
   {
     label: 'Team schedule',
     path: '/schedule',
-    assertion: async (page) => page.getByTestId('team-schedule-page'),
+    assertion: async page => page.getByTestId('team-schedule-page'),
   },
   {
     label: 'Inventory',
     path: '/inventory',
-    assertion: async (page) => page.getByRole('button', { name: /Movements|By Site|Por sede/i }).first(),
+    assertion: async page =>
+      page.getByRole('button', { name: /Movements|By Site|Por sede/i }).first(),
   },
-  { label: 'Orders', path: '/orders', assertion: async (page) => page.getByRole('button', { name: /Create order|Nueva orden|Add product/i }).first() },
-  { label: 'Purchases', path: '/purchases', assertion: async (page) => page.getByRole('button', { name: /Record purchase|Nueva compra|Add product/i }).first() },
-  { label: 'Quotations', path: '/quotations', assertion: async (page) => page.getByRole('button', { name: /New quotation|Nueva cotización/i }) },
-  { label: 'Customers', path: '/customers', assertion: async (page) => page.getByRole('button', { name: /Add Customer|Agregar cliente/i }) },
-  { label: 'Products', path: '/products', assertion: async (page) => page.getByRole('button', { name: /Add Product|Agregar producto/i }) },
-  { label: 'Providers', path: '/providers', assertion: async (page) => page.getByRole('button', { name: /Add Provider|Agregar proveedor/i }) },
-  { label: 'Categories', path: '/categories', assertion: async (page) => page.getByRole('button', { name: /Add Category|Agregar categoría/i }) },
-  { label: 'Locations', path: '/locations', assertion: async (page) => page.getByRole('button', { name: /Add Location|Agregar ubicación/i }) },
+  {
+    label: 'Orders',
+    path: '/orders',
+    assertion: async page =>
+      page.getByRole('button', { name: /Create order|Nueva orden|Add product/i }).first(),
+  },
+  {
+    label: 'Purchases',
+    path: '/purchases',
+    assertion: async page =>
+      page.getByRole('button', { name: /Record purchase|Nueva compra|Add product/i }).first(),
+  },
+  {
+    label: 'Quotations',
+    path: '/quotations',
+    assertion: async page => page.getByRole('button', { name: /New quotation|Nueva cotización/i }),
+  },
+  {
+    label: 'Customers',
+    path: '/customers',
+    assertion: async page => page.getByRole('button', { name: /Add Customer|Agregar cliente/i }),
+  },
+  {
+    label: 'Products',
+    path: '/products',
+    assertion: async page => page.getByRole('button', { name: /Add Product|Agregar producto/i }),
+  },
+  {
+    label: 'Providers',
+    path: '/providers',
+    assertion: async page => page.getByRole('button', { name: /Add Provider|Agregar proveedor/i }),
+  },
+  {
+    label: 'Categories',
+    path: '/categories',
+    assertion: async page => page.getByRole('button', { name: /Add Category|Agregar categoría/i }),
+  },
+  {
+    label: 'Locations',
+    path: '/locations',
+    assertion: async page => page.getByRole('button', { name: /Add Location|Agregar ubicación/i }),
+  },
   {
     label: 'Company',
     path: '/company',
-    assertion: async (page) =>
+    assertion: async page =>
       page.getByRole('heading', {
         name: /Ready to open|Listo para abrir|Setup readiness|Configuración inicial/i,
       }),
@@ -52,25 +86,56 @@ const adminRoutes = [
   {
     label: 'Import data',
     path: '/data-import',
-    assertion: async (page) =>
-      page.getByRole('main').getByRole('heading', { level: 1, name: /Import data|Importar datos/i }),
+    assertion: async page =>
+      page
+        .getByRole('main')
+        .getByRole('heading', { level: 1, name: /Import data|Importar datos/i }),
   },
-  { label: 'Sites', path: '/sites', assertion: async (page) => page.getByRole('button', { name: /Add Site|Agregar sede/i }) },
+  {
+    label: 'Sites',
+    path: '/sites',
+    assertion: async page => page.getByRole('button', { name: /Add Site|Agregar sede/i }),
+  },
   {
     label: 'Sequentials',
     path: '/sequentials',
-    assertion: async (page) => page.getByRole('button', { name: /Add Sequential|Crear consecutivo/i }),
+    assertion: async page =>
+      page.getByRole('button', { name: /Add Sequential|Crear consecutivo/i }),
   },
-  { label: 'Geography', path: '/geography', assertion: async (page) => page.getByRole('main').getByRole('heading', { name: /Geography|Geografía/i }) },
+  {
+    label: 'Geography',
+    path: '/geography',
+    assertion: async page =>
+      page.getByRole('main').getByRole('heading', { name: /Geography|Geografía/i }),
+  },
   {
     label: 'Customer Catalogs',
     path: '/customer-catalogs',
-    assertion: async (page) => page.getByRole('main').getByRole('heading', { name: /Customer Catalogs|Catálogos de clientes/i }),
+    assertion: async page =>
+      page
+        .getByRole('main')
+        .getByRole('heading', { name: /Customer Catalogs|Catálogos de clientes/i }),
   },
-  { label: 'Units', path: '/units', assertion: async (page) => page.getByRole('button', { name: /Add Unit|Agregar unidad/i }) },
-  { label: 'VAT Rates', path: '/vat-rates', assertion: async (page) => page.getByRole('button', { name: /Add VAT Rate|Agregar tarifa IVA/i }) },
-  { label: 'Users', path: '/users', assertion: async (page) => page.getByRole('button', { name: /Add User|Agregar usuario/i }) },
-  { label: 'Audit log', path: '/audit-logs', assertion: async (page) => page.getByText(/Recent audit events|Eventos recientes/i) },
+  {
+    label: 'Units',
+    path: '/units',
+    assertion: async page => page.getByRole('button', { name: /Add Unit|Agregar unidad/i }),
+  },
+  {
+    label: 'VAT Rates',
+    path: '/vat-rates',
+    assertion: async page => page.getByRole('button', { name: /Add VAT Rate|Agregar tarifa IVA/i }),
+  },
+  {
+    label: 'Users',
+    path: '/users',
+    assertion: async page => page.getByRole('button', { name: /Add User|Agregar usuario/i }),
+  },
+  {
+    label: 'Audit log',
+    path: '/audit-logs',
+    assertion: async page => page.getByText(/Recent audit events|Eventos recientes/i),
+  },
 ] as const;
 
 const routeWorkspaceLabels = new Map<string, string>([
@@ -103,10 +168,7 @@ async function revealSidebarLink(page: Page, label: string, workspaceLabel?: str
     const escapedLabel = workspaceLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     await page
       .getByRole('button', {
-        name: new RegExp(
-          `^(?:Expand|Collapse|Expandir|Contraer) ${escapedLabel}$`,
-          'i'
-        ),
+        name: new RegExp(`^(?:Expand|Collapse|Expandir|Contraer) ${escapedLabel}$`, 'i'),
       })
       .click();
   }
@@ -120,7 +182,11 @@ test.describe('web smoke', () => {
     await loginAs(page, 'admin');
 
     for (const route of adminRoutes) {
-      const link = await revealSidebarLink(page, route.label, routeWorkspaceLabels.get(route.label));
+      const link = await revealSidebarLink(
+        page,
+        route.label,
+        routeWorkspaceLabels.get(route.label)
+      );
       await link.click();
       await expect(page).toHaveURL(new RegExp(`${route.path}$`));
       await expect(await route.assertion(page)).toBeVisible();
@@ -133,7 +199,10 @@ test.describe('web smoke', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('admin shell supports multi-site selection and responsive tablet layout', async ({ page, browserName }) => {
+  test('admin shell supports multi-site selection and responsive tablet layout', async ({
+    page,
+    browserName,
+  }) => {
     test.skip(browserName !== 'chromium', 'responsive smoke uses a single stable browser target');
 
     const tracker = attachClientIssueTracker(page);
@@ -174,7 +243,7 @@ test.describe('web smoke', () => {
     await page.goto('/data-import');
     await expect(page).toHaveURL(/\/dashboard$/);
 
-    // AUDIT-09: /audit-logs is guarded by `adminOnlyRoles`. A manager
+    // /audit-logs is guarded by `adminOnlyRoles`. A manager
     // hitting it directly must redirect out; the sidebar entry also
     // stays hidden.
     await expect(page.getByRole('link', { name: 'Audit log' })).toHaveCount(0);
@@ -277,9 +346,7 @@ test.describe('web smoke', () => {
     const downloadPromise = page.waitForEvent('download');
     await page.getByTestId('day-close-pdf-download').click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(
-      /^puntovivo-cierre-2000-01-01-[a-f0-9]{8}\.pdf$/
-    );
+    expect(download.suggestedFilename()).toMatch(/^puntovivo-cierre-2000-01-01-[a-f0-9]{8}\.pdf$/);
     const downloadPath = await download.path();
     expect(downloadPath).not.toBeNull();
     const pdf = await readFile(downloadPath!);

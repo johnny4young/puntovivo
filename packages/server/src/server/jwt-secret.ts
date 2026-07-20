@@ -1,7 +1,7 @@
 /**
  * JWT-secret strength policy + secret generation.
  *
- * ENG-073 Store Hub hardening: a `site_hub` boot refuses an
+ * Store Hub hardening: a `site_hub` boot refuses an
  * auto-generated, weak, or placeholder JWT secret because the embedded
  * Fastify becomes reachable to every cashier terminal on the LAN. These
  * pure predicates classify a candidate secret; `createServer`'s config

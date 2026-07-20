@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useDialogA11y } from '@/components/feedback/useDialogA11y';
 
-// ENG-179b — explicit `| undefined` on every optional field so React
+// explicit `| undefined` on every optional field so React
 // callers can spread props from a parent state shape that carries
 // explicit-undefined fields under `exactOptionalPropertyTypes`.
 export interface ModalProps {
@@ -38,7 +38,7 @@ export interface ModalProps {
   /** Custom class for the modal footer */
   footerClassName?: string | undefined;
   /**
-   * ENG-105f — Optional override for focus restoration on close.
+   * Optional override for focus restoration on close.
    * When provided and returning a non-null element, that element
    * receives focus instead of the element that was focused when the
    * modal opened. Returning `null` falls back to the default
@@ -82,8 +82,8 @@ export function Modal({
   const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  // ENG-186 (review follow-up) — focus-trap, ESC close, focus restoration
-  // (incl. the ENG-105f restoreFocusTo override) and body-scroll-lock now
+  // (review follow-up) — focus-trap, ESC close, focus restoration
+  // (incl. the  restoreFocusTo override) and body-scroll-lock now
   // live in the shared useDialogA11y hook (also consumed by Drawer). Modal
   // keeps its historical single-dialog behaviour — it does not pass
   // `requireTopmost`, so the topmost-dialog arbitration is off.

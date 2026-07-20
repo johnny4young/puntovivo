@@ -1,5 +1,5 @@
-// ENG-048 — the ProductsPage semantic-search feature, extracted from
-// ProductsPage.tsx (ENG-178 slice 32). Owns the toggle/query state, the 300ms
+// the ProductsPage semantic-search feature, extracted from
+// ProductsPage.tsx ( slice 32). Owns the toggle/query state, the 300ms
 // debounce, the module-gate, the semanticSearch + embeddingHealth queries, and
 // the regenerateEmbeddings mutation. The page keeps `products.list` (fed by
 // `literalFallbackSearch`) and the trivial `displayProducts` merge — the hook
@@ -22,7 +22,7 @@ interface UseProductsSemanticSearchArgs {
 }
 
 /**
- * Drives the ENG-048 semantic-search surface for ProductsPage.
+ * Drives the  semantic-search surface for ProductsPage.
  *
  * Returns the toggle/input state, the module-gate flags, the debounced
  * `literalFallbackSearch` (passed to `products.list` so semantic mode still
@@ -42,7 +42,7 @@ export function useProductsSemanticSearch({
 
   const semanticModuleActive = useIsModuleActive('semantic-search');
   const modulesSnapshot = useModulesSnapshot();
-  // ENG-178 — do not trust manifest-default module state for server-gated
+  // do not trust manifest-default module state for server-gated
   // semantic procedures. A cold modules snapshot is intentionally
   // optimistic, but firing `products.embeddingHealth` before
   // `modules.getEffective` resolves makes tenants with semantic-search
@@ -52,7 +52,7 @@ export function useProductsSemanticSearch({
   const semanticModuleResolved = !modulesSnapshot.isPlaceholder;
   const canUseSemantic = canManage && semanticModuleResolved && semanticModuleActive;
 
-  // ENG-048 — semantic search UI surface. The toggle flips between the
+  // semantic search UI surface. The toggle flips between the
   // existing client-side text filter (DataTable's internal globalFilter
   // on the "name" column) and the server-side cosine-similarity ranking
   // exposed by `products.semanticSearch`. We debounce by 300ms so each
@@ -89,7 +89,7 @@ export function useProductsSemanticSearch({
     { enabled: semanticModeEnabled && debouncedSemanticQuery.length > 0 }
   );
 
-  // ENG-040 — drift health drives the warning banner above the
+  // drift health drives the warning banner above the
   // toolbar. Gated on the same module + role surface as the rest of
   // the semantic toolbar so non-activated tenants don't fire the
   // query at all; the server also rejects with MODULE_NOT_ACTIVATED
@@ -117,7 +117,7 @@ export function useProductsSemanticSearch({
     onError: onErrorToast(toast, t, { titleKey: 'products:semantic.regenerateError' }),
   });
 
-  // ENG-048 — when semantic mode is active and the server returned
+  // when semantic mode is active and the server returned
   // results, replace the rendered rows; the rest of the UI keeps
   // working unchanged because the row shape matches the standard list
   // selection plus an extra optional `similarity` field.

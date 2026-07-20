@@ -1,4 +1,4 @@
-// ENG-179c — catalog / geography domain shapes (ENG-178 slice 28).
+// catalog / geography domain shapes ( slice 28).
 
 import type { UnitDimension } from '@puntovivo/shared/units';
 
@@ -17,7 +17,7 @@ export interface Provider {
   contactName?: string | null;
   isActive: boolean;
   assignedCategoryCount?: number;
-  // ENG-177a — optimistic-concurrency token (round-tripped on update).
+  // optimistic-concurrency token (round-tripped on update).
   version: number;
   createdAt: string;
   updatedAt: string;

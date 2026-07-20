@@ -1,11 +1,11 @@
 /**
- * ENG-040c slice 3 — Voice cart-command parser orchestrator.
+ * slice 3 — Voice cart-command parser orchestrator.
  *
  * Takes a transcript produced by `ai.transcribeAudio` (Whisper) and
  * extracts a bounded ADD-only set of cart actions via `generateObject`
  * against the tenant's configured language provider. Each parsed
  * `productHint` is then resolved to a real catalog row via the same
- * embeddings stack semantic search uses (ENG-033) — top-1 above the
+ * embeddings stack semantic search uses () — top-1 above the
  * shared cosine floor, or `null` when the hint is too vague.
  *
  * One `generateObject` call covers the parse step; one `embedTexts`
@@ -231,7 +231,7 @@ export async function parseVoiceCartCommand(
       : await hydrateCartProducts(ctx.db, ctx.tenantId, matchedIds);
 
   const matches: CartCommandMatch[] = parsed.items.map((item, idx) => {
-    // ENG-039a — normalize whitespace-only notes to null (the
+    // normalize whitespace-only notes to null (the
     // schema accepts any string, but a row that only carries
     // padding is the same as no modifier for cart purposes).
     const normalizedNote =

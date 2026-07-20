@@ -1,5 +1,5 @@
 /**
- * ENG-033 — semantic product search + auto-categorize embeddings.
+ * semantic product search + auto-categorize embeddings.
  *
  * ## Purpose
  *
@@ -19,7 +19,7 @@
  * memory and compute cosine in JS. For tenants up to ~50k products
  * this stays under 100ms; beyond that we'd need a vector index
  * extension (sqlite-vec or pgvector via a follow-up). Captured in
- * BACKLOG when relevant.
+ * follow-up work when relevant.
  *
  * ## Algorithm
  *
@@ -37,7 +37,7 @@ import { z } from 'zod';
 import type { DatabaseInstance } from '../../db/index.js';
 import { products } from '../../db/schema.js';
 import { resolveAISettings } from './client.js';
-import { getProvider, isNotImplemented } from './providers/registry.js';
+import { getProvider } from './providers/registry.js';
 
 /** Default embedding model — OpenAI's small model is the right v1 default:
  *  cheap ($0.02 / 1M input), 1536 dims, good multilingual including Spanish. */
@@ -112,7 +112,6 @@ async function resolveEmbeddingProvider(db: DatabaseInstance, tenantId: string) 
   const settings = await resolveAISettings(db, tenantId);
   if (!settings.enabled) return null;
   const provider = getProvider(settings.providerId);
-  if (isNotImplemented(provider)) return null;
   if (typeof provider.embeddingModel !== 'function') return null;
   if (!provider.isConfigured()) return null;
   return { provider, settings };
@@ -121,14 +120,14 @@ async function resolveEmbeddingProvider(db: DatabaseInstance, tenantId: string) 
 /**
  * Resolve the embedding model id that an embed-capable provider would
  * use for this tenant right now — without firing a network call.
- * Reads `provider.defaultEmbeddingModelId` (ENG-040b slice 2) and
+ * Reads `provider.defaultEmbeddingModelId` ( slice 2) and
  * falls back to the legacy `DEFAULT_EMBEDDING_MODEL` when a future
  * provider implements `embeddingModel` but does not advertise a
  * default. Returns null when AI is disabled / the provider does not
  * embed / the provider is not configured, mirroring
  * `resolveEmbeddingProvider`'s gating.
  *
- * Used by `products.embeddingHealth` (ENG-040 drift banner) to
+ * Used by `products.embeddingHealth` ( drift banner) to
  * compare each row's stored `products.embedding_model` against the
  * canonical id the next regenerate would write back — so the
  * comparison stays consistent with what `embedText` / `embedTexts`
@@ -278,7 +277,7 @@ export async function regenerateProductEmbeddings(
   // Update one by one — Drizzle's better-sqlite3 driver doesn't have
   // a clean batch UPDATE for per-row payloads. For up to a few
   // thousand products this is acceptable; bigger catalogs would
-  // benefit from a transaction wrapper (BACKLOG follow-up).
+  // benefit from a transaction wrapper (deferred).
   for (let i = 0; i < rows.length; i += 1) {
     await db
       .update(products)

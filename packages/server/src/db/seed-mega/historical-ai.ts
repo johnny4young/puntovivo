@@ -1,5 +1,5 @@
 /**
- * ENG-052b — MEGA seed: AI audit log + anomaly snoozes so the
+ * MEGA seed: AI audit log + anomaly snoozes so the
  * /co-pilot + AI billing pages have real data.
  *
  * @module db/seed-mega/historical-ai
@@ -46,7 +46,9 @@ export async function seedHistoricalAI(
     const isFailure = i % 10 === 0;
     const inputTokens = 200 + (i % 5) * 150;
     const outputTokens = isFailure ? 0 : 80 + (i % 5) * 40;
-    const costUsd = isFailure ? 0 : Number(((inputTokens * 0.00003) + (outputTokens * 0.00015)).toFixed(6));
+    const costUsd = isFailure
+      ? 0
+      : Number((inputTokens * 0.00003 + outputTokens * 0.00015).toFixed(6));
     const durationMs = 600 + (i % 7) * 250;
     const site = sites[i % sites.length]!;
 

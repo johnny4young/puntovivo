@@ -30,7 +30,7 @@ CREATE INDEX `idx_scheduled_shifts_tenant_site_start` ON `scheduled_shifts` (`te
 CREATE INDEX `idx_scheduled_shifts_tenant_user_start` ON `scheduled_shifts` (`tenant_id`,`user_id`,`starts_at`);--> statement-breakpoint
 CREATE INDEX `idx_scheduled_shifts_tenant_status_start` ON `scheduled_shifts` (`tenant_id`,`status`,`starts_at`);
 --> statement-breakpoint
--- ENG-140a — SQLite cannot express tenant-scoped parent ownership without
+--  — SQLite cannot express tenant-scoped parent ownership without
 -- requiring composite indexes on adopted partial databases. These triggers
 -- preserve the same invariant for every writer while keeping migration boot
 -- compatible with those database shapes.

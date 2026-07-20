@@ -30,9 +30,9 @@ export const COMPANY_TAB_TRANSLATION_KEYS = {
 } as const satisfies Record<CompanyTabKey, string>;
 
 /**
- * ENG-188 — readiness is pinned; every other setup tab belongs to exactly one
- * labeled category while preserving the existing URL contract. ENG-104 keeps
- * readiness as the admin landing; ENG-039d3 keeps restaurant preferences
+ * readiness is pinned; every other setup tab belongs to exactly one
+ * labeled category while preserving the existing URL contract.  keeps
+ * readiness as the admin landing;  keeps restaurant preferences
  * available to every admin tenant.
  */
 export const COMPANY_SETUP_TAB_GROUPS = [

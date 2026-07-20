@@ -29,17 +29,14 @@ function buildCompanySelection() {
 }
 
 /**
- * ENG-135 — Resolve `tenants.settings.telemetryOptIn` for the
+ * Resolve `tenants.settings.telemetryOptIn` for the
  * active tenant. Returns false by default (opt-in is per-tenant and
  * defaults off; the toggle is admin-driven via
  * `companies.updateTelemetryOptIn`). The query is a single row read
  * by primary key — sub-millisecond and never on the hot path of a
  * write mutation.
  */
-async function resolveTelemetryOptIn(
-  db: DatabaseInstance,
-  tenantId: string
-): Promise<boolean> {
+async function resolveTelemetryOptIn(db: DatabaseInstance, tenantId: string): Promise<boolean> {
   const row = await db
     .select({ settings: tenants.settings })
     .from(tenants)
@@ -50,7 +47,7 @@ async function resolveTelemetryOptIn(
 }
 
 /**
- * ENG-135 — Fetch a company row and stamp the tenant's
+ * Fetch a company row and stamp the tenant's
  * `telemetryOptIn` flag in one consistent shape. Used by
  * `getCurrent / upsert / setLogo` so every response surface carries
  * the field; without it react-query `setData` would silently drop
@@ -61,7 +58,7 @@ async function selectCompanyByIdWithTelemetry(
   tenantId: string,
   companyId: string
 ) {
-  // ENG-135 multi-tenant invariant: scope by both id AND tenantId.
+  // multi-tenant invariant: scope by both id AND tenantId.
   // Every caller already chained off a tenant-owned id, but pinning
   // the predicate here keeps the helper safe if a future caller
   // threads in a foreign id by mistake.
@@ -112,15 +109,11 @@ export const companiesRouter = router({
       .get();
 
     if (!company) return null;
-    // ENG-135 — surface `telemetryOptIn` on the same response so
+    // surface `telemetryOptIn` on the same response so
     // the CompanyTelemetryCard renders without a second round-trip.
     // Defensive default: false. The toggle is admin-driven via
     // `companies.updateTelemetryOptIn` below.
-    return (await selectCompanyByIdWithTelemetry(
-      ctx.db,
-      ctx.tenantId,
-      company.id
-    ))!;
+    return (await selectCompanyByIdWithTelemetry(ctx.db, ctx.tenantId, company.id))!;
   }),
 
   upsert: adminProcedure.input(upsertCompanyInput).mutation(async ({ ctx, input }) => {
@@ -140,13 +133,13 @@ export const companiesRouter = router({
         address: input.address ?? null,
         phone: input.phone ?? null,
         email: input.email ?? null,
-        logoId: resolvedLogo === undefined ? existing.logoId : resolvedLogo?.id ?? null,
+        logoId: resolvedLogo === undefined ? existing.logoId : (resolvedLogo?.id ?? null),
         logoUrl:
           resolvedLogo === undefined
             ? existing.logoId
               ? existing.logoUrl
-              : input.logoUrl ?? existing.logoUrl ?? null
-            : resolvedLogo?.imageUrl ?? input.logoUrl ?? null,
+              : (input.logoUrl ?? existing.logoUrl ?? null)
+            : (resolvedLogo?.imageUrl ?? input.logoUrl ?? null),
         updatedAt: now,
       };
 
@@ -184,7 +177,12 @@ export const companiesRouter = router({
       entityType: 'companies',
       entityId: id,
       operation: 'create',
-      data: { id, ...input, logoId: resolvedLogo?.id ?? null, logoUrl: resolvedLogo?.imageUrl ?? input.logoUrl ?? null },
+      data: {
+        id,
+        ...input,
+        logoId: resolvedLogo?.id ?? null,
+        logoUrl: resolvedLogo?.imageUrl ?? input.logoUrl ?? null,
+      },
     });
 
     return (await selectCompanyByIdWithTelemetry(ctx.db, ctx.tenantId, id))!;
@@ -225,7 +223,7 @@ export const companiesRouter = router({
   }),
 
   /**
-   * ENG-104 — Admin opts out of the readiness force-redirect.
+   * Admin opts out of the readiness force-redirect.
    *
    * Writes the current ISO timestamp into
    * `tenants.settings.setupAcknowledgedAt`. Future logins will land
@@ -252,7 +250,7 @@ export const companiesRouter = router({
   }),
 
   /**
-   * ENG-135 — Admin toggles per-tenant telemetry opt-in.
+   * Admin toggles per-tenant telemetry opt-in.
    *
    * Flips `tenants.settings.telemetryOptIn` and writes an audit row
    * (`telemetry.opt_in.updated`) with `before` / `after` carrying the
@@ -279,8 +277,7 @@ export const companiesRouter = router({
       // SQL layer — both branches are parametrized literals.
       const optedInFragment = input.optedIn ? sql`json('true')` : sql`json('false')`;
       await ctx.db.transaction(tx => {
-        tx
-          .update(tenants)
+        tx.update(tenants)
           .set({
             settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), '$.telemetryOptIn', ${optedInFragment})`,
             updatedAt: now,
@@ -288,8 +285,7 @@ export const companiesRouter = router({
           .where(eq(tenants.id, ctx.tenantId))
           .run();
 
-        tx
-          .insert(auditLogs)
+        tx.insert(auditLogs)
           .values({
             id: nanoid(),
             tenantId: ctx.tenantId,

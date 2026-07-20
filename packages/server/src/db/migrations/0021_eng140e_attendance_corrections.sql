@@ -20,7 +20,7 @@ CREATE TABLE `employee_shift_corrections` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `idx_employee_shift_corrections_tenant_shift_version` ON `employee_shift_corrections` (`tenant_id`,`employee_shift_id`,`version`);--> statement-breakpoint
 CREATE INDEX `idx_employee_shift_corrections_tenant_effective_start` ON `employee_shift_corrections` (`tenant_id`,`clocked_in_at`);--> statement-breakpoint
--- ENG-140e — correction snapshots are scoped to one closed shift and an
+--  — correction snapshots are scoped to one closed shift and an
 -- author in the same tenant. Raw attendance and break rows remain untouched.
 CREATE TRIGGER IF NOT EXISTS `employee_shift_corrections_scope_insert`
 BEFORE INSERT ON `employee_shift_corrections`

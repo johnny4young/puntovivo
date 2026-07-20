@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ENG-133e — pure tests for the Lighthouse CI gate runner.
+ * pure tests for the Lighthouse CI gate runner.
  *
  * The live browser/server path is covered by `ci:web`; these tests pin the
  * portable runner's argument/env handling and readiness helper without starting
@@ -81,9 +81,10 @@ test('resolveRunLighthouseGateOptions lets base URL select a skip-preview target
 });
 
 test('build command helpers point at the expected workspace commands', () => {
-  assert.deepEqual(buildEnsureBrowserArgs().map(arg => arg.replace(/.*scripts\//, 'scripts/')), [
-    'scripts/ensure-playwright-browser.mjs',
-  ]);
+  assert.deepEqual(
+    buildEnsureBrowserArgs().map(arg => arg.replace(/.*scripts\//, 'scripts/')),
+    ['scripts/ensure-playwright-browser.mjs']
+  );
   assert.deepEqual(buildSeedArgs(), ['run', 'seed:dev']);
   assert.deepEqual(buildServerArgs(), ['--filter', '@puntovivo/server', 'run', 'dev']);
   assert.deepEqual(buildPreviewArgs({ webHost: 'localhost', webPort: 4567 }), [
@@ -104,7 +105,10 @@ test('build command helpers point at the expected workspace commands', () => {
 });
 
 test('buildGateEnv owns DB, browser cache, ports, and Lighthouse target', () => {
-  const options = resolveRunLighthouseGateOptions({ argv: ['--web-port=4555', '--api-port=8999'], env: {} });
+  const options = resolveRunLighthouseGateOptions({
+    argv: ['--web-port=4555', '--api-port=8999'],
+    env: {},
+  });
   const env = buildGateEnv(
     { DATABASE_URL: '/should/not/leak.db', PUNTOVIVO_DB_KEY: 'ambient-key' },
     options,

@@ -1,5 +1,5 @@
 /**
- * ENG-035b — Tests del MexicoCFDIAdapter post-promoción a real.
+ * Tests del MexicoCFDIAdapter post-promoción a real.
  *
  * Cubren:
  * - issue() con settings completos retorna shape correcta + XML.
@@ -9,7 +9,7 @@
  *   settings.
  * - voidDocument() (cancelación SAT explícita) sigue parqueado.
  * - fetchStatus() retorna 'pending'.
- * - validateConfig() funciona como en ENG-035a.
+ * - validateConfig() funciona como en .
  */
 import { describe, expect, it } from 'vitest';
 import type { FiscalAdapterIssueInput } from '../services/fiscal/adapter.js';
@@ -27,9 +27,7 @@ const completedMxSettings = {
   },
 };
 
-function baseIssueInput(
-  overrides: Partial<FiscalAdapterIssueInput> = {}
-): FiscalAdapterIssueInput {
+function baseIssueInput(overrides: Partial<FiscalAdapterIssueInput> = {}): FiscalAdapterIssueInput {
   return {
     tenantId: 'tenant-1',
     source: 'sale',
@@ -87,7 +85,7 @@ function baseIssueInput(
   };
 }
 
-describe('MexicoCFDIAdapter.issue (ENG-035b)', () => {
+describe('MexicoCFDIAdapter.issue', () => {
   it('settings completos → retorna cufe (uuid), status pending, xmlRef poblado', async () => {
     const adapter = new MexicoCFDIAdapter();
     const result = await adapter.issue(baseIssueInput());
@@ -110,9 +108,7 @@ describe('MexicoCFDIAdapter.issue (ENG-035b)', () => {
       receptorRfc: 'XAXX010101000', // consumidor final
       tipoComprobante: 'I',
     });
-    expect(typeof (result.providerResponse as Record<string, unknown>).xmlSize).toBe(
-      'number'
-    );
+    expect(typeof (result.providerResponse as Record<string, unknown>).xmlSize).toBe('number');
   });
 
   it('source=return + originalCufe → tipoComprobante=E con CfdiRelacionados', async () => {
@@ -156,12 +152,14 @@ describe('MexicoCFDIAdapter.issue (ENG-035b)', () => {
       caught = err;
     }
     expect(caught).toBeDefined();
-    const cause = (caught as {
-      cause?: {
-        errorCode?: string;
-        details?: { missingSettings?: boolean; disabled?: boolean };
-      };
-    }).cause;
+    const cause = (
+      caught as {
+        cause?: {
+          errorCode?: string;
+          details?: { missingSettings?: boolean; disabled?: boolean };
+        };
+      }
+    ).cause;
     expect(cause?.errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
     expect(cause?.details?.disabled).toBe(true);
     expect(cause?.details?.missingSettings).toBe(true);
@@ -190,9 +188,11 @@ describe('MexicoCFDIAdapter.issue (ENG-035b)', () => {
       caught = err;
     }
     expect(caught).toBeDefined();
-    const cause = (caught as {
-      cause?: { errorCode?: string; details?: { disabled?: boolean } };
-    }).cause;
+    const cause = (
+      caught as {
+        cause?: { errorCode?: string; details?: { disabled?: boolean } };
+      }
+    ).cause;
     expect(cause?.errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
     expect(cause?.details?.disabled).toBe(true);
   });
@@ -224,15 +224,13 @@ describe('MexicoCFDIAdapter.issue (ENG-035b)', () => {
 
   it('emisorName se inyecta en cfdi:Emisor.Nombre cuando llega via input.issuerName', async () => {
     const adapter = new MexicoCFDIAdapter();
-    const result = await adapter.issue(
-      baseIssueInput({ issuerName: 'Tienda Polanco SA de CV' })
-    );
+    const result = await adapter.issue(baseIssueInput({ issuerName: 'Tienda Polanco SA de CV' }));
     expect(result.xmlRef).toContain('Tienda Polanco SA de CV');
   });
 });
 
-describe('MexicoCFDIAdapter.voidDocument (ENG-035b)', () => {
-  it('cancelación SAT explícita sigue parqueada apuntando a ENG-035c', async () => {
+describe('MexicoCFDIAdapter.voidDocument', () => {
+  it('cancelación SAT explícita sigue parqueada apuntando a ', async () => {
     const adapter = new MexicoCFDIAdapter();
     let caught: unknown;
     try {
@@ -245,15 +243,17 @@ describe('MexicoCFDIAdapter.voidDocument (ENG-035b)', () => {
       caught = err;
     }
     expect(caught).toBeDefined();
-    const cause = (caught as {
-      cause?: { errorCode?: string; details?: { availableInTicket?: string } };
-    }).cause;
+    const cause = (
+      caught as {
+        cause?: { errorCode?: string; details?: { unavailableCapability?: string } };
+      }
+    ).cause;
     expect(cause?.errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
-    expect(cause?.details?.availableInTicket).toBe('ENG-035c');
+    expect(cause?.details?.unavailableCapability).toBe('sat_cancellation');
   });
 });
 
-describe('MexicoCFDIAdapter.fetchStatus (ENG-035b)', () => {
+describe('MexicoCFDIAdapter.fetchStatus', () => {
   it('retorna pending sin PAC', async () => {
     const adapter = new MexicoCFDIAdapter();
     const status = await adapter.fetchStatus('whatever-cufe');
@@ -261,7 +261,7 @@ describe('MexicoCFDIAdapter.fetchStatus (ENG-035b)', () => {
   });
 });
 
-describe('MexicoCFDIAdapter capabilities (ENG-035b)', () => {
+describe('MexicoCFDIAdapter capabilities', () => {
   it('reporta capabilities consistentes con el ticket de cierre', () => {
     const adapter = new MexicoCFDIAdapter();
     expect(adapter.countryCode).toBe('MX');

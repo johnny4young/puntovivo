@@ -15,7 +15,7 @@ import type { ReceiptTemplateRecord } from './types.js';
 export interface DuplicateReceiptTemplateArgs {
   tenantId: string;
   templateId: string;
-  // ENG-179b — explicit `| undefined` on Zod-optional field.
+  // explicit `| undefined` on Zod-optional field.
   name?: string | undefined;
   actorId: string;
 }

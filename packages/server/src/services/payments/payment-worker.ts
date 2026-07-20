@@ -1,27 +1,27 @@
 /**
- * ENG-038c — Payment outbox worker daemon.
+ * Payment outbox worker daemon.
  *
  * Owns two timers + an explicit boot-time catch-up path:
  *
- *   Timer A — outbox housekeeping (default 30 s while server up):
- *     - Stale-claim sweep: rows wedged in `submitting` past
- *       `STALE_CLAIM_MS` flip back to `queued`.
- *     - Pending-count metadata refresh per tenant so the Operations
- *       Center dashboard reads a fresh `outbox_metadata` snapshot.
+ * Timer A — outbox housekeeping (default 30 s while server up):
+ * - Stale-claim sweep: rows wedged in `submitting` past
+ * `STALE_CLAIM_MS` flip back to `queued`.
+ * - Pending-count metadata refresh per tenant so the Operations
+ * Center dashboard reads a fresh `outbox_metadata` snapshot.
  *
- *   Timer B — statement import (default 2 h while server up):
- *     - For each active tenant × known rail, fetch the provider
- *       statement rows for `[lastImportedAt, now]` via the injected
- *       `fetchStatement` function and hand them to
- *       `runReconciliationPass`. On success advances
- *       `tenants.settings.payments.<railId>.lastImportedAt = now`.
+ * Timer B — statement import (default 2 h while server up):
+ * - For each active tenant × known rail, fetch the provider
+ * statement rows for `[lastImportedAt, now]` via the injected
+ * `fetchStatement` function and hand them to
+ * `runReconciliationPass`. On success advances
+ * `tenants.settings.payments.<railId>.lastImportedAt = now`.
  *
- *   Catch-up on boot (runs once before either timer):
- *     - Per (tenant, rail), evaluates `gap = now - (lastImportedAt ?? 0)`.
- *     - When `gap > BOOT_CATCHUP_THRESHOLD_MS` (default 12 h) — or
- *       `lastImportedAt` is null (default range `BOOT_INITIAL_LOOKBACK`
- *       fallback) — dispatches one statement import for the missing
- *       window before scheduling Timer B.
+ * Catch-up on boot (runs once before either timer):
+ * - Per (tenant, rail), evaluates `gap = now - (lastImportedAt ?? 0)`.
+ * - When `gap > BOOT_CATCHUP_THRESHOLD_MS` (default 12 h) — or
+ * `lastImportedAt` is null (default range `BOOT_INITIAL_LOOKBACK`
+ * fallback) — dispatches one statement import for the missing
+ * window before scheduling Timer B.
  *
  * Slice 3 does NOT dispatch real charges. `Timer A` is intentionally
  * minimal: live charge dispatch (queued → submitting → approved) lands

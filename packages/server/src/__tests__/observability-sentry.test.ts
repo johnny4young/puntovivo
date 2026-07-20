@@ -1,20 +1,20 @@
 /**
- * ENG-135b — Unit tests for the Sentry / GlitchTip adapter and the
+ * Unit tests for the Sentry / GlitchTip adapter and the
  * process-crash capture path.
  *
  * Pins five contracts:
  *
- *   1. Without PUNTOVIVO_SENTRY_DSN the SDK is never initialised and
- *      the noopSink stays active (dev/test boots emit zero traffic).
- *   2. With a DSN the adapter registers a sink whose wrappers forward
- *      to the SDK (captureException context + retroactive span with
- *      primitive-only attributes and outcome-mapped status).
- *   3. An SDK init failure is swallowed: init returns false, the
- *      noopSink stays active, nothing throws.
- *   4. Init is idempotent per process; flushServerTelemetry no-ops
- *      while inactive and drains via SDK.flush when active.
- *   5. captureProcessCrash bypasses the per-tenant opt-in gate (its
- *      consent layer is the DSN itself), still redacts, never throws.
+ * 1. Without PUNTOVIVO_SENTRY_DSN the SDK is never initialised and
+ * the noopSink stays active (dev/test boots emit zero traffic).
+ * 2. With a DSN the adapter registers a sink whose wrappers forward
+ * to the SDK (captureException context + retroactive span with
+ * primitive-only attributes and outcome-mapped status).
+ * 3. An SDK init failure is swallowed: init returns false, the
+ * noopSink stays active, nothing throws.
+ * 4. Init is idempotent per process; flushServerTelemetry no-ops
+ * while inactive and drains via SDK.flush when active.
+ * 5. captureProcessCrash bypasses the per-tenant opt-in gate (its
+ * consent layer is the DSN itself), still redacts, never throws.
  *
  * The SDK is mocked at the module boundary — these tests pin OUR
  * wrapper contract, not @sentry/node internals, so an SDK major bump
@@ -60,7 +60,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('initServerTelemetryAdapter (ENG-135b)', () => {
+describe('initServerTelemetryAdapter', () => {
   it('returns false and never touches the SDK when the DSN is unset', async () => {
     const result = await initServerTelemetryAdapter({ env: {} });
     expect(result).toBe(false);
@@ -196,7 +196,7 @@ describe('initServerTelemetryAdapter (ENG-135b)', () => {
   });
 });
 
-describe('flushServerTelemetry (ENG-135b)', () => {
+describe('flushServerTelemetry', () => {
   it('resolves without touching the SDK while inactive', async () => {
     await flushServerTelemetry(500);
     expect(flushMock).not.toHaveBeenCalled();
@@ -214,7 +214,7 @@ describe('flushServerTelemetry (ENG-135b)', () => {
   });
 });
 
-describe('captureProcessCrash (ENG-135b)', () => {
+describe('captureProcessCrash', () => {
   function buildRecordingSink() {
     const calls: Array<{ err: unknown; attrs: Record<string, unknown> }> = [];
     const sink: TelemetrySink = {
@@ -265,8 +265,6 @@ describe('captureProcessCrash (ENG-135b)', () => {
         /* unused */
       },
     });
-    expect(() =>
-      captureProcessCrash(new Error('boom'), { source: 'electron-main' })
-    ).not.toThrow();
+    expect(() => captureProcessCrash(new Error('boom'), { source: 'electron-main' })).not.toThrow();
   });
 });

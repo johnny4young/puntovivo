@@ -1,12 +1,12 @@
 /**
- * ENG-035a — Catálogo SAT de formas de pago (c_FormaPago).
+ * Catálogo SAT de formas de pago (c_FormaPago).
  *
  * El SAT publica una lista cerrada de formas de pago aceptadas en
  * un CFDI. Cada forma tiene un código de 2 dígitos que va dentro
  * del nodo Pago (cuando aplica complemento de Pago) o como atributo
  * MétodoPago en el comprobante principal.
  *
- * En ENG-035b este catálogo se mapea al `payment_method` interno
+ * En  este catálogo se mapea al `payment_method` interno
  * del POS (`cash` → 01 Efectivo, `card_credit` → 04 Tarjeta de
  * crédito, etc.). El mapeo vive en el adapter MX porque cada país
  * traduce el método interno a su propia taxonomía.
@@ -23,7 +23,7 @@ export interface FormaPagoEntry {
    * Si el SAT considera la forma de pago como "definitiva" (pagada
    * al momento) o "diferida" (parcialidades / crédito). El POS por
    * default usa formas definitivas; las diferidas requieren el
-   * complemento de Pago 2.0 que llega en ENG-035c.
+   * complemento de Pago 2.0 que llega en .
    */
   isDefinitive: boolean;
 }

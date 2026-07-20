@@ -7,7 +7,7 @@
  * and the linesSum reconciliation surface that the review form
  * warns on.
  *
- * Added 2026-05-15 alongside ENG-094 / AI Núcleo Sprint 1 OCR.
+ * Added 2026-05-15 alongside  / AI Núcleo initial iteration OCR.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -110,7 +110,12 @@ describe('normalizeColombianInvoice', () => {
         taxAmount: 31_274,
         lines: [{ totalLine: 84_000 }, { totalLine: 56_400 }, { totalLine: 24_200 }],
       },
-      expected: { nit: '900421118-3', ivaRate: 19, invoiceNumber: 'FAC-001-2026', linesSum: 164_600 },
+      expected: {
+        nit: '900421118-3',
+        ivaRate: 19,
+        invoiceNumber: 'FAC-001-2026',
+        linesSum: 164_600,
+      },
     },
     {
       name: 'reduced 5% cleaning supplies invoice',

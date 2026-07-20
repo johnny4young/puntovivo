@@ -1,22 +1,22 @@
 /**
- * ENG-176b — pins the currency seam added by migration 0037.
+ * pins the currency seam added by migration 0037.
  *
  * Three things are covered here:
  *
- *   1. `tenants.default_currency_code` is populated by the migration
- *      backfill (`'COP'` for legacy tenants without metadata).
- *   2. Every transactional write (sales, sale_items, quotations,
- *      quotation_items, products, customers.creditLimit) stamps a
- *      currency_code on the row through the application layer.
- *      Reading the persisted value must round-trip with the
- *      `resolveTenantCurrency()` helper.
- *   3. `exchange_rate_at_sale > 0` CHECK rejects a zero or negative
- *      rate on sales / sale_items / quotations / quotation_items.
- *      Without that constraint a stray multiplier could silently zero
- *      out totals.
+ * 1. `tenants.default_currency_code` is populated by the migration
+ * backfill (`'COP'` for legacy tenants without metadata).
+ * 2. Every transactional write (sales, sale_items, quotations,
+ * quotation_items, products, customers.creditLimit) stamps a
+ * currency_code on the row through the application layer.
+ * Reading the persisted value must round-trip with the
+ * `resolveTenantCurrency()` helper.
+ * 3. `exchange_rate_at_sale > 0` CHECK rejects a zero or negative
+ * rate on sales / sale_items / quotations / quotation_items.
+ * Without that constraint a stray multiplier could silently zero
+ * out totals.
  *
  * Multi-currency operations (currencyCode !== settleCurrencyCode with
- * an explicit rate) belong to ENG-156. This file tests the seam, not
+ * an explicit rate) belong to . This file tests the seam, not
  * the cross-currency math.
  */
 
@@ -46,15 +46,15 @@ function expectCheckViolation(write: () => unknown, constraintHint: string): voi
   );
 }
 
-describe('currency seam (ENG-176b)', () => {
+describe('currency seam', () => {
   describe('tenants.default_currency_code', () => {
     it('defaults to COP on a fresh insert that omits the column', async () => {
       await initDatabase({ dbPath: ':memory:', seedData: false });
       const c = liveClient();
       c.prepare("INSERT INTO tenants (id, name, slug) VALUES ('t1', 't', 's1')").run();
-      const row = c
-        .prepare("SELECT default_currency_code FROM tenants WHERE id = 't1'")
-        .get() as { default_currency_code: string };
+      const row = c.prepare("SELECT default_currency_code FROM tenants WHERE id = 't1'").get() as {
+        default_currency_code: string;
+      };
       expect(row.default_currency_code).toBe('COP');
     });
 
@@ -62,10 +62,12 @@ describe('currency seam (ENG-176b)', () => {
       await initDatabase({ dbPath: ':memory:', seedData: false });
       const c = liveClient();
       // Seed catalogue + tenant carrying USD explicitly.
-      c.prepare("INSERT INTO tenants (id, name, slug, default_currency_code) VALUES ('t1', 't', 's1', 'USD')").run();
-      const row = c
-        .prepare("SELECT default_currency_code FROM tenants WHERE id = 't1'")
-        .get() as { default_currency_code: string };
+      c.prepare(
+        "INSERT INTO tenants (id, name, slug, default_currency_code) VALUES ('t1', 't', 's1', 'USD')"
+      ).run();
+      const row = c.prepare("SELECT default_currency_code FROM tenants WHERE id = 't1'").get() as {
+        default_currency_code: string;
+      };
       expect(row.default_currency_code).toBe('USD');
     });
   });
@@ -74,7 +76,9 @@ describe('currency seam (ENG-176b)', () => {
     it('returns the tenant default when set', async () => {
       const db = await initDatabase({ dbPath: ':memory:', seedData: false });
       const c = liveClient();
-      c.prepare("INSERT INTO tenants (id, name, slug, default_currency_code) VALUES ('t1', 't', 's1', 'MXN')").run();
+      c.prepare(
+        "INSERT INTO tenants (id, name, slug, default_currency_code) VALUES ('t1', 't', 's1', 'MXN')"
+      ).run();
       expect(resolveTenantCurrency(db, 't1')).toBe('MXN');
     });
 
@@ -111,7 +115,7 @@ describe('currency seam (ENG-176b)', () => {
       expect(row.settle_currency_code).toBeNull();
     });
 
-    it('persists an explicit cross-currency settle pair (ENG-156 readiness)', async () => {
+    it('persists an explicit cross-currency settle pair ( readiness)', async () => {
       await initDatabase({ dbPath: ':memory:', seedData: false });
       const c = liveClient();
       c.prepare("INSERT INTO tenants (id, name, slug) VALUES ('t1', 't', 's1')").run();
@@ -161,9 +165,7 @@ describe('currency seam (ENG-176b)', () => {
       await initDatabase({ dbPath: ':memory:', seedData: false });
       const c = liveClient();
       c.prepare("INSERT INTO tenants (id, name, slug) VALUES ('t1', 't', 's1')").run();
-      c.prepare(
-        "INSERT INTO companies (id, tenant_id, name) VALUES ('co1', 't1', 'c')"
-      ).run();
+      c.prepare("INSERT INTO companies (id, tenant_id, name) VALUES ('co1', 't1', 'c')").run();
       c.prepare(
         "INSERT INTO sites (id, tenant_id, company_id, name) VALUES ('site1', 't1', 'co1', 's')"
       ).run();
@@ -191,9 +193,9 @@ describe('currency seam (ENG-176b)', () => {
       c.prepare(
         "INSERT INTO products (id, tenant_id, name, sku) VALUES ('p1', 't1', 'p', 'sku1')"
       ).run();
-      const row = c
-        .prepare("SELECT currency_code FROM products WHERE id = 'p1'")
-        .get() as { currency_code: string };
+      const row = c.prepare("SELECT currency_code FROM products WHERE id = 'p1'").get() as {
+        currency_code: string;
+      };
       expect(row.currency_code).toBe('COP');
     });
 
@@ -204,9 +206,9 @@ describe('currency seam (ENG-176b)', () => {
       c.prepare(
         "INSERT INTO products (id, tenant_id, name, sku, currency_code) VALUES ('p1', 't1', 'p', 'sku1', 'USD')"
       ).run();
-      const row = c
-        .prepare("SELECT currency_code FROM products WHERE id = 'p1'")
-        .get() as { currency_code: string };
+      const row = c.prepare("SELECT currency_code FROM products WHERE id = 'p1'").get() as {
+        currency_code: string;
+      };
       expect(row.currency_code).toBe('USD');
     });
   });
@@ -220,9 +222,7 @@ describe('currency seam (ENG-176b)', () => {
         "INSERT INTO customers (id, tenant_id, name, credit_limit) VALUES ('c1', 't1', 'n', 0)"
       ).run();
       const row = c
-        .prepare(
-          "SELECT credit_limit, credit_limit_currency_code FROM customers WHERE id = 'c1'"
-        )
+        .prepare("SELECT credit_limit, credit_limit_currency_code FROM customers WHERE id = 'c1'")
         .get() as { credit_limit: number; credit_limit_currency_code: string | null };
       expect(row.credit_limit).toBe(0);
       expect(row.credit_limit_currency_code).toBeNull();
@@ -236,9 +236,7 @@ describe('currency seam (ENG-176b)', () => {
         "INSERT INTO customers (id, tenant_id, name, credit_limit, credit_limit_currency_code) VALUES ('c1', 't1', 'n', 1000, 'USD')"
       ).run();
       const row = c
-        .prepare(
-          "SELECT credit_limit, credit_limit_currency_code FROM customers WHERE id = 'c1'"
-        )
+        .prepare("SELECT credit_limit, credit_limit_currency_code FROM customers WHERE id = 'c1'")
         .get() as { credit_limit: number; credit_limit_currency_code: string };
       expect(row.credit_limit).toBe(1000);
       expect(row.credit_limit_currency_code).toBe('USD');
@@ -249,8 +247,12 @@ describe('currency seam (ENG-176b)', () => {
     it('two tenants can carry different default currencies in the same DB', async () => {
       const db = await initDatabase({ dbPath: ':memory:', seedData: false });
       const c = liveClient();
-      c.prepare("INSERT INTO tenants (id, name, slug, default_currency_code) VALUES ('tA', 'A', 'a', 'COP')").run();
-      c.prepare("INSERT INTO tenants (id, name, slug, default_currency_code) VALUES ('tB', 'B', 'b', 'USD')").run();
+      c.prepare(
+        "INSERT INTO tenants (id, name, slug, default_currency_code) VALUES ('tA', 'A', 'a', 'COP')"
+      ).run();
+      c.prepare(
+        "INSERT INTO tenants (id, name, slug, default_currency_code) VALUES ('tB', 'B', 'b', 'USD')"
+      ).run();
       expect(resolveTenantCurrency(db, 'tA')).toBe('COP');
       expect(resolveTenantCurrency(db, 'tB')).toBe('USD');
     });

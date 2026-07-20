@@ -1,6 +1,6 @@
 name: Promote or Roll Back Desktop Update
 
-# ENG-137a — republish immutable update metadata without rebuilding installers.
+# republish immutable update metadata without rebuilding installers.
 # Normal mode promotes one release through 10 -> 50 -> 100. Rollback mode
 # republishes an older release's archived appcasts at 100% and emits a policy
 # that lets Electron downgrade only to that exact version.
@@ -64,7 +64,7 @@ jobs:
           mkdir -p feed
           gh release download "$TARGET_TAG" --pattern 'latest*.yml' --dir feed
           test -n "$(find feed -maxdepth 1 -type f -name 'latest*.yml' -print -quit)" || {
-            echo "No archived update feed exists on $TARGET_TAG. Only releases created after ENG-137a are rollback-ready." >&2
+            echo "No archived update feed exists on $TARGET_TAG. Only releases with archived feeds are rollback-ready." >&2
             exit 1
           }
         env:

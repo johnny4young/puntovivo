@@ -1,5 +1,5 @@
 /**
- * WC-E2 — stable, reviewable manifest of the public tRPC surface.
+ * stable, reviewable manifest of the public tRPC surface.
  *
  * tRPC infers most output types at compile time, so the runtime manifest
  * records each procedure path/kind, a compact JSON-Schema summary of every

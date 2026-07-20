@@ -1,5 +1,5 @@
 /**
- * ENG-040d — Scoring helpers for the 10-invoice OCR accuracy benchmark.
+ * Scoring helpers for the 10-invoice OCR accuracy benchmark.
  *
  * Pure functions; no I/O, no AI dependency. The benchmark CLI in
  * `scripts/benchmark-invoice-ocr.ts` consumes these to score each
@@ -134,9 +134,12 @@ function toBigramSet(text: string): Set<string> {
  */
 export function isLineMatch(
   truth: FixtureGroundTruth['lines'][number],
-  extracted: InvoiceOcrLine,
+  extracted: InvoiceOcrLine
 ): boolean {
-  if (descriptionSimilarity(truth.description, extracted.description) < DESCRIPTION_SIMILARITY_THRESHOLD) {
+  if (
+    descriptionSimilarity(truth.description, extracted.description) <
+    DESCRIPTION_SIMILARITY_THRESHOLD
+  ) {
     return false;
   }
   if (!matchesNullableNumber(truth.quantity, extracted.quantity)) return false;
@@ -175,7 +178,7 @@ function matchesNullableUnitPrice(truth: number | null, extracted: number | null
  */
 export function scoreFixture(
   truth: FixtureGroundTruth,
-  extracted: InvoiceOcr,
+  extracted: InvoiceOcr
 ): { matchedLines: number; truthLines: number } {
   const truthLines = truth.lines.length;
   if (truthLines === 0) {
@@ -217,7 +220,7 @@ export function scoreFixture(
  */
 export function aggregateBenchmark(
   scores: FixtureScore[],
-  threshold: number = BENCHMARK_DEFAULT_THRESHOLD,
+  threshold: number = BENCHMARK_DEFAULT_THRESHOLD
 ): BenchmarkAggregate {
   let matched = 0;
   let total = 0;

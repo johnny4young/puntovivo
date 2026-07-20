@@ -1,5 +1,5 @@
 /**
- * ENG-088 — OfflineModePanel rendering smoke.
+ * OfflineModePanel rendering smoke.
  *
  * Pins the visibility gate (`visible=false` returns null) and
  * confirms the panel composes the capability grid + sync queue
@@ -21,7 +21,7 @@ vi.mock('./OfflineSyncQueueList', () => ({
   OfflineSyncQueueList: () => <div data-testid="offline-sync-queue-list-stub" />,
 }));
 
-describe('OfflineModePanel (ENG-088)', () => {
+describe('OfflineModePanel', () => {
   beforeEach(async () => {
     await i18next.changeLanguage('en');
   });

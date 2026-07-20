@@ -22,7 +22,7 @@ export const createProviderInput = z.object({
   name: z.string().min(1, 'Name is required').max(255),
   taxId: z.string().optional(),
   phone: z.string().optional(),
-  // ENG-169 — normalise (trim + lowercase) at the boundary.
+  // normalise (trim + lowercase) at the boundary.
   email: emailField('Invalid email address').optional(),
   address: z.string().optional(),
   cityId: z.string().optional(),
@@ -32,7 +32,7 @@ export const createProviderInput = z.object({
 
 export const updateProviderInput = z.object({
   id: z.string().min(1, 'ID is required'),
-  // ENG-177a — optimistic-concurrency token (see updateCustomerInput).
+  // optimistic-concurrency token (see updateCustomerInput).
   version: z.number().int().nonnegative(),
   name: z.string().min(1).max(255).optional(),
   taxId: z.string().nullable().optional(),

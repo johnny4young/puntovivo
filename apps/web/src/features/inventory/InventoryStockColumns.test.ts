@@ -1,5 +1,5 @@
 /**
- * ENG-132c — Stock column-set contract.
+ * Stock column-set contract.
  *
  * Pins that the Stock table defaults to the smallest useful column set
  * (name / stock / status / actions) and that min stock, sell price,
@@ -12,13 +12,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getStockColumns } from './inventoryStockColumns';
 
-describe('getStockColumns column set (ENG-132c)', () => {
+describe('getStockColumns column set', () => {
   it('renders the smallest useful set — minStock / price / valuation / updated trimmed', () => {
     const cols = getStockColumns(vi.fn(), vi.fn(), true);
     const ids = cols.map(
       col =>
-        (col as { accessorKey?: string; id?: string }).accessorKey ??
-        (col as { id?: string }).id
+        (col as { accessorKey?: string; id?: string }).accessorKey ?? (col as { id?: string }).id
     );
 
     expect(ids).toEqual(['name', 'stock', 'status', 'actions']);

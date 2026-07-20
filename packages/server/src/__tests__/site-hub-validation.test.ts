@@ -1,5 +1,5 @@
 /**
- * ENG-073 — Store Hub LAN bind requirements.
+ * Store Hub LAN bind requirements.
  *
  * `createServer` must refuse to boot when `runtime.authorityMode ===
  * 'site_hub'` and either the JWT secret or the LAN-origin allow-list
@@ -26,7 +26,7 @@ const STRONG_SITE_HUB_JWT_SECRET = 'hub-secret-2026-8f4b7c1d9a3e6f20b5a9';
 
 afterEach(() => clearActiveRuntimeConfig());
 
-describe('createServer site_hub LAN guard (ENG-073)', () => {
+describe('createServer site_hub LAN guard', () => {
   it('refuses site_hub boot when JWT_SECRET is not supplied explicitly', async () => {
     await expect(
       createServer({
@@ -117,14 +117,14 @@ describe('createServer site_hub LAN guard (ENG-073)', () => {
     ).rejects.toThrow(/JWT_SECRET and PUNTOVIVO_ALLOWED_LAN_ORIGINS/);
   });
 
-  it('points operators at docs/AUTHORITY-NODE.md > Store Hub Mode in the error', async () => {
+  it('points operators at the Authority Node architecture guide in the error', async () => {
     await expect(
       createServer({
         dbPath: ':memory:',
         verbose: false,
         runtime: SITE_HUB_BASE,
       })
-    ).rejects.toThrow(/AUTHORITY-NODE\.md.*Store Hub Mode/);
+    ).rejects.toThrow(/ARCHITECTURE\.md.*Sync and Authority Node/);
   });
 
   it('boots site_hub successfully when JWT_SECRET and allowedLanOrigins are both supplied', async () => {

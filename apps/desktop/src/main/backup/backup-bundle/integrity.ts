@@ -1,4 +1,4 @@
-// ENG-066 — SQLite integrity check for backup/restore (ENG-178 slice 31).
+// SQLite integrity check for backup/restore ( slice 31).
 
 import Database from 'better-sqlite3';
 import { applySqlCipherKey } from './encryption.ts';
@@ -11,7 +11,7 @@ import { applySqlCipherKey } from './encryption.ts';
  * The error message is kept generic so callers can wrap it in a
  * translated user-facing string without coupling to SQLite internals.
  */
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export async function assertSqliteIntegrity(
   dbPath: string,
   options: { encryptionKey?: string | undefined } = {}

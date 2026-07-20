@@ -1,28 +1,22 @@
 /**
- * ENG-065b — `reports.cash.reconciliation` integration tests.
+ * `reports.cash.reconciliation` integration tests.
  *
  * Verifies the tenant-wide cash reconciliation surface that drives the
  * Operations Center Cash tab. Coverage:
  *
- *   - empty tenant returns zero summary + empty arrays.
- *   - manager allowed; cashier FORBIDDEN; admin allowed.
- *   - open sessions across multiple sites aggregate into the summary.
- *   - mixed signed overShort closures sum correctly + largest |overShort|.
- *   - bySite aggregation has one row per site touched.
- *   - cross-tenant isolation — tenant B sessions don't leak.
- *   - limit clamps `recentDiscrepancies` length.
+ * - empty tenant returns zero summary + empty arrays.
+ * - manager allowed; cashier FORBIDDEN; admin allowed.
+ * - open sessions across multiple sites aggregate into the summary.
+ * - mixed signed overShort closures sum correctly + largest |overShort|.
+ * - bySite aggregation has one row per site touched.
+ * - cross-tenant isolation — tenant B sessions don't leak.
+ * - limit clamps `recentDiscrepancies` length.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  cashSessions,
-  companies,
-  sites,
-  tenants,
-  users,
-} from '../db/schema.js';
+import { cashSessions, companies, sites, tenants, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -136,10 +130,7 @@ interface SessionSeed {
   closedAt?: string;
 }
 
-async function insertSessions(
-  tenantId: string,
-  rows: SessionSeed[]
-): Promise<void> {
+async function insertSessions(tenantId: string, rows: SessionSeed[]): Promise<void> {
   const db = getDatabase();
   const now = new Date().toISOString();
   for (const row of rows) {
@@ -185,7 +176,7 @@ function buildCtx(
   };
 }
 
-describe('reports.cash.reconciliation (ENG-065b)', () => {
+describe('reports.cash.reconciliation', () => {
   let harnessA: CashHarness;
   let harnessB: CashHarness;
 
@@ -195,9 +186,9 @@ describe('reports.cash.reconciliation (ENG-065b)', () => {
     harnessB = await seedCashHarness('b');
 
     // Tenant A — fixture covers every assertion shape:
-    //   2 open sessions across 2 sites
-    //   3 closed in window: +5.00 overShort (siteA), -3.50 (siteB), +0.10 (siteA, below epsilon)
-    //   1 closed OUTSIDE 30-day window (older than cutoff) — should not appear
+    // 2 open sessions across 2 sites
+    // 3 closed in window: +5.00 overShort (siteA), -3.50 (siteB), +0.10 (siteA, below epsilon)
+    // 1 closed OUTSIDE 30-day window (older than cutoff) — should not appear
     await insertSessions(harnessA.tenantId, [
       {
         id: 'rcash-open-a-1',
@@ -304,17 +295,13 @@ describe('reports.cash.reconciliation (ENG-065b)', () => {
   });
 
   it('aggregates open sessions across every site in the tenant', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.cash.reconciliation({ limit: 20 });
     expect(result.summary.openSessionCount).toBe(2);
   });
 
   it('sums overShort signed and surfaces largest absolute discrepancy', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.cash.reconciliation({ limit: 20 });
 
     // Closed in window: 5 + (-3.5) + 0.1 = 1.6
@@ -327,9 +314,7 @@ describe('reports.cash.reconciliation (ENG-065b)', () => {
   });
 
   it('groups closed sessions per site and reports overShort counts', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.cash.reconciliation({ limit: 20 });
 
     expect(result.bySite).toHaveLength(2);
@@ -350,9 +335,7 @@ describe('reports.cash.reconciliation (ENG-065b)', () => {
   });
 
   it('orders recentDiscrepancies by absolute overShort and excludes the old row', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.cash.reconciliation({ limit: 20 });
 
     expect(result.recentDiscrepancies).toHaveLength(3);
@@ -365,9 +348,7 @@ describe('reports.cash.reconciliation (ENG-065b)', () => {
   });
 
   it('isolates tenants — tenant A admin sees zero of tenant B fixtures', async () => {
-    const callerA = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const callerA = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await callerA.reports.cash.reconciliation({ limit: 20 });
     // None of the bySite rows should belong to tenant B's site, and
     // the summary numbers above already passed (would be polluted if leaked).
@@ -382,9 +363,7 @@ describe('reports.cash.reconciliation (ENG-065b)', () => {
   });
 
   it('clamps recentDiscrepancies length to limit', async () => {
-    const caller = appRouter.createCaller(
-      buildCtx(harnessA.tenantId, harnessA.adminId, 'admin')
-    );
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.adminId, 'admin'));
     const result = await caller.reports.cash.reconciliation({ limit: 1 });
     expect(result.recentDiscrepancies).toHaveLength(1);
     // Highest |overShort| = 5 → first row.

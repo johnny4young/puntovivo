@@ -1,5 +1,5 @@
 /**
- * ENG-040a — Provider-invoice OCR (vision).
+ * Provider-invoice OCR (vision).
  *
  * Routes a base64-encoded invoice image through the tenant's configured
  * vision-capable AI provider and returns a structured invoice
@@ -7,20 +7,15 @@
  * enforcement + `ai_audit_log` pipeline; this module is the vision
  * counterpart of `completeAI` in `client.ts`.
  *
- * Slice 1 (ENG-040a) shipped the pipeline + Zod output schema.
+ * Slice 1 () shipped the pipeline + Zod output schema.
  * Line-to-product mapping shipped in slice 1b. The 10-receipt
  * accuracy benchmark + mobile/tablet camera capture ship in slice 1d
- * (ENG-040d) — see `scripts/benchmark-invoice-ocr.ts` and the
+ * () — see `scripts/benchmark-invoice-ocr.ts` and the
  * scoring helper in `./benchmark-scoring.ts`.
  *
  * @module services/ai/vision/invoice-ocr
  */
-import {
-  JSONParseError,
-  NoObjectGeneratedError,
-  TypeValidationError,
-  generateObject,
-} from 'ai';
+import { JSONParseError, NoObjectGeneratedError, TypeValidationError, generateObject } from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
 
@@ -44,7 +39,7 @@ export type InvoiceOcrMimeType = (typeof INVOICE_OCR_MIME_TYPES)[number];
 
 /**
  * 10 MB raw budget after base64 decode. Textract accepts larger PDFs,
- * but the product handoff caps OCR uploads at 10 MB before a provider
+ * but the product contract caps OCR uploads at 10 MB before a provider
  * sees the document.
  */
 export const INVOICE_OCR_MAX_BYTES = 10 * 1024 * 1024;
@@ -61,7 +56,10 @@ export const InvoiceOcrSchema = z.object({
   supplierName: z.string().nullable().describe('Supplier or vendor name printed on the invoice.'),
   supplierTaxId: z.string().nullable().describe('Supplier tax id (NIT, RUT, RFC, etc).'),
   invoiceNumber: z.string().nullable().describe('Invoice number / consecutive.'),
-  invoiceDate: z.string().nullable().describe('Invoice date in ISO yyyy-mm-dd format, when readable.'),
+  invoiceDate: z
+    .string()
+    .nullable()
+    .describe('Invoice date in ISO yyyy-mm-dd format, when readable.'),
   currencyCode: z
     .string()
     .nullable()
@@ -79,7 +77,7 @@ const EXTRACT_PROMPT_SYSTEM =
   'Latin American number formatting matters: COP, CLP, ARS, PYG and similar zero-decimal currencies ' +
   'print prices with a DOT (or space) as the thousand separator and no fractional part — "1.950" means ' +
   'one thousand nine hundred fifty pesos, NOT one point nine five. ' +
-  'In MXN, PEN, and USD the dot is a decimal mark. When the currency printed on the ticket is COP/CLP/' +
+  'In MXN, PEN, and USD the dot is a decimal mark. When the currency printed on the change is COP/CLP/' +
   'ARS/PYG, treat every dot/comma inside numeric prices as a thousand separator and return the integer ' +
   'value of the price in the local minor unit. ' +
   'Preserve all output values as plain numbers (no thousand separators in the output, dot as decimal). ' +
@@ -290,12 +288,9 @@ export async function extractInvoiceFromImage(
       // Fallback for SDK versions that surface a schema failure as a
       // plain Error wrapping one of the above by toString. Narrow to
       // exact phrasings so transport errors do not get misclassified.
-      (error instanceof Error &&
-        /No object generated/i.test(error.message));
+      (error instanceof Error && /No object generated/i.test(error.message));
 
-    const errorCode = isSchemaFailure
-      ? 'AI_VISION_PARSE_FAILED'
-      : 'AI_PROVIDER_ERROR';
+    const errorCode = isSchemaFailure ? 'AI_VISION_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
 
     await recordCall(ctx.db, {
       tenantId: ctx.tenantId,

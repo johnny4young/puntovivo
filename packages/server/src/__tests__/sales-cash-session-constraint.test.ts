@@ -1,25 +1,25 @@
 /**
- * ENG-177c — `sales` cash-session CHECK constraint + FK-safe rebuild.
+ * `sales` cash-session CHECK constraint + FK-safe rebuild.
  *
  * Pins two invariants that bypass the application layer entirely:
  *
- *   1. The schema-level guard `chk_sales_cash_session_or_draft`
- *      (`CHECK (cash_session_id IS NOT NULL OR status = 'draft')`)
- *      rejects a committed sale (completed / cancelled / voided) with a
- *      null cash session, while leaving drafts and bound sales alone.
- *      This is the defense-in-depth backstop for the application-only
- *      `requireActiveCashSession` invariant (ENG-042 / ENG-055).
+ * 1. The schema-level guard `chk_sales_cash_session_or_draft`
+ * (`CHECK (cash_session_id IS NOT NULL OR status = 'draft')`)
+ * rejects a committed sale (completed / cancelled / voided) with a
+ * null cash session, while leaving drafts and bound sales alone.
+ * This is the defense-in-depth backstop for the application-only
+ * `requireActiveCashSession` invariant ( / ).
  *
- *   2. Adding that CHECK is a full SQLite table rebuild (CREATE
- *      __new_sales / INSERT…SELECT / DROP TABLE sales / RENAME), and
- *      drizzle-orm runs every migration inside ONE BEGIN/COMMIT where
- *      `PRAGMA foreign_keys` is a no-op. So the connection-level
- *      `foreign_keys = OFF` bracket in `db/index.ts` is the ONLY thing
- *      that stops `DROP TABLE sales` from cascade-deleting the ON DELETE
- *      CASCADE children (sale_items, sale_payments, sale_returns,
- *      kds_orders). The mechanism test below pins that finding with a
- *      positive + negative control so a future refactor cannot silently
- *      drop the FK-off step.
+ * 2. Adding that CHECK is a full SQLite table rebuild (CREATE
+ * __new_sales / INSERT…SELECT / DROP TABLE sales / RENAME), and
+ * drizzle-orm runs every migration inside ONE BEGIN/COMMIT where
+ * `PRAGMA foreign_keys` is a no-op. So the connection-level
+ * `foreign_keys = OFF` bracket in `db/index.ts` is the ONLY thing
+ * that stops `DROP TABLE sales` from cascade-deleting the ON DELETE
+ * CASCADE children (sale_items, sale_payments, sale_returns,
+ * kds_orders). The mechanism test below pins that finding with a
+ * positive + negative control so a future refactor cannot silently
+ * drop the FK-off step.
  *
  * Server-only, HTTP-less: the constraint tests boot the real schema
  * through `initDatabase`; the mechanism test exercises the exact rebuild
@@ -80,7 +80,7 @@ function rebuildParentInTransaction(db: Database.Database): void {
   db.exec('COMMIT');
 }
 
-describe('sales cash-session CHECK constraint (ENG-177c)', () => {
+describe('sales cash-session CHECK constraint', () => {
   afterEach(() => {
     // closeDatabase() is synchronous; only the initDatabase-based tests
     // open the shared singleton, so guard the no-DB case.

@@ -1,5 +1,5 @@
 /**
- * Rediseño FASE 1 — GlobalStatusStrip.
+ * GlobalStatusStrip.
  *
  * Hereda las aserciones de comportamiento del antiguo OfflineStatusBanner
  * (offline sin retry; error online con retry que dispara la cola) ahora que

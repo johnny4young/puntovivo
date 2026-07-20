@@ -1,4 +1,4 @@
-/** ENG-123b — Canonical provider create use-case. */
+/** Canonical provider create use-case. */
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 

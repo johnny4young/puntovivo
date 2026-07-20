@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
 /**
- * ENG-016 pass 1 (item #4) — collapsible explainer shown above the
+ * pass 1 (item #4) — collapsible explainer shown above the
  * `totalsBlock` controls. Pulls each line's source from i18n so the
  * caption stays in sync with whatever the renderer shows.
  */
@@ -21,11 +21,7 @@ export function TotalsBlockCaption() {
         onClick={() => setOpen(prev => !prev)}
         aria-expanded={open}
       >
-        {open ? (
-          <ChevronDown className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronRight className="h-3.5 w-3.5" />
-        )}
+        {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         {t('editor.blockFields.totalsBlockCaption')}
       </button>
       {open ? (
@@ -34,7 +30,7 @@ export function TotalsBlockCaption() {
           <li>{t('editor.blockFields.totalsBlockBindings.discount')}</li>
           <li>{t('editor.blockFields.totalsBlockBindings.taxTotal')}</li>
           <li>{t('editor.blockFields.totalsBlockBindings.tip')}</li>
-          {/* ENG-086 collateral — ENG-039d3 added the serviceCharge
+          {/*  collateral —  added the serviceCharge
               toggle but never published its caption row, leaving the
               explainer out of sync with the checkbox grid. */}
           <li>{t('editor.blockFields.totalsBlockBindings.serviceCharge')}</li>

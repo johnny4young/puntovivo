@@ -1,6 +1,6 @@
 /**
  * `ServerErrorWithCode` — the error-cause shape carrying the stable code
- * (ENG-178 split).
+ * ( split).
  *
  * @module lib/errorCodes/error-with-code
  */

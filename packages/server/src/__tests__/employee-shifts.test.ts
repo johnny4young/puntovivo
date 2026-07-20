@@ -67,7 +67,7 @@ async function createEmployee(role: EmployeeRole = 'cashier') {
   };
 }
 
-describe('employee shifts router (ENG-106b)', () => {
+describe('employee shifts router', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     db = getDatabase();

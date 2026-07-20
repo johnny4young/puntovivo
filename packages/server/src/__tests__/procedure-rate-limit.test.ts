@@ -1,5 +1,5 @@
 /**
- * ENG-166 — pins the per-procedure rate-limit middleware. The middleware
+ * pins the per-procedure rate-limit middleware. The middleware
  * short-circuits under Vitest so existing test suites do
  * not start tripping caps; this file opts the pure helper into enforcement
  * per call instead of mutating global process env.
@@ -144,7 +144,7 @@ describe('checkProcedureRateLimit', () => {
     }
   });
 
-  // ENG-165 — per-tenant/site buckets.
+  // per-tenant/site buckets.
   it('isolates buckets per tenant/site when keyed by tenantId + siteId + userId', () => {
     const base = {
       name: 'rl.read',
@@ -171,7 +171,7 @@ describe('checkProcedureRateLimit', () => {
   });
 });
 
-// ENG-165 — the rich consume that reports a once-per-window denial.
+// the rich consume that reports a once-per-window denial.
 describe('consumeRateLimitBucket', () => {
   afterEach(() => {
     __resetProcedureRateLimitForTest();

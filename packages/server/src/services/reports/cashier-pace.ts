@@ -1,5 +1,5 @@
 /**
- * ENG-209 — private cashier pace metrics.
+ * private cashier pace metrics.
  *
  * The caller never supplies a cashier id: tenant/user/site ownership comes
  * from the authenticated tRPC context. Suspended drafts are absent until they

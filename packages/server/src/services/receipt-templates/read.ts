@@ -10,7 +10,7 @@ import { receiptTemplates, type ReceiptTemplateKind } from '../../db/schema.js';
 import { toRecord } from './helpers.js';
 import type { ReceiptTemplateRecord } from './types.js';
 
-// ENG-179b — explicit `| undefined` on Zod-optional filter fields.
+// explicit `| undefined` on Zod-optional filter fields.
 export interface ListReceiptTemplatesOptions {
   kind?: ReceiptTemplateKind | undefined;
   includeInactive?: boolean | undefined;

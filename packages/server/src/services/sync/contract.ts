@@ -1,5 +1,5 @@
 /**
- * ENG-064 — Sync payload contract manifest.
+ * Sync payload contract manifest.
  *
  * Closes ADR-0004's promise of an exhaustive entity-to-policy
  * mapping. Every entity type emitted to `sync_outbox` MUST have an
@@ -7,7 +7,7 @@
  * + a runtime test (`sync-contract-manifest.test.ts`) catch new
  * entity types that land without a deliberate policy decision.
  *
- * The manifest is the single source of truth that ENG-068+ peers
+ * The manifest is the single source of truth that + peers
  * consume via `sync.getContract()` to negotiate the contract before
  * exchanging payloads. Bumping `SYNC_PAYLOAD_VERSION` invalidates
  * cached snapshots on the consumer side.
@@ -19,22 +19,22 @@
  * Conflict resolution policy per ADR-0004:
  *
  * - `manual`: high-risk entities (money, fiscal, cash, inventory,
- *   audit). The operator MUST resolve any divergence; auto-resolve
- *   is forbidden because a wrong choice causes silent data loss
- *   on a sale total or a fiscal CUFE.
+ * audit). The operator MUST resolve any divergence; auto-resolve
+ * is forbidden because a wrong choice causes silent data loss
+ * on a sale total or a fiscal CUFE.
  *
  * - `auto_lww`: catalog and preferences. Last-write-wins is safe
- *   because the loser's edit can be re-applied without altering
- *   any committed money/fiscal artifact. ENG-064 v1 ships only the
- *   marker; the actual auto-resolution branch in `sync.push` is
- *   parked for a follow-up.
+ * because the loser's edit can be re-applied without altering
+ * any committed money/fiscal artifact.  v1 ships only the
+ * marker; the actual auto-resolution branch in `sync.push` is
+ * parked for a follow-up.
  */
 export type SyncConflictPolicy = 'manual' | 'auto_lww';
 
 /**
  * Current payload version. Bump when a payload's shape changes in
  * a way the consumer cannot infer. Old versions stay readable via
- * a per-version codec lookup at the consumer side (ENG-068+).
+ * a per-version codec lookup at the consumer side (+).
  */
 export const SYNC_PAYLOAD_VERSION = 1 as const;
 
@@ -52,22 +52,22 @@ export const SYNC_ENTITY_TYPES = [
   'sale_items',
   'sale_payments',
   'sale_returns',
-  // Provenance child of sale_items (per-lot COGS ledger, ENG-190/191). Like
+  // Provenance child of sale_items (per-lot COGS ledger, ). Like
   // sale_items / sale_payments it is a reserved placeholder: declared here so
   // it carries a conflict policy, but not independently enqueued — it rides
   // with the sale aggregate when that serialization lands. No sync columns.
   'sale_item_lots',
-  // ENG-110c — immutable per-sale serialized-unit provenance. Unlike the
+  // immutable per-sale serialized-unit provenance. Unlike the
   // lot placeholder above, this bridge is independently enqueued atomically
   // with the current product_serials transition.
   'sale_item_serials',
   'cash_sessions',
   'cash_movements',
-  // ENG-106b — attendance rows become legal/payroll evidence under ENG-140.
+  // attendance rows become legal/payroll evidence under .
   // Register the manual-conflict policy now; aggregate enqueue wiring lands
   // with that multi-device shift-management promotion.
   'employee_shifts',
-  // ENG-106c1 — approval identity/evidence must converge manually across
+  // approval identity/evidence must converge manually across
   // terminals; decision conflicts can never use last-write-wins.
   'manager_approval_requests',
   'fiscal_documents',
@@ -79,11 +79,11 @@ export const SYNC_ENTITY_TYPES = [
   'inventory_lots',
   'product_serials',
   'product_serial_transfers',
-  // ENG-199 — expiry-radar discount suggestions. Registered so the entity
+  // expiry-radar discount suggestions. Registered so the entity
   // carries a conflict policy from day one; enqueue wiring rides a later
   // sync slice (same reserved-placeholder posture as sale_item_lots).
   'price_suggestions',
-  // ENG-213 — loyalty balance + its append-only ledger. Registered so both
+  // loyalty balance + its append-only ledger. Registered so both
   // carry a conflict policy from day one; enqueue wiring rides a later sync
   // slice (same reserved-placeholder posture as sale_item_lots).
   'loyalty_accounts',
@@ -229,9 +229,9 @@ export function resolveConflictPolicy(entityType: string): SyncConflictPolicy {
  * Default sync priority by entity type. Higher = drains first.
  *
  * - `audit_logs` (10): legal / compliance — must reach the central
- *   server quickly when present.
+ * server quickly when present.
  * - Money-bound (`sales`, `cash_*`, `fiscal_*`, `inventory_*`) (5):
- *   business-critical; ahead of catalog churn but behind audit.
+ * business-critical; ahead of catalog churn but behind audit.
  * - Everything else (0): catalog / preferences default.
  *
  * The default can be overridden per call via `enqueueSync({...,

@@ -1,9 +1,9 @@
 /**
- * ENG-066 — Diagnostic export payload sanitizer.
+ * Diagnostic export payload sanitizer.
  *
  * Recursive walker that scrubs known-sensitive keys from arbitrary
  * JSON-shaped values before they ship in a `reports.diagnostics.export`
- * bundle. Closes the leak vector that ENG-065c left open: any future
+ * bundle. Closes the leak vector that  left open: any future
  * code path that lands a JWT, an OpenAI API key, a fiscal certificate
  * path, or a card authorization code in an outbox payload would have
  * shipped that secret to a support ticket via the diagnostic ZIP.
@@ -85,7 +85,7 @@ const SENSITIVE_KEYS: ReadonlySet<string> = new Set([
   'paymenttoken',
   'capturetoken',
   'authorizationcode',
-  // ENG-038 slice 2 — payment provider credential fields. The
+  // slice 2 — payment provider credential fields. The
   // descriptor in services/payments/manifest.ts::CREDENTIAL_FIELDS_BY_RAIL
   // marks all of these `sensitive: true`. Anchored matching keeps
   // `merchantid` from colliding with legit business keys like
@@ -173,7 +173,7 @@ function walk(value: unknown, redactedKeys: Set<string>): unknown {
  *
  * @param rows Database rows (or any record array).
  * @param fields Names of fields whose values are JSON-shaped and need
- *   sanitization. Other columns pass through untouched.
+ * sanitization. Other columns pass through untouched.
  */
 export function sanitizeRows<TRow extends Record<string, unknown>>(
   rows: readonly TRow[],

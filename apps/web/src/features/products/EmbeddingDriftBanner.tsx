@@ -1,10 +1,10 @@
 /**
- * ENG-040 — admin banner that surfaces `products.embedding_model`
+ * admin banner that surfaces `products.embedding_model`
  * drift on the Products page. Hidden entirely when:
- *   - the `semantic-search` module is off,
- *   - AI is disabled or the active provider does not embed
- *     (`mode === 'unavailable'`),
- *   - the catalog is aligned (`staleCount === 0`).
+ * - the `semantic-search` module is off,
+ * - AI is disabled or the active provider does not embed
+ * (`mode === 'unavailable'`),
+ * - the catalog is aligned (`staleCount === 0`).
  *
  * Managers see the banner as a read-only nudge. Only admins get the
  * "Regenerate embeddings" CTA — the underlying
@@ -93,9 +93,7 @@ export function EmbeddingDriftBanner({ data }: EmbeddingDriftBannerProps) {
                 <p className="text-sm font-semibold text-warning-800">
                   {t('embeddingDrift.title')}
                 </p>
-                <p className="text-sm text-warning-700">
-                  {t('embeddingDrift.description')}
-                </p>
+                <p className="text-sm text-warning-700">{t('embeddingDrift.description')}</p>
                 <p className="text-xs text-warning-600">
                   {t('embeddingDrift.sampleModelsHint', {
                     count: data.staleCount,
@@ -114,11 +112,7 @@ export function EmbeddingDriftBanner({ data }: EmbeddingDriftBannerProps) {
                 data-testid="embedding-drift-regenerate"
               >
                 <RefreshCw
-                  className={
-                    regenerateMutation.isPending
-                      ? 'h-4 w-4 animate-spin'
-                      : 'h-4 w-4'
-                  }
+                  className={regenerateMutation.isPending ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
                   aria-hidden="true"
                 />
                 {regenerateMutation.isPending

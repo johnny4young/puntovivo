@@ -1,5 +1,5 @@
 /**
- * Server error-code registry — part A (ENG-178 split).
+ * Server error-code registry — part A ( split).
  *
  * Domains auth … fiscal (CO). Merged with part B in `registry.ts`. The keys
  * equal their string values; the union drives `ServerErrorCode`. Markers are
@@ -17,23 +17,23 @@ export const SERVER_ERROR_CODES_A = {
   AUTH_CURRENT_PASSWORD_INCORRECT: 'AUTH_CURRENT_PASSWORD_INCORRECT',
   AUTH_PASSWORD_POLICY: 'AUTH_PASSWORD_POLICY',
   /**
-   * ENG-008 — the `auth.login` procedure refused the attempt because the
+   * the `auth.login` procedure refused the attempt because the
    * per-IP or per-username rate-limit bucket is saturated. `details` carries
    * `{ kind: 'ip' | 'username', key, max, secondsUntilReset }` so the
    * frontend can render a precise retry-after message.
    */
   AUTH_RATE_LIMIT_EXCEEDED: 'AUTH_RATE_LIMIT_EXCEEDED',
-  /** ENG-106a — the six-digit staff PIN did not match. */
+  /** the six-digit staff PIN did not match. */
   AUTH_STAFF_PIN_INVALID: 'AUTH_STAFF_PIN_INVALID',
 
-  // --- employee shifts domain (ENG-106b) ---
+  // --- employee shifts domain () ---
   EMPLOYEE_SHIFT_ALREADY_CLOCKED_IN: 'EMPLOYEE_SHIFT_ALREADY_CLOCKED_IN',
   EMPLOYEE_SHIFT_NOT_CLOCKED_IN: 'EMPLOYEE_SHIFT_NOT_CLOCKED_IN',
   EMPLOYEE_SHIFT_SITE_INACTIVE: 'EMPLOYEE_SHIFT_SITE_INACTIVE',
   EMPLOYEE_SHIFT_PERSIST_FAILED: 'EMPLOYEE_SHIFT_PERSIST_FAILED',
-  // ENG-140d — labor/cash lifecycle integration.
+  // labor/cash lifecycle integration.
   EMPLOYEE_SHIFT_CASH_SESSION_OPEN: 'EMPLOYEE_SHIFT_CASH_SESSION_OPEN',
-  // --- attendance breaks domain (ENG-140b) ---
+  // --- attendance breaks domain () ---
   EMPLOYEE_SHIFT_BREAK_ALREADY_ACTIVE: 'EMPLOYEE_SHIFT_BREAK_ALREADY_ACTIVE',
   EMPLOYEE_SHIFT_BREAK_NOT_ACTIVE: 'EMPLOYEE_SHIFT_BREAK_NOT_ACTIVE',
   EMPLOYEE_SHIFT_BREAK_ACTIVE: 'EMPLOYEE_SHIFT_BREAK_ACTIVE',
@@ -41,14 +41,14 @@ export const SERVER_ERROR_CODES_A = {
   EMPLOYEE_SHIFT_ATTENDANCE_RANGE_INVALID: 'EMPLOYEE_SHIFT_ATTENDANCE_RANGE_INVALID',
   EMPLOYEE_SHIFT_ATTENDANCE_EMPLOYEE_NOT_FOUND: 'EMPLOYEE_SHIFT_ATTENDANCE_EMPLOYEE_NOT_FOUND',
   EMPLOYEE_SHIFT_ATTENDANCE_SITE_NOT_FOUND: 'EMPLOYEE_SHIFT_ATTENDANCE_SITE_NOT_FOUND',
-  // --- immutable attendance corrections (ENG-140e) ---
+  // --- immutable attendance corrections () ---
   EMPLOYEE_SHIFT_CORRECTION_NOT_FOUND: 'EMPLOYEE_SHIFT_CORRECTION_NOT_FOUND',
   EMPLOYEE_SHIFT_CORRECTION_ACTIVE: 'EMPLOYEE_SHIFT_CORRECTION_ACTIVE',
   EMPLOYEE_SHIFT_CORRECTION_WINDOW_INVALID: 'EMPLOYEE_SHIFT_CORRECTION_WINDOW_INVALID',
   EMPLOYEE_SHIFT_CORRECTION_BREAKS_INVALID: 'EMPLOYEE_SHIFT_CORRECTION_BREAKS_INVALID',
   EMPLOYEE_SHIFT_CORRECTION_PERSIST_FAILED: 'EMPLOYEE_SHIFT_CORRECTION_PERSIST_FAILED',
 
-  // --- labor schedule domain (ENG-140a) ---
+  // --- labor schedule domain () ---
   SCHEDULE_DATE_RANGE_INVALID: 'SCHEDULE_DATE_RANGE_INVALID',
   SCHEDULE_WINDOW_INVALID: 'SCHEDULE_WINDOW_INVALID',
   SCHEDULE_EMPLOYEE_NOT_FOUND: 'SCHEDULE_EMPLOYEE_NOT_FOUND',
@@ -57,7 +57,7 @@ export const SERVER_ERROR_CODES_A = {
   SCHEDULE_SHIFT_OVERLAP: 'SCHEDULE_SHIFT_OVERLAP',
   SCHEDULE_SHIFT_CANCELLED: 'SCHEDULE_SHIFT_CANCELLED',
 
-  // --- manager approval rail (ENG-106c1) ---
+  // --- manager approval rail () ---
   MANAGER_APPROVAL_NOT_FOUND: 'MANAGER_APPROVAL_NOT_FOUND',
   MANAGER_APPROVAL_NOT_PENDING: 'MANAGER_APPROVAL_NOT_PENDING',
   MANAGER_APPROVAL_EXPIRED: 'MANAGER_APPROVAL_EXPIRED',
@@ -66,10 +66,10 @@ export const SERVER_ERROR_CODES_A = {
   MANAGER_APPROVAL_REQUIRED: 'MANAGER_APPROVAL_REQUIRED',
   MANAGER_APPROVAL_MISMATCH: 'MANAGER_APPROVAL_MISMATCH',
   MANAGER_APPROVAL_UNAVAILABLE: 'MANAGER_APPROVAL_UNAVAILABLE',
-  // --- deterministic loss-prevention alerts (ENG-142d) ---
+  // --- deterministic loss-prevention alerts () ---
   LOSS_PREVENTION_ALERT_NOT_FOUND: 'LOSS_PREVENTION_ALERT_NOT_FOUND',
 
-  // --- cash sessions domain (Phase 1 DB-051 / API-051 / API-055) ---
+  // --- cash sessions domain ---
   CASH_SESSION_REQUIRED: 'CASH_SESSION_REQUIRED',
   CASH_SESSION_SITE_REQUIRED: 'CASH_SESSION_SITE_REQUIRED',
   CASH_SESSION_ALREADY_OPEN_FOR_CASHIER: 'CASH_SESSION_ALREADY_OPEN_FOR_CASHIER',
@@ -81,20 +81,20 @@ export const SERVER_ERROR_CODES_A = {
   CASH_SESSION_COUNT_MISMATCH: 'CASH_SESSION_COUNT_MISMATCH',
   CASH_SESSION_COUNT_INVALID: 'CASH_SESSION_COUNT_INVALID',
   /**
-   * ENG-198 — `cashSessions.dayCloseSummary` was asked for a session id that
+   * `cashSessions.dayCloseSummary` was asked for a session id that
    * does not exist under the caller's tenant, or belongs to another cashier
    * when the caller is not privileged (both probes are indistinguishable by
    * design). `details` carries `{ sessionId }`.
    */
   CASH_SESSION_NOT_FOUND: 'CASH_SESSION_NOT_FOUND',
   /**
-   * ENG-198 — the day-close summary only exists for a closed session; the
+   * the day-close summary only exists for a closed session; the
    * ritual fires from the close mutation's success path, so hitting this
    * means a stale/forged session id. `details` carries `{ sessionId }`.
    */
   CASH_SESSION_NOT_CLOSED: 'CASH_SESSION_NOT_CLOSED',
   /**
-   * ENG-181 — defensive load failure right after creating / closing a
+   * defensive load failure right after creating / closing a
    * cash session. Should never reach a happy-path UI; surfaces if the
    * SELECT-after-INSERT pattern is broken (DB closed, replication lag,
    * etc.). `details` carries
@@ -102,42 +102,42 @@ export const SERVER_ERROR_CODES_A = {
    */
   CASH_SESSION_LOAD_FAILED: 'CASH_SESSION_LOAD_FAILED',
   /**
-   * ENG-141a — a manager requested a comprehensive day-close preview for a
+   * a manager requested a comprehensive day-close preview for a
    * tenant-local calendar day that has not started yet.
    */
   DAY_CLOSE_FUTURE_DATE: 'DAY_CLOSE_FUTURE_DATE',
-  /** ENG-141b — the tenant business date already has immutable signed evidence. */
+  /** the tenant business date already has immutable signed evidence. */
   DAY_CLOSE_ALREADY_SIGNED: 'DAY_CLOSE_ALREADY_SIGNED',
-  /** ENG-141b — a report with readiness blockers cannot be attested. */
+  /** a report with readiness blockers cannot be attested. */
   DAY_CLOSE_NOT_READY: 'DAY_CLOSE_NOT_READY',
-  /** ENG-141b — the persisted snapshot no longer matches its canonical hash or schema. */
+  /** the persisted snapshot no longer matches its canonical hash or schema. */
   DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED: 'DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED',
   /**
-   * ENG-181 — `services/cash-session.ts:insertCashMovement` rejected a
-   * non-positive / non-finite amount. ENG-176a-rounding already rounds
+   * `services/cash-session.ts:insertCashMovement` rejected a
+   * non-positive / non-finite amount.  already rounds
    * at the boundary; this code surfaces if a future caller bypasses
    * `roundMoney()` and feeds a sub-cent or negative value. `details`
    * carries `{ amount }`.
    */
   CASH_MOVEMENT_INVALID_AMOUNT: 'CASH_MOVEMENT_INVALID_AMOUNT',
   /**
-   * ENG-181 — unknown / unhandled `cash_movements.type` reached
+   * unknown / unhandled `cash_movements.type` reached
    * `getCashMovementSignedAmount`. Indicates a schema enum value the
    * helper has not been taught about. `details` carries `{ type }`.
    */
   CASH_MOVEMENT_UNSUPPORTED_TYPE: 'CASH_MOVEMENT_UNSUPPORTED_TYPE',
   /**
-   * ENG-181 — defensive guard on the SELECT-after-INSERT pattern in
+   * defensive guard on the SELECT-after-INSERT pattern in
    * `application/cash-sessions/recordCashMovement.ts`. Surfaces when
    * the freshly inserted cash movement row cannot be re-read; almost
    * always points to an underlying DB / FK issue. `details` carries
    * `{ tenantId, sessionId, type, amount, stage: 'insert' | 'post-tx' | 'reload', movementId? }`
-   * — `stage` discriminates the three guard sites (in-transaction
+   * `stage` discriminates the three guard sites (in-transaction
    * insert, post-tx null-id check, post-tx reload-row check).
    */
   CASH_MOVEMENT_PERSIST_FAILED: 'CASH_MOVEMENT_PERSIST_FAILED',
 
-  // --- fraction policy domain (Phase 1 DB-050) ---
+  // --- fraction policy domain () ---
   /** Admin config: sellByFraction=true but fractionStep is missing / ≤ 0. */
   PRODUCT_FRACTION_STEP_REQUIRED: 'PRODUCT_FRACTION_STEP_REQUIRED',
   /** Admin config: sellByFraction=true but fractionMinimum is missing / ≤ 0. */
@@ -146,13 +146,13 @@ export const SERVER_ERROR_CODES_A = {
   PRODUCT_FRACTION_MINIMUM_BELOW_STEP: 'PRODUCT_FRACTION_MINIMUM_BELOW_STEP',
   /** Admin config: fractionMinimum is not a multiple of fractionStep. */
   PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED: 'PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED',
-  /** ENG-110a: enabling lot tracking would orphan existing/opening stock. */
+  /** : enabling lot tracking would orphan existing/opening stock. */
   PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK: 'PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK',
-  /** ENG-110a: a direct stock edit would bypass lot and FEFO evidence. */
+  /** : a direct stock edit would bypass lot and FEFO evidence. */
   PRODUCT_LOT_TRACKING_STOCK_MANAGED: 'PRODUCT_LOT_TRACKING_STOCK_MANAGED',
-  /** ENG-110a: a lot receipt targeted a product without lot tracking enabled. */
+  /** : a lot receipt targeted a product without lot tracking enabled. */
   PRODUCT_LOT_TRACKING_REQUIRED: 'PRODUCT_LOT_TRACKING_REQUIRED',
-  /** ENG-110a: disabling lot tracking would strand non-zero lot inventory. */
+  /** : disabling lot tracking would strand non-zero lot inventory. */
   PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS: 'PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS',
   PRODUCT_SERIAL_TRACKING_REQUIRES_ZERO_STOCK: 'PRODUCT_SERIAL_TRACKING_REQUIRES_ZERO_STOCK',
   PRODUCT_SERIAL_TRACKING_STOCK_MANAGED: 'PRODUCT_SERIAL_TRACKING_STOCK_MANAGED',
@@ -167,19 +167,19 @@ export const SERVER_ERROR_CODES_A = {
   PRODUCT_SERIAL_UNAVAILABLE: 'PRODUCT_SERIAL_UNAVAILABLE',
   PRODUCT_SERIAL_SALE_STATUS_INVALID: 'PRODUCT_SERIAL_SALE_STATUS_INVALID',
   PRODUCT_SERIAL_SELECTION_NOT_ALLOWED: 'PRODUCT_SERIAL_SELECTION_NOT_ALLOWED',
-  /** ENG-110c: per-unit identities cannot be moved onto matrix children implicitly. */
+  /** : per-unit identities cannot be moved onto matrix children implicitly. */
   PRODUCT_SERIAL_VARIANT_PARENT_UNSUPPORTED: 'PRODUCT_SERIAL_VARIANT_PARENT_UNSUPPORTED',
-  /** ENG-110b: only a zero-stock standard product can become a matrix parent. */
+  /** : only a zero-stock standard product can become a matrix parent. */
   PRODUCT_VARIANT_PARENT_REQUIRES_ZERO_STOCK: 'PRODUCT_VARIANT_PARENT_REQUIRES_ZERO_STOCK',
-  /** ENG-110b: the selected matrix source no longer exists for this tenant. */
+  /** : the selected matrix source no longer exists for this tenant. */
   PRODUCT_VARIANT_PARENT_NOT_FOUND: 'PRODUCT_VARIANT_PARENT_NOT_FOUND',
-  /** ENG-110b: later document reversals/receipts could restock the matrix parent. */
+  /** : later document reversals/receipts could restock the matrix parent. */
   PRODUCT_VARIANT_PARENT_HAS_HISTORY: 'PRODUCT_VARIANT_PARENT_HAS_HISTORY',
-  /** ENG-110b: the selected product is already a parent or child in a matrix. */
+  /** : the selected product is already a parent or child in a matrix. */
   PRODUCT_VARIANT_MATRIX_EXISTS: 'PRODUCT_VARIANT_MATRIX_EXISTS',
-  /** ENG-110b: generated child SKUs collide with tenant catalog rows. */
+  /** : generated child SKUs collide with tenant catalog rows. */
   PRODUCT_VARIANT_SKU_CONFLICT: 'PRODUCT_VARIANT_SKU_CONFLICT',
-  /** ENG-110b: a matrix parent is catalog metadata, never a sellable stock item. */
+  /** : a matrix parent is catalog metadata, never a sellable stock item. */
   PRODUCT_VARIANT_PARENT_NOT_SELLABLE: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE',
   /** Sale path: quantity must be a whole number for this product. */
   SALE_QUANTITY_NOT_WHOLE: 'SALE_QUANTITY_NOT_WHOLE',
@@ -194,7 +194,7 @@ export const SERVER_ERROR_CODES_A = {
   /** Split-payment input: Σ(payments.amount) does not match the sale total. */
   SALE_PAYMENTS_SUM_MISMATCH: 'SALE_PAYMENTS_SUM_MISMATCH',
 
-  // --- inventory transfers domain (Phase 2 DB-102 / API-102) ---
+  // --- inventory transfers domain ---
   TRANSFER_SITES_IDENTICAL: 'TRANSFER_SITES_IDENTICAL',
   TRANSFER_SITE_NOT_FOUND: 'TRANSFER_SITE_NOT_FOUND',
   TRANSFER_PRODUCT_NOT_FOUND: 'TRANSFER_PRODUCT_NOT_FOUND',
@@ -213,20 +213,20 @@ export const SERVER_ERROR_CODES_A = {
   /** `transfers.receive` called on a transfer whose status is not `in_transit`. */
   TRANSFER_NOT_IN_TRANSIT: 'TRANSFER_NOT_IN_TRANSIT',
   /**
-   * Phase 2 UI-103: a `transfers.receive` line reports a received quantity
+   * a `transfers.receive` line reports a received quantity
    * greater than the shipped quantity. Accepting would create stock from
    * nothing — operators should complete the receive at the shipped qty and
    * post a separate stock adjustment if they genuinely received more.
    */
   TRANSFER_RECEIVED_EXCEEDS_SHIPPED: 'TRANSFER_RECEIVED_EXCEEDS_SHIPPED',
   /**
-   * Phase 2 UI-103: a `transfers.receive` line payload references an item id
+   * a `transfers.receive` line payload references an item id
    * that does not belong to the target transfer (or is duplicated across
    * entries).
    */
   TRANSFER_RECEIVE_LINE_MISMATCH: 'TRANSFER_RECEIVE_LINE_MISMATCH',
 
-  // --- quotations domain (Phase 5 / Tier-2 #6) ---
+  // --- quotations domain () ---
   QUOTATION_NOT_FOUND: 'QUOTATION_NOT_FOUND',
   QUOTATION_ITEMS_REQUIRED: 'QUOTATION_ITEMS_REQUIRED',
   QUOTATION_PRODUCT_NOT_FOUND: 'QUOTATION_PRODUCT_NOT_FOUND',
@@ -251,7 +251,7 @@ export const SERVER_ERROR_CODES_A = {
   /** A duplicate's resolved name collides with an existing one for the same kind. */
   RECEIPT_TEMPLATE_NAME_DUPLICATE: 'RECEIPT_TEMPLATE_NAME_DUPLICATE',
   /**
-   * ENG-181 — defensive guard on the INSERT-RETURNING / UPDATE-RETURNING
+   * defensive guard on the INSERT-RETURNING / UPDATE-RETURNING
    * pattern in `services/receipt-templates.ts`. Surfaces when a row
    * mutation succeeds but the returned row is missing; almost always
    * points to a tenant-scope mismatch or a transaction abort.
@@ -260,7 +260,7 @@ export const SERVER_ERROR_CODES_A = {
   RECEIPT_TEMPLATE_PERSIST_FAILED: 'RECEIPT_TEMPLATE_PERSIST_FAILED',
 
   // --- sales domain ---
-  // Added during ENG-018 + ENG-019 while sweeping sales.ts for raw
+  // Added during  +  while sweeping sales.ts for raw
   // TRPCError messages that bypassed the translate-by-errorCode path
   // and leaked English strings into the localized UI.
   /** Sale id does not exist in the current tenant. */
@@ -283,23 +283,23 @@ export const SERVER_ERROR_CODES_A = {
   LOT_COST_INVALID: 'LOT_COST_INVALID',
   /** Lot receipt references a product that does not exist for this tenant. */
   LOT_PRODUCT_NOT_FOUND: 'LOT_PRODUCT_NOT_FOUND',
-  /** ENG-199 — the referenced lot does not exist under the caller's tenant
+  /** the referenced lot does not exist under the caller's tenant
    * (cross-tenant probes land here too). details: { lotId }. */
   LOT_NOT_FOUND: 'LOT_NOT_FOUND',
-  /** ENG-199 — the lot cannot receive an expiry-discount suggestion: no
+  /** the lot cannot receive an expiry-discount suggestion: no
    * expiry date, already expired, depleted, inactive, or outside the tier
    * window. details: { lotId, reason }. */
   LOT_DISCOUNT_NOT_ELIGIBLE: 'LOT_DISCOUNT_NOT_ELIGIBLE',
-  /** ENG-199 — the lot already carries an ACTIVE discount suggestion (the
+  /** the lot already carries an ACTIVE discount suggestion (the
    * partial unique index is the race-safe guard). details: { lotId }. */
   LOT_DISCOUNT_ALREADY_ACTIVE: 'LOT_DISCOUNT_ALREADY_ACTIVE',
-  /** ENG-199 — dismiss targeted a suggestion id that does not exist (or is
+  /** dismiss targeted a suggestion id that does not exist (or is
    * not active) under the caller's tenant. details: { suggestionId }. */
   PRICE_SUGGESTION_NOT_FOUND: 'PRICE_SUGGESTION_NOT_FOUND',
-  /** ENG-213 — a loyalty operation targeted a customer that does not exist
+  /** a loyalty operation targeted a customer that does not exist
    * under the caller's tenant. details: { customerId }. */
   LOYALTY_CUSTOMER_NOT_FOUND: 'LOYALTY_CUSTOMER_NOT_FOUND',
-  /** ENG-213 — a negative adjustment would leave the balance below zero.
+  /** a negative adjustment would leave the balance below zero.
    * details: { customerId, balance, points }. */
   LOYALTY_INSUFFICIENT_POINTS: 'LOYALTY_INSUFFICIENT_POINTS',
   /** Applied discount amount exceeds the computed sale total. */
@@ -327,7 +327,7 @@ export const SERVER_ERROR_CODES_A = {
   /** Reversal transaction references a product row that no longer exists. */
   SALE_REVERSAL_PRODUCT_MISSING: 'SALE_REVERSAL_PRODUCT_MISSING',
 
-  // --- ENG-018 park-and-resume ---
+  // ---  park-and-resume ---
   /** Suspend/discard target is not in status='draft'. */
   SALE_DRAFT_REQUIRED: 'SALE_DRAFT_REQUIRED',
   /** Resume target has no suspension metadata. */
@@ -335,17 +335,17 @@ export const SERVER_ERROR_CODES_A = {
   /** Resume/discard attempted by a non-owner cashier without manager override. */
   SALE_SUSPEND_OWNERSHIP_REQUIRED: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
 
-  // --- ENG-019 receipt reprint ---
+  // ---  receipt reprint ---
   /** Reprint requested on a draft sale (drafts have no printable receipt). */
   SALE_REPRINT_DRAFT_FORBIDDEN: 'SALE_REPRINT_DRAFT_FORBIDDEN',
   /** Cashier reprint: caller has no open cash session or the sale does not belong to it. */
   SALE_REPRINT_ACTIVE_SESSION_REQUIRED: 'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
 
-  // --- ENG-018c draft completion ---
+  // ---  draft completion ---
   /** Attempt to complete a draft that is still suspended; caller must resume first. */
   SALE_COMPLETE_DRAFT_SUSPENDED: 'SALE_COMPLETE_DRAFT_SUSPENDED',
 
-  // --- ENG-039c restaurant table linkage ---
+  // ---  restaurant table linkage ---
   /**
    * `sales.changeTable` requires the target sale to be a suspended draft
    * (`status='draft'` AND `suspended_at IS NOT NULL`). Mirrors the
@@ -355,7 +355,7 @@ export const SERVER_ERROR_CODES_A = {
    */
   SALE_CHANGE_TABLE_INVALID_STATUS: 'SALE_CHANGE_TABLE_INVALID_STATUS',
 
-  // --- ENG-039d3 restaurant service charge ---
+  // ---  restaurant service charge ---
   /**
    * Caller submitted a non-zero `serviceChargeAmount` but the tenant has
    * `tenants.settings.restaurant.serviceChargeRate === 0`. Protects
@@ -371,7 +371,7 @@ export const SERVER_ERROR_CODES_A = {
    */
   SALE_SERVICE_CHARGE_DRIFT: 'SALE_SERVICE_CHARGE_DRIFT',
 
-  // --- ENG-039c3 split-bill ---
+  // ---  split-bill ---
   /**
    * `sales.splitDraft` requires the source sale to be a suspended draft
    * (`status='draft'` AND `suspended_at IS NOT NULL`). Mirrors
@@ -390,7 +390,7 @@ export const SERVER_ERROR_CODES_A = {
    */
   SALE_SPLIT_ITEMS_NOT_FOUND: 'SALE_SPLIT_ITEMS_NOT_FOUND',
 
-  // --- ENG-060 peripherals registry ---
+  // ---  peripherals registry ---
   /** `peripherals.{update,setActive,test,remove}` could not find the row for the tenant. */
   PERIPHERAL_NOT_FOUND: 'PERIPHERAL_NOT_FOUND',
   /** Driver name not registered in the static dispatch table for the requested kind. */
@@ -405,7 +405,7 @@ export const SERVER_ERROR_CODES_A = {
    */
   PERIPHERAL_ACTIVE_DUPLICATE: 'PERIPHERAL_ACTIVE_DUPLICATE',
 
-  // --- ENG-062 ESC/POS printer + cash drawer ---
+  // ---  ESC/POS printer + cash drawer ---
   /**
    * `peripherals.printReceipt` was called for a sale that does not
    * exist or belongs to a different tenant. Mirror of the existing
@@ -427,13 +427,13 @@ export const SERVER_ERROR_CODES_A = {
    */
   HARDWARE_TRANSPORT_FAILED: 'HARDWARE_TRANSPORT_FAILED',
   /**
-   * `peripherals.retryHardwareOutbox` (ENG-065a) could not find a
+   * `peripherals.retryHardwareOutbox` () could not find a
    * `hardware_outbox` row for the tenant. Surfaced as NOT_FOUND so
    * the Operations Center renders a polite "row not found" hint.
    */
   HARDWARE_OUTBOX_NOT_FOUND: 'HARDWARE_OUTBOX_NOT_FOUND',
 
-  // --- ENG-064 sync contract v1 ---
+  // ---  sync contract v1 ---
   /**
    * `sync.retry` could not find a `sync_outbox` row for the tenant.
    * Surfaced as NOT_FOUND so the admin UI can render a polite "this
@@ -442,27 +442,27 @@ export const SERVER_ERROR_CODES_A = {
   SYNC_OUTBOX_NOT_FOUND: 'SYNC_OUTBOX_NOT_FOUND',
   /**
    * The sync outbox row exhausted `BOUNDED_EXPONENTIAL_BACKOFF`'s
-   * retry budget without success. Operator-facing for ENG-065's
+   * retry budget without success. Operator-facing for 's
    * Operations Center surface.
    */
   SYNC_OUTBOX_DEAD_LETTER: 'SYNC_OUTBOX_DEAD_LETTER',
 
-  // --- ENG-020 fiscal reports ---
+  // ---  fiscal reports ---
   /** `reports.fiscal.getByCufe` could not find a row with that CUFE for the tenant. */
   FISCAL_DOCUMENT_NOT_FOUND: 'FISCAL_DOCUMENT_NOT_FOUND',
 
-  // --- ENG-034 multi-country fiscal packs ---
+  // ---  multi-country fiscal packs ---
   /**
    * Sale lifecycle attempted to dispatch a fiscal adapter for a country
-   * whose pack is still parked. Mexico (CFDI 4.0) lands with `ENG-035`,
-   * Chile (SII) with `ENG-036`. The caller in `sales.ts` already wraps
+   * whose pack is still parked. Mexico (CFDI 4.0) lands with ,
+   * Chile (SII) with . The caller in `sales.ts` already wraps
    * `emitFiscalDocument` in a non-blocking try/catch, so this error
    * appears in the server log warning channel rather than failing the
    * sale itself.
    */
   FISCAL_PACK_NOT_AVAILABLE: 'FISCAL_PACK_NOT_AVAILABLE',
 
-  // --- ENG-035a pack México fundación ---
+  // ---  pack México fundación ---
   /**
    * El RFC capturado en los ajustes fiscales de México no pasa la
    * validación SAT (longitud incorrecta, estructura mal formada,
@@ -477,15 +477,15 @@ export const SERVER_ERROR_CODES_A = {
    * catálogo ship con 23 regímenes curados; el operador eligió un
    * código fuera de esa lista. Tirado por `fiscal.settings.updateMx`.
    *
-   * En ENG-036a se reusa también para giros CL fuera del catálogo
+   * En  se reusa también para giros CL fuera del catálogo
    * CIIU.cl curado — el code semánticamente cubre "el catálogo
    * rechazó el código de actividad económica del emisor" en cualquier
    * país. Si granularidad por país es necesaria, separar a
-   * FISCAL_GIRO_INVALID en una iteración futura (BACKLOG).
+   * FISCAL_GIRO_INVALID en una iteración futura (deferred).
    */
   FISCAL_REGIMEN_INVALID: 'FISCAL_REGIMEN_INVALID',
 
-  // --- ENG-036a pack Chile fundación ---
+  // ---  pack Chile fundación ---
   /**
    * El RUT capturado en los ajustes fiscales de Chile no pasa la
    * validación SII (formato, dígito verificador o estructura del
@@ -494,7 +494,7 @@ export const SERVER_ERROR_CODES_A = {
    */
   FISCAL_RUT_INVALID: 'FISCAL_RUT_INVALID',
 
-  // --- ENG-184 pack Colombia config card ---
+  // ---  pack Colombia config card ---
   /**
    * El NIT del emisor capturado en los ajustes fiscales de Colombia no
    * tiene un formato válido (debe ser 9-10 dígitos con dígito de
@@ -509,13 +509,13 @@ export const SERVER_ERROR_CODES_A = {
    */
   FISCAL_NUMBERING_RANGE_INVALID: 'FISCAL_NUMBERING_RANGE_INVALID',
   /**
-   * ENG-181 — `services/fiscal/orchestrator.ts` TOCTOU guard: the
+   * `services/fiscal/orchestrator.ts` TOCTOU guard: the
    * UPDATE that advances `fiscal_numbering_resolutions.current_number`
    * reported zero rows changed, meaning a concurrent emitter raced
    * past the same sequential window. The orchestrator aborts and the
    * caller should retry with a fresh resolution lookup. `details`
    * carries `{ resolutionId, tenantId, siteId, kind, expectedConsecutive }`
-   * — full coordinates so operators can pinpoint the (tenant, site,
+   * full coordinates so operators can pinpoint the (tenant, site,
    * document-kind) triple that raced.
    */
   FISCAL_SEQUENTIAL_NOT_ADVANCED: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',

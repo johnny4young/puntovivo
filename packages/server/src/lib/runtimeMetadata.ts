@@ -1,19 +1,19 @@
 /**
- * ENG-073 — Runtime metadata helpers for the `/api/health` surface.
+ * Runtime metadata helpers for the `/api/health` surface.
  *
  * Two pure-ish helpers + one read-only DB query that the health
  * endpoint needs to render an Authority Node status snapshot for
  * Operations Center consumers (and operator curl checks):
  *
- *   - `fingerprintDbPath(path)` — SHA-256 of the dbPath string
- *     truncated to 12 hex chars. Identifies a hub box across boots
- *     without leaking the operator's filesystem layout.
- *   - `getCurrentSchemaVersion(db)` — reads the applied migration
- *     count from `__drizzle_migrations`. Lets a support ticket
- *     compare the deployed schema against the journal in the repo.
- *   - `countActiveDevices(db)` — system-wide aggregate of
- *     `devices.is_active = 1`. Tenant-scoped per-row breakdown is
- *     ENG-075's Operations Center Authority tab.
+ * - `fingerprintDbPath(path)` — SHA-256 of the dbPath string
+ * truncated to 12 hex chars. Identifies a hub box across boots
+ * without leaking the operator's filesystem layout.
+ * - `getCurrentSchemaVersion(db)` — reads the applied migration
+ * count from `__drizzle_migrations`. Lets a support ticket
+ * compare the deployed schema against the journal in the repo.
+ * - `countActiveDevices(db)` — system-wide aggregate of
+ * `devices.is_active = 1`. Tenant-scoped per-row breakdown is
+ * 's Operations Center Authority tab.
  *
  * @module lib/runtimeMetadata
  */
@@ -34,8 +34,8 @@ const FINGERPRINT_HEX_LENGTH = 12;
  * ticket.
  *
  * Special cases:
- *   - `':memory:'` returns the literal string `'memory'` so the
- *     test fixture is identifiable at a glance.
+ * - `':memory:'` returns the literal string `'memory'` so the
+ * test fixture is identifiable at a glance.
  */
 export function fingerprintDbPath(dbPath: string): string {
   if (dbPath === ':memory:') return 'memory';
@@ -70,14 +70,10 @@ export function getCurrentSchemaVersion(db: DatabaseInstance): number | null {
 /**
  * System-wide count of active devices across tenants. The hub
  * typically serves one tenant; multi-tenant hubs sum across
- * tenants. ENG-075 will surface a per-tenant breakdown through a
+ * tenants.  will surface a per-tenant breakdown through a
  * tRPC procedure inside the Operations Center Authority tab.
  */
 export function countActiveDevices(db: DatabaseInstance): number {
-  const row = db
-    .select({ value: count() })
-    .from(devices)
-    .where(eq(devices.isActive, true))
-    .get();
+  const row = db.select({ value: count() }).from(devices).where(eq(devices.isActive, true)).get();
   return Number(row?.value ?? 0);
 }

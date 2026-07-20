@@ -289,9 +289,7 @@ function findApprovalByReason(reason: string) {
   }
 }
 
-test('cashier requests and consumes an exact discount approval (ENG-106c2)', async ({
-  browser,
-}, testInfo) => {
+test('cashier requests and consumes an exact discount approval', async ({ browser }, testInfo) => {
   const scenario = seedSaleScenario(`checkout-approval-${testInfo.parallelIndex}-${Date.now()}`);
   const approvalReason = `Documented price match ${scenario.product.sku}`;
   await configureManagerPin(scenario.manager.id);
@@ -360,7 +358,7 @@ test('cashier requests and consumes an exact discount approval (ENG-106c2)', asy
   }
 });
 
-test('admin policy blocks a cashier discount until exact approval and records evidence (ENG-142a)', async ({
+test('admin policy blocks a cashier discount until exact approval and records evidence', async ({
   browser,
 }, testInfo) => {
   const scenario = seedSaleScenario(`loss-prevention-${testInfo.parallelIndex}-${Date.now()}`);
@@ -483,7 +481,7 @@ test('admin policy blocks a cashier discount until exact approval and records ev
   }
 });
 
-test('high-value cashier discount requires two distinct approvers (ENG-142c)', async ({
+test('high-value cashier discount requires two distinct approvers', async ({
   browser,
 }, testInfo) => {
   const scenario = seedSaleScenario(`dual-approval-${testInfo.parallelIndex}-${Date.now()}`);
@@ -612,9 +610,7 @@ test('high-value cashier discount requires two distinct approvers (ENG-142c)', a
   }
 });
 
-test('manager receives, shares, and acknowledges a site alert (ENG-142d)', async ({
-  browser,
-}, testInfo) => {
+test('manager receives, shares, and acknowledges a site alert', async ({ browser }, testInfo) => {
   const scenario = seedSaleScenario(`alerts-${testInfo.parallelIndex}-${Date.now()}`);
   const settingsSnapshot = snapshotLossPreventionSettings(scenario.tenantId);
   const adminContext = await browser.newContext();
@@ -713,7 +709,7 @@ test('manager receives, shares, and acknowledges a site alert (ENG-142d)', async
   }
 });
 
-test('manager shift refund cap requires and consumes an exact approval (ENG-142b)', async ({
+test('manager shift refund cap requires and consumes an exact approval', async ({
   browser,
 }, testInfo) => {
   const scenario = seedSaleScenario(`shift-refund-${testInfo.parallelIndex}-${Date.now()}`);
@@ -844,7 +840,7 @@ test('manager shift refund cap requires and consumes an exact approval (ENG-142b
   }
 });
 
-test('cashier consumes exact refund and drawer grants without an elevated session (ENG-106c3)', async ({
+test('cashier consumes exact refund and drawer grants without an elevated session', async ({
   browser,
 }, testInfo) => {
   const scenario = seedSaleScenario(`post-sale-approval-${testInfo.parallelIndex}-${Date.now()}`);

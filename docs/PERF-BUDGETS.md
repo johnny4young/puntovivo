@@ -1,7 +1,6 @@
 # Performance Budgets
 
 > Status: shipped engine (bundle-size + tRPC p95 latency + Electron memory + Lighthouse web vitals).
-> Roadmap anchor: `ENG-133`.
 > Source of truth: `perf-budget.json` at the repo root.
 
 This doc explains how Puntovivo enforces performance budgets in CI
@@ -11,17 +10,17 @@ documented in the same PR that produces it.
 
 ## What is enforced today
 
-| Metric | Where | Gate runner |
-| --- | --- | --- |
-| Per-chunk JavaScript gzipped bundle size | `ci:web` | `scripts/check-bundle-size.mjs` after `vite build` |
-| tRPC procedure p95 latency for a curated set of read routes | `ci:server` | `__tests__/perf-trpc-latency.test.ts` via vitest |
-| Electron main + renderer working-set memory (strict in CI; warn-first locally) | `ci:desktop` | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs` |
-| Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs` |
+| Metric                                                                                            | Where                                 | Gate runner                                                                  |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
+| Per-chunk JavaScript gzipped bundle size                                                          | `ci:web`                              | `scripts/check-bundle-size.mjs` after `vite build`                           |
+| tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                             |
+| Electron main + renderer working-set memory (strict in CI; warn-first locally)                    | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs` |
+| Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`           |
 
-`ENG-133` is now closed: bundle size, tRPC p95 latency, Electron memory,
+is now closed: bundle size, tRPC p95 latency, Electron memory,
 and Lighthouse web vitals all fail CI when their enforced budgets regress.
 The Operations Center surface of the latest baseline was deliberately
-re-routed to `ENG-128` so readiness / supportability signals consolidate
+re-routed to so readiness / supportability signals consolidate
 with the attention queue instead of growing a parallel panel.
 
 ### Electron memory (strict in CI, warn-first locally)
@@ -142,6 +141,7 @@ when the PR lands, not when a customer complains.
    markdown table pointing at the offending chunk and the delta.
 
 Tolerant paths:
+
 - A chunk in the build that is not in the budget produces a warning
   but does not fail only when it is at least `5 kB` gzipped (so introducing
   a new route does not block the PR; the operator adds the baseline in the
@@ -168,6 +168,7 @@ Tolerant paths:
      `budget * (1 + thresholdPercent/100)`.
 
 Mitigations against runner jitter:
+
 - Default `warmupIterations` is 10.
 - Default `samplesPerProcedure` is 50.
 - p95 (not p99) — less tail noise.
@@ -175,11 +176,11 @@ Mitigations against runner jitter:
 
 ## Web Vitals real-user monitoring (RUM)
 
-> Status: ingest path shipped (`ENG-173`). Aggregation dashboard is a follow-up.
+> Status: ingest path shipped (). Aggregation dashboard is a follow-up.
 
 The bundle-size and tRPC-latency gates above are synthetic — they measure the
 build and the server in isolation. They cannot see what the cashier's actual
-browser experiences on the actual hardware. `ENG-173` closes that gap with
+browser experiences on the actual hardware. closes that gap with
 field measurement.
 
 `apps/web/src/lib/observability.ts::installWebVitalsReporter()` hooks the
@@ -205,15 +206,15 @@ against — advisory today (no CI gate; the data has to accumulate first). Value
 follow the Google Web Vitals "good" thresholds, tightened for the routes a
 cashier hits hundreds of times a day.
 
-| Route | LCP (good) | INP (good) | Notes |
-| --- | ---: | ---: | --- |
-| `/login` | <= 2.0 s | <= 200 ms | First impression; no auth round-trip yet. |
-| `/sales` | <= 2.5 s | <= 200 ms | The hot path — checkout responsiveness matters most. |
-| `/dashboard` | <= 2.5 s | <= 200 ms | First screen after sign-in. |
-| `/products`, `/inventory`, list routes | <= 2.5 s | <= 200 ms | Large DataTables; virtualised since `ENG-172`. |
-| CLS (all routes) | <= 0.1 | — | Image dimensions hardened in `ENG-172`. |
+| Route                                  | LCP (good) | INP (good) | Notes                                                |
+| -------------------------------------- | ---------: | ---------: | ---------------------------------------------------- |
+| `/login`                               |   <= 2.0 s |  <= 200 ms | First impression; no auth round-trip yet.            |
+| `/sales`                               |   <= 2.5 s |  <= 200 ms | The hot path — checkout responsiveness matters most. |
+| `/dashboard`                           |   <= 2.5 s |  <= 200 ms | First screen after sign-in.                          |
+| `/products`, `/inventory`, list routes |   <= 2.5 s |  <= 200 ms | Large DataTables; virtualised since .                |
+| CLS (all routes)                       |     <= 0.1 |          — | Image dimensions hardened in .                       |
 
-When the dashboard ticket lands it will compute per-tenant medians + p95 per
+When the dashboard change lands it will compute per-tenant medians + p95 per
 `(route, metric)` and flag routes whose p95 breaches the target above.
 
 ## How to update a baseline
@@ -229,7 +230,7 @@ In the same PR that introduces the regression:
    round up to the nearest 5 ms for latency).
 2. Mention the metric + the delta in the commit body, e.g.
    `colateral: bump SalesPage bundle budget from 33 to 38 kB gz to
-   absorb the new keyboard-shortcuts hook`.
+absorb the new keyboard-shortcuts hook`.
 3. The reviewer signs off — the budget bump is part of the diff
    under review, not a sneaky escape valve.
 
@@ -262,7 +263,7 @@ changed.
 Exception — conditional chunks: a chunk that only exists in some
 builds gets NO budget entry, because the entry would emit a
 "chunk in budget but absent" warning on every build that lacks it.
-The one case today is `sentry` (ENG-135b): the lazy adapter chunk
+The one case today is `sentry` (): the lazy adapter chunk
 (~28 kB gz) only exists when the build ran with
 `VITE_PUNTOVIVO_SENTRY_DSN` set; a DSN-less build (the CI default)
 dead-code-eliminates it entirely. A DSN build surfaces it under
@@ -330,6 +331,6 @@ depend on the operator's local `packages/server/data/local.db`.
 
 - **Operations Center surface** of the latest measured baseline so
   the operator can see the current state without opening the JSON
-  file. Will land alongside `ENG-128` supportability so the surface
+  file. Will land alongside supportability so the surface
   consolidates with the attention queue instead of growing a
   parallel panel.

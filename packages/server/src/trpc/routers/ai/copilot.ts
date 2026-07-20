@@ -1,8 +1,8 @@
 /**
- * AI router — copilot sub-router (ENG-178 split).
+ * AI router — copilot sub-router ( split).
  *
  * `ai.copilot.chat` (manager/admin) — conversational analytics over a bounded
- * tenant-scoped snapshot. ENG-068 gated behind the `copilot` module; ENG-102
+ * tenant-scoped snapshot.  gated behind the `copilot` module;
  * per-site quota check fires before the provider call.
  *
  * @module trpc/routers/ai/copilot
@@ -16,7 +16,7 @@ import { requireAiQuotaAvailable } from '../../../services/ai/quotas.js';
 import { copilotChatInput } from '../../schemas/ai.js';
 
 export const copilotRouter = router({
-  // ENG-068 — gated behind the `copilot` module. The role check
+  // gated behind the `copilot` module. The role check
   // (managerOrAdmin) still applies; a manager whose tenant has the
   // module deactivated sees FORBIDDEN with `MODULE_NOT_ACTIVATED`.
   chat: managerOrAdminProcedureWithModule('copilot')
@@ -30,7 +30,7 @@ export const copilotRouter = router({
           message: 'Co-pilot is disabled for this tenant',
         });
       }
-      // ENG-102 — per-site monthly quota check fires BEFORE the
+      // per-site monthly quota check fires BEFORE the
       // provider call so a blocked request never writes an audit
       // row. Bypass when the request has no site context (admin
       // without a selected site); the quota is "per site" by

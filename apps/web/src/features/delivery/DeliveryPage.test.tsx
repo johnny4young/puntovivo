@@ -1,5 +1,5 @@
 /**
- * ENG-091 — DeliveryPage component tests.
+ * DeliveryPage component tests.
  *
  * Pins the V5 surface contract: status nav with counts, status
  * filter, master-detail interaction, advance + cancel mutation
@@ -16,12 +16,7 @@ import i18next from '@/i18n';
 import { render, screen, within } from '@/test/utils';
 import { DeliveryPage } from './DeliveryPage';
 
-type DeliveryStatus =
-  | 'accepted'
-  | 'preparing'
-  | 'dispatched'
-  | 'delivered'
-  | 'cancelled';
+type DeliveryStatus = 'accepted' | 'preparing' | 'dispatched' | 'delivered' | 'cancelled';
 
 interface MockRow {
   id: string;
@@ -125,7 +120,7 @@ function makeRow(overrides: Partial<MockRow> = {}): MockRow {
   };
 }
 
-describe('DeliveryPage (ENG-091)', () => {
+describe('DeliveryPage', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
@@ -177,9 +172,7 @@ describe('DeliveryPage (ENG-091)', () => {
 
   it('surfaces the detail panel after clicking the Detalle CTA on a card', async () => {
     const user = userEvent.setup();
-    mockRowsByStatus.accepted = [
-      makeRow({ id: 'order-detail', customerName: 'Detail Cliente' }),
-    ];
+    mockRowsByStatus.accepted = [makeRow({ id: 'order-detail', customerName: 'Detail Cliente' })];
     render(<DeliveryPage />);
     // Before selection, the detail panel shows the empty placeholder.
     expect(screen.queryByTestId('delivery-detail-card')).not.toBeInTheDocument();

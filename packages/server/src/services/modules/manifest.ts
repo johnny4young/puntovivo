@@ -1,16 +1,16 @@
 /**
- * ENG-068 — Module activation manifest.
+ * Module activation manifest.
  *
  * Single source of truth for every gateable module the kernel knows
  * about. Every module:
  *
- *   - Has a stable, human-readable `id` (kebab-case) used as the JSON
- *     key in `tenants.settings.modules` AND as the i18n suffix.
- *   - Has a `defaultEnabled` boolean — the state new tenants and
- *     tenants without an explicit toggle resolve to.
- *   - Has an i18n key (`modules.<i18nKey>.label` /
- *     `modules.<i18nKey>.description`) so the admin toggle UI shows
- *     a translated label per locale.
+ * - Has a stable, human-readable `id` (kebab-case) used as the JSON
+ * key in `tenants.settings.modules` AND as the i18n suffix.
+ * - Has a `defaultEnabled` boolean — the state new tenants and
+ * tenants without an explicit toggle resolve to.
+ * - Has an i18n key (`modules.<i18nKey>.label` /
+ * `modules.<i18nKey>.description`) so the admin toggle UI shows
+ * a translated label per locale.
  *
  * The manifest is intentionally `as const` + `Record<ModuleId, ...>`
  * so a forgotten arm fails at compile time. Adding a module = (a)
@@ -19,7 +19,7 @@
  * `trpc/middleware/modules.ts::createModuleGuard`), (d) add the i18n
  * strings under `apps/web/src/i18n/locales/{en,es}/modules.json`.
  *
- * Mirrors the ENG-064 sync contract pattern in
+ * Mirrors the  sync contract pattern in
  * `services/sync/contract.ts`. Keep this file PURE — no DB calls, no
  * tRPC types — so the renderer can import the same constants for the
  * client-side gate.
@@ -47,7 +47,7 @@ export const MODULE_IDS = [
   'quotations',
   'anomaly-detection',
   'semantic-search',
-  // ENG-069 — surface modules. Each new surface (POS Touch, KDS,
+  // surface modules. Each new surface (POS Touch, KDS,
   // Customer Display, Mobile Waiter) gates behind a dedicated module
   // id from the same kernel. POS Desktop is the implicit default and
   // does not have a module — the existing /sales etc. routes ship as
@@ -58,14 +58,14 @@ export const MODULE_IDS = [
   'kds',
   'customer-display',
   'mobile-waiter',
-  // ENG-070 — Public events foundation. When the module is ON, every
+  // Public events foundation. When the module is ON, every
   // succeeded critical command projects through `services/events`
-  // and lands in `webhook_outbox`. ENG-070b adds the HTTP delivery
+  // and lands in `webhook_outbox`.  adds the HTTP delivery
   // worker that drains the outbox to subscriber URLs. Default OFF so
   // existing tenants do not start emitting webhooks on the kernel
   // ship — operators opt-in per tenant via /company?tab=modules.
   'events-api',
-  // ENG-091 — Domicilios touch V5. The server-side scaffold
+  // Domicilios touch V5. The server-side scaffold
   // (deliveryOrders router + delivery_orders table) shipped in 0c75ca1
   // independent of the module gate. This entry adds the runtime gate
   // for the `/delivery` UI surface. Default OFF so non-delivery
@@ -77,17 +77,17 @@ export const MODULE_IDS = [
 export type ModuleId = (typeof MODULE_IDS)[number];
 
 /**
- * Product classification (ENG-183) that drives the Ring-1 retail scope gate.
+ * Product classification () that drives the Ring-1 retail scope gate.
  *
- *   - `core`         — required for Ring-1 retail sellability; ON for a fresh
- *     retail tenant by default.
- *   - `compliance`   — fiscal / legal obligation. Reserved: fiscal documents and
- *     audit logs are NOT module-gated today, so no module carries this class
- *     yet; kept so a future DIAN/INVIMA module has a home.
- *   - `optional`     — useful but not part of the Ring-1 core; OFF for a fresh
- *     retail tenant, opt-in per tenant via `/company?tab=modules`.
- *   - `experimental` — beta / unproven. Reserved for future AI Wave 2 and
- *     payment-terminal adapters; no module carries this class yet.
+ * - `core`         — required for Ring-1 retail sellability; ON for a fresh
+ * retail tenant by default.
+ * - `compliance`   — fiscal / legal obligation. Reserved: fiscal documents and
+ * audit logs are NOT module-gated today, so no module carries this class
+ * yet; kept so a future DIAN/INVIMA module has a home.
+ * - `optional`     — useful but not part of the Ring-1 core; OFF for a fresh
+ * retail tenant, opt-in per tenant via `/company?tab=modules`.
+ * - `experimental` — beta / unproven. Reserved for future AI Wave 2 and
+ * payment-terminal adapters; no module carries this class yet.
  */
 export type ModuleClassification = 'core' | 'compliance' | 'optional' | 'experimental';
 
@@ -100,8 +100,8 @@ export interface ModuleDescriptor {
   id: ModuleId;
   /**
    * The state the kernel resolves to when:
-   *   - the tenant has never been touched (no `settings.modules`);
-   *   - or `settings.modules[id]` is missing / not a boolean.
+   * - the tenant has never been touched (no `settings.modules`);
+   * - or `settings.modules[id]` is missing / not a boolean.
    *
    * Default `true` for every demo module so existing tenants see no
    * behavior change after the kernel ships. Future modules MAY ship
@@ -122,14 +122,14 @@ export interface ModuleDescriptor {
    */
   i18nKey: string;
   /**
-   * Product classification (ENG-183). Drives `RING1_RETAIL_PROFILE`: only
+   * Product classification (). Drives `RING1_RETAIL_PROFILE`: only
    * `core` modules are ON for a fresh retail tenant. Independent of
    * `defaultEnabled` (the resolution fallback for unconfigured tenants) so
    * changing the retail profile never silently flips an existing tenant.
    */
   classification: ModuleClassification;
   /**
-   * Market ring this module serves (ENG-183):
+   * Market ring this module serves ():
    * `1` = generic retail MVP (Ring-1), `2` = restaurant + pharmacy,
    * `3` = service verticals. A fresh retail tenant only enables Ring-1
    * `core` modules; Ring-2/3 surfaces are pulled forward when a pilot makes
@@ -144,7 +144,7 @@ export interface ModuleDescriptor {
  * error catches a forgotten one before runtime.
  */
 export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
-  'copilot': {
+  copilot: {
     id: 'copilot',
     defaultEnabled: true,
     adminVisibilityRole: 'admin',
@@ -160,7 +160,7 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     classification: 'core',
     ring: 1,
   },
-  'quotations': {
+  quotations: {
     id: 'quotations',
     defaultEnabled: true,
     adminVisibilityRole: 'admin',
@@ -184,9 +184,9 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     classification: 'optional',
     ring: 1,
   },
-  // ENG-069 — surface modules default OFF so existing tenants do not
+  // surface modules default OFF so existing tenants do not
   // see new sidebar entries appear after the kernel ships. The
-  // surfaces themselves render placeholders until ENG-039 (vertical
+  // surfaces themselves render placeholders until  (vertical
   // restaurant) plugs the real workflows.
   'pos-touch': {
     id: 'pos-touch',
@@ -196,7 +196,7 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     classification: 'optional',
     ring: 2,
   },
-  'kds': {
+  kds: {
     id: 'kds',
     defaultEnabled: false,
     adminVisibilityRole: 'admin',
@@ -220,9 +220,9 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     classification: 'optional',
     ring: 2,
   },
-  // ENG-070 — Public events module. Default OFF so existing tenants
+  // Public events module. Default OFF so existing tenants
   // do not start emitting webhooks on ship; operators opt-in per
-  // tenant via /company?tab=modules. ENG-070b lands the HTTP delivery
+  // tenant via /company?tab=modules.  lands the HTTP delivery
   // worker; v1 ships only the kernel (contract + projector + outbox).
   'events-api': {
     id: 'events-api',
@@ -232,12 +232,12 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     classification: 'optional',
     ring: 1,
   },
-  // ENG-091 — Domicilios touch V5. Gates the `/delivery` UI route.
+  // Domicilios touch V5. Gates the `/delivery` UI route.
   // The server `deliveryOrders.*` router enforces role + site scopes
   // independent of this flag; the manifest entry hides the renderer
   // surface (sidebar entry + route) so non-delivery tenants do not
   // see it after the kernel ships.
-  'delivery': {
+  delivery: {
     id: 'delivery',
     defaultEnabled: false,
     adminVisibilityRole: 'admin',
@@ -248,7 +248,7 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
 };
 
 /**
- * ENG-183 — the explicit module profile written into `settings.modules`
+ * the explicit module profile written into `settings.modules`
  * for a fresh RETAIL tenant at creation time (see `db/seed.ts`). Derived
  * from the manifest so it can never drift: a module is ON only when its
  * `classification` is `core`, so a fresh retail tenant sees only the
@@ -263,7 +263,7 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
  * the resolution fallback that preserves existing tenants.
  */
 export const RING1_RETAIL_PROFILE: Record<ModuleId, boolean> = Object.fromEntries(
-  MODULE_IDS.map(id => [id, MODULES_MANIFEST[id].classification === 'core']),
+  MODULE_IDS.map(id => [id, MODULES_MANIFEST[id].classification === 'core'])
 ) as Record<ModuleId, boolean>;
 
 const MODULE_ID_SET: ReadonlySet<string> = new Set(MODULE_IDS);
@@ -281,11 +281,11 @@ export function isModuleId(value: unknown): value is ModuleId {
  * blob (typically `tenants.settings.modules`). Defensive in three
  * directions:
  *
- *   - Missing / null / non-object input → defaults (every module
- *     resolves to its `defaultEnabled`).
- *   - Unknown keys (stale toggles for modules that have been
- *     removed from `MODULE_IDS`) → silently dropped.
- *   - Non-boolean values → ignored, fall back to default.
+ * - Missing / null / non-object input → defaults (every module
+ * resolves to its `defaultEnabled`).
+ * - Unknown keys (stale toggles for modules that have been
+ * removed from `MODULE_IDS`) → silently dropped.
+ * - Non-boolean values → ignored, fall back to default.
  *
  * Returns a complete `Record<ModuleId, boolean>` keyed on every
  * known module so callers don't have to special-case missing keys.
@@ -293,9 +293,7 @@ export function isModuleId(value: unknown): value is ModuleId {
 export function resolveModulesState(raw: unknown): Record<ModuleId, boolean> {
   const out = {} as Record<ModuleId, boolean>;
   const blob =
-    raw && typeof raw === 'object' && !Array.isArray(raw)
-      ? (raw as Record<string, unknown>)
-      : null;
+    raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
   for (const id of MODULE_IDS) {
     const stored = blob?.[id];
     out[id] = typeof stored === 'boolean' ? stored : MODULES_MANIFEST[id].defaultEnabled;
@@ -341,10 +339,7 @@ export function buildModulesBlob(
  * complete state map. Falls back to the manifest default when the
  * blob doesn't carry an explicit boolean for the id.
  */
-export function isModuleActiveInSettings(
-  tenantSettings: unknown,
-  moduleId: ModuleId
-): boolean {
+export function isModuleActiveInSettings(tenantSettings: unknown, moduleId: ModuleId): boolean {
   if (
     tenantSettings === null ||
     typeof tenantSettings !== 'object' ||
@@ -354,11 +349,7 @@ export function isModuleActiveInSettings(
   }
   const blob = tenantSettings as Record<string, unknown>;
   const modules = blob.modules;
-  if (
-    modules === null ||
-    typeof modules !== 'object' ||
-    Array.isArray(modules)
-  ) {
+  if (modules === null || typeof modules !== 'object' || Array.isArray(modules)) {
     return MODULES_MANIFEST[moduleId].defaultEnabled;
   }
   const stored = (modules as Record<string, unknown>)[moduleId];

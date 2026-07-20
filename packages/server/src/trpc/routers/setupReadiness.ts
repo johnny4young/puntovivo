@@ -1,5 +1,5 @@
 /**
- * ENG-104 — setupReadiness tRPC router.
+ * setupReadiness tRPC router.
  *
  * The public transport contract stays flat while the tenant overview and
  * cashier-selling projections live in focused builder modules.
@@ -23,7 +23,7 @@ export const setupReadinessRouter = router({
   }),
 
   /**
-   * ENG-184 — cashier-facing reminders are site-validated and never block a
+   * cashier-facing reminders are site-validated and never block a
    * sale. The builder always returns warning severity.
    */
   checkout: cashierManagerOrAdminProcedure
@@ -39,7 +39,7 @@ export const setupReadinessRouter = router({
     }),
 
   /**
-   * ENG-202 — shell-level first-sale onboarding is available to every selling
+   * shell-level first-sale onboarding is available to every selling
    * role and uses the shared tenant-site guard.
    */
   firstSale: cashierManagerOrAdminProcedure

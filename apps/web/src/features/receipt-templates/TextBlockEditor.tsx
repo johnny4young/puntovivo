@@ -1,5 +1,5 @@
 /**
- * Receipt template text-block editor (ENG-016 pass 4).
+ * Receipt template text-block editor ( pass 4).
  *
  * Drop-in replacement for the plain `<textarea>` previously used in
  * `ReceiptTemplateEditor.tsx` for the `text` block branch. Built on
@@ -32,7 +32,7 @@ import {
   type AvailabilityMap,
 } from './templateUnavailableDecorations';
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 export interface TextBlockEditorProps {
   value: string;
   onChange: (value: string) => void;
@@ -42,7 +42,7 @@ export interface TextBlockEditorProps {
   className?: string | undefined;
   ariaLabel?: string | undefined;
   /**
-   * ENG-016 pass 5 — per-tenant variable availability map. When
+   * pass 5 — per-tenant variable availability map. When
    * supplied, every `{{namespace.field}}` token whose path resolves
    * to `false` in the map renders dimmed-italic with a translatable
    * hover tooltip. Pass `null` (default) to disable the feature
@@ -75,7 +75,7 @@ const BASE_THEME = EditorView.theme({
     borderColor: '#0ea5e9',
     boxShadow: '0 0 0 1px #0ea5e9',
   },
-  // ENG-016 pass 5 — dim style for tokens whose namespace.field path
+  // pass 5 — dim style for tokens whose namespace.field path
   // resolves to false in the per-tenant availability map.
   '.cm-variable-unavailable': {
     opacity: '0.55',
@@ -140,23 +140,21 @@ export function TextBlockEditor({
      * follows another `{` and replaces the typed `{` with `{}}` plus a
      * caret placement between the closing braces.
      */
-    const doubleBraceAutoClose = EditorView.inputHandler.of(
-      (view, from, to, text, _insert) => {
-        if (text !== '{') return false;
-        // Only fire on a single-cursor, no-selection insertion that
-        // immediately follows another `{`.
-        if (from !== to) return false;
-        if (from === 0) return false;
-        const prevChar = view.state.doc.sliceString(from - 1, from);
-        if (prevChar !== '{') return false;
-        view.dispatch({
-          changes: { from, to, insert: '{}}' },
-          selection: { anchor: from + 1 },
-          userEvent: 'input.type',
-        });
-        return true;
-      }
-    );
+    const doubleBraceAutoClose = EditorView.inputHandler.of((view, from, to, text, _insert) => {
+      if (text !== '{') return false;
+      // Only fire on a single-cursor, no-selection insertion that
+      // immediately follows another `{`.
+      if (from !== to) return false;
+      if (from === 0) return false;
+      const prevChar = view.state.doc.sliceString(from - 1, from);
+      if (prevChar !== '{') return false;
+      view.dispatch({
+        changes: { from, to, insert: '{}}' },
+        selection: { anchor: from + 1 },
+        userEvent: 'input.type',
+      });
+      return true;
+    });
 
     const ariaExtension = ariaLabel
       ? EditorView.contentAttributes.of({ 'aria-label': ariaLabel })

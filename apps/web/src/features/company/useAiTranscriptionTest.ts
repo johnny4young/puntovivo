@@ -1,5 +1,5 @@
-// ENG-040c slice 2 — the voice-transcription test feature of the AI settings
-// card, extracted from CompanyAISettingsCard.tsx (ENG-178 slice 34). Owns the
+// slice 2 — the voice-transcription test feature of the AI settings
+// card, extracted from CompanyAISettingsCard.tsx ( slice 34). Owns the
 // recorder + transcribeAudio mutation + the countdown + the gating; the card
 // keeps the transcribe button / hint / countdown JSX and consumes this hook.
 
@@ -27,9 +27,9 @@ export interface TranscriptionResult {
 }
 
 /** Server whitelist mirror — used to validate the MediaRecorder's
- *  chosen MIME before forwarding to the mutation. The hook already
- *  picks from this list, but the explicit narrow keeps the tRPC
- *  enum input typed. */
+ * chosen MIME before forwarding to the mutation. The hook already
+ * picks from this list, but the explicit narrow keeps the tRPC
+ * enum input typed. */
 const SERVER_MIME_LIST: ReadonlyArray<VoiceRecorderMimeType> = VOICE_RECORDER_MIME_TYPES;
 
 /**
@@ -46,7 +46,7 @@ interface UseAiTranscriptionTestArgs {
 }
 
 /**
- * Drives the ENG-040c "Test transcription" affordance: record -> stop ->
+ * Drives the  "Test transcription" affordance: record -> stop ->
  * forward the blob (MIME-validated against the server whitelist) to
  * `ai.transcribeAudio`, surface the result, and gate the button with a
  * precedence-ordered hint. Returns exactly what the card's JSX renders.
@@ -157,7 +157,7 @@ export function useAiTranscriptionTest({
     }
   }
 
-  // ENG-040c slice 2 — Test transcription gating. Disabled when AI is
+  // slice 2 — Test transcription gating. Disabled when AI is
   // off, provider isn't configured, the active provider lacks the
   // transcription capability, the browser lacks MediaRecorder
   // support, or a transcription is already in flight.

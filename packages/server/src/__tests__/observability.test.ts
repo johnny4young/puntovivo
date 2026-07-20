@@ -71,11 +71,7 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
 
-  const seededUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, 'admin@localhost'))
-    .get();
+  const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
@@ -94,7 +90,7 @@ afterAll(async () => {
   await server.app.close();
 });
 
-describe('observability.reportWebVital (ENG-173)', () => {
+describe('observability.reportWebVital', () => {
   it('accepts an anonymous sample and stores it with a null tenant_id', async () => {
     const caller = appRouter.createCaller(createAnonContext());
     const result = await caller.observability.reportWebVital({
@@ -181,13 +177,11 @@ describe('observability.reportWebVital (ENG-173)', () => {
       })
     ).rejects.toThrow();
     const sampleWithExtraKey = { ...validSample(), tenantId };
-    await expect(
-      caller.observability.reportWebVital(sampleWithExtraKey)
-    ).rejects.toThrow();
+    await expect(caller.observability.reportWebVital(sampleWithExtraKey)).rejects.toThrow();
   });
 });
 
-describe('observability.recentWebVitals (ENG-173)', () => {
+describe('observability.recentWebVitals', () => {
   it('returns only the active tenant rows, excluding other tenants and anon rows', async () => {
     const db = getDatabase();
     // Seed: one row for the active tenant, one for a different tenant, one anon.
@@ -240,8 +234,6 @@ describe('observability.recentWebVitals (ENG-173)', () => {
   it('rejects unknown read input keys', async () => {
     const caller = appRouter.createCaller(createAdminContext());
     const inputWithExtraKey = { limit: 10, tenantId };
-    await expect(
-      caller.observability.recentWebVitals(inputWithExtraKey)
-    ).rejects.toThrow();
+    await expect(caller.observability.recentWebVitals(inputWithExtraKey)).rejects.toThrow();
   });
 });

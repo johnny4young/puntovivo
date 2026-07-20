@@ -1,4 +1,4 @@
-/** ENG-110b — Atomically convert a zero-stock product into a variant matrix. */
+/** Atomically convert a zero-stock product into a variant matrix. */
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -349,9 +349,7 @@ export async function createProductVariantMatrix(
       updatedAt: now,
     }));
     for (const variant of variants) {
-      tx.insert(products)
-        .values(variant)
-        .run();
+      tx.insert(products).values(variant).run();
 
       for (const assignment of childUnitAssignments) {
         tx.insert(unitXProduct)

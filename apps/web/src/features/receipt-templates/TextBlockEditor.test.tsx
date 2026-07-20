@@ -76,7 +76,11 @@ describe('TextBlockEditor — auto-close for double braces', () => {
     const handlers = view.state.facet(EditorView.inputHandler);
     let handled = false;
     for (const handler of handlers) {
-      if (handler(view, 1, 1, '{', () => view.state.update({ changes: { from: 1, to: 1, insert: '{' } }))) {
+      if (
+        handler(view, 1, 1, '{', () =>
+          view.state.update({ changes: { from: 1, to: 1, insert: '{' } })
+        )
+      ) {
         handled = true;
         break;
       }
@@ -90,7 +94,9 @@ describe('TextBlockEditor — auto-close for double braces', () => {
     const { view } = await mountEditor({ initialValue: 'abc' });
     const handlers = view.state.facet(EditorView.inputHandler);
     const fired = handlers.some(handler =>
-      handler(view, 3, 3, '{', () => view.state.update({ changes: { from: 3, to: 3, insert: '{' } }))
+      handler(view, 3, 3, '{', () =>
+        view.state.update({ changes: { from: 3, to: 3, insert: '{' } })
+      )
     );
     expect(fired).toBe(false);
     // The doc should be unchanged because no handler claimed the input.
@@ -101,7 +107,9 @@ describe('TextBlockEditor — auto-close for double braces', () => {
     const { view } = await mountEditor({ initialValue: '' });
     const handlers = view.state.facet(EditorView.inputHandler);
     const fired = handlers.some(handler =>
-      handler(view, 0, 0, '{', () => view.state.update({ changes: { from: 0, to: 0, insert: '{' } }))
+      handler(view, 0, 0, '{', () =>
+        view.state.update({ changes: { from: 0, to: 0, insert: '{' } })
+      )
     );
     expect(fired).toBe(false);
   });
@@ -110,7 +118,9 @@ describe('TextBlockEditor — auto-close for double braces', () => {
     const { view } = await mountEditor({ initialValue: '{' });
     const handlers = view.state.facet(EditorView.inputHandler);
     const fired = handlers.some(handler =>
-      handler(view, 1, 1, 'a', () => view.state.update({ changes: { from: 1, to: 1, insert: 'a' } }))
+      handler(view, 1, 1, 'a', () =>
+        view.state.update({ changes: { from: 1, to: 1, insert: 'a' } })
+      )
     );
     expect(fired).toBe(false);
   });
@@ -156,9 +166,7 @@ describe('TextBlockEditor — accessibility', () => {
       initialValue: '',
       ariaLabel: 'Receipt template text',
     });
-    expect(view.contentDOM.getAttribute('aria-label')).toBe(
-      'Receipt template text'
-    );
+    expect(view.contentDOM.getAttribute('aria-label')).toBe('Receipt template text');
   });
 
   it('omits the aria-label attribute when no label is supplied', async () => {
@@ -167,7 +175,7 @@ describe('TextBlockEditor — accessibility', () => {
   });
 });
 
-describe('TextBlockEditor — unavailableVariables prop (ENG-016 pass 5)', () => {
+describe('TextBlockEditor — unavailableVariables prop ( pass 5)', () => {
   it('renders cm-variable-unavailable decoration for an unset path', async () => {
     let captured: EditorView | null = null;
     function Wrapper() {
@@ -188,9 +196,7 @@ describe('TextBlockEditor — unavailableVariables prop (ENG-016 pass 5)', () =>
     await waitFor(() => {
       expect(captured).not.toBeNull();
     });
-    const dimNodes = captured!.contentDOM.querySelectorAll(
-      '.cm-variable-unavailable'
-    );
+    const dimNodes = captured!.contentDOM.querySelectorAll('.cm-variable-unavailable');
     expect(dimNodes.length).toBeGreaterThan(0);
   });
 
@@ -214,15 +220,11 @@ describe('TextBlockEditor — unavailableVariables prop (ENG-016 pass 5)', () =>
     await waitFor(() => {
       expect(captured).not.toBeNull();
     });
-    expect(
-      captured!.contentDOM.querySelectorAll('.cm-variable-unavailable')
-    ).toHaveLength(0);
+    expect(captured!.contentDOM.querySelectorAll('.cm-variable-unavailable')).toHaveLength(0);
   });
 
   it('omits decorations when no availability map is supplied (loading state)', async () => {
     const { view } = await mountEditor({ initialValue: '{{fiscal.cufe}}' });
-    expect(
-      view.contentDOM.querySelectorAll('.cm-variable-unavailable')
-    ).toHaveLength(0);
+    expect(view.contentDOM.querySelectorAll('.cm-variable-unavailable')).toHaveLength(0);
   });
 });

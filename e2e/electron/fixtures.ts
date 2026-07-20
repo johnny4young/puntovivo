@@ -3,14 +3,14 @@
  *
  * Exposes two fixtures:
  *
- *   - `electronApp` — an `ElectronApplication` launched from
- *     `apps/desktop/.vite/build/index.cjs` with its `userData` dir
- *     pointed at `ELECTRON_E2E_USER_DATA_DIR`. The launch happens
- *     once per test file (scope `worker`) and closes in `afterAll`.
- *   - `page` — the first window the Electron app opens, awaited via
- *     `electronApp.firstWindow()`. One `page` per test.
+ * - `electronApp` — an `ElectronApplication` launched from
+ * `apps/desktop/.vite/build/index.cjs` with its `userData` dir
+ * pointed at `ELECTRON_E2E_USER_DATA_DIR`. The launch happens
+ * once per test file (scope `worker`) and closes in `afterAll`.
+ * - `page` — the first window the Electron app opens, awaited via
+ * `electronApp.firstWindow()`. One `page` per test.
  *
- * The renderer sandbox invariant (ENG-004) still holds: Playwright
+ * The renderer sandbox invariant still holds: Playwright
  * drives the renderer as a regular browser page via
  * `electronApp.firstWindow()`, NOT via any privileged channel.
  *
@@ -52,29 +52,20 @@ export const ELECTRON_E2E_DB_KEY =
  * `test:e2e:electron` verifies the artefact exists before Playwright
  * starts and prints the rebuild command when it is missing.
  */
-const ELECTRON_MAIN_ENTRY = resolve(
-  process.cwd(),
-  'apps/desktop/.vite/build/index.cjs'
-);
+const ELECTRON_MAIN_ENTRY = resolve(process.cwd(), 'apps/desktop/.vite/build/index.cjs');
 const requireFromDesktopWorkspace = createRequire(
   resolve(process.cwd(), 'apps/desktop/package.json')
 );
 const ELECTRON_EXECUTABLE_PATH = requireFromDesktopWorkspace('electron') as string;
 
 function ensureNativeRuntime(runtime: 'node' | 'electron'): void {
-  const result = spawnSync(
-    process.execPath,
-    ['scripts/ensure-native-runtime.mjs', runtime],
-    {
-      cwd: process.cwd(),
-      stdio: 'inherit',
-    }
-  );
+  const result = spawnSync(process.execPath, ['scripts/ensure-native-runtime.mjs', runtime], {
+    cwd: process.cwd(),
+    stdio: 'inherit',
+  });
 
   if (result.status !== 0) {
-    throw new Error(
-      `Unable to prepare ${runtime} native runtime for Electron E2E`
-    );
+    throw new Error(`Unable to prepare ${runtime} native runtime for Electron E2E`);
   }
 }
 
@@ -131,10 +122,7 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
       try {
         electronApp = await _electron.launch({
           executablePath: ELECTRON_EXECUTABLE_PATH,
-          args: [
-            ELECTRON_MAIN_ENTRY,
-            `--user-data-dir=${ELECTRON_E2E_USER_DATA_DIR}`,
-          ],
+          args: [ELECTRON_MAIN_ENTRY, `--user-data-dir=${ELECTRON_E2E_USER_DATA_DIR}`],
           // Disable the first-run update check + keep the smoke
           // deterministic by suppressing the auto-updater side-channel.
           env: {

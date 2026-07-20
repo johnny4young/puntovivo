@@ -1,10 +1,10 @@
 /**
- * ENG-131c — Workspace landing page.
+ * Workspace landing page.
  *
  * Generic landing rendered by the new `/catalog`, `/procurement`, and
  * `/finance` routes. The page reads the canonical workspace catalogue
  * from `components/layout/workspaces.ts` (the same source the sidebar
- * uses for ENG-131 slice A) and renders the items the current
+ * uses for  slice A) and renders the items the current
  * operator can see, filtered by role + active modules.
  *
  * Each card is an `<a>` (React Router `Link`) so screen readers
@@ -25,10 +25,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useModulesSnapshot } from '@/features/modules';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
-import {
-  WORKSPACES,
-  visibleItemsForWorkspace,
-} from '@/components/layout/workspaces';
+import { WORKSPACES, visibleItemsForWorkspace } from '@/components/layout/workspaces';
 
 export interface WorkspaceLandingPageProps {
   /** Workspace id from `WORKSPACES` (e.g. "catalog", "procurement", "finance"). */
@@ -69,10 +66,7 @@ export function WorkspaceLandingPage({ workspaceId }: WorkspaceLandingPageProps)
   const kicker = tNav(`header.${workspace.id}.kicker`);
 
   return (
-    <div
-      className="space-y-6"
-      data-testid={`workspace-landing-${workspace.id}`}
-    >
+    <div className="space-y-6" data-testid={`workspace-landing-${workspace.id}`}>
       <header className="flex items-start gap-3">
         <span className="pv-gt pv-gt-primary h-11 w-11 rounded-xl">
           <WorkspaceIcon className="h-5 w-5" aria-hidden="true" />
@@ -80,9 +74,7 @@ export function WorkspaceLandingPage({ workspaceId }: WorkspaceLandingPageProps)
         <div>
           <p className="pv-kicker">{kicker}</p>
           <h1 className="pv-title text-3xl">{title}</h1>
-          <p className="mt-1 max-w-2xl text-sm text-secondary-500">
-            {description}
-          </p>
+          <p className="mt-1 max-w-2xl text-sm text-secondary-500">{description}</p>
         </div>
       </header>
       <ul className="pv-hub-grid" role="list">
@@ -102,9 +94,7 @@ export function WorkspaceLandingPage({ workspaceId }: WorkspaceLandingPageProps)
                       aria-hidden="true"
                     />
                   </span>
-                  <h2 className="text-base font-semibold leading-tight text-fg1">
-                    {itemLabel}
-                  </h2>
+                  <h2 className="text-base font-semibold leading-tight text-fg1">{itemLabel}</h2>
                 </div>
                 <div className="ft justify-end">
                   <span className="go">

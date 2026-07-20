@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createDefaultValues } from './productForm.helpers';
 import { buildProductPayload } from './productPayload';
 
-describe('buildProductPayload (ENG-110a)', () => {
+describe('buildProductPayload', () => {
   it('omits derived stock from tracked product updates', () => {
     const values = { ...createDefaultValues(), stock: 8, tracksLots: true };
 

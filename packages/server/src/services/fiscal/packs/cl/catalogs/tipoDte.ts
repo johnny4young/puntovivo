@@ -1,5 +1,5 @@
 /**
- * ENG-036a — Catálogo SII de tipos de DTE (Documento Tributario
+ * Catálogo SII de tipos de DTE (Documento Tributario
  * Electrónico).
  *
  * El SII publica una lista cerrada de códigos numéricos para
@@ -9,10 +9,10 @@
  * - 33 / 34 — Factura electrónica (afecta / exenta de IVA).
  * - 39 / 41 — Boleta electrónica (afecta / exenta).
  * - 52 — Guía de despacho electrónica (movimiento de inventario,
- *   no es venta).
+ * no es venta).
  * - 56 / 61 — Notas (débito / crédito) sobre un DTE previo.
  *
- * El catálogo es estático en compilación. ENG-036b decide si
+ * El catálogo es estático en compilación.  decide si
  * migra a una DB table cuando llegue el modelado XML del DTE
  * (ahí va a hacer falta validar el código en el armado del
  * comprobante).
@@ -35,7 +35,7 @@ export interface TipoDteEntry {
 /**
  * Subset curado para retail. Cubre todos los DTE que un POS típico
  * emite. Los DTE especializados (110 Factura de exportación, 46
- * Factura de compra, etc.) no shipan en ENG-036a; ENG-036b los
+ * Factura de compra, etc.) no shipan en ;  los
  * agrega si llega a haber operadores B2B mayoristas.
  */
 export const TIPO_DTE_CATALOG: ReadonlyArray<TipoDteEntry> = [
@@ -51,7 +51,7 @@ export const TIPO_DTE_CATALOG: ReadonlyArray<TipoDteEntry> = [
 /**
  * Búsqueda case-sensitive por código SII. Devuelve `undefined` si
  * el código no está en el catálogo curado — el caller decide si
- * caer al modelado completo (ENG-036b) o rechazar.
+ * caer al modelado completo () o rechazar.
  */
 export function findTipoDte(code: number): TipoDteEntry | undefined {
   return TIPO_DTE_CATALOG.find(entry => entry.code === code);

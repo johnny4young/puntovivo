@@ -1,4 +1,4 @@
-/** ENG-123c — Shared launch-import safety contracts. */
+/** Shared launch-import safety contracts. */
 import { TRPCError } from '@trpc/server';
 
 const SAFE_ERROR_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;

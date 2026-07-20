@@ -1,7 +1,7 @@
 name: Build Desktop (manual)
 
 # ============================================================================
-# Manual cross-OS desktop build (ENG-046)
+# Manual cross-OS desktop build ()
 # ----------------------------------------------------------------------------
 # Triggered exclusively by the operator via workflow_dispatch when they want
 # to validate or produce a desktop build for a chosen subset of platforms.
@@ -13,13 +13,13 @@ name: Build Desktop (manual)
 # signal.
 #
 # Modes:
-#   - validate_only: runs `pnpm run ci:desktop` per chosen OS (no packaging).
-#                    ~5-8 minutes per OS.
-#   - full build:    runs `make:desktop` per chosen OS and uploads the
-#                    artifacts. Unsigned (signing material lives only in
-#                    release.yml). Use this when you want to download a
-#                    binary to test platform-specific bugs locally.
-#                    ~10-20 minutes per OS.
+# - validate_only: runs `pnpm run ci:desktop` per chosen OS (no packaging).
+# ~5-8 minutes per OS.
+# - full build:    runs `make:desktop` per chosen OS and uploads the
+# artifacts. Unsigned (signing material lives only in
+# release.yml). Use this when you want to download a
+# binary to test platform-specific bugs locally.
+# ~10-20 minutes per OS.
 #
 # Reference: release.yml's `release-desktop` job uses the same matrix
 # include shape; this workflow mirrors it but without tag/upload steps.

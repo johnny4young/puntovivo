@@ -16,7 +16,7 @@ vi.mock('@/lib/trpc', () => ({
     ai: {
       anomalies: {
         list: { useQuery: () => mocks.anomaliesQuery() },
-        // ENG-047 — the modal calls snooze.useMutation; tests don't
+        // the modal calls snooze.useMutation; tests don't
         // exercise the mutation but the hook needs to exist on the
         // mock so the component renders.
         snooze: {
@@ -31,7 +31,7 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
-// AnomalyDetailsModal calls useToast (ENG-047 snooze flow). Wrap
+// AnomalyDetailsModal calls useToast ( snooze flow). Wrap
 // the test surface with a noop toast mock so the component renders.
 vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({

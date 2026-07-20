@@ -1,37 +1,11 @@
 /**
- * ENG-036a / ENG-036b — Pack fiscal de Chile (`ChileSIIAdapter`).
+ * Chile fiscal pack (`ChileSIIAdapter`).
  *
- * **ENG-036a (shipped)**: validación de configuración. El adapter
- * lee los settings `tenants.settings.fiscal.cl.*` y reporta
- * problemas accionables (RUT, giro, comuna, casa matriz, ambiente).
- *
- * **ENG-036b (este ticket)**: emisión real de XML DTE 1.0
- * estructuralmente válido. El adapter sale del stub
- * `NotImplementedFiscalAdapter` y pasa a implementar el contract
- * `FiscalAdapter` directamente. `issue()` devuelve un resultado con
- * `cufe = sii-cl:<RUT>:<TipoDTE>:<F>` (determinístico),
- * `status = 'pending'`, y `xmlRef = string XML`. Sin firmado XAdES
- * ni transmisión a SII — eso queda para ENG-036c.
- *
- * **ENG-036c (parqueado)**: certificación SII + firmado XAdES (TED
- * RSA + envoltura del Documento) + entrega digital + retry daemon +
- * cancelación SII.
- *
- * El adapter NO accede a la DB. La pre-allocación del folio CAF
- * vive en el orchestrator: cuando `adapter.countryCode === 'CL'`,
- * el orchestrator corre `allocateNextFolio` dentro de su write
- * transaction y embebe el resultado en `input.chileAllocation`.
- * Esto mantiene la atomicidad (folio + fiscal_documents insert
- * commitean juntos) sin acoplar el adapter al DB.
- *
- * `voidDocument()` (anulación SII explícita) sigue tirando
- * `FISCAL_PACK_NOT_AVAILABLE` apuntando a ENG-036c — la anulación
- * SII requiere el endpoint API + cert. El sale.void del POS pasa
- * por `issue()` con source='void' kind='ND' y se trata como NC con
- * Referencia.CodRef='1'.
- *
- * `fetchStatus()` retorna 'pending' — sin SII no hay status real
- * para reportar. ENG-036c lo enchufa al daemon de status polling.
+ * Validates tenant settings and emits structurally valid DTE 1.0 XML in
+ * `draft` maturity. The orchestrator allocates the CAF folio atomically and
+ * supplies it to this stateless adapter. XAdES signing, SII transmission,
+ * status polling, digital delivery, and explicit cancellation are not
+ * implemented.
  *
  * @module services/fiscal/packs/cl/chile-adapter
  */
@@ -53,15 +27,10 @@ import { serializeDte10 } from './dte10-xml.js';
 import { validateRut } from './rut.js';
 import { readClFiscalSettings } from './settings.js';
 
-/**
- * Ticket que cierra la certificación SII + XAdES + entrega digital +
- * cancelación SII. La emisión XML estructural ya shipa con ENG-036b.
- */
-const CL_CERTIFICACION_GATED_BY = 'ENG-036c';
 const CL_PROVIDER_ID = 'sii-cl';
 
 const CL_CAPABILITIES: FiscalAdapterCapabilities = {
-  // ENG-036b: emisión implementada. voidDocument explícito (anulación
+  // Emisión implementada. voidDocument explícito (anulación
   // SII) sigue parqueado. fetchStatus retorna 'pending' siempre.
   supportsVoid: false,
   supportsDebitNote: false,
@@ -88,14 +57,12 @@ export class ChileSIIAdapter implements FiscalAdapter {
   readonly providerId = CL_PROVIDER_ID;
   readonly countryCode = 'CL';
   readonly capabilities = CL_CAPABILITIES;
-  // ENG-185 — draft: structurally-valid DTE 1.0 XML with a CAF folio, but
+  // draft: structurally-valid DTE 1.0 XML with a CAF folio, but
   // unsigned (no XAdES) and not transmitted to the SII. Signing + SII
-  // delivery + cancelación are gated as ENG-036c.
+  // delivery + cancelación are gated as .
   readonly maturity = 'draft' as const;
 
-  async validateConfig(
-    input: FiscalAdapterConfig
-  ): Promise<FiscalAdapterValidationResult> {
+  async validateConfig(input: FiscalAdapterConfig): Promise<FiscalAdapterValidationResult> {
     const cl = readClFiscalSettings(input.settings);
     const issues: FiscalAdapterValidationIssue[] = [];
 
@@ -118,7 +85,7 @@ export class ChileSIIAdapter implements FiscalAdapter {
     }
 
     // Probe del giro comercial. Reusamos el code MISSING_RESOLUTION
-    // del enum compartido (ENG-034) con la equivalencia semántica
+    // del enum compartido () con la equivalencia semántica
     // documentada — el giro chileno cumple el rol del régimen
     // fiscal mexicano: "actividad económica declarada al SII".
     if (!cl.giroCode) {
@@ -137,7 +104,7 @@ export class ChileSIIAdapter implements FiscalAdapter {
 
     // Probe de la casa matriz: el SII pide la dirección como dato
     // de identificación del emisor. Usamos MISSING_CERTIFICATE
-    // porque ENG-036c va a extender este probe con el certificado
+    // porque  va a extender este probe con el certificado
     // digital del emisor (mismo code, dato de identificación
     // ampliado).
     if (!cl.casaMatriz || cl.casaMatriz.trim().length === 0) {
@@ -169,10 +136,7 @@ export class ChileSIIAdapter implements FiscalAdapter {
     // Probe del ambiente. `readClFiscalSettings` ya normaliza a
     // 'certificacion' / 'produccion' con default certificacion;
     // este branch es defensivo para futuras shape variations.
-    if (
-      cl.environment !== 'certificacion' &&
-      cl.environment !== 'produccion'
-    ) {
+    if (cl.environment !== 'certificacion' && cl.environment !== 'produccion') {
       issues.push({
         code: 'INVALID_ENVIRONMENT',
         field: 'fiscal.cl.environment',
@@ -185,7 +149,7 @@ export class ChileSIIAdapter implements FiscalAdapter {
 
   /**
    * Emite un DTE 1.0 estructuralmente válido. Sin firma digital ni
-   * transmisión SII — eso llega con ENG-036c.
+   * transmisión SII — eso llega con .
    *
    * Lee los settings CL desde `input.tenantSettings` (poblado por el
    * orchestrator). Lee la pre-allocación del folio CAF desde
@@ -213,10 +177,7 @@ export class ChileSIIAdapter implements FiscalAdapter {
           countryCode: 'CL',
           disabled: !settings.enabled,
           missingSettings:
-            !settings.rut ||
-            !settings.giroCode ||
-            !settings.comunaCode ||
-            !settings.casaMatriz,
+            !settings.rut || !settings.giroCode || !settings.comunaCode || !settings.casaMatriz,
         },
       });
     }
@@ -224,7 +185,7 @@ export class ChileSIIAdapter implements FiscalAdapter {
     if (!input.chileAllocation) {
       // Defensive: in production the orchestrator MUST allocate the
       // folio before calling this adapter. Surfacing this as a
-      // dedicated error gives the operator + ticket-tracker a clean
+      // dedicated error gives the operator + diagnostic workflow a clean
       // signal instead of a generic XML serialization failure.
       throwServerError({
         trpcCode: 'INTERNAL_SERVER_ERROR',
@@ -236,12 +197,7 @@ export class ChileSIIAdapter implements FiscalAdapter {
     }
 
     const emisorName = input.issuerName ?? settings.rut;
-    const serialized = serializeDte10(
-      input,
-      settings,
-      emisorName,
-      input.chileAllocation
-    );
+    const serialized = serializeDte10(input, settings, emisorName, input.chileAllocation);
 
     // CUFE shape: `sii-cl:<RUT>:<TipoDTE>:<F>`. Determinístico,
     // colisión imposible cross-tenant porque RUT es único por
@@ -271,7 +227,7 @@ export class ChileSIIAdapter implements FiscalAdapter {
 
   /**
    * Anulación SII explícita — operación API separada en el SII, NO
-   * la misma cosa que un sale.void en el lifecycle del POS. ENG-036c
+   * la misma cosa que un sale.void en el lifecycle del POS.
    * traerá el endpoint SII para anular; por ahora levanta
    * `FISCAL_PACK_NOT_AVAILABLE`.
    *
@@ -287,13 +243,13 @@ export class ChileSIIAdapter implements FiscalAdapter {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'FISCAL_PACK_NOT_AVAILABLE',
-      message: `La anulación SII de Chile llega con ${CL_CERTIFICACION_GATED_BY}.`,
-      details: { countryCode: 'CL', availableInTicket: CL_CERTIFICACION_GATED_BY },
+      message: 'La anulación SII todavía no está disponible en el adaptador de Chile.',
+      details: { countryCode: 'CL', unavailableCapability: 'sii_cancellation' },
     });
   }
 
   /**
-   * Sin SII no hay status real para reportar. ENG-036c lo enchufa al
+   * Sin SII no hay status real para reportar.  lo enchufa al
    * daemon de status polling con el endpoint del SII.
    */
   async fetchStatus(_cufe: string): Promise<FiscalDocumentStatus> {

@@ -48,7 +48,7 @@ export function createMockUser(overrides?: Partial<User>): User {
 }
 
 export function createMockTenantSettings(overrides?: Partial<TenantSettings>): TenantSettings {
-  // ENG-221 — currency / timezone / dateFormat dropped with the fields:
+  // currency / timezone / dateFormat dropped with the fields:
   // locale is resolved from `tenant_locale_settings`, not this blob.
   return {
     taxRate: 0.08,
@@ -149,7 +149,7 @@ export function createMockSaleItem(overrides?: Partial<SaleItem>): SaleItem {
 // All Providers Wrapper
 // ============================================================================
 
-// ENG-179b — explicit `| undefined` on optional fields.
+// explicit `| undefined` on optional fields.
 interface AllProvidersProps {
   children: ReactNode;
   initialEntries?: string[] | undefined;

@@ -68,7 +68,7 @@ export const listEmployeeAttendanceInput = z
   })
   .strict();
 
-/** ENG-140f — bounded, unpaginated input for payroll/accounting handoff exports. */
+/** bounded, unpaginated input for payroll/accounting handoff exports. */
 export const exportEmployeeAttendanceInput = listEmployeeAttendanceInput.omit({
   page: true,
   perPage: true,
@@ -84,7 +84,7 @@ const correctionBreakInput = z
   })
   .strict();
 
-/** ENG-140e — a complete effective snapshot, never a patch to raw evidence. */
+/** a complete effective snapshot, never a patch to raw evidence. */
 export const createEmployeeAttendanceCorrectionInput = z
   .object({
     employeeShiftId: z.string().trim().min(1),

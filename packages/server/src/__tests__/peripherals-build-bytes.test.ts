@@ -1,5 +1,5 @@
 /**
- * ENG-074b — `peripherals.buildReceiptBytes` + `buildDrawerKickBytes`
+ * `peripherals.buildReceiptBytes` + `buildDrawerKickBytes`
  * read-only procedures for the hub_client local hardware bridge.
  *
  * Per ADR-0008 rule 6 the bridge runs on the terminal that owns the
@@ -107,7 +107,7 @@ beforeAll(async () => {
   // does not create sales by default in :memory: mode, so the test
   // owns its fixture.
   seededSaleId = nanoid();
-  // ENG-177c — a committed sale needs a cash session at the schema level.
+  // a committed sale needs a cash session at the schema level.
   const seededSessionId = await seedCommittedSaleSession({
     tenantId,
     cashierId: userId,
@@ -192,7 +192,7 @@ afterEach(async () => {
   await getDatabase().delete(sitePeripherals).where(eq(sitePeripherals.tenantId, tenantId));
 });
 
-describe('peripherals.buildReceiptBytes (ENG-074b)', () => {
+describe('peripherals.buildReceiptBytes', () => {
   it('returns system-fallback when no escpos peripheral is registered', async () => {
     const before = await countHardwareOutbox();
     const caller = appRouter.createCaller(buildContext());
@@ -306,7 +306,7 @@ describe('peripherals.buildReceiptBytes (ENG-074b)', () => {
   });
 });
 
-describe('peripherals.buildDrawerKickBytes (ENG-074b)', () => {
+describe('peripherals.buildDrawerKickBytes', () => {
   it('returns no-drawer-registered when no escpos drawer exists', async () => {
     const before = await countHardwareOutbox();
     const caller = appRouter.createCaller(buildContext('manager'));

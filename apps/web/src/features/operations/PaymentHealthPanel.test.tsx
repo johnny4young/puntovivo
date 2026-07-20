@@ -1,16 +1,16 @@
 /**
- * ENG-038 + ENG-065d — Tests for Operations Center Payment Health panel.
+ * +  — Tests for Operations Center Payment Health panel.
  *
  * Asserts:
- *   - Initial rendering (mismatch + outbox + summary + breakdown card).
- *   - Per-row admin actions (Retry, Mark settled) for admin users.
- *   - Manager users see the buttons but disabled with translated tooltip.
- *   - Settled rows have both action buttons disabled.
- *   - Confirm modal flow → retry mutation fires → caches invalidate.
- *   - Mark-settled modal carries the optional providerTransactionId input
- *     and flows the typed value into the mutation payload.
- *   - Breakdown card renders one row per (rail × status) aggregate and
- *     handles the empty-state branch.
+ * - Initial rendering (mismatch + outbox + summary + breakdown card).
+ * - Per-row admin actions (Retry, Mark settled) for admin users.
+ * - Manager users see the buttons but disabled with translated tooltip.
+ * - Settled rows have both action buttons disabled.
+ * - Confirm modal flow → retry mutation fires → caches invalidate.
+ * - Mark-settled modal carries the optional providerTransactionId input
+ * and flows the typed value into the mutation payload.
+ * - Breakdown card renders one row per (rail × status) aggregate and
+ * handles the empty-state branch.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -200,7 +200,7 @@ describe('PaymentHealthPanel — initial rendering', () => {
   });
 });
 
-describe('PaymentHealthPanel — ENG-065d row actions', () => {
+describe('PaymentHealthPanel —  row actions', () => {
   it('admin sees Retry + Mark settled buttons enabled on a declined row', () => {
     render(<PaymentHealthPanel />);
     const retry = screen.getByTestId('payment-retry-payment-outbox-1');
@@ -244,9 +244,7 @@ describe('PaymentHealthPanel — ENG-065d row actions', () => {
     ];
     render(<PaymentHealthPanel />);
     expect(screen.getByTestId('payment-retry-payment-outbox-settled')).toBeDisabled();
-    expect(
-      screen.getByTestId('payment-mark-settled-payment-outbox-settled')
-    ).toBeDisabled();
+    expect(screen.getByTestId('payment-mark-settled-payment-outbox-settled')).toBeDisabled();
   });
 
   it('Retry is disabled on non-retriable approved rows while Mark settled stays available', () => {
@@ -273,9 +271,7 @@ describe('PaymentHealthPanel — ENG-065d row actions', () => {
     ];
     render(<PaymentHealthPanel />);
     const retry = screen.getByTestId('payment-retry-payment-outbox-approved');
-    const markSettled = screen.getByTestId(
-      'payment-mark-settled-payment-outbox-approved'
-    );
+    const markSettled = screen.getByTestId('payment-mark-settled-payment-outbox-approved');
     expect(retry).toBeDisabled();
     expect(retry).toHaveAttribute('title', expect.stringMatching(/Only declined/i));
     expect(markSettled).not.toBeDisabled();
@@ -323,7 +319,7 @@ describe('PaymentHealthPanel — ENG-065d row actions', () => {
   });
 });
 
-describe('PaymentHealthPanel — ENG-065d breakdown card', () => {
+describe('PaymentHealthPanel —  breakdown card', () => {
   it('renders one row per (rail × status) aggregate from methodBreakdown', () => {
     render(<PaymentHealthPanel />);
     const table = screen.getByTestId('payments-breakdown-table');
@@ -337,8 +333,6 @@ describe('PaymentHealthPanel — ENG-065d breakdown card', () => {
   it('renders the empty state when methodBreakdown returns no entries', () => {
     mockBreakdownEntries = [];
     render(<PaymentHealthPanel />);
-    expect(
-      screen.getByText(/No payment activity in the last 7 days/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No payment activity in the last 7 days/i)).toBeInTheDocument();
   });
 });

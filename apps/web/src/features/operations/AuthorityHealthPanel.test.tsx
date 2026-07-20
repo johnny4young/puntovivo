@@ -1,5 +1,5 @@
 /**
- * ENG-075 — Tests for AuthorityHealthPanel.
+ * Tests for AuthorityHealthPanel.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';

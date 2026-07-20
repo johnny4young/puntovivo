@@ -1,12 +1,12 @@
 /**
- * ENG-135b — Sentry / GlitchTip adapter for the renderer-side
+ * Sentry / GlitchTip adapter for the renderer-side
  * `RenderTelemetrySink`.
  *
  * This module statically imports `@sentry/browser`, so it IS the
  * lazy chunk: `installRenderTelemetryAdapter()` in
  * `lib/observability.ts` only `import()`s it when
  * `VITE_PUNTOVIVO_SENTRY_DSN` is set, which keeps the eager bundle
- * flat (ENG-133 bundle budget) and guarantees zero SDK code ships
+ * flat ( bundle budget) and guarantees zero SDK code ships
  * to installs that never configured a DSN.
  *
  * Privacy contract (docs/OBSERVABILITY.md § consent layers): render
@@ -19,10 +19,7 @@
  */
 
 import * as Sentry from '@sentry/browser';
-import {
-  registerRenderTelemetrySink,
-  type RenderErrorContext,
-} from './observability';
+import { registerRenderTelemetrySink, type RenderErrorContext } from './observability';
 
 /**
  * Initialise the browser SDK against the operator-provisioned DSN

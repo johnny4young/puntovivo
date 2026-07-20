@@ -1,5 +1,5 @@
 /**
- * ENG-068 — Zod input schemas for `modules.*` procedures.
+ * Zod input schemas for `modules.*` procedures.
  */
 
 import { z } from 'zod';
