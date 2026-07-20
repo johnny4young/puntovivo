@@ -1,11 +1,19 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type Database from 'better-sqlite3';
+import {
+  assertSqliteIntegrity,
+  BACKUP_BUNDLE_SCHEMA_VERSION,
+  createBackupBundle,
+  extractBackupBundle,
+  isCleartextSqliteFile,
+  rekeySqliteDatabase,
+} from '../backup/backup-bundle.ts';
 import {
   createServer,
   type DatabaseInstance,
@@ -16,6 +24,7 @@ import {
   buildHistoricalMigrationFixture,
   seedHistoricalSentinels,
 } from './fixture.ts';
+import { CURRENT_REHEARSAL_TABLES, seedCurrentSentinels } from './current-sentinels.ts';
 import {
   assertCurrentSchemaReady,
   assertFingerprintsEqual,
@@ -39,6 +48,8 @@ export interface RecoveryRehearsalOptions {
   repositoryRoot?: string;
   outputDirectory: string;
   encryptionKey?: string;
+  destinationEncryptionKey?: string;
+  temporaryRoot?: string;
   now?: () => Date;
 }
 
@@ -63,6 +74,15 @@ async function readMigrationCount(migrationsFolder: string): Promise<number> {
     await readFile(join(migrationsFolder, 'meta', '_journal.json'), 'utf8')
   ) as { entries: unknown[] };
   return journal.entries.length;
+}
+
+async function assertKeyCannotReadDatabase(dbPath: string, encryptionKey: string): Promise<void> {
+  try {
+    await assertSqliteIntegrity(dbPath, { encryptionKey });
+  } catch {
+    return;
+  }
+  throw new Error('database unexpectedly opened with the rejected encryption key');
 }
 
 function spawnDowngradeProbe(options: {
@@ -134,7 +154,9 @@ export async function runRecoveryRehearsal(
   const startedAt = now();
   const totalStarted = performance.now();
   const runId = `${startedAt.toISOString().replaceAll(':', '-').replaceAll('.', '-')}-${randomUUID().slice(0, 8)}`;
-  const scratch = await mkdtemp(join(tmpdir(), 'puntovivo-recovery-rehearsal-'));
+  const scratch = await mkdtemp(
+    join(options.temporaryRoot ?? tmpdir(), 'puntovivo-recovery-rehearsal-')
+  );
   const dbPath = join(scratch, 'historical.db');
   const checks: RecoveryCheck[] = [];
   const timings = {
@@ -142,16 +164,39 @@ export async function runRecoveryRehearsal(
     upgradeMs: 0,
     downgradeRefusalMs: 0,
     idempotentBootMs: 0,
+    backupMs: 0,
+    restoreMs: 0,
     totalMs: 0,
   };
   let sourceVersion = 'unknown';
   let sourceMigrationCount = 0;
   let targetMigrationCount = 0;
   let databaseSha256: string | null = null;
+  const backup = {
+    bundleSha256: null as string | null,
+    bundleBytes: 0,
+    manifestSchemaVersion: null as number | null,
+    snapshotGeneratedAt: null as string | null,
+    deviceIdentityIncluded: false,
+  };
+  const restore = {
+    databaseSha256: null as string | null,
+    migrationCount: 0,
+    historicalTableCount: 0,
+    currentTableCount: 0,
+    destinationKeyVerified: false,
+    sourceKeyRejected: false,
+    deviceIdentityPreserved: false,
+    snapshotAgeAtRestoreMs: null as number | null,
+  };
   const targetVersion = await readTargetVersion(repositoryRoot);
   let failureCode: string | null = null;
   let currentFailureCode = 'HISTORICAL_FIXTURE_FAILED';
   let activeServer: PuntovivoServer | null = null;
+  let historicalColumns: ReturnType<typeof captureHistoricalColumns>;
+  let historicalFingerprints: ReturnType<typeof fingerprintSentinels>;
+  let currentColumns: ReturnType<typeof captureHistoricalColumns>;
+  let currentFingerprints: ReturnType<typeof fingerprintSentinels>;
 
   try {
     const fixtureStarted = performance.now();
@@ -171,8 +216,8 @@ export async function runRecoveryRehearsal(
     activeServer = historicalServer;
     const historicalSqlite = (historicalServer.db as LiveDatabase).$client;
     seedHistoricalSentinels(historicalSqlite);
-    const historicalColumns = captureHistoricalColumns(historicalSqlite, REHEARSAL_TABLES);
-    const fingerprintsBefore = fingerprintSentinels(historicalSqlite, historicalColumns);
+    historicalColumns = captureHistoricalColumns(historicalSqlite, REHEARSAL_TABLES);
+    historicalFingerprints = fingerprintSentinels(historicalSqlite, historicalColumns);
     if (countAppliedMigrations(historicalSqlite) !== sourceMigrationCount) {
       throw new Error('historical database migration count does not match its fixture');
     }
@@ -199,10 +244,13 @@ export async function runRecoveryRehearsal(
       );
     }
     assertFingerprintsEqual(
-      fingerprintsBefore,
+      historicalFingerprints,
       fingerprintSentinels(currentSqlite, historicalColumns)
     );
     assertCurrentSchemaReady(currentSqlite);
+    seedCurrentSentinels(currentSqlite);
+    currentColumns = captureHistoricalColumns(currentSqlite, CURRENT_REHEARSAL_TABLES);
+    currentFingerprints = fingerprintSentinels(currentSqlite, currentColumns);
     await currentServer.close();
     activeServer = null;
     timings.upgradeMs = roundMilliseconds(performance.now() - upgradeStarted);
@@ -211,6 +259,11 @@ export async function runRecoveryRehearsal(
       id: 'current-schema-ready',
       outcome: 'passed',
       detail: 'defaults and FKs valid',
+    });
+    checks.push({
+      id: 'current-domain-sentinels',
+      outcome: 'passed',
+      detail: `${CURRENT_REHEARSAL_TABLES.length} tables`,
     });
 
     currentFailureCode = 'IDEMPOTENT_BOOT_FAILED';
@@ -228,8 +281,12 @@ export async function runRecoveryRehearsal(
       throw new Error('second current boot changed the applied migration count');
     }
     assertFingerprintsEqual(
-      fingerprintsBefore,
+      historicalFingerprints,
       fingerprintSentinels(secondSqlite, historicalColumns)
+    );
+    assertFingerprintsEqual(
+      currentFingerprints,
+      fingerprintSentinels(secondSqlite, currentColumns)
     );
     await secondServer.close();
     activeServer = null;
@@ -252,6 +309,112 @@ export async function runRecoveryRehearsal(
     databaseSha256 = afterDowngrade;
     timings.downgradeRefusalMs = roundMilliseconds(performance.now() - downgradeStarted);
     checks.push({ id: 'downgrade-refused', outcome: 'passed', detail: 'database unchanged' });
+
+    currentFailureCode = 'BACKUP_CREATION_FAILED';
+    const backupStarted = performance.now();
+    const sourceDeviceIdPath = join(scratch, 'source-device-id.txt');
+    const bundlePath = join(scratch, 'recovery.zip');
+    const sourceDeviceId = 'rehearsal-device-primary';
+    await writeFile(sourceDeviceIdPath, `${sourceDeviceId}\n`, { encoding: 'utf8', mode: 0o600 });
+    const bundle = await createBackupBundle({
+      dbPath,
+      deviceIdPath: sourceDeviceIdPath,
+      outZipPath: bundlePath,
+      encryptionKey,
+      manifest: { appVersion: targetVersion },
+    });
+    if (bundle.zipBytes <= 0 || bundle.manifest.dbBytes <= 0) {
+      throw new Error('backup bundle did not contain database bytes');
+    }
+    backup.bundleSha256 = await sha256File(bundlePath);
+    backup.bundleBytes = bundle.zipBytes;
+    backup.manifestSchemaVersion = bundle.manifest.schemaVersion;
+    backup.snapshotGeneratedAt = bundle.manifest.generatedAt;
+    backup.deviceIdentityIncluded = true;
+    timings.backupMs = roundMilliseconds(performance.now() - backupStarted);
+    checks.push({ id: 'encrypted-backup-created', outcome: 'passed', detail: 'bundle verified' });
+
+    currentFailureCode = 'RESTORE_FAILED';
+    const restoreStarted = performance.now();
+    const destinationKey = options.destinationEncryptionKey ?? randomBytes(32).toString('hex');
+    const destinationDirectory = join(scratch, 'restored-install');
+    const sourceBeforeRestore = await sha256File(dbPath);
+    const extracted = await extractBackupBundle(bundlePath, destinationDirectory);
+    if (
+      extracted.format !== 'zip' ||
+      extracted.manifest === undefined ||
+      extracted.manifest.schemaVersion !== BACKUP_BUNDLE_SCHEMA_VERSION ||
+      extracted.manifest.appVersion !== targetVersion ||
+      extracted.manifest.dbBytes !== bundle.manifest.dbBytes
+    ) {
+      throw new Error('backup manifest did not match the source evidence');
+    }
+    if (extracted.deviceIdPath === undefined) {
+      throw new Error('backup bundle did not preserve the device identity passenger');
+    }
+    const restoredDeviceId = (await readFile(extracted.deviceIdPath, 'utf8')).trim();
+    if (restoredDeviceId !== sourceDeviceId) {
+      throw new Error('restored installation device identity did not match the backup');
+    }
+    restore.deviceIdentityPreserved = true;
+
+    if (await isCleartextSqliteFile(extracted.dbPath)) {
+      throw new Error('backup bundle exposed a cleartext SQLite database');
+    }
+    await assertSqliteIntegrity(extracted.dbPath, { encryptionKey });
+    await assertKeyCannotReadDatabase(extracted.dbPath, destinationKey);
+    rekeySqliteDatabase(extracted.dbPath, { fromKey: encryptionKey, toKey: destinationKey });
+    await assertSqliteIntegrity(extracted.dbPath, { encryptionKey: destinationKey });
+    restore.destinationKeyVerified = true;
+    await assertKeyCannotReadDatabase(extracted.dbPath, encryptionKey);
+    restore.sourceKeyRejected = true;
+
+    const restoredServer = await createServer({
+      dbPath: extracted.dbPath,
+      migrationsFolder: currentMigrations,
+      encryptionKey: destinationKey,
+      seedData: false,
+      verbose: false,
+    });
+    activeServer = restoredServer;
+    const restoredSqlite = (restoredServer.db as LiveDatabase).$client;
+    restore.migrationCount = countAppliedMigrations(restoredSqlite);
+    if (restore.migrationCount !== targetMigrationCount) {
+      throw new Error('restored installation migration count does not match the current journal');
+    }
+    assertFingerprintsEqual(
+      historicalFingerprints,
+      fingerprintSentinels(restoredSqlite, historicalColumns)
+    );
+    assertFingerprintsEqual(
+      currentFingerprints,
+      fingerprintSentinels(restoredSqlite, currentColumns)
+    );
+    assertCurrentSchemaReady(restoredSqlite, { expectedTracksSerials: 1 });
+    await restoredServer.close();
+    activeServer = null;
+
+    if ((await sha256File(dbPath)) !== sourceBeforeRestore) {
+      throw new Error('isolated restore modified the source database');
+    }
+    restore.databaseSha256 = await sha256File(extracted.dbPath);
+    restore.historicalTableCount = REHEARSAL_TABLES.length;
+    restore.currentTableCount = CURRENT_REHEARSAL_TABLES.length;
+    restore.snapshotAgeAtRestoreMs = Math.max(
+      0,
+      now().getTime() - Date.parse(extracted.manifest.generatedAt)
+    );
+    timings.restoreMs = roundMilliseconds(performance.now() - restoreStarted);
+    checks.push({
+      id: 'isolated-cross-key-restore',
+      outcome: 'passed',
+      detail: 'source unchanged',
+    });
+    checks.push({
+      id: 'restored-data-preserved',
+      outcome: 'passed',
+      detail: `${REHEARSAL_TABLES.length + CURRENT_REHEARSAL_TABLES.length} fingerprints`,
+    });
   } catch (error) {
     if (process.env.REHEARSAL_DEBUG === '1') {
       process.stderr.write(
@@ -273,7 +436,7 @@ export async function runRecoveryRehearsal(
   }
 
   const report: RecoveryRehearsalReport = {
-    reportVersion: 1,
+    reportVersion: 2,
     runId,
     outcome: failureCode === null ? 'passed' : 'failed',
     sourceVersion,
@@ -286,6 +449,8 @@ export async function runRecoveryRehearsal(
     encryptionEnabled: true,
     environment: { platform: process.platform, arch: process.arch, nodeVersion: process.version },
     timings,
+    backup,
+    restore,
     checks,
     failureCode,
   };

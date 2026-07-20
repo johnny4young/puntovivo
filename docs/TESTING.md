@@ -7,16 +7,16 @@ reference, not a future-work tracker.
 
 Run commands from the repository root.
 
-| Changed area                                    | Required command                     |
-| ----------------------------------------------- | ------------------------------------ |
-| Shared contracts                                | `pnpm run ci:shared`                 |
-| React or browser application                    | `pnpm run ci:web`                    |
-| Fastify, tRPC, database, or server services     | `pnpm run ci:server`                 |
-| Electron main process or preload bridge         | `pnpm run ci:desktop`                |
-| Login, sales, inventory, import, or browser E2E | `pnpm run test:e2e:web`              |
-| Electron bootstrap, IPC, backup, or updater E2E | `pnpm run test:e2e:electron`         |
-| Release automation                              | `pnpm run ci:release`                |
-| Encrypted upgrade and downgrade rehearsal       | `pnpm run rehearse:upgrade-recovery` |
+| Changed area                                        | Required command                     |
+| --------------------------------------------------- | ------------------------------------ |
+| Shared contracts                                    | `pnpm run ci:shared`                 |
+| React or browser application                        | `pnpm run ci:web`                    |
+| Fastify, tRPC, database, or server services         | `pnpm run ci:server`                 |
+| Electron main process or preload bridge             | `pnpm run ci:desktop`                |
+| Login, sales, inventory, import, or browser E2E     | `pnpm run test:e2e:web`              |
+| Electron bootstrap, IPC, backup, or updater E2E     | `pnpm run test:e2e:electron`         |
+| Release automation                                  | `pnpm run ci:release`                |
+| Encrypted upgrade, downgrade, and restore rehearsal | `pnpm run rehearse:upgrade-recovery` |
 
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
@@ -63,9 +63,19 @@ Run `pnpm run rehearse:upgrade-recovery` for the database migration item. It
 builds a verified v1.7.0 encrypted fixture with two tenant graphs, upgrades it
 through the current migration journal, verifies a second idempotent boot, and
 launches the historical build contract in an isolated process to prove that a
-downgrade is refused without modifying the database. The command writes a
-sanitized `report.json` under the ignored `.artifacts/recovery-rehearsal/`
-directory; retain that report with the release-candidate evidence.
+downgrade is refused without modifying the database. It then adds
+current-schema attendance, approval, privacy, staff, and serialized-inventory
+sentinels; creates a production-format encrypted ZIP; extracts it into a
+separate installation directory; rekeys the staged database to a fresh
+installation key; and boots the restored database through the real server.
+
+The report proves historical and current-domain fingerprints, tenant
+separation, device-identity preservation, key separation in both directions,
+source-database immutability, bundle size/hash, snapshot time, and elapsed
+backup/restore time. The command writes the sanitized report under the ignored
+`.artifacts/recovery-rehearsal/` directory; retain it with release-candidate
+evidence. The report must never contain either SQLCipher key, credentials,
+device identifiers, absolute paths, or raw business rows.
 
 ## Failure reporting
 
