@@ -14,6 +14,23 @@ import {
   openUserMenu,
 } from './support/app';
 
+function currentBogotaWeekDates() {
+  const currentDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const monday = new Date(`${currentDate}T00:00:00.000Z`);
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+
+  return Array.from({ length: 5 }, (_, offset) => {
+    const date = new Date(monday);
+    date.setUTCDate(monday.getUTCDate() + offset);
+    return date.toISOString().slice(0, 10);
+  });
+}
+
 function seedOvertimeScenario() {
   const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
   const suffix = randomUUID().replace(/-/g, '').slice(0, 12);
@@ -31,6 +48,12 @@ function seedOvertimeScenario() {
   const cashierId = id('cashier');
   const fridayShiftId = id('friday');
   const email = `e2e.overtime.${suffix}@local.test`;
+  const [monday, tuesday, wednesday, thursday, friday] = currentBogotaWeekDates();
+  const weekEndDate = new Date(`${monday}T00:00:00.000Z`);
+  weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 7);
+  const weekEnd = weekEndDate.toISOString().slice(0, 10);
+  const fridayStartedAt = `${friday}T13:00:00.000Z`;
+  const fridayEndedAt = `${friday}T22:00:00.000Z`;
 
   try {
     db.transaction(() => {
@@ -92,11 +115,11 @@ function seedOvertimeScenario() {
           id, tenant_id, user_id, site_id, clocked_in_at, clocked_out_at, created_at, updated_at
         ) values (?, ?, ?, ?, ?, ?, ?, ?)`
       );
-      for (let day = 13; day <= 16; day += 1) {
-        const startedAt = `2026-07-${day}T13:00:00.000Z`;
-        const endedAt = `2026-07-${day}T21:30:00.000Z`;
+      for (const [index, date] of [monday, tuesday, wednesday, thursday].entries()) {
+        const startedAt = `${date}T13:00:00.000Z`;
+        const endedAt = `${date}T21:30:00.000Z`;
         insertShift.run(
-          id(`shift_${day}`),
+          id(`shift_${index + 1}`),
           tenantId,
           cashierId,
           otherSiteId,
@@ -111,10 +134,10 @@ function seedOvertimeScenario() {
         tenantId,
         cashierId,
         overtimeSiteId,
-        '2026-07-17T13:00:00.000Z',
-        '2026-07-17T22:00:00.000Z',
-        '2026-07-17T13:00:00.000Z',
-        '2026-07-17T22:00:00.000Z'
+        fridayStartedAt,
+        fridayEndedAt,
+        fridayStartedAt,
+        fridayEndedAt
       );
     })();
   } finally {
@@ -123,6 +146,10 @@ function seedOvertimeScenario() {
 
   return {
     fridayShiftId,
+    fridayStartedAt,
+    fridayEndedAt,
+    weekStart: monday,
+    weekEnd,
     admin: { email, password: E2E_PASSWORD, defaultPath: '/company' },
   };
 }
@@ -353,7 +380,9 @@ test.describe('employee attendance evidence across shift states', () => {
     const csvDownloadPromise = page.waitForEvent('download');
     await attendance.getByRole('button', { name: 'Payroll CSV' }).click();
     const csvDownload = await csvDownloadPromise;
-    expect(csvDownload.suggestedFilename()).toBe('payroll-attendance-2026-07-13-2026-07-20.csv');
+    expect(csvDownload.suggestedFilename()).toBe(
+      `payroll-attendance-${scenario.weekStart}-${scenario.weekEnd}.csv`
+    );
     const csvPath = await csvDownload.path();
     expect(csvPath).not.toBeNull();
     const csv = await readFile(csvPath!, 'utf8');
@@ -367,7 +396,7 @@ test.describe('employee attendance evidence across shift states', () => {
     await attendance.getByRole('button', { name: 'Accounting XLSX' }).click();
     const xlsxDownload = await xlsxDownloadPromise;
     expect(xlsxDownload.suggestedFilename()).toBe(
-      'accounting-attendance-handoff-2026-07-13-2026-07-20.xlsx'
+      `accounting-attendance-handoff-${scenario.weekStart}-${scenario.weekEnd}.xlsx`
     );
     const xlsxPath = await xlsxDownload.path();
     expect(xlsxPath).not.toBeNull();
@@ -398,8 +427,8 @@ test.describe('employee attendance evidence across shift states', () => {
 
     const persisted = readCorrectionEvidence(scenario.fridayShiftId);
     expect(persisted.raw).toEqual({
-      clockedInAt: '2026-07-17T13:00:00.000Z',
-      clockedOutAt: '2026-07-17T22:00:00.000Z',
+      clockedInAt: scenario.fridayStartedAt,
+      clockedOutAt: scenario.fridayEndedAt,
     });
     expect(persisted.correction).toMatchObject({
       version: 1,
