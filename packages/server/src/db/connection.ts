@@ -17,6 +17,7 @@ import { migrate as drizzleMigrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { createModuleLogger } from '../logging/logger.js';
 import { seedCatalogs } from './catalog-seed.js';
 import { type DrizzleJournal, ensureMigrationBaseline } from './migration-baseline.js';
+import { alignMigrationTrackingTimestamps } from './migration-tracking.js';
 import { resolveCachedNodeBinding } from './native-binding.js';
 import {
   assertEncryptionKeyShape,
@@ -160,6 +161,24 @@ export async function initDatabase(
     if (!existsSync(resolve(effectiveMigrationsFolder, 'meta', '_journal.json'))) {
       throw new Error(
         `migrations folder missing at ${effectiveMigrationsFolder}; ship the Drizzle migrations alongside the server bundle (dev resolves the module-local path; packaged builds pass migrationsFolder explicitly)`
+      );
+    }
+
+    // Drizzle decides what is pending by comparing only the greatest
+    // `created_at` in its tracking table with every journal timestamp. If a
+    // merged journal ever corrects out-of-order timestamps, already-applied
+    // DBs must be aligned by immutable SQL hash before that comparison or
+    // pending migrations can be skipped (and current DBs can be replayed).
+    // This is a metadata-only repair; migration SQL and application rows are
+    // untouched.
+    const alignedMigrationRows = alignMigrationTrackingTimestamps(
+      sqlite,
+      effectiveMigrationsFolder
+    );
+    if (alignedMigrationRows > 0) {
+      dbLog.info(
+        { dbPath, alignedMigrationRows },
+        'aligned migration tracking timestamps with bundled journal'
       );
     }
 

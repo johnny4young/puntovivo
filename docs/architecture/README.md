@@ -44,6 +44,6 @@ ownership metadata.
 ## Documentation boundary
 
 Public architecture documents describe current constraints and stable reasoning.
-Private planning, handoffs, prioritization, and estimates belong under the ignored
-`docs/planning/` directory. Feature guides must link to code, tests, or an ADR—not
-to internal ticket identifiers.
+Private planning, handoffs, prioritization, and estimates belong in an ignored
+private planning artifact. Feature guides must link to code, tests, or an
+ADR—not to internal ticket identifiers.

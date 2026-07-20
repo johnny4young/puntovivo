@@ -7,15 +7,16 @@ reference, not a future-work tracker.
 
 Run commands from the repository root.
 
-| Changed area                                    | Required command             |
-| ----------------------------------------------- | ---------------------------- |
-| Shared contracts                                | `pnpm run ci:shared`         |
-| React or browser application                    | `pnpm run ci:web`            |
-| Fastify, tRPC, database, or server services     | `pnpm run ci:server`         |
-| Electron main process or preload bridge         | `pnpm run ci:desktop`        |
-| Login, sales, inventory, import, or browser E2E | `pnpm run test:e2e:web`      |
-| Electron bootstrap, IPC, backup, or updater E2E | `pnpm run test:e2e:electron` |
-| Release automation                              | `pnpm run ci:release`        |
+| Changed area                                    | Required command                     |
+| ----------------------------------------------- | ------------------------------------ |
+| Shared contracts                                | `pnpm run ci:shared`                 |
+| React or browser application                    | `pnpm run ci:web`                    |
+| Fastify, tRPC, database, or server services     | `pnpm run ci:server`                 |
+| Electron main process or preload bridge         | `pnpm run ci:desktop`                |
+| Login, sales, inventory, import, or browser E2E | `pnpm run test:e2e:web`              |
+| Electron bootstrap, IPC, backup, or updater E2E | `pnpm run test:e2e:electron`         |
+| Release automation                              | `pnpm run ci:release`                |
+| Encrypted upgrade and downgrade rehearsal       | `pnpm run rehearse:upgrade-recovery` |
 
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
@@ -57,6 +58,14 @@ release candidate also needs:
 - backup and restore rehearsal using production-equivalent data volume;
 - printer, drawer, scanner, and terminal checks for every supported device;
 - review of known limitations in `PROJECT-STATUS.md` and the release notes.
+
+Run `pnpm run rehearse:upgrade-recovery` for the database migration item. It
+builds a verified v1.7.0 encrypted fixture with two tenant graphs, upgrades it
+through the current migration journal, verifies a second idempotent boot, and
+launches the historical build contract in an isolated process to prove that a
+downgrade is refused without modifying the database. The command writes a
+sanitized `report.json` under the ignored `.artifacts/recovery-rehearsal/`
+directory; retain that report with the release-candidate evidence.
 
 ## Failure reporting
 

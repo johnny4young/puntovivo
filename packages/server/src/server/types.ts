@@ -27,6 +27,12 @@ export interface ServerOptions {
   jwtSecret?: string | undefined;
   /** Enable verbose logging (default: false) */
   verbose?: boolean | undefined;
+  /**
+   * Seed the interactive demo tenant and administrator (default: true).
+   * Operational tooling can disable this while catalog seeds and migrations
+   * still run normally, avoiding synthetic credentials in recovery fixtures.
+   */
+  seedData?: boolean | undefined;
   /** CORS origins (default: ['http://localhost:3000', 'http://localhost:5173']) */
   corsOrigins?: string[] | undefined;
   /**
