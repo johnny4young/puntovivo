@@ -71,6 +71,7 @@ test-results/
 # Audit evidence (screenshots, scratch notes) — kept on disk for the
 # operator to review, never committed (binary churn).
 .audit/
+.artifacts/
 
 # Claude Code + OpenAI Agents per-developer state. Skills live under
 # `.claude/skills/` and `.agents/skills/` — both are intentionally

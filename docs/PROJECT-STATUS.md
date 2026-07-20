@@ -2,7 +2,7 @@
 
 > Updated: 2026-07-19. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
-> execution notes stay outside version control under `docs/planning/`.
+> execution notes stay in an ignored private planning artifact.
 
 ## Product position
 
@@ -116,5 +116,5 @@ minor release is appropriate after the release candidate passes:
 - `TESTING.md` owns validation commands and coverage boundaries.
 - Feature guides describe current behavior only; they must not contain planning
   state, ticket identifiers, or future-work queues.
-- Detailed strategy and execution planning belongs in the ignored
-  `docs/planning/` directory.
+- Detailed strategy and execution planning belongs in an ignored private
+  planning artifact.

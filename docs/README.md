@@ -60,4 +60,4 @@ project. Read the right file for the question, not the whole directory.
 Register every new public `docs/*.md` reference in the right section of this
 index in the same commit. Public guides describe current behavior and durable
 architecture only. Internal planning, estimates, ticket maps, and handoffs
-belong under the ignored `docs/planning/` directory.
+belong in an ignored private planning artifact.

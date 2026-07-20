@@ -17,6 +17,7 @@ import { migrate as drizzleMigrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { createModuleLogger } from '../logging/logger.js';
 import { seedCatalogs } from './catalog-seed.js';
 import { type DrizzleJournal, ensureMigrationBaseline } from './migration-baseline.js';
+import { alignMigrationTrackingTimestamps } from './migration-tracking.js';
 import { resolveCachedNodeBinding } from './native-binding.js';
 import {
   assertEncryptionKeyShape,
@@ -168,8 +169,30 @@ export async function initDatabase(
     // failure otherwise surfaces later as a random `no such column`
     // mid-operation; here it becomes an operator-facing boot error with the
     // remediation in the message. Runs after the journal-exists check so the
-    // guard can trust the file, and before drizzleMigrate touches anything.
+    // guard can trust the file, BEFORE the timestamp alignment below so a
+    // refused downgrade never mutates `__drizzle_migrations` (the guard is
+    // count-based, so unaligned timestamps cannot affect its verdict), and
+    // before drizzleMigrate touches anything.
     assertSchemaNotNewerThanApp(sqlite, effectiveMigrationsFolder);
+
+    // Drizzle decides what is pending by comparing only the greatest
+    // `created_at` in its tracking table with every journal timestamp. If a
+    // merged journal ever corrects out-of-order timestamps, already-applied
+    // DBs must be aligned by immutable SQL hash before that comparison or
+    // pending migrations can be skipped (and current DBs can be replayed).
+    // This is a metadata-only repair; migration SQL and application rows are
+    // untouched. It runs AFTER the A-06 guard so a downgrade refusal is
+    // strictly non-mutating.
+    const alignedMigrationRows = alignMigrationTrackingTimestamps(
+      sqlite,
+      effectiveMigrationsFolder
+    );
+    if (alignedMigrationRows > 0) {
+      dbLog.info(
+        { dbPath, alignedMigrationRows },
+        'aligned migration tracking timestamps with bundled journal'
+      );
+    }
     // snapshot the applied-migration count so the
     // post-migrate integrity check below runs ONLY on a boot that
     // actually lands a migration. A steady-state boot must not pay a

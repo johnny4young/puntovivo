@@ -45,7 +45,13 @@ import { registerWorkers } from './workers.js';
  * Create and configure the Puntovivo server
  */
 export async function createServer(options: ServerOptions): Promise<PuntovivoServer> {
-  const { dbPath, verbose = false, migrationsFolder, appVersion = 'unknown' } = options;
+  const {
+    dbPath,
+    verbose = false,
+    migrationsFolder,
+    appVersion = 'unknown',
+    seedData = true,
+  } = options;
 
   // Resolve the pre-Fastify configuration (verbose-prod guard, JWT
   // secret, Authority Node runtime + bind host/port, site_hub LAN
@@ -58,7 +64,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   const db = await initDatabase({
     dbPath,
     runMigrations: true,
-    seedData: true,
+    seedData,
     verbose,
     migrationsFolder,
     encryptionKey: options.encryptionKey,
