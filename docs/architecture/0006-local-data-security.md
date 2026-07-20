@@ -31,10 +31,10 @@ Backups produce a single ZIP file at the operator-chosen path. The ZIP contains:
   `VACUUM INTO` so the staged file stays encrypted under the source
   installation key. No WAL/SHM sidecars travel.
 - `device-id.txt` — the device identity from `${userData}/device-id.txt`. Travels with the data so a full-disk-failure recovery on new hardware can restore "the same device" from the server's perspective. Per ADR-0001's local-store-authority promise, the device IS the authoritative identity holder.
-- `manifest.json` — `{schemaVersion, generatedAt, appVersion?, tenantSlug?,
-dbBytes}`. Interactive restore treats it as operator metadata; automated
-  restore drills and release rehearsals validate its supported schema, version,
-  and byte evidence before claiming recovery readiness.
+- `manifest.json` — `{schemaVersion, generatedAt, appVersion?, tenantSlug?, dbBytes}`.
+  Interactive restore treats it as operator metadata; automated restore drills
+  and release rehearsals validate its supported schema, version, and byte
+  evidence before claiming recovery readiness.
 
 After either snapshot path produces the staging file, the helper runs keyed
 `PRAGMA integrity_check` against the staging copy. If the result is not `ok`,
