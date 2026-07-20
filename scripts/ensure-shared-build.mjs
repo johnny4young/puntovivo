@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sharedRoot = path.join(repoRoot, 'packages', 'shared');
+const typescriptCompiler = fileURLToPath(import.meta.resolve('typescript/bin/tsc'));
 const SHARED_ENTRYPOINTS = ['index', 'money', 'unit-math', 'units'];
 
 export function runtimeSourceFiles(directory) {
@@ -37,16 +38,23 @@ export function buildIsFresh(packageRoot = sharedRoot) {
   return oldestOutput >= latestInput;
 }
 
-export function ensureSharedBuild() {
-  if (buildIsFresh()) {
+export function sharedBuildInvocation(packageRoot = sharedRoot) {
+  return {
+    command: process.execPath,
+    args: [typescriptCompiler, '-p', path.join(packageRoot, 'tsconfig.json')],
+  };
+}
+
+export function ensureSharedBuild(packageRoot = sharedRoot, spawn = spawnSync) {
+  if (buildIsFresh(packageRoot)) {
     console.log('[shared-build] up to date');
     return 0;
   }
 
   console.log('[shared-build] rebuilding @puntovivo/shared');
-  const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-  const result = spawnSync(pnpmCommand, ['--filter', '@puntovivo/shared', 'run', 'build'], {
-    cwd: repoRoot,
+  const invocation = sharedBuildInvocation(packageRoot);
+  const result = spawn(invocation.command, invocation.args, {
+    cwd: packageRoot,
     env: process.env,
     stdio: 'inherit',
   });

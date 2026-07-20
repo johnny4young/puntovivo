@@ -3,7 +3,12 @@ import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
-import { buildIsFresh, runtimeSourceFiles } from './ensure-shared-build.mjs';
+import {
+  buildIsFresh,
+  ensureSharedBuild,
+  runtimeSourceFiles,
+  sharedBuildInvocation,
+} from './ensure-shared-build.mjs';
 
 const tempRoots = [];
 const entrypoints = ['index', 'money', 'unit-math', 'units'];
@@ -76,5 +81,25 @@ describe('shared build freshness', () => {
     }
 
     assert.equal(buildIsFresh(root), true);
+  });
+
+  it('runs the TypeScript compiler through Node without a platform shell', async () => {
+    const root = await createSharedFixture();
+    await rm(path.join(root, 'dist', 'index.js'));
+    let observed;
+
+    const status = ensureSharedBuild(root, (command, args, options) => {
+      observed = { command, args, options };
+      return { status: 0 };
+    });
+    const expected = sharedBuildInvocation(root);
+
+    assert.equal(status, 0);
+    assert.equal(observed.command, process.execPath);
+    assert.deepEqual(observed.args, expected.args);
+    assert.equal(observed.args[1], '-p');
+    assert.equal(observed.args[2], path.join(root, 'tsconfig.json'));
+    assert.equal(observed.options.cwd, root);
+    assert.equal(observed.options.stdio, 'inherit');
   });
 });
