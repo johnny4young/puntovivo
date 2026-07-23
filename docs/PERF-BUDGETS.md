@@ -1,6 +1,6 @@
 # Performance Budgets
 
-> Status: shipped engine (bundle-size + tRPC p95 latency + Electron memory + Lighthouse web vitals).
+> Status: shipped engine (bundle-size + tRPC p95 latency + data-scale UI + Electron memory + Lighthouse web vitals).
 > Source of truth: `perf-budget.json` at the repo root.
 
 This doc explains how Puntovivo enforces performance budgets in CI
@@ -14,14 +14,38 @@ documented in the same PR that produces it.
 | ------------------------------------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
 | Per-chunk JavaScript gzipped bundle size                                                          | `ci:web`                              | `scripts/check-bundle-size.mjs` after `vite build`                           |
 | tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                             |
+| Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                        |
 | Electron main + renderer working-set memory (strict in CI; warn-first locally)                    | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs` |
 | Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`           |
 
-is now closed: bundle size, tRPC p95 latency, Electron memory,
-and Lighthouse web vitals all fail CI when their enforced budgets regress.
-The Operations Center surface of the latest baseline was deliberately
-re-routed to so readiness / supportability signals consolidate
-with the attention queue instead of growing a parallel panel.
+The locally enforceable baseline covers bundle size, fixture-sized tRPC p95
+latency, bounded data-table rendering, Electron memory, and Lighthouse web
+vitals. Each enforced budget fails its owning gate when it regresses.
+
+### Data-scale UI contract
+
+`/design-system` Base 08 renders the production `DataTable` with the
+deterministic row count declared in
+`perf-budget.json::dataScale.designSystemRows` (currently 1,000). This is not a
+painted mock: the specimen uses the same sorting, filtering, dense table,
+roving keyboard focus, and `@tanstack/react-virtual` window as catalog and
+inventory screens.
+
+`e2e/web/design-system-scale.spec.ts` reads the same JSON contract and proves
+four operator-visible invariants:
+
+1. The table automatically enters virtualised mode.
+2. Real mounted data rows remain at or below
+   `dataScale.maxMountedRows` while all 1,000 rows remain addressable.
+3. Filtering can locate the final portion of the dataset without changing
+   screens or losing the total-row contract.
+4. `End` moves keyboard focus across the virtual window to the final row while
+   the mounted-row bound remains intact.
+
+The test also applies the standard client-issue tracker, so console errors,
+page errors, failed requests, and unexpected HTTP responses fail the proof.
+This is a local E2E gate by repository policy; `ci:web` still covers the
+component, type, build, bundle, contrast, adaptive, and Lighthouse contracts.
 
 ### Electron memory (strict in CI, warn-first locally)
 
