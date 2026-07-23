@@ -20,6 +20,98 @@
     "loading": "Cargando...",
     "errorGeneric": "Algo salió mal al cargar esta vista."
   },
+  "ownership": {
+    "kicker": "Responsabilidad de recuperación",
+    "title": "Cada señal tiene un responsable",
+    "description": "Una vista por nivel de servicio que indica quién responde, qué umbral abre una acción y cuál es la superficie de recuperación más segura. El estado siempre incluye texto; no depende solo del color.",
+    "loading": "Cargando responsables de recuperación operativa",
+    "summary": {
+      "ariaLabel": "Resumen de preparación operativa",
+      "action_one": "{{count}} acción inmediata",
+      "action_other": "{{count}} acciones inmediatas",
+      "watch_one": "{{count}} en observación",
+      "watch_other": "{{count}} en observación",
+      "drills_one": "{{count}} simulacro ejecutable",
+      "drills_other": "{{count}} simulacros ejecutables"
+    },
+    "status": {
+      "healthy": "Dentro del contrato",
+      "watch": "En observación",
+      "action_required": "Requiere acción",
+      "unavailable": "Transferencia"
+    },
+    "service": {
+      "sync": "Sincronización",
+      "fiscal": "Entrega fiscal",
+      "device": "Hardware de recibos",
+      "payments": "Pagos electrónicos",
+      "backup": "Respaldo cifrado",
+      "updates": "Actualizaciones de escritorio"
+    },
+    "owner": {
+      "store_manager": "Responsable de tienda",
+      "administrator": "Administrador"
+    },
+    "labels": {
+      "owner": "Primer responsable",
+      "response": "Objetivo de respuesta",
+      "threshold": "Umbral de acción",
+      "runbook": "Ruta de recuperación"
+    },
+    "responseMinutes": "{{count}} min",
+    "threshold": {
+      "sync": "Más de {{count}} en cola o cualquier conflicto",
+      "fiscal": "{{count}} fallo terminal",
+      "device": "{{count}} trabajo fallido o atascado",
+      "payments": "{{count}} operación rechazada o atascada",
+      "backup": "Respaldo exitoso en menos de {{count}} h",
+      "updates": "Verificación de actualización en menos de {{count}} h"
+    },
+    "runbook": {
+      "sync": "Concilia y reanuda",
+      "fiscal": "Verifica, reintenta y conserva la venta",
+      "device": "Prueba la ruta y luego reintenta",
+      "payments": "Concilia antes de reintentar",
+      "backup": "Respaldo, bóveda y simulacro de restauración",
+      "updates": "Verifica la política y luego revierte"
+    },
+    "observation": {
+      "checking": "Leyendo la señal más reciente del servicio.",
+      "signalUnavailable": "No se pudo leer la señal. Continúa desde la superficie de recuperación.",
+      "clear": "No hay umbrales abiertos en este momento.",
+      "failedItems_one": "{{count}} elemento superó el umbral de fallo terminal.",
+      "failedItems_other": "{{count}} elementos superaron el umbral de fallo terminal.",
+      "queuedItems_one": "{{count}} elemento está esperando; mantén la cola en observación.",
+      "queuedItems_other": "{{count}} elementos están esperando; mantén la cola en observación.",
+      "desktopRequired": "Lee esta señal local del dispositivo en la aplicación de escritorio.",
+      "adminOwned": "Un administrador es responsable de este control local y su evidencia.",
+      "backupFailed": "El último respaldo programado falló.",
+      "backupOff": "La programación del respaldo cifrado está desactivada.",
+      "backupRunning": "Hay un respaldo cifrado en ejecución.",
+      "backupMissing": "No hay un respaldo programado exitoso registrado.",
+      "backupStale": "El último respaldo exitoso está fuera del objetivo de vigencia.",
+      "backupFresh": "El último respaldo exitoso está dentro del objetivo de vigencia.",
+      "updateFailed": "El actualizador de escritorio informó un error.",
+      "updateReady": "Hay una actualización de escritorio lista para revisión.",
+      "updateUnavailable": "Esta compilación no expone una señal de actualización administrada.",
+      "updateUnchecked": "No hay una verificación de actualizaciones completada.",
+      "updateStale": "La última verificación está fuera del objetivo de vigencia.",
+      "updateCurrent": "La verificación está vigente y no hay versiones pendientes."
+    },
+    "drillEvidence_one": "{{count}} simulacro fijado",
+    "drillEvidence_other": "{{count}} simulacros fijados",
+    "actions": {
+      "actionAria": "{{action}} — {{service}}",
+      "sync": "Resolver sincronización",
+      "fiscal": "Revisar y reintentar",
+      "device": "Revisar y reintentar",
+      "payments": "Revisar y reintentar",
+      "backup": "Abrir control",
+      "updates": "Abrir control",
+      "desktopRequired": "Requiere aplicación de escritorio",
+      "adminHandoff": "Transferir al administrador"
+    }
+  },
   "support": {
     "kicker": "Preparación para soporte",
     "health": {
@@ -145,8 +237,13 @@
     "kicker": "Necesita atención",
     "title": "Qué necesita atención",
     "description": "Fallos que puedes reintentar en sincronización, facturación, dispositivos y pagos. Abre el panel que resuelve cada uno.",
-    "reviewCta": "Revisar",
-    "reviewAria": "Revisar {{area}}",
+    "actionAria": "{{action}} — {{area}}",
+    "action": {
+      "sync": "Resolver sincronización",
+      "fiscal": "Revisar y reintentar",
+      "device": "Revisar y reintentar",
+      "payments": "Revisar y reintentar"
+    },
     "count_one": "{{count}} pendiente",
     "count_other": "{{count}} pendientes",
     "area": {

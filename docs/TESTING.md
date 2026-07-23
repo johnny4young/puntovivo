@@ -52,6 +52,19 @@ an indexed test disappears, its title drifts without updating the contract, a
 required journey is removed, or the matrix loses a required operating variant.
 The contract indexes real flows; it does not replace their browser execution.
 
+The operational recovery contract is defined in
+`packages/shared/src/operational-readiness.ts`. It covers synchronization,
+fiscal delivery, receipt hardware, electronic payments, encrypted backup, and
+desktop updates. `scripts/check-operational-readiness.mjs`, invoked by the web
+CI gate, fails when any service loses its explicit owner, response target,
+threshold, runbook anchor, recovery route, or exact executable drill title.
+The Operations browser smoke verifies that the same contract is visible in
+English and Spanish and that recovery actions reach the owning surface. It
+also inserts a real declined payment outbox incident, retries it as an
+administrator, verifies the audit event and non-failure status, and confirms
+that the invalidated attention count falls in the browser. This pins the
+signal → action → refreshed queue loop rather than navigation alone.
+
 The Electron suite launches the real desktop runtime and validates the
 renderer sandbox, embedded server, authenticated application boot, encrypted
 backup creation, cloud-vault write, scheduling, and restore readiness.

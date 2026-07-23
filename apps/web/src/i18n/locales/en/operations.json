@@ -20,6 +20,98 @@
     "loading": "Loading...",
     "errorGeneric": "Something went wrong loading this view."
   },
+  "ownership": {
+    "kicker": "Recovery ownership",
+    "title": "Every signal has an owner",
+    "description": "A service-level view of who responds, the threshold that opens action, and the safest recovery surface. Status always travels with text, not color alone.",
+    "loading": "Loading operational recovery ownership",
+    "summary": {
+      "ariaLabel": "Operational readiness summary",
+      "action_one": "{{count}} action now",
+      "action_other": "{{count}} actions now",
+      "watch_one": "{{count}} watching",
+      "watch_other": "{{count}} watching",
+      "drills_one": "{{count}} executable drill",
+      "drills_other": "{{count}} executable drills"
+    },
+    "status": {
+      "healthy": "Within contract",
+      "watch": "Watch",
+      "action_required": "Action required",
+      "unavailable": "Handoff"
+    },
+    "service": {
+      "sync": "Synchronization",
+      "fiscal": "Fiscal delivery",
+      "device": "Receipt hardware",
+      "payments": "Electronic payments",
+      "backup": "Encrypted backup",
+      "updates": "Desktop updates"
+    },
+    "owner": {
+      "store_manager": "Store manager",
+      "administrator": "Administrator"
+    },
+    "labels": {
+      "owner": "First owner",
+      "response": "Response target",
+      "threshold": "Action threshold",
+      "runbook": "Recovery path"
+    },
+    "responseMinutes": "{{count}} min",
+    "threshold": {
+      "sync": "More than {{count}} queued or any conflict",
+      "fiscal": "{{count}} terminal failure",
+      "device": "{{count}} failed or stuck job",
+      "payments": "{{count}} declined or stuck operation",
+      "backup": "Successful snapshot within {{count}} h",
+      "updates": "Update check within {{count}} h"
+    },
+    "runbook": {
+      "sync": "Reconcile and resume",
+      "fiscal": "Verify, retry, preserve sale",
+      "device": "Test path, then retry",
+      "payments": "Reconcile before retry",
+      "backup": "Snapshot, vault, restore drill",
+      "updates": "Check policy, then roll back"
+    },
+    "observation": {
+      "checking": "Reading the latest service signal.",
+      "signalUnavailable": "The signal could not be read. Continue through the recovery surface.",
+      "clear": "No threshold is open right now.",
+      "failedItems_one": "{{count}} item crossed the terminal-failure threshold.",
+      "failedItems_other": "{{count}} items crossed the terminal-failure threshold.",
+      "queuedItems_one": "{{count}} item is waiting; keep the queue under observation.",
+      "queuedItems_other": "{{count}} items are waiting; keep the queue under observation.",
+      "desktopRequired": "Read this device-local signal in the desktop application.",
+      "adminOwned": "An administrator owns this device-local control and evidence.",
+      "backupFailed": "The latest scheduled snapshot failed.",
+      "backupOff": "The encrypted snapshot schedule is off.",
+      "backupRunning": "An encrypted snapshot is running now.",
+      "backupMissing": "No successful scheduled snapshot is recorded.",
+      "backupStale": "The latest successful snapshot is outside the freshness target.",
+      "backupFresh": "The latest successful snapshot is within the freshness target.",
+      "updateFailed": "The desktop updater reported an error.",
+      "updateReady": "A desktop update is ready for operator review.",
+      "updateUnavailable": "This build does not expose a managed updater signal.",
+      "updateUnchecked": "No completed update check is recorded.",
+      "updateStale": "The latest update check is outside the freshness target.",
+      "updateCurrent": "The update check is current and no release is waiting."
+    },
+    "drillEvidence_one": "{{count}} drill pinned",
+    "drillEvidence_other": "{{count}} drills pinned",
+    "actions": {
+      "actionAria": "{{action}} — {{service}}",
+      "sync": "Resolve sync",
+      "fiscal": "Review and retry",
+      "device": "Review and retry",
+      "payments": "Review and retry",
+      "backup": "Open control",
+      "updates": "Open control",
+      "desktopRequired": "Desktop app required",
+      "adminHandoff": "Administrator handoff"
+    }
+  },
   "support": {
     "kicker": "Support readiness",
     "health": {
@@ -145,8 +237,13 @@
     "kicker": "Needs attention",
     "title": "What needs attention",
     "description": "Retryable failures across sync, fiscal, devices, and payments. Open the panel that resolves each one.",
-    "reviewCta": "Review",
-    "reviewAria": "Review {{area}}",
+    "actionAria": "{{action}} — {{area}}",
+    "action": {
+      "sync": "Resolve sync",
+      "fiscal": "Review and retry",
+      "device": "Review and retry",
+      "payments": "Review and retry"
+    },
     "count_one": "{{count}} item pending",
     "count_other": "{{count}} items pending",
     "area": {

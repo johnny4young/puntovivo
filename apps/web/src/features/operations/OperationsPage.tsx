@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,11 @@ import { AuthorityHealthPanel } from './AuthorityHealthPanel';
 const SupportHealthPanel = lazy(async () => {
   const module = await import('./SupportHealthPanel');
   return { default: module.SupportHealthPanel };
+});
+
+const OperationalReadinessBoard = lazy(async () => {
+  const module = await import('./OperationalReadinessBoard');
+  return { default: module.OperationalReadinessBoard };
 });
 
 /**
@@ -58,6 +63,7 @@ function isTabKey(value: string | null): value is TabKey {
 
 export function OperationsPage() {
   const { t } = useTranslation('operations');
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const activeTab: TabKey = isTabKey(tabParam) ? tabParam : 'attention';
@@ -131,7 +137,35 @@ export function OperationsPage() {
         aria-labelledby={`operations-tab-${activeTab}`}
         data-testid={`operations-tabpanel-${activeTab}`}
       >
-        {activeTab === 'attention' && <NeedsAttentionPanel onReviewArea={handleTabChange} />}
+        {activeTab === 'attention' && (
+          <div className="space-y-6">
+            <Suspense
+              fallback={
+                <div
+                  className="card grid gap-3 p-5 sm:grid-cols-3 sm:p-6"
+                  aria-label={t('ownership.loading')}
+                  aria-busy="true"
+                >
+                  {[0, 1, 2].map(item => (
+                    <div
+                      key={item}
+                      className="h-28 animate-pulse rounded-2xl bg-secondary-100/70 motion-reduce:animate-none"
+                    />
+                  ))}
+                </div>
+              }
+            >
+              <OperationalReadinessBoard
+                onReviewArea={handleTabChange}
+                onNavigate={target => navigate(target)}
+              />
+            </Suspense>
+            <NeedsAttentionPanel
+              onReviewArea={handleTabChange}
+              onNavigate={target => navigate(target)}
+            />
+          </div>
+        )}
         {activeTab === 'support' && (
           <Suspense fallback={<p className="text-sm text-fg3">{t('common.loading')}</p>}>
             <SupportHealthPanel />

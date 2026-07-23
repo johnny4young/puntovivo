@@ -17,11 +17,14 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@/test/utils';
 import { PaymentHealthPanel } from './PaymentHealthPanel';
 
-const retryMutateAsync = vi.fn(async () => undefined);
-const markSettledMutateAsync = vi.fn(async () => undefined);
+const retryMutateAsync = vi.fn(async (_input: { outboxId: string }) => undefined);
+const markSettledMutateAsync = vi.fn(
+  async (_input: { outboxId: string; providerTransactionId?: string }) => undefined
+);
 const peekOutboxInvalidate = vi.fn(async () => undefined);
 const reconciliationInvalidate = vi.fn(async () => undefined);
 const methodBreakdownInvalidate = vi.fn(async () => undefined);
+const attentionInvalidate = vi.fn(async () => undefined);
 
 let mockUserRole: 'admin' | 'manager' = 'admin';
 let mockOutboxRows: Array<Record<string, unknown>> = [
@@ -58,6 +61,7 @@ vi.mock('@/lib/trpc', () => ({
         reconciliation: { invalidate: reconciliationInvalidate },
         methodBreakdown: { invalidate: methodBreakdownInvalidate },
       },
+      operations: { needsAttention: { invalidate: attentionInvalidate } },
     }),
     payments: {
       reconciliation: {
@@ -126,15 +130,21 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
       retryOutbox: {
-        useMutation: () => ({
+        useMutation: (options: { onSuccess?: () => Promise<void> | void }) => ({
           isPending: false,
-          mutateAsync: retryMutateAsync,
+          mutateAsync: async (input: { outboxId: string }) => {
+            await retryMutateAsync(input);
+            await options.onSuccess?.();
+          },
         }),
       },
       markSettled: {
-        useMutation: () => ({
+        useMutation: (options: { onSuccess?: () => Promise<void> | void }) => ({
           isPending: false,
-          mutateAsync: markSettledMutateAsync,
+          mutateAsync: async (input: { outboxId: string; providerTransactionId?: string }) => {
+            await markSettledMutateAsync(input);
+            await options.onSuccess?.();
+          },
         }),
       },
     },
@@ -159,6 +169,7 @@ beforeEach(() => {
   peekOutboxInvalidate.mockClear();
   reconciliationInvalidate.mockClear();
   methodBreakdownInvalidate.mockClear();
+  attentionInvalidate.mockClear();
   mockUserRole = 'admin';
   mockOutboxRows = [
     {
@@ -286,6 +297,7 @@ describe('PaymentHealthPanel —  row actions', () => {
 
     await vi.waitFor(() => {
       expect(retryMutateAsync).toHaveBeenCalledWith({ outboxId: 'payment-outbox-1' });
+      expect(attentionInvalidate).toHaveBeenCalledTimes(1);
     });
   });
 

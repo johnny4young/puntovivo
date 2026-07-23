@@ -39,6 +39,11 @@
       "types": "./src/units.ts",
       "import": "./dist/units.js",
       "default": "./dist/units.js"
+    },
+    "./operational-readiness": {
+      "types": "./src/operational-readiness.ts",
+      "import": "./dist/operational-readiness.js",
+      "default": "./dist/operational-readiness.js"
     }
   },
   "scripts": {

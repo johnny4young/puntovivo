@@ -3,8 +3,10 @@
  *
  * The default Operations landing: a single glance at the retryable
  * failures across sync / fiscal / hardware / payments, each row
- * deep-linking (via `onReviewArea`) to the per-surface tab that resolves
- * it. When nothing needs attention it shows an "all clear" state. The
+ * deep-linking to the surface that actually resolves it. Fiscal, hardware,
+ * and payments stay inside Operations; sync routes to Company → Data because
+ * the Operations sync panel is intentionally diagnostic-only. When nothing
+ * needs attention it shows an "all clear" state. The
  * counts come from one aggregation query (`operations.needsAttention`),
  * so the landing does not fan out across every per-panel query.
  *
@@ -27,15 +29,17 @@ import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 
 /**
- * The four retryable failure surfaces the queue covers. Each value is
- * ALSO an Operations `?tab=` key, so the row CTA can switch straight to
- * the resolving panel. Kept in lockstep with the server enum
- * (`services/operations/attention.ts`) and `OperationsPage` `TAB_KEYS`.
+ * The four retryable failure surfaces the queue covers. Fiscal, device, and
+ * payments are Operations tabs; sync intentionally routes to Company → Data.
+ * Kept in lockstep with the server enum
+ * (`services/operations/attention.ts`).
  */
 export type NeedsAttentionArea = 'sync' | 'fiscal' | 'device' | 'payments';
 interface NeedsAttentionPanelProps {
   /** Switches the Operations tab to the panel that resolves the area. */
   onReviewArea: (area: NeedsAttentionArea) => void;
+  /** Navigates to recovery surfaces that intentionally live outside Operations. */
+  onNavigate: (target: string) => void;
 }
 const AREA_ICONS: Record<NeedsAttentionArea, LucideIcon> = {
   sync: RefreshCw,
@@ -43,10 +47,11 @@ const AREA_ICONS: Record<NeedsAttentionArea, LucideIcon> = {
   device: Printer,
   payments: CreditCard,
 };
-export function NeedsAttentionPanel({ onReviewArea }: NeedsAttentionPanelProps) {
+export function NeedsAttentionPanel({ onReviewArea, onNavigate }: NeedsAttentionPanelProps) {
   const { t } = useTranslation(['operations', 'errors']);
   const query = trpc.operations.needsAttention.useQuery(undefined, {
     staleTime: 15_000,
+    refetchInterval: 15_000,
   });
   return (
     <section className="card p-5 sm:p-6" data-testid="needs-attention-panel">
@@ -102,12 +107,18 @@ export function NeedsAttentionPanel({ onReviewArea }: NeedsAttentionPanelProps) 
                   <Button
                     type="button"
                     className="shrink-0"
-                    onClick={() => onReviewArea(area.area)}
+                    onClick={() => {
+                      if (area.area === 'sync') onNavigate('/company?tab=data');
+                      else onReviewArea(area.area);
+                    }}
                     data-testid={`needs-attention-cta-${area.area}`}
-                    aria-label={t('attention.reviewAria', { area: areaLabel })}
+                    aria-label={t('attention.actionAria', {
+                      action: t(`attention.action.${area.area}`),
+                      area: areaLabel,
+                    })}
                     variant="outline"
                   >
-                    {t('attention.reviewCta')}
+                    {t(`attention.action.${area.area}`)}
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 }

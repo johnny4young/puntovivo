@@ -12,8 +12,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@/test/utils';
 import { DeviceHealthPanel } from './DeviceHealthPanel';
 
-const retryMutate = vi.fn(async () => undefined);
+const retryMutate = vi.fn(async (_input: { id: string }) => undefined);
 const peekInvalidate = vi.fn(async () => undefined);
+const attentionInvalidate = vi.fn(async () => undefined);
 let mockUserRole: 'admin' | 'manager' = 'admin';
 let mockOutboxRows: Array<Record<string, unknown>> = [];
 
@@ -21,6 +22,7 @@ vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
       peripherals: { peekHardwareOutbox: { invalidate: peekInvalidate } },
+      operations: { needsAttention: { invalidate: attentionInvalidate } },
     }),
     sites: {
       list: {
@@ -58,9 +60,12 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
       retryHardwareOutbox: {
-        useMutation: () => ({
+        useMutation: (options: { onSuccess?: () => Promise<void> | void }) => ({
           isPending: false,
-          mutateAsync: retryMutate,
+          mutateAsync: async (input: { id: string }) => {
+            await retryMutate(input);
+            await options.onSuccess?.();
+          },
           variables: undefined,
         }),
       },
@@ -81,6 +86,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 beforeEach(() => {
   retryMutate.mockClear();
   peekInvalidate.mockClear();
+  attentionInvalidate.mockClear();
   mockUserRole = 'admin';
   mockOutboxRows = [];
 });
@@ -134,7 +140,7 @@ describe('DeviceHealthPanel', () => {
     expect(screen.getByText(/print-receipt/)).toBeInTheDocument();
   });
 
-  it('fires the admin retry mutation', () => {
+  it('fires the admin retry mutation and refreshes the attention queue', async () => {
     mockOutboxRows = [
       {
         id: 'h-3',
@@ -158,6 +164,7 @@ describe('DeviceHealthPanel', () => {
     expect(button).not.toBeDisabled();
     fireEvent.click(button);
     expect(retryMutate).toHaveBeenCalledWith({ id: 'h-3' });
+    await vi.waitFor(() => expect(attentionInvalidate).toHaveBeenCalledTimes(1));
   });
 
   it('disables the retry button for manager role', () => {

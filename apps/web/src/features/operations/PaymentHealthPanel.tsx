@@ -83,6 +83,7 @@ export function PaymentHealthPanel() {
       utils.payments.peekOutbox.invalidate(),
       utils.payments.reconciliation.invalidate(),
       utils.payments.methodBreakdown.invalidate(),
+      utils.operations.needsAttention.invalidate(),
     ]);
   };
   const retryMutation = trpc.payments.retryOutbox.useMutation({

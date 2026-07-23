@@ -18,6 +18,7 @@
  * @module services/operations/attention
  */
 import { and, count, eq, inArray } from 'drizzle-orm';
+import { OPERATIONAL_READINESS_CONTRACT } from '@puntovivo/shared/operational-readiness';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { hardwareOutbox, paymentOutbox } from '../../db/schema.js';
@@ -64,7 +65,7 @@ export interface OperationsNeedsAttention {
  * replication is lagging but nothing has failed). Mirrors the readiness
  * sync threshold (`services/readiness` treats pending > 25 as degraded).
  */
-const SYNC_BACKLOG_WARNING_THRESHOLD = 25;
+const SYNC_BACKLOG_WARNING_THRESHOLD = OPERATIONAL_READINESS_CONTRACT.sync.threshold.warningCount;
 
 /** Hardware-outbox statuses that mean a print/drawer job is stuck or failed. */
 const HARDWARE_OUTBOX_FAILURE_STATUSES = ['failed', 'retrying', 'dead_letter'] as const;

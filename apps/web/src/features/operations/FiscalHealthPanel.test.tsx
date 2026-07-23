@@ -14,8 +14,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@/test/utils';
 import { FiscalHealthPanel } from './FiscalHealthPanel';
 
-const retryMutate = vi.fn(async () => undefined);
+const retryMutate = vi.fn(async (_input: { fiscalDocumentId: string }) => undefined);
 const fiscalListInvalidate = vi.fn(async () => undefined);
+const attentionInvalidate = vi.fn(async () => undefined);
 let mockUserRole: 'admin' | 'manager' = 'admin';
 let mockFiscalRows: Array<Record<string, unknown>> = [];
 
@@ -23,6 +24,7 @@ vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
       reports: { fiscal: { list: { invalidate: fiscalListInvalidate } } },
+      operations: { needsAttention: { invalidate: attentionInvalidate } },
     }),
     reports: {
       fiscal: {
@@ -34,9 +36,12 @@ vi.mock('@/lib/trpc', () => ({
           }),
         },
         retryDocument: {
-          useMutation: () => ({
+          useMutation: (options: { onSuccess?: () => Promise<void> | void }) => ({
             isPending: false,
-            mutateAsync: retryMutate,
+            mutateAsync: async (input: { fiscalDocumentId: string }) => {
+              await retryMutate(input);
+              await options.onSuccess?.();
+            },
             variables: undefined,
           }),
         },
@@ -58,6 +63,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 beforeEach(() => {
   retryMutate.mockClear();
   fiscalListInvalidate.mockClear();
+  attentionInvalidate.mockClear();
   mockUserRole = 'admin';
   mockFiscalRows = [];
 });
@@ -135,6 +141,7 @@ describe('FiscalHealthPanel', () => {
     fireEvent.click(screen.getByTestId('fiscal-retry-doc-2'));
     // Retry mutation called with the right document id.
     expect(retryMutate).toHaveBeenCalledWith({ fiscalDocumentId: 'doc-2' });
+    await vi.waitFor(() => expect(attentionInvalidate).toHaveBeenCalledTimes(1));
   });
 
   it('disables the retry button for manager role', () => {

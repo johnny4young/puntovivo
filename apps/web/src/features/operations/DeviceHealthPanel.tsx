@@ -150,7 +150,10 @@ export function DeviceHealthPanel() {
   } = usePaginatedRows(outboxRows, 8);
   const retryMutation = trpc.peripherals.retryHardwareOutbox.useMutation({
     onSuccess: async () => {
-      await utils.peripherals.peekHardwareOutbox.invalidate();
+      await Promise.all([
+        utils.peripherals.peekHardwareOutbox.invalidate(),
+        utils.operations.needsAttention.invalidate(),
+      ]);
       toast.success({
         title: t('device.retry.success'),
       });

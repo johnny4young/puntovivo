@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-07-20. This is the public source of truth for shipped
+> Updated: 2026-07-21. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -33,6 +33,12 @@ The current `main` branch includes:
   local Authority Node modes, renewable Store Hub client sessions with
   main-process credential custody and fixed-destination API transport, a
   durable sync kernel, and operational health surfaces;
+- a provider-neutral recovery ownership board for sync, fiscal, receipt
+  hardware, payments, encrypted backup, and desktop updates, with explicit
+  thresholds, responsible roles, response targets, recovery runbooks, and
+  executable drill evidence; tenant-scoped incident counts poll and invalidate
+  after recovery, and web clearly distinguishes server actions from
+  desktop-only controls;
 - Colombia fiscal foundations plus draft Mexico and Chile document packs. No
   pack is certified for production transmission yet;
 - Electron and browser targets sharing the same React, Fastify, tRPC, and
@@ -40,12 +46,12 @@ The current `main` branch includes:
 
 ## Readiness verdict
 
-| Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                   |
-| ------------------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo               | **Ready**                     | Core retail journeys, administrative surfaces, recovery controls, and representative vertical modules are demonstrable with automated coverage.                               |
-| Controlled internal beta       | **Ready with release checks** | Automated local upgrade and isolated encrypted restore evidence is available; a clean release candidate and platform packaging validation remain required.                    |
-| Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal. |
-| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, signed installers, hardware support policy, incident runbooks, and an observed pilot.                                |
+| Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                  |
+| ------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, memory, and built-runtime launch budgets are automated. |
+| Controlled internal beta       | **Ready with release checks** | Automated local upgrade and isolated encrypted restore evidence is available; a clean release candidate and platform packaging validation remain required.                                   |
+| Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                |
+| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, signed installers, hardware support policy, incident runbooks, and an observed pilot.                                               |
 
 ## Remaining product gaps
 
@@ -57,8 +63,9 @@ The current `main` branch includes:
 - Repeat the automated encrypted recovery rehearsal against packaged artifacts
   on Linux, macOS, and Windows, then set operational recovery-time and
   recovery-point expectations using production-equivalent data volume.
-- Add operator runbooks for fiscal outage, failed update, lost device,
-  corrupted local storage, and cloud-vault failure.
+- Validate the shipped fiscal, update, and cloud-vault runbooks against
+  packaged artifacts; add field procedures for a lost device and corrupted
+  local storage.
 
 ### Fiscal and payments
 
@@ -88,8 +95,9 @@ The current `main` branch includes:
   before treating attendance classifications as payroll-final money.
 - Complete a Windows NVDA accessibility sweep and keep real-device cashier
   ergonomics in the release checklist.
-- Add production dashboards and alert ownership for telemetry already emitted
-  by the application.
+- Connect the shipped in-product ownership contract to provisioned external
+  alert delivery, acknowledgement, retention, tenant error-rate, and
+  crash-free-session dashboards.
 
 ## Release policy
 

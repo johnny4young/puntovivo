@@ -41,7 +41,7 @@
     "clean": "node ./scripts/clean-paths.mjs node_modules \"apps/*/node_modules\" \"packages/*/node_modules\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "audit:repository": "node scripts/check-repository-hygiene.mjs",
-    "ci:shared": "pnpm run audit:repository && pnpm --filter @puntovivo/shared run ci && node --test scripts/check-repository-hygiene.test.mjs scripts/ensure-shared-build.test.mjs"
+    "ci:shared": "pnpm run audit:repository && pnpm --filter @puntovivo/shared run ci && node --experimental-strip-types --test scripts/check-operational-readiness.test.mjs scripts/check-repository-hygiene.test.mjs scripts/ensure-shared-build.test.mjs && node --experimental-strip-types scripts/check-operational-readiness.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

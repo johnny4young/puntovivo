@@ -77,7 +77,7 @@ describe('NeedsAttentionPanel', () => {
 
   it('shows the all-clear state when no areas need attention', () => {
     mockState = successState([]);
-    render(<NeedsAttentionPanel onReviewArea={vi.fn()} />);
+    render(<NeedsAttentionPanel onReviewArea={vi.fn()} onNavigate={vi.fn()} />);
     expect(screen.getByTestId('needs-attention-all-clear')).toBeInTheDocument();
     expect(screen.getByText(/All clear/i)).toBeInTheDocument();
     expect(screen.queryByTestId('needs-attention-list')).not.toBeInTheDocument();
@@ -88,7 +88,7 @@ describe('NeedsAttentionPanel', () => {
       { area: 'fiscal', severity: 'danger', count: 3 },
       { area: 'sync', severity: 'warning', count: 26 },
     ]);
-    render(<NeedsAttentionPanel onReviewArea={vi.fn()} />);
+    render(<NeedsAttentionPanel onReviewArea={vi.fn()} onNavigate={vi.fn()} />);
 
     const fiscal = screen.getByTestId('needs-attention-row-fiscal');
     expect(fiscal).toHaveAttribute('data-severity', 'danger');
@@ -100,12 +100,24 @@ describe('NeedsAttentionPanel', () => {
     expect(sync).toHaveTextContent(/26 items pending/i);
   });
 
-  it('calls onReviewArea with the area when Review is clicked', () => {
+  it('opens retryable Operations areas inside their resolving panel', () => {
     const onReviewArea = vi.fn();
     mockState = successState([{ area: 'payments', severity: 'danger', count: 1 }]);
-    render(<NeedsAttentionPanel onReviewArea={onReviewArea} />);
+    render(<NeedsAttentionPanel onReviewArea={onReviewArea} onNavigate={vi.fn()} />);
     fireEvent.click(screen.getByTestId('needs-attention-cta-payments'));
     expect(onReviewArea).toHaveBeenCalledWith('payments');
+    expect(screen.getByTestId('needs-attention-cta-payments')).toHaveTextContent(
+      /Review and retry/i
+    );
+  });
+
+  it('routes synchronization to the surface that can resolve conflicts', () => {
+    const onNavigate = vi.fn();
+    mockState = successState([{ area: 'sync', severity: 'danger', count: 1 }]);
+    render(<NeedsAttentionPanel onReviewArea={vi.fn()} onNavigate={onNavigate} />);
+    fireEvent.click(screen.getByTestId('needs-attention-cta-sync'));
+    expect(onNavigate).toHaveBeenCalledWith('/company?tab=data');
+    expect(screen.getByTestId('needs-attention-cta-sync')).toHaveTextContent(/Resolve sync/i);
   });
 
   it('renders the loading skeleton while fetching', () => {
@@ -117,7 +129,7 @@ describe('NeedsAttentionPanel', () => {
       error: null,
       refetch: vi.fn(),
     };
-    render(<NeedsAttentionPanel onReviewArea={vi.fn()} />);
+    render(<NeedsAttentionPanel onReviewArea={vi.fn()} onNavigate={vi.fn()} />);
     expect(screen.getByTestId('needs-attention-loading')).toBeInTheDocument();
     expect(screen.queryByTestId('needs-attention-list')).not.toBeInTheDocument();
   });
@@ -132,14 +144,16 @@ describe('NeedsAttentionPanel', () => {
       error: new Error('boom'),
       refetch,
     };
-    render(<NeedsAttentionPanel onReviewArea={vi.fn()} />);
+    render(<NeedsAttentionPanel onReviewArea={vi.fn()} onNavigate={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
   it('has no serious accessibility violations', async () => {
     mockState = successState([{ area: 'device', severity: 'danger', count: 2 }]);
-    const { container } = render(<NeedsAttentionPanel onReviewArea={vi.fn()} />);
+    const { container } = render(
+      <NeedsAttentionPanel onReviewArea={vi.fn()} onNavigate={vi.fn()} />
+    );
     await assertNoA11yViolations(container);
   });
 });

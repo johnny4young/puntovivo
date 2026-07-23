@@ -52,7 +52,10 @@ export function FiscalHealthPanel() {
   );
   const retryMutation = trpc.reports.fiscal.retryDocument.useMutation({
     onSuccess: async () => {
-      await utils.reports.fiscal.list.invalidate();
+      await Promise.all([
+        utils.reports.fiscal.list.invalidate(),
+        utils.operations.needsAttention.invalidate(),
+      ]);
       toast.success({
         title: t('fiscal.retry.success'),
       });

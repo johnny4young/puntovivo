@@ -22,6 +22,10 @@ vi.mock('./SupportHealthPanel', () => ({
   SupportHealthPanel: () => <div data-testid="support-health-panel" />,
 }));
 
+vi.mock('./OperationalReadinessBoard', () => ({
+  OperationalReadinessBoard: () => <div data-testid="operational-readiness-board" />,
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
@@ -35,6 +39,7 @@ vi.mock('@/lib/trpc', () => ({
         reconciliation: { invalidate: vi.fn() },
         methodBreakdown: { invalidate: vi.fn() },
       },
+      operations: { needsAttention: { invalidate: vi.fn() } },
     }),
     useQueries: (cb: (t: { peripherals: { list: () => unknown } }) => unknown[]) =>
       cb({ peripherals: { list: () => ({ data: [], isLoading: false }) } }),
