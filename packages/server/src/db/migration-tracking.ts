@@ -26,8 +26,10 @@ export function alignMigrationTrackingTimestamps(
     .get() as { present: number } | undefined;
   if (trackingTable === undefined) return 0;
   const rows = sqlite
-    .prepare('SELECT id, hash, created_at AS createdAt FROM __drizzle_migrations ORDER BY id')
-    .all() as Array<{ id: number; hash: string; createdAt: number }>;
+    .prepare(
+      'SELECT rowid AS rowId, hash, created_at AS createdAt FROM __drizzle_migrations ORDER BY rowid'
+    )
+    .all() as Array<{ rowId: number; hash: string; createdAt: number }>;
   if (rows.length === 0) return 0;
 
   const journal = JSON.parse(
@@ -40,14 +42,14 @@ export function alignMigrationTrackingTimestamps(
   }
 
   const update = sqlite.prepare(
-    'UPDATE __drizzle_migrations SET created_at = ? WHERE id = ? AND hash = ?'
+    'UPDATE __drizzle_migrations SET created_at = ? WHERE rowid = ? AND hash = ?'
   );
   return sqlite.transaction(() => {
     let aligned = 0;
     for (const row of rows) {
       const expected = timestampByHash.get(row.hash);
       if (expected !== undefined && Number(row.createdAt) !== expected) {
-        update.run(expected, row.id, row.hash);
+        update.run(expected, row.rowId, row.hash);
         aligned += 1;
       }
     }

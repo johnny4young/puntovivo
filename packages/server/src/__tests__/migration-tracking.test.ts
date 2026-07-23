@@ -44,8 +44,11 @@ describe('alignMigrationTrackingTimestamps', () => {
     );
 
     const sqlite = new Database(':memory:');
+    // Mirror drizzle-orm's production SQLite DDL exactly. SQLite does not
+    // treat SERIAL as an INTEGER PRIMARY KEY alias, so rows inserted by the
+    // migrator have a null id and must be addressed through rowid.
     sqlite.exec(
-      'CREATE TABLE __drizzle_migrations (id INTEGER PRIMARY KEY, hash text NOT NULL, created_at numeric)'
+      'CREATE TABLE __drizzle_migrations (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at numeric)'
     );
     const hash = (value: string) => createHash('sha256').update(value).digest('hex');
     sqlite
@@ -58,10 +61,14 @@ describe('alignMigrationTrackingTimestamps', () => {
       .prepare('INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)')
       .run('unknown', 777);
 
+    expect(
+      sqlite.prepare('SELECT COUNT(*) AS count FROM __drizzle_migrations WHERE id IS NULL').get()
+    ).toEqual({ count: 3 });
+
     expect(alignMigrationTrackingTimestamps(sqlite, folder)).toBe(2);
     expect(
       sqlite
-        .prepare('SELECT hash, created_at AS createdAt FROM __drizzle_migrations ORDER BY id')
+        .prepare('SELECT hash, created_at AS createdAt FROM __drizzle_migrations ORDER BY rowid')
         .all()
     ).toEqual([
       { hash: hash(sqlA), createdAt: 100 },

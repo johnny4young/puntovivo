@@ -31,7 +31,8 @@ import { resolveCachedNodeBinding } from '../db/native-binding.js';
 const nativeBinding = resolveCachedNodeBinding();
 
 interface DrizzleMigrationRow {
-  id: number;
+  rowId: number;
+  id: number | null;
   hash: string;
   created_at: number;
 }
@@ -92,7 +93,9 @@ function listMigrationRows(sqlite: Database.Database): DrizzleMigrationRow[] {
   // raw SQL so this test is independent of whatever query builder the
   // migrator happens to expose.
   return sqlite
-    .prepare('SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY id')
+    .prepare(
+      'SELECT rowid AS rowId, id, hash, created_at FROM __drizzle_migrations ORDER BY rowid'
+    )
     .all() as DrizzleMigrationRow[];
 }
 
@@ -445,6 +448,38 @@ describe('Versioned Drizzle migrations', () => {
     };
     const rows = listMigrationRows(liveDb.$client);
     expectMigrationsMatchJournal(rows);
+  });
+
+  it('repairs timestamp drift on Drizzle tracking rows whose SERIAL ids are null', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-drift-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'drift.db');
+
+    await initDatabase({ dbPath, seedData: false });
+    closeDatabase();
+
+    const drifted = new Database(dbPath, { nativeBinding });
+    const expectedCount = readExpectedMigrations().length;
+    expect(
+      (
+        drifted
+          .prepare('SELECT COUNT(*) AS count FROM __drizzle_migrations WHERE id IS NULL')
+          .get() as { count: number }
+      ).count
+    ).toBe(expectedCount);
+    drifted
+      .prepare('UPDATE __drizzle_migrations SET created_at = created_at - 1000000000')
+      .run();
+    drifted.close();
+
+    // A row-id-based repair must restore the current journal timestamps before
+    // drizzleMigrate decides what is pending. Addressing these rows through the
+    // null SERIAL id would update nothing and replay the baseline into an
+    // already materialised schema.
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+    expectMigrationsMatchJournal(listMigrationRows(liveDb.$client));
   });
 
   it('hard-fails with an actionable error when the migrations folder is missing', async () => {
