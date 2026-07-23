@@ -26,6 +26,14 @@ import { getDefaultRouteForRole, getDefaultRouteForRoleWithSetup } from './roleA
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { setActiveTenantId } from '@/lib/observability';
+import {
+  clearHubSession,
+  isHubClientAuth,
+  loginToHub,
+  logoutFromHub,
+  refreshHubSession,
+  switchHubStaff,
+} from './hubAuthTransport';
 
 interface AuthContextType {
   user: User | null;
@@ -238,7 +246,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       try {
         await vanillaClient.health.check.query();
-        const refreshResult = await vanillaClient.auth.refresh.mutate();
+        const refreshResult = isHubClientAuth()
+          ? await refreshHubSession()
+          : await vanillaClient.auth.refresh.mutate();
         setAccessToken(refreshResult.token);
         // register the rotated access token with the
         // desktop session singleton so the IPC bridge handlers can
@@ -270,8 +280,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           err instanceof TRPCClientError &&
           (err.data?.code === 'UNAUTHORIZED' ||
             err.message === 'You must be logged in to perform this action');
+        const serializedHubError =
+          typeof err === 'object' && err !== null
+            ? (err as { data?: { code?: string; httpStatus?: number } })
+            : {};
+        const isSerializedHubUnauthorized =
+          serializedHubError.data?.code === 'UNAUTHORIZED' ||
+          serializedHubError.data?.httpStatus === 401;
 
-        if (!isUnauthorized && !isNetworkConnectivityError(err)) {
+        if (!isUnauthorized && !isSerializedHubUnauthorized && !isNetworkConnectivityError(err)) {
           console.error('Auth init error:', err);
         }
 
@@ -303,10 +320,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setError(null);
 
       try {
-        const authData = await vanillaClient.auth.login.mutate({
-          email: credentials.email,
-          password: credentials.password,
-        });
+        const authData = isHubClientAuth()
+          ? await loginToHub({
+              email: credentials.email,
+              password: credentials.password,
+            })
+          : await vanillaClient.auth.login.mutate({
+              email: credentials.email,
+              password: credentials.password,
+            });
         setAccessToken(authData.token);
         // bind the access token to the desktop session
         // singleton so subsequent IPC db:*/sync:* calls can derive
@@ -421,7 +443,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Do not mutate local identity until the server has verified the PIN.
       // A rejected attempt must leave the current operator fully intact.
-      const authData = await vanillaClient.auth.switchStaff.mutate(input);
+      const authData = isHubClientAuth()
+        ? await switchHubStaff(input)
+        : await vanillaClient.auth.switchStaff.mutate(input);
 
       try {
         // Notify every other same-origin tab before this document installs the
@@ -429,7 +453,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // ceiling; storage events intentionally do not fire in this document.
         window.localStorage.setItem(
           STAFF_HANDOFF_STORAGE_KEY,
-          `${input.targetUserId}:${authData.sessionExpiresAt}`
+          `${input.targetUserId}:${authData.sessionExpiresAt ?? 'standard'}`
         );
         clearAccessToken();
         resetIdentityOwnedState({ clearVisibleSession: false });
@@ -460,6 +484,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // The server already replaced the httpOnly refresh cookie. Keeping the
         // old UI identity after a local adoption failure would create a split
         // brain, so fail closed to the full login screen.
+        if (isHubClientAuth()) {
+          try {
+            await clearHubSession();
+          } catch (clearErr) {
+            console.warn('Store Hub session clear failed after staff handoff:', clearErr);
+          }
+        }
         clearLocalSession();
         navigate('/login');
         setError(err);
@@ -472,7 +503,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
-      await vanillaClient.auth.logout.mutate();
+      if (isHubClientAuth()) {
+        await logoutFromHub();
+      } else {
+        await vanillaClient.auth.logout.mutate();
+      }
     } catch (err) {
       // Ignore the error for the user-facing flow — local state is
       // cleared in `finally` regardless — but log it so the operator

@@ -240,9 +240,52 @@ interface SyncAPI {
   setConfig: (config: Record<string, unknown>) => Promise<void>;
 }
 
+interface HubAccessGrant {
+  token: string;
+  sessionExpiresAt?: string;
+}
+
+interface HubApiRequest {
+  path: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers: Record<string, string>;
+  body?: string;
+}
+
+interface HubApiResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+}
+
+type HubAuthIpcResult<T> =
+  | { ok: true; data: T }
+  | {
+      ok: false;
+      error: { message: string; errorCode?: string; trpcCode?: string; status?: number };
+    };
+
+interface SessionAPI {
+  register: (accessToken: string) => Promise<{ ok: true }>;
+  clear: () => Promise<{ ok: true }>;
+  loginHub: (input: {
+    email: string;
+    password: string;
+  }) => Promise<HubAuthIpcResult<HubAccessGrant>>;
+  refreshHub: () => Promise<HubAuthIpcResult<HubAccessGrant>>;
+  switchStaffHub: (input: {
+    targetUserId: string;
+    pin: string;
+  }) => Promise<HubAuthIpcResult<HubAccessGrant>>;
+  logoutHub: () => Promise<HubAuthIpcResult<{ ok: true }>>;
+  requestHub: (input: HubApiRequest) => Promise<HubApiResponse>;
+  clearHub: () => Promise<{ ok: true }>;
+}
+
 interface DesktopBridgeAPI extends DesktopElectronAPI {
   db: DatabaseAPI;
   sync: SyncAPI;
+  session: SessionAPI;
 }
 
 declare global {
@@ -250,6 +293,7 @@ declare global {
     electron: DesktopElectronAPI;
     db: DatabaseAPI;
     sync: SyncAPI;
+    session: SessionAPI;
     api: DesktopBridgeAPI;
   }
 }

@@ -577,6 +577,16 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
     tenantId
   );
 
+  // Variant rows keep a restrictive self-reference to their matrix parent.
+  // SQLite evaluates RESTRICT immediately, so deleting the parent and its
+  // selected children in one statement still fails unless the edge is
+  // detached first. Both sides are disposable E2E products here.
+  db.prepare(
+    `update products
+        set variant_parent_id = null
+      where variant_parent_id in (${e2eProductIds})`
+  ).run(tenantId);
+
   // Launch-import and ledger journeys create durable E2E customers with
   // template actors. They are therefore not covered by the disposable-user
   // cleanup above and eventually push fresh fixtures past the first 50 rows

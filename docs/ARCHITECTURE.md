@@ -104,6 +104,21 @@ precondition for a local sale. Runtime modes are:
 - `hub_client` — a terminal that submits commands to the store hub and may use
   a local hardware bridge.
 
+In Electron `hub_client` mode, authentication renewal is a main-process
+capability rather than a renderer cookie flow. Main performs login, refresh,
+staff switching, and logout against the configured hub; proxies renderer
+`/api/*` traffic only to that fixed destination with an explicit request-header
+allowlist; seals the rotating refresh and CSRF values with `safeStorage`; and persists the envelope with
+owner-only file permissions (`0600` where supported and the per-user OS ACL on
+Windows). The renderer receives only the short-lived access token and
+response-shaped API results; it never receives the renewable cookies or a
+general-purpose network primitive. Desktop IPC
+registration accepts that token only when it exactly matches the grant
+currently held by the main-process hub session, so it never attempts to
+validate a remote-hub signature with the embedded local server secret. Packaged
+clients require an HTTPS hub URL; development permits HTTP only on a loopback
+address.
+
 The sync kernel is implemented, but it is not a promise of hosted, offline
 multi-master cloud replication. Public readiness and known operational gaps are
 listed in [PROJECT-STATUS.md](./PROJECT-STATUS.md).

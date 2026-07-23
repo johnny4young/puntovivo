@@ -17,8 +17,9 @@
  * @module hooks/useHubReachability
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getRuntimeConfigSync } from '@/lib/runtimeConfigClient';
+import { createHubApiFetch } from '@/features/auth/hubAuthTransport';
 
 const DEFAULT_INTERVAL_MS = 30_000;
 const DEFAULT_TIMEOUT_MS = 5_000;
@@ -65,7 +66,10 @@ export function useHubReachability(options: UseHubReachabilityOptions = {}): Hub
   const isHubClient = cfg.authorityMode === 'hub_client' && Boolean(cfg.hubUrl);
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const fetchImpl = options.fetchImpl ?? fetch;
+  const fetchImpl = useMemo(
+    () => options.fetchImpl ?? (isHubClient ? createHubApiFetch() : fetch),
+    [isHubClient, options.fetchImpl]
+  );
   const healthUrl =
     isHubClient && cfg.hubUrl ? `${cfg.hubUrl.replace(/\/+$/, '')}/api/health` : null;
   const [state, setState] = useState<HubReachabilityState>(DEFAULT_STATE);

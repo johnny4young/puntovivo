@@ -63,6 +63,14 @@ authoritative for the operation. It is not required for local selling.
   It owns the SQLite file; terminals never mount that file directly.
 - `hub_client` points the renderer/tRPC client at `hubUrl` and must show
   hub reachability in the UI before the cashier starts a sale.
+- Electron `hub_client` authentication crosses a narrow main/preload boundary:
+  main owns the remote login, rotating refresh/CSRF pair, staff switch, and
+  logout. Renderer `/api/*` traffic crosses the same fixed-destination boundary
+  with allowlisted request headers, avoiding dynamic CSP or CORS expansion; the
+  renderer owns only the short-lived access token. The renewable
+  credential envelope is sealed with the OS keychain and stored mode `0600`
+  where supported (per-user OS ACL on Windows). Packaged clients require HTTPS,
+  with loopback HTTP permitted only in development.
 - Peripherals physically attached to a `hub_client` terminal execute
   through a client-local hardware bridge after the hub authorizes the
   command or returns the printable payload. That bridge never writes
@@ -87,4 +95,4 @@ authoritative for the operation. It is not required for local selling.
 - - Device pairing and authority health.
 - - Satellite offline fallback spike.
 
-Updated: 2026-05-08 - initial Authority Node runtime-mode decision.
+Updated: 2026-07-20 - recorded secure renewable Electron hub-client sessions.

@@ -30,8 +30,9 @@ The current `main` branch includes:
   restore drills, S3-compatible cloud vault upload, and backup-protection
   attestation;
 - tenant and site isolation, audit logs, role guards, device registration,
-  local Authority Node modes, a durable sync kernel, and operational health
-  surfaces;
+  local Authority Node modes, renewable Store Hub client sessions with
+  main-process credential custody and fixed-destination API transport, a
+  durable sync kernel, and operational health surfaces;
 - Colombia fiscal foundations plus draft Mexico and Chile document packs. No
   pack is certified for production transmission yet;
 - Electron and browser targets sharing the same React, Fastify, tRPC, and
@@ -76,8 +77,6 @@ The current `main` branch includes:
   the supported network printing path in a physical lab.
 - Implement or explicitly exclude direct USB and serial ESC/POS transports;
   today the safe production path is system or TCP printing.
-- Resolve renewable hub-client sessions over a secure LAN origin. Current
-  cross-origin cookie policy requires re-login after the access token expires.
 - Observe multi-register Authority Node operation in a real store before
   promising satellite offline writes or remote multi-node replication.
 

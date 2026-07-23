@@ -15,6 +15,11 @@ storage, bounded external effects, and auditable administrative actions.
 - Shared role middleware defines admin, manager, and cashier capability sets.
 - Staff PIN switching is scoped, rate limited, audited, and cannot create a
   privilege level the acting terminal is not allowed to assume.
+- Electron Store Hub clients keep rotating refresh and CSRF credentials in the
+  main process, sealed by the OS keychain. The sandboxed renderer receives only
+  short-lived access tokens. Hub API calls cross a fixed-destination `/api/*`
+  proxy that strips renderer cookies and non-allowlisted request headers; the
+  bridge cannot be repointed to an arbitrary origin.
 
 ## Tenant and site isolation
 
@@ -57,8 +62,9 @@ Production builds do not inherit development DevTools switches.
   outboxes rather than inside business transactions.
 - Retries are bounded and idempotent; terminal failure remains visible to an
   operator.
-- Store Hub deployments need an explicit TLS and renewable-session decision
-  before they are advertised as production ready across origins.
+- Packaged Store Hub clients require HTTPS. Plain HTTP is accepted only for a
+  loopback development hub; LAN credentials never receive a silent transport
+  downgrade.
 
 ## Auditability
 

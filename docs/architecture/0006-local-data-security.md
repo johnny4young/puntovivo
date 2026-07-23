@@ -1,6 +1,7 @@
 # 0006 — Local data security: backup, restore, and the "no PAN/CVV" invariant
 
-> Status: **Accepted** ( 2026-05-07).
+> Status: **Accepted** (2026-05-07); encrypted-storage posture updated
+> 2026-07-20 to match the shipped SQLCipher and cross-key recovery boundary.
 > Affects: backup/restore IPC handlers in `apps/desktop/src/main/`; `reports.diagnostics.export` payload sanitization; `db/schema.ts` column lint; future payment integration; future webhook foundation.
 > Predecessor ADRs: 0001 (Local Store Authority), 0002 (Command Envelope), 0003 (Outbox Taxonomy), 0004 (Conflict Policy), 0005 (Sync Payload Contract).
 
@@ -8,15 +9,22 @@
 
 Puntovivo POS deploys to retail terminals that range from a single owner-operated tablet to a multi-cashier desktop in a chain store. The local SQLite DB at `${userData}/data/local.db` plus the device identity at `${userData}/device-id.txt` together form the **authoritative store of operational state** (per ADR-0001). The threats this ADR addresses, and what each can or cannot see:
 
-| Actor                                                                                          | Trusted?              | Sees                                                            | Cannot see (post-)                                                                                                       |
-| ---------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **Logged-in cashier on the box**                                                               | Yes (per role)        | All data their tRPC procedures expose                           | Data outside their tenant; admin-only diagnostics                                                                        |
-| **Local admin user (OS account)**                                                              | Yes                   | Everything in `local.db` (the OS account is the trust boundary) | Encrypted-at-rest data — out of scope; v1 relies on OS user isolation                                                    |
-| **Attacker with file-system read** (stolen disk image, careless backup, leaked support ticket) | No                    | Whatever is in `local.db` + the diagnostic export               | PAN/CVV (schema-banned); credentials (sanitized at export time)                                                          |
-| **Ex-employee with a copy of disk image**                                                      | No                    | Same as the file-system attacker                                | Same                                                                                                                     |
-| **External SaaS receiving a diagnostic ZIP**                                                   | No (least-privileged) | export payload, post-sanitization                               | All sensitive keys redacted by the sanitizer; the manifest's `redactedKeysByTable` tells the recipient what got stripped |
+| Actor                                                                                          | Trusted?              | Sees                                                                  | Cannot see without a separate secret or authorization boundary                                   |
+| ---------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Logged-in cashier on the box**                                                               | Yes (per role)        | Data exposed by authorized tRPC procedures                            | Data outside their tenant; admin-only diagnostics; database and backup keys                      |
+| **Local admin user (OS account)**                                                              | Privileged locally    | Application files and operating-system account data                   | SQLCipher rows without the installation key; renderer write-only secrets                         |
+| **Attacker with file-system read** (stolen disk image, careless backup, leaked support ticket) | No                    | Encrypted database or backup bytes and any separately exported bundle | Decrypted business rows; PAN/CVV (schema-banned); credentials removed from sanitized diagnostics |
+| **Ex-employee with a copy of disk image**                                                      | No                    | Same encrypted artifacts as the file-system attacker                  | Current installation secrets unless key custody was compromised separately                       |
+| **External SaaS receiving a diagnostic ZIP**                                                   | No (least-privileged) | Export payload after sanitization                                     | Sensitive values redacted by the sanitizer; the manifest records which key names were stripped   |
 
-The "OS user account is the trust boundary" decision is consistent with how every retail POS we benchmarked (Square Terminal, Clover, Toast) handles local persistence: encryption at rest is offered as a paid tier, never as a baseline. stays at the baseline; encryption-at-rest can land in a follow-up if a customer-site requires it.
+Packaged installations no longer rely on the OS account as the sole data
+boundary. The operational database uses SQLCipher with a key obtained through
+Electron secure storage. Backup bundles remain encrypted, and cross-device
+restore verifies the source key before rekeying only the staged copy to the
+destination installation key. OS account isolation still matters for access to
+the running application and key store, but a copied database or bundle is not
+cleartext by default. Legacy cleartext databases remain supported only as an
+upgrade/import boundary.
 
 ## Decision
 

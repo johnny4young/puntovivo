@@ -24,6 +24,7 @@ import { registerPeripheralsIpc } from './ipc/peripherals.js';
 import { registerPrintIpc } from './ipc/print.js';
 import { registerDataBridgeIpc } from './ipc/register.js';
 import { registerSessionIpc } from './ipc/session-ipc.js';
+import { createHubAuthSession, HUB_AUTH_STATE_FILE } from './session/hub-auth-session.js';
 import {
   registerSettingsIpc,
   applyThemePreference,
@@ -64,6 +65,19 @@ const isDev = !app.isPackaged;
 const shouldOpenDevTools = !app.isPackaged && process.env.PUNTOVIVO_OPEN_DEVTOOLS === 'true';
 process.env.PUNTOVIVO_RUNTIME_ENV ??= isDev ? 'development' : 'production';
 mainLog.info({ isPackaged: app.isPackaged, isDev }, 'electron runtime detected');
+const authorityRuntime = resolveRuntimeConfig({ env: process.env });
+const hubAuthSession = (() => {
+  if (authorityRuntime.authorityMode !== 'hub_client') return undefined;
+  if (!authorityRuntime.hubUrl) {
+    throw new Error('PUNTOVIVO_HUB_URL is required when PUNTOVIVO_AUTHORITY_MODE=hub_client');
+  }
+  return createHubAuthSession({
+    hubUrl: authorityRuntime.hubUrl,
+    getStatePath: () => join(app.getPath('userData'), HUB_AUTH_STATE_FILE),
+    safeStorage,
+    allowInsecureLoopback: isDev,
+  });
+})();
 
 let isQuitting = false;
 let serverShutdownComplete = false;
@@ -201,7 +215,7 @@ registerSettingsIpc({
   refreshTray: trayController.refresh,
 });
 registerDeviceIpc({ log: mainLog });
-registerSessionIpc();
+registerSessionIpc({ ...(hubAuthSession ? { hubAuthSession } : {}) });
 registerDataBridgeIpc({ log: mainLog });
 registerPrintIpc();
 
@@ -212,10 +226,9 @@ app.whenReady().then(async () => {
   // baseline CSP for renderer-served responses. Fastify API responses already
   // carry Helmet's CSP and must not receive a duplicate concatenated header.
   const isPackagedBuild = app.isPackaged;
-  const rendererSecurityRuntime = resolveRuntimeConfig({ env: process.env });
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const url = details.url ?? '';
-    if (isFastifyApiResponse(url, rendererSecurityRuntime)) {
+    if (isFastifyApiResponse(url, authorityRuntime)) {
       // omit responseHeaders rather than passing explicit undefined.
       callback(
         details.responseHeaders === undefined ? {} : { responseHeaders: details.responseHeaders }
@@ -227,7 +240,7 @@ app.whenReady().then(async () => {
         ...(details.responseHeaders ?? {}),
         ...buildRendererSecurityHeaders({
           isPackagedBuild,
-          runtime: rendererSecurityRuntime,
+          runtime: authorityRuntime,
           webDevServerUrl: WEB_DEV_SERVER_URL,
           // allow the configured renderer telemetry origin only.
           sentryDsn: process.env.PUNTOVIVO_SENTRY_DSN,

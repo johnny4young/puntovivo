@@ -31,7 +31,6 @@ const sampleAdminPayload = {
   email: 'admin@puntovivo.test',
   role: 'admin' as const,
   sessionVersion: 7,
-  tokenType: 'access' as const,
 } satisfies VerifiedPayload;
 
 const sampleCashierPayload = {
@@ -40,7 +39,6 @@ const sampleCashierPayload = {
   email: 'cashier@puntovivo.test',
   role: 'cashier' as const,
   sessionVersion: 1,
-  tokenType: 'access' as const,
 } satisfies VerifiedPayload;
 
 const acceptVerifier =

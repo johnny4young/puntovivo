@@ -1,8 +1,10 @@
 # Inventory & Units Model — target design and phased migration
 
-Status: living design doc (Auditoría 2026-07). current shipped; B and C are
-staged. This is the world-class target for the units/inventory core and the
-low-risk, additive path to get there without a big-bang migration.
+Status: living design doc (updated 2026-07-20). The units foundation, stock
+authority, packaging barcodes, lots, FEFO consumption, realized COGS, serial
+logistics, and variant matrices are shipped. Location/bin-level stock remains
+future work. This document records the additive path used to reach the current
+model without a big-bang migration.
 
 ## Why this exists
 
@@ -15,16 +17,20 @@ production gate — a standardized unit code on every fiscal e-invoice line.
 
 - `units` — tenant-scoped, `name` + `abbreviation` (+ current columns below).
 - `unit_x_product` — per-product unit assignment carrying `equivalence`
-  (factor to the product's own base unit), `price`, `isBase`.
-- `products.stock` (legacy denormalized real) **and** `inventory_balances`
-  (site, product → `onHand`/`reserved`) — two stock representations.
+  (factor to the product's own base unit), `price`, `isBase`, and a packaging
+  barcode.
+- `inventory_balances` (site, product → `onHand`/`reserved`) is the sole
+  stock authority. `product_stock_totals` is its trigger-maintained read model;
+  the legacy `products.stock` column no longer exists.
 - Transaction lines (`sale_items`, `purchase_items`, `order_items`,
   `transfer_order_items`) snapshot `unitId` + `unitEquivalence` + `quantity`
   (in the chosen unit) + `normalizedQuantity` (base units). Inventory moves in
   `normalizedQuantity`.
 - `products.sellByFraction` + `fractionStep` + `fractionMinimum` for weighed
-  sales; `products.barcode` (single column).
+  sales; `products.barcode` remains the base-unit barcode.
 - `products.cost` single mutable field; `sale_items.costAtSale` snapshots it.
+- `products.tracksSerials` gates per-unit serial receipt, site ownership,
+  transfer, sale, return, warranty, and lookup history.
 
 ### Genuine strengths (keep these invariants)
 
@@ -94,7 +100,7 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
    stock check already keyed off `inventory_balances`. Because drift is now
    structurally impossible, `reconcileProductStockFromBalances` and the
    discrepancy report are retained but no-op / always-empty. The derived total
-   is MATERIALIZED since : `product_stock_totals` (tenant, product →
+   is materialized in `product_stock_totals` (tenant, product →
    total) is maintained exclusively by the SQLite triggers of migration `0008`
    (insert/update-of-on_hand/delete on `inventory_balances`), so `derive.ts`
    reads an O(1) PK point-lookup instead of re-summing balances per product.
@@ -105,10 +111,7 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
 3. **Location/bin grain (STAGED)** — `inventory_balances` still reserves a slot
    for location-level granularity (per its own doc comment); unstarted.
 
-## Phase C — lots, expiry & costing (FOUNDATION SHIPPED)
-
-(data model + FEFO/costing engine + admin surface) is in;
-auto-consumption on the sale path is the next slice.
+## Phase C — lots, expiry, costing, and serial logistics (SHIPPED)
 
 1. **Lot/batch + expiry (DONE, foundation).** `inventory_lots` (site, product,
    lot_no, expiry, on_hand, unit_cost, status) + `products.tracks_lots` opt-in;
@@ -142,10 +145,15 @@ auto-consumption on the sale path is the next slice.
    `product.cost` snapshot for now — the precise per-lot COGS lives in
    `sale_item_lots`, so margin reporting can adopt it without any regression to
    the existing cost field.
-4. **Serial numbers (STAGED)** — per-unit serials for warranty (electronics,
-   tools); unstarted.
+4. **Serial numbers and logistics (DONE).** `product_serials` records the
+   tenant, product, current site, status, acquisition cost, receipt, sale,
+   return, and warranty evidence for each physical unit. Purchase receipt,
+   exact inter-site transfer, checkout selection, reversals, and warranty
+   lookup preserve tenant/site ownership and append durable serial history.
+   `sale_item_serials` keeps prior sale associations even when a returned unit
+   becomes sellable again.
 
-Margin/COGS reporting over `sale_item_lots` (DONE — ). The
+Margin/COGS reporting over `sale_item_lots` is also shipped. The
 `reports.profit.margin` procedure + the admin Profitability page
 (`/profitability`) surface realized gross margin over a date range, sourcing
 COGS from the per-lot ledger for lot-tracked lines and the `cost_at_sale`

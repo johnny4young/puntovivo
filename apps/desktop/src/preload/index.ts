@@ -7,6 +7,14 @@ import type {
 } from '../main/backup/cloud-vault.js';
 import type { BackupRestoreDrillReport } from '../main/backup/restore-drill.js';
 import type { BackupScheduleFrequency, BackupScheduleStatus } from '../main/backup/scheduler.js';
+import type {
+  HubAccessGrant,
+  HubApiRequest,
+  HubApiResponse,
+  HubAuthIpcResult,
+  HubLoginInput,
+  HubSwitchStaffInput,
+} from '../main/session/hub-auth-session.js';
 
 // Type definitions for exposed API
 export interface ElectronAPI {
@@ -300,6 +308,12 @@ export interface SyncAPI {
 export interface SessionAPI {
   register: (accessToken: string) => Promise<{ ok: true }>;
   clear: () => Promise<{ ok: true }>;
+  loginHub: (input: HubLoginInput) => Promise<HubAuthIpcResult<HubAccessGrant>>;
+  refreshHub: () => Promise<HubAuthIpcResult<HubAccessGrant>>;
+  switchStaffHub: (input: HubSwitchStaffInput) => Promise<HubAuthIpcResult<HubAccessGrant>>;
+  logoutHub: () => Promise<HubAuthIpcResult<{ ok: true }>>;
+  requestHub: (input: HubApiRequest) => Promise<HubApiResponse>;
+  clearHub: () => Promise<{ ok: true }>;
 }
 
 export interface DesktopBridgeAPI extends ElectronAPI {
@@ -394,6 +408,12 @@ const syncAPI: SyncAPI = {
 const sessionAPI: SessionAPI = {
   register: (accessToken: string) => ipcRenderer.invoke('session:register', accessToken),
   clear: () => ipcRenderer.invoke('session:clear'),
+  loginHub: input => ipcRenderer.invoke('session:hub-login', input),
+  refreshHub: () => ipcRenderer.invoke('session:hub-refresh'),
+  switchStaffHub: input => ipcRenderer.invoke('session:hub-switch-staff', input),
+  logoutHub: () => ipcRenderer.invoke('session:hub-logout'),
+  requestHub: input => ipcRenderer.invoke('session:hub-request', input),
+  clearHub: () => ipcRenderer.invoke('session:hub-clear'),
 };
 
 const desktopBridgeAPI: DesktopBridgeAPI = {

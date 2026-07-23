@@ -10,7 +10,8 @@ import type { AppRouter } from '@puntovivo/server';
 import { getStoredSiteId } from '@/features/tenant/siteStorage';
 import { DEVICE_ID_HEADER } from './commandEnvelope';
 import { getCachedDeviceIdSync } from './deviceId';
-import { resolveApiBaseUrl } from './runtimeConfigClient';
+import { getRuntimeConfigSync, resolveApiBaseUrl } from './runtimeConfigClient';
+import { createHubApiFetch, refreshHubSession } from '@/features/auth/hubAuthTransport';
 
 // `API_URL` is resolved through the runtime config client
 // at module init. In `hub_client` mode the renderer points at the
@@ -164,6 +165,19 @@ async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<strin
   }
 
   refreshRequest = (async () => {
+    if (getRuntimeConfigSync().authorityMode === 'hub_client') {
+      try {
+        const result = await refreshHubSession();
+        setAccessToken(result.token);
+        await window.api?.session?.register?.(result.token);
+        return result.token;
+      } catch {
+        clearAccessToken();
+        notifyAuthSessionExpired();
+        return null;
+      }
+    }
+
     const headers = buildHeaders({ 'content-type': 'application/json' });
     const csrfToken = getCookieValue(CSRF_COOKIE_NAME);
 
@@ -227,7 +241,11 @@ async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<strin
   return refreshRequest;
 }
 
-export function createTrpcFetch(fetchImpl: typeof fetch = fetch): typeof fetch {
+function getDefaultApiFetch(): typeof fetch {
+  return getRuntimeConfigSync().authorityMode === 'hub_client' ? createHubApiFetch() : fetch;
+}
+
+export function createTrpcFetch(fetchImpl: typeof fetch = getDefaultApiFetch()): typeof fetch {
   return async (input, init) => {
     const response = await fetchImpl(input, {
       ...init,
@@ -267,7 +285,7 @@ export function createTrpcFetch(fetchImpl: typeof fetch = fetch): typeof fetch {
 export function fetchProtectedApi(
   path: `/api/${string}`,
   init: RequestInit = {},
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = getDefaultApiFetch()
 ): Promise<Response> {
   const headers = buildHeaders(init.headers);
   for (const [name, value] of Object.entries(getTrpcHeaders())) {

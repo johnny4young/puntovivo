@@ -141,6 +141,7 @@ export const authMutationProcedures = {
         token,
         user: {
           id: target.id,
+          email: target.email,
           name: target.name,
           role: target.role,
           tenantId: target.tenantId,

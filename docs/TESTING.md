@@ -45,6 +45,10 @@ prevention, staff attendance, variants, serials, and day-close sign-off.
 The Electron suite launches the real desktop runtime and validates the
 renderer sandbox, embedded server, authenticated application boot, encrypted
 backup creation, cloud-vault write, scheduling, and restore readiness.
+Node-side Electron tests additionally pin Store Hub URL policy, OS-keychain
+sealing, owner-only credential-envelope permissions, refresh rotation after an
+app restart, rejected-session cleanup, exact-token IPC registration, and the
+fixed-destination API proxy's header/path restrictions.
 
 ## Release-candidate additions
 

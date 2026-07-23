@@ -24,7 +24,7 @@
  * @module main/session/desktopSession
  */
 
-import { createModuleLogger, type AuthTokenPayload } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server';
 
 const sessionLog = createModuleLogger('desktop-session');
 
@@ -34,7 +34,15 @@ const sessionLog = createModuleLogger('desktop-session');
  * tests pass a stub that returns a fabricated payload (or null) without
  * booting Fastify.
  */
-export type AccessTokenVerifier = (token: string) => Promise<AuthTokenPayload | null>;
+export interface DesktopSessionIdentity {
+  userId: string;
+  tenantId: string;
+  email: string;
+  role: string;
+  sessionVersion: number;
+}
+
+export type AccessTokenVerifier = (token: string) => Promise<DesktopSessionIdentity | null>;
 
 /**
  * Error thrown when an IPC handler runs without a registered

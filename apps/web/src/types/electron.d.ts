@@ -337,7 +337,38 @@ export interface SyncAPI {
 export interface SessionAPI {
   register: (accessToken: string) => Promise<{ ok: true }>;
   clear: () => Promise<{ ok: true }>;
+  loginHub: (input: { email: string; password: string }) => Promise<HubAuthIpcResult>;
+  refreshHub: () => Promise<HubAuthIpcResult>;
+  switchStaffHub: (input: { targetUserId: string; pin: string }) => Promise<HubAuthIpcResult>;
+  logoutHub: () => Promise<HubAuthIpcResult<{ ok: true }>>;
+  requestHub: (input: HubApiRequest) => Promise<HubApiResponse>;
+  clearHub: () => Promise<{ ok: true }>;
 }
+
+export interface HubApiRequest {
+  path: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers: Record<string, string>;
+  body?: string;
+}
+
+export interface HubApiResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+}
+
+export interface HubAccessGrant {
+  token: string;
+  sessionExpiresAt?: string;
+}
+
+export type HubAuthIpcResult<T = HubAccessGrant> =
+  | { ok: true; data: T }
+  | {
+      ok: false;
+      error: { message: string; errorCode?: string; trpcCode?: string; status?: number };
+    };
 
 export interface DesktopBridgeAPI extends ElectronAPI {
   db: DatabaseAPI;
