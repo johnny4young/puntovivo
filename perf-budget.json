@@ -4,9 +4,9 @@
   "bundleSize": {
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
     "thresholdPercent": 5,
-    "$baseline": "Captured from the merged feature wave on 2026-07-19. Data import, backup, sale details, attendance, day-close, and their locale payloads are tracked explicitly; CustomersPage includes privacy, ledger, and search functionality.",
+    "$baseline": "Captured from the Operator Deck Base 11 validation build and the recovery-ownership band on 2026-07-21. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy owns an explicit 8 kB ceiling.",
     "perChunkGzKb": {
-      "index": 153,
+      "index": 161,
       "xlsx": 264,
       "pdf": 140,
       "codemirror": 128,
@@ -43,10 +43,11 @@
       "dataImport": 6,
       "GeographyPage": 6,
       "AuthProvider": 7,
-      "operations": 6,
+      "operations": 8,
       "UsersPage": 6,
       "AuditLogsPage": 6,
-      "TeamSchedulePage": 6
+      "TeamSchedulePage": 6,
+      "DesignSystemPage": 12
     }
   },
   "trpcLatencyMs": {
@@ -62,6 +63,27 @@
       "setupReadiness.get": 80
     }
   },
+  "dataScale": {
+    "$comment": "Operator Deck live data-volume contract. The design-system route renders this many deterministic rows through the production DataTable; Playwright fails when the virtual window mounts more body rows than maxMountedRows.",
+    "designSystemRows": 1000,
+    "maxMountedRows": 30
+  },
+  "operationalProfile": {
+    "$comment": "Operator Deck Base 11. Store-scale write and desktop continuity budgets. Server CI measures the maximum supported launch-product import; desktop CI measures an encrypted backup round trip, built-runtime launch, and bounded database-lifecycle queue.",
+    "thresholdPercent": 35,
+    "launchImport": {
+      "rows": 500,
+      "previewElapsedMs": 750,
+      "commitElapsedMs": 2500
+    },
+    "encryptedBackup": {
+      "rows": 5000,
+      "createElapsedMs": 2500,
+      "extractElapsedMs": 2500
+    },
+    "desktopLaunchElapsedMs": 20000,
+    "maxPendingBackupOperations": 16
+  },
   "electronMemoryMb": {
     "$comment": " — Electron main + renderer working-set ceiling in MB, measured via app.getAppMetrics() by scripts/check-electron-memory.mjs (PUNTOVIVO_MEASURE_MEMORY mode). is warn-first: the gate prints the report but never fails the build (pass --strict / PUNTOVIVO_MEMORY_STRICT=1 to enforce). It also self-skips when Electron cannot launch (no .vite/build bundle / no display), so ci:desktop stays green on ubuntu until the xvfb CI-launch hardening lands. Baselines captured from a real local run; bump deliberately with the regressing PR.",
     "thresholdPercent": 25,
@@ -76,10 +98,30 @@
     "thresholdPercent": 30,
     "$baseline": " — captured locally (macOS, DEV build served by dev:server + dev:web, demo-co seed, Lighthouse desktop preset with simulated throttling). The script warms each route first (Vite compiles route modules on first hit), then measures warm. These are DEV-build numbers (no minify/treeshake) under Lighthouse's 4x-CPU throttle, NOT production figures — the gate detects regressions from this local baseline. The 30% threshold absorbs Lighthouse run-to-run variance in the warn-first phase. Re-capture deliberately with pnpm run perf:lighthouse and copy the printed measured= values.",
     "perRoute": {
-      "login": { "lcpMs": 3400, "ttiMs": 3400, "cls": 0.02, "score": 70 },
-      "dashboard": { "lcpMs": 3600, "ttiMs": 3600, "cls": 0.05, "score": 66 },
-      "sales": { "lcpMs": 4600, "ttiMs": 4600, "cls": 0.05, "score": 70 },
-      "products": { "lcpMs": 4100, "ttiMs": 4100, "cls": 0.05, "score": 62 }
+      "login": {
+        "lcpMs": 3400,
+        "ttiMs": 3400,
+        "cls": 0.02,
+        "score": 70
+      },
+      "dashboard": {
+        "lcpMs": 3600,
+        "ttiMs": 3600,
+        "cls": 0.05,
+        "score": 66
+      },
+      "sales": {
+        "lcpMs": 4600,
+        "ttiMs": 4600,
+        "cls": 0.05,
+        "score": 70
+      },
+      "products": {
+        "lcpMs": 4100,
+        "ttiMs": 4100,
+        "cls": 0.05,
+        "score": 62
+      }
     }
   }
 }

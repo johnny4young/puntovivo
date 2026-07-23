@@ -16,6 +16,7 @@ describe('useHeaderTitle', () => {
       ['/catalog', 'nav:header.catalog.title'],
       ['/procurement', 'nav:header.procurement.title'],
       ['/finance', 'nav:header.finance.title'],
+      ['/design-system', 'nav:header.designSystem.title'],
       ['/data-import', 'nav:header.dataImport.title'],
       ['/day-close', 'nav:header.dayClose.title'],
       ['/schedule', 'nav:header.schedule.title'],

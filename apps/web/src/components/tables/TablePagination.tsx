@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui';
 
 /**
  * Props for {@link TablePagination}. These line up 1:1 with the metadata
@@ -29,7 +30,7 @@ export interface TablePaginationProps {
  * Accessible pagination footer for client-side paginated lists.
  *
  * Renders a localized "Showing {rangeStart}-{rangeEnd} of {total}" summary
- * alongside Previous / Next buttons (`.pv-btn.outline`). The buttons are
+ * alongside Previous / Next buttons from the shared Operator Deck primitive. The buttons are
  * disabled — and announce their disabled state to assistive tech — at the
  * first and last page respectively, and each carries an `aria-label` for
  * screen-reader users.
@@ -76,26 +77,28 @@ export function TablePagination({
       </p>
 
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="pv-btn outline disabled:pointer-events-none disabled:opacity-50"
+        <Button
+          variant="outline"
+          size="compact"
+          className="disabled:pointer-events-none disabled:opacity-50"
           onClick={() => requestPage(page - 1)}
           disabled={isFirstPage}
           aria-label={t('pagination.previous')}
         >
           <ChevronLeft aria-hidden="true" />
           {t('pagination.previous')}
-        </button>
-        <button
-          type="button"
-          className="pv-btn outline disabled:pointer-events-none disabled:opacity-50"
+        </Button>
+        <Button
+          variant="outline"
+          size="compact"
+          className="disabled:pointer-events-none disabled:opacity-50"
           onClick={() => requestPage(page + 1)}
           disabled={isLastPage}
           aria-label={t('pagination.next')}
         >
           {t('pagination.next')}
           <ChevronRight aria-hidden="true" />
-        </button>
+        </Button>
       </div>
     </nav>
   );

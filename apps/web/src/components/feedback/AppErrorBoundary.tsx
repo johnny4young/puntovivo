@@ -2,6 +2,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Component, type ErrorInfo, type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { captureRenderError } from '@/lib/observability';
+import { Button } from '@/components/ui/Button';
 
 interface AppErrorFallbackProps {
   error: Error;
@@ -36,23 +37,18 @@ function AppErrorFallback({ error, onRetry, variant = 'app' }: AppErrorFallbackP
           <p className="text-sm font-medium text-danger-700">{error.message}</p>
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            className="btn-primary flex items-center justify-center gap-2"
-            onClick={onRetry}
-          >
+          <Button onClick={onRetry}>
             <RefreshCw className="h-4 w-4" />
             {t('boundary.retry')}
-          </button>
-          <button
-            type="button"
-            className="btn-outline"
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => {
               window.location.reload();
             }}
           >
             {t('boundary.reload')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -1,0 +1,333 @@
+{
+  "hero": {
+    "eyebrow": "Operational visual system",
+    "version": "Base 11",
+    "title": "Operator Deck, on a single surface.",
+    "description": "A living library that verifies every decision, signal, and product state keeps the same hierarchy before reaching the register.",
+    "primaryAction": "Test modal",
+    "secondaryAction": "Open inspector"
+  },
+  "roles": {
+    "label": "System color roles",
+    "commit": {
+      "code": "01 / COMMIT",
+      "title": "Commitment",
+      "copy": "Deep blue for actions that change the operation."
+    },
+    "command": {
+      "code": "02 / GUIDE",
+      "title": "Command",
+      "copy": "Amber for shortcuts, guidance, and assisted decisions."
+    },
+    "signal": {
+      "code": "03 / INFORM",
+      "title": "Signal",
+      "copy": "Mint for activity, selection, and availability."
+    }
+  },
+  "controls": {
+    "title": "Controls with operational weight",
+    "description": "Controls feel like console keys: firm hierarchy, clear states, and immediate response.",
+    "actions": {
+      "eyebrow": "Action hierarchy",
+      "note": "One dominant action per context",
+      "primary": "Charge sale",
+      "secondary": "Print receipt",
+      "outline": "Save draft",
+      "success": "Approve",
+      "danger": "Void",
+      "disabled": "Unavailable"
+    }
+  },
+  "form": {
+    "eyebrow": "Input and selection",
+    "note": "44 px touch targets",
+    "searchLabel": "Product or code",
+    "searchPlaceholder": "Scan or type to search",
+    "siteLabel": "Active site",
+    "sites": {
+      "north": "North Site",
+      "center": "Central Site",
+      "south": "South Site · offline"
+    },
+    "switchTitle": "Contextual assistance",
+    "switchCopy": "Shows the next step without interrupting the flow."
+  },
+  "signals": {
+    "title": "Signals that explain, not decorate",
+    "description": "Every color responds to an operational condition and always includes enough text to understand it.",
+    "success": {
+      "title": "Register synchronized.",
+      "copy": "The latest 18 movements are already backed up.",
+      "action": "Online"
+    },
+    "warning": {
+      "title": "Review pending.",
+      "copy": "Two receipts need their payment method confirmed.",
+      "action": "Review"
+    },
+    "danger": {
+      "title": "Connection interrupted.",
+      "copy": "The site is preserving sales and will retry automatically.",
+      "action": "View detail"
+    },
+    "compact": {
+      "eyebrow": "Compact states",
+      "note": "Text and shape reinforce color",
+      "label": "Compact system states",
+      "ready": "Available",
+      "review": "Review",
+      "offline": "Offline",
+      "progress": "In progress",
+      "manual": "Manual"
+    }
+  },
+  "statuses": {
+    "ready": "Ready",
+    "attention": "Review",
+    "offline": "Offline"
+  },
+  "kpis": {
+    "revenue": {
+      "label": "Net sales",
+      "context": "Compared with previous shift"
+    },
+    "pace": {
+      "label": "Register pace",
+      "context": "Target: 34 sales/h"
+    },
+    "stock": {
+      "label": "Critical stock",
+      "context": "Three items expire today"
+    }
+  },
+  "data": {
+    "title": "Dense data, calm reading",
+    "description": "The table, search, and secondary states share the same geometry while preserving visible focus."
+  },
+  "table": {
+    "eyebrow": "Data surface",
+    "note": "Sortable, filterable, and keyboard navigable",
+    "searchPlaceholder": "Search station",
+    "columns": {
+      "station": "Station",
+      "operator": "Operator",
+      "amount": "Net sales",
+      "status": "Status"
+    },
+    "rows": {
+      "station04": "Register 04",
+      "station07": "Register 07",
+      "station11": "Register 11",
+      "operatorAna": "Ana Ruiz",
+      "operatorLuis": "Luis Mora",
+      "unassigned": "Unassigned"
+    }
+  },
+  "states": {
+    "empty": {
+      "eyebrow": "Empty state",
+      "note": "Points to the next step",
+      "title": "No matches found",
+      "copy": "Adjust the search or scan a different code.",
+      "action": "Clear search"
+    },
+    "error": {
+      "title": "We couldn't update the stations",
+      "copy": "The previous information remains available while we recover the connection.",
+      "action": "Retry now"
+    }
+  },
+  "loading": {
+    "title": "Predictable waiting",
+    "description": "Skeletons preserve the content shape while accessibility contracts remain visible.",
+    "table": "Loading point-of-sale stations",
+    "contract": {
+      "eyebrow": "Quality contract",
+      "title": "Designed for continuous operation",
+      "copy": "The visual grammar is validated as a product, not as an isolated collection of styles.",
+      "keyboard": "Keyboard navigation",
+      "contrast": "Semantic contrast",
+      "responsive": "Responsive collapse"
+    }
+  },
+  "adoption": {
+    "title": "One grammar, across the operation",
+    "description": "The foundation is no longer an isolated sample: actions, states, and surfaces share typed contracts throughout operational flows.",
+    "eyebrow": "Adoption matrix",
+    "note": "Coverage protected by CI",
+    "adopted": "Adopted",
+    "areas": {
+      "actions": {
+        "title": "Actions",
+        "copy": "Consistent hierarchy for committing, guiding, approving, and voiding."
+      },
+      "signals": {
+        "title": "Signals",
+        "copy": "Compact states and operational notices with shared semantics."
+      },
+      "surfaces": {
+        "title": "Surfaces",
+        "copy": "Tables, forms, overlays, and empty states preserve rhythm and focus."
+      }
+    },
+    "contract": {
+      "title": "Consistency is now verifiable.",
+      "copy": "The adoption gate prevents parallel button or status recipes from returning to product screens.",
+      "action": "Contract active"
+    }
+  },
+  "adaptability": {
+    "title": "Adaptability for the full shift",
+    "description": "The console preserves hierarchy and access when the operator enlarges content, reduces motion, or uses system colors.",
+    "eyebrow": "Adaptive operating modes",
+    "note": "Preferences become product contracts",
+    "zoom": {
+      "badge": "640 CSS px",
+      "title": "200% equivalent layout",
+      "copy": "Checkout remains readable and the close, summary, and confirmation controls stay reachable."
+    },
+    "motion": {
+      "badge": "Still",
+      "title": "Reduced motion",
+      "copy": "Transitions yield to immediate state changes without removing orientation or focus."
+    },
+    "contrast": {
+      "badge": "System colors",
+      "title": "Forced contrast",
+      "copy": "Controls, surfaces, and focus rings use Windows high-contrast roles instead of decorative color."
+    },
+    "contract": {
+      "title": "Adaptive contract active.",
+      "copy": "Critical sales controls remain visible without depending on animation, custom color, or a wide viewport.",
+      "action": "Protected"
+    }
+  },
+  "scale": {
+    "title": "Scale without operational noise",
+    "description": "The interface keeps its speed, orientation, and useful density when the catalog stops being a demo and starts resembling a real store.",
+    "eyebrow": "Verifiable data volume",
+    "note": "The production table runs against the product's shared budget",
+    "metrics": {
+      "dataset": {
+        "label": "Active dataset",
+        "copy": "Deterministic references on the same surface"
+      },
+      "window": {
+        "label": "Render window",
+        "value": "≤ {{count}} rows",
+        "copy": "The DOM stays bounded while the full context remains available"
+      },
+      "search": {
+        "label": "Findability",
+        "value": "Keyboard + filter",
+        "copy": "Finding and traversing data does not require a mode change"
+      }
+    },
+    "columns": {
+      "sku": "SKU",
+      "reference": "Reference",
+      "stock": "On hand",
+      "status": "Status"
+    },
+    "statuses": {
+      "available": "Available",
+      "attention": "Attention",
+      "review": "Review"
+    },
+    "rows": {
+      "reference": "Operational reference {{number}}"
+    },
+    "searchPlaceholder": "Search a reference across 1,000 rows",
+    "contract": {
+      "title": "Bounded window, complete context.",
+      "copy": "Virtualization limits visual work without hiding totals, search, or keyboard navigation.",
+      "action": "Budget active"
+    }
+  },
+  "journeys": {
+    "title": "Critical journeys, one operating promise",
+    "description": "The flows that sustain a shift no longer live as isolated tests: they share a visible matrix of roles, continuity, language, and interaction.",
+    "eyebrow": "Executable operating matrix",
+    "note": "Every row retains exact Playwright evidence",
+    "metrics": {
+      "routes": "critical journeys",
+      "languages": "operating languages",
+      "viewports": "screen scales",
+      "continuity": "continuity proofs"
+    },
+    "owners": {
+      "admin": "Administration",
+      "manager": "Management",
+      "cashier": "Checkout"
+    },
+    "areas": {
+      "sell": "Sell and collect",
+      "control": "Control and approval",
+      "close": "Close and evidence",
+      "stock": "Inventory and receiving"
+    },
+    "items": {
+      "first-sale": "First sale",
+      "suspended-cart": "Suspended sale",
+      "split-tender": "Split tender",
+      "manager-approval": "Manager approval",
+      "refund": "Traceable refund",
+      "blind-close": "Blind cash close",
+      "day-close": "Signed day close",
+      "inventory-receipt": "Purchase receiving",
+      "inventory-transfer": "Inter-site transfer",
+      "staff-switch": "Secure operator switch"
+    },
+    "contract": {
+      "title": "Every shift experience has an owner and evidence.",
+      "copy": "The contract links each journey to its real test and fails when the flow disappears, changes name, or loses a declared operating variant.",
+      "action": "10 journeys protected"
+    }
+  },
+  "operational": {
+    "title": "Performance that protects continuity",
+    "description": "Speed stops being an impression: import, backup, launch, and critical queued work now share explicit and enforceable limits.",
+    "eyebrow": "Store operating profile",
+    "note": "Conservative budgets with bounded runner tolerance",
+    "import": {
+      "eyebrow": "Launch import",
+      "value": "{{count}} rows",
+      "copy": "Preview ≤ {{preview}} ms · commit ≤ {{commit}} ms"
+    },
+    "backup": {
+      "eyebrow": "Encrypted backup",
+      "value": "{{count}} records",
+      "copy": "Create ≤ {{create}} ms · extract ≤ {{extract}} ms"
+    },
+    "launch": {
+      "eyebrow": "Built desktop launch",
+      "value": "≤ {{count}} ms",
+      "copy": "Includes the embedded server, window, and operating renderer."
+    },
+    "queue": {
+      "eyebrow": "Recovery queue",
+      "value": "≤ {{count}} operations",
+      "copy": "Excess work is rejected explicitly; it never grows silently."
+    },
+    "contract": {
+      "title": "Volume no longer depends on a fast machine.",
+      "copy": "Server and desktop apply the same limits with at most {{threshold}}% tolerance for runner variation.",
+      "action": "Local + CI gate"
+    }
+  },
+  "modal": {
+    "title": "Confirm register opening",
+    "copy": "This example uses the real product modal to verify hierarchy, focus, and actions in a high-commitment context.",
+    "station": "Register 04 · North Site",
+    "operator": "Assigned operator: Ana Ruiz",
+    "cancel": "Go back",
+    "confirm": "Open register"
+  },
+  "drawer": {
+    "title": "Role inspector",
+    "pinned": "Three roles, one grammar",
+    "copy": "The drawer keeps the primary surface visible while presenting secondary context and supporting actions.",
+    "action": "Close inspector"
+  }
+}

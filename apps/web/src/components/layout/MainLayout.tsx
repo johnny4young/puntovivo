@@ -23,7 +23,7 @@ export function MainLayout() {
 
       <div
         className={cn(
-          'relative min-h-screen min-w-0 transition-[margin] duration-300',
+          'operator-workspace relative min-h-screen min-w-0 transition-[margin] duration-300',
           sidebarCollapsed ? 'xl:ml-[6.5rem]' : 'xl:ml-[18.5rem]'
         )}
       >
@@ -34,7 +34,7 @@ export function MainLayout() {
         <GlobalStatusStrip />
         <FirstSaleGuide openRequest={firstSaleGuideRequest} />
 
-        <main className="min-w-0 px-4 py-4 sm:px-6 sm:py-6 xl:px-8">
+        <main className="operator-canvas min-w-0 px-4 py-4 sm:px-6 sm:py-6 xl:px-8">
           <Outlet />
         </main>
       </div>

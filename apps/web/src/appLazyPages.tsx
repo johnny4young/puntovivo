@@ -15,6 +15,9 @@ export const LoginPage = lazyPage(async () => ({
 export const DashboardPage = lazyPage(async () => ({
   default: (await import('@/features/dashboard/DashboardPage')).DashboardPage,
 }));
+export const DesignSystemPage = lazyPage(async () => ({
+  default: (await import('@/features/design-system/DesignSystemPage')).DesignSystemPage,
+}));
 export const CopilotPage = lazyPage(async () => ({
   default: (await import('@/features/copilot/CopilotPage')).CopilotPage,
 }));

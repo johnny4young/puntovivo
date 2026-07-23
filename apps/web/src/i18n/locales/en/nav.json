@@ -39,6 +39,7 @@
     "fiscalReports": { "kicker": "Fiscal", "title": "Fiscal reports" },
     "profitability": { "kicker": "Finance", "title": "Profitability" },
     "company": { "kicker": "Setup", "title": "Company" },
+    "designSystem": { "kicker": "Operator Deck", "title": "Visual system" },
     "dataImport": { "kicker": "Setup", "title": "Import data" },
     "sites": { "kicker": "Setup", "title": "Sites" },
     "sequentials": { "kicker": "Setup", "title": "Sequentials" }
@@ -67,6 +68,7 @@
     "categories": "Categories",
     "locations": "Locations",
     "company": "Company",
+    "designSystem": "Visual system",
     "dataImport": "Import data",
     "sites": "Sites",
     "sequentials": "Sequentials",

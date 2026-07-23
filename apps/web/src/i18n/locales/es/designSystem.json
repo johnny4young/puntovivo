@@ -1,0 +1,333 @@
+{
+  "hero": {
+    "eyebrow": "Sistema visual operativo",
+    "version": "Base 11",
+    "title": "Operator Deck, en una sola superficie.",
+    "description": "Una biblioteca viva para comprobar que cada decisión, señal y estado del producto conserve la misma jerarquía antes de llegar a caja.",
+    "primaryAction": "Probar modal",
+    "secondaryAction": "Abrir inspector"
+  },
+  "roles": {
+    "label": "Roles cromáticos del sistema",
+    "commit": {
+      "code": "01 / CONFIRMAR",
+      "title": "Compromiso",
+      "copy": "Azul profundo para acciones que cambian la operación."
+    },
+    "command": {
+      "code": "02 / ORIENTAR",
+      "title": "Comando",
+      "copy": "Ámbar para atajos, ayudas y decisiones guiadas."
+    },
+    "signal": {
+      "code": "03 / INFORMAR",
+      "title": "Señal",
+      "copy": "Menta para actividad, selección y disponibilidad."
+    }
+  },
+  "controls": {
+    "title": "Controles con peso operativo",
+    "description": "Los controles se sienten como teclas de una consola: jerarquía firme, estados claros y respuesta inmediata.",
+    "actions": {
+      "eyebrow": "Jerarquía de acciones",
+      "note": "Una acción dominante por contexto",
+      "primary": "Cobrar venta",
+      "secondary": "Imprimir recibo",
+      "outline": "Guardar borrador",
+      "success": "Aprobar",
+      "danger": "Anular",
+      "disabled": "No disponible"
+    }
+  },
+  "form": {
+    "eyebrow": "Entrada y selección",
+    "note": "Objetivos táctiles de 44 px",
+    "searchLabel": "Producto o código",
+    "searchPlaceholder": "Escanea o escribe para buscar",
+    "siteLabel": "Sede activa",
+    "sites": {
+      "north": "Sede Norte",
+      "center": "Sede Centro",
+      "south": "Sede Sur · sin conexión"
+    },
+    "switchTitle": "Asistencia contextual",
+    "switchCopy": "Muestra el siguiente paso sin interrumpir el flujo."
+  },
+  "signals": {
+    "title": "Señales que explican, no decoran",
+    "description": "Cada color responde a una condición operativa y siempre incluye texto suficiente para comprenderla.",
+    "success": {
+      "title": "Caja sincronizada.",
+      "copy": "Los últimos 18 movimientos ya están respaldados.",
+      "action": "En línea"
+    },
+    "warning": {
+      "title": "Revisión pendiente.",
+      "copy": "Dos recibos necesitan confirmar su medio de pago.",
+      "action": "Revisar"
+    },
+    "danger": {
+      "title": "Conexión interrumpida.",
+      "copy": "La sede conserva las ventas y reintentará automáticamente.",
+      "action": "Ver detalle"
+    },
+    "compact": {
+      "eyebrow": "Estados compactos",
+      "note": "Texto y forma refuerzan el color",
+      "label": "Estados compactos del sistema",
+      "ready": "Disponible",
+      "review": "Revisar",
+      "offline": "Sin conexión",
+      "progress": "En proceso",
+      "manual": "Manual"
+    }
+  },
+  "statuses": {
+    "ready": "Lista",
+    "attention": "Revisar",
+    "offline": "Sin conexión"
+  },
+  "kpis": {
+    "revenue": {
+      "label": "Venta neta",
+      "context": "Frente al turno anterior"
+    },
+    "pace": {
+      "label": "Ritmo de caja",
+      "context": "Objetivo: 34 ventas/h"
+    },
+    "stock": {
+      "label": "Stock crítico",
+      "context": "Tres referencias vencen hoy"
+    }
+  },
+  "data": {
+    "title": "Datos densos, lectura tranquila",
+    "description": "La tabla, la búsqueda y los estados secundarios comparten la misma geometría y conservan foco visible."
+  },
+  "table": {
+    "eyebrow": "Superficie de datos",
+    "note": "Ordenable, filtrable y navegable con teclado",
+    "searchPlaceholder": "Buscar puesto",
+    "columns": {
+      "station": "Puesto",
+      "operator": "Operador",
+      "amount": "Venta neta",
+      "status": "Estado"
+    },
+    "rows": {
+      "station04": "Caja 04",
+      "station07": "Caja 07",
+      "station11": "Caja 11",
+      "operatorAna": "Ana Ruiz",
+      "operatorLuis": "Luis Mora",
+      "unassigned": "Sin asignar"
+    }
+  },
+  "states": {
+    "empty": {
+      "eyebrow": "Estado vacío",
+      "note": "Indica el próximo paso",
+      "title": "No hay coincidencias",
+      "copy": "Ajusta la búsqueda o escanea un código diferente.",
+      "action": "Limpiar búsqueda"
+    },
+    "error": {
+      "title": "No pudimos actualizar los puestos",
+      "copy": "La información anterior sigue disponible mientras recuperamos la conexión.",
+      "action": "Reintentar ahora"
+    }
+  },
+  "loading": {
+    "title": "Espera predecible",
+    "description": "Los esqueletos mantienen la forma del contenido y los contratos de accesibilidad permanecen visibles.",
+    "table": "Cargando puestos de venta",
+    "contract": {
+      "eyebrow": "Contrato de calidad",
+      "title": "Diseñado para operación continua",
+      "copy": "La gramática visual se valida como producto, no como una colección aislada de estilos.",
+      "keyboard": "Navegación con teclado",
+      "contrast": "Contraste semántico",
+      "responsive": "Colapso responsive"
+    }
+  },
+  "adoption": {
+    "title": "Una gramática, en toda la operación",
+    "description": "La base deja de ser una muestra aislada: acciones, estados y superficies comparten contratos tipados en cada flujo operativo.",
+    "eyebrow": "Matriz de adopción",
+    "note": "Cobertura protegida por CI",
+    "adopted": "Adoptado",
+    "areas": {
+      "actions": {
+        "title": "Acciones",
+        "copy": "Jerarquía consistente para confirmar, orientar, aprobar y anular."
+      },
+      "signals": {
+        "title": "Señales",
+        "copy": "Estados compactos y avisos operativos con semántica compartida."
+      },
+      "surfaces": {
+        "title": "Superficies",
+        "copy": "Tablas, formularios, overlays y vacíos conservan ritmo y foco."
+      }
+    },
+    "contract": {
+      "title": "La coherencia ahora es verificable.",
+      "copy": "El gate de adopción impide reintroducir recetas paralelas de botones o estados en las pantallas del producto.",
+      "action": "Contrato activo"
+    }
+  },
+  "adaptability": {
+    "title": "Adaptabilidad para el turno completo",
+    "description": "La consola conserva jerarquía y acceso cuando el operador amplía el contenido, reduce el movimiento o usa los colores del sistema.",
+    "eyebrow": "Modos operativos adaptables",
+    "note": "Las preferencias se convierten en contratos de producto",
+    "zoom": {
+      "badge": "640 px CSS",
+      "title": "Diseño equivalente al 200%",
+      "copy": "El cobro mantiene legibles y accesibles el cierre, el resumen y la confirmación."
+    },
+    "motion": {
+      "badge": "Estático",
+      "title": "Movimiento reducido",
+      "copy": "Las transiciones ceden ante cambios inmediatos sin perder orientación ni foco."
+    },
+    "contrast": {
+      "badge": "Colores del sistema",
+      "title": "Contraste forzado",
+      "copy": "Los controles, superficies y anillos de foco usan los roles de alto contraste de Windows."
+    },
+    "contract": {
+      "title": "Contrato adaptable activo.",
+      "copy": "Los controles críticos de venta siguen visibles sin depender de animación, color personalizado o una pantalla amplia.",
+      "action": "Protegido"
+    }
+  },
+  "scale": {
+    "title": "Escala sin ruido operativo",
+    "description": "La interfaz conserva velocidad, orientación y densidad útil cuando el catálogo deja de ser una demostración y se parece a una tienda real.",
+    "eyebrow": "Volumen de datos verificable",
+    "note": "La tabla real trabaja con el presupuesto compartido del producto",
+    "metrics": {
+      "dataset": {
+        "label": "Conjunto activo",
+        "copy": "Referencias deterministas en la misma superficie"
+      },
+      "window": {
+        "label": "Ventana de render",
+        "value": "≤ {{count}} filas",
+        "copy": "El DOM permanece acotado mientras el contexto sigue completo"
+      },
+      "search": {
+        "label": "Localización",
+        "value": "Teclado + filtro",
+        "copy": "Buscar y recorrer no requiere cambiar de modo"
+      }
+    },
+    "columns": {
+      "sku": "SKU",
+      "reference": "Referencia",
+      "stock": "Existencias",
+      "status": "Estado"
+    },
+    "statuses": {
+      "available": "Disponible",
+      "attention": "Atención",
+      "review": "Revisar"
+    },
+    "rows": {
+      "reference": "Referencia operativa {{number}}"
+    },
+    "searchPlaceholder": "Busca una referencia entre 1.000 filas",
+    "contract": {
+      "title": "Ventana acotada, contexto completo.",
+      "copy": "La virtualización limita el trabajo visual sin ocultar el total, la búsqueda ni la navegación con teclado.",
+      "action": "Presupuesto activo"
+    }
+  },
+  "journeys": {
+    "title": "Jornadas críticas, una sola promesa",
+    "description": "Los recorridos que sostienen el turno dejan de vivir como pruebas aisladas: comparten una matriz visible de roles, continuidad, idioma e interacción.",
+    "eyebrow": "Matriz operativa ejecutable",
+    "note": "Cada fila conserva evidencia exacta en Playwright",
+    "metrics": {
+      "routes": "jornadas críticas",
+      "languages": "idiomas operativos",
+      "viewports": "escalas de pantalla",
+      "continuity": "pruebas de continuidad"
+    },
+    "owners": {
+      "admin": "Administración",
+      "manager": "Gerencia",
+      "cashier": "Caja"
+    },
+    "areas": {
+      "sell": "Venta y cobro",
+      "control": "Control y autorización",
+      "close": "Cierre y evidencia",
+      "stock": "Inventario y recepción"
+    },
+    "items": {
+      "first-sale": "Primera venta",
+      "suspended-cart": "Venta suspendida",
+      "split-tender": "Pago dividido",
+      "manager-approval": "Aprobación gerencial",
+      "refund": "Reembolso trazable",
+      "blind-close": "Cierre ciego de caja",
+      "day-close": "Cierre diario firmado",
+      "inventory-receipt": "Recepción de compra",
+      "inventory-transfer": "Transferencia entre sedes",
+      "staff-switch": "Cambio seguro de operador"
+    },
+    "contract": {
+      "title": "La experiencia del turno tiene dueño y evidencia.",
+      "copy": "El contrato enlaza cada jornada con su prueba real y falla si el recorrido desaparece, cambia de nombre o pierde una variante operativa declarada.",
+      "action": "10 jornadas protegidas"
+    }
+  },
+  "operational": {
+    "title": "Rendimiento que protege la continuidad",
+    "description": "La velocidad deja de ser una impresión: importar, respaldar, iniciar y esperar trabajo crítico tienen límites compartidos y verificables.",
+    "eyebrow": "Perfil operacional de tienda",
+    "note": "Presupuestos conservadores con tolerancia controlada",
+    "import": {
+      "eyebrow": "Importación inicial",
+      "value": "{{count}} filas",
+      "copy": "Vista previa ≤ {{preview}} ms · confirmación ≤ {{commit}} ms"
+    },
+    "backup": {
+      "eyebrow": "Respaldo cifrado",
+      "value": "{{count}} registros",
+      "copy": "Creación ≤ {{create}} ms · extracción ≤ {{extract}} ms"
+    },
+    "launch": {
+      "eyebrow": "Inicio del desktop compilado",
+      "value": "≤ {{count}} ms",
+      "copy": "Incluye servidor embebido, ventana y renderer operativo."
+    },
+    "queue": {
+      "eyebrow": "Cola de recuperación",
+      "value": "≤ {{count}} operaciones",
+      "copy": "El exceso se rechaza de forma explícita; nunca crece en silencio."
+    },
+    "contract": {
+      "title": "El volumen ya no depende de una máquina rápida.",
+      "copy": "Servidor y desktop aplican los mismos límites con una tolerancia máxima de {{threshold}}% para variación del ejecutor.",
+      "action": "Gate local + CI"
+    }
+  },
+  "modal": {
+    "title": "Confirmar apertura de caja",
+    "copy": "Este ejemplo usa el modal real del producto para comprobar jerarquía, foco y acciones en un contexto de alto compromiso.",
+    "station": "Caja 04 · Sede Norte",
+    "operator": "Operador asignado: Ana Ruiz",
+    "cancel": "Volver",
+    "confirm": "Abrir caja"
+  },
+  "drawer": {
+    "title": "Inspector de roles",
+    "pinned": "Tres roles, una sola gramática",
+    "copy": "El drawer conserva visible la superficie principal mientras presenta contexto secundario y acciones de apoyo.",
+    "action": "Cerrar inspector"
+  }
+}

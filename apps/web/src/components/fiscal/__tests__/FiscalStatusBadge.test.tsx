@@ -26,36 +26,36 @@ describe('FiscalStatusBadge', () => {
   it('uses the danger variant for rejected', () => {
     render(<FiscalStatusBadge status="rejected" />);
     const badge = screen.getByText(STATUS_LABELS.rejected);
-    expect(badge).toHaveClass('bg-danger-50');
+    expect(badge).toHaveClass('pv-badge', 'danger');
   });
 
   it('uses the warning variant for contingency', () => {
     render(<FiscalStatusBadge status="contingency" />);
     const badge = screen.getByText(STATUS_LABELS.contingency);
-    expect(badge).toHaveClass('bg-warning-50');
+    expect(badge).toHaveClass('pv-badge', 'warning');
   });
 
   it('uses the success variant for accepted', () => {
     render(<FiscalStatusBadge status="accepted" />);
     const badge = screen.getByText(STATUS_LABELS.accepted);
-    expect(badge).toHaveClass('bg-success-50');
+    expect(badge).toHaveClass('pv-badge', 'success');
   });
 
   it('uses the danger variant for voided (terminal cancellation)', () => {
     render(<FiscalStatusBadge status="voided" />);
     const badge = screen.getByText(STATUS_LABELS.voided);
-    expect(badge).toHaveClass('bg-danger-50');
+    expect(badge).toHaveClass('pv-badge', 'danger');
   });
 
   it('uses the warning variant for notified_correction (action required)', () => {
     render(<FiscalStatusBadge status="notified_correction" />);
     const badge = screen.getByText(STATUS_LABELS.notified_correction);
-    expect(badge).toHaveClass('bg-warning-50');
+    expect(badge).toHaveClass('pv-badge', 'warning');
   });
 
   it('uses the primary variant for partial_send (in-progress lote)', () => {
     render(<FiscalStatusBadge status="partial_send" />);
     const badge = screen.getByText(STATUS_LABELS.partial_send);
-    expect(badge).toHaveClass('bg-primary-100');
+    expect(badge).toHaveClass('pv-badge', 'primary');
   });
 });

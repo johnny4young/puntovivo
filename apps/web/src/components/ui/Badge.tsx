@@ -2,35 +2,45 @@ import { forwardRef, type HTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
-const badgeVariants = cva(
-  [
-    'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
-    'transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-  ],
-  {
-    variants: {
-      variant: {
-        default: 'border-transparent bg-primary-100 text-primary-800',
-        primary: 'border-transparent bg-primary-100 text-primary-800',
-        secondary: 'border-transparent bg-secondary-100 text-secondary-800',
-        success: 'border-transparent bg-success-50 text-success-700',
-        warning: 'border-transparent bg-warning-50 text-warning-700',
-        danger: 'border-transparent bg-danger-50 text-danger-700',
-        outline: 'text-foreground',
-      },
+const badgeVariants = cva('pv-badge', {
+  variants: {
+    variant: {
+      default: 'primary',
+      primary: 'primary',
+      secondary: 'neutral',
+      neutral: 'neutral',
+      info: 'info',
+      success: 'success',
+      warning: 'warning',
+      danger: 'danger',
+      outline: 'outline',
     },
-    defaultVariants: {
-      variant: 'default',
-    },
-  }
-);
+  },
+  defaultVariants: {
+    variant: 'default',
+  },
+});
+
+export type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>;
 
 export interface BadgeProps
-  extends HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
+  extends HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {
+  /** Optional shape cue for high-density tables where status must scan quickly. */
+  marker?: 'none' | 'dot' | undefined;
+}
 
-const Badge = forwardRef<HTMLDivElement, BadgeProps>(({ className, variant, ...props }, ref) => {
-  return <div ref={ref} className={cn(badgeVariants({ variant }), className)} {...props} />;
-});
+/**
+ * Compact operational state label. Tone always travels with visible text; the
+ * optional marker accelerates scanning but never carries meaning by itself.
+ */
+const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
+  ({ className, variant, marker = 'none', children, ...props }, ref) => (
+    <span ref={ref} className={cn(badgeVariants({ variant }), className)} {...props}>
+      {marker === 'dot' && <span className="dot" aria-hidden="true" />}
+      {children}
+    </span>
+  )
+);
 
 Badge.displayName = 'Badge';
 

@@ -3,10 +3,7 @@ interface TableLoadingStateProps {
   rowCount?: number;
 }
 
-export function TableLoadingState({
-  message,
-  rowCount = 8,
-}: TableLoadingStateProps) {
+export function TableLoadingState({ message, rowCount = 8 }: TableLoadingStateProps) {
   const rowKeys = Array.from({ length: rowCount }, (_, index) => `row-${index + 1}`);
 
   return (
@@ -14,7 +11,7 @@ export function TableLoadingState({
       role="status"
       aria-live="polite"
       aria-label={message}
-      className="overflow-hidden rounded-[24px] border border-line/80 bg-card/82 shadow-[var(--shadow-card)]"
+      className="operator-table-shell overflow-hidden rounded-[16px] border border-line/80"
     >
       <span className="sr-only">{message}</span>
 

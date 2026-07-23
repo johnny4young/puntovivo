@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "$comment": "Operator Deck Base 10. A curated, executable map of the store journeys that must retain role, language, viewport and persisted read-side evidence. Test titles are exact so repository checks can detect drift instead of trusting documentation.",
+  "requiredJourneyIds": [
+    "first-sale",
+    "suspended-cart",
+    "split-tender",
+    "manager-approval",
+    "refund",
+    "blind-close",
+    "day-close",
+    "inventory-receipt",
+    "inventory-transfer",
+    "staff-switch"
+  ],
+  "variantAxes": {
+    "languages": ["en", "es"],
+    "viewports": ["desktop", "compact"],
+    "interactionModes": ["pointer", "keyboard"],
+    "continuity": ["reload", "role-handoff"]
+  },
+  "journeys": [
+    {
+      "id": "first-sale",
+      "owner": "admin",
+      "area": "sell",
+      "evidenceFile": "e2e/web/first-sale-onboarding.spec.ts",
+      "testTitle": "walks a fresh admin through product, drawer, sale, celebration, and Help reopen",
+      "languages": ["en", "es"],
+      "viewports": ["desktop"],
+      "interactionModes": ["pointer", "keyboard"],
+      "continuity": ["reload"]
+    },
+    {
+      "id": "suspended-cart",
+      "owner": "cashier",
+      "area": "sell",
+      "evidenceFile": "e2e/web/business.spec.ts",
+      "testTitle": "cashier parks a cart, charges a second one, resumes the first, and charges it via completeDraft",
+      "languages": ["en"],
+      "viewports": ["desktop"],
+      "interactionModes": ["pointer", "keyboard"],
+      "continuity": ["reload"]
+    },
+    {
+      "id": "split-tender",
+      "owner": "cashier",
+      "area": "sell",
+      "evidenceFile": "e2e/web/business.spec.ts",
+      "testTitle": "cashier completes a split-payment sale with cash + card and both tenders render in the details drawer",
+      "languages": ["en"],
+      "viewports": ["desktop", "compact"],
+      "interactionModes": ["pointer"],
+      "continuity": ["reload"]
+    },
+    {
+      "id": "manager-approval",
+      "owner": "manager",
+      "area": "control",
+      "evidenceFile": "e2e/web/checkout-approvals.spec.ts",
+      "testTitle": "cashier requests and consumes an exact discount approval",
+      "languages": ["en", "es"],
+      "viewports": ["desktop", "compact"],
+      "interactionModes": ["pointer", "keyboard"],
+      "continuity": ["reload", "role-handoff"]
+    },
+    {
+      "id": "refund",
+      "owner": "manager",
+      "area": "control",
+      "evidenceFile": "e2e/web/business.spec.ts",
+      "testTitle": "manager refunds a completed sale and the refund restores inventory plus audit evidence",
+      "languages": ["en", "es"],
+      "viewports": ["desktop"],
+      "interactionModes": ["pointer"],
+      "continuity": ["reload", "role-handoff"]
+    },
+    {
+      "id": "blind-close",
+      "owner": "cashier",
+      "area": "close",
+      "evidenceFile": "e2e/web/business.spec.ts",
+      "testTitle": "cashier closes a cash session with an overage and the closure is visible in audit plus reporting",
+      "languages": ["en"],
+      "viewports": ["desktop", "compact"],
+      "interactionModes": ["pointer", "keyboard"],
+      "continuity": ["reload", "role-handoff"]
+    },
+    {
+      "id": "day-close",
+      "owner": "manager",
+      "area": "close",
+      "evidenceFile": "e2e/web/smoke.spec.ts",
+      "testTitle": "manager signs and reloads immutable day-close evidence",
+      "languages": ["en", "es"],
+      "viewports": ["desktop"],
+      "interactionModes": ["pointer"],
+      "continuity": ["reload"]
+    },
+    {
+      "id": "inventory-receipt",
+      "owner": "manager",
+      "area": "stock",
+      "evidenceFile": "e2e/web/business.spec.ts",
+      "testTitle": "manager records a completed purchase and inventory increases at the receiving site",
+      "languages": ["en"],
+      "viewports": ["desktop"],
+      "interactionModes": ["pointer"],
+      "continuity": ["reload"]
+    },
+    {
+      "id": "inventory-transfer",
+      "owner": "manager",
+      "area": "stock",
+      "evidenceFile": "e2e/web/business.spec.ts",
+      "testTitle": "manager transfers stock between sites, receives with discrepancy, and balances shrink by the shortage",
+      "languages": ["en", "es"],
+      "viewports": ["desktop"],
+      "interactionModes": ["pointer"],
+      "continuity": ["reload"]
+    },
+    {
+      "id": "staff-switch",
+      "owner": "cashier",
+      "area": "control",
+      "evidenceFile": "e2e/web/staff-switch.spec.ts",
+      "testTitle": "admin enrolls a cashier PIN and the cashier safely takes over",
+      "languages": ["en"],
+      "viewports": ["desktop"],
+      "interactionModes": ["pointer"],
+      "continuity": ["reload", "role-handoff"]
+    }
+  ]
+}

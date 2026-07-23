@@ -230,7 +230,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
           </button>
 
           {isOpen && (
-            <div className="absolute z-50 mt-2 w-full animate-pop-in overflow-hidden rounded-[24px] border border-line/80 bg-card/98 p-2 shadow-[var(--shadow-panel)] backdrop-blur-xl">
+            <div className="operator-popover absolute z-50 mt-2 w-full animate-pop-in overflow-hidden rounded-[14px] border border-line/80 p-2 backdrop-blur-xl">
               {searchable && (
                 <div className="border-b border-line/70 px-1 pb-3 pt-1">
                   <div className="relative">
@@ -267,7 +267,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
                       aria-selected={option.value === value}
                       onClick={() => handleSelect(option)}
                       className={cn(
-                        'flex cursor-pointer items-center justify-between rounded-2xl px-3 py-2.5 text-sm transition-colors',
+                        'operator-option flex cursor-pointer items-center justify-between rounded-[10px] px-3 py-2.5 text-sm transition-colors',
                         option.value === value && 'bg-primary-50 text-primary-700',
                         option.value !== value &&
                           index === highlightedIndex &&

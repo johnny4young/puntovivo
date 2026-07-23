@@ -162,46 +162,50 @@
  * scroll there to keep the cash-session controls reachable. */
 @custom-variant pos (@media (min-width: 1280px) and (min-height: 900px));
 
-/* Inter is the canonical UI face per the design-system
- * handoff. Locally-served 400 / 700 ship as woff2 next to the app
- * bundle; the heavier weights (500 / 600 / 800) come from Google
- * Fonts and are imported once in index.html so they're available
- * to every screen without a per-component flash.
+/* Plus Jakarta Sans is the primary UI face for the command-surface pilot.
+ * The locally shipped Inter cuts remain the offline-safe fallback for
+ * packaged and disconnected devices; both are loaded once in index.html.
  */
 @font-face {
-  font-family: "Inter";
+  font-family: 'Inter';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/src/assets/fonts/Inter-Regular.woff2") format("woff2");
+  src: url('/src/assets/fonts/Inter-Regular.woff2') format('woff2');
 }
 
 @font-face {
-  font-family: "Inter";
+  font-family: 'Inter';
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url("/src/assets/fonts/Inter-Bold.woff2") format("woff2");
+  src: url('/src/assets/fonts/Inter-Bold.woff2') format('woff2');
 }
 
 :root {
-  /* Inter is the UI face; Iowan Old Style / Source Serif 4
+  /* Plus Jakarta Sans is the UI face; Iowan Old Style / Source Serif 4
    * is reserved for marketing / landing surfaces and opt-in via
    * `class="display"`. It is NOT wired into h1..h3 by default. */
-  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-display-face: "Iowan Old Style", "Source Serif 4", "Palatino Linotype", "Book Antiqua", serif;
-  --font-mono-face: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+  --font-ui:
+    'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
+    sans-serif;
+  --font-display-face:
+    'Iowan Old Style', 'Source Serif 4', 'Palatino Linotype', 'Book Antiqua', serif;
+  --font-mono-face: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
 
-  --background: oklch(0.98 0.008 84);
+  /* Operator Deck foundation: a cool, low-reflection canvas replaces the
+   * warm editorial base. White work zones remain distinct without pushing
+   * the application into a blue-tinted enterprise dashboard aesthetic. */
+  --background: oklch(0.955 0.008 225);
   --foreground: oklch(0.24 0.02 255);
-  --card: oklch(0.995 0.004 84);
+  --card: oklch(0.992 0.003 225);
   --card-foreground: oklch(0.24 0.02 255);
-  --popover: oklch(0.995 0.004 84);
+  --popover: oklch(0.992 0.003 225);
   --popover-foreground: oklch(0.24 0.02 255);
-  --border: oklch(0.88 0.012 84);
-  --input: oklch(0.92 0.014 84);
+  --border: oklch(0.86 0.011 225);
+  --input: oklch(0.9 0.012 225);
   --ring: oklch(0.63 0.126 244);
-  --muted: oklch(0.94 0.011 84);
+  --muted: oklch(0.925 0.009 225);
   /* slice B (2026-05-21): dropped from 0.5 to 0.4 so
    * `text-muted-foreground` rendered against `--background`,
    * `--card`, and `--popover` clears WCAG AA 4.5:1. The Playwright
@@ -223,16 +227,16 @@
    * at L=0.74 (axe-AA against the L=0.22 foreground). */
   --primary: oklch(0.43 0.115 244);
   --primary-foreground: oklch(0.985 0.005 84);
-  --secondary: oklch(0.94 0.012 84);
+  --secondary: oklch(0.925 0.009 225);
   --secondary-foreground: oklch(0.3 0.018 255);
   --destructive: oklch(0.57 0.192 24);
   --destructive-foreground: oklch(0.985 0.005 84);
 
-  --surface: oklch(0.992 0.005 84);
-  --surface-2: oklch(0.968 0.011 84);
-  --surface-3: oklch(0.935 0.017 84);
-  --line: oklch(0.89 0.011 84);
-  --line-strong: oklch(0.8 0.016 84);
+  --surface: oklch(0.992 0.003 225);
+  --surface-2: oklch(0.975 0.006 225);
+  --surface-3: oklch(0.935 0.01 225);
+  --line: oklch(0.86 0.011 225);
+  --line-strong: oklch(0.76 0.016 225);
   --ink: oklch(0.21 0.019 255);
   --ink-soft: oklch(0.56 0.019 255);
 
@@ -243,6 +247,42 @@
   --fg2: oklch(0.37 0.022 255);
   --fg3: oklch(0.52 0.019 255);
   --fg4: oklch(0.74 0.018 84);
+
+  /* Operator Deck role tokens. These sit above the semantic colour ramp:
+   * commitment is navy, commands are amber, readiness is mint. Geometry is
+   * intentionally terminal-like and shared by buttons, fields, cards,
+   * dialogs, tables, and navigation. */
+  --operator-canvas: oklch(0.955 0.008 225);
+  --operator-panel: oklch(0.992 0.003 225);
+  --operator-panel-muted: oklch(0.975 0.006 225);
+  --operator-commit: #102f44;
+  --operator-commit-hover: #184760;
+  --operator-commit-foreground: #f8fbfb;
+  --operator-signal: #26ad7a;
+  --operator-command: #f2a563;
+  /* Operational semantic controls use institutional, low-chroma tones.
+   * Success reads as evergreen rather than consumer mint; destructive
+   * actions use oxblood rather than alarm-red. Both keep AA body contrast. */
+  --operator-positive-control: oklch(0.43 0.075 154);
+  --operator-positive-control-hover: oklch(0.39 0.065 154);
+  --operator-critical-control: oklch(0.45 0.1 24);
+  --operator-critical-control-hover: oklch(0.41 0.09 24);
+  --operator-semantic-control-foreground: oklch(0.98 0.004 225);
+  /* Quiet semantic surfaces keep operational notices near-neutral. A narrow
+   * rail and the icon tile carry severity, so status does not become a wall
+   * of consumer-style pastel colour in dense POS views. */
+  --operator-info-surface: oklch(0.955 0.014 244);
+  --operator-info-ink: oklch(0.35 0.075 244);
+  --operator-positive-surface: oklch(0.955 0.018 154);
+  --operator-positive-ink: oklch(0.34 0.07 154);
+  --operator-warning-surface: oklch(0.965 0.025 78);
+  --operator-warning-ink: oklch(0.39 0.085 72);
+  --operator-critical-surface: oklch(0.96 0.018 24);
+  --operator-critical-ink: oklch(0.39 0.085 24);
+  --operator-control-radius: 0.72rem;
+  --operator-panel-radius: 1.1rem;
+  --operator-key-edge: rgb(12 35 51 / 0.18);
+  --operator-grid: rgb(23 58 83 / 0.028);
 
   /* semantic type tokens. Heads only ever consume these
    * (no inline font-size). Bumping a single heading rhythm is a
@@ -341,7 +381,7 @@
    * floor, no approximation gap on warm-amber tones. Same ramp-slot
    * remains, just deeper. Dark-theme stays at L=0.90 (already passes
    * against the L=0.30 background). */
-  --warning-700: oklch(0.50 0.11 72);
+  --warning-700: oklch(0.5 0.11 72);
   --danger-50: oklch(0.97 0.02 24);
   --danger-500: oklch(0.63 0.19 24);
   --danger-600: oklch(0.57 0.18 24);
@@ -393,7 +433,8 @@
   --print-dpi: 203;
   --print-58mm-dots: 384;
   --print-80mm-dots: 576;
-  --print-mono-face: "IBM Plex Mono", "JetBrains Mono", "Menlo", "Consolas", ui-monospace, monospace;
+  --print-mono-face:
+    'IBM Plex Mono', 'JetBrains Mono', 'Menlo', 'Consolas', ui-monospace, monospace;
   --print-min-size: 10pt;
   --print-body-size: 11pt;
   --print-total-size: 14pt;
@@ -479,6 +520,30 @@
   --fg3: oklch(0.66 0.016 84);
   --fg4: oklch(0.53 0.02 255);
 
+  --operator-canvas: var(--background);
+  --operator-panel: var(--surface);
+  --operator-panel-muted: var(--surface-2);
+  --operator-commit: oklch(0.72 0.12 244);
+  --operator-commit-hover: oklch(0.78 0.11 244);
+  --operator-commit-foreground: oklch(0.19 0.018 255);
+  --operator-signal: oklch(0.72 0.16 154);
+  --operator-command: oklch(0.82 0.15 78);
+  --operator-positive-control: oklch(0.78 0.085 154);
+  --operator-positive-control-hover: oklch(0.72 0.085 154);
+  --operator-critical-control: oklch(0.76 0.1 24);
+  --operator-critical-control-hover: oklch(0.7 0.09 24);
+  --operator-semantic-control-foreground: oklch(0.19 0.018 255);
+  --operator-info-surface: oklch(0.245 0.025 244);
+  --operator-info-ink: oklch(0.82 0.075 244);
+  --operator-positive-surface: oklch(0.245 0.025 154);
+  --operator-positive-ink: oklch(0.84 0.075 154);
+  --operator-warning-surface: oklch(0.25 0.03 78);
+  --operator-warning-ink: oklch(0.86 0.09 78);
+  --operator-critical-surface: oklch(0.245 0.025 24);
+  --operator-critical-ink: oklch(0.84 0.09 24);
+  --operator-key-edge: rgb(0 0 0 / 0.34);
+  --operator-grid: rgb(255 255 255 / 0.025);
+
   /* dark-mode shadow rule. Box shadows on a 0.19-L base are
    * effectively invisible, so the design system replaces elevation
    * with a 1 px line. Components that still need a colored glow
@@ -493,8 +558,16 @@
 /* semantic element styles. Pure CSS so artifacts (printed
  * receipts, embedded preview iframes) inherit the design-system rhythm
  * without depending on Tailwind utility classes. */
-body { font-family: var(--font-ui); color: var(--fg1); background: var(--background); }
-.display { font-family: var(--font-display) !important; font-weight: 400; letter-spacing: -0.03em; }
+body {
+  font-family: var(--font-ui);
+  color: var(--fg1);
+  background: var(--background);
+}
+.display {
+  font-family: var(--font-display) !important;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
 .kicker {
   font-family: var(--kicker-font);
   font-size: var(--kicker-size);

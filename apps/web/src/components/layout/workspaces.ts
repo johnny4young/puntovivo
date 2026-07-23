@@ -363,6 +363,12 @@ export const WORKSPACES: readonly Workspace[] = [
     items: [
       { nameKey: 'items.company', href: '/company', icon: Building2, allowedRoles: adminOnlyRoles },
       {
+        nameKey: 'items.designSystem',
+        href: '/design-system',
+        icon: LayoutGrid,
+        allowedRoles: adminOnlyRoles,
+      },
+      {
         nameKey: 'items.dataImport',
         href: '/data-import',
         icon: FileUp,

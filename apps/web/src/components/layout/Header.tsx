@@ -10,6 +10,7 @@ import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyI
 import { TimeClockControl } from '@/features/staff/TimeClockControl';
 import { ManagerApprovalQueue } from '@/features/approvals/ManagerApprovalQueue';
 import { useCommandPalette } from '@/components/feedback/CommandPaletteProvider';
+import { Button } from '@/components/ui';
 import {
   persistLanguagePreference,
   readLanguagePreference,
@@ -83,15 +84,16 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 px-4 pt-4 sm:px-6 xl:px-[22px]">
-      <div className="flex flex-nowrap items-center gap-3 rounded-[28px] border border-line/80 bg-surface/90 px-3.5 py-2.5 shadow-[var(--shadow-panel)] backdrop-blur-xl">
-        <button
-          type="button"
-          className="btn-outline btn-icon mobile-shell-toggle shrink-0 rounded-full xl:hidden"
+      <div className="operator-header-deck flex flex-nowrap items-center gap-3 rounded-[16px] border border-line/80 px-3.5 py-2.5 backdrop-blur-xl">
+        <Button
+          variant="outline"
+          size="icon"
+          className="mobile-shell-toggle shrink-0 rounded-full xl:hidden"
           onClick={onOpenSidebar}
           aria-label={t('auth:login.openNavigation')}
         >
           <Menu className="h-5.5 w-5.5 shrink-0 text-current" strokeWidth={2.35} />
-        </button>
+        </Button>
 
         <div
           data-testid="header-page-heading"
@@ -126,7 +128,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             onClick={openPalette}
             aria-label={t('common:quickSearchAria')}
             aria-keyshortcuts="Control+K Meta+K"
-            className="flex h-10 w-full items-center rounded-full border border-line-strong/55 bg-surface-2/70 px-3.5 pl-10 text-left text-[13px] text-secondary-500 outline-none transition hover:border-primary-200 hover:bg-white focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100/60"
+            className="pv-command-trigger flex h-10 w-full items-center border border-line-strong/55 bg-surface-2/70 px-3.5 pl-10 text-left text-[13px] text-secondary-500 outline-none transition hover:border-primary-200 hover:bg-white focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100/60"
           >
             <span className="min-w-0 flex-1 truncate">{t('common:quickSearch')}</span>
             {paletteShortcutLabel && (
@@ -141,8 +143,8 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
           <div
             className={
               online
-                ? 'hidden items-center gap-1.5 rounded-full bg-success-50 px-3 py-2 text-success-700 md:inline-flex'
-                : 'hidden items-center gap-1.5 rounded-full bg-warning-50 px-3 py-2 text-warning-700 md:inline-flex'
+                ? 'pv-signal-chip hidden items-center gap-1.5 bg-success-50 px-3 py-2 text-success-700 md:inline-flex'
+                : 'pv-signal-chip hidden items-center gap-1.5 bg-warning-50 px-3 py-2 text-warning-700 md:inline-flex'
             }
           >
             <span
@@ -165,7 +167,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
               value={languagePreference}
               onChange={handleLanguageChange}
               placeholder={t('common:language.placeholder')}
-              className="h-10 rounded-full border-line/70 bg-surface-2/70 px-3 text-[12.5px]"
+              className="pv-control-select h-10 border-line/70 bg-surface-2/70 px-3 text-[12.5px]"
               triggerLabelClassName="max-w-[3.4rem]"
             />
           </div>
@@ -181,7 +183,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
               }}
               placeholder={isLoadingSites ? t('common:loadingSites') : t('common:selectSite')}
               disabled={isLoadingSites || siteOptions.length <= 1}
-              className="h-10 rounded-full border-line/70 bg-surface-2/70 px-3 text-[12.5px]"
+              className="pv-control-select h-10 border-line/70 bg-surface-2/70 px-3 text-[12.5px]"
             />
           </div>
 
@@ -196,7 +198,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
           <div className="relative shrink-0">
             <button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-line/70 bg-surface-2/70 py-1.5 pl-2 pr-3 text-secondary-700 transition hover:border-primary-200 hover:bg-primary-50/80 hover:text-primary-700"
+              className="pv-control-key pv-control-user inline-flex h-10 items-center gap-2 border border-line/70 bg-surface-2/70 py-1.5 pl-2 pr-3 text-secondary-700 transition hover:border-primary-200 hover:bg-primary-50/80 hover:text-primary-700"
               onClick={() => setShowUserMenu(current => !current)}
               aria-label={t('common:userMenu.aria', {
                 name: user?.name ?? t('common:user'),
@@ -221,36 +223,38 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             {showUserMenu && (
               <div
                 id={userMenuId}
-                className="absolute right-0 z-20 mt-3 max-h-[calc(100vh-7rem)] w-72 animate-pop-in overflow-y-auto rounded-[24px] border border-line bg-card p-3 shadow-[var(--shadow-panel)]"
+                className="operator-popover absolute right-0 z-20 mt-3 max-h-[calc(100vh-7rem)] w-72 animate-pop-in overflow-y-auto rounded-[14px] border border-line p-3"
               >
                 <div className="card-inset px-4 py-3">
                   <p className="text-sm font-semibold text-secondary-950">{user?.name}</p>
                   <p className="mt-1 text-xs text-fg2">{user?.email}</p>
                 </div>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="compact"
                   onClick={() => {
                     setShowUserMenu(false);
                     setIsChangePasswordOpen(true);
                   }}
-                  className="btn-ghost mt-3 w-full justify-start px-3"
+                  className="mt-3 w-full justify-start px-3"
                 >
                   <KeyRound className="h-4 w-4" />
                   {t('common:changePassword')}
-                </button>
+                </Button>
                 {user && ['admin', 'manager', 'cashier'].includes(user.role) && (
                   <>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="compact"
                       onClick={() => {
                         setShowUserMenu(false);
                         setIsStaffSwitchOpen(true);
                       }}
-                      className="btn-ghost mt-2 w-full justify-start px-3"
+                      className="mt-2 w-full justify-start px-3"
                     >
                       <UserRoundCog className="h-4 w-4" />
                       {t('common:switchCashier')}
-                    </button>
+                    </Button>
                     <TimeClockControl
                       site={currentSite ? { id: currentSite.id, name: currentSite.name } : null}
                     />
@@ -260,17 +264,18 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                   (user?.role === 'admin' ||
                     user?.role === 'manager' ||
                     user?.role === 'cashier') && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="compact"
                       onClick={() => {
                         setShowUserMenu(false);
                         onOpenFirstSaleGuide();
                       }}
-                      className="btn-ghost mt-2 w-full justify-start px-3"
+                      className="mt-2 w-full justify-start px-3"
                     >
                       <CircleHelp className="h-4 w-4" />
                       {t('setup:firstSale.helpAction')}
-                    </button>
+                    </Button>
                   )}
                 {currentSite && user && ['admin', 'manager'].includes(user.role) && (
                   <Suspense fallback={null}>
@@ -278,14 +283,15 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                   </Suspense>
                 )}
                 {user && ['admin', 'manager'].includes(user.role) && <ManagerApprovalQueue />}
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="compact"
                   onClick={logout}
-                  className="btn-ghost mt-2 w-full justify-start px-3"
+                  className="mt-2 w-full justify-start px-3"
                 >
                   <LogOut className="h-4 w-4" />
                   {t('common:signOut')}
-                </button>
+                </Button>
               </div>
             )}
           </div>

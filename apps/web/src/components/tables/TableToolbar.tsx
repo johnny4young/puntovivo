@@ -14,12 +14,11 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ExportFormat } from '@/hooks/useTableExport';
-
+import { Button, Badge } from '@/components/ui';
 export interface TableToolbarColumn {
   key: string;
   header: string;
 }
-
 export interface TableToolbarProps {
   /** Columns available for visibility toggle */
   columns: TableToolbarColumn[];
@@ -62,32 +61,26 @@ export interface TableToolbarProps {
   /** Show print button */
   showPrint?: boolean;
 }
-
 interface DropdownProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
   className?: string;
 }
-
 function Dropdown({ isOpen, onClose, children, className }: DropdownProps) {
   const ref = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (ref.current && !ref.current.contains(event.target as Node)) {
         onClose();
       }
     }
-
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isOpen, onClose]);
-
   if (!isOpen) return null;
-
   return (
     <div
       ref={ref}
@@ -100,7 +93,6 @@ function Dropdown({ isOpen, onClose, children, className }: DropdownProps) {
     </div>
   );
 }
-
 export function TableToolbar({
   columns,
   visibleColumns,
@@ -127,9 +119,7 @@ export function TableToolbar({
   const { t } = useTranslation('common');
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
   const [columnsDropdownOpen, setColumnsDropdownOpen] = useState(false);
-
   const hasExportOptions = onExportCSV || onExportExcel || onExportPDF;
-
   return (
     <div className={cn('flex flex-wrap items-center justify-between gap-4', className)}>
       {/* Left section: Search and selection info */}
@@ -145,25 +135,29 @@ export function TableToolbar({
               className="input pl-10 pr-8 w-64"
             />
             {searchValue && (
-              <button
+              <Button
+                variant="ghost"
+                size="iconCompact"
                 onClick={() => onSearchChange('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-secondary-100 text-secondary-400 hover:text-secondary-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full text-secondary-400 hover:text-secondary-600"
                 aria-label={t('toolbar.clearSearch')}
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             )}
           </div>
         )}
 
         {selectedCount > 0 && (
           <div className="flex items-center gap-2 text-sm">
-            <span className="badge-primary">
+            <Badge variant="primary">
               {selectedCount} {t('toolbar.selected')}
-            </span>
+            </Badge>
             {totalCount !== undefined && (
               <span className="text-secondary-500">
-                {t('toolbar.ofTotal', { total: totalCount })}
+                {t('toolbar.ofTotal', {
+                  total: totalCount,
+                })}
               </span>
             )}
           </div>
@@ -175,9 +169,11 @@ export function TableToolbar({
         {/* Column visibility toggle */}
         {showColumnToggle && (
           <div className="relative">
-            <button
+            <Button
+              variant="outline"
+              size="compact"
               onClick={() => setColumnsDropdownOpen(!columnsDropdownOpen)}
-              className="btn-outline h-9 px-3 gap-2"
+              className="gap-2"
               aria-label={t('toolbar.toggleColumns')}
               aria-expanded={columnsDropdownOpen}
             >
@@ -186,7 +182,7 @@ export function TableToolbar({
               <ChevronDown
                 className={cn('h-4 w-4 transition-transform', columnsDropdownOpen && 'rotate-180')}
               />
-            </button>
+            </Button>
 
             <Dropdown
               isOpen={columnsDropdownOpen}
@@ -213,15 +209,17 @@ export function TableToolbar({
                   </label>
                 ))}
                 <div className="my-1 h-px bg-secondary-200" />
-                <button
+                <Button
+                  variant="ghost"
+                  size="compact"
                   onClick={() => {
                     onShowAllColumns();
                     setColumnsDropdownOpen(false);
                   }}
-                  className="w-full px-2 py-1.5 text-sm text-left text-primary-800 hover:bg-primary-50 rounded"
+                  className="w-full justify-start px-2 text-left text-primary-800 hover:bg-primary-50"
                 >
                   {t('toolbar.showAllColumns')}
-                </button>
+                </Button>
               </div>
             </Dropdown>
           </div>
@@ -230,10 +228,12 @@ export function TableToolbar({
         {/* Export dropdown */}
         {showExport && hasExportOptions && (
           <div className="relative">
-            <button
+            <Button
+              variant="outline"
+              size="compact"
               onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
               disabled={isExporting}
-              className={cn('btn-outline h-9 px-3 gap-2', isExporting && 'opacity-70 cursor-wait')}
+              className={cn('gap-2', isExporting && 'cursor-wait opacity-70')}
               aria-label={t('toolbar.export')}
               aria-expanded={exportDropdownOpen}
             >
@@ -248,7 +248,7 @@ export function TableToolbar({
               <ChevronDown
                 className={cn('h-4 w-4 transition-transform', exportDropdownOpen && 'rotate-180')}
               />
-            </button>
+            </Button>
 
             <Dropdown
               isOpen={exportDropdownOpen && !isExporting}
@@ -257,13 +257,15 @@ export function TableToolbar({
             >
               <div className="py-1">
                 {onExportCSV && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="compact"
                     onClick={() => {
                       onExportCSV();
                       setExportDropdownOpen(false);
                     }}
                     disabled={isExporting}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50 disabled:opacity-50"
+                    className="w-full justify-start gap-3 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50 disabled:opacity-50"
                   >
                     <File className="h-4 w-4 text-green-600" />
                     <div className="flex flex-col items-start">
@@ -273,16 +275,18 @@ export function TableToolbar({
                       </span>
                     </div>
                     {exportFormat === 'csv' && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
-                  </button>
+                  </Button>
                 )}
                 {onExportExcel && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="compact"
                     onClick={() => {
                       onExportExcel();
                       setExportDropdownOpen(false);
                     }}
                     disabled={isExporting}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50 disabled:opacity-50"
+                    className="w-full justify-start gap-3 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50 disabled:opacity-50"
                   >
                     <FileSpreadsheet className="h-4 w-4 text-green-700" />
                     <div className="flex flex-col items-start">
@@ -294,16 +298,18 @@ export function TableToolbar({
                     {exportFormat === 'excel' && (
                       <Loader2 className="ml-auto h-4 w-4 animate-spin" />
                     )}
-                  </button>
+                  </Button>
                 )}
                 {onExportPDF && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="compact"
                     onClick={() => {
                       onExportPDF();
                       setExportDropdownOpen(false);
                     }}
                     disabled={isExporting}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50 disabled:opacity-50"
+                    className="w-full justify-start gap-3 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50 disabled:opacity-50"
                   >
                     <FileText className="h-4 w-4 text-red-600" />
                     <div className="flex flex-col items-start">
@@ -313,7 +319,7 @@ export function TableToolbar({
                       </span>
                     </div>
                     {exportFormat === 'pdf' && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
-                  </button>
+                  </Button>
                 )}
               </div>
             </Dropdown>
@@ -322,14 +328,16 @@ export function TableToolbar({
 
         {/* Print button */}
         {showPrint && onPrint && (
-          <button
+          <Button
+            variant="outline"
+            size="compact"
             onClick={onPrint}
-            className="btn-outline h-9 px-3 gap-2"
+            className="gap-2"
             aria-label={t('toolbar.print')}
           >
             <Printer className="h-4 w-4" />
             <span className="hidden sm:inline">{t('toolbar.print')}</span>
-          </button>
+          </Button>
         )}
       </div>
     </div>

@@ -123,6 +123,14 @@ afterEach(() => {
 });
 
 describe('Sidebar workspaces', () => {
+  it('uses the shared 44px shell control for rail collapse', () => {
+    render(<Sidebar {...sidebarProps} />);
+
+    const collapse = screen.getByRole('button', { name: 'Collapse rail' });
+    expect(collapse).toHaveAttribute('type', 'button');
+    expect(collapse).toHaveClass('btn-outline', 'btn-icon', 'h-11', 'w-11');
+  });
+
   it('admin sees 8 workspace headers with Dashboard inside Operate', () => {
     render(<Sidebar {...sidebarProps} />);
     // Count every workspace header regardless of expanded state by
@@ -358,6 +366,12 @@ describe('responsive workspace navigation', () => {
       name: 'Mobile workspace navigation',
     });
     expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(screen.getByRole('button', { name: 'Close navigation' })).toHaveClass(
+      'btn-outline',
+      'btn-icon',
+      'h-11',
+      'w-11'
+    );
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onCloseMobile).toHaveBeenCalledTimes(1);
   });

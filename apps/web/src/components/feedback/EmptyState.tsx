@@ -9,10 +9,9 @@
  * idéntica en glifo, tipografía, márgenes y borde punteado.
  *
  * La acción se pasa como slot (`ReactNode`) en vez de props de botón porque
- * el CTA varía por pantalla: a veces es un `<button class="pv-btn primary">`
- * con un handler tRPC, a veces un enlace de navegación. El caller construye
- * su propio control `.pv-btn` (primary / outline) con su lógica y lo entrega
- * aquí ya cableado.
+ * el CTA varía por pantalla: a veces es un `Button` con un handler tRPC y a
+ * veces un enlace de navegación con `buttonVariants`. El caller construye el
+ * control tipado con su lógica y lo entrega aquí ya cableado.
  *
  * @module components/feedback/EmptyState
  */
@@ -34,9 +33,9 @@ export interface EmptyStateProps {
    */
   description: string;
   /**
-   * Acción / CTA opcional. El caller pasa su propio control `.pv-btn`
-   * (primary u outline) ya cableado a su handler o navegación. Se omite
-   * cuando el estado vacío es puramente informativo.
+   * Acción / CTA opcional. El caller pasa su propio `Button` o enlace con
+   * `buttonVariants`, ya cableado a su handler o navegación. Se omite cuando
+   * el estado vacío es puramente informativo.
    */
   action?: ReactNode;
   /** Clases extra para el contenedor `.pv-empty`. */

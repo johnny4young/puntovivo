@@ -2,6 +2,7 @@ import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, type ModalProps } from '@/components/form-controls/Modal';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
 
 export interface OverlayProps extends Omit<
   ModalProps,
@@ -105,10 +106,11 @@ export function Overlay({
           <div className="flex items-start gap-2">
             {headerAside}
             {showCloseButton && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={modalProps.onClose}
-                className="btn-ghost btn-icon shrink-0"
+                className="shrink-0"
                 aria-label={t('actions.closeModal')}
               >
                 <svg
@@ -124,7 +126,7 @@ export function Overlay({
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
-              </button>
+              </Button>
             )}
           </div>
         </div>

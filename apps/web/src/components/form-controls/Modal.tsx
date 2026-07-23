@@ -4,6 +4,8 @@ import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useDialogA11y } from '@/components/feedback/useDialogA11y';
+import { Button } from '@/components/ui/Button';
+import type { ButtonVariant } from '@/components/ui/Button.variants';
 
 // explicit `| undefined` on every optional field so React
 // callers can spread props from a parent state shape that carries
@@ -139,14 +141,15 @@ export function Modal({
               </h2>
             )}
             {showCloseButton && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={onClose}
-                className={cn('btn-ghost btn-icon shrink-0', !title && 'ml-auto')}
+                className={cn('shrink-0', !title && 'ml-auto')}
                 aria-label={t('actions.closeModal')}
               >
                 <X className="h-5 w-5" />
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -189,22 +192,23 @@ export function ModalButton({
   className,
   id,
 }: ModalButtonProps) {
-  const variantClasses = {
-    primary: 'btn-primary',
-    secondary: 'btn-outline',
-    danger: 'btn-danger',
+  const buttonVariant: Record<NonNullable<ModalButtonProps['variant']>, ButtonVariant> = {
+    primary: 'primary',
+    secondary: 'outline',
+    danger: 'danger',
   };
 
   return (
-    <button
+    <Button
       type={type}
       onClick={onClick}
       disabled={disabled}
       id={id}
-      className={cn('w-full sm:w-auto sm:min-w-[9rem]', variantClasses[variant], className)}
+      variant={buttonVariant[variant]}
+      className={cn('w-full sm:w-auto sm:min-w-[9rem]', className)}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

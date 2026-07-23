@@ -19,16 +19,25 @@
  * @module components/layout/GlobalStatusStrip
  */
 
-import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, AlertTriangle, ChevronDown, CloudOff, RefreshCw, X } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  ChevronDown,
+  CloudOff,
+  RefreshCw,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useHubReachability } from '@/hooks/useHubReachability';
 import { OfflineModePanel } from '@/features/offline/OfflineModePanel';
 import { cn, formatDateTime } from '@/lib/utils';
+import { Badge, Button, StatusStrip, buttonVariants } from '@/components/ui';
 
 /** Niveles de urgencia del strip, de mayor a menor peso visual. */
 type StripSeverity = 'danger' | 'warning' | 'info';
@@ -47,7 +56,7 @@ const SEVERITY_RANK: Record<StripSeverity, number> = {
 interface StatusIssue {
   id: string;
   severity: StripSeverity;
-  icon: ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   title: string;
   detail: string;
   hint?: string | undefined;
@@ -78,13 +87,6 @@ function writeReadinessDismissed(value: boolean): void {
   } catch {
     // Private-mode browsers throw on sessionStorage; swallow.
   }
-}
-
-/** Severidad → clase del strip (la receta por defecto es warning). */
-function stripToneClass(severity: StripSeverity): string {
-  if (severity === 'danger') return 'danger';
-  if (severity === 'info') return 'info';
-  return '';
 }
 
 export function GlobalStatusStrip() {
@@ -134,7 +136,7 @@ export function GlobalStatusStrip() {
       isHubUnreachable || !isOnline || pendingItems > 0 || conflicts > 0 || Boolean(error);
     if (showSync) {
       let severity: StripSeverity;
-      let icon: ComponentType<{ className?: string }>;
+      let icon: LucideIcon;
       let title: string;
       let detail: string;
 
@@ -239,55 +241,60 @@ export function GlobalStatusStrip() {
 
   return (
     <div className="px-4 pt-3 sm:px-6 xl:px-8" data-testid="global-status-strip">
-      <div className={cn('pv-strip', stripToneClass(top.severity))}>
-        <span className="ic">
-          <top.icon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <span className="msg">
-          <b>{top.title}</b>
-        </span>
-        {extraCount > 0 && (
-          <span className="pv-badge neutral" aria-hidden="true">
-            {t('statusStrip.moreCount', { count: extraCount })}
-          </span>
-        )}
-        <div className="act">
-          {top.action?.kind === 'retry' && (
+      <StatusStrip
+        tone={top.severity}
+        icon={top.icon}
+        title={top.title}
+        meta={
+          extraCount > 0 ? (
+            <Badge variant="neutral" aria-hidden="true">
+              {t('statusStrip.moreCount', { count: extraCount })}
+            </Badge>
+          ) : undefined
+        }
+        action={
+          <>
+            {top.action?.kind === 'retry' && (
+              <Button
+                variant="ghost"
+                size="compact"
+                onClick={() => {
+                  void triggerSync();
+                }}
+                disabled={top.action.busy}
+              >
+                <RefreshCw
+                  className={cn('h-4 w-4', top.action.busy && 'animate-spin')}
+                  aria-hidden="true"
+                />
+                {top.action.label}
+              </Button>
+            )}
+            {top.action?.kind === 'link' && (
+              <Link
+                to={top.action.to}
+                className={buttonVariants({ variant: 'ghost', size: 'compact' })}
+                data-testid="readiness-banner-cta"
+              >
+                {top.action.label}
+              </Link>
+            )}
             <button
               type="button"
-              className="pv-btn ghost"
-              onClick={() => {
-                void triggerSync();
-              }}
-              disabled={top.action.busy}
+              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold"
+              aria-expanded={expanded}
+              aria-controls={panelId}
+              onClick={() => setExpanded(value => !value)}
             >
-              <RefreshCw
-                className={cn('h-4 w-4', top.action.busy && 'animate-spin')}
+              {expanded ? t('statusStrip.hideDetails') : t('statusStrip.showDetails')}
+              <ChevronDown
+                className={cn('h-3.5 w-3.5 transition-transform', !expanded && '-rotate-90')}
                 aria-hidden="true"
               />
-              {top.action.label}
             </button>
-          )}
-          {top.action?.kind === 'link' && (
-            <Link to={top.action.to} className="pv-btn ghost" data-testid="readiness-banner-cta">
-              {top.action.label}
-            </Link>
-          )}
-          <button
-            type="button"
-            className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold"
-            aria-expanded={expanded}
-            aria-controls={panelId}
-            onClick={() => setExpanded(value => !value)}
-          >
-            {expanded ? t('statusStrip.hideDetails') : t('statusStrip.showDetails')}
-            <ChevronDown
-              className={cn('h-3.5 w-3.5 transition-transform', !expanded && '-rotate-90')}
-              aria-hidden="true"
-            />
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {expanded && (
         <div
@@ -321,9 +328,9 @@ export function GlobalStatusStrip() {
               </div>
               <div className="flex shrink-0 items-center gap-2 self-start md:self-center">
                 {issue.action?.kind === 'retry' && (
-                  <button
-                    type="button"
-                    className="btn-outline"
+                  <Button
+                    variant="outline"
+                    size="compact"
                     onClick={() => {
                       void triggerSync();
                     }}
@@ -334,23 +341,26 @@ export function GlobalStatusStrip() {
                       aria-hidden="true"
                     />
                     {issue.action.label}
-                  </button>
+                  </Button>
                 )}
                 {issue.action?.kind === 'link' && (
-                  <Link to={issue.action.to} className="btn-outline">
+                  <Link
+                    to={issue.action.to}
+                    className={buttonVariants({ variant: 'outline', size: 'compact' })}
+                  >
                     {issue.action.label}
                   </Link>
                 )}
                 {issue.onDismiss && (
-                  <button
-                    type="button"
-                    className="btn-ghost btn-icon"
+                  <Button
+                    variant="ghost"
+                    size="iconCompact"
                     aria-label={issue.dismissLabel}
                     onClick={issue.onDismiss}
                     data-testid="readiness-banner-dismiss"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>

@@ -144,7 +144,9 @@ describe('GlobalStatusStrip', () => {
 
     expect(screen.getByText('Sync needs attention')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /retry sync/i }));
+    const retry = screen.getByRole('button', { name: /retry sync/i });
+    expect(retry).toHaveClass('btn-ghost', 'min-h-9');
+    await user.click(retry);
 
     expect(triggerSync).toHaveBeenCalledTimes(1);
   });
@@ -171,7 +173,9 @@ describe('GlobalStatusStrip', () => {
 
     expect(screen.getByText(/setup incomplete/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /show details/i }));
-    await user.click(screen.getByRole('button', { name: /dismiss/i }));
+    const dismiss = screen.getByRole('button', { name: /dismiss/i });
+    expect(dismiss).toHaveClass('btn-ghost', 'btn-icon', 'h-8', 'w-8');
+    await user.click(dismiss);
     expect(screen.queryByText(/setup incomplete/i)).not.toBeInTheDocument();
 
     readinessState.query = {

@@ -9,6 +9,7 @@ import { managerOrAdminRoles } from '@/features/auth/roleAccess';
 import { CLIENT_MODULE_DEFAULTS, useModulesSnapshot } from '@/features/modules';
 import { usePrefetchSales } from '@/features/sales/usePrefetchSales';
 import { useDialogA11y } from '@/components/feedback/useDialogA11y';
+import { Button } from '@/components/ui';
 import { visibleWorkspacesForRole } from './workspaces';
 import { SidebarBrand } from './SidebarBrand';
 import { SidebarWorkspaces } from './DesktopSidebarNavigation';
@@ -90,15 +91,15 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
     return (
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex min-h-0 w-[18.5rem] flex-col border-r border-line/70 bg-surface/88 px-3 py-3 backdrop-blur-2xl transition-[width] duration-300',
+          'operator-sidebar fixed inset-y-0 left-0 z-50 flex min-h-0 w-[18.5rem] flex-col border-r border-line/70 px-3 py-3 backdrop-blur-2xl transition-[width] duration-300',
           collapsed && 'w-[6.5rem]'
         )}
       >
         <div className="mb-4 flex shrink-0 items-center justify-between gap-2">
           <SidebarBrand collapsed={collapsed} />
-          <button
-            type="button"
-            className="btn-outline btn-icon"
+          <Button
+            variant="outline"
+            size="icon"
             onClick={onToggleCollapse}
             aria-label={t(collapsed ? 'nav:actions.expandNavigation' : 'nav:actions.collapseRail')}
           >
@@ -107,7 +108,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
             ) : (
               <ChevronLeft className="h-4 w-4 shrink-0" />
             )}
-          </button>
+          </Button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-thin pr-1">
@@ -144,20 +145,21 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
         aria-hidden={!mobileDialogOpen}
         inert={!mobileDialogOpen}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex min-h-0 w-[min(22rem,calc(100vw-1rem))] flex-col border-r border-line/70 bg-surface/96 px-3 py-3 backdrop-blur-2xl transition-transform duration-300',
+          'operator-sidebar fixed inset-y-0 left-0 z-50 flex min-h-0 w-[min(22rem,calc(100vw-1rem))] flex-col border-r border-line/70 px-3 py-3 backdrop-blur-2xl transition-transform duration-300',
           mobileDialogOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         <div className="mb-4 flex shrink-0 items-center justify-between gap-2">
           <SidebarBrand collapsed={false} />
-          <button
-            type="button"
-            className="btn-outline btn-icon mobile-shell-toggle"
+          <Button
+            variant="outline"
+            size="icon"
+            className="mobile-shell-toggle"
             onClick={onCloseMobile}
             aria-label={t('nav:actions.closeNavigation')}
           >
             <X className="h-5.5 w-5.5 shrink-0" strokeWidth={2.35} />
-          </button>
+          </Button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-thin pr-1">

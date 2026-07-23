@@ -26,6 +26,7 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui';
 
 // row virtualisation. Above AUTO_VIRTUALISE_THRESHOLD rows the
 // table renders a single continuous scroll (windowed via
@@ -472,7 +473,7 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[24px] border border-line/80 bg-card/82 shadow-[var(--shadow-card)]">
+      <div className="operator-table-shell overflow-hidden rounded-[16px] border border-line/80">
         {/* : the scrollable wrapper needs to satisfy axe rule
          * `scrollable-region-focusable` on wide tables (/products +
          * /purchases hit horizontal overflow under the seeded data).
@@ -598,44 +599,48 @@ export function DataTable<TData, TValue>({
                 })}
           </div>
           <div className="flex items-center space-x-2">
-            <button
-              className="btn-outline btn-icon"
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => table.setPageIndex(0)}
               disabled={!table.getCanPreviousPage()}
               aria-label={t('pagination.goToFirst')}
             >
               <ChevronsLeft className="h-4 w-4" />
-            </button>
-            <button
-              className="btn-outline btn-icon"
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
               aria-label={t('pagination.goToPrevious')}
             >
               <ChevronLeft className="h-4 w-4" />
-            </button>
+            </Button>
             <span className="text-sm text-secondary-600">
               {t('table.page', {
                 current: table.getState().pagination.pageIndex + 1,
                 total: table.getPageCount(),
               })}
             </span>
-            <button
-              className="btn-outline btn-icon"
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
               aria-label={t('pagination.goToNext')}
             >
               <ChevronRight className="h-4 w-4" />
-            </button>
-            <button
-              className="btn-outline btn-icon"
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => table.setPageIndex(table.getPageCount() - 1)}
               disabled={!table.getCanNextPage()}
               aria-label={t('pagination.goToLast')}
             >
               <ChevronsRight className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
       )}

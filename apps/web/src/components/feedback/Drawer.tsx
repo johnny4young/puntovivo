@@ -25,6 +25,7 @@ import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useDialogA11y } from './useDialogA11y';
+import { Button } from '@/components/ui/Button';
 
 // explicit `| undefined` on every optional field so callers can
 // spread props from a parent state shape under `exactOptionalPropertyTypes`.
@@ -140,14 +141,15 @@ export function Drawer({
               <span />
             )}
             {showCloseButton && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={onClose}
-                className="btn-ghost btn-icon shrink-0"
+                className="shrink-0"
                 aria-label={t('actions.closeModal')}
               >
                 <X className="h-5 w-5" />
-              </button>
+              </Button>
             )}
           </div>
         )}

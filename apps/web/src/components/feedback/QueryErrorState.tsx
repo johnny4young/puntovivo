@@ -1,5 +1,6 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/Button';
 
 interface QueryErrorStateProps {
   title: string;
@@ -25,10 +26,10 @@ export function QueryErrorState({
         <div className="min-w-0 flex-1 space-y-2">
           <h2 className="text-lg font-semibold text-secondary-900">{title}</h2>
           <p className="text-sm text-secondary-600">{message}</p>
-          <button type="button" className="btn-outline flex items-center gap-2" onClick={onRetry}>
+          <Button variant="outline" onClick={onRetry}>
             <RefreshCw className="h-4 w-4" />
             {retryLabel ?? t('table.retry')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

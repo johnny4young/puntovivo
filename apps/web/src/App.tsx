@@ -26,6 +26,7 @@ import {
   CustomerDisplayShell,
   CustomersPage,
   DataImportPage,
+  DesignSystemPage,
   DayCloseReportPage,
   DashboardPage,
   DeliveryPage,
@@ -121,6 +122,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={adminOnlyRoles}>
                     <CompanyPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="design-system"
+                element={
+                  <ShellRoute allowedRoles={adminOnlyRoles}>
+                    <DesignSystemPage />
                   </ShellRoute>
                 }
               />
