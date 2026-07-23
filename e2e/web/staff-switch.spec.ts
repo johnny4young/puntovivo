@@ -95,6 +95,13 @@ test.describe('shared-terminal staff PIN switching', () => {
       await page.goto('/users');
       await expect(page).toHaveURL(/\/sales$/);
       await expect(page.getByRole('heading', { name: 'Users', exact: true })).toHaveCount(0);
+
+      await page.reload();
+      await expect(
+        page.getByRole('button', { name: 'Open user menu for E2E Cashier' })
+      ).toBeVisible();
+      await page.goto('/users');
+      await expect(page).toHaveURL(/\/sales$/);
       await captureEvidence(page, 'eng-106a-cashier-session');
     } finally {
       if (privilegedPage) {

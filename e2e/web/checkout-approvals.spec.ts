@@ -349,6 +349,14 @@ test('cashier requests and consumes an exact discount approval', async ({ browse
     await expect
       .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.cashier.id))
       .toMatchObject({ status: 'completed', total: 11_250 });
+    const completedSale = findLatestSaleForProduct(scenario.product.id, scenario.cashier.id);
+    if (!completedSale) throw new Error('Expected approved sale after checkout');
+
+    await cashierPage.reload();
+    await cashierPage.getByTestId('sales-open-history').click();
+    await expect(cashierPage.getByTestId('sales-history-drawer')).toContainText(
+      completedSale.saleNumber
+    );
 
     await expectNoClientIssues(cashierTracker);
     await expectNoClientIssues(managerTracker);

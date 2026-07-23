@@ -84,6 +84,11 @@ const adminRoutes = [
       }),
   },
   {
+    label: 'Visual system',
+    path: '/design-system',
+    assertion: async page => page.getByTestId('design-system-page'),
+  },
+  {
     label: 'Import data',
     path: '/data-import',
     assertion: async page =>
@@ -156,6 +161,7 @@ const routeWorkspaceLabels = new Map<string, string>([
   ['VAT Rates', 'Catalog'],
   ['Audit log', 'Finance'],
   ['Company', 'Setup'],
+  ['Visual system', 'Setup'],
   ['Import data', 'Setup'],
   ['Sites', 'Setup'],
   ['Sequentials', 'Setup'],
@@ -229,6 +235,7 @@ test.describe('web smoke', () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Company' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Visual system' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Import data' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toBeVisible();
     await expect(
@@ -239,6 +246,8 @@ test.describe('web smoke', () => {
     await page.goto('/schedule');
     await expect(page.getByTestId('team-schedule-page')).toBeVisible();
     await page.goto('/company');
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await page.goto('/design-system');
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto('/data-import');
     await expect(page).toHaveURL(/\/dashboard$/);

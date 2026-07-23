@@ -42,6 +42,16 @@ journeys, including authentication, role gating, sales, refunds, voids,
 purchases, inventory transfers, cash sessions, imports, approvals, loss
 prevention, staff attendance, variants, serials, and day-close sign-off.
 
+`operator-journeys.json` is the executable index for the ten shift-defining
+journeys: first sale, suspended cart, split tender, manager approval, refund,
+blind cash close, signed day close, purchase receiving, inter-site transfer,
+and secure operator switching. Each entry owns an exact Playwright file/title
+and declares its role, language, viewport, interaction, and continuity
+coverage. `scripts/check-operator-journeys.mjs`, invoked by `ci:web`, fails when
+an indexed test disappears, its title drifts without updating the contract, a
+required journey is removed, or the matrix loses a required operating variant.
+The contract indexes real flows; it does not replace their browser execution.
+
 The Electron suite launches the real desktop runtime and validates the
 renderer sandbox, embedded server, authenticated application boot, encrypted
 backup creation, cloud-vault write, scheduling, and restore readiness.

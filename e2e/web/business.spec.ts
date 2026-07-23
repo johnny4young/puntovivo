@@ -447,6 +447,7 @@ test.describe('web business flows', () => {
         password: scenario.admin.password,
         defaultPath: '/dashboard',
       });
+      await page.reload();
       await assertAuditEventInUi(page, {
         action: 'sale.return',
         expectedActor: scenario.manager.email,
@@ -645,6 +646,7 @@ test.describe('web business flows', () => {
       (scenario.product.siteStockBySiteId[purchase.siteId] ?? 0) + 2
     );
 
+    await page.reload();
     await openPurchaseDetails(page, purchase.purchaseNumber);
     // Scope to the purchase details drawer: the provider name and status
     // badge render in both the purchase list row and the drawer itself, so
@@ -899,6 +901,8 @@ test.describe('web business flows', () => {
       expectedOnHand: 2,
     });
 
+    await page.reload();
+    await page.getByRole('button', { name: 'By Site' }).click();
     const completedRow = getTransferRow(page, transfer.id);
     await expect(completedRow).toContainText('Completed');
     await expect(completedRow).toContainText('Discrepancy');
@@ -979,6 +983,7 @@ test.describe('web business flows', () => {
         password: scenario.admin.password,
         defaultPath: '/dashboard',
       });
+      await page.reload();
       await assertCashClosureInOperationsReport(page, {
         registerName: scenario.registerName,
         signedOverShort: formatUsd(expectedOverShort),
@@ -1283,6 +1288,7 @@ test.describe('web business flows', () => {
     expect(sale.total).toBe(expectedTotal);
 
     // Opening the sale details drawer shows one row per tender.
+    await page.reload();
     await openSaleDetails(page, sale.saleNumber);
     const drawer = page.getByRole('dialog', {
       name: new RegExp(`Sale ${escapeRegExp(sale.saleNumber)}`),
@@ -1513,6 +1519,9 @@ test.describe('web business flows', () => {
     // Cart A is now a server draft — stock is still reserved.
     const stockAfterSuspend = getProductStock(scenario.product.id);
     expect(stockAfterSuspend).toBe(scenario.product.totalStock - 1);
+
+    await page.reload();
+    await expect(page.getByTestId('checkout-open-suspended-panel')).toBeVisible();
 
     // --- Cart B: add one unit and charge normally -------------------------
     await page.locator('#sales-product-search-input').fill(scenario.product.sku);
