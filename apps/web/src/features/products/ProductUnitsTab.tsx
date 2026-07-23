@@ -3,12 +3,11 @@ import { useWatch } from 'react-hook-form';
 import type { LookupOption } from './productForm.types';
 import { validateSerialUnitEquivalence } from './serialTracking';
 import type { UseProductFormReturn } from './useProductForm';
-
+import { Button } from '@/components/ui';
 interface ProductUnitsTabProps {
   formBundle: UseProductFormReturn;
   units: LookupOption[];
 }
-
 export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
   const { t } = useTranslation('products');
   const { form, unitAssignmentsFieldArray, handleBaseUnitChange: onBaseUnitChange } = formBundle;
@@ -16,20 +15,16 @@ export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
     control: form.control,
     name: 'unitAssignments',
   });
-
   return (
     <div id="product-tabpanel-units" role="tabpanel" aria-labelledby="product-tab-units">
       <div className="space-y-4 rounded-xl border border-secondary-200 p-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-secondary-900">{t('form.units.title')}</p>
-            <p className="text-sm text-secondary-500">
-              {t('form.units.description')}
-            </p>
+            <p className="text-sm text-secondary-500">{t('form.units.description')}</p>
           </div>
-          <button
+          <Button
             type="button"
-            className="pv-btn outline"
             onClick={() =>
               unitAssignmentsFieldArray.append({
                 unitId: '',
@@ -38,9 +33,10 @@ export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
                 isBase: false,
               })
             }
+            variant="outline"
           >
             {t('form.units.addUnit')}
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-4">
@@ -49,7 +45,10 @@ export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
             const equivalenceError =
               form.formState.errors.unitAssignments?.[index]?.equivalence?.message;
             return (
-              <div key={field.id} className="grid grid-cols-2 gap-4 rounded-lg border border-secondary-200 p-4">
+              <div
+                key={field.id}
+                className="grid grid-cols-2 gap-4 rounded-lg border border-secondary-200 p-4"
+              >
                 <div className="pv-field">
                   <label className="label">{t('form.units.unit')}</label>
                   <select
@@ -111,23 +110,23 @@ export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
                     />
                     {t('form.units.baseUnit')}
                   </label>
-                  <button
+                  <Button
                     type="button"
-                    className="pv-btn ghost text-danger-600"
+                    className="text-danger-600"
                     disabled={unitAssignmentsFieldArray.fields.length === 1}
                     onClick={() => {
                       const currentAssignments = form.getValues('unitAssignments');
                       const removingBase = currentAssignments[index]?.isBase;
                       unitAssignmentsFieldArray.remove(index);
-
                       if (removingBase && currentAssignments.length > 1) {
                         const nextIndex = index === 0 ? 0 : index - 1;
                         onBaseUnitChange(nextIndex);
                       }
                     }}
+                    variant="ghost"
                   >
                     {t('form.units.remove')}
-                  </button>
+                  </Button>
                 </div>
               </div>
             );

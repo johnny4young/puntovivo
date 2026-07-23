@@ -112,7 +112,7 @@ function FirstSaleGuideContent({ openRequest, role, readiness }: FirstSaleGuideC
   if (ui.celebrating) {
     return (
       <section
-        className="mx-4 mt-3 overflow-hidden rounded-[24px] border border-success-200 bg-gradient-to-r from-success-50 via-white to-primary-50 shadow-[var(--shadow-panel)] sm:mx-6 xl:mx-8"
+        className="mx-4 mt-3 overflow-hidden rounded-[14px] border border-success-200 bg-gradient-to-r from-success-50 via-white to-primary-50 shadow-[var(--shadow-panel)] sm:mx-6 xl:mx-8"
         aria-labelledby="first-sale-celebration-title"
         aria-live="polite"
         aria-atomic="true"
@@ -146,7 +146,7 @@ function FirstSaleGuideContent({ openRequest, role, readiness }: FirstSaleGuideC
 
   return (
     <section
-      className="mx-4 mt-3 rounded-[24px] border border-primary-200/80 bg-card p-4 shadow-[var(--shadow-panel)] sm:mx-6 sm:p-5 xl:mx-8"
+      className="mx-4 mt-3 rounded-[14px] border border-primary-200/80 bg-card p-4 shadow-[var(--shadow-panel)] sm:mx-6 sm:p-5 xl:mx-8"
       aria-labelledby="first-sale-guide-title"
       data-testid="first-sale-guide"
     >

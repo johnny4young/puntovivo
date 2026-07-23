@@ -12,13 +12,14 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Drawer } from '@/components/feedback/Drawer';
-import { cn, formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { InitialInventoryEntry } from '@/types';
 
 /**
  * Props for {@link InventoryEntryDetailsDrawer}. The Drawer is open exactly
  * when `item` is non-null (the parent owns the open/close state).
  */
+import { Badge } from '@/components/ui';
 export interface InventoryEntryDetailsDrawerProps {
   /** The entry row to detail. `null` keeps the Drawer closed. */
   item: InitialInventoryEntry | null;
@@ -35,10 +36,8 @@ function DetailField({ label, value }: { label: string; value: ReactNode }) {
     </div>
   );
 }
-
 export function InventoryEntryDetailsDrawer({ item, onClose }: InventoryEntryDetailsDrawerProps) {
   const { t } = useTranslation('inventory');
-
   const footer = item ? (
     <div className="flex justify-end">
       <button type="button" className="btn-outline" onClick={onClose}>
@@ -46,7 +45,6 @@ export function InventoryEntryDetailsDrawer({ item, onClose }: InventoryEntryDet
       </button>
     </div>
   ) : undefined;
-
   return (
     <Drawer
       isOpen={!!item}
@@ -62,9 +60,9 @@ export function InventoryEntryDetailsDrawer({ item, onClose }: InventoryEntryDet
           <DetailField
             label={t('table.mode')}
             value={
-              <span className={cn('pv-badge', item.mode === 'initial' ? 'primary' : 'warning')}>
+              <Badge variant={item.mode === 'initial' ? 'primary' : 'warning'}>
                 {item.mode === 'initial' ? t('table.initialInventory') : t('table.physicalCount')}
-              </span>
+              </Badge>
             }
           />
           <DetailField

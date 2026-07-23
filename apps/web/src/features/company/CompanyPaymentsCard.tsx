@@ -46,12 +46,11 @@ import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
-
 import { useToast } from '@/components/feedback/ToastProvider';
+import { Badge, Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
-
 type PaymentSettingsResponse = inferRouterOutputs<AppRouter>['paymentSettings']['getAll'];
 type RailEntry = PaymentSettingsResponse['rails'][number];
 type CredentialView = RailEntry['credentials'][number];
@@ -66,7 +65,6 @@ const RAIL_GLYPHS: Record<string, LucideIcon> = {
   daviplata: Smartphone,
   epayco: Wallet,
 };
-
 export function CompanyPaymentsCard() {
   const { t } = useTranslation(['operations', 'errors', 'common']);
   const toast = useToast();
@@ -76,7 +74,6 @@ export function CompanyPaymentsCard() {
   // Track which section is expanded. Default to the first rail that
   // still needs credentials so the operator lands on actionable work.
   const [openRailId, setOpenRailId] = useState<string | null>(null);
-
   const updateMutation = trpc.paymentSettings.updateRail.useMutation({
     onSuccess: async (_data, variables) => {
       toast.success({
@@ -96,7 +93,6 @@ export function CompanyPaymentsCard() {
       titleKey: 'operations:payments.settings.form.saveErrorToast',
     }),
   });
-
   if (query.isLoading) {
     return (
       <div className="card p-6" data-testid="payments-card-loading">
@@ -104,7 +100,6 @@ export function CompanyPaymentsCard() {
       </div>
     );
   }
-
   if (query.error || !query.data) {
     return (
       <div className="card p-6 text-sm text-danger-700" data-testid="payments-card-error">
@@ -112,13 +107,11 @@ export function CompanyPaymentsCard() {
       </div>
     );
   }
-
   const rails = query.data.rails;
   const firstUnconfigured = rails.find(rail => !rail.validation.ok);
   // Resolve the effective open section: explicit operator choice wins;
   // otherwise default to the first rail that needs attention.
   const effectiveOpenId = openRailId !== null ? openRailId : (firstUnconfigured?.railId ?? null);
-
   return (
     <div className="space-y-5" data-testid="payments-card">
       <div className="card p-6 space-y-2">
@@ -155,7 +148,6 @@ export function CompanyPaymentsCard() {
     </div>
   );
 }
-
 interface RailSectionProps {
   rail: RailEntry;
   isOpen: boolean;
@@ -163,12 +155,10 @@ interface RailSectionProps {
   isSaving: boolean;
   onSubmit: (credentials: Record<string, string>) => Promise<void>;
 }
-
 function RailSection({ rail, isOpen, onToggle, isSaving, onSubmit }: RailSectionProps) {
   const { t } = useTranslation('operations');
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [touchedCredentials, setTouchedCredentials] = useState<Record<string, boolean>>({});
-
   const isReady = rail.validation.ok;
   const Glyph = RAIL_GLYPHS[rail.railId] ?? CreditCard;
   const bodyId = `payments-rail-${rail.railId}-body`;
@@ -178,7 +168,6 @@ function RailSection({ rail, isOpen, onToggle, isSaving, onSubmit }: RailSection
   const railDescription = t(`payments.settings.rails.${rail.railId}.description`, {
     defaultValue: '',
   });
-
   const issueLabels = useMemo(() => {
     if (rail.validation.ok) return null;
     return rail.validation.issues
@@ -191,7 +180,6 @@ function RailSection({ rail, isOpen, onToggle, isSaving, onSubmit }: RailSection
       )
       .filter((label): label is string => label !== null);
   }, [rail.validation, t]);
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -210,7 +198,6 @@ function RailSection({ rail, isOpen, onToggle, isSaving, onSubmit }: RailSection
     setTouchedCredentials({});
     setRevealed({});
   };
-
   return (
     <div className={cn('pv-acc', isOpen && 'open')} data-testid={`payments-rail-${rail.railId}`}>
       <button
@@ -228,15 +215,16 @@ function RailSection({ rail, isOpen, onToggle, isSaving, onSubmit }: RailSection
           <span className="nm block">{railName}</span>
           {railDescription && <span className="sub block">{railDescription}</span>}
         </span>
-        <span
-          className={cn('pv-badge ml-auto', isReady ? 'success' : 'warning')}
+        <Badge
+          variant={isReady ? 'success' : 'warning'}
+          marker="dot"
+          className="ml-auto"
           data-testid={`payments-rail-${rail.railId}-readiness`}
         >
-          <span className="dot" aria-hidden="true" />
           {isReady
             ? t('payments.settings.readiness.ready')
             : t('payments.settings.readiness.notReady')}
-        </span>
+        </Badge>
         <ChevronDown
           className={cn('chev h-4 w-4 transition-transform', isOpen && 'rotate-180')}
           aria-hidden="true"
@@ -285,22 +273,21 @@ function RailSection({ rail, isOpen, onToggle, isSaving, onSubmit }: RailSection
               <ShieldCheck className="h-3.5 w-3.5 text-success-700" aria-hidden="true" />
               {t('payments.settings.form.encryptedNote')}
             </span>
-            <button
+            <Button
               type="submit"
-              className="pv-btn primary"
               disabled={isSaving}
               data-testid={`payments-rail-${rail.railId}-save`}
+              variant="primary"
             >
               <Save className="h-4 w-4" aria-hidden="true" />
               {isSaving ? t('payments.settings.form.saving') : t('payments.settings.form.save')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
     </div>
   );
 }
-
 interface CredentialInputProps {
   railId: string;
   credential: CredentialView;
@@ -308,7 +295,6 @@ interface CredentialInputProps {
   onToggleReveal: () => void;
   onMarkTouched: () => void;
 }
-
 function CredentialInput({
   railId,
   credential,
@@ -334,7 +320,6 @@ function CredentialInput({
   const fieldLabel = t(`payments.settings.fields.${credential.key}`, {
     defaultValue: credential.key,
   });
-
   const handleClear = () => {
     if (inputRef.current) {
       inputRef.current.value = '';
@@ -342,7 +327,6 @@ function CredentialInput({
     }
     onMarkTouched();
   };
-
   return (
     <div className="pv-field">
       <label htmlFor={inputId} className="label">

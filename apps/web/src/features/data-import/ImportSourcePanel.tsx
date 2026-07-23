@@ -1,9 +1,9 @@
 import { LoaderCircle, RotateCcw, Upload } from 'lucide-react';
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import type { ParsedImportFile } from './fileParser';
-
+import { Button, buttonVariants } from '@/components/ui';
+import { cn } from '@/lib/utils';
 interface ImportSourcePanelProps {
   file: ParsedImportFile | null;
   fileError: string | null;
@@ -13,7 +13,6 @@ interface ImportSourcePanelProps {
   onFile: (file: File) => void;
   onReset: () => void;
 }
-
 export function ImportSourcePanel({
   file,
   fileError,
@@ -24,7 +23,6 @@ export function ImportSourcePanel({
   onReset,
 }: ImportSourcePanelProps) {
   const { t } = useTranslation('dataImport');
-
   return (
     <section className="card space-y-5 p-6" aria-labelledby="data-import-upload-title">
       <div>
@@ -39,7 +37,11 @@ export function ImportSourcePanel({
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <label
-          className={`pv-btn primary w-fit ${isBusy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+          className={cn(
+            buttonVariants({ variant: 'primary' }),
+            'w-fit',
+            isBusy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+          )}
           htmlFor="data-import-file"
           aria-disabled={isBusy}
         >
@@ -66,20 +68,24 @@ export function ImportSourcePanel({
           <div className="min-w-0 text-sm text-secondary-700" aria-live="polite">
             <p className="truncate font-semibold">{file.sourceName}</p>
             <p className="text-xs text-secondary-500">
-              {t('fileSummary', { rows: file.rows.length, columns: file.headers.length })}
+              {t('fileSummary', {
+                rows: file.rows.length,
+                columns: file.headers.length,
+              })}
             </p>
           </div>
         ) : null}
         {file ? (
-          <button
+          <Button
             type="button"
-            className="pv-btn ghost sm:ml-auto"
+            className="sm:ml-auto"
             disabled={isBusy}
             onClick={onReset}
+            variant="ghost"
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
             {t('actions.reset')}
-          </button>
+          </Button>
         ) : null}
       </div>
       {fileError ? (

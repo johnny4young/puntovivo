@@ -2,7 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { FolderTree, Mail, MapPinned, Pencil, Phone, Trash2, Truck } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import type { Provider } from '@/types';
-
+import { Badge } from '@/components/ui';
 export function createProviderColumns({
   t,
   canManage,
@@ -30,7 +30,9 @@ export function createProviderColumns({
           </div>
           <div>
             <p className="font-medium text-secondary-900">{row.original.name}</p>
-            <p className="text-xs text-secondary-500">{row.original.contactName || t('providers.columns.noContact')}</p>
+            <p className="text-xs text-secondary-500">
+              {row.original.contactName || t('providers.columns.noContact')}
+            </p>
           </div>
         </div>
       ),
@@ -65,9 +67,7 @@ export function createProviderColumns({
         <div className="flex items-center gap-2 text-secondary-600">
           <MapPinned className="h-4 w-4" />
           {row.original.cityName
-            ? `${row.original.cityName}${row.original.departmentName ? `, ${row.original.departmentName}` : ''}${
-                row.original.countryName ? `, ${row.original.countryName}` : ''
-              }`
+            ? `${row.original.cityName}${row.original.departmentName ? `, ${row.original.departmentName}` : ''}${row.original.countryName ? `, ${row.original.countryName}` : ''}`
             : '-'}
         </div>
       ),
@@ -89,9 +89,9 @@ export function createProviderColumns({
       header: t('providers.columns.status'),
       size: 100,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {row.original.isActive ? t('common:status.active') : t('common:status.inactive')}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -107,7 +107,11 @@ export function createProviderColumns({
           >
             <FolderTree className="h-4 w-4" />
           </button>
-          <button className="btn-ghost btn-icon h-8 w-8" onClick={() => onEdit(row.original)} disabled={!canManage}>
+          <button
+            className="btn-ghost btn-icon h-8 w-8"
+            onClick={() => onEdit(row.original)}
+            disabled={!canManage}
+          >
             <Pencil className="h-4 w-4" />
           </button>
           {canDelete && (

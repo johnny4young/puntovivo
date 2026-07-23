@@ -12,11 +12,10 @@ import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime } from '@/lib/utils';
-
+import { Button } from '@/components/ui';
 type SensitiveAuditSummary = inferRouterOutputs<AppRouter>['auditLogs']['sensitiveSummary'];
 export type SensitiveAuditCategorySummary = SensitiveAuditSummary['categories'][number];
 export type AuditReviewCategory = SensitiveAuditCategorySummary['category'];
-
 interface SensitiveAuditReviewProps {
   total: number;
   categories: SensitiveAuditCategorySummary[];
@@ -26,7 +25,6 @@ interface SensitiveAuditReviewProps {
   onSelectCategory: (category: AuditReviewCategory | null) => void;
   onRetry: () => void;
 }
-
 const CATEGORY_ICONS = {
   privacy: DatabaseZap,
   access: UserRoundCog,
@@ -34,7 +32,6 @@ const CATEGORY_ICONS = {
   inventory: Boxes,
   ai: Bot,
 } as const satisfies Record<AuditReviewCategory, LucideIcon>;
-
 const AUDIT_REVIEW_CATEGORY_IDS = Object.keys(CATEGORY_ICONS) as AuditReviewCategory[];
 
 /** risk-oriented overview and filter for immutable audit rows. */
@@ -49,7 +46,6 @@ export function SensitiveAuditReview({
 }: SensitiveAuditReviewProps) {
   const { t } = useTranslation('auditLogs');
   const hasError = error != null;
-
   return (
     <section className="card p-6" aria-labelledby="sensitive-audit-review-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -69,7 +65,9 @@ export function SensitiveAuditReview({
         </div>
         {!isLoading && !hasError && (
           <span className="rounded-full bg-danger-50 px-3 py-1 text-sm font-semibold text-danger-800">
-            {t('review.total', { count: total })}
+            {t('review.total', {
+              count: total,
+            })}
           </span>
         )}
       </div>
@@ -92,10 +90,10 @@ export function SensitiveAuditReview({
           role="alert"
         >
           <p className="text-sm text-danger-800">{t('review.error')}</p>
-          <button type="button" className="pv-btn outline" onClick={onRetry}>
+          <Button type="button" onClick={onRetry} variant="outline">
             <RefreshCw aria-hidden="true" />
             {t('review.retry')}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -133,7 +131,9 @@ export function SensitiveAuditReview({
                 </span>
                 <span className="mt-2 block text-xs text-secondary-500">
                   {item.latestAt
-                    ? t('review.latest', { date: formatDateTime(item.latestAt) })
+                    ? t('review.latest', {
+                        date: formatDateTime(item.latestAt),
+                      })
                     : t('review.none')}
                 </span>
               </button>

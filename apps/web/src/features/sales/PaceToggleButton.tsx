@@ -27,7 +27,7 @@ export function PaceToggleButton() {
   return (
     <button
       type="button"
-      className="btn-outline flex items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
+      className="pv-control-key btn-outline flex items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
       aria-label={label}
       title={label}
       aria-pressed={enabled}

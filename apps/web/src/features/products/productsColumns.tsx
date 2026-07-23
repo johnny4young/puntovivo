@@ -13,7 +13,10 @@ import type { Product } from '@/types';
 // here keeps the literal-mode columns identical and lets the optional
 // "Match" column read the score from the semantic-mode rows without
 // changing the public `Product` type for unrelated callers.
-export type DisplayProduct = Product & { similarity?: number };
+import { Badge } from '@/components/ui';
+export type DisplayProduct = Product & {
+  similarity?: number;
+};
 
 // the default table renders the smallest useful column set for
 // an at-a-glance catalog scan (name+SKU, category, lead price, stock,
@@ -26,7 +29,6 @@ export type DisplayProduct = Product & { similarity?: number };
 // without touching the column factory.
 export const MARGIN_GOOD_PCT = 30;
 export const MARGIN_WARN_PCT = 15;
-
 export const productsColumns = (
   onViewDetails: (product: Product) => void,
   onEdit: (product: Product) => void,
@@ -70,7 +72,10 @@ export const productsColumns = (
     size: 110,
     // montos mono alineados a la derecha (`num`); el
     // tier líder en negrita vía `.pv-tier .lead`.
-    meta: { cellClassName: 'num', headerClassName: 'num' },
+    meta: {
+      cellClassName: 'num',
+      headerClassName: 'num',
+    },
     cell: ({ row }) => (
       <span className="pv-tier">
         <span className="lead">{formatCurrency(row.original.price)}</span>
@@ -84,7 +89,10 @@ export const productsColumns = (
     // barra de stock proporcional; `low` la pinta en
     // danger. La barra llena al 50% cuando stock == mínimo y crece hacia
     // 100% (2x mínimo), con piso visible para que siempre se lea.
-    meta: { cellClassName: 'num', headerClassName: 'num' },
+    meta: {
+      cellClassName: 'num',
+      headerClassName: 'num',
+    },
     cell: ({ row }) => {
       if (row.original.catalogType === 'variant_parent') {
         return <span className="text-secondary-400">—</span>;
@@ -104,7 +112,11 @@ export const productsColumns = (
         >
           <span>{stock.toLocaleString()}</span>
           <span className="bar">
-            <i style={{ width: `${fill}%` }} />
+            <i
+              style={{
+                width: `${fill}%`,
+              }}
+            />
           </span>
         </span>
       );
@@ -115,22 +127,21 @@ export const productsColumns = (
     header: () => i18next.t('products:table.status'),
     size: 110,
     cell: ({ row }) => (
-      <span
-        className={cn(
-          'pv-badge',
+      <Badge
+        variant={
           row.original.catalogType === 'variant_parent'
             ? 'info'
             : row.original.isActive
               ? 'success'
               : 'neutral'
-        )}
+        }
       >
         {row.original.catalogType === 'variant_parent'
           ? i18next.t('products:table.matrixParent')
           : row.original.isActive
             ? i18next.t('products:table.active')
             : i18next.t('products:table.inactive')}
-      </span>
+      </Badge>
     ),
   },
   ...(marginByProduct
@@ -139,8 +150,17 @@ export const productsColumns = (
           id: 'margin',
           header: () => i18next.t('products:table.margin'),
           size: 110,
-          meta: { cellClassName: 'num', headerClassName: 'num' },
-          cell: ({ row }: { row: { original: DisplayProduct } }) => {
+          meta: {
+            cellClassName: 'num',
+            headerClassName: 'num',
+          },
+          cell: ({
+            row,
+          }: {
+            row: {
+              original: DisplayProduct;
+            };
+          }) => {
             const pct = marginByProduct.get(row.original.id);
             if (typeof pct !== 'number') {
               return (
@@ -155,13 +175,13 @@ export const productsColumns = (
             const tone =
               pct >= MARGIN_GOOD_PCT ? 'success' : pct >= MARGIN_WARN_PCT ? 'warning' : 'danger';
             return (
-              <span
-                className={cn('pv-badge', tone)}
+              <Badge
                 title={i18next.t('products:table.marginTooltip')}
                 data-testid="product-margin-badge"
+                variant={tone}
               >
                 {pct.toFixed(1)}%
-              </span>
+              </Badge>
             );
           },
         } satisfies ColumnDef<DisplayProduct>,
@@ -173,7 +193,13 @@ export const productsColumns = (
           id: 'similarity',
           header: () => i18next.t('products:table.match'),
           size: 140,
-          cell: ({ row }: { row: { original: DisplayProduct } }) => {
+          cell: ({
+            row,
+          }: {
+            row: {
+              original: DisplayProduct;
+            };
+          }) => {
             const sim = row.original.similarity;
             if (typeof sim !== 'number') return <span className="text-secondary-400">-</span>;
             const pct = Math.max(0, Math.min(100, Math.round(sim * 100)));
@@ -182,12 +208,16 @@ export const productsColumns = (
             return (
               <div
                 className="flex items-center gap-2"
-                title={i18next.t('semanticSearch:score.tooltip', { score: sim.toFixed(2) })}
+                title={i18next.t('semanticSearch:score.tooltip', {
+                  score: sim.toFixed(2),
+                })}
               >
                 <div className="h-2 w-20 overflow-hidden rounded-full bg-secondary-100">
                   <div
                     className={`h-full rounded-full ${toneClass}`}
-                    style={{ width: `${pct}%` }}
+                    style={{
+                      width: `${pct}%`,
+                    }}
                   />
                 </div>
                 <span className="text-[11px] font-mono tabular-nums text-secondary-700">

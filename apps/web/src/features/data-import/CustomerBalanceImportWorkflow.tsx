@@ -1,7 +1,6 @@
 import { FileSpreadsheet, LoaderCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { formatCurrency } from '@/lib/utils';
@@ -28,12 +27,11 @@ import type {
   ImportDecimalFormat,
   LaunchImportDataMode,
 } from './types';
-
+import { Button } from '@/components/ui';
 interface CustomerBalanceImportWorkflowProps {
   dataMode: LaunchImportDataMode;
   onBusyChange?: (busy: boolean) => void;
 }
-
 interface CustomerBalanceIssueExportRow {
   amount: string;
   customer: string;
@@ -44,11 +42,9 @@ interface CustomerBalanceIssueExportRow {
   status: string;
   taxId: string;
 }
-
 interface CustomerBalanceReportExportRow extends CustomerBalanceIssueExportRow {
   adjustmentId: string;
 }
-
 export function CustomerBalanceImportWorkflow({
   dataMode,
   onBusyChange,
@@ -65,18 +61,18 @@ export function CustomerBalanceImportWorkflow({
   const [isParsing, setIsParsing] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [confirmedRealData, setConfirmedRealData] = useState(false);
-
   const mappedRows = useMemo(
     () => (file && mapping ? mapCustomerBalanceImportRows(file, mapping) : []),
     [file, mapping]
   );
-
   const previewMutation = trpc.launchMigration.previewCustomerBalances.useMutation({
     onSuccess: result => {
       setPreview(result);
       setReport(null);
     },
-    onError: onErrorToast(toast, t, { titleKey: 'dataImport:toast.previewError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'dataImport:toast.previewError',
+    }),
   });
   const importMutation = trpc.launchMigration.importCustomerBalances.useMutation({
     onSuccess: async result => {
@@ -92,15 +88,15 @@ export function CustomerBalanceImportWorkflow({
         }),
       });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'dataImport:toast.importError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'dataImport:toast.importError',
+    }),
   });
   const isBusy = isParsing || previewMutation.isPending || importMutation.isPending;
-
   useEffect(() => {
     onBusyChange?.(isBusy);
     return () => onBusyChange?.(false);
   }, [isBusy, onBusyChange]);
-
   const invalidatePreview = () => {
     setPreview(null);
     setReport(null);
@@ -108,7 +104,6 @@ export function CustomerBalanceImportWorkflow({
     previewMutation.reset();
     importMutation.reset();
   };
-
   const handleFile = async (selected: File) => {
     if (isBusy) return;
     setIsParsing(true);
@@ -128,7 +123,6 @@ export function CustomerBalanceImportWorkflow({
       setIsParsing(false);
     }
   };
-
   const handlePreview = () => {
     if (!file || !mapping || !hasRequiredCustomerBalanceMapping(mapping)) return;
     previewMutation.mutate({
@@ -138,7 +132,6 @@ export function CustomerBalanceImportWorkflow({
       rows: mappedRows as CustomerBalanceImportRowsInput,
     });
   };
-
   const handleImport = () => {
     if (!file || !preview || dataMode !== 'real' || !confirmedRealData) return;
     importMutation.mutate({
@@ -150,18 +143,40 @@ export function CustomerBalanceImportWorkflow({
       previewHash: preview.previewHash,
     });
   };
-
   const exportColumns = <T extends CustomerBalanceIssueExportRow>(): ExportColumn<T>[] => [
-    { key: 'row', header: t('dataImport:table.row') },
-    { key: 'status', header: t('dataImport:table.status') },
-    { key: 'customer', header: t('dataImport:customerBalances.table.customer') },
-    { key: 'taxId', header: t('dataImport:customerBalances.fields.taxId') },
-    { key: 'email', header: t('dataImport:customerBalances.fields.email') },
-    { key: 'amount', header: t('dataImport:customerBalances.fields.openingBalance') },
-    { key: 'field', header: t('dataImport:table.field') },
-    { key: 'issue', header: t('dataImport:table.issues') },
+    {
+      key: 'row',
+      header: t('dataImport:table.row'),
+    },
+    {
+      key: 'status',
+      header: t('dataImport:table.status'),
+    },
+    {
+      key: 'customer',
+      header: t('dataImport:customerBalances.table.customer'),
+    },
+    {
+      key: 'taxId',
+      header: t('dataImport:customerBalances.fields.taxId'),
+    },
+    {
+      key: 'email',
+      header: t('dataImport:customerBalances.fields.email'),
+    },
+    {
+      key: 'amount',
+      header: t('dataImport:customerBalances.fields.openingBalance'),
+    },
+    {
+      key: 'field',
+      header: t('dataImport:table.field'),
+    },
+    {
+      key: 'issue',
+      header: t('dataImport:table.issues'),
+    },
   ];
-
   const buildIssueRows = (): CustomerBalanceIssueExportRow[] => {
     if (!preview) return [];
     if (report) {
@@ -192,13 +207,11 @@ export function CustomerBalanceImportWorkflow({
       }))
     );
   };
-
   const handleDownloadIssues = () => {
     exportToCSV(buildIssueRows(), exportColumns(), 'puntovivo-customer-balances-import-issues', {
       includeTimestamp: true,
     });
   };
-
   const handleDownloadReport = () => {
     if (!preview || !report) return;
     const rows: CustomerBalanceReportExportRow[] = buildCustomerBalanceImportReportRows(
@@ -217,16 +230,21 @@ export function CustomerBalanceImportWorkflow({
     }));
     const columns: ExportColumn<CustomerBalanceReportExportRow>[] = [
       ...exportColumns<CustomerBalanceReportExportRow>(),
-      { key: 'adjustmentId', header: t('dataImport:customerBalances.report.adjustmentId') },
+      {
+        key: 'adjustmentId',
+        header: t('dataImport:customerBalances.report.adjustmentId'),
+      },
     ];
     exportToCSV(rows, columns, `puntovivo-customer-balances-import-${report.importId}`, {
       includeTimestamp: true,
     });
   };
-
   const handleDownloadTemplate = () => {
     const columns: ExportColumn<Record<string, string>>[] = CUSTOMER_BALANCE_IMPORT_FIELDS.map(
-      key => ({ key, header: t(`dataImport:customerBalances.fields.${key}`) })
+      key => ({
+        key,
+        header: t(`dataImport:customerBalances.fields.${key}`),
+      })
     );
     const sample = Object.fromEntries(
       CUSTOMER_BALANCE_IMPORT_FIELDS.map(key => [
@@ -238,7 +256,6 @@ export function CustomerBalanceImportWorkflow({
       includeTimestamp: false,
     });
   };
-
   const handleReset = () => {
     if (isBusy) return;
     setFile(null);
@@ -247,16 +264,14 @@ export function CustomerBalanceImportWorkflow({
     invalidatePreview();
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
-
   const canPreview = Boolean(file && mapping && hasRequiredCustomerBalanceMapping(mapping));
-
   return (
     <div className="space-y-6" data-testid="data-import-customerBalances-workflow">
       <div className="flex justify-end">
-        <button type="button" className="pv-btn outline" onClick={handleDownloadTemplate}>
+        <Button type="button" onClick={handleDownloadTemplate} variant="outline">
           <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
           {t('dataImport:actions.downloadTemplate')}
-        </button>
+        </Button>
       </div>
 
       <ImportSourcePanel
@@ -281,22 +296,29 @@ export function CustomerBalanceImportWorkflow({
               invalidatePreview();
             }}
             onMappingChange={(field: CustomerBalanceImportField, source: string) => {
-              setMapping(current => (current ? { ...current, [field]: source } : current));
+              setMapping(current =>
+                current
+                  ? {
+                      ...current,
+                      [field]: source,
+                    }
+                  : current
+              );
               invalidatePreview();
             }}
           />
           <div className="flex justify-end">
-            <button
+            <Button
               type="button"
-              className="pv-btn primary"
               disabled={!canPreview || isBusy}
               onClick={handlePreview}
+              variant="primary"
             >
               {previewMutation.isPending ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
               {t('dataImport:actions.preview')}
-            </button>
+            </Button>
           </div>
         </>
       ) : null}

@@ -10,31 +10,27 @@ import type { UserRole, VatRate } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
-
+import { Badge } from '@/components/ui';
 interface VatRateFormValues {
   name: string;
   rate: number;
   isActive: boolean;
 }
-
 const defaultValues: VatRateFormValues = {
   name: '',
   rate: 0,
   isActive: true,
 };
-
 function mapVatRateToForm(vatRate: VatRate | null): VatRateFormValues {
   if (!vatRate) {
     return defaultValues;
   }
-
   return {
     name: vatRate.name,
     rate: vatRate.rate,
     isActive: vatRate.isActive,
   };
 }
-
 interface VatRateFormModalProps {
   isOpen: boolean;
   vatRate: VatRate | null;
@@ -43,7 +39,6 @@ interface VatRateFormModalProps {
   onClose: () => void;
   onSubmit: (values: VatRateFormValues) => Promise<void>;
 }
-
 function VatRateFormModal({
   isOpen,
   vatRate,
@@ -56,10 +51,8 @@ function VatRateFormModal({
   const form = useForm<VatRateFormValues>({
     defaultValues: mapVatRateToForm(vatRate),
   });
-
   const handleSubmit = form.handleSubmit(onSubmit);
   const isCreate = !vatRate;
-
   return (
     <Modal
       isOpen={isOpen}
@@ -71,7 +64,11 @@ function VatRateFormModal({
             {t('vatRates.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? t('vatRates.form.submitting') : isCreate ? t('vatRates.form.create') : t('vatRates.form.save')}
+            {isSaving
+              ? t('vatRates.form.submitting')
+              : isCreate
+                ? t('vatRates.form.create')
+                : t('vatRates.form.save')}
           </ModalButton>
         </>
       }
@@ -84,7 +81,9 @@ function VatRateFormModal({
           <input
             id="vat-rate-name"
             className="input mt-1"
-            {...form.register('name', { required: t('vatRates.form.nameRequired') })}
+            {...form.register('name', {
+              required: t('vatRates.form.nameRequired'),
+            })}
           />
           {form.formState.errors.name && (
             <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -105,8 +104,14 @@ function VatRateFormModal({
             {...form.register('rate', {
               valueAsNumber: true,
               required: t('vatRates.form.rateRequired'),
-              min: { value: 0, message: t('vatRates.form.rateNonNegative') },
-              max: { value: 100, message: t('vatRates.form.rateMax') },
+              min: {
+                value: 0,
+                message: t('vatRates.form.rateNonNegative'),
+              },
+              max: {
+                value: 100,
+                message: t('vatRates.form.rateMax'),
+              },
             })}
           />
           {form.formState.errors.rate && (
@@ -128,11 +133,9 @@ function VatRateFormModal({
     </Modal>
   );
 }
-
 function canManageVatRates(role: UserRole | undefined): boolean {
   return role === 'admin';
 }
-
 export function VatRatesPage() {
   const { t } = useTranslation('settings');
   const { user } = useAuth();
@@ -142,59 +145,68 @@ export function VatRatesPage() {
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [editingVatRate, setEditingVatRate] = useState<VatRate | null>(null);
   const [vatRateToDelete, setVatRateToDelete] = useState<VatRate | null>(null);
-
-  const { data, isLoading, error, refetch } = trpc.vatRates.list.useQuery({ page: 1, perPage: 50 });
+  const { data, isLoading, error, refetch } = trpc.vatRates.list.useQuery({
+    page: 1,
+    perPage: 50,
+  });
   const createMutation = trpc.vatRates.create.useMutation({
     onSuccess: async () => {
       await utils.vatRates.list.invalidate();
       handleCloseModal();
-      toast.success({ title: t('vatRates.toast.created') });
+      toast.success({
+        title: t('vatRates.toast.created'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:vatRates.toast.createError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:vatRates.toast.createError',
+    }),
   });
   const updateMutation = trpc.vatRates.update.useMutation({
     onSuccess: async () => {
       await utils.vatRates.list.invalidate();
       handleCloseModal();
-      toast.success({ title: t('vatRates.toast.updated') });
+      toast.success({
+        title: t('vatRates.toast.updated'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:vatRates.toast.updateError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:vatRates.toast.updateError',
+    }),
   });
   const deleteMutation = trpc.vatRates.delete.useMutation({
     onSuccess: async () => {
       await utils.vatRates.list.invalidate();
       setVatRateToDelete(null);
-      toast.success({ title: t('vatRates.toast.deleted') });
+      toast.success({
+        title: t('vatRates.toast.deleted'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:vatRates.toast.deleteError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:vatRates.toast.deleteError',
+    }),
   });
-
   const canManage = canManageVatRates(user?.role);
   const canDelete = user?.role === 'admin';
   const vatRates = (data?.items ?? []).map(vatRate => ({
     ...vatRate,
     isActive: vatRate.isActive ?? false,
   })) as VatRate[];
-
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingVatRate(null);
     createMutation.reset();
     updateMutation.reset();
   };
-
   const handleOpenCreate = () => {
     setEditingVatRate(null);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   };
-
   const handleOpenEdit = (vatRate: VatRate) => {
     setEditingVatRate(vatRate);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   };
-
   const handleSubmit = async (values: VatRateFormValues) => {
     if (editingVatRate) {
       await updateMutation.mutateAsync({
@@ -205,10 +217,8 @@ export function VatRatesPage() {
       });
       return;
     }
-
     await createMutation.mutateAsync(values);
   };
-
   const columns: ColumnDef<VatRate>[] = [
     {
       accessorKey: 'name',
@@ -238,9 +248,9 @@ export function VatRatesPage() {
       header: t('vatRates.columns.status'),
       size: 100,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {row.original.isActive ? t('vatRates.columns.active') : t('vatRates.columns.inactive')}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -267,7 +277,6 @@ export function VatRatesPage() {
       ),
     },
   ];
-
   return (
     <>
       <ResourcePage
@@ -309,7 +318,9 @@ export function VatRatesPage() {
         onClose={() => setVatRateToDelete(null)}
         onConfirm={() => {
           if (vatRateToDelete) {
-            void deleteMutation.mutateAsync({ id: vatRateToDelete.id });
+            void deleteMutation.mutateAsync({
+              id: vatRateToDelete.id,
+            });
           }
         }}
         title={t('vatRates.delete.title')}

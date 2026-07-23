@@ -59,6 +59,18 @@ export const ENFORCED_PAIRS = [
   ['background', 'muted-foreground'],
   ['card', 'muted-foreground'],
   ['popover', 'muted-foreground'],
+  // Operator Deck semantic action fills are intentionally custom rather
+  // than aliases of the broader success/danger ramps. Pin their small-text
+  // contrast so future palette tuning cannot trade professionalism for
+  // unreadable labels in approval and destructive controls.
+  ['operator-positive-control', 'operator-semantic-control-foreground'],
+  ['operator-critical-control', 'operator-semantic-control-foreground'],
+  // Operational strips use quiet near-neutral surfaces. Their semantic ink
+  // must remain readable because it carries icons and compact action labels.
+  ['operator-info-surface', 'operator-info-ink'],
+  ['operator-positive-surface', 'operator-positive-ink'],
+  ['operator-warning-surface', 'operator-warning-ink'],
+  ['operator-critical-surface', 'operator-critical-ink'],
   // : the `.badge-warning` design-system surface renders
   // `text-warning-700` on `bg-warning-50`. The Playwright a11y smoke
   // caught this pair at 4.27:1 — below the 4.5:1 body-text floor —

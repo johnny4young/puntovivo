@@ -31,6 +31,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
+import { Badge } from '@/components/ui';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -187,9 +188,9 @@ export function CompanyModulesCard() {
           </p>
         </div>
         {!listQuery.isLoading && items.length > 0 && (
-          <span className="pv-badge primary shrink-0" data-testid="modules-active-count">
+          <Badge variant="primary" className="shrink-0" data-testid="modules-active-count">
             {t('modules:section.activeCount', { active: activeCount, total: items.length })}
-          </span>
+          </Badge>
         )}
       </header>
 
@@ -252,9 +253,7 @@ export function CompanyModulesCard() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="t">{t(labelKey)}</span>
-                        <span className="pv-badge neutral">
-                          {t(`modules:toggle.${variantKey}`)}
-                        </span>
+                        <Badge variant="neutral">{t(`modules:toggle.${variantKey}`)}</Badge>
                       </div>
                       <p className="d">{t(descKey)}</p>
                     </div>

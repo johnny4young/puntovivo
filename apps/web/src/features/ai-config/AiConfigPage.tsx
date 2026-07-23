@@ -4,31 +4,47 @@ import { Sparkles } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
 import { useAiSettings } from '@/features/ai-shared';
-
+import { Badge } from '@/components/ui';
 type FeatureKey = 'copilot' | 'anomalies' | 'semanticSearch' | 'invoiceOcr';
-
 const PROVIDER_OPTIONS = [
-  { value: 'textract', label: 'AWS Textract', available: true },
-  { value: 'docai', label: 'Google Document AI', available: false },
-  { value: 'azure', label: 'Azure Form Recognizer', available: false },
+  {
+    value: 'textract',
+    label: 'AWS Textract',
+    available: true,
+  },
+  {
+    value: 'docai',
+    label: 'Google Document AI',
+    available: false,
+  },
+  {
+    value: 'azure',
+    label: 'Azure Form Recognizer',
+    available: false,
+  },
 ] as const;
-
 export default function AiConfigPage() {
   const { t } = useTranslation(['aiShared', 'aiSettings', 'common', 'auditLogs']);
-
   const { settingsQuery, updateMutation } = useAiSettings({
     t,
     saveErrorTitleKey: 'common:status.error',
   });
   const auditQuery = trpc.auditLogs.list.useQuery(
-    { limit: 50 },
-    { staleTime: 30_000 }
+    {
+      limit: 50,
+    },
+    {
+      staleTime: 30_000,
+    }
   );
-
   const features = settingsQuery.data?.features;
   const ocrProvider = features?.invoiceOcr.provider ?? 'textract';
-
-  const switches: Array<{ key: FeatureKey; enabledTitleKey: string; disabledTitleKey: string; subtitleKey: string }> = useMemo(
+  const switches: Array<{
+    key: FeatureKey;
+    enabledTitleKey: string;
+    disabledTitleKey: string;
+    subtitleKey: string;
+  }> = useMemo(
     () => [
       {
         key: 'copilot',
@@ -57,23 +73,37 @@ export default function AiConfigPage() {
     ],
     []
   );
-
   const handleToggle = (feature: FeatureKey, enabled: boolean) => {
     if (feature === 'copilot' || feature === 'semanticSearch' || feature === 'invoiceOcr') {
-      updateMutation.mutate({ enabled: enabled ? true : undefined, features: { [feature]: { enabled } } });
+      updateMutation.mutate({
+        enabled: enabled ? true : undefined,
+        features: {
+          [feature]: {
+            enabled,
+          },
+        },
+      });
     } else if (feature === 'anomalies') {
-      updateMutation.mutate({ enabled: enabled ? true : undefined, features: { anomalies: { enabled } } });
+      updateMutation.mutate({
+        enabled: enabled ? true : undefined,
+        features: {
+          anomalies: {
+            enabled,
+          },
+        },
+      });
     }
   };
-
   const handleProviderChange = (provider: 'textract' | 'docai' | 'azure') => {
-    updateMutation.mutate({ features: { invoiceOcr: { provider } } });
+    updateMutation.mutate({
+      features: {
+        invoiceOcr: {
+          provider,
+        },
+      },
+    });
   };
-
-  const aiAuditRows = (auditQuery.data?.items ?? []).filter(row =>
-    row.action.startsWith('ai.')
-  );
-
+  const aiAuditRows = (auditQuery.data?.items ?? []).filter(row => row.action.startsWith('ai.'));
   return (
     <div className="space-y-6">
       <section className="card p-6 sm:p-8">
@@ -92,9 +122,7 @@ export default function AiConfigPage() {
         <h2 className="font-display text-xl tracking-[-0.02em] text-secondary-950">
           {t('aiSettings:card.featuresTitle')}
         </h2>
-        <p className="mt-1 text-sm text-secondary-600">
-          {t('aiShared:privacy.redaction')}
-        </p>
+        <p className="mt-1 text-sm text-secondary-600">{t('aiShared:privacy.redaction')}</p>
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           {switches.map(({ key, enabledTitleKey, disabledTitleKey, subtitleKey }) => {
             const enabled = Boolean(features?.[key]?.enabled);
@@ -106,7 +134,9 @@ export default function AiConfigPage() {
                 disabled={updateMutation.isPending || !settingsQuery.data}
                 className={cn(
                   'flex items-start gap-3 rounded-2xl border bg-surface p-4 text-left transition-colors',
-                  enabled ? 'border-primary/40 bg-primary-50/30' : 'border-line/80 hover:border-primary/30',
+                  enabled
+                    ? 'border-primary/40 bg-primary-50/30'
+                    : 'border-line/80 hover:border-primary/30',
                   updateMutation.isPending && 'cursor-wait opacity-70'
                 )}
                 aria-pressed={enabled}
@@ -114,7 +144,9 @@ export default function AiConfigPage() {
                 <span
                   className={cn(
                     'mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-                    enabled ? 'bg-primary-100 text-primary-700' : 'bg-secondary-100 text-secondary-500'
+                    enabled
+                      ? 'bg-primary-100 text-primary-700'
+                      : 'bg-secondary-100 text-secondary-500'
                   )}
                 >
                   <Sparkles className="h-4 w-4" aria-hidden="true" />
@@ -127,16 +159,15 @@ export default function AiConfigPage() {
                     {t(subtitleKey)}
                   </span>
                 </span>
-                <span
-                  className={cn(
-                    'badge',
-                    enabled ? 'badge-success' : 'badge-secondary'
-                  )}
-                >
+                <Badge variant={enabled ? 'success' : 'neutral'}>
                   {enabled
-                    ? t('common:status.active', { defaultValue: 'On' })
-                    : t('common:status.inactive', { defaultValue: 'Off' })}
-                </span>
+                    ? t('common:status.active', {
+                        defaultValue: 'On',
+                      })
+                    : t('common:status.inactive', {
+                        defaultValue: 'Off',
+                      })}
+                </Badge>
               </button>
             );
           })}
@@ -157,11 +188,7 @@ export default function AiConfigPage() {
                   onClick={() => !locked && handleProviderChange(opt.value)}
                   disabled={locked || updateMutation.isPending || !settingsQuery.data}
                   aria-disabled={locked}
-                  title={
-                    locked
-                      ? t('aiSettings:card.providerLocked')
-                      : undefined
-                  }
+                  title={locked ? t('aiSettings:card.providerLocked') : undefined}
                   className={cn(
                     'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
                     isActive
@@ -181,9 +208,7 @@ export default function AiConfigPage() {
               );
             })}
           </div>
-          <p className="mt-2 text-[11px] text-secondary-500">
-            {t('aiSettings:card.providerHint')}
-          </p>
+          <p className="mt-2 text-[11px] text-secondary-500">{t('aiSettings:card.providerHint')}</p>
         </div>
       </section>
 

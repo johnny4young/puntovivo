@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, Inbox, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Inbox, RefreshCw } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatDateTime } from '@/lib/utils';
@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/feedback/EmptyState';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { TablePagination } from '@/components/tables/TablePagination';
+import { Badge, StatusStrip, Button } from '@/components/ui';
 import { PaymentBreakdownSection } from './PaymentBreakdownSection';
 import { PaymentHealthSummary, PaymentRailSummary } from './PaymentHealthOverview';
 import { PaymentMismatchSection } from './PaymentMismatchSection';
@@ -31,8 +32,8 @@ import {
  * panel re-fetches without a manual reload.
  *
  * recetas pv-*: KPIs con `KpiTile` (`.pv-kpi`),
- * tablas con `.pv-table`, estados con `.pv-badge`, vacíos con
- * `EmptyState` y botones con `.pv-btn`. Encabezados de panel con
+ * tablas con `.pv-table`, estados con `Badge`, vacíos con
+ * `EmptyState` y controles `Button` tipados. Encabezados de panel con
  * `.pv-kicker` / `.pv-title`.
  */
 
@@ -42,20 +43,33 @@ export function PaymentHealthPanel() {
   const toast = useToast();
   const utils = trpc.useUtils();
   const isAdmin = user?.role === 'admin';
-
   const reconciliationQuery = trpc.payments.reconciliation.useQuery(
-    { limit: 50 },
-    { staleTime: 30_000, refetchInterval: 30_000 }
+    {
+      limit: 50,
+    },
+    {
+      staleTime: 30_000,
+      refetchInterval: 30_000,
+    }
   );
   const outboxQuery = trpc.payments.peekOutbox.useQuery(
-    { limit: 20 },
-    { staleTime: 30_000, refetchInterval: 30_000 }
+    {
+      limit: 20,
+    },
+    {
+      staleTime: 30_000,
+      refetchInterval: 30_000,
+    }
   );
   const breakdownQuery = trpc.payments.methodBreakdown.useQuery(
-    { windowDays: PAYMENT_BREAKDOWN_WINDOW_DAYS },
-    { staleTime: 30_000, refetchInterval: 60_000 }
+    {
+      windowDays: PAYMENT_BREAKDOWN_WINDOW_DAYS,
+    },
+    {
+      staleTime: 30_000,
+      refetchInterval: 60_000,
+    }
   );
-
   const data = reconciliationQuery.data;
   const outboxRows = outboxQuery.data ?? [];
   const breakdown = breakdownQuery.data?.entries ?? [];
@@ -64,7 +78,6 @@ export function PaymentHealthPanel() {
   // the top level (never conditional) with empty-array fallbacks so the
   // queries / business logic stay untouched; only the rendered slice changes.
   const outboxPagination = usePaginatedRows(outboxRows, 8);
-
   const invalidatePaymentSurfaces = async () => {
     await Promise.all([
       utils.payments.peekOutbox.invalidate(),
@@ -72,61 +85,64 @@ export function PaymentHealthPanel() {
       utils.payments.methodBreakdown.invalidate(),
     ]);
   };
-
   const retryMutation = trpc.payments.retryOutbox.useMutation({
     onSuccess: async () => {
       await invalidatePaymentSurfaces();
-      toast.success({ title: t('payments.outbox.actions.retrySuccess') });
+      toast.success({
+        title: t('payments.outbox.actions.retrySuccess'),
+      });
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'operations:payments.outbox.actions.retryError',
     }),
   });
-
   const markSettledMutation = trpc.payments.markSettled.useMutation({
     onSuccess: async () => {
       await invalidatePaymentSurfaces();
-      toast.success({ title: t('payments.outbox.actions.markSettledSuccess') });
+      toast.success({
+        title: t('payments.outbox.actions.markSettledSuccess'),
+      });
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'operations:payments.outbox.actions.markSettledError',
     }),
   });
-
   const [retryTargetId, setRetryTargetId] = useState<string | null>(null);
   const [markSettledTargetId, setMarkSettledTargetId] = useState<string | null>(null);
   const [providerTxInput, setProviderTxInput] = useState('');
-
   const closeRetryModal = () => setRetryTargetId(null);
   const closeMarkSettledModal = () => {
     setMarkSettledTargetId(null);
     setProviderTxInput('');
   };
-
   const handleConfirmRetry = () => {
     if (!retryTargetId) return;
     void retryMutation
-      .mutateAsync({ outboxId: retryTargetId })
+      .mutateAsync({
+        outboxId: retryTargetId,
+      })
       .then(() => closeRetryModal())
       .catch(() => {
         /* onError toast already fired; keep the modal open so the operator can read the row state */
       });
   };
-
   const handleConfirmMarkSettled = () => {
     if (!markSettledTargetId) return;
     const trimmed = providerTxInput.trim();
     void markSettledMutation
       .mutateAsync({
         outboxId: markSettledTargetId,
-        ...(trimmed.length > 0 ? { providerTransactionId: trimmed } : {}),
+        ...(trimmed.length > 0
+          ? {
+              providerTransactionId: trimmed,
+            }
+          : {}),
       })
       .then(() => closeMarkSettledModal())
       .catch(() => {
         /* onError toast already fired */
       });
   };
-
   return (
     <div className="space-y-6">
       <section className="card p-6 space-y-5">
@@ -141,11 +157,12 @@ export function PaymentHealthPanel() {
         )}
 
         {reconciliationQuery.error && (
-          <div className="pv-strip danger">
-            <span className="msg">
-              {translateServerError(reconciliationQuery.error, t, t('common.errorGeneric'))}
-            </span>
-          </div>
+          <StatusStrip
+            tone="danger"
+            icon={AlertTriangle}
+            title={translateServerError(reconciliationQuery.error, t, t('common.errorGeneric'))}
+            role="alert"
+          />
         )}
 
         {data && <PaymentHealthSummary data={data} />}
@@ -163,11 +180,12 @@ export function PaymentHealthPanel() {
         )}
 
         {outboxQuery.error && (
-          <div className="pv-strip danger">
-            <span className="msg">
-              {translateServerError(outboxQuery.error, t, t('common.errorGeneric'))}
-            </span>
-          </div>
+          <StatusStrip
+            tone="danger"
+            icon={AlertTriangle}
+            title={translateServerError(outboxQuery.error, t, t('common.errorGeneric'))}
+            role="alert"
+          />
         )}
 
         {!outboxQuery.isLoading && !outboxQuery.error && outboxRows.length === 0 && (
@@ -210,12 +228,11 @@ export function PaymentHealthPanel() {
                         <td>{t(`payments.rails.${row.railId}`)}</td>
                         <td>{t(`payments.kind.${row.kind}`)}</td>
                         <td>
-                          <span className={`pv-badge ${paymentStatusTone(row.status)}`}>
-                            <span className="dot" />
+                          <Badge variant={paymentStatusTone(row.status)} marker="dot">
                             {t(`payments.status.${row.status}`, {
                               defaultValue: row.status,
                             })}
-                          </span>
+                          </Badge>
                         </td>
                         <td className="num">{row.attempts}</td>
                         <td className="muted break-all">
@@ -224,9 +241,8 @@ export function PaymentHealthPanel() {
                         <td className="muted">{formatDateTime(row.createdAt)}</td>
                         <td>
                           <div className="flex items-center justify-end gap-2">
-                            <button
+                            <Button
                               type="button"
-                              className="pv-btn ghost"
                               disabled={!isAdmin || !canRetryStatus || isRetryPending}
                               title={retryTitle}
                               onClick={() => {
@@ -234,13 +250,13 @@ export function PaymentHealthPanel() {
                                 setRetryTargetId(row.id);
                               }}
                               data-testid={`payment-retry-${row.id}`}
+                              variant="ghost"
                             >
                               <RefreshCw className={isRetryPending ? 'animate-spin' : ''} />
                               {t('payments.outbox.actions.retry')}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
-                              className="pv-btn ghost"
                               disabled={!isAdmin || isSettled || isMarkSettledPending}
                               title={
                                 !isAdmin ? t('payments.outbox.actions.noPermission') : undefined
@@ -251,10 +267,11 @@ export function PaymentHealthPanel() {
                                 setMarkSettledTargetId(row.id);
                               }}
                               data-testid={`payment-mark-settled-${row.id}`}
+                              variant="ghost"
                             >
                               <CheckCircle2 />
                               {t('payments.outbox.actions.markSettled')}
-                            </button>
+                            </Button>
                           </div>
                         </td>
                       </tr>

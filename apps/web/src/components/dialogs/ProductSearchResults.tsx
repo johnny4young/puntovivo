@@ -2,12 +2,10 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { PlusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { formatCurrency } from '@/lib/utils';
 import type { ProductSearchItem } from '@/types';
-
 import { getDefaultProductUnit } from './productSearchSelection';
-
+import { Badge } from '@/components/ui';
 interface ProductSearchResultsProps {
   items: readonly ProductSearchItem[];
   isLoading: boolean;
@@ -21,7 +19,6 @@ interface ProductSearchResultsProps {
   onQuickCreate: () => void;
   onProductSelect: (product: ProductSearchItem) => void;
 }
-
 export function ProductSearchResults({
   items,
   isLoading,
@@ -43,12 +40,10 @@ export function ProductSearchResults({
   const [lastItemsKey, setLastItemsKey] = useState('');
   const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
   const itemsKey = items.map(product => product.id).join('\u0000');
-
   if (itemsKey !== lastItemsKey) {
     setLastItemsKey(itemsKey);
     setActiveRowIndex(0);
   }
-
   const handleRowKeyDown = (
     event: KeyboardEvent<HTMLTableRowElement>,
     index: number,
@@ -89,7 +84,6 @@ export function ProductSearchResults({
       // Other keys keep bubbling to document-level sales shortcuts.
     }
   };
-
   return (
     <div className="card-inset overflow-hidden">
       <div className="overflow-x-auto">
@@ -131,7 +125,9 @@ export function ProductSearchResults({
                     >
                       <div>
                         <p className="font-semibold text-secondary-900">
-                          {t('productSearch.quickCreate.emptyTitle', { query })}
+                          {t('productSearch.quickCreate.emptyTitle', {
+                            query,
+                          })}
                         </p>
                         <p className="mt-1 text-secondary-500">
                           {canCreateProducts
@@ -164,7 +160,6 @@ export function ProductSearchResults({
                 const defaultUnit = getDefaultProductUnit(product);
                 const isSelected = selectedProductId === product.id;
                 const isActiveRow = index === activeRowIndex;
-
                 return (
                   <tr
                     key={product.id}
@@ -188,14 +183,14 @@ export function ProductSearchResults({
                         <p className="flex items-center gap-2 text-sm font-medium text-secondary-900">
                           {product.name}
                           {(discountSuggestions.get(product.id) ?? 0) > 0 && (
-                            <span
-                              className="pv-badge warning"
+                            <Badge
                               data-testid={`product-discount-suggestion-${product.sku}`}
+                              variant="warning"
                             >
                               {t('productSearch.discountSuggested', {
                                 pct: discountSuggestions.get(product.id),
                               })}
-                            </span>
+                            </Badge>
                           )}
                         </p>
                         <p className="text-xs text-secondary-500">

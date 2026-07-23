@@ -18,42 +18,37 @@
 import { useState } from 'react';
 import { Utensils } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
-
+import { Button } from '@/components/ui';
 const SERVICE_CHARGE_MAX = 30;
-
 function clampRateInput(raw: string): number {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed < 0) return 0;
   return Math.min(parsed, SERVICE_CHARGE_MAX);
 }
-
 export function CompanyRestaurantSettingsCard() {
   const { t } = useTranslation(['settings', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
-
   const settingsQuery = trpc.restaurantSettings.get.useQuery();
   const [rateInput, setRateInput] = useState<string | null>(null);
   const [rangeError, setRangeError] = useState<string | null>(null);
-
   const persistedRate = settingsQuery.data?.serviceChargeRate ?? 0;
   const inputValue = rateInput ?? String(persistedRate);
-
   const updateMutation = trpc.restaurantSettings.update.useMutation({
     onSuccess: async () => {
       await utils.restaurantSettings.get.invalidate();
       setRateInput(null);
-      toast.success({ title: t('settings:company.restaurant.toast.saved') });
+      toast.success({
+        title: t('settings:company.restaurant.toast.saved'),
+      });
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'settings:company.restaurant.toast.saveError',
     }),
   });
-
   function handleChange(value: string): void {
     setRateInput(value);
     const numeric = Number(value);
@@ -67,15 +62,14 @@ export function CompanyRestaurantSettingsCard() {
       setRangeError(null);
     }
   }
-
   function handleSave(): void {
     if (rangeError) return;
     const next = clampRateInput(inputValue);
-    void updateMutation.mutateAsync({ serviceChargeRate: next });
+    void updateMutation.mutateAsync({
+      serviceChargeRate: next,
+    });
   }
-
   const disabled = settingsQuery.isLoading || updateMutation.isPending;
-
   return (
     <section className="rounded-2xl border border-line bg-surface p-6">
       <div className="flex items-start gap-3">
@@ -126,16 +120,16 @@ export function CompanyRestaurantSettingsCard() {
       </div>
 
       <div className="mt-5 flex justify-end">
-        <button
+        <Button
           type="button"
-          className="pv-btn primary"
           onClick={handleSave}
           disabled={disabled || rangeError !== null}
+          variant="primary"
         >
           {updateMutation.isPending
             ? t('settings:company.restaurant.saving')
             : t('settings:company.restaurant.save')}
-        </button>
+        </Button>
       </div>
     </section>
   );

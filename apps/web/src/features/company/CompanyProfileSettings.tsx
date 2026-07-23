@@ -1,13 +1,12 @@
 import { Building2 as Building, Save } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-
 import { SimpleFormField } from '@/components/form-controls/FormField';
 import { cn } from '@/lib/utils';
 import type { Company } from '@/types';
 import { CompanyCashCloseSettingsCard } from './CompanyCashCloseSettingsCard';
 import { CompanyLogoLibraryCard } from './CompanyLogoLibraryCard';
-
+import { Button } from '@/components/ui';
 export interface CompanyFormValues {
   name: string;
   taxId: string;
@@ -15,7 +14,6 @@ export interface CompanyFormValues {
   phone: string;
   email: string;
 }
-
 interface CompanyProfileSettingsProps {
   company: Company | null;
   canEdit: boolean;
@@ -24,7 +22,6 @@ interface CompanyProfileSettingsProps {
   includeCashClose?: boolean;
   onSubmit: (values: CompanyFormValues) => Promise<void>;
 }
-
 const DEFAULT_COMPANY_FORM_VALUES: CompanyFormValues = {
   name: '',
   taxId: '',
@@ -32,10 +29,8 @@ const DEFAULT_COMPANY_FORM_VALUES: CompanyFormValues = {
   phone: '',
   email: '',
 };
-
 function mapCompanyToForm(company: Company | null): CompanyFormValues {
   if (!company) return DEFAULT_COMPANY_FORM_VALUES;
-
   return {
     name: company.name,
     taxId: company.taxId ?? '',
@@ -49,8 +44,14 @@ function mapCompanyToForm(company: Company | null): CompanyFormValues {
  * Builds the `error` prop for SimpleFormField under
  * `exactOptionalPropertyTypes`: omit the prop instead of passing `undefined`.
  */
-function errorProp(message: string | undefined): { error?: string } {
-  return message ? { error: message } : {};
+function errorProp(message: string | undefined): {
+  error?: string;
+} {
+  return message
+    ? {
+        error: message,
+      }
+    : {};
 }
 
 /** Shared company profile form and adjacent general settings. */
@@ -67,7 +68,6 @@ export function CompanyProfileSettings({
     defaultValues: mapCompanyToForm(company),
   });
   const errors = form.formState.errors;
-
   return (
     <div className="space-y-6">
       <div className="card p-6">
@@ -155,10 +155,10 @@ export function CompanyProfileSettings({
           )}
 
           <div className="flex justify-end">
-            <button type="submit" disabled={isSaving || !canEdit} className="pv-btn primary">
+            <Button type="submit" disabled={isSaving || !canEdit} variant="primary">
               <Save className="h-4 w-4" aria-hidden="true" />
               {isSaving ? t('company.submitting') : t('company.save')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

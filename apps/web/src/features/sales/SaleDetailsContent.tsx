@@ -22,20 +22,36 @@ export function SaleDetailsContent({
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-4">
         <div className="surface-panel-muted">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.customer')}</p>
-          <p className="mt-2 font-medium text-secondary-900">{sale.customerName ?? t('details.walkIn')}</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">
+            {t('details.customer')}
+          </p>
+          <p className="mt-2 font-medium text-secondary-900">
+            {sale.customerName ?? t('details.walkIn')}
+          </p>
         </div>
         <div className="surface-panel-muted">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.payment')}</p>
-          <p className="mt-2 font-medium capitalize text-secondary-900">{t(`payment.${sale.paymentMethod}`)}</p>
-          <p className="text-sm capitalize text-secondary-500">{t(`paymentStatus.${sale.paymentStatus}`)}</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">
+            {t('details.payment')}
+          </p>
+          <p className="mt-2 font-medium capitalize text-secondary-900">
+            {t(`payment.${sale.paymentMethod}`)}
+          </p>
+          <p className="text-sm capitalize text-secondary-500">
+            {t(`paymentStatus.${sale.paymentStatus}`)}
+          </p>
         </div>
         <div className="surface-panel-muted">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.status')}</p>
-          <p className="mt-2 font-medium capitalize text-secondary-900">{t(`status.${sale.status}`)}</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">
+            {t('details.status')}
+          </p>
+          <p className="mt-2 font-medium capitalize text-secondary-900">
+            {t(`status.${sale.status}`)}
+          </p>
         </div>
         <div className="surface-panel-muted">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.created')}</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">
+            {t('details.created')}
+          </p>
           <p className="mt-2 font-medium text-secondary-900">{formatDateTime(sale.createdAt)}</p>
         </div>
       </div>
@@ -57,7 +73,7 @@ export function SaleDetailsContent({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-[22px] border border-line/80 bg-surface">
+      <div className="overflow-hidden rounded-[14px] border border-line/80 bg-surface">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-line/70">
             <thead className="bg-surface-2/86">
@@ -84,7 +100,7 @@ export function SaleDetailsContent({
                       </p>
                       {(item.serialNumbers?.length ?? 0) > 0 && (
                         <p className="mt-1 text-xs text-secondary-600">
-                          {t('details.serials')}: {' '}
+                          {t('details.serials')}:{' '}
                           <span className="font-mono">{item.serialNumbers?.join(', ')}</span>
                         </p>
                       )}
@@ -108,7 +124,7 @@ export function SaleDetailsContent({
       </div>
 
       {hasSplitPayments(sale) && sale.payments && (
-        <div className="overflow-hidden rounded-[22px] border border-line/80 bg-surface">
+        <div className="overflow-hidden rounded-[14px] border border-line/80 bg-surface">
           <div className="flex items-center justify-between border-b border-line/70 bg-surface-2/86 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">
               {t('details.paymentsHeading')}
@@ -159,9 +175,11 @@ export function SaleDetailsContent({
             {formatCurrency(sale.taxAmount)}
           </p>
         </div>
-        <div className="rounded-[22px] border border-primary-300/30 bg-primary-400/12 px-4 py-4">
+        <div className="rounded-[14px] border border-primary-300/30 bg-primary-400/12 px-4 py-4">
           <p className="text-sm text-primary-700">{t('details.total')}</p>
-          <p className="mt-1 text-xl font-semibold text-primary-900">{formatCurrency(sale.total)}</p>
+          <p className="mt-1 text-xl font-semibold text-primary-900">
+            {formatCurrency(sale.total)}
+          </p>
         </div>
       </div>
 

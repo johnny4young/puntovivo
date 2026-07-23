@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Download, MessageCircle, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { downloadFile } from '@/services/export/exportService';
 import {
   buildDayCloseWhatsAppUrl,
@@ -9,7 +9,7 @@ import {
   pulseComparisonDirection,
   type DayClosePulseCardModel,
 } from './dayClosePulse';
-
+import { Button, buttonVariants } from '@/components/ui';
 interface DayClosePulseCardProps {
   /**
    * canonical WhatsApp share URL built by the modal from the full
@@ -26,7 +26,6 @@ interface DayClosePulseCardProps {
   grossProfit: number;
   grossMarginPct: number;
 }
-
 function PulseComparisonIcon({
   direction,
 }: {
@@ -37,7 +36,6 @@ function PulseComparisonIcon({
   if (direction === 'down') return <TrendingDown className={iconClass} aria-hidden="true" />;
   return <Sparkles className={iconClass} aria-hidden="true" />;
 }
-
 export function DayClosePulseCard({
   shareUrl,
   date,
@@ -53,7 +51,6 @@ export function DayClosePulseCard({
   const [isGenerating, setIsGenerating] = useState(false);
   const [imageError, setImageError] = useState(false);
   const direction = pulseComparisonDirection(revenueChangePct);
-
   const model = useMemo<DayClosePulseCardModel>(() => {
     const previousAmount = formatCurrency(previousWeekRevenue);
     const percent = Math.abs(revenueChangePct ?? 0).toFixed(1);
@@ -61,7 +58,6 @@ export function DayClosePulseCard({
       amount: previousAmount,
       percent,
     });
-
     return {
       brand: t('cashSession.dayClose.pulse.brand'),
       title: t('cashSession.dayClose.pulse.title'),
@@ -75,7 +71,9 @@ export function DayClosePulseCard({
       ),
       salesLabel: t('cashSession.dayClose.pulse.sales'),
       salesValue: formatCurrency(revenue),
-      salesDetail: t('cashSession.dayClose.pulse.salesCount', { count: salesCount }),
+      salesDetail: t('cashSession.dayClose.pulse.salesCount', {
+        count: salesCount,
+      }),
       marginLabel: t('cashSession.dayClose.pulse.margin'),
       marginValue: `${grossMarginPct.toFixed(1)}%`,
       marginDetail: t('cashSession.dayClose.pulse.marginDetail', {
@@ -102,7 +100,6 @@ export function DayClosePulseCard({
     t,
   ]);
   const whatsappUrl = buildDayCloseWhatsAppUrl(model);
-
   async function handleDownload(): Promise<void> {
     setIsGenerating(true);
     setImageError(false);
@@ -115,7 +112,6 @@ export function DayClosePulseCard({
       setIsGenerating(false);
     }
   }
-
   return (
     <section
       className="overflow-hidden rounded-[18px] border border-primary-400/25 bg-gradient-to-br from-primary-500/15 via-secondary-900/80 to-secondary-950"
@@ -168,19 +164,25 @@ export function DayClosePulseCard({
         <p className="text-[11px] leading-4 text-secondary-400">{model.privacyNote}</p>
 
         <div className="flex flex-col gap-2 sm:flex-row">
-          <button
+          <Button
             type="button"
-            className="pv-btn outline flex-1 justify-center disabled:cursor-wait disabled:opacity-60"
+            className="flex-1 justify-center disabled:cursor-wait disabled:opacity-60"
             onClick={() => void handleDownload()}
             disabled={isGenerating}
+            variant="outline"
           >
             <Download className={isGenerating ? 'animate-pulse' : ''} aria-hidden="true" />
             {isGenerating
               ? t('cashSession.dayClose.pulse.generating')
               : t('cashSession.dayClose.pulse.download')}
-          </button>
+          </Button>
           <a
-            className="pv-btn primary flex-1 justify-center"
+            className={cn(
+              buttonVariants({
+                variant: 'primary',
+              }),
+              'flex-1 justify-center'
+            )}
             href={shareUrl ?? whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
@@ -200,7 +202,6 @@ export function DayClosePulseCard({
     </section>
   );
 }
-
 function PulseMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="rounded-[14px] border border-secondary-700/60 bg-secondary-950/50 px-3.5 py-3">

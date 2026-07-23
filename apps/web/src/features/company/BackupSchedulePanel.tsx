@@ -4,20 +4,17 @@ import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { formatDateTime } from '@/lib/utils';
 import type { BackupScheduleFrequency, BackupScheduleStatus } from '@/types/electron';
-
+import { Button } from '@/components/ui';
 type ScheduleAction = 'load' | 'save' | 'destination' | 'snapshot' | null;
-
 interface BackupSchedulePanelProps {
   onSnapshotCreated?: () => void;
 }
-
 function formatBytes(value: number | null): string | null {
   if (value === null) return null;
   if (value < 1_024) return `${value} B`;
   if (value < 1_024 * 1_024) return `${(value / 1_024).toFixed(1)} KB`;
   return `${(value / (1_024 * 1_024)).toFixed(1)} MB`;
 }
-
 export function BackupSchedulePanel({ onSnapshotCreated }: BackupSchedulePanelProps = {}) {
   const { t } = useTranslation('backupProtection');
   const toast = useToast();
@@ -32,7 +29,6 @@ export function BackupSchedulePanel({ onSnapshotCreated }: BackupSchedulePanelPr
   const [frequency, setFrequency] = useState<BackupScheduleFrequency>('off');
   const [action, setAction] = useState<ScheduleAction>(supported ? 'load' : null);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     let cancelled = false;
     if (!electron?.getBackupScheduleStatus) return;
@@ -57,7 +53,6 @@ export function BackupSchedulePanel({ onSnapshotCreated }: BackupSchedulePanelPr
       cancelled = true;
     };
   }, [electron, t]);
-
   const handleSave = async (destinationMode?: 'managed') => {
     if (!electron?.updateBackupSchedule) return;
     setAction(destinationMode ? 'destination' : 'save');
@@ -65,19 +60,24 @@ export function BackupSchedulePanel({ onSnapshotCreated }: BackupSchedulePanelPr
     try {
       const result = await electron.updateBackupSchedule({
         frequency,
-        ...(destinationMode ? { destinationMode } : {}),
+        ...(destinationMode
+          ? {
+              destinationMode,
+            }
+          : {}),
       });
       if (!result.success || !result.status) throw new Error('schedule_unavailable');
       setStatus(result.status);
       setFrequency(result.status.frequency);
-      toast.success({ title: t('schedule.toast.saved') });
+      toast.success({
+        title: t('schedule.toast.saved'),
+      });
     } catch {
       setError(t('schedule.errors.save'));
     } finally {
       setAction(null);
     }
   };
-
   const handleChooseDestination = async () => {
     if (!electron?.chooseBackupScheduleDestination) return;
     setAction('destination');
@@ -87,14 +87,15 @@ export function BackupSchedulePanel({ onSnapshotCreated }: BackupSchedulePanelPr
       if (result.cancelled) return;
       if (!result.success || !result.status) throw new Error('schedule_unavailable');
       setStatus(result.status);
-      toast.success({ title: t('schedule.toast.destination') });
+      toast.success({
+        title: t('schedule.toast.destination'),
+      });
     } catch {
       setError(t('schedule.errors.destination'));
     } finally {
       setAction(null);
     }
   };
-
   const handleRunNow = async () => {
     if (!electron?.runBackupSnapshotNow) return;
     setAction('snapshot');
@@ -104,17 +105,17 @@ export function BackupSchedulePanel({ onSnapshotCreated }: BackupSchedulePanelPr
       if (!result.success || !result.status) throw new Error('snapshot_failed');
       setStatus(result.status);
       onSnapshotCreated?.();
-      toast.success({ title: t('schedule.toast.created') });
+      toast.success({
+        title: t('schedule.toast.created'),
+      });
     } catch {
       setError(t('schedule.errors.snapshot'));
     } finally {
       setAction(null);
     }
   };
-
   const busy = action !== null;
   const size = formatBytes(status?.lastSizeBytes ?? null);
-
   return (
     <section
       className="rounded-2xl border border-line bg-surface-1 p-4 sm:p-5"
@@ -194,42 +195,42 @@ export function BackupSchedulePanel({ onSnapshotCreated }: BackupSchedulePanelPr
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button
+            <Button
               type="button"
-              className="pv-btn primary"
               onClick={() => void handleSave()}
               disabled={busy || !status}
+              variant="primary"
             >
               <Save aria-hidden="true" />
               {action === 'save' ? t('schedule.saving') : t('schedule.save')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="pv-btn outline"
               onClick={() => void handleRunNow()}
               disabled={busy || !status}
+              variant="outline"
             >
               <Play aria-hidden="true" />
               {action === 'snapshot' ? t('schedule.running') : t('schedule.runNow')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="pv-btn outline"
               onClick={() => void handleChooseDestination()}
               disabled={busy || !status}
+              variant="outline"
             >
               <FolderOpen aria-hidden="true" />
               {t('schedule.chooseFolder')}
-            </button>
+            </Button>
             {status?.destinationMode === 'custom' && (
-              <button
+              <Button
                 type="button"
-                className="pv-btn ghost"
                 onClick={() => void handleSave('managed')}
                 disabled={busy}
+                variant="ghost"
               >
                 {t('schedule.useManaged')}
-              </button>
+              </Button>
             )}
           </div>
 

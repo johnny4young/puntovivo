@@ -16,7 +16,7 @@ import {
 import { CompanySyncMergeModal } from '@/features/company/CompanySyncMergeModal';
 import { useSyncSnapshot } from '@/features/company/useSyncSnapshot';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { vanillaClient } from '@/lib/trpc';
+import { trpc, vanillaClient } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatDateTime } from '@/lib/utils';
 
@@ -66,6 +66,7 @@ export function CompanySyncCard() {
   const { t } = useTranslation('settings');
   const toast = useToast();
   const queryClient = useQueryClient();
+  const trpcUtils = trpc.useUtils();
   const [pendingResolution, setPendingResolution] = useState<PendingResolution | null>(null);
   const {
     snapshotQuery,
@@ -79,7 +80,10 @@ export function CompanySyncCard() {
   });
 
   const refreshSyncSnapshot = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['sync', 'snapshot'] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['sync', 'snapshot'] }),
+      trpcUtils.operations.needsAttention.invalidate(),
+    ]);
   };
 
   const pushMutation = useMutation({
@@ -110,8 +114,9 @@ export function CompanySyncCard() {
         queueLimit: syncPreviewLimit,
         conflictLimit: syncPreviewLimit,
       }),
-    onSuccess: snapshot => {
+    onSuccess: async snapshot => {
       queryClient.setQueryData(syncSnapshotQueryKey, snapshot);
+      await trpcUtils.operations.needsAttention.invalidate();
       toast.success({ title: t('company.sync.toast.snapshotRefreshed') });
     },
     onError: onErrorToast(toast, t, { titleKey: 'settings:company.sync.toast.snapshotError' }),

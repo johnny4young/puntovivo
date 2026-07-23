@@ -8,6 +8,27 @@
   "view": {
     "history": "Historial"
   },
+  "flow": {
+    "live": "Caja en vivo",
+    "title": "Escanea. Revisa. Cobra.",
+    "description": "Una ruta visual para mantener el ticket, la caja y el siguiente paso en el mismo contexto.",
+    "ariaLabel": "Etapas del flujo de venta",
+    "steps": {
+      "capture": "Captura",
+      "review": "Revisión",
+      "charge": "Cobro"
+    },
+    "captureWaiting": "Esperando el primer producto",
+    "captureComplete_one": "{{count}} artículo capturado",
+    "captureComplete_other": "{{count}} artículos capturados",
+    "reviewWaiting": "Disponible después de escanear",
+    "reviewActive": "Verifica cantidades y descuentos",
+    "chargeLocked": "Abre la caja para continuar",
+    "chargeWaiting": "Esperando un ticket activo",
+    "chargeReady": "Listo para cobrar con F1",
+    "suspended": "En espera",
+    "suspendedAriaLabel": "Ventas suspendidas"
+  },
   "checkout": {
     "kicker": "Caja",
     "chargeSummary": "Resumen de cobro",
@@ -491,6 +512,7 @@
   },
   "quickSearch": {
     "label": "Producto / código de barras",
+    "ready": "Escáner listo",
     "placeholder": "Escanea código de barras o escribe SKU / nombre",
     "search": "Buscar",
     "hint": "`Alt+P` buscar, `F5` catálogo, `F1` cobrar."

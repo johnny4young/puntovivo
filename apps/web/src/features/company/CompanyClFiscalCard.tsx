@@ -21,9 +21,9 @@
  * el contenido del panel adopta las recetas pv-*:
  * encabezado `.pv-kicker`/`.pv-title` con glifo tonal, formulario
  * con `.pv-field`/`.pv-input` (vía `SimpleFormField`), readiness con
- * `.pv-badge` + checklist `.pv-check`, la sección CAF en una
+ * `Badge` tipado + checklist `.pv-check`, la sección CAF en una
  * `.surface-panel` con `EmptyState` cuando no hay folios, y acción
- * `.pv-btn primary`. La lógica (FormData uncontrolled + tRPC) se
+ * `Button` primary. La lógica (FormData uncontrolled + tRPC) se
  * conserva intacta.
  *
  * @module features/company/CompanyClFiscalCard
@@ -31,103 +31,282 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, FileSignature, Landmark } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { FiscalMaturityBadge } from '@/components/fiscal/FiscalMaturityBadge';
 import { SimpleFormField } from '@/components/form-controls/FormField';
+import { Badge, Button } from '@/components/ui';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
-import { cn } from '@/lib/utils';
 
 /**
  * Subset curado para el Select del form. Espejo de los códigos
  * que ship en `services/fiscal/packs/cl/catalogs/giroComercial.ts`
  * (sin la rev por compactness).
  */
-const GIRO_OPTIONS: ReadonlyArray<{ code: string; name: string }> = [
-  { code: '4711', name: '4711 — Comercio al por menor en almacenes no especializados' },
-  { code: '4719', name: '4719 — Otras actividades de venta al por menor' },
-  { code: '4721', name: '4721 — Comercio al por menor de alimentos' },
-  { code: '4722', name: '4722 — Comercio al por menor de bebidas' },
-  { code: '4723', name: '4723 — Comercio al por menor de tabaco' },
-  { code: '4730', name: '4730 — Comercio al por menor de combustible' },
-  { code: '4741', name: '4741 — Computadores y software' },
-  { code: '4742', name: '4742 — Equipos audio y video' },
-  { code: '4751', name: '4751 — Productos textiles' },
-  { code: '4752', name: '4752 — Ferretería, pintura y vidrio' },
-  { code: '4759', name: '4759 — Aparatos eléctricos y muebles' },
-  { code: '4761', name: '4761 — Libros, periódicos y papelería' },
-  { code: '4763', name: '4763 — Artículos deportivos' },
-  { code: '4771', name: '4771 — Prendas de vestir, calzado y artículos de cuero' },
-  { code: '4772', name: '4772 — Productos farmacéuticos y medicinales' },
-  { code: '4773', name: '4773 — Cosméticos y artículos de tocador' },
-  { code: '4774', name: '4774 — Artículos de segunda mano' },
-  { code: '4630', name: '4630 — Comercio al por mayor de alimentos, bebidas y tabaco' },
-  { code: '4690', name: '4690 — Comercio al por mayor no especializado' },
-  { code: '5610', name: '5610 — Restaurantes y servicio móvil de comidas' },
-  { code: '5621', name: '5621 — Catering para eventos' },
-  { code: '5630', name: '5630 — Servicio de bebidas' },
-  { code: '4520', name: '4520 — Mantenimiento y reparación de vehículos automotores' },
-  { code: '9511', name: '9511 — Reparación de computadores y equipo periférico' },
-  { code: '9521', name: '9521 — Reparación de electrónicos de consumo' },
-  { code: '9602', name: '9602 — Peluquería y tratamientos de belleza' },
+const GIRO_OPTIONS: ReadonlyArray<{
+  code: string;
+  name: string;
+}> = [
+  {
+    code: '4711',
+    name: '4711 — Comercio al por menor en almacenes no especializados',
+  },
+  {
+    code: '4719',
+    name: '4719 — Otras actividades de venta al por menor',
+  },
+  {
+    code: '4721',
+    name: '4721 — Comercio al por menor de alimentos',
+  },
+  {
+    code: '4722',
+    name: '4722 — Comercio al por menor de bebidas',
+  },
+  {
+    code: '4723',
+    name: '4723 — Comercio al por menor de tabaco',
+  },
+  {
+    code: '4730',
+    name: '4730 — Comercio al por menor de combustible',
+  },
+  {
+    code: '4741',
+    name: '4741 — Computadores y software',
+  },
+  {
+    code: '4742',
+    name: '4742 — Equipos audio y video',
+  },
+  {
+    code: '4751',
+    name: '4751 — Productos textiles',
+  },
+  {
+    code: '4752',
+    name: '4752 — Ferretería, pintura y vidrio',
+  },
+  {
+    code: '4759',
+    name: '4759 — Aparatos eléctricos y muebles',
+  },
+  {
+    code: '4761',
+    name: '4761 — Libros, periódicos y papelería',
+  },
+  {
+    code: '4763',
+    name: '4763 — Artículos deportivos',
+  },
+  {
+    code: '4771',
+    name: '4771 — Prendas de vestir, calzado y artículos de cuero',
+  },
+  {
+    code: '4772',
+    name: '4772 — Productos farmacéuticos y medicinales',
+  },
+  {
+    code: '4773',
+    name: '4773 — Cosméticos y artículos de tocador',
+  },
+  {
+    code: '4774',
+    name: '4774 — Artículos de segunda mano',
+  },
+  {
+    code: '4630',
+    name: '4630 — Comercio al por mayor de alimentos, bebidas y tabaco',
+  },
+  {
+    code: '4690',
+    name: '4690 — Comercio al por mayor no especializado',
+  },
+  {
+    code: '5610',
+    name: '5610 — Restaurantes y servicio móvil de comidas',
+  },
+  {
+    code: '5621',
+    name: '5621 — Catering para eventos',
+  },
+  {
+    code: '5630',
+    name: '5630 — Servicio de bebidas',
+  },
+  {
+    code: '4520',
+    name: '4520 — Mantenimiento y reparación de vehículos automotores',
+  },
+  {
+    code: '9511',
+    name: '9511 — Reparación de computadores y equipo periférico',
+  },
+  {
+    code: '9521',
+    name: '9521 — Reparación de electrónicos de consumo',
+  },
+  {
+    code: '9602',
+    name: '9602 — Peluquería y tratamientos de belleza',
+  },
 ];
 
 /**
  * Subset curado para el Select del form. Espejo de
  * `services/fiscal/packs/cl/catalogs/comuna.ts`.
  */
-const COMUNA_OPTIONS: ReadonlyArray<{ code: number; name: string }> = [
+const COMUNA_OPTIONS: ReadonlyArray<{
+  code: number;
+  name: string;
+}> = [
   // Gran Santiago
-  { code: 13101, name: 'Santiago (RM)' },
-  { code: 13102, name: 'Cerrillos (RM)' },
-  { code: 13105, name: 'Conchalí (RM)' },
-  { code: 13107, name: 'Estación Central (RM)' },
-  { code: 13110, name: 'La Cisterna (RM)' },
-  { code: 13111, name: 'La Florida (RM)' },
-  { code: 13114, name: 'Las Condes (RM)' },
-  { code: 13115, name: 'Lo Barnechea (RM)' },
-  { code: 13119, name: 'Macul (RM)' },
-  { code: 13120, name: 'Maipú (RM)' },
-  { code: 13123, name: 'Ñuñoa (RM)' },
-  { code: 13125, name: 'Peñalolén (RM)' },
-  { code: 13126, name: 'Providencia (RM)' },
-  { code: 13128, name: 'Quilicura (RM)' },
-  { code: 13131, name: 'San Bernardo (RM)' },
-  { code: 13132, name: 'San Joaquín (RM)' },
-  { code: 13133, name: 'San Miguel (RM)' },
-  { code: 13201, name: 'Puente Alto (RM)' },
+  {
+    code: 13101,
+    name: 'Santiago (RM)',
+  },
+  {
+    code: 13102,
+    name: 'Cerrillos (RM)',
+  },
+  {
+    code: 13105,
+    name: 'Conchalí (RM)',
+  },
+  {
+    code: 13107,
+    name: 'Estación Central (RM)',
+  },
+  {
+    code: 13110,
+    name: 'La Cisterna (RM)',
+  },
+  {
+    code: 13111,
+    name: 'La Florida (RM)',
+  },
+  {
+    code: 13114,
+    name: 'Las Condes (RM)',
+  },
+  {
+    code: 13115,
+    name: 'Lo Barnechea (RM)',
+  },
+  {
+    code: 13119,
+    name: 'Macul (RM)',
+  },
+  {
+    code: 13120,
+    name: 'Maipú (RM)',
+  },
+  {
+    code: 13123,
+    name: 'Ñuñoa (RM)',
+  },
+  {
+    code: 13125,
+    name: 'Peñalolén (RM)',
+  },
+  {
+    code: 13126,
+    name: 'Providencia (RM)',
+  },
+  {
+    code: 13128,
+    name: 'Quilicura (RM)',
+  },
+  {
+    code: 13131,
+    name: 'San Bernardo (RM)',
+  },
+  {
+    code: 13132,
+    name: 'San Joaquín (RM)',
+  },
+  {
+    code: 13133,
+    name: 'San Miguel (RM)',
+  },
+  {
+    code: 13201,
+    name: 'Puente Alto (RM)',
+  },
   // Capitales regionales
-  { code: 1101, name: 'Iquique (Tarapacá)' },
-  { code: 2101, name: 'Antofagasta (Antofagasta)' },
-  { code: 3101, name: 'Copiapó (Atacama)' },
-  { code: 4101, name: 'La Serena (Coquimbo)' },
-  { code: 5109, name: 'Valparaíso (Valparaíso)' },
-  { code: 6101, name: "Rancagua (O'Higgins)" },
-  { code: 7101, name: 'Talca (Maule)' },
-  { code: 8101, name: 'Concepción (Biobío)' },
-  { code: 9112, name: 'Temuco (La Araucanía)' },
-  { code: 10101, name: 'Puerto Montt (Los Lagos)' },
-  { code: 11101, name: 'Coyhaique (Aysén)' },
-  { code: 12101, name: 'Punta Arenas (Magallanes)' },
-  { code: 14101, name: 'Valdivia (Los Ríos)' },
-  { code: 15101, name: 'Arica (Arica y Parinacota)' },
-  { code: 16101, name: 'Chillán (Ñuble)' },
+  {
+    code: 1101,
+    name: 'Iquique (Tarapacá)',
+  },
+  {
+    code: 2101,
+    name: 'Antofagasta (Antofagasta)',
+  },
+  {
+    code: 3101,
+    name: 'Copiapó (Atacama)',
+  },
+  {
+    code: 4101,
+    name: 'La Serena (Coquimbo)',
+  },
+  {
+    code: 5109,
+    name: 'Valparaíso (Valparaíso)',
+  },
+  {
+    code: 6101,
+    name: "Rancagua (O'Higgins)",
+  },
+  {
+    code: 7101,
+    name: 'Talca (Maule)',
+  },
+  {
+    code: 8101,
+    name: 'Concepción (Biobío)',
+  },
+  {
+    code: 9112,
+    name: 'Temuco (La Araucanía)',
+  },
+  {
+    code: 10101,
+    name: 'Puerto Montt (Los Lagos)',
+  },
+  {
+    code: 11101,
+    name: 'Coyhaique (Aysén)',
+  },
+  {
+    code: 12101,
+    name: 'Punta Arenas (Magallanes)',
+  },
+  {
+    code: 14101,
+    name: 'Valdivia (Los Ríos)',
+  },
+  {
+    code: 15101,
+    name: 'Arica (Arica y Parinacota)',
+  },
+  {
+    code: 16101,
+    name: 'Chillán (Ñuble)',
+  },
 ];
-
 function getFormString(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === 'string' ? value : '';
 }
-
 function getFormNumber(formData: FormData, key: string): number | null {
   const value = formData.get(key);
   if (typeof value !== 'string' || value.length === 0) return null;
   const n = Number.parseInt(value, 10);
   return Number.isFinite(n) ? n : null;
 }
-
 export function CompanyClFiscalCard() {
   const { t } = useTranslation(['fiscal', 'errors', 'common']);
   const toast = useToast();
@@ -139,10 +318,13 @@ export function CompanyClFiscalCard() {
   // dispatch).
   const localeQuery = trpc.tenantLocale.get.useQuery();
   const tenantCountry = localeQuery.data?.countryCode ?? 'CO';
-
   const settingsQuery = trpc.fiscalSettings.getByCountry.useQuery(
-    { countryCode: 'CL' },
-    { enabled: tenantCountry === 'CL' }
+    {
+      countryCode: 'CL',
+    },
+    {
+      enabled: tenantCountry === 'CL',
+    }
   );
 
   // Read-only CAF state for the active boleta (TipoDTE 39)
@@ -150,10 +332,14 @@ export function CompanyClFiscalCard() {
   // operator can plan ahead before a CAF runs out. CAF upload UI lands
   // with ; for now operators register CAFs via SQL or dev-seed.
   const cafQuery = trpc.fiscalSettings.getActiveCaf.useQuery(
-    { countryCode: 'CL', tipoDte: '39' },
-    { enabled: tenantCountry === 'CL' }
+    {
+      countryCode: 'CL',
+      tipoDte: '39',
+    },
+    {
+      enabled: tenantCountry === 'CL',
+    }
   );
-
   const clSettings = settingsQuery.data?.countryCode === 'CL' ? settingsQuery.data.settings : null;
 
   // Fiscal "sin configurar" = no hay ningún dato significativo capturado
@@ -173,7 +359,6 @@ export function CompanyClFiscalCard() {
   );
   const [revealed, setRevealed] = useState(false);
   const showForm = isConfigured || revealed;
-
   const formKey = clSettings
     ? [
         clSettings.enabled,
@@ -184,10 +369,11 @@ export function CompanyClFiscalCard() {
         clSettings.environment,
       ].join('|')
     : 'empty';
-
   const updateMutation = trpc.fiscalSettings.updateCl.useMutation({
     onSuccess: async () => {
-      toast.success({ title: t('fiscal:settings.cl.toast.saved') });
+      toast.success({
+        title: t('fiscal:settings.cl.toast.saved'),
+      });
       await utils.fiscalSettings.getByCountry.invalidate({
         countryCode: 'CL',
       });
@@ -196,10 +382,8 @@ export function CompanyClFiscalCard() {
       titleKey: 'fiscal:settings.cl.toast.saveError',
     }),
   });
-
   const validation = settingsQuery.data?.validation;
   const isReady = validation?.ok ?? false;
-
   const issueLabels = useMemo(() => {
     if (!validation) return [];
     return validation.issues.map(issue => ({
@@ -209,7 +393,6 @@ export function CompanyClFiscalCard() {
       }),
     }));
   }, [validation, t]);
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -218,7 +401,6 @@ export function CompanyClFiscalCard() {
     const nextGiroCode = getFormString(formData, 'giroCode');
     const nextComunaCode = getFormNumber(formData, 'comunaCode');
     const nextCasaMatriz = getFormString(formData, 'casaMatriz').trim();
-
     await updateMutation.mutateAsync({
       enabled: formData.get('enabled') === 'on',
       rut: nextRut.length > 0 ? nextRut : null,
@@ -252,7 +434,7 @@ export function CompanyClFiscalCard() {
       {/* Badge de readiness */}
       {validation && (
         <div className="space-y-3" aria-live="polite" data-testid="fiscal-cl-readiness">
-          <span className={cn('pv-badge', isReady ? 'success' : 'danger')}>
+          <Badge variant={isReady ? 'success' : 'danger'}>
             {isReady ? (
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
             ) : (
@@ -261,7 +443,7 @@ export function CompanyClFiscalCard() {
             {isReady
               ? t('fiscal:settings.readiness.ready')
               : t('fiscal:settings.readiness.notReady')}
-          </span>
+          </Badge>
           {/* DTE emission is an unsigned draft today (optional). */}
           {settingsQuery.data?.maturity && (
             <FiscalMaturityBadge maturity={settingsQuery.data.maturity} className="ml-2" />
@@ -291,14 +473,14 @@ export function CompanyClFiscalCard() {
             description={t('fiscal:settings.cl.emptyDescription')}
             className="px-6 py-8"
             action={
-              <button
+              <Button
                 type="button"
-                className="pv-btn primary"
                 data-testid="fiscal-cl-configure"
                 onClick={() => setRevealed(true)}
+                variant="primary"
               >
                 {t('fiscal:settings.cl.emptyCta')}
-              </button>
+              </Button>
             }
           />
         </div>
@@ -408,11 +590,11 @@ export function CompanyClFiscalCard() {
           </div>
 
           <div className="flex justify-end">
-            <button type="submit" className="pv-btn primary" disabled={updateMutation.isPending}>
+            <Button type="submit" disabled={updateMutation.isPending} variant="primary">
               {updateMutation.isPending
                 ? t('fiscal:settings.cl.actions.saving')
                 : t('fiscal:settings.cl.actions.save')}
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -446,11 +628,11 @@ export function CompanyClFiscalCard() {
               </dd>
             </div>
             <div className="sm:col-span-2">
-              <span className="pv-badge primary">
+              <Badge variant="primary">
                 {t('fiscal:settings.cl.caf.remaining', {
                   count: cafQuery.data.caf.rangeRemaining,
                 })}
-              </span>
+              </Badge>
             </div>
           </dl>
         ) : (

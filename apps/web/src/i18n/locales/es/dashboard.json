@@ -1,10 +1,15 @@
 {
   "analysis": {
     "kicker": "Visión del negocio",
-    "title": "Análisis"
+    "title": "Actividad que merece atención",
+    "description": "Movimientos recientes y productos que están impulsando el resultado."
   },
   "page": {
     "kicker": "Centro de mando",
+    "title": "Lo importante de hoy, en un solo lugar.",
+    "description": "Una lectura clara de ventas, demanda y reposición para decidir con confianza antes del cierre.",
+    "liveStatus": "Operación en vivo",
+    "primaryAction": "Ir a ventas",
     "freshness": {
       "title": "Última sincronización",
       "description": "{{time}}"
@@ -40,8 +45,13 @@
   "revenue": {
     "kicker": "Tendencia de ingresos",
     "title": "Ingresos 30 días",
-    "description": "Ingresos diarios y volumen de pedidos.",
-    "latestDay": "Último día"
+    "description": "Pulso diario de ventas para reconocer ritmo, picos y oportunidades.",
+    "latestDay": "Último día",
+    "chartLabel": "Gráfico de ingresos diarios de los últimos 30 días",
+    "empty": "Aún no hay ingresos para representar.",
+    "periodTotal": "Total del periodo",
+    "periodOrders": "Pedidos del periodo",
+    "bestDay": "Mejor día"
   },
   "recentSales": {
     "kicker": "Ventas recientes",
@@ -58,8 +68,12 @@
   "lowStock": {
     "kicker": "Reposición",
     "title": "Stock bajo",
+    "description": "Prioriza estas referencias antes de que afecten la venta.",
     "empty": "Sin productos con stock bajo por ahora.",
-    "minimum": "Mínimo {{count}}"
+    "minimum": "Mínimo {{count}}",
+    "alertCount_one": "{{count}} alerta de stock",
+    "alertCount_other": "{{count}} alertas de stock",
+    "action": "Revisar inventario"
   },
   "unitsSold_one": "{{count}} unidad vendida",
   "unitsSold_other": "{{count}} unidades vendidas",

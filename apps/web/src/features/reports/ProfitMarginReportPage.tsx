@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { keepPreviousData } from '@tanstack/react-query';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
-import { Banknote, BadgePercent, PieChart, Receipt, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Banknote, BadgePercent, PieChart, Receipt, TrendingUp } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency } from '@/lib/utils';
-import { KpiTile } from '@/components/ui';
+import { KpiTile, StatusStrip } from '@/components/ui';
 import { EmptyState } from '@/components/feedback/EmptyState';
 
 type ProfitMarginReport = inferRouterOutputs<AppRouter>['reports']['profit']['margin'];
@@ -101,11 +101,12 @@ export function ProfitMarginReportPage() {
       {marginQuery.isLoading && <p className="text-sm text-secondary-500">{t('margin.loading')}</p>}
 
       {marginQuery.error && (
-        <div className="pv-strip danger">
-          <span className="msg">
-            {translateServerError(marginQuery.error, t, t('margin.error'))}
-          </span>
-        </div>
+        <StatusStrip
+          tone="danger"
+          icon={AlertTriangle}
+          title={translateServerError(marginQuery.error, t, t('margin.error'))}
+          role="alert"
+        />
       )}
 
       {summary && (

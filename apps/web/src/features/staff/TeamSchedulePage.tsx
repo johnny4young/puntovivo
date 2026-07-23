@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import {
+  AlertTriangle,
   CalendarCheck2,
   CalendarDays,
   ChevronLeft,
@@ -12,7 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
-import { KpiTile } from '@/components/ui';
+import { KpiTile, StatusStrip, Button } from '@/components/ui';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { trpc } from '@/lib/trpc';
@@ -29,15 +30,14 @@ import {
   wallFieldsAt,
 } from './scheduleDate';
 import type { ScheduledShift, ScheduleFormValues } from './scheduleTypes';
-
 const TeamAttendancePanel = lazy(() =>
-  import('./TeamAttendancePanel').then(module => ({ default: module.TeamAttendancePanel }))
+  import('./TeamAttendancePanel').then(module => ({
+    default: module.TeamAttendancePanel,
+  }))
 );
-
 function calendarDateValue(date: string): Date {
   return new Date(`${date}T12:00:00.000Z`);
 }
-
 function defaultFormValues(date: string, employeeId: string, siteId: string): ScheduleFormValues {
   return {
     userId: employeeId,
@@ -49,7 +49,6 @@ function defaultFormValues(date: string, employeeId: string, siteId: string): Sc
     notes: '',
   };
 }
-
 function editFormValues(shift: ScheduledShift): ScheduleFormValues {
   const start = wallFieldsAt(shift.startsAt, shift.timeZone);
   const end = wallFieldsAt(shift.endsAt, shift.timeZone);
@@ -83,18 +82,26 @@ export function TeamSchedulePage() {
   const firstDayOfWeek = context?.firstDayOfWeek ?? locale.firstDayOfWeek;
   const weekStart = startOfWeek(weekAnchor ?? today, firstDayOfWeek);
   const weekEnd = addCalendarDays(weekStart, 7);
-  const weekDays = Array.from({ length: 7 }, (_, index) => addCalendarDays(weekStart, index));
+  const weekDays = Array.from(
+    {
+      length: 7,
+    },
+    (_, index) => addCalendarDays(weekStart, index)
+  );
   const listInput = {
     fromDate: weekStart,
     toDate: weekEnd,
     includeCancelled,
-    ...(siteId ? { siteId } : {}),
+    ...(siteId
+      ? {
+          siteId,
+        }
+      : {}),
   };
   const listQuery = trpc.employeeShifts.schedule.list.useQuery(listInput, {
     enabled: contextQuery.isSuccess,
   });
   const shifts = listQuery.data ?? [];
-
   const invalidateSchedule = async () => {
     await utils.employeeShifts.schedule.list.invalidate();
   };
@@ -102,38 +109,52 @@ export function TeamSchedulePage() {
     onSuccess: async () => {
       await invalidateSchedule();
       setFormDate(null);
-      toast.success({ title: t('schedule:toast.created') });
+      toast.success({
+        title: t('schedule:toast.created'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'schedule:toast.saveError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'schedule:toast.saveError',
+    }),
   });
   const updateMutation = useCriticalMutation('employeeShifts.schedule.update', {
     onSuccess: async () => {
       await invalidateSchedule();
       setEditingShift(null);
-      toast.success({ title: t('schedule:toast.updated') });
+      toast.success({
+        title: t('schedule:toast.updated'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'schedule:toast.saveError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'schedule:toast.saveError',
+    }),
   });
   const cancelMutation = useCriticalMutation('employeeShifts.schedule.cancel', {
     onSuccess: async () => {
       await invalidateSchedule();
       setCancelShift(null);
-      toast.success({ title: t('schedule:toast.cancelled') });
+      toast.success({
+        title: t('schedule:toast.cancelled'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'schedule:toast.cancelError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'schedule:toast.cancelError',
+    }),
   });
-
   const formatDate = (date: string, options: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat(activeLocale, { ...options, timeZone: 'UTC' }).format(
-      calendarDateValue(date)
-    );
+    new Intl.DateTimeFormat(activeLocale, {
+      ...options,
+      timeZone: 'UTC',
+    }).format(calendarDateValue(date));
   const activeShifts = shifts.filter(shift => shift.status === 'scheduled');
   const plannedHours = activeShifts.reduce(
     (total, shift) => total + (Date.parse(shift.endsAt) - Date.parse(shift.startsAt)) / 3_600_000,
     0
   );
   const scheduledStaff = new Set(activeShifts.map(shift => shift.userId)).size;
-  const number = new Intl.NumberFormat(activeLocale, { maximumFractionDigits: 1 });
+  const number = new Intl.NumberFormat(activeLocale, {
+    maximumFractionDigits: 1,
+  });
   const employees = context?.employees ?? [];
   const sites = context?.sites ?? [];
   const canCreate = employees.length > 0 && sites.length > 0;
@@ -142,18 +163,22 @@ export function TeamSchedulePage() {
     ? editFormValues(editingShift)
     : defaultFormValues(selectedCreateDate, employees[0]?.id ?? '', siteId || sites[0]?.id || '');
   const isSaving = createMutation.isPending || updateMutation.isPending;
-
   const submitForm = (values: ScheduleFormValues) => {
-    const input = { ...values, notes: values.notes.trim() || null };
+    const input = {
+      ...values,
+      notes: values.notes.trim() || null,
+    };
     if (editingShift) {
-      updateMutation.mutate({ id: editingShift.id, version: editingShift.version, ...input });
+      updateMutation.mutate({
+        id: editingShift.id,
+        version: editingShift.version,
+        ...input,
+      });
     } else {
       createMutation.mutate(input);
     }
   };
-
   const queryError = contextQuery.error ?? listQuery.error;
-
   return (
     <div className="space-y-6" data-testid="team-schedule-page">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -163,25 +188,31 @@ export function TeamSchedulePage() {
           <p className="mt-2 max-w-3xl text-sm text-secondary-500">{t('schedule:description')}</p>
           {context && (
             <p className="mt-2 text-xs font-medium text-secondary-500">
-              {t('schedule:timezone', { timeZone: context.timeZone })}
+              {t('schedule:timezone', {
+                timeZone: context.timeZone,
+              })}
             </p>
           )}
         </div>
-        <button
+        <Button
           type="button"
-          className="pv-btn primary justify-center"
+          className="justify-center"
           disabled={!canCreate}
           onClick={() => setFormDate(weekStart)}
+          variant="primary"
         >
           <Plus aria-hidden="true" />
           {t('schedule:actions.new')}
-        </button>
+        </Button>
       </header>
 
       {queryError && (
-        <div className="pv-strip danger" role="alert">
-          <span className="msg">{translateServerError(queryError, t, t('schedule:error'))}</span>
-        </div>
+        <StatusStrip
+          tone="danger"
+          icon={AlertTriangle}
+          title={translateServerError(queryError, t, t('schedule:error'))}
+          role="alert"
+        />
       )}
 
       {(contextQuery.isPending || listQuery.isPending) && !queryError && (
@@ -226,7 +257,10 @@ export function TeamSchedulePage() {
               <div>
                 <p className="text-sm font-semibold text-secondary-950">
                   {t('schedule:week.range', {
-                    start: formatDate(weekStart, { month: 'short', day: 'numeric' }),
+                    start: formatDate(weekStart, {
+                      month: 'short',
+                      day: 'numeric',
+                    }),
                     end: formatDate(addCalendarDays(weekEnd, -1), {
                       month: 'short',
                       day: 'numeric',
@@ -235,41 +269,45 @@ export function TeamSchedulePage() {
                   })}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <button
+                  <Button
                     type="button"
-                    className="pv-btn outline compact"
                     aria-label={t('schedule:actions.previousWeek')}
                     onClick={() => setWeekAnchor(addCalendarDays(weekStart, -7))}
+                    variant="outline"
+                    size="compact"
                   >
                     <ChevronLeft aria-hidden="true" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="pv-btn outline compact"
                     onClick={() => setWeekAnchor(null)}
+                    variant="outline"
+                    size="compact"
                   >
                     {t('schedule:actions.today')}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="pv-btn outline compact"
                     aria-label={t('schedule:actions.nextWeek')}
                     onClick={() => setWeekAnchor(addCalendarDays(weekStart, 7))}
+                    variant="outline"
+                    size="compact"
                   >
                     <ChevronRight aria-hidden="true" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="pv-btn ghost compact"
                     disabled={listQuery.isFetching}
                     onClick={() => void listQuery.refetch()}
+                    variant="ghost"
+                    size="compact"
                   >
                     <RefreshCw
                       className={listQuery.isFetching ? 'animate-spin' : ''}
                       aria-hidden="true"
                     />
                     {t('schedule:actions.refresh')}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -321,11 +359,7 @@ export function TeamSchedulePage() {
                 return (
                   <section
                     key={day}
-                    className={`min-w-0 rounded-2xl border p-3 ${
-                      day === today
-                        ? 'border-primary-300 bg-primary-50/60'
-                        : 'border-secondary-200 bg-secondary-50/50'
-                    }`}
+                    className={`min-w-0 rounded-2xl border p-3 ${day === today ? 'border-primary-300 bg-primary-50/60' : 'border-secondary-200 bg-secondary-50/50'}`}
                     data-schedule-day={day}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -426,7 +460,10 @@ export function TeamSchedulePage() {
               disabled={cancelMutation.isPending}
               onClick={() => {
                 if (cancelShift) {
-                  cancelMutation.mutate({ id: cancelShift.id, version: cancelShift.version });
+                  cancelMutation.mutate({
+                    id: cancelShift.id,
+                    version: cancelShift.version,
+                  });
                 }
               }}
             >

@@ -4,16 +4,14 @@ import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { formatDateTime } from '@/lib/utils';
 import type { BackupRestoreDrillReport, BackupRestoreDrillTable } from '@/types/electron';
-
+import { Button } from '@/components/ui';
 type DrillError = 'snapshot_unavailable' | 'drill_failed' | null;
-
 function formatDelta(value: number, locale: string): string {
   const formatted = new Intl.NumberFormat(locale).format(Math.abs(value));
   if (value > 0) return `+${formatted}`;
   if (value < 0) return `−${formatted}`;
   return '0';
 }
-
 export function BackupRestoreDrillPanel() {
   const { t, i18n } = useTranslation('backupProtection');
   const toast = useToast();
@@ -23,7 +21,6 @@ export function BackupRestoreDrillPanel() {
   const [error, setError] = useState<DrillError>(null);
   const [running, setRunning] = useState(false);
   const numberFormat = new Intl.NumberFormat(i18n.resolvedLanguage ?? i18n.language);
-
   const runDrill = async () => {
     if (!electron?.runBackupRestoreDrill) return;
     setRunning(true);
@@ -37,7 +34,9 @@ export function BackupRestoreDrillPanel() {
         return;
       }
       setReport(result.report);
-      toast.success({ title: t('drill.toast.passed') });
+      toast.success({
+        title: t('drill.toast.passed'),
+      });
     } catch {
       setReport(null);
       setError('drill_failed');
@@ -45,9 +44,7 @@ export function BackupRestoreDrillPanel() {
       setRunning(false);
     }
   };
-
   const tableLabel = (table: BackupRestoreDrillTable) => t(`drill.tables.${table}`);
-
   return (
     <section
       className="rounded-2xl border border-line bg-surface-1 p-4 sm:p-5"
@@ -64,16 +61,16 @@ export function BackupRestoreDrillPanel() {
           </div>
         </div>
         {supported && (
-          <button
+          <Button
             type="button"
-            className="pv-btn outline"
             onClick={() => void runDrill()}
             disabled={running}
             data-testid="run-backup-restore-drill"
+            variant="outline"
           >
             <Play aria-hidden="true" />
             {running ? t('drill.running') : t('drill.run')}
-          </button>
+          </Button>
         )}
       </div>
 

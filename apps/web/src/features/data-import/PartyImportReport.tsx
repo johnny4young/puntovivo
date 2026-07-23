@@ -1,15 +1,13 @@
 import { CheckCircle2, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import type { PartyImportEntity } from './partyImportMapping';
 import type { PartyImportReport } from './types';
-
+import { Button } from '@/components/ui';
 interface PartyImportReportProps {
   entity: PartyImportEntity;
   onDownloadReport: () => void;
   report: PartyImportReport;
 }
-
 export function PartyImportReportPanel({
   entity,
   onDownloadReport,
@@ -49,10 +47,10 @@ export function PartyImportReportPanel({
             </p>
           </div>
         </div>
-        <button type="button" className="pv-btn outline" onClick={onDownloadReport}>
+        <Button type="button" onClick={onDownloadReport} variant="outline">
           <Download className="h-4 w-4" aria-hidden="true" />
           {t('actions.downloadReport')}
-        </button>
+        </Button>
       </div>
       <dl className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {(['imported', 'skipped', 'invalid', 'failed', 'warnings'] as const).map(key => (

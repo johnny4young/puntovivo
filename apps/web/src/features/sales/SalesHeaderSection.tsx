@@ -40,7 +40,7 @@ export function SalesHeaderSection({
 
   return (
     <>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch xl:shrink-0">
+      <div className="sales-scan-stage flex flex-col gap-3 sm:flex-row sm:items-stretch xl:shrink-0">
         <div className="min-w-0 flex-1">
           <SalesQuickSearchBar
             query={productSearchQuery}
@@ -49,10 +49,10 @@ export function SalesHeaderSection({
             inputRef={productInputRef}
           />
         </div>
-        <div className="flex gap-2 sm:flex-col sm:justify-end">
+        <div className="pv-control-cluster sales-utility-dock">
           <button
             type="button"
-            className="btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
+            className="pv-control-key sales-utility-action btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
             onClick={onOpenHistory}
             data-testid="sales-open-history"
           >
@@ -61,7 +61,7 @@ export function SalesHeaderSection({
           </button>
           <button
             type="button"
-            className="btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
+            className="pv-control-key sales-utility-action btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
             onClick={onOpenSuspended}
             data-testid="sales-open-suspended"
           >

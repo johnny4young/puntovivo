@@ -24,7 +24,7 @@ import {
   type RestaurantTableFormPayload,
 } from './RestaurantTableFormModal';
 import { RestaurantFloorMapPreview } from './RestaurantFloorMapPreview';
-
+import { Badge } from '@/components/ui';
 interface RestaurantTableRow {
   id: string;
   tenantId: string;
@@ -37,7 +37,6 @@ interface RestaurantTableRow {
   createdAt: string;
   updatedAt: string;
 }
-
 function buildColumns(
   t: TFunction,
   onEdit: (row: RestaurantTableRow) => void,
@@ -75,9 +74,9 @@ function buildColumns(
       header: t('tables.columns.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {row.original.isActive ? t('tables.status.active') : t('tables.status.archived')}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -118,7 +117,6 @@ function buildColumns(
     },
   ];
 }
-
 export function RestaurantTablesPage() {
   const { t } = useTranslation(['restaurants', 'errors']);
   const { user } = useAuth();
@@ -126,8 +124,9 @@ export function RestaurantTablesPage() {
   const toast = useToast();
   const utils = trpc.useUtils();
   const isAdmin = user?.role === 'admin';
-
-  const sitesQuery = trpc.sites.list.useQuery({ includeInactive: false });
+  const sitesQuery = trpc.sites.list.useQuery({
+    includeInactive: false,
+  });
   const sites = useMemo(() => sitesQuery.data?.items ?? [], [sitesQuery.data]);
   // `siteOverride` captures only the operator's explicit picks; the
   // derived `selectedSiteId` resolves to that override first, then the
@@ -150,48 +149,51 @@ export function RestaurantTablesPage() {
   const [editing, setEditing] = useState<RestaurantTableFormInitial | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<RestaurantTableRow | null>(null);
-
   const tablesQuery = trpc.restaurantTables.list.useQuery(
     {
       siteId: selectedSiteId || 'placeholder',
       includeArchived,
     },
-    { enabled: selectedSiteId.length > 0 }
+    {
+      enabled: selectedSiteId.length > 0,
+    }
   );
-
   const createMutation = trpc.restaurantTables.create.useMutation({
     onSuccess: async () => {
       await utils.restaurantTables.list.invalidate();
-      toast.success({ title: t('tables.toast.created') });
+      toast.success({
+        title: t('tables.toast.created'),
+      });
       handleCloseModal();
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'restaurants:tables.toast.createError',
     }),
   });
-
   const updateMutation = trpc.restaurantTables.update.useMutation({
     onSuccess: async () => {
       await utils.restaurantTables.list.invalidate();
-      toast.success({ title: t('tables.toast.updated') });
+      toast.success({
+        title: t('tables.toast.updated'),
+      });
       handleCloseModal();
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'restaurants:tables.toast.updateError',
     }),
   });
-
   const archiveMutation = trpc.restaurantTables.archive.useMutation({
     onSuccess: async () => {
       await utils.restaurantTables.list.invalidate();
-      toast.success({ title: t('tables.toast.archived') });
+      toast.success({
+        title: t('tables.toast.archived'),
+      });
       setArchiveTarget(null);
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'restaurants:tables.toast.archiveError',
     }),
   });
-
   function handleCloseModal() {
     setIsModalOpen(false);
     setEditing(null);
@@ -199,14 +201,12 @@ export function RestaurantTablesPage() {
     createMutation.reset();
     updateMutation.reset();
   }
-
   function handleOpenCreate() {
     setEditing(null);
     setEditingId(null);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   }
-
   function handleOpenEdit(row: RestaurantTableRow) {
     setEditing({
       id: row.id,
@@ -219,7 +219,6 @@ export function RestaurantTablesPage() {
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   }
-
   async function handleSubmit(values: RestaurantTableFormPayload) {
     if (editingId) {
       await updateMutation.mutateAsync({
@@ -240,7 +239,6 @@ export function RestaurantTablesPage() {
       notes: values.notes,
     });
   }
-
   const items: RestaurantTableRow[] = (tablesQuery.data?.items ?? []).map(row => ({
     id: row.id,
     tenantId: row.tenantId,
@@ -260,7 +258,6 @@ export function RestaurantTablesPage() {
   const modalErrorMessage = modalError
     ? translateServerError(modalError, t, t('tables.form.errorFallback'))
     : null;
-
   return (
     <>
       <RestaurantFloorMapPreview
@@ -358,7 +355,9 @@ export function RestaurantTablesPage() {
         loading={archiveMutation.isPending}
         onConfirm={() => {
           if (archiveTarget) {
-            void archiveMutation.mutateAsync({ id: archiveTarget.id });
+            void archiveMutation.mutateAsync({
+              id: archiveTarget.id,
+            });
           }
         }}
         onClose={() => {

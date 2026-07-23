@@ -17,7 +17,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { KpiTile } from '@/components/ui';
+import { KpiTile, StatusStrip, Button } from '@/components/ui';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { translateServerError } from '@/lib/translateServerError';
@@ -26,10 +26,8 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { downloadFile } from '@/services/export/exportService';
 import { DayCloseSignoffCard } from './DayCloseSignoffCard';
-
 type DayCloseReport = inferRouterOutputs<AppRouter>['reports']['dayClose']['preview'];
 type ReadinessCode = DayCloseReport['readiness']['warnings'][number];
-
 function calendarDayAt(instant: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en-CA-u-ca-iso8601', {
     timeZone,
@@ -41,10 +39,8 @@ function calendarDayAt(instant: Date, timeZone: string): string {
     parts.find(part => part.type === type)?.value ?? '';
   return `${value('year')}-${value('month')}-${value('day')}`;
 }
-
 const SECTION_CLASS = 'card space-y-4 p-5 sm:p-6';
 const METRIC_CLASS = 'rounded-2xl border border-secondary-200 bg-secondary-50/70 p-4';
-
 function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className={METRIC_CLASS}>
@@ -56,7 +52,6 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
     </div>
   );
 }
-
 function SectionTitle({ icon: Icon, title }: { icon: typeof ShoppingBag; title: string }) {
   return (
     <h2 className="flex items-center gap-2 text-base font-semibold text-secondary-950">
@@ -78,16 +73,30 @@ export function DayCloseReportPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const date = selectedDate ?? today;
-  const signoffQuery = trpc.reports.dayClose.signoff.useQuery({ date }, { staleTime: 30_000 });
+  const signoffQuery = trpc.reports.dayClose.signoff.useQuery(
+    {
+      date,
+    },
+    {
+      staleTime: 30_000,
+    }
+  );
   const signoff = signoffQuery.data ?? null;
   const reportQuery = trpc.reports.dayClose.preview.useQuery(
-    { date },
-    { staleTime: 30_000, enabled: signoffQuery.isSuccess && !signoff }
+    {
+      date,
+    },
+    {
+      staleTime: 30_000,
+      enabled: signoffQuery.isSuccess && !signoff,
+    }
   );
   const report = signoff?.report ?? reportQuery.data;
   const signOffMutation = useCriticalMutation('reports.dayClose.signOff', {
     onSuccess: async (_signed, variables) => {
-      await utils.reports.dayClose.signoff.invalidate({ date: variables.date });
+      await utils.reports.dayClose.signoff.invalidate({
+        date: variables.date,
+      });
       toast.success({
         title: t('reports:dayClose.signoff.successTitle'),
         description: t('reports:dayClose.signoff.successDescription'),
@@ -101,12 +110,10 @@ export function DayCloseReportPage() {
     signoffQuery.isPending || (signoffQuery.isSuccess && !signoff && reportQuery.isPending);
   const queryError = signoffQuery.error ?? reportQuery.error;
   const isRefreshing = signoffQuery.isFetching || reportQuery.isFetching;
-
   const refresh = async () => {
     const refreshedSignoff = await signoffQuery.refetch();
     if (!refreshedSignoff.data) await reportQuery.refetch();
   };
-
   const downloadSignedPdf = async () => {
     if (!signoff?.pdf) return;
     setIsDownloadingPdf(true);
@@ -125,18 +132,24 @@ export function DayCloseReportPage() {
         byte.toString(16).padStart(2, '0')
       ).join('');
       if (payloadHash !== signoff.pdf.payloadHash) throw new Error('Day-close PDF hash mismatch');
-      downloadFile(new Blob([bytes], { type: signoff.pdf.mimeType }), signoff.pdf.filename);
+      downloadFile(
+        new Blob([bytes], {
+          type: signoff.pdf.mimeType,
+        }),
+        signoff.pdf.filename
+      );
       toast.success({
         title: t('reports:dayClose.signoff.pdfDownloadedTitle'),
         description: t('reports:dayClose.signoff.pdfDownloadedDescription'),
       });
     } catch {
-      toast.error({ title: t('reports:dayClose.signoff.pdfDownloadError') });
+      toast.error({
+        title: t('reports:dayClose.signoff.pdfDownloadError'),
+      });
     } finally {
       setIsDownloadingPdf(false);
     }
   };
-
   return (
     <div className="space-y-6" data-testid="day-close-report-page">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -156,15 +169,16 @@ export function DayCloseReportPage() {
               onChange={event => setSelectedDate(event.target.value || today)}
             />
           </label>
-          <button
+          <Button
             type="button"
-            className="pv-btn outline justify-center"
+            className="justify-center"
             onClick={() => void refresh()}
             disabled={isRefreshing}
+            variant="outline"
           >
             <RefreshCw className={isRefreshing ? 'animate-spin' : ''} aria-hidden="true" />
             {t('dayClose.refresh')}
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -175,11 +189,12 @@ export function DayCloseReportPage() {
       )}
 
       {queryError && (
-        <div className="pv-strip danger" role="alert">
-          <span className="msg">
-            {translateServerError(queryError, t, t('reports:dayClose.error'))}
-          </span>
-        </div>
+        <StatusStrip
+          tone="danger"
+          icon={AlertTriangle}
+          title={translateServerError(queryError, t, t('reports:dayClose.error'))}
+          role="alert"
+        />
       )}
 
       {report && (
@@ -191,15 +206,16 @@ export function DayCloseReportPage() {
             signoff={signoff}
             isSigning={signOffMutation.isPending}
             isDownloadingPdf={isDownloadingPdf}
-            onSign={() => signOffMutation.mutate({ date, attestationAccepted: true })}
+            onSign={() =>
+              signOffMutation.mutate({
+                date,
+                attestationAccepted: true,
+              })
+            }
             onDownloadPdf={() => void downloadSignedPdf()}
           />
           <section
-            className={`rounded-2xl border px-4 py-3 ${
-              report.readiness.readyToSign
-                ? 'border-success-300 bg-success-50 text-success-900'
-                : 'border-warning-300 bg-warning-50 text-warning-950'
-            }`}
+            className={`rounded-2xl border px-4 py-3 ${report.readiness.readyToSign ? 'border-success-300 bg-success-50 text-success-900' : 'border-warning-300 bg-warning-50 text-warning-950'}`}
             data-testid="day-close-readiness"
           >
             <div className="flex items-start gap-3">
@@ -220,7 +236,9 @@ export function DayCloseReportPage() {
                 </p>
                 <p className="mt-0.5 text-xs opacity-80">
                   {t('dayClose.readiness.generated', {
-                    date: formatDate(`${report.date}T12:00:00.000Z`, { timeZone: 'UTC' }),
+                    date: formatDate(`${report.date}T12:00:00.000Z`, {
+                      timeZone: 'UTC',
+                    }),
                     timeZone: report.timeZone,
                   })}
                 </p>
@@ -405,12 +423,16 @@ export function DayCloseReportPage() {
                 <Metric
                   label={t('dayClose.metrics.voids')}
                   value={formatCurrency(report.adjustments.voids.amount, report.currencyCode)}
-                  detail={t('dayClose.metrics.events', { count: report.adjustments.voids.count })}
+                  detail={t('dayClose.metrics.events', {
+                    count: report.adjustments.voids.count,
+                  })}
                 />
                 <Metric
                   label={t('dayClose.metrics.refunds')}
                   value={formatCurrency(report.adjustments.refunds.amount, report.currencyCode)}
-                  detail={t('dayClose.metrics.events', { count: report.adjustments.refunds.count })}
+                  detail={t('dayClose.metrics.events', {
+                    count: report.adjustments.refunds.count,
+                  })}
                 />
               </div>
             </section>

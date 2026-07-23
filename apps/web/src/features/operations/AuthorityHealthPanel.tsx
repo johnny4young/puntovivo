@@ -23,21 +23,20 @@ import { cn, formatDateTime } from '@/lib/utils';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { TablePagination } from '@/components/tables/TablePagination';
-import { KpiTile } from '@/components/ui';
+import { Badge, KpiTile, Button } from '@/components/ui';
 
 /**
  * Operations Center: Authority Health panel.
  *
  * hereda las recetas pv-*: titulación de panel,
  * KPI con la receta única para la topología (códigos pendientes en
- * danger cuando hay > 0), formulario con .pv-field / .pv-input / .pv-btn,
+ * danger cuando hay > 0), formulario con .pv-field / .pv-input / Button,
  * tabla densa (.pv-table) con badge semántico de salud, y estado vacío
  * del sistema (EmptyState).
  */
 
 type AuthorityStatus = inferRouterOutputs<AppRouter>['authority']['status'];
 type AuthorityDevice = AuthorityStatus['devices'][number];
-
 function healthBadgeTone(
   status: AuthorityDevice['healthStatus']
 ): 'success' | 'warning' | 'danger' {
@@ -45,11 +44,9 @@ function healthBadgeTone(
   if (status === 'stale') return 'warning';
   return 'danger';
 }
-
 function roleLabelKey(role: AuthorityDevice['authorityRole']): string {
   return `authority.roles.${role}`;
 }
-
 export function AuthorityHealthPanel() {
   const { t } = useTranslation('operations');
   const toast = useToast();
@@ -64,7 +61,6 @@ export function AuthorityHealthPanel() {
     expiresAt: string;
     siteId: string;
   } | null>(null);
-
   const statusQuery = trpc.authority.status.useQuery(undefined, {
     staleTime: 15_000,
     refetchInterval: 15_000,
@@ -72,7 +68,6 @@ export function AuthorityHealthPanel() {
   const sitesQuery = trpc.sites.list.useQuery();
   const sites = sitesQuery.data?.items ?? [];
   const activeSiteId = selectedSiteId || sites[0]?.id || '';
-
   const createMutation = trpc.authority.createPairingCode.useMutation({
     onSuccess: async result => {
       setLatestCode({
@@ -81,35 +76,40 @@ export function AuthorityHealthPanel() {
         siteId: result.siteId,
       });
       await utils.authority.status.invalidate();
-      toast.success({ title: t('authority.pairing.created') });
+      toast.success({
+        title: t('authority.pairing.created'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'operations:authority.pairing.error' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'operations:authority.pairing.error',
+    }),
   });
-
   const revokeMutation = trpc.authority.revokeDevice.useMutation({
     onSuccess: async () => {
       await utils.authority.status.invalidate();
-      toast.success({ title: t('authority.devices.revokeSuccess') });
+      toast.success({
+        title: t('authority.devices.revokeSuccess'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'operations:authority.devices.revokeError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'operations:authority.devices.revokeError',
+    }),
   });
-
   const topology = statusQuery.data;
   const devices = topology?.devices ?? [];
   const pendingCodes = topology?.pairingCodes.filter(code => code.status === 'pending') ?? [];
-
   const {
     pageRows: devicePageRows,
     hasPagination: devicesHavePagination,
     ...devicesPagination
   } = usePaginatedRows(devices, 8);
-
   async function copyLatestCode(): Promise<void> {
     if (!latestCode) return;
     await navigator.clipboard?.writeText(latestCode.code);
-    toast.success({ title: t('authority.pairing.copied') });
+    toast.success({
+      title: t('authority.pairing.copied'),
+    });
   }
-
   return (
     <div className="space-y-6">
       <section className="card space-y-4 p-6">
@@ -219,9 +219,9 @@ export function AuthorityHealthPanel() {
             />
           </label>
           <div className="flex items-end">
-            <button
+            <Button
               type="button"
-              className="pv-btn primary w-full"
+              className="w-full"
               disabled={!isAdmin || !activeSiteId || createMutation.isPending}
               title={!isAdmin ? t('authority.pairing.noPermission') : undefined}
               onClick={() =>
@@ -232,10 +232,11 @@ export function AuthorityHealthPanel() {
                 })
               }
               data-testid="authority-create-pairing-code"
+              variant="primary"
             >
               <KeyRound />
               {t('authority.pairing.cta')}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -253,15 +254,15 @@ export function AuthorityHealthPanel() {
                   })}
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
-                className="pv-btn outline"
                 onClick={() => void copyLatestCode()}
                 data-testid="authority-copy-pairing-code"
+                variant="outline"
               >
                 <Copy />
                 {t('authority.pairing.copy')}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -281,15 +282,15 @@ export function AuthorityHealthPanel() {
               </p>
             </div>
           </div>
-          <button
+          <Button
             type="button"
-            className="pv-btn ghost"
             onClick={() => void statusQuery.refetch()}
             data-testid="authority-refresh"
+            variant="ghost"
           >
             <RefreshCw className={cn(statusQuery.isFetching && 'animate-spin')} />
             {t('authority.devices.refresh')}
-          </button>
+          </Button>
         </header>
 
         {devices.length === 0 && !statusQuery.isLoading && (
@@ -328,9 +329,9 @@ export function AuthorityHealthPanel() {
                       <td className="muted">{t(roleLabelKey(device.authorityRole))}</td>
                       <td className="muted">{device.pairedSiteName ?? '—'}</td>
                       <td>
-                        <span className={`pv-badge ${healthBadgeTone(device.healthStatus)}`}>
+                        <Badge variant={healthBadgeTone(device.healthStatus)} marker="dot">
                           {t(`authority.health.${device.healthStatus}`)}
-                        </span>
+                        </Badge>
                       </td>
                       <td className="muted whitespace-nowrap">
                         {device.lastSeenAt ? formatDateTime(device.lastSeenAt) : '—'}
@@ -338,9 +339,9 @@ export function AuthorityHealthPanel() {
                       <td className="muted">{device.appVersion ?? '—'}</td>
                       <td className="num">
                         {device.authorityRole === 'hub_client' && (
-                          <button
+                          <Button
                             type="button"
-                            className="pv-btn ghost ml-auto"
+                            className="ml-auto"
                             disabled={!canRevoke || isRevoking}
                             title={!isAdmin ? t('authority.devices.noPermission') : undefined}
                             onClick={() => {
@@ -354,13 +355,16 @@ export function AuthorityHealthPanel() {
                               ) {
                                 return;
                               }
-                              revokeMutation.mutate({ deviceId: device.id });
+                              revokeMutation.mutate({
+                                deviceId: device.id,
+                              });
                             }}
                             data-testid={`authority-revoke-${device.id}`}
+                            variant="ghost"
                           >
                             <Ban className={cn(isRevoking && 'animate-spin')} />
                             {t('authority.devices.revoke')}
-                          </button>
+                          </Button>
                         )}
                       </td>
                     </tr>

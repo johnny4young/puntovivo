@@ -17,52 +17,120 @@
  * el contenido del panel adopta las recetas pv-*:
  * encabezado `.pv-kicker`/`.pv-title` con glifo tonal, formulario
  * con `.pv-field`/`.pv-input` (vía `SimpleFormField`), readiness con
- * `.pv-badge` + checklist `.pv-check`, y acción `.pv-btn primary`.
+ * `Badge` tipado + checklist `.pv-check`, y acción `Button` primary.
  * La lógica (FormData uncontrolled + tRPC) se conserva intacta.
  */
 import { useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, FileSignature } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { FiscalMaturityBadge } from '@/components/fiscal/FiscalMaturityBadge';
 import { SimpleFormField } from '@/components/form-controls/FormField';
+import { Badge, Button } from '@/components/ui';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
-import { cn } from '@/lib/utils';
-
-const REGIMEN_OPTIONS: ReadonlyArray<{ code: string; name: string }> = [
-  { code: '601', name: '601 — General de Ley Personas Morales' },
-  { code: '603', name: '603 — Personas Morales con Fines no Lucrativos' },
-  { code: '605', name: '605 — Sueldos y Salarios' },
-  { code: '606', name: '606 — Arrendamiento' },
-  { code: '607', name: '607 — Régimen de Enajenación o Adquisición de Bienes' },
-  { code: '608', name: '608 — Demás ingresos' },
-  { code: '609', name: '609 — Consolidación' },
-  { code: '610', name: '610 — Residentes en el Extranjero' },
-  { code: '611', name: '611 — Ingresos por Dividendos' },
-  { code: '612', name: '612 — Personas Físicas con Actividades Empresariales y Profesionales' },
-  { code: '614', name: '614 — Ingresos por intereses' },
-  { code: '615', name: '615 — Régimen de los ingresos por obtención de premios' },
-  { code: '616', name: '616 — Sin obligaciones fiscales' },
-  { code: '620', name: '620 — Sociedades Cooperativas de Producción' },
-  { code: '621', name: '621 — Incorporación Fiscal' },
-  { code: '622', name: '622 — Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras' },
-  { code: '623', name: '623 — Opcional para Grupos de Sociedades' },
-  { code: '624', name: '624 — Coordinados' },
-  { code: '625', name: '625 — Régimen Plataformas Tecnológicas' },
-  { code: '626', name: '626 — Régimen Simplificado de Confianza (RESICO)' },
-  { code: '628', name: '628 — Hidrocarburos' },
-  { code: '629', name: '629 — Regímenes Fiscales Preferentes y Multinacionales' },
-  { code: '630', name: '630 — Enajenación de acciones en bolsa de valores' },
+const REGIMEN_OPTIONS: ReadonlyArray<{
+  code: string;
+  name: string;
+}> = [
+  {
+    code: '601',
+    name: '601 — General de Ley Personas Morales',
+  },
+  {
+    code: '603',
+    name: '603 — Personas Morales con Fines no Lucrativos',
+  },
+  {
+    code: '605',
+    name: '605 — Sueldos y Salarios',
+  },
+  {
+    code: '606',
+    name: '606 — Arrendamiento',
+  },
+  {
+    code: '607',
+    name: '607 — Régimen de Enajenación o Adquisición de Bienes',
+  },
+  {
+    code: '608',
+    name: '608 — Demás ingresos',
+  },
+  {
+    code: '609',
+    name: '609 — Consolidación',
+  },
+  {
+    code: '610',
+    name: '610 — Residentes en el Extranjero',
+  },
+  {
+    code: '611',
+    name: '611 — Ingresos por Dividendos',
+  },
+  {
+    code: '612',
+    name: '612 — Personas Físicas con Actividades Empresariales y Profesionales',
+  },
+  {
+    code: '614',
+    name: '614 — Ingresos por intereses',
+  },
+  {
+    code: '615',
+    name: '615 — Régimen de los ingresos por obtención de premios',
+  },
+  {
+    code: '616',
+    name: '616 — Sin obligaciones fiscales',
+  },
+  {
+    code: '620',
+    name: '620 — Sociedades Cooperativas de Producción',
+  },
+  {
+    code: '621',
+    name: '621 — Incorporación Fiscal',
+  },
+  {
+    code: '622',
+    name: '622 — Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras',
+  },
+  {
+    code: '623',
+    name: '623 — Opcional para Grupos de Sociedades',
+  },
+  {
+    code: '624',
+    name: '624 — Coordinados',
+  },
+  {
+    code: '625',
+    name: '625 — Régimen Plataformas Tecnológicas',
+  },
+  {
+    code: '626',
+    name: '626 — Régimen Simplificado de Confianza (RESICO)',
+  },
+  {
+    code: '628',
+    name: '628 — Hidrocarburos',
+  },
+  {
+    code: '629',
+    name: '629 — Regímenes Fiscales Preferentes y Multinacionales',
+  },
+  {
+    code: '630',
+    name: '630 — Enajenación de acciones en bolsa de valores',
+  },
 ];
-
 function getFormString(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === 'string' ? value : '';
 }
-
 export function CompanyMxFiscalCard() {
   const { t } = useTranslation(['fiscal', 'errors', 'common']);
   const toast = useToast();
@@ -72,12 +140,14 @@ export function CompanyMxFiscalCard() {
   // el formulario; CO y CL muestran su configuración correspondiente.
   const localeQuery = trpc.tenantLocale.get.useQuery();
   const tenantCountry = localeQuery.data?.countryCode ?? 'CO';
-
   const settingsQuery = trpc.fiscalSettings.getByCountry.useQuery(
-    { countryCode: 'MX' },
-    { enabled: tenantCountry === 'MX' }
+    {
+      countryCode: 'MX',
+    },
+    {
+      enabled: tenantCountry === 'MX',
+    }
   );
-
   const mxSettings = settingsQuery.data?.countryCode === 'MX' ? settingsQuery.data.settings : null;
 
   // Fiscal "sin configurar" = no hay ningún dato significativo capturado
@@ -95,7 +165,6 @@ export function CompanyMxFiscalCard() {
   );
   const [revealed, setRevealed] = useState(false);
   const showForm = isConfigured || revealed;
-
   const formKey = mxSettings
     ? [
         mxSettings.enabled,
@@ -105,10 +174,11 @@ export function CompanyMxFiscalCard() {
         mxSettings.environment,
       ].join('|')
     : 'empty';
-
   const updateMutation = trpc.fiscalSettings.updateMx.useMutation({
     onSuccess: async () => {
-      toast.success({ title: t('fiscal:settings.mx.toast.saved') });
+      toast.success({
+        title: t('fiscal:settings.mx.toast.saved'),
+      });
       await utils.fiscalSettings.getByCountry.invalidate({
         countryCode: 'MX',
       });
@@ -117,10 +187,8 @@ export function CompanyMxFiscalCard() {
       titleKey: 'fiscal:settings.mx.toast.saveError',
     }),
   });
-
   const validation = settingsQuery.data?.validation;
   const isReady = validation?.ok ?? false;
-
   const issueLabels = useMemo(() => {
     if (!validation) return [];
     return validation.issues.map(issue => ({
@@ -130,7 +198,6 @@ export function CompanyMxFiscalCard() {
       }),
     }));
   }, [validation, t]);
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -138,7 +205,6 @@ export function CompanyMxFiscalCard() {
     const nextRfc = getFormString(formData, 'rfc').trim();
     const nextRegimenFiscalCode = getFormString(formData, 'regimenFiscalCode');
     const nextLugarExpedicion = getFormString(formData, 'lugarExpedicion').trim();
-
     await updateMutation.mutateAsync({
       enabled: formData.get('enabled') === 'on',
       rfc: nextRfc.length > 0 ? nextRfc : null,
@@ -173,7 +239,7 @@ export function CompanyMxFiscalCard() {
       {/* Badge de readiness */}
       {validation && (
         <div className="space-y-3" aria-live="polite" data-testid="fiscal-mx-readiness">
-          <span className={cn('pv-badge', isReady ? 'success' : 'danger')}>
+          <Badge variant={isReady ? 'success' : 'danger'}>
             {isReady ? (
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
             ) : (
@@ -182,7 +248,7 @@ export function CompanyMxFiscalCard() {
             {isReady
               ? t('fiscal:settings.readiness.ready')
               : t('fiscal:settings.readiness.notReady')}
-          </span>
+          </Badge>
           {/* CFDI emission is an unsigned draft today (optional). */}
           {settingsQuery.data?.maturity && (
             <FiscalMaturityBadge maturity={settingsQuery.data.maturity} className="ml-2" />
@@ -212,14 +278,14 @@ export function CompanyMxFiscalCard() {
             description={t('fiscal:settings.mx.emptyDescription')}
             className="px-6 py-8"
             action={
-              <button
+              <Button
                 type="button"
-                className="pv-btn primary"
                 data-testid="fiscal-mx-configure"
                 onClick={() => setRevealed(true)}
+                variant="primary"
               >
                 {t('fiscal:settings.mx.emptyCta')}
-              </button>
+              </Button>
             }
           />
         </div>
@@ -308,11 +374,11 @@ export function CompanyMxFiscalCard() {
           </div>
 
           <div className="flex justify-end">
-            <button type="submit" className="pv-btn primary" disabled={updateMutation.isPending}>
+            <Button type="submit" disabled={updateMutation.isPending} variant="primary">
               {updateMutation.isPending
                 ? t('fiscal:settings.mx.actions.saving')
                 : t('fiscal:settings.mx.actions.save')}
-            </button>
+            </Button>
           </div>
         </form>
       )}

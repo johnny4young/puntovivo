@@ -14,6 +14,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 
 // '' = "auto / none" — the server backfills the dimension + standard code
 // from the units catalog when the operator leaves it blank on create.
+import { Badge } from '@/components/ui';
 interface UnitFormValues {
   name: string;
   abbreviation: string;
@@ -21,7 +22,6 @@ interface UnitFormValues {
   standardCode: string;
   isActive: boolean;
 }
-
 const defaultValues: UnitFormValues = {
   name: '',
   abbreviation: '',
@@ -29,12 +29,10 @@ const defaultValues: UnitFormValues = {
   standardCode: '',
   isActive: true,
 };
-
 function mapUnitToForm(unit: Unit | null): UnitFormValues {
   if (!unit) {
     return defaultValues;
   }
-
   return {
     name: unit.name,
     abbreviation: unit.abbreviation,
@@ -43,7 +41,6 @@ function mapUnitToForm(unit: Unit | null): UnitFormValues {
     isActive: unit.isActive,
   };
 }
-
 interface UnitFormModalProps {
   isOpen: boolean;
   unit: Unit | null;
@@ -52,23 +49,13 @@ interface UnitFormModalProps {
   onClose: () => void;
   onSubmit: (values: UnitFormValues) => Promise<void>;
 }
-
-function UnitFormModal({
-  isOpen,
-  unit,
-  isSaving,
-  error,
-  onClose,
-  onSubmit,
-}: UnitFormModalProps) {
+function UnitFormModal({ isOpen, unit, isSaving, error, onClose, onSubmit }: UnitFormModalProps) {
   const { t } = useTranslation('settings');
   const form = useForm<UnitFormValues>({
     defaultValues: mapUnitToForm(unit),
   });
-
   const handleSubmit = form.handleSubmit(onSubmit);
   const isCreate = !unit;
-
   return (
     <Modal
       isOpen={isOpen}
@@ -80,7 +67,11 @@ function UnitFormModal({
             {t('units.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? t('units.form.submitting') : isCreate ? t('units.form.create') : t('units.form.save')}
+            {isSaving
+              ? t('units.form.submitting')
+              : isCreate
+                ? t('units.form.create')
+                : t('units.form.save')}
           </ModalButton>
         </>
       }
@@ -93,7 +84,9 @@ function UnitFormModal({
           <input
             id="unit-name"
             className="input mt-1"
-            {...form.register('name', { required: t('units.form.nameRequired') })}
+            {...form.register('name', {
+              required: t('units.form.nameRequired'),
+            })}
           />
           {form.formState.errors.name && (
             <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -107,7 +100,9 @@ function UnitFormModal({
           <input
             id="unit-abbreviation"
             className="input mt-1"
-            {...form.register('abbreviation', { required: t('units.form.abbreviationRequired') })}
+            {...form.register('abbreviation', {
+              required: t('units.form.abbreviationRequired'),
+            })}
           />
           {form.formState.errors.abbreviation && (
             <p className="mt-1 text-sm text-danger-500">
@@ -158,11 +153,9 @@ function UnitFormModal({
     </Modal>
   );
 }
-
 function canManageUnits(role: UserRole | undefined): boolean {
   return role === 'admin';
 }
-
 export function UnitsPage() {
   const { t } = useTranslation('settings');
   const { user } = useAuth();
@@ -172,59 +165,68 @@ export function UnitsPage() {
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
-
-  const { data, isLoading, error, refetch } = trpc.units.list.useQuery({ page: 1, perPage: 50 });
+  const { data, isLoading, error, refetch } = trpc.units.list.useQuery({
+    page: 1,
+    perPage: 50,
+  });
   const createMutation = trpc.units.create.useMutation({
     onSuccess: async () => {
       await utils.units.list.invalidate();
       handleCloseModal();
-      toast.success({ title: t('units.toast.created') });
+      toast.success({
+        title: t('units.toast.created'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:units.toast.createError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:units.toast.createError',
+    }),
   });
   const updateMutation = trpc.units.update.useMutation({
     onSuccess: async () => {
       await utils.units.list.invalidate();
       handleCloseModal();
-      toast.success({ title: t('units.toast.updated') });
+      toast.success({
+        title: t('units.toast.updated'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:units.toast.updateError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:units.toast.updateError',
+    }),
   });
   const deleteMutation = trpc.units.delete.useMutation({
     onSuccess: async () => {
       await utils.units.list.invalidate();
       setUnitToDelete(null);
-      toast.success({ title: t('units.toast.deleted') });
+      toast.success({
+        title: t('units.toast.deleted'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:units.toast.deleteError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:units.toast.deleteError',
+    }),
   });
-
   const canManage = canManageUnits(user?.role);
   const canDelete = user?.role === 'admin';
   const units = (data?.items ?? []).map(unit => ({
     ...unit,
     isActive: unit.isActive ?? false,
   })) as Unit[];
-
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingUnit(null);
     createMutation.reset();
     updateMutation.reset();
   };
-
   const handleOpenCreate = () => {
     setEditingUnit(null);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   };
-
   const handleOpenEdit = (unit: Unit) => {
     setEditingUnit(unit);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   };
-
   const handleSubmit = async (values: UnitFormValues) => {
     const trimmedCode = values.standardCode.trim();
     if (editingUnit) {
@@ -246,11 +248,18 @@ export function UnitsPage() {
       name: values.name,
       abbreviation: values.abbreviation,
       isActive: values.isActive,
-      ...(values.dimension !== '' ? { dimension: values.dimension } : {}),
-      ...(trimmedCode !== '' ? { standardCode: trimmedCode } : {}),
+      ...(values.dimension !== ''
+        ? {
+            dimension: values.dimension,
+          }
+        : {}),
+      ...(trimmedCode !== ''
+        ? {
+            standardCode: trimmedCode,
+          }
+        : {}),
     });
   };
-
   const columns: ColumnDef<Unit>[] = [
     {
       accessorKey: 'name',
@@ -282,9 +291,7 @@ export function UnitsPage() {
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="text-sm text-secondary-700">
-            {row.original.dimension
-              ? t(`units.dimensions.${row.original.dimension}`)
-              : '—'}
+            {row.original.dimension ? t(`units.dimensions.${row.original.dimension}`) : '—'}
           </span>
           {row.original.standardCode && (
             <span className="font-mono text-[11px] text-secondary-500">
@@ -299,9 +306,9 @@ export function UnitsPage() {
       header: t('units.columns.status'),
       size: 100,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {row.original.isActive ? t('units.columns.active') : t('units.columns.inactive')}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -328,7 +335,6 @@ export function UnitsPage() {
       ),
     },
   ];
-
   return (
     <>
       <ResourcePage
@@ -370,7 +376,9 @@ export function UnitsPage() {
         onClose={() => setUnitToDelete(null)}
         onConfirm={() => {
           if (unitToDelete) {
-            void deleteMutation.mutateAsync({ id: unitToDelete.id });
+            void deleteMutation.mutateAsync({
+              id: unitToDelete.id,
+            });
           }
         }}
         title={t('units.delete.title')}

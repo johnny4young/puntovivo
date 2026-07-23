@@ -15,7 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Activity, AppWindow, Boxes, HeartPulse, MonitorCheck, RadioTower } from 'lucide-react';
-import { KpiTile, type KpiTone } from '@/components/ui';
+import { KpiTile, StatusStrip, type KpiTone } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useModulesSnapshot } from '@/features/modules';
 import { trpc } from '@/lib/trpc';
@@ -131,25 +131,26 @@ export function SupportHealthPanel() {
           {isLoading && <p className="text-sm text-fg3">{t('common.loading')}</p>}
 
           {hasError && (
-            <div className="pv-strip danger" role="alert">
-              <Activity className="h-4 w-4" aria-hidden="true" />
-              <span>{t('support.health.loadError')}</span>
-            </div>
+            <StatusStrip
+              tone="danger"
+              icon={Activity}
+              title={t('support.health.loadError')}
+              role="alert"
+            />
           )}
 
           {!isLoading && !hasError && (
-            <div
-              className={`pv-strip ${needsAttention > 0 ? 'warning' : 'success'}`}
+            <StatusStrip
+              tone={needsAttention > 0 ? 'warning' : 'success'}
+              icon={MonitorCheck}
+              title={
+                needsAttention > 0
+                  ? t('support.health.summary.attention', { count: needsAttention })
+                  : t('support.health.summary.clear')
+              }
               data-testid="support-health-summary"
               role="status"
-            >
-              <MonitorCheck className="h-4 w-4" aria-hidden="true" />
-              <span>
-                {needsAttention > 0
-                  ? t('support.health.summary.attention', { count: needsAttention })
-                  : t('support.health.summary.clear')}
-              </span>
-            </div>
+            />
           )}
 
           <div className="pv-kpis grid-cols-1 sm:grid-cols-2 xl:grid-cols-5">

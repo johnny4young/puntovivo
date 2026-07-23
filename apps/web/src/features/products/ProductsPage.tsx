@@ -1,12 +1,13 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
+import { AlertTriangle, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
+import { StatusStrip } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import {
   ProductFormModal,
@@ -315,11 +316,12 @@ export function ProductsPage() {
             />
 
             {isAdmin && marginQuery.error && (
-              <div className="pv-strip warning" role="alert">
-                <span className="msg">
-                  {translateServerError(marginQuery.error, t, t('table.marginUnavailable'))}
-                </span>
-              </div>
+              <StatusStrip
+                tone="warning"
+                icon={AlertTriangle}
+                title={translateServerError(marginQuery.error, t, t('table.marginUnavailable'))}
+                role="alert"
+              />
             )}
 
             {semantic.canUseSemantic && (

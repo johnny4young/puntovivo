@@ -1,7 +1,6 @@
 import { ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -9,15 +8,13 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-
+import { Button } from '@/components/ui';
 type LossPreventionRole = 'cashier' | 'manager';
-
 interface AfterHoursPolicy {
   enabled: boolean;
   blockedFrom: string;
   blockedUntil: string;
 }
-
 interface RolePolicy {
   maxDiscountPercent: number;
   afterHoursSale: AfterHoursPolicy;
@@ -31,18 +28,15 @@ interface RolePolicy {
     thresholdAmount: number;
   };
 }
-
 interface ShiftValuePolicy {
   enabled: boolean;
   maxCount: number;
   maxAmount: number;
 }
-
 interface NoSalePolicy {
   enabled: boolean;
   maxCount: number;
 }
-
 interface LossPreventionPolicy {
   version: 4;
   roles: Record<LossPreventionRole, RolePolicy>;
@@ -53,41 +47,60 @@ interface LossPreventionPolicy {
     };
   };
 }
-
 const ROLE_KEYS: readonly LossPreventionRole[] = ['cashier', 'manager'];
 const LOCAL_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
-
 function clonePolicy(policy: LossPreventionPolicy): LossPreventionPolicy {
   return {
     version: 4,
     roles: {
       cashier: {
         ...policy.roles.cashier,
-        afterHoursSale: { ...policy.roles.cashier.afterHoursSale },
-        shift: {
-          refunds: { ...policy.roles.cashier.shift.refunds },
-          voids: { ...policy.roles.cashier.shift.voids },
-          noSale: { ...policy.roles.cashier.shift.noSale },
+        afterHoursSale: {
+          ...policy.roles.cashier.afterHoursSale,
         },
-        dualApproval: { ...policy.roles.cashier.dualApproval },
+        shift: {
+          refunds: {
+            ...policy.roles.cashier.shift.refunds,
+          },
+          voids: {
+            ...policy.roles.cashier.shift.voids,
+          },
+          noSale: {
+            ...policy.roles.cashier.shift.noSale,
+          },
+        },
+        dualApproval: {
+          ...policy.roles.cashier.dualApproval,
+        },
       },
       manager: {
         ...policy.roles.manager,
-        afterHoursSale: { ...policy.roles.manager.afterHoursSale },
-        shift: {
-          refunds: { ...policy.roles.manager.shift.refunds },
-          voids: { ...policy.roles.manager.shift.voids },
-          noSale: { ...policy.roles.manager.shift.noSale },
+        afterHoursSale: {
+          ...policy.roles.manager.afterHoursSale,
         },
-        dualApproval: { ...policy.roles.manager.dualApproval },
+        shift: {
+          refunds: {
+            ...policy.roles.manager.shift.refunds,
+          },
+          voids: {
+            ...policy.roles.manager.shift.voids,
+          },
+          noSale: {
+            ...policy.roles.manager.shift.noSale,
+          },
+        },
+        dualApproval: {
+          ...policy.roles.manager.dualApproval,
+        },
       },
     },
     alerts: {
-      whatsappHandoff: { ...policy.alerts.whatsappHandoff },
+      whatsappHandoff: {
+        ...policy.alerts.whatsappHandoff,
+      },
     },
   };
 }
-
 function isValidWhatsAppRecipient(value: string): boolean {
   const normalized = value
     .trim()
@@ -105,18 +118,18 @@ export function CompanyLossPreventionCard(): React.ReactElement {
   const [draft, setDraft] = useState<LossPreventionPolicy | null>(null);
   const persisted = settingsQuery.data as LossPreventionPolicy | undefined;
   const policy = draft ?? persisted ?? null;
-
   const saveMutation = useCriticalMutation('lossPrevention.updateSettings', {
     onSuccess: saved => {
       utils.lossPrevention.getSettings.setData(undefined, saved);
       setDraft(null);
-      toast.success({ title: t('settings:company.lossPrevention.toast.saved') });
+      toast.success({
+        title: t('settings:company.lossPrevention.toast.saved'),
+      });
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'settings:company.lossPrevention.toast.saveError',
     }),
   });
-
   const updateRole = (role: LossPreventionRole, update: (current: RolePolicy) => RolePolicy) => {
     if (!policy) return;
     setDraft(current => {
@@ -125,7 +138,6 @@ export function CompanyLossPreventionCard(): React.ReactElement {
       return next;
     });
   };
-
   if (settingsQuery.isLoading) {
     return (
       <section className="card p-6" data-testid="company-loss-prevention-card">
@@ -136,7 +148,6 @@ export function CompanyLossPreventionCard(): React.ReactElement {
       </section>
     );
   }
-
   if (settingsQuery.error || !policy || !persisted) {
     return (
       <section className="card p-6" data-testid="company-loss-prevention-card">
@@ -148,7 +159,6 @@ export function CompanyLossPreventionCard(): React.ReactElement {
       </section>
     );
   }
-
   const validationError = ROLE_KEYS.some(role => {
     const value = policy.roles[role];
     const shiftValues = [value.shift.refunds, value.shift.voids];
@@ -181,7 +191,6 @@ export function CompanyLossPreventionCard(): React.ReactElement {
     policy.alerts.whatsappHandoff.enabled &&
     !isValidWhatsAppRecipient(policy.alerts.whatsappHandoff.recipientPhone);
   const isDirty = JSON.stringify(policy) !== JSON.stringify(persisted);
-
   return (
     <section
       className="card space-y-5 p-6"
@@ -207,7 +216,10 @@ export function CompanyLossPreventionCard(): React.ReactElement {
         onSubmit={event => {
           event.preventDefault();
           if (!validationError && !alertValidationError && isDirty) {
-            saveMutation.mutate({ roles: policy.roles, alerts: policy.alerts });
+            saveMutation.mutate({
+              roles: policy.roles,
+              alerts: policy.alerts,
+            });
           }
         }}
       >
@@ -517,7 +529,10 @@ export function CompanyLossPreventionCard(): React.ReactElement {
                             ...current,
                             shift: {
                               ...current.shift,
-                              noSale: { ...current.shift.noSale, enabled: event.target.checked },
+                              noSale: {
+                                ...current.shift.noSale,
+                                enabled: event.target.checked,
+                              },
                             },
                           }))
                         }
@@ -640,15 +655,15 @@ export function CompanyLossPreventionCard(): React.ReactElement {
           <p className="max-w-2xl text-xs text-secondary-500">
             {t('settings:company.lossPrevention.auditNote')}
           </p>
-          <button
+          <Button
             type="submit"
-            className="pv-btn primary"
             disabled={saveMutation.isPending || validationError || alertValidationError || !isDirty}
+            variant="primary"
           >
             {saveMutation.isPending
               ? t('settings:company.lossPrevention.saving')
               : t('settings:company.lossPrevention.save')}
-          </button>
+          </Button>
         </div>
       </form>
     </section>

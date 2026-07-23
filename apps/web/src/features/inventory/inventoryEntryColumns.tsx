@@ -15,7 +15,6 @@
 import { type ColumnDef } from '@tanstack/react-table';
 import i18next from 'i18next';
 import { Eye, Package } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/lib/utils';
 import type { InitialInventoryEntry } from '@/types';
 
@@ -23,6 +22,7 @@ import type { InitialInventoryEntry } from '@/types';
  * Build the Entries table columns. `onViewDetails` opens the row-detail Drawer
  * carrying the trimmed fields (unit, normalized qty, cost, stock-after, notes).
  */
+import { Badge } from '@/components/ui';
 export function getEntryColumns(
   onViewDetails: (entry: InitialInventoryEntry) => void
 ): ColumnDef<InitialInventoryEntry>[] {
@@ -38,11 +38,11 @@ export function getEntryColumns(
       header: () => i18next.t('inventory:table.mode'),
       size: 160,
       cell: ({ row }) => (
-        <span className={cn('pv-badge', row.original.mode === 'initial' ? 'primary' : 'warning')}>
+        <Badge variant={row.original.mode === 'initial' ? 'primary' : 'warning'}>
           {row.original.mode === 'initial'
             ? i18next.t('inventory:table.initialInventory')
             : i18next.t('inventory:table.physicalCount')}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -67,7 +67,10 @@ export function getEntryColumns(
       accessorKey: 'quantity',
       header: () => i18next.t('inventory:table.countedQty'),
       size: 110,
-      meta: { cellClassName: 'num', headerClassName: 'num' },
+      meta: {
+        cellClassName: 'num',
+        headerClassName: 'num',
+      },
       cell: ({ row }) => row.original.quantity.toLocaleString(),
     },
     // unit / normalized / cost / stock-after / notes trimmed into the

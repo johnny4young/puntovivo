@@ -202,7 +202,6 @@ export function ProvidersPage() {
         data={providers}
         isLoading={providersQuery.isLoading}
         error={providersQuery.error?.message ?? null}
-        searchKey="name"
         searchPlaceholder={t('providers.search')}
         searchValue={providerSearch}
         onSearchChange={setProviderSearch}

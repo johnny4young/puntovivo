@@ -23,6 +23,7 @@ import {
  * Props for {@link InventoryMovementDetailsDrawer}. The Drawer is open exactly
  * when `item` is non-null (the parent owns the open/close state).
  */
+import { Badge } from '@/components/ui';
 export interface InventoryMovementDetailsDrawerProps {
   /** The movement row to detail. `null` keeps the Drawer closed. */
   item: InventoryMovement | null;
@@ -39,13 +40,11 @@ function DetailField({ label, value }: { label: string; value: ReactNode }) {
     </div>
   );
 }
-
 export function InventoryMovementDetailsDrawer({
   item,
   onClose,
 }: InventoryMovementDetailsDrawerProps) {
   const { t } = useTranslation('inventory');
-
   const footer = item ? (
     <div className="flex justify-end">
       <button type="button" className="btn-outline" onClick={onClose}>
@@ -53,9 +52,7 @@ export function InventoryMovementDetailsDrawer({
       </button>
     </div>
   ) : undefined;
-
   const delta = item ? getMovementDelta(item) : 0;
-
   return (
     <Drawer
       isOpen={!!item}
@@ -71,9 +68,9 @@ export function InventoryMovementDetailsDrawer({
           <DetailField
             label={t('table.type')}
             value={
-              <span className={cn('pv-badge', movementBadgeTones[item.type] ?? 'neutral')}>
+              <Badge variant={movementBadgeTones[item.type] ?? 'neutral'}>
                 {t(`movements.types.${item.type}`)}
-              </span>
+              </Badge>
             }
           />
           <DetailField

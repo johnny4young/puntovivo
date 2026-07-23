@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Boxes, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Boxes, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
-import { cn } from '@/lib/utils';
+import { StatusStrip, Badge } from '@/components/ui';
 import type { Product, ProductVariantAxis } from '@/types';
 import {
   buildVariantPreview,
@@ -10,12 +10,10 @@ import {
   parseVariantAxes,
   type VariantAxisDraft,
 } from './productVariantMatrix';
-
 interface VariantMatrixData {
   axes: ProductVariantAxis[];
   variants: Product[];
 }
-
 export interface VariantMatrixModalProps {
   isOpen: boolean;
   product: Product;
@@ -26,9 +24,12 @@ export interface VariantMatrixModalProps {
   onClose: () => void;
   onSubmit: (axes: ProductVariantAxis[]) => Promise<void>;
 }
-
-const INITIAL_AXES: VariantAxisDraft[] = [{ name: '', valuesText: '' }];
-
+const INITIAL_AXES: VariantAxisDraft[] = [
+  {
+    name: '',
+    valuesText: '',
+  },
+];
 export function VariantMatrixModal({
   isOpen,
   product,
@@ -48,21 +49,30 @@ export function VariantMatrixModal({
     [parsed, product]
   );
   const stockBlocked = Math.abs(product.stock) > 1e-9;
-
   const updateDraft = (index: number, patch: Partial<VariantAxisDraft>) => {
     setDrafts(current =>
-      current.map((draft, draftIndex) => (draftIndex === index ? { ...draft, ...patch } : draft))
+      current.map((draft, draftIndex) =>
+        draftIndex === index
+          ? {
+              ...draft,
+              ...patch,
+            }
+          : draft
+      )
     );
   };
-
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={
         isExistingMatrix
-          ? t('variants.viewTitle', { name: product.name })
-          : t('variants.createTitle', { name: product.name })
+          ? t('variants.viewTitle', {
+              name: product.name,
+            })
+          : t('variants.createTitle', {
+              name: product.name,
+            })
       }
       size="xl"
       contentClassName="space-y-5"
@@ -84,7 +94,9 @@ export function VariantMatrixModal({
             >
               {isSaving
                 ? t('variants.creating')
-                : t('variants.createAction', { count: preview.length })}
+                : t('variants.createAction', {
+                    count: preview.length,
+                  })}
             </ModalButton>
           )}
         </>
@@ -114,9 +126,9 @@ export function VariantMatrixModal({
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {axis.values.map(value => (
-                    <span key={value} className="pv-badge neutral">
+                    <Badge key={value} variant="neutral">
                       {value}
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               </div>
@@ -129,9 +141,12 @@ export function VariantMatrixModal({
       {!isExistingMatrix && (
         <div className="space-y-5" data-testid="variant-matrix-create">
           {stockBlocked && (
-            <div className="pv-strip warning" role="alert">
-              <span className="msg">{t('variants.stockBlocked')}</span>
-            </div>
+            <StatusStrip
+              tone="warning"
+              icon={AlertTriangle}
+              title={t('variants.stockBlocked')}
+              role="alert"
+            />
           )}
 
           <div className="space-y-3">
@@ -142,14 +157,20 @@ export function VariantMatrixModal({
               >
                 <label className="space-y-1.5 text-sm font-medium text-secondary-800">
                   <span id={`variant-axis-name-label-${index}`}>
-                    {t('variants.axisName', { number: index + 1 })}
+                    {t('variants.axisName', {
+                      number: index + 1,
+                    })}
                   </span>
                   <input
                     aria-labelledby={`variant-axis-name-label-${index}`}
                     className="pv-input"
                     value={draft.name}
                     placeholder={t('variants.axisPlaceholder')}
-                    onChange={event => updateDraft(index, { name: event.target.value })}
+                    onChange={event =>
+                      updateDraft(index, {
+                        name: event.target.value,
+                      })
+                    }
                   />
                 </label>
                 <label className="space-y-1.5 text-sm font-medium text-secondary-800">
@@ -159,7 +180,11 @@ export function VariantMatrixModal({
                     className="pv-input"
                     value={draft.valuesText}
                     placeholder={t('variants.optionsPlaceholder')}
-                    onChange={event => updateDraft(index, { valuesText: event.target.value })}
+                    onChange={event =>
+                      updateDraft(index, {
+                        valuesText: event.target.value,
+                      })
+                    }
                   />
                   <span className="block text-xs font-normal text-secondary-500">
                     {t('variants.optionsHelp')}
@@ -168,7 +193,9 @@ export function VariantMatrixModal({
                 <button
                   type="button"
                   className="btn-ghost btn-icon mt-6 text-danger-600"
-                  aria-label={t('variants.removeAxis', { number: index + 1 })}
+                  aria-label={t('variants.removeAxis', {
+                    number: index + 1,
+                  })}
                   disabled={drafts.length === 1}
                   onClick={() => setDrafts(current => current.filter((_, i) => i !== index))}
                 >
@@ -180,7 +207,15 @@ export function VariantMatrixModal({
               <button
                 type="button"
                 className="btn-outline flex items-center gap-2"
-                onClick={() => setDrafts(current => [...current, { name: '', valuesText: '' }])}
+                onClick={() =>
+                  setDrafts(current => [
+                    ...current,
+                    {
+                      name: '',
+                      valuesText: '',
+                    },
+                  ])
+                }
               >
                 <Plus className="h-4 w-4" />
                 {t('variants.addAxis')}
@@ -196,11 +231,19 @@ export function VariantMatrixModal({
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-semibold text-secondary-900">{t('variants.previewTitle')}</h3>
-                <span className="pv-badge info">
-                  {t('variants.combinationCount', { count: preview.length })}
-                </span>
+                <Badge variant="info">
+                  {t('variants.combinationCount', {
+                    count: preview.length,
+                  })}
+                </Badge>
               </div>
-              <VariantRows variants={preview.map(row => ({ ...row, stock: 0, isActive: true }))} />
+              <VariantRows
+                variants={preview.map(row => ({
+                  ...row,
+                  stock: 0,
+                  isActive: true,
+                }))}
+              />
             </div>
           )}
         </div>
@@ -214,7 +257,6 @@ export function VariantMatrixModal({
     </Modal>
   );
 }
-
 function VariantRows({
   variants,
 }: {
@@ -241,9 +283,9 @@ function VariantRows({
                 {variant.stock.toLocaleString()}
               </td>
               <td className="px-4 py-3">
-                <span className={cn('pv-badge', variant.isActive ? 'success' : 'neutral')}>
+                <Badge variant={variant.isActive ? 'success' : 'neutral'}>
                   {variant.isActive ? t('table.active') : t('table.inactive')}
-                </span>
+                </Badge>
               </td>
             </tr>
           ))}

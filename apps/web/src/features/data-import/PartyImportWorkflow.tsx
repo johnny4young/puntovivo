@@ -1,7 +1,6 @@
 import { FileSpreadsheet, LoaderCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
@@ -28,13 +27,12 @@ import type {
   PartyImportReport,
   ProviderImportRowsInput,
 } from './types';
-
+import { Button } from '@/components/ui';
 interface PartyImportWorkflowProps {
   dataMode: LaunchImportDataMode;
   entity: PartyImportEntity;
   onBusyChange?: (busy: boolean) => void;
 }
-
 interface PartyIssueExportRow {
   email: string;
   field: string;
@@ -44,11 +42,9 @@ interface PartyIssueExportRow {
   status: string;
   taxId: string;
 }
-
 interface PartyReportExportRow extends PartyIssueExportRow {
   recordId: string;
 }
-
 export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImportWorkflowProps) {
   const { t } = useTranslation(['dataImport', 'errors']);
   const toast = useToast();
@@ -61,12 +57,10 @@ export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImp
   const [isParsing, setIsParsing] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [confirmedRealData, setConfirmedRealData] = useState(false);
-
   const mappedRows = useMemo(
     () => (file && mapping ? mapPartyImportRows(entity, file, mapping) : []),
     [entity, file, mapping]
   );
-
   async function finishImport(result: PartyImportReport) {
     setReport(result);
     await Promise.all([
@@ -76,43 +70,50 @@ export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImp
       utils.setupReadiness.get.invalidate(),
     ]);
     toast.success({
-      title: t(`dataImport:party.${entity}.toastImported`, { count: result.summary.imported }),
+      title: t(`dataImport:party.${entity}.toastImported`, {
+        count: result.summary.imported,
+      }),
     });
   }
-
   const customerPreviewMutation = trpc.launchMigration.previewCustomers.useMutation({
     onSuccess: result => {
       setPreview(result);
       setReport(null);
     },
-    onError: onErrorToast(toast, t, { titleKey: 'dataImport:toast.previewError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'dataImport:toast.previewError',
+    }),
   });
   const providerPreviewMutation = trpc.launchMigration.previewProviders.useMutation({
     onSuccess: result => {
       setPreview(result);
       setReport(null);
     },
-    onError: onErrorToast(toast, t, { titleKey: 'dataImport:toast.previewError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'dataImport:toast.previewError',
+    }),
   });
   const customerImportMutation = trpc.launchMigration.importCustomers.useMutation({
     onSuccess: finishImport,
-    onError: onErrorToast(toast, t, { titleKey: 'dataImport:toast.importError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'dataImport:toast.importError',
+    }),
   });
   const providerImportMutation = trpc.launchMigration.importProviders.useMutation({
     onSuccess: finishImport,
-    onError: onErrorToast(toast, t, { titleKey: 'dataImport:toast.importError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'dataImport:toast.importError',
+    }),
   });
   const previewPending =
     entity === 'customers' ? customerPreviewMutation.isPending : providerPreviewMutation.isPending;
   const importPending =
     entity === 'customers' ? customerImportMutation.isPending : providerImportMutation.isPending;
   const isBusy = isParsing || previewPending || importPending;
-
   useEffect(() => {
     onBusyChange?.(isBusy);
     return () => onBusyChange?.(false);
   }, [isBusy, onBusyChange]);
-
   const invalidatePreview = () => {
     setPreview(null);
     setReport(null);
@@ -122,7 +123,6 @@ export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImp
     customerImportMutation.reset();
     providerImportMutation.reset();
   };
-
   const handleFile = async (selected: File) => {
     if (isBusy) return;
     setIsParsing(true);
@@ -142,7 +142,6 @@ export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImp
       setIsParsing(false);
     }
   };
-
   const handlePreview = () => {
     if (!file || !mapping || !hasRequiredPartyMapping(mapping)) return;
     if (entity === 'customers') {
@@ -159,7 +158,6 @@ export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImp
       });
     }
   };
-
   const handleImport = () => {
     if (!file || !preview || dataMode !== 'real' || !confirmedRealData) return;
     if (entity === 'customers') {
@@ -180,7 +178,6 @@ export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImp
       });
     }
   };
-
   const buildIssueRows = (): PartyIssueExportRow[] => {
     if (!preview) return [];
     if (report) {
@@ -208,23 +205,41 @@ export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImp
       }))
     );
   };
-
   const exportColumns = <T extends PartyIssueExportRow>(): ExportColumn<T>[] => [
-    { key: 'row', header: t('dataImport:table.row') },
-    { key: 'status', header: t('dataImport:table.status') },
-    { key: 'name', header: t('dataImport:party.fields.name') },
-    { key: 'taxId', header: t('dataImport:party.fields.taxId') },
-    { key: 'email', header: t('dataImport:party.fields.email') },
-    { key: 'field', header: t('dataImport:table.field') },
-    { key: 'issue', header: t('dataImport:table.issues') },
+    {
+      key: 'row',
+      header: t('dataImport:table.row'),
+    },
+    {
+      key: 'status',
+      header: t('dataImport:table.status'),
+    },
+    {
+      key: 'name',
+      header: t('dataImport:party.fields.name'),
+    },
+    {
+      key: 'taxId',
+      header: t('dataImport:party.fields.taxId'),
+    },
+    {
+      key: 'email',
+      header: t('dataImport:party.fields.email'),
+    },
+    {
+      key: 'field',
+      header: t('dataImport:table.field'),
+    },
+    {
+      key: 'issue',
+      header: t('dataImport:table.issues'),
+    },
   ];
-
   const handleDownloadIssues = () => {
     exportToCSV(buildIssueRows(), exportColumns(), `puntovivo-${entity}-import-issues`, {
       includeTimestamp: true,
     });
   };
-
   const handleDownloadReport = () => {
     if (!preview || !report) return;
     const rows: PartyReportExportRow[] = buildPartyImportReportRows(preview, report).map(row => ({
@@ -239,13 +254,15 @@ export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImp
     }));
     const columns: ExportColumn<PartyReportExportRow>[] = [
       ...exportColumns<PartyReportExportRow>(),
-      { key: 'recordId', header: t('dataImport:party.report.recordId') },
+      {
+        key: 'recordId',
+        header: t('dataImport:party.report.recordId'),
+      },
     ];
     exportToCSV(rows, columns, `puntovivo-${entity}-import-${report.importId}`, {
       includeTimestamp: true,
     });
   };
-
   const handleDownloadTemplate = () => {
     const columns: ExportColumn<Record<string, string>>[] = PARTY_IMPORT_FIELDS[entity].map(
       key => ({
@@ -256,9 +273,10 @@ export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImp
     const sample = Object.fromEntries(
       PARTY_IMPORT_FIELDS[entity].map(key => [key, t(`dataImport:party.${entity}.template.${key}`)])
     );
-    exportToCSV([sample], columns, `puntovivo-${entity}-template`, { includeTimestamp: false });
+    exportToCSV([sample], columns, `puntovivo-${entity}-template`, {
+      includeTimestamp: false,
+    });
   };
-
   const handleReset = () => {
     if (isBusy) return;
     setFile(null);
@@ -267,16 +285,14 @@ export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImp
     invalidatePreview();
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
-
   const canPreview = Boolean(file && mapping && hasRequiredPartyMapping(mapping));
-
   return (
     <div className="space-y-6" data-testid={`data-import-${entity}-workflow`}>
       <div className="flex justify-end">
-        <button type="button" className="pv-btn outline" onClick={handleDownloadTemplate}>
+        <Button type="button" onClick={handleDownloadTemplate} variant="outline">
           <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
           {t('dataImport:actions.downloadTemplate')}
-        </button>
+        </Button>
       </div>
 
       <ImportSourcePanel
@@ -297,22 +313,29 @@ export function PartyImportWorkflow({ dataMode, entity, onBusyChange }: PartyImp
             headers={file.headers}
             mapping={mapping}
             onMappingChange={(field: PartyImportField, source: string) => {
-              setMapping(current => (current ? { ...current, [field]: source } : current));
+              setMapping(current =>
+                current
+                  ? {
+                      ...current,
+                      [field]: source,
+                    }
+                  : current
+              );
               invalidatePreview();
             }}
           />
           <div className="flex justify-end">
-            <button
+            <Button
               type="button"
-              className="pv-btn primary"
               disabled={!canPreview || isBusy}
               onClick={handlePreview}
+              variant="primary"
             >
               {previewPending ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
               {t('dataImport:actions.preview')}
-            </button>
+            </Button>
           </div>
         </>
       ) : null}

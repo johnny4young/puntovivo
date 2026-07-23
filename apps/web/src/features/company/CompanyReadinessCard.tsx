@@ -9,7 +9,7 @@
  * component.
  *
  * Visual model (rediseño §08 — readiness reconstruida como onboarding):
- * - Blockers are hoisted to the top as `.pv-strip.danger` rows with a
+ * - Blockers are hoisted to the top as typed `StatusStrip` danger rows with a
  * direct primary CTA ("Resolver <paso>"), instead of being buried in
  * a flat list of equal steps.
  * - A `.pv-ring` progress ring + "{ready} de {total} listos · {n}
@@ -44,9 +44,9 @@ import { trpc } from '@/lib/trpc';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { StatusStrip, Button } from '@/components/ui';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
-
 type SectionStatus = 'ready' | 'blocker' | 'optional-pending' | 'warning' | 'not-applicable';
 
 /**
@@ -91,7 +91,6 @@ function StatusChip({ status, label }: { status: SectionStatus; label: string })
       );
   }
 }
-
 function scoreTone(score: number): 'danger' | 'warning' | 'success' {
   if (score < 50) return 'danger';
   if (score < 80) return 'warning';
@@ -108,7 +107,6 @@ function readinessCtaHref(cta: { route: string; tab?: string }): string {
   if (!cta.tab) return cta.route;
   return `${cta.route}?tab=${encodeURIComponent(cta.tab)}`;
 }
-
 export interface CompanyReadinessCardProps {
   /**
    * Called when the operator clicks the closing CTA ("Resolver
@@ -117,7 +115,6 @@ export interface CompanyReadinessCardProps {
    */
   onAcknowledged?: () => void;
 }
-
 export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardProps = {}) {
   const { t } = useTranslation(['setup', 'errors']);
   const toast = useToast();
@@ -131,18 +128,18 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
     staleTime: 60_000,
   });
   const [, setSearchParams] = useSearchParams();
-
   const acknowledgeMutation = trpc.companies.acknowledgeSetup.useMutation({
     onSuccess: async () => {
       await utils.setupReadiness.get.invalidate();
-      toast.success({ title: t('readiness.acknowledge.toast') });
+      toast.success({
+        title: t('readiness.acknowledge.toast'),
+      });
       onAcknowledged?.();
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'setup:readiness.acknowledge.error',
     }),
   });
-
   const handleSectionCta = (cta: { route: string; tab?: string }): void => {
     // Same-page navigation when the CTA points at /company: just
     // flip the tab via setSearchParams so React Query keeps the
@@ -154,7 +151,9 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
           next.set('tab', cta.tab!);
           return next;
         },
-        { replace: true }
+        {
+          replace: true,
+        }
       );
       return;
     }
@@ -165,13 +164,16 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
     // `no-restricted-syntax` linting against external-value writes.
     window.location.assign(readinessCtaHref(cta));
   };
-
   const summary = useMemo(() => {
     if (!readinessQuery.data) return null;
     const { sections, blockerCount } = readinessQuery.data;
     const applicable = sections.filter(s => s.status !== 'not-applicable');
     const readyCount = applicable.filter(s => s.status === 'ready').length;
-    return { applicable: applicable.length, readyCount, blockerCount };
+    return {
+      applicable: applicable.length,
+      readyCount,
+      blockerCount,
+    };
   }, [readinessQuery.data]);
 
   // Group sections by state so the render can hoist blockers to the top
@@ -191,11 +193,9 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
       ),
     };
   }, [readinessQuery.data]);
-
   if (readinessQuery.isLoading) {
     return <PageLoadingState title={t('readiness.title')} description={t('readiness.loading')} />;
   }
-
   if (readinessQuery.error) {
     return (
       <QueryErrorState
@@ -207,19 +207,19 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
       />
     );
   }
-
   if (!readinessQuery.data || !summary) {
     return null;
   }
-
   const { score, acknowledgedAt } = readinessQuery.data;
   const tone = scoreTone(score);
   const hasBlockers = summary.blockerCount > 0;
-
   const renderSectionRow = (section: {
     id: string;
     status: SectionStatus;
-    cta: { route: string; tab?: string } | null;
+    cta: {
+      route: string;
+      tab?: string;
+    } | null;
   }) => {
     const labelKey = `readiness.sections.${section.id}.label`;
     const hintKey = `readiness.sections.${section.id}.hint`;
@@ -240,20 +240,19 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
           <div className="d">{t(hintKey)}</div>
         </div>
         {section.cta && (
-          <button
+          <Button
             type="button"
-            className={`pv-btn ${isSoft ? 'outline' : 'ghost'}`}
-            style={{ minHeight: 36 }}
+            variant={isSoft ? 'outline' : 'ghost'}
+            size="compact"
             onClick={() => handleSectionCta(section.cta!)}
             data-testid={`company-readiness-cta-${section.id}`}
           >
             {isOptionalPending ? t('readiness.cta.configure') : t('readiness.cta.review')}
-          </button>
+          </Button>
         )}
       </div>
     );
   };
-
   return (
     <div className="card p-6 space-y-6" data-testid="company-readiness-card">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -275,7 +274,9 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
                 className="text-[12.5px] font-semibold text-danger-700"
                 data-testid="company-readiness-blocker-count"
               >
-                {t('readiness.blocker.count', { count: summary.blockerCount })}
+                {t('readiness.blocker.count', {
+                  count: summary.blockerCount,
+                })}
               </span>
             )}
           </div>
@@ -284,8 +285,14 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
             data-testid="company-readiness-score"
             data-tone={tone}
             role="img"
-            aria-label={t('readiness.score.aria', { score })}
-            style={{ '--p': score } as CSSProperties}
+            aria-label={t('readiness.score.aria', {
+              score,
+            })}
+            style={
+              {
+                '--p': score,
+              } as CSSProperties
+            }
           >
             <div className="in">{score}</div>
           </div>
@@ -299,31 +306,32 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
             const hintKey = `readiness.sections.${section.id}.hint`;
             const statusLabelKey = `readiness.status.${section.status}`;
             return (
-              <div
+              <StatusStrip
                 key={section.id}
-                className="pv-strip danger"
+                tone="danger"
+                icon={AlertTriangle}
+                title={t(labelKey)}
                 data-testid={`company-readiness-section-${section.id}`}
                 data-status={section.status}
+                meta={<span className="sr-only">{t(statusLabelKey)}</span>}
+                action={
+                  section.cta ? (
+                    <Button
+                      type="button"
+                      onClick={() => handleSectionCta(section.cta!)}
+                      data-testid={`company-readiness-cta-${section.id}`}
+                      variant="primary"
+                    >
+                      <ArrowRight className="h-4 w-4" aria-hidden />
+                      {t('readiness.cta.resolveSection', {
+                        section: t(labelKey),
+                      })}
+                    </Button>
+                  ) : undefined
+                }
               >
-                <span className="ic">
-                  <AlertTriangle className="h-5 w-5" aria-label={t(statusLabelKey)} />
-                </span>
-                <span className="msg min-w-0 flex-1">
-                  <b>{t(labelKey)}</b>
-                  <span className="block text-secondary-600">{t(hintKey)}</span>
-                </span>
-                {section.cta && (
-                  <button
-                    type="button"
-                    className="pv-btn primary"
-                    onClick={() => handleSectionCta(section.cta!)}
-                    data-testid={`company-readiness-cta-${section.id}`}
-                  >
-                    <ArrowRight className="h-4 w-4" aria-hidden />
-                    {t('readiness.cta.resolveSection', { section: t(labelKey) })}
-                  </button>
-                )}
-              </div>
+                <span className="block text-secondary-600">{t(hintKey)}</span>
+              </StatusStrip>
             );
           })}
         </div>
@@ -358,19 +366,19 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
 
       {acknowledgedAt === null && (
         <div className="pt-2">
-          <button
+          <Button
             type="button"
-            className="pv-btn primary"
             onClick={() => acknowledgeMutation.mutate()}
             disabled={acknowledgeMutation.isPending}
             data-testid="company-readiness-acknowledge"
+            variant="primary"
           >
             {acknowledgeMutation.isPending
               ? t('readiness.acknowledge.pending')
               : hasBlockers
                 ? t('readiness.acknowledge.resolveBlocker')
                 : t('readiness.acknowledge.openStore')}
-          </button>
+          </Button>
         </div>
       )}
     </div>

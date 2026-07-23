@@ -6,16 +6,17 @@ import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
+import { Badge, type BadgeVariant } from '@/components/ui';
 import { purchaseHistoryExportColumns } from '@/features/purchases/purchaseHistoryExport';
 import { formatCurrency } from '@/lib/utils';
 import type { Purchase } from '@/types';
 
-const purchaseStatusClassNames: Record<Purchase['status'], string> = {
-  draft: 'badge-warning',
-  completed: 'badge-success',
-  partial_returned: 'badge-primary',
-  returned: 'badge-danger',
-  voided: 'badge-warning',
+const purchaseStatusTones: Record<Purchase['status'], BadgeVariant> = {
+  draft: 'warning',
+  completed: 'success',
+  partial_returned: 'primary',
+  returned: 'danger',
+  voided: 'warning',
 };
 
 interface PurchasesHistoryTableProps {
@@ -66,9 +67,9 @@ export function PurchasesHistoryTable({
         header: t('table.status'),
         size: 120,
         cell: ({ row }) => (
-          <span className={purchaseStatusClassNames[row.original.status]}>
+          <Badge variant={purchaseStatusTones[row.original.status]}>
             {t(`status.${row.original.status}`)}
-          </span>
+          </Badge>
         ),
       },
       {

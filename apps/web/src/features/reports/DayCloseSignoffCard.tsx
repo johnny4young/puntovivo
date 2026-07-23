@@ -5,11 +5,10 @@ import { Download, FileSignature, FileText, LockKeyhole, ShieldCheck } from 'luc
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { formatDateTime } from '@/lib/utils';
-
+import { Button } from '@/components/ui';
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type DayCloseReport = RouterOutputs['reports']['dayClose']['preview'];
 type DayCloseSignoff = NonNullable<RouterOutputs['reports']['dayClose']['signoff']>;
-
 interface DayCloseSignoffCardProps {
   date: string;
   report: DayCloseReport;
@@ -33,7 +32,6 @@ export function DayCloseSignoffCard({
   const { t, i18n } = useTranslation('reports');
   const [accepted, setAccepted] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-
   if (signoff) {
     return (
       <section
@@ -96,12 +94,13 @@ export function DayCloseSignoffCard({
                 </div>
               </div>
               {signoff.pdf && (
-                <button
+                <Button
                   type="button"
-                  className="pv-btn outline shrink-0 justify-center"
+                  className="shrink-0 justify-center"
                   disabled={isDownloadingPdf}
                   onClick={onDownloadPdf}
                   data-testid="day-close-pdf-download"
+                  variant="outline"
                 >
                   <Download
                     className={isDownloadingPdf ? 'animate-pulse' : ''}
@@ -112,7 +111,7 @@ export function DayCloseSignoffCard({
                       ? 'dayClose.signoff.pdfDownloading'
                       : 'dayClose.signoff.pdfDownload'
                   )}
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -124,10 +123,8 @@ export function DayCloseSignoffCard({
       </section>
     );
   }
-
   const blocked = !report.readiness.readyToSign;
   const canOpenConfirmation = accepted && !blocked && !isSigning;
-
   return (
     <>
       <section
@@ -160,15 +157,16 @@ export function DayCloseSignoffCard({
               />
               <span>{t('dayClose.signoff.attestation')}</span>
             </label>
-            <button
+            <Button
               type="button"
-              className="pv-btn primary justify-center"
+              className="justify-center"
               disabled={!canOpenConfirmation}
               onClick={() => setConfirmOpen(true)}
+              variant="primary"
             >
               <FileSignature className="h-4 w-4" aria-hidden="true" />
               {t('dayClose.signoff.action')}
-            </button>
+            </Button>
           </div>
         </div>
       </section>

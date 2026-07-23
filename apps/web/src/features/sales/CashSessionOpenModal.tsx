@@ -71,8 +71,7 @@ export function CashSessionOpenModal({
   const countedTotal = getCashSessionCountedTotal(denominations ?? []);
   const isBalanced = cashSessionTotalsMatch(openingFloat ?? 0, denominations ?? []);
   const shouldShowMismatch = (openingFloat ?? 0) > 0 || countedTotal > 0;
-  const mismatchMessage =
-    shouldShowMismatch && !isBalanced ? t('cashSession.form.mismatch') : null;
+  const mismatchMessage = shouldShowMismatch && !isBalanced ? t('cashSession.form.mismatch') : null;
 
   return (
     <Overlay
@@ -156,7 +155,7 @@ export function CashSessionOpenModal({
         </section>
 
         <section
-          className={`relative overflow-hidden rounded-[20px] border px-4 py-4 sm:px-5 ${
+          className={`relative overflow-hidden rounded-[12px] border px-4 py-4 sm:px-5 ${
             mismatchMessage
               ? 'border-warning-500/30 bg-warning-50/70'
               : 'border-success-500/30 bg-success-50/40'
@@ -251,7 +250,9 @@ export function CashSessionOpenModal({
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        aria-label={t('cashSession.form.decrementCount', { defaultValue: 'Restar' })}
+                        aria-label={t('cashSession.form.decrementCount', {
+                          defaultValue: 'Restar',
+                        })}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-line/70 text-secondary-700 transition hover:border-warning-300 hover:bg-warning-50 hover:text-warning-700 disabled:opacity-40"
                         disabled={currentCount <= 0}
                         onClick={() => setCount(currentCount - 1)}

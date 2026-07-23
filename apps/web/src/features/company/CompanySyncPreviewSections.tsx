@@ -2,6 +2,7 @@ import { AlertTriangle, Cloud, CloudDownload, GitMerge, Laptop, Lightbulb } from
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { PendingResolution } from '@/features/company/CompanySyncConflictModal';
+import { Badge, Button } from '@/components/ui';
 import { formatDateTime } from '@/lib/utils';
 import {
   computeConflictDiff,
@@ -10,7 +11,6 @@ import {
   getSyncQueueIssueMessage,
   normalizeSyncLastError,
 } from './companySyncDisplay';
-
 interface SyncQueueItem {
   id: string;
   entityType: string;
@@ -20,7 +20,6 @@ interface SyncQueueItem {
   attempts?: number;
   lastError?: string | Record<string, unknown> | null;
 }
-
 interface SyncConflictItem {
   id: string;
   entityType: string;
@@ -30,12 +29,10 @@ interface SyncConflictItem {
   remoteData?: Record<string, unknown> | null;
   localRecordExists?: boolean | null;
 }
-
 interface CompanySyncQueuePreviewProps {
   isLoading: boolean;
   items: SyncQueueItem[];
 }
-
 export function CompanySyncQueuePreview({ isLoading, items }: CompanySyncQueuePreviewProps) {
   const { t } = useTranslation('settings');
   return (
@@ -59,22 +56,27 @@ export function CompanySyncQueuePreview({ isLoading, items }: CompanySyncQueuePr
             const entityLabel = getSyncEntityLabel(t, item.entityType);
             const operationLabel = getSyncOperationLabel(t, item.operation);
             const issueMessage = getSyncQueueIssueMessage(t, item.lastError);
-
             return (
               <div key={item.id} className="surface-panel">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="pv-badge neutral">{entityLabel}</span>
-                  <span className="pv-badge primary">{operationLabel}</span>
+                  <Badge variant="neutral">{entityLabel}</Badge>
+                  <Badge variant="primary">{operationLabel}</Badge>
                 </div>
                 <p className="mt-3 text-sm font-medium text-secondary-900">
-                  {t('company.sync.queue.itemTitle', { entity: entityLabel })}
+                  {t('company.sync.queue.itemTitle', {
+                    entity: entityLabel,
+                  })}
                 </p>
                 <p className="mt-1 text-xs text-secondary-500">
-                  {t('company.sync.queue.queued', { date: formatDateTime(item.createdAt) })}
+                  {t('company.sync.queue.queued', {
+                    date: formatDateTime(item.createdAt),
+                  })}
                 </p>
                 {(item.attempts ?? 0) > 0 && (
                   <p className="mt-2 text-xs font-medium uppercase tracking-wide text-warning-700">
-                    {t('company.sync.queue.retryAttempt', { count: item.attempts })}
+                    {t('company.sync.queue.retryAttempt', {
+                      count: item.attempts,
+                    })}
                   </p>
                 )}
                 {issueMessage && <p className="mt-2 text-sm text-danger-600">{issueMessage}</p>}
@@ -92,14 +94,12 @@ export function CompanySyncQueuePreview({ isLoading, items }: CompanySyncQueuePr
     </div>
   );
 }
-
 interface CompanySyncConflictPreviewProps {
   isLoading: boolean;
   conflicts: SyncConflictItem[];
   isResolving: boolean;
   onOpenResolution: (pendingResolution: PendingResolution) => void;
 }
-
 export function CompanySyncConflictPreview({
   isLoading,
   conflicts,
@@ -137,13 +137,11 @@ export function CompanySyncConflictPreview({
     </div>
   );
 }
-
 interface ConflictDiffCardProps {
   conflict: SyncConflictItem;
   isResolving: boolean;
   onOpenResolution: (pendingResolution: PendingResolution) => void;
 }
-
 function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictDiffCardProps) {
   const { t } = useTranslation('settings');
   const localRecordMissing = conflict.localRecordExists === false;
@@ -156,7 +154,6 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
   const missingLocalNoticeId = localRecordMissing
     ? `sync-conflict-missing-${conflict.id}`
     : undefined;
-
   const basePayload = {
     id: conflict.id,
     entityId: conflict.entityId,
@@ -166,7 +163,6 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
     remoteData: conflict.remoteData,
     localRecordExists: conflict.localRecordExists,
   } as const;
-
   return (
     <div className="rounded-2xl border border-warning-500/30 bg-warning-50/60 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -176,18 +172,23 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
           </span>
           <div>
             <p className="text-sm font-semibold text-secondary-900">
-              {t('company.sync.conflict.itemTitle', { entity: entityLabel })}
+              {t('company.sync.conflict.itemTitle', {
+                entity: entityLabel,
+              })}
             </p>
             <p className="mt-0.5 text-xs text-secondary-500">
-              {t('company.sync.conflict.created', { date: formatDateTime(conflict.createdAt) })}
+              {t('company.sync.conflict.created', {
+                date: formatDateTime(conflict.createdAt),
+              })}
             </p>
           </div>
         </div>
         {diffFields.length > 0 && (
-          <span className="pv-badge warning">
-            <span className="dot" />
-            {t('company.sync.conflict.fieldsDiffer', { count: diffFields.length })}
-          </span>
+          <Badge variant="warning" marker="dot">
+            {t('company.sync.conflict.fieldsDiffer', {
+              count: diffFields.length,
+            })}
+          </Badge>
         )}
       </div>
 
@@ -243,36 +244,51 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
             : t('company.sync.conflict.recommendedAcceptRemote')}
         </span>
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          <Button
             type="button"
-            className="pv-btn ghost"
             disabled={isResolving || localRecordMissing}
             aria-describedby={missingLocalNoticeId}
-            onClick={() => onOpenResolution({ ...basePayload, resolution: 'local_wins' })}
+            onClick={() =>
+              onOpenResolution({
+                ...basePayload,
+                resolution: 'local_wins',
+              })
+            }
+            variant="ghost"
           >
             {t('company.sync.conflict.keepLocal')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="pv-btn ghost"
             disabled={isResolving || localRecordMissing}
             aria-describedby={missingLocalNoticeId}
-            onClick={() => onOpenResolution({ ...basePayload, resolution: 'merged' })}
+            onClick={() =>
+              onOpenResolution({
+                ...basePayload,
+                resolution: 'merged',
+              })
+            }
+            variant="ghost"
           >
             <GitMerge />
             {t('company.sync.conflict.merge')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="pv-btn primary"
             disabled={isResolving}
-            onClick={() => onOpenResolution({ ...basePayload, resolution: 'remote_wins' })}
+            onClick={() =>
+              onOpenResolution({
+                ...basePayload,
+                resolution: 'remote_wins',
+              })
+            }
+            variant="primary"
           >
             <CloudDownload />
             {localRecordMissing
               ? t('company.sync.conflict.discardLocalChange')
               : t('company.sync.conflict.acceptRemote')}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -288,7 +304,6 @@ interface SyncTechnicalDetailsProps {
   operation?: string | undefined;
   lastError?: string | Record<string, unknown> | null | undefined;
 }
-
 function SyncTechnicalDetails({
   entityType,
   entityId,
@@ -296,7 +311,6 @@ function SyncTechnicalDetails({
   lastError,
 }: SyncTechnicalDetailsProps) {
   const { t } = useTranslation('settings');
-
   return (
     <details className="mt-3 rounded-lg border border-line/75 bg-surface/60 px-3 py-2 text-xs text-secondary-600">
       <summary className="cursor-pointer select-none font-medium text-secondary-700">
@@ -326,14 +340,12 @@ function SyncTechnicalDetails({
     </details>
   );
 }
-
 interface DetailRowProps {
   t: TFunction;
   labelKey: string;
   value: string;
   wrap?: boolean;
 }
-
 function DetailRow({ t, labelKey, value, wrap = false }: DetailRowProps) {
   return (
     <div className="grid gap-1 sm:grid-cols-[9rem_1fr]">

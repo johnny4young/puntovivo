@@ -12,23 +12,19 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, Mic, MicOff, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { useToast } from '@/components/feedback/ToastProvider';
+import { Badge, Button } from '@/components/ui';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { cn, formatCurrency } from '@/lib/utils';
-
 import { useAiSettings } from '@/features/ai-shared';
-
 import { useAiTranscriptionTest } from './useAiTranscriptionTest';
 import { AiQuotaSection } from './AiQuotaSection';
 import { AiTranscriptResult } from './AiTranscriptResult';
-
 export function CompanyAISettingsCard() {
   const { t } = useTranslation(['aiSettings', 'errors', 'common']);
   const toast = useToast();
   const utils = trpc.useUtils();
-
   const { settingsQuery, updateMutation } = useAiSettings({
     t,
     saveErrorTitleKey: 'aiSettings:toast.saveErrorTitle',
@@ -45,12 +41,10 @@ export function CompanyAISettingsCard() {
   );
   const [modelLocal, setModelLocal] = useState<string | null>(null);
   const [budgetLocal, setBudgetLocal] = useState<string | null>(null);
-
   const enabled = enabledLocal ?? settingsQuery.data?.enabled ?? false;
   const providerId = providerLocal ?? settingsQuery.data?.providerId ?? 'anthropic';
   const modelOverride = modelLocal ?? settingsQuery.data?.modelId ?? '';
   const budgetInput = budgetLocal ?? String(settingsQuery.data?.monthlyBudgetUsd ?? 0);
-
   const testMutation = trpc.ai.completeTest.useMutation({
     onSuccess: result => {
       toast.success({
@@ -67,7 +61,6 @@ export function CompanyAISettingsCard() {
       titleKey: 'aiSettings:toast.testErrorTitle',
     }),
   });
-
   const data = settingsQuery.data;
 
   // The voice-transcription test feature (recorder +
@@ -78,7 +71,6 @@ export function CompanyAISettingsCard() {
     providerConfigured: data?.providerConfigured ?? false,
     transcriptionAvailable: data?.transcriptionAvailable ?? false,
   });
-
   const availableProviders = useMemo(
     () => data?.availableProviders ?? [],
     [data?.availableProviders]
@@ -89,7 +81,6 @@ export function CompanyAISettingsCard() {
   );
   const defaultModelId =
     selectedProviderEntry?.defaultModelId ?? data?.defaultModelId ?? data?.effectiveModelId ?? '';
-
   const budgetNumber = (() => {
     const parsed = Number(budgetInput);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
@@ -108,10 +99,8 @@ export function CompanyAISettingsCard() {
   // only meaningful when a positive limit exists.
   const budgetRatio = hasBudget ? spentUsd / budgetNumber : 0;
   const budgetWidth = hasBudget ? Math.min(100, Math.round(budgetRatio * 100)) : 0;
-
   const saveDisabled = updateMutation.isPending || settingsQuery.isLoading;
   const testDisabled = testMutation.isPending || !data?.providerConfigured || !enabled;
-
   function handleSave(): void {
     if (saveDisabled) return;
     const trimmedModel = modelOverride.trim();
@@ -122,7 +111,6 @@ export function CompanyAISettingsCard() {
       modelId: trimmedModel.length > 0 ? trimmedModel : null,
     });
   }
-
   return (
     <section className="card p-6 space-y-6" data-testid="company-ai-card">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -267,7 +255,9 @@ export function CompanyAISettingsCard() {
               'h-full rounded-full transition-[width]',
               overBudget ? 'bg-danger-600' : 'bg-primary'
             )}
-            style={{ width: `${budgetWidth}%` }}
+            style={{
+              width: `${budgetWidth}%`,
+            }}
           />
         </div>
         <p className="text-xs text-fg3">{t('aiSettings:card.budgetMeterHint')}</p>
@@ -279,47 +269,46 @@ export function CompanyAISettingsCard() {
         and danger at >=100%. The reset date footer tells the cashier
         when the counter rolls over. The data shape is server-side
         per-site; the panel always reflects the active site.
-      */}
+       */}
       {enabled && data?.quotas?.copilot && data.quotas.invoiceOcr && (
         <AiQuotaSection quotas={data.quotas} />
       )}
 
-      <span
-        className={cn('pv-badge', data?.providerConfigured ? 'success' : 'neutral')}
+      <Badge
+        variant={data?.providerConfigured ? 'success' : 'neutral'}
+        marker="dot"
         data-testid="ai-provider-badge"
       >
-        <span className="dot" aria-hidden="true" />
         {data?.providerConfigured
           ? t('aiSettings:card.providerOk')
           : t('aiSettings:card.providerMissing')}
-      </span>
+      </Badge>
 
       <div className="flex flex-wrap gap-2">
-        <button
+        <Button
           type="button"
-          className="pv-btn primary"
           onClick={handleSave}
           disabled={saveDisabled}
           data-testid="ai-save-button"
+          variant="primary"
         >
           {updateMutation.isPending
             ? t('aiSettings:card.savingAction')
             : t('aiSettings:card.saveAction')}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="pv-btn outline"
           onClick={() => testMutation.mutate()}
           disabled={testDisabled}
           data-testid="ai-test-button"
+          variant="outline"
         >
           {testMutation.isPending
             ? t('aiSettings:card.testingAction')
             : t('aiSettings:card.testAction')}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="pv-btn outline"
           onClick={() => {
             void transcription.onTranscribeToggle();
           }}
@@ -335,6 +324,7 @@ export function CompanyAISettingsCard() {
           aria-pressed={transcription.recording}
           title={transcription.transcriptionGateHint ?? undefined}
           data-testid="ai-transcribe-button"
+          variant="outline"
         >
           {transcription.recording ? (
             <MicOff className="h-4 w-4" aria-hidden="true" />
@@ -348,7 +338,7 @@ export function CompanyAISettingsCard() {
                 ? t('aiSettings:card.transcribeStopAction')
                 : t('aiSettings:card.transcribeAction')}
           </span>
-        </button>
+        </Button>
       </div>
 
       {transcription.transcriptionGateHint !== null && !transcription.recording && (

@@ -7,17 +7,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
 import { CompanySyncCard } from '../CompanySyncCard';
 
-const {
-  pullQuery,
-  pushMutation,
-  resolveMutation,
-} = vi.hoisted(() => ({
+const { pullQuery, pushMutation, resolveMutation, attentionInvalidate } = vi.hoisted(() => ({
   pullQuery: vi.fn(),
   pushMutation: vi.fn(),
   resolveMutation: vi.fn(),
+  attentionInvalidate: vi.fn(async () => undefined),
 }));
 
 vi.mock('@/lib/trpc', () => ({
+  trpc: {
+    useUtils: () => ({
+      operations: { needsAttention: { invalidate: attentionInvalidate } },
+    }),
+  },
   vanillaClient: {
     sync: {
       pull: { query: pullQuery },
@@ -129,6 +131,7 @@ describe('CompanySyncCard', () => {
 
     await waitFor(() => {
       expect(pushMutation).toHaveBeenCalledWith({ limit: 50 });
+      expect(attentionInvalidate).toHaveBeenCalled();
     });
   });
 
@@ -142,6 +145,7 @@ describe('CompanySyncCard', () => {
 
     await waitFor(() => {
       expect(pullQuery).toHaveBeenCalledTimes(2);
+      expect(attentionInvalidate).toHaveBeenCalled();
     });
   });
 

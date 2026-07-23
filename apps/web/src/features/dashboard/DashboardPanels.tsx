@@ -1,9 +1,9 @@
-import { ArrowUpRight, Package } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Package, ReceiptText, TrendingUp } from 'lucide-react';
 import type { ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
-import { KpiTile } from '@/components/ui';
 
 type DashboardSummary = inferRouterOutputs<AppRouter>['dashboard']['summary'];
 
@@ -41,47 +41,54 @@ export interface DashboardStatMetric {
   value: string;
   label: string;
   icon: ElementType;
-  // `danger` añadido para que "Stock bajo" lea como
-  // crítico (propuesta §03); `mono` rinde la cifra en tabular mono (dinero).
   tone: 'primary' | 'success' | 'warning' | 'danger' | 'ink';
   mono?: boolean;
 }
 
-const DASHBOARD_STAT_SKELETON_KEYS = ['sales', 'revenue', 'inventory', 'stock'] as const;
+const DASHBOARD_STAT_SKELETON_KEYS = ['orders', 'stock', 'revenue'] as const;
 const DASHBOARD_LIST_SKELETON_KEYS = ['first', 'second', 'third', 'fourth'] as const;
 
 export function DashboardLoadingState({ title }: DashboardLoadingStateProps) {
   return (
-    <div className="space-y-6">
-      <section className="hero-surface animate-soft-fade p-6 sm:p-8">
-        <div className="relative z-10 space-y-4">
-          <p className="page-kicker">{title}</p>
-          <div className="animate-shimmer h-14 max-w-xl rounded-3xl" />
-          <div className="animate-shimmer h-5 max-w-2xl rounded-2xl" />
-          <div className="grid gap-4 lg:grid-cols-4">
-            {DASHBOARD_STAT_SKELETON_KEYS.map(key => (
-              <div key={key} className="metric-tile">
-                <div className="animate-shimmer h-11 w-11 rounded-[18px]" />
-                <div className="animate-shimmer mt-6 h-4 w-20 rounded-full" />
-                <div className="animate-shimmer mt-3 h-9 w-32 rounded-2xl" />
-                <div className="animate-shimmer mt-3 h-4 w-full rounded-full" />
-              </div>
-            ))}
+    <div className="dashboard-command-space" aria-label={title}>
+      <section className="pv-frame animate-soft-fade">
+        <div className="pv-frame-core dashboard-briefing min-h-[34rem]">
+          <div className="dashboard-briefing-copy">
+            <div className="animate-shimmer h-7 w-36 rounded-full" />
+            <div className="animate-shimmer mt-8 h-16 max-w-xl rounded-[24px]" />
+            <div className="animate-shimmer mt-4 h-5 max-w-lg rounded-full" />
+            <div className="animate-shimmer mt-12 h-20 w-72 rounded-[24px]" />
+            <div className="animate-shimmer mt-8 h-12 w-44 rounded-full" />
+          </div>
+          <div className="dashboard-briefing-signals">
+            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              {DASHBOARD_STAT_SKELETON_KEYS.map(key => (
+                <div key={key} className="dashboard-signal-card min-h-32">
+                  <div className="animate-shimmer h-10 w-10 rounded-2xl" />
+                  <div className="animate-shimmer mt-5 h-8 w-28 rounded-xl" />
+                  <div className="animate-shimmer mt-3 h-3 w-full rounded-full" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-        <div className="card p-6">
-          <div className="animate-shimmer h-5 w-44 rounded-full" />
-          <div className="animate-shimmer mt-6 h-72 rounded-[24px]" />
+      <div className="dashboard-primary-grid">
+        <div className="pv-frame min-h-[31rem]">
+          <div className="pv-frame-core h-full bg-card p-6">
+            <div className="animate-shimmer h-6 w-48 rounded-full" />
+            <div className="animate-shimmer mt-7 h-80 rounded-[26px]" />
+          </div>
         </div>
-        <div className="card p-6">
-          <div className="animate-shimmer h-5 w-40 rounded-full" />
-          <div className="mt-6 space-y-3">
-            {DASHBOARD_LIST_SKELETON_KEYS.map(key => (
-              <div key={key} className="animate-shimmer h-20 rounded-[22px]" />
-            ))}
+        <div className="pv-frame min-h-[31rem]">
+          <div className="pv-frame-core h-full bg-card p-6">
+            <div className="animate-shimmer h-6 w-40 rounded-full" />
+            <div className="mt-7 space-y-3">
+              {DASHBOARD_LIST_SKELETON_KEYS.map(key => (
+                <div key={key} className="animate-shimmer h-20 rounded-[22px]" />
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -91,78 +98,125 @@ export function DashboardLoadingState({ title }: DashboardLoadingStateProps) {
 
 export function DashboardStatsGrid({ metrics }: DashboardStatsGridProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
+    <div className="dashboard-signal-grid">
       {metrics.map(metric => (
-        <KpiTile
-          key={metric.title}
-          icon={metric.icon}
-          label={metric.title}
-          value={metric.value}
-          context={metric.label}
-          tone={metric.tone}
-          mono={metric.mono}
-        />
+        <article key={metric.title} className="dashboard-signal-card" data-tone={metric.tone}>
+          <div className="dashboard-signal-topline">
+            <span className="dashboard-signal-icon">
+              <metric.icon className="h-4 w-4" strokeWidth={1.6} aria-hidden="true" />
+            </span>
+            <span className="dashboard-signal-rule" aria-hidden="true" />
+          </div>
+          <p className="dashboard-signal-label">{metric.title}</p>
+          <p
+            className={metric.mono ? 'dashboard-signal-value font-mono' : 'dashboard-signal-value'}
+          >
+            {metric.value}
+          </p>
+          <p className="dashboard-signal-context">{metric.label}</p>
+        </article>
       ))}
     </div>
   );
 }
 
+function buildChartGeometry(points: RevenueTrendCardProps['points']) {
+  const maxRevenue = points.reduce((highest, point) => Math.max(highest, point.revenue), 0);
+  const denominator = Math.max(points.length - 1, 1);
+  const coordinates = points.map((point, index) => ({
+    x: (index / denominator) * 100,
+    y: 35 - (maxRevenue === 0 ? 0 : (point.revenue / maxRevenue) * 29),
+    point,
+  }));
+  const line = coordinates.map(({ x, y }) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
+  const area = coordinates.length > 0 ? `0,38 ${line} 100,38` : '';
+  return { coordinates, line, area };
+}
+
 export function RevenueTrendCard({ points, formatCurrency, formatDate }: RevenueTrendCardProps) {
   const { t } = useTranslation('dashboard');
-  const maxRevenue = points.reduce((highest, point) => Math.max(highest, point.revenue), 0);
-  // Guard against an empty series: `points.at(-1)` returns
-  // `undefined` for [] so the latest-day figure and axis labels fall back
-  // cleanly instead of indexing `points[-1]` and rendering blanks silently.
   const firstPoint = points.at(0);
   const lastPoint = points.at(-1);
+  const totalRevenue = points.reduce((total, point) => total + point.revenue, 0);
+  const totalOrders = points.reduce((total, point) => total + point.orders, 0);
+  const bestPoint = points.reduce<(typeof points)[number] | undefined>(
+    (best, point) => (!best || point.revenue > best.revenue ? point : best),
+    undefined
+  );
+  const chart = buildChartGeometry(points);
 
   return (
-    <section className="card p-6 sm:p-7">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('revenue.kicker')}</p>
-          <h2 className="mt-2 font-display text-2xl text-secondary-950">{t('revenue.title')}</h2>
-          <p className="mt-2 text-sm leading-6 text-secondary-600">{t('revenue.description')}</p>
-        </div>
-        <div className="card-inset px-4 py-3 text-right">
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-            {t('revenue.latestDay')}
-          </p>
-          <p className="mt-2 text-xl font-semibold text-secondary-950 sm:text-2xl">
-            {formatCurrency(lastPoint?.revenue ?? 0)}
-          </p>
-        </div>
-      </div>
+    <section className="pv-frame dashboard-revenue-frame">
+      <div className="pv-frame-core dashboard-panel dashboard-revenue-panel">
+        <header className="dashboard-panel-heading">
+          <div>
+            <p className="dashboard-eyebrow dashboard-eyebrow-light">{t('revenue.kicker')}</p>
+            <h2 className="dashboard-panel-title">{t('revenue.title')}</h2>
+            <p className="dashboard-panel-description">{t('revenue.description')}</p>
+          </div>
+          <div className="dashboard-latest-value">
+            <span>{t('revenue.latestDay')}</span>
+            <strong>{formatCurrency(lastPoint?.revenue ?? 0)}</strong>
+          </div>
+        </header>
 
-      <div className="mt-6 rounded-[28px] border border-line/70 bg-surface-2/65 px-4 py-5 sm:px-6">
-        <div className="flex h-64 items-end gap-2 sm:h-72">
-          {points.map(point => {
-            const height = maxRevenue === 0 ? 10 : Math.max((point.revenue / maxRevenue) * 100, 10);
-
-            return (
-              <div
-                key={point.date}
-                className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"
-              >
-                <div className="text-center opacity-0 transition-opacity group-hover:opacity-100">
-                  <p className="text-[11px] font-semibold text-secondary-800">
-                    {formatCurrency(point.revenue)}
-                  </p>
-                  <p className="text-[10px] text-secondary-500">
+        <div className="dashboard-chart-wrap">
+          {points.length === 0 ? (
+            <div className="dashboard-empty-chart">{t('revenue.empty')}</div>
+          ) : (
+            <svg
+              className="dashboard-revenue-chart"
+              viewBox="0 0 100 40"
+              preserveAspectRatio="none"
+              role="img"
+              aria-label={t('revenue.chartLabel')}
+            >
+              <defs>
+                <linearGradient id="dashboard-revenue-fill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="var(--primary-500)" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="var(--primary-500)" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              {[8, 18, 28, 38].map(y => (
+                <line key={y} x1="0" x2="100" y1={y} y2={y} className="dashboard-chart-grid" />
+              ))}
+              <polygon points={chart.area} fill="url(#dashboard-revenue-fill)" />
+              <polyline points={chart.line} className="dashboard-chart-line" />
+              {chart.coordinates.map(({ x, y, point }, index) => (
+                <circle
+                  key={point.date}
+                  cx={x}
+                  cy={y}
+                  r={index === chart.coordinates.length - 1 ? 1.25 : 0.55}
+                  className="dashboard-chart-point"
+                >
+                  <title>
+                    {formatDate(point.date)} · {formatCurrency(point.revenue)} ·{' '}
                     {t('ordersCount', { count: point.orders })}
-                  </p>
-                </div>
-                <div
-                  className="w-full rounded-t-[14px] bg-gradient-to-t from-primary-700 via-primary-500 to-primary-300 transition-transform duration-200 group-hover:scale-y-[1.03]"
-                  style={{ height: `${height}%` }}
-                />
-              </div>
-            );
-          })}
+                  </title>
+                </circle>
+              ))}
+            </svg>
+          )}
+          <div className="dashboard-chart-axis" aria-hidden="true">
+            <span>{firstPoint ? formatDate(firstPoint.date) : ''}</span>
+            <span>{lastPoint ? formatDate(lastPoint.date) : ''}</span>
+          </div>
         </div>
-        <div className="mt-4 flex items-center justify-between text-xs text-secondary-500">
-          <span>{firstPoint ? formatDate(firstPoint.date) : ''}</span>
-          <span>{lastPoint ? formatDate(lastPoint.date) : ''}</span>
+
+        <div className="dashboard-chart-summary">
+          <div>
+            <span>{t('revenue.periodTotal')}</span>
+            <strong>{formatCurrency(totalRevenue)}</strong>
+          </div>
+          <div>
+            <span>{t('revenue.periodOrders')}</span>
+            <strong>{totalOrders.toLocaleString()}</strong>
+          </div>
+          <div>
+            <span>{t('revenue.bestDay')}</span>
+            <strong>{bestPoint ? formatDate(bestPoint.date) : '—'}</strong>
+          </div>
         </div>
       </div>
     </section>
@@ -177,38 +231,38 @@ export function RecentSalesCard({ sales, formatCurrency, formatDateTime }: Recen
     customerEmail === 'No email' ? t('recentSales.noEmail') : customerEmail;
 
   return (
-    <section className="card p-6 sm:p-7">
-      <div>
-        <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('recentSales.kicker')}</p>
-        <h2 className="mt-2 font-display text-2xl text-secondary-950">{t('recentSales.title')}</h2>
-      </div>
-
-      <div className="mt-6">
-        {sales.length === 0 ? (
-          <div className="card-inset px-4 py-6 text-sm text-secondary-500">
-            {t('recentSales.empty')}
+    <section className="pv-frame">
+      <div className="pv-frame-core dashboard-panel">
+        <header className="dashboard-list-heading">
+          <div className="dashboard-list-icon" aria-hidden="true">
+            <ReceiptText className="h-5 w-5" strokeWidth={1.5} />
           </div>
+          <div>
+            <p className="dashboard-eyebrow dashboard-eyebrow-light">{t('recentSales.kicker')}</p>
+            <h2 className="dashboard-panel-title">{t('recentSales.title')}</h2>
+          </div>
+        </header>
+
+        {sales.length === 0 ? (
+          <div className="dashboard-list-empty">{t('recentSales.empty')}</div>
         ) : (
-          <div className="space-y-3">
-            {sales.map(sale => (
-              <article
-                key={sale.id}
-                className="card-inset flex items-center justify-between gap-4 px-4 py-3.5"
-              >
-                <div className="min-w-0">
-                  <p className="font-mono text-sm font-semibold text-primary-700">
-                    {sale.saleNumber}
-                  </p>
-                  <p className="truncate text-sm font-semibold text-secondary-950">
-                    {translateCustomerName(sale.customerName)}
-                  </p>
-                  <p className="truncate text-xs text-secondary-500">
+          <div className="dashboard-activity-list">
+            {sales.map((sale, index) => (
+              <article key={sale.id} className="dashboard-activity-row">
+                <span className="dashboard-row-index">{String(index + 1).padStart(2, '0')}</span>
+                <span className="dashboard-activity-dot" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-secondary-950">
+                      {translateCustomerName(sale.customerName)}
+                    </p>
+                    <span className="dashboard-sale-number">{sale.saleNumber}</span>
+                  </div>
+                  <p className="mt-1 truncate text-xs text-fg2">
                     {translateCustomerEmail(sale.customerEmail)} · {formatDateTime(sale.createdAt)}
                   </p>
                 </div>
-                <span className="text-base font-semibold text-secondary-950">
-                  {formatCurrency(sale.total)}
-                </span>
+                <strong className="dashboard-row-value">{formatCurrency(sale.total)}</strong>
               </article>
             ))}
           </div>
@@ -221,40 +275,39 @@ export function RecentSalesCard({ sales, formatCurrency, formatDateTime }: Recen
 export function TopProductsCard({ products, formatCurrency }: TopProductsCardProps) {
   const { t } = useTranslation('dashboard');
   return (
-    <section className="card p-6 sm:p-7">
-      <div>
-        <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('topProducts.kicker')}</p>
-        <h2 className="mt-2 font-display text-2xl text-secondary-950">{t('topProducts.title')}</h2>
-      </div>
-
-      <div className="mt-6">
-        {products.length === 0 ? (
-          <div className="card-inset px-4 py-6 text-sm text-secondary-500">
-            {t('topProducts.empty')}
+    <section className="pv-frame">
+      <div className="pv-frame-core dashboard-panel">
+        <header className="dashboard-list-heading">
+          <div className="dashboard-list-icon dashboard-list-icon-warm" aria-hidden="true">
+            <TrendingUp className="h-5 w-5" strokeWidth={1.5} />
           </div>
+          <div>
+            <p className="dashboard-eyebrow dashboard-eyebrow-light">{t('topProducts.kicker')}</p>
+            <h2 className="dashboard-panel-title">{t('topProducts.title')}</h2>
+          </div>
+        </header>
+
+        {products.length === 0 ? (
+          <div className="dashboard-list-empty">{t('topProducts.empty')}</div>
         ) : (
-          <div className="space-y-3">
-            {products.map(product => (
-              <article
-                key={product.productId}
-                className="card-inset flex items-center justify-between gap-4 px-4 py-3.5"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
-                    <Package className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-secondary-950">
-                      {product.name}
-                    </p>
-                    <p className="text-xs text-secondary-500">
-                      {t('unitsSold', { count: product.sales })}
-                    </p>
-                  </div>
+          <div className="dashboard-activity-list">
+            {products.map((product, index) => (
+              <article key={product.productId} className="dashboard-product-row">
+                <span className="dashboard-product-rank">{String(index + 1).padStart(2, '0')}</span>
+                <div className="dashboard-product-icon" aria-hidden="true">
+                  <Package className="h-4 w-4" strokeWidth={1.5} />
                 </div>
-                <div className="flex items-center gap-2 text-sm font-semibold text-secondary-950">
-                  {formatCurrency(product.revenue)}
-                  <ArrowUpRight className="h-4 w-4 text-success-700" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-secondary-950">
+                    {product.name}
+                  </p>
+                  <p className="mt-1 text-xs text-fg2">
+                    {t('unitsSold', { count: product.sales })}
+                  </p>
+                </div>
+                <div className="dashboard-product-value">
+                  <strong>{formatCurrency(product.revenue)}</strong>
+                  <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
                 </div>
               </article>
             ))}
@@ -268,42 +321,50 @@ export function TopProductsCard({ products, formatCurrency }: TopProductsCardPro
 export function LowStockAlertsCard({ items }: LowStockAlertsCardProps) {
   const { t } = useTranslation('dashboard');
   return (
-    <section className="card p-6 sm:p-7">
-      <div>
-        <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('lowStock.kicker')}</p>
-        <h2 className="mt-2 font-display text-2xl text-secondary-950">{t('lowStock.title')}</h2>
-      </div>
-
-      <div className="mt-6">
-        {items.length === 0 ? (
-          <div className="card-inset px-4 py-6 text-sm text-secondary-500">
-            {t('lowStock.empty')}
+    <section className="pv-frame dashboard-stock-frame">
+      <div className="pv-frame-core dashboard-panel dashboard-stock-panel">
+        <header className="dashboard-stock-heading">
+          <div>
+            <p className="dashboard-eyebrow dashboard-eyebrow-light">{t('lowStock.kicker')}</p>
+            <h2 className="dashboard-panel-title">{t('lowStock.title')}</h2>
+            <p className="dashboard-panel-description">{t('lowStock.description')}</p>
           </div>
+          <span
+            className="dashboard-alert-count"
+            aria-label={t('lowStock.alertCount', { count: items.length })}
+          >
+            {items.length}
+          </span>
+        </header>
+
+        {items.length === 0 ? (
+          <div className="dashboard-list-empty">{t('lowStock.empty')}</div>
         ) : (
-          <div className="space-y-3">
-            {items.map(item => (
-              <article
-                key={item.productId}
-                className="rounded-[22px] border border-warning-500/20 bg-warning-50 px-4 py-3.5"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-secondary-950">{item.name}</p>
-                    <p className="text-xs text-secondary-500">{item.sku}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-danger-600">
-                      {t('stockCount', { count: item.stock })}
-                    </p>
-                    <p className="text-xs text-secondary-500">
-                      {t('lowStock.minimum', { count: item.minStock })}
-                    </p>
-                  </div>
+          <div className="dashboard-stock-list">
+            {items.map((item, index) => (
+              <article key={item.productId} className="dashboard-stock-row">
+                <span className="dashboard-stock-rank">{String(index + 1).padStart(2, '0')}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-secondary-950">{item.name}</p>
+                  <p className="mt-1 font-mono text-[0.68rem] text-fg2">{item.sku}</p>
+                </div>
+                <div className="dashboard-stock-value">
+                  <strong>{t('stockCount', { count: item.stock })}</strong>
+                  <span>{t('lowStock.minimum', { count: item.minStock })}</span>
                 </div>
               </article>
             ))}
           </div>
         )}
+
+        <Link className="dashboard-text-action group" to="/inventory">
+          <span>{t('lowStock.action')}</span>
+          <ArrowRight
+            className="h-4 w-4 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1"
+            strokeWidth={1.6}
+            aria-hidden="true"
+          />
+        </Link>
       </div>
     </section>
   );

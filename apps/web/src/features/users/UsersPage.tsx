@@ -19,9 +19,10 @@ import {
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { RolePermissionAudit } from './RolePermissionAudit';
 import { StaffPinModal } from './StaffPinModal';
-
-type ManagedUser = User & { hasPin: boolean };
-
+import { Badge } from '@/components/ui';
+type ManagedUser = User & {
+  hasPin: boolean;
+};
 interface UserFormValues {
   email: string;
   name: string;
@@ -29,7 +30,6 @@ interface UserFormValues {
   isActive: boolean;
   password: string;
 }
-
 const createDefaultValues: UserFormValues = {
   email: '',
   name: '',
@@ -37,12 +37,10 @@ const createDefaultValues: UserFormValues = {
   isActive: true,
   password: '',
 };
-
 function mapUserToForm(user: User | null): UserFormValues {
   if (!user) {
     return createDefaultValues;
   }
-
   return {
     email: user.email,
     name: user.name,
@@ -51,7 +49,6 @@ function mapUserToForm(user: User | null): UserFormValues {
     password: '',
   };
 }
-
 interface UserFormModalProps {
   isOpen: boolean;
   user: User | null;
@@ -60,7 +57,6 @@ interface UserFormModalProps {
   onClose: () => void;
   onSubmit: (values: UserFormValues) => Promise<void>;
 }
-
 function UserFormModal({ isOpen, user, isSaving, error, onClose, onSubmit }: UserFormModalProps) {
   const { t } = useTranslation(['settings', 'common']);
   const form = useForm<UserFormValues>({
@@ -68,10 +64,8 @@ function UserFormModal({ isOpen, user, isSaving, error, onClose, onSubmit }: Use
   });
   const translatePasswordRequirement = (key: PasswordRequirementKey) =>
     t(`common:passwordPolicy.${key}`);
-
   const handleSubmit = form.handleSubmit(onSubmit);
   const isCreate = !user;
-
   return (
     <Modal
       isOpen={isOpen}
@@ -100,7 +94,9 @@ function UserFormModal({ isOpen, user, isSaving, error, onClose, onSubmit }: Use
           <input
             id="user-name"
             className="input mt-1"
-            {...form.register('name', { required: t('users.form.nameRequired') })}
+            {...form.register('name', {
+              required: t('users.form.nameRequired'),
+            })}
           />
         </div>
 
@@ -112,7 +108,9 @@ function UserFormModal({ isOpen, user, isSaving, error, onClose, onSubmit }: Use
             id="user-email"
             type="email"
             className="input mt-1"
-            {...form.register('email', { required: t('users.form.emailRequired') })}
+            {...form.register('email', {
+              required: t('users.form.emailRequired'),
+            })}
           />
         </div>
 
@@ -165,7 +163,6 @@ function UserFormModal({ isOpen, user, isSaving, error, onClose, onSubmit }: Use
     </Modal>
   );
 }
-
 interface ResetPasswordModalProps {
   isOpen: boolean;
   user: User | null;
@@ -174,7 +171,6 @@ interface ResetPasswordModalProps {
   onClose: () => void;
   onSubmit: (password: string) => Promise<void>;
 }
-
 function ResetPasswordModal({
   isOpen,
   user,
@@ -184,16 +180,18 @@ function ResetPasswordModal({
   onSubmit,
 }: ResetPasswordModalProps) {
   const { t } = useTranslation(['settings', 'common']);
-  const form = useForm<{ password: string }>({
-    defaultValues: { password: '' },
+  const form = useForm<{
+    password: string;
+  }>({
+    defaultValues: {
+      password: '',
+    },
   });
   const translatePasswordRequirement = (key: PasswordRequirementKey) =>
     t(`common:passwordPolicy.${key}`);
-
   const handleSubmit = form.handleSubmit(async values => {
     await onSubmit(values.password);
   });
-
   return (
     <Modal
       isOpen={isOpen}
@@ -238,17 +236,18 @@ function ResetPasswordModal({
     </Modal>
   );
 }
-
 function canManageUsers(role: UserRole | undefined): boolean {
   return role === 'admin';
 }
-
 export function UsersPage() {
   const { t } = useTranslation('settings');
   const { user: currentUser, logout } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
-  const usersQuery = trpc.users.list.useQuery({ page: 1, perPage: 50 });
+  const usersQuery = trpc.users.list.useQuery({
+    page: 1,
+    perPage: 50,
+  });
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [passwordUser, setPasswordUser] = useState<User | null>(null);
@@ -259,28 +258,28 @@ export function UsersPage() {
     isActive: user.isActive ?? true,
     hasPin: user.hasPin,
   }));
-
   const createMutation = useCriticalMutation('users.create', {
     onSuccess: async () => {
       await utils.users.list.invalidate();
       setIsUserModalOpen(false);
       setEditingUser(null);
-      toast.success({ title: t('users.toast.created') });
+      toast.success({
+        title: t('users.toast.created'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:users.toast.createError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:users.toast.createError',
+    }),
   });
-
   const updateMutation = useCriticalMutation('users.update', {
     onSuccess: async (_data, variables) => {
       await utils.users.list.invalidate();
       setIsUserModalOpen(false);
       setEditingUser(null);
-
       const updatedOwnClaims =
         variables.id === currentUser?.id &&
         ((variables.email !== undefined && variables.email !== currentUser.email) ||
           (variables.role !== undefined && variables.role !== currentUser.role));
-
       if (updatedOwnClaims) {
         toast.success({
           title: t('users.toast.updated'),
@@ -289,16 +288,17 @@ export function UsersPage() {
         await logout();
         return;
       }
-
-      toast.success({ title: t('users.toast.updated') });
+      toast.success({
+        title: t('users.toast.updated'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:users.toast.updateError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:users.toast.updateError',
+    }),
   });
-
   const resetPasswordMutation = trpc.users.resetPassword.useMutation({
     onSuccess: async (_data, variables) => {
       setPasswordUser(null);
-
       if (variables.id === currentUser?.id) {
         toast.success({
           title: t('users.toast.passwordReset'),
@@ -307,12 +307,14 @@ export function UsersPage() {
         await logout();
         return;
       }
-
-      toast.success({ title: t('users.toast.passwordReset') });
+      toast.success({
+        title: t('users.toast.passwordReset'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:users.toast.updateError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:users.toast.updateError',
+    }),
   });
-
   const setStaffPinMutation = useCriticalMutation('users.setStaffPin', {
     onSuccess: async data => {
       await utils.users.list.invalidate();
@@ -321,9 +323,10 @@ export function UsersPage() {
         title: data.hasPin ? t('users.toast.pinSaved') : t('users.toast.pinCleared'),
       });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:users.toast.pinError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:users.toast.pinError',
+    }),
   });
-
   const columns: ColumnDef<ManagedUser>[] = [
     {
       accessorKey: 'name',
@@ -352,9 +355,9 @@ export function UsersPage() {
       header: t('users.columns.pin'),
       size: 140,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.hasPin ? 'badge-success' : 'badge-secondary'}`}>
+        <Badge variant={row.original.hasPin ? 'success' : 'neutral'}>
           {row.original.hasPin ? t('users.columns.pinConfigured') : t('users.columns.pinMissing')}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -362,9 +365,9 @@ export function UsersPage() {
       header: t('users.columns.status'),
       size: 160,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {row.original.isActive ? t('users.columns.active') : t('users.columns.inactive')}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -374,8 +377,12 @@ export function UsersPage() {
         <div className="flex items-center gap-1">
           <button
             className="btn-ghost btn-icon h-8 w-8"
-            aria-label={t('users.actions.edit', { name: row.original.name })}
-            title={t('users.actions.edit', { name: row.original.name })}
+            aria-label={t('users.actions.edit', {
+              name: row.original.name,
+            })}
+            title={t('users.actions.edit', {
+              name: row.original.name,
+            })}
             onClick={() => {
               setEditingUser(row.original);
               setIsUserModalOpen(true);
@@ -386,8 +393,12 @@ export function UsersPage() {
           </button>
           <button
             className="btn-ghost btn-icon h-8 w-8"
-            aria-label={t('users.actions.resetPassword', { name: row.original.name })}
-            title={t('users.actions.resetPassword', { name: row.original.name })}
+            aria-label={t('users.actions.resetPassword', {
+              name: row.original.name,
+            })}
+            title={t('users.actions.resetPassword', {
+              name: row.original.name,
+            })}
             onClick={() => setPasswordUser(row.original)}
             disabled={!canManage}
           >
@@ -395,8 +406,12 @@ export function UsersPage() {
           </button>
           <button
             className="btn-ghost btn-icon h-8 w-8"
-            aria-label={t('users.actions.managePin', { name: row.original.name })}
-            title={t('users.actions.managePin', { name: row.original.name })}
+            aria-label={t('users.actions.managePin', {
+              name: row.original.name,
+            })}
+            title={t('users.actions.managePin', {
+              name: row.original.name,
+            })}
             onClick={() => setPinUser(row.original)}
             disabled={!canManage}
           >
@@ -406,7 +421,6 @@ export function UsersPage() {
       ),
     },
   ];
-
   const handleSubmitUser = async (values: UserFormValues) => {
     if (editingUser) {
       await updateMutation.mutateAsync({
@@ -418,7 +432,6 @@ export function UsersPage() {
       });
       return;
     }
-
     await createMutation.mutateAsync({
       email: values.email,
       name: values.name,
@@ -427,7 +440,6 @@ export function UsersPage() {
       isActive: values.isActive,
     });
   };
-
   if (!canManage) {
     return (
       <div className="space-y-6">
@@ -441,7 +453,6 @@ export function UsersPage() {
       </div>
     );
   }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -528,7 +539,10 @@ export function UsersPage() {
             return;
           }
           try {
-            await setStaffPinMutation.mutateAsync({ id: pinUser.id, pin });
+            await setStaffPinMutation.mutateAsync({
+              id: pinUser.id,
+              pin,
+            });
           } catch {
             // The mutation error remains rendered in the modal and toast.
           }

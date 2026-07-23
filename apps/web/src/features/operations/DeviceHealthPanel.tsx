@@ -8,7 +8,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatDateTime } from '@/lib/utils';
 import { EmptyState } from '@/components/feedback/EmptyState';
-import { KpiTile } from '@/components/ui';
+import { Badge, KpiTile, Button } from '@/components/ui';
 import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { TablePagination } from '@/components/tables/TablePagination';
 
@@ -34,7 +34,6 @@ import { TablePagination } from '@/components/tables/TablePagination';
  */
 
 const PROBLEM_STATUSES = new Set<string>(['failed', 'retrying', 'dead_letter']);
-
 const PERIPHERAL_KINDS = [
   'printer',
   'cash_drawer',
@@ -42,7 +41,6 @@ const PERIPHERAL_KINDS = [
   'payment_terminal',
   'customer_display',
 ] as const;
-
 function getHardwareErrorMessage(value: unknown): string | null {
   if (!value || typeof value !== 'object') return null;
   const error = value as {
@@ -54,20 +52,17 @@ function getHardwareErrorMessage(value: unknown): string | null {
   const message = error.message ?? error.providerMessage ?? error.kind ?? error.errorCode ?? null;
   return typeof message === 'string' && message.length > 0 ? message : null;
 }
-
 function testResultTone(result: string | null | undefined): 'success' | 'danger' | 'neutral' {
   if (result === 'ok') return 'success';
   if (result === 'failed') return 'danger';
   return 'neutral';
 }
-
 function outboxStatusTone(status: string): 'success' | 'danger' | 'warning' | 'neutral' {
   if (status === 'printed') return 'success';
   if (status === 'dead_letter' || status === 'failed') return 'danger';
   if (status === 'retrying') return 'warning';
   return 'neutral';
 }
-
 export function DeviceHealthPanel() {
   const { t } = useTranslation('operations');
   const { user } = useAuth();
@@ -75,7 +70,6 @@ export function DeviceHealthPanel() {
   const utils = trpc.useUtils();
   const isAdmin = user?.role === 'admin';
   const [showAll, setShowAll] = useState(false);
-
   const sitesQuery = trpc.sites.list.useQuery();
   const siteItems = sitesQuery.data?.items;
   const allSites = useMemo(() => siteItems ?? [], [siteItems]);
@@ -85,14 +79,26 @@ export function DeviceHealthPanel() {
   // Center surfaces per-tenant health, so we merge across sites and
   // group client-side by kind.
   const peripheralQueries = trpc.useQueries(t =>
-    allSites.map(site => t.peripherals.list({ siteId: site.id }, { staleTime: 30_000 }))
+    allSites.map(site =>
+      t.peripherals.list(
+        {
+          siteId: site.id,
+        },
+        {
+          staleTime: 30_000,
+        }
+      )
+    )
   );
   const peripherals = useMemo(
     () =>
       peripheralQueries.flatMap((query, index) => {
         const rows = query.data ?? [];
         const siteName = allSites[index]?.name ?? '';
-        return rows.map(row => ({ ...row, siteName }));
+        return rows.map(row => ({
+          ...row,
+          siteName,
+        }));
       }),
     [peripheralQueries, allSites]
   );
@@ -107,7 +113,6 @@ export function DeviceHealthPanel() {
     setPage: setPeripheralsPage,
     ...peripheralsPagination
   } = usePaginatedRows(peripherals, 8);
-
   const peripheralsByKind = useMemo(
     () =>
       PERIPHERAL_KINDS.map(kind => ({
@@ -116,12 +121,15 @@ export function DeviceHealthPanel() {
       })).filter(group => group.rows.length > 0),
     [peripheralPageRows]
   );
-
   const outboxQuery = trpc.peripherals.peekHardwareOutbox.useQuery(
-    { limit: 50 },
-    { staleTime: 15_000, refetchInterval: 15_000 }
+    {
+      limit: 50,
+    },
+    {
+      staleTime: 15_000,
+      refetchInterval: 15_000,
+    }
   );
-
   const allOutboxRows = useMemo(() => outboxQuery.data ?? [], [outboxQuery.data]);
   const problemCount = useMemo(
     () => allOutboxRows.filter(row => PROBLEM_STATUSES.has(row.status)).length,
@@ -140,15 +148,17 @@ export function DeviceHealthPanel() {
     setPage: setOutboxPage,
     ...outboxPagination
   } = usePaginatedRows(outboxRows, 8);
-
   const retryMutation = trpc.peripherals.retryHardwareOutbox.useMutation({
     onSuccess: async () => {
       await utils.peripherals.peekHardwareOutbox.invalidate();
-      toast.success({ title: t('device.retry.success') });
+      toast.success({
+        title: t('device.retry.success'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'operations:device.retry.error' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'operations:device.retry.error',
+    }),
   });
-
   return (
     <div className="space-y-6">
       <section className="card space-y-4 p-6">
@@ -199,11 +209,11 @@ export function DeviceHealthPanel() {
                           : t('device.peripherals.notTested')}
                       </td>
                       <td>
-                        <span className={`pv-badge ${testResultTone(row.lastTestResult)}`}>
+                        <Badge variant={testResultTone(row.lastTestResult)}>
                           {row.lastTestResult
                             ? t(`device.peripherals.testResult.${row.lastTestResult}`)
                             : t('device.peripherals.testResult.untested')}
-                        </span>
+                        </Badge>
                       </td>
                     </tr>
                   ))}
@@ -230,14 +240,14 @@ export function DeviceHealthPanel() {
               <p className="mt-1 text-sm text-secondary-500">{t('device.outbox.description')}</p>
             </div>
           </div>
-          <button
+          <Button
             type="button"
-            className="pv-btn outline"
             onClick={() => setShowAll(prev => !prev)}
             data-testid="device-outbox-toggle"
+            variant="outline"
           >
             {showAll ? t('device.outbox.filter.problemsOnly') : t('device.outbox.filter.showAll')}
-          </button>
+          </Button>
         </header>
 
         <div className="pv-kpis grid-cols-2 lg:grid-cols-2">
@@ -301,31 +311,34 @@ export function DeviceHealthPanel() {
                       <tr key={row.id}>
                         <td className="muted">{row.kind}</td>
                         <td>
-                          <span className={`pv-badge ${outboxStatusTone(row.status)}`}>
+                          <Badge variant={outboxStatusTone(row.status)}>
                             {t(`device.outbox.status.${row.status}`, {
                               defaultValue: row.status,
                             })}
-                          </span>
+                          </Badge>
                         </td>
                         <td className="num">{row.attempts}</td>
                         <td className="muted break-all">{errorMessage ?? '—'}</td>
                         <td className="muted whitespace-nowrap">{formatDateTime(row.createdAt)}</td>
                         <td className="num">
                           {canRetry && (
-                            <button
+                            <Button
                               type="button"
-                              className="pv-btn outline ml-auto"
+                              className="ml-auto"
                               disabled={!isAdmin || isRetrying}
                               title={!isAdmin ? t('device.retry.noPermission') : undefined}
                               onClick={() => {
                                 if (!isAdmin) return;
-                                void retryMutation.mutateAsync({ id: row.id });
+                                void retryMutation.mutateAsync({
+                                  id: row.id,
+                                });
                               }}
                               data-testid={`device-retry-${row.id}`}
+                              variant="outline"
                             >
                               <RefreshCw className={isRetrying ? 'animate-spin' : undefined} />
                               {t('device.retry.cta')}
-                            </button>
+                            </Button>
                           )}
                         </td>
                       </tr>

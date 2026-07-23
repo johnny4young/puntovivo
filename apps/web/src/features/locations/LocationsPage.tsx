@@ -11,11 +11,10 @@ import { LocationFormModal, type LocationFormValues } from '@/features/locations
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import type { Location, UserRole } from '@/types';
-
+import { Badge } from '@/components/ui';
 function canManageLocations(role: UserRole | undefined): boolean {
   return role === 'admin';
 }
-
 const buildColumns = (
   t: TFunction,
   onEdit: (location: Location) => void,
@@ -50,9 +49,9 @@ const buildColumns = (
     header: t('locations.columns.status'),
     size: 120,
     cell: ({ row }) => (
-      <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+      <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
         {row.original.isActive ? t('locations.columns.active') : t('locations.columns.inactive')}
-      </span>
+      </Badge>
     ),
   },
   {
@@ -79,7 +78,6 @@ const buildColumns = (
     ),
   },
 ];
-
 export function LocationsPage() {
   const { t } = useTranslation('settings');
   const { user } = useAuth();
@@ -89,59 +87,68 @@ export function LocationsPage() {
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [locationToDelete, setLocationToDelete] = useState<Location | null>(null);
-
-  const locationsQuery = trpc.locations.list.useQuery({ page: 1, perPage: 50 });
+  const locationsQuery = trpc.locations.list.useQuery({
+    page: 1,
+    perPage: 50,
+  });
   const createMutation = trpc.locations.create.useMutation({
     onSuccess: async () => {
       await utils.locations.list.invalidate();
       handleCloseModal();
-      toast.success({ title: t('locations.toast.created') });
+      toast.success({
+        title: t('locations.toast.created'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:locations.toast.createError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:locations.toast.createError',
+    }),
   });
   const updateMutation = trpc.locations.update.useMutation({
     onSuccess: async () => {
       await utils.locations.list.invalidate();
       handleCloseModal();
-      toast.success({ title: t('locations.toast.updated') });
+      toast.success({
+        title: t('locations.toast.updated'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:locations.toast.updateError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:locations.toast.updateError',
+    }),
   });
   const deleteMutation = trpc.locations.delete.useMutation({
     onSuccess: async () => {
       await utils.locations.list.invalidate();
       setLocationToDelete(null);
-      toast.success({ title: t('locations.toast.deleted') });
+      toast.success({
+        title: t('locations.toast.deleted'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:locations.toast.deleteError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:locations.toast.deleteError',
+    }),
   });
-
   const canManage = canManageLocations(user?.role);
   const canDelete = user?.role === 'admin';
   const items: Location[] = (locationsQuery.data?.items ?? []).map(location => ({
     ...location,
     isActive: location.isActive ?? false,
   }));
-
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingLocation(null);
     createMutation.reset();
     updateMutation.reset();
   };
-
   const handleOpenCreate = () => {
     setEditingLocation(null);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   };
-
   const handleOpenEdit = (location: Location) => {
     setEditingLocation(location);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   };
-
   const handleSubmit = async (values: LocationFormValues) => {
     const payload = {
       code: values.code.trim(),
@@ -149,7 +156,6 @@ export function LocationsPage() {
       description: values.description.trim() || null,
       isActive: values.isActive,
     };
-
     if (editingLocation) {
       await updateMutation.mutateAsync({
         id: editingLocation.id,
@@ -157,16 +163,18 @@ export function LocationsPage() {
       });
       return;
     }
-
     await createMutation.mutateAsync(payload);
   };
-
   return (
     <>
       <ResourcePage
         title={t('locations.title')}
         action={
-          <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canManage}>
+          <button
+            className="btn-primary flex items-center gap-2"
+            onClick={handleOpenCreate}
+            disabled={!canManage}
+          >
             <Plus className="h-5 w-5" />
             {t('locations.add')}
           </button>
@@ -203,13 +211,19 @@ export function LocationsPage() {
         isOpen={!!locationToDelete}
         title={t('locations.delete.title')}
         message={locationToDelete ? t('locations.delete.description') : ''}
-        confirmText={deleteMutation.isPending ? t('locations.delete.submitting') : t('locations.delete.confirm')}
+        confirmText={
+          deleteMutation.isPending
+            ? t('locations.delete.submitting')
+            : t('locations.delete.confirm')
+        }
         cancelText="Cancel"
         variant="danger"
         loading={deleteMutation.isPending}
         onConfirm={() => {
           if (locationToDelete) {
-            void deleteMutation.mutateAsync({ id: locationToDelete.id });
+            void deleteMutation.mutateAsync({
+              id: locationToDelete.id,
+            });
           }
         }}
         onClose={() => {

@@ -10,14 +10,21 @@
  *
  * @module features/operations/NeedsAttentionPanel
  */
-import type { ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, CreditCard, Landmark, Printer, RefreshCw, ShieldCheck } from 'lucide-react';
+import {
+  ArrowRight,
+  CreditCard,
+  Landmark,
+  Printer,
+  RefreshCw,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
+import { StatusStrip, Button } from '@/components/ui';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
-import { cn } from '@/lib/utils';
 
 /**
  * The four retryable failure surfaces the queue covers. Each value is
@@ -26,25 +33,21 @@ import { cn } from '@/lib/utils';
  * (`services/operations/attention.ts`) and `OperationsPage` `TAB_KEYS`.
  */
 export type NeedsAttentionArea = 'sync' | 'fiscal' | 'device' | 'payments';
-
 interface NeedsAttentionPanelProps {
   /** Switches the Operations tab to the panel that resolves the area. */
   onReviewArea: (area: NeedsAttentionArea) => void;
 }
-
-const AREA_ICONS: Record<NeedsAttentionArea, ElementType> = {
+const AREA_ICONS: Record<NeedsAttentionArea, LucideIcon> = {
   sync: RefreshCw,
   fiscal: Landmark,
   device: Printer,
   payments: CreditCard,
 };
-
 export function NeedsAttentionPanel({ onReviewArea }: NeedsAttentionPanelProps) {
   const { t } = useTranslation(['operations', 'errors']);
   const query = trpc.operations.needsAttention.useQuery(undefined, {
     staleTime: 15_000,
   });
-
   return (
     <section className="card p-5 sm:p-6" data-testid="needs-attention-panel">
       <header className="mb-5">
@@ -88,32 +91,33 @@ export function NeedsAttentionPanel({ onReviewArea }: NeedsAttentionPanelProps) 
             const Icon = AREA_ICONS[area.area];
             const areaLabel = t(`attention.area.${area.area}`);
             return (
-              <div
+              <StatusStrip
                 key={area.area}
-                className={cn('pv-strip', area.severity === 'danger' ? 'danger' : 'warning')}
+                tone={area.severity === 'danger' ? 'danger' : 'warning'}
+                icon={Icon}
+                title={areaLabel}
                 data-testid={`needs-attention-row-${area.area}`}
                 data-severity={area.severity}
+                action={
+                  <Button
+                    type="button"
+                    className="shrink-0"
+                    onClick={() => onReviewArea(area.area)}
+                    data-testid={`needs-attention-cta-${area.area}`}
+                    aria-label={t('attention.reviewAria', { area: areaLabel })}
+                    variant="outline"
+                  >
+                    {t('attention.reviewCta')}
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                }
               >
-                <span className="ic">
-                  <Icon className="h-5 w-5" aria-hidden="true" />
+                <span className="block text-secondary-600">
+                  {t('attention.count', {
+                    count: area.count,
+                  })}
                 </span>
-                <span className="msg min-w-0 flex-1">
-                  <b>{areaLabel}</b>
-                  <span className="block text-secondary-600">
-                    {t('attention.count', { count: area.count })}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  className="pv-btn outline shrink-0"
-                  onClick={() => onReviewArea(area.area)}
-                  data-testid={`needs-attention-cta-${area.area}`}
-                  aria-label={t('attention.reviewAria', { area: areaLabel })}
-                >
-                  {t('attention.reviewCta')}
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
+              </StatusStrip>
             );
           })}
         </div>

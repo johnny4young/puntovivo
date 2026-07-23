@@ -2,7 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Building2, Flag, MapPinned, Pencil, Trash2 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import type { City, Country, Department } from '@/types';
-
+import { Badge } from '@/components/ui';
 export function buildCountryColumns(
   onEdit: (country: Country) => void,
   onDelete: (country: Country) => void,
@@ -33,9 +33,9 @@ export function buildCountryColumns(
       header: t('geography.columns.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {row.original.isActive ? t('geography.columns.active') : t('geography.columns.inactive')}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -67,7 +67,6 @@ export function buildCountryColumns(
     },
   ];
 }
-
 export function buildDepartmentColumns(
   onEdit: (department: Department) => void,
   onDelete: (department: Department) => void,
@@ -104,9 +103,9 @@ export function buildDepartmentColumns(
       header: t('geography.columns.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {row.original.isActive ? t('geography.columns.active') : t('geography.columns.inactive')}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -138,7 +137,6 @@ export function buildDepartmentColumns(
     },
   ];
 }
-
 export function buildCityColumns(
   onEdit: (city: City) => void,
   onDelete: (city: City) => void,
@@ -181,9 +179,9 @@ export function buildCityColumns(
       header: t('geography.columns.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {row.original.isActive ? t('geography.columns.active') : t('geography.columns.inactive')}
-        </span>
+        </Badge>
       ),
     },
     {

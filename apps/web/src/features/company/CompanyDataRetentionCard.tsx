@@ -1,31 +1,27 @@
 import { ShieldCheck, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ConfirmModal } from '@/components/form-controls/Modal';
+import { Badge, Button } from '@/components/ui';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-
 interface RetentionPolicyForm {
   operationalAuditDays: number;
   privacyAuditDays: number;
   aiAuditDays: number;
   syncedOutboxDays: number;
 }
-
 type RetentionField = keyof RetentionPolicyForm;
-
 const FIELD_KEYS: readonly RetentionField[] = [
   'operationalAuditDays',
   'privacyAuditDays',
   'aiAuditDays',
   'syncedOutboxDays',
 ];
-
 export function CompanyDataRetentionCard(): React.ReactElement {
   const { t, i18n } = useTranslation(['dataRetention', 'errors']);
   const toast = useToast();
@@ -34,11 +30,17 @@ export function CompanyDataRetentionCard(): React.ReactElement {
   const previewQuery = trpc.dataRetention.preview.useQuery();
   const [policyDraft, setPolicyDraft] = useState<Partial<RetentionPolicyForm>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const policy = settingsQuery.data ? { ...settingsQuery.data.policy, ...policyDraft } : null;
-
+  const policy = settingsQuery.data
+    ? {
+        ...settingsQuery.data.policy,
+        ...policyDraft,
+      }
+    : null;
   const saveMutation = trpc.dataRetention.update.useMutation({
     onSuccess: async () => {
-      toast.success({ title: t('dataRetention:toast.saved') });
+      toast.success({
+        title: t('dataRetention:toast.saved'),
+      });
       await Promise.all([
         utils.dataRetention.get.invalidate(),
         utils.dataRetention.preview.invalidate(),
@@ -49,7 +51,6 @@ export function CompanyDataRetentionCard(): React.ReactElement {
       titleKey: 'dataRetention:toast.saveError',
     }),
   });
-
   const runMutation = trpc.dataRetention.runNow.useMutation({
     onSuccess: async result => {
       setConfirmOpen(false);
@@ -64,7 +65,6 @@ export function CompanyDataRetentionCard(): React.ReactElement {
       titleKey: 'dataRetention:toast.sweepError',
     }),
   });
-
   const validationError = (() => {
     if (!policy || !settingsQuery.data) return null;
     for (const key of FIELD_KEYS) {
@@ -82,7 +82,6 @@ export function CompanyDataRetentionCard(): React.ReactElement {
     }
     return null;
   })();
-
   if (settingsQuery.isLoading) {
     return (
       <section className="card p-6">
@@ -93,7 +92,6 @@ export function CompanyDataRetentionCard(): React.ReactElement {
       </section>
     );
   }
-
   if (settingsQuery.error || !settingsQuery.data || !policy) {
     return (
       <section className="card p-6">
@@ -105,7 +103,6 @@ export function CompanyDataRetentionCard(): React.ReactElement {
       </section>
     );
   }
-
   const preview = previewQuery.data;
   const buckets = preview
     ? ([
@@ -115,7 +112,6 @@ export function CompanyDataRetentionCard(): React.ReactElement {
         ['syncedOutboxRows', preview.syncedOutboxRows],
       ] as const)
     : [];
-
   return (
     <section className="card space-y-5 p-6" data-testid="company-data-retention-card">
       <div className="flex items-start gap-3">
@@ -177,13 +173,13 @@ export function CompanyDataRetentionCard(): React.ReactElement {
             {validationError}
           </p>
         )}
-        <button
+        <Button
           type="submit"
-          className="pv-btn primary"
           disabled={saveMutation.isPending || validationError !== null}
+          variant="primary"
         >
           {saveMutation.isPending ? t('dataRetention:saving') : t('dataRetention:save')}
-        </button>
+        </Button>
       </form>
 
       <div className="rounded-2xl border border-line bg-surface-2 p-4">
@@ -194,13 +190,13 @@ export function CompanyDataRetentionCard(): React.ReactElement {
               {t('dataRetention:preview.description')}
             </p>
           </div>
-          <span className="pv-badge neutral" data-testid="retention-preview-total">
+          <Badge variant="neutral" data-testid="retention-preview-total">
             {previewQuery.isLoading
               ? t('dataRetention:preview.loading')
               : t('dataRetention:preview.total', {
                   count: preview?.total ?? 0,
                 })}
-          </span>
+          </Badge>
         </div>
 
         {previewQuery.error && (
@@ -228,15 +224,16 @@ export function CompanyDataRetentionCard(): React.ReactElement {
           </ul>
         )}
 
-        <button
+        <Button
           type="button"
-          className="pv-btn danger mt-4"
+          className="mt-4"
           disabled={!preview || preview.total === 0 || runMutation.isPending}
           onClick={() => setConfirmOpen(true)}
+          variant="danger"
         >
           <Trash2 aria-hidden="true" />
           {t('dataRetention:runNow')}
-        </button>
+        </Button>
       </div>
 
       <p className="text-xs text-secondary-500">{t('dataRetention:legalHold')}</p>

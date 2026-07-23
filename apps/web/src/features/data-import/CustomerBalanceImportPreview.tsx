@@ -1,6 +1,5 @@
 import { AlertTriangle, CheckCircle2, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { cn, formatCurrency } from '@/lib/utils';
 import { ImportCommitGuard } from './ImportCommitGuard';
 import type {
@@ -8,7 +7,7 @@ import type {
   CustomerBalanceImportPreview,
   LaunchImportDataMode,
 } from './types';
-
+import { Button } from '@/components/ui';
 interface CustomerBalanceImportPreviewProps {
   completed: boolean;
   confirmedRealData: boolean;
@@ -19,21 +18,17 @@ interface CustomerBalanceImportPreviewProps {
   onImport: () => void;
   preview: CustomerBalanceImportPreview;
 }
-
 const STATUS_STYLE = {
   ready: 'bg-success-50 text-success-800 border-success-200',
   duplicate: 'bg-warning-50 text-warning-800 border-warning-200',
   invalid: 'bg-danger-50 text-danger-800 border-danger-200',
 } as const;
-
 function identityFor(row: CustomerBalanceImportPreview['rows'][number]): string | null {
   return row.normalized.taxId ?? row.normalized.email;
 }
-
 function issueKey(issue: CustomerBalanceImportIssue): string {
   return `customerBalances.issues.${issue.code}`;
 }
-
 export function CustomerBalanceImportPreviewPanel({
   completed,
   confirmedRealData,
@@ -46,7 +41,6 @@ export function CustomerBalanceImportPreviewPanel({
 }: CustomerBalanceImportPreviewProps) {
   const { t } = useTranslation('dataImport');
   const hasIssues = preview.summary.duplicates + preview.summary.invalid > 0;
-
   return (
     <section className="card space-y-5 p-6" aria-labelledby="customer-balance-preview-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -66,9 +60,9 @@ export function CustomerBalanceImportPreviewPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           {hasIssues ? (
-            <button type="button" className="pv-btn outline" onClick={onDownloadIssues}>
+            <Button type="button" onClick={onDownloadIssues} variant="outline">
               {t('actions.downloadIssues')}
-            </button>
+            </Button>
           ) : null}
           <ImportCommitGuard
             completed={completed}
@@ -159,7 +153,9 @@ export function CustomerBalanceImportPreviewPanel({
       </div>
       {preview.rows.length > 100 ? (
         <p className="text-xs text-secondary-500">
-          {t('table.previewLimit', { count: preview.rows.length })}
+          {t('table.previewLimit', {
+            count: preview.rows.length,
+          })}
         </p>
       ) : null}
     </section>

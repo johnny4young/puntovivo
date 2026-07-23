@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Badge, type BadgeVariant } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import {
   OFFLINE_CAPABILITY_CATALOG,
@@ -19,11 +20,11 @@ interface OfflineCapabilityGridProps {
 // Backward-compatible local alias — existing render path stays untouched.
 const CAPABILITIES = OFFLINE_CAPABILITY_CATALOG;
 
-const STATUS_TONE: Record<OfflineCapabilityStatus, string> = {
-  available: 'badge badge-success',
-  limited: 'badge badge-warning',
-  pending: 'badge badge-secondary',
-  blocked: 'badge badge-danger',
+const STATUS_TONE: Record<OfflineCapabilityStatus, BadgeVariant> = {
+  available: 'success',
+  limited: 'warning',
+  pending: 'secondary',
+  blocked: 'danger',
 };
 
 /**
@@ -84,7 +85,7 @@ export function OfflineCapabilityGrid({
                 <span className="glyph-tile glyph-tile-primary h-9 w-9">
                   <Icon className="h-4 w-4" aria-hidden="true" />
                 </span>
-                <span className={STATUS_TONE[cap.status]}>
+                <Badge variant={STATUS_TONE[cap.status]}>
                   {t(`offlineGrid.status.${cap.status}`, {
                     defaultValue:
                       cap.status === 'available'
@@ -95,7 +96,7 @@ export function OfflineCapabilityGrid({
                             ? 'Pendiente'
                             : 'Bloqueado',
                   })}
-                </span>
+                </Badge>
               </div>
               <p className="mt-3 text-sm font-semibold text-secondary-950">
                 {t(`offlineGrid.capabilities.${cap.id}.label`, {

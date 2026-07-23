@@ -20,7 +20,6 @@
 import { useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -28,33 +27,39 @@ import { trpc } from '@/lib/trpc';
 import { cn, formatDate } from '@/lib/utils';
 
 /** How many movements the drawer shows before it stops being a summary. */
+import { Badge } from '@/components/ui';
 const MOVEMENT_LIMIT = 8;
 
 /** Server bound (`adjustLoyaltyInput.note`): an unexplained change is a support ticket. */
 const MIN_NOTE_LENGTH = 3;
-
 export function CustomerLoyaltyPanel({ customerId }: { customerId: string }) {
   const { t } = useTranslation(['customers', 'errors']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
   const isAdmin = user?.role === 'admin';
-
   const [points, setPoints] = useState<string>('');
   const [note, setNote] = useState<string>('');
-
   const loyaltyQuery = trpc.loyalty.forCustomer.useQuery(
-    { customerId, limit: MOVEMENT_LIMIT },
-    { enabled: !!customerId }
+    {
+      customerId,
+      limit: MOVEMENT_LIMIT,
+    },
+    {
+      enabled: !!customerId,
+    }
   );
-
   const adjustMutation = trpc.loyalty.adjust.useMutation({
     onSuccess: () => {
       setPoints('');
       setNote('');
-      toast.success({ title: t('customers:loyalty.toast.adjusted') });
+      toast.success({
+        title: t('customers:loyalty.toast.adjusted'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'customers:loyalty.toast.adjustError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'customers:loyalty.toast.adjustError',
+    }),
     onSettled: () => utils.loyalty.forCustomer.invalidate(),
   });
 
@@ -63,17 +68,14 @@ export function CustomerLoyaltyPanel({ customerId }: { customerId: string }) {
   const data = customerId ? loyaltyQuery.data : undefined;
   const balance = data?.points ?? 0;
   const movements = data?.movements ?? [];
-
   if (!customerId) return null;
   // Nothing to say and nobody who could act on it.
   if (!isAdmin && balance <= 0 && movements.length === 0) return null;
-
   const parsedPoints = Number(points);
   const pointsAreValid =
     points.trim() !== '' && Number.isInteger(parsedPoints) && parsedPoints !== 0;
   const noteIsValid = note.trim().length >= MIN_NOTE_LENGTH;
   const canSubmit = pointsAreValid && noteIsValid && !adjustMutation.isPending;
-
   return (
     <section className="mt-5 border-t border-line pt-4" data-testid="customer-loyalty-panel">
       <div className="flex items-center justify-between gap-3">
@@ -81,9 +83,11 @@ export function CustomerLoyaltyPanel({ customerId }: { customerId: string }) {
           <Sparkles className="h-4 w-4 text-primary-600" aria-hidden="true" />
           {t('customers:loyalty.title')}
         </h3>
-        <span className="pv-badge primary" data-testid="customer-loyalty-balance">
-          {t('customers:loyalty.pointsBalance', { count: balance })}
-        </span>
+        <Badge data-testid="customer-loyalty-balance" variant="primary">
+          {t('customers:loyalty.pointsBalance', {
+            count: balance,
+          })}
+        </Badge>
       </div>
 
       {movements.length === 0 ? (

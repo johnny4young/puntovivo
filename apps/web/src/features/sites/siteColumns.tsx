@@ -2,7 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Building2 as Building, MapPinned, Pencil, Trash2 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import type { Site } from '@/types';
-
+import { Badge } from '@/components/ui';
 export function createSiteColumns({
   t,
   canManage,
@@ -28,7 +28,9 @@ export function createSiteColumns({
           </div>
           <div>
             <p className="font-medium text-secondary-900">{row.original.name}</p>
-            <p className="text-xs text-secondary-500">{row.original.address || t('sites.columns.noAddress')}</p>
+            <p className="text-xs text-secondary-500">
+              {row.original.address || t('sites.columns.noAddress')}
+            </p>
           </div>
         </div>
       ),
@@ -50,9 +52,9 @@ export function createSiteColumns({
       header: t('sites.columns.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {row.original.isActive ? t('common:status.active') : t('common:status.inactive')}
-        </span>
+        </Badge>
       ),
     },
     {

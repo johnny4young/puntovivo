@@ -1,10 +1,15 @@
 {
   "analysis": {
     "kicker": "Business insight",
-    "title": "Analysis"
+    "title": "Activity worth your attention",
+    "description": "Recent movements and the products driving today's result."
   },
   "page": {
     "kicker": "Command center",
+    "title": "What matters today, all in one place.",
+    "description": "A clear reading of sales, demand and replenishment so you can decide with confidence before close.",
+    "liveStatus": "Live operation",
+    "primaryAction": "Go to sales",
     "freshness": {
       "title": "Last sync",
       "description": "{{time}}"
@@ -40,8 +45,13 @@
   "revenue": {
     "kicker": "Revenue trend",
     "title": "30-day revenue",
-    "description": "Daily revenue and order volume.",
-    "latestDay": "Latest day"
+    "description": "The daily sales pulse for spotting pace, peaks and opportunity.",
+    "latestDay": "Latest day",
+    "chartLabel": "Daily revenue chart for the last 30 days",
+    "empty": "There is no revenue to chart yet.",
+    "periodTotal": "Period total",
+    "periodOrders": "Period orders",
+    "bestDay": "Best day"
   },
   "recentSales": {
     "kicker": "Recent sales",
@@ -58,8 +68,12 @@
   "lowStock": {
     "kicker": "Replenishment",
     "title": "Low stock",
+    "description": "Prioritize these items before they affect a sale.",
     "empty": "No low-stock products right now.",
-    "minimum": "Minimum {{count}}"
+    "minimum": "Minimum {{count}}",
+    "alertCount_one": "{{count}} stock alert",
+    "alertCount_other": "{{count}} stock alerts",
+    "action": "Review inventory"
   },
   "unitsSold_one": "{{count}} unit sold",
   "unitsSold_other": "{{count}} units sold",

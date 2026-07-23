@@ -2,6 +2,7 @@ import { AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/feedback/EmptyState';
+import { Badge } from '@/components/ui';
 import { TablePagination } from '@/components/tables/TablePagination';
 import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { formatCurrency } from '@/lib/utils';
@@ -54,10 +55,9 @@ export function PaymentMismatchSection({
                     key={`${row.type}-${row.paymentOutboxId ?? row.salePaymentId ?? 'unknown'}-${index}`}
                   >
                     <td>
-                      <span className={`pv-badge ${paymentMismatchTone(row.type)}`}>
-                        <span className="dot" />
+                      <Badge variant={paymentMismatchTone(row.type)} marker="dot">
                         {t(`payments.mismatches.type.${row.type}`)}
-                      </span>
+                      </Badge>
                     </td>
                     <td>{row.railId ? t(`payments.rails.${row.railId}`) : '—'}</td>
                     <td className="break-all">
@@ -65,14 +65,13 @@ export function PaymentMismatchSection({
                     </td>
                     <td className="num">{formatCurrency(row.amount)}</td>
                     <td>
-                      <span className={`pv-badge ${paymentStatusTone(row.status)}`}>
-                        <span className="dot" />
+                      <Badge variant={paymentStatusTone(row.status)} marker="dot">
                         {row.status
                           ? t(`payments.status.${row.status}`, {
                               defaultValue: row.status,
                             })
                           : t('payments.status.missing')}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="muted">
                       {t(`payments.mismatches.action.${row.suggestedAction}`)}

@@ -1,8 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { trpc } from '@/lib/trpc';
-
+import { Badge, Button } from '@/components/ui';
 interface SaleSerialSelectorProps {
   siteId: string | null;
   productId: string;
@@ -12,7 +11,6 @@ interface SaleSerialSelectorProps {
   unavailableIds?: string[] | undefined;
   onChange: (serialIds: string[]) => void;
 }
-
 export function SaleSerialSelector({
   siteId,
   productId,
@@ -24,8 +22,14 @@ export function SaleSerialSelector({
 }: SaleSerialSelectorProps) {
   const { t } = useTranslation('sales');
   const query = trpc.productSerials.list.useQuery(
-    { siteId: siteId || '__missing__', productId, sellableOnly: true },
-    { enabled: Boolean(siteId) }
+    {
+      siteId: siteId || '__missing__',
+      productId,
+      sellableOnly: true,
+    },
+    {
+      enabled: Boolean(siteId),
+    }
   );
   const availableIds = useMemo(
     () => new Set(query.data?.items.map(serial => serial.id) ?? []),
@@ -55,19 +59,20 @@ export function SaleSerialSelector({
       onChange(validSelectedIds);
     }
   }, [onChange, query.data, query.isError, query.isLoading, selectedIds, siteId, validSelectedIds]);
-
   return (
     <div className="mt-3 rounded-xl border border-primary-100 bg-primary-50/60 p-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-semibold text-primary-900">
-          {t('serials.title', { name: productName })}
+          {t('serials.title', {
+            name: productName,
+          })}
         </p>
-        <span className={complete ? 'pv-badge success' : 'pv-badge warning'}>
+        <Badge variant={complete ? 'success' : 'warning'}>
           {t('serials.progress', {
             selected: validSelectedIds.length,
             required: requiredCount,
           })}
-        </span>
+        </Badge>
       </div>
       {!siteId ? (
         <p className="mt-2 text-xs text-danger-700">{t('serials.siteRequired')}</p>
@@ -80,13 +85,15 @@ export function SaleSerialSelector({
           <p className="text-xs text-danger-700" role="alert">
             {t('serials.loadError')}
           </p>
-          <button
+          <Button
             type="button"
-            className="pv-btn outline min-h-9 px-3 py-1 text-xs"
+            className="text-xs"
             onClick={() => void query.refetch()}
+            variant="outline"
+            size="compact"
           >
             {t('serials.retry')}
-          </button>
+          </Button>
         </div>
       ) : (query.data?.items.length ?? 0) === 0 ? (
         <p className="mt-2 text-xs text-danger-700">{t('serials.noneAvailable')}</p>
@@ -116,7 +123,9 @@ export function SaleSerialSelector({
                 />
                 <span className="font-mono text-secondary-900">{serial.serialNumber}</span>
                 {serial.status === 'returned' && (
-                  <span className="pv-badge neutral ml-auto">{t('serials.returned')}</span>
+                  <Badge className="ml-auto" variant="neutral">
+                    {t('serials.returned')}
+                  </Badge>
                 )}
                 {selectedInAnotherLine && !checked && (
                   <span className="ml-auto text-secondary-500">

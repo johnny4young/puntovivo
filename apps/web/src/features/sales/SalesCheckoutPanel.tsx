@@ -21,6 +21,7 @@ import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
 
 // explicit `| undefined` on optional fields.
+import { Button } from '@/components/ui';
 interface SalesCheckoutPanelProps {
   currentSite: Site | null;
   cashSession: CashSession | null;
@@ -76,12 +77,10 @@ interface SalesCheckoutPanelProps {
    */
   preflightItems?: readonly PreflightItem[] | undefined;
 }
-
 function shortcutLabel(id: string): string {
   const shortcut = getShortcutById(id);
   return shortcut ? formatKeysForDisplay(shortcut.keys) : '';
 }
-
 export function SalesCheckoutPanel({
   currentSite,
   cashSession,
@@ -130,9 +129,8 @@ export function SalesCheckoutPanel({
   const showNewSaleAction = !!onNewSale;
   const showSuspendControls = showSuspendAction || showNewSaleAction;
   const showSuspendedToggle = !!onToggleSuspendedPanel;
-
   return (
-    <aside className="card p-5 sm:p-6 xl:flex pos:h-full pos:min-h-0 xl:flex-col pos:overflow-hidden">
+    <aside className="sales-settlement-dock card p-5 sm:p-6 xl:flex pos:h-full pos:min-h-0 xl:flex-col pos:overflow-hidden">
       <div className="flex items-start justify-between gap-4 xl:shrink-0">
         <div>
           <p className="pv-kicker">{t('checkout.kicker')}</p>
@@ -141,13 +139,16 @@ export function SalesCheckoutPanel({
             {t('checkout.chargeSummaryDescription')}
           </p>
         </div>
-        <button
-          className="pv-btn outline min-h-11 h-11 w-11 p-0"
+        <Button
+          className="pv-control-key pv-control-key-icon"
           onClick={onOpenSearch}
           aria-label={t('checkout.searchProducts')}
+          variant="outline"
+          size="icon"
+          type="submit"
         >
           <Plus className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
 
       <div className="pv-total mt-6 xl:shrink-0">
@@ -155,7 +156,11 @@ export function SalesCheckoutPanel({
         <div className="fig">{formatCurrency(draftSummary.total)}</div>
         <div className="brk">
           <div className="ln">
-            <span>{t('checkout.itemsWithCount', { value: draftSummary.itemCount })}</span>
+            <span>
+              {t('checkout.itemsWithCount', {
+                value: draftSummary.itemCount,
+              })}
+            </span>
             <span className="amt">{formatCurrency(draftSummary.subtotal)}</span>
           </div>
           <div className="ln">
@@ -185,7 +190,9 @@ export function SalesCheckoutPanel({
             <div className="relative flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-primary-700">
-                  {t('checkout.lastScanned', { defaultValue: 'Último escaneado' })}
+                  {t('checkout.lastScanned', {
+                    defaultValue: 'Último escaneado',
+                  })}
                 </p>
                 <p className="mt-1 truncate text-sm font-semibold text-secondary-950">
                   {t('checkout.lastScannedHint', {
@@ -200,15 +207,37 @@ export function SalesCheckoutPanel({
         ) : (
           <div className="rounded-2xl border border-dashed border-line bg-surface/40 px-3 py-3">
             <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
-              {t('checkout.quickSuggestionKicker', { defaultValue: 'Sugerencia rápida' })}
+              {t('checkout.quickSuggestionKicker', {
+                defaultValue: 'Sugerencia rápida',
+              })}
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {(
                 [
-                  ['scan', t('checkout.suggestionScan', { defaultValue: 'Escanea producto' })],
-                  ['barcode', t('checkout.suggestionBarcode', { defaultValue: 'Pega código' })],
-                  ['search', t('checkout.suggestionSearch', { defaultValue: 'Busca SKU' })],
-                  ['waiting', t('checkout.suggestionWaiting', { defaultValue: 'Esperando…' })],
+                  [
+                    'scan',
+                    t('checkout.suggestionScan', {
+                      defaultValue: 'Escanea producto',
+                    }),
+                  ],
+                  [
+                    'barcode',
+                    t('checkout.suggestionBarcode', {
+                      defaultValue: 'Pega código',
+                    }),
+                  ],
+                  [
+                    'search',
+                    t('checkout.suggestionSearch', {
+                      defaultValue: 'Busca SKU',
+                    }),
+                  ],
+                  [
+                    'waiting',
+                    t('checkout.suggestionWaiting', {
+                      defaultValue: 'Esperando…',
+                    }),
+                  ],
                 ] as const
               ).map(([key, label]) => (
                 <div
@@ -335,26 +364,36 @@ export function SalesCheckoutPanel({
               [
                 [
                   shortcutLabel('sales.productSearch'),
-                  t('checkout.shortcut.search', { defaultValue: 'Buscar' }),
+                  t('checkout.shortcut.search', {
+                    defaultValue: 'Buscar',
+                  }),
                 ],
                 [
                   shortcutLabel('sales.suspend'),
-                  t('checkout.shortcut.suspend', { defaultValue: 'Pausar' }),
+                  t('checkout.shortcut.suspend', {
+                    defaultValue: 'Pausar',
+                  }),
                 ],
                 [
                   shortcutLabel('sales.toggleSuspended'),
-                  t('checkout.shortcut.resume', { defaultValue: 'Retomar' }),
+                  t('checkout.shortcut.resume', {
+                    defaultValue: 'Retomar',
+                  }),
                 ],
                 [
                   shortcutLabel('sales.charge'),
-                  t('checkout.shortcut.charge', { defaultValue: 'Cobrar' }),
+                  t('checkout.shortcut.charge', {
+                    defaultValue: 'Cobrar',
+                  }),
                 ],
                 // F2 fast-cash chip lives next to the F1
                 // Cobrar chip so the cashier discovers the one-keystroke
                 // exact-cash flow without opening the Command Palette.
                 [
                   shortcutLabel('sales.fastCash'),
-                  t('checkout.shortcut.fastCash', { defaultValue: 'Cobro rápido' }),
+                  t('checkout.shortcut.fastCash', {
+                    defaultValue: 'Cobro rápido',
+                  }),
                 ],
               ] as const
             ).map(([keyLabel, action], index) => (
@@ -381,17 +420,19 @@ export function SalesCheckoutPanel({
           cash controls are reachable. Below xl these actions are hidden (the
           SalesMobileCheckoutBar owns mobile), so the footer is inert there. */}
       <div className="space-y-3 xl:shrink-0 xl:border-t xl:border-line/70 xl:pt-4">
-        <button
-          className="pv-btn primary lg hidden w-full justify-center xl:inline-flex"
+        <Button
+          className="pv-control-key pv-control-key-primary sales-primary-control min-h-12 px-6 hidden w-full justify-center xl:inline-flex"
           onClick={primaryAction}
           disabled={primaryActionDisabled}
           data-testid="checkout-primary-action"
           aria-keyshortcuts={cashSession ? ariaKeyshortcutsFor('sales.charge') : undefined}
           aria-describedby={preflightHasBlockers ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
+          variant="primary"
+          type="submit"
         >
           {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
           {primaryActionLabel}
-        </button>
+        </Button>
 
         {isHubGated && (
           <p
@@ -407,7 +448,7 @@ export function SalesCheckoutPanel({
             {showSuspendAction && (
               <button
                 type="button"
-                className="btn-outline flex-1 justify-center"
+                className="pv-control-key btn-outline flex-1 justify-center"
                 onClick={onSuspend}
                 data-testid="checkout-suspend"
                 aria-keyshortcuts={ariaKeyshortcutsFor('sales.suspend')}
@@ -419,7 +460,7 @@ export function SalesCheckoutPanel({
             {showNewSaleAction && (
               <button
                 type="button"
-                className="btn-outline flex-1 justify-center"
+                className="pv-control-key btn-outline flex-1 justify-center"
                 onClick={onNewSale}
                 data-testid="checkout-new-sale"
               >
@@ -433,7 +474,7 @@ export function SalesCheckoutPanel({
         {showSuspendedToggle && (
           <button
             type="button"
-            className="btn-ghost hidden w-full justify-between xl:inline-flex"
+            className="pv-control-key pv-control-key-ghost btn-ghost hidden w-full justify-between xl:inline-flex"
             onClick={onToggleSuspendedPanel}
             data-testid="checkout-open-suspended-panel"
             aria-keyshortcuts={ariaKeyshortcutsFor('sales.toggleSuspended')}

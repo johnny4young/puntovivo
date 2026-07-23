@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatDateTime } from '@/lib/utils';
-import { KpiTile } from '@/components/ui';
+import { Badge, KpiTile, StatusStrip } from '@/components/ui';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { computeConflictDiff } from '@/features/company/companySyncDisplay';
 import { useSyncSnapshot } from '@/features/company/useSyncSnapshot';
@@ -34,7 +34,7 @@ import { useSyncSnapshot } from '@/features/company/useSyncSnapshot';
  * recetas pv-*: KPIs con `KpiTile` (`.pv-kpi`,
  * conflictos y fallos pasan a `danger` cuando son > 0), conflictos
  * renderizados como diff legible local ↔ remoto (`.pv-diff`) con el
- * número de campos que difieren en un `.pv-badge`, y estado vacío del
+ * número de campos que difieren en un `Badge`, y estado vacío del
  * sistema (`EmptyState`) cuando todo está sincronizado. Encabezado de
  * panel con `.pv-kicker` / `.pv-title`.
  */
@@ -121,11 +121,12 @@ export function SyncHealthPanel() {
       {isLoading && <p className="text-sm text-secondary-500">{t('common.loading')}</p>}
 
       {snapshotQuery.error && (
-        <div className="pv-strip danger">
-          <span className="msg">
-            {translateServerError(snapshotQuery.error, t, t('common.errorGeneric'))}
-          </span>
-        </div>
+        <StatusStrip
+          tone="danger"
+          icon={AlertTriangle}
+          title={translateServerError(snapshotQuery.error, t, t('common.errorGeneric'))}
+          role="alert"
+        />
       )}
 
       {snapshot && (
@@ -208,10 +209,9 @@ export function SyncHealthPanel() {
                       </p>
                     </div>
                   </div>
-                  <span className="pv-badge warning">
-                    <span className="dot" />
+                  <Badge variant="warning" marker="dot">
                     {t('sync.conflicts.fieldsDiffer', { count: diffs.length })}
-                  </span>
+                  </Badge>
                 </div>
 
                 {diffs.length > 0 && (

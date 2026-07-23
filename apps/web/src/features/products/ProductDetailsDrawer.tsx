@@ -15,13 +15,14 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Boxes, Pencil } from 'lucide-react';
 import { Drawer } from '@/components/feedback/Drawer';
-import { cn, formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import type { Product } from '@/types';
 
 /**
  * Props for {@link ProductDetailsDrawer}. The Drawer is open exactly when
  * `product` is non-null (the parent owns the open/close state).
  */
+import { Badge } from '@/components/ui';
 export interface ProductDetailsDrawerProps {
   /** The product to detail. `null` keeps the Drawer closed. */
   product: Product | null;
@@ -45,7 +46,6 @@ function DetailField({ label, value }: { label: string; value: ReactNode }) {
     </div>
   );
 }
-
 export function ProductDetailsDrawer({
   product,
   onClose,
@@ -53,7 +53,6 @@ export function ProductDetailsDrawer({
   onManageVariants,
 }: ProductDetailsDrawerProps) {
   const { t } = useTranslation('products');
-
   const footer = product ? (
     <div className="flex justify-end gap-2">
       <button type="button" className="btn-outline" onClick={onClose}>
@@ -83,7 +82,6 @@ export function ProductDetailsDrawer({
       )}
     </div>
   ) : undefined;
-
   return (
     <Drawer
       isOpen={!!product}
@@ -99,9 +97,9 @@ export function ProductDetailsDrawer({
           <DetailField
             label={t('details.catalogType')}
             value={
-              <span className="pv-badge neutral">
+              <Badge variant="neutral">
                 {t(`details.catalogTypes.${product.catalogType ?? 'standard'}`)}
-              </span>
+              </Badge>
             }
           />
           {product.catalogType === 'variant' && product.variantValues && (
@@ -122,43 +120,42 @@ export function ProductDetailsDrawer({
           <DetailField
             label={t('details.lotTracking')}
             value={
-              <span className={cn('pv-badge', product.tracksLots ? 'success' : 'neutral')}>
+              <Badge variant={product.tracksLots ? 'success' : 'neutral'}>
                 {product.tracksLots
                   ? t('details.lotTrackingEnabled')
                   : t('details.lotTrackingDisabled')}
-              </span>
+              </Badge>
             }
           />
           <DetailField
             label={t('details.serialTracking')}
             value={
-              <span className={cn('pv-badge', product.tracksSerials ? 'success' : 'neutral')}>
+              <Badge variant={product.tracksSerials ? 'success' : 'neutral'}>
                 {product.tracksSerials
                   ? t('details.serialTrackingEnabled')
                   : t('details.serialTrackingDisabled')}
-              </span>
+              </Badge>
             }
           />
           <DetailField label={t('details.minStock')} value={product.minStock.toLocaleString()} />
           <DetailField
             label={t('table.status')}
             value={
-              <span
-                className={cn(
-                  'pv-badge',
+              <Badge
+                variant={
                   product.catalogType === 'variant_parent'
                     ? 'info'
                     : product.isActive
                       ? 'success'
                       : 'neutral'
-                )}
+                }
               >
                 {product.catalogType === 'variant_parent'
                   ? t('table.matrixParent')
                   : product.isActive
                     ? t('table.active')
                     : t('table.inactive')}
-              </span>
+              </Badge>
             }
           />
         </dl>

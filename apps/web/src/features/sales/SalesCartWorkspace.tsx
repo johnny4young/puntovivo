@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import type { SaleCartItem } from '@/features/sales/saleCart';
 import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
-
+import { Badge } from '@/components/ui';
 interface SalesCartWorkspaceProps {
   items: SaleCartItem[];
   /** active POS site for the cart's suggestion badges. */
@@ -36,7 +36,6 @@ interface SalesCartWorkspaceProps {
    */
   onUndo?: () => void;
 }
-
 export function SalesCartWorkspace({
   items,
   discountSuggestionSiteId = null,
@@ -66,7 +65,7 @@ export function SalesCartWorkspace({
     // becomes a bounded flex column so the line-item table scrolls internally
     // and the page itself does not scroll while completing a sale. Below `pos:`
     // it is plain flow so short cashier viewports can reach every control.
-    <div className="card p-5 sm:p-6 xl:flex pos:h-full pos:min-h-0 xl:flex-col pos:overflow-hidden">
+    <div className="sales-ledger-card card p-5 sm:p-6 xl:flex pos:h-full pos:min-h-0 xl:flex-col pos:overflow-hidden">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between xl:shrink-0">
         <div>
           <p className="page-kicker text-[0.62rem] tracking-[0.24em]">
@@ -78,9 +77,11 @@ export function SalesCartWorkspace({
           <p className="mt-2 max-w-2xl text-sm text-secondary-600">{t('checkout.adjustHint')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="badge badge-secondary">
-            {t('checkout.lineItems', { count: itemCount })}
-          </span>
+          <Badge variant="neutral">
+            {t('checkout.lineItems', {
+              count: itemCount,
+            })}
+          </Badge>
           {/* only render Undo + Clear when actually usable.
            * Disabled toolbar buttons tank WCAG AA contrast through the
            * shared `disabled:opacity-45` rule on every btn variant; the
@@ -134,7 +135,7 @@ export function SalesCartWorkspace({
       </div>
 
       {saleError && (
-        <div className="mt-4 rounded-[20px] border border-danger-200/70 bg-danger-50/90 px-4 py-3 text-sm text-danger-700 xl:shrink-0">
+        <div className="mt-4 rounded-[11px] border border-danger-200/70 bg-danger-50/90 px-4 py-3 text-sm text-danger-700 xl:shrink-0">
           {saleError}
         </div>
       )}

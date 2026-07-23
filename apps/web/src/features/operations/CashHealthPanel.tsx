@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
-import { Coins, DoorOpen, ListChecks, Scale, TrendingDown } from 'lucide-react';
+import { AlertTriangle, Coins, DoorOpen, ListChecks, Scale, TrendingDown } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
-import { KpiTile } from '@/components/ui';
+import { Badge, KpiTile, StatusStrip } from '@/components/ui';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { TablePagination } from '@/components/tables/TablePagination';
@@ -24,7 +24,7 @@ import { TablePagination } from '@/components/tables/TablePagination';
  *
  * recetas pv-*: KPIs con `KpiTile` (`.pv-kpi`,
  * descuadres en tono danger/warning), tablas con `.pv-table`, estados
- * de discrepancia con `.pv-badge` (balanceado / faltante / sobrante) y
+ * de discrepancia con el `Badge` tipado (balanceado / faltante / sobrante) y
  * vacíos con `EmptyState`. Encabezado de panel con `.pv-kicker` /
  * `.pv-title`.
  */
@@ -68,11 +68,12 @@ export function CashHealthPanel() {
         )}
 
         {reconciliationQuery.error && (
-          <div className="pv-strip danger">
-            <span className="msg">
-              {translateServerError(reconciliationQuery.error, t, t('common.errorGeneric'))}
-            </span>
-          </div>
+          <StatusStrip
+            tone="danger"
+            icon={AlertTriangle}
+            title={translateServerError(reconciliationQuery.error, t, t('common.errorGeneric'))}
+            role="alert"
+          />
         )}
 
         {data && (
@@ -156,17 +157,14 @@ function CashBySiteSection({ rows }: { rows: BySiteRow[] }) {
                     <td className="pname">{row.siteName}</td>
                     <td className="num">{row.openSessions}</td>
                     <td className="num">
-                      <span className={`pv-badge ${overShortTone(row.netOverShort)}`}>
-                        <span className="dot" />
+                      <Badge variant={overShortTone(row.netOverShort)} marker="dot">
                         {formatCurrency(row.netOverShort)}
-                      </span>
+                      </Badge>
                     </td>
                     <td>
-                      <span
-                        className={`pv-badge ${row.overShortCount === 0 ? 'success' : 'warning'}`}
-                      >
+                      <Badge variant={row.overShortCount === 0 ? 'success' : 'warning'}>
                         {row.overShortCount}
-                      </span>
+                      </Badge>
                     </td>
                   </tr>
                 ))}
@@ -226,11 +224,10 @@ function CashRecentDiscrepanciesSection({ rows }: { rows: RecentDiscrepancyRow[]
                     <td className="num">{formatCurrency(row.expectedBalance)}</td>
                     <td className="num">{formatCurrency(row.actualCount)}</td>
                     <td>
-                      <span className={`pv-badge ${overShortTone(row.overShort)}`}>
-                        <span className="dot" />
+                      <Badge variant={overShortTone(row.overShort)} marker="dot">
                         {t(`cash.overShortStatus.${overShortLabelKey(row.overShort)}`)} ·{' '}
                         {formatCurrency(row.overShort)}
-                      </span>
+                      </Badge>
                     </td>
                   </tr>
                 ))}

@@ -28,7 +28,6 @@ function ControlledResourcePage({ onSearchChange }: { onSearchChange: (value: st
       data={[{ name: 'Existing provider' }]}
       isLoading={false}
       error={null}
-      searchKey="name"
       searchPlaceholder="Search providers..."
       searchValue={searchValue}
       onSearchChange={value => {

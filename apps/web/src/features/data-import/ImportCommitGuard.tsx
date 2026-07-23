@@ -1,8 +1,7 @@
 import { FlaskConical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import type { LaunchImportDataMode } from './types';
-
+import { Button } from '@/components/ui';
 interface ImportCommitGuardProps {
   completed: boolean;
   confirmed: boolean;
@@ -12,7 +11,6 @@ interface ImportCommitGuardProps {
   onImport: () => void;
   ready: number;
 }
-
 export function ImportCommitGuard({
   completed,
   confirmed,
@@ -23,7 +21,6 @@ export function ImportCommitGuard({
   ready,
 }: ImportCommitGuardProps) {
   const { t } = useTranslation('dataImport');
-
   if (dataMode === 'demo') {
     return (
       <div
@@ -36,7 +33,6 @@ export function ImportCommitGuard({
       </div>
     );
   }
-
   return (
     <div className="max-w-md space-y-2">
       <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-left text-xs leading-5 text-warning-950">
@@ -49,18 +45,21 @@ export function ImportCommitGuard({
         />
         <span>{t('safety.realConfirmation')}</span>
       </label>
-      <button
+      <Button
         type="button"
-        className="pv-btn primary ml-auto"
+        className="ml-auto"
         disabled={!confirmed || importing || completed || ready === 0}
         onClick={onImport}
+        variant="primary"
       >
         {importing
           ? t('actions.importing')
           : completed
             ? t('actions.completed')
-            : t('actions.importReady', { count: ready })}
-      </button>
+            : t('actions.importReady', {
+                count: ready,
+              })}
+      </Button>
     </div>
   );
 }

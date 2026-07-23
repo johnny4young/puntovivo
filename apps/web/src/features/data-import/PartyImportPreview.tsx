@@ -1,11 +1,10 @@
 import { AlertTriangle, CheckCircle2, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { cn } from '@/lib/utils';
 import { ImportCommitGuard } from './ImportCommitGuard';
 import type { PartyImportEntity } from './partyImportMapping';
 import type { LaunchImportDataMode, PartyImportIssue, PartyImportPreview } from './types';
-
+import { Button } from '@/components/ui';
 interface PartyImportPreviewProps {
   completed: boolean;
   confirmedRealData: boolean;
@@ -17,21 +16,17 @@ interface PartyImportPreviewProps {
   onImport: () => void;
   preview: PartyImportPreview;
 }
-
 const STATUS_STYLE = {
   ready: 'bg-success-50 text-success-800 border-success-200',
   duplicate: 'bg-warning-50 text-warning-800 border-warning-200',
   invalid: 'bg-danger-50 text-danger-800 border-danger-200',
 } as const;
-
 function identityFor(row: PartyImportPreview['rows'][number]): string | null {
   return row.normalized.taxId ?? row.normalized.email;
 }
-
 function issueKey(issue: PartyImportIssue): string {
   return `party.issues.${issue.code}`;
 }
-
 export function PartyImportPreviewPanel({
   completed,
   confirmedRealData,
@@ -45,7 +40,6 @@ export function PartyImportPreviewPanel({
 }: PartyImportPreviewProps) {
   const { t } = useTranslation('dataImport');
   const hasIssues = preview.summary.duplicates + preview.summary.invalid > 0;
-
   return (
     <section className="card space-y-5 p-6" aria-labelledby="data-import-preview-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -65,9 +59,9 @@ export function PartyImportPreviewPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           {hasIssues ? (
-            <button type="button" className="pv-btn outline" onClick={onDownloadIssues}>
+            <Button type="button" onClick={onDownloadIssues} variant="outline">
               {t('actions.downloadIssues')}
-            </button>
+            </Button>
           ) : null}
           <ImportCommitGuard
             completed={completed}
@@ -147,7 +141,9 @@ export function PartyImportPreviewPanel({
       </div>
       {preview.rows.length > 100 ? (
         <p className="text-xs text-secondary-500">
-          {t('table.previewLimit', { count: preview.rows.length })}
+          {t('table.previewLimit', {
+            count: preview.rows.length,
+          })}
         </p>
       ) : null}
     </section>

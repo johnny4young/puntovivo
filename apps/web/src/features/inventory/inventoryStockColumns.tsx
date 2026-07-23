@@ -17,7 +17,7 @@ import i18next from 'i18next';
 import { Eye, Package, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { InventoryStockItem } from '@/types';
-
+import { Badge } from '@/components/ui';
 export function getStockColumns(
   onViewDetails: (product: InventoryStockItem) => void,
   onAdjust: (product: InventoryStockItem) => void,
@@ -52,7 +52,10 @@ export function getStockColumns(
       // barra de nivel proporcional (.pv-stock); `low` la
       // pinta en danger. Llena al 50% cuando stock == mínimo y crece hacia
       // 100% (2x mínimo), con piso visible para que siempre se lea.
-      meta: { cellClassName: 'num', headerClassName: 'num' },
+      meta: {
+        cellClassName: 'num',
+        headerClassName: 'num',
+      },
       cell: ({ row }) => {
         const { stock, minStock, isLowStock } = row.original;
         const fill =
@@ -68,7 +71,11 @@ export function getStockColumns(
           >
             <span>{stock.toLocaleString()}</span>
             <span className="bar">
-              <i style={{ width: `${fill}%` }} />
+              <i
+                style={{
+                  width: `${fill}%`,
+                }}
+              />
             </span>
           </span>
         );
@@ -81,11 +88,11 @@ export function getStockColumns(
       header: () => i18next.t('inventory:stock.columns.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={cn('pv-badge', row.original.isLowStock ? 'danger' : 'success')}>
+        <Badge variant={row.original.isLowStock ? 'danger' : 'success'}>
           {row.original.isLowStock
             ? i18next.t('inventory:stock.status.lowStock')
             : i18next.t('inventory:stock.status.healthy')}
-        </span>
+        </Badge>
       ),
     },
     {

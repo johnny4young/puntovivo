@@ -1,20 +1,22 @@
 import { useState } from 'react';
 import { Search, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
-
+import { Button } from '@/components/ui';
 export function SerialWarrantyLookup() {
   const { t } = useTranslation(['inventory', 'errors']);
   const [draft, setDraft] = useState('');
   const [serialNumber, setSerialNumber] = useState('');
   const lookup = trpc.productSerials.lookup.useQuery(
-    { serialNumber: serialNumber || '__idle__' },
-    { enabled: serialNumber.length > 0 }
+    {
+      serialNumber: serialNumber || '__idle__',
+    },
+    {
+      enabled: serialNumber.length > 0,
+    }
   );
   const items = lookup.data?.items ?? [];
-
   return (
     <section className="card p-5" aria-labelledby="serial-warranty-title">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -46,10 +48,10 @@ export function SerialWarrantyLookup() {
             onChange={event => setDraft(event.target.value)}
             placeholder={t('serialLookup.placeholder')}
           />
-          <button className="pv-btn primary min-h-11" type="submit" disabled={!draft.trim()}>
+          <Button className="min-h-11" type="submit" disabled={!draft.trim()} variant="primary">
             <Search className="h-4 w-4" aria-hidden="true" />
             {t('serialLookup.search')}
-          </button>
+          </Button>
         </form>
       </div>
 
@@ -59,13 +61,18 @@ export function SerialWarrantyLookup() {
         </p>
       )}
       {serialNumber && lookup.error && (
-        <p className="mt-4 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700" role="alert">
+        <p
+          className="mt-4 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700"
+          role="alert"
+        >
           {translateServerError(lookup.error, t, t('errors:server.unknown'))}
         </p>
       )}
       {serialNumber && !lookup.isLoading && !lookup.error && items.length === 0 && (
         <p className="mt-4 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-secondary-600">
-          {t('serialLookup.notFound', { serial: serialNumber })}
+          {t('serialLookup.notFound', {
+            serial: serialNumber,
+          })}
         </p>
       )}
       {items.map(item => {
@@ -76,7 +83,6 @@ export function SerialWarrantyLookup() {
           .at(-1);
         const saleNumber = item.saleNumber ?? latestSale?.saleNumber;
         const customerName = item.customerName ?? latestSale?.customerName;
-
         return (
           <dl
             key={item.id}

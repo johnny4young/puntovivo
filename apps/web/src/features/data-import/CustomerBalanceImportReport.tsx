@@ -1,13 +1,11 @@
 import { CheckCircle2, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import type { CustomerBalanceImportReport } from './types';
-
+import { Button } from '@/components/ui';
 interface CustomerBalanceImportReportProps {
   onDownloadReport: () => void;
   report: CustomerBalanceImportReport;
 }
-
 export function CustomerBalanceImportReportPanel({
   onDownloadReport,
   report,
@@ -35,7 +33,9 @@ export function CustomerBalanceImportReportPanel({
               {t('report.title')}
             </h2>
             <p className="mt-1 text-sm text-secondary-600">
-              {t('customerBalances.reportDescription', { count: report.summary.imported })}
+              {t('customerBalances.reportDescription', {
+                count: report.summary.imported,
+              })}
             </p>
             <p className="mt-2 text-xs text-secondary-500">
               {t('report.importId')}{' '}
@@ -43,10 +43,10 @@ export function CustomerBalanceImportReportPanel({
             </p>
           </div>
         </div>
-        <button type="button" className="pv-btn outline" onClick={onDownloadReport}>
+        <Button type="button" onClick={onDownloadReport} variant="outline">
           <Download className="h-4 w-4" aria-hidden="true" />
           {t('actions.downloadReport')}
-        </button>
+        </Button>
       </div>
       <dl className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {(['imported', 'skipped', 'invalid', 'failed', 'warnings'] as const).map(key => (

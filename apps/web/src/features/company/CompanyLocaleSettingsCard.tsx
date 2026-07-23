@@ -23,15 +23,13 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { extractServerErrorCode } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-
+import { Button } from '@/components/ui';
 const EMPTY_COUNTRIES: readonly never[] = [];
 const EMPTY_CURRENCIES: readonly never[] = [];
-
 export function CompanyLocaleSettingsCard() {
   const { t, i18n } = useTranslation(['localeSettings', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
-
   const currentQuery = trpc.tenantLocale.get.useQuery();
   const countriesQuery = trpc.tenantLocale.listCountries.useQuery();
   const currenciesQuery = trpc.tenantLocale.listCurrencies.useQuery();
@@ -43,7 +41,6 @@ export function CompanyLocaleSettingsCard() {
   const [localeOverride, setLocaleOverride] = useState<string | null>(null);
   const [timezoneOverride, setTimezoneOverride] = useState<string | null>(null);
   const [firstDayOverride, setFirstDayOverride] = useState<string | null>(null);
-
   const mutation = trpc.tenantLocale.update.useMutation({
     onSuccess: async (_data, variables) => {
       await Promise.all([
@@ -70,11 +67,9 @@ export function CompanyLocaleSettingsCard() {
       },
     }),
   });
-
   const countries = countriesQuery.data ?? EMPTY_COUNTRIES;
   const currencies = currenciesQuery.data ?? EMPTY_CURRENCIES;
   const current = currentQuery.data;
-
   const effectiveCountryCode = pickedCountry ?? current?.countryCode ?? null;
   const effectiveCurrencyOverride = currencyOverride ?? current?.currencyOverride ?? '';
   const effectiveLocaleOverride = localeOverride ?? current?.localeOverride ?? '';
@@ -115,7 +110,6 @@ export function CompanyLocaleSettingsCard() {
       dateFormatShort: countryRow.dateFormatShort,
     };
   }, [countryRow, currencies, effectiveCurrencyOverride, effectiveLocaleOverride]);
-
   const previewCurrency = useMemo(() => {
     try {
       return new Intl.NumberFormat(previewLocale.locale, {
@@ -128,7 +122,6 @@ export function CompanyLocaleSettingsCard() {
       return '—';
     }
   }, [previewLocale]);
-
   const previewDate = useMemo(() => {
     try {
       return new Intl.DateTimeFormat(previewLocale.locale, {
@@ -138,7 +131,6 @@ export function CompanyLocaleSettingsCard() {
       return '—';
     }
   }, [previewLocale]);
-
   const handleSave = () => {
     if (!effectiveCountryCode) return;
     mutation.mutate({
@@ -158,9 +150,7 @@ export function CompanyLocaleSettingsCard() {
         effectiveFirstDayOverride === '0' ? 0 : effectiveFirstDayOverride === '1' ? 1 : null,
     });
   };
-
   const saveDisabled = mutation.isPending || !effectiveCountryCode || currentQuery.isLoading;
-
   return (
     <section className="card p-6 space-y-6" data-testid="company-locale-card">
       <div className="flex items-start gap-3">
@@ -328,17 +318,18 @@ export function CompanyLocaleSettingsCard() {
       </div>
 
       <div>
-        <button
+        <Button
           type="button"
-          className="pv-btn primary disabled:cursor-not-allowed disabled:opacity-45"
+          className="disabled:cursor-not-allowed disabled:opacity-45"
           onClick={handleSave}
           disabled={saveDisabled}
           data-testid="locale-save"
+          variant="primary"
         >
           {mutation.isPending
             ? t('localeSettings:card.savingAction')
             : t('localeSettings:card.saveAction')}
-        </button>
+        </Button>
       </div>
     </section>
   );

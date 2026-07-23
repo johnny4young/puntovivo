@@ -13,6 +13,7 @@ import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { UseFormReturn } from 'react-hook-form';
 
+import { Button } from '@/components/ui';
 import { formatCurrency } from '@/lib/utils';
 import type { PaymentMethod } from '@/types';
 import { QuickDenominationSelector } from './QuickDenominationSelector';
@@ -55,8 +56,8 @@ export function SalePaymentSingleTenderSection({
           </span>
           {/*
             Rediseño §06 — método de pago como tiles de 2 columnas.
-            Cada tile es un .pv-btn.tile (64px, columna, ícono +
-            etiqueta); el método activo añade .on. El <select>
+            Cada tile es un Button outline con la receta .tile (64px,
+            columna, ícono + etiqueta); el método activo añade .on. El <select>
             registrado vive oculto y sigue siendo la fuente de verdad
             del formulario: las tiles solo llaman a
             form.setValue('paymentMethod', …). Las tiles forman el
@@ -79,10 +80,11 @@ export function SalePaymentSingleTenderSection({
               const TileIcon = tile.icon;
               const isActive = paymentMethod === tile.method;
               return (
-                <button
+                <Button
                   key={tile.method}
                   type="button"
-                  className={`pv-btn outline tile${isActive ? ' on' : ''}`}
+                  variant="outline"
+                  className={`tile${isActive ? ' on' : ''}`}
                   aria-pressed={isActive}
                   onClick={() =>
                     form.setValue('paymentMethod', tile.method, {
@@ -93,7 +95,7 @@ export function SalePaymentSingleTenderSection({
                 >
                   <TileIcon aria-hidden="true" />
                   <span style={{ fontSize: 12 }}>{t(tile.labelKey)}</span>
-                </button>
+                </Button>
               );
             })}
           </div>

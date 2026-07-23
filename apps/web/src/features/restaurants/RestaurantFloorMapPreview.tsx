@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Table2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
+import { Badge } from '@/components/ui';
 interface MesaPreview {
   id: string;
   name: string;
@@ -10,7 +10,6 @@ interface MesaPreview {
   area: string | null;
   isActive: boolean;
 }
-
 interface RestaurantFloorMapPreviewProps {
   tables: readonly MesaPreview[];
   /**
@@ -46,18 +45,20 @@ export function RestaurantFloorMapPreview({
   const grouped = useMemo(() => {
     const map = new Map<string, MesaPreview[]>();
     for (const mesa of tables) {
-      const key = mesa.area ?? t('floorMap.noAreaLabel', { defaultValue: 'Sin zona' });
+      const key =
+        mesa.area ??
+        t('floorMap.noAreaLabel', {
+          defaultValue: 'Sin zona',
+        });
       const list = map.get(key);
       if (list) list.push(mesa);
       else map.set(key, [mesa]);
     }
     return [...map.entries()];
   }, [tables, t]);
-
   if (tables.length === 0) {
     return null;
   }
-
   return (
     <section
       data-testid="restaurant-floor-map-preview"
@@ -73,9 +74,15 @@ export function RestaurantFloorMapPreview({
       />
       <header className="relative flex items-end justify-between gap-3">
         <div>
-          <p className="page-kicker">{t('floorMap.kicker', { defaultValue: 'Salón' })}</p>
+          <p className="page-kicker">
+            {t('floorMap.kicker', {
+              defaultValue: 'Salón',
+            })}
+          </p>
           <h2 className="mt-1 text-2xl font-bold tracking-[-0.02em] text-secondary-950">
-            {t('floorMap.title', { defaultValue: 'Mapa del salón' })}
+            {t('floorMap.title', {
+              defaultValue: 'Mapa del salón',
+            })}
           </h2>
         </div>
         <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
@@ -111,13 +118,15 @@ export function RestaurantFloorMapPreview({
                       <span className="glyph-tile glyph-tile-primary h-9 w-9">
                         <Table2 className="h-4 w-4" aria-hidden="true" />
                       </span>
-                      <span
-                        className={cn('badge', mesa.isActive ? 'badge-success' : 'badge-secondary')}
-                      >
+                      <Badge variant={mesa.isActive ? 'success' : 'neutral'}>
                         {mesa.isActive
-                          ? t('floorMap.status.free', { defaultValue: 'Libre' })
-                          : t('floorMap.status.archived', { defaultValue: 'Archivada' })}
-                      </span>
+                          ? t('floorMap.status.free', {
+                              defaultValue: 'Libre',
+                            })
+                          : t('floorMap.status.archived', {
+                              defaultValue: 'Archivada',
+                            })}
+                      </Badge>
                     </div>
                     <p className="mt-3 text-lg font-semibold tracking-[-0.01em] text-secondary-950">
                       {mesa.name}
@@ -128,7 +137,9 @@ export function RestaurantFloorMapPreview({
                             defaultValue: 'Cupo · {{count}} pers.',
                             count: mesa.seatCount,
                           })
-                        : t('floorMap.seatCountUnknown', { defaultValue: 'Cupo sin definir' })}
+                        : t('floorMap.seatCountUnknown', {
+                            defaultValue: 'Cupo sin definir',
+                          })}
                     </p>
                   </button>
                 );

@@ -6,7 +6,7 @@
  * module is off so a normal dashboard load does not 403.
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen } from '@/test/utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { useAuthMock, useIsModuleActiveMock } = vi.hoisted(() => ({

@@ -16,7 +16,6 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, Loader2, Pencil } from 'lucide-react';
 import { Drawer } from '@/components/feedback/Drawer';
-import { cn } from '@/lib/utils';
 import { CustomerLoyaltyPanel } from '@/features/customers/CustomerLoyaltyPanel';
 import { resolveCatalogLabel } from '@/features/customers/catalogLabel';
 import type { Customer, CustomerCatalogItem } from '@/types';
@@ -25,6 +24,7 @@ import type { Customer, CustomerCatalogItem } from '@/types';
  * Props for {@link CustomerDetailsDrawer}. The Drawer is open exactly when
  * `customer` is non-null (the parent owns the open/close state).
  */
+import { Badge } from '@/components/ui';
 export interface CustomerDetailsDrawerProps {
   /** The customer to detail. `null` keeps the Drawer closed. */
   customer: Customer | null;
@@ -80,7 +80,6 @@ function formatIdentification(
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(' ') : '-';
 }
-
 export function CustomerDetailsDrawer({
   customer,
   identificationTypes = [],
@@ -91,7 +90,6 @@ export function CustomerDetailsDrawer({
   isExporting = false,
 }: CustomerDetailsDrawerProps) {
   const { t } = useTranslation('customers');
-
   const footer = customer ? (
     <div className="flex w-full flex-wrap justify-end gap-2">
       {onExportData && (
@@ -124,7 +122,6 @@ export function CustomerDetailsDrawer({
       )}
     </div>
   ) : undefined;
-
   return (
     <Drawer
       isOpen={!!customer}
@@ -150,9 +147,9 @@ export function CustomerDetailsDrawer({
           <DetailField
             label={t('table.status')}
             value={
-              <span className={cn('pv-badge', customer.isActive ? 'success' : 'neutral')}>
+              <Badge variant={customer.isActive ? 'success' : 'neutral'}>
                 {customer.isActive ? t('table.active') : t('table.inactive')}
-              </span>
+              </Badge>
             }
           />
         </dl>

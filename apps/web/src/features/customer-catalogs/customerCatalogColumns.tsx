@@ -2,7 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Tag, Trash2 } from 'lucide-react';
 import i18next from 'i18next';
 import type { CustomerCatalogItem } from '@/types';
-
+import { Badge } from '@/components/ui';
 export function buildCustomerCatalogColumns(
   onEdit: (item: CustomerCatalogItem) => void,
   onDelete: (item: CustomerCatalogItem) => void
@@ -37,11 +37,11 @@ export function buildCustomerCatalogColumns(
       header: () => i18next.t('customers:table.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {row.original.isActive
             ? i18next.t('customers:table.active')
             : i18next.t('customers:table.inactive')}
-        </span>
+        </Badge>
       ),
     },
     {

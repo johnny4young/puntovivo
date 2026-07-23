@@ -127,6 +127,51 @@ test('evaluateScope keeps shared button token pairs on the 4.5:1 floor', () => {
   );
 });
 
+test('evaluateScope enforces Operator Deck semantic control contrast', () => {
+  const declarations = {
+    'operator-positive-control': 'oklch(0.43 0.075 154)',
+    'operator-critical-control': 'oklch(0.45 0.1 24)',
+    'operator-semantic-control-foreground': 'oklch(0.98 0.004 225)',
+  };
+  const result = evaluateScope({ selector: ':root', declarations });
+
+  for (const pair of [
+    'operator-positive-control / operator-semantic-control-foreground',
+    'operator-critical-control / operator-semantic-control-foreground',
+  ]) {
+    const row = [...result.regressions, ...result.ok].find(candidate => candidate.pair === pair);
+    assert.ok(row, `expected ${pair} to be evaluated`);
+    assert.equal(row.floor, WCAG_AA_RATIO);
+    assert.ok(row.ratio >= WCAG_AA_RATIO, `expected ${pair} to clear AA`);
+  }
+});
+
+test('evaluateScope enforces Operator Deck operational strip contrast', () => {
+  const declarations = {
+    'operator-info-surface': 'oklch(0.955 0.014 244)',
+    'operator-info-ink': 'oklch(0.35 0.075 244)',
+    'operator-positive-surface': 'oklch(0.955 0.018 154)',
+    'operator-positive-ink': 'oklch(0.34 0.07 154)',
+    'operator-warning-surface': 'oklch(0.965 0.025 78)',
+    'operator-warning-ink': 'oklch(0.39 0.085 72)',
+    'operator-critical-surface': 'oklch(0.96 0.018 24)',
+    'operator-critical-ink': 'oklch(0.39 0.085 24)',
+  };
+  const result = evaluateScope({ selector: ':root', declarations });
+
+  for (const pair of [
+    'operator-info-surface / operator-info-ink',
+    'operator-positive-surface / operator-positive-ink',
+    'operator-warning-surface / operator-warning-ink',
+    'operator-critical-surface / operator-critical-ink',
+  ]) {
+    const row = [...result.regressions, ...result.ok].find(candidate => candidate.pair === pair);
+    assert.ok(row, `expected ${pair} to be evaluated`);
+    assert.equal(row.floor, WCAG_AA_RATIO);
+    assert.ok(row.ratio >= WCAG_AA_RATIO, `expected ${pair} to clear AA`);
+  }
+});
+
 test('evaluateScope keeps the badge-warning pair on the 4.5:1 floor', () => {
   // : warning-50 / warning-700 at ~4.27:1 must fail because
   // `.badge-warning` ships uppercase tracking-wide labels that

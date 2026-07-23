@@ -1,13 +1,11 @@
 import { CheckCircle2, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import type { ProductImportReport } from './types';
-
+import { Button } from '@/components/ui';
 interface ProductImportReportProps {
   report: ProductImportReport;
   onDownloadReport: () => void;
 }
-
 export function ProductImportReportPanel({ report, onDownloadReport }: ProductImportReportProps) {
   const { t } = useTranslation('dataImport');
   return (
@@ -43,10 +41,10 @@ export function ProductImportReportPanel({ report, onDownloadReport }: ProductIm
             </p>
           </div>
         </div>
-        <button type="button" className="pv-btn outline" onClick={onDownloadReport}>
+        <Button type="button" onClick={onDownloadReport} variant="outline">
           <Download className="h-4 w-4" aria-hidden="true" />
           {t('actions.downloadReport')}
-        </button>
+        </Button>
       </div>
       <dl className="mt-5 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {(

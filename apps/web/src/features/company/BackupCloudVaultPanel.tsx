@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { Badge, Button } from '@/components/ui';
 import { formatDateTime } from '@/lib/utils';
 import type { BackupCloudVaultErrorCode, BackupCloudVaultStatus } from '@/types/electron';
 import {
@@ -10,13 +11,10 @@ import {
   EMPTY_CLOUD_VAULT_FORM,
   type CloudVaultForm,
 } from './backupCloudVaultForm';
-
 type CloudVaultAction = 'load' | 'save' | 'test' | 'disconnect' | null;
-
 interface BackupCloudVaultPanelProps {
   refreshKey?: number;
 }
-
 export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelProps = {}) {
   const { t } = useTranslation('backupProtection');
   const toast = useToast();
@@ -34,7 +32,6 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
   const [action, setAction] = useState<CloudVaultAction>(supported ? 'load' : null);
   const [error, setError] = useState<string | null>(null);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
-
   const errorMessage = useCallback(
     (code: BackupCloudVaultErrorCode | undefined, fallback: string) => {
       if (code === 'configuration_invalid') return t('cloud.errors.configurationInvalid');
@@ -51,7 +48,6 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
     editingRef.current = next;
     setEditing(next);
   }, []);
-
   useEffect(() => {
     let cancelled = false;
     if (!electron?.getBackupCloudVaultStatus) return;
@@ -81,15 +77,16 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
       cancelled = true;
     };
   }, [electron, errorMessage, refreshKey, t, updateEditing]);
-
   const updateField = <Key extends keyof CloudVaultForm>(
     field: Key,
     value: CloudVaultForm[Key]
   ) => {
-    setForm(current => ({ ...current, [field]: value }));
+    setForm(current => ({
+      ...current,
+      [field]: value,
+    }));
     setError(null);
   };
-
   const handleSaveAndTest = async () => {
     if (!electron?.configureBackupCloudVault || !electron.testBackupCloudVault) return;
     setAction('save');
@@ -113,7 +110,6 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
       // probe fails. Return to the redacted state so it can be retried safely.
       updateEditing(false);
       setAction('test');
-
       const tested = await electron.testBackupCloudVault();
       if (!tested.success || !tested.status) {
         if (tested.status) setStatus(tested.status);
@@ -122,7 +118,9 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
       setStatus(tested.status);
       setForm(cloudVaultFormFromStatus(tested.status));
       updateEditing(false);
-      toast.success({ title: t('cloud.toast.connected') });
+      toast.success({
+        title: t('cloud.toast.connected'),
+      });
     } catch (cause) {
       const code =
         cause instanceof Error ? (cause.message as BackupCloudVaultErrorCode) : undefined;
@@ -131,7 +129,6 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
       setAction(null);
     }
   };
-
   const handleTest = async () => {
     if (!electron?.testBackupCloudVault) return;
     setAction('test');
@@ -142,7 +139,9 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
       if (!result.success || !result.status) {
         throw new Error(result.error ?? 'connection_failed');
       }
-      toast.success({ title: t('cloud.toast.testPassed') });
+      toast.success({
+        title: t('cloud.toast.testPassed'),
+      });
     } catch (cause) {
       const code =
         cause instanceof Error ? (cause.message as BackupCloudVaultErrorCode) : undefined;
@@ -151,7 +150,6 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
       setAction(null);
     }
   };
-
   const handleDisconnect = async () => {
     if (!electron?.disconnectBackupCloudVault) return;
     setDisconnectOpen(false);
@@ -165,7 +163,9 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
       setStatus(result.status);
       setForm(EMPTY_CLOUD_VAULT_FORM);
       updateEditing(true);
-      toast.success({ title: t('cloud.toast.disconnected') });
+      toast.success({
+        title: t('cloud.toast.disconnected'),
+      });
     } catch (cause) {
       const code =
         cause instanceof Error ? (cause.message as BackupCloudVaultErrorCode) : undefined;
@@ -174,7 +174,6 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
       setAction(null);
     }
   };
-
   const busy = action !== null;
   const formComplete = Boolean(
     form.endpoint.trim() &&
@@ -184,7 +183,6 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
     form.accessKeyId.trim() &&
     form.secretAccessKey
   );
-
   return (
     <section
       className="rounded-2xl border border-line bg-surface-1 p-4 sm:p-5"
@@ -201,9 +199,9 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
           </div>
         </div>
         {status?.configured && (
-          <span className="pv-badge success" data-testid="backup-cloud-connected-badge">
+          <Badge variant="success" marker="dot" data-testid="backup-cloud-connected-badge">
             {t('cloud.connected')}
-          </span>
+          </Badge>
         )}
       </div>
 
@@ -269,36 +267,37 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
               )}
 
               <div className="flex flex-wrap gap-2">
-                <button
+                <Button
                   type="button"
-                  className="pv-btn primary"
                   onClick={() => void handleTest()}
                   disabled={busy || !status.secureStorageAvailable}
                   aria-describedby={
                     status.secureStorageAvailable ? undefined : 'backup-cloud-secure-storage-alert'
                   }
+                  variant="primary"
                 >
                   <PlugZap aria-hidden="true" />
                   {action === 'test' ? t('cloud.testing') : t('cloud.test')}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="pv-btn outline"
                   onClick={() => updateEditing(true)}
                   disabled={busy}
+                  variant="outline"
                 >
                   <CloudCog aria-hidden="true" />
                   {t('cloud.replace')}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="pv-btn ghost text-danger-600"
+                  className="text-danger-600"
                   onClick={() => setDisconnectOpen(true)}
                   disabled={busy}
+                  variant="ghost"
                 >
                   <Unplug aria-hidden="true" />
                   {t('cloud.disconnect')}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -419,32 +418,32 @@ export function BackupCloudVaultPanel({ refreshKey = 0 }: BackupCloudVaultPanelP
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <button
+                <Button
                   type="submit"
-                  className="pv-btn primary"
                   disabled={busy || !formComplete || !status.secureStorageAvailable}
                   aria-describedby={
                     status.secureStorageAvailable ? undefined : 'backup-cloud-secure-storage-alert'
                   }
+                  variant="primary"
                 >
                   <Save aria-hidden="true" />
                   {action === 'save' || action === 'test'
                     ? t('cloud.saving')
                     : t('cloud.saveAndTest')}
-                </button>
+                </Button>
                 {status.configured && (
-                  <button
+                  <Button
                     type="button"
-                    className="pv-btn outline"
                     onClick={() => {
                       setForm(cloudVaultFormFromStatus(status));
                       updateEditing(false);
                       setError(null);
                     }}
                     disabled={busy}
+                    variant="outline"
                   >
                     {t('cloud.cancel')}
-                  </button>
+                  </Button>
                 )}
               </div>
             </form>

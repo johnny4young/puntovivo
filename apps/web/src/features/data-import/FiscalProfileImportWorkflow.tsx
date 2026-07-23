@@ -1,7 +1,6 @@
 import { FileSpreadsheet, LoaderCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
@@ -27,12 +26,11 @@ import type {
   FiscalProfileImportRowsInput,
   LaunchImportDataMode,
 } from './types';
-
+import { Button } from '@/components/ui';
 interface FiscalProfileImportWorkflowProps {
   dataMode: LaunchImportDataMode;
   onBusyChange?: (busy: boolean) => void;
 }
-
 interface FiscalProfileIssueExportRow {
   countryCode: string;
   environment: string;
@@ -42,7 +40,6 @@ interface FiscalProfileIssueExportRow {
   status: string;
   taxIdentifier: string;
 }
-
 export function FiscalProfileImportWorkflow({
   dataMode,
   onBusyChange,
@@ -58,7 +55,6 @@ export function FiscalProfileImportWorkflow({
   const [isParsing, setIsParsing] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [confirmedRealData, setConfirmedRealData] = useState(false);
-
   const mappedRows = useMemo(
     () => (file && mapping ? mapFiscalProfileImportRows(file, mapping) : []),
     [file, mapping]
@@ -68,7 +64,9 @@ export function FiscalProfileImportWorkflow({
       setPreview(result);
       setReport(null);
     },
-    onError: onErrorToast(toast, t, { titleKey: 'dataImport:toast.previewError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'dataImport:toast.previewError',
+    }),
   });
   const importMutation = trpc.launchMigration.importFiscalProfiles.useMutation({
     onSuccess: async result => {
@@ -84,15 +82,15 @@ export function FiscalProfileImportWorkflow({
         }),
       });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'dataImport:toast.importError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'dataImport:toast.importError',
+    }),
   });
   const isBusy = isParsing || previewMutation.isPending || importMutation.isPending;
-
   useEffect(() => {
     onBusyChange?.(isBusy);
     return () => onBusyChange?.(false);
   }, [isBusy, onBusyChange]);
-
   const invalidatePreview = () => {
     setPreview(null);
     setReport(null);
@@ -100,7 +98,6 @@ export function FiscalProfileImportWorkflow({
     previewMutation.reset();
     importMutation.reset();
   };
-
   const handleFile = async (selected: File) => {
     if (isBusy) return;
     setIsParsing(true);
@@ -120,7 +117,6 @@ export function FiscalProfileImportWorkflow({
       setIsParsing(false);
     }
   };
-
   const handlePreview = () => {
     if (!file || !mapping || !hasRequiredFiscalProfileMapping(mapping)) return;
     previewMutation.mutate({
@@ -129,7 +125,6 @@ export function FiscalProfileImportWorkflow({
       rows: mappedRows as FiscalProfileImportRowsInput,
     });
   };
-
   const handleImport = () => {
     if (!file || !preview || dataMode !== 'real' || !confirmedRealData) return;
     importMutation.mutate({
@@ -140,17 +135,36 @@ export function FiscalProfileImportWorkflow({
       previewHash: preview.previewHash,
     });
   };
-
   const exportColumns = <T extends FiscalProfileIssueExportRow>(): ExportColumn<T>[] => [
-    { key: 'row', header: t('dataImport:table.row') },
-    { key: 'status', header: t('dataImport:table.status') },
-    { key: 'countryCode', header: t('dataImport:fiscalProfiles.fields.countryCode') },
-    { key: 'taxIdentifier', header: t('dataImport:fiscalProfiles.fields.taxIdentifier') },
-    { key: 'environment', header: t('dataImport:fiscalProfiles.fields.environment') },
-    { key: 'field', header: t('dataImport:table.field') },
-    { key: 'issue', header: t('dataImport:table.issues') },
+    {
+      key: 'row',
+      header: t('dataImport:table.row'),
+    },
+    {
+      key: 'status',
+      header: t('dataImport:table.status'),
+    },
+    {
+      key: 'countryCode',
+      header: t('dataImport:fiscalProfiles.fields.countryCode'),
+    },
+    {
+      key: 'taxIdentifier',
+      header: t('dataImport:fiscalProfiles.fields.taxIdentifier'),
+    },
+    {
+      key: 'environment',
+      header: t('dataImport:fiscalProfiles.fields.environment'),
+    },
+    {
+      key: 'field',
+      header: t('dataImport:table.field'),
+    },
+    {
+      key: 'issue',
+      header: t('dataImport:table.issues'),
+    },
   ];
-
   const buildIssueRows = (): FiscalProfileIssueExportRow[] => {
     if (!preview) return [];
     if (report) {
@@ -178,13 +192,11 @@ export function FiscalProfileImportWorkflow({
       }))
     );
   };
-
   const handleDownloadIssues = () => {
     exportToCSV(buildIssueRows(), exportColumns(), 'puntovivo-fiscal-profile-import-issues', {
       includeTimestamp: true,
     });
   };
-
   const handleDownloadReport = () => {
     if (!preview || !report) return;
     const rows: FiscalProfileIssueExportRow[] = buildFiscalProfileImportReportRows(
@@ -203,16 +215,17 @@ export function FiscalProfileImportWorkflow({
       includeTimestamp: true,
     });
   };
-
   const handleDownloadTemplate = () => {
     const columns: ExportColumn<Record<string, string>>[] = FISCAL_PROFILE_IMPORT_FIELDS.map(
-      key => ({ key, header: t(`dataImport:fiscalProfiles.fields.${key}`) })
+      key => ({
+        key,
+        header: t(`dataImport:fiscalProfiles.fields.${key}`),
+      })
     );
     exportToCSV([FISCAL_PROFILE_IMPORT_TEMPLATE], columns, 'puntovivo-fiscal-profile-template', {
       includeTimestamp: false,
     });
   };
-
   const handleReset = () => {
     if (isBusy) return;
     setFile(null);
@@ -221,16 +234,14 @@ export function FiscalProfileImportWorkflow({
     invalidatePreview();
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
-
   const canPreview = Boolean(file && mapping && hasRequiredFiscalProfileMapping(mapping));
-
   return (
     <div className="space-y-6" data-testid="data-import-fiscalProfiles-workflow">
       <div className="flex justify-end">
-        <button type="button" className="pv-btn outline" onClick={handleDownloadTemplate}>
+        <Button type="button" onClick={handleDownloadTemplate} variant="outline">
           <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
           {t('dataImport:actions.downloadTemplate')}
-        </button>
+        </Button>
       </div>
 
       <ImportSourcePanel
@@ -250,22 +261,29 @@ export function FiscalProfileImportWorkflow({
             headers={file.headers}
             mapping={mapping}
             onMappingChange={(field: FiscalProfileImportField, source: string) => {
-              setMapping(current => (current ? { ...current, [field]: source } : current));
+              setMapping(current =>
+                current
+                  ? {
+                      ...current,
+                      [field]: source,
+                    }
+                  : current
+              );
               invalidatePreview();
             }}
           />
           <div className="flex justify-end">
-            <button
+            <Button
               type="button"
-              className="pv-btn primary"
               disabled={!canPreview || isBusy}
               onClick={handlePreview}
+              variant="primary"
             >
               {previewMutation.isPending ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
               {t('dataImport:actions.preview')}
-            </button>
+            </Button>
           </div>
         </>
       ) : null}

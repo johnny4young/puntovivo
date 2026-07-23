@@ -15,13 +15,14 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SlidersHorizontal } from 'lucide-react';
 import { Drawer } from '@/components/feedback/Drawer';
-import { cn, formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { InventoryStockItem } from '@/types';
 
 /**
  * Props for {@link InventoryStockDetailsDrawer}. The Drawer is open exactly
  * when `item` is non-null (the parent owns the open/close state).
  */
+import { Badge } from '@/components/ui';
 export interface InventoryStockDetailsDrawerProps {
   /** The stock row to detail. `null` keeps the Drawer closed. */
   item: InventoryStockItem | null;
@@ -43,14 +44,12 @@ function DetailField({ label, value }: { label: string; value: ReactNode }) {
     </div>
   );
 }
-
 export function InventoryStockDetailsDrawer({
   item,
   onClose,
   onAdjust,
 }: InventoryStockDetailsDrawerProps) {
   const { t } = useTranslation('inventory');
-
   const footer = item ? (
     <div className="flex justify-end gap-2">
       <button type="button" className="btn-outline" onClick={onClose}>
@@ -68,7 +67,6 @@ export function InventoryStockDetailsDrawer({
       )}
     </div>
   ) : undefined;
-
   return (
     <Drawer
       isOpen={!!item}
@@ -93,9 +91,9 @@ export function InventoryStockDetailsDrawer({
           <DetailField
             label={t('stock.columns.status')}
             value={
-              <span className={cn('pv-badge', item.isLowStock ? 'danger' : 'success')}>
+              <Badge variant={item.isLowStock ? 'danger' : 'success'}>
                 {item.isLowStock ? t('stock.status.lowStock') : t('stock.status.healthy')}
-              </span>
+              </Badge>
             }
           />
         </dl>

@@ -1,24 +1,26 @@
 import { Database, FlaskConical, History, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-
 import { cn } from '@/lib/utils';
 import type { LaunchImportDataMode } from './types';
-
+import { buttonVariants } from '@/components/ui';
 interface ImportModePanelProps {
   disabled: boolean;
   onSelect: (mode: LaunchImportDataMode) => void;
   selected: LaunchImportDataMode | null;
 }
-
 const MODES = [
-  { key: 'demo', Icon: FlaskConical },
-  { key: 'real', Icon: Database },
+  {
+    key: 'demo',
+    Icon: FlaskConical,
+  },
+  {
+    key: 'real',
+    Icon: Database,
+  },
 ] as const;
-
 export function ImportModePanel({ disabled, onSelect, selected }: ImportModePanelProps) {
   const { t } = useTranslation('dataImport');
-
   return (
     <section className="card space-y-4 p-6" aria-labelledby="data-import-mode-title">
       <div>
@@ -112,10 +114,26 @@ export function ImportModePanel({ disabled, onSelect, selected }: ImportModePane
                 {t('safety.rollback.scopeWarning')}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link className="pv-btn outline bg-white" to="/company">
+                <Link
+                  className={cn(
+                    buttonVariants({
+                      variant: 'outline',
+                    }),
+                    'bg-white'
+                  )}
+                  to="/company"
+                >
                   {t('safety.rollback.openBackup')}
                 </Link>
-                <Link className="pv-btn outline bg-white" to="/audit-logs">
+                <Link
+                  className={cn(
+                    buttonVariants({
+                      variant: 'outline',
+                    }),
+                    'bg-white'
+                  )}
+                  to="/audit-logs"
+                >
                   {t('safety.rollback.openAudit')}
                 </Link>
               </div>

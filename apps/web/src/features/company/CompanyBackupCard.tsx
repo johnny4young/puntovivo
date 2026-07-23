@@ -10,29 +10,24 @@ import { BackupProtectionPanel } from './BackupProtectionPanel';
 import { BackupCloudVaultPanel } from './BackupCloudVaultPanel';
 import { BackupRestoreDrillPanel } from './BackupRestoreDrillPanel';
 import { BackupSchedulePanel } from './BackupSchedulePanel';
-
+import { Button } from '@/components/ui';
 type BackupAction = 'backup' | 'restore' | null;
 
 /** shape of the server's backup encryption key. */
 const BACKUP_KEY_PATTERN = /^[0-9a-f]{64}$/i;
-
 interface BackupStatus {
   tone: 'success' | 'error' | 'info';
   message: string;
 }
-
 function getStatusToneClasses(tone: BackupStatus['tone']): string {
   if (tone === 'success') {
     return 'border-success-300/70 bg-success-50 text-success-800';
   }
-
   if (tone === 'error') {
     return 'border-danger-300/70 bg-danger-50 text-danger-700';
   }
-
   return 'border-line bg-surface-2 text-secondary-700';
 }
-
 export function CompanyBackupCard() {
   const { t } = useTranslation('settings');
   const [activeAction, setActiveAction] = useState<BackupAction>(null);
@@ -51,40 +46,42 @@ export function CompanyBackupCard() {
   const toast = useToast();
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
   const isDesktop = Boolean(electron);
-
   const handleCreateBackup = async () => {
     if (!electron) {
-      toast.info({ title: t('company.backup.toast.desktopOnly') });
+      toast.info({
+        title: t('company.backup.toast.desktopOnly'),
+      });
       setStatus({
         tone: 'info',
         message: t('company.backup.toast.desktopOnlyDetail'),
       });
       return;
     }
-
     setActiveAction('backup');
-
     try {
       const result = await electron.createDatabaseBackup();
-
       if (result.cancelled) {
-        toast.info({ title: t('company.backup.toast.cancelledTitle') });
+        toast.info({
+          title: t('company.backup.toast.cancelledTitle'),
+        });
         setStatus({
           tone: 'info',
           message: t('company.backup.toast.cancelledDetail'),
         });
         return;
       }
-
       if (!result.success) {
         throw new Error(result.error || t('company.backup.toast.failed'));
       }
-
-      toast.success({ title: t('company.backup.toast.created') });
+      toast.success({
+        title: t('company.backup.toast.created'),
+      });
       setStatus({
         tone: 'success',
         message: result.path
-          ? t('company.backup.toast.savedPath', { path: result.path })
+          ? t('company.backup.toast.savedPath', {
+              path: result.path,
+            })
           : t('company.backup.toast.savedOk'),
       });
     } catch (error) {
@@ -101,32 +98,30 @@ export function CompanyBackupCard() {
       setActiveAction(null);
     }
   };
-
   const handleRequestRestoreBackup = () => {
     if (!electron) {
-      toast.info({ title: t('company.backup.toast.restoreDesktopOnly') });
+      toast.info({
+        title: t('company.backup.toast.restoreDesktopOnly'),
+      });
       setStatus({
         tone: 'info',
         message: t('company.backup.toast.restoreDesktopOnlyDetail'),
       });
       return;
     }
-
     setIsRestoreConfirmOpen(true);
   };
-
   const handleRestoreBackup = async () => {
     if (!electron) {
       return;
     }
-
     setActiveAction('restore');
-
     try {
       const result = await electron.restoreDatabaseBackup();
-
       if (result.cancelled) {
-        toast.info({ title: t('company.backup.toast.restoreCancelledTitle') });
+        toast.info({
+          title: t('company.backup.toast.restoreCancelledTitle'),
+        });
         setStatus({
           tone: 'info',
           message: t('company.backup.toast.restoreCancelledDetail'),
@@ -148,12 +143,12 @@ export function CompanyBackupCard() {
         });
         return;
       }
-
       if (!result.success) {
         throw new Error(result.error || t('company.backup.toast.restoreFailed'));
       }
-
-      toast.success({ title: t('company.backup.toast.restored') });
+      toast.success({
+        title: t('company.backup.toast.restored'),
+      });
       setStatus({
         tone: 'success',
         message: t('company.backup.toast.restoredOk'),
@@ -219,7 +214,9 @@ export function CompanyBackupCard() {
       }
       setRestoreKeyToken(null);
       setRestoreKeyInput('');
-      toast.success({ title: t('company.backup.toast.restored') });
+      toast.success({
+        title: t('company.backup.toast.restored'),
+      });
       setStatus({
         tone: 'success',
         message: t('company.backup.toast.restoredOk'),
@@ -231,7 +228,10 @@ export function CompanyBackupCard() {
         title: t('company.backup.toast.restoreFailed'),
         description: message,
       });
-      setStatus({ tone: 'error', message });
+      setStatus({
+        tone: 'error',
+        message,
+      });
     } finally {
       setActiveAction(null);
     }
@@ -259,60 +259,60 @@ export function CompanyBackupCard() {
       });
     }
   };
-
   const handleCopyRevealedKey = async () => {
     if (!revealedKey) return;
     try {
       await navigator.clipboard.writeText(revealedKey);
-      toast.success({ title: t('company.backup.revealKey.copied') });
+      toast.success({
+        title: t('company.backup.revealKey.copied'),
+      });
     } catch {
-      toast.error({ title: t('company.backup.revealKey.copyFailed') });
+      toast.error({
+        title: t('company.backup.revealKey.copyFailed'),
+      });
     }
   };
-
   const supportsCrossDeviceRestore = Boolean(electron?.getBackupEncryptionKey);
-
   const actions = (
     <div className="flex flex-col gap-3 sm:flex-row">
-      <button
+      <Button
         type="button"
         onClick={handleCreateBackup}
         disabled={!isDesktop || activeAction !== null}
-        className="pv-btn primary"
+        variant="primary"
       >
         <Save aria-hidden="true" />
         {activeAction === 'backup'
           ? t('company.backup.creating')
           : t('company.backup.createBackup')}
-      </button>
+      </Button>
 
-      <button
+      <Button
         type="button"
         onClick={handleRequestRestoreBackup}
         disabled={!isDesktop || activeAction !== null}
-        className="pv-btn outline"
+        variant="outline"
       >
         <HardDriveDownload aria-hidden="true" />
         {activeAction === 'restore'
           ? t('company.backup.restoring')
           : t('company.backup.restoreBackup')}
-      </button>
+      </Button>
 
       {supportsCrossDeviceRestore && (
-        <button
+        <Button
           type="button"
           onClick={() => setIsRevealConfirmOpen(true)}
           disabled={activeAction !== null}
-          className="pv-btn outline"
           data-testid="backup-reveal-key"
+          variant="outline"
         >
           <KeyRound aria-hidden="true" />
           {t('company.backup.revealKey.button')}
-        </button>
+        </Button>
       )}
     </div>
   );
-
   return (
     <section className="card p-6 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -420,22 +420,22 @@ export function CompanyBackupCard() {
             )}
           </div>
           <div className="flex justify-end gap-3">
-            <button type="button" className="pv-btn outline" onClick={handleCancelRestoreKey}>
+            <Button type="button" onClick={handleCancelRestoreKey} variant="outline">
               {t('company.backup.keyPrompt.cancel')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="pv-btn primary"
               onClick={() => {
                 void handleSubmitRestoreKey();
               }}
               disabled={activeAction !== null}
               data-testid="backup-restore-key-submit"
+              variant="primary"
             >
               {activeAction === 'restore'
                 ? t('company.backup.restoring')
                 : t('company.backup.keyPrompt.submit')}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
@@ -469,19 +469,19 @@ export function CompanyBackupCard() {
             {revealedKey}
           </code>
           <div className="flex justify-end gap-3">
-            <button
+            <Button
               type="button"
-              className="pv-btn outline"
               onClick={() => {
                 void handleCopyRevealedKey();
               }}
+              variant="outline"
             >
               <Copy aria-hidden="true" />
               {t('company.backup.revealKey.copy')}
-            </button>
-            <button type="button" className="pv-btn primary" onClick={() => setRevealedKey(null)}>
+            </Button>
+            <Button type="button" onClick={() => setRevealedKey(null)} variant="primary">
               {t('company.backup.revealKey.done')}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

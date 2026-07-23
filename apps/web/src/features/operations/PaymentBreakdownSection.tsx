@@ -1,7 +1,8 @@
-import { BarChart3 } from 'lucide-react';
+import { AlertTriangle, BarChart3 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/feedback/EmptyState';
+import { Badge, StatusStrip } from '@/components/ui';
 import { TablePagination } from '@/components/tables/TablePagination';
 import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { translateServerError } from '@/lib/translateServerError';
@@ -43,9 +44,12 @@ export function PaymentBreakdownSection({
 
       {isLoading && <p className="text-sm text-secondary-500">{t('common.loading')}</p>}
       {hasError && (
-        <div className="pv-strip danger">
-          <span className="msg">{translateServerError(error, t, t('common.errorGeneric'))}</span>
-        </div>
+        <StatusStrip
+          tone="danger"
+          icon={AlertTriangle}
+          title={translateServerError(error, t, t('common.errorGeneric'))}
+          role="alert"
+        />
       )}
       {!isLoading && !hasError && entries.length === 0 && (
         <EmptyState
@@ -73,12 +77,11 @@ export function PaymentBreakdownSection({
                   <tr key={`${row.railId}-${row.status}`}>
                     <td>{t(`payments.rails.${row.railId}`)}</td>
                     <td>
-                      <span className={`pv-badge ${paymentStatusTone(row.status)}`}>
-                        <span className="dot" />
+                      <Badge variant={paymentStatusTone(row.status)} marker="dot">
                         {t(`payments.status.${row.status}`, {
                           defaultValue: row.status,
                         })}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="num">{row.count}</td>
                     <td className="num">{formatCurrency(row.totalAmount)}</td>

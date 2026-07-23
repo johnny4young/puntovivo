@@ -6,7 +6,7 @@ import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { EmptyState } from '@/components/feedback/EmptyState';
-import { KpiTile } from '@/components/ui';
+import { KpiTile, Button } from '@/components/ui';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
@@ -19,20 +19,19 @@ import { InventoryTransferHistory } from './InventoryTransferHistory';
 // exact serial selection makes the transfer form materially heavier.
 // Keep it out of the already budget-sensitive inventory route until requested.
 const InventoryTransferModal = lazy(() =>
-  import('./InventoryTransferModal').then(module => ({ default: module.InventoryTransferModal }))
+  import('./InventoryTransferModal').then(module => ({
+    default: module.InventoryTransferModal,
+  }))
 );
-
 export interface InventoryBalancesPanelSite {
   id: string;
   name: string;
   isActive: boolean | null;
 }
-
 interface InventoryBalancesPanelProps {
   sites: InventoryBalancesPanelSite[];
   sitesLoading: boolean;
 }
-
 function buildBalanceColumns(t: (key: string) => string): ColumnDef<InventoryBalanceListItem>[] {
   return [
     {
@@ -57,21 +56,30 @@ function buildBalanceColumns(t: (key: string) => string): ColumnDef<InventoryBal
       accessorKey: 'onHand',
       header: () => t('balances.columns.onHand'),
       size: 130,
-      meta: { cellClassName: 'num', headerClassName: 'num' },
+      meta: {
+        cellClassName: 'num',
+        headerClassName: 'num',
+      },
       cell: ({ row }) => row.original.onHand.toLocaleString(),
     },
     {
       accessorKey: 'reserved',
       header: () => t('balances.columns.reserved'),
       size: 130,
-      meta: { cellClassName: 'num', headerClassName: 'num' },
+      meta: {
+        cellClassName: 'num',
+        headerClassName: 'num',
+      },
       cell: ({ row }) => row.original.reserved.toLocaleString(),
     },
     {
       accessorKey: 'available',
       header: () => t('balances.columns.available'),
       size: 130,
-      meta: { cellClassName: 'num', headerClassName: 'num' },
+      meta: {
+        cellClassName: 'num',
+        headerClassName: 'num',
+      },
       cell: ({ row }) => (
         <span className={cn(row.original.isLowStock && 'text-danger-700')}>
           {row.original.available.toLocaleString()}
@@ -104,12 +112,14 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
     }
     return activeSites[0]?.id ?? '';
   }, [selectedSiteId, activeSites]);
-
   const balancesQuery = trpc.inventory.listBalancesBySite.useQuery(
-    { siteId: effectiveSiteId },
-    { enabled: effectiveSiteId.length > 0 }
+    {
+      siteId: effectiveSiteId,
+    },
+    {
+      enabled: effectiveSiteId.length > 0,
+    }
   );
-
   const createTransferMutation = useCriticalMutation('transfers.create', {
     onSuccess: async () => {
       await Promise.all([
@@ -121,18 +131,17 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
         utils.products.search.invalidate(),
       ]);
       setIsTransferOpen(false);
-      toast.success({ title: t('transferModal.success') });
+      toast.success({
+        title: t('transferModal.success'),
+      });
     },
   });
-
   const columns = useMemo(() => buildBalanceColumns(t), [t]);
   const canTransfer = activeSites.length >= 2;
-
   const handleCloseTransferModal = useCallback(() => {
     setIsTransferOpen(false);
     createTransferMutation.reset();
   }, [createTransferMutation]);
-
   const handleSubmitTransfer = useCallback(
     async (values: InventoryTransferFormValues) => {
       await createTransferMutation.mutateAsync({
@@ -142,7 +151,11 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
           {
             productId: values.productId,
             quantity: values.quantity,
-            ...(values.serialIds ? { serialIds: values.serialIds } : {}),
+            ...(values.serialIds
+              ? {
+                  serialIds: values.serialIds,
+                }
+              : {}),
           },
         ],
         notes: values.notes || undefined,
@@ -151,7 +164,6 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
     },
     [createTransferMutation]
   );
-
   if (sitesLoading) {
     return (
       <div className="card p-6">
@@ -159,7 +171,6 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
       </div>
     );
   }
-
   if (activeSites.length === 0) {
     // estado vacío único (.pv-empty) cuando no hay sedes
     // activas; conserva el mensaje guía como descripción.
@@ -173,7 +184,6 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
       </div>
     );
   }
-
   const items = balancesQuery.data?.items ?? [];
   const summary = balancesQuery.data?.summary ?? {
     totalOnHand: 0,
@@ -182,11 +192,10 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
     lowStockCount: 0,
     productsTracked: 0,
   };
-
   return (
     <div className="space-y-4">
       {/* selector de sede con receta de formulario
-          (.pv-field/.pv-input) y botón de traslado .pv-btn. */}
+          (.pv-field/.pv-input) y Button tipado para el traslado. */}
       <div className="card p-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="pv-field md:max-w-sm md:flex-1">
           <label htmlFor="inventory-balances-site" className="label">
@@ -206,16 +215,17 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
           </select>
         </div>
 
-        <button
+        <Button
           type="button"
-          className="pv-btn primary flex items-center gap-2"
+          className="flex items-center gap-2"
           disabled={!canTransfer}
           title={canTransfer ? undefined : t('balances.transferRequiresTwoSites')}
           onClick={() => setIsTransferOpen(true)}
+          variant="primary"
         >
           <ArrowLeftRight className="h-4 w-4" />
           {t('balances.transferButton')}
-        </button>
+        </Button>
       </div>
 
       {/* KPIs por sede con la receta única (.pv-kpi). */}

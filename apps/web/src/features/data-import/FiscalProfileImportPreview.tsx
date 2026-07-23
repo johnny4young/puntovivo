@@ -1,6 +1,5 @@
 import { AlertTriangle, CheckCircle2, Copy, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { cn } from '@/lib/utils';
 import { ImportCommitGuard } from './ImportCommitGuard';
 import type {
@@ -8,7 +7,7 @@ import type {
   FiscalProfileImportPreview,
   LaunchImportDataMode,
 } from './types';
-
+import { Button } from '@/components/ui';
 interface FiscalProfileImportPreviewProps {
   completed: boolean;
   confirmedRealData: boolean;
@@ -19,17 +18,14 @@ interface FiscalProfileImportPreviewProps {
   onImport: () => void;
   preview: FiscalProfileImportPreview;
 }
-
 const STATUS_STYLE = {
   ready: 'bg-success-50 text-success-800 border-success-200',
   duplicate: 'bg-warning-50 text-warning-800 border-warning-200',
   invalid: 'bg-danger-50 text-danger-800 border-danger-200',
 } as const;
-
 function issueKey(issue: FiscalProfileImportIssue) {
   return `fiscalProfiles.issues.${issue.code}`;
 }
-
 function profileDetails(row: FiscalProfileImportPreview['rows'][number], empty: string): string {
   const profile = row.normalized;
   const values =
@@ -40,7 +36,6 @@ function profileDetails(row: FiscalProfileImportPreview['rows'][number], empty: 
         : [profile.economicActivityCode, profile.issueLocation];
   return values.filter(value => value !== null && value !== '').join(' · ') || empty;
 }
-
 export function FiscalProfileImportPreviewPanel({
   completed,
   confirmedRealData,
@@ -53,7 +48,6 @@ export function FiscalProfileImportPreviewPanel({
 }: FiscalProfileImportPreviewProps) {
   const { t } = useTranslation('dataImport');
   const hasIssues = preview.summary.duplicates + preview.summary.invalid > 0;
-
   return (
     <section className="card space-y-5 p-6" aria-labelledby="fiscal-profile-preview-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -75,9 +69,9 @@ export function FiscalProfileImportPreviewPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           {hasIssues ? (
-            <button type="button" className="pv-btn outline" onClick={onDownloadIssues}>
+            <Button type="button" onClick={onDownloadIssues} variant="outline">
               {t('actions.downloadIssues')}
-            </button>
+            </Button>
           ) : null}
           <ImportCommitGuard
             completed={completed}

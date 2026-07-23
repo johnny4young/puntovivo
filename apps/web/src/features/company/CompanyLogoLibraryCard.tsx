@@ -6,85 +6,92 @@ import { EmptyState } from '@/components/feedback/EmptyState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
+import { Badge, Button } from '@/components/ui';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
-import { cn } from '@/lib/utils';
 import type { Company, Logo } from '@/types';
 import { CompanyLogoFormModal, type CompanyLogoFormValues } from './CompanyLogoFormModal';
-
 interface CompanyLogoLibraryCardProps {
   company: Company | null;
   canEdit: boolean;
 }
-
 export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryCardProps) {
   const { t } = useTranslation('settings');
   const toast = useToast();
   const utils = trpc.useUtils();
-  const logosQuery = trpc.logos.list.useQuery({ includeInactive: true });
+  const logosQuery = trpc.logos.list.useQuery({
+    includeInactive: true,
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [editingLogo, setEditingLogo] = useState<Logo | null>(null);
   const [logoToDelete, setLogoToDelete] = useState<Logo | null>(null);
-
   const createMutation = trpc.logos.create.useMutation({
     onSuccess: async () => {
       await utils.logos.list.invalidate();
       handleCloseModal();
-      toast.success({ title: t('company.logo.toast.created') });
+      toast.success({
+        title: t('company.logo.toast.created'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:company.logo.toast.createError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:company.logo.toast.createError',
+    }),
   });
-
   const updateMutation = trpc.logos.update.useMutation({
     onSuccess: async () => {
       await Promise.all([utils.logos.list.invalidate(), utils.companies.getCurrent.invalidate()]);
       handleCloseModal();
-      toast.success({ title: t('company.logo.toast.updated') });
+      toast.success({
+        title: t('company.logo.toast.updated'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:company.logo.toast.updateError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:company.logo.toast.updateError',
+    }),
   });
-
   const deleteMutation = trpc.logos.delete.useMutation({
     onSuccess: async () => {
       await utils.logos.list.invalidate();
       setLogoToDelete(null);
-      toast.success({ title: t('company.logo.toast.deleted') });
+      toast.success({
+        title: t('company.logo.toast.deleted'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:company.logo.toast.deleteError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:company.logo.toast.deleteError',
+    }),
   });
-
   const selectLogoMutation = trpc.companies.setLogo.useMutation({
     onSuccess: async companyRecord => {
       await utils.companies.getCurrent.setData(undefined, companyRecord);
-      toast.success({ title: t('company.logo.toast.logoUpdated') });
+      toast.success({
+        title: t('company.logo.toast.logoUpdated'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:company.logo.toast.logoUpdateError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:company.logo.toast.logoUpdateError',
+    }),
   });
-
   const logos = (logosQuery.data?.items ?? []) as Logo[];
   const selectedLogoId = company?.logoId ?? null;
-
   function handleCloseModal() {
     setIsModalOpen(false);
     setEditingLogo(null);
     createMutation.reset();
     updateMutation.reset();
   }
-
   function handleOpenCreate() {
     setEditingLogo(null);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   }
-
   function handleOpenEdit(logo: Logo) {
     setEditingLogo(logo);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   }
-
   async function handleSubmit(values: CompanyLogoFormValues) {
     if (editingLogo) {
       await updateMutation.mutateAsync({
@@ -95,14 +102,12 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
       });
       return;
     }
-
     await createMutation.mutateAsync({
       name: values.name.trim(),
       imageUrl: values.imageUrl.trim(),
       isActive: values.isActive,
     });
   }
-
   return (
     <>
       <div className="card p-6">
@@ -111,10 +116,10 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
             <h2 className="text-lg font-semibold text-secondary-900">{t('company.logo.title')}</h2>
             <p className="mt-1 text-sm text-secondary-500">{t('company.logo.description')}</p>
           </div>
-          <button className="pv-btn outline" onClick={handleOpenCreate} disabled={!canEdit}>
+          <Button onClick={handleOpenCreate} disabled={!canEdit} variant="outline" type="submit">
             <Plus className="h-4 w-4" aria-hidden="true" />
             {t('company.logo.addLogo')}
-          </button>
+          </Button>
         </div>
 
         <div className="surface-panel-muted mt-6">
@@ -135,7 +140,9 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                   <p className="font-medium text-secondary-900">
                     {company.logoName ?? t('company.logo.selectedLogo')}
                   </p>
-                  <span className="pv-badge success">{t('company.logo.active')}</span>
+                  <Badge variant="success" marker="dot">
+                    {t('company.logo.active')}
+                  </Badge>
                 </div>
                 <p className="truncate text-sm text-secondary-500">{company.logoUrl}</p>
               </div>
@@ -184,15 +191,10 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
               const isSelected = selectedLogoId === logo.id;
               const isMutatingSelection =
                 selectLogoMutation.isPending && selectLogoMutation.variables?.logoId === logo.id;
-
               return (
                 <div
                   key={logo.id}
-                  className={`rounded-2xl border p-4 ${
-                    isSelected
-                      ? 'border-primary-300 bg-primary-50/70 dark:border-primary-400/35 dark:bg-primary-400/14'
-                      : 'border-line/80 bg-surface'
-                  }`}
+                  className={`rounded-2xl border p-4 ${isSelected ? 'border-primary-300 bg-primary-50/70 dark:border-primary-400/35 dark:bg-primary-400/14' : 'border-line/80 bg-surface'}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -204,22 +206,27 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button
-                        className="pv-btn ghost min-h-11 h-11 w-11 p-0"
+                      <Button
                         onClick={() => handleOpenEdit(logo)}
                         disabled={!canEdit}
                         title={t('company.logo.editTitle')}
+                        variant="ghost"
+                        size="icon"
+                        type="submit"
                       >
                         <Pencil className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                      <button
-                        className="pv-btn ghost min-h-11 h-11 w-11 p-0 text-danger-500 hover:text-danger-700"
+                      </Button>
+                      <Button
+                        className="text-danger-500 hover:text-danger-700"
                         onClick={() => setLogoToDelete(logo)}
                         disabled={!canEdit}
                         title={t('company.logo.deleteTitle')}
+                        variant="ghost"
+                        size="icon"
+                        type="submit"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
 
@@ -237,29 +244,39 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                   />
 
                   <div className="mt-4 flex items-center justify-between gap-2">
-                    <span className={cn('pv-badge', logo.isActive ? 'success' : 'neutral')}>
+                    <Badge variant={logo.isActive ? 'success' : 'neutral'}>
                       {logo.isActive ? t('company.logo.active') : t('company.logo.inactive')}
-                    </span>
+                    </Badge>
                     <div className="flex gap-2">
                       {isSelected ? (
-                        <button
-                          className="pv-btn outline"
-                          onClick={() => void selectLogoMutation.mutateAsync({ logoId: null })}
+                        <Button
+                          onClick={() =>
+                            void selectLogoMutation.mutateAsync({
+                              logoId: null,
+                            })
+                          }
                           disabled={!canEdit || selectLogoMutation.isPending}
+                          variant="outline"
+                          type="submit"
                         >
                           {t('company.logo.clear')}
-                        </button>
+                        </Button>
                       ) : (
-                        <button
-                          className="pv-btn primary"
-                          onClick={() => void selectLogoMutation.mutateAsync({ logoId: logo.id })}
+                        <Button
+                          onClick={() =>
+                            void selectLogoMutation.mutateAsync({
+                              logoId: logo.id,
+                            })
+                          }
                           disabled={!canEdit || isMutatingSelection}
+                          variant="primary"
+                          type="submit"
                         >
                           <Check className="h-4 w-4" aria-hidden="true" />
                           {isMutatingSelection
                             ? t('company.logo.selecting')
                             : t('company.logo.use')}
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -283,7 +300,9 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
       <ConfirmModal
         isOpen={!!logoToDelete}
         title={t('company.logo.deleteConfirmTitle')}
-        message={t('company.logo.deleteConfirmMessage', { name: logoToDelete?.name ?? '' })}
+        message={t('company.logo.deleteConfirmMessage', {
+          name: logoToDelete?.name ?? '',
+        })}
         confirmText={
           deleteMutation.isPending ? t('company.logo.deleting') : t('company.logo.deleteConfirm')
         }
@@ -292,7 +311,9 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
         variant="danger"
         onConfirm={() => {
           if (logoToDelete) {
-            void deleteMutation.mutateAsync({ id: logoToDelete.id });
+            void deleteMutation.mutateAsync({
+              id: logoToDelete.id,
+            });
           }
         }}
         onClose={() => {

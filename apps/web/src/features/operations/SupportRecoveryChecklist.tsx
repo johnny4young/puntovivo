@@ -17,9 +17,8 @@ import {
   RadioTower,
   type LucideIcon,
 } from 'lucide-react';
-
+import { Badge, StatusStrip, Button } from '@/components/ui';
 export type SupportUpdateRecoveryState = 'healthy' | 'checking' | 'attention' | 'desktopOnly';
-
 interface SupportRecoveryChecklistProps {
   isAdmin: boolean;
   updateState: SupportUpdateRecoveryState;
@@ -28,7 +27,6 @@ interface SupportRecoveryChecklistProps {
   hasSignalError: boolean;
   onNavigate: (route: string) => void;
 }
-
 interface RecoveryStepProps {
   id: 'updates' | 'devices' | 'telemetry' | 'evidence';
   icon: LucideIcon;
@@ -37,9 +35,16 @@ interface RecoveryStepProps {
   description: string;
   status: string;
   action:
-    { kind: 'navigate'; label: string; to: string } | { kind: 'admin-required'; label: string };
+    | {
+        kind: 'navigate';
+        label: string;
+        to: string;
+      }
+    | {
+        kind: 'admin-required';
+        label: string;
+      };
 }
-
 function RecoveryStep({
   id,
   icon: Icon,
@@ -49,7 +54,9 @@ function RecoveryStep({
   status,
   action,
   onNavigate,
-}: RecoveryStepProps & { onNavigate: (route: string) => void }) {
+}: RecoveryStepProps & {
+  onNavigate: (route: string) => void;
+}) {
   return (
     <li
       className="pv-check !grid grid-cols-[1.625rem_minmax(0,1fr)] sm:grid-cols-[1.625rem_minmax(0,1fr)_auto]"
@@ -61,45 +68,58 @@ function RecoveryStep({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="t">{title}</span>
-          <span
-            className={`pv-badge ${tone === 'done' ? 'success' : tone === 'block' ? 'danger' : 'neutral'}`}
-          >
+          <Badge variant={tone === 'done' ? 'success' : tone === 'block' ? 'danger' : 'neutral'}>
             {status}
-          </span>
+          </Badge>
         </div>
         <div className="d">{description}</div>
       </div>
       {action.kind === 'navigate' ? (
-        <button
+        <Button
           type="button"
           onClick={() => onNavigate(action.to)}
-          className="pv-btn outline col-start-2 mt-2 w-fit sm:col-start-3 sm:row-start-1 sm:mt-0 sm:shrink-0"
+          className="col-start-2 mt-2 w-fit sm:col-start-3 sm:row-start-1 sm:mt-0 sm:shrink-0"
           data-testid={`support-recovery-action-${id}`}
+          variant="outline"
         >
           {action.label}
-        </button>
+        </Button>
       ) : (
-        <span
-          className="pv-badge neutral col-start-2 mt-2 w-fit sm:col-start-3 sm:row-start-1 sm:mt-0 sm:shrink-0"
+        <Badge
+          variant="neutral"
+          className="col-start-2 mt-2 w-fit sm:col-start-3 sm:row-start-1 sm:mt-0 sm:shrink-0"
           data-testid={`support-recovery-action-${id}`}
         >
           {action.label}
-        </span>
+        </Badge>
       )}
     </li>
   );
 }
-
 function updatePresentation(state: SupportUpdateRecoveryState): {
   icon: LucideIcon;
   tone: RecoveryStepProps['tone'];
 } {
-  if (state === 'healthy') return { icon: CheckCircle2, tone: 'done' };
-  if (state === 'attention') return { icon: AlertTriangle, tone: 'block' };
-  if (state === 'checking') return { icon: Clock3, tone: 'opt' };
-  return { icon: Laptop, tone: 'opt' };
+  if (state === 'healthy')
+    return {
+      icon: CheckCircle2,
+      tone: 'done',
+    };
+  if (state === 'attention')
+    return {
+      icon: AlertTriangle,
+      tone: 'block',
+    };
+  if (state === 'checking')
+    return {
+      icon: Clock3,
+      tone: 'opt',
+    };
+  return {
+    icon: Laptop,
+    tone: 'opt',
+  };
 }
-
 export function SupportRecoveryChecklist({
   isAdmin,
   updateState,
@@ -110,7 +130,6 @@ export function SupportRecoveryChecklist({
 }: SupportRecoveryChecklistProps) {
   const { t } = useTranslation('operations');
   const update = updatePresentation(updateState);
-
   const steps: RecoveryStepProps[] = [
     {
       id: 'updates',
@@ -125,7 +144,10 @@ export function SupportRecoveryChecklist({
             label: t('support.recovery.actions.openUpdates'),
             to: '/company?tab=device',
           }
-        : { kind: 'admin-required', label: t('support.recovery.actions.adminRequired') },
+        : {
+            kind: 'admin-required',
+            label: t('support.recovery.actions.adminRequired'),
+          },
     },
     {
       id: 'devices',
@@ -135,7 +157,9 @@ export function SupportRecoveryChecklist({
       description: t('support.recovery.steps.devices.description'),
       status:
         staleDeviceCount > 0
-          ? t('support.recovery.steps.devices.status.attention', { count: staleDeviceCount })
+          ? t('support.recovery.steps.devices.status.attention', {
+              count: staleDeviceCount,
+            })
           : t('support.recovery.steps.devices.status.healthy'),
       action: {
         kind: 'navigate',
@@ -158,7 +182,10 @@ export function SupportRecoveryChecklist({
             label: t('support.recovery.actions.openTelemetry'),
             to: '/company?tab=data',
           }
-        : { kind: 'admin-required', label: t('support.recovery.actions.adminRequired') },
+        : {
+            kind: 'admin-required',
+            label: t('support.recovery.actions.adminRequired'),
+          },
     },
     {
       id: 'evidence',
@@ -176,7 +203,6 @@ export function SupportRecoveryChecklist({
       },
     },
   ];
-
   return (
     <section className="card space-y-5 p-6" data-testid="support-recovery-checklist">
       <header>
@@ -186,10 +212,12 @@ export function SupportRecoveryChecklist({
       </header>
 
       {hasSignalError && (
-        <div className="pv-strip warning" role="status">
-          <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-          <span>{t('support.recovery.partialSignals')}</span>
-        </div>
+        <StatusStrip
+          tone="warning"
+          icon={AlertTriangle}
+          title={t('support.recovery.partialSignals')}
+          role="status"
+        />
       )}
 
       <ol className="divide-y divide-line/60" aria-label={t('support.recovery.listAriaLabel')}>

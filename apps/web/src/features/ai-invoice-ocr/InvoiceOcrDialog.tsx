@@ -60,12 +60,16 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
 
   async function handleFile(file: File) {
     if (!ALLOWED_MIME.has(file.type)) {
-      setErrorMsg(t('invoiceOcr:error.unsupportedType', { defaultValue: 'Tipo de archivo no soportado.' }));
+      setErrorMsg(
+        t('invoiceOcr:error.unsupportedType', { defaultValue: 'Tipo de archivo no soportado.' })
+      );
       setStage('error');
       return;
     }
     if (file.size > MAX_BYTES) {
-      setErrorMsg(t('invoiceOcr:error.tooLarge', { defaultValue: 'Archivo demasiado grande (máx 10 MB).' }));
+      setErrorMsg(
+        t('invoiceOcr:error.tooLarge', { defaultValue: 'Archivo demasiado grande (máx 10 MB).' })
+      );
       setStage('error');
       return;
     }
@@ -146,7 +150,7 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
       isOpen={open}
       onClose={handleClose}
       size="full"
-      className="max-w-[min(92vw,60rem)] rounded-[22px] bg-card/98 shadow-[var(--shadow-modal)] lg:max-w-[min(70vw,60rem)]"
+      className="max-w-[min(92vw,60rem)] rounded-[16px] bg-card/98 shadow-[var(--shadow-modal)] lg:max-w-[min(70vw,60rem)]"
       bodyClassName="mt-3"
       kicker={t('invoiceOcr:dialog.kicker', { defaultValue: 'OCR de factura' })}
       title={t('invoiceOcr:dialog.title', { defaultValue: 'Sube una foto, la IA lee la factura' })}
@@ -157,11 +161,12 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
     >
       <div className="space-y-5">
         {stage === 'idle' && (
-          <div className="grid place-items-center gap-4 rounded-[22px] border border-dashed border-line bg-surface-2/40 p-10 text-center">
+          <div className="grid place-items-center gap-4 rounded-[14px] border border-dashed border-line bg-surface-2/40 p-10 text-center">
             <UploadCloud className="h-10 w-10 text-primary-700" aria-hidden="true" />
             <p className="max-w-md text-sm text-secondary-600">
               {t('invoiceOcr:upload.help', {
-                defaultValue: 'Selecciona la factura del proveedor o tómale una foto desde la tableta.',
+                defaultValue:
+                  'Selecciona la factura del proveedor o tómale una foto desde la tableta.',
               })}
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -246,7 +251,7 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
         )}
 
         {stage === 'error' && (
-          <div className="rounded-[22px] border border-danger-500/30 bg-danger-50 p-4 text-sm text-danger-700">
+          <div className="rounded-[14px] border border-danger-500/30 bg-danger-50 p-4 text-sm text-danger-700">
             <p className="font-semibold">
               {t('invoiceOcr:error.title', { defaultValue: 'No pude leer esa factura' })}
             </p>

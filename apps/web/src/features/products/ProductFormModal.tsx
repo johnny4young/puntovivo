@@ -14,8 +14,8 @@ import type { ProductFormModalProps, ProductFormTab } from './productForm.types'
 
 // Re-exported for the existing consumers (ProductsPage, QuickCreateProductGate)
 // and ProductFormModal.test.tsx, which import these types from this module.
+import { Button } from '@/components/ui';
 export type { LookupOption, VatRateOption, ProductFormValues } from './productForm.types';
-
 export function ProductFormModal({
   mode,
   isOpen,
@@ -33,15 +33,35 @@ export function ProductFormModal({
   onCreated,
 }: ProductFormModalProps) {
   const { t } = useTranslation('products');
-  const formBundle = useProductForm({ mode, product, defaultName, onSubmit, onCreated });
+  const formBundle = useProductForm({
+    mode,
+    product,
+    defaultName,
+    onSubmit,
+    onCreated,
+  });
   const { form, handleSubmit, isActive } = formBundle;
   const [activeTab, setActiveTab] = useState<ProductFormTab>('general');
-
-  const PRODUCT_FORM_TABS: Array<{ id: ProductFormTab; label: string }> = [
-    { id: 'general', label: t('form.tabs.general') },
-    { id: 'pricing', label: t('form.tabs.pricing') },
-    { id: 'units', label: t('form.tabs.units') },
-    { id: 'providers', label: t('form.tabs.providers') },
+  const PRODUCT_FORM_TABS: Array<{
+    id: ProductFormTab;
+    label: string;
+  }> = [
+    {
+      id: 'general',
+      label: t('form.tabs.general'),
+    },
+    {
+      id: 'pricing',
+      label: t('form.tabs.pricing'),
+    },
+    {
+      id: 'units',
+      label: t('form.tabs.units'),
+    },
+    {
+      id: 'providers',
+      label: t('form.tabs.providers'),
+    },
   ];
 
   // Gate: only fires when the semantic-search module is active AND
@@ -51,7 +71,6 @@ export function ProductFormModal({
   const semanticSearchActive = useIsModuleActive('semantic-search');
   const suggestionsEnabled =
     semanticSearchActive && (auth.user?.role === 'admin' || auth.user?.role === 'manager');
-
   return (
     <Modal
       isOpen={isOpen}
@@ -77,22 +96,17 @@ export function ProductFormModal({
             {t('form.fields.isActive')}
           </button>
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
-            <button type="button" className="pv-btn outline" onClick={onClose} disabled={isSaving}>
+            <Button type="button" onClick={onClose} disabled={isSaving} variant="outline">
               {t('form.cancel')}
-            </button>
-            <button
-              type="button"
-              className="pv-btn primary"
-              onClick={handleSubmit}
-              disabled={isSaving}
-            >
+            </Button>
+            <Button type="button" onClick={handleSubmit} disabled={isSaving} variant="primary">
               {mode === 'create' && <Plus aria-hidden="true" />}
               {isSaving
                 ? t('form.submitting')
                 : mode === 'create'
                   ? t('form.create')
                   : t('form.save')}
-            </button>
+            </Button>
           </div>
         </div>
       }

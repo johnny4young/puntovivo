@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Download, ExternalLink, RefreshCw, RotateCcw, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DesktopOnlyChip, DisabledControl } from '@/components/feedback/DesktopOnlyChip';
+import { Badge, StatusStrip, Button, buttonVariants } from '@/components/ui';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatDateTime } from '@/lib/utils';
-
 type AutoUpdateState = 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
 
 /**
@@ -16,7 +16,6 @@ type AutoUpdateState = 'unavailable' | 'idle' | 'checking' | 'available' | 'down
  * older desktop builds whose status payload predates this field.
  */
 type AutoUpdateInstallMode = 'auto' | 'manual';
-
 interface AutoUpdateStatus {
   isAvailable: boolean;
   state: AutoUpdateState;
@@ -35,9 +34,7 @@ interface AutoUpdateStatus {
   error: string | null;
   reason: string | null;
 }
-
 const autoUpdateStatusQueryKey = ['desktop', 'auto-update-status'] as const;
-
 const defaultAutoUpdateStatus: AutoUpdateStatus = {
   isAvailable: false,
   state: 'unavailable',
@@ -56,14 +53,11 @@ const defaultAutoUpdateStatus: AutoUpdateStatus = {
   error: null,
   reason: null,
 };
-
 type BadgeTone = 'success' | 'warning' | 'danger' | 'primary' | 'neutral';
-
 interface StatusBadgeProps {
   state: AutoUpdateState;
   installMode: AutoUpdateInstallMode;
 }
-
 function StatusBadge({ state, installMode }: StatusBadgeProps) {
   const { t } = useTranslation('settings');
   const labelMap: Record<AutoUpdateState, string> = {
@@ -86,15 +80,16 @@ function StatusBadge({ state, installMode }: StatusBadgeProps) {
     downloaded: 'warning',
     error: 'danger',
   };
-
-  return <span className={`pv-badge ${toneMap[state]}`}>{labelMap[state]}</span>;
+  return (
+    <Badge variant={toneMap[state]} marker="dot">
+      {labelMap[state]}
+    </Badge>
+  );
 }
-
 interface UpdateMetricProps {
   label: string;
   value: string;
 }
-
 function UpdateMetric({ label, value }: UpdateMetricProps) {
   return (
     <div className="surface-panel-muted">
@@ -103,7 +98,6 @@ function UpdateMetric({ label, value }: UpdateMetricProps) {
     </div>
   );
 }
-
 function getStatusMessage(status: AutoUpdateStatus, t: (key: string) => string): string {
   const installMode = status.installMode ?? 'auto';
   switch (status.state) {
@@ -124,7 +118,6 @@ function getStatusMessage(status: AutoUpdateStatus, t: (key: string) => string):
       return t('company.updater.statusMessage.idle');
   }
 }
-
 export function CompanyAutoUpdateCard() {
   const { t } = useTranslation('settings');
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
@@ -137,7 +130,6 @@ export function CompanyAutoUpdateCard() {
       if (!window.electron) {
         return defaultAutoUpdateStatus;
       }
-
       return window.electron.getAutoUpdateStatus();
     },
     enabled: isDesktop,
@@ -148,7 +140,6 @@ export function CompanyAutoUpdateCard() {
       if (!window.electron) {
         throw new Error('App updates are available only in the desktop app.');
       }
-
       return window.electron.checkForAppUpdates();
     },
     onSuccess: status => {
@@ -160,16 +151,16 @@ export function CompanyAutoUpdateCard() {
         description: status.isAvailable ? undefined : (status.reason ?? undefined),
       });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:company.updater.toast.checkError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:company.updater.toast.checkError',
+    }),
   });
   const restartMutation = useMutation({
     mutationFn: async () => {
       if (!window.electron) {
         throw new Error('App updates are available only in the desktop app.');
       }
-
       const result = await window.electron.restartToApplyAppUpdate();
-
       if (!result.success) {
         throw new Error(result.error || 'Unable to restart and install the update.');
       }
@@ -180,9 +171,10 @@ export function CompanyAutoUpdateCard() {
         description: t('company.updater.toast.restartDescription'),
       });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:company.updater.toast.restartError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:company.updater.toast.restartError',
+    }),
   });
-
   const status = statusQuery.data ?? defaultAutoUpdateStatus;
   const installMode: AutoUpdateInstallMode = status.installMode ?? 'auto';
   const canViewRelease = status.state === 'available' && Boolean(status.updateUrl);
@@ -201,12 +193,11 @@ export function CompanyAutoUpdateCard() {
           percentage: status.rolloutPercentage,
         })
     : t('company.updater.notYet');
-
   const actions = (
     <div className="flex flex-wrap gap-3">
-      <button
+      <Button
         type="button"
-        className="pv-btn outline disabled:cursor-not-allowed disabled:opacity-60"
+        className="disabled:cursor-not-allowed disabled:opacity-60"
         disabled={
           !isDesktop ||
           !status.isAvailable ||
@@ -217,36 +208,45 @@ export function CompanyAutoUpdateCard() {
         onClick={() => {
           void checkMutation.mutateAsync();
         }}
+        variant="outline"
       >
         <RefreshCw className={checkMutation.isPending ? 'animate-spin' : ''} aria-hidden="true" />
         {checkMutation.isPending
           ? t('company.updater.actions.checking')
           : t('company.updater.actions.checkForUpdates')}
-      </button>
+      </Button>
 
       {installMode === 'manual' ? (
         // Notify-only: no in-place install — the user opens the release page to
         // download. The https link routes through the main process'
         // setWindowOpenHandler -> shell.openExternal (sandbox-safe).
         canViewRelease && status.updateUrl ? (
-          <a className="pv-btn primary" href={status.updateUrl} target="_blank" rel="noreferrer">
+          <a
+            className={buttonVariants({
+              variant: 'primary',
+            })}
+            href={status.updateUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
             <ExternalLink aria-hidden="true" />
             {t('company.updater.actions.viewRelease')}
           </a>
         ) : (
-          <button
+          <Button
             type="button"
-            className="pv-btn primary disabled:cursor-not-allowed disabled:opacity-60"
+            className="disabled:cursor-not-allowed disabled:opacity-60"
             disabled
+            variant="primary"
           >
             <ExternalLink aria-hidden="true" />
             {t('company.updater.actions.viewRelease')}
-          </button>
+          </Button>
         )
       ) : (
-        <button
+        <Button
           type="button"
-          className="pv-btn primary disabled:cursor-not-allowed disabled:opacity-60"
+          className="disabled:cursor-not-allowed disabled:opacity-60"
           disabled={
             !isDesktop ||
             status.state !== 'downloaded' ||
@@ -256,6 +256,7 @@ export function CompanyAutoUpdateCard() {
           onClick={() => {
             void restartMutation.mutateAsync();
           }}
+          variant="primary"
         >
           {restartMutation.isPending ? (
             <RefreshCw className="animate-spin" aria-hidden="true" />
@@ -265,11 +266,10 @@ export function CompanyAutoUpdateCard() {
           {restartMutation.isPending
             ? t('company.updater.actions.restarting')
             : t('company.updater.actions.restartToInstall')}
-        </button>
+        </Button>
       )}
     </div>
   );
-
   return (
     <section className="rounded-2xl border border-line bg-surface p-6">
       <div className="flex items-start justify-between gap-3">
@@ -324,18 +324,16 @@ export function CompanyAutoUpdateCard() {
       </div>
 
       {status.rolloutMode === 'rollback' && status.rolloutTargetVersion && (
-        <div
-          className="pv-strip warning mt-4"
+        <StatusStrip
+          tone="warning"
+          icon={RotateCcw}
+          title={t('company.updater.rollout.rollbackActive', {
+            version: status.rolloutTargetVersion,
+          })}
+          className="mt-4"
           data-testid="auto-update-rollback-policy"
           role="status"
-        >
-          <RotateCcw className="h-4 w-4" aria-hidden="true" />
-          <span>
-            {t('company.updater.rollout.rollbackActive', {
-              version: status.rolloutTargetVersion,
-            })}
-          </span>
-        </div>
+        />
       )}
 
       {status.releaseDate && (

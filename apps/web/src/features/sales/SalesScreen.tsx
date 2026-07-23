@@ -5,6 +5,7 @@ import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
 import { CashSessionModals } from '@/features/sales/CashSessionModals';
 import { SalesHeaderSection } from '@/features/sales/SalesHeaderSection';
+import { SalesFlowRail } from '@/features/sales/SalesFlowRail';
 import { SalesModals } from '@/features/sales/SalesModals';
 import { WorkspaceTabsSection } from '@/features/sales/WorkspaceTabsSection';
 import { SalesHistoryTable } from '@/features/sales/SalesHistoryTable';
@@ -275,6 +276,12 @@ export function SalesScreen({
             `productInputRef` es el objetivo del scanner wedge
             (useBarcodeWedgeListener) y de Alt+P (useScannerFocusRestoration),
             así que permanece montado y visible siempre. */}
+        <SalesFlowRail
+          itemCount={draftSummary.itemCount}
+          hasCashSession={!!activeCashSession}
+          suspendedDraftsCount={suspendedDraftsCount}
+        />
+
         <SalesHeaderSection
           productSearchQuery={productSearchQuery}
           onQueryChange={setProductSearchQuery}
@@ -293,7 +300,7 @@ export function SalesScreen({
           onSelectWorkspace={handleSelectWorkspace}
         />
 
-        <section className="grid gap-6 pos:min-h-0 pos:flex-1 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)] pos:grid-rows-[minmax(0,1fr)]">
+        <section className="sales-workbench-grid grid gap-6 pos:min-h-0 pos:flex-1 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)] pos:grid-rows-[minmax(0,1fr)]">
           <SalesCartWorkspace
             items={cartItems}
             discountSuggestionSiteId={currentSite?.id ?? null}

@@ -24,6 +24,7 @@ import type { InventoryMovement, MovementType } from '@/types';
  * Semantic tone per movement type for the type badge — inbound flows read
  * success, outbound reads danger, adjustment warning, transfer primary.
  */
+import { Badge } from '@/components/ui';
 export const movementBadgeTones: Record<
   MovementType,
   'success' | 'danger' | 'warning' | 'primary'
@@ -45,11 +46,9 @@ export function getMovementDelta(movement: InventoryMovement): number {
   if (movement.type === 'sale' || movement.type === 'transfer') {
     return movement.previousStock - movement.newStock > 0 ? -movement.quantity : movement.quantity;
   }
-
   if (movement.type === 'adjustment') {
     return movement.newStock - movement.previousStock;
   }
-
   return movement.quantity;
 }
 
@@ -88,7 +87,10 @@ export function getMovementColumns(
       id: 'delta',
       header: () => i18next.t('inventory:table.movement'),
       size: 120,
-      meta: { cellClassName: 'num', headerClassName: 'num' },
+      meta: {
+        cellClassName: 'num',
+        headerClassName: 'num',
+      },
       cell: ({ row }) => {
         const delta = getMovementDelta(row.original);
         return (
@@ -106,9 +108,9 @@ export function getMovementColumns(
       cell: ({ row }) => {
         const type = row.original.type;
         return (
-          <span className={cn('pv-badge', movementBadgeTones[type] ?? 'neutral')}>
+          <Badge variant={movementBadgeTones[type] ?? 'neutral'}>
             {i18next.t(`inventory:movements.types.${type}`)}
-          </span>
+          </Badge>
         );
       },
     },

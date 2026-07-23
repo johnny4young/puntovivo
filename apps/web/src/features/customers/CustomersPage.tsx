@@ -20,15 +20,13 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { extractServerErrorCode } from '@/lib/translateServerError';
 import { downloadFile, generateFilename } from '@/services/export/exportService';
 import { CustomerPrivacyDispositionModal } from '@/features/customers/CustomerPrivacyDispositionModal';
-
+import { Badge } from '@/components/ui';
 function toOptionalString(value: string): string | undefined {
   return value || undefined;
 }
-
 function toNullableString(value: string): string | null {
   return value || null;
 }
-
 export function CustomersPage() {
   const { t } = useTranslation('customers');
   const { user } = useAuth();
@@ -53,14 +51,17 @@ export function CustomersPage() {
   // `search` param all along; the page simply never sent it.
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebouncedValue(searchInput.trim(), 250);
-
   const { data, isLoading, error, refetch } = trpc.customers.list.useQuery(
     {
       page: 1,
       perPage: 50,
       // Omit rather than send '' so the unsearched query keeps its old cache
       // key (and the list still opens instantly from cache).
-      ...(debouncedSearch.length > 0 ? { search: debouncedSearch } : {}),
+      ...(debouncedSearch.length > 0
+        ? {
+            search: debouncedSearch,
+          }
+        : {}),
     },
     {
       // Each term is a new query key, so without this the page would flip to
@@ -75,31 +76,51 @@ export function CustomersPage() {
     page: 1,
     perPage: 100,
   });
-  const personTypesQuery = trpc.personTypes.list.useQuery({ page: 1, perPage: 100 });
-  const regimeTypesQuery = trpc.regimeTypes.list.useQuery({ page: 1, perPage: 100 });
-  const clientTypesQuery = trpc.clientTypes.list.useQuery({ page: 1, perPage: 100 });
+  const personTypesQuery = trpc.personTypes.list.useQuery({
+    page: 1,
+    perPage: 100,
+  });
+  const regimeTypesQuery = trpc.regimeTypes.list.useQuery({
+    page: 1,
+    perPage: 100,
+  });
+  const clientTypesQuery = trpc.clientTypes.list.useQuery({
+    page: 1,
+    perPage: 100,
+  });
   const commercialActivitiesQuery = trpc.commercialActivities.list.useQuery({
     page: 1,
     perPage: 100,
   });
   const canManagePrivacy = canAccessRole(user?.role, adminOnlyRoles);
   const privacyPreviewQuery = trpc.customers.previewPersonalDataDisposition.useQuery(
-    { id: customerToDispose?.id ?? '' },
-    { enabled: canManagePrivacy && !!customerToDispose, retry: false }
+    {
+      id: customerToDispose?.id ?? '',
+    },
+    {
+      enabled: canManagePrivacy && !!customerToDispose,
+      retry: false,
+    }
   );
   const createMutation = trpc.customers.create.useMutation({
     onSuccess: async () => {
       await utils.customers.list.invalidate();
       handleCloseModal();
-      toast.success({ title: t('toast.created') });
+      toast.success({
+        title: t('toast.created'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'customers:toast.createError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'customers:toast.createError',
+    }),
   });
   const updateMutation = trpc.customers.update.useMutation({
     onSuccess: async () => {
       await utils.customers.list.invalidate();
       handleCloseModal();
-      toast.success({ title: t('toast.updated') });
+      toast.success({
+        title: t('toast.updated'),
+      });
     },
     // refresh the cached list on a STALE_VERSION conflict so the
     // next edit loads the latest version.
@@ -112,7 +133,6 @@ export function CustomersPage() {
       },
     }),
   });
-
   const disposePersonalDataMutation = trpc.customers.disposePersonalData.useMutation({
     onSuccess: async result => {
       await utils.customers.list.invalidate();
@@ -139,16 +159,19 @@ export function CustomersPage() {
       },
     }),
   });
-
   const exportPersonalDataMutation = trpc.customers.exportPersonalData.useMutation({
     onSuccess: document => {
       const content = new Blob([JSON.stringify(document, null, 2)], {
         type: 'application/json;charset=utf-8',
       });
       downloadFile(content, generateFilename(t('privacy.filename'), 'json'));
-      toast.success({ title: t('privacy.success') });
+      toast.success({
+        title: t('privacy.success'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'customers:privacy.error' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'customers:privacy.error',
+    }),
   });
 
   // `Estado cuenta` row action mirrors the server's
@@ -165,26 +188,22 @@ export function CustomersPage() {
   const clientTypes = (clientTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
   const commercialActivities = (commercialActivitiesQuery.data?.items ??
     []) as CustomerCatalogItem[];
-
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingCustomer(null);
     createMutation.reset();
     updateMutation.reset();
   };
-
   const handleOpenCreate = () => {
     setEditingCustomer(null);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   };
-
   const handleOpenEdit = (customer: Customer) => {
     setEditingCustomer(customer);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   };
-
   const handleSubmit = async (values: CustomerFormValues) => {
     if (editingCustomer) {
       await updateMutation.mutateAsync({
@@ -213,7 +232,6 @@ export function CustomersPage() {
       });
       return;
     }
-
     await createMutation.mutateAsync({
       name: values.name,
       email: toOptionalString(values.email),
@@ -234,7 +252,6 @@ export function CustomersPage() {
       isActive: values.isActive,
     });
   };
-
   const columns: ColumnDef<Customer>[] = [
     {
       accessorKey: 'name',
@@ -265,11 +282,11 @@ export function CustomersPage() {
       header: () => i18next.t('customers:table.status'),
       size: 100,
       cell: ({ row }) => (
-        <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {row.original.isActive
             ? i18next.t('customers:table.active')
             : i18next.t('customers:table.inactive')}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -333,7 +350,6 @@ export function CustomersPage() {
       ),
     },
   ];
-
   return (
     <>
       {/* fresh tenant nudge toward the readiness checklist.
@@ -430,7 +446,9 @@ export function CustomersPage() {
         onExportData={
           canManagePrivacy
             ? async customer => {
-                await exportPersonalDataMutation.mutateAsync({ id: customer.id });
+                await exportPersonalDataMutation.mutateAsync({
+                  id: customer.id,
+                });
               }
             : undefined
         }

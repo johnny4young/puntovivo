@@ -1,7 +1,7 @@
 import { ScanLine, ShieldCheck, TriangleAlert, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { KpiTile } from '@/components/ui';
+import { Badge, KpiTile } from '@/components/ui';
 import { formatCurrency } from '@/lib/utils';
 import type { PaymentReconciliation } from './paymentHealthPresentation';
 
@@ -58,10 +58,9 @@ export function PaymentRailSummary({ data }: PaymentHealthSummaryProps): React.R
               <p className="font-semibold text-secondary-900">
                 {t(`payments.rails.${row.railId}`)}
               </p>
-              <span className={`pv-badge ${row.issues > 0 ? 'warning' : 'success'}`}>
-                <span className="dot" />
+              <Badge variant={row.issues > 0 ? 'warning' : 'success'} marker="dot">
                 {row.issues}
-              </span>
+              </Badge>
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div>

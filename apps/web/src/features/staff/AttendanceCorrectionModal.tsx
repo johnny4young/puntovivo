@@ -1,15 +1,14 @@
 import { useFieldArray, useForm } from 'react-hook-form';
-import { Plus, Trash2 } from 'lucide-react';
+import { Info, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { StatusStrip, Button } from '@/components/ui';
 import { wallFieldsAt } from './scheduleDate';
-
 interface EffectiveBreak {
   id: string;
   startedAt: string;
   endedAt: string | null;
 }
-
 export interface AttendanceCorrectionFormValues {
   startDate: string;
   startTime: string;
@@ -24,7 +23,6 @@ export interface AttendanceCorrectionFormValues {
   }>;
   reason: string;
 }
-
 interface AttendanceCorrectionModalProps {
   isOpen: boolean;
   isSaving: boolean;
@@ -36,7 +34,6 @@ interface AttendanceCorrectionModalProps {
   onClose: () => void;
   onSubmit: (values: AttendanceCorrectionFormValues) => void;
 }
-
 function defaultValues(
   clockedInAt: string,
   clockedOutAt: string,
@@ -84,9 +81,12 @@ export function AttendanceCorrectionModal({
   const form = useForm<AttendanceCorrectionFormValues>({
     defaultValues: defaultValues(clockedInAt, clockedOutAt, breaks, timeZone),
   });
-  const fields = useFieldArray({ control: form.control, name: 'breaks', keyName: 'fieldKey' });
+  const fields = useFieldArray({
+    control: form.control,
+    name: 'breaks',
+    keyName: 'fieldKey',
+  });
   const required = t('attendance.correction.required');
-
   const addBreak = () => {
     const start = new Date(clockedInAt);
     start.setTime(start.getTime() + 60 * 60_000);
@@ -100,12 +100,13 @@ export function AttendanceCorrectionModal({
       endTime: endFields.time,
     });
   };
-
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={t('attendance.correction.title', { employee: employeeName })}
+      title={t('attendance.correction.title', {
+        employee: employeeName,
+      })}
       size="lg"
       footer={
         <>
@@ -123,9 +124,12 @@ export function AttendanceCorrectionModal({
       }
     >
       <form className="space-y-5" onSubmit={event => void form.handleSubmit(onSubmit)(event)}>
-        <div className="pv-strip info" role="note">
-          <span className="msg">{t('attendance.correction.immutableNotice')}</span>
-        </div>
+        <StatusStrip
+          tone="info"
+          icon={Info}
+          title={t('attendance.correction.immutableNotice')}
+          role="note"
+        />
 
         <fieldset className="grid gap-4 sm:grid-cols-2">
           <legend className="mb-3 text-sm font-semibold text-secondary-950">
@@ -136,7 +140,9 @@ export function AttendanceCorrectionModal({
             <input
               type="date"
               className="input mt-1"
-              {...form.register('startDate', { required })}
+              {...form.register('startDate', {
+                required,
+              })}
             />
           </label>
           <label className="block">
@@ -144,16 +150,30 @@ export function AttendanceCorrectionModal({
             <input
               type="time"
               className="input mt-1"
-              {...form.register('startTime', { required })}
+              {...form.register('startTime', {
+                required,
+              })}
             />
           </label>
           <label className="block">
             <span className="label">{t('attendance.correction.endDate')}</span>
-            <input type="date" className="input mt-1" {...form.register('endDate', { required })} />
+            <input
+              type="date"
+              className="input mt-1"
+              {...form.register('endDate', {
+                required,
+              })}
+            />
           </label>
           <label className="block">
             <span className="label">{t('attendance.correction.endTime')}</span>
-            <input type="time" className="input mt-1" {...form.register('endTime', { required })} />
+            <input
+              type="time"
+              className="input mt-1"
+              {...form.register('endTime', {
+                required,
+              })}
+            />
           </label>
         </fieldset>
 
@@ -162,10 +182,10 @@ export function AttendanceCorrectionModal({
             <legend className="text-sm font-semibold text-secondary-950">
               {t('attendance.correction.breaks')}
             </legend>
-            <button type="button" className="pv-btn outline compact" onClick={addBreak}>
+            <Button type="button" onClick={addBreak} variant="outline" size="compact">
               <Plus aria-hidden="true" />
               {t('attendance.correction.addBreak')}
-            </button>
+            </Button>
           </div>
           {fields.fields.length === 0 ? (
             <p className="mt-3 text-xs text-secondary-500">{t('attendance.correction.noBreaks')}</p>
@@ -182,7 +202,9 @@ export function AttendanceCorrectionModal({
                     <input
                       type="date"
                       className="input mt-1"
-                      {...form.register(`breaks.${index}.startDate`, { required })}
+                      {...form.register(`breaks.${index}.startDate`, {
+                        required,
+                      })}
                     />
                   </label>
                   <label className="block">
@@ -190,7 +212,9 @@ export function AttendanceCorrectionModal({
                     <input
                       type="time"
                       className="input mt-1"
-                      {...form.register(`breaks.${index}.startTime`, { required })}
+                      {...form.register(`breaks.${index}.startTime`, {
+                        required,
+                      })}
                     />
                   </label>
                   <label className="block">
@@ -198,7 +222,9 @@ export function AttendanceCorrectionModal({
                     <input
                       type="date"
                       className="input mt-1"
-                      {...form.register(`breaks.${index}.endDate`, { required })}
+                      {...form.register(`breaks.${index}.endDate`, {
+                        required,
+                      })}
                     />
                   </label>
                   <label className="block">
@@ -206,17 +232,21 @@ export function AttendanceCorrectionModal({
                     <input
                       type="time"
                       className="input mt-1"
-                      {...form.register(`breaks.${index}.endTime`, { required })}
+                      {...form.register(`breaks.${index}.endTime`, {
+                        required,
+                      })}
                     />
                   </label>
-                  <button
+                  <Button
                     type="button"
-                    className="pv-btn ghost compact justify-self-start text-danger-700 sm:col-span-2"
+                    className="justify-self-start text-danger-700 sm:col-span-2"
                     onClick={() => fields.remove(index)}
+                    variant="ghost"
+                    size="compact"
                   >
                     <Trash2 aria-hidden="true" />
                     {t('attendance.correction.removeBreak')}
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
@@ -231,7 +261,10 @@ export function AttendanceCorrectionModal({
             placeholder={t('attendance.correction.reasonPlaceholder')}
             {...form.register('reason', {
               required,
-              minLength: { value: 10, message: t('attendance.correction.reasonMinimum') },
+              minLength: {
+                value: 10,
+                message: t('attendance.correction.reasonMinimum'),
+              },
             })}
           />
           {form.formState.errors.reason && (

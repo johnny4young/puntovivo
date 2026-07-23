@@ -5,14 +5,15 @@ import { Eye } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
+import { Badge, type BadgeVariant } from '@/components/ui';
 import { formatCurrency } from '@/lib/utils';
 import type { Order } from '@/types';
 
-const orderStatusClassNames: Record<Order['status'], string> = {
-  submitted: 'badge-primary',
-  partial_received: 'badge-warning',
-  received: 'badge-success',
-  voided: 'badge-warning',
+const orderStatusTones: Record<Order['status'], BadgeVariant> = {
+  submitted: 'primary',
+  partial_received: 'warning',
+  received: 'success',
+  voided: 'warning',
 };
 
 interface OrdersHistoryTableProps {
@@ -61,9 +62,9 @@ export function OrdersHistoryTable({
         header: t('table.status'),
         size: 120,
         cell: ({ row }) => (
-          <span className={orderStatusClassNames[row.original.status]}>
+          <Badge variant={orderStatusTones[row.original.status]}>
             {t(`status.${row.original.status}`)}
-          </span>
+          </Badge>
         ),
       },
       {

@@ -27,6 +27,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Loader2, RefreshCw, Inbox, AlertTriangle, Clock } from 'lucide-react';
+import { Badge, type BadgeVariant } from '@/components/ui';
 import { useOfflineSync } from '@/hooks';
 import { trpc } from '@/lib/trpc';
 
@@ -62,10 +63,10 @@ function deriveStatus(row: QueueRow): DerivedStatus {
   return 'pending';
 }
 
-const STATUS_TONE: Record<DerivedStatus, string> = {
-  pending: 'badge badge-secondary',
-  retrying: 'badge badge-warning',
-  failed: 'badge badge-danger',
+const STATUS_TONE: Record<DerivedStatus, BadgeVariant> = {
+  pending: 'secondary',
+  retrying: 'warning',
+  failed: 'danger',
 };
 
 const STATUS_ICON: Record<DerivedStatus, typeof Clock> = {
@@ -258,13 +259,13 @@ export function OfflineSyncQueueList({ now }: OfflineSyncQueueListProps = {}) {
                   </p>
                 </div>
               </div>
-              <span className={`${STATUS_TONE[status]} inline-flex items-center gap-1`}>
+              <Badge variant={STATUS_TONE[status]}>
                 <StatusIcon
                   className={`h-3 w-3 ${status === 'retrying' ? 'animate-spin' : ''}`}
                   aria-hidden="true"
                 />
                 {t(`offlineGrid.syncQueue.status.${status}`)}
-              </span>
+              </Badge>
             </li>
           );
         })}

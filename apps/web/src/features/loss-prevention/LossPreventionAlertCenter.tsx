@@ -237,7 +237,7 @@ export function LossPreventionAlertCenter({
           role="dialog"
           aria-modal="false"
           aria-labelledby="loss-prevention-alerts-popover-title"
-          className="absolute right-0 z-40 mt-3 w-[min(26rem,calc(100vw-2rem))] rounded-[24px] border border-line bg-card p-4 shadow-[var(--shadow-panel)]"
+          className="operator-popover absolute right-0 z-40 mt-3 w-[min(26rem,calc(100vw-2rem))] rounded-[14px] border border-line p-4"
         >
           <div className="flex items-center justify-between gap-3">
             <div>

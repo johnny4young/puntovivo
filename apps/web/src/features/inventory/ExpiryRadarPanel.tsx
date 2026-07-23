@@ -6,7 +6,7 @@ import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { EmptyState } from '@/components/feedback/EmptyState';
-import { KpiTile } from '@/components/ui';
+import { KpiTile, Badge } from '@/components/ui';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -24,10 +24,22 @@ const DEFAULT_EXPIRY_WINDOW_DAYS = 30;
 
 /** the  ladder stays the fallback for tenants that never
  * tuned it (and for a session payload that predates the setting). */
-const DEFAULT_TIERS: ReadonlyArray<{ maxDays: number; pct: number }> = [
-  { maxDays: 7, pct: 30 },
-  { maxDays: 15, pct: 20 },
-  { maxDays: 30, pct: 10 },
+const DEFAULT_TIERS: ReadonlyArray<{
+  maxDays: number;
+  pct: number;
+}> = [
+  {
+    maxDays: 7,
+    pct: 30,
+  },
+  {
+    maxDays: 15,
+    pct: 20,
+  },
+  {
+    maxDays: 30,
+    pct: 10,
+  },
 ];
 
 /**
@@ -38,7 +50,10 @@ const DEFAULT_TIERS: ReadonlyArray<{ maxDays: number; pct: number }> = [
  */
 function previewPctForDays(
   daysLeft: number,
-  tiers: ReadonlyArray<{ maxDays: number; pct: number }>
+  tiers: ReadonlyArray<{
+    maxDays: number;
+    pct: number;
+  }>
 ): number | null {
   if (daysLeft < 0) return null;
   for (const tier of tiers) {
@@ -46,7 +61,6 @@ function previewPctForDays(
   }
   return null;
 }
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** One radar row: an expiring lot joined with its active suggestion (if any). */
@@ -60,9 +74,11 @@ interface ExpiryRadarRow {
   unitCost: number;
   valueAtRisk: number;
   previewPct: number | null;
-  suggestion: { id: string; discountPct: number } | null;
+  suggestion: {
+    id: string;
+    discountPct: number;
+  } | null;
 }
-
 function urgencyTone(daysLeft: number): 'danger' | 'warning' | 'neutral' {
   if (daysLeft <= 7) return 'danger';
   if (daysLeft <= 15) return 'warning';
@@ -91,16 +107,16 @@ export function ExpiryRadarPanel() {
   // the operator picks the sweep; the query key carries it, so
   // switching windows refetches (and caches) per window.
   const [windowDays, setWindowDays] = useState<number>(DEFAULT_EXPIRY_WINDOW_DAYS);
-  const expiringQuery = trpc.inventoryLots.expiring.useQuery({ withinDays: windowDays });
+  const expiringQuery = trpc.inventoryLots.expiring.useQuery({
+    withinDays: windowDays,
+  });
   const suggestionsQuery = trpc.inventoryLots.activeSuggestions.useQuery(undefined);
-
   const invalidate = async () => {
     await Promise.all([
       utils.inventoryLots.activeSuggestions.invalidate(),
       utils.inventoryLots.expiring.invalidate(),
     ]);
   };
-
   const suggestMutation = trpc.inventoryLots.suggestDiscount.useMutation({
     onSuccess: async suggestion => {
       await invalidate();
@@ -117,7 +133,9 @@ export function ExpiryRadarPanel() {
   const dismissMutation = trpc.inventoryLots.dismissSuggestion.useMutation({
     onSuccess: async () => {
       await invalidate();
-      toast.success({ title: t('expiry.toast.dismissedTitle') });
+      toast.success({
+        title: t('expiry.toast.dismissedTitle'),
+      });
     },
     onError: onErrorToast(toast, t),
   });
@@ -126,13 +144,15 @@ export function ExpiryRadarPanel() {
   // the panel remounts per tab visit, so a per-render clock read buys
   // nothing and trips react-hooks/purity.
   const [now] = useState(() => Date.now());
-
   const rows = useMemo<ExpiryRadarRow[]>(() => {
     const items = expiringQuery.data?.items ?? [];
     const byLot = new Map(
       (suggestionsQuery.data?.items ?? []).map(item => [
         item.lotId,
-        { id: item.id, discountPct: item.discountPct },
+        {
+          id: item.id,
+          discountPct: item.discountPct,
+        },
       ])
     );
     return items.map(item => {
@@ -153,11 +173,9 @@ export function ExpiryRadarPanel() {
       };
     });
   }, [expiringQuery.data, suggestionsQuery.data, now, tiers]);
-
   const totalValueAtRisk = rows.reduce((sum, row) => sum + row.valueAtRisk, 0);
   const activeCount = rows.filter(row => row.suggestion !== null).length;
   const isMutating = suggestMutation.isPending || dismissMutation.isPending;
-
   const columns = useMemo<ColumnDef<ExpiryRadarRow>[]>(
     () => [
       {
@@ -183,14 +201,16 @@ export function ExpiryRadarPanel() {
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             <span>{row.original.expiresAt ? formatDate(row.original.expiresAt) : '—'}</span>
-            <span
-              className={cn('pv-badge', urgencyTone(row.original.daysLeft))}
+            <Badge
               data-testid={`expiry-days-${row.original.lotId}`}
+              variant={urgencyTone(row.original.daysLeft)}
             >
               {row.original.daysLeft === 0
                 ? t('expiry.today')
-                : t('expiry.daysLeft', { count: row.original.daysLeft })}
-            </span>
+                : t('expiry.daysLeft', {
+                    count: row.original.daysLeft,
+                  })}
+            </Badge>
           </div>
         ),
       },
@@ -198,21 +218,30 @@ export function ExpiryRadarPanel() {
         accessorKey: 'onHand',
         header: () => t('expiry.columns.onHand'),
         size: 110,
-        meta: { cellClassName: 'num', headerClassName: 'num' },
+        meta: {
+          cellClassName: 'num',
+          headerClassName: 'num',
+        },
         cell: ({ row }) => row.original.onHand.toLocaleString(),
       },
       {
         accessorKey: 'unitCost',
         header: () => t('expiry.columns.unitCost'),
         size: 130,
-        meta: { cellClassName: 'num', headerClassName: 'num' },
+        meta: {
+          cellClassName: 'num',
+          headerClassName: 'num',
+        },
         cell: ({ row }) => formatCurrency(row.original.unitCost),
       },
       {
         accessorKey: 'valueAtRisk',
         header: () => t('expiry.columns.valueAtRisk'),
         size: 150,
-        meta: { cellClassName: 'num', headerClassName: 'num' },
+        meta: {
+          cellClassName: 'num',
+          headerClassName: 'num',
+        },
         cell: ({ row }) => (
           <span className="font-semibold" data-testid={`expiry-risk-${row.original.lotId}`}>
             {formatCurrency(row.original.valueAtRisk)}
@@ -226,18 +255,19 @@ export function ExpiryRadarPanel() {
         cell: ({ row }) =>
           row.original.suggestion ? (
             <div className="flex items-center gap-2">
-              <span
-                className="pv-badge success"
-                data-testid={`expiry-active-${row.original.lotId}`}
-              >
-                {t('expiry.activeBadge', { pct: row.original.suggestion.discountPct })}
-              </span>
+              <Badge data-testid={`expiry-active-${row.original.lotId}`} variant="success">
+                {t('expiry.activeBadge', {
+                  pct: row.original.suggestion.discountPct,
+                })}
+              </Badge>
               <button
                 type="button"
                 className="btn-ghost text-xs"
                 disabled={isMutating}
                 onClick={() =>
-                  dismissMutation.mutate({ suggestionId: row.original.suggestion!.id })
+                  dismissMutation.mutate({
+                    suggestionId: row.original.suggestion!.id,
+                  })
                 }
               >
                 {t('expiry.dismiss')}
@@ -249,9 +279,15 @@ export function ExpiryRadarPanel() {
               className="btn-secondary text-xs"
               disabled={isMutating}
               data-testid={`expiry-suggest-${row.original.lotId}`}
-              onClick={() => suggestMutation.mutate({ lotId: row.original.lotId })}
+              onClick={() =>
+                suggestMutation.mutate({
+                  lotId: row.original.lotId,
+                })
+              }
             >
-              {t('expiry.suggest', { pct: row.original.previewPct })}
+              {t('expiry.suggest', {
+                pct: row.original.previewPct,
+              })}
             </button>
           ) : (
             <span className="text-secondary-400">—</span>
@@ -260,7 +296,6 @@ export function ExpiryRadarPanel() {
     ],
     [t, isMutating, dismissMutation, suggestMutation]
   );
-
   return (
     <div className="space-y-4" data-testid="expiry-radar-panel">
       {/* window sweep selector. A segmented control (not a select)
@@ -280,7 +315,9 @@ export function ExpiryRadarPanel() {
               data-testid={`expiry-window-${option}`}
               onClick={() => setWindowDays(option)}
             >
-              {t('expiry.windowOption', { days: option })}
+              {t('expiry.windowOption', {
+                days: option,
+              })}
             </button>
           ))}
         </div>
@@ -292,7 +329,9 @@ export function ExpiryRadarPanel() {
           tone={rows.length > 0 ? 'warning' : 'ink'}
           label={t('expiry.summary.lots')}
           value={rows.length.toLocaleString()}
-          context={t('expiry.summary.window', { days: windowDays })}
+          context={t('expiry.summary.window', {
+            days: windowDays,
+          })}
         />
         <KpiTile
           icon={AlarmClock}
@@ -324,7 +363,9 @@ export function ExpiryRadarPanel() {
           <EmptyState
             icon={CalendarClock}
             title={t('expiry.emptyTitle')}
-            description={t('expiry.emptyDescription', { days: windowDays })}
+            description={t('expiry.emptyDescription', {
+              days: windowDays,
+            })}
           />
         ) : (
           <DataTable

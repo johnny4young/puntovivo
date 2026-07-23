@@ -10,7 +10,7 @@ import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { FiscalStatusBadge } from '@/components/fiscal/FiscalStatusBadge';
 import { FiscalMaturityBadge } from '@/components/fiscal/FiscalMaturityBadge';
 import { EmptyState } from '@/components/feedback/EmptyState';
-import { KpiTile } from '@/components/ui';
+import { KpiTile, Button } from '@/components/ui';
 import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { TablePagination } from '@/components/tables/TablePagination';
 
@@ -30,10 +30,8 @@ import { TablePagination } from '@/components/tables/TablePagination';
  */
 
 type ActionFilter = 'contingency' | 'rejected' | 'accepted';
-
 const ACTION_FILTERS: ActionFilter[] = ['contingency', 'rejected', 'accepted'];
 const PAGE_LIMIT = 20;
-
 export function FiscalHealthPanel() {
   const { t } = useTranslation('operations');
   const { user } = useAuth();
@@ -41,7 +39,6 @@ export function FiscalHealthPanel() {
   const utils = trpc.useUtils();
   const [statusFilter, setStatusFilter] = useState<ActionFilter>('contingency');
   const isAdmin = user?.role === 'admin';
-
   const listQuery = trpc.reports.fiscal.list.useQuery(
     {
       limit: PAGE_LIMIT,
@@ -53,15 +50,17 @@ export function FiscalHealthPanel() {
       refetchInterval: 30_000,
     }
   );
-
   const retryMutation = trpc.reports.fiscal.retryDocument.useMutation({
     onSuccess: async () => {
       await utils.reports.fiscal.list.invalidate();
-      toast.success({ title: t('fiscal.retry.success') });
+      toast.success({
+        title: t('fiscal.retry.success'),
+      });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'operations:fiscal.retry.error' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'operations:fiscal.retry.error',
+    }),
   });
-
   const items = listQuery.data?.items ?? [];
   // Documentos por resolver = todo lo que no esté aceptado. La métrica
   // pasa a `danger` cuando hay > 0 para comunicar urgencia (§09).
@@ -70,7 +69,6 @@ export function FiscalHealthPanel() {
 
   // Paginación client-side sobre el array ya cargado (8 filas/página).
   const { pageRows, hasPagination, ...pagination } = usePaginatedRows(items, 8);
-
   return (
     <section className="card space-y-5 p-6">
       <header className="flex items-start gap-3">
@@ -173,9 +171,9 @@ export function FiscalHealthPanel() {
                       <td className="num">{formatCurrency(item.totalAmount, item.currencyCode)}</td>
                       <td className="num">
                         {(item.status === 'contingency' || item.status === 'rejected') && (
-                          <button
+                          <Button
                             type="button"
-                            className="pv-btn outline ml-auto"
+                            className="ml-auto"
                             disabled={!isAdmin || isRetrying}
                             title={!isAdmin ? t('fiscal.retry.noPermission') : undefined}
                             onClick={() => {
@@ -185,10 +183,11 @@ export function FiscalHealthPanel() {
                               });
                             }}
                             data-testid={`fiscal-retry-${item.id}`}
+                            variant="outline"
                           >
                             <RefreshCw className={isRetrying ? 'animate-spin' : undefined} />
                             {t('fiscal.retry.cta')}
-                          </button>
+                          </Button>
                         )}
                       </td>
                     </tr>

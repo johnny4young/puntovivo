@@ -1,7 +1,6 @@
 import { FileSpreadsheet, LoaderCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { formatCurrency } from '@/lib/utils';
@@ -31,12 +30,11 @@ import type {
   OpeningCashImportReport,
   OpeningCashImportRowsInput,
 } from './types';
-
+import { Button } from '@/components/ui';
 interface OpeningCashImportWorkflowProps {
   dataMode: LaunchImportDataMode;
   onBusyChange?: (busy: boolean) => void;
 }
-
 interface OpeningCashIssueExportRow {
   denominations: string;
   field: string;
@@ -47,11 +45,9 @@ interface OpeningCashIssueExportRow {
   siteName: string;
   status: string;
 }
-
 interface OpeningCashReportExportRow extends OpeningCashIssueExportRow {
   templateId: string;
 }
-
 export function OpeningCashImportWorkflow({
   dataMode,
   onBusyChange,
@@ -68,7 +64,6 @@ export function OpeningCashImportWorkflow({
   const [isParsing, setIsParsing] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [confirmedRealData, setConfirmedRealData] = useState(false);
-
   const mappedRows = useMemo(
     () => (file && mapping ? mapOpeningCashImportRows(file, mapping) : []),
     [file, mapping]
@@ -78,7 +73,9 @@ export function OpeningCashImportWorkflow({
       setPreview(result);
       setReport(null);
     },
-    onError: onErrorToast(toast, t, { titleKey: 'dataImport:toast.previewError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'dataImport:toast.previewError',
+    }),
   });
   const importMutation = trpc.launchMigration.importOpeningCash.useMutation({
     onSuccess: async result => {
@@ -90,15 +87,15 @@ export function OpeningCashImportWorkflow({
         }),
       });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'dataImport:toast.importError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'dataImport:toast.importError',
+    }),
   });
   const isBusy = isParsing || previewMutation.isPending || importMutation.isPending;
-
   useEffect(() => {
     onBusyChange?.(isBusy);
     return () => onBusyChange?.(false);
   }, [isBusy, onBusyChange]);
-
   const invalidatePreview = () => {
     setPreview(null);
     setReport(null);
@@ -106,7 +103,6 @@ export function OpeningCashImportWorkflow({
     previewMutation.reset();
     importMutation.reset();
   };
-
   const handleFile = async (selected: File) => {
     if (isBusy) return;
     setIsParsing(true);
@@ -126,7 +122,6 @@ export function OpeningCashImportWorkflow({
       setIsParsing(false);
     }
   };
-
   const handlePreview = () => {
     if (!file || !mapping || !hasRequiredOpeningCashMapping(mapping)) return;
     previewMutation.mutate({
@@ -136,7 +131,6 @@ export function OpeningCashImportWorkflow({
       rows: mappedRows as OpeningCashImportRowsInput,
     });
   };
-
   const handleImport = () => {
     if (!file || !preview || dataMode !== 'real' || !confirmedRealData) return;
     importMutation.mutate({
@@ -148,18 +142,40 @@ export function OpeningCashImportWorkflow({
       previewHash: preview.previewHash,
     });
   };
-
   const exportColumns = <T extends OpeningCashIssueExportRow>(): ExportColumn<T>[] => [
-    { key: 'row', header: t('dataImport:table.row') },
-    { key: 'status', header: t('dataImport:table.status') },
-    { key: 'siteName', header: t('dataImport:openingCash.fields.siteName') },
-    { key: 'registerName', header: t('dataImport:openingCash.fields.registerName') },
-    { key: 'openingFloat', header: t('dataImport:openingCash.fields.openingFloat') },
-    { key: 'denominations', header: t('dataImport:openingCash.fields.denominations') },
-    { key: 'field', header: t('dataImport:table.field') },
-    { key: 'issue', header: t('dataImport:table.issues') },
+    {
+      key: 'row',
+      header: t('dataImport:table.row'),
+    },
+    {
+      key: 'status',
+      header: t('dataImport:table.status'),
+    },
+    {
+      key: 'siteName',
+      header: t('dataImport:openingCash.fields.siteName'),
+    },
+    {
+      key: 'registerName',
+      header: t('dataImport:openingCash.fields.registerName'),
+    },
+    {
+      key: 'openingFloat',
+      header: t('dataImport:openingCash.fields.openingFloat'),
+    },
+    {
+      key: 'denominations',
+      header: t('dataImport:openingCash.fields.denominations'),
+    },
+    {
+      key: 'field',
+      header: t('dataImport:table.field'),
+    },
+    {
+      key: 'issue',
+      header: t('dataImport:table.issues'),
+    },
   ];
-
   const buildIssueRows = (): OpeningCashIssueExportRow[] => {
     if (!preview) return [];
     if (report) {
@@ -189,13 +205,11 @@ export function OpeningCashImportWorkflow({
       }))
     );
   };
-
   const handleDownloadIssues = () => {
     exportToCSV(buildIssueRows(), exportColumns(), 'puntovivo-opening-cash-import-issues', {
       includeTimestamp: true,
     });
   };
-
   const handleDownloadReport = () => {
     if (!preview || !report) return;
     const rows: OpeningCashReportExportRow[] = buildOpeningCashImportReportRows(
@@ -214,13 +228,15 @@ export function OpeningCashImportWorkflow({
     }));
     const columns: ExportColumn<OpeningCashReportExportRow>[] = [
       ...exportColumns<OpeningCashReportExportRow>(),
-      { key: 'templateId', header: t('dataImport:openingCash.report.templateId') },
+      {
+        key: 'templateId',
+        header: t('dataImport:openingCash.report.templateId'),
+      },
     ];
     exportToCSV(rows, columns, `puntovivo-opening-cash-import-${report.importId}`, {
       includeTimestamp: true,
     });
   };
-
   const handleDownloadTemplate = () => {
     const columns: ExportColumn<Record<string, string>>[] = OPENING_CASH_IMPORT_FIELDS.map(key => ({
       key,
@@ -233,7 +249,6 @@ export function OpeningCashImportWorkflow({
       includeTimestamp: false,
     });
   };
-
   const handleReset = () => {
     if (isBusy) return;
     setFile(null);
@@ -242,16 +257,14 @@ export function OpeningCashImportWorkflow({
     invalidatePreview();
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
-
   const canPreview = Boolean(file && mapping && hasRequiredOpeningCashMapping(mapping));
-
   return (
     <div className="space-y-6" data-testid="data-import-openingCash-workflow">
       <div className="flex justify-end">
-        <button type="button" className="pv-btn outline" onClick={handleDownloadTemplate}>
+        <Button type="button" onClick={handleDownloadTemplate} variant="outline">
           <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
           {t('dataImport:actions.downloadTemplate')}
-        </button>
+        </Button>
       </div>
 
       <ImportSourcePanel
@@ -276,22 +289,29 @@ export function OpeningCashImportWorkflow({
               invalidatePreview();
             }}
             onMappingChange={(field: OpeningCashImportField, source: string) => {
-              setMapping(current => (current ? { ...current, [field]: source } : current));
+              setMapping(current =>
+                current
+                  ? {
+                      ...current,
+                      [field]: source,
+                    }
+                  : current
+              );
               invalidatePreview();
             }}
           />
           <div className="flex justify-end">
-            <button
+            <Button
               type="button"
-              className="pv-btn primary"
               disabled={!canPreview || isBusy}
               onClick={handlePreview}
+              variant="primary"
             >
               {previewMutation.isPending ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
               {t('dataImport:actions.preview')}
-            </button>
+            </Button>
           </div>
         </>
       ) : null}

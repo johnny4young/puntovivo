@@ -1,10 +1,9 @@
 import { AlertTriangle, CheckCircle2, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { cn } from '@/lib/utils';
 import { ImportCommitGuard } from './ImportCommitGuard';
 import type { LaunchImportDataMode, ProductImportIssue, ProductImportPreview } from './types';
-
+import { Button } from '@/components/ui';
 interface ProductImportPreviewProps {
   preview: ProductImportPreview;
   confirmedRealData: boolean;
@@ -15,17 +14,14 @@ interface ProductImportPreviewProps {
   onDownloadIssues: () => void;
   onConfirmRealData: (confirmed: boolean) => void;
 }
-
 const STATUS_STYLE = {
   ready: 'bg-success-50 text-success-800 border-success-200',
   duplicate: 'bg-warning-50 text-warning-800 border-warning-200',
   invalid: 'bg-danger-50 text-danger-800 border-danger-200',
 } as const;
-
 function issueKey(issue: ProductImportIssue): string {
   return `issues.${issue.code}`;
 }
-
 export function ProductImportPreviewPanel({
   preview,
   confirmedRealData,
@@ -38,7 +34,6 @@ export function ProductImportPreviewPanel({
 }: ProductImportPreviewProps) {
   const { t } = useTranslation('dataImport');
   const hasIssues = preview.summary.duplicates + preview.summary.invalid > 0;
-
   return (
     <section className="card space-y-5 p-6" aria-labelledby="data-import-preview-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -56,9 +51,9 @@ export function ProductImportPreviewPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           {hasIssues ? (
-            <button type="button" className="pv-btn outline" onClick={onDownloadIssues}>
+            <Button type="button" onClick={onDownloadIssues} variant="outline">
               {t('actions.downloadIssues')}
-            </button>
+            </Button>
           ) : null}
           <ImportCommitGuard
             completed={completed}
@@ -150,7 +145,9 @@ export function ProductImportPreviewPanel({
       </div>
       {preview.rows.length > 100 ? (
         <p className="text-xs text-secondary-500">
-          {t('table.previewLimit', { count: preview.rows.length })}
+          {t('table.previewLimit', {
+            count: preview.rows.length,
+          })}
         </p>
       ) : null}
     </section>

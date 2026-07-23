@@ -10,41 +10,47 @@ import {
   supportSnapshotFilename,
   type SupportSnapshotSource,
 } from './supportSnapshot';
-
+import { Button } from '@/components/ui';
 interface SupportSnapshotPanelProps {
   source: SupportSnapshotSource;
   disabled: boolean;
 }
-
 export function SupportSnapshotPanel({ source, disabled }: SupportSnapshotPanelProps) {
   const { t } = useTranslation('operations');
   const toast = useToast();
-
   async function copySnapshot(): Promise<void> {
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
       const snapshot = createSupportSnapshot(source);
       await navigator.clipboard.writeText(serializeSupportSnapshot(snapshot));
-      toast.success({ title: t('support.snapshot.toast.copied') });
+      toast.success({
+        title: t('support.snapshot.toast.copied'),
+      });
     } catch {
-      toast.error({ title: t('support.snapshot.toast.copyError') });
+      toast.error({
+        title: t('support.snapshot.toast.copyError'),
+      });
     }
   }
-
   function downloadSnapshot(): void {
     try {
       const snapshot = createSupportSnapshot(source);
       const content = serializeSupportSnapshot(snapshot);
       downloadFile(
-        new Blob([content], { type: 'application/json;charset=utf-8' }),
+        new Blob([content], {
+          type: 'application/json;charset=utf-8',
+        }),
         supportSnapshotFilename(snapshot.generatedAt)
       );
-      toast.success({ title: t('support.snapshot.toast.downloaded') });
+      toast.success({
+        title: t('support.snapshot.toast.downloaded'),
+      });
     } catch {
-      toast.error({ title: t('support.snapshot.toast.downloadError') });
+      toast.error({
+        title: t('support.snapshot.toast.downloadError'),
+      });
     }
   }
-
   return (
     <section className="card overflow-hidden" data-testid="support-snapshot-panel">
       <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
@@ -68,26 +74,26 @@ export function SupportSnapshotPanel({ source, disabled }: SupportSnapshotPanelP
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2 sm:flex-nowrap">
-          <button
+          <Button
             type="button"
-            className="pv-btn outline"
             onClick={() => void copySnapshot()}
             disabled={disabled}
             data-testid="support-snapshot-copy"
+            variant="outline"
           >
             <Copy className="h-4 w-4" aria-hidden="true" />
             {t('support.snapshot.actions.copy')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="pv-btn primary"
             onClick={downloadSnapshot}
             disabled={disabled}
             data-testid="support-snapshot-download"
+            variant="primary"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
             {t('support.snapshot.actions.download')}
-          </button>
+          </Button>
         </div>
       </div>
     </section>

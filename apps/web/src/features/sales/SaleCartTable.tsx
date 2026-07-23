@@ -10,7 +10,7 @@ import {
 } from '@/features/sales/saleCart';
 import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions';
 import { SaleSerialSelector } from '@/features/sales/SaleSerialSelector';
-
+import { Badge, Button } from '@/components/ui';
 interface SaleCartTableProps {
   items: SaleCartItem[];
   /** active site scopes the expiry-suggestion badge to this POS. */
@@ -25,7 +25,6 @@ interface SaleCartTableProps {
   quantityInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   discountInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
 }
-
 export function SaleCartTable({
   items,
   discountSuggestionSiteId = null,
@@ -54,12 +53,17 @@ export function SaleCartTable({
   const draftValueFor = (draftId: string, committed: number): string =>
     inputDrafts[draftId] ?? String(committed);
   const setDraft = (draftId: string, value: string): void => {
-    setInputDrafts(previous => ({ ...previous, [draftId]: value }));
+    setInputDrafts(previous => ({
+      ...previous,
+      [draftId]: value,
+    }));
   };
   const clearDraft = (draftId: string): void => {
     setInputDrafts(previous => {
       if (!(draftId in previous)) return previous;
-      const next = { ...previous };
+      const next = {
+        ...previous,
+      };
       delete next[draftId];
       return next;
     });
@@ -86,16 +90,14 @@ export function SaleCartTable({
       </span>
     </p>
   );
-
   if (items.length === 0) {
     return (
-      <div className="rounded-[18px] border border-dashed border-line-strong bg-surface-2/55 px-5 py-10 text-center">
+      <div className="sales-empty-tape rounded-[18px] px-5 py-10 text-center">
         <p className="text-sm text-secondary-600">{t('cart.empty')}</p>
         <div className="text-left">{shortcutsHint}</div>
       </div>
     );
   }
-
   return (
     <div>
       <ul className="flex flex-col gap-[10px]" aria-label={t('cart.items')}>
@@ -113,7 +115,6 @@ export function SaleCartTable({
               otherItem => otherItem.key !== item.key && otherItem.serialSiteId === serialSiteId
             )
             .flatMap(otherItem => otherItem.serialIds ?? []);
-
           return (
             <li
               key={item.key}
@@ -127,20 +128,23 @@ export function SaleCartTable({
                 <button
                   type="button"
                   className="min-w-0 flex-1 text-left"
-                  aria-label={t('cart.selectItem', { name: item.productName })}
+                  aria-label={t('cart.selectItem', {
+                    name: item.productName,
+                  })}
                   onClick={() => onSelectItem(item.key)}
                 >
                   <span className="flex items-center gap-2 text-[13.5px] font-semibold text-fg1">
                     <span className="truncate">{item.productName}</span>
                     {(discountSuggestions.get(item.productId) ?? 0) > 0 && (
-                      <span
-                        className="pv-badge warning shrink-0"
+                      <Badge
+                        className="shrink-0"
                         data-testid={`cart-discount-suggestion-${item.productSku}`}
+                        variant="warning"
                       >
                         {t('cart.discountSuggested', {
                           pct: discountSuggestions.get(item.productId),
                         })}
-                      </span>
+                      </Badge>
                     )}
                   </span>
                   <span className="mono mt-0.5 block text-[11px] text-secondary-500">
@@ -154,10 +158,12 @@ export function SaleCartTable({
                 </button>
 
                 <div className="flex shrink-0 items-center gap-2">
-                  <button
+                  <Button
                     type="button"
-                    className="pv-btn outline min-h-11 h-11 w-11 p-0 disabled:cursor-not-allowed disabled:opacity-45"
-                    aria-label={t('cart.decrement', { name: item.productName })}
+                    className="disabled:cursor-not-allowed disabled:opacity-45"
+                    aria-label={t('cart.decrement', {
+                      name: item.productName,
+                    })}
                     disabled={decrementDisabled}
                     onClick={() => {
                       onSelectItem(item.key);
@@ -166,9 +172,11 @@ export function SaleCartTable({
                         Math.max(minimumQuantity, item.quantity - quantityStep)
                       );
                     }}
+                    variant="outline"
+                    size="icon"
                   >
                     <Minus className="h-4 w-4" aria-hidden="true" />
-                  </button>
+                  </Button>
 
                   {/* La cifra de cantidad es la lectura táctil; el input
                    * mantiene el ref para el atajo Alt+C y la edición directa
@@ -183,7 +191,9 @@ export function SaleCartTable({
                       min={minimumQuantity}
                       step={String(quantityStep)}
                       className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent text-center text-[15px] font-semibold text-fg1 opacity-0 focus:opacity-100 focus:[appearance:textfield] focus-visible:opacity-100 focus-visible:rounded-md focus-visible:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
-                      aria-label={t('cart.qtyFor', { name: item.productName })}
+                      aria-label={t('cart.qtyFor', {
+                        name: item.productName,
+                      })}
                       value={draftValueFor(`q:${item.key}`, item.quantity)}
                       onFocus={() => onSelectItem(item.key)}
                       onChange={event => {
@@ -208,17 +218,20 @@ export function SaleCartTable({
                     />
                   </span>
 
-                  <button
+                  <Button
                     type="button"
-                    className="pv-btn outline min-h-11 h-11 w-11 p-0"
-                    aria-label={t('cart.increment', { name: item.productName })}
+                    aria-label={t('cart.increment', {
+                      name: item.productName,
+                    })}
                     onClick={() => {
                       onSelectItem(item.key);
                       onQuantityChange(item.key, item.quantity + quantityStep);
                     }}
+                    variant="outline"
+                    size="icon"
                   >
                     <Plus className="h-4 w-4" aria-hidden="true" />
-                  </button>
+                  </Button>
 
                   <span className="mono w-[78px] text-right text-[14px] font-semibold text-fg1">
                     {formatCurrency(lineTotals.total)}
@@ -255,7 +268,9 @@ export function SaleCartTable({
                     max={100}
                     step={1}
                     className="input mt-0 h-9 w-16 px-2 py-1 text-center text-[13px]"
-                    aria-label={t('cart.discountFor', { name: item.productName })}
+                    aria-label={t('cart.discountFor', {
+                      name: item.productName,
+                    })}
                     value={draftValueFor(`d:${item.key}`, item.discount)}
                     onFocus={() => onSelectItem(item.key)}
                     onChange={event => {
@@ -291,7 +306,9 @@ export function SaleCartTable({
                   <button
                     type="button"
                     className="btn-ghost btn-icon h-9 w-9 text-danger-500 hover:text-danger-700"
-                    aria-label={t('cart.removeItem', { name: item.productName })}
+                    aria-label={t('cart.removeItem', {
+                      name: item.productName,
+                    })}
                     onClick={() => onRemove(item.key)}
                   >
                     <Trash2 className="h-4 w-4" aria-hidden="true" />

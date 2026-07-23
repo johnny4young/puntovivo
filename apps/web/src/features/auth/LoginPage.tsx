@@ -10,9 +10,7 @@ import type { LoginCredentials } from '@/types';
 export function LoginPage() {
   const { login, isLoading, error } = useAuth();
   const { t } = useTranslation(['auth', 'errors']);
-  const errorMessage = error
-    ? translateServerError(error, t, t('errors:server.unknown'))
-    : null;
+  const errorMessage = error ? translateServerError(error, t, t('errors:server.unknown')) : null;
   const [showPassword, setShowPassword] = useState(false);
   const {
     register,
@@ -37,9 +35,7 @@ export function LoginPage() {
             <h1 className="mt-4 max-w-lg font-display text-6xl leading-[0.92] text-balance text-secondary-950">
               {t('login.headline')}
             </h1>
-            <p className="mt-6 max-w-md text-base leading-7 text-fg2">
-              {t('login.description')}
-            </p>
+            <p className="mt-6 max-w-md text-base leading-7 text-fg2">{t('login.description')}</p>
           </div>
 
           <div className="relative z-10 grid gap-4 xl:grid-cols-3">
@@ -82,7 +78,9 @@ export function LoginPage() {
               />
               <div>
                 <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Puntovivo</p>
-                <h2 className="font-display text-3xl text-secondary-950">{t('login.signInHeadline')}</h2>
+                <h2 className="font-display text-3xl text-secondary-950">
+                  {t('login.signInHeadline')}
+                </h2>
               </div>
             </div>
 
@@ -92,7 +90,7 @@ export function LoginPage() {
 
             <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
               {errorMessage && (
-                <div className="rounded-[20px] border border-danger-500/20 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+                <div className="rounded-[11px] border border-danger-500/20 bg-danger-50 px-4 py-3 text-sm text-danger-700">
                   {errorMessage}
                 </div>
               )}

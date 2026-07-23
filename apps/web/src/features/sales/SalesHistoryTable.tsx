@@ -9,21 +9,19 @@ import { TableExportActions } from '@/components/tables/TableExportActions';
 import { saleHistoryExportColumns } from '@/features/sales/saleHistoryExport';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Sale } from '@/types';
-
-const statusColors: Record<string, string> = {
-  completed: 'badge-success',
-  draft: 'badge-secondary',
-  cancelled: 'badge-danger',
-  voided: 'badge-warning',
+import { Badge, type BadgeVariant } from '@/components/ui';
+const statusTones: Record<string, BadgeVariant> = {
+  completed: 'success',
+  draft: 'secondary',
+  cancelled: 'danger',
+  voided: 'warning',
 };
-
-const paymentStatusColors: Record<string, string> = {
-  paid: 'badge-success',
-  pending: 'badge-warning',
-  partial: 'badge-primary',
-  refunded: 'badge-danger',
+const paymentStatusTones: Record<string, BadgeVariant> = {
+  paid: 'success',
+  pending: 'warning',
+  partial: 'primary',
+  refunded: 'danger',
 };
-
 interface SalesHistoryTableProps {
   sales: Sale[];
   isLoading: boolean;
@@ -39,7 +37,6 @@ interface SalesHistoryTableProps {
   selectedSaleId?: string | null;
   onSelectedSaleIdChange?: (saleId: string | null) => void;
 }
-
 export function SalesHistoryTable({
   sales,
   isLoading,
@@ -85,9 +82,9 @@ export function SalesHistoryTable({
         header: t('history.columns.payment'),
         size: 120,
         cell: ({ row }) => (
-          <span className={`badge ${paymentStatusColors[row.original.paymentStatus]}`}>
+          <Badge variant={paymentStatusTones[row.original.paymentStatus]}>
             {t(`paymentStatus.${row.original.paymentStatus}`)}
-          </span>
+          </Badge>
         ),
       },
       {
@@ -95,9 +92,9 @@ export function SalesHistoryTable({
         header: t('history.columns.status'),
         size: 110,
         cell: ({ row }) => (
-          <span className={`badge ${statusColors[row.original.status]}`}>
+          <Badge variant={statusTones[row.original.status]}>
             {t(`status.${row.original.status}`)}
-          </span>
+          </Badge>
         ),
       },
       {
@@ -107,7 +104,9 @@ export function SalesHistoryTable({
           <button
             className="btn-ghost btn-icon h-8 w-8"
             onClick={() => onView(row.original.id)}
-            aria-label={t('history.viewSale', { number: row.original.saleNumber })}
+            aria-label={t('history.viewSale', {
+              number: row.original.saleNumber,
+            })}
             title={t('history.viewSaleTitle')}
           >
             <Eye className="h-4 w-4" />
@@ -117,7 +116,6 @@ export function SalesHistoryTable({
     ],
     [onView, t]
   );
-
   return (
     <section className="card p-5 sm:p-6">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -129,9 +127,9 @@ export function SalesHistoryTable({
           </div>
         </div>
         {!isLoading && !error && (
-          <span className="badge badge-secondary">
+          <Badge variant="neutral">
             {sales.length} {t('history.recordsLoaded')}
-          </span>
+          </Badge>
         )}
       </div>
 

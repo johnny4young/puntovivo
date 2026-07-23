@@ -55,7 +55,7 @@ export function ProductSearchSelectionPanel({
               </select>
             </div>
 
-            <div className="rounded-[20px] border border-line/70 bg-surface/92 px-4 py-4">
+            <div className="rounded-[14px] border border-line/70 bg-surface/92 px-4 py-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-secondary-500">{t('productSearch.price')}</span>
                 <span className="font-medium text-secondary-900">{formatCurrency(unit.price)}</span>

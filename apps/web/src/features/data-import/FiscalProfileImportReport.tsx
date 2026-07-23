@@ -1,14 +1,12 @@
 import { CheckCircle2, Download, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-
 import type { FiscalProfileImportReport } from './types';
-
+import { Button, buttonVariants } from '@/components/ui';
 interface FiscalProfileImportReportProps {
   onDownloadReport: () => void;
   report: FiscalProfileImportReport;
 }
-
 export function FiscalProfileImportReportPanel({
   onDownloadReport,
   report,
@@ -36,7 +34,9 @@ export function FiscalProfileImportReportPanel({
               {t('report.title')}
             </h2>
             <p className="mt-1 text-sm text-secondary-600">
-              {t('fiscalProfiles.reportDescription', { count: report.summary.imported })}
+              {t('fiscalProfiles.reportDescription', {
+                count: report.summary.imported,
+              })}
             </p>
             <p className="mt-2 text-xs text-secondary-500">
               {t('report.importId')}{' '}
@@ -45,14 +45,19 @@ export function FiscalProfileImportReportPanel({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link className="pv-btn primary" to="/company?tab=fiscal">
+          <Link
+            className={buttonVariants({
+              variant: 'primary',
+            })}
+            to="/company?tab=fiscal"
+          >
             {t('fiscalProfiles.reviewAction')}
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
           </Link>
-          <button type="button" className="pv-btn outline" onClick={onDownloadReport}>
+          <Button type="button" onClick={onDownloadReport} variant="outline">
             <Download className="h-4 w-4" aria-hidden="true" />
             {t('actions.downloadReport')}
-          </button>
+          </Button>
         </div>
       </div>
       <dl className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

@@ -8,6 +8,27 @@
   "view": {
     "history": "History"
   },
+  "flow": {
+    "live": "Live checkout",
+    "title": "Scan. Review. Charge.",
+    "description": "A visual route that keeps the ticket, register, and next action in the same context.",
+    "ariaLabel": "Sale flow stages",
+    "steps": {
+      "capture": "Capture",
+      "review": "Review",
+      "charge": "Charge"
+    },
+    "captureWaiting": "Waiting for the first product",
+    "captureComplete_one": "{{count}} item captured",
+    "captureComplete_other": "{{count}} items captured",
+    "reviewWaiting": "Available after scanning",
+    "reviewActive": "Check quantities and discounts",
+    "chargeLocked": "Open the cash session to continue",
+    "chargeWaiting": "Waiting for an active ticket",
+    "chargeReady": "Ready to charge with F1",
+    "suspended": "On hold",
+    "suspendedAriaLabel": "Suspended sales"
+  },
   "checkout": {
     "kicker": "Checkout",
     "chargeSummary": "Charge summary",
@@ -491,6 +512,7 @@
   },
   "quickSearch": {
     "label": "Product / barcode",
+    "ready": "Scanner ready",
     "placeholder": "Scan barcode or type SKU / name",
     "search": "Search",
     "hint": "`Alt+P` focus search, `F5` open catalog, `F1` charge."
