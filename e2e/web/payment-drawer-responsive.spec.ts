@@ -9,6 +9,7 @@ type Viewport = { width: number; height: number };
 
 const DESKTOP_VIEWPORT: Viewport = { width: 1440, height: 900 };
 const TABLET_VIEWPORT: Viewport = { width: 768, height: 1024 };
+const ZOOM_200_EQUIVALENT_VIEWPORT: Viewport = { width: 640, height: 800 };
 const MOBILE_VIEWPORT: Viewport = { width: 390, height: 844 };
 
 async function openPaymentDrawer(
@@ -166,6 +167,41 @@ test.describe('responsive payment drawer', () => {
     await captureAuditScreenshot(page, 'tablet-768-en-cash');
 
     await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expectSearchInputFocused(page);
+    await expectNoClientIssues(tracker);
+  });
+
+  test('200% equivalent width keeps Spanish checkout controls reachable', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const { dialog, drawer, summary, confirm } = await openPaymentDrawer(
+      page,
+      testInfo,
+      ZOOM_200_EQUIVALENT_VIEWPORT,
+      true
+    );
+
+    const initial = await expectStableRegionsVisible(page, drawer, summary, confirm);
+    expectPanelRect(initial.panel, {
+      x: 0,
+      y: 0,
+      width: ZOOM_200_EQUIVALENT_VIEWPORT.width,
+      height: ZOOM_200_EQUIVALENT_VIEWPORT.height,
+    });
+    await expect(dialog.getByRole('button', { name: 'Cerrar modal' })).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
+    ).toBe(true);
+
+    await dialog.getByRole('button', { name: 'Dividir el pago en varios medios' }).click();
+    const split = await expectStableRegionsVisible(page, drawer, summary, confirm);
+    expectPanelRect(split.panel, initial.panel);
+    expect(split.bodyHasInternalScroll).toBe(true);
+
+    await captureAuditScreenshot(page, 'zoom-200-equivalent-640-es-split');
+    await dialog.getByRole('button', { name: 'Cerrar modal' }).click();
     await expect(dialog).toBeHidden();
     await expectSearchInputFocused(page);
     await expectNoClientIssues(tracker);

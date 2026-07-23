@@ -6,6 +6,7 @@ import { seedSaleScenario } from './support/db';
 import { addProductToCartViaKeyboard, expectSearchInputFocused } from './support/sales-keyboard';
 
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
+const ADAPTIVE_VIEWPORT = { width: 1280, height: 800 };
 
 async function captureAuditEvidence(page: Page, target: Locator, name: string) {
   const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
@@ -107,6 +108,91 @@ test.describe('assistive-technology sweep', () => {
     expect(await page.locator('#root').evaluate(element => (element as HTMLElement).inert)).toBe(
       false
     );
+    await expectNoClientIssues(tracker);
+  });
+
+  test('reduced motion opens checkout without running shared transitions', async ({
+    page,
+  }, testInfo: TestInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    await page.setViewportSize(ADAPTIVE_VIEWPORT);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const scenario = seedSaleScenario(`assistive-motion-${testInfo.parallelIndex}-${Date.now()}`);
+    await login(page, {
+      email: scenario.cashier.email,
+      password: scenario.cashier.password,
+      defaultPath: '/sales',
+    });
+    await addProductToCartViaKeyboard(page, scenario.product.sku);
+    await page.keyboard.press('F1');
+
+    const dialog = page.getByRole('dialog', { name: 'Charge Sale' });
+    const drawer = page.getByTestId('sale-payment-drawer');
+    await expect(dialog).toBeVisible();
+    expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(
+      true
+    );
+    expect(
+      await drawer.evaluate(
+        element =>
+          element
+            .getAnimations({ subtree: true })
+            .filter(animation => animation.playState === 'running').length
+      )
+    ).toBe(0);
+    await expect
+      .poll(() => dialog.evaluate(element => element.contains(document.activeElement)))
+      .toBe(true);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expectSearchInputFocused(page);
+    await expectNoClientIssues(tracker);
+  });
+
+  test('forced colors preserve checkout boundaries and keyboard focus', async ({
+    page,
+  }, testInfo: TestInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    await page.setViewportSize(ADAPTIVE_VIEWPORT);
+    await page.emulateMedia({ forcedColors: 'active' });
+    const scenario = seedSaleScenario(`assistive-contrast-${testInfo.parallelIndex}-${Date.now()}`);
+    await login(page, {
+      email: scenario.cashier.email,
+      password: scenario.cashier.password,
+      defaultPath: '/sales',
+    });
+    await addProductToCartViaKeyboard(page, scenario.product.sku);
+    await page.keyboard.press('F1');
+
+    const dialog = page.getByRole('dialog', { name: 'Charge Sale' });
+    const confirm = dialog.getByRole('button', { name: 'Confirm Sale' });
+    await expect(dialog).toBeVisible();
+    expect(await page.evaluate(() => matchMedia('(forced-colors: active)').matches)).toBe(true);
+    await expect(confirm).toBeEnabled();
+    await confirm.focus();
+    await expect(confirm).toBeFocused();
+    const contract = await confirm.evaluate(element => {
+      const style = getComputedStyle(element);
+      return {
+        forcedColorAdjust: style.forcedColorAdjust,
+        borderStyle: style.borderStyle,
+        borderWidth: style.borderWidth,
+        focusVisible: element.matches(':focus-visible'),
+      };
+    });
+    expect(contract.forcedColorAdjust).toBe('auto');
+    expect(contract.borderStyle).toBe('solid');
+    expect(parseFloat(contract.borderWidth)).toBeGreaterThanOrEqual(1);
+    expect(contract.focusVisible).toBe(true);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
+    ).toBe(true);
+
+    await captureAuditEvidence(page, dialog, 'cashier-forced-colors-payment-drawer-en');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expectSearchInputFocused(page);
     await expectNoClientIssues(tracker);
   });
 });
