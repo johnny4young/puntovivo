@@ -7,7 +7,9 @@
  * - `scripts/check-bundle-size.mjs` (Node-only, post-build gate
  * for the web bundle).
  * - `__tests__/perf-trpc-latency.test.ts` (vitest, p95 gate for a
- * curated set of tRPC procedures).
+ * curated set of fixture-sized tRPC procedures).
+ * - `__tests__/perf-store-profile.test.ts` (vitest, deterministic
+ * store-volume, hot-read p95, and SQLite query-plan gate).
  *
  * This module is the server-side accessor. It loads the file via
  * `node:fs` at import time so the budget is fixed for the duration
@@ -46,10 +48,30 @@ export interface PerfBudgetBundleSize {
   thresholdPercent: number;
 }
 
+export interface PerfBudgetStoreProfile {
+  /** Deterministic developer seed preset used by the store-scale gate. */
+  preset: 'mega';
+  /** Iterations discarded before each recorded procedure sample. */
+  warmupIterations: number;
+  /** Recorded samples per operational read. */
+  samplesPerProcedure: number;
+  /** Shared tolerance over elapsed and p95 budgets. */
+  thresholdPercent: number;
+  /** Full mega seed elapsed-time baseline in milliseconds. */
+  seedElapsedMs: number;
+  /** Minimum persisted rows required before measurements are trusted. */
+  minimumRows: Record<string, number>;
+  /** Store-sized tRPC read key to p95 baseline in milliseconds. */
+  p95: Record<string, number>;
+  /** Query key to the SQLite index required by EXPLAIN QUERY PLAN. */
+  queryPlanIndexes: Record<string, string>;
+}
+
 export interface PerfBudget {
   version: number;
   bundleSize: PerfBudgetBundleSize;
   trpcLatencyMs: PerfBudgetTrpcLatencyMs;
+  storeProfile: PerfBudgetStoreProfile;
 }
 
 /**
@@ -64,6 +86,7 @@ export function loadPerfBudget(): PerfBudget {
   const parsed = JSON.parse(raw) as Partial<PerfBudget> & {
     bundleSize?: Partial<PerfBudgetBundleSize>;
     trpcLatencyMs?: Partial<PerfBudgetTrpcLatencyMs>;
+    storeProfile?: Partial<PerfBudgetStoreProfile>;
   };
   if (
     typeof parsed.version !== 'number' ||
@@ -73,6 +96,33 @@ export function loadPerfBudget(): PerfBudget {
     typeof parsed.trpcLatencyMs.samplesPerProcedure !== 'number' ||
     typeof parsed.trpcLatencyMs.warmupIterations !== 'number' ||
     !parsed.trpcLatencyMs.p95 ||
+    !parsed.storeProfile ||
+    parsed.storeProfile.preset !== 'mega' ||
+    !Number.isInteger(parsed.storeProfile.warmupIterations) ||
+    parsed.storeProfile.warmupIterations < 0 ||
+    !Number.isInteger(parsed.storeProfile.samplesPerProcedure) ||
+    parsed.storeProfile.samplesPerProcedure < 1 ||
+    typeof parsed.storeProfile.thresholdPercent !== 'number' ||
+    !Number.isFinite(parsed.storeProfile.thresholdPercent) ||
+    parsed.storeProfile.thresholdPercent < 0 ||
+    typeof parsed.storeProfile.seedElapsedMs !== 'number' ||
+    !Number.isFinite(parsed.storeProfile.seedElapsedMs) ||
+    parsed.storeProfile.seedElapsedMs < 1 ||
+    !parsed.storeProfile.minimumRows ||
+    Object.keys(parsed.storeProfile.minimumRows).length === 0 ||
+    Object.values(parsed.storeProfile.minimumRows).some(
+      value => !Number.isInteger(value) || value < 1
+    ) ||
+    !parsed.storeProfile.p95 ||
+    Object.keys(parsed.storeProfile.p95).length === 0 ||
+    Object.values(parsed.storeProfile.p95).some(
+      value => typeof value !== 'number' || !Number.isFinite(value) || value <= 0
+    ) ||
+    !parsed.storeProfile.queryPlanIndexes ||
+    Object.keys(parsed.storeProfile.queryPlanIndexes).length === 0 ||
+    Object.values(parsed.storeProfile.queryPlanIndexes).some(
+      value => typeof value !== 'string' || value.length === 0
+    ) ||
     !parsed.bundleSize.perChunkGzKb ||
     typeof parsed.bundleSize.thresholdPercent !== 'number'
   ) {

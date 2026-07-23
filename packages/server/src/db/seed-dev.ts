@@ -72,6 +72,7 @@ import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { ReceiptLayout } from '../trpc/schemas/receiptTemplates.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { makeEnvelopeHeadersProxy } from '../lib/envelopeHeadersProxy.js';
+import { MEGA_TARGET } from './seed-mega/types.js';
 
 const log = createModuleLogger('seed-dev');
 
@@ -96,7 +97,8 @@ export interface SeedDevOptions {
    * Dataset size:
    * - `default`: 50 products + 40 sales (fast, for tests + first-boot).
    * - `large`: 500 products + 200 sales (legacy, for catalog stress tests).
-   * - `mega` (): builds on `default` and adds 90+ days of
+   * - `mega`: builds on the 500-product large foundation and adds
+   * 90+ days of
    * historical operational data — sales/refunds/voids, cash sessions,
    * purchases + returns, transfers, quotations across all 5 states,
    * orders, suspended drafts, sync queue, AI audit, login attempts,
@@ -697,7 +699,7 @@ export async function seedDevData(
 
   // ----- 9. Customers ------------------------------------------------------
   const customerRows: Array<{ id: string; name: string }> = [];
-  for (const profile of DEV_CUSTOMERS) {
+  for (const profile of buildCustomerFixtures(target.customerTarget)) {
     const id = nanoid();
     customerRows.push({ id, name: profile.name });
     await db
@@ -728,8 +730,7 @@ export async function seedDevData(
   }
 
   // ----- 10. Products (with unit assignments + initial stock per site) ----
-  const productCount = preset === 'large' ? target.largeProductTarget : target.defaultProductTarget;
-  const productDefinitions = buildProductDefinitions(productCount);
+  const productDefinitions = buildProductDefinitions(target.productTarget);
   const productRows: Array<{
     id: string;
     sku: string;
@@ -901,8 +902,8 @@ export async function seedDevData(
 // ---------------------------------------------------------------------------
 
 interface PresetTarget {
-  defaultProductTarget: number;
-  largeProductTarget: number;
+  productTarget: number;
+  customerTarget: number;
   purchasesPerSite: number;
   salesPerCashier: number;
   quotations: number;
@@ -990,15 +991,23 @@ function buildClFixtureCafXml(tipoDte: '33' | '39' | '61'): string {
 }
 
 function buildPreset(preset: 'default' | 'large' | 'mega'): PresetTarget {
-  if (preset === 'large' || preset === 'mega') {
-    // `mega` reuses the `large` foundation counts; the historical
-    // depth comes from `seedMegaData()` afterward, so we don't need
-    // a 3rd preset row here. The `large` baseline gives mega 500
-    // products + 200 sales of "today" data — the historical layer
-    // bulk-inserts the 90-day backlog on top.
+  if (preset === 'mega') {
+    // The performance profile keeps the large catalog and adds a broader
+    // customer directory before the historical layer bulk-inserts 90+ days.
     return {
-      defaultProductTarget: 50,
-      largeProductTarget: 500,
+      productTarget: MEGA_TARGET.productsTarget,
+      customerTarget: MEGA_TARGET.customersTarget,
+      purchasesPerSite: 6,
+      salesPerCashier: 20,
+      quotations: 10,
+      transfers: 5,
+      stockAdjustments: 6,
+    };
+  }
+  if (preset === 'large') {
+    return {
+      productTarget: 500,
+      customerTarget: 30,
       purchasesPerSite: 6,
       salesPerCashier: 20,
       quotations: 10,
@@ -1007,8 +1016,8 @@ function buildPreset(preset: 'default' | 'large' | 'mega'): PresetTarget {
     };
   }
   return {
-    defaultProductTarget: 50,
-    largeProductTarget: 500,
+    productTarget: 50,
+    customerTarget: 30,
     purchasesPerSite: 3,
     salesPerCashier: 10,
     quotations: 5,
@@ -1192,9 +1201,7 @@ interface DevCustomerProfile {
   personTypeCode: 'natural' | 'juridica';
 }
 
-const DEV_CUSTOMERS: DevCustomerProfile[] = buildCustomerFixtures();
-
-function buildCustomerFixtures(): DevCustomerProfile[] {
+function buildCustomerFixtures(target = 30): DevCustomerProfile[] {
   const naturalNames = [
     'Juan Pérez',
     'María López',
@@ -1294,7 +1301,27 @@ function buildCustomerFixtures(): DevCustomerProfile[] {
     idTypeCode: 'CC',
     personTypeCode: 'natural',
   });
-  return customers;
+
+  // Store-scale profile: deterministic synthetic customers extend the
+  // hand-authored fixtures without changing the default/large demo personas.
+  for (let i = customers.length; i < target; i += 1) {
+    const ordinal = i + 1;
+    customers.push({
+      name: `Cliente Demo ${String(ordinal).padStart(3, '0')}`,
+      email: `cliente${ordinal}@demo.co`,
+      phone: `+57 31${i % 10} 555 ${String(6000 + i).padStart(4, '0')}`,
+      address: `Calle ${20 + (i % 50)} # ${10 + (i % 30)}-${String(i % 100).padStart(2, '0')}`,
+      city: 'Bogotá',
+      state: 'Cundinamarca',
+      postalCode: '110111',
+      country: 'Colombia',
+      taxId: String(1_100_000_000 + i * 79_919),
+      idTypeCode: 'CC',
+      personTypeCode: 'natural',
+    });
+  }
+
+  return customers.slice(0, target);
 }
 
 interface DevProductDefinition {

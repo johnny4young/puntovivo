@@ -85,13 +85,9 @@ export interface MegaTarget {
   loginAttemptsSuccess: number;
   aiAuditLogEntries: number;
   aiAnomalySnoozes: number;
+  /** Foundation sizes owned by seed-dev before historical layering. */
   productsTarget: number;
   customersTarget: number;
-  categoriesTarget: number;
-  providersTarget: number;
-  sitesTarget: number;
-  cashiersTarget: number;
-  managersTarget: number;
 }
 
 /** Single source of truth for MEGA volume. Tweak here, regenerate. */
@@ -122,14 +118,9 @@ export const MEGA_TARGET: MegaTarget = {
   aiAuditLogEntries: 12,
   aiAnomalySnoozes: 3,
 
-  // Estructura
-  productsTarget: 150,
+  // Store-sized foundation
+  productsTarget: 500,
   customersTarget: 80,
-  categoriesTarget: 12,
-  providersTarget: 15,
-  sitesTarget: 3,
-  cashiersTarget: 5,
-  managersTarget: 2,
 };
 
 export interface MegaCounts {
@@ -146,6 +137,7 @@ export interface MegaCounts {
   quotations: number;
   orders: number;
   auditLogs: number;
+  customerLedgerEntries: number;
   syncOutboxRows: number;
   syncConflicts: number;
   loginAttempts: number;

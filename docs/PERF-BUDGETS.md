@@ -1,6 +1,6 @@
 # Performance Budgets
 
-> Status: shipped engine (bundle-size + tRPC p95 latency + data-scale UI + Electron memory + Lighthouse web vitals).
+> Status: shipped engine (bundle-size + fixture and store-sized tRPC p95 latency + data-scale UI + Electron memory + Lighthouse web vitals).
 > Source of truth: `perf-budget.json` at the repo root.
 
 This doc explains how Puntovivo enforces performance budgets in CI
@@ -14,13 +14,14 @@ documented in the same PR that produces it.
 | ------------------------------------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
 | Per-chunk JavaScript gzipped bundle size                                                          | `ci:web`                              | `scripts/check-bundle-size.mjs` after `vite build`                           |
 | tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                             |
+| Store-sized SQLite seed volume, hot-read p95, and critical query plans                            | `ci:server`                           | `scripts/run-store-profile-gate.mjs` → isolated vitest                       |
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                        |
 | Electron main + renderer working-set memory (strict in CI; warn-first locally)                    | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs` |
 | Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`           |
 
-The locally enforceable baseline covers bundle size, fixture-sized tRPC p95
-latency, bounded data-table rendering, Electron memory, and Lighthouse web
-vitals. Each enforced budget fails its owning gate when it regresses.
+The locally enforceable baseline covers bundle size, fixture and store-sized
+tRPC p95 latency, bounded data-table rendering, Electron memory, and Lighthouse
+web vitals. Each enforced budget fails its owning gate when it regresses.
 
 ### Data-scale UI contract
 
@@ -46,6 +47,42 @@ The test also applies the standard client-issue tracker, so console errors,
 page errors, failed requests, and unexpected HTTP responses fail the proof.
 This is a local E2E gate by repository policy; `ci:web` still covers the
 component, type, build, bundle, contrast, adaptive, and Lighthouse contracts.
+
+### Store-sized SQLite contract
+
+`__tests__/perf-store-profile.test.ts` turns the deterministic `mega` seed into
+a server-CI contract rather than a visual demo. The test refuses to benchmark
+until one tenant contains at least 500 products, 80 customers, 800 sales, 2,500
+inventory movements, 900 audit events, and 150 customer-ledger entries. The
+seed also proves that every credit sale has an append-only receivable entry and
+that refunded or voided credit sales net to zero through reversal rows.
+
+The ordinary coverage suite intentionally sees this file as skipped. Wall-clock
+p95 recorded while hundreds of test files contend across workers measures the
+test scheduler, not the SQLite read path. After coverage completes,
+`scripts/run-store-profile-gate.mjs` starts a portable, single-worker Vitest
+process with the explicit opt-in flag. `ci:server` fails if either coverage or
+this isolated profile fails.
+
+After five warmups, the suite measures 20 real tRPC caller invocations for each
+hot read and computes p95. The checked-in baselines are 10 ms for sales and
+inventory movements; 15 ms for stock and audit; 8 ms for ledger list/balance;
+and 60 ms for day-close preview. The complete seed has a 4,000 ms elapsed-time
+baseline. Every value receives the store profile's 30% runner-jitter allowance.
+
+The same test runs `EXPLAIN QUERY PLAN` and requires the tenant/date indexes for
+sales, inventory movements, customer ledger, and audit logs. This catches a
+planner regression even when a fast development machine still hides it. A
+2026-07-22 isolated local reference run produced 500 products, 80 customers,
+844 sales, 3,501 inventory movements, 925 audit logs, and 216 ledger rows in
+885 ms. Its measured p95 values ranged from 0.06 ms for ledger balance to 4.88
+ms for the day-close preview. A diagnostic parallel coverage run inflated
+individual p95 values by well over an order of magnitude, which is why the
+enforced gate runs after coverage in isolation instead of weakening the budgets
+to absorb unrelated scheduler contention.
+
+This contract closes the server read-side of the store-volume profile. It does
+not claim desktop write, recovery, signed-package, or physical-device timings.
 
 ### Electron memory (strict in CI, warn-first locally)
 

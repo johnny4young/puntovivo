@@ -68,6 +68,37 @@
     "designSystemRows": 1000,
     "maxMountedRows": 30
   },
+  "storeProfile": {
+    "$comment": "Store-sized local SQLite contract. ci:server seeds the deterministic mega preset, proves minimum tenant row volumes, measures hot operational reads through the real tRPC caller, and pins the tenant-scoped indexes selected by SQLite EXPLAIN QUERY PLAN.",
+    "preset": "mega",
+    "warmupIterations": 5,
+    "samplesPerProcedure": 20,
+    "thresholdPercent": 30,
+    "seedElapsedMs": 4000,
+    "minimumRows": {
+      "products": 500,
+      "customers": 80,
+      "sales": 800,
+      "inventory_movements": 2500,
+      "audit_logs": 900,
+      "customer_ledger_entries": 150
+    },
+    "p95": {
+      "sales.list": 10,
+      "inventory.listStock": 15,
+      "inventory.listMovements": 10,
+      "customerLedger.list": 8,
+      "customerLedger.getBalance": 8,
+      "auditLogs.list": 15,
+      "reports.dayClose.preview": 60
+    },
+    "queryPlanIndexes": {
+      "sales.list": "idx_sales_tenant_created",
+      "inventory.listMovements": "idx_inventory_movements_tenant_created",
+      "customerLedger.list": "idx_customer_ledger_tenant_customer_occurred",
+      "auditLogs.list": "idx_audit_logs_tenant_created"
+    }
+  },
   "operationalProfile": {
     "$comment": "Operator Deck Base 11. Store-scale write and desktop continuity budgets. Server CI measures the maximum supported launch-product import; desktop CI measures an encrypted backup round trip, built-runtime launch, and bounded database-lifecycle queue.",
     "thresholdPercent": 35,

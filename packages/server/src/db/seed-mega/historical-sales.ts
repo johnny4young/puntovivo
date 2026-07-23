@@ -20,6 +20,7 @@ import { nanoid } from 'nanoid';
 import { eq } from 'drizzle-orm';
 import {
   auditLogs,
+  customerLedgerEntries,
   inventoryMovements,
   paymentMethodEnum,
   saleItems,
@@ -41,6 +42,7 @@ interface CreatedHistoricalSales {
   voidsCount: number;
   auditRowsCount: number;
   inventoryMovementsCount: number;
+  customerLedgerEntriesCount: number;
 }
 
 interface ClosedSession {
@@ -67,6 +69,7 @@ export async function seedHistoricalSales(
       voidsCount: 0,
       auditRowsCount: 0,
       inventoryMovementsCount: 0,
+      customerLedgerEntriesCount: 0,
     };
   }
 
@@ -102,6 +105,7 @@ export async function seedHistoricalSales(
   const movementRows: Array<typeof inventoryMovements.$inferInsert> = [];
   const returnRows: Array<typeof saleReturns.$inferInsert> = [];
   const auditRows: Array<typeof auditLogs.$inferInsert> = [];
+  const ledgerRows: Array<typeof customerLedgerEntries.$inferInsert> = [];
 
   let salesCount = 0;
   let refundsCount = 0;
@@ -192,13 +196,13 @@ export async function seedHistoricalSales(
         discountAmount: 0,
         total,
         paymentMethod,
-        paymentStatus: isVoid ? 'refunded' : 'paid',
+        paymentStatus: isVoid || isRefunded ? 'refunded' : 'paid',
         status,
         cashSessionId: session.id,
         notes: isVoid
           ? 'Anulada por seed mega — testeo audit log'
           : isRefunded
-            ? 'Devuelta parcialmente por seed mega'
+            ? 'Devuelta por seed mega'
             : null,
         createdBy: session.cashierId,
         createdAt: baseAtIso,
@@ -245,6 +249,24 @@ export async function seedHistoricalSales(
         reference: paymentMethod === 'card' ? `AUTH-${ledgerSeed.toString(16)}` : null,
         createdAt: baseAtIso,
       });
+
+      // Historical credit sales must exercise the same receivable read model
+      // as live sales. Reversal rows preserve an append-only, zero-net trail
+      // for returned/voided credit tickets instead of erasing the event.
+      if (paymentMethod === 'credit' && customer) {
+        ledgerRows.push({
+          id: nanoid(),
+          tenantId,
+          customerId: customer.id,
+          occurredAt: baseAtIso,
+          kind: 'sale',
+          amount: total,
+          referenceSaleId: saleId,
+          note: 'Venta a crédito histórica seed mega',
+          createdBy: session.cashierId,
+          createdAt: baseAtIso,
+        });
+      }
 
       // sale.create audit row
       auditRows.push({
@@ -313,6 +335,20 @@ export async function seedHistoricalSales(
           metadata: { reason: 'Cliente devolvió producto' },
           createdAt: refundedAtIso,
         });
+        if (paymentMethod === 'credit' && customer) {
+          ledgerRows.push({
+            id: nanoid(),
+            tenantId,
+            customerId: customer.id,
+            occurredAt: refundedAtIso,
+            kind: 'adjustment',
+            amount: -refundAmount,
+            referenceSaleId: saleId,
+            note: 'Reversión por devolución histórica seed mega',
+            createdBy: ctx.managers[0]?.id ?? session.cashierId,
+            createdAt: refundedAtIso,
+          });
+        }
         refundsCount += 1;
       }
 
@@ -352,6 +388,20 @@ export async function seedHistoricalSales(
           metadata: { reason: 'Error operativo — seed mega' },
           createdAt: voidedAtIso,
         });
+        if (paymentMethod === 'credit' && customer) {
+          ledgerRows.push({
+            id: nanoid(),
+            tenantId,
+            customerId: customer.id,
+            occurredAt: voidedAtIso,
+            kind: 'adjustment',
+            amount: -total,
+            referenceSaleId: saleId,
+            note: 'Reversión por anulación histórica seed mega',
+            createdBy: ctx.adminUserId,
+            createdAt: voidedAtIso,
+          });
+        }
         voidsCount += 1;
       }
 
@@ -366,6 +416,7 @@ export async function seedHistoricalSales(
   await chunkedInsert(db, inventoryMovements, movementRows);
   await chunkedInsert(db, saleReturns, returnRows);
   await chunkedInsert(db, auditLogs, auditRows);
+  await chunkedInsert(db, customerLedgerEntries, ledgerRows);
 
   // ----- Bump the sequentials so future tRPC sales pick up after the seed -----
   for (const [, entry] of siteSequentialMap) {
@@ -382,6 +433,7 @@ export async function seedHistoricalSales(
     voidsCount,
     auditRowsCount: auditRows.length,
     inventoryMovementsCount: movementsCount,
+    customerLedgerEntriesCount: ledgerRows.length,
   };
 }
 
