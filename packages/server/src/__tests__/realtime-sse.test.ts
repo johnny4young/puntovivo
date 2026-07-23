@@ -1,11 +1,9 @@
 /**
  * review follow-up - realtime SSE tenant boundary tests.
  *
- * The browser EventSource API cannot send Authorization headers, so
- * KDS obtains a short-lived realtime token via authenticated tRPC and
- * passes it to `/api/realtime/subscribe`. These tests pin both sides
- * of that contract: tokens are scoped to the realtime JWT type, and
- * tenant-scoped broadcasts never fan out to anonymous subscribers.
+ * The fetch-based client sends the canonical access Bearer to
+ * `/api/realtime/subscribe`. These tests pin tenant-scoped fanout and the
+ * repeated access-session check that closes streams after revocation.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -24,13 +22,9 @@ import {
   resolveLastEventId,
   type SseClient,
 } from '../realtime/sse.js';
-import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
-import {
-  REALTIME_COOKIE_NAME,
-  REALTIME_TOKEN_MAX_AGE_SECONDS,
-  verifyTokenWithServer,
-} from '../security/authTokens.js';
+import { signAccessToken } from '../security/authTokens.js';
+import { resolveRealtimeTenantId } from '../realtime/sse/plugin.js';
 
 let server: PuntovivoServer | null = null;
 
@@ -89,6 +83,18 @@ describe('SSE client id generator', () => {
 });
 
 describe('SSE realtime tenant boundary', () => {
+  it('rejects malformed collection and replay-cursor query shapes', async () => {
+    server = await createServer({ dbPath: ':memory:', verbose: false });
+
+    const response = await server.app.inject({
+      method: 'GET',
+      url: '/api/realtime/subscribe?collections=../admin&lastEventId=not-a-cursor',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(server.app.sse.getClientCount()).toBe(0);
+  });
+
   it('does not deliver tenant-scoped broadcasts to anonymous or foreign-tenant clients', () => {
     const manager = new SseManager();
     const tenantA = createClient({ id: 'a', tenantId: 'tenant-a' });
@@ -106,53 +112,25 @@ describe('SSE realtime tenant boundary', () => {
     expect(anonymous.writes).toHaveLength(0);
   });
 
-  it('issues a realtime-only token for authenticated tenant sessions', async () => {
+  it('revalidates the canonical access session so revocation closes the stream', async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
     const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
     if (!admin) throw new Error('Expected seeded admin user');
+    const token = signAccessToken(server.app, admin);
+    const request = {
+      server: server.app,
+      headers: { authorization: `Bearer ${token}` },
+    } as Context['req'];
 
-    const setCookie = vi.fn();
-    const caller = appRouter.createCaller({
-      req: {
-        server: server.app,
-        headers: {},
-        protocol: 'http',
-      } as Context['req'],
-      res: { setCookie } as unknown as Context['res'],
-      db,
-      user: {
-        id: admin.id,
-        email: admin.email,
-        role: admin.role,
-        tenantId: admin.tenantId,
-      },
-      tenantId: admin.tenantId,
-      siteId: null,
-    });
+    await expect(resolveRealtimeTenantId(request)).resolves.toBe(admin.tenantId);
 
-    const issued = await caller.auth.realtimeToken();
-    expect(setCookie).toHaveBeenCalledWith(
-      REALTIME_COOKIE_NAME,
-      expect.any(String),
-      expect.objectContaining({
-        httpOnly: true,
-        maxAge: REALTIME_TOKEN_MAX_AGE_SECONDS,
-        path: '/api/realtime',
-        sameSite: 'strict',
-        secure: false,
-      })
-    );
-    const token = setCookie.mock.calls[0]?.[1] as string | undefined;
-    if (!token) throw new Error('Expected realtime cookie token');
+    await db
+      .update(users)
+      .set({ sessionVersion: admin.sessionVersion + 1 })
+      .where(eq(users.id, admin.id));
 
-    const realtimePayload = await verifyTokenWithServer(server.app, token, 'realtime');
-    const accessPayload = await verifyTokenWithServer(server.app, token, 'access');
-
-    expect(issued.expiresInSeconds).toBe(REALTIME_TOKEN_MAX_AGE_SECONDS);
-    expect(realtimePayload?.tenantId).toBe(admin.tenantId);
-    expect(realtimePayload?.userId).toBe(admin.id);
-    expect(accessPayload).toBeNull();
+    await expect(resolveRealtimeTenantId(request)).resolves.toBeNull();
   });
 });
 

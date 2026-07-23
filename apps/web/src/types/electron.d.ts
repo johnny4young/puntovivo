@@ -342,6 +342,11 @@ export interface SessionAPI {
   switchStaffHub: (input: { targetUserId: string; pin: string }) => Promise<HubAuthIpcResult>;
   logoutHub: () => Promise<HubAuthIpcResult<{ ok: true }>>;
   requestHub: (input: HubApiRequest) => Promise<HubApiResponse>;
+  openHubRealtime: (
+    input: HubRealtimeInput,
+    listener: (message: HubRealtimeMessage) => void
+  ) => string;
+  closeHubRealtime: (subscriptionId: string) => Promise<{ ok: boolean }>;
   clearHub: () => Promise<{ ok: true }>;
 }
 
@@ -357,6 +362,17 @@ export interface HubApiResponse {
   headers: Record<string, string>;
   body: string;
 }
+
+export interface HubRealtimeInput {
+  collections: string;
+  lastEventId?: string;
+}
+
+export type HubRealtimeMessage =
+  | { kind: 'open' }
+  | { kind: 'event'; event: { event: string; data: string; id?: string; retry?: number } }
+  | { kind: 'closed' }
+  | { kind: 'error'; message: string; status?: number };
 
 export interface HubAccessGrant {
   token: string;

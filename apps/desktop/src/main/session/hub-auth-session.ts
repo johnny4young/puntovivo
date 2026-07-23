@@ -16,6 +16,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
+import { createSseParser, type ParsedSseEvent } from '@puntovivo/server';
 import type { SafeStorageLike } from '../db-key-store.js';
 import type { AccessTokenVerifier, DesktopSessionIdentity } from './desktopSession.js';
 
@@ -51,6 +52,22 @@ export interface HubApiResponse {
   status: number;
   headers: Record<string, string>;
   body: string;
+}
+
+export interface HubRealtimeInput {
+  collections: string;
+  lastEventId?: string;
+}
+
+export type HubRealtimeMessage =
+  | { kind: 'open' }
+  | { kind: 'event'; event: ParsedSseEvent }
+  | { kind: 'closed' }
+  | { kind: 'error'; message: string; status?: number };
+
+export interface HubRealtimeHandle {
+  opened: Promise<void>;
+  close(): void;
 }
 
 export interface HubAuthErrorShape {
@@ -118,6 +135,10 @@ export interface HubAuthSession {
   switchStaff(input: HubSwitchStaffInput): Promise<HubAccessGrant>;
   logout(): Promise<void>;
   request(input: HubApiRequest): Promise<HubApiResponse>;
+  openRealtime(
+    input: HubRealtimeInput,
+    onMessage: (message: HubRealtimeMessage) => void
+  ): HubRealtimeHandle;
   clear(): void;
   verifyAccessToken: AccessTokenVerifier;
 }
@@ -314,6 +335,12 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   let currentAccessToken: string | null = null;
   let currentIdentity: DesktopSessionIdentity | null = null;
   let refreshInFlight: Promise<HubAccessGrant> | null = null;
+  const realtimeClosers = new Set<() => void>();
+
+  function closeRealtimeConnections(): void {
+    for (const close of [...realtimeClosers]) close();
+    realtimeClosers.clear();
+  }
 
   function removeStateFile(): void {
     const path = options.getStatePath();
@@ -491,6 +518,110 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     };
   }
 
+  function openRealtime(
+    input: HubRealtimeInput,
+    onMessage: (message: HubRealtimeMessage) => void
+  ): HubRealtimeHandle {
+    if (
+      input.collections.length > 256 ||
+      !/^[a-z][a-z0-9_-]*(,[a-z][a-z0-9_-]*)*$/.test(input.collections)
+    ) {
+      throw new Error('Store Hub realtime collections are invalid');
+    }
+    if (
+      input.lastEventId !== undefined &&
+      (input.lastEventId.length > 20 || !/^\d+$/.test(input.lastEventId))
+    ) {
+      throw new Error('Store Hub realtime cursor is invalid');
+    }
+
+    const controller = new AbortController();
+    let finished = false;
+    let activeReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+
+    const close = () => {
+      if (finished) return;
+      finished = true;
+      realtimeClosers.delete(close);
+      controller.abort();
+      void activeReader?.cancel().catch(() => {});
+      activeReader = null;
+    };
+    realtimeClosers.add(close);
+
+    async function connect(allowRefresh: boolean): Promise<Response> {
+      let token = currentAccessToken;
+      if (!token) token = (await refresh()).token;
+      const url = new URL('/api/realtime/subscribe', `${hubUrl}/`);
+      url.searchParams.set('collections', input.collections);
+      const headers = new Headers({
+        accept: 'text/event-stream',
+        authorization: `Bearer ${token}`,
+      });
+      if (input.lastEventId) headers.set('last-event-id', input.lastEventId);
+      const response = await fetchImpl(url, { method: 'GET', headers, signal: controller.signal });
+      if (response.status === 401 && allowRefresh) {
+        await response.body?.cancel().catch(() => {});
+        await refresh();
+        return connect(false);
+      }
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => {});
+        throw new HubAuthRemoteError({
+          message: `Store Hub realtime failed (${response.status})`,
+          status: response.status,
+        });
+      }
+      if (!response.headers.get('content-type')?.includes('text/event-stream')) {
+        await response.body?.cancel().catch(() => {});
+        throw new Error('Store Hub realtime response has an invalid content type');
+      }
+      if (!response.body) throw new Error('Store Hub realtime response is not streamable');
+      return response;
+    }
+
+    const opened = (async () => {
+      try {
+        const response = await connect(true);
+        if (controller.signal.aborted) return;
+        const body = response.body;
+        if (!body) throw new Error('Store Hub realtime response is not streamable');
+        onMessage({ kind: 'open' });
+        const reader = body.getReader();
+        activeReader = reader;
+        const decoder = new TextDecoder();
+        const parser = createSseParser(event => onMessage({ kind: 'event', event }));
+
+        void (async () => {
+          try {
+            while (!controller.signal.aborted) {
+              const result = await reader.read();
+              if (result.done) break;
+              parser.push(decoder.decode(result.value, { stream: true }));
+            }
+            parser.push(decoder.decode());
+            if (!controller.signal.aborted) onMessage({ kind: 'closed' });
+          } catch (error) {
+            if (!controller.signal.aborted) {
+              onMessage({
+                kind: 'error',
+                message: error instanceof Error ? error.message : 'Store Hub realtime failed',
+              });
+            }
+          } finally {
+            activeReader = null;
+            close();
+          }
+        })();
+      } catch (error) {
+        close();
+        throw error;
+      }
+    })();
+
+    return { opened, close };
+  }
+
   function updateCookies(
     headers: Headers,
     previous?: Pick<StoredHubAuthState, 'refreshToken' | 'csrfToken'>
@@ -556,6 +687,7 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     if (!state || !currentAccessToken) {
       throw new HubAuthRemoteError({ message: 'Store Hub session is missing', status: 401 });
     }
+    closeRealtimeConnections();
     const response = await call<{
       token: string;
       user: HubAuthUser;
@@ -568,6 +700,7 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   }
 
   async function logout(): Promise<void> {
+    closeRealtimeConnections();
     try {
       const state = loadState();
       const token = currentAccessToken;
@@ -582,6 +715,7 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   }
 
   function clear(): void {
+    closeRealtimeConnections();
     removeStateFile();
     currentAccessToken = null;
     currentIdentity = null;
@@ -590,5 +724,5 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   const verifyAccessToken: AccessTokenVerifier = async token =>
     token === currentAccessToken && currentIdentity ? { ...currentIdentity } : null;
 
-  return { login, refresh, switchStaff, logout, request, clear, verifyAccessToken };
+  return { login, refresh, switchStaff, logout, request, openRealtime, clear, verifyAccessToken };
 }

@@ -28,7 +28,7 @@ flowchart TB
 
     C -- "HTTP /api/trpc" --> F
     R -. "contextBridge (window.electron.*)" .-> IPC
-    R -. "EventSource" .-> SSE
+    R -. "Bearer SSE" .-> SSE
   end
 
   subgraph Surfaces["Client surfaces (same Electron + React bundle, different routes)"]

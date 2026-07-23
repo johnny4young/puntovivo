@@ -141,6 +141,12 @@ function notifyAuthSessionExpired(): void {
   authSessionExpiredHandler?.();
 }
 
+/** Fail the active renderer session through the same path as an exhausted refresh. */
+export function expireAuthSession(): void {
+  clearAccessToken();
+  notifyAuthSessionExpired();
+}
+
 function buildHeaders(init?: HeadersInit): Headers {
   return new Headers(init);
 }

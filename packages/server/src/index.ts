@@ -47,6 +47,7 @@ export type { AppRouter } from './trpc/router.js';
 // `desktopSession` (apps/desktop/src/main) imports this to
 // validate the renderer's access token without a FastifyRequest.
 export { verifyTokenWithServer, type AuthTokenPayload } from './security/authTokens.js';
+export { createSseParser, type ParsedSseEvent } from '@puntovivo/shared/realtime-sse';
 // the Electron main imports createModuleLogger via this
 // barrel so app-level logs from both the embedded server and the
 // desktop shell flow through the same pino instance.

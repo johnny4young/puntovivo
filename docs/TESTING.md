@@ -71,7 +71,12 @@ backup creation, cloud-vault write, scheduling, and restore readiness.
 Node-side Electron tests additionally pin Store Hub URL policy, OS-keychain
 sealing, owner-only credential-envelope permissions, refresh rotation after an
 app restart, rejected-session cleanup, exact-token IPC registration, and the
-fixed-destination API proxy's header/path restrictions.
+fixed-destination API proxy's header/path restrictions. Shared, web, server,
+and Electron tests also pin incremental SSE framing, Authorization-bearing
+fetch, Store Hub refresh-and-retry, bounded reconnect with `Last-Event-ID`,
+stream cleanup, and `sessionVersion` revocation. The web E2E suite opens the
+real KDS stream, verifies its Bearer header, revokes that session, and observes
+the canonical login redirect after server revalidation.
 
 The server and desktop CI gates also consume
 `perf-budget.json::operationalProfile`: the server measures a maximum-size

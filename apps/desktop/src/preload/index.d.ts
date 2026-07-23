@@ -258,6 +258,17 @@ interface HubApiResponse {
   body: string;
 }
 
+interface HubRealtimeInput {
+  collections: string;
+  lastEventId?: string;
+}
+
+type HubRealtimeMessage =
+  | { kind: 'open' }
+  | { kind: 'event'; event: { event: string; data: string; id?: string; retry?: number } }
+  | { kind: 'closed' }
+  | { kind: 'error'; message: string; status?: number };
+
 type HubAuthIpcResult<T> =
   | { ok: true; data: T }
   | {
@@ -279,6 +290,11 @@ interface SessionAPI {
   }) => Promise<HubAuthIpcResult<HubAccessGrant>>;
   logoutHub: () => Promise<HubAuthIpcResult<{ ok: true }>>;
   requestHub: (input: HubApiRequest) => Promise<HubApiResponse>;
+  openHubRealtime: (
+    input: HubRealtimeInput,
+    listener: (message: HubRealtimeMessage) => void
+  ) => string;
+  closeHubRealtime: (subscriptionId: string) => Promise<{ ok: boolean }>;
   clearHub: () => Promise<{ ok: true }>;
 }
 

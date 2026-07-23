@@ -71,6 +71,12 @@ authoritative for the operation. It is not required for local selling.
   credential envelope is sealed with the OS keychain and stored mode `0600`
   where supported (per-user OS ACL on Windows). Packaged clients require HTTPS,
   with loopback HTTP permitted only in development.
+- Realtime shares that access-session authority instead of minting a parallel
+  cookie. Browser and local-authority clients use Authorization-capable
+  streaming `fetch`; `hub_client` uses a narrow main-process relay fixed to
+  `/api/realtime/subscribe`. Both paths share one incremental frame parser,
+  replay the last event cursor, reconnect with bounded backoff, and terminate
+  when periodic `sessionVersion` revalidation detects revocation.
 - Peripherals physically attached to a `hub_client` terminal execute
   through a client-local hardware bridge after the hub authorizes the
   command or returns the printable payload. That bridge never writes
@@ -95,4 +101,4 @@ authoritative for the operation. It is not required for local selling.
 - - Device pairing and authority health.
 - - Satellite offline fallback spike.
 
-Updated: 2026-07-20 - recorded secure renewable Electron hub-client sessions.
+Updated: 2026-07-22 - recorded authenticated, revocable Store Hub realtime.

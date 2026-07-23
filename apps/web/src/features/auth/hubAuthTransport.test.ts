@@ -44,6 +44,8 @@ function sessionStub(overrides: Partial<SessionAPI> = {}): SessionAPI {
       headers: { 'content-type': 'application/json' },
       body: '{"result":{"data":{"ok":true}}}',
     })),
+    openHubRealtime: vi.fn(() => 'subscription-test'),
+    closeHubRealtime: vi.fn(async () => ({ ok: true })),
     clearHub: vi.fn(async () => ({ ok: true as const })),
     ...overrides,
   };

@@ -13,6 +13,8 @@ import type {
   HubApiResponse,
   HubAuthIpcResult,
   HubLoginInput,
+  HubRealtimeInput,
+  HubRealtimeMessage,
   HubSwitchStaffInput,
 } from '../main/session/hub-auth-session.js';
 
@@ -313,6 +315,11 @@ export interface SessionAPI {
   switchStaffHub: (input: HubSwitchStaffInput) => Promise<HubAuthIpcResult<HubAccessGrant>>;
   logoutHub: () => Promise<HubAuthIpcResult<{ ok: true }>>;
   requestHub: (input: HubApiRequest) => Promise<HubApiResponse>;
+  openHubRealtime: (
+    input: HubRealtimeInput,
+    listener: (message: HubRealtimeMessage) => void
+  ) => string;
+  closeHubRealtime: (subscriptionId: string) => Promise<{ ok: boolean }>;
   clearHub: () => Promise<{ ok: true }>;
 }
 
@@ -405,15 +412,80 @@ const syncAPI: SyncAPI = {
   setConfig: (config: Record<string, unknown>) => ipcRenderer.invoke('sync:setConfig', config),
 };
 
+const hubRealtimeListeners = new Map<
+  string,
+  (
+    event: Electron.IpcRendererEvent,
+    payload: { subscriptionId: string; message: HubRealtimeMessage }
+  ) => void
+>();
+
+function removeHubRealtimeListener(subscriptionId: string): void {
+  const listener = hubRealtimeListeners.get(subscriptionId);
+  if (!listener) return;
+  ipcRenderer.removeListener('session:hub-realtime-event', listener);
+  hubRealtimeListeners.delete(subscriptionId);
+}
+
+function removeAllHubRealtimeListeners(): void {
+  for (const subscriptionId of [...hubRealtimeListeners.keys()]) {
+    removeHubRealtimeListener(subscriptionId);
+  }
+}
+
 const sessionAPI: SessionAPI = {
   register: (accessToken: string) => ipcRenderer.invoke('session:register', accessToken),
   clear: () => ipcRenderer.invoke('session:clear'),
   loginHub: input => ipcRenderer.invoke('session:hub-login', input),
   refreshHub: () => ipcRenderer.invoke('session:hub-refresh'),
   switchStaffHub: input => ipcRenderer.invoke('session:hub-switch-staff', input),
-  logoutHub: () => ipcRenderer.invoke('session:hub-logout'),
+  logoutHub: () => {
+    removeAllHubRealtimeListeners();
+    return ipcRenderer.invoke('session:hub-logout');
+  },
   requestHub: input => ipcRenderer.invoke('session:hub-request', input),
-  clearHub: () => ipcRenderer.invoke('session:hub-clear'),
+  openHubRealtime: (input, onMessage) => {
+    const subscriptionId = crypto.randomUUID();
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      payload: { subscriptionId: string; message: HubRealtimeMessage }
+    ) => {
+      if (payload.subscriptionId !== subscriptionId) return;
+      onMessage(payload.message);
+      if (payload.message.kind === 'closed' || payload.message.kind === 'error') {
+        removeHubRealtimeListener(subscriptionId);
+      }
+    };
+    hubRealtimeListeners.set(subscriptionId, listener);
+    ipcRenderer.on('session:hub-realtime-event', listener);
+    void ipcRenderer
+      .invoke('session:hub-realtime-open', { ...input, subscriptionId })
+      .then((result: HubAuthIpcResult<{ ok: true }>) => {
+        if (result.ok) return;
+        onMessage({
+          kind: 'error',
+          message: result.error.message,
+          ...(result.error.status ? { status: result.error.status } : {}),
+        });
+        removeHubRealtimeListener(subscriptionId);
+      })
+      .catch((error: unknown) => {
+        onMessage({
+          kind: 'error',
+          message: error instanceof Error ? error.message : String(error),
+        });
+        removeHubRealtimeListener(subscriptionId);
+      });
+    return subscriptionId;
+  },
+  closeHubRealtime: subscriptionId => {
+    removeHubRealtimeListener(subscriptionId);
+    return ipcRenderer.invoke('session:hub-realtime-close', subscriptionId);
+  },
+  clearHub: () => {
+    removeAllHubRealtimeListeners();
+    return ipcRenderer.invoke('session:hub-clear');
+  },
 };
 
 const desktopBridgeAPI: DesktopBridgeAPI = {

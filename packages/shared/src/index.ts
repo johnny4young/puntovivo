@@ -34,3 +34,4 @@ export {
   type OperationalServiceId,
   type OperationalServiceSource,
 } from './operational-readiness.js';
+export { createSseParser, type ParsedSseEvent, type SseParser } from './realtime-sse.js';

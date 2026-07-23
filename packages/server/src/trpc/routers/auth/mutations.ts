@@ -2,8 +2,8 @@
  * Auth router — write procedures ( split).
  *
  * `login` / `refresh` (publicProcedure — pre-auth, rate-limited), `logout` /
- * `changePassword` (protected / critical-command), `realtimeToken` /
- * `registerDevice` (tenant). The public-vs-protected boundary is carried by
+ * `changePassword` (protected / critical-command), and `registerDevice`
+ * (tenant). The public-vs-protected boundary is carried by
  * each procedure's builder, preserved verbatim. , ADR-0002.
  *
  * @module trpc/routers/auth/mutations
@@ -31,12 +31,10 @@ import {
 } from '../../../services/devices/authority.js';
 import { getCurrentSchemaVersion } from '../../../lib/runtimeMetadata.js';
 import {
-  REALTIME_TOKEN_MAX_AGE_SECONDS,
   clearRefreshCookie,
   createStaffPinSessionClaims,
   getAuthSessionClaims,
   signAccessToken,
-  signRealtimeToken,
   signRefreshToken,
   verifyRefreshToken,
 } from '../../../security/authTokens.js';
@@ -62,7 +60,7 @@ import {
   rotateRefreshFamily,
 } from '../../../security/refreshTokenFamilies.js';
 import { rateLimitFor } from '../../middleware/procedureRateLimit.js';
-import { setRefreshCookie, setRealtimeCookie } from './helpers.js';
+import { setRefreshCookie } from './helpers.js';
 import { getDummyStaffPinHash, verifyStaffPin } from '../../../security/staffPins.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
 
@@ -381,42 +379,6 @@ export const authMutationProcedures = {
 
       return { token };
     }),
-
-  /**
-   * Issue a short-lived bearer for browser-native EventSource
-   * subscriptions. EventSource cannot attach custom Authorization
-   * headers, so the web client exchanges its normal authenticated tRPC
-   * session for this scoped token and passes it on the subscribe URL.
-   */
-  realtimeToken: tenantProcedure.mutation(async ({ ctx }) => {
-    if (!ctx.user) {
-      throwServerError({
-        trpcCode: 'UNAUTHORIZED',
-        errorCode: 'AUTH_INVALID_CREDENTIALS',
-        message: 'authenticated tenant context required',
-      });
-    }
-
-    const user = await ctx.db.select().from(users).where(eq(users.id, ctx.user.id)).get();
-
-    if (!user || !user.isActive || user.tenantId !== ctx.tenantId) {
-      throwServerError({
-        trpcCode: 'UNAUTHORIZED',
-        errorCode: 'AUTH_INVALID_CREDENTIALS',
-        message: 'authenticated tenant context required',
-      });
-    }
-
-    setRealtimeCookie(
-      ctx.req,
-      ctx.res,
-      signRealtimeToken(ctx.req.server, user, getAuthSessionClaims(ctx.user))
-    );
-
-    return {
-      expiresInSeconds: REALTIME_TOKEN_MAX_AGE_SECONDS,
-    };
-  }),
 
   /**
    * Change password for current user.

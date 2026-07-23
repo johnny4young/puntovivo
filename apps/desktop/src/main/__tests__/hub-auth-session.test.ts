@@ -8,6 +8,7 @@ import {
   createHubAuthSession,
   HUB_AUTH_STATE_FILE,
   normalizeHubAuthUrl,
+  type HubRealtimeMessage,
 } from '../session/hub-auth-session.ts';
 import type { SafeStorageLike } from '../db-key-store.ts';
 
@@ -346,5 +347,140 @@ describe('Store Hub main-process auth custody', () => {
     } finally {
       await server.close();
     }
+  });
+
+  it('streams Store Hub realtime with Bearer refresh, replay cursor, and shared framing', async () => {
+    const statePath = tempStatePath();
+    const firstToken = accessToken(1);
+    const refreshedToken = accessToken(2);
+    const requests: Array<{ url: string; headers: Headers }> = [];
+    let rejectedStreamCancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(encoder.encode('event: kds.order.'));
+        controller.enqueue(encoder.encode('updated\nid: 12\ndata: {"ready":true}\n\n'));
+        controller.close();
+      },
+    });
+    const responses = [
+      successResponse(
+        {
+          token: firstToken,
+          user: {
+            id: 'user-1',
+            email: 'admin@example.test',
+            role: 'admin',
+            tenantId: 'tenant-1',
+          },
+        },
+        { refresh: 'refresh-one', csrf: 'csrf-one' }
+      ),
+      new Response(
+        new ReadableStream({
+          cancel() {
+            rejectedStreamCancelled = true;
+          },
+        }),
+        { status: 401 }
+      ),
+      successResponse({ token: refreshedToken }, { refresh: 'refresh-two' }),
+      new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+    ];
+    const auth = createHubAuthSession({
+      hubUrl: 'https://hub.example.test',
+      getStatePath: () => statePath,
+      safeStorage,
+      fetchImpl: (async (input: string | URL | Request, init?: RequestInit) => {
+        requests.push({ url: String(input), headers: new Headers(init?.headers) });
+        const response = responses.shift();
+        assert.ok(response);
+        return response;
+      }) as typeof fetch,
+    });
+    await auth.login({ email: 'admin@example.test', password: 'secret' });
+
+    const messages: HubRealtimeMessage[] = [];
+    const closed = new Promise<void>(resolve => {
+      const handle = auth.openRealtime({ collections: 'kds', lastEventId: '11' }, message => {
+        messages.push(message);
+        if (message.kind === 'closed') resolve();
+      });
+      void handle.opened;
+    });
+    await closed;
+
+    assert.equal(requests[1]?.headers.get('authorization'), `Bearer ${firstToken}`);
+    assert.equal(rejectedStreamCancelled, true);
+    assert.equal(requests[1]?.headers.get('last-event-id'), '11');
+    assert.equal(requests[3]?.headers.get('authorization'), `Bearer ${refreshedToken}`);
+    assert.match(requests[3]?.url ?? '', /collections=kds/);
+    assert.deepEqual(messages, [
+      { kind: 'open' },
+      {
+        kind: 'event',
+        event: {
+          event: 'kds.order.updated',
+          id: '12',
+          data: '{"ready":true}',
+        },
+      },
+      { kind: 'closed' },
+    ]);
+  });
+
+  it('rejects arbitrary realtime targets and closes active streams on logout', async () => {
+    const statePath = tempStatePath();
+    const token = accessToken(1);
+    let streamCancelled = false;
+    const responses = [
+      successResponse(
+        {
+          token,
+          user: {
+            id: 'user-1',
+            email: 'admin@example.test',
+            role: 'admin',
+            tenantId: 'tenant-1',
+          },
+        },
+        { refresh: 'refresh-one', csrf: 'csrf-one' }
+      ),
+      new Response(
+        new ReadableStream({
+          cancel() {
+            streamCancelled = true;
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'text/event-stream' } }
+      ),
+      successResponse({ ok: true }),
+    ];
+    const auth = createHubAuthSession({
+      hubUrl: 'https://hub.example.test',
+      getStatePath: () => statePath,
+      safeStorage,
+      fetchImpl: (async () => responses.shift()!) as typeof fetch,
+    });
+    await auth.login({ email: 'admin@example.test', password: 'secret' });
+
+    assert.throws(
+      () => auth.openRealtime({ collections: '../admin' }, () => {}),
+      /collections are invalid/
+    );
+    assert.throws(
+      () => auth.openRealtime({ collections: `kds${'x'.repeat(254)}` }, () => {}),
+      /collections are invalid/
+    );
+    assert.throws(
+      () => auth.openRealtime({ collections: 'kds', lastEventId: '1'.repeat(21) }, () => {}),
+      /cursor is invalid/
+    );
+    const handle = auth.openRealtime({ collections: 'kds' }, () => {});
+    await handle.opened;
+    await auth.logout();
+    await new Promise(resolve => setImmediate(resolve));
+
+    assert.equal(streamCancelled, true);
   });
 });

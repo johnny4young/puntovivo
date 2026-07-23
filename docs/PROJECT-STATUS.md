@@ -31,8 +31,9 @@ The current `main` branch includes:
   attestation;
 - tenant and site isolation, audit logs, role guards, device registration,
   local Authority Node modes, renewable Store Hub client sessions with
-  main-process credential custody and fixed-destination API transport, a
-  durable sync kernel, and operational health surfaces;
+  main-process credential custody, fixed-destination API transport, and
+  Authorization-authenticated realtime with replay, reconnect, and active
+  revocation checks; a durable sync kernel and operational health surfaces;
 - a provider-neutral recovery ownership board for sync, fiscal, receipt
   hardware, payments, encrypted backup, and desktop updates, with explicit
   thresholds, responsible roles, response targets, recovery runbooks, and

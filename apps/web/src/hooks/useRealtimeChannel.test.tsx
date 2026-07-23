@@ -1,237 +1,141 @@
-/**
- * `useRealtimeChannel` unit tests.
- *
- * Covered:
- * - Constructs an EventSource against the resolved API base URL.
- * - Routes named events through `onEvent` with parsed JSON data.
- * - Tears the EventSource down on unmount.
- * - Skips `heartbeat` + `connected` housekeeping events.
- * - Refreshes the realtime token when the server asks for rotation.
- */
-
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useRealtimeChannel, type RealtimeEvent } from './useRealtimeChannel';
+import type { RealtimeConnector, RealtimeConnectorInput } from '@/lib/realtimeTransport';
 
-type Listener = (ev: MessageEvent) => void;
-
-class FakeEventSource {
-  static instances: FakeEventSource[] = [];
-  url: string;
-  // explicit `| undefined` on optional fields.
-  init?: EventSourceInit | undefined;
-  readyState = 0;
-  listeners = new Map<string, Listener[]>();
-  closed = false;
-  constructor(url: string, init?: EventSourceInit) {
-    this.url = url;
-    this.init = init;
-    FakeEventSource.instances.push(this);
-  }
-  addEventListener(type: string, listener: Listener): void {
-    const arr = this.listeners.get(type) ?? [];
-    arr.push(listener);
-    this.listeners.set(type, arr);
-  }
-  removeEventListener(type: string, listener: Listener): void {
-    const arr = this.listeners.get(type) ?? [];
-    this.listeners.set(
-      type,
-      arr.filter(item => item !== listener)
-    );
-  }
-  emit(type: string, data: string, lastEventId = ''): void {
-    const arr = this.listeners.get(type) ?? [];
-    for (const listener of arr) {
-      listener(new MessageEvent(type, { data, lastEventId }));
-    }
-  }
-  close(): void {
-    this.closed = true;
-    this.readyState = 2;
-  }
+interface ControlledCall {
+  input: RealtimeConnectorInput;
+  resolve: () => void;
+  reject: (error: Error) => void;
 }
-(FakeEventSource as unknown as { CLOSED: number }).CLOSED = 2;
 
-const RealEventSource = globalThis.EventSource;
-
-beforeEach(() => {
-  FakeEventSource.instances = [];
-  // @ts-expect-error - jsdom does not implement EventSource by default.
-  globalThis.EventSource = FakeEventSource;
-});
+function controlledConnector(): { connector: RealtimeConnector; calls: ControlledCall[] } {
+  const calls: ControlledCall[] = [];
+  return {
+    calls,
+    connector: input =>
+      new Promise<void>((resolve, reject) => {
+        calls.push({ input, resolve, reject });
+      }),
+  };
+}
 
 afterEach(() => {
-  if (RealEventSource) {
-    globalThis.EventSource = RealEventSource;
-  } else {
-    // @ts-expect-error - remove the polyfill we set above.
-    delete globalThis.EventSource;
-  }
+  vi.useRealTimers();
 });
 
 describe('useRealtimeChannel', () => {
-  it('opens an EventSource at the authenticated collection URL', async () => {
+  it('opens through the authenticated connector and reports state', async () => {
+    const controlled = controlledConnector();
+    const states: string[] = [];
     renderHook(() =>
       useRealtimeChannel({
         collection: 'kds',
+        connector: controlled.connector,
         onEvent: () => {},
-        apiBaseUrl: 'http://test-host',
-        authorize: async () => {},
+        onStateChange: state => states.push(state),
       })
     );
-    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
-    // The `toHaveLength(1)` waitFor above guarantees `instances[0]`;
-    // `!` narrows for `noUncheckedIndexedAccess`. reason: post-length-check.
-    expect(FakeEventSource.instances[0]!.url).toBe(
-      'http://test-host/api/realtime/subscribe?collections=kds'
-    );
-    expect(FakeEventSource.instances[0]!.init).toMatchObject({ withCredentials: true });
+
+    await waitFor(() => expect(controlled.calls).toHaveLength(1));
+    expect(controlled.calls[0]?.input.collections).toBe('kds');
+    expect(controlled.calls[0]?.input.lastEventId).toBeNull();
+    act(() => controlled.calls[0]?.input.onOpen());
+    expect(states).toEqual(['connecting', 'open']);
   });
 
-  it('routes a named event with parsed JSON data through onEvent', async () => {
+  it('parses event JSON and preserves plain text payloads', async () => {
+    const controlled = controlledConnector();
     const received: RealtimeEvent[] = [];
     renderHook(() =>
       useRealtimeChannel({
         collection: 'kds',
-        onEvent: (ev: RealtimeEvent) => received.push(ev),
-        apiBaseUrl: 'http://test-host',
-        authorize: async () => {},
+        connector: controlled.connector,
+        onEvent: event => received.push(event),
       })
     );
-    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
-    // `toHaveLength(1)` waitFor above guarantees `[0]`; `!` narrows for
-    // `noUncheckedIndexedAccess`. reason: post-length-check invariant.
-    const source = FakeEventSource.instances[0]!;
-    source.emit('kds.order.created', '{"saleId":"sale-1"}', 'evt-1');
-    expect(received).toHaveLength(1);
-    expect(received[0]!).toMatchObject({
-      type: 'kds.order.created',
-      id: 'evt-1',
+    await waitFor(() => expect(controlled.calls).toHaveLength(1));
+
+    act(() => {
+      controlled.calls[0]?.input.onEvent({
+        event: 'kds.order.created',
+        data: '{"saleId":"sale-1"}',
+        id: '7',
+      });
+      controlled.calls[0]?.input.onEvent({ event: 'kds.order.updated', data: 'plain' });
     });
-    expect((received[0]!.data as { saleId: string }).saleId).toBe('sale-1');
-  });
-
-  it('surfaces replay gaps so consumers can invalidate their read model', async () => {
-    const received: RealtimeEvent[] = [];
-    renderHook(() =>
-      useRealtimeChannel({
-        collection: 'kds',
-        onEvent: (ev: RealtimeEvent) => received.push(ev),
-        apiBaseUrl: 'http://test-host',
-        authorize: async () => {},
-      })
-    );
-    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
-
-    FakeEventSource.instances[0]!.emit('realtime.replay_gap', '{"reason":"history-evicted"}');
 
     expect(received).toEqual([
-      {
-        type: 'realtime.replay_gap',
-        data: { reason: 'history-evicted' },
-        id: undefined,
-      },
+      { type: 'kds.order.created', data: { saleId: 'sale-1' }, id: '7' },
+      { type: 'kds.order.updated', data: 'plain', id: undefined },
     ]);
   });
 
-  it('carries the last cursor when a hard close creates a new EventSource', async () => {
+  it('ignores connection housekeeping events', async () => {
+    const controlled = controlledConnector();
+    const onEvent = vi.fn();
+    renderHook(() =>
+      useRealtimeChannel({ collection: 'kds', connector: controlled.connector, onEvent })
+    );
+    await waitFor(() => expect(controlled.calls).toHaveLength(1));
+
+    act(() => {
+      controlled.calls[0]?.input.onEvent({ event: 'connected', data: '{}' });
+      controlled.calls[0]?.input.onEvent({ event: 'heartbeat', data: '{}' });
+    });
+
+    expect(onEvent).not.toHaveBeenCalled();
+  });
+
+  it('reconnects with the last cursor after a bounded delay', async () => {
     vi.useFakeTimers();
-    try {
-      const { unmount } = renderHook(() =>
-        useRealtimeChannel({
-          collection: 'kds',
-          onEvent: () => {},
-          apiBaseUrl: 'http://test-host',
-          authorize: async () => {},
-        })
-      );
-      await act(async () => Promise.resolve());
-      const first = FakeEventSource.instances[0]!;
-      first.emit('kds.order.created', '{}', '37');
-      first.readyState = 2;
-      first.emit('error', '');
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(5_000);
-      });
-
-      expect(FakeEventSource.instances).toHaveLength(2);
-      expect(FakeEventSource.instances[1]!.url).toBe(
-        'http://test-host/api/realtime/subscribe?collections=kds&lastEventId=37'
-      );
-      unmount();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('does not fire onEvent for heartbeat or connected events', async () => {
-    const received: RealtimeEvent[] = [];
-    renderHook(() =>
-      useRealtimeChannel({
-        collection: 'kds',
-        onEvent: (ev: RealtimeEvent) => received.push(ev),
-        apiBaseUrl: 'http://test-host',
-        authorize: async () => {},
-      })
-    );
-    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
-    // `toHaveLength(1)` waitFor above guarantees `[0]`; `!` narrows for
-    // `noUncheckedIndexedAccess`. reason: post-length-check invariant.
-    const source = FakeEventSource.instances[0]!;
-    source.emit('heartbeat', '{"ts":1}');
-    source.emit('connected', '{"clientId":"x"}');
-    expect(received).toHaveLength(0);
-  });
-
-  it('refreshes the realtime token when token-refresh-needed arrives', async () => {
-    const authorize = vi.fn(async () => undefined);
-    renderHook(() =>
-      useRealtimeChannel({
-        collection: 'kds',
-        onEvent: () => {},
-        apiBaseUrl: 'http://test-host',
-        authorize,
-      })
-    );
-    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
-    expect(authorize).toHaveBeenCalledTimes(1);
-
-    FakeEventSource.instances[0]!.emit(
-      'token-refresh-needed',
-      '{"timestamp":"2026-05-26T00:00:00.000Z"}'
-    );
-
-    await waitFor(() => expect(authorize).toHaveBeenCalledTimes(2));
-  });
-
-  it('closes the EventSource on unmount', async () => {
+    const controlled = controlledConnector();
     const { unmount } = renderHook(() =>
       useRealtimeChannel({
         collection: 'kds',
+        connector: controlled.connector,
         onEvent: () => {},
-        apiBaseUrl: 'http://test-host',
-        authorize: async () => {},
       })
     );
-    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
-    // `toHaveLength(1)` waitFor above guarantees `[0]`; `!` narrows for
-    // `noUncheckedIndexedAccess`. reason: post-length-check invariant.
-    const source = FakeEventSource.instances[0]!;
+    await act(async () => Promise.resolve());
+    act(() => {
+      controlled.calls[0]?.input.onEvent({ event: 'kds.order.created', data: '{}', id: '37' });
+      controlled.calls[0]?.resolve();
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(5_000));
+
+    expect(controlled.calls).toHaveLength(2);
+    expect(controlled.calls[1]?.input.lastEventId).toBe('37');
     unmount();
-    expect(source.closed).toBe(true);
+  });
+
+  it('aborts the active connector on unmount', async () => {
+    const controlled = controlledConnector();
+    const { unmount } = renderHook(() =>
+      useRealtimeChannel({
+        collection: 'kds',
+        connector: controlled.connector,
+        onEvent: () => {},
+      })
+    );
+    await waitFor(() => expect(controlled.calls).toHaveLength(1));
+    const signal = controlled.calls[0]!.input.signal;
+
+    unmount();
+
+    expect(signal.aborted).toBe(true);
   });
 
   it('skips initialization when disabled', () => {
+    const controlled = controlledConnector();
     renderHook(() =>
       useRealtimeChannel({
         collection: 'kds',
+        connector: controlled.connector,
         onEvent: () => {},
-        apiBaseUrl: 'http://test-host',
         enabled: false,
       })
     );
-    expect(FakeEventSource.instances).toHaveLength(0);
+    expect(controlled.calls).toHaveLength(0);
   });
 });

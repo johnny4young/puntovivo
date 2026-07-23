@@ -1,11 +1,7 @@
-import type { FastifyPluginCallback } from 'fastify';
+import type { FastifyPluginCallback, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 
-import {
-  REALTIME_COOKIE_NAME,
-  REALTIME_TOKEN_REFRESH_NEEDED_INTERVAL_MS,
-  verifyRealtimeToken,
-} from '../../security/authTokens.js';
+import { verifyAccessToken } from '../../security/authTokens.js';
 import type { SseClient } from './contracts.js';
 import { SseManager } from './manager.js';
 import { generateClientId, getCorsHeaders, resolveLastEventId } from './protocol.js';
@@ -14,17 +10,18 @@ interface SsePluginOptions {
   corsOrigins?: string[];
 }
 
+/** Resolve the tenant from the canonical access session on every stream check. */
+export async function resolveRealtimeTenantId(request: FastifyRequest): Promise<string | null> {
+  const payload = await verifyAccessToken(request);
+  return payload?.tenantId ?? null;
+}
+
 /**
  * Fastify plugin for SSE support
  */
 const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opts, done) => {
   const manager = new SseManager();
   const allowedOrigins = opts.corsOrigins ?? [];
-
-  async function resolveTenantId(requestCookie: string | undefined): Promise<string | null> {
-    const payload = await verifyRealtimeToken(fastify, requestCookie ?? null);
-    return payload?.tenantId ?? null;
-  }
 
   // Decorate fastify instance with SSE manager
   fastify.decorate('sse', manager);
@@ -37,15 +34,19 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
       querystring: {
         type: 'object',
         properties: {
-          collections: { type: 'string' },
-          lastEventId: { type: 'string' },
+          collections: {
+            type: 'string',
+            maxLength: 256,
+            pattern: '^[a-z][a-z0-9_-]*(,[a-z][a-z0-9_-]*)*$',
+          },
+          lastEventId: { type: 'string', maxLength: 20, pattern: '^\\d+$' },
         },
       },
     },
     handler: async (request, reply) => {
       const clientId = generateClientId();
       const collections = request.query.collections?.split(',').map(c => c.trim()) || [];
-      const tenantId = await resolveTenantId(request.cookies[REALTIME_COOKIE_NAME]);
+      const tenantId = await resolveRealtimeTenantId(request);
       const corsHeaders = getCorsHeaders(request.headers.origin, allowedOrigins);
 
       if (!tenantId) {
@@ -90,48 +91,53 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
       manager.replayTo(clientId, lastEventId);
 
       let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
-      let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
+      let authCheckInFlight = false;
 
       const cleanupConnection = () => {
         if (heartbeatInterval) {
           clearInterval(heartbeatInterval);
           heartbeatInterval = null;
         }
-        if (tokenRefreshInterval) {
-          clearInterval(tokenRefreshInterval);
-          tokenRefreshInterval = null;
-        }
         manager.removeClient(clientId);
       };
+      const endConnection = () => {
+        cleanupConnection();
+        try {
+          reply.raw.end();
+        } catch {
+          // The peer may already have closed while auth was being checked.
+        }
+      };
 
-      // Send heartbeat every 30 seconds to keep connection alive
+      // Re-verify the same Bearer session before every heartbeat. Access-token
+      // expiry, logout, device revocation, user deactivation, or tenant
+      // deactivation all close the stream; the client reconnect path then uses
+      // the canonical refresh flow or routes back to login.
       heartbeatInterval = setInterval(() => {
-        if (
-          !manager.sendTo(clientId, {
-            event: 'heartbeat',
-            data: { timestamp: new Date().toISOString() },
+        if (authCheckInFlight) return;
+        authCheckInFlight = true;
+        void resolveRealtimeTenantId(request)
+          .then(activeTenantId => {
+            if (activeTenantId !== tenantId) {
+              endConnection();
+              return;
+            }
+            if (
+              !manager.sendTo(clientId, {
+                event: 'heartbeat',
+                data: { timestamp: new Date().toISOString() },
+              })
+            ) {
+              cleanupConnection();
+            }
           })
-        ) {
-          cleanupConnection();
-        }
+          .catch(() => {
+            endConnection();
+          })
+          .finally(() => {
+            authCheckInFlight = false;
+          });
       }, 30000);
-
-      // emit `token-refresh-needed` on a 10-minute cadence so
-      // the client can mint a fresh realtime cookie before the 15-minute
-      // TTL elapses. The client listens for this event and calls
-      // `auth.realtimeToken.mutate()` without dropping the SSE socket —
-      // the cookie is replaced on the same origin and the next
-      // reconnect (if it ever happens) already carries the fresh value.
-      tokenRefreshInterval = setInterval(() => {
-        if (
-          !manager.sendTo(clientId, {
-            event: 'token-refresh-needed',
-            data: { timestamp: new Date().toISOString() },
-          })
-        ) {
-          cleanupConnection();
-        }
-      }, REALTIME_TOKEN_REFRESH_NEEDED_INTERVAL_MS);
 
       // Handle client disconnect
       request.raw.on('close', cleanupConnection);

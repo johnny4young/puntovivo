@@ -120,12 +120,6 @@
     "output": "inferred"
   },
   {
-    "path": "auth.realtimeToken",
-    "kind": "mutation",
-    "input": "void",
-    "output": "inferred"
-  },
-  {
     "path": "auth.refresh",
     "kind": "mutation",
     "input": "void",

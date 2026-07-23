@@ -44,6 +44,11 @@
       "types": "./src/operational-readiness.ts",
       "import": "./dist/operational-readiness.js",
       "default": "./dist/operational-readiness.js"
+    },
+    "./realtime-sse": {
+      "types": "./src/realtime-sse.ts",
+      "import": "./dist/realtime-sse.js",
+      "default": "./dist/realtime-sse.js"
     }
   },
   "scripts": {

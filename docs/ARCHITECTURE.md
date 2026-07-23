@@ -41,7 +41,11 @@ surface to its renderer.
 
 - `/api/trpc` is the canonical application API.
 - `/api/health` remains a compatibility and operational health endpoint.
-- `/api/realtime/*` carries server-sent events.
+- `/api/realtime/*` carries server-sent events over the canonical Bearer
+  access session. Browser and local-authority renderers use streaming `fetch`;
+  Store Hub clients use a fixed-endpoint main-process relay. The server
+  revalidates `sessionVersion` before each heartbeat so logout, device
+  revocation, and disabled users or tenants close existing streams.
 - Routers validate input, authorize the actor, enforce tenant/site scope, and
   delegate non-trivial rules to application or service modules.
 - Server tests call `appRouter.createCaller(...)` against in-memory SQLite;

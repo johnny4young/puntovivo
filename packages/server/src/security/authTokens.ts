@@ -5,27 +5,12 @@ import { shouldUseSecureCookies } from './cookies.js';
 import type { UserRole } from '@puntovivo/shared/roles';
 
 export const REFRESH_COOKIE_NAME = 'puntovivo_refresh';
-export const REALTIME_COOKIE_NAME = 'puntovivo_realtime';
-// realtime token TTL aligned with access-token TTL (15min).
-// Previously 120s, which expired well before the typical SSE connection
-// lifetime (heartbeats keep the socket open for hours). The cookie
-// stays httpOnly + sameSite=strict + secure (in production); the
-// extended lifetime does not widen the attack surface — it removes a
-// reconnect cliff that masked legitimate sessions as dropped.
-export const REALTIME_TOKEN_MAX_AGE_SECONDS = 900;
-// server-side SSE heartbeat emits a `token-refresh-needed`
-// event this many seconds AFTER the connection opens (and every cycle
-// thereafter), so the client can proactively re-mint the realtime
-// cookie before the 15-minute window elapses. Pegged at 10 minutes so
-// every refresh leaves at least 5 minutes of slack on the cookie.
-export const REALTIME_TOKEN_REFRESH_NEEDED_INTERVAL_MS = 10 * 60 * 1000;
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL = '7d';
-const REALTIME_TOKEN_TTL = `${REALTIME_TOKEN_MAX_AGE_SECONDS}s`;
 /** a fast-switched cashier must re-enter a PIN after one shift. */
 export const STAFF_PIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
-export type AuthTokenType = 'access' | 'refresh' | 'realtime';
+export type AuthTokenType = 'access' | 'refresh';
 export type AuthMethod = 'password' | 'staff_pin';
 
 export interface AuthSessionClaims {
@@ -45,9 +30,8 @@ export interface AuthTokenPayload {
   authSessionExpiresAt?: number;
   /**
    * Refresh tokens only (Auditoría 2026-07 rotation): the family this
-   * token belongs to and its unique id within it. Absent on access /
-   * realtime tokens and on refresh tokens signed before the rotation
-   * feature (legacy grace path).
+   * token belongs to and its unique id within it. Absent on access tokens and
+   * on refresh tokens signed before the rotation feature (legacy grace path).
    */
   familyId?: string;
   jti?: string;
@@ -123,16 +107,6 @@ export function signRefreshToken(
     : buildTokenPayload(user, 'refresh', session);
   return server.jwt.sign(payload, {
     expiresIn: REFRESH_TOKEN_TTL,
-  });
-}
-
-export function signRealtimeToken(
-  server: FastifyInstance,
-  user: AuthUserIdentity,
-  session?: AuthSessionClaims
-): string {
-  return server.jwt.sign(buildTokenPayload(user, 'realtime', session), {
-    expiresIn: REALTIME_TOKEN_TTL,
   });
 }
 
@@ -238,13 +212,6 @@ export function verifyRefreshToken(request: FastifyRequest): Promise<AuthTokenPa
     request.cookies[REFRESH_COOKIE_NAME] ?? null,
     'refresh'
   );
-}
-
-export function verifyRealtimeToken(
-  server: FastifyInstance,
-  token: string | null
-): Promise<AuthTokenPayload | null> {
-  return verifyTokenWithServer(server, token, 'realtime');
 }
 
 export function clearRefreshCookie(request: FastifyRequest, reply: FastifyReply): void {

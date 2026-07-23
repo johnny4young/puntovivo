@@ -19,7 +19,11 @@ storage, bounded external effects, and auditable administrative actions.
   main process, sealed by the OS keychain. The sandboxed renderer receives only
   short-lived access tokens. Hub API calls cross a fixed-destination `/api/*`
   proxy that strips renderer cookies and non-allowlisted request headers; the
-  bridge cannot be repointed to an arbitrary origin.
+  bridge cannot be repointed to an arbitrary origin. Realtime uses a separate,
+  narrow `/api/realtime/subscribe` relay: main attaches the current Bearer,
+  parses bounded SSE frames, and forwards typed events over IPC. It accepts
+  only collection identifiers and a numeric replay cursor, never an arbitrary
+  URL.
 
 ## Tenant and site isolation
 
