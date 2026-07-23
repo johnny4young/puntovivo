@@ -1,6 +1,6 @@
 # Performance Budgets
 
-> Status: shipped engine (bundle-size + fixture and store-sized tRPC p95 latency + data-scale UI + Electron memory + Lighthouse web vitals).
+> Status: shipped engine (bundle-size + fixture/store-sized tRPC p95 latency + data-scale UI + launch import + encrypted backup + bounded recovery queue + Electron memory/launch + Lighthouse web vitals).
 > Source of truth: `perf-budget.json` at the repo root.
 
 This doc explains how Puntovivo enforces performance budgets in CI
@@ -15,13 +15,16 @@ documented in the same PR that produces it.
 | Per-chunk JavaScript gzipped bundle size                                                          | `ci:web`                              | `scripts/check-bundle-size.mjs` after `vite build`                           |
 | tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                             |
 | Store-sized SQLite seed volume, hot-read p95, and critical query plans                            | `ci:server`                           | `scripts/run-store-profile-gate.mjs` → isolated vitest                       |
+| Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `scripts/run-store-profile-gate.mjs` → isolated vitest                       |
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                        |
-| Electron main + renderer working-set memory (strict in CI; warn-first locally)                    | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs` |
+| Store-sized encrypted backup create/extract and bounded lifecycle queue                           | `ci:desktop`                          | desktop Node tests                                                           |
+| Electron main + renderer memory and built-runtime launch (strict in CI; warn-first locally)       | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs` |
 | Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`           |
 
 The locally enforceable baseline covers bundle size, fixture and store-sized
-tRPC p95 latency, bounded data-table rendering, Electron memory, and Lighthouse
-web vitals. Each enforced budget fails its owning gate when it regresses.
+tRPC p95 latency, bounded data-table rendering, launch import, encrypted
+recovery work, Electron memory/launch, and Lighthouse web vitals. Each enforced
+budget fails its owning gate when it regresses.
 
 ### Data-scale UI contract
 
@@ -81,10 +84,37 @@ individual p95 values by well over an order of magnitude, which is why the
 enforced gate runs after coverage in isolation instead of weakening the budgets
 to absorb unrelated scheduler contention.
 
-This contract closes the server read-side of the store-volume profile. It does
-not claim desktop write, recovery, signed-package, or physical-device timings.
+This contract closes the server read-side of the store-volume profile. The
+write/recovery and built-desktop measurements below are separate operational
+profiles; do not infer signed-package or physical-device timings from the
+in-memory SQLite gate.
 
-### Electron memory (strict in CI, warn-first locally)
+### Operational continuity contract
+
+`perf-budget.json::operationalProfile` extends the store profile beyond hot
+reads:
+
+- The isolated server runner previews and commits the transport maximum of 500
+  launch-product rows through the real tRPC caller. The checked-in baselines
+  are 750 ms for preview and 2,500 ms for commit.
+- Desktop Node tests create an encrypted 5,000-row SQLCipher database, build a
+  production backup ZIP, extract it, run integrity validation with the same
+  key, and verify the full row count. Creation and extraction each have a
+  2,500 ms baseline.
+- The database-lifecycle FIFO accepts at most 16 outstanding backup/restore
+  operations. A seventeenth request rejects explicitly instead of retaining
+  unbounded closures while the embedded server is stopped.
+- The Electron memory gate records wall time around the same built-runtime boot
+  that produces real main/renderer metrics. Its 20,000 ms baseline includes
+  embedded-server startup, window creation, renderer load, the measurement
+  settle period, and orderly quit.
+
+These values share a 35% runner-jitter allowance. They are regression budgets,
+not service promises. Signed installer startup and production-volume recovery
+on Linux, macOS, and Windows remain release-candidate evidence because CI's
+built runtime is not a packaged or signed artifact.
+
+### Electron memory and built-runtime launch (strict in CI, warn-first locally)
 
 `scripts/check-electron-memory.mjs` launches the built Electron app
 with `PUNTOVIVO_MEASURE_MEMORY=1`. The main process waits for the
@@ -94,7 +124,8 @@ Electron process' working-set via `app.getAppMetrics()`, prints one
 `Browser` process to `main` and the `Tab` process to `renderer`
 (GPU / utility processes are excluded), sums them in MB, and compares
 against `perf-budget.json::electronMemoryMb.perProcessMb` with the
-shared `thresholdPercent`.
+shared `thresholdPercent`. The launcher also records total wall time and checks
+it against `operationalProfile.desktopLaunchElapsedMs`.
 
 `ci:desktop` now builds the web bundle plus Electron main/preload
 bundle, starts a local Vite preview via

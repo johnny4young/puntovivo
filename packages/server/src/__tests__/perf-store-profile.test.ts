@@ -30,9 +30,11 @@ interface QueryPlanRow {
 }
 
 const budget = loadPerfBudget().storeProfile;
+const operationalBudget = loadPerfBudget().operationalProfile;
 const measuredP95: Record<string, number> = {};
 const measuredRows: Record<string, number> = {};
 const measuredQueryPlans: Record<string, string[]> = {};
+const measuredOperational: Record<string, number> = {};
 
 let server: PuntovivoServer | undefined;
 let tenantId: string;
@@ -157,7 +159,7 @@ describe.skipIf(process.env.PUNTOVIVO_STORE_PROFILE !== '1')(
     afterAll(async () => {
       if (Object.keys(measuredP95).length > 0) {
         process.stdout.write(
-          `store-profile measured=${JSON.stringify({ seedElapsedMs, rows: measuredRows, p95: measuredP95, queryPlans: measuredQueryPlans })}\n`
+          `store-profile measured=${JSON.stringify({ seedElapsedMs, rows: measuredRows, p95: measuredP95, queryPlans: measuredQueryPlans, operational: measuredOperational })}\n`
         );
       }
       if (server) await server.close();
@@ -251,5 +253,62 @@ describe.skipIf(process.env.PUNTOVIVO_STORE_PROFILE !== '1')(
         expect(p95).toBeLessThanOrEqual(ceiling);
       }, 30_000);
     }
+
+    it('previews and commits one maximum-size launch product import within budget', async () => {
+      const rows = Array.from({ length: operationalBudget.launchImport.rows }, (_, index) => {
+        const number = String(index + 1).padStart(4, '0');
+        return {
+          rowNumber: index + 2,
+          values: {
+            name: `Performance import product ${number}`,
+            sku: `PERF-IMPORT-${number}`,
+            price: '12500',
+            cost: '7800',
+            stock: '4',
+            minStock: '1',
+            taxRate: '19',
+          },
+        };
+      });
+      const input = {
+        dataMode: 'real' as const,
+        sourceName: 'performance-launch-import.csv',
+        decimalFormat: 'auto' as const,
+        rows,
+      };
+      const caller = appRouter.createCaller(buildCtx());
+      const tolerance = 1 + operationalBudget.thresholdPercent / 100;
+
+      const previewStart = performance.now();
+      const preview = await caller.launchMigration.previewProducts(input);
+      const previewElapsedMs = performance.now() - previewStart;
+      measuredOperational['launchImport.previewElapsedMs'] = Number(previewElapsedMs.toFixed(2));
+      expect(preview.summary).toEqual({
+        total: operationalBudget.launchImport.rows,
+        ready: operationalBudget.launchImport.rows,
+        duplicates: 0,
+        invalid: 0,
+      });
+      expect(previewElapsedMs).toBeLessThanOrEqual(
+        operationalBudget.launchImport.previewElapsedMs * tolerance
+      );
+
+      const commitStart = performance.now();
+      const result = await caller.launchMigration.importProducts({
+        ...input,
+        confirmedRealData: true,
+        previewHash: preview.previewHash,
+      });
+      const commitElapsedMs = performance.now() - commitStart;
+      measuredOperational['launchImport.commitElapsedMs'] = Number(commitElapsedMs.toFixed(2));
+      expect(result.summary).toMatchObject({
+        total: operationalBudget.launchImport.rows,
+        imported: operationalBudget.launchImport.rows,
+        failed: 0,
+      });
+      expect(commitElapsedMs).toBeLessThanOrEqual(
+        operationalBudget.launchImport.commitElapsedMs * tolerance
+      );
+    }, 30_000);
   }
 );

@@ -60,6 +60,13 @@ sealing, owner-only credential-envelope permissions, refresh rotation after an
 app restart, rejected-session cleanup, exact-token IPC registration, and the
 fixed-destination API proxy's header/path restrictions.
 
+The server and desktop CI gates also consume
+`perf-budget.json::operationalProfile`: the server measures a maximum-size
+launch-product preview/commit; desktop tests time an encrypted 5,000-row backup
+round trip and enforce a bounded recovery queue; the Electron runtime gate
+checks boot elapsed time together with main/renderer memory. See
+`PERF-BUDGETS.md` for thresholds and the packaged-artifact boundary.
+
 ## Release-candidate additions
 
 Automated gates are necessary but not sufficient for a desktop release. A

@@ -21,10 +21,11 @@
 
 import { describe, it, before, after } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { performance } from 'node:perf_hooks';
 import Database from 'better-sqlite3';
 import {
   BACKUP_BUNDLE_SCHEMA_VERSION,
@@ -79,6 +80,20 @@ function seedEncryptedSourceDb(path: string): { count: number } {
   const row = db.prepare('SELECT COUNT(*) AS n FROM sales').get() as { n: number };
   db.close();
   return { count: row.n };
+}
+
+function seedEncryptedPerformanceDb(path: string, rows: number): void {
+  const db = new Database(path);
+  applySqlCipherKey(db);
+  db.exec('CREATE TABLE sales (id TEXT PRIMARY KEY, total REAL NOT NULL, note TEXT NOT NULL);');
+  const insert = db.prepare('INSERT INTO sales VALUES (?, ?, ?)');
+  const insertAll = db.transaction(() => {
+    for (let index = 0; index < rows; index += 1) {
+      insert.run(`sale-${index}`, index + 0.5, `deterministic performance row ${index}`);
+    }
+  });
+  insertAll();
+  db.close();
 }
 
 describe('createBackupFileName', () => {
@@ -199,6 +214,57 @@ describe('createBackupBundle + assertSqliteIntegrity', () => {
     };
     verifier.close();
     assert.equal(rows.n, count, 'encrypted backup must carry every source row');
+  });
+
+  it('creates and extracts a store-sized encrypted backup within the shared elapsed budget', async () => {
+    const budget = JSON.parse(
+      readFileSync(join(process.cwd(), '..', '..', 'perf-budget.json'), 'utf8')
+    ) as {
+      operationalProfile: {
+        thresholdPercent: number;
+        encryptedBackup: {
+          rows: number;
+          createElapsedMs: number;
+          extractElapsedMs: number;
+        };
+      };
+    };
+    const contract = budget.operationalProfile.encryptedBackup;
+    const tolerance = 1 + budget.operationalProfile.thresholdPercent / 100;
+    const dir = await mkdtemp(join(scratchDir, 'bundle-performance-'));
+    const sourceDbPath = join(dir, 'live.db');
+    const outZip = join(dir, 'out.zip');
+    seedEncryptedPerformanceDb(sourceDbPath, contract.rows);
+
+    const createStart = performance.now();
+    await createBackupBundle({
+      dbPath: sourceDbPath,
+      outZipPath: outZip,
+      encryptionKey: ENCRYPTION_KEY,
+    });
+    const createElapsedMs = performance.now() - createStart;
+    assert.ok(
+      createElapsedMs <= contract.createElapsedMs * tolerance,
+      `encrypted backup creation ${createElapsedMs.toFixed(2)}ms exceeded ${contract.createElapsedMs}ms + ${budget.operationalProfile.thresholdPercent}%`
+    );
+
+    const extractStart = performance.now();
+    const extracted = await extractBackupBundle(outZip, join(dir, 'extracted'));
+    await assertSqliteIntegrity(extracted.dbPath, { encryptionKey: ENCRYPTION_KEY });
+    const extractElapsedMs = performance.now() - extractStart;
+    assert.ok(
+      extractElapsedMs <= contract.extractElapsedMs * tolerance,
+      `encrypted backup extraction ${extractElapsedMs.toFixed(2)}ms exceeded ${contract.extractElapsedMs}ms + ${budget.operationalProfile.thresholdPercent}%`
+    );
+
+    const verifier = new Database(extracted.dbPath, { readonly: true });
+    applySqlCipherKey(verifier);
+    const row = verifier.prepare('SELECT count(*) AS count FROM sales').get() as { count: number };
+    verifier.close();
+    assert.equal(row.count, contract.rows);
+    process.stdout.write(
+      `desktop-operational-profile measured=${JSON.stringify({ encryptedBackup: { rows: contract.rows, createElapsedMs: Number(createElapsedMs.toFixed(2)), extractElapsedMs: Number(extractElapsedMs.toFixed(2)) } })}\n`
+    );
   });
 
   it('throws when the source DB is corrupted', async () => {

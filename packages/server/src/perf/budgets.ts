@@ -67,11 +67,30 @@ export interface PerfBudgetStoreProfile {
   queryPlanIndexes: Record<string, string>;
 }
 
+export interface PerfBudgetOperationalProfile {
+  /** Shared tolerance over store-write and desktop elapsed-time budgets. */
+  thresholdPercent: number;
+  launchImport: {
+    /** Maximum product rows accepted by one launch-import request. */
+    rows: number;
+    previewElapsedMs: number;
+    commitElapsedMs: number;
+  };
+  encryptedBackup: {
+    rows: number;
+    createElapsedMs: number;
+    extractElapsedMs: number;
+  };
+  desktopLaunchElapsedMs: number;
+  maxPendingBackupOperations: number;
+}
+
 export interface PerfBudget {
   version: number;
   bundleSize: PerfBudgetBundleSize;
   trpcLatencyMs: PerfBudgetTrpcLatencyMs;
   storeProfile: PerfBudgetStoreProfile;
+  operationalProfile: PerfBudgetOperationalProfile;
 }
 
 /**
@@ -87,6 +106,7 @@ export function loadPerfBudget(): PerfBudget {
     bundleSize?: Partial<PerfBudgetBundleSize>;
     trpcLatencyMs?: Partial<PerfBudgetTrpcLatencyMs>;
     storeProfile?: Partial<PerfBudgetStoreProfile>;
+    operationalProfile?: Partial<PerfBudgetOperationalProfile>;
   };
   if (
     typeof parsed.version !== 'number' ||
@@ -123,6 +143,34 @@ export function loadPerfBudget(): PerfBudget {
     Object.values(parsed.storeProfile.queryPlanIndexes).some(
       value => typeof value !== 'string' || value.length === 0
     ) ||
+    !parsed.operationalProfile ||
+    typeof parsed.operationalProfile.thresholdPercent !== 'number' ||
+    !Number.isFinite(parsed.operationalProfile.thresholdPercent) ||
+    parsed.operationalProfile.thresholdPercent < 0 ||
+    !parsed.operationalProfile.launchImport ||
+    !Number.isInteger(parsed.operationalProfile.launchImport.rows) ||
+    parsed.operationalProfile.launchImport.rows < 1 ||
+    parsed.operationalProfile.launchImport.rows > 500 ||
+    typeof parsed.operationalProfile.launchImport.previewElapsedMs !== 'number' ||
+    !Number.isFinite(parsed.operationalProfile.launchImport.previewElapsedMs) ||
+    parsed.operationalProfile.launchImport.previewElapsedMs <= 0 ||
+    typeof parsed.operationalProfile.launchImport.commitElapsedMs !== 'number' ||
+    !Number.isFinite(parsed.operationalProfile.launchImport.commitElapsedMs) ||
+    parsed.operationalProfile.launchImport.commitElapsedMs <= 0 ||
+    !parsed.operationalProfile.encryptedBackup ||
+    !Number.isInteger(parsed.operationalProfile.encryptedBackup.rows) ||
+    parsed.operationalProfile.encryptedBackup.rows < 1 ||
+    typeof parsed.operationalProfile.encryptedBackup.createElapsedMs !== 'number' ||
+    !Number.isFinite(parsed.operationalProfile.encryptedBackup.createElapsedMs) ||
+    parsed.operationalProfile.encryptedBackup.createElapsedMs <= 0 ||
+    typeof parsed.operationalProfile.encryptedBackup.extractElapsedMs !== 'number' ||
+    !Number.isFinite(parsed.operationalProfile.encryptedBackup.extractElapsedMs) ||
+    parsed.operationalProfile.encryptedBackup.extractElapsedMs <= 0 ||
+    typeof parsed.operationalProfile.desktopLaunchElapsedMs !== 'number' ||
+    !Number.isFinite(parsed.operationalProfile.desktopLaunchElapsedMs) ||
+    parsed.operationalProfile.desktopLaunchElapsedMs <= 0 ||
+    !Number.isInteger(parsed.operationalProfile.maxPendingBackupOperations) ||
+    parsed.operationalProfile.maxPendingBackupOperations < 1 ||
     !parsed.bundleSize.perChunkGzKb ||
     typeof parsed.bundleSize.thresholdPercent !== 'number'
   ) {

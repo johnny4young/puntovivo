@@ -6,8 +6,8 @@
  * (`PUNTOVIVO_MEASURE_MEMORY=1`), reads each Electron process'
  * working-set via `app.getAppMetrics()` (printed by the main process as a
  * single `PUNTOVIVO_MEMORY_METRICS=<json>` line), summarises the main +
- * renderer footprint in MB, and compares it against the budget declared in
- * the repo's `perf-budget.json`.
+ * renderer footprint in MB, records the built-runtime launch wall time, and
+ * compares both against the budgets declared in `perf-budget.json`.
  *
  * The local path is warn-first/self-skipping by default: the report is always
  * printed, but the gate only fails on an over-budget process when `--strict`
@@ -36,6 +36,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -181,7 +182,7 @@ function ensureNativeRuntime(runtime, { warnPrefix = 'WARN skipped' } = {}) {
 
 /**
  * Launch the built Electron app in measurement mode and return the
- * summarised `{ main, renderer }` MB, or `null` if the launch is infeasible
+ * summarised `{ main, renderer, launchElapsedMs }`, or `null` if the launch is infeasible
  * (missing bundle / binary / launch error / no metrics line). On Linux the
  * electron binary is wrapped in `xvfb-run -a` so it can boot headlessly.
  */
@@ -219,6 +220,8 @@ export function launchAndMeasure() {
   const args = isLinux ? ['-a', electronBin, ...electronArgs] : electronArgs;
 
   let run;
+  const launchStart = performance.now();
+  let launchElapsedMs;
   try {
     run = spawnSync(command, args, {
       cwd: REPO_ROOT,
@@ -233,6 +236,7 @@ export function launchAndMeasure() {
         ELECTRON_ENABLE_LOGGING: '1',
       },
     });
+    launchElapsedMs = Number((performance.now() - launchStart).toFixed(2));
   } finally {
     ensureNativeRuntime('node', { warnPrefix: 'WARN' });
   }
@@ -247,7 +251,10 @@ export function launchAndMeasure() {
 
   const metrics = parseMetricsLine(run.stdout);
   if (metrics) {
-    return summarizeProcesses(metrics);
+    return {
+      ...summarizeProcesses(metrics),
+      launchElapsedMs,
+    };
   }
   if (/^PUNTOVIVO_MEMORY_SKIP=/m.test(run.stdout ?? '')) {
     console.warn(
@@ -295,9 +302,17 @@ export function runCli({ measure = launchAndMeasure, strict, requireMeasurement 
   }
   const budget = budgetFile?.electronMemoryMb?.perProcessMb;
   const thresholdPercent = budgetFile?.electronMemoryMb?.thresholdPercent;
+  const launchBudget = budgetFile?.operationalProfile?.desktopLaunchElapsedMs;
+  const operationalThreshold = budgetFile?.operationalProfile?.thresholdPercent;
   if (!budget || typeof thresholdPercent !== 'number') {
     console.error(
       'check-electron-memory: perf-budget.json is missing electronMemoryMb.perProcessMb or electronMemoryMb.thresholdPercent'
+    );
+    return 1;
+  }
+  if (typeof launchBudget !== 'number' || typeof operationalThreshold !== 'number') {
+    console.error(
+      'check-electron-memory: perf-budget.json is missing operationalProfile.desktopLaunchElapsedMs or operationalProfile.thresholdPercent'
     );
     return 1;
   }
@@ -317,6 +332,27 @@ export function runCli({ measure = launchAndMeasure, strict, requireMeasurement 
   const result = compareToMemoryBudget({ measured, budget, thresholdPercent });
   const report = renderReport(result, thresholdPercent);
   console.log(report);
+
+  const launchElapsedMs = measured.launchElapsedMs;
+  if (typeof launchElapsedMs !== 'number') {
+    if (requireMeasured) {
+      console.error(
+        'check-electron-memory: FAIL (--require-measurement) — Electron did not produce launch elapsed time.'
+      );
+      return 1;
+    }
+  } else {
+    const launchCeiling = launchBudget * (1 + operationalThreshold / 100);
+    console.log(
+      `Electron built-runtime launch ${launchElapsedMs <= launchCeiling ? 'PASS' : 'OVER BUDGET'} — ${launchElapsedMs.toFixed(2)} ms measured; ${launchBudget} ms baseline + ${operationalThreshold}% threshold.`
+    );
+    if (launchElapsedMs > launchCeiling && enforce) {
+      console.error(
+        'check-electron-memory: FAIL (--strict) — built-runtime launch overshot its elapsed-time budget.'
+      );
+      return 1;
+    }
+  }
 
   if (result.missing.length > 0 && requireMeasured) {
     console.error(

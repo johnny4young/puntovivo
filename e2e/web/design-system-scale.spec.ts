@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
   attachClientIssueTracker,
+  ensureLanguage,
   expectNoClientIssues,
   loginAs,
 } from './support/app';
@@ -76,6 +77,63 @@ test.describe('Operator Deck data scale', () => {
     expect(await specimen.locator('tbody tr[data-row-id]').count()).toBeLessThanOrEqual(
       budget.maxMountedRows
     );
+
+    await expectNoClientIssues(tracker);
+  });
+  test('presents the Base 11 journey and operational contracts in compact ES and desktop EN', async ({
+    page,
+  }) => {
+    const tracker = attachClientIssueTracker(page);
+    await page.setViewportSize({ width: 640, height: 900 });
+    await loginAs(page, 'admin');
+    await ensureLanguage(page, 'es');
+    await page.goto('/design-system');
+
+    await expect(page.getByText('Base 11')).toBeVisible();
+    const journeys = page.getByTestId('design-system-journey-section');
+    const operational = page.getByTestId('design-system-operational-section');
+    await journeys.scrollIntoViewIfNeeded();
+    await expect(journeys.getByText('Jornadas críticas, una sola promesa')).toBeVisible();
+    await expect(journeys.getByText('Cambio seguro de operador')).toBeVisible();
+    await operational.scrollIntoViewIfNeeded();
+    await expect(operational.getByText('Rendimiento que protege la continuidad')).toBeVisible();
+    await expect(operational.getByText('≤ 16 operaciones')).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true);
+
+    const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
+    if (auditDir) {
+      await mkdir(auditDir, { recursive: true });
+      await journeys.screenshot({
+        animations: 'disabled',
+        path: `${auditDir}/operator-deck-base11-journeys-es-compact.png`,
+      });
+      await operational.screenshot({
+        animations: 'disabled',
+        path: `${auditDir}/operator-deck-base11-operational-es-compact.png`,
+      });
+    }
+
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await ensureLanguage(page, 'en');
+    await journeys.scrollIntoViewIfNeeded();
+    await expect(journeys.getByText('Critical journeys, one operating promise')).toBeVisible();
+    if (auditDir) {
+      await journeys.screenshot({
+        animations: 'disabled',
+        path: `${auditDir}/operator-deck-base11-journeys-en-desktop.png`,
+      });
+    }
+
+    await operational.scrollIntoViewIfNeeded();
+    await expect(operational.getByText('Performance that protects continuity')).toBeVisible();
+    if (auditDir) {
+      await operational.screenshot({
+        animations: 'disabled',
+        path: `${auditDir}/operator-deck-base11-operational-en-desktop.png`,
+      });
+    }
 
     await expectNoClientIssues(tracker);
   });

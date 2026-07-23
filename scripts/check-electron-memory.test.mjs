@@ -128,25 +128,52 @@ test('runCli --require-measurement fails (exit 1) when Electron cannot be measur
 });
 
 test('runCli is warn-first by default: over-ceiling still exits 0', () => {
-  const code = runCli({ measure: () => ({ main: 9999, renderer: 9999 }), strict: false });
+  const code = runCli({
+    measure: () => ({ main: 9999, renderer: 9999, launchElapsedMs: 999999 }),
+    strict: false,
+  });
   assert.equal(code, 0);
 });
 
 test('runCli --strict fails (exit 1) when a process overshoots', () => {
-  const code = runCli({ measure: () => ({ main: 9999, renderer: 9999 }), strict: true });
+  const code = runCli({
+    measure: () => ({ main: 9999, renderer: 9999, launchElapsedMs: 1 }),
+    strict: true,
+  });
   assert.equal(code, 1);
 });
 
 test('runCli --require-measurement fails (exit 1) when a budgeted process is missing', () => {
-  const code = runCli({ measure: () => ({ main: 10 }), requireMeasurement: true });
+  const code = runCli({
+    measure: () => ({ main: 10, launchElapsedMs: 1 }),
+    requireMeasurement: true,
+  });
   assert.equal(code, 1);
 });
 
 test('runCli passes (exit 0) when the measurement is within budget', () => {
   const code = runCli({
-    measure: () => ({ main: 10, renderer: 10 }),
+    measure: () => ({ main: 10, renderer: 10, launchElapsedMs: 1 }),
     strict: true,
     requireMeasurement: true,
   });
   assert.equal(code, 0);
+});
+
+test('runCli --require-measurement fails when launch elapsed time is missing', () => {
+  const code = runCli({
+    measure: () => ({ main: 10, renderer: 10 }),
+    strict: true,
+    requireMeasurement: true,
+  });
+  assert.equal(code, 1);
+});
+
+test('runCli --strict fails when built-runtime launch exceeds its budget', () => {
+  const code = runCli({
+    measure: () => ({ main: 10, renderer: 10, launchElapsedMs: 999999 }),
+    strict: true,
+    requireMeasurement: true,
+  });
+  assert.equal(code, 1);
 });
