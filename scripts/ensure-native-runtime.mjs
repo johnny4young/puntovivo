@@ -8,7 +8,6 @@ import { createRequire } from 'node:module';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 const require = createRequire(import.meta.url);
-const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
 /**
  * Runtime swap state for the better-sqlite3 native addon.
@@ -158,6 +157,19 @@ async function getElectronVersion() {
   return desktopPackageJson.devDependencies?.electron ?? desktopPackageJson.dependencies?.electron;
 }
 
+async function getElectronRebuildBin() {
+  const packageJsonPath = require.resolve('@electron/rebuild/package.json');
+  const packageJson = await readJson(packageJsonPath);
+  const relativeBin =
+    typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin?.['electron-rebuild'];
+
+  if (!relativeBin) {
+    throw new Error('@electron/rebuild does not publish an electron-rebuild bin');
+  }
+
+  return path.resolve(path.dirname(packageJsonPath), relativeBin);
+}
+
 /**
  * Build the cache key that distinguishes every ABI-sensitive dimension.
  *
@@ -228,10 +240,10 @@ async function cacheActiveBinary(runtimeKey) {
   return nativeBinaryHash;
 }
 
-function runCommand(command, args, label) {
+function runCommand(command, args, label, cwd = repoRoot) {
   console.log(`[native-runtime] ${label}`);
   execFileSync(command, args, {
-    cwd: repoRoot,
+    cwd,
     stdio: 'inherit',
   });
 }
@@ -306,10 +318,12 @@ async function main() {
       'Rebuilding better-sqlite3 for the active Node runtime'
     );
   } else {
+    const electronRebuildBin = await getElectronRebuildBin();
     runCommand(
-      pnpmCommand,
-      ['--filter', '@puntovivo/desktop', 'run', 'rebuild'],
-      'Rebuilding better-sqlite3 for Electron'
+      process.execPath,
+      [electronRebuildBin, '-f'],
+      'Rebuilding better-sqlite3 for Electron',
+      path.join(repoRoot, 'apps', 'desktop')
     );
   }
 

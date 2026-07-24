@@ -13,6 +13,10 @@ const releaseWorkflow = readFileSync(
   new URL('../.github/workflows/release.yml', import.meta.url),
   'utf8'
 );
+const nativeRuntimeScript = readFileSync(
+  new URL('./ensure-native-runtime.mjs', import.meta.url),
+  'utf8'
+);
 
 test('local packaging prepares Electron native modules before electron-builder', () => {
   for (const scriptName of ['package:desktop', 'make:desktop']) {
@@ -45,5 +49,14 @@ test('release packaging runs the full target-runtime smoke', () => {
   assert.match(
     releaseWorkflow,
     /if: matrix\.platform != 'linux'\s+run: node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
+  );
+});
+
+test('Electron native rebuild avoids platform shell shims', () => {
+  assert.doesNotMatch(nativeRuntimeScript, /pnpm\.cmd/);
+  assert.match(nativeRuntimeScript, /require\.resolve\('@electron\/rebuild\/package\.json'\)/);
+  assert.match(
+    nativeRuntimeScript,
+    /runCommand\(\s*process\.execPath,\s*\[electronRebuildBin, '-f'\],[\s\S]*path\.join\(repoRoot, 'apps', 'desktop'\)/
   );
 });
