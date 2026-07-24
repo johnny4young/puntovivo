@@ -122,12 +122,14 @@ test('collectCandidateEvidence resolves the Windows and Linux updater contracts'
       platform: 'linux',
       artifactOs: 'linux',
       arch: 'x64',
+      artifactArch: 'x86_64',
       extension: 'AppImage',
       feedName: 'latest-linux.yml',
     },
   ]) {
     const outDir = mkdtempSync(path.join(tmpdir(), 'puntovivo-candidate-evidence-'));
-    const installer = `Puntovivo-${VERSION}-${target.artifactOs}-${target.arch}.${target.extension}`;
+    const artifactArch = target.artifactArch ?? target.arch;
+    const installer = `Puntovivo-${VERSION}-${target.artifactOs}-${artifactArch}.${target.extension}`;
     writeFileSync(path.join(outDir, installer), INSTALLER_CONTENT);
     writeFileSync(
       path.join(outDir, target.feedName),
@@ -138,6 +140,8 @@ test('collectCandidateEvidence resolves the Windows and Linux updater contracts'
       input(outDir, { platform: target.platform, arch: target.arch })
     );
     assert.equal(evidence.platform, target.artifactOs);
+    assert.equal(evidence.architecture, target.arch);
+    assert.equal(evidence.artifactArchitecture, artifactArch);
     assert.equal(evidence.artifacts.installer.name, installer);
     assert.equal(evidence.artifacts.updateFeed.name, target.feedName);
   }

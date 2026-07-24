@@ -34,7 +34,12 @@ const SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 const PLATFORM_CONTRACT = {
   darwin: { artifactOs: 'mac', extension: 'zip', feedName: 'latest-mac.yml' },
-  linux: { artifactOs: 'linux', extension: 'AppImage', feedName: 'latest-linux.yml' },
+  linux: {
+    artifactOs: 'linux',
+    extension: 'AppImage',
+    feedName: 'latest-linux.yml',
+    archAliases: { x64: 'x86_64' },
+  },
   win32: { artifactOs: 'win', extension: 'exe', feedName: 'latest.yml' },
 };
 
@@ -116,7 +121,8 @@ export async function collectCandidateEvidence(input) {
     throw new Error(`unsupported desktop evidence platform: ${input.platform}`);
   }
 
-  const installerName = `Puntovivo-${input.version}-${contract.artifactOs}-${input.arch}.${contract.extension}`;
+  const artifactArch = contract.archAliases?.[input.arch] ?? input.arch;
+  const installerName = `Puntovivo-${input.version}-${contract.artifactOs}-${artifactArch}.${contract.extension}`;
   const installerPath = path.join(input.outDir, installerName);
   const feedPath = path.join(input.outDir, contract.feedName);
   if (!existsSync(installerPath)) {
@@ -158,6 +164,7 @@ export async function collectCandidateEvidence(input) {
     version: input.version,
     platform: contract.artifactOs,
     architecture: input.arch,
+    artifactArchitecture: artifactArch,
     generatedAt: (input.generatedAt ?? new Date()).toISOString(),
     source: {
       repository: input.repository ?? null,
