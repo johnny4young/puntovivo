@@ -261,6 +261,7 @@ jobs:
         run: |
           node scripts/clean-paths.mjs apps/desktop/out-builder
           pnpm --filter @puntovivo/desktop run prebuild:desktop
+          pnpm --filter @puntovivo/desktop run native:ensure:electron
           pnpm --filter @puntovivo/desktop exec electron-builder --mac --publish never -c.mac.identity=-
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

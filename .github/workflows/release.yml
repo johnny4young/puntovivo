@@ -116,9 +116,9 @@ jobs:
     name: Release Desktop (${{ matrix.platform }})
     needs: e2e-web
     runs-on: ${{ matrix.os }}
-    # electron-builder downloads its own Electron and fetches better-sqlite3's
-    # Electron-ABI prebuild (no SQLCipher compile from source), so packaging is
-    # fast. The headroom covers macOS notarization (a few minutes round-trip).
+    # native:ensure:electron prepares the Electron-ABI addon explicitly before
+    # electron-builder packages it. The headroom covers native preparation plus
+    # macOS notarization (a few minutes round-trip).
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -152,7 +152,8 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
+          sudo apt-get install -y xvfb libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       # Build the web + server + electron main/preload bundles that
       # electron-builder packages (electron-builder only packages; it does not
@@ -161,9 +162,15 @@ jobs:
       - name: Build desktop bundles
         run: pnpm --filter @puntovivo/desktop run prebuild:desktop
 
+      # Do not rely on electron-builder's implicit @electron/rebuild pass.
+      # Under the Windows pnpm workspace it can no-op and package the Node ABI
+      # addon, which exists structurally but fails to load under Electron.
+      - name: Prepare Electron native modules
+        run: pnpm --filter @puntovivo/desktop run native:ensure:electron
+
       # macOS: sign with the Developer ID + notarize when the Apple secrets are
       # present; otherwise ad-hoc sign so the build still completes and the
-      # structure smoke can validate the packaging (an ad-hoc build is not
+      # runtime smoke can validate the packaging (an ad-hoc build is not
       # distributable — Gatekeeper blocks it — but it proves the bundle is sound).
       # electron-builder imports the p12 into its own throwaway keychain, so the
       # operator's local duplicate Developer ID certs cannot create ambiguity.
@@ -198,13 +205,19 @@ jobs:
           cd apps/desktop
           npx electron-builder --${{ matrix.platform }} --publish never
 
-      # Gate the upload on the packaged app actually carrying its native modules.
-      # --structure-only asserts better-sqlite3 + argon2 are inside app.asar with
-      # their .node unpacked (no display or OS key store needed), so a regression
-      # that drops the vite-externalized natives fails here instead of shipping a
-      # desktop build that crashes on first launch.
-      - name: Smoke-test the packaged app
-        run: node ./scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --structure-only
+      # Gate the upload on the packaged app loading its native modules under the
+      # target Electron runtime. Presence-only checks cannot detect a Node ABI
+      # addon accidentally copied into a Windows Electron package.
+      - name: Smoke-test the packaged app (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          sudo chown root:root apps/desktop/out-builder/linux-unpacked/chrome-sandbox
+          sudo chmod 4755 apps/desktop/out-builder/linux-unpacked/chrome-sandbox
+          xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
+
+      - name: Smoke-test the packaged app (macOS / Windows)
+        if: matrix.platform != 'linux'
+        run: node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
 
       # Upload the single top-level installer this OS produced (mac .zip, windows
       # NSIS .exe, linux .AppImage) PLUS its .blockmap when electron-builder
