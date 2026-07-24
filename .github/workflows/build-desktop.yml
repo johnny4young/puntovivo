@@ -15,10 +15,10 @@ name: Build Desktop (manual)
 # Modes:
 # - validate_only: runs `pnpm run ci:desktop` per chosen OS (no packaging).
 # ~5-8 minutes per OS.
-# - full build:    runs `make:desktop` per chosen OS and uploads the
-# artifacts. Unsigned (signing material lives only in
-# release.yml). Use this when you want to download a
-# binary to test platform-specific bugs locally.
+# - full build:    runs `make:desktop` per chosen OS, smoke-tests the packaged
+# app, and uploads both artifacts and a checksummed candidate-evidence manifest.
+# Distribution trust remains "not assessed" because signing material lives only
+# in release.yml. Use this when you want an immutable cross-OS candidate proof.
 # ~10-20 minutes per OS.
 #
 # Reference: release.yml's `release-desktop` job uses the same matrix
@@ -28,6 +28,10 @@ name: Build Desktop (manual)
 on:
   workflow_dispatch:
     inputs:
+      candidate_sha:
+        description: 'Immutable 40-character commit SHA to validate/package'
+        type: string
+        required: true
       linux:
         description: 'Build on ubuntu-latest (Linux)'
         type: boolean
@@ -56,15 +60,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify-candidate:
+    name: Verify immutable candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.candidate.outputs.sha }}
+      short_sha: ${{ steps.candidate.outputs.short_sha }}
+    steps:
+      - name: Checkout candidate SHA
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.candidate_sha }}
+
+      - name: Require exact checked-out SHA
+        id: candidate
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$CANDIDATE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "candidate_sha must be a complete 40-character commit SHA" >&2
+            exit 1
+          fi
+          ACTUAL_SHA=$(git rev-parse HEAD)
+          if [[ "${ACTUAL_SHA,,}" != "${CANDIDATE_SHA,,}" ]]; then
+            echo "checked-out HEAD $ACTUAL_SHA does not match requested candidate $CANDIDATE_SHA" >&2
+            exit 1
+          fi
+          echo "sha=${ACTUAL_SHA,,}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${ACTUAL_SHA:0:12}" >> "$GITHUB_OUTPUT"
+
   build-linux:
+    needs: verify-candidate
     if: ${{ inputs.linux }}
-    name: Build Linux
+    name: Build Linux (${{ needs.verify-candidate.outputs.short_sha }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify-candidate.outputs.sha }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -122,28 +161,48 @@ jobs:
 
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}
-        run: pnpm --filter @puntovivo/desktop run make:desktop
+        run: |
+          node scripts/clean-paths.mjs apps/desktop/out-builder
+          pnpm --filter @puntovivo/desktop run make:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke-test packaged structure
+        if: ${{ !inputs.validate_only }}
+        run: node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --structure-only
+
+      - name: Collect candidate evidence
+        if: ${{ !inputs.validate_only }}
+        run: >-
+          node scripts/collect-desktop-candidate-evidence.mjs
+          --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
+          --structure-smoke passed
+          --output "apps/desktop/out-builder/candidate-evidence-linux-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Upload Linux artifacts
         if: ${{ !inputs.validate_only }}
         uses: actions/upload-artifact@v7
         with:
-          name: desktop-linux-${{ github.run_id }}
-          path: apps/desktop/out-builder/Puntovivo-*
-          if-no-files-found: warn
+          name: desktop-linux-${{ needs.verify-candidate.outputs.short_sha }}
+          path: |
+            apps/desktop/out-builder/Puntovivo-*
+            apps/desktop/out-builder/latest*.yml
+            apps/desktop/out-builder/candidate-evidence-*.json
+          if-no-files-found: error
           retention-days: 7
 
   build-mac:
+    needs: verify-candidate
     if: ${{ inputs.mac }}
-    name: Build macOS
+    name: Build macOS (${{ needs.verify-candidate.outputs.short_sha }})
     runs-on: macos-latest
     timeout-minutes: 45
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify-candidate.outputs.sha }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -195,28 +254,48 @@ jobs:
 
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}
-        run: pnpm --filter @puntovivo/desktop run make:desktop
+        run: |
+          node scripts/clean-paths.mjs apps/desktop/out-builder
+          pnpm --filter @puntovivo/desktop run make:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke-test packaged structure
+        if: ${{ !inputs.validate_only }}
+        run: node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --structure-only
+
+      - name: Collect candidate evidence
+        if: ${{ !inputs.validate_only }}
+        run: >-
+          node scripts/collect-desktop-candidate-evidence.mjs
+          --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
+          --structure-smoke passed
+          --output "apps/desktop/out-builder/candidate-evidence-mac-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Upload macOS artifacts
         if: ${{ !inputs.validate_only }}
         uses: actions/upload-artifact@v7
         with:
-          name: desktop-mac-${{ github.run_id }}
-          path: apps/desktop/out-builder/Puntovivo-*
-          if-no-files-found: warn
+          name: desktop-mac-${{ needs.verify-candidate.outputs.short_sha }}
+          path: |
+            apps/desktop/out-builder/Puntovivo-*
+            apps/desktop/out-builder/latest*.yml
+            apps/desktop/out-builder/candidate-evidence-*.json
+          if-no-files-found: error
           retention-days: 7
 
   build-win:
+    needs: verify-candidate
     if: ${{ inputs.win }}
-    name: Build Windows
+    name: Build Windows (${{ needs.verify-candidate.outputs.short_sha }})
     runs-on: windows-latest
     timeout-minutes: 45
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify-candidate.outputs.sha }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -268,15 +347,32 @@ jobs:
 
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}
-        run: pnpm --filter @puntovivo/desktop run make:desktop
+        run: |
+          node scripts/clean-paths.mjs apps/desktop/out-builder
+          pnpm --filter @puntovivo/desktop run make:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke-test packaged structure
+        if: ${{ !inputs.validate_only }}
+        run: node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --structure-only
+
+      - name: Collect candidate evidence
+        if: ${{ !inputs.validate_only }}
+        run: >-
+          node scripts/collect-desktop-candidate-evidence.mjs
+          --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
+          --structure-smoke passed
+          --output "apps/desktop/out-builder/candidate-evidence-win-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Upload Windows artifacts
         if: ${{ !inputs.validate_only }}
         uses: actions/upload-artifact@v7
         with:
-          name: desktop-win-${{ github.run_id }}
-          path: apps/desktop/out-builder/Puntovivo-*
-          if-no-files-found: warn
+          name: desktop-win-${{ needs.verify-candidate.outputs.short_sha }}
+          path: |
+            apps/desktop/out-builder/Puntovivo-*
+            apps/desktop/out-builder/latest*.yml
+            apps/desktop/out-builder/candidate-evidence-*.json
+          if-no-files-found: error
           retention-days: 7

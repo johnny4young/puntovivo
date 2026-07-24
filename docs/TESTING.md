@@ -121,6 +121,32 @@ release candidate also needs:
 - printer, drawer, scanner, and terminal checks for every supported device;
 - review of known limitations in `PROJECT-STATUS.md` and the release notes.
 
+The manual **Build Desktop** workflow accepts only a complete 40-character
+candidate commit SHA. Every selected platform checks out that exact commit. A
+full build clears the package output, creates the platform installer, runs the
+packaged-structure smoke, and uploads:
+
+- the exact `Puntovivo-<version>-<os>-<arch>` installer;
+- its blockmap when electron-builder emits one;
+- the matching `latest*.yml` update feed;
+- `candidate-evidence-<os>-<short-sha>.json`.
+
+The evidence manifest binds the candidate SHA to the exact package version,
+platform, architecture, artifact names, byte sizes, SHA-256 checksums, and
+matching update-feed reference. It also recomputes the installer SHA-512 and
+size and requires them to match the values electron-updater will enforce.
+Collection fails if the checkout differs from the requested SHA, the expected
+installer/feed is missing, the feed points at another version, its integrity
+metadata differs from the installer, or the packaged-structure smoke did not
+pass. This exact-name contract prevents stale local output from being reported
+as current evidence.
+
+The manual workflow records distribution trust as `not-assessed`: it does not
+load release signing credentials. A green manual package build therefore does
+not prove Developer ID/Authenticode trust or macOS notarization. Record those
+checks from the release workflow and representative host (`codesign`, `spctl`,
+or the Windows signature verifier) before accepting the candidate.
+
 Run `pnpm run rehearse:upgrade-recovery` for the database migration item. It
 builds a verified v1.7.0 encrypted fixture with two tenant graphs, upgrades it
 through the current migration journal, verifies a second idempotent boot, and
