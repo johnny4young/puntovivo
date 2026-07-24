@@ -134,10 +134,52 @@ export async function resetSession(page: Page) {
 }
 
 export async function ensureLanguage(page: Page, language: 'en' | 'es') {
-  await page.evaluate(value => {
-    window.localStorage.setItem('puntovivo-language-preference', value);
-  }, language);
-  await page.reload();
+  const targetLabel = language === 'es' ? 'Español' : 'English';
+  const languageTrigger = page
+    .locator('header button[aria-haspopup="listbox"]')
+    .filter({ hasText: /^(?:English|Español|System|Sistema)$/ });
+  const originalViewport = page.viewportSize();
+
+  // Exercise the real preference control instead of reloading the page.
+  // A reload depends on refresh-token bootstrap and can send an otherwise
+  // healthy, authenticated test back to /login when the server is saturated.
+  // Dismiss dialogs first to preserve the previous reload helper's cleanup
+  // contract and keep their backdrops from intercepting the header control.
+  for (let index = 0; index < 10; index += 1) {
+    const dialog = page.locator('[role="dialog"]:visible').last();
+    if (!(await dialog.isVisible())) break;
+    const dialogHandle = await dialog.elementHandle();
+    await page.keyboard.press('Escape');
+    await dialogHandle?.waitForElementState('hidden');
+  }
+  await expect(page.locator('[role="dialog"]:visible')).toHaveCount(0);
+
+  // The control is hidden below the `sm` breakpoint, so briefly expose it for
+  // mobile assertions and restore the original viewport afterwards.
+  if (originalViewport && originalViewport.width < 640) {
+    await page.setViewportSize({ width: 640, height: originalViewport.height });
+  }
+
+  try {
+    if (!(await languageTrigger.filter({ hasText: new RegExp(`^${targetLabel}$`) }).isVisible())) {
+      await languageTrigger.click();
+      await page.getByRole('option', { name: targetLabel, exact: true }).click();
+    }
+    await expect(languageTrigger).toHaveText(targetLabel);
+
+    // Reloading also used to close transient header popovers. Preserve that
+    // contract so callers can deterministically open the user menu after a
+    // locale change instead of accidentally toggling an existing menu closed.
+    const userMenu = page.locator('#header-user-menu');
+    if (await userMenu.isVisible()) {
+      await page.locator('header button[aria-controls="header-user-menu"]').click();
+      await expect(userMenu).toBeHidden();
+    }
+  } finally {
+    if (originalViewport && originalViewport.width < 640) {
+      await page.setViewportSize(originalViewport);
+    }
+  }
 }
 
 export async function openUserMenu(page: Page) {

@@ -289,6 +289,11 @@ export async function runFreshSale(
   // tenant pays one cheap settings read and nothing else.
   const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
 
+  // Reserve the single SQLite writer before the first sale mutation.
+  // A deferred transaction can lose a read-to-write upgrade race and surface
+  // SQLITE_BUSY immediately even though busy_timeout is enabled.
+  const writeTransactionConfig = { behavior: 'immediate' } as const;
+
   try {
     ctx.db.transaction(tx => {
       // TOCTOU defense — see helper jsdoc.
@@ -598,7 +603,7 @@ export async function runFreshSale(
         saleId,
         saleNumber,
       });
-    });
+    }, writeTransactionConfig);
   } catch (error) {
     releaseCheckoutApprovals(ctx.db, ctx.tenantId, approvalClaims);
     throw error;

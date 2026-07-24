@@ -6,6 +6,7 @@ import {
   attachClientIssueTracker,
   ensureLanguage,
   expectNoClientIssues,
+  expectSuccessToast,
   loginAs,
 } from './support/app.js';
 
@@ -64,7 +65,7 @@ test('admin creates a Size x Color matrix and sells only child products', async 
   await captureEvidence(page, 'eng-110b-variant-preview-en');
   await matrixDialog.getByRole('button', { name: 'Create 4 variants' }).click();
   await expect(matrixDialog).toBeHidden({ timeout: 15_000 });
-  await expect(page.getByText('4 variants created')).toBeVisible();
+  await expectSuccessToast(page, '4 variants created');
 
   await ensureLanguage(page, 'es');
   await page.getByPlaceholder('Buscar productos...').fill(productName);
