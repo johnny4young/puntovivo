@@ -41,6 +41,14 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   );
   assert.match(
     workflow,
+    /sudo chown root:root apps\/desktop\/out-builder\/linux-unpacked\/chrome-sandbox/
+  );
+  assert.match(
+    workflow,
+    /sudo chmod 4755 apps\/desktop\/out-builder\/linux-unpacked\/chrome-sandbox/
+  );
+  assert.match(
+    workflow,
     /electron-builder --mac --publish never -c\.mac\.identity=-[\s\S]*CSC_IDENTITY_AUTO_DISCOVERY: 'false'/
   );
   assert.equal(

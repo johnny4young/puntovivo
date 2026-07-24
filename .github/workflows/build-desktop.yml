@@ -169,7 +169,10 @@ jobs:
 
       - name: Smoke-test packaged runtime
         if: ${{ !inputs.validate_only }}
-        run: xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
+        run: |
+          sudo chown root:root apps/desktop/out-builder/linux-unpacked/chrome-sandbox
+          sudo chmod 4755 apps/desktop/out-builder/linux-unpacked/chrome-sandbox
+          xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}

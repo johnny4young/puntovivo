@@ -36,7 +36,7 @@
     "test:e2e:web:prerelease": "node scripts/ensure-playwright-browser.mjs && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.web.config.ts --grep @prerelease-money --workers=1 --forbid-only",
     "test:e2e:electron": "pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/desktop run electron:ensure:binary && pnpm --filter @puntovivo/desktop run build:main && node scripts/ensure-electron-main-build.mjs && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.electron.config.ts",
     "test:e2e": "pnpm run test:e2e:web && pnpm run test:e2e:electron",
-    "test:release-script": "node --test scripts/upload-release-assets.test.mjs scripts/github-cli-utils.test.mjs scripts/rewrite-update-feed.test.mjs scripts/update-rollout-workflow.test.mjs scripts/clean-paths.test.mjs scripts/prerelease-e2e-workflow.test.mjs scripts/collect-desktop-candidate-evidence.test.mjs scripts/desktop-candidate-workflow.test.mjs",
+    "test:release-script": "node --test scripts/upload-release-assets.test.mjs scripts/github-cli-utils.test.mjs scripts/rewrite-update-feed.test.mjs scripts/update-rollout-workflow.test.mjs scripts/clean-paths.test.mjs scripts/prerelease-e2e-workflow.test.mjs scripts/collect-desktop-candidate-evidence.test.mjs scripts/desktop-candidate-workflow.test.mjs scripts/run-desktop-smoke-policy.test.mjs",
     "seed:dev": "pnpm --filter @puntovivo/server run seed:dev",
     "clean": "node ./scripts/clean-paths.mjs node_modules \"apps/*/node_modules\" \"packages/*/node_modules\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",

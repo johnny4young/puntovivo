@@ -44,8 +44,7 @@ const LAUNCHED = /electron runtime detected/i;
 const SERVER_ATTEMPT = /embedded server/i;
 const SERVER_UP = /listening on|server (started|ready|listening)/i;
 // Tolerated on builds without a provisioned OS key store (unsigned / CI):
-const KEY_STORE_GATED =
-  /keychain (is )?unavailable|key store|libsecret|gnome-keyring|DPAPI/i;
+const KEY_STORE_GATED = /keychain (is )?unavailable|key store|libsecret|gnome-keyring|DPAPI/i;
 
 function fail(message) {
   console.error(`[desktop-smoke] FAIL: ${message}`);
@@ -70,7 +69,7 @@ function resolveBinary(input) {
   if (process.platform === 'darwin') {
     const app = input.endsWith('.app')
       ? input
-      : findUnder(input, (n) => n.endsWith('.app') && /puntovivo/i.test(n));
+      : findUnder(input, n => n.endsWith('.app') && /puntovivo/i.test(n));
     if (app) {
       const bin = path.join(app, 'Contents', 'MacOS', EXECUTABLE);
       if (existsSync(bin)) return bin;
@@ -81,7 +80,7 @@ function resolveBinary(input) {
   // Linux / Windows: the executable inside the packaged dir
   const exe = process.platform === 'win32' ? `${EXECUTABLE}.exe` : EXECUTABLE;
   if (statSync(input).isFile() && path.basename(input) === exe) return input;
-  const found = findUnder(input, (n) => n === exe, /* wantFile */ true);
+  const found = findUnder(input, n => n === exe, /* wantFile */ true);
   if (found) return found;
   fail(`no ${exe} executable under ${input}`);
 }
@@ -198,6 +197,8 @@ const child = spawn(binary, [`--user-data-dir=${userDataDir}`], {
 
 let output = '';
 const seen = { launched: false, serverAttempt: false, serverUp: false, keyGated: false };
+let done = false;
+let completed = false;
 
 function scan(chunk) {
   output += chunk;
@@ -217,34 +218,81 @@ function scan(chunk) {
   }
 }
 
-child.stdout.on('data', (d) => scan(d.toString()));
-child.stderr.on('data', (d) => scan(d.toString()));
+child.stdout.on('data', d => scan(d.toString()));
+child.stderr.on('data', d => scan(d.toString()));
 
-const timer = setTimeout(() => finish('timed out before the app reached a boot milestone'), TIMEOUT_MS);
+const timer = setTimeout(
+  () => finish('timed out before the app reached a boot milestone'),
+  TIMEOUT_MS
+);
 
-let done = false;
-function finish(error) {
-  if (done) return;
-  done = true;
-  clearTimeout(timer);
+function removeUserDataBestEffort() {
   try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch {
-    child.kill('SIGTERM');
+    rmSync(userDataDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
+  } catch (error) {
+    // Windows can keep Chromium profile files locked briefly after the parent
+    // exits. Cleanup hygiene must not turn a valid runtime smoke into a false
+    // failure; the runner will also reclaim its temporary directory.
+    console.warn(
+      `[desktop-smoke] WARN: could not remove temporary profile ${userDataDir}: ${error.message}`
+    );
   }
-  rmSync(userDataDir, { recursive: true, force: true });
+}
 
+function complete(error) {
+  if (completed) return;
+  completed = true;
+  removeUserDataBestEffort();
   if (error) {
     console.error('[desktop-smoke] --- captured output (tail) ---');
     console.error(output.split('\n').slice(-25).join('\n'));
-    fail(error);
+    console.error(`[desktop-smoke] FAIL: ${error}`);
+    process.exit(1);
   }
-  const mode = seen.serverUp ? 'server up' : 'boot reached key step (no OS key store — unsigned build)';
+  const mode = seen.serverUp
+    ? 'server up'
+    : 'boot reached key step (no OS key store — unsigned build)';
   console.log(`[desktop-smoke] PASS: app launched, natives loaded, ${mode}`);
   process.exit(0);
 }
 
-child.on('error', (err) => finish(`failed to spawn: ${err.message}`));
+function finish(error) {
+  if (done) return;
+  done = true;
+  clearTimeout(timer);
+
+  if (child.exitCode !== null || child.signalCode !== null) {
+    complete(error);
+    return;
+  }
+
+  // Wait for Electron to release its profile before cleanup. This matters on
+  // Windows, where deleting the directory immediately after child.kill() can
+  // throw EPERM while Chromium helpers still hold files open.
+  const forceTimer = setTimeout(() => {
+    child.kill('SIGKILL');
+    const cleanupTimer = setTimeout(() => complete(error), 1_000);
+    cleanupTimer.unref();
+  }, 5_000);
+  forceTimer.unref();
+  child.once('exit', () => {
+    clearTimeout(forceTimer);
+    complete(error);
+  });
+
+  try {
+    if (!child.kill('SIGTERM')) complete(error);
+  } catch {
+    complete(error);
+  }
+}
+
+child.on('error', err => finish(`failed to spawn: ${err.message}`));
 child.on('exit', (code, signal) => {
   if (done) return;
   // Process exited before a milestone — only OK if it never errored AND we at
