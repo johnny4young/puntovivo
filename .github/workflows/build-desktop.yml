@@ -167,9 +167,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Smoke-test packaged structure
+      - name: Smoke-test packaged runtime
         if: ${{ !inputs.validate_only }}
-        run: node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --structure-only
+        run: xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
@@ -177,6 +177,7 @@ jobs:
           node scripts/collect-desktop-candidate-evidence.mjs
           --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
           --structure-smoke passed
+          --runtime-smoke passed
           --output "apps/desktop/out-builder/candidate-evidence-linux-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Upload Linux artifacts
@@ -256,13 +257,15 @@ jobs:
         if: ${{ !inputs.validate_only }}
         run: |
           node scripts/clean-paths.mjs apps/desktop/out-builder
-          pnpm --filter @puntovivo/desktop run make:desktop
+          pnpm --filter @puntovivo/desktop run prebuild:desktop
+          pnpm --filter @puntovivo/desktop exec electron-builder --mac --publish never -c.mac.identity=-
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      - name: Smoke-test packaged structure
+      - name: Smoke-test packaged runtime
         if: ${{ !inputs.validate_only }}
-        run: node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --structure-only
+        run: node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
@@ -270,6 +273,7 @@ jobs:
           node scripts/collect-desktop-candidate-evidence.mjs
           --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
           --structure-smoke passed
+          --runtime-smoke passed
           --output "apps/desktop/out-builder/candidate-evidence-mac-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Upload macOS artifacts
@@ -353,9 +357,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Smoke-test packaged structure
+      - name: Smoke-test packaged runtime
         if: ${{ !inputs.validate_only }}
-        run: node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --structure-only
+        run: node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
@@ -363,6 +367,7 @@ jobs:
           node scripts/collect-desktop-candidate-evidence.mjs
           --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
           --structure-smoke passed
+          --runtime-smoke passed
           --output "apps/desktop/out-builder/candidate-evidence-win-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Upload Windows artifacts

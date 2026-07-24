@@ -38,6 +38,7 @@ function input(outDir, overrides = {}) {
     platform: 'darwin',
     arch: 'arm64',
     structureSmoke: 'passed',
+    runtimeSmoke: 'passed',
     generatedAt: new Date('2026-07-24T14:00:00.000Z'),
     repository: 'johnny4young/puntovivo',
     workflowRunId: '100',
@@ -59,6 +60,7 @@ test('collectCandidateEvidence selects only the exact version/platform/architect
   assert.deepEqual(evidence.checks, {
     exactHead: 'passed',
     packagedStructureSmoke: 'passed',
+    packagedRuntimeSmoke: 'passed',
     updateFeedMatchesInstaller: 'passed',
     distributionTrust: 'not-assessed',
   });
@@ -93,6 +95,13 @@ test('collectCandidateEvidence requires a successful structure smoke', async () 
   await assert.rejects(
     collectCandidateEvidence(input(fixture(), { structureSmoke: 'skipped' })),
     /structure smoke must pass/
+  );
+});
+
+test('collectCandidateEvidence requires a successful runtime smoke', async () => {
+  await assert.rejects(
+    collectCandidateEvidence(input(fixture(), { runtimeSmoke: 'skipped' })),
+    /runtime smoke must pass/
   );
 });
 

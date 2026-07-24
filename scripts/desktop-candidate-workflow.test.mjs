@@ -29,16 +29,26 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   assert.equal(
     (
       workflow.match(
-        /node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder --structure-only/g
+        /node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/g
       ) ?? []
     ).length,
     3
+  );
+  assert.doesNotMatch(workflow, /run-desktop-smoke\.mjs[^\n]*--structure-only/);
+  assert.match(
+    workflow,
+    /xvfb-run -a node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
+  );
+  assert.match(
+    workflow,
+    /electron-builder --mac --publish never -c\.mac\.identity=-[\s\S]*CSC_IDENTITY_AUTO_DISCOVERY: 'false'/
   );
   assert.equal(
     (workflow.match(/node scripts\/collect-desktop-candidate-evidence\.mjs/g) ?? []).length,
     3
   );
   assert.equal((workflow.match(/--structure-smoke passed/g) ?? []).length, 3);
+  assert.equal((workflow.match(/--runtime-smoke passed/g) ?? []).length, 3);
   assert.doesNotMatch(workflow, /--distribution-trust/);
   assert.equal((workflow.match(/if-no-files-found: error/g) ?? []).length, 3);
   assert.equal(
