@@ -17,7 +17,7 @@
     "dev:desktop:debug": "pnpm run preflight:desktop && ELECTRON_ENABLE_LOGGING=1 electron-forge start -- --inspect=5858",
     "dev:desktop:debug-brk": "pnpm run preflight:desktop && ELECTRON_ENABLE_LOGGING=1 electron-forge start -- --inspect-brk=5858",
     "dev:desktop:server-logs": "DEBUG=fastify:* pnpm run dev:desktop",
-    "rebuild": "electron-rebuild -f",
+    "rebuild": "electron-rebuild -f -o better-sqlite3",
     "prebuild:desktop": "pnpm run prepare:server && pnpm run electron:ensure:migrations && pnpm --filter @puntovivo/web run build && pnpm run build:main",
     "package:desktop": "pnpm run prebuild:desktop && pnpm run native:ensure:electron && electron-builder --dir -c.mac.identity=-",
     "make:desktop": "pnpm run prebuild:desktop && pnpm run native:ensure:electron && electron-builder --publish never",

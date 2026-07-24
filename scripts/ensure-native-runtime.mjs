@@ -321,7 +321,7 @@ async function main() {
     const electronRebuildBin = await getElectronRebuildBin();
     runCommand(
       process.execPath,
-      [electronRebuildBin, '-f'],
+      [electronRebuildBin, '-f', '-o', 'better-sqlite3'],
       'Rebuilding better-sqlite3 for Electron',
       path.join(repoRoot, 'apps', 'desktop')
     );

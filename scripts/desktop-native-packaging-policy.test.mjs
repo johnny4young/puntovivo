@@ -57,6 +57,11 @@ test('Electron native rebuild avoids platform shell shims', () => {
   assert.match(nativeRuntimeScript, /require\.resolve\('@electron\/rebuild\/package\.json'\)/);
   assert.match(
     nativeRuntimeScript,
-    /runCommand\(\s*process\.execPath,\s*\[electronRebuildBin, '-f'\],[\s\S]*path\.join\(repoRoot, 'apps', 'desktop'\)/
+    /runCommand\(\s*process\.execPath,\s*\[electronRebuildBin, '-f', '-o', 'better-sqlite3'\],[\s\S]*path\.join\(repoRoot, 'apps', 'desktop'\)/
+  );
+  assert.equal(
+    desktopPackage.scripts.rebuild,
+    'electron-rebuild -f -o better-sqlite3',
+    'argon2 is N-API stable and must not force a source rebuild'
   );
 });
