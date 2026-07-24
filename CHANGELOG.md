@@ -4,6 +4,37 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.9.0](https://github.com/johnny4young/puntovivo/compare/v1.8.1...v1.9.0) (2026-07-24)
+
+
+### Features
+
+* **auth:** renew Store Hub sessions ([e258912](https://github.com/johnny4young/puntovivo/commit/e2589126945bcb28a7515042410ad876d054bdc2))
+* **operations:** establish recovery ownership ([78f2f3f](https://github.com/johnny4young/puntovivo/commit/78f2f3f9ceb06180f8f3b78c908242bd8fa0f4fc))
+* **realtime:** authenticate Store Hub streams ([3bd7ae1](https://github.com/johnny4young/puntovivo/commit/3bd7ae1ca31dfea1c54c1859ebe50480d747b85a))
+* **release:** bind desktop candidates to immutable evidence ([456b955](https://github.com/johnny4young/puntovivo/commit/456b955221ce2581011fc9cf2dca281ee03285a2))
+* **ui:** complete Operator Deck adoption ([4f4a826](https://github.com/johnny4young/puntovivo/commit/4f4a8267bc999b217bb3fbb7494980ac4133cb9f))
+* **ui:** establish Operator Deck foundation ([db5bd0e](https://github.com/johnny4young/puntovivo/commit/db5bd0e703d5440b33bf6bccc7e8dad7676dca94))
+
+
+### Bug Fixes
+
+* **database:** prove and repair incremental recovery ([#166](https://github.com/johnny4young/puntovivo/issues/166)) ([a95bd48](https://github.com/johnny4young/puntovivo/commit/a95bd48d4fef06f45910894ccfec5fc9de898fc7))
+* **database:** reconcile migration tracking drift ([3991f2c](https://github.com/johnny4young/puntovivo/commit/3991f2c1b38bb495d76eb43104d00fae9347e78c))
+* **desktop:** package Electron ABI on every platform ([7929f10](https://github.com/johnny4young/puntovivo/commit/7929f10dc2fcaf98f69fbd6abd448ba59d844748))
+* **desktop:** rebuild only ABI-sensitive native addon ([9dcf04e](https://github.com/johnny4young/puntovivo/commit/9dcf04e69729ca133c89c508c11737cd3e62e744))
+* **desktop:** run native rebuild without shell shims ([0681885](https://github.com/johnny4young/puntovivo/commit/0681885a169b1410ee901d03baea3db5025115ad))
+* **release:** map Linux artifact architecture ([0034569](https://github.com/johnny4young/puntovivo/commit/0034569c769d5794f4c8dc8799e82c632664978b))
+* **release:** require packaged runtime smoke ([5579f7f](https://github.com/johnny4young/puntovivo/commit/5579f7f248d216bfc22bfc9d0bc7380c45d93459))
+* **release:** stabilize cross-platform runtime smoke ([b9d3328](https://github.com/johnny4young/puntovivo/commit/b9d332809bf33c3a88e3a14ceadfc2650fe98b6e))
+* **reliability:** stabilize release baseline ([073fb8f](https://github.com/johnny4young/puntovivo/commit/073fb8ff119a28e125ecc6d81e5342bf2f0324a2))
+
+
+### Performance
+
+* **desktop:** enforce operational continuity ([d51514f](https://github.com/johnny4young/puntovivo/commit/d51514f513a462334f0196a7f0ffd181d6143cc9))
+* **server:** enforce store-scale read profile ([6129801](https://github.com/johnny4young/puntovivo/commit/6129801600dd0f07f716e94fef0344b92364d43b))
+
 ## [1.8.1](https://github.com/johnny4young/puntovivo/compare/v1.8.0...v1.8.1) (2026-07-20)
 
 
