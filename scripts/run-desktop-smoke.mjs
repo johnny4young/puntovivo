@@ -22,15 +22,20 @@
  * @module scripts/run-desktop-smoke
  */
 import { spawn, spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { chromium } from '@playwright/test';
 
 const EXECUTABLE = 'puntovivo';
 const APP_NAME = 'Puntovivo';
 const TIMEOUT_MS = Number(process.env.PUNTOVIVO_SMOKE_TIMEOUT_MS) || 45_000;
+const RENDERER_TIMEOUT_MS = Number(process.env.PUNTOVIVO_RENDERER_SMOKE_TIMEOUT_MS) || 90_000;
+const VERIFY_RENDERER = process.argv.includes('--renderer');
 
 const FATAL = [
   /Cannot find module/i,
@@ -57,6 +62,26 @@ function findInput() {
     fail('pass --against-packaged <dir or .app>');
   }
   return path.resolve(process.argv[idx + 1]);
+}
+
+async function reserveLoopbackPort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : null;
+      server.close(error => {
+        if (error) reject(error);
+        else if (port === null) reject(new Error('could not reserve a renderer smoke port'));
+        else resolve(port);
+      });
+    });
+  });
+}
+
+function redactSensitiveOutput(value) {
+  return value.replace(/(\[Database\] Password:\s+)\S+/g, '$1[Redacted]');
 }
 
 /** Resolve the launchable binary for the current platform under `input`. */
@@ -190,18 +215,44 @@ if (process.argv.includes('--structure-only')) {
 console.log(`[desktop-smoke] launching ${binary}`);
 
 const userDataDir = mkdtempSync(path.join(os.tmpdir(), 'puntovivo-smoke-'));
-const child = spawn(binary, [`--user-data-dir=${userDataDir}`], {
-  env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1', ELECTRON_DISABLE_GPU: '1' },
+const rendererPort = VERIFY_RENDERER ? await reserveLoopbackPort() : null;
+const childArgs = [`--user-data-dir=${userDataDir}`];
+if (rendererPort !== null) {
+  childArgs.push(`--remote-debugging-port=${rendererPort}`, '--remote-debugging-address=127.0.0.1');
+  // Chromium initializes its own cookie/password crypto before app.whenReady.
+  // Ad-hoc macOS signatures can block on the global Chrome Safe Storage item,
+  // and headless Linux runners may not have libsecret. These switches isolate
+  // only the temporary renderer profile; the runtime-only smoke uses defaults.
+  if (process.platform === 'darwin') childArgs.push('--use-mock-keychain');
+  if (process.platform === 'linux') childArgs.push('--password-store=basic');
+}
+const child = spawn(binary, childArgs, {
+  env: {
+    ...process.env,
+    ELECTRON_ENABLE_LOGGING: '1',
+    ELECTRON_DISABLE_GPU: '1',
+    ...(VERIFY_RENDERER
+      ? {
+          PUNTOVIVO_E2E: '1',
+          // Isolate UI verification from OS key-store prompts. A separate
+          // runtime-only smoke keeps exercising normal safeStorage startup.
+          PUNTOVIVO_DB_KEY: randomBytes(32).toString('hex'),
+        }
+      : {}),
+  },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 
 let output = '';
+let firstRunAdminPassword = null;
 const seen = { launched: false, serverAttempt: false, serverUp: false, keyGated: false };
 let done = false;
 let completed = false;
 
 function scan(chunk) {
   output += chunk;
+  const passwordMatch = /\[Database\] Password:\s+([^\s]+)/.exec(output);
+  if (passwordMatch) firstRunAdminPassword = passwordMatch[1];
   if (LAUNCHED.test(chunk)) seen.launched = true;
   if (SERVER_ATTEMPT.test(chunk)) seen.serverAttempt = true;
   if (SERVER_UP.test(chunk)) seen.serverUp = true;
@@ -212,9 +263,118 @@ function scan(chunk) {
       return;
     }
   }
-  // Enough signal to call it: launched + (server up OR boot reached the key step)
+  // Enough signal to call the runtime-only smoke. Renderer mode additionally
+  // proves that the packaged web assets + preload bridge load and a first-run
+  // admin session reaches a data-backed route.
   if (seen.launched && (seen.serverUp || (seen.serverAttempt && seen.keyGated))) {
+    if (!VERIFY_RENDERER) {
+      finish(null);
+    } else if (seen.keyGated) {
+      finish('renderer smoke requires an available OS key store');
+    }
+  }
+}
+
+async function waitForRendererEndpoint(endpoint) {
+  const deadline = Date.now() + RENDERER_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    try {
+      // Chromium can accept the TCP connection before its DevTools HTTP
+      // handler is ready. Bound each probe so an early half-ready socket does
+      // not consume the entire renderer timeout and miss the CDP grace period.
+      const response = await fetch(`${endpoint}/json/version`, {
+        signal: AbortSignal.timeout(500),
+      });
+      if (response.ok) return;
+    } catch {
+      // Electron has not opened the DevTools endpoint yet.
+    }
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  throw new Error('timed out waiting for the packaged renderer DevTools endpoint');
+}
+
+async function waitForFirstRunPassword() {
+  const deadline = Date.now() + 15_000;
+  while (!firstRunAdminPassword && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  if (!firstRunAdminPassword) {
+    throw new Error('packaged first-run admin credential was not emitted');
+  }
+  return firstRunAdminPassword;
+}
+
+async function verifyPackagedRenderer() {
+  const endpoint = `http://127.0.0.1:${rendererPort}`;
+  let browser;
+  try {
+    await waitForRendererEndpoint(endpoint);
+    browser = await chromium.connectOverCDP(endpoint);
+    const context = browser.contexts()[0];
+    if (!context) throw new Error('packaged renderer did not expose a browser context');
+    const page =
+      context.pages().find(candidate => candidate.url().startsWith('puntovivo-app:')) ??
+      context.pages()[0] ??
+      (await context.waitForEvent('page', { timeout: RENDERER_TIMEOUT_MS }));
+
+    await page.getByLabel(/email/i).waitFor({
+      state: 'visible',
+      timeout: RENDERER_TIMEOUT_MS,
+    });
+    const bridge = await page.evaluate(async () => ({
+      electron: Boolean(window.electron),
+      api: Boolean(window.api),
+      serverUrl: await window.electron?.getServerUrl?.(),
+    }));
+    if (
+      !bridge.electron ||
+      !bridge.api ||
+      !/^http:\/\/127\.0\.0\.1:\d+$/.test(bridge.serverUrl ?? '')
+    ) {
+      throw new Error(
+        'packaged preload bridge is missing or returned an invalid embedded-server URL'
+      );
+    }
+
+    const password = await waitForFirstRunPassword();
+    await page.getByLabel(/email/i).fill('admin@localhost');
+    await page.getByRole('textbox', { name: /password/i }).fill(password);
+    await page
+      .getByRole('button', { name: /enter workspace|entrar al espacio de trabajo/i })
+      .click();
+    await page
+      .waitForFunction(
+        () =>
+          window.location.hash.includes('/dashboard') || window.location.hash.includes('/company'),
+        undefined,
+        { timeout: 30_000 }
+      )
+      .catch(error => {
+        throw new Error(`post-login route stayed at ${page.url()}: ${error.message}`);
+      });
+    if (page.url().includes('/company')) {
+      const readinessTab = page.getByTestId('company-tab-readiness');
+      await readinessTab.waitFor({ state: 'visible', timeout: 30_000 });
+      if ((await readinessTab.getAttribute('aria-current')) !== 'page') {
+        throw new Error('first-run company landing did not activate the readiness tab');
+      }
+    } else {
+      await page
+        .getByText(/today's sales|ventas de hoy/i)
+        .first()
+        .waitFor({ state: 'visible', timeout: 30_000 });
+    }
+
+    console.log(
+      '[desktop-smoke] renderer OK: preload bridge, first-run login, and data-backed landing'
+    );
     finish(null);
+  } catch (error) {
+    finish(`packaged renderer journey failed: ${error.message}`);
+  } finally {
+    // Disconnecting is best-effort; finish() owns process teardown.
+    await browser?.close().catch(() => {});
   }
 }
 
@@ -223,8 +383,17 @@ child.stderr.on('data', d => scan(d.toString()));
 
 const timer = setTimeout(
   () => finish('timed out before the app reached a boot milestone'),
-  TIMEOUT_MS
+  VERIFY_RENDERER ? RENDERER_TIMEOUT_MS : TIMEOUT_MS
 );
+
+// Connect as soon as Chromium exposes its loopback endpoint. Hardened packaged
+// builds terminate an unclaimed remote-debugging endpoint after a short grace
+// period, which can be earlier than first-boot DB migrations + server startup.
+// Holding the CDP connection open lets the journey wait truthfully for the
+// BrowserWindow instead of racing a 15-second endpoint shutdown.
+if (VERIFY_RENDERER) {
+  void verifyPackagedRenderer();
+}
 
 function removeUserDataBestEffort() {
   try {
@@ -250,13 +419,15 @@ function complete(error) {
   removeUserDataBestEffort();
   if (error) {
     console.error('[desktop-smoke] --- captured output (tail) ---');
-    console.error(output.split('\n').slice(-25).join('\n'));
+    console.error(redactSensitiveOutput(output).split('\n').slice(-25).join('\n'));
     console.error(`[desktop-smoke] FAIL: ${error}`);
     process.exit(1);
   }
-  const mode = seen.serverUp
-    ? 'server up'
-    : 'boot reached key step (no OS key store — unsigned build)';
+  const mode = VERIFY_RENDERER
+    ? 'renderer journey completed'
+    : seen.serverUp
+      ? 'server up'
+      : 'boot reached key step (no OS key store — unsigned build)';
   console.log(`[desktop-smoke] PASS: app launched, natives loaded, ${mode}`);
   process.exit(0);
 }

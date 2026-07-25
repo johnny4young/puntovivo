@@ -17,6 +17,11 @@ const nativeRuntimeScript = readFileSync(
   new URL('./ensure-native-runtime.mjs', import.meta.url),
   'utf8'
 );
+const builderConfig = readFileSync(
+  new URL('../apps/desktop/electron-builder.yml', import.meta.url),
+  'utf8'
+);
+const webViteConfig = readFileSync(new URL('../apps/web/vite.config.ts', import.meta.url), 'utf8');
 
 test('local packaging prepares Electron native modules before electron-builder', () => {
   for (const scriptName of ['package:desktop', 'make:desktop']) {
@@ -48,8 +53,17 @@ test('release packaging runs the full target-runtime smoke', () => {
   );
   assert.match(
     releaseWorkflow,
-    /if: matrix\.platform != 'linux'\s+run: node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
+    /if: matrix\.platform != 'linux'\s+run: \|\s+node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder\s+node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder --renderer/
   );
+  assert.match(
+    releaseWorkflow,
+    /xvfb-run -a node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder --renderer/
+  );
+});
+
+test('packaged renderer carries its preload and file-relative web assets', () => {
+  assert.match(builderConfig, /- \.vite\/preload\/\*\*/);
+  assert.match(webViteConfig, /base: mode === 'production' \? '\.\/' : '\/'/);
 });
 
 test('Electron native rebuild avoids platform shell shims', () => {

@@ -9,6 +9,7 @@ import {
   type PuntovivoServer,
   type ServerOptions,
 } from '@puntovivo/server';
+import { PACKAGED_RENDERER_ORIGIN } from './renderer-protocol.ts';
 import { getServer, setServer } from './runtime.ts';
 
 interface ServerLifecycleDeps {
@@ -77,6 +78,9 @@ export function createServerLifecycle({
       appVersion,
       encryptionKey,
       jwtSecret,
+      // Production Electron has a single secure custom renderer origin.
+      // Development omits this option to retain the server's localhost defaults.
+      ...(isDev ? {} : { corsOrigins: [PACKAGED_RENDERER_ORIGIN] }),
     });
     await nextServer.listen();
     log.info({ url: nextServer.getUrl() }, 'embedded server started');

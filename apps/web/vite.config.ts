@@ -35,6 +35,11 @@ function sentryConnectSrcPlugin(dsn: string | undefined): Plugin {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Production ships as a portable Electron resource bundle. Keep its assets
+  // relative to the protocol-backed index document rather than coupling the
+  // output to an HTTP deployment root. The dev server retains its conventional
+  // root base.
+  base: mode === 'production' ? './' : '/',
   plugins: [
     tailwindcss(),
     react(),

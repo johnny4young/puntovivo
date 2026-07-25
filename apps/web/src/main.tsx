@@ -2,7 +2,7 @@ import './i18n'; // initialize i18next before any component renders
 import { StrictMode, Suspense, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, HashRouter } from 'react-router-dom';
 import { createTrpcBatchLink, trpc } from './lib/trpc';
 import { AppErrorBoundary } from './components/feedback/AppErrorBoundary';
 import { ToastProvider } from './components/feedback/ToastProvider';
@@ -55,6 +55,14 @@ function RootSuspenseFallback() {
 }
 
 function Root() {
+  // The packaged Electron renderer uses the puntovivo-app:// scheme. HashRouter
+  // keeps client routes behind # so every navigation stays on the single
+  // protocol-backed index document; ordinary HTTP(S) builds retain clean
+  // history URLs through BrowserRouter.
+  const Router =
+    window.location.protocol === 'http:' || window.location.protocol === 'https:'
+      ? BrowserRouter
+      : HashRouter;
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [createTrpcBatchLink()],
@@ -65,7 +73,7 @@ function Root() {
     <StrictMode>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
+          <Router>
             <AppErrorBoundary>
               <ToastProvider>
                 <ThemeProvider>
@@ -75,7 +83,7 @@ function Root() {
                 </ThemeProvider>
               </ToastProvider>
             </AppErrorBoundary>
-          </BrowserRouter>
+          </Router>
         </QueryClientProvider>
       </trpc.Provider>
     </StrictMode>

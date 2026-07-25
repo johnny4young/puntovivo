@@ -13,6 +13,7 @@
  *     --candidate-sha <40-hex-sha> \
  *     --structure-smoke passed \
  *     --runtime-smoke passed \
+ *     --renderer-smoke passed \
  *     [--out-dir apps/desktop/out-builder] \
  *     [--output <manifest.json>]
  */
@@ -30,7 +31,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 const PLATFORM_CONTRACT = {
@@ -102,6 +103,7 @@ async function artifactRecord(filePath, includeSha512 = false) {
  *   arch: string,
  *   structureSmoke: string,
  *   runtimeSmoke: string,
+ *   rendererSmoke: string,
  *   generatedAt?: Date,
  *   repository?: string|null,
  *   workflowRunId?: string|null,
@@ -124,6 +126,9 @@ export async function collectCandidateEvidence(input) {
   const contract = PLATFORM_CONTRACT[input.platform];
   if (!contract) {
     throw new Error(`unsupported desktop evidence platform: ${input.platform}`);
+  }
+  if (input.rendererSmoke !== 'passed') {
+    throw new Error('renderer smoke must pass before desktop candidate evidence can be collected');
   }
 
   const artifactArch = contract.archAliases?.[input.arch] ?? input.arch;
@@ -180,6 +185,7 @@ export async function collectCandidateEvidence(input) {
       exactHead: 'passed',
       packagedStructureSmoke: 'passed',
       packagedRuntimeSmoke: 'passed',
+      packagedRendererSmoke: input.rendererSmoke,
       updateFeedMatchesInstaller: 'passed',
       // This collector verifies artifact integrity only. Distribution trust
       // requires platform trust stores/signing credentials and must never be
@@ -207,6 +213,7 @@ function parseArgs(argv) {
     candidateSha: null,
     structureSmoke: null,
     runtimeSmoke: null,
+    rendererSmoke: null,
   };
   for (let index = 0; index < argv.length; index += 2) {
     const option = argv[index];
@@ -217,6 +224,7 @@ function parseArgs(argv) {
     if (option === '--candidate-sha') options.candidateSha = value;
     else if (option === '--structure-smoke') options.structureSmoke = value;
     else if (option === '--runtime-smoke') options.runtimeSmoke = value;
+    else if (option === '--renderer-smoke') options.rendererSmoke = value;
     else if (option === '--out-dir') options.outDir = value;
     else if (option === '--output') options.output = value;
     else throw new Error(`unknown option: ${option}`);
@@ -224,6 +232,7 @@ function parseArgs(argv) {
   if (!options.candidateSha) throw new Error('--candidate-sha is required');
   if (!options.structureSmoke) throw new Error('--structure-smoke is required');
   if (!options.runtimeSmoke) throw new Error('--runtime-smoke is required');
+  if (!options.rendererSmoke) throw new Error('--renderer-smoke is required');
   return options;
 }
 
@@ -259,6 +268,7 @@ async function main() {
     arch: process.arch,
     structureSmoke: options.structureSmoke,
     runtimeSmoke: options.runtimeSmoke,
+    rendererSmoke: options.rendererSmoke,
     repository: process.env.GITHUB_REPOSITORY ?? null,
     workflowRunId: process.env.GITHUB_RUN_ID ?? null,
     workflowRunAttempt: process.env.GITHUB_RUN_ATTEMPT ?? null,

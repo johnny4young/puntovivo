@@ -99,4 +99,51 @@ describe('createEncryptionSetup backup protection status', () => {
     assert.equal(status.provider, 'macos_keychain');
     assert.equal((status as unknown as Record<string, unknown>).key, undefined);
   });
+
+  it('uses an ephemeral environment key only for packaged E2E', async () => {
+    const setup = createEncryptionSetup({
+      app: makeApp(dir, true),
+      safeStorage: {
+        ...makeSafeStorage(),
+        isEncryptionAvailable: () => {
+          throw new Error('packaged E2E must not access safeStorage');
+        },
+      },
+      log: silentLog,
+      env: {
+        PUNTOVIVO_E2E: '1',
+        PUNTOVIVO_DB_KEY: KEY,
+      },
+      cwd: dir,
+      resourcesPath: dir,
+      platform: 'darwin',
+    });
+
+    await setup.prepareDatabaseEncryption();
+    assert.deepEqual(setup.getBackupProtectionStatus(), {
+      protected: false,
+      databaseEncrypted: true,
+      backupEncryption: 'sqlcipher',
+      keyStorage: 'environment',
+      provider: 'environment',
+      recoveryKeyAvailable: true,
+    });
+  });
+
+  it('rejects packaged E2E without an explicit ephemeral key', async () => {
+    const setup = createEncryptionSetup({
+      app: makeApp(dir, true),
+      safeStorage: makeSafeStorage(),
+      log: silentLog,
+      env: { PUNTOVIVO_E2E: '1' },
+      cwd: dir,
+      resourcesPath: dir,
+      platform: 'darwin',
+    });
+
+    await assert.rejects(
+      setup.prepareDatabaseEncryption(),
+      /Packaged Electron E2E requires an ephemeral PUNTOVIVO_DB_KEY/
+    );
+  });
 });

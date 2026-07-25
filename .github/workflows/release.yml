@@ -214,10 +214,13 @@ jobs:
           sudo chown root:root apps/desktop/out-builder/linux-unpacked/chrome-sandbox
           sudo chmod 4755 apps/desktop/out-builder/linux-unpacked/chrome-sandbox
           xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
+          xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --renderer
 
       - name: Smoke-test the packaged app (macOS / Windows)
         if: matrix.platform != 'linux'
-        run: node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
+        run: |
+          node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
+          node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --renderer
 
       # Upload the single top-level installer this OS produced (mac .zip, windows
       # NSIS .exe, linux .AppImage) PLUS its .blockmap when electron-builder

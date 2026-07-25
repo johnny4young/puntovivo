@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { PuntovivoLogger } from '@puntovivo/server';
 import { t } from './i18n';
 import { isAllowedExternalUrl } from './external-url-policy.js';
+import { isPackagedRendererUrl, PACKAGED_RENDERER_ENTRY_URL } from './renderer-protocol.js';
 import { buildMainWindowWebPreferences } from './window-config.js';
 
 const RENDERER_LEVEL_MAP = {
@@ -117,9 +118,7 @@ export function createWindowLifecycle({
       try {
         const url = new URL(target);
         if (isDev) return url.origin === new URL(webDevServerUrl).origin;
-        if (url.protocol !== 'file:') return false;
-        const packagedDist = join(process.resourcesPath, 'dist');
-        return decodeURIComponent(url.pathname).startsWith(packagedDist);
+        return isPackagedRendererUrl(target);
       } catch {
         return false;
       }
@@ -174,9 +173,8 @@ export function createWindowLifecycle({
       void mainWindow.loadURL(webDevServerUrl);
       if (shouldOpenDevTools) mainWindow.webContents.openDevTools();
     } else {
-      const webAppPath = join(process.resourcesPath, 'dist', 'index.html');
-      log.info({ source: webAppPath }, 'loading renderer from packaged bundle');
-      void mainWindow.loadFile(webAppPath);
+      log.info({ source: PACKAGED_RENDERER_ENTRY_URL }, 'loading renderer from packaged bundle');
+      void mainWindow.loadURL(PACKAGED_RENDERER_ENTRY_URL);
     }
 
     if (isDev) {

@@ -124,7 +124,8 @@ release candidate also needs:
 The manual **Build Desktop** workflow accepts only a complete 40-character
 candidate commit SHA. Every selected platform checks out that exact commit. A
 full build clears the package output, creates the platform installer, runs the
-full packaged-runtime smoke (including native-module structure), and uploads:
+full packaged-runtime smoke (including native-module structure), runs a
+packaged-renderer first-login journey, and uploads:
 
 - the exact `Puntovivo-<version>-<os>-<arch>` installer;
 - its blockmap when electron-builder emits one;
@@ -137,9 +138,15 @@ matching update-feed reference. It also recomputes the installer SHA-512 and
 size and requires them to match the values electron-updater will enforce.
 Collection fails if the checkout differs from the requested SHA, the expected
 installer/feed is missing, the feed points at another version, its integrity
-metadata differs from the installer, or either packaged structure or runtime
-smoke did not pass. This exact-name contract prevents stale local output from
-being reported as current evidence.
+metadata differs from the installer, or the packaged structure, runtime, or
+renderer smoke did not pass. The renderer journey is required on Linux,
+macOS, and Windows. It proves the secure custom renderer origin, preload
+bridges, embedded API access, first-run authentication, and the data-backed
+post-login landing. It uses a random per-run SQLCipher key plus a temporary
+Chromium credential store so UI automation does not depend on runner keychain
+prompts; the separate runtime smoke keeps exercising the normal OS-key-store
+startup path. This exact-name contract prevents stale local output from being
+reported as current evidence.
 
 The manual workflow records distribution trust as `not-assessed`: it does not
 load release signing credentials. A green manual package build therefore does

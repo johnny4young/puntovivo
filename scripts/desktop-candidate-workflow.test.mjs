@@ -29,10 +29,19 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   assert.equal(
     (
       workflow.match(
+        /run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder --renderer/g
+      ) ?? []
+    ).length,
+    3,
+    'every platform must prove the packaged renderer journey'
+  );
+  assert.equal(
+    (
+      workflow.match(
         /node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/g
       ) ?? []
     ).length,
-    3
+    6
   );
   assert.doesNotMatch(workflow, /run-desktop-smoke\.mjs[^\n]*--structure-only/);
   assert.match(
@@ -57,6 +66,8 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   );
   assert.equal((workflow.match(/--structure-smoke passed/g) ?? []).length, 3);
   assert.equal((workflow.match(/--runtime-smoke passed/g) ?? []).length, 3);
+  assert.equal((workflow.match(/--renderer-smoke passed/g) ?? []).length, 3);
+  assert.doesNotMatch(workflow, /--renderer-smoke not-assessed/);
   assert.doesNotMatch(workflow, /--distribution-trust/);
   assert.equal((workflow.match(/if-no-files-found: error/g) ?? []).length, 3);
   assert.equal(

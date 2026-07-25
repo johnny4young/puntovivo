@@ -39,6 +39,7 @@ function input(outDir, overrides = {}) {
     arch: 'arm64',
     structureSmoke: 'passed',
     runtimeSmoke: 'passed',
+    rendererSmoke: 'passed',
     generatedAt: new Date('2026-07-24T14:00:00.000Z'),
     repository: 'johnny4young/puntovivo',
     workflowRunId: '100',
@@ -61,6 +62,7 @@ test('collectCandidateEvidence selects only the exact version/platform/architect
     exactHead: 'passed',
     packagedStructureSmoke: 'passed',
     packagedRuntimeSmoke: 'passed',
+    packagedRendererSmoke: 'passed',
     updateFeedMatchesInstaller: 'passed',
     distributionTrust: 'not-assessed',
   });
@@ -105,6 +107,13 @@ test('collectCandidateEvidence requires a successful runtime smoke', async () =>
   );
 });
 
+test('collectCandidateEvidence requires a packaged renderer journey on every platform', async () => {
+  await assert.rejects(
+    collectCandidateEvidence(input(fixture(), { rendererSmoke: 'not-assessed' })),
+    /renderer smoke must pass/
+  );
+});
+
 test('collectCandidateEvidence rejects update metadata for different installer bytes', async () => {
   const outDir = fixture();
   writeFileSync(
@@ -146,13 +155,18 @@ test('collectCandidateEvidence resolves the Windows and Linux updater contracts'
     );
 
     const evidence = await collectCandidateEvidence(
-      input(outDir, { platform: target.platform, arch: target.arch })
+      input(outDir, {
+        platform: target.platform,
+        arch: target.arch,
+        rendererSmoke: 'passed',
+      })
     );
     assert.equal(evidence.platform, target.artifactOs);
     assert.equal(evidence.architecture, target.arch);
     assert.equal(evidence.artifactArchitecture, artifactArch);
     assert.equal(evidence.artifacts.installer.name, installer);
     assert.equal(evidence.artifacts.updateFeed.name, target.feedName);
+    assert.equal(evidence.checks.packagedRendererSmoke, 'passed');
   }
 });
 

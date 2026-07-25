@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { PuntovivoLogger, PuntovivoServer, ServerOptions } from '@puntovivo/server';
+import { PACKAGED_RENDERER_ORIGIN } from '../renderer-protocol.ts';
 import { createServerLifecycle } from '../server-lifecycle.ts';
 import { setServer } from '../runtime.ts';
 
@@ -45,5 +46,7 @@ describe('Electron embedded server lifecycle', () => {
     assert.equal(starts.length, 2);
     assert.equal(starts[0]?.jwtSecret, 'stable-electron-jwt-secret-for-lifecycle-test');
     assert.equal(starts[1]?.jwtSecret, starts[0]?.jwtSecret);
+    assert.deepEqual(starts[0]?.corsOrigins, [PACKAGED_RENDERER_ORIGIN]);
+    assert.deepEqual(starts[1]?.corsOrigins, [PACKAGED_RENDERER_ORIGIN]);
   });
 });

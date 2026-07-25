@@ -45,13 +45,15 @@ export function EmptyStateReadinessNudge({ scope }: EmptyStateReadinessNudgeProp
         Plain anchor instead of react-router `Link` so the nudge
         renders correctly even in test rigs that omit the Router
         context (e.g. `ProductsPage.moduleGate.test.tsx`). The
-        target route lives in the same SPA — the browser handles the
-        URL change and react-router picks it up via the global history
-        listener. Empty-state navigation is a rare event so the
-        full-page round trip is acceptable here.
+        target remains an ordinary history URL on the web and a hash
+        URL under the packaged custom-protocol renderer.
       */}
       <a
-        href="/company?tab=readiness"
+        href={
+          window.location.protocol === 'http:' || window.location.protocol === 'https:'
+            ? '/company?tab=readiness'
+            : '#/company?tab=readiness'
+        }
         className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary-700 hover:text-primary-900 hover:underline"
         data-testid={`empty-state-readiness-${scope}-cta`}
       >

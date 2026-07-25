@@ -1,4 +1,13 @@
-import { app, BrowserWindow, dialog, safeStorage, session, type OpenDialogOptions } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  net,
+  protocol,
+  safeStorage,
+  session,
+  type OpenDialogOptions,
+} from 'electron';
 import { join } from 'node:path';
 import {
   captureProcessCrash,
@@ -33,6 +42,10 @@ import {
   type TraySettings,
 } from './ipc/settings.js';
 import { buildRendererSecurityHeaders, isFastifyApiResponse } from './renderer-security-headers.js';
+import {
+  installPackagedRendererProtocol,
+  registerPackagedRendererScheme,
+} from './renderer-protocol.js';
 import { getServerDatabase, getSqliteClient, setServer } from './runtime.js';
 import { createServerLifecycle } from './server-lifecycle.js';
 import { createTrayController } from './tray-controller.js';
@@ -42,6 +55,10 @@ import { createWindowLifecycle } from './window-lifecycle.js';
 const mainLog = createModuleLogger('electron-main');
 const rendererLog = createModuleLogger('renderer');
 const backupLog = createModuleLogger('backup');
+
+// Custom schemes must be registered before app readiness. The handler itself
+// is installed after ready, when Electron's net module can serve resources.
+registerPackagedRendererScheme(protocol);
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) app.quit();
@@ -220,6 +237,14 @@ registerDataBridgeIpc({ log: mainLog });
 registerPrintIpc();
 
 app.whenReady().then(async () => {
+  if (app.isPackaged) {
+    installPackagedRendererProtocol({
+      protocol,
+      net,
+      rendererRoot: join(process.resourcesPath, 'dist'),
+    });
+  }
+
   setMainLocale(normalizeMainLocale(app.getLocale()));
   refreshAutoUpdateTranslations();
 

@@ -82,11 +82,10 @@ export function createEncryptionSetup({
   let keySource: 'environment' | 'safe_storage' | null = null;
   let prepared = false;
 
-  function resolveDevDatabaseEncryptionKey(): string | undefined {
-    if (app.isPackaged) return undefined;
-
+  function resolveTestOrDevDatabaseEncryptionKey(): string | undefined {
     const isE2e = env.PUNTOVIVO_E2E === '1';
-    if (!isE2e && !devSharedDbPath) return undefined;
+    if (app.isPackaged && !isE2e) return undefined;
+    if (!app.isPackaged && !isE2e && !devSharedDbPath) return undefined;
 
     const key = env.PUNTOVIVO_DB_KEY;
     if (key === undefined) {
@@ -97,19 +96,22 @@ export function createEncryptionSetup({
             'launching electron-forge directly.'
         );
       }
+      if (app.isPackaged && isE2e) {
+        throw new Error('Packaged Electron E2E requires an ephemeral PUNTOVIVO_DB_KEY');
+      }
       return undefined;
     }
     if (!/^[0-9a-f]{64}$/i.test(key)) {
-      throw new Error('PUNTOVIVO_DB_KEY must be a 64-character hex string in Electron dev');
+      throw new Error('PUNTOVIVO_DB_KEY must be a 64-character hex string in Electron test/dev');
     }
     return key;
   }
 
   async function resolveDatabaseEncryptionKey(): Promise<string> {
     if (cachedEncryptionKey) return cachedEncryptionKey;
-    const devKey = resolveDevDatabaseEncryptionKey();
-    if (devKey) {
-      cachedEncryptionKey = devKey;
+    const testOrDevKey = resolveTestOrDevDatabaseEncryptionKey();
+    if (testOrDevKey) {
+      cachedEncryptionKey = testOrDevKey;
       keySource = 'environment';
     } else {
       cachedEncryptionKey = await getOrCreateDbKey(getDbKeyDir(dbPath), safeStorage, {
