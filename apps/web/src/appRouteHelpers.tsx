@@ -4,7 +4,7 @@
 // wrapper every in-layout route uses.
 
 import { Suspense, type ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { RouteErrorBoundary } from '@/components/feedback/AppErrorBoundary';
 import { FullscreenLoadingState, PageLoadingState } from '@/components/feedback/LoadingState';

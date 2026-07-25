@@ -89,6 +89,14 @@ workspace CI gate. Desktop artifacts require cross-platform validation, signing
 and notarization where applicable, update-feed verification, and backup/restore
 rehearsal before release.
 
+A flagged dependency is normally resolved by raising a narrow version floor in
+the `overrides` block of `pnpm-workspace.yaml`. An advisory may be excluded from
+the gate only when its vulnerable code is provably unreachable in the shipped
+artifact and no compatible patched release exists. Every exclusion is listed
+individually under `auditConfig.ignoreGhsas` in the same file with the
+reachability argument and the condition that removes it, so an exception expires
+instead of being inherited.
+
 Run the relevant checks from [TESTING.md](./TESTING.md). Current unresolved
 production gates are centralized in [PROJECT-STATUS.md](./PROJECT-STATUS.md).
 

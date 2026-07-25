@@ -37,7 +37,7 @@
  */
 
 import { useMemo, type CSSProperties } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Check, Clock, Minus, ArrowRight } from 'lucide-react';
 import { trpc } from '@/lib/trpc';

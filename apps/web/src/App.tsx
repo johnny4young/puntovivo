@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router';
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { CommandPaletteProvider } from '@/components/feedback/CommandPaletteProvider';
 import { LocaleSync } from '@/features/locale/LocaleProvider';

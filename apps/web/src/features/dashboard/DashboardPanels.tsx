@@ -1,7 +1,7 @@
 import { ArrowRight, ArrowUpRight, Package, ReceiptText, TrendingUp } from 'lucide-react';
 import type { ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 

@@ -18,7 +18,7 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import type { ReactElement } from 'react';
 import { salesRoles } from '@/features/auth/roleAccess';
 import type { ClientModuleId } from '@/features/modules';

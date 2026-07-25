@@ -15,7 +15,7 @@
  * @module lib/commandPaletteActions
  */
 
-import type { NavigateFunction } from 'react-router-dom';
+import type { NavigateFunction } from 'react-router';
 import {
   adminOnlyRoles,
   dashboardRoles,

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCashDrawerController } from '@/features/sales/useCashDrawerController';
 import { useBarcodeProductScanner } from '@/features/sales/useBarcodeProductScanner';

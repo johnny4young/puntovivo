@@ -2,7 +2,7 @@ import './i18n'; // initialize i18next before any component renders
 import { StrictMode, Suspense, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, HashRouter } from 'react-router-dom';
+import { BrowserRouter, HashRouter } from 'react-router';
 import { createTrpcBatchLink, trpc } from './lib/trpc';
 import { AppErrorBoundary } from './components/feedback/AppErrorBoundary';
 import { ToastProvider } from './components/feedback/ToastProvider';

@@ -73,3 +73,19 @@ blockExoticSubdeps: false
 # the age policy for any future Electron release.
 minimumReleaseAgeExclude:
   - electron@42.6.2
+
+# Production audit exceptions. Only for advisories whose vulnerable code is
+# provably unreachable in the shipped artifact AND that have no compatible
+# patched release. Every entry must record why, so a future fix removes it
+# instead of inheriting it. Anything else must be fixed with an override floor.
+auditConfig:
+  ignoreGhsas:
+    # brace-expansion DoS via unbounded expansion length. Reaches the graph only
+    # as exceljs > archiver/unzipper > glob > minimatch > brace-expansion, a
+    # Node-only subtree. apps/web imports exceljs/dist/exceljs.bare.min.js, a
+    # prebuilt browser bundle, so that subtree is never resolved or shipped.
+    # Only 5.0.8 is patched: the 1.x/2.x lines are end-of-life, and 5.0.8 is a
+    # named-export build that the default require() in minimatch 3/5 cannot
+    # consume, so an override floor would break exceljs at runtime.
+    # Remove when exceljs drops the archiver/glob chain. Reviewed 2026-07-25.
+    - GHSA-mh99-v99m-4gvg

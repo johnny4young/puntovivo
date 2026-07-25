@@ -8,7 +8,7 @@
  * @module features/workspaces/__tests__/WorkspaceLandingPage.test
  */
 import { render, screen } from '@/test/utils';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceLandingPage } from '../WorkspaceLandingPage';
 

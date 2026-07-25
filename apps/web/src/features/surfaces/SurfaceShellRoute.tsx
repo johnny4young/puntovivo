@@ -1,5 +1,5 @@
 import { Suspense, type ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';

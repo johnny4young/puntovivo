@@ -15,7 +15,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Search } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';

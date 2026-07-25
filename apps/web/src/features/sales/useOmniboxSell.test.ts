@@ -9,7 +9,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import type { NavigateFunction } from 'react-router-dom';
+import type { NavigateFunction } from 'react-router';
 import { useCartWorkspaceStore } from './useCartWorkspaceStore';
 import { useOmniboxSell } from './useOmniboxSell';
 

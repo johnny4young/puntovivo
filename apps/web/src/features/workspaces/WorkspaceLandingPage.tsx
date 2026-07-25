@@ -21,7 +21,7 @@
  */
 import { ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useModulesSnapshot } from '@/features/modules';
 import { PageLoadingState } from '@/components/feedback/LoadingState';

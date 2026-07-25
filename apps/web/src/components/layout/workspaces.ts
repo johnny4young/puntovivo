@@ -76,7 +76,7 @@ import type { ClientModuleId } from '@/features/modules';
 export interface WorkspaceItem {
   /** i18n key under the `nav:items.*` namespace. */
   nameKey: string;
-  /** Route path consumed by `react-router-dom NavLink`. */
+  /** Route path consumed by `react-router NavLink`. */
   href: string;
   icon: LucideIcon;
   allowedRoles: readonly UserRole[];

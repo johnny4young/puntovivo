@@ -13,7 +13,7 @@
 import { lazy, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Activity, AppWindow, Boxes, HeartPulse, MonitorCheck, RadioTower } from 'lucide-react';
 import { KpiTile, StatusStrip, type KpiTone } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthProvider';

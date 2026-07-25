@@ -1,6 +1,6 @@
 import { Database, FlaskConical, History, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
 import type { LaunchImportDataMode } from './types';
 import { buttonVariants } from '@/components/ui';

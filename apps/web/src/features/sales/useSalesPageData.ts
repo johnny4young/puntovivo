@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useReceiptAutoPrint } from '@/features/sales/useReceiptAutoPrint';
 import { type PreflightBlockerId, type PreflightItem } from '@/features/sales/useCheckoutPreflight';

@@ -8,7 +8,7 @@ import {
   useState,
   ReactNode,
 } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { TRPCClientError } from '@trpc/client';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User, Tenant, LoginCredentials } from '@/types';
