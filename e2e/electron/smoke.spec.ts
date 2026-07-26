@@ -36,11 +36,28 @@
 
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { electronTest as test, ELECTRON_E2E_DB_KEY, expect } from './fixtures.js';
+import {
+  electronTest as test,
+  ELECTRON_E2E_DB_KEY,
+  expect,
+  IS_PACKAGED_RUN,
+} from './fixtures.js';
 import { attachClientIssueTracker, E2E_USERS, expectNoClientIssues } from '../web/support/app.js';
 import { startFakeS3Provider } from './support/fake-s3.js';
 
 test.describe('Electron smoke', () => {
+  // Dev target only, and deliberately so. This smoke asserts the DEVELOPMENT
+  // main process: rollout fields stay null because no update feed is reachable,
+  // and the cloud vault round trip needs real safeStorage sealing. The packaged
+  // build genuinely contacts its feed, and automating its launch requires a
+  // mock credential store, so both assertions describe a target this spec is
+  // not looking at. Packaged evidence comes from the journey specs, which are
+  // written to run identically against either target.
+  test.skip(
+    IS_PACKAGED_RUN,
+    'dev-target smoke: asserts an unreachable update feed and real safeStorage sealing, neither of which holds for the packaged build'
+  );
+
   test('launches, logs in as admin, and loads the dashboard shell', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
     const admin = E2E_USERS.admin;

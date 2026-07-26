@@ -3,10 +3,11 @@
  *
  * Exposes two fixtures:
  *
- * - `electronApp` — an `ElectronApplication` launched from
- * `apps/desktop/.vite/build/index.cjs` with its `userData` dir
- * pointed at `ELECTRON_E2E_USER_DATA_DIR`. The launch happens
- * once per test file (scope `worker`) and closes in `afterAll`.
+ * - `desktopRenderer` — the renderer under test. Without
+ * PUNTOVIVO_PACKAGED_APP it launches the dev bundle from
+ * `apps/desktop/.vite/build/index.cjs`; with it, the packaged
+ * build, driven over CDP. One app per test, each against its own
+ * copy of the seeded userData template.
  * - `page` — the first window the Electron app opens, awaited via
  * `electronApp.firstWindow()`. One `page` per test.
  *
@@ -14,21 +15,30 @@
  * drives the renderer as a regular browser page via
  * `electronApp.firstWindow()`, NOT via any privileged channel.
  *
- * `ELECTRON_E2E_USER_DATA_DIR` is shared with `global-setup.ts` so
- * the DB materialised there is the one the launched Electron sees.
- * The constant lives in this module because fixtures run in a
- * different worker process than globalSetup — a cross-process env
- * var would be flaky; a module-level constant both sides import is
- * stable.
+ * `ELECTRON_E2E_TEMPLATE_DIR` is shared with `global-setup.ts`: it
+ * seeds the template once, and every test copies it. The constants
+ * live in this module because fixtures run in a different worker
+ * process than globalSetup — a cross-process env var would be
+ * flaky; module-level constants both sides import are stable.
  *
  * @module e2e/electron/fixtures
  */
 
-import { test as base, _electron, type ElectronApplication, type Page } from '@playwright/test';
+import {
+  test as base,
+  _electron,
+  chromium,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test';
 import type { ChildProcess } from 'node:child_process';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
+// @ts-expect-error -- plain .mjs helper shared with the packaged smoke script.
+import { resolvePackagedBinary } from '../../scripts/lib/packaged-binary.mjs';
 
 /**
  * Per-suite Electron userData directory. Both the global-setup (which
@@ -38,11 +48,39 @@ import { resolve } from 'node:path';
  * Lives under `test-results/` because it is machine-local test output,
  * not source. Gitignored via the existing `test-results/` entry.
  */
-export const ELECTRON_E2E_USER_DATA_DIR = resolve(
+/**
+ * Seeded template built once by global-setup. Tests never launch against it —
+ * they copy it — so its contents stay pristine for the whole run.
+ */
+export const ELECTRON_E2E_TEMPLATE_DIR = resolve(
+  process.cwd(),
+  'test-results',
+  'electron-userdata-template'
+);
+
+/** Parent of the per-test userData directories. */
+export const ELECTRON_E2E_USER_DATA_ROOT = resolve(
   process.cwd(),
   'test-results',
   'electron-userdata'
 );
+
+/**
+ * A private userData directory for one test, copied from the seeded template.
+ *
+ * Sharing one directory across tests looked fine while the suite had a single
+ * spec. With two, the device identity registered by whichever test ran first
+ * leaked into the next one and surfaced as an unrelated 403 on the first
+ * authenticated request — the suite became order-dependent. Copying the
+ * template is what makes each test independent, and it is far cheaper than
+ * re-running migrations and seeding per test.
+ */
+export function createIsolatedUserDataDir(label: string): string {
+  const slug = label.replace(/[^a-z0-9]+/gi, '-').slice(0, 60);
+  const dir = mkdtempSync(join(ELECTRON_E2E_USER_DATA_ROOT, `${slug}-`));
+  cpSync(ELECTRON_E2E_TEMPLATE_DIR, dir, { recursive: true });
+  return dir;
+}
 export const ELECTRON_E2E_DB_KEY =
   'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 
@@ -56,7 +94,49 @@ const ELECTRON_MAIN_ENTRY = resolve(process.cwd(), 'apps/desktop/.vite/build/ind
 const requireFromDesktopWorkspace = createRequire(
   resolve(process.cwd(), 'apps/desktop/package.json')
 );
-const ELECTRON_EXECUTABLE_PATH = requireFromDesktopWorkspace('electron') as string;
+
+/**
+ * Packaging output to run against, when the operator wants the journeys proven
+ * on the artefact that actually ships rather than the dev bundle.
+ *
+ * The two targets differ in three ways that all have to move together:
+ * the packaged app IS the executable (its main lives inside the asar, so there
+ * is no entry argument), it carries its own native modules (so the ABI swap
+ * must not run), and it serves the renderer from puntovivo-app://app (so the
+ * Vite dev server is not involved).
+ */
+export const PACKAGED_APP_DIR = process.env.PUNTOVIVO_PACKAGED_APP ?? '';
+export const IS_PACKAGED_RUN = PACKAGED_APP_DIR.length > 0;
+
+/** Dev-bundle launch target. The packaged app is driven over CDP instead. */
+function resolveDevLaunchTarget(): { executablePath: string; args: string[] } {
+  return {
+    executablePath: requireFromDesktopWorkspace('electron') as string,
+    args: [ELECTRON_MAIN_ENTRY],
+  };
+}
+
+/** Absolute path to the executable inside the packaging output. */
+export function packagedExecutablePath(): string {
+  return resolvePackagedBinary(resolve(process.cwd(), PACKAGED_APP_DIR));
+}
+
+/**
+ * Isolate Chromium's own credential store for a packaged run.
+ *
+ * Chromium initialises cookie/password crypto before `app.whenReady`. On a
+ * signed-but-not-notarized bundle macOS blocks on the global Chrome Safe
+ * Storage item and the app never opens a window — the launch just times out —
+ * and headless Linux runners may have no libsecret at all. The application's
+ * own database key is already injected through PUNTOVIVO_DB_KEY, so this only
+ * covers the layer underneath it. The separate packaged runtime smoke still
+ * exercises the normal OS key-store path.
+ */
+function credentialStoreArgs(): string[] {
+  if (process.platform === 'darwin') return ['--use-mock-keychain'];
+  if (process.platform === 'linux') return ['--password-store=basic'];
+  return [];
+}
 
 function ensureNativeRuntime(runtime: 'node' | 'electron'): void {
   const result = spawnSync(process.execPath, ['scripts/ensure-native-runtime.mjs', runtime], {
@@ -102,15 +182,133 @@ function formatFirstWindowFailure(error: unknown, child: ChildProcess): Error {
 
 interface ElectronFixtures {
   page: Page;
+  /**
+   * The renderer under test, launched fresh for each test.
+   *
+   * A single fixture owns the dev/packaged branch on purpose: listing both as
+   * dependencies of `page` would make Playwright set up BOTH targets for every
+   * run, launching an app the suite is not testing.
+   */
+  desktopRenderer: Page;
 }
 
 interface ElectronWorkerFixtures {
   electronApp: ElectronApplication;
 }
 
+/**
+ * Attach to the packaged application's renderer over CDP.
+ *
+ * Playwright's `_electron.launch()` cannot drive the shipped artefact: the
+ * packaging fuses set RunAsNode and EnableNodeCliInspectArguments to Disabled,
+ * which is exactly the hardening we want, so the main process is deliberately
+ * not attachable. Weakening the fuses to let a test in would defeat their
+ * purpose, so the packaged suite drives the renderer as an ordinary page —
+ * the same surface a user has, and the same approach the packaged smoke uses.
+ */
+async function launchPackagedRenderer(userDataDir: string): Promise<{
+  page: Page;
+  dispose: () => Promise<void>;
+}> {
+  const port = await reserveLoopbackPort();
+  const child = spawn(
+    packagedExecutablePath(),
+    [
+      `--user-data-dir=${userDataDir}`,
+      `--remote-debugging-port=${port}`,
+      '--remote-debugging-address=127.0.0.1',
+      ...credentialStoreArgs(),
+    ],
+    {
+      env: {
+        ...process.env,
+        ELECTRON_ENABLE_LOGGING: '1',
+        PUNTOVIVO_DB_KEY: ELECTRON_E2E_DB_KEY,
+        PUNTOVIVO_E2E: '1',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }
+  );
+  forwardElectronProcessLogs(child);
+
+  const endpoint = `http://127.0.0.1:${port}`;
+  await waitForDevtools(endpoint, child);
+  const browser = await chromium.connectOverCDP(endpoint);
+  const context = browser.contexts()[0];
+  if (!context) throw new Error('packaged renderer exposed no browser context');
+  const page =
+    context.pages().find(candidate => candidate.url().startsWith('puntovivo-app:')) ??
+    context.pages()[0] ??
+    (await context.waitForEvent('page', { timeout: 60_000 }));
+
+  return {
+    page,
+    dispose: async () => {
+      await browser.close().catch(() => {});
+      child.kill();
+    },
+  };
+}
+
+/** A free loopback port for the renderer's DevTools endpoint. */
+async function reserveLoopbackPort(): Promise<number> {
+  return new Promise((resolvePort, reject) => {
+    const server = createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : null;
+      server.close(error => {
+        if (error) reject(error);
+        else if (port === null) reject(new Error('could not reserve a renderer port'));
+        else resolvePort(port);
+      });
+    });
+  });
+}
+
+/**
+ * Chromium accepts the TCP connection before its DevTools HTTP handler is
+ * ready, so each probe is bounded rather than allowed to consume the whole
+ * budget on one half-open socket.
+ */
+async function waitForDevtools(endpoint: string, child: ChildProcess): Promise<void> {
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(`packaged app exited with code ${child.exitCode} before opening DevTools`);
+    }
+    try {
+      const response = await fetch(`${endpoint}/json/version`, {
+        signal: AbortSignal.timeout(500),
+      });
+      if (response.ok) return;
+    } catch {
+      // Not listening yet.
+    }
+    await new Promise(done => setTimeout(done, 200));
+  }
+  throw new Error('timed out waiting for the packaged renderer DevTools endpoint');
+}
+
 export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures>({
-  electronApp: [
-    async ({}, use) => {
+  desktopRenderer: [
+    async ({}, use, testInfo) => {
+      // One private, pre-seeded userData directory per test — see
+      // createIsolatedUserDataDir for why sharing one broke the suite.
+      const userDataDir = createIsolatedUserDataDir(testInfo.title);
+
+      if (IS_PACKAGED_RUN) {
+        const launched = await launchPackagedRenderer(userDataDir);
+        try {
+          await use(launched.page);
+        } finally {
+          await launched.dispose();
+          rmSync(userDataDir, { recursive: true, force: true });
+        }
+        return;
+      }
+
       // Playwright globalSetup runs in Node and imports `better-sqlite3`
       // through the compiled DB bootstrap to seed the DB. Swap to
       // Electron's native ABI only after globalSetup has finished and
@@ -118,11 +316,12 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
       // embedded server.
       ensureNativeRuntime('electron');
       let electronApp: ElectronApplication | null = null;
+      const target = resolveDevLaunchTarget();
 
       try {
         electronApp = await _electron.launch({
-          executablePath: ELECTRON_EXECUTABLE_PATH,
-          args: [ELECTRON_MAIN_ENTRY, `--user-data-dir=${ELECTRON_E2E_USER_DATA_DIR}`],
+          executablePath: target.executablePath,
+          args: [...target.args, `--user-data-dir=${userDataDir}`],
           // Disable the first-run update check + keep the smoke
           // deterministic by suppressing the auto-updater side-channel.
           env: {
@@ -135,7 +334,13 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
         });
         forwardElectronProcessLogs(electronApp.process());
 
-        await use(electronApp);
+        let page: Page;
+        try {
+          page = await electronApp.firstWindow();
+        } catch (error) {
+          throw formatFirstWindowFailure(error, electronApp.process());
+        }
+        await use(page);
       } finally {
         if (electronApp) {
           // On macOS the default Electron contract keeps the app process
@@ -156,19 +361,29 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
         // Leave the checkout ready for Node-based server tests after a
         // local Electron smoke run.
         ensureNativeRuntime('node');
+        rmSync(userDataDir, { recursive: true, force: true });
       }
     },
-    { scope: 'worker' },
+    // Test scope, not worker: each test gets a freshly launched app. A shared
+    // instance carries the previous test's authenticated session into the next
+    // spec file, which makes the suite order-dependent.
+    { scope: 'test' },
   ],
   page: [
-    async ({ electronApp }, use) => {
-      let page: Page;
-      try {
-        page = await electronApp.firstWindow();
-      } catch (error) {
-        throw formatFirstWindowFailure(error, electronApp.process());
-      }
-      await use(page);
+    // Both targets expose the same surface — an ordinary renderer page — so a
+    // spec never needs to know which one it is running against.
+    async ({ desktopRenderer }, use) => {
+      // Every test relaunches the app, but the userData directory persists, so
+      // the renderer would boot carrying the previous test's stored session and
+      // language. That leaked an expired token into the next spec and surfaced
+      // as an unrelated 403 on the first authenticated request. Start each test
+      // from genuinely signed-out storage.
+      await desktopRenderer.evaluate(() => {
+        window.localStorage.clear();
+        window.sessionStorage.clear();
+      });
+      await desktopRenderer.reload();
+      await use(desktopRenderer);
     },
     { scope: 'test' },
   ],

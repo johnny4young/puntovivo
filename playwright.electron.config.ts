@@ -21,6 +21,11 @@
 import path from 'node:path';
 import { defineConfig } from '@playwright/test';
 
+// A packaged run drives the shipped artefact, which serves its renderer from
+// the puntovivo-app:// origin baked into the bundle. The Vite dev server is
+// not involved, so starting one would only add a port to collide on.
+const isPackagedRun = (process.env.PUNTOVIVO_PACKAGED_APP ?? '').length > 0;
+
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= path.join(process.cwd(), '.playwright-browsers');
 
 export default defineConfig({
@@ -45,14 +50,16 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  webServer: {
-    // Use the web workspace command directly instead of the root dev
-    // launcher. The launcher intentionally detaches its Vite child for
-    // interactive dev sessions, but Playwright needs to own the process tree
-    // so the Electron smoke can exit cleanly after the test.
-    command: 'pnpm --filter @puntovivo/web run dev',
-    url: 'http://localhost:3000/login',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: isPackagedRun
+    ? undefined
+    : {
+        // Use the web workspace command directly instead of the root dev
+        // launcher. The launcher intentionally detaches its Vite child for
+        // interactive dev sessions, but Playwright needs to own the process
+        // tree so the Electron smoke can exit cleanly after the test.
+        command: 'pnpm --filter @puntovivo/web run dev',
+        url: 'http://localhost:3000/login',
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
 });
