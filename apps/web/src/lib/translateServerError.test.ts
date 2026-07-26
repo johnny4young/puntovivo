@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TFunction } from 'i18next';
+import enErrors from '../i18n/locales/en/errors.json';
+import esErrors from '../i18n/locales/es/errors.json';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
@@ -328,5 +330,85 @@ describe('translateServerError', () => {
       };
       expect(translateServerError(error, t, fallback)).toBe('Payments do not add up.');
     });
+  });
+});
+
+/**
+ * Renders against the SHIPPED locale files with real interpolation, so these
+ * assertions fail when the copy and the supplied values drift apart. The
+ * fake `t` above deliberately ignores params, which is why it cannot catch
+ * the defect this block exists for.
+ */
+function makeInterpolatingT(bundle: Record<string, unknown>): TFunction {
+  return ((key: string, params?: Record<string, unknown>): string => {
+    const prefix = 'errors:server.';
+    if (!key.startsWith(prefix)) return key;
+    const value = (bundle.server as Record<string, unknown> | undefined)?.[key.slice(prefix.length)];
+    if (typeof value !== 'string') return key;
+    return value.replace(/\{\{(\w+)\}\}/g, (whole, name: string) =>
+      params && name in params ? String(params[name]) : whole
+    );
+  }) as unknown as TFunction;
+}
+
+/** Every server key whose copy carries at least one placeholder. */
+function placeholderKeys(bundle: Record<string, unknown>): [string, string][] {
+  const server = (bundle.server ?? {}) as Record<string, unknown>;
+  return Object.entries(server).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string' && /\{\{/.test(entry[1])
+  );
+}
+
+describe('server error copy never reaches the operator with raw placeholders', () => {
+  const fallback = 'Something went wrong';
+  const locales: [string, Record<string, unknown>][] = [
+    ['en', enErrors as Record<string, unknown>],
+    ['es', esErrors as Record<string, unknown>],
+  ];
+
+  it('interpolates the insufficient-stock values a cashier needs to act on', () => {
+    const error = {
+      data: {
+        code: 'CONFLICT',
+        errorCode: 'SALE_INSUFFICIENT_STOCK',
+        errorDetails: { productName: 'Arepa de queso', available: 2, requested: 5 },
+      },
+    };
+    const result = translateServerError(error, makeInterpolatingT(enErrors as never), fallback);
+    expect(result).toContain('Arepa de queso');
+    expect(result).toContain('2');
+    expect(result).toContain('5');
+    expect(result).not.toContain('{{');
+  });
+
+  // The class guard: any future key that gains a placeholder is covered the
+  // moment it is added, in both locales.
+  for (const [locale, bundle] of locales) {
+    it(`renders every ${locale} placeholder key without a leftover template`, () => {
+      const keys = placeholderKeys(bundle);
+      expect(keys.length, 'this guard is pointless if no key has placeholders').toBeGreaterThan(0);
+
+      for (const [code, copy] of keys) {
+        const details = Object.fromEntries(
+          [...copy.matchAll(/\{\{(\w+)\}\}/g)].map(match => [match[1], `value-${match[1]}`])
+        );
+        const result = translateServerError(
+          { data: { errorCode: code, errorDetails: details } },
+          makeInterpolatingT(bundle),
+          fallback
+        );
+        expect(result, `${locale}:${code} left a placeholder`).not.toContain('{{');
+      }
+    });
+  }
+
+  it('falls back rather than showing a template when the server omits the values', () => {
+    const error = {
+      data: { code: 'CONFLICT', errorCode: 'SALE_INSUFFICIENT_STOCK' },
+      message: 'Insufficient stock for product "Arepa" at the active site.',
+    };
+    const result = translateServerError(error, makeInterpolatingT(enErrors as never), fallback);
+    expect(result).not.toContain('{{');
+    expect(result).toBe('Insufficient stock for product "Arepa" at the active site.');
   });
 });

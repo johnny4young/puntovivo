@@ -316,6 +316,43 @@ export function extractServerErrorCode(error: unknown): KnownServerErrorCode | n
   return null;
 }
 
+/**
+ * The structured values the server attaches beside the error code, under
+ * `data.errorDetails`.
+ *
+ * Three server codes carry copy with placeholders — the product name, the
+ * available quantity and the requested one. Without these the translation
+ * renders the raw `{{productName}}` template at the counter, which is what
+ * this exists to prevent. The candidate shapes mirror `extractServerErrorCode`
+ * so both survive the same tRPC client and serialization variations.
+ */
+/** True when interpolation left a `{{var}}` behind. */
+function hasPlaceholder(value: string): boolean {
+  return /\{\{\s*\w+\s*\}\}/.test(value);
+}
+
+export function extractServerErrorDetails(error: unknown): Record<string, unknown> | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+
+  const candidates: unknown[] = [];
+  const data = (error as { data?: unknown }).data;
+  if (data && typeof data === 'object') {
+    candidates.push((data as { errorDetails?: unknown }).errorDetails);
+  }
+  const shape = (error as { shape?: { data?: { errorDetails?: unknown } } }).shape;
+  if (shape?.data) {
+    candidates.push(shape.data.errorDetails);
+  }
+  candidates.push((error as { errorDetails?: unknown }).errorDetails);
+
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+      return candidate as Record<string, unknown>;
+    }
+  }
+  return undefined;
+}
+
 function collectErrorMessages(error: unknown, messages: string[] = []): string[] {
   if (!error || typeof error !== 'object') {
     return messages;
@@ -420,10 +457,14 @@ export function translateServerError(error: unknown, t: TFunction, fallback: str
   const code = extractServerErrorCode(error);
   if (code) {
     // Force-resolve from the `errors` namespace regardless of the caller's
-    // default namespace.
+    // default namespace, and hand i18next the server's structured details so
+    // copy carrying placeholders renders values instead of the raw template.
     const translationKey = `errors:server.${code}`;
-    const translated = t(translationKey);
-    if (typeof translated === 'string' && translated !== translationKey) {
+    const translated = t(translationKey, extractServerErrorDetails(error) ?? {});
+    // An unresolved placeholder means the server omitted a value the copy
+    // needs. Showing "{{productName}}" to a cashier is worse than falling
+    // through to the server's English sentence, so treat it as untranslated.
+    if (typeof translated === 'string' && translated !== translationKey && !hasPlaceholder(translated)) {
       return translated;
     }
   }
