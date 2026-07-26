@@ -25,6 +25,7 @@ import {
   dismissVisibleToasts,
   goToRoute,
   openCashSession,
+  pinPrimarySite,
   signIn,
   signOut,
 } from './support/journey.js';
@@ -34,16 +35,32 @@ const PRODUCT_SKU = 'E2E-CLOSE';
 const REGISTER = 'E2E Close Register';
 
 test.describe('blind close on the desktop app', () => {
-  // INCOMPLETE, and marked so it is reported rather than quietly absent.
-  // Everything up to the sale now works: the admin stocks the shelf and the
-  // cashier opens the drawer. The sale is then refused with
-  // SALE_INSUFFICIENT_STOCK because the stock the admin created and the site
-  // the cashier is serving from are not the same one. The web journey solves
-  // this with a switchToSite helper that lives inside business.spec.ts and is
-  // not exported; pinning both roles to one site is the remaining work.
+  // INCOMPLETE, and reported rather than hidden. Everything except the sale
+  // works: the admin stocks the shelf, the cashier opens the drawer, and the
+  // blind-close dialog behaves. The sale is refused with
+  // SALE_INSUFFICIENT_STOCK and `Available: 0` no matter which of the two
+  // sites both roles are pinned to.
+  //
+  // What is established, so the next attempt does not re-derive it:
+  //   - It is NOT a role problem. Blind close is role gated and the cashier is
+  //     the right actor; that part of this spec is correct.
+  //   - It is NOT the two roles sitting on different sites. They are pinned to
+  //     the same one and it still fails.
+  //   - It is NOT the primary-versus-secondary site: pinning both to either
+  //     one reports Available: 0.
+  //   - The products list shows the typed quantity from BOTH sites, because
+  //     that column is the product-level rollup, so the list cannot be used to
+  //     locate the stock. Only the till reveals the per-site figure.
+  //
+  // The same createProduct call works in the single-site first-sale tenant, so
+  // the difference is how initial stock is allocated in a two-site tenant.
+  // Worth a look from the server side rather than more UI probing: the stock
+  // rollup table is maintained by triggers from the per-site balances, so a
+  // product total of N while every site reports 0 would contradict that
+  // invariant. If it does, this is a product defect and not a test gap.
   test.fixme(
     true,
-    'admin-created stock and the cashier active site differ; both roles need pinning to one site'
+    'initial product stock is not available at any site in a two-site tenant; needs server-side inspection, not more UI probing'
   );
   test('closes a drawer with an overage and reports the discrepancy', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
@@ -53,12 +70,16 @@ test.describe('blind close on the desktop app', () => {
     expect(Boolean(admin && cashier), 'baseline seeds an admin and a cashier').toBe(true);
 
     // The cashier cannot create products, so the admin stocks the shelf first.
+    // Both roles sit on the primary site: that is where a new product's stock
+    // lands regardless of the active site (see pinPrimarySite).
     await signIn(page, admin!.email);
+    await pinPrimarySite(page);
     await goToRoute(page, '/products');
     await createProduct(page, { name: PRODUCT_NAME, sku: PRODUCT_SKU, stock: '5' });
 
     await signOut(page);
     await signIn(page, cashier!.email);
+    await pinPrimarySite(page);
     await goToRoute(page, '/sales');
 
     // Float of zero and one cash sale, so the expected drawer content is

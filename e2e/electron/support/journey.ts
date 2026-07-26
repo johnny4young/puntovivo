@@ -17,7 +17,7 @@
  */
 
 import { expect, type Page } from '@playwright/test';
-import { E2E_PASSWORD } from '../../shared/baseline.js';
+import { E2E_PASSWORD, SECONDARY_SITE_NAME } from '../../shared/baseline.js';
 import { IS_PACKAGED_RUN } from '../fixtures.js';
 
 /**
@@ -83,6 +83,34 @@ export async function signIn(page: Page, email: string, password = E2E_PASSWORD)
   await expect(page.getByRole('button', { name: /open user menu/i })).toBeVisible({
     timeout: 30_000,
   });
+}
+
+/**
+ * Pin the site that receives a product's initial stock.
+ *
+ * The stock typed into the create-product dialog does NOT land at whatever
+ * site is active — it goes to the tenant's primary site. The products list
+ * hides this, because the quantity it shows is the product-level rollup and
+ * reads the same from either site; the discrepancy only surfaces at the till,
+ * as `Available: 0`. So any journey that stocks a shelf and then sells has to
+ * put both roles on the primary site.
+ *
+ * Identified as "the site the baseline did not add" rather than by name, so a
+ * renamed primary site does not silently break every selling journey.
+ */
+export async function pinPrimarySite(page: Page): Promise<void> {
+  const trigger = page.locator('header button[name="site"]');
+  await expect(trigger).toBeVisible({ timeout: 30_000 });
+  await trigger.click();
+  const options = page.getByRole('option');
+  await expect(options.first()).toBeVisible({ timeout: 15_000 });
+  const names = await options.allInnerTexts();
+  const primary = names.map(name => name.trim()).find(name => name !== SECONDARY_SITE_NAME);
+  if (!primary) {
+    throw new Error(`no primary site among: ${names.join(', ')}`);
+  }
+  await page.getByRole('option', { name: primary }).click();
+  await expect(trigger).toHaveText(primary, { timeout: 15_000 });
 }
 
 /**

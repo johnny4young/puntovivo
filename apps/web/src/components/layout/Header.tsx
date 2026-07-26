@@ -174,6 +174,10 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
 
           <div className="hidden min-w-[8.75rem] flex-none sm:block 2xl:min-w-[9.5rem]">
             <Select
+              // Names the trigger button so automation can pin the active site
+              // without guessing at position: the control's own label is the
+              // current site name, which is the value under test.
+              name="site"
               options={siteOptions}
               value={currentSite?.id ?? null}
               onChange={value => {
