@@ -23,15 +23,15 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import { resolvePackagedBinary } from './lib/packaged-binary.mjs';
 
-const EXECUTABLE = 'puntovivo';
 const APP_NAME = 'Puntovivo';
 const TIMEOUT_MS = Number(process.env.PUNTOVIVO_SMOKE_TIMEOUT_MS) || 45_000;
 const RENDERER_TIMEOUT_MS = Number(process.env.PUNTOVIVO_RENDERER_SMOKE_TIMEOUT_MS) || 90_000;
@@ -84,59 +84,7 @@ function redactSensitiveOutput(value) {
   return value.replace(/(\[Database\] Password:\s+)\S+/g, '$1[Redacted]');
 }
 
-/** Resolve the launchable binary for the current platform under `input`. */
-function resolveBinary(input) {
-  if (!existsSync(input)) fail(`path does not exist: ${input}`);
-
-  // macOS: a .app bundle (directly, or the app bundle found under input). forge
-  // names it Puntovivo.app, electron-builder puntovivo.app, so match any .app
-  // that carries our executable.
-  if (process.platform === 'darwin') {
-    const app = input.endsWith('.app')
-      ? input
-      : findUnder(input, n => n.endsWith('.app') && /puntovivo/i.test(n));
-    if (app) {
-      const bin = path.join(app, 'Contents', 'MacOS', EXECUTABLE);
-      if (existsSync(bin)) return bin;
-    }
-    fail(`no *.app with Contents/MacOS/${EXECUTABLE} under ${input}`);
-  }
-
-  // Linux / Windows: the executable inside the packaged dir
-  const exe = process.platform === 'win32' ? `${EXECUTABLE}.exe` : EXECUTABLE;
-  if (statSync(input).isFile() && path.basename(input) === exe) return input;
-  const found = findUnder(input, n => n === exe, /* wantFile */ true);
-  if (found) return found;
-  fail(`no ${exe} executable under ${input}`);
-}
-
 /** Shallow BFS for a dir (or file) whose basename matches, skipping into .app. */
-function findUnder(root, match, wantFile = false) {
-  const queue = [root];
-  let depth = 0;
-  while (queue.length && depth < 6) {
-    const next = [];
-    for (const dir of queue) {
-      let entries;
-      try {
-        entries = readdirSync(dir, { withFileTypes: true });
-      } catch {
-        continue;
-      }
-      for (const e of entries) {
-        const full = path.join(dir, e.name);
-        const isDir = e.isDirectory();
-        if (match(e.name) && (wantFile ? e.isFile() : isDir)) return full;
-        if (isDir && !e.name.endsWith('.app')) next.push(full);
-      }
-    }
-    queue.length = 0;
-    queue.push(...next);
-    depth += 1;
-  }
-  return null;
-}
-
 /** Walk a dir (bounded) and report whether any *.node addon exists under it. */
 function hasNodeAddon(dir) {
   if (!existsSync(dir)) return false;
@@ -204,7 +152,12 @@ function checkStructure(binary) {
 }
 
 const input = findInput();
-const binary = resolveBinary(input);
+let binary;
+try {
+  binary = resolvePackagedBinary(input);
+} catch (error) {
+  fail(error.message);
+}
 checkStructure(binary);
 
 if (process.argv.includes('--structure-only')) {

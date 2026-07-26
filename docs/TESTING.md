@@ -148,14 +148,26 @@ prompts; the separate runtime smoke keeps exercising the normal OS-key-store
 startup path. This exact-name contract prevents stale local output from being
 reported as current evidence.
 
-The manual workflow records distribution trust as `not-assessed`: it does not
-load release signing credentials. A green manual package build therefore does
-not prove Developer ID/Authenticode trust or macOS notarization. Record those
-checks from the release workflow and representative host (`codesign`, `spctl`,
-or the Windows signature verifier) before accepting the candidate.
-The manual macOS package is explicitly ad-hoc signed so the runtime smoke can
-prove it launches; ad-hoc signing remains validation-only and is not a
-substitute for Developer ID signing or notarization.
+Distribution trust is now measured rather than declared. On macOS the collector
+runs the host's own tooling against the packaged bundle — `codesign --verify
+--deep --strict`, `xcrun stapler validate` and `spctl --assess` — and records
+one of four verdicts plus the per-check evidence:
+
+- `trusted` — signed, notarized, and accepted by Gatekeeper.
+- `signed-not-notarized` — a valid signature without a stapled ticket. This is
+  what the manual workflow produces, because it ad-hoc signs so the runtime
+  smoke can launch the app and never loads release signing credentials.
+- `untrusted` — the signature did not verify, or the tooling could not answer.
+  A tool that is absent is recorded as unknown and never counted as a pass.
+- `unsupported-platform` — Linux and Windows, whose trust models this collector
+  does not assess. It is reported as its own state so it cannot be mistaken for
+  either a pass or a failure; verify those hosts separately with the Windows
+  signature verifier before accepting a candidate.
+
+The verdict is reported, not enforced: an untrusted manual build is the expected
+outcome and must not fail evidence collection. Only `trusted` on every required
+platform clears the release gate, and reaching it requires the release workflow
+with real Developer ID material — ad-hoc signing remains validation-only.
 
 Run `pnpm run rehearse:upgrade-recovery` for the database migration item. It
 builds a verified v1.7.0 encrypted fixture with two tenant graphs, upgrades it

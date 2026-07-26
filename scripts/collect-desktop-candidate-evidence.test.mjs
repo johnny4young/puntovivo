@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -64,9 +64,42 @@ test('collectCandidateEvidence selects only the exact version/platform/architect
     packagedRuntimeSmoke: 'passed',
     packagedRendererSmoke: 'passed',
     updateFeedMatchesInstaller: 'passed',
-    distributionTrust: 'not-assessed',
+    // The fixture has no .app to inspect, so trust is explicitly unassessed
+    // rather than defaulted to something reassuring.
+    distributionTrust: 'unsupported-platform',
   });
+  assert.equal(evidence.distributionTrustReport.assessed, false);
+  assert.match(evidence.distributionTrustReport.reason, /no \.app bundle/);
   assert.equal(evidence.generatedAt, '2026-07-24T14:00:00.000Z');
+});
+
+test('collectCandidateEvidence assesses trust against a bundle beside the installer', async () => {
+  const dir = fixture();
+  // A structurally-present but unsigned bundle: whatever the host's tooling
+  // reports, an unsigned app must never come back trusted.
+  mkdirSync(path.join(dir, 'mac-arm64', 'puntovivo.app', 'Contents', 'MacOS'), {
+    recursive: true,
+  });
+  writeFileSync(
+    path.join(dir, 'mac-arm64', 'puntovivo.app', 'Contents', 'MacOS', 'puntovivo'),
+    ''
+  );
+
+  const evidence = await collectCandidateEvidence(input(dir));
+
+  assert.equal(evidence.checks.distributionTrust, 'untrusted');
+  assert.equal(evidence.distributionTrustReport.assessed, true);
+  assert.deepEqual(
+    evidence.distributionTrustReport.checks.map(check => check.id),
+    ['code-signing', 'notarization', 'gatekeeper']
+  );
+});
+
+test('the evidence schema version moves when the manifest shape changes', async () => {
+  // distributionTrust stopped being a constant string in schema 4 and gained a
+  // sibling report; a reader pinned to 3 would misread both.
+  const evidence = await collectCandidateEvidence(input(fixture()));
+  assert.equal(evidence.schemaVersion, 4);
 });
 
 test('collectCandidateEvidence rejects a checkout that differs from the requested candidate', async () => {

@@ -30,8 +30,10 @@ import {
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { assessDistributionTrust } from './lib/distribution-trust.mjs';
+import { resolvePackagedAppBundle } from './lib/packaged-binary.mjs';
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 const PLATFORM_CONTRACT = {
@@ -143,6 +145,13 @@ export async function collectCandidateEvidence(input) {
   }
 
   const feed = parseUpdateFeed(readFileSync(feedPath, 'utf8'));
+
+  // The .app sits beside the installer in the packaging output; off macOS this
+  // resolves to null and the assessment reports unsupported-platform.
+  const trust = assessDistributionTrust({
+    appPath: resolvePackagedAppBundle(input.outDir, input.platform),
+    platform: input.platform,
+  });
   if (feed.version !== input.version) {
     throw new Error(
       `update feed version ${feed.version} does not match package version ${input.version}`
@@ -187,11 +196,14 @@ export async function collectCandidateEvidence(input) {
       packagedRuntimeSmoke: 'passed',
       packagedRendererSmoke: input.rendererSmoke,
       updateFeedMatchesInstaller: 'passed',
-      // This collector verifies artifact integrity only. Distribution trust
-      // requires platform trust stores/signing credentials and must never be
-      // promoted through an unchecked CLI string.
-      distributionTrust: 'not-assessed',
+      // A real verdict from the host's own trust tooling, never a CLI string:
+      // trust is the one field an operator must not be able to assert. It is
+      // reported, not enforced — the manual matrix builds without signing
+      // credentials on purpose, so an untrusted verdict there is expected and
+      // must not fail collection. The release workflow is where it gates.
+      distributionTrust: trust.verdict,
     },
+    distributionTrustReport: trust,
     artifacts: {
       installer,
       blockmap: existsSync(blockmapPath) ? await artifactRecord(blockmapPath) : null,
