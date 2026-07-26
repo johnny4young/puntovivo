@@ -245,9 +245,39 @@ async function launchPackagedRenderer(userDataDir: string): Promise<{
     page,
     dispose: async () => {
       await browser.close().catch(() => {});
-      child.kill();
+      await terminate(child);
     },
   };
+}
+
+/**
+ * Stop the packaged app and make sure it is actually gone.
+ *
+ * SIGTERM alone is not enough. Puntovivo's main process is tray-aware, so it
+ * keeps running after its window closes — the same reason the dev fixture has
+ * to call `app.quit()` before `close()`. A packaged build has no attachable
+ * main process to ask nicely, so this waits briefly and then escalates. Without
+ * the escalation every packaged run left a live app behind, and they
+ * accumulated across a session until the dock filled with them.
+ */
+async function terminate(child: ChildProcess): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+
+  const exited = new Promise<void>(resolve => child.once('exit', () => resolve()));
+  child.kill('SIGTERM');
+
+  const escalated = await Promise.race([
+    exited.then(() => false),
+    new Promise<boolean>(resolve => setTimeout(() => resolve(true), 3_000)),
+  ]);
+
+  if (escalated) {
+    child.kill('SIGKILL');
+    await Promise.race([
+      exited,
+      new Promise<void>(resolve => setTimeout(resolve, 3_000)),
+    ]);
+  }
 }
 
 /** A free loopback port for the renderer's DevTools endpoint. */

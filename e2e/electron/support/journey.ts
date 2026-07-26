@@ -74,6 +74,15 @@ export async function signIn(page: Page, email: string, password = E2E_PASSWORD)
   await emailInput.fill(email);
   await page.getByRole('textbox', { name: /password/i }).fill(password);
   await page.getByRole('button', { name: /enter workspace|entrar al espacio de trabajo/i }).click();
+
+  // Wait for the post-login redirect to settle before returning. Without this
+  // the caller's own navigation races it: the app finishes authenticating,
+  // redirects to its landing route, and silently discards wherever the journey
+  // had just navigated to.
+  await expect(page).not.toHaveURL(/\/login/, { timeout: 30_000 });
+  await expect(page.getByRole('button', { name: /open user menu/i })).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
 /**

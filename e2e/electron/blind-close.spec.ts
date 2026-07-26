@@ -35,14 +35,15 @@ const REGISTER = 'E2E Close Register';
 
 test.describe('blind close on the desktop app', () => {
   // INCOMPLETE, and marked so it is reported rather than quietly absent.
-  // The journey below is correct in shape — the role split is the finding that
-  // matters — but the admin of the baseline tenant does not surface the
-  // "Add Product" control the first-sale tenant does, so stocking the shelf
-  // needs UI discovery this spec has not done yet. Do not delete: the role
-  // gating documented above is the expensive part and is already right.
+  // Everything up to the sale now works: the admin stocks the shelf and the
+  // cashier opens the drawer. The sale is then refused with
+  // SALE_INSUFFICIENT_STOCK because the stock the admin created and the site
+  // the cashier is serving from are not the same one. The web journey solves
+  // this with a switchToSite helper that lives inside business.spec.ts and is
+  // not exported; pinning both roles to one site is the remaining work.
   test.fixme(
     true,
-    'baseline-tenant admin does not expose the Add Product control; stocking step needs UI discovery'
+    'admin-created stock and the cashier active site differ; both roles need pinning to one site'
   );
   test('closes a drawer with an overage and reports the discrepancy', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
