@@ -1,0 +1,148 @@
+---
+import PageHeader from '../components/PageHeader.astro';
+import Icon from '../components/Icon.astro';
+import LeadForm from '../components/LeadForm.astro';
+import { useTranslations } from '../i18n/index.js';
+import { localizedHref } from '../lib/paths.js';
+import { REPO_URL } from '../lib/release.js';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+const ISSUES_URL = `${REPO_URL}/issues`;
+const DISCUSSIONS_URL = `${REPO_URL}/discussions`;
+const EMAIL = 'asesordeprogramacion@gmail.com';
+
+// Real, public contact channels only. Puntovivo is an open-source solo project,
+// so there is no sales/support team, no SLA, no WhatsApp Business, no booking,
+// and no offices — those were fabricated. Everything routes to GitHub or email.
+const CHANNELS = [
+  {
+    key: 'issues',
+    icon: 'github',
+    href: ISSUES_URL,
+    value: 'github.com/johnny4young/puntovivo/issues',
+  },
+  {
+    key: 'discussions',
+    icon: 'message-circle',
+    href: DISCUSSIONS_URL,
+    value: 'github.com/johnny4young/puntovivo/discussions',
+  },
+  { key: 'email', icon: 'mail', href: `mailto:${EMAIL}`, value: EMAIL },
+];
+
+const steps = t('contacto.contribute.steps');
+---
+
+<PageHeader
+  kicker={t('contacto.kicker')}
+  lead={t('contacto.lead')}
+  crumbs={[
+    { label: t('contacto.crumbInicio'), href: localizedHref(base, lang, '/') },
+    { label: t('contacto.crumbEmpresa') },
+    { label: t('contacto.crumbContacto') },
+  ]}
+  badges={[
+    { label: t('contacto.badgeOpen'), tone: 'pv-badge-primary' },
+    { label: t('contacto.badgeIssues'), tone: 'pv-badge-amber' },
+    { label: t('contacto.badgeMit'), tone: 'pv-badge-neutral' },
+  ]}
+>
+  <Fragment slot="title">
+    {t('contacto.titleA')}<em>{t('contacto.titleEm')}</em>{t('contacto.titleB')}
+  </Fragment>
+
+  <div class="ct-aside" slot="aside">
+    <div class="ct-aside-now">
+      <span class="dot"></span>
+      <div>
+        <span class="t">{t('contacto.asideTitle')}</span>
+        <span class="s">{t('contacto.asideSub')}</span>
+      </div>
+    </div>
+    <div class="ct-aside-foot">
+      <Icon name="info" size={12} /> {t('contacto.asideFoot')}
+    </div>
+  </div>
+</PageHeader>
+
+{/* A-05 — the waitlist section sits above the channels: it is the conversion
+    element of the page. */}
+<section class="pv-shell pv-section" style="padding-top:48px">
+  <div class="ct-lead">
+    <div class="ct-lead-copy">
+      <span class="pv-kicker">{t('contacto.leadForm.kicker')}</span>
+      <h2 class="pv-display">{t('contacto.leadForm.title')}</h2>
+      <p class="desc">{t('contacto.leadForm.desc')}</p>
+    </div>
+    <LeadForm lang={lang} source="contacto" fallbackEmail={EMAIL} />
+  </div>
+</section>
+
+<section class="pv-shell pv-section" style="padding-top:48px">
+  <div class="head">
+    <span class="pv-kicker">{t('contacto.channelsKicker')}</span>
+    <h2 class="pv-display">{t('contacto.channelsTitle')}</h2>
+    <p class="desc">{t('contacto.channelsDesc')}</p>
+  </div>
+  <div class="ct-channels">
+    {
+      CHANNELS.map(c => {
+        const external = c.href.startsWith('http');
+        return (
+          <a
+            class="ct-channel"
+            href={c.href}
+            target={external ? '_blank' : undefined}
+            rel={external ? 'noopener noreferrer' : undefined}
+          >
+            <span class="glyph">
+              <Icon name={c.icon} size={20} />
+            </span>
+            <div class="body">
+              <span class="t">{t(`contacto.channels.${c.key}.title`)}</span>
+              <span class="d">{t(`contacto.channels.${c.key}.desc`)}</span>
+              <span class="v">{c.value}</span>
+            </div>
+            <Icon name="arrow-up-right" size={16} />
+          </a>
+        );
+      })
+    }
+  </div>
+</section>
+
+<section class="pv-shell pv-section">
+  <div class="ct-contribute">
+    <div class="ct-contribute-l">
+      <span class="pv-kicker">{t('contacto.contribute.kicker')}</span>
+      <h2 class="pv-display">{t('contacto.contribute.title')}</h2>
+      <p>{t('contacto.contribute.desc')}</p>
+      <div style="display:inline-flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+        <a class="pv-btn pv-btn-primary" href={ISSUES_URL} target="_blank" rel="noopener noreferrer">
+          <Icon name="github" size={16} /> {t('contacto.contribute.ctaIssues')}
+        </a>
+        <a
+          class="pv-btn pv-btn-outline"
+          href={DISCUSSIONS_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Icon name="message-circle" size={16} /> {t('contacto.contribute.ctaDiscussions')}
+        </a>
+      </div>
+    </div>
+    <ol class="ct-contribute-steps">
+      {
+        steps.map((s, i) => (
+          <li>
+            <span class="num">{String(i + 1).padStart(2, '0')}</span>
+            <span class="d">{s}</span>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>

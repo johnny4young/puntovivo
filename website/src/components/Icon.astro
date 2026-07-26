@@ -1,0 +1,72 @@
+---
+// Inline SVG icon, resolved at build time so no icon library reaches the
+// browser.
+//
+// Two shapes, because the React build had two call styles and they render
+// differently:
+//   - default: the `<Icon name=… />` helper the secondary pages used — a sized
+//     flex span around a stroke-width 1.5 glyph.
+//   - `raw`:   a lucide component used directly, as the landing did — a bare
+//     svg at lucide's own stroke-width 2, with no wrapper box.
+// Collapsing the two would shift both the glyph weight and the layout around
+// it, so the distinction is deliberate.
+import { iconInner } from '../lib/icons.js';
+
+const {
+  name,
+  size = 18,
+  color,
+  raw = false,
+  strokeWidth = raw ? 2 : 1.5,
+  class: className = '',
+  style = '',
+  ...rest
+} = Astro.props;
+
+const body = iconInner(name);
+const boxStyle = [
+  'display:inline-flex',
+  'align-items:center',
+  'justify-content:center',
+  `width:${size}px`,
+  `height:${size}px`,
+  `color:${color || 'currentColor'}`,
+  style,
+]
+  .filter(Boolean)
+  .join(';');
+---
+
+{
+  raw ? (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color || 'currentColor'}
+      stroke-width={strokeWidth}
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class={className}
+      aria-hidden="true"
+      {...rest}
+      set:html={body}
+    />
+  ) : (
+    <span class={className} style={boxStyle}>
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width={strokeWidth}
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        set:html={body}
+      />
+    </span>
+  )
+}

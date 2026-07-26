@@ -1,0 +1,91 @@
+---
+// Shared document shell for every page in every locale.
+//
+// This replaces index.html + AppShell.jsx + the prerender's head injection.
+// The markup it emits is the whole page: there is no hydration root and no
+// framework bundle, so what ships is what the browser paints.
+import { headTagsFor } from '../lib/routeMeta.js';
+import { getAnalyticsConfig } from '../lib/leads.js';
+import { assetHref } from '../lib/paths.js';
+import { DEFAULT_LANG } from '../i18n/config.js';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
+// Design CSS, imported so Astro bundles and hashes it. Order matters: tokens
+// first (defines the CSS vars), then the site + AI-section rules + the
+// secondary-page rules that consume them.
+import '../styles/tokens.css';
+import '../styles/site.css';
+import '../styles/ai-section.css';
+import '../styles/pages.css';
+
+// A page is normally identified by its route, which resolves to the SEO block
+// in routeMeta. The 404 page has no route in the site's information
+// architecture, so it passes its own title and asks not to be indexed.
+const { lang = DEFAULT_LANG, route, title, description, noindex = false } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const head = route
+  ? headTagsFor(lang, route)
+  : `<title>${title}</title>\n    <meta name="description" content="${description}" />`;
+
+// A-05 — privacy-default analytics: emitted ONLY when the operator sets both
+// VITE_ANALYTICS_SRC (https) and VITE_ANALYTICS_DOMAIN at build time.
+// The keys are named one by one on purpose: Vite materializes import.meta.env
+// by static analysis, so handing the whole object to a helper silently yields
+// undefined for anything the file never references by name.
+const analytics = getAnalyticsConfig({
+  VITE_ANALYTICS_SRC: import.meta.env.VITE_ANALYTICS_SRC,
+  VITE_ANALYTICS_DOMAIN: import.meta.env.VITE_ANALYTICS_DOMAIN,
+});
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href={assetHref(base, '/favicon.svg')} />
+    <meta name="theme-color" content="#2F6BE0" />
+    {noindex && <meta name="robots" content="noindex" />}
+    <Fragment set:html={head} />
+    {/* is:inline keeps Astro from treating this as one of its own bundled
+        scripts — it is a third-party tag that must ship exactly as written. */}
+    {analytics && <script is:inline defer src={analytics.src} data-domain={analytics.domain} />}
+    <script is:inline>
+      // Anti-FOUC: the document ships in light mode (the deterministic
+      // default). Restore the visitor's saved theme before first paint so a
+      // dark-mode visitor never sees a light flash. Dependency-free and
+      // synchronous, so the .dark class lands on <html> before the body paints.
+      (function () {
+        try {
+          var stored = localStorage.getItem('pv-theme');
+          var dark =
+            stored === 'dark' ||
+            (stored !== 'light' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          /* localStorage / matchMedia unavailable — stay on the light default */
+        }
+      })();
+    </script>
+  </head>
+  <style is:global>
+    /* The site hides alternate states (the other language's key spelling, the
+       inactive Co-pilot scenario, the lead form's success panel) with the
+       `hidden` attribute. The design stylesheets set `display` on those same
+       classes, which beats the user-agent rule for [hidden] — so every hidden
+       element would render. This restores the attribute's meaning. */
+    [hidden] {
+      display: none !important;
+    }
+  </style>
+  <body>
+    <div id="app">
+      <Nav lang={lang} route={route} />
+      <slot />
+      <Footer lang={lang} />
+    </div>
+  </body>
+</html>

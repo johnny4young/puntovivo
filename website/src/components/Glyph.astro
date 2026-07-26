@@ -1,0 +1,38 @@
+---
+// The four inline SVGs the AI section ships with, ported verbatim from the
+// design's ai-section.jsx (Spark, ShieldAlert, MagGlass, CameraInvoice). They
+// are hand-drawn rather than lucide artwork, so they stay in the repo.
+const { name, size = 18, stroke = 'currentColor', strokeWidth = 1.8 } = Astro.props;
+
+const PATHS = {
+  spark: ['M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z'],
+  'shield-alert': ['M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z', 'M12 8v4', 'M12 16h.01'],
+  'mag-glass': ['M21 21l-4.3-4.3'],
+  'camera-invoice': [
+    'M3 7a2 2 0 0 1 2-2h3l2-2h4l2 2h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  ],
+};
+
+const CIRCLES = {
+  'mag-glass': { cx: 11, cy: 11, r: 7 },
+  'camera-invoice': { cx: 12, cy: 13, r: 3.5 },
+};
+
+const paths = PATHS[name] ?? [];
+const circle = CIRCLES[name];
+---
+
+<svg
+  width={size}
+  height={size}
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke={stroke}
+  stroke-width={strokeWidth}
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  {circle && <circle cx={circle.cx} cy={circle.cy} r={circle.r} />}
+  {paths.map(d => <path d={d} />)}
+</svg>

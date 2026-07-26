@@ -1,0 +1,95 @@
+---
+// A-05 — the waitlist form the high-intent CTAs land on.
+//
+// Renders always (the fallback path still structures the lead into a mailto)
+// and upgrades transparently to a real POST when the operator configures
+// LEAD_ENDPOINT at build time. The `_gotcha` input is a honeypot: bots fill it,
+// humans never see it, and a filled honeypot short-circuits to the success
+// state without sending anything.
+//
+// Every state — success, invalid, error — ships in the markup and is toggled
+// with `hidden`, so the script never builds DOM and the form degrades to a
+// plain submit when the endpoint is configured server-side.
+import { useTranslations } from '../i18n/index.js';
+import { getLeadEndpoint } from '../lib/leads.js';
+import Icon from './Icon.astro';
+
+const { lang, source = 'contacto', fallbackEmail } = Astro.props;
+const t = useTranslations(lang);
+
+// Named explicitly rather than passing import.meta.env wholesale: Vite
+// materializes that object by static analysis, so a key this file never
+// mentions comes back undefined.
+const endpoint = getLeadEndpoint({ VITE_LEAD_ENDPOINT: import.meta.env.VITE_LEAD_ENDPOINT }) ?? '';
+---
+
+<div
+  class="ct-lead-done"
+  data-testid="lead-sent"
+  data-lead-success
+  hidden
+>
+  <Icon name="check-circle-2" size={18} />
+  <div>
+    <b>{t('contacto.leadForm.sentTitle')}</b>
+    <p>{t('contacto.leadForm.sentDesc')}</p>
+  </div>
+</div>
+
+<form
+  class="ct-lead-form"
+  novalidate
+  data-lead-form
+  data-endpoint={endpoint}
+  data-source={source}
+  data-fallback-email={fallbackEmail}
+  data-label-submit={t('contacto.leadForm.submit')}
+  data-label-sending={t('contacto.leadForm.sending')}
+>
+  <label class="ct-lead-field">
+    <span>{t('contacto.leadForm.emailLabel')}</span>
+    <input type="email" name="email" placeholder={t('contacto.leadForm.emailPlaceholder')} />
+  </label>
+  <div class="ct-lead-row">
+    <label class="ct-lead-field">
+      <span>{t('contacto.leadForm.sedesLabel')}</span>
+      <select name="sedes">
+        <option value="1">{t('contacto.leadForm.sedes1')}</option>
+        <option value="2-5">{t('contacto.leadForm.sedes2')}</option>
+        <option value="6+">{t('contacto.leadForm.sedes6')}</option>
+      </select>
+    </label>
+    <label class="ct-lead-field">
+      <span>{t('contacto.leadForm.interestLabel')}</span>
+      <select name="interest">
+        <option value="nube">{t('contacto.leadForm.interestNube')}</option>
+        <option value="escritorio">{t('contacto.leadForm.interestEscritorio')}</option>
+        <option value="ambas">{t('contacto.leadForm.interestAmbas')}</option>
+      </select>
+    </label>
+  </div>
+  {/* Honeypot — visually hidden, never announced. */}
+  <input
+    type="text"
+    name="_gotcha"
+    tabindex="-1"
+    autocomplete="off"
+    aria-hidden="true"
+    style="position:absolute;left:-9999px;height:0;width:0;opacity:0"
+  />
+  <p class="ct-lead-error" role="alert" data-lead-error="invalid" hidden>
+    {t('contacto.leadForm.invalidEmail')}
+  </p>
+  <p class="ct-lead-error" role="alert" data-lead-error="send" hidden>
+    {t('contacto.leadForm.sendError')}
+  </p>
+  <button class="pv-btn pv-btn-primary" type="submit">
+    <Icon name="mail" size={16} />
+    <span data-lead-submit-label>{t('contacto.leadForm.submit')}</span>
+  </button>
+  <p class="ct-lead-privacy">{t('contacto.leadForm.privacy')}</p>
+</form>
+
+<script>
+  import '../scripts/lead-form.js';
+</script>

@@ -1,0 +1,35 @@
+---
+import { useTranslations } from '../i18n/index.js';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const items = t('aiFaq.items');
+---
+
+<section class="pv-shell pv-section" id="ai-faq">
+  <div class="ai-faq-wrap">
+    <div class="head">
+      <div class="l">
+        <span class="kicker">{t('aiFaq.kicker')}</span>
+        <h3>{t('aiFaq.title')}</h3>
+        <p>{t('aiFaq.desc')}</p>
+      </div>
+      <span class="badge-trust">
+        <span class="d"></span> {t('aiFaq.badge')}
+      </span>
+    </div>
+    <div class="pv-faq">
+      {
+        items.map(({ q, a }) => (
+          <details>
+            <summary>
+              {q}
+              <span class="plus">+</span>
+            </summary>
+            <div class="ans">{a}</div>
+          </details>
+        ))
+      }
+    </div>
+  </div>
+</section>

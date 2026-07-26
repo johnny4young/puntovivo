@@ -1,0 +1,41 @@
+---
+// PMark — the official Puntovivo logo (lowercase "p" + amber counter dot).
+//   variant="tile" (default) → filled-blue squircle with a white p.
+//   variant="flat"           → transparent bg, p inherits currentColor.
+// Mirror of logo/symbols.jsx SymbolPMark — keep in sync.
+const { size = 30, variant = 'tile', color, style = '' } = Astro.props;
+
+const baseStyle = ['display:inline-block', 'line-height:0', style].filter(Boolean).join(';');
+const flatStyle = `color:${color || 'var(--primary, #2F6BE0)'};${baseStyle}`;
+const P_PATH =
+  'M14 10 H26.5 A9.5 9.5 0 0 1 26.5 29 H19 V40 H14 Z M19 15 V24 H26.5 A4.5 4.5 0 0 0 26.5 15 Z';
+---
+
+{
+  variant === 'flat' ? (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      aria-hidden="true"
+      style={flatStyle}
+      shape-rendering="geometricPrecision"
+    >
+      <path fill-rule="evenodd" clip-rule="evenodd" d={P_PATH} fill="currentColor" />
+      <circle cx="25" cy="19.5" r="2.2" fill="var(--brand-accent-500, #E69323)" />
+    </svg>
+  ) : (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      aria-hidden="true"
+      style={baseStyle}
+      shape-rendering="geometricPrecision"
+    >
+      <rect x="0" y="0" width="48" height="48" rx="11" fill={color || 'var(--primary, #2F6BE0)'} />
+      <path fill-rule="evenodd" clip-rule="evenodd" d={P_PATH} fill="#fff" />
+      <circle cx="25" cy="19.5" r="2.2" fill="var(--brand-accent-500, #E69323)" />
+    </svg>
+  )
+}

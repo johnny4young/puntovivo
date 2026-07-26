@@ -1,67 +1,64 @@
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
+// Build-time i18n for the static site.
+//
+// The React build shipped i18next + react-i18next and swapped languages in the
+// browser, which meant the English copy existed only after hydration and was
+// invisible to crawlers. Astro renders one HTML file per locale instead, so
+// translation happens entirely at build time and no i18n runtime is served.
+//
+// The locale JSON files are unchanged: same dotted keys, same values.
 
 import es from './es.json';
 import en from './en.json';
+import { DEFAULT_LANG, LANG_STORAGE_KEY, SUPPORTED_LANGS } from './config.js';
 
-export const LANG_STORAGE_KEY = 'pv-lang';
-export const SUPPORTED_LANGS = ['es', 'en'];
-export const DEFAULT_LANG = 'es';
+export { DEFAULT_LANG, LANG_STORAGE_KEY, SUPPORTED_LANGS };
 
-// i18n is initialised in the DEFAULT language unconditionally. This is the SSR
-// default, and the client's first paint must match it exactly to hydrate
-// without a text mismatch — so we deliberately do NOT read localStorage at
-// init time. The stored language is applied AFTER hydration via
-// restoreStoredLanguage() (called from a mount effect in AppShell), at which
-// point react-i18next re-renders the tree into the user's language.
-i18n.use(initReactI18next).init({
-  resources: {
-    es: { translation: es },
-    en: { translation: en },
-  },
-  lng: DEFAULT_LANG,
-  fallbackLng: DEFAULT_LANG,
-  supportedLngs: SUPPORTED_LANGS,
-  interpolation: {
-    // We render brand strings ourselves and never inject user input, so
-    // disabling HTML escaping keeps interpolated values (e.g. the version
-    // tag) verbatim. Rich-text answers are handled via <Trans>, not raw HTML.
-    escapeValue: false,
-  },
-  returnObjects: true,
-});
+const RESOURCES = { es, en };
 
-// Keep <html lang> in sync with the active language for a11y / SEO, and persist
-// language changes. Guarded for SSR (no document on the server).
-if (typeof document !== 'undefined') {
-  document.documentElement.lang = i18n.language;
-  i18n.on('languageChanged', lng => {
-    document.documentElement.lang = lng;
-    try {
-      localStorage.setItem(LANG_STORAGE_KEY, lng);
-    } catch {
-      /* ignore persistence failures */
-    }
-  });
+/** Walk a dotted path ("footer.productLinks") through a plain object. */
+function lookup(bundle, key) {
+  let node = bundle;
+  for (const part of key.split('.')) {
+    if (node === null || typeof node !== 'object' || !(part in node)) return undefined;
+    node = node[part];
+  }
+  return node;
+}
+
+/** Replace {{name}} placeholders. Values are inserted verbatim, as before. */
+function interpolate(value, vars) {
+  if (typeof value !== 'string' || !vars) return value;
+  return value.replace(/\{\{(\w+)\}\}/g, (whole, name) =>
+    Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : whole
+  );
 }
 
 /**
- * Read the user's stored language preference and switch to it. Call this once
- * on the client AFTER hydration (never during SSR or first paint) so the
- * server-rendered Spanish markup hydrates cleanly before any language swap.
- * No-op when the stored language is missing, unsupported, or already active.
+ * Translator bound to one locale. A missing key falls back to the default
+ * language and then throws: a marketing page that silently renders a raw key
+ * is a defect that ships looking like copy.
+ *
+ * Arrays come back as arrays (the old `returnObjects: true` call sites), and
+ * objects come back untouched for callers that walk them.
  */
-export function restoreStoredLanguage() {
-  let stored;
-  try {
-    stored = localStorage.getItem(LANG_STORAGE_KEY);
-  } catch {
-    /* localStorage may be unavailable (private mode) */
-    return;
-  }
-  if (stored && SUPPORTED_LANGS.includes(stored) && stored !== i18n.language) {
-    i18n.changeLanguage(stored);
-  }
+export function useTranslations(lang) {
+  const primary = RESOURCES[lang] ?? RESOURCES[DEFAULT_LANG];
+  const fallback = RESOURCES[DEFAULT_LANG];
+
+  return function t(key, vars) {
+    let value = lookup(primary, key);
+    if (value === undefined) value = lookup(fallback, key);
+    if (value === undefined) {
+      throw new Error(`i18n: missing key "${key}" for locale "${lang}".`);
+    }
+    if (Array.isArray(value)) return value.map(item => interpolate(item, vars));
+    return interpolate(value, vars);
+  };
 }
 
-export default i18n;
+/** True when `lang` is one we actually build. */
+export function isSupportedLang(lang) {
+  return SUPPORTED_LANGS.includes(lang);
+}
+
+export { es, en };

@@ -1,0 +1,160 @@
+---
+import PageHeader from '../components/PageHeader.astro';
+import Icon from '../components/Icon.astro';
+import { useTranslations } from '../i18n/index.js';
+import { localizedHref } from '../lib/paths.js';
+import { REPO_URL } from '../lib/release.js';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+const COLUMN_KEYS = ['now', 'next', 'later'];
+
+const SIZE_LABELS = {
+  S: `S · ${t('roadmap.sizeWeek')}`,
+  M: `M · ${t('roadmap.sizeWeeks')}`,
+  L: `L · ${t('roadmap.sizeMonths')}`,
+  XL: `XL · ${t('roadmap.sizeQuarter')}`,
+};
+
+const areas = t('roadmap.filterAreas');
+const shipped = t('roadmap.shipped');
+const columns = COLUMN_KEYS.map(key => ({ key, col: t(`roadmap.columns.${key}`) }));
+---
+
+<PageHeader
+  kicker={t('roadmap.kicker')}
+  lead={t('roadmap.lead')}
+  crumbs={[
+    { label: t('roadmap.crumbInicio'), href: localizedHref(base, lang, '/') },
+    { label: t('roadmap.crumbEmpresa') },
+    { label: t('roadmap.crumbRoadmap') },
+  ]}
+  badges={[
+    { label: t('roadmap.badgeUpdated'), tone: 'pv-badge-primary' },
+    { label: t('roadmap.badgeIdeas'), tone: 'pv-badge-amber' },
+    { label: t('roadmap.badgePublic'), tone: 'pv-badge-neutral' },
+  ]}
+>
+  <Fragment slot="title">
+    {t('roadmap.titleA')}<br /> {t('roadmap.titleB')}<em>{t('roadmap.titleEm')}</em>{
+      t('roadmap.titleC')
+    }
+  </Fragment>
+
+  <div class="rm-legend" slot="aside">
+    <span class="pv-label">{t('roadmap.legendTitle')}</span>
+    <div class="rm-legend-row">
+      <span class="rm-leg"><span class="dot now"></span>{t('roadmap.legendNow')}</span>
+      <span class="rm-leg"><span class="dot next"></span>{t('roadmap.legendNext')}</span>
+      <span class="rm-leg"><span class="dot later"></span>{t('roadmap.legendLater')}</span>
+      <span class="rm-sep">·</span>
+      <span class="rm-leg"><span class="rm-size" data-size="S">S</span>{t('roadmap.sizeWeek')}</span>
+      <span class="rm-leg"
+        ><span class="rm-size" data-size="M">M</span>{t('roadmap.sizeWeeks')}</span
+      >
+      <span class="rm-leg"
+        ><span class="rm-size" data-size="L">L</span>{t('roadmap.sizeMonths')}</span
+      >
+      <span class="rm-leg"
+        ><span class="rm-size" data-size="XL">XL</span>{t('roadmap.sizeQuarter')}</span
+      >
+    </div>
+  </div>
+</PageHeader>
+
+<section class="pv-shell pv-section" style="padding-top:48px">
+  <div class="rm-filters">
+    <span class="pv-label">{t('roadmap.filtersTitle')}</span>
+    <div class="rm-filter-row">
+      {areas.map((a, i) => <span class={'rm-chip' + (i === 0 ? ' on' : '')}>{a}</span>)}
+    </div>
+  </div>
+  <div class="rm-board">
+    {
+      columns.map(({ key, col }) => (
+        <section class={'rm-col rm-col-' + key}>
+          <header class="rm-col-head">
+            <div>
+              <span class="rm-col-kicker">{col.kicker}</span>
+              <h3 class="pv-display">{col.label}</h3>
+            </div>
+            <span class="rm-col-count">{col.items.length}</span>
+          </header>
+          <p class="rm-col-desc">{col.desc}</p>
+          <div class="rm-col-list">
+            {col.items.map(item => (
+              <article class="rm-card">
+                <header>
+                  <span class="area">{item.area}</span>
+                  <span class="rm-size" data-size={item.size}>
+                    {item.size}
+                    <span class="exp">{SIZE_LABELS[item.size] || item.size}</span>
+                  </span>
+                </header>
+                <h4>{item.t}</h4>
+                <p>{item.d}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ))
+    }
+  </div>
+</section>
+
+<section class="pv-shell pv-section">
+  <div class="head">
+    <span class="pv-kicker">{t('roadmap.shippedKicker')}</span>
+    <h2 class="pv-display">{t('roadmap.shippedTitle')}</h2>
+  </div>
+  <div class="rm-shipped">
+    {
+      shipped.map(s => (
+        <div class="rm-ship-row">
+          <span class="when">{s.when}</span>
+          <span class="line" />
+          <span class="t">{s.t}</span>
+          <span class="area">{s.area}</span>
+          <Icon name="check" size={14} color="var(--success-700)" />
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+<section class="pv-shell pv-section">
+  <div class="rm-vote">
+    <div class="rm-vote-l">
+      <span class="pv-kicker">{t('roadmap.voteKicker')}</span>
+      <h2 class="pv-display">{t('roadmap.voteTitle')}</h2>
+      <p>{t('roadmap.voteDesc')}</p>
+    </div>
+    <div class="rm-vote-r">
+      <div class="rm-vote-input">
+        <Icon name="lightbulb" size={16} color="var(--primary-700)" />
+        <span class="ph">{t('roadmap.votePlaceholder')}</span>
+        <span class="key"><span class="pv-key">⏎</span></span>
+      </div>
+      <div style="display:inline-flex;gap:8px;flex-wrap:wrap">
+        <a
+          class="pv-btn pv-btn-primary pv-btn-sm"
+          href={`${REPO_URL}/issues/new`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Icon name="send" size={14} /> {t('roadmap.voteSend')}
+        </a>
+        <a
+          class="pv-btn pv-btn-outline pv-btn-sm"
+          href={`${REPO_URL}/issues`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Icon name="github" size={14} /> {t('roadmap.voteIssues')}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>

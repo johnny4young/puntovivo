@@ -56,9 +56,14 @@ export function buildLeadMailto(to, payload) {
 // --- analytics (same env-in pattern) ---------------------------------------
 
 /**
- * Privacy-default analytics: nothing is injected unless the operator sets
- * BOTH the script src (https) and the site domain at build time — the
+ * Privacy-default analytics: nothing is emitted unless the operator sets BOTH
+ * the script src (https) and the site domain at build time — the
  * Plausible/Umami deferred-script pattern.
+ *
+ * The React build injected the tag at runtime because the markup was
+ * script-free. The layout now emits it directly when configured, so an
+ * unconfigured site ships no analytics code at all rather than shipping the
+ * injector that decides not to run.
  */
 export function getAnalyticsConfig(env) {
   const src = typeof env?.VITE_ANALYTICS_SRC === 'string' ? env.VITE_ANALYTICS_SRC.trim() : '';
@@ -66,18 +71,4 @@ export function getAnalyticsConfig(env) {
     typeof env?.VITE_ANALYTICS_DOMAIN === 'string' ? env.VITE_ANALYTICS_DOMAIN.trim() : '';
   if (!/^https:\/\//.test(src) || domain.length === 0) return null;
   return { src, domain };
-}
-
-/** Idempotent runtime injection (client-only; SSG markup stays script-free). */
-export function injectAnalytics(env, doc) {
-  const config = getAnalyticsConfig(env);
-  if (!config || !doc) return false;
-  if (doc.querySelector('script[data-pv-analytics]')) return false;
-  const script = doc.createElement('script');
-  script.defer = true;
-  script.src = config.src;
-  script.setAttribute('data-domain', config.domain);
-  script.setAttribute('data-pv-analytics', 'true');
-  doc.head.appendChild(script);
-  return true;
 }

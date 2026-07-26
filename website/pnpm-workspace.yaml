@@ -3,9 +3,15 @@
 # `pnpm install --ignore-workspace` and carries its own settings here.
 #
 # pnpm 11 blocks dependency build scripts by default; esbuild needs its
-# postinstall to link the platform binary that vite consumes.
+# postinstall to link the platform binary that Astro's bundler consumes.
 allowBuilds:
   esbuild: true
+
+# lucide-static supplies the icon artwork, inlined into the HTML at build time.
+# 1.27.0 was selected deliberately during the Astro migration; pin it past the
+# release-age policy rather than relaxing that policy for every future release.
+minimumReleaseAgeExclude:
+  - lucide-static@1.27.0
 
 # pnpm 11 re-runs `install` before `pnpm run <script>` (deps-status check).
 # That check fails on the (intentionally) once-ignored esbuild build; the

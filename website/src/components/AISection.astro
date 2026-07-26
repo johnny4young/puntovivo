@@ -1,0 +1,356 @@
+---
+import Glyph from './Glyph.astro';
+import RichText from './RichText.astro';
+import { useTranslations } from '../i18n/index.js';
+import {
+  ANOMALIES,
+  OCR_FIELDS,
+  SCENARIO_DATA,
+  SCENARIO_IDS,
+  SEM_RESULTS,
+  STATUS_ITEMS,
+} from '../lib/aiScenarios.js';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+
+// The core pill shows the real tag once a release exists, otherwise a neutral
+// "open source" label — never a fabricated version. src/scripts/release.js
+// swaps it in place if the GitHub lookup finds one.
+const corePillTemplate = t('ai.corePillTagged', { version: '__V__' });
+
+const scenarios = SCENARIO_IDS.map((id, index) => ({
+  id,
+  index,
+  data: SCENARIO_DATA[id],
+  q: t(`ai.scenarios.${id}.q`),
+  ans: t(`ai.scenarios.${id}.ans`),
+  chips: t(`ai.scenarios.${id}.chips`),
+  headTitle: t(`ai.scenarios.${id}.headTitle`),
+  headSub: t(`ai.scenarios.${id}.headSub`),
+}));
+
+const statusLabels = t('ai.roadmap.items');
+---
+
+<section class="pv-shell pv-section" id="ai" data-ai-carousel>
+  <div class="head">
+    <span class="pv-kicker">{t('ai.kicker')}</span>
+    <h2 class="pv-display">
+      {t('ai.titleA')}<em style="font-style:normal;color:var(--primary-700)">{t('ai.titleEm')}</em>{
+        t('ai.titleB')
+      }
+    </h2>
+    <p class="desc">{t('ai.desc')}</p>
+  </div>
+
+  {/* Core bar */}
+  <div class="ai-corebar">
+    <span class="core-pill">
+      <span class="sparkle"><Glyph name="spark" size={11} strokeWidth={2.4} /></span>
+      <span data-release-version data-template={corePillTemplate}>{t('ai.corePillDev')}</span>
+    </span>
+    <span class="meta">
+      <span class="live-d"></span>
+      {t('ai.coreMeta')}
+    </span>
+  </div>
+
+  {/* Co-pilot hero pane */}
+  <div class="ai-hero">
+    <div class="ai-hero-grid">
+      <div class="ai-hero-left">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="pv-badge pv-badge-primary">
+            <span class="dot"></span> {t('ai.copilotBadge')}
+          </span>
+          <span class="pv-label">{t('ai.copilotLabel')}</span>
+        </div>
+        <h3>{t('ai.copilotTitleA')}<em>{t('ai.copilotTitleEm')}</em></h3>
+        <p class="lead">{t('ai.copilotLead')}</p>
+
+        {/* Both bubbles stay DIRECT children of .ai-convo: the layout's flex
+            gap sits between them, so wrapping each scenario in its own div
+            would silently drop that spacing. */}
+        <div class="ai-convo">
+          {
+            scenarios.map(s => (
+              <div class="ai-bubble-user ai-fade" data-scenario-index={s.index} hidden={s.index !== 0}>
+                {s.q}
+              </div>
+            ))
+          }
+          {
+            scenarios.map(s => (
+              <div class="ai-bubble-ai ai-fade" data-scenario-index={s.index} hidden={s.index !== 0}>
+                <div class="head">
+                  <span class="pip">
+                    <span class="dot" />
+                  </span>
+                  {t('ai.responseLabel')}
+                </div>
+                <div class="ans">
+                  <RichText text={s.ans} />
+                </div>
+                <div class="chips">
+                  {s.chips.map(c => (
+                    <span class="chip">{c}</span>
+                  ))}
+                </div>
+                <div class="foot">
+                  <span class="src">openai · gpt-4.1-mini</span>
+                  <span class="mono">{s.data.meta.rows}</span>
+                  <span class="mono">·</span>
+                  <span class="mono">{s.data.meta.cost}</span>
+                  <span class="mono">·</span>
+                  <span class="mono">{s.data.meta.ms}</span>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+
+        <div class="ai-input">
+          <Glyph name="spark" size={16} stroke="var(--primary-700)" />
+          <span class="ph">{t('ai.inputPlaceholder')}</span>
+          <span style="display:inline-flex;gap:4px">
+            <span class="pv-key">Alt</span>
+            <span class="pv-key">K</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="ai-hero-right">
+        <div class="ai-result-head">
+          <div class="l">
+            {
+              scenarios.map(s => (
+                <span class="ttl ai-fade" data-scenario-index={s.index} hidden={s.index !== 0}>
+                  {s.headTitle}
+                </span>
+              ))
+            }
+            {
+              scenarios.map(s => (
+                <span class="sub" data-scenario-index={s.index} hidden={s.index !== 0}>
+                  {s.headSub}
+                </span>
+              ))
+            }
+          </div>
+          <div class="ai-rotate-dots" role="tablist" aria-label={t('ai.scenarioAria')}>
+            {
+              scenarios.map(s => (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={s.index === 0 ? 'true' : 'false'}
+                  aria-label={t('ai.scenarioLabel', { n: s.index + 1 })}
+                  class={`dot${s.index === 0 ? ' on' : ''}`}
+                  data-scenario-dot
+                />
+              ))
+            }
+          </div>
+        </div>
+
+        {
+          scenarios.map(s => (
+            <div class="ai-bars ai-fade" data-scenario-index={s.index} hidden={s.index !== 0}>
+              {s.data.bars.map(p => (
+                <div>
+                  <div class="ai-bar-row">
+                    <span class="nm">
+                      <span class="idx">{p.i}</span> {p.n}
+                    </span>
+                    <span class="v">
+                      {p.q}
+                      {s.data.unit ? ` ${s.data.unit}` : ''}
+                    </span>
+                  </div>
+                  <div class="ai-bar-track">
+                    <div class="ai-bar-fill" style={`width:${p.w}%`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))
+        }
+
+        {
+          scenarios.map(s => (
+            <pre
+              class="ai-sql ai-fade"
+              data-scenario-index={s.index}
+              hidden={s.index !== 0}
+              set:html={s.data.sql}
+            />
+          ))
+        }
+
+        <div class="ai-result-foot">
+          {
+            scenarios.map(s => (
+              <span data-scenario-index={s.index} hidden={s.index !== 0}>
+                openai / gpt-4.1-mini · {s.data.meta.rows} · {s.data.meta.cost}
+              </span>
+            ))
+          }
+          <span style="display:inline-flex;align-items:center;gap:8px">
+            <span class="pv-key">↵</span> {t('ai.askAgain')}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* 3 capability cards */}
+  <div class="ai-cards">
+    {/* Card 1 · Anomalies */}
+    <div class="pv-card ai-card">
+      <div class="cap-head">
+        <span class="ic warn"><Glyph name="shield-alert" size={18} /></span>
+        <div style="display:flex;flex-direction:column">
+          <h4>{t('ai.cards.anomaliesTitle')}</h4>
+          <span class="pv-label" style="font-size:0.66rem">{t('ai.cards.anomaliesLabel')}</span>
+        </div>
+      </div>
+      <RichText text={t('ai.cards.anomaliesDesc')} as="p" class="desc" />
+
+      <div class="ai-anom">
+        {
+          ANOMALIES.map(a => (
+            <div class="ai-anom-row">
+              <span class={`lbl ${a.sev}`}>
+                <span class="d" />
+                {a.sev === 'alta' ? t('ai.cards.sevHigh') : t('ai.cards.sevMed')}
+              </span>
+              <span class="nm">
+                {t(`ai.cards.${a.typeKey}`)} <small>{a.who}</small>
+              </span>
+              <span class="vs">
+                <span class="obs">{a.obs}</span>
+                <span class="base">{a.base}</span>
+              </span>
+            </div>
+          ))
+        }
+      </div>
+
+      <div class="foot">{t('ai.cards.anomaliesFoot')}</div>
+    </div>
+
+    {/* Card 2 · Semantic search */}
+    <div class="pv-card ai-card">
+      <div class="cap-head">
+        <span class="ic"><Glyph name="mag-glass" size={18} /></span>
+        <div style="display:flex;flex-direction:column">
+          <h4>{t('ai.cards.semanticTitle')}</h4>
+          <span class="pv-label" style="font-size:0.66rem">
+            {t('ai.cards.semanticLabelA')}<em
+              style="font-style:normal;color:var(--brand-accent-700)"
+              >{t('ai.cards.semanticLabelEm')}</em
+            >
+          </span>
+        </div>
+      </div>
+      <RichText text={t('ai.cards.semanticDesc')} as="p" class="desc" />
+
+      <div class="ai-sem-input">
+        <Glyph name="spark" size={16} stroke="var(--brand-accent-700)" />
+        <span class="ph">{t('ai.cards.semanticQuery')}</span>
+        <span class="caret"></span>
+        <span class="ai-sem-tag">{t('ai.cards.semanticTag')}</span>
+      </div>
+
+      <div class="ai-sem-results">
+        {
+          SEM_RESULTS.map(r => (
+            <div class="ai-sem-result">
+              <span class="nm">
+                {r.nm} <small>{r.sku}</small>
+              </span>
+              <span class="score">
+                <span class="bar">
+                  <span class="fill" style={`width:${Math.round(r.score * 100)}%`} />
+                </span>
+                {r.score.toFixed(2)}
+              </span>
+            </div>
+          ))
+        }
+      </div>
+
+      <div class="foot">{t('ai.cards.semanticFoot')}</div>
+    </div>
+
+    {/* Card 3 · OCR invoice */}
+    <div class="pv-card ai-card">
+      <div class="cap-head">
+        <span class="ic amber"><Glyph name="camera-invoice" size={18} /></span>
+        <div style="display:flex;flex-direction:column">
+          <h4>{t('ai.cards.ocrTitle')}</h4>
+          <span class="pv-label" style="font-size:0.66rem">{t('ai.cards.ocrLabel')}</span>
+        </div>
+      </div>
+      <RichText text={t('ai.cards.ocrDesc')} as="p" class="desc" />
+
+      <div class="ai-ocr">
+        <div class="ai-ocr-paper">
+          <div class="corner">F-2026-1842</div>
+          <div style="font-weight:bold;font-size:8px">LÁCTEOS EL CAMPO S.A.S.</div>
+          <div>NIT 900.421.118-3</div>
+          <div>Cl 14 #28-30 · Bogotá</div>
+          <hr />
+          <div class="row"><span>Crema leche 250ml × 24</span><span>$ 84.000</span></div>
+          <div class="row"><span>Yogurt fresa 200g × 60</span><span>$ 56.400</span></div>
+          <div class="row"><span>Queso campesino × 12</span><span>$ 24.200</span></div>
+          <hr />
+          <div class="row"><span>SUBTOTAL</span><span>$ 164.600</span></div>
+          <div class="row"><span>IVA 19%</span><span>$ 10.000</span></div>
+          <div class="row" style="font-weight:bold"><span>TOTAL</span><span>$ 174.600</span></div>
+          <div class="scan-band"></div>
+        </div>
+
+        <div class="ai-ocr-fields">
+          {
+            OCR_FIELDS.map(f => {
+              const value = f.valueKey ? t(`ai.cards.${f.valueKey}`) : f.v;
+              return (
+                <div class={`ai-ocr-field${f.match ? ' match' : ''}`}>
+                  <span class="k">{t(`ai.cards.${f.key}`)}</span>
+                  <span class="v">{f.em ? <em>{value}</em> : value}</span>
+                </div>
+              );
+            })
+          }
+        </div>
+      </div>
+
+      <div class="foot">{t('ai.cards.ocrFoot')}</div>
+    </div>
+  </div>
+
+  {/* Public status strip */}
+  <div class="ai-roadmap">
+    <div class="l">
+      <span class="kicker">{t('ai.roadmap.kicker')}</span>
+      <span class="ttl">{t('ai.roadmap.title')}</span>
+      <RichText text={t('ai.roadmap.desc')} as="p" />
+    </div>
+    <div class="r">
+      {
+        STATUS_ITEMS.map((r, i) => (
+          <span class={`chip${r.coming ? ' coming' : ''}`}>
+            <span class="tag">{t(`ai.roadmap.${r.tagKey}`)}</span>
+            {statusLabels[i]}
+          </span>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<script>
+  import '../scripts/ai-carousel.js';
+</script>

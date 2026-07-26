@@ -58,24 +58,25 @@ jobs:
 
       # Standalone install: the site lives outside the apps/* + packages/*
       # workspace globs. --ignore-scripts skips postinstall builds (esbuild ships
-      # its platform binary as an optional dep, so vite builds without them) and
-      # avoids pnpm 11's ERR_PNPM_IGNORED_BUILDS under --ignore-workspace. Mirrors
-      # pages.yml.
+      # its platform binary as an optional dep, so the build runs without them)
+      # and avoids pnpm 11's ERR_PNPM_IGNORED_BUILDS under --ignore-workspace.
       - name: Install dependencies
         run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
 
-      # Gate the deploy on the site's unit tests (node --test). Today this covers
-      # the per-OS installer picker (src/lib/pickInstaller.test.mjs); the glob
-      # picks up any future src/**/*.test.mjs.
+      # Gate the deploy on the site's unit tests (node --test): the per-OS
+      # installer picker, the lead capture helpers, the per-locale SEO contract,
+      # the locale/base URL rules and the rich-text escaping. The glob picks up
+      # any future src/**/*.test.mjs.
       - name: Test
         run: pnpm test
 
       - name: Build
         # Cloudflare Pages serves at the domain root, not the /puntovivo/ subpath
-        # GitHub Pages used; VITE_BASE_PATH drives vite's `base` + the SSR/client
-        # router basename.
+        # GitHub Pages used; SITE_BASE_PATH drives Astro's `base`, which prefixes
+        # every emitted internal URL. Canonical URLs are unaffected — they always
+        # live at the domain root.
         env:
-          VITE_BASE_PATH: /
+          SITE_BASE_PATH: /
         run: pnpm run build
 
       - name: Deploy to Cloudflare Pages

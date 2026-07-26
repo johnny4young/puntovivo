@@ -1,0 +1,597 @@
+---
+import PMark from '../components/PMark.astro';
+import Icon from '../components/Icon.astro';
+import RichText from '../components/RichText.astro';
+import DownloadButton from '../components/DownloadButton.astro';
+import AISection from '../components/AISection.astro';
+import AIFaq from '../components/AIFaq.astro';
+import { useTranslations } from '../i18n/index.js';
+import { localizedHref } from '../lib/paths.js';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+// Maps the feature-grid index to its icon (order matches features.items).
+const FEATURE_ICONS = [
+  'scan-line',
+  'wallet',
+  'warehouse',
+  'arrow-left-right',
+  'shopping-cart',
+  'shield-check',
+];
+// Maps the alerts feed index to tone + icon (order matches alerts.items).
+const ALERT_META = [
+  { tone: 'warning', icon: 'alert-triangle' },
+  { tone: 'danger', icon: 'wallet' },
+  { tone: 'info', icon: 'arrow-left-right' },
+  { tone: 'info', icon: 'package' },
+  { tone: 'success', icon: 'trending-up' },
+  { tone: 'warning', icon: 'rotate-ccw' },
+];
+
+// No release today → neutral "open source · in development" badge; a real tag
+// takes its place once the repo cuts a GitHub release (src/scripts/release.js).
+const versionTemplate = t('hero.badgeVersionTagged', { version: '__V__' });
+
+const trustItems = t('trust.items');
+const featureItems = t('features.items');
+const cajaChips = t('caja.chips');
+const alertItems = t('alerts.items');
+const flowSteps = t('flow.steps');
+const modules = t('modules.items');
+const selfBullets = t('pricing.self.bullets');
+const cloudBullets = t('pricing.cloud.bullets');
+const faqItems = t('faq.items');
+
+// Keys rendered on the mock's charge button need a transparent-on-dark style.
+const MOCK_KEY_STYLE =
+  'background:transparent;border:1px solid color-mix(in oklch, var(--surface) 35%, transparent);color:currentColor';
+---
+
+{/* ---------- Hero ---------- */}
+<section class="pv-shell" style="padding-top:8px">
+  <div class="pv-hero-surface pv-hero">
+    <div class="pv-hero-copy">
+      <div style="display:flex;flex-direction:column;gap:22px">
+        <div style="display:inline-flex;gap:10px;flex-wrap:wrap">
+          <span class="pv-badge pv-badge-primary">
+            <span class="dot"></span> {t('hero.badgePos')}
+          </span>
+          <span class="pv-badge pv-badge-amber">
+            <span class="dot" style="background:var(--brand-accent-500)"></span> {t('hero.badgeAi')}
+          </span>
+          <span
+            class="pv-badge pv-badge-primary"
+            style="background:color-mix(in oklch, var(--secondary-100) 80%, transparent);color:var(--secondary-700)"
+            data-release-version
+            data-template={versionTemplate}
+          >
+            {t('hero.badgeVersionDev')}
+          </span>
+        </div>
+        <h1 class="pv-display">
+          {t('hero.titleA')}<em>{t('hero.titleEm')}</em>{t('hero.titleB')}
+        </h1>
+        <p class="lead">{t('hero.lead')}</p>
+        <div class="cta-row">
+          <DownloadButton lang={lang} class="pv-btn pv-btn-primary" />
+          <a class="pv-btn pv-btn-outline" href="#flow">
+            <Icon raw name="play" size={16} /> {t('hero.ctaFlow')}
+          </a>
+          <a href="#ai" class="ai-hero-kbd" style="text-decoration:none">
+            <span class="spk"><Icon raw name="sparkles" size={12} /></span>
+            {t('hero.ctaAsk')}
+            <span class="keys">
+              <span class="pv-key">Alt</span>
+              <span class="pv-key">K</span>
+            </span>
+          </a>
+        </div>
+      </div>
+      <div class="meta-row">
+        <div class="item">
+          <span class="num">5</span>
+          <span class="lbl">{t('hero.metaActions')}</span>
+        </div>
+        <div class="item">
+          <span class="num">F1</span>
+          <span class="lbl">{t('hero.metaCharge')}</span>
+        </div>
+        <div class="item">
+          <span class="num">local<span style="color:var(--primary-700)">·</span>first</span>
+          <span class="lbl">{t('hero.metaOffline')}</span>
+        </div>
+        <div class="item">
+          <span class="num">ES&nbsp;·&nbsp;EN</span>
+          <span class="lbl">{t('hero.metaBilingual')}</span>
+        </div>
+      </div>
+    </div>
+
+    {/* ---------- POS mock ---------- */}
+    <div class="pv-mock-wrap">
+      <div class="pv-mock-ribbon">
+        <span class="live"></span>
+        {t('hero.posTurn')}
+      </div>
+
+      <div class="pv-mock-stat">
+        <span class="glyph"><Icon raw name="trending-up" size={16} /></span>
+        <div class="col">
+          <span class="v">$&nbsp;1,84M</span>
+          <span class="l">{t('hero.posSold')}</span>
+        </div>
+      </div>
+
+      <div class="pv-mock">
+        <div class="pv-mock-bar">
+          <span class="lockup">
+            <PMark size={32} />
+            <span class="meta">
+              <span class="ttl">{t('hero.posCajaTitle')}</span>
+              <span class="sub">{t('hero.posCajaSub')}</span>
+            </span>
+          </span>
+          <span class="spacer"></span>
+          <span class="turn">{t('hero.posSale')}&nbsp;·&nbsp;PV-002841</span>
+          <span class="who">
+            <span class="ava">M</span>
+            <span style="display:flex;flex-direction:column;line-height:1.1">
+              <span class="nm">María R.</span>
+              <span class="rl">{t('hero.posCashier')}</span>
+            </span>
+          </span>
+        </div>
+
+        <div class="pv-mock-body">
+          <div>
+            <div class="pv-mock-search">
+              <Icon raw name="scan-line" size={18} color="var(--primary-700)" />
+              <span class="ph"><em>Arepa</em> {t('hero.posSearch')}</span>
+              <span class="caret"></span>
+              <span class="key">
+                <span class="pv-key">⌥</span>
+                <span class="pv-key">P</span>
+              </span>
+            </div>
+
+            <div class="pv-mock-cart-head">
+              <span>{t('hero.posCart')}</span>
+              <span class="ct">{t('hero.posCartCount')}</span>
+            </div>
+
+            <div class="pv-mock-rows">
+              <div class="pv-mock-row high">
+                <div class="glyph"><Icon raw name="package" size={16} /></div>
+                <div>
+                  <div class="ttl">{t('hero.posItem1')}</div>
+                  <div class="sub">SKU · ARQ-12-PV</div>
+                </div>
+                <div class="qty">×&nbsp;3</div>
+                <div class="price">$&nbsp;28.500</div>
+              </div>
+              <div class="pv-mock-row">
+                <div class="glyph"><Icon raw name="coffee" size={16} /></div>
+                <div>
+                  <div class="ttl">{t('hero.posItem2')}</div>
+                  <div class="sub">SKU · CAF-500-TIN</div>
+                </div>
+                <div class="qty">×&nbsp;2</div>
+                <div class="price">$&nbsp;39.800</div>
+              </div>
+              <div class="pv-mock-row">
+                <div class="glyph"><Icon raw name="shopping-bag" size={16} /></div>
+                <div>
+                  <div class="ttl">{t('hero.posItem3')}</div>
+                  <div class="sub">SKU · BLS-M-RCY</div>
+                </div>
+                <div class="qty">×&nbsp;1</div>
+                <div class="price">$&nbsp;1.200</div>
+              </div>
+              <div class="pv-mock-row disc">
+                <div class="glyph"><Icon raw name="percent" size={16} /></div>
+                <div>
+                  <div class="ttl">{t('hero.posDiscount')}</div>
+                  <div class="sub">{t('hero.posDiscountSub')}</div>
+                </div>
+                <div class="qty">—</div>
+                <div class="price">−$&nbsp;2.085</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pv-mock-side">
+            <div class="pv-mock-totals">
+              <div class="head">
+                <span>{t('hero.posSummary')}</span>
+                <span class="id">PV-002841</span>
+              </div>
+              <div class="row">
+                <span>{t('hero.posSubtotal')}</span>
+                <span class="v">$&nbsp;69.500</span>
+              </div>
+              <div class="row">
+                <span>{t('hero.posDiscounts')}</span>
+                <span class="v">−$&nbsp;2.085</span>
+              </div>
+              <div class="row">
+                <span>{t('hero.posTax')}</span>
+                <span class="v">$&nbsp;12.808</span>
+              </div>
+              <div class="grand">
+                <div>
+                  <div class="l">{t('hero.posTotalLabel')}</div>
+                  <div class="lbl">{t('hero.posTotalItems')}</div>
+                </div>
+                <div class="amt">$80<em>.223</em></div>
+              </div>
+            </div>
+
+            <div class="pv-mock-pay">
+              <div class="opt on">
+                <span class="ic"><Icon raw name="banknote" size={14} /></span>
+                {t('hero.posCash')}
+              </div>
+              <div class="opt">
+                <span class="ic"><Icon raw name="credit-card" size={14} /></span>
+                {t('hero.posCard')}
+              </div>
+              <div class="opt">
+                <span class="ic"><Icon raw name="qr-code" size={14} /></span>
+                Nequi
+              </div>
+            </div>
+
+            <div class="pv-mock-cta">
+              <span class="l"><Icon raw name="receipt" size={18} /> {t('hero.posCharge')}</span>
+              <span class="r">
+                <span class="pv-key" style={MOCK_KEY_STYLE}>⌥</span>
+                <span class="pv-key" style={MOCK_KEY_STYLE}>C</span>
+              </span>
+            </div>
+
+            <div class="pv-mock-keyhint">
+              <span class="pv-key">⌥</span>
+              <span class="pv-key">D</span>&nbsp;{t('hero.posKeyDiscount')}
+              <span class="sep">·</span>
+              <span class="pv-key">⌥</span>
+              <span class="pv-key">N</span>&nbsp;{t('hero.posKeyNewSale')}
+            </div>
+          </div>
+        </div>
+
+        <div class="pv-mock-edge"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{/* ---------- Trust strip ---------- */}
+<section class="pv-shell" style="padding-top:28px">
+  <div class="pv-trust">
+    <span class="lbl">{t('trust.builtFor')}</span>
+    {
+      trustItems.map(it => (
+        <span class="item">
+          <span class="pin" /> {it}
+        </span>
+      ))
+    }
+  </div>
+</section>
+
+{/* ---------- Features ---------- */}
+<section class="pv-shell pv-section" id="features">
+  <div class="head">
+    <span class="pv-kicker">{t('features.kicker')}</span>
+    <h2 class="pv-display">{t('features.title')}</h2>
+    <p class="desc">{t('features.desc')}</p>
+  </div>
+  <div class="pv-features">
+    {
+      featureItems.map((f, i) => (
+        <div class="pv-card pv-feature">
+          <span class="glyph">{FEATURE_ICONS[i] && <Icon raw name={FEATURE_ICONS[i]} size={20} />}</span>
+          <h3>{f.title}</h3>
+          <p>{f.desc}</p>
+          <div class="ftnote">{f.foot}</div>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+{/* ---------- Caja con cierre ciego ---------- */}
+<section class="pv-shell pv-section" id="caja">
+  <div class="pv-copilot">
+    <div class="copy">
+      <span class="pv-kicker">{t('caja.kicker')}</span>
+      <h2 class="pv-display">
+        {t('caja.titleA')}<em>{t('caja.titleEm')}</em>{t('caja.titleB')}
+      </h2>
+      <p>{t('caja.desc')}</p>
+      <div class="examples">
+        {
+          cajaChips.map(c => (
+            <span class="chip">
+              <span class="pin" /> {c}
+            </span>
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="pv-copilot-pane">
+      <div class="pv-copilot-head">
+        <span class="glyph"><Icon raw name="wallet" size={18} /></span>
+        <div class="meta">
+          <span class="ttl">{t('caja.paneTitle')}</span>
+          <span class="sub">{t('caja.paneSub')}</span>
+        </div>
+        <span class="live"><span class="d"></span> {t('caja.paneLive')}</span>
+      </div>
+
+      <div class="pv-suggest is-success">
+        <span class="ic"><Icon raw name="arrow-down-to-line" size={16} /></span>
+        <div class="body">
+          <div class="ttl">{t('caja.openTitle')}</div>
+          <div class="desc"><RichText text={t('caja.openDesc')} /></div>
+        </div>
+        <span class="act">{t('caja.openAction')}</span>
+      </div>
+
+      <div class="pv-suggest is-primary">
+        <span class="ic"><Icon raw name="arrow-right-left" size={16} /></span>
+        <div class="body">
+          <div class="ttl">{t('caja.skimTitle')}</div>
+          <div class="desc"><RichText text={t('caja.skimDesc')} /></div>
+        </div>
+        <span class="act">{t('caja.skimAction')}</span>
+      </div>
+
+      <div class="pv-suggest is-warning">
+        <span class="ic"><Icon raw name="eye-off" size={16} /></span>
+        <div class="body">
+          <div class="ttl">{t('caja.blindTitle')}</div>
+          <div class="desc">{t('caja.blindDesc')}</div>
+        </div>
+        <span class="act">{t('caja.blindAction')}</span>
+      </div>
+
+      <div class="pv-copilot-input">
+        <Icon raw name="banknote" size={16} color="var(--primary-700)" />
+        <span class="ph">{t('caja.inputPlaceholder')}</span>
+        <span class="key">
+          <span class="pv-key">Alt</span>
+          <span class="pv-key">M</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<AISection lang={lang} />
+<AIFaq lang={lang} />
+
+{/* ---------- Dashboard alerts ---------- */}
+<section class="pv-shell pv-section" id="alerts">
+  <div class="head">
+    <span class="pv-kicker">{t('alerts.kicker')}</span>
+    <h2 class="pv-display">{t('alerts.title')}</h2>
+    <p class="desc">{t('alerts.desc')}</p>
+  </div>
+  <div class="pv-alerts-shell">
+    <div class="narrative">
+      <div style="display:inline-flex;gap:8px">
+        <span class="pv-badge pv-badge-primary">
+          <span class="dot"></span> {t('alerts.badgeSites')}
+        </span>
+        <span class="pv-badge pv-badge-warning">
+          <span class="dot"></span> {t('alerts.badgeAlerts')}
+        </span>
+      </div>
+      <h2 class="pv-display">{t('alerts.narrativeTitle')}</h2>
+      <p>{t('alerts.narrativeDesc')}</p>
+      <div class="stats">
+        <div class="stat">
+          <span class="l">{t('alerts.statSalesLabel')}</span>
+          <span class="v">{t('alerts.statSalesValue')} <em>{t('alerts.statSalesDelta')}</em></span>
+        </div>
+        <div class="stat">
+          <span class="l">{t('alerts.statTicketsLabel')}</span>
+          <span class="v">112</span>
+        </div>
+        <div class="stat">
+          <span class="l">{t('alerts.statPendingLabel')}</span>
+          <span class="v">4</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="feed">
+      <div class="feed-head">
+        <div class="l">
+          <span class="ttl">{t('alerts.feedTitle')}</span>
+          <span class="sub">{t('alerts.feedSub')}</span>
+        </div>
+        <div class="filt">
+          <span class="seg on">{t('alerts.filterToday')}</span>
+          <span class="seg">{t('alerts.filterWeek')}</span>
+          <span class="seg">{t('alerts.filterMonth')}</span>
+        </div>
+      </div>
+      {
+        alertItems.map((it, i) => (
+          <div class={`pv-alert-row ${ALERT_META[i].tone}`}>
+            <span class="dot">
+              <Icon raw name={ALERT_META[i].icon} size={16} />
+            </span>
+            <div class="body">
+              <div class="row1">
+                <span class="ttl">{it.t}</span>
+                <span class="sede">{it.sede}</span>
+              </div>
+              <RichText text={it.d} as="span" class="desc" />
+            </div>
+            <span class="when">{it.w}</span>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+{/* ---------- Flow ---------- */}
+<section class="pv-shell pv-section" id="flow">
+  <div class="head">
+    <span class="pv-kicker">{t('flow.kicker')}</span>
+    <h2 class="pv-display">{t('flow.title')}</h2>
+    <p class="desc">{t('flow.desc')}</p>
+  </div>
+  <div class="pv-loop">
+    {
+      flowSteps.map((s, i) => (
+        <div class="pv-card pv-step">
+          <span class="num">{String(i + 1).padStart(2, '0')}</span>
+          <span class="ttl">{s.t}</span>
+          <p>{s.p}</p>
+          <div class="keys">
+            {s.k.map(key => (
+              <span class="pv-key">{key}</span>
+            ))}
+          </div>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+{/* ---------- Modules / changelog ---------- */}
+<section class="pv-shell pv-section" id="modules">
+  <div class="head">
+    <span class="pv-kicker">{t('modules.kicker')}</span>
+    <h2 class="pv-display">{t('modules.title')}</h2>
+    <p class="desc">{t('modules.desc')}</p>
+  </div>
+  <div class="pv-modules">
+    {
+      modules.map(m => (
+        <div class="pv-card pv-module">
+          <span class="when">{m.when}</span>
+          <div>
+            <h4>{m.h}</h4>
+            <ul>
+              {m.bullets.map(li => (
+                <li>{li}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+{/* ---------- Pricing (open-source framing) ----------
+    Two cards only: a real, free self-hosted plan whose CTA is the smart
+    download button, and a "managed cloud — coming soon" card with NO price and
+    NO purchase CTA. The invented COP tiers were removed per the project-truth
+    reset. */}
+<section class="pv-shell pv-section" id="pricing">
+  <div class="head">
+    <span class="pv-kicker">{t('pricing.kicker')}</span>
+    <h2 class="pv-display">{t('pricing.title')}</h2>
+    <p class="desc">{t('pricing.desc')}</p>
+  </div>
+  <div class="pv-pricing">
+    <div class="pv-card pv-plan is-featured">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="name">{t('pricing.self.name')}</span>
+        <span class="pv-badge pv-badge-primary">{t('pricing.self.badge')}</span>
+      </div>
+      <div class="price">
+        <span class="num" style="font-size:36px">{t('pricing.self.price')}</span>
+        <span class="per">{t('pricing.self.per')}</span>
+      </div>
+      <p class="desc">{t('pricing.self.desc')}</p>
+      <ul>
+        {
+          selfBullets.map(b => (
+            <li>
+              <span class="check">
+                <Icon raw name="check" size={12} />
+              </span>
+              {b}
+            </li>
+          ))
+        }
+      </ul>
+      <DownloadButton lang={lang} class="pv-btn pv-btn-primary cta" />
+    </div>
+
+    <div class="pv-card pv-plan">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="name">{t('pricing.cloud.name')}</span>
+        <span class="pv-badge pv-badge-neutral">{t('pricing.cloud.badge')}</span>
+      </div>
+      <div class="price">
+        <span class="num" style="font-size:36px">{t('pricing.cloud.price')}</span>
+      </div>
+      <p class="desc">{t('pricing.cloud.desc')}</p>
+      <ul>
+        {
+          cloudBullets.map(b => (
+            <li>
+              <span class="check">
+                <Icon raw name="check" size={12} />
+              </span>
+              {b}
+            </li>
+          ))
+        }
+      </ul>
+      <a class="pv-btn pv-btn-outline cta" href={localizedHref(base, lang, '/contacto')}>
+        {t('pricing.cloud.cta')}
+      </a>
+    </div>
+  </div>
+</section>
+
+{/* ---------- FAQ ---------- */}
+<section class="pv-shell pv-section" id="faq">
+  <div class="head">
+    <span class="pv-kicker">{t('faq.kicker')}</span>
+    <h2 class="pv-display">{t('faq.title')}</h2>
+  </div>
+  <div class="pv-faq">
+    {
+      faqItems.map(({ q, a }) => (
+        <details>
+          <summary>
+            {q}
+            <span class="plus">+</span>
+          </summary>
+          <div class="ans">{a}</div>
+        </details>
+      ))
+    }
+  </div>
+</section>
+
+{/* ---------- CTA ---------- */}
+<section class="pv-shell pv-section">
+  <div class="pv-hero-surface pv-cta">
+    <div>
+      <h2 class="pv-display">{t('cta.title')}</h2>
+      <p>{t('cta.desc')}</p>
+    </div>
+    <div class="actions">
+      <a class="pv-btn pv-btn-primary" href={localizedHref(base, lang, '/contacto')}>
+        <Icon raw name="log-in" size={16} /> {t('cta.demo')}
+      </a>
+      <DownloadButton lang={lang} class="pv-btn pv-btn-outline" />
+    </div>
+  </div>
+</section>

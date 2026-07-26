@@ -1,0 +1,96 @@
+---
+// The header shared by the landing and every secondary page.
+//
+// The product/IA/pricing items target landing sections, so they resolve to the
+// localized landing plus a hash — a bare "/#features" would ignore both the
+// locale prefix and the deploy base. Route links get `.is-active` on the page
+// they point at, the class the old <NavLink> applied.
+import { useTranslations } from '../i18n/index.js';
+import { localizedHref, sectionHref } from '../lib/paths.js';
+import { REPO_URL } from '../lib/release.js';
+import PMark from './PMark.astro';
+import Icon from './Icon.astro';
+
+// Pages outside the route table (the 404) fall back to the landing, so the
+// language toggle always has somewhere real to point at.
+const { lang, route = '/' } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+const ANCHOR_LINKS = [
+  { key: 'nav.product', hash: '#features' },
+  { key: 'nav.caja', hash: '#caja' },
+  { key: 'nav.ai', hash: '#ai' },
+  { key: 'nav.dashboard', hash: '#alerts' },
+  { key: 'nav.pricing', hash: '#pricing' },
+];
+
+const ROUTE_LINKS = [
+  { key: 'nav.docs', to: '/docs' },
+  { key: 'nav.roadmap', to: '/roadmap' },
+];
+
+// The same page in the other language. The language button is a real link, so
+// switching works without JavaScript and each language has its own URL.
+const otherLang = lang === 'es' ? 'en' : 'es';
+const otherHref = localizedHref(base, otherLang, route);
+---
+
+<nav class="pv-nav-wrap">
+  <div class="pv-shell">
+    <div class="pv-nav">
+      <a href={localizedHref(base, lang, '/')} class="brand" style="text-decoration:none">
+        <PMark size={30} />
+        <span class="word">Puntovivo</span>
+      </a>
+      <div class="links">
+        {ANCHOR_LINKS.map(l => <a href={sectionHref(base, lang, l.hash)}>{t(l.key)}</a>)}
+        {
+          ROUTE_LINKS.map(l => (
+            <a href={localizedHref(base, lang, l.to)} class={route === l.to ? 'is-active' : ''}>
+              {t(l.key)}
+            </a>
+          ))
+        }
+      </div>
+      <div class="pv-cta-row">
+        <a
+          class="pv-ctrl pv-ctrl-lang"
+          href={otherHref}
+          {/* The control was a <button> before; as a link it would inherit the
+              nav's anchor underline. */}
+          style="text-decoration:none"
+          data-lang-switch={otherLang}
+          hreflang={otherLang}
+          aria-label={t('nav.langToggle')}
+          title={t('nav.langToggle')}
+        >
+          <span class={lang === 'es' ? 'on' : ''}>ES</span>
+          <span class="sep">/</span>
+          <span class={lang === 'en' ? 'on' : ''}>EN</span>
+        </a>
+        <button
+          type="button"
+          class="pv-ctrl"
+          data-theme-toggle
+          aria-label={t('nav.themeToggle')}
+          title={t('nav.themeToggle')}
+        >
+          <Icon raw name="sun" size={16} data-theme-icon="dark" hidden />
+          <Icon raw name="moon" size={16} data-theme-icon="light" />
+        </button>
+        <a class="pv-link" href={REPO_URL} target="_blank" rel="noopener noreferrer">
+          {t('nav.github')}
+        </a>
+        <a class="pv-btn pv-btn-primary pv-btn-sm" href={localizedHref(base, lang, '/contacto')}>
+          {t('nav.demo')}
+        </a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<script>
+  import '../scripts/theme.js';
+  import '../scripts/lang.js';
+</script>

@@ -1,0 +1,247 @@
+---
+import PageHeader from '../components/PageHeader.astro';
+import Icon from '../components/Icon.astro';
+import { useTranslations } from '../i18n/index.js';
+import { localizedHref } from '../lib/paths.js';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+// Visual keyboard rows (structural — key glyphs are universal).
+const ROWS = [
+  ['Esc', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'],
+  ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '⌫'],
+  ['Tab', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', '\\'],
+  ['Caps', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', "'", '⏎'],
+  ['Shift', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/', 'Shift'],
+  ['Ctrl', '⌥', '⌘', 'Espacio', '⌘', '⌥', 'Ctrl'],
+];
+
+// Each shortcut keeps a stable areaKey (used for grouping + filtering, stable
+// across locales) and an actionId that resolves to atajos.actions.<id>. Key
+// bindings are structural.
+const SHORTCUTS = [
+  { areaKey: 'Caja', actionId: 'cobrarVenta', keys: ['F1'] },
+  { areaKey: 'Caja', actionId: 'nuevaVenta', keys: ['⌥', 'N'] },
+  { areaKey: 'Caja', actionId: 'buscarProducto', keys: ['⌥', 'P'] },
+  { areaKey: 'Caja', actionId: 'abrirCatalogo', keys: ['F5'] },
+  { areaKey: 'Caja', actionId: 'aplicarDescuento', keys: ['⌥', 'D'] },
+  { areaKey: 'Caja', actionId: 'pagoDividido', keys: ['⌥', 'Shift', 'P'] },
+  { areaKey: 'Caja', actionId: 'anularLinea', keys: ['⌥', '⌫'] },
+  { areaKey: 'Caja', actionId: 'reimprimirRecibo', keys: ['⌥', 'R'] },
+
+  { areaKey: 'Cierre', actionId: 'abrirCaja', keys: ['⌥', 'A'] },
+  { areaKey: 'Cierre', actionId: 'registrarMovimiento', keys: ['⌥', 'M'] },
+  { areaKey: 'Cierre', actionId: 'cerrarCajaCiego', keys: ['⌥', '⇧', 'C'] },
+  { areaKey: 'Cierre', actionId: 'saltarDenominaciones', keys: ['⌥', 'B'] },
+
+  { areaKey: 'Inventario', actionId: 'nuevoProducto', keys: ['⌥', 'Shift', 'N'] },
+  { areaKey: 'Inventario', actionId: 'buscarSku', keys: ['⌥', 'S'] },
+  { areaKey: 'Inventario', actionId: 'ajusteStock', keys: ['⌥', 'I'] },
+  { areaKey: 'Inventario', actionId: 'conteoFisico', keys: ['⌥', 'K'] },
+
+  { areaKey: 'Transferencias', actionId: 'nuevaTransferencia', keys: ['⌥', 'T'] },
+  { areaKey: 'Transferencias', actionId: 'recibirTransferencia', keys: ['⌥', 'Shift', 'R'] },
+
+  { areaKey: 'Compras', actionId: 'nuevaOrden', keys: ['⌥', 'O'] },
+  { areaKey: 'Compras', actionId: 'reciboParcial', keys: ['⌥', 'Shift', 'O'] },
+  { areaKey: 'Compras', actionId: 'devolverProveedor', keys: ['⌥', 'V'] },
+
+  { areaKey: 'Navegación', actionId: 'abrirCopilot', keys: ['⌥', 'K'] },
+  { areaKey: 'Navegación', actionId: 'cambiarSede', keys: ['⌥', '⇧', 'S'] },
+  { areaKey: 'Navegación', actionId: 'irDashboard', keys: ['⌥', '1'] },
+  { areaKey: 'Navegación', actionId: 'irVentas', keys: ['⌥', '2'] },
+  { areaKey: 'Navegación', actionId: 'irInventario', keys: ['⌥', '3'] },
+  { areaKey: 'Navegación', actionId: 'irCompras', keys: ['⌥', '4'] },
+  { areaKey: 'Navegación', actionId: 'mostrarAtajos', keys: ['⌥', '?'] },
+
+  { areaKey: 'Sistema', actionId: 'bloquearCaja', keys: ['Esc', 'Esc'] },
+  { areaKey: 'Sistema', actionId: 'cerrarSesion', keys: ['⌥', 'Q'] },
+  { areaKey: 'Sistema', actionId: 'modoClaroOscuro', keys: ['⌥', '⇧', 'D'] },
+];
+
+// Stable group order (Spanish keys) so grouping output is deterministic.
+const AREA_ORDER = [
+  'Caja',
+  'Cierre',
+  'Inventario',
+  'Transferencias',
+  'Compras',
+  'Navegación',
+  'Sistema',
+];
+
+const WIDE_KEYS = ['Tab', 'Caps', 'Shift', 'Espacio', '⏎', '⌫', 'Backspace'];
+const keyClass = k => 'kb-key' + (WIDE_KEYS.includes(k) ? ' w-' + k.toLowerCase() : '');
+
+/** Windows spelling of a mac combo. */
+const winKeys = keys => keys.map(k => (k === '⌘' ? 'Ctrl' : k === '⌥' ? 'Alt' : k));
+
+const areaLabel = key => t(`atajos.areaNames.${key}`);
+// Display order of filter chips: "Todos/All" first, then the localized areas.
+const filterChips = [{ key: '', label: t('atajos.areas')[0] }].concat(
+  AREA_ORDER.map(key => ({ key, label: areaLabel(key) }))
+);
+
+// Every shortcut ships in the HTML; filtering only hides rows, so the full
+// sheet stays readable and printable without JavaScript.
+const grouped = AREA_ORDER.map(areaKey => ({
+  areaKey,
+  label: areaLabel(areaKey),
+  items: SHORTCUTS.filter(s => s.areaKey === areaKey).map(s => {
+    const label = t(`atajos.actions.${s.actionId}`);
+    return {
+      label,
+      mac: s.keys,
+      win: winKeys(s.keys),
+      // Precomputed haystack so the filter never re-reads the DOM text.
+      search: `${label} ${areaLabel(s.areaKey)}`.toLowerCase(),
+    };
+  }),
+})).filter(g => g.items.length > 0);
+---
+
+<PageHeader
+  kicker={t('atajos.kicker')}
+  lead={t('atajos.lead')}
+  crumbs={[
+    { label: t('atajos.crumbInicio'), href: localizedHref(base, lang, '/') },
+    { label: t('atajos.crumbRecursos') },
+    { label: t('atajos.crumbAtajos') },
+  ]}
+  badges={[
+    { label: t('atajos.badgeCount', { count: SHORTCUTS.length }), tone: 'pv-badge-primary' },
+    { label: t('atajos.badgeOs'), tone: 'pv-badge-amber' },
+    { label: t('atajos.badgePrintable'), tone: 'pv-badge-neutral' },
+  ]}
+>
+  <Fragment slot="title">
+    {t('atajos.titleA')}<br /> <em>{t('atajos.titleEm')}</em>{t('atajos.titleB')}
+  </Fragment>
+
+  <div class="ks-aside" slot="aside">
+    <div class="ks-platform">
+      <span class="pv-label">{t('atajos.platformLabel')}</span>
+      <div class="ks-platform-row">
+        <button type="button" class="plat on" data-platform-set="mac">
+          <Icon name="apple" size={13} /> {t('atajos.platformMac')}
+        </button>
+        <button type="button" class="plat" data-platform-set="win">
+          <Icon name="square" size={13} /> {t('atajos.platformWin')}
+        </button>
+      </div>
+    </div>
+    <div class="ks-legend">
+      <span class="pv-label">{t('atajos.legendLabel')}</span>
+      <div class="ks-legend-row">
+        <span>
+          <span class="pv-key" data-platform="mac">⌥</span><span class="pv-key" data-platform="win"
+            >Alt</span
+          > {t('atajos.legendOption')}
+        </span>
+        <span>
+          <span class="pv-key" data-platform="mac">⌘</span><span class="pv-key" data-platform="win"
+            >Ctrl</span
+          > {t('atajos.legendCommand')}
+        </span>
+        <span><span class="pv-key">⇧</span> {t('atajos.legendShift')}</span>
+        <span><span class="pv-key">⏎</span> {t('atajos.legendEnter')}</span>
+      </div>
+    </div>
+    <button type="button" class="pv-btn pv-btn-outline pv-btn-sm" data-print>
+      <Icon name="printer" size={14} /> {t('atajos.printButton')}
+    </button>
+  </div>
+</PageHeader>
+
+<section class="pv-shell pv-section" style="padding-top:48px">
+  <div class="kb-board" data-keyboard>
+    {
+      ROWS.map((row, i) => (
+        <div class={'kb-row kb-row-' + i}>
+          {row.map(k => (
+            <span class={keyClass(k)}>{k}</span>
+          ))}
+        </div>
+      ))
+    }
+  </div>
+  <div class="kb-foot">
+    <Icon name="info" size={12} /> {t('atajos.keyboardFoot')}
+  </div>
+</section>
+
+<section class="pv-shell pv-section" data-shortcuts>
+  <div class="ks-filterbar">
+    <div class="ks-search">
+      <Icon name="search" size={16} color="var(--primary-700)" />
+      <input data-shortcut-search placeholder={t('atajos.searchPlaceholder')} />
+      <button type="button" class="ks-clear" data-shortcut-clear hidden>
+        <Icon name="x" size={12} />
+      </button>
+    </div>
+    <div class="ks-areas">
+      {
+        filterChips.map(({ key, label }) => (
+          <button type="button" class={'ks-area' + (key === '' ? ' on' : '')} data-area-filter={key}>
+            {label}
+          </button>
+        ))
+      }
+    </div>
+  </div>
+
+  <div class="ks-groups">
+    {
+      grouped.map(group => (
+        <section class="ks-group" data-shortcut-group>
+          <header>
+            <h3>{group.label}</h3>
+            <span class="count" data-group-count>
+              {group.items.length}
+            </span>
+          </header>
+          <div class="ks-list">
+            {group.items.map(item => (
+              <div
+                class="ks-row"
+                data-shortcut-row
+                data-area={group.areaKey}
+                data-search={item.search}
+                data-keys-mac={item.mac.join('|')}
+                data-keys-win={item.win.join('|')}
+              >
+                <span class="action">{item.label}</span>
+                <span class="combo" data-platform="mac">
+                  {item.mac.map((k, i) => (
+                    <>
+                      {i > 0 && <span class="plus">+</span>}
+                      <span class="pv-key">{k}</span>
+                    </>
+                  ))}
+                </span>
+                <span class="combo" data-platform="win" hidden>
+                  {item.win.map((k, i) => (
+                    <>
+                      {i > 0 && <span class="plus">+</span>}
+                      <span class="pv-key">{k}</span>
+                    </>
+                  ))}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))
+    }
+    <div class="ks-empty" data-shortcuts-empty hidden>
+      <Icon name="search-x" size={20} color="var(--fg3)" />
+      <span>{t('atajos.emptyText')}</span>
+    </div>
+  </div>
+</section>
+
+<script>
+  import '../scripts/atajos.js';
+</script>

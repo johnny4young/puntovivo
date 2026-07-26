@@ -1,0 +1,52 @@
+---
+// Cloudflare Pages and GitHub Pages both serve this file for a path with no
+// matching file.
+//
+// The React build reused the prerendered landing here, because the SPA router
+// re-resolved the URL client-side. Every route is now a real file, so an
+// unmatched path is genuinely not found: say so, keep the site chrome, and
+// offer the way back instead of silently showing the homepage under a 404.
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import { useTranslations } from '../i18n/index.js';
+import { localizedHref } from '../lib/paths.js';
+import { DEFAULT_LANG } from '../i18n/config.js';
+
+const lang = DEFAULT_LANG;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+---
+
+<Base
+  lang={lang}
+  title="Puntovivo · página no encontrada"
+  description="La página que buscas no existe o cambió de dirección."
+  noindex
+>
+  <section class="pv-shell pv-section">
+    <div class="pv-hero-surface" style="padding:56px 52px;text-align:center">
+      <span class="pv-kicker">Error 404</span>
+      <h1
+        class="pv-display"
+        style="margin:10px 0 8px;font-size:clamp(28px, 4vw, 44px);line-height:1.1;color:var(--secondary-950)"
+      >
+        Esta página no existe
+      </h1>
+      <p style="margin:0 auto 22px;color:var(--fg2);font-size:15px;max-width:44ch">
+        La dirección que abriste no corresponde a ninguna página del sitio. Puede que el enlace esté
+        roto o que la página haya cambiado de lugar.
+      </p>
+      <div style="display:inline-flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <a class="pv-btn pv-btn-primary" href={localizedHref(base, lang, '/')}>
+          <Icon name="arrow-right" size={16} /> Volver al inicio
+        </a>
+        <a class="pv-btn pv-btn-outline" href={localizedHref(base, lang, '/docs')}>
+          <Icon name="book-open" size={16} /> {t('nav.docs')}
+        </a>
+        <a class="pv-btn pv-btn-outline" href={localizedHref(base, lang, '/contacto')}>
+          <Icon name="message-circle" size={16} /> {t('nav.demo')}
+        </a>
+      </div>
+    </div>
+  </section>
+</Base>

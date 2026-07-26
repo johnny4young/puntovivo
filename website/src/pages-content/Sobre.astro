@@ -1,0 +1,183 @@
+---
+import PageHeader from '../components/PageHeader.astro';
+import PMark from '../components/PMark.astro';
+import Icon from '../components/Icon.astro';
+import RichText from '../components/RichText.astro';
+import { useTranslations } from '../i18n/index.js';
+import { localizedHref } from '../lib/paths.js';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+// Icon per value card (order matches sobre.values in the locale files).
+const VALUE_ICONS = ['feather', 'wifi-off', 'languages', 'shield-check', 'code-2', 'heart-handshake'];
+// Avatar initials per team member (order matches sobre.team). The project is a
+// solo effort, so this is a single entry.
+const TEAM_INITIALS = ['JY'];
+
+const values = t('sobre.values');
+const timeline = t('sobre.timeline');
+const team = t('sobre.team');
+---
+
+<PageHeader
+  kicker={t('sobre.kicker')}
+  lead={t('sobre.lead')}
+  crumbs={[
+    { label: t('sobre.crumbInicio'), href: localizedHref(base, lang, '/') },
+    { label: t('sobre.crumbEmpresa') },
+    { label: t('sobre.crumbSobre') },
+  ]}
+  badges={[
+    { label: t('sobre.badgeMade'), tone: 'pv-badge-primary' },
+    { label: t('sobre.badgeRemote'), tone: 'pv-badge-amber' },
+    { label: t('sobre.badgeFounded'), tone: 'pv-badge-neutral' },
+  ]}
+>
+  <Fragment slot="title">
+    {t('sobre.titleA')}<br /> {t('sobre.titleC')}<em>{t('sobre.titleEm')}</em>{t('sobre.titleD')}
+  </Fragment>
+
+  <div class="sb-hero-card" slot="aside">
+    <div class="sb-hero-card-head">
+      <PMark size={28} />
+      <div>
+        <span class="t">{t('sobre.heroCardTitle')}</span>
+        <span class="s">{t('sobre.heroCardDate')}</span>
+      </div>
+    </div>
+    <div class="sb-hero-grid">
+      <div class="pv-stat-tile">
+        <span class="l">{t('sobre.heroStatSitesLabel')}</span>
+        <span class="v">{t('sobre.heroStatSitesValue')}</span>
+      </div>
+      <div class="pv-stat-tile">
+        <span class="l">{t('sobre.heroStatCountriesLabel')}</span>
+        <span class="v">MIT</span>
+      </div>
+      <div class="pv-stat-tile">
+        <span class="l">{t('sobre.heroStatTeamLabel')}</span>
+        <span class="v">1</span>
+      </div>
+      <div class="pv-stat-tile">
+        <span class="l">{t('sobre.heroStatOpenLabel')}</span>
+        <span class="v">100<em> %</em></span>
+      </div>
+    </div>
+    <p class="sb-hero-note"><Icon name="info" size={12} /> {t('sobre.heroNote')}</p>
+  </div>
+</PageHeader>
+
+<section class="pv-shell pv-section">
+  <div class="sb-manifesto">
+    <div class="sb-manifesto-l">
+      <span class="pv-kicker">{t('sobre.manifestoKicker')}</span>
+      <h2 class="pv-display">
+        {t('sobre.manifestoTitleA')}<em>{t('sobre.manifestoTitleEm')}</em>{t('sobre.manifestoTitleB')}
+      </h2>
+    </div>
+    <div class="sb-manifesto-r">
+      <RichText text={t('sobre.manifestoP1')} as="p" />
+      <RichText text={t('sobre.manifestoP2')} as="p" />
+    </div>
+  </div>
+</section>
+
+<section class="pv-shell pv-section">
+  <div class="head">
+    <span class="pv-kicker">{t('sobre.valuesKicker')}</span>
+    <h2 class="pv-display">{t('sobre.valuesTitle')}</h2>
+  </div>
+  <div class="sb-values">
+    {
+      values.map((v, i) => (
+        <div class="sb-value">
+          <span class="num">{String(i + 1).padStart(2, '0')}</span>
+          <span class="glyph">
+            <Icon name={VALUE_ICONS[i]} size={18} />
+          </span>
+          <h3>{v.t}</h3>
+          <p>{v.d}</p>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+<section class="pv-shell pv-section">
+  <div class="head">
+    <span class="pv-kicker">{t('sobre.timelineKicker')}</span>
+    <h2 class="pv-display">{t('sobre.timelineTitle')}</h2>
+  </div>
+  <ol class="sb-timeline">
+    {
+      timeline.map((m, i) => (
+        <li class="sb-tl-row">
+          <div class="when">
+            <span class="y">{m.y}</span>
+            <span class="q">{m.q}</span>
+          </div>
+          <div class="line" aria-hidden="true">
+            <span class="dot" />
+            {i < timeline.length - 1 && <span class="rail" />}
+          </div>
+          <div class="body">
+            <h4>{m.t}</h4>
+            <p>{m.d}</p>
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+</section>
+
+<section class="pv-shell pv-section" id="equipo">
+  <div class="head">
+    <span class="pv-kicker">{t('sobre.teamKicker')}</span>
+    <h2 class="pv-display">{t('sobre.teamTitle')}</h2>
+    <p class="desc">{t('sobre.teamDesc')}</p>
+  </div>
+  <div class="sb-team">
+    {
+      team.map((p, i) => (
+        <div class="pv-card sb-member">
+          <div class="ava">
+            <span>{TEAM_INITIALS[i]}</span>
+          </div>
+          <div class="body">
+            <span class="n">{p.n}</span>
+            <span class="r">{p.r}</span>
+            <p>{p.b}</p>
+          </div>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+<section class="pv-shell pv-section">
+  <div
+    class="pv-hero-surface"
+    style="padding:44px 52px;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center"
+  >
+    <div>
+      <span class="pv-kicker">{t('sobre.ctaKicker')}</span>
+      <h2
+        class="pv-display"
+        style="margin:8px 0 6px;font-size:clamp(26px, 3vw, 36px);line-height:1.1;color:var(--secondary-950)"
+      >
+        {t('sobre.ctaTitle')}
+      </h2>
+      <p style="margin:0;color:var(--fg2);font-size:15px">{t('sobre.ctaDesc')}</p>
+    </div>
+    <div style="display:inline-flex;gap:10px;flex-wrap:wrap">
+      <a class="pv-btn pv-btn-primary" href={localizedHref(base, lang, '/contacto')}>
+        <Icon name="message-circle" size={16} /> {t('sobre.ctaContact')}
+      </a>
+      <a class="pv-btn pv-btn-outline" href={localizedHref(base, lang, '/roadmap')}>
+        <Icon name="map" size={16} /> {t('sobre.ctaRoadmap')}
+      </a>
+    </div>
+  </div>
+</section>

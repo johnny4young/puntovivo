@@ -1,0 +1,53 @@
+---
+// Shared hero block at the top of every secondary page (kicker + h1 + lead +
+// breadcrumb + badges + optional aside). Ported from the design's shell.jsx
+// PageHeader. Crumbs carrying an `href` render as links.
+import Icon from './Icon.astro';
+
+// `title` arrives as a named slot rather than a prop: every page composes it
+// from several copy fragments with <em> and <br> between them, which is markup
+// the caller should own instead of a string this component has to trust.
+const { kicker, lead, crumbs = [], badges = [] } = Astro.props;
+const hasAside = Astro.slots.has('aside');
+---
+
+<section class="pv-shell" style="padding-top:8px">
+  <div class="pv-page-hero">
+    <div class="pv-page-hero-body">
+      {
+        crumbs.length > 0 && (
+          <div class="pv-crumbs">
+            {crumbs.map((c, i) => (
+              <>
+                {i > 0 && <Icon name="chevron-right" size={12} color="var(--fg4)" />}
+                {c.href ? <a href={c.href}>{c.label}</a> : <span>{c.label}</span>}
+              </>
+            ))}
+          </div>
+        )
+      }
+      <span class="pv-kicker">{kicker}</span>
+      <h1 class="pv-display"><slot name="title" /></h1>
+      {lead && <p class="pv-page-lead">{lead}</p>}
+      {
+        badges.length > 0 && (
+          <div class="pv-page-badges">
+            {badges.map(b => (
+              <span class={'pv-badge ' + (b.tone || 'pv-badge-primary')}>
+                {b.dot !== false && <span class="dot" />} {b.label}
+              </span>
+            ))}
+          </div>
+        )
+      }
+      <slot />
+    </div>
+    {
+      hasAside && (
+        <div class="pv-page-hero-aside">
+          <slot name="aside" />
+        </div>
+      )
+    }
+  </div>
+</section>

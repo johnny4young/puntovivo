@@ -1,0 +1,10 @@
+---
+// Renders one i18n copy string, turning the copy's <b>/<em>/<pill> vocabulary
+// into markup. Everything else is escaped — see src/lib/richText.js.
+import { renderRichText } from '../lib/richText.js';
+
+const { text, as: Tag = 'span', class: className, ...rest } = Astro.props;
+const html = renderRichText(text);
+---
+
+<Tag class={className} {...rest} set:html={html} />

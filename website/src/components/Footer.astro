@@ -1,0 +1,114 @@
+---
+// Site footer. Product links target landing sections; company and resources are
+// real routes, and the last resource is the public repo.
+//
+// The version tag renders the neutral "open source · MIT" label because no
+// release exists yet. src/scripts/release.js swaps in "vX.Y.Z · MIT" if the
+// GitHub lookup finds one, so the static HTML never claims a fake version.
+import { useTranslations } from '../i18n/index.js';
+import { localizedHref, sectionHref } from '../lib/paths.js';
+import { REPO_URL } from '../lib/release.js';
+import PMark from './PMark.astro';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+const productLinks = t('footer.productLinks');
+const companyLinks = t('footer.companyLinks');
+const resourcesLinks = t('footer.resourcesLinks');
+
+const productHash = ['#features', '#caja', '#features', '#features', '#features'];
+const companyTo = ['/sobre', '/roadmap', '/contacto'];
+const resourcesTo = ['/docs', '/atajos', '/migracion', REPO_URL];
+
+/** Resource/company entries mix internal routes with the external repo link. */
+function targetFor(target) {
+  return target.startsWith('http')
+    ? { href: target, external: true }
+    : { href: localizedHref(base, lang, target), external: false };
+}
+---
+
+<footer class="pv-foot">
+  <div class="pv-shell">
+    <div class="grid">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:14px">
+          <PMark size={30} />
+          <span
+            style="font-family:var(--font-display);font-size:22px;letter-spacing:-0.03em;color:var(--fg1)"
+            >Puntovivo</span
+          >
+        </div>
+        <p style="margin:0;font-size:13.5px;color:var(--fg3);line-height:1.6;max-width:26em">
+          {t('footer.tagline')}
+        </p>
+      </div>
+      <div>
+        <h5>{t('footer.productTitle')}</h5>
+        <ul>
+          {
+            productLinks.map((label, i) => (
+              <li>
+                <a href={sectionHref(base, lang, productHash[i] || '#features')}>{label}</a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+      <div>
+        <h5>{t('footer.companyTitle')}</h5>
+        <ul>
+          {
+            companyLinks.map((label, i) => {
+              const { href, external } = targetFor(companyTo[i] || '#');
+              return (
+                <li>
+                  <a
+                    href={href}
+                    target={external ? '_blank' : undefined}
+                    rel={external ? 'noopener noreferrer' : undefined}
+                  >
+                    {label}
+                  </a>
+                </li>
+              );
+            })
+          }
+        </ul>
+      </div>
+      <div>
+        <h5>{t('footer.resourcesTitle')}</h5>
+        <ul>
+          {
+            resourcesLinks.map((label, i) => {
+              const { href, external } = targetFor(resourcesTo[i] || '#');
+              return (
+                <li>
+                  <a
+                    href={href}
+                    target={external ? '_blank' : undefined}
+                    rel={external ? 'noopener noreferrer' : undefined}
+                  >
+                    {label}
+                  </a>
+                </li>
+              );
+            })
+          }
+        </ul>
+      </div>
+    </div>
+    <div class="meta">
+      <span>{t('footer.copyright')}</span>
+      <span data-release-version data-template={t('footer.versionTagged', { version: '__V__' })}>
+        {t('footer.versionDev')}
+      </span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  import '../scripts/release.js';
+</script>

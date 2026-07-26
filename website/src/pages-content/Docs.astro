@@ -1,0 +1,279 @@
+---
+import PageHeader from '../components/PageHeader.astro';
+import Icon from '../components/Icon.astro';
+import { useTranslations } from '../i18n/index.js';
+import { localizedHref } from '../lib/paths.js';
+import { REPO_URL } from '../lib/release.js';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+// Per-card icon (order matches docs.categories in the locale files).
+const CATEGORY_ICONS = [
+  'rocket',
+  'scan-line',
+  'wallet',
+  'warehouse',
+  'arrow-left-right',
+  'shopping-cart',
+  'shield-check',
+  'sparkles',
+  'code-2',
+];
+// A-35 — the per-category article counts (and the "154" total in the sidebar)
+// used to be invented numbers for pages that do not exist: every card links to
+// the GitHub repo. The site's own /sobre page stakes its credibility on "sin
+// clientes inventados", and a competitor would point at these first. Counts
+// removed rather than corrected — writing the real docs is A-40, and until they
+// exist the honest number is no number.
+// Per-sidebar-row icon (order matches docs.sidebarItems).
+const SIDEBAR_ICONS = [
+  'rocket',
+  'scan-line',
+  'wallet',
+  'warehouse',
+  'arrow-left-right',
+  'shopping-cart',
+  'shield-check',
+  'sparkles',
+  'code-2',
+  'history',
+];
+
+// The blind-close payload is code, not prose — kept verbatim (not translated).
+const CLOSE_PAYLOAD = `POST /tenants/:tnt/sedes/:sede/cierres
+{
+  "session_id": "ses_pv_001824",
+  "denominaciones": {
+    "100000": 2,
+    "50000":  6,
+    "20000":  3,
+    "10000":  4,
+    "5000":   2,
+    "2000":   5,
+    "1000":  10,
+    "500":   12,
+    "200":   18,
+    "100":   24
+  },
+  "ciego": true
+}`;
+
+const sidebarItems = t('docs.sidebarItems');
+const sidebarSub = t('docs.sidebarSub');
+const categories = t('docs.categories');
+const popular = t('docs.popular');
+const onpage = t('docs.onpage');
+---
+
+<PageHeader
+  kicker={t('docs.kicker')}
+  lead={t('docs.lead')}
+  crumbs={[
+    { label: t('docs.crumbInicio'), href: localizedHref(base, lang, '/') },
+    { label: t('docs.crumbRecursos') },
+    { label: t('docs.crumbDocs') },
+  ]}
+  badges={[
+    { label: t('docs.badgeArticles'), tone: 'pv-badge-primary' },
+    { label: t('docs.badgeUpdated'), tone: 'pv-badge-amber' },
+    { label: t('docs.badgeOpen'), tone: 'pv-badge-neutral' },
+  ]}
+>
+  <Fragment slot="title">
+    {t('docs.titleA')}<br /> {t('docs.titleB')}<em>{t('docs.titleEm')}</em>{t('docs.titleC')}
+  </Fragment>
+
+  <div class="dc-search">
+    <Icon name="search" size={18} color="var(--primary-700)" />
+    {/* The separators are explicit: a line break between the terms would be
+        trimmed away, silently gluing the last quoted term to its comma. */}
+    <span class="ph"
+      >{t('docs.searchPre')} <em>“{t('docs.searchTerm1')}”</em>, <em
+        >“{t('docs.searchTerm2')}”</em
+      >, <em>“{t('docs.searchTerm3')}”</em>…</span
+    >
+    <span class="caret"></span>
+    <span class="key">
+      <span class="pv-key">⌘</span>
+      <span class="pv-key">K</span>
+    </span>
+  </div>
+</PageHeader>
+
+<section class="pv-shell pv-section" style="padding-top:48px">
+  <div class="dc-layout">
+    <aside class="dc-sidebar">
+      <div class="dc-sidebar-head">
+        <span class="pv-label">{t('docs.sidebarTitle')}</span>
+      </div>
+      <nav>
+        {
+          sidebarItems.map((label, idx) => {
+            const active = idx === 0;
+            return (
+              <div class={'dc-side-group' + (active ? ' is-active' : '')}>
+                <a class="dc-side-link">
+                  <Icon name={SIDEBAR_ICONS[idx]} size={14} />
+                  <span>{label}</span>
+                  {active && <Icon name="chevron-right" size={14} />}
+                </a>
+                {active && (
+                  <ul>
+                    {sidebarSub.map((s, i) => (
+                      <li class={i === 2 ? 'on' : ''}>{s}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })
+        }
+      </nav>
+    </aside>
+    <div class="dc-main">
+      <div class="dc-main-head">
+        <span class="pv-kicker">{t('docs.mainKicker')}</span>
+        <h2 class="pv-display">{t('docs.mainTitle')}</h2>
+      </div>
+
+      <div class="dc-cats">
+        {
+          categories.map((c, i) => (
+            <a class="dc-cat" href={REPO_URL} target="_blank" rel="noopener noreferrer">
+              <div class="dc-cat-head">
+                <span class="glyph">
+                  <Icon name={CATEGORY_ICONS[i]} size={18} />
+                </span>
+                <span class="dc-cat-tag">{c.tag}</span>
+              </div>
+              <h3>{c.t}</h3>
+              <p>{c.d}</p>
+              <footer>
+                <span class="arrow">
+                  <Icon name="arrow-right" size={14} />
+                </span>
+              </footer>
+            </a>
+          ))
+        }
+      </div>
+
+      <div class="dc-popular">
+        <header>
+          <span class="pv-kicker">{t('docs.popularKicker')}</span>
+          <h2 class="pv-display">{t('docs.popularTitle')}</h2>
+        </header>
+        <ol class="dc-popular-list">
+          {
+            popular.map((p, i) => (
+              <li class="dc-popular-row">
+                <span class="rank">{String(i + 1).padStart(2, '0')}</span>
+                <div>
+                  <span class="t">{p.t}</span>
+                  <span class="m">
+                    <span class="tag">{p.tag}</span> · <span class="mono">{p.time}</span>
+                  </span>
+                </div>
+                <Icon name="arrow-up-right" size={14} color="var(--fg3)" />
+              </li>
+            ))
+          }
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pv-shell pv-section" id="ejemplo">
+  <div class="head">
+    <span class="pv-kicker">{t('docs.exampleKicker')}</span>
+    <h2 class="pv-display">{t('docs.exampleTitle')}</h2>
+    <p class="desc">{t('docs.exampleDesc')}</p>
+  </div>
+  <div class="dc-article-shell">
+    <div class="dc-article-side">
+      <span class="dc-crumb">{t('docs.articleCrumb')}</span>
+      <ul class="dc-onpage">
+        {
+          onpage.map((o, i) => (
+            <li class={i === 0 ? 'on' : ''}>
+              {i === 0 && <Icon name="dot" size={10} />} {o}
+            </li>
+          ))
+        }
+      </ul>
+      <div class="dc-onpage-foot">
+        <Icon name="edit-3" size={11} /> {t('docs.onpageFoot')}
+      </div>
+    </div>
+
+    <article class="dc-article">
+      <div class="dc-art-head">
+        <div class="dc-art-meta">
+          <span class="tag">{t('docs.artTag')}</span>
+          <span class="sep">·</span>
+          <span class="mono">{t('docs.artReadTime')}</span>
+          <span class="sep">·</span>
+          <span class="mono">{t('docs.artUpdated')}</span>
+        </div>
+        <h1 class="pv-display">{t('docs.artTitle')}</h1>
+        <p class="dc-art-lead">{t('docs.artLead')}</p>
+      </div>
+
+      <div class="dc-callout">
+        <Icon name="info" size={16} color="var(--primary-700)" />
+        <div>
+          <b>{t('docs.calloutLabel')}</b> · {t('docs.calloutText')}
+        </div>
+      </div>
+
+      <h2>{t('docs.artH2Flow')}</h2>
+      <p class="dc-p">{t('docs.artFlowP')}</p>
+
+      <pre class="dc-pre"><span class="dim">{t('docs.artPreComment')}</span><br />{CLOSE_PAYLOAD}</pre>
+
+      <h2>{t('docs.artH2Diff')}</h2>
+      <p class="dc-p">
+        {t('docs.artDiffP1')} <span class="dc-inline">{t('docs.artDiffP2')}</span>,{' '}
+        <span class="dc-inline ok">{t('docs.artDiffP3')}</span>{' '}
+        <span class="dc-inline warn">{t('docs.artDiffP4')}</span> {t('docs.artDiffP5')}
+      </p>
+
+      <div class="dc-table">
+        <div class="dc-tr hd">
+          <span>{t('docs.tableState')}</span>
+          <span>{t('docs.tableMeaning')}</span>
+          <span>{t('docs.tableAction')}</span>
+        </div>
+        <div class="dc-tr">
+          <span class="dc-inline ok">{t('docs.tableSquared')}</span>
+          <span>{t('docs.tableSquaredMeaning')}</span>
+          <span class="mono">{t('docs.tableSquaredAction')}</span>
+        </div>
+        <div class="dc-tr">
+          <span class="dc-inline warn">{t('docs.tableOver')}</span>
+          <span>{t('docs.tableOverMeaning')}</span>
+          <span>{t('docs.tableOverAction')}</span>
+        </div>
+        <div class="dc-tr">
+          <span class="dc-inline danger">{t('docs.tableUnder')}</span>
+          <span>{t('docs.tableUnderMeaning')}</span>
+          <span>{t('docs.tableUnderAction')}</span>
+        </div>
+      </div>
+
+      <h2>{t('docs.feedbackH2')}</h2>
+      <div class="dc-feedback">
+        <button>
+          <Icon name="thumbs-up" size={14} /> {t('docs.feedbackYes')}
+        </button>
+        <button>
+          <Icon name="thumbs-down" size={14} /> {t('docs.feedbackNo')}
+        </button>
+        <a href={localizedHref(base, lang, '/contacto')} class="link">{t('docs.feedbackLink')}</a>
+      </div>
+    </article>
+  </div>
+</section>

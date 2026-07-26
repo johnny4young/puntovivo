@@ -1,0 +1,37 @@
+---
+// Smart download CTA.
+//
+// Renders the no-release state (link to the repo, "build from source" label),
+// which is what every visitor sees today because no release exists yet. Both
+// icons and both labels ship in the markup so src/scripts/release.js can
+// upgrade the button to a per-OS installer without building any DOM.
+import { useTranslations } from '../i18n/index.js';
+import { REPO_URL } from '../lib/release.js';
+import Icon from './Icon.astro';
+
+const { lang, class: className = 'pv-btn pv-btn-primary', icon = true } = Astro.props;
+const t = useTranslations(lang);
+---
+
+<a
+  class={className}
+  href={REPO_URL}
+  target="_blank"
+  rel="noopener noreferrer"
+  data-download-cta
+  data-label-release={t('download.release')}
+>
+  {
+    icon && (
+      <>
+        <span data-download-icon="source">
+          <Icon name="github" size={16} />
+        </span>
+        <span data-download-icon="release" hidden>
+          <Icon name="download" size={16} />
+        </span>
+      </>
+    )
+  }
+  <span data-download-label>{t('download.source')}</span>
+</a>
