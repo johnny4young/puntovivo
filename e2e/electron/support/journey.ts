@@ -18,6 +18,47 @@
 
 import { expect, type Page } from '@playwright/test';
 import { E2E_PASSWORD } from '../../shared/baseline.js';
+import { IS_PACKAGED_RUN } from '../fixtures.js';
+
+/**
+ * Navigate to an app route on either target.
+ *
+ * The sidebar groups routes under collapsible workspaces, so there is no flat
+ * link to click, and a constructed URL only works on one target: the dev bundle
+ * serves history routes from localhost while the packaged build serves hash
+ * routes from `puntovivo-app://app`. Branching here keeps every journey free of
+ * that detail.
+ */
+export async function goToRoute(page: Page, route: string): Promise<void> {
+  if (IS_PACKAGED_RUN) {
+    await page.evaluate(target => {
+      window.location.hash = `#${target}`;
+    }, route);
+  } else {
+    // No baseURL is configured for this suite, so resolve against wherever the
+    // renderer currently is.
+    await page.goto(new URL(route, page.url()).toString());
+  }
+  await expect(page).toHaveURL(new RegExp(`${route}$`), { timeout: 30_000 });
+}
+
+/**
+ * Return to a signed-out login form.
+ *
+ * The web suite's `resetSession` navigates to `/login`, which the packaged app
+ * cannot do: it serves the renderer from `puntovivo-app://app` behind a hash
+ * route, so a path navigation has nowhere to land. Clearing credentials and
+ * reloading gets to the same place on either target.
+ */
+export async function signOut(page: Page): Promise<void> {
+  await page.context().clearCookies();
+  await page.evaluate(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+  await page.reload();
+  await expect(page.getByLabel(/email/i)).toBeVisible({ timeout: 30_000 });
+}
 
 /** Sign in, pinning the locale first so copy assertions are deterministic. */
 export async function signIn(page: Page, email: string, password = E2E_PASSWORD): Promise<void> {
