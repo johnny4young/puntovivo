@@ -156,6 +156,8 @@ export function DataTable<TData, TValue>({
   variant = 'default',
   virtualised,
 }: DataTableProps<TData, TValue>) {
+  'use no memo';
+
   // explicit prop wins; otherwise auto-flip on row count.
   const isVirtual = virtualised ?? data.length > AUTO_VIRTUALISE_THRESHOLD;
   // controlled search takes over completely: the client-side
@@ -189,6 +191,11 @@ export function DataTable<TData, TValue>({
   // table entirely" (clear selection via onRowFocusChange(null)).
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
 
+  // TanStack Table v8 returns an intentionally stateful instance whose methods
+  // cannot be memoized safely. The component-level `use no memo` directive
+  // keeps React Compiler away from this boundary; the instance never escapes
+  // DataTable or enters a memoized child.
+  // eslint-disable-next-line react-hooks/incompatible-library -- isolated third-party compiler boundary
   const table = useReactTable({
     data,
     columns,

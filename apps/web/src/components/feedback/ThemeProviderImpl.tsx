@@ -1,27 +1,19 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
-
-export type ThemePreference = 'light' | 'dark' | 'system';
-export type ResolvedTheme = 'light' | 'dark';
-
-interface ThemeContextValue {
-  preference: ThemePreference;
-  resolvedTheme: ResolvedTheme;
-  isLoading: boolean;
-  setPreference: (preference: ThemePreference) => Promise<void>;
-}
+import {
+  ThemeContext,
+  type ResolvedTheme,
+  type ThemeContextValue,
+  type ThemePreference,
+} from './ThemeContext';
 
 const THEME_STORAGE_KEY = 'puntovivo-theme-preference';
 const defaultPreference: ThemePreference = 'system';
-
-const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 function isThemePreference(value: unknown): value is ThemePreference {
   return value === 'light' || value === 'dark' || value === 'system';
@@ -135,14 +127,4 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
-}
-
-export function useTheme() {
-  const context = useContext(ThemeContext);
-
-  if (!context) {
-    throw new Error('useTheme must be used within ThemeProvider');
-  }
-
-  return context;
 }

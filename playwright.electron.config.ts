@@ -21,6 +21,13 @@
 import path from 'node:path';
 import { defineConfig } from '@playwright/test';
 
+// See playwright.web.config.ts: do not pass conflicting colour contracts to
+// Node worker processes.
+if (process.env.NO_COLOR !== undefined) {
+  delete process.env.NO_COLOR;
+  process.env.FORCE_COLOR ??= '0';
+}
+
 // A packaged run drives the shipped artefact, which serves its renderer from
 // the puntovivo-app:// origin baked into the bundle. The Vite dev server is
 // not involved, so starting one would only add a port to collide on.

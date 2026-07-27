@@ -66,6 +66,12 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: 'dist',
+    // The only chunk above Vite's generic 500 kB heuristic is the lazy XLSX
+    // exporter. Puntovivo enforces a stricter gzip ceiling for every named
+    // chunk in perf-budget.json/check-bundle-size.mjs, so keep Vite focused on
+    // unexpected megabyte-scale output while the app-specific gate owns the
+    // real route-split budget.
+    chunkSizeWarningLimit: 1000,
     // ship sourcemaps only outside production. Prod sourcemaps
     // inflate the desktop/web payload and leak source; re-enable behind a
     // hidden-sourcemap upload once an error-tracking endpoint exists.
@@ -80,6 +86,23 @@ export default defineConfig(({ mode }) => ({
         // (@codemirror/*, @dnd-kit/*) in their group without enumerating each.
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
+          // Keep the startup module graph in bounded execution units. A single
+          // vendor entry made ReactDOM + routing + forms + data clients execute
+          // as one long task under Lighthouse's CPU throttle, inflating TBT on
+          // every authenticated route even though route chunks were lazy.
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id))
+            return 'react-runtime';
+          if (/[\\/]node_modules[\\/]react-router[\\/]/.test(id)) return 'routing';
+          if (/[\\/]node_modules[\\/]react-hook-form[\\/]/.test(id)) return 'forms';
+          if (/[\\/]node_modules[\\/](@tanstack|@trpc)[\\/]/.test(id)) return 'data-runtime';
+          if (
+            /[\\/]node_modules[\\/](i18next|react-i18next|i18next-resources-to-backend)[\\/]/
+              .test(id)
+          )
+            return 'i18n-runtime';
+          if (/[\\/]node_modules[\\/](clsx|tailwind-merge)[\\/]/.test(id))
+            return 'style-runtime';
+          if (/[\\/]node_modules[\\/]zustand[\\/]/.test(id)) return 'state-runtime';
           if (/[\\/]node_modules[\\/](jspdf|jspdf-autotable)[\\/]/.test(id)) return 'pdf';
           if (/[\\/]node_modules[\\/](exceljs|jszip)[\\/]/.test(id)) return 'xlsx';
           if (/[\\/]node_modules[\\/](codemirror|@codemirror|@lezer)[\\/]/.test(id))

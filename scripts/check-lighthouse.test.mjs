@@ -12,6 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  extractDiagnostics,
   extractMetrics,
   compareToLighthouseBudget,
   renderReport,
@@ -44,6 +45,37 @@ test('extractMetrics maps missing audits / score to null (no crash)', () => {
     ttiMs: null,
     cls: null,
     score: null,
+  });
+});
+
+test('extractDiagnostics exposes blocking-time signals and the heaviest scripts', () => {
+  const lhr = {
+    audits: {
+      'first-contentful-paint': { numericValue: 1000.4 },
+      'speed-index': { numericValue: 1300.7 },
+      'total-blocking-time': { numericValue: 220.3 },
+      'mainthread-work-breakdown': { numericValue: 2500.8 },
+      'bootup-time': {
+        numericValue: 1800.1,
+        details: {
+          items: [
+            { url: 'http://localhost:3000/assets/small.js', total: 100, scripting: 80 },
+            { url: 'http://localhost:3000/assets/large.js', total: 900.2, scripting: 700.8 },
+          ],
+        },
+      },
+    },
+  };
+  assert.deepEqual(extractDiagnostics(lhr), {
+    fcpMs: 1000,
+    speedIndexMs: 1301,
+    tbtMs: 220,
+    mainThreadWorkMs: 2501,
+    bootupTimeMs: 1800,
+    topBootupScripts: [
+      { url: '/assets/large.js', totalMs: 900, scriptingMs: 701 },
+      { url: '/assets/small.js', totalMs: 100, scriptingMs: 80 },
+    ],
   });
 });
 

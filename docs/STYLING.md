@@ -25,7 +25,7 @@ The app supports:
 - `system`
 
 Theme state is managed through:
-[ThemeProvider.tsx](../apps/web/src/components/feedback/ThemeProvider.tsx)
+[ThemeProvider.ts](../apps/web/src/components/feedback/ThemeProvider.ts)
 
 Behavior:
 

@@ -34,6 +34,7 @@ import {
 } from '../../observability/index.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import type { Context } from '../context.js';
+import { isExpectedMissingRefresh } from '../expected-errors.js';
 
 const fallbackLog = createModuleLogger('trpc-tracing');
 
@@ -115,6 +116,22 @@ export async function tracingMiddlewareFn({
   const failed = caught !== null || resultShape?.ok === false;
   if (failed) {
     const err = caught ?? resultShape?.error;
+    if (isExpectedMissingRefresh(procedure, err, ctx.req)) {
+      log.info(
+        {
+          procedure,
+          durationMs,
+          outcome: 'rejected',
+          correlationId,
+          tenantId,
+          userId,
+          reason: 'missing_refresh_cookie',
+        },
+        'trpc procedure rejected'
+      );
+      if (caught !== null) throw caught;
+      return result;
+    }
     log.error(
       {
         procedure,

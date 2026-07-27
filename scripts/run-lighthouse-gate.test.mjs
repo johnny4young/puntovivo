@@ -10,6 +10,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { basename, sep } from 'node:path';
 import {
   buildCheckArgs,
   buildEnsureBrowserArgs,
@@ -20,6 +21,7 @@ import {
   DEFAULT_API_HOST,
   DEFAULT_API_PORT,
   DEFAULT_CDP_PORT,
+  DEFAULT_SETTLE_MS,
   DEFAULT_WEB_HOST,
   DEFAULT_WEB_PORT,
   resolveRunLighthouseGateOptions,
@@ -36,6 +38,7 @@ test('resolveRunLighthouseGateOptions uses safe defaults and passes check flags 
   assert.equal(options.apiHost, DEFAULT_API_HOST);
   assert.equal(options.apiPort, DEFAULT_API_PORT);
   assert.equal(options.cdpPort, DEFAULT_CDP_PORT);
+  assert.equal(options.settleMs, DEFAULT_SETTLE_MS);
   assert.equal(options.previewUrl, `http://${DEFAULT_WEB_HOST}:${DEFAULT_WEB_PORT}`);
   assert.equal(options.apiUrl, `http://${DEFAULT_API_HOST}:${DEFAULT_API_PORT}`);
   assert.deepEqual(options.passThroughArgs, ['--strict', '--require-measurement']);
@@ -53,6 +56,7 @@ test('resolveRunLighthouseGateOptions accepts runner flags without forwarding th
       '--cdp-port=9444',
       '--ready-timeout-ms',
       '1234',
+      '--settle-ms=0',
       '--skip-seed',
       '--skip-server',
       '--skip-preview',
@@ -66,6 +70,7 @@ test('resolveRunLighthouseGateOptions accepts runner flags without forwarding th
   assert.equal(options.apiPort, 9999);
   assert.equal(options.cdpPort, 9444);
   assert.equal(options.readyTimeoutMs, 1234);
+  assert.equal(options.settleMs, 0);
   assert.equal(options.skipSeed, true);
   assert.equal(options.skipServer, true);
   assert.equal(options.skipPreview, true);
@@ -81,12 +86,18 @@ test('resolveRunLighthouseGateOptions lets base URL select a skip-preview target
 });
 
 test('build command helpers point at the expected workspace commands', () => {
-  assert.deepEqual(
-    buildEnsureBrowserArgs().map(arg => arg.replace(/.*scripts\//, 'scripts/')),
-    ['scripts/ensure-playwright-browser.mjs']
-  );
+  assert.deepEqual(buildEnsureBrowserArgs().map(arg => basename(arg)), [
+    'ensure-playwright-browser.mjs',
+  ]);
   assert.deepEqual(buildSeedArgs(), ['run', 'seed:dev']);
-  assert.deepEqual(buildServerArgs(), ['--filter', '@puntovivo/server', 'run', 'dev']);
+  const serverArgs = buildServerArgs();
+  assert.deepEqual(serverArgs[0].split(sep).slice(-3), ['tsx', 'dist', 'cli.mjs']);
+  assert.deepEqual(serverArgs[1].split(sep).slice(-4), [
+    'packages',
+    'server',
+    'src',
+    'standalone.ts',
+  ]);
   assert.deepEqual(buildPreviewArgs({ webHost: 'localhost', webPort: 4567 }), [
     '--filter',
     '@puntovivo/web',
@@ -100,7 +111,7 @@ test('build command helpers point at the expected workspace commands', () => {
     '--strictPort',
   ]);
   const checkArgs = buildCheckArgs(['--strict']);
-  assert.match(checkArgs[0], /scripts\/check-lighthouse\.mjs$/);
+  assert.equal(basename(checkArgs[0]), 'check-lighthouse.mjs');
   assert.deepEqual(checkArgs.slice(1), ['--strict']);
 });
 

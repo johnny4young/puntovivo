@@ -13,9 +13,7 @@
  */
 
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -26,15 +24,10 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
 import { getShortcutById, matchesShortcut } from '@/lib/shortcuts';
 import { CommandPalette } from './CommandPalette';
-
-interface CommandPaletteContextValue {
-  isOpen: boolean;
-  openPalette: () => void;
-  closePalette: () => void;
-  togglePalette: () => void;
-}
-
-const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(null);
+import {
+  CommandPaletteContext,
+  type CommandPaletteContextValue,
+} from './CommandPaletteContext';
 const SALES_PRODUCT_SEARCH_ID = 'sales-product-search-input';
 
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
@@ -147,12 +140,4 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
       />
     </CommandPaletteContext.Provider>
   );
-}
-
-export function useCommandPalette(): CommandPaletteContextValue {
-  const ctx = useContext(CommandPaletteContext);
-  if (!ctx) {
-    throw new Error('useCommandPalette must be used inside <CommandPaletteProvider>');
-  }
-  return ctx;
 }

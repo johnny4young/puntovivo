@@ -100,6 +100,40 @@ export function extractMetrics(lhr) {
 }
 
 /**
+ * Extra performance signals printed for diagnosis but not budgeted directly.
+ * The score can regress while LCP/TTI/CLS remain healthy (for example, when
+ * Total Blocking Time rises), so keeping these in the gate log makes the root
+ * cause visible instead of leaving operators with only an opaque score.
+ */
+export function extractDiagnostics(lhr) {
+  const audits = lhr?.audits ?? {};
+  const rounded = id => {
+    const value = audits[id]?.numericValue;
+    return typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null;
+  };
+  const topBootupScripts = [...(audits['bootup-time']?.details?.items ?? [])]
+    .filter(item => typeof item?.total === 'number')
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5)
+    .map(item => ({
+      url: String(item.url ?? '').replace(BASE_URL, ''),
+      totalMs: Math.round(item.total),
+      scriptingMs:
+        typeof item.scripting === 'number' && Number.isFinite(item.scripting)
+          ? Math.round(item.scripting)
+          : null,
+    }));
+  return {
+    fcpMs: rounded('first-contentful-paint'),
+    speedIndexMs: rounded('speed-index'),
+    tbtMs: rounded('total-blocking-time'),
+    mainThreadWorkMs: rounded('mainthread-work-breakdown'),
+    bootupTimeMs: rounded('bootup-time'),
+    topBootupScripts,
+  };
+}
+
+/**
  * Compare measured `{ route: { lcpMs, ttiMs, cls, score } }` against the budget
  * of the same shape. `lower` metrics regress past `budget * (1 + t/100)`;
  * the normalised `score` regresses below its exact declared floor. A budgeted
@@ -284,6 +318,11 @@ export async function launchAndMeasure() {
         );
         if (runnerResult?.lhr) {
           measured[route.key] = extractMetrics(runnerResult.lhr);
+          console.log(
+            `check-lighthouse: diagnostics ${route.key} = ${JSON.stringify(
+              extractDiagnostics(runnerResult.lhr)
+            )}`
+          );
         } else {
           console.warn(
             `check-lighthouse: WARN — route ${route.path} produced no Lighthouse result.`

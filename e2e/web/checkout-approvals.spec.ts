@@ -567,7 +567,14 @@ test('high-value cashier discount requires two distinct approvers', async ({
     await managerCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
     await captureEvidence(managerPage, 'eng-142c-manager-first-approval-es');
     await managerCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
-    await expect(managerCard).toBeHidden();
+    await expect
+      .poll(() => findApprovalByReason(approvalReason), { timeout: 20_000 })
+      .toMatchObject({
+        status: 'pending',
+        approvalsCollected: 1,
+        requiredApprovals: 2,
+      });
+    await expect(managerCard).toBeHidden({ timeout: 15_000 });
 
     await expect(approvalPanel.getByText('1 of 2 distinct approvals received')).toBeVisible({
       timeout: 10_000,

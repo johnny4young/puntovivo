@@ -33,6 +33,7 @@ import {
   __clearTelemetryOptInCacheForTests,
   type TelemetrySink,
 } from '../observability/index.js';
+import { throwServerError } from '../lib/errorCodes.js';
 
 interface RecordedLog {
   level: 'info' | 'error';
@@ -51,6 +52,7 @@ function buildCtx(args: {
   reqId?: string;
   /** optional request headers (e.g. x-correlation-id). */
   headers?: Record<string, string | string[]>;
+  cookies?: Record<string, string>;
   server: PuntovivoServer;
 }): BuiltCtx {
   const logs: RecordedLog[] = [];
@@ -66,6 +68,7 @@ function buildCtx(args: {
       log: recordingLog,
       server: args.server.app,
       headers: args.headers ?? {},
+      cookies: args.cookies ?? {},
     } as unknown as Context['req'],
     res: {} as Context['res'],
     db: getDatabase(),
@@ -154,6 +157,15 @@ describe('trpc tracing middleware', () => {
         message: 'kaboom',
       });
     }),
+    auth: router({
+      refresh: publicProcedure.mutation(() => {
+        throwServerError({
+          trpcCode: 'UNAUTHORIZED',
+          errorCode: 'AUTH_REFRESH_INVALID',
+          message: 'Refresh session is invalid or missing',
+        });
+      }),
+    }),
   });
 
   it('emits a single info log with the expected bindings on success', async () => {
@@ -236,6 +248,58 @@ describe('trpc tracing middleware', () => {
         tenantId: optInTenantId,
         correlationId: 'corr-error',
       },
+    });
+  });
+
+  it('treats an anonymous refresh probe without a cookie as normal signed-out control flow', async () => {
+    const { sink, exceptions, spans } = buildRecordingSink();
+    registerTelemetrySink(sink);
+    const { ctx, logs } = buildCtx({
+      tenantId: null,
+      userId: null,
+      reqId: 'corr-missing-refresh',
+      cookies: {},
+      server,
+    });
+    const caller = harnessRouter.createCaller(ctx);
+
+    await expect(caller.auth.refresh()).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({
+      level: 'info',
+      msg: 'trpc procedure rejected',
+      bindings: {
+        procedure: 'auth.refresh',
+        outcome: 'rejected',
+        reason: 'missing_refresh_cookie',
+        correlationId: 'corr-missing-refresh',
+      },
+    });
+    expect(exceptions).toHaveLength(0);
+    expect(spans).toHaveLength(0);
+  });
+
+  it('keeps an invalid refresh cookie on the error and capture path', async () => {
+    const { sink, exceptions } = buildRecordingSink();
+    registerTelemetrySink(sink);
+    const { ctx, logs } = buildCtx({
+      tenantId: optInTenantId,
+      userId: optInUserId,
+      reqId: 'corr-invalid-refresh',
+      cookies: { puntovivo_refresh: 'invalid-token' },
+      server,
+    });
+    const caller = harnessRouter.createCaller(ctx);
+
+    await expect(caller.auth.refresh()).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.level).toBe('error');
+    await vi.waitFor(() => {
+      expect(exceptions).toHaveLength(1);
     });
   });
 

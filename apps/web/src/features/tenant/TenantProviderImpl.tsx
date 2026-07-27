@@ -1,28 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useRef, ReactNode } from 'react';
+import { useEffect, useMemo, useRef, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Site, Tenant, TenantSettings } from '@/types';
+import type { Site } from '@/types';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
 import { normalizeSites, useActiveSite } from './siteSelection';
-
-interface TenantContextType {
-  currentTenant: Tenant | null;
-  tenantSettings: TenantSettings | null;
-  sites: Site[];
-  currentSite: Site | null;
-  isLoadingSites: boolean;
-  switchSite: (siteId: string) => Promise<void>;
-}
-
-const TenantContext = createContext<TenantContextType | undefined>(undefined);
-
-export function useTenant() {
-  const context = useContext(TenantContext);
-  if (!context) {
-    throw new Error('useTenant must be used within TenantProvider');
-  }
-  return context;
-}
+import { TenantContext, type TenantContextType } from './TenantContext';
 
 interface TenantProviderProps {
   children: ReactNode;

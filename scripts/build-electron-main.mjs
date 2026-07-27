@@ -55,6 +55,22 @@ const generator = new ViteConfigGenerator(pluginConfig, desktopRoot, true);
 const buildConfigs = await generator.getBuildConfigs();
 
 for (const config of buildConfigs) {
+  // Electron Forge 7 still emits Rollup's deprecated inlineDynamicImports
+  // option for the preload bundle. Vite 8 runs Rolldown, where the equivalent
+  // single-file contract is output.codeSplitting=false.
+  const output = config.build?.rollupOptions?.output;
+  if (
+    output &&
+    !Array.isArray(output) &&
+    output.inlineDynamicImports === true
+  ) {
+    const { inlineDynamicImports: _deprecated, ...currentOutput } = output;
+    config.build.rollupOptions.output = {
+      ...currentOutput,
+      codeSplitting: false,
+    };
+  }
+
   const target = describeTarget(config);
   process.stdout.write(
     `[electron-main-build] Building ${relative(desktopRoot, target)}\n`

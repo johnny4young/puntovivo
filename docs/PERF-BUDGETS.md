@@ -245,8 +245,11 @@ Tolerant paths:
 
 ### tRPC p95 latency
 
-`pnpm run ci:server` runs `vitest run --coverage`, which picks up
-`__tests__/perf-trpc-latency.test.ts`. The test:
+`pnpm run ci:server` runs the functional coverage suite first, then
+`scripts/run-trpc-latency-gate.mjs` starts
+`__tests__/perf-trpc-latency.test.ts` in a dedicated one-worker Vitest
+process. The profile file is skipped unless that runner sets its explicit
+opt-in flag. The test:
 
 1. Boots `createServer({ dbPath: ':memory:' })`.
 2. Seeds 30 products + 20 customers so the curated procedures
@@ -261,6 +264,7 @@ Tolerant paths:
 
 Mitigations against runner jitter:
 
+- The profile never shares a worker pool with coverage or the store profile.
 - Default `warmupIterations` is 10.
 - Default `samplesPerProcedure` is 50.
 - p95 (not p99) — less tail noise.

@@ -28,6 +28,7 @@ test('stripHash strips Rolldown-style content hashes', () => {
   assert.equal(stripHash('index-PsvtasHJ.js'), 'index');
   assert.equal(stripHash('exceljs.bare.min-BAt46mfP.js'), 'exceljs.bare.min');
   assert.equal(stripHash('jspdf.es.min-Bi663D0h.js'), 'jspdf.es.min');
+  assert.equal(stripHash('react-runtime-Cnljq0wD.js'), 'react-runtime');
 });
 
 test('stripHash leaves names without a hash suffix unchanged', () => {

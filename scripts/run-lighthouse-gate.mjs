@@ -14,6 +14,7 @@
 
 import { mkdtempSync, rmSync } from 'node:fs';
 import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -33,15 +34,28 @@ export const DEFAULT_API_PORT = 8090;
 export const DEFAULT_CDP_PORT = 9222;
 export const DEFAULT_READY_TIMEOUT_MS = 120_000;
 export const DEFAULT_POLL_INTERVAL_MS = 500;
+// The seeded demo DB intentionally carries queued fiscal documents. The
+// standalone server's first 30-second worker tick drains them; measuring while
+// that catch-up runs makes browser CPU scores depend on scheduler timing rather
+// than renderer work. Start the audit immediately after that one-time drain and
+// before the next tick.
+export const DEFAULT_SETTLE_MS = 31_000;
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CHECK_LIGHTHOUSE_SCRIPT = resolve(REPO_ROOT, 'scripts', 'check-lighthouse.mjs');
 const ENSURE_PLAYWRIGHT_SCRIPT = resolve(REPO_ROOT, 'scripts', 'ensure-playwright-browser.mjs');
+const SERVER_ENTRY = resolve(REPO_ROOT, 'packages', 'server', 'src', 'standalone.ts');
+const TSX_CLI = createRequire(import.meta.url).resolve('tsx/cli');
 const PNPM_COMMAND = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
 function parsePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseNonNegativeInteger(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 function parseFlagValue(argv, index, prefix, fallback) {
@@ -65,6 +79,7 @@ function parseFlagValue(argv, index, prefix, fallback) {
  * - `--api-port <port>` / `--api-port=<port>`
  * - `--cdp-port <port>` / `--cdp-port=<port>`
  * - `--ready-timeout-ms <ms>` / `--ready-timeout-ms=<ms>`
+ * - `--settle-ms <ms>` / `--settle-ms=<ms>`
  * - `--skip-seed`, `--skip-server`, `--skip-preview`
  */
 export function resolveRunLighthouseGateOptions({
@@ -79,6 +94,10 @@ export function resolveRunLighthouseGateOptions({
   let readyTimeoutMs = parsePositiveInteger(
     env.PUNTOVIVO_LIGHTHOUSE_READY_TIMEOUT_MS,
     DEFAULT_READY_TIMEOUT_MS
+  );
+  let settleMs = parseNonNegativeInteger(
+    env.PUNTOVIVO_LIGHTHOUSE_SETTLE_MS,
+    DEFAULT_SETTLE_MS
   );
   let skipSeed = env.PUNTOVIVO_LIGHTHOUSE_SKIP_SEED === '1';
   let skipServer = env.PUNTOVIVO_LIGHTHOUSE_SKIP_SERVER === '1';
@@ -143,6 +162,12 @@ export function resolveRunLighthouseGateOptions({
           readyTimeoutMs = parsePositiveInteger(value, readyTimeoutMs);
         },
       ],
+      [
+        '--settle-ms',
+        value => {
+          settleMs = parseNonNegativeInteger(value, settleMs);
+        },
+      ],
     ];
     handled = false;
     for (const [flag, apply] of numericFlags) {
@@ -183,6 +208,7 @@ export function resolveRunLighthouseGateOptions({
     apiPort,
     cdpPort,
     readyTimeoutMs,
+    settleMs,
     skipSeed,
     skipServer,
     skipPreview,
@@ -201,7 +227,7 @@ export function buildSeedArgs() {
 }
 
 export function buildServerArgs() {
-  return ['--filter', '@puntovivo/server', 'run', 'dev'];
+  return [TSX_CLI, SERVER_ENTRY];
 }
 
 export function buildPreviewArgs({ webHost, webPort }) {
@@ -403,7 +429,10 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
 
     if (!options.skipServer) {
       console.log(`run-lighthouse-gate: starting API server at ${options.apiUrl}`);
-      serverProcess = spawnLongRunning(PNPM_COMMAND, buildServerArgs(), {
+      // Run the one-shot TypeScript entry directly instead of wrapping the
+      // watch script in pnpm. The gate owns this process lifetime, so its
+      // expected SIGTERM shutdown must not be rendered as an ELIFECYCLE error.
+      serverProcess = spawnLongRunning(process.execPath, buildServerArgs(), {
         env: gateEnv,
         prefix: '[api] ',
       });
@@ -422,6 +451,12 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
             : false;
         },
       });
+      if (options.settleMs > 0) {
+        console.log(
+          `run-lighthouse-gate: waiting ${options.settleMs}ms for seeded background work to settle`
+        );
+        await delay(options.settleMs);
+      }
     } else {
       console.log(`run-lighthouse-gate: using existing API server at ${options.apiUrl}`);
     }

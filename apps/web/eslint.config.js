@@ -67,5 +67,14 @@ export default tseslint.config(
     rules: {
       'no-restricted-syntax': ['error', ...NO_LITERAL_JSX_ATTRS],
     },
+  },
+  {
+    // Test modules are never mounted through Vite's production Fast Refresh
+    // boundary. They intentionally export render helpers, factories, and
+    // testing-library utilities alongside wrapper components.
+    files: ['src/**/*.test.{ts,tsx}', 'src/**/__tests__/**', 'src/test/**'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
   }
 );

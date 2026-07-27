@@ -46,11 +46,12 @@ const NEW_CHUNK_WARN_MIN_GZ_KB = 5;
 /**
  * Strip Rolldown's `-<hash>.js` suffix to recover the canonical
  * chunk name used as the budget key. The hash is the trailing
- * `-<6+ char base64-ish blob>.js` segment. Anchored so a chunk
+ * `-<8 char base64-ish blob>.js` segment. Keeping the exact Rolldown length
+ * preserves semantic hyphens in names such as `react-runtime`.
  * named `SalesPage-Detail.js` (no hash) survives unchanged.
  */
 export function stripHash(filename) {
-  return filename.replace(/-[A-Za-z0-9_-]{6,}\.js$/, '');
+  return filename.replace(/-[A-Za-z0-9_-]{8}\.js$/, '');
 }
 
 /**

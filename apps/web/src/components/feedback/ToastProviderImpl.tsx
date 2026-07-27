@@ -1,8 +1,6 @@
 import { CheckCircle2, Info, TriangleAlert, X, XCircle } from 'lucide-react';
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -11,31 +9,13 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-
-type ToastTone = 'success' | 'error' | 'info' | 'warning';
-
-// explicit `| undefined` on optional fields.
-interface ToastInput {
-  title: string;
-  description?: string | undefined;
-  durationMs?: number | undefined;
-}
-
-interface ToastRecord extends ToastInput {
-  id: string;
-  tone: ToastTone;
-}
-
-interface ToastContextValue {
-  show: (toast: ToastInput & { tone?: ToastTone }) => string;
-  success: (toast: ToastInput) => string;
-  error: (toast: ToastInput) => string;
-  info: (toast: ToastInput) => string;
-  warning: (toast: ToastInput) => string;
-  dismiss: (toastId: string) => void;
-}
-
-const ToastContext = createContext<ToastContextValue | undefined>(undefined);
+import {
+  ToastContext,
+  type ToastContextValue,
+  type ToastInput,
+  type ToastRecord,
+  type ToastTone,
+} from './ToastContext';
 
 const defaultDurationMs = 4000;
 
@@ -186,14 +166,4 @@ export function ToastProvider({ children }: ToastProviderProps) {
       <ToastViewport toasts={toasts} onDismiss={dismiss} />
     </ToastContext.Provider>
   );
-}
-
-export function useToast() {
-  const context = useContext(ToastContext);
-
-  if (!context) {
-    throw new Error('useToast must be used within ToastProvider');
-  }
-
-  return context;
 }
