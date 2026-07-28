@@ -127,8 +127,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          # Use @pnpm/exe instead of the npm-installed shim. The npm bootstrap
-          # emits its own audit finding and the legacy PNPM_HOME layout warning.
+          # Use @pnpm/exe instead of the npm-installed shim. Keep packageManager
+          # aligned with the bundled CLI so setup never self-updates through the
+          # legacy PNPM_HOME layout.
           standalone: true
 
       - name: Setup Node.js
