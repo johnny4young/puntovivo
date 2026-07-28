@@ -44,10 +44,16 @@ test('every full platform build starts clean, smokes the package, and uploads ev
     6
   );
   assert.doesNotMatch(workflow, /run-desktop-smoke\.mjs[^\n]*--structure-only/);
-  assert.match(
-    workflow,
-    /dbus-run-session -- xvfb-run -a node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
+  assert.equal(
+    (
+      workflow.match(
+        /xvfb-run -a dbus-run-session -- node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/g
+      ) ?? []
+    ).length,
+    2,
+    'Linux portal activation must inherit the Xvfb display for both smoke journeys'
   );
+  assert.doesNotMatch(workflow, /dbus-run-session -- xvfb-run/);
   assert.match(
     workflow,
     /sudo chown root:root apps\/desktop\/out-builder\/linux-unpacked\/chrome-sandbox/

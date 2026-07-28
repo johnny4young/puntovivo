@@ -180,8 +180,8 @@ jobs:
         run: |
           sudo chown root:root apps/desktop/out-builder/linux-unpacked/chrome-sandbox
           sudo chmod 4755 apps/desktop/out-builder/linux-unpacked/chrome-sandbox
-          dbus-run-session -- xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
-          dbus-run-session -- xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --renderer
+          xvfb-run -a dbus-run-session -- node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
+          xvfb-run -a dbus-run-session -- node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --renderer
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
