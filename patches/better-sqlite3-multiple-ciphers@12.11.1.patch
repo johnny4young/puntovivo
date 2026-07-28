@@ -1,0 +1,20 @@
+diff --git a/binding.gyp b/binding.gyp
+index 385d408cf135aa16119a887e3c42ded0159f934e..48270f4833b581c0f505544449a04bc39fe9b35e 100644
+--- a/binding.gyp
++++ b/binding.gyp
+@@ -11,7 +11,14 @@
+       'sources': ['src/better_sqlite3.cpp'],
+       'cflags_cc': ['-std=c++20'],
+       'xcode_settings': {
+-        'OTHER_CPLUSPLUSFLAGS': ['-std=c++20', '-stdlib=libc++'],
++        'OTHER_CPLUSPLUSFLAGS': [
++          '-std=c++20',
++          '-stdlib=libc++',
++          # Node 24's backward-compatible NODE_MODULE_INIT macro casts its
++          # three-argument initializer to the four-argument registration type.
++          # Clang 19 diagnoses that Node-owned compatibility cast by default.
++          '-Wno-cast-function-type-mismatch',
++        ],
+         'OTHER_LDFLAGS': ['-framework Security'],
+       },
+       'msvs_settings': {

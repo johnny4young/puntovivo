@@ -59,6 +59,20 @@ import { registerDevice } from '../services/devices/devicesService.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 import { appRouter } from '../trpc/router.js';
 import { getSaleRecord } from '../application/sales/sale-read.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
+
+function withExpectedFiscalFailure<T>(callback: () => T | Promise<T>): Promise<T> {
+  return __withExpectedTestLogs(
+    [
+      {
+        level: 'warn',
+        module: 'fiscal-outbox-worker',
+        message: 'outbox row failed',
+      },
+    ],
+    callback
+  );
+}
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -446,11 +460,14 @@ describe('fiscal outbox — outage path (recoverable)', () => {
       'CO',
       new StubAdapter({ kind: 'recoverable', errorKind: 'PROVIDER_5XX' })
     );
-    const { saleId } = await seedProductAndSale({
-      sku: 'OB-CONT-' + nanoid(6),
-      productName: 'Outbox contingency product',
+    const { saleId } = await withExpectedFiscalFailure(async () => {
+      const seeded = await seedProductAndSale({
+        sku: 'OB-CONT-' + nanoid(6),
+        productName: 'Outbox contingency product',
+      });
+      await server.fiscalWorker.tickOnce(tenantId);
+      return seeded;
     });
-    await server.fiscalWorker.tickOnce(tenantId);
     const { doc, outbox } = await readFiscalDocAndOutbox(saleId);
     expect(doc).toBeTruthy();
     expect(doc?.status).toBe('contingency');
@@ -478,11 +495,14 @@ describe('fiscal outbox — outage path (recoverable)', () => {
       'CO',
       new StubAdapter({ kind: 'recoverable', errorKind: 'NETWORK_TIMEOUT' })
     );
-    const { saleId } = await seedProductAndSale({
-      sku: 'OB-QR-CONT-' + nanoid(6),
-      productName: 'Outbox QR contingency product',
+    const { saleId } = await withExpectedFiscalFailure(async () => {
+      const seeded = await seedProductAndSale({
+        sku: 'OB-QR-CONT-' + nanoid(6),
+        productName: 'Outbox QR contingency product',
+      });
+      await server.fiscalWorker.tickOnce(tenantId);
+      return seeded;
     });
-    await server.fiscalWorker.tickOnce(tenantId);
     const record = await getSaleRecord(getDatabase(), tenantId, saleId);
     expect(record.fiscalDocuments).toHaveLength(1);
     const fd = record.fiscalDocuments![0];
@@ -499,11 +519,14 @@ describe('fiscal outbox — non-recoverable path', () => {
       'CO',
       new StubAdapter({ kind: 'non-recoverable', errorKind: 'MALFORMED_REQUEST' })
     );
-    const { saleId } = await seedProductAndSale({
-      sku: 'OB-DEAD-' + nanoid(6),
-      productName: 'Outbox dead-letter product',
+    const { saleId } = await withExpectedFiscalFailure(async () => {
+      const seeded = await seedProductAndSale({
+        sku: 'OB-DEAD-' + nanoid(6),
+        productName: 'Outbox dead-letter product',
+      });
+      await server.fiscalWorker.tickOnce(tenantId);
+      return seeded;
     });
-    await server.fiscalWorker.tickOnce(tenantId);
     const { doc, outbox } = await readFiscalDocAndOutbox(saleId);
     expect(doc?.status).toBe('rejected');
     expect(outbox?.status).toBe('dead_letter');
@@ -527,11 +550,14 @@ describe('fiscal outbox — retry router', () => {
       'CO',
       new StubAdapter({ kind: 'recoverable', errorKind: 'NETWORK_TIMEOUT' })
     );
-    const { saleId } = await seedProductAndSale({
-      sku: 'OB-RETRY-' + nanoid(6),
-      productName: 'Outbox retry product',
+    const { saleId } = await withExpectedFiscalFailure(async () => {
+      const seeded = await seedProductAndSale({
+        sku: 'OB-RETRY-' + nanoid(6),
+        productName: 'Outbox retry product',
+      });
+      await server.fiscalWorker.tickOnce(tenantId);
+      return seeded;
     });
-    await server.fiscalWorker.tickOnce(tenantId);
     const { doc: docAfterFail, outbox: outboxAfterFail } = await readFiscalDocAndOutbox(saleId);
     expect(docAfterFail?.status).toBe('contingency');
     expect(outboxAfterFail?.status).toBe('retrying');
@@ -566,11 +592,14 @@ describe('fiscal outbox — retry router', () => {
       'CO',
       new StubAdapter({ kind: 'non-recoverable', errorKind: 'MALFORMED_REQUEST' })
     );
-    const { saleId } = await seedProductAndSale({
-      sku: 'OB-DEAD-RETRY-' + nanoid(6),
-      productName: 'Outbox dead-letter retry product',
+    const { saleId } = await withExpectedFiscalFailure(async () => {
+      const seeded = await seedProductAndSale({
+        sku: 'OB-DEAD-RETRY-' + nanoid(6),
+        productName: 'Outbox dead-letter retry product',
+      });
+      await server.fiscalWorker.tickOnce(tenantId);
+      return seeded;
     });
-    await server.fiscalWorker.tickOnce(tenantId);
     const { doc: deadDoc, outbox: deadOutbox } = await readFiscalDocAndOutbox(saleId);
     expect(deadDoc?.status).toBe('rejected');
     expect(deadOutbox?.status).toBe('dead_letter');
@@ -621,22 +650,26 @@ describe('fiscal outbox — pending checks integration', () => {
       'CO',
       new StubAdapter({ kind: 'recoverable', errorKind: 'PROVIDER_5XX' })
     );
-    await seedProductAndSale({
-      sku: 'PC-CONT-' + nanoid(6),
-      productName: 'Pending check contingency',
+    await withExpectedFiscalFailure(async () => {
+      await seedProductAndSale({
+        sku: 'PC-CONT-' + nanoid(6),
+        productName: 'Pending check contingency',
+      });
+      await server.fiscalWorker.tickOnce(tenantId);
     });
-    await server.fiscalWorker.tickOnce(tenantId);
 
     // Rejected doc.
     __setFiscalAdapterForTest(
       'CO',
       new StubAdapter({ kind: 'non-recoverable', errorKind: 'MALFORMED_REQUEST' })
     );
-    await seedProductAndSale({
-      sku: 'PC-DEAD-' + nanoid(6),
-      productName: 'Pending check dead',
+    await withExpectedFiscalFailure(async () => {
+      await seedProductAndSale({
+        sku: 'PC-DEAD-' + nanoid(6),
+        productName: 'Pending check dead',
+      });
+      await server.fiscalWorker.tickOnce(tenantId);
     });
-    await server.fiscalWorker.tickOnce(tenantId);
 
     // Query pendingChecks for the active session.
     const fresh = makeFreshContextFactory({

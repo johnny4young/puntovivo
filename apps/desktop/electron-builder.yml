@@ -71,6 +71,10 @@ electronFuses:
   onlyLoadAppFromAsar: true
   grantFileProtocolExtraPrivileges: false
 mac:
+  # Keep one lossless source and let electron-builder's pinned icon converter
+  # produce the platform-native ICNS. This avoids committing opaque,
+  # hand-generated derivatives that can drift from the tracked SVG/PNG source.
+  icon: build-resources/icon.png
   target:
     - zip
   category: public.app-category.business
@@ -86,9 +90,13 @@ mac:
 # an AppImage. A plain zip cannot auto-install on windows/linux, so those two
 # ship their updater-native format and the zip stays mac-only.
 linux:
+  icon: build-resources/icon.png
   target:
     - AppImage
 win:
+  # The same source is converted to ICO by electron-builder. Supplying the PNG
+  # here also keeps Windows and macOS branding pixel-identical.
+  icon: build-resources/icon.png
   target:
     - nsis
 nsis:

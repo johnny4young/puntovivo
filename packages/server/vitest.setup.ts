@@ -12,3 +12,18 @@
  */
 delete process.env.PUNTOVIVO_SENTRY_DSN;
 delete process.env.PUNTOVIVO_SENTRY_TRACES_SAMPLE_RATE;
+
+/**
+ * The server suite deliberately exercises rejected commands, authorization
+ * failures, idempotency conflicts, and observability capture paths. Those
+ * expected outcomes must remain assertions, not thousands of level-40/50
+ * records that make a genuinely unexpected CI failure indistinguishable from
+ * routine negative-path coverage.
+ *
+ * Keep warning/error records visible so an unexpected operational signal can
+ * never disappear behind the test harness. Expected negative-path control flow
+ * is classified below the warning floor by production code and remains covered
+ * by direct assertions.
+ */
+process.env.PUNTOVIVO_LOG_LEVEL = 'warn';
+process.env.PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER = 'true';

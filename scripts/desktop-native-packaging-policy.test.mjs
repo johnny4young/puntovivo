@@ -68,7 +68,11 @@ test('packaged renderer carries its preload and file-relative web assets', () =>
 
 test('Electron native rebuild avoids platform shell shims', () => {
   assert.doesNotMatch(nativeRuntimeScript, /pnpm\.cmd/);
-  assert.match(nativeRuntimeScript, /require\.resolve\('@electron\/rebuild\/package\.json'\)/);
+  assert.doesNotMatch(
+    nativeRuntimeScript,
+    /require\.resolve\('@electron\/rebuild\/package\.json'\)/
+  );
+  assert.match(nativeRuntimeScript, /require\.resolve\(packageName\)/);
   assert.match(
     nativeRuntimeScript,
     /runCommand\(\s*process\.execPath,\s*\[electronRebuildBin, '-f', '-o', 'better-sqlite3'\],[\s\S]*path\.join\(repoRoot, 'apps', 'desktop'\)/

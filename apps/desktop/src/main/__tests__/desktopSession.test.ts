@@ -1,5 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { __withExpectedTestLogs } from '@puntovivo/server';
 import {
   register,
   clear,
@@ -62,16 +63,36 @@ describe('desktopSession ( vector 1)', () => {
   });
 
   it('register() with an empty token throws SESSION_REGISTER_REJECTED', async () => {
-    await assert.rejects(register('', acceptVerifier(sampleAdminPayload)), {
-      message: SESSION_REGISTER_REJECTED,
-    });
+    await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'desktop-session',
+          message: 'session:register rejected',
+        },
+      ],
+      () =>
+        assert.rejects(register('', acceptVerifier(sampleAdminPayload)), {
+          message: SESSION_REGISTER_REJECTED,
+        })
+    );
     assert.equal(peek(), null);
   });
 
   it('register() with a verifier that returns null throws SESSION_REGISTER_REJECTED', async () => {
-    await assert.rejects(register('any-non-empty-token', rejectVerifier), {
-      message: SESSION_REGISTER_REJECTED,
-    });
+    await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'desktop-session',
+          message: 'session:register rejected (token invalid / expired / stale sessionVersion)',
+        },
+      ],
+      () =>
+        assert.rejects(register('any-non-empty-token', rejectVerifier), {
+          message: SESSION_REGISTER_REJECTED,
+        })
+    );
     assert.equal(peek(), null);
   });
 

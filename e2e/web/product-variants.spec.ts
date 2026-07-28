@@ -36,10 +36,12 @@ test('admin creates a Size x Color matrix and sells only child products', async 
   await productDialog.locator('#product-name').fill(productName);
   await productDialog.locator('#product-sku').fill(productSku);
   await productDialog.getByRole('tab', { name: 'Units' }).click();
+  await productDialog.getByRole('button', { name: 'Add unit' }).click();
   await productDialog
     .getByRole('tabpanel', { name: 'Units' })
     .locator('select')
     .selectOption({ index: 1 });
+  await productDialog.getByRole('checkbox', { name: 'Base unit' }).check();
   await productDialog.getByRole('button', { name: 'Create Product' }).click();
   await expect(productDialog).toBeHidden({ timeout: 15_000 });
 

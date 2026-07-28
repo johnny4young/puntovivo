@@ -7,6 +7,11 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+# Optional peers must be declared intentionally by the workspace. This keeps
+# unused packagers such as electron-builder-squirrel-windows out of the install
+# graph; Puntovivo ships Windows through electron-builder's NSIS target.
+autoInstallPeers: false
+
 # node-linker=hoisted: lay out a flat npm-style node_modules instead of pnpm's
 # default symlinked/isolated store. The same value also lives in .npmrc (with
 # the full rationale: electron-rebuild, ensure-native-runtime.mjs and
@@ -18,25 +23,44 @@ packages:
 # with "node-linker must be set to hoisted" when it reads back undefined.
 nodeLinker: hoisted
 
+# Hoisted installs default to direct executable symlinks on POSIX. Some audited
+# dependencies publish JavaScript bin targets without executable mode bits, so
+# a restored or patched tree can turn those links into EACCES failures even
+# though each file has a valid Node shebang. Generate portable command shims
+# instead of depending on upstream tarball mode bits.
+preferSymlinkedExecutables: false
+
 # pnpm 11 blocks dependency lifecycle (install/postinstall) scripts by
 # default as a supply-chain defence, and replaced the v10 list-style
 # onlyBuiltDependencies with this allowBuilds map (pkg -> bool). Puntovivo
 # genuinely needs the natives below to produce a usable checkout:
-# - electron                        -> downloads the platform runtime
 # - better-sqlite3-multiple-ciphers -> compiles the native SQLite binding
 # - argon2                          -> compiles the native hashing binding
 # - esbuild                         -> fetches/links its platform binary (vite)
-# Denied: core-js (postinstall only prints a funding banner) and
-# electron-winstaller (a transitive @electron-forge/cli dep we keep for the dev
-# loop but never use for packaging — electron-builder produces the NSIS installer
-# so its Squirrel.Windows download build script is skipped).
+# Electron 42 no longer has an install/postinstall build script; its runtime is
+# installed lazily by scripts/ensure-electron-binary.mjs before desktop use.
+# Denied: core-js (postinstall only prints a funding banner).
 allowBuilds:
-  electron: true
   better-sqlite3-multiple-ciphers: true
   argon2: true
   esbuild: true
   core-js: false
-  electron-winstaller: false
+
+# electron-builder uses app-builder-lib for every target, but its Squirrel
+# package is only required for the Squirrel.Windows target. Puntovivo packages
+# Windows as NSIS, so mark that target-specific peer optional instead of
+# installing an unused vulnerable toolchain.
+packageExtensions:
+  'app-builder-lib@26.15.3':
+    peerDependenciesMeta:
+      electron-builder-squirrel-windows:
+        optional: true
+  # Sentry's Node bundle wires @sentry/opentelemetry at runtime but does not
+  # declare its required @opentelemetry/core peer. Supply that exact sibling
+  # version at the owning package boundary instead of leaving a peer warning.
+  '@sentry/node@10.66.0':
+    dependencies:
+      '@opentelemetry/core': '2.9.0'
 
 # Migrated from the npm "overrides" field (pnpm 11 reads overrides here, not in
 # package.json). "exceljs>uuid" is the pnpm selector for the npm nested
@@ -45,9 +69,24 @@ overrides:
   'exceljs>uuid': '11.1.1'
   'exceljs>archiver': '7.0.1'
   'exceljs>unzipper': '0.12.5'
-  'glob@10.5.0>minimatch': '10.2.5'
+  # Replace deprecated transitives instead of suppressing their install
+  # warnings. Drizzle Kit already embeds and invokes tsx; the legacy loader is
+  # an unused manifest dependency. The remaining aliases preserve the exact
+  # CommonJS call shapes consumed by their owners.
+  'drizzle-kit>@esbuild-kit/esm-loader': 'npm:tsx@4.21.0'
+  boolean: 'file:packages/boolean-compat'
+  'archiver-utils>glob': '13.0.6'
+  lodash.isequal: 'npm:fast-deep-equal@3.1.3'
+  prebuild-install: 'file:packages/prebuild-install'
+  '@electron/asar': '4.2.1'
+  '@electron/packager': '20.0.4'
+  '@electron/rebuild': '4.2.0'
+  '@electron/universal': '3.0.6'
+  filelist: '2.0.2'
   'readdir-glob@1.1.3>minimatch': '10.2.5'
   'minimatch@10.2.5>brace-expansion': '5.0.8'
+  postcss: '8.5.19'
+  tar: '7.5.21'
   tmp: '0.2.7'
   '@electron/get@5.0.0>undici': '7.28.0'
   'node-gyp@12.4.0>undici': '6.27.0'
@@ -56,24 +95,18 @@ overrides:
   # lines can continue following their owners' compatible ranges.
   'jspdf>dompurify': '3.4.12'
   'find-my-way@9.6.0': '9.7.0'
-  'tar@6.2.1': '7.5.19'
-  'tar@7.5.16': '7.5.21'
-  'tar@7.5.19': '7.5.21'
-  '@esbuild-kit/core-utils@3.3.2>esbuild': '0.25.12'
+  'esbuild@0.27.7': '0.28.1'
   'esbuild@0.28.0': '0.28.1'
   'fast-uri@3.1.2': '3.1.4'
   'fast-uri@3.1.3': '3.1.4'
   'fast-uri@4.1.0': '4.1.1'
-
-# @electron-forge/cli bundles @electron/rebuild@3.7.2, which depends on
-# @electron/node-gyp resolved via a git repository. pnpm 11 blocks
-# git-resolved subdependencies by default (blockExoticSubdeps). npm allowed
-# it, so relax the guard to keep the electron-forge toolchain installable.
-# Scope is limited to a build-time devDependency of the desktop workspace.
-blockExoticSubdeps: false
 
 # Electron 42.6.2 was intentionally selected on its release day after the
 # native ABI proof. Keep the same-day lockfile reproducible without relaxing
 # the age policy for any future Electron release.
 minimumReleaseAgeExclude:
   - electron@42.6.2
+
+patchedDependencies:
+  '@electron/asar@4.2.1': patches/@electron__asar@4.2.1.patch
+  better-sqlite3-multiple-ciphers@12.11.1: patches/better-sqlite3-multiple-ciphers@12.11.1.patch

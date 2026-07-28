@@ -11,7 +11,6 @@ import {
   login,
   openUserMenu,
 } from './support/app.js';
-import { resetFirstSaleScenario } from './support/db.js';
 
 async function captureEvidence(page: import('@playwright/test').Page, name: string) {
   const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
@@ -35,7 +34,6 @@ test.describe('first sale onboarding', () => {
     const productName = 'E2E First Sale Product';
     const productSku = 'E2E-FIRST-SALE';
 
-    await resetFirstSaleScenario();
     await page.goto('/login');
     await page.evaluate(() => {
       window.localStorage.setItem('puntovivo-language-preference', 'en');
@@ -57,8 +55,10 @@ test.describe('first sale onboarding', () => {
     await productDialog.locator('#product-stock').fill('10');
     await productDialog.getByRole('tab', { name: 'Units' }).click();
     const unitPanel = productDialog.getByRole('tabpanel', { name: 'Units' });
+    await unitPanel.getByRole('button', { name: 'Add unit' }).click();
     await unitPanel.locator('select').first().selectOption({ label: 'Unit' });
     await unitPanel.locator('input[type="number"]').last().fill('1000');
+    await unitPanel.getByRole('checkbox', { name: 'Base unit' }).check();
     await productDialog.getByRole('button', { name: 'Create Product' }).click();
     await expect(productDialog).toBeHidden({ timeout: 15_000 });
     await expect(guide.getByText('1 of 3 steps completed')).toBeVisible({

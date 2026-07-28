@@ -31,6 +31,17 @@ import {
   type TelemetryEventAttrs,
 } from '../observability/index.js';
 import { __REDACT_FIELD_NAMES_FOR_TESTS } from '../observability/redact.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
+
+const CAPTURED_EXCEPTION_LOG = {
+  level: 'error',
+  module: 'observability',
+  message: 'captured exception',
+} as const;
+
+function captureExpectedException(...args: Parameters<typeof captureException>): Promise<void> {
+  return __withExpectedTestLogs([CAPTURED_EXCEPTION_LOG], () => captureException(...args));
+}
 
 interface SinkCall {
   kind: 'exception' | 'span';
@@ -104,7 +115,7 @@ describe('captureException', () => {
   it('skips the sink when the tenant is opted out', async () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
-    await captureException(
+    await captureExpectedException(
       new Error('boom'),
       { tenantId: optOutTenantId, procedure: 'sales.create' },
       getDatabase()
@@ -115,7 +126,7 @@ describe('captureException', () => {
   it('forwards to the sink when the tenant is opted in', async () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
-    await captureException(
+    await captureExpectedException(
       new Error('boom'),
       { tenantId: optInTenantId, procedure: 'sales.create' },
       getDatabase()
@@ -128,14 +139,14 @@ describe('captureException', () => {
   it('skips the sink when no tenantId is supplied (anonymous capture)', async () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
-    await captureException(new Error('boom'), { procedure: 'auth.login' }, getDatabase());
+    await captureExpectedException(new Error('boom'), { procedure: 'auth.login' }, getDatabase());
     expect(calls).toHaveLength(0);
   });
 
   it('redacts sensitive attrs before invoking the sink', async () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
-    await captureException(
+    await captureExpectedException(
       new Error('boom'),
       {
         tenantId: optInTenantId,
@@ -166,7 +177,17 @@ describe('captureException', () => {
     };
     registerTelemetrySink(sink);
     await expect(
-      captureException(new Error('boom'), { tenantId: optInTenantId }, getDatabase())
+      __withExpectedTestLogs(
+        [
+          CAPTURED_EXCEPTION_LOG,
+          {
+            level: 'warn',
+            module: 'observability',
+            message: 'telemetry sink threw; sink event dropped',
+          },
+        ],
+        () => captureException(new Error('boom'), { tenantId: optInTenantId }, getDatabase())
+      )
     ).resolves.toBeUndefined();
   });
 });
@@ -199,13 +220,24 @@ describe('withSpan', () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
     await expect(
-      withSpan(
-        'products.create',
-        { tenantId: optInTenantId },
-        async () => {
-          throw new Error('validation failed');
-        },
-        getDatabase()
+      __withExpectedTestLogs(
+        [
+          {
+            level: 'error',
+            module: 'observability',
+            message: 'span error',
+          },
+          CAPTURED_EXCEPTION_LOG,
+        ],
+        () =>
+          withSpan(
+            'products.create',
+            { tenantId: optInTenantId },
+            async () => {
+              throw new Error('validation failed');
+            },
+            getDatabase()
+          )
       )
     ).rejects.toThrow('validation failed');
     // Two events: the captureException + the recordSpan with
@@ -232,7 +264,7 @@ describe('registerTelemetrySink', () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
     registerTelemetrySink(noopSink);
-    await captureException(new Error('boom'), { tenantId: optInTenantId }, getDatabase());
+    await captureExpectedException(new Error('boom'), { tenantId: optInTenantId }, getDatabase());
     expect(calls).toHaveLength(0);
   });
 });
@@ -296,7 +328,7 @@ describe('opt-in cache', () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
     // First call sees opt-out → sink skipped.
-    await captureException(new Error('one'), { tenantId: optOutTenantId }, getDatabase());
+    await captureExpectedException(new Error('one'), { tenantId: optOutTenantId }, getDatabase());
     expect(calls).toHaveLength(0);
     // Flip the flag.
     const db = getDatabase();
@@ -307,11 +339,11 @@ describe('opt-in cache', () => {
       })
       .where(eq(tenants.id, optOutTenantId));
     // Cache still says opt-out without invalidation — pin that.
-    await captureException(new Error('two'), { tenantId: optOutTenantId }, getDatabase());
+    await captureExpectedException(new Error('two'), { tenantId: optOutTenantId }, getDatabase());
     expect(calls).toHaveLength(0);
     // After clearing the cache the new state shows up.
     __clearTelemetryOptInCacheForTests();
-    await captureException(new Error('three'), { tenantId: optOutTenantId }, getDatabase());
+    await captureExpectedException(new Error('three'), { tenantId: optOutTenantId }, getDatabase());
     expect(calls).toHaveLength(1);
   });
 
@@ -321,7 +353,7 @@ describe('opt-in cache', () => {
       const { sink, calls } = buildRecordingSink();
       registerTelemetrySink(sink);
       // Initial: opt-out tenant, sink skipped.
-      await captureException(new Error('one'), { tenantId: optOutTenantId }, getDatabase());
+      await captureExpectedException(new Error('one'), { tenantId: optOutTenantId }, getDatabase());
       expect(calls).toHaveLength(0);
       // Flip the tenant to opt-in.
       const db = getDatabase();
@@ -333,7 +365,7 @@ describe('opt-in cache', () => {
         .where(eq(tenants.id, optOutTenantId));
       // Advance past the 60s TTL.
       vi.advanceTimersByTime(61_000);
-      await captureException(new Error('two'), { tenantId: optOutTenantId }, getDatabase());
+      await captureExpectedException(new Error('two'), { tenantId: optOutTenantId }, getDatabase());
       expect(calls).toHaveLength(1);
     } finally {
       vi.useRealTimers();

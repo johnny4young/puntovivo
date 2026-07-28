@@ -153,60 +153,57 @@ async function invokeProcedureForLatency(key: string): Promise<void> {
   }
 }
 
-describe.skipIf(process.env.PUNTOVIVO_TRPC_LATENCY_PROFILE !== '1')(
-  'tRPC p95 latency budgets',
-  () => {
-    it('computePercentile matches the canonical formula', () => {
-      // Linear interpolation (NumPy default): rank = (p/100) * (n-1).
-      // p50 of [10,20,30] → rank 1 → exact 20.
-      expect(computePercentile([10, 20, 30], 50)).toBe(20);
-      // p95 of [1..100] → rank 94.05 → interpolation between
-      // sorted[94]=95 and sorted[95]=96 → 95 * 0.95 + 96 * 0.05 = 95.05.
-      // `toBeCloseTo` with 2-decimal precision pins the interpolation
-      // behaviour without overcommitting to a strict equality the
-      // helper does not promise.
-      expect(
-        computePercentile(
-          Array.from({ length: 100 }, (_, i) => i + 1),
-          95
-        )
-      ).toBeCloseTo(95.05, 2);
-      expect(computePercentile([], 95)).toBe(0);
-    });
+describe('tRPC p95 latency budgets', () => {
+  it('computePercentile matches the canonical formula', () => {
+    // Linear interpolation (NumPy default): rank = (p/100) * (n-1).
+    // p50 of [10,20,30] → rank 1 → exact 20.
+    expect(computePercentile([10, 20, 30], 50)).toBe(20);
+    // p95 of [1..100] → rank 94.05 → interpolation between
+    // sorted[94]=95 and sorted[95]=96 → 95 * 0.95 + 96 * 0.05 = 95.05.
+    // `toBeCloseTo` with 2-decimal precision pins the interpolation
+    // behaviour without overcommitting to a strict equality the
+    // helper does not promise.
+    expect(
+      computePercentile(
+        Array.from({ length: 100 }, (_, i) => i + 1),
+        95
+      )
+    ).toBeCloseTo(95.05, 2);
+    expect(computePercentile([], 95)).toBe(0);
+  });
 
-    const budget = loadPerfBudget();
-    const procedures = Object.keys(budget.trpcLatencyMs.p95);
-    // Sanity: the budget cannot be empty — that would silently skip
-    // every assertion.
-    expect(procedures.length).toBeGreaterThan(0);
+  const budget = loadPerfBudget();
+  const procedures = Object.keys(budget.trpcLatencyMs.p95);
+  // Sanity: the budget cannot be empty — that would silently skip
+  // every assertion.
+  expect(procedures.length).toBeGreaterThan(0);
 
-    for (const procedureKey of procedures) {
-      const budgetMs = budget.trpcLatencyMs.p95[procedureKey]!;
-      const ceiling = budgetMs * (1 + budget.trpcLatencyMs.thresholdPercent / 100);
-      it(`${procedureKey} p95 stays under ${budgetMs}ms (+ ${budget.trpcLatencyMs.thresholdPercent}%)`, async () => {
-        // Warmup — JIT settling. Discard timings.
-        for (let i = 0; i < budget.trpcLatencyMs.warmupIterations; i++) {
-          await invokeProcedureForLatency(procedureKey);
-        }
-        // Recorded samples.
-        const samples: number[] = [];
-        for (let i = 0; i < budget.trpcLatencyMs.samplesPerProcedure; i++) {
-          const start = performance.now();
-          await invokeProcedureForLatency(procedureKey);
-          samples.push(performance.now() - start);
-        }
-        const p95 = computePercentile(samples, 95);
-        if (p95 > ceiling) {
-          throw new Error(
-            `perf regression for ${procedureKey}: ` +
-              `p95 ${p95.toFixed(2)}ms exceeds ${budgetMs}ms + ${budget.trpcLatencyMs.thresholdPercent}% ceiling ${ceiling.toFixed(2)}ms.\n` +
-              `samples (ms): ${samples.map(s => s.toFixed(2)).join(', ')}`
-          );
-        }
-        // Surface the measured value in vitest output so future
-        // bumpers can update perf-budget.json with the right number.
-        expect(p95).toBeLessThanOrEqual(ceiling);
-      }, 30_000);
-    }
+  for (const procedureKey of procedures) {
+    const budgetMs = budget.trpcLatencyMs.p95[procedureKey]!;
+    const ceiling = budgetMs * (1 + budget.trpcLatencyMs.thresholdPercent / 100);
+    it(`${procedureKey} p95 stays under ${budgetMs}ms (+ ${budget.trpcLatencyMs.thresholdPercent}%)`, async () => {
+      // Warmup — JIT settling. Discard timings.
+      for (let i = 0; i < budget.trpcLatencyMs.warmupIterations; i++) {
+        await invokeProcedureForLatency(procedureKey);
+      }
+      // Recorded samples.
+      const samples: number[] = [];
+      for (let i = 0; i < budget.trpcLatencyMs.samplesPerProcedure; i++) {
+        const start = performance.now();
+        await invokeProcedureForLatency(procedureKey);
+        samples.push(performance.now() - start);
+      }
+      const p95 = computePercentile(samples, 95);
+      if (p95 > ceiling) {
+        throw new Error(
+          `perf regression for ${procedureKey}: ` +
+            `p95 ${p95.toFixed(2)}ms exceeds ${budgetMs}ms + ${budget.trpcLatencyMs.thresholdPercent}% ceiling ${ceiling.toFixed(2)}ms.\n` +
+            `samples (ms): ${samples.map(s => s.toFixed(2)).join(', ')}`
+        );
+      }
+      // Surface the measured value in vitest output so future
+      // bumpers can update perf-budget.json with the right number.
+      expect(p95).toBeLessThanOrEqual(ceiling);
+    }, 30_000);
   }
-);
+});

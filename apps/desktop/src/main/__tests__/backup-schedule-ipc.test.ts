@@ -1,6 +1,6 @@
 import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import type { AuthTokenPayload } from '@puntovivo/server';
+import { __withExpectedTestLogs, type AuthTokenPayload } from '@puntovivo/server';
 import type { BackupIpcDeps } from '../ipc/backup/contracts.ts';
 import {
   handleChooseBackupScheduleDestination,
@@ -136,14 +136,24 @@ describe('backup schedule IPC permissions and validation', () => {
   it('fails closed on malformed renderer input before mutating the schedule', async () => {
     await registerRole('admin');
     let updated = false;
-    const result = await handleUpdateBackupSchedule(
-      makeDeps({
-        updateSchedule: async () => {
-          updated = true;
-          return STATUS;
+    const result = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'backup',
+          message: 'failed to update backup schedule',
         },
-      }),
-      { frequency: 'daily', destinationMode: 'custom', path: '/arbitrary/path' }
+      ],
+      () =>
+        handleUpdateBackupSchedule(
+          makeDeps({
+            updateSchedule: async () => {
+              updated = true;
+              return STATUS;
+            },
+          }),
+          { frequency: 'daily', destinationMode: 'custom', path: '/arbitrary/path' }
+        )
     );
 
     assert.deepEqual(result, { success: false, error: 'schedule_unavailable' });
@@ -184,7 +194,16 @@ describe('backup schedule IPC permissions and validation', () => {
       throw new Error('/secret/provider/path was unavailable');
     };
 
-    const result = await handleChooseBackupScheduleDestination(deps);
+    const result = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'backup',
+          message: 'failed to choose backup schedule destination',
+        },
+      ],
+      () => handleChooseBackupScheduleDestination(deps)
+    );
 
     assert.deepEqual(result, { success: false, error: 'schedule_unavailable' });
     assert.equal(updated, false);

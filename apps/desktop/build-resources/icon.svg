@@ -1,0 +1,57 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1024"
+  height="1024"
+  viewBox="0 0 1024 1024"
+>
+  <defs>
+    <linearGradient id="surface" x1="160" y1="112" x2="864" y2="928" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b6fa4" />
+      <stop offset="0.52" stop-color="#075c8d" />
+      <stop offset="1" stop-color="#073d60" />
+    </linearGradient>
+    <linearGradient id="highlight" x1="512" y1="80" x2="512" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff" stop-opacity="0.18" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="30" stdDeviation="32" flood-color="#031d2e" flood-opacity="0.34" />
+    </filter>
+  </defs>
+
+  <rect
+    x="64"
+    y="64"
+    width="896"
+    height="896"
+    rx="216"
+    fill="url(#surface)"
+    filter="url(#shadow)"
+  />
+  <rect
+    x="82"
+    y="82"
+    width="860"
+    height="860"
+    rx="198"
+    fill="none"
+    stroke="#ffffff"
+    stroke-opacity="0.14"
+    stroke-width="4"
+  />
+  <path
+    d="M280 84H744C853.352 84 942 172.648 942 282V464C824 414 682 388 512 388C342 388 198 414 82 464V282C82 172.648 170.648 84 280 84Z"
+    fill="url(#highlight)"
+  />
+
+  <!-- Official Puntovivo P-mark geometry, scaled from the product's 48px glyph. -->
+  <path
+    fill-rule="evenodd"
+    clip-rule="evenodd"
+    d="M14 10 H26.5 A9.5 9.5 0 0 1 26.5 29 H19 V40 H14 Z M19 15 V24 H26.5 A4.5 4.5 0 0 0 26.5 15 Z"
+    transform="translate(50 50) scale(19)"
+    fill="#ffffff"
+  />
+  <circle cx="525" cy="420.5" r="43" fill="#f59a3d" />
+  <circle cx="513" cy="408" r="13" fill="#ffffff" fill-opacity="0.34" />
+</svg>

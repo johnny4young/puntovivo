@@ -33,12 +33,10 @@ export default defineConfig({
   outputDir: 'test-results/playwright-web',
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report/web' }]],
   timeout: 60_000,
-  // Under heavy local parallelism the dev server occasionally drops an
-  // in-flight auth.refresh or tRPC batch, which surfaces as a one-off
-  // TRPCClientError. One retry absorbs that transient state without
-  // masking genuine bugs — a real failure will deterministically fail
-  // again on the retry and show up as a red test.
-  retries: process.env.CI ? 2 : 1,
+  // Retries hide operational contention as a green run. Keep the evidence
+  // single-attempt: a transient auth, SQLite, or renderer failure is still a
+  // defect in the shared-store execution contract and must remain visible.
+  retries: 0,
   expect: {
     timeout: 10_000,
   },

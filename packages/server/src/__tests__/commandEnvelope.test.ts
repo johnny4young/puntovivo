@@ -29,6 +29,7 @@ import { reserveKey } from '../services/idempotency/idempotencyService.js';
 import { hashCanonicalInput } from '../services/idempotency/keyHasher.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { randomUUID } from 'node:crypto';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -309,10 +310,20 @@ describe('commandEnvelope middleware: idempotency replay', () => {
     // Second call: same idempotencyKey, different password.
     let caught: unknown;
     try {
-      await makeCaller({ envelope }).auth.changePassword({
-        currentPassword: 'FirstChange123!',
-        newPassword: 'DifferentChange456!',
-      });
+      await __withExpectedTestLogs(
+        [
+          {
+            level: 'warn',
+            module: 'commandEnvelope',
+            message: 'idempotency key replayed with mismatched canonical input hash',
+          },
+        ],
+        () =>
+          makeCaller({ envelope }).auth.changePassword({
+            currentPassword: 'FirstChange123!',
+            newPassword: 'DifferentChange456!',
+          })
+      );
     } catch (err) {
       caught = err;
     }
@@ -341,7 +352,16 @@ describe('commandEnvelope middleware: idempotency replay', () => {
 
     let caught: unknown;
     try {
-      await makeCaller({ envelope }).auth.changePassword(payload);
+      await __withExpectedTestLogs(
+        [
+          {
+            level: 'warn',
+            module: 'commandEnvelope',
+            message: 'idempotency key replayed while original command is still processing',
+          },
+        ],
+        () => makeCaller({ envelope }).auth.changePassword(payload)
+      );
     } catch (err) {
       caught = err;
     }

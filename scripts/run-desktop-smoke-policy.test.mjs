@@ -5,6 +5,9 @@ import { test } from 'node:test';
 const smoke = readFileSync(new URL('./run-desktop-smoke.mjs', import.meta.url), 'utf8');
 
 test('packaged runtime smoke waits for Electron before cleaning its profile', () => {
+  assert.match(smoke, /import \{ listPackage \} from '@electron\/asar'/);
+  assert.match(smoke, /listPackage\(asar, \{ isPack: false \}\)/);
+  assert.doesNotMatch(smoke, /@electron.*asar.*bin.*asar\.(?:js|mjs)/);
   assert.match(smoke, /child\.once\('exit', \(\) => \{/);
   assert.match(smoke, /child\.kill\('SIGTERM'\)/);
   assert.match(smoke, /child\.kill\('SIGKILL'\)/);
@@ -20,8 +23,10 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
   assert.match(smoke, /AbortSignal\.timeout\(500\)/);
   assert.match(smoke, /PUNTOVIVO_E2E: '1'/);
   assert.match(smoke, /PUNTOVIVO_DB_KEY: randomBytes\(32\)\.toString\('hex'\)/);
+  assert.match(smoke, /AUTO_UPDATE: 'false'/);
   assert.match(smoke, /--use-mock-keychain/);
   assert.match(smoke, /--password-store=basic/);
+  assert.doesNotMatch(smoke, /KEY_STORE_GATED|keyGated/);
   assert.match(smoke, /Boolean\(window\.electron\)/);
   assert.match(smoke, /Boolean\(window\.api\)/);
   assert.match(smoke, /admin@localhost/);

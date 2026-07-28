@@ -264,6 +264,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
                     <li
                       key={option.value}
                       role="option"
+                      data-value={String(option.value)}
                       aria-selected={option.value === value}
                       onClick={() => handleSelect(option)}
                       className={cn(

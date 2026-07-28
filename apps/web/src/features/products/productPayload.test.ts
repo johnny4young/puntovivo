@@ -10,4 +10,19 @@ describe('buildProductPayload', () => {
     expect(buildProductPayload(values, { includeStock: false })).not.toHaveProperty('stock');
     expect(buildProductPayload(values)).toHaveProperty('stock', 8);
   });
+
+  it('omits the optional unit assignment collection when no unit was selected', () => {
+    expect(buildProductPayload(createDefaultValues())).not.toHaveProperty('unitAssignments');
+  });
+
+  it('includes complete unit assignments', () => {
+    const values = {
+      ...createDefaultValues(),
+      unitAssignments: [{ unitId: 'unit-each', equivalence: 1, price: 7000, isBase: true }],
+    };
+
+    expect(buildProductPayload(values)).toHaveProperty('unitAssignments', [
+      { unitId: 'unit-each', equivalence: 1, price: 7000, isBase: true },
+    ]);
+  });
 });

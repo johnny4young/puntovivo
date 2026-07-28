@@ -1,6 +1,6 @@
 import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import type { AuthTokenPayload } from '@puntovivo/server';
+import { __withExpectedTestLogs, type AuthTokenPayload } from '@puntovivo/server';
 import type { BackupIpcDeps } from '../ipc/backup/contracts.ts';
 import {
   handleConfigureBackupCloudVault,
@@ -150,14 +150,24 @@ describe('backup cloud vault IPC permissions and validation', () => {
   it('rejects malformed or tenant-bearing renderer input before storing credentials', async () => {
     await registerRole('admin');
     let configured = false;
-    const result = await handleConfigureBackupCloudVault(
-      makeDeps({
-        configure: async () => {
-          configured = true;
-          return CONFIGURED_STATUS;
+    const result = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'backup',
+          message: 'failed to configure backup cloud vault',
         },
-      }),
-      { ...CONFIG, tenantId: 'other-tenant' }
+      ],
+      () =>
+        handleConfigureBackupCloudVault(
+          makeDeps({
+            configure: async () => {
+              configured = true;
+              return CONFIGURED_STATUS;
+            },
+          }),
+          { ...CONFIG, tenantId: 'other-tenant' }
+        )
     );
 
     assert.deepEqual(result, { success: false, error: 'configuration_invalid' });

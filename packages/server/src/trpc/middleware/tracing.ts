@@ -11,12 +11,13 @@
  * `x-correlation-id` header when present and valid; otherwise
  * falls back to `ctx.req.id` (Fastify reqId, already stamped on
  * `request.log` by the onRequest hook from ).
- * - Measures `performance.now()` start / end and logs the result
- * at info level on success, error level on failure.
- * - On failure routes the error through `captureException` so
- * the centralized sink (when wired) sees it. The procedure
- * error is re-thrown so the tRPC error formatter still runs
- * downstream.
+ * - Measures `performance.now()` start / end and logs the result.
+ *   Successes and expected client/business rejections are info;
+ *   operational/server failures are errors.
+ * - Operational failures route through `captureException` so the
+ * centralized sink (when wired) sees them. Expected rejections stay
+ * out of the incident stream. The procedure error is re-thrown so
+ * the tRPC error formatter still runs downstream.
  *
  * Composition: applied to `publicProcedure` in `init.ts`, so every
  * chain (`protectedProcedure`, `tenantProcedure`, `adminProcedure`,
@@ -34,7 +35,7 @@ import {
 } from '../../observability/index.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import type { Context } from '../context.js';
-import { isExpectedMissingRefresh } from '../expected-errors.js';
+import { classifyExpectedTrpcControlFlow } from '../expected-errors.js';
 
 const fallbackLog = createModuleLogger('trpc-tracing');
 
@@ -116,7 +117,8 @@ export async function tracingMiddlewareFn({
   const failed = caught !== null || resultShape?.ok === false;
   if (failed) {
     const err = caught ?? resultShape?.error;
-    if (isExpectedMissingRefresh(procedure, err, ctx.req)) {
+    const expectedControlFlow = classifyExpectedTrpcControlFlow(procedure, err, ctx.req);
+    if (expectedControlFlow) {
       log.info(
         {
           procedure,
@@ -125,7 +127,8 @@ export async function tracingMiddlewareFn({
           correlationId,
           tenantId,
           userId,
-          reason: 'missing_refresh_cookie',
+          reason: expectedControlFlow.reason,
+          code: expectedControlFlow.code,
         },
         'trpc procedure rejected'
       );

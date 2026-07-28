@@ -23,6 +23,7 @@ import {
   type ProductFormValues,
   type VatRateOption,
 } from '@/features/products/ProductFormModal';
+import { buildProductPayload } from '@/features/products/productPayload';
 import { trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { selectRequestedCreateProduct, useQuickCreateStore } from './useQuickCreateStore';
@@ -123,14 +124,24 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
   };
 
   const handleSubmit = async (values: ProductFormValues): Promise<Product | void> => {
-    const created = await createMutation.mutateAsync(values);
+    let created: Product;
+    try {
+      created = (await createMutation.mutateAsync(buildProductPayload(values))) as Product;
+    } catch {
+      // The mutation's error state and toast own this server failure. Keep the
+      // form open and return the explicit handled-error sentinel.
+      return;
+    }
+
+    // These are post-create responsibilities, not mutation failures. Let an
+    // invalidation or callback defect reject so observability can detect it.
     await Promise.all([
       utils.products.list.invalidate(),
       utils.products.search.invalidate(),
       utils.setupReadiness.firstSale.invalidate(),
     ]);
     toast.success({ title: t('toast.created') });
-    return created as Product;
+    return created;
   };
 
   const handleCreated = (product: Product) => {

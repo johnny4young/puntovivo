@@ -10,14 +10,17 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createServer } from 'node:net';
 import { basename, sep } from 'node:path';
 import {
+  assertPortAvailable,
   buildCheckArgs,
   buildEnsureBrowserArgs,
   buildGateEnv,
   buildPreviewArgs,
   buildSeedArgs,
   buildServerArgs,
+  buildWebArgs,
   DEFAULT_API_HOST,
   DEFAULT_API_PORT,
   DEFAULT_CDP_PORT,
@@ -27,6 +30,20 @@ import {
   resolveRunLighthouseGateOptions,
   waitForUrl,
 } from './run-lighthouse-gate.mjs';
+
+async function listen(server, host = '127.0.0.1', port = 0) {
+  await new Promise((resolvePromise, rejectPromise) => {
+    server.once('error', rejectPromise);
+    server.listen({ host, port }, resolvePromise);
+  });
+  return server.address();
+}
+
+async function close(server) {
+  await new Promise((resolvePromise, rejectPromise) => {
+    server.close(error => (error ? rejectPromise(error) : resolvePromise()));
+  });
+}
 
 test('resolveRunLighthouseGateOptions uses safe defaults and passes check flags through', () => {
   const options = resolveRunLighthouseGateOptions({
@@ -86,10 +103,21 @@ test('resolveRunLighthouseGateOptions lets base URL select a skip-preview target
 });
 
 test('build command helpers point at the expected workspace commands', () => {
-  assert.deepEqual(buildEnsureBrowserArgs().map(arg => basename(arg)), [
-    'ensure-playwright-browser.mjs',
-  ]);
+  assert.deepEqual(
+    buildEnsureBrowserArgs().map(arg => basename(arg)),
+    ['ensure-playwright-browser.mjs']
+  );
   assert.deepEqual(buildSeedArgs(), ['run', 'seed:dev']);
+  assert.deepEqual(buildWebArgs('/tmp/lighthouse-web'), [
+    '--filter',
+    '@puntovivo/web',
+    'exec',
+    'vite',
+    'build',
+    '--outDir',
+    '/tmp/lighthouse-web',
+    '--emptyOutDir',
+  ]);
   const serverArgs = buildServerArgs();
   assert.deepEqual(serverArgs[0].split(sep).slice(-3), ['tsx', 'dist', 'cli.mjs']);
   assert.deepEqual(serverArgs[1].split(sep).slice(-4), [
@@ -98,7 +126,7 @@ test('build command helpers point at the expected workspace commands', () => {
     'src',
     'standalone.ts',
   ]);
-  assert.deepEqual(buildPreviewArgs({ webHost: 'localhost', webPort: 4567 }), [
+  assert.deepEqual(buildPreviewArgs({ webHost: 'localhost', webPort: 4567 }, '/tmp/web'), [
     '--filter',
     '@puntovivo/web',
     'exec',
@@ -109,6 +137,8 @@ test('build command helpers point at the expected workspace commands', () => {
     '--port',
     '4567',
     '--strictPort',
+    '--outDir',
+    '/tmp/web',
   ]);
   const checkArgs = buildCheckArgs(['--strict']);
   assert.equal(basename(checkArgs[0]), 'check-lighthouse.mjs');
@@ -131,6 +161,9 @@ test('buildGateEnv owns DB, browser cache, ports, and Lighthouse target', () => 
   assert.equal(env.PUNTOVIVO_BIND_PORT, '8999');
   assert.equal(env.PUNTOVIVO_LIGHTHOUSE_BASE_URL, 'http://localhost:4555');
   assert.equal(env.PUNTOVIVO_LIGHTHOUSE_CDP_PORT, String(DEFAULT_CDP_PORT));
+  assert.equal(env.VITE_API_URL, 'http://localhost:8999');
+  assert.equal(env.PUNTOVIVO_LOG_LEVEL, 'warn');
+  assert.equal(env.PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER, 'true');
   assert.equal(env.PUNTOVIVO_DB_KEY, undefined);
 });
 
@@ -174,4 +207,19 @@ test('waitForUrl fails early when the caller aborts readiness', async () => {
     }),
     /preview exited/
   );
+});
+
+test('assertPortAvailable rejects a stale listener and accepts the port after cleanup', async () => {
+  const staleServer = createServer();
+  const address = await listen(staleServer);
+  assert.equal(typeof address, 'object');
+  const port = address.port;
+
+  await assert.rejects(
+    assertPortAvailable('127.0.0.1', port),
+    new RegExp(`Required port 127\\.0\\.0\\.1:${port} is unavailable`)
+  );
+
+  await close(staleServer);
+  await assert.doesNotReject(assertPortAvailable('127.0.0.1', port));
 });

@@ -23,6 +23,7 @@ import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { applyInventoryBalanceDelta } from '../services/inventory-balances/apply-delta.js';
 import { buildProductVariantPreview } from '../application/products/createVariantMatrix.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -1114,10 +1115,25 @@ describe('Products tRPC Router', () => {
     );
     try {
       await expect(
-        caller.products.createVariantMatrix({
-          parentProductId: parent.id,
-          axes: [{ name: 'Size', values: ['S', 'M'] }],
-        })
+        __withExpectedTestLogs(
+          [
+            {
+              level: 'error',
+              module: 'trpc-tracing',
+              message: 'trpc procedure error',
+            },
+            {
+              level: 'error',
+              module: 'observability',
+              message: 'captured exception',
+            },
+          ],
+          () =>
+            caller.products.createVariantMatrix({
+              parentProductId: parent.id,
+              axes: [{ name: 'Size', values: ['S', 'M'] }],
+            })
+        )
       ).rejects.toThrow(/forced variant child sync failure/);
     } finally {
       await db.run(sql.raw('DROP TRIGGER IF EXISTS fail_variant_child_sync'));

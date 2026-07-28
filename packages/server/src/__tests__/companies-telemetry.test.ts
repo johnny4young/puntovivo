@@ -28,6 +28,7 @@ import {
 } from '../observability/index.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 let server: PuntovivoServer;
 let primaryTenantId: string;
@@ -251,15 +252,31 @@ describe('companies.updateTelemetryOptIn', () => {
       buildCtx({ tenantId: primaryTenantId, userId: primaryAdminId })
     );
     await caller.companies.updateTelemetryOptIn({ optedIn: true });
-    await captureException(
-      new Error('before revoke'),
-      { tenantId: primaryTenantId },
-      getDatabase()
+    await __withExpectedTestLogs(
+      [
+        {
+          level: 'error',
+          module: 'observability',
+          message: 'captured exception',
+        },
+      ],
+      () =>
+        captureException(new Error('before revoke'), { tenantId: primaryTenantId }, getDatabase())
     );
     expect(exceptionCalls).toHaveLength(1);
 
     await caller.companies.updateTelemetryOptIn({ optedIn: false });
-    await captureException(new Error('after revoke'), { tenantId: primaryTenantId }, getDatabase());
+    await __withExpectedTestLogs(
+      [
+        {
+          level: 'error',
+          module: 'observability',
+          message: 'captured exception',
+        },
+      ],
+      () =>
+        captureException(new Error('after revoke'), { tenantId: primaryTenantId }, getDatabase())
+    );
     expect(exceptionCalls).toHaveLength(1);
   });
 });

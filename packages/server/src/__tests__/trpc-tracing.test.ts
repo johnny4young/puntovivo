@@ -34,6 +34,13 @@ import {
   type TelemetrySink,
 } from '../observability/index.js';
 import { throwServerError } from '../lib/errorCodes.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
+
+const CAPTURED_EXCEPTION_LOG = {
+  level: 'error',
+  module: 'observability',
+  message: 'captured exception',
+} as const;
 
 interface RecordedLog {
   level: 'info' | 'error';
@@ -157,6 +164,12 @@ describe('trpc tracing middleware', () => {
         message: 'kaboom',
       });
     }),
+    conflict: publicProcedure.query(() => {
+      throw new TRPCError({
+        code: 'CONFLICT',
+        message: 'already changed',
+      });
+    }),
     auth: router({
       refresh: publicProcedure.mutation(() => {
         throwServerError({
@@ -216,7 +229,9 @@ describe('trpc tracing middleware', () => {
       server,
     });
     const caller = harnessRouter.createCaller(ctx);
-    await expect(caller.boom()).rejects.toThrow('kaboom');
+    await expect(
+      __withExpectedTestLogs([CAPTURED_EXCEPTION_LOG], () => caller.boom())
+    ).rejects.toThrow('kaboom');
     expect(logs).toHaveLength(1);
     const entry = logs[0]!;
     expect(entry.level).toBe('error');
@@ -274,9 +289,41 @@ describe('trpc tracing middleware', () => {
         procedure: 'auth.refresh',
         outcome: 'rejected',
         reason: 'missing_refresh_cookie',
+        code: 'UNAUTHORIZED',
         correlationId: 'corr-missing-refresh',
       },
     });
+    expect(exceptions).toHaveLength(0);
+    expect(spans).toHaveLength(0);
+  });
+
+  it('keeps an expected business rejection out of the incident stream', async () => {
+    const { sink, exceptions, spans } = buildRecordingSink();
+    registerTelemetrySink(sink);
+    const { ctx, logs } = buildCtx({
+      tenantId: optInTenantId,
+      userId: optInUserId,
+      reqId: 'corr-conflict',
+      server,
+    });
+    const caller = harnessRouter.createCaller(ctx);
+
+    await expect(caller.conflict()).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+    expect(logs).toEqual([
+      {
+        level: 'info',
+        msg: 'trpc procedure rejected',
+        bindings: expect.objectContaining({
+          procedure: 'conflict',
+          outcome: 'rejected',
+          reason: 'client_rejection',
+          code: 'CONFLICT',
+          correlationId: 'corr-conflict',
+        }),
+      },
+    ]);
     expect(exceptions).toHaveLength(0);
     expect(spans).toHaveLength(0);
   });
@@ -293,7 +340,9 @@ describe('trpc tracing middleware', () => {
     });
     const caller = harnessRouter.createCaller(ctx);
 
-    await expect(caller.auth.refresh()).rejects.toMatchObject({
+    await expect(
+      __withExpectedTestLogs([CAPTURED_EXCEPTION_LOG], () => caller.auth.refresh())
+    ).rejects.toMatchObject({
       code: 'UNAUTHORIZED',
     });
     expect(logs).toHaveLength(1);

@@ -34,6 +34,7 @@ import {
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { closeDatabase, initDatabase, type DatabaseInstance } from '../db/index.js';
 import { loginAttempts } from '../db/schema.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 interface RawSqlClient {
   exec(sql: string): void;
@@ -349,19 +350,31 @@ describe('loginRateLimit ( / )', () => {
     expect(row).toBeUndefined();
   });
 
-  it('falls back to in-memory buckets when login_attempts table is absent', () => {
+  it('falls back to in-memory buckets when login_attempts table is absent', async () => {
     const client = rawSqlClient(db);
     client.exec('DROP TABLE IF EXISTS login_attempts;');
 
     try {
       const ip = '12.12.12.12';
       const t = 700;
-      for (let i = 0; i < LOGIN_RATE_LIMIT_IP_MAX; i += 1) {
-        expect(() => checkIp(db, ip, t)).not.toThrow();
-        registerFailure(db, ip, `missing-table-${i}@test.com`, t);
-      }
+      await __withExpectedTestLogs(
+        [
+          {
+            level: 'warn',
+            module: 'security.loginRateLimit',
+            message:
+              'login_attempts table is absent; rate limits fall back to in-memory-only (non-persistent). Verify drizzle migration 0006 ran against this DB.',
+          },
+        ],
+        () => {
+          for (let i = 0; i < LOGIN_RATE_LIMIT_IP_MAX; i += 1) {
+            expect(() => checkIp(db, ip, t)).not.toThrow();
+            registerFailure(db, ip, `missing-table-${i}@test.com`, t);
+          }
 
-      expectTooManyRequests(() => checkIp(db, ip, t));
+          expectTooManyRequests(() => checkIp(db, ip, t));
+        }
+      );
     } finally {
       recreateLoginAttemptsTable(db);
     }

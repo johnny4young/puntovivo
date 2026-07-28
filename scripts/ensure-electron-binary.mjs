@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 // Guarantees the Electron native binary is installed.
 //
-// The `electron` npm package relies on a `postinstall` hook that downloads
-// its platform-specific runtime (Electron.app on macOS, electron.exe on
-// Windows, electron on Linux) from GitHub Releases. Under flaky networks,
-// aggressive caches, or with npm's default behaviour of treating
-// postinstall failures as soft warnings, the download can fail silently
-// during `pnpm install`. The package stays on disk but `dist/` and
-// `path.txt` are missing — so the next `require('electron')` throws
+// Electron 42 publishes `install.js` as the `install-electron` CLI but no
+// longer runs it from install/postinstall. A fresh package-manager install
+// therefore contains the JavaScript package without its platform runtime
+// (Electron.app on macOS, electron.exe on Windows, electron on Linux) until
+// the first desktop preflight installs it. Interrupted downloads or aggressive
+// caches can also leave a partial `dist/`. In either case, the next
+// `require('electron')` throws
 //
 // Error: Electron failed to install correctly, please delete
 // node_modules/electron and try installing again
 //
 // …and `electron-forge start` crashes at "Locating application".
 //
-// This script is the last-line defence: before we hand the process to
-// electron-forge, it verifies that `path.txt` + the executable exist, and
-// re-runs Electron's own `install.js` once if anything is missing. It
-// exits non-zero with an actionable message if the repair itself fails.
+// This script owns that lazy installation: before we hand the process to
+// electron-forge, it verifies that `path.txt` + the executable exist and runs
+// Electron's own `install.js` once if anything is missing. It exits non-zero
+// with an actionable message if installation or repair fails.
 
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';

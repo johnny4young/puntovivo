@@ -144,13 +144,19 @@ export function ProductFormModal({
 
         {activeTab === 'pricing' && <ProductPricingTab formBundle={formBundle} />}
 
-        {activeTab === 'units' && <ProductUnitsTab formBundle={formBundle} units={units} />}
+        {activeTab === 'units' && (
+          <ProductUnitsTab formBundle={formBundle} units={units} allowEmpty={mode === 'create'} />
+        )}
 
         {activeTab === 'providers' && (
           <ProductProvidersTab formBundle={formBundle} providers={providers} />
         )}
 
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-danger-500">
+            {error}
+          </p>
+        )}
       </form>
     </Modal>
   );

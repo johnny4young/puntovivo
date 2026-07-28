@@ -113,80 +113,78 @@ function queryPlanSql(key: string): string {
 // Wall-clock percentiles are meaningless while the coverage suite is running
 // hundreds of files in parallel. ci:server re-runs this file in its own
 // single-worker process through scripts/run-store-profile-gate.mjs.
-describe.skipIf(process.env.PUNTOVIVO_STORE_PROFILE !== '1')(
-  'store-sized operational profile',
-  () => {
-    beforeAll(async () => {
-      server = await createServer({ dbPath: ':memory:', verbose: false });
-      const db = getDatabase();
-      const start = performance.now();
-      const seeded = await seedDevData(db, { preset: budget.preset, verbose: false });
-      seedElapsedMs = performance.now() - start;
-      tenantId = seeded.tenantId;
-      siteId = seeded.sites[0]?.id ?? '';
+describe('store-sized operational profile', () => {
+  beforeAll(async () => {
+    server = await createServer({ dbPath: ':memory:', verbose: false });
+    const db = getDatabase();
+    const start = performance.now();
+    const seeded = await seedDevData(db, { preset: budget.preset, verbose: false });
+    seedElapsedMs = performance.now() - start;
+    tenantId = seeded.tenantId;
+    siteId = seeded.sites[0]?.id ?? '';
 
-      const admin = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(and(eq(users.tenantId, tenantId), eq(users.email, DEV_ADMIN_EMAIL)))
-        .get();
-      if (!admin || !siteId) throw new Error('Expected mega seed admin and site');
-      userId = admin.id;
+    const admin = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.tenantId, tenantId), eq(users.email, DEV_ADMIN_EMAIL)))
+      .get();
+    if (!admin || !siteId) throw new Error('Expected mega seed admin and site');
+    userId = admin.id;
 
-      const sqlite = liveClient();
-      const ledgerOwner = sqlite
-        .prepare(
-          'SELECT customer_id AS customerId, count(*) AS entries FROM customer_ledger_entries WHERE tenant_id = ? GROUP BY customer_id ORDER BY entries DESC LIMIT 1'
-        )
-        .get(tenantId) as { customerId: string; entries: number } | undefined;
-      if (!ledgerOwner) throw new Error('Expected mega seed customer ledger rows');
-      ledgerCustomerId = ledgerOwner.customerId;
+    const sqlite = liveClient();
+    const ledgerOwner = sqlite
+      .prepare(
+        'SELECT customer_id AS customerId, count(*) AS entries FROM customer_ledger_entries WHERE tenant_id = ? GROUP BY customer_id ORDER BY entries DESC LIMIT 1'
+      )
+      .get(tenantId) as { customerId: string; entries: number } | undefined;
+    if (!ledgerOwner) throw new Error('Expected mega seed customer ledger rows');
+    ledgerCustomerId = ledgerOwner.customerId;
 
-      const latestSale = sqlite
-        .prepare(
-          'SELECT created_at AS createdAt FROM sales WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1'
-        )
-        .get(tenantId) as { createdAt: string } | undefined;
-      if (!latestSale) throw new Error('Expected mega seed sales');
-      const locale = await resolveTenantLocale(getDatabase(), tenantId);
-      const tenantToday = calendarDayInTimeZone(new Date(), locale.timezone);
-      reportDate =
-        latestSale.createdAt.slice(0, 10) > tenantToday
-          ? tenantToday
-          : latestSale.createdAt.slice(0, 10);
-    }, 30_000);
+    const latestSale = sqlite
+      .prepare(
+        'SELECT created_at AS createdAt FROM sales WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1'
+      )
+      .get(tenantId) as { createdAt: string } | undefined;
+    if (!latestSale) throw new Error('Expected mega seed sales');
+    const locale = await resolveTenantLocale(getDatabase(), tenantId);
+    const tenantToday = calendarDayInTimeZone(new Date(), locale.timezone);
+    reportDate =
+      latestSale.createdAt.slice(0, 10) > tenantToday
+        ? tenantToday
+        : latestSale.createdAt.slice(0, 10);
+  }, 30_000);
 
-    afterAll(async () => {
-      if (Object.keys(measuredP95).length > 0) {
-        process.stdout.write(
-          `store-profile measured=${JSON.stringify({ seedElapsedMs, rows: measuredRows, p95: measuredP95, queryPlans: measuredQueryPlans, operational: measuredOperational })}\n`
-        );
+  afterAll(async () => {
+    if (Object.keys(measuredP95).length > 0) {
+      process.stdout.write(
+        `store-profile measured=${JSON.stringify({ seedElapsedMs, rows: measuredRows, p95: measuredP95, queryPlans: measuredQueryPlans, operational: measuredOperational })}\n`
+      );
+    }
+    if (server) await server.close();
+  });
+
+  it('builds the full mega dataset within its elapsed-time budget', () => {
+    const ceiling = budget.seedElapsedMs * (1 + budget.thresholdPercent / 100);
+    expect(seedElapsedMs).toBeLessThanOrEqual(ceiling);
+
+    const sqlite = liveClient();
+    for (const [table, minimum] of Object.entries(budget.minimumRows)) {
+      if (!/^[a-z_]+$/.test(table)) {
+        throw new Error(`perf-store-profile: unsafe table budget key ${table}`);
       }
-      if (server) await server.close();
-    });
+      const row = sqlite
+        .prepare(`SELECT count(*) AS count FROM ${table} WHERE tenant_id = ?`)
+        .get(tenantId) as { count: number };
+      measuredRows[table] = row.count;
+      expect(row.count, `${table} row count`).toBeGreaterThanOrEqual(minimum);
+    }
+  });
 
-    it('builds the full mega dataset within its elapsed-time budget', () => {
-      const ceiling = budget.seedElapsedMs * (1 + budget.thresholdPercent / 100);
-      expect(seedElapsedMs).toBeLessThanOrEqual(ceiling);
-
-      const sqlite = liveClient();
-      for (const [table, minimum] of Object.entries(budget.minimumRows)) {
-        if (!/^[a-z_]+$/.test(table)) {
-          throw new Error(`perf-store-profile: unsafe table budget key ${table}`);
-        }
-        const row = sqlite
-          .prepare(`SELECT count(*) AS count FROM ${table} WHERE tenant_id = ?`)
-          .get(tenantId) as { count: number };
-        measuredRows[table] = row.count;
-        expect(row.count, `${table} row count`).toBeGreaterThanOrEqual(minimum);
-      }
-    });
-
-    it('keeps historical credit sales represented and fully reversed when refunded', () => {
-      const sqlite = liveClient();
-      const missingLedger = sqlite
-        .prepare(
-          `SELECT count(*) AS count
+  it('keeps historical credit sales represented and fully reversed when refunded', () => {
+    const sqlite = liveClient();
+    const missingLedger = sqlite
+      .prepare(
+        `SELECT count(*) AS count
          FROM sales s
          WHERE s.tenant_id = ?
            AND s.payment_method = 'credit'
@@ -198,13 +196,13 @@ describe.skipIf(process.env.PUNTOVIVO_STORE_PROFILE !== '1')(
                AND cle.reference_sale_id = s.id
                AND cle.kind = 'sale'
            )`
-        )
-        .get(tenantId) as { count: number };
-      expect(missingLedger.count).toBe(0);
+      )
+      .get(tenantId) as { count: number };
+    expect(missingLedger.count).toBe(0);
 
-      const nonZeroRefunds = sqlite
-        .prepare(
-          `SELECT count(*) AS count
+    const nonZeroRefunds = sqlite
+      .prepare(
+        `SELECT count(*) AS count
          FROM (
            SELECT s.id
            FROM sales s
@@ -217,98 +215,97 @@ describe.skipIf(process.env.PUNTOVIVO_STORE_PROFILE !== '1')(
            GROUP BY s.id
            HAVING abs(sum(cle.amount)) > 0.005
          )`
-        )
-        .get(tenantId) as { count: number };
-      expect(nonZeroRefunds.count).toBe(0);
-    });
+      )
+      .get(tenantId) as { count: number };
+    expect(nonZeroRefunds.count).toBe(0);
+  });
 
-    it('keeps critical tenant-scoped query plans on their declared indexes', () => {
-      const sqlite = liveClient();
-      for (const [key, requiredIndex] of Object.entries(budget.queryPlanIndexes)) {
-        const params = key === 'customerLedger.list' ? [tenantId, ledgerCustomerId] : [tenantId];
-        const rows = sqlite.prepare(queryPlanSql(key)).all(...params) as QueryPlanRow[];
-        const planDetails = rows.map(row => row.detail);
-        measuredQueryPlans[key] = planDetails;
-        const details = planDetails.join('\n');
-        expect(details, `${key} query plan`).toContain(requiredIndex);
-      }
-    });
-
-    for (const [key, baselineMs] of Object.entries(budget.p95)) {
-      const ceiling = baselineMs * (1 + budget.thresholdPercent / 100);
-      it(`${key} p95 stays under ${baselineMs}ms (+ ${budget.thresholdPercent}%)`, async () => {
-        for (let i = 0; i < budget.warmupIterations; i += 1) {
-          await invokeStoreRead(key);
-        }
-
-        const samples: number[] = [];
-        for (let i = 0; i < budget.samplesPerProcedure; i += 1) {
-          const start = performance.now();
-          await invokeStoreRead(key);
-          samples.push(performance.now() - start);
-        }
-
-        const p95 = computePercentile(samples, 95);
-        measuredP95[key] = Number(p95.toFixed(2));
-        expect(p95).toBeLessThanOrEqual(ceiling);
-      }, 30_000);
+  it('keeps critical tenant-scoped query plans on their declared indexes', () => {
+    const sqlite = liveClient();
+    for (const [key, requiredIndex] of Object.entries(budget.queryPlanIndexes)) {
+      const params = key === 'customerLedger.list' ? [tenantId, ledgerCustomerId] : [tenantId];
+      const rows = sqlite.prepare(queryPlanSql(key)).all(...params) as QueryPlanRow[];
+      const planDetails = rows.map(row => row.detail);
+      measuredQueryPlans[key] = planDetails;
+      const details = planDetails.join('\n');
+      expect(details, `${key} query plan`).toContain(requiredIndex);
     }
+  });
 
-    it('previews and commits one maximum-size launch product import within budget', async () => {
-      const rows = Array.from({ length: operationalBudget.launchImport.rows }, (_, index) => {
-        const number = String(index + 1).padStart(4, '0');
-        return {
-          rowNumber: index + 2,
-          values: {
-            name: `Performance import product ${number}`,
-            sku: `PERF-IMPORT-${number}`,
-            price: '12500',
-            cost: '7800',
-            stock: '4',
-            minStock: '1',
-            taxRate: '19',
-          },
-        };
-      });
-      const input = {
-        dataMode: 'real' as const,
-        sourceName: 'performance-launch-import.csv',
-        decimalFormat: 'auto' as const,
-        rows,
-      };
-      const caller = appRouter.createCaller(buildCtx());
-      const tolerance = 1 + operationalBudget.thresholdPercent / 100;
+  for (const [key, baselineMs] of Object.entries(budget.p95)) {
+    const ceiling = baselineMs * (1 + budget.thresholdPercent / 100);
+    it(`${key} p95 stays under ${baselineMs}ms (+ ${budget.thresholdPercent}%)`, async () => {
+      for (let i = 0; i < budget.warmupIterations; i += 1) {
+        await invokeStoreRead(key);
+      }
 
-      const previewStart = performance.now();
-      const preview = await caller.launchMigration.previewProducts(input);
-      const previewElapsedMs = performance.now() - previewStart;
-      measuredOperational['launchImport.previewElapsedMs'] = Number(previewElapsedMs.toFixed(2));
-      expect(preview.summary).toEqual({
-        total: operationalBudget.launchImport.rows,
-        ready: operationalBudget.launchImport.rows,
-        duplicates: 0,
-        invalid: 0,
-      });
-      expect(previewElapsedMs).toBeLessThanOrEqual(
-        operationalBudget.launchImport.previewElapsedMs * tolerance
-      );
+      const samples: number[] = [];
+      for (let i = 0; i < budget.samplesPerProcedure; i += 1) {
+        const start = performance.now();
+        await invokeStoreRead(key);
+        samples.push(performance.now() - start);
+      }
 
-      const commitStart = performance.now();
-      const result = await caller.launchMigration.importProducts({
-        ...input,
-        confirmedRealData: true,
-        previewHash: preview.previewHash,
-      });
-      const commitElapsedMs = performance.now() - commitStart;
-      measuredOperational['launchImport.commitElapsedMs'] = Number(commitElapsedMs.toFixed(2));
-      expect(result.summary).toMatchObject({
-        total: operationalBudget.launchImport.rows,
-        imported: operationalBudget.launchImport.rows,
-        failed: 0,
-      });
-      expect(commitElapsedMs).toBeLessThanOrEqual(
-        operationalBudget.launchImport.commitElapsedMs * tolerance
-      );
+      const p95 = computePercentile(samples, 95);
+      measuredP95[key] = Number(p95.toFixed(2));
+      expect(p95).toBeLessThanOrEqual(ceiling);
     }, 30_000);
   }
-);
+
+  it('previews and commits one maximum-size launch product import within budget', async () => {
+    const rows = Array.from({ length: operationalBudget.launchImport.rows }, (_, index) => {
+      const number = String(index + 1).padStart(4, '0');
+      return {
+        rowNumber: index + 2,
+        values: {
+          name: `Performance import product ${number}`,
+          sku: `PERF-IMPORT-${number}`,
+          price: '12500',
+          cost: '7800',
+          stock: '4',
+          minStock: '1',
+          taxRate: '19',
+        },
+      };
+    });
+    const input = {
+      dataMode: 'real' as const,
+      sourceName: 'performance-launch-import.csv',
+      decimalFormat: 'auto' as const,
+      rows,
+    };
+    const caller = appRouter.createCaller(buildCtx());
+    const tolerance = 1 + operationalBudget.thresholdPercent / 100;
+
+    const previewStart = performance.now();
+    const preview = await caller.launchMigration.previewProducts(input);
+    const previewElapsedMs = performance.now() - previewStart;
+    measuredOperational['launchImport.previewElapsedMs'] = Number(previewElapsedMs.toFixed(2));
+    expect(preview.summary).toEqual({
+      total: operationalBudget.launchImport.rows,
+      ready: operationalBudget.launchImport.rows,
+      duplicates: 0,
+      invalid: 0,
+    });
+    expect(previewElapsedMs).toBeLessThanOrEqual(
+      operationalBudget.launchImport.previewElapsedMs * tolerance
+    );
+
+    const commitStart = performance.now();
+    const result = await caller.launchMigration.importProducts({
+      ...input,
+      confirmedRealData: true,
+      previewHash: preview.previewHash,
+    });
+    const commitElapsedMs = performance.now() - commitStart;
+    measuredOperational['launchImport.commitElapsedMs'] = Number(commitElapsedMs.toFixed(2));
+    expect(result.summary).toMatchObject({
+      total: operationalBudget.launchImport.rows,
+      imported: operationalBudget.launchImport.rows,
+      failed: 0,
+    });
+    expect(commitElapsedMs).toBeLessThanOrEqual(
+      operationalBudget.launchImport.commitElapsedMs * tolerance
+    );
+  }, 30_000);
+});

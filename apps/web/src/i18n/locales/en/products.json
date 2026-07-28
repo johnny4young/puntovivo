@@ -84,6 +84,9 @@
   "form": {
     "createTitle": "Create Product",
     "editTitle": "Edit Product",
+    "loadingDetails": "Loading the current product record...",
+    "loadErrorTitle": "Product details unavailable",
+    "loadErrorDescription": "We couldn't load the current product record. Retry before editing.",
     "cancel": "Cancel",
     "submitting": "Saving...",
     "create": "Create Product",
@@ -146,15 +149,17 @@
     "units": {
       "title": "Unit assignments",
       "description": "Define the base unit and any additional equivalence-based sale units.",
+      "empty": "No sale unit assigned. Add one only when this product needs an alternate unit or equivalence.",
       "addUnit": "Add Unit",
       "unit": "Unit",
       "selectUnit": "Select unit",
-    "unitRequired": "Unit is required",
-    "equivalence": "Equivalence",
-    "serialEquivalenceRequired": "Every sale unit must equal one base unit while serial tracking is enabled.",
-    "unitPrice": "Unit Price",
+      "unitRequired": "Unit is required",
+      "equivalence": "Equivalence",
+      "serialEquivalenceRequired": "Every sale unit must equal one base unit while serial tracking is enabled.",
+      "unitPrice": "Unit Price",
       "baseUnit": "Base unit",
-      "remove": "Remove"
+      "remove": "Remove",
+      "removeLastHint": "An existing product must keep one base sale unit."
     },
     "providerAssignments": {
       "title": "Provider associations",

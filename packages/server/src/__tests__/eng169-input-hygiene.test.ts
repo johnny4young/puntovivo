@@ -19,6 +19,7 @@ import { upsertCompanyInput } from '../trpc/schemas/companies.js';
 import { updateProductInput } from '../trpc/schemas/products.js';
 import { updateCustomerInput } from '../trpc/schemas/customers.js';
 import { updateProviderInput } from '../trpc/schemas/providers.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 describe('image-URL scheme hardening', () => {
   it('rejects dangerous schemes on company logoUrl, allows https + data:image', () => {
@@ -98,7 +99,16 @@ describe('verbose+prod boot guard', () => {
   it('boots in production with verbose logging when the override is set', async () => {
     process.env.NODE_ENV = 'production';
     process.env.PUNTOVIVO_ALLOW_VERBOSE_PROD = '1';
-    const server = await createServer({ dbPath: ':memory:', verbose: true });
+    const server = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'server',
+          message: 'verbose logging is enabled in production via explicit override',
+        },
+      ],
+      () => createServer({ dbPath: ':memory:', verbose: true })
+    );
     try {
       expect(server).toBeDefined();
     } finally {

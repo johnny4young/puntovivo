@@ -14,6 +14,7 @@ import { randomBytes } from 'crypto';
 import { hashPasswordSecurely } from '../security/passwords.js';
 import type { DatabaseInstance } from './index.js';
 import { createModuleLogger } from '../logging/logger.js';
+import { shouldPrintCredentialBanner } from '../logging/credential-banner.js';
 import { RING1_RETAIL_PROFILE } from '../services/modules/manifest.js';
 
 const seedLog = createModuleLogger('seed');
@@ -30,6 +31,9 @@ const seedLog = createModuleLogger('seed');
  * 2. Keeping the banner on stdout but outside the log stream means any
  * log aggregator or JSON-ingesting tool skips it cleanly; the
  * plaintext never leaks to shared observability infrastructure.
+ * The Vitest harness sets `PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER=true`;
+ * it creates a fresh database hundreds of times and never needs
+ * interactive credentials, so the banner stays suppressed there.
  *
  * Treat this helper as the ONLY sanctioned path to print a plaintext
  * credential from server code. All other credential fields get
@@ -453,7 +457,7 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
 
   seedLog.info('default data seeded successfully');
 
-  if (seededAdminPassword) {
+  if (seededAdminPassword && shouldPrintCredentialBanner()) {
     // Every line below goes to stdout directly. See the comment on
     // `printCredentialsBanner` above — the plaintext password must be
     // readable by the operator on first install, and pino's redact

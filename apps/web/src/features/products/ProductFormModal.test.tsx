@@ -80,7 +80,9 @@ interface SuggestCategoryInput {
   description: string | null;
 }
 
-function renderModal(opts: { mode?: 'create' | 'edit'; product?: Product | null } = {}) {
+function renderModal(
+  opts: { mode?: 'create' | 'edit'; product?: Product | null; error?: string | null } = {}
+) {
   const mode = opts.mode ?? 'create';
   const product = opts.product ?? null;
   return render(
@@ -94,7 +96,7 @@ function renderModal(opts: { mode?: 'create' | 'edit'; product?: Product | null 
       units={UNITS}
       vatRates={VAT_RATES}
       isSaving={false}
-      error={null}
+      error={opts.error ?? null}
       onClose={vi.fn()}
       onSubmit={onSubmitMock}
     />
@@ -331,6 +333,48 @@ describe('ProductFormModal — AI category suggestion', () => {
     });
     expect(screen.queryByTestId('suggest-category-badge')).not.toBeInTheDocument();
     expect(screen.queryByTestId('suggest-category-chip')).not.toBeInTheDocument();
+  });
+
+  it('renders an error handled by the owning mutation without treating it as success', async () => {
+    onSubmitMock.mockResolvedValue(undefined);
+    renderModal({ error: 'A product with this SKU already exists.' });
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test product' } });
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TEST-001' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Create Product' }));
+      await Promise.resolve();
+    });
+
+    expect(onSubmitMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('alert')).toHaveTextContent('A product with this SKU already exists.');
+  });
+
+  it('lets a new product return to the implicit base-unit default', () => {
+    renderModal({ mode: 'create' });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Units' }));
+    expect(screen.getByText(/No sale unit assigned/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Unit' }));
+    expect(screen.getByRole('checkbox', { name: 'Base unit' })).toBeChecked();
+    const removeButton = screen.getByRole('button', { name: 'Remove' });
+    expect(removeButton).toBeEnabled();
+
+    fireEvent.click(removeButton);
+    expect(screen.getByText(/No sale unit assigned/)).toBeInTheDocument();
+  });
+
+  it('keeps one explicit base unit on an existing product and explains why', () => {
+    renderModal({ mode: 'edit', product: createMockProduct() });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Units' }));
+    const removeButton = screen.getByRole('button', { name: 'Remove' });
+    expect(removeButton).toBeDisabled();
+    expect(screen.getByText('An existing product must keep one base sale unit.')).toBeVisible();
+    expect(removeButton).toHaveAccessibleDescription(
+      'An existing product must keep one base sale unit.'
+    );
   });
 
   it('A13 — Stale mutation response is ignored after the operator changes the inputs', () => {

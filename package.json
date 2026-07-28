@@ -26,9 +26,9 @@
     "make:desktop": "pnpm --filter @puntovivo/desktop run make:desktop",
     "ci:release": "pnpm run test:release-script",
     "rehearse:upgrade-recovery": "pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/server run native:ensure:node && node --experimental-strip-types apps/desktop/src/main/recovery-rehearsal-cli.ts",
-    "ci:audit": "pnpm audit --prod --audit-level high",
+    "ci:audit": "pnpm audit --audit-level low",
     "ci:web": "pnpm run ci:shared && pnpm run ci:audit && pnpm --filter @puntovivo/web run typecheck && pnpm --filter @puntovivo/web run lint && pnpm --filter @puntovivo/web run test:coverage -- --run && pnpm --filter @puntovivo/web run build && node --test scripts/check-adaptive-ui.test.mjs scripts/check-bundle-size.test.mjs scripts/check-contrast.test.mjs scripts/check-lighthouse.test.mjs scripts/check-operator-deck-adoption.test.mjs scripts/check-operator-journeys.test.mjs scripts/ensure-playwright-browser.test.mjs scripts/run-lighthouse-gate.test.mjs && node scripts/check-adaptive-ui.mjs && node scripts/check-bundle-size.mjs && node scripts/check-contrast.mjs && node scripts/check-operator-deck-adoption.mjs && node scripts/check-operator-journeys.mjs && node scripts/run-lighthouse-gate.mjs --strict --require-measurement",
-    "ci:desktop": "pnpm run ci:shared && pnpm run ci:audit && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/web run build && pnpm --filter @puntovivo/desktop run build:main && pnpm --filter @puntovivo/desktop run typecheck && pnpm --filter @puntovivo/desktop run lint && pnpm --filter @puntovivo/desktop run test && node --test scripts/check-electron-memory.test.mjs scripts/ensure-migrations-bundled.test.mjs scripts/run-electron-memory-gate.test.mjs && node scripts/run-electron-memory-gate.mjs --strict --require-measurement",
+    "ci:desktop": "pnpm run ci:shared && pnpm run ci:audit && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/web run build && pnpm --filter @puntovivo/desktop run build:main && pnpm --filter @puntovivo/desktop run typecheck && pnpm --filter @puntovivo/desktop run lint && pnpm --filter @puntovivo/desktop run test && node --test scripts/asar-stream-integrity.test.mjs scripts/check-electron-memory.test.mjs scripts/electron-e2e-runtime.test.mjs scripts/electron-process-log-policy.test.mjs scripts/ensure-migrations-bundled.test.mjs scripts/ensure-native-runtime.test.mjs scripts/run-electron-memory-gate.test.mjs && node scripts/run-electron-memory-gate.mjs --strict --require-measurement",
     "perf:electron-memory": "node scripts/check-electron-memory.mjs",
     "perf:lighthouse": "node scripts/check-lighthouse.mjs",
     "ci:server": "pnpm run ci:shared && pnpm run ci:audit && pnpm --filter @puntovivo/server run typecheck && pnpm --filter @puntovivo/server run lint && pnpm --filter @puntovivo/server run test:coverage && pnpm --filter @puntovivo/server run test:perf:trpc && pnpm --filter @puntovivo/server run test:perf:store",
@@ -42,16 +42,17 @@
     "clean": "node ./scripts/clean-paths.mjs node_modules \"apps/*/node_modules\" \"packages/*/node_modules\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "audit:repository": "node scripts/check-repository-hygiene.mjs",
-    "ci:shared": "pnpm run audit:repository && pnpm --filter @puntovivo/shared run ci && node --experimental-strip-types --test scripts/check-operational-readiness.test.mjs scripts/check-repository-hygiene.test.mjs scripts/ensure-shared-build.test.mjs && node --experimental-strip-types scripts/check-operational-readiness.mjs"
+    "ci:shared": "pnpm run audit:repository && pnpm --filter @puntovivo/shared run ci && node --experimental-strip-types --test scripts/check-dependency-signals.test.mjs scripts/check-operational-readiness.test.mjs scripts/check-repository-hygiene.test.mjs scripts/ensure-shared-build.test.mjs && node --experimental-strip-types scripts/check-operational-readiness.mjs"
   },
   "devDependencies": {
+    "@electron/asar": "^4.2.1",
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
     "@types/node": "^25.9.2",
     "argon2": "^0.45.0",
     "axe-core": "^4.12.1",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^12.11.1",
-    "lighthouse": "^13.4.0",
+    "lighthouse": "^13.4.1",
     "nanoid": "^6.0.0",
     "prettier": "^3.9.5",
     "typescript": "^6.0.3"

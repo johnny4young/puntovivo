@@ -1,0 +1,42 @@
+diff --git a/lib/asar.js b/lib/asar.js
+index 5ac3eec19b1db282c8b6eba7719d2adada5ab157..22e1915a5f7a497ee31cea0331b2529528c37a41 100644
+--- a/lib/asar.js
++++ b/lib/asar.js
+@@ -179,6 +179,12 @@ export async function createPackageFromStreams(dest, streams) {
+                 return filesystem.insertFile(filename, stream.streamGenerator, stream.unpacked, {
+                     type: 'file',
+                     stat: stream.stat,
++                }, {
++                    // A stream-backed entry may intentionally differ from a
++                    // same-named file in the current working directory. Hash
++                    // the provided stream so integrity metadata always covers
++                    // the bytes that streamFilesystem writes.
++                    allowFilesystemFastPath: false,
+                 });
+             case 'link':
+                 links.push({
+diff --git a/lib/filesystem.d.ts b/lib/filesystem.d.ts
+index 7e7f63a6c595ead6d48e3e75422316624397c71b..ef9fdec373649f75647085d64429086171331586 100644
+--- a/lib/filesystem.d.ts
++++ b/lib/filesystem.d.ts
+@@ -32,6 +32,7 @@ export declare class Filesystem {
+     insertDirectory(p: string, shouldUnpack: boolean): Record<string, FilesystemEntry>;
+     insertFile(p: string, streamGenerator: () => NodeJS.ReadableStream, shouldUnpack: boolean, file: CrawledFileType, options?: {
+         transform?: (filePath: string) => NodeJS.ReadWriteStream | void;
++        allowFilesystemFastPath?: boolean;
+     }): Promise<void>;
+     private insertFileAsync;
+     insertLink(p: string, shouldUnpack: boolean, parentPath?: string, symlink?: string, // /var/tmp => /private/var
+diff --git a/lib/filesystem.js b/lib/filesystem.js
+index e23538e6b8618dcfe8c2d1954c2511b8295365cc..de1f26b95c8c0937bfb55e92ec3fd33ee97414d1 100644
+--- a/lib/filesystem.js
++++ b/lib/filesystem.js
+@@ -97,7 +97,7 @@ export class Filesystem {
+         if (process.platform !== 'win32' && file.stat.mode & 0o100) {
+             node.executable = true;
+         }
+-        if (size <= BUFFER_HASH_THRESHOLD) {
++        if (size <= BUFFER_HASH_THRESHOLD && options.allowFilesystemFastPath !== false) {
+             // Fully synchronous fast path — no Promise, no stream, no microtask yield
+             try {
+                 const fileBuffer = fs.readFileSync(p);

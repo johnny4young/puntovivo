@@ -1,6 +1,6 @@
 import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import type { AuthTokenPayload } from '@puntovivo/server';
+import { __withExpectedTestLogs, type AuthTokenPayload } from '@puntovivo/server';
 import type { BackupIpcDeps } from '../ipc/backup/contracts.ts';
 import { handleGetBackupProtectionStatus } from '../ipc/backup/status.ts';
 import {
@@ -103,10 +103,20 @@ describe('handleGetBackupProtectionStatus', () => {
 
   it('converts status inspection failures into a safe IPC result', async () => {
     await registerRole('admin');
-    const result = handleGetBackupProtectionStatus(
-      makeDeps(() => {
-        throw new Error('provider probe failed');
-      })
+    const result = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'desktop-backup-protection',
+          message: 'backup protection status inspection failed',
+        },
+      ],
+      () =>
+        handleGetBackupProtectionStatus(
+          makeDeps(() => {
+            throw new Error('provider probe failed');
+          })
+        )
     );
 
     assert.deepEqual(result, {

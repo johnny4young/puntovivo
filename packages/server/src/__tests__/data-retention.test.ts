@@ -19,6 +19,7 @@ import {
 } from '../services/data-retention.js';
 import type { Context } from '../trpc/context.js';
 import { appRouter } from '../trpc/router.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -292,7 +293,23 @@ describe('data retention', () => {
       END
     `);
 
-    await expect(caller.dataRetention.runNow()).rejects.toThrow(/forced retention audit failure/);
+    await expect(
+      __withExpectedTestLogs(
+        [
+          {
+            level: 'error',
+            module: 'trpc-tracing',
+            message: 'trpc procedure error',
+          },
+          {
+            level: 'error',
+            module: 'observability',
+            message: 'captured exception',
+          },
+        ],
+        () => caller.dataRetention.runNow()
+      )
+    ).rejects.toThrow(/forced retention audit failure/);
     expect(
       await db.select().from(auditLogs).where(eq(auditLogs.id, 'atomic-operational-old')).get()
     ).toBeTruthy();

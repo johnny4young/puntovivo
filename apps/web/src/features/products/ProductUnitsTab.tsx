@@ -7,8 +7,9 @@ import { Button } from '@/components/ui';
 interface ProductUnitsTabProps {
   formBundle: UseProductFormReturn;
   units: LookupOption[];
+  allowEmpty: boolean;
 }
-export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
+export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsTabProps) {
   const { t } = useTranslation('products');
   const { form, unitAssignmentsFieldArray, handleBaseUnitChange: onBaseUnitChange } = formBundle;
   const unitAssignments = useWatch({
@@ -30,7 +31,7 @@ export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
                 unitId: '',
                 equivalence: 1,
                 price: form.getValues('price'),
-                isBase: false,
+                isBase: unitAssignmentsFieldArray.fields.length === 0,
               })
             }
             variant="outline"
@@ -40,8 +41,16 @@ export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
         </div>
 
         <div className="space-y-4">
+          {unitAssignmentsFieldArray.fields.length === 0 && (
+            <p className="rounded-lg border border-dashed border-secondary-200 px-4 py-3 text-sm text-secondary-500">
+              {t('form.units.empty')}
+            </p>
+          )}
           {unitAssignmentsFieldArray.fields.map((field, index) => {
             const isBase = unitAssignments?.[index]?.isBase ?? false;
+            const isRequiredLastAssignment =
+              !allowEmpty && unitAssignmentsFieldArray.fields.length === 1;
+            const removeHintId = `product-unit-remove-hint-${field.id}`;
             const equivalenceError =
               form.formState.errors.unitAssignments?.[index]?.equivalence?.message;
             return (
@@ -113,7 +122,8 @@ export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
                   <Button
                     type="button"
                     className="text-danger-600"
-                    disabled={unitAssignmentsFieldArray.fields.length === 1}
+                    disabled={isRequiredLastAssignment}
+                    aria-describedby={isRequiredLastAssignment ? removeHintId : undefined}
                     onClick={() => {
                       const currentAssignments = form.getValues('unitAssignments');
                       const removingBase = currentAssignments[index]?.isBase;
@@ -127,6 +137,11 @@ export function ProductUnitsTab({ formBundle, units }: ProductUnitsTabProps) {
                   >
                     {t('form.units.remove')}
                   </Button>
+                  {isRequiredLastAssignment && (
+                    <span id={removeHintId} className="text-xs text-secondary-500">
+                      {t('form.units.removeLastHint')}
+                    </span>
+                  )}
                 </div>
               </div>
             );

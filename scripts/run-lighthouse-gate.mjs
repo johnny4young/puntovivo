@@ -3,7 +3,7 @@
  * portable Lighthouse web-vitals CI gate runner.
  *
  * Seeds the demo dataset into an isolated SQLite database, starts the
- * standalone Fastify server plus an already-built Vite preview, then runs
+ * standalone Fastify server plus an isolated Vite build/preview, then runs
  * `check-lighthouse.mjs --strict --require-measurement` against the preview.
  * Keeping the lifecycle in Node avoids POSIX-only shell backgrounding in
  * package scripts and GitHub Actions while still giving local operators a
@@ -15,23 +15,24 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_WEB_HOST = 'localhost';
-// serve the preview on a CORS-allowed origin. The built web app calls
-// the API at an absolute http://localhost:8090 (no preview proxy), so the preview
-// origin must be in the server's CORS allow-list (packages/server/src/server/config.ts
-// resolveServerConfig default: localhost:3000 / :5173). Vite preview's own default
-// (4173) is NOT allowed, which would CORS-block login + every authenticated-route
-// tRPC call and trip --require-measurement on a healthy app. 3000 also matches the
-// BASE_URL default in check-lighthouse.mjs. Do not "restore" this to 4173.
-export const DEFAULT_WEB_PORT = 3000;
+// Keep the performance target separate from the normal Vite dev origin (3000)
+// so an operator's open POS tab cannot talk to the gate's throwaway database.
+// 5173 is already part of the standalone server's exact CORS allow-list.
+export const DEFAULT_WEB_PORT = 5173;
 export const DEFAULT_API_HOST = 'localhost';
-export const DEFAULT_API_PORT = 8090;
-export const DEFAULT_CDP_PORT = 9222;
+// The API must also be isolated: browser cookies are host-scoped rather than
+// port-scoped, and an old localhost:3000 tab otherwise sends its polling and
+// refresh traffic into the Lighthouse server on 8090. The gate builds a private
+// web bundle with VITE_API_URL pointing at this port.
+export const DEFAULT_API_PORT = 18090;
+export const DEFAULT_CDP_PORT = 19222;
 export const DEFAULT_READY_TIMEOUT_MS = 120_000;
 export const DEFAULT_POLL_INTERVAL_MS = 500;
 // The seeded demo DB intentionally carries queued fiscal documents. The
@@ -95,10 +96,7 @@ export function resolveRunLighthouseGateOptions({
     env.PUNTOVIVO_LIGHTHOUSE_READY_TIMEOUT_MS,
     DEFAULT_READY_TIMEOUT_MS
   );
-  let settleMs = parseNonNegativeInteger(
-    env.PUNTOVIVO_LIGHTHOUSE_SETTLE_MS,
-    DEFAULT_SETTLE_MS
-  );
+  let settleMs = parseNonNegativeInteger(env.PUNTOVIVO_LIGHTHOUSE_SETTLE_MS, DEFAULT_SETTLE_MS);
   let skipSeed = env.PUNTOVIVO_LIGHTHOUSE_SKIP_SEED === '1';
   let skipServer = env.PUNTOVIVO_LIGHTHOUSE_SKIP_SERVER === '1';
   let skipPreview = env.PUNTOVIVO_LIGHTHOUSE_SKIP_PREVIEW === '1';
@@ -226,11 +224,24 @@ export function buildSeedArgs() {
   return ['run', 'seed:dev'];
 }
 
+export function buildWebArgs(outDir) {
+  return [
+    '--filter',
+    '@puntovivo/web',
+    'exec',
+    'vite',
+    'build',
+    '--outDir',
+    outDir,
+    '--emptyOutDir',
+  ];
+}
+
 export function buildServerArgs() {
   return [TSX_CLI, SERVER_ENTRY];
 }
 
-export function buildPreviewArgs({ webHost, webPort }) {
+export function buildPreviewArgs({ webHost, webPort }, outDir) {
   return [
     '--filter',
     '@puntovivo/web',
@@ -242,6 +253,8 @@ export function buildPreviewArgs({ webHost, webPort }) {
     '--port',
     String(webPort),
     '--strictPort',
+    '--outDir',
+    outDir,
   ];
 }
 
@@ -258,9 +271,15 @@ export function buildGateEnv(env, options, dbPath, browsersPath) {
     PUNTOVIVO_BIND_PORT: String(options.apiPort),
     PUNTOVIVO_LIGHTHOUSE_BASE_URL: options.previewUrl,
     PUNTOVIVO_LIGHTHOUSE_CDP_PORT: String(options.cdpPort),
+    VITE_API_URL: options.apiUrl,
     PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS: env.PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS || '15000',
     PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: env.PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX || '10000',
     PUNTOVIVO_E2E: env.PUNTOVIVO_E2E || '1',
+    // Keep warnings and errors visible in the live quality gate. Request-level
+    // info/debug chatter is not performance evidence, while suppressing the
+    // warning/error stream would hide non-fatal worker or application faults.
+    PUNTOVIVO_LOG_LEVEL: 'warn',
+    PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER: 'true',
   };
 
   if (env.PUNTOVIVO_LIGHTHOUSE_DB_KEY) {
@@ -317,6 +336,50 @@ async function stopChild(child) {
     } catch (error) {
       if (error?.code !== 'ESRCH') throw error;
     }
+  }
+}
+
+/**
+ * Fail before launching a gate-owned service when its target port is already
+ * occupied. Without this preflight, waitForUrl could mistake a stale local
+ * Lighthouse process for the child that this invocation attempted to start.
+ */
+export async function assertPortAvailable(host, port, { createServerImpl = createServer } = {}) {
+  await new Promise((resolvePromise, rejectPromise) => {
+    const probe = createServerImpl();
+    let settled = false;
+
+    const finish = error => {
+      if (settled) return;
+      settled = true;
+      probe.removeAllListeners();
+      if (error) {
+        rejectPromise(
+          new Error(
+            `Required port ${host}:${port} is unavailable (${error.code ?? error.message}). ` +
+              'Stop the stale process or choose an explicit Lighthouse port override.'
+          )
+        );
+        return;
+      }
+      resolvePromise();
+    };
+
+    probe.once('error', finish);
+    probe.listen({ host, port, exclusive: true }, () => {
+      probe.close(closeError => finish(closeError ?? undefined));
+    });
+  });
+}
+
+function assertChildHealthy(label, childError, childExit) {
+  if (childError) {
+    throw new Error(`${label} failed: ${childError.message}`);
+  }
+  if (childExit) {
+    throw new Error(
+      `${label} exited unexpectedly (code=${childExit.code ?? 'null'}, signal=${childExit.signal ?? 'null'})`
+    );
   }
 }
 
@@ -397,6 +460,7 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
   const options = resolveRunLighthouseGateOptions({ argv, env });
   const tempDir = mkdtempSync(join(tmpdir(), 'puntovivo-lighthouse-'));
   const dbPath = env.PUNTOVIVO_LIGHTHOUSE_DATABASE_URL || join(tempDir, 'lighthouse.db');
+  const webOutDir = join(tempDir, 'web-dist');
   const browsersPath = resolve(REPO_ROOT, '.playwright-browsers');
   const gateEnv = buildGateEnv(env, options, dbPath, browsersPath);
   let serverProcess;
@@ -407,6 +471,14 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
   let previewError;
 
   try {
+    if (!options.skipServer) {
+      await assertPortAvailable(options.apiHost, options.apiPort);
+    }
+    if (!options.skipPreview) {
+      await assertPortAvailable(options.webHost, options.webPort);
+    }
+    await assertPortAvailable('127.0.0.1', options.cdpPort);
+
     console.log('run-lighthouse-gate: ensuring Playwright Chromium');
     const ensureCode = await runChild(process.execPath, buildEnsureBrowserArgs(), {
       cwd: REPO_ROOT,
@@ -425,6 +497,16 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
       if (seedCode !== 0) return seedCode;
     } else {
       console.log('run-lighthouse-gate: skipping seed step');
+    }
+
+    if (!options.skipPreview) {
+      console.log(`run-lighthouse-gate: building isolated web bundle for ${options.apiUrl}`);
+      const buildCode = await runChild(PNPM_COMMAND, buildWebArgs(webOutDir), {
+        cwd: REPO_ROOT,
+        env: gateEnv,
+        stdio: 'inherit',
+      });
+      if (buildCode !== 0) return buildCode;
     }
 
     if (!options.skipServer) {
@@ -457,13 +539,14 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
         );
         await delay(options.settleMs);
       }
+      assertChildHealthy('API server', serverError, serverExit);
     } else {
       console.log(`run-lighthouse-gate: using existing API server at ${options.apiUrl}`);
     }
 
     if (!options.skipPreview) {
       console.log(`run-lighthouse-gate: starting web preview at ${options.previewUrl}`);
-      previewProcess = spawnLongRunning(PNPM_COMMAND, buildPreviewArgs(options), {
+      previewProcess = spawnLongRunning(PNPM_COMMAND, buildPreviewArgs(options, webOutDir), {
         env: gateEnv,
         prefix: '[web-preview] ',
       });
@@ -482,8 +565,16 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
             : false;
         },
       });
+      assertChildHealthy('web preview', previewError, previewExit);
     } else {
       console.log(`run-lighthouse-gate: using existing web target at ${options.previewUrl}`);
+    }
+
+    if (!options.skipServer) {
+      assertChildHealthy('API server', serverError, serverExit);
+    }
+    if (!options.skipPreview) {
+      assertChildHealthy('web preview', previewError, previewExit);
     }
 
     return await runChild(process.execPath, buildCheckArgs(options.passThroughArgs), {

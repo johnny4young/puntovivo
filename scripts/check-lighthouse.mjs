@@ -77,6 +77,34 @@ const METRIC_DIRECTION = {
 const METRIC_UNIT = { lcpMs: 'ms', ttiMs: 'ms', cls: '', score: '' };
 
 /**
+ * Reduce repeated route samples to a stable median. Lighthouse score and CPU
+ * timings are noisy even on an otherwise idle workstation; one sample made an
+ * exact score floor behave like a scheduler lottery. Missing metrics remain
+ * null so the strict proof contract can reject them.
+ */
+export function aggregateRouteSamples(samples) {
+  const aggregated = {};
+  for (const metric of Object.keys(METRIC_DIRECTION)) {
+    const values = samples
+      .map(sample => sample?.[metric])
+      .filter(value => typeof value === 'number' && Number.isFinite(value))
+      .sort((a, b) => a - b);
+    // A median is only valid when every requested sample produced the metric.
+    // Dropping one partial Lighthouse result would let --require-measurement
+    // pass on less evidence than the configured sample count promises.
+    if (samples.length === 0 || values.length !== samples.length) {
+      aggregated[metric] = null;
+      continue;
+    }
+    const middle = Math.floor(values.length / 2);
+    const median =
+      values.length % 2 === 1 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
+    aggregated[metric] = metric === 'cls' ? Math.round(median * 1000) / 1000 : Math.round(median);
+  }
+  return aggregated;
+}
+
+/**
  * Pull the four tracked metrics out of a Lighthouse result object (`lhr`).
  * Pure + fixture-testable: it never touches a browser. Missing audits map to
  * `null` so the comparison reports them as `missing` rather than crashing.
@@ -238,7 +266,7 @@ async function isServing(url) {
  * launch failure, or no route produced a result) — every `null` path prints a
  * WARN first so the CLI can self-skip warn-first.
  */
-export async function launchAndMeasure() {
+export async function launchAndMeasure({ samplesPerRoute = 3 } = {}) {
   let chromium;
   let lighthouse;
   try {
@@ -300,36 +328,44 @@ export async function launchAndMeasure() {
     const measured = {};
     for (const route of ROUTES) {
       if (route.auth && !loggedIn) continue;
-      try {
-        const runnerResult = await lighthouse(
-          `${BASE_URL}${route.path}`,
-          { port: CDP_PORT, output: 'json', logLevel: 'error' },
-          {
-            extends: 'lighthouse:default',
-            settings: {
-              onlyCategories: ['performance'],
-              // Preserve the refresh cookie across the navigation so the app
-              // re-auths (the access token is in-memory and is lost on reload).
-              disableStorageReset: true,
-              formFactor: 'desktop',
-              screenEmulation: { disabled: true },
-            },
-          }
-        );
-        if (runnerResult?.lhr) {
-          measured[route.key] = extractMetrics(runnerResult.lhr);
-          console.log(
-            `check-lighthouse: diagnostics ${route.key} = ${JSON.stringify(
-              extractDiagnostics(runnerResult.lhr)
-            )}`
+      const samples = [];
+      for (let sample = 1; sample <= samplesPerRoute; sample += 1) {
+        try {
+          const runnerResult = await lighthouse(
+            `${BASE_URL}${route.path}`,
+            { port: CDP_PORT, output: 'json', logLevel: 'error' },
+            {
+              extends: 'lighthouse:default',
+              settings: {
+                onlyCategories: ['performance'],
+                // Preserve the refresh cookie across the navigation so the app
+                // re-auths (the access token is in-memory and is lost on reload).
+                disableStorageReset: true,
+                formFactor: 'desktop',
+                screenEmulation: { disabled: true },
+              },
+            }
           );
-        } else {
+          if (runnerResult?.lhr) {
+            samples.push(extractMetrics(runnerResult.lhr));
+            console.log(
+              `check-lighthouse: diagnostics ${route.key} sample ${sample}/${samplesPerRoute} = ${JSON.stringify(
+                extractDiagnostics(runnerResult.lhr)
+              )}`
+            );
+          } else {
+            console.warn(
+              `check-lighthouse: WARN — route ${route.path} sample ${sample}/${samplesPerRoute} produced no Lighthouse result.`
+            );
+          }
+        } catch (err) {
           console.warn(
-            `check-lighthouse: WARN — route ${route.path} produced no Lighthouse result.`
+            `check-lighthouse: WARN — route ${route.path} sample ${sample}/${samplesPerRoute} failed: ${err.message}`
           );
         }
-      } catch (err) {
-        console.warn(`check-lighthouse: WARN — route ${route.path} failed: ${err.message}`);
+      }
+      if (samples.length === samplesPerRoute) {
+        measured[route.key] = aggregateRouteSamples(samples);
       }
     }
 
@@ -363,7 +399,12 @@ export async function launchAndMeasure() {
  * makes an over-budget metric exit 1, while `--require-measurement` /
  * `PUNTOVIVO_LIGHTHOUSE_REQUIRE_MEASUREMENT=1` makes missing proof exit 1.
  */
-export async function runCli({ measure = launchAndMeasure, strict, requireMeasurement } = {}) {
+export async function runCli({
+  measure = launchAndMeasure,
+  strict,
+  requireMeasurement,
+  logger = console,
+} = {}) {
   const enforce =
     strict ??
     (process.argv.includes('--strict') || process.env.PUNTOVIVO_LIGHTHOUSE_STRICT === '1');
@@ -375,23 +416,29 @@ export async function runCli({ measure = launchAndMeasure, strict, requireMeasur
   try {
     budgetFile = JSON.parse(readFileSync(BUDGET_PATH, 'utf8'));
   } catch (err) {
-    console.error(`check-lighthouse: cannot read budget file at ${BUDGET_PATH}: ${err.message}`);
+    logger.error(`check-lighthouse: cannot read budget file at ${BUDGET_PATH}: ${err.message}`);
     return 1;
   }
   const budget = budgetFile?.lighthouse?.perRoute;
   const thresholdPercent = budgetFile?.lighthouse?.thresholdPercent;
-  if (!budget || typeof thresholdPercent !== 'number') {
-    console.error(
-      'check-lighthouse: perf-budget.json is missing lighthouse.perRoute or lighthouse.thresholdPercent'
+  const samplesPerRoute = budgetFile?.lighthouse?.samplesPerRoute;
+  if (
+    !budget ||
+    typeof thresholdPercent !== 'number' ||
+    !Number.isInteger(samplesPerRoute) ||
+    samplesPerRoute < 1
+  ) {
+    logger.error(
+      'check-lighthouse: perf-budget.json is missing valid lighthouse.perRoute, lighthouse.thresholdPercent, or lighthouse.samplesPerRoute'
     );
     return 1;
   }
 
-  const measured = await measure();
+  const measured = await measure({ samplesPerRoute });
   if (!measured) {
     // Self-skip: the warning was already printed by launchAndMeasure.
     if (requireProof) {
-      console.error(
+      logger.error(
         'check-lighthouse: FAIL (--require-measurement) — no Lighthouse measurement was produced.'
       );
       return 1;
@@ -401,24 +448,24 @@ export async function runCli({ measure = launchAndMeasure, strict, requireMeasur
 
   // Echo the raw measurement so the operator can copy it into the budget when
   // (re)capturing a baseline — the report below only surfaces regressions/PASS.
-  console.log(`check-lighthouse: measured = ${JSON.stringify(measured)}`);
+  logger.log(`check-lighthouse: measured = ${JSON.stringify(measured)}`);
 
   const result = compareToLighthouseBudget({ measured, budget, thresholdPercent });
   const report = renderReport(result, thresholdPercent);
-  console.log(report);
+  logger.log(report);
 
   if (result.missing.length > 0 && requireProof) {
-    console.error(
+    logger.error(
       'check-lighthouse: FAIL (--require-measurement) — a budgeted route or metric was not measured.'
     );
     return 1;
   }
   if (result.regressions.length > 0 && enforce) {
-    console.error('check-lighthouse: FAIL (--strict) — a web-vital regressed past budget.');
+    logger.error('check-lighthouse: FAIL (--strict) — a web-vital regressed past budget.');
     return 1;
   }
   if (result.regressions.length > 0) {
-    console.warn(
+    logger.warn(
       'check-lighthouse: WARN — over the web-vitals budget (warn-first; pass --strict to enforce).'
     );
   }

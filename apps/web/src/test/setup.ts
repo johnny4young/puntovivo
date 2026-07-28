@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { vi, beforeAll, afterAll } from 'vitest';
+import { vi } from 'vitest';
 import '../i18n'; // initialize i18next so useTranslation works in tests
 import { registerAllNamespacesForTest } from './i18nTestResources';
 
@@ -108,6 +108,55 @@ Object.defineProperty(global, 'ResizeObserver', {
   value: MockResizeObserver,
 });
 
+// axe-core measures icon-ligature text through a 2D canvas. jsdom deliberately
+// omits the canvas implementation and otherwise emits a misleading
+// "Not implemented" diagnostic for every accessibility test. This deterministic
+// in-memory surface provides only the methods axe reads; feature tests that need
+// real canvas behavior install their own element-level mock.
+Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+  configurable: true,
+  value: vi.fn(function (this: HTMLCanvasElement, contextId: string) {
+    if (contextId !== '2d') return null;
+    return {
+      canvas: this,
+      font: '',
+      textAlign: 'left',
+      textBaseline: 'alphabetic',
+      measureText: (text: string) => ({ width: Math.max(text.length, 1) * 10 }),
+      fillText: vi.fn(),
+      clearRect: vi.fn(),
+      getImageData: (_x: number, _y: number, width: number, height: number) => {
+        const pixelWidth = Math.max(Math.ceil(width), 1);
+        const pixelHeight = Math.max(Math.ceil(height), 1);
+        const data = new Uint8ClampedArray(pixelWidth * pixelHeight * 4);
+        // A transparent buffer makes axe classify every text node as an icon
+        // ligature and silently bypass contrast checks. One stable opaque pixel
+        // models ordinary rendered text while keeping this jsdom shim minimal.
+        data[3] = 255;
+        return { data, width: pixelWidth, height: pixelHeight };
+      },
+    };
+  }),
+});
+
+// axe-core also asks for ::before/::after computed styles. jsdom returns the
+// same element style but emits a not-implemented diagnostic for the optional
+// pseudo-element argument, so normalize that unsupported argument here.
+const getComputedStyle = window.getComputedStyle.bind(window);
+Object.defineProperty(window, 'getComputedStyle', {
+  configurable: true,
+  value: (element: Element) => getComputedStyle(element),
+});
+
+// A real anchor click asks jsdom to navigate to another document on a later
+// task, which it cannot implement and reports as an asynchronous error even
+// though the download contract passed. Individual download tests can spy on
+// this method to assert the filename without triggering fake navigation.
+Object.defineProperty(HTMLAnchorElement.prototype, 'click', {
+  configurable: true,
+  value: vi.fn(),
+});
+
 // Mock window.scrollTo
 Object.defineProperty(window, 'scrollTo', {
   writable: true,
@@ -117,25 +166,4 @@ Object.defineProperty(window, 'scrollTo', {
 // Mock crypto.randomUUID
 Object.defineProperty(crypto, 'randomUUID', {
   value: vi.fn(() => '12345678-1234-1234-1234-123456789abc'),
-});
-
-// Suppress console errors during tests (optional - can be removed if needed)
-const originalError = console.error;
-beforeAll(() => {
-  console.error = (...args: unknown[]) => {
-    // Filter out expected React testing library warnings
-    if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
-        args[0].includes('Warning: An update to') ||
-        args[0].includes('act(...)'))
-    ) {
-      return;
-    }
-    originalError.call(console, ...args);
-  };
-});
-
-afterAll(() => {
-  console.error = originalError;
 });

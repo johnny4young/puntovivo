@@ -9,6 +9,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyReply } from 'fastify';
 import { EventEmitter } from 'node:events';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 import { eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -280,7 +281,7 @@ describe('SSE replay and backpressure', () => {
     expect(manager.getClientCount()).toBe(1);
   });
 
-  it('disconnects a slow client when its bounded queue is exhausted', () => {
+  it('disconnects a slow client when its bounded queue is exhausted', async () => {
     const manager = new SseManager();
     const raw = new EventEmitter() as EventEmitter & {
       write: () => boolean;
@@ -298,12 +299,21 @@ describe('SSE replay and backpressure', () => {
     manager.addClient(client);
 
     expect(manager.sendTo(client.id, { event: 'kds.order.created', data: 'first' })).toBe(true);
-    expect(
-      manager.sendTo(client.id, {
-        event: 'kds.order.updated',
-        data: 'x'.repeat(SSE_CLIENT_QUEUE_LIMIT_BYTES),
-      })
-    ).toBe(false);
+    const accepted = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'sse',
+          message: 'disconnecting slow SSE client',
+        },
+      ],
+      () =>
+        manager.sendTo(client.id, {
+          event: 'kds.order.updated',
+          data: 'x'.repeat(SSE_CLIENT_QUEUE_LIMIT_BYTES),
+        })
+    );
+    expect(accepted).toBe(false);
 
     expect(raw.end).toHaveBeenCalledOnce();
     expect(manager.getClientCount()).toBe(0);

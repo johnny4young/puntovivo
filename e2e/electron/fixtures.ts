@@ -28,6 +28,7 @@ import {
   test as base,
   _electron,
   chromium,
+  type Browser,
   type ElectronApplication,
   type Page,
 } from '@playwright/test';
@@ -39,6 +40,17 @@ import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 // @ts-expect-error -- plain .mjs helper shared with the packaged smoke script.
 import { resolvePackagedBinary } from '../../scripts/lib/packaged-binary.mjs';
+// @ts-expect-error -- pure .mjs policy shared with Node's desktop quality gate.
+import {
+  classifyElectronStderrLine,
+  classifyElectronStdoutLine,
+} from '../../scripts/electron-process-log-policy.mjs';
+// @ts-expect-error -- pure .mjs constants shared with the Playwright config.
+import {
+  ELECTRON_E2E_API_HOST,
+  ELECTRON_E2E_API_PORT,
+  ELECTRON_E2E_API_URL,
+} from '../../scripts/electron-e2e-runtime.mjs';
 
 /**
  * Per-suite Electron userData directory. Both the global-setup (which
@@ -129,13 +141,28 @@ export function packagedExecutablePath(): string {
  * Storage item and the app never opens a window — the launch just times out —
  * and headless Linux runners may have no libsecret at all. The application's
  * own database key is already injected through PUNTOVIVO_DB_KEY, so this only
- * covers the layer underneath it. The separate packaged runtime smoke still
- * exercises the normal OS key-store path.
+ * covers the layer underneath it. safeStorage itself has hermetic main-process
+ * tests and never needs to touch the operator's keychain during E2E.
  */
 function credentialStoreArgs(): string[] {
   if (process.platform === 'darwin') return ['--use-mock-keychain'];
   if (process.platform === 'linux') return ['--password-store=basic'];
   return [];
+}
+
+/**
+ * The automation window is repeatedly reloaded and may be considered
+ * backgrounded by macOS while Playwright owns focus. Keep Chromium from
+ * changing renderer task policies during those transitions: besides making
+ * timing deterministic, this avoids a macOS task_policy_set failure that
+ * Chromium otherwise prints as an ERROR even though the journey succeeds.
+ */
+function e2eRendererSchedulingArgs(): string[] {
+  return [
+    '--disable-backgrounding-occluded-windows',
+    '--disable-background-timer-throttling',
+    '--disable-renderer-backgrounding',
+  ];
 }
 
 function ensureNativeRuntime(runtime: 'node' | 'electron'): void {
@@ -149,20 +176,83 @@ function ensureNativeRuntime(runtime: 'node' | 'electron'): void {
   }
 }
 
-function forwardElectronProcessLogs(child: ChildProcess): void {
+function forwardElectronProcessLogs(child: ChildProcess): { assertClean: () => void } {
+  const unexpectedOutput: string[] = [];
+  let stdoutBuffer = '';
+  let stderrBuffer = '';
+  const forwardStdoutLine = (line: string) => {
+    if (line.length === 0) return;
+    if (classifyElectronStdoutLine(line) === 'unexpected') {
+      unexpectedOutput.push(line);
+      process.stderr.write(`[electron:log] ${line}\n`);
+    } else {
+      process.stdout.write(`[electron:stdout] ${line}\n`);
+    }
+  };
+  const forwardStderrLine = (line: string) => {
+    const classification = classifyElectronStderrLine(line);
+    if (classification === 'lifecycle') return;
+    if (classification === 'informational') {
+      process.stdout.write(`[electron:info] ${line}\n`);
+    } else {
+      unexpectedOutput.push(line);
+      process.stderr.write(`[electron:stderr] ${line}\n`);
+    }
+  };
+  const flushStdoutBuffer = () => {
+    if (stdoutBuffer.length === 0) return;
+    const trailingLine = stdoutBuffer;
+    stdoutBuffer = '';
+    forwardStdoutLine(trailingLine);
+  };
+  const flushStderrBuffer = () => {
+    if (stderrBuffer.length === 0) return;
+    const trailingLine = stderrBuffer;
+    stderrBuffer = '';
+    forwardStderrLine(trailingLine);
+  };
   child.stdout?.on('data', chunk => {
-    process.stdout.write(`[electron:stdout] ${String(chunk)}`);
+    stdoutBuffer += String(chunk);
+    const lines = stdoutBuffer.split(/\r?\n/);
+    stdoutBuffer = lines.pop() ?? '';
+    for (const line of lines) {
+      forwardStdoutLine(line);
+    }
+  });
+  child.stdout?.once('end', () => {
+    flushStdoutBuffer();
   });
   child.stderr?.on('data', chunk => {
-    process.stderr.write(`[electron:stderr] ${String(chunk)}`);
+    stderrBuffer += String(chunk);
+    const lines = stderrBuffer.split(/\r?\n/);
+    stderrBuffer = lines.pop() ?? '';
+    for (const line of lines) {
+      forwardStderrLine(line);
+    }
+  });
+  child.stderr?.once('end', () => {
+    flushStderrBuffer();
   });
   child.once('exit', (code, signal) => {
     if (code !== 0 || signal) {
-      process.stderr.write(
-        `[electron:exit] Electron exited before/after smoke with code=${String(code)} signal=${String(signal)}\n`
-      );
+      const line = `Electron exited before/after smoke with code=${String(code)} signal=${String(signal)}`;
+      unexpectedOutput.push(line);
+      process.stderr.write(`[electron:exit] ${line}\n`);
     }
   });
+  return {
+    assertClean: () => {
+      flushStdoutBuffer();
+      flushStderrBuffer();
+      if (unexpectedOutput.length > 0) {
+        throw new Error(
+          `Electron emitted unexpected diagnostics:\n${unexpectedOutput
+            .map(line => `- ${line}`)
+            .join('\n')}`
+        );
+      }
+    },
+  };
 }
 
 function formatFirstWindowFailure(error: unknown, child: ChildProcess): Error {
@@ -171,7 +261,7 @@ function formatFirstWindowFailure(error: unknown, child: ChildProcess): Error {
     [
       'Electron closed before opening the first renderer window.',
       `Electron process exitCode=${String(child.exitCode)} signal=${String(child.signalCode)}.`,
-      'Common causes: stale Electron.app download, wrong native ABI for better-sqlite3 or argon2, macOS code-signing rejection, missing main/preload bundle, or no renderer web server on port 3000.',
+      `Common causes: stale Electron.app download, wrong native ABI for better-sqlite3 or argon2, macOS code-signing rejection, missing main/preload bundle, no renderer web server on port 3000, or no isolated API on ${ELECTRON_E2E_API_URL}.`,
       'First recovery path: npm run electron:ensure:binary --workspace=@puntovivo/desktop',
       'Second recovery path: npm run rebuild --workspace=@puntovivo/desktop',
       'If macOS DiagnosticReports mention CODESIGNING Invalid Page, rerun the Electron UI smoke from a normal terminal session with GUI launch permissions.',
@@ -218,6 +308,7 @@ async function launchPackagedRenderer(userDataDir: string): Promise<{
       `--remote-debugging-port=${port}`,
       '--remote-debugging-address=127.0.0.1',
       ...credentialStoreArgs(),
+      ...e2eRendererSchedulingArgs(),
     ],
     {
       env: {
@@ -225,45 +316,79 @@ async function launchPackagedRenderer(userDataDir: string): Promise<{
         ELECTRON_ENABLE_LOGGING: '1',
         PUNTOVIVO_DB_KEY: ELECTRON_E2E_DB_KEY,
         PUNTOVIVO_E2E: '1',
+        PUNTOVIVO_LOG_LEVEL: 'warn',
+        PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER: 'true',
+        AUTO_UPDATE: 'false',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     }
   );
-  forwardElectronProcessLogs(child);
+  const processLogs = forwardElectronProcessLogs(child);
 
   const endpoint = `http://127.0.0.1:${port}`;
-  await waitForDevtools(endpoint, child);
-  const browser = await chromium.connectOverCDP(endpoint);
-  const context = browser.contexts()[0];
-  if (!context) throw new Error('packaged renderer exposed no browser context');
-  const page =
-    context.pages().find(candidate => candidate.url().startsWith('puntovivo-app:')) ??
-    context.pages()[0] ??
-    (await context.waitForEvent('page', { timeout: 60_000 }));
+  let browser: Browser | null = null;
+  try {
+    await waitForDevtools(endpoint, child);
+    const connectedBrowser = await chromium.connectOverCDP(endpoint);
+    browser = connectedBrowser;
+    const context = connectedBrowser.contexts()[0];
+    if (!context) throw new Error('packaged renderer exposed no browser context');
+    const page =
+      context.pages().find(candidate => candidate.url().startsWith('puntovivo-app:')) ??
+      context.pages()[0] ??
+      (await context.waitForEvent('page', { timeout: 60_000 }));
 
-  return {
-    page,
-    dispose: async () => {
-      await browser.close().catch(() => {});
+    return {
+      page,
+      dispose: async () => {
+        const acknowledged = await page
+          .evaluate(async () => window.electron?.requestE2eAppQuit?.())
+          .catch(() => undefined);
+        try {
+          // A missing acknowledgement is itself a test failure, but cleanup
+          // must still terminate the tray process before reporting it.
+          await terminate(child, acknowledged?.ok === true);
+        } finally {
+          await connectedBrowser.close().catch(() => {});
+        }
+        processLogs.assertClean();
+        if (!acknowledged?.ok) {
+          throw new Error('packaged renderer did not acknowledge the E2E app-quit request');
+        }
+      },
+    };
+  } catch (error) {
+    // Setup failures happen before Playwright owns the fixture and therefore
+    // never reach dispose(). Always clean up the process/CDP connection here.
+    try {
       await terminate(child);
-    },
-  };
+    } finally {
+      await browser?.close().catch(() => {});
+    }
+    processLogs.assertClean();
+    throw error;
+  }
 }
 
 /**
  * Stop the packaged app and make sure it is actually gone.
  *
- * SIGTERM alone is not enough. Puntovivo's main process is tray-aware, so it
- * keeps running after its window closes — the same reason the dev fixture has
- * to call `app.quit()` before `close()`. A packaged build has no attachable
- * main process to ask nicely, so this waits briefly and then escalates. Without
- * the escalation every packaged run left a live app behind, and they
- * accumulated across a session until the dock filled with them.
+ * The test-only preload IPC asks the real app lifecycle to quit first. Signals
+ * remain a bounded fallback because a packaged build has no attachable main
+ * process; without escalation a broken shutdown could leave live tray apps
+ * accumulating across the suite.
  */
-async function terminate(child: ChildProcess): Promise<void> {
+async function terminate(child: ChildProcess, gracefulRequested = false): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) return;
 
   const exited = new Promise<void>(resolve => child.once('exit', () => resolve()));
+  if (gracefulRequested) {
+    const completed = await Promise.race([
+      exited.then(() => true),
+      new Promise<boolean>(resolve => setTimeout(() => resolve(false), 3_000)),
+    ]);
+    if (completed) return;
+  }
   child.kill('SIGTERM');
 
   const escalated = await Promise.race([
@@ -273,10 +398,7 @@ async function terminate(child: ChildProcess): Promise<void> {
 
   if (escalated) {
     child.kill('SIGKILL');
-    await Promise.race([
-      exited,
-      new Promise<void>(resolve => setTimeout(resolve, 3_000)),
-    ]);
+    await Promise.race([exited, new Promise<void>(resolve => setTimeout(resolve, 3_000))]);
   }
 }
 
@@ -334,7 +456,14 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
           await use(launched.page);
         } finally {
           await launched.dispose();
-          rmSync(userDataDir, { recursive: true, force: true });
+          if (testInfo.status === testInfo.expectedStatus) {
+            rmSync(userDataDir, { recursive: true, force: true });
+          } else {
+            testInfo.annotations.push({
+              type: 'diagnostic',
+              description: `Electron userData retained at ${userDataDir}`,
+            });
+          }
         }
         return;
       }
@@ -346,12 +475,13 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
       // embedded server.
       ensureNativeRuntime('electron');
       let electronApp: ElectronApplication | null = null;
+      let processLogs: ReturnType<typeof forwardElectronProcessLogs> | null = null;
       const target = resolveDevLaunchTarget();
 
       try {
         electronApp = await _electron.launch({
           executablePath: target.executablePath,
-          args: [...target.args, `--user-data-dir=${userDataDir}`],
+          args: [...target.args, `--user-data-dir=${userDataDir}`, ...e2eRendererSchedulingArgs()],
           // Disable the first-run update check + keep the smoke
           // deterministic by suppressing the auto-updater side-channel.
           env: {
@@ -360,9 +490,14 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
             ELECTRON_ENABLE_STACK_DUMPING: '1',
             PUNTOVIVO_DB_KEY: ELECTRON_E2E_DB_KEY,
             PUNTOVIVO_E2E: '1',
+            PUNTOVIVO_BIND_HOST: ELECTRON_E2E_API_HOST,
+            PUNTOVIVO_BIND_PORT: String(ELECTRON_E2E_API_PORT),
+            PUNTOVIVO_LOG_LEVEL: 'warn',
+            PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER: 'true',
+            AUTO_UPDATE: 'false',
           },
         });
-        forwardElectronProcessLogs(electronApp.process());
+        processLogs = forwardElectronProcessLogs(electronApp.process());
 
         let page: Page;
         try {
@@ -391,7 +526,15 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
         // Leave the checkout ready for Node-based server tests after a
         // local Electron smoke run.
         ensureNativeRuntime('node');
-        rmSync(userDataDir, { recursive: true, force: true });
+        processLogs?.assertClean();
+        if (testInfo.status === testInfo.expectedStatus) {
+          rmSync(userDataDir, { recursive: true, force: true });
+        } else {
+          testInfo.annotations.push({
+            type: 'diagnostic',
+            description: `Electron userData retained at ${userDataDir}`,
+          });
+        }
       }
     },
     // Test scope, not worker: each test gets a freshly launched app. A shared

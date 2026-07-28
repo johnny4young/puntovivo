@@ -5,7 +5,8 @@
  * p95 there records scheduler contention from unrelated tests rather than the
  * SQLite/tRPC read cost. This launcher is shell-free and portable: ci:server
  * invokes it after coverage, with one worker and an explicit opt-in flag that
- * enables the otherwise skipped profile suite.
+ * makes Vitest discover only this profile instead of reporting it as skipped
+ * in the functional suite.
  */
 
 import { spawnSync } from 'node:child_process';

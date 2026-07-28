@@ -25,6 +25,7 @@
  * pretty output pipe it manually: `npm run dev:server | pino-pretty`.
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import pino from 'pino';
 
 export type PuntovivoLogger = pino.Logger;
@@ -96,6 +97,86 @@ function resolveLevel(): string {
   return process.env.NODE_ENV === 'production' ? 'info' : 'debug';
 }
 
+export interface ExpectedTestLog {
+  level: 'warn' | 'error' | 'fatal';
+  module: string;
+  message: string;
+  count?: number;
+}
+
+interface ExpectedTestLogState {
+  remaining: Array<Required<ExpectedTestLog>>;
+}
+
+const expectedTestLogs = new AsyncLocalStorage<ExpectedTestLogState>();
+const expectedTestLogStack: ExpectedTestLogState[] = [];
+const PINO_LEVELS = {
+  warn: 40,
+  error: 50,
+  fatal: 60,
+} as const;
+
+function resolveLogMessage(args: unknown[]): string | null {
+  for (let index = args.length - 1; index >= 0; index -= 1) {
+    const candidate = args[index];
+    if (typeof candidate === 'string') {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+/**
+ * Test-only scoped acknowledgement for an operational log that a negative-path
+ * test deliberately triggers. Matching records are consumed instead of written
+ * to stdout; missing records fail the wrapper, while any unlisted warning/error
+ * remains visible and therefore cannot be hidden by the harness.
+ */
+export async function __withExpectedTestLogs<T>(
+  expectations: ExpectedTestLog[],
+  callback: () => T | Promise<T>
+): Promise<T> {
+  if (process.env.NODE_ENV !== 'test' && process.env.VITEST !== 'true') {
+    throw new Error('__withExpectedTestLogs is available only in a test process');
+  }
+  if (expectedTestLogStack.length > 0) {
+    throw new Error('Expected-test-log scopes cannot overlap or nest within one test worker');
+  }
+  const state: ExpectedTestLogState = {
+    remaining: expectations.map(expectation => ({
+      ...expectation,
+      count: expectation.count ?? 1,
+    })),
+  };
+
+  let result: T | undefined;
+  let callbackError: unknown;
+  expectedTestLogStack.push(state);
+  try {
+    result = await expectedTestLogs.run(state, callback);
+  } catch (error) {
+    callbackError = error;
+  }
+
+  const popped = expectedTestLogStack.pop();
+  if (popped !== state) {
+    throw new Error('Expected-test-log scope stack was corrupted', {
+      cause: callbackError,
+    });
+  }
+
+  const missing = state.remaining.filter(expectation => expectation.count > 0);
+  if (missing.length > 0) {
+    throw new Error(`Expected test logs were not emitted: ${JSON.stringify(missing)}`, {
+      cause: callbackError,
+    });
+  }
+  if (callbackError !== undefined) {
+    throw callbackError;
+  }
+  return result as T;
+}
+
 /**
  * The shared pino instance. Callers should almost always reach for
  * `createModuleLogger(...)` instead of using this directly, so every
@@ -108,6 +189,33 @@ export const rootLogger: PuntovivoLogger = pino({
     censor: '[Redacted]',
   },
   timestamp: pino.stdTimeFunctions.isoTime,
+  hooks: {
+    logMethod(args, method, level) {
+      // Fastify's inject harness creates its own AsyncResource and does not
+      // preserve the caller's AsyncLocalStorage store. Vitest runs ordinary
+      // tests serially inside each worker, so the scoped stack is the precise
+      // fallback for HTTP-inject callbacks. Overlapping and nested scopes are
+      // rejected at entry so an out-of-context record cannot satisfy the wrong
+      // active wrapper.
+      const state = expectedTestLogs.getStore() ?? expectedTestLogStack.at(-1);
+      if (state) {
+        const message = resolveLogMessage(args);
+        const module = this.bindings().module;
+        const match = state.remaining.find(
+          expectation =>
+            expectation.count > 0 &&
+            PINO_LEVELS[expectation.level] === level &&
+            expectation.module === module &&
+            expectation.message === message
+        );
+        if (match) {
+          match.count -= 1;
+          return;
+        }
+      }
+      method.apply(this, args);
+    },
+  },
 });
 
 /**

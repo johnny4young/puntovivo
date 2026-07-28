@@ -19,6 +19,7 @@ import {
   type OutboxKernel,
   type OutboxRetryPolicy,
 } from '../lib/outbox/index.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 const STATES = ['queued', 'processing', 'succeeded', 'retrying', 'dead_letter'] as const;
 type WS = (typeof STATES)[number];
@@ -149,13 +150,23 @@ describe('tickOutbox', () => {
       tenantId,
       payload: { saleId: 'tick-throws' },
     });
-    const result = await tickOutbox(db, tenantId, {
-      kernel,
-      workerId: 'w-throws',
-      process: async () => {
-        throw new Error('processor blew up');
-      },
-    });
+    const result = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'outbox-worker',
+          message: 'outbox row failed',
+        },
+      ],
+      () =>
+        tickOutbox(db, tenantId, {
+          kernel,
+          workerId: 'w-throws',
+          process: async () => {
+            throw new Error('processor blew up');
+          },
+        })
+    );
     expect(result.processed).toBe(true);
     if (result.processed) {
       expect(['retrying', 'dead_letter']).toContain(result.outcome);
@@ -181,21 +192,33 @@ describe('tickOutbox', () => {
     });
     // Run enough ticks to exhaust the budget (max 3). Each tick
     // sleeps long enough to clear the 5ms backoff.
-    for (let i = 0; i < 3; i += 1) {
-      await tickOutbox(db, tenantId, {
-        kernel,
-        workerId: 'w-budget',
-        process: async () => ({
-          ok: false,
-          error: {
-            errorCode: 'PROVIDER_5XX',
-            providerMessage: 'down',
-            recoverable: true,
-          },
-        }),
-      });
-      await new Promise(r => setTimeout(r, 12));
-    }
+    await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'outbox-worker',
+          message: 'outbox row failed',
+          count: 3,
+        },
+      ],
+      async () => {
+        for (let i = 0; i < 3; i += 1) {
+          await tickOutbox(db, tenantId, {
+            kernel,
+            workerId: 'w-budget',
+            process: async () => ({
+              ok: false,
+              error: {
+                errorCode: 'PROVIDER_5XX',
+                providerMessage: 'down',
+                recoverable: true,
+              },
+            }),
+          });
+          await new Promise(r => setTimeout(r, 12));
+        }
+      }
+    );
     const row = await db.select().from(workerOutbox).where(eq(workerOutbox.id, id)).get();
     expect(row?.status).toBe('dead_letter');
   });

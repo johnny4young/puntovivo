@@ -101,7 +101,7 @@ contracts rather than by a standalone manual checklist:
 | Desktop continuity and recovery           | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                            | `ci:desktop` plus `rehearse:upgrade-recovery` |
 | Recovery ownership and executable actions | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                  |
 | Authenticated realtime continuity         | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                               | workspace CI plus `test:e2e:web`              |
-| Production dependency advisories          | `pnpm audit --prod --audit-level high`                                                                                                 | each workspace CI gate                        |
+| Full dependency-graph advisories          | `pnpm audit --audit-level low`                                                                                                         | each workspace CI gate                        |
 
 This map proves that the local development and automated validation baseline
 remains covered. It does not replace the multiplatform packaging, signing,

@@ -12,6 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  aggregateRouteSamples,
   extractDiagnostics,
   extractMetrics,
   compareToLighthouseBudget,
@@ -20,6 +21,11 @@ import {
 } from './check-lighthouse.mjs';
 
 const THRESHOLD = 30;
+const SILENT_LOGGER = { log() {}, warn() {}, error() {} };
+
+function runCliSilent(options = {}) {
+  return runCli({ ...options, logger: SILENT_LOGGER });
+}
 
 test('extractMetrics pulls LCP/TTI/CLS (rounded) + score (0-100) from an lhr', () => {
   const lhr = {
@@ -46,6 +52,36 @@ test('extractMetrics maps missing audits / score to null (no crash)', () => {
     cls: null,
     score: null,
   });
+});
+
+test('aggregateRouteSamples uses the per-metric median and preserves missing metrics', () => {
+  assert.deepEqual(
+    aggregateRouteSamples([
+      { lcpMs: 3100, ttiMs: 3300, cls: 0.007, score: 60 },
+      { lcpMs: 2400, ttiMs: 2500, cls: 0.004, score: 75 },
+      { lcpMs: 2600, ttiMs: 2700, cls: 0.006, score: 72 },
+    ]),
+    { lcpMs: 2600, ttiMs: 2700, cls: 0.006, score: 72 }
+  );
+  assert.deepEqual(aggregateRouteSamples([{ score: 80 }]), {
+    lcpMs: null,
+    ttiMs: null,
+    cls: null,
+    score: 80,
+  });
+  assert.deepEqual(
+    aggregateRouteSamples([
+      { lcpMs: 2000, ttiMs: 2200, cls: 0.004, score: 80 },
+      { lcpMs: 2100, ttiMs: null, cls: 0.005, score: 79 },
+      { lcpMs: 2200, ttiMs: 2400, cls: 0.006, score: 78 },
+    ]),
+    {
+      lcpMs: 2100,
+      ttiMs: null,
+      cls: 0.005,
+      score: 79,
+    }
+  );
 });
 
 test('extractDiagnostics exposes blocking-time signals and the heaviest scripts', () => {
@@ -168,12 +204,12 @@ test('renderReport explains exact score floors and variance-tolerant metrics', (
 });
 
 test('runCli self-skips (exit 0) when measurement is infeasible', async () => {
-  const code = await runCli({ measure: async () => null });
+  const code = await runCliSilent({ measure: async () => null });
   assert.equal(code, 0);
 });
 
 test('runCli --require-measurement fails when measurement is infeasible', async () => {
-  const code = await runCli({
+  const code = await runCliSilent({
     measure: async () => null,
     requireMeasurement: true,
   });
@@ -181,7 +217,7 @@ test('runCli --require-measurement fails when measurement is infeasible', async 
 });
 
 test('runCli is warn-first by default: over-budget still exits 0', async () => {
-  const code = await runCli({
+  const code = await runCliSilent({
     measure: async () => ({ login: { lcpMs: 99_999 } }),
     strict: false,
   });
@@ -189,7 +225,7 @@ test('runCli is warn-first by default: over-budget still exits 0', async () => {
 });
 
 test('runCli --strict fails (exit 1) when a metric regresses', async () => {
-  const code = await runCli({
+  const code = await runCliSilent({
     measure: async () => ({ login: { lcpMs: 99_999 } }),
     strict: true,
   });
@@ -197,7 +233,7 @@ test('runCli --strict fails (exit 1) when a metric regresses', async () => {
 });
 
 test('runCli --require-measurement fails when a budgeted route is missing', async () => {
-  const code = await runCli({
+  const code = await runCliSilent({
     measure: async () => ({ login: { lcpMs: 10, ttiMs: 10, cls: 0, score: 100 } }),
     requireMeasurement: true,
   });
@@ -205,7 +241,7 @@ test('runCli --require-measurement fails when a budgeted route is missing', asyn
 });
 
 test('runCli passes (exit 0) when measurements are within budget', async () => {
-  const code = await runCli({
+  const code = await runCliSilent({
     measure: async () => ({
       login: { lcpMs: 10, ttiMs: 10, cls: 0, score: 100 },
       dashboard: { lcpMs: 10, ttiMs: 10, cls: 0, score: 100 },

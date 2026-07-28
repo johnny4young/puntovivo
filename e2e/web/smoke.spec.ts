@@ -207,10 +207,7 @@ test.describe('web smoke', () => {
 
   test('admin shell supports multi-site selection and responsive tablet layout', async ({
     page,
-    browserName,
   }) => {
-    test.skip(browserName !== 'chromium', 'responsive smoke uses a single stable browser target');
-
     const tracker = attachClientIssueTracker(page);
     await page.setViewportSize({ width: 820, height: 1180 });
     await loginAs(page, 'admin');

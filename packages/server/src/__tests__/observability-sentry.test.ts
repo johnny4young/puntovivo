@@ -36,6 +36,13 @@ import {
   noopSink,
   type TelemetrySink,
 } from '../observability/index.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
+
+const PROCESS_CRASH_LOG = {
+  level: 'error',
+  module: 'observability',
+  message: 'process crash captured',
+} as const;
 
 const initMock = vi.fn();
 const captureExceptionMock = vi.fn();
@@ -167,12 +174,22 @@ describe('initServerTelemetryAdapter', () => {
     __resetServerTelemetryAdapterForTests();
     vi.clearAllMocks();
 
-    await initServerTelemetryAdapter({
-      env: {
-        PUNTOVIVO_SENTRY_DSN: 'http://key@127.0.0.1:9/1',
-        PUNTOVIVO_SENTRY_TRACES_SAMPLE_RATE: 'banana',
-      },
-    });
+    await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'observability',
+          message: 'invalid PUNTOVIVO_SENTRY_TRACES_SAMPLE_RATE; falling back to 0',
+        },
+      ],
+      () =>
+        initServerTelemetryAdapter({
+          env: {
+            PUNTOVIVO_SENTRY_DSN: 'http://key@127.0.0.1:9/1',
+            PUNTOVIVO_SENTRY_TRACES_SAMPLE_RATE: 'banana',
+          },
+        })
+    );
     expect(initMock.mock.calls[0]![0]).toMatchObject({ tracesSampleRate: 0 });
   });
 
@@ -180,9 +197,19 @@ describe('initServerTelemetryAdapter', () => {
     initMock.mockImplementationOnce(() => {
       throw new Error('malformed DSN');
     });
-    const result = await initServerTelemetryAdapter({
-      env: { PUNTOVIVO_SENTRY_DSN: 'not-a-dsn' },
-    });
+    const result = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'observability',
+          message: 'telemetry adapter init failed; staying on local-only logging',
+        },
+      ],
+      () =>
+        initServerTelemetryAdapter({
+          env: { PUNTOVIVO_SENTRY_DSN: 'not-a-dsn' },
+        })
+    );
     expect(result).toBe(false);
     expect(getActiveTelemetrySink()).toBe(noopSink);
     expect(isServerTelemetryAdapterActive()).toBe(false);
@@ -210,7 +237,18 @@ describe('flushServerTelemetry', () => {
     expect(flushMock).toHaveBeenCalledWith(500);
 
     flushMock.mockImplementationOnce(() => Promise.reject(new Error('down')));
-    await expect(flushServerTelemetry(500)).resolves.toBeUndefined();
+    await expect(
+      __withExpectedTestLogs(
+        [
+          {
+            level: 'warn',
+            module: 'observability',
+            message: 'telemetry flush failed',
+          },
+        ],
+        () => flushServerTelemetry(500)
+      )
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -228,11 +266,13 @@ describe('captureProcessCrash', () => {
     return { sink, calls };
   }
 
-  it('invokes the active sink without any tenant opt-in gate', () => {
+  it('invokes the active sink without any tenant opt-in gate', async () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
     const boom = new Error('main crashed');
-    captureProcessCrash(boom, { source: 'electron-main', kind: 'uncaughtException' });
+    await __withExpectedTestLogs([PROCESS_CRASH_LOG], () =>
+      captureProcessCrash(boom, { source: 'electron-main', kind: 'uncaughtException' })
+    );
     expect(calls).toHaveLength(1);
     expect(calls[0]!.err).toBe(boom);
     expect(calls[0]!.attrs).toMatchObject({
@@ -241,22 +281,26 @@ describe('captureProcessCrash', () => {
     });
   });
 
-  it('redacts sensitive attrs before the sink sees them', () => {
+  it('redacts sensitive attrs before the sink sees them', async () => {
     const { sink, calls } = buildRecordingSink();
     registerTelemetrySink(sink);
-    captureProcessCrash(new Error('boom'), {
-      source: 'electron-main',
-      password: 'hunter2',
-    });
+    await __withExpectedTestLogs([PROCESS_CRASH_LOG], () =>
+      captureProcessCrash(new Error('boom'), {
+        source: 'electron-main',
+        password: 'hunter2',
+      })
+    );
     expect(calls[0]!.attrs.password).toBe('[Redacted]');
     expect(calls[0]!.attrs.source).toBe('electron-main');
   });
 
-  it('does nothing beyond the local log while the noopSink is active', () => {
-    expect(() => captureProcessCrash(new Error('boom'))).not.toThrow();
+  it('does nothing beyond the local log while the noopSink is active', async () => {
+    await expect(
+      __withExpectedTestLogs([PROCESS_CRASH_LOG], () => captureProcessCrash(new Error('boom')))
+    ).resolves.toBeUndefined();
   });
 
-  it('never throws even when the sink is broken', () => {
+  it('never throws even when the sink is broken', async () => {
     registerTelemetrySink({
       captureException() {
         throw new Error('sink exploded');
@@ -265,6 +309,18 @@ describe('captureProcessCrash', () => {
         /* unused */
       },
     });
-    expect(() => captureProcessCrash(new Error('boom'), { source: 'electron-main' })).not.toThrow();
+    await expect(
+      __withExpectedTestLogs(
+        [
+          PROCESS_CRASH_LOG,
+          {
+            level: 'warn',
+            module: 'observability',
+            message: 'telemetry sink threw; sink event dropped',
+          },
+        ],
+        () => captureProcessCrash(new Error('boom'), { source: 'electron-main' })
+      )
+    ).resolves.toBeUndefined();
   });
 });

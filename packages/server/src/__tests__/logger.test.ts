@@ -10,9 +10,14 @@
  * test.
  */
 
+import { AsyncResource } from 'node:async_hooks';
 import { describe, expect, it } from 'vitest';
 import pino from 'pino';
-import { __REDACT_PATHS_FOR_TESTS, createModuleLogger } from '../logging/logger.js';
+import {
+  __REDACT_PATHS_FOR_TESTS,
+  __withExpectedTestLogs,
+  createModuleLogger,
+} from '../logging/logger.js';
 
 interface CapturedRecord {
   level: number;
@@ -50,6 +55,83 @@ function createCapturingLogger(): {
 }
 
 describe('logger', () => {
+  describe('__withExpectedTestLogs', () => {
+    it('consumes an exact scoped operational record', async () => {
+      const testLog = createModuleLogger('logger-test');
+
+      await expect(
+        __withExpectedTestLogs(
+          [
+            {
+              level: 'warn',
+              module: 'logger-test',
+              message: 'expected warning',
+            },
+          ],
+          () => testLog.warn('expected warning')
+        )
+      ).resolves.toBeUndefined();
+    });
+
+    it('fails when the promised record is not emitted', async () => {
+      await expect(
+        __withExpectedTestLogs(
+          [
+            {
+              level: 'error',
+              module: 'logger-test',
+              message: 'missing error',
+            },
+          ],
+          () => undefined
+        )
+      ).rejects.toThrow('Expected test logs were not emitted');
+    });
+
+    it('rejects overlapping scopes before an out-of-ALS record can satisfy the wrong test', async () => {
+      const testLog = createModuleLogger('logger-test-overlap');
+      const outsideScope = new AsyncResource('logger-test-outside-scope');
+      let releaseFirstScope: (() => void) | undefined;
+
+      const firstScope = __withExpectedTestLogs(
+        [
+          {
+            level: 'warn',
+            module: 'logger-test-overlap',
+            message: 'first expected warning',
+          },
+        ],
+        async () => {
+          await new Promise<void>(resolvePromise => {
+            releaseFirstScope = () => {
+              outsideScope.runInAsyncScope(() => {
+                testLog.warn('first expected warning');
+              });
+              resolvePromise();
+            };
+          });
+        }
+      );
+
+      await expect(
+        __withExpectedTestLogs(
+          [
+            {
+              level: 'warn',
+              module: 'logger-test-overlap',
+              message: 'first expected warning',
+            },
+          ],
+          () => undefined
+        )
+      ).rejects.toThrow('Expected-test-log scopes cannot overlap');
+
+      releaseFirstScope?.();
+      await expect(firstScope).resolves.toBeUndefined();
+      outsideScope.emitDestroy();
+    });
+  });
+
   describe('createModuleLogger', () => {
     it('stamps a stable module field on every record', () => {
       const log = createModuleLogger('sync');

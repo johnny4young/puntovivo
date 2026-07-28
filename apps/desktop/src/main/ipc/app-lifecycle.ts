@@ -8,6 +8,7 @@
 import { app, ipcMain } from 'electron';
 import { resolveRuntimeConfig } from '@puntovivo/server';
 import { checkForAppUpdates, getAutoUpdateStatus, restartToApplyAppUpdate } from '../auto-updater';
+import { scheduleE2eShutdown } from '../e2e-shutdown.js';
 import { getServerUrl } from '../runtime.js';
 
 export function registerAppLifecycleIpc(): void {
@@ -41,4 +42,10 @@ export function registerAppLifecycleIpc(): void {
   ipcMain.handle('get-auto-update-status', () => getAutoUpdateStatus());
   ipcMain.handle('check-for-app-updates', () => checkForAppUpdates());
   ipcMain.handle('restart-to-apply-app-update', () => restartToApplyAppUpdate());
+  if (process.env.PUNTOVIVO_E2E === '1') {
+    ipcMain.handle('e2e:request-app-quit', () => {
+      scheduleE2eShutdown({ app });
+      return { ok: true };
+    });
+  }
 }

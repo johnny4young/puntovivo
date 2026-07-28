@@ -157,9 +157,32 @@ async function getElectronVersion() {
   return desktopPackageJson.devDependencies?.electron ?? desktopPackageJson.dependencies?.electron;
 }
 
-async function getElectronRebuildBin() {
-  const packageJsonPath = require.resolve('@electron/rebuild/package.json');
-  const packageJson = await readJson(packageJsonPath);
+async function resolvePackageManifest(packageName) {
+  const entryPath = require.resolve(packageName);
+  let packageDir = path.dirname(entryPath);
+
+  while (packageDir !== path.dirname(packageDir)) {
+    const packageJsonPath = path.join(packageDir, 'package.json');
+    try {
+      const packageJson = await readJson(packageJsonPath);
+      if (packageJson.name === packageName) {
+        return { packageDir, packageJson };
+      }
+    } catch {
+      // Package entry points commonly live below lib/ or dist/. Keep walking
+      // until the owning manifest is found.
+    }
+    packageDir = path.dirname(packageDir);
+  }
+
+  throw new Error(`Unable to locate the installed manifest for ${packageName}`);
+}
+
+export async function getElectronRebuildBin() {
+  // @electron/rebuild 4 exports only its runtime entry point. Resolving the
+  // package.json subpath throws ERR_PACKAGE_PATH_NOT_EXPORTED, so start from
+  // the public entry and walk upward to the owning manifest.
+  const { packageDir, packageJson } = await resolvePackageManifest('@electron/rebuild');
   const relativeBin =
     typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin?.['electron-rebuild'];
 
@@ -167,7 +190,7 @@ async function getElectronRebuildBin() {
     throw new Error('@electron/rebuild does not publish an electron-rebuild bin');
   }
 
-  return path.resolve(path.dirname(packageJsonPath), relativeBin);
+  return path.resolve(packageDir, relativeBin);
 }
 
 /**
@@ -346,4 +369,6 @@ async function main() {
   console.log(`[native-runtime] Prepared ${runtime} runtime`);
 }
 
-await main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await main();
+}

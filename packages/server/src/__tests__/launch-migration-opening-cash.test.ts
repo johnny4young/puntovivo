@@ -20,6 +20,7 @@ import {
   commitLaunchOpeningCashImportInput,
   previewLaunchOpeningCashImportInput,
 } from '../trpc/schemas/launchMigration.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 let server: PuntovivoServer;
 let db: DatabaseInstance;
@@ -459,11 +460,26 @@ describe(' opening cash migration', () => {
     );
     try {
       await expect(
-        caller.launchMigration.importOpeningCash({
-          ...input,
-          confirmedRealData: true,
-          previewHash: preview.previewHash,
-        })
+        __withExpectedTestLogs(
+          [
+            {
+              level: 'error',
+              module: 'trpc-tracing',
+              message: 'trpc procedure error',
+            },
+            {
+              level: 'error',
+              module: 'observability',
+              message: 'captured exception',
+            },
+          ],
+          () =>
+            caller.launchMigration.importOpeningCash({
+              ...input,
+              confirmedRealData: true,
+              previewHash: preview.previewHash,
+            })
+        )
       ).rejects.toThrow(/forced opening cash audit failure/);
     } finally {
       await db.run(sql.raw('DROP TRIGGER IF EXISTS fail_opening_cash_import_audit'));

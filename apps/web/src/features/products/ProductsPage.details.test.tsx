@@ -10,16 +10,34 @@
  *
  * @module features/products/ProductsPage.details.test
  */
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useAuthMock, useIsModuleActiveMock, useModulesSnapshotMock, productsListUseQueryMock } =
-  vi.hoisted(() => ({
-    useAuthMock: vi.fn(),
-    useIsModuleActiveMock: vi.fn(),
-    useModulesSnapshotMock: vi.fn(),
-    productsListUseQueryMock: vi.fn(),
-  }));
+const {
+  useAuthMock,
+  useIsModuleActiveMock,
+  useModulesSnapshotMock,
+  productsListUseQueryMock,
+  productDetailFetchMock,
+  productDetailInvalidateMock,
+  productsListInvalidateMock,
+  updateMutationOptionsRef,
+  productFormModalMock,
+} = vi.hoisted(() => ({
+  useAuthMock: vi.fn(),
+  useIsModuleActiveMock: vi.fn(),
+  useModulesSnapshotMock: vi.fn(),
+  productsListUseQueryMock: vi.fn(),
+  productDetailFetchMock: vi.fn(),
+  productDetailInvalidateMock: vi.fn(),
+  productsListInvalidateMock: vi.fn(),
+  updateMutationOptionsRef: {
+    current: null as null | {
+      onSuccess?: (data: unknown, variables: { id: string }) => Promise<void>;
+    },
+  },
+  productFormModalMock: vi.fn(),
+}));
 
 vi.mock('@/features/auth/AuthProvider', () => ({ useAuth: useAuthMock }));
 vi.mock('@/features/modules', () => ({
@@ -33,8 +51,38 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 
 // Stub only the heavy form / confirm modals; DataTable + ProductDetailsDrawer
 // stay REAL so the column set and the drawer round-trip are exercised.
-vi.mock('@/features/products/ProductFormModal', () => ({ ProductFormModal: () => null }));
-vi.mock('@/components/form-controls/Modal', () => ({ ConfirmModal: () => null }));
+vi.mock('@/features/products/ProductFormModal', () => ({
+  ProductFormModal: (props: {
+    isOpen: boolean;
+    product: { name?: string; version?: number } | null;
+  }) => {
+    productFormModalMock(props);
+    return props.isOpen ? (
+      <div
+        data-testid="product-form-modal"
+        data-product-name={props.product?.name}
+        data-product-version={props.product?.version}
+      />
+    ) : null;
+  },
+}));
+vi.mock('@/components/form-controls/Modal', () => ({
+  Modal: ({
+    isOpen,
+    title,
+    children,
+  }: {
+    isOpen: boolean;
+    title?: string;
+    children: React.ReactNode;
+  }) =>
+    isOpen ? (
+      <div role="dialog" aria-label={title}>
+        {children}
+      </div>
+    ) : null,
+  ConfirmModal: () => null,
+}));
 vi.mock('@/components/tables/TableExportActions', () => ({ TableExportActions: () => null }));
 
 const product = {
@@ -57,10 +105,10 @@ vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
       products: {
-        list: { invalidate: vi.fn() },
+        list: { invalidate: productsListInvalidateMock },
         semanticSearch: { invalidate: vi.fn() },
         embeddingHealth: { invalidate: vi.fn() },
-        getById: { invalidate: vi.fn() },
+        getById: { invalidate: productDetailInvalidateMock, fetch: productDetailFetchMock },
         getVariantMatrix: { invalidate: vi.fn() },
       },
     }),
@@ -71,12 +119,18 @@ vi.mock('@/lib/trpc', () => ({
       semanticSearch: { useQuery: () => ({ data: null, isFetching: false }) },
       embeddingHealth: { useQuery: () => ({ data: null, isLoading: false }) },
       regenerateEmbeddings: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
-      getById: { useQuery: () => ({ data: null }) },
       getVariantMatrix: {
         useQuery: () => ({ data: null, isLoading: false, error: null }),
       },
-      create: { useMutation: () => ({ mutateAsync: vi.fn() }) },
-      update: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      create: { useMutation: () => ({ mutateAsync: vi.fn(), reset: vi.fn() }) },
+      update: {
+        useMutation: (options: {
+          onSuccess?: (data: unknown, variables: { id: string }) => Promise<void>;
+        }) => {
+          updateMutationOptionsRef.current = options;
+          return { mutateAsync: vi.fn(), reset: vi.fn() };
+        },
+      },
       delete: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       createVariantMatrix: {
         useMutation: () => ({ mutateAsync: vi.fn(), reset: vi.fn(), isPending: false }),
@@ -102,6 +156,11 @@ describe('ProductsPage default column set', () => {
     useIsModuleActiveMock.mockReset();
     useModulesSnapshotMock.mockReset();
     productsListUseQueryMock.mockReset();
+    productDetailFetchMock.mockReset();
+    productDetailInvalidateMock.mockReset();
+    productsListInvalidateMock.mockReset();
+    updateMutationOptionsRef.current = null;
+    productFormModalMock.mockReset();
     useAuthMock.mockReturnValue({ user: { id: 'u-1', role: 'manager' } });
     useIsModuleActiveMock.mockReturnValue(false); // semantic off → simplest table
     useModulesSnapshotMock.mockReturnValue({
@@ -153,5 +212,61 @@ describe('ProductsPage default column set', () => {
     // SKU legitimately shows in the name cell AND the drawer — scope to the
     // drawer to disambiguate.
     expect(within(drawer).getByText('CAF-001')).toBeInTheDocument();
+  });
+
+  it('waits for complete edit details and keeps one immutable optimistic-version snapshot', async () => {
+    let resolveProductDetail: ((value: Record<string, unknown>) => void) | undefined;
+    productDetailFetchMock.mockReturnValue(
+      new Promise<Record<string, unknown>>(resolve => {
+        resolveProductDetail = resolve;
+      })
+    );
+    const { rerender } = render(<ProductsPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /view details|ver detalle/i }));
+    const drawer = screen.getByTestId('product-details-drawer');
+    fireEvent.click(within(drawer).getByRole('button', { name: /edit product|editar producto/i }));
+
+    expect(screen.getByTestId('product-edit-loading')).toBeInTheDocument();
+    expect(screen.queryByTestId('product-form-modal')).not.toBeInTheDocument();
+
+    resolveProductDetail?.({
+      ...product,
+      version: 7,
+      updatedAt: '2026-07-27T15:00:00.000Z',
+      unitAssignments: [],
+      providerAssignments: [],
+    });
+
+    await waitFor(() => expect(screen.getByTestId('product-form-modal')).toBeInTheDocument());
+    expect(screen.getByTestId('product-form-modal')).toHaveAttribute('data-product-version', '7');
+
+    productDetailFetchMock.mockResolvedValue({
+      ...product,
+      name: 'Background refresh name',
+      version: 8,
+      updatedAt: '2026-07-27T15:01:00.000Z',
+      unitAssignments: [],
+      providerAssignments: [],
+    });
+    rerender(<ProductsPage />);
+
+    await waitFor(() => {
+      expect(productDetailFetchMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('product-form-modal')).toHaveAttribute(
+        'data-product-name',
+        'Café Premium'
+      );
+      expect(screen.getByTestId('product-form-modal')).toHaveAttribute('data-product-version', '7');
+    });
+  });
+
+  it('invalidates the saved product detail before a later edit can reuse it', async () => {
+    render(<ProductsPage />);
+
+    await updateMutationOptionsRef.current?.onSuccess?.(undefined, { id: product.id });
+
+    expect(productsListInvalidateMock).toHaveBeenCalledTimes(1);
+    expect(productDetailInvalidateMock).toHaveBeenCalledWith({ id: product.id });
   });
 });

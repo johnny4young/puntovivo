@@ -7,7 +7,7 @@
  *
  * - The chunk-name hash strip regex (Rolldown hash format).
  * - The pass / fail classification against thresholdPercent.
- * - The new-chunk and missing-chunk warning paths.
+ * - The significant-new-chunk and stale-budget blocking paths.
  *
  * Lives outside vitest because the script is Node-only and we want
  * to keep the gate's runtime independent of the web workspace.
@@ -21,7 +21,13 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { stripHash, measureChunks, compareToBudget } from './check-bundle-size.mjs';
+import {
+  stripHash,
+  measureChunks,
+  compareToBudget,
+  hasBlockingSignals,
+  renderReport,
+} from './check-bundle-size.mjs';
 
 test('stripHash strips Rolldown-style content hashes', () => {
   assert.equal(stripHash('SalesPage-Br3xY9Q_.js'), 'SalesPage');
@@ -81,7 +87,7 @@ test('compareToBudget keeps a chunk within threshold in the ok bucket', () => {
   assert.equal(result.ok[0].name, 'SalesPage');
 });
 
-test('compareToBudget warns about new chunks not present in the budget', () => {
+test('significant new chunks not present in the budget block the gate', () => {
   const result = compareToBudget({
     measured: [{ name: 'NewlyAddedRoute', gzKb: 12 }],
     budget: {},
@@ -89,8 +95,20 @@ test('compareToBudget warns about new chunks not present in the budget', () => {
   });
   assert.equal(result.newChunks.length, 1);
   assert.equal(result.newChunks[0].name, 'NewlyAddedRoute');
-  // New chunks never count as regressions — only warnings.
   assert.equal(result.regressions.length, 0);
+  assert.equal(hasBlockingSignals(result), true);
+  assert.match(renderReport(result, 5), /Unbudgeted chunks >= 5 kB/);
+});
+
+test('tiny new chunks remain intentionally untracked', () => {
+  const result = compareToBudget({
+    measured: [{ name: 'TinyIconSplit', gzKb: 0.4 }],
+    budget: {},
+    thresholdPercent: 5,
+  });
+  assert.equal(result.newChunks.length, 1);
+  assert.equal(hasBlockingSignals(result), false);
+  assert.equal(renderReport(result, 5), '');
 });
 
 test('compareToBudget reports chunks present in budget but missing from the build', () => {
@@ -105,4 +123,6 @@ test('compareToBudget reports chunks present in budget but missing from the buil
   // The surviving chunk lands in `ok` because it is under budget.
   assert.equal(result.ok.length, 1);
   assert.equal(result.ok[0].name, 'SalesPage');
+  assert.equal(hasBlockingSignals(result), true);
+  assert.match(renderReport(result, 5), /Stale budget entries/);
 });

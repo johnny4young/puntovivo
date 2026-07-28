@@ -27,7 +27,7 @@ import { warmUpPasswordSecurity } from '../security/passwords.js';
 import { warmUpStaffPinSecurity } from '../security/staffPins.js';
 import { startProcedureRateLimitSweeper } from '../trpc/middleware/procedureRateLimit.js';
 import { createContext } from '../trpc/context.js';
-import { isExpectedMissingRefresh } from '../trpc/expected-errors.js';
+import { classifyExpectedTrpcControlFlow } from '../trpc/expected-errors.js';
 import { appRouter } from '../trpc/router.js';
 import { resolveServerConfig } from './config.js';
 import {
@@ -180,7 +180,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
         error: unknown;
         req: { cookies?: Record<string, unknown> | undefined };
       }) {
-        if (isExpectedMissingRefresh(path, error, req)) {
+        if (classifyExpectedTrpcControlFlow(path, error, req)) {
           return;
         }
         trpcLog.error({ path: path ?? 'unknown', err: error }, 'tRPC procedure error');

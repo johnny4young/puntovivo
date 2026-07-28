@@ -83,8 +83,10 @@ test.describe('first sale on the desktop app', () => {
     await productDialog.locator('#product-stock').fill('10');
     await productDialog.getByRole('tab', { name: /units|unidades/i }).click();
     const unitPanel = productDialog.getByRole('tabpanel', { name: /units|unidades/i });
+    await unitPanel.getByRole('button', { name: /add unit|agregar unidad/i }).click();
     await unitPanel.locator('select').first().selectOption({ index: 1 });
     await unitPanel.locator('input[type="number"]').last().fill('1000');
+    await expect(unitPanel.getByRole('checkbox', { name: /base unit|unidad base/i })).toBeChecked();
     await productDialog.getByRole('button', { name: /create product|crear producto/i }).click();
     await expect(productDialog).toBeHidden({ timeout: 15_000 });
     await expect(guide.getByText(/1 of 3 steps completed|1 de 3 pasos completados/)).toBeVisible({

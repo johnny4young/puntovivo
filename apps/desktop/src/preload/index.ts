@@ -20,6 +20,8 @@ import type {
 
 // Type definitions for exposed API
 export interface ElectronAPI {
+  /** The production main process never registers this test-only IPC. */
+  requestE2eAppQuit?: () => Promise<{ ok: true }>;
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
@@ -386,6 +388,7 @@ const electronAPI: ElectronAPI = {
   device: deviceAPI,
   runtime: runtimeAPI,
   peripherals: peripheralsAPI,
+  requestE2eAppQuit: () => ipcRenderer.invoke('e2e:request-app-quit'),
 };
 
 const dbAPI: DatabaseAPI = {

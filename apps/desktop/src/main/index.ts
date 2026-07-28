@@ -78,6 +78,7 @@ app.setName('Puntovivo');
 
 const WEB_DEV_SERVER_URL = process.env.WEB_DEV_SERVER_URL || 'http://localhost:3000';
 const isDev = !app.isPackaged;
+const isE2e = process.env.PUNTOVIVO_E2E === '1';
 // a packaged build never opens DevTools from an inherited env var.
 const shouldOpenDevTools = !app.isPackaged && process.env.PUNTOVIVO_OPEN_DEVTOOLS === 'true';
 process.env.PUNTOVIVO_RUNTIME_ENV ??= isDev ? 'development' : 'production';
@@ -126,7 +127,9 @@ const backupOperationQueue = createBackupOperationQueue();
 const backupCloudVault = createBackupCloudVault({
   getStatePath: () => join(app.getPath('userData'), 'backup-cloud-vaults.v1.json'),
   safeStorage,
-  allowInsecureLoopback: isDev,
+  // Packaged E2E owns an ephemeral loopback-only S3 double. Production
+  // launches remain HTTPS-only because the test flag is never set there.
+  allowInsecureLoopback: isDev || isE2e,
   log: backupLog,
 });
 const backupScheduler = createBackupScheduler({

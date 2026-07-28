@@ -40,6 +40,7 @@ import { createServer, createModuleLogger } from './index.js';
 import { captureProcessCrash, flushServerTelemetry } from './observability/index.js';
 import { resolveRuntimeConfig } from './config/runtime.js';
 import { createGracefulShutdownHandler } from './lifecycle/gracefulShutdown.js';
+import { shouldPrintCredentialBanner } from './logging/credential-banner.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -169,15 +170,17 @@ async function main(): Promise<void> {
     banner(`  - Health:      ${address}/api/health (compatibility endpoint)`);
     banner(`  - Realtime:    ${address}/api/realtime/subscribe`);
     banner();
-    banner('  Default admin account:');
-    banner('  - Email: admin@localhost');
-    banner(
-      process.env.NODE_ENV === 'production'
-        ? '  - Password: (generated on first run, shown once in seed output)'
-        : '  - Password: Admin123!Dev (or PUNTOVIVO_DEV_ADMIN_PASSWORD if set before first seed)'
-    );
-    banner('  - See docs/LOGIN_GUIDE.md for details');
-    banner();
+    if (shouldPrintCredentialBanner()) {
+      banner('  Default admin account:');
+      banner('  - Email: admin@localhost');
+      banner(
+        process.env.NODE_ENV === 'production'
+          ? '  - Password: (generated on first run, shown once in seed output)'
+          : '  - Password: Admin123!Dev (or PUNTOVIVO_DEV_ADMIN_PASSWORD if set before first seed)'
+      );
+      banner('  - See docs/LOGIN_GUIDE.md for details');
+      banner();
+    }
     banner('  Press Ctrl+C to stop');
     banner('==========================================');
   } catch (err) {

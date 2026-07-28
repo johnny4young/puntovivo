@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { E2E_PASSWORD } from './app';
-import { prepareFirstSaleBaseline } from '../../shared/baseline.js';
 
 const DB_PATH = join(process.cwd(), 'packages/server/data/local.db');
 const SITE_STOCK = 8;
@@ -149,16 +148,6 @@ export interface TransferSerialRecord {
   transferOrderItemId: string;
   productSerialId: string;
   serialNumber: string;
-}
-
-/** Reset the dedicated  tenant before each attempt, including retries. */
-export async function resetFirstSaleScenario(): Promise<void> {
-  const db = openDb();
-  try {
-    await prepareFirstSaleBaseline(db);
-  } finally {
-    db.close();
-  }
 }
 
 export interface CashSessionRecord {

@@ -30,6 +30,12 @@ export function buildProductPayload(
   options: { includeStock?: boolean } = {}
 ) {
   const providerPayload = buildProviderPayload(values);
+  const unitAssignments = values.unitAssignments.map(assignment => ({
+    unitId: assignment.unitId,
+    equivalence: assignment.equivalence,
+    price: assignment.price,
+    isBase: assignment.isBase,
+  }));
 
   return {
     name: values.name,
@@ -61,12 +67,7 @@ export function buildProductPayload(
     tracksLots: values.tracksLots,
     tracksSerials: values.tracksSerials,
     isActive: values.isActive,
-    unitAssignments: values.unitAssignments.map(assignment => ({
-      unitId: assignment.unitId,
-      equivalence: assignment.equivalence,
-      price: assignment.price,
-      isBase: assignment.isBase,
-    })),
+    ...(unitAssignments.length > 0 ? { unitAssignments } : {}),
     providerAssignments: providerPayload.providerAssignments,
   };
 }

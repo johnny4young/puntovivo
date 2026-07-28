@@ -64,6 +64,25 @@ function resetDayCloseSignoffs(db: Database.Database, tenantId: string): void {
       .prepare("select 1 from sqlite_master where type = 'table' and name = 'day_close_artifacts'")
       .get()
   );
+  const hasSignoffs = Boolean(
+    db.prepare('select 1 from day_close_signoffs where tenant_id = ? limit 1').get(tenantId)
+  );
+  const hasArtifacts =
+    artifactTableExists &&
+    Boolean(
+      db.prepare('select 1 from day_close_artifacts where tenant_id = ? limit 1').get(tenantId)
+    );
+
+  // Most per-test baseline refreshes have no immutable day-close evidence.
+  // Avoid global trigger DDL in that ordinary path: DROP TRIGGER needs a
+  // schema write lock and can collide with an unrelated parallel journey
+  // even though every row mutation below is tenant-scoped.
+  if (!hasSignoffs && !hasArtifacts) {
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'day_close_signoff'"
+    ).run(tenantId);
+    return;
+  }
 
   db.exec(`
     DROP TRIGGER IF EXISTS trg_day_close_signoffs_no_update;

@@ -80,9 +80,10 @@ planner regression even when a fast development machine still hides it. A
 844 sales, 3,501 inventory movements, 925 audit logs, and 216 ledger rows in
 885 ms. Its measured p95 values ranged from 0.06 ms for ledger balance to 4.88
 ms for the day-close preview. A diagnostic parallel coverage run inflated
-individual p95 values by well over an order of magnitude, which is why the
-enforced gate runs after coverage in isolation instead of weakening the budgets
-to absorb unrelated scheduler contention.
+individual p95 values by well over an order of magnitude. The enforced profile
+therefore runs after server coverage in its own process, and top-level
+`ci:web`/`ci:server`/`ci:desktop` commands must run sequentially on one host
+instead of weakening the budgets to absorb unrelated scheduler contention.
 
 This contract closes the server read-side of the store-volume profile. The
 write/recovery and built-desktop measurements below are separate operational
@@ -160,10 +161,11 @@ run before the live memory launch in `ci:desktop`.
 
 ### Lighthouse web vitals (strict in CI, warn-first locally)
 
-`scripts/run-lighthouse-gate.mjs` is the CI runner. After `ci:web` has
-built the web bundle, the runner ensures Playwright Chromium is present,
-seeds an isolated demo SQLite database, starts the standalone API server
-plus Vite preview, and invokes `scripts/check-lighthouse.mjs --strict
+`scripts/run-lighthouse-gate.mjs` is the CI runner. The runner ensures
+Playwright Chromium is present, seeds an isolated demo SQLite database, builds
+a private web bundle pointed at a dedicated API port, starts the standalone API
+server plus Vite preview on ports separate from the normal dev stack, and
+invokes `scripts/check-lighthouse.mjs --strict
 --require-measurement`. The check measures the front-end load experience —
 LCP, TTI, CLS, and the Lighthouse performance score — for the top
 user-facing routes (`/login`, `/dashboard`, `/sales`, `/products`),
@@ -183,7 +185,9 @@ How a run works:
    with `disableStorageReset:true`.
 3. Warm up each route (the Vite dev server compiles route modules on first hit —
    a cold visit is 10s+, a warm one ~3s; measuring cold would be meaningless).
-4. Run Lighthouse per route and compare.
+4. Run Lighthouse `samplesPerRoute` times per route, reduce each metric to its
+   median, and compare. Requiring every sample keeps missing audits from being
+   hidden while the median removes single-sample CPU scheduler spikes.
 
 The CI path hard-fails on two classes:
 
@@ -221,7 +225,8 @@ when the PR lands, not when a customer complains.
 
 `pnpm run ci:web` chains:
 
-1. `pnpm audit --prod`, typecheck, lint, unit tests with coverage, build.
+1. `pnpm audit --audit-level low` across production and development dependencies,
+   then typecheck, lint, unit tests with coverage, and build.
 2. `node --test scripts/check-bundle-size.test.mjs` — pins the
    strip-hash regex + compare logic.
 3. `node scripts/check-bundle-size.mjs` — reads
@@ -232,16 +237,15 @@ when the PR lands, not when a customer complains.
    `budget * (1 + thresholdPercent/100)` fails the build with a
    markdown table pointing at the offending chunk and the delta.
 
-Tolerant paths:
+Baseline integrity is part of the gate:
 
-- A chunk in the build that is not in the budget produces a warning
-  but does not fail only when it is at least `5 kB` gzipped (so introducing
-  a new route does not block the PR; the operator adds the baseline in the
-  same commit). Smaller route splits and micro-icon chunks are intentionally
-  silent until they grow large enough to deserve an explicit baseline.
-- A chunk in the budget that is not in the build produces a warning
-  but does not fail (so removing a route does not block the PR; the
-  operator drops the dead key in the same commit).
+- A chunk in the build that is at least `5 kB` gzipped and is not in the
+  budget fails the build. The same change must add its deliberate baseline.
+  Smaller route splits and micro-icon chunks remain intentionally untracked
+  until they grow large enough to deserve an explicit ceiling.
+- A chunk in the budget that is no longer in the build fails the build. The
+  same change must remove or replace the stale key so the baseline never
+  presents dead coverage.
 
 ### tRPC p95 latency
 
@@ -413,15 +417,15 @@ run-to-run variance). Re-run a couple of times — the warm numbers stabilise
 once Vite has compiled each route. Note these are DEV-build figures, not
 production.
 
-To reproduce the push-CI path locally after a web build:
+To reproduce the push-CI path locally:
 
 ```
-pnpm --filter @puntovivo/web run build
 node scripts/run-lighthouse-gate.mjs --strict --require-measurement
 ```
 
-The runner owns a temporary database by default, so the CI proof does not
-depend on the operator's local `packages/server/data/local.db`.
+The runner owns a temporary database and web build by default, so the CI proof
+does not depend on the operator's local `packages/server/data/local.db`, open
+browser tabs, or ports 3000/8090.
 
 ## Out-of-scope follow-ups
 

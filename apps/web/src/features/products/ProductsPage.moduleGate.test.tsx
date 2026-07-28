@@ -64,6 +64,7 @@ vi.mock('@/features/products/ProductFormModal', () => ({
 }));
 
 vi.mock('@/components/form-controls/Modal', () => ({
+  Modal: () => null,
   ConfirmModal: () => null,
 }));
 

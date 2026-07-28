@@ -84,6 +84,9 @@
   "form": {
     "createTitle": "Crear producto",
     "editTitle": "Editar producto",
+    "loadingDetails": "Cargando los datos actuales del producto...",
+    "loadErrorTitle": "Detalles del producto no disponibles",
+    "loadErrorDescription": "No pudimos cargar los datos actuales del producto. Reintenta antes de editar.",
     "cancel": "Cancelar",
     "submitting": "Guardando...",
     "create": "Crear producto",
@@ -146,15 +149,17 @@
     "units": {
       "title": "Asignaciones de unidad",
       "description": "Define la unidad base y cualquier unidad de venta adicional basada en equivalencia.",
+      "empty": "No hay una unidad de venta asignada. Agrega una solo si este producto necesita otra unidad o equivalencia.",
       "addUnit": "Agregar unidad",
       "unit": "Unidad",
       "selectUnit": "Seleccionar unidad",
-    "unitRequired": "La unidad es obligatoria",
-    "equivalence": "Equivalencia",
-    "serialEquivalenceRequired": "Cada unidad de venta debe equivaler a una unidad base mientras el control de series esté activo.",
-    "unitPrice": "Precio unitario",
+      "unitRequired": "La unidad es obligatoria",
+      "equivalence": "Equivalencia",
+      "serialEquivalenceRequired": "Cada unidad de venta debe equivaler a una unidad base mientras el control de series esté activo.",
+      "unitPrice": "Precio unitario",
       "baseUnit": "Unidad base",
-      "remove": "Eliminar"
+      "remove": "Eliminar",
+      "removeLastHint": "Un producto existente debe conservar una unidad base de venta."
     },
     "providerAssignments": {
       "title": "Asociaciones de proveedor",

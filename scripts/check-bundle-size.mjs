@@ -5,19 +5,20 @@
  * Reads `apps/web/dist/assets/*.js` after `vite build`, computes the
  * gzipped size of every chunk, strips Rolldown's content-hash suffix,
  * and compares the measured value against the budget declared in the
- * repo's `perf-budget.json`. A regression past `thresholdPercent` is
- * a hard fail; new or removed chunks emit a warning so the operator
- * can update the baseline in the same PR.
+ * repo's `perf-budget.json`. A regression past `thresholdPercent`, a
+ * significant unbudgeted chunk, or a stale budget entry is a hard fail
+ * so the baseline must remain accurate in the same PR.
  *
  * The script lives outside vitest because it consumes the artifacts
  * vite emitted in `pnpm run build` and the CI chain wires it after
  * the build step (see root `package.json::ci:web`).
  *
  * Exit codes:
- * 0 — every tracked chunk fits inside budget + threshold; new /
- * removed chunks may have warned.
- * 1 — at least one chunk overshot budget OR the artifacts dir
- * could not be read OR the budget file is malformed.
+ * 0 — every tracked chunk fits inside budget + threshold and the
+ * baseline matches every significant build artifact.
+ * 1 — at least one chunk overshot budget, a significant chunk is
+ * unbudgeted, a budget entry is stale, the artifacts dir could not
+ * be read, or the budget file is malformed.
  *
  * The helpers are also exported for the colocated `node --test`
  * suite so the strip-hash regex + comparison logic stay pinned.
@@ -37,11 +38,11 @@ const DEFAULT_ASSETS_DIR = join(REPO_ROOT, 'apps', 'web', 'dist', 'assets');
 /**
  * Vite + Rolldown tree-shaking emits dozens of tiny chunks for
  * lucide icons + utility splits that we don't want to track in the
- * budget (typical 0.1-0.5 KB gz). Filter the "new chunks" warning to
- * only flag entries above this size so the operator doesn't see 60+
+ * budget (typical 0.1-0.5 KB gz). Only require an explicit baseline
+ * once a chunk reaches this size so the operator doesn't see 60+
  * lines of icon noise on every PR.
  */
-const NEW_CHUNK_WARN_MIN_GZ_KB = 5;
+const NEW_CHUNK_TRACK_MIN_GZ_KB = 5;
 
 /**
  * Strip Rolldown's `-<hash>.js` suffix to recover the canonical
@@ -122,11 +123,25 @@ export function compareToBudget({ measured, budget, thresholdPercent }) {
 }
 
 /**
+ * Return true when the comparison contains a signal that invalidates the
+ * checked-in baseline. Tiny unbudgeted chunks stay intentionally untracked;
+ * every budget entry, however, must still map to a real build artifact.
+ */
+export function hasBlockingSignals({ regressions, newChunks, missing }) {
+  return (
+    regressions.length > 0 ||
+    newChunks.some(chunk => chunk.gzKb >= NEW_CHUNK_TRACK_MIN_GZ_KB) ||
+    missing.length > 0
+  );
+}
+
+/**
  * Render the comparison result as a human-readable markdown table.
  * Useful for the CI log so the regressing chunk is identifiable at
  * a glance.
  */
-export function renderReport({ regressions, newChunks, missing, ok }, threshold) {
+export function renderReport(result, threshold) {
+  const { regressions, newChunks, missing, ok } = result;
   const lines = [];
   if (regressions.length > 0) {
     lines.push('| chunk | budget (kB gz) | actual (kB gz) | delta % |');
@@ -138,11 +153,11 @@ export function renderReport({ regressions, newChunks, missing, ok }, threshold)
     }
     lines.unshift(`Bundle-size regression past ${threshold}% threshold:`);
   }
-  const noteworthyNewChunks = newChunks.filter(c => c.gzKb >= NEW_CHUNK_WARN_MIN_GZ_KB);
+  const noteworthyNewChunks = newChunks.filter(c => c.gzKb >= NEW_CHUNK_TRACK_MIN_GZ_KB);
   if (noteworthyNewChunks.length > 0) {
     if (lines.length) lines.push('');
     lines.push(
-      `New chunks >= ${NEW_CHUNK_WARN_MIN_GZ_KB} kB not in perf-budget.json (warning, did not fail):`
+      `Unbudgeted chunks >= ${NEW_CHUNK_TRACK_MIN_GZ_KB} kB missing from perf-budget.json:`
     );
     for (const c of noteworthyNewChunks) {
       lines.push(`  + ${c.name}  (${c.gzKb.toFixed(2)} kB gz)`);
@@ -150,12 +165,12 @@ export function renderReport({ regressions, newChunks, missing, ok }, threshold)
   }
   if (missing.length > 0) {
     if (lines.length) lines.push('');
-    lines.push(`Budget entries with no matching build artifact (warning):`);
+    lines.push('Stale budget entries with no matching build artifact:');
     for (const m of missing) {
       lines.push(`  - ${m.name}  (was ${m.budget} kB gz)`);
     }
   }
-  if (regressions.length === 0 && ok.length > 0) {
+  if (!hasBlockingSignals(result) && ok.length > 0) {
     lines.push('Bundle-size PASS — tracked chunks within budget:');
     lines.push('| chunk | budget (kB gz) | actual (kB gz) | delta % |');
     lines.push('| --- | ---: | ---: | ---: |');
@@ -215,7 +230,7 @@ export async function runCli({ assetsDir = DEFAULT_ASSETS_DIR } = {}) {
     thresholdPercent,
   });
   const report = renderReport(result, thresholdPercent);
-  if (result.regressions.length > 0) {
+  if (hasBlockingSignals(result)) {
     console.error(report);
     return 1;
   }

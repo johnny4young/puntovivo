@@ -29,6 +29,7 @@ import {
   freshCriticalContext,
   type FreshContextOverrides,
 } from './utils/criticalCommandFixture.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 let server: PuntovivoServer;
 
@@ -715,10 +716,25 @@ describe('reports.dayClose.preview', () => {
     );
     try {
       await expect(
-        appRouter.createCaller(manager.fresh()).reports.dayClose.signOff({
-          date: '2026-07-09',
-          attestationAccepted: true,
-        })
+        __withExpectedTestLogs(
+          [
+            {
+              level: 'error',
+              module: 'trpc-tracing',
+              message: 'trpc procedure error',
+            },
+            {
+              level: 'error',
+              module: 'observability',
+              message: 'captured exception',
+            },
+          ],
+          () =>
+            appRouter.createCaller(manager.fresh()).reports.dayClose.signOff({
+              date: '2026-07-09',
+              attestationAccepted: true,
+            })
+        )
       ).rejects.toThrow(/forced PDF storage failure/);
     } finally {
       await db.run(sql.raw('DROP TRIGGER IF EXISTS fail_day_close_pdf_insert'));
@@ -843,9 +859,24 @@ describe('reports.dayClose.preview', () => {
       signedAt: '2026-07-12T05:00:00.000Z',
     });
     await expect(
-      appRouter
-        .createCaller(context(tenant.tenantId, tenant.managerId, 'manager'))
-        .reports.dayClose.signoff({ date: '2026-07-11' })
+      __withExpectedTestLogs(
+        [
+          {
+            level: 'error',
+            module: 'trpc-tracing',
+            message: 'trpc procedure error',
+          },
+          {
+            level: 'error',
+            module: 'observability',
+            message: 'captured exception',
+          },
+        ],
+        () =>
+          appRouter
+            .createCaller(context(tenant.tenantId, tenant.managerId, 'manager'))
+            .reports.dayClose.signoff({ date: '2026-07-11' })
+      )
     ).rejects.toMatchObject({
       cause: expect.objectContaining({
         errorCode: 'DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED',

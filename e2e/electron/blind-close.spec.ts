@@ -35,33 +35,6 @@ const PRODUCT_SKU = 'E2E-CLOSE';
 const REGISTER = 'E2E Close Register';
 
 test.describe('blind close on the desktop app', () => {
-  // INCOMPLETE, and reported rather than hidden. Everything except the sale
-  // works: the admin stocks the shelf, the cashier opens the drawer, and the
-  // blind-close dialog behaves. The sale is refused with
-  // SALE_INSUFFICIENT_STOCK and `Available: 0` no matter which of the two
-  // sites both roles are pinned to.
-  //
-  // What is established, so the next attempt does not re-derive it:
-  //   - It is NOT a role problem. Blind close is role gated and the cashier is
-  //     the right actor; that part of this spec is correct.
-  //   - It is NOT the two roles sitting on different sites. They are pinned to
-  //     the same one and it still fails.
-  //   - It is NOT the primary-versus-secondary site: pinning both to either
-  //     one reports Available: 0.
-  //   - The products list shows the typed quantity from BOTH sites, because
-  //     that column is the product-level rollup, so the list cannot be used to
-  //     locate the stock. Only the till reveals the per-site figure.
-  //
-  // The same createProduct call works in the single-site first-sale tenant, so
-  // the difference is how initial stock is allocated in a two-site tenant.
-  // Worth a look from the server side rather than more UI probing: the stock
-  // rollup table is maintained by triggers from the per-site balances, so a
-  // product total of N while every site reports 0 would contradict that
-  // invariant. If it does, this is a product defect and not a test gap.
-  test.fixme(
-    true,
-    'initial product stock is not available at any site in a two-site tenant; needs server-side inspection, not more UI probing'
-  );
   test('closes a drawer with an overage and reports the discrepancy', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
 
@@ -108,13 +81,30 @@ test.describe('blind close on the desktop app', () => {
       'a cashier close must say the expected balance stays hidden'
     ).toBeVisible();
 
-    // Count more than the drawer should hold.
+    // Count more than the drawer should hold. The closing total is an
+    // independent operator declaration, while the denomination grid is the
+    // auditable count that must reconcile to it before the product enables
+    // the close action.
     await closeDialog.locator('#cash-session-closing-count').fill('9000');
-    await closeDialog.getByRole('button', { name: /close session|cerrar caja/i }).click();
+    await closeDialog.getByLabel(/count for denomination \$5,000\.00/i).fill('1');
+    await closeDialog.getByLabel(/count for denomination \$2,000\.00/i).fill('2');
+    const confirmClose = closeDialog.getByRole('button', {
+      name: /close session|cerrar caja/i,
+    });
+    await expect(confirmClose).toBeEnabled();
+    await confirmClose.click();
     await expect(closeDialog).toBeHidden({ timeout: 15_000 });
 
-    // The discrepancy surfaces only once the count is committed.
-    await expect(page.getByText(/overage|sobrante/i).first()).toBeVisible({ timeout: 15_000 });
+    // The discrepancy surfaces only once the count is committed, inside the
+    // post-close day summary. Finish that ritual before asserting the sales
+    // workspace returned to its no-open-drawer state.
+    const dayCloseDialog = page.getByRole('dialog', { name: /day closed|día cerrado/i });
+    await expect(dayCloseDialog).toBeVisible({ timeout: 15_000 });
+    await expect(dayCloseDialog.getByText(/overage|sobrante|over by/i).first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await dayCloseDialog.getByRole('button', { name: /done|terminar/i }).click();
+    await expect(dayCloseDialog).toBeHidden({ timeout: 15_000 });
 
     // With the drawer closed, selling has to be gated again.
     await expect(

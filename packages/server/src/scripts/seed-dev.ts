@@ -27,6 +27,7 @@ import {
 } from '../db/seed-dev.js';
 import { resetTenantBySlug } from '../db/tenant-reset.js';
 import { createModuleLogger } from '../logging/logger.js';
+import { shouldPrintCredentialBanner } from '../logging/credential-banner.js';
 
 const log = createModuleLogger('seed-dev-cli');
 
@@ -264,18 +265,20 @@ async function main(): Promise<void> {
       banner(`  Stock adjustments:         ${result.counts.stockAdjustments}`);
       banner('');
     }
-    banner('  Sign-in credentials (all seeded users share the same password):');
-    banner('    Password:  ' + DEV_USER_PASSWORD);
-    banner('');
-    for (const user of result.users) {
-      banner(`    • ${user.email.padEnd(30)} ${user.role.padEnd(8)} ${user.name}`);
+    if (shouldPrintCredentialBanner()) {
+      banner('  Sign-in credentials (all seeded users share the same password):');
+      banner('    Password:  ' + DEV_USER_PASSWORD);
+      banner('');
+      for (const user of result.users) {
+        banner(`    • ${user.email.padEnd(30)} ${user.role.padEnd(8)} ${user.name}`);
+      }
+      banner('');
+      banner('  Primary admin login: ' + DEV_ADMIN_EMAIL);
+      banner('');
+      banner('  Tip: the built-in admin@localhost account from the default seed also stays');
+      banner('  available — use it if you want to test the "empty tenant" branch or compare.');
+      banner('');
     }
-    banner('');
-    banner('  Primary admin login: ' + DEV_ADMIN_EMAIL);
-    banner('');
-    banner('  Tip: the built-in admin@localhost account from the default seed also stays');
-    banner('  available — use it if you want to test the "empty tenant" branch or compare.');
-    banner('');
   } finally {
     closeDatabase();
   }

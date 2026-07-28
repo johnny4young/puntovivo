@@ -33,6 +33,7 @@ import {
   recordError,
   recordOperationStart,
 } from '../services/operation-journal/journal.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -366,7 +367,16 @@ describe('markOperationCompleted', () => {
       .from(operationEvents)
       .where(eq(operationEvents.id, eventId))
       .get();
-    await markOperationCompleted(db, eventId, 'failed');
+    await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'operation-journal',
+          message: 'refusing to transition operation_events out of terminal state',
+        },
+      ],
+      () => markOperationCompleted(db, eventId, 'failed')
+    );
     const secondSnapshot = await db
       .select()
       .from(operationEvents)

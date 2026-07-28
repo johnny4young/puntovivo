@@ -122,10 +122,9 @@ jobs:
           sudo apt-get install -y xvfb libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev fakeroot rpm
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
-      # @electron/get + extract-zip leave a partial dist/ on the GitHub runners
-      # (only locales/, no binary), so electron never installs and make:desktop
-      # fails. Fetch the exact release zip and extract it with the OS-native tool
-      # (unzip on linux/macOS, bsdtar on Windows), set path.txt, then verify.
+      # Electron 42 no longer downloads its runtime during package installation.
+      # Fetch the exact release zip and extract it with the OS-native tool
+      # (unzip on Linux/macOS, bsdtar on Windows), set path.txt, then verify it.
       - name: Ensure Electron runtime
         if: ${{ inputs.validate_only }}
         shell: bash
@@ -221,10 +220,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # @electron/get + extract-zip leave a partial dist/ on the GitHub runners
-      # (only locales/, no binary), so electron never installs and make:desktop
-      # fails. Fetch the exact release zip and extract it with the OS-native tool
-      # (unzip on linux/macOS, bsdtar on Windows), set path.txt, then verify.
+      # Electron 42 no longer downloads its runtime during package installation.
+      # Fetch the exact release zip and extract it with the OS-native tool
+      # (unzip on Linux/macOS, bsdtar on Windows), set path.txt, then verify it.
       - name: Ensure Electron runtime
         if: ${{ inputs.validate_only }}
         shell: bash
@@ -321,10 +319,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # @electron/get + extract-zip leave a partial dist/ on the GitHub runners
-      # (only locales/, no binary), so electron never installs and make:desktop
-      # fails. Fetch the exact release zip and extract it with the OS-native tool
-      # (unzip on linux/macOS, bsdtar on Windows), set path.txt, then verify.
+      # Electron 42 no longer downloads its runtime during package installation.
+      # Fetch the exact release zip and extract it with the OS-native tool
+      # (unzip on Linux/macOS, bsdtar on Windows), set path.txt, then verify it.
       - name: Ensure Electron runtime
         if: ${{ inputs.validate_only }}
         shell: bash

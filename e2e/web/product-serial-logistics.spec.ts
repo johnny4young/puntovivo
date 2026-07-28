@@ -82,10 +82,12 @@ test('admin preserves exact serial identities from purchase through return and t
   await productDialog.locator('#product-sku').fill(productSku);
   await productDialog.getByRole('checkbox', { name: 'Track serial numbers' }).check();
   await productDialog.getByRole('tab', { name: 'Units' }).click();
+  await productDialog.getByRole('button', { name: 'Add unit' }).click();
   await productDialog
     .getByRole('tabpanel', { name: 'Units' })
     .locator('select')
     .selectOption({ index: 1 });
+  await productDialog.getByRole('checkbox', { name: 'Base unit' }).check();
   await productDialog.getByRole('button', { name: 'Create Product' }).click();
   await expect(productDialog).toBeHidden({ timeout: 15_000 });
 

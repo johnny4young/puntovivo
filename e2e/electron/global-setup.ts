@@ -53,6 +53,11 @@ function applyE2eSqlCipherKey(db: Database.Database): void {
 }
 
 export default async function globalSetup(_config: FullConfig) {
+  // The template bootstrap intentionally exercises the real default seed, but
+  // its operator-facing fixed credential banner is not test evidence.
+  process.env.PUNTOVIVO_LOG_LEVEL = 'warn';
+  process.env.PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER = 'true';
+
   // Reset the userData dir so the schema + baseline are deterministic
   // across reruns. Prior runs may have accumulated test artefacts that
   // would confuse `cleanupPriorRunArtifacts`.

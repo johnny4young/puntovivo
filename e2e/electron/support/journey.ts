@@ -35,9 +35,17 @@ export async function goToRoute(page: Page, route: string): Promise<void> {
       window.location.hash = `#${target}`;
     }, route);
   } else {
-    // No baseURL is configured for this suite, so resolve against wherever the
-    // renderer currently is.
-    await page.goto(new URL(route, page.url()).toString());
+    // Keep this a client-side navigation. A full page.goto() tears down the
+    // authenticated React tree between pinning a site and using it; the
+    // rehydration request can then resolve the tenant fallback before the
+    // selected-site header is restored, silently moving a multi-site journey
+    // back to the alphabetically first site. Dispatching popstate exercises
+    // the same BrowserRouter path transition as an in-app link and preserves
+    // the operator's selected site.
+    await page.evaluate(target => {
+      window.history.pushState({}, '', target);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }, route);
   }
   await expect(page).toHaveURL(new RegExp(`${route}$`), { timeout: 30_000 });
 }
@@ -109,8 +117,31 @@ export async function pinPrimarySite(page: Page): Promise<void> {
   if (!primary) {
     throw new Error(`no primary site among: ${names.join(', ')}`);
   }
-  await page.getByRole('option', { name: primary }).click();
+  const primaryOption = page.getByRole('option', { name: primary });
+  const primarySiteId = await primaryOption.getAttribute('data-value');
+  if (!primarySiteId) {
+    throw new Error(`primary site option ${primary} did not expose its stable value`);
+  }
+  await primaryOption.click();
   await expect(trigger).toHaveText(primary, { timeout: 15_000 });
+
+  // `switchSite` updates React state first and persists the x-site-id source
+  // in an effect. The label can therefore change one render before the tRPC
+  // transport sees the new site. Waiting for storage prevents the next
+  // mutation from racing under the old site in multi-site journeys.
+  await expect
+    .poll(async () => Object.values(await readStoredSiteSelections(page)).includes(primarySiteId), {
+      timeout: 15_000,
+    })
+    .toBe(true);
+}
+
+async function readStoredSiteSelections(page: Page): Promise<Record<string, string>> {
+  return page.evaluate(() =>
+    Object.fromEntries(
+      Object.entries(window.localStorage).filter(([key]) => key.startsWith('active_site_id:'))
+    )
+  );
 }
 
 /**
@@ -129,11 +160,13 @@ export async function createProduct(
   await dialog.locator('#product-stock').fill(options.stock ?? '10');
   await dialog.getByRole('tab', { name: /units|unidades/i }).click();
   const unitPanel = dialog.getByRole('tabpanel', { name: /units|unidades/i });
+  await unitPanel.getByRole('button', { name: /add unit|agregar unidad/i }).click();
   await unitPanel.locator('select').first().selectOption({ index: 1 });
   await unitPanel
     .locator('input[type="number"]')
     .last()
     .fill(options.price ?? '1000');
+  await expect(unitPanel.getByRole('checkbox', { name: /base unit|unidad base/i })).toBeChecked();
   await dialog.getByRole('button', { name: /create product|crear producto/i }).click();
   await expect(dialog).toBeHidden({ timeout: 15_000 });
 }

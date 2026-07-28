@@ -4,7 +4,7 @@
   "bundleSize": {
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
     "thresholdPercent": 5,
-    "$baseline": "Captured from the Operator Deck Base 11 validation build and the recovery-ownership band on 2026-07-21. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy owns an explicit 8 kB ceiling.",
+    "$baseline": "Captured from the Operator Deck Base 11 validation build, the recovery-ownership band on 2026-07-21, and the canonical product-payload split on 2026-07-27. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy and the product payload each own an explicit 8 kB ceiling.",
     "perChunkGzKb": {
       "index": 45,
       "react-runtime": 106,
@@ -36,7 +36,7 @@
       "purify.es": 11,
       "DashboardPage": 9,
       "OrdersPage": 9,
-      "ProductFormModal": 8,
+      "productPayload": 8,
       "settings": 11,
       "sales": 9,
       "CustomersPage": 9,
@@ -121,16 +121,17 @@
     "maxPendingBackupOperations": 16
   },
   "electronMemoryMb": {
-    "$comment": " — Electron main + renderer working-set ceiling in MB, measured via app.getAppMetrics() by scripts/check-electron-memory.mjs (PUNTOVIVO_MEASURE_MEMORY mode). is warn-first: the gate prints the report but never fails the build (pass --strict / PUNTOVIVO_MEMORY_STRICT=1 to enforce). It also self-skips when Electron cannot launch (no .vite/build bundle / no display), so ci:desktop stays green on ubuntu until the xvfb CI-launch hardening lands. Baselines captured from a real local run; bump deliberately with the regressing PR.",
+    "$comment": "Electron main + renderer working-set ceilings in MB, measured through app.getAppMetrics() by scripts/check-electron-memory.mjs. ci:desktop always uses --strict --require-measurement and fails on an absent measurement or a process above baseline plus threshold; only direct local diagnostic invocation remains warn-first unless those flags are supplied.",
     "thresholdPercent": 25,
-    "$baseline": " — captured locally (macOS, renderer served by dev:web): main ~250-258 MB, renderer ~159-160 MB across runs. Baselines set just above the observed max; the 25% threshold absorbs run-to-run working-set variance in the warn-first phase.",
+    "$baseline": "Captured locally on macOS and enforced on the Linux CI renderer. The 25% threshold is an explicit cross-platform working-set variance allowance, not permission to normalize the baseline upward; any measurement above the resulting ceiling fails ci:desktop.",
     "perProcessMb": {
       "main": 260,
       "renderer": 165
     }
   },
   "lighthouse": {
-    "$comment": " /  — Lighthouse web-vitals budgets per top user-facing route. ci:web runs scripts/run-lighthouse-gate.mjs, which seeds an isolated demo DB, serves the built web app, and invokes scripts/check-lighthouse.mjs with --strict --require-measurement so missing proof or over-budget metrics fail push-CI. Local operator diagnostics can still run pnpm run perf:lighthouse in warn-first/self-skip mode. lcpMs/ttiMs in ms and cls use thresholdPercent for run variance; score is an exact 0-100 minimum floor.",
+    "$comment": " /  — Lighthouse web-vitals budgets per top user-facing route. ci:web runs scripts/run-lighthouse-gate.mjs, which seeds an isolated demo DB, serves an isolated web build, and invokes scripts/check-lighthouse.mjs with --strict --require-measurement so missing proof or over-budget metrics fail push-CI. Each route uses the median of samplesPerRoute complete audits; lcpMs/ttiMs in ms and cls use thresholdPercent for run variance, while score is an exact 0-100 median floor.",
+    "samplesPerRoute": 3,
     "thresholdPercent": 30,
     "$baseline": " — captured locally (macOS, DEV build served by dev:server + dev:web, demo-co seed, Lighthouse desktop preset with simulated throttling). The script warms each route first (Vite compiles route modules on first hit), then measures warm. These are DEV-build numbers (no minify/treeshake) under Lighthouse's 4x-CPU throttle, NOT production figures — the gate detects regressions from this local baseline. The 30% threshold absorbs Lighthouse run-to-run variance in the warn-first phase. Re-capture deliberately with pnpm run perf:lighthouse and copy the printed measured= values.",
     "perRoute": {

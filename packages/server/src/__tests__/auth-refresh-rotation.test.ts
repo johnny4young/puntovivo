@@ -23,6 +23,26 @@ import {
   rotateRefreshFamily,
 } from '../security/refreshTokenFamilies.js';
 import { __resetForTests as resetLoginRateLimit } from '../security/loginRateLimit.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
+
+const REFRESH_REPLAY_WARNING = {
+  level: 'warn',
+  module: 'security/refresh-families',
+  message: 'refresh token replay detected — family revoked, sessionVersion bumped',
+} as const;
+
+const INVALID_REFRESH_LOGS = [
+  {
+    level: 'error',
+    module: 'observability',
+    message: 'captured exception',
+  },
+  {
+    level: 'error',
+    module: 'trpc',
+    message: 'tRPC procedure error',
+  },
+] as const;
 
 let server: PuntovivoServer;
 let testTenantId: string;
@@ -157,7 +177,7 @@ describe('refresh-token rotation', () => {
       expect(afterRevoke.status).toBe('missing');
     });
 
-    it('replaying a rotated jti OUTSIDE the grace window revokes the family and bumps sessionVersion', () => {
+    it('replaying a rotated jti OUTSIDE the grace window revokes the family and bumps sessionVersion', async () => {
       const db = getDatabase();
       const before = db
         .select({ sessionVersion: users.sessionVersion })
@@ -176,12 +196,14 @@ describe('refresh-token rotation', () => {
       expect(rotated.status).toBe('rotated');
 
       // Replay the ORIGINAL jti well after the grace window closed ⇒ theft.
-      const replay = rotateRefreshFamily(db, {
-        familyId: grant.familyId,
-        presentedJti: grant.jti,
-        userId: testUserId,
-        now: () => rotatedAt + REFRESH_ROTATION_GRACE_MS + 5_000,
-      });
+      const replay = await __withExpectedTestLogs([REFRESH_REPLAY_WARNING], () =>
+        rotateRefreshFamily(db, {
+          familyId: grant.familyId,
+          presentedJti: grant.jti,
+          userId: testUserId,
+          now: () => rotatedAt + REFRESH_ROTATION_GRACE_MS + 5_000,
+        })
+      );
       expect(replay.status).toBe('reused');
 
       const family = db
@@ -245,7 +267,7 @@ describe('refresh-token rotation', () => {
       revokeRefreshFamiliesForUser(db, testUserId);
     });
 
-    it('replaying a jti older than the immediate predecessor still revokes even within the window', () => {
+    it('replaying a jti older than the immediate predecessor still revokes even within the window', async () => {
       const db = getDatabase();
       const grant = createRefreshFamily(db, { tenantId: testTenantId, userId: testUserId });
       const at = 3_000_000;
@@ -270,12 +292,14 @@ describe('refresh-token rotation', () => {
 
       // The ORIGINAL jti is now two hops back — no longer the immediate
       // predecessor — so even inside the window it reads as theft.
-      const replayOld = rotateRefreshFamily(db, {
-        familyId: grant.familyId,
-        presentedJti: grant.jti,
-        userId: testUserId,
-        now: () => at + 2_000,
-      });
+      const replayOld = await __withExpectedTestLogs([REFRESH_REPLAY_WARNING], () =>
+        rotateRefreshFamily(db, {
+          familyId: grant.familyId,
+          presentedJti: grant.jti,
+          userId: testUserId,
+          now: () => at + 2_000,
+        })
+      );
       expect(replayOld.status).toBe('reused');
       revokeRefreshFamiliesForUser(db, testUserId);
     });
@@ -354,12 +378,17 @@ describe('refresh-token rotation', () => {
       expect(second.response.statusCode).toBe(200);
 
       // Attacker replays the stolen ORIGINAL cookie.
-      const replay = await refreshOverHttp(refreshCookie!, csrfCookie!);
+      const replay = await __withExpectedTestLogs(
+        [REFRESH_REPLAY_WARNING, ...INVALID_REFRESH_LOGS],
+        () => refreshOverHttp(refreshCookie!, csrfCookie!)
+      );
       expect(replay.response.statusCode).toBe(401);
 
       // The legitimate holder's current cookie is dead too — family revoked
       // and sessionVersion bumped.
-      const legitimate = await refreshOverHttp(second.nextRefreshCookie!, csrfCookie!);
+      const legitimate = await __withExpectedTestLogs([...INVALID_REFRESH_LOGS], () =>
+        refreshOverHttp(second.nextRefreshCookie!, csrfCookie!)
+      );
       expect(legitimate.response.statusCode).toBe(401);
 
       // And the pre-replay access token no longer authenticates.

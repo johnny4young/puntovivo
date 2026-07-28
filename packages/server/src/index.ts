@@ -51,7 +51,13 @@ export { createSseParser, type ParsedSseEvent } from '@puntovivo/shared/realtime
 // the Electron main imports createModuleLogger via this
 // barrel so app-level logs from both the embedded server and the
 // desktop shell flow through the same pino instance.
-export { createModuleLogger, rootLogger, type PuntovivoLogger } from './logging/logger.js';
+export {
+  __withExpectedTestLogs,
+  createModuleLogger,
+  rootLogger,
+  type ExpectedTestLog,
+  type PuntovivoLogger,
+} from './logging/logger.js';
 // Authority Node runtime config. The Electron main process
 // resolves the config from env (or its own future config file) before
 // calling `createServer({ ..., runtime })`.

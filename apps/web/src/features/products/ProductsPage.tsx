@@ -1,7 +1,8 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
-import { ConfirmModal } from '@/components/form-controls/Modal';
+import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
+import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
@@ -90,6 +91,9 @@ export function ProductsPage() {
   const vatRatesQuery = trpc.vatRates.list.useQuery({ page: 1, perPage: 200 });
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProductSnapshot, setEditingProductSnapshot] = useState<Product | null>(null);
+  const [editingProductLoadError, setEditingProductLoadError] = useState<unknown>(null);
+  const [editAbortController, setEditAbortController] = useState<AbortController | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -97,10 +101,6 @@ export function ProductsPage() {
   // table (provider / location / tier-2 / tier-3 prices, SKU, min stock).
   const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
   const [matrixProduct, setMatrixProduct] = useState<Product | null>(null);
-  const editingProductDetailQuery = trpc.products.getById.useQuery(
-    { id: editingProduct?.id ?? '' },
-    { enabled: !!editingProduct?.id }
-  );
   const matrixQuery = trpc.products.getVariantMatrix.useQuery(
     { parentProductId: matrixProduct?.id ?? '' },
     { enabled: matrixProduct?.catalogType === 'variant_parent' }
@@ -118,8 +118,11 @@ export function ProductsPage() {
     onError: onErrorToast(toast, t, { titleKey: 'products:toast.createError' }),
   });
   const updateMutation = trpc.products.update.useMutation({
-    onSuccess: async () => {
-      await utils.products.list.invalidate();
+    onSuccess: async (_product, variables) => {
+      await Promise.all([
+        utils.products.list.invalidate(),
+        utils.products.getById.invalidate({ id: variables.id }),
+      ]);
       handleCloseModal();
       toast.success({ title: t('toast.updated') });
     },
@@ -193,39 +196,68 @@ export function ProductsPage() {
     name: vatRate.name,
     rate: vatRate.rate,
   }));
-  const selectedProduct: Product | null = editingProductDetailQuery.data
-    ? {
-        ...editingProductDetailQuery.data,
-        isActive: editingProductDetailQuery.data.isActive ?? false,
-        syncStatus: editingProductDetailQuery.data.syncStatus ?? undefined,
-        syncVersion: editingProductDetailQuery.data.syncVersion ?? undefined,
-        unitAssignments: (editingProductDetailQuery.data.unitAssignments ?? []).map(assignment => ({
-          ...assignment,
-          isBase: assignment.isBase ?? false,
-        })),
-        providerAssignments: editingProductDetailQuery.data.providerAssignments ?? [],
-      }
-    : editingProduct;
-
   const handleCloseModal = () => {
+    editAbortController?.abort();
+    setEditAbortController(null);
     setIsModalOpen(false);
     setEditingProduct(null);
+    setEditingProductSnapshot(null);
+    setEditingProductLoadError(null);
     createMutation.reset();
     updateMutation.reset();
   };
 
   const handleOpenCreate = () => {
+    editAbortController?.abort();
+    setEditAbortController(null);
     setEditingProduct(null);
+    setEditingProductSnapshot(null);
+    setEditingProductLoadError(null);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
+  };
+
+  const loadEditingProduct = async (product: Product, controller: AbortController) => {
+    setEditingProductLoadError(null);
+    setEditingProductSnapshot(null);
+
+    try {
+      const detail = await utils.products.getById.fetch({ id: product.id });
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      // Capture one complete immutable snapshot for the form lifetime. Cache
+      // refreshes cannot erase operator input or silently advance the version
+      // used by the optimistic update.
+      setEditingProductSnapshot({
+        ...detail,
+        isActive: detail.isActive ?? false,
+        syncStatus: detail.syncStatus ?? undefined,
+        syncVersion: detail.syncVersion ?? undefined,
+        unitAssignments: (detail.unitAssignments ?? []).map(assignment => ({
+          ...assignment,
+          isBase: assignment.isBase ?? false,
+        })),
+        providerAssignments: detail.providerAssignments ?? [],
+      });
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setEditingProductLoadError(error);
+      }
+    }
   };
 
   // shared edit entry point used by the table (Pencil button +
   // onRowActivate, ) AND the row-detail Drawer's Edit footer.
   const handleOpenEdit = (product: Product) => {
+    editAbortController?.abort();
+    const controller = new AbortController();
+    setEditAbortController(controller);
     setEditingProduct(product);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
+    void loadEditingProduct(product, controller);
   };
 
   // read-only product detail Drawer (holds the trimmed columns).
@@ -254,17 +286,27 @@ export function ProductsPage() {
     });
 
     if (editingProduct) {
-      await updateMutation.mutateAsync({
-        id: editingProduct.id,
-        // round-trip the version the form was loaded with so a
-        // concurrent edit from another tab is rejected with STALE_VERSION.
-        version: editingProductDetailQuery.data?.version ?? editingProduct.version,
-        ...payload,
-      });
+      try {
+        await updateMutation.mutateAsync({
+          id: editingProduct.id,
+          // round-trip the version the form was loaded with so a
+          // concurrent edit from another tab is rejected with STALE_VERSION.
+          version: editingProductSnapshot?.version ?? editingProduct.version,
+          ...payload,
+        });
+      } catch {
+        // The mutation owns and renders this failure through its error state
+        // and toast. Returning void is the explicit handled-error contract.
+      }
       return;
     }
 
-    await createMutation.mutateAsync(payload);
+    try {
+      await createMutation.mutateAsync(payload);
+    } catch {
+      // The mutation owns and renders this failure through its error state
+      // and toast. Returning void is the explicit handled-error contract.
+    }
   };
 
   return (
@@ -430,27 +472,75 @@ export function ProductsPage() {
         )}
       </div>
 
-      <ProductFormModal
-        key={`${editingProduct?.id ?? 'new-product'}-${editingProductDetailQuery.data?.updatedAt ?? 'pending'}-${modalInstanceKey}`}
-        mode={editingProduct ? 'edit' : 'create'}
-        isOpen={isModalOpen}
-        product={selectedProduct}
-        categories={categories}
-        locations={locations}
-        providers={providers}
-        units={units}
-        vatRates={vatRates}
-        isSaving={createMutation.isPending || updateMutation.isPending}
-        error={
-          createMutation.error
-            ? translateServerError(createMutation.error, t, t('errors:server.unknown'))
-            : updateMutation.error
-              ? translateServerError(updateMutation.error, t, t('errors:server.unknown'))
-              : null
-        }
+      <Modal
+        isOpen={isModalOpen && !!editingProduct && !editingProductSnapshot}
         onClose={handleCloseModal}
-        onSubmit={handleSubmit}
-      />
+        title={t('form.editTitle')}
+        size="xl"
+      >
+        {editingProductLoadError ? (
+          <QueryErrorState
+            title={t('form.loadErrorTitle')}
+            message={translateServerError(
+              editingProductLoadError,
+              t,
+              t('form.loadErrorDescription')
+            )}
+            onRetry={() => {
+              if (editingProduct) {
+                handleOpenEdit(editingProduct);
+              }
+            }}
+          />
+        ) : (
+          <div
+            className="space-y-6"
+            role="status"
+            aria-live="polite"
+            data-testid="product-edit-loading"
+          >
+            <div className="flex items-center gap-3 text-sm font-medium text-secondary-700">
+              <span
+                className="h-5 w-5 animate-spin rounded-full border-2 border-secondary-200 border-t-primary-600"
+                aria-hidden="true"
+              />
+              {t('form.loadingDetails')}
+            </div>
+            <div className="grid animate-pulse gap-4 md:grid-cols-2" aria-hidden="true">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} className="space-y-2">
+                  <div className="h-3 w-24 rounded-full bg-secondary-100" />
+                  <div className="h-11 rounded-xl bg-secondary-100" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {(!editingProduct || editingProductSnapshot) && (
+        <ProductFormModal
+          key={`${editingProduct?.id ?? 'new-product'}-${modalInstanceKey}`}
+          mode={editingProduct ? 'edit' : 'create'}
+          isOpen={isModalOpen}
+          product={editingProduct ? editingProductSnapshot : null}
+          categories={categories}
+          locations={locations}
+          providers={providers}
+          units={units}
+          vatRates={vatRates}
+          isSaving={createMutation.isPending || updateMutation.isPending}
+          error={
+            createMutation.error
+              ? translateServerError(createMutation.error, t, t('errors:server.unknown'))
+              : updateMutation.error
+                ? translateServerError(updateMutation.error, t, t('errors:server.unknown'))
+                : null
+          }
+          onClose={handleCloseModal}
+          onSubmit={handleSubmit}
+        />
+      )}
 
       <ConfirmModal
         isOpen={!!productToDelete}

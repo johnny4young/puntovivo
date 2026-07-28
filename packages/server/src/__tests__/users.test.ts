@@ -9,6 +9,20 @@ import { registerDevice as registerDeviceService } from '../services/devices/dev
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
+
+const INVALID_REFRESH_LOGS = [
+  {
+    level: 'error',
+    module: 'observability',
+    message: 'captured exception',
+  },
+  {
+    level: 'error',
+    module: 'trpc',
+    message: 'tRPC procedure error',
+  },
+] as const;
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -195,16 +209,18 @@ describe('Users tRPC Router', () => {
 
     expect(meResponse.statusCode).toBe(401);
 
-    const refreshResponse = await server.app.inject({
-      method: 'POST',
-      url: '/api/trpc/auth.refresh?batch=1',
-      headers: {
-        cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
-        'content-type': 'application/json',
-        'x-csrf-token': csrfCookie as string,
-      },
-      payload: '{}',
-    });
+    const refreshResponse = await __withExpectedTestLogs([...INVALID_REFRESH_LOGS], () =>
+      server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.refresh?batch=1',
+        headers: {
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
+          'content-type': 'application/json',
+          'x-csrf-token': csrfCookie as string,
+        },
+        payload: '{}',
+      })
+    );
 
     expect(refreshResponse.statusCode).toBe(401);
 
@@ -270,16 +286,18 @@ describe('Users tRPC Router', () => {
 
     expect(meResponse.statusCode).toBe(401);
 
-    const refreshResponse = await server.app.inject({
-      method: 'POST',
-      url: '/api/trpc/auth.refresh?batch=1',
-      headers: {
-        cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
-        'content-type': 'application/json',
-        'x-csrf-token': csrfCookie as string,
-      },
-      payload: '{}',
-    });
+    const refreshResponse = await __withExpectedTestLogs([...INVALID_REFRESH_LOGS], () =>
+      server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.refresh?batch=1',
+        headers: {
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
+          'content-type': 'application/json',
+          'x-csrf-token': csrfCookie as string,
+        },
+        payload: '{}',
+      })
+    );
 
     expect(refreshResponse.statusCode).toBe(401);
   });

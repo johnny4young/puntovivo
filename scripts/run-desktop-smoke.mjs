@@ -13,22 +13,20 @@
  *
  * Success = the app process starts, emits "electron runtime detected", reaches
  * the embedded-server start, and logs NO native/module load failure
- * (MODULE_NOT_FOUND / dlopen / NODE_MODULE_VERSION). On an unsigned build with
- * no OS key store the DB open is gated behind the encryption-key step, so the
- * known "OS keychain is unavailable" message is treated as a tolerated stop
- * (the bundle + natives still loaded). A signed build with a key store boots
- * fully and the smoke additionally sees the server come up.
+ * (MODULE_NOT_FOUND / dlopen / NODE_MODULE_VERSION). The smoke injects an
+ * ephemeral SQLCipher key so it never reads or writes the operator's OS
+ * keychain; safeStorage behavior is covered by dedicated hermetic tests.
  *
  * @module scripts/run-desktop-smoke
  */
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
+import { listPackage } from '@electron/asar';
 import { chromium } from '@playwright/test';
 import { resolvePackagedBinary } from './lib/packaged-binary.mjs';
 
@@ -48,9 +46,6 @@ const FATAL = [
 const LAUNCHED = /electron runtime detected/i;
 const SERVER_ATTEMPT = /embedded server/i;
 const SERVER_UP = /listening on|server (started|ready|listening)/i;
-// Tolerated on builds without a provisioned OS key store (unsigned / CI):
-const KEY_STORE_GATED = /keychain (is )?unavailable|key store|libsecret|gnome-keyring|DPAPI/i;
-
 function fail(message) {
   console.error(`[desktop-smoke] FAIL: ${message}`);
   process.exit(1);
@@ -125,19 +120,10 @@ function checkStructure(binary) {
   const unpacked = path.join(resources, 'app.asar.unpacked');
   if (!existsSync(asar)) fail(`app.asar not found at ${asar}`);
 
-  // fileURLToPath (not new URL(...).pathname) so the Windows drive letter is
-  // handled - .pathname yields /D:/... which resolves to a bogus D:\D:\... path.
-  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-  const asarCli = path.join(repoRoot, 'node_modules', '@electron', 'asar', 'bin', 'asar.js');
-  const listing = spawnSync(process.execPath, [asarCli, 'list', asar], {
-    encoding: 'utf8',
-    maxBuffer: 256 * 1024 * 1024, // the asar listing easily exceeds the 1 MB default
-  });
-  if (listing.status !== 0) fail(`could not list ${asar}: ${listing.stderr}`);
-  // asar list prints OS-native separators, so normalize backslashes before the
-  // check - on Windows it emits node_modules\better-sqlite3\... which a
-  // forward-slash substring test would miss (false "native not bundled").
-  const entries = listing.stdout.replace(/\\/g, '/');
+  // Use @electron/asar's public API rather than its CLI file layout. The v4
+  // package renamed bin/asar.js to bin/asar.mjs; importing listPackage keeps
+  // this smoke stable across that packaging-only change.
+  const entries = listPackage(asar, { isPack: false }).join('\n').replace(/\\/g, '/');
   for (const mod of ['better-sqlite3', 'argon2', 'bindings']) {
     if (!entries.includes(`node_modules/${mod}/`)) {
       fail(`app.asar is missing node_modules/${mod} (vite-externalized native not bundled)`);
@@ -170,26 +156,27 @@ console.log(`[desktop-smoke] launching ${binary}`);
 const userDataDir = mkdtempSync(path.join(os.tmpdir(), 'puntovivo-smoke-'));
 const rendererPort = VERIFY_RENDERER ? await reserveLoopbackPort() : null;
 const childArgs = [`--user-data-dir=${userDataDir}`];
+// Chromium can initialize password storage even when the application injects
+// its own temporary DB key. Keep the smoke isolated from host keychain prompts.
+if (process.platform === 'darwin') childArgs.push('--use-mock-keychain');
+if (process.platform === 'linux') childArgs.push('--password-store=basic');
 if (rendererPort !== null) {
   childArgs.push(`--remote-debugging-port=${rendererPort}`, '--remote-debugging-address=127.0.0.1');
-  // Chromium initializes its own cookie/password crypto before app.whenReady.
-  // Ad-hoc macOS signatures can block on the global Chrome Safe Storage item,
-  // and headless Linux runners may not have libsecret. These switches isolate
-  // only the temporary renderer profile; the runtime-only smoke uses defaults.
-  if (process.platform === 'darwin') childArgs.push('--use-mock-keychain');
-  if (process.platform === 'linux') childArgs.push('--password-store=basic');
 }
 const child = spawn(binary, childArgs, {
   env: {
     ...process.env,
     ELECTRON_ENABLE_LOGGING: '1',
     ELECTRON_DISABLE_GPU: '1',
+    // Never let a validation build access the operator's real safeStorage
+    // envelope. A fresh random key still proves SQLCipher + native startup.
+    PUNTOVIVO_DB_KEY: randomBytes(32).toString('hex'),
+    // Update transport has separate contract tests. A --dir validation bundle
+    // intentionally has no app-update.yml and must not perform network I/O.
+    AUTO_UPDATE: 'false',
     ...(VERIFY_RENDERER
       ? {
           PUNTOVIVO_E2E: '1',
-          // Isolate UI verification from OS key-store prompts. A separate
-          // runtime-only smoke keeps exercising normal safeStorage startup.
-          PUNTOVIVO_DB_KEY: randomBytes(32).toString('hex'),
         }
       : {}),
   },
@@ -198,7 +185,7 @@ const child = spawn(binary, childArgs, {
 
 let output = '';
 let firstRunAdminPassword = null;
-const seen = { launched: false, serverAttempt: false, serverUp: false, keyGated: false };
+const seen = { launched: false, serverAttempt: false, serverUp: false };
 let done = false;
 let completed = false;
 
@@ -209,7 +196,6 @@ function scan(chunk) {
   if (LAUNCHED.test(chunk)) seen.launched = true;
   if (SERVER_ATTEMPT.test(chunk)) seen.serverAttempt = true;
   if (SERVER_UP.test(chunk)) seen.serverUp = true;
-  if (KEY_STORE_GATED.test(chunk)) seen.keyGated = true;
   for (const re of FATAL) {
     if (re.test(chunk)) {
       finish(`native/module load failure: ${re}`);
@@ -219,11 +205,9 @@ function scan(chunk) {
   // Enough signal to call the runtime-only smoke. Renderer mode additionally
   // proves that the packaged web assets + preload bridge load and a first-run
   // admin session reaches a data-backed route.
-  if (seen.launched && (seen.serverUp || (seen.serverAttempt && seen.keyGated))) {
+  if (seen.launched && seen.serverUp) {
     if (!VERIFY_RENDERER) {
       finish(null);
-    } else if (seen.keyGated) {
-      finish('renderer smoke requires an available OS key store');
     }
   }
 }
@@ -376,11 +360,7 @@ function complete(error) {
     console.error(`[desktop-smoke] FAIL: ${error}`);
     process.exit(1);
   }
-  const mode = VERIFY_RENDERER
-    ? 'renderer journey completed'
-    : seen.serverUp
-      ? 'server up'
-      : 'boot reached key step (no OS key store — unsigned build)';
+  const mode = VERIFY_RENDERER ? 'renderer journey completed' : 'server up';
   console.log(`[desktop-smoke] PASS: app launched, natives loaded, ${mode}`);
   process.exit(0);
 }
@@ -419,11 +399,5 @@ function finish(error) {
 child.on('error', err => finish(`failed to spawn: ${err.message}`));
 child.on('exit', (code, signal) => {
   if (done) return;
-  // Process exited before a milestone — only OK if it never errored AND we at
-  // least launched + reached the key step.
-  if (seen.launched && seen.serverAttempt && seen.keyGated) {
-    finish(null);
-  } else {
-    finish(`app exited early (code=${code} signal=${signal}) before a boot milestone`);
-  }
+  finish(`app exited early (code=${code} signal=${signal}) before a boot milestone`);
 });

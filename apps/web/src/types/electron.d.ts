@@ -4,6 +4,8 @@
  */
 
 export interface ElectronAPI {
+  /** Production main never registers this test-only IPC handler. */
+  requestE2eAppQuit?: () => Promise<{ ok: true }>;
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;

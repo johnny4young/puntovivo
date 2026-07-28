@@ -1,6 +1,6 @@
 import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import type { AuthTokenPayload } from '@puntovivo/server';
+import { __withExpectedTestLogs, type AuthTokenPayload } from '@puntovivo/server';
 import type { BackupRestoreDrillReport } from '../backup/restore-drill.ts';
 import { BackupRestoreDrillError } from '../backup/restore-drill.ts';
 import type { BackupIpcDeps, BackupRestoreDrillAuditInput } from '../ipc/backup/contracts.ts';
@@ -138,15 +138,25 @@ describe('backup restore drill IPC', () => {
     await registerRole('admin');
     const audit: BackupRestoreDrillAuditInput[] = [];
 
-    const result = await handleRunBackupRestoreDrill(
-      makeDeps({
-        runBackupRestoreDrill: async () => {
-          throw new BackupRestoreDrillError('snapshot_unavailable', {
-            cause: new Error('/secret/path with key abc123'),
-          });
+    const result = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'backup',
+          message: 'backup restore drill failed',
         },
-        recordBackupRestoreDrillAudit: input => audit.push(input),
-      })
+      ],
+      () =>
+        handleRunBackupRestoreDrill(
+          makeDeps({
+            runBackupRestoreDrill: async () => {
+              throw new BackupRestoreDrillError('snapshot_unavailable', {
+                cause: new Error('/secret/path with key abc123'),
+              });
+            },
+            recordBackupRestoreDrillAudit: input => audit.push(input),
+          })
+        )
     );
 
     assert.deepEqual(result, { success: false, error: 'snapshot_unavailable' });
@@ -165,12 +175,22 @@ describe('backup restore drill IPC', () => {
   it('does not report success when immutable audit evidence cannot be written', async () => {
     await registerRole('admin');
 
-    const result = await handleRunBackupRestoreDrill(
-      makeDeps({
-        recordBackupRestoreDrillAudit: () => {
-          throw new Error('database read-only');
+    const result = await __withExpectedTestLogs(
+      [
+        {
+          level: 'error',
+          module: 'backup',
+          message: 'restore drill passed but audit evidence could not be recorded',
         },
-      })
+      ],
+      () =>
+        handleRunBackupRestoreDrill(
+          makeDeps({
+            recordBackupRestoreDrillAudit: () => {
+              throw new Error('database read-only');
+            },
+          })
+        )
     );
 
     assert.deepEqual(result, { success: false, error: 'drill_failed' });

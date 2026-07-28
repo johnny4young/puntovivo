@@ -14,6 +14,7 @@ import {
 } from '../db/seed.js';
 import { RING1_RETAIL_PROFILE } from '../services/modules/manifest.js';
 import { resolveCachedNodeBinding } from '../db/native-binding.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 // Raw probe connections must load the same Node-ABI addon initDatabase
 // selects, or they die on dlopen whenever the on-disk default carries the
@@ -159,11 +160,28 @@ describe('database foundation seed', () => {
     legacyDb.close();
 
     try {
-      await initDatabase({
-        dbPath,
-        runMigrations: true,
-        seedData: false,
-      });
+      await __withExpectedTestLogs(
+        [
+          {
+            level: 'warn',
+            module: 'db',
+            message:
+              'skipping locale-catalog seed because currency_catalog or country_catalog is absent; adopt a transitional version that runs drizzleMigrate against a fresh DB or verify ensureMigrationBaseline did not pin unexecuted migrations',
+          },
+          {
+            level: 'warn',
+            module: 'db',
+            message:
+              'skipping fiscal identification types seed because fiscal_identification_types is absent; adopt a transitional version that runs migration 0038 against this DB',
+          },
+        ],
+        () =>
+          initDatabase({
+            dbPath,
+            runMigrations: true,
+            seedData: false,
+          })
+      );
 
       const inspectionDb = new Database(dbPath, { readonly: true, nativeBinding });
       const columns = inspectionDb.prepare('PRAGMA table_info(purchase_items)').all() as Array<{

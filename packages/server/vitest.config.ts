@@ -1,10 +1,22 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
+
+const TRPC_PROFILE_TEST = 'src/__tests__/perf-trpc-latency.test.ts';
+const STORE_PROFILE_TEST = 'src/__tests__/perf-store-profile.test.ts';
+const enabledProfileTest =
+  process.env.PUNTOVIVO_TRPC_LATENCY_PROFILE === '1'
+    ? TRPC_PROFILE_TEST
+    : process.env.PUNTOVIVO_STORE_PROFILE === '1'
+      ? STORE_PROFILE_TEST
+      : null;
 
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: enabledProfileTest ? [enabledProfileTest] : ['src/**/*.test.ts'],
+    exclude: enabledProfileTest
+      ? configDefaults.exclude
+      : [...configDefaults.exclude, TRPC_PROFILE_TEST, STORE_PROFILE_TEST],
     // strip ambient telemetry env vars before any test
     // boots a server, so a dev shell with PUNTOVIVO_SENTRY_DSN
     // exported can never activate the real SDK across the suite.

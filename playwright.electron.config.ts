@@ -20,6 +20,8 @@
 
 import path from 'node:path';
 import { defineConfig } from '@playwright/test';
+// @ts-expect-error -- pure .mjs constants shared with the Electron fixture.
+import { ELECTRON_E2E_API_URL } from './scripts/electron-e2e-runtime.mjs';
 
 // See playwright.web.config.ts: do not pass conflicting colour contracts to
 // Node worker processes.
@@ -45,10 +47,10 @@ export default defineConfig({
   // Electron launch + embedded server boot is heavier than the web
   // suite's chromium attach. Give the smoke longer.
   timeout: 120_000,
-  // Retries are less useful here — if Electron fails to launch the
-  // retry hits the same main-process problem. Keep 1 retry on CI to
-  // absorb truly transient timing issues, 0 locally.
-  retries: process.env.CI ? 1 : 0,
+  // A retry can hide lifecycle, native ABI, or renderer diagnostics as a
+  // green matrix result. Each packaged or development launch must pass on
+  // its first attempt.
+  retries: 0,
   expect: {
     timeout: 15_000,
   },
@@ -66,7 +68,13 @@ export default defineConfig({
         // tree so the Electron smoke can exit cleanly after the test.
         command: 'pnpm --filter @puntovivo/web run dev',
         url: 'http://localhost:3000/login',
-        reuseExistingServer: !process.env.CI,
+        env: {
+          ...process.env,
+          VITE_API_URL: ELECTRON_E2E_API_URL,
+        },
+        // Reusing an operator's ordinary Vite server would retain its 8090 API
+        // target and defeat the isolated Electron E2E authority boundary.
+        reuseExistingServer: false,
         timeout: 120_000,
       },
 });

@@ -54,6 +54,7 @@ import type {
   FiscalAdapterValidationResult,
   FiscalAdapterVoidInput,
 } from '../services/fiscal/adapter.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -286,12 +287,27 @@ describe('chaos: provider outage recovery', () => {
     // Tick four times. Between each tick we manually clear nextRetryAt
     // so the kernel's next claim picks the row up without waiting on
     // the bounded exponential backoff.
-    for (let i = 0; i < 4; i++) {
-      const result = await server.fiscalWorker.tickOnce(tenantId);
-      expect(result.processed).toBe(true);
-      // Clear backoff between attempts.
-      await db.update(fiscalOutbox).set({ nextRetryAt: null }).where(eq(fiscalOutbox.id, outboxId));
-    }
+    await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'fiscal-outbox-worker',
+          message: 'outbox row failed',
+          count: 3,
+        },
+      ],
+      async () => {
+        for (let i = 0; i < 4; i++) {
+          const result = await server.fiscalWorker.tickOnce(tenantId);
+          expect(result.processed).toBe(true);
+          // Clear backoff between attempts.
+          await db
+            .update(fiscalOutbox)
+            .set({ nextRetryAt: null })
+            .where(eq(fiscalOutbox.id, outboxId));
+        }
+      }
+    );
 
     // Adapter saw 4 attempts (3 failures + 1 success).
     expect(stub.callCount).toBe(4);
@@ -330,7 +346,16 @@ describe('chaos: provider outage recovery', () => {
     const { docId, outboxId } = await seedFiscalRow({ tenantId });
 
     const db = getDatabase();
-    const first = await server.fiscalWorker.tickOnce(tenantId);
+    const first = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'fiscal-outbox-worker',
+          message: 'outbox row failed',
+        },
+      ],
+      () => server.fiscalWorker.tickOnce(tenantId)
+    );
     expect(first.processed).toBe(true);
     expect(first.outcome).toBe('dead_letter');
 

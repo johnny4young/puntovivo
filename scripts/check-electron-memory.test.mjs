@@ -20,6 +20,18 @@ import {
   runCli,
 } from './check-electron-memory.mjs';
 
+function createOutputCapture() {
+  const records = { log: [], warn: [], error: [] };
+  return {
+    records,
+    output: {
+      log: value => records.log.push(String(value)),
+      warn: value => records.warn.push(String(value)),
+      error: value => records.error.push(String(value)),
+    },
+  };
+}
+
 test('summarizeProcesses maps Browser -> main, Tab -> renderer, ignores the rest', () => {
   const metrics = [
     { type: 'Browser', workingSetKb: 102400 }, // 100 MB main
@@ -118,62 +130,86 @@ test('resolveMemoryGateMode reads strict and require-measurement flags from argv
 });
 
 test('runCli self-skips (exit 0) when Electron cannot be measured', () => {
-  const code = runCli({ measure: () => null });
+  const { output, records } = createOutputCapture();
+  const code = runCli({ measure: () => null, output });
   assert.equal(code, 0);
+  assert.deepEqual(records, { log: [], warn: [], error: [] });
 });
 
 test('runCli --require-measurement fails (exit 1) when Electron cannot be measured', () => {
-  const code = runCli({ measure: () => null, requireMeasurement: true });
+  const { output, records } = createOutputCapture();
+  const code = runCli({ measure: () => null, requireMeasurement: true, output });
   assert.equal(code, 1);
+  assert.match(records.error[0], /did not produce memory metrics/);
 });
 
 test('runCli is warn-first by default: over-ceiling still exits 0', () => {
+  const { output, records } = createOutputCapture();
   const code = runCli({
     measure: () => ({ main: 9999, renderer: 9999, launchElapsedMs: 999999 }),
     strict: false,
+    output,
   });
   assert.equal(code, 0);
+  assert.match(records.warn[0], /over the memory ceiling/);
 });
 
 test('runCli --strict fails (exit 1) when a process overshoots', () => {
+  const { output, records } = createOutputCapture();
   const code = runCli({
     measure: () => ({ main: 9999, renderer: 9999, launchElapsedMs: 1 }),
     strict: true,
+    output,
   });
   assert.equal(code, 1);
+  assert.match(records.error[0], /process overshot its memory budget/);
 });
 
 test('runCli --require-measurement fails (exit 1) when a budgeted process is missing', () => {
+  const { output, records } = createOutputCapture();
   const code = runCli({
     measure: () => ({ main: 10, launchElapsedMs: 1 }),
     requireMeasurement: true,
+    output,
   });
   assert.equal(code, 1);
+  assert.match(records.error[0], /budgeted process was not measured/);
 });
 
 test('runCli passes (exit 0) when the measurement is within budget', () => {
+  const { output, records } = createOutputCapture();
   const code = runCli({
     measure: () => ({ main: 10, renderer: 10, launchElapsedMs: 1 }),
     strict: true,
     requireMeasurement: true,
+    output,
   });
   assert.equal(code, 0);
+  assert.equal(records.error.length, 0);
+  assert.equal(records.warn.length, 0);
+  assert.match(records.log.join('\n'), /Electron memory PASS/);
 });
 
 test('runCli --require-measurement fails when launch elapsed time is missing', () => {
+  const { output, records } = createOutputCapture();
   const code = runCli({
     measure: () => ({ main: 10, renderer: 10 }),
     strict: true,
     requireMeasurement: true,
+    output,
   });
   assert.equal(code, 1);
+  assert.match(records.error[0], /did not produce launch elapsed time/);
 });
 
 test('runCli --strict fails when built-runtime launch exceeds its budget', () => {
+  const { output, records } = createOutputCapture();
   const code = runCli({
     measure: () => ({ main: 10, renderer: 10, launchElapsedMs: 999999 }),
     strict: true,
     requireMeasurement: true,
+    output,
   });
   assert.equal(code, 1);
+  assert.match(records.error[0], /launch overshot its elapsed-time budget/);
 });

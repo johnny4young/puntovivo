@@ -16,6 +16,7 @@ import {
 } from '../services/payments/payment-worker.js';
 import type { FetchStatementFn } from '../services/payments/payment-worker.js';
 import type { StatementRow } from '../services/payments/reconciliation.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 const TENANT_ID = 'eng038c-worker-tenant';
 const ADMIN_ID = 'eng038c-worker-admin';
@@ -187,12 +188,22 @@ describe('payment-worker statement import', () => {
       throw new Error('network down');
     };
     const worker = createPaymentWorker({ db, fetchStatement: fetcher });
-    const outcome = await worker.runStatementImport({
-      tenantId: TENANT_ID,
-      railId: 'wompi',
-      fromIso: '2026-04-01T00:00:00.000Z',
-      toIso: '2026-05-01T00:00:00.000Z',
-    });
+    const outcome = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'services/payments/payment-worker',
+          message: 'payment statement fetch failed',
+        },
+      ],
+      () =>
+        worker.runStatementImport({
+          tenantId: TENANT_ID,
+          railId: 'wompi',
+          fromIso: '2026-04-01T00:00:00.000Z',
+          toIso: '2026-05-01T00:00:00.000Z',
+        })
+    );
     expect(outcome.skippedReason).toBe('fetch-failed');
     const markers = await readLastImportedAtMap(db, TENANT_ID);
     expect(markers.wompi).toBeUndefined();
@@ -269,12 +280,22 @@ describe('payment-worker statement import', () => {
       },
     });
 
-    const outcome = await worker.runStatementImport({
-      tenantId: TENANT_ID,
-      railId: 'wompi',
-      fromIso: '2026-04-01T00:00:00.000Z',
-      toIso: '2026-05-01T00:00:00.000Z',
-    });
+    const outcome = await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'services/payments/payment-worker',
+          message: 'payment reconciliation pass failed',
+        },
+      ],
+      () =>
+        worker.runStatementImport({
+          tenantId: TENANT_ID,
+          railId: 'wompi',
+          fromIso: '2026-04-01T00:00:00.000Z',
+          toIso: '2026-05-01T00:00:00.000Z',
+        })
+    );
 
     expect(outcome.skippedReason).toBe('reconciliation-failed');
     expect(outcome.rowsImported).toBe(1);

@@ -33,7 +33,7 @@ export function createDefaultValues(): ProductFormValues {
     tracksLots: false,
     tracksSerials: false,
     isActive: true,
-    unitAssignments: [{ unitId: '', equivalence: 1, price: 0, isBase: true }],
+    unitAssignments: [],
     providerAssignments: [],
   };
 }
@@ -75,14 +75,13 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
     tracksLots: product.tracksLots,
     tracksSerials: product.tracksSerials ?? false,
     isActive: product.isActive,
-    unitAssignments: product.unitAssignments?.length
-      ? product.unitAssignments.map(assignment => ({
-          unitId: assignment.unitId,
-          equivalence: assignment.equivalence,
-          price: assignment.price,
-          isBase: assignment.isBase,
-        }))
-      : [{ unitId: '', equivalence: 1, price: product.price, isBase: true }],
+    unitAssignments:
+      product.unitAssignments?.map(assignment => ({
+        unitId: assignment.unitId,
+        equivalence: assignment.equivalence,
+        price: assignment.price,
+        isBase: assignment.isBase,
+      })) ?? [],
     providerAssignments: normalizedProviders.providerAssignments,
   };
 }

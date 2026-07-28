@@ -287,7 +287,12 @@ export function launchAndMeasure() {
  * `--require-measurement` / `PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT=1` makes a
  * missing measurement or missing budgeted process exit 1.
  */
-export function runCli({ measure = launchAndMeasure, strict, requireMeasurement } = {}) {
+export function runCli({
+  measure = launchAndMeasure,
+  strict,
+  requireMeasurement,
+  output = console,
+} = {}) {
   const mode = resolveMemoryGateMode();
   const enforce = strict ?? mode.enforce;
   const requireMeasured = requireMeasurement ?? mode.requireMeasurement;
@@ -295,7 +300,7 @@ export function runCli({ measure = launchAndMeasure, strict, requireMeasurement 
   try {
     budgetFile = JSON.parse(readFileSync(BUDGET_PATH, 'utf8'));
   } catch (err) {
-    console.error(
+    output.error(
       `check-electron-memory: cannot read budget file at ${BUDGET_PATH}: ${err.message}`
     );
     return 1;
@@ -305,13 +310,13 @@ export function runCli({ measure = launchAndMeasure, strict, requireMeasurement 
   const launchBudget = budgetFile?.operationalProfile?.desktopLaunchElapsedMs;
   const operationalThreshold = budgetFile?.operationalProfile?.thresholdPercent;
   if (!budget || typeof thresholdPercent !== 'number') {
-    console.error(
+    output.error(
       'check-electron-memory: perf-budget.json is missing electronMemoryMb.perProcessMb or electronMemoryMb.thresholdPercent'
     );
     return 1;
   }
   if (typeof launchBudget !== 'number' || typeof operationalThreshold !== 'number') {
-    console.error(
+    output.error(
       'check-electron-memory: perf-budget.json is missing operationalProfile.desktopLaunchElapsedMs or operationalProfile.thresholdPercent'
     );
     return 1;
@@ -320,7 +325,7 @@ export function runCli({ measure = launchAndMeasure, strict, requireMeasurement 
   const measured = measure();
   if (!measured) {
     if (requireMeasured) {
-      console.error(
+      output.error(
         'check-electron-memory: FAIL (--require-measurement) — Electron did not produce memory metrics.'
       );
       return 1;
@@ -331,23 +336,23 @@ export function runCli({ measure = launchAndMeasure, strict, requireMeasurement 
 
   const result = compareToMemoryBudget({ measured, budget, thresholdPercent });
   const report = renderReport(result, thresholdPercent);
-  console.log(report);
+  output.log(report);
 
   const launchElapsedMs = measured.launchElapsedMs;
   if (typeof launchElapsedMs !== 'number') {
     if (requireMeasured) {
-      console.error(
+      output.error(
         'check-electron-memory: FAIL (--require-measurement) — Electron did not produce launch elapsed time.'
       );
       return 1;
     }
   } else {
     const launchCeiling = launchBudget * (1 + operationalThreshold / 100);
-    console.log(
+    output.log(
       `Electron built-runtime launch ${launchElapsedMs <= launchCeiling ? 'PASS' : 'OVER BUDGET'} — ${launchElapsedMs.toFixed(2)} ms measured; ${launchBudget} ms baseline + ${operationalThreshold}% threshold.`
     );
     if (launchElapsedMs > launchCeiling && enforce) {
-      console.error(
+      output.error(
         'check-electron-memory: FAIL (--strict) — built-runtime launch overshot its elapsed-time budget.'
       );
       return 1;
@@ -355,17 +360,17 @@ export function runCli({ measure = launchAndMeasure, strict, requireMeasurement 
   }
 
   if (result.missing.length > 0 && requireMeasured) {
-    console.error(
+    output.error(
       'check-electron-memory: FAIL (--require-measurement) — a budgeted process was not measured.'
     );
     return 1;
   }
   if (result.regressions.length > 0 && enforce) {
-    console.error('check-electron-memory: FAIL (--strict) — a process overshot its memory budget.');
+    output.error('check-electron-memory: FAIL (--strict) — a process overshot its memory budget.');
     return 1;
   }
   if (result.regressions.length > 0) {
-    console.warn(
+    output.warn(
       'check-electron-memory: WARN — over the memory ceiling (warn-first; pass --strict to enforce).'
     );
   }
