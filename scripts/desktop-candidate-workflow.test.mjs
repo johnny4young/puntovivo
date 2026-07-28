@@ -32,8 +32,8 @@ test('every full platform build starts clean, smokes the package, and uploads ev
         /run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder --renderer/g
       ) ?? []
     ).length,
-    3,
-    'every platform must prove the packaged renderer journey'
+    2,
+    'macOS and Windows must prove the packaged renderer journey directly'
   );
   assert.equal(
     (
@@ -41,19 +41,15 @@ test('every full platform build starts clean, smokes the package, and uploads ev
         /node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/g
       ) ?? []
     ).length,
-    6
+    4
   );
   assert.doesNotMatch(workflow, /run-desktop-smoke\.mjs[^\n]*--structure-only/);
-  assert.equal(
-    (
-      workflow.match(
-        /xvfb-run -a dbus-run-session -- node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/g
-      ) ?? []
-    ).length,
-    2,
-    'Linux portal activation must inherit the Xvfb display for both smoke journeys'
+  assert.match(
+    workflow,
+    /xvfb-run -a dbus-run-session -- node scripts\/run-linux-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
   );
   assert.doesNotMatch(workflow, /dbus-run-session -- xvfb-run/);
+  assert.match(workflow, /python3-dbus python3-gi/);
   assert.match(
     workflow,
     /sudo chown root:root apps\/desktop\/out-builder\/linux-unpacked\/chrome-sandbox/

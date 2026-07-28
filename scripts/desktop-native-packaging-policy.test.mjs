@@ -49,16 +49,14 @@ test('release packaging runs the full target-runtime smoke', () => {
   assert.doesNotMatch(releaseWorkflow, /run-desktop-smoke\.mjs[^\n]*--structure-only/);
   assert.match(
     releaseWorkflow,
-    /dbus-run-session -- xvfb-run -a node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
+    /xvfb-run -a dbus-run-session -- node scripts\/run-linux-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
   );
   assert.match(
     releaseWorkflow,
     /if: matrix\.platform != 'linux'\s+run: \|\s+node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder\s+node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder --renderer/
   );
-  assert.match(
-    releaseWorkflow,
-    /dbus-run-session -- xvfb-run -a node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder --renderer/
-  );
+  assert.doesNotMatch(releaseWorkflow, /dbus-run-session -- xvfb-run/);
+  assert.match(releaseWorkflow, /python3-dbus python3-gi/);
   assert.doesNotMatch(releaseWorkflow, /uses:\s+pnpm\/action-setup/);
   assert.equal(
     (

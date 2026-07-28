@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const smoke = readFileSync(new URL('./run-desktop-smoke.mjs', import.meta.url), 'utf8');
+const linuxSmoke = readFileSync(new URL('./run-linux-desktop-smoke.mjs', import.meta.url), 'utf8');
+const linuxPortal = readFileSync(new URL('./linux-smoke-portal.py', import.meta.url), 'utf8');
 
 test('packaged runtime smoke waits for Electron before cleaning its profile', () => {
   assert.match(smoke, /import \{ listPackage \} from '@electron\/asar'/);
@@ -44,4 +46,19 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
   assert.match(smoke, /aria-current/);
   assert.match(smoke, /\\\[Database\\\] Password:/);
   assert.match(smoke, /\[Redacted\]/);
+});
+
+test('Linux smoke supplies a deterministic portal instead of filtering its diagnostics', () => {
+  assert.match(linuxSmoke, /spawn\('python3', \[portalScript\]/);
+  assert.match(linuxSmoke, /await runSmoke\(packagedPath, false\)/);
+  assert.match(linuxSmoke, /await runSmoke\(packagedPath, true\)/);
+  assert.match(linuxSmoke, /Linux smoke portal emitted unexpected stderr output/);
+  assert.doesNotMatch(linuxSmoke, /warning.*allow|ignore.*warning|suppress/i);
+
+  assert.match(linuxPortal, /org\.freedesktop\.host\.portal\.Registry/);
+  assert.match(linuxPortal, /org\.freedesktop\.portal\.Settings/);
+  assert.match(linuxPortal, /org\.freedesktop\.portal\.FileChooser/);
+  assert.match(linuxPortal, /@dbus\.service\.method/);
+  assert.match(linuxPortal, /sender_keyword="sender"/);
+  assert.doesNotMatch(linuxPortal, /FLATPAK_SANDBOX_DIR|SNAP/);
 });
