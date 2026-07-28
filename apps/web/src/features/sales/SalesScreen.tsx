@@ -1,18 +1,12 @@
-import {
-  lazy,
-  Suspense,
-  type ComponentProps,
-  type Dispatch,
-  type SetStateAction,
-} from 'react';
+import { lazy, Suspense, type ComponentProps, type Dispatch, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Drawer } from '@/components/feedback/Drawer';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
-import { CashSessionModals } from '@/features/sales/CashSessionModals';
+import type { CashSessionModals } from '@/features/sales/CashSessionModals';
 import { SalesHeaderSection } from '@/features/sales/SalesHeaderSection';
 import { SalesFlowRail } from '@/features/sales/SalesFlowRail';
-import { SalesModals } from '@/features/sales/SalesModals';
+import type { SalesModals } from '@/features/sales/SalesModals';
 import { WorkspaceTabsSection } from '@/features/sales/WorkspaceTabsSection';
 import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
 import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
@@ -20,6 +14,18 @@ import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
 const LazySalesHistoryDrawerContent = lazy(() =>
   import('@/features/sales/SalesHistoryDrawerContent').then(module => ({
     default: module.SalesHistoryDrawerContent,
+  }))
+);
+
+const LazySalesModals = lazy(() =>
+  import('@/features/sales/SalesModals').then(module => ({
+    default: module.SalesModals,
+  }))
+);
+
+const LazyCashSessionModals = lazy(() =>
+  import('@/features/sales/CashSessionModals').then(module => ({
+    default: module.CashSessionModals,
   }))
 );
 
@@ -430,77 +436,81 @@ export function SalesScreen({
         isSuspendLabelPromptOpen ||
         shouldRenderQuickCreateProductGate ||
         shouldRenderQuickCreateCustomerGate) && (
-        <SalesModals
-          isProductSearchOpen={isProductSearchOpen}
-          discountSuggestionSiteId={currentSite?.id ?? null}
-          productSearchDialogKey={productSearchDialogKey}
-          onCloseProductSearch={() => setIsProductSearchOpen(false)}
-          onSelectProduct={handleProductSelect}
-          productSearchInitialQuery={productSearchInitialQuery}
-          setCartItems={setCartItems}
-          isPaymentModalOpen={isPaymentModalOpen}
-          paymentModalKey={paymentModalKey}
-          paymentTotal={draftSummary.total}
-          paymentApprovalSaleId={activeWorkspace?.serverSaleId ?? null}
-          paymentApprovalCustomerId={activeWorkspace?.serverCustomerId ?? null}
-          paymentApprovalItems={cartItems}
-          paymentApprovalDiscountAmount={approvalDiscountAmount}
-          currencyCode={currencyCode}
-          isPaymentSaving={isPaymentSaving}
-          saleError={saleError}
-          serviceChargeRate={serviceChargeRate}
-          fastCashTrigger={fastCashTrigger}
-          paymentRestoreFocusTo={() => productInputRef.current}
-          onClosePayment={() => {
-            setIsPaymentModalOpen(false);
-            setFastCashTrigger(0);
-          }}
-          onSubmitPayment={handleCheckout}
-          selectedSaleId={selectedSaleId}
-          onCloseSaleDetails={() => setSelectedSaleId(null)}
-          isSuspendLabelPromptOpen={isSuspendLabelPromptOpen}
-          isSuspending={isSuspending}
-          suspendLabelDraft={suspendLabelDraft}
-          onChangeSuspendLabel={setSuspendLabelDraft}
-          onCloseSuspendPrompt={() => {
-            if (isSuspending) return;
-            setIsSuspendLabelPromptOpen(false);
-          }}
-          onConfirmSuspend={() => {
-            void handleSuspendConfirm();
-          }}
-        />
+        <Suspense fallback={null}>
+          <LazySalesModals
+            isProductSearchOpen={isProductSearchOpen}
+            discountSuggestionSiteId={currentSite?.id ?? null}
+            productSearchDialogKey={productSearchDialogKey}
+            onCloseProductSearch={() => setIsProductSearchOpen(false)}
+            onSelectProduct={handleProductSelect}
+            productSearchInitialQuery={productSearchInitialQuery}
+            setCartItems={setCartItems}
+            isPaymentModalOpen={isPaymentModalOpen}
+            paymentModalKey={paymentModalKey}
+            paymentTotal={draftSummary.total}
+            paymentApprovalSaleId={activeWorkspace?.serverSaleId ?? null}
+            paymentApprovalCustomerId={activeWorkspace?.serverCustomerId ?? null}
+            paymentApprovalItems={cartItems}
+            paymentApprovalDiscountAmount={approvalDiscountAmount}
+            currencyCode={currencyCode}
+            isPaymentSaving={isPaymentSaving}
+            saleError={saleError}
+            serviceChargeRate={serviceChargeRate}
+            fastCashTrigger={fastCashTrigger}
+            paymentRestoreFocusTo={() => productInputRef.current}
+            onClosePayment={() => {
+              setIsPaymentModalOpen(false);
+              setFastCashTrigger(0);
+            }}
+            onSubmitPayment={handleCheckout}
+            selectedSaleId={selectedSaleId}
+            onCloseSaleDetails={() => setSelectedSaleId(null)}
+            isSuspendLabelPromptOpen={isSuspendLabelPromptOpen}
+            isSuspending={isSuspending}
+            suspendLabelDraft={suspendLabelDraft}
+            onChangeSuspendLabel={setSuspendLabelDraft}
+            onCloseSuspendPrompt={() => {
+              if (isSuspending) return;
+              setIsSuspendLabelPromptOpen(false);
+            }}
+            onConfirmSuspend={() => {
+              void handleSuspendConfirm();
+            }}
+          />
+        </Suspense>
       )}
 
       {(isCashSessionModalOpen ||
         isCashSessionCloseModalOpen ||
         isCashSessionMovementModalOpen ||
         dayCloseSessionId !== null) && (
-        <CashSessionModals
-          isCashSessionModalOpen={isCashSessionModalOpen}
-          cashSessionModalKey={cashSessionModalKey}
-          isOpeningCashSession={isOpeningCashSession}
-          cashSessionError={cashSessionError}
-          selectedRegisterAssignment={selectedRegisterAssignment}
-          onCloseOpenModal={() => setIsCashSessionModalOpen(false)}
-          onSubmitOpen={handleCreateCashSession}
-          isCashSessionCloseModalOpen={isCashSessionCloseModalOpen}
-          cashSessionCloseModalKey={cashSessionCloseModalKey}
-          activeCashSession={activeCashSession}
-          isClosingCashSession={isClosingCashSession}
-          cashSessionCloseError={cashSessionCloseError}
-          onCloseCloseModal={() => setIsCashSessionCloseModalOpen(false)}
-          onSubmitClose={handleCloseCashSession}
-          suspendedDraftsCount={suspendedDraftsCount}
-          isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
-          cashSessionMovementModalKey={cashSessionMovementModalKey}
-          isRecordingMovement={isRecordingMovement}
-          cashSessionMovementError={cashSessionMovementError}
-          onCloseMovementModal={() => setIsCashSessionMovementModalOpen(false)}
-          onSubmitMovement={handleRecordCashMovement}
-          dayCloseSessionId={dayCloseSessionId}
-          onCloseDayClose={() => setDayCloseSessionId(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyCashSessionModals
+            isCashSessionModalOpen={isCashSessionModalOpen}
+            cashSessionModalKey={cashSessionModalKey}
+            isOpeningCashSession={isOpeningCashSession}
+            cashSessionError={cashSessionError}
+            selectedRegisterAssignment={selectedRegisterAssignment}
+            onCloseOpenModal={() => setIsCashSessionModalOpen(false)}
+            onSubmitOpen={handleCreateCashSession}
+            isCashSessionCloseModalOpen={isCashSessionCloseModalOpen}
+            cashSessionCloseModalKey={cashSessionCloseModalKey}
+            activeCashSession={activeCashSession}
+            isClosingCashSession={isClosingCashSession}
+            cashSessionCloseError={cashSessionCloseError}
+            onCloseCloseModal={() => setIsCashSessionCloseModalOpen(false)}
+            onSubmitClose={handleCloseCashSession}
+            suspendedDraftsCount={suspendedDraftsCount}
+            isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
+            cashSessionMovementModalKey={cashSessionMovementModalKey}
+            isRecordingMovement={isRecordingMovement}
+            cashSessionMovementError={cashSessionMovementError}
+            onCloseMovementModal={() => setIsCashSessionMovementModalOpen(false)}
+            onSubmitMovement={handleRecordCashMovement}
+            dayCloseSessionId={dayCloseSessionId}
+            onCloseDayClose={() => setDayCloseSessionId(null)}
+          />
+        </Suspense>
       )}
     </>
   );

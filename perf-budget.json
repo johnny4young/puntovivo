@@ -4,7 +4,7 @@
   "bundleSize": {
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
     "thresholdPercent": 5,
-    "$baseline": "Captured from the Operator Deck Base 11 validation build, the recovery-ownership band on 2026-07-21, and the canonical product-payload split on 2026-07-27. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy and the product payload each own an explicit 8 kB ceiling.",
+    "$baseline": "Captured from the Operator Deck Base 11 validation build, the recovery-ownership band on 2026-07-21, and the canonical product-payload and closed POS overlay splits on 2026-07-27. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy and the product payload each own an explicit 8 kB ceiling.",
     "perChunkGzKb": {
       "index": 45,
       "react-runtime": 106,
@@ -23,7 +23,7 @@
       "SalesPage": 42,
       "SalePaymentModal": 9,
       "trpc": 3,
-      "CompanyPage": 33,
+      "CompanyPage": 33.1,
       "dnd": 16,
       "ReceiptTemplatesPage": 20,
       "TableLoadingState": 4,
