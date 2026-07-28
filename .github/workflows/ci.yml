@@ -70,6 +70,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          # Push filtering compares github.event.before with the new head.
+          # Keep both objects available so paths-filter never falls back after
+          # emitting a fatal invalid-object diagnostic on multi-commit pushes.
+          fetch-depth: 0
 
       - name: Path filter
         uses: dorny/paths-filter@v4
