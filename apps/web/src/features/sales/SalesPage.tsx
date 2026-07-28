@@ -362,6 +362,9 @@ export function SalesPage() {
         draftSummary={draftSummary}
         approvalDiscountAmount={approvalDiscountAmount}
         currencyCode={currency}
+        favoriteScopeKey={
+          currentTenant && currentSite ? `${currentTenant.id}:${currentSite.id}` : ''
+        }
         saleError={saleError}
         handleQuantityChange={handleQuantityChange}
         handleDiscountChange={handleDiscountChange}
@@ -371,6 +374,7 @@ export function SalesPage() {
         handleClearCart={handleClearCart}
         quantityInputRefFor={quantityInputRefFor}
         discountInputRefFor={discountInputRefFor}
+        focusDiscountInput={focusDiscountInput}
         canUndoActiveCart={canUndoActiveCart}
         handleUndoCart={handleUndoCart}
         currentSite={currentSite}

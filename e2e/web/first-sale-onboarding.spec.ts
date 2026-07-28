@@ -61,12 +61,11 @@ test.describe('first sale onboarding', () => {
     await unitPanel.getByRole('checkbox', { name: 'Base unit' }).check();
     await productDialog.getByRole('button', { name: 'Create Product' }).click();
     await expect(productDialog).toBeHidden({ timeout: 15_000 });
-    await expect(guide.getByText('1 of 3 steps completed')).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(guide).toBeHidden();
 
-    await guide.getByRole('link', { name: 'Go to sales' }).click();
+    await page.getByRole('link', { name: 'Make a sale' }).first().click();
     await expect(page).toHaveURL(/\/sales$/);
+    await expect(guide).toBeHidden();
     await page.getByRole('button', { name: 'Open cash session' }).first().click();
     const cashDialog = page
       .locator('[role="dialog"]')
@@ -79,9 +78,7 @@ test.describe('first sale onboarding', () => {
     await expect(openSession).toBeEnabled();
     await openSession.click();
     await expect(cashDialog).toBeHidden({ timeout: 15_000 });
-    await expect(guide.getByText('2 of 3 steps completed')).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(guide).toBeHidden();
     await dismissVisibleToasts(page);
     await captureEvidence(page, 'first-sale-2-register-open-en');
 

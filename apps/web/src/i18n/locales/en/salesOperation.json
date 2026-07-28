@@ -1,0 +1,19 @@
+{
+  "ariaLabel": "Current sale status",
+  "nextStep": "Next step",
+  "registerOpen": "Register open",
+  "registerClosed": "Register closed",
+  "items_one": "{{count}} item",
+  "items_other": "{{count}} items",
+  "total": "Total",
+  "openRegisterTitle": "Open the register to begin",
+  "openRegisterDescription": "Choose the drawer you will use during this shift.",
+  "startTitle": "Scan or choose a product",
+  "startDescription": "Search and your favorites are ready.",
+  "reviewTitle": "Review and charge",
+  "reviewDescription": "Confirm quantities and total before continuing.",
+  "blockedTitle": "The sale cannot be completed right now",
+  "blockedDescription": "Your cart is safe. Restore the connection to continue.",
+  "reviewRequiredTitle": "Review this item before charging",
+  "optionalSetup": "You can keep selling. One setup item is pending."
+}

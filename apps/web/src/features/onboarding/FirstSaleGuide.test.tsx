@@ -47,11 +47,11 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
-function guideTree(openRequest = 0) {
+function guideTree(openRequest = 0, autoOpen = true) {
   return (
     <StrictMode>
       <MemoryRouter>
-        <FirstSaleGuide openRequest={openRequest} />
+        <FirstSaleGuide openRequest={openRequest} autoOpen={autoOpen} />
       </MemoryRouter>
     </StrictMode>
   );
@@ -124,6 +124,14 @@ describe('FirstSaleGuide', () => {
     expect(screen.queryByTestId('first-sale-guide')).not.toBeInTheDocument();
 
     view.rerender(guideTree(1));
+    expect(screen.getByTestId('first-sale-guide')).toBeInTheDocument();
+  });
+
+  it('stays out of transactional routes until Help explicitly opens it', () => {
+    const view = render(guideTree(0, false));
+    expect(screen.queryByTestId('first-sale-guide')).not.toBeInTheDocument();
+
+    view.rerender(guideTree(1, false));
     expect(screen.getByTestId('first-sale-guide')).toBeInTheDocument();
   });
 

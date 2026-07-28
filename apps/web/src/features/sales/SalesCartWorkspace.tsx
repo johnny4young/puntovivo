@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react';
 import { Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
@@ -35,6 +36,8 @@ interface SalesCartWorkspaceProps {
    * button is hidden entirely.
    */
   onUndo?: () => void;
+  /** Contextual one-tap products or safe actions rendered above the cart. */
+  quickAccess?: ReactNode;
 }
 export function SalesCartWorkspace({
   items,
@@ -52,6 +55,7 @@ export function SalesCartWorkspace({
   discountInputRefFor,
   canUndo = false,
   onUndo,
+  quickAccess,
 }: SalesCartWorkspaceProps) {
   const { t } = useTranslation('sales');
   // visible shortcut chip pulled from the canonical
@@ -65,8 +69,8 @@ export function SalesCartWorkspace({
     // becomes a bounded flex column so the line-item table scrolls internally
     // and the page itself does not scroll while completing a sale. Below `pos:`
     // it is plain flow so short cashier viewports can reach every control.
-    <div className="sales-ledger-card card p-5 sm:p-6 xl:flex pos:h-full pos:min-h-0 xl:flex-col pos:overflow-hidden">
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between xl:shrink-0">
+    <div className="sales-ledger-card card p-4 sm:p-5 lg:flex pos:h-full pos:min-h-0 lg:flex-col pos:overflow-hidden">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between lg:shrink-0">
         <div>
           <p className="page-kicker text-[0.62rem] tracking-[0.24em]">
             {t('checkout.activeTicket')}
@@ -117,21 +121,25 @@ export function SalesCartWorkspace({
         </div>
       </div>
 
+      {quickAccess}
+
       {/* the scrollable region at `pos:`; flex-1 + min-h-0 lets the
           table take the remaining card height and scroll on overflow. */}
       <div className="pos:min-h-0 pos:flex-1 pos:overflow-y-auto">
-        <SaleCartTable
-          items={items}
-          discountSuggestionSiteId={discountSuggestionSiteId}
-          selectedItemKey={selectedItemKey}
-          onQuantityChange={onQuantityChange}
-          onDiscountChange={onDiscountChange}
-          onRemove={onRemove}
-          onSelectItem={itemKey => onSelectItem(itemKey)}
-          onSerialSelectionChange={onSerialSelectionChange}
-          quantityInputRefFor={quantityInputRefFor}
-          discountInputRefFor={discountInputRefFor}
-        />
+        {(items.length > 0 || !quickAccess) && (
+          <SaleCartTable
+            items={items}
+            discountSuggestionSiteId={discountSuggestionSiteId}
+            selectedItemKey={selectedItemKey}
+            onQuantityChange={onQuantityChange}
+            onDiscountChange={onDiscountChange}
+            onRemove={onRemove}
+            onSelectItem={itemKey => onSelectItem(itemKey)}
+            onSerialSelectionChange={onSerialSelectionChange}
+            quantityInputRefFor={quantityInputRefFor}
+            discountInputRefFor={discountInputRefFor}
+          />
+        )}
       </div>
 
       {saleError && (

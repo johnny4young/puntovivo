@@ -22,9 +22,11 @@ type StepId = keyof typeof STEP_TARGETS;
 interface FirstSaleGuideProps {
   /** Incremented by the shell help action to reopen the guide on demand. */
   openRequest: number;
+  /** Auto-show the checklist only on the chosen first-run home surface. */
+  autoOpen?: boolean;
 }
 
-export function FirstSaleGuide({ openRequest }: FirstSaleGuideProps) {
+export function FirstSaleGuide({ openRequest, autoOpen = true }: FirstSaleGuideProps) {
   const { user } = useAuth();
   const { currentSite } = useTenant();
   const canSell = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier';
@@ -44,6 +46,7 @@ export function FirstSaleGuide({ openRequest }: FirstSaleGuideProps) {
     <FirstSaleGuideContent
       key={siteId}
       openRequest={openRequest}
+      autoOpen={autoOpen}
       role={user.role}
       readiness={readiness}
     />
@@ -52,6 +55,7 @@ export function FirstSaleGuide({ openRequest }: FirstSaleGuideProps) {
 
 interface FirstSaleGuideContentProps {
   openRequest: number;
+  autoOpen: boolean;
   role: 'admin' | 'manager' | 'cashier' | 'viewer';
   readiness: {
     completed: boolean;
@@ -65,7 +69,12 @@ interface GuideUiState {
   closedRequest: number | null;
 }
 
-function FirstSaleGuideContent({ openRequest, role, readiness }: FirstSaleGuideContentProps) {
+function FirstSaleGuideContent({
+  openRequest,
+  autoOpen,
+  role,
+  readiness,
+}: FirstSaleGuideContentProps) {
   const { t } = useTranslation('setup');
   const [ui, setUi] = useState<GuideUiState>(() => ({
     lastCompleted: readiness.completed,
@@ -96,7 +105,9 @@ function FirstSaleGuideContent({ openRequest, role, readiness }: FirstSaleGuideC
   const canManageCatalog = role === 'admin' || role === 'manager';
   const manualOpen = openRequest > 0 && ui.closedRequest !== openRequest;
   const visible =
-    ui.celebrating || manualOpen || (!readiness.completed && ui.closedRequest === null);
+    ui.celebrating ||
+    manualOpen ||
+    (autoOpen && !readiness.completed && ui.closedRequest === null);
 
   if (!visible) return null;
 

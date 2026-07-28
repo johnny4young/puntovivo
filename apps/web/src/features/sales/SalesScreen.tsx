@@ -35,6 +35,12 @@ const LazySuspendedSalesPanel = lazy(() =>
   }))
 );
 
+const LazySalesQuickAccess = lazy(() =>
+  import('@/features/sales/SalesQuickAccess').then(module => ({
+    default: module.SalesQuickAccess,
+  }))
+);
+
 type HeaderProps = ComponentProps<typeof SalesHeaderSection>;
 type TabsProps = ComponentProps<typeof WorkspaceTabsSection>;
 type CartProps = ComponentProps<typeof SalesCartWorkspace>;
@@ -78,6 +84,7 @@ export interface SalesScreenProps {
   draftSummary: CheckoutProps['draftSummary'];
   approvalDiscountAmount: number;
   currencyCode: string;
+  favoriteScopeKey: string;
   saleError: CartProps['saleError'];
   handleQuantityChange: CartProps['onQuantityChange'];
   handleDiscountChange: CartProps['onDiscountChange'];
@@ -87,6 +94,7 @@ export interface SalesScreenProps {
   handleClearCart: CartProps['onClearCart'];
   quantityInputRefFor: CartProps['quantityInputRefFor'];
   discountInputRefFor: CartProps['discountInputRefFor'];
+  focusDiscountInput: (itemKey: string) => void;
   canUndoActiveCart: boolean;
   handleUndoCart: () => void;
   // Checkout panel
@@ -191,6 +199,7 @@ export function SalesScreen({
   draftSummary,
   approvalDiscountAmount,
   currencyCode,
+  favoriteScopeKey,
   saleError,
   handleQuantityChange,
   handleDiscountChange,
@@ -200,6 +209,7 @@ export function SalesScreen({
   handleClearCart,
   quantityInputRefFor,
   discountInputRefFor,
+  focusDiscountInput,
   canUndoActiveCart,
   handleUndoCart,
   currentSite,
@@ -277,7 +287,7 @@ export function SalesScreen({
 
   return (
     <>
-      <div className="sales-pos-shell space-y-4 pb-24 xl:flex pos:min-h-0 xl:flex-col xl:gap-4 xl:space-y-0 pos:overflow-hidden pos:pb-0">
+      <div className="sales-pos-shell space-y-3 pb-24 lg:flex pos:min-h-0 lg:flex-col lg:gap-3 lg:space-y-0 pos:overflow-hidden pos:pb-0">
         {/* el POS es la única superficie de /sales. En el
             breakpoint `pos:` (ancho desktop + >=900px alto), la barra de
             búsqueda y los accesos a Historial / Ventas suspendidas viven en
@@ -291,8 +301,15 @@ export function SalesScreen({
             así que permanece montado y visible siempre. */}
         <SalesFlowRail
           itemCount={draftSummary.itemCount}
+          total={draftSummary.total}
           hasCashSession={!!activeCashSession}
-          suspendedDraftsCount={suspendedDraftsCount}
+          canOpenCashSession={canOpenCashSession}
+          canCharge={canCharge}
+          hubReachable={hubReachable}
+          preflightItems={preflightItems}
+          onOpenCashSession={handleOpenCashSessionModal}
+          onOpenSearch={() => handleOpenProductSearch()}
+          onCharge={handleOpenPaymentModal}
         />
 
         <SalesHeaderSection
@@ -313,7 +330,7 @@ export function SalesScreen({
           onSelectWorkspace={handleSelectWorkspace}
         />
 
-        <section className="sales-workbench-grid grid gap-6 pos:min-h-0 pos:flex-1 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)] pos:grid-rows-[minmax(0,1fr)]">
+        <section className="sales-workbench-grid grid gap-4 pos:min-h-0 pos:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)] pos:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)]">
           <SalesCartWorkspace
             items={cartItems}
             discountSuggestionSiteId={currentSite?.id ?? null}
@@ -330,6 +347,35 @@ export function SalesScreen({
             discountInputRefFor={discountInputRefFor}
             canUndo={canUndoActiveCart}
             onUndo={handleUndoCart}
+            quickAccess={
+              currentSite && favoriteScopeKey ? (
+                <Suspense
+                  fallback={
+                    <div
+                      className="mb-4 min-h-24 animate-pulse rounded-[14px] border border-line/70 bg-surface-2/55"
+                      role="status"
+                      aria-label={t('common:actions.loading')}
+                    />
+                  }
+                >
+                  <LazySalesQuickAccess
+                    key={favoriteScopeKey}
+                    scopeKey={favoriteScopeKey}
+                    siteId={currentSite.id}
+                    hasCartItems={cartItems.length > 0}
+                    canFocusDiscount={activeSelectedCartItemKey !== null}
+                    onSelectProduct={handleProductSelect}
+                    onOpenSearch={() => handleOpenProductSearch()}
+                    onFocusDiscount={() => {
+                      if (activeSelectedCartItemKey) {
+                        focusDiscountInput(activeSelectedCartItemKey);
+                      }
+                    }}
+                    onNewSale={handleNewSale}
+                  />
+                </Suspense>
+              ) : undefined
+            }
           />
 
           <SalesCheckoutPanel
@@ -358,6 +404,8 @@ export function SalesScreen({
             onToggleSuspendedPanel={handleToggleSuspendedPanel}
             hubReachable={hubReachable}
             preflightItems={preflightItems}
+            showPrimaryAction={false}
+            showPreflightPanel={false}
           />
         </section>
       </div>

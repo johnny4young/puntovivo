@@ -1,0 +1,23 @@
+{
+  "suggestedKicker": "Suggested starting points",
+  "favoritesKicker": "Favorites for this register",
+  "title": "One-tap products",
+  "description": "Choose a product to add it to the cart immediately.",
+  "configure": "Configure",
+  "finishEditing": "Finish",
+  "categories": "Product categories",
+  "allCategories": "All",
+  "loading": "Loading quick products",
+  "noCategoryProducts": "No products are available in this category.",
+  "noFavorites": "Configure up to eight favorite products for this register.",
+  "searchCatalog": "Search catalog",
+  "safeActions": "Safe actions for the current sale",
+  "searchAnother": "Add another product",
+  "adjustDiscount": "Adjust discount",
+  "addProduct": "Add {{name}} to cart",
+  "addFavorite": "Add {{name}} to favorites",
+  "removeFavorite": "Remove {{name}} from favorites",
+  "added": "{{name}} was added to the cart",
+  "addFailed": "The product could not be added. Try again.",
+  "noSaleUnit": "This product does not have a sellable unit."
+}

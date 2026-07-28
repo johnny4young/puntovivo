@@ -76,6 +76,10 @@ interface SalesCheckoutPanelProps {
    * existing tests) rendering exactly like before.
    */
   preflightItems?: readonly PreflightItem[] | undefined;
+  /** Integrated SalesScreen moves the primary action into its operation strip. */
+  showPrimaryAction?: boolean | undefined;
+  /** Integrated SalesScreen surfaces one prioritized notice in its operation strip. */
+  showPreflightPanel?: boolean | undefined;
 }
 function shortcutLabel(id: string): string {
   const shortcut = getShortcutById(id);
@@ -107,6 +111,8 @@ export function SalesCheckoutPanel({
   onToggleSuspendedPanel,
   hubReachable,
   preflightItems = [],
+  showPrimaryAction = true,
+  showPreflightPanel = true,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const hasSupervisedClose = userRole === 'admin' || userRole === 'manager';
@@ -130,8 +136,8 @@ export function SalesCheckoutPanel({
   const showSuspendControls = showSuspendAction || showNewSaleAction;
   const showSuspendedToggle = !!onToggleSuspendedPanel;
   return (
-    <aside className="sales-settlement-dock card p-5 sm:p-6 xl:flex pos:h-full pos:min-h-0 xl:flex-col pos:overflow-hidden">
-      <div className="flex items-start justify-between gap-4 xl:shrink-0">
+    <aside className="sales-settlement-dock card p-4 sm:p-5 lg:flex pos:h-full pos:min-h-0 lg:flex-col pos:overflow-hidden">
+      <div className="flex items-start justify-between gap-4 lg:shrink-0">
         <div>
           <p className="pv-kicker">{t('checkout.kicker')}</p>
           <h2 className="pv-title text-xl">{t('checkout.chargeSummary')}</h2>
@@ -411,7 +417,9 @@ export function SalesCheckoutPanel({
           <p className="mt-2 text-[11px] text-secondary-500">{t('checkout.shortcutsHint')}</p>
         </div>
 
-        {preflightItems.length > 0 && <CheckoutPreflightPanel items={preflightItems} />}
+        {showPreflightPanel && preflightItems.length > 0 && (
+          <CheckoutPreflightPanel items={preflightItems} />
+        )}
       </div>
 
       {/*  (review follow-up) — in the `pos:` lockup this is the
@@ -420,21 +428,23 @@ export function SalesCheckoutPanel({
           cash controls are reachable. Below xl these actions are hidden (the
           SalesMobileCheckoutBar owns mobile), so the footer is inert there. */}
       <div className="space-y-3 xl:shrink-0 xl:border-t xl:border-line/70 xl:pt-4">
-        <Button
-          className="pv-control-key pv-control-key-primary sales-primary-control min-h-12 px-6 hidden w-full justify-center xl:inline-flex"
-          onClick={primaryAction}
-          disabled={primaryActionDisabled}
-          data-testid="checkout-primary-action"
-          aria-keyshortcuts={cashSession ? ariaKeyshortcutsFor('sales.charge') : undefined}
-          aria-describedby={preflightHasBlockers ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
-          variant="primary"
-          type="submit"
-        >
-          {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
-          {primaryActionLabel}
-        </Button>
+        {showPrimaryAction && (
+          <Button
+            className="pv-control-key pv-control-key-primary sales-primary-control min-h-12 px-6 hidden w-full justify-center xl:inline-flex"
+            onClick={primaryAction}
+            disabled={primaryActionDisabled}
+            data-testid="checkout-primary-action"
+            aria-keyshortcuts={cashSession ? ariaKeyshortcutsFor('sales.charge') : undefined}
+            aria-describedby={preflightHasBlockers ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
+            variant="primary"
+            type="submit"
+          >
+            {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+            {primaryActionLabel}
+          </Button>
+        )}
 
-        {isHubGated && (
+        {showPrimaryAction && isHubGated && (
           <p
             className="hidden text-xs text-danger-600 xl:block"
             data-testid="checkout-hub-gate-hint"

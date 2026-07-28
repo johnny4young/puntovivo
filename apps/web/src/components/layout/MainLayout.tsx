@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet } from 'react-router';
+import { Outlet, useLocation } from 'react-router';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { GlobalStatusStrip } from './GlobalStatusStrip';
@@ -11,6 +11,7 @@ export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [firstSaleGuideRequest, setFirstSaleGuideRequest] = useState(0);
+  const location = useLocation();
 
   return (
     <div className="app-shell">
@@ -32,7 +33,10 @@ export function MainLayout() {
           onOpenFirstSaleGuide={() => setFirstSaleGuideRequest(request => request + 1)}
         />
         <GlobalStatusStrip />
-        <FirstSaleGuide openRequest={firstSaleGuideRequest} />
+        <FirstSaleGuide
+          openRequest={firstSaleGuideRequest}
+          autoOpen={location.pathname === '/dashboard'}
+        />
 
         <main className="operator-canvas min-w-0 px-4 py-4 sm:px-6 sm:py-6 xl:px-8">
           <Outlet />

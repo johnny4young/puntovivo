@@ -1,0 +1,19 @@
+{
+  "ariaLabel": "Estado actual de la venta",
+  "nextStep": "Siguiente paso",
+  "registerOpen": "Caja abierta",
+  "registerClosed": "Caja cerrada",
+  "items_one": "{{count}} artículo",
+  "items_other": "{{count}} artículos",
+  "total": "Total",
+  "openRegisterTitle": "Abre la caja para comenzar",
+  "openRegisterDescription": "Elige el cajón que usarás durante este turno.",
+  "startTitle": "Escanea o elige un producto",
+  "startDescription": "La búsqueda y tus favoritos están listos.",
+  "reviewTitle": "Revisa y cobra",
+  "reviewDescription": "Confirma cantidades y total antes de continuar.",
+  "blockedTitle": "No podemos finalizar la venta ahora",
+  "blockedDescription": "Tu carrito está guardado. Recupera la conexión para continuar.",
+  "reviewRequiredTitle": "Revisa este punto antes de cobrar",
+  "optionalSetup": "Puedes vender. Hay una configuración pendiente."
+}

@@ -1,102 +1,168 @@
-import { CircleCheck, PauseCircle, ReceiptText, ScanLine, WalletCards } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Search, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui';
+import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
+import { formatCurrency } from '@/lib/utils';
 
 interface SalesFlowRailProps {
   itemCount: number;
+  total: number;
   hasCashSession: boolean;
-  suspendedDraftsCount: number;
+  canOpenCashSession: boolean;
+  canCharge: boolean;
+  hubReachable?: boolean | undefined;
+  preflightItems?: readonly PreflightItem[] | undefined;
+  onOpenCashSession: () => void;
+  onOpenSearch: () => void;
+  onCharge: () => void;
 }
 
-type FlowStageState = 'active' | 'complete' | 'ready' | 'locked' | 'waiting';
-
-interface FlowStage {
-  id: 'capture' | 'review' | 'charge';
-  number: string;
-  state: FlowStageState;
-  icon: typeof ScanLine;
-  status: string;
-}
-
+/**
+ * Compact operational summary for the first POS viewport.
+ *
+ * The former three-stage hero explained the whole sale on every visit. This
+ * strip instead exposes only current state, total, and the next valid action.
+ * Technical readiness reminders stay behind an explicit disclosure.
+ */
 export function SalesFlowRail({
   itemCount,
+  total,
   hasCashSession,
-  suspendedDraftsCount,
+  canOpenCashSession,
+  canCharge,
+  hubReachable,
+  preflightItems = [],
+  onOpenCashSession,
+  onOpenSearch,
+  onCharge,
 }: SalesFlowRailProps) {
-  const { t } = useTranslation('sales');
-  const hasItems = itemCount > 0;
+  const { t: tOperation } = useTranslation('salesOperation');
+  const { t: tSales } = useTranslation('sales');
+  const primaryBlocker = preflightItems.find(item => item.severity === 'blocker');
+  const optionalWarning = preflightItems.find(
+    item => item.severity === 'warning' && item.id !== 'sync_backlog'
+  );
+  const isHubBlocked = hubReachable === false;
 
-  const stages: FlowStage[] = [
-    {
-      id: 'capture',
-      number: '01',
-      state: hasItems ? 'complete' : 'active',
-      icon: ScanLine,
-      status: hasItems ? t('flow.captureComplete', { count: itemCount }) : t('flow.captureWaiting'),
-    },
-    {
-      id: 'review',
-      number: '02',
-      state: hasItems ? 'active' : 'waiting',
-      icon: ReceiptText,
-      status: hasItems ? t('flow.reviewActive') : t('flow.reviewWaiting'),
-    },
-    {
-      id: 'charge',
-      number: '03',
-      state: !hasCashSession ? 'locked' : hasItems ? 'ready' : 'waiting',
-      icon: WalletCards,
-      status: !hasCashSession
-        ? t('flow.chargeLocked')
-        : hasItems
-          ? t('flow.chargeReady')
-          : t('flow.chargeWaiting'),
-    },
-  ];
+  const operation = (() => {
+    if (isHubBlocked) {
+      return {
+        title: tOperation('blockedTitle'),
+        description: tOperation('blockedDescription'),
+        actionLabel: tSales('checkout.chargeSale'),
+        action: onCharge,
+        actionDisabled: true,
+        ActionIcon: AlertTriangle,
+      };
+    }
+
+    if (!hasCashSession) {
+      return {
+        title: tOperation('openRegisterTitle'),
+        description: tOperation('openRegisterDescription'),
+        actionLabel: tSales('cashSession.openAction'),
+        action: onOpenCashSession,
+        actionDisabled: !canOpenCashSession,
+        ActionIcon: WalletCards,
+      };
+    }
+
+    if (itemCount === 0) {
+      return {
+        title: tOperation('startTitle'),
+        description: tOperation('startDescription'),
+        actionLabel: tSales('quickSearch.search'),
+        action: onOpenSearch,
+        actionDisabled: false,
+        ActionIcon: Search,
+      };
+    }
+
+    if (primaryBlocker) {
+      return {
+        title: tOperation('reviewRequiredTitle'),
+        description: primaryBlocker.messageValues
+          ? tSales(primaryBlocker.messageKey, primaryBlocker.messageValues)
+          : tSales(primaryBlocker.messageKey),
+        actionLabel: primaryBlocker.recoveryAction
+          ? tSales(primaryBlocker.recoveryAction.labelKey)
+          : tSales('checkout.chargeSale'),
+        action: primaryBlocker.recoveryAction?.onClick ?? onCharge,
+        actionDisabled: !primaryBlocker.recoveryAction,
+        ActionIcon: AlertTriangle,
+      };
+    }
+
+    return {
+      title: tOperation('reviewTitle'),
+      description: tOperation('reviewDescription'),
+      actionLabel: tSales('checkout.chargeSale'),
+      action: onCharge,
+      actionDisabled: !canCharge,
+      ActionIcon: CheckCircle2,
+    };
+  })();
+
+  const { title, description, actionLabel, action, actionDisabled, ActionIcon } = operation;
+
+  const optionalMessage = optionalWarning
+    ? optionalWarning.messageValues
+      ? tSales(optionalWarning.messageKey, optionalWarning.messageValues)
+      : tSales(optionalWarning.messageKey)
+    : null;
 
   return (
-    <section className="sales-flow-rail pv-reveal" aria-labelledby="sales-flow-title">
-      <div className="sales-flow-intro">
-        <div className="sales-flow-live">
-          <span aria-hidden="true" />
-          {t('flow.live')}
-        </div>
-        <h2 id="sales-flow-title">{t('flow.title')}</h2>
-        <p>{t('flow.description')}</p>
+    <section
+      className="sales-operation-strip"
+      aria-label={tOperation('ariaLabel')}
+      data-testid="sales-operation-strip"
+    >
+      <div className="sales-operation-next">
+        <span>{tOperation('nextStep')}</span>
+        <strong>{title}</strong>
+        <p>{description}</p>
       </div>
 
-      <ol className="sales-flow-stages" aria-label={t('flow.ariaLabel')}>
-        {stages.map(stage => {
-          const Icon = stage.icon;
-          return (
-            <li
-              key={stage.id}
-              className={`sales-flow-stage is-${stage.state}`}
-              data-testid={`sales-flow-${stage.id}`}
-            >
-              <div className="sales-flow-stage-mark" aria-hidden="true">
-                {stage.state === 'complete' ? (
-                  <CircleCheck strokeWidth={1.5} />
-                ) : (
-                  <Icon strokeWidth={1.5} />
-                )}
-              </div>
-              <div className="sales-flow-stage-copy">
-                <span>{stage.number}</span>
-                <strong>{t(`flow.steps.${stage.id}`)}</strong>
-                <p>{stage.status}</p>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-
-      <div className="sales-flow-queue" aria-label={t('flow.suspendedAriaLabel')}>
-        <PauseCircle strokeWidth={1.5} aria-hidden="true" />
+      <div className="sales-operation-facts" aria-live="polite" aria-atomic="true">
         <div>
-          <span>{t('flow.suspended')}</span>
-          <strong>{suspendedDraftsCount}</strong>
+          <span>
+            {hasCashSession
+              ? tOperation('registerOpen')
+              : tOperation('registerClosed')}
+          </span>
+          <strong>{tOperation('items', { count: itemCount })}</strong>
+        </div>
+        <div>
+          <span>{tOperation('total')}</span>
+          <strong>{formatCurrency(total)}</strong>
         </div>
       </div>
+
+      {optionalMessage && !primaryBlocker && !isHubBlocked && (
+        <details className="sales-operation-detail">
+          <summary>{tOperation('optionalSetup')}</summary>
+          <div>
+            <p>{optionalMessage}</p>
+            {optionalWarning?.recoveryAction && (
+              <button type="button" onClick={optionalWarning.recoveryAction.onClick}>
+                {tSales(optionalWarning.recoveryAction.labelKey)}
+              </button>
+            )}
+          </div>
+        </details>
+      )}
+
+      <Button
+        className="sales-operation-action hidden min-h-12 justify-center lg:inline-flex"
+        onClick={action}
+        disabled={actionDisabled}
+        data-testid="checkout-primary-action"
+        variant="primary"
+        type="button"
+      >
+        <ActionIcon className="h-4 w-4" aria-hidden="true" />
+        {actionLabel}
+      </Button>
     </section>
   );
 }

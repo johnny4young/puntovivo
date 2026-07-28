@@ -40,45 +40,13 @@ import { invalidateGroups, SALE_COMPLETION_INVALIDATIONS } from '@/lib/invalidat
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { getCartSummary, mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
-import type { Product, ProductSearchSelection } from '@/types';
+import { selectionFromHydratedProduct } from '@/features/sales/productSelection';
+import type { Product } from '@/types';
 import { translateServerError } from '@/lib/translateServerError';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { PosTouchCategoryTabs, type PosTouchCategoryOption } from './PosTouchCategoryTabs';
 import { PosTouchProductGrid } from './PosTouchProductGrid';
 import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
-
-/**
- * Build a `ProductSearchSelection` from a `Product` that already
- * carries `unitAssignments` (typically the result of
- * `trpc.products.getById`). Touch POS V1 always picks the
- * product's base unit at the assignment's price.
- *
- * The grid uses `products.list` which does NOT include unit
- * assignments, so the caller MUST hydrate the product via
- * `products.getById` before calling this helper. Returns `null`
- * when the hydrated product still has no base unit (mis-seeded
- * catalog) so the caller can surface a toast instead of crashing.
- */
-function selectionFromProduct(product: Product): ProductSearchSelection | null {
-  const baseUnit = product.unitAssignments?.find(u => u.isBase) ?? product.unitAssignments?.[0];
-  if (!baseUnit) return null;
-  const unitPrice = baseUnit.price ?? product.price;
-
-  return {
-    product: {
-      ...product,
-      baseUnitId: baseUnit.unitId,
-      baseUnitName: baseUnit.unitName ?? null,
-      baseUnitAbbreviation: baseUnit.unitAbbreviation ?? null,
-      baseUnitPrice: unitPrice,
-    },
-    unit: {
-      ...baseUnit,
-      isBase: baseUnit.isBase ?? true,
-    },
-    price: unitPrice,
-  };
-}
 
 export function PosTouchScreen() {
   const { t } = useTranslation('posTouch');
@@ -194,7 +162,7 @@ export function PosTouchScreen() {
       // build a valid `ProductSearchSelection` for `mergeCartItem`.
       try {
         const full = await utils.products.getById.fetch({ id: product.id });
-        const selection = selectionFromProduct(full as unknown as Product);
+        const selection = selectionFromHydratedProduct(full as unknown as Product);
         if (!selection) {
           toast.error({
             title: t('toast.chargeError'),
