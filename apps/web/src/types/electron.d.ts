@@ -262,6 +262,7 @@ export interface BackupRestoreDrillReport {
 
 export interface RendererRuntimeConfig {
   authorityMode: 'device_local' | 'site_hub' | 'hub_client';
+  localApiUrl: string;
   hubUrl: string | null;
   siteId: string | null;
   deviceId: string | null;

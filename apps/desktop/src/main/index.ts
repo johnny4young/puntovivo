@@ -60,9 +60,6 @@ const backupLog = createModuleLogger('backup');
 // is installed after ready, when Electron's net module can serve resources.
 registerPackagedRendererScheme(protocol);
 
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (require('electron-squirrel-startup')) app.quit();
-
 // install crash handling before any asynchronous boot work.
 installProcessCrashHandlers({
   log: mainLog,

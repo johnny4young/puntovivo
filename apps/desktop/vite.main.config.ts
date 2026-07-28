@@ -16,7 +16,6 @@ export default defineConfig(({ mode }) => ({
         'better-sqlite3',
         'argon2',
         'electron',
-        'electron-squirrel-startup',
         'electron-updater',
       ],
       output: {

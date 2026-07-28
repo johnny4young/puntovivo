@@ -57,6 +57,30 @@ describe('Electron process log policy', () => {
     );
     assert.equal(classifyElectronStderrLine('dyld: Library not loaded'), 'unexpected');
     assert.equal(classifyElectronStderrLine('Segmentation fault: 11'), 'unexpected');
+    assert.equal(
+      classifyElectronStderrLine(
+        '[41916:0727/214743.048395:INFO:CONSOLE:1] "Connecting to http://127.0.0.1:53990 violates Content Security Policy. The action has been blocked."'
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[41916:0727/214743.048513:INFO:CONSOLE:1] "Fetch API cannot load the request. Refused to connect."'
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[92525:0727/221205.771432:INFO:CONSOLE:2] "Electron sandboxed_renderer.bundle.js script failed to run", source: node:electron/js2c/sandbox_bundle (2)'
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[92525:0727/221205.771457:INFO:CONSOLE:2] "TypeError: Cannot destructure property preloadScripts of binding.startupData as it is null.", source: node:electron/js2c/sandbox_bundle (2)'
+      ),
+      'unexpected'
+    );
   });
 
   it('blocks structured warning and error logs written to stdout', () => {

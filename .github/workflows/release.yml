@@ -41,9 +41,11 @@ on:
 env:
   NODE_VERSION: '24'
   RELEASE_TAG: ${{ inputs.tag }}
-  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_COUNT: '2'
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
+  GIT_CONFIG_KEY_1: advice.detachedHead
+  GIT_CONFIG_VALUE_1: 'false'
 
 # contents: upload installers to the Release. pages + id-token: the publish-feed
 # job deploys the auto-update feed to GitHub Pages. Each job narrows to what it
@@ -80,11 +82,6 @@ jobs:
         with:
           ref: refs/tags/${{ inputs.tag }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          standalone: true
-
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -93,6 +90,13 @@ jobs:
           # install straight from the lockfile is preferred over cache-warm
           # speed. (The native/packaging cache concerns live in release-desktop,
           # not here — this job only builds the web bundle.)
+
+      - name: Setup pnpm
+        shell: bash
+        run: |
+          pnpmVersion="$(node -p "require('./package.json').packageManager.replace('pnpm@', '')")"
+          npm install --global "pnpm@$pnpmVersion" --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = "$pnpmVersion"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -142,15 +146,29 @@ jobs:
         with:
           ref: refs/tags/${{ inputs.tag }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          standalone: true
-
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        if: matrix.platform != 'win'
+        shell: bash
+        run: |
+          pnpmVersion="$(node -p "require('./package.json').packageManager.replace('pnpm@', '')")"
+          npm install --global "pnpm@$pnpmVersion" --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = "$pnpmVersion"
+
+      # pnpm/action-setup v6's Windows launcher triggers Node 24 DEP0190.
+      - name: Setup pnpm (Windows)
+        if: matrix.platform == 'win'
+        shell: pwsh
+        run: |
+          $pnpmVersion = node -p "require('./package.json').packageManager.replace('pnpm@', '')"
+          npm install --global "pnpm@$pnpmVersion" --ignore-scripts --no-audit --no-fund
+          if ((pnpm --version) -ne $pnpmVersion) {
+            throw "pnpm version mismatch"
+          }
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -159,7 +177,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
+          sudo apt-get install -y dbus-x11 xvfb libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       # Build the web + server + electron main/preload bundles that
@@ -220,8 +238,8 @@ jobs:
         run: |
           sudo chown root:root apps/desktop/out-builder/linux-unpacked/chrome-sandbox
           sudo chmod 4755 apps/desktop/out-builder/linux-unpacked/chrome-sandbox
-          xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
-          xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --renderer
+          dbus-run-session -- xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
+          dbus-run-session -- xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --renderer
 
       - name: Smoke-test the packaged app (macOS / Windows)
         if: matrix.platform != 'linux'

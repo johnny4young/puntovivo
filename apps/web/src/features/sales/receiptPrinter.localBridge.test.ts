@@ -34,16 +34,24 @@ function getMutableWindow(): MutableWindow {
   return window as unknown as MutableWindow;
 }
 
-function setBridgeRuntime(cfg: RendererRuntimeConfig | null): void {
+type TestRendererRuntimeConfig = Omit<RendererRuntimeConfig, 'localApiUrl'> & {
+  localApiUrl?: string | null;
+};
+
+function setBridgeRuntime(cfg: TestRendererRuntimeConfig | null): void {
   __resetRuntimeConfigCacheForTests();
   const w = getMutableWindow();
   if (cfg === null) {
     delete w.electron;
     return;
   }
+  const runtime: RendererRuntimeConfig = {
+    localApiUrl: 'http://127.0.0.1:8090',
+    ...cfg,
+  };
   w.electron = {
     ...(w.electron ?? {}),
-    runtime: { getConfigSync: () => cfg },
+    runtime: { getConfigSync: () => runtime },
   };
 }
 

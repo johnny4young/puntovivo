@@ -51,9 +51,11 @@ on:
 
 env:
   NODE_VERSION: '24'
-  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_COUNT: '2'
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
+  GIT_CONFIG_KEY_1: advice.detachedHead
+  GIT_CONFIG_VALUE_1: 'false'
 
 # Per-job concurrency: cancel any in-progress run for the same actor when
 # they kick off another. Avoids stacking macOS minutes when an operator
@@ -108,15 +110,17 @@ jobs:
         with:
           ref: ${{ needs.verify-candidate.outputs.sha }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          standalone: true
-
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        shell: bash
+        run: |
+          pnpmVersion="$(node -p "require('./package.json').packageManager.replace('pnpm@', '')")"
+          npm install --global "pnpm@$pnpmVersion" --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = "$pnpmVersion"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -124,7 +128,7 @@ jobs:
       - name: Install Linux system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev fakeroot rpm
+          sudo apt-get install -y dbus-x11 xvfb libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev fakeroot rpm
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       # Electron 42 no longer downloads its runtime during package installation.
@@ -176,8 +180,8 @@ jobs:
         run: |
           sudo chown root:root apps/desktop/out-builder/linux-unpacked/chrome-sandbox
           sudo chmod 4755 apps/desktop/out-builder/linux-unpacked/chrome-sandbox
-          xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
-          xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --renderer
+          dbus-run-session -- xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
+          dbus-run-session -- xvfb-run -a node scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --renderer
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
@@ -214,15 +218,17 @@ jobs:
         with:
           ref: ${{ needs.verify-candidate.outputs.sha }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          standalone: true
-
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        shell: bash
+        run: |
+          pnpmVersion="$(node -p "require('./package.json').packageManager.replace('pnpm@', '')")"
+          npm install --global "pnpm@$pnpmVersion" --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = "$pnpmVersion"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -315,15 +321,23 @@ jobs:
         with:
           ref: ${{ needs.verify-candidate.outputs.sha }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          standalone: true
-
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      # The regular pnpm package is pure JavaScript and needs no install
+      # scripts. This also avoids pnpm/action-setup v6's Node 24 DEP0190 path;
+      # @pnpm/exe is deliberately not used because its preinstall materializes
+      # the binary.
+      - name: Setup pnpm
+        shell: pwsh
+        run: |
+          $pnpmVersion = node -p "require('./package.json').packageManager.replace('pnpm@', '')"
+          npm install --global "pnpm@$pnpmVersion" --ignore-scripts --no-audit --no-fund
+          if ((pnpm --version) -ne $pnpmVersion) {
+            throw "pnpm version mismatch"
+          }
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

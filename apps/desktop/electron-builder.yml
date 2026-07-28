@@ -91,6 +91,10 @@ mac:
 # ship their updater-native format and the zip stays mac-only.
 linux:
   icon: build-resources/icon.png
+  # Keep the .desktop entry and runtime window class aligned so GNOME/KDE can
+  # associate a running register with its launcher and taskbar icon.
+  syncDesktopName: true
+  category: Office
   target:
     - AppImage
 win:

@@ -16,8 +16,19 @@ export function classifyElectronStderrLine(line) {
     return 'lifecycle';
   }
 
+  if (/^\[[^\]\r\n]+:INFO(?::[A-Z_]+)*:\d+\] /.test(line)) {
+    // Electron forwards every renderer console method through Chromium's INFO
+    // channel, including console.error and CSP/network failures. Severity in
+    // the prefix alone is therefore insufficient: keep benign informational
+    // chatter visible, but fail on adverse message content.
+    return /\b(?:error|typeerror|referenceerror|syntaxerror|rangeerror|exception|fatal|crash(?:ed)?|warning|warn|failed|failure|violat(?:e|es|ed|ion)|refused|denied|cannot|not allowed|uncaught|unhandled|blocked|err_[a-z0-9_]+)\b/i.test(
+      line
+    )
+      ? 'unexpected'
+      : 'informational';
+  }
+
   if (
-    /^\[[^\]\r\n]+:INFO(?::[A-Z_]+)*:\d+\] /.test(line) ||
     /^DevTools listening on ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[0-9a-f-]+$/i.test(line)
   ) {
     return 'informational';

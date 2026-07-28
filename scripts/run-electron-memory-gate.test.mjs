@@ -15,6 +15,7 @@ import {
   buildPreviewArgs,
   DEFAULT_PREVIEW_HOST,
   DEFAULT_PREVIEW_PORT,
+  reserveLoopbackPort,
   resolveRunElectronMemoryGateOptions,
   waitForUrl,
 } from './run-electron-memory-gate.mjs';
@@ -90,9 +91,20 @@ test('buildCheckArgs forwards only check-electron-memory arguments', () => {
 });
 
 test('buildCheckEnv points Electron at the preview renderer', () => {
-  const env = buildCheckEnv({ A: '1', WEB_DEV_SERVER_URL: 'old' }, 'http://127.0.0.1:4173');
+  const env = buildCheckEnv(
+    { A: '1', WEB_DEV_SERVER_URL: 'old', PUNTOVIVO_BIND_PORT: '8090' },
+    'http://127.0.0.1:4173',
+    54321
+  );
   assert.equal(env.A, '1');
   assert.equal(env.WEB_DEV_SERVER_URL, 'http://127.0.0.1:4173');
+  assert.equal(env.PUNTOVIVO_BIND_PORT, '54321');
+});
+
+test('reserveLoopbackPort returns a valid ephemeral port', async () => {
+  const port = await reserveLoopbackPort();
+  assert.ok(Number.isInteger(port));
+  assert.ok(port > 0 && port <= 65_535);
 });
 
 test('waitForUrl retries until a response is available', async () => {

@@ -12,6 +12,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -117,11 +118,38 @@ export function buildCheckArgs(passThroughArgs = []) {
   return [CHECK_ELECTRON_MEMORY_SCRIPT, ...passThroughArgs];
 }
 
-export function buildCheckEnv(env, previewUrl) {
+export function buildCheckEnv(env, previewUrl, apiPort) {
   return {
     ...env,
     WEB_DEV_SERVER_URL: previewUrl,
+    PUNTOVIVO_BIND_PORT: String(apiPort),
   };
+}
+
+/**
+ * Reserve an unused loopback port for the embedded Fastify server.
+ *
+ * The measurement gate can run while a developer already owns the default
+ * port 8090. Selecting a fresh port keeps the mandatory real Electron launch
+ * hermetic instead of timing out against unrelated local state.
+ */
+export async function reserveLoopbackPort() {
+  const server = createServer();
+  try {
+    return await new Promise((resolvePromise, rejectPromise) => {
+      server.once('error', rejectPromise);
+      server.listen(0, DEFAULT_PREVIEW_HOST, () => {
+        const address = server.address();
+        if (!address || typeof address === 'string') {
+          rejectPromise(new Error('unable to reserve a loopback port'));
+          return;
+        }
+        resolvePromise(address.port);
+      });
+    });
+  } finally {
+    await new Promise(resolvePromise => server.close(() => resolvePromise()));
+  }
 }
 
 async function waitForExit(child, timeoutMs) {
@@ -261,9 +289,11 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
       console.log(`run-electron-memory-gate: using existing renderer at ${options.previewUrl}`);
     }
 
+    const apiPort = await reserveLoopbackPort();
+    console.log(`run-electron-memory-gate: reserved embedded API port ${apiPort}`);
     return await runChild(process.execPath, buildCheckArgs(options.passThroughArgs), {
       cwd: REPO_ROOT,
-      env: buildCheckEnv(env, options.previewUrl),
+      env: buildCheckEnv(env, options.previewUrl, apiPort),
       stdio: 'inherit',
     });
   } catch (err) {

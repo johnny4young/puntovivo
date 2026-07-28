@@ -60,6 +60,22 @@ export function buildApiOrigins(runtime: RuntimeSecurityConfig): string[] {
   ]);
 }
 
+/**
+ * Resolve the origin used by the colocated renderer for the embedded API.
+ * Wildcard listeners are reachable through loopback; explicit interfaces keep
+ * their configured host. This is shared with the sync preload contract so CSP
+ * and the tRPC client cannot drift to different ports.
+ */
+export function resolveLocalApiOrigin(runtime: RuntimeSecurityConfig): string {
+  const host =
+    runtime.bindHost === '0.0.0.0'
+      ? '127.0.0.1'
+      : runtime.bindHost === '::'
+        ? '::1'
+        : runtime.bindHost;
+  return `http://${formatHostForUrl(host)}:${runtime.bindPort}`;
+}
+
 export function isFastifyApiResponse(url: string, runtime: RuntimeSecurityConfig): boolean {
   try {
     const parsed = new URL(url);

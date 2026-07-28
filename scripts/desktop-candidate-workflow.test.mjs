@@ -46,7 +46,7 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   assert.doesNotMatch(workflow, /run-desktop-smoke\.mjs[^\n]*--structure-only/);
   assert.match(
     workflow,
-    /xvfb-run -a node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
+    /dbus-run-session -- xvfb-run -a node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
   );
   assert.match(
     workflow,
@@ -59,6 +59,15 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   assert.match(
     workflow,
     /electron-builder --mac --publish never -c\.mac\.identity=-[\s\S]*CSC_IDENTITY_AUTO_DISCOVERY: 'false'/
+  );
+  assert.equal((workflow.match(/uses:\s+pnpm\/action-setup/g) ?? []).length, 0);
+  assert.equal(
+    (
+      workflow.match(
+        /npm install --global "pnpm@\$pnpmVersion" --ignore-scripts --no-audit --no-fund/g
+      ) ?? []
+    ).length,
+    3
   );
   assert.equal(
     (workflow.match(/node scripts\/collect-desktop-candidate-evidence\.mjs/g) ?? []).length,

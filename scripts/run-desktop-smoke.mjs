@@ -28,6 +28,10 @@ import path from 'node:path';
 import process from 'node:process';
 import { listPackage } from '@electron/asar';
 import { chromium } from '@playwright/test';
+import {
+  classifyElectronStderrLine,
+  classifyElectronStdoutLine,
+} from './electron-process-log-policy.mjs';
 import { resolvePackagedBinary } from './lib/packaged-binary.mjs';
 
 const APP_NAME = 'Puntovivo';
@@ -154,12 +158,15 @@ if (process.argv.includes('--structure-only')) {
 console.log(`[desktop-smoke] launching ${binary}`);
 
 const userDataDir = mkdtempSync(path.join(os.tmpdir(), 'puntovivo-smoke-'));
+const serverPort = await reserveLoopbackPort();
 const rendererPort = VERIFY_RENDERER ? await reserveLoopbackPort() : null;
 const childArgs = [`--user-data-dir=${userDataDir}`];
 // Chromium can initialize password storage even when the application injects
 // its own temporary DB key. Keep the smoke isolated from host keychain prompts.
 if (process.platform === 'darwin') childArgs.push('--use-mock-keychain');
-if (process.platform === 'linux') childArgs.push('--password-store=basic');
+if (process.platform === 'linux') {
+  childArgs.push('--password-store=basic', '--disable-gpu', '--disable-software-rasterizer');
+}
 if (rendererPort !== null) {
   childArgs.push(`--remote-debugging-port=${rendererPort}`, '--remote-debugging-address=127.0.0.1');
 }
@@ -168,22 +175,25 @@ const child = spawn(binary, childArgs, {
     ...process.env,
     ELECTRON_ENABLE_LOGGING: '1',
     ELECTRON_DISABLE_GPU: '1',
+    // This flag is the packaged-runtime authority for the ephemeral key below.
+    // Keep it enabled in BOTH smoke modes: without it, packaged builds correctly
+    // ignore PUNTOVIVO_DB_KEY and reach for the operator's real OS keychain.
+    PUNTOVIVO_E2E: '1',
+    // Avoid colliding with a local dev stack or a parallel smoke on port 8090.
+    PUNTOVIVO_BIND_PORT: String(serverPort),
     // Never let a validation build access the operator's real safeStorage
     // envelope. A fresh random key still proves SQLCipher + native startup.
     PUNTOVIVO_DB_KEY: randomBytes(32).toString('hex'),
     // Update transport has separate contract tests. A --dir validation bundle
     // intentionally has no app-update.yml and must not perform network I/O.
     AUTO_UPDATE: 'false',
-    ...(VERIFY_RENDERER
-      ? {
-          PUNTOVIVO_E2E: '1',
-        }
-      : {}),
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 
 let output = '';
+let stdoutOutput = '';
+let stderrOutput = '';
 let firstRunAdminPassword = null;
 const seen = { launched: false, serverAttempt: false, serverUp: false };
 let done = false;
@@ -212,23 +222,42 @@ function scan(chunk) {
   }
 }
 
-async function waitForRendererEndpoint(endpoint) {
+async function waitForRendererReadyTarget(endpoint) {
   const deadline = Date.now() + RENDERER_TIMEOUT_MS;
   while (Date.now() < deadline) {
     try {
-      // Chromium can accept the TCP connection before its DevTools HTTP
-      // handler is ready. Bound each probe so an early half-ready socket does
-      // not consume the entire renderer timeout and miss the CDP grace period.
-      const response = await fetch(`${endpoint}/json/version`, {
+      // The DevTools port becomes reachable before Electron finishes
+      // initializing the sandboxed preload. Attaching during that gap can
+      // produce binding.startupData=null in Electron's sandbox bundle even
+      // though the real application later loads. Wait for the first-run route
+      // and title so CDP observes a stable renderer instead of creating that
+      // false, intermittent failure.
+      const response = await fetch(`${endpoint}/json/list`, {
         signal: AbortSignal.timeout(500),
       });
-      if (response.ok) return;
+      if (response.ok) {
+        const targets = await response.json();
+        if (
+          Array.isArray(targets) &&
+          targets.some(
+            target =>
+              target?.type === 'page' &&
+              typeof target.url === 'string' &&
+              target.url.startsWith('puntovivo-app:') &&
+              target.url.includes('#/login') &&
+              typeof target.title === 'string' &&
+              target.title.length > 0
+          )
+        ) {
+          return;
+        }
+      }
     } catch {
-      // Electron has not opened the DevTools endpoint yet.
+      // Electron has not exposed a fully initialized renderer yet.
     }
     await new Promise(resolve => setTimeout(resolve, 200));
   }
-  throw new Error('timed out waiting for the packaged renderer DevTools endpoint');
+  throw new Error('timed out waiting for the packaged renderer to finish initialization');
 }
 
 async function waitForFirstRunPassword() {
@@ -246,7 +275,7 @@ async function verifyPackagedRenderer() {
   const endpoint = `http://127.0.0.1:${rendererPort}`;
   let browser;
   try {
-    await waitForRendererEndpoint(endpoint);
+    await waitForRendererReadyTarget(endpoint);
     browser = await chromium.connectOverCDP(endpoint);
     const context = browser.contexts()[0];
     if (!context) throw new Error('packaged renderer did not expose a browser context');
@@ -315,19 +344,25 @@ async function verifyPackagedRenderer() {
   }
 }
 
-child.stdout.on('data', d => scan(d.toString()));
-child.stderr.on('data', d => scan(d.toString()));
+child.stdout.on('data', d => {
+  const chunk = d.toString();
+  stdoutOutput += chunk;
+  scan(chunk);
+});
+child.stderr.on('data', d => {
+  const chunk = d.toString();
+  stderrOutput += chunk;
+  scan(chunk);
+});
 
 const timer = setTimeout(
   () => finish('timed out before the app reached a boot milestone'),
   VERIFY_RENDERER ? RENDERER_TIMEOUT_MS : TIMEOUT_MS
 );
 
-// Connect as soon as Chromium exposes its loopback endpoint. Hardened packaged
-// builds terminate an unclaimed remote-debugging endpoint after a short grace
-// period, which can be earlier than first-boot DB migrations + server startup.
-// Holding the CDP connection open lets the journey wait truthfully for the
-// BrowserWindow instead of racing a 15-second endpoint shutdown.
+// Do not attach until the packaged renderer has reached its stable first-run
+// route. Electron exposes the DevTools port before its sandbox preload has
+// startup data, and an eager CDP attach can intermittently trip that boundary.
 if (VERIFY_RENDERER) {
   void verifyPackagedRenderer();
 }
@@ -354,6 +389,21 @@ function complete(error) {
   if (completed) return;
   completed = true;
   removeUserDataBestEffort();
+  if (!error) {
+    const unexpectedOutput = [
+      ...stdoutOutput
+        .split(/\r?\n/)
+        .filter(line => classifyElectronStdoutLine(line) === 'unexpected'),
+      ...stderrOutput
+        .split(/\r?\n/)
+        .filter(line => classifyElectronStderrLine(line) === 'unexpected'),
+    ];
+    if (unexpectedOutput.length > 0) {
+      error =
+        `packaged process emitted unexpected warning/error output:\n` +
+        redactSensitiveOutput(unexpectedOutput.slice(-25).join('\n'));
+    }
+  }
   if (error) {
     console.error('[desktop-smoke] --- captured output (tail) ---');
     console.error(redactSensitiveOutput(output).split('\n').slice(-25).join('\n'));

@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import {
   buildRendererContentSecurityPolicy,
   isFastifyApiResponse,
+  resolveLocalApiOrigin,
 } from '../renderer-security-headers.ts';
 
 const defaultRuntime = {
@@ -12,6 +13,18 @@ const defaultRuntime = {
 };
 
 describe('renderer security headers', () => {
+  it('projects the embedded API origin consistently for explicit and wildcard binds', () => {
+    assert.equal(resolveLocalApiOrigin(defaultRuntime), 'http://127.0.0.1:8090');
+    assert.equal(
+      resolveLocalApiOrigin({ ...defaultRuntime, bindHost: '0.0.0.0', bindPort: 9123 }),
+      'http://127.0.0.1:9123'
+    );
+    assert.equal(
+      resolveLocalApiOrigin({ ...defaultRuntime, bindHost: '::', bindPort: 9124 }),
+      'http://[::1]:9124'
+    );
+  });
+
   it('allows the default loopback API and Vite websocket origins', () => {
     const csp = buildRendererContentSecurityPolicy({
       isPackagedBuild: false,

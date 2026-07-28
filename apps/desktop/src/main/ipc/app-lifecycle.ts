@@ -9,6 +9,7 @@ import { app, ipcMain } from 'electron';
 import { resolveRuntimeConfig } from '@puntovivo/server';
 import { checkForAppUpdates, getAutoUpdateStatus, restartToApplyAppUpdate } from '../auto-updater';
 import { scheduleE2eShutdown } from '../e2e-shutdown.js';
+import { resolveLocalApiOrigin } from '../renderer-security-headers.js';
 import { getServerUrl } from '../runtime.js';
 
 export function registerAppLifecycleIpc(): void {
@@ -26,6 +27,7 @@ export function registerAppLifecycleIpc(): void {
     const runtime = resolveRuntimeConfig({ env: process.env });
     return {
       authorityMode: runtime.authorityMode,
+      localApiUrl: resolveLocalApiOrigin(runtime),
       hubUrl: runtime.hubUrl,
       siteId: runtime.siteId,
       deviceId: runtime.deviceId,

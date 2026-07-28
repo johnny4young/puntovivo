@@ -232,12 +232,13 @@ export interface PeripheralsAPI {
  * synchronously so `apps/web/src/lib/trpc.ts` can resolve the tRPC
  * base URL at module init (the alternative — async fetch — would
  * race against the first tRPC call). The shape mirrors the server's
- * `RuntimeConfig` projection used by /api/health, minus the bind
- * surface (the renderer never needs `bindHost` / `bindPort` because
- * it talks to the URL it was told to talk to, not to its own bind).
+ * `RuntimeConfig` projection used by /api/health. `localApiUrl` is a
+ * preformatted origin so the renderer never reconstructs the main process bind
+ * contract or silently falls back to the historical port 8090.
  */
 export interface RendererRuntimeConfig {
   authorityMode: 'device_local' | 'site_hub' | 'hub_client';
+  localApiUrl: string;
   hubUrl: string | null;
   siteId: string | null;
   deviceId: string | null;

@@ -49,7 +49,7 @@ test('release packaging runs the full target-runtime smoke', () => {
   assert.doesNotMatch(releaseWorkflow, /run-desktop-smoke\.mjs[^\n]*--structure-only/);
   assert.match(
     releaseWorkflow,
-    /xvfb-run -a node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
+    /dbus-run-session -- xvfb-run -a node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
   );
   assert.match(
     releaseWorkflow,
@@ -57,13 +57,29 @@ test('release packaging runs the full target-runtime smoke', () => {
   );
   assert.match(
     releaseWorkflow,
-    /xvfb-run -a node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder --renderer/
+    /dbus-run-session -- xvfb-run -a node scripts\/run-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder --renderer/
+  );
+  assert.doesNotMatch(releaseWorkflow, /uses:\s+pnpm\/action-setup/);
+  assert.equal(
+    (
+      releaseWorkflow.match(
+        /npm install --global "pnpm@\$pnpmVersion" --ignore-scripts --no-audit --no-fund/g
+      ) ?? []
+    ).length,
+    3
   );
 });
 
 test('packaged renderer carries its preload and file-relative web assets', () => {
   assert.match(builderConfig, /- \.vite\/preload\/\*\*/);
   assert.match(webViteConfig, /base: mode === 'production' \? '\.\/' : '\/'/);
+});
+
+test('Linux package metadata associates the launcher with the running window', () => {
+  assert.equal(desktopPackage.desktopName, 'Puntovivo.desktop');
+  assert.doesNotMatch(builderConfig, /^\s+desktopName:/m);
+  assert.match(builderConfig, /^\s+syncDesktopName: true$/m);
+  assert.match(builderConfig, /^\s+category: Office$/m);
 });
 
 test('Electron native rebuild avoids platform shell shims', () => {

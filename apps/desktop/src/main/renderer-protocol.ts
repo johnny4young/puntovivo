@@ -7,7 +7,7 @@
  * inside resources/dist.
  */
 
-import { isAbsolute, relative, resolve } from 'node:path';
+import { basename, isAbsolute, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { CustomScheme } from 'electron';
 
@@ -74,14 +74,39 @@ export function resolvePackagedRendererPath(
   return candidate;
 }
 
+/**
+ * The web build carries a static-host fallback CSP in a meta tag. Packaged
+ * Electron responses receive a stricter runtime-aware CSP header instead, and
+ * browsers enforce both policies when the meta tag remains. Remove only that
+ * known meta tag so an ephemeral embedded API port is governed by the header
+ * generated in the main process rather than blocked by the static port 8090.
+ */
+export function stripStaticMetaCsp(html: string): string {
+  return html.replace(
+    /<meta\s+http-equiv=(["'])Content-Security-Policy\1[\s\S]*?\/>/i,
+    ''
+  );
+}
+
 export function installPackagedRendererProtocol(args: {
   protocol: ProtocolHandlerRegistrar;
   net: RendererProtocolNet;
   rendererRoot: string;
 }): void {
-  args.protocol.handle(PACKAGED_RENDERER_SCHEME, request => {
+  args.protocol.handle(PACKAGED_RENDERER_SCHEME, async request => {
     const assetPath = resolvePackagedRendererPath(args.rendererRoot, request.url);
     if (!assetPath) return new Response('Not found', { status: 404 });
-    return args.net.fetch(pathToFileURL(assetPath).toString());
+    const response = await args.net.fetch(pathToFileURL(assetPath).toString());
+    if (basename(assetPath).toLowerCase() !== 'index.html') {
+      return response;
+    }
+
+    const headers = new Headers(response.headers);
+    headers.delete('content-length');
+    return new Response(stripStaticMetaCsp(await response.text()), {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
   });
 }

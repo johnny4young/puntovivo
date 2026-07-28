@@ -56,6 +56,7 @@ describe('getRuntimeConfigSync', () => {
     setBridge(undefined);
     expect(getRuntimeConfigSync()).toEqual({
       authorityMode: 'device_local',
+      localApiUrl: null,
       hubUrl: null,
       siteId: null,
       deviceId: null,
@@ -65,6 +66,7 @@ describe('getRuntimeConfigSync', () => {
   it('returns the bridge value when Electron preload exposes hub_client', () => {
     setBridge({
       authorityMode: 'hub_client',
+      localApiUrl: 'http://127.0.0.1:8090',
       hubUrl: 'http://hub.tienda.local:8090',
       siteId: 'sede-norte',
       deviceId: 'caja-2',
@@ -86,6 +88,7 @@ describe('getRuntimeConfigSync', () => {
           count++;
           return {
             authorityMode: 'site_hub',
+            localApiUrl: 'http://127.0.0.1:8090',
             hubUrl: null,
             siteId: null,
             deviceId: null,
@@ -113,6 +116,7 @@ describe('getRuntimeConfigSync', () => {
     setBridge({
       // deliberately invalid runtime shape from a buggy preload
       authorityMode: 'cluster' as unknown as RendererRuntimeConfig['authorityMode'],
+      localApiUrl: 'http://127.0.0.1:8090',
       hubUrl: null,
       siteId: null,
       deviceId: null,
@@ -122,19 +126,21 @@ describe('getRuntimeConfigSync', () => {
 });
 
 describe('resolveApiBaseUrl', () => {
-  it('returns the default URL in device_local mode', () => {
+  it('returns the preload-projected local URL in device_local mode', () => {
     setBridge({
       authorityMode: 'device_local',
+      localApiUrl: 'http://127.0.0.1:52635',
       hubUrl: null,
       siteId: null,
       deviceId: null,
     });
-    expect(resolveApiBaseUrl('http://localhost:8090')).toBe('http://localhost:8090');
+    expect(resolveApiBaseUrl('http://localhost:8090')).toBe('http://127.0.0.1:52635');
   });
 
   it('returns the hubUrl in hub_client mode and strips a trailing slash', () => {
     setBridge({
       authorityMode: 'hub_client',
+      localApiUrl: 'http://127.0.0.1:8090',
       hubUrl: 'http://hub.tienda.local:8090/',
       siteId: null,
       deviceId: null,
@@ -145,6 +151,7 @@ describe('resolveApiBaseUrl', () => {
   it('returns the default URL in hub_client mode when hubUrl is missing (operator misconfig)', () => {
     setBridge({
       authorityMode: 'hub_client',
+      localApiUrl: null,
       hubUrl: null,
       siteId: null,
       deviceId: null,
@@ -154,9 +161,21 @@ describe('resolveApiBaseUrl', () => {
     expect(resolveApiBaseUrl('http://localhost:8090')).toBe('http://localhost:8090');
   });
 
-  it('returns the default URL in site_hub mode (the hub IS the local server)', () => {
+  it('returns the preload-projected URL in site_hub mode (the hub IS the local server)', () => {
     setBridge({
       authorityMode: 'site_hub',
+      localApiUrl: 'http://127.0.0.1:9123',
+      hubUrl: null,
+      siteId: null,
+      deviceId: null,
+    });
+    expect(resolveApiBaseUrl('http://localhost:8090')).toBe('http://127.0.0.1:9123');
+  });
+
+  it('rejects malformed preload URLs and retains the web default', () => {
+    setBridge({
+      authorityMode: 'device_local',
+      localApiUrl: 'file:///tmp/not-an-api',
       hubUrl: null,
       siteId: null,
       deviceId: null,

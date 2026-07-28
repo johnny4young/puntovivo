@@ -31,6 +31,7 @@ export type AuthorityMode = 'device_local' | 'site_hub' | 'hub_client';
 
 export interface RendererRuntimeConfig {
   authorityMode: AuthorityMode;
+  localApiUrl: string | null;
   hubUrl: string | null;
   siteId: string | null;
   deviceId: string | null;
@@ -38,6 +39,7 @@ export interface RendererRuntimeConfig {
 
 const DEVICE_LOCAL_DEFAULT: RendererRuntimeConfig = {
   authorityMode: 'device_local',
+  localApiUrl: null,
   hubUrl: null,
   siteId: null,
   deviceId: null,
@@ -66,8 +68,18 @@ function readBridgeConfig(): RendererRuntimeConfig | null {
     ) {
       return null;
     }
+    const localApiUrl = (() => {
+      if (typeof raw.localApiUrl !== 'string' || raw.localApiUrl.length === 0) return null;
+      try {
+        const parsed = new URL(raw.localApiUrl);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.origin : null;
+      } catch {
+        return null;
+      }
+    })();
     return {
       authorityMode: raw.authorityMode,
+      localApiUrl,
       hubUrl: typeof raw.hubUrl === 'string' && raw.hubUrl.length > 0 ? raw.hubUrl : null,
       siteId: typeof raw.siteId === 'string' && raw.siteId.length > 0 ? raw.siteId : null,
       deviceId: typeof raw.deviceId === 'string' && raw.deviceId.length > 0 ? raw.deviceId : null,
@@ -105,7 +117,7 @@ export function resolveApiBaseUrl(defaultUrl: string): string {
   if (cfg.authorityMode === 'hub_client' && cfg.hubUrl) {
     return cfg.hubUrl.replace(/\/+$/, '');
   }
-  return defaultUrl;
+  return cfg.localApiUrl ?? defaultUrl;
 }
 
 /**
