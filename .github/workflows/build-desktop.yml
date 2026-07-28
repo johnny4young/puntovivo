@@ -17,8 +17,9 @@ name: Build Desktop (manual)
 # ~5-8 minutes per OS.
 # - full build:    runs `make:desktop` per chosen OS, smoke-tests the packaged
 # app, and uploads both artifacts and a checksummed candidate-evidence manifest.
-# Distribution trust remains "not assessed" because signing material lives only
-# in release.yml. Use this when you want an immutable cross-OS candidate proof.
+# Distribution trust is reported from each host's native tooling but not gated
+# here: manual artifacts are intentionally unsigned. release.yml owns the
+# signed trust gate. Use this when you want an immutable cross-OS candidate proof.
 # ~10-20 minutes per OS.
 #
 # Reference: release.yml's `release-desktop` job uses the same matrix
