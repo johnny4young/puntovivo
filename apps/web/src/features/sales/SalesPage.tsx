@@ -63,6 +63,7 @@ export function SalesPage() {
   // las ventas suspendidas viven detrás de cajones laterales (Drawer).
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   // multi-cart workspace UX state. The label-prompt modal
   // captures an optional "Mesa 5" annotation before the Suspend server
   // orchestration runs; the suspended panel is toggled by Ctrl+R or
@@ -146,6 +147,9 @@ export function SalesPage() {
     currentTenant,
     user,
     selectedRegisterAssignmentId,
+    shouldLoadSalesHistory: isHistoryDrawerOpen,
+    shouldLoadProductFilters: isProductSearchOpen,
+    shouldLoadCustomers: isPaymentModalOpen,
   });
 
   // slice 10 — the sales + cash-session mutation handles and the
@@ -221,13 +225,10 @@ export function SalesPage() {
   // slice 16b-1 — the modal/UI controller (the F1 payment-open gate
   // + F2 fast-cash, product search, the three cash-session modals, the
   // suspended-panel toggle, the history-reprint jump) + the checkout
-  // preflight live in `useSalesModals`. The payment / cash-session `isOpen`
-  // + `*Error` state stays in the shell (injected into `useSalesMutations`),
-  // so its setters are threaded in here.
+  // preflight live in `useSalesModals`. Product-search, payment, and cash-
+  // session visibility stay in the shell; their setters are threaded in.
   const {
     preflight,
-    isProductSearchOpen,
-    setIsProductSearchOpen,
     productSearchInitialQuery,
     productSearchDialogKey,
     paymentModalKey,
@@ -259,6 +260,7 @@ export function SalesPage() {
     checkoutReadinessItems,
     isPaymentModalOpen,
     productSearchQuery,
+    setIsProductSearchOpen,
     setSaleError,
     setIsPaymentModalOpen,
     setCashSessionError,

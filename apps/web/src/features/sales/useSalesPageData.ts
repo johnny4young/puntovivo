@@ -33,13 +33,19 @@ export interface UseSalesPageDataParams {
   user: User | null;
   /** The operator-picked register, or null to fall back to the first free one. */
   selectedRegisterAssignmentId: string | null;
+  /** History data is secondary and loads only when its drawer is visible. */
+  shouldLoadSalesHistory: boolean;
+  /** Product-filter catalogs load only while the product search is visible. */
+  shouldLoadProductFilters: boolean;
+  /** The customer catalog loads only while checkout needs it. */
+  shouldLoadCustomers: boolean;
 }
 
 /**
- * Owns the SalesPage read side: the high-traffic entry queries (sales,
- * customers, categories, providers, active cash session, register
- * assignments, suspended drafts, the SHARED peripherals subscription, and
- * checkout readiness), the `maybeAutoPrint` dispatcher, the
+ * Owns the SalesPage read side: the operational entry queries plus the
+ * interaction-gated history, customer, category, and provider queries; the
+ * SHARED peripherals subscription; checkout readiness; the `maybeAutoPrint`
+ * dispatcher; the
  * `checkoutReadinessItems` preflight memo, and the normalized arrays + derived
  * flags the shell threads into the checkout panel, the modal clusters, and the
  * scanner/drawer hooks. The single `peripherals.activeForSite` subscription
@@ -51,22 +57,34 @@ export function useSalesPageData({
   currentTenant,
   user,
   selectedRegisterAssignmentId,
+  shouldLoadSalesHistory,
+  shouldLoadProductFilters,
+  shouldLoadCustomers,
 }: UseSalesPageDataParams) {
-  // `placeholderData: keepPreviousData` on the high-traffic
-  // entry queries so navigating into /sales (or re-fetching on a key
-  // change such as a site switch) keeps the last data on screen instead
-  // of blanking the shell while the new request is in flight. Paired with
-  // the hover-prefetch on the sidebar /sales entry (usePrefetchSales).
+  // History and modal-only catalogs stay disabled during the critical
+  // first paint. `placeholderData: keepPreviousData` preserves any hover-
+  // prefetched or previously viewed data while those surfaces refresh.
   const salesQuery = trpc.sales.list.useQuery(
     { page: 1, perPage: 50 },
-    { placeholderData: keepPreviousData }
+    {
+      enabled: shouldLoadSalesHistory,
+      placeholderData: keepPreviousData,
+    }
   );
   const customersQuery = trpc.customers.list.useQuery(
     { page: 1, perPage: 100, isActive: true },
-    { placeholderData: keepPreviousData }
+    {
+      enabled: shouldLoadCustomers,
+      placeholderData: keepPreviousData,
+    }
   );
-  const categoriesQuery = trpc.categories.tree.useQuery();
-  const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 100 });
+  const categoriesQuery = trpc.categories.tree.useQuery(undefined, {
+    enabled: shouldLoadProductFilters,
+  });
+  const providersQuery = trpc.providers.list.useQuery(
+    { page: 1, perPage: 100 },
+    { enabled: shouldLoadProductFilters }
+  );
   const activeCashSessionQuery = trpc.cashSessions.getActive.useQuery(
     { siteId: currentSite?.id },
     {
