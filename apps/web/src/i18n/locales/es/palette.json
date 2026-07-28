@@ -1,14 +1,46 @@
 {
-  "title": "Paleta de comandos",
-  "searchPlaceholder": "Buscar acciones o productos por nombre, SKU o código…",
+  "title": "¿Qué quieres hacer?",
+  "searchPlaceholder": "Escribe una tarea, producto, SKU o código…",
   "noResults": "Sin resultados",
-  "noResultsHint": "Prueba con otra palabra, o cierra la paleta con Esc y usa el menú lateral.",
+  "noResultsHint": "Prueba con una palabra simple, como vender, producto, existencias o cierre.",
   "groups": {
     "navigate": "Ir a",
     "command": "Ejecutar",
-    "recent": "Recientes",
+    "recent": "Tareas recientes",
     "products": "Productos para vender",
-    "actions": "Acciones y destinos"
+    "actions": "Más resultados"
+  },
+  "tasks": {
+    "today": {
+      "label": "Ver lo importante de hoy",
+      "description": "Ventas, alertas y pendientes de la tienda.",
+      "keywords": "hoy inicio resumen panel alertas pendientes resultados"
+    },
+    "sell": {
+      "label": "Hacer una venta",
+      "description": "Escanea productos, revisa el total y cobra.",
+      "keywords": "vender venta caja cobrar escanear código ticket recibo"
+    },
+    "products": {
+      "label": "Agregar o buscar productos",
+      "description": "Crea artículos y actualiza sus datos y precios.",
+      "keywords": "producto artículo catálogo precio sku código barras crear agregar"
+    },
+    "inventory": {
+      "label": "Revisar existencias",
+      "description": "Consulta cantidades y registra movimientos de productos.",
+      "keywords": "inventario existencias stock cantidad ajuste movimiento bodega"
+    },
+    "dayClose": {
+      "label": "Cerrar el día",
+      "description": "Revisa caja y ventas antes de terminar.",
+      "keywords": "cierre día turno caja ventas terminar"
+    },
+    "businessSetup": {
+      "label": "Configurar el negocio",
+      "description": "Completa los datos esenciales de la tienda.",
+      "keywords": "empresa negocio configurar tienda país idioma facturación sede"
+    }
   },
   "products": {
     "searching": "Buscando productos…",
@@ -19,25 +51,19 @@
   },
   "actions": {
     "navigate": {
-      "dashboard": "Abrir tablero",
-      "sales": "Abrir ventas",
-      "products": "Abrir productos",
       "customers": "Abrir clientes",
-      "inventory": "Abrir inventario",
       "purchases": "Abrir compras",
       "quotations": "Abrir cotizaciones",
-      "operations": "Abrir centro de operaciones",
-      "dayClose": "Abrir cierre del día",
+      "operations": "Revisar soporte del sistema",
       "posTouch": "Abrir POS Touch",
       "kds": "Abrir KDS",
       "customerDisplay": "Abrir pantalla del cliente",
       "mobileWaiter": "Abrir mesero móvil",
       "restaurantTables": "Abrir mesas del restaurante",
-      "company": "Abrir empresa",
       "dataImport": "Abrir importación de datos",
       "sites": "Abrir sucursales",
       "users": "Abrir usuarios",
-      "peripherals": "Abrir periféricos",
+      "peripherals": "Abrir dispositivos",
       "auditLogs": "Abrir auditoría",
       "fiscalDocuments": "Abrir documentos fiscales",
       "fiscalReports": "Abrir reportes fiscales"
@@ -55,34 +81,28 @@
   },
   "descriptions": {
     "navigate": {
-      "dashboard": "Totales del día, alertas y atajos.",
-      "sales": "Cockpit de cajero del sitio activo.",
-      "products": "Catálogo, variantes, precios y stock.",
       "customers": "Directorio de clientes, crédito y estado de cuenta.",
-      "inventory": "Movimientos de inventario y ajustes por sitio.",
       "purchases": "Órdenes de compra y recepción.",
       "quotations": "Crear cotizaciones y convertirlas en ventas.",
-      "operations": "Cola de operaciones y alertas entre sitios.",
-      "dayClose": "Revisa ventas, caja, fiscal, pagos y riesgos de un día comercial.",
+      "operations": "Estado de servicios, alertas y pasos de recuperación.",
       "posTouch": "Superficie de cobro táctil para el sitio activo.",
       "kds": "Pantalla de cocina con los tickets de preparación.",
       "customerDisplay": "Pantalla orientada al cliente con la venta activa.",
       "mobileWaiter": "Tableta para tomar pedidos en mesa.",
       "restaurantTables": "Mapa de salón y catálogo de mesas para servicio en sala.",
-      "company": "Locale, fiscal, pagos, módulos, telemetría.",
-      "dataImport": "Asigna, valida e importa los datos del catálogo de lanzamiento.",
-      "sites": "Configuración por sitio y secuenciales.",
-      "users": "Lista de operadores y roles.",
-      "peripherals": "Impresora, lector, cajón, hub.",
-      "auditLogs": "Historial de acciones sensibles del tenant.",
-      "fiscalDocuments": "Documentos fiscales emitidos por el tenant.",
+      "dataImport": "Revisa e importa los datos iniciales del catálogo.",
+      "sites": "Datos de sedes y numeración de documentos.",
+      "users": "Personas con acceso y sus permisos.",
+      "peripherals": "Impresora, lector, cajón y otros dispositivos.",
+      "auditLogs": "Historial de acciones sensibles del negocio.",
+      "fiscalDocuments": "Documentos fiscales emitidos por el negocio.",
       "fiscalReports": "Reportes y descargas para la autoridad fiscal."
     },
     "command": {
-      "newSale": "Limpia el carrito activo y aterriza en /sales.",
+      "newSale": "Limpia el carrito actual para empezar de nuevo.",
       "logout": "Cierra la sesión actual en este puesto.",
-      "createProduct": "Abre el formulario de producto precargado en la venta activa.",
-      "createCustomer": "Abre el formulario de cliente precargado en la venta activa."
+      "createProduct": "Abre el formulario para agregar un producto.",
+      "createCustomer": "Abre el formulario para agregar un cliente."
     }
   }
 }

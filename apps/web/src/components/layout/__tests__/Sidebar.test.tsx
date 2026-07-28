@@ -1,19 +1,19 @@
 /**
- * (slice A) — Sidebar workspace-render contract tests.
+ * Task-first sidebar and advanced workspace contract tests.
  *
  * Pins the user-facing invariants of the workspace refactor:
  *
- * - Admin sees exactly eight workspace headers with Dashboard
- * nested under Operate.
- * - Cashier sees only the Sell workspace (the other seven
- * workspaces gate to manager or admin).
+ * - Every role sees at most five frequent tasks.
+ * - The full workspace taxonomy stays behind progressive disclosure.
  * - The workspace that contains the active route auto-expands.
+ * - Direct advanced routes open the tools layer automatically.
+ * - Module hydration can correct the selected mobile workspace.
  * - Clicking a workspace header toggles aria-expanded.
  * - localStorage preserves the collapsed state across mounts.
  *
  * @module components/layout/__tests__/Sidebar.test
  */
-import { act, fireEvent, render, screen, waitFor } from '@/test/utils';
+import { act, fireEvent, render, screen, waitFor, within } from '@/test/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { assertNoA11yViolations } from '@/test/a11y';
 import { Sidebar } from '../Sidebar';
@@ -31,6 +31,7 @@ const allModulesOn = {
   'anomaly-detection': true,
 };
 let mockModules: Record<string, boolean> = { ...allModulesOn };
+let mockModulesPlaceholder = false;
 let mockPathname = '/dashboard';
 let desktopSidebar = true;
 const { anomalyQueryState, prefetchSalesMock } = vi.hoisted(() => ({
@@ -55,8 +56,8 @@ vi.mock('@/features/modules', async () => {
     ...actual,
     useModulesSnapshot: () => ({
       modules: mockModules,
-      isLoading: false,
-      isPlaceholder: false,
+      isLoading: mockModulesPlaceholder,
+      isPlaceholder: mockModulesPlaceholder,
     }),
   };
 });
@@ -101,6 +102,7 @@ const sidebarProps = {
 beforeEach(() => {
   mockUserRole = 'admin';
   mockModules = { ...allModulesOn };
+  mockModulesPlaceholder = false;
   mockPathname = '/dashboard';
   desktopSidebar = true;
   anomalyQueryState.high = 0;
@@ -122,6 +124,14 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
+function openDesktopMoreTools(): void {
+  fireEvent.click(screen.getByTestId('sidebar-more-tools-toggle'));
+}
+
+function openMobileMoreTools(): void {
+  fireEvent.click(screen.getByTestId('mobile-more-tools-toggle'));
+}
+
 describe('Sidebar workspaces', () => {
   it('uses the shared 44px shell control for rail collapse', () => {
     render(<Sidebar {...sidebarProps} />);
@@ -131,8 +141,18 @@ describe('Sidebar workspaces', () => {
     expect(collapse).toHaveClass('btn-outline', 'btn-icon', 'h-11', 'w-11');
   });
 
-  it('admin sees 8 workspace headers with Dashboard inside Operate', () => {
+  it('admin starts with five frequent tasks and can reveal eight tool groups', () => {
     render(<Sidebar {...sidebarProps} />);
+    expect(screen.getAllByTestId(/^sidebar-primary-task-/)).toHaveLength(5);
+    expect(screen.getByRole('link', { name: 'See what matters today' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Make a sale' })).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-more-tools-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+
+    openDesktopMoreTools();
+
     // Count every workspace header regardless of expanded state by
     // matching their stable test ids.
     const expanded = screen.queryAllByRole('button', { expanded: true });
@@ -141,43 +161,56 @@ describe('Sidebar workspaces', () => {
       btn.getAttribute('data-testid')?.startsWith('sidebar-workspace-')
     );
     expect(headers).toHaveLength(8);
-    expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
     expect(screen.getByTestId('sidebar-workspace-operate')).toHaveAttribute(
       'aria-expanded',
       'true'
     );
   });
 
-  it('cashier sees only the Sell workspace and NO Dashboard link', () => {
+  it('cashier starts with one sale task and reveals only selling tools', () => {
     mockUserRole = 'cashier';
+    mockPathname = '/sales';
     render(<Sidebar {...sidebarProps} />);
-    const sellHeader = screen.queryByTestId('sidebar-workspace-sell');
-    expect(sellHeader).toBeInTheDocument();
+
+    expect(screen.getAllByTestId(/^sidebar-primary-task-/)).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Make a sale' })).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-more-tools-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    expect(screen.queryByRole('link', { name: 'See what matters today' })).not.toBeInTheDocument();
+
+    openDesktopMoreTools();
+
+    expect(screen.getByTestId('sidebar-workspace-sell')).toBeInTheDocument();
     expect(screen.queryByTestId('sidebar-workspace-finance')).not.toBeInTheDocument();
     expect(screen.queryByTestId('sidebar-workspace-setup')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /dashboard/i })).not.toBeInTheDocument();
   });
 
-  it('viewer keeps Dashboard through the single Operate workspace', () => {
+  it('viewer gets only the today task and can reveal its read-only tool group', () => {
     mockUserRole = 'viewer';
     render(<Sidebar {...sidebarProps} />);
 
+    expect(screen.getAllByTestId(/^sidebar-primary-task-/)).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'See what matters today' })).toBeInTheDocument();
+    openDesktopMoreTools();
+
     expect(screen.getByTestId('sidebar-workspace-operate')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /operations/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Today' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /system support/i })).not.toBeInTheDocument();
     expect(screen.queryByTestId('sidebar-workspace-sell')).not.toBeInTheDocument();
   });
 
-  it('keeps the anomaly badge and accessible count on Dashboard inside Operate', () => {
+  it('keeps the anomaly badge and accessible count on the today task', () => {
     anomalyQueryState.high = 12;
     render(<Sidebar {...sidebarProps} />);
 
     expect(
       screen.getByRole('link', {
-        name: 'Dashboard (12 high-severity anomalies pending review)',
+        name: 'See what matters today (12 high-severity anomalies pending review)',
       })
     ).toBeInTheDocument();
-    expect(screen.getByText('9+')).toBeInTheDocument();
+    expect(within(screen.getByTestId('sidebar-primary-task-today')).getByText('9+')).toBeVisible();
   });
 
   it('auto-expands the workspace that contains the active route', () => {
@@ -199,11 +232,16 @@ describe('Sidebar workspaces', () => {
       'aria-expanded',
       'true'
     );
-    expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole('link', { name: 'Products' })
+        .some(link => link.getAttribute('href') === '/products')
+    ).toBe(true);
   });
 
   it('clicking a workspace header toggles aria-expanded and persists in localStorage', () => {
     render(<Sidebar {...sidebarProps} />);
+    openDesktopMoreTools();
     // /dashboard now belongs to Operate (), so use an inactive
     // workspace to keep this test focused on disclosure persistence.
     const catalog = screen.getByTestId('sidebar-workspace-catalog');
@@ -223,6 +261,7 @@ describe('Sidebar workspaces', () => {
     // sidebar respects the seed on mount.
     window.localStorage.setItem('puntovivo:sidebar:workspace:catalog:collapsed', 'false');
     render(<Sidebar {...sidebarProps} />);
+    openDesktopMoreTools();
     const catalog = screen.getByTestId('sidebar-workspace-catalog');
     expect(catalog.getAttribute('aria-expanded')).toBe('true');
   });
@@ -240,6 +279,7 @@ describe('Sidebar workspaces', () => {
 describe('Sidebar workspace header navigation', () => {
   it('catalog, procurement, finance workspace headers render an anchor link to their landing route', () => {
     render(<Sidebar {...sidebarProps} />);
+    openDesktopMoreTools();
     const cases: Array<[string, string]> = [
       ['sidebar-workspace-link-catalog', '/catalog'],
       ['sidebar-workspace-link-procurement', '/procurement'],
@@ -254,6 +294,7 @@ describe('Sidebar workspace header navigation', () => {
 
   it('workspaces without a dedicated landing keep their header link pointing at the first item route', () => {
     render(<Sidebar {...sidebarProps} />);
+    openDesktopMoreTools();
     const cases: Array<[string, string]> = [
       ['sidebar-workspace-link-sell', '/sales'],
       ['sidebar-workspace-link-operate', '/dashboard'],
@@ -268,10 +309,10 @@ describe('Sidebar workspace header navigation', () => {
     }
   });
 
-  it('prefetches sales from the visible Sell workspace header link', () => {
+  it('prefetches sales from the visible primary sale task', () => {
     render(<Sidebar {...sidebarProps} />);
 
-    const sellLink = screen.getByTestId('sidebar-workspace-link-sell');
+    const sellLink = screen.getByTestId('sidebar-primary-task-sell');
     fireEvent.mouseEnter(sellLink);
     fireEvent.focus(sellLink);
 
@@ -280,11 +321,12 @@ describe('Sidebar workspace header navigation', () => {
 
   it('the chevron button remains the canonical aria-expanded disclosure surface', () => {
     render(<Sidebar {...sidebarProps} />);
+    openDesktopMoreTools();
     const chevron = screen.getByTestId('sidebar-workspace-catalog');
     expect(chevron.tagName).toBe('BUTTON');
     expect(chevron.getAttribute('aria-expanded')).toBe('false');
     expect(chevron.getAttribute('aria-controls')).toBe('sidebar-workspace-panel-catalog');
-    expect(chevron).toHaveAccessibleName('Expand Catalog');
+    expect(chevron).toHaveAccessibleName('Expand Products');
   });
 });
 
@@ -293,66 +335,82 @@ describe('responsive workspace navigation', () => {
     desktopSidebar = false;
   });
 
-  it('renders one workspace route set at a time for an admin', () => {
+  it('starts with five tasks and reveals one tool group at a time for an admin', () => {
     render(<Sidebar {...sidebarProps} />);
+
+    expect(screen.getAllByTestId(/^mobile-primary-task-/)).toHaveLength(5);
+    expect(screen.getByTestId('mobile-primary-task-today')).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+
+    openMobileMoreTools();
 
     const options = screen.getAllByRole('radio');
     expect(options).toHaveLength(8);
-    expect(screen.getByRole('radio', { name: 'Operate' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Operations' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Today and close' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    expect(screen.getByRole('link', { name: 'Today' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'System support' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Products' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Catalog' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Products' }));
 
-    expect(screen.getByRole('radio', { name: 'Catalog' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Products' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open Catalog overview' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open Products overview' })).toHaveAttribute(
       'href',
       '/catalog'
     );
     expect(screen.queryByRole('link', { name: 'Sales' })).not.toBeInTheDocument();
   });
 
-  it('keeps the Dashboard anomaly badge accessible in the mobile workspace drawer', () => {
+  it('keeps the today anomaly badge accessible in the mobile task list', () => {
     anomalyQueryState.high = 3;
     render(<Sidebar {...sidebarProps} />);
 
     expect(
       screen.getByRole('link', {
-        name: 'Dashboard (3 high-severity anomalies pending review)',
+        name: 'See what matters today (3 high-severity anomalies pending review)',
       })
     ).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(within(screen.getByTestId('mobile-primary-task-today')).getByText('3')).toBeVisible();
   });
 
   it('selects the workspace that owns a direct landing route', () => {
     mockPathname = '/catalog';
     render(<Sidebar {...sidebarProps} />);
 
-    expect(screen.getByRole('radio', { name: 'Catalog' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Products' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sales' })).not.toBeInTheDocument();
   });
 
-  it('keeps the cashier on the single Sell workspace without a redundant selector', () => {
+  it('keeps the cashier focused on selling until more tools are requested', () => {
     mockUserRole = 'cashier';
+    mockPathname = '/sales';
     render(<Sidebar {...sidebarProps} />);
 
     expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Sell routes' })).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-primary-task-sell')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Sell tools' })).not.toBeInTheDocument();
+
+    openMobileMoreTools();
+
+    expect(screen.getByRole('region', { name: 'Sell tools' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sales' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Today' })).not.toBeInTheDocument();
   });
 
   it('supports roving arrow-key selection across workspace options', async () => {
     render(<Sidebar {...sidebarProps} />);
-    const operate = screen.getByRole('radio', { name: 'Operate' });
+    openMobileMoreTools();
+    const operate = screen.getByRole('radio', { name: 'Today and close' });
     operate.focus();
 
     fireEvent.keyDown(operate, { key: 'ArrowRight' });
 
-    const catalog = screen.getByRole('radio', { name: 'Catalog' });
+    const catalog = screen.getByRole('radio', { name: 'Products' });
     expect(catalog).toHaveAttribute('aria-checked', 'true');
     await waitFor(() => expect(catalog).toHaveFocus());
     expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
@@ -363,7 +421,7 @@ describe('responsive workspace navigation', () => {
     render(<Sidebar {...sidebarProps} onCloseMobile={onCloseMobile} />);
 
     const dialog = screen.getByRole('dialog', {
-      name: 'Mobile workspace navigation',
+      name: 'Task and tools navigation',
     });
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(screen.getByRole('button', { name: 'Close navigation' })).toHaveClass(
@@ -409,6 +467,23 @@ describe('responsive workspace navigation', () => {
   it('has no serious accessibility violations while open', async () => {
     render(<Sidebar {...sidebarProps} />);
     await assertNoA11yViolations(document.body);
+  });
+
+  it('updates the selected tool group after module hydration resolves the active route', () => {
+    mockPathname = '/operations';
+    mockModulesPlaceholder = true;
+    const { rerender } = render(<Sidebar {...sidebarProps} />);
+
+    expect(screen.getByRole('radio', { name: 'Sell' })).toHaveAttribute('aria-checked', 'true');
+
+    mockModulesPlaceholder = false;
+    rerender(<Sidebar {...sidebarProps} />);
+
+    expect(screen.getByRole('radio', { name: 'Today and close' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    expect(screen.getByRole('link', { name: 'System support' })).toBeInTheDocument();
   });
 });
 

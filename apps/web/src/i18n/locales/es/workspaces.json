@@ -1,45 +1,51 @@
 {
   "sell": {
     "label": "Vender",
-    "description": "Carril del cajero, superficies, mesas de restaurante."
+    "description": "Ventas y modos de atención."
   },
   "operate": {
-    "label": "Operar",
-    "description": "Cola de atención y salud del sistema."
+    "label": "Hoy y cierres",
+    "description": "Resumen del día, cierres y horario del equipo."
   },
   "catalog": {
-    "label": "Catálogo",
-    "description": "Productos, proveedores, ubicaciones, impuestos, geografía."
+    "label": "Productos",
+    "description": "Productos, categorías, precios y datos relacionados."
   },
   "inventory": {
-    "label": "Inventario",
-    "description": "Salud del stock y movimientos."
+    "label": "Existencias",
+    "description": "Cantidades y movimientos de productos."
   },
   "procurement": {
-    "label": "Compras",
-    "description": "Órdenes, compras, cotizaciones, entregas."
+    "label": "Pedidos y compras",
+    "description": "Pedidos, compras, cotizaciones y entregas."
   },
   "customers": {
     "label": "Clientes",
-    "description": "Directorio, crédito, estado de cuenta."
+    "description": "Personas, crédito y estado de cuenta."
   },
   "finance": {
-    "label": "Finanzas",
-    "description": "Documentos fiscales, reportes, auditoría."
+    "label": "Facturación y control",
+    "description": "Facturas, reportes y registro de acciones."
   },
   "setup": {
-    "label": "Configuración",
-    "description": "Empresa, sucursales, periféricos, usuarios, IA."
+    "label": "Administrar negocio",
+    "description": "Datos del negocio, sedes, usuarios y dispositivos."
   },
   "viewItem": "Ver",
+  "taskNavigation": {
+    "frequentTasks": "Tareas frecuentes",
+    "moreTools": "Más herramientas",
+    "moreToolsHint": "Opciones poco frecuentes y configuración avanzada.",
+    "openMoreTools": "Abrir más herramientas"
+  },
   "actions": {
     "expandWorkspace": "Expandir {{workspace}}",
     "collapseWorkspace": "Contraer {{workspace}}"
   },
   "mobile": {
-    "navigationLabel": "Navegación móvil por espacios de trabajo",
-    "workspaceSelector": "Elige un espacio de trabajo",
-    "workspaceRoutes": "Rutas de {{workspace}}",
+    "navigationLabel": "Navegación por tareas y herramientas",
+    "workspaceSelector": "Elige un grupo de herramientas",
+    "workspaceRoutes": "Herramientas de {{workspace}}",
     "openWorkspace": "Abrir resumen de {{workspace}}"
   }
 }

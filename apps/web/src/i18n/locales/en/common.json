@@ -162,8 +162,8 @@
   },
   "loadingSites": "Loading sites...",
   "selectSite": "Select a site",
-  "quickSearch": "Search products and actions",
-  "quickSearchAria": "Open global search",
+  "quickSearch": "What do you want to do?",
+  "quickSearchAria": "Open task and product search",
   "toolbar": {
     "toggleColumns": "Toggle Columns",
     "showAllColumns": "Show all columns",

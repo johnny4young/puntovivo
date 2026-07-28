@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Grid3X3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { VisibleWorkspace, WorkspaceItem } from './workspaces';
+import { taskOwnsPath, type PrimaryTask } from './taskRegistry';
 
 function NavigationLink({
   item,
@@ -184,35 +185,186 @@ export function SidebarWorkspaces({
   collapsed,
   onNavigate,
   workspaces,
+  primaryTasks,
   currentPath,
   dashboardBadge,
   prefetchSales,
+  onExpandNavigation,
 }: {
   collapsed: boolean;
   onNavigate: () => void;
   workspaces: readonly VisibleWorkspace[];
+  primaryTasks: readonly PrimaryTask[];
   currentPath: string;
   dashboardBadge: number;
   prefetchSales: () => void;
+  onExpandNavigation: () => void;
 }) {
   const { t: tWorkspaces } = useTranslation('workspaces');
+  const routeHasPrimaryTask = primaryTasks.some(task => taskOwnsPath(task, currentPath));
+  const [toolsExpanded, setToolsExpanded] = useState(false);
+  const toolsOpen = !routeHasPrimaryTask || toolsExpanded;
+
+  if (collapsed) {
+    return (
+      <div className="space-y-2" data-testid="sidebar-primary-tasks">
+        {primaryTasks.map(task => (
+          <PrimaryTaskLink
+            key={task.id}
+            task={task}
+            collapsed
+            onNavigate={onNavigate}
+            onPrefetch={task.href === '/sales' ? prefetchSales : undefined}
+            badgeCount={task.href === '/dashboard' ? dashboardBadge : undefined}
+          />
+        ))}
+        <button
+          type="button"
+          onClick={onExpandNavigation}
+          aria-label={tWorkspaces('taskNavigation.openMoreTools')}
+          title={tWorkspaces('taskNavigation.moreTools')}
+          className="operator-nav-link flex min-h-11 w-full items-center justify-center rounded-[12px] text-fg2 transition-colors hover:bg-secondary-100/80 hover:text-secondary-950"
+          data-testid="sidebar-expand-more-tools"
+        >
+          <Grid3X3 className="h-5 w-5" aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className={cn('space-y-3', collapsed && 'space-y-2')}>
-      {workspaces.map(({ workspace, items }) => (
-        <SidebarWorkspaceSection
-          key={workspace.id}
-          workspace={workspace}
-          items={items}
-          collapsed={collapsed}
-          onNavigate={onNavigate}
-          currentPath={currentPath}
-          headerTitle={tWorkspaces(workspace.labelKey)}
-          prefetchSales={prefetchSales}
-          dashboardBadge={dashboardBadge}
-        />
-      ))}
+    <div className="space-y-4">
+      <section aria-labelledby="sidebar-primary-title" data-testid="sidebar-primary-tasks">
+        <div className="mb-2 px-2">
+          <p
+            id="sidebar-primary-title"
+            className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-fg2"
+          >
+            {tWorkspaces('taskNavigation.frequentTasks')}
+          </p>
+        </div>
+        <div className="space-y-1">
+          {primaryTasks.map(task => (
+            <PrimaryTaskLink
+              key={task.id}
+              task={task}
+              collapsed={false}
+              onNavigate={onNavigate}
+              onPrefetch={task.href === '/sales' ? prefetchSales : undefined}
+              badgeCount={task.href === '/dashboard' ? dashboardBadge : undefined}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-[16px] border border-line/70 bg-surface-2/45 p-2">
+        <button
+          type="button"
+          onClick={() => {
+            if (routeHasPrimaryTask) setToolsExpanded(previous => !previous);
+          }}
+          aria-expanded={toolsOpen}
+          aria-disabled={!routeHasPrimaryTask || undefined}
+          aria-controls="sidebar-more-tools"
+          className="flex min-h-11 w-full items-center gap-3 rounded-[11px] px-2.5 text-left text-sm font-semibold text-secondary-900 transition-colors hover:bg-secondary-100/80 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+          data-testid="sidebar-more-tools-toggle"
+        >
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] bg-secondary-100 text-secondary-700">
+            <Grid3X3 className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">{tWorkspaces('taskNavigation.moreTools')}</span>
+            <span className="mt-0.5 block truncate text-[11px] font-normal text-fg2">
+              {tWorkspaces('taskNavigation.moreToolsHint')}
+            </span>
+          </span>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 shrink-0 text-fg2 transition-transform',
+              !toolsOpen && '-rotate-90'
+            )}
+            aria-hidden="true"
+          />
+        </button>
+
+        <div
+          id="sidebar-more-tools"
+          hidden={!toolsOpen}
+          className="mt-3 space-y-3 border-t border-line/70 pt-3"
+        >
+          {toolsOpen &&
+            workspaces.map(({ workspace, items }) => (
+              <SidebarWorkspaceSection
+                key={workspace.id}
+                workspace={workspace}
+                items={items}
+                collapsed={false}
+                onNavigate={onNavigate}
+                currentPath={currentPath}
+                headerTitle={tWorkspaces(workspace.labelKey)}
+                prefetchSales={prefetchSales}
+                dashboardBadge={dashboardBadge}
+              />
+            ))}
+        </div>
+      </section>
     </div>
+  );
+}
+
+function PrimaryTaskLink({
+  task,
+  collapsed,
+  onNavigate,
+  badgeCount,
+  onPrefetch,
+}: {
+  task: PrimaryTask;
+  collapsed: boolean;
+  onNavigate: () => void;
+  badgeCount?: number | undefined;
+  onPrefetch?: (() => void) | undefined;
+}) {
+  const { t } = useTranslation(['palette', 'nav']);
+  const label = t(`palette:${task.labelKey}`);
+  const visibleBadgeCount = badgeCount ?? 0;
+  const showBadge = visibleBadgeCount > 0;
+  const accessibleName = showBadge
+    ? `${label} (${visibleBadgeCount} ${t('nav:badges.unreadAlertsSr')})`
+    : undefined;
+
+  return (
+    <NavLink
+      to={task.href}
+      onClick={onNavigate}
+      onMouseEnter={onPrefetch}
+      onFocus={onPrefetch}
+      aria-label={accessibleName}
+      title={collapsed ? label : undefined}
+      data-testid={`sidebar-primary-task-${task.id}`}
+      className={({ isActive }) =>
+        cn(
+          'operator-nav-link group flex min-h-11 items-center gap-3 rounded-[13px] px-3 py-2 text-sm font-semibold transition-all duration-200',
+          collapsed && 'justify-center px-0',
+          isActive
+            ? 'bg-primary text-primary-foreground shadow-[0_16px_32px_-24px_color-mix(in_oklch,var(--primary)_80%,transparent)]'
+            : 'text-secondary-800 hover:bg-secondary-100/80 hover:text-secondary-950'
+        )
+      }
+    >
+      <span className="relative inline-flex items-center justify-center">
+        <task.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+        {showBadge && (
+          <span
+            className="absolute -right-2 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-700 px-1 text-[0.65rem] font-semibold leading-none text-white"
+            aria-hidden="true"
+          >
+            {visibleBadgeCount > 9 ? '9+' : visibleBadgeCount}
+          </span>
+        )}
+      </span>
+      {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
+    </NavLink>
   );
 }
 

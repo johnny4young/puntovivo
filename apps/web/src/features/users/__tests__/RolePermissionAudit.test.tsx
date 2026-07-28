@@ -16,16 +16,22 @@ describe('RolePermissionAudit', () => {
     }
   });
 
-  it('pins the Operate and Setup access templates', () => {
+  it('pins the daily-work and business-management access templates', () => {
     render(<RolePermissionAudit />);
 
-    const operateRow = screen.getByRole('row', { name: /^operate/i });
-    expect(within(operateRow).getByLabelText('Cashier: Operate — No access')).toBeInTheDocument();
-    expect(within(operateRow).getByLabelText('Viewer: Operate — Allowed')).toBeInTheDocument();
+    const operateRow = screen.getByRole('row', { name: /^today and close/i });
+    expect(
+      within(operateRow).getByLabelText('Cashier: Today and close — No access')
+    ).toBeInTheDocument();
+    expect(
+      within(operateRow).getByLabelText('Viewer: Today and close — Allowed')
+    ).toBeInTheDocument();
 
-    const setupRow = screen.getByRole('row', { name: /^setup/i });
-    expect(within(setupRow).getByLabelText('Admin: Setup — Allowed')).toBeInTheDocument();
-    expect(within(setupRow).getByLabelText('Manager: Setup — No access')).toBeInTheDocument();
+    const setupRow = screen.getByRole('row', { name: /^manage business/i });
+    expect(within(setupRow).getByLabelText('Admin: Manage business — Allowed')).toBeInTheDocument();
+    expect(
+      within(setupRow).getByLabelText('Manager: Manage business — No access')
+    ).toBeInTheDocument();
   });
 
   it('explains that modules and server authorization can narrow access', () => {

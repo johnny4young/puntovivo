@@ -84,7 +84,7 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
   // Navigate inside the SPA so the pre-sale warranty result stays in the
   // QueryClient. The post-sale checks below then prove lifecycle mutations
   // invalidate both serial read surfaces instead of relying on a page reload.
-  await page.getByRole('link', { name: 'Sell', exact: true }).click();
+  await page.getByTestId('sidebar-primary-task-sell').click();
   await expect(page).toHaveURL(/\/sales$/);
   const salesSearch = page.locator('#sales-product-search-input');
   await salesSearch.fill(productSku);
@@ -125,7 +125,7 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
   ).toBeVisible({ timeout: 15_000 });
   await cartLine.getByRole('button', { name: `Remove ${productName}` }).click();
 
-  await page.getByRole('link', { name: 'Inventory', exact: true }).first().click();
+  await page.getByTestId('sidebar-primary-task-inventory').click();
   await expect(page).toHaveURL(/\/inventory$/);
   await page.getByLabel('Serial number').fill(serialNumber.toLowerCase());
   await page.getByRole('button', { name: 'Look up' }).click();

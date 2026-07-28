@@ -162,8 +162,8 @@
   },
   "loadingSites": "Cargando sedes...",
   "selectSite": "Seleccionar sede",
-  "quickSearch": "Buscar productos y acciones",
-  "quickSearchAria": "Abrir búsqueda global",
+  "quickSearch": "¿Qué quieres hacer?",
+  "quickSearchAria": "Abrir buscador de tareas y productos",
   "toolbar": {
     "toggleColumns": "Alternar columnas",
     "showAllColumns": "Mostrar todas las columnas",

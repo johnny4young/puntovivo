@@ -99,6 +99,12 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
         action.descriptionKey ? t(`palette:${action.descriptionKey}`, { defaultValue: '' }) : '',
     [t]
   );
+  const resolveKeywords = useMemo(
+    () =>
+      (action: CommandAction): string =>
+        action.keywordsKey ? t(`palette:${action.keywordsKey}`, { defaultValue: '' }) : '',
+    [t]
+  );
 
   const visibleActions = useMemo(
     () => visibleActionsForRole(user?.role, modules, !isPlaceholder),
@@ -112,8 +118,15 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   const usage = useMemo(() => loadPaletteUsage(tenantId), [tenantId]);
 
   const filtered = useMemo(
-    () => filterActionsByQuery(visibleActions, query, resolveLabel, resolveDescription),
-    [visibleActions, query, resolveLabel, resolveDescription]
+    () =>
+      filterActionsByQuery(
+        visibleActions,
+        query,
+        resolveLabel,
+        resolveDescription,
+        resolveKeywords
+      ),
+    [visibleActions, query, resolveLabel, resolveDescription, resolveKeywords]
   );
 
   // "Recent" section: only when the query is empty (an

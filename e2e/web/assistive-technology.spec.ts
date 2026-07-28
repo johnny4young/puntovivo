@@ -39,13 +39,17 @@ test.describe('assistive-technology sweep', () => {
     const opener = page.getByRole('button', { name: 'Abrir navegación' });
     await opener.click();
     const dialog = page.getByRole('dialog', {
-      name: 'Navegación móvil por espacios de trabajo',
+      name: 'Navegación por tareas y herramientas',
     });
     await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('link', { name: 'Configurar el negocio' })).toBeVisible();
+    const moreTools = dialog.getByRole('button', { name: /Más herramientas/ });
+    await expect(moreTools).toHaveAttribute('aria-expanded', 'false');
+    await moreTools.click();
     await expect(
-      dialog.getByRole('radiogroup', { name: 'Elige un espacio de trabajo' })
+      dialog.getByRole('radiogroup', { name: 'Elige un grupo de herramientas' })
     ).toBeVisible();
-    await expect(dialog.getByRole('radio', { name: 'Configuración' })).toBeChecked();
+    await expect(dialog.getByRole('radio', { name: 'Administrar negocio' })).toBeChecked();
     const main = page.locator('main');
     expect(await hasIsolatedAncestor(main)).toBe(true);
     await expect
@@ -55,7 +59,7 @@ test.describe('assistive-technology sweep', () => {
     const sell = dialog.getByRole('radio', { name: 'Vender' });
     await sell.focus();
     await sell.press('ArrowRight');
-    await expect(dialog.getByRole('radio', { name: 'Operar' })).toBeChecked();
+    await expect(dialog.getByRole('radio', { name: 'Hoy y cierres' })).toBeChecked();
 
     await captureAuditEvidence(page, dialog, 'admin-mobile-workspace-dialog-es');
     await page.keyboard.press('Escape');

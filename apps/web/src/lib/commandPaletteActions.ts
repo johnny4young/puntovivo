@@ -16,14 +16,10 @@
  */
 
 import type { NavigateFunction } from 'react-router';
-import {
-  adminOnlyRoles,
-  dashboardRoles,
-  managerOrAdminRoles,
-  salesRoles,
-} from '@/features/auth/roleAccess';
+import { adminOnlyRoles, managerOrAdminRoles, salesRoles } from '@/features/auth/roleAccess';
 import type { ClientModuleId } from '@/features/modules';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
+import { PRIMARY_TASKS } from '@/components/layout/taskRegistry';
 import type { UserRole } from '@/types';
 
 export interface CommandActionContext {
@@ -45,6 +41,8 @@ export interface CommandAction {
   labelKey: string;
   /** Optional secondary description shown below the label. */
   descriptionKey?: string;
+  /** Optional translated synonyms used only by the task search. */
+  keywordsKey?: string;
   /**
    * optional i18n interpolation values for `labelKey`. Lets a
    * synthetic action render the live query inside its label (e.g.
@@ -77,31 +75,20 @@ export interface CommandAction {
  * destination the router would redirect away from.
  */
 export const COMMAND_ACTIONS: readonly CommandAction[] = [
-  // Navigation — operator-facing surfaces.
-  {
-    id: 'navigate.dashboard',
-    labelKey: 'actions.navigate.dashboard',
-    descriptionKey: 'descriptions.navigate.dashboard',
-    roles: dashboardRoles,
+  // Primary tasks are shared with the role-shaped navigation. Existing action
+  // ids stay stable so recent usage and automation do not reset.
+  ...PRIMARY_TASKS.map<CommandAction>(task => ({
+    id: task.commandActionId,
+    labelKey: task.labelKey,
+    descriptionKey: task.descriptionKey,
+    keywordsKey: task.keywordsKey,
+    roles: task.commandRoles ?? task.allowedRoles,
+    ...(task.requiredModule ? { requiredModule: task.requiredModule } : {}),
     group: 'navigate',
-    perform: ({ navigate }) => navigate('/dashboard'),
-  },
-  {
-    id: 'navigate.sales',
-    labelKey: 'actions.navigate.sales',
-    descriptionKey: 'descriptions.navigate.sales',
-    roles: salesRoles,
-    group: 'navigate',
-    perform: ({ navigate }) => navigate('/sales'),
-  },
-  {
-    id: 'navigate.products',
-    labelKey: 'actions.navigate.products',
-    descriptionKey: 'descriptions.navigate.products',
-    roles: managerOrAdminRoles,
-    group: 'navigate',
-    perform: ({ navigate }) => navigate('/products'),
-  },
+    perform: ({ navigate }) => navigate(task.href),
+  })),
+  // Less frequent destinations remain searchable without competing for a
+  // primary navigation slot.
   {
     id: 'navigate.customers',
     labelKey: 'actions.navigate.customers',
@@ -109,14 +96,6 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     roles: managerOrAdminRoles,
     group: 'navigate',
     perform: ({ navigate }) => navigate('/customers'),
-  },
-  {
-    id: 'navigate.inventory',
-    labelKey: 'actions.navigate.inventory',
-    descriptionKey: 'descriptions.navigate.inventory',
-    roles: managerOrAdminRoles,
-    group: 'navigate',
-    perform: ({ navigate }) => navigate('/inventory'),
   },
   {
     id: 'navigate.purchases',
@@ -143,14 +122,6 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     requiredModule: 'operations-center',
     group: 'navigate',
     perform: ({ navigate }) => navigate('/operations'),
-  },
-  {
-    id: 'navigate.dayClose',
-    labelKey: 'actions.navigate.dayClose',
-    descriptionKey: 'descriptions.navigate.dayClose',
-    roles: managerOrAdminRoles,
-    group: 'navigate',
-    perform: ({ navigate }) => navigate('/day-close'),
   },
   // Surface Switcher. Each surface is module-gated so the
   // palette never offers a destination the tenant has disabled, and
@@ -204,14 +175,6 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     perform: ({ navigate }) => navigate('/restaurants/tables'),
   },
   // Admin-only surfaces.
-  {
-    id: 'navigate.company',
-    labelKey: 'actions.navigate.company',
-    descriptionKey: 'descriptions.navigate.company',
-    roles: adminOnlyRoles,
-    group: 'navigate',
-    perform: ({ navigate }) => navigate('/company'),
-  },
   {
     id: 'navigate.dataImport',
     labelKey: 'actions.navigate.dataImport',
@@ -346,7 +309,8 @@ export function filterActionsByQuery(
   actions: readonly CommandAction[],
   query: string,
   resolveLabel: (action: CommandAction) => string,
-  resolveDescription: (action: CommandAction) => string
+  resolveDescription: (action: CommandAction) => string,
+  resolveKeywords: (action: CommandAction) => string = () => ''
 ): readonly CommandAction[] {
   const normalized = query.trim().toLowerCase();
   if (normalized.length === 0) return actions;
@@ -354,6 +318,7 @@ export function filterActionsByQuery(
     const label = resolveLabel(action).toLowerCase();
     if (label.includes(normalized)) return true;
     const description = resolveDescription(action).toLowerCase();
-    return description.includes(normalized);
+    if (description.includes(normalized)) return true;
+    return resolveKeywords(action).toLowerCase().includes(normalized);
   });
 }

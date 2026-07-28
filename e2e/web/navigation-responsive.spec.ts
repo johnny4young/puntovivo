@@ -29,50 +29,54 @@ test.describe('responsive workspace navigation', () => {
       await opener.click();
 
       const dialog = page.getByRole('dialog', {
-        name: 'Mobile workspace navigation',
+        name: 'Task and tools navigation',
       });
       await expect(dialog).toBeVisible();
-      await expect(dialog.getByRole('radiogroup', { name: 'Choose a workspace' })).toBeVisible();
-      await expect(dialog.getByRole('radio', { name: 'Operate' })).toHaveAttribute(
+      await expect(dialog.getByRole('link', { name: 'See what matters today' })).toBeVisible();
+      await expect(dialog.getByRole('link', { name: 'Make a sale' })).toBeVisible();
+      const moreTools = dialog.getByRole('button', { name: /More tools/ });
+      await expect(moreTools).toHaveAttribute('aria-expanded', 'false');
+      await moreTools.click();
+      await expect(
+        dialog.getByRole('radiogroup', { name: 'Choose a group of tools' })
+      ).toBeVisible();
+      await expect(dialog.getByRole('radio', { name: 'Today and close' })).toHaveAttribute(
         'aria-checked',
         'true'
       );
-      await expect(dialog.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-      await expect(dialog.getByRole('link', { name: 'Operations' })).toBeVisible();
-      await expect(dialog.getByRole('link', { name: 'Products' })).toHaveCount(0);
+      await expect(dialog.getByRole('link', { name: 'Today', exact: true })).toBeVisible();
+      await expect(dialog.getByRole('link', { name: 'System support' })).toBeVisible();
       await captureEvidence(page, `eng-131e-navigation-${viewport.name}-en`);
 
-      await dialog.getByRole('radio', { name: 'Catalog' }).click();
-      await expect(dialog.getByRole('radio', { name: 'Catalog' })).toHaveAttribute(
+      await dialog.getByRole('radio', { name: 'Products' }).click();
+      await expect(dialog.getByRole('radio', { name: 'Products' })).toHaveAttribute(
         'aria-checked',
         'true'
       );
-      await expect(dialog.getByRole('link', { name: 'Products' })).toBeVisible();
-      await expect(dialog.getByRole('link', { name: 'Sales' })).toHaveCount(0);
+      await expect(dialog.getByRole('link', { name: 'Products', exact: true })).toBeVisible();
 
-      await dialog.getByRole('link', { name: 'Products' }).click();
+      await dialog.getByRole('link', { name: 'Products', exact: true }).click();
       await expect(page).toHaveURL(/\/products$/);
-      await expect(page.getByRole('dialog', { name: 'Mobile workspace navigation' })).toHaveCount(
-        0
-      );
+      await expect(page.getByRole('dialog', { name: 'Task and tools navigation' })).toHaveCount(0);
 
       await opener.click();
-      await expect(page.getByRole('radio', { name: 'Catalog' })).toHaveAttribute(
+      const reopenedDialog = page.getByRole('dialog', { name: 'Task and tools navigation' });
+      await reopenedDialog.getByRole('button', { name: /More tools/ }).click();
+      await expect(reopenedDialog.getByRole('radio', { name: 'Products' })).toHaveAttribute(
         'aria-checked',
         'true'
       );
-      await page.getByRole('link', { name: 'Open Catalog overview' }).click();
+      await reopenedDialog.getByRole('link', { name: 'Open Products overview' }).click();
       await expect(page).toHaveURL(/\/catalog$/);
 
       await opener.click();
-      await expect(page.getByRole('radio', { name: 'Catalog' })).toHaveAttribute(
+      const catalogDialog = page.getByRole('dialog', { name: 'Task and tools navigation' });
+      await expect(catalogDialog.getByRole('radio', { name: 'Products' })).toHaveAttribute(
         'aria-checked',
         'true'
       );
       await page.keyboard.press('Escape');
-      await expect(page.getByRole('dialog', { name: 'Mobile workspace navigation' })).toHaveCount(
-        0
-      );
+      await expect(page.getByRole('dialog', { name: 'Task and tools navigation' })).toHaveCount(0);
       await expect(opener).toBeFocused();
 
       await expect(
@@ -89,27 +93,36 @@ test.describe('responsive workspace navigation', () => {
 
     await page.getByRole('button', { name: /open navigation/i }).click();
     const dialog = page.getByRole('dialog', {
-      name: 'Mobile workspace navigation',
+      name: 'Task and tools navigation',
     });
 
+    await expect(dialog.getByRole('link', { name: 'Make a sale' })).toBeVisible();
+    await dialog.getByRole('button', { name: /More tools/ }).click();
     await expect(dialog.getByRole('radiogroup')).toHaveCount(0);
-    await expect(dialog.getByRole('region', { name: 'Sell routes' })).toBeVisible();
+    await expect(dialog.getByRole('region', { name: 'Sell tools' })).toBeVisible();
     await expect(dialog.getByRole('link', { name: 'Sales' })).toBeVisible();
-    await expect(dialog.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
-    await expect(dialog.getByText('Catalog', { exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole('link', { name: 'See what matters today' })).toHaveCount(0);
+    await expect(dialog.getByText('Products', { exact: true })).toHaveCount(0);
     await expectNoClientIssues(tracker);
   });
 
-  test('admin sees Dashboard folded into Operate on Spanish desktop', async ({ page }) => {
+  test('admin sees frequent tasks before advanced tools on Spanish desktop', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAs(page, 'admin', { spanish: true });
 
+    await expect(page.getByTestId('sidebar-primary-task-today')).toContainText(
+      'Ver lo importante de hoy'
+    );
+    await expect(page.getByTestId('sidebar-primary-task-sell')).toContainText('Hacer una venta');
+    const moreTools = page.getByTestId('sidebar-more-tools-toggle');
+    await expect(moreTools).toHaveAttribute('aria-expanded', 'false');
+    await moreTools.click();
     const operate = page.getByTestId('sidebar-workspace-operate');
     await expect(operate).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.getByTestId('sidebar-workspace-link-operate')).toContainText('Operar');
-    await expect(page.getByRole('link', { name: 'Panel' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Operaciones' })).toBeVisible();
+    await expect(page.getByTestId('sidebar-workspace-link-operate')).toContainText('Hoy y cierres');
+    await expect(page.getByRole('link', { name: 'Hoy', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Soporte del sistema' })).toBeVisible();
     await captureEvidence(page, 'eng-131e-navigation-desktop-es');
     await expectNoClientIssues(tracker);
   });

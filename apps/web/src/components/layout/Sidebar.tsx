@@ -14,6 +14,7 @@ import { visibleWorkspacesForRole } from './workspaces';
 import { SidebarBrand } from './SidebarBrand';
 import { SidebarWorkspaces } from './DesktopSidebarNavigation';
 import { MobileWorkspaceNavigation } from './MobileWorkspaceNavigation';
+import { visiblePrimaryTasksForRole } from './taskRegistry';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -70,6 +71,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
   );
   const dashboardBadge = anomaliesQuery.data?.severityCounts.high ?? 0;
   const workspaces = visibleWorkspacesForRole(user?.role, modules, !isPlaceholder);
+  const primaryTasks = visiblePrimaryTasksForRole(user?.role, modules, !isPlaceholder);
   const mobileDialogOpen = !isDesktopSidebar && mobileOpen;
 
   useDialogA11y({
@@ -116,9 +118,11 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
             collapsed={collapsed}
             onNavigate={onCloseMobile}
             workspaces={workspaces}
+            primaryTasks={primaryTasks}
             currentPath={location.pathname}
             dashboardBadge={dashboardBadge}
             prefetchSales={prefetchSales}
+            onExpandNavigation={onToggleCollapse}
           />
         </div>
       </aside>
@@ -166,6 +170,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
           <MobileWorkspaceNavigation
             key={location.pathname}
             workspaces={workspaces}
+            primaryTasks={primaryTasks}
             currentPath={location.pathname}
             dashboardBadge={dashboardBadge}
             onNavigate={onCloseMobile}

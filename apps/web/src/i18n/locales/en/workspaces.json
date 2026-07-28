@@ -1,45 +1,51 @@
 {
   "sell": {
     "label": "Sell",
-    "description": "Cashier lane, surfaces, restaurant tables."
+    "description": "Sales and service modes."
   },
   "operate": {
-    "label": "Operate",
-    "description": "Attention queue and system health."
+    "label": "Today and close",
+    "description": "Daily overview, close, and team schedule."
   },
   "catalog": {
-    "label": "Catalog",
-    "description": "Products, providers, locations, taxes, geography."
+    "label": "Products",
+    "description": "Products, categories, prices, and related data."
   },
   "inventory": {
-    "label": "Inventory",
-    "description": "Stock health and movements."
+    "label": "Stock",
+    "description": "Product quantities and movements."
   },
   "procurement": {
-    "label": "Procurement",
-    "description": "Orders, purchases, quotations, delivery."
+    "label": "Orders and purchases",
+    "description": "Orders, purchases, quotations, and delivery."
   },
   "customers": {
     "label": "Customers",
-    "description": "Directory, credit, account."
+    "description": "People, credit, and account status."
   },
   "finance": {
-    "label": "Finance",
-    "description": "Fiscal documents, reports, audit log."
+    "label": "Billing and control",
+    "description": "Invoices, reports, and action history."
   },
   "setup": {
-    "label": "Setup",
-    "description": "Company, sites, peripherals, users, AI."
+    "label": "Manage business",
+    "description": "Business details, sites, users, and devices."
   },
   "viewItem": "View",
+  "taskNavigation": {
+    "frequentTasks": "Frequent tasks",
+    "moreTools": "More tools",
+    "moreToolsHint": "Less frequent options and advanced settings.",
+    "openMoreTools": "Open more tools"
+  },
   "actions": {
     "expandWorkspace": "Expand {{workspace}}",
     "collapseWorkspace": "Collapse {{workspace}}"
   },
   "mobile": {
-    "navigationLabel": "Mobile workspace navigation",
-    "workspaceSelector": "Choose a workspace",
-    "workspaceRoutes": "{{workspace}} routes",
+    "navigationLabel": "Task and tools navigation",
+    "workspaceSelector": "Choose a group of tools",
+    "workspaceRoutes": "{{workspace}} tools",
     "openWorkspace": "Open {{workspace}} overview"
   }
 }

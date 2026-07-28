@@ -1,5 +1,5 @@
 /**
- * (slice A) — CommandPalette component tests.
+ * Task launcher component tests.
  *
  * Pins:
  * - Renders with the search input auto-focused.
@@ -79,7 +79,7 @@ afterEach(() => {
 describe('CommandPalette', () => {
   it('renders with the search input present and the action listbox visible', async () => {
     render(<CommandPalette isOpen onClose={vi.fn()} />);
-    expect(screen.getByRole('dialog', { name: /command palette/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'What do you want to do?' })).toBeInTheDocument();
     const input = await screen.findByTestId('command-palette-search');
     expect(input).toBeInTheDocument();
     await waitFor(() => {
@@ -93,6 +93,15 @@ describe('CommandPalette', () => {
     fireEvent.change(input, { target: { value: 'audit' } });
     expect(screen.queryByTestId('command-palette-item-navigate.auditLogs')).toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.products')).not.toBeInTheDocument();
+  });
+
+  it('matches plain-language task synonyms that are not shown in the label', async () => {
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+    const input = await screen.findByTestId('command-palette-search');
+    fireEvent.change(input, { target: { value: 'checkout' } });
+
+    expect(screen.getByTestId('command-palette-item-navigate.sales')).toBeInTheDocument();
+    expect(screen.queryByTestId('command-palette-item-navigate.inventory')).not.toBeInTheDocument();
   });
 
   it('offers the omnibox sell row instead of an empty state for selling roles', async () => {
@@ -149,6 +158,13 @@ describe('CommandPalette', () => {
     expect(screen.queryByTestId('command-palette-item-navigate.auditLogs')).not.toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.company')).not.toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.users')).not.toBeInTheDocument();
+  });
+
+  it('keeps day close searchable for an admin without adding it to primary navigation', async () => {
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+    await screen.findByTestId('command-palette-search');
+
+    expect(screen.getByTestId('command-palette-item-navigate.dayClose')).toBeInTheDocument();
   });
 
   it('hides module-gated destinations when the tenant module is disabled', async () => {

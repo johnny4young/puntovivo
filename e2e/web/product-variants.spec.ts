@@ -94,7 +94,7 @@ test('admin creates a Size x Color matrix and sells only child products', async 
   // Preserve the authenticated SPA session. A full document navigation here
   // unnecessarily forces refresh-token bootstrap while the shared E2E server
   // is under load and can redirect an otherwise healthy test to /login.
-  await page.getByTestId('sidebar-workspace-link-sell').click();
+  await page.getByTestId('sidebar-primary-task-sell').click();
   await expect(page).toHaveURL(/\/sales(?:$|\?)/);
   await page.locator('#sales-product-search-input').fill(productSku);
   await page.locator('#sales-product-search-input').press('Enter');

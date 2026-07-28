@@ -37,14 +37,14 @@ test.describe('sales omnibox', () => {
     await editableSearch.focus();
     await page.keyboard.press(`${MOD_KEY}+K`);
     await expect(
-      page.getByRole('dialog', { name: /command palette|paleta de comandos/i })
+      page.getByRole('dialog', { name: /what do you want to do|qué quieres hacer/i })
     ).toBeHidden();
     await expect(editableSearch).toBeFocused();
 
     await editableSearch.evaluate(element => (element as HTMLElement).blur());
     await page.keyboard.press(`${MOD_KEY}+K`);
     const palette = page.getByRole('dialog', {
-      name: /command palette|paleta de comandos/i,
+      name: /what do you want to do|qué quieres hacer/i,
     });
     await expect(palette).toBeVisible();
     await palette.getByRole('textbox').fill(scenario.product.sku);

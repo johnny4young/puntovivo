@@ -10,12 +10,12 @@ import {
 
 const adminRoutes = [
   {
-    label: 'Dashboard',
+    label: 'See what matters today',
     path: '/dashboard',
     assertion: async page => page.getByText(/Today's Sales|Ventas de hoy/i).first(),
   },
   {
-    label: 'Sales',
+    label: 'Make a sale',
     path: '/sales',
     assertion: async page =>
       page.getByRole('heading', {
@@ -28,7 +28,7 @@ const adminRoutes = [
     assertion: async page => page.getByTestId('team-schedule-page'),
   },
   {
-    label: 'Inventory',
+    label: 'Review stock',
     path: '/inventory',
     assertion: async page =>
       page.getByRole('button', { name: /Movements|By Site|Por sede/i }).first(),
@@ -56,7 +56,7 @@ const adminRoutes = [
     assertion: async page => page.getByRole('button', { name: /Add Customer|Agregar cliente/i }),
   },
   {
-    label: 'Products',
+    label: 'Add or find products',
     path: '/products',
     assertion: async page => page.getByRole('button', { name: /Add Product|Agregar producto/i }),
   },
@@ -76,7 +76,7 @@ const adminRoutes = [
     assertion: async page => page.getByRole('button', { name: /Add Location|Agregar ubicación/i }),
   },
   {
-    label: 'Company',
+    label: 'Set up the business',
     path: '/company',
     assertion: async page =>
       page.getByRole('heading', {
@@ -144,39 +144,42 @@ const adminRoutes = [
 ] as const;
 
 const routeWorkspaceLabels = new Map<string, string>([
-  ['Sales', 'Sell'],
-  ['Team schedule', 'Operate'],
-  ['Inventory', 'Inventory'],
-  ['Orders', 'Procurement'],
-  ['Purchases', 'Procurement'],
-  ['Quotations', 'Procurement'],
+  ['Team schedule', 'Today and close'],
+  ['Orders', 'Orders and purchases'],
+  ['Purchases', 'Orders and purchases'],
+  ['Quotations', 'Orders and purchases'],
   ['Customers', 'Customers'],
-  ['Products', 'Catalog'],
-  ['Providers', 'Catalog'],
-  ['Categories', 'Catalog'],
-  ['Locations', 'Catalog'],
-  ['Geography', 'Catalog'],
-  ['Customer Catalogs', 'Catalog'],
-  ['Units', 'Catalog'],
-  ['VAT Rates', 'Catalog'],
-  ['Audit log', 'Finance'],
-  ['Company', 'Setup'],
-  ['Visual system', 'Setup'],
-  ['Import data', 'Setup'],
-  ['Sites', 'Setup'],
-  ['Sequentials', 'Setup'],
-  ['Users', 'Setup'],
+  ['Providers', 'Products'],
+  ['Categories', 'Products'],
+  ['Locations', 'Products'],
+  ['Geography', 'Products'],
+  ['Customer Catalogs', 'Products'],
+  ['Units', 'Products'],
+  ['VAT Rates', 'Products'],
+  ['Audit log', 'Billing and control'],
+  ['Visual system', 'Manage business'],
+  ['Import data', 'Manage business'],
+  ['Sites', 'Manage business'],
+  ['Sequentials', 'Manage business'],
+  ['Users', 'Manage business'],
 ]);
 
 async function revealSidebarLink(page: Page, label: string, workspaceLabel?: string) {
   const link = page.getByRole('link', { name: label, exact: true });
-  if ((await link.count()) === 0 && workspaceLabel) {
+  if (!(await link.isVisible().catch(() => false)) && workspaceLabel) {
+    const moreTools = page.getByTestId('sidebar-more-tools-toggle');
+    if ((await moreTools.getAttribute('aria-expanded')) === 'false') {
+      await moreTools.click();
+    }
     const escapedLabel = workspaceLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    await page
-      .getByRole('button', {
+    if (!(await link.isVisible().catch(() => false))) {
+      const workspaceToggle = page.getByRole('button', {
         name: new RegExp(`^(?:Expand|Collapse|Expandir|Contraer) ${escapedLabel}$`, 'i'),
-      })
-      .click();
+      });
+      if ((await workspaceToggle.getAttribute('aria-expanded')) === 'false') {
+        await workspaceToggle.click();
+      }
+    }
   }
   await expect(link).toBeVisible();
   return link;
@@ -220,7 +223,9 @@ test.describe('web smoke', () => {
     ).resolves.toBe(true);
 
     await page.getByRole('button', { name: /open navigation/i }).click();
-    await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByTestId('mobile-primary-task-today')).toContainText(
+      'See what matters today'
+    );
 
     await expectNoClientIssues(tracker);
   });
@@ -230,14 +235,18 @@ test.describe('web smoke', () => {
 
     await loginAs(page, 'manager');
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByTestId('sidebar-primary-task-today')).toContainText(
+      'See what matters today'
+    );
+    await expect(page.getByTestId('sidebar-primary-task-dayClose')).toContainText('Close the day');
+    await expect(page.getByTestId('sidebar-primary-task-businessSetup')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Company' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Visual system' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Import data' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: /Team schedule|Horario del equipo/i })
-    ).toBeVisible();
+    const moreTools = page.getByTestId('sidebar-more-tools-toggle');
+    await expect(moreTools).toHaveAttribute('aria-expanded', 'false');
+    await moreTools.click();
+    await revealSidebarLink(page, 'Team schedule', 'Today and close');
     await page.goto('/day-close');
     await expect(page.getByTestId('day-close-report-page')).toBeVisible();
     await page.goto('/schedule');
@@ -374,9 +383,9 @@ test.describe('web smoke', () => {
 
     await loginAs(page, 'cashier');
     await expect(page).toHaveURL(/\/sales$/);
-    await expect(page.getByRole('link', { name: 'Sales', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Inventory' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toHaveCount(0);
+    await expect(page.getByTestId('sidebar-primary-task-sell')).toContainText('Make a sale');
+    await expect(page.getByTestId('sidebar-primary-task-inventory')).toHaveCount(0);
+    await expect(page.getByTestId('sidebar-primary-task-dayClose')).toHaveCount(0);
     await expect(page.getByRole('link', { name: /Team schedule|Horario del equipo/i })).toHaveCount(
       0
     );
@@ -395,9 +404,11 @@ test.describe('web smoke', () => {
 
     await loginAs(page, 'viewer');
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Sales' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: /Day close|Cierre del día/i })).toHaveCount(0);
+    await expect(page.getByTestId('sidebar-primary-task-today')).toContainText(
+      'See what matters today'
+    );
+    await expect(page.getByTestId('sidebar-primary-task-sell')).toHaveCount(0);
+    await expect(page.getByTestId('sidebar-primary-task-dayClose')).toHaveCount(0);
     await expect(page.getByRole('link', { name: /Team schedule|Horario del equipo/i })).toHaveCount(
       0
     );
@@ -416,9 +427,13 @@ test.describe('web smoke', () => {
     await loginAs(page, 'admin', { spanish: true });
     await ensureLanguage(page, 'es');
 
-    await expect(page.getByRole('link', { name: 'Panel' })).toBeVisible();
-    await revealSidebarLink(page, 'Ventas', 'Vender');
-    await revealSidebarLink(page, 'Inventario', 'Inventario');
+    await expect(page.getByTestId('sidebar-primary-task-today')).toContainText(
+      'Ver lo importante de hoy'
+    );
+    await expect(page.getByTestId('sidebar-primary-task-sell')).toContainText('Hacer una venta');
+    await expect(page.getByTestId('sidebar-primary-task-inventory')).toContainText(
+      'Revisar existencias'
+    );
     await expect(page.getByText('Ventas de hoy')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Ingresos 30 días' })).toBeVisible();
 
