@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const portalScript = fileURLToPath(new URL('./linux-smoke-portal.py', import.meta.url));
 const smokeScript = fileURLToPath(new URL('./run-desktop-smoke.mjs', import.meta.url));
 const READY_LINE = '[linux-smoke-portal] ready';
+const CONTRACT_OK_LINE = '[linux-smoke-portal] contract OK';
 const START_TIMEOUT_MS = 10_000;
 const STOP_TIMEOUT_MS = 5_000;
 
@@ -74,6 +75,28 @@ async function runSmoke(packagedPath, renderer) {
   }
 }
 
+async function verifyPortalContract() {
+  const verifier = spawn('python3', [portalScript, '--verify-contract'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stdout = '';
+  let stderr = '';
+  verifier.stdout.on('data', chunk => {
+    stdout += chunk.toString();
+  });
+  verifier.stderr.on('data', chunk => {
+    stderr += chunk.toString();
+  });
+
+  const [code, signal] = await once(verifier, 'exit');
+  if (code !== 0 || stderr.trim() || !stdout.includes(CONTRACT_OK_LINE)) {
+    throw new Error(
+      `Linux smoke portal contract verification failed (code=${String(code)}, signal=${String(signal)}): ${stderr.trim() || stdout.trim()}`
+    );
+  }
+  process.stdout.write(`${CONTRACT_OK_LINE}\n`);
+}
+
 async function stopPortal(portal) {
   if (portal.pid === undefined || portal.exitCode !== null || portal.signalCode !== null) return;
 
@@ -100,6 +123,7 @@ async function main() {
 
   try {
     await waitForPortal(portal, () => portalStderr.trim());
+    await verifyPortalContract();
     await runSmoke(packagedPath, false);
     await runSmoke(packagedPath, true);
     if (portalStderr.trim()) {

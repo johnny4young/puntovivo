@@ -10,6 +10,7 @@ only the standards-based interfaces the smoke actually consumes.
 
 from __future__ import annotations
 
+import argparse
 import signal
 
 import dbus
@@ -26,6 +27,7 @@ SETTINGS_INTERFACE = "org.freedesktop.portal.Settings"
 FILE_CHOOSER_INTERFACE = "org.freedesktop.portal.FileChooser"
 APPEARANCE_NAMESPACE = "org.freedesktop.appearance"
 COLOR_SCHEME_KEY = "color-scheme"
+CONTRACT_OK_LINE = "[linux-smoke-portal] contract OK"
 
 
 class SmokePortal(dbus.service.Object):
@@ -66,7 +68,10 @@ class SmokePortal(dbus.service.Object):
     )
     def Read(self, namespace: str, key: str) -> dbus.UInt32:
         if namespace == APPEARANCE_NAMESPACE and key == COLOR_SCHEME_KEY:
-            return dbus.UInt32(0, variant_level=1)
+            # Settings.Read is a historical protocol exception: although its
+            # declared output is `v`, the value is returned inside a second
+            # variant. Chromium unwraps both layers before reading the uint32.
+            return dbus.UInt32(0, variant_level=2)
         raise dbus.exceptions.DBusException(
             f"Unsupported smoke setting: {namespace}.{key}",
             name="org.freedesktop.portal.Error.NotFound",
@@ -135,7 +140,51 @@ class SmokePortal(dbus.service.Object):
         )
 
 
-def main() -> None:
+def verify_contract() -> None:
+    """Prove the wire-level shapes consumed by Chromium before launching it."""
+
+    bus = dbus.SessionBus()
+    portal = bus.get_object(PORTAL_BUS_NAME, PORTAL_OBJECT_PATH)
+    settings = dbus.Interface(portal, SETTINGS_INTERFACE)
+    properties = dbus.Interface(portal, PROPERTIES_INTERFACE)
+    registry = dbus.Interface(portal, REGISTRY_INTERFACE)
+
+    color_scheme = settings.Read(APPEARANCE_NAMESPACE, COLOR_SCHEME_KEY)
+    if not isinstance(color_scheme, dbus.UInt32) or color_scheme.variant_level != 2:
+        raise RuntimeError(
+            "Settings.Read must return uint32 inside two variants; "
+            f"received {type(color_scheme).__name__} at level "
+            f"{getattr(color_scheme, 'variant_level', None)}"
+        )
+
+    all_settings = settings.ReadAll([APPEARANCE_NAMESPACE])
+    read_all_color_scheme = all_settings[APPEARANCE_NAMESPACE][COLOR_SCHEME_KEY]
+    if (
+        not isinstance(read_all_color_scheme, dbus.UInt32)
+        or read_all_color_scheme.variant_level != 1
+    ):
+        raise RuntimeError(
+            "Settings.ReadAll values must use one variant layer; "
+            f"received {type(read_all_color_scheme).__name__} at level "
+            f"{getattr(read_all_color_scheme, 'variant_level', None)}"
+        )
+
+    settings_version = properties.Get(SETTINGS_INTERFACE, "version")
+    if not isinstance(settings_version, dbus.UInt32) or settings_version.variant_level != 1:
+        raise RuntimeError(
+            "Properties.Get must return uint32 inside one variant; "
+            f"received {type(settings_version).__name__} at level "
+            f"{getattr(settings_version, 'variant_level', None)}"
+        )
+
+    registry.Register(
+        "org.puntovivo.SmokeContract",
+        dbus.Dictionary({}, signature="sv"),
+    )
+    print(CONTRACT_OK_LINE, flush=True)
+
+
+def serve() -> None:
     DBusGMainLoop(set_as_default=True)
     bus = dbus.SessionBus()
     bus_name = dbus.service.BusName(
@@ -158,6 +207,21 @@ def main() -> None:
 
     # Keep the D-Bus objects alive through the last loop iteration.
     _ = (bus_name, portal)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--verify-contract",
+        action="store_true",
+        help="verify the running smoke portal's wire-level D-Bus contract",
+    )
+    args = parser.parse_args()
+
+    if args.verify_contract:
+        verify_contract()
+        return
+    serve()
 
 
 if __name__ == "__main__":

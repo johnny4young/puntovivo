@@ -50,6 +50,8 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
 
 test('Linux smoke supplies a deterministic portal instead of filtering its diagnostics', () => {
   assert.match(linuxSmoke, /spawn\('python3', \[portalScript\]/);
+  assert.match(linuxSmoke, /await verifyPortalContract\(\)/);
+  assert.match(linuxSmoke, /--verify-contract/);
   assert.match(linuxSmoke, /await runSmoke\(packagedPath, false\)/);
   assert.match(linuxSmoke, /await runSmoke\(packagedPath, true\)/);
   assert.match(linuxSmoke, /Linux smoke portal emitted unexpected stderr output/);
@@ -60,5 +62,9 @@ test('Linux smoke supplies a deterministic portal instead of filtering its diagn
   assert.match(linuxPortal, /org\.freedesktop\.portal\.FileChooser/);
   assert.match(linuxPortal, /@dbus\.service\.method/);
   assert.match(linuxPortal, /sender_keyword="sender"/);
+  assert.match(linuxPortal, /dbus\.UInt32\(0, variant_level=2\)/);
+  assert.match(linuxPortal, /color_scheme\.variant_level != 2/);
+  assert.match(linuxPortal, /read_all_color_scheme\.variant_level != 1/);
+  assert.match(linuxPortal, /settings_version\.variant_level != 1/);
   assert.doesNotMatch(linuxPortal, /FLATPAK_SANDBOX_DIR|SNAP/);
 });
