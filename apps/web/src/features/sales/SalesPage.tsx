@@ -413,6 +413,8 @@ export function SalesPage() {
         isSuspendedPanelOpen={isSuspendedPanelOpen}
         handleResumeFromPanel={handleResumeFromPanel}
         isProductSearchOpen={isProductSearchOpen}
+        shouldRenderQuickCreateProductGate={shouldRenderQuickCreateProductGate}
+        shouldRenderQuickCreateCustomerGate={shouldRenderQuickCreateCustomerGate}
         productSearchDialogKey={productSearchDialogKey}
         setIsProductSearchOpen={setIsProductSearchOpen}
         handleProductSelect={handleProductSelect}

@@ -1,17 +1,32 @@
-import {
-  CashSessionCloseModal,
-  type CashSessionCloseValues,
-} from '@/features/sales/CashSessionCloseModal';
-import {
-  CashSessionMovementModal,
-  type CashSessionMovementValues,
-} from '@/features/sales/CashSessionMovementModal';
-import {
-  CashSessionOpenModal,
-  type CashSessionOpenValues,
-} from '@/features/sales/CashSessionOpenModal';
-import { DayCloseSummaryModal } from '@/features/sales/DayCloseSummaryModal';
+import { lazy, Suspense } from 'react';
+import type { CashSessionCloseValues } from '@/features/sales/CashSessionCloseModal';
+import type { CashSessionMovementValues } from '@/features/sales/CashSessionMovementModal';
+import type { CashSessionOpenValues } from '@/features/sales/CashSessionOpenModal';
 import type { CashSession, RegisterAssignment } from '@/types';
+
+const LazyCashSessionCloseModal = lazy(() =>
+  import('@/features/sales/CashSessionCloseModal').then(module => ({
+    default: module.CashSessionCloseModal,
+  }))
+);
+
+const LazyCashSessionMovementModal = lazy(() =>
+  import('@/features/sales/CashSessionMovementModal').then(module => ({
+    default: module.CashSessionMovementModal,
+  }))
+);
+
+const LazyCashSessionOpenModal = lazy(() =>
+  import('@/features/sales/CashSessionOpenModal').then(module => ({
+    default: module.CashSessionOpenModal,
+  }))
+);
+
+const LazyDayCloseSummaryModal = lazy(() =>
+  import('@/features/sales/DayCloseSummaryModal').then(module => ({
+    default: module.DayCloseSummaryModal,
+  }))
+);
 
 /**
  * Props for {@link CashSessionModals}.
@@ -74,9 +89,9 @@ export function CashSessionModals({
   onCloseDayClose,
 }: CashSessionModalsProps) {
   return (
-    <>
+    <Suspense fallback={null}>
       {isCashSessionModalOpen && (
-        <CashSessionOpenModal
+        <LazyCashSessionOpenModal
           key={`${cashSessionModalKey}-${selectedRegisterAssignment?.id ?? 'none'}`}
           isOpen={isCashSessionModalOpen}
           isSaving={isOpeningCashSession}
@@ -87,7 +102,7 @@ export function CashSessionModals({
         />
       )}
       {isCashSessionCloseModalOpen && (
-        <CashSessionCloseModal
+        <LazyCashSessionCloseModal
           key={cashSessionCloseModalKey}
           cashSession={activeCashSession}
           isOpen={isCashSessionCloseModalOpen}
@@ -99,7 +114,7 @@ export function CashSessionModals({
         />
       )}
       {isCashSessionMovementModalOpen && (
-        <CashSessionMovementModal
+        <LazyCashSessionMovementModal
           key={cashSessionMovementModalKey}
           isOpen={isCashSessionMovementModalOpen}
           isSaving={isRecordingMovement}
@@ -109,12 +124,12 @@ export function CashSessionModals({
         />
       )}
       {dayCloseSessionId && (
-        <DayCloseSummaryModal
+        <LazyDayCloseSummaryModal
           key={dayCloseSessionId}
           sessionId={dayCloseSessionId}
           onClose={onCloseDayClose}
         />
       )}
-    </>
+    </Suspense>
   );
 }

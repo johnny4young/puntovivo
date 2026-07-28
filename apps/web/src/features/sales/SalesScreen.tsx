@@ -1,4 +1,10 @@
-import { type ComponentProps, type Dispatch, type SetStateAction } from 'react';
+import {
+  lazy,
+  Suspense,
+  type ComponentProps,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Drawer } from '@/components/feedback/Drawer';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
@@ -8,9 +14,21 @@ import { SalesHeaderSection } from '@/features/sales/SalesHeaderSection';
 import { SalesFlowRail } from '@/features/sales/SalesFlowRail';
 import { SalesModals } from '@/features/sales/SalesModals';
 import { WorkspaceTabsSection } from '@/features/sales/WorkspaceTabsSection';
-import { SalesHistoryTable } from '@/features/sales/SalesHistoryTable';
+import type { SalesHistoryTable } from '@/features/sales/SalesHistoryTable';
 import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
-import { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
+import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
+
+const LazySalesHistoryTable = lazy(() =>
+  import('@/features/sales/SalesHistoryTable').then(module => ({
+    default: module.SalesHistoryTable,
+  }))
+);
+
+const LazySuspendedSalesPanel = lazy(() =>
+  import('@/features/sales/SuspendedSalesPanel').then(module => ({
+    default: module.SuspendedSalesPanel,
+  }))
+);
 
 type HeaderProps = ComponentProps<typeof SalesHeaderSection>;
 type TabsProps = ComponentProps<typeof WorkspaceTabsSection>;
@@ -102,6 +120,8 @@ export interface SalesScreenProps {
   handleResumeFromPanel: SuspendedProps['onResume'];
   // Sales modals (product search / payment / sale details / suspend prompt)
   isProductSearchOpen: boolean;
+  shouldRenderQuickCreateProductGate: boolean;
+  shouldRenderQuickCreateCustomerGate: boolean;
   productSearchDialogKey: number;
   setIsProductSearchOpen: Dispatch<SetStateAction<boolean>>;
   handleProductSelect: ModalsProps['onSelectProduct'];
@@ -216,6 +236,8 @@ export function SalesScreen({
   isSuspendedPanelOpen,
   handleResumeFromPanel,
   isProductSearchOpen,
+  shouldRenderQuickCreateProductGate,
+  shouldRenderQuickCreateCustomerGate,
   productSearchDialogKey,
   setIsProductSearchOpen,
   handleProductSelect,
@@ -372,116 +394,136 @@ export function SalesScreen({
           título, por eso el Drawer va sin `title` (solo `ariaLabel`).
           `restoreFocusTo` devuelve el foco a la barra de búsqueda al cerrar
           para mantener el flujo de cajero (). */}
-      <Drawer
-        isOpen={isHistoryDrawerOpen}
-        onClose={() => setIsHistoryDrawerOpen(false)}
-        ariaLabel={t('view.history')}
-        size="lg"
-        contentClassName="p-0"
-        restoreFocusTo={() => productInputRef.current}
-        testId="sales-history-drawer"
-      >
-        <SalesHistoryTable
-          sales={sales}
-          isLoading={salesLoading}
-          error={salesError}
-          onRetry={onRetrySales}
-          onView={setSelectedSaleId}
-          selectedSaleId={selectedHistorySaleId}
-          onSelectedSaleIdChange={setSelectedHistorySaleId}
-        />
-      </Drawer>
+      {isHistoryDrawerOpen && (
+        <Drawer
+          isOpen
+          onClose={() => setIsHistoryDrawerOpen(false)}
+          ariaLabel={t('view.history')}
+          size="lg"
+          contentClassName="p-0"
+          restoreFocusTo={() => productInputRef.current}
+          testId="sales-history-drawer"
+        >
+          <Suspense fallback={null}>
+            <LazySalesHistoryTable
+              sales={sales}
+              isLoading={salesLoading}
+              error={salesError}
+              onRetry={onRetrySales}
+              onView={setSelectedSaleId}
+              selectedSaleId={selectedHistorySaleId}
+              onSelectedSaleIdChange={setSelectedHistorySaleId}
+            />
+          </Suspense>
+        </Drawer>
+      )}
 
       {/* Ventas suspendidas detrás de un cajón lateral. El panel
           trae su propio header (título + cerrar), así que el Drawer va sin
           chrome (`showCloseButton={false}`, sin `title`). Ctrl+R sigue
           abriéndolo vía `handleToggleSuspendedPanel`. */}
-      <Drawer
-        isOpen={isSuspendedPanelOpen}
-        onClose={() => setIsSuspendedPanelOpen(false)}
-        ariaLabel={t('park.panelTitle')}
-        showCloseButton={false}
-        size="lg"
-        contentClassName="p-0"
-        restoreFocusTo={() => productInputRef.current}
-        testId="sales-suspended-drawer"
-      >
-        <SuspendedSalesPanel
-          isOpen={isSuspendedPanelOpen}
+      {isSuspendedPanelOpen && (
+        <Drawer
+          isOpen
           onClose={() => setIsSuspendedPanelOpen(false)}
-          onResume={handleResumeFromPanel}
+          ariaLabel={t('park.panelTitle')}
+          showCloseButton={false}
+          size="lg"
+          contentClassName="p-0"
+          restoreFocusTo={() => productInputRef.current}
+          testId="sales-suspended-drawer"
+        >
+          <Suspense fallback={null}>
+            <LazySuspendedSalesPanel
+              isOpen
+              onClose={() => setIsSuspendedPanelOpen(false)}
+              onResume={handleResumeFromPanel}
+            />
+          </Suspense>
+        </Drawer>
+      )}
+
+      {(isProductSearchOpen ||
+        isPaymentModalOpen ||
+        selectedSaleId !== null ||
+        isSuspendLabelPromptOpen ||
+        shouldRenderQuickCreateProductGate ||
+        shouldRenderQuickCreateCustomerGate) && (
+        <SalesModals
+          isProductSearchOpen={isProductSearchOpen}
+          discountSuggestionSiteId={currentSite?.id ?? null}
+          productSearchDialogKey={productSearchDialogKey}
+          onCloseProductSearch={() => setIsProductSearchOpen(false)}
+          onSelectProduct={handleProductSelect}
+          categories={categories}
+          providers={providers}
+          productSearchInitialQuery={productSearchInitialQuery}
+          setCartItems={setCartItems}
+          isPaymentModalOpen={isPaymentModalOpen}
+          paymentModalKey={paymentModalKey}
+          paymentTotal={draftSummary.total}
+          paymentApprovalSaleId={activeWorkspace?.serverSaleId ?? null}
+          paymentApprovalCustomerId={activeWorkspace?.serverCustomerId ?? null}
+          paymentApprovalItems={cartItems}
+          paymentApprovalDiscountAmount={approvalDiscountAmount}
+          currencyCode={currencyCode}
+          customers={customers}
+          isPaymentSaving={isPaymentSaving}
+          saleError={saleError}
+          serviceChargeRate={serviceChargeRate}
+          fastCashTrigger={fastCashTrigger}
+          paymentRestoreFocusTo={() => productInputRef.current}
+          onClosePayment={() => {
+            setIsPaymentModalOpen(false);
+            setFastCashTrigger(0);
+          }}
+          onSubmitPayment={handleCheckout}
+          selectedSaleId={selectedSaleId}
+          onCloseSaleDetails={() => setSelectedSaleId(null)}
+          isSuspendLabelPromptOpen={isSuspendLabelPromptOpen}
+          isSuspending={isSuspending}
+          suspendLabelDraft={suspendLabelDraft}
+          onChangeSuspendLabel={setSuspendLabelDraft}
+          onCloseSuspendPrompt={() => {
+            if (isSuspending) return;
+            setIsSuspendLabelPromptOpen(false);
+          }}
+          onConfirmSuspend={() => {
+            void handleSuspendConfirm();
+          }}
         />
-      </Drawer>
+      )}
 
-      <SalesModals
-        isProductSearchOpen={isProductSearchOpen}
-        discountSuggestionSiteId={currentSite?.id ?? null}
-        productSearchDialogKey={productSearchDialogKey}
-        onCloseProductSearch={() => setIsProductSearchOpen(false)}
-        onSelectProduct={handleProductSelect}
-        categories={categories}
-        providers={providers}
-        productSearchInitialQuery={productSearchInitialQuery}
-        setCartItems={setCartItems}
-        isPaymentModalOpen={isPaymentModalOpen}
-        paymentModalKey={paymentModalKey}
-        paymentTotal={draftSummary.total}
-        paymentApprovalSaleId={activeWorkspace?.serverSaleId ?? null}
-        paymentApprovalCustomerId={activeWorkspace?.serverCustomerId ?? null}
-        paymentApprovalItems={cartItems}
-        paymentApprovalDiscountAmount={approvalDiscountAmount}
-        currencyCode={currencyCode}
-        customers={customers}
-        isPaymentSaving={isPaymentSaving}
-        saleError={saleError}
-        serviceChargeRate={serviceChargeRate}
-        fastCashTrigger={fastCashTrigger}
-        paymentRestoreFocusTo={() => productInputRef.current}
-        onClosePayment={() => {
-          setIsPaymentModalOpen(false);
-          setFastCashTrigger(0);
-        }}
-        onSubmitPayment={handleCheckout}
-        selectedSaleId={selectedSaleId}
-        onCloseSaleDetails={() => setSelectedSaleId(null)}
-        isSuspendLabelPromptOpen={isSuspendLabelPromptOpen}
-        isSuspending={isSuspending}
-        suspendLabelDraft={suspendLabelDraft}
-        onChangeSuspendLabel={setSuspendLabelDraft}
-        onCloseSuspendPrompt={() => {
-          if (isSuspending) return;
-          setIsSuspendLabelPromptOpen(false);
-        }}
-        onConfirmSuspend={() => {
-          void handleSuspendConfirm();
-        }}
-      />
-
-      <CashSessionModals
-        isCashSessionModalOpen={isCashSessionModalOpen}
-        cashSessionModalKey={cashSessionModalKey}
-        isOpeningCashSession={isOpeningCashSession}
-        cashSessionError={cashSessionError}
-        selectedRegisterAssignment={selectedRegisterAssignment}
-        onCloseOpenModal={() => setIsCashSessionModalOpen(false)}
-        onSubmitOpen={handleCreateCashSession}
-        isCashSessionCloseModalOpen={isCashSessionCloseModalOpen}
-        cashSessionCloseModalKey={cashSessionCloseModalKey}
-        activeCashSession={activeCashSession}
-        isClosingCashSession={isClosingCashSession}
-        cashSessionCloseError={cashSessionCloseError}
-        onCloseCloseModal={() => setIsCashSessionCloseModalOpen(false)}
-        onSubmitClose={handleCloseCashSession}
-        suspendedDraftsCount={suspendedDraftsCount}
-        isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
-        cashSessionMovementModalKey={cashSessionMovementModalKey}
-        isRecordingMovement={isRecordingMovement}
-        cashSessionMovementError={cashSessionMovementError}
-        onCloseMovementModal={() => setIsCashSessionMovementModalOpen(false)}
-        onSubmitMovement={handleRecordCashMovement}
-        dayCloseSessionId={dayCloseSessionId}
-        onCloseDayClose={() => setDayCloseSessionId(null)}
-      />
+      {(isCashSessionModalOpen ||
+        isCashSessionCloseModalOpen ||
+        isCashSessionMovementModalOpen ||
+        dayCloseSessionId !== null) && (
+        <CashSessionModals
+          isCashSessionModalOpen={isCashSessionModalOpen}
+          cashSessionModalKey={cashSessionModalKey}
+          isOpeningCashSession={isOpeningCashSession}
+          cashSessionError={cashSessionError}
+          selectedRegisterAssignment={selectedRegisterAssignment}
+          onCloseOpenModal={() => setIsCashSessionModalOpen(false)}
+          onSubmitOpen={handleCreateCashSession}
+          isCashSessionCloseModalOpen={isCashSessionCloseModalOpen}
+          cashSessionCloseModalKey={cashSessionCloseModalKey}
+          activeCashSession={activeCashSession}
+          isClosingCashSession={isClosingCashSession}
+          cashSessionCloseError={cashSessionCloseError}
+          onCloseCloseModal={() => setIsCashSessionCloseModalOpen(false)}
+          onSubmitClose={handleCloseCashSession}
+          suspendedDraftsCount={suspendedDraftsCount}
+          isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
+          cashSessionMovementModalKey={cashSessionMovementModalKey}
+          isRecordingMovement={isRecordingMovement}
+          cashSessionMovementError={cashSessionMovementError}
+          onCloseMovementModal={() => setIsCashSessionMovementModalOpen(false)}
+          onSubmitMovement={handleRecordCashMovement}
+          dayCloseSessionId={dayCloseSessionId}
+          onCloseDayClose={() => setDayCloseSessionId(null)}
+        />
+      )}
     </>
   );
 }
