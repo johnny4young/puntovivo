@@ -19,12 +19,10 @@ type SalesMutationHandles = ReturnType<typeof useSalesMutations>;
  *
  * slice 16b-1 — the modal/UI open-close handlers + the checkout
  * preflight were extracted verbatim from SalesPage. The hook owns the
- * per-modal remount key counters and the fast-cash trigger. Product-search
- * visibility stays in the shell so the read layer can defer its filter
- * catalogs until that dialog opens. The
- * product-search / payment / cash-session visibility and the cash error states
- * stay in the shell because the read and mutation layers consume them before
- * this hook is wired, so this hook receives their setters as params.
+ * product-search visibility, per-modal remount key counters, and fast-cash
+ * trigger. Payment / cash-session visibility and the cash error states stay in
+ * the shell because the mutation layer consumes them before this hook is
+ * wired, so this hook receives their setters as params.
  * `useCheckoutPreflight` moves inside here so `handleOpenPaymentModal`'s
  * preflight read and `onOpenCashSession` recovery both stay intra-hook.
  */
@@ -44,7 +42,6 @@ export interface UseSalesModalsParams {
   isPaymentModalOpen: boolean;
   /** Default initial query for the product-search dialog. */
   productSearchQuery: string;
-  setIsProductSearchOpen: Dispatch<SetStateAction<boolean>>;
   setSaleError: Dispatch<SetStateAction<string | null>>;
   setIsPaymentModalOpen: Dispatch<SetStateAction<boolean>>;
   setCashSessionError: Dispatch<SetStateAction<string | null>>;
@@ -80,7 +77,6 @@ export function useSalesModals({
   checkoutReadinessItems,
   isPaymentModalOpen,
   productSearchQuery,
-  setIsProductSearchOpen,
   setSaleError,
   setIsPaymentModalOpen,
   setCashSessionError,
@@ -98,6 +94,7 @@ export function useSalesModals({
   const { t } = useTranslation(['sales', 'errors', 'common']);
   const toast = useToast();
 
+  const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const [productSearchInitialQuery, setProductSearchInitialQuery] = useState('');
   const [productSearchDialogKey, setProductSearchDialogKey] = useState(0);
   const [paymentModalKey, setPaymentModalKey] = useState(0);
@@ -247,6 +244,8 @@ export function useSalesModals({
 
   return {
     preflight,
+    isProductSearchOpen,
+    setIsProductSearchOpen,
     productSearchInitialQuery,
     productSearchDialogKey,
     paymentModalKey,

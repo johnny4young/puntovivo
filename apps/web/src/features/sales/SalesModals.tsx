@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
@@ -8,6 +9,7 @@ import { preloadSalePaymentModal } from '@/features/sales/salePaymentModal.loade
 import type { SalePaymentValues } from '@/features/sales/salePaymentModal.types';
 import { mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
+import { trpc } from '@/lib/trpc';
 import type { Category, Customer, Provider } from '@/types';
 
 const QuickCreateProductGate = lazy(() =>
@@ -51,8 +53,6 @@ interface SalesModalsProps {
   productSearchDialogKey: number;
   onCloseProductSearch: () => void;
   onSelectProduct: (selection: Parameters<typeof mergeCartItem>[1]) => void;
-  categories: Category[];
-  providers: Provider[];
   productSearchInitialQuery: string;
   // Quick-create product → cart merge
   setCartItems: (update: SetCartItemsArg) => void;
@@ -65,7 +65,6 @@ interface SalesModalsProps {
   paymentApprovalItems: SaleCartItem[];
   paymentApprovalDiscountAmount: number;
   currencyCode: string;
-  customers: Customer[];
   isPaymentSaving: boolean;
   saleError: string | null;
   serviceChargeRate: number;
@@ -91,8 +90,6 @@ export function SalesModals({
   productSearchDialogKey,
   onCloseProductSearch,
   onSelectProduct,
-  categories,
-  providers,
   productSearchInitialQuery,
   setCartItems,
   isPaymentModalOpen,
@@ -103,7 +100,6 @@ export function SalesModals({
   paymentApprovalItems,
   paymentApprovalDiscountAmount,
   currencyCode,
-  customers,
   isPaymentSaving,
   saleError,
   serviceChargeRate,
@@ -127,6 +123,31 @@ export function SalesModals({
   );
   const shouldRenderQuickCreateCustomerGate = useQuickCreateStore(
     state => state.requestedCreateCustomer !== null
+  );
+
+  // These catalogs belong to interaction-only overlays. SalesModals itself
+  // is absent from the initial POS tree, so the query observers are not
+  // constructed until an operator opens one of those surfaces.
+  const customersQuery = trpc.customers.list.useQuery(
+    { page: 1, perPage: 100, isActive: true },
+    {
+      enabled: isPaymentModalOpen,
+      placeholderData: keepPreviousData,
+    }
+  );
+  const categoriesQuery = trpc.categories.tree.useQuery(undefined, {
+    enabled: isProductSearchOpen,
+  });
+  const providersQuery = trpc.providers.list.useQuery(
+    { page: 1, perPage: 100 },
+    { enabled: isProductSearchOpen }
+  );
+  const customers = ((customersQuery.data?.items ?? []) as Customer[]).filter(
+    customer => customer.isActive
+  );
+  const categories = (categoriesQuery.data?.items ?? []) as Category[];
+  const providers = ((providersQuery.data?.items ?? []) as Provider[]).filter(
+    provider => provider.isActive
   );
 
   // loading the payment drawer after the route's first paint keeps

@@ -63,7 +63,6 @@ export function SalesPage() {
   // las ventas suspendidas viven detrás de cajones laterales (Drawer).
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
-  const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   // multi-cart workspace UX state. The label-prompt modal
   // captures an optional "Mesa 5" annotation before the Suspend server
   // orchestration runs; the suspended panel is toggled by Ctrl+R or
@@ -120,19 +119,14 @@ export function SalesPage() {
     discountInputRefFor,
   } = useSalesInputFocus();
 
-  // slice 16b-2 — the read side (the nine tRPC queries incl. the
-  // SINGLE shared peripherals subscription, the normalized arrays + derived
+  // slice 16b-2 — the operational read side (including the SINGLE shared
+  // peripherals subscription), the normalized arrays + derived
   // flags, the `checkoutReadinessItems` preflight memo, `maybeAutoPrint`, and
   // the scanner/drawer derivations) lives in `useSalesPageData`. It is called
   // BEFORE `useSalesMutations` because the mutations consume `maybeAutoPrint`.
   const {
-    salesQuery,
     activeCashSessionQuery,
     maybeAutoPrint,
-    sales,
-    customers,
-    categories,
-    providers,
     registerAssignments,
     selectedRegisterAssignment,
     activeCashSession,
@@ -147,9 +141,6 @@ export function SalesPage() {
     currentTenant,
     user,
     selectedRegisterAssignmentId,
-    shouldLoadSalesHistory: isHistoryDrawerOpen,
-    shouldLoadProductFilters: isProductSearchOpen,
-    shouldLoadCustomers: isPaymentModalOpen,
   });
 
   // slice 10 — the sales + cash-session mutation handles and the
@@ -225,10 +216,12 @@ export function SalesPage() {
   // slice 16b-1 — the modal/UI controller (the F1 payment-open gate
   // + F2 fast-cash, product search, the three cash-session modals, the
   // suspended-panel toggle, the history-reprint jump) + the checkout
-  // preflight live in `useSalesModals`. Product-search, payment, and cash-
-  // session visibility stay in the shell; their setters are threaded in.
+  // preflight live in `useSalesModals`. Product-search visibility belongs to
+  // that controller; payment and cash-session visibility stay in the shell.
   const {
     preflight,
+    isProductSearchOpen,
+    setIsProductSearchOpen,
     productSearchInitialQuery,
     productSearchDialogKey,
     paymentModalKey,
@@ -260,7 +253,6 @@ export function SalesPage() {
     checkoutReadinessItems,
     isPaymentModalOpen,
     productSearchQuery,
-    setIsProductSearchOpen,
     setSaleError,
     setIsPaymentModalOpen,
     setCashSessionError,
@@ -403,12 +395,6 @@ export function SalesPage() {
         hubReachable={hubReachability.reachable ?? undefined}
         preflightItems={preflight.items}
         isHistoryDrawerOpen={isHistoryDrawerOpen}
-        sales={sales}
-        salesLoading={salesQuery.isLoading}
-        salesError={salesQuery.error?.message ?? null}
-        onRetrySales={() => {
-          void salesQuery.refetch();
-        }}
         setSelectedSaleId={setSelectedSaleId}
         selectedHistorySaleId={selectedHistorySaleId}
         setSelectedHistorySaleId={setSelectedHistorySaleId}
@@ -420,13 +406,10 @@ export function SalesPage() {
         productSearchDialogKey={productSearchDialogKey}
         setIsProductSearchOpen={setIsProductSearchOpen}
         handleProductSelect={handleProductSelect}
-        categories={categories}
-        providers={providers}
         productSearchInitialQuery={productSearchInitialQuery}
         setCartItems={setCartItems}
         isPaymentModalOpen={isPaymentModalOpen}
         paymentModalKey={paymentModalKey}
-        customers={customers}
         isPaymentSaving={createMutation.isPending || completeDraftMutation.isPending}
         serviceChargeRate={serviceChargeRate}
         fastCashTrigger={fastCashTrigger}

@@ -14,13 +14,12 @@ import { SalesHeaderSection } from '@/features/sales/SalesHeaderSection';
 import { SalesFlowRail } from '@/features/sales/SalesFlowRail';
 import { SalesModals } from '@/features/sales/SalesModals';
 import { WorkspaceTabsSection } from '@/features/sales/WorkspaceTabsSection';
-import type { SalesHistoryTable } from '@/features/sales/SalesHistoryTable';
 import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
 import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
 
-const LazySalesHistoryTable = lazy(() =>
-  import('@/features/sales/SalesHistoryTable').then(module => ({
-    default: module.SalesHistoryTable,
+const LazySalesHistoryDrawerContent = lazy(() =>
+  import('@/features/sales/SalesHistoryDrawerContent').then(module => ({
+    default: module.SalesHistoryDrawerContent,
   }))
 );
 
@@ -34,7 +33,6 @@ type HeaderProps = ComponentProps<typeof SalesHeaderSection>;
 type TabsProps = ComponentProps<typeof WorkspaceTabsSection>;
 type CartProps = ComponentProps<typeof SalesCartWorkspace>;
 type CheckoutProps = ComponentProps<typeof SalesCheckoutPanel>;
-type HistoryProps = ComponentProps<typeof SalesHistoryTable>;
 type SuspendedProps = ComponentProps<typeof SuspendedSalesPanel>;
 type ModalsProps = ComponentProps<typeof SalesModals>;
 type CashModalsProps = ComponentProps<typeof CashSessionModals>;
@@ -49,9 +47,10 @@ type CashModalsProps = ComponentProps<typeof CashSessionModals>;
  * assembles these props from its hooks. Forwarded handler/ref types are pinned
  * to the child components via `ComponentProps` indexed access so the seam
  * cannot drift; the tRPC query/mutation objects the old JSX read inline are
- * passed as DERIVED values instead (`salesLoading`/`salesError`/`onRetrySales`,
- * `isCashSessionLoading`, the four `is*ing*` pending flags) so a presentational
- * component never touches a query/mutation handle.
+ * passed as DERIVED values instead (`isCashSessionLoading`, the four
+ * `is*ing*` pending flags) so a presentational component never touches a
+ * query/mutation handle. History owns its secondary query behind the drawer's
+ * lazy boundary.
  */
 export interface SalesScreenProps {
   // Header + product search
@@ -108,10 +107,6 @@ export interface SalesScreenProps {
   preflightItems: CheckoutProps['preflightItems'];
   // History drawer
   isHistoryDrawerOpen: boolean;
-  sales: HistoryProps['sales'];
-  salesLoading: boolean;
-  salesError: string | null;
-  onRetrySales: () => void;
   setSelectedSaleId: Dispatch<SetStateAction<string | null>>;
   selectedHistorySaleId: string | null;
   setSelectedHistorySaleId: Dispatch<SetStateAction<string | null>>;
@@ -125,13 +120,10 @@ export interface SalesScreenProps {
   productSearchDialogKey: number;
   setIsProductSearchOpen: Dispatch<SetStateAction<boolean>>;
   handleProductSelect: ModalsProps['onSelectProduct'];
-  categories: ModalsProps['categories'];
-  providers: ModalsProps['providers'];
   productSearchInitialQuery: string;
   setCartItems: ModalsProps['setCartItems'];
   isPaymentModalOpen: boolean;
   paymentModalKey: number;
-  customers: ModalsProps['customers'];
   isPaymentSaving: boolean;
   serviceChargeRate: number;
   fastCashTrigger: number;
@@ -226,10 +218,6 @@ export function SalesScreen({
   hubReachable,
   preflightItems,
   isHistoryDrawerOpen,
-  sales,
-  salesLoading,
-  salesError,
-  onRetrySales,
   setSelectedSaleId,
   selectedHistorySaleId,
   setSelectedHistorySaleId,
@@ -241,13 +229,10 @@ export function SalesScreen({
   productSearchDialogKey,
   setIsProductSearchOpen,
   handleProductSelect,
-  categories,
-  providers,
   productSearchInitialQuery,
   setCartItems,
   isPaymentModalOpen,
   paymentModalKey,
-  customers,
   isPaymentSaving,
   serviceChargeRate,
   fastCashTrigger,
@@ -405,11 +390,7 @@ export function SalesScreen({
           testId="sales-history-drawer"
         >
           <Suspense fallback={null}>
-            <LazySalesHistoryTable
-              sales={sales}
-              isLoading={salesLoading}
-              error={salesError}
-              onRetry={onRetrySales}
+            <LazySalesHistoryDrawerContent
               onView={setSelectedSaleId}
               selectedSaleId={selectedHistorySaleId}
               onSelectedSaleIdChange={setSelectedHistorySaleId}
@@ -455,8 +436,6 @@ export function SalesScreen({
           productSearchDialogKey={productSearchDialogKey}
           onCloseProductSearch={() => setIsProductSearchOpen(false)}
           onSelectProduct={handleProductSelect}
-          categories={categories}
-          providers={providers}
           productSearchInitialQuery={productSearchInitialQuery}
           setCartItems={setCartItems}
           isPaymentModalOpen={isPaymentModalOpen}
@@ -467,7 +446,6 @@ export function SalesScreen({
           paymentApprovalItems={cartItems}
           paymentApprovalDiscountAmount={approvalDiscountAmount}
           currencyCode={currencyCode}
-          customers={customers}
           isPaymentSaving={isPaymentSaving}
           saleError={saleError}
           serviceChargeRate={serviceChargeRate}

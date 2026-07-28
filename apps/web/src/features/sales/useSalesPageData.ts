@@ -5,22 +5,12 @@ import { useReceiptAutoPrint } from '@/features/sales/useReceiptAutoPrint';
 import { type PreflightBlockerId, type PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import { DEFAULT_WEDGE_CONFIG, type WedgeConfig } from '@/features/sales/useBarcodeWedgeListener';
 import { trpc } from '@/lib/trpc';
-import type {
-  CashSession,
-  Category,
-  Customer,
-  Provider,
-  RegisterAssignment,
-  Sale,
-  Site,
-  Tenant,
-  User,
-} from '@/types';
+import type { CashSession, RegisterAssignment, Site, Tenant, User } from '@/types';
 
 /**
  * Params for {@link useSalesPageData}.
  *
- * slice 16b-2 — the SalesPage data layer (the nine tRPC queries +
+ * slice 16b-2 — the SalesPage data layer (the operational tRPC queries +
  * their derived/normalized values + the checkout-readiness memo + the shared
  * peripherals derivations) was extracted verbatim from SalesPage. The hook
  * reads the tenant/site/user context + the selected-register id from the
@@ -33,23 +23,16 @@ export interface UseSalesPageDataParams {
   user: User | null;
   /** The operator-picked register, or null to fall back to the first free one. */
   selectedRegisterAssignmentId: string | null;
-  /** History data is secondary and loads only when its drawer is visible. */
-  shouldLoadSalesHistory: boolean;
-  /** Product-filter catalogs load only while the product search is visible. */
-  shouldLoadProductFilters: boolean;
-  /** The customer catalog loads only while checkout needs it. */
-  shouldLoadCustomers: boolean;
 }
 
 /**
- * Owns the SalesPage read side: the operational entry queries plus the
- * interaction-gated history, customer, category, and provider queries; the
- * SHARED peripherals subscription; checkout readiness; the `maybeAutoPrint`
- * dispatcher; the
- * `checkoutReadinessItems` preflight memo, and the normalized arrays + derived
- * flags the shell threads into the checkout panel, the modal clusters, and the
- * scanner/drawer hooks. The single `peripherals.activeForSite` subscription
- * () lives here and is exposed only as derived values
+ * Owns the SalesPage operational read side, shared peripherals subscription,
+ * checkout readiness, `maybeAutoPrint` dispatcher, normalized arrays, and
+ * derived flags the shell threads into the checkout panel and scanner/drawer
+ * hooks. History and modal-only catalogs live in their conditionally mounted
+ * surfaces so their query observers do not participate in the POS first paint.
+ * The single `peripherals.activeForSite` subscription lives here and is
+ * exposed only as derived values
  * (`autoPrintEnabled`/`scannerConfig`/`hasRegisteredDrawer`), never re-queried.
  */
 export function useSalesPageData({
@@ -57,34 +40,7 @@ export function useSalesPageData({
   currentTenant,
   user,
   selectedRegisterAssignmentId,
-  shouldLoadSalesHistory,
-  shouldLoadProductFilters,
-  shouldLoadCustomers,
 }: UseSalesPageDataParams) {
-  // History and modal-only catalogs stay disabled during the critical
-  // first paint. `placeholderData: keepPreviousData` preserves any hover-
-  // prefetched or previously viewed data while those surfaces refresh.
-  const salesQuery = trpc.sales.list.useQuery(
-    { page: 1, perPage: 50 },
-    {
-      enabled: shouldLoadSalesHistory,
-      placeholderData: keepPreviousData,
-    }
-  );
-  const customersQuery = trpc.customers.list.useQuery(
-    { page: 1, perPage: 100, isActive: true },
-    {
-      enabled: shouldLoadCustomers,
-      placeholderData: keepPreviousData,
-    }
-  );
-  const categoriesQuery = trpc.categories.tree.useQuery(undefined, {
-    enabled: shouldLoadProductFilters,
-  });
-  const providersQuery = trpc.providers.list.useQuery(
-    { page: 1, perPage: 100 },
-    { enabled: shouldLoadProductFilters }
-  );
   const activeCashSessionQuery = trpc.cashSessions.getActive.useQuery(
     { siteId: currentSite?.id },
     {
@@ -197,14 +153,6 @@ export function useSalesPageData({
     });
   }, [checkoutReadinessQuery.data, canNavigateToSetup, navigate]);
 
-  const sales = (salesQuery.data?.items ?? []) as Sale[];
-  const customers = ((customersQuery.data?.items ?? []) as Customer[]).filter(
-    customer => customer.isActive
-  );
-  const categories = (categoriesQuery.data?.items ?? []) as Category[];
-  const providers = ((providersQuery.data?.items ?? []) as Provider[]).filter(
-    provider => provider.isActive
-  );
   const registerAssignments =
     (registerAssignmentsQuery.data as RegisterAssignment[] | undefined) ?? [];
   const selectedRegisterAssignment =
@@ -253,13 +201,8 @@ export function useSalesPageData({
   })();
 
   return {
-    salesQuery,
     activeCashSessionQuery,
     maybeAutoPrint,
-    sales,
-    customers,
-    categories,
-    providers,
     registerAssignments,
     selectedRegisterAssignment,
     activeCashSession,
