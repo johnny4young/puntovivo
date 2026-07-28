@@ -37,7 +37,7 @@ packageExtensionsChecksum: sha256-QNqoSdcgBHOUiuks5m3q09Fw3jQBCJcXIxMk3HPu8ro=
 
 patchedDependencies:
   '@electron/asar@4.2.1': 7b17b5bf017952acdc62c343d6e2aada73c5aa99c6ccf4e05b530c850335732b
-  better-sqlite3-multiple-ciphers@12.11.1: 41e9f6cd920b5277ff9e7612ef22cd10085eda7e3cb842aee6675d42b26f1b5b
+  better-sqlite3-multiple-ciphers@12.11.1: a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e
 
 importers:
 
@@ -63,7 +63,7 @@ importers:
         version: 4.12.1
       better-sqlite3:
         specifier: npm:better-sqlite3-multiple-ciphers@^12.11.1
-        version: better-sqlite3-multiple-ciphers@12.11.1(patch_hash=41e9f6cd920b5277ff9e7612ef22cd10085eda7e3cb842aee6675d42b26f1b5b)
+        version: better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e)
       lighthouse:
         specifier: ^13.4.1
         version: 13.4.1
@@ -445,10 +445,10 @@ importers:
         version: 0.45.0
       better-sqlite3:
         specifier: npm:better-sqlite3-multiple-ciphers@^12.11.1
-        version: better-sqlite3-multiple-ciphers@12.11.1(patch_hash=41e9f6cd920b5277ff9e7612ef22cd10085eda7e3cb842aee6675d42b26f1b5b)
+        version: better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e)
       drizzle-orm:
         specifier: ^0.45.2
-        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(better-sqlite3-multiple-ciphers@12.11.1(patch_hash=41e9f6cd920b5277ff9e7612ef22cd10085eda7e3cb842aee6675d42b26f1b5b))
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e))
       fast-xml-parser:
         specifier: ^5.10.1
         version: 5.10.1
@@ -7866,7 +7866,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.34: {}
 
-  better-sqlite3-multiple-ciphers@12.11.1(patch_hash=41e9f6cd920b5277ff9e7612ef22cd10085eda7e3cb842aee6675d42b26f1b5b):
+  better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e):
     dependencies:
       bindings: 1.5.0
       prebuild-install: file:packages/prebuild-install
@@ -8300,11 +8300,11 @@ snapshots:
       esbuild: 0.25.12
       tsx: 4.23.0
 
-  drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(better-sqlite3-multiple-ciphers@12.11.1(patch_hash=41e9f6cd920b5277ff9e7612ef22cd10085eda7e3cb842aee6675d42b26f1b5b)):
+  drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e)):
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
       '@types/better-sqlite3': 7.6.13
-      better-sqlite3: better-sqlite3-multiple-ciphers@12.11.1(patch_hash=41e9f6cd920b5277ff9e7612ef22cd10085eda7e3cb842aee6675d42b26f1b5b)
+      better-sqlite3: better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e)
 
   dunder-proto@1.0.1:
     dependencies:

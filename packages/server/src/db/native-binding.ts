@@ -28,12 +28,14 @@
  * The cache filename replicates `getDesiredKey` + `getCachedBinaryPath` in
  * `scripts/ensure-native-runtime.mjs`. A drift between the two yields a cache
  * MISS (undefined → default lookup), never a wrong binary: the key embeds the
- * Node version, ABI, platform, arch and the addon package name@version.
+ * Node version, ABI, platform, arch, addon package name@version and maintained
+ * patch identity.
  */
 
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join, sep } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 
 /**
  * Mirror of the cache-key sanitizer in scripts/ensure-native-runtime.mjs:
@@ -54,7 +56,7 @@ export function buildNodeRuntimeKey(parts: {
   modulesAbi: string;
   platform: string;
   arch: string;
-  addonNameAndVersion: string;
+  addonBuildIdentity: string;
 }): string {
   return [
     'node',
@@ -62,8 +64,20 @@ export function buildNodeRuntimeKey(parts: {
     parts.modulesAbi,
     parts.platform,
     parts.arch,
-    parts.addonNameAndVersion,
+    parts.addonBuildIdentity,
   ].join(':');
+}
+
+export function buildAddonIdentity(parts: {
+  name: string;
+  version: string;
+  patchContent?: string | Buffer;
+}): string {
+  const patchIdentity =
+    parts.patchContent === undefined
+      ? 'none'
+      : createHash('sha256').update(parts.patchContent).digest('hex').slice(0, 16);
+  return `${parts.name}@${parts.version}+patch.${patchIdentity}`;
 }
 
 /**
@@ -96,13 +110,31 @@ export function resolveCachedNodeBinding(): string | undefined {
       name: string;
       version: string;
     };
+    const repoRoot = dirname(nodeModulesDir);
+    const patchPath = join(
+      repoRoot,
+      'patches',
+      `${addonPackage.name}@${addonPackage.version}.patch`
+    );
+    let patchContent: Buffer | undefined;
+    try {
+      patchContent = readFileSync(patchPath);
+    } catch {
+      // A deployment may omit repository-only patch sources. Missing patch
+      // identity intentionally becomes a cache miss instead of selecting an
+      // artifact whose provenance cannot be proved.
+    }
 
     const runtimeKey = buildNodeRuntimeKey({
       nodeVersion: process.version,
       modulesAbi: process.versions.modules,
       platform: process.platform,
       arch: process.arch,
-      addonNameAndVersion: `${addonPackage.name}@${addonPackage.version}`,
+      addonBuildIdentity: buildAddonIdentity({
+        name: addonPackage.name,
+        version: addonPackage.version,
+        ...(patchContent ? { patchContent } : {}),
+      }),
     });
 
     const candidate = join(

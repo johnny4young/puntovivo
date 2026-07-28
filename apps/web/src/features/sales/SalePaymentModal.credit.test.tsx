@@ -10,7 +10,7 @@
  * exercised. The mock pattern mirrors `PeripheralsPage.test.tsx`
  * and `CustomerLedgerModal.test.tsx`.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { act, fireEvent } from '@testing-library/react';
 import i18next from '@/i18n';
@@ -165,6 +165,10 @@ describe('SalePaymentModal ( credit branch)', () => {
     mockBalanceError = false;
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('hides the credit option when no customer is selected', () => {
     renderModal({ userRole: 'manager' });
     expect(screen.queryByTestId('sale-payment-method-credit-option')).not.toBeInTheDocument();
@@ -224,7 +228,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
   });
 
-  it('rejects direct form submit while policy or exact approval gates are outstanding', () => {
+  it('rejects direct form submit while policy or exact approval gates are outstanding', async () => {
     const onSubmit = vi.fn(async () => undefined);
     const approvalItems = [
       {
@@ -241,13 +245,19 @@ describe('SalePaymentModal ( credit branch)', () => {
     const form = document.getElementById('sale-payment-form');
     if (!form) throw new Error('Expected sale payment form');
 
-    fireEvent.submit(form);
+    await act(async () => {
+      fireEvent.submit(form);
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
     expect(onSubmit).not.toHaveBeenCalled();
 
     mockLossPreventionFetching = false;
     mockLossPreventionActions = ['sale_after_hours'];
-    rerender(buildModal(props));
-    fireEvent.submit(form);
+    await act(async () => {
+      rerender(buildModal(props));
+      fireEvent.submit(form);
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
 
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -268,14 +278,21 @@ describe('SalePaymentModal ( credit branch)', () => {
       fastCashTrigger: 1,
     };
     mockLossPreventionFetching = true;
-    const { rerender } = renderModal(props);
+    let view!: ReturnType<typeof renderModal>;
+    await act(async () => {
+      view = renderModal(props);
+      await new Promise(resolve => setTimeout(resolve, 25));
+    });
     const confirm = screen.getByRole('button', { name: /Confirm Sale/i });
 
     await waitFor(() => expect(confirm).toBeDisabled());
     expect(confirm).not.toHaveFocus();
 
     mockLossPreventionFetching = false;
-    rerender(buildModal(props));
+    await act(async () => {
+      view.rerender(buildModal(props));
+      await new Promise(resolve => setTimeout(resolve, 25));
+    });
 
     await waitFor(() => expect(confirm).toBeEnabled());
     await waitFor(() => expect(confirm).toHaveFocus());

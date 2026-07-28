@@ -3,6 +3,32 @@ import { vi } from 'vitest';
 import '../i18n'; // initialize i18next so useTranslation works in tests
 import { registerAllNamespacesForTest } from './i18nTestResources';
 
+function throwUnexpectedConsole(method: 'error' | 'warn', args: unknown[]): never {
+  const detail = args
+    .map(value => {
+      if (value instanceof Error) return `${value.name}: ${value.message}`;
+      return typeof value === 'string' ? value : String(value);
+    })
+    .join(' ');
+  throw new Error(`Unexpected console.${method} in web test: ${detail}`);
+}
+
+// A passing Vitest process must also be diagnostics-clean. Tests that exercise
+// an expected warning/error path install and assert a scoped console spy; every
+// unclaimed React act warning or application diagnostic fails immediately.
+Object.defineProperties(console, {
+  error: {
+    configurable: true,
+    writable: true,
+    value: (...args: unknown[]) => throwUnexpectedConsole('error', args),
+  },
+  warn: {
+    configurable: true,
+    writable: true,
+    value: (...args: unknown[]) => throwUnexpectedConsole('warn', args),
+  },
+});
+
 // production lazy-loads every non-bootstrap namespace through a
 // resourcesToBackend glob loader; unit tests assert strings synchronously, so
 // eager-load every namespace into the (test-only) i18next instance up front.
@@ -146,6 +172,24 @@ const getComputedStyle = window.getComputedStyle.bind(window);
 Object.defineProperty(window, 'getComputedStyle', {
   configurable: true,
   value: (element: Element) => getComputedStyle(element),
+});
+
+// CodeMirror measures DOM Range rectangles in requestAnimationFrame. jsdom
+// intentionally omits these layout APIs and otherwise reports an asynchronous
+// TypeError after an editor test has already completed. A zero-size rectangle
+// matches jsdom's layout model while preserving CodeMirror's measurement path.
+const zeroDomRect = () => new DOMRect(0, 0, 0, 0);
+Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
+  configurable: true,
+  value: zeroDomRect,
+});
+Object.defineProperty(Range.prototype, 'getClientRects', {
+  configurable: true,
+  value: () => {
+    const rects = [zeroDomRect()] as DOMRect[] & { item(index: number): DOMRect | null };
+    rects.item = (index: number) => rects[index] ?? null;
+    return rects;
+  },
 });
 
 // A real anchor click asks jsdom to navigate to another document on a later

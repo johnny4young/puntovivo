@@ -78,8 +78,10 @@ import { QuickCreateProductGate } from './QuickCreateProductGate';
 
 describe('QuickCreateProductGate', () => {
   beforeEach(() => {
-    useQuickCreateStore.getState().reset();
-    useQuickCreateStore.getState().requestCreateProduct({ defaultName: 'Producto rápido' });
+    act(() => {
+      useQuickCreateStore.getState().reset();
+      useQuickCreateStore.getState().requestCreateProduct({ defaultName: 'Producto rápido' });
+    });
     createMutateAsyncMock.mockReset();
     listInvalidateMock.mockReset();
     searchInvalidateMock.mockReset();
@@ -92,7 +94,9 @@ describe('QuickCreateProductGate', () => {
   });
 
   afterEach(() => {
-    useQuickCreateStore.getState().reset();
+    act(() => {
+      useQuickCreateStore.getState().reset();
+    });
   });
 
   it('normalizes the form payload before creating and invalidates all quick-create reads', async () => {
@@ -138,10 +142,13 @@ describe('QuickCreateProductGate', () => {
     createMutateAsyncMock.mockRejectedValue(new Error('duplicate SKU'));
     render(<QuickCreateProductGate />);
 
-    const result = await productFormPropsRef.current?.onSubmit({
-      ...createDefaultValues(),
-      name: 'Producto duplicado',
-      sku: 'DUP-001',
+    let result: unknown;
+    await act(async () => {
+      result = await productFormPropsRef.current?.onSubmit({
+        ...createDefaultValues(),
+        name: 'Producto duplicado',
+        sku: 'DUP-001',
+      });
     });
 
     expect(result).toBeUndefined();
@@ -154,12 +161,14 @@ describe('QuickCreateProductGate', () => {
     listInvalidateMock.mockRejectedValue(new Error('cache invalidation failed'));
     render(<QuickCreateProductGate />);
 
-    await expect(
-      productFormPropsRef.current?.onSubmit({
-        ...createDefaultValues(),
-        name: 'Producto creado',
-        sku: 'NEW-001',
-      })
-    ).rejects.toThrow('cache invalidation failed');
+    await act(async () => {
+      await expect(
+        productFormPropsRef.current?.onSubmit({
+          ...createDefaultValues(),
+          name: 'Producto creado',
+          sku: 'NEW-001',
+        })
+      ).rejects.toThrow('cache invalidation failed');
+    });
   });
 });

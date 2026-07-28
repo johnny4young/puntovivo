@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import i18n from '@/i18n';
-import { render, screen } from '@/test/utils';
+import { act, render, screen } from '@/test/utils';
 import { ResourcePage } from '../ResourcePage';
 
 interface TestRecord {
@@ -111,11 +111,15 @@ describe('ResourcePage', () => {
  */
 describe('ResourcePage error title localization', () => {
   afterEach(async () => {
-    await i18n.changeLanguage('en');
+    await act(async () => {
+      await i18n.changeLanguage('en');
+    });
   });
 
   it('states the load failure in the active locale', async () => {
-    await i18n.changeLanguage('es');
+    await act(async () => {
+      await i18n.changeLanguage('es');
+    });
 
     render(
       <ResourcePage

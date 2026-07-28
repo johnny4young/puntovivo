@@ -40,6 +40,7 @@ beforeEach(() => {
 afterEach(() => {
   __resetCorrelationForTests();
   __resetRenderObservabilityForTests();
+  vi.restoreAllMocks();
 });
 
 describe('correlation id minting', () => {
@@ -81,11 +82,17 @@ describe('captureRenderError correlation stamp', () => {
     registerRenderTelemetrySink(sink);
 
     const minted = getTrpcHeaders()['x-correlation-id'];
-    captureRenderError(new Error('boom'), {
+    const boom = new Error('boom');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    captureRenderError(boom, {
       source: 'render',
       componentStack: 'at App',
     });
 
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'captured render error',
+      expect.objectContaining({ err: boom, source: 'render', correlationId: minted })
+    );
     expect(events).toHaveLength(1);
     expect(events[0]!.correlationId).toBe(minted);
   });
@@ -95,11 +102,17 @@ describe('captureRenderError correlation stamp', () => {
     const { events, sink } = buildRecordingSink();
     registerRenderTelemetrySink(sink);
 
-    captureRenderError(new Error('boom'), {
+    const boom = new Error('boom');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    captureRenderError(boom, {
       source: 'window',
       componentStack: null,
     });
 
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'captured render error',
+      expect.objectContaining({ err: boom, source: 'window', correlationId: null })
+    );
     expect(events[0]!.correlationId).toBeNull();
   });
 
@@ -109,12 +122,22 @@ describe('captureRenderError correlation stamp', () => {
     registerRenderTelemetrySink(sink);
 
     getTrpcHeaders();
-    captureRenderError(new Error('boom'), {
+    const boom = new Error('boom');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    captureRenderError(boom, {
       source: 'render',
       componentStack: null,
       correlationId: 'explicit-id-123',
     });
 
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'captured render error',
+      expect.objectContaining({
+        err: boom,
+        source: 'render',
+        correlationId: 'explicit-id-123',
+      })
+    );
     expect(events[0]!.correlationId).toBe('explicit-id-123');
   });
 });

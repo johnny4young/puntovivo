@@ -145,7 +145,10 @@ beforeEach(() => {
   useIsModuleActiveMock.mockReturnValue(true);
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await act(async () => {
+    await Promise.resolve();
+  });
   vi.useRealTimers();
 });
 
@@ -415,14 +418,17 @@ describe('ProductFormModal — AI category suggestion', () => {
     expect(suggestCategoryMutateMock).not.toHaveBeenCalled();
   });
 
-  it(' — exposes opt-in lot tracking and locks direct stock edits', () => {
+  it(' — exposes opt-in lot tracking and locks direct stock edits', async () => {
     renderModal({ mode: 'create' });
     const stock = screen.getByLabelText('Stock') as HTMLInputElement;
     const toggle = screen.getByRole('checkbox', { name: 'Track lots and expiry' });
 
     expect(toggle).not.toBeChecked();
     expect(stock).not.toHaveAttribute('readonly');
-    fireEvent.click(toggle);
+    await act(async () => {
+      fireEvent.click(toggle);
+      await Promise.resolve();
+    });
     expect(toggle).toBeChecked();
     expect(stock).toHaveAttribute('readonly');
     expect(
@@ -430,23 +436,32 @@ describe('ProductFormModal — AI category suggestion', () => {
     ).toBeInTheDocument();
   });
 
-  it(' — makes serial tracking exclusive and locks aggregate stock', () => {
+  it(' — makes serial tracking exclusive and locks aggregate stock', async () => {
     renderModal({ mode: 'create' });
     const stock = screen.getByLabelText('Stock') as HTMLInputElement;
     const serialToggle = screen.getByRole('checkbox', { name: 'Track serial numbers' });
     const lotToggle = screen.getByRole('checkbox', { name: 'Track lots and expiry' });
     const fractionToggle = screen.getByRole('checkbox', { name: 'Allow fractional sales' });
 
-    fireEvent.click(lotToggle);
+    await act(async () => {
+      fireEvent.click(lotToggle);
+      await Promise.resolve();
+    });
     expect(lotToggle).toBeChecked();
-    fireEvent.click(serialToggle);
+    await act(async () => {
+      fireEvent.click(serialToggle);
+      await Promise.resolve();
+    });
     expect(serialToggle).toBeChecked();
     expect(lotToggle).not.toBeChecked();
     expect(fractionToggle).not.toBeChecked();
     expect(stock).toHaveAttribute('readonly');
     expect(screen.getByText(/Stock is managed from serial-aware inventory receipts/)).toBeVisible();
 
-    fireEvent.click(fractionToggle);
+    await act(async () => {
+      fireEvent.click(fractionToggle);
+      await Promise.resolve();
+    });
     expect(fractionToggle).toBeChecked();
     expect(serialToggle).not.toBeChecked();
     expect(stock).not.toHaveAttribute('readonly');
@@ -457,10 +472,10 @@ describe('ProductFormModal — AI category suggestion', () => {
 
     expect(screen.getByRole('checkbox', { name: 'Track lots and expiry' })).toBeChecked();
     expect(screen.getByLabelText('Stock')).toHaveAttribute('readonly');
-    fireEvent.change(screen.getByLabelText('Name'), {
-      target: { value: 'Updated tracked product' },
-    });
     await act(async () => {
+      fireEvent.change(screen.getByLabelText('Name'), {
+        target: { value: 'Updated tracked product' },
+      });
       fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
       await Promise.resolve();
     });
@@ -478,10 +493,10 @@ describe('ProductFormModal — AI category suggestion', () => {
     renderModal({ mode: 'edit', product: createMockProduct({ stock: 4, tracksLots: true }) });
     const toggle = screen.getByRole('checkbox', { name: 'Track lots and expiry' });
 
-    fireEvent.click(toggle);
-    fireEvent.change(screen.getByLabelText('Stock'), { target: { value: '6' } });
-    fireEvent.click(toggle);
     await act(async () => {
+      fireEvent.click(toggle);
+      fireEvent.change(screen.getByLabelText('Stock'), { target: { value: '6' } });
+      fireEvent.click(toggle);
       fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
       await Promise.resolve();
     });

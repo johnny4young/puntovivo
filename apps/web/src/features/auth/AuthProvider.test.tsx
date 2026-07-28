@@ -18,6 +18,7 @@ const {
   loginMutateMock,
   switchStaffMutateMock,
   logoutMutateMock,
+  registerDeviceMutateMock,
   healthCheckMock,
   queryClientClearMock,
 } = vi.hoisted(() => ({
@@ -34,6 +35,7 @@ const {
   loginMutateMock: vi.fn(),
   switchStaffMutateMock: vi.fn(),
   logoutMutateMock: vi.fn(),
+  registerDeviceMutateMock: vi.fn(),
   healthCheckMock: vi.fn(),
   queryClientClearMock: vi.fn(),
 }));
@@ -69,6 +71,7 @@ vi.mock('@/lib/trpc', () => ({
       login: { mutate: (input: unknown) => loginMutateMock(input) },
       switchStaff: { mutate: (input: unknown) => switchStaffMutateMock(input) },
       logout: { mutate: () => logoutMutateMock() },
+      registerDevice: { mutate: (input: unknown) => registerDeviceMutateMock(input) },
     },
   },
 }));
@@ -135,6 +138,7 @@ beforeEach(() => {
   loginMutateMock.mockReset();
   switchStaffMutateMock.mockReset();
   logoutMutateMock.mockReset();
+  registerDeviceMutateMock.mockReset().mockResolvedValue({ deviceId: 'web-test-device' });
   healthCheckMock.mockReset().mockResolvedValue({ ok: true });
   queryClientClearMock.mockReset();
 });
@@ -331,7 +335,9 @@ describe('AuthProvider — logout flow', () => {
   it('clears local state and navigates even when the server logout call fails', async () => {
     refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
     meQueryMock.mockResolvedValue(sessionPayload);
-    logoutMutateMock.mockRejectedValue(new Error('server down'));
+    const failure = new Error('server down');
+    logoutMutateMock.mockRejectedValue(failure);
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     let auth!: ReturnType<typeof useAuth>;
     function Probe() {
@@ -349,6 +355,10 @@ describe('AuthProvider — logout flow', () => {
     expect(queryClientClearMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(auth.isAuthenticated).toBe(false);
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'auth.logout server call failed; clearing local state anyway:',
+      failure
+    );
   });
 });
 

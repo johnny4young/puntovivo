@@ -41,6 +41,9 @@ on:
 env:
   NODE_VERSION: '24'
   RELEASE_TAG: ${{ inputs.tag }}
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 
 # contents: upload installers to the Release. pages + id-token: the publish-feed
 # job deploys the auto-update feed to GitHub Pages. Each job narrows to what it
@@ -52,7 +55,7 @@ permissions:
 
 jobs:
   # ============================================================================
-  # Prerelease money-path gate ()
+  # Prerelease money-path gate
   # ============================================================================
   # Validate the exact release tag before any web archive or desktop installer
   # is built. The reusable workflow is also independently dispatchable for an
@@ -79,6 +82,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          standalone: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -139,6 +144,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          standalone: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v7

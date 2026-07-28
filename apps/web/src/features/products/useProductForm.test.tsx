@@ -19,7 +19,9 @@ describe('useProductForm submit contract', () => {
       result.current.form.setValue('sku', 'PROD-001');
     });
 
-    await expect(result.current.handleSubmit()).rejects.toBe(failure);
+    await act(async () => {
+      await expect(result.current.handleSubmit()).rejects.toBe(failure);
+    });
     expect(onSubmit).toHaveBeenCalledOnce();
   });
 
@@ -39,7 +41,9 @@ describe('useProductForm submit contract', () => {
       result.current.form.setValue('sku', 'PROD-002');
     });
 
-    await result.current.handleSubmit();
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
     expect(onCreated).not.toHaveBeenCalled();
   });
 });

@@ -9,7 +9,7 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import {
   selectRequestedCreateCustomer,
   selectRequestedCreateProduct,
@@ -17,7 +17,9 @@ import {
 } from './useQuickCreateStore';
 
 afterEach(() => {
-  useQuickCreateStore.getState().reset();
+  act(() => {
+    useQuickCreateStore.getState().reset();
+  });
 });
 
 describe('useQuickCreateStore', () => {
@@ -84,7 +86,9 @@ describe('useQuickCreateStore', () => {
     );
     expect(result.current).toBeNull();
 
-    useQuickCreateStore.getState().requestCreateProduct({ defaultName: 'X' });
+    act(() => {
+      useQuickCreateStore.getState().requestCreateProduct({ defaultName: 'X' });
+    });
     rerender();
     expect(result.current).toEqual({ defaultName: 'X' });
   });
@@ -95,7 +99,9 @@ describe('useQuickCreateStore', () => {
     );
     expect(result.current).toBeNull();
 
-    useQuickCreateStore.getState().requestCreateCustomer({ defaultName: 'Walk-in' });
+    act(() => {
+      useQuickCreateStore.getState().requestCreateCustomer({ defaultName: 'Walk-in' });
+    });
     rerender();
     expect(result.current).toEqual({ defaultName: 'Walk-in' });
   });

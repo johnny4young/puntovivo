@@ -309,7 +309,7 @@ describe('SuspendedSalesPanel — draft cards ( + )', () => {
     expect(screen.queryByTestId('suspended-draft-table-badge')).toBeNull();
   });
 
-  it('fires onResume with the picked draft summary when the resume button is clicked', () => {
+  it('fires onResume with the picked draft summary when the resume button is clicked', async () => {
     const onResume = vi.fn();
     listDraftsMock.mockReturnValue({
       data: { items: [makeDraft({ id: 'sale-resume' })] },
@@ -319,9 +319,11 @@ describe('SuspendedSalesPanel — draft cards ( + )', () => {
       refetch: refetchMock,
     });
     renderPanel({ onResume });
-    fireEvent.click(screen.getByTestId('suspended-draft-resume'));
+    const resumeButton = screen.getByTestId('suspended-draft-resume');
+    fireEvent.click(resumeButton);
     expect(onResume).toHaveBeenCalledTimes(1);
     expect(onResume.mock.calls[0]?.[0]).toMatchObject({ id: 'sale-resume' });
+    await waitFor(() => expect(resumeButton).not.toBeDisabled());
   });
 
   it('opens the discard confirm modal and forwards saleId to the mutation on confirm', async () => {
@@ -347,6 +349,7 @@ describe('SuspendedSalesPanel — draft cards ( + )', () => {
     await waitFor(() =>
       expect(discardMutateAsync).toHaveBeenCalledWith({ saleId: 'sale-discard' })
     );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });
 

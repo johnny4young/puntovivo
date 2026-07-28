@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { screen, within, waitFor } from '@testing-library/react';
+import { act, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '../DataTable';
@@ -642,7 +642,9 @@ describe('DataTable', () => {
       );
 
       const rows = getBodyRows();
-      rows[0]!.focus();
+      act(() => {
+        rows[0]!.focus();
+      });
       expect(rows[0]).toHaveFocus();
 
       await user.keyboard('{Space}');
@@ -661,7 +663,9 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} onRowActivate={onRowActivate} />);
 
       const rows = getBodyRows();
-      rows[1]!.focus();
+      act(() => {
+        rows[1]!.focus();
+      });
 
       await user.keyboard('{Enter}');
 
@@ -677,7 +681,9 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} onRowActivate={onRowActivate} />);
 
       const rows = getBodyRows();
-      rows[2]!.focus();
+      act(() => {
+        rows[2]!.focus();
+      });
 
       await user.keyboard('{Space}');
 
@@ -700,7 +706,9 @@ describe('DataTable', () => {
       );
 
       const rows = getBodyRows();
-      rows[0]!.focus();
+      act(() => {
+        rows[0]!.focus();
+      });
 
       await user.keyboard('{Enter}');
 
@@ -741,7 +749,9 @@ describe('DataTable', () => {
       );
 
       const rows = getBodyRows();
-      rows[0]!.focus();
+      act(() => {
+        rows[0]!.focus();
+      });
 
       await user.keyboard('{Enter}');
 
@@ -756,7 +766,9 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} />);
 
       const rows = getBodyRows();
-      rows[0]!.focus();
+      act(() => {
+        rows[0]!.focus();
+      });
 
       await user.keyboard('{Enter}');
 
@@ -798,7 +810,9 @@ describe('DataTable', () => {
       // button should fire the button's own onClick semantics — not
       // the row activate.
       const editButton = screen.getByRole('button', { name: /Edit Product 01/ });
-      editButton.focus();
+      act(() => {
+        editButton.focus();
+      });
       await user.keyboard('{Enter}');
 
       expect(onRowActivate).not.toHaveBeenCalled();

@@ -8,6 +8,11 @@ on:
 
 env:
   NODE_VERSION: '24'
+  # actions/checkout initializes an empty repository before fetching. Git 2.54
+  # otherwise emits its default-branch migration warning on every job.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 
 # Least-privilege default token: CI only reads the repo and runs gates;
 # nothing here needs write scope. detect-changes escalates to
@@ -121,12 +126,15 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          # Use @pnpm/exe instead of the npm-installed shim. The npm bootstrap
+          # emits its own audit finding and the legacy PNPM_HOME layout warning.
+          standalone: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -149,12 +157,13 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          standalone: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -181,10 +190,10 @@ jobs:
         with:
           name: coverage-web
           path: apps/web/coverage/lcov.info
-          if-no-files-found: warn
+          if-no-files-found: error
 
   # ============================================================================
-  # Desktop Workspace Validation ( — ubuntu-only on push/PR)
+  # Desktop Workspace Validation — ubuntu-only on push/PR
   # ----------------------------------------------------------------------------
   # The desktop workspace hosts Electron-specific code (builder config, preload,
   # main process). The ubuntu-latest run gates the `ci:desktop` script
@@ -219,12 +228,13 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          standalone: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -281,12 +291,13 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          standalone: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -303,4 +314,4 @@ jobs:
         with:
           name: coverage-server
           path: packages/server/coverage/lcov.info
-          if-no-files-found: warn
+          if-no-files-found: error

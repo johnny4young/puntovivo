@@ -49,6 +49,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -96,11 +97,21 @@ describe('initSentryRenderSink', () => {
   it('forwards render errors with the tenantId stripped', async () => {
     await initRealAdapter();
     const boom = new Error('render boom');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     captureRenderError(boom, {
       source: 'render',
       tenantId: 'tenant-1',
       componentStack: 'at App',
     });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'captured render error',
+      expect.objectContaining({
+        err: boom,
+        source: 'render',
+        tenantId: 'tenant-1',
+        componentStack: 'at App',
+      })
+    );
     expect(captureExceptionMock).toHaveBeenCalledOnce();
     const [err, context] = captureExceptionMock.mock.calls[0]! as [
       unknown,
@@ -117,13 +128,25 @@ describe('initSentryRenderSink', () => {
 
   it('keeps window-source metadata (filename/line) on the event', async () => {
     await initRealAdapter();
-    captureRenderError(new Error('window boom'), {
+    const boom = new Error('window boom');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    captureRenderError(boom, {
       source: 'window',
       filename: 'app.js',
       lineNumber: 42,
       columnNumber: 7,
       componentStack: null,
     });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'captured render error',
+      expect.objectContaining({
+        err: boom,
+        source: 'window',
+        filename: 'app.js',
+        lineNumber: 42,
+        columnNumber: 7,
+      })
+    );
     const [, context] = captureExceptionMock.mock.calls[0]! as [
       unknown,
       { extra: Record<string, unknown>; tags: Record<string, unknown> },

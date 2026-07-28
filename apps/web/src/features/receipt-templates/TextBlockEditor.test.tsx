@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useState } from 'react';
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import { EditorView } from '@codemirror/view';
 import i18next from '@/i18n';
 import { TextBlockEditor } from './TextBlockEditor';
 
 beforeEach(async () => {
-  await i18next.changeLanguage('en');
+  await act(async () => {
+    await i18next.changeLanguage('en');
+  });
 });
 
 interface MountOptions {
@@ -60,7 +62,9 @@ describe('TextBlockEditor — controlled input contract', () => {
 
   it('fires onChange and updates value when a transaction is dispatched', async () => {
     const { view, getValue } = await mountEditor({ initialValue: 'abc' });
-    view.dispatch({ changes: { from: 3, to: 3, insert: 'def' } });
+    act(() => {
+      view.dispatch({ changes: { from: 3, to: 3, insert: 'def' } });
+    });
     await waitFor(() => {
       expect(getValue()).toBe('abcdef');
     });
@@ -75,16 +79,18 @@ describe('TextBlockEditor — auto-close for double braces', () => {
     // one returns true; the first match short-circuits.
     const handlers = view.state.facet(EditorView.inputHandler);
     let handled = false;
-    for (const handler of handlers) {
-      if (
-        handler(view, 1, 1, '{', () =>
-          view.state.update({ changes: { from: 1, to: 1, insert: '{' } })
-        )
-      ) {
-        handled = true;
-        break;
+    act(() => {
+      for (const handler of handlers) {
+        if (
+          handler(view, 1, 1, '{', () =>
+            view.state.update({ changes: { from: 1, to: 1, insert: '{' } })
+          )
+        ) {
+          handled = true;
+          break;
+        }
       }
-    }
+    });
     expect(handled).toBe(true);
     expect(view.state.doc.toString()).toBe('{{}}');
     expect(view.state.selection.main.head).toBe(2);
@@ -93,11 +99,14 @@ describe('TextBlockEditor — auto-close for double braces', () => {
   it('does NOT auto-close when the previous char is not `{`', async () => {
     const { view } = await mountEditor({ initialValue: 'abc' });
     const handlers = view.state.facet(EditorView.inputHandler);
-    const fired = handlers.some(handler =>
-      handler(view, 3, 3, '{', () =>
-        view.state.update({ changes: { from: 3, to: 3, insert: '{' } })
-      )
-    );
+    let fired = false;
+    act(() => {
+      fired = handlers.some(handler =>
+        handler(view, 3, 3, '{', () =>
+          view.state.update({ changes: { from: 3, to: 3, insert: '{' } })
+        )
+      );
+    });
     expect(fired).toBe(false);
     // The doc should be unchanged because no handler claimed the input.
     expect(view.state.doc.toString()).toBe('abc');
@@ -106,22 +115,28 @@ describe('TextBlockEditor — auto-close for double braces', () => {
   it('does NOT auto-close when the cursor is at offset 0', async () => {
     const { view } = await mountEditor({ initialValue: '' });
     const handlers = view.state.facet(EditorView.inputHandler);
-    const fired = handlers.some(handler =>
-      handler(view, 0, 0, '{', () =>
-        view.state.update({ changes: { from: 0, to: 0, insert: '{' } })
-      )
-    );
+    let fired = false;
+    act(() => {
+      fired = handlers.some(handler =>
+        handler(view, 0, 0, '{', () =>
+          view.state.update({ changes: { from: 0, to: 0, insert: '{' } })
+        )
+      );
+    });
     expect(fired).toBe(false);
   });
 
   it('only fires for `{` insertions, not other characters', async () => {
     const { view } = await mountEditor({ initialValue: '{' });
     const handlers = view.state.facet(EditorView.inputHandler);
-    const fired = handlers.some(handler =>
-      handler(view, 1, 1, 'a', () =>
-        view.state.update({ changes: { from: 1, to: 1, insert: 'a' } })
-      )
-    );
+    let fired = false;
+    act(() => {
+      fired = handlers.some(handler =>
+        handler(view, 1, 1, 'a', () =>
+          view.state.update({ changes: { from: 1, to: 1, insert: 'a' } })
+        )
+      );
+    });
     expect(fired).toBe(false);
   });
 });
@@ -132,7 +147,9 @@ describe('TextBlockEditor — maxLength enforcement', () => {
       initialValue: 'abcde',
       maxLength: 5,
     });
-    view.dispatch({ changes: { from: 5, to: 5, insert: 'X' } });
+    act(() => {
+      view.dispatch({ changes: { from: 5, to: 5, insert: 'X' } });
+    });
     expect(view.state.doc.toString()).toBe('abcde');
   });
 
@@ -141,7 +158,9 @@ describe('TextBlockEditor — maxLength enforcement', () => {
       initialValue: 'abc',
       maxLength: 5,
     });
-    view.dispatch({ changes: { from: 3, to: 3, insert: 'XY' } });
+    act(() => {
+      view.dispatch({ changes: { from: 3, to: 3, insert: 'XY' } });
+    });
     expect(view.state.doc.toString()).toBe('abcXY');
   });
 });
@@ -153,10 +172,14 @@ describe('TextBlockEditor — i18n surface', () => {
   });
 
   it('mounts cleanly under Spanish locale (LATAM neutral)', async () => {
-    await i18next.changeLanguage('es');
+    await act(async () => {
+      await i18next.changeLanguage('es');
+    });
     const { view } = await mountEditor({ initialValue: '' });
     expect(view).toBeDefined();
-    await i18next.changeLanguage('en');
+    await act(async () => {
+      await i18next.changeLanguage('en');
+    });
   });
 });
 

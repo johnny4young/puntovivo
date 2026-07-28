@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
@@ -174,7 +174,9 @@ function setErrorResult(error: Error): void {
 
 describe('InventoryTransferHistory', () => {
   beforeAll(async () => {
-    await i18next.changeLanguage('en');
+    await act(async () => {
+      await i18next.changeLanguage('en');
+    });
   });
 
   it('lists completed and voided transfers with their status badge', () => {
@@ -231,7 +233,9 @@ describe('InventoryTransferHistory', () => {
     // `capturedMutationOpts` is set on the first render when the mock runs.
     expect(capturedMutationOpts?.onSuccess).toBeInstanceOf(Function);
 
-    await capturedMutationOpts?.onSuccess?.();
+    await act(async () => {
+      await capturedMutationOpts?.onSuccess?.();
+    });
 
     expect(listInvalidate).toHaveBeenCalled();
     expect(detailInvalidate).toHaveBeenCalled();
@@ -331,7 +335,9 @@ describe('InventoryTransferHistory', () => {
     await user.click(screen.getByRole('button', { name: 'Receive' }));
     expect(await screen.findByText('Receive transfer')).toBeInTheDocument();
 
-    capturedReceiveOpts?.onSuccess?.();
+    act(() => {
+      void capturedReceiveOpts?.onSuccess?.();
+    });
 
     await waitFor(() => {
       expect(screen.queryByText('Receive transfer')).not.toBeInTheDocument();
@@ -352,7 +358,9 @@ describe('InventoryTransferHistory', () => {
     render(<InventoryTransferHistory />);
 
     expect(capturedReceiveOpts?.onSuccess).toBeInstanceOf(Function);
-    await capturedReceiveOpts?.onSuccess?.();
+    await act(async () => {
+      await capturedReceiveOpts?.onSuccess?.();
+    });
 
     expect(listInvalidate).toHaveBeenCalled();
     expect(detailInvalidate).toHaveBeenCalled();

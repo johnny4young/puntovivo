@@ -1,7 +1,7 @@
 name: Build Desktop (manual)
 
 # ============================================================================
-# Manual cross-OS desktop build ()
+# Manual cross-OS desktop build
 # ----------------------------------------------------------------------------
 # Triggered exclusively by the operator via workflow_dispatch when they want
 # to validate or produce a desktop build for a chosen subset of platforms.
@@ -51,6 +51,9 @@ on:
 
 env:
   NODE_VERSION: '24'
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 
 # Per-job concurrency: cancel any in-progress run for the same actor when
 # they kick off another. Avoids stacking macOS minutes when an operator
@@ -107,6 +110,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          standalone: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -211,6 +216,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          standalone: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -310,6 +317,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          standalone: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v7

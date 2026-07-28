@@ -12,7 +12,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/utils';
 import i18n from '@/i18n';
 import { ProductSearchDialog } from './ProductSearchDialog';
@@ -51,7 +51,9 @@ vi.mock('@/lib/trpc', () => ({
 }));
 
 beforeEach(async () => {
-  await i18n.changeLanguage('en');
+  await act(async () => {
+    await i18n.changeLanguage('en');
+  });
   trpcQueryState.data = { items: [], total: 0 };
   trpcQueryState.isLoading = false;
   trpcQueryState.error = null;
@@ -144,7 +146,9 @@ describe('<ProductSearchDialog /> empty-state CTA', () => {
   });
 
   it('renders the ES copy after a locale flip', async () => {
-    await i18n.changeLanguage('es');
+    await act(async () => {
+      await i18n.changeLanguage('es');
+    });
     const user = userEvent.setup();
     renderDialog({ onQuickCreateRequested: vi.fn() });
 
@@ -402,7 +406,9 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[0]!.focus();
+    act(() => {
+      rows[0]!.focus();
+    });
     expect(rows[0]).toHaveFocus();
 
     await user.keyboard('{ArrowDown}');
@@ -417,7 +423,9 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[2]!.focus();
+    act(() => {
+      rows[2]!.focus();
+    });
 
     await user.keyboard('{ArrowDown}');
 
@@ -430,7 +438,9 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[0]!.focus();
+    act(() => {
+      rows[0]!.focus();
+    });
 
     await user.keyboard('{ArrowUp}');
 
@@ -443,7 +453,9 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[2]!.focus();
+    act(() => {
+      rows[2]!.focus();
+    });
 
     await user.keyboard('{Home}');
 
@@ -457,7 +469,9 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[0]!.focus();
+    act(() => {
+      rows[0]!.focus();
+    });
 
     await user.keyboard('{End}');
 
@@ -471,7 +485,9 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[1]!.focus();
+    act(() => {
+      rows[1]!.focus();
+    });
 
     await user.keyboard('{Enter}');
 
@@ -491,7 +507,9 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[2]!.focus();
+    act(() => {
+      rows[2]!.focus();
+    });
 
     await user.keyboard(' ');
 
@@ -525,7 +543,9 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     expect(rows[0]).toHaveAttribute('tabindex', '-1');
 
     // ArrowDown from row 1 should move focus to row 2.
-    rows[1]!.focus();
+    act(() => {
+      rows[1]!.focus();
+    });
     await user.keyboard('{ArrowDown}');
 
     expect(rows[2]).toHaveFocus();
@@ -536,7 +556,9 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[2]!.focus();
+    act(() => {
+      rows[2]!.focus();
+    });
     // onFocus is async; await the roving tabindex reflecting row 2 as active.
     await waitFor(() => expect(rows[2]).toHaveAttribute('tabindex', '0'));
 
@@ -556,11 +578,14 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     const searchInput = screen.getByPlaceholderText(/Search by SKU/i);
     await user.type(searchInput, 'm');
 
-    const newRows = await screen.findAllByTestId(/product-search-row-/i);
-    expect(newRows).toHaveLength(3);
-    expect(newRows[0]).toHaveAttribute('tabindex', '0');
-    expect(newRows[1]).toHaveAttribute('tabindex', '-1');
-    expect(newRows[2]).toHaveAttribute('tabindex', '-1');
+    await waitFor(() => {
+      const newRows = screen.getAllByTestId(/product-search-row-/i);
+      expect(newRows).toHaveLength(3);
+      expect(newRows[0]).toHaveTextContent('Mango Maduro');
+      expect(newRows[0]).toHaveAttribute('tabindex', '0');
+      expect(newRows[1]).toHaveAttribute('tabindex', '-1');
+      expect(newRows[2]).toHaveAttribute('tabindex', '-1');
+    });
   });
 
   it('does not throw when the list is empty (no rows, no key nav targets)', () => {

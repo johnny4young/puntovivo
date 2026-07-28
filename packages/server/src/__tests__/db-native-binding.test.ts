@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
 import Database from 'better-sqlite3';
 import {
+  buildAddonIdentity,
   buildNodeRuntimeKey,
   resolveCachedNodeBinding,
   sanitizeRuntimeKey,
@@ -39,9 +40,23 @@ describe('buildNodeRuntimeKey', () => {
         modulesAbi: '137',
         platform: 'darwin',
         arch: 'arm64',
-        addonNameAndVersion: 'better-sqlite3-multiple-ciphers@12.11.1',
+        addonBuildIdentity: 'better-sqlite3-multiple-ciphers@12.11.1+patch.0123456789abcdef',
       })
-    ).toBe('node:v24.15.0:137:darwin:arm64:better-sqlite3-multiple-ciphers@12.11.1');
+    ).toBe(
+      'node:v24.15.0:137:darwin:arm64:better-sqlite3-multiple-ciphers@12.11.1+patch.0123456789abcdef'
+    );
+  });
+
+  it('changes when maintained patch bytes change under the same package version', () => {
+    const base = {
+      name: 'better-sqlite3-multiple-ciphers',
+      version: '12.11.1',
+    };
+    expect(buildAddonIdentity({ ...base, patchContent: 'patch-a' })).not.toBe(
+      buildAddonIdentity({ ...base, patchContent: 'patch-b' })
+    );
+    expect(buildAddonIdentity(base)).toBe('better-sqlite3-multiple-ciphers@12.11.1+patch.none');
+    expect(buildAddonIdentity({ ...base, patchContent: '' })).not.toBe(buildAddonIdentity(base));
   });
 });
 

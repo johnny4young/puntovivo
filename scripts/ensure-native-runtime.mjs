@@ -50,7 +50,7 @@ async function writeState(nextState) {
   await writeFile(stateFile, `${JSON.stringify(nextState, null, 2)}\n`, 'utf8');
 }
 
-async function getBetterSqliteVersion() {
+export async function getBetterSqliteBuildIdentity() {
   const packageJsonPath = require.resolve('better-sqlite3/package.json');
   const packageJson = await readJson(packageJsonPath);
   // combine the actual package name with the version so a
@@ -60,7 +60,13 @@ async function getBetterSqliteVersion() {
   // Without this the previously-cached plain better-sqlite3 .node
   // would silently restore over the SQLCipher build and break the
   // `PRAGMA key` path.
-  return `${packageJson.name}@${packageJson.version}`;
+  const packageIdentity = `${packageJson.name}@${packageJson.version}`;
+  const patchHash = await getFileHash(path.join(repoRoot, 'patches', `${packageIdentity}.patch`));
+
+  // A maintained pnpm patch can change the native sources without changing
+  // the upstream package version. Include its content hash so a checkout never
+  // restores a binary compiled from an older patch under the same ABI key.
+  return `${packageIdentity}+patch.${patchHash?.slice(0, 16) ?? 'none'}`;
 }
 
 function getBetterSqliteBinaryPath() {
@@ -201,7 +207,7 @@ export async function getElectronRebuildBin() {
  * Node runtime even when preparing Electron's binary.
  */
 async function getDesiredKey(runtime) {
-  const betterSqliteVersion = await getBetterSqliteVersion();
+  const betterSqliteVersion = await getBetterSqliteBuildIdentity();
 
   if (runtime === 'node') {
     return [

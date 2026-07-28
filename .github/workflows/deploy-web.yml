@@ -29,6 +29,11 @@ on:
 permissions:
   contents: read
 
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 # Serialize deploys (push + release + manual share this group); never cancel an
 # in-flight publish.
 concurrency:
@@ -50,6 +55,8 @@ jobs:
       # pnpm version comes from the root package.json "packageManager" field.
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          standalone: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
