@@ -141,7 +141,7 @@
       "marginPercent": "Margen %",
       "marginAmount": "Valor de margen",
       "salePrice": "Precio de venta",
-      "skuHelp": "Se genera automáticamente si lo dejas vacío.",
+      "skuHelp": "Código interno obligatorio usado en búsquedas e importaciones.",
       "barcodePlaceholder": "Escanea o escribe",
       "descriptionPlaceholder": "Notas visibles en cotizaciones (opcional).",
       "minStockHelp": "Se usa para las alertas de stock bajo."

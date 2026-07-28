@@ -80,6 +80,7 @@ test('admin preserves exact serial identities from purchase through return and t
   const productDialog = page.getByRole('dialog', { name: 'Create Product' });
   await productDialog.locator('#product-name').fill(productName);
   await productDialog.locator('#product-sku').fill(productSku);
+  await productDialog.getByRole('button', { name: 'Advanced settings' }).click();
   await productDialog.getByRole('checkbox', { name: 'Track serial numbers' }).check();
   await productDialog.getByRole('tab', { name: 'Units' }).click();
   await productDialog.getByRole('button', { name: 'Add unit' }).click();

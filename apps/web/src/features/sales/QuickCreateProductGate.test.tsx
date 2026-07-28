@@ -11,15 +11,22 @@ const {
   searchInvalidateMock,
   readinessInvalidateMock,
   productFormPropsRef,
+  advancedQueryEnabledMock,
+  vatQueryEnabledMock,
 } = vi.hoisted(() => ({
   createMutateAsyncMock: vi.fn(),
   listInvalidateMock: vi.fn(),
   searchInvalidateMock: vi.fn(),
   readinessInvalidateMock: vi.fn(),
+  advancedQueryEnabledMock: vi.fn(),
+  vatQueryEnabledMock: vi.fn(),
   productFormPropsRef: {
     current: null as null | {
       onSubmit: (values: ProductFormValues) => Promise<unknown>;
       defaultName?: string;
+      initialExperience?: 'quick' | 'advanced';
+      origin?: 'catalog' | 'sale';
+      onExperienceChange?: (experience: 'quick' | 'advanced') => void;
     },
   },
 }));
@@ -37,13 +44,16 @@ vi.mock('@/features/products/ProductFormModal', () => ({
   ProductFormModal: (props: {
     onSubmit: (values: ProductFormValues) => Promise<unknown>;
     defaultName?: string;
+    initialExperience?: 'quick' | 'advanced';
+    origin?: 'catalog' | 'sale';
+    onExperienceChange?: (experience: 'quick' | 'advanced') => void;
   }) => {
     productFormPropsRef.current = props;
     return <div data-testid="quick-create-product-modal" />;
   },
 }));
 
-const emptyQuery = { data: { items: [] } };
+const emptyQuery = { data: { items: [] }, isLoading: false };
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -56,11 +66,46 @@ vi.mock('@/lib/trpc', () => ({
         firstSale: { invalidate: readinessInvalidateMock },
       },
     }),
-    categories: { tree: { useQuery: () => emptyQuery } },
-    providers: { list: { useQuery: () => emptyQuery } },
-    locations: { list: { useQuery: () => emptyQuery } },
-    units: { list: { useQuery: () => emptyQuery } },
-    vatRates: { list: { useQuery: () => emptyQuery } },
+    categories: {
+      tree: {
+        useQuery: (_input: unknown, options: { enabled?: boolean }) => {
+          advancedQueryEnabledMock(options.enabled);
+          return emptyQuery;
+        },
+      },
+    },
+    providers: {
+      list: {
+        useQuery: (_input: unknown, options: { enabled?: boolean }) => {
+          advancedQueryEnabledMock(options.enabled);
+          return emptyQuery;
+        },
+      },
+    },
+    locations: {
+      list: {
+        useQuery: (_input: unknown, options: { enabled?: boolean }) => {
+          advancedQueryEnabledMock(options.enabled);
+          return emptyQuery;
+        },
+      },
+    },
+    units: {
+      list: {
+        useQuery: (_input: unknown, options: { enabled?: boolean }) => {
+          advancedQueryEnabledMock(options.enabled);
+          return emptyQuery;
+        },
+      },
+    },
+    vatRates: {
+      list: {
+        useQuery: (_input: unknown, options: { enabled?: boolean }) => {
+          vatQueryEnabledMock(options.enabled);
+          return emptyQuery;
+        },
+      },
+    },
     products: {
       create: {
         useMutation: () => ({
@@ -86,6 +131,8 @@ describe('QuickCreateProductGate', () => {
     listInvalidateMock.mockReset();
     searchInvalidateMock.mockReset();
     readinessInvalidateMock.mockReset();
+    advancedQueryEnabledMock.mockReset();
+    vatQueryEnabledMock.mockReset();
     productFormPropsRef.current = null;
     createMutateAsyncMock.mockResolvedValue({ id: 'product-created' });
     listInvalidateMock.mockResolvedValue(undefined);
@@ -103,6 +150,8 @@ describe('QuickCreateProductGate', () => {
     render(<QuickCreateProductGate />);
 
     expect(productFormPropsRef.current?.defaultName).toBe('Producto rápido');
+    expect(productFormPropsRef.current?.initialExperience).toBe('quick');
+    expect(productFormPropsRef.current?.origin).toBe('sale');
 
     const values = {
       ...createDefaultValues(),
@@ -136,6 +185,22 @@ describe('QuickCreateProductGate', () => {
     expect(listInvalidateMock).toHaveBeenCalledOnce();
     expect(searchInvalidateMock).toHaveBeenCalledOnce();
     expect(readinessInvalidateMock).toHaveBeenCalledOnce();
+  });
+
+  it('loads only tax choices until the operator requests advanced settings', () => {
+    render(<QuickCreateProductGate />);
+
+    expect(advancedQueryEnabledMock).toHaveBeenCalledTimes(4);
+    expect(advancedQueryEnabledMock.mock.calls.every(([enabled]) => enabled === false)).toBe(true);
+    expect(vatQueryEnabledMock).toHaveBeenLastCalledWith(true);
+
+    act(() => {
+      productFormPropsRef.current?.onExperienceChange?.('advanced');
+    });
+
+    expect(advancedQueryEnabledMock.mock.calls.slice(-4).every(([enabled]) => enabled === true)).toBe(
+      true
+    );
   });
 
   it('returns the handled-error sentinel when the product mutation rejects', async () => {

@@ -19,6 +19,7 @@ const {
   semanticSearchInvalidateMock,
   embeddingHealthInvalidateMock,
   marginUseQueryMock,
+  productsListUseQueryMock,
 } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
   useIsModuleActiveMock: vi.fn(),
@@ -29,6 +30,7 @@ const {
   semanticSearchInvalidateMock: vi.fn(),
   embeddingHealthInvalidateMock: vi.fn(),
   marginUseQueryMock: vi.fn(),
+  productsListUseQueryMock: vi.fn(),
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
@@ -50,9 +52,23 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 vi.mock('@/components/tables/DataTable', () => ({
-  DataTable: ({ searchPlaceholder }: { searchPlaceholder?: string }) => (
-    <div data-testid="products-table">{searchPlaceholder}</div>
-  ),
+  DataTable: ({
+    searchPlaceholder,
+    searchValue,
+    onSearchChange,
+  }: {
+    searchPlaceholder?: string;
+    searchValue?: string;
+    onSearchChange?: (value: string) => void;
+  }) =>
+    searchValue !== undefined ? (
+      <input
+        data-testid="products-table-search"
+        aria-label={searchPlaceholder}
+        value={searchValue}
+        onChange={event => onSearchChange?.(event.target.value)}
+      />
+    ) : null,
 }));
 
 vi.mock('@/components/tables/TableExportActions', () => ({
@@ -81,7 +97,7 @@ vi.mock('@/lib/trpc', () => ({
     }),
     products: {
       list: {
-        useQuery: () => ({ data: { items: [] }, isLoading: false, error: null }),
+        useQuery: (input: unknown) => productsListUseQueryMock(input),
       },
       semanticSearch: {
         useQuery: semanticSearchUseQueryMock,
@@ -165,6 +181,7 @@ describe('ProductsPage semantic-search module gate', () => {
     semanticSearchInvalidateMock.mockReset();
     embeddingHealthInvalidateMock.mockReset();
     marginUseQueryMock.mockReset();
+    productsListUseQueryMock.mockReset();
     useAuthMock.mockReturnValue({
       user: { id: 'u-1', role: 'manager' },
     });
@@ -174,6 +191,11 @@ describe('ProductsPage semantic-search module gate', () => {
     });
     embeddingHealthUseQueryMock.mockReturnValue({ data: null, isLoading: false });
     marginUseQueryMock.mockReturnValue({ data: null, isLoading: false, error: null });
+    productsListUseQueryMock.mockReturnValue({
+      data: { items: [] },
+      isLoading: false,
+      error: null,
+    });
     useModulesSnapshotMock.mockReturnValue({
       modules: { 'semantic-search': true },
       isLoading: false,
@@ -212,6 +234,21 @@ describe('ProductsPage semantic-search module gate', () => {
       undefined,
       expect.objectContaining({ enabled: false })
     );
+  });
+
+  it('debounces literal search into the server query instead of filtering one loaded page', async () => {
+    useIsModuleActiveMock.mockReturnValue(false);
+
+    render(<ProductsPage />);
+    fireEvent.change(screen.getByTestId('products-table-search'), {
+      target: { value: 'product beyond first page' },
+    });
+
+    await waitFor(() => {
+      expect(productsListUseQueryMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ search: 'product beyond first page' })
+      );
+    });
   });
 
   it('keeps semantic queries disabled while the modules snapshot is still placeholder', () => {

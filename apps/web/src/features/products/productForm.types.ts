@@ -1,6 +1,8 @@
 import type { Product } from '@/types';
 
 export type ProductRole = 'create' | 'edit';
+export type ProductFormExperience = 'quick' | 'advanced';
+export type ProductFormOrigin = 'catalog' | 'sale';
 
 export interface LookupOption {
   id: string;
@@ -91,6 +93,21 @@ export interface ProductFormModalProps {
    * error or on edit-mode submits.
    */
   onCreated?: ((product: Product) => void) | undefined;
+  /**
+   * Create mode can start with the minimum sellable fields and progressively
+   * disclose the existing advanced form. Edit mode always uses the advanced
+   * experience because every persisted setting must remain reachable.
+   */
+  initialExperience?: ProductFormExperience | undefined;
+  /** Explains what happens after a quick create succeeds. */
+  origin?: ProductFormOrigin | undefined;
+  /**
+   * Lets a lazy caller load advanced lookup catalogs only after the operator
+   * explicitly asks for them.
+   */
+  onExperienceChange?: ((experience: ProductFormExperience) => void) | undefined;
+  /** Keeps the shared form mounted while its advanced lookup catalogs load. */
+  advancedLookupsPending?: boolean | undefined;
 }
 
 export type PricingField = 'price' | 'price2' | 'price3';

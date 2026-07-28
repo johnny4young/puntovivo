@@ -333,7 +333,10 @@ export function ProductsPage() {
 
       {/* when the tenant has no products yet, surface a
           nudge toward the readiness checklist for admins. */}
-      {!productsQuery.isLoading && !productsQuery.error && products.length === 0 && (
+      {!productsQuery.isLoading &&
+        !productsQuery.error &&
+        !semantic.hasActiveSearch &&
+        products.length === 0 && (
         <EmptyStateReadinessNudge scope="products" />
       )}
 
@@ -447,7 +450,12 @@ export function ProductsPage() {
                 marginByProduct
               )}
               data={displayProducts}
-              searchKey={semantic.semanticModeEnabled ? undefined : 'name'}
+              searchValue={
+                semantic.semanticModeEnabled ? undefined : semantic.literalQuery
+              }
+              onSearchChange={
+                semantic.semanticModeEnabled ? undefined : semantic.setLiteralQuery
+              }
               searchPlaceholder={t('table.search')}
               pageSize={10}
               // keyboard row-activate mirrors the Pencil (edit)
@@ -539,6 +547,8 @@ export function ProductsPage() {
           }
           onClose={handleCloseModal}
           onSubmit={handleSubmit}
+          initialExperience={editingProduct ? 'advanced' : 'quick'}
+          origin="catalog"
         />
       )}
 

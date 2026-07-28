@@ -2,19 +2,20 @@
  * Quick-create product mounter for SalesPage.
  *
  * Subscribes to `useQuickCreateStore.requestedCreateProduct`. When a
- * request lands, lazily loads the product-form lookups (categories,
- * locations, providers, units, vat rates), mounts `ProductFormModal`
- * with the pre-fill, runs the `products.create` mutation, and hands
- * the created product back to the parent via `onCreated`.
+ * request lands, loads the active VAT choices required by the quick form,
+ * mounts `ProductFormModal` with the pre-fill, runs the `products.create`
+ * mutation, and hands the created product back to the parent via `onCreated`.
+ * Categories, locations, providers and units stay unfetched until the
+ * operator explicitly opens advanced settings.
  *
  * The component is null until a request appears, so the lookup
- * queries (~5 of them, ~few KB each) only fire when the cashier
- * actually triggers the quick-create flow. SalesPage stays light.
+ * queries only fire when the cashier actually triggers the quick-create
+ * flow, and four of the five remain deferred for the normal path.
  *
  * @module features/sales/QuickCreateProductGate
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import {
@@ -45,28 +46,29 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
   const utils = trpc.useUtils();
   const requested = useQuickCreateStore(selectRequestedCreateProduct);
   const consumeCreateProduct = useQuickCreateStore.getState().consumeCreateProduct;
+  const [advancedRequested, setAdvancedRequested] = useState(false);
   // No modal-key state needed — the parent renders this component
   // conditionally (returns `null` when `requested === null`), so the
   // form modal is mounted fresh on every new request and the form
   // state never lingers between cycles.
 
   const categoriesQuery = trpc.categories.tree.useQuery(undefined, {
-    enabled: requested !== null,
+    enabled: requested !== null && advancedRequested,
   });
   const providersQuery = trpc.providers.list.useQuery(
     { page: 1, perPage: 200 },
-    { enabled: requested !== null }
+    { enabled: requested !== null && advancedRequested }
   );
   const locationsQuery = trpc.locations.list.useQuery(
     { page: 1, perPage: 200 },
-    { enabled: requested !== null }
+    { enabled: requested !== null && advancedRequested }
   );
   const unitsQuery = trpc.units.list.useQuery(
     { page: 1, perPage: 200 },
-    { enabled: requested !== null }
+    { enabled: requested !== null && advancedRequested }
   );
   const vatRatesQuery = trpc.vatRates.list.useQuery(
-    { page: 1, perPage: 200 },
+    { page: 1, perPage: 200, isActive: true },
     { enabled: requested !== null }
   );
 
@@ -120,6 +122,7 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
 
   const handleClose = () => {
     consumeCreateProduct();
+    setAdvancedRequested(false);
     createMutation.reset();
   };
 
@@ -165,6 +168,16 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
       onSubmit={handleSubmit}
       defaultName={requested.defaultName ?? undefined}
       onCreated={handleCreated}
+      initialExperience="quick"
+      origin="sale"
+      onExperienceChange={experience => setAdvancedRequested(experience === 'advanced')}
+      advancedLookupsPending={
+        advancedRequested &&
+        (categoriesQuery.isLoading ||
+          providersQuery.isLoading ||
+          locationsQuery.isLoading ||
+          unitsQuery.isLoading)
+      }
     />
   );
 }

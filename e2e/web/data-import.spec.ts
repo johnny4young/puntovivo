@@ -160,6 +160,7 @@ test.describe('launch data import', () => {
     await expect(productDialog).toBeVisible();
     await productDialog.locator('#product-name').fill(productName);
     await productDialog.locator('#product-sku').fill(productSku);
+    await productDialog.getByRole('button', { name: 'Advanced settings' }).click();
 
     const stock = productDialog.getByRole('spinbutton', { name: 'Stock', exact: true });
     await expect(stock).toBeEditable();

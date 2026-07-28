@@ -22,12 +22,12 @@ interface UseProductsSemanticSearchArgs {
 }
 
 /**
- * Drives the  semantic-search surface for ProductsPage.
+ * Drives the semantic-search surface for ProductsPage.
  *
- * Returns the toggle/input state, the module-gate flags, the debounced
- * `literalFallbackSearch` (passed to `products.list` so semantic mode still
- * narrows the literal table while a query is typed), and the ranked
- * `semanticResults` (already normalized to `DisplayProduct`). `semanticIsActive`
+ * Returns the literal + semantic input state, the module-gate flags, the
+ * debounced `literalFallbackSearch` (passed to `products.list` so every text
+ * search covers the whole catalog rather than only the loaded page), and the
+ * ranked `semanticResults` (already normalized to `DisplayProduct`). `semanticIsActive`
  * tells the page to render `semanticResults` instead of the literal list and to
  * show the "Match" column; `semanticModeEnabled` toggles the DataTable's
  * built-in search off.
@@ -53,20 +53,32 @@ export function useProductsSemanticSearch({
   const canUseSemantic = canManage && semanticModuleResolved && semanticModuleActive;
 
   // semantic search UI surface. The toggle flips between the
-  // existing client-side text filter (DataTable's internal globalFilter
-  // on the "name" column) and the server-side cosine-similarity ranking
+  // server-side literal product query and the cosine-similarity ranking
   // exposed by `products.semanticSearch`. We debounce by 300ms so each
-  // keystroke does not trigger a network roundtrip + OpenAI embed call.
+  // keystroke does not trigger a network roundtrip or OpenAI embed call.
   // The mutation `regenerateEmbeddings` is admin-only and is the way to
   // bring a freshly seeded catalog (or one whose products have been
   // edited heavily) up to date — the UI surfaces "X embedded" toast on
   // success and a translated warning when AI is disabled / unconfigured.
   const [semanticEnabled, setSemanticEnabled] = useState(false);
+  const [literalQuery, setLiteralQuery] = useState('');
+  const [debouncedLiteralQuery, setDebouncedLiteralQuery] = useState('');
   const [semanticQuery, setSemanticQuery] = useState('');
   const [debouncedSemanticQuery, setDebouncedSemanticQuery] = useState('');
   const semanticModeEnabled = canUseSemantic && semanticEnabled;
-  const literalFallbackSearch =
-    semanticModeEnabled && debouncedSemanticQuery.length > 0 ? debouncedSemanticQuery : undefined;
+  const literalFallbackSearch = semanticModeEnabled
+    ? debouncedSemanticQuery || undefined
+    : debouncedLiteralQuery || undefined;
+  const hasActiveSearch = semanticModeEnabled
+    ? semanticQuery.trim().length > 0
+    : literalQuery.trim().length > 0;
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedLiteralQuery(literalQuery.trim());
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [literalQuery]);
 
   useEffect(() => {
     if (!semanticModeEnabled) {
@@ -143,6 +155,8 @@ export function useProductsSemanticSearch({
   }, [semanticIsActive, semanticSearchQuery.data]);
 
   return {
+    literalQuery,
+    setLiteralQuery,
     semanticEnabled,
     setSemanticEnabled,
     semanticQuery,
@@ -151,6 +165,7 @@ export function useProductsSemanticSearch({
     canRegenerate,
     semanticModeEnabled,
     literalFallbackSearch,
+    hasActiveSearch,
     semanticUnavailable,
     semanticIsActive,
     semanticResults,

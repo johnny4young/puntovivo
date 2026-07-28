@@ -52,13 +52,9 @@ test.describe('first sale onboarding', () => {
     await expect(productDialog).toBeVisible();
     await productDialog.locator('#product-name').fill(productName);
     await productDialog.locator('#product-sku').fill(productSku);
+    await productDialog.locator('#product-price').fill('1000');
+    await productDialog.getByRole('button', { name: 'Add opening stock' }).click();
     await productDialog.locator('#product-stock').fill('10');
-    await productDialog.getByRole('tab', { name: 'Units' }).click();
-    const unitPanel = productDialog.getByRole('tabpanel', { name: 'Units' });
-    await unitPanel.getByRole('button', { name: 'Add unit' }).click();
-    await unitPanel.locator('select').first().selectOption({ label: 'Unit' });
-    await unitPanel.locator('input[type="number"]').last().fill('1000');
-    await unitPanel.getByRole('checkbox', { name: 'Base unit' }).check();
     await productDialog.getByRole('button', { name: 'Create Product' }).click();
     await expect(productDialog).toBeHidden({ timeout: 15_000 });
     await expect(guide).toBeHidden();

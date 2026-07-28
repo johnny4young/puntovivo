@@ -1,0 +1,43 @@
+{
+  "eyebrow": "Producto rápido",
+  "title": "Listo para vender en menos de un minuto",
+  "descriptionCatalog": "Ingresa ahora lo esencial para cobrar. Completa después inventario, proveedores y unidades.",
+  "descriptionSale": "Crea el producto que falta sin perder esta venta. Al terminar se agregará al ticket actual.",
+  "steps": {
+    "identity": "Identifícalo",
+    "price": "Define el precio",
+    "ready": "Empieza a vender"
+  },
+  "fields": {
+    "name": "Nombre del producto",
+    "nameHelp": "Usa el nombre que tu equipo reconoce en caja.",
+    "namePlaceholder": "Por ejemplo, Pan integral",
+    "nameRequired": "Ingresa el nombre del producto",
+    "code": "Código del producto",
+    "codeHelp": "Escanea un código de barras existente o genera un código interno.",
+    "codePlaceholder": "Escanea, escribe o genera",
+    "codeRequired": "Escanea, escribe o genera un código para el producto",
+    "price": "Precio de venta",
+    "priceHelp": "El valor que se cobrará en caja.",
+    "priceInvalid": "El precio de venta no puede ser negativo",
+    "tax": "Impuesto",
+    "taxHelp": "Elige la tarifa que corresponde a este producto.",
+    "noTax": "Sin impuesto asignado · 0%"
+  },
+  "openingStock": {
+    "title": "Agregar stock inicial",
+    "description": "Opcional: registra cuántas unidades tienes disponibles hoy.",
+    "field": "Unidades disponibles",
+    "help": "También puedes recibir o ajustar inventario después."
+  },
+  "advanced": {
+    "title": "¿Necesitas más control?",
+    "description": "Las categorías, costos, proveedores, ubicaciones, lotes, series y unidades alternas siguen disponibles."
+  },
+  "actions": {
+    "generateCode": "Generar código",
+    "openAdvanced": "Opciones avanzadas"
+  },
+  "loadingAdvanced": "Preparando las opciones avanzadas…",
+  "loadingQuick": "Preparando la creación rápida del producto…"
+}

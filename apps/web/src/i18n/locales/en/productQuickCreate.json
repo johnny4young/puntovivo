@@ -1,0 +1,43 @@
+{
+  "eyebrow": "Quick product",
+  "title": "Ready to sell in under a minute",
+  "descriptionCatalog": "Enter the checkout essentials now. Complete inventory rules, suppliers and units later.",
+  "descriptionSale": "Create the missing product without losing this sale. It will join the current ticket when you finish.",
+  "steps": {
+    "identity": "Identify it",
+    "price": "Set the price",
+    "ready": "Start selling"
+  },
+  "fields": {
+    "name": "Product name",
+    "nameHelp": "Use the name your team recognizes at the register.",
+    "namePlaceholder": "For example, Whole grain bread",
+    "nameRequired": "Enter a product name",
+    "code": "Product code",
+    "codeHelp": "Scan an existing barcode or generate an internal code.",
+    "codePlaceholder": "Scan, type or generate",
+    "codeRequired": "Scan, type or generate a product code",
+    "price": "Selling price",
+    "priceHelp": "The amount charged at checkout.",
+    "priceInvalid": "The selling price cannot be negative",
+    "tax": "Tax",
+    "taxHelp": "Choose the rate that applies to this product.",
+    "noTax": "No assigned tax · 0%"
+  },
+  "openingStock": {
+    "title": "Add opening stock",
+    "description": "Optional — record how many units are available today.",
+    "field": "Available units",
+    "help": "You can also receive or adjust inventory later."
+  },
+  "advanced": {
+    "title": "Need more control?",
+    "description": "Categories, costs, suppliers, locations, lots, serials and alternate units remain available."
+  },
+  "actions": {
+    "generateCode": "Generate code",
+    "openAdvanced": "Advanced settings"
+  },
+  "loadingAdvanced": "Preparing advanced settings…",
+  "loadingQuick": "Preparing quick product creation…"
+}

@@ -43,6 +43,7 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
   const productDialog = page.getByRole('dialog', { name: 'Create Product' });
   await productDialog.locator('#product-name').fill(productName);
   await productDialog.locator('#product-sku').fill(productSku);
+  await productDialog.getByRole('button', { name: 'Advanced settings' }).click();
   await productDialog.getByRole('checkbox', { name: 'Track serial numbers' }).check();
   await expect(productDialog.locator('#product-stock')).toHaveAttribute('readonly', '');
   await productDialog.getByRole('tab', { name: 'Units' }).click();

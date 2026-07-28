@@ -35,6 +35,7 @@ test('admin creates a Size x Color matrix and sells only child products', async 
   const productDialog = page.getByRole('dialog', { name: 'Create Product' });
   await productDialog.locator('#product-name').fill(productName);
   await productDialog.locator('#product-sku').fill(productSku);
+  await productDialog.getByRole('button', { name: 'Advanced settings' }).click();
   await productDialog.getByRole('tab', { name: 'Units' }).click();
   await productDialog.getByRole('button', { name: 'Add unit' }).click();
   await productDialog

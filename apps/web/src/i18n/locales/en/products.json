@@ -141,7 +141,7 @@
       "marginPercent": "Margin %",
       "marginAmount": "Margin Amount",
       "salePrice": "Sale Price",
-      "skuHelp": "Generated automatically if left empty.",
+      "skuHelp": "Required internal code used in searches and imports.",
       "barcodePlaceholder": "Scan or type",
       "descriptionPlaceholder": "Notes shown on quotes (optional).",
       "minStockHelp": "Used for low-stock alerts."
