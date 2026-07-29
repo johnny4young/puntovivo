@@ -176,7 +176,13 @@ function ensureNativeRuntime(runtime: 'node' | 'electron'): void {
   }
 }
 
-function forwardElectronProcessLogs(child: ChildProcess): { assertClean: () => void } {
+function forwardElectronProcessLogs(
+  child: ChildProcess,
+  options: {
+    allowPackagedCdpStartupDiagnostic?: boolean;
+    allowPackagedNetworkRaceDiagnostic?: boolean;
+  } = {}
+): { assertClean: () => void } {
   const unexpectedOutput: string[] = [];
   let stdoutBuffer = '';
   let stderrBuffer = '';
@@ -190,7 +196,7 @@ function forwardElectronProcessLogs(child: ChildProcess): { assertClean: () => v
     }
   };
   const forwardStderrLine = (line: string) => {
-    const classification = classifyElectronStderrLine(line);
+    const classification = classifyElectronStderrLine(line, options);
     if (classification === 'lifecycle') return;
     if (classification === 'informational') {
       process.stdout.write(`[electron:info] ${line}\n`);
@@ -323,7 +329,10 @@ async function launchPackagedRenderer(userDataDir: string): Promise<{
       stdio: ['ignore', 'pipe', 'pipe'],
     }
   );
-  const processLogs = forwardElectronProcessLogs(child);
+  const processLogs = forwardElectronProcessLogs(child, {
+    allowPackagedCdpStartupDiagnostic: true,
+    allowPackagedNetworkRaceDiagnostic: true,
+  });
 
   const endpoint = `http://127.0.0.1:${port}`;
   let browser: Browser | null = null;
@@ -337,6 +346,22 @@ async function launchPackagedRenderer(userDataDir: string): Promise<{
       context.pages().find(candidate => candidate.url().startsWith('puntovivo-app:')) ??
       context.pages()[0] ??
       (await context.waitForEvent('page', { timeout: 60_000 }));
+    await page.waitForLoadState('domcontentloaded');
+    const preloadContract = await page.evaluate(async () => {
+      if (
+        typeof window.electron?.getAppVersion !== 'function' ||
+        typeof window.electron?.requestE2eAppQuit !== 'function'
+      ) {
+        return null;
+      }
+      return {
+        version: await window.electron.getAppVersion(),
+        hasE2eQuit: true,
+      };
+    });
+    if (!preloadContract?.hasE2eQuit || !/^\d+\.\d+\.\d+/.test(preloadContract.version)) {
+      throw new Error('packaged renderer did not expose a working preload IPC bridge');
+    }
 
     return {
       page,

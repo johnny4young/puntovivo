@@ -144,10 +144,7 @@ async function readStoredSiteSelections(page: Page): Promise<Record<string, stri
   );
 }
 
-/**
- * Create a sellable product with stock. `price` is the unit sale price; the
- * Units tab owns it, which is why the flow tabs before filling it.
- */
+/** Create a sellable product through the operator-first quick form. */
 export async function createProduct(
   page: Page,
   options: { name: string; sku: string; stock?: string; price?: string }
@@ -157,16 +154,11 @@ export async function createProduct(
   await expect(dialog).toBeVisible();
   await dialog.locator('#product-name').fill(options.name);
   await dialog.locator('#product-sku').fill(options.sku);
+  await dialog.locator('#product-price').fill(options.price ?? '1000');
+  await dialog
+    .getByRole('button', { name: /add opening stock|agregar inventario inicial/i })
+    .click();
   await dialog.locator('#product-stock').fill(options.stock ?? '10');
-  await dialog.getByRole('tab', { name: /units|unidades/i }).click();
-  const unitPanel = dialog.getByRole('tabpanel', { name: /units|unidades/i });
-  await unitPanel.getByRole('button', { name: /add unit|agregar unidad/i }).click();
-  await unitPanel.locator('select').first().selectOption({ index: 1 });
-  await unitPanel
-    .locator('input[type="number"]')
-    .last()
-    .fill(options.price ?? '1000');
-  await expect(unitPanel.getByRole('checkbox', { name: /base unit|unidad base/i })).toBeChecked();
   await dialog.getByRole('button', { name: /create product|crear producto/i }).click();
   await expect(dialog).toBeHidden({ timeout: 15_000 });
 }

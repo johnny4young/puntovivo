@@ -23,6 +23,7 @@ import {
   chargeExactCash,
   createProduct,
   dismissVisibleToasts,
+  goToRoute,
   openCashSession,
   signIn,
 } from './support/journey.js';
@@ -47,11 +48,7 @@ test.describe('suspended cart on the desktop app', () => {
     await expect(page).toHaveURL(/\/products$/, { timeout: 30_000 });
     await createProduct(page, { name: PRODUCT_NAME, sku: PRODUCT_SKU, stock: '10' });
 
-    await page
-      .getByTestId('first-sale-guide')
-      .getByRole('link', { name: /go to sales/i })
-      .click();
-    await expect(page).toHaveURL(/\/sales$/, { timeout: 30_000 });
+    await goToRoute(page, '/sales');
     await openCashSession(page, 'E2E Park Register');
     await dismissVisibleToasts(page);
 

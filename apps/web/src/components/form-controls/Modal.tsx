@@ -123,6 +123,7 @@ export function Modal({
       {/* Modal container */}
       <div
         ref={modalRef}
+        tabIndex={-1}
         className={cn(
           'modal-shell max-h-[min(92vh,56rem)] animate-pop-in sm:max-h-[90vh]',
           sizeClasses[size],

@@ -39,6 +39,7 @@ import { mkdir } from 'node:fs/promises';
 import { electronTest as test, ELECTRON_E2E_DB_KEY, expect } from './fixtures.js';
 import { attachClientIssueTracker, E2E_USERS, expectNoClientIssues } from '../web/support/app.js';
 import { startFakeS3Provider } from './support/fake-s3.js';
+import { goToRoute } from './support/journey.js';
 
 test.describe('Electron smoke', () => {
   test('launches, logs in as admin, and loads the dashboard shell', async ({ page }) => {
@@ -87,16 +88,16 @@ test.describe('Electron smoke', () => {
     // must never appear in the renderer text.
     // Keep this as an SPA transition. A hard page.goto reload races the
     // desktop-session bridge re-registration and made this smoke intermittently
-    // observe the Company fallback before the lazy data panel committed.
-    await page
-      .getByTestId('sidebar-workspace-link-setup')
-      .evaluate(link => (link as HTMLElement).click());
-    await expect(page).toHaveURL(/\/company/);
+    // observe the Company fallback before the lazy data panel committed. The
+    // setup workspace now lives behind More tools, so use the target-agnostic
+    // route helper rather than relying on a currently hidden sidebar link.
+    await goToRoute(page, '/company');
 
     // exercise the real updater IPC contract before moving to the
     // data tab. A fresh E2E userData directory establishes the installed
     // version baseline without inventing a last-updated timestamp; development
     // builds also have no release rollout policy to report.
+    await page.getByTestId('company-advanced-toggle').click();
     await page.getByTestId('company-tab-device').click();
     await expect(page).toHaveURL(/\/company\?tab=device/);
     const updaterPanel = page
@@ -278,19 +279,10 @@ test.describe('Electron smoke', () => {
     }
 
     // The drill is a sensitive admin capability, so success must be visible in
-    // the same immutable tenant audit history exposed to the operator.
-    // Expand the Finance workspace explicitly before using its React Router
-    // link. A fresh packaged profile correctly starts inactive workspaces
-    // collapsed, while a reused development profile can retain an open rail.
-    const financeWorkspace = page.getByTestId('sidebar-workspace-finance');
-    if ((await financeWorkspace.getAttribute('aria-expanded')) !== 'true') {
-      await financeWorkspace.click();
-    }
-    // Use the accessible link name rather than a root-relative href. Under the
-    // packaged custom protocol React Router resolves hrefs against
-    // puntovivo-app://app, so the raw attribute is not the development shape.
-    await page.getByRole('link', { name: /audit log|auditoría/i }).click();
-    await expect(page).toHaveURL(/\/audit-logs/);
+    // the same immutable tenant audit history exposed to the operator. The
+    // Finance workspace lives behind More tools on frequent-task routes; use
+    // the same target-agnostic SPA transition as the earlier setup navigation.
+    await goToRoute(page, '/audit-logs');
     await expect(
       page.getByRole('row', {
         name: /backup restore drill run|simulacro de restauración ejecutado/i,

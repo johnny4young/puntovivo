@@ -128,6 +128,7 @@ export function Drawer({
       />
       <div
         ref={panelRef}
+        tabIndex={-1}
         data-testid={testId}
         className={cn('drawer-shell relative z-10', sizeClasses[size], className)}
       >

@@ -20,6 +20,7 @@ import type { Page } from '@playwright/test';
 import { electronTest as test, expect, IS_PACKAGED_RUN } from './fixtures.js';
 import { attachClientIssueTracker, expectNoClientIssues } from '../web/support/app.js';
 import { E2E_PASSWORD, FIRST_SALE_E2E_EMAIL } from '../shared/baseline.js';
+import { goToRoute } from './support/journey.js';
 
 const PRODUCT_NAME = 'E2E First Sale Product';
 const PRODUCT_SKU = 'E2E-FIRST-SALE';
@@ -80,23 +81,20 @@ test.describe('first sale on the desktop app', () => {
     await expect(productDialog).toBeVisible();
     await productDialog.locator('#product-name').fill(PRODUCT_NAME);
     await productDialog.locator('#product-sku').fill(PRODUCT_SKU);
+    await productDialog.locator('#product-price').fill('1000');
+    await productDialog
+      .getByRole('button', { name: /add opening stock|agregar inventario inicial/i })
+      .click();
     await productDialog.locator('#product-stock').fill('10');
-    await productDialog.getByRole('tab', { name: /units|unidades/i }).click();
-    const unitPanel = productDialog.getByRole('tabpanel', { name: /units|unidades/i });
-    await unitPanel.getByRole('button', { name: /add unit|agregar unidad/i }).click();
-    await unitPanel.locator('select').first().selectOption({ index: 1 });
-    await unitPanel.locator('input[type="number"]').last().fill('1000');
-    await expect(unitPanel.getByRole('checkbox', { name: /base unit|unidad base/i })).toBeChecked();
     await productDialog.getByRole('button', { name: /create product|crear producto/i }).click();
     await expect(productDialog).toBeHidden({ timeout: 15_000 });
-    await expect(guide.getByText(/1 of 3 steps completed|1 de 3 pasos completados/)).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(page.getByText(PRODUCT_NAME).first()).toBeVisible({ timeout: 15_000 });
+    await expect(guide).toBeHidden();
 
     // Step 2 — open the drawer. Selling without a cash session is refused by
     // the server, so this is a real precondition and not UI decoration.
-    await guide.getByRole('link', { name: /go to sales|ir a ventas/i }).click();
-    await expect(page).toHaveURL(/\/sales$/, { timeout: 30_000 });
+    await goToRoute(page, '/sales');
+    await expect(guide).toBeHidden();
     await page
       .getByRole('button', { name: /open cash session|abrir caja/i })
       .first()
@@ -114,9 +112,7 @@ test.describe('first sale on the desktop app', () => {
     await expect(openSession).toBeEnabled();
     await openSession.click();
     await expect(cashDialog).toBeHidden({ timeout: 15_000 });
-    await expect(guide.getByText(/2 of 3 steps completed|2 de 3 pasos completados/)).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(guide).toBeHidden();
     await dismissVisibleToasts(page);
     await captureEvidence(page, 'first-sale-2-register-open');
 

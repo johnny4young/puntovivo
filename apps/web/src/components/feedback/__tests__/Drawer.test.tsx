@@ -189,6 +189,28 @@ describe('Drawer', () => {
     });
   });
 
+  it('focuses the panel before isolating the opener when lazy content has no control yet', () => {
+    const opener = document.createElement('button');
+    opener.textContent = 'Open suspended sales';
+    document.body.appendChild(opener);
+    opener.focus();
+
+    render(
+      <Drawer
+        isOpen
+        onClose={vi.fn()}
+        ariaLabel="Suspended sales"
+        showCloseButton={false}
+        testId="lazy-drawer-panel"
+      >
+        <p>Loading…</p>
+      </Drawer>
+    );
+
+    expect(screen.getByTestId('lazy-drawer-panel')).toHaveFocus();
+    opener.remove();
+  });
+
   it('traps Tab focus within the panel', async () => {
     renderDrawer();
     const close = screen.getByRole('button', { name: /close modal/i });
@@ -249,6 +271,29 @@ describe('Drawer', () => {
         <button type="button">First action</button>
       </Drawer>
     );
+    expect(external).toHaveFocus();
+    external.remove();
+  });
+
+  it('restores focus when an open drawer is unmounted directly', () => {
+    const external = document.createElement('button');
+    external.textContent = 'Search';
+    document.body.appendChild(external);
+
+    const { unmount } = render(
+      <Drawer
+        isOpen
+        onClose={vi.fn()}
+        ariaLabel="Suspended sales"
+        showCloseButton={false}
+        restoreFocusTo={() => external}
+      >
+        <p>Loading…</p>
+      </Drawer>
+    );
+
+    unmount();
+
     expect(external).toHaveFocus();
     external.remove();
   });

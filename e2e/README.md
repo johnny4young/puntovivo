@@ -1,13 +1,14 @@
-# E2E — Web suite
+# End-to-end validation
 
 Playwright tests that drive the real web app (`apps/web`) against the real
-backend (`packages/server`) with `better-sqlite3` storage. 25 tests, all
-parallelisable.
+backend (`packages/server`) with `better-sqlite3` storage, plus a serial
+Electron suite that drives the real desktop runtime in development or from a
+packaged application.
 
-## Run
+## Run the web suite
 
 ```sh
-npm run test:e2e:web
+pnpm run test:e2e:web
 ```
 
 What happens behind that command:
@@ -17,8 +18,8 @@ What happens behind that command:
 2. `native:ensure:node` ensures `better-sqlite3` is built for the Node
    runtime (Playwright's `globalSetup` runs in Node, not Electron — the
    desktop build of better-sqlite3 has a different ABI).
-3. Playwright spins up `npm run dev:server` (port 8090) and
-   `npm run dev:web` (port 3000) unless they are already listening
+3. Playwright spins up `pnpm run dev:server` (port 8090) and
+   `pnpm run dev:web` (port 3000) unless they are already listening
    (`reuseExistingServer: !CI`).
 4. `e2e/web/global-setup.ts` prepares the tenant for testing:
    - Prunes artefacts from prior runs (old E2E products, providers,
@@ -128,36 +129,32 @@ per tier.
 
 ## CI
 
-`.github/workflows/ci.yml` runs four jobs: `web`, `backend`, `desktop`
-(matrix: ubuntu / macos / windows), and **`e2e-web`** (added in
-Step 3). The `e2e-web` job runs on `ubuntu-latest`:
+Push and pull-request CI uses path-filtered workspace gates. The Playwright web
+and Electron suites are intentionally local-only so ordinary changes do not
+consume the expensive browser/runtime minutes. Run `pnpm run test:e2e:web`
+locally whenever login, sales, inventory, imports, or a browser flow changes.
 
-- Caches the Playwright browser binary in `.playwright-browsers/` keyed
-  on `package-lock.json` hash. A `@playwright/test` bump changes the
-  lockfile and invalidates the cache automatically.
-- Installs Chromium + system deps via `npx playwright install --with-deps chromium`.
-- Runs `npm run test:e2e:web` with a 30-minute timeout.
-- Uploads `playwright-report/web/` on every run (pass or fail); uploads
-  `test-results/playwright-web/` (traces, screenshots, videos) on
-  failure only. Retention 7 days.
-
-Electron in CI is explicitly deferred — see the next section.
+Cross-platform desktop validation lives in the manual
+`.github/workflows/build-desktop.yml` workflow. Its full-build mode packages
+the selected immutable commit on Linux, macOS, and/or Windows, runs the
+packaged runtime smoke, and uploads candidate evidence. Signing and
+notarization remain release-workflow responsibilities.
 
 ## Electron runner
 
-The Electron suite (`e2e/electron/`) is a smoke runner that launches
-the Electron main process against a pre-seeded tmpdir DB and drives
-the renderer as a regular Playwright `page`. It exists to catch
-main-process regressions (IPC bridge, sandbox flags, embedded-server
-boot) that the web suite cannot reach. Full role / business-flow
-coverage stays in the web suite.
+The Electron suite (`e2e/electron/`) launches the main process against an
+isolated copy of a pre-seeded database and drives the renderer as a regular
+Playwright `page`. It catches main-process regressions (IPC bridge, sandbox
+flags, embedded-server boot) and ports selected shift-defining journeys to the
+desktop target. The full role and business-flow matrix remains in the web
+suite.
 
 ### Prerequisites
 
 Run Electron E2E through the root script:
 
 ```sh
-npm run test:e2e:electron
+pnpm run test:e2e:electron
 ```
 
 That command rebuilds the Electron main + preload bundles and copies
@@ -168,7 +165,7 @@ builds the wrong target. If you invoke Playwright directly, rebuild the
 bundles first:
 
 ```sh
-npm run build:main --workspace=@puntovivo/desktop
+pnpm --filter @puntovivo/desktop run build:main
 ```
 
 If the bundles are missing, `scripts/ensure-electron-main-build.mjs`
@@ -177,10 +174,14 @@ fails fast with the same command.
 ### Run
 
 ```sh
-npm run test:e2e:electron
+pnpm run test:e2e:electron
 
 # or web + electron back-to-back:
-npm run test:e2e
+pnpm run test:e2e
+
+# drive a freshly packaged macOS directory instead of the dev bundle:
+PUNTOVIVO_PACKAGED_APP=apps/desktop/out-builder/mac-arm64 \
+  pnpm run test:e2e:electron:packaged
 ```
 
 What happens:
@@ -198,7 +199,8 @@ What happens:
    present.
 5. The Node ABI for `better-sqlite3` is restored so Playwright
    `globalSetup` can seed the DB from Node.
-6. Playwright starts `npm run dev:web` to serve the renderer bundle.
+6. Playwright starts the web workspace's `dev` command to serve the renderer
+   bundle.
    Electron still starts its own embedded Fastify server; the web
    server is not the application backend for this suite.
 7. `playwright.electron.config.ts` runs `e2e/electron/global-setup.ts`
@@ -214,19 +216,27 @@ What happens:
    Electron stdout/stderr/exit status into the Playwright output, and
    restores the Node ABI after closing the app. The `page` fixture
    yields `electronApp.firstWindow()`.
-9. Workers=1 (the Electron smoke serialises — two concurrent launches
+9. Workers=1 (the Electron suite serialises — two concurrent launches
    would race the WAL on the tmpdir DB).
 
 ### Coverage
 
-Currently one test — `smoke.spec.ts`:
+The suite contains one platform smoke plus five target-agnostic operator
+journeys:
 
-- Electron launches without crashing.
-- Login form renders.
-- Admin logs in with the seeded `e2e.admin@local.test` /
-  `PuntovivoE2E!123` credentials.
-- `/dashboard` URL loads.
-- No `console.error` / `pageerror` events fire during the flow.
+- `smoke.spec.ts` — launch, login, application shell, device configuration,
+  audit history, backup, cloud-vault, and restore readiness.
+- `first-sale.spec.ts` — product creation, drawer opening, first charge, and
+  completion feedback.
+- `suspended-cart.spec.ts` — park one cart, charge another, then resume and
+  charge the first.
+- `split-tender.spec.ts` — settle one sale across cash and card.
+- `blind-close.spec.ts` — close a drawer with a discrepancy without revealing
+  the expected balance first.
+- `day-close.spec.ts` — manager sign-off, irreversible confirmation, stored PDF
+  verification, and immutable evidence after reload.
+
+Every spec also enforces clean renderer and Electron process diagnostics.
 
 ### Troubleshooting
 
@@ -237,20 +247,20 @@ before the login form renders, first verify the Electron runtime itself:
 node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --version
 ```
 
-On macOS this must print the Electron version, for example `v41.2.2`.
+On macOS this must print the pinned Electron version, currently `v42.6.2`.
 Do not pass Node-style `-e` snippets to the Electron binary; Electron
 interprets the snippet as an app path and opens a misleading "Unable to
 find Electron app" dialog.
 
 If `--version` exits with `SIGABRT` from a sandboxed agent session but
-works in a normal terminal, rerun the Electron UI smoke from a session
+works in a normal terminal, rerun the Electron UI suite from a session
 that has permission to launch GUI apps. If it fails in a normal terminal
-too, run `npm run electron:ensure:binary --workspace=@puntovivo/desktop`
-followed by `npm run rebuild --workspace=@puntovivo/desktop`.
+too, run `pnpm --filter @puntovivo/desktop run electron:ensure:binary`
+followed by `pnpm --filter @puntovivo/desktop run rebuild`.
 
 ### Not in CI
 
-The Electron suite is **local-only**. Running Playwright Electron on
-Ubuntu CI still needs `xvfb` and CI-specific GUI hardening around the
-Electron launch. Deferred as a follow-up; will land when signed release
-builds approach.
+The Playwright Electron journey suite is local-only. The manual desktop build
+workflow provides the cross-OS packaged runtime smoke; it does not replace the
+full local journey suite. Signed release validation remains separate because
+ordinary CI runners do not have the required signing material.

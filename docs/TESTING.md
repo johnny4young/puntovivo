@@ -69,7 +69,12 @@ outcome → refreshed queue loop rather than navigation alone.
 
 The Electron suite launches the real desktop runtime and validates the
 renderer sandbox, embedded server, authenticated application boot, encrypted
-backup creation, cloud-vault write, scheduling, and restore readiness.
+backup creation, cloud-vault write, scheduling, and restore readiness. Five
+target-agnostic operator journeys run against either the development bundle or
+a packaged desktop application: first sale, suspended cart, split tender,
+blind cash close, and signed day close. The signed-close journey verifies the
+stored PDF response and proves that the signer and evidence hash remain
+immutable after a renderer reload and fresh authentication.
 Node-side Electron tests additionally pin Store Hub URL policy, OS-keychain
 sealing, owner-only credential-envelope permissions, refresh rotation after an
 app restart, rejected-session cleanup, exact-token IPC registration, and the
@@ -95,7 +100,7 @@ contracts rather than by a standalone manual checklist:
 | Quality boundary                          | Canonical evidence                                                                                                                     | Gate                                          |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
 | Operator Deck adoption                    | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                    | `ci:web`                                      |
-| Shift-defining operator journeys          | `operator-journeys.json`, `scripts/check-operator-journeys.mjs`, and the indexed browser flows                                         | `ci:web` plus `test:e2e:web`                  |
+| Shift-defining operator journeys          | `operator-journeys.json`, the indexed browser flows, and the five target-agnostic Electron ports                                      | `ci:web`, `test:e2e:web`, and `test:e2e:electron` |
 | Accessibility and adaptive layouts        | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`       | `test:e2e:web`                                |
 | Dense data behavior                       | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                |
 | Migration journal integrity               | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                 |

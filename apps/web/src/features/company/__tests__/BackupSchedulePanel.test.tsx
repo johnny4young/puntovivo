@@ -90,8 +90,10 @@ describe('BackupSchedulePanel', () => {
     await user.click(screen.getByRole('button', { name: /save schedule/i }));
 
     expect(updateBackupSchedule).toHaveBeenCalledWith({ frequency: 'daily' });
-    expect(screen.getByLabelText(/snapshot frequency/i)).toHaveValue('daily');
-    expect(screen.getByText(/snapshot schedule saved/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText(/snapshot frequency/i)).toHaveValue('daily');
+      expect(screen.getByText(/snapshot schedule saved/i)).toBeInTheDocument();
+    });
   });
 
   it('creates a snapshot now and refreshes its freshness evidence', async () => {
@@ -114,10 +116,12 @@ describe('BackupSchedulePanel', () => {
     await user.click(screen.getByRole('button', { name: /create snapshot now/i }));
 
     expect(runBackupSnapshotNow).toHaveBeenCalledTimes(1);
-    expect(onSnapshotCreated).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('backup-last-success')).not.toHaveTextContent(/not created yet/i);
-    expect(screen.getByText('1.5 MB')).toBeInTheDocument();
-    expect(screen.getByText(/encrypted snapshot created/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(onSnapshotCreated).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('backup-last-success')).not.toHaveTextContent(/not created yet/i);
+      expect(screen.getByText('1.5 MB')).toBeInTheDocument();
+      expect(screen.getByText(/encrypted snapshot created/i)).toBeInTheDocument();
+    });
   });
 
   it('keeps cancellation silent when the native folder picker closes', async () => {

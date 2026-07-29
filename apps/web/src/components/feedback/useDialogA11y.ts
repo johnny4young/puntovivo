@@ -117,6 +117,19 @@ export function useDialogA11y({
     restoreFocusToRef.current = restoreFocusTo;
   }, [restoreFocusTo]);
 
+  const restoreFocus = useCallback(() => {
+    if (!wasOpenRef.current) return;
+    wasOpenRef.current = false;
+    const previouslyFocused = previousActiveElement.current;
+    previousActiveElement.current = null;
+    const override = restoreFocusToRef.current?.();
+    if (override) {
+      override.focus();
+    } else {
+      previouslyFocused?.focus();
+    }
+  }, []);
+
   // `requireTopmost` + `dialogRef` are stable for a given primitive
   // (Modal: false/undefined; Drawer: true/ref) so this callback is stable.
   const isActive = useCallback(() => {
@@ -190,7 +203,9 @@ export function useDialogA11y({
     const focusedElement = document.activeElement as HTMLElement | null;
     if (focusedElement && targetList.some(target => target.contains(focusedElement))) {
       previousActiveElement.current = focusedElement;
-      containerRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
+      const container = containerRef.current;
+      const focusTarget = container?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? container;
+      focusTarget?.focus();
     }
     targetList.forEach(acquireIsolation);
     return () => targetList.forEach(releaseIsolation);
@@ -198,31 +213,31 @@ export function useDialogA11y({
 
   // Focus management: focus first element on open, restore on close.
   useEffect(() => {
-    if (isOpen) {
-      wasOpenRef.current = true;
-      previousActiveElement.current ??= document.activeElement as HTMLElement;
-      const timer = setTimeout(() => {
-        const container = containerRef.current;
-        if (!container) return;
-        const active = document.activeElement as HTMLElement | null;
-        if (active && active !== document.body && container.contains(active)) {
-          return;
-        }
-        container.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
+    if (!isOpen) {
+      restoreFocus();
+      return;
     }
-    if (!wasOpenRef.current) return;
-    wasOpenRef.current = false;
-    const previouslyFocused = previousActiveElement.current;
-    previousActiveElement.current = null;
-    const override = restoreFocusToRef.current?.();
-    if (override) {
-      override.focus();
-    } else {
-      previouslyFocused?.focus();
-    }
-  }, [isOpen, containerRef]);
+
+    wasOpenRef.current = true;
+    previousActiveElement.current ??= document.activeElement as HTMLElement;
+    const timer = setTimeout(() => {
+      const container = containerRef.current;
+      if (!container) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== document.body && container.contains(active)) {
+        return;
+      }
+      (container.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? container).focus();
+    }, 50);
+
+    // Call restoration from cleanup as well as the closed-state branch.
+    // Consumers commonly mount dialogs only while open, so a direct unmount
+    // never renders this hook with `isOpen=false`.
+    return () => {
+      clearTimeout(timer);
+      restoreFocus();
+    };
+  }, [isOpen, containerRef, restoreFocus]);
 
   // Lock body scroll while open.
   useEffect(() => {

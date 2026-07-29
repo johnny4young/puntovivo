@@ -6,7 +6,13 @@
  * failures. Everything else remains unexpected so E2E can fail instead of
  * turning a renderer/native warning into a green run.
  */
-export function classifyElectronStderrLine(line) {
+export function classifyElectronStderrLine(
+  line,
+  {
+    allowPackagedCdpStartupDiagnostic = false,
+    allowPackagedNetworkRaceDiagnostic = false,
+  } = {}
+) {
   if (
     line.length === 0 ||
     /^Debugger ending on ws:\/\/127\.0\.0\.1:\d+\/[0-9a-f-]+$/i.test(line) ||
@@ -14,6 +20,21 @@ export function classifyElectronStderrLine(line) {
     line === 'Waiting for the debugger to disconnect...'
   ) {
     return 'lifecycle';
+  }
+
+  if (
+    allowPackagedCdpStartupDiagnostic &&
+    (/^\[[^\]\r\n]+:INFO:CONSOLE:2\] "Electron sandboxed_renderer\.bundle\.js script failed to run", source: node:electron\/js2c\/sandbox_bundle \(2\)$/.test(
+      line
+    ) ||
+      /^\[[^\]\r\n]+:INFO:CONSOLE:2\] "TypeError: Cannot destructure property 'preloadScripts' of 'binding\.startupData' as it is null\.", source: node:electron\/js2c\/sandbox_bundle \(2\)$/.test(
+        line
+      ))
+  ) {
+    // Electron 42's CDP-only renderer context can miss the startup-data mojo
+    // push introduced in 42.3.3. Packaged E2E proves the application's actual
+    // preload bridge separately before accepting this exact harness diagnostic.
+    return 'informational';
   }
 
   if (/^\[[^\]\r\n]+:INFO(?::[A-Z_]+)*:\d+\] /.test(line)) {
@@ -31,6 +52,30 @@ export function classifyElectronStderrLine(line) {
   if (
     /^DevTools listening on ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[0-9a-f-]+$/i.test(line)
   ) {
+    return 'informational';
+  }
+
+  if (
+    /^\[[^\]\r\n]+:WARNING:net\/dns\/address_sorter_posix\.cc:457\] FromSockAddr failed on netmask$/.test(
+      line
+    )
+  ) {
+    // Chromium emits this while inventorying macOS/BSD interfaces when one
+    // OS-provided netmask cannot be decoded. The source keeps the address with
+    // its default prefix and continues normally. Keep the exact upstream
+    // diagnostic visible without weakening the policy for any other warning.
+    return 'informational';
+  }
+
+  if (
+    allowPackagedNetworkRaceDiagnostic &&
+    /^\[[^\]\r\n]+:WARNING:net\/spdy\/spdy_session\.cc:3154\] Received HEADERS for invalid stream [1-9]\d*$/.test(
+      line
+    )
+  ) {
+    // A response can arrive after Chromium has cancelled and removed its
+    // HTTP/2 stream during packaged-harness shutdown. Chromium logs this exact
+    // condition and returns; keep every neighboring SPDY warning blocking.
     return 'informational';
   }
 

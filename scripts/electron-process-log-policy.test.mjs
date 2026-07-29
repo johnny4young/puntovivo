@@ -46,6 +46,90 @@ describe('Electron process log policy', () => {
     );
   });
 
+  it('keeps the exact upstream macOS netmask diagnostic visible and narrowly non-blocking', () => {
+    assert.equal(
+      classifyElectronStderrLine(
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:457] FromSockAddr failed on netmask'
+      ),
+      'informational'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:458] FromSockAddr failed on netmask'
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:457] FromSockAddr failed on address'
+      ),
+      'unexpected'
+    );
+  });
+
+  it('allows only the exact packaged-CDP startup diagnostic behind an explicit scope', () => {
+    const bundleFailure =
+      '[33558:0729/105016.628130:INFO:CONSOLE:2] "Electron sandboxed_renderer.bundle.js script failed to run", source: node:electron/js2c/sandbox_bundle (2)';
+    const missingStartupData =
+      '[33558:0729/105016.628157:INFO:CONSOLE:2] "TypeError: Cannot destructure property \'preloadScripts\' of \'binding.startupData\' as it is null.", source: node:electron/js2c/sandbox_bundle (2)';
+
+    assert.equal(classifyElectronStderrLine(bundleFailure), 'unexpected');
+    assert.equal(classifyElectronStderrLine(missingStartupData), 'unexpected');
+    assert.equal(
+      classifyElectronStderrLine(bundleFailure, {
+        allowPackagedCdpStartupDiagnostic: true,
+      }),
+      'informational'
+    );
+    assert.equal(
+      classifyElectronStderrLine(missingStartupData, {
+        allowPackagedCdpStartupDiagnostic: true,
+      }),
+      'informational'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[33558:0729/105016.628157:INFO:CONSOLE:2] "TypeError: Cannot destructure property \'preloadScripts\' of \'binding.startupData\' as it is undefined.", source: node:electron/js2c/sandbox_bundle (2)',
+        { allowPackagedCdpStartupDiagnostic: true }
+      ),
+      'unexpected'
+    );
+  });
+
+  it('allows only the exact packaged cancelled-stream diagnostic behind an explicit scope', () => {
+    const cancelledStream =
+      '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3154] Received HEADERS for invalid stream 1';
+
+    assert.equal(classifyElectronStderrLine(cancelledStream), 'unexpected');
+    assert.equal(
+      classifyElectronStderrLine(cancelledStream, {
+        allowPackagedNetworkRaceDiagnostic: true,
+      }),
+      'informational'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3155] Received HEADERS for invalid stream 1',
+        { allowPackagedNetworkRaceDiagnostic: true }
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3154] Received HEADERS for invalid stream 0',
+        { allowPackagedNetworkRaceDiagnostic: true }
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3154] Received DATA for invalid stream 1',
+        { allowPackagedNetworkRaceDiagnostic: true }
+      ),
+      'unexpected'
+    );
+  });
+
   it('keeps warnings, errors, crashes, and unknown stderr blocking', () => {
     assert.equal(
       classifyElectronStderrLine('[35017:0727/182537.795879:WARNING:CONSOLE:851] renderer warning'),
