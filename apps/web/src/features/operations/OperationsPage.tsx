@@ -1,16 +1,14 @@
-import { lazy, Suspense, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { lazy, Suspense } from 'react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Activity } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { NeedsAttentionPanel } from './NeedsAttentionPanel';
-import { SyncHealthPanel } from './SyncHealthPanel';
-import { FiscalHealthPanel } from './FiscalHealthPanel';
-import { DeviceHealthPanel } from './DeviceHealthPanel';
-import { CashHealthPanel } from './CashHealthPanel';
-import { PaymentHealthPanel } from './PaymentHealthPanel';
-import { DiagnosticExportPanel } from './DiagnosticExportPanel';
-import { AuthorityHealthPanel } from './AuthorityHealthPanel';
+import { OperationsNavigation } from './OperationsNavigation';
+import {
+  isOperationsTabKey,
+  type OperationsTabKey,
+} from './operationsNavigationModel';
 
 const SupportHealthPanel = lazy(async () => {
   const module = await import('./SupportHealthPanel');
@@ -22,82 +20,91 @@ const OperationalReadinessBoard = lazy(async () => {
   return { default: module.OperationalReadinessBoard };
 });
 
+const SyncHealthPanel = lazy(async () => {
+  const module = await import('./SyncHealthPanel');
+  return { default: module.SyncHealthPanel };
+});
+
+const FiscalHealthPanel = lazy(async () => {
+  const module = await import('./FiscalHealthPanel');
+  return { default: module.FiscalHealthPanel };
+});
+
+const DeviceHealthPanel = lazy(async () => {
+  const module = await import('./DeviceHealthPanel');
+  return { default: module.DeviceHealthPanel };
+});
+
+const CashHealthPanel = lazy(async () => {
+  const module = await import('./CashHealthPanel');
+  return { default: module.CashHealthPanel };
+});
+
+const PaymentHealthPanel = lazy(async () => {
+  const module = await import('./PaymentHealthPanel');
+  return { default: module.PaymentHealthPanel };
+});
+
+const DiagnosticExportPanel = lazy(async () => {
+  const module = await import('./DiagnosticExportPanel');
+  return { default: module.DiagnosticExportPanel };
+});
+
+const AuthorityHealthPanel = lazy(async () => {
+  const module = await import('./AuthorityHealthPanel');
+  return { default: module.AuthorityHealthPanel };
+});
+
 /**
- * /  /  — Operations Center.
+ * Operator-first store status with administrator-only recovery tooling.
  *
- * Tabbed admin/manager surface that surfaces the three already-shipped
- * outboxes (sync, fiscal, hardware) plus the two reconciliation views
- * shipped in  (cash; the obsolete inventory cache panel was retired
- * after inventory_balances became the single stock source), the diagnostic
- * export shipped in , the authority-node panel (), and the
- * payment reconciliation foundation ().
- *
- * the default landing is the "Needs attention" queue (an
- * aggregated view of the retryable failures across sync / fiscal /
- * hardware / payments), so a manager sees what failed first instead of
- * the flat Sync tab. Each queue row deep-links to the resolving panel.
- *
- * Tab state is URL-driven
+ * The default landing is the aggregated attention queue. Technical health,
+ * recovery controls, service contracts, and diagnostics are progressively
+ * disclosed only to administrators. Tab state remains URL-driven
  * (`?tab=attention|support|sync|fiscal|device|cash|payments|diagnostics|authority`)
- * so deep links from elsewhere in the app (e.g. an alert banner
- * pointing at a specific failure surface) land directly on the right
- * panel without manual navigation. `replace: true` keeps the back
- * button quiet.
+ * so existing administrator deep links continue to land on the right panel.
  */
-const TAB_KEYS = [
-  'attention',
-  'support',
-  'sync',
-  'fiscal',
-  'device',
-  'cash',
-  'payments',
-  'diagnostics',
-  'authority',
-] as const;
-type TabKey = (typeof TAB_KEYS)[number];
-
-function isTabKey(value: string | null): value is TabKey {
-  return value !== null && (TAB_KEYS as readonly string[]).includes(value);
-}
-
 export function OperationsPage() {
   const { t } = useTranslation('operations');
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const activeTab: TabKey = isTabKey(tabParam) ? tabParam : 'attention';
+  const isAdmin = user?.role === 'admin';
+  const requestedTab: OperationsTabKey = isOperationsTabKey(tabParam) ? tabParam : 'attention';
+  const activeTab: OperationsTabKey = isAdmin ? requestedTab : 'attention';
 
-  function handleTabChange(next: TabKey): void {
+  function handleTabChange(next: OperationsTabKey): void {
     const nextParams = new URLSearchParams(searchParams);
     if (next === 'attention') {
-      nextParams.delete('tab'); // default tab keeps the URL clean
+      nextParams.delete('tab');
     } else {
       nextParams.set('tab', next);
     }
     setSearchParams(nextParams, { replace: true });
   }
 
-  const tabLabels: Record<TabKey, string> = useMemo(
-    () => ({
-      attention: t('tabs.attention'),
-      support: t('tabs.support'),
-      sync: t('tabs.sync'),
-      fiscal: t('tabs.fiscal'),
-      device: t('tabs.device'),
-      cash: t('tabs.cash'),
-      payments: t('tabs.payments'),
-      diagnostics: t('tabs.diagnostics'),
-      authority: t('tabs.authority'),
-    }),
-    [t]
+  if (!isAdmin && tabParam !== null) {
+    return <Navigate to="/operations" replace />;
+  }
+
+  const advancedPanelFallback = (
+    <div
+      className="card grid gap-3 p-5 sm:grid-cols-3 sm:p-6"
+      aria-label={t('common.loading')}
+      aria-busy="true"
+    >
+      {[0, 1, 2].map(item => (
+        <div
+          key={item}
+          className="h-28 animate-pulse rounded-2xl bg-secondary-100/70 motion-reduce:animate-none"
+        />
+      ))}
+    </div>
   );
 
   return (
     <div className="space-y-6">
-      {/* encabezado de panel con titulación del
-          sistema (.pv-kicker / .pv-title) + glifo tonal. El h1 se conserva
-          para mantener el contrato de jerarquía semántica del shell. */}
       <header className="flex items-start gap-3">
         <span className="pv-gt pv-gt-primary h-11 w-11 rounded-xl">
           <Activity className="h-5 w-5" />
@@ -109,75 +116,40 @@ export function OperationsPage() {
         </div>
       </header>
 
-      <nav className="segmented-control" role="tablist" aria-label={t('tabs.ariaLabel')}>
-        {TAB_KEYS.map(key => {
-          const selected = activeTab === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-controls={`operations-tabpanel-${key}`}
-              id={`operations-tab-${key}`}
-              tabIndex={selected ? 0 : -1}
-              className={cn('segmented-tab', selected && 'segmented-tab-active')}
-              onClick={() => handleTabChange(key)}
-              data-testid={`operations-tab-${key}`}
-            >
-              {tabLabels[key]}
-            </button>
-          );
-        })}
-      </nav>
+      {isAdmin && (
+        <OperationsNavigation activeTab={activeTab} onTabChange={handleTabChange} />
+      )}
 
       <div
-        role="tabpanel"
         id={`operations-tabpanel-${activeTab}`}
-        aria-labelledby={`operations-tab-${activeTab}`}
         data-testid={`operations-tabpanel-${activeTab}`}
       >
         {activeTab === 'attention' && (
-          <div className="space-y-6">
-            <Suspense
-              fallback={
-                <div
-                  className="card grid gap-3 p-5 sm:grid-cols-3 sm:p-6"
-                  aria-label={t('ownership.loading')}
-                  aria-busy="true"
-                >
-                  {[0, 1, 2].map(item => (
-                    <div
-                      key={item}
-                      className="h-28 animate-pulse rounded-2xl bg-secondary-100/70 motion-reduce:animate-none"
-                    />
-                  ))}
-                </div>
-              }
-            >
-              <OperationalReadinessBoard
-                onReviewArea={handleTabChange}
-                onNavigate={target => navigate(target)}
-              />
-            </Suspense>
-            <NeedsAttentionPanel
-              onReviewArea={handleTabChange}
-              onNavigate={target => navigate(target)}
-            />
-          </div>
+          <NeedsAttentionPanel
+            onReviewArea={handleTabChange}
+            onNavigate={target => navigate(target)}
+          />
         )}
-        {activeTab === 'support' && (
-          <Suspense fallback={<p className="text-sm text-fg3">{t('common.loading')}</p>}>
-            <SupportHealthPanel />
+        {activeTab !== 'attention' && (
+          <Suspense fallback={advancedPanelFallback}>
+            {activeTab === 'support' && (
+              <div className="space-y-6">
+                <OperationalReadinessBoard
+                  onReviewArea={handleTabChange}
+                  onNavigate={target => navigate(target)}
+                />
+                <SupportHealthPanel />
+              </div>
+            )}
+            {activeTab === 'sync' && <SyncHealthPanel />}
+            {activeTab === 'fiscal' && <FiscalHealthPanel />}
+            {activeTab === 'device' && <DeviceHealthPanel />}
+            {activeTab === 'cash' && <CashHealthPanel />}
+            {activeTab === 'payments' && <PaymentHealthPanel />}
+            {activeTab === 'diagnostics' && <DiagnosticExportPanel />}
+            {activeTab === 'authority' && <AuthorityHealthPanel />}
           </Suspense>
         )}
-        {activeTab === 'sync' && <SyncHealthPanel />}
-        {activeTab === 'fiscal' && <FiscalHealthPanel />}
-        {activeTab === 'device' && <DeviceHealthPanel />}
-        {activeTab === 'cash' && <CashHealthPanel />}
-        {activeTab === 'payments' && <PaymentHealthPanel />}
-        {activeTab === 'diagnostics' && <DiagnosticExportPanel />}
-        {activeTab === 'authority' && <AuthorityHealthPanel />}
       </div>
     </div>
   );

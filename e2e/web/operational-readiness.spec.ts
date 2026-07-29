@@ -102,15 +102,25 @@ function cleanupPaymentIncident(fixture: PaymentIncidentFixture): void {
   });
 }
 
+async function openAdminTechnicalStatus(page: import('@playwright/test').Page): Promise<void> {
+  await page.getByTestId('operations-support-toggle').click();
+  await page.getByTestId('operations-tab-support').click();
+  await expect(page).toHaveURL(/\/operations\?tab=support$/);
+}
+
 test.describe('operational recovery ownership', () => {
   test.describe.configure({ mode: 'serial' });
 
-  test('admin sees the six-service contract and reaches only supported recovery surfaces', async ({
+  test('admin discloses the six-service contract and reaches supported recovery surfaces', async ({
     page,
   }) => {
     const tracker = attachClientIssueTracker(page);
     await loginAs(page, 'admin');
     await page.goto('/operations');
+
+    await expect(page.getByRole('heading', { level: 1, name: 'Store status' })).toBeVisible();
+    await expect(page.getByTestId('operational-readiness-board')).toHaveCount(0);
+    await openAdminTechnicalStatus(page);
 
     const board = page.getByTestId('operational-readiness-board');
     await expect(board).toBeVisible();
@@ -130,11 +140,12 @@ test.describe('operational recovery ownership', () => {
     await page.getByTestId('operational-action-fiscal').click();
     await expect(page).toHaveURL(/\/operations\?tab=fiscal$/);
     await expect(page.getByTestId('operations-tab-fiscal')).toHaveAttribute(
-      'aria-selected',
-      'true'
+      'aria-current',
+      'page'
     );
 
     await page.goto('/operations');
+    await openAdminTechnicalStatus(page);
     await page.getByTestId('operational-action-sync').click();
     await expect(page).toHaveURL(/\/company\?tab=data$/);
     await expect(page.getByTestId('company-tab-data')).toHaveAttribute('aria-current', 'page');
@@ -152,8 +163,10 @@ test.describe('operational recovery ownership', () => {
 
       const attentionRow = page.getByTestId('needs-attention-row-payments');
       await expect(attentionRow).toContainText(
-        `${fixture.baselineAttentionCount + 1} item${fixture.baselineAttentionCount === 0 ? '' : 's'} pending`
+        `${fixture.baselineAttentionCount + 1} item${fixture.baselineAttentionCount === 0 ? '' : 's'} need${fixture.baselineAttentionCount === 0 ? 's' : ''} review`
       );
+      await expect(attentionRow).toContainText('Verify the payment before charging again');
+      await expect(attentionRow).toContainText('Administrator');
       await page.getByTestId('needs-attention-cta-payments').click();
       await expect(page).toHaveURL(/\/operations\?tab=payments$/);
       await expect(page.getByText(fixture.reference)).toBeVisible();
@@ -169,7 +182,7 @@ test.describe('operational recovery ownership', () => {
         await expect(page.getByTestId('needs-attention-row-payments')).toHaveCount(0);
       } else {
         await expect(page.getByTestId('needs-attention-row-payments')).toContainText(
-          `${fixture.baselineAttentionCount} item${fixture.baselineAttentionCount === 1 ? '' : 's'} pending`
+          `${fixture.baselineAttentionCount} item${fixture.baselineAttentionCount === 1 ? '' : 's'} need${fixture.baselineAttentionCount === 1 ? 's' : ''} review`
         );
       }
       await expectNoClientIssues(tracker);
@@ -181,25 +194,36 @@ test.describe('operational recovery ownership', () => {
   test('manager gets a Spanish administrator handoff without querying desktop-only state', async ({
     page,
   }) => {
+    const fixture = insertPaymentIncident();
     const tracker = attachClientIssueTracker(page);
-    await loginAs(page, 'manager', { spanish: true });
-    await ensureLanguage(page, 'es');
-    await page.goto('/operations');
+    try {
+      await loginAs(page, 'manager', { spanish: true });
+      await ensureLanguage(page, 'es');
+      await page.goto('/operations');
 
-    const board = page.getByTestId('operational-readiness-board');
-    await expect(board.getByText('Cada señal tiene un responsable')).toBeVisible();
-    await expect(board.locator('[data-testid^="operational-service-"]')).toHaveCount(6);
-    const backup = page.getByTestId('operational-service-backup');
-    await expect(backup).toContainText('Administrador');
-    await expect(backup).toContainText('Transferir al administrador');
-    await expect(page.getByTestId('operational-action-backup')).toHaveCount(0);
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Estado de la tienda' })
+      ).toBeVisible();
+      await expect(page.getByTestId('operations-support-toggle')).toHaveCount(0);
+      await expect(page.getByTestId('operational-readiness-board')).toHaveCount(0);
 
-    await page.getByTestId('operational-action-payments').click();
-    await expect(page).toHaveURL(/\/operations\?tab=payments$/);
-    await expect(page.getByTestId('operations-tab-payments')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
-    await expectNoClientIssues(tracker);
+      const payment = page.getByTestId('needs-attention-row-payments');
+      await expect(payment).toContainText('Qué está afectado');
+      await expect(payment).toContainText('¿Puedes seguir vendiendo?');
+      await expect(payment).toContainText('Acción recomendada');
+      await expect(payment).toContainText('Quién autoriza la recuperación');
+      await expect(payment).toContainText('Verifica el pago antes de cobrar de nuevo');
+      await expect(page.getByTestId('needs-attention-handoff-payments')).toContainText(
+        'Solicita ayuda a un administrador'
+      );
+      await expect(page.getByTestId('needs-attention-cta-payments')).toHaveCount(0);
+
+      await page.goto('/operations?tab=payments');
+      await expect(page).toHaveURL(/\/operations$/);
+      await expect(page.getByTestId('operations-tabpanel-payments')).toHaveCount(0);
+      await expectNoClientIssues(tracker);
+    } finally {
+      cleanupPaymentIncident(fixture);
+    }
   });
 });

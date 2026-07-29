@@ -1,20 +1,18 @@
 {
   "header": {
-    "title": "Centro de operaciones",
-    "subtitle": "Qué está pendiente, qué falló y qué hacer ahora — sin mirar logs.",
-    "kicker": "Operaciones"
+    "title": "Estado de la tienda",
+    "subtitle": "Revisa qué afecta la tienda, si las ventas siguen seguras y cuál es la próxima acción.",
+    "kicker": "Hoy"
   },
   "tabs": {
-    "ariaLabel": "Paneles de operaciones",
-    "attention": "Necesita atención",
-    "support": "Soporte",
-    "sync": "Sincronización",
-    "fiscal": "Fiscal",
-    "device": "Dispositivos",
-    "cash": "Caja",
-    "payments": "Pagos",
-    "diagnostics": "Diagnóstico",
-    "authority": "Autoridad"
+    "support": "Estado técnico",
+    "sync": "Sincronización de datos",
+    "fiscal": "Facturación electrónica",
+    "device": "Recibos y dispositivos",
+    "cash": "Revisión de caja",
+    "payments": "Pagos electrónicos",
+    "diagnostics": "Exportar diagnóstico",
+    "authority": "Dispositivos conectados"
   },
   "common": {
     "loading": "Cargando...",
@@ -234,31 +232,69 @@
     }
   },
   "attention": {
-    "kicker": "Necesita atención",
+    "kicker": "Estado de la tienda",
     "title": "Qué necesita atención",
-    "description": "Fallos que puedes reintentar en sincronización, facturación, dispositivos y pagos. Abre el panel que resuelve cada uno.",
+    "description": "Cada incidente explica qué está afectado, si puedes seguir vendiendo y quién debe actuar. Tus ventas completadas conservan su trazabilidad.",
     "actionAria": "{{action}} — {{area}}",
     "action": {
-      "sync": "Resolver sincronización",
-      "fiscal": "Revisar y reintentar",
-      "device": "Revisar y reintentar",
-      "payments": "Revisar y reintentar"
+      "sync": "Abrir recuperación de datos",
+      "fiscal": "Revisar entrega de factura",
+      "device": "Revisar trabajo del dispositivo",
+      "payments": "Conciliar pago"
     },
-    "count_one": "{{count}} pendiente",
-    "count_other": "{{count}} pendientes",
+    "handoff": "Solicita ayuda a un administrador",
+    "count_one": "{{count}} elemento requiere revisión",
+    "count_other": "{{count}} elementos requieren revisión",
     "area": {
-      "sync": "Sincronización",
-      "fiscal": "Documentos fiscales",
-      "device": "Hardware de recibos",
-      "payments": "Pagos electrónicos"
+      "sync": "Información entre dispositivos",
+      "fiscal": "Entrega de factura electrónica",
+      "device": "Recibo o dispositivo conectado",
+      "payments": "Confirmación de pago electrónico"
+    },
+    "severity": {
+      "danger": "Actúa ahora",
+      "warning": "Revisa pronto"
+    },
+    "labels": {
+      "impact": "Qué está afectado",
+      "saleSafety": "¿Puedes seguir vendiendo?",
+      "recommendation": "Acción recomendada",
+      "approval": "Quién autoriza la recuperación"
+    },
+    "impact": {
+      "sync": "La información aún no llegó a otro dispositivo o servicio.",
+      "fiscal": "Una factura electrónica está pendiente de entrega o fue rechazada.",
+      "device": "Una impresión de recibo o una tarea del dispositivo no terminó.",
+      "payments": "Un pago electrónico necesita confirmación o conciliación."
+    },
+    "saleSafety": {
+      "sync": "Sí. La venta permanece guardada en este dispositivo mientras se recupera la sincronización.",
+      "fiscal": "La venta permanece guardada. Continúa solo bajo la política de contingencia fiscal configurada.",
+      "device": "Sí. La venta permanece guardada; la impresión o el dispositivo es el paso afectado.",
+      "payments": "Verifica el pago antes de cobrar de nuevo. Usa otro medio solo si la política de la tienda lo permite."
+    },
+    "recommendation": {
+      "sync": "Concilia la información pendiente y reanuda el envío sin volver a crear la venta.",
+      "fiscal": "Revisa la respuesta del proveedor y reintenta la entrega sin volver a crear la venta.",
+      "device": "Revisa la impresora o la conexión y luego reintenta la tarea original.",
+      "payments": "Concilia la respuesta del proveedor antes de reintentar para evitar un cobro duplicado."
+    },
+    "approval": {
+      "administrator": "Administrador"
+    },
+    "assurance": {
+      "sync": "La cola conserva el cambio original y el historial de intentos.",
+      "fiscal": "Reintentar la entrega de la factura no crea una segunda venta.",
+      "device": "Reintentar la tarea del dispositivo no crea una segunda venta.",
+      "payments": "La referencia del proveedor y los intentos anteriores quedan disponibles para revisión."
     },
     "allClear": {
-      "title": "Todo en orden",
-      "description": "No hay fallos por atender ahora. Las pestañas de arriba tienen el detalle completo de operaciones."
+      "title": "Todo está listo",
+      "description": "No hay incidentes por atender ahora. Puedes continuar con la jornada de la tienda."
     },
     "error": {
-      "title": "No se pudo cargar la cola de atención",
-      "retry": "Reintentar"
+      "title": "No se pudo leer el estado de la tienda",
+      "retry": "Intentar de nuevo"
     }
   },
   "fiscal": {
@@ -733,6 +769,17 @@
       "units": "unidad",
       "users": "usuario",
       "vatRates": "tarifa IVA"
+    }
+  },
+  "navigation": {
+    "ariaLabel": "Estado de la tienda y soporte",
+    "statusTitle": "Estado de la tienda",
+    "statusDescription": "Empieza aquí. Revisa los incidentes y la acción más segura en lenguaje claro.",
+    "supportTitle": "Soporte y diagnóstico",
+    "supportDescription": "Herramientas de administrador para recuperar, revisar el estado técnico y compartir evidencia.",
+    "groups": {
+      "recovery": "Herramientas de recuperación",
+      "evidence": "Evidencia y conexiones"
     }
   }
 }

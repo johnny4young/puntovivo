@@ -24,7 +24,8 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
-import { StatusStrip, Button } from '@/components/ui';
+import { Badge, Button } from '@/components/ui';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 
@@ -49,6 +50,8 @@ const AREA_ICONS: Record<NeedsAttentionArea, LucideIcon> = {
 };
 export function NeedsAttentionPanel({ onReviewArea, onNavigate }: NeedsAttentionPanelProps) {
   const { t } = useTranslation(['operations', 'errors']);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const query = trpc.operations.needsAttention.useQuery(undefined, {
     staleTime: 15_000,
     refetchInterval: 15_000,
@@ -95,40 +98,77 @@ export function NeedsAttentionPanel({ onReviewArea, onNavigate }: NeedsAttention
           {query.data.areas.map(area => {
             const Icon = AREA_ICONS[area.area];
             const areaLabel = t(`attention.area.${area.area}`);
+            const severityVariant = area.severity === 'danger' ? 'danger' : 'warning';
             return (
-              <StatusStrip
+              <article
                 key={area.area}
-                tone={area.severity === 'danger' ? 'danger' : 'warning'}
-                icon={Icon}
-                title={areaLabel}
+                className="overflow-hidden rounded-2xl border border-line bg-card"
                 data-testid={`needs-attention-row-${area.area}`}
                 data-severity={area.severity}
-                action={
-                  <Button
-                    type="button"
-                    className="shrink-0"
-                    onClick={() => {
-                      if (area.area === 'sync') onNavigate('/company?tab=data');
-                      else onReviewArea(area.area);
-                    }}
-                    data-testid={`needs-attention-cta-${area.area}`}
-                    aria-label={t('attention.actionAria', {
-                      action: t(`attention.action.${area.area}`),
-                      area: areaLabel,
-                    })}
-                    variant="outline"
-                  >
-                    {t(`attention.action.${area.area}`)}
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                }
               >
-                <span className="block text-secondary-600">
-                  {t('attention.count', {
-                    count: area.count,
-                  })}
-                </span>
-              </StatusStrip>
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line/75 bg-surface-2/45 px-4 py-4 sm:px-5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="pv-gt pv-gt-primary h-10 w-10 shrink-0 rounded-xl">
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-secondary-950">{areaLabel}</h3>
+                      <p className="mt-0.5 text-sm text-secondary-600">
+                        {t('attention.count', { count: area.count })}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={severityVariant} marker="dot">
+                    {t(`attention.severity.${area.severity}`)}
+                  </Badge>
+                </div>
+
+                <dl className="grid gap-px bg-line/70 sm:grid-cols-2">
+                  {(['impact', 'saleSafety', 'recommendation', 'approval'] as const).map(field => (
+                    <div key={field} className="min-w-0 bg-card px-4 py-4 sm:px-5">
+                      <dt className="pv-kicker">{t(`attention.labels.${field}`)}</dt>
+                      <dd className="mt-1.5 text-sm leading-6 text-secondary-700">
+                        {field === 'approval'
+                          ? t('attention.approval.administrator')
+                          : t(`attention.${field}.${area.area}`)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+
+                <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line/75 px-4 py-4 sm:px-5">
+                  <p className="max-w-2xl text-xs leading-5 text-secondary-500">
+                    {t(`attention.assurance.${area.area}`)}
+                  </p>
+                  {isAdmin ? (
+                    <Button
+                      type="button"
+                      className="shrink-0"
+                      onClick={() => {
+                        if (area.area === 'sync') onNavigate('/company?tab=data');
+                        else onReviewArea(area.area);
+                      }}
+                      data-testid={`needs-attention-cta-${area.area}`}
+                      aria-label={t('attention.actionAria', {
+                        action: t(`attention.action.${area.area}`),
+                        area: areaLabel,
+                      })}
+                      variant="outline"
+                    >
+                      {t(`attention.action.${area.area}`)}
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="max-w-full text-center"
+                      data-testid={`needs-attention-handoff-${area.area}`}
+                    >
+                      {t('attention.handoff')}
+                    </Badge>
+                  )}
+                </footer>
+              </article>
             );
           })}
         </div>

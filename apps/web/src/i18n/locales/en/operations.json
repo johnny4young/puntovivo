@@ -1,20 +1,18 @@
 {
   "header": {
-    "title": "Operations Center",
-    "subtitle": "What's pending, what failed, and what to do next — without reading logs.",
-    "kicker": "Operations"
+    "title": "Store status",
+    "subtitle": "See what affects the store, whether sales remain safe, and the next action to take.",
+    "kicker": "Today"
   },
   "tabs": {
-    "ariaLabel": "Operations panels",
-    "attention": "Needs attention",
-    "support": "Support",
-    "sync": "Sync",
-    "fiscal": "Fiscal",
-    "device": "Devices",
-    "cash": "Cash",
-    "payments": "Payments",
-    "diagnostics": "Diagnostics",
-    "authority": "Authority"
+    "support": "Technical status",
+    "sync": "Data sync",
+    "fiscal": "Electronic invoicing",
+    "device": "Receipts and devices",
+    "cash": "Cash review",
+    "payments": "Electronic payments",
+    "diagnostics": "Export diagnostics",
+    "authority": "Connected devices"
   },
   "common": {
     "loading": "Loading...",
@@ -234,31 +232,69 @@
     }
   },
   "attention": {
-    "kicker": "Needs attention",
+    "kicker": "Store status",
     "title": "What needs attention",
-    "description": "Retryable failures across sync, fiscal, devices, and payments. Open the panel that resolves each one.",
+    "description": "Each incident explains what is affected, whether sales can continue, and who should act. Your completed sales remain traceable.",
     "actionAria": "{{action}} — {{area}}",
     "action": {
-      "sync": "Resolve sync",
-      "fiscal": "Review and retry",
-      "device": "Review and retry",
-      "payments": "Review and retry"
+      "sync": "Open sync recovery",
+      "fiscal": "Review invoice delivery",
+      "device": "Review device job",
+      "payments": "Reconcile payment"
     },
-    "count_one": "{{count}} item pending",
-    "count_other": "{{count}} items pending",
+    "handoff": "Ask an administrator to continue",
+    "count_one": "{{count}} item needs review",
+    "count_other": "{{count}} items need review",
     "area": {
-      "sync": "Synchronization",
-      "fiscal": "Fiscal documents",
-      "device": "Receipt hardware",
-      "payments": "Electronic payments"
+      "sync": "Information between devices",
+      "fiscal": "Electronic invoice delivery",
+      "device": "Receipt or connected device",
+      "payments": "Electronic payment confirmation"
+    },
+    "severity": {
+      "danger": "Act now",
+      "warning": "Review soon"
+    },
+    "labels": {
+      "impact": "What is affected",
+      "saleSafety": "Can sales continue?",
+      "recommendation": "Recommended action",
+      "approval": "Who authorizes recovery"
+    },
+    "impact": {
+      "sync": "Information has not reached another device or service yet.",
+      "fiscal": "An electronic invoice is pending delivery or was rejected.",
+      "device": "A receipt print or connected-device job did not finish.",
+      "payments": "An electronic payment needs confirmation or reconciliation."
+    },
+    "saleSafety": {
+      "sync": "Yes. The sale remains saved on this device while synchronization recovers.",
+      "fiscal": "The sale remains saved. Continue only under your configured fiscal contingency policy.",
+      "device": "Yes. The sale remains saved; printing or the connected device is the affected step.",
+      "payments": "Verify the payment before charging again. Use another method only if store policy allows it."
+    },
+    "recommendation": {
+      "sync": "Reconcile the pending information and resume delivery without recreating the sale.",
+      "fiscal": "Review the provider response and retry delivery without recreating the sale.",
+      "device": "Check the printer or connection, then retry the original job.",
+      "payments": "Reconcile the provider response before retrying to avoid a duplicate charge."
+    },
+    "approval": {
+      "administrator": "Administrator"
+    },
+    "assurance": {
+      "sync": "The queue keeps the original change and its attempt history.",
+      "fiscal": "Retrying invoice delivery does not create a second sale.",
+      "device": "Retrying the device job does not create a second sale.",
+      "payments": "The provider reference and previous attempts remain available for review."
     },
     "allClear": {
-      "title": "All clear",
-      "description": "No failures need attention right now. The tabs above hold the full operations detail."
+      "title": "Everything is ready",
+      "description": "No incident needs attention right now. You can continue with the store day."
     },
     "error": {
-      "title": "Could not load the attention queue",
-      "retry": "Retry"
+      "title": "Could not read the store status",
+      "retry": "Try again"
     }
   },
   "fiscal": {
@@ -733,6 +769,17 @@
       "units": "Unit",
       "users": "User",
       "vatRates": "VAT rate"
+    }
+  },
+  "navigation": {
+    "ariaLabel": "Store status and support",
+    "statusTitle": "Store status",
+    "statusDescription": "Start here. See incidents and the safest next action in plain language.",
+    "supportTitle": "Support and diagnostics",
+    "supportDescription": "Administrator tools for recovery, technical status, and shareable evidence.",
+    "groups": {
+      "recovery": "Recovery tools",
+      "evidence": "Evidence and connections"
     }
   }
 }

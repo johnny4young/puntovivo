@@ -1,22 +1,22 @@
 /**
- * /  /  — Tests for OperationsPage tab shell.
+ * Tests for the progressive Operations shell.
  *
  * Asserts:
- * - All 9 live tabs render in the role list visible to manager + admin.
- * - Default tab is `attention` (the Needs-attention queue).
- * - `?tab=sync`, `?tab=fiscal`, `?tab=device`, `?tab=cash`,
- * `?tab=payments`, `?tab=diagnostics`,
- * `?tab=authority`, and `?tab=support` deep links land on the right panel.
- * - Garbage tab values fall back to the default.
- * - Clicking a tab updates URL + aria-selected.
+ * - Store status is the dominant landing for both allowed roles.
+ * - Administrators can progressively disclose every technical destination.
+ * - Existing administrator deep links remain stable.
+ * - Managers cannot open support tools, including through a deep link.
  *
  * Panel internals (data fetching) are exercised by their own
  * dedicated test files; this file only covers the shell.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useLocation } from 'react-router';
 import { act, render, screen, fireEvent } from '@/test/utils';
 import { OperationsPage } from './OperationsPage';
+
+let mockRole: 'admin' | 'manager' = 'admin';
 
 vi.mock('./SupportHealthPanel', () => ({
   SupportHealthPanel: () => <div data-testid="support-health-panel" />,
@@ -206,7 +206,7 @@ vi.mock('@/lib/trpc', () => ({
 
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
-    user: { id: 'user-1', email: 'admin@demo.co', role: 'admin', tenantId: 't1' },
+    user: { id: 'user-1', email: 'operator@demo.co', role: mockRole, tenantId: 't1' },
   }),
 }));
 
@@ -219,9 +219,20 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   }),
 }));
 
+function LocationProbe(): React.ReactElement {
+  const location = useLocation();
+  return <output data-testid="location-probe">{`${location.pathname}${location.search}`}</output>;
+}
+
 async function renderOperationsPage(initialEntries?: string[]): Promise<void> {
   await act(async () => {
-    render(<OperationsPage />, initialEntries ? { initialEntries } : undefined);
+    render(
+      <>
+        <OperationsPage />
+        <LocationProbe />
+      </>,
+      { initialEntries: initialEntries ?? ['/operations'] }
+    );
     // Both panels are production-lazy. Resolve their module promises inside
     // this test transaction so React never completes Suspense after teardown.
     await Promise.all([import('./SupportHealthPanel'), import('./OperationalReadinessBoard')]);
@@ -229,105 +240,98 @@ async function renderOperationsPage(initialEntries?: string[]): Promise<void> {
 }
 
 describe('OperationsPage', () => {
-  it('renders the nine live tabs in order', async () => {
+  beforeEach(() => {
+    mockRole = 'admin';
+  });
+
+  it('renders store status as the only visible administrator landing', async () => {
     await renderOperationsPage();
     expect(screen.getByTestId('operations-tab-attention')).toBeInTheDocument();
-    expect(screen.getByTestId('operations-tab-support')).toBeInTheDocument();
-    expect(screen.getByTestId('operations-tab-sync')).toBeInTheDocument();
-    expect(screen.getByTestId('operations-tab-fiscal')).toBeInTheDocument();
-    expect(screen.getByTestId('operations-tab-device')).toBeInTheDocument();
-    expect(screen.getByTestId('operations-tab-cash')).toBeInTheDocument();
-    expect(screen.getByTestId('operations-tab-payments')).toBeInTheDocument();
-    expect(screen.getByTestId('operations-tab-diagnostics')).toBeInTheDocument();
-    expect(screen.getByTestId('operations-tab-authority')).toBeInTheDocument();
-  });
-
-  it('defaults to the attention tab', async () => {
-    await renderOperationsPage();
-    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('operations-support-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    expect(screen.queryByTestId('operations-tab-support')).not.toBeInTheDocument();
     expect(screen.getByTestId('operations-tabpanel-attention')).toBeInTheDocument();
     expect(screen.getByTestId('needs-attention-panel')).toBeInTheDocument();
+    expect(screen.queryByTestId('operational-readiness-board')).not.toBeInTheDocument();
   });
 
-  it('lands on the support panel via ?tab=support deep link', async () => {
-    await renderOperationsPage(['/operations?tab=support']);
-    expect(screen.getByTestId('operations-tab-support')).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByTestId('support-health-panel')).toBeInTheDocument();
-  });
-
-  it('lands on the fiscal panel via ?tab=fiscal deep link', async () => {
-    await renderOperationsPage(['/operations?tab=fiscal']);
-    expect(screen.getByTestId('operations-tab-fiscal')).toHaveAttribute('aria-selected', 'true');
+  it('reveals every technical destination only after explicit disclosure', async () => {
+    await renderOperationsPage();
+    fireEvent.click(screen.getByTestId('operations-support-toggle'));
+    expect(screen.getByTestId('operations-support-tools')).toBeInTheDocument();
+    for (const tab of [
+      'support',
+      'sync',
+      'fiscal',
+      'device',
+      'cash',
+      'payments',
+      'diagnostics',
+      'authority',
+    ]) {
+      expect(screen.getByTestId(`operations-tab-${tab}`)).toBeInTheDocument();
+    }
+    fireEvent.click(screen.getByTestId('operations-tab-fiscal'));
+    expect(screen.getByTestId('operations-tab-fiscal')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('operations-tabpanel-fiscal')).toBeInTheDocument();
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/operations?tab=fiscal');
   });
 
-  it('lands on the device panel via ?tab=device deep link', async () => {
-    await renderOperationsPage(['/operations?tab=device']);
-    expect(screen.getByTestId('operations-tab-device')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('operations-tabpanel-device')).toBeInTheDocument();
+  it.each([
+    ['support', 'support-health-panel'],
+    ['sync', 'operations-tabpanel-sync'],
+    ['fiscal', 'operations-tabpanel-fiscal'],
+    ['device', 'operations-tabpanel-device'],
+    ['cash', 'operations-tabpanel-cash'],
+    ['payments', 'operations-tabpanel-payments'],
+    ['diagnostics', 'operations-tabpanel-diagnostics'],
+    ['authority', 'operations-tabpanel-authority'],
+  ])('preserves the administrator ?tab=%s deep link', async (tab, panelTestId) => {
+    await renderOperationsPage([`/operations?tab=${tab}`]);
+    expect(screen.getByTestId(`operations-tab-${tab}`)).toHaveAttribute('aria-current', 'page');
+    expect(await screen.findByTestId(panelTestId)).toBeInTheDocument();
+    expect(screen.getByTestId('operations-support-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
   });
 
-  it('lands on the cash panel via ?tab=cash deep link', async () => {
-    await renderOperationsPage(['/operations?tab=cash']);
-    expect(screen.getByTestId('operations-tab-cash')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('operations-tabpanel-cash')).toBeInTheDocument();
-  });
-
-  it('lands on the payments panel via ?tab=payments deep link', async () => {
+  it('returns to store status when support tools are collapsed', async () => {
     await renderOperationsPage(['/operations?tab=payments']);
-    expect(screen.getByTestId('operations-tab-payments')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('operations-tabpanel-payments')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('operations-support-toggle'));
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/operations');
+    expect(screen.getByTestId('operations-tabpanel-attention')).toBeInTheDocument();
+    expect(screen.queryByTestId('operations-support-tools')).not.toBeInTheDocument();
   });
 
-  it('falls back to attention for the retired ?tab=inventory deep link', async () => {
+  it('falls back to store status for an invalid administrator deep link', async () => {
     await renderOperationsPage(['/operations?tab=inventory']);
-    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByTestId('operations-tab-inventory')).not.toBeInTheDocument();
   });
 
-  it('lands on the diagnostics panel via ?tab=diagnostics deep link', async () => {
-    await renderOperationsPage(['/operations?tab=diagnostics']);
-    expect(screen.getByTestId('operations-tab-diagnostics')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
-    expect(screen.getByTestId('operations-tabpanel-diagnostics')).toBeInTheDocument();
-  });
-
-  it('lands on the authority panel via ?tab=authority deep link', async () => {
-    await renderOperationsPage(['/operations?tab=authority']);
-    expect(screen.getByTestId('operations-tab-authority')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('operations-tabpanel-authority')).toBeInTheDocument();
-  });
-
-  it('falls back to the default tab when ?tab=garbage', async () => {
-    await renderOperationsPage(['/operations?tab=zzznotreal']);
-    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute('aria-selected', 'true');
-  });
-
-  it('lands on the sync panel via ?tab=sync deep link', async () => {
-    await renderOperationsPage(['/operations?tab=sync']);
-    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('operations-tabpanel-sync')).toBeInTheDocument();
-  });
-
-  it('switches tabs on click and updates aria-selected', async () => {
+  it('keeps managers on store status without exposing support tools', async () => {
+    mockRole = 'manager';
     await renderOperationsPage();
-    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute('aria-selected', 'true');
-
-    fireEvent.click(screen.getByTestId('operations-tab-fiscal'));
-
-    expect(screen.getByTestId('operations-tab-fiscal')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute(
-      'aria-selected',
-      'false'
-    );
-    expect(screen.getByTestId('operations-tabpanel-fiscal')).toBeInTheDocument();
+    expect(screen.getByTestId('operations-tabpanel-attention')).toBeInTheDocument();
+    expect(screen.queryByTestId('operations-tab-attention')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('operations-support-toggle')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('operational-readiness-board')).not.toBeInTheDocument();
   });
 
-  it('renders the localized header copy', async () => {
+  it('canonicalizes a manager technical deep link back to store status', async () => {
+    mockRole = 'manager';
+    await renderOperationsPage(['/operations?tab=payments']);
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/operations');
+    expect(screen.queryByTestId('operations-tabpanel-payments')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('operations-support-toggle')).not.toBeInTheDocument();
+  });
+
+  it('renders the localized operator-first header copy', async () => {
     await renderOperationsPage();
-    // Default i18n in tests is English; the header should say "Operations Center".
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Operations Center/i);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Store status/i);
   });
 });
