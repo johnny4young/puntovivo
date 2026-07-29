@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PackagePlus, ScanLine, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
@@ -28,6 +28,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
+import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
 import type { Category, Provider, Purchase } from '@/types';
 import { parseSerialNumbers } from '@/features/inventory/serialNumbers';
 
@@ -42,6 +43,7 @@ export function PurchasesPage() {
   const toast = useToast();
   const { user } = useAuth();
   const { currentSite } = useTenant();
+  const stockReceiptMeasurement = useTaskMeasurementController();
   const [cartItems, setCartItems] = useState<PurchaseCartItem[]>([]);
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const [isInvoiceOcrV2Open, setIsInvoiceOcrV2Open] = useState(false);
@@ -52,6 +54,11 @@ export function PurchasesPage() {
     null
   );
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+
+  useEffect(() => {
+    stockReceiptMeasurement.ensure('receive_stock');
+    stockReceiptMeasurement.markUsableControl();
+  }, [stockReceiptMeasurement]);
 
   const purchasesQuery = trpc.purchases.list.useQuery({ page: 1, perPage: 50 });
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 100 });
@@ -72,6 +79,7 @@ export function PurchasesPage() {
       setCartItems([]);
       setPurchaseError(null);
       setIsFinalizeModalOpen(false);
+      stockReceiptMeasurement.finish('success');
       toast.success({
         title: t('toast.success'),
         description: `${variables.items.length} ${t('toast.successDetail')}`,
@@ -104,7 +112,20 @@ export function PurchasesPage() {
 
   const handleProductSelect = (selection: Parameters<typeof mergePurchaseCartItem>[1]) => {
     setCartItems(currentItems => mergePurchaseCartItem(currentItems, selection));
+    stockReceiptMeasurement.markFirstProgress();
     setPurchaseError(null);
+  };
+
+  const handleOpenProductSearch = () => {
+    stockReceiptMeasurement.ensure('receive_stock');
+    stockReceiptMeasurement.markUsableControl();
+    setIsProductSearchOpen(true);
+  };
+
+  const handleOpenInvoiceOcr = () => {
+    stockReceiptMeasurement.ensure('receive_stock');
+    stockReceiptMeasurement.markUsableControl();
+    setIsInvoiceOcrV2Open(true);
   };
 
   const handleQuantityChange = (itemKey: string, quantity: number) => {
@@ -132,7 +153,15 @@ export function PurchasesPage() {
   };
 
   const handleRemoveItem = (itemKey: string) => {
+    stockReceiptMeasurement.recordBacktrack();
     setCartItems(currentItems => currentItems.filter(item => item.key !== itemKey));
+  };
+
+  const handleClearCart = () => {
+    if (cartItems.length > 0) {
+      stockReceiptMeasurement.recordBacktrack();
+    }
+    setCartItems([]);
   };
 
   const handleOpenFinalizeModal = () => {
@@ -159,12 +188,22 @@ export function PurchasesPage() {
         notes: values.notes || undefined,
       });
     } catch (error) {
+      stockReceiptMeasurement.recordValidationError();
       setPurchaseError(error instanceof Error ? error.message : 'Unable to register the purchase');
     }
   };
 
   return (
-    <>
+    <div
+      className="contents"
+      data-task-measurement="receive_stock"
+      onPointerDownCapture={() => stockReceiptMeasurement.recordInteraction()}
+      onKeyDownCapture={event => {
+        if (isTaskActivationKey(event.key)) {
+          stockReceiptMeasurement.recordInteraction();
+        }
+      }}
+    >
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
@@ -178,7 +217,7 @@ export function PurchasesPage() {
             </div>
             <button
               className="btn-outline flex items-center gap-2"
-              onClick={() => setIsProductSearchOpen(true)}
+              onClick={handleOpenProductSearch}
             >
               <Search className="h-4 w-4" />
               {t('checkout.addProduct')}
@@ -187,7 +226,7 @@ export function PurchasesPage() {
               <button
                 type="button"
                 className="btn-outline flex items-center gap-2"
-                onClick={() => setIsInvoiceOcrV2Open(true)}
+                onClick={handleOpenInvoiceOcr}
                 data-testid="purchases-open-ocr"
               >
                 <ScanLine className="h-4 w-4" />
@@ -247,7 +286,7 @@ export function PurchasesPage() {
               </div>
               <button
                 className="btn-ghost"
-                onClick={() => setCartItems([])}
+                onClick={handleClearCart}
                 disabled={cartItems.length === 0}
               >
                 {t('checkout.clear')}
@@ -268,7 +307,7 @@ export function PurchasesPage() {
             currentSite={currentSite}
             draftSummary={draftSummary}
             canFinalize={!!currentSite && cartItems.length > 0 && serialsComplete}
-            onOpenSearch={() => setIsProductSearchOpen(true)}
+            onOpenSearch={handleOpenProductSearch}
             onFinalize={handleOpenFinalizeModal}
           />
         </div>
@@ -326,8 +365,9 @@ export function PurchasesPage() {
         onConfirmed={() => {
           void purchasesQuery.refetch();
           setIsInvoiceOcrV2Open(false);
+          stockReceiptMeasurement.finish('success');
         }}
       />
-    </>
+    </div>
   );
 }

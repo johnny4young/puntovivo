@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
@@ -27,6 +27,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError, extractServerErrorCode } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
+import { useTaskMeasurementController } from '@/lib/taskMeasurement';
 import type { Product, UserRole } from '@/types';
 
 const VariantMatrixModal = lazy(() =>
@@ -55,6 +56,7 @@ export function ProductsPage() {
   const canDelete = user?.role === 'admin';
   const canRegenerate = user?.role === 'admin';
   const isAdmin = user?.role === 'admin';
+  const createProductMeasurement = useTaskMeasurementController();
 
   // realized 30-day gross margin per product for the owner-mode
   // traffic light. Admin-only: the procedure is managerOrAdmin on the server,
@@ -101,6 +103,12 @@ export function ProductsPage() {
   // table (provider / location / tier-2 / tier-3 prices, SKU, min stock).
   const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
   const [matrixProduct, setMatrixProduct] = useState<Product | null>(null);
+  useEffect(() => {
+    if (isModalOpen && editingProduct === null) {
+      createProductMeasurement.markUsableControl();
+    }
+  }, [createProductMeasurement, editingProduct, isModalOpen]);
+
   const matrixQuery = trpc.products.getVariantMatrix.useQuery(
     { parentProductId: matrixProduct?.id ?? '' },
     { enabled: matrixProduct?.catalogType === 'variant_parent' }
@@ -112,6 +120,7 @@ export function ProductsPage() {
         utils.products.list.invalidate(),
         utils.setupReadiness.firstSale.invalidate(),
       ]);
+      createProductMeasurement.finish('success');
       handleCloseModal();
       toast.success({ title: t('toast.created') });
     },
@@ -197,6 +206,8 @@ export function ProductsPage() {
     rate: vatRate.rate,
   }));
   const handleCloseModal = () => {
+    createProductMeasurement.recordInteraction();
+    createProductMeasurement.finish('abandoned');
     editAbortController?.abort();
     setEditAbortController(null);
     setIsModalOpen(false);
@@ -208,6 +219,8 @@ export function ProductsPage() {
   };
 
   const handleOpenCreate = () => {
+    createProductMeasurement.start('create_product');
+    createProductMeasurement.recordInteraction();
     editAbortController?.abort();
     setEditAbortController(null);
     setEditingProduct(null);
@@ -274,6 +287,10 @@ export function ProductsPage() {
   };
 
   const handleSubmit = async (values: ProductFormValues) => {
+    if (!editingProduct) {
+      createProductMeasurement.recordInteraction();
+    }
+
     // stock is derived inventory state for a lot-tracked product.
     // Omitting it on tracked updates prevents a metadata save from replaying
     // the stale stock value captured when the modal opened.
@@ -336,9 +353,7 @@ export function ProductsPage() {
       {!productsQuery.isLoading &&
         !productsQuery.error &&
         !semantic.hasActiveSearch &&
-        products.length === 0 && (
-        <EmptyStateReadinessNudge scope="products" />
-      )}
+        products.length === 0 && <EmptyStateReadinessNudge scope="products" />}
 
       <div className="card p-6">
         {productsQuery.isLoading && <TableLoadingState message={t('table.loading')} />}
@@ -450,12 +465,8 @@ export function ProductsPage() {
                 marginByProduct
               )}
               data={displayProducts}
-              searchValue={
-                semantic.semanticModeEnabled ? undefined : semantic.literalQuery
-              }
-              onSearchChange={
-                semantic.semanticModeEnabled ? undefined : semantic.setLiteralQuery
-              }
+              searchValue={semantic.semanticModeEnabled ? undefined : semantic.literalQuery}
+              onSearchChange={semantic.semanticModeEnabled ? undefined : semantic.setLiteralQuery}
               searchPlaceholder={t('table.search')}
               pageSize={10}
               // keyboard row-activate mirrors the Pencil (edit)
@@ -527,29 +538,44 @@ export function ProductsPage() {
       </Modal>
 
       {(!editingProduct || editingProductSnapshot) && (
-        <ProductFormModal
-          key={`${editingProduct?.id ?? 'new-product'}-${modalInstanceKey}`}
-          mode={editingProduct ? 'edit' : 'create'}
-          isOpen={isModalOpen}
-          product={editingProduct ? editingProductSnapshot : null}
-          categories={categories}
-          locations={locations}
-          providers={providers}
-          units={units}
-          vatRates={vatRates}
-          isSaving={createMutation.isPending || updateMutation.isPending}
-          error={
-            createMutation.error
-              ? translateServerError(createMutation.error, t, t('errors:server.unknown'))
-              : updateMutation.error
-                ? translateServerError(updateMutation.error, t, t('errors:server.unknown'))
-                : null
-          }
-          onClose={handleCloseModal}
-          onSubmit={handleSubmit}
-          initialExperience={editingProduct ? 'advanced' : 'quick'}
-          origin="catalog"
-        />
+        <div
+          className="contents"
+          onChangeCapture={() => {
+            if (!editingProduct) {
+              createProductMeasurement.recordInteraction();
+              createProductMeasurement.markFirstProgress();
+            }
+          }}
+        >
+          <ProductFormModal
+            key={`${editingProduct?.id ?? 'new-product'}-${modalInstanceKey}`}
+            mode={editingProduct ? 'edit' : 'create'}
+            isOpen={isModalOpen}
+            product={editingProduct ? editingProductSnapshot : null}
+            categories={categories}
+            locations={locations}
+            providers={providers}
+            units={units}
+            vatRates={vatRates}
+            isSaving={createMutation.isPending || updateMutation.isPending}
+            error={
+              createMutation.error
+                ? translateServerError(createMutation.error, t, t('errors:server.unknown'))
+                : updateMutation.error
+                  ? translateServerError(updateMutation.error, t, t('errors:server.unknown'))
+                  : null
+            }
+            onClose={handleCloseModal}
+            onSubmit={handleSubmit}
+            initialExperience={editingProduct ? 'advanced' : 'quick'}
+            origin="catalog"
+            onInvalid={
+              editingProduct
+                ? undefined
+                : () => createProductMeasurement.recordValidationError()
+            }
+          />
+        </div>
       )}
 
       <ConfirmModal

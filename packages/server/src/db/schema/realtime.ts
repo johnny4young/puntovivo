@@ -8,8 +8,16 @@
  *
  * @module db/schema/realtime
  */
-import { index, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { relations } from 'drizzle-orm';
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
+import { relations, sql } from 'drizzle-orm';
 import { nowIso, sqliteNow } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { sales } from './sales.js';
@@ -156,3 +164,162 @@ export type WebVitalRating = (typeof webVitalRatingEnum)[number];
 export type WebVitalDeviceClass = (typeof webVitalDeviceClassEnum)[number];
 export type WebVitalSampleRow = typeof webVitalSamples.$inferSelect;
 export type NewWebVitalSampleRow = typeof webVitalSamples.$inferInsert;
+
+// ============================================================================
+// PRIVACY-SAFE TASK MEASUREMENT
+// ============================================================================
+
+/**
+ * Fixed task vocabulary for aggregate usability measurement.
+ *
+ * The client cannot send arbitrary event names or business identifiers. A
+ * versioned, allowlisted task keeps longitudinal measurements comparable while
+ * preventing product, customer, payment, sale, site, or free-text content from
+ * entering this table.
+ */
+export const taskMeasurementTaskEnum = [
+  'complete_sale',
+  'create_product',
+  'close_day',
+  'receive_stock',
+  'recover_operation',
+] as const;
+export const taskMeasurementRouteEnum = [
+  '/sales',
+  '/products',
+  '/day-close',
+  '/purchases',
+  '/operations',
+] as const;
+export const taskMeasurementOutcomeEnum = ['success', 'abandoned', 'failed'] as const;
+export const taskMeasurementRecoveryOutcomeEnum = [
+  'not_needed',
+  'succeeded',
+  'failed',
+  'abandoned',
+] as const;
+
+/**
+ * One aggregate row per sampled task attempt.
+ *
+ * Privacy invariants:
+ * - tenant identity is derived from the authenticated server context;
+ * - no user, site, product, customer, payment, sale, query, error, or notes
+ *   column exists;
+ * - task and route are fixed enums rather than client-authored strings;
+ * - timings are integer milliseconds and hardware is a coarse device bucket.
+ *
+ * The count/timing checks are duplicated by the Zod input contract so direct
+ * SQL writes cannot silently create impossible negative samples.
+ */
+export const taskMeasurementSamples = sqliteTable(
+  'task_measurement_samples',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    task: text('task', { enum: taskMeasurementTaskEnum }).notNull(),
+    route: text('route', { enum: taskMeasurementRouteEnum }).notNull(),
+    taskVersion: integer('task_version').notNull().default(1),
+    outcome: text('outcome', { enum: taskMeasurementOutcomeEnum }).notNull(),
+    recoveryOutcome: text('recovery_outcome', {
+      enum: taskMeasurementRecoveryOutcomeEnum,
+    })
+      .notNull()
+      .default('not_needed'),
+    deviceClass: text('device_class', { enum: webVitalDeviceClassEnum }).notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    timeToFirstUsableControlMs: integer('time_to_first_usable_control_ms'),
+    timeToFirstProgressMs: integer('time_to_first_progress_ms'),
+    interactionsToFirstProgress: integer('interactions_to_first_progress'),
+    interactionCount: integer('interaction_count').notNull().default(0),
+    backtrackCount: integer('backtrack_count').notNull().default(0),
+    validationErrorCount: integer('validation_error_count').notNull().default(0),
+    recoveryAttemptCount: integer('recovery_attempt_count').notNull().default(0),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_task_measurement_samples_tenant_task_created').on(
+      table.tenantId,
+      table.task,
+      table.createdAt
+    ),
+    index('idx_task_measurement_samples_tenant_route_created').on(
+      table.tenantId,
+      table.route,
+      table.createdAt
+    ),
+    check(
+      'chk_task_measurement_samples_task_version',
+      sql`${table.taskVersion} >= 1 AND ${table.taskVersion} <= 1000`
+    ),
+    check(
+      'chk_task_measurement_samples_task',
+      sql`${table.task} IN ('complete_sale', 'create_product', 'close_day', 'receive_stock', 'recover_operation')`
+    ),
+    check(
+      'chk_task_measurement_samples_route',
+      sql`${table.route} IN ('/sales', '/products', '/day-close', '/purchases', '/operations')`
+    ),
+    check(
+      'chk_task_measurement_samples_task_route',
+      sql`(${table.task} = 'complete_sale' AND ${table.route} = '/sales')
+        OR (${table.task} = 'create_product' AND ${table.route} = '/products')
+        OR (${table.task} = 'close_day' AND ${table.route} = '/day-close')
+        OR (${table.task} = 'receive_stock' AND ${table.route} = '/purchases')
+        OR (${table.task} = 'recover_operation' AND ${table.route} = '/operations')`
+    ),
+    check(
+      'chk_task_measurement_samples_outcome',
+      sql`${table.outcome} IN ('success', 'abandoned', 'failed')`
+    ),
+    check(
+      'chk_task_measurement_samples_recovery_outcome',
+      sql`${table.recoveryOutcome} IN ('not_needed', 'succeeded', 'failed', 'abandoned')`
+    ),
+    check(
+      'chk_task_measurement_samples_device_class',
+      sql`${table.deviceClass} IN ('low', 'mid', 'high', 'unknown')`
+    ),
+    check(
+      'chk_task_measurement_samples_recovery_consistency',
+      sql`(${table.recoveryAttemptCount} = 0 AND ${table.recoveryOutcome} = 'not_needed')
+        OR (${table.recoveryAttemptCount} > 0 AND ${table.recoveryOutcome} <> 'not_needed')`
+    ),
+    check(
+      'chk_task_measurement_samples_duration',
+      sql`${table.durationMs} >= 0 AND ${table.durationMs} <= 86400000`
+    ),
+    check(
+      'chk_task_measurement_samples_usable_timing',
+      sql`${table.timeToFirstUsableControlMs} IS NULL OR (${table.timeToFirstUsableControlMs} >= 0 AND ${table.timeToFirstUsableControlMs} <= ${table.durationMs})`
+    ),
+    check(
+      'chk_task_measurement_samples_progress_timing',
+      sql`${table.timeToFirstProgressMs} IS NULL OR (${table.timeToFirstProgressMs} >= 0 AND ${table.timeToFirstProgressMs} <= ${table.durationMs})`
+    ),
+    check(
+      'chk_task_measurement_samples_first_progress_consistency',
+      sql`(${table.timeToFirstProgressMs} IS NULL AND ${table.interactionsToFirstProgress} IS NULL)
+        OR (${table.timeToFirstProgressMs} IS NOT NULL
+          AND ${table.interactionsToFirstProgress} IS NOT NULL
+          AND ${table.interactionsToFirstProgress} >= 0
+          AND ${table.interactionsToFirstProgress} <= ${table.interactionCount})`
+    ),
+    check(
+      'chk_task_measurement_samples_counts',
+      sql`${table.interactionCount} >= 0 AND ${table.interactionCount} <= 100000
+        AND ${table.backtrackCount} >= 0 AND ${table.backtrackCount} <= 100000
+        AND ${table.validationErrorCount} >= 0 AND ${table.validationErrorCount} <= 100000
+        AND ${table.recoveryAttemptCount} >= 0 AND ${table.recoveryAttemptCount} <= 100000`
+    ),
+  ]
+);
+
+export type TaskMeasurementTask = (typeof taskMeasurementTaskEnum)[number];
+export type TaskMeasurementRoute = (typeof taskMeasurementRouteEnum)[number];
+export type TaskMeasurementOutcome = (typeof taskMeasurementOutcomeEnum)[number];
+export type TaskMeasurementRecoveryOutcome = (typeof taskMeasurementRecoveryOutcomeEnum)[number];
+export type TaskMeasurementSampleRow = typeof taskMeasurementSamples.$inferSelect;
+export type NewTaskMeasurementSampleRow = typeof taskMeasurementSamples.$inferInsert;

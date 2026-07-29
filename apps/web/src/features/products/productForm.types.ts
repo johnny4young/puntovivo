@@ -108,6 +108,11 @@ export interface ProductFormModalProps {
   onExperienceChange?: ((experience: ProductFormExperience) => void) | undefined;
   /** Keeps the shared form mounted while its advanced lookup catalogs load. */
   advancedLookupsPending?: boolean | undefined;
+  /**
+   * Aggregate, content-free task signals for create mode. Neither callback
+   * receives field values or error text.
+   */
+  onInvalid?: (() => void) | undefined;
 }
 
 export type PricingField = 'price' | 'price2' | 'price3';

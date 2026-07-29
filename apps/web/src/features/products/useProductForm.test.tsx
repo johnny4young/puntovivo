@@ -46,4 +46,27 @@ describe('useProductForm submit contract', () => {
     });
     expect(onCreated).not.toHaveBeenCalled();
   });
+
+  it('reports only the aggregate invalid-submit signal without exposing field values', async () => {
+    const onInvalid = vi.fn();
+    const onSubmit = vi.fn();
+    const { result } = renderHook(() =>
+      useProductForm({
+        mode: 'create',
+        product: null,
+        onSubmit,
+        onInvalid,
+      })
+    );
+    act(() => {
+      result.current.form.register('name', { required: true });
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(onInvalid).toHaveBeenCalledWith();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });

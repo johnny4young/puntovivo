@@ -299,6 +299,25 @@ which stores one row per metric in `web_vital_samples`
 - **Logging** — every accepted sample emits a structured pino line under
   `module: web-vitals`.
 
+### Task usability measurements
+
+The Web Vitals pipe answers whether a route rendered quickly; it cannot answer
+whether an operator understood what to do next. The companion
+`observability.reportTaskMeasurement` mutation records a sampled, aggregate
+attempt for sale completion, product creation, stock receipt, and day close.
+It measures first usable control, first progress and interactions to reach it,
+total interactions, backtracking, validation errors, recovery attempts/outcome,
+task outcome, and total duration.
+
+The task and route are fixed allowlists, all values are bounded integers, and
+the server derives the tenant from the authenticated session. There is no
+generic metadata field and no product, customer, payment, sale, site, query,
+error, or notes content. Opted-out tenants are dropped before insertion. The
+default sampling rate is 10% in production and 100% in development, overridable
+with `VITE_TASK_MEASUREMENT_SAMPLE_RATE`. Dashboards and route-intent prefetch
+remain deferred until representative task data exists. UX-6A stores these
+samples locally and does not forward them to the centralized telemetry sink.
+
 ### Per-route targets
 
 These are the yardsticks the future aggregation dashboard measures the RUM data

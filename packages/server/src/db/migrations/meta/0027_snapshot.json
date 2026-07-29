@@ -1,259 +1,9 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ca59e3e8-d3d9-40fb-b8dc-7653f2ae1dd0",
-  "prevId": "ad844bad-ab96-4124-bb0c-5ef13d430f42",
+  "id": "4565d180-3466-4060-83c4-b5e06cd4d073",
+  "prevId": "fa0931bc-a46d-4620-a2f3-84babc9a6875",
   "tables": {
-    "loyalty_accounts": {
-      "name": "loyalty_accounts",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "customer_id": {
-          "name": "customer_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "points": {
-          "name": "points",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_loyalty_accounts_customer": {
-          "name": "idx_loyalty_accounts_customer",
-          "columns": [
-            "tenant_id",
-            "customer_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "loyalty_accounts_tenant_id_tenants_id_fk": {
-          "name": "loyalty_accounts_tenant_id_tenants_id_fk",
-          "tableFrom": "loyalty_accounts",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "loyalty_accounts_customer_id_customers_id_fk": {
-          "name": "loyalty_accounts_customer_id_customers_id_fk",
-          "tableFrom": "loyalty_accounts",
-          "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "loyalty_movements": {
-      "name": "loyalty_movements",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "account_id": {
-          "name": "account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sale_id": {
-          "name": "sale_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "points": {
-          "name": "points",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rate_at_earn": {
-          "name": "rate_at_earn",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_loyalty_movements_account": {
-          "name": "idx_loyalty_movements_account",
-          "columns": [
-            "account_id"
-          ],
-          "isUnique": false
-        },
-        "idx_loyalty_movements_tenant_sale": {
-          "name": "idx_loyalty_movements_tenant_sale",
-          "columns": [
-            "tenant_id",
-            "sale_id"
-          ],
-          "isUnique": false
-        },
-        "idx_loyalty_movements_sale_earn": {
-          "name": "idx_loyalty_movements_sale_earn",
-          "columns": [
-            "account_id",
-            "sale_id"
-          ],
-          "isUnique": true,
-          "where": "\"loyalty_movements\".\"kind\" = 'earn'"
-        }
-      },
-      "foreignKeys": {
-        "loyalty_movements_tenant_id_tenants_id_fk": {
-          "name": "loyalty_movements_tenant_id_tenants_id_fk",
-          "tableFrom": "loyalty_movements",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "loyalty_movements_account_id_loyalty_accounts_id_fk": {
-          "name": "loyalty_movements_account_id_loyalty_accounts_id_fk",
-          "tableFrom": "loyalty_movements",
-          "tableTo": "loyalty_accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "loyalty_movements_sale_id_sales_id_fk": {
-          "name": "loyalty_movements_sale_id_sales_id_fk",
-          "tableFrom": "loyalty_movements",
-          "tableTo": "sales",
-          "columnsFrom": [
-            "sale_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "loyalty_movements_created_by_users_id_fk": {
-          "name": "loyalty_movements_created_by_users_id_fk",
-          "tableFrom": "loyalty_movements",
-          "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "auth_refresh_families": {
       "name": "auth_refresh_families",
       "columns": {
@@ -1121,6 +871,162 @@
         }
       }
     },
+    "employee_shift_corrections": {
+      "name": "employee_shift_corrections",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "employee_shift_id": {
+          "name": "employee_shift_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "clocked_in_at": {
+          "name": "clocked_in_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "clocked_out_at": {
+          "name": "clocked_out_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "breaks_json": {
+          "name": "breaks_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_employee_shift_corrections_tenant_shift_version": {
+          "name": "idx_employee_shift_corrections_tenant_shift_version",
+          "columns": [
+            "tenant_id",
+            "employee_shift_id",
+            "version"
+          ],
+          "isUnique": true
+        },
+        "idx_employee_shift_corrections_tenant_effective_start": {
+          "name": "idx_employee_shift_corrections_tenant_effective_start",
+          "columns": [
+            "tenant_id",
+            "clocked_in_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "employee_shift_corrections_tenant_id_tenants_id_fk": {
+          "name": "employee_shift_corrections_tenant_id_tenants_id_fk",
+          "tableFrom": "employee_shift_corrections",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "employee_shift_corrections_employee_shift_id_employee_shifts_id_fk": {
+          "name": "employee_shift_corrections_employee_shift_id_employee_shifts_id_fk",
+          "tableFrom": "employee_shift_corrections",
+          "tableTo": "employee_shifts",
+          "columnsFrom": [
+            "employee_shift_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "employee_shift_corrections_created_by_user_id_users_id_fk": {
+          "name": "employee_shift_corrections_created_by_user_id_users_id_fk",
+          "tableFrom": "employee_shift_corrections",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "employee_shift_corrections_version_positive": {
+          "name": "employee_shift_corrections_version_positive",
+          "value": "\"employee_shift_corrections\".\"version\" >= 1"
+        },
+        "employee_shift_corrections_positive_duration": {
+          "name": "employee_shift_corrections_positive_duration",
+          "value": "\"employee_shift_corrections\".\"clocked_out_at\" > \"employee_shift_corrections\".\"clocked_in_at\""
+        },
+        "employee_shift_corrections_reason_length": {
+          "name": "employee_shift_corrections_reason_length",
+          "value": "length(trim(\"employee_shift_corrections\".\"reason\")) BETWEEN 10 AND 500"
+        },
+        "employee_shift_corrections_breaks_json": {
+          "name": "employee_shift_corrections_breaks_json",
+          "value": "json_valid(\"employee_shift_corrections\".\"breaks_json\")"
+        }
+      }
+    },
     "employee_shifts": {
       "name": "employee_shifts",
       "columns": {
@@ -1576,6 +1482,22 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "required_approvals": {
+          "name": "required_approvals",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "approval_evidence": {
+          "name": "approval_evidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
         },
         "requested_at": {
           "name": "requested_at",
@@ -3329,6 +3251,50 @@
           "autoincrement": false,
           "default": false
         },
+        "tracks_serials": {
+          "name": "tracks_serials",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "catalog_type": {
+          "name": "catalog_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'standard'"
+        },
+        "variant_parent_id": {
+          "name": "variant_parent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "variant_axes": {
+          "name": "variant_axes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "variant_values": {
+          "name": "variant_values",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "variant_signature": {
+          "name": "variant_signature",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "is_active": {
           "name": "is_active",
           "type": "integer",
@@ -3456,6 +3422,14 @@
           ],
           "isUnique": false
         },
+        "idx_products_variant_parent": {
+          "name": "idx_products_variant_parent",
+          "columns": [
+            "tenant_id",
+            "variant_parent_id"
+          ],
+          "isUnique": false
+        },
         "idx_products_tenant_sku": {
           "name": "idx_products_tenant_sku",
           "columns": [
@@ -3463,6 +3437,16 @@
             "sku"
           ],
           "isUnique": true
+        },
+        "idx_products_variant_signature": {
+          "name": "idx_products_variant_signature",
+          "columns": [
+            "tenant_id",
+            "variant_parent_id",
+            "variant_signature"
+          ],
+          "isUnique": true,
+          "where": "\"products\".\"variant_parent_id\" is not null"
         }
       },
       "foreignKeys": {
@@ -3529,6 +3513,19 @@
             "code"
           ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "products_variant_parent_id_products_id_fk": {
+          "name": "products_variant_parent_id_products_id_fk",
+          "tableFrom": "products",
+          "tableTo": "products",
+          "columnsFrom": [
+            "variant_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
@@ -4303,6 +4300,256 @@
           "tableTo": "tenants",
           "columnsFrom": [
             "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "loyalty_accounts": {
+      "name": "loyalty_accounts",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "points": {
+          "name": "points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_loyalty_accounts_customer": {
+          "name": "idx_loyalty_accounts_customer",
+          "columns": [
+            "tenant_id",
+            "customer_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "loyalty_accounts_tenant_id_tenants_id_fk": {
+          "name": "loyalty_accounts_tenant_id_tenants_id_fk",
+          "tableFrom": "loyalty_accounts",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "loyalty_accounts_customer_id_customers_id_fk": {
+          "name": "loyalty_accounts_customer_id_customers_id_fk",
+          "tableFrom": "loyalty_accounts",
+          "tableTo": "customers",
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "loyalty_movements": {
+      "name": "loyalty_movements",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sale_id": {
+          "name": "sale_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "points": {
+          "name": "points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rate_at_earn": {
+          "name": "rate_at_earn",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_loyalty_movements_account": {
+          "name": "idx_loyalty_movements_account",
+          "columns": [
+            "account_id"
+          ],
+          "isUnique": false
+        },
+        "idx_loyalty_movements_tenant_sale": {
+          "name": "idx_loyalty_movements_tenant_sale",
+          "columns": [
+            "tenant_id",
+            "sale_id"
+          ],
+          "isUnique": false
+        },
+        "idx_loyalty_movements_sale_earn": {
+          "name": "idx_loyalty_movements_sale_earn",
+          "columns": [
+            "account_id",
+            "sale_id"
+          ],
+          "isUnique": true,
+          "where": "\"loyalty_movements\".\"kind\" = 'earn'"
+        }
+      },
+      "foreignKeys": {
+        "loyalty_movements_tenant_id_tenants_id_fk": {
+          "name": "loyalty_movements_tenant_id_tenants_id_fk",
+          "tableFrom": "loyalty_movements",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "loyalty_movements_account_id_loyalty_accounts_id_fk": {
+          "name": "loyalty_movements_account_id_loyalty_accounts_id_fk",
+          "tableFrom": "loyalty_movements",
+          "tableTo": "loyalty_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "loyalty_movements_sale_id_sales_id_fk": {
+          "name": "loyalty_movements_sale_id_sales_id_fk",
+          "tableFrom": "loyalty_movements",
+          "tableTo": "sales",
+          "columnsFrom": [
+            "sale_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "loyalty_movements_created_by_users_id_fk": {
+          "name": "loyalty_movements_created_by_users_id_fk",
+          "tableFrom": "loyalty_movements",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
           ],
           "columnsTo": [
             "id"
@@ -7132,6 +7379,389 @@
         }
       }
     },
+    "product_serial_transfers": {
+      "name": "product_serial_transfers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "transfer_order_item_id": {
+          "name": "transfer_order_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_serial_id": {
+          "name": "product_serial_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "serial_number": {
+          "name": "serial_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_product_serial_transfers_tenant": {
+          "name": "idx_product_serial_transfers_tenant",
+          "columns": [
+            "tenant_id"
+          ],
+          "isUnique": false
+        },
+        "idx_product_serial_transfers_item": {
+          "name": "idx_product_serial_transfers_item",
+          "columns": [
+            "transfer_order_item_id"
+          ],
+          "isUnique": false
+        },
+        "idx_product_serial_transfers_serial": {
+          "name": "idx_product_serial_transfers_serial",
+          "columns": [
+            "product_serial_id"
+          ],
+          "isUnique": false
+        },
+        "idx_product_serial_transfers_item_serial": {
+          "name": "idx_product_serial_transfers_item_serial",
+          "columns": [
+            "tenant_id",
+            "transfer_order_item_id",
+            "product_serial_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "product_serial_transfers_tenant_id_tenants_id_fk": {
+          "name": "product_serial_transfers_tenant_id_tenants_id_fk",
+          "tableFrom": "product_serial_transfers",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "product_serial_transfers_transfer_order_item_id_transfer_order_items_id_fk": {
+          "name": "product_serial_transfers_transfer_order_item_id_transfer_order_items_id_fk",
+          "tableFrom": "product_serial_transfers",
+          "tableTo": "transfer_order_items",
+          "columnsFrom": [
+            "transfer_order_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "product_serial_transfers_product_serial_id_product_serials_id_fk": {
+          "name": "product_serial_transfers_product_serial_id_product_serials_id_fk",
+          "tableFrom": "product_serial_transfers",
+          "tableTo": "product_serials",
+          "columnsFrom": [
+            "product_serial_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "product_serials": {
+      "name": "product_serials",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "current_site_id": {
+          "name": "current_site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_purchase_item_id": {
+          "name": "source_purchase_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "serial_number": {
+          "name": "serial_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'in_stock'"
+        },
+        "sale_item_id": {
+          "name": "sale_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "unit_cost": {
+          "name": "unit_cost",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "warranty_expires_at": {
+          "name": "warranty_expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "sold_at": {
+          "name": "sold_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "returned_at": {
+          "name": "returned_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sync_status": {
+          "name": "sync_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "sync_version": {
+          "name": "sync_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_product_serials_tenant_product": {
+          "name": "idx_product_serials_tenant_product",
+          "columns": [
+            "tenant_id",
+            "product_id"
+          ],
+          "isUnique": false
+        },
+        "idx_product_serials_tenant_site_status": {
+          "name": "idx_product_serials_tenant_site_status",
+          "columns": [
+            "tenant_id",
+            "current_site_id",
+            "status"
+          ],
+          "isUnique": false
+        },
+        "idx_product_serials_sale_item": {
+          "name": "idx_product_serials_sale_item",
+          "columns": [
+            "sale_item_id"
+          ],
+          "isUnique": false
+        },
+        "idx_product_serials_source_purchase_item": {
+          "name": "idx_product_serials_source_purchase_item",
+          "columns": [
+            "source_purchase_item_id"
+          ],
+          "isUnique": false
+        },
+        "idx_product_serials_tenant_product_number": {
+          "name": "idx_product_serials_tenant_product_number",
+          "columns": [
+            "tenant_id",
+            "product_id",
+            "serial_number"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "product_serials_tenant_id_tenants_id_fk": {
+          "name": "product_serials_tenant_id_tenants_id_fk",
+          "tableFrom": "product_serials",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "product_serials_current_site_id_sites_id_fk": {
+          "name": "product_serials_current_site_id_sites_id_fk",
+          "tableFrom": "product_serials",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "current_site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "product_serials_product_id_products_id_fk": {
+          "name": "product_serials_product_id_products_id_fk",
+          "tableFrom": "product_serials",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "product_serials_source_purchase_item_id_purchase_items_id_fk": {
+          "name": "product_serials_source_purchase_item_id_purchase_items_id_fk",
+          "tableFrom": "product_serials",
+          "tableTo": "purchase_items",
+          "columnsFrom": [
+            "source_purchase_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "product_serials_sale_item_id_sale_items_id_fk": {
+          "name": "product_serials_sale_item_id_sale_items_id_fk",
+          "tableFrom": "product_serials",
+          "tableTo": "sale_items",
+          "columnsFrom": [
+            "sale_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_product_serials_unit_cost_nonneg": {
+          "name": "chk_product_serials_unit_cost_nonneg",
+          "value": "\"product_serials\".\"unit_cost\" >= 0"
+        },
+        "chk_product_serials_unit_cost_2dec": {
+          "name": "chk_product_serials_unit_cost_2dec",
+          "value": "round(\"product_serials\".\"unit_cost\", 2) = \"product_serials\".\"unit_cost\""
+        }
+      }
+    },
     "restaurant_tables": {
       "name": "restaurant_tables",
       "columns": {
@@ -7390,6 +8020,130 @@
           "value": "round(\"sale_item_lots\".\"unit_cost\", 2) = \"sale_item_lots\".\"unit_cost\""
         }
       }
+    },
+    "sale_item_serials": {
+      "name": "sale_item_serials",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sale_item_id": {
+          "name": "sale_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_serial_id": {
+          "name": "product_serial_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "serial_number": {
+          "name": "serial_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_sale_item_serials_tenant": {
+          "name": "idx_sale_item_serials_tenant",
+          "columns": [
+            "tenant_id"
+          ],
+          "isUnique": false
+        },
+        "idx_sale_item_serials_sale_item": {
+          "name": "idx_sale_item_serials_sale_item",
+          "columns": [
+            "sale_item_id"
+          ],
+          "isUnique": false
+        },
+        "idx_sale_item_serials_product_serial": {
+          "name": "idx_sale_item_serials_product_serial",
+          "columns": [
+            "product_serial_id"
+          ],
+          "isUnique": false
+        },
+        "idx_sale_item_serials_line_serial": {
+          "name": "idx_sale_item_serials_line_serial",
+          "columns": [
+            "tenant_id",
+            "sale_item_id",
+            "product_serial_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "sale_item_serials_tenant_id_tenants_id_fk": {
+          "name": "sale_item_serials_tenant_id_tenants_id_fk",
+          "tableFrom": "sale_item_serials",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "sale_item_serials_sale_item_id_sale_items_id_fk": {
+          "name": "sale_item_serials_sale_item_id_sale_items_id_fk",
+          "tableFrom": "sale_item_serials",
+          "tableTo": "sale_items",
+          "columnsFrom": [
+            "sale_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "sale_item_serials_product_serial_id_product_serials_id_fk": {
+          "name": "sale_item_serials_product_serial_id_product_serials_id_fk",
+          "tableFrom": "sale_item_serials",
+          "tableTo": "product_serials",
+          "columnsFrom": [
+            "product_serial_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "sale_items": {
       "name": "sale_items",
@@ -11310,6 +12064,52 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "loss_prevention_settings": {
+      "name": "loss_prevention_settings",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "policy": {
+          "name": "policy",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "loss_prevention_settings_tenant_id_tenants_id_fk": {
+          "name": "loss_prevention_settings_tenant_id_tenants_id_fk",
+          "tableFrom": "loss_prevention_settings",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "receipt_templates": {
       "name": "receipt_templates",
       "columns": {
@@ -14884,6 +15684,228 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "task_measurement_samples": {
+      "name": "task_measurement_samples",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "task": {
+          "name": "task",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "route": {
+          "name": "route",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "task_version": {
+          "name": "task_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recovery_outcome": {
+          "name": "recovery_outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'not_needed'"
+        },
+        "device_class": {
+          "name": "device_class",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "duration_ms": {
+          "name": "duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "time_to_first_usable_control_ms": {
+          "name": "time_to_first_usable_control_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "time_to_first_progress_ms": {
+          "name": "time_to_first_progress_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "interactions_to_first_progress": {
+          "name": "interactions_to_first_progress",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "interaction_count": {
+          "name": "interaction_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "backtrack_count": {
+          "name": "backtrack_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "validation_error_count": {
+          "name": "validation_error_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "recovery_attempt_count": {
+          "name": "recovery_attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_task_measurement_samples_tenant_task_created": {
+          "name": "idx_task_measurement_samples_tenant_task_created",
+          "columns": [
+            "tenant_id",
+            "task",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "idx_task_measurement_samples_tenant_route_created": {
+          "name": "idx_task_measurement_samples_tenant_route_created",
+          "columns": [
+            "tenant_id",
+            "route",
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "task_measurement_samples_tenant_id_tenants_id_fk": {
+          "name": "task_measurement_samples_tenant_id_tenants_id_fk",
+          "tableFrom": "task_measurement_samples",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_task_measurement_samples_task_version": {
+          "name": "chk_task_measurement_samples_task_version",
+          "value": "\"task_measurement_samples\".\"task_version\" >= 1 AND \"task_measurement_samples\".\"task_version\" <= 1000"
+        },
+        "chk_task_measurement_samples_task": {
+          "name": "chk_task_measurement_samples_task",
+          "value": "\"task_measurement_samples\".\"task\" IN ('complete_sale', 'create_product', 'close_day', 'receive_stock', 'recover_operation')"
+        },
+        "chk_task_measurement_samples_route": {
+          "name": "chk_task_measurement_samples_route",
+          "value": "\"task_measurement_samples\".\"route\" IN ('/sales', '/products', '/day-close', '/purchases', '/operations')"
+        },
+        "chk_task_measurement_samples_task_route": {
+          "name": "chk_task_measurement_samples_task_route",
+          "value": "(\"task_measurement_samples\".\"task\" = 'complete_sale' AND \"task_measurement_samples\".\"route\" = '/sales')\n        OR (\"task_measurement_samples\".\"task\" = 'create_product' AND \"task_measurement_samples\".\"route\" = '/products')\n        OR (\"task_measurement_samples\".\"task\" = 'close_day' AND \"task_measurement_samples\".\"route\" = '/day-close')\n        OR (\"task_measurement_samples\".\"task\" = 'receive_stock' AND \"task_measurement_samples\".\"route\" = '/purchases')\n        OR (\"task_measurement_samples\".\"task\" = 'recover_operation' AND \"task_measurement_samples\".\"route\" = '/operations')"
+        },
+        "chk_task_measurement_samples_outcome": {
+          "name": "chk_task_measurement_samples_outcome",
+          "value": "\"task_measurement_samples\".\"outcome\" IN ('success', 'abandoned', 'failed')"
+        },
+        "chk_task_measurement_samples_recovery_outcome": {
+          "name": "chk_task_measurement_samples_recovery_outcome",
+          "value": "\"task_measurement_samples\".\"recovery_outcome\" IN ('not_needed', 'succeeded', 'failed', 'abandoned')"
+        },
+        "chk_task_measurement_samples_device_class": {
+          "name": "chk_task_measurement_samples_device_class",
+          "value": "\"task_measurement_samples\".\"device_class\" IN ('low', 'mid', 'high', 'unknown')"
+        },
+        "chk_task_measurement_samples_recovery_consistency": {
+          "name": "chk_task_measurement_samples_recovery_consistency",
+          "value": "(\"task_measurement_samples\".\"recovery_attempt_count\" = 0 AND \"task_measurement_samples\".\"recovery_outcome\" = 'not_needed')\n        OR (\"task_measurement_samples\".\"recovery_attempt_count\" > 0 AND \"task_measurement_samples\".\"recovery_outcome\" <> 'not_needed')"
+        },
+        "chk_task_measurement_samples_duration": {
+          "name": "chk_task_measurement_samples_duration",
+          "value": "\"task_measurement_samples\".\"duration_ms\" >= 0 AND \"task_measurement_samples\".\"duration_ms\" <= 86400000"
+        },
+        "chk_task_measurement_samples_usable_timing": {
+          "name": "chk_task_measurement_samples_usable_timing",
+          "value": "\"task_measurement_samples\".\"time_to_first_usable_control_ms\" IS NULL OR (\"task_measurement_samples\".\"time_to_first_usable_control_ms\" >= 0 AND \"task_measurement_samples\".\"time_to_first_usable_control_ms\" <= \"task_measurement_samples\".\"duration_ms\")"
+        },
+        "chk_task_measurement_samples_progress_timing": {
+          "name": "chk_task_measurement_samples_progress_timing",
+          "value": "\"task_measurement_samples\".\"time_to_first_progress_ms\" IS NULL OR (\"task_measurement_samples\".\"time_to_first_progress_ms\" >= 0 AND \"task_measurement_samples\".\"time_to_first_progress_ms\" <= \"task_measurement_samples\".\"duration_ms\")"
+        },
+        "chk_task_measurement_samples_first_progress_consistency": {
+          "name": "chk_task_measurement_samples_first_progress_consistency",
+          "value": "(\"task_measurement_samples\".\"time_to_first_progress_ms\" IS NULL AND \"task_measurement_samples\".\"interactions_to_first_progress\" IS NULL)\n        OR (\"task_measurement_samples\".\"time_to_first_progress_ms\" IS NOT NULL\n          AND \"task_measurement_samples\".\"interactions_to_first_progress\" IS NOT NULL\n          AND \"task_measurement_samples\".\"interactions_to_first_progress\" >= 0\n          AND \"task_measurement_samples\".\"interactions_to_first_progress\" <= \"task_measurement_samples\".\"interaction_count\")"
+        },
+        "chk_task_measurement_samples_counts": {
+          "name": "chk_task_measurement_samples_counts",
+          "value": "\"task_measurement_samples\".\"interaction_count\" >= 0 AND \"task_measurement_samples\".\"interaction_count\" <= 100000\n        AND \"task_measurement_samples\".\"backtrack_count\" >= 0 AND \"task_measurement_samples\".\"backtrack_count\" <= 100000\n        AND \"task_measurement_samples\".\"validation_error_count\" >= 0 AND \"task_measurement_samples\".\"validation_error_count\" <= 100000\n        AND \"task_measurement_samples\".\"recovery_attempt_count\" >= 0 AND \"task_measurement_samples\".\"recovery_attempt_count\" <= 100000"
+        }
+      }
     },
     "web_vital_samples": {
       "name": "web_vital_samples",

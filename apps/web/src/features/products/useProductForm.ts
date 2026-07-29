@@ -33,6 +33,7 @@ export interface UseProductFormArgs {
   defaultName?: string | undefined;
   onSubmit: (values: ProductFormValues) => Promise<Product | void>;
   onCreated?: ((product: Product) => void) | undefined;
+  onInvalid?: (() => void) | undefined;
 }
 
 /**
@@ -88,6 +89,7 @@ export function useProductForm({
   defaultName,
   onSubmit,
   onCreated,
+  onInvalid,
 }: UseProductFormArgs): UseProductFormReturn {
   const { t } = useTranslation('products');
   const form = useForm<ProductFormValues>({
@@ -105,12 +107,15 @@ export function useProductForm({
   // returned product. handleSubmit from react-hook-form drops the
   // resolved value of the handler, so we capture it inside the
   // wrapper before the form library swallows it.
-  const handleSubmit = form.handleSubmit(async values => {
-    const result = await onSubmit(values);
-    if (mode === 'create' && result && onCreated) {
-      onCreated(result);
-    }
-  });
+  const handleSubmit = form.handleSubmit(
+    async values => {
+      const result = await onSubmit(values);
+      if (mode === 'create' && result && onCreated) {
+        onCreated(result);
+      }
+    },
+    () => onInvalid?.()
+  );
   const selectedVatRateId = useWatch({
     control: form.control,
     name: 'vatRateId',

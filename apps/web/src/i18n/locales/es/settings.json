@@ -587,12 +587,12 @@
       }
     },
     "telemetry": {
-      "title": "Telemetría de errores y rendimiento",
-      "description": "Envía reportes de errores anonimizados y tiempos de operación al equipo de soporte cuando algo falla, para que podamos arreglar bugs sin necesidad de una llamada.",
-      "privacy": "La telemetría hereda la política de redacción local. Las contraseñas, los tokens y los encabezados de autorización nunca salen del dispositivo. Puedes revocar el consentimiento cuando quieras y el envío al pipeline se corta en la siguiente petición.",
+      "title": "Telemetría de errores, rendimiento y facilidad de uso",
+      "description": "Al activar la telemetría, los reportes de errores anonimizados y los tiempos de rendimiento pueden llegar a soporte. Las mediciones agregadas de tareas permanecen en este dispositivo para analizar localmente la facilidad de uso.",
+      "privacy": "Las mediciones de tareas guardadas en este dispositivo solo incluyen una tarea y ruta permitidas, una categoría general del dispositivo, tiempos, cantidades y resultados. Nunca incluyen información de productos, clientes, pagos o ventas. También se excluyen contraseñas, tokens y encabezados de autorización. Puedes revocar el consentimiento cuando quieras.",
       "status": {
-        "enabled": "La telemetría está activa. Los reportes de error y los tiempos llegan al equipo de soporte.",
-        "disabled": "La telemetría está desactivada. Los errores se registran localmente, pero nada sale de este dispositivo."
+        "enabled": "La telemetría está activa. Los diagnósticos redactados pueden llegar a soporte; las mediciones agregadas de facilidad de uso se guardan en este dispositivo.",
+        "disabled": "La telemetría está desactivada. Los diagnósticos permanecen en este dispositivo y no se guardan nuevas mediciones de tareas."
       },
       "enable": "Activar telemetría",
       "disable": "Desactivar telemetría",

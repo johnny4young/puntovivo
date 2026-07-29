@@ -50,6 +50,7 @@ export function ProductFormModal({
   origin = 'catalog',
   onExperienceChange,
   advancedLookupsPending = false,
+  onInvalid,
 }: ProductFormModalProps) {
   const { t } = useTranslation('products');
   const { t: tQuick } = useTranslation('productQuickCreate');
@@ -59,6 +60,7 @@ export function ProductFormModal({
     defaultName,
     onSubmit,
     onCreated,
+    onInvalid,
   });
   const { form, handleSubmit, isActive } = formBundle;
   const [activeTab, setActiveTab] = useState<ProductFormTab>('general');
@@ -153,7 +155,10 @@ export function ProductFormModal({
         </div>
       }
     >
-      <form className="space-y-6" onSubmit={handleSubmit}>
+      <form
+        className="space-y-6"
+        onSubmit={handleSubmit}
+      >
         {isQuickExperience ? (
           <Suspense
             fallback={
@@ -180,9 +185,7 @@ export function ProductFormModal({
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-primary-800 shadow-sm">
               <LoaderCircle className="h-6 w-6 animate-spin" aria-hidden="true" />
             </span>
-            <p className="text-sm font-semibold text-secondary-900">
-              {tQuick('loadingAdvanced')}
-            </p>
+            <p className="text-sm font-semibold text-secondary-900">{tQuick('loadingAdvanced')}</p>
           </div>
         ) : (
           <>

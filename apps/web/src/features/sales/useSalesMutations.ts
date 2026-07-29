@@ -45,6 +45,10 @@ interface UseSalesMutationsParams {
    * toast, which stays intact.
    */
   setDayCloseSessionId: Dispatch<SetStateAction<string | null>>;
+  /** Aggregate task callbacks; they never receive sale, cash, or error content. */
+  onSaleCompleted: () => void;
+  onCashSessionRecoverySucceeded: () => void;
+  onCashSessionRecoveryFailed: () => void;
 }
 
 /**
@@ -69,6 +73,9 @@ export function useSalesMutations({
   setCashSessionMovementError,
   setIsCashSessionMovementModalOpen,
   setDayCloseSessionId,
+  onSaleCompleted,
+  onCashSessionRecoverySucceeded,
+  onCashSessionRecoveryFailed,
 }: UseSalesMutationsParams) {
   const { t } = useTranslation(['sales', 'errors', 'common']);
   const toast = useToast();
@@ -103,6 +110,7 @@ export function useSalesMutations({
         title: t('toast.success'),
         description,
       });
+      onSaleCompleted();
     },
     [
       ownerKey,
@@ -115,6 +123,7 @@ export function useSalesMutations({
       // that they are params (identity stable → no behavior change).
       setProductSearchQuery,
       setSaleError,
+      onSaleCompleted,
     ]
   );
 
@@ -169,6 +178,7 @@ export function useSalesMutations({
       await invalidateGroups(utils, CASH_SESSION_OPEN_INVALIDATIONS);
       setCashSessionError(null);
       setIsCashSessionModalOpen(false);
+      onCashSessionRecoverySucceeded();
       toast.success({
         title: t('cashSession.toast.openSuccessTitle'),
         description: t(
@@ -183,7 +193,10 @@ export function useSalesMutations({
       });
     },
     onError: onErrorToast(toast, t, {
-      extra: description => setCashSessionError(description),
+      extra: description => {
+        setCashSessionError(description);
+        onCashSessionRecoveryFailed();
+      },
     }),
   });
   const closeCashSessionMutation = useCriticalMutation('cashSessions.close', {

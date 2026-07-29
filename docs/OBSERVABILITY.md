@@ -13,6 +13,7 @@ allow it.
 | Redaction              | `packages/server/src/observability/redact.ts`                     | Masks credentials and personal identifiers before forwarding.                                                                  |
 | Server sink            | `packages/server/src/observability/sentry.ts`                     | Lazy, DSN-gated Sentry/GlitchTip adapter; malformed configuration cannot block boot.                                           |
 | Renderer errors        | `apps/web/src/lib/observability.ts`, `apps/web/src/lib/sentry.ts` | Captures React, `window.error`, and unhandled rejection paths; remote events remain tenant-less.                               |
+| Task usability         | `apps/web/src/lib/taskMeasurement.ts`, `observability.*`          | Samples fixed aggregate task attempts after tenant opt-in; no business content or free-form metadata is accepted.              |
 | Electron crashes       | `apps/desktop/src/main/crash-telemetry.ts`                        | Logs, captures, performs bounded flush, and exits on uncaught exceptions.                                                      |
 | Tenant consent         | `companies.updateTelemetryOptIn`                                  | Admin-only transactional setting and audit event with immediate cache invalidation.                                            |
 | Recovery ownership     | `@puntovivo/shared/operational-readiness` and Operations Center   | Names the first owner, response target, action threshold, recovery surface, and executable drill for six operational services. |
@@ -52,6 +53,33 @@ Local structured logging remains enabled in both cases. Remote attributes pass
 through `redactErrorAttrs`, which masks password, token, authorization, cookie,
 email, and related credential keys without mutating the input.
 
+### Aggregate task measurement
+
+Usability measurement is authenticated, tenant-scoped, sampled once per task
+attempt, and gated by the same `telemetryOptIn` setting. The server accepts only
+the following fixed aggregate shape:
+
+- allowlisted task and canonical route;
+- task contract version and coarse device class;
+- integer duration, first-usable-control, and first-progress timings;
+- interaction, backtrack, validation-error, and recovery-attempt counts;
+- task and recovery outcomes.
+
+There is no arbitrary event name or metadata envelope, and the storage schema
+has no user, site, product, customer, payment, sale, query, error, or notes
+column. Zod and SQLite `CHECK` constraints both enforce the allowlists, route
+pairing, bounds, timing consistency, and recovery consistency. The initial
+instrumented journeys are sale completion, product creation, stock receipt, and
+day close. Recovery outcome is measured when checkout requires opening the cash
+session; the Operations surface is not treated as a successful recovery merely
+because an operator opened an informational panel.
+
+UX-6A keeps these samples in the tenant's local database. They are not forwarded
+to the centralized telemetry sink; `recentTaskMeasurements` exists only for
+manager/admin local contract proof and future on-device aggregation. Any later
+support export or centralized dashboard requires a separate consent and privacy
+decision.
+
 ## Correlation
 
 The renderer creates a fresh `x-correlation-id` for every tRPC request. The
@@ -64,6 +92,8 @@ used for authorization or business logic.
 - Server and Electron: `PUNTOVIVO_SENTRY_DSN`
 - Optional server span sampling: `PUNTOVIVO_SENTRY_TRACES_SAMPLE_RATE` in `0..1`
 - Web build: `VITE_PUNTOVIVO_SENTRY_DSN`
+- Optional task-attempt sampling: `VITE_TASK_MEASUREMENT_SAMPLE_RATE` in `0..1`
+  (default 10% in production and 100% in development)
 
 The web SDK is lazy and omitted from DSN-less builds. CSP configuration adds
 only the configured DSN origin. Default SDK integrations are disabled to avoid

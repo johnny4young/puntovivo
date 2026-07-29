@@ -1176,9 +1176,21 @@
     "output": "inferred"
   },
   {
+    "path": "observability.recentTaskMeasurements",
+    "kind": "query",
+    "input": "object{limit?:integer[max=200,min>0]=50}",
+    "output": "inferred"
+  },
+  {
     "path": "observability.recentWebVitals",
     "kind": "query",
     "input": "object{limit?:integer[max=200,min>0]=50}",
+    "output": "inferred"
+  },
+  {
+    "path": "observability.reportTaskMeasurement",
+    "kind": "mutation",
+    "input": "object{backtrackCount:integer[min=0,max=100000],deviceClass:enum(\"low\"|\"mid\"|\"high\"|\"unknown\"),durationMs:integer[min=0,max=86400000],interactionCount:integer[min=0,max=100000],interactionsToFirstProgress:integer[min=0,max=100000]|null,outcome:enum(\"success\"|\"abandoned\"|\"failed\"),recoveryAttemptCount:integer[min=0,max=100000],recoveryOutcome:enum(\"not_needed\"|\"succeeded\"|\"failed\"|\"abandoned\"),route:enum(\"/sales\"|\"/products\"|\"/day-close\"|\"/purchases\"|\"/operations\"),task:enum(\"complete_sale\"|\"create_product\"|\"close_day\"|\"receive_stock\"|\"recover_operation\"),taskVersion:integer[min=1,max=1000],timeToFirstProgressMs:integer[min=0,max=86400000]|null,timeToFirstUsableControlMs:integer[min=0,max=86400000]|null,validationErrorCount:integer[min=0,max=100000]}",
     "output": "inferred"
   },
   {

@@ -587,12 +587,12 @@
       }
     },
     "telemetry": {
-      "title": "Crash & performance telemetry",
-      "description": "Send anonymized error reports and span timings to the support team when something fails, so we can fix bugs without a phone call.",
-      "privacy": "Telemetry data inherits the local redaction policy. Passwords, tokens and authorization headers never leave the device. You can revoke consent at any time and the centralized pipe is shut off on the next request.",
+      "title": "Crash, performance & usability telemetry",
+      "description": "When telemetry is enabled, anonymized error reports and performance timings can reach support. Aggregate task measurements stay on this device for local usability analysis.",
+      "privacy": "Task measurements stored on this device contain only an allowlisted task and route, coarse device class, timings, counts and outcomes. They never include product, customer, payment or sale content. Passwords, tokens and authorization headers are also excluded. You can revoke consent at any time.",
       "status": {
-        "enabled": "Telemetry is on. Crash reports and span timings reach the support pipeline.",
-        "disabled": "Telemetry is off. Errors are still logged locally, but nothing leaves this device."
+        "enabled": "Telemetry is on. Redacted diagnostics can reach support; aggregate usability measurements are stored on this device.",
+        "disabled": "Telemetry is off. Diagnostics stay on this device and new task measurements are not stored."
       },
       "enable": "Enable telemetry",
       "disable": "Disable telemetry",

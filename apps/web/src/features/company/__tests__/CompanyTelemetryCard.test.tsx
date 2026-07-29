@@ -89,6 +89,12 @@ describe('CompanyTelemetryCard', () => {
   it('renders the disabled state when opt-in is false', () => {
     render(<CompanyTelemetryCard />);
     expect(screen.getByTestId('company-telemetry-status').textContent).toMatch(/off|desactivada/i);
+    expect(
+      screen.getByText(/never include product|nunca incluyen información de productos/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/stored on this device|guardadas en este dispositivo/i)
+    ).toBeInTheDocument();
     const button = screen.getByTestId('company-telemetry-toggle');
     expect(button.textContent).toMatch(/enable|activar/i);
   });

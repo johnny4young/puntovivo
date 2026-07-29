@@ -6,6 +6,10 @@
 
 import { z } from 'zod';
 import {
+  taskMeasurementOutcomeEnum,
+  taskMeasurementRecoveryOutcomeEnum,
+  taskMeasurementRouteEnum,
+  taskMeasurementTaskEnum,
   webVitalDeviceClassEnum,
   webVitalMetricEnum,
   webVitalRatingEnum,
@@ -48,3 +52,110 @@ export const recentWebVitalsInput = z
 
 /** Validated input for the tenant-scoped recent-samples read. */
 export type RecentWebVitalsInput = z.infer<typeof recentWebVitalsInput>;
+
+const taskRouteByTask = {
+  complete_sale: '/sales',
+  create_product: '/products',
+  close_day: '/day-close',
+  receive_stock: '/purchases',
+  recover_operation: '/operations',
+} as const satisfies Record<
+  (typeof taskMeasurementTaskEnum)[number],
+  (typeof taskMeasurementRouteEnum)[number]
+>;
+
+const boundedTiming = z.number().int().min(0).max(86_400_000).nullable();
+const boundedCount = z.number().int().min(0).max(100_000);
+
+/**
+ * Aggregate, content-free usability sample from an authenticated task.
+ *
+ * There is intentionally no extension point for arbitrary metadata. The
+ * strict allowlist and bounded integer fields prevent this endpoint from
+ * becoming an accidental analytics envelope for product, customer, payment,
+ * sale, site, query, error, or notes content.
+ */
+export const reportTaskMeasurementInput = z
+  .object({
+    task: z.enum(taskMeasurementTaskEnum),
+    route: z.enum(taskMeasurementRouteEnum),
+    taskVersion: z.number().int().min(1).max(1000),
+    outcome: z.enum(taskMeasurementOutcomeEnum),
+    recoveryOutcome: z.enum(taskMeasurementRecoveryOutcomeEnum),
+    deviceClass: z.enum(webVitalDeviceClassEnum),
+    durationMs: z.number().int().min(0).max(86_400_000),
+    timeToFirstUsableControlMs: boundedTiming,
+    timeToFirstProgressMs: boundedTiming,
+    interactionsToFirstProgress: boundedCount.nullable(),
+    interactionCount: boundedCount,
+    backtrackCount: boundedCount,
+    validationErrorCount: boundedCount,
+    recoveryAttemptCount: boundedCount,
+  })
+  .strict()
+  .superRefine((input, ctx) => {
+    if (taskRouteByTask[input.task] !== input.route) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['route'],
+        message: 'Route does not match the measured task',
+      });
+    }
+    if (
+      input.timeToFirstUsableControlMs !== null &&
+      input.timeToFirstUsableControlMs > input.durationMs
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['timeToFirstUsableControlMs'],
+        message: 'Usable-control timing cannot exceed task duration',
+      });
+    }
+    if (input.timeToFirstProgressMs !== null && input.timeToFirstProgressMs > input.durationMs) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['timeToFirstProgressMs'],
+        message: 'First-progress timing cannot exceed task duration',
+      });
+    }
+    if (
+      (input.timeToFirstProgressMs === null) !==
+      (input.interactionsToFirstProgress === null)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['interactionsToFirstProgress'],
+        message: 'First-progress timing and interaction count must both be present or absent',
+      });
+    } else if (
+      input.interactionsToFirstProgress !== null &&
+      input.interactionsToFirstProgress > input.interactionCount
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['interactionsToFirstProgress'],
+        message: 'First-progress interactions cannot exceed total interactions',
+      });
+    }
+    if (
+      (input.recoveryAttemptCount === 0 && input.recoveryOutcome !== 'not_needed') ||
+      (input.recoveryAttemptCount > 0 && input.recoveryOutcome === 'not_needed')
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['recoveryOutcome'],
+        message: 'Recovery outcome must match whether recovery was attempted',
+      });
+    }
+  });
+
+export type ReportTaskMeasurementInput = z.infer<typeof reportTaskMeasurementInput>;
+
+/** Tenant-scoped read used for local contract proof and future aggregation. */
+export const recentTaskMeasurementsInput = z
+  .object({
+    limit: z.number().int().positive().max(200).default(50),
+  })
+  .strict();
+
+export type RecentTaskMeasurementsInput = z.infer<typeof recentTaskMeasurementsInput>;

@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { type CashSessionCloseValues } from '@/features/sales/CashSessionCloseModal';
@@ -55,6 +55,9 @@ export interface UseSalesModalsParams {
   openCashSessionMutation: SalesMutationHandles['openCashSessionMutation'];
   closeCashSessionMutation: SalesMutationHandles['closeCashSessionMutation'];
   recordCashMovementMutation: SalesMutationHandles['recordCashMovementMutation'];
+  /** Aggregate task signals; callbacks receive no cart or blocker content. */
+  onCheckoutValidationError: () => void;
+  onCheckoutRecoveryAttempt: () => void;
 }
 
 /**
@@ -90,6 +93,8 @@ export function useSalesModals({
   openCashSessionMutation,
   closeCashSessionMutation,
   recordCashMovementMutation,
+  onCheckoutValidationError,
+  onCheckoutRecoveryAttempt,
 }: UseSalesModalsParams) {
   const { t } = useTranslation(['sales', 'errors', 'common']);
   const toast = useToast();
@@ -131,11 +136,14 @@ export function useSalesModals({
     handleOpenPaymentModal(true);
   };
 
-  const handleOpenProductSearch = (initialQuery = productSearchQuery) => {
-    setProductSearchInitialQuery(initialQuery.trim());
-    setProductSearchDialogKey(current => current + 1);
-    setIsProductSearchOpen(true);
-  };
+  const handleOpenProductSearch = useCallback(
+    (initialQuery = productSearchQuery) => {
+      setProductSearchInitialQuery(initialQuery.trim());
+      setProductSearchDialogKey(current => current + 1);
+      setIsProductSearchOpen(true);
+    },
+    [productSearchQuery]
+  );
 
   const handleOpenPaymentModal = (fastCash = false) => {
     if (!currentSite || cartItems.length === 0) {
@@ -148,7 +156,9 @@ export function useSalesModals({
     // the legacy convenience of jumping to the cash session modal so
     // F1 stays useful when the only blocker is the closed register.
     if (!preflight.isReady && preflight.primaryBlocker) {
+      onCheckoutValidationError();
       if (preflight.primaryBlocker.id === 'cash_session_required') {
+        onCheckoutRecoveryAttempt();
         handleOpenCashSessionModal();
         return;
       }
@@ -163,6 +173,7 @@ export function useSalesModals({
     }
 
     if (!hasActiveCashSession) {
+      onCheckoutRecoveryAttempt();
       handleOpenCashSessionModal();
       return;
     }

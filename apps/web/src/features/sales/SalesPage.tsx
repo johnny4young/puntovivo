@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCashDrawerController } from '@/features/sales/useCashDrawerController';
@@ -21,6 +21,7 @@ import { useScannerFocusRestoration } from '@/features/sales/useScannerFocusRest
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
 
 const LazyCashDrawerApprovalModal = lazy(() =>
   import('@/features/sales/CashDrawerApprovalModal').then(module => ({
@@ -50,6 +51,11 @@ export function SalesPage() {
   // gates.
   const hubReachability = useHubReachability();
   const userRole = user?.role ?? 'cashier';
+  const saleMeasurement = useTaskMeasurementController();
+
+  useEffect(() => {
+    saleMeasurement.ensure('complete_sale');
+  }, [saleMeasurement]);
 
   // `ownerKey` (`${tenantId}:${userId}`) identifies the
   // signed-in cashier. It is injected into the cart, mutation, and flow
@@ -119,6 +125,20 @@ export function SalesPage() {
     discountInputRefFor,
   } = useSalesInputFocus();
 
+  useEffect(() => {
+    if (currentSite && productInputRef.current) {
+      saleMeasurement.markUsableControl();
+    }
+  }, [currentSite, productInputRef, saleMeasurement]);
+
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      saleMeasurement.ensure('complete_sale');
+      saleMeasurement.markUsableControl();
+      saleMeasurement.markFirstProgress();
+    }
+  }, [cartItems.length, saleMeasurement]);
+
   // slice 16b-2 — the operational read side (including the SINGLE shared
   // peripherals subscription), the normalized arrays + derived
   // flags, the `checkoutReadinessItems` preflight memo, `maybeAutoPrint`, and
@@ -170,6 +190,9 @@ export function SalesPage() {
     setCashSessionMovementError,
     setIsCashSessionMovementModalOpen,
     setDayCloseSessionId,
+    onSaleCompleted: () => saleMeasurement.finish('success'),
+    onCashSessionRecoverySucceeded: () => saleMeasurement.recordRecoveryOutcome('succeeded'),
+    onCashSessionRecoveryFailed: () => saleMeasurement.recordRecoveryOutcome('failed'),
   });
 
   const draftSummary = getCartSummary(cartItems);
@@ -266,7 +289,39 @@ export function SalesPage() {
     openCashSessionMutation,
     closeCashSessionMutation,
     recordCashMovementMutation,
+    onCheckoutValidationError: () => saleMeasurement.recordValidationError(),
+    onCheckoutRecoveryAttempt: () => saleMeasurement.recordRecoveryAttempt(),
   });
+
+  const handleMeasuredRemoveItem = (itemKey: string) => {
+    saleMeasurement.recordBacktrack();
+    handleRemoveItem(itemKey);
+  };
+  const handleMeasuredClearCart = () => {
+    if (cartItems.length > 0) {
+      saleMeasurement.recordBacktrack();
+    }
+    handleClearCart();
+  };
+  const handleMeasuredUndoCart = () => {
+    if (canUndoActiveCart) {
+      saleMeasurement.recordBacktrack();
+    }
+    handleUndoCart();
+  };
+  const handleMeasuredOpenProductSearch = useCallback(
+    (initialQuery?: string) => {
+      saleMeasurement.ensure('complete_sale');
+      saleMeasurement.markUsableControl();
+      handleOpenProductSearch(initialQuery);
+    },
+    [handleOpenProductSearch, saleMeasurement]
+  );
+  const handleMeasuredProductSelect = (selection: Parameters<typeof handleProductSelect>[0]) => {
+    saleMeasurement.ensure('complete_sale');
+    saleMeasurement.markUsableControl();
+    handleProductSelect(selection);
+  };
 
   // omnibox landing. When the command palette could not resolve
   // the typed query as an exact barcode, it navigates here with the query in
@@ -282,9 +337,9 @@ export function SalesPage() {
   useEffect(() => {
     if (!omniboxQuery || consumedOmniboxQueryRef.current === omniboxQuery) return;
     consumedOmniboxQueryRef.current = omniboxQuery;
-    handleOpenProductSearch(omniboxQuery);
+    handleMeasuredOpenProductSearch(omniboxQuery);
     navigate(location.pathname, { replace: true, state: null });
-  }, [omniboxQuery, handleOpenProductSearch, navigate, location.pathname]);
+  }, [omniboxQuery, handleMeasuredOpenProductSearch, navigate, location.pathname]);
 
   // keep the product-search input focused across the cashier flow
   // so a USB HID barcode scanner always lands on the right target.
@@ -301,9 +356,9 @@ export function SalesPage() {
     canCharge,
     isProductSearchOpen,
     isPaymentModalOpen,
-    onOpenSearch: () => handleOpenProductSearch(),
+    onOpenSearch: () => handleMeasuredOpenProductSearch(),
     onOpenPayment: handleOpenPaymentModal,
-    onRemoveSelectedItem: handleRemoveItem,
+    onRemoveSelectedItem: handleMeasuredRemoveItem,
     focusProductInput,
     focusQuantityInput,
     focusDiscountInput,
@@ -315,7 +370,7 @@ export function SalesPage() {
       selectedHistorySaleId !== null ? handleReprintSelectedHistoryRow : undefined,
     // Mod+Z routes through the same handler the visible
     // "Deshacer" button uses so the toast surface stays consistent.
-    onUndo: handleUndoCart,
+    onUndo: handleMeasuredUndoCart,
     // F2 routes through handleFastCash.
     onFastCash: handleFastCash,
   });
@@ -344,11 +399,20 @@ export function SalesPage() {
   });
 
   return (
-    <>
+    <div
+      className="contents"
+      data-task-measurement="complete_sale"
+      onPointerDownCapture={() => saleMeasurement.recordInteraction()}
+      onKeyDownCapture={event => {
+        if (isTaskActivationKey(event.key)) {
+          saleMeasurement.recordInteraction();
+        }
+      }}
+    >
       <SalesScreen
         productSearchQuery={productSearchQuery}
         setProductSearchQuery={setProductSearchQuery}
-        handleOpenProductSearch={handleOpenProductSearch}
+        handleOpenProductSearch={handleMeasuredOpenProductSearch}
         productInputRef={productInputRef}
         setIsHistoryDrawerOpen={setIsHistoryDrawerOpen}
         setIsSuspendedPanelOpen={setIsSuspendedPanelOpen}
@@ -369,14 +433,14 @@ export function SalesPage() {
         handleQuantityChange={handleQuantityChange}
         handleDiscountChange={handleDiscountChange}
         handleSerialSelectionChange={handleSerialSelectionChange}
-        handleRemoveItem={handleRemoveItem}
+        handleRemoveItem={handleMeasuredRemoveItem}
         setSelectedCartItemKey={setSelectedCartItemKey}
-        handleClearCart={handleClearCart}
+        handleClearCart={handleMeasuredClearCart}
         quantityInputRefFor={quantityInputRefFor}
         discountInputRefFor={discountInputRefFor}
         focusDiscountInput={focusDiscountInput}
         canUndoActiveCart={canUndoActiveCart}
-        handleUndoCart={handleUndoCart}
+        handleUndoCart={handleMeasuredUndoCart}
         currentSite={currentSite}
         activeCashSession={activeCashSession}
         registerAssignments={registerAssignments}
@@ -409,7 +473,7 @@ export function SalesPage() {
         shouldRenderQuickCreateCustomerGate={shouldRenderQuickCreateCustomerGate}
         productSearchDialogKey={productSearchDialogKey}
         setIsProductSearchOpen={setIsProductSearchOpen}
-        handleProductSelect={handleProductSelect}
+        handleProductSelect={handleMeasuredProductSelect}
         productSearchInitialQuery={productSearchInitialQuery}
         setCartItems={setCartItems}
         isPaymentModalOpen={isPaymentModalOpen}
@@ -453,6 +517,6 @@ export function SalesPage() {
           <LazyCashDrawerApprovalModal {...approvalModal} />
         </Suspense>
       )}
-    </>
+    </div>
   );
 }

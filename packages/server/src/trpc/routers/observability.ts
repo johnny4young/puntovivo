@@ -19,12 +19,19 @@ import { desc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { publicProcedure, router } from '../init.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
-import { tenants, webVitalSamples } from '../../db/schema.js';
+import { tenantProcedure } from '../middleware/tenant.js';
+import { taskMeasurementSamples, tenants, webVitalSamples } from '../../db/schema.js';
 import type { DatabaseInstance } from '../../db/index.js';
 import { createModuleLogger } from '../../logging/logger.js';
-import { recentWebVitalsInput, reportWebVitalInput } from '../schemas/observability.js';
+import {
+  recentTaskMeasurementsInput,
+  recentWebVitalsInput,
+  reportTaskMeasurementInput,
+  reportWebVitalInput,
+} from '../schemas/observability.js';
 
 const log = createModuleLogger('web-vitals');
+const taskLog = createModuleLogger('task-measurement');
 
 /**
  * Resolve a tenant's `tenants.settings.telemetryOptIn` flag (defaults off).
@@ -115,6 +122,81 @@ export const observabilityRouter = router({
         .limit(input.limit)
         .all();
       return rows;
+    }),
+
+  /**
+   * Store one aggregate task attempt for an authenticated tenant.
+   *
+   * Unlike pre-login Web Vitals, a task measurement is meaningful only inside
+   * an authenticated operator journey. Tenant identity therefore comes from
+   * `tenantProcedure`; the input cannot supply tenant, user, site, or any
+   * business-object identifier.
+   */
+  reportTaskMeasurement: tenantProcedure
+    .input(reportTaskMeasurementInput)
+    .mutation(async ({ ctx, input }) => {
+      const enabled = await isTelemetryEnabled(ctx.db, ctx.tenantId);
+      if (!enabled) {
+        return { accepted: false };
+      }
+
+      await ctx.db.insert(taskMeasurementSamples).values({
+        id: nanoid(),
+        tenantId: ctx.tenantId,
+        ...input,
+      });
+
+      taskLog.info(
+        {
+          tenantId: ctx.tenantId,
+          task: input.task,
+          route: input.route,
+          taskVersion: input.taskVersion,
+          outcome: input.outcome,
+          recoveryOutcome: input.recoveryOutcome,
+          deviceClass: input.deviceClass,
+          durationMs: input.durationMs,
+          timeToFirstUsableControlMs: input.timeToFirstUsableControlMs,
+          timeToFirstProgressMs: input.timeToFirstProgressMs,
+          interactionsToFirstProgress: input.interactionsToFirstProgress,
+          interactionCount: input.interactionCount,
+          backtrackCount: input.backtrackCount,
+          validationErrorCount: input.validationErrorCount,
+          recoveryAttemptCount: input.recoveryAttemptCount,
+        },
+        'task measurement reported'
+      );
+
+      return { accepted: true };
+    }),
+
+  recentTaskMeasurements: managerOrAdminProcedure
+    .input(recentTaskMeasurementsInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.db
+        .select({
+          id: taskMeasurementSamples.id,
+          task: taskMeasurementSamples.task,
+          route: taskMeasurementSamples.route,
+          taskVersion: taskMeasurementSamples.taskVersion,
+          outcome: taskMeasurementSamples.outcome,
+          recoveryOutcome: taskMeasurementSamples.recoveryOutcome,
+          deviceClass: taskMeasurementSamples.deviceClass,
+          durationMs: taskMeasurementSamples.durationMs,
+          timeToFirstUsableControlMs: taskMeasurementSamples.timeToFirstUsableControlMs,
+          timeToFirstProgressMs: taskMeasurementSamples.timeToFirstProgressMs,
+          interactionsToFirstProgress: taskMeasurementSamples.interactionsToFirstProgress,
+          interactionCount: taskMeasurementSamples.interactionCount,
+          backtrackCount: taskMeasurementSamples.backtrackCount,
+          validationErrorCount: taskMeasurementSamples.validationErrorCount,
+          recoveryAttemptCount: taskMeasurementSamples.recoveryAttemptCount,
+          createdAt: taskMeasurementSamples.createdAt,
+        })
+        .from(taskMeasurementSamples)
+        .where(eq(taskMeasurementSamples.tenantId, ctx.tenantId))
+        .orderBy(desc(taskMeasurementSamples.createdAt))
+        .limit(input.limit)
+        .all();
     }),
 });
 

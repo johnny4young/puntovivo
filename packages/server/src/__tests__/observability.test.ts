@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { tenants, users, webVitalSamples } from '../db/schema.js';
+import { taskMeasurementSamples, tenants, users, webVitalSamples } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -64,6 +64,25 @@ function validSample() {
     rating: 'good' as const,
     route: '/sales',
     deviceClass: 'mid' as const,
+  };
+}
+
+function validTaskMeasurement() {
+  return {
+    task: 'complete_sale' as const,
+    route: '/sales' as const,
+    taskVersion: 1,
+    outcome: 'success' as const,
+    recoveryOutcome: 'not_needed' as const,
+    deviceClass: 'mid' as const,
+    durationMs: 12_400,
+    timeToFirstUsableControlMs: 320,
+    timeToFirstProgressMs: 2_100,
+    interactionsToFirstProgress: 2,
+    interactionCount: 7,
+    backtrackCount: 1,
+    validationErrorCount: 0,
+    recoveryAttemptCount: 0,
   };
 }
 
@@ -235,5 +254,157 @@ describe('observability.recentWebVitals', () => {
     const caller = appRouter.createCaller(createAdminContext());
     const inputWithExtraKey = { limit: 10, tenantId };
     await expect(caller.observability.recentWebVitals(inputWithExtraKey)).rejects.toThrow();
+  });
+});
+
+describe('observability.reportTaskMeasurement', () => {
+  it('drops the aggregate when tenant telemetry is opted out', async () => {
+    await setTelemetryOptIn(false);
+    const caller = appRouter.createCaller(createAdminContext());
+    const result = await caller.observability.reportTaskMeasurement(validTaskMeasurement());
+    expect(result.accepted).toBe(false);
+
+    const rows = await getDatabase()
+      .select()
+      .from(taskMeasurementSamples)
+      .where(eq(taskMeasurementSamples.tenantId, tenantId))
+      .all();
+    expect(rows).toHaveLength(0);
+  });
+
+  it('stores only the bounded aggregate contract when opted in', async () => {
+    await setTelemetryOptIn(true);
+    const caller = appRouter.createCaller(createAdminContext());
+    const result = await caller.observability.reportTaskMeasurement({
+      ...validTaskMeasurement(),
+      recoveryOutcome: 'succeeded',
+      recoveryAttemptCount: 1,
+    });
+    expect(result.accepted).toBe(true);
+
+    const row = await getDatabase()
+      .select()
+      .from(taskMeasurementSamples)
+      .where(eq(taskMeasurementSamples.tenantId, tenantId))
+      .get();
+    expect(row).toMatchObject({
+      tenantId,
+      task: 'complete_sale',
+      route: '/sales',
+      taskVersion: 1,
+      outcome: 'success',
+      recoveryOutcome: 'succeeded',
+      durationMs: 12_400,
+      interactionCount: 7,
+      recoveryAttemptCount: 1,
+    });
+    expect(Object.keys(row ?? {})).not.toEqual(
+      expect.arrayContaining([
+        'userId',
+        'siteId',
+        'productId',
+        'customerId',
+        'paymentMethod',
+        'saleId',
+        'query',
+        'error',
+        'notes',
+      ])
+    );
+  });
+
+  it('requires authentication and rejects arbitrary content or impossible aggregates', async () => {
+    const anonymousCaller = appRouter.createCaller(createAnonContext());
+    await expect(
+      anonymousCaller.observability.reportTaskMeasurement(validTaskMeasurement())
+    ).rejects.toThrow();
+
+    const caller = appRouter.createCaller(createAdminContext());
+    const payloadWithContent = {
+      ...validTaskMeasurement(),
+      productId: 'product-secret',
+      customerId: 'customer-secret',
+      paymentMethod: 'cash',
+      notes: 'raw operator note',
+    };
+    await expect(caller.observability.reportTaskMeasurement(payloadWithContent)).rejects.toThrow();
+    await expect(
+      caller.observability.reportTaskMeasurement({
+        ...validTaskMeasurement(),
+        route: '/products',
+      })
+    ).rejects.toThrow();
+    await expect(
+      caller.observability.reportTaskMeasurement({
+        ...validTaskMeasurement(),
+        durationMs: 100,
+        timeToFirstProgressMs: 101,
+      })
+    ).rejects.toThrow();
+    await expect(
+      caller.observability.reportTaskMeasurement({
+        ...validTaskMeasurement(),
+        timeToFirstProgressMs: null,
+      })
+    ).rejects.toThrow();
+    await expect(
+      caller.observability.reportTaskMeasurement({
+        ...validTaskMeasurement(),
+        recoveryOutcome: 'succeeded',
+        recoveryAttemptCount: 0,
+      })
+    ).rejects.toThrow();
+
+    expect(() =>
+      getDatabase()
+        .insert(taskMeasurementSamples)
+        .values({
+          id: nanoid(),
+          tenantId,
+          ...validTaskMeasurement(),
+          timeToFirstProgressMs: null,
+        })
+        .run()
+    ).toThrow(/chk_task_measurement_samples_first_progress_consistency|CHECK constraint/i);
+  });
+});
+
+describe('observability.recentTaskMeasurements', () => {
+  it('returns only the active tenant aggregate rows', async () => {
+    const db = getDatabase();
+    await db.insert(taskMeasurementSamples).values([
+      {
+        id: nanoid(),
+        tenantId,
+        ...validTaskMeasurement(),
+        task: 'create_product',
+        route: '/products',
+      },
+      {
+        id: nanoid(),
+        tenantId: otherTenantId,
+        ...validTaskMeasurement(),
+        task: 'receive_stock',
+        route: '/purchases',
+      },
+    ]);
+
+    const caller = appRouter.createCaller(createAdminContext());
+    const rows = await caller.observability.recentTaskMeasurements({ limit: 100 });
+    expect(rows.some(row => row.task === 'create_product')).toBe(true);
+    expect(rows.some(row => row.task === 'receive_stock')).toBe(false);
+    expect(rows.every(row => !('tenantId' in row))).toBe(true);
+  });
+
+  it('requires a manager/admin role and strict read input', async () => {
+    const anonymousCaller = appRouter.createCaller(createAnonContext());
+    await expect(
+      anonymousCaller.observability.recentTaskMeasurements({ limit: 10 })
+    ).rejects.toThrow();
+
+    const caller = appRouter.createCaller(createAdminContext());
+    await expect(
+      caller.observability.recentTaskMeasurements({ limit: 10, tenantId })
+    ).rejects.toThrow();
   });
 });

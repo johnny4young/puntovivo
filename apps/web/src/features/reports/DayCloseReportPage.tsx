@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 import {
@@ -23,6 +23,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { translateServerError } from '@/lib/translateServerError';
 import { fetchProtectedApi, trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { downloadFile } from '@/services/export/exportService';
 import { DayCloseSignoffCard } from './DayCloseSignoffCard';
@@ -67,6 +68,7 @@ export function DayCloseReportPage() {
   const toast = useToast();
   const utils = trpc.useUtils();
   const locale = useResolvedLocale();
+  const dayCloseMeasurement = useTaskMeasurementController();
   const today = useMemo(() => calendarDayAt(new Date(), locale.timezone), [locale.timezone]);
   // Keep following the tenant timezone while locale state hydrates. Once the
   // operator picks a date, preserve that explicit choice.
@@ -92,6 +94,14 @@ export function DayCloseReportPage() {
     }
   );
   const report = signoff?.report ?? reportQuery.data;
+  useEffect(() => {
+    if (signoffQuery.isSuccess && !signoff) {
+      dayCloseMeasurement.ensure('close_day');
+    }
+    if (report && !signoff) {
+      dayCloseMeasurement.markUsableControl();
+    }
+  }, [dayCloseMeasurement, report, signoff, signoffQuery.isSuccess]);
   const signOffMutation = useCriticalMutation('reports.dayClose.signOff', {
     onSuccess: async (_signed, variables) => {
       await utils.reports.dayClose.signoff.invalidate({
@@ -101,9 +111,11 @@ export function DayCloseReportPage() {
         title: t('reports:dayClose.signoff.successTitle'),
         description: t('reports:dayClose.signoff.successDescription'),
       });
+      dayCloseMeasurement.finish('success');
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'reports:dayClose.signoff.errorTitle',
+      extra: () => dayCloseMeasurement.recordValidationError(),
     }),
   });
   const isLoading =
@@ -151,7 +163,17 @@ export function DayCloseReportPage() {
     }
   };
   return (
-    <div className="space-y-6" data-testid="day-close-report-page">
+    <div
+      className="space-y-6"
+      data-testid="day-close-report-page"
+      data-task-measurement="close_day"
+      onPointerDownCapture={() => dayCloseMeasurement.recordInteraction()}
+      onKeyDownCapture={event => {
+        if (isTaskActivationKey(event.key)) {
+          dayCloseMeasurement.recordInteraction();
+        }
+      }}
+    >
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="pv-kicker">{t('dayClose.kicker')}</p>
@@ -206,12 +228,13 @@ export function DayCloseReportPage() {
             signoff={signoff}
             isSigning={signOffMutation.isPending}
             isDownloadingPdf={isDownloadingPdf}
-            onSign={() =>
+            onSign={() => {
+              dayCloseMeasurement.markFirstProgress();
               signOffMutation.mutate({
                 date,
                 attestationAccepted: true,
-              })
-            }
+              });
+            }}
             onDownloadPdf={() => void downloadSignedPdf()}
           />
           <section
