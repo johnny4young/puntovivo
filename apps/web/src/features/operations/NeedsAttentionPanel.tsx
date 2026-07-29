@@ -12,6 +12,7 @@
  *
  * @module features/operations/NeedsAttentionPanel
  */
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
@@ -41,6 +42,8 @@ interface NeedsAttentionPanelProps {
   onReviewArea: (area: NeedsAttentionArea) => void;
   /** Navigates to recovery surfaces that intentionally live outside Operations. */
   onNavigate: (target: string) => void;
+  /** Announces that a real payment recovery is visible and ready to attempt. */
+  onPaymentRecoveryReady?: (() => void) | undefined;
 }
 const AREA_ICONS: Record<NeedsAttentionArea, LucideIcon> = {
   sync: RefreshCw,
@@ -48,7 +51,11 @@ const AREA_ICONS: Record<NeedsAttentionArea, LucideIcon> = {
   device: Printer,
   payments: CreditCard,
 };
-export function NeedsAttentionPanel({ onReviewArea, onNavigate }: NeedsAttentionPanelProps) {
+export function NeedsAttentionPanel({
+  onReviewArea,
+  onNavigate,
+  onPaymentRecoveryReady,
+}: NeedsAttentionPanelProps) {
   const { t } = useTranslation(['operations', 'errors']);
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -56,6 +63,16 @@ export function NeedsAttentionPanel({ onReviewArea, onNavigate }: NeedsAttention
     staleTime: 15_000,
     refetchInterval: 15_000,
   });
+
+  const paymentRecoveryReady =
+    isAdmin && query.isSuccess && query.data.areas.some(area => area.area === 'payments');
+
+  useEffect(() => {
+    if (paymentRecoveryReady) {
+      onPaymentRecoveryReady?.();
+    }
+  }, [onPaymentRecoveryReady, paymentRecoveryReady]);
+
   return (
     <section className="card p-5 sm:p-6" data-testid="needs-attention-panel">
       <header className="mb-5">

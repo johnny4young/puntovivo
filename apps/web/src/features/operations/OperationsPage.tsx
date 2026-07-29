@@ -1,8 +1,9 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useCallback } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Activity } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useTaskMeasurementController } from '@/lib/taskMeasurement';
 import { NeedsAttentionPanel } from './NeedsAttentionPanel';
 import { OperationsNavigation } from './OperationsNavigation';
 import {
@@ -73,16 +74,45 @@ export function OperationsPage() {
   const isAdmin = user?.role === 'admin';
   const requestedTab: OperationsTabKey = isOperationsTabKey(tabParam) ? tabParam : 'attention';
   const activeTab: OperationsTabKey = isAdmin ? requestedTab : 'attention';
+  const recoveryMeasurement = useTaskMeasurementController();
 
-  function handleTabChange(next: OperationsTabKey): void {
-    const nextParams = new URLSearchParams(searchParams);
-    if (next === 'attention') {
-      nextParams.delete('tab');
-    } else {
-      nextParams.set('tab', next);
-    }
-    setSearchParams(nextParams, { replace: true });
-  }
+  const handleTabChange = useCallback(
+    (next: OperationsTabKey): void => {
+      if (
+        recoveryMeasurement.activeTask === 'recover_operation' &&
+        next !== 'attention' &&
+        next !== 'payments'
+      ) {
+        recoveryMeasurement.recordBacktrack();
+      }
+
+      const nextParams = new URLSearchParams(searchParams);
+      if (next === 'attention') {
+        nextParams.delete('tab');
+      } else {
+        nextParams.set('tab', next);
+      }
+      setSearchParams(nextParams, { replace: true });
+    },
+    [recoveryMeasurement, searchParams, setSearchParams]
+  );
+
+  const handlePaymentRecoveryReady = useCallback((): void => {
+    recoveryMeasurement.ensure('recover_operation');
+    recoveryMeasurement.markUsableControl();
+  }, [recoveryMeasurement]);
+
+  const handleReviewArea = useCallback(
+    (area: Parameters<typeof handleTabChange>[0]): void => {
+      if (area === 'payments') {
+        recoveryMeasurement.ensure('recover_operation');
+        recoveryMeasurement.recordInteraction();
+        recoveryMeasurement.markFirstProgress();
+      }
+      handleTabChange(area);
+    },
+    [handleTabChange, recoveryMeasurement]
+  );
 
   if (!isAdmin && tabParam !== null) {
     return <Navigate to="/operations" replace />;
@@ -126,8 +156,9 @@ export function OperationsPage() {
       >
         {activeTab === 'attention' && (
           <NeedsAttentionPanel
-            onReviewArea={handleTabChange}
+            onReviewArea={handleReviewArea}
             onNavigate={target => navigate(target)}
+            onPaymentRecoveryReady={handlePaymentRecoveryReady}
           />
         )}
         {activeTab !== 'attention' && (
@@ -145,7 +176,18 @@ export function OperationsPage() {
             {activeTab === 'fiscal' && <FiscalHealthPanel />}
             {activeTab === 'device' && <DeviceHealthPanel />}
             {activeTab === 'cash' && <CashHealthPanel />}
-            {activeTab === 'payments' && <PaymentHealthPanel />}
+            {activeTab === 'payments' && (
+              <PaymentHealthPanel
+                onRecoveryInteraction={() => recoveryMeasurement.recordInteraction()}
+                onRecoveryAttempt={() => recoveryMeasurement.recordRecoveryAttempt()}
+                onRecoveryBacktrack={() => recoveryMeasurement.recordBacktrack()}
+                onRecoverySucceeded={() => {
+                  recoveryMeasurement.recordRecoveryOutcome('succeeded');
+                  recoveryMeasurement.finish('success');
+                }}
+                onRecoveryFailed={() => recoveryMeasurement.recordRecoveryOutcome('failed')}
+              />
+            )}
             {activeTab === 'diagnostics' && <DiagnosticExportPanel />}
             {activeTab === 'authority' && <AuthorityHealthPanel />}
           </Suspense>

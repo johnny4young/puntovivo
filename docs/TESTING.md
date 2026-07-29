@@ -62,8 +62,10 @@ The Operations browser smoke verifies that the same contract is visible in
 English and Spanish and that recovery actions reach the owning surface. It
 also inserts a real declined payment outbox incident, retries it as an
 administrator, verifies the audit event and non-failure status, and confirms
-that the invalidated attention count falls in the browser. This pins the
-signal → action → refreshed queue loop rather than navigation alone.
+that the invalidated attention count falls in the browser. The same drill proves
+that aggregate task measurement records one `recover_operation` success with a
+succeeded recovery outcome. This pins the signal → action → mutation → measured
+outcome → refreshed queue loop rather than navigation alone.
 
 The Electron suite launches the real desktop runtime and validates the
 renderer sandbox, embedded server, authenticated application boot, encrypted

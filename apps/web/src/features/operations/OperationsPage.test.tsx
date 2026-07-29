@@ -17,6 +17,37 @@ import { act, render, screen, fireEvent } from '@/test/utils';
 import { OperationsPage } from './OperationsPage';
 
 let mockRole: 'admin' | 'manager' = 'admin';
+let mockAttentionAreas: Array<{
+  area: 'sync' | 'fiscal' | 'device' | 'payments';
+  severity: 'danger' | 'warning';
+  count: number;
+}> = [];
+
+const taskMeasurement = vi.hoisted(() => {
+  const state: { activeTask: 'recover_operation' | null } = { activeTask: null };
+  const controller = {
+    get activeTask() {
+      return state.activeTask;
+    },
+    ensure: vi.fn((task: 'recover_operation') => {
+      state.activeTask = task;
+    }),
+    markUsableControl: vi.fn(),
+    recordInteraction: vi.fn(),
+    markFirstProgress: vi.fn(),
+    recordBacktrack: vi.fn(),
+    recordRecoveryAttempt: vi.fn(),
+    recordRecoveryOutcome: vi.fn(),
+    finish: vi.fn(() => {
+      state.activeTask = null;
+    }),
+  };
+  return { controller, state };
+});
+
+vi.mock('@/lib/taskMeasurement', () => ({
+  useTaskMeasurementController: () => taskMeasurement.controller,
+}));
 
 vi.mock('./SupportHealthPanel', () => ({
   SupportHealthPanel: () => <div data-testid="support-health-panel" />,
@@ -185,7 +216,15 @@ vi.mock('@/lib/trpc', () => ({
     operations: {
       needsAttention: {
         useQuery: () => ({
-          data: { areas: [], totalCount: 0, highestSeverity: null },
+          data: {
+            areas: mockAttentionAreas,
+            totalCount: mockAttentionAreas.reduce((sum, area) => sum + area.count, 0),
+            highestSeverity: mockAttentionAreas.some(area => area.severity === 'danger')
+              ? 'danger'
+              : mockAttentionAreas.length > 0
+                ? 'warning'
+                : null,
+          },
           isLoading: false,
           isError: false,
           isSuccess: true,
@@ -242,6 +281,13 @@ async function renderOperationsPage(initialEntries?: string[]): Promise<void> {
 describe('OperationsPage', () => {
   beforeEach(() => {
     mockRole = 'admin';
+    mockAttentionAreas = [];
+    taskMeasurement.state.activeTask = null;
+    for (const mock of Object.values(taskMeasurement.controller)) {
+      if (typeof mock === 'function' && 'mockClear' in mock) {
+        mock.mockClear();
+      }
+    }
   });
 
   it('renders store status as the only visible administrator landing', async () => {
@@ -256,6 +302,22 @@ describe('OperationsPage', () => {
     expect(screen.getByTestId('operations-tabpanel-attention')).toBeInTheDocument();
     expect(screen.getByTestId('needs-attention-panel')).toBeInTheDocument();
     expect(screen.queryByTestId('operational-readiness-board')).not.toBeInTheDocument();
+  });
+
+  it('measures only a visible, actionable payment recovery', async () => {
+    mockAttentionAreas = [{ area: 'payments', severity: 'danger', count: 1 }];
+    await renderOperationsPage();
+
+    await vi.waitFor(() => {
+      expect(taskMeasurement.controller.ensure).toHaveBeenCalledWith('recover_operation');
+      expect(taskMeasurement.controller.markUsableControl).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByTestId('needs-attention-cta-payments'));
+
+    expect(taskMeasurement.controller.recordInteraction).toHaveBeenCalledTimes(1);
+    expect(taskMeasurement.controller.markFirstProgress).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/operations?tab=payments');
   });
 
   it('reveals every technical destination only after explicit disclosure', async () => {

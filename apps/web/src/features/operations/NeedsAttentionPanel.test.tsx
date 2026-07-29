@@ -114,10 +114,22 @@ describe('NeedsAttentionPanel', () => {
     expect(sync).toHaveTextContent(/Act now|Review soon/i);
   });
 
-  it('opens administrator recovery areas inside their resolving panel', () => {
+  it('announces and opens a real administrator payment recovery', async () => {
     const onReviewArea = vi.fn();
+    const onPaymentRecoveryReady = vi.fn();
     mockState = successState([{ area: 'payments', severity: 'danger', count: 1 }]);
-    render(<NeedsAttentionPanel onReviewArea={onReviewArea} onNavigate={vi.fn()} />);
+    render(
+      <NeedsAttentionPanel
+        onReviewArea={onReviewArea}
+        onNavigate={vi.fn()}
+        onPaymentRecoveryReady={onPaymentRecoveryReady}
+      />
+    );
+
+    await vi.waitFor(() => {
+      expect(onPaymentRecoveryReady).toHaveBeenCalledTimes(1);
+    });
+
     fireEvent.click(screen.getByTestId('needs-attention-cta-payments'));
     expect(onReviewArea).toHaveBeenCalledWith('payments');
     expect(screen.getByTestId('needs-attention-cta-payments')).toHaveTextContent(
@@ -137,13 +149,21 @@ describe('NeedsAttentionPanel', () => {
   });
 
   it('gives managers an administrator handoff without a recovery control', () => {
+    const onPaymentRecoveryReady = vi.fn();
     mockRole = 'manager';
     mockState = successState([{ area: 'payments', severity: 'danger', count: 1 }]);
-    render(<NeedsAttentionPanel onReviewArea={vi.fn()} onNavigate={vi.fn()} />);
+    render(
+      <NeedsAttentionPanel
+        onReviewArea={vi.fn()}
+        onNavigate={vi.fn()}
+        onPaymentRecoveryReady={onPaymentRecoveryReady}
+      />
+    );
 
     expect(screen.getByTestId('needs-attention-handoff-payments')).toHaveTextContent(
       /Ask an administrator to continue/i
     );
+    expect(onPaymentRecoveryReady).not.toHaveBeenCalled();
     expect(screen.queryByTestId('needs-attention-cta-payments')).not.toBeInTheDocument();
     expect(screen.getByTestId('needs-attention-row-payments')).toHaveTextContent(
       /Verify the payment before charging again/i

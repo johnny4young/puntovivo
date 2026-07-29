@@ -17,6 +17,19 @@ interface PaymentIncidentFixture {
   tenantId: string;
   reference: string;
   baselineAttentionCount: number;
+  baselineRecoveryMeasurementCount: number;
+  recoveryMeasurementId: string | null;
+  tenantSettingsBefore: string;
+}
+
+interface RecoveryMeasurement {
+  id: string;
+  task: string;
+  route: string;
+  outcome: string;
+  recoveryOutcome: string;
+  recoveryAttemptCount: number;
+  interactionCount: number;
 }
 
 function withDatabase<T>(read: (db: Database.Database) => T): T {
@@ -36,6 +49,16 @@ function insertPaymentIncident(): PaymentIncidentFixture {
       .get('e2e.admin@local.test') as { tenantId: string } | undefined;
     if (!user) throw new Error('E2E admin tenant was not seeded');
 
+    const tenant = db.prepare('select settings from tenants where id = ?').get(user.tenantId) as
+      | { settings: string }
+      | undefined;
+    if (!tenant) throw new Error('E2E admin tenant settings were not found');
+    const tenantSettings = JSON.parse(tenant.settings) as Record<string, unknown>;
+    db.prepare('update tenants set settings = ? where id = ?').run(
+      JSON.stringify({ ...tenantSettings, telemetryOptIn: true }),
+      user.tenantId
+    );
+
     const placeholders = RETRIABLE_PAYMENT_STATUSES.map(() => '?').join(', ');
     const baseline = db
       .prepare(
@@ -43,6 +66,12 @@ function insertPaymentIncident(): PaymentIncidentFixture {
          where tenant_id = ? and status in (${placeholders})`
       )
       .get(user.tenantId, ...RETRIABLE_PAYMENT_STATUSES) as { count: number };
+    const measurementBaseline = db
+      .prepare(
+        `select count(*) as count from task_measurement_samples
+         where tenant_id = ? and task = 'recover_operation'`
+      )
+      .get(user.tenantId) as { count: number };
     const id = `e2e-payment-recovery-${randomUUID()}`;
     const reference = `E2E-RECOVERY-${randomUUID()}`;
     const now = new Date().toISOString();
@@ -65,7 +94,38 @@ function insertPaymentIncident(): PaymentIncidentFixture {
       tenantId: user.tenantId,
       reference,
       baselineAttentionCount: baseline.count,
+      baselineRecoveryMeasurementCount: measurementBaseline.count,
+      recoveryMeasurementId: null,
+      tenantSettingsBefore: tenant.settings,
     };
+  });
+}
+
+function latestRecoveryMeasurement(fixture: PaymentIncidentFixture): RecoveryMeasurement | null {
+  return withDatabase(db => {
+    const count = db
+      .prepare(
+        `select count(*) as count from task_measurement_samples
+         where tenant_id = ? and task = 'recover_operation'`
+      )
+      .get(fixture.tenantId) as { count: number };
+    if (count.count <= fixture.baselineRecoveryMeasurementCount) {
+      return null;
+    }
+    return (
+      (db
+        .prepare(
+          `select id, task, route, outcome,
+                  recovery_outcome as recoveryOutcome,
+                  recovery_attempt_count as recoveryAttemptCount,
+                  interaction_count as interactionCount
+             from task_measurement_samples
+            where tenant_id = ? and task = 'recover_operation'
+            order by created_at desc
+            limit 1`
+        )
+        .get(fixture.tenantId) as RecoveryMeasurement | undefined) ?? null
+    );
   });
 }
 
@@ -97,6 +157,16 @@ function cleanupPaymentIncident(fixture: PaymentIncidentFixture): void {
       db.prepare('delete from payment_outbox where tenant_id = ? and id = ?').run(
         fixture.tenantId,
         fixture.id
+      );
+      if (fixture.recoveryMeasurementId) {
+        db.prepare('delete from task_measurement_samples where tenant_id = ? and id = ?').run(
+          fixture.tenantId,
+          fixture.recoveryMeasurementId
+        );
+      }
+      db.prepare('update tenants set settings = ? where id = ?').run(
+        fixture.tenantSettingsBefore,
+        fixture.tenantId
       );
     })();
   });
@@ -176,6 +246,17 @@ test.describe('operational recovery ownership', () => {
 
       await expect.poll(() => paymentIncidentState(fixture)).toMatchObject({ retryAudits: 1 });
       expect(RETRIABLE_PAYMENT_STATUSES).not.toContain(paymentIncidentState(fixture).status);
+      await expect
+        .poll(() => latestRecoveryMeasurement(fixture))
+        .toMatchObject({
+          task: 'recover_operation',
+          route: '/operations',
+          outcome: 'success',
+          recoveryOutcome: 'succeeded',
+          recoveryAttemptCount: 1,
+          interactionCount: 3,
+        });
+      fixture.recoveryMeasurementId = latestRecoveryMeasurement(fixture)?.id ?? null;
 
       await page.getByTestId('operations-tab-attention').click();
       if (fixture.baselineAttentionCount === 0) {

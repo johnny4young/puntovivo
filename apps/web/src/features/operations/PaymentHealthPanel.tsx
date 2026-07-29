@@ -22,6 +22,19 @@ import {
   RETRIABLE_PAYMENT_STATUSES,
 } from './paymentHealthPresentation';
 
+interface PaymentHealthPanelProps {
+  /** Counts a deliberate control activation inside a measured recovery. */
+  onRecoveryInteraction?: (() => void) | undefined;
+  /** Marks the moment a real retry mutation is submitted. */
+  onRecoveryAttempt?: (() => void) | undefined;
+  /** Counts a cancelled confirmation as a backtrack. */
+  onRecoveryBacktrack?: (() => void) | undefined;
+  /** Completes the measured recovery after the mutation succeeds. */
+  onRecoverySucceeded?: (() => void) | undefined;
+  /** Records a failed retry without ending the task, so another attempt can succeed. */
+  onRecoveryFailed?: (() => void) | undefined;
+}
+
 /**
  * +  — Operations Center: Payment Health panel.
  *
@@ -37,7 +50,13 @@ import {
  * `.pv-kicker` / `.pv-title`.
  */
 
-export function PaymentHealthPanel() {
+export function PaymentHealthPanel({
+  onRecoveryInteraction,
+  onRecoveryAttempt,
+  onRecoveryBacktrack,
+  onRecoverySucceeded,
+  onRecoveryFailed,
+}: PaymentHealthPanelProps = {}) {
   const { t } = useTranslation('operations');
   const { user } = useAuth();
   const toast = useToast();
@@ -88,6 +107,7 @@ export function PaymentHealthPanel() {
   };
   const retryMutation = trpc.payments.retryOutbox.useMutation({
     onSuccess: async () => {
+      onRecoverySucceeded?.();
       await invalidatePaymentSurfaces();
       toast.success({
         title: t('payments.outbox.actions.retrySuccess'),
@@ -95,6 +115,7 @@ export function PaymentHealthPanel() {
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'operations:payments.outbox.actions.retryError',
+      extra: () => onRecoveryFailed?.(),
     }),
   });
   const markSettledMutation = trpc.payments.markSettled.useMutation({
@@ -111,18 +132,23 @@ export function PaymentHealthPanel() {
   const [retryTargetId, setRetryTargetId] = useState<string | null>(null);
   const [markSettledTargetId, setMarkSettledTargetId] = useState<string | null>(null);
   const [providerTxInput, setProviderTxInput] = useState('');
-  const closeRetryModal = () => setRetryTargetId(null);
+  const closeRetryModal = () => {
+    onRecoveryBacktrack?.();
+    setRetryTargetId(null);
+  };
   const closeMarkSettledModal = () => {
     setMarkSettledTargetId(null);
     setProviderTxInput('');
   };
   const handleConfirmRetry = () => {
     if (!retryTargetId) return;
+    onRecoveryInteraction?.();
+    onRecoveryAttempt?.();
     void retryMutation
       .mutateAsync({
         outboxId: retryTargetId,
       })
-      .then(() => closeRetryModal())
+      .then(() => setRetryTargetId(null))
       .catch(() => {
         /* onError toast already fired; keep the modal open so the operator can read the row state */
       });
@@ -248,6 +274,7 @@ export function PaymentHealthPanel() {
                               title={retryTitle}
                               onClick={() => {
                                 if (!isAdmin || !canRetryStatus) return;
+                                onRecoveryInteraction?.();
                                 setRetryTargetId(row.id);
                               }}
                               data-testid={`payment-retry-${row.id}`}

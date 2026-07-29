@@ -130,11 +130,19 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
       retryOutbox: {
-        useMutation: (options: { onSuccess?: () => Promise<void> | void }) => ({
+        useMutation: (options: {
+          onSuccess?: () => Promise<void> | void;
+          onError?: (error: unknown) => void;
+        }) => ({
           isPending: false,
           mutateAsync: async (input: { outboxId: string }) => {
-            await retryMutateAsync(input);
-            await options.onSuccess?.();
+            try {
+              await retryMutateAsync(input);
+              await options.onSuccess?.();
+            } catch (error) {
+              options.onError?.(error);
+              throw error;
+            }
           },
         }),
       },
@@ -299,6 +307,68 @@ describe('PaymentHealthPanel —  row actions', () => {
       expect(retryMutateAsync).toHaveBeenCalledWith({ outboxId: 'payment-outbox-1' });
       expect(attentionInvalidate).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('reports interaction, retry attempt and successful recovery callbacks', async () => {
+    const onRecoveryInteraction = vi.fn();
+    const onRecoveryAttempt = vi.fn();
+    const onRecoverySucceeded = vi.fn();
+    const onRecoveryFailed = vi.fn();
+    render(
+      <PaymentHealthPanel
+        onRecoveryInteraction={onRecoveryInteraction}
+        onRecoveryAttempt={onRecoveryAttempt}
+        onRecoverySucceeded={onRecoverySucceeded}
+        onRecoveryFailed={onRecoveryFailed}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('payment-retry-payment-outbox-1'));
+    fireEvent.click(screen.getByRole('button', { name: /^Confirm$/i }));
+
+    await vi.waitFor(() => {
+      expect(onRecoveryInteraction).toHaveBeenCalledTimes(2);
+      expect(onRecoveryAttempt).toHaveBeenCalledTimes(1);
+      expect(onRecoverySucceeded).toHaveBeenCalledTimes(1);
+    });
+    expect(onRecoveryFailed).not.toHaveBeenCalled();
+  });
+
+  it('counts a cancelled retry confirmation as a backtrack', () => {
+    const onRecoveryInteraction = vi.fn();
+    const onRecoveryBacktrack = vi.fn();
+    render(
+      <PaymentHealthPanel
+        onRecoveryInteraction={onRecoveryInteraction}
+        onRecoveryBacktrack={onRecoveryBacktrack}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('payment-retry-payment-outbox-1'));
+    fireEvent.click(screen.getByRole('button', { name: /^Cancel$/i }));
+
+    expect(onRecoveryInteraction).toHaveBeenCalledTimes(1);
+    expect(onRecoveryBacktrack).toHaveBeenCalledTimes(1);
+  });
+
+  it('records a failed retry without reporting recovery success', async () => {
+    const onRecoverySucceeded = vi.fn();
+    const onRecoveryFailed = vi.fn();
+    retryMutateAsync.mockRejectedValueOnce(new Error('provider unavailable'));
+    render(
+      <PaymentHealthPanel
+        onRecoverySucceeded={onRecoverySucceeded}
+        onRecoveryFailed={onRecoveryFailed}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('payment-retry-payment-outbox-1'));
+    fireEvent.click(screen.getByRole('button', { name: /^Confirm$/i }));
+
+    await vi.waitFor(() => {
+      expect(onRecoveryFailed).toHaveBeenCalledTimes(1);
+    });
+    expect(onRecoverySucceeded).not.toHaveBeenCalled();
   });
 
   it('clicking Mark settled opens a modal with the optional providerTransactionId input and flows it into the mutation', async () => {

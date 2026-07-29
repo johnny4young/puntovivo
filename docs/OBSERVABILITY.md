@@ -69,10 +69,11 @@ There is no arbitrary event name or metadata envelope, and the storage schema
 has no user, site, product, customer, payment, sale, query, error, or notes
 column. Zod and SQLite `CHECK` constraints both enforce the allowlists, route
 pairing, bounds, timing consistency, and recovery consistency. The initial
-instrumented journeys are sale completion, product creation, stock receipt, and
-day close. Recovery outcome is measured when checkout requires opening the cash
-session; the Operations surface is not treated as a successful recovery merely
-because an operator opened an informational panel.
+instrumented journeys are sale completion, product creation, stock receipt, day
+close, and real declined-payment recovery. Checkout records cash-session
+recovery inside the sale attempt. Operations starts a separate recovery attempt
+only when an administrator can see an actionable payment incident; opening an
+informational support or diagnostic panel never counts as progress or success.
 
 UX-6A keeps these samples in the tenant's local database. They are not forwarded
 to the centralized telemetry sink; `recentTaskMeasurements` exists only for
