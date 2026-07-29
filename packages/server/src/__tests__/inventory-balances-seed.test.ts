@@ -10,7 +10,7 @@
  * @module __tests__/inventory-balances-seed.test
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -110,6 +110,7 @@ describe('ensureInventoryBalancesForSite ( chunked insert)', () => {
   it('seeds one balance row per product across the chunk boundary, opening at zero', () => {
     const db = getDatabase();
     const now = new Date().toISOString();
+    const transactionSpy = vi.spyOn(db, 'transaction');
 
     // products.stock is gone — the seed no longer inherits an opening quantity
     // from the product row (it previously copied products.stock onto the
@@ -139,6 +140,8 @@ describe('ensureInventoryBalancesForSite ( chunked insert)', () => {
       .run();
 
     ensureInventoryBalancesForSite(db, tenantId, primarySiteId);
+    expect(transactionSpy).toHaveBeenCalledWith(expect.any(Function), { behavior: 'immediate' });
+    transactionSpy.mockRestore();
     expect(countBalances(primarySiteId)).toBe(PRODUCT_COUNT);
 
     const rows = db

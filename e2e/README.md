@@ -221,7 +221,7 @@ What happens:
 
 ### Coverage
 
-The suite contains one platform smoke plus five target-agnostic operator
+The suite contains one platform smoke plus six target-agnostic operator
 journeys:
 
 - `smoke.spec.ts` — launch, login, application shell, device configuration,
@@ -235,6 +235,8 @@ journeys:
   the expected balance first.
 - `day-close.spec.ts` — manager sign-off, irreversible confirmation, stored PDF
   verification, and immutable evidence after reload.
+- `refund.spec.ts` — direct manager refund authority, restored inventory, and
+  immutable actor-and-reason audit evidence after reload.
 
 Every spec also enforces clean renderer and Electron process diagnostics.
 

@@ -491,45 +491,47 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         onReasonDetailChange={setReprintReasonDetail}
       />
 
-      <RefundConfirmOverlay
-        isOpen={isReturnConfirmOpen}
-        isPending={returnMutation.isPending}
-        saleNumber={sale?.saleNumber ?? undefined}
-        refundTotal={Number(sale?.total ?? 0)}
-        lines={
-          sale?.items?.map(item => ({
-            id: item.id ?? item.productId,
-            productName: item.productName ?? item.productId ?? '',
-            quantity: Number(item.quantity ?? 0),
-            total: Number(item.total ?? item.unitPrice ?? 0),
-          })) ?? []
-        }
-        approvalPanel={
-          refundNeedsApproval || refundPolicyBlocked ? (
-            <CheckoutApprovalPanel
-              {...refundApproval}
-              isLoading={refundApproval.isLoading || refundShiftPolicyQuery.isFetching}
-              isHashing={false}
-              hasError={refundApproval.error !== null || refundShiftPolicyQuery.error !== null}
-              onRequest={refundApproval.requestApproval}
-              onRefresh={() =>
-                void Promise.all([
-                  refundApproval.refetch(),
-                  ...(shiftPolicyQueryEnabled ? [refundShiftPolicyQuery.refetch()] : []),
-                ])
-              }
-            />
-          ) : undefined
-        }
-        confirmDisabled={
-          refundPolicyBlocked || (refundNeedsApproval && !refundApproval.allApproved)
-        }
-        onClose={() => setIsReturnConfirmOpen(false)}
-        onConfirm={reason => {
-          setIsReturnConfirmOpen(false);
-          void handleReturnSale(reason);
-        }}
-      />
+      {isReturnConfirmOpen && (
+        <RefundConfirmOverlay
+          isOpen
+          isPending={returnMutation.isPending}
+          saleNumber={sale?.saleNumber ?? undefined}
+          refundTotal={Number(sale?.total ?? 0)}
+          lines={
+            sale?.items?.map(item => ({
+              id: item.id ?? item.productId,
+              productName: item.productName ?? item.productId ?? '',
+              quantity: Number(item.quantity ?? 0),
+              total: Number(item.total ?? item.unitPrice ?? 0),
+            })) ?? []
+          }
+          approvalPanel={
+            refundNeedsApproval || refundPolicyBlocked ? (
+              <CheckoutApprovalPanel
+                {...refundApproval}
+                isLoading={refundApproval.isLoading || refundShiftPolicyQuery.isFetching}
+                isHashing={false}
+                hasError={refundApproval.error !== null || refundShiftPolicyQuery.error !== null}
+                onRequest={refundApproval.requestApproval}
+                onRefresh={() =>
+                  void Promise.all([
+                    refundApproval.refetch(),
+                    ...(shiftPolicyQueryEnabled ? [refundShiftPolicyQuery.refetch()] : []),
+                  ])
+                }
+              />
+            ) : undefined
+          }
+          confirmDisabled={
+            refundPolicyBlocked || (refundNeedsApproval && !refundApproval.allApproved)
+          }
+          onClose={() => setIsReturnConfirmOpen(false)}
+          onConfirm={reason => {
+            setIsReturnConfirmOpen(false);
+            void handleReturnSale(reason);
+          }}
+        />
+      )}
 
       <ConfirmModal
         isOpen={isVoidConfirmOpen}

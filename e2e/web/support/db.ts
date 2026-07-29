@@ -255,6 +255,7 @@ function seedBusinessUser(
     role: 'admin' | 'manager' | 'cashier';
     templateEmail: string;
     seed: string;
+    openCashSessions?: boolean;
   }
 ): BusinessUser {
   const passwordHash = getPasswordHash(db, args.templateEmail);
@@ -277,24 +278,26 @@ function seedBusinessUser(
     now
   );
 
-  for (const site of args.sites) {
-    db.prepare(
-      `insert into cash_sessions (
-        id, tenant_id, site_id, cashier_id, register_name, opening_float,
-        opening_count_denominations, expected_balance, actual_count,
-        actual_count_denominations, over_short, status, opened_at,
-        closed_at, created_at, updated_at
-      ) values (?, ?, ?, ?, ?, 0, '[]', 0, null, null, null, 'open', ?, null, ?, ?)`
-    ).run(
-      makeId(`e2e_${args.role}_session`),
-      args.tenantId,
-      site.id,
-      userId,
-      `E2E ${args.role} ${args.seed} ${site.name}`,
-      now,
-      now,
-      now
-    );
+  if (args.openCashSessions !== false) {
+    for (const site of args.sites) {
+      db.prepare(
+        `insert into cash_sessions (
+          id, tenant_id, site_id, cashier_id, register_name, opening_float,
+          opening_count_denominations, expected_balance, actual_count,
+          actual_count_denominations, over_short, status, opened_at,
+          closed_at, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, 0, '[]', 0, null, null, null, 'open', ?, null, ?, ?)`
+      ).run(
+        makeId(`e2e_${args.role}_session`),
+        args.tenantId,
+        site.id,
+        userId,
+        `E2E ${args.role} ${args.seed} ${site.name}`,
+        now,
+        now,
+        now
+      );
+    }
   }
 
   return {
@@ -481,6 +484,32 @@ function seedScenario(
 
 export function seedSaleScenario(seed: string): SeededSaleScenario {
   return seedScenario(seed);
+}
+
+/**
+ * Seeds one isolated login identity without cash-session or catalog fixtures.
+ * Use it for auth lifecycle tests whose sessionVersion mutation must never
+ * invalidate the shared demo accounts used by parallel journeys.
+ */
+export function seedAuthUser(
+  seed: string,
+  role: 'admin' | 'manager' | 'cashier' = 'admin'
+): BusinessUser {
+  const db = openDb();
+  try {
+    const { tenantId, sites } = getTenantAndSites(db);
+    const suffix = normalizeSeed(seed);
+    return seedBusinessUser(db, {
+      tenantId,
+      sites,
+      role,
+      templateEmail: `e2e.${role}@local.test`,
+      seed: suffix,
+      openCashSessions: false,
+    });
+  } finally {
+    db.close();
+  }
 }
 
 export function seedPurchaseScenario(seed: string): SeededPurchaseScenario {

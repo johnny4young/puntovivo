@@ -50,6 +50,18 @@ function focusSearchInput(ref: RefObject<HTMLInputElement | null>) {
   requestAnimationFrame(() => {
     const node = ref.current;
     if (!node) return;
+    const ownerDocument = node.ownerDocument;
+    const activeElement = ownerDocument.activeElement;
+    const focusIsResting =
+      activeElement === null ||
+      activeElement === ownerDocument.body ||
+      activeElement === ownerDocument.documentElement ||
+      activeElement === node;
+    // A modal close can restore focus synchronously while this deferred
+    // callback is still queued. If the operator moves into quantity,
+    // discount, or any other control before the frame runs, that newer intent
+    // wins; otherwise stale restoration steals the first typed characters.
+    if (!focusIsResting) return;
     node.focus();
     node.select();
   });

@@ -26,19 +26,19 @@ const closedAll: HookProps = {
 };
 
 describe('useScannerFocusRestoration', () => {
-  let focusSpy: ReturnType<typeof vi.fn>;
-  let selectSpy: ReturnType<typeof vi.fn>;
+  let focusSpy: MockInstance<HTMLInputElement['focus']>;
+  let selectSpy: MockInstance<HTMLInputElement['select']>;
+  let productInput: HTMLInputElement;
   let productInputRef: { current: HTMLInputElement | null };
   let rafSpy: MockInstance<typeof requestAnimationFrame>;
 
   beforeEach(() => {
-    focusSpy = vi.fn();
-    selectSpy = vi.fn();
+    productInput = document.createElement('input');
+    document.body.append(productInput);
+    focusSpy = vi.spyOn(productInput, 'focus');
+    selectSpy = vi.spyOn(productInput, 'select');
     productInputRef = {
-      current: {
-        focus: focusSpy,
-        select: selectSpy,
-      } as unknown as HTMLInputElement,
+      current: productInput,
     };
     // Force RAF synchronous so the spies fire inside the same
     // microtask as the rerender — no waitFor needed.
@@ -52,6 +52,7 @@ describe('useScannerFocusRestoration', () => {
 
   afterEach(() => {
     rafSpy.mockRestore();
+    productInput.remove();
   });
 
   function render(initialProps: HookProps) {
@@ -145,5 +146,30 @@ describe('useScannerFocusRestoration', () => {
 
     // No additional focus call — ref was null.
     expect(focusSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not steal focus when the operator acts before deferred restoration', () => {
+    const { rerender } = render(closedAll);
+    rerender({ ...closedAll, isProductSearchOpen: true });
+
+    let deferredRestore: FrameRequestCallback = () => {
+      throw new Error('Expected a deferred scanner-focus callback');
+    };
+    rafSpy.mockImplementationOnce(callback => {
+      deferredRestore = callback;
+      return 1;
+    });
+    rerender({ ...closedAll, isProductSearchOpen: false });
+
+    const discountInput = document.createElement('input');
+    document.body.append(discountInput);
+    discountInput.focus();
+    expect(document.activeElement).toBe(discountInput);
+
+    deferredRestore(0);
+
+    expect(focusSpy).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(discountInput);
+    discountInput.remove();
   });
 });

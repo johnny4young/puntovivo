@@ -35,51 +35,57 @@ export function ensureInventoryBalancesForSite(
 ): void {
   const now = getTimestamp();
 
-  db.transaction(tx => {
-    const tenantProducts = tx
-      .select({ id: products.id })
-      .from(products)
-      .where(and(eq(products.tenantId, tenantId), eq(products.isActive, true)))
-      .all();
+  db.transaction(
+    tx => {
+      const tenantProducts = tx
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.tenantId, tenantId), eq(products.isActive, true)))
+        .all();
 
-    if (tenantProducts.length === 0) {
-      return;
-    }
+      if (tenantProducts.length === 0) {
+        return;
+      }
 
-    // chunked multi-row insert. The previous per-product
-    // `forEach` issued one INSERT per row, which on a 50k-product tenant
-    // held the write lock for >1s during site onboarding. A single
-    // `.values([...])` insert is one statement per chunk. 10 bound columns
-    // per row, so 90 rows stays well under SQLITE_MAX_VARIABLE_NUMBER (999).
-    // `onConflictDoNothing` preserves the seed-only contract: rows already
-    // owned by the transfer-aware write paths are never clobbered.
-    const CHUNK_SIZE = 90;
-    const rows = tenantProducts.map(product => ({
-      id: nanoid(),
-      tenantId,
-      siteId,
-      productId: product.id,
-      onHand: 0,
-      reserved: 0,
-      syncStatus: 'pending' as const,
-      syncVersion: 0,
-      createdAt: now,
-      updatedAt: now,
-    }));
+      // chunked multi-row insert. The previous per-product
+      // `forEach` issued one INSERT per row, which on a 50k-product tenant
+      // held the write lock for >1s during site onboarding. A single
+      // `.values([...])` insert is one statement per chunk. 10 bound columns
+      // per row, so 90 rows stays well under SQLITE_MAX_VARIABLE_NUMBER (999).
+      // `onConflictDoNothing` preserves the seed-only contract: rows already
+      // owned by the transfer-aware write paths are never clobbered.
+      const CHUNK_SIZE = 90;
+      const rows = tenantProducts.map(product => ({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        productId: product.id,
+        onHand: 0,
+        reserved: 0,
+        syncStatus: 'pending' as const,
+        syncVersion: 0,
+        createdAt: now,
+        updatedAt: now,
+      }));
 
-    for (let offset = 0; offset < rows.length; offset += CHUNK_SIZE) {
-      tx.insert(inventoryBalances)
-        .values(rows.slice(offset, offset + CHUNK_SIZE))
-        .onConflictDoNothing({
-          target: [
-            inventoryBalances.tenantId,
-            inventoryBalances.siteId,
-            inventoryBalances.productId,
-          ],
-        })
-        .run();
-    }
-  });
+      for (let offset = 0; offset < rows.length; offset += CHUNK_SIZE) {
+        tx.insert(inventoryBalances)
+          .values(rows.slice(offset, offset + CHUNK_SIZE))
+          .onConflictDoNothing({
+            target: [
+              inventoryBalances.tenantId,
+              inventoryBalances.siteId,
+              inventoryBalances.productId,
+            ],
+          })
+          .run();
+      }
+    },
+    // Reserve SQLite's single writer before reading the product set. A
+    // deferred transaction can lose the read-to-write upgrade race and throw
+    // SQLITE_BUSY immediately, bypassing busy_timeout during a parallel sale.
+    { behavior: 'immediate' }
+  );
 }
 
 /**

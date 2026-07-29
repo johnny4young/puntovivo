@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { loginAs } from './support/app';
+import { login } from './support/app';
+import { seedAuthUser } from './support/db';
 
 const API_ORIGIN = 'http://localhost:8090';
 
@@ -10,8 +11,14 @@ async function realtimeClientCount(page: Page): Promise<number> {
 }
 
 test.describe('authenticated realtime continuity', () => {
-  test('uses Bearer SSE and routes to login after session revocation', async ({ page }) => {
-    await loginAs(page, 'admin');
+  test('uses Bearer SSE and routes to login after session revocation', async ({
+    page,
+  }, testInfo) => {
+    const isolatedAdmin = seedAuthUser(
+      `realtime-auth-${testInfo.parallelIndex}-${Date.now()}`,
+      'admin'
+    );
+    await login(page, { ...isolatedAdmin, defaultPath: '/dashboard' });
     const baselineClients = await realtimeClientCount(page);
     const subscribeRequest = page.waitForRequest(
       request => request.url().includes('/api/realtime/subscribe?collections=kds'),
