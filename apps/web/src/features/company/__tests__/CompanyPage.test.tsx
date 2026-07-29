@@ -1,13 +1,13 @@
 /**
  * CompanyPage tab behavior.
  *
- * Covers the grouped Setup nav (readiness pinned as the admin
- * landing + the remaining tabs demoted into labeled category groups)
- * that replaced the flat segmented strip. Heavy children (CompanyForm,
+ * Covers the progressive Setup nav (guided readiness as the admin
+ * landing + every expert panel behind one Advanced disclosure).
+ * Heavy children (CompanyForm,
  * CompanyLocaleSettingsCard, CompanyAISettingsCard, CompanyMxFiscalCard, …)
  * are mocked
  * to keep the focus on:
- * - admin sees the grouped nav and the active panel
+ * - admin sees the guided entry and can disclose advanced settings
  * - URL `?tab=ai` deep-links into the AI panel (used by
  * AnomalyDetectionCard's "Activa la IA" CTA)
  * - clicking a tab updates aria-current and the URL
@@ -140,24 +140,40 @@ vi.mock('../CompanyTelemetryCard', () => ({
 // Import after mocks so the page picks up the stubbed children.
 import { CompanyPage } from '../CompanyPage';
 
+async function openAdvancedSettings(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByTestId('company-advanced-toggle'));
+  expect(screen.getByTestId('company-advanced-settings')).toBeInTheDocument();
+}
+
 describe('CompanyPage tab behavior', () => {
   beforeEach(() => {
     mockCountryCode = 'CO';
   });
 
-  it('renders the grouped Setup nav with readiness pinned as the admin landing (-104)', () => {
+  it('renders the guided setup as the only visible admin landing', async () => {
     render(<CompanyPage />);
 
-    // readiness is the pinned landing, current by default.
     expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('company-advanced-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    expect(screen.queryByTestId('company-advanced-settings')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('company-tab-general')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('card-readiness')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
+  });
 
-    // The three category groups render with their localized labels.
+  it('reveals every legacy configuration destination under Advanced settings', async () => {
+    const user = userEvent.setup();
+    render(<CompanyPage />);
+
+    await openAdvancedSettings(user);
+
     expect(screen.getByText('Business')).toBeInTheDocument();
     expect(screen.getByText('Billing & payments')).toBeInTheDocument();
     expect(screen.getByText('System')).toBeInTheDocument();
-
-    // Every config tab is still reachable as a grouped item, none current
-    // while readiness is active.
     for (const key of [
       'general',
       'controls',
@@ -170,26 +186,20 @@ describe('CompanyPage tab behavior', () => {
       'data',
       'device',
     ]) {
-      expect(screen.getByTestId(`company-tab-${key}`)).not.toHaveAttribute('aria-current', 'page');
+      expect(screen.getByTestId(`company-tab-${key}`)).not.toHaveAttribute(
+        'aria-current',
+        'page'
+      );
     }
-
-    // Readiness panel content visible.
-    expect(screen.getByTestId('card-readiness')).toBeInTheDocument();
-
-    // The other cards must NOT be in the DOM yet.
-    expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
-    expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('card-locale')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('card-sync')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('card-theme')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('card-fiscal-cl')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('card-modules')).not.toBeInTheDocument();
   });
 
   it('honors ?tab=ai in the URL and lands on the AI panel directly', () => {
     render(<CompanyPage />, { initialEntries: ['/company?tab=ai'] });
 
+    expect(screen.getByTestId('company-advanced-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
     expect(screen.getByTestId('company-tab-ai')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('card-ai')).toBeInTheDocument();
     // Readiness is no longer the current item.
@@ -198,10 +208,29 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
   });
 
+  it('returns to the guided landing when Advanced settings is collapsed', async () => {
+    const user = userEvent.setup();
+    render(<CompanyPage />, { initialEntries: ['/company?tab=ai'] });
+
+    await user.click(screen.getByTestId('company-advanced-toggle'));
+
+    expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    expect(screen.getByTestId('company-advanced-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    expect(screen.queryByTestId('company-advanced-settings')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('card-readiness')).toBeInTheDocument();
+  });
+
   it('switches active item and panel content when the user clicks another tab', async () => {
     const user = userEvent.setup();
     render(<CompanyPage />);
 
+    await openAdvancedSettings(user);
     await user.click(screen.getByTestId('company-tab-data'));
 
     expect(screen.getByTestId('company-tab-data')).toHaveAttribute('aria-current', 'page');
@@ -216,6 +245,7 @@ describe('CompanyPage tab behavior', () => {
     const user = userEvent.setup();
     render(<CompanyPage />);
 
+    await openAdvancedSettings(user);
     await user.click(screen.getByTestId('company-tab-device'));
 
     expect(screen.getByTestId('card-theme')).toBeInTheDocument();
@@ -228,6 +258,7 @@ describe('CompanyPage tab behavior', () => {
     const user = userEvent.setup();
     render(<CompanyPage />);
 
+    await openAdvancedSettings(user);
     await user.click(screen.getByTestId('company-tab-locale'));
 
     expect(screen.getByTestId('card-locale')).toBeInTheDocument();
@@ -238,6 +269,7 @@ describe('CompanyPage tab behavior', () => {
     const user = userEvent.setup();
     render(<CompanyPage />);
 
+    await openAdvancedSettings(user);
     await user.click(screen.getByTestId('company-tab-controls'));
 
     expect(screen.getByTestId('company-tab-controls')).toHaveAttribute('aria-current', 'page');
@@ -250,6 +282,7 @@ describe('CompanyPage tab behavior', () => {
     const user = userEvent.setup();
     render(<CompanyPage />);
 
+    await openAdvancedSettings(user);
     await user.click(screen.getByTestId('company-tab-fiscal'));
 
     expect(screen.getByTestId('card-fiscal-mx')).toBeInTheDocument();
@@ -262,6 +295,7 @@ describe('CompanyPage tab behavior', () => {
     const user = userEvent.setup();
     render(<CompanyPage />);
 
+    await openAdvancedSettings(user);
     await user.click(screen.getByTestId('company-tab-fiscal'));
 
     expect(screen.getByTestId('card-fiscal-cl')).toBeInTheDocument();
@@ -273,6 +307,7 @@ describe('CompanyPage tab behavior', () => {
     const user = userEvent.setup();
     render(<CompanyPage />);
 
+    await openAdvancedSettings(user);
     await user.click(screen.getByTestId('company-tab-fiscal'));
 
     // Neither MX nor CL render; the real CO config card does (
@@ -287,6 +322,7 @@ describe('CompanyPage tab behavior', () => {
     const user = userEvent.setup();
     render(<CompanyPage />);
 
+    await openAdvancedSettings(user);
     await user.click(screen.getByTestId('company-tab-fiscal'));
 
     expect(screen.queryByTestId('card-fiscal-co')).not.toBeInTheDocument();
@@ -300,6 +336,7 @@ describe('CompanyPage tab behavior', () => {
     const user = userEvent.setup();
     render(<CompanyPage />);
 
+    await openAdvancedSettings(user);
     await user.click(screen.getByTestId('company-tab-fiscal'));
 
     expect(screen.queryByTestId('card-fiscal-co')).not.toBeInTheDocument();
@@ -307,8 +344,9 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.getByText(/There is no fiscal pack for US yet/i)).toBeInTheDocument();
   });
 
-  it('has no serious accessibility violations in the grouped Setup nav', async () => {
+  it('has no serious accessibility violations in the progressive Setup nav', async () => {
     const { container } = render(<CompanyPage />);
+    await screen.findByTestId('card-readiness');
     await assertNoA11yViolations(container);
   });
 });

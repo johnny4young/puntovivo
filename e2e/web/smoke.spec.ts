@@ -80,7 +80,7 @@ const adminRoutes = [
     path: '/company',
     assertion: async page =>
       page.getByRole('heading', {
-        name: /Ready to open|Listo para abrir|Setup readiness|Configuración inicial/i,
+        name: /Prepare the business without getting lost|Prepara el negocio sin perderte/i,
       }),
   },
   {
@@ -204,6 +204,40 @@ test.describe('web smoke', () => {
     await openUserMenu(page);
     await expect(page.getByRole('button', { name: 'Change password' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+
+    await expectNoClientIssues(tracker);
+  });
+
+  test('company setup keeps the novice path focused and advanced settings reachable', async ({
+    page,
+  }) => {
+    const tracker = attachClientIssueTracker(page);
+    await loginAs(page, 'admin');
+    await page.goto('/company');
+
+    await expect(page.getByTestId('company-readiness-card')).toBeVisible();
+    await expect(page.locator('[data-testid^="company-guided-step-"]')).toHaveCount(5);
+    await expect(page.getByTestId('company-advanced-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    await expect(page.getByTestId('company-tab-ai')).toHaveCount(0);
+
+    await page.getByTestId('company-guided-step-devices').click();
+    await expect(page).toHaveURL(/\/company\?step=devices$/);
+    await expect(page.getByTestId('company-guided-detail-devices')).toBeVisible();
+
+    await page.getByTestId('company-advanced-toggle').click();
+    await expect(page.getByTestId('company-advanced-settings')).toBeVisible();
+    await page.getByTestId('company-tab-locale').click();
+    await expect(page).toHaveURL(/\/company\?tab=locale$/);
+
+    await page.goto('/company?tab=ai');
+    await expect(page.getByTestId('company-advanced-settings')).toBeVisible();
+    await expect(page.getByTestId('company-tab-ai')).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
 
     await expectNoClientIssues(tracker);
   });

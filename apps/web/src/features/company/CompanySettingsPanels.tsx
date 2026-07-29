@@ -15,7 +15,6 @@ import { CompanyMxFiscalCard } from './CompanyMxFiscalCard';
 import { CompanyPaymentsCard } from './CompanyPaymentsCard';
 import { CompanyProfileSettings, type CompanyFormValues } from './CompanyProfileSettings';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
-import { CompanyReadinessCard } from './CompanyReadinessCard';
 import { CompanyRestaurantSettingsCard } from './CompanyRestaurantSettingsCard';
 import { COMPANY_TAB_TRANSLATION_KEYS, type CompanyTabKey } from './companySetupModel';
 import { CompanySyncCard } from './CompanySyncCard';
@@ -41,6 +40,15 @@ const CompanyBackupCard = lazy(() =>
 const CompanyLossPreventionCard = lazy(() =>
   import('./CompanyLossPreventionCard').then(module => ({
     default: module.CompanyLossPreventionCard,
+  }))
+);
+
+// The guided landing is the default admin view, but its visual projection and
+// icon set do not need to inflate the Company route shell. Load it immediately
+// behind a stable setup fallback while keeping Advanced settings navigable.
+const CompanyReadinessCard = lazy(() =>
+  import('./CompanyReadinessCard').then(module => ({
+    default: module.CompanyReadinessCard,
   }))
 );
 
@@ -78,7 +86,16 @@ export function CompanySettingsPanels({
     >
       {activeTab === 'readiness' && (
         <div className="space-y-6">
-          <CompanyReadinessCard />
+          <Suspense
+            fallback={
+              <PageLoadingState
+                title={t('company.setupNavigation.guideTitle')}
+                description={t('company.setupNavigation.guideDescription')}
+              />
+            }
+          >
+            <CompanyReadinessCard />
+          </Suspense>
         </div>
       )}
 

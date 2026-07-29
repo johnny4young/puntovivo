@@ -1,0 +1,63 @@
+{
+  "kicker": "Guided setup",
+  "title": "Prepare the business without getting lost",
+  "description": "Five clear areas cover what the store needs. We show one required decision at a time; optional tools can wait.",
+  "progress": "{{ready}} of 5 areas ready",
+  "next": {
+    "eyebrow": "Next required decision",
+    "title": "Complete {{section}}",
+    "description": "This is the only setup decision blocking the store right now.",
+    "action": "Resolve now"
+  },
+  "ready": {
+    "eyebrow": "Operational base ready",
+    "title": "You can start selling",
+    "description": "The required setup is complete. Fiscal services, electronic payments and devices remain available when the business needs them.",
+    "action": "Continue to sales",
+    "saving": "Opening the store…"
+  },
+  "status": {
+    "ready": "Ready",
+    "blocker": "Required",
+    "warning": "Review",
+    "optional": "Optional",
+    "not-applicable": "Not in use"
+  },
+  "steps": {
+    "business": {
+      "title": "Business",
+      "description": "Country, site and the basic business identity.",
+      "action": "Review business details"
+    },
+    "selling": {
+      "title": "Selling",
+      "description": "A product catalog and a clear path to the register.",
+      "action": "Go to sales"
+    },
+    "fiscal": {
+      "title": "Fiscal",
+      "description": "Electronic invoicing only when the business uses it.",
+      "action": "Review fiscal settings"
+    },
+    "payments": {
+      "title": "Payments",
+      "description": "Cash is ready; connect other payment methods when needed.",
+      "action": "Review payment methods"
+    },
+    "devices": {
+      "title": "Devices",
+      "description": "Printers, scanners and terminals can be connected later.",
+      "action": "Connect devices"
+    }
+  },
+  "selected": {
+    "eyebrow": "Selected area",
+    "complete": "There is no required decision pending in this area.",
+    "optional": "This configuration is optional and does not prevent selling.",
+    "notApplicable": "The business does not use this configuration today.",
+    "warning": "The store can keep operating, but this area deserves review.",
+    "actionBlocker": "Complete this step",
+    "actionWarning": "Review now",
+    "actionOptional": "Configure if needed"
+  }
+}

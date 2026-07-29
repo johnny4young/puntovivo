@@ -34,7 +34,7 @@ test.describe('assistive-technology sweep', () => {
     const tracker = attachClientIssueTracker(page);
     await page.setViewportSize(MOBILE_VIEWPORT);
     await loginAs(page, 'admin', { spanish: true });
-    await page.goto('/company?tab=readiness');
+    await page.goto('/company');
 
     const opener = page.getByRole('button', { name: 'Abrir navegación' });
     await opener.click();

@@ -40,7 +40,7 @@ export function getDefaultRouteForRole(role: UserRole | undefined): string {
  * Post-login routing that takes setup readiness into
  * account. Cashiers always go straight to `/sales` regardless of
  * tenant state — their flow is POS-direct and the setup checklist is
- * an admin concern. Admin lands on `/company?tab=readiness` when
+ * an admin concern. Admin lands on the guided `/company` surface when
  * there are unresolved blockers AND the operator has never
  * acknowledged the setup. Everyone else lands on the legacy default
  * (`/dashboard`).
@@ -59,7 +59,7 @@ export function getDefaultRouteForRoleWithSetup(args: {
     return '/sales';
   }
   if (args.role === 'admin' && args.hasBlockers && args.acknowledgedAt === null) {
-    return '/company?tab=readiness';
+    return '/company';
   }
   return '/dashboard';
 }

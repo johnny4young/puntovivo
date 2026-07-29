@@ -30,10 +30,9 @@ export const COMPANY_TAB_TRANSLATION_KEYS = {
 } as const satisfies Record<CompanyTabKey, string>;
 
 /**
- * readiness is pinned; every other setup tab belongs to exactly one
- * labeled category while preserving the existing URL contract.  keeps
- * readiness as the admin landing;  keeps restaurant preferences
- * available to every admin tenant.
+ * Every legacy configuration destination belongs to one advanced group.
+ * The guided readiness route remains the admin landing while these stable
+ * tab ids preserve existing deep links from recovery and feature surfaces.
  */
 export const COMPANY_SETUP_TAB_GROUPS = [
   {

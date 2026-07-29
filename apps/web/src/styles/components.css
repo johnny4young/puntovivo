@@ -429,64 +429,6 @@
   }
 
   /* ==========================================================================
-   * 5b. SETUP GROUPED NAV ()
-   *
-   * `/company` Setup navigation. The readiness hub is the pinned landing
-   * (.setup-nav-readiness); the remaining configuration tabs are demoted
-   * into labeled category groups (.setup-nav-group) of pill items
-   * (.setup-nav-item). Active state is driven by [aria-current] (a
-   * navigation model, not a single tablist) — see CompanyPage.tsx. Items
-   * intentionally mirror .segmented-tab so the visual language matches.
-   * ======================================================================== */
-
-  .company-setup-nav {
-    @apply flex flex-col gap-4 rounded-[14px] border border-line/80 bg-surface-2/82 p-3;
-  }
-
-  .setup-nav-readiness {
-    @apply flex w-full items-center gap-2 rounded-[10px] border border-primary-200/60 bg-primary-50/55 px-4 py-3 text-left text-sm font-semibold text-secondary-900 transition-colors;
-  }
-
-  .setup-nav-readiness:hover {
-    @apply bg-primary-50;
-  }
-
-  .setup-nav-readiness-active {
-    color: var(--operator-commit-foreground);
-    border-color: transparent;
-    background: var(--operator-commit);
-    box-shadow:
-      inset 3px 0 0 var(--operator-signal),
-      inset 0 -2px 0 rgb(3 15 25 / 0.34);
-  }
-
-  .setup-nav-group {
-    @apply flex flex-col gap-2;
-  }
-
-  .setup-nav-group-label {
-    @apply px-1 text-[11px] font-semibold uppercase tracking-wide text-secondary-500;
-  }
-
-  .setup-nav-group-items {
-    @apply flex flex-wrap items-center gap-2;
-  }
-
-  .setup-nav-item {
-    @apply rounded-[9px] px-4 py-2.5 text-sm font-medium text-secondary-600 transition-colors;
-  }
-
-  .setup-nav-item:hover {
-    @apply bg-surface text-secondary-950;
-  }
-
-  .setup-nav-item-active {
-    color: var(--operator-commit-foreground);
-    background: var(--operator-commit);
-    box-shadow: inset 0 -2px 0 rgb(3 15 25 / 0.34);
-  }
-
-  /* ==========================================================================
    * 6. SETTINGS
    *
    * .setting-toggle-card        — Selectable card for settings like theme

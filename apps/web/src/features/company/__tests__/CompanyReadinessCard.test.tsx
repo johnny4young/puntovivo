@@ -1,35 +1,13 @@
-/**
- * CompanyReadinessCard tests.
- *
- * Pins the contract:
- * - Loading skeleton renders during isLoading.
- * - Error state renders + retry button visible when query errors.
- * - Each section status maps to the right icon + status-data attr.
- * - Score donut tone flips with thresholds (<50 danger, 50-79 warning, >=80 success).
- * - Acknowledge button shows whenever acknowledgedAt is null.
- *
- * @module features/company/__tests__/CompanyReadinessCard.test
- */
-import { fireEvent, render, screen } from '@/test/utils';
+import { act, fireEvent, render, screen } from '@/test/utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useLocation } from 'react-router';
 import i18next from '@/i18n';
-import { CompanyReadinessCard } from '../CompanyReadinessCard';
 import { assertNoA11yViolations } from '@/test/a11y';
+import { CompanyReadinessCard } from '../CompanyReadinessCard';
+import type { CompanyReadiness } from '../companyGuidedSetup';
 
-// explicit `| undefined` on optional fields.
 interface ReadinessQueryState {
-  data?:
-    | {
-        score: number;
-        blockerCount: number;
-        sections: Array<{
-          id: string;
-          status: string;
-          cta: { route: string; tab?: string | undefined } | null;
-        }>;
-        acknowledgedAt: string | null;
-      }
-    | undefined;
+  data?: CompanyReadiness | undefined;
   isLoading: boolean;
   error: { message: string } | null;
   refetch: () => Promise<void>;
@@ -46,6 +24,11 @@ const readinessQueryRef: { current: ReadinessQueryState } = {
 
 const acknowledgeMutate = vi.fn();
 const acknowledgeState = { isPending: false };
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location-probe">{`${location.pathname}${location.search}`}</output>;
+}
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({
@@ -68,10 +51,10 @@ vi.mock('@/lib/trpc', () => ({
     },
     companies: {
       acknowledgeSetup: {
-        useMutation: (opts: { onSuccess?: () => Promise<void> | void }) => ({
+        useMutation: (options: { onSuccess?: () => Promise<void> | void }) => ({
           mutate: () => {
             acknowledgeMutate();
-            void opts.onSuccess?.();
+            void options.onSuccess?.();
           },
           isPending: acknowledgeState.isPending,
         }),
@@ -80,7 +63,7 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
-function sampleSections() {
+function sampleSections(): CompanyReadiness['sections'] {
   return [
     { id: 'locale', status: 'ready', cta: { route: '/company', tab: 'locale' } },
     { id: 'sites', status: 'ready', cta: { route: '/sites' } },
@@ -88,7 +71,7 @@ function sampleSections() {
     {
       id: 'peripherals',
       status: 'optional-pending',
-      cta: { route: '/company', tab: 'device' },
+      cta: { route: '/peripherals' },
     },
     { id: 'payments', status: 'ready', cta: { route: '/company', tab: 'payments' } },
     { id: 'modules', status: 'ready', cta: { route: '/company', tab: 'modules' } },
@@ -100,7 +83,27 @@ function sampleSections() {
       status: 'optional-pending',
       cta: { route: '/sales' },
     },
+    { id: 'sync', status: 'ready', cta: { route: '/operations' } },
   ];
+}
+
+function setReadiness(
+  overrides: Partial<CompanyReadiness> = {}
+): CompanyReadiness {
+  const data: CompanyReadiness = {
+    score: 60,
+    blockerCount: 2,
+    sections: sampleSections(),
+    acknowledgedAt: null,
+    ...overrides,
+  };
+  readinessQueryRef.current = {
+    data,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(async () => undefined),
+  };
+  return data;
 }
 
 describe('CompanyReadinessCard', () => {
@@ -116,13 +119,11 @@ describe('CompanyReadinessCard', () => {
     };
   });
 
-  it('renders the loading state while the query is fetching', () => {
-    render(<CompanyReadinessCard />);
-    // The shared PageLoadingState renders the title text we pass.
+  it('renders loading and recoverable error states', () => {
+    const { unmount } = render(<CompanyReadinessCard />);
     expect(screen.getByText(/Setup readiness/i)).toBeInTheDocument();
-  });
+    unmount();
 
-  it('renders the error state when the query fails', () => {
     readinessQueryRef.current = {
       data: undefined,
       isLoading: false,
@@ -130,171 +131,107 @@ describe('CompanyReadinessCard', () => {
       refetch: vi.fn(async () => undefined),
     };
     render(<CompanyReadinessCard />);
-    // QueryErrorState renders a retry button.
     expect(screen.getByRole('button', { name: /retry|reintentar/i })).toBeInTheDocument();
   });
 
-  it('passes axe-core WCAG 2 AA on the happy-render path', async () => {
-    readinessQueryRef.current = {
-      data: {
-        score: 80,
-        blockerCount: 0,
-        sections: sampleSections().map(s =>
-          s.status === 'blocker' ? { ...s, status: 'ready' } : s
-        ),
-        acknowledgedAt: null,
-      },
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(async () => undefined),
-    };
-    const { container } = render(<CompanyReadinessCard />);
-    await assertNoA11yViolations(container);
-  });
-
-  it('renders all readiness sections with status-specific data attributes', () => {
-    readinessQueryRef.current = {
-      data: {
-        score: 60,
-        blockerCount: 2,
-        sections: sampleSections(),
-        acknowledgedAt: null,
-      },
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(async () => undefined),
-    };
+  it('shows five approachable areas and only the next required decision', () => {
+    setReadiness();
     render(<CompanyReadinessCard />);
-    expect(screen.getByTestId('company-readiness-section-locale')).toHaveAttribute(
-      'data-status',
-      'ready'
-    );
-    expect(screen.getByTestId('company-readiness-section-fiscal')).toHaveAttribute(
+
+    for (const step of ['business', 'selling', 'fiscal', 'payments', 'devices']) {
+      expect(screen.getByTestId(`company-guided-step-${step}`)).toBeInTheDocument();
+    }
+    expect(screen.getByTestId('company-guided-step-selling')).toHaveAttribute(
       'data-status',
       'blocker'
     );
-    expect(screen.getByTestId('company-readiness-section-ai')).toHaveAttribute(
+    expect(screen.getByTestId('company-guided-step-business')).toHaveAttribute(
       'data-status',
-      'not-applicable'
+      'ready'
     );
-    // Blocker count badge is visible.
-    expect(screen.getByTestId('company-readiness-blocker-count').textContent).toMatch(/2/);
-  });
-
-  it('flips the score donut tone by threshold', () => {
-    function readToneForScore(score: number): string | null {
-      readinessQueryRef.current = {
-        data: {
-          score,
-          blockerCount: score < 100 ? 1 : 0,
-          sections: sampleSections(),
-          acknowledgedAt: null,
-        },
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(async () => undefined),
-      };
-      const { unmount, container } = render(<CompanyReadinessCard />);
-      const tone =
-        container
-          .querySelector('[data-testid="company-readiness-score"]')
-          ?.getAttribute('data-tone') ?? null;
-      unmount();
-      return tone;
-    }
-
-    expect(readToneForScore(30)).toBe('danger');
-    expect(readToneForScore(60)).toBe('warning');
-    expect(readToneForScore(92)).toBe('success');
-  });
-
-  it('shows the acknowledge button while setup is unacknowledged, even with blockers', () => {
-    // Case 1: blockers > 0 + ackAt null → button visible + clickable.
-    readinessQueryRef.current = {
-      data: {
-        score: 50,
-        blockerCount: 2,
-        sections: sampleSections(),
-        acknowledgedAt: null,
-      },
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(async () => undefined),
-    };
-    const { unmount } = render(<CompanyReadinessCard />);
-    const blockerAckButton = screen.getByTestId('company-readiness-acknowledge');
-    expect(blockerAckButton).toBeInTheDocument();
-    fireEvent.click(blockerAckButton);
-    expect(acknowledgeMutate).toHaveBeenCalledTimes(1);
-    unmount();
-
-    // Case 2: blockers == 0 + ackAt null → button still visible + clickable.
-    acknowledgeMutate.mockClear();
-    readinessQueryRef.current = {
-      data: {
-        score: 100,
-        blockerCount: 0,
-        sections: sampleSections().map(s =>
-          s.status === 'blocker' ? { ...s, status: 'ready' } : s
-        ),
-        acknowledgedAt: null,
-      },
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(async () => undefined),
-    };
-    render(<CompanyReadinessCard />);
-    const ackButton = screen.getByTestId('company-readiness-acknowledge');
-    expect(ackButton).toBeInTheDocument();
-    fireEvent.click(ackButton);
-    expect(acknowledgeMutate).toHaveBeenCalledTimes(1);
-  });
-
-  it('renders warning sections in the attention group', () => {
-    readinessQueryRef.current = {
-      data: {
-        score: 70,
-        blockerCount: 0,
-        sections: [
-          { id: 'locale', status: 'ready', cta: { route: '/company', tab: 'locale' } },
-          { id: 'fiscal', status: 'warning', cta: { route: '/company', tab: 'fiscal' } },
-          { id: 'sync', status: 'warning', cta: { route: '/operations' } },
-          { id: 'catalog', status: 'ready', cta: { route: '/products' } },
-        ],
-        acknowledgedAt: null,
-      },
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(async () => undefined),
-    };
-    render(<CompanyReadinessCard />);
-    expect(screen.getByTestId('company-readiness-attention')).toBeInTheDocument();
-    expect(screen.getByTestId('company-readiness-section-sync')).toHaveAttribute(
-      'data-status',
-      'warning'
-    );
-    expect(screen.getByTestId('company-readiness-section-fiscal')).toHaveAttribute(
-      'data-status',
-      'warning'
-    );
-    // No blocker strip when nothing is a blocker.
-    expect(screen.queryByTestId('company-readiness-blockers')).not.toBeInTheDocument();
-  });
-
-  it('hides the acknowledge button once setup was acknowledged', () => {
-    readinessQueryRef.current = {
-      data: {
-        score: 50,
-        blockerCount: 2,
-        sections: sampleSections(),
-        acknowledgedAt: '2026-05-20T12:00:00.000Z',
-      },
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(async () => undefined),
-    };
-
-    render(<CompanyReadinessCard />);
+    expect(screen.getByTestId('company-readiness-cta-catalog')).toBeInTheDocument();
+    expect(screen.queryByTestId('company-readiness-cta-fiscal')).not.toBeInTheDocument();
     expect(screen.queryByTestId('company-readiness-acknowledge')).not.toBeInTheDocument();
+    expect(screen.queryByText('AI features')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sync')).not.toBeInTheDocument();
+  });
+
+  it('lets the operator inspect an optional area without exposing the full matrix', () => {
+    setReadiness({
+      blockerCount: 0,
+      sections: sampleSections().map(section =>
+        section.status === 'blocker' ? { ...section, status: 'ready' } : section
+      ),
+    });
+    render(<CompanyReadinessCard />);
+
+    fireEvent.click(screen.getByTestId('company-guided-step-devices'));
+
+    expect(screen.getByTestId('company-guided-detail-devices')).toBeInTheDocument();
+    expect(screen.getByText('Peripherals')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Configure if needed' })).toBeInTheDocument();
+  });
+
+  it('normalizes the legacy readiness tab before selecting a guided step', () => {
+    setReadiness({
+      blockerCount: 0,
+      sections: sampleSections().map(section =>
+        section.status === 'blocker' ? { ...section, status: 'ready' } : section
+      ),
+    });
+    render(
+      <>
+        <CompanyReadinessCard />
+        <LocationProbe />
+      </>,
+      { initialEntries: ['/company?tab=readiness'] }
+    );
+
+    fireEvent.click(screen.getByTestId('company-guided-step-devices'));
+
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/company?step=devices');
+  });
+
+  it('acknowledges setup only after required blockers are resolved', async () => {
+    setReadiness({
+      blockerCount: 0,
+      score: 90,
+      sections: sampleSections().map(section =>
+        section.status === 'blocker' ? { ...section, status: 'ready' } : section
+      ),
+    });
+    render(<CompanyReadinessCard />);
+
+    expect(screen.getByTestId('company-readiness-ready')).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('company-readiness-acknowledge'));
+    });
+    expect(acknowledgeMutate).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the sales continuation available after setup was acknowledged', () => {
+    setReadiness({
+      blockerCount: 0,
+      acknowledgedAt: '2026-07-28T12:00:00.000Z',
+      sections: sampleSections().map(section =>
+        section.status === 'blocker' ? { ...section, status: 'ready' } : section
+      ),
+    });
+    render(<CompanyReadinessCard />);
+
+    expect(screen.queryByTestId('company-readiness-acknowledge')).not.toBeInTheDocument();
+    expect(screen.getByTestId('company-readiness-continue')).toBeInTheDocument();
+  });
+
+  it('passes axe-core WCAG 2 AA on the guided happy path', async () => {
+    setReadiness({
+      blockerCount: 0,
+      score: 90,
+      sections: sampleSections().map(section =>
+        section.status === 'blocker' ? { ...section, status: 'ready' } : section
+      ),
+    });
+    const { container } = render(<CompanyReadinessCard />);
+    await assertNoA11yViolations(container);
   });
 });

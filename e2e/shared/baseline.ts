@@ -628,11 +628,24 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   ).run(tenantId, tenantId);
   db.prepare(`delete from customers where tenant_id = ? and name like 'E2E %'`).run(tenantId);
 
-  // Disposable products + providers.
+  // Disposable products + providers. The Spanish import journey deliberately
+  // uses localized fixture copy, so match both naming conventions. Leaving
+  // those rows behind eventually pushes a freshly seeded purchase provider
+  // past the first page returned to the checkout selector on repeated suites.
   db.prepare(`delete from products where id in (${e2eProductIds})`).run(tenantId);
-  db.prepare(`delete from providers where tenant_id = ? and name like 'E2E Provider %'`).run(
-    tenantId
-  );
+  const e2eProviderIds = `select id
+    from providers
+    where tenant_id = ?
+      and (name like 'E2E Provider %' or name like 'Proveedor E2E %')`;
+  db.prepare(
+    `delete from sync_outbox
+     where tenant_id = ? and entity_type = 'providers' and entity_id in (${e2eProviderIds})`
+  ).run(tenantId, tenantId);
+  db.prepare(
+    `delete from audit_logs
+     where tenant_id = ? and resource_type = 'provider' and resource_id in (${e2eProviderIds})`
+  ).run(tenantId, tenantId);
+  db.prepare(`delete from providers where id in (${e2eProviderIds})`).run(tenantId);
 
   // Finally the disposable user accounts (template users are kept).
   db.prepare(
@@ -643,7 +656,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
 
 /**
  * added a post-login redirect that sends admin users to
- * `/company?tab=readiness` when `tenants.settings.setupAcknowledgedAt`
+ * guided `/company` setup when `tenants.settings.setupAcknowledgedAt`
  * is null and the readiness aggregate reports blockers. E2E tests
  * expect the admin to land on `/dashboard` (and every other test that
  * navigates after login assumes the redirect is not active), so the

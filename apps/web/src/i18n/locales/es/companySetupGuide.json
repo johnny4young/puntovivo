@@ -1,0 +1,63 @@
+{
+  "kicker": "Configuración guiada",
+  "title": "Prepara el negocio sin perderte",
+  "description": "Cinco áreas claras reúnen lo que necesita la tienda. Mostramos una sola decisión obligatoria a la vez; lo opcional puede esperar.",
+  "progress": "{{ready}} de 5 áreas listas",
+  "next": {
+    "eyebrow": "Siguiente decisión obligatoria",
+    "title": "Completa {{section}}",
+    "description": "Esta es la única decisión de configuración que bloquea la tienda en este momento.",
+    "action": "Resolver ahora"
+  },
+  "ready": {
+    "eyebrow": "Base operativa lista",
+    "title": "Ya puedes empezar a vender",
+    "description": "La configuración obligatoria está completa. La facturación electrónica, los pagos electrónicos y los dispositivos siguen disponibles cuando el negocio los necesite.",
+    "action": "Continuar a ventas",
+    "saving": "Abriendo la tienda…"
+  },
+  "status": {
+    "ready": "Listo",
+    "blocker": "Obligatorio",
+    "warning": "Revisar",
+    "optional": "Opcional",
+    "not-applicable": "Sin uso"
+  },
+  "steps": {
+    "business": {
+      "title": "Negocio",
+      "description": "País, sede e identidad básica del negocio.",
+      "action": "Revisar datos del negocio"
+    },
+    "selling": {
+      "title": "Ventas",
+      "description": "Un catálogo de productos y una ruta clara hacia la caja.",
+      "action": "Ir a ventas"
+    },
+    "fiscal": {
+      "title": "Fiscal",
+      "description": "Facturación electrónica solo cuando el negocio la usa.",
+      "action": "Revisar configuración fiscal"
+    },
+    "payments": {
+      "title": "Pagos",
+      "description": "El efectivo está listo; conecta otros medios cuando los necesites.",
+      "action": "Revisar medios de pago"
+    },
+    "devices": {
+      "title": "Dispositivos",
+      "description": "Puedes conectar impresoras, scanners y terminales después.",
+      "action": "Conectar dispositivos"
+    }
+  },
+  "selected": {
+    "eyebrow": "Área seleccionada",
+    "complete": "No hay decisiones obligatorias pendientes en esta área.",
+    "optional": "Esta configuración es opcional y no impide vender.",
+    "notApplicable": "El negocio no usa esta configuración hoy.",
+    "warning": "La tienda puede seguir operando, pero conviene revisar esta área.",
+    "actionBlocker": "Completar este paso",
+    "actionWarning": "Revisar ahora",
+    "actionOptional": "Configurar si lo necesitas"
+  }
+}

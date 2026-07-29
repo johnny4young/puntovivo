@@ -3,7 +3,7 @@
  *
  * Compact card rendered above a table when the underlying query
  * returns zero rows. Surfaces the next-step CTA pointing at the
- * `/company?tab=readiness` checklist so a fresh tenant always has a
+ * guided `/company` checklist so a fresh tenant always has a
  * way back to the guided setup.
  *
  * Hidden by default for non-admin roles because the CTA deep-links
@@ -51,8 +51,8 @@ export function EmptyStateReadinessNudge({ scope }: EmptyStateReadinessNudgeProp
       <a
         href={
           window.location.protocol === 'http:' || window.location.protocol === 'https:'
-            ? '/company?tab=readiness'
-            : '#/company?tab=readiness'
+            ? '/company'
+            : '#/company'
         }
         className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary-700 hover:text-primary-900 hover:underline"
         data-testid={`empty-state-readiness-${scope}-cta`}

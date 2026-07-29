@@ -105,7 +105,7 @@ export function GlobalStatusStrip() {
   const readinessDismissed = readReadinessDismissed();
 
   // carryover — solo admins corren la consulta de readiness; el
-  // CTA apunta a /company?tab=readiness (solo admin). Fuera de /company.
+  // CTA apunta al setup guiado de /company (solo admin). Fuera de /company.
   const isSetupAdmin = user?.role === 'admin';
   const onCompanyRoute = location.pathname.startsWith('/company');
   const readinessQuery = trpc.setupReadiness.get.useQuery(undefined, {
@@ -207,7 +207,7 @@ export function GlobalStatusStrip() {
         icon: AlertCircle,
         title: tSetup('banner.title', { count: readiness.blockerCount }),
         detail: tSetup('banner.detail', { count: readiness.blockerCount }),
-        action: { kind: 'link', to: '/company?tab=readiness', label: tSetup('banner.cta') },
+        action: { kind: 'link', to: '/company', label: tSetup('banner.cta') },
         onDismiss: handleReadinessDismiss,
         dismissLabel: tSetup('banner.dismiss'),
       });

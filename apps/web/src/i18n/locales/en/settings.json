@@ -239,6 +239,12 @@
       "themeSettings": "Theme Settings",
       "traySettings": "Tray Settings"
     },
+    "setupNavigation": {
+      "guideTitle": "Guided setup",
+      "guideDescription": "Five clear areas and one required decision at a time.",
+      "advancedTitle": "Advanced settings",
+      "advancedDescription": "Policies, optional modules and workstation tools."
+    },
     "tabs": {
       "ariaLabel": "Company configuration sections",
       "readiness": "Setup",

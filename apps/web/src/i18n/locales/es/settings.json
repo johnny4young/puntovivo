@@ -239,6 +239,12 @@
       "themeSettings": "Configuración de tema",
       "traySettings": "Configuración de bandeja"
     },
+    "setupNavigation": {
+      "guideTitle": "Configuración guiada",
+      "guideDescription": "Cinco áreas claras y una decisión obligatoria a la vez.",
+      "advancedTitle": "Configuración avanzada",
+      "advancedDescription": "Políticas, módulos opcionales y herramientas del puesto."
+    },
     "tabs": {
       "ariaLabel": "Secciones de configuración de empresa",
       "readiness": "Configuración inicial",

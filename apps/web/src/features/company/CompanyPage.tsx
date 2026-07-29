@@ -67,6 +67,10 @@ export function CompanyPage(): React.ReactElement {
 
   const handleTabChange = (nextTab: CompanyTabKey): void => {
     const nextParams = new URLSearchParams(searchParams);
+    // Guided-step state belongs only to the readiness surface. Drop it when
+    // the operator enters or leaves Advanced settings so deep links remain
+    // canonical (`?tab=locale`, not `?step=devices&tab=locale`).
+    nextParams.delete('step');
     if (nextTab === defaultTab) {
       nextParams.delete('tab');
     } else {
@@ -114,8 +118,8 @@ export function CompanyPage(): React.ReactElement {
 
           {canEdit && (
             <>
-              {/* grouped Setup nav keeps readiness pinned and
-                  preserves the existing ?tab= URL contract. */}
+              {/* The guided path stays dominant; legacy deep links remain
+                  reachable through the explicit advanced disclosure. */}
               <CompanySetupNavigation activeTab={activeTab} onTabChange={handleTabChange} />
               <CompanySettingsPanels
                 activeTab={activeTab}

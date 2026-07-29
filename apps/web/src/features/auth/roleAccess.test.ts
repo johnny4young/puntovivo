@@ -68,14 +68,14 @@ describe('getDefaultRouteForRole', () => {
 });
 
 describe('getDefaultRouteForRoleWithSetup', () => {
-  it('routes unacknowledged admins with blockers to the readiness tab', () => {
+  it('routes unacknowledged admins with blockers to guided company setup', () => {
     expect(
       getDefaultRouteForRoleWithSetup({
         role: 'admin',
         hasBlockers: true,
         acknowledgedAt: null,
       })
-    ).toBe('/company?tab=readiness');
+    ).toBe('/company');
   });
 
   it('keeps managers on dashboard because /company is admin-only', () => {

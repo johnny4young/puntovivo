@@ -369,6 +369,15 @@ for (const port of config.ports) {
 
 if (mode === 'stop') {
   await killStrayLaunchers();
+  // A file watcher can be between child exit and restart when the first port
+  // sweep runs. Give every wrapper/process group a chance to settle, then
+  // clear any replacement listener before reporting success. Without this
+  // second pass, Playwright can reuse a restarted shared-DB server on 8090
+  // while preparing its isolated local.db fixtures.
+  await delay(700);
+  for (const port of config.ports) {
+    await freePort(port);
+  }
   log('Stopped known dev ports');
   process.exit(0);
 }
