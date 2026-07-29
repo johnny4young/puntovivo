@@ -8,6 +8,11 @@
     "price": "Set the price",
     "ready": "Start selling"
   },
+  "essential": {
+    "eyebrow": "What you need to sell",
+    "title": "Essential information",
+    "description": "Complete the name, code, price, and tax. You can adjust everything else later."
+  },
   "fields": {
     "name": "Product name",
     "nameHelp": "Use the name your team recognizes at the register.",

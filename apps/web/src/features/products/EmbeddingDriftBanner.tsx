@@ -14,6 +14,7 @@
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
+import { PrimaryTaskButton, PrioritizedBanner } from '@/components/experience';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -79,36 +80,26 @@ export function EmbeddingDriftBanner({ data }: EmbeddingDriftBannerProps) {
   return (
     <div role="status" aria-live="polite" aria-atomic="true">
       {shouldShow && (
-        <div
-          className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3"
-          data-testid="embedding-drift-banner"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <AlertTriangle
-                className="mt-0.5 h-5 w-5 flex-shrink-0 text-warning-600"
-                aria-hidden="true"
-              />
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-warning-800">
-                  {t('embeddingDrift.title')}
-                </p>
-                <p className="text-sm text-warning-700">{t('embeddingDrift.description')}</p>
-                <p className="text-xs text-warning-600">
-                  {t('embeddingDrift.sampleModelsHint', {
-                    count: data.staleCount,
-                    models: modelsLabel,
-                  })}
-                </p>
-              </div>
-            </div>
-            {canRegenerate && (
-              <button
+        <PrioritizedBanner
+          icon={AlertTriangle}
+          eyebrow={t('embeddingDrift.eyebrow')}
+          title={t('embeddingDrift.title')}
+          description={t('embeddingDrift.description')}
+          tone="warning"
+          testId="embedding-drift-banner"
+          meta={
+            <span className="inline-flex min-h-9 items-center rounded-full border border-warning-200 bg-warning-50 px-3 text-xs font-semibold text-warning-800">
+              {t('embeddingDrift.count', { count: data.staleCount })}
+            </span>
+          }
+          action={
+            canRegenerate ? (
+              <PrimaryTaskButton
                 type="button"
                 onClick={() => regenerateMutation.mutate()}
                 disabled={regenerateMutation.isPending}
                 aria-busy={regenerateMutation.isPending}
-                className="btn-primary flex items-center gap-2 self-start sm:self-center"
+                className="w-full sm:w-auto"
                 data-testid="embedding-drift-regenerate"
               >
                 <RefreshCw
@@ -118,10 +109,25 @@ export function EmbeddingDriftBanner({ data }: EmbeddingDriftBannerProps) {
                 {regenerateMutation.isPending
                   ? t('embeddingDrift.regenerating')
                   : t('embeddingDrift.regenerateCta')}
-              </button>
-            )}
-          </div>
-        </div>
+              </PrimaryTaskButton>
+            ) : undefined
+          }
+          details={
+            canRegenerate ? (
+              <details className="text-xs text-secondary-600">
+                <summary className="w-fit cursor-pointer font-semibold text-secondary-800">
+                  {t('embeddingDrift.technicalDetails')}
+                </summary>
+                <p className="mt-1.5">
+                  {t('embeddingDrift.sampleModelsHint', {
+                    count: data.staleCount,
+                    models: modelsLabel,
+                  })}
+                </p>
+              </details>
+            ) : undefined
+          }
+        />
       )}
     </div>
   );

@@ -67,10 +67,14 @@
     "regenerateError": "Could not regenerate embeddings"
   },
   "embeddingDrift": {
-    "title": "Embeddings out of date",
-    "description": "After switching AI providers some products still carry vectors from the previous embedding model, so semantic search will skip them silently. Regenerate to bring them back into results.",
-    "regenerateCta": "Regenerate embeddings",
-    "regenerating": "Regenerating...",
+    "eyebrow": "Catalog maintenance",
+    "title": "Update smart search",
+    "description": "Some products still use the previous configuration and may not appear in meaning-based searches. Update them to include them again.",
+    "count_one": "{{count}} product needs an update",
+    "count_other": "{{count}} products need an update",
+    "regenerateCta": "Update products",
+    "regenerating": "Updating...",
+    "technicalDetails": "View technical detail",
     "sampleModelsHint_one": "{{count}} product on the {{models}} model",
     "sampleModelsHint_other": "{{count}} products on the {{models}} model"
   },

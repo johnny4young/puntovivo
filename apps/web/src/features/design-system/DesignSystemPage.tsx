@@ -45,7 +45,9 @@ import {
   GuidedEmptyStateCard,
   NextActionCard,
   PrimaryTaskButton,
+  PrioritizedBanner,
   ProgressiveTaskNavigation,
+  QuickFormSection,
   SetupStepButton,
 } from '@/components/experience';
 import { Badge, Button, KpiTile, StatusStrip } from '@/components/ui';
@@ -400,6 +402,64 @@ export function DesignSystemPage() {
               }
             />
           </div>
+        </div>
+        <div className="mt-5 grid gap-5 xl:grid-cols-2">
+          <PrioritizedBanner
+            icon={AlertTriangle}
+            eyebrow={t('tasks.priority.eyebrow')}
+            title={t('tasks.priority.title')}
+            description={t('tasks.priority.copy')}
+            tone="warning"
+            meta={
+              <Badge variant="warning" marker="dot">
+                {t('tasks.priority.meta')}
+              </Badge>
+            }
+            action={
+              <PrimaryTaskButton className="w-full sm:w-auto">
+                {t('tasks.priority.action')}
+                <ArrowRight aria-hidden="true" />
+              </PrimaryTaskButton>
+            }
+          />
+          <QuickFormSection
+            icon={PackagePlus}
+            eyebrow={t('tasks.quickForm.eyebrow')}
+            title={t('tasks.quickForm.title')}
+            description={t('tasks.quickForm.copy')}
+            headingLevel={3}
+            testId="design-system-quick-form"
+            contentClassName="sm:grid-cols-2"
+            footer={
+              <div className="flex justify-end">
+                <PrimaryTaskButton>
+                  {t('tasks.quickForm.action')}
+                  <ArrowRight aria-hidden="true" />
+                </PrimaryTaskButton>
+              </div>
+            }
+          >
+            <div>
+              <label htmlFor="design-system-quick-name" className="label mb-2">
+                {t('tasks.quickForm.nameLabel')}
+              </label>
+              <input
+                id="design-system-quick-name"
+                className="input"
+                placeholder={t('tasks.quickForm.namePlaceholder')}
+              />
+            </div>
+            <div>
+              <label htmlFor="design-system-quick-code" className="label mb-2">
+                {t('tasks.quickForm.codeLabel')}
+              </label>
+              <input
+                id="design-system-quick-code"
+                className="input font-mono"
+                placeholder={t('tasks.quickForm.codePlaceholder')}
+              />
+            </div>
+          </QuickFormSection>
         </div>
       </section>
 

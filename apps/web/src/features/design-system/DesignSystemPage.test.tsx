@@ -26,10 +26,14 @@ describe('DesignSystemPage', () => {
     expect(screen.getByText('Controles con peso operativo')).toBeInTheDocument();
     expect(screen.getByText('Caja 04')).toBeInTheDocument();
     expect(screen.getByText('Caja sincronizada.')).toBeInTheDocument();
-    expect(screen.getByText('Base 12')).toBeInTheDocument();
+    expect(screen.getByText('Base 13')).toBeInTheDocument();
     expect(screen.getByText('Primero la tarea, luego la complejidad')).toBeInTheDocument();
     expect(screen.getByText('Confirma los datos del negocio')).toBeInTheDocument();
     expect(screen.getByText('Aún no hay productos')).toBeInTheDocument();
+    expect(screen.getByText('Revisa el medio de pago')).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Crea lo esencial primero' })
+    ).toBeInTheDocument();
     expect(screen.getByText('Una gramática, en toda la operación')).toBeInTheDocument();
     expect(screen.getAllByText('Adoptado')).toHaveLength(3);
     expect(screen.getByText('La coherencia ahora es verificable.')).toBeInTheDocument();

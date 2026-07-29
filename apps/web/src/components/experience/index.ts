@@ -16,11 +16,21 @@ export {
   type PrimaryTaskButtonProps,
 } from './PrimaryTaskButton';
 export {
+  PrioritizedBanner,
+  type PrioritizedBannerDensity,
+  type PrioritizedBannerProps,
+  type PrioritizedBannerTone,
+} from './PrioritizedBanner';
+export {
   ProgressiveTaskNavigation,
   type ProgressiveTaskGroup,
   type ProgressiveTaskItem,
   type ProgressiveTaskNavigationProps,
 } from './ProgressiveTaskNavigation';
+export {
+  QuickFormSection,
+  type QuickFormSectionProps,
+} from './QuickFormSection';
 export {
   SetupStepButton,
   type SetupStepButtonProps,

@@ -1,7 +1,7 @@
 {
   "hero": {
     "eyebrow": "Sistema visual operativo",
-    "version": "Base 12",
+    "version": "Base 13",
     "title": "Operator Deck, en una sola superficie.",
     "description": "Una biblioteca viva para comprobar que cada decisión, señal y estado del producto conserve la misma jerarquía antes de llegar a caja.",
     "primaryAction": "Probar modal",
@@ -52,6 +52,23 @@
     "empty": {
       "title": "Aún no hay productos",
       "copy": "Completa la información básica y crea el primer producto desde un único punto de inicio.",
+      "action": "Crear producto"
+    },
+    "priority": {
+      "eyebrow": "Prioridad del momento",
+      "title": "Revisa el medio de pago",
+      "copy": "Una venta necesita confirmar cómo fue pagada antes de cerrar el día.",
+      "meta": "1 pendiente",
+      "action": "Resolver ahora"
+    },
+    "quickForm": {
+      "eyebrow": "Formulario breve",
+      "title": "Crea lo esencial primero",
+      "copy": "Pide solo los datos necesarios para continuar y deja la configuración especializada para después.",
+      "nameLabel": "Nombre del producto",
+      "namePlaceholder": "Por ejemplo, Pan integral",
+      "codeLabel": "Código",
+      "codePlaceholder": "Escanea o escribe",
       "action": "Crear producto"
     }
   },

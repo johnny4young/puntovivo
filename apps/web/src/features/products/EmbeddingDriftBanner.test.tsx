@@ -118,8 +118,10 @@ describe('EmbeddingDriftBanner', () => {
     expect(screen.getByTestId('embedding-drift-banner')).toBeInTheDocument();
     const button = screen.getByTestId('embedding-drift-regenerate');
     expect(button).toBeEnabled();
-    // The sample id surfaces inline so the operator knows what
-    // model the stale rows currently carry.
+    expect(screen.getByText('3 products need an update')).toBeInTheDocument();
+    expect(screen.getByText('View technical detail')).toBeInTheDocument();
+    // The sample id remains available to administrators behind the
+    // explicit technical disclosure.
     expect(screen.getByText(/nomic-embed-text/)).toBeInTheDocument();
 
     fireEvent.click(button);
@@ -139,5 +141,7 @@ describe('EmbeddingDriftBanner', () => {
 
     expect(screen.getByTestId('embedding-drift-banner')).toBeInTheDocument();
     expect(screen.queryByTestId('embedding-drift-regenerate')).not.toBeInTheDocument();
+    expect(screen.queryByText('View technical detail')).not.toBeInTheDocument();
+    expect(screen.queryByText(/nomic-embed-text/)).not.toBeInTheDocument();
   });
 });

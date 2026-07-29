@@ -20,10 +20,14 @@
     "regenerateError": "No se pudieron regenerar los embeddings"
   },
   "embeddingDrift": {
-    "title": "Embeddings desactualizados",
-    "description": "Después de cambiar de proveedor de IA, algunos productos siguen con vectores del modelo anterior, así que la búsqueda semántica los salta sin avisar. Regenera para que vuelvan a aparecer.",
-    "regenerateCta": "Regenerar embeddings",
-    "regenerating": "Regenerando...",
+    "eyebrow": "Mantenimiento del catálogo",
+    "title": "Actualiza la búsqueda inteligente",
+    "description": "Algunos productos todavía usan la configuración anterior y pueden no aparecer en búsquedas por significado. Actualízalos para incluirlos de nuevo.",
+    "count_one": "{{count}} producto necesita actualización",
+    "count_other": "{{count}} productos necesitan actualización",
+    "regenerateCta": "Actualizar productos",
+    "regenerating": "Actualizando...",
+    "technicalDetails": "Ver detalle técnico",
     "sampleModelsHint_one": "{{count}} producto con el modelo {{models}}",
     "sampleModelsHint_other": "{{count}} productos con el modelo {{models}}"
   },

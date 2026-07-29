@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { ArrowRight, Building2, Check, Compass, Settings2, Sparkles } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  Building2,
+  Check,
+  Compass,
+  PackagePlus,
+  Settings2,
+  Sparkles,
+} from 'lucide-react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -11,7 +20,9 @@ import {
   GuidedEmptyStateCard,
   NextActionCard,
   PrimaryTaskButton,
+  PrioritizedBanner,
   ProgressiveTaskNavigation,
+  QuickFormSection,
   SetupStepButton,
 } from '..';
 
@@ -141,6 +152,50 @@ describe('task-oriented experience primitives', () => {
     expect(screen.getByText('Needs review')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open setup' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open details' })).toBeInTheDocument();
+    await assertNoA11yViolations(container);
+  });
+
+  it('keeps the highest-priority message, operational facts, and recovery together', async () => {
+    const user = userEvent.setup();
+    const onRecover = vi.fn();
+    const { container } = render(
+      <PrioritizedBanner
+        icon={AlertTriangle}
+        eyebrow="Action required"
+        title="Review the current sale"
+        description="One product needs a stock decision before payment."
+        tone="critical"
+        density="compact"
+        meta={<span>3 items · $42.00</span>}
+        action={<PrimaryTaskButton onClick={onRecover}>Review stock</PrimaryTaskButton>}
+      />
+    );
+
+    expect(screen.getByText('Action required')).toBeInTheDocument();
+    expect(screen.getByText('3 items · $42.00')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Review stock' }));
+    expect(onRecover).toHaveBeenCalledOnce();
+    await assertNoA11yViolations(container);
+  });
+
+  it('labels a quick form section and keeps its minimum fields in one region', async () => {
+    const { container } = render(
+      <QuickFormSection
+        icon={PackagePlus}
+        eyebrow="Essential information"
+        title="Create a sellable product"
+        description="Enter only the information needed to add it to the sale."
+        headingLevel={4}
+      >
+        <label htmlFor="quick-name">Product name</label>
+        <input id="quick-name" />
+      </QuickFormSection>
+    );
+
+    expect(
+      screen.getByRole('region', { name: 'Create a sellable product' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Product name' })).toBeInTheDocument();
     await assertNoA11yViolations(container);
   });
 });

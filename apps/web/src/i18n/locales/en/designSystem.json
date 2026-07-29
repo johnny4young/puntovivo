@@ -1,7 +1,7 @@
 {
   "hero": {
     "eyebrow": "Operational visual system",
-    "version": "Base 12",
+    "version": "Base 13",
     "title": "Operator Deck, on a single surface.",
     "description": "A living library that verifies every decision, signal, and product state keeps the same hierarchy before reaching the register.",
     "primaryAction": "Test modal",
@@ -52,6 +52,23 @@
     "empty": {
       "title": "No products yet",
       "copy": "Complete the basic information and create the first product from a single starting point.",
+      "action": "Create product"
+    },
+    "priority": {
+      "eyebrow": "Current priority",
+      "title": "Review the payment method",
+      "copy": "One sale needs its payment method confirmed before the day can close.",
+      "meta": "1 pending",
+      "action": "Resolve now"
+    },
+    "quickForm": {
+      "eyebrow": "Short form",
+      "title": "Create the essentials first",
+      "copy": "Ask only for the information needed to continue and leave specialized settings for later.",
+      "nameLabel": "Product name",
+      "namePlaceholder": "For example, Whole grain bread",
+      "codeLabel": "Code",
+      "codePlaceholder": "Scan or type",
       "action": "Create product"
     }
   },

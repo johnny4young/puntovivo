@@ -10,7 +10,7 @@ import {
   Settings2,
   Sparkles,
 } from 'lucide-react';
-import { ExpertDetailPanel } from '@/components/experience';
+import { ExpertDetailPanel, QuickFormSection } from '@/components/experience';
 import { Button } from '@/components/ui';
 import { SimpleFormField } from '@/components/form-controls/FormField';
 import { cn } from '@/lib/utils';
@@ -107,7 +107,14 @@ export function ProductQuickCreatePanel({
         </div>
       </div>
 
-      <div className="grid gap-4 rounded-[1.35rem] border border-line bg-card p-4 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.55)]">
+      <QuickFormSection
+        icon={Barcode}
+        eyebrow={t('essential.eyebrow')}
+        title={t('essential.title')}
+        description={t('essential.description')}
+        headingLevel={4}
+        testId="product-quick-essential-fields"
+      >
         <SimpleFormField
           label={t('fields.name')}
           htmlFor="product-name"
@@ -231,7 +238,7 @@ export function ProductQuickCreatePanel({
             </select>
           </SimpleFormField>
         </div>
-      </div>
+      </QuickFormSection>
 
       <div className="overflow-hidden rounded-[1.25rem] border border-line bg-surface-2/55">
         <button

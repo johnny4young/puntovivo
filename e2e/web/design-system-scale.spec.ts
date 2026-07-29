@@ -80,7 +80,7 @@ test.describe('Operator Deck data scale', () => {
 
     await expectNoClientIssues(tracker);
   });
-  test('presents the Base 12 journey and operational contracts in compact ES and desktop EN', async ({
+  test('presents the Base 13 journey and operational contracts in compact ES and desktop EN', async ({
     page,
   }) => {
     const tracker = attachClientIssueTracker(page);
@@ -89,9 +89,13 @@ test.describe('Operator Deck data scale', () => {
     await ensureLanguage(page, 'es');
     await page.goto('/design-system');
 
-    await expect(page.getByText('Base 12')).toBeVisible();
+    await expect(page.getByText('Base 13')).toBeVisible();
+    const tasks = page.getByTestId('design-system-task-primitives');
     const journeys = page.getByTestId('design-system-journey-section');
     const operational = page.getByTestId('design-system-operational-section');
+    await tasks.scrollIntoViewIfNeeded();
+    await expect(tasks.getByText('Revisa el medio de pago')).toBeVisible();
+    await expect(tasks.getByRole('region', { name: 'Crea lo esencial primero' })).toBeVisible();
     await journeys.scrollIntoViewIfNeeded();
     await expect(journeys.getByText('Jornadas críticas, una sola promesa')).toBeVisible();
     await expect(journeys.getByText('Cambio seguro de operador')).toBeVisible();
@@ -107,22 +111,36 @@ test.describe('Operator Deck data scale', () => {
       await mkdir(auditDir, { recursive: true });
       await journeys.screenshot({
         animations: 'disabled',
-        path: `${auditDir}/operator-deck-base11-journeys-es-compact.png`,
+        path: `${auditDir}/operator-deck-base13-journeys-es-compact.png`,
       });
       await operational.screenshot({
         animations: 'disabled',
-        path: `${auditDir}/operator-deck-base11-operational-es-compact.png`,
+        path: `${auditDir}/operator-deck-base13-operational-es-compact.png`,
       });
     }
 
     await page.setViewportSize({ width: 1440, height: 1000 });
     await ensureLanguage(page, 'en');
+    await tasks.scrollIntoViewIfNeeded();
+    const priorityTitle = tasks.getByText('Review the payment method');
+    await expect(priorityTitle).toBeVisible();
+    const priorityTitleBox = await priorityTitle.boundingBox();
+    expect(priorityTitleBox).not.toBeNull();
+    expect(priorityTitleBox?.width ?? 0).toBeGreaterThan(180);
+    expect(priorityTitleBox?.height ?? Number.POSITIVE_INFINITY).toBeLessThan(70);
+    if (auditDir) {
+      await tasks.screenshot({
+        animations: 'disabled',
+        path: `${auditDir}/operator-deck-base13-tasks-en-desktop.png`,
+      });
+    }
+
     await journeys.scrollIntoViewIfNeeded();
     await expect(journeys.getByText('Critical journeys, one operating promise')).toBeVisible();
     if (auditDir) {
       await journeys.screenshot({
         animations: 'disabled',
-        path: `${auditDir}/operator-deck-base11-journeys-en-desktop.png`,
+        path: `${auditDir}/operator-deck-base13-journeys-en-desktop.png`,
       });
     }
 
@@ -131,7 +149,7 @@ test.describe('Operator Deck data scale', () => {
     if (auditDir) {
       await operational.screenshot({
         animations: 'disabled',
-        path: `${auditDir}/operator-deck-base11-operational-en-desktop.png`,
+        path: `${auditDir}/operator-deck-base13-operational-en-desktop.png`,
       });
     }
 

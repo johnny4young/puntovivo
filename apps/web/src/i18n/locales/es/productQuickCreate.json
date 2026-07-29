@@ -8,6 +8,11 @@
     "price": "Define el precio",
     "ready": "Empieza a vender"
   },
+  "essential": {
+    "eyebrow": "Lo necesario para vender",
+    "title": "Información esencial",
+    "description": "Completa el nombre, el código, el precio y el impuesto. Puedes ajustar el resto después."
+  },
   "fields": {
     "name": "Nombre del producto",
     "nameHelp": "Usa el nombre que tu equipo reconoce en caja.",

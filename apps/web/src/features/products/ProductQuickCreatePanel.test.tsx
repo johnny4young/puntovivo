@@ -77,6 +77,9 @@ describe('ProductFormModal quick experience', () => {
     renderQuickModal();
     await waitForQuickPanel();
 
+    expect(
+      screen.getByRole('region', { name: 'Essential information' })
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Product name'), {
       target: { value: 'Whole grain bread' },
     });
