@@ -140,6 +140,29 @@ export const managerApprovalsRouter = router({
   availableApprovers: cashierManagerOrAdminProcedure
     .input(availableManagerApproversInput)
     .query(async ({ ctx, input }) => {
+      const request = input.requestId
+        ? await ctx.db
+            .select({
+              requesterId: managerApprovalRequests.requesterId,
+              action: managerApprovalRequests.action,
+              approvalEvidence: managerApprovalRequests.approvalEvidence,
+            })
+            .from(managerApprovalRequests)
+            .where(
+              and(
+                eq(managerApprovalRequests.id, input.requestId),
+                eq(managerApprovalRequests.tenantId, ctx.tenantId),
+                eq(managerApprovalRequests.requesterId, ctx.user!.id)
+              )
+            )
+            .get()
+        : null;
+      if (input.requestId && (!request || request.action !== input.action)) {
+        throwApprovalNotFound();
+      }
+      const previousApproverIds = new Set(
+        request?.approvalEvidence.map(evidence => evidence.approverId) ?? []
+      );
       const allowedRoles =
         requiredApproverLabel(input.action) === 'admin'
           ? (['admin'] as const)
@@ -163,10 +186,12 @@ export const managerApprovalsRouter = router({
         .orderBy(users.name)
         .all();
 
-      return rows.map(({ staffPinHash, ...approver }) => ({
-        ...approver,
-        hasPin: staffPinHash !== null,
-      }));
+      return rows
+        .filter(approver => !previousApproverIds.has(approver.id))
+        .map(({ staffPinHash, ...approver }) => ({
+          ...approver,
+          hasPin: staffPinHash !== null,
+        }));
     }),
 
   mine: cashierManagerOrAdminProcedure

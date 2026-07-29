@@ -657,6 +657,17 @@
     "reasonPlaceholder": "Explica por qué se necesita aprobación",
     "decisionReason": "Nota de la decisión: {{reason}}",
     "progress": "{{collected}} de {{required}} aprobaciones de personas diferentes recibidas",
+    "inline": {
+      "title": "Aprobar en esta caja",
+      "help": "Mantén este cobro abierto. Un responsable elige su nombre e ingresa su propio PIN.",
+      "loadError": "No se pudieron cargar las personas responsables.",
+      "empty": "No hay una persona responsable disponible para esta aprobación.",
+      "pinMissing": "Las personas responsables necesitan un PIN de personal para aprobar aquí.",
+      "approverLabel": "Persona responsable",
+      "pinLabel": "Su PIN de personal",
+      "submit": "Aprobar cobro",
+      "success": "Cobro aprobado"
+    },
     "actions": {
       "sale_discount": "Cobro con descuento",
       "sale_after_hours": "Cobro durante el horario bloqueado",

@@ -130,7 +130,10 @@ export const listOwnManagerApprovalsInput = z
   .default({ limit: 10 });
 
 export const availableManagerApproversInput = z
-  .object({ action: managerApprovalActionSchema })
+  .object({
+    action: managerApprovalActionSchema,
+    requestId: z.string().trim().min(1).optional(),
+  })
   .strict();
 
 export const decideManagerApprovalWithPinInput = z

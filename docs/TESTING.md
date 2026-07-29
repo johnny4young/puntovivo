@@ -69,14 +69,18 @@ outcome → refreshed queue loop rather than navigation alone.
 
 The Electron suite launches the real desktop runtime and validates the
 renderer sandbox, embedded server, authenticated application boot, encrypted
-backup creation, cloud-vault write, scheduling, and restore readiness. Six
+backup creation, cloud-vault write, scheduling, and restore readiness. Seven
 target-agnostic operator journeys run against either the development bundle or
 a packaged desktop application: first sale, suspended cart, split tender,
-blind cash close, signed day close, and refund. The signed-close journey
-verifies the stored PDF response and proves that the signer and evidence hash
-remain immutable after a renderer reload and fresh authentication. The refund
-journey proves direct manager authority, visible inventory restoration, and
-immutable actor-and-reason audit evidence after re-authentication.
+manager approval, blind cash close, signed day close, and refund. The manager
+approval journey keeps the exact cashier checkout mounted while a different
+eligible manager presents a fresh PIN, then proves one-use grant consumption
+and correlated immutable request, approval, and consumption audit evidence.
+The signed-close journey verifies the stored PDF response and proves that the
+signer and evidence hash remain immutable after a renderer reload and fresh
+authentication. The refund journey proves direct manager authority, visible
+inventory restoration, and immutable actor-and-reason audit evidence after
+re-authentication.
 Node-side Electron tests additionally pin Store Hub URL policy, OS-keychain
 sealing, owner-only credential-envelope permissions, refresh rotation after an
 app restart, rejected-session cleanup, exact-token IPC registration, and the
@@ -102,7 +106,7 @@ contracts rather than by a standalone manual checklist:
 | Quality boundary                          | Canonical evidence                                                                                                                     | Gate                                          |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
 | Operator Deck adoption                    | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                    | `ci:web`                                      |
-| Shift-defining operator journeys          | `operator-journeys.json`, the indexed browser flows, and the six target-agnostic Electron ports                                       | `ci:web`, `test:e2e:web`, and `test:e2e:electron` |
+| Shift-defining operator journeys          | `operator-journeys.json`, the indexed browser flows, and the seven target-agnostic Electron ports                                     | `ci:web`, `test:e2e:web`, and `test:e2e:electron` |
 | Accessibility and adaptive layouts        | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`       | `test:e2e:web`                                |
 | Dense data behavior                       | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                |
 | Migration journal integrity               | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                 |

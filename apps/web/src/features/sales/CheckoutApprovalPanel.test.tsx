@@ -3,6 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@/test/utils';
 import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
 
+vi.mock('@/features/approvals/InlineApprovalDecision', () => ({
+  InlineApprovalDecision: ({ requestId }: { requestId: string }) => (
+    <div data-testid={`inline-approval-stub-${requestId}`} />
+  ),
+}));
+
 const baseProps = {
   isLoading: false,
   isHashing: false,
@@ -100,7 +106,7 @@ describe('CheckoutApprovalPanel', () => {
     expect(onRequest).toHaveBeenCalledWith('sale_refund', 'New refund');
   });
 
-  it('shows progress while a dual-approval request waits for a distinct second person', () => {
+  it('shows progress while a dual-approval request waits for a distinct second person', async () => {
     render(
       <CheckoutApprovalPanel
         {...baseProps}
@@ -118,6 +124,7 @@ describe('CheckoutApprovalPanel', () => {
     );
 
     expect(screen.getByText('1 of 2 distinct approvals received')).toBeInTheDocument();
+    expect(await screen.findByTestId('inline-approval-stub-approval-dual')).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 });

@@ -1118,7 +1118,7 @@
   {
     "path": "managerApprovals.availableApprovers",
     "kind": "query",
-    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\"|\"sale_after_hours\")}",
+    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\"|\"sale_after_hours\"),requestId?:string[minLength=1]}",
     "output": "inferred"
   },
   {

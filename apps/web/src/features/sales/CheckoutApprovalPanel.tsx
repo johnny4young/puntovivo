@@ -1,8 +1,13 @@
 import { RefreshCw, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ManagerApprovalAction } from '@puntovivo/shared/manager-approval';
 import type { ApprovalRequestView } from './useCheckoutApprovals';
+
+const InlineApprovalDecision = lazy(async () => {
+  const module = await import('@/features/approvals/InlineApprovalDecision');
+  return { default: module.InlineApprovalDecision };
+});
 
 interface CheckoutApprovalPanelProps<Action extends ManagerApprovalAction> {
   views: ApprovalRequestView<Action>[];
@@ -122,6 +127,22 @@ export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
                     required: view.requiredApprovals,
                   })}
                 </p>
+              )}
+
+              {view.status === 'pending' && view.requestId && (
+                <Suspense
+                  fallback={
+                    <p className="mt-3 text-xs text-primary-800" role="status">
+                      {t('common:userMenu.approvals.loading')}
+                    </p>
+                  }
+                >
+                  <InlineApprovalDecision
+                    action={view.action}
+                    requestId={view.requestId}
+                    onDecided={onRefresh}
+                  />
+                </Suspense>
               )}
 
               {canRequest && !isHashing && !isLoading && (

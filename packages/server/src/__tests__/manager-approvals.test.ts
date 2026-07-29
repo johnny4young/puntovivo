@@ -542,6 +542,14 @@ describe('manager approvals router', () => {
         approvalsCollected: 1,
         grantExpiresAt: null,
       });
+      const remainingApprovers = await appRouter
+        .createCaller(cashier.fresh())
+        .managerApprovals.availableApprovers({
+          action: 'sale_refund',
+          requestId: request.id,
+        });
+      expect(remainingApprovers.some(approver => approver.id === firstManager.id)).toBe(false);
+      expect(remainingApprovers.some(approver => approver.id === secondManager.id)).toBe(true);
       expect(() =>
         claimManagerApprovalGrant({
           db,

@@ -221,7 +221,7 @@ What happens:
 
 ### Coverage
 
-The suite contains one platform smoke plus six target-agnostic operator
+The suite contains one platform smoke plus seven target-agnostic operator
 journeys:
 
 - `smoke.spec.ts` — launch, login, application shell, device configuration,
@@ -231,6 +231,9 @@ journeys:
 - `suspended-cart.spec.ts` — park one cart, charge another, then resume and
   charge the first.
 - `split-tender.spec.ts` — settle one sale across cash and card.
+- `manager-approval.spec.ts` — keep the exact cashier checkout mounted while
+  an eligible manager presents a fresh PIN, then prove one-use grant
+  consumption and correlated immutable audit evidence.
 - `blind-close.spec.ts` — close a drawer with a discrepancy without revealing
   the expected balance first.
 - `day-close.spec.ts` — manager sign-off, irreversible confirmation, stored PDF
