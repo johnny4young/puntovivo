@@ -34,6 +34,7 @@ import {
   clearRefreshCookie,
   createStaffPinSessionClaims,
   getAuthSessionClaims,
+  REFRESH_COOKIE_NAME,
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
@@ -318,6 +319,12 @@ export const authMutationProcedures = {
     .mutation(async ({ ctx }) => {
       const refreshPayload = await verifyRefreshToken(ctx.req);
       if (!refreshPayload) {
+        // An invalid, expired, or checkout-stale cookie is still reported as
+        // an incident on this first rejection, but it must not remain in the
+        // browser and generate the same incident on every application boot.
+        if (typeof ctx.req.cookies[REFRESH_COOKIE_NAME] === 'string') {
+          clearRefreshCookie(ctx.req, ctx.res);
+        }
         throwServerError({
           trpcCode: 'UNAUTHORIZED',
           errorCode: 'AUTH_REFRESH_INVALID',

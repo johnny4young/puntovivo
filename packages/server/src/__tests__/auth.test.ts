@@ -579,6 +579,37 @@ describe('Auth tRPC Router', () => {
       expect(response.statusCode).toBe(401);
     });
 
+    it('clears an invalid refresh cookie after reporting the rejected session once', async () => {
+      const { refreshCookie, csrfCookie } = await loginOverHttp();
+      expect(refreshCookie).toBeTruthy();
+      expect(csrfCookie).toBeTruthy();
+
+      const response = await __withExpectedTestLogs([...INVALID_REFRESH_LOGS], () =>
+        server.app.inject({
+          method: 'POST',
+          url: '/api/trpc/auth.refresh?batch=1',
+          headers: {
+            cookie: [
+              `puntovivo_refresh=${refreshCookie}corrupted`,
+              `puntovivo_csrf=${csrfCookie}`,
+            ].join('; '),
+            'content-type': 'application/json',
+            'x-csrf-token': csrfCookie as string,
+          },
+          payload: '{}',
+        })
+      );
+
+      const setCookie = response.headers['set-cookie'];
+      const cookieHeaders = Array.isArray(setCookie) ? setCookie : [setCookie ?? ''];
+      const clearedRefreshCookie = cookieHeaders.find(header =>
+        header.startsWith('puntovivo_refresh=')
+      );
+
+      expect(response.statusCode).toBe(401);
+      expect(clearedRefreshCookie).toContain('Max-Age=0');
+    });
+
     it('rejects existing tokens when the tenant is disabled', async () => {
       const { accessToken, refreshCookie, csrfCookie } = await loginOverHttp();
 
