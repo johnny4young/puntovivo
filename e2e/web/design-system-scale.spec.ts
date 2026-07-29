@@ -80,7 +80,7 @@ test.describe('Operator Deck data scale', () => {
 
     await expectNoClientIssues(tracker);
   });
-  test('presents the Base 11 journey and operational contracts in compact ES and desktop EN', async ({
+  test('presents the Base 12 journey and operational contracts in compact ES and desktop EN', async ({
     page,
   }) => {
     const tracker = attachClientIssueTracker(page);
@@ -89,7 +89,7 @@ test.describe('Operator Deck data scale', () => {
     await ensureLanguage(page, 'es');
     await page.goto('/design-system');
 
-    await expect(page.getByText('Base 11')).toBeVisible();
+    await expect(page.getByText('Base 12')).toBeVisible();
     const journeys = page.getByTestId('design-system-journey-section');
     const operational = page.getByTestId('design-system-operational-section');
     await journeys.scrollIntoViewIfNeeded();

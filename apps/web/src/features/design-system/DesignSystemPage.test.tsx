@@ -26,7 +26,10 @@ describe('DesignSystemPage', () => {
     expect(screen.getByText('Controles con peso operativo')).toBeInTheDocument();
     expect(screen.getByText('Caja 04')).toBeInTheDocument();
     expect(screen.getByText('Caja sincronizada.')).toBeInTheDocument();
-    expect(screen.getByText('Base 11')).toBeInTheDocument();
+    expect(screen.getByText('Base 12')).toBeInTheDocument();
+    expect(screen.getByText('Primero la tarea, luego la complejidad')).toBeInTheDocument();
+    expect(screen.getByText('Confirma los datos del negocio')).toBeInTheDocument();
+    expect(screen.getByText('Aún no hay productos')).toBeInTheDocument();
     expect(screen.getByText('Una gramática, en toda la operación')).toBeInTheDocument();
     expect(screen.getAllByText('Adoptado')).toHaveLength(3);
     expect(screen.getByText('La coherencia ahora es verificable.')).toBeInTheDocument();
@@ -67,5 +70,28 @@ describe('DesignSystemPage', () => {
     expect(screen.getByRole('dialog', { name: 'Inspector de roles' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cerrar inspector' }));
     expect(screen.queryByRole('dialog', { name: 'Inspector de roles' })).not.toBeInTheDocument();
+  });
+
+  it('exercises progressive disclosure and task-step selection', async () => {
+    const user = userEvent.setup();
+    render(<DesignSystemPage />);
+
+    const advanced = screen.getByRole('button', { name: /Herramientas avanzadas/i });
+    expect(advanced).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(advanced);
+    expect(advanced).toHaveAttribute('aria-expanded', 'true');
+
+    const advancedDevice = screen.getAllByRole('button', { name: 'Dispositivos' })[0]!;
+    await user.click(advancedDevice);
+    expect(advancedDevice).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+
+    await user.click(advanced);
+    expect(
+      screen.getByRole('button', { name: /Configuración guiada/i })
+    ).toHaveAttribute('aria-current', 'page');
   });
 });

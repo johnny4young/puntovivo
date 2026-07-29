@@ -1,11 +1,59 @@
 {
   "hero": {
     "eyebrow": "Operational visual system",
-    "version": "Base 11",
+    "version": "Base 12",
     "title": "Operator Deck, on a single surface.",
     "description": "A living library that verifies every decision, signal, and product state keeps the same hierarchy before reaching the register.",
     "primaryAction": "Test modal",
     "secondaryAction": "Open inspector"
+  },
+  "tasks": {
+    "title": "Task first, complexity second",
+    "description": "Flows share a grammar that shows the next step, keeps one dominant action, and reveals expert controls only when they are needed.",
+    "navigation": {
+      "ariaLabel": "Example progressive navigation",
+      "primary": {
+        "title": "Guided setup",
+        "copy": "Complete the essentials with clear instructions."
+      },
+      "advanced": {
+        "title": "Advanced tools",
+        "copy": "Open support and technical settings when you need them."
+      },
+      "group": "Configuration",
+      "items": {
+        "business": "Business details",
+        "devices": "Devices"
+      }
+    },
+    "next": {
+      "eyebrow": "Next action",
+      "title": "Confirm the business details",
+      "copy": "Complete this information before configuring billing and devices.",
+      "action": "Continue"
+    },
+    "steps": {
+      "ariaLabel": "Example setup steps",
+      "business": {
+        "title": "Business details",
+        "status": "Ready to review"
+      },
+      "devices": {
+        "title": "Devices",
+        "status": "Pending"
+      }
+    },
+    "detail": {
+      "eyebrow": "Expert detail",
+      "title": "Fiscal preferences",
+      "copy": "Specialized controls stay outside the primary journey while keeping an explicit entry point.",
+      "action": "Open detail"
+    },
+    "empty": {
+      "title": "No products yet",
+      "copy": "Complete the basic information and create the first product from a single starting point.",
+      "action": "Create product"
+    }
   },
   "roles": {
     "label": "System color roles",

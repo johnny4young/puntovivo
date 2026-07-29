@@ -14,6 +14,7 @@
 
 import { useTranslation } from 'react-i18next';
 import { Sparkles, ArrowRight } from 'lucide-react';
+import { GuidedEmptyStateCard } from '@/components/experience';
 import { useAuth } from '@/features/auth/AuthProvider';
 
 export interface EmptyStateReadinessNudgeProps {
@@ -32,34 +33,29 @@ export function EmptyStateReadinessNudge({ scope }: EmptyStateReadinessNudgeProp
   const isSetupAdmin = user?.role === 'admin';
   if (!isSetupAdmin) return null;
   return (
-    <div
-      className="rounded-xl border border-primary-100 bg-primary-50 px-4 py-3 flex items-start gap-3"
-      data-testid={`empty-state-readiness-${scope}`}
-    >
-      <Sparkles className="h-5 w-5 text-primary-600 mt-0.5 shrink-0" aria-hidden />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-primary-900">{t(`emptyState.${scope}.title`)}</p>
-        <p className="text-xs text-primary-800 mt-0.5">{t(`emptyState.${scope}.description`)}</p>
-      </div>
-      {/*
-        Plain anchor instead of react-router `Link` so the nudge
-        renders correctly even in test rigs that omit the Router
-        context (e.g. `ProductsPage.moduleGate.test.tsx`). The
-        target remains an ordinary history URL on the web and a hash
-        URL under the packaged custom-protocol renderer.
-      */}
-      <a
-        href={
-          window.location.protocol === 'http:' || window.location.protocol === 'https:'
-            ? '/company'
-            : '#/company'
-        }
-        className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary-700 hover:text-primary-900 hover:underline"
-        data-testid={`empty-state-readiness-${scope}-cta`}
-      >
-        <span>{t(`emptyState.${scope}.cta`)}</span>
-        <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-      </a>
-    </div>
+    <GuidedEmptyStateCard
+      icon={Sparkles}
+      title={t(`emptyState.${scope}.title`)}
+      description={t(`emptyState.${scope}.description`)}
+      testId={`empty-state-readiness-${scope}`}
+      action={
+        /*
+         * Plain anchor instead of react-router Link so the nudge works in test
+         * rigs without Router context and in the packaged custom protocol.
+         */
+        <a
+          href={
+            window.location.protocol === 'http:' || window.location.protocol === 'https:'
+              ? '/company'
+              : '#/company'
+          }
+          className="inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-xl px-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-white hover:text-primary-950 sm:w-auto"
+          data-testid={`empty-state-readiness-${scope}-cta`}
+        >
+          <span>{t(`emptyState.${scope}.cta`)}</span>
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </a>
+      }
+    />
   );
 }

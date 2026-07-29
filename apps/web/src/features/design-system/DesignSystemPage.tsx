@@ -12,14 +12,17 @@ import {
   ClipboardCheck,
   Clock3,
   Command,
+  Compass,
   CreditCard,
   DatabaseBackup,
   FileUp,
   Gauge,
   LayoutDashboard,
   Languages,
+  LifeBuoy,
   ListFilter,
   MonitorSmartphone,
+  PackagePlus,
   PackageSearch,
   PanelRightOpen,
   ReceiptText,
@@ -37,6 +40,14 @@ import {
   XCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  ExpertDetailPanel,
+  GuidedEmptyStateCard,
+  NextActionCard,
+  PrimaryTaskButton,
+  ProgressiveTaskNavigation,
+  SetupStepButton,
+} from '@/components/experience';
 import { Badge, Button, KpiTile, StatusStrip } from '@/components/ui';
 import { Select } from '@/components/form-controls/Select';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
@@ -50,6 +61,7 @@ import journeyContract from '../../../../../operator-journeys.json';
 
 type StationStatus = 'ready' | 'attention' | 'offline';
 type ScaleStatus = 'available' | 'attention' | 'review';
+type TaskSpecimenDestination = 'guide' | 'business' | 'devices';
 
 interface StationRow {
   id: string;
@@ -103,6 +115,8 @@ export function DesignSystemPage() {
   const [assistedMode, setAssistedMode] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [taskDestination, setTaskDestination] =
+    useState<TaskSpecimenDestination>('guide');
 
   const stations = useMemo<StationRow[]>(
     () => [
@@ -274,6 +288,117 @@ export function DesignSystemPage() {
             <span>{t('roles.signal.code')}</span>
             <strong>{t('roles.signal.title')}</strong>
             <p>{t('roles.signal.copy')}</p>
+          </div>
+        </div>
+      </section>
+
+      <section
+        className="design-system-section"
+        data-testid="design-system-task-primitives"
+      >
+        <SpecimenHeading
+          index="00"
+          title={t('tasks.title')}
+          copy={t('tasks.description')}
+        />
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.18fr)_minmax(22rem,0.82fr)]">
+          <div className="space-y-4">
+            <ProgressiveTaskNavigation
+              ariaLabel={t('tasks.navigation.ariaLabel')}
+              activeItem={taskDestination}
+              primary={{
+                id: 'guide',
+                title: t('tasks.navigation.primary.title'),
+                description: t('tasks.navigation.primary.copy'),
+                icon: Compass,
+              }}
+              advanced={{
+                title: t('tasks.navigation.advanced.title'),
+                description: t('tasks.navigation.advanced.copy'),
+                icon: LifeBuoy,
+                disclosureId: 'design-system-task-settings',
+                groups: [
+                  {
+                    id: 'configuration',
+                    label: t('tasks.navigation.group'),
+                    items: [
+                      {
+                        id: 'business',
+                        label: t('tasks.navigation.items.business'),
+                      },
+                      {
+                        id: 'devices',
+                        label: t('tasks.navigation.items.devices'),
+                      },
+                    ],
+                  },
+                ],
+              }}
+              onItemChange={setTaskDestination}
+            />
+            <NextActionCard
+              icon={ClipboardCheck}
+              eyebrow={t('tasks.next.eyebrow')}
+              title={t('tasks.next.title')}
+              description={t('tasks.next.copy')}
+              className="rounded-[1.5rem] border border-primary-100 bg-white p-5 shadow-[0_20px_54px_-46px_rgba(15,23,42,0.7)]"
+              action={
+                <PrimaryTaskButton onClick={() => setTaskDestination('business')}>
+                  {t('tasks.next.action')}
+                  <ArrowRight aria-hidden="true" />
+                </PrimaryTaskButton>
+              }
+            />
+          </div>
+
+          <div className="space-y-4">
+            <div
+              className="grid gap-2 rounded-[1.5rem] border border-line bg-card p-3 sm:grid-cols-2"
+              aria-label={t('tasks.steps.ariaLabel')}
+            >
+              <SetupStepButton
+                icon={Store}
+                index="01"
+                title={t('tasks.steps.business.title')}
+                statusLabel={t('tasks.steps.business.status')}
+                tone="ready"
+                active={taskDestination === 'business'}
+                onClick={() => setTaskDestination('business')}
+              />
+              <SetupStepButton
+                icon={MonitorSmartphone}
+                index="02"
+                title={t('tasks.steps.devices.title')}
+                statusLabel={t('tasks.steps.devices.status')}
+                tone="warning"
+                active={taskDestination === 'devices'}
+                onClick={() => setTaskDestination('devices')}
+              />
+            </div>
+            <ExpertDetailPanel
+              icon={SlidersHorizontal}
+              eyebrow={t('tasks.detail.eyebrow')}
+              title={t('tasks.detail.title')}
+              description={t('tasks.detail.copy')}
+              variant="outline"
+              layout="stacked"
+              action={
+                <Button variant="ghost" className="w-full justify-between">
+                  {t('tasks.detail.action')}
+                  <ArrowRight aria-hidden="true" />
+                </Button>
+              }
+            />
+            <GuidedEmptyStateCard
+              icon={PackagePlus}
+              title={t('tasks.empty.title')}
+              description={t('tasks.empty.copy')}
+              action={
+                <Button variant="outline" className="w-full sm:w-auto">
+                  {t('tasks.empty.action')}
+                </Button>
+              }
+            />
           </div>
         </div>
       </section>

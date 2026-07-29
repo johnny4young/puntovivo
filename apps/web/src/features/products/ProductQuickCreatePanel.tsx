@@ -10,6 +10,7 @@ import {
   Settings2,
   Sparkles,
 } from 'lucide-react';
+import { ExpertDetailPanel } from '@/components/experience';
 import { Button } from '@/components/ui';
 import { SimpleFormField } from '@/components/form-controls/FormField';
 import { cn } from '@/lib/utils';
@@ -285,21 +286,24 @@ export function ProductQuickCreatePanel({
         )}
       </div>
 
-      <div className="flex flex-col gap-3 rounded-[1.25rem] border border-dashed border-secondary-300 bg-transparent p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <Settings2 className="mt-0.5 h-5 w-5 shrink-0 text-secondary-500" aria-hidden="true" />
-          <div>
-            <p className="text-sm font-semibold text-secondary-900">{t('advanced.title')}</p>
-            <p className="mt-0.5 text-xs leading-5 text-secondary-600">
-              {t('advanced.description')}
-            </p>
-          </div>
-        </div>
-        <Button type="button" variant="ghost" className="shrink-0" onClick={onOpenAdvanced}>
-          {t('actions.openAdvanced')}
-          <Settings2 aria-hidden="true" />
-        </Button>
-      </div>
+      <ExpertDetailPanel
+        icon={Settings2}
+        title={t('advanced.title')}
+        description={t('advanced.description')}
+        tone="muted"
+        variant="outline"
+        className="rounded-[1.25rem] p-4"
+        action={
+          <Button
+            variant="ghost"
+            className="w-full justify-between xl:w-auto"
+            onClick={onOpenAdvanced}
+          >
+            {t('actions.openAdvanced')}
+            <Settings2 aria-hidden="true" />
+          </Button>
+        }
+      />
     </div>
   );
 }

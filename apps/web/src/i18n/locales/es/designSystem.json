@@ -1,11 +1,59 @@
 {
   "hero": {
     "eyebrow": "Sistema visual operativo",
-    "version": "Base 11",
+    "version": "Base 12",
     "title": "Operator Deck, en una sola superficie.",
     "description": "Una biblioteca viva para comprobar que cada decisión, señal y estado del producto conserve la misma jerarquía antes de llegar a caja.",
     "primaryAction": "Probar modal",
     "secondaryAction": "Abrir inspector"
+  },
+  "tasks": {
+    "title": "Primero la tarea, luego la complejidad",
+    "description": "Los flujos comparten una gramática que muestra el siguiente paso, mantiene una acción dominante y revela controles expertos solo cuando hacen falta.",
+    "navigation": {
+      "ariaLabel": "Navegación progresiva de ejemplo",
+      "primary": {
+        "title": "Configuración guiada",
+        "copy": "Completa lo esencial con instrucciones claras."
+      },
+      "advanced": {
+        "title": "Herramientas avanzadas",
+        "copy": "Abre soporte y ajustes técnicos cuando los necesites."
+      },
+      "group": "Configuración",
+      "items": {
+        "business": "Datos del negocio",
+        "devices": "Dispositivos"
+      }
+    },
+    "next": {
+      "eyebrow": "Siguiente acción",
+      "title": "Confirma los datos del negocio",
+      "copy": "Completa esta información antes de configurar la facturación y los dispositivos.",
+      "action": "Continuar"
+    },
+    "steps": {
+      "ariaLabel": "Pasos de configuración de ejemplo",
+      "business": {
+        "title": "Datos del negocio",
+        "status": "Listo para revisar"
+      },
+      "devices": {
+        "title": "Dispositivos",
+        "status": "Pendiente"
+      }
+    },
+    "detail": {
+      "eyebrow": "Detalle experto",
+      "title": "Preferencias fiscales",
+      "copy": "Los controles especializados permanecen fuera del recorrido principal y conservan una entrada explícita.",
+      "action": "Abrir detalle"
+    },
+    "empty": {
+      "title": "Aún no hay productos",
+      "copy": "Completa la información básica y crea el primer producto desde un único punto de inicio.",
+      "action": "Crear producto"
+    }
   },
   "roles": {
     "label": "Roles cromáticos del sistema",
