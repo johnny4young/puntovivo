@@ -11,26 +11,48 @@
  */
 import type { ReceiptLayout } from '../../trpc/schemas/receiptTemplates.js';
 import type { ReceiptTemplateKind } from '../../db/schema.js';
+import type { EscPosCharset } from '../peripherals/escpos/byte-builder.js';
 import type { ReceiptRenderLabels, RenderData, RenderResult } from './types.js';
 import { DEFAULT_RECEIPT_RENDER_LABELS } from './labels.js';
-import { buildHtmlDocument, renderBlockHtml } from './html-blocks.js';
-import { ESC, LF, escposCut, paperWidthCharsFor, renderBlockEscPos } from './escpos.js';
+import { buildHtmlDocument, renderBlockHtml, renderFiscalEvidenceHtml } from './html-blocks.js';
+import {
+  ESC,
+  LF,
+  escposCharsetSelect,
+  escposCut,
+  paperWidthCharsFor,
+  renderBlockEscPos,
+  renderFiscalEvidenceEscPos,
+} from './escpos.js';
 
 export function renderReceipt(
   layout: ReceiptLayout,
   data: RenderData,
-  labels: ReceiptRenderLabels = DEFAULT_RECEIPT_RENDER_LABELS
+  labels: ReceiptRenderLabels = DEFAULT_RECEIPT_RENDER_LABELS,
+  options: { characterSet?: EscPosCharset } = {}
 ): RenderResult {
-  const htmlBody = layout.blocks.map(block => renderBlockHtml(block, data, labels)).join('\n');
-  const html = buildHtmlDocument(layout, htmlBody, labels.documentTitle);
+  const htmlBody = [
+    layout.blocks.map(block => renderBlockHtml(block, data, labels)).join('\n'),
+    renderFiscalEvidenceHtml(data),
+  ].join('\n');
+  const html = buildHtmlDocument(
+    layout,
+    htmlBody,
+    labels.documentTitle,
+    data.locale?.locale ?? 'en'
+  );
 
   const widthChars = paperWidthCharsFor(layout.paperWidth);
   const escposBytes: number[] = [];
   // Initialize printer (ESC @)
   escposBytes.push(ESC, 0x40);
-  for (const block of layout.blocks) {
-    escposBytes.push(...renderBlockEscPos(block, data, widthChars, labels));
+  if (options.characterSet) {
+    escposBytes.push(...escposCharsetSelect(options.characterSet));
   }
+  for (const block of layout.blocks) {
+    escposBytes.push(...renderBlockEscPos(block, data, widthChars, labels, options.characterSet));
+  }
+  escposBytes.push(...renderFiscalEvidenceEscPos(data, options.characterSet));
   // Feed a few lines and cut
   escposBytes.push(LF, LF, LF, ...escposCut());
   return {
@@ -44,7 +66,27 @@ export function renderReceipt(
  * stable across reloads. The shape matches `RenderData` exactly so the
  * preview path uses the same renderer code path as production.
  */
-export function buildPreviewData(_kind: ReceiptTemplateKind): RenderData {
+export function buildPreviewData(kind: ReceiptTemplateKind): RenderData {
+  const fiscal = {
+    cufe: 'a1b2c3d4e5f6'.repeat(8),
+    qrUrl: null,
+    resolution: 'DIAN 18764000001 — 2024',
+    documentNumber: 'FE-V-000123',
+    status: 'accepted' as const,
+    statusLabel: 'Accepted',
+    maturity: 'mock' as const,
+    maturityLabel: 'Demo only',
+    nonCertifiedNotice:
+      'Demo only — this document was not transmitted to DIAN and cannot be verified there.',
+    countryCode: 'CO',
+    evidenceLabels: {
+      document: 'Document',
+      status: 'Status',
+      maturity: 'Fiscal mode',
+      resolution: 'Resolution',
+      identifier: 'Local fiscal identifier',
+    },
+  };
   return {
     company: {
       name: 'Mi Tienda S.A.S.',
@@ -120,12 +162,8 @@ export function buildPreviewData(_kind: ReceiptTemplateKind): RenderData {
         { method: 'card', amount: 40000, reference: 'AUTH-887766' },
       ],
     },
-    fiscal: {
-      cufe: 'a1b2c3d4e5f6'.repeat(8),
-      qrUrl: 'https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=a1b2c3d4e5f6',
-      resolution: 'DIAN 18764000001 — 2024',
-      documentNumber: 'FE-V-000123',
-    },
+    fiscal,
+    fiscalDocuments: kind === 'fiscal_dee' ? [fiscal] : [],
     logoDataUrl: null,
   };
 }

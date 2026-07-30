@@ -19,6 +19,11 @@ import type {
   ReceiptPrinterAdapter,
 } from '../../../services/peripherals/index.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
+import { escposReceiptPrinterConfigSchema } from '../../../services/peripherals/drivers/escpos-receipt-printer.js';
+import {
+  renderSaleReceiptTemplate,
+  resolveSaleReceiptTemplateContext,
+} from '../../../services/receipt-renderer/index.js';
 import {
   claimCashDrawerApproval,
   recordCashDrawerDispatch,
@@ -112,9 +117,27 @@ export const peripheralsActionProcedures = {
       },
       { kickDrawer: false }
     );
+    const parsedPrinter = escposReceiptPrinterConfigSchema.safeParse(printerRow.config);
+    const templateContext = parsedPrinter.success
+      ? await resolveSaleReceiptTemplateContext({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          fallbackSiteId: input.siteId,
+          sale,
+        })
+      : null;
+    const templateEscpos =
+      parsedPrinter.success && templateContext
+        ? renderSaleReceiptTemplate(templateContext, {
+            paperWidth: parsedPrinter.data.paperWidth,
+            characterSet: parsedPrinter.data.characterSet,
+            kickDrawer: parsedPrinter.data.kickDrawerAfterReceipt,
+          }).escpos
+        : undefined;
 
     const result = await (adapter as ReceiptPrinterAdapter).print({
       kind: 'sale-receipt',
+      escposBytes: templateEscpos,
       metadata: { document, saleId: sale.id },
     });
 
@@ -136,6 +159,7 @@ export const peripheralsActionProcedures = {
           payload: {
             kind: 'print-receipt',
             document,
+            ...(templateEscpos ? { escposBytes: Array.from(templateEscpos) } : {}),
             saleId: sale.id,
             siteId: input.siteId,
           },

@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 
@@ -32,6 +32,8 @@ const mocks = vi.hoisted(() => ({
     requestApproval: vi.fn(),
     refetch: vi.fn(),
   },
+  receiptHtmlFetch: vi.fn(),
+  printSaleReceipt: vi.fn(),
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
@@ -54,10 +56,18 @@ vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
+vi.mock('@/features/sales/receiptPrinter', () => ({
+  createEscposReceiptDispatcher: vi.fn(() => undefined),
+  printSaleReceipt: mocks.printSaleReceipt,
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
-      peripherals: { buildReceiptBytes: { fetch: vi.fn() } },
+      peripherals: {
+        buildReceiptBytes: { fetch: vi.fn() },
+        renderReceiptHtml: { fetch: mocks.receiptHtmlFetch },
+      },
       sales: { getById: { invalidate: vi.fn() } },
       productSerials: {
         list: { invalidate: vi.fn() },
@@ -169,6 +179,13 @@ describe('SaleDetailsModal shift policy', () => {
     mocks.approval.allApproved = false;
     mocks.approval.error = null;
     mocks.approval.refetch.mockReset();
+    mocks.receiptHtmlFetch.mockReset().mockResolvedValue({
+      status: 'ready',
+      html: '<html><body>Fresh template</body></html>',
+    });
+    mocks.printSaleReceipt.mockReset().mockImplementation(async (_sale, options) => {
+      await options.htmlProvider?.();
+    });
   });
 
   it('fails closed while checking a manager refund cap and until its exact grant is approved', () => {
@@ -202,5 +219,18 @@ describe('SaleDetailsModal shift policy', () => {
     mocks.approval.allApproved = true;
     view.rerender(<SaleDetailsModal saleId="sale-1" isOpen onClose={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Confirm refund' })).toBeEnabled();
+  });
+
+  it('bypasses the query cache when resolving the active receipt template', async () => {
+    render(<SaleDetailsModal saleId="sale-1" isOpen onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Print' }));
+
+    await waitFor(() => {
+      expect(mocks.receiptHtmlFetch).toHaveBeenCalledWith(
+        { saleId: 'sale-1', siteId: 'site-1' },
+        { staleTime: 0 }
+      );
+    });
   });
 });

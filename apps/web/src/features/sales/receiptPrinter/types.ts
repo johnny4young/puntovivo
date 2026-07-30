@@ -76,6 +76,11 @@ export interface PrintSaleReceiptOptions {
   onEscposFallback?:
     | ((outcome: { error?: string | undefined; errorMessage?: string | undefined }) => void)
     | undefined;
+  /**
+   * Fetches the server-rendered active receipt template for system/browser
+   * printing. Null keeps the legacy hardcoded receipt as an upgrade fallback.
+   */
+  htmlProvider?: (() => Promise<string | null>) | undefined;
 }
 
 /** Server `peripherals.buildReceiptBytes` query result projection. */

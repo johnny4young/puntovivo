@@ -32,6 +32,56 @@ import {
   safeResolvedScannerSource,
 } from './scanner-urls.js';
 
+function fiscalDocumentsFor(data: RenderData) {
+  return data.fiscalDocuments ?? (data.fiscal ? [data.fiscal] : []);
+}
+
+/**
+ * Fiscal proof is not an optional branding block. A tenant may customize or
+ * even delete every fiscal-bound block from its layout, but a mock/draft
+ * document must still state that it was not transmitted and every related
+ * document must retain its status, local identifier, and resolution evidence.
+ */
+export function renderFiscalEvidenceHtml(data: RenderData): string {
+  const documents = fiscalDocumentsFor(data);
+  if (documents.length === 0) return '';
+
+  return documents
+    .map(document => {
+      const evidenceLabels = document.evidenceLabels ?? {
+        document: 'Document',
+        status: 'Status',
+        maturity: 'Maturity',
+        resolution: 'Resolution',
+        identifier: 'Fiscal identifier',
+      };
+      const rows = [
+        document.documentNumber
+          ? `<div class="fiscal-evidence-row"><span>${escapeHtml(evidenceLabels.document)}</span><strong>${escapeHtml(document.documentNumber)}</strong></div>`
+          : '',
+        document.statusLabel
+          ? `<div class="fiscal-evidence-row"><span>${escapeHtml(evidenceLabels.status)}</span><strong>${escapeHtml(document.statusLabel)}</strong></div>`
+          : '',
+        document.maturityLabel
+          ? `<div class="fiscal-evidence-row"><span>${escapeHtml(evidenceLabels.maturity)}</span><strong>${escapeHtml(document.maturityLabel)}</strong></div>`
+          : '',
+        document.resolution
+          ? `<div class="fiscal-evidence-row"><span>${escapeHtml(evidenceLabels.resolution)}</span><strong>${escapeHtml(document.resolution)}</strong></div>`
+          : '',
+        document.cufe
+          ? `<div class="fiscal-evidence-identifier"><span>${escapeHtml(evidenceLabels.identifier)}</span><code>${escapeHtml(document.cufe)}</code></div>`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('');
+      const notice = document.nonCertifiedNotice
+        ? `<p class="fiscal-evidence-notice">${escapeHtml(document.nonCertifiedNotice)}</p>`
+        : '';
+      return `<section class="block block-fiscal-evidence" data-fiscal-proof="true">${rows}${notice}</section>`;
+    })
+    .join('');
+}
+
 function renderTextBlockHtml(
   block: Extract<ReceiptBlock, { type: 'text' }>,
   data: RenderData
@@ -270,7 +320,8 @@ export function renderBlockHtml(
 export function buildHtmlDocument(
   layout: ReceiptLayout,
   body: string,
-  documentTitle: string
+  documentTitle: string,
+  documentLocale = 'en'
 ): string {
   const widthPx = PAPER_WIDTH_PX[layout.paperWidth] ?? 300;
   const is80mm = layout.paperWidth === '80mm';
@@ -289,7 +340,7 @@ export function buildHtmlDocument(
   const dotSize = is80mm ? '8px' : '6px';
   const wordmarkSize = is80mm ? '28px' : '22px';
   return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8" /><title>${escapeHtml(documentTitle)}</title><style>
+<html lang="${escapeHtml(documentLocale)}"><head><meta charset="utf-8" /><title>${escapeHtml(documentTitle)}</title><style>
   body{margin:0;padding:8px;font-family:${mono};font-size:${PRINT_TOKENS.bodySize};line-height:1.35;color:${PRINT_TOKENS.ink};background:${PRINT_TOKENS.paper};width:${widthPx}px;font-variant-numeric:tabular-nums;}
   .block{margin-bottom:6px;}
   .align-left{text-align:left;}.align-center{text-align:center;}.align-right{text-align:right;}
@@ -318,6 +369,12 @@ export function buildHtmlDocument(
   .barcode-placeholder{display:inline-flex;align-items:center;justify-content:center;max-width:100%;border:1px dashed ${PRINT_TOKENS.ink};padding:4px;box-sizing:border-box;font-family:${mono};font-size:${PRINT_TOKENS.minSize};overflow-wrap:anywhere;}
   .block-logo img{max-width:100%;image-rendering:pixelated;}
   .block-logo-empty{min-height:8px;}
+  .block-fiscal-evidence{margin-top:8px;padding-top:8px;border-top:1px dashed ${PRINT_TOKENS.ink};font-size:${PRINT_TOKENS.minSize};}
+  .fiscal-evidence-row{display:flex;justify-content:space-between;gap:8px;margin-bottom:3px;}
+  .fiscal-evidence-row span,.fiscal-evidence-identifier span{color:${PRINT_TOKENS.ink};}
+  .fiscal-evidence-identifier{display:grid;gap:2px;margin-top:5px;}
+  .fiscal-evidence-identifier code{font-family:${mono};font-size:9px;overflow-wrap:anywhere;}
+  .fiscal-evidence-notice{margin:7px 0 0;padding:6px;border:1px solid ${PRINT_TOKENS.ink};font-weight:700;}
   .block-wordmark{padding-bottom:8px;border-bottom:1px solid ${PRINT_TOKENS.ink};margin-bottom:8px;}
   .wordmark{font-family:${brand};font-weight:400;font-size:${wordmarkSize};letter-spacing:0;text-transform:lowercase;line-height:1;display:inline-block;}
   .wordmark b{font-weight:700;}

@@ -12,6 +12,7 @@
 import type { ReceiptBlock, ReceiptLayout } from '../../trpc/schemas/receiptTemplates.js';
 import { encodeCode128EscposBytes } from '../barcode128-encoder.js';
 import { encodeQrEscposBytes } from '../qr-encoder.js';
+import { encodeForCharset, type EscPosCharset } from '../peripherals/escpos/byte-builder.js';
 import type { ReceiptRenderLabels, RenderData } from './types.js';
 import { APP_FOOTER_METADATA, WORDMARK_TAGLINE } from './labels.js';
 import { resolvePlain } from './escape-resolve.js';
@@ -22,13 +23,27 @@ export const ESC = 0x1b;
 const GS = 0x1d;
 export const LF = 0x0a;
 
-function bytesFromString(value: string): number[] {
+function bytesFromString(value: string, characterSet?: EscPosCharset): number[] {
+  if (characterSet) {
+    return Array.from(encodeForCharset(value, characterSet));
+  }
   const out: number[] = [];
   for (let i = 0; i < value.length; i += 1) {
     const code = value.charCodeAt(i);
     out.push(code < 128 ? code : 0x3f); // non-ASCII collapses to '?'
   }
   return out;
+}
+
+const CHARSET_CODES: Record<EscPosCharset, number> = {
+  cp437: 0,
+  cp850: 2,
+  cp858: 19,
+  pc858_euro: 19,
+};
+
+export function escposCharsetSelect(characterSet: EscPosCharset): number[] {
+  return [ESC, 0x74, CHARSET_CODES[characterSet]];
 }
 
 function escposAlign(align: string | undefined): number[] {
@@ -50,11 +65,48 @@ function escposLine(): number[] {
   return [LF];
 }
 
+export function renderFiscalEvidenceEscPos(
+  data: RenderData,
+  characterSet?: EscPosCharset
+): number[] {
+  const documents = data.fiscalDocuments ?? (data.fiscal ? [data.fiscal] : []);
+  if (documents.length === 0) return [];
+
+  const out: number[] = [...escposAlign('left')];
+  for (const document of documents) {
+    const evidenceLabels = document.evidenceLabels ?? {
+      document: 'Document',
+      status: 'Status',
+      maturity: 'Maturity',
+      resolution: 'Resolution',
+      identifier: 'Fiscal identifier',
+    };
+    out.push(...bytesFromString('-'.repeat(24), characterSet), ...escposLine());
+    for (const [label, value] of [
+      [evidenceLabels.document, document.documentNumber],
+      [evidenceLabels.status, document.statusLabel],
+      [evidenceLabels.maturity, document.maturityLabel],
+      [evidenceLabels.resolution, document.resolution],
+      [evidenceLabels.identifier, document.cufe],
+    ] as const) {
+      if (!value) continue;
+      out.push(...bytesFromString(`${label}: ${value}`, characterSet), ...escposLine());
+    }
+    if (document.nonCertifiedNotice) {
+      out.push(...escposBoldOn());
+      out.push(...bytesFromString(document.nonCertifiedNotice, characterSet), ...escposLine());
+      out.push(...escposBoldOff());
+    }
+  }
+  return out;
+}
+
 export function renderBlockEscPos(
   block: ReceiptBlock,
   data: RenderData,
   paperWidthChars: number,
-  labels: ReceiptRenderLabels
+  labels: ReceiptRenderLabels,
+  characterSet?: EscPosCharset
 ): number[] {
   switch (block.type) {
     case 'text': {
@@ -63,7 +115,7 @@ export function renderBlockEscPos(
       out.push(...escposAlign(block.align));
       const bold = block.bold || block.style === 'title' || block.style === 'subtitle';
       if (bold) out.push(...escposBoldOn());
-      out.push(...bytesFromString(text));
+      out.push(...bytesFromString(text, characterSet));
       if (bold) out.push(...escposBoldOff());
       out.push(...escposLine());
       return out;
@@ -84,7 +136,7 @@ export function renderBlockEscPos(
           .slice(0, paperWidthChars - 16);
         const qtyPiece = formatNumber(item.qty).padStart(6);
         const totalPiece = formatReceiptAmount(item.total, data.locale).padStart(10);
-        out.push(...bytesFromString(`${namePiece}${qtyPiece}${totalPiece}`));
+        out.push(...bytesFromString(`${namePiece}${qtyPiece}${totalPiece}`, characterSet));
         out.push(...escposLine());
       }
       return out;
@@ -96,7 +148,7 @@ export function renderBlockEscPos(
         const label = totalsLabel(line, labels);
         const value = formatReceiptAmount(totalsValue(line, data), data.locale);
         const padded = `${label}: ${value}`;
-        out.push(...bytesFromString(padded));
+        out.push(...bytesFromString(padded, characterSet));
         out.push(...escposLine());
       }
       return out;
@@ -107,7 +159,8 @@ export function renderBlockEscPos(
       for (const tender of data.sale.tenders) {
         out.push(
           ...bytesFromString(
-            `${tender.method.padEnd(8)} ${formatReceiptAmount(tender.amount, data.locale).padStart(10)}`
+            `${tender.method.padEnd(8)} ${formatReceiptAmount(tender.amount, data.locale).padStart(10)}`,
+            characterSet
           )
         );
         out.push(...escposLine());
@@ -115,7 +168,8 @@ export function renderBlockEscPos(
       if (block.showChange && data.sale.changeDue && data.sale.changeDue > 0) {
         out.push(
           ...bytesFromString(
-            `${labels.tendersTable.change.padEnd(8)} ${formatReceiptAmount(data.sale.changeDue, data.locale).padStart(10)}`
+            `${labels.tendersTable.change.padEnd(8)} ${formatReceiptAmount(data.sale.changeDue, data.locale).padStart(10)}`,
+            characterSet
           )
         );
         out.push(...escposLine());
@@ -137,7 +191,7 @@ export function renderBlockEscPos(
       }
       return [
         ...escposAlign('center'),
-        ...bytesFromString(resolved ? `[QR: ${resolved}]` : ''),
+        ...bytesFromString(resolved ? `[QR: ${resolved}]` : '', characterSet),
         ...escposLine(),
         ...escposAlign('left'),
       ];
@@ -146,7 +200,7 @@ export function renderBlockEscPos(
       const char = block.char ?? '-';
       return [
         ...escposAlign('left'),
-        ...bytesFromString(char.repeat(paperWidthChars)),
+        ...bytesFromString(char.repeat(paperWidthChars), characterSet),
         ...escposLine(),
       ];
     }
@@ -161,7 +215,7 @@ export function renderBlockEscPos(
       }
       return [
         ...escposAlign('center'),
-        ...bytesFromString(resolved ? `[BC: ${resolved}]` : ''),
+        ...bytesFromString(resolved ? `[BC: ${resolved}]` : '', characterSet),
         ...escposLine(),
         ...escposAlign('left'),
       ];
@@ -172,7 +226,7 @@ export function renderBlockEscPos(
       const { appName, appVersion, appUrl, appSupport } = APP_FOOTER_METADATA;
       const out: number[] = [...escposAlign(block.align ?? 'center')];
       for (const line of [`${appName} ${appVersion}`, appUrl, appSupport]) {
-        out.push(...bytesFromString(line));
+        out.push(...bytesFromString(line, characterSet));
         out.push(...escposLine());
       }
       return out;
@@ -186,10 +240,10 @@ export function renderBlockEscPos(
       const out: number[] = [
         ...escposAlign(block.align ?? 'center'),
         ...escposBoldOn(),
-        ...bytesFromString(APP_FOOTER_METADATA.appName.toLowerCase()),
+        ...bytesFromString(APP_FOOTER_METADATA.appName.toLowerCase(), characterSet),
         ...escposBoldOff(),
         ...escposLine(),
-        ...bytesFromString(WORDMARK_TAGLINE),
+        ...bytesFromString(WORDMARK_TAGLINE, characterSet),
         ...escposLine(),
       ];
       return out;
@@ -206,7 +260,7 @@ export function renderBlockEscPos(
         const resolvedKey = resolvePlain(row.key, data);
         const gap = Math.max(1, paperWidthChars - resolvedKey.length - resolvedValue.length);
         const line = `${resolvedKey}${' '.repeat(gap)}${resolvedValue}`;
-        out.push(...bytesFromString(line.slice(0, paperWidthChars)));
+        out.push(...bytesFromString(line.slice(0, paperWidthChars), characterSet));
         out.push(...escposLine());
       }
       return out;

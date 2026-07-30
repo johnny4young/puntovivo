@@ -9,13 +9,13 @@
  */
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { hardwareOutbox, sitePeripherals, tenants } from '../../../db/schema.js';
-import { buildSaleReceiptDocument } from '../../../services/peripherals/index.js';
 import {
   ESCPOS_BYTES,
   buildEscPosBytes,
   type EscPosCharset,
   type ReceiptDocument,
 } from '../../../services/peripherals/escpos/byte-builder.js';
+import { buildSaleReceiptDocument } from '../../../services/peripherals/index.js';
 import { escposReceiptPrinterConfigSchema } from '../../../services/peripherals/drivers/escpos-receipt-printer.js';
 import { escposCashDrawerConfigSchema } from '../../../services/peripherals/drivers/escpos-cash-drawer.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
@@ -35,7 +35,12 @@ import {
   buildReceiptBytesInput,
   listPeripheralsInput,
   peekHardwareOutboxInput,
+  renderReceiptHtmlInput,
 } from '../../schemas/peripherals.js';
+import {
+  renderSaleReceiptTemplate,
+  resolveSaleReceiptTemplateContext,
+} from '../../../services/receipt-renderer/index.js';
 import { toSaleReceiptFiscalDocuments } from './helpers.js';
 
 export const peripheralsQueryProcedures = {
@@ -89,14 +94,46 @@ export const peripheralsQueryProcedures = {
   }),
 
   /**
+   * Read-only HTML representation used by browser/Electron system printing.
+   * Returns `legacy-fallback` only for tenants that genuinely have no active
+   * sale/fiscal template, preserving upgrade compatibility without bypassing a
+   * configured template.
+   */
+  renderReceiptHtml: tenantProcedure.input(renderReceiptHtmlInput).query(async ({ ctx, input }) => {
+    const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    const templateContext = await resolveSaleReceiptTemplateContext({
+      db: ctx.db,
+      tenantId: ctx.tenantId,
+      fallbackSiteId: input.siteId,
+      sale,
+    });
+    if (!templateContext) {
+      return {
+        status: 'legacy-fallback' as const,
+        html: null,
+        templateId: null,
+        templateKind: null,
+      };
+    }
+    const rendered = renderSaleReceiptTemplate(templateContext);
+    return {
+      status: 'ready' as const,
+      html: rendered.html,
+      templateId: templateContext.template.id,
+      templateKind: templateContext.template.kind,
+    };
+  }),
+
+  /**
    * read-only "give me the bytes" for the hub_client
    * local hardware bridge.
    *
-   * Composes the same `ReceiptDocument` `printReceipt` would build,
-   * runs `buildEscPosBytes(doc, opts)` against the active escpos
-   * peripheral's config, and returns the bytes + the transport
-   * hint so the calling Electron main can dispatch through its own
-   * locally-attached printer.
+   * Resolves the same active declarative template used by `printReceipt`,
+   * renders it against the configured printer width and codepage, and returns
+   * the bytes plus transport hint so Electron main can dispatch through its
+   * locally attached printer. Tenants without an active template retain the
+   * legacy `ReceiptDocument` path.
    *
    * Per ADR-0008 rule 6 the procedure NEVER writes operational
    * tables: no `hardware_outbox` enqueue, no `adapter.print()`
@@ -150,41 +187,57 @@ export const peripheralsQueryProcedures = {
     }
 
     const config = parsed.data;
-    const tenantRow = await ctx.db
-      .select({ name: tenants.name })
-      .from(tenants)
-      .where(eq(tenants.id, ctx.tenantId))
-      .get();
-    const baseDocument = buildSaleReceiptDocument(
-      {
-        header: { tenantName: tenantRow?.name ?? sale.tenantId },
-        saleNumber: sale.saleNumber,
-        customerName: sale.customerName ?? undefined,
-        items: sale.items.map(item => ({
-          name: item.productName ?? item.productSku ?? '—',
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.total,
-        })),
-        subtotal: sale.subtotal,
-        taxAmount: sale.taxAmount,
-        total: sale.total,
-        totalLabel: 'TOTAL',
-        fiscalDocuments: toSaleReceiptFiscalDocuments(sale.fiscalDocuments),
-        formatCurrency: v => v.toFixed(2),
-      },
-      { kickDrawer: false }
-    );
-
-    const document: ReceiptDocument = {
-      ...baseDocument,
-      kickDrawer: config.kickDrawerAfterReceipt,
-    };
-
-    const bytes = buildEscPosBytes(document, {
-      paperWidth: config.paperWidth,
-      characterSet: config.characterSet as EscPosCharset,
+    const templateContext = await resolveSaleReceiptTemplateContext({
+      db: ctx.db,
+      tenantId: ctx.tenantId,
+      fallbackSiteId: input.siteId,
+      sale,
     });
+    let bytes: Uint8Array;
+    if (templateContext) {
+      bytes = renderSaleReceiptTemplate(templateContext, {
+        paperWidth: config.paperWidth,
+        characterSet: config.characterSet,
+        kickDrawer: config.kickDrawerAfterReceipt,
+      }).escpos;
+    } else {
+      // Upgrade fallback: tenants without a configured declarative template
+      // retain the same printable ESC/POS receipt they had before this path
+      // started consuming templates.
+      const tenantRow = await ctx.db
+        .select({ name: tenants.name })
+        .from(tenants)
+        .where(eq(tenants.id, ctx.tenantId))
+        .get();
+      const baseDocument = buildSaleReceiptDocument(
+        {
+          header: { tenantName: tenantRow?.name ?? sale.tenantId },
+          saleNumber: sale.saleNumber,
+          customerName: sale.customerName ?? undefined,
+          items: sale.items.map(item => ({
+            name: item.productName ?? item.productSku ?? '—',
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.total,
+          })),
+          subtotal: sale.subtotal,
+          taxAmount: sale.taxAmount,
+          total: sale.total,
+          totalLabel: 'TOTAL',
+          fiscalDocuments: toSaleReceiptFiscalDocuments(sale.fiscalDocuments),
+          formatCurrency: value => value.toFixed(2),
+        },
+        { kickDrawer: false }
+      );
+      const document: ReceiptDocument = {
+        ...baseDocument,
+        kickDrawer: config.kickDrawerAfterReceipt,
+      };
+      bytes = buildEscPosBytes(document, {
+        paperWidth: config.paperWidth,
+        characterSet: config.characterSet as EscPosCharset,
+      });
+    }
 
     return {
       status: 'ready' as const,

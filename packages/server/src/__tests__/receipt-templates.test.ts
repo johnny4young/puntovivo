@@ -7,6 +7,7 @@ import {
   companies,
   receiptTemplates as receiptTemplatesTable,
   sites,
+  tenantLocaleSettings,
   tenants,
   users,
 } from '../db/schema.js';
@@ -195,6 +196,19 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(result.escpos[result.escpos.length - 2]).toBe(0x56);
       expect(result.escpos[result.escpos.length - 1]).toBe(0x00);
       expect(result.escpos.length).toBeGreaterThan(50);
+      expect(result.html).not.toContain('data-fiscal-proof="true"');
+    });
+
+    it('keeps mandatory honesty evidence specific to fiscal previews', () => {
+      const data = buildPreviewData('fiscal_dee');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'text' as const, value: 'Fiscal preview' }],
+      };
+      const result = renderReceipt(layout, data);
+      expect(result.html).toContain('data-fiscal-proof="true"');
+      expect(result.html).toContain('Demo only');
+      expect(result.html).not.toContain('catalogo-vpfe.dian.gov.co');
     });
 
     it('keeps preview company.city empty to match the variable availability contract', () => {
@@ -498,6 +512,10 @@ describe('Receipt Templates (Iter 2)', () => {
 
     it('renders a real inline SVG QR for a non-empty source', () => {
       const data = buildPreviewData('sale');
+      data.fiscal = {
+        ...data.fiscal,
+        qrUrl: 'https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=certified-test',
+      };
       const layout = {
         paperWidth: '80mm' as const,
         blocks: [{ type: 'qr' as const, source: '{{fiscal.qrUrl}}', sizeMm: 25 }],
@@ -543,6 +561,10 @@ describe('Receipt Templates (Iter 2)', () => {
 
     it('emits the GS ( k QR opcode sequence in the ESC/POS payload', () => {
       const data = buildPreviewData('sale');
+      data.fiscal = {
+        ...data.fiscal,
+        qrUrl: 'https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=certified-test',
+      };
       const layout = {
         paperWidth: '80mm' as const,
         blocks: [{ type: 'qr' as const, source: '{{fiscal.qrUrl}}', sizeMm: 25 }],
@@ -780,6 +802,7 @@ describe('Receipt Templates (Iter 2)', () => {
         ],
       });
       const html = renderReceipt(layout, buildSampleData()).html;
+      expect(html).toContain('<html lang="es-CO">');
       expect(html).toContain('Total: ');
       // es-CO + COP + 0 decimals → "$ 94.000" (non-breaking space between
       // symbol and digits). Match the digit grouping shape rather than the
@@ -1186,6 +1209,64 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(result.html).toContain('Ítem');
       expect(result.html).toContain('Método');
       expect(result.html).toContain('Cambio');
+    });
+
+    it('localizes fiscal preview authority from the tenant country', async () => {
+      const db = getDatabase();
+      const previousLocale = await db
+        .select()
+        .from(tenantLocaleSettings)
+        .where(eq(tenantLocaleSettings.tenantId, tenantId))
+        .get();
+      if (previousLocale) {
+        await db
+          .update(tenantLocaleSettings)
+          .set({
+            countryCode: 'MX',
+            localeOverride: 'es-MX',
+            currencyOverride: 'MXN',
+          })
+          .where(eq(tenantLocaleSettings.tenantId, tenantId));
+      } else {
+        await db.insert(tenantLocaleSettings).values({
+          tenantId,
+          countryCode: 'MX',
+          localeOverride: 'es-MX',
+          currencyOverride: 'MXN',
+        });
+      }
+
+      try {
+        const result = await appRouter
+          .createCaller(createAdminContext())
+          .receiptTemplates.renderPreview({
+            layout: {
+              paperWidth: '80mm',
+              blocks: [{ type: 'text', value: 'Fiscal preview' }],
+            },
+            kind: 'fiscal_dee',
+          });
+        expect(result.html).toContain('SAT DEMO');
+        expect(result.html).toContain('no se transmitió a SAT');
+        expect(result.html).not.toContain('no se transmitió a DIAN');
+      } finally {
+        if (previousLocale) {
+          await db
+            .update(tenantLocaleSettings)
+            .set({
+              countryCode: previousLocale.countryCode,
+              localeOverride: previousLocale.localeOverride,
+              currencyOverride: previousLocale.currencyOverride,
+              timezoneOverride: previousLocale.timezoneOverride,
+              firstDayOfWeekOverride: previousLocale.firstDayOfWeekOverride,
+              version: previousLocale.version,
+              updatedAt: previousLocale.updatedAt,
+            })
+            .where(eq(tenantLocaleSettings.tenantId, tenantId));
+        } else {
+          await db.delete(tenantLocaleSettings).where(eq(tenantLocaleSettings.tenantId, tenantId));
+        }
+      }
     });
   });
 

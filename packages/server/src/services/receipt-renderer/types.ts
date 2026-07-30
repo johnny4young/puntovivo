@@ -10,6 +10,7 @@
  * @module services/receipt-renderer/types
  */
 import type { FiscalDocumentStatus } from '../../db/schema.js';
+import type { FiscalAdapterMaturity } from '../fiscal/adapter.js';
 
 export interface RenderCompany {
   name: string;
@@ -84,6 +85,25 @@ export interface RenderFiscal {
    * the label via `t('fiscal:status.<status>')` and pass it in.
    */
   statusLabel?: string | null;
+  /** Provider maturity is distinct from the document lifecycle status. */
+  maturity?: FiscalAdapterMaturity | null;
+  /** Locale-resolved maturity label used by the mandatory proof appendix. */
+  maturityLabel?: string | null;
+  /**
+   * Locale-resolved honesty notice for mock/draft providers. Null only for a
+   * certified adapter, where the authority-specific pack owns the final proof.
+   */
+  nonCertifiedNotice?: string | null;
+  /** Country code used only to name the fiscal authority in proof copy. */
+  countryCode?: string | null;
+  /** Locale-resolved field labels for the non-optional fiscal proof appendix. */
+  evidenceLabels?: {
+    document: string;
+    status: string;
+    maturity: string;
+    resolution: string;
+    identifier: string;
+  };
 }
 
 /**
@@ -96,6 +116,12 @@ export interface RenderData {
   company: RenderCompany;
   sale: RenderSale;
   fiscal?: RenderFiscal;
+  /**
+   * Every fiscal document related to the sale. `fiscal` remains the primary
+   * template binding while this collection feeds the mandatory proof appendix
+   * so return/void evidence cannot disappear from a customized layout.
+   */
+  fiscalDocuments?: RenderFiscal[];
   logoDataUrl?: string | null;
   /**
    * resolved tenant locale. When present the renderer

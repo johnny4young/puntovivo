@@ -70,6 +70,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       paymentMethod: sales.paymentMethod,
       paymentStatus: sales.paymentStatus,
       status: sales.status,
+      cashSessionId: sales.cashSessionId,
       notes: sales.notes,
       createdBy: sales.createdBy,
       // park-and-resume bookkeeping. Surfacing these on the

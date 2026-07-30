@@ -1,7 +1,7 @@
-# Receipt Templates — Visual Editor
+# Receipt Templates — Visual Editor and Runtime Printing
 
-> Status: **Shipped — Iter 2 of the April 22, 2026 plan**
-> Originally drafted: April 21, 2026; landed: April 22, 2026
+> Status: **Shipped**
+> Originally landed: April 22, 2026; runtime integration updated: July 30, 2026
 
 Lets an administrator visually choose and edit the layout of POS receipts,
 quotations, and fiscal DEE/FEV print representations — without touching code
@@ -85,7 +85,7 @@ cleanly).
 
 ### Schema
 
-`packages/server/src/db/schema.ts` declares:
+`packages/server/src/db/schema/config.ts` declares:
 
 ```sql
 CREATE TABLE receipt_templates (
@@ -111,12 +111,11 @@ CREATE UNIQUE INDEX idx_receipt_templates_tenant_kind_default
   WHERE is_default = 1;
 ```
 
-The partial unique index lives in the hand-appended Drizzle migration
-`0001_receipt_templates.sql`, because Drizzle's SQLite dialect cannot
-generate `WHERE` clauses for unique indexes today. The service layer
-additionally enforces the invariant inside transactions: any insert/promote
-that would create a second default first demotes the prior one in the same
-statement.
+The partial unique index is declared with Drizzle's
+`uniqueIndex(...).where(...)` API and is present in the squashed
+`0000_baseline.sql` migration. The service layer additionally enforces the
+invariant inside transactions: any insert/promote that would create a second
+default first demotes the prior one in the same statement.
 
 ### tRPC procedures (admin only)
 
@@ -137,12 +136,14 @@ It returns `{ html, escposByteLength }`. The renderer is the same code
 path used at print time, so the preview and the production output are
 guaranteed to agree.
 
-### Renderer service (shared server + client)
+### Renderer service
 
-`packages/server/src/services/receipt-renderer.ts` exports
+`packages/server/src/services/receipt-renderer/` exports
 `renderReceipt(layout: ReceiptLayout, data: RenderData): { html, escpos }`.
-Pure, deterministic, no I/O. Testable with fixture data; used at edit
-time (preview), at receipt print time, and in unit tests.
+The renderer is pure, deterministic, and has no I/O. It is used by the editor
+preview and by the server-side runtime context that feeds browser/Electron
+system printing, server-attached ESC/POS printers, and hub-client ESC/POS
+bytes.
 
 `buildPreviewData(kind)` synthesizes a deterministic mock dataset so
 the editor preview is stable across reloads.
@@ -200,14 +201,12 @@ source is implicit, not picked in the editor. The current contract is:
   mocked 4-item sale (Café 250g, Pan artesanal, Empanada de carne,
   Botellón de agua) with split payments so the preview exercises
   every column.
-- At real print time the items come from the actual sale handed to
-  `renderReceipt(layout, data)` by whoever calls it (today the web
-  receipt-printer path in Iter 2; future Iter 7 reprint and Iter 4
-  ESC/POS adapter).
-- **UX gap**: the editor does not surface this binding explicitly
-  today. An operator who expects a "pick an SKU list" or "filter by
-  category" has to read the docs. Tracked in the follow-up list below
-  as _itemsTable binding caption_.
+- At real print time the server builds `RenderData` from the posted sale and
+  payment records plus the related display metadata. Fiscal receipts replace
+  buyer, line, total, currency, locale, and emission-time values with the
+  immutable fiscal-document snapshots.
+- The editor surfaces this binding directly above the block controls so an
+  operator does not have to infer where the rows come from.
 
 ### `totalsBlock`
 
@@ -231,9 +230,8 @@ source is implicit, not picked in the editor. The current contract is:
   totals — it just formats the pre-computed numbers. That's
   intentional: the receipt must match the posted sale to the cent.
 
-- **UX gap**: the editor shows "Subtotal / Tax / Total" checkboxes but
-  does not explain where those numbers come from. Tracked as
-  _totalsBlock documentation caption_ below.
+- The editor includes a collapsible explanation of these sources next to the
+  totals controls.
 
 ## Default presets
 
@@ -277,14 +275,15 @@ Web (i18n parity + lint + build).
 ## Files
 
 ```
-packages/server/src/db/schema.ts                                 # receiptTemplates table + enums
-packages/server/src/db/index.ts                                  # catalog seeding + PRAGMA (schema via migrations)
-packages/server/src/db/migrations/0001_receipt_templates.sql     # Drizzle migration (partial unique appended)
+packages/server/src/db/schema/config.ts                          # receiptTemplates table + indexes
+packages/server/src/db/migrations/0000_baseline.sql              # current baseline migration
 packages/server/src/lib/errorCodes.ts                            # RECEIPT_TEMPLATE_* codes
-packages/server/src/services/receipt-templates.ts                # CRUD + default-flip transactions
-packages/server/src/services/receipt-renderer.ts                 # pure renderReceipt
+packages/server/src/services/receipt-templates/                  # CRUD + default-flip transactions
+packages/server/src/services/receipt-renderer/                   # preview + runtime renderers
+packages/server/src/services/receipt-renderer/sale-context.ts    # runtime sale-to-template read model
 packages/server/src/trpc/schemas/receiptTemplates.ts             # Zod ReceiptLayout
 packages/server/src/trpc/routers/receiptTemplates.ts             # admin tRPC procedures
+packages/server/src/trpc/routers/peripherals/                    # HTML/ESC-POS runtime delivery
 packages/server/src/trpc/router.ts                               # registration
 packages/server/src/__tests__/receipt-templates.test.ts          # tests
 apps/web/src/features/receipt-templates/
@@ -303,21 +302,36 @@ apps/web/src/lib/translateServerError.ts                         # KNOWN_SERVER_
 
 ## Current print integration
 
-- Configured thermal printers receive ESC/POS bytes; system printers use the
-  HTML print path.
-- QR blocks use the same resolved source in HTML and ESC/POS.
-- Reprints reuse the same stored sale and fiscal snapshots.
-- Fiscal receipts expose local identifier and resolution evidence for mock or
-  draft packs, but authority URLs and QR codes remain unavailable until a pack
-  is certified.
+- The active default `fiscal_dee` template is selected when a sale has fiscal
+  documents; otherwise the active default `sale` template is selected. A
+  fiscal sale falls back to the `sale` template when no active fiscal template
+  exists.
+- Browser and Electron system printing request server-rendered HTML from that
+  template. Server-attached printers and hub clients receive ESC/POS bytes from
+  the same layout and runtime sale context.
+- Thermal output honors the registered printer's paper width, configured code
+  page, drawer pulse, and cut order. QR and Code 128 blocks resolve the same
+  source in HTML and ESC/POS.
+- Tenants with no active template retain the previous hardcoded HTML/ESC-POS
+  receipt as an upgrade fallback instead of losing printing.
+- Reprints reuse posted sale amounts and payment rows. Fiscal reprints
+  additionally use the frozen fiscal buyer, line, total, currency, locale, and
+  emission-time snapshots rather than mutable customer or product joins.
+  Fiscal evidence is appended as a non-removable proof section: mock/draft
+  documents show local identifier, resolution, maturity, and an explicit
+  non-transmission notice; authority URLs and QR codes remain unavailable
+  until the provider pack is certified.
+- For a non-fiscal sale, product, customer, site, and cashier display names are
+  resolved from their current records because the legacy sale schema does not
+  store textual snapshots for those labels. Posted quantities and monetary
+  values remain historical; an exact duplicate of renamed labels requires a
+  future sale-display snapshot.
 
 ## Follow-up improvements (tracked — April 22, 2026 feedback)
 
-The following improvements were raised by the user after the initial
-Iter 2 shipped. They are **not** implemented yet; they are captured
-here so the next pass on the editor picks them up in order. Each item
-carries a short rationale + implementation sketch so an engineer can
-estimate without re-deriving the context.
+The following sections preserve the implementation record for improvements
+raised after the initial editor shipped. Each heading states its current
+status; future prioritization lives in the private planning artifact.
 
 ### 1. Drag-and-drop reordering with animation — **shipped ( pass 2)**
 
@@ -484,12 +498,8 @@ obj` to `Object.prototype.hasOwnProperty.call(obj, seg)` so
   backward compatible for layouts that only use bare-path
   substitutions.
 
-**Remaining**: the conditional family (`if/eq/gt`) stays parked
-inside the broader "Remaining" list (items 2, 7, 8). Item
-#2 (rich text-authoring UX) and item #7 (in-preview error markers)
-will benefit from this AST: the autocomplete panel can introspect
-the same `FUNCTION_REGISTRY`, and the error markers can highlight
-the `raw` substring on each `ValidationIssue`.
+The conditional family (`if/eq/gt`) is not part of the current expression
+contract.
 
 Reference comparables worth studying before items #2 / #7 lock in
 the autocomplete syntax:
@@ -627,22 +637,6 @@ applied/skipped per prop. i18n parity green; voseo audit clean.
 **Remaining**: nothing for item #7. All four originally-listed
 sub-bullets ship across passes 4 + 5.
 
-Builds on follow-up #2:
-
-- When the layout fails Zod validation at save time, focus the first
-  offending block and highlight the offending token in red. Today
-  we show a toast but the operator has to hunt for which block
-  caused it.
-- When a variable resolves to `undefined` at render time (e.g.
-  `{{fiscal.cufe}}` on a tenant that hasn't enabled fiscal yet), the
-  renderer renders the empty string. The editor preview should
-  visually flag such substitutions (dimmed / italic / tooltip:
-  "This variable is unset for the current tenant — will be empty in
-  production") so the operator knows at design time.
-- Optionally add a per-tenant "variable availability" endpoint so
-  the editor knows which fiscal/company keys are populated and can
-  warn accordingly.
-
 ### 8. Other improvements already noted
 
 - WYSIWYG pixel-drag editor (declarative JSON still covers the core
@@ -653,8 +647,7 @@ Builds on follow-up #2:
   tenants.
 - Nested / computed expressions beyond the basic functions in
   follow-up #3.
-- Barcode-128 emission remains pending. QR blocks already emit scannable SVG
-  and ESC/POS symbols.
+- QR and Code 128 blocks emit scannable SVG and native ESC/POS symbols.
 
 ### 9. Developer seed command (cross-cutting, separate change)
 

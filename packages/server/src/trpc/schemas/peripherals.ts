@@ -136,6 +136,10 @@ export const buildReceiptBytesInput = z.object({
 });
 export type BuildReceiptBytesInput = z.infer<typeof buildReceiptBytesInput>;
 
+/** Read-only system-print representation from the same active template. */
+export const renderReceiptHtmlInput = buildReceiptBytesInput;
+export type RenderReceiptHtmlInput = z.infer<typeof renderReceiptHtmlInput>;
+
 export const buildDrawerKickBytesInput = z.object({
   siteId: z.string().min(1, 'siteId is required'),
   approvalRequestId: z.string().min(1).optional(),

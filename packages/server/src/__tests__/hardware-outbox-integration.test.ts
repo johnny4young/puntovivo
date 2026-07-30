@@ -146,6 +146,16 @@ beforeAll(async () => {
     createdAt: now(),
     updatedAt: now(),
   });
+  const adminCaller = appRouter.createCaller(buildContext('admin'));
+  await adminCaller.receiptTemplates.create({
+    kind: 'sale',
+    name: 'Runtime hardware template',
+    isDefault: true,
+    layout: {
+      paperWidth: '80mm',
+      blocks: [{ type: 'text', value: 'RUNTIME {{sale.saleNumber}}', bold: true }],
+    },
+  });
 });
 
 afterAll(async () => {
@@ -196,6 +206,14 @@ describe('peripherals.printReceipt', () => {
     // Init prefix and full-cut suffix prove the byte builder ran.
     expect(buf.subarray(0, 2)).toEqual(ESCPOS_BYTES.INIT);
     expect(buf.subarray(buf.length - 3)).toEqual(ESCPOS_BYTES.CUT_FULL);
+    expect(buf.subarray(0, 5)).toEqual(new Uint8Array([0x1b, 0x40, 0x1b, 0x74, 19]));
+    expect(buf.subarray(buf.length - 8)).toEqual(
+      new Uint8Array([...ESCPOS_BYTES.DRAWER_KICK, ...ESCPOS_BYTES.CUT_FULL])
+    );
+    const printable = Array.from(buf)
+      .map(byte => (byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : ''))
+      .join('');
+    expect(printable).toContain('RUNTIME TEST-VTA-1');
 
     // No outbox row on success.
     const rows = await getDatabase()
@@ -241,6 +259,12 @@ describe('peripherals.printReceipt', () => {
     expect(row.kind).toBe('print-receipt');
     expect(row.status).toBe('retrying');
     expect(row.attempts).toBe(1);
+    const payload = row.payload as { escposBytes?: number[] };
+    expect(payload.escposBytes).toEqual(expect.any(Array));
+    const printable = (payload.escposBytes ?? [])
+      .map(byte => (byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : ''))
+      .join('');
+    expect(printable).toContain('RUNTIME TEST-VTA-1');
   });
 });
 

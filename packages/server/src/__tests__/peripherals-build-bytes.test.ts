@@ -17,8 +17,12 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   companies,
+  fiscalDocumentItems,
+  fiscalDocuments,
+  fiscalNumberingResolutions,
   hardwareOutbox,
   managerApprovalRequests,
+  receiptTemplates,
   sales,
   sites,
   sitePeripherals,
@@ -127,6 +131,20 @@ beforeAll(async () => {
     cashSessionId: seededSessionId,
     createdBy: userId,
   });
+  const adminCaller = appRouter.createCaller(buildContext('admin'));
+  await adminCaller.receiptTemplates.create({
+    kind: 'sale',
+    name: 'Runtime sale template',
+    isDefault: true,
+    layout: {
+      paperWidth: '80mm',
+      blocks: [
+        { type: 'text', value: 'TPL {{sale.saleNumber}}', bold: true },
+        { type: 'text', value: 'Dirección Única' },
+        { type: 'barcode128', source: '{{sale.saleNumber}}', heightMm: 12 },
+      ],
+    },
+  });
 
   // Manufacture a foreign tenant + sale to assert the cross-tenant
   // guard. The foreign tenant only needs a valid `tenants` row + a
@@ -193,6 +211,19 @@ afterEach(async () => {
 });
 
 describe('peripherals.buildReceiptBytes', () => {
+  it('renders system HTML from the active default template', async () => {
+    const caller = appRouter.createCaller(buildContext());
+    const result = await caller.peripherals.renderReceiptHtml({
+      saleId: seededSaleId,
+      siteId,
+    });
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') throw new Error('Expected template HTML');
+    expect(result.templateKind).toBe('sale');
+    expect(result.html).toContain('TPL TEST-074B-001');
+    expect(result.html).toContain('class="barcode-svg"');
+  });
+
   it('returns system-fallback when no escpos peripheral is registered', async () => {
     const before = await countHardwareOutbox();
     const caller = appRouter.createCaller(buildContext());
@@ -257,6 +288,19 @@ describe('peripherals.buildReceiptBytes', () => {
     expect(result.bytes[0]).toBe(0x1b); // ESC INIT prefix
     expect(result.paperWidth).toBe('80mm');
     expect(result.characterSet).toBe('cp858');
+    expect(result.bytes.slice(0, 5)).toEqual([0x1b, 0x40, 0x1b, 0x74, 19]);
+    expect(result.bytes).toContain(0xe9); // Ú in cp858
+    const printable = result.bytes
+      .map(byte => (byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : ''))
+      .join('');
+    expect(printable).toContain('TPL TEST-074B-001');
+    expect(
+      result.bytes.some(
+        (byte, index) =>
+          byte === 0x1d && result.bytes[index + 1] === 0x6b && result.bytes[index + 2] === 0x49
+      )
+    ).toBe(true);
+    expect(result.bytes.slice(-8)).toEqual([...ESCPOS_BYTES.DRAWER_KICK, ...ESCPOS_BYTES.CUT_FULL]);
     expect(result.transportHint).toEqual({
       channel: 'tcp',
       host: '192.168.1.50',
@@ -268,6 +312,182 @@ describe('peripherals.buildReceiptBytes', () => {
     });
     // Hard invariant per ADR-0008 rule 6.
     expect(await countHardwareOutbox()).toBe(before);
+  });
+
+  it('keeps the legacy ESC/POS receipt when no active template exists', async () => {
+    const db = getDatabase();
+    await db.insert(sitePeripherals).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      kind: 'printer',
+      driver: 'escpos',
+      config: {
+        channel: 'tcp',
+        host: '192.168.1.50',
+        port: 9100,
+        paperWidth: '80mm',
+        characterSet: 'cp858',
+      },
+      displayName: 'Legacy fallback printer',
+      isActive: true,
+    });
+    await db
+      .update(receiptTemplates)
+      .set({ isActive: false })
+      .where(eq(receiptTemplates.tenantId, tenantId));
+    try {
+      const result = await appRouter
+        .createCaller(buildContext())
+        .peripherals.buildReceiptBytes({ saleId: seededSaleId, siteId });
+      expect(result.status).toBe('ready');
+      const printable = result.bytes
+        .map(byte => (byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : ''))
+        .join('');
+      expect(printable).toContain('TEST-074B-001');
+      expect(printable).not.toContain('TPL TEST-074B-001');
+    } finally {
+      await db
+        .update(receiptTemplates)
+        .set({ isActive: true })
+        .where(eq(receiptTemplates.tenantId, tenantId));
+    }
+  });
+
+  it('uses the fiscal template and preserves mock evidence for fiscal sales', async () => {
+    const db = getDatabase();
+    const adminCaller = appRouter.createCaller(buildContext('admin'));
+    const fiscalTemplate = await adminCaller.receiptTemplates.create({
+      kind: 'fiscal_dee',
+      name: 'Runtime fiscal template',
+      isDefault: true,
+      layout: {
+        paperWidth: '80mm',
+        blocks: [
+          { type: 'text', value: 'FISCAL {{sale.saleNumber}}', bold: true },
+          { type: 'text', value: 'Documento {{fiscal.documentNumber}}' },
+          { type: 'text', value: 'Comprador {{sale.customer}} / {{sale.customerTaxId}}' },
+          { type: 'text', value: 'Fecha {{ date(sale.createdAt) }}' },
+          {
+            type: 'itemsTable',
+            columns: ['name', 'qty', 'unitPrice', 'discount', 'total'],
+          },
+          {
+            type: 'totalsBlock',
+            show: ['subtotal', 'discount', 'taxTotal', 'grandTotal'],
+          },
+        ],
+      },
+    });
+    const resolutionId = nanoid();
+    const fiscalDocumentId = nanoid();
+    const voidFiscalDocumentId = nanoid();
+    await db.insert(fiscalNumberingResolutions).values({
+      id: resolutionId,
+      tenantId,
+      siteId,
+      kind: 'DEE',
+      resolutionNumber: 'TEST-DIAN-001',
+      prefix: 'DEMO',
+      fromNumber: 1,
+      toNumber: 100,
+      currentNumber: 2,
+      technicalKey: 'test-only',
+      validFrom: '2026-01-01T00:00:00.000Z',
+      validUntil: '2027-01-01T00:00:00.000Z',
+    });
+    await db.insert(fiscalDocuments).values({
+      id: fiscalDocumentId,
+      tenantId,
+      source: 'sale',
+      sourceId: seededSaleId,
+      kind: 'DEE',
+      resolutionId,
+      consecutive: 1,
+      documentNumber: 'DEMO-1',
+      cufe: 'f'.repeat(96),
+      status: 'accepted',
+      buyerTaxId: '222222222222',
+      buyerCountryCode: 'CO',
+      buyerTaxIdTypeCode: '13',
+      buyerName: 'Consumidor final',
+      subtotal: 180,
+      taxAmount: 34.2,
+      discountAmount: 20,
+      totalAmount: 214.2,
+      currencyCode: 'COP',
+      localeCode: 'es-CO',
+      providerId: 'mock',
+      emittedByUserId: userId,
+      emittedAt: '2026-07-23T15:40:36.000Z',
+    });
+    await db.insert(fiscalDocumentItems).values({
+      id: nanoid(),
+      fiscalDocumentId,
+      lineNumber: 1,
+      productName: 'Producto fiscal congelado',
+      productSku: 'FISCAL-SNAPSHOT',
+      unitMeasureCode: 'EA',
+      quantity: 2,
+      unitPrice: 100,
+      discountAmount: 20,
+      taxRate: 19,
+      taxAmount: 34.2,
+      taxCategoryCode: '01',
+      lineTotal: 214.2,
+    });
+    await db.insert(fiscalDocuments).values({
+      id: voidFiscalDocumentId,
+      tenantId,
+      source: 'void',
+      sourceId: seededSaleId,
+      kind: 'NC',
+      resolutionId,
+      consecutive: 2,
+      documentNumber: 'DEMO-NC-1',
+      cufe: 'e'.repeat(96),
+      status: 'accepted',
+      buyerTaxId: '222222222222',
+      buyerCountryCode: 'CO',
+      buyerTaxIdTypeCode: '13',
+      buyerName: 'Consumidor final',
+      subtotal: 180,
+      taxAmount: 34.2,
+      discountAmount: 20,
+      totalAmount: 214.2,
+      currencyCode: 'COP',
+      localeCode: 'es-CO',
+      originalCufe: 'f'.repeat(96),
+      providerId: 'mock',
+      emittedByUserId: userId,
+      emittedAt: '2026-07-22T15:40:36.000Z',
+    });
+    try {
+      const result = await appRouter
+        .createCaller(buildContext())
+        .peripherals.renderReceiptHtml({ saleId: seededSaleId, siteId });
+      expect(result.status).toBe('ready');
+      if (result.status !== 'ready') throw new Error('Expected fiscal template HTML');
+      expect(result.templateKind).toBe('fiscal_dee');
+      expect(result.html).toContain('FISCAL TEST-074B-001');
+      expect(result.html).toContain('Documento DEMO-1');
+      expect(result.html).toContain('DEMO-NC-1');
+      expect(result.html).toContain('Comprador Consumidor final / 222222222222');
+      expect(result.html).toContain('Fecha 23/07/2026');
+      expect(result.html).toContain('Producto fiscal congelado');
+      expect(result.html).toContain('Solo demostración');
+      expect(result.html).toContain('TEST-DIAN-001');
+      expect(result.html).toContain('$\u00a0214');
+      expect(result.html).not.toContain('$\u00a0119');
+      expect(result.html).not.toContain('catalogo-vpfe.dian.gov.co');
+    } finally {
+      await db.delete(fiscalDocuments).where(eq(fiscalDocuments.id, voidFiscalDocumentId));
+      await db.delete(fiscalDocuments).where(eq(fiscalDocuments.id, fiscalDocumentId));
+      await db
+        .delete(fiscalNumberingResolutions)
+        .where(eq(fiscalNumberingResolutions.id, resolutionId));
+      await db.delete(receiptTemplates).where(eq(receiptTemplates.id, fiscalTemplate.id));
+    }
   });
 
   it('rejects a saleId from a foreign tenant (cross-tenant guard)', async () => {

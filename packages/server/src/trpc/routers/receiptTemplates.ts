@@ -36,7 +36,11 @@ import {
   setDefaultReceiptTemplate,
   updateReceiptTemplate,
 } from '../../services/receipt-templates.js';
-import { buildPreviewData, renderReceipt } from '../../services/receipt-renderer/index.js';
+import {
+  buildPreviewData,
+  localizeRenderFiscal,
+  renderReceipt,
+} from '../../services/receipt-renderer/index.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import {
   createReceiptTemplateInput,
@@ -48,6 +52,13 @@ import {
   setDefaultReceiptTemplateInput,
   updateReceiptTemplateInput,
 } from '../schemas/receiptTemplates.js';
+
+function previewFiscalResolution(countryCode: string, colombiaResolution: string | null) {
+  if (countryCode === 'CO') return colombiaResolution;
+  if (countryCode === 'MX') return 'SAT DEMO';
+  if (countryCode === 'CL') return 'SII DEMO';
+  return `${countryCode} DEMO`;
+}
 
 function isFiscalDianEnabled(settings: unknown): boolean {
   if (!settings || typeof settings !== 'object') {
@@ -170,8 +181,31 @@ export const receiptTemplatesRouter = router({
       // inside `resolveTenantLocale` keeps the preview rendering when
       // the tenant has not yet configured locale settings.
       const resolvedLocale = await resolveTenantLocale(ctx.db, ctx.tenantId);
+      const previewData = buildPreviewData(kind ?? 'sale');
+      const localizedFiscal = localizeRenderFiscal(
+        {
+          id: 'preview-fiscal-document',
+          source: 'sale',
+          kind: 'DEE',
+          cufe: previewData.fiscal?.cufe ?? 'preview-local-identifier',
+          documentNumber: previewData.fiscal?.documentNumber ?? 'FE-V-000123',
+          status: previewData.fiscal?.status ?? 'accepted',
+          maturity: 'mock',
+          qrPayload: null,
+          xmlRef: null,
+          resolution: previewFiscalResolution(
+            resolvedLocale.countryCode,
+            previewData.fiscal?.resolution ?? null
+          ),
+          emittedAt: previewData.sale.createdAt,
+          countryCode: resolvedLocale.countryCode,
+        },
+        resolvedLocale.language
+      );
       const data = {
-        ...buildPreviewData(kind ?? 'sale'),
+        ...previewData,
+        fiscal: localizedFiscal,
+        fiscalDocuments: kind === 'fiscal_dee' ? [localizedFiscal] : [],
         locale: {
           locale: resolvedLocale.locale,
           currency: resolvedLocale.currency,

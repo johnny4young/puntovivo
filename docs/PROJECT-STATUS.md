@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-07-29. This is the public source of truth for shipped
+> Updated: 2026-07-30. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -17,6 +17,10 @@ The current `main` branch includes:
 
 - barcode-first sales, suspended carts, split tenders, refunds, voids, receipt
   reprints, credit sales, loyalty points, and manager approval controls;
+- active declarative receipt templates shared by live preview, browser/Electron
+  system printing, server and hub-client ESC/POS output, with native QR/Code
+  128 symbols, immutable fiscal evidence, configured printer code pages, and a
+  safe legacy fallback for tenants that have not configured templates;
 - cash-session accountability, blind close, audited movements, day-close
   evidence, anomaly signals, and immutable manager sign-off;
 - site-owned inventory, units, lots, FEFO, expiry suggestions, serialized

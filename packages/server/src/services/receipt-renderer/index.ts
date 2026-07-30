@@ -12,6 +12,12 @@
  * @module services/receipt-renderer
  */
 export { renderReceipt, buildPreviewData } from './render.js';
+export {
+  localizeRenderFiscal,
+  renderSaleReceiptTemplate,
+  resolveSaleReceiptTemplateContext,
+  type SaleReceiptTemplateContext,
+} from './sale-context.js';
 export { escapeHtml, resolveAndEscape } from './escape-resolve.js';
 export { APP_FOOTER_METADATA, DEFAULT_RECEIPT_RENDER_LABELS } from './labels.js';
 export type {

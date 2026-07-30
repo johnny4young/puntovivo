@@ -14,6 +14,13 @@ async function openBrowserPrintWindow(receiptHtml: string): Promise<void> {
   }
 }
 
+function withAutoPrint(receiptHtml: string): string {
+  const script = "<script>window.addEventListener('load',function(){window.print();});</script>";
+  return receiptHtml.includes('</body>')
+    ? receiptHtml.replace('</body>', `${script}</body>`)
+    : `${receiptHtml}${script}`;
+}
+
 /**
  * receipt print dispatcher with ESC/POS branch + system
  * fallback. The renderer first asks the server (`printReceipt`)
@@ -38,7 +45,7 @@ export async function printSaleReceipt(
   sale: ReceiptSale,
   options: PrintSaleReceiptOptions = {}
 ): Promise<void> {
-  const { escposDispatcher, onEscposFallback } = options;
+  const { escposDispatcher, onEscposFallback, htmlProvider } = options;
 
   // server-side ESC/POS branch. When the active printer
   // is escpos and the bytes flush, we are done; otherwise we fall
@@ -63,8 +70,18 @@ export async function printSaleReceipt(
     }
   }
 
+  let templateHtml: string | null = null;
+  if (htmlProvider) {
+    try {
+      templateHtml = await htmlProvider();
+    } catch {
+      // Keep receipt printing available during a server/read-side failure.
+      // The legacy document remains an intentional upgrade fallback.
+    }
+  }
+
   if (window.electron?.printReceipt) {
-    const html = await buildSaleReceiptHtml(sale, { autoPrint: false });
+    const html = templateHtml ?? (await buildSaleReceiptHtml(sale, { autoPrint: false }));
     const result = await window.electron.printReceipt(html);
 
     if (!result.success) {
@@ -74,6 +91,8 @@ export async function printSaleReceipt(
     return;
   }
 
-  const html = await buildSaleReceiptHtml(sale, { autoPrint: true });
+  const html = templateHtml
+    ? withAutoPrint(templateHtml)
+    : await buildSaleReceiptHtml(sale, { autoPrint: true });
   await openBrowserPrintWindow(html);
 }

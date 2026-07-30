@@ -94,6 +94,54 @@ describe('receiptPrinter', () => {
     expect(revokeSpy).toHaveBeenCalledWith('blob:sale-receipt');
   });
 
+  it('prints the server-rendered active template in the browser fallback', async () => {
+    let captured: Blob | null = null;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((src: Blob | MediaSource) => {
+      captured = src as Blob;
+      return 'blob:template-receipt';
+    });
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+
+    await printSaleReceipt(sale, {
+      htmlProvider: async () => '<html><body><main>ACTIVE TEMPLATE</main></body></html>',
+    });
+
+    expect(captured).not.toBeNull();
+    const html = await captured!.text();
+    expect(html).toContain('ACTIVE TEMPLATE');
+    expect(html).toContain('window.print()');
+    expect(html).not.toContain('POS-000123');
+  });
+
+  it('prints the server-rendered active template through Electron', async () => {
+    const printReceipt = vi.fn(async () => ({ success: true }));
+    (window as unknown as { electron: { printReceipt: typeof printReceipt } }).electron = {
+      printReceipt,
+    };
+
+    await printSaleReceipt(sale, {
+      htmlProvider: async () => '<html><body>ACTIVE ELECTRON TEMPLATE</body></html>',
+    });
+
+    expect(printReceipt).toHaveBeenCalledWith('<html><body>ACTIVE ELECTRON TEMPLATE</body></html>');
+  });
+
+  it('keeps the legacy receipt when the tenant has no active template', async () => {
+    let captured: Blob | null = null;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((src: Blob | MediaSource) => {
+      captured = src as Blob;
+      return 'blob:legacy-receipt';
+    });
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+
+    await printSaleReceipt(sale, { htmlProvider: async () => null });
+
+    expect(captured).not.toBeNull();
+    await expect(captured!.text()).resolves.toContain('POS-000123');
+  });
+
   it('skips the Tenders section for a single-tender sale', async () => {
     const html = await buildSaleReceiptHtml({
       ...sale,

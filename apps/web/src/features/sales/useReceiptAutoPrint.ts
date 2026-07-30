@@ -84,6 +84,16 @@ export function useReceiptAutoPrint({ autoPrintEnabled }: UseReceiptAutoPrintPar
         await printSaleReceipt(sale, {
           escposDispatcher: dispatcher,
           onEscposFallback: handleAutoPrintFallback,
+          htmlProvider: async () => {
+            const result = await utils.peripherals.renderReceiptHtml.fetch(
+              {
+                saleId: sale.id,
+                siteId,
+              },
+              { staleTime: 0 }
+            );
+            return result.status === 'ready' ? result.html : null;
+          },
         });
       } catch (err) {
         // Receipt-print is best-effort post-sale — never block the

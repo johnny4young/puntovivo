@@ -72,6 +72,23 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
     },
     [currentSite, printReceiptMutateAsync, utils]
   );
+  const buildReceiptHtmlProvider = useCallback(
+    (saleIdToPrint: string): (() => Promise<string | null>) | undefined => {
+      if (!currentSite) return undefined;
+      const siteId = currentSite.id;
+      return async () => {
+        const result = await utils.peripherals.renderReceiptHtml.fetch(
+          {
+            saleId: saleIdToPrint,
+            siteId,
+          },
+          { staleTime: 0 }
+        );
+        return result.status === 'ready' ? result.html : null;
+      };
+    },
+    [currentSite, utils]
+  );
   const handleEscposFallback = useCallback(() => {
     toast.warning({ title: t('sales:printer.escposFailedFallback') });
   }, [t, toast]);
@@ -131,6 +148,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         await printSaleReceipt(refreshed, {
           escposDispatcher: buildEscposDispatcher(refreshed.id),
           onEscposFallback: handleEscposFallback,
+          htmlProvider: buildReceiptHtmlProvider(refreshed.id),
         });
         toast.success({ title: t('sales:reprint.toastSuccessTitle') });
       } catch (error) {
@@ -292,6 +310,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       await printSaleReceipt(sale, {
         escposDispatcher: buildEscposDispatcher(sale.id),
         onEscposFallback: handleEscposFallback,
+        htmlProvider: buildReceiptHtmlProvider(sale.id),
       });
     } catch (error) {
       setPrintError(
