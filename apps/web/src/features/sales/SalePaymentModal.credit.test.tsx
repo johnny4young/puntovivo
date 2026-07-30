@@ -466,7 +466,7 @@ describe('SalePaymentModal ( credit branch)', () => {
 
     await screen.findByTestId('checkout-approval-sale_discount');
     await user.type(
-      screen.getByLabelText('Reason for Discounted checkout'),
+      await screen.findByLabelText('Reason for Discounted checkout'),
       'Customer price match'
     );
     await user.click(screen.getByRole('button', { name: 'Request approval' }));
