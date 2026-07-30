@@ -19,9 +19,9 @@ The current `main` branch includes:
   reprints, credit sales, loyalty points, and manager approval controls;
 - active declarative receipt templates shared by live preview, browser/Electron
   system printing, server and hub-client ESC/POS output, with native QR/Code
-  128 symbols, immutable fiscal evidence, sale-time display-label snapshots for
-  non-fiscal reprints, configured printer code pages, and a safe legacy
-  fallback for tenants that have not configured templates;
+  128 symbols, immutable fiscal evidence, sale-time display and business
+  identity snapshots for non-fiscal reprints, configured printer code pages,
+  and a safe legacy fallback for tenants that have not configured templates;
 - cash-session accountability, blind close, audited movements, day-close
   evidence, anomaly signals, and immutable manager sign-off;
 - site-owned inventory, units, lots, FEFO, expiry suggestions, serialized

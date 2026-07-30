@@ -73,7 +73,7 @@ import {
   releaseCheckoutApprovals,
   requiredCheckoutApprovalActions,
 } from './checkout-approvals.js';
-import { resolveSaleHeaderDisplaySnapshots } from './display-snapshots.js';
+import { resolveSaleHeaderReceiptSnapshots } from './receipt-snapshots.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -109,9 +109,9 @@ export async function runFreshSale(
 
   const sequentialContext = await getSaleSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
   const saleSiteId = activeCashSession.siteId;
-  const [resolvedItems, headerDisplaySnapshots] = await Promise.all([
+  const [resolvedItems, headerReceiptSnapshots] = await Promise.all([
     resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items),
-    resolveSaleHeaderDisplaySnapshots(ctx.db, ctx.tenantId, {
+    resolveSaleHeaderReceiptSnapshots(ctx.db, ctx.tenantId, {
       customerId: input.customerId,
       siteId: saleSiteId,
       cashierId: ctx.user.id,
@@ -321,7 +321,21 @@ export async function runFreshSale(
           tenantId: ctx.tenantId,
           saleNumber,
           customerId: input.customerId,
-          ...headerDisplaySnapshots,
+          customerNameSnapshot: headerReceiptSnapshots.customerNameSnapshot,
+          siteNameSnapshot: headerReceiptSnapshots.siteNameSnapshot,
+          cashierNameSnapshot: headerReceiptSnapshots.cashierNameSnapshot,
+          ...(input.status === 'completed'
+            ? {
+                receiptIdentitySnapshotVersion:
+                  headerReceiptSnapshots.receiptIdentitySnapshotVersion,
+                companyNameSnapshot: headerReceiptSnapshots.companyNameSnapshot,
+                companyTaxIdSnapshot: headerReceiptSnapshots.companyTaxIdSnapshot,
+                companyAddressSnapshot: headerReceiptSnapshots.companyAddressSnapshot,
+                companyPhoneSnapshot: headerReceiptSnapshots.companyPhoneSnapshot,
+                companyEmailSnapshot: headerReceiptSnapshots.companyEmailSnapshot,
+                customerTaxIdSnapshot: headerReceiptSnapshots.customerTaxIdSnapshot,
+              }
+            : {}),
           // restaurant table FK passed through from the
           // tRPC layer (already tenant/site-scoped + active-validated there).
           tableId: input.tableId ?? null,

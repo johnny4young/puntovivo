@@ -332,6 +332,7 @@ describe('Versioned Drizzle migrations', () => {
       '0026_eng110d_serial_logistics',
       '0027_ux6a_task_measurement',
       '0028_sale_display_snapshots',
+      '0029_receipt_identity_snapshots',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -407,6 +408,7 @@ describe('Versioned Drizzle migrations', () => {
       '0026_eng110d_serial_logistics',
       '0027_ux6a_task_measurement',
       '0028_sale_display_snapshots',
+      '0029_receipt_identity_snapshots',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();

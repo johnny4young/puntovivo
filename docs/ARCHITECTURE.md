@@ -66,10 +66,11 @@ surface to its renderer.
 - The operation journal and audit log preserve who changed sensitive state and
   which effects committed.
 - Signed day-close evidence and fiscal snapshots are immutable.
-- Completed sales freeze the customer, site, cashier, product-name, and
-  product-SKU display labels used by ordinary receipt reprints. Pre-migration
-  rows keep a nullable compatibility path that resolves the current related
-  record instead.
+- Completed sales freeze customer, site, cashier, product-name, product-SKU,
+  company identity/contact, and customer tax-ID values used by ordinary
+  receipt reprints. A snapshot-version marker distinguishes deliberately empty
+  sale-time identity fields from pre-migration rows, which retain current-row
+  compatibility fallback.
 
 ## Local storage and recovery
 

@@ -29,6 +29,7 @@ import { registerDevice as registerDeviceService } from '../services/devices/dev
 import {
   cashMovements,
   cashSessions,
+  companies,
   customers,
   inventoryBalances,
   inventoryMovements,
@@ -49,7 +50,7 @@ import {
 import { appRouter } from '../trpc/router.js';
 import { recordOperationStart } from '../services/operation-journal/journal.js';
 import { completeSale } from '../application/sales/completeSale.js';
-import { resolveSaleHeaderDisplaySnapshots } from '../application/sales/display-snapshots.js';
+import { resolveSaleHeaderReceiptSnapshots } from '../application/sales/receipt-snapshots.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
@@ -63,6 +64,11 @@ let baseUnitId: string;
 let cashSessionId: string;
 let siteName: string;
 let userName: string;
+let companyName: string;
+let companyTaxId: string | null;
+let companyAddress: string | null;
+let companyPhone: string | null;
+let companyEmail: string | null;
 
 function buildContext(overrides: Partial<CompleteSaleContext> = {}): CompleteSaleContext {
   return {
@@ -134,7 +140,7 @@ async function seedProduct(args: {
   return productId;
 }
 
-async function seedCustomer(name: string) {
+async function seedCustomer(name: string, taxId?: string) {
   const db = getDatabase();
   const id = nanoid();
   const now = new Date().toISOString();
@@ -142,6 +148,7 @@ async function seedCustomer(name: string) {
     id,
     tenantId,
     name,
+    taxId,
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -167,6 +174,17 @@ beforeAll(async () => {
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
   siteName = seededSite.name;
+  const seededCompany = await db
+    .select()
+    .from(companies)
+    .where(and(eq(companies.id, seededSite.companyId), eq(companies.tenantId, tenantId)))
+    .get();
+  if (!seededCompany) throw new Error('Expected seeded company');
+  companyName = seededCompany.name;
+  companyTaxId = seededCompany.taxId;
+  companyAddress = seededCompany.address;
+  companyPhone = seededCompany.phone;
+  companyEmail = seededCompany.email;
 
   const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
@@ -230,7 +248,7 @@ afterAll(async () => {
 
 describe('completeSale (fresh path)', () => {
   it('persists sale + payments + inventory movement and advances the sequential', async () => {
-    const customerId = await seedCustomer('Acme Direct');
+    const customerId = await seedCustomer('Acme Direct', 'ACME-TAX-001');
     const productId = await seedProduct({
       name: 'Direct Sale Widget',
       sku: 'CS-DIRECT-1',
@@ -274,6 +292,13 @@ describe('completeSale (fresh path)', () => {
       customerNameSnapshot: 'Acme Direct',
       siteNameSnapshot: siteName,
       cashierNameSnapshot: userName,
+      receiptIdentitySnapshotVersion: 1,
+      companyNameSnapshot: companyName,
+      companyTaxIdSnapshot: companyTaxId,
+      companyAddressSnapshot: companyAddress,
+      companyPhoneSnapshot: companyPhone,
+      companyEmailSnapshot: companyEmail,
+      customerTaxIdSnapshot: 'ACME-TAX-001',
       paymentStatus: 'paid',
       status: 'completed',
       items: [
@@ -324,15 +349,22 @@ describe('completeSale (fresh path)', () => {
       createdAt: now,
       updatedAt: now,
     });
-    const displaySnapshots = await resolveSaleHeaderDisplaySnapshots(db, tenantId, {
+    const receiptSnapshots = await resolveSaleHeaderReceiptSnapshots(db, tenantId, {
       customerId: foreignCustomerId,
       siteId,
       cashierId: userId,
     });
-    expect(displaySnapshots).toEqual({
+    expect(receiptSnapshots).toEqual({
       customerNameSnapshot: null,
       siteNameSnapshot: siteName,
       cashierNameSnapshot: userName,
+      receiptIdentitySnapshotVersion: 1,
+      companyNameSnapshot: companyName,
+      companyTaxIdSnapshot: companyTaxId,
+      companyAddressSnapshot: companyAddress,
+      companyPhoneSnapshot: companyPhone,
+      companyEmailSnapshot: companyEmail,
+      customerTaxIdSnapshot: null,
     });
     const productId = await seedProduct({
       name: 'CS Cross customer',
@@ -741,6 +773,11 @@ describe('completeSale (fresh path)', () => {
     });
     const saleId = (result.sale as { id: string }).id;
 
+    expect(result.sale).toMatchObject({
+      receiptIdentitySnapshotVersion: null,
+      companyNameSnapshot: null,
+      customerTaxIdSnapshot: null,
+    });
     const movements = await getDatabase()
       .select()
       .from(cashMovements)
@@ -800,6 +837,13 @@ describe('completeSale (fromDraft path)', () => {
       status: 'completed',
       siteNameSnapshot: siteName,
       cashierNameSnapshot: userName,
+      receiptIdentitySnapshotVersion: 1,
+      companyNameSnapshot: companyName,
+      companyTaxIdSnapshot: companyTaxId,
+      companyAddressSnapshot: companyAddress,
+      companyPhoneSnapshot: companyPhone,
+      companyEmailSnapshot: companyEmail,
+      customerTaxIdSnapshot: null,
       items: [
         expect.objectContaining({
           productNameSnapshot: 'CS Draft Complete at checkout',

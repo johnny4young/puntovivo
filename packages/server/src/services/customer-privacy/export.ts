@@ -99,6 +99,8 @@ export function buildCustomerPersonalDataExport(
       paymentMethod: sales.paymentMethod,
       paymentStatus: sales.paymentStatus,
       status: sales.status,
+      customerNameSnapshot: sales.customerNameSnapshot,
+      customerTaxIdSnapshot: sales.customerTaxIdSnapshot,
       notes: sales.notes,
       checkoutStartedAt: sales.checkoutStartedAt,
       checkoutCompletedAt: sales.checkoutCompletedAt,

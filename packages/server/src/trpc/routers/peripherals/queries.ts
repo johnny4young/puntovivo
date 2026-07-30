@@ -209,11 +209,26 @@ export const peripheralsQueryProcedures = {
         .from(tenants)
         .where(eq(tenants.id, ctx.tenantId))
         .get();
+      const hasIdentitySnapshot = (sale.receiptIdentitySnapshotVersion ?? 0) >= 1;
       const baseDocument = buildSaleReceiptDocument(
         {
-          header: { tenantName: tenantRow?.name ?? sale.tenantId },
+          header: {
+            tenantName:
+              (hasIdentitySnapshot ? sale.companyNameSnapshot : null) ??
+              tenantRow?.name ??
+              sale.tenantId,
+            siteName: sale.siteNameSnapshot ?? undefined,
+            taxId: hasIdentitySnapshot ? (sale.companyTaxIdSnapshot ?? undefined) : undefined,
+            address: hasIdentitySnapshot ? (sale.companyAddressSnapshot ?? undefined) : undefined,
+            phone: hasIdentitySnapshot ? (sale.companyPhoneSnapshot ?? undefined) : undefined,
+            email: hasIdentitySnapshot ? (sale.companyEmailSnapshot ?? undefined) : undefined,
+          },
+          cashierName: sale.cashierNameSnapshot ?? undefined,
           saleNumber: sale.saleNumber,
           customerName: sale.customerNameSnapshot ?? sale.customerName ?? undefined,
+          customerTaxId: hasIdentitySnapshot
+            ? (sale.customerTaxIdSnapshot ?? undefined)
+            : undefined,
           items: sale.items.map(item => ({
             name:
               item.productNameSnapshot ??

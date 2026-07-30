@@ -13,6 +13,13 @@ export interface Sale {
   customerNameSnapshot?: string | null;
   siteNameSnapshot?: string | null;
   cashierNameSnapshot?: string | null;
+  receiptIdentitySnapshotVersion?: number | null;
+  companyNameSnapshot?: string | null;
+  companyTaxIdSnapshot?: string | null;
+  companyAddressSnapshot?: string | null;
+  companyPhoneSnapshot?: string | null;
+  companyEmailSnapshot?: string | null;
+  customerTaxIdSnapshot?: string | null;
   customer?: Customer;
   items?: SaleItem[];
   payments?: SalePayment[];

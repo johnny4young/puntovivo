@@ -54,6 +54,12 @@ let snapshotCustomerId: string;
 let snapshotProductId: string;
 let originalSiteName: string;
 let originalUserName: string;
+let originalCompanyId: string;
+let originalCompanyName: string;
+let originalCompanyTaxId: string | null;
+let originalCompanyAddress: string | null;
+let originalCompanyPhone: string | null;
+let originalCompanyEmail: string | null;
 
 function buildContext(
   role: 'admin' | 'manager' | 'cashier' = 'cashier',
@@ -98,6 +104,18 @@ beforeAll(async () => {
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
   originalSiteName = seededSite.name;
+  const seededCompany = await db
+    .select()
+    .from(companies)
+    .where(and(eq(companies.id, seededSite.companyId), eq(companies.tenantId, tenantId)))
+    .get();
+  if (!seededCompany) throw new Error('Expected seeded company');
+  originalCompanyId = seededCompany.id;
+  originalCompanyName = seededCompany.name;
+  originalCompanyTaxId = seededCompany.taxId;
+  originalCompanyAddress = seededCompany.address;
+  originalCompanyPhone = seededCompany.phone;
+  originalCompanyEmail = seededCompany.email;
   deviceId = (
     await registerDevice(db, {
       tenantId,
@@ -133,6 +151,7 @@ beforeAll(async () => {
     id: snapshotCustomerId,
     tenantId,
     name: 'Cliente congelado',
+    taxId: 'CLIENTE-ID-ORIGINAL',
   });
   await db.insert(products).values({
     id: snapshotProductId,
@@ -148,6 +167,13 @@ beforeAll(async () => {
     customerNameSnapshot: 'Cliente congelado',
     siteNameSnapshot: originalSiteName,
     cashierNameSnapshot: originalUserName,
+    receiptIdentitySnapshotVersion: 1,
+    companyNameSnapshot: originalCompanyName,
+    companyTaxIdSnapshot: originalCompanyTaxId,
+    companyAddressSnapshot: originalCompanyAddress,
+    companyPhoneSnapshot: originalCompanyPhone,
+    companyEmailSnapshot: originalCompanyEmail,
+    customerTaxIdSnapshot: 'CLIENTE-ID-ORIGINAL',
     subtotal: 100,
     taxAmount: 19,
     discountAmount: 0,
@@ -264,7 +290,7 @@ describe('peripherals.buildReceiptBytes', () => {
     expect(result.html).toContain('class="barcode-svg"');
   });
 
-  it('keeps sale-time labels after catalog renames and falls back for historical rows', async () => {
+  it('keeps sale-time receipt identity after related records change and falls back for historical rows', async () => {
     const db = getDatabase();
     const template = await db
       .select({ layout: receiptTemplates.layout })
@@ -279,6 +305,12 @@ describe('peripherals.buildReceiptBytes', () => {
         { type: 'text' as const, value: 'Cajero {{sale.cashier}}' },
         { type: 'text' as const, value: 'Sede {{sale.site}}' },
         { type: 'text' as const, value: 'Cliente {{sale.customer}}' },
+        { type: 'text' as const, value: 'Documento {{sale.customerTaxId}}' },
+        { type: 'text' as const, value: 'Empresa {{company.name}}' },
+        { type: 'text' as const, value: 'NIT {{company.taxId}}' },
+        { type: 'text' as const, value: 'Dirección {{company.address}}' },
+        { type: 'text' as const, value: 'Teléfono {{company.phone}}' },
+        { type: 'text' as const, value: 'Correo {{company.email}}' },
         {
           type: 'itemsTable' as const,
           columns: ['name', 'qty', 'unitPrice', 'total'] as const,
@@ -292,8 +324,18 @@ describe('peripherals.buildReceiptBytes', () => {
         .where(eq(receiptTemplates.id, saleTemplateId)),
       db
         .update(customers)
-        .set({ name: 'Cliente renombrado' })
+        .set({ name: 'Cliente renombrado', taxId: 'CLIENTE-ID-NUEVO' })
         .where(and(eq(customers.id, snapshotCustomerId), eq(customers.tenantId, tenantId))),
+      db
+        .update(companies)
+        .set({
+          name: 'Empresa renombrada',
+          taxId: 'NIT-NUEVO',
+          address: 'Dirección nueva',
+          phone: 'Teléfono nuevo',
+          email: 'correo-nuevo@example.test',
+        })
+        .where(and(eq(companies.id, originalCompanyId), eq(companies.tenantId, tenantId))),
       db
         .update(products)
         .set({ name: 'Producto renombrado', sku: 'RENAMED-001' })
@@ -319,8 +361,24 @@ describe('peripherals.buildReceiptBytes', () => {
       expect(snapshotted.html).toContain(`Cajero ${originalUserName}`);
       expect(snapshotted.html).toContain(`Sede ${originalSiteName}`);
       expect(snapshotted.html).toContain('Cliente Cliente congelado');
+      expect(snapshotted.html).toContain('Documento CLIENTE-ID-ORIGINAL');
+      expect(snapshotted.html).toContain(`Empresa ${originalCompanyName}`);
+      if (originalCompanyTaxId) {
+        expect(snapshotted.html).toContain(`NIT ${originalCompanyTaxId}`);
+      }
+      if (originalCompanyAddress) {
+        expect(snapshotted.html).toContain(`Dirección ${originalCompanyAddress}`);
+      }
+      if (originalCompanyPhone) {
+        expect(snapshotted.html).toContain(`Teléfono ${originalCompanyPhone}`);
+      }
+      if (originalCompanyEmail) {
+        expect(snapshotted.html).toContain(`Correo ${originalCompanyEmail}`);
+      }
       expect(snapshotted.html).toContain('Producto congelado');
       expect(snapshotted.html).not.toContain('renombrado');
+      expect(snapshotted.html).not.toContain('CLIENTE-ID-NUEVO');
+      expect(snapshotted.html).not.toContain('NIT-NUEVO');
 
       await Promise.all([
         db
@@ -329,6 +387,13 @@ describe('peripherals.buildReceiptBytes', () => {
             customerNameSnapshot: null,
             siteNameSnapshot: null,
             cashierNameSnapshot: null,
+            receiptIdentitySnapshotVersion: 0,
+            companyNameSnapshot: null,
+            companyTaxIdSnapshot: null,
+            companyAddressSnapshot: null,
+            companyPhoneSnapshot: null,
+            companyEmailSnapshot: null,
+            customerTaxIdSnapshot: null,
           })
           .where(eq(sales.id, seededSaleId)),
         db
@@ -345,6 +410,12 @@ describe('peripherals.buildReceiptBytes', () => {
       expect(historical.html).toContain('Cajero Cajero renombrado');
       expect(historical.html).toContain('Sede Sede renombrada');
       expect(historical.html).toContain('Cliente Cliente renombrado');
+      expect(historical.html).toContain('Documento CLIENTE-ID-NUEVO');
+      expect(historical.html).toContain('Empresa Empresa renombrada');
+      expect(historical.html).toContain('NIT NIT-NUEVO');
+      expect(historical.html).toContain('Dirección Dirección nueva');
+      expect(historical.html).toContain('Teléfono Teléfono nuevo');
+      expect(historical.html).toContain('Correo correo-nuevo@example.test');
       expect(historical.html).toContain('Producto renombrado');
     } finally {
       await Promise.all([
@@ -354,8 +425,18 @@ describe('peripherals.buildReceiptBytes', () => {
           .where(eq(receiptTemplates.id, saleTemplateId)),
         db
           .update(customers)
-          .set({ name: 'Cliente congelado' })
+          .set({ name: 'Cliente congelado', taxId: 'CLIENTE-ID-ORIGINAL' })
           .where(eq(customers.id, snapshotCustomerId)),
+        db
+          .update(companies)
+          .set({
+            name: originalCompanyName,
+            taxId: originalCompanyTaxId,
+            address: originalCompanyAddress,
+            phone: originalCompanyPhone,
+            email: originalCompanyEmail,
+          })
+          .where(eq(companies.id, originalCompanyId)),
         db
           .update(products)
           .set({ name: 'Producto congelado', sku: 'SNAPSHOT-001' })
@@ -368,6 +449,13 @@ describe('peripherals.buildReceiptBytes', () => {
             customerNameSnapshot: 'Cliente congelado',
             siteNameSnapshot: originalSiteName,
             cashierNameSnapshot: originalUserName,
+            receiptIdentitySnapshotVersion: 1,
+            companyNameSnapshot: originalCompanyName,
+            companyTaxIdSnapshot: originalCompanyTaxId,
+            companyAddressSnapshot: originalCompanyAddress,
+            companyPhoneSnapshot: originalCompanyPhone,
+            companyEmailSnapshot: originalCompanyEmail,
+            customerTaxIdSnapshot: 'CLIENTE-ID-ORIGINAL',
           })
           .where(eq(sales.id, seededSaleId)),
         db

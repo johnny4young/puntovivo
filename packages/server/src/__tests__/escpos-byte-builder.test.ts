@@ -227,9 +227,18 @@ describe('buildEscPosBytes — control sequences', () => {
 describe('buildSaleReceiptDocument', () => {
   it('produces the canonical line ordering with header, items, totals, footer', () => {
     const doc = buildSaleReceiptDocument({
-      header: { tenantName: 'Bodega Doña Ana', siteName: 'Sede Norte' },
+      header: {
+        tenantName: 'Bodega Doña Ana',
+        siteName: 'Sede Norte',
+        taxId: '900123456',
+        address: 'Calle 10 # 20-30',
+        phone: '+57 300 123 4567',
+        email: 'ventas@example.test',
+      },
       saleNumber: 'VTA-N-000123',
       cashierName: 'Carla',
+      customerName: 'Ana Ruiz',
+      customerTaxId: 'CC 123456',
       items: [
         { name: 'Pan tajado', quantity: 1, unitPrice: 6500, total: 6500 },
         { name: 'Leche entera 1L', quantity: 2, unitPrice: 5400, total: 10800 },
@@ -244,8 +253,14 @@ describe('buildSaleReceiptDocument', () => {
     const lines = doc.lines.map(l => l.text);
     expect(lines[0]).toBe('Bodega Doña Ana');
     expect(lines).toContain('Sede Norte');
+    expect(lines).toContain('NIT: 900123456');
+    expect(lines).toContain('Calle 10 # 20-30');
+    expect(lines).toContain('+57 300 123 4567');
+    expect(lines).toContain('ventas@example.test');
     expect(lines).toContain('Venta: VTA-N-000123');
     expect(lines).toContain('Cajero: Carla');
+    expect(lines).toContain('Cliente: Ana Ruiz');
+    expect(lines).toContain('Identificación: CC 123456');
     expect(lines).toContain('Pan tajado');
     expect(lines).toContain('Leche entera 1L');
     // Total shows up via the totalLabel + currency.

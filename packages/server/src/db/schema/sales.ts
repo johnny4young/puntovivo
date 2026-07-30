@@ -51,12 +51,20 @@ export const sales = sqliteTable(
       .references(() => tenants.id),
     saleNumber: text('sale_number').notNull(),
     customerId: text('customer_id').references(() => customers.id),
-    // Sale-time display labels used by ordinary receipt reprints. Nullable
-    // keeps pre-migration rows readable: receipt renderers fall back to the
-    // current related record when a historical sale has no snapshot.
+    // Sale-time receipt labels and legal/contact identity. The version marker
+    // distinguishes a deliberately empty field on a new receipt from a
+    // historical row that predates snapshots and therefore needs current-row
+    // fallback behavior.
     customerNameSnapshot: text('customer_name_snapshot'),
     siteNameSnapshot: text('site_name_snapshot'),
     cashierNameSnapshot: text('cashier_name_snapshot'),
+    receiptIdentitySnapshotVersion: integer('receipt_identity_snapshot_version'),
+    companyNameSnapshot: text('company_name_snapshot'),
+    companyTaxIdSnapshot: text('company_tax_id_snapshot'),
+    companyAddressSnapshot: text('company_address_snapshot'),
+    companyPhoneSnapshot: text('company_phone_snapshot'),
+    companyEmailSnapshot: text('company_email_snapshot'),
+    customerTaxIdSnapshot: text('customer_tax_id_snapshot'),
     // optional restaurant-table FK. When non-null the draft
     // is "open" on that physical table; `listWithDraftStatus` reads
     // this column to surface occupancy. Nullable so non-restaurant

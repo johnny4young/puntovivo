@@ -900,6 +900,9 @@ describe('Collections tRPC Routers', () => {
           tenantId: testTenantId,
           saleNumber: `PRIV-SALE-${suffix}`,
           customerId: customer.id,
+          customerNameSnapshot: customer.name,
+          receiptIdentitySnapshotVersion: 1,
+          customerTaxIdSnapshot: customer.taxId,
           status: 'draft',
           notes: 'Customer requested a gift receipt',
           createdBy: adminUserId,
@@ -996,6 +999,10 @@ describe('Collections tRPC Routers', () => {
           creditLimit: 150,
         });
         expect(document.records.sales).toHaveLength(1);
+        expect(document.records.sales[0]).toMatchObject({
+          customerNameSnapshot: customer.name,
+          customerTaxIdSnapshot: customer.taxId,
+        });
         expect(document.records.saleItems[0]).toMatchObject({
           saleId,
           productName: 'Private purchase item',
@@ -1179,6 +1186,9 @@ describe('Collections tRPC Routers', () => {
           tenantId: testTenantId,
           saleNumber: `PRIV-DISP-${suffix}`,
           customerId: customer.id,
+          customerNameSnapshot: customer.name,
+          receiptIdentitySnapshotVersion: 1,
+          customerTaxIdSnapshot: customer.taxId,
           status: 'draft',
           createdBy: adminUserId,
         });
@@ -1233,6 +1243,8 @@ describe('Collections tRPC Routers', () => {
         expect(anonymized?.privacyDisposedAt).toEqual(expect.any(String));
         expect(await db.select().from(sales).where(eq(sales.id, saleId)).get()).toMatchObject({
           customerId: customer.id,
+          customerNameSnapshot: customer.name,
+          customerTaxIdSnapshot: customer.taxId,
         });
 
         const customerAudits = await db

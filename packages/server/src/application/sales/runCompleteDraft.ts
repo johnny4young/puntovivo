@@ -64,7 +64,7 @@ import {
   releaseCheckoutApprovals,
   requiredCheckoutApprovalActions,
 } from './checkout-approvals.js';
-import { resolveSaleHeaderDisplaySnapshots } from './display-snapshots.js';
+import { resolveSaleHeaderReceiptSnapshots } from './receipt-snapshots.js';
 
 /**
  * Draft-completion path (formerly `sales.completeDraft`): finalize a sale
@@ -229,7 +229,7 @@ export async function runCompleteDraft(
   if (input.customerId !== undefined && input.customerId !== existing.customerId) {
     await validateCustomer(ctx.db, ctx.tenantId, draftCustomerId);
   }
-  const headerDisplaySnapshots = await resolveSaleHeaderDisplaySnapshots(ctx.db, ctx.tenantId, {
+  const headerReceiptSnapshots = await resolveSaleHeaderReceiptSnapshots(ctx.db, ctx.tenantId, {
     customerId: draftCustomerId,
     siteId: activeCashSession.siteId,
     // Preserve the same cashier semantics ordinary receipts already use:
@@ -350,7 +350,7 @@ export async function runCompleteDraft(
           // to the draft's stored value when the caller omitted the field, so
           // an older client that never sends it is a no-op.
           customerId: draftCustomerId,
-          ...headerDisplaySnapshots,
+          ...headerReceiptSnapshots,
           // Re-bind to the active session so cash reports show the
           // income where it physically arrived.
           cashSessionId: activeCashSession.id,

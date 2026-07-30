@@ -399,13 +399,18 @@ export async function resolveSaleReceiptTemplateContext(args: {
         total: item.total,
       }));
   const receiptHeader = fiscalSnapshot?.header;
+  const hasReceiptIdentitySnapshot = (sale.receiptIdentitySnapshotVersion ?? 0) >= 1;
   const data: RenderData = {
     company: {
-      name: siteCompany.companyName,
-      taxId: siteCompany.companyTaxId ?? '',
-      address: siteCompany.companyAddress,
-      phone: siteCompany.companyPhone,
-      email: siteCompany.companyEmail,
+      name: hasReceiptIdentitySnapshot ? (sale.companyNameSnapshot ?? '') : siteCompany.companyName,
+      taxId: hasReceiptIdentitySnapshot
+        ? (sale.companyTaxIdSnapshot ?? '')
+        : (siteCompany.companyTaxId ?? ''),
+      address: hasReceiptIdentitySnapshot
+        ? sale.companyAddressSnapshot
+        : siteCompany.companyAddress,
+      phone: hasReceiptIdentitySnapshot ? sale.companyPhoneSnapshot : siteCompany.companyPhone,
+      email: hasReceiptIdentitySnapshot ? sale.companyEmailSnapshot : siteCompany.companyEmail,
       city: null,
     },
     sale: {
@@ -413,7 +418,9 @@ export async function resolveSaleReceiptTemplateContext(args: {
       cashier: sale.cashierNameSnapshot ?? cashier?.name ?? null,
       site: sale.siteNameSnapshot ?? siteCompany.siteName,
       customer: receiptHeader?.buyerName ?? sale.customerNameSnapshot ?? sale.customerName,
-      customerTaxId: receiptHeader?.buyerTaxId ?? customer?.taxId ?? null,
+      customerTaxId:
+        receiptHeader?.buyerTaxId ??
+        (hasReceiptIdentitySnapshot ? sale.customerTaxIdSnapshot : (customer?.taxId ?? null)),
       createdAt: receiptHeader?.emittedAt ?? sale.createdAt,
       subtotal: receiptHeader?.subtotal ?? sale.subtotal,
       discount: receiptHeader?.discountAmount ?? sale.discountAmount,

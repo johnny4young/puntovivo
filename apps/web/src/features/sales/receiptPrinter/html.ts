@@ -100,6 +100,17 @@ export async function buildSaleReceiptHtml(
     ? await buildFiscalSection(sale.fiscalDocuments)
     : '';
   const discountAmount = sale.discountAmount ?? 0;
+  const hasIdentitySnapshot = (sale.receiptIdentitySnapshotVersion ?? 0) >= 1;
+  const companyName =
+    hasIdentitySnapshot && sale.companyNameSnapshot ? sale.companyNameSnapshot : 'Puntovivo';
+  const companyDetails = hasIdentitySnapshot
+    ? [
+        sale.companyTaxIdSnapshot ? `Tax ID ${sale.companyTaxIdSnapshot}` : null,
+        sale.companyAddressSnapshot,
+        sale.companyPhoneSnapshot,
+        sale.companyEmailSnapshot,
+      ].filter((value): value is string => Boolean(value))
+    : [];
   const notesSection = sale.notes
     ? `
       <section class="notes">
@@ -161,6 +172,10 @@ export async function buildSaleReceiptHtml(
             margin-top: 4px;
             font-size: 14px;
             font-weight: 700;
+          }
+
+          .company-detail {
+            margin-top: 2px;
           }
 
           .muted,
@@ -303,7 +318,10 @@ export async function buildSaleReceiptHtml(
       <body>
         <main class="receipt">
           <header class="header">
-            <div class="brand">Puntovivo</div>
+            <div class="brand">${escapeHtml(companyName)}</div>
+            ${companyDetails
+              .map(detail => `<div class="muted company-detail">${escapeHtml(detail)}</div>`)
+              .join('')}
             <div class="receipt-number">${escapeHtml(sale.saleNumber)}</div>
             <div class="muted">${escapeHtml(formatDateTime(sale.createdAt))}</div>
           </header>
@@ -315,6 +333,16 @@ export async function buildSaleReceiptHtml(
                 <span class="muted">Customer</span>
                 <span>${escapeHtml(sale.customerNameSnapshot ?? sale.customerName ?? 'Walk-in')}</span>
               </div>
+              ${
+                hasIdentitySnapshot && sale.customerTaxIdSnapshot
+                  ? `
+                    <div class="meta-row">
+                      <span class="muted">Customer tax ID</span>
+                      <span>${escapeHtml(sale.customerTaxIdSnapshot)}</span>
+                    </div>
+                  `
+                  : ''
+              }
               <div class="meta-row">
                 <span class="muted">Payment</span>
                 <span>${escapeHtml(sale.paymentMethod)} / ${escapeHtml(sale.paymentStatus)}</span>

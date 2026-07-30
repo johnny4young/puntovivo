@@ -358,6 +358,24 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('customers')
       );
     }
+    // Receipt identity snapshots ALTER sales only. Use the same complete
+    // late-target guard as the preceding receipt migration so a purchase-only
+    // fixture can boot while any partial database that owns sales must apply
+    // the new columns.
+    if (entry.tag === '0029_receipt_identity_snapshots') {
+      return (
+        !tableExists('sale_items') &&
+        !tableExists('product_serials') &&
+        !tableExists('products') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

@@ -338,10 +338,18 @@ export function buildEscPosBytes(doc: ReceiptDocument, opts: BuildEscPosBytesOpt
 // caller can spread partial sale data without violating
 // `exactOptionalPropertyTypes`.
 export interface SaleReceiptInput {
-  header: { tenantName: string; siteName?: string | undefined; address?: string | undefined };
+  header: {
+    tenantName: string;
+    siteName?: string | undefined;
+    taxId?: string | undefined;
+    address?: string | undefined;
+    phone?: string | undefined;
+    email?: string | undefined;
+  };
   saleNumber: string;
   cashierName?: string | undefined;
   customerName?: string | undefined;
+  customerTaxId?: string | undefined;
   items: Array<{ name: string; quantity: number; unitPrice: number; total: number }>;
   subtotal: number;
   taxAmount?: number | undefined;
@@ -380,8 +388,17 @@ export function buildSaleReceiptDocument(
   if (input.header.siteName) {
     lines.push({ text: input.header.siteName, align: 'center' });
   }
+  if (input.header.taxId) {
+    lines.push({ text: `NIT: ${input.header.taxId}`, align: 'center' });
+  }
   if (input.header.address) {
     lines.push({ text: input.header.address, align: 'center' });
+  }
+  if (input.header.phone) {
+    lines.push({ text: input.header.phone, align: 'center' });
+  }
+  if (input.header.email) {
+    lines.push({ text: input.header.email, align: 'center' });
   }
   lines.push({ text: '' });
 
@@ -392,6 +409,9 @@ export function buildSaleReceiptDocument(
   }
   if (input.customerName) {
     lines.push({ text: `Cliente: ${input.customerName}` });
+  }
+  if (input.customerTaxId) {
+    lines.push({ text: `Identificación: ${input.customerTaxId}` });
   }
   lines.push({ text: '' });
 

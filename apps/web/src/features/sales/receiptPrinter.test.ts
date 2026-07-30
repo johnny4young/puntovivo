@@ -78,6 +78,40 @@ describe('receiptPrinter', () => {
     expect(html).not.toContain('Renamed product');
   });
 
+  it('renders sale-time company and customer identity in the legacy HTML fallback', async () => {
+    const html = await buildSaleReceiptHtml({
+      ...sale,
+      receiptIdentitySnapshotVersion: 1,
+      companyNameSnapshot: 'Comercial <Original> S.A.S.',
+      companyTaxIdSnapshot: '900&123',
+      companyAddressSnapshot: 'Calle 1 < Local 2',
+      companyPhoneSnapshot: '+57 300 111 2233',
+      companyEmailSnapshot: 'ventas@example.test',
+      customerTaxIdSnapshot: 'CC-123&456',
+    });
+
+    expect(html).toContain('Comercial &lt;Original&gt; S.A.S.');
+    expect(html).toContain('Tax ID 900&amp;123');
+    expect(html).toContain('Calle 1 &lt; Local 2');
+    expect(html).toContain('+57 300 111 2233');
+    expect(html).toContain('ventas@example.test');
+    expect(html).toContain('CC-123&amp;456');
+    expect(html).not.toContain('>Puntovivo<');
+  });
+
+  it('ignores identity fields when the snapshot version is not supported', async () => {
+    const html = await buildSaleReceiptHtml({
+      ...sale,
+      receiptIdentitySnapshotVersion: 0,
+      companyNameSnapshot: 'Incomplete historical snapshot',
+      customerTaxIdSnapshot: 'SHOULD-NOT-PRINT',
+    });
+
+    expect(html).toContain('>Puntovivo<');
+    expect(html).not.toContain('Incomplete historical snapshot');
+    expect(html).not.toContain('SHOULD-NOT-PRINT');
+  });
+
   it('includes auto print script only when requested', async () => {
     const autoPrintHtml = await buildSaleReceiptHtml(sale, { autoPrint: true });
     const regularHtml = await buildSaleReceiptHtml(sale, { autoPrint: false });
