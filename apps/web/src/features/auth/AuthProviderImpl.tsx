@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useEffectEvent,
-  useMemo,
-  useState,
-  ReactNode,
-} from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { TRPCClientError } from '@trpc/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -70,6 +63,10 @@ type AuthMePayload = Awaited<ReturnType<typeof vanillaClient.auth.me.query>>;
 
 function clearDesktopSession(): Promise<unknown> | undefined {
   return window.api?.session?.clear?.() ?? window.session?.clear?.();
+}
+
+function resumeDesktopSession(): Promise<{ token: string | null }> | undefined {
+  return window.api?.session?.resume?.() ?? window.session?.resume?.();
 }
 
 function mapSession(payload: AuthMePayload): { user: User; tenant: Tenant | null } {
@@ -213,9 +210,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       try {
         await vanillaClient.health.check.query();
-        const refreshResult = isHubClientAuth()
-          ? await refreshHubSession()
-          : await vanillaClient.auth.refresh.mutate();
+        let refreshResult: { token: string };
+        if (isHubClientAuth()) {
+          refreshResult = await refreshHubSession();
+        } else {
+          // A packaged or development Electron renderer is intentionally not
+          // cookie-same-site with its loopback authority. Resume the already
+          // verified, memory-only desktop token across a renderer reload;
+          // browsers keep using the httpOnly refresh-cookie path.
+          const resumed = await resumeDesktopSession();
+          refreshResult =
+            resumed?.token !== null && resumed?.token !== undefined
+              ? { token: resumed.token }
+              : await vanillaClient.auth.refresh.mutate();
+        }
         setAccessToken(refreshResult.token);
         // register the rotated access token with the
         // desktop session singleton so the IPC bridge handlers can

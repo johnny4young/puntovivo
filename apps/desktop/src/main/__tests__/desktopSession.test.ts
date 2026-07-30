@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import { __withExpectedTestLogs } from '@puntovivo/server';
 import {
   register,
+  resume,
   clear,
   peek,
   requireTenantId,
@@ -115,6 +116,28 @@ describe('desktopSession ( vector 1)', () => {
   it('clear() drops the identity and require* throws again', async () => {
     await register('valid-token', acceptVerifier(sampleAdminPayload));
     clear();
+    assert.equal(peek(), null);
+    assert.throws(() => requireTenantId(), { message: SESSION_NOT_REGISTERED });
+    assert.equal(await resume(acceptVerifier(sampleAdminPayload)), null);
+  });
+
+  it('resume() returns the memory-only token only after re-verification', async () => {
+    await register('valid-token', acceptVerifier(sampleAdminPayload));
+    let seen: string | null = null;
+    const captureVerifier: AccessTokenVerifier = async token => {
+      seen = token;
+      return sampleAdminPayload;
+    };
+
+    assert.equal(await resume(captureVerifier), 'valid-token');
+    assert.equal(seen, 'valid-token');
+    assert.equal(requireUserId(), 'user-admin-1');
+  });
+
+  it('resume() clears a token that no longer verifies', async () => {
+    await register('expired-token', acceptVerifier(sampleAdminPayload));
+
+    assert.equal(await resume(rejectVerifier), null);
     assert.equal(peek(), null);
     assert.throws(() => requireTenantId(), { message: SESSION_NOT_REGISTERED });
   });

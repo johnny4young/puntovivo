@@ -339,6 +339,7 @@ export interface SyncAPI {
  */
 export interface SessionAPI {
   register: (accessToken: string) => Promise<{ ok: true }>;
+  resume: () => Promise<{ token: string | null }>;
   clear: () => Promise<{ ok: true }>;
   loginHub: (input: { email: string; password: string }) => Promise<HubAuthIpcResult>;
   refreshHub: () => Promise<HubAuthIpcResult>;

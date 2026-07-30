@@ -312,6 +312,7 @@ export interface SyncAPI {
  */
 export interface SessionAPI {
   register: (accessToken: string) => Promise<{ ok: true }>;
+  resume: () => Promise<{ token: string | null }>;
   clear: () => Promise<{ ok: true }>;
   loginHub: (input: HubLoginInput) => Promise<HubAuthIpcResult<HubAccessGrant>>;
   refreshHub: () => Promise<HubAuthIpcResult<HubAccessGrant>>;
@@ -439,6 +440,7 @@ function removeAllHubRealtimeListeners(): void {
 
 const sessionAPI: SessionAPI = {
   register: (accessToken: string) => ipcRenderer.invoke('session:register', accessToken),
+  resume: () => ipcRenderer.invoke('session:resume'),
   clear: () => ipcRenderer.invoke('session:clear'),
   loginHub: input => ipcRenderer.invoke('session:hub-login', input),
   refreshHub: () => ipcRenderer.invoke('session:hub-refresh'),

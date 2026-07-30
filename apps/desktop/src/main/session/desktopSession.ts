@@ -70,6 +70,10 @@ interface DesktopSessionState {
 }
 
 let current: DesktopSessionState | null = null;
+// Kept separately so `peek()` / `describe()` can never expose bearer material.
+// The value is memory-only and exists solely to let the single production
+// BrowserWindow resume the same verified operator after a renderer reload.
+let currentAccessToken: string | null = null;
 
 /**
  * Validate the renderer-supplied access token and store the
@@ -105,6 +109,7 @@ export async function register(accessToken: string, verify: AccessTokenVerifier)
     sessionVersion: payload.sessionVersion,
     registeredAt: Date.now(),
   };
+  currentAccessToken = accessToken;
   sessionLog.info(
     {
       userId: payload.userId,
@@ -126,6 +131,32 @@ export function clear(): void {
     );
   }
   current = null;
+  currentAccessToken = null;
+}
+
+/**
+ * Resume the current access token after a renderer reload.
+ *
+ * The token never leaves process memory between registrations and is verified
+ * again before returning. Expired, stale, or disabled-user tokens clear the
+ * desktop singleton and force the normal login flow.
+ */
+export async function resume(verify: AccessTokenVerifier): Promise<string | null> {
+  if (!current || !currentAccessToken) return null;
+
+  const payload = await verify(currentAccessToken);
+  if (
+    !payload ||
+    payload.userId !== current.userId ||
+    payload.tenantId !== current.tenantId ||
+    payload.role !== current.role ||
+    payload.sessionVersion !== current.sessionVersion
+  ) {
+    clear();
+    return null;
+  }
+
+  return currentAccessToken;
 }
 
 /**
@@ -182,6 +213,7 @@ export function matchesTenant(tenantId: string | undefined | null): boolean {
  */
 export function __resetForTests(): void {
   current = null;
+  currentAccessToken = null;
 }
 
 /**

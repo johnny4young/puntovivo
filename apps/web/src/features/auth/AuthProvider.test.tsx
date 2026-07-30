@@ -158,6 +158,34 @@ describe('useAuth — context guard', () => {
 });
 
 describe('AuthProvider — bootstrap', () => {
+  it('resumes the verified desktop operator without requiring a refresh cookie', async () => {
+    const resumeDesktopSessionMock = vi.fn(async () => ({ token: 'tok-desktop-resumed' }));
+    const registerDesktopSessionMock = vi.fn(async () => ({ ok: true as const }));
+    Object.defineProperty(window, 'api', {
+      configurable: true,
+      value: {
+        session: {
+          resume: resumeDesktopSessionMock,
+          register: registerDesktopSessionMock,
+        },
+      },
+    });
+    meQueryMock.mockResolvedValue(sessionPayload);
+
+    function Probe() {
+      const auth = useAuth();
+      return <span data-testid="auth">{auth.isAuthenticated ? 'yes' : 'no'}</span>;
+    }
+
+    render(wrap({ children: <Probe /> }));
+    await waitFor(() => expect(screen.getByTestId('auth')).toHaveTextContent('yes'));
+
+    expect(resumeDesktopSessionMock).toHaveBeenCalledOnce();
+    expect(refreshMutateMock).not.toHaveBeenCalled();
+    expect(setAccessTokenMock).toHaveBeenCalledWith('tok-desktop-resumed');
+    expect(registerDesktopSessionMock).toHaveBeenCalledWith('tok-desktop-resumed');
+  });
+
   it('initialises with isLoading=true, then resolves to authenticated when refresh + me succeed', async () => {
     refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
     meQueryMock.mockResolvedValue(sessionPayload);

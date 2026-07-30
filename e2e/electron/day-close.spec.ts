@@ -40,15 +40,11 @@ test.describe('day close on the desktop app', () => {
     );
 
     await unsignedCard.getByRole('checkbox', { name: /I reviewed|Revisé/i }).check();
-    await unsignedCard
-      .getByRole('button', { name: /Sign day close|Firmar cierre/i })
-      .click();
+    await unsignedCard.getByRole('button', { name: /Sign day close|Firmar cierre/i }).click();
 
     const confirmation = page.getByRole('dialog');
     await expect(confirmation).toContainText(/irreversible/i);
-    await confirmation
-      .getByRole('button', { name: /Sign and freeze|Firmar y proteger/i })
-      .click();
+    await confirmation.getByRole('button', { name: /Sign and freeze|Firmar y proteger/i }).click();
 
     const evidence = page.getByTestId('day-close-signed-evidence');
     await expect(evidence).toContainText(manager!.name);
@@ -65,10 +61,12 @@ test.describe('day close on the desktop app', () => {
     ).toBeVisible();
 
     await page.reload();
-    // A renderer reload intentionally starts a fresh in-memory auth client.
-    // Re-authenticate through the public form instead of preserving privileged
-    // state in the fixture, then prove the signed database evidence survives.
-    await signIn(page, manager!.email);
+    // The Electron main process now revalidates and restores the active
+    // workstation operator. Prove both identity continuity and that the signed
+    // database evidence survives outside React state.
+    await expect(
+      page.getByRole('button', { name: `Open user menu for ${manager!.name}` })
+    ).toBeVisible({ timeout: 30_000 });
     await goToRoute(page, '/day-close');
     await expect(dateInput).toBeVisible({ timeout: 30_000 });
     await dateInput.fill(BUSINESS_DAY);

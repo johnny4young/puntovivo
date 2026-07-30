@@ -97,6 +97,13 @@ Preload wrappers stay narrow and declarative. Business data normally flows over
 tRPC; IPC is reserved for desktop-only lifecycle, storage, updater, backup,
 printing, and local-device capabilities.
 
+For the single production `BrowserWindow`, the main process also retains the
+currently verified access token in memory only. A renderer reload can request
+that token through the narrow `session.resume` channel; main re-verifies it
+against the active authority before returning it and clears the singleton when
+it is expired, stale, or no longer belongs to the registered identity. The
+token is never written to disk and remains absent from session diagnostics.
+
 ## Sync and Authority Node
 
 The local database remains authoritative. `sync_outbox` records eventual

@@ -29,7 +29,7 @@ import { IS_PACKAGED_RUN } from '../fixtures.js';
  * routes from `puntovivo-app://app`. Branching here keeps every journey free of
  * that detail.
  */
-export async function goToRoute(page: Page, route: string): Promise<void> {
+export async function requestRoute(page: Page, route: string): Promise<void> {
   if (IS_PACKAGED_RUN) {
     await page.evaluate(target => {
       window.location.hash = `#${target}`;
@@ -47,6 +47,10 @@ export async function goToRoute(page: Page, route: string): Promise<void> {
       window.dispatchEvent(new PopStateEvent('popstate'));
     }, route);
   }
+}
+
+export async function goToRoute(page: Page, route: string): Promise<void> {
+  await requestRoute(page, route);
   await expect(page).toHaveURL(new RegExp(`${route}$`), { timeout: 30_000 });
 }
 
@@ -55,12 +59,16 @@ export async function goToRoute(page: Page, route: string): Promise<void> {
  *
  * The web suite's `resetSession` navigates to `/login`, which the packaged app
  * cannot do: it serves the renderer from `puntovivo-app://app` behind a hash
- * route, so a path navigation has nowhere to land. Clearing credentials and
- * reloading gets to the same place on either target.
+ * route, so a path navigation has nowhere to land. Clear both the renderer
+ * stores and Electron's memory-only session before reloading; clearing only
+ * cookies is no longer a logout now that renderer reloads preserve the active
+ * workstation operator.
  */
 export async function signOut(page: Page): Promise<void> {
   await page.context().clearCookies();
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
+    const desktopSession = window.api?.session ?? window.session;
+    await desktopSession?.clear?.();
     window.localStorage.clear();
     window.sessionStorage.clear();
   });

@@ -228,9 +228,8 @@ test.describe('inventory transfer on the desktop app', () => {
     await expectSiteStock(page, SECONDARY_SITE_NAME, RECEIVED_QUANTITY);
     await expectAggregateStock(page, FINAL_AGGREGATE_STOCK);
 
-    // Electron keeps the access token in renderer memory, so a raw reload
-    // intentionally returns to login. A fresh authentication is the stronger
-    // persistence boundary for the transfer read side.
+    // Explicit logout and fresh authentication prove the transfer read side
+    // survives a new authenticated session, beyond renderer-reload continuity.
     await signOut(page);
     await signIn(page, manager.email);
     await expectPersistentTransferDetails(page, transferId);

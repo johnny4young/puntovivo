@@ -43,10 +43,7 @@ async function openLatestSale(page: Page): Promise<string> {
   return saleNumber;
 }
 
-async function expectRefundAudit(
-  page: Page,
-  managerName: string
-): Promise<void> {
+async function expectRefundAudit(page: Page, managerName: string): Promise<void> {
   await goToRoute(page, '/audit-logs');
   await page.getByLabel(/action/i).selectOption('sale.return');
   const row = page.locator('tbody tr').filter({ hasText: PRODUCT_NAME }).first();
@@ -88,9 +85,12 @@ test.describe('refund on the desktop app', () => {
     const refund = page.getByRole('dialog', { name: /return sale|devolver venta/i });
     await expect(refund).toBeVisible({ timeout: 15_000 });
     await expect(refund.getByText(PRODUCT_NAME)).toBeVisible();
-    await expect(refund.getByRole('checkbox', { name: /include line|incluir línea/i })).toBeChecked();
-    await expect(refund.getByRole('button', { name: /request approval|solicitar aprobación/i }))
-      .toHaveCount(0);
+    await expect(
+      refund.getByRole('checkbox', { name: /include line|incluir línea/i })
+    ).toBeChecked();
+    await expect(
+      refund.getByRole('button', { name: /request approval|solicitar aprobación/i })
+    ).toHaveCount(0);
     await refund.getByRole('button', { name: /wrong item|artículo incorrecto/i }).click();
     const confirm = refund.getByRole('button', {
       name: /confirm return|confirmar devolución/i,
@@ -118,7 +118,9 @@ test.describe('refund on the desktop app', () => {
     await expectRefundAudit(page, manager!.name);
 
     await page.reload();
-    await signIn(page, admin!.email);
+    await expect(
+      page.getByRole('button', { name: `Open user menu for ${admin!.name}` })
+    ).toBeVisible({ timeout: 30_000 });
     await expectRefundAudit(page, manager!.name);
 
     await expectNoClientIssues(tracker);

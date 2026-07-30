@@ -78,6 +78,20 @@ export function registerSessionIpc(options: { hubAuthSession?: HubAuthSession } 
     }
     return { ok: true };
   });
+  ipcMain.handle('session:resume', async () => {
+    const token = options.hubAuthSession
+      ? await desktopSession.resume(options.hubAuthSession.verifyAccessToken)
+      : await (async () => {
+          const activeServer = getServer();
+          if (!activeServer) {
+            throw new Error('Embedded server is not started yet');
+          }
+          return desktopSession.resume(candidate =>
+            verifyTokenWithServer(activeServer.app, candidate, 'access')
+          );
+        })();
+    return { token };
+  });
   ipcMain.handle('session:clear', async () => {
     closeRealtimeHandles();
     desktopSession.clear();

@@ -34,6 +34,7 @@ function installHubBridge(session: SessionAPI): void {
 function sessionStub(overrides: Partial<SessionAPI> = {}): SessionAPI {
   return {
     register: vi.fn(async () => ({ ok: true as const })),
+    resume: vi.fn(async () => ({ token: null })),
     clear: vi.fn(async () => ({ ok: true as const })),
     loginHub: vi.fn(async () => ({ ok: true as const, data: { token: 'login-token' } })),
     refreshHub: vi.fn(async () => ({ ok: true as const, data: { token: 'refresh-token' } })),

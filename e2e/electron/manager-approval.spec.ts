@@ -200,7 +200,9 @@ test.describe('manager approval on the desktop app', () => {
     });
 
     await page.reload();
-    await signIn(page, admin.email);
+    await expect(
+      page.getByRole('button', { name: `Open user menu for ${admin.name}` })
+    ).toBeVisible({ timeout: 30_000 });
     await goToRoute(page, '/audit-logs');
     await expectApprovalAudit(page, {
       action: 'manager_approval.consume',
