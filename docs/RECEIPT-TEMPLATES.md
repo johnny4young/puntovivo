@@ -204,10 +204,12 @@ source is implicit, not picked in the editor. The current contract is:
 - At real print time the server builds `RenderData` from the posted sale and
   payment records. Completed sales freeze customer, site, cashier, product
   name/SKU, company name/tax/contact, and customer tax-ID values for ordinary
-  reprints. A snapshot-version marker preserves fields that were deliberately
-  empty at checkout; rows created before the snapshot migrations fall back to
-  their current related records. Fiscal receipts additionally replace buyer,
-  line, total, currency, locale, and emission-time values with the immutable
+  reprints. They also freeze the selected ordinary template layout, company
+  logo source, and BCP-47 receipt locale. Separate snapshot-version markers
+  preserve fields or a missing template that were deliberate at checkout;
+  rows created before the snapshot migrations fall back to current related
+  records and presentation. Fiscal receipts additionally replace buyer, line,
+  total, currency, locale, and emission-time values with immutable
   fiscal-document snapshots.
 - The editor surfaces this binding directly above the block controls so an
   operator does not have to infer where the rows come from.
@@ -274,8 +276,11 @@ Server (`packages/server/src/__tests__/receipt-templates.test.ts`):
   list/getById.
 - Permissions: manager and cashier callers receive `FORBIDDEN`.
 - Runtime receipts keep completed-sale display and identity snapshots after
-  customer, product, site, cashier, or company edits, while pre-migration rows
-  retain current-record fallback behavior.
+  customer, product, site, cashier, or company edits. Ordinary receipts also
+  keep their sale-time layout, logo source, and locale after template/default,
+  logo, or locale changes; a sale completed with no active template keeps
+  legacy output. Pre-migration rows retain current-record and
+  current-presentation fallback behavior.
 
 Web (i18n parity + lint + build).
 
@@ -286,6 +291,7 @@ packages/server/src/db/schema/config.ts                          # receiptTempla
 packages/server/src/db/migrations/0000_baseline.sql              # current baseline migration
 packages/server/src/db/migrations/0028_sale_display_snapshots.sql # ordinary receipt labels
 packages/server/src/db/migrations/0029_receipt_identity_snapshots.sql # receipt identity
+packages/server/src/db/migrations/0030_receipt_presentation_snapshots.sql # layout, logo source, locale
 packages/server/src/application/sales/receipt-snapshots.ts       # tenant-scoped snapshot capture
 packages/server/src/lib/errorCodes.ts                            # RECEIPT_TEMPLATE_* codes
 packages/server/src/services/receipt-templates/                  # CRUD + default-flip transactions
@@ -326,17 +332,22 @@ apps/web/src/lib/translateServerError.ts                         # KNOWN_SERVER_
   receipt as an upgrade fallback instead of losing printing.
 - Reprints reuse posted sale amounts and payment rows. Ordinary completed sales
   also use frozen customer, site, cashier, product-name/SKU, company
-  name/tax/contact, and customer tax-ID values. The identity snapshot version
-  distinguishes an intentionally empty checkout field from a historical row;
-  only pre-migration rows fall back to current related records. Logo bytes and
-  the selected template/layout remain print-time concerns rather than part of
-  this snapshot contract. Fiscal reprints additionally use the frozen fiscal buyer,
+  name/tax/contact, customer tax-ID, ordinary template layout, logo source, and
+  locale values. The identity and presentation snapshot versions distinguish
+  intentionally empty checkout fields or an absent template from a historical
+  row; only pre-migration rows fall back to current related records and
+  presentation. Fiscal reprints additionally use the frozen fiscal buyer,
   line, total, currency, locale, and emission-time snapshots rather than
-  mutable customer or product joins.
+  mutable customer or product joins, but their declarative template remains
+  selected from the current fiscal configuration.
   Fiscal evidence is appended as a non-removable proof section: mock/draft
   documents show local identifier, resolution, maturity, and an explicit
   non-transmission notice; authority URLs and QR codes remain unavailable
   until the provider pack is certified.
+- The ordinary logo snapshot preserves the configured URL or `data:image`
+  source string. An inline data image therefore remains self-contained; a
+  remote URL can still change or disappear outside Puntovivo and is not a
+  retained copy of external bytes.
 
 ## Follow-up improvements (tracked — April 22, 2026 feedback)
 

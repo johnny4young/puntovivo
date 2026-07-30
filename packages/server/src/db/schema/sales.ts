@@ -26,6 +26,7 @@ import {
   nowIso,
   paymentMethodEnum,
   paymentStatusEnum,
+  receiptTemplateKindEnum,
   saleStatusEnum,
   sqliteNow,
   syncStatusEnum,
@@ -65,6 +66,21 @@ export const sales = sqliteTable(
     companyPhoneSnapshot: text('company_phone_snapshot'),
     companyEmailSnapshot: text('company_email_snapshot'),
     customerTaxIdSnapshot: text('customer_tax_id_snapshot'),
+    // Ordinary receipt presentation is frozen separately from identity so a
+    // tenant that had no template at checkout keeps the legacy renderer even
+    // after an administrator configures one. Historical rows keep null and
+    // continue resolving the current presentation for compatibility.
+    receiptPresentationSnapshotVersion: integer('receipt_presentation_snapshot_version'),
+    receiptTemplateIdSnapshot: text('receipt_template_id_snapshot'),
+    receiptTemplateKindSnapshot: text('receipt_template_kind_snapshot', {
+      enum: receiptTemplateKindEnum,
+    }),
+    receiptTemplateNameSnapshot: text('receipt_template_name_snapshot'),
+    receiptTemplateLayoutSnapshot: text('receipt_template_layout_snapshot', {
+      mode: 'json',
+    }).$type<Record<string, unknown>>(),
+    receiptLogoUrlSnapshot: text('receipt_logo_url_snapshot'),
+    receiptLocaleSnapshot: text('receipt_locale_snapshot'),
     // optional restaurant-table FK. When non-null the draft
     // is "open" on that physical table; `listWithDraftStatus` reads
     // this column to surface occupancy. Nullable so non-restaurant

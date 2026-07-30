@@ -38,6 +38,7 @@ import { registerDevice } from '../services/devices/devicesService.js';
 import { freshCriticalContext } from './utils/criticalCommandFixture.js';
 import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
 import { ESCPOS_BYTES } from '../services/peripherals/escpos/byte-builder.js';
+import { resolveTenantLocale } from '../services/tenant-locale.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -60,6 +61,16 @@ let originalCompanyTaxId: string | null;
 let originalCompanyAddress: string | null;
 let originalCompanyPhone: string | null;
 let originalCompanyEmail: string | null;
+let originalCompanyLogoUrl: string;
+let receiptLocale: string;
+const initialSaleTemplateLayout = {
+  paperWidth: '80mm' as const,
+  blocks: [
+    { type: 'text' as const, value: 'TPL {{sale.saleNumber}}', bold: true },
+    { type: 'text' as const, value: 'Dirección Única' },
+    { type: 'barcode128' as const, source: '{{sale.saleNumber}}', heightMm: 12 },
+  ],
+};
 
 function buildContext(
   role: 'admin' | 'manager' | 'cashier' = 'cashier',
@@ -116,6 +127,12 @@ beforeAll(async () => {
   originalCompanyAddress = seededCompany.address;
   originalCompanyPhone = seededCompany.phone;
   originalCompanyEmail = seededCompany.email;
+  originalCompanyLogoUrl = 'https://example.test/original-receipt-logo.png';
+  await db
+    .update(companies)
+    .set({ logoUrl: originalCompanyLogoUrl })
+    .where(and(eq(companies.id, originalCompanyId), eq(companies.tenantId, tenantId)));
+  receiptLocale = (await resolveTenantLocale(db, tenantId)).locale;
   deviceId = (
     await registerDevice(db, {
       tenantId,
@@ -201,16 +218,21 @@ beforeAll(async () => {
     kind: 'sale',
     name: 'Runtime sale template',
     isDefault: true,
-    layout: {
-      paperWidth: '80mm',
-      blocks: [
-        { type: 'text', value: 'TPL {{sale.saleNumber}}', bold: true },
-        { type: 'text', value: 'Dirección Única' },
-        { type: 'barcode128', source: '{{sale.saleNumber}}', heightMm: 12 },
-      ],
-    },
+    layout: initialSaleTemplateLayout,
   });
   saleTemplateId = saleTemplate.id;
+  await db
+    .update(sales)
+    .set({
+      receiptPresentationSnapshotVersion: 1,
+      receiptTemplateIdSnapshot: saleTemplate.id,
+      receiptTemplateKindSnapshot: 'sale',
+      receiptTemplateNameSnapshot: saleTemplate.name,
+      receiptTemplateLayoutSnapshot: saleTemplate.layout,
+      receiptLogoUrlSnapshot: originalCompanyLogoUrl,
+      receiptLocaleSnapshot: receiptLocale,
+    })
+    .where(eq(sales.id, seededSaleId));
 
   // Manufacture a foreign tenant + sale to assert the cross-tenant
   // guard. The foreign tenant only needs a valid `tenants` row + a
@@ -290,7 +312,50 @@ describe('peripherals.buildReceiptBytes', () => {
     expect(result.html).toContain('class="barcode-svg"');
   });
 
-  it('keeps sale-time receipt identity after related records change and falls back for historical rows', async () => {
+  it('keeps the legacy renderer when no template existed at sale completion', async () => {
+    const db = getDatabase();
+    await db
+      .update(sales)
+      .set({
+        receiptPresentationSnapshotVersion: 1,
+        receiptTemplateIdSnapshot: null,
+        receiptTemplateKindSnapshot: null,
+        receiptTemplateNameSnapshot: null,
+        receiptTemplateLayoutSnapshot: null,
+        receiptLogoUrlSnapshot: originalCompanyLogoUrl,
+        receiptLocaleSnapshot: receiptLocale,
+      })
+      .where(eq(sales.id, seededSaleId));
+
+    try {
+      const caller = appRouter.createCaller(buildContext());
+      const result = await caller.peripherals.renderReceiptHtml({
+        saleId: seededSaleId,
+        siteId,
+      });
+      expect(result).toEqual({
+        status: 'legacy-fallback',
+        html: null,
+        templateId: null,
+        templateKind: null,
+      });
+    } finally {
+      await db
+        .update(sales)
+        .set({
+          receiptPresentationSnapshotVersion: 1,
+          receiptTemplateIdSnapshot: saleTemplateId,
+          receiptTemplateKindSnapshot: 'sale',
+          receiptTemplateNameSnapshot: 'Runtime sale template',
+          receiptTemplateLayoutSnapshot: initialSaleTemplateLayout,
+          receiptLogoUrlSnapshot: originalCompanyLogoUrl,
+          receiptLocaleSnapshot: receiptLocale,
+        })
+        .where(eq(sales.id, seededSaleId));
+    }
+  });
+
+  it('keeps sale-time receipt presentation and identity after mutable configuration changes', async () => {
     const db = getDatabase();
     const template = await db
       .select({ layout: receiptTemplates.layout })
@@ -298,10 +363,11 @@ describe('peripherals.buildReceiptBytes', () => {
       .where(eq(receiptTemplates.id, saleTemplateId))
       .get();
     if (!template) throw new Error('Expected runtime sale template');
-
-    const detailedLayout = {
+    const snapshottedLayout = {
       paperWidth: '80mm' as const,
       blocks: [
+        { type: 'text' as const, value: 'FROZEN TEMPLATE' },
+        { type: 'logo' as const },
         { type: 'text' as const, value: 'Cajero {{sale.cashier}}' },
         { type: 'text' as const, value: 'Sede {{sale.site}}' },
         { type: 'text' as const, value: 'Cliente {{sale.customer}}' },
@@ -317,11 +383,30 @@ describe('peripherals.buildReceiptBytes', () => {
         },
       ],
     };
+    const currentLayout = {
+      ...snapshottedLayout,
+      blocks: [
+        { type: 'text' as const, value: 'CURRENT TEMPLATE' },
+        ...snapshottedLayout.blocks.slice(1),
+      ],
+    };
     await Promise.all([
       db
         .update(receiptTemplates)
-        .set({ layout: detailedLayout })
+        .set({ layout: currentLayout, name: 'Current renamed template' })
         .where(eq(receiptTemplates.id, saleTemplateId)),
+      db
+        .update(sales)
+        .set({
+          receiptPresentationSnapshotVersion: 1,
+          receiptTemplateIdSnapshot: saleTemplateId,
+          receiptTemplateKindSnapshot: 'sale',
+          receiptTemplateNameSnapshot: 'Frozen sale template',
+          receiptTemplateLayoutSnapshot: snapshottedLayout,
+          receiptLogoUrlSnapshot: originalCompanyLogoUrl,
+          receiptLocaleSnapshot: 'es-CO',
+        })
+        .where(eq(sales.id, seededSaleId)),
       db
         .update(customers)
         .set({ name: 'Cliente renombrado', taxId: 'CLIENTE-ID-NUEVO' })
@@ -334,6 +419,7 @@ describe('peripherals.buildReceiptBytes', () => {
           address: 'Dirección nueva',
           phone: 'Teléfono nuevo',
           email: 'correo-nuevo@example.test',
+          logoUrl: 'https://example.test/current-renamed-logo.png',
         })
         .where(and(eq(companies.id, originalCompanyId), eq(companies.tenantId, tenantId))),
       db
@@ -358,6 +444,13 @@ describe('peripherals.buildReceiptBytes', () => {
       });
       expect(snapshotted.status).toBe('ready');
       if (snapshotted.status !== 'ready') throw new Error('Expected snapshotted receipt HTML');
+      expect(snapshotted.templateId).toBe(saleTemplateId);
+      expect(snapshotted.html).toContain('FROZEN TEMPLATE');
+      expect(snapshotted.html).not.toContain('CURRENT TEMPLATE');
+      expect(snapshotted.html).toContain(originalCompanyLogoUrl);
+      expect(snapshotted.html).not.toContain('current-renamed-logo.png');
+      expect(snapshotted.html).toContain('Ítem');
+      expect(snapshotted.html).not.toContain('>Item<');
       expect(snapshotted.html).toContain(`Cajero ${originalUserName}`);
       expect(snapshotted.html).toContain(`Sede ${originalSiteName}`);
       expect(snapshotted.html).toContain('Cliente Cliente congelado');
@@ -394,6 +487,13 @@ describe('peripherals.buildReceiptBytes', () => {
             companyPhoneSnapshot: null,
             companyEmailSnapshot: null,
             customerTaxIdSnapshot: null,
+            receiptPresentationSnapshotVersion: 0,
+            receiptTemplateIdSnapshot: null,
+            receiptTemplateKindSnapshot: null,
+            receiptTemplateNameSnapshot: null,
+            receiptTemplateLayoutSnapshot: null,
+            receiptLogoUrlSnapshot: null,
+            receiptLocaleSnapshot: null,
           })
           .where(eq(sales.id, seededSaleId)),
         db
@@ -407,6 +507,12 @@ describe('peripherals.buildReceiptBytes', () => {
       });
       expect(historical.status).toBe('ready');
       if (historical.status !== 'ready') throw new Error('Expected historical receipt HTML');
+      expect(historical.html).toContain('CURRENT TEMPLATE');
+      expect(historical.html).not.toContain('FROZEN TEMPLATE');
+      expect(historical.html).toContain('current-renamed-logo.png');
+      expect(historical.html).not.toContain(originalCompanyLogoUrl);
+      expect(historical.html).toContain('>Item<');
+      expect(historical.html).not.toContain('Ítem');
       expect(historical.html).toContain('Cajero Cajero renombrado');
       expect(historical.html).toContain('Sede Sede renombrada');
       expect(historical.html).toContain('Cliente Cliente renombrado');
@@ -421,7 +527,7 @@ describe('peripherals.buildReceiptBytes', () => {
       await Promise.all([
         db
           .update(receiptTemplates)
-          .set({ layout: template.layout })
+          .set({ layout: template.layout, name: 'Runtime sale template' })
           .where(eq(receiptTemplates.id, saleTemplateId)),
         db
           .update(customers)
@@ -435,6 +541,7 @@ describe('peripherals.buildReceiptBytes', () => {
             address: originalCompanyAddress,
             phone: originalCompanyPhone,
             email: originalCompanyEmail,
+            logoUrl: originalCompanyLogoUrl,
           })
           .where(eq(companies.id, originalCompanyId)),
         db
@@ -456,6 +563,13 @@ describe('peripherals.buildReceiptBytes', () => {
             companyPhoneSnapshot: originalCompanyPhone,
             companyEmailSnapshot: originalCompanyEmail,
             customerTaxIdSnapshot: 'CLIENTE-ID-ORIGINAL',
+            receiptPresentationSnapshotVersion: 1,
+            receiptTemplateIdSnapshot: saleTemplateId,
+            receiptTemplateKindSnapshot: 'sale',
+            receiptTemplateNameSnapshot: 'Runtime sale template',
+            receiptTemplateLayoutSnapshot: initialSaleTemplateLayout,
+            receiptLogoUrlSnapshot: originalCompanyLogoUrl,
+            receiptLocaleSnapshot: receiptLocale,
           })
           .where(eq(sales.id, seededSaleId)),
         db
@@ -581,6 +695,18 @@ describe('peripherals.buildReceiptBytes', () => {
       .update(receiptTemplates)
       .set({ isActive: false })
       .where(eq(receiptTemplates.tenantId, tenantId));
+    await db
+      .update(sales)
+      .set({
+        receiptPresentationSnapshotVersion: 0,
+        receiptTemplateIdSnapshot: null,
+        receiptTemplateKindSnapshot: null,
+        receiptTemplateNameSnapshot: null,
+        receiptTemplateLayoutSnapshot: null,
+        receiptLogoUrlSnapshot: null,
+        receiptLocaleSnapshot: null,
+      })
+      .where(eq(sales.id, seededSaleId));
     try {
       const result = await appRouter
         .createCaller(buildContext())
@@ -596,6 +722,18 @@ describe('peripherals.buildReceiptBytes', () => {
         .update(receiptTemplates)
         .set({ isActive: true })
         .where(eq(receiptTemplates.tenantId, tenantId));
+      await db
+        .update(sales)
+        .set({
+          receiptPresentationSnapshotVersion: 1,
+          receiptTemplateIdSnapshot: saleTemplateId,
+          receiptTemplateKindSnapshot: 'sale',
+          receiptTemplateNameSnapshot: 'Runtime sale template',
+          receiptTemplateLayoutSnapshot: initialSaleTemplateLayout,
+          receiptLogoUrlSnapshot: originalCompanyLogoUrl,
+          receiptLocaleSnapshot: receiptLocale,
+        })
+        .where(eq(sales.id, seededSaleId));
     }
   });
 

@@ -333,6 +333,7 @@ describe('Versioned Drizzle migrations', () => {
       '0027_ux6a_task_measurement',
       '0028_sale_display_snapshots',
       '0029_receipt_identity_snapshots',
+      '0030_receipt_presentation_snapshots',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -409,6 +410,7 @@ describe('Versioned Drizzle migrations', () => {
       '0027_ux6a_task_measurement',
       '0028_sale_display_snapshots',
       '0029_receipt_identity_snapshots',
+      '0030_receipt_presentation_snapshots',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();

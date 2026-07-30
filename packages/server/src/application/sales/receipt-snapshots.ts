@@ -12,8 +12,12 @@
 import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { companies, customers, sites, users } from '../../db/schema.js';
+import type { ReceiptLayout } from '../../trpc/schemas/receiptTemplates.js';
+import { listReceiptTemplates } from '../../services/receipt-templates/index.js';
+import { resolveTenantLocale } from '../../services/tenant-locale.js';
 
 export const RECEIPT_IDENTITY_SNAPSHOT_VERSION = 1;
+export const RECEIPT_PRESENTATION_SNAPSHOT_VERSION = 1;
 
 export interface SaleHeaderReceiptSnapshots {
   customerNameSnapshot: string | null;
@@ -26,6 +30,13 @@ export interface SaleHeaderReceiptSnapshots {
   companyPhoneSnapshot: string | null;
   companyEmailSnapshot: string | null;
   customerTaxIdSnapshot: string | null;
+  receiptPresentationSnapshotVersion: number;
+  receiptTemplateIdSnapshot: string | null;
+  receiptTemplateKindSnapshot: 'sale' | null;
+  receiptTemplateNameSnapshot: string | null;
+  receiptTemplateLayoutSnapshot: ReceiptLayout | null;
+  receiptLogoUrlSnapshot: string | null;
+  receiptLocaleSnapshot: string;
 }
 
 export async function resolveSaleHeaderReceiptSnapshots(
@@ -37,7 +48,13 @@ export async function resolveSaleHeaderReceiptSnapshots(
     cashierId: string;
   }
 ): Promise<SaleHeaderReceiptSnapshots> {
-  const [customer, siteCompany, cashier] = await Promise.all([
+  const saleTemplate =
+    listReceiptTemplates(db, tenantId, {
+      kind: 'sale',
+      includeInactive: false,
+      limit: 1,
+    })[0] ?? null;
+  const [customer, siteCompany, cashier, tenantLocale] = await Promise.all([
     input.customerId
       ? db
           .select({ name: customers.name, taxId: customers.taxId })
@@ -53,6 +70,7 @@ export async function resolveSaleHeaderReceiptSnapshots(
         companyAddress: companies.address,
         companyPhone: companies.phone,
         companyEmail: companies.email,
+        companyLogoUrl: companies.logoUrl,
       })
       .from(sites)
       .innerJoin(
@@ -66,6 +84,7 @@ export async function resolveSaleHeaderReceiptSnapshots(
       .from(users)
       .where(and(eq(users.id, input.cashierId), eq(users.tenantId, tenantId)))
       .get(),
+    resolveTenantLocale(db, tenantId),
   ]);
 
   if (!siteCompany) {
@@ -83,5 +102,12 @@ export async function resolveSaleHeaderReceiptSnapshots(
     companyPhoneSnapshot: siteCompany.companyPhone,
     companyEmailSnapshot: siteCompany.companyEmail,
     customerTaxIdSnapshot: customer?.taxId ?? null,
+    receiptPresentationSnapshotVersion: RECEIPT_PRESENTATION_SNAPSHOT_VERSION,
+    receiptTemplateIdSnapshot: saleTemplate?.id ?? null,
+    receiptTemplateKindSnapshot: saleTemplate ? 'sale' : null,
+    receiptTemplateNameSnapshot: saleTemplate?.name ?? null,
+    receiptTemplateLayoutSnapshot: saleTemplate?.layout ?? null,
+    receiptLogoUrlSnapshot: siteCompany.companyLogoUrl,
+    receiptLocaleSnapshot: tenantLocale.locale,
   };
 }

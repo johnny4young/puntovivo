@@ -24,6 +24,7 @@ import {
   type FiscalDocumentStatus,
 } from '../../db/schema.js';
 import type { getSaleRecord, SaleFiscalDocumentRow } from '../../application/sales/sale-read.js';
+import { receiptLayoutSchema } from '../../trpc/schemas/receiptTemplates.js';
 import type { FiscalAdapterMaturity } from '../fiscal/adapter.js';
 import type { EscPosCharset } from '../peripherals/escpos/byte-builder.js';
 import { listReceiptTemplates, type ReceiptTemplateRecord } from '../receipt-templates/index.js';
@@ -209,6 +210,52 @@ function selectTemplate(
   return null;
 }
 
+/**
+ * Resolve the immutable ordinary-sale template when the completion row carries
+ * the presentation contract. `undefined` means the sale predates presentation
+ * snapshots (or is fiscal and follows the fiscal-document path); `null` means
+ * the sale deliberately had no active template and must retain legacy output.
+ */
+function selectOrdinaryTemplateSnapshot(
+  sale: RuntimeSale
+): ReceiptTemplateRecord | null | undefined {
+  if (sale.fiscalDocuments.length > 0 || (sale.receiptPresentationSnapshotVersion ?? 0) < 1) {
+    return undefined;
+  }
+
+  const hasAnyTemplateField =
+    sale.receiptTemplateIdSnapshot !== null ||
+    sale.receiptTemplateKindSnapshot !== null ||
+    sale.receiptTemplateNameSnapshot !== null ||
+    sale.receiptTemplateLayoutSnapshot !== null;
+  if (!hasAnyTemplateField) return null;
+
+  const parsedLayout = receiptLayoutSchema.safeParse(sale.receiptTemplateLayoutSnapshot);
+  if (
+    !sale.receiptTemplateIdSnapshot ||
+    sale.receiptTemplateKindSnapshot !== 'sale' ||
+    !sale.receiptTemplateNameSnapshot ||
+    !parsedLayout.success
+  ) {
+    throw new Error(`Invalid receipt presentation snapshot for sale ${sale.id}`);
+  }
+
+  return {
+    id: sale.receiptTemplateIdSnapshot,
+    tenantId: sale.tenantId,
+    kind: sale.receiptTemplateKindSnapshot,
+    name: sale.receiptTemplateNameSnapshot,
+    paperWidth: parsedLayout.data.paperWidth,
+    layout: parsedLayout.data,
+    isDefault: true,
+    isActive: true,
+    createdBy: sale.createdBy,
+    updatedBy: null,
+    createdAt: sale.createdAt,
+    updatedAt: sale.createdAt,
+  };
+}
+
 async function loadPrimaryFiscalSnapshot(
   db: DatabaseInstance,
   tenantId: string,
@@ -295,7 +342,11 @@ export async function resolveSaleReceiptTemplateContext(args: {
   sale: RuntimeSale;
 }): Promise<SaleReceiptTemplateContext | null> {
   const { db, tenantId, sale } = args;
-  const template = selectTemplate(db, tenantId, sale.fiscalDocuments.length > 0);
+  const ordinaryTemplateSnapshot = selectOrdinaryTemplateSnapshot(sale);
+  const template =
+    ordinaryTemplateSnapshot !== undefined
+      ? ordinaryTemplateSnapshot
+      : selectTemplate(db, tenantId, sale.fiscalDocuments.length > 0);
   if (!template) return null;
 
   const session = sale.cashSessionId
@@ -339,12 +390,17 @@ export async function resolveSaleReceiptTemplateContext(args: {
     loadPrimaryFiscalSnapshot(db, tenantId, sale.fiscalDocuments),
   ]);
 
-  const receiptLocaleCode = fiscalSnapshot?.header.localeCode ?? tenantLocale.locale;
-  const receiptLanguage = fiscalSnapshot
-    ? languageFromLocale(receiptLocaleCode)
-    : supportedLanguage(tenantLocale.language);
+  const hasOrdinaryPresentationSnapshot =
+    sale.fiscalDocuments.length === 0 && (sale.receiptPresentationSnapshotVersion ?? 0) >= 1;
+  if (hasOrdinaryPresentationSnapshot && !sale.receiptLocaleSnapshot) {
+    throw new Error(`Missing receipt locale snapshot for sale ${sale.id}`);
+  }
+  const receiptLocaleCode =
+    fiscalSnapshot?.header.localeCode ??
+    (hasOrdinaryPresentationSnapshot ? sale.receiptLocaleSnapshot! : tenantLocale.locale);
+  const receiptLanguage = languageFromLocale(receiptLocaleCode);
   const receiptCurrencyCode = fiscalSnapshot?.header.currencyCode ?? sale.currencyCode;
-  const receiptCountryCode = fiscalSnapshot ? countryFromLocale(receiptLocaleCode) : null;
+  const receiptCountryCode = countryFromLocale(receiptLocaleCode);
   const [saleCurrency, receiptCountry] = await Promise.all([
     db
       .select({
@@ -440,7 +496,9 @@ export async function resolveSaleReceiptTemplateContext(args: {
     },
     ...(primaryFiscal ? { fiscal: primaryFiscal } : {}),
     fiscalDocuments: renderFiscalDocuments,
-    logoDataUrl: siteCompany.companyLogoUrl,
+    logoDataUrl: hasOrdinaryPresentationSnapshot
+      ? sale.receiptLogoUrlSnapshot
+      : siteCompany.companyLogoUrl,
     locale: {
       locale: receiptLocaleCode,
       currency: receiptCurrencyCode,

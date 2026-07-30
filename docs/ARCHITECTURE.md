@@ -67,10 +67,12 @@ surface to its renderer.
   which effects committed.
 - Signed day-close evidence and fiscal snapshots are immutable.
 - Completed sales freeze customer, site, cashier, product-name, product-SKU,
-  company identity/contact, and customer tax-ID values used by ordinary
-  receipt reprints. A snapshot-version marker distinguishes deliberately empty
-  sale-time identity fields from pre-migration rows, which retain current-row
-  compatibility fallback.
+  company identity/contact, customer tax-ID, ordinary receipt template layout,
+  logo source, and receipt locale. Separate version markers distinguish
+  deliberately empty sale-time identity or presentation fields from
+  pre-migration rows, which retain current-row compatibility fallback. A sale
+  completed without an active template remains on the legacy renderer even if
+  a template is configured later.
 
 ## Local storage and recovery
 

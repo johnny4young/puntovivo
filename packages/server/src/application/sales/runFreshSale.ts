@@ -334,6 +334,14 @@ export async function runFreshSale(
                 companyPhoneSnapshot: headerReceiptSnapshots.companyPhoneSnapshot,
                 companyEmailSnapshot: headerReceiptSnapshots.companyEmailSnapshot,
                 customerTaxIdSnapshot: headerReceiptSnapshots.customerTaxIdSnapshot,
+                receiptPresentationSnapshotVersion:
+                  headerReceiptSnapshots.receiptPresentationSnapshotVersion,
+                receiptTemplateIdSnapshot: headerReceiptSnapshots.receiptTemplateIdSnapshot,
+                receiptTemplateKindSnapshot: headerReceiptSnapshots.receiptTemplateKindSnapshot,
+                receiptTemplateNameSnapshot: headerReceiptSnapshots.receiptTemplateNameSnapshot,
+                receiptTemplateLayoutSnapshot: headerReceiptSnapshots.receiptTemplateLayoutSnapshot,
+                receiptLogoUrlSnapshot: headerReceiptSnapshots.receiptLogoUrlSnapshot,
+                receiptLocaleSnapshot: headerReceiptSnapshots.receiptLocaleSnapshot,
               }
             : {}),
           // restaurant table FK passed through from the

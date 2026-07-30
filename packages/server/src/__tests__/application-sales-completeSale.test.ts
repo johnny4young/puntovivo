@@ -36,6 +36,7 @@ import {
   operationEffects,
   operationEvents,
   products,
+  receiptTemplates,
   salePayments,
   saleItems,
   sales,
@@ -52,6 +53,7 @@ import { recordOperationStart } from '../services/operation-journal/journal.js';
 import { completeSale } from '../application/sales/completeSale.js';
 import { resolveSaleHeaderReceiptSnapshots } from '../application/sales/receipt-snapshots.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
+import { resolveTenantLocale } from '../services/tenant-locale.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 
@@ -69,6 +71,13 @@ let companyTaxId: string | null;
 let companyAddress: string | null;
 let companyPhone: string | null;
 let companyEmail: string | null;
+let companyLogoUrl: string;
+let receiptLocale: string;
+let saleTemplateId: string;
+const saleTemplateLayout = {
+  paperWidth: '80mm' as const,
+  blocks: [{ type: 'text' as const, value: 'Completion snapshot {{sale.saleNumber}}' }],
+};
 
 function buildContext(overrides: Partial<CompleteSaleContext> = {}): CompleteSaleContext {
   return {
@@ -185,6 +194,25 @@ beforeAll(async () => {
   companyAddress = seededCompany.address;
   companyPhone = seededCompany.phone;
   companyEmail = seededCompany.email;
+  companyLogoUrl = 'https://example.test/completion-snapshot-logo.png';
+  await db
+    .update(companies)
+    .set({ logoUrl: companyLogoUrl })
+    .where(and(eq(companies.id, seededCompany.id), eq(companies.tenantId, tenantId)));
+  receiptLocale = (await resolveTenantLocale(db, tenantId)).locale;
+
+  saleTemplateId = nanoid();
+  await db.insert(receiptTemplates).values({
+    id: saleTemplateId,
+    tenantId,
+    kind: 'sale',
+    name: 'Completion snapshot template',
+    paperWidth: saleTemplateLayout.paperWidth,
+    layout: saleTemplateLayout,
+    isDefault: true,
+    isActive: true,
+    createdBy: userId,
+  });
 
   const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
@@ -299,6 +327,13 @@ describe('completeSale (fresh path)', () => {
       companyPhoneSnapshot: companyPhone,
       companyEmailSnapshot: companyEmail,
       customerTaxIdSnapshot: 'ACME-TAX-001',
+      receiptPresentationSnapshotVersion: 1,
+      receiptTemplateIdSnapshot: saleTemplateId,
+      receiptTemplateKindSnapshot: 'sale',
+      receiptTemplateNameSnapshot: 'Completion snapshot template',
+      receiptTemplateLayoutSnapshot: saleTemplateLayout,
+      receiptLogoUrlSnapshot: companyLogoUrl,
+      receiptLocaleSnapshot: receiptLocale,
       paymentStatus: 'paid',
       status: 'completed',
       items: [
@@ -365,6 +400,13 @@ describe('completeSale (fresh path)', () => {
       companyPhoneSnapshot: companyPhone,
       companyEmailSnapshot: companyEmail,
       customerTaxIdSnapshot: null,
+      receiptPresentationSnapshotVersion: 1,
+      receiptTemplateIdSnapshot: saleTemplateId,
+      receiptTemplateKindSnapshot: 'sale',
+      receiptTemplateNameSnapshot: 'Completion snapshot template',
+      receiptTemplateLayoutSnapshot: saleTemplateLayout,
+      receiptLogoUrlSnapshot: companyLogoUrl,
+      receiptLocaleSnapshot: receiptLocale,
     });
     const productId = await seedProduct({
       name: 'CS Cross customer',
@@ -777,6 +819,9 @@ describe('completeSale (fresh path)', () => {
       receiptIdentitySnapshotVersion: null,
       companyNameSnapshot: null,
       customerTaxIdSnapshot: null,
+      receiptPresentationSnapshotVersion: null,
+      receiptTemplateIdSnapshot: null,
+      receiptTemplateLayoutSnapshot: null,
     });
     const movements = await getDatabase()
       .select()
@@ -844,6 +889,13 @@ describe('completeSale (fromDraft path)', () => {
       companyPhoneSnapshot: companyPhone,
       companyEmailSnapshot: companyEmail,
       customerTaxIdSnapshot: null,
+      receiptPresentationSnapshotVersion: 1,
+      receiptTemplateIdSnapshot: saleTemplateId,
+      receiptTemplateKindSnapshot: 'sale',
+      receiptTemplateNameSnapshot: 'Completion snapshot template',
+      receiptTemplateLayoutSnapshot: saleTemplateLayout,
+      receiptLogoUrlSnapshot: companyLogoUrl,
+      receiptLocaleSnapshot: receiptLocale,
       items: [
         expect.objectContaining({
           productNameSnapshot: 'CS Draft Complete at checkout',

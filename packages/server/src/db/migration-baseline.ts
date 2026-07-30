@@ -376,6 +376,23 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('customers')
       );
     }
+    // Ordinary receipt presentation snapshots ALTER sales only. Keep the
+    // narrow purchase-only adoption behavior of the preceding receipt
+    // migrations; any database that owns sales must apply the new columns.
+    if (entry.tag === '0030_receipt_presentation_snapshots') {
+      return (
+        !tableExists('sale_items') &&
+        !tableExists('product_serials') &&
+        !tableExists('products') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

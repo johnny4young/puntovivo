@@ -211,6 +211,13 @@
       "when": 1785440859374,
       "tag": "0029_receipt_identity_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1785453678322,
+      "tag": "0030_receipt_presentation_snapshots",
+      "breakpoints": true
     }
   ]
 }
